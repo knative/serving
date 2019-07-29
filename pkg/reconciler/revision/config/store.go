@@ -19,14 +19,15 @@ package config
 import (
 	"context"
 
-	"github.com/knative/serving/pkg/autoscaler"
-	deployment "github.com/knative/serving/pkg/deployment"
-	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/metrics"
-	"github.com/knative/serving/pkg/network"
 	"knative.dev/pkg/configmap"
 	pkglogging "knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
+	"knative.dev/serving/pkg/autoscaler"
+	deployment "knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/logging"
+	"knative.dev/serving/pkg/metrics"
+	"knative.dev/serving/pkg/network"
+	pkgtracing "knative.dev/serving/pkg/tracing/config"
 )
 
 type cfgKey struct{}
@@ -37,6 +38,7 @@ type Config struct {
 	Network       *network.Config
 	Observability *metrics.ObservabilityConfig
 	Logging       *pkglogging.Config
+	Tracing       *pkgtracing.Config
 	Autoscaler    *autoscaler.Config
 }
 
@@ -65,6 +67,7 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 				pkgmetrics.ConfigMapName(): metrics.NewObservabilityConfigFromConfigMap,
 				autoscaler.ConfigName:      autoscaler.NewConfigFromConfigMap,
 				pkglogging.ConfigMapName(): logging.NewConfigFromConfigMap,
+				pkgtracing.ConfigName:      pkgtracing.NewTracingConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),
@@ -78,11 +81,13 @@ func (s *Store) ToContext(ctx context.Context) context.Context {
 }
 
 func (s *Store) Load() *Config {
+
 	return &Config{
 		Deployment:    s.UntypedLoad(deployment.ConfigName).(*deployment.Config).DeepCopy(),
 		Network:       s.UntypedLoad(network.ConfigName).(*network.Config).DeepCopy(),
 		Observability: s.UntypedLoad(pkgmetrics.ConfigMapName()).(*metrics.ObservabilityConfig).DeepCopy(),
 		Logging:       s.UntypedLoad((pkglogging.ConfigMapName())).(*pkglogging.Config).DeepCopy(),
+		Tracing:       s.UntypedLoad(pkgtracing.ConfigName).(*pkgtracing.Config).DeepCopy(),
 		Autoscaler:    s.UntypedLoad(autoscaler.ConfigName).(*autoscaler.Config).DeepCopy(),
 	}
 }

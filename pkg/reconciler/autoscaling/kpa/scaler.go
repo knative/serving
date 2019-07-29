@@ -28,16 +28,17 @@ import (
 	"knative.dev/pkg/injection/clients/dynamicclient"
 	"knative.dev/pkg/logging"
 
-	"github.com/knative/serving/pkg/activator"
-	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/network/prober"
-	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
-	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
-	rresources "github.com/knative/serving/pkg/reconciler/revision/resources"
-	"github.com/knative/serving/pkg/resources"
+	"knative.dev/serving/pkg/activator"
+	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/networking"
+	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/network/prober"
+	"knative.dev/serving/pkg/reconciler/autoscaling/config"
+	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
+	rresources "knative.dev/serving/pkg/reconciler/revision/resources"
+	"knative.dev/serving/pkg/resources"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -79,7 +80,7 @@ type scaler struct {
 	psInformerFactory duck.InformerFactory
 	dynamicClient     dynamic.Interface
 	logger            *zap.SugaredLogger
-	transportFactory  prober.TransportFactory
+	transport         http.RoundTripper
 
 	// For sync probes.
 	activatorProbe func(pa *pav1alpha1.PodAutoscaler, transport http.RoundTripper) (bool, error)
@@ -92,15 +93,14 @@ type scaler struct {
 // newScaler creates a scaler.
 func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, enqueueCB func(interface{}, time.Duration)) *scaler {
 	logger := logging.FromContext(ctx)
+	transport := network.NewProberTransport()
 	ks := &scaler{
 		// Wrap it in a cache, so that we don't stamp out a new
 		// informer/lister each time.
 		psInformerFactory: psInformerFactory,
 		dynamicClient:     dynamicclient.Get(ctx),
 		logger:            logger,
-		transportFactory: func() http.RoundTripper {
-			return network.NewAutoTransport()
-		},
+		transport:         transport,
 
 		// Production setup uses the default probe implementation.
 		activatorProbe: activatorProbe,
@@ -108,7 +108,7 @@ func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, enqu
 			logger.Infof("Async prober is done for %v: success?: %v error: %v", arg, success, err)
 			// Re-enqeue the PA in any case. If the probe timed out to retry again, if succeeded to scale to 0.
 			enqueueCB(arg, reenqeuePeriod)
-		}, network.NewAutoTransport),
+		}, transport),
 		enqueueCB: enqueueCB,
 	}
 	return ks
@@ -142,7 +142,7 @@ func applyBounds(min, max, x int32) int32 {
 	return x
 }
 
-func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale int32, config *autoscaler.Config) (int32, bool) {
+func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, sks *nv1a1.ServerlessService, desiredScale int32, config *autoscaler.Config) (int32, bool) {
 	if desiredScale != 0 {
 		return desiredScale, true
 	}
@@ -169,26 +169,47 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, desiredScale i
 
 		// Do not scale to 0, but return desiredScale of 0 to mark PA inactive.
 		sw := aresources.StableWindow(pa, config)
-		if pa.Status.CanMarkInactive(sw) {
+		af := pa.Status.ActiveFor()
+		if af >= sw {
 			// We do not need to enqueue PA here, since this will
 			// make SKS reconcile and when it's done, PA will be reconciled again.
 			return desiredScale, false
 		}
-		// Otherwise, scale down to 1 until the idle period elapses and re-enqueue
-		// the PA for reconciliation at that time.
-		ks.enqueueCB(pa, sw)
+		// Otherwise, scale down to at most 1 for the remainder of the idle period and then
+		// reconcile PA again.
+		ks.logger.Infof("%s sleeping additionally for %v before can scale to 0", sw-af)
+		ks.enqueueCB(pa, sw-af)
 		desiredScale = 1
 	} else { // Active=False
-		r, err := ks.activatorProbe(pa, ks.transportFactory())
+		r, err := ks.activatorProbe(pa, ks.transport)
 		ks.logger.Infof("%s probing activator = %v, err = %v", pa.Name, r, err)
 		if r {
-			// Make sure we've been inactive for enough time.
+			// This enforces that the revision has been backed by the activator for at least
+			// ScaleToZeroGracePeriod time.
+			// Note: SKS will always be present when scaling to zero, so nil checks are just
+			// defensive programming.
+
+			// Most conservative check, if it passes we're good.
 			if pa.Status.CanScaleToZero(config.ScaleToZeroGracePeriod) {
 				return desiredScale, true
 			}
-			// Re-enqeue the PA for reconciliation after grace period.
-			// In istio-lean this can be close to 0.
-			ks.enqueueCB(pa, config.ScaleToZeroGracePeriod)
+
+			// Otherwise check how long SKS was in proxy mode.
+			to := config.ScaleToZeroGracePeriod
+			if sks != nil {
+				// Compute the difference between time we've been proxying with the timeout.
+				// If it's positive, that's the time we need to sleep, if negative -- we
+				// can scale to zero.
+				to -= sks.Status.ProxyFor()
+				if to <= 0 {
+					ks.logger.Infof("Fast path scaling to 0, in proxy mode for: %v", sks.Status.ProxyFor())
+					return desiredScale, true
+				}
+			}
+
+			// Re-enqeue the PA for reconciliation with timeout of `to` to make sure we wait
+			// long enough.
+			ks.enqueueCB(pa, to)
 			return desiredScale, false
 		}
 
@@ -235,7 +256,7 @@ func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, 
 }
 
 // Scale attempts to scale the given PA's target reference to the desired scale.
-func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32) (int32, error) {
+func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *nv1a1.ServerlessService, desiredScale int32) (int32, error) {
 	logger := logging.FromContext(ctx)
 
 	if desiredScale < 0 && !pa.Status.IsActivating() {
@@ -249,7 +270,7 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desir
 		desiredScale = newScale
 	}
 
-	desiredScale, shouldApplyScale := ks.handleScaleToZero(pa, desiredScale, config.FromContext(ctx).Autoscaler)
+	desiredScale, shouldApplyScale := ks.handleScaleToZero(pa, sks, desiredScale, config.FromContext(ctx).Autoscaler)
 	if !shouldApplyScale {
 		return desiredScale, nil
 	}

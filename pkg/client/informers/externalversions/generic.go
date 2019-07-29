@@ -21,12 +21,12 @@ package externalversions
 import (
 	"fmt"
 
-	v1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	networkingv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	servingv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	v1beta1 "github.com/knative/serving/pkg/apis/serving/v1beta1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
+	v1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	networkingv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 // GenericInformer is type of SharedIndexInformer which will locate and delegate to other
@@ -56,6 +56,8 @@ func (f *genericInformer) Lister() cache.GenericLister {
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
 	// Group=autoscaling.internal.knative.dev, Version=v1alpha1
+	case v1alpha1.SchemeGroupVersion.WithResource("metrics"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Autoscaling().V1alpha1().Metrics().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("podautoscalers"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Autoscaling().V1alpha1().PodAutoscalers().Informer()}, nil
 

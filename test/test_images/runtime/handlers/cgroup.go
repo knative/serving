@@ -19,7 +19,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/knative/serving/test/types"
+	"knative.dev/serving/test/types"
 )
 
 // cgroupPaths is the set of cgroups probed and returned to the

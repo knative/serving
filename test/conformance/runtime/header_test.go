@@ -25,8 +25,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/knative/serving/test"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/serving/test"
 )
 
 const (

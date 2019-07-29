@@ -39,7 +39,7 @@ func TestNewStatsReporterErrors(t *testing.T) {
 	}
 }
 
-func TestReporter_Report(t *testing.T) {
+func TestReporterReport(t *testing.T) {
 	resetMetrics()
 	r := &Reporter{}
 	if err := r.ReportDesiredPodCount(10); err == nil {
@@ -62,11 +62,13 @@ func TestReporter_Report(t *testing.T) {
 	expectSuccess(t, "ReportStableRequestConcurrency", func() error { return r.ReportStableRequestConcurrency(2) })
 	expectSuccess(t, "ReportPanicRequestConcurrency", func() error { return r.ReportPanicRequestConcurrency(3) })
 	expectSuccess(t, "ReportTargetRequestConcurrency", func() error { return r.ReportTargetRequestConcurrency(0.9) })
+	expectSuccess(t, "ReportExcessBurstCapacity", func() error { return r.ReportExcessBurstCapacity(19.84) })
 	metricstest.CheckLastValueData(t, "desired_pods", wantTags, 10)
 	metricstest.CheckLastValueData(t, "requested_pods", wantTags, 7)
 	metricstest.CheckLastValueData(t, "actual_pods", wantTags, 5)
 	metricstest.CheckLastValueData(t, "panic_mode", wantTags, 0)
 	metricstest.CheckLastValueData(t, "stable_request_concurrency", wantTags, 2)
+	metricstest.CheckLastValueData(t, "excess_burst_capacity", wantTags, 19.84)
 	metricstest.CheckLastValueData(t, "panic_request_concurrency", wantTags, 3)
 	metricstest.CheckLastValueData(t, "target_concurrency_per_pod", wantTags, 0.9)
 
@@ -95,7 +97,7 @@ func TestReporter_Report(t *testing.T) {
 	metricstest.CheckLastValueData(t, "panic_mode", wantTags, 0)
 }
 
-func TestReporter_EmptyServiceName(t *testing.T) {
+func TestReporterEmptyServiceName(t *testing.T) {
 	resetMetrics()
 	// Metrics reported to an empty service name will be recorded with service "unknown" (metricskey.ValueUnknown).
 	r, _ := NewStatsReporter("testns", "" /*service=*/, "testconfig", "testrev")
@@ -117,7 +119,7 @@ func expectSuccess(t *testing.T, funcName string, f func() error) {
 
 // Resets global state from the opencensus package
 // Required to run at the beginning of tests that check metrics' values
-// to make the tests idempotent
+// to make the tests idempotent.
 func resetMetrics() {
 	metricstest.Unregister(
 		desiredPodCountM.Name(),
@@ -125,6 +127,7 @@ func resetMetrics() {
 		actualPodCountM.Name(),
 		stableRequestConcurrencyM.Name(),
 		panicRequestConcurrencyM.Name(),
+		excessBurstCapacityM.Name(),
 		targetRequestConcurrencyM.Name(),
 		panicM.Name())
 	register()

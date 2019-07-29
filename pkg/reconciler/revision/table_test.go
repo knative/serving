@@ -20,16 +20,6 @@ import (
 	"context"
 	"testing"
 
-	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/metrics"
-	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/revision/config"
-	"github.com/knative/serving/pkg/reconciler/revision/resources"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,11 +30,22 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/metrics"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/reconciler"
+	"knative.dev/serving/pkg/reconciler/revision/config"
+	"knative.dev/serving/pkg/reconciler/revision/resources"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
 
-	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
-	. "github.com/knative/serving/pkg/testing"
-	. "github.com/knative/serving/pkg/testing/v1alpha1"
 	. "knative.dev/pkg/reconciler/testing"
+	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
+	. "knative.dev/serving/pkg/testing"
+	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -627,7 +628,7 @@ func deploy(namespace, name string, opts ...interface{}) *appsv1.Deployment {
 	// Do this here instead of in `rev` itself to ensure that we populate defaults
 	// before calling MakeDeployment within Reconcile.
 	rev.SetDefaults(context.Background())
-	return resources.MakeDeployment(rev, cfg.Logging, cfg.Network,
+	return resources.MakeDeployment(rev, cfg.Logging, cfg.Tracing, cfg.Network,
 		cfg.Observability, cfg.Autoscaler, cfg.Deployment,
 	)
 
@@ -687,6 +688,7 @@ func ReconcilerTestConfig() *config.Config {
 			LoggingURLTemplate: "http://logger.io/${REVISION_UID}",
 		},
 		Logging:    &logging.Config{},
+		Tracing:    &tracingconfig.Config{},
 		Autoscaler: &autoscaler.Config{},
 	}
 }

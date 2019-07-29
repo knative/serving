@@ -40,6 +40,18 @@ func TestIstio(t *testing.T) {
 	}
 }
 
+func TestQualifiedName(t *testing.T) {
+	g := Gateway{
+		Namespace: "foo",
+		Name:      "bar",
+	}
+	expected := "foo/bar"
+	saw := g.QualifiedName()
+	if saw != expected {
+		t.Errorf("Expected %q, saw %q", expected, saw)
+	}
+}
+
 func TestGatewayConfiguration(t *testing.T) {
 	gatewayConfigTests := []struct {
 		name      string
@@ -49,8 +61,8 @@ func TestGatewayConfiguration(t *testing.T) {
 	}{{
 		name: "gateway configuration with no network input",
 		wantIstio: &Istio{
-			IngressGateways: []Gateway{defaultGateway},
-			LocalGateways:   []Gateway{defaultLocalGateway},
+			IngressGateways: defaultGateways(),
+			LocalGateways:   defaultLocalGateways(),
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -76,10 +88,31 @@ func TestGatewayConfiguration(t *testing.T) {
 		wantErr: false,
 		wantIstio: &Istio{
 			IngressGateways: []Gateway{{
-				GatewayName: "knative-ingress-freeway",
-				ServiceURL:  "istio-ingressfreeway.istio-system.svc.cluster.local",
+				Namespace:  "knative-testing",
+				Name:       "knative-ingress-freeway",
+				ServiceURL: "istio-ingressfreeway.istio-system.svc.cluster.local",
 			}},
-			LocalGateways: []Gateway{defaultLocalGateway},
+			LocalGateways: defaultLocalGateways(),
+		},
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      IstioConfigName,
+			},
+			Data: map[string]string{
+				"gateway.knative-ingress-freeway": "istio-ingressfreeway.istio-system.svc.cluster.local",
+			},
+		},
+	}, {
+		name:    "gateway configuration with valid url",
+		wantErr: false,
+		wantIstio: &Istio{
+			IngressGateways: []Gateway{{
+				Namespace:  "knative-testing",
+				Name:       "knative-ingress-freeway",
+				ServiceURL: "istio-ingressfreeway.istio-system.svc.cluster.local",
+			}},
+			LocalGateways: defaultLocalGateways(),
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -94,10 +127,11 @@ func TestGatewayConfiguration(t *testing.T) {
 		name:    "local gateway configuration with valid url",
 		wantErr: false,
 		wantIstio: &Istio{
-			IngressGateways: []Gateway{defaultGateway},
+			IngressGateways: defaultGateways(),
 			LocalGateways: []Gateway{{
-				GatewayName: "knative-ingress-backroad",
-				ServiceURL:  "istio-ingressbackroad.istio-system.svc.cluster.local",
+				Namespace:  "knative-testing",
+				Name:       "knative-ingress-backroad",
+				ServiceURL: "istio-ingressbackroad.istio-system.svc.cluster.local",
 			}},
 		},
 		config: &corev1.ConfigMap{
@@ -113,7 +147,7 @@ func TestGatewayConfiguration(t *testing.T) {
 		name:    "local gateway configuration with mesh",
 		wantErr: false,
 		wantIstio: &Istio{
-			IngressGateways: []Gateway{defaultGateway},
+			IngressGateways: defaultGateways(),
 			LocalGateways:   []Gateway{},
 		},
 		config: &corev1.ConfigMap{
@@ -136,6 +170,60 @@ func TestGatewayConfiguration(t *testing.T) {
 
 			if diff := cmp.Diff(actualIstio, tt.wantIstio); diff != "" {
 				t.Fatalf("Want %v, but got %v", tt.wantIstio, actualIstio)
+			}
+		})
+	}
+}
+
+func TestReconcileGatewayConfiguration(t *testing.T) {
+	cases := []struct {
+		name   string
+		want   bool
+		config *corev1.ConfigMap
+	}{{
+		name: "enable ReconcileExternalGateway",
+		want: true,
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      IstioConfigName,
+			},
+			Data: map[string]string{
+				"reconcileExternalGateway": "true",
+			},
+		},
+	}, {
+		name: "disable ReconcileExternalGateway",
+		want: false,
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      IstioConfigName,
+			},
+			Data: map[string]string{
+				"reconcileExternalGateway": "false",
+			},
+		},
+	}, {
+		name: "disable by default",
+		want: false,
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      IstioConfigName,
+			},
+			Data: map[string]string{},
+		},
+	}}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			istio, err := NewIstioFromConfigMap(tt.config)
+			if err != nil {
+				t.Fatalf("Test: %q; NewIstioFromConfigMap() error = %v", tt.name, err)
+			}
+			if tt.want != istio.ReconcileExternalGateway {
+				t.Fatalf("Unexpected result (-want %t, +got %t)", tt.want, istio.ReconcileExternalGateway)
 			}
 		})
 	}

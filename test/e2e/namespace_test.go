@@ -21,11 +21,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -63,7 +63,7 @@ func TestMultipleNamespace(t *testing.T) {
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(defaultClients, defaultResources) })
 	defer test.TearDown(defaultClients, defaultResources)
-	if _, err := v1a1test.CreateRunLatestServiceReady(t, defaultClients, &defaultResources, &v1a1test.Options{}); err != nil {
+	if _, err := v1a1test.CreateRunLatestServiceReady(t, defaultClients, &defaultResources); err != nil {
 		t.Fatalf("Failed to create Service %v in namespace %v: %v", defaultResources.Service, test.ServingNamespace, err)
 	}
 
@@ -73,7 +73,7 @@ func TestMultipleNamespace(t *testing.T) {
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(altClients, altResources) })
 	defer test.TearDown(altClients, altResources)
-	if _, err := v1a1test.CreateRunLatestServiceReady(t, altClients, &altResources, &v1a1test.Options{}); err != nil {
+	if _, err := v1a1test.CreateRunLatestServiceReady(t, altClients, &altResources); err != nil {
 		t.Fatalf("Failed to create Service %v in namespace %v: %v", altResources.Service, test.AlternativeServingNamespace, err)
 	}
 
@@ -125,7 +125,7 @@ func TestConflictingRouteService(t *testing.T) {
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
-	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}); err != nil {
+	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names); err != nil {
 		t.Errorf("Failed to create Service %v in namespace %v: %v", names.Service, test.ServingNamespace, err)
 	}
 }

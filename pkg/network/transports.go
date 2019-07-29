@@ -47,7 +47,7 @@ const (
 	initialTO = float64(50 * time.Millisecond)
 	sleepTO   = 30 * time.Millisecond
 	factor    = 1.4
-	numSteps  = 10
+	numSteps  = 15
 )
 
 var errDialTimeout = errors.New("timed out dialing")
@@ -85,24 +85,32 @@ func dialBackOffHelper(ctx context.Context, network, address string, steps int, 
 	return nil, errDialTimeout
 }
 
-func newHTTPTransport(connTimeout time.Duration) http.RoundTripper {
+func newHTTPTransport(connTimeout time.Duration, disableKeepAlives bool) http.RoundTripper {
 	return &http.Transport{
 		// Those match net/http/transport.go
 		Proxy:                 http.ProxyFromEnvironment,
-		MaxIdleConns:          100,
+		MaxIdleConns:          1000,
+		MaxIdleConnsPerHost:   100,
 		IdleConnTimeout:       5 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
+		DisableKeepAlives:     disableKeepAlives,
 
 		// This is bespoke.
 		DialContext: dialWithBackOff,
 	}
 }
 
+// NewProberTransport creates a RoundTripper that is useful for probing,
+// since it will not cache connections.
+func NewProberTransport() http.RoundTripper {
+	return newAutoTransport(newHTTPTransport(DefaultConnTimeout, true /*disable keep-alives*/), NewH2CTransport())
+}
+
 // NewAutoTransport creates a RoundTripper that can use appropriate transport
 // based on the request's HTTP version.
 func NewAutoTransport() http.RoundTripper {
-	return newAutoTransport(newHTTPTransport(DefaultConnTimeout), NewH2CTransport())
+	return newAutoTransport(newHTTPTransport(DefaultConnTimeout, false /*disable keep-alives*/), NewH2CTransport())
 }
 
 // AutoTransport uses h2c for HTTP2 requests and falls back to `http.DefaultTransport` for all others

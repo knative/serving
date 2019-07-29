@@ -22,28 +22,28 @@ import (
 	"fmt"
 	"reflect"
 
-	ingressinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
-	listers "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
 	"knative.dev/pkg/apis/istio/v1alpha3"
 	gatewayinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/gateway"
 	virtualserviceinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/system"
+	ingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
+	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 
 	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	podinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/pod"
 	secretinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret"
 	"knative.dev/pkg/tracker"
 
-	"github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/ingress/config"
-	"github.com/knative/serving/pkg/reconciler/ingress/resources"
 	"go.uber.org/zap"
+	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/reconciler"
+	"knative.dev/serving/pkg/reconciler/ingress/config"
+	"knative.dev/serving/pkg/reconciler/ingress/resources"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -89,6 +89,8 @@ type BaseIngressReconciler struct {
 
 	Tracker   tracker.Interface
 	Finalizer string
+
+	StatusManager StatusManager
 }
 
 // NewBaseIngressReconciler creates a new BaseIngressReconciler
@@ -129,6 +131,8 @@ func (r *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 
 	r.Logger.Info("Setting up Ingress event handlers")
 	ingressInformer := ingressinformer.Get(ctx)
+	gatewayInformer := gatewayinformer.Get(ctx)
+	podInformer := podinformer.Get(ctx)
 
 	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
 	ingressHandler := cache.FilteringResourceEventHandler{
@@ -155,6 +159,25 @@ func (r *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 	configStore.WatchConfigs(cmw)
 	r.ConfigStore = configStore
 
+	r.Logger.Info("Setting up StatusManager")
+	resyncIngressOnVirtualServiceReady := func(vs *v1alpha3.VirtualService) {
+		// Reconcile when a VirtualService becomes ready
+		impl.EnqueueLabelOfNamespaceScopedResource(serving.RouteNamespaceLabelKey, serving.RouteLabelKey)(vs)
+	}
+	statusProber := NewStatusProber(r.Logger.Named("status-manager"), gatewayInformer.Lister(),
+		podInformer.Lister(), network.NewAutoTransport, resyncIngressOnVirtualServiceReady)
+	r.StatusManager = statusProber
+	statusProber.Start(ctx.Done())
+
+	virtualServiceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		// Cancel probing when a VirtualService is deleted
+		DeleteFunc: func(obj interface{}) {
+			vs, ok := obj.(*v1alpha3.VirtualService)
+			if ok {
+				statusProber.Cancel(vs)
+			}
+		},
+	})
 }
 
 // SetupSecretTracker initializes Secret Tracker
@@ -248,8 +271,11 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 	ia.GetStatus().InitializeConditions()
 	logger.Infof("Reconciling ingress: %#v", ia)
 
-	gatewayNames := gatewayNamesFromContext(ctx)
-	vses := resources.MakeVirtualServices(ia, gatewayNames)
+	gatewayNames := qualifiedGatewayNamesFromContext(ctx)
+	vses, err := resources.MakeVirtualServices(ia, gatewayNames)
+	if err != nil {
+		return err
+	}
 
 	// First, create the VirtualServices.
 	logger.Infof("Creating/Updating VirtualServices")
@@ -258,24 +284,8 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 		// when error reconciling VirtualService?
 		return err
 	}
-	// As underlying network programming (VirtualService now) is stateless,
-	// here we simply mark the ingress as ready if the VirtualService
-	// is successfully synced.
-	ia.GetStatus().MarkNetworkConfigured()
 
-	lbs := getLBStatus(gatewayServiceURLFromContext(ctx, ia))
-	publicLbs := getLBStatus(publicGatewayServiceURLFromContext(ctx))
-	privateLbs := getLBStatus(privateGatewayServiceURLFromContext(ctx))
-
-	ia.GetStatus().MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
-	ia.GetStatus().ObservedGeneration = ia.GetGeneration()
-
-	if enablesAutoTLS(ctx) {
-		if !ia.IsPublic() {
-			logger.Infof("Ingress %s is not public. So no need to configure TLS.", ia.GetName())
-			return nil
-		}
-
+	if enableReconcileGateway(ctx) && ia.IsPublic() {
 		// Add the finalizer before adding `Servers` into Gateway so that we can be sure
 		// the `Servers` get cleaned up from Gateway.
 		if err := r.ensureFinalizer(ra, ia); err != nil {
@@ -286,24 +296,52 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 		if err != nil {
 			return err
 		}
-		targetSecrets := resources.MakeSecrets(ctx, originSecrets, ia)
+		targetSecrets, err := resources.MakeSecrets(ctx, originSecrets, ia)
+		if err != nil {
+			return err
+		}
 		if err := r.reconcileCertSecrets(ctx, ia, targetSecrets); err != nil {
 			return err
 		}
 
-		for _, gatewayName := range gatewayNames[v1alpha1.IngressVisibilityExternalIP] {
-			ns, err := resources.GatewayServiceNamespace(config.FromContext(ctx).Istio.IngressGateways, gatewayName)
+		for _, gw := range config.FromContext(ctx).Istio.IngressGateways {
+			ns, err := resources.ServiceNamespaceFromURL(gw.ServiceURL)
 			if err != nil {
 				return err
 			}
-			desired, err := resources.MakeServers(ia, ns, originSecrets)
+			desired, err := resources.MakeTLSServers(ia, ns, originSecrets)
 			if err != nil {
 				return err
 			}
-			if err := r.reconcileGateway(ctx, ia, gatewayName, desired); err != nil {
+			if err := r.reconcileGateway(ctx, ia, gw, desired); err != nil {
 				return err
 			}
 		}
+	}
+
+	// Update status
+	ia.GetStatus().MarkNetworkConfigured()
+	ia.GetStatus().ObservedGeneration = ia.GetGeneration()
+
+	lbReady := true
+	for _, vs := range vses {
+		ready, err := r.StatusManager.IsReady(vs)
+		if err != nil {
+			return fmt.Errorf("failed to probe VirtualService %s/%s: %v", vs.Namespace, vs.Name, err)
+		}
+
+		// We don't break as soon as one VirtualService is not ready because IsReady
+		// need to be called on every VirtualService to trigger polling.
+		lbReady = lbReady && ready
+	}
+	if lbReady {
+		lbs := getLBStatus(gatewayServiceURLFromContext(ctx, ia))
+		publicLbs := getLBStatus(publicGatewayServiceURLFromContext(ctx))
+		privateLbs := getLBStatus(privateGatewayServiceURLFromContext(ctx))
+
+		ia.GetStatus().MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
+	} else {
+		ia.GetStatus().MarkLoadBalancerPending()
 	}
 
 	// TODO(zhiminx): Mark Route status to indicate that Gateway is configured.
@@ -431,12 +469,11 @@ func (r *BaseIngressReconciler) reconcileDeletion(ctx context.Context, ra Reconc
 	if len(ia.GetFinalizers()) == 0 || ia.GetFinalizers()[0] != r.Finalizer {
 		return nil
 	}
-
-	allGateways := gatewayNamesFromContext(ctx)
+	istiocfg := config.FromContext(ctx).Istio
 	logger.Infof("Cleaning up Gateway Servers for ClusterIngress %s", ia.GetName())
-	for _, gatewayNames := range allGateways {
-		for _, gatewayName := range gatewayNames {
-			if err := r.reconcileGateway(ctx, ia, gatewayName, []v1alpha3.Server{}); err != nil {
+	for _, gws := range [][]config.Gateway{istiocfg.IngressGateways, istiocfg.LocalGateways} {
+		for _, gw := range gws {
+			if err := r.reconcileGateway(ctx, ia, gw, []v1alpha3.Server{}); err != nil {
 				return err
 			}
 		}
@@ -488,11 +525,11 @@ func (r *BaseIngressReconciler) ensureFinalizer(ra ReconcilerAccessor, ia v1alph
 	return err
 }
 
-func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha1.IngressAccessor, gatewayName string, desired []v1alpha3.Server) error {
+func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha1.IngressAccessor, gw config.Gateway, desired []v1alpha3.Server) error {
 	// TODO(zhiminx): Need to handle the scenario when deleting ClusterIngress. In this scenario,
 	// the Gateway servers of the ClusterIngress need also be removed from Gateway.
 	logger := logging.FromContext(ctx)
-	gateway, err := r.GatewayLister.Gateways(system.Namespace()).Get(gatewayName)
+	gateway, err := r.GatewayLister.Gateways(gw.Namespace).Get(gw.Name)
 	if err != nil {
 		// Not like VirtualService, A default gateway needs to be existed.
 		// It should be installed when installing Knative.
@@ -506,7 +543,7 @@ func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha
 		existing = append(existing, *existingHTTPServer)
 	}
 
-	desiredHTTPServer := resources.MakeHTTPServer(config.FromContext(ctx).Network.HTTPProtocol)
+	desiredHTTPServer := resources.MakeHTTPServer(config.FromContext(ctx).Network.HTTPProtocol, []string{"*"})
 	if desiredHTTPServer != nil {
 		desired = append(desired, *desiredHTTPServer)
 	}
@@ -525,36 +562,22 @@ func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha
 	return nil
 }
 
-// gatewayNamesFromContext get gateway names from context
-func gatewayNamesFromContext(ctx context.Context) map[v1alpha1.IngressVisibility][]string {
-	var publicGateways []string
+// qualifiedGatewayNamesFromContext get gateway names from context
+func qualifiedGatewayNamesFromContext(ctx context.Context) map[v1alpha1.IngressVisibility]sets.String {
+	publicGateways := sets.NewString()
 	for _, gw := range config.FromContext(ctx).Istio.IngressGateways {
-		publicGateways = append(publicGateways, gw.GatewayName)
+		publicGateways.Insert(gw.QualifiedName())
 	}
-	dedup(publicGateways)
 
-	var privateGateways []string
+	privateGateways := sets.NewString()
 	for _, gw := range config.FromContext(ctx).Istio.LocalGateways {
-		privateGateways = append(privateGateways, gw.GatewayName)
+		privateGateways.Insert(gw.QualifiedName())
 	}
 
-	return map[v1alpha1.IngressVisibility][]string{
+	return map[v1alpha1.IngressVisibility]sets.String{
 		v1alpha1.IngressVisibilityExternalIP:   publicGateways,
 		v1alpha1.IngressVisibilityClusterLocal: privateGateways,
 	}
-}
-
-func dedup(strs []string) []string {
-	existed := sets.NewString()
-	unique := []string{}
-	// We can't just do `sets.NewString(str)`, since we need to preserve the order.
-	for _, s := range strs {
-		if !existed.Has(s) {
-			existed.Insert(s)
-			unique = append(unique, s)
-		}
-	}
-	return unique
 }
 
 // gatewayServiceURLFromContext return an address of a load-balancer
@@ -600,6 +623,6 @@ func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus 
 	}
 }
 
-func enablesAutoTLS(ctx context.Context) bool {
-	return config.FromContext(ctx).Network.AutoTLS
+func enableReconcileGateway(ctx context.Context) bool {
+	return config.FromContext(ctx).Network.AutoTLS || config.FromContext(ctx).Istio.ReconcileExternalGateway
 }

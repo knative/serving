@@ -20,12 +20,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/config"
-
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/config"
+	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 
 	"knative.dev/pkg/apis"
 )
@@ -41,6 +41,12 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
+	}
+	goodRouteSpec := RouteSpec{
+		Traffic: []TrafficTarget{{
+			LatestRevision: ptr.Bool(true),
+			Percent:        100,
+		}},
 	}
 
 	tests := []struct {
@@ -64,6 +70,66 @@ func TestServiceValidation(t *testing.T) {
 			},
 		},
 		want: nil,
+	}, {
+		name: "valid visibility label",
+		r: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Labels: map[string]string{
+					routeconfig.VisibilityLabelKey: "cluster-local",
+				},
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: goodConfigSpec,
+				RouteSpec:         goodRouteSpec,
+			},
+		},
+		want: nil,
+	}, {
+		name: "invalid knative label",
+		r: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Labels: map[string]string{
+					"serving.knative.dev/name": "some-value",
+				},
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: goodConfigSpec,
+				RouteSpec:         goodRouteSpec,
+			},
+		},
+		want: apis.ErrInvalidKeyName("serving.knative.dev/name", "metadata.labels"),
+	}, {
+		name: "valid non knative label",
+		r: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Labels: map[string]string{
+					"serving.name": "some-name",
+				},
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: goodConfigSpec,
+				RouteSpec:         goodRouteSpec,
+			},
+		},
+		want: nil,
+	}, {
+		name: "invalid visibility label value",
+		r: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Labels: map[string]string{
+					routeconfig.VisibilityLabelKey: "bad-label",
+				},
+			},
+			Spec: ServiceSpec{
+				ConfigurationSpec: goodConfigSpec,
+				RouteSpec:         goodRouteSpec,
+			},
+		},
+		want: apis.ErrInvalidValue("bad-label", "metadata.labels.serving.knative.dev/visibility"),
 	}, {
 		name: "valid release",
 		r: &Service{

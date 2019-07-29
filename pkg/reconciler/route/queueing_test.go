@@ -21,13 +21,6 @@ import (
 	"testing"
 	"time"
 
-	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
-	"github.com/knative/serving/pkg/gc"
-	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/reconciler/route/config"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,6 +29,13 @@ import (
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
+	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	"knative.dev/serving/pkg/gc"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/reconciler/route/config"
 
 	. "knative.dev/pkg/reconciler/testing"
 )
@@ -86,9 +86,9 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 
 	h := NewHooks()
 
-	// Check for ClusterIngress created as a signal that syncHandler ran
-	h.OnCreate(&servingClient.Fake, "clusteringresses", func(obj runtime.Object) HookResult {
-		ci := obj.(*netv1alpha1.ClusterIngress)
+	// Check for Ingress created as a signal that syncHandler ran
+	h.OnCreate(&servingClient.Fake, "ingresses", func(obj runtime.Object) HookResult {
+		ci := obj.(*netv1alpha1.Ingress)
 		t.Logf("ingress created: %q", ci.Name)
 
 		return HookComplete

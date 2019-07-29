@@ -19,32 +19,31 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strconv"
-	"sync"
 	"time"
 
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 
-	"github.com/knative/serving/pkg/activator"
-	"github.com/knative/serving/pkg/activator/util"
-	"github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	netlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
-	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	pkghttp "github.com/knative/serving/pkg/http"
-	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/network/prober"
-	"github.com/knative/serving/pkg/queue"
 	"knative.dev/pkg/logging/logkey"
+	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/activator/util"
+	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	netlisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
+	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	pkghttp "knative.dev/serving/pkg/http"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/network/prober"
+	"knative.dev/serving/pkg/queue"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -57,47 +56,13 @@ type activationHandler struct {
 	reporter  activator.StatsReporter
 	throttler *activator.Throttler
 
-	probeTimeout          time.Duration
-	probeTransportFactory prober.TransportFactory
-	endpointTimeout       time.Duration
+	probeTimeout    time.Duration
+	probeTransport  http.RoundTripper
+	endpointTimeout time.Duration
 
 	revisionLister servinglisters.RevisionLister
 	serviceLister  corev1listers.ServiceLister
 	sksLister      netlisters.ServerlessServiceLister
-
-	cache *probeCache
-}
-
-type probeCache struct {
-	mu     sync.RWMutex
-	probes sets.String
-}
-
-func newProbeCache() *probeCache {
-	return &probeCache{
-		probes: sets.NewString(),
-	}
-}
-
-// should returns true if we should probe the URL.
-func (pc *probeCache) should(revID activator.RevisionID) bool {
-	pc.mu.RLock()
-	defer pc.mu.RUnlock()
-	return !pc.probes.Has(revID.String())
-}
-
-// mark marks the revision as been probed.
-func (pc *probeCache) mark(revID activator.RevisionID) {
-	pc.mu.Lock()
-	defer pc.mu.Unlock()
-	pc.probes.Insert(revID.String())
-}
-
-// unmark removes the probe cache entry for the revision.
-func (pc *probeCache) unmark(revID activator.RevisionID) {
-	pc.mu.Lock()
-	defer pc.mu.Unlock()
-	pc.probes.Delete(revID.String())
 }
 
 // The default time we'll try to probe the revision for activation.
@@ -118,14 +83,11 @@ func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler
 		serviceLister:  sl,
 		probeTimeout:   defaulTimeout,
 		// In activator we collect metrics, so we're wrapping
-		// the Roundtripper the prober would use inside annotating transport.
-		probeTransportFactory: func() http.RoundTripper {
-			return &ochttp.Transport{
-				Base: network.NewAutoTransport(),
-			}
+		// the RoundTripper the prober would use inside an annotating transport.
+		probeTransport: &ochttp.Transport{
+			Base: network.NewProberTransport(),
 		},
 		endpointTimeout: defaulTimeout,
-		cache:           newProbeCache(),
 	}
 }
 
@@ -138,32 +100,18 @@ func withOrigProto(or *http.Request) prober.Preparer {
 	}
 }
 
-func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Request, target *url.URL, revID activator.RevisionID) (bool, int) {
+func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Request, target *url.URL) (bool, int) {
 	var (
 		attempts int
 		st       = time.Now()
 		url      = target.String()
 	)
 
-	// This opportunistically caches the probes, so
-	// a few concurrent requests might result in concurrent probes
-	// but requests coming after won't.
-	if !a.cache.should(revID) {
-		return true, 0
-	}
-	logger.Debugf("Actually will be probing %s", url)
-
-	reqCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
-	defer func() {
-		probeSpan.End()
-		a.logger.Debugf("Probing %s took %d attempts and %v time", target.String(), attempts, time.Since(st))
-	}()
-
 	err := wait.PollImmediate(100*time.Millisecond, a.probeTimeout, func() (bool, error) {
 		attempts++
 		ret, err := prober.Do(
-			reqCtx,
-			a.probeTransportFactory(),
+			r.Context(),
+			a.probeTransport,
 			url,
 			prober.WithHeader(network.ProbeHeaderName, queue.Name),
 			prober.ExpectsBody(queue.Name),
@@ -176,10 +124,10 @@ func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 			logger.Warn("Pod probe unsuccessful")
 			return false, nil
 		}
-		// Cache probe success.
-		a.cache.mark(revID)
 		return true, nil
 	})
+
+	a.logger.Debugf("Probing %s took %d attempts and %v time", target.String(), attempts, time.Since(st))
 	return (err == nil), attempts
 }
 
@@ -188,13 +136,8 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	name := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderName)
 	start := time.Now()
 	revID := activator.RevisionID{Namespace: namespace, Name: name}
-	logger := a.logger.With(zap.String(logkey.Key, revID.String()))
 
-	// Always probe is there's no capacity.
-	if rc := a.throttler.GetRevisionCapacity(revID); rc == 0 {
-		logger.Debugf("No capacity, marking %v for probing", revID)
-		a.cache.unmark(revID)
-	}
+	logger := a.logger.With(zap.String(logkey.Key, revID.String()))
 
 	revision, err := a.revisionLister.Revisions(namespace).Get(name)
 	if err != nil {
@@ -222,54 +165,45 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Host:   host,
 	}
 
-	_, ttSpan := trace.StartSpan(r.Context(), "throttler_try")
-	ttStart := time.Now()
-
-	tryContext := r.Context()
+	tryContext, trySpan := trace.StartSpan(r.Context(), "throttler_try")
 	if a.endpointTimeout > 0 {
 		var cancel context.CancelFunc
-		tryContext, cancel = context.WithTimeout(r.Context(), a.endpointTimeout)
+		tryContext, cancel = context.WithTimeout(tryContext, a.endpointTimeout)
 		defer cancel()
 	}
+
+	tryStart := time.Now()
 	err = a.throttler.Try(tryContext, revID, func() {
-		var (
-			httpStatus int
-		)
+		trySpan.End()
+		a.logger.Debugf("Waiting for throttler took %v time", time.Since(tryStart))
 
-		ttSpan.End()
-		a.logger.Debugf("Waiting for throttler took %v time", time.Since(ttStart))
+		probeCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
+		success, attempts := a.probeEndpoint(logger, r.WithContext(probeCtx), target)
+		probeSpan.End()
 
-		success, attempts := a.probeEndpoint(logger, r, target, revID)
+		var httpStatus int
 		if success {
 			// Once we see a successful probe, send traffic.
 			attempts++
-			reqCtx, proxySpan := trace.StartSpan(r.Context(), "proxy")
-			httpStatus = a.proxyRequest(w, r.WithContext(reqCtx), target)
+			proxyCtx, proxySpan := trace.StartSpan(r.Context(), "proxy")
+			httpStatus = a.proxyRequest(w, r.WithContext(proxyCtx), target)
 			proxySpan.End()
 		} else {
 			httpStatus = http.StatusInternalServerError
 			w.WriteHeader(httpStatus)
 		}
 
-		// Report the metrics
-		duration := time.Since(start)
-
-		var configurationName string
-		var serviceName string
-		if revision.Labels != nil {
-			configurationName = revision.Labels[serving.ConfigurationLabelKey]
-			serviceName = revision.Labels[serving.ServiceLabelKey]
-		}
-
+		configurationName := revision.Labels[serving.ConfigurationLabelKey]
+		serviceName := revision.Labels[serving.ServiceLabelKey]
 		a.reporter.ReportRequestCount(namespace, serviceName, configurationName, name, httpStatus, attempts, 1.0)
-		a.reporter.ReportResponseTime(namespace, serviceName, configurationName, name, httpStatus, duration)
+		a.reporter.ReportResponseTime(namespace, serviceName, configurationName, name, httpStatus, time.Since(start))
 	})
 	if err != nil {
 		// Set error on our capacity waiting span and end it
-		ttSpan.Annotate([]trace.Attribute{
+		trySpan.Annotate([]trace.Attribute{
 			trace.StringAttribute("activator.throttler.error", err.Error()),
 		}, "ThrottlerTry")
-		ttSpan.End()
+		trySpan.End()
 
 		if err == activator.ErrActivatorOverload {
 			http.Error(w, activator.ErrActivatorOverload.Error(), http.StatusServiceUnavailable)
@@ -305,10 +239,11 @@ func (a *activationHandler) serviceHostName(rev *v1alpha1.Revision, serviceName 
 		return "", err
 	}
 
-	// Search for the appropriate port
+	// Search for the appropriate port.
 	port := -1
+	wantName := networking.ServicePortName(rev.GetProtocol())
 	for _, p := range svc.Spec.Ports {
-		if p.Name == networking.ServicePortName(rev.GetProtocol()) {
+		if p.Name == wantName {
 			port = int(p.Port)
 			break
 		}
@@ -317,7 +252,9 @@ func (a *activationHandler) serviceHostName(rev *v1alpha1.Revision, serviceName 
 		return "", errors.New("revision needs external HTTP port")
 	}
 
-	return network.GetServiceHostname(serviceName, rev.Namespace) + ":" + strconv.Itoa(port), nil
+	// Use the ClusterIP directly to elide DNS lookup, which both adds latency
+	// and hurts reliability when routing through the activator.
+	return net.JoinHostPort(svc.Spec.ClusterIP, strconv.Itoa(port)), nil
 }
 
 func sendError(err error, w http.ResponseWriter) {

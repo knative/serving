@@ -26,12 +26,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/autoscaler/statserver"
-	"github.com/knative/serving/pkg/reconciler/autoscaling/hpa"
-	"github.com/knative/serving/pkg/reconciler/autoscaling/kpa"
-	"github.com/knative/serving/pkg/resources"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
@@ -39,9 +33,16 @@ import (
 	endpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
-	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/autoscaler/statserver"
+	"knative.dev/serving/pkg/reconciler/autoscaling/hpa"
+	"knative.dev/serving/pkg/reconciler/autoscaling/kpa"
+	"knative.dev/serving/pkg/reconciler/metric"
+	"knative.dev/serving/pkg/resources"
 
 	basecmd "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/cmd"
 	corev1informers "k8s.io/client-go/informers/core/v1"
@@ -121,8 +122,9 @@ func main() {
 
 	psInformerFactory := resources.NewPodScalableInformerFactory(ctx)
 	controllers := []*controller.Impl{
-		kpa.NewController(ctx, cmw, multiScaler, collector, psInformerFactory),
-		hpa.NewController(ctx, cmw, collector, psInformerFactory),
+		kpa.NewController(ctx, cmw, multiScaler, psInformerFactory),
+		hpa.NewController(ctx, cmw, psInformerFactory),
+		metric.NewController(ctx, cmw, collector),
 	}
 
 	// Set up a statserver.
@@ -186,8 +188,8 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer, m
 	}
 }
 
-func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) func(metric *autoscaler.Metric) (autoscaler.StatsScraper, error) {
-	return func(metric *autoscaler.Metric) (autoscaler.StatsScraper, error) {
+func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) func(metric *av1alpha1.Metric) (autoscaler.StatsScraper, error) {
+	return func(metric *av1alpha1.Metric) (autoscaler.StatsScraper, error) {
 		podCounter := resources.NewScopedEndpointsCounter(endpointsLister, metric.Namespace, metric.Spec.ScrapeTarget)
 		return autoscaler.NewServiceScraper(metric, podCounter)
 	}
@@ -195,5 +197,5 @@ func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) func
 
 func flush(logger *zap.SugaredLogger) {
 	logger.Sync()
-	pkgmetrics.FlushExporter()
+	metrics.FlushExporter()
 }

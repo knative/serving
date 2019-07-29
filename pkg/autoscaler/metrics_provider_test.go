@@ -18,13 +18,13 @@ package autoscaler
 
 import (
 	"errors"
-	"strings"
 	"testing"
+	"time"
 
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/provider"
 	"knative.dev/pkg/kmp"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -111,8 +111,8 @@ func TestListAllMetrics(t *testing.T) {
 
 type staticConcurrency float64
 
-func (s staticConcurrency) StableAndPanicConcurrency(key string) (float64, float64, error) {
-	if strings.HasPrefix(key, existingNamespace) {
+func (s staticConcurrency) StableAndPanicConcurrency(key types.NamespacedName, now time.Time) (float64, float64, error) {
+	if key.Namespace == existingNamespace {
 		return (float64)(s), 0.0, nil
 	}
 	return 0.0, 0.0, errors.New("doesn't exist")

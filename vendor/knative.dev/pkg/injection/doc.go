@@ -56,7 +56,7 @@ limitations under the License.
 //   )
 //
 //   func main() {
-//   	sharedmain.Main("my-component",
+//   	sharedmain.Main("mycomponent",
 //         // We pass in the list of controllers to construct, and that's it!
 //         // If we forget to add this, go will complain about the unused import.
 //         matt.NewController,

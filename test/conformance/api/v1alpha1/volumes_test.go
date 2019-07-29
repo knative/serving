@@ -22,15 +22,15 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	. "github.com/knative/serving/pkg/testing/v1alpha1"
+	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
 
 // TestConfigMapVolume tests that we echo back the appropriate text from the ConfigMap volume.
@@ -89,7 +89,7 @@ func TestConfigMapVolume(t *testing.T) {
 	})
 
 	// Setup initial Service
-	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}, withVolume, withOptionalBadVolume); err != nil {
+	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, withVolume, withOptionalBadVolume); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
@@ -161,7 +161,7 @@ func TestProjectedConfigMapVolume(t *testing.T) {
 	})
 
 	// Setup initial Service
-	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}, withVolume); err != nil {
+	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, withVolume); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
@@ -227,7 +227,7 @@ func TestSecretVolume(t *testing.T) {
 	})
 
 	// Setup initial Service
-	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}, withVolume, withOptionalBadVolume); err != nil {
+	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, withVolume, withOptionalBadVolume); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
@@ -297,7 +297,7 @@ func TestProjectedSecretVolume(t *testing.T) {
 	}
 
 	// Setup initial Service
-	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}, withVolume, withSubpath); err != nil {
+	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, withVolume, withSubpath); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
@@ -394,7 +394,7 @@ func TestProjectedComplex(t *testing.T) {
 	})
 
 	// Setup initial Service
-	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}, withVolume); err != nil {
+	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, withVolume); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 

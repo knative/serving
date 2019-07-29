@@ -2,6 +2,7 @@ global:
   proxy:
     # Enable proxy to write access log to /dev/stdout.
     accessLogFile: "/dev/stdout"
+    accessLogEncoding: 'JSON'
     autoInject: disabled
   disablePolicyChecks: true
   omitSidecarInjectorConfigMap: true

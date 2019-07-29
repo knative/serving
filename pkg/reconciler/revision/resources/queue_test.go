@@ -17,38 +17,59 @@ limitations under the License.
 package resources
 
 import (
+	"encoding/json"
 	"sort"
 	"strconv"
 	"testing"
 
-	"github.com/knative/serving/pkg/resources"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/deployment"
-	"github.com/knative/serving/pkg/metrics"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
 	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
+	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/metrics"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/resources"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
 )
+
+var defaultKnativeQReadinessProbe = &corev1.Probe{
+	Handler: corev1.Handler{
+		Exec: &corev1.ExecAction{
+			Command: []string{"/ko-app/queue", "-probe-period", "0"},
+		},
+	},
+	// We want to mark the service as not ready as soon as the
+	// PreStop handler is called, so we need to check a little
+	// bit more often than the default.  It is a small
+	// sacrifice for a low rate of 503s.
+	PeriodSeconds: 1,
+	// We keep the connection open for a while because we're
+	// actively probing the user-container on that endpoint and
+	// thus don't want to be limited by K8s granularity here.
+	TimeoutSeconds: 10,
+}
 
 func TestMakeQueueContainer(t *testing.T) {
 	tests := []struct {
 		name string
 		rev  *v1alpha1.Revision
 		lc   *logging.Config
+		tc   *tracingconfig.Config
 		oc   *metrics.ObservabilityConfig
 		ac   *autoscaler.Config
 		cc   *deployment.Config
@@ -69,6 +90,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
@@ -77,7 +99,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			Name:            QueueContainerName,
 			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
 			Ports:           append(queueNonServingPorts, queueHTTPPort),
-			ReadinessProbe:  queueReadinessProbe,
+			ReadinessProbe:  defaultKnativeQReadinessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Env: env(nil),
@@ -107,6 +129,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{
@@ -117,7 +140,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			Name:            QueueContainerName,
 			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
 			Ports:           append(queueNonServingPorts, queueHTTP2Port),
-			ReadinessProbe:  queueReadinessProbe,
+			ReadinessProbe:  defaultKnativeQReadinessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
@@ -145,6 +168,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{
@@ -155,7 +179,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			Name:            QueueContainerName,
 			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
 			Ports:           append(queueNonServingPorts, queueHTTPPort),
-			ReadinessProbe:  queueReadinessProbe,
+			ReadinessProbe:  defaultKnativeQReadinessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
@@ -185,6 +209,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
@@ -193,7 +218,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			Name:            QueueContainerName,
 			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
 			Ports:           append(queueNonServingPorts, queueHTTPPort),
-			ReadinessProbe:  queueReadinessProbe,
+			ReadinessProbe:  defaultKnativeQReadinessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Env: env(map[string]string{
@@ -224,6 +249,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				"queueproxy": zapcore.ErrorLevel,
 			},
 		},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
@@ -232,7 +258,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			Name:            QueueContainerName,
 			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
 			Ports:           append(queueNonServingPorts, queueHTTPPort),
-			ReadinessProbe:  queueReadinessProbe,
+			ReadinessProbe:  defaultKnativeQReadinessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Env: env(map[string]string{
@@ -259,6 +285,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
@@ -267,7 +294,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			Name:            QueueContainerName,
 			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
 			Ports:           append(queueNonServingPorts, queueHTTPPort),
-			ReadinessProbe:  queueReadinessProbe,
+			ReadinessProbe:  defaultKnativeQReadinessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Env: env(map[string]string{
@@ -290,6 +317,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{RequestLogTemplate: "test template"},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
@@ -298,7 +326,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			Name:            QueueContainerName,
 			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
 			Ports:           append(queueNonServingPorts, queueHTTPPort),
-			ReadinessProbe:  queueReadinessProbe,
+			ReadinessProbe:  defaultKnativeQReadinessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Env: env(map[string]string{
@@ -322,6 +350,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{
 			RequestMetricsBackend: "prometheus",
 		},
@@ -332,7 +361,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			Name:            QueueContainerName,
 			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
 			Ports:           append(queueNonServingPorts, queueHTTPPort),
-			ReadinessProbe:  queueReadinessProbe,
+			ReadinessProbe:  defaultKnativeQReadinessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Env: env(map[string]string{
@@ -351,9 +380,13 @@ func TestMakeQueueContainer(t *testing.T) {
 					}},
 				}
 			}
-
-			got := makeQueueContainer(test.rev, test.lc, test.oc, test.ac, test.cc)
+			got := makeQueueContainer(test.rev, test.lc, test.tc, test.oc, test.ac, test.cc)
+			test.want.Env = append(test.want.Env, corev1.EnvVar{
+				Name:  "SERVING_READINESS_PROBE",
+				Value: probeJSON(test.rev.Spec.GetContainer().ReadinessProbe),
+			})
 			sortEnv(got.Env)
+			sortEnv(test.want.Env)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
 				t.Errorf("makeQueueContainer (-want, +got) = %v", diff)
 			}
@@ -366,6 +399,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		name string
 		rev  *v1alpha1.Revision
 		lc   *logging.Config
+		tc   *tracingconfig.Config
 		oc   *metrics.ObservabilityConfig
 		ac   *autoscaler.Config
 		cc   *deployment.Config
@@ -403,6 +437,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{
@@ -416,12 +451,12 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					corev1.ResourceName("cpu"): resource.MustParse("25m"),
 				},
 				Limits: corev1.ResourceList{
+					corev1.ResourceName("memory"): *resource.NewMilliQuantity(429496729600, resource.BinarySI),
 					corev1.ResourceName("cpu"):    *resource.NewMilliQuantity(400, resource.BinarySI),
-					corev1.ResourceName("memory"): *resource.NewQuantity(429496736, resource.BinarySI),
 				},
 			},
 			Ports:           append(queueNonServingPorts, queueHTTPPort),
-			ReadinessProbe:  queueReadinessProbe,
+			ReadinessProbe:  defaultKnativeQReadinessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
@@ -461,6 +496,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{
@@ -476,7 +512,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				},
 			},
 			Ports:           append(queueNonServingPorts, queueHTTPPort),
-			ReadinessProbe:  queueReadinessProbe,
+			ReadinessProbe:  defaultKnativeQReadinessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
@@ -516,6 +552,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{
@@ -530,7 +567,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				},
 			},
 			Ports:           append(queueNonServingPorts, queueHTTPPort),
-			ReadinessProbe:  queueReadinessProbe,
+			ReadinessProbe:  defaultKnativeQReadinessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
@@ -569,6 +606,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{
@@ -584,7 +622,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				},
 			},
 			Ports:           append(queueNonServingPorts, queueHTTPPort),
-			ReadinessProbe:  queueReadinessProbe,
+			ReadinessProbe:  defaultKnativeQReadinessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
@@ -596,22 +634,386 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := makeQueueContainer(test.rev, test.lc, test.oc, test.ac, test.cc)
+			got := makeQueueContainer(test.rev, test.lc, test.tc, test.oc, test.ac, test.cc)
+			test.want.Env = append(test.want.Env, corev1.EnvVar{
+				Name:  "SERVING_READINESS_PROBE",
+				Value: probeJSON(test.rev.Spec.GetContainer().ReadinessProbe),
+			})
 			sortEnv(got.Env)
+			sortEnv(test.want.Env)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
 				t.Errorf("makeQueueContainerWithPercentageAnnotation (-want, +got) = %v", diff)
 			}
 			if test.want.Resources.Limits.Memory().Cmp(*got.Resources.Limits.Memory()) != 0 {
-				t.Errorf("Expected Resources.Limits.Memory %v got %v ", test.want.Resources.Limits.Memory(), got.Resources.Limits.Memory())
+				t.Errorf("Resources.Limits.Memory = %v, want: %v", got.Resources.Limits.Memory(), test.want.Resources.Limits.Memory())
 			}
 			if test.want.Resources.Requests.Cpu().Cmp(*got.Resources.Requests.Cpu()) != 0 {
-				t.Errorf("Expected Resources.Request.Cpu %v got %v ", test.want.Resources.Requests.Cpu(), got.Resources.Requests.Cpu())
+				t.Errorf("Resources.Request.CPU = %v, want: %v", got.Resources.Requests.Cpu(), test.want.Resources.Requests.Cpu())
 			}
 			if test.want.Resources.Requests.Memory().Cmp(*got.Resources.Requests.Memory()) != 0 {
-				t.Errorf("Expected Resources.Requests.Memory %v got %v ", test.want.Resources.Requests.Memory(), got.Resources.Requests.Memory())
+				t.Errorf("Resources.Requests.Memory = %v, want: %v", got.Resources.Requests.Memory(), test.want.Resources.Requests.Memory())
 			}
 			if test.want.Resources.Limits.Cpu().Cmp(*got.Resources.Limits.Cpu()) != 0 {
-				t.Errorf("Expected Resources.Limits.Cpu %v got %v ", test.want.Resources.Limits.Cpu(), got.Resources.Limits.Cpu())
+				t.Errorf("Resources.Limits.CPU  = %v, want: %v", got.Resources.Limits.Cpu(), test.want.Resources.Limits.Cpu())
+			}
+		})
+	}
+}
+
+func TestProbeGenerationHTTPDefaults(t *testing.T) {
+	rev := &v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "foo",
+			Name:      "bar",
+			UID:       "1234",
+		},
+		Spec: v1alpha1.RevisionSpec{
+			RevisionSpec: v1beta1.RevisionSpec{
+				ContainerConcurrency: 1,
+				TimeoutSeconds:       ptr.Int64(45),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: containerName,
+						ReadinessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								HTTPGet: &corev1.HTTPGetAction{
+									Path: "/",
+								},
+							},
+							PeriodSeconds:  1,
+							TimeoutSeconds: 10,
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	expectedProbe := &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Host:   "127.0.0.1",
+				Path:   "/",
+				Port:   intstr.FromInt(int(v1alpha1.DefaultUserPort)),
+				Scheme: corev1.URISchemeHTTP,
+				HTTPHeaders: []corev1.HTTPHeader{{
+					Name:  network.KubeletProbeHeaderName,
+					Value: "queue",
+				}},
+			},
+		},
+		PeriodSeconds:  1,
+		TimeoutSeconds: 10,
+	}
+
+	lc := &logging.Config{}
+	tc := &tracingconfig.Config{}
+	oc := &metrics.ObservabilityConfig{}
+	ac := &autoscaler.Config{}
+	cc := &deployment.Config{}
+	want := &corev1.Container{
+		// These are effectively constant
+		Name:      QueueContainerName,
+		Resources: createQueueResources(make(map[string]string), &corev1.Container{}),
+		Ports:     append(queueNonServingPorts, queueHTTPPort),
+		ReadinessProbe: &corev1.Probe{
+			Handler: corev1.Handler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"/ko-app/queue", "-probe-period", "10"},
+				},
+			},
+			PeriodSeconds:  1,
+			TimeoutSeconds: 10,
+		},
+		// These changed based on the Revision and configs passed in.
+		Env: env(map[string]string{
+			"SERVING_READINESS_PROBE": probeJSON(expectedProbe),
+		}),
+		SecurityContext: queueSecurityContext,
+	}
+
+	got := makeQueueContainer(rev, lc, tc, oc, ac, cc)
+	sortEnv(got.Env)
+	if diff := cmp.Diff(want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
+		t.Errorf("makeQueueContainer(-want, +got) = %v", diff)
+	}
+}
+
+func TestProbeGenerationHTTP(t *testing.T) {
+	userPort := 12345
+	probePath := "/health"
+
+	rev := &v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "foo",
+			Name:      "bar",
+			UID:       "1234",
+		},
+		Spec: v1alpha1.RevisionSpec{
+			RevisionSpec: v1beta1.RevisionSpec{
+				ContainerConcurrency: 1,
+				TimeoutSeconds:       ptr.Int64(45),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: containerName,
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: int32(userPort),
+						}},
+						ReadinessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								HTTPGet: &corev1.HTTPGetAction{
+									Path:   probePath,
+									Scheme: corev1.URISchemeHTTPS,
+								},
+							},
+							PeriodSeconds:  2,
+							TimeoutSeconds: 10,
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	expectedProbe := &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Host:   "127.0.0.1",
+				Path:   probePath,
+				Port:   intstr.FromInt(userPort),
+				Scheme: corev1.URISchemeHTTPS,
+				HTTPHeaders: []corev1.HTTPHeader{{
+					Name:  network.KubeletProbeHeaderName,
+					Value: "queue",
+				}},
+			},
+		},
+		PeriodSeconds:  2,
+		TimeoutSeconds: 10,
+	}
+
+	lc := &logging.Config{}
+	tc := &tracingconfig.Config{}
+	oc := &metrics.ObservabilityConfig{}
+	ac := &autoscaler.Config{}
+	cc := &deployment.Config{}
+	want := &corev1.Container{
+		// These are effectively constant
+		Name:      QueueContainerName,
+		Resources: createQueueResources(make(map[string]string), &corev1.Container{}),
+		Ports:     append(queueNonServingPorts, queueHTTPPort),
+		ReadinessProbe: &corev1.Probe{
+			Handler: corev1.Handler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"/ko-app/queue", "-probe-period", "10"},
+				},
+			},
+			PeriodSeconds:  2,
+			TimeoutSeconds: 10,
+		},
+		// These changed based on the Revision and configs passed in.
+		Env:             env(map[string]string{"USER_PORT": strconv.Itoa(userPort), "SERVING_READINESS_PROBE": probeJSON(expectedProbe)}),
+		SecurityContext: queueSecurityContext,
+	}
+
+	got := makeQueueContainer(rev, lc, tc, oc, ac, cc)
+	sortEnv(got.Env)
+	if diff := cmp.Diff(want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
+		t.Errorf("makeQueueContainer(-want, +got) = %v", diff)
+	}
+}
+
+func TestTCPProbeGeneration(t *testing.T) {
+	userPort := 12345
+	tests := []struct {
+		name      string
+		rev       v1alpha1.RevisionSpec
+		want      *corev1.Container
+		wantProbe *corev1.Probe
+	}{{
+		name: "knative tcp probe",
+		wantProbe: &corev1.Probe{
+			Handler: corev1.Handler{
+				TCPSocket: &corev1.TCPSocketAction{
+					Host: "127.0.0.1",
+					Port: intstr.FromInt(userPort),
+				},
+			},
+			PeriodSeconds:    0,
+			SuccessThreshold: 3,
+		},
+		rev: v1alpha1.RevisionSpec{
+			RevisionSpec: v1beta1.RevisionSpec{
+				ContainerConcurrency: 1,
+				TimeoutSeconds:       ptr.Int64(45),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: containerName,
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: int32(userPort),
+						}},
+						ReadinessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								TCPSocket: &corev1.TCPSocketAction{},
+							},
+							PeriodSeconds:    0,
+							SuccessThreshold: 3,
+						},
+					}},
+				},
+			},
+		},
+		want: &corev1.Container{
+			// These are effectively constant
+			Name:      QueueContainerName,
+			Resources: createQueueResources(make(map[string]string), &corev1.Container{}),
+			Ports:     append(queueNonServingPorts, queueHTTPPort),
+			ReadinessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					Exec: &corev1.ExecAction{
+						Command: []string{"/ko-app/queue", "-probe-period", "0"},
+					},
+				},
+				PeriodSeconds:  1,
+				TimeoutSeconds: 10,
+			},
+			// These changed based on the Revision and configs passed in.
+			Env:             env(map[string]string{"USER_PORT": strconv.Itoa(userPort)}),
+			SecurityContext: queueSecurityContext,
+		},
+	}, {
+		name: "tcp defaults",
+		rev: v1alpha1.RevisionSpec{
+			RevisionSpec: v1beta1.RevisionSpec{
+				ContainerConcurrency: 1,
+				TimeoutSeconds:       ptr.Int64(45),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: containerName,
+						ReadinessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								TCPSocket: &corev1.TCPSocketAction{},
+							},
+							PeriodSeconds: 1,
+						},
+					}},
+				},
+			},
+		},
+		wantProbe: &corev1.Probe{
+			Handler: corev1.Handler{
+				TCPSocket: &corev1.TCPSocketAction{
+					Host: "127.0.0.1",
+					Port: intstr.FromInt(int(v1alpha1.DefaultUserPort)),
+				},
+			},
+			PeriodSeconds:  1,
+			TimeoutSeconds: 1,
+		},
+		want: &corev1.Container{
+			// These are effectively constant
+			Name:      QueueContainerName,
+			Resources: createQueueResources(make(map[string]string), &corev1.Container{}),
+			Ports:     append(queueNonServingPorts, queueHTTPPort),
+			ReadinessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					Exec: &corev1.ExecAction{
+						Command: []string{"/ko-app/queue", "-probe-period", "1"},
+					},
+				},
+				PeriodSeconds:  1,
+				TimeoutSeconds: 1,
+			},
+			// These changed based on the Revision and configs passed in.
+			Env:             env(map[string]string{}),
+			SecurityContext: queueSecurityContext,
+		},
+	}, {
+		name: "user defined tcp probe",
+		wantProbe: &corev1.Probe{
+			Handler: corev1.Handler{
+				TCPSocket: &corev1.TCPSocketAction{
+					Host: "127.0.0.1",
+					Port: intstr.FromInt(userPort),
+				},
+			},
+			PeriodSeconds:       2,
+			TimeoutSeconds:      15,
+			SuccessThreshold:    2,
+			FailureThreshold:    7,
+			InitialDelaySeconds: 3,
+		},
+		rev: v1alpha1.RevisionSpec{
+			RevisionSpec: v1beta1.RevisionSpec{
+				ContainerConcurrency: 1,
+				TimeoutSeconds:       ptr.Int64(45),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: containerName,
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: int32(userPort),
+						}},
+						ReadinessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								TCPSocket: &corev1.TCPSocketAction{},
+							},
+							PeriodSeconds:       2,
+							TimeoutSeconds:      15,
+							SuccessThreshold:    2,
+							FailureThreshold:    7,
+							InitialDelaySeconds: 3,
+						},
+					}},
+				},
+			},
+		},
+		want: &corev1.Container{
+			// These are effectively constant
+			Name:      QueueContainerName,
+			Resources: createQueueResources(make(map[string]string), &corev1.Container{}),
+			Ports:     append(queueNonServingPorts, queueHTTPPort),
+			ReadinessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					Exec: &corev1.ExecAction{
+						Command: []string{"/ko-app/queue", "-probe-period", "15"},
+					},
+				},
+				PeriodSeconds:       2,
+				TimeoutSeconds:      15,
+				SuccessThreshold:    2,
+				FailureThreshold:    7,
+				InitialDelaySeconds: 3,
+			},
+			// These changed based on the Revision and configs passed in.
+			Env:             env(map[string]string{"USER_PORT": strconv.Itoa(userPort)}),
+			SecurityContext: queueSecurityContext,
+		},
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			lc := &logging.Config{}
+			tc := &tracingconfig.Config{}
+			oc := &metrics.ObservabilityConfig{}
+			ac := &autoscaler.Config{}
+			cc := &deployment.Config{}
+			testRev := &v1alpha1.Revision{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "foo",
+					Name:      "bar",
+					UID:       "1234",
+				},
+				Spec: test.rev,
+			}
+			test.want.Env = append(test.want.Env, corev1.EnvVar{
+				Name:  "SERVING_READINESS_PROBE",
+				Value: probeJSON(test.wantProbe),
+			})
+
+			got := makeQueueContainer(testRev, lc, tc, oc, ac, cc)
+			sortEnv(got.Env)
+			sortEnv(test.want.Env)
+			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
+				t.Errorf("makeQueueContainer (-want, +got) = %v", diff)
 			}
 		})
 	}
@@ -626,6 +1028,10 @@ var defaultEnv = map[string]string{
 	"REVISION_TIMEOUT_SECONDS":        "45",
 	"SERVING_LOGGING_CONFIG":          "",
 	"SERVING_LOGGING_LEVEL":           "",
+	"TRACING_CONFIG_ENABLE":           "false",
+	"TRACING_CONFIG_ZIPKIN_ENDPOINT":  "",
+	"TRACING_CONFIG_SAMPLE_RATE":      "0.000000",
+	"TRACING_CONFIG_DEBUG":            "false",
 	"SERVING_REQUEST_LOG_TEMPLATE":    "",
 	"SERVING_REQUEST_METRICS_BACKEND": "",
 	"USER_PORT":                       strconv.Itoa(v1alpha1.DefaultUserPort),
@@ -636,6 +1042,15 @@ var defaultEnv = map[string]string{
 	"ENABLE_VAR_LOG_COLLECTION":       "false",
 	"VAR_LOG_VOLUME_NAME":             varLogVolumeName,
 	"INTERNAL_VOLUME_PATH":            internalVolumePath,
+}
+
+func probeJSON(probe *corev1.Probe) string {
+	if probe != nil {
+		if probeBytes, err := json.Marshal(probe); err == nil {
+			return string(probeBytes)
+		}
+	}
+	return ""
 }
 
 func env(overrides map[string]string) []corev1.EnvVar {
@@ -662,6 +1077,7 @@ func env(overrides map[string]string) []corev1.EnvVar {
 	}}...)
 
 	sortEnv(env)
+
 	return env
 }
 

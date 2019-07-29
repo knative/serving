@@ -17,17 +17,15 @@ limitations under the License.
 package autoscaler
 
 import (
-	"context"
 	"errors"
 	"sync"
 	"time"
 
-	"github.com/knative/serving/pkg/autoscaler/aggregation"
+	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/serving/pkg/autoscaler/aggregation"
 
-	av1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"go.uber.org/zap"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 )
 
 const (
@@ -42,31 +40,13 @@ const (
 var (
 	// ErrNoData denotes that the collector could not calculate data.
 	ErrNoData = errors.New("no data available")
+
+	// ErrNotScraping denotes that the collector is not collecting metrics for the given resource.
+	ErrNotScraping = errors.New("the requested resource is not being scraped")
 )
 
-// Metric represents a resource to configure the metric collector with.
-// +k8s:deepcopy-gen=true
-type Metric struct {
-	metav1.ObjectMeta
-	Spec   MetricSpec
-	Status MetricStatus
-}
-
-// MetricSpec contains all values the metric collector needs to operate.
-type MetricSpec struct {
-	StableWindow time.Duration
-	PanicWindow  time.Duration
-
-	// ScrapeTarget is the K8s service that is publishes the metric
-	// endpoint.
-	ScrapeTarget string
-}
-
-// MetricStatus reflects the status of metric collection for this specific entity.
-type MetricStatus struct{}
-
 // StatsScraperFactory creates a StatsScraper for a given Metric.
-type StatsScraperFactory func(*Metric) (StatsScraper, error)
+type StatsScraperFactory func(*av1alpha1.Metric) (StatsScraper, error)
 
 // Stat defines a single measurement at a point in time
 type Stat struct {
@@ -93,14 +73,26 @@ type Stat struct {
 // StatMessage wraps a Stat with identifying information so it can be routed
 // to the correct receiver.
 type StatMessage struct {
-	Key  string
+	Key  types.NamespacedName
 	Stat Stat
+}
+
+// Collector starts and stops metric collection for a given entity.
+type Collector interface {
+	// CreateOrUpdate either creates a collection for the given metric or update it, should
+	// it already exist.
+	CreateOrUpdate(*av1alpha1.Metric) error
+	// Record allows stats to be captured that came from outside the Collector.
+	Record(key types.NamespacedName, stat Stat)
+	// Delete deletes a Metric and halts collection.
+	Delete(string, string) error
 }
 
 // MetricClient surfaces the metrics that can be obtained via the collector.
 type MetricClient interface {
-	// StableAndPanicConcurrency returns both the stable and the panic concurrency.
-	StableAndPanicConcurrency(key string) (float64, float64, error)
+	// StableAndPanicConcurrency returns both the stable and the panic concurrency
+	// for the given replica as of the given time.
+	StableAndPanicConcurrency(key types.NamespacedName, now time.Time) (float64, float64, error)
 }
 
 // MetricCollector manages collection of metrics for many entities.
@@ -109,87 +101,65 @@ type MetricCollector struct {
 
 	statsScraperFactory StatsScraperFactory
 
-	collections      map[string]*collection
+	collections      map[types.NamespacedName]*collection
 	collectionsMutex sync.RWMutex
 }
 
-var _ MetricClient = &MetricCollector{}
+var _ Collector = (*MetricCollector)(nil)
+var _ MetricClient = (*MetricCollector)(nil)
 
 // NewMetricCollector creates a new metric collector.
 func NewMetricCollector(statsScraperFactory StatsScraperFactory, logger *zap.SugaredLogger) *MetricCollector {
 	collector := &MetricCollector{
 		logger:              logger,
-		collections:         make(map[string]*collection),
+		collections:         make(map[types.NamespacedName]*collection),
 		statsScraperFactory: statsScraperFactory,
 	}
 
 	return collector
 }
 
-// Get gets a Metric object from the collector.
-// Returns a copy of the Metric object. Mutations won't be seen by the collector.
-func (c *MetricCollector) Get(ctx context.Context, namespace, name string) (*Metric, error) {
+// CreateOrUpdate either creates a collection for the given metric or update it, should
+// it already exist.
+// Map access optimized via double-checked locking.
+func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
+	scraper, err := c.statsScraperFactory(metric)
+	if err != nil {
+		return err
+	}
+	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
+
 	c.collectionsMutex.RLock()
-	defer c.collectionsMutex.RUnlock()
-
-	key := NewMetricKey(namespace, name)
-	collector, ok := c.collections[key]
-	if !ok {
-		return nil, k8serrors.NewNotFound(av1alpha1.Resource("Metrics"), key)
-	}
-
-	return collector.metric.DeepCopy(), nil
-}
-
-// Create creates a new metric and thus starts collection for that entity.
-// Returns a copy of the Metric object. Mutations won't be seen by the collector.
-func (c *MetricCollector) Create(ctx context.Context, metric *Metric) (*Metric, error) {
-	c.collectionsMutex.Lock()
-	defer c.collectionsMutex.Unlock()
-
-	c.logger.Debugf("Starting metric collection of %s/%s", metric.Namespace, metric.Name)
-
-	key := NewMetricKey(metric.Namespace, metric.Name)
-	coll, exists := c.collections[key]
-	if !exists {
-		scraper, err := c.statsScraperFactory(metric)
-		if err != nil {
-			return nil, err
-		}
-		coll = newCollection(metric, scraper, c.logger)
-		c.collections[key] = coll
-	}
-
-	return coll.metric.DeepCopy(), nil
-}
-
-// Update updates the Metric.
-// Returns a copy of the Metric object. Mutations won't be seen by the collector.
-func (c *MetricCollector) Update(ctx context.Context, metric *Metric) (*Metric, error) {
-	c.collectionsMutex.Lock()
-	defer c.collectionsMutex.Unlock()
-
-	key := NewMetricKey(metric.Namespace, metric.Name)
-	if collection, exists := c.collections[key]; exists {
-		scraper, err := c.statsScraperFactory(metric)
-		if err != nil {
-			return nil, err
-		}
+	collection, exists := c.collections[key]
+	c.collectionsMutex.RUnlock()
+	if exists {
 		collection.updateScraper(scraper)
 		collection.updateMetric(metric)
-		return metric.DeepCopy(), nil
+		return nil
 	}
-	return nil, k8serrors.NewNotFound(av1alpha1.Resource("Metrics"), key)
+
+	c.collectionsMutex.Lock()
+	defer c.collectionsMutex.Unlock()
+
+	collection, exists = c.collections[key]
+	if exists {
+		collection.updateScraper(scraper)
+		collection.updateMetric(metric)
+		return nil
+	}
+
+	c.collections[key] = newCollection(metric, scraper, c.logger)
+	return nil
 }
 
 // Delete deletes a Metric and halts collection.
-func (c *MetricCollector) Delete(ctx context.Context, namespace, name string) error {
+func (c *MetricCollector) Delete(namespace, name string) error {
 	c.collectionsMutex.Lock()
 	defer c.collectionsMutex.Unlock()
 
 	c.logger.Debugf("Stopping metric collection of %s/%s", namespace, name)
 
-	key := NewMetricKey(namespace, name)
+	key := types.NamespacedName{Namespace: namespace, Name: name}
 	if collection, ok := c.collections[key]; ok {
 		collection.close()
 		delete(c.collections, key)
@@ -198,7 +168,7 @@ func (c *MetricCollector) Delete(ctx context.Context, namespace, name string) er
 }
 
 // Record records a stat that's been generated outside of the metric collector.
-func (c *MetricCollector) Record(key string, stat Stat) {
+func (c *MetricCollector) Record(key types.NamespacedName, stat Stat) {
 	c.collectionsMutex.RLock()
 	defer c.collectionsMutex.RUnlock()
 
@@ -208,19 +178,23 @@ func (c *MetricCollector) Record(key string, stat Stat) {
 }
 
 // StableAndPanicConcurrency returns both the stable and the panic concurrency.
-func (c *MetricCollector) StableAndPanicConcurrency(key string) (float64, float64, error) {
+// It may truncate metric buckets as a side-effect.
+func (c *MetricCollector) StableAndPanicConcurrency(key types.NamespacedName, now time.Time) (float64, float64, error) {
+	c.collectionsMutex.RLock()
+	defer c.collectionsMutex.RUnlock()
+
 	collection, exists := c.collections[key]
 	if !exists {
-		return 0, 0, k8serrors.NewNotFound(av1alpha1.Resource("Metrics"), key)
+		return 0, 0, ErrNotScraping
 	}
 
-	return collection.stableAndPanicConcurrency(time.Now())
+	return collection.stableAndPanicConcurrency(now)
 }
 
 // collection represents the collection of metrics for one specific entity.
 type collection struct {
 	metricMutex sync.RWMutex
-	metric      *Metric
+	metric      *av1alpha1.Metric
 
 	scraperMutex sync.RWMutex
 	scraper      StatsScraper
@@ -244,7 +218,7 @@ func (c *collection) getScraper() StatsScraper {
 
 // newCollection creates a new collection, which uses the given scraper to
 // collect stats every scrapeTickInterval.
-func newCollection(metric *Metric, scraper StatsScraper, logger *zap.SugaredLogger) *collection {
+func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, logger *zap.SugaredLogger) *collection {
 	c := &collection{
 		metric:  metric,
 		buckets: aggregation.NewTimedFloat64Buckets(BucketSize),
@@ -279,7 +253,7 @@ func newCollection(metric *Metric, scraper StatsScraper, logger *zap.SugaredLogg
 }
 
 // updateMetric safely updates the metric stored in the collection.
-func (c *collection) updateMetric(metric *Metric) {
+func (c *collection) updateMetric(metric *av1alpha1.Metric) {
 	c.metricMutex.Lock()
 	defer c.metricMutex.Unlock()
 
@@ -287,7 +261,7 @@ func (c *collection) updateMetric(metric *Metric) {
 }
 
 // currentMetric safely returns the current metric stored in the collection.
-func (c *collection) currentMetric() *Metric {
+func (c *collection) currentMetric() *av1alpha1.Metric {
 	c.metricMutex.RLock()
 	defer c.metricMutex.RUnlock()
 

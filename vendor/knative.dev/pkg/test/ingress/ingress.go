@@ -57,7 +57,7 @@ func GetIngressEndpoint(kubeClientset *kubernetes.Clientset) (*string, error) {
 func EndpointFromService(svc *v1.Service) (string, error) {
 	ingresses := svc.Status.LoadBalancer.Ingress
 	if len(ingresses) != 1 {
-		return "", fmt.Errorf("Expected exactly one ingress load balancer, instead had %d: %v", len(ingresses), ingresses)
+		return "", fmt.Errorf("expected exactly one ingress load balancer, instead had %d: %v", len(ingresses), ingresses)
 	}
 	itu := ingresses[0]
 
@@ -67,6 +67,6 @@ func EndpointFromService(svc *v1.Service) (string, error) {
 	case itu.Hostname != "":
 		return itu.Hostname, nil
 	default:
-		return "", fmt.Errorf("Expected ingress loadbalancer IP or hostname for %s to be set, instead was empty", svc.Name)
+		return "", fmt.Errorf("expected ingress loadbalancer IP or hostname for %s to be set, instead was empty", svc.Name)
 	}
 }

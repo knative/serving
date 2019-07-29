@@ -21,9 +21,10 @@ package e2e
 import (
 	"testing"
 
-	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
 	pkgTest "knative.dev/pkg/test"
+	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -48,7 +49,7 @@ func TestEgressTraffic(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	service, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{EnvVars: envVars})
+	service, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, v1a1opts.WithEnv(envVars...))
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
 	}

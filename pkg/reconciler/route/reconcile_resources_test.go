@@ -25,17 +25,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	fakecertinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
-	fakeciinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress/fake"
-	"github.com/knative/serving/pkg/gc"
-	"github.com/knative/serving/pkg/reconciler/route/config"
-	"github.com/knative/serving/pkg/reconciler/route/resources"
-	"github.com/knative/serving/pkg/reconciler/route/traffic"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/system"
+	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	fakecertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
+	fakeciinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress/fake"
+	"knative.dev/serving/pkg/gc"
+	"knative.dev/serving/pkg/reconciler/route/config"
+	"knative.dev/serving/pkg/reconciler/route/resources"
+	"knative.dev/serving/pkg/reconciler/route/traffic"
 
 	. "knative.dev/pkg/logging/testing"
 )
@@ -50,12 +50,20 @@ func TestReconcileClusterIngress_Insert(t *testing.T) {
 		},
 	}
 	ci := newTestClusterIngress(t, r)
-	if _, err := reconciler.reconcileClusterIngress(TestContextWithLogger(t), r, ci); err != nil {
+
+	ira := &ClusterIngressResources{
+		BaseIngressResources: BaseIngressResources{
+			servingClientSet: reconciler.ServingClientSet,
+		},
+		clusterIngressLister: reconciler.clusterIngressLister,
+	}
+
+	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), ira, r, ci, true /* optional*/); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	created := getRouteIngressFromClient(t, ctx, r)
-	if diff := cmp.Diff(ci, created); diff != "" {
-		t.Errorf("Unexpected diff (-want +got): %v", diff)
+	created := getRouteClusterIngressFromClient(ctx, t, r)
+	if created != nil {
+		t.Errorf("Unexpected ClusterIngress creation")
 	}
 }
 
@@ -69,12 +77,19 @@ func TestReconcileClusterIngress_Update(t *testing.T) {
 		},
 	}
 
+	ira := &ClusterIngressResources{
+		BaseIngressResources: BaseIngressResources{
+			servingClientSet: reconciler.ServingClientSet,
+		},
+		clusterIngressLister: reconciler.clusterIngressLister,
+	}
+
 	ci := newTestClusterIngress(t, r)
-	if _, err := reconciler.reconcileClusterIngress(TestContextWithLogger(t), r, ci); err != nil {
+	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), ira, r, ci, false /*optional*/); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	updated := getRouteIngressFromClient(t, ctx, r)
+	updated := getRouteClusterIngressFromClient(ctx, t, r)
 	fakeciinformer.Get(ctx).Informer().GetIndexer().Add(updated)
 
 	ci2 := newTestClusterIngress(t, r, func(tc *traffic.Config) {
@@ -86,11 +101,11 @@ func TestReconcileClusterIngress_Update(t *testing.T) {
 			},
 		})
 	})
-	if _, err := reconciler.reconcileClusterIngress(TestContextWithLogger(t), r, ci2); err != nil {
+	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), ira, r, ci2, true /*optional*/); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	updated = getRouteIngressFromClient(t, ctx, r)
+	updated = getRouteClusterIngressFromClient(ctx, t, r)
 	if diff := cmp.Diff(ci2, updated); diff != "" {
 		t.Errorf("Unexpected diff (-want +got): %v", diff)
 	}
@@ -156,7 +171,7 @@ func TestReconcileTargetRevisions(t *testing.T) {
 	}
 }
 
-func newTestClusterIngress(t *testing.T, r *v1alpha1.Route, trafficOpts ...func(tc *traffic.Config)) *netv1alpha1.ClusterIngress {
+func newTestClusterIngress(t *testing.T, r *v1alpha1.Route, trafficOpts ...func(tc *traffic.Config)) netv1alpha1.IngressAccessor {
 	tc := &traffic.Config{Targets: map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
 			TrafficTarget: v1beta1.TrafficTarget{

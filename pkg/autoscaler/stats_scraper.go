@@ -23,11 +23,13 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/resources"
 	"github.com/pkg/errors"
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/resources"
 )
 
 const (
@@ -77,13 +79,13 @@ type ServiceScraper struct {
 	sClient   scrapeClient
 	counter   resources.ReadyPodCounter
 	namespace string
-	metricKey string
+	metricKey types.NamespacedName
 	url       string
 }
 
 // NewServiceScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
-func NewServiceScraper(metric *Metric, counter resources.ReadyPodCounter) (*ServiceScraper, error) {
+func NewServiceScraper(metric *av1alpha1.Metric, counter resources.ReadyPodCounter) (*ServiceScraper, error) {
 	sClient, err := newHTTPScrapeClient(cacheDisabledClient)
 	if err != nil {
 		return nil, err
@@ -92,7 +94,7 @@ func NewServiceScraper(metric *Metric, counter resources.ReadyPodCounter) (*Serv
 }
 
 func newServiceScraperWithClient(
-	metric *Metric,
+	metric *av1alpha1.Metric,
 	counter resources.ReadyPodCounter,
 	sClient scrapeClient) (*ServiceScraper, error) {
 	if metric == nil {
@@ -113,7 +115,7 @@ func newServiceScraperWithClient(
 		sClient:   sClient,
 		counter:   counter,
 		url:       urlFromTarget(metric.Spec.ScrapeTarget, metric.ObjectMeta.Namespace),
-		metricKey: NewMetricKey(metric.Namespace, metric.Name),
+		metricKey: types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name},
 		namespace: metric.Namespace,
 	}, nil
 }

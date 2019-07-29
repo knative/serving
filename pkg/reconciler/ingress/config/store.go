@@ -19,8 +19,8 @@ package config
 import (
 	"context"
 
-	"github.com/knative/serving/pkg/network"
 	"knative.dev/pkg/configmap"
+	"knative.dev/serving/pkg/network"
 )
 
 type cfgKey struct{}

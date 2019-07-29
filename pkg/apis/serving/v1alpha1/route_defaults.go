@@ -19,9 +19,9 @@ package v1alpha1
 import (
 	"context"
 
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 func (r *Route) SetDefaults(ctx context.Context) {

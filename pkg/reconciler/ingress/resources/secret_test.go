@@ -23,14 +23,14 @@ import (
 	"knative.dev/pkg/kmeta"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/ingress/config"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	fakek8s "k8s.io/client-go/kubernetes/fake"
 	. "knative.dev/pkg/logging/testing"
+	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/reconciler/ingress/config"
 )
 
 var testSecret = corev1.Secret{
@@ -110,7 +110,7 @@ func TestMakeSecrets(t *testing.T) {
 	ctx = config.ToContext(ctx, &config.Config{
 		Istio: &config.Istio{
 			IngressGateways: []config.Gateway{{
-				GatewayName: "test-gateway",
+				Name: "test-gateway",
 				// The namespace of Istio gateway service is istio-system.
 				ServiceURL: "istio-ingressgateway.istio-system.svc.cluster.local",
 			}},
@@ -121,6 +121,7 @@ func TestMakeSecrets(t *testing.T) {
 		name         string
 		originSecret *corev1.Secret
 		expected     []*corev1.Secret
+		wantErr      bool
 	}{{
 		name: "target secret namespace (istio-system) is the same as the origin secret namespace (istio-system).",
 		originSecret: &corev1.Secret{
@@ -167,7 +168,10 @@ func TestMakeSecrets(t *testing.T) {
 			originSecrets := map[string]*corev1.Secret{
 				fmt.Sprintf("%s/%s", c.originSecret.Namespace, c.originSecret.Name): c.originSecret,
 			}
-			secrets := MakeSecrets(ctx, originSecrets, &ci)
+			secrets, err := MakeSecrets(ctx, originSecrets, &ci)
+			if (err != nil) != c.wantErr {
+				t.Fatalf("Test: %q; MakeSecrets() error = %v, WantErr %v", c.name, err, c.wantErr)
+			}
 			if diff := cmp.Diff(c.expected, secrets); diff != "" {
 				t.Errorf("Unexpected secrets (-want, +got): %v", diff)
 			}

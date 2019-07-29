@@ -20,16 +20,16 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/knative/serving/pkg/apis/networking"
-	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	routenames "github.com/knative/serving/pkg/reconciler/route/resources/names"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/apis"
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	"knative.dev/serving/pkg/apis/networking"
+	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 )
 
 // RouteOption enables further configuration of a Route.
@@ -167,7 +167,7 @@ func MarkCertificateReady(r *v1alpha1.Route) {
 
 // MarkIngressReady propagates a Ready=True ClusterIngress status to the Route.
 func MarkIngressReady(r *v1alpha1.Route) {
-	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
+	r.Status.PropagateIngressStatus(netv1alpha1.IngressStatus{
 		Status: duckv1beta1.Status{
 			Conditions: duckv1beta1.Conditions{{
 				Type:   "Ready",

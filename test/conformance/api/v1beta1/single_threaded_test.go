@@ -28,11 +28,11 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/knative/serving/test"
-	v1b1test "github.com/knative/serving/test/v1beta1"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/serving/test"
+	v1b1test "knative.dev/serving/test/v1beta1"
 
-	rtesting "github.com/knative/serving/pkg/testing/v1beta1"
+	rtesting "knative.dev/serving/pkg/testing/v1beta1"
 )
 
 func TestSingleConcurrency(t *testing.T) {
@@ -53,7 +53,7 @@ func TestSingleConcurrency(t *testing.T) {
 	domain := objects.Service.Status.URL.Host
 
 	// Ready does not actually mean Ready for a Route just yet.
-	// See https://github.com/knative/serving/issues/1582
+	// See https://knative.dev/serving/issues/1582
 	t.Logf("Probing domain %s", domain)
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,

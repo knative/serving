@@ -25,10 +25,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	net "github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	net "knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 func TestPodAutoscalerSpecValidation(t *testing.T) {
@@ -45,12 +45,37 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 				Kind:       "Deployment",
 				Name:       "bar",
 			},
+			ProtocolType: net.ProtocolHTTP1,
 		},
 		want: nil,
+	}, {
+		name: "protocol type missing",
+		rs: &PodAutoscalerSpec{
+			ContainerConcurrency: 0,
+			ScaleTargetRef: corev1.ObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       "bar",
+			},
+		},
+		want: apis.ErrMissingField("protocolType"),
+	}, {
+		name: "protcol type invalid",
+		rs: &PodAutoscalerSpec{
+			ContainerConcurrency: 0,
+			ScaleTargetRef: corev1.ObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       "bar",
+			},
+			ProtocolType: net.ProtocolType("dragon"),
+		},
+		want: apis.ErrInvalidValue("dragon", "protocolType"),
 	}, {
 		name: "has missing scaleTargetRef",
 		rs: &PodAutoscalerSpec{
 			ContainerConcurrency: 1,
+			ProtocolType:         net.ProtocolHTTP1,
 		},
 		want: apis.ErrMissingField("scaleTargetRef.apiVersion", "scaleTargetRef.kind",
 			"scaleTargetRef.name"),
@@ -62,6 +87,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 				APIVersion: "apps/v1",
 				Name:       "bar",
 			},
+			ProtocolType: net.ProtocolHTTP1,
 		},
 		want: apis.ErrMissingField("scaleTargetRef.kind"),
 	}, {
@@ -72,6 +98,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 				Kind: "Deployment",
 				Name: "bar",
 			},
+			ProtocolType: net.ProtocolHTTP1,
 		},
 		want: apis.ErrMissingField("scaleTargetRef.apiVersion"),
 	}, {
@@ -82,6 +109,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
 			},
+			ProtocolType: net.ProtocolHTTP1,
 		},
 		want: apis.ErrMissingField("scaleTargetRef.name"),
 	}, {
@@ -93,6 +121,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 				Kind:       "Deployment",
 				Name:       "bar",
 			},
+			ProtocolType: net.ProtocolHTTP1,
 		},
 		want: apis.ErrOutOfBoundsValue(-1, 0,
 			v1beta1.RevisionContainerConcurrencyMax, "containerConcurrency"),
@@ -104,6 +133,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 				APIVersion: "apps/v1",
 				Name:       "bar",
 			},
+			ProtocolType: net.ProtocolHTTP1,
 		},
 		want: apis.ErrOutOfBoundsValue(-2, 0,
 			v1beta1.RevisionContainerConcurrencyMax, "containerConcurrency").Also(
@@ -159,6 +189,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 					Kind:       "Deployment",
 					Name:       "bar",
 				},
+				ProtocolType: net.ProtocolH2C,
 			},
 		},
 		want: nil,
@@ -196,6 +227,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 					Kind:       "Deployment",
 					Name:       "bar",
 				},
+				ProtocolType: net.ProtocolHTTP1,
 			},
 		},
 		want: apis.ErrOutOfBoundsValue("FOO", 1, math.MaxInt32, autoscaling.MinScaleAnnotationKey).ViaField("metadata", "annotations"),
@@ -220,6 +252,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 					Kind:       "Deployment",
 					Name:       "bar",
 				},
+				ProtocolType: net.ProtocolHTTP1,
 			},
 		},
 		want: apis.ErrOutOfBoundsValue(-1, 0,

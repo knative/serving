@@ -2,6 +2,7 @@ global:
   proxy:
     # Enable proxy to write access log to /dev/stdout.
     accessLogFile: "/dev/stdout"
+    accessEncoding: 'JSON'
     autoInject: disabled
   disablePolicyChecks: true
 
@@ -16,6 +17,13 @@ gateways:
       enabled: true
     autoscaleMin: 1
     autoscaleMax: 1
+    resources:
+      limits:
+        cpu: 3000m
+        memory: 2048Mi
+      requests:
+        cpu: 3000m
+        memory: 2048Mi
     ports:
     - name: status-port
       port: 15020
@@ -66,3 +74,7 @@ mixer:
 pilot:
   traceSampling: 100
   autoscaleMin: 2
+  resources:
+    requests:
+      cpu: 3000m
+      memory: 2048Mi

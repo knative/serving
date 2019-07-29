@@ -17,24 +17,32 @@ limitations under the License.
 package resources
 
 import (
+	"crypto/md5"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
 
+	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/reconciler/ingress/resources/names"
-	"github.com/knative/serving/pkg/resources"
 	istiov1alpha1 "knative.dev/pkg/apis/istio/common/v1alpha1"
 	"knative.dev/pkg/apis/istio/v1alpha3"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/reconciler/ingress/resources/names"
+	"knative.dev/serving/pkg/resources"
+)
+
+const (
+	// ProbeHostSuffix is the suffix of the hosts used for probing
+	ProbeHostSuffix = ".probe.invalid"
 )
 
 // VirtualServiceNamespace gives the namespace of the child
@@ -48,8 +56,7 @@ func VirtualServiceNamespace(ia v1alpha1.IngressAccessor) string {
 
 // MakeIngressVirtualService creates Istio VirtualService as network
 // programming for Istio Gateways other than 'mesh'.
-func MakeIngressVirtualService(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.IngressVisibility][]string) *v1alpha3.VirtualService {
-	hosts := expandedHosts(getHosts(ia))
+func MakeIngressVirtualService(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.IngressVisibility]sets.String) *v1alpha3.VirtualService {
 	vs := &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            names.IngressVirtualService(ia),
@@ -57,7 +64,7 @@ func MakeIngressVirtualService(ia v1alpha1.IngressAccessor, gateways map[v1alpha
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ia)},
 			Annotations:     ia.GetAnnotations(),
 		},
-		Spec: *makeVirtualServiceSpec(ia, gateways, hosts),
+		Spec: *makeVirtualServiceSpec(ia, gateways, expandedHosts(getHosts(ia))),
 	}
 
 	// Populate the ClusterIngress labels.
@@ -84,10 +91,10 @@ func MakeMeshVirtualService(ia v1alpha1.IngressAccessor) *v1alpha3.VirtualServic
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ia)},
 			Annotations:     ia.GetAnnotations(),
 		},
-		Spec: *makeVirtualServiceSpec(ia, map[v1alpha1.IngressVisibility][]string{
-			v1alpha1.IngressVisibilityExternalIP:   {"mesh"},
-			v1alpha1.IngressVisibilityClusterLocal: {"mesh"},
-		}, retainLocals(getHosts(ia))),
+		Spec: *makeVirtualServiceSpec(ia, map[v1alpha1.IngressVisibility]sets.String{
+			v1alpha1.IngressVisibilityExternalIP:   sets.NewString("mesh"),
+			v1alpha1.IngressVisibilityClusterLocal: sets.NewString("mesh"),
+		}, keepLocalHostnames(getHosts(ia))),
 	}
 	// Populate the ClusterIngress labels.
 
@@ -103,41 +110,99 @@ func MakeMeshVirtualService(ia v1alpha1.IngressAccessor) *v1alpha3.VirtualServic
 }
 
 // MakeVirtualServices creates a mesh virtualservice and a virtual service for each gateway
-func MakeVirtualServices(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.IngressVisibility][]string) []*v1alpha3.VirtualService {
+func MakeVirtualServices(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.IngressVisibility]sets.String) ([]*v1alpha3.VirtualService, error) {
 	vss := []*v1alpha3.VirtualService{MakeMeshVirtualService(ia)}
 
 	requiredGatewayCount := 0
 	if len(getPublicIngressRules(ia)) > 0 {
-		requiredGatewayCount += len(gateways[v1alpha1.IngressVisibilityExternalIP])
+		requiredGatewayCount += gateways[v1alpha1.IngressVisibilityExternalIP].Len()
 	}
 
 	if len(getClusterLocalIngressRules(ia)) > 0 {
-		requiredGatewayCount += len(gateways[v1alpha1.IngressVisibilityClusterLocal])
+		requiredGatewayCount += gateways[v1alpha1.IngressVisibilityClusterLocal].Len()
 	}
 
 	if requiredGatewayCount > 0 {
 		vss = append(vss, MakeIngressVirtualService(ia, gateways))
 	}
-	return vss
+
+	// Add probe routes
+	for _, vs := range vss {
+		if _, err := InsertProbe(vs); err != nil {
+			return nil, errors.Wrapf(err, "failed to insert probe route to %s/%s", vs.Namespace, vs.Name)
+		}
+	}
+
+	return vss, nil
 }
 
-func makeVirtualServiceSpec(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.IngressVisibility][]string, hosts []string) *v1alpha3.VirtualServiceSpec {
-	gw := sets.String{}
-	gw.Insert(gateways[v1alpha1.IngressVisibilityClusterLocal]...)
-	gw.Insert(gateways[v1alpha1.IngressVisibilityExternalIP]...)
+// InsertProbe inserts a rule used to probe the VirtualService
+func InsertProbe(vs *v1alpha3.VirtualService) (string, error) {
+	hash, err := computeVirtualServiceHash(vs)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to compute the hash of %s/%s", vs.Namespace, vs.Name)
+	}
+	// As per RFC1153, a DNS label must be under 63 8-bit octets
+	host := fmt.Sprintf("%x", hash) + ProbeHostSuffix
+	vs.Spec.Hosts = append(vs.Spec.Hosts, host)
+	vs.Spec.HTTP = append(vs.Spec.HTTP, makeProbeRoute(host))
+	return host, nil
+}
+
+// computeVirtualService computes a hash of the VirtualService Spec and Namespace.
+// It is designed to uniquely identify the effect of a VirtualService. Therefore,
+// Name is irrelevant but Namespace is relevant because Gateway resolution is done within the
+// namespace of the VirtualService if a namespace is not specified in the Gateway definition.
+func computeVirtualServiceHash(vs *v1alpha3.VirtualService) ([16]byte, error) {
+	bytes, err := json.Marshal(vs.Spec)
+	if err != nil {
+		return [16]byte{}, fmt.Errorf("failed to serialize the VirtualServiceSpec: %v", err)
+	}
+	bytes = append(bytes, []byte(vs.Namespace)...)
+	return md5.Sum(bytes), nil
+}
+
+func makeVirtualServiceSpec(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.IngressVisibility]sets.String, hosts sets.String) *v1alpha3.VirtualServiceSpec {
+	gw := sets.String{}.Union(gateways[v1alpha1.IngressVisibilityClusterLocal]).Union(gateways[v1alpha1.IngressVisibilityExternalIP])
 	spec := v1alpha3.VirtualServiceSpec{
 		Gateways: gw.List(),
-		Hosts:    hosts,
+		Hosts:    hosts.List(),
 	}
+
 	for _, rule := range ia.GetSpec().Rules {
 		for _, p := range rule.HTTP.Paths {
-			hosts := intersect(rule.Hosts, hosts)
-			if len(hosts) != 0 {
+			hosts := hosts.Intersection(sets.NewString(rule.Hosts...))
+			if hosts.Len() != 0 {
 				spec.HTTP = append(spec.HTTP, *makeVirtualServiceRoute(hosts, &p, gateways[rule.Visibility]))
 			}
 		}
 	}
 	return &spec
+}
+
+func makeProbeRoute(host string) v1alpha3.HTTPRoute {
+	return v1alpha3.HTTPRoute{
+		// Matches the provided host
+		Match: []v1alpha3.HTTPMatchRequest{{
+			Authority: &istiov1alpha1.StringMatch{
+				Exact: host,
+			}}},
+		// Always returns HTTP 200
+		Fault: &v1alpha3.HTTPFaultInjection{
+			Abort: &v1alpha3.InjectAbort{
+				Percent:    100,
+				HTTPStatus: 200,
+			}},
+		// Unused dummy destination
+		Route: []v1alpha3.HTTPRouteDestination{{
+			Destination: v1alpha3.Destination{
+				Host: "null.invalid",
+				Port: v1alpha3.PortSelector{
+					Number: 80,
+				},
+			},
+		}},
+	}
 }
 
 func makePortSelector(ios intstr.IntOrString) v1alpha3.PortSelector {
@@ -151,24 +216,23 @@ func makePortSelector(ios intstr.IntOrString) v1alpha3.PortSelector {
 	}
 }
 
-func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPIngressPath, gateways []string) *v1alpha3.HTTPRoute {
+func makeVirtualServiceRoute(hosts sets.String, http *v1alpha1.HTTPIngressPath, gateways sets.String) *v1alpha3.HTTPRoute {
 	matches := []v1alpha3.HTTPMatchRequest{}
-	for _, host := range expandedHosts(hosts) {
+	for _, host := range hosts.List() {
 		matches = append(matches, makeMatch(host, http.Path, gateways))
 	}
 	weights := []v1alpha3.HTTPRouteDestination{}
 	for _, split := range http.Splits {
 
 		var h *v1alpha3.Headers
-		// TODO(mattmoor): Switch to Headers when we can have a hard
-		// dependency on 1.1, but 1.0.x rejects the unknown fields.
-		// if len(split.AppendHeaders) > 0 {
-		// 	h = &v1alpha3.Headers{
-		// 		Request: &v1alpha3.HeaderOperations{
-		// 			Add: split.AppendHeaders,
-		// 		},
-		// 	}
-		// }
+
+		if len(split.AppendHeaders) > 0 {
+			h = &v1alpha3.Headers{
+				Request: &v1alpha3.HeaderOperations{
+					Add: split.AppendHeaders,
+				},
+			}
+		}
 
 		weights = append(weights, v1alpha3.HTTPRouteDestination{
 			Destination: v1alpha3.Destination{
@@ -182,15 +246,13 @@ func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPIngressPath, gat
 	}
 
 	var h *v1alpha3.Headers
-	// TODO(mattmoor): Switch to Headers when we can have a hard
-	// dependency on 1.1, but 1.0.x rejects the unknown fields.
-	// if len(http.AppendHeaders) > 0 {
-	// 	h = &v1alpha3.Headers{
-	// 		Request: &v1alpha3.HeaderOperations{
-	// 			Add: http.AppendHeaders,
-	// 		},
-	// 	}
-	// }
+	if len(http.AppendHeaders) > 0 {
+		h = &v1alpha3.Headers{
+			Request: &v1alpha3.HeaderOperations{
+				Add: http.AppendHeaders,
+			},
+		}
+	}
 
 	return &v1alpha3.HTTPRoute{
 		Match:   matches,
@@ -200,50 +262,42 @@ func makeVirtualServiceRoute(hosts []string, http *v1alpha1.HTTPIngressPath, gat
 			Attempts:      http.Retries.Attempts,
 			PerTryTimeout: http.Retries.PerTryTimeout.Duration.String(),
 		},
-		// TODO(mattmoor): Remove AppendHeaders when 1.1 is a hard dependency.
-		// AppendHeaders is deprecated in Istio 1.1 in favor of Headers,
-		// however, 1.0.x doesn't support Headers.
-		DeprecatedAppendHeaders: http.AppendHeaders,
-		Headers:                 h,
-		WebsocketUpgrade:        true,
+		Headers:          h,
+		WebsocketUpgrade: true,
 	}
 }
 
-func dedup(hosts []string) []string {
-	return sets.NewString(hosts...).List()
-}
-
-func retainLocals(hosts []string) []string {
+func keepLocalHostnames(hosts sets.String) sets.String {
 	localSvcSuffix := ".svc." + network.GetClusterDomainName()
-	retained := []string{}
-	for _, h := range hosts {
+	retained := sets.NewString()
+	for _, h := range hosts.List() {
 		if strings.HasSuffix(h, localSvcSuffix) {
-			retained = append(retained, h)
+			retained.Insert(h)
 		}
 	}
 	return retained
 }
 
-func expandedHosts(hosts []string) []string {
-	expanded := []string{}
+func expandedHosts(hosts sets.String) sets.String {
+	expanded := sets.NewString()
 	allowedSuffixes := []string{
 		"",
 		"." + network.GetClusterDomainName(),
 		".svc." + network.GetClusterDomainName(),
 	}
-	for _, h := range hosts {
+	for _, h := range hosts.List() {
 		for _, suffix := range allowedSuffixes {
 			if strings.HasSuffix(h, suffix) {
-				expanded = append(expanded, strings.TrimSuffix(h, suffix))
+				expanded.Insert(strings.TrimSuffix(h, suffix))
 			}
 		}
 	}
-	return dedup(expanded)
+	return expanded
 }
 
-func makeMatch(host string, pathRegExp string, gateways []string) v1alpha3.HTTPMatchRequest {
+func makeMatch(host string, pathRegExp string, gateways sets.String) v1alpha3.HTTPMatchRequest {
 	match := v1alpha3.HTTPMatchRequest{
-		Gateways: gateways,
+		Gateways: gateways.List(),
 		Authority: &istiov1alpha1.StringMatch{
 			Regex: hostRegExp(host),
 		},
@@ -262,20 +316,31 @@ func makeMatch(host string, pathRegExp string, gateways []string) v1alpha3.HTTPM
 const portMatch = `(?::\d{1,5})?`
 
 // hostRegExp returns an ECMAScript regular expression to match either host or host:<any port>
+// for clusterLocalHost, we will also match the prefixes.
 func hostRegExp(host string) string {
-	return fmt.Sprintf("^%s%s$", regexp.QuoteMeta(host), portMatch)
-}
-
-func getHosts(ia v1alpha1.IngressAccessor) []string {
-	hosts := make([]string, 0, len(ia.GetSpec().Rules))
-	for _, rule := range ia.GetSpec().Rules {
-		hosts = append(hosts, rule.Hosts...)
+	localDomainSuffix := ".svc." + network.GetClusterDomainName()
+	if !strings.HasSuffix(host, localDomainSuffix) {
+		return exact(regexp.QuoteMeta(host) + portMatch)
 	}
-	return dedup(hosts)
+	prefix := regexp.QuoteMeta(strings.TrimSuffix(host, localDomainSuffix))
+	clusterSuffix := regexp.QuoteMeta("." + network.GetClusterDomainName())
+	svcSuffix := regexp.QuoteMeta(".svc")
+	return exact(prefix + optional(svcSuffix+optional(clusterSuffix)) + portMatch)
 }
 
-func intersect(h1, h2 []string) []string {
-	return sets.NewString(h1...).Intersection(sets.NewString(h2...)).List()
+func exact(regexp string) string {
+	return "^" + regexp + "$"
+}
+
+func optional(regexp string) string {
+	return "(" + regexp + ")?"
+}
+func getHosts(ia v1alpha1.IngressAccessor) sets.String {
+	hosts := sets.NewString()
+	for _, rule := range ia.GetSpec().Rules {
+		hosts.Insert(rule.Hosts...)
+	}
+	return hosts
 }
 
 func getClusterLocalIngressRules(ci v1alpha1.IngressAccessor) []v1alpha1.IngressRule {

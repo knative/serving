@@ -19,21 +19,21 @@ package hpa
 import (
 	"context"
 
-	painformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
-	sksinformer "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 	"knative.dev/pkg/apis/duck"
 	hpainformer "knative.dev/pkg/injection/informers/kubeinformers/autoscalingv2beta1/hpa"
 	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
+	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
+	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
+	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/reconciler"
-	areconciler "github.com/knative/serving/pkg/reconciler/autoscaling"
-	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
-	aresources "github.com/knative/serving/pkg/reconciler/autoscaling/resources"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/reconciler"
+	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
+	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 )
 
 const (
@@ -44,7 +44,6 @@ const (
 func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
-	metrics aresources.Metrics,
 	psInformerFactory duck.InformerFactory,
 ) *controller.Impl {
 
@@ -52,6 +51,7 @@ func NewController(
 	sksInformer := sksinformer.Get(ctx)
 	hpaInformer := hpainformer.Get(ctx)
 	serviceInformer := serviceinformer.Get(ctx)
+	metricInformer := metricinformer.Get(ctx)
 
 	c := &Reconciler{
 		Base: &areconciler.Base{
@@ -59,7 +59,7 @@ func NewController(
 			PALister:          paInformer.Lister(),
 			SKSLister:         sksInformer.Lister(),
 			ServiceLister:     serviceInformer.Lister(),
-			Metrics:           metrics,
+			MetricLister:      metricInformer.Lister(),
 			PSInformerFactory: psInformerFactory,
 		},
 		hpaLister: hpaInformer.Lister(),
@@ -80,6 +80,11 @@ func NewController(
 	})
 
 	sksInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: onlyHpaClass,
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+	})
+
+	metricInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: onlyHpaClass,
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})

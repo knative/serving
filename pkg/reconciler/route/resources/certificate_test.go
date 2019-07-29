@@ -18,12 +18,14 @@ package resources
 import (
 	"testing"
 
+	"knative.dev/serving/pkg/apis/networking"
+
 	"knative.dev/pkg/kmeta"
 
 	"github.com/google/go-cmp/cmp"
-	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
 var route = &v1alpha1.Route{
@@ -46,6 +48,9 @@ func TestMakeCertificates(t *testing.T) {
 				Name:            "route-12345-200999684",
 				Namespace:       "default",
 				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
+				Annotations: map[string]string{
+					networking.CertificateClassAnnotationKey: "foo-cert",
+				},
 			},
 			Spec: netv1alpha1.CertificateSpec{
 				DNSNames:   []string{"v1-current.default.example.com"},
@@ -57,6 +62,9 @@ func TestMakeCertificates(t *testing.T) {
 				Name:            "route-12345",
 				Namespace:       "default",
 				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
+				Annotations: map[string]string{
+					networking.CertificateClassAnnotationKey: "foo-cert",
+				},
 			},
 			Spec: netv1alpha1.CertificateSpec{
 				DNSNames:   []string{"v1.default.example.com"},
@@ -64,7 +72,7 @@ func TestMakeCertificates(t *testing.T) {
 			},
 		},
 	}
-	got := MakeCertificates(route, dnsNameTagMap)
+	got := MakeCertificates(route, dnsNameTagMap, "foo-cert")
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("MakeCertificate (-want, +got) = %v", diff)
 	}

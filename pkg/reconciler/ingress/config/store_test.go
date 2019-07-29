@@ -23,8 +23,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	logtesting "knative.dev/pkg/logging/testing"
 
-	"github.com/knative/serving/pkg/network"
 	. "knative.dev/pkg/configmap/testing"
+	"knative.dev/serving/pkg/network"
 )
 
 func TestStoreLoadWithContext(t *testing.T) {
@@ -57,12 +57,12 @@ func TestStoreImmutableConfig(t *testing.T) {
 
 	config := store.Load()
 
-	config.Istio.IngressGateways = []Gateway{{GatewayName: "mutated", ServiceURL: "mutated"}}
+	config.Istio.IngressGateways = []Gateway{{Name: "mutated", ServiceURL: "mutated"}}
 	config.Network.HTTPProtocol = network.HTTPRedirected
 
 	newConfig := store.Load()
 
-	if newConfig.Istio.IngressGateways[0].GatewayName == "mutated" {
+	if newConfig.Istio.IngressGateways[0].Name == "mutated" {
 		t.Error("Istio config is not immutable")
 	}
 	if newConfig.Network.HTTPProtocol == network.HTTPRedirected {

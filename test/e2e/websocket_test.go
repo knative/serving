@@ -23,14 +23,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/gorilla/websocket"
-	rnames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
-	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	ingress "knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
+	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
 const (
@@ -46,7 +51,7 @@ func connect(t *testing.T, ingressIP string, domain string) (*websocket.Conn, er
 	var conn *websocket.Conn
 	waitErr := wait.PollImmediate(connectRetryInterval, connectTimeout, func() (bool, error) {
 		t.Logf("Connecting using websocket: url=%s, host=%s", u.String(), domain)
-		c, resp, err := websocket.DefaultDialer.Dial(u.String(), http.Header{"Host": []string{domain}})
+		c, resp, err := websocket.DefaultDialer.Dial(u.String(), http.Header{"Host": {domain}})
 		if err == nil {
 			t.Log("WebSocket connection established.")
 			conn = c
@@ -123,7 +128,7 @@ func TestWebSocket(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{}); err != nil {
+	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names); err != nil {
 		t.Fatalf("Failed to create WebSocket server: %v", err)
 	}
 
@@ -133,11 +138,9 @@ func TestWebSocket(t *testing.T) {
 	}
 }
 
-// TestWebSocketFromZero (1) creates a service based on the `wsserver` image,
-// (2) waits for the service to be scaled down to zero replicas
-// (3) connects to the service using websocket, (4) sends a message, and
-// (5) verifies that we receive back the same message.
-func TestWebSocketFromZero(t *testing.T) {
+// TestWebSocketViaActivator (1) creates a service based on the `wsserver` image,
+// and with -1 as target burst capacity and then validates that we can still serve.
+func TestWebSocketViaActivator(t *testing.T) {
 	t.Parallel()
 	cancel := logstream.Start(t)
 	defer cancel()
@@ -153,17 +156,33 @@ func TestWebSocketFromZero(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{})
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		rtesting.WithConfigAnnotations(map[string]string{
+			autoscaling.TargetBurstCapacityKey: "-1",
+		}),
+	)
 	if err != nil {
 		t.Fatalf("Failed to create WebSocket server: %v", err)
 	}
 
-	deploymentName := rnames.Deployment(resources.Revision)
-
-	if err := WaitForScaleToZero(t, deploymentName, clients); err != nil {
-		t.Fatalf("Could not scale to zero: %v", err)
+	aeps, err := clients.KubeClient.Kube.CoreV1().Endpoints(
+		system.Namespace()).Get(activator.K8sServiceName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Error getting activator endpoints: %v", err)
 	}
+	t.Logf("Activator endpoints: %v", aeps)
 
+	// Wait for the endpoints to equalize.
+	if err := wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
+		svcEps, err := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
+			resources.Revision.Status.ServiceName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		return cmp.Equal(svcEps.Subsets, aeps.Subsets), nil
+	}); err != nil {
+		t.Fatalf("Initial state never achieved: %v", err)
+	}
 	if err := validateWebSocketConnection(t, clients, names); err != nil {
 		t.Error(err)
 	}

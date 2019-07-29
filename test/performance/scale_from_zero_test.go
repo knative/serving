@@ -26,16 +26,15 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
-	ktest "github.com/knative/serving/pkg/testing/v1alpha1"
-	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/e2e"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
 	"github.com/knative/test-infra/shared/junit"
 	perf "github.com/knative/test-infra/shared/performance"
 	"github.com/knative/test-infra/shared/testgrid"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/reconciler/revision/resources/names"
+	ktest "knative.dev/serving/pkg/testing/v1alpha1"
+	"knative.dev/serving/test"
+	"knative.dev/serving/test/e2e"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/zipkin"
@@ -118,30 +117,26 @@ func createServices(t *testing.T, pc *Client, count int) ([]*v1a1test.ResourceOb
 	}()
 	sos := []ktest.ServiceOption{
 		// We set a small resource alloc so that we can pack more pods into the cluster.
-		func(svc *v1alpha1.Service) {
-			svc.Spec.ConfigurationSpec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("50m"),
-					corev1.ResourceMemory: resource.MustParse("50Mi"),
-				},
-				Requests: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("10m"),
-					corev1.ResourceMemory: resource.MustParse("20Mi"),
-				},
-			}
-		},
+		ktest.WithResourceRequirements(corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("50m"),
+				corev1.ResourceMemory: resource.MustParse("50Mi"),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("10m"),
+				corev1.ResourceMemory: resource.MustParse("20Mi"),
+			},
+		}),
+		ktest.WithConfigAnnotations(map[string]string{
+			autoscaling.WindowAnnotationKey: "7s",
+		}),
 	}
 	g := errgroup.Group{}
 	for i := 0; i < count; i++ {
 		ndx := i
 		g.Go(func() error {
 			var err error
-			if objs[ndx], err = v1a1test.CreateRunLatestServiceReady(
-				t, pc.E2EClients, testNames[ndx], &v1a1test.Options{
-					RevisionTemplateAnnotations: map[string]string{
-						autoscaling.WindowAnnotationKey: "7s",
-					},
-				}, sos...); err != nil {
+			if objs[ndx], err = v1a1test.CreateRunLatestServiceReady(t, pc.E2EClients, testNames[ndx], sos...); err != nil {
 				return fmt.Errorf("%02d: failed to create Ready service: %v", ndx, err)
 			}
 			return nil

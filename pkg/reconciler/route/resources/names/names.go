@@ -19,8 +19,8 @@ package names
 import (
 	"fmt"
 
-	"github.com/knative/serving/pkg/network"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/serving/pkg/network"
 )
 
 func K8sService(route kmeta.Accessor) string {
@@ -35,6 +35,12 @@ func K8sServiceFullname(route kmeta.Accessor) string {
 // child resource for the given Route.
 func ClusterIngress(route kmeta.Accessor) string {
 	return fmt.Sprintf("route-%s", route.GetUID())
+}
+
+// Ingress returns the name for the Ingress
+// child resource for the given Route.
+func Ingress(route kmeta.Accessor) string {
+	return kmeta.ChildName(route.GetName(), "")
 }
 
 // Certificate returns the name for the Certificate

@@ -23,13 +23,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/serving/test"
 	"github.com/knative/test-infra/shared/common"
 	"github.com/knative/test-infra/shared/prometheus"
 	"github.com/knative/test-infra/shared/prow"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/zipkin"
+	"knative.dev/serving/test"
 
 	// Mysteriously required to support GCP auth (required by k8s libs). Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"

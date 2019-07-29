@@ -21,7 +21,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	ping "github.com/knative/serving/test/test_images/grpc-ping/proto"
+	ping "knative.dev/serving/test/test_images/grpc-ping/proto"
 )
 
 const port = ":8080"

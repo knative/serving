@@ -41,13 +41,17 @@ var (
 		"actual_pods",
 		"Number of pods that are allocated currently",
 		stats.UnitDimensionless)
+	excessBurstCapacityM = stats.Float64(
+		"excess_burst_capacity",
+		"Excess burst capacity overserved over the stable window",
+		stats.UnitDimensionless)
 	stableRequestConcurrencyM = stats.Float64(
 		"stable_request_concurrency",
-		"Average of requests count per observed pod in each stable window (default 60 seconds)",
+		"Average of requests count per observed pod over the stable window",
 		stats.UnitDimensionless)
 	panicRequestConcurrencyM = stats.Float64(
 		"panic_request_concurrency",
-		"Average of requests count per observed pod in each panic window (default 6 seconds)",
+		"Average of requests count per observed pod over the panic window",
 		stats.UnitDimensionless)
 	targetRequestConcurrencyM = stats.Float64(
 		"target_concurrency_per_pod",
@@ -114,13 +118,19 @@ func register() {
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
 		&view.View{
-			Description: "Average of requests count in each 60 second stable window",
+			Description: "Average of requests count over the stable window",
 			Measure:     stableRequestConcurrencyM,
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
 		&view.View{
-			Description: "Average of requests count in each 6 second panic window",
+			Description: "Current excess burst capacity over average request count over the stable window",
+			Measure:     excessBurstCapacityM,
+			Aggregation: view.LastValue(),
+			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
+		},
+		&view.View{
+			Description: "Average of requests count over the panic window",
 			Measure:     panicRequestConcurrencyM,
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
@@ -151,6 +161,7 @@ type StatsReporter interface {
 	ReportStableRequestConcurrency(v float64) error
 	ReportPanicRequestConcurrency(v float64) error
 	ReportTargetRequestConcurrency(v float64) error
+	ReportExcessBurstCapacity(v float64) error
 	ReportPanic(v int64) error
 }
 
@@ -169,7 +180,6 @@ func valueOrUnknown(v string) string {
 
 // NewStatsReporter creates a reporter that collects and reports autoscaler metrics
 func NewStatsReporter(podNamespace string, service string, config string, revision string) (*Reporter, error) {
-
 	r := &Reporter{}
 
 	// Our tags are static. So, we can get away with creating a single context
@@ -203,6 +213,11 @@ func (r *Reporter) ReportRequestedPodCount(v int64) error {
 // ReportActualPodCount captures value v for actual pod count measure.
 func (r *Reporter) ReportActualPodCount(v int64) error {
 	return r.report(actualPodCountM.M(v))
+}
+
+// ReportExcessBurstCapacity captures value v for excess target burst capacity.
+func (r *Reporter) ReportExcessBurstCapacity(v float64) error {
+	return r.report(excessBurstCapacityM.M(v))
 }
 
 // ReportStableRequestConcurrency captures value v for stable request concurrency measure.

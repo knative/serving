@@ -29,9 +29,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/gorilla/websocket"
-	"github.com/knative/serving/pkg/autoscaler"
-	stats "github.com/knative/serving/pkg/autoscaler/statserver"
 	"golang.org/x/sync/errgroup"
+	"knative.dev/serving/pkg/autoscaler"
+	stats "knative.dev/serving/pkg/autoscaler/statserver"
+
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func TestServerLifecycle(t *testing.T) {
@@ -82,8 +84,8 @@ func TestStatsReceived(t *testing.T) {
 
 	statSink := dialOk(server.ListenAddr(), t)
 
-	assertReceivedOk(newStatMessage("test-namespace/test-revision", "activator1", 2.1, 51), statSink, statsCh, t)
-	assertReceivedOk(newStatMessage("test-namespace/test-revision2", "activator2", 2.2, 30), statSink, statsCh, t)
+	assertReceivedOk(newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, t)
+	assertReceivedOk(newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision2"}, "activator2", 2.2, 30), statSink, statsCh, t)
 
 	closeSink(statSink, t)
 }
@@ -97,14 +99,14 @@ func TestServerShutdown(t *testing.T) {
 	listenAddr := server.ListenAddr()
 	statSink := dialOk(listenAddr, t)
 
-	assertReceivedOk(newStatMessage("test-namespace/test-revision", "activator1", 2.1, 51), statSink, statsCh, t)
+	assertReceivedOk(newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, t)
 
 	server.Shutdown(time.Second)
 	// We own the channel.
 	close(statsCh)
 
 	// Send a statistic to the server
-	send(statSink, newStatMessage("test-namespace/test-revision2", "activator2", 2.2, 30), t)
+	send(statSink, newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision2"}, "activator2", 2.2, 30), t)
 
 	// Check the statistic was not received
 	_, ok := <-statsCh
@@ -144,7 +146,7 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 	listenAddr := server.ListenAddr()
 	statSink := dialOk(listenAddr, t)
 
-	assertReceivedOk(newStatMessage("test-namespace/test-revision", "activator1", 2.1, 51), statSink, statsCh, t)
+	assertReceivedOk(newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, t)
 
 	closeSink(statSink, t)
 
@@ -163,7 +165,7 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 	server.Shutdown(time.Second)
 }
 
-func newStatMessage(revKey string, podName string, averageConcurrentRequests float64, requestCount float64) *autoscaler.StatMessage {
+func newStatMessage(revKey types.NamespacedName, podName string, averageConcurrentRequests float64, requestCount float64) *autoscaler.StatMessage {
 	return &autoscaler.StatMessage{
 		Key: revKey,
 		Stat: autoscaler.Stat{

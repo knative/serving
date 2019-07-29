@@ -58,6 +58,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
@@ -85,6 +86,7 @@ func TestConfiguration(t *testing.T) {
 		wantErr: false,
 		wantConfig: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
@@ -163,6 +165,7 @@ func TestConfiguration(t *testing.T) {
 		wantErr: false,
 		wantConfig: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
@@ -181,6 +184,7 @@ func TestConfiguration(t *testing.T) {
 		wantErr: false,
 		wantConfig: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
@@ -199,6 +203,7 @@ func TestConfiguration(t *testing.T) {
 		wantErr: false,
 		wantConfig: &Config{
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
@@ -218,6 +223,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			IstioOutboundIPRanges:      "10.10.10.0/24",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
@@ -237,6 +243,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			IstioOutboundIPRanges:      "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
@@ -256,6 +263,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
@@ -275,6 +283,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "foo-ingress",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
@@ -290,11 +299,33 @@ func TestConfiguration(t *testing.T) {
 			},
 		},
 	}, {
+		name:    "network configuration with non-Cert-Manager Certificate type",
+		wantErr: false,
+		wantConfig: &Config{
+			IstioOutboundIPRanges:      "*",
+			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    "foo-cert",
+			DomainTemplate:             DefaultDomainTemplate,
+			TagTemplate:                DefaultTagTemplate,
+			HTTPProtocol:               HTTPEnabled,
+		},
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      ConfigName,
+			},
+			Data: map[string]string{
+				IstioOutboundIPRangesKey:   "*",
+				DefaultCertificateClassKey: "foo-cert",
+			},
+		},
+	}, {
 		name:    "network configuration with diff domain template",
 		wantErr: false,
 		wantConfig: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "foo-ingress",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             nonDefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			HTTPProtocol:               HTTPEnabled,
@@ -390,6 +421,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			AutoTLS:                    true,
@@ -411,6 +443,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			AutoTLS:                    false,
@@ -432,6 +465,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			AutoTLS:                    true,
@@ -454,6 +488,7 @@ func TestConfiguration(t *testing.T) {
 		wantConfig: &Config{
 			IstioOutboundIPRanges:      "*",
 			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass:    CertManagerCertificateClassName,
 			DomainTemplate:             DefaultDomainTemplate,
 			TagTemplate:                DefaultTagTemplate,
 			AutoTLS:                    true,
@@ -600,6 +635,66 @@ func TestIsKubeletProbe(t *testing.T) {
 	req.Header.Set(KubeletProbeHeaderName, "no matter")
 	if !IsKubeletProbe(req) {
 		t.Error("kubelet probe but not counted as such")
+	}
+}
+
+func TestKnativeProbeHeader(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, "http://example.com/", nil)
+	if err != nil {
+		t.Fatalf("Error building request: %v", err)
+	}
+	if h := KnativeProbeHeader(req); h != "" {
+		t.Errorf("KnativeProbeHeader(req)=%v, want empty string", h)
+	}
+	want := "activator"
+	req.Header.Set(ProbeHeaderName, want)
+	if h := KnativeProbeHeader(req); h != want {
+		t.Errorf("KnativeProbeHeader(req)=%v, want %v", h, want)
+	}
+	req.Header.Set(ProbeHeaderName, "")
+	if h := KnativeProbeHeader(req); h != "" {
+		t.Errorf("KnativeProbeHeader(req)=%v, want empty string", h)
+	}
+}
+
+func TestKnativeProxyHeader(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, "http://example.com/", nil)
+	if err != nil {
+		t.Fatalf("Error building request: %v", err)
+	}
+	if h := KnativeProxyHeader(req); h != "" {
+		t.Errorf("KnativeProxyHeader(req)=%v, want empty string", h)
+	}
+	want := "activator"
+	req.Header.Set(ProxyHeaderName, want)
+	if h := KnativeProxyHeader(req); h != want {
+		t.Errorf("KnativeProxyHeader(req)=%v, want %v", h, want)
+	}
+	req.Header.Set(ProxyHeaderName, "")
+	if h := KnativeProxyHeader(req); h != "" {
+		t.Errorf("KnativeProxyHeader(req)=%v, want empty string", h)
+	}
+}
+
+func TestIsProbe(t *testing.T) {
+	// Not a probe
+	req, err := http.NewRequest(http.MethodGet, "http://example.com/", nil)
+	if err != nil {
+		t.Fatalf("Error building request: %v", err)
+	}
+	if IsProbe(req) {
+		t.Error("Not a probe but counted as such")
+	}
+	// Kubelet probe
+	req.Header.Set("User-Agent", KubeProbeUAPrefix+"1.14")
+	if !IsProbe(req) {
+		t.Error("Kubelet probe but not counted as such")
+	}
+	// Knative probe
+	req.Header.Del("User-Agent")
+	req.Header.Set(ProbeHeaderName, "activator")
+	if !IsProbe(req) {
+		t.Error("Knative probe but not counted as such")
 	}
 }
 

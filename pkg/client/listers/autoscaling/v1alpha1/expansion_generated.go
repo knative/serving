@@ -18,6 +18,14 @@ limitations under the License.
 
 package v1alpha1
 
+// MetricListerExpansion allows custom methods to be added to
+// MetricLister.
+type MetricListerExpansion interface{}
+
+// MetricNamespaceListerExpansion allows custom methods to be added to
+// MetricNamespaceLister.
+type MetricNamespaceListerExpansion interface{}
+
 // PodAutoscalerListerExpansion allows custom methods to be added to
 // PodAutoscalerLister.
 type PodAutoscalerListerExpansion interface{}

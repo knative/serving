@@ -26,10 +26,12 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/knative/serving/pkg/resources"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/resources"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // Autoscaler stores current state of an instance of an autoscaler.
@@ -66,8 +68,24 @@ func New(
 		return nil, errors.New("stats reporter must not be nil")
 	}
 
-	// A new instance of autoscaler is created without panic mode.
-	reporter.ReportPanic(0)
+	// We always start in the panic mode, if the deployment is scaled up over 1 pod.
+	// If the scale is 0 or 1, normal Autoscaler behavior is fine.
+	// When Autoscaler restarts we lose metric history, which causes us to
+	// momentarily scale down, and that is not a desired behaviour.
+	// Thus, we're keeping at least the current scale until we
+	// accumulate enough data to make conscious decisions.
+	curC, err := podCounter.ReadyCount()
+	if err != nil {
+		return nil, fmt.Errorf("initial pod count failed: %v", err)
+	}
+	var pt *time.Time
+	if curC > 1 {
+		pt = ptr.Time(time.Now())
+		// A new instance of autoscaler is created in panic mode.
+		reporter.ReportPanic(1)
+	} else {
+		reporter.ReportPanic(0)
+	}
 
 	return &Autoscaler{
 		namespace:    namespace,
@@ -76,6 +94,9 @@ func New(
 		podCounter:   podCounter,
 		deciderSpec:  deciderSpec,
 		reporter:     reporter,
+
+		panicTime:    pt,
+		maxPanicPods: int32(curC),
 	}, nil
 }
 
@@ -104,8 +125,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	// Use 1 if there are zero current pods.
 	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
 
-	metricKey := NewMetricKey(a.namespace, a.revision)
-	observedStableConcurrency, observedPanicConcurrency, err := a.metricClient.StableAndPanicConcurrency(metricKey)
+	metricKey := types.NamespacedName{Namespace: a.namespace, Name: a.revision}
+	observedStableConcurrency, observedPanicConcurrency, err := a.metricClient.StableAndPanicConcurrency(metricKey, now)
 	if err != nil {
 		if err == ErrNoData {
 			logger.Debug("No data to scale on yet")
@@ -166,14 +187,18 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	// that the deployment does not have enough capacity to serve the desired burst off hand.
 	// EBC = TotCapacity - Cur#ReqInFlight - TargetBurstCapacity
 	excessBC = int32(-1)
-	if a.deciderSpec.TargetBurstCapacity >= 0 {
-		excessBC = int32(float64(originalReadyPodsCount)*a.deciderSpec.TotalConcurrency - observedStableConcurrency -
-			a.deciderSpec.TargetBurstCapacity)
+	switch {
+	case a.deciderSpec.TargetBurstCapacity == 0:
+		excessBC = 0
+	case a.deciderSpec.TargetBurstCapacity >= 0:
+		excessBC = int32(math.Floor(float64(originalReadyPodsCount)*a.deciderSpec.TotalConcurrency - observedStableConcurrency -
+			a.deciderSpec.TargetBurstCapacity))
 		logger.Debugf("PodCount=%v TotalConc=%v ObservedStableConc=%v TargetBC=%v ExcessBC=%v",
 			originalReadyPodsCount,
 			a.deciderSpec.TotalConcurrency,
 			observedStableConcurrency, a.deciderSpec.TargetBurstCapacity, excessBC)
 	}
+	a.reporter.ReportExcessBurstCapacity(float64(excessBC))
 
 	a.reporter.ReportDesiredPodCount(int64(desiredPodCount))
 	return desiredPodCount, excessBC, true

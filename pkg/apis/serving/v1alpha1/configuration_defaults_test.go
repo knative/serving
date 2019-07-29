@@ -26,8 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"knative.dev/pkg/ptr"
 
-	"github.com/knative/serving/pkg/apis/config"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 var (
@@ -67,8 +67,9 @@ func TestConfigurationDefaulting(t *testing.T) {
 							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 						},
 						DeprecatedContainer: &corev1.Container{
-							Name:      config.DefaultUserContainerName,
-							Resources: defaultResources,
+							Name:           config.DefaultUserContainerName,
+							Resources:      defaultResources,
+							ReadinessProbe: defaultProbe,
 						},
 					},
 				},
@@ -96,9 +97,10 @@ func TestConfigurationDefaulting(t *testing.T) {
 							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
-									Name:      config.DefaultUserContainerName,
-									Image:     "busybox",
-									Resources: defaultResources,
+									Name:           config.DefaultUserContainerName,
+									Image:          "busybox",
+									Resources:      defaultResources,
+									ReadinessProbe: defaultProbe,
 								}},
 							},
 						},
@@ -129,8 +131,9 @@ func TestConfigurationDefaulting(t *testing.T) {
 							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
-									Name:      config.DefaultUserContainerName,
-									Resources: defaultResources,
+									Name:           config.DefaultUserContainerName,
+									Resources:      defaultResources,
+									ReadinessProbe: defaultProbe,
 								}},
 							},
 						},
@@ -149,7 +152,8 @@ func TestConfigurationDefaulting(t *testing.T) {
 							TimeoutSeconds:       ptr.Int64(99),
 						},
 						DeprecatedContainer: &corev1.Container{
-							Resources: defaultResources,
+							Resources:      defaultResources,
+							ReadinessProbe: defaultProbe,
 						},
 					},
 				},
@@ -164,8 +168,9 @@ func TestConfigurationDefaulting(t *testing.T) {
 							TimeoutSeconds:       ptr.Int64(99),
 						},
 						DeprecatedContainer: &corev1.Container{
-							Name:      config.DefaultUserContainerName,
-							Resources: defaultResources,
+							Name:           config.DefaultUserContainerName,
+							Resources:      defaultResources,
+							ReadinessProbe: defaultProbe,
 						},
 					},
 				},

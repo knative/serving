@@ -18,14 +18,6 @@ package v1alpha1
 
 import (
 	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
-	av1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	networking "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	certmanagerlisters "github.com/knative/serving/pkg/client/certmanager/listers/certmanager/v1alpha1"
-	fakeservingclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	palisters "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
-	networkinglisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
-	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -42,6 +34,14 @@ import (
 	fakesharedclientset "knative.dev/pkg/client/clientset/versioned/fake"
 	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
 	"knative.dev/pkg/reconciler/testing"
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	networking "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	certmanagerlisters "knative.dev/serving/pkg/client/certmanager/listers/certmanager/v1alpha1"
+	fakeservingclientset "knative.dev/serving/pkg/client/clientset/versioned/fake"
+	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
+	networkinglisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
+	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 )
 
 var clientSetSchemes = []func(*runtime.Scheme) error{
@@ -133,6 +133,11 @@ func (l *Listers) GetPodAutoscalerLister() palisters.PodAutoscalerLister {
 	return palisters.NewPodAutoscalerLister(l.IndexerFor(&av1alpha1.PodAutoscaler{}))
 }
 
+// GetMetricLister returns a lister for the Metric objects.
+func (l *Listers) GetMetricLister() palisters.MetricLister {
+	return palisters.NewMetricLister(l.IndexerFor(&av1alpha1.Metric{}))
+}
+
 // GetHorizontalPodAutoscalerLister gets lister for HorizontalPodAutoscaler resources.
 func (l *Listers) GetHorizontalPodAutoscalerLister() autoscalingv2beta1listers.HorizontalPodAutoscalerLister {
 	return autoscalingv2beta1listers.NewHorizontalPodAutoscalerLister(l.IndexerFor(&autoscalingv2beta1.HorizontalPodAutoscaler{}))
@@ -141,6 +146,11 @@ func (l *Listers) GetHorizontalPodAutoscalerLister() autoscalingv2beta1listers.H
 // GetClusterIngressLister get lister for ClusterIngress resource.
 func (l *Listers) GetClusterIngressLister() networkinglisters.ClusterIngressLister {
 	return networkinglisters.NewClusterIngressLister(l.IndexerFor(&networking.ClusterIngress{}))
+}
+
+// GetIngressLister get lister for Ingress resource.
+func (l *Listers) GetIngressLister() networkinglisters.IngressLister {
+	return networkinglisters.NewIngressLister(l.IndexerFor(&networking.Ingress{}))
 }
 
 // GetCertificateLister get lister for Certificate resource.

@@ -21,7 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/knative/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/config"
 )
 
 // SetDefaults implements apis.Defaultable
@@ -44,48 +44,54 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 		rs.TimeoutSeconds = &ts
 	}
 
-	var container corev1.Container
-	if len(rs.PodSpec.Containers) == 1 {
-		container = rs.PodSpec.Containers[0]
-	}
-	defer func() {
-		rs.PodSpec.Containers = []corev1.Container{container}
-	}()
-
-	if container.Name == "" {
-		container.Name = cfg.Defaults.UserContainerName(ctx)
-	}
-
-	if container.Resources.Requests == nil {
-		container.Resources.Requests = corev1.ResourceList{}
-	}
-	if _, ok := container.Resources.Requests[corev1.ResourceCPU]; !ok {
-		if rsrc := cfg.Defaults.RevisionCPURequest; rsrc != nil {
-			container.Resources.Requests[corev1.ResourceCPU] = *rsrc
+	for idx := range rs.PodSpec.Containers {
+		if rs.PodSpec.Containers[idx].Name == "" {
+			rs.PodSpec.Containers[idx].Name = cfg.Defaults.UserContainerName(ctx)
 		}
-	}
-	if _, ok := container.Resources.Requests[corev1.ResourceMemory]; !ok {
-		if rsrc := cfg.Defaults.RevisionMemoryRequest; rsrc != nil {
-			container.Resources.Requests[corev1.ResourceMemory] = *rsrc
-		}
-	}
 
-	if container.Resources.Limits == nil {
-		container.Resources.Limits = corev1.ResourceList{}
-	}
-	if _, ok := container.Resources.Limits[corev1.ResourceCPU]; !ok {
-		if rsrc := cfg.Defaults.RevisionCPULimit; rsrc != nil {
-			container.Resources.Limits[corev1.ResourceCPU] = *rsrc
+		if rs.PodSpec.Containers[idx].Resources.Requests == nil {
+			rs.PodSpec.Containers[idx].Resources.Requests = corev1.ResourceList{}
 		}
-	}
-	if _, ok := container.Resources.Limits[corev1.ResourceMemory]; !ok {
-		if rsrc := cfg.Defaults.RevisionMemoryLimit; rsrc != nil {
-			container.Resources.Limits[corev1.ResourceMemory] = *rsrc
+		if _, ok := rs.PodSpec.Containers[idx].Resources.Requests[corev1.ResourceCPU]; !ok {
+			if rsrc := cfg.Defaults.RevisionCPURequest; rsrc != nil {
+				rs.PodSpec.Containers[idx].Resources.Requests[corev1.ResourceCPU] = *rsrc
+			}
 		}
-	}
+		if _, ok := rs.PodSpec.Containers[idx].Resources.Requests[corev1.ResourceMemory]; !ok {
+			if rsrc := cfg.Defaults.RevisionMemoryRequest; rsrc != nil {
+				rs.PodSpec.Containers[idx].Resources.Requests[corev1.ResourceMemory] = *rsrc
+			}
+		}
 
-	vms := container.VolumeMounts
-	for i := range vms {
-		vms[i].ReadOnly = true
+		if rs.PodSpec.Containers[idx].Resources.Limits == nil {
+			rs.PodSpec.Containers[idx].Resources.Limits = corev1.ResourceList{}
+		}
+		if _, ok := rs.PodSpec.Containers[idx].Resources.Limits[corev1.ResourceCPU]; !ok {
+			if rsrc := cfg.Defaults.RevisionCPULimit; rsrc != nil {
+				rs.PodSpec.Containers[idx].Resources.Limits[corev1.ResourceCPU] = *rsrc
+			}
+		}
+		if _, ok := rs.PodSpec.Containers[idx].Resources.Limits[corev1.ResourceMemory]; !ok {
+			if rsrc := cfg.Defaults.RevisionMemoryLimit; rsrc != nil {
+				rs.PodSpec.Containers[idx].Resources.Limits[corev1.ResourceMemory] = *rsrc
+			}
+		}
+		if rs.PodSpec.Containers[idx].ReadinessProbe == nil {
+			rs.PodSpec.Containers[idx].ReadinessProbe = &corev1.Probe{}
+		}
+		if rs.PodSpec.Containers[idx].ReadinessProbe.TCPSocket == nil &&
+			rs.PodSpec.Containers[idx].ReadinessProbe.HTTPGet == nil &&
+			rs.PodSpec.Containers[idx].ReadinessProbe.Exec == nil {
+			rs.PodSpec.Containers[idx].ReadinessProbe.TCPSocket = &corev1.TCPSocketAction{}
+		}
+
+		if rs.PodSpec.Containers[idx].ReadinessProbe.SuccessThreshold == 0 {
+			rs.PodSpec.Containers[idx].ReadinessProbe.SuccessThreshold = 1
+		}
+
+		vms := rs.PodSpec.Containers[idx].VolumeMounts
+		for i := range vms {
+			vms[i].ReadOnly = true
+		}
 	}
 }

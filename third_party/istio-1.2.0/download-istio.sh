@@ -4,7 +4,11 @@
 ISTIO_VERSION=1.2.0
 DOWNLOAD_URL=https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-linux.tar.gz
 
-wget $DOWNLOAD_URL
+wget --no-check-certificate $DOWNLOAD_URL
+if [ $? != 0 ]; then
+  echo "Failed to download istio package"
+  exit 1
+fi
 tar xzf istio-${ISTIO_VERSION}-linux.tar.gz
 
 ( # subshell in downloaded directory
@@ -16,6 +20,12 @@ helm template --namespace=istio-system \
   `# Removing trailing whitespaces to make automation happy` \
   | sed 's/[ \t]*$//' \
   > ../istio-crds.yaml
+
+# Create a custom cluster local gateway, based on the Istio custom-gateway template.
+helm template --namespace=istio-system install/kubernetes/helm/istio --values ../values-extras.yaml \
+  `# Removing trailing whitespaces to make automation happy` \
+  | sed 's/[ \t]*$//' \
+  > ../istio-knative-extras.yaml
 
 # A template with sidecar injection enabled.
 helm template --namespace=istio-system install/kubernetes/helm/istio --values ../values.yaml \

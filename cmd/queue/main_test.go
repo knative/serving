@@ -26,15 +26,21 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-
-	"github.com/knative/serving/pkg/activator"
-	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/queue"
-	logtesting "knative.dev/pkg/logging/testing"
+	openzipkin "github.com/openzipkin/zipkin-go"
+	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
+	reporterrecorder "github.com/openzipkin/zipkin-go/reporter/recorder"
+	"go.opencensus.io/plugin/ochttp"
+	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/tracing"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
 )
 
 const wantHost = "a-better-host.com"
@@ -70,7 +76,7 @@ func TestHandlerReqEvent(t *testing.T) {
 	params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	breaker := queue.NewBreaker(params)
 	reqChan := make(chan queue.ReqEvent, 10)
-	h := handler(reqChan, breaker, proxy)
+	h := handler(reqChan, breaker, proxy, func() bool { return true })
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -91,48 +97,56 @@ func TestHandlerReqEvent(t *testing.T) {
 	}
 }
 
-func TestProberHandler(t *testing.T) {
-	defer logtesting.ClearAll()
-	logger = logtesting.TestLogger(t)
+func TestProbeHandler(t *testing.T) {
+	testcases := []struct {
+		name          string
+		prober        func() bool
+		wantCode      int
+		wantBody      string
+		requestHeader string
+	}{{
+		name:          "unexpected probe header",
+		prober:        func() bool { return true },
+		wantCode:      http.StatusBadRequest,
+		wantBody:      fmt.Sprintf(badProbeTemplate, "test-probe"),
+		requestHeader: "test-probe",
+	}, {
+		name:          "true probe function",
+		prober:        func() bool { return true },
+		wantCode:      http.StatusOK,
+		wantBody:      queue.Name,
+		requestHeader: queue.Name,
+	}, {
+		name:          "nil probe function",
+		prober:        nil,
+		wantCode:      http.StatusInternalServerError,
+		wantBody:      "no probe",
+		requestHeader: queue.Name,
+	}, {
+		name:          "false probe function",
+		prober:        func() bool { return false },
+		wantCode:      http.StatusServiceUnavailable,
+		wantBody:      "container not ready",
+		requestHeader: queue.Name,
+	}}
 
-	// All arguments are needed only for serving.
-	h := handler(nil, nil, nil)
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			writer := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+			req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 
-	writer := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+			h := handler(nil, nil, nil, tc.prober)
+			h(writer, req)
 
-	req.Header.Set(network.ProbeHeaderName, "test-probe")
-	req.Header.Set(network.ProxyHeaderName, activator.Name)
-
-	h(writer, req)
-
-	// Should get 400.
-	if got, want := writer.Code, http.StatusBadRequest; got != want {
-		t.Errorf("Bad probe status = %v, want: %v", got, want)
-	}
-	if got, want := strings.TrimSpace(writer.Body.String()), fmt.Sprintf(badProbeTemplate, "test-probe"); got != want {
-		// \r\n might be inserted, etc.
-		t.Errorf("Bad probe body = %q, want: %q, diff: %s", got, want, cmp.Diff(got, want))
-	}
-
-	// Fix up the header.
-	writer = httptest.NewRecorder()
-	req.Header.Set(network.ProbeHeaderName, queue.Name)
-
-	server := httptest.NewServer(http.HandlerFunc(h))
-	defer server.Close()
-	userTargetAddress = strings.TrimPrefix(server.URL, "http://")
-	h(writer, req)
-
-	// Should get 200.
-	if got, want := writer.Code, http.StatusOK; got != want {
-		t.Errorf("Good probe status = %v, want: %v", got, want)
-	}
-
-	// Body should be the `queue`.
-	if got, want := strings.TrimSpace(writer.Body.String()), queue.Name; got != want {
-		// \r\n might be inserted, etc.
-		t.Errorf("Good probe body = %q, want: %q, diff: %s", got, want, cmp.Diff(got, want))
+			if got, want := writer.Code, tc.wantCode; got != want {
+				t.Errorf("probe status = %v, want: %v", got, want)
+			}
+			if got, want := strings.TrimSpace(writer.Body.String()), tc.wantBody; got != want {
+				// \r\n might be inserted, etc.
+				t.Errorf("probe body = %q, want: %q, diff: %s", got, want, cmp.Diff(got, want))
+			}
+		})
 	}
 }
 
@@ -164,15 +178,16 @@ func TestCreateVarLogLink(t *testing.T) {
 
 func TestProbeQueueConnectionFailure(t *testing.T) {
 	port := 12345 // some random port (that's not listening)
-	if err := probeQueueHealthPath(port, time.Second); err == nil {
+
+	if err := probeQueueHealthPath(port, 1); err == nil {
 		t.Error("Expected error, got nil")
 	}
 }
 
 func TestProbeQueueNotReady(t *testing.T) {
-	queueProbed := false
+	queueProbed := ptr.Int32(0)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		queueProbed = true
+		atomic.AddInt32(queueProbed, 1)
 		w.WriteHeader(http.StatusBadRequest)
 	}))
 
@@ -188,21 +203,21 @@ func TestProbeQueueNotReady(t *testing.T) {
 		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
 	}
 
-	err = probeQueueHealthPath(port, 1*time.Second)
+	err = probeQueueHealthPath(port, 1)
 
 	if diff := cmp.Diff(err.Error(), "probe returned not ready"); diff != "" {
 		t.Errorf("Unexpected not ready message: %s", diff)
 	}
 
-	if !queueProbed {
+	if atomic.LoadInt32(queueProbed) == 0 {
 		t.Errorf("Expected the queue proxy server to be probed")
 	}
 }
 
 func TestProbeQueueReady(t *testing.T) {
-	queueProbed := false
+	queueProbed := ptr.Int32(0)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		queueProbed = true
+		atomic.AddInt32(queueProbed, 1)
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -218,21 +233,52 @@ func TestProbeQueueReady(t *testing.T) {
 		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
 	}
 
-	if err = probeQueueHealthPath(port, 1*time.Second); err != nil {
-		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
+	if err = probeQueueHealthPath(port, 1); err != nil {
+		t.Errorf("probeQueueHealthPath(%d, 1s) = %s", port, err)
 	}
 
-	if !queueProbed {
+	if atomic.LoadInt32(queueProbed) == 0 {
+		t.Errorf("Expected the queue proxy server to be probed")
+	}
+}
+
+func TestProbeQueueTimeout(t *testing.T) {
+	queueProbed := ptr.Int32(0)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(queueProbed, 1)
+		time.Sleep(2 * time.Second)
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	defer ts.Close()
+
+	u, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatalf("%s is not a valid URL: %v", ts.URL, err)
+	}
+
+	port, err := strconv.Atoi(u.Port())
+	if err != nil {
+		t.Fatalf("failed to convert port(%s) to int", u.Port())
+	}
+
+	timeout := 1
+	if err = probeQueueHealthPath(port, timeout); err == nil {
+		t.Errorf("Expected probeQueueHealthPath(%d, %v) to return timeout error", port, timeout)
+	}
+
+	ts.Close()
+
+	if atomic.LoadInt32(queueProbed) == 0 {
 		t.Errorf("Expected the queue proxy server to be probed")
 	}
 }
 
 func TestProbeQueueDelayedReady(t *testing.T) {
-	count := 0
+	count := ptr.Int32(0)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if count < 9 {
+		if atomic.AddInt32(count, 1) < 9 {
 			w.WriteHeader(http.StatusBadRequest)
-			count++
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -250,7 +296,135 @@ func TestProbeQueueDelayedReady(t *testing.T) {
 		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
 	}
 
-	if err := probeQueueHealthPath(port, time.Second); err != nil {
+	timeout := 0
+	if err := probeQueueHealthPath(port, timeout); err != nil {
 		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
+	}
+}
+
+func TestQueueTraceSpans(t *testing.T) {
+	testcases := []struct {
+		name          string
+		prober        func() bool
+		wantSpans     int
+		requestHeader string
+		probeWillFail bool
+		probeTrace    bool
+		enableTrace   bool
+	}{{
+		name:          "proxy trace",
+		prober:        func() bool { return true },
+		wantSpans:     2,
+		requestHeader: "",
+		probeWillFail: false,
+		probeTrace:    false,
+		enableTrace:   true,
+	}, {
+		name:          "true prober function with probe trace",
+		prober:        func() bool { return true },
+		wantSpans:     1,
+		requestHeader: queue.Name,
+		probeWillFail: false,
+		probeTrace:    true,
+		enableTrace:   true,
+	}, {
+		name:          "unexpected probe header",
+		prober:        func() bool { return true },
+		wantSpans:     1,
+		requestHeader: "test-probe",
+		probeWillFail: true,
+		probeTrace:    true,
+		enableTrace:   true,
+	}, {
+		name:          "nil prober function",
+		prober:        nil,
+		wantSpans:     1,
+		requestHeader: queue.Name,
+		probeWillFail: true,
+		probeTrace:    true,
+		enableTrace:   true,
+	}, {
+		name:          "false prober function",
+		prober:        func() bool { return false },
+		wantSpans:     1,
+		requestHeader: queue.Name,
+		probeWillFail: true,
+		probeTrace:    true,
+		enableTrace:   true,
+	}, {
+		name:          "no traces",
+		prober:        func() bool { return true },
+		wantSpans:     0,
+		requestHeader: queue.Name,
+		probeWillFail: false,
+		probeTrace:    false,
+		enableTrace:   false,
+	}}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create tracer with reporter recorder
+			reporter := reporterrecorder.NewReporter()
+			defer reporter.Close()
+			endpoint, _ := openzipkin.NewEndpoint("test", "localhost:1234")
+			oct := tracing.NewOpenCensusTracer(tracing.WithZipkinExporter(func(cfg *tracingconfig.Config) (zipkinreporter.Reporter, error) {
+				return reporter, nil
+			}, endpoint))
+			defer oct.Finish()
+
+			cfg := tracingconfig.Config{
+				Enable: tc.enableTrace,
+				Debug:  true,
+			}
+			if err := oct.ApplyConfig(&cfg); err != nil {
+				t.Errorf("Failed to apply tracer config: %v", err)
+			}
+
+			writer := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+
+			if !tc.probeTrace {
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+				}))
+				defer server.Close()
+				serverURL, _ := url.Parse(server.URL)
+
+				proxy := httputil.NewSingleHostReverseProxy(serverURL)
+				params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
+				breaker := queue.NewBreaker(params)
+				reqChan := make(chan queue.ReqEvent, 10)
+
+				proxy.Transport = &ochttp.Transport{
+					Base: network.AutoTransport,
+				}
+
+				h := handler(reqChan, breaker, proxy, func() bool { return false })
+				h(writer, req)
+			} else {
+				h := handler(nil, nil, nil, tc.prober)
+				req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
+				h(writer, req)
+			}
+
+			gotSpans := reporter.Flush()
+			if len(gotSpans) != tc.wantSpans {
+				t.Errorf("Got %d spans, expected %d", len(gotSpans), tc.wantSpans)
+			}
+			spanNames := []string{"probe", "/", "proxy"}
+			if !tc.probeTrace {
+				spanNames = spanNames[1:]
+			}
+			for i, spanName := range spanNames[0:tc.wantSpans] {
+				if gotSpans[i].Name != spanName {
+					t.Errorf("Got span %d named %q, expected %q", i, gotSpans[i].Name, spanName)
+				}
+				if tc.probeWillFail {
+					if gotSpans[i].Annotations[0].Value != "error" {
+						t.Errorf("Expected error as value for failed span Annotation, got %q", gotSpans[i].Annotations[0].Value)
+					}
+				}
+			}
+		})
 	}
 }

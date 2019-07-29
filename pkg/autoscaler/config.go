@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/knative/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/autoscaling"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -161,8 +161,8 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 }
 
 func validate(lc *Config) (*Config, error) {
-	if lc.ScaleToZeroGracePeriod < 30*time.Second {
-		return nil, fmt.Errorf("scale-to-zero-grace-period must be at least 30s, got %v", lc.ScaleToZeroGracePeriod)
+	if lc.ScaleToZeroGracePeriod < autoscaling.WindowMin {
+		return nil, fmt.Errorf("scale-to-zero-grace-period must be at least %v, got %v", autoscaling.WindowMin, lc.ScaleToZeroGracePeriod)
 	}
 	if lc.TargetBurstCapacity < 0 && lc.TargetBurstCapacity != -1 {
 		return nil, fmt.Errorf("target-burst-capacity must be non-negative, got %f", lc.TargetBurstCapacity)
@@ -187,7 +187,7 @@ func validate(lc *Config) (*Config, error) {
 
 	effPW := time.Duration(lc.PanicWindowPercentage / 100 * float64(lc.StableWindow))
 	if effPW < BucketSize || effPW > lc.StableWindow {
-		return nil, fmt.Errorf("panic-window-percentage = %v, must be in [%v, 100] interval", lc.PanicWindow, 100*float64(BucketSize)/float64(lc.StableWindow))
+		return nil, fmt.Errorf("panic-window-percentage = %v, must be in [%v, 100] interval", lc.PanicWindowPercentage, 100*float64(BucketSize)/float64(lc.StableWindow))
 	}
 
 	return lc, nil

@@ -76,18 +76,21 @@ func (b *Breaker) Maybe(ctx context.Context, thunk func()) bool {
 		return false
 	case b.pendingRequests <- struct{}{}:
 		// Pending request has capacity.
+		// Defer releasing pending request queue.
+		defer func() {
+			<-b.pendingRequests
+		}()
+
 		// Wait for capacity in the active queue.
 		if !b.sem.acquire(ctx) {
 			return false
 		}
-		// Defer releasing capacity in the active and pending request queue.
-		defer func() {
-			// It's safe to ignore the error returned by release since we
-			// make sure the semaphore is only manipulated here and acquire
-			// + release calls are equally paired.
-			b.sem.release()
-			<-b.pendingRequests
-		}()
+		// Defer releasing capacity in the active.
+		// It's safe to ignore the error returned by release since we
+		// make sure the semaphore is only manipulated here and acquire
+		// + release calls are equally paired.
+		defer b.sem.release()
+
 		// Do the thing.
 		thunk()
 		// Report success
@@ -110,9 +113,6 @@ func (b *Breaker) Capacity() int {
 // in the rotation. Attempting to add more capacity then the max will result in error.
 // Initial capacity is the initial number of free tokens.
 func newSemaphore(maxCapacity, initialCapacity int) *semaphore {
-	if initialCapacity < 0 || initialCapacity > maxCapacity {
-		panic(fmt.Sprintf("Initial capacity must be between 0 and maximal capacity. Got %v.", initialCapacity))
-	}
 	queue := make(chan struct{}, maxCapacity)
 	sem := &semaphore{queue: queue}
 	if initialCapacity > 0 {

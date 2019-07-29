@@ -23,20 +23,19 @@ import (
 
 	perrors "github.com/pkg/errors"
 
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/apis/networking"
-	nv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/autoscaler"
-	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
-	nlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
-	"github.com/knative/serving/pkg/reconciler/autoscaling/resources"
-	anames "github.com/knative/serving/pkg/reconciler/autoscaling/resources/names"
-	resourceutil "github.com/knative/serving/pkg/resources"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/logging"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/networking"
+	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	listers "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
+	nlisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
+	"knative.dev/serving/pkg/reconciler"
+	"knative.dev/serving/pkg/reconciler/autoscaling/config"
+	"knative.dev/serving/pkg/reconciler/autoscaling/resources"
+	anames "knative.dev/serving/pkg/reconciler/autoscaling/resources/names"
+	resourceutil "knative.dev/serving/pkg/resources"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -52,23 +51,15 @@ type Base struct {
 	PALister          listers.PodAutoscalerLister
 	ServiceLister     corev1listers.ServiceLister
 	SKSLister         nlisters.ServerlessServiceLister
-	Metrics           resources.Metrics
+	MetricLister      listers.MetricLister
 	ConfigStore       reconciler.ConfigStore
 	PSInformerFactory duck.InformerFactory
 }
 
 // ReconcileSKS reconciles a ServerlessService based on the given PodAutoscaler.
-func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, d *autoscaler.Decider) (*nv1alpha1.ServerlessService, error) {
+func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, mode nv1alpha1.ServerlessServiceOperationMode) (*nv1alpha1.ServerlessService, error) {
 	logger := logging.FromContext(ctx)
 
-	mode := nv1alpha1.SKSOperationModeServe
-	// We put activator in the serving path in two cases:
-	// 1. The revision is scaled to 0.
-	// 2. The excess burst capacity is negative.
-	if pa.Status.IsInactive() || (d != nil && d.Status.ExcessBurstCapacity < 0) {
-		logger.Debugf("SKS %s is in proxy mode: pa.IsInactive = %v, ebc = %d", pa.Name, pa.Status.IsInactive(), d.Status.ExcessBurstCapacity)
-		mode = nv1alpha1.SKSOperationModeProxy
-	}
 	sksName := anames.SKS(pa.Name)
 	sks, err := c.SKSLister.ServerlessServices(pa.Namespace).Get(sksName)
 	if errors.IsNotFound(err) {
@@ -110,9 +101,8 @@ func (c *Base) metricService(pa *pav1alpha1.PodAutoscaler) (*corev1.Service, err
 	var ret *corev1.Service
 	for _, s := range svcs {
 		// TODO(vagababov): determine if this is better to be in the ownership check.
-		// TODO(vagababov): remove the second check after 0.7 is cut.
 		// Found a match or we had nothing set up, then pick any of them, to reduce churn.
-		if s.Name == pa.Status.MetricsServiceName || pa.Status.MetricsServiceName == "" {
+		if s.Name == pa.Status.MetricsServiceName {
 			ret = s
 			continue
 		}
@@ -174,21 +164,23 @@ func (c *Base) ReconcileMetricsService(ctx context.Context, pa *pav1alpha1.PodAu
 // ReconcileMetric reconciles a metric instance out of the given PodAutoscaler to control metric collection.
 func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler, metricSN string) error {
 	desiredMetric := resources.MakeMetric(ctx, pa, metricSN, config.FromContext(ctx).Autoscaler)
-	metric, err := c.Metrics.Get(ctx, desiredMetric.Namespace, desiredMetric.Name)
+	metric, err := c.MetricLister.Metrics(desiredMetric.Namespace).Get(desiredMetric.Name)
 	if errors.IsNotFound(err) {
-		metric, err = c.Metrics.Create(ctx, desiredMetric)
+		_, err = c.ServingClientSet.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Create(desiredMetric)
 		if err != nil {
 			return perrors.Wrap(err, "error creating metric")
 		}
 	} else if err != nil {
 		return perrors.Wrap(err, "error fetching metric")
-	}
-
-	// Ignore status when reconciling
-	desiredMetric.Status = metric.Status
-	if !equality.Semantic.DeepEqual(desiredMetric, metric) {
-		if _, err = c.Metrics.Update(ctx, desiredMetric); err != nil {
-			return perrors.Wrap(err, "error updating metric")
+	} else {
+		// Ignore status when reconciling
+		desiredMetric.Status = metric.Status
+		if !equality.Semantic.DeepEqual(desiredMetric, metric) {
+			want := metric.DeepCopy()
+			want.Spec = desiredMetric.Spec
+			if _, err = c.ServingClientSet.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Update(want); err != nil {
+				return perrors.Wrap(err, "error updating metric")
+			}
 		}
 	}
 

@@ -27,20 +27,6 @@ import (
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
-	"github.com/knative/serving/pkg/activator"
-	activatorconfig "github.com/knative/serving/pkg/activator/config"
-	activatorhandler "github.com/knative/serving/pkg/activator/handler"
-	"github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/autoscaler"
-	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
-	"github.com/knative/serving/pkg/goversion"
-	pkghttp "github.com/knative/serving/pkg/http"
-	"github.com/knative/serving/pkg/logging"
-	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/queue"
-	"github.com/knative/serving/pkg/tracing"
-	tracingconfig "github.com/knative/serving/pkg/tracing/config"
 	zipkin "github.com/openzipkin/zipkin-go"
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -57,6 +43,20 @@ import (
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/version"
 	"knative.dev/pkg/websocket"
+	"knative.dev/serving/pkg/activator"
+	activatorconfig "knative.dev/serving/pkg/activator/config"
+	activatorhandler "knative.dev/serving/pkg/activator/handler"
+	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/autoscaler"
+	clientset "knative.dev/serving/pkg/client/clientset/versioned"
+	servinginformers "knative.dev/serving/pkg/client/informers/externalversions"
+	"knative.dev/serving/pkg/goversion"
+	pkghttp "knative.dev/serving/pkg/http"
+	"knative.dev/serving/pkg/logging"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/tracing"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
 )
 
 // Fail if using unsupported go version.
@@ -159,11 +159,11 @@ func main() {
 
 	// Set up signals so we handle the first shutdown signal gracefully.
 	stopCh := signals.SetupSignalHandler()
-	statChan := make(chan *autoscaler.StatMessage, statReportingQueueLength)
-	defer close(statChan)
+	statCh := make(chan *autoscaler.StatMessage, statReportingQueueLength)
+	defer close(statCh)
 
-	reqChan := make(chan activatorhandler.ReqEvent, requestCountingQueueLength)
-	defer close(reqChan)
+	reqCh := make(chan activatorhandler.ReqEvent, requestCountingQueueLength)
+	defer close(reqCh)
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, defaultResyncInterval)
 	servingInformerFactory := servinginformers.NewSharedInformerFactory(servingClient, defaultResyncInterval)
@@ -212,7 +212,7 @@ func main() {
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s%s", "autoscaler", system.Namespace(), network.GetClusterDomainName(), autoscalerPort)
 	logger.Info("Connecting to autoscaler at", autoscalerEndpoint)
 	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
-	go statReporter(statSink, stopCh, statChan, logger)
+	go statReporter(statSink, stopCh, statCh, logger)
 
 	var env config
 	if err := envconfig.Process("", &env); err != nil {
@@ -223,7 +223,7 @@ func main() {
 	// Create and run our concurrency reporter
 	reportTicker := time.NewTicker(time.Second)
 	defer reportTicker.Stop()
-	cr := activatorhandler.NewConcurrencyReporter(podName, reqChan, reportTicker.C, statChan)
+	cr := activatorhandler.NewConcurrencyReporter(logger, podName, reqCh, reportTicker.C, statCh, revisionInformer.Lister(), reporter)
 	go cr.Run(stopCh)
 
 	// Create activation handler chain
@@ -236,7 +236,7 @@ func main() {
 		serviceInformer.Lister(),
 		sksInformer.Lister(),
 	)
-	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
+	ah = activatorhandler.NewRequestEventHandler(reqCh, ah)
 	ah = tracing.HTTPSpanMiddleware(ah)
 	ah = configStore.HTTPMiddleware(ah)
 	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, logging.NewSyncFileWriter(os.Stdout), "",

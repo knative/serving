@@ -21,8 +21,9 @@ import (
 	"net/http"
 	"time"
 
-	pkghttp "github.com/knative/serving/pkg/http"
-	"github.com/knative/serving/pkg/queue/stats"
+	pkghttp "knative.dev/serving/pkg/http"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/queue/stats"
 )
 
 type requestMetricHandler struct {
@@ -45,7 +46,13 @@ func NewRequestMetricHandler(h http.Handler, r stats.StatsReporter) (http.Handle
 func (h *requestMetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rr := pkghttp.NewResponseRecorder(w, http.StatusOK)
 	startTime := time.Now()
+
 	defer func() {
+		// Filter probe requests for revision metrics.
+		if network.IsProbe(r) {
+			return
+		}
+
 		// If ServeHTTP panics, recover, record the failure and panic again.
 		err := recover()
 		latency := time.Since(startTime)
@@ -55,6 +62,7 @@ func (h *requestMetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		}
 		h.sendRequestMetrics(rr.ResponseCode, latency)
 	}()
+
 	h.handler.ServeHTTP(rr, r)
 }
 

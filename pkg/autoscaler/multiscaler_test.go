@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -101,7 +102,7 @@ func TestMultiScalerScaling(t *testing.T) {
 
 	_, err = ms.Create(ctx, decider)
 	if err != nil {
-		t.Errorf("Create() = %v", err)
+		t.Fatalf("Create() = %v", err)
 	}
 
 	// Verify that we see a "tick"
@@ -139,10 +140,10 @@ func TestMultiScalerOnlyCapacityChange(t *testing.T) {
 
 	_, err := ms.Create(ctx, decider)
 	if err != nil {
-		t.Errorf("Create() = %v", err)
+		t.Fatalf("Create() = %v", err)
 	}
 
-	// Verify that we see a "tick"
+	// Verify that we see a "tick".
 	if err := verifyTick(errCh); err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +161,7 @@ func TestMultiScalerOnlyCapacityChange(t *testing.T) {
 		t.Errorf("Delete() = %v", err)
 	}
 
-	// Verify that we stop seeing "ticks"
+	// Verify that we stop seeing "ticks".
 	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +185,7 @@ func TestMultiScalerTickUpdate(t *testing.T) {
 
 	_, err = ms.Create(ctx, decider)
 	if err != nil {
-		t.Errorf("Create() = %v", err)
+		t.Fatalf("Create() = %v", err)
 	}
 	time.Sleep(50 * time.Millisecond)
 
@@ -230,7 +231,7 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 
 	_, err = ms.Create(ctx, decider)
 	if err != nil {
-		t.Errorf("Create() = %v", err)
+		t.Fatalf("Create() = %v", err)
 	}
 
 	// Verify that we see a "tick"
@@ -264,9 +265,9 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 
 	_, err := ms.Create(ctx, decider)
 	if err != nil {
-		t.Errorf("Create() = %v", err)
+		t.Fatalf("Create() = %v", err)
 	}
-	metricKey := NewMetricKey(decider.Namespace, decider.Name)
+	metricKey := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
 	if scaler, exists := ms.scalers[metricKey]; !exists {
 		t.Errorf("Failed to get scaler for metric %s", metricKey)
 	} else if !scaler.updateLatestScale(0, 10) {
@@ -312,7 +313,7 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 
 	_, err = ms.Create(ctx, decider)
 	if err != nil {
-		t.Errorf("Create() = %v", err)
+		t.Fatalf("Create() = %v", err)
 	}
 
 	// Verify that we get no "ticks", because the desired scale is negative
@@ -344,7 +345,7 @@ func TestMultiScalerUpdate(t *testing.T) {
 	// Create the decider and verify the Spec
 	_, err := ms.Create(ctx, decider)
 	if err != nil {
-		t.Errorf("Create() = %v", err)
+		t.Fatalf("Create() = %v", err)
 	}
 	m, err := ms.Get(ctx, decider.Namespace, decider.Name)
 	if err != nil {
@@ -384,7 +385,6 @@ type fakeUniScaler struct {
 	replicas   int32
 	surplus    int32
 	scaled     bool
-	lastStat   Stat
 	scaleCount int
 }
 
@@ -405,20 +405,13 @@ func (u *fakeUniScaler) getScaleCount() int {
 	return u.scaleCount
 }
 
-func (u *fakeUniScaler) setScaleResult(replicas int32, surplus int32, scaled bool) {
+func (u *fakeUniScaler) setScaleResult(replicas, surplus int32, scaled bool) {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
 	u.surplus = surplus
 	u.replicas = replicas
 	u.scaled = scaled
-}
-
-func (u *fakeUniScaler) Record(ctx context.Context, stat Stat) {
-	u.mutex.Lock()
-	defer u.mutex.Unlock()
-
-	u.lastStat = stat
 }
 
 func (u *fakeUniScaler) Update(DeciderSpec) error {

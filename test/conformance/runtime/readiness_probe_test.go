@@ -21,10 +21,11 @@ package runtime
 import (
 	"testing"
 
-	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/test/logstream"
+	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
 func TestProbeRuntime(t *testing.T) {
@@ -43,16 +44,14 @@ func TestProbeRuntime(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Service")
-	_, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
-		RevisionTemplateAnnotations: map[string]string{},
-		ReadinessProbe: &corev1.Probe{
+	_, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, v1a1opts.WithReadinessProbe(
+		&corev1.Probe{
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: "/healthz",
 				},
 			},
-		},
-	})
+		}))
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}

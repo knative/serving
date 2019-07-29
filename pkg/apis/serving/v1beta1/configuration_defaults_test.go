@@ -24,7 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/ptr"
 
-	"github.com/knative/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/config"
 )
 
 func TestConfigurationDefaulting(t *testing.T) {
@@ -39,12 +39,6 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				Template: RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						PodSpec: corev1.PodSpec{
-							Containers: []corev1.Container{{
-								Name:      config.DefaultUserContainerName,
-								Resources: defaultResources,
-							}},
-						},
 						TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 					},
 				},
@@ -71,9 +65,10 @@ func TestConfigurationDefaulting(t *testing.T) {
 					Spec: RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
-								Name:      config.DefaultUserContainerName,
-								Image:     "busybox",
-								Resources: defaultResources,
+								Name:           config.DefaultUserContainerName,
+								Image:          "busybox",
+								Resources:      defaultResources,
+								ReadinessProbe: defaultProbe,
 							}},
 						},
 						TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
@@ -103,9 +98,10 @@ func TestConfigurationDefaulting(t *testing.T) {
 					Spec: RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
-								Name:      config.DefaultUserContainerName,
-								Image:     "busybox",
-								Resources: defaultResources,
+								Name:           config.DefaultUserContainerName,
+								Image:          "busybox",
+								Resources:      defaultResources,
+								ReadinessProbe: defaultProbe,
 							}},
 						},
 						TimeoutSeconds: ptr.Int64(60),
@@ -121,7 +117,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 			got.SetDefaults(context.Background())
 			if !cmp.Equal(got, test.want, ignoreUnexportedResources) {
 				t.Errorf("SetDefaults (-want, +got) = %v",
-					cmp.Diff(got, test.want, ignoreUnexportedResources))
+					cmp.Diff(test.want, got, ignoreUnexportedResources))
 			}
 		})
 	}

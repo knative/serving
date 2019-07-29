@@ -20,13 +20,13 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/apis/networking"
-	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/networking"
+	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 // PodAutoscalerOption is an option that can be applied to a PA.
@@ -106,9 +106,9 @@ func WithKPAClass(pa *autoscalingv1alpha1.PodAutoscaler) {
 	pa.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 }
 
-// WithContainerConcurrency returns a PodAutoscalerOption which sets
+// WithPAContainerConcurrency returns a PodAutoscalerOption which sets
 // the PodAutoscaler containerConcurrency to the provided value.
-func WithContainerConcurrency(cc v1beta1.RevisionContainerConcurrencyType) PodAutoscalerOption {
+func WithPAContainerConcurrency(cc v1beta1.RevisionContainerConcurrencyType) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Spec.ContainerConcurrency = cc
 	}
@@ -289,13 +289,13 @@ func WithWaitingContainer(name, reason, message string) PodOption {
 	}
 }
 
-// ClusterIngressOption enables further configuration of the Cluster Ingress.
-type ClusterIngressOption func(*netv1alpha1.ClusterIngress)
+// IngressOption enables further configuration of the IngressAccessor.
+type IngressOption func(netv1alpha1.IngressAccessor)
 
 // WithHosts sets the Hosts of the ingress rule specified index
-func WithHosts(index int, hosts ...string) ClusterIngressOption {
-	return func(ingress *netv1alpha1.ClusterIngress) {
-		ingress.Spec.Rules[index].Hosts = hosts
+func WithHosts(index int, hosts ...string) IngressOption {
+	return func(ingress netv1alpha1.IngressAccessor) {
+		ingress.GetSpec().Rules[index].Hosts = hosts
 	}
 }
 
@@ -360,6 +360,8 @@ func SKS(ns, name string, so ...SKSOption) *netv1alpha1.ServerlessService {
 			},
 		},
 	}
+	// By default for tests we can presume happy-serve path.
+	s.Status.MarkActivatorEndpointsRemoved()
 	for _, opt := range so {
 		opt(s)
 	}

@@ -23,11 +23,6 @@ import (
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	areconciler "github.com/knative/serving/pkg/reconciler/autoscaling"
-	"github.com/knative/serving/pkg/reconciler/autoscaling/config"
-	"github.com/knative/serving/pkg/reconciler/autoscaling/hpa/resources"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -37,6 +32,12 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
+	"knative.dev/serving/pkg/reconciler/autoscaling/config"
+	"knative.dev/serving/pkg/reconciler/autoscaling/hpa/resources"
 )
 
 // Reconciler implements the control loop for the HPA resources.
@@ -61,9 +62,6 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	original, err := c.PALister.PodAutoscalers(namespace).Get(name)
 	if errors.IsNotFound(err) {
 		logger.Debug("PA no longer exists")
-		if err := c.Metrics.Delete(ctx, namespace, name); err != nil {
-			return err
-		}
 		return nil
 	} else if err != nil {
 		return err
@@ -148,8 +146,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 		}
 	}
 
-	// HPA has its own deciders.
-	sks, err := c.ReconcileSKS(ctx, pa, nil /* decider */)
+	sks, err := c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe)
 	if err != nil {
 		return perrors.Wrap(err, "error reconciling SKS")
 	}

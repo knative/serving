@@ -22,14 +22,14 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/provider"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	cmetrics "k8s.io/metrics/pkg/apis/custom_metrics"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
 var (
@@ -63,7 +63,8 @@ func (p *MetricProvider) GetMetricByName(name types.NamespacedName, info provide
 		return nil, errMetricNotSupported
 	}
 
-	concurrency, _, err := p.metricClient.StableAndPanicConcurrency(name.String())
+	now := time.Now()
+	concurrency, _, err := p.metricClient.StableAndPanicConcurrency(name, now)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +74,7 @@ func (p *MetricProvider) GetMetricByName(name types.NamespacedName, info provide
 		Metric: cmetrics.MetricIdentifier{
 			Name: info.Metric,
 		},
-		Timestamp: metav1.Time{Time: time.Now()},
+		Timestamp: metav1.Time{Time: now},
 		Value:     value,
 	}, nil
 }

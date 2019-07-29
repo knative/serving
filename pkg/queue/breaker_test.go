@@ -131,22 +131,31 @@ func TestBreakerCancel(t *testing.T) {
 	cancel1()
 	reqs.expectFailure(t)
 
-	// Let through a request with capacity then timeout following request
-	b.UpdateConcurrency(1)
-	reqs.request()
-
-	// Exceed capacity and assert failure. This makes sure the Breaker is consistently
-	// at capacity.
-	reqs.request()
-	reqs.expectFailure(t)
-
-	// This request cannot get capacity.
+	// This request cannot get capacity either. This reproduced a bug we had when
+	// freeing slots on the pendingRequests channel.
 	ctx2, cancel2 := context.WithCancel(context.Background())
 	reqs.requestWithContext(ctx2)
 	cancel2()
 	reqs.expectFailure(t)
 
-	// The request that was put in earlier should succeed.
+	// Let through a request with capacity then timeout following request
+	b.UpdateConcurrency(1)
+	reqs.request()
+
+	// Exceed capacity and assert one failure. This makes sure the Breaker is consistently
+	// at capacity.
+	reqs.request()
+	reqs.request()
+	reqs.expectFailure(t)
+
+	// This request cannot get capacity.
+	ctx3, cancel3 := context.WithCancel(context.Background())
+	reqs.requestWithContext(ctx3)
+	cancel3()
+	reqs.expectFailure(t)
+
+	// The requests that were put in earlier should succeed.
+	reqs.processSuccessfully(t)
 	reqs.processSuccessfully(t)
 }
 
@@ -177,7 +186,7 @@ func TestBreakerUpdateConcurrencyOverlow(t *testing.T) {
 }
 
 // Test empty semaphore, token cannot be acquired
-func TestSemaphore_acquire_HasNoCapacity(t *testing.T) {
+func TestSemaphoreAcquireHasNoCapacity(t *testing.T) {
 	gotChan := make(chan struct{}, 1)
 
 	sem := newSemaphore(1, 0)
@@ -192,7 +201,7 @@ func TestSemaphore_acquire_HasNoCapacity(t *testing.T) {
 }
 
 // Test empty semaphore, add capacity, token can be acquired
-func TestSemaphore_acquire_HasCapacity(t *testing.T) {
+func TestSemaphoreAcquireHasCapacity(t *testing.T) {
 	gotChan := make(chan struct{}, 1)
 	want := 1
 
@@ -217,7 +226,7 @@ func TestSemaphore_acquire_HasCapacity(t *testing.T) {
 	}
 }
 
-func TestSemaphore_release(t *testing.T) {
+func TestSemaphoreRelease(t *testing.T) {
 	sem := newSemaphore(1, 1)
 	sem.acquire(context.Background())
 	if err := sem.release(); err != nil {
@@ -228,7 +237,7 @@ func TestSemaphore_release(t *testing.T) {
 	}
 }
 
-func TestSemaphore_releasesSeveralReducers(t *testing.T) {
+func TestSemaphoreReleasesSeveralReducers(t *testing.T) {
 	const wantAfterFirstrelease = 1
 	const wantAfterSecondrelease = 0
 	sem := newSemaphore(2, 2)
@@ -252,7 +261,7 @@ func TestSemaphore_releasesSeveralReducers(t *testing.T) {
 	}
 }
 
-func TestSemaphore_updateCapacity(t *testing.T) {
+func TestSemaphoreUpdateCapacity(t *testing.T) {
 	const initialCapacity = 1
 	sem := newSemaphore(3, initialCapacity)
 	if got, want := sem.Capacity(), 1; got != want {
@@ -266,7 +275,7 @@ func TestSemaphore_updateCapacity(t *testing.T) {
 }
 
 // Test the case when we add more capacity then the number of waiting reducers
-func TestSemaphore_updateCapacity_LessThenReducers(t *testing.T) {
+func TestSemaphoreUpdateCapacityLessThenReducers(t *testing.T) {
 	const initialCapacity = 2
 	sem := newSemaphore(2, initialCapacity)
 	sem.acquire(context.Background())
@@ -283,7 +292,7 @@ func TestSemaphore_updateCapacity_LessThenReducers(t *testing.T) {
 	}
 }
 
-func TestSemaphore_updateCapacity_ConsumingReducers(t *testing.T) {
+func TestSemaphoreUpdateCapacityConsumingReducers(t *testing.T) {
 	const initialCapacity = 2
 	sem := newSemaphore(2, initialCapacity)
 	sem.acquire(context.Background())
@@ -299,14 +308,14 @@ func TestSemaphore_updateCapacity_ConsumingReducers(t *testing.T) {
 	}
 }
 
-func TestSemaphore_updateCapacity_Overflow(t *testing.T) {
+func TestSemaphoreUpdateCapacityOverflow(t *testing.T) {
 	sem := newSemaphore(2, 0)
 	if err := sem.updateCapacity(3); err != ErrUpdateCapacity {
 		t.Errorf("updateCapacity = %v, want: %v", err, ErrUpdateCapacity)
 	}
 }
 
-func TestSemaphore_updateCapacity_OutOfBound(t *testing.T) {
+func TestSemaphoreUpdateCapacityOutOfBound(t *testing.T) {
 	sem := newSemaphore(1, 1)
 	sem.acquire(context.Background())
 	if err := sem.updateCapacity(-1); err != ErrUpdateCapacity {
@@ -314,7 +323,7 @@ func TestSemaphore_updateCapacity_OutOfBound(t *testing.T) {
 	}
 }
 
-func TestSemaphore_updateCapacity_BrokenState(t *testing.T) {
+func TestSemaphoreUpdateCapacityBrokenState(t *testing.T) {
 	sem := newSemaphore(1, 0)
 	sem.release() // This Release is not paired with an acquire
 	if err := sem.updateCapacity(1); err != ErrUpdateCapacity {
@@ -322,20 +331,11 @@ func TestSemaphore_updateCapacity_BrokenState(t *testing.T) {
 	}
 }
 
-func TestSemaphore_updateCapacity_DoNothing(t *testing.T) {
+func TestSemaphoreUpdateCapacityDoNothing(t *testing.T) {
 	sem := newSemaphore(1, 1)
 	if err := sem.updateCapacity(1); err != nil {
 		t.Errorf("updateCapacity = %v, want: %v", err, nil)
 	}
-}
-
-func TestSemaphore_WrongInitialCapacity(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("The code did not panic")
-		}
-	}()
-	newSemaphore(1, 2)
 }
 
 func tryAcquire(sem *semaphore, gotChan chan struct{}) {

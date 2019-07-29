@@ -21,12 +21,12 @@ package upgrade
 import (
 	"testing"
 
-	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
-	"github.com/knative/serving/test"
-	"github.com/knative/serving/test/e2e"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ptest "knative.dev/pkg/test"
+	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
+	"knative.dev/serving/test"
+	"knative.dev/serving/test/e2e"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
 func TestRunLatestServicePostUpgrade(t *testing.T) {

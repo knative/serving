@@ -23,15 +23,15 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/spoof"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 
-	rtesting "github.com/knative/serving/pkg/testing/v1beta1"
-	"github.com/knative/serving/test"
+	rtesting "knative.dev/serving/pkg/testing/v1beta1"
+	"knative.dev/serving/test"
 )
 
 // Route returns a Route object in namespace using the route and configuration
@@ -108,6 +108,12 @@ func CheckRouteState(client *test.ServingBetaClients, name string, inState func(
 // ready.
 func IsRouteReady(r *v1beta1.Route) (bool, error) {
 	return r.Generation == r.Status.ObservedGeneration && r.Status.IsReady(), nil
+}
+
+// IsRouteNotReady will check the status conditions of the route and return true if the route is
+// not ready.
+func IsRouteNotReady(r *v1beta1.Route) (bool, error) {
+	return !r.Status.IsReady(), nil
 }
 
 // RetryingRouteInconsistency retries common requests seen when creating a new route

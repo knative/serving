@@ -23,21 +23,21 @@ import (
 	"time"
 
 	// Inject the fakes for informers this reconciler depends on.
-	_ "github.com/knative/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
 	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 
-	"github.com/knative/serving/pkg/activator"
-	"github.com/knative/serving/pkg/apis/networking"
-	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	rpkg "github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/serverlessservice/resources"
-	presources "github.com/knative/serving/pkg/resources"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/apis/networking"
+	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	rpkg "knative.dev/serving/pkg/reconciler"
+	"knative.dev/serving/pkg/reconciler/serverlessservice/resources"
+	presources "knative.dev/serving/pkg/resources"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -47,9 +47,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
 
-	. "github.com/knative/serving/pkg/reconciler/testing/v1alpha1"
-	. "github.com/knative/serving/pkg/testing"
 	. "knative.dev/pkg/reconciler/testing"
+	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
+	. "knative.dev/serving/pkg/testing"
 )
 
 func TestNewController(t *testing.T) {
@@ -93,7 +93,7 @@ func TestReconcile(t *testing.T) {
 		Key:  "steady/to-proxy",
 		Objects: []runtime.Object{
 			SKS("steady", "to-proxy", markHappy, WithPubService, WithPrivateService("to-proxy-deadbeef"),
-				WithDeployRef("bar"), WithProxyMode),
+				WithDeployRef("bar"), withProxyMode),
 			deploy("steady", "bar"),
 			svcpub("steady", "to-proxy"),
 			svcpriv("steady", "to-proxy", svcWithName("to-proxy-deadbeef")),
@@ -103,7 +103,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: SKS("steady", "to-proxy", WithDeployRef("bar"), markNoEndpoints,
-				WithProxyMode, WithPubService, WithPrivateService("to-proxy-deadbeef")),
+				withProxyMode, WithPubService, WithPrivateService("to-proxy-deadbeef")),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: endpointspub("steady", "to-proxy", WithSubsets),
@@ -118,7 +118,7 @@ func TestReconcile(t *testing.T) {
 		Key:  "steady/to-proxy",
 		Objects: []runtime.Object{
 			SKS("steady", "to-proxy", markHappy, WithPubService, WithPrivateService("to-proxy-deadbeef"),
-				WithDeployRef("bar"), WithProxyMode),
+				WithDeployRef("bar"), withProxyMode),
 			deploy("steady", "bar"),
 			svcpub("steady", "to-proxy"),
 			svcpriv("steady", "to-proxy", svcWithName("to-proxy-deadbeef")),
@@ -390,7 +390,7 @@ func TestReconcile(t *testing.T) {
 		Name: "OnCreate-no-activator-eps-proxy",
 		Key:  "on/cnaeps",
 		Objects: []runtime.Object{
-			SKS("on", "cnaeps", WithDeployRef("blah"), WithProxyMode),
+			SKS("on", "cnaeps", WithDeployRef("blah"), withProxyMode),
 			deploy("on", "blah"),
 			endpointspriv("on", "cnaeps", epsWithName("cnaeps-00001")), // This should be ignored.
 			activatorEndpoints(),
@@ -401,7 +401,7 @@ func TestReconcile(t *testing.T) {
 			endpointspub("on", "cnaeps"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: SKS("on", "cnaeps", WithDeployRef("blah"), WithProxyMode,
+			Object: SKS("on", "cnaeps", WithDeployRef("blah"), withProxyMode,
 				markNoEndpoints, WithPubService, WithPrivateService("cnaeps-00001")),
 		}},
 		WantEvents: []string{
@@ -593,7 +593,7 @@ func TestReconcile(t *testing.T) {
 			Key:  "pod/change",
 			Objects: []runtime.Object{
 				SKS("pod", "change", markNoEndpoints, WithPubService, withHTTP2Protocol,
-					WithPrivateService("change-taylor"), WithProxyMode, WithDeployRef("blah")),
+					WithPrivateService("change-taylor"), withProxyMode, WithDeployRef("blah")),
 				deploy("pod", "blah"),
 				svcpub("pod", "change", withHTTP2),
 				svcpriv("pod", "change", withHTTP2Priv, svcWithName("change-taylor")),
@@ -689,6 +689,7 @@ func markTransitioning(s string) SKSOption {
 
 func markNoEndpoints(sks *nv1a1.ServerlessService) {
 	sks.Status.MarkEndpointsNotReady("NoHealthyBackends")
+	sks.Status.MarkActivatorEndpointsPopulated()
 }
 
 func withHTTP2Protocol(sks *nv1a1.ServerlessService) {
@@ -728,6 +729,12 @@ func withHTTP2(svc *corev1.Service) {
 	svc.Spec.Ports[0].Port = networking.ServiceHTTP2Port
 	svc.Spec.Ports[0].Name = "http2"
 	svc.Spec.Ports[0].TargetPort = intstr.FromInt(networking.BackendHTTP2Port)
+}
+
+// For SKS internal tests this sets mode & activator status.
+func withProxyMode(sks *nv1a1.ServerlessService) {
+	WithProxyMode(sks)
+	sks.Status.MarkActivatorEndpointsPopulated()
 }
 
 func withTargetPortNum(port int) K8sServiceOption {

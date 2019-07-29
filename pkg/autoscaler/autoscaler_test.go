@@ -19,15 +19,17 @@ package autoscaler
 import (
 	"errors"
 	"fmt"
+	"math"
 	"testing"
 	"time"
 
-	"github.com/knative/serving/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	kubeinformers "k8s.io/client-go/informers"
 	fakeK8s "k8s.io/client-go/kubernetes/fake"
 	. "knative.dev/pkg/logging/testing"
+	"knative.dev/serving/pkg/resources"
 )
 
 const (
@@ -65,47 +67,53 @@ func TestAutoscalerNoDataNoAutoscale(t *testing.T) {
 		err: errors.New("no metrics"),
 	}
 
-	a := newTestAutoscaler(10, 100, metrics)
+	a := newTestAutoscaler(t, 10, 100, metrics)
 	a.expectScale(t, time.Now(), 0, 0, false)
 }
 
 func expectedEBC(tc, tbc, rc, np float64) int32 {
-	return int32(tc/targetUtilization*np - tbc - rc)
+	return int32(math.Floor(tc/targetUtilization*np - tbc - rc))
 }
 func TestAutoscalerNoDataAtZeroNoAutoscale(t *testing.T) {
-	a := newTestAutoscaler(10, 100, &testMetricClient{})
+	a := newTestAutoscaler(t, 10, 100, &testMetricClient{})
 	// We always presume at least 1 pod, even if counter says 0.
 	a.expectScale(t, time.Now(), 0, expectedEBC(10, 100, 0, 1), true)
 }
 
 func TestAutoscalerNoDataAtZeroNoAutoscaleWithExplicitEPs(t *testing.T) {
-	a := newTestAutoscaler(10, 100, &testMetricClient{})
+	a := newTestAutoscaler(t, 10, 100, &testMetricClient{})
 	endpoints(1)
 	a.expectScale(t, time.Now(), 0, expectedEBC(10, 100, 0, 1), true)
 }
 
 func TestAutoscalerStableModeUnlimitedTBC(t *testing.T) {
 	metrics := &testMetricClient{stableConcurrency: 21.0}
-	a := newTestAutoscaler(181, -1, metrics)
+	a := newTestAutoscaler(t, 181, -1, metrics)
 	a.expectScale(t, time.Now(), 1, -1, true)
+}
+
+func TestAutoscaler0TBC(t *testing.T) {
+	metrics := &testMetricClient{stableConcurrency: 50.0}
+	a := newTestAutoscaler(t, 10, 0, metrics)
+	a.expectScale(t, time.Now(), 5, 0, true)
 }
 
 func TestAutoscalerStableModeNoChange(t *testing.T) {
 	metrics := &testMetricClient{stableConcurrency: 50.0}
-	a := newTestAutoscaler(10, 100, metrics)
+	a := newTestAutoscaler(t, 10, 100, metrics)
 	a.expectScale(t, time.Now(), 5, expectedEBC(10, 100, 50, 1), true)
 }
 
 func TestAutoscalerStableModeNoChangeAlreadyScaled(t *testing.T) {
 	metrics := &testMetricClient{stableConcurrency: 50.0}
-	a := newTestAutoscaler(10, 100, metrics)
+	a := newTestAutoscaler(t, 10, 100, metrics)
 	endpoints(5)
 	a.expectScale(t, time.Now(), 5, expectedEBC(10, 100, 50, 5), true)
 }
 
 func TestAutoscalerStableModeIncrease(t *testing.T) {
 	metrics := &testMetricClient{stableConcurrency: 50.0}
-	a := newTestAutoscaler(10, 101, metrics)
+	a := newTestAutoscaler(t, 10, 101, metrics)
 	a.expectScale(t, time.Now(), 5, expectedEBC(10, 101, 50, 1), true)
 
 	metrics.stableConcurrency = 100
@@ -114,7 +122,7 @@ func TestAutoscalerStableModeIncrease(t *testing.T) {
 
 func TestAutoscalerStableModeDecrease(t *testing.T) {
 	metrics := &testMetricClient{stableConcurrency: 100.0}
-	a := newTestAutoscaler(10, 98, metrics)
+	a := newTestAutoscaler(t, 10, 98, metrics)
 	endpoints(8)
 	a.expectScale(t, time.Now(), 10, expectedEBC(10, 98, 100, 8), true)
 
@@ -124,7 +132,7 @@ func TestAutoscalerStableModeDecrease(t *testing.T) {
 
 func TestAutoscalerStableModeNoTrafficScaleToZero(t *testing.T) {
 	metrics := &testMetricClient{stableConcurrency: 1}
-	a := newTestAutoscaler(10, 75, metrics)
+	a := newTestAutoscaler(t, 10, 75, metrics)
 	a.expectScale(t, time.Now(), 1, expectedEBC(10, 75, 1, 1), true)
 
 	metrics.stableConcurrency = 0.0
@@ -133,7 +141,7 @@ func TestAutoscalerStableModeNoTrafficScaleToZero(t *testing.T) {
 
 func TestAutoscalerPanicModeDoublePodCount(t *testing.T) {
 	metrics := &testMetricClient{stableConcurrency: 50, panicConcurrency: 100}
-	a := newTestAutoscaler(10, 84, metrics)
+	a := newTestAutoscaler(t, 10, 84, metrics)
 
 	// PanicConcurrency takes precedence.
 	a.expectScale(t, time.Now(), 10, expectedEBC(10, 84, 50, 1), true)
@@ -144,7 +152,7 @@ func TestAutoscalerPanicModeDoublePodCount(t *testing.T) {
 // At 1296 QPS traffic stablizes.
 func TestAutoscalerPanicModeExponentialTrackAndStablize(t *testing.T) {
 	metrics := &testMetricClient{stableConcurrency: 6, panicConcurrency: 6}
-	a := newTestAutoscaler(1, 101, metrics)
+	a := newTestAutoscaler(t, 1, 101, metrics)
 	a.expectScale(t, time.Now(), 6, expectedEBC(1, 101, 6, 1), true)
 
 	endpoints(6)
@@ -164,7 +172,7 @@ func TestAutoscalerPanicModeExponentialTrackAndStablize(t *testing.T) {
 
 func TestAutoscalerPanicThenUnPanicScaleDown(t *testing.T) {
 	metrics := &testMetricClient{stableConcurrency: 100, panicConcurrency: 100}
-	a := newTestAutoscaler(10, 93, metrics)
+	a := newTestAutoscaler(t, 10, 93, metrics)
 	a.expectScale(t, time.Now(), 10, expectedEBC(10, 93, 100, 1), true)
 	endpoints(10)
 
@@ -183,7 +191,7 @@ func TestAutoscalerPanicThenUnPanicScaleDown(t *testing.T) {
 
 func TestAutoscalerRateLimitScaleUp(t *testing.T) {
 	metrics := &testMetricClient{stableConcurrency: 1000}
-	a := newTestAutoscaler(10, 61, metrics)
+	a := newTestAutoscaler(t, 10, 61, metrics)
 
 	// Need 100 pods but only scale x10
 	a.expectScale(t, time.Now(), 10, expectedEBC(10, 61, 1000, 1), true)
@@ -193,18 +201,22 @@ func TestAutoscalerRateLimitScaleUp(t *testing.T) {
 	a.expectScale(t, time.Now(), 100, expectedEBC(10, 61, 1000, 10), true)
 }
 
+func eraseEndpoints() {
+	ep, _ := kubeClient.CoreV1().Endpoints(testNamespace).Get(testService, metav1.GetOptions{})
+	kubeClient.CoreV1().Endpoints(testNamespace).Delete(testService, nil)
+	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Delete(ep)
+}
+
 func TestAutoscalerUseOnePodAsMinimumIfEndpointsNotFound(t *testing.T) {
 	metrics := &testMetricClient{stableConcurrency: 1000}
-	a := newTestAutoscaler(10, 81, metrics)
+	a := newTestAutoscaler(t, 10, 81, metrics)
 
 	endpoints(0)
 	// 2*10 as the rate limited if we can get the actual pods number.
 	// 1*10 as the rate limited since no read pods are there from K8S API.
 	a.expectScale(t, time.Now(), 10, expectedEBC(10, 81, 1000, 0), true)
 
-	ep, _ := kubeClient.CoreV1().Endpoints(testNamespace).Get(testService, metav1.GetOptions{})
-	kubeClient.CoreV1().Endpoints(testNamespace).Delete(testService, nil)
-	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Delete(ep)
+	eraseEndpoints()
 	// 2*10 as the rate limited if we can get the actual pods number.
 	// 1*10 as the rate limited since no Endpoints object is there from K8S API.
 	a.expectScale(t, time.Now(), 10, expectedEBC(10, 81, 1000, 0), true)
@@ -212,7 +224,7 @@ func TestAutoscalerUseOnePodAsMinimumIfEndpointsNotFound(t *testing.T) {
 
 func TestAutoscalerUpdateTarget(t *testing.T) {
 	metrics := &testMetricClient{stableConcurrency: 100}
-	a := newTestAutoscaler(10, 77, metrics)
+	a := newTestAutoscaler(t, 10, 77, metrics)
 	a.expectScale(t, time.Now(), 10, expectedEBC(10, 77, 100, 1), true)
 
 	endpoints(10)
@@ -265,7 +277,13 @@ func (r *mockReporter) ReportPanic(v int64) error {
 	return nil
 }
 
-func newTestAutoscaler(targetConcurrency, targetBurstCapacity float64, metrics MetricClient) *Autoscaler {
+// ReportExcessBurstCapacity retports excess burst capacity.
+func (r *mockReporter) ReportExcessBurstCapacity(v float64) error {
+	return nil
+}
+
+func newTestAutoscaler(t *testing.T, targetConcurrency, targetBurstCapacity float64, metrics MetricClient) *Autoscaler {
+	t.Helper()
 	deciderSpec := DeciderSpec{
 		TargetConcurrency:   targetConcurrency,
 		TotalConcurrency:    targetConcurrency / targetUtilization, // For UTs presume 75% utilization
@@ -277,7 +295,12 @@ func newTestAutoscaler(targetConcurrency, targetBurstCapacity float64, metrics M
 	}
 
 	podCounter := resources.NewScopedEndpointsCounter(kubeInformer.Core().V1().Endpoints().Lister(), testNamespace, deciderSpec.ServiceName)
-	a, _ := New(testNamespace, testRevision, metrics, podCounter, deciderSpec, &mockReporter{})
+	// This ensures that we have endpoints object to start the autoscaler.
+	endpoints(0)
+	a, err := New(testNamespace, testRevision, metrics, podCounter, deciderSpec, &mockReporter{})
+	if err != nil {
+		t.Fatalf("Error creating test autoscaler: %v", err)
+	}
 	endpoints(1)
 	return a
 }
@@ -302,7 +325,7 @@ type testMetricClient struct {
 	err               error
 }
 
-func (t *testMetricClient) StableAndPanicConcurrency(key string) (float64, float64, error) {
+func (t *testMetricClient) StableAndPanicConcurrency(key types.NamespacedName, now time.Time) (float64, float64, error) {
 	return t.stableConcurrency, t.panicConcurrency, t.err
 }
 
@@ -324,4 +347,65 @@ func endpoints(count int) {
 	}
 	kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
 	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
+}
+
+func TestStartInPanicMode(t *testing.T) {
+	metrics := &testMetricClient{}
+	deciderSpec := DeciderSpec{
+		TargetConcurrency:   100,
+		TotalConcurrency:    120,
+		TargetBurstCapacity: 11,
+		PanicThreshold:      220,
+		MaxScaleUpRate:      10.0,
+		StableWindow:        stableWindow,
+		ServiceName:         testService,
+	}
+
+	podCounter := resources.NewScopedEndpointsCounter(kubeInformer.Core().V1().Endpoints().Lister(), testNamespace, deciderSpec.ServiceName)
+	for i := 0; i < 2; i++ {
+		endpoints(i)
+		a, err := New(testNamespace, testRevision, metrics, podCounter, deciderSpec, &mockReporter{})
+		if err != nil {
+			t.Fatalf("Error creating test autoscaler: %v", err)
+		}
+		if a.panicTime != nil {
+			t.Errorf("Create at scale %d had panic mode on", i)
+		}
+		if got, want := int(a.maxPanicPods), i; got != want {
+			t.Errorf("MaxPanicPods = %d, want: %d", got, want)
+		}
+	}
+
+	// Now start with 2 and make sure we're in panic mode.
+	endpoints(2)
+	a, err := New(testNamespace, testRevision, metrics, podCounter, deciderSpec, &mockReporter{})
+	if err != nil {
+		t.Fatalf("Error creating test autoscaler: %v", err)
+	}
+	if a.panicTime == nil {
+		t.Error("Create at scale 2 had panic mode off")
+	}
+	if got, want := int(a.maxPanicPods), 2; got != want {
+		t.Errorf("MaxPanicPods = %d, want: %d", got, want)
+	}
+}
+
+func TestNewFail(t *testing.T) {
+	eraseEndpoints()
+	metrics := &testMetricClient{}
+	deciderSpec := DeciderSpec{
+		TargetConcurrency:   100,
+		TotalConcurrency:    120,
+		TargetBurstCapacity: 11,
+		PanicThreshold:      220,
+		MaxScaleUpRate:      10.0,
+		StableWindow:        stableWindow,
+		ServiceName:         testService,
+	}
+
+	podCounter := resources.NewScopedEndpointsCounter(kubeInformer.Core().V1().Endpoints().Lister(), testNamespace, deciderSpec.ServiceName)
+	_, err := New(testNamespace, testRevision, metrics, podCounter, deciderSpec, &mockReporter{})
+	if err == nil {
+		t.Error("No endpoints, but still succeeded creating the Autoscaler")
+	}
 }

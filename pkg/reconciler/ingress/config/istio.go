@@ -19,11 +19,13 @@ package config
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
-	"github.com/knative/serving/pkg/network"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
+	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/network"
 )
 
 const (
@@ -37,27 +39,41 @@ const (
 	// LocalGatewayKeyPrefix is the prefix of all keys to configure Istio gateways for public & private ClusterIngresses.
 	LocalGatewayKeyPrefix = "local-gateway."
 
-	// MeshGatewayName is the name of the special 'mesh' Istio Gateway.
-	MeshGatewayName = "mesh"
+	// ReconcileExternalGatewayKey the is the name of the configuration entry that specifies
+	// reconciling external Istio Gateways or not.
+	ReconcileExternalGatewayKey = "reconcileExternalGateway"
 )
 
-var (
-	defaultGateway = Gateway{
-		GatewayName: "knative-ingress-gateway",
+func defaultGateways() []Gateway {
+	return []Gateway{{
+		Namespace: system.Namespace(),
+		Name:      "knative-ingress-gateway",
 		ServiceURL: fmt.Sprintf("istio-ingressgateway.istio-system.svc.%s",
 			network.GetClusterDomainName()),
-	}
-	defaultLocalGateway = Gateway{
-		GatewayName: "cluster-local-gateway",
+	}}
+}
+
+func defaultLocalGateways() []Gateway {
+	return []Gateway{{
+		Namespace: system.Namespace(),
+		Name:      "cluster-local-gateway",
 		ServiceURL: fmt.Sprintf("cluster-local-gateway.istio-system.svc.%s",
 			network.GetClusterDomainName()),
-	}
-)
+	}}
+}
+
+var defaultReconcileGateway = false
 
 // Gateway specifies the name of the Gateway and the K8s Service backing it.
 type Gateway struct {
-	GatewayName string
-	ServiceURL  string
+	Namespace  string
+	Name       string
+	ServiceURL string
+}
+
+// QualifiedName returns gateway name in '{namespace}/{name}' format.
+func (g Gateway) QualifiedName() string {
+	return g.Namespace + "/" + g.Name
 }
 
 // Istio contains istio related configuration defined in the
@@ -68,6 +84,9 @@ type Istio struct {
 
 	// LocalGateway specifies the gateway urls for public & private ClusterIngress.
 	LocalGateways []Gateway
+
+	// ReconcileExternalGateway specifies if external Istio Gateways will be reconciled or not.
+	ReconcileExternalGateway bool
 }
 
 func parseGateways(configMap *corev1.ConfigMap, prefix string) ([]Gateway, error) {
@@ -88,8 +107,9 @@ func parseGateways(configMap *corev1.ConfigMap, prefix string) ([]Gateway, error
 	gateways := make([]Gateway, len(gatewayNames))
 	for i, gatewayName := range gatewayNames {
 		gateways[i] = Gateway{
-			GatewayName: gatewayName,
-			ServiceURL:  urls[gatewayName],
+			Namespace:  system.Namespace(),
+			Name:       gatewayName,
+			ServiceURL: urls[gatewayName],
 		}
 	}
 	return gateways, nil
@@ -102,26 +122,33 @@ func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
 		return nil, err
 	}
 	if len(gateways) == 0 {
-		gateways = append(gateways, defaultGateway)
+		gateways = defaultGateways()
 	}
 	localGateways, err := parseGateways(configMap, LocalGatewayKeyPrefix)
 	if len(localGateways) == 0 {
-		localGateways = append(localGateways, defaultLocalGateway)
+		localGateways = defaultLocalGateways()
 	}
 	localGateways = removeMeshGateway(localGateways)
 	if err != nil {
 		return nil, err
 	}
+	reconcileGateway := defaultReconcileGateway
+	if reconcileGatewayStr := configMap.Data[ReconcileExternalGatewayKey]; len(reconcileGatewayStr) != 0 {
+		if reconcileGateway, err = strconv.ParseBool(reconcileGatewayStr); err != nil {
+			return nil, err
+		}
+	}
 	return &Istio{
-		IngressGateways: gateways,
-		LocalGateways:   localGateways,
+		IngressGateways:          gateways,
+		LocalGateways:            localGateways,
+		ReconcileExternalGateway: reconcileGateway,
 	}, nil
 }
 
 func removeMeshGateway(gateways []Gateway) []Gateway {
 	gws := []Gateway{}
 	for _, g := range gateways {
-		if g.GatewayName != "mesh" {
+		if g.Name != "mesh" {
 			gws = append(gws, g)
 		}
 	}

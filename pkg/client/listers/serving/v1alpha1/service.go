@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
+	v1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
 // ServiceLister helps list Services.

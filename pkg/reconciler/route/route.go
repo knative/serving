@@ -30,20 +30,6 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/knative/serving/pkg/apis/networking"
-	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	networkinglisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
-	listers "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
-	"github.com/knative/serving/pkg/reconciler/route/config"
-	"github.com/knative/serving/pkg/reconciler/route/domains"
-	"github.com/knative/serving/pkg/reconciler/route/resources"
-	"github.com/knative/serving/pkg/reconciler/route/resources/labels"
-	resourcenames "github.com/knative/serving/pkg/reconciler/route/resources/names"
-	"github.com/knative/serving/pkg/reconciler/route/traffic"
-	tr "github.com/knative/serving/pkg/reconciler/route/traffic"
 	"knative.dev/pkg/apis"
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
@@ -51,6 +37,19 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/tracker"
+	"knative.dev/serving/pkg/apis/networking"
+	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	networkinglisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
+	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	"knative.dev/serving/pkg/reconciler"
+	"knative.dev/serving/pkg/reconciler/route/config"
+	"knative.dev/serving/pkg/reconciler/route/domains"
+	"knative.dev/serving/pkg/reconciler/route/resources"
+	"knative.dev/serving/pkg/reconciler/route/resources/labels"
+	resourcenames "knative.dev/serving/pkg/reconciler/route/resources/names"
+	"knative.dev/serving/pkg/reconciler/route/traffic"
 )
 
 // routeFinalizer is the name that we put into the resource finalizer list, e.g.
@@ -72,6 +71,7 @@ type Reconciler struct {
 	revisionLister       listers.RevisionLister
 	serviceLister        corev1listers.ServiceLister
 	clusterIngressLister networkinglisters.ClusterIngressLister
+	ingressLister        networkinglisters.IngressLister
 	certificateLister    networkinglisters.CertificateLister
 	configStore          reconciler.ConfigStore
 	tracker              tracker.Interface
@@ -146,6 +146,13 @@ func ingressClassForRoute(ctx context.Context, r *v1alpha1.Route) string {
 	return config.FromContext(ctx).Network.DefaultClusterIngressClass
 }
 
+func certClass(ctx context.Context, r *v1alpha1.Route) string {
+	if class := r.Annotations[networking.CertificateClassAnnotationKey]; class != "" {
+		return class
+	}
+	return config.FromContext(ctx).Network.DefaultCertificateClass
+}
+
 func (c *Reconciler) getServices(route *v1alpha1.Route) ([]*corev1.Service, error) {
 	currentServices, err := c.serviceLister.Services(route.Namespace).List(resources.SelectorFromRoute(route))
 	if err != nil {
@@ -180,53 +187,23 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 
 	logger.Infof("Reconciling route: %#v", r)
 
-	// Get all services
-	existingServices, err := c.getServices(r) // This is what we use to determine whether we default or not.
-	if err != nil {
-		return err
-	}
-	existingServiceNames := resources.GetNames(existingServices)
-
-	clusterLocalServices := resources.FilterService(existingServices, resources.IsClusterLocalService)
-	clusterLocalServiceNames := resources.GetNames(clusterLocalServices)
-
-	// Any new service will follow the default route visibility. We only need to consider the case where it is "cluster-local"
-	// The alternative visibility means it should not be cluster local.
-	if labels.IsObjectLocalVisibility(r.ObjectMeta) {
-		expectedServiceNames, err := resources.GetDesiredServiceNames(ctx, r)
-		if err != nil {
-			return err
-		}
-
-		serviceWithDefaultVisibility := expectedServiceNames.Difference(existingServiceNames)
-		clusterLocalServiceNames = clusterLocalServiceNames.Union(serviceWithDefaultVisibility)
-	}
-
-	mainRouteMeta := r.ObjectMeta.DeepCopy()
-	mainRouteServiceName, err := domains.HostnameFromTemplate(ctx, r.Name, "")
-	if err != nil {
-		return err
-	}
-	labels.SetVisibility(mainRouteMeta, clusterLocalServiceNames.Has(mainRouteServiceName))
-
-	// Update the information that makes us Addressable. This is needed to configure traffic and
-	// make the cluster ingress.
-	host, err := domains.DomainNameFromTemplate(ctx, *mainRouteMeta, r.Name)
+	serviceNames, err := c.getServiceNames(ctx, r)
 	if err != nil {
 		return err
 	}
 
-	r.Status.URL = &apis.URL{
-		Scheme: "http",
-		Host:   host,
+	if err := c.updateRouteStatusURL(ctx, r, serviceNames.clusterLocal()); err != nil {
+		return err
 	}
-	// TODO(mattmoor): Remove completely after 0.7 cuts.
-	r.Status.DeprecatedDomain = ""
 
 	// Configure traffic based on the RouteSpec.
-	traffic, err := c.configureTraffic(ctx, r, clusterLocalServiceNames)
+	traffic, err := c.configureTraffic(ctx, r, serviceNames.desiredClusterLocalServiceNames)
 	if traffic == nil || err != nil {
 		// Traffic targets aren't ready, no need to configure child resources.
+		// Need to update ObservedGeneration, otherwise Route's Ready state won't
+		// be propagated to Service and the Service's RoutesReady will stay in
+		// 'Unknown'.
+		r.Status.ObservedGeneration = r.Generation
 		return err
 	}
 
@@ -237,9 +214,6 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		return err
 	}
 
-	// TODO(mattmoor): Remove completely after 0.7 cuts.
-	r.Status.DeprecatedDomainInternal = ""
-
 	r.Status.Address = &duckv1alpha1.Addressable{
 		Addressable: duckv1beta1.Addressable{
 			URL: &apis.URL{
@@ -247,8 +221,6 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 				Host:   resourcenames.K8sServiceFullname(r),
 			},
 		},
-		// TODO(mattmoor): Remove completely after 0.7 cuts.
-		Hostname: "",
 	}
 
 	// Add the finalizer before creating the ClusterIngress so that we can be sure it gets cleaned up.
@@ -257,37 +229,73 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	}
 
 	logger.Info("Creating placeholder k8s services")
-	services, err := c.reconcilePlaceholderServices(ctx, r, traffic.Targets, resources.GetNames(existingServices))
+	services, err := c.reconcilePlaceholderServices(ctx, r, traffic.Targets, serviceNames.existing())
 	if err != nil {
 		return err
 	}
 
-	clusterLocalServices = resources.FilterService(services, resources.IsClusterLocalService)
-	clusterLocalServiceNames = resources.GetNames(clusterLocalServices)
-	tls, err := c.tls(ctx, host, r, traffic, clusterLocalServiceNames)
+	clusterLocalServiceNames := serviceNames.clusterLocal()
+	tls, err := c.tls(ctx, r.Status.URL.Host, r, traffic, clusterLocalServiceNames)
 	if err != nil {
 		return err
 	}
 
-	logger.Info("Creating ClusterIngress.")
-	desired, err := resources.MakeClusterIngress(ctx, r, traffic, tls, resources.GetNames(clusterLocalServices), ingressClassForRoute(ctx, r))
+	// Reconcile ingress and its children resources.
+	_, err = c.reconcileIngressResources(ctx, r, traffic, tls, clusterLocalServiceNames, ingressClassForRoute(ctx, r),
+		&ClusterIngressResources{
+			BaseIngressResources: BaseIngressResources{
+				servingClientSet: c.ServingClientSet,
+			},
+			clusterIngressLister: c.clusterIngressLister,
+		},
+		true, /* optional */
+	)
+
 	if err != nil {
 		return err
 	}
-	clusterIngress, err := c.reconcileClusterIngress(ctx, r, desired)
+
+	// Reconcile ingress and its children resources.
+	ingress, err := c.reconcileIngressResources(ctx, r, traffic, tls, clusterLocalServiceNames, ingressClassForRoute(ctx, r),
+		&IngressResources{
+			BaseIngressResources: BaseIngressResources{
+				servingClientSet: c.ServingClientSet,
+			},
+			ingressLister: c.ingressLister,
+		},
+		false, /*optional*/
+	)
+
 	if err != nil {
 		return err
 	}
-	r.Status.PropagateClusterIngressStatus(clusterIngress.Status)
+
+	r.Status.PropagateIngressStatus(*ingress.GetStatus())
 
 	logger.Info("Updating placeholder k8s services with clusterIngress information")
-	if err := c.updatePlaceholderServices(ctx, r, services, clusterIngress); err != nil {
+	if err := c.updatePlaceholderServices(ctx, r, services, ingress); err != nil {
 		return err
 	}
 
 	r.Status.ObservedGeneration = r.Generation
 	logger.Info("Route successfully synced")
 	return nil
+}
+
+func (c *Reconciler) reconcileIngressResources(ctx context.Context, r *v1alpha1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS,
+	clusterLocalServices sets.String, ingressClass string, ira IngressResourceAccessors, optional bool) (netv1alpha1.IngressAccessor, error) {
+
+	desired, err := ira.makeIngress(ctx, r, tc, tls, clusterLocalServices, ingressClass)
+	if err != nil {
+		return nil, err
+	}
+
+	clusterIngress, err := c.reconcileIngress(ctx, ira, r, desired, optional)
+	if err != nil {
+		return nil, err
+	}
+
+	return clusterIngress, nil
 }
 
 func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, traffic *traffic.Config, clusterLocalServiceNames sets.String) ([]netv1alpha1.IngressTLS, error) {
@@ -306,7 +314,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 		}
 	}
 
-	desiredCerts := resources.MakeCertificates(r, tagToDomainMap)
+	desiredCerts := resources.MakeCertificates(r, tagToDomainMap, certClass(ctx, r))
 	for _, desiredCert := range desiredCerts {
 
 		cert, err := c.reconcileCertificate(ctx, r, desiredCert)
@@ -350,9 +358,9 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1alpha1.Route) e
 		return nil
 	}
 
-	// Delete the ClusterIngress resources for this Route.
-	logger.Info("Cleaning up ClusterIngress")
-	if err := c.deleteClusterIngressesForRoute(r); err != nil {
+	// Delete the ClusterIngress and Ingress resources for this Route.
+	logger.Info("Cleaning up ClusterIngress and Ingress")
+	if err := c.deleteIngressesForRoute(r); err != nil {
 		return err
 	}
 
@@ -369,9 +377,9 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1alpha1.Route) e
 //
 // If traffic is configured we update the RouteStatus with AllTrafficAssigned = True.  Otherwise we
 // mark AllTrafficAssigned = False, with a message referring to one of the missing target.
-func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route, clusterLocalServices sets.String) (*tr.Config, error) {
+func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route, clusterLocalServices sets.String) (*traffic.Config, error) {
 	logger := logging.FromContext(ctx)
-	t, err := tr.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
+	t, err := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
 
 	if t != nil {
 		// Tell our trackers to reconcile Route whenever the things referred to by our
@@ -391,7 +399,7 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route, cl
 		}
 	}
 
-	badTarget, isTargetError := err.(tr.TargetError)
+	badTarget, isTargetError := err.(traffic.TargetError)
 	if err != nil && !isTargetError {
 		// An error that's not due to missing traffic target should
 		// make us fail fast.
@@ -438,9 +446,82 @@ func (c *Reconciler) ensureFinalizer(route *v1alpha1.Route) error {
 	return err
 }
 
+func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1alpha1.Route, clusterLocalServices sets.String) error {
+	mainRouteServiceName, err := domains.HostnameFromTemplate(ctx, route.Name, "")
+	if err != nil {
+		return err
+	}
+
+	mainRouteMeta := route.ObjectMeta.DeepCopy()
+	labels.SetVisibility(mainRouteMeta, clusterLocalServices.Has(mainRouteServiceName))
+
+	host, err := domains.DomainNameFromTemplate(ctx, *mainRouteMeta, route.Name)
+	if err != nil {
+		return err
+	}
+
+	route.Status.URL = &apis.URL{
+		Scheme: "http",
+		Host:   host,
+	}
+
+	return nil
+}
+
+func (c *Reconciler) getServiceNames(ctx context.Context, route *v1alpha1.Route) (*serviceNames, error) {
+	// Populate existing service name sets
+	existingServices, err := c.getServices(route)
+	if err != nil {
+		return nil, err
+	}
+	existingServiceNames := resources.GetNames(existingServices)
+	existingClusterLocalServices := resources.FilterService(existingServices, resources.IsClusterLocalService)
+	existingClusterLocalServiceNames := resources.GetNames(existingClusterLocalServices)
+	existingPublicServiceNames := existingServiceNames.Difference(existingClusterLocalServiceNames)
+
+	// Populate desired service name sets
+	desiredServiceNames, err := resources.GetDesiredServiceNames(ctx, route)
+	if err != nil {
+		return nil, err
+	}
+	desiredPublicServiceNames := desiredServiceNames.Intersection(existingPublicServiceNames)
+	desiredClusterLocalServiceNames := desiredServiceNames.Intersection(existingClusterLocalServiceNames)
+
+	// Any new desired services will follow the default route visibility. We only need to consider the case where it is
+	// "cluster-local". The alternative visibility means it should not be cluster local.
+	serviceWithDefaultVisibility := desiredServiceNames.Difference(existingServiceNames)
+	if labels.IsObjectLocalVisibility(route.ObjectMeta) {
+		desiredClusterLocalServiceNames = desiredClusterLocalServiceNames.Union(serviceWithDefaultVisibility)
+	} else {
+		desiredPublicServiceNames = desiredPublicServiceNames.Union(serviceWithDefaultVisibility)
+	}
+
+	return &serviceNames{
+		existingPublicServiceNames:       existingPublicServiceNames,
+		existingClusterLocalServiceNames: existingClusterLocalServiceNames,
+		desiredPublicServiceNames:        desiredPublicServiceNames,
+		desiredClusterLocalServiceNames:  desiredClusterLocalServiceNames,
+	}, nil
+}
+
 /////////////////////////////////////////
 // Misc helpers.
 /////////////////////////////////////////
+
+type serviceNames struct {
+	existingPublicServiceNames       sets.String
+	existingClusterLocalServiceNames sets.String
+	desiredPublicServiceNames        sets.String
+	desiredClusterLocalServiceNames  sets.String
+}
+
+func (sn serviceNames) existing() sets.String {
+	return sn.existingPublicServiceNames.Union(sn.existingClusterLocalServiceNames)
+}
+
+func (sn serviceNames) clusterLocal() sets.String {
+	return sn.existingClusterLocalServiceNames.Union(sn.desiredClusterLocalServiceNames)
+}
 
 type accessor interface {
 	GetGroupVersionKind() schema.GroupVersionKind

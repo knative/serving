@@ -26,9 +26,6 @@ import (
 	"time"
 
 	// Inject the fakes for informers this controller relies on.
-	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
-	fakepainformer "github.com/knative/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
-	fakerevisioninformer "github.com/knative/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 	fakecachingclient "knative.dev/caching/pkg/client/injection/client/fake"
 	fakeimageinformer "knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake"
 	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
@@ -36,17 +33,12 @@ import (
 	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/configmap/fake"
 	fakeendpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
 	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
+	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
+	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
-	av1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/deployment"
-	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/reconciler/revision/resources"
-	resourcenames "github.com/knative/serving/pkg/reconciler/revision/resources/names"
 	"golang.org/x/sync/errgroup"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -64,6 +56,15 @@ import (
 	"knative.dev/pkg/metrics"
 	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/pkg/system"
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/reconciler/revision/resources"
+	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
 
 	. "knative.dev/pkg/reconciler/testing"
 )
@@ -144,6 +145,16 @@ func newTestControllerWithConfig(t *testing.T, deploymentConfig *deployment.Conf
 	}, {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
+			Name:      tracingconfig.ConfigName,
+		},
+		Data: map[string]string{
+			"enable":          "true",
+			"debug":           "true",
+			"zipkin-endpoint": "http://zipkin.istio-system.svc.cluster.local:9411/api/v2/spans",
+		},
+	}, {
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: system.Namespace(),
 			Name:      autoscaler.ConfigName,
 		},
 		Data: map[string]string{
@@ -161,7 +172,6 @@ func newTestControllerWithConfig(t *testing.T, deploymentConfig *deployment.Conf
 	for _, configMap := range cms {
 		configMapWatcher.OnChange(configMap)
 	}
-
 	return ctx, informers, controller, configMapWatcher
 }
 

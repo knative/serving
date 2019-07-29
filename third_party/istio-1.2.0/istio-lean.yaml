@@ -40,7 +40,7 @@ data:
     accessLogFormat: ""
 
     # Set accessLogEncoding to JSON or TEXT to configure sidecar access log
-    accessLogEncoding: 'TEXT'
+    accessLogEncoding: 'JSON'
     # Let Pilot give ingresses the public IP of the Istio ingressgateway
     ingressService: istio-ingressgateway
 

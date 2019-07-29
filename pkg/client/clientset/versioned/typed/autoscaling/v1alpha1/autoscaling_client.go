@@ -19,20 +19,25 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/client/clientset/versioned/scheme"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	rest "k8s.io/client-go/rest"
+	v1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/client/clientset/versioned/scheme"
 )
 
 type AutoscalingV1alpha1Interface interface {
 	RESTClient() rest.Interface
+	MetricsGetter
 	PodAutoscalersGetter
 }
 
 // AutoscalingV1alpha1Client is used to interact with features provided by the autoscaling.internal.knative.dev group.
 type AutoscalingV1alpha1Client struct {
 	restClient rest.Interface
+}
+
+func (c *AutoscalingV1alpha1Client) Metrics(namespace string) MetricInterface {
+	return newMetrics(c, namespace)
 }
 
 func (c *AutoscalingV1alpha1Client) PodAutoscalers(namespace string) PodAutoscalerInterface {

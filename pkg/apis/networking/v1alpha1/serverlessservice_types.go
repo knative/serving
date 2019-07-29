@@ -17,12 +17,12 @@ limitations under the License.
 package v1alpha1
 
 import (
-	networking "github.com/knative/serving/pkg/apis/networking"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/kmeta"
+	networking "knative.dev/serving/pkg/apis/networking"
 )
 
 // +genclient
@@ -126,4 +126,10 @@ const (
 	// ServerlessServiceConditionEndspointsPopulated is set when the ServerlessService's underlying
 	// Revision K8s Service has been populated with endpoints.
 	ServerlessServiceConditionEndspointsPopulated apis.ConditionType = "EndpointsPopulated"
+
+	// ActivatorEndpointsPopulated is an informational status that reports
+	// when the revision is backed by activator points. This might happen even if
+	// revision is active (no pods yet created) or even when it has healthy pods
+	// (e.g. due to target burst capacity settings).
+	ActivatorEndpointsPopulated apis.ConditionType = "ActivatorEndpointsPopulated"
 )

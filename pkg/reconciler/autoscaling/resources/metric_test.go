@@ -22,12 +22,13 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	"github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/autoscaler"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/kmeta"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler"
 
-	. "github.com/knative/serving/pkg/testing"
+	. "knative.dev/serving/pkg/testing"
 )
 
 func TestMakeMetric(t *testing.T) {
@@ -35,17 +36,17 @@ func TestMakeMetric(t *testing.T) {
 		name string
 		pa   *v1alpha1.PodAutoscaler
 		msn  string
-		want *autoscaler.Metric
+		want *v1alpha1.Metric
 	}{{
 		name: "defaults",
 		pa:   pa(),
 		msn:  "ik",
-		want: metric(withScarapeTarget("ik")),
+		want: metric(withScrapeTarget("ik")),
 	}, {
 		name: "with too short panic window",
 		pa:   pa(WithWindowAnnotation("10s"), WithPanicWindowPercentageAnnotation("10")),
 		msn:  "wil",
-		want: metric(withScarapeTarget("wil"), withWindowAnnotation("10s"),
+		want: metric(withScrapeTarget("wil"), withWindowAnnotation("10s"),
 			withStableWindow(10*time.Second), withPanicWindow(autoscaler.BucketSize),
 			withPanicWindowPercentageAnnotation("10")),
 	}, {
@@ -53,7 +54,7 @@ func TestMakeMetric(t *testing.T) {
 		pa:   pa(WithWindowAnnotation("10m")),
 		msn:  "nu",
 		want: metric(
-			withScarapeTarget("nu"),
+			withScrapeTarget("nu"),
 			withStableWindow(10*time.Minute), withPanicWindow(time.Minute),
 			withWindowAnnotation("10m")),
 	}, {
@@ -61,7 +62,7 @@ func TestMakeMetric(t *testing.T) {
 		pa:   pa(WithPanicWindowPercentageAnnotation("50")),
 		msn:  "dansen",
 		want: metric(
-			withScarapeTarget("dansen"),
+			withScrapeTarget("dansen"),
 			withStableWindow(time.Minute), withPanicWindow(30*time.Second),
 			withPanicWindowPercentageAnnotation("50")),
 	}}
@@ -88,48 +89,50 @@ func TestStableWindow(t *testing.T) {
 	}
 }
 
-type MetricOption func(*autoscaler.Metric)
+type MetricOption func(*v1alpha1.Metric)
 
 func withStableWindow(window time.Duration) MetricOption {
-	return func(metric *autoscaler.Metric) {
+	return func(metric *v1alpha1.Metric) {
 		metric.Spec.StableWindow = window
 	}
 }
 
 func withPanicWindow(window time.Duration) MetricOption {
-	return func(metric *autoscaler.Metric) {
+	return func(metric *v1alpha1.Metric) {
 		metric.Spec.PanicWindow = window
 	}
 }
 
 func withWindowAnnotation(window string) MetricOption {
-	return func(metric *autoscaler.Metric) {
+	return func(metric *v1alpha1.Metric) {
 		metric.Annotations[autoscaling.WindowAnnotationKey] = window
 	}
 }
 
 func withPanicWindowPercentageAnnotation(percentage string) MetricOption {
-	return func(metric *autoscaler.Metric) {
+	return func(metric *v1alpha1.Metric) {
 		metric.Annotations[autoscaling.PanicWindowPercentageAnnotationKey] = percentage
 	}
 }
 
-func withScarapeTarget(s string) MetricOption {
-	return func(metric *autoscaler.Metric) {
+func withScrapeTarget(s string) MetricOption {
+	return func(metric *v1alpha1.Metric) {
 		metric.Spec.ScrapeTarget = s
 	}
 }
 
-func metric(options ...MetricOption) *autoscaler.Metric {
-	m := &autoscaler.Metric{
+func metric(options ...MetricOption) *v1alpha1.Metric {
+	m := &v1alpha1.Metric{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "test-namespace",
 			Name:      "test-name",
 			Annotations: map[string]string{
 				autoscaling.ClassAnnotationKey: autoscaling.KPA,
 			},
+			Labels:          map[string]string{},
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(pa())},
 		},
-		Spec: autoscaler.MetricSpec{
+		Spec: v1alpha1.MetricSpec{
 			StableWindow: 60 * time.Second,
 			PanicWindow:  6 * time.Second,
 		},

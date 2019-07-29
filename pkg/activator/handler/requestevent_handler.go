@@ -16,13 +16,14 @@ package handler
 import (
 	"net/http"
 
-	"github.com/knative/serving/pkg/activator"
-	"github.com/knative/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/activator"
+
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // ReqEvent represents an incoming/finished request with a given key
 type ReqEvent struct {
-	Key       string
+	Key       types.NamespacedName
 	EventType ReqEventType
 }
 
@@ -57,9 +58,11 @@ func (h *RequestEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	namespace := r.Header.Get(activator.RevisionHeaderNamespace)
 	name := r.Header.Get(activator.RevisionHeaderName)
 
-	revisionKey := autoscaler.NewMetricKey(namespace, name)
+	revisionKey := types.NamespacedName{Namespace: namespace, Name: name}
 
 	h.ReqChan <- ReqEvent{Key: revisionKey, EventType: ReqIn}
-	defer func() { h.ReqChan <- ReqEvent{Key: revisionKey, EventType: ReqOut} }()
+	defer func() {
+		h.ReqChan <- ReqEvent{Key: revisionKey, EventType: ReqOut}
+	}()
 	h.nextHandler.ServeHTTP(w, r)
 }

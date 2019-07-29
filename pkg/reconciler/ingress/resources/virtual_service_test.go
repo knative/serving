@@ -21,17 +21,18 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	apiconfig "github.com/knative/serving/pkg/apis/config"
-	"github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
 	istiov1alpha1 "knative.dev/pkg/apis/istio/common/v1alpha1"
 	"knative.dev/pkg/apis/istio/v1alpha3"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
+	apiconfig "knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
 )
 
 var (
@@ -41,7 +42,7 @@ var (
 func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
-		gateways map[v1alpha1.IngressVisibility][]string
+		gateways map[v1alpha1.IngressVisibility]sets.String
 		ci       *v1alpha1.ClusterIngress
 		expected []metav1.ObjectMeta
 	}{{
@@ -123,7 +124,10 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 		}},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
-			vss := MakeVirtualServices(tc.ci, tc.gateways)
+			vss, err := MakeVirtualServices(tc.ci, tc.gateways)
+			if err != nil {
+				t.Fatalf("MakeVirtualServices failed: %v", err)
+			}
 			if len(vss) != len(tc.expected) {
 				t.Fatalf("Expected %d VirtualService, saw %d", len(tc.expected), len(vss))
 			}
@@ -222,13 +226,8 @@ func TestMakeMeshVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 	expected := []v1alpha3.HTTPRoute{{
 		Match: []v1alpha3.HTTPMatchRequest{{
 			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns(?::\d{1,5})?$`},
-		}, {
-			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns\.svc(?::\d{1,5})?$`},
-		}, {
-			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns\.svc\.cluster\.local(?::\d{1,5})?$`},
+			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns(\.svc(\.cluster\.local)?)?(?::\d{1,5})?$`},
+			Gateways:  []string{},
 		}},
 		Route: []v1alpha3.HTTPRouteDestination{{
 			Destination: v1alpha3.Destination{
@@ -236,23 +235,20 @@ func TestMakeMeshVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 				Port: v1alpha3.PortSelector{Number: 80},
 			},
 			Weight: 100,
-			// Headers: &v1alpha3.Headers{
-			// 	Request: &v1alpha3.HeaderOperations{
-			// 		Add: map[string]string{
-			// 			"ugh": "blah",
-			// 		},
-			// 	},
-			// },
+			Headers: &v1alpha3.Headers{
+				Request: &v1alpha3.HeaderOperations{
+					Add: map[string]string{
+						"ugh": "blah",
+					},
+				},
+			},
 		}},
-		// Headers: &v1alpha3.Headers{
-		// 	Request: &v1alpha3.HeaderOperations{
-		// 		Add: map[string]string{
-		// 			"foo": "bar",
-		// 		},
-		// 	},
-		// },
-		DeprecatedAppendHeaders: map[string]string{
-			"foo": "bar",
+		Headers: &v1alpha3.Headers{
+			Request: &v1alpha3.HeaderOperations{
+				Add: map[string]string{
+					"foo": "bar",
+				},
+			},
 		},
 		Timeout: defaultMaxRevisionTimeout.String(),
 		Retries: &v1alpha3.HTTPRetry{
@@ -279,8 +275,8 @@ func TestMakeIngressVirtualServiceSpec_CorrectGateways(t *testing.T) {
 		},
 		Spec: v1alpha1.IngressSpec{},
 	}
-	expected := []string{"gateway-one", "gateway-two"}
-	gateways := MakeIngressVirtualService(ci, makeGatewayMap([]string{"gateway-one", "gateway-two"}, nil)).Spec.Gateways
+	expected := []string{"knative-testing/gateway-one", "knative-testing/gateway-two"}
+	gateways := MakeIngressVirtualService(ci, makeGatewayMap([]string{"knative-testing/gateway-one", "knative-testing/gateway-two"}, nil)).Spec.Gateways
 	if diff := cmp.Diff(expected, gateways); diff != "" {
 		t.Errorf("Unexpected gateways (-want +got): %v", diff)
 	}
@@ -296,8 +292,6 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 				Hosts: []string{
 					"domain.com",
 					"test-route.test-ns.svc.cluster.local",
-					"test-route.test-ns.svc",
-					"test-route.test-ns",
 				},
 				HTTP: &v1alpha1.HTTPIngressRuleValue{
 					Paths: []v1alpha1.HTTPIngressPath{{
@@ -356,15 +350,11 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		Match: []v1alpha3.HTTPMatchRequest{{
 			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
 			Authority: &istiov1alpha1.StringMatch{Regex: `^domain\.com(?::\d{1,5})?$`},
+			Gateways:  []string{},
 		}, {
 			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns(?::\d{1,5})?$`},
-		}, {
-			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns\.svc(?::\d{1,5})?$`},
-		}, {
-			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns\.svc\.cluster\.local(?::\d{1,5})?$`},
+			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns(\.svc(\.cluster\.local)?)?(?::\d{1,5})?$`},
+			Gateways:  []string{},
 		}},
 		Route: []v1alpha3.HTTPRouteDestination{{
 			Destination: v1alpha3.Destination{
@@ -372,23 +362,20 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 				Port: v1alpha3.PortSelector{Number: 80},
 			},
 			Weight: 100,
-			// Headers: &v1alpha3.Headers{
-			// 	Request: &v1alpha3.HeaderOperations{
-			// 		Add: map[string]string{
-			// 			"ugh": "blah",
-			// 		},
-			// 	},
-			// },
+			Headers: &v1alpha3.Headers{
+				Request: &v1alpha3.HeaderOperations{
+					Add: map[string]string{
+						"ugh": "blah",
+					},
+				},
+			},
 		}},
-		// Headers: &v1alpha3.Headers{
-		// 	Request: &v1alpha3.HeaderOperations{
-		// 		Add: map[string]string{
-		// 			"foo": "bar",
-		// 		},
-		// 	},
-		// },
-		DeprecatedAppendHeaders: map[string]string{
-			"foo": "bar",
+		Headers: &v1alpha3.Headers{
+			Request: &v1alpha3.HeaderOperations{
+				Add: map[string]string{
+					"foo": "bar",
+				},
+			},
 		},
 		Timeout: defaultMaxRevisionTimeout.String(),
 		Retries: &v1alpha3.HTTPRetry{
@@ -400,6 +387,7 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		Match: []v1alpha3.HTTPMatchRequest{{
 			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
 			Authority: &istiov1alpha1.StringMatch{Regex: `^v1\.domain\.com(?::\d{1,5})?$`},
+			Gateways:  []string{},
 		}},
 		Route: []v1alpha3.HTTPRouteDestination{{
 			Destination: v1alpha3.Destination{
@@ -408,15 +396,12 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			},
 			Weight: 100,
 		}},
-		// Headers: &v1alpha3.Headers{
-		// 	Request: &v1alpha3.HeaderOperations{
-		// 		Add: map[string]string{
-		// 			"foo": "baz",
-		// 		},
-		// 	},
-		// },
-		DeprecatedAppendHeaders: map[string]string{
-			"foo": "baz",
+		Headers: &v1alpha3.Headers{
+			Request: &v1alpha3.HeaderOperations{
+				Add: map[string]string{
+					"foo": "baz",
+				},
+			},
 		},
 		Timeout: defaultMaxRevisionTimeout.String(),
 		Retries: &v1alpha3.HTTPRetry{
@@ -450,8 +435,7 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 			Attempts:      networking.DefaultRetryCount,
 		},
 	}
-	hosts := []string{"a.com", "b.org"}
-	route := makeVirtualServiceRoute(hosts, ingressPath, []string{"gateway-1"})
+	route := makeVirtualServiceRoute(sets.NewString("a.com", "b.org"), ingressPath, sets.NewString("gateway-1"))
 	expected := v1alpha3.HTTPRoute{
 		Match: []v1alpha3.HTTPMatchRequest{{
 			Gateways:  []string{"gateway-1"},
@@ -503,11 +487,10 @@ func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 			Attempts:      networking.DefaultRetryCount,
 		},
 	}
-	hosts := []string{"test.org"}
-	route := makeVirtualServiceRoute(hosts, ingressPath, []string{"gateway-1"})
+	route := makeVirtualServiceRoute(sets.NewString("test.org"), ingressPath, sets.NewString("knative-testing/gateway-1"))
 	expected := v1alpha3.HTTPRoute{
 		Match: []v1alpha3.HTTPMatchRequest{{
-			Gateways:  []string{"gateway-1"},
+			Gateways:  []string{"knative-testing/gateway-1"},
 			Authority: &istiov1alpha1.StringMatch{Regex: `^test\.org(?::\d{1,5})?$`},
 		}},
 		Route: []v1alpha3.HTTPRouteDestination{{
@@ -539,24 +522,14 @@ func TestGetHosts_Duplicate(t *testing.T) {
 	ci := &v1alpha1.ClusterIngress{
 		Spec: v1alpha1.IngressSpec{
 			Rules: []v1alpha1.IngressRule{{
-				Hosts: []string{
-					"test-route1",
-					"test-route2",
-				},
+				Hosts: []string{"test-route1", "test-route2"},
 			}, {
-				Hosts: []string{
-					"test-route1",
-					"test-route3",
-				},
+				Hosts: []string{"test-route1", "test-route3"},
 			}},
 		},
 	}
 	hosts := getHosts(ci)
-	expected := []string{
-		"test-route1",
-		"test-route2",
-		"test-route3",
-	}
+	expected := sets.NewString("test-route1", "test-route2", "test-route3")
 	if diff := cmp.Diff(expected, hosts); diff != "" {
 		t.Errorf("Unexpected hosts  (-want +got): %v", diff)
 	}
@@ -565,46 +538,46 @@ func TestGetHosts_Duplicate(t *testing.T) {
 func TestGetExpandedHosts(t *testing.T) {
 	for _, test := range []struct {
 		name  string
-		hosts []string
-		want  []string
+		hosts sets.String
+		want  sets.String
 	}{{
 		name: "cluster local service in non-default namespace",
-		hosts: []string{
+		hosts: sets.NewString(
 			"service.namespace.svc.cluster.local",
-		},
-		want: []string{
+		),
+		want: sets.NewString(
 			"service.namespace",
 			"service.namespace.svc",
 			"service.namespace.svc.cluster.local",
-		},
+		),
 	}, {
 		name: "example.com service",
-		hosts: []string{
+		hosts: sets.NewString(
 			"foo.bar.example.com",
-		},
-		want: []string{
+		),
+		want: sets.NewString(
 			"foo.bar.example.com",
-		},
+		),
 	}, {
 		name: "default.example.com service",
-		hosts: []string{
+		hosts: sets.NewString(
 			"foo.default.example.com",
-		},
-		want: []string{
+		),
+		want: sets.NewString(
 			"foo.default.example.com",
-		},
+		),
 	}, {
 		name: "mix",
-		hosts: []string{
+		hosts: sets.NewString(
 			"foo.default.example.com",
 			"foo.default.svc.cluster.local",
-		},
-		want: []string{
+		),
+		want: sets.NewString(
 			"foo.default",
 			"foo.default.example.com",
 			"foo.default.svc",
 			"foo.default.svc.cluster.local",
-		},
+		),
 	}} {
 		t.Run(test.name, func(t *testing.T) {
 			got := expandedHosts(test.hosts)
@@ -615,9 +588,9 @@ func TestGetExpandedHosts(t *testing.T) {
 	}
 }
 
-func makeGatewayMap(publicGateways []string, privateGateways []string) map[v1alpha1.IngressVisibility][]string {
-	return map[v1alpha1.IngressVisibility][]string{
-		v1alpha1.IngressVisibilityExternalIP:   publicGateways,
-		v1alpha1.IngressVisibilityClusterLocal: privateGateways,
+func makeGatewayMap(publicGateways []string, privateGateways []string) map[v1alpha1.IngressVisibility]sets.String {
+	return map[v1alpha1.IngressVisibility]sets.String{
+		v1alpha1.IngressVisibilityExternalIP:   sets.NewString(publicGateways...),
+		v1alpha1.IngressVisibilityClusterLocal: sets.NewString(privateGateways...),
 	}
 }

@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/serving/pkg/network"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/serving/pkg/network"
 )
 
 const (
@@ -149,7 +149,7 @@ func TestDoAsync(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			m := New(test.cb, network.NewAutoTransport)
+			m := New(test.cb, network.NewProberTransport())
 			m.Offer(context.Background(), ts.URL, test.name, 50*time.Millisecond, 2*time.Second, WithHeader(network.ProbeHeaderName, test.headerValue), ExpectsBody(test.headerValue))
 			<-wch
 		})
@@ -186,7 +186,7 @@ func TestDoAsyncRepeat(t *testing.T) {
 		}
 		wch <- arg
 	}
-	m := New(cb, network.NewAutoTransport)
+	m := New(cb, network.NewProberTransport())
 	m.Offer(context.Background(), ts.URL, 42, 50*time.Millisecond, 3*time.Second, WithHeader(network.ProbeHeaderName, systemName), ExpectsBody(systemName))
 	<-wch
 	if got, want := c.calls, 3; got != want {
@@ -209,7 +209,7 @@ func TestDoAsyncTimeout(t *testing.T) {
 		}
 		wch <- arg
 	}
-	m := New(cb, network.NewAutoTransport)
+	m := New(cb, network.NewProberTransport())
 	m.Offer(context.Background(), ts.URL, 2009, 10*time.Millisecond, 200*time.Millisecond)
 	<-wch
 }
@@ -224,7 +224,7 @@ func TestAsyncMultiple(t *testing.T) {
 		<-wch
 		wch <- 2006
 	}
-	m := New(cb, network.NewAutoTransport)
+	m := New(cb, network.NewProberTransport())
 	if !m.Offer(context.Background(), ts.URL, 1984, 100*time.Millisecond, 1*time.Second) {
 		t.Error("First call to offer returned false")
 	}
@@ -241,6 +241,46 @@ func TestAsyncMultiple(t *testing.T) {
 	time.Sleep(300 * time.Millisecond)
 	if got, want := m.len(), 0; got != want {
 		t.Errorf("Number of queued items = %d, want: %d", got, want)
+	}
+}
+
+func TestWithHostOption(t *testing.T) {
+	host := "foobar.com"
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Logf("Want: %s, Got: %s\n", host, r.Host)
+		if r.Host != host {
+			w.WriteHeader(404)
+		}
+	}))
+	defer ts.Close()
+
+	tests := []struct {
+		name    string
+		options []interface{}
+		success bool
+	}{{
+		name:    "no hosts",
+		success: false,
+	}, {
+		name:    "expected host",
+		options: []interface{}{WithHost(host)},
+		success: true,
+	}, {
+		name:    "wrong host",
+		options: []interface{}{WithHost("nope.com")},
+		success: false,
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ok, err := Do(context.Background(), network.AutoTransport, ts.URL, test.options...)
+			if err != nil {
+				t.Errorf("failed to probe: %v", err)
+			}
+			if ok != test.success {
+				t.Errorf("unexpected probe result: want: %v, got: %v", test.success, ok)
+			}
+		})
 	}
 }
 

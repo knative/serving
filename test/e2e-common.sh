@@ -20,6 +20,7 @@
 # with the job config.
 E2E_MIN_CLUSTER_NODES=${E2E_MIN_CLUSTER_NODES:-4}
 E2E_MAX_CLUSTER_NODES=${E2E_MAX_CLUSTER_NODES:-4}
+E2E_CLUSTER_MACHINE=${E2E_CLUSTER_MACHINE:-n1-standard-8}
 
 # This script provides helper methods to perform cluster actions.
 source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/e2e-tests.sh
@@ -80,6 +81,11 @@ function parse_flags() {
       readonly INSTALL_CUSTOM_YAMLS
       return 2
       ;;
+    --gloo-version)
+      [[ $2 =~ ^[0-9]+\.[0-9]+(\.[0-9]+|\-latest)$ ]] || abort "version format must be '[0-9].[0-9].[0-9]' or '[0-9].[0-9]-latest"
+      readonly GLOO_VERSION=$2
+      return 2
+      ;;
   esac
   return 0
 }
@@ -90,6 +96,12 @@ function parse_flags() {
 # environment variables as set in /hack/generate-yamls.sh.
 function build_knative_from_source() {
   local YAML_LIST="$(mktemp)"
+
+  # set ko flags to omit istio resources from generated YAMLs
+  if [[ -n "${GLOO_VERSION}" ]]; then
+    KO_FLAGS="${KO_FLAGS} --selector=networking.knative.dev/ingress-provider!=istio"
+  fi
+
   # Generate manifests, capture environment variables pointing to the YAML files.
   local FULL_OUTPUT="$( \
       source $(dirname $0)/../hack/generate-yamls.sh ${REPO_ROOT_DIR} ${YAML_LIST} ; \
@@ -122,6 +134,37 @@ function install_knative_serving() {
   done
 }
 
+function install_istio() {
+  local istio_base="./third_party/istio-${ISTIO_VERSION}"
+  INSTALL_ISTIO_CRD_YAML="${istio_base}/istio-crds.yaml"
+  (( ISTIO_MESH )) && INSTALL_ISTIO_YAML="${istio_base}/istio.yaml" || INSTALL_ISTIO_YAML="${istio_base}/istio-lean.yaml"
+
+  echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
+  echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
+
+  echo ">> Bringing up Istio"
+  echo ">> Running Istio CRD installer"
+  kubectl apply -f "${INSTALL_ISTIO_CRD_YAML}" || return 1
+  wait_until_batch_job_complete istio-system || return 1
+
+  echo ">> Bringing up Istio"
+  echo ">> Running Istio CRD installer"
+  kubectl apply -f "${INSTALL_ISTIO_CRD_YAML}" || return 1
+  wait_until_batch_job_complete istio-system || return 1
+
+  echo ">> Running Istio"
+  kubectl apply -f "${INSTALL_ISTIO_YAML}" || return 1
+}
+
+function install_gloo() {
+  local gloo_base="./third_party/gloo-${GLOO_VERSION}"
+  INSTALL_GLOO_YAML="${gloo_base}/gloo.yaml"
+  echo "Gloo YAML: ${INSTALL_GLOO_YAML}"
+  echo ">> Bringing up Gloo"
+
+  kubectl apply -f ${INSTALL_GLOO_YAML} || return 1
+}
+
 # Installs Knative Serving in the current cluster, and waits for it to be ready.
 # If no parameters are passed, installs the current source-based build.
 # Parameters: $1 - Knative Serving YAML file
@@ -142,24 +185,19 @@ function install_knative_serving_standard() {
     fi
   fi
 
-  local istio_base="./third_party/istio-${ISTIO_VERSION}"
-  INSTALL_ISTIO_CRD_YAML="${istio_base}/istio-crds.yaml"
-  (( ISTIO_MESH )) && INSTALL_ISTIO_YAML="${istio_base}/istio.yaml" || INSTALL_ISTIO_YAML="${istio_base}/istio-lean.yaml"
   INSTALL_CERT_MANAGER_YAML="./third_party/cert-manager-${CERT_MANAGER_VERSION}/cert-manager.yaml"
 
   echo ">> Installing Knative serving"
-  echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
-  echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
   echo "Cert Manager YAML: ${INSTALL_CERT_MANAGER_YAML}"
   echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
 
-  echo ">> Bringing up Istio"
-  echo ">> Running Istio CRD installer"
-  kubectl apply -f "${INSTALL_ISTIO_CRD_YAML}" || return 1
-  wait_until_batch_job_complete istio-system || return 1
-
-  echo ">> Running Istio"
-  kubectl apply -f "${INSTALL_ISTIO_YAML}" || return 1
+  if [[ -z "${GLOO_VERSION}" ]]; then
+    # install istio as the default knative ingress
+    install_istio
+  else
+    # install gloo if $GLOO_VERSION is provided
+    install_gloo
+  fi
 
   echo ">> Installing Cert-Manager"
   kubectl apply -f "${INSTALL_CERT_MANAGER_YAML}" --validate=false || return 1
@@ -172,31 +210,34 @@ function install_knative_serving_standard() {
   # Therefore we don't exit on failure, and don't log an error message.
   kubectl autoscale deploy --min=2 --max=2 -n knative-serving activator 2>/dev/null
 
-  # Due to the lack of Status in Istio, we have to ignore failures in initial requests.
-  #
-  # However, since network configurations may reach different ingress pods at slightly
-  # different time, even ignoring failures for initial requests won't ensure subsequent
-  # requests will succeed all the time.  We are disabling ingress pod autoscaling here
-  # to avoid having too much flakes in the tests.  That would allow us to be stricter
-  # when checking non-probe requests to discover other routing issues.
-  #
-  # To compensate for this scaling down, we increase the CPU request for these pods.
-  #
-  # We should revisit this when Istio API exposes a Status that we can rely on.
-  # TODO(tcnghia): remove this when https://github.com/istio/istio/issues/882 is fixed.
-  echo ">> Patching Istio"
-  # There are reports of Envoy failing (503) when istio-pilot is overloaded.
-  # We generously add more pilot instances here to verify if we can reduce flakes.
-  if kubectl get hpa -n istio-system istio-pilot 2>/dev/null; then
-    # If HPA exists, update it.  Since patching will return non-zero if no change
-    # is made, we don't return on failure here.
-    kubectl patch hpa -n istio-system istio-pilot \
-      --patch '{"spec": {"minReplicas": 3, "maxReplicas": 10, "targetCPUUtilizationPercentage": 60}}' \
-      `# Ignore error messages to avoid causing red herrings in the tests` \
-      2>/dev/null
-  else
-    # Some versions of Istio don't provide an HPA for pilot.
-    kubectl autoscale -n istio-system deploy istio-pilot --min=3 --max=10 --cpu-percent=60 || return 1
+  # post-install steps for istio
+  if [[ -z "${GLOO_VERSION}" ]]; then
+    # Due to the lack of Status in Istio, we have to ignore failures in initial requests.
+    #
+    # However, since network configurations may reach different ingress pods at slightly
+    # different time, even ignoring failures for initial requests won't ensure subsequent
+    # requests will succeed all the time.  We are disabling ingress pod autoscaling here
+    # to avoid having too much flakes in the tests.  That would allow us to be stricter
+    # when checking non-probe requests to discover other routing issues.
+    #
+    # To compensate for this scaling down, we increase the CPU request for these pods.
+    #
+    # We should revisit this when Istio API exposes a Status that we can rely on.
+    # TODO(tcnghia): remove this when https://github.com/istio/istio/issues/882 is fixed.
+    echo ">> Patching Istio"
+    # There are reports of Envoy failing (503) when istio-pilot is overloaded.
+    # We generously add more pilot instances here to verify if we can reduce flakes.
+    if kubectl get hpa -n istio-system istio-pilot 2>/dev/null; then
+      # If HPA exists, update it.  Since patching will return non-zero if no change
+      # is made, we don't return on failure here.
+      kubectl patch hpa -n istio-system istio-pilot \
+        --patch '{"spec": {"minReplicas": 3, "maxReplicas": 10, "targetCPUUtilizationPercentage": 60}}' \
+        `# Ignore error messages to avoid causing red herrings in the tests` \
+        2>/dev/null
+    else
+      # Some versions of Istio don't provide an HPA for pilot.
+      kubectl autoscale -n istio-system deploy istio-pilot --min=3 --max=10 --cpu-percent=60 || return 1
+    fi
   fi
 
   if [[ -n "${INSTALL_MONITORING_YAML}" ]]; then
@@ -246,12 +287,29 @@ function knative_teardown() {
 
 # Create test resources and images
 function test_setup() {
+  echo ">> Setting up logging..."
+
+  # Install kail.
+  bash <( curl -sfL https://raw.githubusercontent.com/boz/kail/master/godownloader.sh) -b "$GOPATH/bin"
+
+  # Capture all logs.
+  kail > ${ARTIFACTS}/k8s.log.txt &
+
   echo ">> Creating test resources (test/config/)"
-  ko apply -f test/config/ || return 1
+  ko apply ${KO_FLAGS} -f test/config/ || return 1
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
   wait_until_pods_running knative-serving || return 1
-  wait_until_pods_running istio-system || return 1
-  wait_until_service_has_external_ip istio-system istio-ingressgateway
+  if [[ -z "${GLOO_VERSION}" ]]; then
+    wait_until_pods_running istio-system || return 1
+    wait_until_service_has_external_ip istio-system istio-ingressgateway
+  else
+    # we must set these override values to allow the test spoofing client to work with Gloo
+    # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
+    export GATEWAY_OVERRIDE=clusteringress-proxy
+    export GATEWAY_NAMESPACE_OVERRIDE=gloo-system
+    wait_until_pods_running gloo-system || return 1
+    wait_until_service_has_external_ip gloo-system clusteringress-proxy
+  fi
   if [[ -n "${INSTALL_MONITORING_YAML}" ]]; then
     wait_until_pods_running knative-monitoring || return 1
   fi
@@ -276,8 +334,4 @@ function dump_extra_cluster_state() {
   kubectl get configurations -o yaml --all-namespaces
   echo ">>> Revisions:"
   kubectl get revisions -o yaml --all-namespaces
-
-  for app in controller webhook autoscaler activator networking-certmanager networking-istio; do
-    dump_app_logs ${app} knative-serving
-  done
 }

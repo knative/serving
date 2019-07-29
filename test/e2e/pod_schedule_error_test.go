@@ -22,14 +22,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	serviceresourcenames "github.com/knative/serving/pkg/reconciler/service/resources/names"
-	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/test/logstream"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
+	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
 func TestPodScheduleError(t *testing.T) {
@@ -64,14 +65,14 @@ func TestPodScheduleError(t *testing.T) {
 		svc *v1alpha1.Service
 		err error
 	)
-	if svc, err = v1a1test.CreateLatestService(t, clients, names, &v1a1test.Options{ContainerResources: resources}); err != nil {
+	if svc, err = v1a1test.CreateLatestService(t, clients, names, v1a1opts.WithResourceRequirements(resources)); err != nil {
 		t.Fatalf("Failed to create Service %s: %v", names.Service, err)
 	}
 
 	names.Config = serviceresourcenames.Configuration(svc)
 
 	err = v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, func(r *v1alpha1.Service) (bool, error) {
-		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionReady)
+		cond := r.Status.GetCondition(v1alpha1.ServiceConditionConfigurationsReady)
 		if cond != nil && !cond.IsUnknown() {
 			if strings.Contains(cond.Message, errorMsg) && cond.IsFalse() {
 				return true, nil

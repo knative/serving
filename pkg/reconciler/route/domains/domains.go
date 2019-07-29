@@ -26,10 +26,10 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/reconciler/route/config"
-	"github.com/knative/serving/pkg/reconciler/route/resources/labels"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/reconciler/route/config"
+	"knative.dev/serving/pkg/reconciler/route/resources/labels"
 
 	"knative.dev/pkg/apis"
 )

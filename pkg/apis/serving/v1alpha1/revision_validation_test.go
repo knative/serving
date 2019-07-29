@@ -23,18 +23,18 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	"github.com/knative/serving/pkg/apis/config"
-	net "github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/apis/serving"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/config"
+	net "knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/serving"
 
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 func TestConcurrencyModelValidation(t *testing.T) {
@@ -340,10 +340,10 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 				},
 			},
 		},
-		want: &apis.FieldError{
+		want: (&apis.FieldError{
 			Message: "expected 0.1 <= 200 <= 100",
 			Paths:   []string{serving.QueueSideCarResourcePercentageAnnotation},
-		},
+		}).ViaField("metadata.annotations"),
 	}, {
 		name: "Invalid queue sidecar resource percentage annotation",
 		rts: &RevisionTemplateSpec{
@@ -358,10 +358,29 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 				},
 			},
 		},
-		want: &apis.FieldError{
+		want: (&apis.FieldError{
 			Message: "invalid value: 50mx",
 			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSideCarResourcePercentageAnnotation)},
+		}).ViaField("metadata.annotations"),
+	}, {
+		name: "invalid metadata.annotations for scale",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					autoscaling.MinScaleAnnotationKey: "5",
+					autoscaling.MaxScaleAnnotationKey: "",
+				},
+			},
+			Spec: RevisionSpec{
+				DeprecatedContainer: &corev1.Container{
+					Image: "helloworld",
+				},
+			},
 		},
+		want: (&apis.FieldError{
+			Message: "expected 1 <=  <= 2147483647",
+			Paths:   []string{autoscaling.MaxScaleAnnotationKey},
+		}).ViaField("annotations").ViaField("metadata"),
 	}}
 
 	for _, test := range tests {
@@ -741,7 +760,7 @@ func TestRevisionProtocolType(t *testing.T) {
 	}, {
 		net.ProtocolHTTP1, nil,
 	}, {
-		net.ProtocolType(""), apis.ErrInvalidValue("", apis.CurrentField),
+		net.ProtocolType(""), apis.ErrMissingField(apis.CurrentField),
 	}, {
 		net.ProtocolType("token-ring"), apis.ErrInvalidValue("token-ring", apis.CurrentField),
 	}}

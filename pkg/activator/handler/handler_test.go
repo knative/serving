@@ -33,26 +33,25 @@ import (
 	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
 	reporterrecorder "github.com/openzipkin/zipkin-go/reporter/recorder"
 
-	"github.com/knative/serving/pkg/activator"
-	activatortest "github.com/knative/serving/pkg/activator/testing"
-	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	servingfake "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
-	netlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
-	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/queue"
-	"github.com/knative/serving/pkg/tracing"
-	tracingconfig "github.com/knative/serving/pkg/tracing/config"
 	. "knative.dev/pkg/logging/testing"
 	_ "knative.dev/pkg/system/testing"
+	"knative.dev/serving/pkg/activator"
+	activatortest "knative.dev/serving/pkg/activator/testing"
+	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	servingfake "knative.dev/serving/pkg/client/clientset/versioned/fake"
+	servinginformers "knative.dev/serving/pkg/client/informers/externalversions"
+	netlisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
+	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/tracing"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	kubeinformers "k8s.io/client-go/informers"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	kubefake "k8s.io/client-go/kubernetes/fake"
@@ -324,7 +323,7 @@ func TestActivationHandler(t *testing.T) {
 			// Setup transports.
 			rt := network.RoundTripperFunc(fakeRt.RT)
 			handler.transport = rt
-			handler.probeTransportFactory = rtFact(rt)
+			handler.probeTransport = rt
 
 			if test.sksLister != nil {
 				handler.sksLister = test.sksLister
@@ -358,58 +357,6 @@ func TestActivationHandler(t *testing.T) {
 	}
 }
 
-func TestActivationHandlerProbeCaching(t *testing.T) {
-	namespace := testNamespace
-	revName := testRevName
-	revID := activator.RevisionID{Namespace: namespace, Name: revName}
-
-	fakeRT := activatortest.FakeRoundTripper{}
-	rt := network.RoundTripperFunc(fakeRT.RT)
-
-	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
-	reporter := &fakeReporter{}
-
-	throttler := activator.NewThrottler(
-		breakerParams,
-		endpointsInformer(endpoints(namespace, revName, breakerParams.InitialCapacity)),
-		sksLister(sks(namespace, revName)),
-		revisionLister(revision(namespace, revName)),
-		TestLogger(t))
-
-	handler := (New(TestLogger(t), reporter, throttler,
-		revisionLister(revision(namespace, revName)),
-		serviceLister(service(namespace, revName, "http")),
-		sksLister(sks(namespace, revName)),
-	)).(*activationHandler)
-
-	// Setup transports.
-	handler.transport = rt
-	handler.probeTransportFactory = rtFact(rt)
-
-	sendRequest(namespace, revName, handler)
-	if fakeRT.NumProbes != 1 {
-		t.Errorf("NumProbes = %d, want: %d", fakeRT.NumProbes, 1)
-	}
-
-	sendRequest(namespace, revName, handler)
-	// Assert that we didn't reprobe
-	if fakeRT.NumProbes != 1 {
-		t.Errorf("NumProbes = %d, want: %d", fakeRT.NumProbes, 1)
-	}
-
-	// Dropping the capacity to 0 causes the next request to probe again.
-	throttler.UpdateCapacity(revID, 0)
-	time.AfterFunc(100*time.Millisecond, func() {
-		// Asynchronously updating the capacity to let the request through.
-		throttler.UpdateCapacity(revID, 1)
-	})
-
-	sendRequest(namespace, revName, handler)
-	if fakeRT.NumProbes != 2 {
-		t.Errorf("NumProbes = %d, want: %d", fakeRT.NumProbes, 2)
-	}
-}
-
 // Make sure we return http internal server error when the Breaker is overflowed
 func TestActivationHandlerOverflow(t *testing.T) {
 	const (
@@ -422,14 +369,14 @@ func TestActivationHandlerOverflow(t *testing.T) {
 	revName := testRevName
 
 	lockerCh := make(chan struct{})
-	fakeRT := activatortest.FakeRoundTripper{
+	fakeRt := activatortest.FakeRoundTripper{
 		LockerCh: lockerCh,
 		RequestResponse: &activatortest.FakeResponse{
 			Code: http.StatusOK,
 			Body: wantBody,
 		},
 	}
-	rt := network.RoundTripperFunc(fakeRT.RT)
+	rt := network.RoundTripperFunc(fakeRt.RT)
 
 	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	reporter := &fakeReporter{}
@@ -449,9 +396,9 @@ func TestActivationHandlerOverflow(t *testing.T) {
 
 	// Setup transports.
 	handler.transport = rt
-	handler.probeTransportFactory = rtFact(rt)
+	handler.probeTransport = rt
 
-	sendRequests(requests, namespace, revName, respCh, handler)
+	sendRequests(requests, namespace, revName, respCh, *handler)
 	assertResponses(wantedSuccess, wantedFailure, requests, lockerCh, respCh, t)
 }
 
@@ -493,18 +440,13 @@ func TestActivationHandlerOverflowSeveralRevisions(t *testing.T) {
 
 	// Setup transports.
 	handler.transport = rt
-	handler.probeTransportFactory = rtFact(rt)
+	handler.probeTransport = rt
 
 	for _, revName := range revisions {
 		requestCount := overallRequests / len(revisions)
-		sendRequests(requestCount, testNamespace, revName, respCh, handler)
+		sendRequests(requestCount, testNamespace, revName, respCh, *handler)
 	}
 	assertResponses(wantedSuccess, wantedFailure, overallRequests, lockerCh, respCh, t)
-
-	// Verify cache size.
-	if got, want := len(handler.cache.probes), 2; got != want {
-		t.Errorf("ProbeCacheSize = %d, want: %d", got, want)
-	}
 }
 
 func TestActivationHandlerProxyHeader(t *testing.T) {
@@ -533,16 +475,15 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	}
 	probeRt := network.RoundTripperFunc(fakeRT.RT)
 
-	handler := &activationHandler{
-		transport:             rt,
-		probeTransportFactory: rtFact(probeRt),
-		logger:                TestLogger(t),
-		reporter:              &fakeReporter{},
-		throttler:             throttler,
-		revisionLister:        revisionLister(revision(testNamespace, testRevName)),
-		serviceLister:         serviceLister(service(testNamespace, testRevName, "http")),
-		sksLister:             sksLister(sks(testNamespace, testRevName)),
-		cache:                 newProbeCache(),
+	handler := activationHandler{
+		transport:      rt,
+		probeTransport: probeRt,
+		logger:         TestLogger(t),
+		reporter:       &fakeReporter{},
+		throttler:      throttler,
+		revisionLister: revisionLister(revision(testNamespace, testRevName)),
+		serviceLister:  serviceLister(service(testNamespace, testRevName, "http")),
+		sksLister:      sksLister(sks(testNamespace, testRevName)),
 	}
 
 	writer := httptest.NewRecorder()
@@ -600,19 +541,18 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 		revisionLister(revision(namespace, revName)),
 		TestLogger(t))
 
-	handler := &activationHandler{
-		transport:             rt,
-		probeTransportFactory: rtFact(rt),
-		logger:                TestLogger(t),
-		reporter:              &fakeReporter{},
-		throttler:             throttler,
-		revisionLister:        revisionLister(revision(testNamespace, testRevName)),
-		serviceLister:         serviceLister(service(testNamespace, testRevName, "http")),
-		sksLister:             sksLister(sks(testNamespace, testRevName)),
-		cache:                 newProbeCache(),
+	handler := activationHandler{
+		transport:      rt,
+		probeTransport: rt,
+		logger:         TestLogger(t),
+		reporter:       &fakeReporter{},
+		throttler:      throttler,
+		revisionLister: revisionLister(revision(testNamespace, testRevName)),
+		serviceLister:  serviceLister(service(testNamespace, testRevName, "http")),
+		sksLister:      sksLister(sks(testNamespace, testRevName)),
 	}
 	handler.transport = rt
-	handler.probeTransportFactory = rtFact(rt)
+	handler.probeTransport = rt
 
 	_ = sendRequest(namespace, revName, handler)
 
@@ -628,7 +568,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 	}
 }
 
-func sendRequest(namespace, revName string, handler *activationHandler) *httptest.ResponseRecorder {
+func sendRequest(namespace, revName string, handler activationHandler) *httptest.ResponseRecorder {
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(activator.RevisionHeaderNamespace, namespace)
@@ -639,7 +579,7 @@ func sendRequest(namespace, revName string, handler *activationHandler) *httptes
 
 // sendRequests sends `count` concurrent requests via the given handler and writes
 // the recorded responses to the `respCh`.
-func sendRequests(count int, namespace, revName string, respCh chan *httptest.ResponseRecorder, handler *activationHandler) {
+func sendRequests(count int, namespace, revName string, respCh chan *httptest.ResponseRecorder, handler activationHandler) {
 	for i := 0; i < count; i++ {
 		go func() {
 			respCh <- sendRequest(namespace, revName, handler)
@@ -728,6 +668,21 @@ type reporterCall struct {
 type fakeReporter struct {
 	calls []reporterCall
 	mux   sync.Mutex
+}
+
+func (f *fakeReporter) ReportRequestConcurrency(ns, service, config, rev string, v int64) error {
+	f.mux.Lock()
+	defer f.mux.Unlock()
+	f.calls = append(f.calls, reporterCall{
+		Op:        "ReportRequestConcurrency",
+		Namespace: ns,
+		Service:   service,
+		Config:    config,
+		Revision:  rev,
+		Value:     v,
+	})
+
+	return nil
 }
 
 func (f *fakeReporter) ReportRequestCount(ns, service, config, rev string, responseCode, numTries int, v int64) error {
@@ -882,28 +837,4 @@ func endpointsInformer(eps ...*corev1.Endpoints) corev1informers.EndpointsInform
 
 func errMsg(msg string) string {
 	return fmt.Sprintf("Error getting active endpoint: %v\n", msg)
-}
-
-func rtFact(rt http.RoundTripper) func() http.RoundTripper {
-	return func() http.RoundTripper {
-		return rt
-	}
-}
-
-func TestProbeCache(t *testing.T) {
-	cache := &probeCache{
-		probes: sets.NewString(),
-	}
-	revID := activator.RevisionID{}
-	if !cache.should(revID) {
-		t.Error("should returned true")
-	}
-	cache.mark(revID)
-	if cache.should(revID) {
-		t.Error("should returned false")
-	}
-	cache.unmark(revID)
-	if !cache.should(revID) {
-		t.Error("should returned true")
-	}
 }

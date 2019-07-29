@@ -19,15 +19,18 @@ package v1beta1
 import (
 	"context"
 	"fmt"
+	"strings"
 
-	"github.com/knative/serving/pkg/apis/serving"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/reconciler/route/config"
 )
 
 // Validate makes sure that Route is properly configured.
 func (r *Route) Validate(ctx context.Context) *apis.FieldError {
-	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).ViaField("metadata")
+	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).Also(
+		r.ValidateLabels().ViaField("labels")).ViaField("metadata")
 	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	errs = errs.Also(r.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
 	return errs
@@ -181,4 +184,26 @@ func (rsf *RouteStatusFields) Validate(ctx context.Context) *apis.FieldError {
 		return validateTrafficList(ctx, rsf.Traffic).ViaField("traffic")
 	}
 	return nil
+}
+
+func validateClusterVisibilityLabel(label string) (errs *apis.FieldError) {
+	if label != config.VisibilityClusterLocal {
+		errs = apis.ErrInvalidValue(label, config.VisibilityLabelKey)
+	}
+	return
+}
+
+// ValidateLabels function validates service labels
+func (r *Route) ValidateLabels() (errs *apis.FieldError) {
+	for key, val := range r.GetLabels() {
+		switch {
+		case key == config.VisibilityLabelKey:
+			errs = errs.Also(validateClusterVisibilityLabel(val))
+		case key == serving.ServiceLabelKey:
+			errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", r.GetOwnerReferences()))
+		case strings.HasPrefix(key, groupNamePrefix):
+			errs = errs.Also(apis.ErrInvalidKeyName(key, ""))
+		}
+	}
+	return
 }

@@ -19,19 +19,20 @@ package resources
 import (
 	"strconv"
 
-	"github.com/knative/serving/pkg/apis/networking"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/autoscaler"
-	"github.com/knative/serving/pkg/deployment"
-	"github.com/knative/serving/pkg/metrics"
-	"github.com/knative/serving/pkg/network"
-	"github.com/knative/serving/pkg/queue"
-	"github.com/knative/serving/pkg/reconciler/revision/resources/names"
-	"github.com/knative/serving/pkg/resources"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/metrics"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/reconciler/revision/resources/names"
+	"knative.dev/serving/pkg/resources"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -107,7 +108,7 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 	}
 }
 
-func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observabilityConfig *metrics.ObservabilityConfig, autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) *corev1.PodSpec {
+func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, observabilityConfig *metrics.ObservabilityConfig, autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) *corev1.PodSpec {
 	userContainer := rev.Spec.GetContainer().DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the fieldmasks / validations in pkg/apis/serving
@@ -134,14 +135,21 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, observab
 		userContainer.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
 	}
 
+	if userContainer.ReadinessProbe != nil {
+		if userContainer.ReadinessProbe.HTTPGet != nil || userContainer.ReadinessProbe.TCPSocket != nil {
+			// HTTP and TCP ReadinessProbes are executed by the queue-proxy directly against the
+			// user-container instead of via kubelet.
+			userContainer.ReadinessProbe = nil
+		}
+	}
+
 	// If the client provides probes, we should fill in the port for them.
-	rewriteUserProbe(userContainer.ReadinessProbe, userPortInt)
 	rewriteUserProbe(userContainer.LivenessProbe, userPortInt)
 
 	podSpec := &corev1.PodSpec{
 		Containers: []corev1.Container{
 			*userContainer,
-			*makeQueueContainer(rev, loggingConfig, observabilityConfig, autoscalerConfig, deploymentConfig),
+			*makeQueueContainer(rev, loggingConfig, tracingConfig, observabilityConfig, autoscalerConfig, deploymentConfig),
 		},
 		Volumes:                       append([]corev1.Volume{varLogVolume}, rev.Spec.Volumes...),
 		ServiceAccountName:            rev.Spec.ServiceAccountName,
@@ -184,7 +192,7 @@ func buildUserPortEnv(userPort string) corev1.EnvVar {
 
 // MakeDeployment constructs a K8s Deployment resource from a revision.
 func MakeDeployment(rev *v1alpha1.Revision,
-	loggingConfig *logging.Config, networkConfig *network.Config, observabilityConfig *metrics.ObservabilityConfig,
+	loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, networkConfig *network.Config, observabilityConfig *metrics.ObservabilityConfig,
 	autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) *appsv1.Deployment {
 
 	podTemplateAnnotations := resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
@@ -234,7 +242,7 @@ func MakeDeployment(rev *v1alpha1.Revision,
 					Labels:      makeLabels(rev),
 					Annotations: podTemplateAnnotations,
 				},
-				Spec: *makePodSpec(rev, loggingConfig, observabilityConfig, autoscalerConfig, deploymentConfig),
+				Spec: *makePodSpec(rev, loggingConfig, tracingConfig, observabilityConfig, autoscalerConfig, deploymentConfig),
 			},
 		},
 	}

@@ -28,9 +28,10 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/knative/serving/test"
-	v1a1test "github.com/knative/serving/test/v1alpha1"
 	pkgTest "knative.dev/pkg/test"
+	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
+	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
 func TestSingleConcurrency(t *testing.T) {
@@ -44,16 +45,14 @@ func TestSingleConcurrency(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, &v1a1test.Options{
-		ContainerConcurrency: 1,
-	})
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, v1a1opts.WithContainerConcurrency(1))
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
 	domain := objects.Service.Status.URL.Host
 
 	// Ready does not actually mean Ready for a Route just yet.
-	// See https://github.com/knative/serving/issues/1582
+	// See https://knative.dev/serving/issues/1582
 	t.Logf("Probing domain %s", domain)
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,

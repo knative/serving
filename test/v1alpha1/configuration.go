@@ -24,21 +24,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/test/logging"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 
-	rtesting "github.com/knative/serving/pkg/testing/v1alpha1"
-	v1alpha1testing "github.com/knative/serving/pkg/testing/v1alpha1"
-	"github.com/knative/serving/test"
-	"knative.dev/pkg/ptr"
 	ptest "knative.dev/pkg/test"
+	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
+	v1alpha1testing "knative.dev/serving/pkg/testing/v1alpha1"
+	"knative.dev/serving/test"
 )
 
 const (
@@ -46,22 +44,10 @@ const (
 	timeout  = 10 * time.Minute
 )
 
-// Options are test setup parameters.
-type Options struct {
-	EnvVars                     []corev1.EnvVar
-	ContainerPorts              []corev1.ContainerPort
-	ContainerConcurrency        int
-	RevisionTimeoutSeconds      int64
-	ContainerResources          corev1.ResourceRequirements
-	ReadinessProbe              *corev1.Probe
-	SecurityContext             *corev1.SecurityContext
-	RevisionTemplateAnnotations map[string]string
-}
-
 // CreateConfiguration create a configuration resource in namespace with the name names.Config
 // that uses the image specified by names.Image.
-func CreateConfiguration(t *testing.T, clients *test.Clients, names test.ResourceNames, options *Options, fopt ...rtesting.ConfigOption) (*v1alpha1.Configuration, error) {
-	config := Configuration(names, options, fopt...)
+func CreateConfiguration(t *testing.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ConfigOption) (*v1alpha1.Configuration, error) {
+	config := Configuration(names, fopt...)
 	LogResourceObject(t, ResourceObjects{Config: config})
 	return clients.ServingAlphaClient.Configs.Create(config)
 }
@@ -101,101 +87,45 @@ func WaitForConfigLatestRevision(clients *test.Clients, names test.ResourceNames
 
 // ConfigurationSpec returns the spec of a configuration to be used throughout different
 // CRD helpers.
-func ConfigurationSpec(imagePath string, options *Options) *v1alpha1.ConfigurationSpec {
-	if options.ContainerResources.Limits == nil && options.ContainerResources.Requests == nil {
-		options.ContainerResources = corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceCPU: resource.MustParse(defaultRequestCPU),
-			},
-		}
-	}
-
-	spec := &v1alpha1.ConfigurationSpec{
+func ConfigurationSpec(imagePath string) *v1alpha1.ConfigurationSpec {
+	return &v1alpha1.ConfigurationSpec{
 		Template: &v1alpha1.RevisionTemplateSpec{
 			Spec: v1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
 					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
-							Image:           imagePath,
-							Resources:       options.ContainerResources,
-							ReadinessProbe:  options.ReadinessProbe,
-							Ports:           options.ContainerPorts,
-							SecurityContext: options.SecurityContext,
+							Image: imagePath,
 						}},
 					},
-					ContainerConcurrency: v1beta1.RevisionContainerConcurrencyType(options.ContainerConcurrency),
 				},
 			},
 		},
 	}
-
-	if options.RevisionTimeoutSeconds > 0 {
-		spec.GetTemplate().Spec.TimeoutSeconds = ptr.Int64(options.RevisionTimeoutSeconds)
-	}
-
-	if options.EnvVars != nil {
-		spec.GetTemplate().Spec.GetContainer().Env = options.EnvVars
-	}
-
-	if len(options.RevisionTemplateAnnotations) != 0 {
-		spec.Template.ObjectMeta = metav1.ObjectMeta{
-			Annotations: options.RevisionTemplateAnnotations,
-		}
-	}
-
-	return spec
 }
 
 // LegacyConfigurationSpec returns the spec of a configuration to be used throughout different
 // CRD helpers.
-func LegacyConfigurationSpec(imagePath string, options *Options) *v1alpha1.ConfigurationSpec {
-	if options.ContainerResources.Limits == nil && options.ContainerResources.Requests == nil {
-		options.ContainerResources = corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceCPU: resource.MustParse(defaultRequestCPU),
-			},
-		}
-	}
-
-	spec := &v1alpha1.ConfigurationSpec{
+func LegacyConfigurationSpec(imagePath string) *v1alpha1.ConfigurationSpec {
+	return &v1alpha1.ConfigurationSpec{
 		DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
 			Spec: v1alpha1.RevisionSpec{
 				DeprecatedContainer: &corev1.Container{
-					Image:           imagePath,
-					Resources:       options.ContainerResources,
-					ReadinessProbe:  options.ReadinessProbe,
-					Ports:           options.ContainerPorts,
-					SecurityContext: options.SecurityContext,
+					Image: imagePath,
 				},
-				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: v1beta1.RevisionContainerConcurrencyType(options.ContainerConcurrency),
-				},
+				RevisionSpec: v1beta1.RevisionSpec{},
 			},
 		},
 	}
-
-	if options.RevisionTimeoutSeconds > 0 {
-		spec.GetTemplate().Spec.TimeoutSeconds = ptr.Int64(options.RevisionTimeoutSeconds)
-	}
-
-	if options.EnvVars != nil {
-		spec.GetTemplate().Spec.GetContainer().Env = options.EnvVars
-	}
-
-	return spec
 }
 
 // Configuration returns a Configuration object in namespace with the name names.Config
 // that uses the image specified by names.Image
-func Configuration(names test.ResourceNames, options *Options, fopt ...v1alpha1testing.ConfigOption) *v1alpha1.Configuration {
+func Configuration(names test.ResourceNames, fopt ...v1alpha1testing.ConfigOption) *v1alpha1.Configuration {
 	config := &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: names.Config,
 		},
-		Spec: *ConfigurationSpec(ptest.ImagePath(names.Image), options),
-	}
-	if options.ContainerPorts != nil && len(options.ContainerPorts) > 0 {
-		config.Spec.GetTemplate().Spec.GetContainer().Ports = options.ContainerPorts
+		Spec: *ConfigurationSpec(ptest.ImagePath(names.Image)),
 	}
 
 	for _, opt := range fopt {

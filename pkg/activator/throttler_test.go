@@ -18,30 +18,32 @@ package activator
 
 import (
 	"context"
+	"math/rand"
+	"strconv"
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"go.uber.org/zap"
 
-	"github.com/knative/serving/pkg/apis/networking"
-	nv1a1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	servingfake "github.com/knative/serving/pkg/client/clientset/versioned/fake"
-	servinginformers "github.com/knative/serving/pkg/client/informers/externalversions"
-	netlisters "github.com/knative/serving/pkg/client/listers/networking/v1alpha1"
-	servinglisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
-	"github.com/knative/serving/pkg/queue"
 	"knative.dev/pkg/controller"
 	. "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/test/helpers"
+	"knative.dev/serving/pkg/apis/networking"
+	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	servingfake "knative.dev/serving/pkg/client/clientset/versioned/fake"
+	servinginformers "knative.dev/serving/pkg/client/informers/externalversions"
+	netlisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
+	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	"knative.dev/serving/pkg/queue"
 
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	corev1informers "k8s.io/client-go/informers/core/v1"
@@ -53,13 +55,10 @@ const (
 	testNamespace         = "good-namespace"
 	testRevision          = "good-name"
 	defaultMaxConcurrency = 1000
-	defaultConcurrency    = 10
 	initCapacity          = 0
 )
 
-var (
-	revID = RevisionID{testNamespace, testRevision}
-)
+var revID = RevisionID{testNamespace, testRevision}
 
 func TestThrottlerUpdateCapacity(t *testing.T) {
 	samples := []struct {
@@ -71,26 +70,26 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		wantError      bool
 	}{{
 		label:          "all good",
-		revisionLister: revisionLister(testNamespace, testRevision, defaultConcurrency),
+		revisionLister: revisionLister(testNamespace, testRevision, 10),
 		numEndpoints:   1,
 		maxConcurrency: defaultMaxConcurrency,
-		want:           defaultConcurrency,
+		want:           10,
 	}, {
 		label:          "unlimited concurrency",
 		revisionLister: revisionLister(testNamespace, testRevision, 0),
 		numEndpoints:   1,
 		maxConcurrency: 100,
-		want:           100,
+		want:           1, // We're using infinity breaker, which is 0-1 only.
 	}, {
 		label:          "non-existing revision",
-		revisionLister: revisionLister("bogus-namespace", testRevision, defaultConcurrency),
+		revisionLister: revisionLister("bogus-namespace", testRevision, 10),
 		numEndpoints:   1,
 		maxConcurrency: defaultMaxConcurrency,
 		want:           0,
 		wantError:      true,
 	}, {
 		label:          "exceeds maxConcurrency",
-		revisionLister: revisionLister(testNamespace, testRevision, defaultConcurrency),
+		revisionLister: revisionLister(testNamespace, testRevision, 10),
 		numEndpoints:   1,
 		maxConcurrency: 5,
 		want:           5,
@@ -121,7 +120,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 			if err == nil && s.wantError {
 				t.Errorf("UpdateCapacity() did not return an error")
 			} else if err != nil && !s.wantError {
-				t.Errorf("UpdateCapacity() = %v, wanted no error", err)
+				t.Errorf("UpdateCapacity() = `%v`, wanted no error", err)
 			}
 			if s.want > 0 {
 				if got := throttler.breakers[revID].Capacity(); got != s.want {
@@ -162,7 +161,7 @@ func TestThrottlerActivatorEndpoints(t *testing.T) {
 	}{{
 		name:                "less activators, more cc",
 		activatorCount:      2,
-		revisionConcurrency: defaultConcurrency,
+		revisionConcurrency: 10,
 		wantCapacity:        5, //revConcurrency / activatorCount
 	}, {
 		name:                "many activators, less cc",
@@ -218,28 +217,28 @@ func TestThrottlerTry(t *testing.T) {
 	}{{
 		label:             "all good",
 		addCapacity:       true,
-		revisionLister:    revisionLister(testNamespace, testRevision, defaultConcurrency),
+		revisionLister:    revisionLister(testNamespace, testRevision, 10),
 		endpointsInformer: endpointsInformer(testNamespace, testRevision, 0),
 		sksLister:         sksLister(testNamespace, testRevision),
 		wantCalls:         1,
 	}, {
 		label:             "non-existing revision",
 		addCapacity:       true,
-		revisionLister:    revisionLister("bogus-namespace", testRevision, defaultConcurrency),
+		revisionLister:    revisionLister("bogus-namespace", testRevision, 10),
 		endpointsInformer: endpointsInformer(testNamespace, testRevision, 0),
 		sksLister:         sksLister(testNamespace, testRevision),
 		wantCalls:         0,
 		wantError:         true,
 	}, {
 		label:             "error getting SKS",
-		revisionLister:    revisionLister(testNamespace, testRevision, defaultConcurrency),
+		revisionLister:    revisionLister(testNamespace, testRevision, 10),
 		endpointsInformer: endpointsInformer(testNamespace, testRevision, 1),
 		sksLister:         sksLister("bogus-namespace", testRevision),
 		wantCalls:         0,
 		wantError:         true,
 	}, {
 		label:             "error getting endpoint",
-		revisionLister:    revisionLister(testNamespace, testRevision, defaultConcurrency),
+		revisionLister:    revisionLister(testNamespace, testRevision, 10),
 		endpointsInformer: endpointsInformer("bogus-namespace", testRevision, 0),
 		sksLister:         sksLister(testNamespace, testRevision),
 		wantCalls:         0,
@@ -257,12 +256,7 @@ func TestThrottlerTry(t *testing.T) {
 				initCapacity)
 
 			if s.addCapacity {
-				// If we had success updating the capacity > 0, check that it's properly returned.
-				if throttler.UpdateCapacity(revID, 1) == nil {
-					if got, want := throttler.GetRevisionCapacity(revID), defaultConcurrency; got != want {
-						t.Errorf("Breaker Capacity = %d, want: %d", got, want)
-					}
-				}
+				throttler.UpdateCapacity(revID, 1)
 			}
 			err := throttler.Try(context.Background(), revID, func() {
 				called++
@@ -357,6 +351,7 @@ func TestHelper_ReactToEndpoints(t *testing.T) {
 			Labels: map[string]string{
 				serving.RevisionUID:       "test",
 				networking.ServiceTypeKey: string(networking.ServiceTypePrivate),
+				serving.RevisionLabelKey:  testRevision,
 			},
 		},
 		Subsets: endpointsSubset(0, 1),
@@ -396,10 +391,10 @@ func TestHelper_ReactToEndpoints(t *testing.T) {
 	newEp.Subsets = endpointsSubset(10, 1)
 	fake.Core().Endpoints(ep.Namespace).Update(newEp)
 	wait.PollImmediate(updatePollInterval, updatePollTimeout, func() (bool, error) {
-		return breaker.Capacity() == 10*defaultConcurrency, nil
+		return breaker.Capacity() == 100, nil
 	})
-	if got, want := breaker.Capacity(), 10*defaultConcurrency; got != want {
-		t.Errorf("Capacity() = %d, want %d", got, want)
+	if got := breaker.Capacity(); got != 100 {
+		t.Errorf("Capacity() = %d, want 100", got)
 	}
 
 	// Removing the endpoints causes the breaker to be removed.
@@ -491,15 +486,140 @@ func breakerCount(t *Throttler) int {
 	return len(t.breakers)
 }
 
-func endpointsSubset(hostsPerSubset, subsets int) []v1.EndpointSubset {
-	resp := []v1.EndpointSubset{}
+func endpointsSubset(hostsPerSubset, subsets int) []corev1.EndpointSubset {
+	resp := []corev1.EndpointSubset{}
 	if hostsPerSubset > 0 {
-		addresses := make([]v1.EndpointAddress, hostsPerSubset)
-		subset := v1.EndpointSubset{Addresses: addresses}
+		addresses := make([]corev1.EndpointAddress, hostsPerSubset)
+		subset := corev1.EndpointSubset{Addresses: addresses}
 		for s := 0; s < subsets; s++ {
 			resp = append(resp, subset)
 		}
 		return resp
 	}
 	return resp
+}
+
+func TestInfiniteBreaker(t *testing.T) {
+	b := &infiniteBreaker{
+		broadcast: make(chan struct{}),
+	}
+
+	// Verify initial condition.
+	if got, want := b.Capacity(), 0; got != want {
+		t.Errorf("Cap=%d, want: %d", got, want)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if b.Maybe(ctx, nil) {
+		t.Error("Should have failed, but didn't")
+	}
+
+	b.UpdateConcurrency(1)
+	if got, want := b.Capacity(), 1; got != want {
+		t.Errorf("Cap=%d, want: %d", got, want)
+	}
+
+	// Verify we call the thunk when we have achieved capacity.
+	// Twice.
+	for i := 0; i < 2; i++ {
+		ctx, cancel = context.WithCancel(context.Background())
+		cancel()
+		res := false
+		if !b.Maybe(ctx, func() { res = true }) {
+			t.Error("Should have succeeded, but didn't")
+		}
+		if !res {
+			t.Error("thunk was not invoked")
+		}
+	}
+
+	// Scale to zero
+	b.UpdateConcurrency(0)
+
+	// Repeat initial test.
+	ctx, cancel = context.WithCancel(context.Background())
+	cancel()
+	if b.Maybe(ctx, nil) {
+		t.Error("Should have failed, but didn't")
+	}
+	if got, want := b.Capacity(), 0; got != want {
+		t.Errorf("Cap=%d, want: %d", got, want)
+	}
+
+	// And now do the async test.
+	ctx, cancel = context.WithCancel(context.Background())
+	defer cancel()
+
+	// Unlock the channel after a short delay.
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		b.UpdateConcurrency(1)
+	}()
+	res := false
+	if !b.Maybe(ctx, func() { res = true }) {
+		t.Error("Should have succeeded, but didn't")
+	}
+	if !res {
+		t.Error("thunk was not invoked")
+	}
+}
+
+func revisionListerN(namespace, name string, count int) servinglisters.RevisionLister {
+	revs := make([]runtime.Object, count)
+	for i := 0; i < count; i++ {
+		revs[i] = &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name + strconv.Itoa(i),
+				Namespace: namespace,
+			},
+			Spec: v1alpha1.RevisionSpec{
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: 0,
+				},
+			},
+		}
+	}
+	fake := servingfake.NewSimpleClientset(revs...)
+	informer := servinginformers.NewSharedInformerFactory(fake, 0)
+	revisions := informer.Serving().V1alpha1().Revisions()
+	for i := 0; i < count; i++ {
+		revisions.Informer().GetIndexer().Add(revs[i])
+	}
+	return revisions.Lister()
+}
+
+func BenchmarkThrottler(b *testing.B) {
+	const numRevs = 10000
+	throttler := getThrottler(
+		defaultMaxConcurrency,
+		revisionListerN(testNamespace, testRevision, numRevs),
+		endpointsInformer(testNamespace, testRevision, 0),
+		sksLister(testNamespace, testRevision),
+		nil,
+		initCapacity)
+
+	rIDs := make([]RevisionID, numRevs)
+	for i := 0; i < numRevs; i++ {
+		rID := RevisionID{testNamespace, testRevision + strconv.Itoa(i)}
+		rIDs[i] = rID
+		throttler.UpdateCapacity(rID, 1)
+	}
+
+	rand.Seed(time.Now().Unix())
+	for _, parallelism := range []int{1, 10, 100, 1000, 10000} {
+		for _, numRevs := range []int{1, 10, 100, 1000, 10000} {
+			b.Run(strconv.Itoa(parallelism)+"-"+strconv.Itoa(numRevs), func(b *testing.B) {
+				b.SetParallelism(parallelism)
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						revID := rIDs[rand.Intn(numRevs)]
+						if err := throttler.Try(context.Background(), revID, func() {}); err != nil {
+							b.Errorf("Try() unexpectedly returned an error: %v", err)
+						}
+					}
+				})
+			})
+		}
+	}
 }

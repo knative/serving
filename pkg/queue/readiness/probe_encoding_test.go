@@ -84,3 +84,15 @@ func TestEncodeProbe(t *testing.T) {
 		t.Errorf("Probe diff: %s; got %v, want %v", diff, jsonProbe, wantProbe)
 	}
 }
+
+func TestEncodeNilProbe(t *testing.T) {
+	jsonProbe, err := EncodeProbe(nil)
+
+	if err == nil {
+		t.Errorf("Expected error")
+	}
+
+	if jsonProbe != "" {
+		t.Errorf("Expected empty probe string; got %s", jsonProbe)
+	}
+}

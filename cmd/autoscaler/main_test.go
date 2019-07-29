@@ -19,17 +19,25 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/autoscaler"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	kubeinformers "k8s.io/client-go/informers"
 	fakeK8s "k8s.io/client-go/kubernetes/fake"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/autoscaler"
 )
 
 const (
 	testNamespace = "test-namespace"
 	testRevision  = "test-Revision"
+)
+
+var (
+	kubeClient   = fakeK8s.NewSimpleClientset()
+	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 )
 
 func TestUniscalerFactoryFailures(t *testing.T) {
@@ -100,7 +108,20 @@ func TestUniscalerFactoryFailures(t *testing.T) {
 	}
 }
 
+func endpoints(ns, n string) {
+	ep := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: ns,
+			Name:      n,
+		},
+		Subsets: []corev1.EndpointSubset{{}},
+	}
+	kubeClient.CoreV1().Endpoints(ns).Create(ep)
+	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
+}
+
 func TestUniScalerFactoryFunc(t *testing.T) {
+	endpoints(testNamespace, "magic-services-offered")
 	uniScalerFactory := getTestUniScalerFactory()
 	for _, srv := range []string{"some", ""} {
 		decider := &autoscaler.Decider{
@@ -125,13 +146,11 @@ func TestUniScalerFactoryFunc(t *testing.T) {
 }
 
 func getTestUniScalerFactory() func(decider *autoscaler.Decider) (autoscaler.UniScaler, error) {
-	kubeClient := fakeK8s.NewSimpleClientset()
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	return uniScalerFactoryFunc(kubeInformer.Core().V1().Endpoints(), &testMetricClient{})
 }
 
 type testMetricClient struct{}
 
-func (t *testMetricClient) StableAndPanicConcurrency(key string) (float64, float64, error) {
+func (t *testMetricClient) StableAndPanicConcurrency(key types.NamespacedName, now time.Time) (float64, float64, error) {
 	return 1.0, 1.0, nil
 }

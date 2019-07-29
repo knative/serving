@@ -22,22 +22,26 @@ import (
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
+	openzipkin "github.com/openzipkin/zipkin-go"
+	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
+	reporterrecorder "github.com/openzipkin/zipkin-go/reporter/recorder"
 	"golang.org/x/sync/errgroup"
-
-	autoscalingv1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving"
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/apis/serving/v1beta1"
-	"github.com/knative/serving/pkg/autoscaler"
-	fakeservingclient "github.com/knative/serving/pkg/client/injection/client/fake"
-	"github.com/knative/serving/pkg/deployment"
-	"github.com/knative/serving/pkg/network"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
+	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/autoscaler"
+	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/tracing"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -89,6 +93,9 @@ func testRevision() *v1alpha1.Revision {
 						Env: []corev1.EnvVar{{
 							Name:  "EDITOR",
 							Value: "emacs",
+						}, {
+							Name:  "TRACING_CONFIG_ENABLE",
+							Value: "false",
 						}},
 						LivenessProbe: &corev1.Probe{
 							TimeoutSeconds: 42,
@@ -160,6 +167,16 @@ func newTestController(t *testing.T) (
 			}}, {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
+				Name:      tracingconfig.ConfigName,
+			},
+			Data: map[string]string{
+				"enable":          "true",
+				"debug":           "true",
+				"zipkin-endpoint": "http://zipkin.istio-system.svc.cluster.local:9411/api/v2/spans",
+			},
+		}, {
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
 				Name:      metrics.ConfigMapName(),
 			},
 			Data: map[string]string{
@@ -189,6 +206,23 @@ func newTestController(t *testing.T) (
 func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	ctx, informers, ctrl, _ := newTestController(t)
 	ctx, cancel := context.WithCancel(ctx)
+	// Create tracer with reporter recorder
+	reporter := reporterrecorder.NewReporter()
+	defer reporter.Close()
+	endpoint, _ := openzipkin.NewEndpoint("test", "localhost:1234")
+	oct := tracing.NewOpenCensusTracer(tracing.WithZipkinExporter(func(cfg *tracingconfig.Config) (zipkinreporter.Reporter, error) {
+		return reporter, nil
+	}, endpoint))
+	defer oct.Finish()
+
+	cfg := tracingconfig.Config{
+		Enable: true,
+		Debug:  true,
+	}
+	if err := oct.ApplyConfig(&cfg); err != nil {
+		t.Errorf("Failed to apply tracer config: %v", err)
+	}
+
 	eg := errgroup.Group{}
 	defer func() {
 		cancel()
@@ -198,7 +232,6 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	}()
 
 	rev := testRevision()
-
 	servingClient := fakeservingclient.Get(ctx)
 
 	h := NewHooks()
