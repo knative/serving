@@ -274,10 +274,6 @@ func getHosts(ia v1alpha1.IngressAccessor) sets.String {
 	return hosts
 }
 
-func intersect(h1, h2 []string) []string {
-	return sets.NewString(h1...).Intersection(sets.NewString(h2...)).List()
-}
-
 func getClusterLocalIngressRules(ci v1alpha1.IngressAccessor) []v1alpha1.IngressRule {
 	var result []v1alpha1.IngressRule
 	for _, rule := range ci.GetSpec().Rules {

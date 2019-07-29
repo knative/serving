@@ -182,7 +182,7 @@ func TestActiveFor(t *testing.T) {
 				}},
 			},
 		},
-		result: time.Now().Sub(time.Time{}),
+		result: time.Since(time.Time{}),
 	}, {
 		name: "active condition (LTT longer than idle period ago)",
 		status: PodAutoscalerStatus{
