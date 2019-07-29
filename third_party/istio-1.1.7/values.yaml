@@ -71,6 +71,7 @@ mixer:
       enabled: false
 
 pilot:
+  traceSampling: 100
   autoscaleMin: 2
   resources:
     requests:
