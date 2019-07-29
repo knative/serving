@@ -28,6 +28,7 @@ import (
 
 var defaultConfig = Config{
 	EnableScaleToZero:                  true,
+	EnableFastScaleDown:                false,
 	ContainerConcurrencyTargetFraction: 0.7,
 	ContainerConcurrencyTargetDefault:  100.0,
 	TargetBurstCapacity:                0,
@@ -93,6 +94,7 @@ func TestNewConfig(t *testing.T) {
 		name: "with toggles on",
 		input: map[string]string{
 			"enable-scale-to-zero":                    "true",
+			"enable-fast-scale-down":                  "true",
 			"max-scale-up-rate":                       "1.0",
 			"container-concurrency-target-percentage": "0.71",
 			"container-concurrency-target-default":    "10.5",
@@ -110,6 +112,7 @@ func TestNewConfig(t *testing.T) {
 			c.MaxScaleUpRate = 1
 			c.StableWindow = 5 * time.Minute
 			c.PanicWindow = 11 * time.Second
+			c.EnableFastScaleDown = true
 			return &c
 		}(defaultConfig),
 	}, {

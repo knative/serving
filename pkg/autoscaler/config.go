@@ -54,6 +54,10 @@ type Config struct {
 	TickInterval time.Duration
 
 	ScaleToZeroGracePeriod time.Duration
+
+	// EnableFastScaleDown indicates that the system will try
+	// to scale down to zero in a much more agressive manner.
+	EnableFastScaleDown bool
 }
 
 // NewConfigFromMap creates a Config from the supplied map
@@ -66,6 +70,10 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		field        *bool
 		defaultValue bool
 	}{{
+		key:          "enable-fast-scale-down",
+		field:        &lc.EnableFastScaleDown,
+		defaultValue: false,
+	}, {
 		key:          "enable-scale-to-zero",
 		field:        &lc.EnableScaleToZero,
 		defaultValue: true,
@@ -77,7 +85,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		}
 	}
 
-	// Process Float64 fields
+	// Process Float64 fields.
 	for _, f64 := range []struct {
 		key   string
 		field *float64

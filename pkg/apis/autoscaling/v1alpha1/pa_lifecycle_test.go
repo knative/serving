@@ -48,6 +48,16 @@ func TestPodAutoscalerDuckTypes(t *testing.T) {
 	}
 }
 
+func TestAge(t *testing.T) {
+	r := &PodAutoscaler{}
+	tn := time.Now()
+	r.ObjectMeta.CreationTimestamp = metav1.Time{tn}
+
+	if got, want := r.Age(), time.Minute; got-want > time.Millisecond*50 {
+		t.Errorf("Resource age = %v, want about: %v", got, want)
+	}
+}
+
 func TestGeneration(t *testing.T) {
 	r := PodAutoscaler{}
 	if a := r.GetGeneration(); a != 0 {

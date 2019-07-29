@@ -96,6 +96,11 @@ func (pa *PodAutoscaler) TargetUtilization() (float64, bool) {
 	return 0, false
 }
 
+// Age returns the Age of the PA.
+func (pa *PodAutoscaler) Age() time.Duration {
+	return time.Since(pa.CreationTimestamp.Time)
+}
+
 // TargetBC returns the target burst capacity,
 // if the corresponding annotation is set.
 func (pa *PodAutoscaler) TargetBC() (float64, bool) {

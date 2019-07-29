@@ -108,3 +108,8 @@ data:
     # Scale to zero grace period is the time an inactive revision is left
     # running before it is scaled to zero (min: 30s).
     scale-to-zero-grace-period: "30s"
+
+    # Enable fast scale down turns on some agressive scale to 0 behaviours,
+    # while semantically correct, they may degrade system performance, due
+    # to higher number of cold starts, etc.
+    enable-fast-scale-down: "false"

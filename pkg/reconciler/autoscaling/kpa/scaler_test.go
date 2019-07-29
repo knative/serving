@@ -28,6 +28,7 @@ import (
 
 	// These are the fake informers we want setup.
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
+	"knative.dev/serving/pkg/autoscaler"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 
 	"knative.dev/pkg/apis"
@@ -78,6 +79,7 @@ func TestScaler(t *testing.T) {
 		wantScaling         bool
 		sks                 SKSOption
 		paMutation          func(*pav1alpha1.PodAutoscaler)
+		cfgMutation         func(*autoscaler.Config)
 		proberfunc          func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error)
 		wantCBCount         int
 		wantAsyncProbeCount int
@@ -89,6 +91,34 @@ func TestScaler(t *testing.T) {
 		wantScaling:   false,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			paMarkActive(k, time.Now().Add(-stableWindow).Add(1*time.Second))
+		},
+		wantCBCount: 1,
+	}, {
+		label:         "waits to scale to zero (just before idle period), fast path - yes",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   false,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkActive(k, time.Now().Add(-stableWindow+time.Second))
+		},
+		cfgMutation: func(cfg *autoscaler.Config) {
+			cfg.EnableFastScaleDown = true
+		},
+	}, {
+		label:         "waits to scale to zero (just before idle period), fast path - no",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  1,
+		wantScaling:   false,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			k.ObjectMeta.CreationTimestamp = metav1.Time{
+				time.Now().Add(-20 * time.Minute),
+			}
+			paMarkActive(k, time.Now().Add(-stableWindow+time.Second))
+		},
+		cfgMutation: func(cfg *autoscaler.Config) {
+			cfg.EnableFastScaleDown = true
 		},
 		wantCBCount: 1,
 	}, {
@@ -346,7 +376,12 @@ func TestScaler(t *testing.T) {
 				test.sks(sks)
 			}
 
-			ctx = config.ToContext(ctx, defaultConfig())
+			cfg := defaultConfig()
+			if test.cfgMutation != nil {
+				test.cfgMutation(cfg.Autoscaler)
+			}
+			ctx = config.ToContext(ctx, cfg)
+
 			desiredScale, err := revisionScaler.Scale(ctx, pa, sks, test.scaleTo)
 			if err != nil {
 				t.Error("Scale got an unexpected error: ", err)
@@ -454,6 +489,7 @@ func TestDisableScaleToZero(t *testing.T) {
 func newKPA(t *testing.T, servingClient clientset.Interface, revision *v1alpha1.Revision) *pav1alpha1.PodAutoscaler {
 	pa := revisionresources.MakePA(revision)
 	pa.Status.InitializeConditions()
+	pa.ObjectMeta.CreationTimestamp = metav1.Time{time.Now()}
 	_, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(pa)
 	if err != nil {
 		t.Fatal("Failed to create PA.", err)

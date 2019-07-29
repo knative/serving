@@ -166,18 +166,30 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, sks *nv1a1.Ser
 		return scaleUnknown, false
 	} else if pa.Status.IsReady() { // Active=True
 		// Don't scale-to-zero if the PA is active
+		// Unles PA's age is less than StableWindow, which means
+		// that the revision got created but received no traffic
+		// and the enable-fast-scale-down configmap entry was true.
 
 		// Do not scale to 0, but return desiredScale of 0 to mark PA inactive.
 		sw := aresources.StableWindow(pa, config)
+
 		af := pa.Status.ActiveFor()
 		if af >= sw {
 			// We do not need to enqueue PA here, since this will
 			// make SKS reconcile and when it's done, PA will be reconciled again.
 			return desiredScale, false
 		}
+		ks.logger.Debugf("Aggressive scale to 0 at %v, PA Age: %v Window: %v Can? %v Flag: %v",
+			time.Now(), pa.Age(), sw, pa.Age() < sw, config.EnableScaleToZero)
+
+		if age := pa.Age(); config.EnableFastScaleDown && age <= sw {
+			ks.logger.Infof("%s scaling to zero new revision with no traffic: age: %v, window: %v", pa.Name, age, sw)
+			return desiredScale, false
+		}
+
 		// Otherwise, scale down to at most 1 for the remainder of the idle period and then
 		// reconcile PA again.
-		ks.logger.Infof("%s sleeping additionally for %v before can scale to 0", sw-af)
+		ks.logger.Infof("%s sleeping additionally for %v before can scale to 0", pa.Name, sw-af)
 		ks.enqueueCB(pa, sw-af)
 		desiredScale = 1
 	} else { // Active=False
