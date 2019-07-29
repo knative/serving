@@ -126,6 +126,11 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 	return nil
 }
 
+// setup creates a new service, with given service options.
+// It returns a testContext that has resources, K8s clients,
+// and the deployment.
+// It sets up CleanupOnInterrupt as well that will destroy the resources
+// when the test terminates.
 func setup(t *testing.T, class string, metric string, fopts ...rtesting.ServiceOption) *testContext {
 	t.Helper()
 	clients := Setup(t)
