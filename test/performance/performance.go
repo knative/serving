@@ -41,6 +41,7 @@ const (
 	perfLatency = "perf_latency"
 	duration    = 1 * time.Minute
 	traceSuffix = "-Trace.json"
+	httpPrefix  = "http://"
 )
 
 // Enable monitoring components

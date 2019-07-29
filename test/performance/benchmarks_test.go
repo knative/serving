@@ -38,8 +38,7 @@ import (
 
 const (
 	reqTimeout = 30 * time.Second
-	app        = "helloworld"
-	httpPrefix = "http://"
+	app        = "autoscale"
 )
 
 var loads = [...]int{100, 1000}
@@ -102,7 +101,7 @@ func runTest(t *testing.T, pacer vegeta.Pacer, saveMetrics bool) {
 	targeter := vegeta.NewStaticTargeter(vegeta.Target{
 		Method: http.MethodGet,
 		Header: headers,
-		URL:    url,
+		URL:    fmt.Sprintf("%s?sleep=100", url),
 	})
 	attacker := vegeta.NewAttacker()
 
