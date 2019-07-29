@@ -488,10 +488,12 @@ func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha
 	return nil
 }
 
+// GetVirtualServiceClient returns the client to access VirtualService.
 func (r *BaseIngressReconciler) GetVirtualServiceClient() sharedclientset.Interface {
 	return r.SharedClientSet
 }
 
+// GetVirtualServiceLister returns the lister for VirtualService.
 func (r *BaseIngressReconciler) GetVirtualServiceLister() istiolisters.VirtualServiceLister {
 	return r.VirtualServiceLister
 }
