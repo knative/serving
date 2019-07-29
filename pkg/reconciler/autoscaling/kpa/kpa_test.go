@@ -217,12 +217,24 @@ func TestReconcileScaleUnknown(t *testing.T) {
 		Patch:      []byte(fmt.Sprintf(`[{"op":"replace","path":"/spec/replicas","value":%d}]`, minScale)),
 	}
 
-	inactiveKpa := kpa(testNamespace, testRevision, markInactive, withMinScale(int(minScale)), WithPAStatusService(testRevision))
-	activatingKpa := kpa(testNamespace, testRevision, markActivating, withMinScale(int(minScale)), WithPAStatusService(testRevision))
-	activeKpa := kpa(testNamespace, testRevision, markActive, withMinScale(int(minScale)), WithPAStatusService(testRevision))
+	inactiveKpa := kpa(
+		testNamespace, testRevision, markInactive,
+		withMinScale(int(minScale)), WithPAStatusService(testRevision), withMSvcStatus("cargo"),
+	)
+	activatingKpa := kpa(
+		testNamespace, testRevision, markActivating,
+		withMinScale(int(minScale)), WithPAStatusService(testRevision), withMSvcStatus("cargo"),
+	)
+	activeKpa := kpa(
+		testNamespace, testRevision, markActive,
+		withMinScale(int(minScale)), WithPAStatusService(testRevision), withMSvcStatus("cargo"),
+	)
 
 	defaultSks := sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady)
-	defaultMetricsSvc := metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector))
+	defaultMetricsSvc := metricsSvc(
+		testNamespace, testRevision, withSvcSelector(usualSelector), withMSvcName("cargo"),
+	)
+	defaultMetric := metric(testNamespace, testRevision, "cargo")
 
 	underscaledEndpoints := makeSKSPrivateEndpoints(int(underscale), testNamespace, testRevision)
 	overscaledEndpoints := makeSKSPrivateEndpoints(int(overscale), testNamespace, testRevision)
@@ -233,29 +245,38 @@ func TestReconcileScaleUnknown(t *testing.T) {
 		Key: key,
 		Objects: []runtime.Object{
 			inactiveKpa, underscaledEndpoints, underscaledDeployment,
-			defaultSks, defaultMetricsSvc,
+			defaultSks, defaultMetric, defaultMetricsSvc,
 		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: defaultMetric,
+		}},
 	}, {
 		Name: "underscaled, PA activating",
 		// Scale to `minScale`
 		Key: key,
 		Objects: []runtime.Object{
 			activatingKpa, underscaledEndpoints, underscaledDeployment,
-			defaultSks, defaultMetricsSvc,
+			defaultSks, defaultMetric, defaultMetricsSvc,
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			minScalePatch,
 		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: defaultMetric,
+		}},
 	}, {
 		Name: "underscaled, PA active",
 		// Mark PA "activating"
 		Key: key,
 		Objects: []runtime.Object{
 			activeKpa, underscaledEndpoints, underscaledDeployment,
-			defaultSks, defaultMetricsSvc,
+			defaultSks, defaultMetric, defaultMetricsSvc,
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: activatingKpa,
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: defaultMetric,
 		}},
 	}, {
 		Name: "overscaled, PA inactive",
@@ -263,15 +284,18 @@ func TestReconcileScaleUnknown(t *testing.T) {
 		Key: key,
 		Objects: []runtime.Object{
 			inactiveKpa, overscaledEndpoints, overscaledDeployment,
-			defaultSks, defaultMetricsSvc,
+			defaultSks, defaultMetric, defaultMetricsSvc,
 		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: defaultMetric,
+		}},
 	}, {
 		Name: "overscaled, PA activating",
 		// Scale to `minScale` and mark PA "active"
 		Key: key,
 		Objects: []runtime.Object{
 			activatingKpa, overscaledEndpoints, overscaledDeployment,
-			defaultSks, defaultMetricsSvc,
+			defaultSks, defaultMetric, defaultMetricsSvc,
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			minScalePatch,
@@ -279,14 +303,20 @@ func TestReconcileScaleUnknown(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: activeKpa,
 		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: defaultMetric,
+		}},
 	}, {
 		Name: "overscaled, PA active",
 		// No-op
 		Key: key,
 		Objects: []runtime.Object{
 			activeKpa, overscaledEndpoints, overscaledDeployment,
-			defaultSks, defaultMetricsSvc,
+			defaultSks, defaultMetric, defaultMetricsSvc,
 		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: defaultMetric,
+		}},
 	}}
 
 	defer logtesting.ClearAll()
