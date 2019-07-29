@@ -42,6 +42,14 @@ func WithHeader(name, value string) Preparer {
 	}
 }
 
+// WithHost sets the host in the probe request.
+func WithHost(host string) Preparer {
+	return func(r *http.Request) *http.Request {
+		r.Host = host
+		return r
+	}
+}
+
 // ExpectsBody validates that the body of the probe response matches the provided string.
 func ExpectsBody(body string) Verifier {
 	return func(r *http.Response, b []byte) (bool, error) {

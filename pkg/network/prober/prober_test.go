@@ -244,6 +244,46 @@ func TestAsyncMultiple(t *testing.T) {
 	}
 }
 
+func TestWithHostOption(t *testing.T) {
+	host := "foobar.com"
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Logf("Want: %s, Got: %s\n", host, r.Host)
+		if r.Host != host {
+			w.WriteHeader(404)
+		}
+	}))
+	defer ts.Close()
+
+	tests := []struct {
+		name    string
+		options []interface{}
+		success bool
+	}{{
+		name:    "no hosts",
+		success: false,
+	}, {
+		name:    "expected host",
+		options: []interface{}{WithHost(host)},
+		success: true,
+	}, {
+		name:    "wrong host",
+		options: []interface{}{WithHost("nope.com")},
+		success: false,
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ok, err := Do(context.Background(), network.AutoTransport, ts.URL, test.options...)
+			if err != nil {
+				t.Errorf("failed to probe: %v", err)
+			}
+			if ok != test.success {
+				t.Errorf("unexpected probe result: want: %v, got: %v", test.success, ok)
+			}
+		})
+	}
+}
+
 func (m *Manager) len() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
