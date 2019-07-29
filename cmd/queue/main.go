@@ -146,11 +146,9 @@ type config struct {
 func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.Handler, prober func() bool) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ph := network.KnativeProbeHeader(r)
-		var probeSpan *trace.Span
-		var probeCtx context.Context
 		switch {
 		case ph != "":
-			probeCtx, probeSpan = trace.StartSpan(r.Context(), "probe")
+			_, probeSpan := trace.StartSpan(r.Context(), "probe")
 			if ph != queue.Name {
 				http.Error(w, fmt.Sprintf(badProbeTemplate, ph), http.StatusBadRequest)
 				probeSpan.Annotate([]trace.Attribute{
@@ -176,7 +174,7 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 			probeSpan.End()
 			return
 		case network.IsKubeletProbe(r):
-			probeCtx, probeSpan = trace.StartSpan(r.Context(), "probe")
+			probeCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
 			// Do not count health checks for concurrency metrics
 			handler.ServeHTTP(w, r.WithContext(probeCtx))
 			probeSpan.End()

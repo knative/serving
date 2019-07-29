@@ -208,7 +208,7 @@ func (pas *PodAutoscalerStatus) inStatusFor(status corev1.ConditionStatus, dur t
 	if cond == nil || cond.Status != status {
 		return -1
 	}
-	return time.Now().Sub(cond.LastTransitionTime.Inner.Add(dur))
+	return time.Since(cond.LastTransitionTime.Inner.Add(dur))
 }
 
 func (pas *PodAutoscalerStatus) duck() *duckv1beta1.Status {

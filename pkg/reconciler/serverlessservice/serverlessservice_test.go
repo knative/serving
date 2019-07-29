@@ -743,10 +743,6 @@ func withTargetPortNum(port int) K8sServiceOption {
 	}
 }
 
-func withActivatorEPStatus(sks *nv1a1.ServerlessService) {
-	sks.Status.MarkActivatorEndpointsPopulated()
-}
-
 func svcpub(namespace, name string, so ...K8sServiceOption) *corev1.Service {
 	sks := SKS(namespace, name)
 	s := resources.MakePublicService(sks)
