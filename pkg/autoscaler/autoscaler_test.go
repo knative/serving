@@ -44,7 +44,7 @@ var (
 )
 
 func TestNewErrorWhenGivenNilReadyPodCounter(t *testing.T) {
-	_, err := New(testNamespace, testRevision, &autoscalerfake.FakeMetricClient{}, nil, DeciderSpec{TargetConcurrency: 10, ServiceName: testService}, &mockReporter{})
+	_, err := New(testNamespace, testRevision, &autoscalerfake.MetricClient{}, nil, DeciderSpec{TargetConcurrency: 10, ServiceName: testService}, &mockReporter{})
 	if err == nil {
 		t.Error("Expected error when ReadyPodCounter interface is nil, but got none.")
 	}
@@ -55,7 +55,7 @@ func TestNewErrorWhenGivenNilStatsReporter(t *testing.T) {
 
 	podCounter := resources.NewScopedEndpointsCounter(kubeInformer.Core().V1().Endpoints().Lister(), testNamespace, testService)
 
-	_, err := New(testNamespace, testRevision, &autoscalerfake.FakeMetricClient{}, podCounter,
+	_, err := New(testNamespace, testRevision, &autoscalerfake.MetricClient{}, podCounter,
 		DeciderSpec{TargetConcurrency: 10, ServiceName: testService}, reporter)
 	if err == nil {
 		t.Error("Expected error when EndpointsInformer interface is nil, but got none.")
@@ -64,7 +64,7 @@ func TestNewErrorWhenGivenNilStatsReporter(t *testing.T) {
 
 func TestAutoscalerNoDataNoAutoscale(t *testing.T) {
 	defer ClearAll()
-	metrics := &autoscalerfake.FakeMetricClient{
+	metrics := &autoscalerfake.MetricClient{
 		ErrF: func(key types.NamespacedName, now time.Time) error {
 			return errors.New("no metrics")
 		},
@@ -78,44 +78,44 @@ func expectedEBC(tc, tbc, rc, np float64) int32 {
 	return int32(math.Floor(tc/targetUtilization*np - tbc - rc))
 }
 func TestAutoscalerNoDataAtZeroNoAutoscale(t *testing.T) {
-	a := newTestAutoscaler(t, 10, 100, &autoscalerfake.FakeMetricClient{})
+	a := newTestAutoscaler(t, 10, 100, &autoscalerfake.MetricClient{})
 	// We always presume at least 1 pod, even if counter says 0.
 	a.expectScale(t, time.Now(), 0, expectedEBC(10, 100, 0, 1), true)
 }
 
 func TestAutoscalerNoDataAtZeroNoAutoscaleWithExplicitEPs(t *testing.T) {
-	a := newTestAutoscaler(t, 10, 100, &autoscalerfake.FakeMetricClient{})
+	a := newTestAutoscaler(t, 10, 100, &autoscalerfake.MetricClient{})
 	endpoints(1)
 	a.expectScale(t, time.Now(), 0, expectedEBC(10, 100, 0, 1), true)
 }
 
 func TestAutoscalerStableModeUnlimitedTBC(t *testing.T) {
-	metrics := &autoscalerfake.FakeMetricClient{StableConcurrency: 21.0}
+	metrics := &autoscalerfake.MetricClient{StableConcurrency: 21.0}
 	a := newTestAutoscaler(t, 181, -1, metrics)
 	a.expectScale(t, time.Now(), 1, -1, true)
 }
 
 func TestAutoscaler0TBC(t *testing.T) {
-	metrics := &autoscalerfake.FakeMetricClient{StableConcurrency: 50.0}
+	metrics := &autoscalerfake.MetricClient{StableConcurrency: 50.0}
 	a := newTestAutoscaler(t, 10, 0, metrics)
 	a.expectScale(t, time.Now(), 5, 0, true)
 }
 
 func TestAutoscalerStableModeNoChange(t *testing.T) {
-	metrics := &autoscalerfake.FakeMetricClient{StableConcurrency: 50.0}
+	metrics := &autoscalerfake.MetricClient{StableConcurrency: 50.0}
 	a := newTestAutoscaler(t, 10, 100, metrics)
 	a.expectScale(t, time.Now(), 5, expectedEBC(10, 100, 50, 1), true)
 }
 
 func TestAutoscalerStableModeNoChangeAlreadyScaled(t *testing.T) {
-	metrics := &autoscalerfake.FakeMetricClient{StableConcurrency: 50.0}
+	metrics := &autoscalerfake.MetricClient{StableConcurrency: 50.0}
 	a := newTestAutoscaler(t, 10, 100, metrics)
 	endpoints(5)
 	a.expectScale(t, time.Now(), 5, expectedEBC(10, 100, 50, 5), true)
 }
 
 func TestAutoscalerStableModeIncrease(t *testing.T) {
-	metrics := &autoscalerfake.FakeMetricClient{StableConcurrency: 50.0}
+	metrics := &autoscalerfake.MetricClient{StableConcurrency: 50.0}
 	a := newTestAutoscaler(t, 10, 101, metrics)
 	a.expectScale(t, time.Now(), 5, expectedEBC(10, 101, 50, 1), true)
 
@@ -124,7 +124,7 @@ func TestAutoscalerStableModeIncrease(t *testing.T) {
 }
 
 func TestAutoscalerStableModeDecrease(t *testing.T) {
-	metrics := &autoscalerfake.FakeMetricClient{StableConcurrency: 100.0}
+	metrics := &autoscalerfake.MetricClient{StableConcurrency: 100.0}
 	a := newTestAutoscaler(t, 10, 98, metrics)
 	endpoints(8)
 	a.expectScale(t, time.Now(), 10, expectedEBC(10, 98, 100, 8), true)
@@ -134,7 +134,7 @@ func TestAutoscalerStableModeDecrease(t *testing.T) {
 }
 
 func TestAutoscalerStableModeNoTrafficScaleToZero(t *testing.T) {
-	metrics := &autoscalerfake.FakeMetricClient{StableConcurrency: 1}
+	metrics := &autoscalerfake.MetricClient{StableConcurrency: 1}
 	a := newTestAutoscaler(t, 10, 75, metrics)
 	a.expectScale(t, time.Now(), 1, expectedEBC(10, 75, 1, 1), true)
 
@@ -143,7 +143,7 @@ func TestAutoscalerStableModeNoTrafficScaleToZero(t *testing.T) {
 }
 
 func TestAutoscalerPanicModeDoublePodCount(t *testing.T) {
-	metrics := &autoscalerfake.FakeMetricClient{StableConcurrency: 50, PanicConcurrency: 100}
+	metrics := &autoscalerfake.MetricClient{StableConcurrency: 50, PanicConcurrency: 100}
 	a := newTestAutoscaler(t, 10, 84, metrics)
 
 	// PanicConcurrency takes precedence.
@@ -154,7 +154,7 @@ func TestAutoscalerPanicModeDoublePodCount(t *testing.T) {
 // back to the target level (1.0) but then traffic continues to increase.
 // At 1296 QPS traffic stablizes.
 func TestAutoscalerPanicModeExponentialTrackAndStablize(t *testing.T) {
-	metrics := &autoscalerfake.FakeMetricClient{StableConcurrency: 6, PanicConcurrency: 6}
+	metrics := &autoscalerfake.MetricClient{StableConcurrency: 6, PanicConcurrency: 6}
 	a := newTestAutoscaler(t, 1, 101, metrics)
 	a.expectScale(t, time.Now(), 6, expectedEBC(1, 101, 6, 1), true)
 
@@ -174,7 +174,7 @@ func TestAutoscalerPanicModeExponentialTrackAndStablize(t *testing.T) {
 }
 
 func TestAutoscalerPanicThenUnPanicScaleDown(t *testing.T) {
-	metrics := &autoscalerfake.FakeMetricClient{StableConcurrency: 100, PanicConcurrency: 100}
+	metrics := &autoscalerfake.MetricClient{StableConcurrency: 100, PanicConcurrency: 100}
 	a := newTestAutoscaler(t, 10, 93, metrics)
 	a.expectScale(t, time.Now(), 10, expectedEBC(10, 93, 100, 1), true)
 	endpoints(10)
@@ -193,7 +193,7 @@ func TestAutoscalerPanicThenUnPanicScaleDown(t *testing.T) {
 }
 
 func TestAutoscalerRateLimitScaleUp(t *testing.T) {
-	metrics := &autoscalerfake.FakeMetricClient{StableConcurrency: 1000}
+	metrics := &autoscalerfake.MetricClient{StableConcurrency: 1000}
 	a := newTestAutoscaler(t, 10, 61, metrics)
 
 	// Need 100 pods but only scale x10
@@ -211,7 +211,7 @@ func eraseEndpoints() {
 }
 
 func TestAutoscalerUseOnePodAsMinimumIfEndpointsNotFound(t *testing.T) {
-	metrics := &autoscalerfake.FakeMetricClient{StableConcurrency: 1000}
+	metrics := &autoscalerfake.MetricClient{StableConcurrency: 1000}
 	a := newTestAutoscaler(t, 10, 81, metrics)
 
 	endpoints(0)
@@ -226,7 +226,7 @@ func TestAutoscalerUseOnePodAsMinimumIfEndpointsNotFound(t *testing.T) {
 }
 
 func TestAutoscalerUpdateTarget(t *testing.T) {
-	metrics := &autoscalerfake.FakeMetricClient{StableConcurrency: 100}
+	metrics := &autoscalerfake.MetricClient{StableConcurrency: 100}
 	a := newTestAutoscaler(t, 10, 77, metrics)
 	a.expectScale(t, time.Now(), 10, expectedEBC(10, 77, 100, 1), true)
 

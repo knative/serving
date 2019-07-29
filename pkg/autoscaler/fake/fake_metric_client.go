@@ -22,8 +22,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-// FakeMetricClient is a fake implementation of MetricClient for testing.
-type FakeMetricClient struct {
+// MetricClient is a fake implementation of autoscaler.MetricClient for testing.
+type MetricClient struct {
 	StableConcurrency float64
 	PanicConcurrency  float64
 	StableOPS         float64
@@ -33,7 +33,7 @@ type FakeMetricClient struct {
 
 // StableAndPanicConcurrency returns stable/panic concurrency stored in the object
 // and the result of Errf as the error.
-func (t *FakeMetricClient) StableAndPanicConcurrency(key types.NamespacedName, now time.Time) (float64, float64, error) {
+func (t *MetricClient) StableAndPanicConcurrency(key types.NamespacedName, now time.Time) (float64, float64, error) {
 	var err error
 	if t.ErrF != nil {
 		err = t.ErrF(key, now)
@@ -43,7 +43,7 @@ func (t *FakeMetricClient) StableAndPanicConcurrency(key types.NamespacedName, n
 
 // StableAndPanicOPS returns stable/panic OPS stored in the object
 // and the result of Errf as the error.
-func (t *FakeMetricClient) StableAndPanicOPS(key types.NamespacedName, now time.Time) (float64, float64, error) {
+func (t *MetricClient) StableAndPanicOPS(key types.NamespacedName, now time.Time) (float64, float64, error) {
 	var err error
 	if t.ErrF != nil {
 		err = t.ErrF(key, now)
@@ -52,7 +52,7 @@ func (t *FakeMetricClient) StableAndPanicOPS(key types.NamespacedName, now time.
 }
 
 // StaticMetricClient returns stable/panic concurrency and OPS with static value, i.e. 10.
-var StaticMetricClient = FakeMetricClient{
+var StaticMetricClient = MetricClient{
 	StableConcurrency: 10.0,
 	PanicConcurrency:  10.0,
 	StableOPS:         10.0,

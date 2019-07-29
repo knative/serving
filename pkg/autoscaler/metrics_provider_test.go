@@ -111,7 +111,7 @@ func TestListAllMetrics(t *testing.T) {
 }
 
 func staticConcurrency(concurrency float64) MetricClient {
-	return &fake.FakeMetricClient{
+	return &fake.MetricClient{
 		StableConcurrency: concurrency,
 		ErrF: func(key types.NamespacedName, now time.Time) error {
 			if key.Namespace != existingNamespace {
