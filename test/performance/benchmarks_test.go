@@ -84,13 +84,12 @@ func runTest(t *testing.T, pacer vegeta.Pacer, saveMetrics bool) {
 		t.Fatalf("Error probing domain %s: %v", domain, err)
 	}
 
-	endpoint, err := spoof.ResolveEndpoint(clients.KubeClient.Kube, domain, test.ServingFlags.ResolvableDomain,
+	url, err := spoof.ResolveEndpoint(clients.KubeClient.Kube, domain, test.ServingFlags.ResolvableDomain,
 		pkgTest.Flags.IngressEndpoint)
 	if err != nil {
 		t.Fatalf("Cannot resolve service endpoint: %v", err)
 	}
 
-	url := endpoint
 	if !strings.HasPrefix(url, httpPrefix) {
 		url = httpPrefix + url
 	}

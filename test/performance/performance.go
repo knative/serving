@@ -27,7 +27,6 @@ import (
 	"github.com/knative/test-infra/shared/prometheus"
 	"github.com/knative/test-infra/shared/prow"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/zipkin"
 	"knative.dev/serving/test"
@@ -133,20 +132,4 @@ func AddTrace(logf logging.FormatLogger, tName string, traceID string) {
 	if _, err := traceFile.WriteString(fmt.Sprintf("%s,\n", trace)); err != nil {
 		logf("Cannot write to trace file: %v", err)
 	}
-}
-
-func resolveEndpoint(kubeClientset *pkgTest.KubeClient, domain string, resolvable bool, endpointOverride string) (string, error) {
-	endpoint := domain
-	if !resolvable {
-		e := &endpointOverride
-		if endpointOverride == "" {
-			var err error
-			e, err = ingress.GetIngressEndpoint(kubeClientset.Kube)
-			if err != nil {
-				return "", err
-			}
-		}
-		endpoint = *e
-	}
-	return endpoint, nil
 }
