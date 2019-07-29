@@ -18,6 +18,7 @@ package prober
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -30,6 +31,8 @@ import (
 const (
 	systemName             = "test-server"
 	unexpectedProbeMessage = "unexpected probe header value: whatever"
+	probeInterval          = 10 * time.Millisecond
+	probeTimeout           = 200 * time.Millisecond
 )
 
 func probeServeFunc(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +85,12 @@ func TestDoServing(t *testing.T) {
 }
 
 func TestBlackHole(t *testing.T) {
-	got, err := Do(context.Background(), network.NewAutoTransport(), "http://gone.fishing.svc.custer.local:8080")
+	transport := &http.Transport{
+		Dial: (&net.Dialer{
+			Timeout: 10 * time.Millisecond,
+		}).Dial,
+	}
+	got, err := Do(context.Background(), transport, "http://gone.fishing.svc.custer.local:8080")
 	if want := false; got != want {
 		t.Errorf("Got = %v, want: %v", got, want)
 	}
@@ -150,7 +158,7 @@ func TestDoAsync(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			m := New(test.cb, network.NewProberTransport())
-			m.Offer(context.Background(), ts.URL, test.name, 50*time.Millisecond, 2*time.Second, WithHeader(network.ProbeHeaderName, test.headerValue), ExpectsBody(test.headerValue))
+			m.Offer(context.Background(), ts.URL, test.name, probeInterval, probeTimeout, WithHeader(network.ProbeHeaderName, test.headerValue), ExpectsBody(test.headerValue))
 			<-wch
 		})
 	}
@@ -187,7 +195,7 @@ func TestDoAsyncRepeat(t *testing.T) {
 		wch <- arg
 	}
 	m := New(cb, network.NewProberTransport())
-	m.Offer(context.Background(), ts.URL, 42, 50*time.Millisecond, 3*time.Second, WithHeader(network.ProbeHeaderName, systemName), ExpectsBody(systemName))
+	m.Offer(context.Background(), ts.URL, 42, probeInterval, probeTimeout, WithHeader(network.ProbeHeaderName, systemName), ExpectsBody(systemName))
 	<-wch
 	if got, want := c.calls, 3; got != want {
 		t.Errorf("Probe invocation count = %d, want: %d", got, want)
@@ -210,7 +218,7 @@ func TestDoAsyncTimeout(t *testing.T) {
 		wch <- arg
 	}
 	m := New(cb, network.NewProberTransport())
-	m.Offer(context.Background(), ts.URL, 2009, 10*time.Millisecond, 200*time.Millisecond)
+	m.Offer(context.Background(), ts.URL, 2009, probeInterval, probeTimeout)
 	<-wch
 }
 
@@ -225,10 +233,10 @@ func TestAsyncMultiple(t *testing.T) {
 		wch <- 2006
 	}
 	m := New(cb, network.NewProberTransport())
-	if !m.Offer(context.Background(), ts.URL, 1984, 100*time.Millisecond, 1*time.Second) {
+	if !m.Offer(context.Background(), ts.URL, 1984, probeInterval, probeTimeout) {
 		t.Error("First call to offer returned false")
 	}
-	if m.Offer(context.Background(), ts.URL, 1982, 100*time.Millisecond, 1*time.Second) {
+	if m.Offer(context.Background(), ts.URL, 1982, probeInterval, probeTimeout) {
 		t.Error("Second call to offer returned true")
 	}
 	if got, want := m.len(), 1; got != want {
@@ -237,8 +245,10 @@ func TestAsyncMultiple(t *testing.T) {
 	// Make sure we terminate the first probe.
 	wch <- 2009
 	<-wch
-	// ಠ_ಠ gotta wait for the cb to end.
-	time.Sleep(300 * time.Millisecond)
+
+	wait.PollImmediate(probeInterval, probeTimeout, func() (bool, error) {
+		return m.len() == 0, nil
+	})
 	if got, want := m.len(), 0; got != want {
 		t.Errorf("Number of queued items = %d, want: %d", got, want)
 	}
