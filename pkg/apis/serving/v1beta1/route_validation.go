@@ -30,7 +30,7 @@ import (
 // Validate makes sure that Route is properly configured.
 func (r *Route) Validate(ctx context.Context) *apis.FieldError {
 	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).Also(
-		r.ValidateLabels().ViaField("labels")).ViaField("metadata")
+		r.validateLabels().ViaField("labels")).ViaField("metadata")
 	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	errs = errs.Also(r.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
 	return errs
@@ -171,12 +171,12 @@ func (tt *TrafficTarget) validateUrl(ctx context.Context, errs *apis.FieldError)
 	return errs
 }
 
-// Validate implements apis.Validatable
+// Validate implements apis.Validatable.
 func (rs *RouteStatus) Validate(ctx context.Context) *apis.FieldError {
 	return rs.RouteStatusFields.Validate(ctx)
 }
 
-// Validate implements apis.Validatable
+// Validate implements apis.Validatable.
 func (rsf *RouteStatusFields) Validate(ctx context.Context) *apis.FieldError {
 	// TODO(mattmoor): Validate other status fields.
 
@@ -193,8 +193,8 @@ func validateClusterVisibilityLabel(label string) (errs *apis.FieldError) {
 	return
 }
 
-// ValidateLabels function validates service labels
-func (r *Route) ValidateLabels() (errs *apis.FieldError) {
+// validateLabels function validates route labels.
+func (r *Route) validateLabels() (errs *apis.FieldError) {
 	for key, val := range r.GetLabels() {
 		switch {
 		case key == config.VisibilityLabelKey:
@@ -202,7 +202,7 @@ func (r *Route) ValidateLabels() (errs *apis.FieldError) {
 		case key == serving.ServiceLabelKey:
 			errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", r.GetOwnerReferences()))
 		case strings.HasPrefix(key, groupNamePrefix):
-			errs = errs.Also(apis.ErrInvalidKeyName(key, ""))
+			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
 		}
 	}
 	return
