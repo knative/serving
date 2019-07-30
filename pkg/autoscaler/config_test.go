@@ -28,7 +28,7 @@ import (
 
 var defaultConfig = Config{
 	EnableScaleToZero:                  true,
-	EnableFastScaleDown:                true,
+	EnableFastScaleDown:                false,
 	ContainerConcurrencyTargetFraction: 0.7,
 	ContainerConcurrencyTargetDefault:  100.0,
 	TargetBurstCapacity:                0,
