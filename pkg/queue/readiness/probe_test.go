@@ -48,7 +48,7 @@ func TestNewProbe(t *testing.T) {
 		},
 	}
 
-	p := NewProbe(v1p, logtesting.TestLogger(t))
+	p := NewProbe(v1p)
 
 	if diff := cmp.Diff(p.Probe, v1p); diff != "" {
 		t.Errorf("NewProbe (-want, +got) = %v", diff)
@@ -73,7 +73,7 @@ func TestTCPFailure(t *testing.T) {
 				Port: intstr.FromInt(12345),
 			},
 		},
-	}, t)
+	})
 
 	if pb.ProbeContainer() {
 		t.Error("Reported success when no server was available for connection")
@@ -89,7 +89,7 @@ func TestEmptyHandler(t *testing.T) {
 		SuccessThreshold: 1,
 		FailureThreshold: 1,
 		Handler:          corev1.Handler{},
-	}, t)
+	})
 
 	if pb.ProbeContainer() {
 		t.Error("Reported success when no handler was configured.")
@@ -108,7 +108,7 @@ func TestExecHandler(t *testing.T) {
 			Exec: &corev1.ExecAction{
 				Command: []string{"echo", "hello"},
 			}},
-	}, t)
+	})
 
 	if pb.ProbeContainer() {
 		t.Error("Expected ExecProbe to always fail")
@@ -141,7 +141,7 @@ func TestTCPSuccess(t *testing.T) {
 				Port: intstr.FromString(tsURL.Port()),
 			},
 		},
-	}, t)
+	})
 
 	if !pb.ProbeContainer() {
 		t.Error("Probe report failure. Expected success.")
@@ -163,7 +163,7 @@ func TestHTTPFailureToConnect(t *testing.T) {
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
-	}, t)
+	})
 
 	if pb.ProbeContainer() {
 		t.Error("Reported success when no server was available for connection")
@@ -195,7 +195,7 @@ func TestHTTPBadResponse(t *testing.T) {
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
-	}, t)
+	})
 
 	if pb.ProbeContainer() {
 		t.Error("Reported success when server replied with Bad Request")
@@ -227,7 +227,7 @@ func TestHTTPSuccess(t *testing.T) {
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
-	}, t)
+	})
 
 	if !pb.ProbeContainer() {
 		t.Error("Probe failed. Expected success.")
@@ -259,7 +259,7 @@ func TestHTTPTimeout(t *testing.T) {
 				Port: intstr.FromString(tsURL.Port()),
 			},
 		},
-	}, t)
+	})
 
 	if pb.ProbeContainer() {
 		t.Error("Probe succeeded. Expected failure due to timeout.")
@@ -292,7 +292,7 @@ func TestHTTPSuccessWithDelay(t *testing.T) {
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
-	}, t)
+	})
 
 	if !pb.ProbeContainer() {
 		t.Error("Probe failed. Wanted success.")
@@ -330,7 +330,7 @@ func TestKnHTTPSuccessWithRetry(t *testing.T) {
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
-	}, t)
+	})
 
 	if !pb.ProbeContainer() {
 		t.Error("Probe failed. Expected success after retry.")
@@ -366,7 +366,7 @@ func TestKnHTTPSuccessWithThreshold(t *testing.T) {
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
-	}, t)
+	})
 
 	if !pb.ProbeContainer() {
 		t.Error("Expected success after second attempt.")
@@ -415,7 +415,7 @@ func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
-	}, t)
+	})
 
 	if !pb.ProbeContainer() {
 		t.Error("Expected success.")
@@ -452,7 +452,7 @@ func TestKnHTTPTimeoutFailure(t *testing.T) {
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
-	}, t)
+	})
 
 	if pb.ProbeContainer() {
 		t.Error("Probe succeeded. Expected failure due to timeout.")
@@ -474,7 +474,7 @@ func TestKnTCPProbeSuccess(t *testing.T) {
 				Port: intstr.FromInt(port),
 			},
 		},
-	}, t)
+	})
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
@@ -496,7 +496,7 @@ func TestKnUnimplementedProbe(t *testing.T) {
 		SuccessThreshold: 1,
 		FailureThreshold: 0,
 		Handler:          corev1.Handler{},
-	}, t)
+	})
 
 	if pb.ProbeContainer() {
 		t.Error("Got probe success. Wanted failure.")
@@ -516,7 +516,7 @@ func TestKnTCPProbeFailure(t *testing.T) {
 				Port: intstr.FromInt(12345),
 			},
 		},
-	}, t)
+	})
 
 	if pb.ProbeContainer() {
 		t.Error("Got probe success. Wanted failure.")
@@ -538,7 +538,7 @@ func TestKnTCPProbeSuccessWithThreshold(t *testing.T) {
 				Port: intstr.FromInt(port),
 			},
 		},
-	}, t)
+	})
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
@@ -571,7 +571,7 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 				Port: intstr.FromInt(port),
 			},
 		},
-	}, t)
+	})
 
 	connCount := 0
 	desiredConnCount := 4 // 1 conn from 1st server, 3 from 2nd server
@@ -629,10 +629,9 @@ func freePort(t *testing.T) int {
 	return listener.Addr().(*net.TCPAddr).Port
 }
 
-func newProbe(pb *corev1.Probe, t *testing.T) Probe {
+func newProbe(pb *corev1.Probe) Probe {
 	return Probe{
-		Probe:  pb,
-		count:  0,
-		logger: logtesting.TestLogger(t),
+		Probe: pb,
+		count: 0,
 	}
 }
