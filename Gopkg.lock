@@ -613,30 +613,6 @@
   version = "v1.4.0"
 
 [[projects]]
-  branch = "master"
-  digest = "1:96198f750ebab4ef571b5e460ff0d24e49fc946d010e7e1d6162aec884486f6f"
-  name = "github.com/knative/test-infra"
-  packages = [
-    "scripts",
-    "shared/common",
-    "shared/gcs",
-    "shared/junit",
-    "shared/loadgenerator",
-    "shared/performance",
-    "shared/prometheus",
-    "shared/prow",
-    "shared/testgrid",
-    "tools/dep-collector",
-    "tools/webhook-apicoverage/coveragecalculator",
-    "tools/webhook-apicoverage/resourcetree",
-    "tools/webhook-apicoverage/tools",
-    "tools/webhook-apicoverage/view",
-    "tools/webhook-apicoverage/webhook"
-  ]
-  pruneopts = "UT"
-  revision = "71777cba508e0df832896d1f4d2db63e1314b4cf"
-
-[[projects]]
   digest = "1:58999a98719fddbac6303cb17e8d85b945f60b72f48e3a2df6b950b97fa926f1"
   name = "github.com/konsorten/go-windows-terminal-sequences"
   packages = ["."]
@@ -1734,6 +1710,7 @@
     "injection/informers/kubeinformers/corev1/endpoints",
     "injection/informers/kubeinformers/corev1/endpoints/fake",
     "injection/informers/kubeinformers/corev1/pod",
+    "injection/informers/kubeinformers/corev1/pod/fake",
     "injection/informers/kubeinformers/corev1/secret",
     "injection/informers/kubeinformers/corev1/secret/fake",
     "injection/informers/kubeinformers/corev1/service",
@@ -1771,6 +1748,30 @@
   pruneopts = "T"
   revision = "cb7014ea6ef60a6dfe23f5506703f84dd6310e15"
 
+[[projects]]
+  branch = "master"
+  digest = "1:cb480b8a4fe080f5d8a877be0587168760b18ddcedf258d638f9f607ee8a9577"
+  name = "knative.dev/test-infra"
+  packages = [
+    "scripts",
+    "shared/common",
+    "shared/gcs",
+    "shared/junit",
+    "shared/loadgenerator",
+    "shared/performance",
+    "shared/prometheus",
+    "shared/prow",
+    "shared/testgrid",
+    "tools/dep-collector",
+    "tools/webhook-apicoverage/coveragecalculator",
+    "tools/webhook-apicoverage/resourcetree",
+    "tools/webhook-apicoverage/tools",
+    "tools/webhook-apicoverage/view",
+    "tools/webhook-apicoverage/webhook"
+  ]
+  pruneopts = "UT"
+  revision = "0cc427ae355abc72227fc2effaf017c9ded669b4"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
@@ -1792,19 +1793,6 @@
     "github.com/gorilla/websocket",
     "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1",
     "github.com/kelseyhightower/envconfig",
-    "github.com/knative/test-infra/scripts",
-    "github.com/knative/test-infra/shared/common",
-    "github.com/knative/test-infra/shared/junit",
-    "github.com/knative/test-infra/shared/loadgenerator",
-    "github.com/knative/test-infra/shared/performance",
-    "github.com/knative/test-infra/shared/prometheus",
-    "github.com/knative/test-infra/shared/prow",
-    "github.com/knative/test-infra/shared/testgrid",
-    "github.com/knative/test-infra/tools/dep-collector",
-    "github.com/knative/test-infra/tools/webhook-apicoverage/resourcetree",
-    "github.com/knative/test-infra/tools/webhook-apicoverage/tools",
-    "github.com/knative/test-infra/tools/webhook-apicoverage/view",
-    "github.com/knative/test-infra/tools/webhook-apicoverage/webhook",
     "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/cmd",
     "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/provider",
     "github.com/mattbaird/jsonpatch",
@@ -1829,6 +1817,7 @@
     "go.uber.org/atomic",
     "go.uber.org/zap",
     "go.uber.org/zap/zapcore",
+    "go.uber.org/zap/zaptest",
     "golang.org/x/net/context",
     "golang.org/x/net/http2",
     "golang.org/x/net/http2/h2c",
@@ -1930,6 +1919,7 @@
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints/fake",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/pod",
+    "knative.dev/pkg/injection/informers/kubeinformers/corev1/pod/fake",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret/fake",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/service",
@@ -1959,7 +1949,20 @@
     "knative.dev/pkg/tracker",
     "knative.dev/pkg/version",
     "knative.dev/pkg/webhook",
-    "knative.dev/pkg/websocket"
+    "knative.dev/pkg/websocket",
+    "knative.dev/test-infra/scripts",
+    "knative.dev/test-infra/shared/common",
+    "knative.dev/test-infra/shared/junit",
+    "knative.dev/test-infra/shared/loadgenerator",
+    "knative.dev/test-infra/shared/performance",
+    "knative.dev/test-infra/shared/prometheus",
+    "knative.dev/test-infra/shared/prow",
+    "knative.dev/test-infra/shared/testgrid",
+    "knative.dev/test-infra/tools/dep-collector",
+    "knative.dev/test-infra/tools/webhook-apicoverage/resourcetree",
+    "knative.dev/test-infra/tools/webhook-apicoverage/tools",
+    "knative.dev/test-infra/tools/webhook-apicoverage/view",
+    "knative.dev/test-infra/tools/webhook-apicoverage/webhook"
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
