@@ -19,7 +19,6 @@ package hpa
 import (
 	"context"
 
-	"knative.dev/pkg/apis/duck"
 	hpainformer "knative.dev/pkg/injection/informers/kubeinformers/autoscalingv2beta1/hpa"
 	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
@@ -34,6 +33,7 @@ import (
 	"knative.dev/serving/pkg/reconciler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
+	presources "knative.dev/serving/pkg/resources"
 )
 
 const (
@@ -44,7 +44,6 @@ const (
 func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
-	psInformerFactory duck.InformerFactory,
 ) *controller.Impl {
 
 	paInformer := painformer.Get(ctx)
@@ -60,7 +59,7 @@ func NewController(
 			SKSLister:         sksInformer.Lister(),
 			ServiceLister:     serviceInformer.Lister(),
 			MetricLister:      metricInformer.Lister(),
-			PSInformerFactory: psInformerFactory,
+			PSInformerFactory: presources.NewPodScalableInformerFactory(ctx),
 		},
 		hpaLister: hpaInformer.Lister(),
 	}

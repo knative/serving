@@ -63,16 +63,13 @@ const (
 
 func TestControllerCanReconcile(t *testing.T) {
 	ctx, _ := SetupFakeContext(t)
-
-	psFactory := presources.NewPodScalableInformerFactory(ctx)
-
 	ctl := NewController(ctx, configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      autoscaler.ConfigName,
 		},
 		Data: map[string]string{},
-	}), psFactory)
+	}))
 
 	podAutoscaler := pa(testNamespace, testRevision, WithHPAClass)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(podAutoscaler)
