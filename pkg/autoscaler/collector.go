@@ -93,10 +93,6 @@ type MetricClient interface {
 	// StableAndPanicConcurrency returns both the stable and the panic concurrency
 	// for the given replica as of the given time.
 	StableAndPanicConcurrency(key types.NamespacedName, now time.Time) (float64, float64, error)
-
-	// StableAndPanicOPS returns both the stable and the panic OPS
-	// for the given replica as of the given time.
-	StableAndPanicOPS(key types.NamespacedName, now time.Time) (float64, float64, error)
 }
 
 // MetricCollector manages collection of metrics for many entities.
@@ -195,29 +191,14 @@ func (c *MetricCollector) StableAndPanicConcurrency(key types.NamespacedName, no
 	return collection.stableAndPanicConcurrency(now)
 }
 
-// StableAndPanicOPS returns both the stable and the panic OPS.
-// It may truncate metric buckets as a side-effect.
-func (c *MetricCollector) StableAndPanicOPS(key types.NamespacedName, now time.Time) (float64, float64, error) {
-	c.collectionsMutex.RLock()
-	defer c.collectionsMutex.RUnlock()
-
-	collection, exists := c.collections[key]
-	if !exists {
-		return 0, 0, ErrNotScraping
-	}
-
-	return collection.stableAndPanicOPS(now)
-}
-
 // collection represents the collection of metrics for one specific entity.
 type collection struct {
 	metricMutex sync.RWMutex
 	metric      *av1alpha1.Metric
 
-	scraperMutex       sync.RWMutex
-	scraper            StatsScraper
-	concurrencyBuckets *aggregation.TimedFloat64Buckets
-	opsBuckets         *aggregation.TimedFloat64Buckets
+	scraperMutex sync.RWMutex
+	scraper      StatsScraper
+	buckets      *aggregation.TimedFloat64Buckets
 
 	grp    sync.WaitGroup
 	stopCh chan struct{}
@@ -239,10 +220,9 @@ func (c *collection) getScraper() StatsScraper {
 // collect stats every scrapeTickInterval.
 func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, logger *zap.SugaredLogger) *collection {
 	c := &collection{
-		metric:             metric,
-		concurrencyBuckets: aggregation.NewTimedFloat64Buckets(BucketSize),
-		opsBuckets:         aggregation.NewTimedFloat64Buckets(BucketSize),
-		scraper:            scraper,
+		metric:  metric,
+		buckets: aggregation.NewTimedFloat64Buckets(BucketSize),
+		scraper: scraper,
 
 		stopCh: make(chan struct{}),
 	}
@@ -291,9 +271,8 @@ func (c *collection) currentMetric() *av1alpha1.Metric {
 // record adds a stat to the current collection.
 func (c *collection) record(stat Stat) {
 	// Proxied requests have been counted at the activator. Subtract
-	// them to avoid double counting.
-	c.concurrencyBuckets.Record(*stat.Time, stat.PodName, stat.AverageConcurrentRequests-stat.AverageProxiedConcurrentRequests)
-	c.opsBuckets.Record(*stat.Time, stat.PodName, stat.RequestCount-stat.ProxiedRequestCount)
+	// AverageProxiedConcurrentRequests to avoid double counting.
+	c.buckets.Record(*stat.Time, stat.PodName, stat.AverageConcurrentRequests-stat.AverageProxiedConcurrentRequests)
 }
 
 // stableAndPanicConcurrency calculates both stable and panic concurrency based on the
@@ -301,30 +280,16 @@ func (c *collection) record(stat Stat) {
 func (c *collection) stableAndPanicConcurrency(now time.Time) (float64, float64, error) {
 	spec := c.currentMetric().Spec
 
-	return stableAndPanicStats(now, spec.StableWindow, spec.PanicWindow, c.concurrencyBuckets)
-}
+	c.buckets.RemoveOlderThan(now.Add(-spec.StableWindow))
 
-// stableAndPanicConcurrency calculates both stable and panic OPS based on the
-// current stats.
-func (c *collection) stableAndPanicOPS(now time.Time) (float64, float64, error) {
-	spec := c.currentMetric().Spec
-
-	return stableAndPanicStats(now, spec.StableWindow, spec.PanicWindow, c.opsBuckets)
-}
-
-// stableAndPanicStats calculates both stable and panic concurrency based on the
-// given stats buckets.
-func stableAndPanicStats(now time.Time, stableW, panicW time.Duration, buckets *aggregation.TimedFloat64Buckets) (float64, float64, error) {
-	buckets.RemoveOlderThan(now.Add(-stableW))
-
-	if buckets.IsEmpty() {
+	if c.buckets.IsEmpty() {
 		return 0, 0, ErrNoData
 	}
 
 	panicAverage := aggregation.Average{}
 	stableAverage := aggregation.Average{}
-	buckets.ForEachBucket(
-		aggregation.YoungerThan(now.Add(-panicW), panicAverage.Accumulate),
+	c.buckets.ForEachBucket(
+		aggregation.YoungerThan(now.Add(-spec.PanicWindow), panicAverage.Accumulate),
 		stableAverage.Accumulate, // No need to add a YoungerThan condition as we already deleted all outdated stats above.
 	)
 
