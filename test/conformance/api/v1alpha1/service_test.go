@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/test"
@@ -518,6 +519,7 @@ func TestReleaseService(t *testing.T) {
 func TestAnnotationPropagation(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
+	defer logstream.Start(t)()
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),

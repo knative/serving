@@ -21,6 +21,7 @@ package v1beta1
 import (
 	"path/filepath"
 	"testing"
+	"time"
 
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
@@ -228,7 +229,7 @@ func TestSecretVolume(t *testing.T) {
 
 	// Setup initial Service
 	if _, err := v1b1test.CreateServiceReady(t, clients, &names, withVolume, withOptionalBadVolume); err != nil {
-		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
+		t.Fatalf("%s Failed to create initial Service %v: %v", time.Now().Format("150405"), names.Service, err)
 	}
 
 	// Validate State after Creation

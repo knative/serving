@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/logstream"
 	"knative.dev/pkg/test/spoof"
 	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
@@ -34,6 +35,7 @@ import (
 
 func TestCustomResourcesLimits(t *testing.T) {
 	t.Parallel()
+	defer logstream.Start(t)()
 	clients := test.Setup(t)
 
 	t.Log("Creating a new Route and Configuration")

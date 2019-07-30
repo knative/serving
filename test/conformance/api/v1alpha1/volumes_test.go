@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
@@ -179,6 +180,7 @@ func TestProjectedConfigMapVolume(t *testing.T) {
 func TestSecretVolume(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
+	defer logstream.Start(t)()
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
