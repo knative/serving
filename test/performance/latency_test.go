@@ -22,17 +22,19 @@ package performance
 
 import (
 	"fmt"
+	"net/http"
 	"testing"
 	"time"
 
-	"knative.dev/test-infra/shared/junit"
-	"knative.dev/test-infra/shared/loadgenerator"
-	perf "knative.dev/test-infra/shared/performance"
-	"knative.dev/test-infra/shared/testgrid"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
+	"knative.dev/test-infra/shared/junit"
+	perf "knative.dev/test-infra/shared/performance"
+	"knative.dev/test-infra/shared/testgrid"
+
+	vegeta "github.com/tsenart/vegeta/lib"
 )
 
 const (
@@ -40,6 +42,7 @@ const (
 	// sleepReqTimeout should be > sleepTime. Else, the request will time out before receiving the response
 	sleepReqTimeout = 2 * time.Minute
 	hwReqtimeout    = 30 * time.Second
+	baseQPS         = 10
 )
 
 func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
@@ -66,7 +69,6 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 	}
 
 	domain := objs.Route.Status.URL.Host
-
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
@@ -83,44 +85,25 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 		t.Fatalf("Cannot resolve service endpoint: %v", err)
 	}
 
-	opts := loadgenerator.GeneratorOptions{
-		Duration:       duration,
-		NumThreads:     1,
-		NumConnections: 5,
-		Domain:         domain,
-		URL:            fmt.Sprintf("%s/?%s", endpoint, query),
-		RequestTimeout: reqTimeout,
-		LoadFactors:    []float64{1},
-		FileNamePrefix: tName,
-	}
-	var flags []int
-	if !test.ServingFlags.ResolvableDomain {
-		flags = append(flags, loadgenerator.AddHostHeader)
-	}
+	pacer := vegeta.ConstantPacer{Freq: baseQPS, Per: time.Second}
+	targeter := vegeta.NewStaticTargeter(vegeta.Target{
+		Method: http.MethodGet,
+		Header: resolvedHeaders(domain, test.ServingFlags.ResolvableDomain),
+		URL:    sanitizedURL(endpoint) + "?" + query,
+	})
+	attacker := vegeta.NewAttacker()
 
-	resp, err := opts.RunLoadTest(flags...)
-	if err != nil {
-		t.Fatalf("Generating traffic via fortio failed: %v", err)
+	var metrics vegeta.Metrics
+	for res := range attacker.Attack(targeter, pacer, duration, tName) {
+		metrics.Add(res)
 	}
+	metrics.Close()
 
-	// Save the json result for benchmarking
-	resp.SaveJSON()
-
-	if len(resp.Result) == 0 {
-		t.Fatal("No result found for the load test")
-	}
-
-	if resp.ErrorsPercentage(0) > 0 {
-		t.Fatal("Found non 200 response")
-	}
-
-	// Add latency metrics
 	var tc []junit.TestCase
-	for _, p := range resp.Result[0].DurationHistogram.Percentiles {
-		val := float32(p.Value) * 1000
-		name := fmt.Sprintf("p%d(ms)", int(p.Percentile))
-		tc = append(tc, perf.CreatePerfTestCase(val, name, tName))
-	}
+	// Add latency metrics
+	tc = append(tc, perf.CreatePerfTestCase(float32(metrics.Latencies.P50.Seconds()*1000), "p50(ms)", tName))
+	tc = append(tc, perf.CreatePerfTestCase(float32(metrics.Latencies.Quantile(0.90).Seconds()*1000), "p90(ms)", tName))
+	tc = append(tc, perf.CreatePerfTestCase(float32(metrics.Latencies.P99.Seconds()*1000), "p99(ms)", tName))
 
 	if err = testgrid.CreateXMLOutput(tc, tName); err != nil {
 		t.Fatalf("Cannot create output xml: %v", err)
