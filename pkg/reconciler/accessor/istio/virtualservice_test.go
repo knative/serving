@@ -1,3 +1,19 @@
+/*
+Copyright 2019 The Knative Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+https://www.apache.org/licenses/LICENSE-2.0
+
+	Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package istio
 
 import (
@@ -67,7 +83,7 @@ type FakeAccessor struct {
 	vsLister istiolisters.VirtualServiceLister
 }
 
-func (f *FakeAccessor) GetVirtualServiceClient() sharedclientset.Interface {
+func (f *FakeAccessor) GetSharedClient() sharedclientset.Interface {
 	return f.client
 }
 
@@ -100,8 +116,7 @@ func TestReconcileVirtualService_Create(t *testing.T) {
 	})
 
 	accessor := setup(ctx, []*v1alpha3.VirtualService{}, sharedClient, t)
-	recorder := controller.GetEventRecorder(ctx)
-	ReconcileVirtualService(ctx, ownerObj, desired, recorder, accessor)
+	ReconcileVirtualService(ctx, ownerObj, desired, accessor)
 
 	if err := h.WaitForHooks(3 * time.Second); err != nil {
 		t.Errorf("Failed to Reconcile VirtualService: %v", err)
@@ -133,9 +148,7 @@ func TestReconcileVirtualService_Update(t *testing.T) {
 		return HookComplete
 	})
 
-	recorder := controller.GetEventRecorder(ctx)
-	ReconcileVirtualService(ctx, ownerObj, desired, recorder, accessor)
-
+	ReconcileVirtualService(ctx, ownerObj, desired, accessor)
 	if err := h.WaitForHooks(3 * time.Second); err != nil {
 		t.Errorf("Failed to Reconcile VirtualService: %v", err)
 	}

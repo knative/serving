@@ -357,10 +357,11 @@ func (r *BaseIngressReconciler) reconcileCertSecret(ctx context.Context, ia v1al
 func (r *BaseIngressReconciler) reconcileVirtualServices(ctx context.Context, ia v1alpha1.IngressAccessor,
 	desired []*v1alpha3.VirtualService) error {
 	logger := logging.FromContext(ctx)
+	ctx = controller.WithEventRecorder(ctx, r.Recorder)
 	// First, create all needed VirtualServices.
 	kept := sets.NewString()
 	for _, d := range desired {
-		if _, err := istioaccessor.ReconcileVirtualService(ctx, ia, d, r.Recorder, r); err != nil {
+		if _, err := istioaccessor.ReconcileVirtualService(ctx, ia, d, r); err != nil {
 			return err
 		}
 		kept.Insert(d.Name)
@@ -488,8 +489,8 @@ func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha
 	return nil
 }
 
-// GetVirtualServiceClient returns the client to access VirtualService.
-func (r *BaseIngressReconciler) GetVirtualServiceClient() sharedclientset.Interface {
+// GetSharedClient returns the client to access shared resources.
+func (r *BaseIngressReconciler) GetSharedClient() sharedclientset.Interface {
 	return r.SharedClientSet
 }
 

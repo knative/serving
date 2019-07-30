@@ -25,30 +25,34 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/record"
 	"knative.dev/pkg/apis/istio/v1alpha3"
 	sharedclientset "knative.dev/pkg/client/clientset/versioned"
 	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
+	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 )
 
 // VirtualServiceAccessor is an interface for accessing VirtualService.
 type VirtualServiceAccessor interface {
-	GetVirtualServiceClient() sharedclientset.Interface
+	GetSharedClient() sharedclientset.Interface
 	GetVirtualServiceLister() istiolisters.VirtualServiceLister
 }
 
 // ReconcileVirtualService reconciles VirtiualService to the desired status.
 func ReconcileVirtualService(ctx context.Context, owner kmeta.Accessor, desired *v1alpha3.VirtualService,
-	recorder record.EventRecorder, vsAccessor VirtualServiceAccessor) (*v1alpha3.VirtualService, error) {
+	vsAccessor VirtualServiceAccessor) (*v1alpha3.VirtualService, error) {
 
 	logger := logging.FromContext(ctx)
+	recorder := controller.GetEventRecorder(ctx)
+	if recorder == nil {
+		return nil, fmt.Errorf("recoder for reconcilging VirtualService %q/%q is not created", desired.Namespace, desired.Name)
+	}
 	ns := desired.Namespace
 	name := desired.Name
 	vs, err := vsAccessor.GetVirtualServiceLister().VirtualServices(ns).Get(name)
 	if apierrs.IsNotFound(err) {
-		_, err = vsAccessor.GetVirtualServiceClient().NetworkingV1alpha3().VirtualServices(ns).Create(desired)
+		_, err = vsAccessor.GetSharedClient().NetworkingV1alpha3().VirtualServices(ns).Create(desired)
 		if err != nil {
 			logger.Errorw("Failed to create VirtualService", zap.Error(err))
 			recorder.Eventf(owner, corev1.EventTypeWarning, "CreationFailed",
@@ -65,7 +69,7 @@ func ReconcileVirtualService(ctx context.Context, owner kmeta.Accessor, desired 
 		// Don't modify the informers copy
 		existing := vs.DeepCopy()
 		existing.Spec = desired.Spec
-		vs, err = vsAccessor.GetVirtualServiceClient().NetworkingV1alpha3().VirtualServices(ns).Update(existing)
+		vs, err = vsAccessor.GetSharedClient().NetworkingV1alpha3().VirtualServices(ns).Update(existing)
 		if err != nil {
 			logger.Errorw("Failed to update VirtualService", zap.Error(err))
 			return nil, err
