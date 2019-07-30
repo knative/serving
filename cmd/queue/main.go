@@ -367,7 +367,7 @@ func main() {
 	if err != nil {
 		logger.Fatalw("Queue container failed to parse readiness probe", zap.Error(err))
 	}
-	rp := readiness.NewProbe(coreProbe, logger.With(zap.String(logkey.Key, "readinessProbe")))
+	rp := readiness.NewProbe(coreProbe)
 
 	// Create queue handler chain.
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
@@ -389,7 +389,13 @@ func main() {
 
 	adminMux := http.NewServeMux()
 	healthState := &health.State{}
-	adminMux.HandleFunc(requestQueueHealthPath, healthState.HealthHandler(rp.ProbeContainer, rp.IsAggressive()))
+	adminMux.HandleFunc(requestQueueHealthPath, healthState.HealthHandler(func() bool {
+		if !rp.ProbeContainer() {
+			return false
+		}
+		logger.Info("User-container successfully probed.")
+		return true
+	}, rp.IsAggressive()))
 	adminMux.HandleFunc(queue.RequestQueueDrainPath, healthState.DrainHandler())
 	adminServer := &http.Server{
 		Addr:    ":" + strconv.Itoa(networking.QueueAdminPort),

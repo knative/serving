@@ -34,7 +34,7 @@ func (c *Configuration) Validate(ctx context.Context) (errs *apis.FieldError) {
 	// spec validation.
 	if !apis.IsInStatusUpdate(ctx) {
 		errs = errs.Also(serving.ValidateObjectMetadata(c.GetObjectMeta()).Also(
-			c.ValidateLabels().ViaField("labels")).ViaField("metadata"))
+			c.validateLabels().ViaField("labels")).ViaField("metadata"))
 		ctx = apis.WithinParent(ctx, c.ObjectMeta)
 		errs = errs.Also(c.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	}
@@ -66,8 +66,8 @@ func (csf *ConfigurationStatusFields) Validate(ctx context.Context) *apis.FieldE
 	return nil
 }
 
-// ValidateLabels function validates service labels
-func (c *Configuration) ValidateLabels() (errs *apis.FieldError) {
+// validateLabels function validates configuration labels
+func (c *Configuration) validateLabels() (errs *apis.FieldError) {
 	for key, val := range c.GetLabels() {
 		switch {
 		case key == config.VisibilityLabelKey:
@@ -76,7 +76,7 @@ func (c *Configuration) ValidateLabels() (errs *apis.FieldError) {
 		case key == serving.ServiceLabelKey:
 			errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", c.GetOwnerReferences()))
 		case strings.HasPrefix(key, groupNamePrefix):
-			errs = errs.Also(apis.ErrInvalidKeyName(key, ""))
+			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
 		}
 	}
 	return
@@ -89,6 +89,5 @@ func verifyLabelOwnerRef(val, label, resource string, ownerRefs []metav1.OwnerRe
 			return
 		}
 	}
-	errs = errs.Also(apis.ErrMissingField(label))
-	return
+	return errs.Also(apis.ErrMissingField(label))
 }

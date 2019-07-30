@@ -124,7 +124,10 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 		}},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
-			vss := MakeVirtualServices(tc.ci, tc.gateways)
+			vss, err := MakeVirtualServices(tc.ci, tc.gateways)
+			if err != nil {
+				t.Fatalf("MakeVirtualServices failed: %v", err)
+			}
 			if len(vss) != len(tc.expected) {
 				t.Fatalf("Expected %d VirtualService, saw %d", len(tc.expected), len(vss))
 			}

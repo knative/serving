@@ -20,7 +20,7 @@ import (
 	"container/list"
 	"reflect"
 
-	"github.com/knative/test-infra/tools/webhook-apicoverage/coveragecalculator"
+	"knative.dev/test-infra/tools/webhook-apicoverage/coveragecalculator"
 )
 
 // ResourceTree encapsulates a tree corresponding to a resource type.

@@ -29,8 +29,8 @@ import (
 
 	"fortio.org/fortio/fhttp"
 	"fortio.org/fortio/periodic"
-	"github.com/knative/test-infra/shared/common"
-	"github.com/knative/test-infra/shared/prow"
+	"knative.dev/test-infra/shared/common"
+	"knative.dev/test-infra/shared/prow"
 )
 
 const (

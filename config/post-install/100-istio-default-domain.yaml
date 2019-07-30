@@ -19,6 +19,7 @@ metadata:
   namespace: knative-serving
   labels:
     app: "default-domain"
+    serving.knative.dev/release: devel
     networking.knative.dev/ingress-provider: istio
 spec:
   template:

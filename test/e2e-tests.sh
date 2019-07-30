@@ -43,6 +43,9 @@ header "Running tests"
 
 failed=0
 
+# Patch tests to run serially in the mesh scenario
+(( ISTIO_MESH )) && find . -iname '*_test.go' | xargs sed -i -e '/^.*\.Parallel()/d'
+
 # Run conformance and e2e tests.
 if (( INSTALL_BETA )); then
   # When beta is installed, include our beta tests.

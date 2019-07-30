@@ -26,9 +26,9 @@ import (
 	"path"
 	"strings"
 
-	"github.com/knative/test-infra/tools/webhook-apicoverage/coveragecalculator"
-	"github.com/knative/test-infra/tools/webhook-apicoverage/view"
-	"github.com/knative/test-infra/tools/webhook-apicoverage/webhook"
+	"knative.dev/test-infra/tools/webhook-apicoverage/coveragecalculator"
+	"knative.dev/test-infra/tools/webhook-apicoverage/view"
+	"knative.dev/test-infra/tools/webhook-apicoverage/webhook"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"

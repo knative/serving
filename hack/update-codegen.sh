@@ -22,7 +22,7 @@ if [ -z "${GOPATH:-}" ]; then
   export GOPATH=$(go env GOPATH)
 fi
 
-source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
+source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/library.sh
 
 
 # Clone the v1beta1 types to v1alpha1 sans v1beta1.

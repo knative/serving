@@ -25,9 +25,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/test-infra/shared/junit"
-	perf "github.com/knative/test-infra/shared/performance"
-	"github.com/knative/test-infra/shared/testgrid"
+	"knative.dev/test-infra/shared/junit"
+	perf "knative.dev/test-infra/shared/performance"
+	"knative.dev/test-infra/shared/testgrid"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/test"

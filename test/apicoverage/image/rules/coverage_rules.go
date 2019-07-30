@@ -19,7 +19,7 @@ package rules
 import (
 	"strings"
 
-	"github.com/knative/test-infra/tools/webhook-apicoverage/resourcetree"
+	"knative.dev/test-infra/tools/webhook-apicoverage/resourcetree"
 )
 
 // TODO(https://github.com/knative/test-infra/issues/448): evaluate refactoring common, shared code.
