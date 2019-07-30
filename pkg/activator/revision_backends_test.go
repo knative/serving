@@ -182,8 +182,6 @@ func TestRevisionWatcher(t *testing.T) {
 			rt := network.RoundTripperFunc(fakeRt.RT)
 
 			updateCh := make(chan *RevisionDestsUpdate, 100)
-			defer close(updateCh)
-
 			tickerCh := make(chan time.Time, 1)
 			defer close(tickerCh)
 
@@ -351,8 +349,6 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			controller.StartInformers(stopCh, endpointsInformer.Informer())
 
 			updateCh := make(chan *RevisionDestsUpdate, 100)
-			defer close(updateCh)
-
 			bm := NewRevisionBackendsManagerWithProbeFrequency(updateCh, rt, endpointsInformer, TestLogger(t), 50*time.Millisecond)
 			defer bm.Clear()
 

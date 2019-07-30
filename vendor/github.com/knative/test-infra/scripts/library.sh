@@ -320,7 +320,10 @@ function create_junit_xml() {
   local failure=""
   if [[ "$3" != "" ]]; then
     # Transform newlines into HTML code.
-    local msg="$(echo -n "$3" | sed 's/$/\&#xA;/g' | tr -d '\n')"
+    # Also escape `<` and `>` as here: https://github.com/golang/go/blob/50bd1c4d4eb4fac8ddeb5f063c099daccfb71b26/src/encoding/json/encode.go#L48, 
+    # this is temporary solution for fixing https://github.com/knative/test-infra/issues/1204,
+    # which should be obsolete once Test-infra 2.0 is in place
+    local msg="$(echo -n "$3" | sed 's/$/\&#xA;/g' | sed 's/</\\u003c/' | sed 's/>/\\u003e/' | tr -d '\n')"
     failure="<failure message=\"Failed\" type=\"\">${msg}</failure>"
   fi
   cat << EOF > "${xml}"

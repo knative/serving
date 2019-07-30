@@ -100,7 +100,7 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 	targeter := vegeta.NewStaticTargeter(vegeta.Target{
 		Method: http.MethodGet,
 		Header: headers,
-		URL:    fmt.Sprintf("%s/?%s", url, query),
+		URL:    url + "?" + query,
 	})
 	attacker := vegeta.NewAttacker()
 

@@ -111,7 +111,7 @@ func (p *Probe) doProbe(probe func(time.Duration) error) error {
 // if the probe count is greater than success threshold and false if TCP probe fails
 func (p *Probe) tcpProbe() error {
 	config := health.TCPProbeConfigOptions{
-		Address: fmt.Sprintf("%s:%d", p.TCPSocket.Host, p.TCPSocket.Port.IntValue()),
+		Address: p.TCPSocket.Host + ":" + p.TCPSocket.Port.String(),
 	}
 
 	return p.doProbe(func(to time.Duration) error {
