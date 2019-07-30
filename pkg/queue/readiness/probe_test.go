@@ -462,7 +462,13 @@ func TestKnHTTPTimeoutFailure(t *testing.T) {
 func TestKnTCPProbeSuccess(t *testing.T) {
 	defer logtesting.ClearAll()
 
-	port := freePort(t)
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("Error setting up tcp listener: %v", err)
+	}
+	defer listener.Close()
+	addr := listener.Addr().(*net.TCPAddr)
+
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
@@ -471,16 +477,10 @@ func TestKnTCPProbeSuccess(t *testing.T) {
 		Handler: corev1.Handler{
 			TCPSocket: &corev1.TCPSocketAction{
 				Host: "127.0.0.1",
-				Port: intstr.FromInt(port),
+				Port: intstr.FromInt(addr.Port),
 			},
 		},
 	})
-
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		t.Fatalf("Error setting up tcp listener: %s", err.Error())
-	}
-	defer listener.Close()
 
 	if !pb.ProbeContainer() {
 		t.Error("Got probe error. Wanted success.")
@@ -526,7 +526,13 @@ func TestKnTCPProbeFailure(t *testing.T) {
 func TestKnTCPProbeSuccessWithThreshold(t *testing.T) {
 	defer logtesting.ClearAll()
 
-	port := freePort(t)
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("Error setting up tcp listener: %v", err)
+	}
+	defer listener.Close()
+	addr := listener.Addr().(*net.TCPAddr)
+
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
@@ -535,16 +541,10 @@ func TestKnTCPProbeSuccessWithThreshold(t *testing.T) {
 		Handler: corev1.Handler{
 			TCPSocket: &corev1.TCPSocketAction{
 				Host: "127.0.0.1",
-				Port: intstr.FromInt(port),
+				Port: intstr.FromInt(addr.Port),
 			},
 		},
 	})
-
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		t.Fatalf("Error setting up tcp listener: %s", err.Error())
-	}
-	defer listener.Close()
 
 	if !pb.ProbeContainer() {
 		t.Error("Got probe error. Wanted success.")
@@ -558,8 +558,13 @@ func TestKnTCPProbeSuccessWithThreshold(t *testing.T) {
 func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 	defer logtesting.ClearAll()
 
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("Error setting up tcp listener: %v", err)
+	}
+	addr := listener.Addr().(*net.TCPAddr)
+
 	var successThreshold int32 = 3
-	port := freePort(t)
 	pb := newProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
@@ -568,25 +573,21 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 		Handler: corev1.Handler{
 			TCPSocket: &corev1.TCPSocketAction{
 				Host: "127.0.0.1",
-				Port: intstr.FromInt(port),
+				Port: intstr.FromInt(addr.Port),
 			},
 		},
 	})
 
 	connCount := 0
 	desiredConnCount := 4 // 1 conn from 1st server, 3 from 2nd server
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		t.Fatalf("Error setting up tcp listener: %s", err.Error())
-	}
 
 	errChan := make(chan bool, 1)
-	go func(errChan chan bool) {
+	go func() {
 		errChan <- pb.ProbeContainer()
-	}(errChan)
+	}()
 
 	if _, err = listener.Accept(); err != nil {
-		t.Fatalf("Failed to accept TCP conn: %s", err.Error())
+		t.Fatalf("Failed to accept TCP conn: %v", err)
 	}
 	connCount++
 
@@ -595,15 +596,15 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 	listener.Close()
 	time.Sleep(500 * time.Millisecond)
 
-	listener2, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	listener2, err := net.Listen("tcp", fmt.Sprintf(":%d", addr.Port))
 	if err != nil {
-		t.Fatalf("Error setting up tcp listener: %s", err.Error())
+		t.Fatalf("Error setting up tcp listener: %v", err)
 	}
 
 	for {
 		if connCount < desiredConnCount {
 			if _, err = listener2.Accept(); err != nil {
-				t.Fatalf("Failed to accept TCP conn: %s", err.Error())
+				t.Fatalf("Failed to accept TCP conn: %v", err)
 			}
 			connCount++
 		} else {
@@ -618,15 +619,6 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 	if pb.Count() != successThreshold {
 		t.Errorf("Expected count to be %d but got %d", successThreshold, pb.Count())
 	}
-}
-
-func freePort(t *testing.T) int {
-	listener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		t.Fatalf("Error setting up tcp listener: %s", err.Error())
-	}
-	listener.Close()
-	return listener.Addr().(*net.TCPAddr).Port
 }
 
 func newProbe(pb *corev1.Probe) Probe {
