@@ -190,6 +190,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 func (r *BaseIngressReconciler) ReconcileIngress(ctx context.Context, ra ReconcilerAccessor, key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	logger := logging.FromContext(ctx)
+	ctx = controller.WithEventRecorder(ctx, r.Recorder)
 
 	ns, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -357,7 +358,6 @@ func (r *BaseIngressReconciler) reconcileCertSecret(ctx context.Context, ia v1al
 func (r *BaseIngressReconciler) reconcileVirtualServices(ctx context.Context, ia v1alpha1.IngressAccessor,
 	desired []*v1alpha3.VirtualService) error {
 	logger := logging.FromContext(ctx)
-	ctx = controller.WithEventRecorder(ctx, r.Recorder)
 	// First, create all needed VirtualServices.
 	kept := sets.NewString()
 	for _, d := range desired {
