@@ -26,17 +26,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/test-infra/shared/junit"
-	"github.com/knative/test-infra/shared/loadgenerator"
-	perf "github.com/knative/test-infra/shared/performance"
-	"github.com/knative/test-infra/shared/testgrid"
+	"knative.dev/test-infra/shared/junit"
+	"knative.dev/test-infra/shared/loadgenerator"
+	perf "knative.dev/test-infra/shared/performance"
+	"knative.dev/test-infra/shared/testgrid"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/controller"
 	pkgTest "knative.dev/pkg/test"
-	ingress "knative.dev/pkg/test/ingress"
+	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/resources"
 	testingv1alpha1 "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
@@ -102,10 +102,6 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	}
 
 	domain := objs.Route.Status.URL.Host
-	endpoint, err := ingress.GetIngressEndpoint(clients.KubeClient.Kube)
-	if err != nil {
-		t.Fatalf("Cannot get service endpoint: %v", err)
-	}
 
 	// Make sure we are ready to serve.
 	st := time.Now()
@@ -150,19 +146,30 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	})
 	controller.StartInformers(stopCh, endpointsInformer)
 
+	endpoint, err := spoof.ResolveEndpoint(clients.KubeClient.Kube, domain, test.ServingFlags.ResolvableDomain,
+		pkgTest.Flags.IngressEndpoint)
+	if err != nil {
+		t.Fatalf("Cannot resolve service endpoint: %v", err)
+	}
+
 	opts := loadgenerator.GeneratorOptions{
 		Duration:       iterationDuration,
 		NumThreads:     numClients,
 		NumConnections: numClients,
 		Domain:         domain,
 		BaseQPS:        qpsPerClient * float64(numClients),
-		URL:            fmt.Sprintf("http://%s/?timeout=%d", *endpoint, processingTimeMillis),
+		URL:            fmt.Sprintf("%s/?timeout=%d", endpoint, processingTimeMillis),
 		LoadFactors:    []float64{1},
 		FileNamePrefix: strings.Replace(t.Name(), "/", "_", -1),
 	}
 
+	var flags []int
+	if !test.ServingFlags.ResolvableDomain {
+		flags = append(flags, loadgenerator.AddHostHeader)
+	}
+
 	t.Logf("Starting test with %d clients at %s", numClients, time.Now())
-	resp, err := opts.RunLoadTest(loadgenerator.AddHostHeader)
+	resp, err := opts.RunLoadTest(flags...)
 	if err != nil {
 		t.Fatalf("Generating traffic via fortio failed: %v", err)
 	}

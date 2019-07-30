@@ -44,6 +44,7 @@ import (
 	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/resources"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
 )
 
 var defaultKnativeQReadinessProbe = &corev1.Probe{
@@ -68,6 +69,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		name string
 		rev  *v1alpha1.Revision
 		lc   *logging.Config
+		tc   *tracingconfig.Config
 		oc   *metrics.ObservabilityConfig
 		ac   *autoscaler.Config
 		cc   *deployment.Config
@@ -88,6 +90,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
@@ -126,6 +129,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{
@@ -164,6 +168,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{
@@ -204,6 +209,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
@@ -243,6 +249,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				"queueproxy": zapcore.ErrorLevel,
 			},
 		},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
@@ -278,6 +285,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
@@ -309,6 +317,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{RequestLogTemplate: "test template"},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
@@ -341,6 +350,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{
 			RequestMetricsBackend: "prometheus",
 		},
@@ -370,8 +380,7 @@ func TestMakeQueueContainer(t *testing.T) {
 					}},
 				}
 			}
-
-			got := makeQueueContainer(test.rev, test.lc, test.oc, test.ac, test.cc)
+			got := makeQueueContainer(test.rev, test.lc, test.tc, test.oc, test.ac, test.cc)
 			test.want.Env = append(test.want.Env, corev1.EnvVar{
 				Name:  "SERVING_READINESS_PROBE",
 				Value: probeJSON(test.rev.Spec.GetContainer().ReadinessProbe),
@@ -390,6 +399,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		name string
 		rev  *v1alpha1.Revision
 		lc   *logging.Config
+		tc   *tracingconfig.Config
 		oc   *metrics.ObservabilityConfig
 		ac   *autoscaler.Config
 		cc   *deployment.Config
@@ -427,6 +437,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{
@@ -440,8 +451,8 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 					corev1.ResourceName("cpu"): resource.MustParse("25m"),
 				},
 				Limits: corev1.ResourceList{
+					corev1.ResourceName("memory"): *resource.NewMilliQuantity(429496729600, resource.BinarySI),
 					corev1.ResourceName("cpu"):    *resource.NewMilliQuantity(400, resource.BinarySI),
-					corev1.ResourceName("memory"): *resource.NewQuantity(429496736, resource.BinarySI),
 				},
 			},
 			Ports:           append(queueNonServingPorts, queueHTTPPort),
@@ -485,6 +496,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{
@@ -540,6 +552,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{
@@ -593,6 +606,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			},
 		},
 		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{
@@ -620,7 +634,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := makeQueueContainer(test.rev, test.lc, test.oc, test.ac, test.cc)
+			got := makeQueueContainer(test.rev, test.lc, test.tc, test.oc, test.ac, test.cc)
 			test.want.Env = append(test.want.Env, corev1.EnvVar{
 				Name:  "SERVING_READINESS_PROBE",
 				Value: probeJSON(test.rev.Spec.GetContainer().ReadinessProbe),
@@ -631,16 +645,16 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				t.Errorf("makeQueueContainerWithPercentageAnnotation (-want, +got) = %v", diff)
 			}
 			if test.want.Resources.Limits.Memory().Cmp(*got.Resources.Limits.Memory()) != 0 {
-				t.Errorf("Expected Resources.Limits.Memory %v got %v ", test.want.Resources.Limits.Memory(), got.Resources.Limits.Memory())
+				t.Errorf("Resources.Limits.Memory = %v, want: %v", got.Resources.Limits.Memory(), test.want.Resources.Limits.Memory())
 			}
 			if test.want.Resources.Requests.Cpu().Cmp(*got.Resources.Requests.Cpu()) != 0 {
-				t.Errorf("Expected Resources.Request.Cpu %v got %v ", test.want.Resources.Requests.Cpu(), got.Resources.Requests.Cpu())
+				t.Errorf("Resources.Request.CPU = %v, want: %v", got.Resources.Requests.Cpu(), test.want.Resources.Requests.Cpu())
 			}
 			if test.want.Resources.Requests.Memory().Cmp(*got.Resources.Requests.Memory()) != 0 {
-				t.Errorf("Expected Resources.Requests.Memory %v got %v ", test.want.Resources.Requests.Memory(), got.Resources.Requests.Memory())
+				t.Errorf("Resources.Requests.Memory = %v, want: %v", got.Resources.Requests.Memory(), test.want.Resources.Requests.Memory())
 			}
 			if test.want.Resources.Limits.Cpu().Cmp(*got.Resources.Limits.Cpu()) != 0 {
-				t.Errorf("Expected Resources.Limits.Cpu %v got %v ", test.want.Resources.Limits.Cpu(), got.Resources.Limits.Cpu())
+				t.Errorf("Resources.Limits.CPU  = %v, want: %v", got.Resources.Limits.Cpu(), test.want.Resources.Limits.Cpu())
 			}
 		})
 	}
@@ -693,6 +707,7 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 	}
 
 	lc := &logging.Config{}
+	tc := &tracingconfig.Config{}
 	oc := &metrics.ObservabilityConfig{}
 	ac := &autoscaler.Config{}
 	cc := &deployment.Config{}
@@ -717,7 +732,7 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 		SecurityContext: queueSecurityContext,
 	}
 
-	got := makeQueueContainer(rev, lc, oc, ac, cc)
+	got := makeQueueContainer(rev, lc, tc, oc, ac, cc)
 	sortEnv(got.Env)
 	if diff := cmp.Diff(want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
 		t.Errorf("makeQueueContainer(-want, +got) = %v", diff)
@@ -778,6 +793,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 	}
 
 	lc := &logging.Config{}
+	tc := &tracingconfig.Config{}
 	oc := &metrics.ObservabilityConfig{}
 	ac := &autoscaler.Config{}
 	cc := &deployment.Config{}
@@ -800,7 +816,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 		SecurityContext: queueSecurityContext,
 	}
 
-	got := makeQueueContainer(rev, lc, oc, ac, cc)
+	got := makeQueueContainer(rev, lc, tc, oc, ac, cc)
 	sortEnv(got.Env)
 	if diff := cmp.Diff(want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
 		t.Errorf("makeQueueContainer(-want, +got) = %v", diff)
@@ -976,6 +992,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			lc := &logging.Config{}
+			tc := &tracingconfig.Config{}
 			oc := &metrics.ObservabilityConfig{}
 			ac := &autoscaler.Config{}
 			cc := &deployment.Config{}
@@ -992,7 +1009,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 				Value: probeJSON(test.wantProbe),
 			})
 
-			got := makeQueueContainer(testRev, lc, oc, ac, cc)
+			got := makeQueueContainer(testRev, lc, tc, oc, ac, cc)
 			sortEnv(got.Env)
 			sortEnv(test.want.Env)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
@@ -1011,6 +1028,10 @@ var defaultEnv = map[string]string{
 	"REVISION_TIMEOUT_SECONDS":        "45",
 	"SERVING_LOGGING_CONFIG":          "",
 	"SERVING_LOGGING_LEVEL":           "",
+	"TRACING_CONFIG_ENABLE":           "false",
+	"TRACING_CONFIG_ZIPKIN_ENDPOINT":  "",
+	"TRACING_CONFIG_SAMPLE_RATE":      "0.000000",
+	"TRACING_CONFIG_DEBUG":            "false",
 	"SERVING_REQUEST_LOG_TEMPLATE":    "",
 	"SERVING_REQUEST_METRICS_BACKEND": "",
 	"USER_PORT":                       strconv.Itoa(v1alpha1.DefaultUserPort),
@@ -1056,6 +1077,7 @@ func env(overrides map[string]string) []corev1.EnvVar {
 	}}...)
 
 	sortEnv(env)
+
 	return env
 }
 

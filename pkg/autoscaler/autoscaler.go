@@ -31,6 +31,7 @@ import (
 	"knative.dev/serving/pkg/resources"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // Autoscaler stores current state of an instance of an autoscaler.
@@ -124,8 +125,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	// Use 1 if there are zero current pods.
 	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
 
-	metricKey := NewMetricKey(a.namespace, a.revision)
-	observedStableConcurrency, observedPanicConcurrency, err := a.metricClient.StableAndPanicConcurrency(metricKey)
+	metricKey := types.NamespacedName{Namespace: a.namespace, Name: a.revision}
+	observedStableConcurrency, observedPanicConcurrency, err := a.metricClient.StableAndPanicConcurrency(metricKey, now)
 	if err != nil {
 		if err == ErrNoData {
 			logger.Debug("No data to scale on yet")

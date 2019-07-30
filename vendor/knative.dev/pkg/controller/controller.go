@@ -409,7 +409,7 @@ func StartInformers(stopCh <-chan struct{}, informers ...Informer) error {
 
 	for i, informer := range informers {
 		if ok := cache.WaitForCacheSync(stopCh, informer.HasSynced); !ok {
-			return fmt.Errorf("Failed to wait for cache at index %d to sync", i)
+			return fmt.Errorf("failed to wait for cache at index %d to sync", i)
 		}
 	}
 	return nil

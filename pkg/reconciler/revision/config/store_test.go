@@ -31,6 +31,7 @@ import (
 	"knative.dev/serving/pkg/logging"
 	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/network"
+	pkgtracing "knative.dev/serving/pkg/tracing/config"
 
 	. "knative.dev/pkg/configmap/testing"
 )
@@ -43,12 +44,14 @@ func TestStoreLoadWithContext(t *testing.T) {
 	networkConfig := ConfigMapFromTestFile(t, network.ConfigName)
 	observabilityConfig := ConfigMapFromTestFile(t, pkgmetrics.ConfigMapName())
 	loggingConfig := ConfigMapFromTestFile(t, pkglogging.ConfigMapName())
+	tracingConfig := ConfigMapFromTestFile(t, pkgtracing.ConfigName)
 	autoscalerConfig := ConfigMapFromTestFile(t, autoscaler.ConfigName)
 
 	store.OnConfigChanged(deploymentConfig)
 	store.OnConfigChanged(networkConfig)
 	store.OnConfigChanged(observabilityConfig)
 	store.OnConfigChanged(loggingConfig)
+	store.OnConfigChanged(tracingConfig)
 	store.OnConfigChanged(autoscalerConfig)
 
 	config := FromContext(store.ToContext(context.Background()))
@@ -83,6 +86,13 @@ func TestStoreLoadWithContext(t *testing.T) {
 		}
 	})
 
+	t.Run("tracing", func(t *testing.T) {
+		expected, _ := pkgtracing.NewTracingConfigFromConfigMap(tracingConfig)
+		if diff := cmp.Diff(expected, config.Tracing); diff != "" {
+			t.Errorf("Unexpected tracing config (-want, +got): %v", diff)
+		}
+	})
+
 	t.Run("autoscaler", func(t *testing.T) {
 		expected, _ := autoscaler.NewConfigFromConfigMap(autoscalerConfig)
 		if diff := cmp.Diff(expected, config.Autoscaler); diff != "" {
@@ -99,6 +109,7 @@ func TestStoreImmutableConfig(t *testing.T) {
 	store.OnConfigChanged(ConfigMapFromTestFile(t, network.ConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, pkgmetrics.ConfigMapName()))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, pkglogging.ConfigMapName()))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, pkgtracing.ConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, autoscaler.ConfigName))
 
 	config := store.Load()

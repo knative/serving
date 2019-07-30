@@ -64,6 +64,7 @@ import (
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
 
 	. "knative.dev/pkg/reconciler/testing"
 )
@@ -144,6 +145,16 @@ func newTestControllerWithConfig(t *testing.T, deploymentConfig *deployment.Conf
 	}, {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
+			Name:      tracingconfig.ConfigName,
+		},
+		Data: map[string]string{
+			"enable":          "true",
+			"debug":           "true",
+			"zipkin-endpoint": "http://zipkin.istio-system.svc.cluster.local:9411/api/v2/spans",
+		},
+	}, {
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: system.Namespace(),
 			Name:      autoscaler.ConfigName,
 		},
 		Data: map[string]string{
@@ -161,7 +172,6 @@ func newTestControllerWithConfig(t *testing.T, deploymentConfig *deployment.Conf
 	for _, configMap := range cms {
 		configMapWatcher.OnChange(configMap)
 	}
-
 	return ctx, informers, controller, configMapWatcher
 }
 

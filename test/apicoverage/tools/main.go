@@ -23,8 +23,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/knative/test-infra/shared/prow"
-	"github.com/knative/test-infra/tools/webhook-apicoverage/tools"
+	"knative.dev/test-infra/shared/prow"
+	"knative.dev/test-infra/tools/webhook-apicoverage/tools"
 	"knative.dev/serving/test/apicoverage/image/common"
 	"knative.dev/serving/test/apicoverage/image/rules"
 )

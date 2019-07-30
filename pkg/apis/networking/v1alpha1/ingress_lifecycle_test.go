@@ -80,6 +80,11 @@ func TestIngressTypicalFlow(t *testing.T) {
 	apitest.CheckConditionSucceeded(r.duck(), IngressConditionNetworkConfigured, t)
 	apitest.CheckConditionOngoing(r.duck(), IngressConditionReady, t)
 
+	// Then ingress is pending.
+	r.MarkLoadBalancerPending()
+	apitest.CheckConditionOngoing(r.duck(), IngressConditionLoadBalancerReady, t)
+	apitest.CheckConditionOngoing(r.duck(), IngressConditionReady, t)
+
 	// Then ingress has address.
 	r.MarkLoadBalancerReady(
 		[]LoadBalancerIngressStatus{{DomainInternal: "gateway.default.svc"}},

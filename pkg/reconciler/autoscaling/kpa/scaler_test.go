@@ -38,6 +38,7 @@ import (
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
@@ -75,6 +76,7 @@ func TestScaler(t *testing.T) {
 		maxScale            int32
 		wantReplicas        int32
 		wantScaling         bool
+		sks                 SKSOption
 		paMutation          func(*pav1alpha1.PodAutoscaler)
 		proberfunc          func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error)
 		wantCBCount         int
@@ -156,9 +158,34 @@ func TestScaler(t *testing.T) {
 		wantReplicas:  0,
 		wantScaling:   false,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
-			paMarkInactive(k, time.Now().Add(-gracePeriod).Add(1*time.Second))
+			paMarkInactive(k, time.Now().Add(-gracePeriod).Add(time.Second))
 		},
 		wantCBCount: 1,
+	}, {
+		label:         "waits to scale to zero (just before grace period, sks short)",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   false,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod).Add(time.Second))
+		},
+		sks: func(s *nv1a1.ServerlessService) {
+			markSKSInProxyFor(s, gracePeriod-time.Second)
+		},
+		wantCBCount: 1,
+	}, {
+		label:         "waits to scale to zero (just before grace period, sks in proxy long)",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   true,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod).Add(time.Second))
+		},
+		sks: func(s *nv1a1.ServerlessService) {
+			markSKSInProxyFor(s, gracePeriod)
+		},
 	}, {
 		label:         "scale to zero after grace period, but fail prober",
 		startReplicas: 1,
@@ -314,8 +341,13 @@ func TestScaler(t *testing.T) {
 				test.paMutation(pa)
 			}
 
+			sks := sks("ns", "name")
+			if test.sks != nil {
+				test.sks(sks)
+			}
+
 			ctx = config.ToContext(ctx, defaultConfig())
-			desiredScale, err := revisionScaler.Scale(ctx, pa, test.scaleTo)
+			desiredScale, err := revisionScaler.Scale(ctx, pa, sks, test.scaleTo)
 			if err != nil {
 				t.Error("Scale got an unexpected error: ", err)
 			}
@@ -401,7 +433,7 @@ func TestDisableScaleToZero(t *testing.T) {
 			conf := defaultConfig()
 			conf.Autoscaler.EnableScaleToZero = false
 			ctx = config.ToContext(ctx, conf)
-			desiredScale, err := revisionScaler.Scale(ctx, pa, test.scaleTo)
+			desiredScale, err := revisionScaler.Scale(ctx, pa, nil /*sks doesn't matter in this test*/, test.scaleTo)
 
 			if err != nil {
 				t.Error("Scale got an unexpected error: ", err)
@@ -609,4 +641,10 @@ type countingProber struct {
 func (c *countingProber) Offer(ctx context.Context, target string, arg interface{}, period, timeout time.Duration, ops ...interface{}) bool {
 	c.count++
 	return true
+}
+
+func markSKSInProxyFor(sks *nv1a1.ServerlessService, d time.Duration) {
+	sks.Status.MarkActivatorEndpointsPopulated()
+	// This works because the conditions are sorted alphabetically
+	sks.Status.Conditions[0].LastTransitionTime = apis.VolatileTime{Inner: metav1.NewTime(time.Now().Add(-d))}
 }

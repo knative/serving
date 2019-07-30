@@ -40,6 +40,7 @@ import (
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
+	tracingconfig "knative.dev/serving/pkg/tracing/config"
 
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
@@ -627,7 +628,7 @@ func deploy(namespace, name string, opts ...interface{}) *appsv1.Deployment {
 	// Do this here instead of in `rev` itself to ensure that we populate defaults
 	// before calling MakeDeployment within Reconcile.
 	rev.SetDefaults(context.Background())
-	return resources.MakeDeployment(rev, cfg.Logging, cfg.Network,
+	return resources.MakeDeployment(rev, cfg.Logging, cfg.Tracing, cfg.Network,
 		cfg.Observability, cfg.Autoscaler, cfg.Deployment,
 	)
 
@@ -687,6 +688,7 @@ func ReconcilerTestConfig() *config.Config {
 			LoggingURLTemplate: "http://logger.io/${REVISION_UID}",
 		},
 		Logging:    &logging.Config{},
+		Tracing:    &tracingconfig.Config{},
 		Autoscaler: &autoscaler.Config{},
 	}
 }

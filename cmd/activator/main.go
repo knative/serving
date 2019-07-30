@@ -159,11 +159,11 @@ func main() {
 
 	// Set up signals so we handle the first shutdown signal gracefully.
 	stopCh := signals.SetupSignalHandler()
-	statChan := make(chan *autoscaler.StatMessage, statReportingQueueLength)
-	defer close(statChan)
+	statCh := make(chan *autoscaler.StatMessage, statReportingQueueLength)
+	defer close(statCh)
 
-	reqChan := make(chan activatorhandler.ReqEvent, requestCountingQueueLength)
-	defer close(reqChan)
+	reqCh := make(chan activatorhandler.ReqEvent, requestCountingQueueLength)
+	defer close(reqCh)
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, defaultResyncInterval)
 	servingInformerFactory := servinginformers.NewSharedInformerFactory(servingClient, defaultResyncInterval)
@@ -212,7 +212,7 @@ func main() {
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s%s", "autoscaler", system.Namespace(), network.GetClusterDomainName(), autoscalerPort)
 	logger.Info("Connecting to autoscaler at", autoscalerEndpoint)
 	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
-	go statReporter(statSink, stopCh, statChan, logger)
+	go statReporter(statSink, stopCh, statCh, logger)
 
 	var env config
 	if err := envconfig.Process("", &env); err != nil {
@@ -223,7 +223,7 @@ func main() {
 	// Create and run our concurrency reporter
 	reportTicker := time.NewTicker(time.Second)
 	defer reportTicker.Stop()
-	cr := activatorhandler.NewConcurrencyReporter(podName, reqChan, reportTicker.C, statChan)
+	cr := activatorhandler.NewConcurrencyReporter(logger, podName, reqCh, reportTicker.C, statCh, revisionInformer.Lister(), reporter)
 	go cr.Run(stopCh)
 
 	// Create activation handler chain
@@ -236,7 +236,7 @@ func main() {
 		serviceInformer.Lister(),
 		sksInformer.Lister(),
 	)
-	ah = activatorhandler.NewRequestEventHandler(reqChan, ah)
+	ah = activatorhandler.NewRequestEventHandler(reqCh, ah)
 	ah = tracing.HTTPSpanMiddleware(ah)
 	ah = configStore.HTTPMiddleware(ah)
 	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, logging.NewSyncFileWriter(os.Stdout), "",

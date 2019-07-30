@@ -25,11 +25,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/test-infra/shared/junit"
-	perf "github.com/knative/test-infra/shared/performance"
-	"github.com/knative/test-infra/shared/testgrid"
+	"knative.dev/test-infra/shared/junit"
+	perf "knative.dev/test-infra/shared/performance"
+	"knative.dev/test-infra/shared/testgrid"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/ingress"
+	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 
@@ -39,6 +39,7 @@ import (
 const (
 	reqTimeout = 30 * time.Second
 	app        = "helloworld"
+	httpPrefix = "http://"
 )
 
 var loads = [...]int{100, 1000}
@@ -72,10 +73,6 @@ func runTest(t *testing.T, pacer vegeta.Pacer, saveMetrics bool) {
 	}
 
 	domain := objs.Route.Status.URL.Host
-	endpoint, err := ingress.GetIngressEndpoint(clients.KubeClient.Kube)
-	if err != nil {
-		t.Fatalf("Cannot get service endpoint: %v", err)
-	}
 
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
@@ -87,10 +84,25 @@ func runTest(t *testing.T, pacer vegeta.Pacer, saveMetrics bool) {
 		t.Fatalf("Error probing domain %s: %v", domain, err)
 	}
 
+	url, err := spoof.ResolveEndpoint(clients.KubeClient.Kube, domain, test.ServingFlags.ResolvableDomain,
+		pkgTest.Flags.IngressEndpoint)
+	if err != nil {
+		t.Fatalf("Cannot resolve service endpoint: %v", err)
+	}
+
+	if !strings.HasPrefix(url, httpPrefix) {
+		url = httpPrefix + url
+	}
+
+	headers := make(map[string][]string)
+	if !test.ServingFlags.ResolvableDomain {
+		headers["Host"] = []string{domain}
+	}
+
 	targeter := vegeta.NewStaticTargeter(vegeta.Target{
 		Method: http.MethodGet,
-		Header: map[string][]string{"Host": {domain}},
-		URL:    fmt.Sprintf("http://%s", *endpoint),
+		Header: headers,
+		URL:    url,
 	})
 	attacker := vegeta.NewAttacker()
 

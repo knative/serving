@@ -19,15 +19,18 @@ package v1beta1
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/reconciler/route/config"
 )
 
 // Validate makes sure that Route is properly configured.
 func (r *Route) Validate(ctx context.Context) *apis.FieldError {
-	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).ViaField("metadata")
+	errs := serving.ValidateObjectMetadata(r.GetObjectMeta()).Also(
+		r.validateLabels().ViaField("labels")).ViaField("metadata")
 	errs = errs.Also(r.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 	errs = errs.Also(r.Status.Validate(apis.WithinStatus(ctx)).ViaField("status"))
 	return errs
@@ -168,12 +171,12 @@ func (tt *TrafficTarget) validateUrl(ctx context.Context, errs *apis.FieldError)
 	return errs
 }
 
-// Validate implements apis.Validatable
+// Validate implements apis.Validatable.
 func (rs *RouteStatus) Validate(ctx context.Context) *apis.FieldError {
 	return rs.RouteStatusFields.Validate(ctx)
 }
 
-// Validate implements apis.Validatable
+// Validate implements apis.Validatable.
 func (rsf *RouteStatusFields) Validate(ctx context.Context) *apis.FieldError {
 	// TODO(mattmoor): Validate other status fields.
 
@@ -181,4 +184,26 @@ func (rsf *RouteStatusFields) Validate(ctx context.Context) *apis.FieldError {
 		return validateTrafficList(ctx, rsf.Traffic).ViaField("traffic")
 	}
 	return nil
+}
+
+func validateClusterVisibilityLabel(label string) (errs *apis.FieldError) {
+	if label != config.VisibilityClusterLocal {
+		errs = apis.ErrInvalidValue(label, config.VisibilityLabelKey)
+	}
+	return
+}
+
+// validateLabels function validates route labels.
+func (r *Route) validateLabels() (errs *apis.FieldError) {
+	for key, val := range r.GetLabels() {
+		switch {
+		case key == config.VisibilityLabelKey:
+			errs = errs.Also(validateClusterVisibilityLabel(val))
+		case key == serving.ServiceLabelKey:
+			errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", r.GetOwnerReferences()))
+		case strings.HasPrefix(key, groupNamePrefix):
+			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
+		}
+	}
+	return
 }

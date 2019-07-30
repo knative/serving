@@ -25,6 +25,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/serving"
+	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 )
 
 func TestTrafficTargetValidation(t *testing.T) {
@@ -461,6 +463,149 @@ func TestRouteValidation(t *testing.T) {
 		},
 	}}
 
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := test.r.Validate(context.Background())
+			if !cmp.Equal(test.want.Error(), got.Error()) {
+				t.Errorf("Validate (-want, +got) = %v",
+					cmp.Diff(test.want.Error(), got.Error()))
+			}
+		})
+	}
+}
+
+func TestRouteLabelAnnotationValidation(t *testing.T) {
+	validRouteSpec := RouteSpec{
+		Traffic: []TrafficTarget{{
+			Tag:          "bar",
+			RevisionName: "foo",
+			Percent:      100,
+		}},
+	}
+	tests := []struct {
+		name string
+		r    *Route
+		want *apis.FieldError
+	}{{
+		name: "valid visibility name",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					routeconfig.VisibilityLabelKey: "cluster-local",
+				},
+			},
+			Spec: validRouteSpec,
+		},
+		want: nil,
+	}, {
+		name: "invalid visibility name",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					routeconfig.VisibilityLabelKey: "bad-value",
+				},
+			},
+			Spec: validRouteSpec,
+		},
+		want: apis.ErrInvalidValue("bad-value", "metadata.labels.serving.knative.dev/visibility"),
+	}, {
+		name: "valid knative service name",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					serving.ServiceLabelKey: "test-svc",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "serving.knative.dev/v1alpha1",
+					Kind:       "Service",
+					Name:       "test-svc",
+				}},
+			},
+			Spec: validRouteSpec,
+		},
+		want: nil,
+	}, {
+		name: "invalid knative service name",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					serving.ServiceLabelKey: "absent-svc",
+				},
+			},
+			Spec: validRouteSpec,
+		},
+		want: apis.ErrMissingField("metadata.labels.serving.knative.dev/service"),
+	}, {
+		name: "Mismatch knative service label and owner ref",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					serving.ServiceLabelKey: "test-svc",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "serving.knative.dev/v1alpha1",
+					Kind:       "BrandNewService",
+					Name:       "brand-new-svc",
+				}},
+			},
+			Spec: validRouteSpec,
+		},
+		want: apis.ErrMissingField("metadata.labels.serving.knative.dev/service"),
+	}, {
+		name: "invalid knative service name without correct owner ref",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					serving.ServiceLabelKey: "test-svc",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "serving.knative.dev/v1alpha1",
+					Kind:       "Service",
+					Name:       "absent-svc",
+				}},
+			},
+			Spec: validRouteSpec,
+		},
+		want: apis.ErrMissingField("metadata.labels.serving.knative.dev/service"),
+	}, {
+		name: "invalid knative service name with multiple owner ref",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					serving.ServiceLabelKey: "test-svc",
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "serving.knative.dev/v1alpha1",
+					Kind:       "NewSerice",
+					Name:       "test-new-svc",
+				}, {
+					APIVersion: "serving.knative.dev/v1alpha1",
+					Kind:       "Service",
+					Name:       "test-svc",
+				}},
+			},
+			Spec: validRouteSpec,
+		},
+	}, {
+		name: "invalid knative label",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+				Labels: map[string]string{
+					"serving.knative.dev/testlabel": "value",
+				},
+			},
+			Spec: validRouteSpec,
+		},
+		want: apis.ErrInvalidKeyName("serving.knative.dev/testlabel", "metadata.labels"),
+	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.r.Validate(context.Background())

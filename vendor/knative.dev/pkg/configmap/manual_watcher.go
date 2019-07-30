@@ -40,11 +40,9 @@ func (w *ManualWatcher) Watch(name string, o Observer) {
 	defer w.m.Unlock()
 
 	if w.observers == nil {
-		w.observers = make(map[string][]Observer)
+		w.observers = make(map[string][]Observer, 1)
 	}
-
-	wl, _ := w.observers[name]
-	w.observers[name] = append(wl, o)
+	w.observers[name] = append(w.observers[name], o)
 }
 
 func (w *ManualWatcher) Start(<-chan struct{}) error {

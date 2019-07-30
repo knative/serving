@@ -17,6 +17,7 @@ package v1alpha1
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"knative.dev/pkg/apis/duck"
@@ -90,7 +91,17 @@ func TestSSTypicalFlow(t *testing.T) {
 	r.MarkActivatorEndpointsPopulated()
 	apitest.CheckConditionFailed(r.duck(), ServerlessServiceConditionReady, t)
 	apitest.CheckConditionSucceeded(r.duck(), ActivatorEndpointsPopulated, t)
+
+	time.Sleep(time.Millisecond * 1)
+	if got, want := r.ProxyFor(), time.Duration(0); got == want {
+		t.Error("ProxyFor returned duration of 0")
+	}
+
 	r.MarkActivatorEndpointsRemoved()
 	apitest.CheckConditionFailed(r.duck(), ServerlessServiceConditionReady, t)
 	apitest.CheckConditionFailed(r.duck(), ActivatorEndpointsPopulated, t)
+
+	if got, want := r.ProxyFor(), time.Duration(0); got != want {
+		t.Errorf("ProxyFor = %v, want: %v", got, want)
+	}
 }

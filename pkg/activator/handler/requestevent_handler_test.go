@@ -14,12 +14,12 @@ package handler
 
 import (
 	"bytes"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/serving/pkg/activator"
 )
 
@@ -43,7 +43,7 @@ func TestRequestEventHandler(t *testing.T) {
 
 	in := <-handler.ReqChan
 	wantIn := ReqEvent{
-		Key:       fmt.Sprintf("%s/%s", namespace, revision),
+		Key:       types.NamespacedName{Namespace: namespace, Name: revision},
 		EventType: ReqIn,
 	}
 

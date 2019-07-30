@@ -25,23 +25,19 @@
 # project $PROJECT_ID, start knative in it, run the tests and delete the
 # cluster.
 
+# You can specify the version to run against with the --version argument
+# (e.g. --version v0.7.0). If this argument is not specified, the script will
+# run against the latest tagged version on the current branch.
+
 source $(dirname $0)/e2e-common.sh
 
-# Latest serving release. This is intentionally hardcoded so that we can test
-# upgrade/downgrade on release branches (or even arbitrary commits).
-#
-# Unfortunately, that means we'll need to manually bump this version when we
-# make new releases.
-#
-# Fortunately, that's not *too* terrible, because forgetting to bump this
-# version will make tests either:
-# 1. Still pass, meaning we can upgrade from earlier than latest release (good).
-# 2. Fail, which might be remedied by bumping this version.
-readonly LATEST_SERVING_RELEASE_VERSION=0.7.0
+# Latest serving release. If user does not supply this as a flag, the latest
+# tagged release on the current branch will be used.
+LATEST_SERVING_RELEASE_VERSION=$(git describe --match "v[0-9]*" --abbrev=0)
 
 function install_latest_release() {
   header "Installing Knative latest public release"
-  local url="https://github.com/knative/serving/releases/download/v${LATEST_SERVING_RELEASE_VERSION}"
+  local url="https://github.com/knative/serving/releases/download/${LATEST_SERVING_RELEASE_VERSION}"
   # TODO: should this test install istio and build at all, or only serving?
   install_knative_serving \
     "${url}/serving.yaml" \

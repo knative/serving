@@ -17,15 +17,13 @@ limitations under the License.
 package autoscaler
 
 import (
-	"context"
 	"errors"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	. "knative.dev/pkg/logging/testing"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
@@ -49,46 +47,28 @@ var (
 
 func TestMetricCollectorCRUD(t *testing.T) {
 	defer ClearAll()
-
 	logger := TestLogger(t)
-	ctx := context.Background()
 
 	scraper := &testScraper{
-		s: (func() (*StatMessage, error) {
+		s: func() (*StatMessage, error) {
 			return nil, nil
-		}),
+		},
 		url: "just-right",
 	}
 	scraper2 := &testScraper{
-		s: (func() (*StatMessage, error) {
+		s: func() (*StatMessage, error) {
 			return nil, nil
-		}),
+		},
 		url: "slightly-off",
 	}
 	factory := scraperFactory(scraper, nil)
-
-	t.Run("error on mismatch", func(t *testing.T) {
-		coll := NewMetricCollector(factory, logger)
-		coll.Create(ctx, &av1alpha1.Metric{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "another-namespace",
-				Name:      defaultName,
-			},
-		})
-		if _, err := coll.Get(ctx, defaultNamespace, defaultName); err == nil {
-			t.Error("Get() did not return an error")
-		}
-		if _, err := coll.Update(ctx, defaultMetric); err == nil {
-			t.Error("Update() did not return an error")
-		}
-	})
 
 	t.Run("error on creating scraper", func(t *testing.T) {
 		want := errors.New("factory failure")
 		failingFactory := scraperFactory(nil, want)
 
 		coll := NewMetricCollector(failingFactory, logger)
-		_, got := coll.Create(ctx, defaultMetric)
+		got := coll.CreateOrUpdate(defaultMetric)
 
 		if got != want {
 			t.Errorf("Create() = %v, want %v", got, want)
@@ -96,33 +76,34 @@ func TestMetricCollectorCRUD(t *testing.T) {
 	})
 
 	t.Run("full crud", func(t *testing.T) {
+		key := types.NamespacedName{Namespace: defaultMetric.Namespace, Name: defaultMetric.Name}
 		coll := NewMetricCollector(factory, logger)
-		coll.Create(ctx, defaultMetric)
-
-		got, err := coll.Get(ctx, defaultNamespace, defaultName)
-		if err != nil {
-			t.Errorf("Get() = %v, want no error", err)
+		if err := coll.CreateOrUpdate(defaultMetric); err != nil {
+			t.Errorf("CreateOrUpdate() = %v, want no error", err)
 		}
+
+		got := coll.collections[key].metric
 		if !cmp.Equal(defaultMetric, got) {
 			t.Errorf("Get() didn't return the same metric: %v", cmp.Diff(defaultMetric, got))
 		}
-		key := NewMetricKey(defaultMetric.Namespace, defaultMetric.Name)
 
 		defaultMetric.Spec.ScrapeTarget = "new-target"
 		coll.statsScraperFactory = scraperFactory(scraper2, nil)
-		got, err = coll.Update(ctx, defaultMetric)
-		if err != nil {
-			t.Errorf("Update() = %v, want no error", err)
+		if err := coll.CreateOrUpdate(defaultMetric); err != nil {
+			t.Errorf("CreateOrUpdate() = %v, want no error", err)
 		}
+
+		got = coll.collections[key].metric
 		if !cmp.Equal(defaultMetric, got) {
 			t.Errorf("Update() didn't return the same metric: %v", cmp.Diff(defaultMetric, got))
 		}
+
 		newURL := (coll.collections[key]).scraper.(*testScraper).url
 		if got, want := newURL, "slightly-off"; got != want {
 			t.Errorf("Updated scraper URL = %s, want: %s, diff: %s", got, want, cmp.Diff(got, want))
 		}
 
-		if err := coll.Delete(ctx, defaultNamespace, defaultName); err != nil {
+		if err := coll.Delete(defaultNamespace, defaultName); err != nil {
 			t.Errorf("Delete() = %v, want no error", err)
 		}
 	})
@@ -130,12 +111,10 @@ func TestMetricCollectorCRUD(t *testing.T) {
 
 func TestMetricCollectorScraper(t *testing.T) {
 	defer ClearAll()
-
 	logger := TestLogger(t)
-	ctx := context.Background()
 
 	now := time.Now()
-	metricKey := NewMetricKey(defaultNamespace, defaultName)
+	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
 	want := 10.0
 	stat := &StatMessage{
 		Key: metricKey,
@@ -153,33 +132,41 @@ func TestMetricCollectorScraper(t *testing.T) {
 	factory := scraperFactory(scraper, nil)
 
 	coll := NewMetricCollector(factory, logger)
-	coll.Create(ctx, defaultMetric)
+	coll.CreateOrUpdate(defaultMetric)
 
 	// stable concurrency should eventually be equal to the stat.
 	var got float64
 	wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-		got, _, _ = coll.StableAndPanicConcurrency(metricKey)
+		got, _, _ = coll.StableAndPanicConcurrency(metricKey, now)
 		return got == want, nil
 	})
 	if got != want {
 		t.Errorf("StableAndPanicConcurrency() = %v, want %v", got, want)
 	}
 
-	coll.Delete(ctx, defaultNamespace, defaultName)
-	_, _, err := coll.StableAndPanicConcurrency(metricKey)
-	if !k8serrors.IsNotFound(err) {
-		t.Errorf("StableAndPanicConcurrency() = %v, want a not found error", err)
+	// injecting times inside the window should not change the calculation result
+	wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+		got, _, _ = coll.StableAndPanicConcurrency(metricKey, now.Add(stableWindow).Add(-5*time.Second))
+		return got == want, nil
+	})
+	if got != want {
+		t.Errorf("StableAndPanicConcurrency() = %v, want %v", got, want)
+	}
+
+	// deleting the metric should cause a calculation error
+	coll.Delete(defaultNamespace, defaultName)
+	_, _, err := coll.StableAndPanicConcurrency(metricKey, now)
+	if err != ErrNotScraping {
+		t.Errorf("StableAndPanicConcurrency() = %v, want %v", err, ErrNotScraping)
 	}
 }
 
 func TestMetricCollectorRecord(t *testing.T) {
 	defer ClearAll()
-
 	logger := TestLogger(t)
-	ctx := context.Background()
 
 	now := time.Now()
-	metricKey := NewMetricKey(defaultNamespace, defaultName)
+	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
 	want := 10.0
 	stat := Stat{
 		Time:                             &now,
@@ -197,14 +184,14 @@ func TestMetricCollectorRecord(t *testing.T) {
 	coll := NewMetricCollector(factory, logger)
 
 	// Freshly created collection does not contain any metrics and should return an error.
-	coll.Create(ctx, defaultMetric)
-	if _, _, err := coll.StableAndPanicConcurrency(metricKey); err == nil {
+	coll.CreateOrUpdate(defaultMetric)
+	if _, _, err := coll.StableAndPanicConcurrency(metricKey, now); err == nil {
 		t.Error("StableAndPanicConcurrency() = nil, wanted an error")
 	}
 
 	// After adding a stat the concurrencies are calculated correctly.
 	coll.Record(metricKey, stat)
-	if stable, panic, err := coll.StableAndPanicConcurrency(metricKey); stable != panic && stable != want && err != nil {
+	if stable, panic, err := coll.StableAndPanicConcurrency(metricKey, now); stable != panic && stable != want && err != nil {
 		t.Errorf("StableAndPanicConcurrency() = %v, %v, %v; want %v, %v, nil", stable, panic, err, want, want)
 	}
 }

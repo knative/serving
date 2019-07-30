@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue/stats"
 )
 
@@ -53,6 +54,12 @@ func TestRequestMetricHandler(t *testing.T) {
 	handler.ServeHTTP(resp, req)
 
 	// Serve one request, should get 1 request count and none zero latency
+	if got, want := r.reqCountReportTimes, 1; got != want {
+		t.Errorf("ReportRequestCount was triggered %v times, want %v", got, want)
+	}
+	if got, want := r.respTimeReportTimes, 1; got != want {
+		t.Errorf("ReportResponseTime was triggered %v times, want %v", got, want)
+	}
 	if got, want := r.lastRespCode, http.StatusOK; got != want {
 		t.Errorf("response code got %v, want %v", got, want)
 	}
@@ -61,6 +68,16 @@ func TestRequestMetricHandler(t *testing.T) {
 	}
 	if r.lastReqLatency == 0 {
 		t.Errorf("request latency got %v, want larger than 0", r.lastReqLatency)
+	}
+
+	// A probe request should not be recorded.
+	req.Header.Set(network.ProbeHeaderName, "activator")
+	handler.ServeHTTP(resp, req)
+	if got, want := r.reqCountReportTimes, 1; got != want {
+		t.Errorf("ReportRequestCount was triggered %v times, want %v", got, want)
+	}
+	if got, want := r.respTimeReportTimes, 1; got != want {
+		t.Errorf("ReportResponseTime was triggered %v times, want %v", got, want)
 	}
 }
 
@@ -96,20 +113,25 @@ func TestRequestMetricHandlerPanickingHandler(t *testing.T) {
 	handler.ServeHTTP(resp, req)
 }
 
-// fakeStatsReporter just record the last stat it received.
+// fakeStatsReporter just record the last stat it received and the times it
+// calls ReportRequestCount and ReportResponseTime
 type fakeStatsReporter struct {
-	lastRespCode   int
-	lastReqCount   int64
-	lastReqLatency time.Duration
+	reqCountReportTimes int
+	respTimeReportTimes int
+	lastRespCode        int
+	lastReqCount        int64
+	lastReqLatency      time.Duration
 }
 
 func (r *fakeStatsReporter) ReportRequestCount(responseCode int, v int64) error {
+	r.reqCountReportTimes++
 	r.lastRespCode = responseCode
 	r.lastReqCount = v
 	return nil
 }
 
 func (r *fakeStatsReporter) ReportResponseTime(responseCode int, d time.Duration) error {
+	r.respTimeReportTimes++
 	r.lastRespCode = responseCode
 	r.lastReqLatency = d
 	return nil

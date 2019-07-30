@@ -638,6 +638,66 @@ func TestIsKubeletProbe(t *testing.T) {
 	}
 }
 
+func TestKnativeProbeHeader(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, "http://example.com/", nil)
+	if err != nil {
+		t.Fatalf("Error building request: %v", err)
+	}
+	if h := KnativeProbeHeader(req); h != "" {
+		t.Errorf("KnativeProbeHeader(req)=%v, want empty string", h)
+	}
+	want := "activator"
+	req.Header.Set(ProbeHeaderName, want)
+	if h := KnativeProbeHeader(req); h != want {
+		t.Errorf("KnativeProbeHeader(req)=%v, want %v", h, want)
+	}
+	req.Header.Set(ProbeHeaderName, "")
+	if h := KnativeProbeHeader(req); h != "" {
+		t.Errorf("KnativeProbeHeader(req)=%v, want empty string", h)
+	}
+}
+
+func TestKnativeProxyHeader(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, "http://example.com/", nil)
+	if err != nil {
+		t.Fatalf("Error building request: %v", err)
+	}
+	if h := KnativeProxyHeader(req); h != "" {
+		t.Errorf("KnativeProxyHeader(req)=%v, want empty string", h)
+	}
+	want := "activator"
+	req.Header.Set(ProxyHeaderName, want)
+	if h := KnativeProxyHeader(req); h != want {
+		t.Errorf("KnativeProxyHeader(req)=%v, want %v", h, want)
+	}
+	req.Header.Set(ProxyHeaderName, "")
+	if h := KnativeProxyHeader(req); h != "" {
+		t.Errorf("KnativeProxyHeader(req)=%v, want empty string", h)
+	}
+}
+
+func TestIsProbe(t *testing.T) {
+	// Not a probe
+	req, err := http.NewRequest(http.MethodGet, "http://example.com/", nil)
+	if err != nil {
+		t.Fatalf("Error building request: %v", err)
+	}
+	if IsProbe(req) {
+		t.Error("Not a probe but counted as such")
+	}
+	// Kubelet probe
+	req.Header.Set("User-Agent", KubeProbeUAPrefix+"1.14")
+	if !IsProbe(req) {
+		t.Error("Kubelet probe but not counted as such")
+	}
+	// Knative probe
+	req.Header.Del("User-Agent")
+	req.Header.Set(ProbeHeaderName, "activator")
+	if !IsProbe(req) {
+		t.Error("Knative probe but not counted as such")
+	}
+}
+
 func TestRewriteHost(t *testing.T) {
 	r := httptest.NewRequest(http.MethodGet, "http://love.is/not-hate", nil)
 	r.Header.Set("Host", "love.is")

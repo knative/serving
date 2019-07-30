@@ -19,6 +19,7 @@ package route
 import (
 	"context"
 	"encoding/json"
+
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -195,13 +196,14 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		return err
 	}
 
-	// TODO(mattmoor): Remove completely after 0.7 cuts.
-	r.Status.DeprecatedDomain = ""
-
 	// Configure traffic based on the RouteSpec.
 	traffic, err := c.configureTraffic(ctx, r, serviceNames.desiredClusterLocalServiceNames)
 	if traffic == nil || err != nil {
 		// Traffic targets aren't ready, no need to configure child resources.
+		// Need to update ObservedGeneration, otherwise Route's Ready state won't
+		// be propagated to Service and the Service's RoutesReady will stay in
+		// 'Unknown'.
+		r.Status.ObservedGeneration = r.Generation
 		return err
 	}
 
@@ -212,9 +214,6 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		return err
 	}
 
-	// TODO(mattmoor): Remove completely after 0.7 cuts.
-	r.Status.DeprecatedDomainInternal = ""
-
 	r.Status.Address = &duckv1alpha1.Addressable{
 		Addressable: duckv1beta1.Addressable{
 			URL: &apis.URL{
@@ -222,8 +221,6 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 				Host:   resourcenames.K8sServiceFullname(r),
 			},
 		},
-		// TODO(mattmoor): Remove completely after 0.7 cuts.
-		Hostname: "",
 	}
 
 	// Add the finalizer before creating the ClusterIngress so that we can be sure it gets cleaned up.
@@ -243,7 +240,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		return err
 	}
 
-	// reconcile ingress and it's children resources
+	// Reconcile ingress and its children resources.
 	_, err = c.reconcileIngressResources(ctx, r, traffic, tls, clusterLocalServiceNames, ingressClassForRoute(ctx, r),
 		&ClusterIngressResources{
 			BaseIngressResources: BaseIngressResources{
@@ -258,7 +255,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		return err
 	}
 
-	// reconcile ingress and it's children resources
+	// Reconcile ingress and its children resources.
 	ingress, err := c.reconcileIngressResources(ctx, r, traffic, tls, clusterLocalServiceNames, ingressClassForRoute(ctx, r),
 		&IngressResources{
 			BaseIngressResources: BaseIngressResources{

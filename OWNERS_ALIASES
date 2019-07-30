@@ -56,15 +56,8 @@ aliases:
   - tcnghia
   - vagababov
   networking-reviewers:
-  - lichuqiang
   - markusthoemmes
   - mdemirhan
   - tcnghia
   - vagababov
 
-  build-approvers:
-  - imjasonh
-  - mattmoor
-  build-reviewers:
-  - imjasonh
-  - mattmoor

@@ -340,10 +340,10 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 				},
 			},
 		},
-		want: &apis.FieldError{
+		want: (&apis.FieldError{
 			Message: "expected 0.1 <= 200 <= 100",
 			Paths:   []string{serving.QueueSideCarResourcePercentageAnnotation},
-		},
+		}).ViaField("metadata.annotations"),
 	}, {
 		name: "Invalid queue sidecar resource percentage annotation",
 		rts: &RevisionTemplateSpec{
@@ -358,10 +358,29 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 				},
 			},
 		},
-		want: &apis.FieldError{
+		want: (&apis.FieldError{
 			Message: "invalid value: 50mx",
 			Paths:   []string{fmt.Sprintf("[%s]", serving.QueueSideCarResourcePercentageAnnotation)},
+		}).ViaField("metadata.annotations"),
+	}, {
+		name: "invalid metadata.annotations for scale",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					autoscaling.MinScaleAnnotationKey: "5",
+					autoscaling.MaxScaleAnnotationKey: "",
+				},
+			},
+			Spec: RevisionSpec{
+				DeprecatedContainer: &corev1.Container{
+					Image: "helloworld",
+				},
+			},
 		},
+		want: (&apis.FieldError{
+			Message: "expected 1 <=  <= 2147483647",
+			Paths:   []string{autoscaling.MaxScaleAnnotationKey},
+		}).ViaField("annotations").ViaField("metadata"),
 	}}
 
 	for _, test := range tests {

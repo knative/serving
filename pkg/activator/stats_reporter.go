@@ -30,6 +30,10 @@ import (
 )
 
 var (
+	requestConcurrencyM = stats.Int64(
+		"request_concurrency",
+		"Concurrent requests that are routed to Activator",
+		stats.UnitDimensionless)
 	requestCountM = stats.Int64(
 		"request_count",
 		"The number of requests that are routed to Activator",
@@ -46,6 +50,7 @@ var (
 
 // StatsReporter defines the interface for sending activator metrics
 type StatsReporter interface {
+	ReportRequestConcurrency(ns, service, config, rev string, v int64) error
 	ReportRequestCount(ns, service, config, rev string, responseCode, numTries int, v int64) error
 	ReportResponseTime(ns, service, config, rev string, responseCode int, d time.Duration) error
 }
@@ -105,6 +110,12 @@ func NewStatsReporter() (*Reporter, error) {
 	// Create view to see our measurements.
 	err = view.Register(
 		&view.View{
+			Description: "Concurrent requests that are routed to Activator",
+			Measure:     requestConcurrencyM,
+			Aggregation: view.LastValue(),
+			TagKeys:     []tag.Key{r.namespaceTagKey, r.serviceTagKey, r.configTagKey, r.revisionTagKey},
+		},
+		&view.View{
 			Description: "The number of requests that are routed to Activator",
 			Measure:     requestCountM,
 			Aggregation: view.Sum(),
@@ -130,6 +141,27 @@ func valueOrUnknown(v string) string {
 		return v
 	}
 	return metricskey.ValueUnknown
+}
+
+// ReportRequestConcurrency captures request concurrency metric with value v.
+func (r *Reporter) ReportRequestConcurrency(ns, service, config, rev string, v int64) error {
+	if !r.initialized {
+		return errors.New("StatsReporter is not initialized yet")
+	}
+
+	// Note that service names can be an empty string, so it needs a special treatment.
+	ctx, err := tag.New(
+		context.Background(),
+		tag.Insert(r.namespaceTagKey, ns),
+		tag.Insert(r.serviceTagKey, valueOrUnknown(service)),
+		tag.Insert(r.configTagKey, config),
+		tag.Insert(r.revisionTagKey, rev))
+	if err != nil {
+		return err
+	}
+
+	metrics.Record(ctx, requestConcurrencyM.M(v))
+	return nil
 }
 
 // ReportRequestCount captures request count metric with value v.

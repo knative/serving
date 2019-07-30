@@ -255,45 +255,6 @@ func TestMakeHTTPServer(t *testing.T) {
 	}
 }
 
-func TestGatewayServiceNamespace(t *testing.T) {
-	cases := []struct {
-		name            string
-		ingressGateways []config.Gateway
-		gatewayName     string
-		expected        string
-		wantErr         bool
-	}{{
-		name: "Gateway service exists.",
-		ingressGateways: []config.Gateway{{
-			GatewayName: "test-gateway",
-			ServiceURL:  "istio-ingressgateway.istio-system.svc.cluster.local",
-		}},
-		gatewayName: "test-gateway",
-		expected:    "istio-system",
-		wantErr:     false,
-	}, {
-		name: "Gateway service does not exists.",
-		ingressGateways: []config.Gateway{{
-			GatewayName: "test-gateway",
-			ServiceURL:  "istio-ingressgateway.istio-system.svc.cluster.local",
-		}},
-		gatewayName: "non-exist-gateway",
-		wantErr:     true,
-	}}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			gatewayServiceNamespace, err := GatewayServiceNamespace(c.ingressGateways, c.gatewayName)
-			if (err != nil) != c.wantErr {
-				t.Fatalf("Test: %s; GatewayServiceNamespace error = %v, WantErr %v", c.name, err, c.wantErr)
-			}
-
-			if diff := cmp.Diff(c.expected, gatewayServiceNamespace); diff != "" {
-				t.Errorf("Unexpected gateway service namespace (-want, +got): %v", diff)
-			}
-		})
-	}
-}
-
 func TestUpdateGateway(t *testing.T) {
 	cases := []struct {
 		name            string
@@ -598,8 +559,8 @@ func TestMakeIngressGateways(t *testing.T) {
 		ctx := config.ToContext(context.Background(), &config.Config{
 			Istio: &config.Istio{
 				IngressGateways: []config.Gateway{{
-					GatewayName: "knative-ingress-gateway",
-					ServiceURL:  fmt.Sprintf("%s.%s.svc.cluster.local", c.gatewayService.Name, c.gatewayService.Namespace),
+					Name:       "knative-ingress-gateway",
+					ServiceURL: fmt.Sprintf("%s.%s.svc.cluster.local", c.gatewayService.Name, c.gatewayService.Namespace),
 				}},
 			},
 			Network: &network.Config{

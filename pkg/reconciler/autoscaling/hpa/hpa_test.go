@@ -25,14 +25,13 @@ import (
 	_ "knative.dev/pkg/injection/informers/kubeinformers/autoscalingv2beta1/hpa/fake"
 	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 
-	"go.uber.org/atomic"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ktesting "k8s.io/client-go/testing"
@@ -64,19 +63,15 @@ const (
 
 func TestControllerCanReconcile(t *testing.T) {
 	ctx, _ := SetupFakeContext(t)
-
-	psFactory := presources.NewPodScalableInformerFactory(ctx)
-	metrics := newTestMetrics()
-
 	ctl := NewController(ctx, configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      autoscaler.ConfigName,
 		},
 		Data: map[string]string{},
-	}), metrics, psFactory)
+	}))
 
-	podAutoscaler := pa(testRevision, testNamespace, WithHPAClass)
+	podAutoscaler := pa(testNamespace, testRevision, WithHPAClass)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(podAutoscaler)
 	fakepainformer.Get(ctx).Informer().GetIndexer().Add(podAutoscaler)
 
@@ -98,123 +93,121 @@ func TestReconcile(t *testing.T) {
 	table := TableTest{{
 		Name: "no op",
 		Objects: []runtime.Object{
-			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
-			pa(testRevision, testNamespace, WithHPAClass, WithTraffic, WithPAStatusService(testRevision)),
+			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
+			pa(testNamespace, testRevision, WithHPAClass, WithTraffic, WithPAStatusService(testRevision)),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 		},
-		Key: key(testRevision, testNamespace),
+		Key: key(testNamespace, testRevision),
 	}, {
 		Name: "create hpa & sks",
 		Objects: []runtime.Object{
-			pa(testRevision, testNamespace, WithHPAClass),
+			pa(testNamespace, testRevision, WithHPAClass),
 			deploy(testNamespace, testRevision),
 		},
-		Key: key(testRevision, testNamespace),
+		Key: key(testNamespace, testRevision),
 		WantCreates: []runtime.Object{
 			sks(testNamespace, testRevision, WithDeployRef(deployName)),
-			hpa(testRevision, testNamespace, pa(testRevision, testNamespace,
+			hpa(pa(testNamespace, testRevision,
 				WithHPAClass, WithMetricAnnotation("cpu"))),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testRevision, testNamespace, WithHPAClass,
+			Object: pa(testNamespace, testRevision, WithHPAClass,
 				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet")),
 		}},
 	}, {
 		Name: "create hpa, sks and metric service",
 		Objects: []runtime.Object{
-			pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)),
+			pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)),
 			deploy(testNamespace, testRevision),
 		},
-		Key: key(testRevision, testNamespace),
+		Key: key(testNamespace, testRevision),
 		WantCreates: []runtime.Object{
+			metric(pa(testNamespace, testRevision,
+				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)), testRevision+"-00001"),
 			sks(testNamespace, testRevision, WithDeployRef(deployName)),
-			hpa(testRevision, testNamespace, pa(testRevision, testNamespace,
+			hpa(pa(testNamespace, testRevision,
 				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency))),
 			metricsSvc(testNamespace, testRevision, WithSvcSelector(usualSelector),
 				SvcWithAnnotationValue(autoscaling.ClassAnnotationKey, autoscaling.HPA),
 				SvcWithAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.Concurrency)),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency),
+			Object: pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency),
 				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet"),
 				WithMSvcStatus(testRevision+"-00001")),
 		}},
 	}, {
 		Name: "reconcile sks is still not ready",
 		Objects: []runtime.Object{
-			hpa(testRevision, testNamespace,
-				pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
-			pa(testRevision, testNamespace, WithHPAClass),
+			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
+			pa(testNamespace, testRevision, WithHPAClass),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPubService,
 				WithPrivateService(testRevision+"-rand")),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testRevision, testNamespace, WithHPAClass, WithTraffic,
+			Object: pa(testNamespace, testRevision, WithHPAClass, WithTraffic,
 				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet"),
 				WithPAStatusService(testRevision)),
 		}},
-		Key: key(testRevision, testNamespace),
+		Key: key(testNamespace, testRevision),
 	}, {
 		Name: "reconcile sks becomes ready",
 		Objects: []runtime.Object{
-			hpa(testRevision, testNamespace,
-				pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
-			pa(testRevision, testNamespace, WithHPAClass, WithPAStatusService("the-wrong-one")),
+			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
+			pa(testNamespace, testRevision, WithHPAClass, WithPAStatusService("the-wrong-one")),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testRevision, testNamespace, WithHPAClass,
+			Object: pa(testNamespace, testRevision, WithHPAClass,
 				WithTraffic, WithPAStatusService(testRevision)),
 		}},
-		Key: key(testRevision, testNamespace),
+		Key: key(testNamespace, testRevision),
 	}, {
 		Name: "reconcile sks",
 		Objects: []runtime.Object{
-			hpa(testRevision, testNamespace,
-				pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
-			pa(testRevision, testNamespace, WithHPAClass, WithTraffic),
+			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
+			pa(testNamespace, testRevision, WithHPAClass, WithTraffic),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef("bar"),
 				WithSKSReady),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testRevision, testNamespace, WithHPAClass, WithTraffic, WithPAStatusService(testRevision)),
+			Object: pa(testNamespace, testRevision, WithHPAClass, WithTraffic, WithPAStatusService(testRevision)),
 		}},
-		Key: key(testRevision, testNamespace),
+		Key: key(testNamespace, testRevision),
 		WantUpdates: []ktesting.UpdateActionImpl{{
 			Object: sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 		}},
 	}, {
 		Name: "reconcile unhappy sks",
 		Objects: []runtime.Object{
-			hpa(testRevision, testNamespace,
-				pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
-			pa(testRevision, testNamespace, WithHPAClass, WithTraffic),
+			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
+			pa(testNamespace, testRevision, WithHPAClass, WithTraffic),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName+"-hairy"),
 				WithPubService, WithPrivateService(testRevision+"-rand")),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testRevision, testNamespace, WithHPAClass,
+			Object: pa(testNamespace, testRevision, WithHPAClass,
 				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet"),
 				WithPAStatusService(testRevision)),
 		}},
-		Key: key(testRevision, testNamespace),
+		Key: key(testNamespace, testRevision),
 		WantUpdates: []ktesting.UpdateActionImpl{{
 			Object: sks(testNamespace, testRevision, WithDeployRef(deployName), WithPubService, WithPrivateService(testRevision+"-rand")),
 		}},
 	}, {
 		Name: "reconcile sks - update fails",
 		Objects: []runtime.Object{
-			pa(testRevision, testNamespace, WithHPAClass, WithTraffic),
+			pa(testNamespace, testRevision, WithHPAClass, WithTraffic),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef("bar"), WithSKSReady),
-			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
+			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
 		},
-		Key: key(testRevision, testNamespace),
+		Key: key(testNamespace, testRevision),
 		WithReactors: []ktesting.ReactionFunc{
 			InduceFailure("update", "serverlessservices"),
 		},
@@ -228,11 +221,11 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "create sks - create fails",
 		Objects: []runtime.Object{
-			pa(testRevision, testNamespace, WithHPAClass, WithTraffic),
+			pa(testNamespace, testRevision, WithHPAClass, WithTraffic),
 			deploy(testNamespace, testRevision),
-			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
+			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
 		},
-		Key: key(testRevision, testNamespace),
+		Key: key(testNamespace, testRevision),
 		WithReactors: []ktesting.ReactionFunc{
 			InduceFailure("create", "serverlessservices"),
 		},
@@ -246,15 +239,15 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "sks is disowned",
 		Objects: []runtime.Object{
-			pa(testRevision, testNamespace, WithHPAClass),
+			pa(testNamespace, testRevision, WithHPAClass),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSOwnersRemoved, WithSKSReady),
-			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
+			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
 		},
-		Key:     key(testRevision, testNamespace),
+		Key:     key(testNamespace, testRevision),
 		WantErr: true,
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testRevision, testNamespace, WithHPAClass, MarkResourceNotOwnedByPA("ServerlessService", testRevision)),
+			Object: pa(testNamespace, testRevision, WithHPAClass, MarkResourceNotOwnedByPA("ServerlessService", testRevision)),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", `error reconciling SKS: PA: test-revision does not own SKS: test-revision`),
@@ -262,17 +255,15 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "pa is disowned",
 		Objects: []runtime.Object{
-			pa(testRevision, testNamespace, WithHPAClass),
+			pa(testNamespace, testRevision, WithHPAClass),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName)),
-			hpa(testRevision, testNamespace,
-				pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"), WithPAOwnersRemoved),
-				withHPAOwnersRemoved),
+			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"), WithPAOwnersRemoved), withHPAOwnersRemoved),
 		},
-		Key:     key(testRevision, testNamespace),
+		Key:     key(testNamespace, testRevision),
 		WantErr: true,
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testRevision, testNamespace, WithHPAClass, MarkResourceNotOwnedByPA("HorizontalPodAutoscaler", testRevision)),
+			Object: pa(testNamespace, testRevision, WithHPAClass, MarkResourceNotOwnedByPA("HorizontalPodAutoscaler", testRevision)),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
@@ -282,24 +273,23 @@ func TestReconcile(t *testing.T) {
 		Name: "nop deletion reconcile",
 		// Test that with a DeletionTimestamp we do nothing.
 		Objects: []runtime.Object{
-			pa(testRevision, testNamespace, WithHPAClass, WithPADeletionTimestamp),
+			pa(testNamespace, testRevision, WithHPAClass, WithPADeletionTimestamp),
 			deploy(testNamespace, testRevision),
 		},
-		Key: key(testRevision, testNamespace),
+		Key: key(testNamespace, testRevision),
 	}, {
 		Name: "update pa fails",
 		Objects: []runtime.Object{
-			hpa(testRevision, testNamespace,
-				pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
-			pa(testRevision, testNamespace, WithHPAClass, WithPAStatusService("the-wrong-one")),
+			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
+			pa(testNamespace, testRevision, WithHPAClass, WithPAStatusService("the-wrong-one")),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testRevision, testNamespace, WithHPAClass,
+			Object: pa(testNamespace, testRevision, WithHPAClass,
 				WithTraffic, WithPAStatusService(testRevision)),
 		}},
-		Key:     key(testRevision, testNamespace),
+		Key:     key(testNamespace, testRevision),
 		WantErr: true,
 		WithReactors: []ktesting.ReactionFunc{
 			InduceFailure("update", "podautoscalers"),
@@ -310,15 +300,15 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "update hpa fails",
 		Objects: []runtime.Object{
-			pa(testRevision, testNamespace, WithHPAClass, WithTraffic,
+			pa(testNamespace, testRevision, WithHPAClass, WithTraffic,
 				WithPAStatusService(testRevision), WithTargetAnnotation("1")),
-			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
+			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			deploy(testNamespace, testRevision),
 		},
-		Key: key(testRevision, testNamespace),
+		Key: key(testNamespace, testRevision),
 		WantUpdates: []ktesting.UpdateActionImpl{{
-			Object: hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithTargetAnnotation("1"), WithMetricAnnotation("cpu"))),
+			Object: hpa(pa(testNamespace, testRevision, WithHPAClass, WithTargetAnnotation("1"), WithMetricAnnotation("cpu"))),
 		}},
 		WantErr: true,
 		WithReactors: []ktesting.ReactionFunc{
@@ -330,37 +320,37 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "update hpa with target usage",
 		Objects: []runtime.Object{
-			pa(testRevision, testNamespace, WithHPAClass, WithTraffic,
+			pa(testNamespace, testRevision, WithHPAClass, WithTraffic,
 				WithPAStatusService(testRevision), WithTargetAnnotation("1")),
-			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
+			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 		},
-		Key: key(testRevision, testNamespace),
+		Key: key(testNamespace, testRevision),
 		WantUpdates: []ktesting.UpdateActionImpl{{
-			Object: hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithTargetAnnotation("1"), WithMetricAnnotation("cpu"))),
+			Object: hpa(pa(testNamespace, testRevision, WithHPAClass, WithTargetAnnotation("1"), WithMetricAnnotation("cpu"))),
 		}},
 	}, {
 		Name: "invalid key",
 		Objects: []runtime.Object{
-			pa(testRevision, testNamespace, WithHPAClass),
+			pa(testNamespace, testRevision, WithHPAClass),
 		},
 		Key: "sandwich///",
 	}, {
 		Name: "failure to create hpa",
 		Objects: []runtime.Object{
-			pa(testRevision, testNamespace, WithHPAClass),
+			pa(testNamespace, testRevision, WithHPAClass),
 			deploy(testNamespace, testRevision),
 		},
-		Key: key(testRevision, testNamespace),
+		Key: key(testNamespace, testRevision),
 		WantCreates: []runtime.Object{
-			hpa(testRevision, testNamespace, pa(testRevision, testNamespace, WithHPAClass, WithMetricAnnotation("cpu"))),
+			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
 		},
 		WithReactors: []ktesting.ReactionFunc{
 			InduceFailure("create", "horizontalpodautoscalers"),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testRevision, testNamespace, WithHPAClass, WithNoTraffic(
+			Object: pa(testNamespace, testRevision, WithHPAClass, WithNoTraffic(
 				"FailedCreate", "Failed to create HorizontalPodAutoscaler \"test-revision\".")),
 		}},
 		WantErr: true,
@@ -372,17 +362,16 @@ func TestReconcile(t *testing.T) {
 	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		psFactory := presources.NewPodScalableInformerFactory(ctx)
-		fakeMetrics := newTestMetrics()
 
 		return &Reconciler{
 			Base: &areconciler.Base{
 				Base:              reconciler.NewBase(ctx, controllerAgentName, cmw),
 				PALister:          listers.GetPodAutoscalerLister(),
 				SKSLister:         listers.GetServerlessServiceLister(),
+				MetricLister:      listers.GetMetricLister(),
 				ConfigStore:       &testConfigStore{config: defaultConfig()},
 				ServiceLister:     listers.GetK8sServiceLister(),
 				PSInformerFactory: psFactory,
-				Metrics:           fakeMetrics,
 			},
 			hpaLister: listers.GetHorizontalPodAutoscalerLister(),
 		}
@@ -390,7 +379,7 @@ func TestReconcile(t *testing.T) {
 }
 
 func sks(ns, n string, so ...SKSOption) *nv1a1.ServerlessService {
-	hpa := pa(n, ns, WithHPAClass)
+	hpa := pa(ns, n, WithHPAClass)
 	s := aresources.MakeSKS(hpa, nv1a1.SKSOperationModeServe)
 	for _, opt := range so {
 		opt(s)
@@ -398,11 +387,11 @@ func sks(ns, n string, so ...SKSOption) *nv1a1.ServerlessService {
 	return s
 }
 
-func key(name, namespace string) string {
+func key(namespace, name string) string {
 	return namespace + "/" + name
 }
 
-func pa(name, namespace string, options ...PodAutoscalerOption) *asv1a1.PodAutoscaler {
+func pa(namespace, name string, options ...PodAutoscalerOption) *asv1a1.PodAutoscaler {
 	pa := &asv1a1.PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -429,7 +418,7 @@ func withHPAOwnersRemoved(hpa *autoscalingv2beta1.HorizontalPodAutoscaler) {
 	hpa.OwnerReferences = nil
 }
 
-func hpa(name, namespace string, pa *asv1a1.PodAutoscaler, options ...hpaOption) *autoscalingv2beta1.HorizontalPodAutoscaler {
+func hpa(pa *asv1a1.PodAutoscaler, options ...hpaOption) *autoscalingv2beta1.HorizontalPodAutoscaler {
 	h := resources.MakeHPA(pa, defaultConfig().Autoscaler)
 	for _, o := range options {
 		o(h)
@@ -463,7 +452,7 @@ func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment
 }
 
 func metricsSvc(ns, n string, opts ...K8sServiceOption) *corev1.Service {
-	pa := pa(n, ns)
+	pa := pa(ns, n)
 	svc := aresources.MakeMetricsService(pa, map[string]string{})
 	for _, opt := range opts {
 		opt(svc)
@@ -471,49 +460,8 @@ func metricsSvc(ns, n string, opts ...K8sServiceOption) *corev1.Service {
 	return svc
 }
 
-func newTestMetrics() *testMetrics {
-	return &testMetrics{
-		createCallCount:    atomic.NewUint32(0),
-		deleteCallCount:    atomic.NewUint32(0),
-		updateCallCount:    atomic.NewUint32(0),
-		deleteBeforeCreate: atomic.NewBool(false),
-	}
-}
-
-type testMetrics struct {
-	createCallCount    *atomic.Uint32
-	deleteCallCount    *atomic.Uint32
-	updateCallCount    *atomic.Uint32
-	deleteBeforeCreate *atomic.Bool
-	metric             *asv1a1.Metric
-}
-
-func (km *testMetrics) Get(ctx context.Context, namespace, name string) (*asv1a1.Metric, error) {
-	if km.metric == nil {
-		return nil, apierrors.NewNotFound(asv1a1.Resource("Metric"), autoscaler.NewMetricKey(namespace, name))
-	}
-	return km.metric, nil
-}
-
-func (km *testMetrics) Create(ctx context.Context, metric *asv1a1.Metric) (*asv1a1.Metric, error) {
-	km.metric = metric
-	km.createCallCount.Add(1)
-	return metric, nil
-}
-
-func (km *testMetrics) Delete(ctx context.Context, namespace, name string) error {
-	km.metric = nil
-	km.deleteCallCount.Add(1)
-	if km.createCallCount.Load() == 0 {
-		km.deleteBeforeCreate.Store(true)
-	}
-	return nil
-}
-
-func (km *testMetrics) Update(ctx context.Context, metric *asv1a1.Metric) (*asv1a1.Metric, error) {
-	km.metric = metric
-	km.updateCallCount.Add(1)
-	return metric, nil
+func metric(pa *asv1a1.PodAutoscaler, msvcName string) *asv1a1.Metric {
+	return aresources.MakeMetric(context.Background(), pa, msvcName, defaultConfig().Autoscaler)
 }
 
 func defaultConfig() *config.Config {

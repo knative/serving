@@ -20,9 +20,10 @@
 # with the job config.
 E2E_MIN_CLUSTER_NODES=${E2E_MIN_CLUSTER_NODES:-4}
 E2E_MAX_CLUSTER_NODES=${E2E_MAX_CLUSTER_NODES:-4}
+E2E_CLUSTER_MACHINE=${E2E_CLUSTER_MACHINE:-n1-standard-8}
 
 # This script provides helper methods to perform cluster actions.
-source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/e2e-tests.sh
+source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/e2e-tests.sh
 
 # Default Istio configuration to install: 1.2-latest, no mesh, cert manager 0.6.1.
 ISTIO_VERSION="1.2-latest"
@@ -46,6 +47,11 @@ function parse_flags() {
     --istio-version)
       [[ $2 =~ ^[0-9]+\.[0-9]+(\.[0-9]+|\-latest)$ ]] || abort "version format must be '[0-9].[0-9].[0-9]' or '[0-9].[0-9]-latest"
       readonly ISTIO_VERSION=$2
+      return 2
+      ;;
+    --version)
+      [[ $2 =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || abort "version format must be 'v[0-9].[0-9].[0-9]'"
+      LATEST_SERVING_RELEASE_VERSION=$2
       return 2
       ;;
     --cert-manager-version)
@@ -291,16 +297,14 @@ function test_setup() {
   # Install kail.
   bash <( curl -sfL https://raw.githubusercontent.com/boz/kail/master/godownloader.sh) -b "$GOPATH/bin"
 
-  # Log all container log from knative-serving namespace.
-  kail --ns knative-serving > ${ARTIFACTS}/knative-serving.log.txt &
+  # Capture all logs.
+  kail > ${ARTIFACTS}/k8s.log.txt &
 
   echo ">> Creating test resources (test/config/)"
   ko apply ${KO_FLAGS} -f test/config/ || return 1
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
   wait_until_pods_running knative-serving || return 1
   if [[ -z "${GLOO_VERSION}" ]]; then
-    # Log all container log from istio-system namespace.
-    kail --ns istio-system > ${ARTIFACTS}/istio-system.log.txt &
     wait_until_pods_running istio-system || return 1
     wait_until_service_has_external_ip istio-system istio-ingressgateway
   else
@@ -335,12 +339,4 @@ function dump_extra_cluster_state() {
   kubectl get configurations -o yaml --all-namespaces
   echo ">>> Revisions:"
   kubectl get revisions -o yaml --all-namespaces
-
-  echo ">>> Knative logs:"
-  for app in controller webhook autoscaler activator networking-certmanager networking-istio; do
-    dump_app_logs ${app} knative-serving
-  done
-
-  echo ">>> Istio logs:"
-  dump_app_logs istio-ingressgateway istio-system
 }

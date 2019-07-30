@@ -41,6 +41,7 @@ import (
 	"knative.dev/serving/pkg/autoscaler/statserver"
 	"knative.dev/serving/pkg/reconciler/autoscaling/hpa"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa"
+	"knative.dev/serving/pkg/reconciler/metric"
 	"knative.dev/serving/pkg/resources"
 
 	basecmd "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/cmd"
@@ -119,10 +120,10 @@ func main() {
 	// uniScalerFactory depends endpointsInformer to be set.
 	multiScaler := autoscaler.NewMultiScaler(ctx.Done(), uniScalerFactoryFunc(endpointsInformer, collector), logger)
 
-	psInformerFactory := resources.NewPodScalableInformerFactory(ctx)
 	controllers := []*controller.Impl{
-		kpa.NewController(ctx, cmw, multiScaler, collector, psInformerFactory),
-		hpa.NewController(ctx, cmw, collector, psInformerFactory),
+		kpa.NewController(ctx, cmw, multiScaler),
+		hpa.NewController(ctx, cmw),
+		metric.NewController(ctx, cmw, collector),
 	}
 
 	// Set up a statserver.
