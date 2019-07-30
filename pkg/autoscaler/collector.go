@@ -290,10 +290,17 @@ func (c *collection) currentMetric() *av1alpha1.Metric {
 
 // record adds a stat to the current collection.
 func (c *collection) record(stat Stat) {
+	spec := c.currentMetric().Spec
+	now := time.Now()
+
 	// Proxied requests have been counted at the activator. Subtract
 	// them to avoid double counting.
 	c.concurrencyBuckets.Record(*stat.Time, stat.PodName, stat.AverageConcurrentRequests-stat.AverageProxiedConcurrentRequests)
 	c.opsBuckets.Record(*stat.Time, stat.PodName, stat.RequestCount-stat.ProxiedRequestCount)
+
+	// Delete outdated stats.
+	c.concurrencyBuckets.RemoveOlderThan(now.Add(-spec.StableWindow))
+	c.opsBuckets.RemoveOlderThan(now.Add(-spec.StableWindow))
 }
 
 // stableAndPanicConcurrency calculates both stable and panic concurrency based on the
@@ -312,7 +319,6 @@ func (c *collection) stableAndPanicOPS(now time.Time) (float64, float64, error) 
 // given stats buckets.
 func (c *collection) stableAndPanicStats(now time.Time, buckets *aggregation.TimedFloat64Buckets) (float64, float64, error) {
 	spec := c.currentMetric().Spec
-	buckets.RemoveOlderThan(now.Add(-spec.StableWindow))
 
 	if buckets.IsEmpty() {
 		return 0, 0, ErrNoData
@@ -322,7 +328,7 @@ func (c *collection) stableAndPanicStats(now time.Time, buckets *aggregation.Tim
 	stableAverage := aggregation.Average{}
 	buckets.ForEachBucket(
 		aggregation.YoungerThan(now.Add(-spec.PanicWindow), panicAverage.Accumulate),
-		stableAverage.Accumulate, // No need to add a YoungerThan condition as we already deleted all outdated stats above.
+		aggregation.YoungerThan(now.Add(-spec.StableWindow), stableAverage.Accumulate),
 	)
 
 	return stableAverage.Value(), panicAverage.Value(), nil

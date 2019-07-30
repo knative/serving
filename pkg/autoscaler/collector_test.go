@@ -180,8 +180,15 @@ func TestMetricCollectorRecord(t *testing.T) {
 	logger := TestLogger(t)
 
 	now := time.Now()
+	oldTime := now.Add(-70 * time.Second)
 	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
 	want := 10.0
+	outdatedStat := Stat{
+		Time:                      &oldTime,
+		PodName:                   "testPod",
+		AverageConcurrentRequests: 100,
+		RequestCount:              100,
+	}
 	stat := Stat{
 		Time:                             &now,
 		PodName:                          "testPod",
@@ -200,6 +207,16 @@ func TestMetricCollectorRecord(t *testing.T) {
 	coll := NewMetricCollector(factory, logger)
 
 	// Freshly created collection does not contain any metrics and should return an error.
+	coll.CreateOrUpdate(defaultMetric)
+	if _, _, err := coll.StableAndPanicConcurrency(metricKey, now); err == nil {
+		t.Error("StableAndPanicConcurrency() = nil, wanted an error")
+	}
+	if _, _, err := coll.StableAndPanicOPS(metricKey, now); err == nil {
+		t.Error("StableAndPanicOPS() = nil, wanted an error")
+	}
+
+	// Record should delete outdated stat, which results in an empty collection.
+	coll.Record(metricKey, outdatedStat)
 	coll.CreateOrUpdate(defaultMetric)
 	if _, _, err := coll.StableAndPanicConcurrency(metricKey, now); err == nil {
 		t.Error("StableAndPanicConcurrency() = nil, wanted an error")
