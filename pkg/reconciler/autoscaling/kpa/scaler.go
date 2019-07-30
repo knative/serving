@@ -166,7 +166,7 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, sks *nv1a1.Ser
 		return scaleUnknown, false
 	} else if pa.Status.IsReady() { // Active=True
 		// Don't scale-to-zero if the PA is active
-		// Unles PA's age is less than StableWindow, which means
+		// Unless PA's age is less than StableWindow, which means
 		// that the revision got created but received no traffic
 		// and the enable-fast-scale-down configmap entry was true.
 
@@ -179,10 +179,11 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, sks *nv1a1.Ser
 			// make SKS reconcile and when it's done, PA will be reconciled again.
 			return desiredScale, false
 		}
+		age := pa.Age()
 		ks.logger.Debugf("Aggressive scale to 0 at %v, PA Age: %v Window: %v Can? %v Flag: %v",
-			time.Now(), pa.Age(), sw, pa.Age() < sw, config.EnableScaleToZero)
+			time.Now(), age, sw, age < sw, config.EnableScaleToZero)
 
-		if age := pa.Age(); config.EnableFastScaleDown && age <= sw {
+		if config.EnableFastScaleDown && age <= sw {
 			ks.logger.Infof("%s scaling to zero new revision with no traffic: age: %v, window: %v", pa.Name, age, sw)
 			return desiredScale, false
 		}
