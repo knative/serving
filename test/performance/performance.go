@@ -20,16 +20,17 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/knative/test-infra/shared/common"
-	"github.com/knative/test-infra/shared/prometheus"
-	"github.com/knative/test-infra/shared/prow"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/zipkin"
 	"knative.dev/serving/test"
+	"knative.dev/test-infra/shared/common"
+	"knative.dev/test-infra/shared/prometheus"
+	"knative.dev/test-infra/shared/prow"
 
 	// Mysteriously required to support GCP auth (required by k8s libs). Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -133,4 +134,21 @@ func AddTrace(logf logging.FormatLogger, tName string, traceID string) {
 	if _, err := traceFile.WriteString(fmt.Sprintf("%s,\n", trace)); err != nil {
 		logf("Cannot write to trace file: %v", err)
 	}
+}
+
+// resolvedHeaders returns headers for the request.
+func resolvedHeaders(domain string, resolvableDomain bool) map[string][]string {
+	headers := make(map[string][]string)
+	if !resolvableDomain {
+		headers["Host"] = []string{domain}
+	}
+	return headers
+}
+
+// sanitizedURL returns a URL that is guaranteed to have an httpPrefix.
+func sanitizedURL(endpoint string) string {
+	if !strings.HasPrefix(endpoint, httpPrefix) {
+		return httpPrefix + endpoint
+	}
+	return endpoint
 }

@@ -21,7 +21,7 @@ import (
 	"io/ioutil"
 	"path"
 
-	"github.com/knative/test-infra/shared/common"
+	"knative.dev/test-infra/shared/common"
 	yaml "gopkg.in/yaml.v2"
 )
 

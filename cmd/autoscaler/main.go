@@ -120,10 +120,9 @@ func main() {
 	// uniScalerFactory depends endpointsInformer to be set.
 	multiScaler := autoscaler.NewMultiScaler(ctx.Done(), uniScalerFactoryFunc(endpointsInformer, collector), logger)
 
-	psInformerFactory := resources.NewPodScalableInformerFactory(ctx)
 	controllers := []*controller.Impl{
-		kpa.NewController(ctx, cmw, multiScaler, psInformerFactory),
-		hpa.NewController(ctx, cmw, psInformerFactory),
+		kpa.NewController(ctx, cmw, multiScaler),
+		hpa.NewController(ctx, cmw),
 		metric.NewController(ctx, cmw, collector),
 	}
 

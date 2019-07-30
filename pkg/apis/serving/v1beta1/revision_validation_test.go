@@ -21,17 +21,18 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
+	"knative.dev/pkg/apis"
+	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 
-	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/apis"
-	logtesting "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/ptr"
 )
 
 func TestRevisionValidation(t *testing.T) {
@@ -234,9 +235,8 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.r.Validate(context.Background())
-			if !cmp.Equal(test.want.Error(), got.Error()) {
-				t.Errorf("Validate (-want, +got) = %v",
-					cmp.Diff(test.want.Error(), got.Error()))
+			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
+				t.Errorf("Validate (-want, +got) = %s", cmp.Diff(want, got))
 			}
 		})
 	}
@@ -274,9 +274,8 @@ func TestContainerConcurrencyValidation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.cc.Validate(context.Background())
-			if !cmp.Equal(test.want.Error(), got.Error()) {
-				t.Errorf("Validate (-want, +got) = %v",
-					cmp.Diff(test.want.Error(), got.Error()))
+			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
+				t.Errorf("Validate (-want, +got) = %v", cmp.Diff(want, got))
 			}
 		})
 	}
@@ -442,9 +441,8 @@ func TestRevisionSpecValidation(t *testing.T) {
 				ctx = test.wc(ctx)
 			}
 			got := test.rs.Validate(ctx)
-			if !cmp.Equal(test.want.Error(), got.Error()) {
-				t.Errorf("Validate (-want, +got) = %v",
-					cmp.Diff(test.want.Error(), got.Error()))
+			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
+				t.Errorf("Validate (-want, +got) = %v", cmp.Diff(want, got))
 			}
 		})
 	}
@@ -851,8 +849,8 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			})
 
 			got := test.rts.Validate(ctx)
-			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
-				t.Errorf("Validate (-want, +got) = %v", diff)
+			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
+				t.Errorf("Validate (-want, +got) = %v", cmp.Diff(want, got))
 			}
 		})
 	}

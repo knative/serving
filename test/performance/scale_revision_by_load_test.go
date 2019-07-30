@@ -27,11 +27,11 @@ import (
 	"testing"
 	"time"
 
-	vegeta "github.com/tsenart/vegeta/lib"
+	"knative.dev/test-infra/shared/junit"
+	perf "knative.dev/test-infra/shared/performance"
+	"knative.dev/test-infra/shared/testgrid"
 
-	"github.com/knative/test-infra/shared/junit"
-	perf "github.com/knative/test-infra/shared/performance"
-	"github.com/knative/test-infra/shared/testgrid"
+	vegeta "github.com/tsenart/vegeta/lib"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/informers"
@@ -154,18 +154,12 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 		t.Fatalf("Cannot resolve service endpoint: %v", err)
 	}
 
-	headers := make(map[string][]string)
-	if !test.ServingFlags.ResolvableDomain {
-		headers["Host"] = []string{domain}
-	}
-
 	targeter := vegeta.NewStaticTargeter(vegeta.Target{
 		Method: http.MethodGet,
-		Header: headers,
-		URL:    fmt.Sprintf("%s/?timeout=%d", endpoint, processingTimeMillis),
+		Header: resolvedHeaders(domain, test.ServingFlags.ResolvableDomain),
+		URL:    fmt.Sprintf("%s?timeout=%d", sanitizedURL(endpoint), processingTimeMillis),
 	})
 	attacker := vegeta.NewAttacker(vegeta.Workers(uint64(numClients)), vegeta.Connections(numClients))
-
 	pacer := vegeta.ConstantPacer{Freq: qpsPerClient * numClients, Per: time.Second}
 
 	t.Logf("Starting test with %d clients at %s", numClients, time.Now())
@@ -175,23 +169,25 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 		metrics.Add(res)
 	}
 	metrics.Close()
-
 	close(stopCh)
 
 	tc := make([]junit.TestCase, 0)
-
+	// Add traffic load metrics.
 	tc = append(tc, perf.CreatePerfTestCase(float32(metrics.Requests), "requestCount", t.Name()))
 	tc = append(tc, perf.CreatePerfTestCase(float32(qpsPerClient*numClients), "requestedQPS", t.Name()))
 	tc = append(tc, perf.CreatePerfTestCase(float32(metrics.Rate), "actualQPS", t.Name()))
+	// Add errorsPercentage metrics.
 	tc = append(tc, perf.CreatePerfTestCase(float32(1-metrics.Success), "errorsPercentage", t.Name()))
 
 	scaleEventsMutex.Lock()
 	defer scaleEventsMutex.Unlock()
+	// Add scale metrics.
 	for _, ev := range scaleEvents {
 		t.Logf("Scaled: %d -> %d in %v", ev.oldScale, ev.newScale, ev.timestamp.Sub(attackStartTime))
 		tc = append(tc, perf.CreatePerfTestCase(float32(ev.timestamp.Sub(attackStartTime)/time.Second), fmt.Sprintf("scale-from-%02d-to-%02d(seconds)", ev.oldScale, ev.newScale), t.Name()))
 	}
 
+	// Add latency metrics.
 	tc = append(tc, perf.CreatePerfTestCase(float32(metrics.Latencies.P50.Seconds()*1000), "p50(ms)", t.Name()))
 	tc = append(tc, perf.CreatePerfTestCase(float32(metrics.Latencies.Quantile(0.90).Seconds()*1000), "p90(ms)", t.Name()))
 	tc = append(tc, perf.CreatePerfTestCase(float32(metrics.Latencies.P99.Seconds()*1000), "p99(ms)", t.Name()))

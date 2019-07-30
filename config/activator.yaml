@@ -81,7 +81,7 @@ spec:
             cpu: 300m
             memory: 60Mi
           limits:
-            cpu: 400m
+            cpu: 1000m
             memory: 600Mi
         env:
           - name: POD_NAME

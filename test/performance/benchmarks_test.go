@@ -25,13 +25,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/knative/test-infra/shared/junit"
-	perf "github.com/knative/test-infra/shared/performance"
-	"github.com/knative/test-infra/shared/testgrid"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
+	"knative.dev/test-infra/shared/junit"
+	perf "knative.dev/test-infra/shared/performance"
+	"knative.dev/test-infra/shared/testgrid"
 
 	vegeta "github.com/tsenart/vegeta/lib"
 )
@@ -72,7 +72,6 @@ func runTest(t *testing.T, pacer vegeta.Pacer, saveMetrics bool) {
 	}
 
 	domain := objs.Route.Status.URL.Host
-
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
@@ -83,25 +82,16 @@ func runTest(t *testing.T, pacer vegeta.Pacer, saveMetrics bool) {
 		t.Fatalf("Error probing domain %s: %v", domain, err)
 	}
 
-	url, err := spoof.ResolveEndpoint(clients.KubeClient.Kube, domain, test.ServingFlags.ResolvableDomain,
+	endpoint, err := spoof.ResolveEndpoint(clients.KubeClient.Kube, domain, test.ServingFlags.ResolvableDomain,
 		pkgTest.Flags.IngressEndpoint)
 	if err != nil {
 		t.Fatalf("Cannot resolve service endpoint: %v", err)
 	}
 
-	if !strings.HasPrefix(url, httpPrefix) {
-		url = httpPrefix + url
-	}
-
-	headers := make(map[string][]string)
-	if !test.ServingFlags.ResolvableDomain {
-		headers["Host"] = []string{domain}
-	}
-
 	targeter := vegeta.NewStaticTargeter(vegeta.Target{
 		Method: http.MethodGet,
-		Header: headers,
-		URL:    url + "?sleep=100",
+		Header: resolvedHeaders(domain, test.ServingFlags.ResolvableDomain),
+		URL:    sanitizedURL(endpoint) + "?sleep=100",
 	})
 	attacker := vegeta.NewAttacker()
 
@@ -123,7 +113,7 @@ func runTest(t *testing.T, pacer vegeta.Pacer, saveMetrics bool) {
 	tc = append(tc, perf.CreatePerfTestCase(float32(metrics.Latencies.P99.Seconds()*1000), "p99(ms)", tName))
 
 	// Add errorsPercentage metrics
-	tc = append(tc, perf.CreatePerfTestCase(float32(1-metrics.Success), "errorsPercentage", tName))
+	tc = append(tc, perf.CreatePerfTestCase(float32(1-metrics.Success)*100, "errorsPercentage", tName))
 
 	if err = testgrid.CreateXMLOutput(tc, filename(tName)); err != nil {
 		t.Fatalf("Cannot create output xml: %v", err)

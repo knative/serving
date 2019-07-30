@@ -20,7 +20,7 @@ import (
 	"container/list"
 	"reflect"
 
-	"github.com/knative/test-infra/tools/webhook-apicoverage/coveragecalculator"
+	"knative.dev/test-infra/tools/webhook-apicoverage/coveragecalculator"
 )
 
 // ResourceForest represents the top-level forest that contains individual resource trees for top-level resource types and all connected nodes across resource trees.

@@ -21,7 +21,6 @@ import (
 	"os"
 	"time"
 
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/serving/pkg/queue/health"
@@ -38,15 +37,13 @@ const (
 // Probe wraps a corev1.Probe along with a logger and a count of consecutive, successful probes
 type Probe struct {
 	*corev1.Probe
-	count  int32
-	logger *zap.SugaredLogger
+	count int32
 }
 
 // NewProbe returns a pointer a new Probe
-func NewProbe(v1p *corev1.Probe, logger *zap.SugaredLogger) *Probe {
+func NewProbe(v1p *corev1.Probe) *Probe {
 	return &Probe{
-		Probe:  v1p,
-		logger: logger,
+		Probe: v1p,
 	}
 }
 
@@ -81,8 +78,6 @@ func (p *Probe) ProbeContainer() bool {
 		fmt.Fprint(os.Stderr, err.Error())
 		return false
 	}
-
-	p.logger.Info("User-container successfully probed.")
 	return true
 }
 
