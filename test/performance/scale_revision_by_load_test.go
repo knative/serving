@@ -177,7 +177,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	tc = append(tc, perf.CreatePerfTestCase(float32(qpsPerClient*numClients), "requestedQPS", t.Name()))
 	tc = append(tc, perf.CreatePerfTestCase(float32(metrics.Rate), "actualQPS", t.Name()))
 	// Add errorsPercentage metrics.
-	tc = append(tc, perf.CreatePerfTestCase(float32(1-metrics.Success), "errorsPercentage", t.Name()))
+	tc = append(tc, perf.CreatePerfTestCase(float32(1-metrics.Success)*100, "errorsPercentage", t.Name()))
 
 	scaleEventsMutex.Lock()
 	defer scaleEventsMutex.Unlock()
