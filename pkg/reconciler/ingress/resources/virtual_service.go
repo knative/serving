@@ -217,9 +217,8 @@ func makePortSelector(ios intstr.IntOrString) v1alpha3.PortSelector {
 }
 
 func makeVirtualServiceRoute(hosts sets.String, http *v1alpha1.HTTPIngressPath, gateways sets.String) *v1alpha3.HTTPRoute {
-	matches := []v1alpha3.HTTPMatchRequest{}
-	for _, host := range hosts.List() {
-		matches = append(matches, makeMatch(host, http.Path, gateways))
+	matches := []v1alpha3.HTTPMatchRequest{
+		makeMatch(hosts, http.Path, gateways),
 	}
 	weights := []v1alpha3.HTTPRouteDestination{}
 	for _, split := range http.Splits {
@@ -295,11 +294,15 @@ func expandedHosts(hosts sets.String) sets.String {
 	return expanded
 }
 
-func makeMatch(host string, pathRegExp string, gateways sets.String) v1alpha3.HTTPMatchRequest {
+func makeMatch(hosts sets.String, pathRegExp string, gateways sets.String) v1alpha3.HTTPMatchRequest {
+	regExps := []string{}
+	for _, h := range hosts.List() {
+		regExps = append(regExps, hostRegExp(h))
+	}
 	match := v1alpha3.HTTPMatchRequest{
 		Gateways: gateways.List(),
 		Authority: &istiov1alpha1.StringMatch{
-			Regex: hostRegExp(host),
+			Regex: exact(strings.Join(regExps, "|") + portMatch),
 		},
 	}
 	// Empty pathRegExp is considered match all path. We only need to
@@ -320,12 +323,12 @@ const portMatch = `(?::\d{1,5})?`
 func hostRegExp(host string) string {
 	localDomainSuffix := ".svc." + network.GetClusterDomainName()
 	if !strings.HasSuffix(host, localDomainSuffix) {
-		return exact(regexp.QuoteMeta(host) + portMatch)
+		return regexp.QuoteMeta(host)
 	}
 	prefix := regexp.QuoteMeta(strings.TrimSuffix(host, localDomainSuffix))
 	clusterSuffix := regexp.QuoteMeta("." + network.GetClusterDomainName())
 	svcSuffix := regexp.QuoteMeta(".svc")
-	return exact(prefix + optional(svcSuffix+optional(clusterSuffix)) + portMatch)
+	return prefix + optional(svcSuffix+optional(clusterSuffix))
 }
 
 func exact(regexp string) string {

@@ -349,11 +349,7 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 	expected := []v1alpha3.HTTPRoute{{
 		Match: []v1alpha3.HTTPMatchRequest{{
 			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Regex: `^domain\.com(?::\d{1,5})?$`},
-			Gateways:  []string{},
-		}, {
-			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns(\.svc(\.cluster\.local)?)?(?::\d{1,5})?$`},
+			Authority: &istiov1alpha1.StringMatch{Regex: `^domain\.com|test-route\.test-ns(\.svc(\.cluster\.local)?)?(?::\d{1,5})?$`},
 			Gateways:  []string{},
 		}},
 		Route: []v1alpha3.HTTPRouteDestination{{
@@ -439,10 +435,7 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 	expected := v1alpha3.HTTPRoute{
 		Match: []v1alpha3.HTTPMatchRequest{{
 			Gateways:  []string{"gateway-1"},
-			Authority: &istiov1alpha1.StringMatch{Regex: `^a\.com(?::\d{1,5})?$`},
-		}, {
-			Gateways:  []string{"gateway-1"},
-			Authority: &istiov1alpha1.StringMatch{Regex: `^b\.org(?::\d{1,5})?$`},
+			Authority: &istiov1alpha1.StringMatch{Regex: `^a\.com|b\.org(?::\d{1,5})?$`},
 		}},
 		Route: []v1alpha3.HTTPRouteDestination{{
 			Destination: v1alpha3.Destination{
