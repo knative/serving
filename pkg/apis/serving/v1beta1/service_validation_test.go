@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/serving"
 	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 
 	"knative.dev/pkg/apis"
@@ -726,8 +727,8 @@ func TestServiceAnnotationUpdate(t *testing.T) {
 			},
 			Spec: getServiceSpec("helloworld:foo"),
 		},
-		want: &apis.FieldError{Message: "annotation value is immutable",
-			Paths: []string{"metadata.annotations." + serving.CreatorAnnotation}},
+		want: (&apis.FieldError{Message: "annotation value is immutable",
+			Paths: []string{serving.CreatorAnnotation}}).ViaField("metadata.annotations"),
 	}, {
 		name: "update lastModifier without spec changes",
 		this: &Service{
@@ -750,7 +751,7 @@ func TestServiceAnnotationUpdate(t *testing.T) {
 			},
 			Spec: getServiceSpec("helloworld:foo"),
 		},
-		want: apis.ErrInvalidValue(u2, "metadata.annotations."+serving.UpdaterAnnotation),
+		want: apis.ErrInvalidValue(u2, serving.UpdaterAnnotation).ViaField("metadata.annotations"),
 	}, {
 		name: "update lastModifier with spec changes",
 		this: &Service{
