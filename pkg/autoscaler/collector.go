@@ -299,23 +299,20 @@ func (c *collection) record(stat Stat) {
 // stableAndPanicConcurrency calculates both stable and panic concurrency based on the
 // current stats.
 func (c *collection) stableAndPanicConcurrency(now time.Time) (float64, float64, error) {
-	spec := c.currentMetric().Spec
-
-	return stableAndPanicStats(now, spec.StableWindow, spec.PanicWindow, c.concurrencyBuckets)
+	return c.stableAndPanicStats(now, c.concurrencyBuckets)
 }
 
 // stableAndPanicConcurrency calculates both stable and panic OPS based on the
 // current stats.
 func (c *collection) stableAndPanicOPS(now time.Time) (float64, float64, error) {
-	spec := c.currentMetric().Spec
-
-	return stableAndPanicStats(now, spec.StableWindow, spec.PanicWindow, c.opsBuckets)
+	return c.stableAndPanicStats(now, c.opsBuckets)
 }
 
 // stableAndPanicStats calculates both stable and panic concurrency based on the
 // given stats buckets.
-func stableAndPanicStats(now time.Time, stableW, panicW time.Duration, buckets *aggregation.TimedFloat64Buckets) (float64, float64, error) {
-	buckets.RemoveOlderThan(now.Add(-stableW))
+func (c *collection) stableAndPanicStats(now time.Time, buckets *aggregation.TimedFloat64Buckets) (float64, float64, error) {
+	spec := c.currentMetric().Spec
+	buckets.RemoveOlderThan(now.Add(-spec.StableWindow))
 
 	if buckets.IsEmpty() {
 		return 0, 0, ErrNoData
@@ -324,7 +321,7 @@ func stableAndPanicStats(now time.Time, stableW, panicW time.Duration, buckets *
 	panicAverage := aggregation.Average{}
 	stableAverage := aggregation.Average{}
 	buckets.ForEachBucket(
-		aggregation.YoungerThan(now.Add(-panicW), panicAverage.Accumulate),
+		aggregation.YoungerThan(now.Add(-spec.PanicWindow), panicAverage.Accumulate),
 		stableAverage.Accumulate, // No need to add a YoungerThan condition as we already deleted all outdated stats above.
 	)
 
