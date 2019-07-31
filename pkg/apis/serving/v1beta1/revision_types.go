@@ -22,6 +22,7 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/kmeta"
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 )
 
 // +genclient
@@ -67,16 +68,6 @@ type RevisionTemplateSpec struct {
 	Spec RevisionSpec `json:"spec,omitempty"`
 }
 
-// RevisionContainerConcurrencyType is an integer expressing the maximum number of
-// in-flight (concurrent) requests.
-type RevisionContainerConcurrencyType int64
-
-const (
-	// RevisionContainerConcurrencyMax is the maximum configurable
-	// container concurrency.
-	RevisionContainerConcurrencyMax RevisionContainerConcurrencyType = 1000
-)
-
 // RevisionSpec holds the desired state of the Revision (from the client).
 type RevisionSpec struct {
 	corev1.PodSpec `json:",inline"`
@@ -85,7 +76,7 @@ type RevisionSpec struct {
 	// requests per container of the Revision.  Defaults to `0` which means
 	// unlimited concurrency.
 	// +optional
-	ContainerConcurrency RevisionContainerConcurrencyType `json:"containerConcurrency,omitempty"`
+	ContainerConcurrency av1alpha1.AutoscalerContainerConcurrencyType `json:"containerConcurrency,omitempty"`
 
 	// TimeoutSeconds holds the max duration the instance is allowed for
 	// responding to a request.  If unspecified, a system default will

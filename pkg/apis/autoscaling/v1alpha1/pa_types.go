@@ -23,8 +23,6 @@ import (
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/kmeta"
 	net "knative.dev/serving/pkg/apis/networking"
-	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
-	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 // +genclient
@@ -58,6 +56,32 @@ var (
 	_ kmeta.OwnerRefable = (*PodAutoscaler)(nil)
 )
 
+// AutoscalerRequestConcurrencyModelType is an enumeration of the
+// concurrency models supported by an Autoscaler.
+// DEPRECATED in favor of AutoscalerContainerConcurrencyType.
+type AutoscalerRequestConcurrencyModelType string
+
+const (
+	// AutoscalerRequestConcurrencyModelSingle guarantees that only one
+	// request will be handled at a time (concurrently) per instance
+	// of Autoscaler Container.
+	AutoscalerRequestConcurrencyModelSingle AutoscalerRequestConcurrencyModelType = "Single"
+	// AutoscalerRequestConcurrencyModelMulti allows more than one request to
+	// be handled at a time (concurrently) per instance of Autoscaler
+	// Container.
+	AutoscalerRequestConcurrencyModelMulti AutoscalerRequestConcurrencyModelType = "Multi"
+)
+
+// AutoscalerContainerConcurrencyType is an integer expressing the maximum number of
+// in-flight (concurrent) requests.
+type AutoscalerContainerConcurrencyType int64
+
+const (
+	// AutoscalerContainerConcurrencyMax is the maximum configurable
+	// container concurrency.
+	AutoscalerContainerConcurrencyMax AutoscalerContainerConcurrencyType = 1000
+)
+
 // PodAutoscalerSpec holds the desired state of the PodAutoscaler (from the client).
 type PodAutoscalerSpec struct {
 	// DeprecatedGeneration was used prior in Kubernetes versions <1.11
@@ -73,15 +97,15 @@ type PodAutoscalerSpec struct {
 
 	// DeprecatedConcurrencyModel no longer does anything, use ContainerConcurrency.
 	// +optional
-	DeprecatedConcurrencyModel servingv1alpha1.RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
+	DeprecatedConcurrencyModel AutoscalerRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
 
 	// ContainerConcurrency specifies the maximum allowed
-	// in-flight (concurrent) requests per container of the Revision.
+	// in-flight (concurrent) requests per container of the Autoscaler.
 	// Defaults to `0` which means unlimited concurrency.
 	// This field replaces ConcurrencyModel. A value of `1`
 	// is equivalent to `Single` and `0` is equivalent to `Multi`.
 	// +optional
-	ContainerConcurrency servingv1beta1.RevisionContainerConcurrencyType `json:"containerConcurrency,omitempty"`
+	ContainerConcurrency AutoscalerContainerConcurrencyType `json:"containerConcurrency,omitempty"`
 
 	// ScaleTargetRef defines the /scale-able resource that this PodAutoscaler
 	// is responsible for quickly right-sizing.

@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"knative.dev/pkg/ptr"
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
@@ -76,7 +77,7 @@ func TestConfigurationValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrOutOfBoundsValue(
-			-10, 0, RevisionContainerConcurrencyMax,
+			-10, 0, av1alpha1.AutoscalerContainerConcurrencyMax,
 			"spec.template.spec.containerConcurrency"),
 	}, {
 		name: "valid BYO name",

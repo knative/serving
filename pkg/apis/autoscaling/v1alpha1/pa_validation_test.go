@@ -28,8 +28,44 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	net "knative.dev/serving/pkg/apis/networking"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
+
+func TestConcurrencyModelValidation(t *testing.T) {
+	tests := []struct {
+		name string
+		cm   AutoscalerRequestConcurrencyModelType
+		want *apis.FieldError
+	}{{
+		name: "single",
+		cm:   AutoscalerRequestConcurrencyModelSingle,
+		want: nil,
+	}, {
+		name: "multi",
+		cm:   AutoscalerRequestConcurrencyModelMulti,
+		want: nil,
+	}, {
+		name: "empty",
+		cm:   "",
+		want: nil,
+	}, {
+		name: "bogus",
+		cm:   "bogus",
+		want: apis.ErrInvalidValue("bogus", apis.CurrentField),
+	}, {
+		name: "balderdash",
+		cm:   "balderdash",
+		want: apis.ErrInvalidValue("balderdash", apis.CurrentField),
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := test.cm.Validate(context.Background())
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+				t.Errorf("Validate (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
 
 func TestPodAutoscalerSpecValidation(t *testing.T) {
 	tests := []struct {
@@ -124,7 +160,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 			ProtocolType: net.ProtocolHTTP1,
 		},
 		want: apis.ErrOutOfBoundsValue(-1, 0,
-			v1beta1.RevisionContainerConcurrencyMax, "containerConcurrency"),
+			AutoscalerContainerConcurrencyMax, "containerConcurrency"),
 	}, {
 		name: "multi invalid, bad concurrency and missing ref kind",
 		rs: &PodAutoscalerSpec{
@@ -136,7 +172,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 			ProtocolType: net.ProtocolHTTP1,
 		},
 		want: apis.ErrOutOfBoundsValue(-2, 0,
-			v1beta1.RevisionContainerConcurrencyMax, "containerConcurrency").Also(
+			AutoscalerContainerConcurrencyMax, "containerConcurrency").Also(
 			apis.ErrMissingField("scaleTargetRef.kind")),
 	}}
 
@@ -256,7 +292,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrOutOfBoundsValue(-1, 0,
-			v1beta1.RevisionContainerConcurrencyMax, "spec.containerConcurrency"),
+			AutoscalerContainerConcurrencyMax, "spec.containerConcurrency"),
 	}}
 
 	for _, test := range tests {

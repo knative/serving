@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
@@ -46,7 +47,7 @@ func (source *RevisionTemplateSpec) ConvertUp(ctx context.Context, sink *v1beta1
 
 // ConvertUp helps implement apis.Convertible
 func (source *RevisionSpec) ConvertUp(ctx context.Context, sink *v1beta1.RevisionSpec) error {
-	sink.ContainerConcurrency = v1beta1.RevisionContainerConcurrencyType(
+	sink.ContainerConcurrency = av1alpha1.AutoscalerContainerConcurrencyType(
 		source.ContainerConcurrency)
 	if source.TimeoutSeconds != nil {
 		sink.TimeoutSeconds = ptr.Int64(*source.TimeoutSeconds)

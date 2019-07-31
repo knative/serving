@@ -38,8 +38,7 @@ func (rs *PodAutoscalerSpec) Validate(ctx context.Context) *apis.FieldError {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
 	errs := serving.ValidateNamespacedObjectReference(&rs.ScaleTargetRef).ViaField("scaleTargetRef")
-	errs = errs.Also(rs.ContainerConcurrency.Validate(ctx).
-		ViaField("containerConcurrency"))
+	errs = errs.Also(rs.ContainerConcurrency.Validate(ctx).ViaField("containerConcurrency"))
 	return errs.Also(validateSKSFields(ctx, rs))
 }
 
@@ -70,6 +69,27 @@ func (pa *PodAutoscaler) validateMetric() *apis.FieldError {
 				metric, pa.Class()),
 			Paths: []string{"annotations[autoscaling.knative.dev/metric]"},
 		}
+	}
+	return nil
+}
+
+// Validate ensures AutoscalerRequestConcurrencyModelType is properly configured.
+func (cm AutoscalerRequestConcurrencyModelType) Validate(ctx context.Context) *apis.FieldError {
+	switch cm {
+	case AutoscalerRequestConcurrencyModelType(""),
+		AutoscalerRequestConcurrencyModelMulti,
+		AutoscalerRequestConcurrencyModelSingle:
+		return nil
+	default:
+		return apis.ErrInvalidValue(cm, apis.CurrentField)
+	}
+}
+
+// Validate implements apis.Validatable.
+func (cc AutoscalerContainerConcurrencyType) Validate(ctx context.Context) *apis.FieldError {
+	if cc < 0 || cc > AutoscalerContainerConcurrencyMax {
+		return apis.ErrOutOfBoundsValue(
+			cc, 0, AutoscalerContainerConcurrencyMax, apis.CurrentField)
 	}
 	return nil
 }

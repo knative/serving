@@ -22,6 +22,7 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/kmeta"
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
@@ -91,22 +92,6 @@ const (
 	DeprecatedRevisionServingStateRetired DeprecatedRevisionServingStateType = "Retired"
 )
 
-// RevisionRequestConcurrencyModelType is an enumeration of the
-// concurrency models supported by a Revision.
-// DEPRECATED in favor of RevisionContainerConcurrencyType.
-type RevisionRequestConcurrencyModelType string
-
-const (
-	// RevisionRequestConcurrencyModelSingle guarantees that only one
-	// request will be handled at a time (concurrently) per instance
-	// of Revision Container.
-	RevisionRequestConcurrencyModelSingle RevisionRequestConcurrencyModelType = "Single"
-	// RevisionRequestConcurencyModelMulti allows more than one request to
-	// be handled at a time (concurrently) per instance of Revision
-	// Container.
-	RevisionRequestConcurrencyModelMulti RevisionRequestConcurrencyModelType = "Multi"
-)
-
 // RevisionSpec holds the desired state of the Revision (from the client).
 type RevisionSpec struct {
 	v1beta1.RevisionSpec `json:",inline"`
@@ -134,7 +119,7 @@ type RevisionSpec struct {
 	// Revision. Defaults to Multi.
 	// Deprecated in favor of ContainerConcurrency.
 	// +optional
-	DeprecatedConcurrencyModel RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
+	DeprecatedConcurrencyModel av1alpha1.AutoscalerRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
 
 	// DeprecatedBuildName optionally holds the name of the Build responsible for
 	// producing the container image for its Revision.

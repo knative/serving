@@ -167,15 +167,3 @@ func (ss DeprecatedRevisionServingStateType) Validate(ctx context.Context) *apis
 		return apis.ErrInvalidValue(ss, apis.CurrentField)
 	}
 }
-
-// Validate ensures RevisionRequestConcurrencyModelType is properly configured.
-func (cm RevisionRequestConcurrencyModelType) Validate(ctx context.Context) *apis.FieldError {
-	switch cm {
-	case RevisionRequestConcurrencyModelType(""),
-		RevisionRequestConcurrencyModelMulti,
-		RevisionRequestConcurrencyModelSingle:
-		return nil
-	default:
-		return apis.ErrInvalidValue(cm, apis.CurrentField)
-	}
-}

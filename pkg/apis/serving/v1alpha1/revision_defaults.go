@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
 
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
@@ -42,7 +43,7 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 
 	// When ConcurrencyModel is specified but ContainerConcurrency
 	// is not (0), use the ConcurrencyModel value.
-	if rs.DeprecatedConcurrencyModel == RevisionRequestConcurrencyModelSingle && rs.ContainerConcurrency == 0 {
+	if rs.DeprecatedConcurrencyModel == av1alpha1.AutoscalerRequestConcurrencyModelSingle && rs.ContainerConcurrency == 0 {
 		rs.ContainerConcurrency = 1
 	}
 

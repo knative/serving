@@ -27,6 +27,7 @@ import (
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/ptr"
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/reconciler/route/domains"
@@ -231,10 +232,10 @@ func WithContainerConcurrency(cc int) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		if s.Spec.DeprecatedRunLatest != nil {
 			s.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.ContainerConcurrency =
-				v1beta1.RevisionContainerConcurrencyType(cc)
+				av1alpha1.AutoscalerContainerConcurrencyType(cc)
 		} else {
 			s.Spec.ConfigurationSpec.Template.Spec.ContainerConcurrency =
-				v1beta1.RevisionContainerConcurrencyType(cc)
+				av1alpha1.AutoscalerContainerConcurrencyType(cc)
 		}
 	}
 }

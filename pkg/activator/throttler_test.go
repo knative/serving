@@ -32,6 +32,7 @@ import (
 	. "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/test/helpers"
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -182,7 +183,7 @@ func TestThrottlerActivatorEndpoints(t *testing.T) {
 
 			throttler := getThrottler(
 				defaultMaxConcurrency,
-				revisionLister(testNamespace, testRevision, v1beta1.RevisionContainerConcurrencyType(s.revisionConcurrency)),
+				revisionLister(testNamespace, testRevision, av1alpha1.AutoscalerContainerConcurrencyType(s.revisionConcurrency)),
 				endpoints,
 				sksLister(testNamespace, testRevision),
 				TestLogger(t),
@@ -407,7 +408,7 @@ func TestHelper_ReactToEndpoints(t *testing.T) {
 	}
 }
 
-func revisionLister(namespace, name string, concurrency v1beta1.RevisionContainerConcurrencyType) servinglisters.RevisionLister {
+func revisionLister(namespace, name string, concurrency av1alpha1.AutoscalerContainerConcurrencyType) servinglisters.RevisionLister {
 	rev := &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,

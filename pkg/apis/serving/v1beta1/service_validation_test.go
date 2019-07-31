@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/config"
 	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 
@@ -222,7 +223,7 @@ func TestServiceValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrOutOfBoundsValue(
-			-10, 0, RevisionContainerConcurrencyMax,
+			-10, 0, av1alpha1.AutoscalerContainerConcurrencyMax,
 			"spec.template.spec.containerConcurrency"),
 	}}
 

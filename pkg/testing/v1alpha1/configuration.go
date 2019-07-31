@@ -23,8 +23,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 // ConfigOption enables further configuration of a Configuration.
@@ -42,7 +42,7 @@ func WithConfigOwnersRemoved(cfg *v1alpha1.Configuration) {
 }
 
 // WithConfigContainerConcurrency sets the given Configuration's concurrency.
-func WithConfigContainerConcurrency(cc v1beta1.RevisionContainerConcurrencyType) ConfigOption {
+func WithConfigContainerConcurrency(cc av1alpha1.AutoscalerContainerConcurrencyType) ConfigOption {
 	return func(cfg *v1alpha1.Configuration) {
 		cfg.Spec.GetTemplate().Spec.ContainerConcurrency = cc
 	}

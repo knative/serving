@@ -27,6 +27,7 @@ import (
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 
@@ -71,7 +72,7 @@ func TestRevisionValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrOutOfBoundsValue(
-			-10, 0, RevisionContainerConcurrencyMax,
+			-10, 0, av1alpha1.AutoscalerContainerConcurrencyMax,
 			"spec.containerConcurrency"),
 	}}
 
@@ -245,7 +246,7 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 func TestContainerConcurrencyValidation(t *testing.T) {
 	tests := []struct {
 		name string
-		cc   RevisionContainerConcurrencyType
+		cc   av1alpha1.AutoscalerContainerConcurrencyType
 		want *apis.FieldError
 	}{{
 		name: "single",
@@ -262,13 +263,13 @@ func TestContainerConcurrencyValidation(t *testing.T) {
 	}, {
 		name: "invalid container concurrency (too small)",
 		cc:   -1,
-		want: apis.ErrOutOfBoundsValue(-1, 0, RevisionContainerConcurrencyMax,
+		want: apis.ErrOutOfBoundsValue(-1, 0, av1alpha1.AutoscalerContainerConcurrencyMax,
 			apis.CurrentField),
 	}, {
 		name: "invalid container concurrency (too large)",
-		cc:   RevisionContainerConcurrencyMax + 1,
-		want: apis.ErrOutOfBoundsValue(RevisionContainerConcurrencyMax+1,
-			0, RevisionContainerConcurrencyMax, apis.CurrentField),
+		cc:   av1alpha1.AutoscalerContainerConcurrencyMax + 1,
+		want: apis.ErrOutOfBoundsValue(av1alpha1.AutoscalerContainerConcurrencyMax+1,
+			0, av1alpha1.AutoscalerContainerConcurrencyMax, apis.CurrentField),
 	}}
 
 	for _, test := range tests {

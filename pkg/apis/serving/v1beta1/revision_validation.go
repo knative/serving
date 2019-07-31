@@ -122,15 +122,6 @@ func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 	return errs
 }
 
-// Validate implements apis.Validatable.
-func (cc RevisionContainerConcurrencyType) Validate(ctx context.Context) *apis.FieldError {
-	if cc < 0 || cc > RevisionContainerConcurrencyMax {
-		return apis.ErrOutOfBoundsValue(
-			cc, 0, RevisionContainerConcurrencyMax, apis.CurrentField)
-	}
-	return nil
-}
-
 // Validate implements apis.Validatable
 func (rs *RevisionStatus) Validate(ctx context.Context) *apis.FieldError {
 	return nil
