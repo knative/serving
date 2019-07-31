@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/config"
 	net "knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
@@ -209,6 +210,31 @@ func (rs *RevisionStatus) MarkInactive(reason, message string) {
 
 func (rs *RevisionStatus) MarkContainerMissing(message string) {
 	revCondSet.Manage(rs).MarkFalse(RevisionConditionContainerHealthy, "ContainerMissing", message)
+}
+
+// PropagateAutoscalerStatus propagates autoscaler's status to the revision's status.
+func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *av1alpha1.PodAutoscalerStatus) {
+	// Propagate the service name from the PA.
+	rs.ServiceName = ps.ServiceName
+
+	// Reflect the PA status in our own.
+	cond := ps.GetCondition(av1alpha1.PodAutoscalerConditionReady)
+	switch {
+	case cond == nil:
+		rs.MarkActivating("Deploying", "")
+		// If not ready => SKS did not report a service name, we can reliably use.
+	case cond.Status == corev1.ConditionUnknown:
+		rs.MarkActivating(cond.Reason, cond.Message)
+	case cond.Status == corev1.ConditionFalse:
+		rs.MarkInactive(cond.Reason, cond.Message)
+	case cond.Status == corev1.ConditionTrue:
+		rs.MarkActive()
+
+		// Precondition for PA being active is SKS being active and
+		// that entices that |service.endpoints| > 0.
+		rs.MarkResourcesAvailable()
+		rs.MarkContainerHealthy()
+	}
 }
 
 // RevisionContainerMissingMessage constructs the status message if a given image
