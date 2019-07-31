@@ -339,4 +339,8 @@ function dump_extra_cluster_state() {
   kubectl get configurations -o yaml --all-namespaces
   echo ">>> Revisions:"
   kubectl get revisions -o yaml --all-namespaces
+  echo ">>> PodAutoscalers:"
+  kubectl get podautoscalers -o yaml --all-namespaces
+  echo ">>> SKSs:"
+  kubectl get serverlessservices -o yaml --all-namespaces
 }
