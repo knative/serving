@@ -199,10 +199,12 @@ func TestStats(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			closeCh := make(chan struct{})
+			defer ClearAll()
+			stopCh := make(chan struct{})
+			defer close(stopCh)
 			s, cr := newTestStats(t, fakeClock{})
 			go func() {
-				cr.Run(closeCh)
+				cr.Run(stopCh)
 			}()
 
 			// Apply request operations

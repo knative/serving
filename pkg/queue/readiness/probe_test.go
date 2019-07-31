@@ -29,12 +29,9 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	logtesting "knative.dev/pkg/logging/testing"
 )
 
 func TestNewProbe(t *testing.T) {
-	defer logtesting.ClearAll()
-
 	v1p := &corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   1,
@@ -48,7 +45,7 @@ func TestNewProbe(t *testing.T) {
 		},
 	}
 
-	p := NewProbe(v1p, logtesting.TestLogger(t))
+	p := NewProbe(v1p)
 
 	if diff := cmp.Diff(p.Probe, v1p); diff != "" {
 		t.Errorf("NewProbe (-want, +got) = %v", diff)
@@ -60,9 +57,7 @@ func TestNewProbe(t *testing.T) {
 }
 
 func TestTCPFailure(t *testing.T) {
-	defer logtesting.ClearAll()
-
-	pb := newProbe(&corev1.Probe{
+	pb := NewProbe(&corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   1,
 		SuccessThreshold: 1,
@@ -73,7 +68,7 @@ func TestTCPFailure(t *testing.T) {
 				Port: intstr.FromInt(12345),
 			},
 		},
-	}, t)
+	})
 
 	if pb.ProbeContainer() {
 		t.Error("Reported success when no server was available for connection")
@@ -81,15 +76,13 @@ func TestTCPFailure(t *testing.T) {
 }
 
 func TestEmptyHandler(t *testing.T) {
-	defer logtesting.ClearAll()
-
-	pb := newProbe(&corev1.Probe{
+	pb := NewProbe(&corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   1,
 		SuccessThreshold: 1,
 		FailureThreshold: 1,
 		Handler:          corev1.Handler{},
-	}, t)
+	})
 
 	if pb.ProbeContainer() {
 		t.Error("Reported success when no handler was configured.")
@@ -97,9 +90,7 @@ func TestEmptyHandler(t *testing.T) {
 }
 
 func TestExecHandler(t *testing.T) {
-	defer logtesting.ClearAll()
-
-	pb := newProbe(&corev1.Probe{
+	pb := NewProbe(&corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   1,
 		SuccessThreshold: 1,
@@ -108,7 +99,7 @@ func TestExecHandler(t *testing.T) {
 			Exec: &corev1.ExecAction{
 				Command: []string{"echo", "hello"},
 			}},
-	}, t)
+	})
 
 	if pb.ProbeContainer() {
 		t.Error("Expected ExecProbe to always fail")
@@ -116,8 +107,6 @@ func TestExecHandler(t *testing.T) {
 }
 
 func TestTCPSuccess(t *testing.T) {
-	defer logtesting.ClearAll()
-
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -130,7 +119,7 @@ func TestTCPSuccess(t *testing.T) {
 
 	t.Log("Port", tsURL.Port())
 
-	pb := newProbe(&corev1.Probe{
+	pb := NewProbe(&corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   2,
 		SuccessThreshold: 1,
@@ -141,7 +130,7 @@ func TestTCPSuccess(t *testing.T) {
 				Port: intstr.FromString(tsURL.Port()),
 			},
 		},
-	}, t)
+	})
 
 	if !pb.ProbeContainer() {
 		t.Error("Probe report failure. Expected success.")
@@ -149,9 +138,7 @@ func TestTCPSuccess(t *testing.T) {
 }
 
 func TestHTTPFailureToConnect(t *testing.T) {
-	defer logtesting.ClearAll()
-
-	pb := newProbe(&corev1.Probe{
+	pb := NewProbe(&corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   2,
 		SuccessThreshold: 1,
@@ -163,7 +150,7 @@ func TestHTTPFailureToConnect(t *testing.T) {
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
-	}, t)
+	})
 
 	if pb.ProbeContainer() {
 		t.Error("Reported success when no server was available for connection")
@@ -171,8 +158,6 @@ func TestHTTPFailureToConnect(t *testing.T) {
 }
 
 func TestHTTPBadResponse(t *testing.T) {
-	defer logtesting.ClearAll()
-
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 	}))
@@ -183,7 +168,7 @@ func TestHTTPBadResponse(t *testing.T) {
 		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
 	}
 
-	pb := newProbe(&corev1.Probe{
+	pb := NewProbe(&corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   5,
 		SuccessThreshold: 1,
@@ -195,7 +180,7 @@ func TestHTTPBadResponse(t *testing.T) {
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
-	}, t)
+	})
 
 	if pb.ProbeContainer() {
 		t.Error("Reported success when server replied with Bad Request")
@@ -203,8 +188,6 @@ func TestHTTPBadResponse(t *testing.T) {
 }
 
 func TestHTTPSuccess(t *testing.T) {
-	defer logtesting.ClearAll()
-
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -215,7 +198,7 @@ func TestHTTPSuccess(t *testing.T) {
 		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
 	}
 
-	pb := newProbe(&corev1.Probe{
+	pb := NewProbe(&corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   5,
 		SuccessThreshold: 1,
@@ -227,7 +210,7 @@ func TestHTTPSuccess(t *testing.T) {
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
-	}, t)
+	})
 
 	if !pb.ProbeContainer() {
 		t.Error("Probe failed. Expected success.")
@@ -235,8 +218,6 @@ func TestHTTPSuccess(t *testing.T) {
 }
 
 func TestHTTPTimeout(t *testing.T) {
-	defer logtesting.ClearAll()
-
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(3 * time.Second)
 		w.WriteHeader(http.StatusOK)
@@ -248,7 +229,7 @@ func TestHTTPTimeout(t *testing.T) {
 		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
 	}
 
-	pb := newProbe(&corev1.Probe{
+	pb := NewProbe(&corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   2,
 		SuccessThreshold: 1,
@@ -259,7 +240,7 @@ func TestHTTPTimeout(t *testing.T) {
 				Port: intstr.FromString(tsURL.Port()),
 			},
 		},
-	}, t)
+	})
 
 	if pb.ProbeContainer() {
 		t.Error("Probe succeeded. Expected failure due to timeout.")
@@ -267,8 +248,6 @@ func TestHTTPTimeout(t *testing.T) {
 }
 
 func TestHTTPSuccessWithDelay(t *testing.T) {
-	defer logtesting.ClearAll()
-
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(200 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
@@ -280,7 +259,7 @@ func TestHTTPSuccessWithDelay(t *testing.T) {
 		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
 	}
 
-	pb := newProbe(&corev1.Probe{
+	pb := NewProbe(&corev1.Probe{
 		PeriodSeconds:    1,
 		TimeoutSeconds:   2,
 		SuccessThreshold: 1,
@@ -292,7 +271,7 @@ func TestHTTPSuccessWithDelay(t *testing.T) {
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
-	}, t)
+	})
 
 	if !pb.ProbeContainer() {
 		t.Error("Probe failed. Wanted success.")
@@ -300,8 +279,6 @@ func TestHTTPSuccessWithDelay(t *testing.T) {
 }
 
 func TestKnHTTPSuccessWithRetry(t *testing.T) {
-	defer logtesting.ClearAll()
-
 	var count int32
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Fail the very first request.
@@ -318,7 +295,7 @@ func TestKnHTTPSuccessWithRetry(t *testing.T) {
 		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
 	}
 
-	pb := newProbe(&corev1.Probe{
+	pb := NewProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: 1,
@@ -330,7 +307,7 @@ func TestKnHTTPSuccessWithRetry(t *testing.T) {
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
-	}, t)
+	})
 
 	if !pb.ProbeContainer() {
 		t.Error("Probe failed. Expected success after retry.")
@@ -338,8 +315,6 @@ func TestKnHTTPSuccessWithRetry(t *testing.T) {
 }
 
 func TestKnHTTPSuccessWithThreshold(t *testing.T) {
-	defer logtesting.ClearAll()
-
 	var count int32
 	var threshold int32 = 3
 
@@ -354,7 +329,7 @@ func TestKnHTTPSuccessWithThreshold(t *testing.T) {
 		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
 	}
 
-	pb := newProbe(&corev1.Probe{
+	pb := NewProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: threshold,
@@ -366,7 +341,7 @@ func TestKnHTTPSuccessWithThreshold(t *testing.T) {
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
-	}, t)
+	})
 
 	if !pb.ProbeContainer() {
 		t.Error("Expected success after second attempt.")
@@ -378,8 +353,6 @@ func TestKnHTTPSuccessWithThreshold(t *testing.T) {
 }
 
 func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
-	defer logtesting.ClearAll()
-
 	var count int32
 	var threshold int32 = 3
 	var requestFailure int32 = 2
@@ -399,7 +372,7 @@ func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
 	}
 
-	pb := newProbe(&corev1.Probe{
+	pb := NewProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: threshold,
@@ -415,7 +388,7 @@ func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
-	}, t)
+	})
 
 	if !pb.ProbeContainer() {
 		t.Error("Expected success.")
@@ -427,8 +400,6 @@ func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 }
 
 func TestKnHTTPTimeoutFailure(t *testing.T) {
-	defer logtesting.ClearAll()
-
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(1 * time.Second)
 		w.WriteHeader(http.StatusOK)
@@ -440,7 +411,7 @@ func TestKnHTTPTimeoutFailure(t *testing.T) {
 		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
 	}
 
-	pb := newProbe(&corev1.Probe{
+	pb := NewProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: 1,
@@ -452,7 +423,7 @@ func TestKnHTTPTimeoutFailure(t *testing.T) {
 				Scheme: corev1.URISchemeHTTP,
 			},
 		},
-	}, t)
+	})
 
 	if pb.ProbeContainer() {
 		t.Error("Probe succeeded. Expected failure due to timeout.")
@@ -460,10 +431,14 @@ func TestKnHTTPTimeoutFailure(t *testing.T) {
 }
 
 func TestKnTCPProbeSuccess(t *testing.T) {
-	defer logtesting.ClearAll()
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("Error setting up tcp listener: %v", err)
+	}
+	defer listener.Close()
+	addr := listener.Addr().(*net.TCPAddr)
 
-	port := freePort(t)
-	pb := newProbe(&corev1.Probe{
+	pb := NewProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: 1,
@@ -471,16 +446,10 @@ func TestKnTCPProbeSuccess(t *testing.T) {
 		Handler: corev1.Handler{
 			TCPSocket: &corev1.TCPSocketAction{
 				Host: "127.0.0.1",
-				Port: intstr.FromInt(port),
+				Port: intstr.FromInt(addr.Port),
 			},
 		},
-	}, t)
-
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		t.Fatalf("Error setting up tcp listener: %s", err.Error())
-	}
-	defer listener.Close()
+	})
 
 	if !pb.ProbeContainer() {
 		t.Error("Got probe error. Wanted success.")
@@ -488,24 +457,20 @@ func TestKnTCPProbeSuccess(t *testing.T) {
 }
 
 func TestKnUnimplementedProbe(t *testing.T) {
-	defer logtesting.ClearAll()
-
-	pb := newProbe(&corev1.Probe{
+	pb := NewProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: 1,
 		FailureThreshold: 0,
 		Handler:          corev1.Handler{},
-	}, t)
+	})
 
 	if pb.ProbeContainer() {
 		t.Error("Got probe success. Wanted failure.")
 	}
 }
 func TestKnTCPProbeFailure(t *testing.T) {
-	defer logtesting.ClearAll()
-
-	pb := newProbe(&corev1.Probe{
+	pb := NewProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: 1,
@@ -516,7 +481,7 @@ func TestKnTCPProbeFailure(t *testing.T) {
 				Port: intstr.FromInt(12345),
 			},
 		},
-	}, t)
+	})
 
 	if pb.ProbeContainer() {
 		t.Error("Got probe success. Wanted failure.")
@@ -524,10 +489,14 @@ func TestKnTCPProbeFailure(t *testing.T) {
 }
 
 func TestKnTCPProbeSuccessWithThreshold(t *testing.T) {
-	defer logtesting.ClearAll()
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("Error setting up tcp listener: %v", err)
+	}
+	defer listener.Close()
+	addr := listener.Addr().(*net.TCPAddr)
 
-	port := freePort(t)
-	pb := newProbe(&corev1.Probe{
+	pb := NewProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: 3,
@@ -535,16 +504,10 @@ func TestKnTCPProbeSuccessWithThreshold(t *testing.T) {
 		Handler: corev1.Handler{
 			TCPSocket: &corev1.TCPSocketAction{
 				Host: "127.0.0.1",
-				Port: intstr.FromInt(port),
+				Port: intstr.FromInt(addr.Port),
 			},
 		},
-	}, t)
-
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		t.Fatalf("Error setting up tcp listener: %s", err.Error())
-	}
-	defer listener.Close()
+	})
 
 	if !pb.ProbeContainer() {
 		t.Error("Got probe error. Wanted success.")
@@ -556,11 +519,14 @@ func TestKnTCPProbeSuccessWithThreshold(t *testing.T) {
 }
 
 func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
-	defer logtesting.ClearAll()
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("Error setting up tcp listener: %v", err)
+	}
+	addr := listener.Addr().(*net.TCPAddr)
 
 	var successThreshold int32 = 3
-	port := freePort(t)
-	pb := newProbe(&corev1.Probe{
+	pb := NewProbe(&corev1.Probe{
 		PeriodSeconds:    0,
 		TimeoutSeconds:   0,
 		SuccessThreshold: successThreshold,
@@ -568,25 +534,21 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 		Handler: corev1.Handler{
 			TCPSocket: &corev1.TCPSocketAction{
 				Host: "127.0.0.1",
-				Port: intstr.FromInt(port),
+				Port: intstr.FromInt(addr.Port),
 			},
 		},
-	}, t)
+	})
 
 	connCount := 0
 	desiredConnCount := 4 // 1 conn from 1st server, 3 from 2nd server
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		t.Fatalf("Error setting up tcp listener: %s", err.Error())
-	}
 
 	errChan := make(chan bool, 1)
-	go func(errChan chan bool) {
+	go func() {
 		errChan <- pb.ProbeContainer()
-	}(errChan)
+	}()
 
 	if _, err = listener.Accept(); err != nil {
-		t.Fatalf("Failed to accept TCP conn: %s", err.Error())
+		t.Fatalf("Failed to accept TCP conn: %v", err)
 	}
 	connCount++
 
@@ -595,15 +557,15 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 	listener.Close()
 	time.Sleep(500 * time.Millisecond)
 
-	listener2, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	listener2, err := net.Listen("tcp", fmt.Sprintf(":%d", addr.Port))
 	if err != nil {
-		t.Fatalf("Error setting up tcp listener: %s", err.Error())
+		t.Fatalf("Error setting up tcp listener: %v", err)
 	}
 
 	for {
 		if connCount < desiredConnCount {
 			if _, err = listener2.Accept(); err != nil {
-				t.Fatalf("Failed to accept TCP conn: %s", err.Error())
+				t.Fatalf("Failed to accept TCP conn: %v", err)
 			}
 			connCount++
 		} else {
@@ -617,22 +579,5 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 	}
 	if pb.Count() != successThreshold {
 		t.Errorf("Expected count to be %d but got %d", successThreshold, pb.Count())
-	}
-}
-
-func freePort(t *testing.T) int {
-	listener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		t.Fatalf("Error setting up tcp listener: %s", err.Error())
-	}
-	listener.Close()
-	return listener.Addr().(*net.TCPAddr).Port
-}
-
-func newProbe(pb *corev1.Probe, t *testing.T) Probe {
-	return Probe{
-		Probe:  pb,
-		count:  0,
-		logger: logtesting.TestLogger(t),
 	}
 }
