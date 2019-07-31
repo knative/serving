@@ -109,7 +109,7 @@ func TestReconcileVirtualService_Create(t *testing.T) {
 	h.OnCreate(&sharedClient.Fake, "virtualservices", func(obj runtime.Object) HookResult {
 		got := obj.(*v1alpha3.VirtualService)
 		if diff := cmp.Diff(got, desired); diff != "" {
-			t.Logf("Unexpected Gateway (-want, +got): %v", diff)
+			t.Logf("Unexpected VirtualService (-want, +got): %v", diff)
 			return HookIncomplete
 		}
 		return HookComplete
@@ -142,7 +142,7 @@ func TestReconcileVirtualService_Update(t *testing.T) {
 	h.OnUpdate(&sharedClient.Fake, "virtualservices", func(obj runtime.Object) HookResult {
 		got := obj.(*v1alpha3.VirtualService)
 		if diff := cmp.Diff(got, desired); diff != "" {
-			t.Logf("Unexpected Gateway (-want, +got): %v", diff)
+			t.Logf("Unexpected VirtualService (-want, +got): %v", diff)
 			return HookIncomplete
 		}
 		return HookComplete
