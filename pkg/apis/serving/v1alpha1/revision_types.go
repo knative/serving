@@ -92,6 +92,18 @@ const (
 	DeprecatedRevisionServingStateRetired DeprecatedRevisionServingStateType = "Retired"
 )
 
+// RevisionRequestConcurrencyModelType is a type alias to avoid breaking clients.
+type RevisionRequestConcurrencyModelType = av1alpha1.AutoscalerRequestConcurrencyModelType
+
+const (
+	// RevisionRequestConcurrencyModelSingle redefines AutoscalerRequestConcurrencyModelSingle
+	// to avoid breaking clients.
+	RevisionRequestConcurrencyModelSingle = av1alpha1.AutoscalerRequestConcurrencyModelSingle
+	// RevisionRequestConcurrencyModelMulti redefines AutoscalerRequestConcurrencyModelMulti
+	// to avoid breaking clients.
+	RevisionRequestConcurrencyModelMulti = av1alpha1.AutoscalerRequestConcurrencyModelMulti
+)
+
 // RevisionSpec holds the desired state of the Revision (from the client).
 type RevisionSpec struct {
 	v1beta1.RevisionSpec `json:",inline"`

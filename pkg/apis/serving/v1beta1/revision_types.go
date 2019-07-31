@@ -68,6 +68,14 @@ type RevisionTemplateSpec struct {
 	Spec RevisionSpec `json:"spec,omitempty"`
 }
 
+// RevisionContainerConcurrencyType is a type alias to avoid breaking clients.
+type RevisionContainerConcurrencyType = av1alpha1.AutoscalerContainerConcurrencyType
+
+const (
+	// RevisionContainerConcurrencyMax redefines AutoscalerContainerConcurrencyMax to avoid breaking clients.
+	RevisionContainerConcurrencyMax RevisionContainerConcurrencyType = 1000
+)
+
 // RevisionSpec holds the desired state of the Revision (from the client).
 type RevisionSpec struct {
 	corev1.PodSpec `json:",inline"`
