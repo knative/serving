@@ -45,6 +45,7 @@ const (
 // Also, traffic that targets revisions *directly* will be routed to the correct
 // revision 100% of the time.
 func TestBlueGreenRoute(t *testing.T) {
+	t.Fatalf("force failure to test retryer")
 	t.Parallel()
 	clients := test.Setup(t)
 
