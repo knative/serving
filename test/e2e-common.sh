@@ -185,6 +185,12 @@ function install_knative_serving_standard() {
     else
       INSTALL_RELEASE_YAML="${SERVING_ALPHA_YAML}"
     fi
+
+    # install serving core if installing for Gloo
+    if [[ -n "${GLOO_VERSION}" ]]; then
+      INSTALL_RELEASE_YAML="${SERVING_CORE_YAML}"
+    fi
+
     if (( INSTALL_MONITORING )); then
       INSTALL_MONITORING_YAML="${MONITORING_YAML}"
     fi
