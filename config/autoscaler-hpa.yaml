@@ -19,6 +19,7 @@ metadata:
   namespace: knative-serving
   labels:
     serving.knative.dev/release: devel
+    autoscaling.knative.dev/autoscaler-provider: hpa
 spec:
   replicas: 1
   selector:
