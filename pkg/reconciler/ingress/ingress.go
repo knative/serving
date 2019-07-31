@@ -32,6 +32,7 @@ import (
 	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	podinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/pod"
 	secretinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret"
 	"knative.dev/pkg/tracker"
 
@@ -88,6 +89,8 @@ type BaseIngressReconciler struct {
 
 	Tracker   tracker.Interface
 	Finalizer string
+
+	StatusManager StatusManager
 }
 
 // NewBaseIngressReconciler creates a new BaseIngressReconciler
@@ -128,6 +131,8 @@ func (r *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 
 	r.Logger.Info("Setting up Ingress event handlers")
 	ingressInformer := ingressinformer.Get(ctx)
+	gatewayInformer := gatewayinformer.Get(ctx)
+	podInformer := podinformer.Get(ctx)
 
 	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
 	ingressHandler := cache.FilteringResourceEventHandler{
@@ -154,6 +159,25 @@ func (r *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 	configStore.WatchConfigs(cmw)
 	r.ConfigStore = configStore
 
+	r.Logger.Info("Setting up StatusManager")
+	resyncIngressOnVirtualServiceReady := func(vs *v1alpha3.VirtualService) {
+		// Reconcile when a VirtualService becomes ready
+		impl.EnqueueLabelOfNamespaceScopedResource(serving.RouteNamespaceLabelKey, serving.RouteLabelKey)(vs)
+	}
+	statusProber := NewStatusProber(r.Logger.Named("status-manager"), gatewayInformer.Lister(),
+		podInformer.Lister(), network.NewAutoTransport, resyncIngressOnVirtualServiceReady)
+	r.StatusManager = statusProber
+	statusProber.Start(ctx.Done())
+
+	virtualServiceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		// Cancel probing when a VirtualService is deleted
+		DeleteFunc: func(obj interface{}) {
+			vs, ok := obj.(*v1alpha3.VirtualService)
+			if ok {
+				statusProber.Cancel(vs)
+			}
+		},
+	})
 }
 
 // SetupSecretTracker initializes Secret Tracker
@@ -247,7 +271,11 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 	ia.GetStatus().InitializeConditions()
 	logger.Infof("Reconciling ingress: %#v", ia)
 
-	vses := resources.MakeVirtualServices(ia, qualifiedGatewayNamesFromContext(ctx))
+	gatewayNames := qualifiedGatewayNamesFromContext(ctx)
+	vses, err := resources.MakeVirtualServices(ia, gatewayNames)
+	if err != nil {
+		return err
+	}
 
 	// First, create the VirtualServices.
 	logger.Infof("Creating/Updating VirtualServices")
@@ -291,17 +319,30 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 		}
 	}
 
-	// As underlying network programming (VirtualService now) is stateless,
-	// here we simply mark the ingress as ready if the VirtualService
-	// is successfully synced.
+	// Update status
 	ia.GetStatus().MarkNetworkConfigured()
-
-	lbs := getLBStatus(gatewayServiceURLFromContext(ctx, ia))
-	publicLbs := getLBStatus(publicGatewayServiceURLFromContext(ctx))
-	privateLbs := getLBStatus(privateGatewayServiceURLFromContext(ctx))
-
-	ia.GetStatus().MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
 	ia.GetStatus().ObservedGeneration = ia.GetGeneration()
+
+	lbReady := true
+	for _, vs := range vses {
+		ready, err := r.StatusManager.IsReady(vs)
+		if err != nil {
+			return fmt.Errorf("failed to probe VirtualService %s/%s: %v", vs.Namespace, vs.Name, err)
+		}
+
+		// We don't break as soon as one VirtualService is not ready because IsReady
+		// need to be called on every VirtualService to trigger polling.
+		lbReady = lbReady && ready
+	}
+	if lbReady {
+		lbs := getLBStatus(gatewayServiceURLFromContext(ctx, ia))
+		publicLbs := getLBStatus(publicGatewayServiceURLFromContext(ctx))
+		privateLbs := getLBStatus(privateGatewayServiceURLFromContext(ctx))
+
+		ia.GetStatus().MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
+	} else {
+		ia.GetStatus().MarkLoadBalancerPending()
+	}
 
 	// TODO(zhiminx): Mark Route status to indicate that Gateway is configured.
 	logger.Info("ClusterIngress successfully synced")

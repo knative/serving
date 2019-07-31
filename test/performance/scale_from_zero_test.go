@@ -26,15 +26,15 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/knative/test-infra/shared/junit"
-	perf "github.com/knative/test-infra/shared/performance"
-	"github.com/knative/test-infra/shared/testgrid"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
 	ktest "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 	v1a1test "knative.dev/serving/test/v1alpha1"
+	"knative.dev/test-infra/shared/junit"
+	perf "knative.dev/test-infra/shared/performance"
+	"knative.dev/test-infra/shared/testgrid"
 
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/zipkin"

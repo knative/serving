@@ -74,7 +74,12 @@ func New(
 	// momentarily scale down, and that is not a desired behaviour.
 	// Thus, we're keeping at least the current scale until we
 	// accumulate enough data to make conscious decisions.
-	curC, _ := podCounter.ReadyCount()
+	curC, err := podCounter.ReadyCount()
+	if err != nil {
+		// This always happens on new revision creation, since decider
+		// is reconciled before SKS has even chance of creating the service/endpoints.
+		curC = 0
+	}
 	var pt *time.Time
 	if curC > 1 {
 		pt = ptr.Time(time.Now())

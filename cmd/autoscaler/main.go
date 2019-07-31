@@ -39,7 +39,6 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/serving/pkg/autoscaler/statserver"
-	"knative.dev/serving/pkg/reconciler/autoscaling/hpa"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa"
 	"knative.dev/serving/pkg/reconciler/metric"
 	"knative.dev/serving/pkg/resources"
@@ -120,10 +119,8 @@ func main() {
 	// uniScalerFactory depends endpointsInformer to be set.
 	multiScaler := autoscaler.NewMultiScaler(ctx.Done(), uniScalerFactoryFunc(endpointsInformer, collector), logger)
 
-	psInformerFactory := resources.NewPodScalableInformerFactory(ctx)
 	controllers := []*controller.Impl{
-		kpa.NewController(ctx, cmw, multiScaler, psInformerFactory),
-		hpa.NewController(ctx, cmw, psInformerFactory),
+		kpa.NewController(ctx, cmw, multiScaler),
 		metric.NewController(ctx, cmw, collector),
 	}
 

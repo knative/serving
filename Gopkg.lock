@@ -57,21 +57,6 @@
   version = "v0.1.1"
 
 [[projects]]
-  digest = "1:689c8d24888f03cab536bfa11076e914c58e4d033d2b70f7abef304aa3583c09"
-  name = "fortio.org/fortio"
-  packages = [
-    "fhttp",
-    "fnet",
-    "log",
-    "periodic",
-    "stats",
-    "version",
-  ]
-  pruneopts = "NUT"
-  revision = "fd8f4a7177e9ea509f27105ae4e55e6c68ece6f7"
-  version = "v1.3.1"
-
-[[projects]]
   digest = "1:042dd95511f495f6e7c0ad6a9398b8c5c77bf940efa6e568cbac9f818401f36a"
   name = "github.com/Azure/azure-sdk-for-go"
   packages = ["arm/containerregistry"]
@@ -611,30 +596,6 @@
   pruneopts = "NUT"
   revision = "0b417c4ec4a8a82eecc22a1459a504aa55163d61"
   version = "v1.4.0"
-
-[[projects]]
-  branch = "master"
-  digest = "1:a6fc81d3a99909ed9d1a3a086e06d9dd3bd5eb407780c09db2e346b23161cfbc"
-  name = "github.com/knative/test-infra"
-  packages = [
-    "scripts",
-    "shared/common",
-    "shared/gcs",
-    "shared/junit",
-    "shared/loadgenerator",
-    "shared/performance",
-    "shared/prometheus",
-    "shared/prow",
-    "shared/testgrid",
-    "tools/dep-collector",
-    "tools/webhook-apicoverage/coveragecalculator",
-    "tools/webhook-apicoverage/resourcetree",
-    "tools/webhook-apicoverage/tools",
-    "tools/webhook-apicoverage/view",
-    "tools/webhook-apicoverage/webhook",
-  ]
-  pruneopts = "UT"
-  revision = "88caf452c91594b30b06b2b62c1ece171d77415c"
 
 [[projects]]
   digest = "1:58999a98719fddbac6303cb17e8d85b945f60b72f48e3a2df6b950b97fa926f1"
@@ -1733,6 +1694,8 @@
     "injection/informers/kubeinformers/corev1/configmap/fake",
     "injection/informers/kubeinformers/corev1/endpoints",
     "injection/informers/kubeinformers/corev1/endpoints/fake",
+    "injection/informers/kubeinformers/corev1/pod",
+    "injection/informers/kubeinformers/corev1/pod/fake",
     "injection/informers/kubeinformers/corev1/secret",
     "injection/informers/kubeinformers/corev1/secret/fake",
     "injection/informers/kubeinformers/corev1/service",
@@ -1770,6 +1733,29 @@
   pruneopts = "T"
   revision = "cb7014ea6ef60a6dfe23f5506703f84dd6310e15"
 
+[[projects]]
+  branch = "master"
+  digest = "1:73b36402c2ed414292b2ee5b30de67d55519c7cce9b33d81aca8c4fab2d85117"
+  name = "knative.dev/test-infra"
+  packages = [
+    "scripts",
+    "shared/common",
+    "shared/gcs",
+    "shared/junit",
+    "shared/performance",
+    "shared/prometheus",
+    "shared/prow",
+    "shared/testgrid",
+    "tools/dep-collector",
+    "tools/webhook-apicoverage/coveragecalculator",
+    "tools/webhook-apicoverage/resourcetree",
+    "tools/webhook-apicoverage/tools",
+    "tools/webhook-apicoverage/view",
+    "tools/webhook-apicoverage/webhook",
+  ]
+  pruneopts = "UT"
+  revision = "0cc427ae355abc72227fc2effaf017c9ded669b4"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
@@ -1791,19 +1777,6 @@
     "github.com/gorilla/websocket",
     "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1",
     "github.com/kelseyhightower/envconfig",
-    "github.com/knative/test-infra/scripts",
-    "github.com/knative/test-infra/shared/common",
-    "github.com/knative/test-infra/shared/junit",
-    "github.com/knative/test-infra/shared/loadgenerator",
-    "github.com/knative/test-infra/shared/performance",
-    "github.com/knative/test-infra/shared/prometheus",
-    "github.com/knative/test-infra/shared/prow",
-    "github.com/knative/test-infra/shared/testgrid",
-    "github.com/knative/test-infra/tools/dep-collector",
-    "github.com/knative/test-infra/tools/webhook-apicoverage/resourcetree",
-    "github.com/knative/test-infra/tools/webhook-apicoverage/tools",
-    "github.com/knative/test-infra/tools/webhook-apicoverage/view",
-    "github.com/knative/test-infra/tools/webhook-apicoverage/webhook",
     "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/cmd",
     "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/provider",
     "github.com/mattbaird/jsonpatch",
@@ -1828,6 +1801,7 @@
     "go.uber.org/atomic",
     "go.uber.org/zap",
     "go.uber.org/zap/zapcore",
+    "go.uber.org/zap/zaptest",
     "golang.org/x/net/context",
     "golang.org/x/net/http2",
     "golang.org/x/net/http2/h2c",
@@ -1848,6 +1822,7 @@
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
     "k8s.io/apimachinery/pkg/runtime/serializer",
+    "k8s.io/apimachinery/pkg/selection",
     "k8s.io/apimachinery/pkg/types",
     "k8s.io/apimachinery/pkg/util/intstr",
     "k8s.io/apimachinery/pkg/util/runtime",
@@ -1877,6 +1852,7 @@
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/record",
     "k8s.io/client-go/util/flowcontrol",
+    "k8s.io/client-go/util/workqueue",
     "k8s.io/code-generator/cmd/client-gen",
     "k8s.io/code-generator/cmd/deepcopy-gen",
     "k8s.io/code-generator/cmd/defaulter-gen",
@@ -1926,6 +1902,8 @@
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/configmap/fake",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints/fake",
+    "knative.dev/pkg/injection/informers/kubeinformers/corev1/pod",
+    "knative.dev/pkg/injection/informers/kubeinformers/corev1/pod/fake",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret/fake",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/service",
@@ -1956,6 +1934,18 @@
     "knative.dev/pkg/version",
     "knative.dev/pkg/webhook",
     "knative.dev/pkg/websocket",
+    "knative.dev/test-infra/scripts",
+    "knative.dev/test-infra/shared/common",
+    "knative.dev/test-infra/shared/junit",
+    "knative.dev/test-infra/shared/performance",
+    "knative.dev/test-infra/shared/prometheus",
+    "knative.dev/test-infra/shared/prow",
+    "knative.dev/test-infra/shared/testgrid",
+    "knative.dev/test-infra/tools/dep-collector",
+    "knative.dev/test-infra/tools/webhook-apicoverage/resourcetree",
+    "knative.dev/test-infra/tools/webhook-apicoverage/tools",
+    "knative.dev/test-infra/tools/webhook-apicoverage/view",
+    "knative.dev/test-infra/tools/webhook-apicoverage/webhook",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

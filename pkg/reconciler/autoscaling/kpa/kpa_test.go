@@ -946,7 +946,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	watcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
 
 	fakeDeciders := newTestDeciders()
-	ctl := NewController(ctx, watcher, fakeDeciders, presources.NewPodScalableInformerFactory(ctx))
+	ctl := NewController(ctx, watcher, fakeDeciders)
 
 	// Load default config
 	watcher.OnChange(&corev1.ConfigMap{
@@ -1016,7 +1016,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	ctx, _ := SetupFakeContext(t)
 
 	fakeDeciders := newTestDeciders()
-	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders, presources.NewPodScalableInformerFactory(ctx))
+	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders)
 
 	rev := newTestRevision(testNamespace, testRevision)
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -1083,7 +1083,7 @@ func TestUpdate(t *testing.T) {
 	ctx, _ := SetupFakeContext(t)
 
 	fakeDeciders := newTestDeciders()
-	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders, presources.NewPodScalableInformerFactory(ctx))
+	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders)
 
 	rev := newTestRevision(testNamespace, testRevision)
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -1158,7 +1158,7 @@ func TestNoEndpoints(t *testing.T) {
 	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
 
-	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders(), presources.NewPodScalableInformerFactory(ctx))
+	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders())
 
 	rev := newTestRevision(testNamespace, testRevision)
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -1189,7 +1189,7 @@ func TestEmptyEndpoints(t *testing.T) {
 	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
 
-	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders(), presources.NewPodScalableInformerFactory(ctx))
+	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders())
 
 	rev := newTestRevision(testNamespace, testRevision)
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -1227,9 +1227,7 @@ func TestControllerCreateError(t *testing.T) {
 		&failingDeciders{
 			getErr:    apierrors.NewNotFound(asv1a1.Resource("Deciders"), key),
 			createErr: want,
-		},
-		presources.NewPodScalableInformerFactory(ctx),
-	)
+		})
 
 	kpa := revisionresources.MakePA(newTestRevision(testNamespace, testRevision))
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
@@ -1254,9 +1252,7 @@ func TestControllerUpdateError(t *testing.T) {
 		&failingDeciders{
 			getErr:    apierrors.NewNotFound(asv1a1.Resource("Deciders"), key),
 			createErr: want,
-		},
-		presources.NewPodScalableInformerFactory(ctx),
-	)
+		})
 
 	kpa := revisionresources.MakePA(newTestRevision(testNamespace, testRevision))
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
@@ -1280,9 +1276,7 @@ func TestControllerGetError(t *testing.T) {
 	ctl := NewController(ctx, newConfigWatcher(),
 		&failingDeciders{
 			getErr: want,
-		},
-		presources.NewPodScalableInformerFactory(ctx),
-	)
+		})
 
 	kpa := revisionresources.MakePA(newTestRevision(testNamespace, testRevision))
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
@@ -1300,7 +1294,7 @@ func TestScaleFailure(t *testing.T) {
 	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
 
-	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders(), presources.NewPodScalableInformerFactory(ctx))
+	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders())
 
 	// Only put the KPA in the lister, which will prompt failures scaling it.
 	rev := newTestRevision(testNamespace, testRevision)

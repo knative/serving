@@ -19,7 +19,6 @@ package kpa
 import (
 	"context"
 
-	"knative.dev/pkg/apis/duck"
 	endpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints"
 	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
@@ -35,6 +34,7 @@ import (
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
+	presources "knative.dev/serving/pkg/resources"
 )
 
 const controllerAgentName = "kpa-class-podautoscaler-controller"
@@ -45,7 +45,6 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 	deciders resources.Deciders,
-	psInformerFactory duck.InformerFactory,
 ) *controller.Impl {
 
 	paInformer := painformer.Get(ctx)
@@ -53,6 +52,7 @@ func NewController(
 	serviceInformer := serviceinformer.Get(ctx)
 	endpointsInformer := endpointsinformer.Get(ctx)
 	metricInformer := metricinformer.Get(ctx)
+	psInformerFactory := presources.NewPodScalableInformerFactory(ctx)
 
 	c := &Reconciler{
 		Base: &areconciler.Base{

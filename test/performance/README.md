@@ -112,7 +112,7 @@ by using the
 For eg.
 
 ```go
-import perf "github.com/knative/test-infra/shared/performance"
+import perf "knative.dev/test-infra/shared/performance"
 testName := "TestPerformanceLatency"
 var tc []testgrid.TestCase
 for name, val := range metrics {
