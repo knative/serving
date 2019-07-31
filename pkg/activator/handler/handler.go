@@ -100,12 +100,20 @@ func withOrigProto(or *http.Request) prober.Preparer {
 	}
 }
 
-func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Request, target *url.URL) (bool, int) {
+func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Request, target *url.URL, revID activator.RevisionID) (bool, int) {
 	var (
 		attempts int
 		st       = time.Now()
 		url      = target.String()
 	)
+
+	// This opportunistically caches the probes, so
+	// a few concurrent requests might result in concurrent probes
+	// but requests coming after won't.
+	if !a.throttler.ShouldProbe(revID) {
+		return true, 0
+	}
+	logger.Debugf("Actually will be probing %s", url)
 
 	err := wait.PollImmediate(100*time.Millisecond, a.probeTimeout, func() (bool, error) {
 		attempts++
@@ -124,6 +132,9 @@ func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 			logger.Warn("Pod probe unsuccessful")
 			return false, nil
 		}
+
+		// Cache probe success.
+		a.throttler.MarkProbe(revID)
 		return true, nil
 	})
 
@@ -136,7 +147,6 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	name := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderName)
 	start := time.Now()
 	revID := activator.RevisionID{Namespace: namespace, Name: name}
-
 	logger := a.logger.With(zap.String(logkey.Key, revID.String()))
 
 	revision, err := a.revisionLister.Revisions(namespace).Get(name)
@@ -178,7 +188,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		a.logger.Debugf("Waiting for throttler took %v time", time.Since(tryStart))
 
 		probeCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
-		success, attempts := a.probeEndpoint(logger, r.WithContext(probeCtx), target)
+		success, attempts := a.probeEndpoint(logger, r.WithContext(probeCtx), target, revID)
 		probeSpan.End()
 
 		var httpStatus int
