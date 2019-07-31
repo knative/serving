@@ -215,22 +215,14 @@ func TestMetricCollectorRecord(t *testing.T) {
 		t.Error("StableAndPanicOPS() = nil, wanted an error")
 	}
 
-	// Record should delete outdated stat, which results in an empty collection.
+	// Add two stats. The second record operation will remove the first outdated one.
+	// After this the concurrencies are calculated correctly.
 	coll.Record(metricKey, outdatedStat)
-	coll.CreateOrUpdate(defaultMetric)
-	if _, _, err := coll.StableAndPanicConcurrency(metricKey, now); err == nil {
-		t.Error("StableAndPanicConcurrency() = nil, wanted an error")
-	}
-	if _, _, err := coll.StableAndPanicOPS(metricKey, now); err == nil {
-		t.Error("StableAndPanicOPS() = nil, wanted an error")
-	}
-
-	// After adding a stat the concurrencies are calculated correctly.
 	coll.Record(metricKey, stat)
-	if stable, panic, err := coll.StableAndPanicConcurrency(metricKey, now); stable != panic && stable != want && err != nil {
+	if stable, panic, err := coll.StableAndPanicConcurrency(metricKey, now); stable != panic || stable != want || err != nil {
 		t.Errorf("StableAndPanicConcurrency() = %v, %v, %v; want %v, %v, nil", stable, panic, err, want, want)
 	}
-	if stable, panic, err := coll.StableAndPanicOPS(metricKey, now); stable != panic && stable != want && err != nil {
+	if stable, panic, err := coll.StableAndPanicOPS(metricKey, now); stable != panic || stable != want || err != nil {
 		t.Errorf("StableAndPanicConcurrency() = %v, %v, %v; want %v, %v, nil", stable, panic, err, want, want)
 	}
 }
