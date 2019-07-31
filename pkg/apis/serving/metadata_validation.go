@@ -39,7 +39,7 @@ func ValidateObjectMetadata(meta metav1.Object) *apis.FieldError {
 func validateKnativeAnnotations(annotations map[string]string) (errs *apis.FieldError) {
 	for key := range annotations {
 		if strings.HasPrefix(key, GroupNamePrefix) && key != UpdaterAnnotation && key != CreatorAnnotation && key != RevisionLastPinnedAnnotationKey {
-			errs = errs.Also(apis.ErrInvalidKeyName(key, ""))
+			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
 		}
 	}
 	return
