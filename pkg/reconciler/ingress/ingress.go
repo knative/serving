@@ -19,6 +19,7 @@ package ingress
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 
 	"knative.dev/pkg/apis/istio/v1alpha3"
