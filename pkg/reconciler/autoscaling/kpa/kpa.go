@@ -236,7 +236,19 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, want int32, got int) error {
 	return nil
 }
 
-// computeActiveCondition updates the status of PA, depending on scales desired and present.
+// computeActiveCondition updates the status of a PA given the current scale (got), desired scale (want)
+// and the current status, as per the following table:
+//
+//    | Want | Got    | Status     | New status |
+//    | 0    | <any>  | <any>      | inactive   |
+//    | >0   | < min  | <any>      | activating |
+//    | >0   | >= min | <any>      | active     |
+//    | -1   | < min  | inactive   | inactive   |
+//    | -1   | < min  | activating | activating |
+//    | -1   | < min  | active     | activating |
+//    | -1   | >= min | inactive   | inactive   |
+//    | -1   | >= min | activating | active     |
+//    | -1   | >= min | active     | active     |
 func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want int32, got int) {
 	minReady := activeThreshold(pa)
 
