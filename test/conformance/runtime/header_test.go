@@ -132,7 +132,7 @@ var (
 	// token as defined in https://tools.ietf.org/html/rfc7230#section-3.2.6
 	tokenMatcher = regexp.MustCompile(`^[0-9a-zA-Z!#$%&'*+-.^_|~]+$`)
 	// approximation of quoted-string as defined in https://tools.ietf.org/html/rfc7230#section-3.2.6
-	quotedStringMatcher = regexp.MustCompile(`^"[^"]+"$`)
+	quotedStringMatcher = regexp.MustCompile(`^"[^"]*"$`)
 )
 
 func isDelimiter(r rune) bool {
