@@ -74,10 +74,7 @@ func New(
 	// momentarily scale down, and that is not a desired behaviour.
 	// Thus, we're keeping at least the current scale until we
 	// accumulate enough data to make conscious decisions.
-	curC, err := podCounter.ReadyCount()
-	if err != nil {
-		return nil, fmt.Errorf("initial pod count failed: %v", err)
-	}
+	curC, _ := podCounter.ReadyCount()
 	var pt *time.Time
 	if curC > 1 {
 		pt = ptr.Time(time.Now())

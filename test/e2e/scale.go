@@ -97,6 +97,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				}),
 				WithConfigAnnotations(map[string]string{
 					"autoscaling.knative.dev/maxScale": "1",
+					"autoscaling.knative.dev/minScale": "1",
 				}),
 				WithReadinessProbe(&corev1.Probe{
 					Handler: corev1.Handler{

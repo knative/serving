@@ -21,6 +21,7 @@ package v1alpha1
 import (
 	"path/filepath"
 	"testing"
+	"time"
 
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/test/logstream"
@@ -91,7 +92,7 @@ func TestConfigMapVolume(t *testing.T) {
 
 	// Setup initial Service
 	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, withVolume, withOptionalBadVolume); err != nil {
-		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
+		t.Fatalf("%s: Failed to create initial Service %v: %v", time.Now().Format("150405"), names.Service, err)
 	}
 
 	// Validate State after Creation

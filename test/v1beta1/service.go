@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/mattbaird/jsonpatch"
 	"github.com/pkg/errors"
@@ -112,7 +113,7 @@ func CreateServiceReady(t *testing.T, clients *test.Clients, names *test.Resourc
 		names.Service = svc.Name
 	}
 
-	t.Logf("Waiting for Service %q to transition to Ready.", names.Service)
+	t.Logf("%s: Waiting for Service %q to transition to Ready.", time.Now().Format("150405"), names.Service)
 	if err := WaitForServiceState(clients.ServingBetaClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
 		return nil, err
 	}
@@ -211,6 +212,7 @@ func WaitForServiceState(client *test.ServingBetaClients, name string, inState f
 	waitErr := wait.PollImmediate(interval, timeout, func() (bool, error) {
 		var err error
 		lastState, err = client.Services.Get(name, metav1.GetOptions{})
+		fmt.Printf("### last state: %+v\n", lastState)
 		if err != nil {
 			return true, err
 		}

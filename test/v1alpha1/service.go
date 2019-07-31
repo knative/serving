@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/mattbaird/jsonpatch"
 	"github.com/pkg/errors"
@@ -125,7 +126,7 @@ func CreateRunLatestServiceReady(t *testing.T, clients *test.Clients, names *tes
 		names.Service = svc.Name
 	}
 
-	t.Logf("Waiting for Service %q to transition to Ready.", names.Service)
+	t.Logf("%s: Waiting for Service %q to transition to Ready.", time.Now().Format("150405"), names.Service)
 	if err := WaitForServiceState(clients.ServingAlphaClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
 		return nil, err
 	}
@@ -314,6 +315,7 @@ func WaitForServiceState(client *test.ServingAlphaClients, name string, inState 
 		var err error
 		lastState, err = client.Services.Get(name, metav1.GetOptions{})
 		if err != nil {
+			fmt.Printf("### %s polling for %s", time.Now().Format("150405"), name)
 			return true, err
 		}
 		return inState(lastState)

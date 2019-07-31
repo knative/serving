@@ -200,7 +200,7 @@ func TestSecretVolume(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create secret: %v", err)
 	}
-	t.Logf("Successfully created secret: %v", secret)
+	t.Logf("%s: Successfully created secret: %v", time.Now().Format("150405"), secret)
 
 	cleanup := func() {
 		test.TearDown(clients, names)
