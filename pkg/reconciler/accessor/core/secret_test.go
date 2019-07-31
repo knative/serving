@@ -165,7 +165,7 @@ func setup(ctx context.Context, secrets []*corev1.Secret,
 	}
 
 	if err := controller.StartInformers(ctx.Done(), secretInformer.Informer()); err != nil {
-		t.Fatalf("failed to start virtualservice informer: %v", err)
+		t.Fatalf("failed to start secret informer: %v", err)
 	}
 
 	return &FakeAccessor{
