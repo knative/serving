@@ -191,6 +191,30 @@ func TestRevisionWatcher(t *testing.T) {
 			Body: queue.Name,
 		}},
 	}, {
+		name:  "one healthy one unhealthy podIP",
+		dests: []string{"128.0.0.1:1234", "128.0.0.2:1234"},
+		clusterPort: corev1.ServicePort{
+			Name: "http",
+			Port: 1234,
+		},
+		clusterIP: "129.0.0.1",
+		expectUpdates: []RevisionDestsUpdate{
+			{Dests: []string{"128.0.0.2:1234"}},
+		},
+		probeHostResponses: map[string][]activatortest.FakeResponse{
+			"129.0.0.1:1234": []activatortest.FakeResponse{{
+				Err: errors.New("clusterIP transport error"),
+			}},
+			"128.0.0.1:1234": []activatortest.FakeResponse{{
+				Err: errors.New("clusterIP transport error"),
+			}},
+			"128.0.0.2:1234": []activatortest.FakeResponse{{
+				Err:  nil,
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+		},
+	}, {
 		name:  "podIP slow ready then clusterIP",
 		dests: []string{"128.0.0.1:1234"},
 		clusterPort: corev1.ServicePort{
@@ -292,7 +316,7 @@ func TestRevisionWatcher(t *testing.T) {
 				case update := <-updateCh:
 					sort.Strings(update.Dests)
 					updates = append(updates, *update)
-				case <-time.After(100 * time.Millisecond):
+				case <-time.After(200 * time.Millisecond):
 					t.Errorf("Timed out waiting for update event")
 				}
 			}
@@ -352,19 +376,20 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			privateSksService(types.NamespacedName{"test-namespace", "test-revision"}, "129.0.0.1",
 				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
 		},
-		probeResponses: []activatortest.FakeResponse{{
-			Err: errors.New("clusterIP transport error"),
-		}, {
-			Err:  nil,
-			Code: http.StatusServiceUnavailable,
-			Body: queue.Name,
-		}, {
-			Err: errors.New("clusterIP transport error"),
-		}, {
-			Err:  nil,
-			Code: http.StatusOK,
-			Body: queue.Name,
-		}},
+		probeHostResponses: map[string][]activatortest.FakeResponse{
+			"129.0.0.1:1234": []activatortest.FakeResponse{{
+				Err: errors.New("clusterIP transport error"),
+			}},
+			"128.0.0.1:1234": []activatortest.FakeResponse{{
+				Err:  nil,
+				Code: http.StatusServiceUnavailable,
+				Body: queue.Name,
+			}, {
+				Err:  nil,
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+		},
 		expectDests: map[types.NamespacedName]RevisionDestsUpdate{
 			types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}: RevisionDestsUpdate{
 				Dests: []string{"128.0.0.1:1234"},
@@ -424,11 +449,6 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			"129.0.0.1:1234": []activatortest.FakeResponse{{Err: errors.New("clusterIP transport error")}},
 			"129.0.0.2:1234": []activatortest.FakeResponse{{Err: errors.New("clusterIP transport error")}},
 		},
-		probeResponses: []activatortest.FakeResponse{{
-			Err:  nil,
-			Code: http.StatusOK,
-			Body: queue.Name,
-		}},
 		expectDests: map[types.NamespacedName]RevisionDestsUpdate{
 			types.NamespacedName{Namespace: "test-namespace", Name: "test-revision1"}: RevisionDestsUpdate{
 				Dests: []string{"128.0.0.1:1234"},
@@ -547,7 +567,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 				case update := <-updateCh:
 					sort.Strings(update.Dests)
 					revDests[update.Rev] = *update
-				case <-time.After(100 * time.Millisecond):
+				case <-time.After(300 * time.Millisecond):
 					t.Errorf("Timed out waiting for update event")
 				}
 			}

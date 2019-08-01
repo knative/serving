@@ -188,9 +188,7 @@ func (rw *revisionWatcher) probePodIPs() (map[string]bool, error) {
 		})
 	}
 
-	if err := probeGroup.Wait(); err != nil {
-		return nil, err
-	}
+	err := probeGroup.Wait()
 	close(healthStatesCh)
 
 	healthStates := make(map[string]bool, len(rw.dests))
@@ -198,7 +196,7 @@ func (rw *revisionWatcher) probePodIPs() (map[string]bool, error) {
 		healthStates[dh.dest] = dh.health
 	}
 
-	return healthStates, nil
+	return healthStates, err
 }
 
 // checkDests performs probing and potentially sends a dests update. It is
