@@ -23,9 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
-
 	"go.uber.org/zap"
 
 	"knative.dev/pkg/controller"
@@ -45,9 +42,13 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	kubefake "k8s.io/client-go/kubernetes/fake"
+
 	_ "knative.dev/pkg/system/testing"
 )
 
@@ -55,6 +56,7 @@ const (
 	testNamespace         = "good-namespace"
 	testRevision          = "good-name"
 	defaultMaxConcurrency = 1000
+	defaultConcurrency    = 10
 	initCapacity          = 0
 )
 
@@ -70,10 +72,10 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		wantError      bool
 	}{{
 		label:          "all good",
-		revisionLister: revisionLister(testNamespace, testRevision, 10),
+		revisionLister: revisionLister(testNamespace, testRevision, defaultConcurrency),
 		numEndpoints:   1,
 		maxConcurrency: defaultMaxConcurrency,
-		want:           10,
+		want:           defaultConcurrency,
 	}, {
 		label:          "unlimited concurrency",
 		revisionLister: revisionLister(testNamespace, testRevision, 0),
@@ -82,14 +84,14 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		want:           1, // We're using infinity breaker, which is 0-1 only.
 	}, {
 		label:          "non-existing revision",
-		revisionLister: revisionLister("bogus-namespace", testRevision, 10),
+		revisionLister: revisionLister("bogus-namespace", testRevision, defaultConcurrency),
 		numEndpoints:   1,
 		maxConcurrency: defaultMaxConcurrency,
 		want:           0,
 		wantError:      true,
 	}, {
 		label:          "exceeds maxConcurrency",
-		revisionLister: revisionLister(testNamespace, testRevision, 10),
+		revisionLister: revisionLister(testNamespace, testRevision, defaultConcurrency),
 		numEndpoints:   1,
 		maxConcurrency: 5,
 		want:           5,
@@ -161,7 +163,7 @@ func TestThrottlerActivatorEndpoints(t *testing.T) {
 	}{{
 		name:                "less activators, more cc",
 		activatorCount:      2,
-		revisionConcurrency: 10,
+		revisionConcurrency: defaultConcurrency,
 		wantCapacity:        5, //revConcurrency / activatorCount
 	}, {
 		name:                "many activators, less cc",
@@ -217,28 +219,28 @@ func TestThrottlerTry(t *testing.T) {
 	}{{
 		label:             "all good",
 		addCapacity:       true,
-		revisionLister:    revisionLister(testNamespace, testRevision, 10),
+		revisionLister:    revisionLister(testNamespace, testRevision, defaultConcurrency),
 		endpointsInformer: endpointsInformer(testNamespace, testRevision, 0),
 		sksLister:         sksLister(testNamespace, testRevision),
 		wantCalls:         1,
 	}, {
 		label:             "non-existing revision",
 		addCapacity:       true,
-		revisionLister:    revisionLister("bogus-namespace", testRevision, 10),
+		revisionLister:    revisionLister("bogus-namespace", testRevision, defaultConcurrency),
 		endpointsInformer: endpointsInformer(testNamespace, testRevision, 0),
 		sksLister:         sksLister(testNamespace, testRevision),
 		wantCalls:         0,
 		wantError:         true,
 	}, {
 		label:             "error getting SKS",
-		revisionLister:    revisionLister(testNamespace, testRevision, 10),
+		revisionLister:    revisionLister(testNamespace, testRevision, defaultConcurrency),
 		endpointsInformer: endpointsInformer(testNamespace, testRevision, 1),
 		sksLister:         sksLister("bogus-namespace", testRevision),
 		wantCalls:         0,
 		wantError:         true,
 	}, {
 		label:             "error getting endpoint",
-		revisionLister:    revisionLister(testNamespace, testRevision, 10),
+		revisionLister:    revisionLister(testNamespace, testRevision, defaultConcurrency),
 		endpointsInformer: endpointsInformer("bogus-namespace", testRevision, 0),
 		sksLister:         sksLister(testNamespace, testRevision),
 		wantCalls:         0,
@@ -254,7 +256,6 @@ func TestThrottlerTry(t *testing.T) {
 				s.sksLister,
 				TestLogger(t),
 				initCapacity)
-
 			if s.addCapacity {
 				throttler.UpdateCapacity(revID, 1)
 			}
@@ -391,10 +392,10 @@ func TestHelper_ReactToEndpoints(t *testing.T) {
 	newEp.Subsets = endpointsSubset(10, 1)
 	fake.Core().Endpoints(ep.Namespace).Update(newEp)
 	wait.PollImmediate(updatePollInterval, updatePollTimeout, func() (bool, error) {
-		return breaker.Capacity() == 100, nil
+		return breaker.Capacity() == 10*defaultConcurrency, nil
 	})
-	if got := breaker.Capacity(); got != 100 {
-		t.Errorf("Capacity() = %d, want 100", got)
+	if got, want := breaker.Capacity(), 10*defaultConcurrency; got != want {
+		t.Errorf("Capacity() = %d, want %d", got, want)
 	}
 
 	// Removing the endpoints causes the breaker to be removed.
@@ -621,5 +622,49 @@ func BenchmarkThrottler(b *testing.B) {
 				})
 			})
 		}
+	}
+}
+
+func TestProbeCache(t *testing.T) {
+	cache := &probeCache{
+		probes: sets.NewString(),
+	}
+	revID := RevisionID{}
+	if !cache.should(revID) {
+		t.Error("should returned true")
+	}
+	cache.mark(revID)
+	if cache.should(revID) {
+		t.Error("should returned false")
+	}
+	cache.unmark(revID)
+	if !cache.should(revID) {
+		t.Error("should returned true")
+	}
+}
+
+func TestThrottlerCache(t *testing.T) {
+	thtl := getThrottler(
+		defaultConcurrency,
+		revisionLister(testNamespace, testRevision, defaultConcurrency),
+		endpointsInformer(testNamespace, testRevision, 1),
+		nil, /*sksLister*/
+		TestLogger(t),
+		0)
+	revID = RevisionID{}
+	if !thtl.ShouldProbe(revID) {
+		t.Error("Expected request to probe")
+	}
+	thtl.MarkProbe(revID)
+	if thtl.ShouldProbe(revID) {
+		t.Error("Expected no need to probe")
+	}
+	thtl.UpdateCapacity(revID, 0)
+	if !thtl.ShouldProbe(revID) {
+		t.Error("Expected request to probe after scale to 0")
+	}
+	thtl.UpdateCapacity(revID, 1)
+	if !thtl.ShouldProbe(revID) {
+		t.Error("Expected request to probe after scale to 1, but before any probe happened")
 	}
 }

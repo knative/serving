@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
+	"sync/atomic"
 
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
@@ -52,6 +53,8 @@ type FakeRoundTripper struct {
 	// Response to non-probe requests
 	RequestResponse *FakeResponse
 	responseMux     sync.Mutex
+
+	NumProbes int32
 }
 
 func defaultProbeResponse() *FakeResponse {
@@ -107,6 +110,7 @@ func (rt *FakeRoundTripper) popResponse(host string) *FakeResponse {
 // RT is a RoundTripperFunc
 func (rt *FakeRoundTripper) RT(req *http.Request) (*http.Response, error) {
 	if req.Header.Get(network.ProbeHeaderName) != "" {
+		atomic.AddInt32(&rt.NumProbes, 1)
 		resp := rt.popResponse(req.URL.Host)
 		if resp.Err != nil {
 			return nil, resp.Err
