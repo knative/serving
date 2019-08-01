@@ -132,7 +132,7 @@ func WithTargetAnnotation(target string) PodAutoscalerOption {
 
 // WithTUAnnotation returns a PodAutoscalerOption which sets
 // the PodAutoscaler autoscaling.knative.dev/targetUtilizationPercentage
-//  annotation to the provided value.
+// annotation to the provided value.
 func WithTUAnnotation(tu string) PodAutoscalerOption {
 	return withAnnotationValue(autoscaling.TargetUtilizationPercentageKey, tu)
 }
