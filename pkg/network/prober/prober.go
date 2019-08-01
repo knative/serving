@@ -90,7 +90,7 @@ func Do(ctx context.Context, transport http.RoundTripper, target string, ops ...
 			}
 		}
 	}
-	log.Printf("Probe response: %s\n", resp.StatusCode)
+	log.Printf("Probe response: %d\n", resp.StatusCode)
 	return resp.StatusCode == http.StatusOK, nil
 }
 
