@@ -21,8 +21,8 @@ export TEST_DIR="test/performance"
 # set up the user credentials for cluster operations
 setup_user
 
-# get and patch serving project
-get_and_patch_serving
+# get serving project
+get_serving
 
 
 header "Recreating all clusters"

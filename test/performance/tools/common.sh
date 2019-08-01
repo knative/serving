@@ -20,6 +20,7 @@ export MASTER_CLUSTER_NAME="update-serving"
 export MASTER_CLUSTER_ZONE="us-west1"
 export USER_NAME="mako-job@knative-performance.iam.gserviceaccount.com"
 export PROJ_ROOT_PATH="$GOPATH/src/source.cloud.google.com/knative-performance/performance"
+export PROJ_ROOT_PATH="$GOPATH/src/knative.dev/serving/test/performance"
 export CONTEXT_PREFIX="gke_${PROJECT_NAME}"
 export SOURCE_CONTEXT="${CONTEXT_PREFIX}_${MASTER_CLUSTER_ZONE}_${MASTER_CLUSTER_NAME}"
 
@@ -82,18 +83,12 @@ function create_new_cluster() {
 }
 
 # Get serving code and apply the patch to it.
-function get_and_patch_serving() {
+function get_serving() {
   header "Apply hpa patch"
   pushd .
   mkdir -p ${GOPATH}/src/knative.dev
   cd ${GOPATH}/src/knative.dev
-  git clone https://github.com/knative/serving.git
-
-  cd serving
-  echo "Using ko version $(ko version)"
-  echo "Patching autoscaler HPA replica count to 10"
-  git apply ${PROJ_ROOT_PATH}/tools/hpa_replicaCount.patch || fail_test "Failed to apply patch"
-  cd ..
+  git clone https://github.com/knative/serving.git  
   popd
 }
 
@@ -134,10 +129,15 @@ function update_cluster() {
   fi
   popd
 
+  # Update the activator hpa minReplicas to 10
+  kubectl patch hpa -n knative-serving activator \
+        --patch '{"spec": {"minReplicas": 10}}'
+
   echo ">> Applying all the yamls"
   # install the service and cronjob to run the benchmark
   # NOTE: this assumes we have a benchmark with the same name as the cluster
   # If service creation takes long time, we will have some intially unreachable errors in the test
   cd $PROJ_ROOT_PATH
+  echo "Using ko version $(ko version)"
   ko apply -f ${TEST_DIR}/$1 || fail_test "Failed to apply benchmarks yaml"
 }

@@ -22,7 +22,7 @@ export TEST_DIR="test/performance"
 setup_user
 
 # Checkout the latest serving config
-get_and_patch_serving
+get_serving
 
 # Get all clusters to update and ko apply config. Use newline to split
 header "Update all clusters"
