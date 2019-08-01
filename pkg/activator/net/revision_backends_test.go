@@ -259,7 +259,7 @@ func TestRevisionWatcher(t *testing.T) {
 			}
 			rt := network.RoundTripperFunc(fakeRt.RT)
 
-			updateCh := make(chan *RevisionDestsUpdate, len(tc.ticks))
+			updateCh := make(chan *RevisionDestsUpdate, len(tc.ticks)+1)
 			tickerCh := make(chan time.Time)
 			defer close(tickerCh)
 
