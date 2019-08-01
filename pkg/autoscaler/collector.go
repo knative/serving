@@ -132,6 +132,7 @@ func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
 		return err
 	}
 	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
+	c.logger.Info("Starting collection for ", key.String())
 
 	c.collectionsMutex.RLock()
 	collection, exists := c.collections[key]
@@ -161,7 +162,7 @@ func (c *MetricCollector) Delete(namespace, name string) error {
 	c.collectionsMutex.Lock()
 	defer c.collectionsMutex.Unlock()
 
-	c.logger.Debugf("Stopping metric collection of %s/%s", namespace, name)
+	c.logger.Infof("Stopping metric collection of %s/%s", namespace, name)
 
 	key := types.NamespacedName{Namespace: namespace, Name: name}
 	if collection, ok := c.collections[key]; ok {
