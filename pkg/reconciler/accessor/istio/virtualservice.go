@@ -52,7 +52,7 @@ func ReconcileVirtualService(ctx context.Context, owner kmeta.Accessor, desired 
 	name := desired.Name
 	vs, err := vsAccessor.GetVirtualServiceLister().VirtualServices(ns).Get(name)
 	if apierrs.IsNotFound(err) {
-		_, err = vsAccessor.GetSharedClient().NetworkingV1alpha3().VirtualServices(ns).Create(desired)
+		vs, err = vsAccessor.GetSharedClient().NetworkingV1alpha3().VirtualServices(ns).Create(desired)
 		if err != nil {
 			logger.Errorw("Failed to create VirtualService", zap.Error(err))
 			recorder.Eventf(owner, corev1.EventTypeWarning, "CreationFailed",
