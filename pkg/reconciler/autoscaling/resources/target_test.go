@@ -25,7 +25,7 @@ import (
 	. "knative.dev/serving/pkg/testing"
 )
 
-func TestResolveConcurrency(t *testing.T) {
+func TestResolveMetricTarget(t *testing.T) {
 	cases := []struct {
 		name    string
 		pa      *v1alpha1.PodAutoscaler

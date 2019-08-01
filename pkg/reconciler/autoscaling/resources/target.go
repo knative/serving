@@ -35,7 +35,6 @@ func ResolveMetricTarget(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) 
 	}
 
 	tu := config.ContainerConcurrencyTargetFraction
-
 	if v, ok := pa.TargetUtilization(); ok {
 		tu = v
 	}
