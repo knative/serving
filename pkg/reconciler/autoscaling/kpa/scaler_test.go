@@ -32,7 +32,6 @@ import (
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
-	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/activator"
@@ -424,7 +423,6 @@ func TestDisableScaleToZero(t *testing.T) {
 			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
 			revisionScaler := &scaler{
 				dynamicClient:     fakedynamicclient.Get(ctx),
-				logger:            logging.FromContext(ctx),
 				psInformerFactory: presources.NewPodScalableInformerFactory(ctx),
 			}
 			pa := newKPA(t, fakeservingclient.Get(ctx), revision)
