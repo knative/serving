@@ -139,15 +139,13 @@ func TestConfigurationSpecValidation(t *testing.T) {
 		c: &ConfigurationSpec{
 			Template: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
-					DeprecatedConcurrencyModel: "Multi",
 					DeprecatedContainer: &corev1.Container{
 						Image: "hellworld",
 					},
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields(
-			"template.spec.concurrencyModel", "template.spec.container"),
+		want: apis.ErrDisallowedFields("template.spec.container"),
 	}}
 
 	for _, test := range tests {

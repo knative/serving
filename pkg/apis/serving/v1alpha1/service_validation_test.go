@@ -64,7 +64,6 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: nil,
 	}, {
 		name: "invalid runLatest (has spec.generation)",
 		wc:   apis.DisallowDeprecated,
@@ -114,7 +113,6 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: nil,
 	}, {
 		name: "valid pinned (deprecated disallowed)",
 		wc:   apis.DisallowDeprecated,
@@ -164,7 +162,6 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: nil,
 	}, {
 		name: "valid release -- two revisions",
 		s: &Service{
@@ -187,7 +184,6 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: nil,
 	}, {
 		name: "valid manual",
 		s: &Service{
@@ -380,7 +376,6 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: nil,
 	}, {
 		name: "invalid release -- too few revisions; empty slice",
 		s: &Service{
@@ -601,39 +596,6 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: nil,
-	}, {
-		name: "invalid v1beta1 subset (deprecated field within inline spec)",
-		s: &Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "valid",
-			},
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: &RevisionTemplateSpec{
-						Spec: RevisionSpec{
-							DeprecatedConcurrencyModel: "Multi",
-							RevisionSpec: v1beta1.RevisionSpec{
-								PodSpec: corev1.PodSpec{
-									Containers: []corev1.Container{{
-										Image: "helloworld",
-									}},
-								},
-							},
-						},
-					},
-				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
-							RevisionName: "valid-00001",
-							Percent:      100,
-						},
-					}},
-				},
-			},
-		},
-		want: apis.ErrDisallowedFields("spec.template.spec.concurrencyModel"),
 	}, {
 		name: "valid v1beta1 subset (run latest)",
 		s: &Service{
@@ -664,7 +626,6 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: nil,
 	}, {
 		name: "valid inline",
 		// Should not affect anything.
@@ -696,11 +657,9 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: nil,
 	}}
 
 	// TODO(mattmoor): Add a test for default configurationName
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()

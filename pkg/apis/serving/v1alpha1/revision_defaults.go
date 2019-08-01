@@ -40,12 +40,6 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 		}
 	}
 
-	// When ConcurrencyModel is specified but ContainerConcurrency
-	// is not (0), use the ConcurrencyModel value.
-	if rs.DeprecatedConcurrencyModel == DeprecatedRevisionRequestConcurrencyModelSingle && rs.ContainerConcurrency == 0 {
-		rs.ContainerConcurrency = 1
-	}
-
 	// When the PodSpec has no containers, move the single Container
 	// into the PodSpec for the scope of defaulting and then move
 	// it back as we return.
