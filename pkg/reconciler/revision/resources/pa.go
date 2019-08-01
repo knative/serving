@@ -49,6 +49,9 @@ func MakePA(rev *v1alpha1.Revision) *av1alpha1.PodAutoscaler {
 				Name:       names.Deployment(rev),
 			},
 			ProtocolType: rev.GetProtocol(),
+			// TODO(vagababov): This actively removes it from the old resources that had it.
+			// Retire altogether in 0.9.
+			DeprecatedConcurrencyModel: "",
 		},
 	}
 }

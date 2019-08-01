@@ -73,7 +73,7 @@ type PodAutoscalerSpec struct {
 
 	// DeprecatedConcurrencyModel no longer does anything, use ContainerConcurrency.
 	// +optional
-	DeprecatedConcurrencyModel servingv1alpha1.RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
+	DeprecatedConcurrencyModel servingv1alpha1.DeprecatedRevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
 
 	// ContainerConcurrency specifies the maximum allowed
 	// in-flight (concurrent) requests per container of the Revision.
