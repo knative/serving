@@ -32,7 +32,7 @@ spec:
         resources:
           requests:
             cpu: 2000m
-            memory: 6Gi
+            memory: 2Gi
       volumes:
       - name: service-account
         secret:

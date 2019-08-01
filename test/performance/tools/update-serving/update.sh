@@ -16,8 +16,6 @@
 
 source $(dirname ${BASH_SOURCE})/../common.sh
 
-export TEST_DIR="test/performance"
-
 # set up the credential for cluster operations
 setup_user
 
