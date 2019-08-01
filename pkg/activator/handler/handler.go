@@ -32,8 +32,8 @@ import (
 
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/serving/pkg/activator"
+	revnet "knative.dev/serving/pkg/activator/net"
 	"knative.dev/serving/pkg/activator/util"
-	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	netlisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
@@ -240,15 +240,8 @@ func (a *activationHandler) serviceHostName(rev *v1alpha1.Revision, serviceName 
 	}
 
 	// Search for the appropriate port.
-	port := -1
-	wantName := networking.ServicePortName(rev.GetProtocol())
-	for _, p := range svc.Spec.Ports {
-		if p.Name == wantName {
-			port = int(p.Port)
-			break
-		}
-	}
-	if port == -1 {
+	port, ok := revnet.GetServicePort(rev.GetProtocol(), svc)
+	if !ok {
 		return "", errors.New("revision needs external HTTP port")
 	}
 
