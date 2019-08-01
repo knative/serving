@@ -58,6 +58,37 @@ function knative_setup() {
   install_latest_release
 }
 
+function test_upgrade() {
+  header "Running preupgrade tests with $CLIENT_TYPE client"
+
+  go_test_e2e -tags=preupgrade -timeout=${TIMEOUT} ./test/upgrade/${CLIENT_TYPE} \
+    --resolvabledomain=$(use_resolvable_domain) || fail_test
+
+  header "Starting prober test"
+
+  # Remove this in case we failed to clean it up in an earlier test.
+  rm -f /tmp/prober-signal
+
+  go_test_e2e -tags=probe -timeout=${TIMEOUT} ./test/upgrade \
+    --resolvabledomain=$(use_resolvable_domain) &
+  PROBER_PID=$!
+  echo "Prober PID is ${PROBER_PID}"
+
+  install_head
+
+  header "Running postupgrade tests"
+  go_test_e2e -tags=postupgrade -timeout=${TIMEOUT} ./test/upgrade/${CLIENT_TYPE} \
+    --resolvabledomain=$(use_resolvable_domain) || fail_test
+
+  # The prober is blocking on /tmp/prober-signal to know when it should exit.
+  #
+  # This is kind of gross. First attempt was to just send a signal to the go test,
+  # but "go test" intercepts the signal and always exits with a non-zero code.
+  echo "done" > /tmp/prober-signal
+
+  header "Waiting for prober test"
+  wait ${PROBER_PID} || fail_test "Prober failed"
+}
 # Script entry point.
 
 initialize $@ --skip-istio-addon
@@ -65,34 +96,17 @@ initialize $@ --skip-istio-addon
 # TODO(#2656): Reduce the timeout after we get this test to consistently passing.
 TIMEOUT=10m
 
-header "Running preupgrade tests"
 
-go_test_e2e -tags=preupgrade -timeout=${TIMEOUT} ./test/upgrade \
-  --resolvabledomain=$(use_resolvable_domain) || fail_test
+# Running upgrade test using v1alpha1 client
+CLIENT_TYPE=v1alpha1
+test_upgrade
 
-header "Starting prober test"
+# Running upgrade test using v1beta1 client
+CLIENT_TYPE=v1beta1
+test_upgrade
 
-# Remove this in case we failed to clean it up in an earlier test.
-rm -f /tmp/prober-signal
-
-go_test_e2e -tags=probe -timeout=${TIMEOUT} ./test/upgrade \
-  --resolvabledomain=$(use_resolvable_domain) &
-PROBER_PID=$!
-echo "Prober PID is ${PROBER_PID}"
-
-install_head
-
-header "Running postupgrade tests"
-go_test_e2e -tags=postupgrade -timeout=${TIMEOUT} ./test/upgrade \
-  --resolvabledomain=$(use_resolvable_domain) || fail_test
-
-# The prober is blocking on /tmp/prober-signal to know when it should exit.
-#
-# This is kind of gross. First attempt was to just send a signal to the go test,
-# but "go test" intercepts the signal and always exits with a non-zero code.
-echo "done" > /tmp/prober-signal
-
-header "Waiting for prober test"
-wait ${PROBER_PID} || fail_test "Prober failed"
+# Running upgrade test using dynamic client
+CLIENT_TYPE=dynamic
+test_upgrade
 
 success
