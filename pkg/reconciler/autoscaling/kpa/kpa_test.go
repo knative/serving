@@ -164,6 +164,10 @@ func markActive(pa *asv1a1.PodAutoscaler) {
 	pa.Status.MarkActive()
 }
 
+func markUnknown(pa *asv1a1.PodAutoscaler) {
+	pa.Status.MarkActivating("", "")
+}
+
 func markInactive(pa *asv1a1.PodAutoscaler) {
 	pa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
 }
@@ -631,6 +635,25 @@ func TestReconcile(t *testing.T) {
 			metric(testNamespace, testRevision, "a330-200"),
 			expectedDeploy,
 			makeSKSPrivateEndpoints(1, testNamespace, testRevision),
+		},
+	}, {
+		Name: "no endpoints",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, withMSvcStatus("a330-200x"), WithPAStatusService(testRevision)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector),
+				withMSvcName("a330-200x")),
+			metric(testNamespace, testRevision, "a330-200x"),
+			expectedDeploy,
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markUnknown, withMSvcStatus("a330-200x"), WithPAStatusService(testRevision)),
+		}},
+		WantErr: true,
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				`error checking endpoints test-revision-rand: endpoints "test-revision-rand" not found`),
 		},
 	}, {
 		Name: "metric-service-mismatch",
@@ -1307,68 +1330,6 @@ func TestUpdate(t *testing.T) {
 
 	if fakeDeciders.updateCallCount.Load() == 0 {
 		t.Fatal("Deciders.Update was not called")
-	}
-}
-
-func TestNoEndpoints(t *testing.T) {
-	defer logtesting.ClearAll()
-	ctx, _ := SetupFakeContext(t)
-
-	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders())
-
-	rev := newTestRevision(testNamespace, testRevision)
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
-
-	kpa := revisionresources.MakePA(rev)
-	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
-
-	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
-
-	// Wait for the Reconcile to complete.
-	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
-		t.Errorf("Reconcile() = %v", err)
-	}
-
-	newKPA, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
-		kpa.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("Get() = %v", err)
-	}
-	if cond := newKPA.Status.GetCondition("Ready"); cond == nil || cond.Status != "Unknown" {
-		t.Errorf("GetCondition(Ready) = %v, wanted Unknown", cond)
-	}
-}
-
-func TestEmptyEndpoints(t *testing.T) {
-	defer logtesting.ClearAll()
-	ctx, _ := SetupFakeContext(t)
-
-	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders())
-
-	rev := newTestRevision(testNamespace, testRevision)
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
-
-	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
-
-	kpa := revisionresources.MakePA(rev)
-	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
-
-	// Wait for the Reconcile to complete.
-	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
-		t.Errorf("Reconcile() = %v", err)
-	}
-
-	newKPA, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
-		kpa.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("Get() = %v", err)
-	}
-	if cond := newKPA.Status.GetCondition("Ready"); cond == nil || cond.Status != "Unknown" {
-		t.Errorf("GetCondition(Ready) = %v, wanted Unknown", cond)
 	}
 }
 
