@@ -23,7 +23,6 @@ import (
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/kmeta"
 	net "knative.dev/serving/pkg/apis/networking"
-	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
