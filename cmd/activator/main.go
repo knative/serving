@@ -115,6 +115,10 @@ type config struct {
 
 func main() {
 	flag.Parse()
+
+	// Set up signals so we handle the first shutdown signal gracefully.
+	ctx := signals.NewContext()
+
 	cm, err := configmap.Load("/etc/config-logging")
 	if err != nil {
 		log.Fatal("Error loading logging configuration:", err)
@@ -133,6 +137,7 @@ func main() {
 	if err != nil {
 		logger.Fatalw("Error getting cluster configuration", zap.Error(err))
 	}
+
 	kubeClient, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
 		logger.Fatalw("Error building new kubernetes client", zap.Error(err))
@@ -157,8 +162,6 @@ func main() {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
 
-	// Set up signals so we handle the first shutdown signal gracefully.
-	stopCh := signals.SetupSignalHandler()
 	statCh := make(chan *autoscaler.StatMessage, statReportingQueueLength)
 	defer close(statCh)
 
@@ -174,7 +177,7 @@ func main() {
 
 	// Run informers instead of starting them from the factory to prevent the sync hanging because of empty handler.
 	if err := controller.StartInformers(
-		stopCh,
+		ctx.Done(),
 		revisionInformer.Informer(),
 		endpointInformer.Informer(),
 		serviceInformer.Informer(),
@@ -212,7 +215,7 @@ func main() {
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s%s", "autoscaler", system.Namespace(), network.GetClusterDomainName(), autoscalerPort)
 	logger.Info("Connecting to autoscaler at", autoscalerEndpoint)
 	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
-	go statReporter(statSink, stopCh, statCh, logger)
+	go statReporter(statSink, ctx.Done(), statCh, logger)
 
 	var env config
 	if err := envconfig.Process("", &env); err != nil {
@@ -224,7 +227,7 @@ func main() {
 	reportTicker := time.NewTicker(time.Second)
 	defer reportTicker.Stop()
 	cr := activatorhandler.NewConcurrencyReporter(logger, podName, reqCh, reportTicker.C, statCh, revisionInformer.Lister(), reporter)
-	go cr.Run(stopCh)
+	go cr.Run(ctx.Done())
 
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
@@ -254,7 +257,7 @@ func main() {
 	configMapWatcher.Watch(metrics.ConfigMapName(), metrics.UpdateExporterFromConfigMap(component, logger))
 	// Watch the observability config map and dynamically update request logs.
 	configMapWatcher.Watch(metrics.ConfigMapName(), updateRequestLogFromConfigMap(logger, reqLogHandler))
-	if err = configMapWatcher.Start(stopCh); err != nil {
+	if err = configMapWatcher.Start(ctx.Done()); err != nil {
 		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
 	}
 
@@ -275,7 +278,7 @@ func main() {
 
 	// Exit as soon as we see a shutdown signal or one of the servers failed.
 	select {
-	case <-stopCh:
+	case <-ctx.Done():
 	case err := <-errCh:
 		logger.Errorw("Failed to run HTTP server", zap.Error(err))
 	}

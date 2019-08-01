@@ -53,6 +53,10 @@ var (
 
 func main() {
 	flag.Parse()
+
+	// Set up signals so we handle the first shutdown signal gracefully.
+	ctx := signals.NewContext()
+
 	cm, err := configmap.Load("/etc/config-logging")
 	if err != nil {
 		log.Fatal("Error loading logging configuration:", err)
@@ -66,9 +70,6 @@ func main() {
 	logger = logger.With(zap.String(logkey.ControllerType, component))
 
 	logger.Info("Starting the Configuration Webhook")
-
-	// Set up signals so we handle the first shutdown signal gracefully.
-	stopCh := signals.SetupSignalHandler()
 
 	clusterConfig, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
 	if err != nil {
@@ -94,7 +95,7 @@ func main() {
 	store := apiconfig.NewStore(logger.Named("config-store"))
 	store.WatchConfigs(configMapWatcher)
 
-	if err = configMapWatcher.Start(stopCh); err != nil {
+	if err = configMapWatcher.Start(ctx.Done()); err != nil {
 		logger.Fatalw("Failed to start the ConfigMap watcher", zap.Error(err))
 	}
 
@@ -135,7 +136,7 @@ func main() {
 		logger.Fatalw("Failed to create admission controller", zap.Error(err))
 	}
 
-	if err = controller.Run(stopCh); err != nil {
+	if err = controller.Run(ctx.Done()); err != nil {
 		logger.Fatalw("Failed to start the admission controller", zap.Error(err))
 	}
 }
