@@ -26,13 +26,19 @@ import (
 	"strconv"
 	"time"
 
+	// Injection related imports.
+	"knative.dev/pkg/injection"
+	"knative.dev/pkg/injection/clients/kubeclient"
+	endpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints"
+	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
+	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
+
 	"github.com/kelseyhightower/envconfig"
 	zipkin "github.com/openzipkin/zipkin-go"
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
-	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -48,8 +54,6 @@ import (
 	activatorhandler "knative.dev/serving/pkg/activator/handler"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/autoscaler"
-	clientset "knative.dev/serving/pkg/client/clientset/versioned"
-	servinginformers "knative.dev/serving/pkg/client/informers/externalversions"
 	"knative.dev/serving/pkg/goversion"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/logging"
@@ -83,8 +87,6 @@ const (
 
 	// The port on which autoscaler WebSocket server listens.
 	autoscalerPort = ":8080"
-
-	defaultResyncInterval = 10 * time.Hour
 )
 
 var (
@@ -133,19 +135,17 @@ func main() {
 
 	logger.Info("Starting the knative activator")
 
-	clusterConfig, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
+	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
 	if err != nil {
 		logger.Fatalw("Error getting cluster configuration", zap.Error(err))
 	}
 
-	kubeClient, err := kubernetes.NewForConfig(clusterConfig)
-	if err != nil {
-		logger.Fatalw("Error building new kubernetes client", zap.Error(err))
-	}
-	servingClient, err := clientset.NewForConfig(clusterConfig)
-	if err != nil {
-		logger.Fatalw("Error building serving clientset", zap.Error(err))
-	}
+	logger.Infof("Registering %d clients", len(injection.Default.GetClients()))
+	logger.Infof("Registering %d informer factories", len(injection.Default.GetInformerFactories()))
+	logger.Infof("Registering %d informers", len(injection.Default.GetInformers()))
+
+	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
+	kubeClient := kubeclient.Get(ctx)
 
 	// We sometimes startup faster than we can reach kube-api. Poll on failure to prevent us terminating
 	if perr := wait.PollImmediate(time.Second, 60*time.Second, func() (bool, error) {
@@ -168,20 +168,13 @@ func main() {
 	reqCh := make(chan activatorhandler.ReqEvent, requestCountingQueueLength)
 	defer close(reqCh)
 
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, defaultResyncInterval)
-	servingInformerFactory := servinginformers.NewSharedInformerFactory(servingClient, defaultResyncInterval)
-	endpointInformer := kubeInformerFactory.Core().V1().Endpoints()
-	serviceInformer := kubeInformerFactory.Core().V1().Services()
-	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
-	sksInformer := servingInformerFactory.Networking().V1alpha1().ServerlessServices()
+	endpointInformer := endpointsinformer.Get(ctx)
+	serviceInformer := serviceinformer.Get(ctx)
+	revisionInformer := revisioninformer.Get(ctx)
+	sksInformer := sksinformer.Get(ctx)
 
 	// Run informers instead of starting them from the factory to prevent the sync hanging because of empty handler.
-	if err := controller.StartInformers(
-		ctx.Done(),
-		revisionInformer.Informer(),
-		endpointInformer.Informer(),
-		serviceInformer.Informer(),
-		sksInformer.Informer()); err != nil {
+	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
 		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
