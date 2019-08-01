@@ -107,12 +107,6 @@ func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 		url      = target.String()
 	)
 
-	// This opportunistically caches the probes, so
-	// a few concurrent requests might result in concurrent probes
-	// but requests coming after won't.
-	if !a.throttler.ShouldProbe(revID) {
-		return true, 0
-	}
 	logger.Debugf("Actually will be probing %s", url)
 
 	err := wait.PollImmediate(100*time.Millisecond, a.probeTimeout, func() (bool, error) {
@@ -187,10 +181,15 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		trySpan.End()
 		a.logger.Debugf("Waiting for throttler took %v time", time.Since(tryStart))
 
-		probeCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
-		success, attempts := a.probeEndpoint(logger, r.WithContext(probeCtx), target, revID)
-		probeSpan.End()
-
+		// This opportunistically caches the probes, so
+		// a few concurrent requests might result in concurrent probes
+		// but requests coming after won't. When cached 0 attempts were required.
+		success, attempts := true, 0
+		if a.throttler.ShouldProbe(revID) {
+			probeCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
+			success, attempts = a.probeEndpoint(logger, r.WithContext(probeCtx), target, revID)
+			probeSpan.End()
+		}
 		var httpStatus int
 		if success {
 			// Once we see a successful probe, send traffic.

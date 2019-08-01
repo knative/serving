@@ -417,7 +417,7 @@ func newProbeCache() *probeCache {
 	}
 }
 
-// should returns true if we should probe the URL.
+// should returns true if we should probe the given revision.
 func (pc *probeCache) should(revID RevisionID) bool {
 	pc.mu.RLock()
 	defer pc.mu.RUnlock()
