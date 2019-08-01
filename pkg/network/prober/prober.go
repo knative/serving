@@ -19,6 +19,7 @@ package prober
 import (
 	"context"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -89,6 +90,7 @@ func Do(ctx context.Context, transport http.RoundTripper, target string, ops ...
 			}
 		}
 	}
+	log.Printf("Probe response: %s\n", resp.StatusCode)
 	return resp.StatusCode == http.StatusOK, nil
 }
 

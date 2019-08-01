@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"knative.dev/serving/pkg/network"
 	"net/http"
 	"reflect"
 	"strings"
@@ -68,6 +69,7 @@ type probingState struct {
 type workItem struct {
 	*probingState
 	podIP string
+	host string
 }
 
 // StatusManager provides a way to check if a VirtualService is ready
@@ -170,7 +172,7 @@ func (m *StatusProber) IsReady(vs *v1alpha3.VirtualService) (bool, error) {
 	state := &probingState{
 		virtualService: vs,
 		probeHost:      probeHost,
-		pendingCount:   int32(len(podIPs)),
+		pendingCount:   int32(len(podIPs) * len(vs.Spec.Hosts)),
 		lastAccessed:   time.Now(),
 		context:        ctx,
 		cancel:         cancel,
@@ -182,11 +184,14 @@ func (m *StatusProber) IsReady(vs *v1alpha3.VirtualService) (bool, error) {
 		m.probingStates[key] = state
 	}()
 	for _, podIP := range podIPs {
-		workItem := &workItem{
-			probingState: state,
-			podIP:        podIP,
+		for _, host := range vs.Spec.Hosts {
+			workItem := &workItem{
+				probingState: state,
+				podIP:        podIP,
+				host: host,
+			}
+			m.workQueue.AddRateLimited(workItem)
 		}
-		m.workQueue.AddRateLimited(workItem)
 	}
 
 	return len(podIPs) == 0, nil
@@ -260,7 +265,8 @@ func (m *StatusProber) processWorkItem() bool {
 		item.context,
 		m.transportFactory(),
 		fmt.Sprintf("http://%s/", item.podIP),
-		prober.WithHost(item.probeHost))
+		prober.WithHost(item.host),
+		prober.WithHeader(network.ProbeHeaderName, "ingress"))
 
 	// In case of cancellation, drop the work item
 	select {
@@ -273,8 +279,9 @@ func (m *StatusProber) processWorkItem() bool {
 	if err != nil || !ok {
 		// In case of error, enqueue for retry
 		m.workQueue.AddRateLimited(obj)
-		m.logger.Errorf("Probing of %s failed: ready: %t, error: %v", item.podIP, ok, err)
+		m.logger.Errorf("Probing of %s, Host: %s failed: ready: %t, error: %v", item.podIP, item.host, ok, err)
 	} else {
+		m.logger.Errorf("Probing of %s, Host: %s succeeded", item.podIP, item.host)
 		// In case of success, update the state
 		if atomic.AddInt32(&item.pendingCount, -1) == 0 {
 			m.readyCallback(item.virtualService)
@@ -288,7 +295,7 @@ func (m *StatusProber) listVirtualServicePodIPs(vs *v1alpha3.VirtualService) ([]
 	var podIPs []string
 	for _, name := range vs.Spec.Gateways {
 		// Only the ingress gateways are probed
-		if name == "mesh" {
+		if name == "mesh" || name == "knative-serving/cluster-local-gateway" {
 			continue
 		}
 

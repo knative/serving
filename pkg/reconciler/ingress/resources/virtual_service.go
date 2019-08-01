@@ -138,7 +138,7 @@ func MakeVirtualServices(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.Ingr
 
 // InsertProbe inserts a rule used to probe the VirtualService
 func InsertProbe(vs *v1alpha3.VirtualService) (string, error) {
-	hash, err := computeVirtualServiceHash(vs)
+	hash, err := ComputeVirtualServiceHash(vs)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to compute the hash of %s/%s", vs.Namespace, vs.Name)
 	}
@@ -153,7 +153,7 @@ func InsertProbe(vs *v1alpha3.VirtualService) (string, error) {
 // It is designed to uniquely identify the effect of a VirtualService. Therefore,
 // Name is irrelevant but Namespace is relevant because Gateway resolution is done within the
 // namespace of the VirtualService if a namespace is not specified in the Gateway definition.
-func computeVirtualServiceHash(vs *v1alpha3.VirtualService) ([16]byte, error) {
+func ComputeVirtualServiceHash(vs *v1alpha3.VirtualService) ([16]byte, error) {
 	bytes, err := json.Marshal(vs.Spec)
 	if err != nil {
 		return [16]byte{}, fmt.Errorf("failed to serialize the VirtualServiceSpec: %v", err)

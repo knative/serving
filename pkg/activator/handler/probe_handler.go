@@ -14,10 +14,8 @@ limitations under the License.
 package handler
 
 import (
-	"fmt"
 	"net/http"
 
-	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/network"
 )
 
@@ -30,11 +28,12 @@ func (h *ProbeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// If this header is set the request was sent by a Knative component
 	// probing the network, respond with a 200 and our component name.
 	if val := r.Header.Get(network.ProbeHeaderName); val != "" {
-		if val != activator.Name {
-			http.Error(w, fmt.Sprintf("unexpected probe header value: %q", val), http.StatusBadRequest)
-			return
-		}
-		w.Write([]byte(activator.Name))
+		// if val != activator.Name {
+		//	http.Error(w, fmt.Sprintf("unexpected probe header value: %q", val), http.StatusBadRequest)
+		//	return
+		//}
+		// w.Write([]byte(activator.Name))
+		w.WriteHeader(200)
 		return
 	}
 

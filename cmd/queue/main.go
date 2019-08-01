@@ -149,6 +149,10 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 		switch {
 		case ph != "":
 			_, probeSpan := trace.StartSpan(r.Context(), "probe")
+			if ph == "ingress" {
+				w.WriteHeader(200)
+				return
+			}
 			if ph != queue.Name {
 				http.Error(w, fmt.Sprintf(badProbeTemplate, ph), http.StatusBadRequest)
 				probeSpan.Annotate([]trace.Attribute{
