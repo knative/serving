@@ -49,7 +49,7 @@ const (
 	qpsPerClient         = 10               // frequencies of requests per client
 	iterationDuration    = 60 * time.Second // iteration duration for a single scale
 	processingTimeMillis = 100              // delay of each request on "server" side
-	targetConcurrency    = 10
+	targetValue          = 10
 )
 
 var concurrentClients = []int{10, 20, 40, 80, 160, 320}
@@ -97,7 +97,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 				corev1.ResourceMemory: resource.MustParse("20Mi"),
 			},
 		}),
-		testingv1alpha1.WithConfigAnnotations(map[string]string{"autoscaling.knative.dev/target": strconv.Itoa(targetConcurrency)}),
+		testingv1alpha1.WithConfigAnnotations(map[string]string{"autoscaling.knative.dev/target": strconv.Itoa(targetValue)}),
 	)
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
@@ -120,8 +120,8 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	}
 	t.Logf("Took %v for the endpoint to start serving", time.Since(st))
 
-	// The number of scale events should be at most ~numClients/targetConcurrency
-	scaleEvents := make([]*scaleEvent, 0, numClients/targetConcurrency*10)
+	// The number of scale events should be at most ~numClients/targetValue
+	scaleEvents := make([]*scaleEvent, 0, numClients/targetValue*10)
 	var scaleEventsMutex sync.Mutex
 	stopCh := make(chan struct{})
 

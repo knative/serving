@@ -604,20 +604,20 @@ func TestReconcile(t *testing.T) {
 	// two constant objects above, which means, that all tests must share
 	// the same namespace and revision name.
 	table := TableTest{{
-		Name:                    "bad workqueue key, Part I",
-		Key:                     "too/many/parts",
+		Name: "bad workqueue key, Part I",
+		Key:  "too/many/parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name:                    "bad workqueue key, Part II",
-		Key:                     "too-few-parts",
+		Name: "bad workqueue key, Part II",
+		Key:  "too-few-parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name:                    "key not found",
-		Key:                     "foo/not-found",
+		Name: "key not found",
+		Key:  "foo/not-found",
 		SkipNamespaceValidation: true,
 	}, {
-		Name:                    "key not found",
-		Key:                     "foo/not-found",
+		Name: "key not found",
+		Key:  "foo/not-found",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "steady state",
@@ -1141,8 +1141,8 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	// Wait for decider to be created.
 	if decider, err := pollDeciders(fakeDeciders, testNamespace, testRevision, nil); err != nil {
 		t.Fatalf("Failed to get decider: %v", err)
-	} else if got, want := decider.Spec.TargetConcurrency, defaultConcurrencyTarget*defaultTU; got != want {
-		t.Fatalf("TargetConcurrency = %v, want %v", got, want)
+	} else if got, want := decider.Spec.TargetValue, defaultConcurrencyTarget*defaultTU; got != want {
+		t.Fatalf("TargetValue = %v, want %v", got, want)
 	}
 
 	concurrencyTargetAfterUpdate := 100.0
@@ -1158,12 +1158,12 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 
 	// Wait for decider to be updated with the new values from the configMap.
 	cond := func(d *autoscaler.Decider) bool {
-		return d.Spec.TargetConcurrency == concurrencyTargetAfterUpdate
+		return d.Spec.TargetValue == concurrencyTargetAfterUpdate
 	}
 	if decider, err := pollDeciders(fakeDeciders, testNamespace, testRevision, cond); err != nil {
 		t.Fatalf("Failed to get decider: %v", err)
-	} else if got, want := decider.Spec.TargetConcurrency, concurrencyTargetAfterUpdate*defaultTU; got != want {
-		t.Fatalf("TargetConcurrency = %v, want %v", got, want)
+	} else if got, want := decider.Spec.TargetValue, concurrencyTargetAfterUpdate*defaultTU; got != want {
+		t.Fatalf("TargetValue = %v, want %v", got, want)
 	}
 }
 
