@@ -1,0 +1,13 @@
+diff --git a/config/activator.yaml b/config/activator.yaml
+index 003916c3..b4df377f 100644
+--- a/config/activator.yaml
++++ b/config/activator.yaml
+@@ -119,7 +119,7 @@ metadata:
+     name: activator
+     namespace: knative-serving
+ spec:
+-    minReplicas: 1
++    minReplicas: 10
+     maxReplicas: 20
+     scaleTargetRef:
+       apiVersion: apps/v1
