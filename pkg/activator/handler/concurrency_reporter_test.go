@@ -253,6 +253,6 @@ func newTestStats(t *testing.T, clock system.Clock) (*testStats, *ConcurrencyRep
 		statChan:     make(chan *autoscaler.StatMessage, 20),
 		reportBiChan: reportBiChan,
 	}
-	cr := NewConcurrencyReporterWithClock(TestLogger(t), "activator", ts.reqChan, ts.reportChan, ts.statChan, revisionLister(revision(testNamespace, testRevName)), &fakeReporter{}, clock)
+	cr := NewConcurrencyReporterWithClock(TestLogger(t), "activator", ts.reqChan, ts.reportChan, ts.statChan, revisionInformer(revision(testNamespace, testRevName)).Lister(), &fakeReporter{}, clock)
 	return ts, cr
 }

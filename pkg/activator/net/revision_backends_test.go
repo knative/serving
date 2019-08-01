@@ -401,6 +401,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 	for _, tc := range []struct {
 		name               string
 		endpointsArr       []*corev1.Endpoints
+		deleteEndpoints    []*corev1.Endpoints
 		revisions          []*v1alpha1.Revision
 		services           []*corev1.Service
 		probeResponses     []activatortest.FakeResponse
@@ -559,6 +560,35 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		},
 		expectDests: map[types.NamespacedName]RevisionDestsUpdate{},
 		updateCnt:   0,
+	}, {
+		name:            "removed endpoint",
+		endpointsArr:    []*corev1.Endpoints{ep("test-revision", 1234, "http", "128.0.0.1")},
+		deleteEndpoints: []*corev1.Endpoints{ep("test-revision", 1234, "http", "128.0.0.1")},
+		revisions: []*v1alpha1.Revision{
+			revision(types.NamespacedName{"test-namespace", "test-revision"}, networking.ProtocolHTTP1),
+		},
+		services: []*corev1.Service{
+			privateSksService(types.NamespacedName{"test-namespace", "test-revision"}, "129.0.0.1",
+				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
+		},
+		probeHostResponses: map[string][]activatortest.FakeResponse{
+			"129.0.0.1:1234": {{
+				Err:  nil,
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+			"128.0.0.1:1234": {{
+				Err:  nil,
+				Code: http.StatusServiceUnavailable,
+				Body: queue.Name,
+			}},
+		},
+		expectDests: map[types.NamespacedName]RevisionDestsUpdate{
+			types.NamespacedName{"test-namespace", "test-revision"}: RevisionDestsUpdate{
+				Rev: types.NamespacedName{"test-namespace", "test-revision"},
+			},
+		},
+		updateCnt: 2,
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			defer ClearAll()
@@ -595,13 +625,20 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			controller.StartInformers(stopCh, endpointsInformer.Informer())
 
 			updateCh := make(chan *RevisionDestsUpdate, 100)
-			bm := NewRevisionBackendsManagerWithProbeFrequency(stopCh, updateCh, rt, revisionLister,
+			NewRevisionBackendsManagerWithProbeFrequency(stopCh, updateCh, rt, revisionLister,
 				servicesLister, endpointsInformer, TestLogger(t), 50*time.Millisecond)
-			defer bm.Clear()
 
 			for _, ep := range tc.endpointsArr {
 				fake.CoreV1().Endpoints("test-namespace").Create(ep)
 				endpointsInformer.Informer().GetIndexer().Add(ep)
+			}
+
+			if tc.deleteEndpoints != nil {
+				time.Sleep(100 * time.Millisecond)
+			}
+			for _, ep := range tc.deleteEndpoints {
+				fake.CoreV1().Endpoints("test-namespace").Delete(ep.Name, nil)
+				endpointsInformer.Informer().GetIndexer().Delete(ep)
 			}
 
 			revDests := make(map[types.NamespacedName]RevisionDestsUpdate)

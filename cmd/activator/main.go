@@ -55,6 +55,7 @@ import (
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	activatorhandler "knative.dev/serving/pkg/activator/handler"
+	activatornet "knative.dev/serving/pkg/activator/net"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/serving/pkg/goversion"
@@ -176,8 +177,18 @@ func main() {
 	reqCh := make(chan activatorhandler.ReqEvent, requestCountingQueueLength)
 	defer close(reqCh)
 
+	revDestsCh := make(chan *activatornet.RevisionDestsUpdate, 10)
+	defer close(revDestsCh)
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
-	throttler := activator.NewThrottler(params, endpointInformer, sksInformer.Lister(), revisionInformer.Lister(), logger)
+
+	// Start throttler
+	throttler := activatornet.NewThrottler(params, revisionInformer, endpointInformer, logger)
+	go throttler.Run(revDestsCh)
+
+	// Start revision backends manager
+	// TODO(greghaynes) use ctx with clients injected
+	activatornet.NewRevisionBackendsManager(ctx.Done(), revDestsCh, network.AutoTransport, revisionInformer.Lister(),
+		serviceInformer.Lister(), endpointInformer, logger)
 
 	oct := tracing.NewOpenCensusTracer(tracing.WithExporter(networking.ActivatorServiceName, logger))
 

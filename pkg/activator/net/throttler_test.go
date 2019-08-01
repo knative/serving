@@ -143,7 +143,7 @@ func TestThrottler(t *testing.T) {
 		},
 		expectTryResults: []tryResult{
 			{Dest: "129.0.0.1:1234"},
-			{ErrString: "revision \"test-namespace/test-revision\" exceeded capacity, failing request"},
+			{ErrString: ErrActivatorOverload.Error()},
 		},
 	}, {
 		name: "remove before try",
@@ -291,7 +291,7 @@ func TestMultipleActivator(t *testing.T) {
 		results := tryThrottler(throttler, []types.NamespacedName{revID, revID}, tryContext)
 		if diff := cmp.Diff([]tryResult{
 			{Dest: "128.0.0.1:1234"},
-			{ErrString: `revision "test-namespace/test-revision" exceeded capacity, failing request`},
+			{ErrString: ErrActivatorOverload.Error()},
 		}, results); diff != "" {
 			t.Errorf("Got unexpected try results (-want, +got): %v", diff)
 		}

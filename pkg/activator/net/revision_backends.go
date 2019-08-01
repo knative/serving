@@ -191,6 +191,24 @@ func (rw *revisionWatcher) probePodIPs(dests []string) (sets.String, error) {
 	return hs, err
 }
 
+func (rw *revisionWatcher) sendUpdate(update *RevisionDestsUpdate) bool {
+	// In many cases we are doing blocking work while determining whether we have an update.
+	// we could have been asked to shut down and updateCh / doneCh are closed. Force a
+	// check of doneCh first in case this is the situation.
+	select {
+	case <-rw.doneCh:
+		return false
+	default:
+	}
+
+	select {
+	case <-rw.doneCh:
+		return false
+	case rw.updateCh <- update:
+		return true
+	}
+}
+
 // checkDests performs probing and potentially sends a dests update. It is
 // assumed this method is not called concurrently.
 func (rw *revisionWatcher) checkDests(dests []string) {
@@ -200,10 +218,7 @@ func (rw *revisionWatcher) checkDests(dests []string) {
 			rw.clusterIPHealthy = false
 
 			// Send update that were now inactive
-			select {
-			case <-rw.doneCh:
-			case rw.updateCh <- &RevisionDestsUpdate{Rev: rw.rev}:
-			}
+			rw.sendUpdate(&RevisionDestsUpdate{Rev: rw.rev})
 		}
 
 		// We know this revision cannot be healthy so short circuit
@@ -229,10 +244,7 @@ func (rw *revisionWatcher) checkDests(dests []string) {
 		rw.logger.Debug("ClusterIP is successfully probed:", dest)
 		rw.clusterIPHealthy = true
 		rw.healthyPods = nil
-		select {
-		case <-rw.doneCh:
-		case rw.updateCh <- &RevisionDestsUpdate{Rev: rw.rev, ClusterIPDest: dest, ReadyAddressCount: len(dests)}:
-		}
+		rw.sendUpdate(&RevisionDestsUpdate{Rev: rw.rev, ClusterIPDest: dest, ReadyAddressCount: len(dests)})
 		return
 	}
 
@@ -242,7 +254,7 @@ func (rw *revisionWatcher) checkDests(dests []string) {
 		// We dont want to return here as an error still affects health states
 	}
 
-	rw.logger.Debug("Done probing, got healthy pods: ", hs)
+	rw.logger.Debugf("Done probing, got %d healthy pods", len(hs))
 	if !reflect.DeepEqual(rw.healthyPods, hs) {
 		destsUpdate := &RevisionDestsUpdate{
 			Rev:               rw.rev,
@@ -250,10 +262,8 @@ func (rw *revisionWatcher) checkDests(dests []string) {
 			ReadyAddressCount: len(dests),
 		}
 		rw.healthyPods = hs
-		select {
-		case <-rw.doneCh:
-		case rw.updateCh <- destsUpdate:
-		}
+
+		rw.sendUpdate(destsUpdate)
 	}
 }
 
@@ -261,9 +271,10 @@ func (rw *revisionWatcher) runWithTickCh(tickCh <-chan time.Time) {
 	var dests []string
 	for {
 		select {
+		case <-rw.doneCh:
+			return
 		case x, ok := <-rw.destsChan:
 			if !ok {
-				// shutdown
 				return
 			}
 			dests = x
@@ -376,9 +387,9 @@ func (rbm *RevisionBackendsManager) getOrCreateRevisionWatcher(rev types.Namespa
 // endpointsUpdated is a handler function to be used by the Endpoints informer.
 // It updates the endpoints in the RevisionBackendsManager if the hosts changed
 func (rbm *RevisionBackendsManager) endpointsUpdated(newObj interface{}) {
-	rbm.logger.Debugf("Updating Endpoints: %+v", newObj)
 	endpoints := newObj.(*corev1.Endpoints)
 	revID := types.NamespacedName{endpoints.Namespace, endpoints.Labels[serving.RevisionLabelKey]}
+	rbm.logger.Debugf("Updating Endpoints: %q", revID.String())
 
 	rwCh, err := rbm.getOrCreateRevisionWatcher(revID)
 	if err != nil {
@@ -386,7 +397,8 @@ func (rbm *RevisionBackendsManager) endpointsUpdated(newObj interface{}) {
 			zap.Error(err))
 		return
 	}
-	rwCh.ch <- EndpointsToDests(endpoints, networking.ServicePortName(rwCh.revisionWatcher.protocol))
+	dests := EndpointsToDests(endpoints, networking.ServicePortName(rwCh.revisionWatcher.protocol))
+	rwCh.ch <- dests
 }
 
 // deleteRevisionWatcher deletes the revision wathcher for rev if it exists. It expects
@@ -395,6 +407,7 @@ func (rbm *RevisionBackendsManager) deleteRevisionWatcher(rev types.NamespacedNa
 	if rw, ok := rbm.revisionWatchers[rev]; ok {
 		close(rw.ch)
 		delete(rbm.revisionWatchers, rev)
+		rbm.updateCh <- &RevisionDestsUpdate{Rev: rev}
 	}
 }
 
@@ -402,19 +415,8 @@ func (rbm *RevisionBackendsManager) endpointsDeleted(obj interface{}) {
 	ep := obj.(*corev1.Endpoints)
 	revID := types.NamespacedName{ep.Namespace, ep.Labels[serving.RevisionLabelKey]}
 
+	rbm.logger.Debugf("Deleting endpoint %q", revID.String())
 	rbm.revisionWatchersMux.Lock()
 	defer rbm.revisionWatchersMux.Unlock()
 	rbm.deleteRevisionWatcher(revID)
-}
-
-// Clear removes all watches and essentially "shuts down" the PodIPWatcher. This should
-// be called after endpointsInformer is shut down as any subsequent informer events will
-// cause new watchers to be created.
-func (rbm *RevisionBackendsManager) Clear() {
-	rbm.revisionWatchersMux.Lock()
-	defer rbm.revisionWatchersMux.Unlock()
-
-	for rev := range rbm.revisionWatchers {
-		rbm.deleteRevisionWatcher(rev)
-	}
 }

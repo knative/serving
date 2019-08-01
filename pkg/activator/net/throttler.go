@@ -50,6 +50,8 @@ type breaker interface {
 	UpdateConcurrency(int) error
 }
 
+var ErrActivatorOverload = errors.New("activator overload")
+
 type revisionThrottler struct {
 	revID                types.NamespacedName
 	containerConcurrency int64
@@ -174,7 +176,7 @@ func (rt *revisionThrottler) try(ctx context.Context, function func(string) erro
 		defer completionCb()
 		ret = function(dest)
 	}) {
-		return fmt.Errorf("revision %q exceeded capacity, failing request", rt.revID.String())
+		return ErrActivatorOverload
 	}
 	return ret
 }
@@ -220,7 +222,7 @@ func (rt *revisionThrottler) updateThrottleState(throttler *Throttler, backendCo
 // This function will never be called in parallel but try can be called in parallel to this so we need
 // to lock on updating concurrency / trackers
 func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update *RevisionDestsUpdate) {
-	rt.logger.Debugf("Got update for throttler %q: %v", rt.revID.String(), update)
+	rt.logger.Debug("Got update")
 
 	if update.Dests != nil {
 		// Because this wont be called in parallel we can build a new podIPTrackers array before taking out a lock
