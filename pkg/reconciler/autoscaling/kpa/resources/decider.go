@@ -63,8 +63,8 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 		Spec: autoscaler.DeciderSpec{
 			TickInterval:        config.TickInterval,
 			MaxScaleUpRate:      config.MaxScaleUpRate,
-			TargetConcurrency:   target,
-			TotalConcurrency:    total,
+			TargetValue:         target,
+			TotalValue:          total,
 			TargetBurstCapacity: tbc,
 			PanicThreshold:      panicThreshold,
 			StableWindow:        resources.StableWindow(pa, config),

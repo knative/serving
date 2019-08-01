@@ -130,6 +130,13 @@ func WithTargetAnnotation(target string) PodAutoscalerOption {
 	return withAnnotationValue(autoscaling.TargetAnnotationKey, target)
 }
 
+// WithTUAnnotation returns a PodAutoscalerOption which sets
+// the PodAutoscaler autoscaling.knative.dev/targetUtilizationPercentage
+//  annotation to the provided value.
+func WithTUAnnotation(tu string) PodAutoscalerOption {
+	return withAnnotationValue(autoscaling.TargetUtilizationPercentageKey, tu)
+}
+
 // WithWindowAnnotation returns a PodAutoScalerOption which sets
 // the PodAutoscaler autoscaling.knative.dev/window annotation to the
 // provided value.
@@ -145,7 +152,7 @@ func WithPanicThresholdPercentageAnnotation(percentage string) PodAutoscalerOpti
 	return withAnnotationValue(autoscaling.PanicThresholdPercentageAnnotationKey, percentage)
 }
 
-// WithWindowPanicPercentageAnnotation retturn a PodAutoscalerOption
+// WithPanicWindowPercentageAnnotation retturn a PodAutoscalerOption
 // which set the PodAutoscaler
 // autoscaling.knative.dev/windowPanicPercentage annotation to the
 // provided value.

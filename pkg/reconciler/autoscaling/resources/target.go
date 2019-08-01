@@ -23,11 +23,11 @@ import (
 	"knative.dev/serving/pkg/autoscaler"
 )
 
-// ResolveConcurrency takes concurrency knobs from multiple locations and resolves them
-// to the final value to be used by the autoscaler.
-// `target` is the target concurrency that we autoscaler will aim for;
-// `total` is the maximum possible concurrency that is permitted on the pod.
-func ResolveConcurrency(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) (target float64, total float64) {
+// ResolveMetricTarget takes scaling metric knobs from multiple locations
+// and resolves them to the final value to be used by the autoscaler.
+// `target` is the target value of scaling metric that we autoscaler will aim for;
+// `total` is the maximum possible value of scaling metric that is permitted on the pod.
+func ResolveMetricTarget(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) (target float64, total float64) {
 	total = float64(pa.Spec.ContainerConcurrency)
 	// If containerConcurrency is 0 we'll always target the default.
 	if total == 0 {
@@ -35,6 +35,7 @@ func ResolveConcurrency(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) (
 	}
 
 	tu := config.ContainerConcurrencyTargetFraction
+
 	if v, ok := pa.TargetUtilization(); ok {
 		tu = v
 	}

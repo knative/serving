@@ -43,11 +43,11 @@ type Decider struct {
 type DeciderSpec struct {
 	TickInterval   time.Duration
 	MaxScaleUpRate float64
-	// The concurrency per pod that we target to maintain.
-	// TargetConcurrency <= TotalConcurency.
-	TargetConcurrency float64
-	// The total concurrency that a pod can maintain.
-	TotalConcurrency float64
+	// The value of scaling metric per pod that we target to maintain.
+	// TargetValue <= TotalValue.
+	TargetValue float64
+	// The total value of scaling metric that a pod can maintain.
+	TotalValue float64
 	// The burst capacity that user wants to maintain without queing at the POD level.
 	// Note, that queueing still might happen due to the non-ideal load balancing.
 	TargetBurstCapacity float64
@@ -65,7 +65,7 @@ type DeciderStatus struct {
 	DesiredScale int32
 
 	// ExcessBurstCapacity is the difference between spare capacity
-	// (how many more concurrent requests the pods in the revision
+	// (how many more tokens in terms of scaling metrics the pods in the revision
 	// deployment can serve) and the configured target burst capacity.
 	// If this number is negative: Activator will be threaded in
 	// the request path by the PodAutoscaler controller.

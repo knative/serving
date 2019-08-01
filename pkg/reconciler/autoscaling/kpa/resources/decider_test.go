@@ -128,7 +128,8 @@ func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
 			Namespace: "test-namespace",
 			Name:      "test-name",
 			Annotations: map[string]string{
-				autoscaling.ClassAnnotationKey: autoscaling.KPA,
+				autoscaling.ClassAnnotationKey:  autoscaling.KPA,
+				autoscaling.MetricAnnotationKey: autoscaling.Concurrency,
 			},
 		},
 		Spec: v1alpha1.PodAutoscalerSpec{
@@ -160,14 +161,15 @@ func decider(options ...DeciderOption) *autoscaler.Decider {
 			Namespace: "test-namespace",
 			Name:      "test-name",
 			Annotations: map[string]string{
-				autoscaling.ClassAnnotationKey: autoscaling.KPA,
+				autoscaling.ClassAnnotationKey:  autoscaling.KPA,
+				autoscaling.MetricAnnotationKey: autoscaling.Concurrency,
 			},
 		},
 		Spec: autoscaler.DeciderSpec{
 			MaxScaleUpRate:      config.MaxScaleUpRate,
 			TickInterval:        config.TickInterval,
-			TargetConcurrency:   100,
-			TotalConcurrency:    100,
+			TargetValue:         100,
+			TotalValue:          100,
 			TargetBurstCapacity: 211,
 			PanicThreshold:      200,
 			StableWindow:        config.StableWindow,
@@ -189,13 +191,13 @@ func withTargetBurstCapacity(tbc float64) DeciderOption {
 
 func withTotal(total float64) DeciderOption {
 	return func(decider *autoscaler.Decider) {
-		decider.Spec.TotalConcurrency = total
+		decider.Spec.TotalValue = total
 	}
 }
 
 func withTarget(target float64) DeciderOption {
 	return func(decider *autoscaler.Decider) {
-		decider.Spec.TargetConcurrency = target
+		decider.Spec.TargetValue = target
 	}
 }
 

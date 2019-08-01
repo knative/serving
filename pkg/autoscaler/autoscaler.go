@@ -139,18 +139,18 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	}
 
 	maxScaleUp := spec.MaxScaleUpRate * readyPodsCount
-	desiredStablePodCount := int32(math.Min(math.Ceil(observedStableConcurrency/spec.TargetConcurrency), maxScaleUp))
-	desiredPanicPodCount := int32(math.Min(math.Ceil(observedPanicConcurrency/spec.TargetConcurrency), maxScaleUp))
+	desiredStablePodCount := int32(math.Min(math.Ceil(observedStableConcurrency/spec.TargetValue), maxScaleUp))
+	desiredPanicPodCount := int32(math.Min(math.Ceil(observedPanicConcurrency/spec.TargetValue), maxScaleUp))
 
 	a.reporter.ReportStableRequestConcurrency(observedStableConcurrency)
 	a.reporter.ReportPanicRequestConcurrency(observedPanicConcurrency)
-	a.reporter.ReportTargetRequestConcurrency(spec.TargetConcurrency)
+	a.reporter.ReportTargetRequestConcurrency(spec.TargetValue)
 
 	logger.Debugw(fmt.Sprintf("Observed average %0.3f concurrency, targeting %0.3f.",
-		observedStableConcurrency, spec.TargetConcurrency),
+		observedStableConcurrency, spec.TargetValue),
 		zap.String("concurrency", "stable"))
 	logger.Debugw(fmt.Sprintf("Observed average %0.3f concurrency, targeting %0.3f.",
-		observedPanicConcurrency, spec.TargetConcurrency),
+		observedPanicConcurrency, spec.TargetValue),
 		zap.String("concurrency", "panic"))
 
 	isOverPanicThreshold := observedPanicConcurrency/readyPodsCount >= spec.PanicThreshold
@@ -193,11 +193,11 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	case a.deciderSpec.TargetBurstCapacity == 0:
 		excessBC = 0
 	case a.deciderSpec.TargetBurstCapacity >= 0:
-		excessBC = int32(math.Floor(float64(originalReadyPodsCount)*a.deciderSpec.TotalConcurrency - observedStableConcurrency -
+		excessBC = int32(math.Floor(float64(originalReadyPodsCount)*a.deciderSpec.TotalValue - observedStableConcurrency -
 			a.deciderSpec.TargetBurstCapacity))
 		logger.Debugf("PodCount=%v TotalConc=%v ObservedStableConc=%v TargetBC=%v ExcessBC=%v",
 			originalReadyPodsCount,
-			a.deciderSpec.TotalConcurrency,
+			a.deciderSpec.TotalValue,
 			observedStableConcurrency, a.deciderSpec.TargetBurstCapacity, excessBC)
 	}
 	a.reporter.ReportExcessBurstCapacity(float64(excessBC))
