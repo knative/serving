@@ -19,7 +19,11 @@ package sharedmain
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
+	"os"
+	"os/user"
+	"path/filepath"
 
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -35,6 +39,34 @@ import (
 	"knative.dev/pkg/system"
 )
 
+// GetConfig returns a rest.Config to be used for kubernetes client creation.
+// It does so in the following order:
+//   1. Use the passed kubeconfig/masterURL.
+//   2. Fallback to the KUBECONFIG environment variable.
+//   3. Fallback to in-cluster config.
+//   4. Fallback to the ~/.kube/config.
+func GetConfig(masterURL, kubeconfig string) (*rest.Config, error) {
+	if kubeconfig == "" {
+		kubeconfig = os.Getenv("KUBECONFIG")
+	}
+	// If we have an explicit indication of where the kubernetes config lives, read that.
+	if kubeconfig != "" {
+		return clientcmd.BuildConfigFromFlags(masterURL, kubeconfig)
+	}
+	// If not, try the in-cluster config.
+	if c, err := rest.InClusterConfig(); err == nil {
+		return c, nil
+	}
+	// If no in-cluster config, try the default location in the user's home directory.
+	if usr, err := user.Current(); err == nil {
+		if c, err := clientcmd.BuildConfigFromFlags("", filepath.Join(usr.HomeDir, ".kube", "config")); err == nil {
+			return c, nil
+		}
+	}
+
+	return nil, fmt.Errorf("could not create a valid kubeconfig")
+}
+
 func Main(component string, ctors ...injection.ControllerConstructor) {
 	// Set up signals so we handle the first shutdown signal gracefully.
 	MainWithContext(signals.NewContext(), component, ctors...)
@@ -47,7 +79,7 @@ func MainWithContext(ctx context.Context, component string, ctors ...injection.C
 	)
 	flag.Parse()
 
-	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
+	cfg, err := GetConfig(*masterURL, *kubeconfig)
 	if err != nil {
 		log.Fatal("Error building kubeconfig", err)
 	}
