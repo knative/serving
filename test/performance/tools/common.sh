@@ -138,5 +138,5 @@ function update_cluster() {
   # If service creation takes long time, we will have some intially unreachable errors in the test
   cd $PROJ_ROOT_PATH
   echo "Using ko version $(ko version)"
-  ko apply -f ${TEST_DIR}/$1 || fail_test "Failed to apply benchmarks yaml"
+  ko apply -f $1 || fail_test "Failed to apply benchmarks yaml"
 }

@@ -36,7 +36,7 @@ spec:
             resources:
               requests:
                 cpu: 2000m
-                memory: 2Gi
+                memory: 6Gi # Need high memory as we clone and build serving
           volumes:
           - name: service-account
             secret:
