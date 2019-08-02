@@ -32,8 +32,8 @@ import (
 
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/serving/pkg/activator"
+	revnet "knative.dev/serving/pkg/activator/net"
 	"knative.dev/serving/pkg/activator/util"
-	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	netlisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
@@ -100,12 +100,14 @@ func withOrigProto(or *http.Request) prober.Preparer {
 	}
 }
 
-func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Request, target *url.URL) (bool, int) {
+func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Request, target *url.URL, revID activator.RevisionID) (bool, int) {
 	var (
 		attempts int
 		st       = time.Now()
 		url      = target.String()
 	)
+
+	logger.Debugf("Actually will be probing %s", url)
 
 	err := wait.PollImmediate(100*time.Millisecond, a.probeTimeout, func() (bool, error) {
 		attempts++
@@ -124,6 +126,9 @@ func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 			logger.Warn("Pod probe unsuccessful")
 			return false, nil
 		}
+
+		// Cache probe success.
+		a.throttler.MarkProbe(revID)
 		return true, nil
 	})
 
@@ -136,7 +141,6 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	name := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderName)
 	start := time.Now()
 	revID := activator.RevisionID{Namespace: namespace, Name: name}
-
 	logger := a.logger.With(zap.String(logkey.Key, revID.String()))
 
 	revision, err := a.revisionLister.Revisions(namespace).Get(name)
@@ -177,10 +181,15 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		trySpan.End()
 		a.logger.Debugf("Waiting for throttler took %v time", time.Since(tryStart))
 
-		probeCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
-		success, attempts := a.probeEndpoint(logger, r.WithContext(probeCtx), target)
-		probeSpan.End()
-
+		// This opportunistically caches the probes, so
+		// a few concurrent requests might result in concurrent probes
+		// but requests coming after won't. When cached 0 attempts were required.
+		success, attempts := true, 0
+		if a.throttler.ShouldProbe(revID) {
+			probeCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
+			success, attempts = a.probeEndpoint(logger, r.WithContext(probeCtx), target, revID)
+			probeSpan.End()
+		}
 		var httpStatus int
 		if success {
 			// Once we see a successful probe, send traffic.
@@ -240,15 +249,8 @@ func (a *activationHandler) serviceHostName(rev *v1alpha1.Revision, serviceName 
 	}
 
 	// Search for the appropriate port.
-	port := -1
-	wantName := networking.ServicePortName(rev.GetProtocol())
-	for _, p := range svc.Spec.Ports {
-		if p.Name == wantName {
-			port = int(p.Port)
-			break
-		}
-	}
-	if port == -1 {
+	port, ok := revnet.GetServicePort(rev.GetProtocol(), svc)
+	if !ok {
 		return "", errors.New("revision needs external HTTP port")
 	}
 

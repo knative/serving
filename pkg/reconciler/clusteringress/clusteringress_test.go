@@ -337,7 +337,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconcile-virtualservice-mesh"),
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for VirtualService %q/%q",
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated VirtualService %s/%s",
 				system.Namespace(), "reconcile-virtualservice"),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for Ingress %q", "reconcile-virtualservice"),
 		},

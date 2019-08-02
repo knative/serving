@@ -26,6 +26,8 @@ import (
 type MetricClient struct {
 	StableConcurrency float64
 	PanicConcurrency  float64
+	StableOPS         float64
+	PanicOPS          float64
 	ErrF              func(key types.NamespacedName, now time.Time) error
 }
 
@@ -39,8 +41,20 @@ func (t *MetricClient) StableAndPanicConcurrency(key types.NamespacedName, now t
 	return t.StableConcurrency, t.PanicConcurrency, err
 }
 
+// StableAndPanicOPS returns stable/panic OPS stored in the object
+// and the result of Errf as the error.
+func (t *MetricClient) StableAndPanicOPS(key types.NamespacedName, now time.Time) (float64, float64, error) {
+	var err error
+	if t.ErrF != nil {
+		err = t.ErrF(key, now)
+	}
+	return t.StableOPS, t.PanicOPS, err
+}
+
 // StaticMetricClient returns stable/panic concurrency and OPS with static value, i.e. 10.
 var StaticMetricClient = MetricClient{
 	StableConcurrency: 10.0,
 	PanicConcurrency:  10.0,
+	StableOPS:         10.0,
+	PanicOPS:          10.0,
 }
