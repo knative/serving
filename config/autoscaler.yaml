@@ -81,13 +81,6 @@ spec:
         args:
         - "--secure-port=8443"
         - "--cert-dir=/tmp"
-        volumeMounts:
-        - name: config-autoscaler
-          mountPath: /etc/config-autoscaler
-        - name: config-logging
-          mountPath: /etc/config-logging
-        - name: config-observability
-          mountPath: /etc/config-observability
         env:
         - name: SYSTEM_NAMESPACE
           valueFrom:
@@ -101,13 +94,3 @@ spec:
           value: knative.dev/serving
         securityContext:
           allowPrivilegeEscalation: false
-      volumes:
-        - name: config-autoscaler
-          configMap:
-            name: config-autoscaler
-        - name: config-logging
-          configMap:
-            name: config-logging
-        - name: config-observability
-          configMap:
-            name: config-observability
