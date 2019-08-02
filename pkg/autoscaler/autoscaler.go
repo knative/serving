@@ -158,7 +158,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	a.stateMux.Lock()
 	defer a.stateMux.Unlock()
 	if a.panicTime == nil && isOverPanicThreshold {
-		// Begin panicking when we cross the concurrency threshold in the panic window.
+		// Begin panicking when we cross the threshold in the panic window.
 		logger.Info("PANICKING")
 		a.panicTime = &now
 		a.reporter.ReportPanic(1)
@@ -184,7 +184,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 		desiredPodCount = desiredStablePodCount
 	}
 
-	// Compute the excess burst capacity based on stable concurrency for now, since we don't want to
+	// Compute the excess burst capacity based on stable value for now, since we don't want to
 	// be making knee-jerk decisions about Activator in the request path. Negative EBC means
 	// that the deployment does not have enough capacity to serve the desired burst off hand.
 	// EBC = TotCapacity - Cur#ReqInFlight - TargetBurstCapacity
