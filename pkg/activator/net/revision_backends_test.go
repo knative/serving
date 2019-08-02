@@ -202,13 +202,13 @@ func TestRevisionWatcher(t *testing.T) {
 			{Dests: []string{"128.0.0.2:1234"}},
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:1234": []activatortest.FakeResponse{{
+			"129.0.0.1:1234": {{
 				Err: errors.New("clusterIP transport error"),
 			}},
-			"128.0.0.1:1234": []activatortest.FakeResponse{{
+			"128.0.0.1:1234": {{
 				Err: errors.New("clusterIP transport error"),
 			}},
-			"128.0.0.2:1234": []activatortest.FakeResponse{{
+			"128.0.0.2:1234": {{
 				Err:  nil,
 				Code: http.StatusOK,
 				Body: queue.Name,
@@ -228,7 +228,7 @@ func TestRevisionWatcher(t *testing.T) {
 			{ClusterIPDest: "129.0.0.1:1234"},
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:1234": []activatortest.FakeResponse{{
+			"129.0.0.1:1234": {{
 				Err: errors.New("clusterIP transport error"),
 			}, {
 				Err: errors.New("clusterIP transport error"),
@@ -237,7 +237,7 @@ func TestRevisionWatcher(t *testing.T) {
 				Code: http.StatusOK,
 				Body: queue.Name,
 			}},
-			"128.0.0.1:1234": []activatortest.FakeResponse{{
+			"128.0.0.1:1234": {{
 				Err:  nil,
 				Code: http.StatusServiceUnavailable,
 				Body: queue.Name,
@@ -327,7 +327,7 @@ func TestRevisionWatcher(t *testing.T) {
 			wg.Wait()
 
 			// Autofill out Rev in expectUpdates
-			for i, _ := range tc.expectUpdates {
+			for i := range tc.expectUpdates {
 				tc.expectUpdates[i].Rev = revID
 			}
 
@@ -382,10 +382,10 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:1234": []activatortest.FakeResponse{{
+			"129.0.0.1:1234": {{
 				Err: errors.New("clusterIP transport error"),
 			}},
-			"128.0.0.1:1234": []activatortest.FakeResponse{{
+			"128.0.0.1:1234": {{
 				Err:  nil,
 				Code: http.StatusServiceUnavailable,
 				Body: queue.Name,
@@ -396,7 +396,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			}},
 		},
 		expectDests: map[types.NamespacedName]RevisionDestsUpdate{
-			types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}: RevisionDestsUpdate{
+			{Namespace: "test-namespace", Name: "test-revision"}: {
 				Dests: []string{"128.0.0.1:1234"},
 			},
 		},
@@ -418,14 +418,14 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 				[]corev1.ServicePort{{Name: "http", Port: 2345}}),
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:2345": []activatortest.FakeResponse{{Err: errors.New("clusterIP transport error")}},
-			"129.0.0.2:2345": []activatortest.FakeResponse{{Err: errors.New("clusterIP transport error")}},
+			"129.0.0.1:2345": {{Err: errors.New("clusterIP transport error")}},
+			"129.0.0.2:2345": {{Err: errors.New("clusterIP transport error")}},
 		},
 		expectDests: map[types.NamespacedName]RevisionDestsUpdate{
-			types.NamespacedName{Namespace: "test-namespace", Name: "test-revision1"}: RevisionDestsUpdate{
+			{Namespace: "test-namespace", Name: "test-revision1"}: {
 				Dests: []string{"128.0.0.1:1234"},
 			},
-			types.NamespacedName{Namespace: "test-namespace", Name: "test-revision2"}: RevisionDestsUpdate{
+			{Namespace: "test-namespace", Name: "test-revision2"}: {
 				Dests: []string{"128.1.0.2:1235"},
 			},
 		},
@@ -441,7 +441,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:1234": []activatortest.FakeResponse{{
+			"129.0.0.1:1234": {{
 				Err: errors.New("clusterIP transport error"),
 			}, {
 				Err: errors.New("clusterIP transport error"),
@@ -450,7 +450,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 				Code: http.StatusOK,
 				Body: queue.Name,
 			}},
-			"128.0.0.1:1234": []activatortest.FakeResponse{{
+			"128.0.0.1:1234": {{
 				Err:  nil,
 				Code: http.StatusServiceUnavailable,
 				Body: queue.Name,
@@ -461,7 +461,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			}},
 		},
 		expectDests: map[types.NamespacedName]RevisionDestsUpdate{
-			types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}: RevisionDestsUpdate{
+			{Namespace: "test-namespace", Name: "test-revision"}: {
 				ClusterIPDest: "129.0.0.1:1234",
 			},
 		},
