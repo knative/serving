@@ -55,7 +55,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	sharedclientset "knative.dev/pkg/client/clientset/versioned"
 	coreaccessor "knative.dev/serving/pkg/reconciler/accessor/core"
+	istioaccessor "knative.dev/serving/pkg/reconciler/accessor/istio"
 )
 
 const (
@@ -95,7 +97,10 @@ type BaseIngressReconciler struct {
 	StatusManager StatusManager
 }
 
-var _ coreaccessor.SecretAccessor = (*BaseIngressReconciler)(nil)
+var (
+	_ coreaccessor.SecretAccessor          = (*BaseIngressReconciler)(nil)
+	_ istioaccessor.VirtualServiceAccessor = (*BaseIngressReconciler)(nil)
+)
 
 // NewBaseIngressReconciler creates a new BaseIngressReconciler
 func NewBaseIngressReconciler(ctx context.Context, agentName, finalizer string, cmw configmap.Watcher) *BaseIngressReconciler {
@@ -375,7 +380,7 @@ func (r *BaseIngressReconciler) reconcileVirtualServices(ctx context.Context, ia
 	// First, create all needed VirtualServices.
 	kept := sets.NewString()
 	for _, d := range desired {
-		if err := r.reconcileVirtualService(ctx, ia, d); err != nil {
+		if _, err := istioaccessor.ReconcileVirtualService(ctx, ia, d, r); err != nil {
 			return err
 		}
 		kept.Insert(d.Name)
@@ -398,42 +403,6 @@ func (r *BaseIngressReconciler) reconcileVirtualServices(ctx context.Context, ia
 			logger.Errorw("Failed to delete VirtualService", zap.Error(err))
 			return err
 		}
-	}
-	return nil
-}
-
-func (r *BaseIngressReconciler) reconcileVirtualService(ctx context.Context, ia v1alpha1.IngressAccessor,
-	desired *v1alpha3.VirtualService) error {
-	logger := logging.FromContext(ctx)
-	ns := desired.Namespace
-	name := desired.Name
-
-	vs, err := r.VirtualServiceLister.VirtualServices(ns).Get(name)
-	if apierrs.IsNotFound(err) {
-		_, err = r.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Create(desired)
-		if err != nil {
-			logger.Errorw("Failed to create VirtualService", zap.Error(err))
-			r.Recorder.Eventf(ia, corev1.EventTypeWarning, "CreationFailed",
-				"Failed to create VirtualService %q/%q: %v", ns, name, err)
-			return err
-		}
-		r.Recorder.Eventf(ia, corev1.EventTypeNormal, "Created", "Created VirtualService %q", desired.Name)
-	} else if err != nil {
-		return err
-	} else if !metav1.IsControlledBy(vs, ia) {
-		// Surface an error in the ClusterIngress's status, and return an error.
-		ia.GetStatus().MarkResourceNotOwned("VirtualService", name)
-		return fmt.Errorf("ingress: %q does not own VirtualService: %q", ia.GetName(), name)
-	} else if !equality.Semantic.DeepEqual(vs.Spec, desired.Spec) {
-		// Don't modify the informers copy
-		existing := vs.DeepCopy()
-		existing.Spec = desired.Spec
-		_, err = r.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Update(existing)
-		if err != nil {
-			logger.Errorw("Failed to update VirtualService", zap.Error(err))
-			return err
-		}
-		r.Recorder.Eventf(ia, corev1.EventTypeNormal, "Updated", "Updated status for VirtualService %q/%q", ns, name)
 	}
 	return nil
 }
@@ -535,7 +504,7 @@ func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha
 		logger.Errorw("Failed to update Gateway", zap.Error(err))
 		return err
 	}
-	r.Recorder.Eventf(ia, corev1.EventTypeNormal, "Updated", "Updated Gateway %q/%q", gateway.Namespace, gateway.Name)
+	r.Recorder.Eventf(ia, corev1.EventTypeNormal, "Updated", "Updated Gateway %s/%s", gateway.Namespace, gateway.Name)
 	return nil
 }
 
@@ -547,6 +516,16 @@ func (r *BaseIngressReconciler) GetKubeClient() kubernetes.Interface {
 // GetSecretLister returns the lister for Secret.
 func (r *BaseIngressReconciler) GetSecretLister() corev1listers.SecretLister {
 	return r.SecretLister
+}
+
+// GetSharedClient returns the client to access shared resources.
+func (r *BaseIngressReconciler) GetSharedClient() sharedclientset.Interface {
+	return r.SharedClientSet
+}
+
+// GetVirtualServiceLister returns the lister for VirtualService.
+func (r *BaseIngressReconciler) GetVirtualServiceLister() istiolisters.VirtualServiceLister {
+	return r.VirtualServiceLister
 }
 
 // qualifiedGatewayNamesFromContext get gateway names from context

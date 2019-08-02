@@ -18,8 +18,15 @@ package ingress
 
 import (
 	"errors"
+	"log"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"testing"
+	"time"
+
 	"go.uber.org/zap/zaptest"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -27,12 +34,6 @@ import (
 	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/ingress/resources"
-	"log"
-	"net/http"
-	"net/http/httptest"
-	"net/url"
-	"testing"
-	"time"
 )
 
 func TestIsReadyFailures(t *testing.T) {

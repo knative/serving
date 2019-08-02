@@ -32,6 +32,8 @@ const (
 )
 
 // RevisionID is the combination of namespace and revision name
+// TODO(greghaynes) once we remove old throttler code for revision_backends
+// we can delete this type (in leu of k8s NamespacedName)
 type RevisionID struct {
 	Namespace string
 	Name      string

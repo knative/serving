@@ -397,8 +397,11 @@ func TestNewFail(t *testing.T) {
 	}
 
 	podCounter := resources.NewScopedEndpointsCounter(kubeInformer.Core().V1().Endpoints().Lister(), testNamespace, deciderSpec.ServiceName)
-	_, err := New(testNamespace, testRevision, metrics, podCounter, deciderSpec, &mockReporter{})
-	if err == nil {
-		t.Error("No endpoints, but still succeeded creating the Autoscaler")
+	a, err := New(testNamespace, testRevision, metrics, podCounter, deciderSpec, &mockReporter{})
+	if err != nil {
+		t.Errorf("No endpoints should succeed, err = %v", err)
+	}
+	if got, want := int(a.maxPanicPods), 0; got != want {
+		t.Errorf("maxPanicPods = %d, want: 0", got)
 	}
 }

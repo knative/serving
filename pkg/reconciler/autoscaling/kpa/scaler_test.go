@@ -32,7 +32,6 @@ import (
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
-	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/activator"
@@ -424,7 +423,6 @@ func TestDisableScaleToZero(t *testing.T) {
 			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
 			revisionScaler := &scaler{
 				dynamicClient:     fakedynamicclient.Get(ctx),
-				logger:            logging.FromContext(ctx),
 				psInformerFactory: presources.NewPodScalableInformerFactory(ctx),
 			}
 			pa := newKPA(t, fakeservingclient.Get(ctx), revision)
@@ -474,9 +472,6 @@ func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxS
 			Namespace:   testNamespace,
 			Name:        testRevision,
 			Annotations: annotations,
-		},
-		Spec: v1alpha1.RevisionSpec{
-			DeprecatedConcurrencyModel: "Multi",
 		},
 	}
 	rev, err := servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
