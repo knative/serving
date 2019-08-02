@@ -283,7 +283,7 @@ func (c *Reconciler) reconcileCertificate(ctx context.Context, r *v1alpha1.Route
 			return nil, err
 		}
 		c.Recorder.Eventf(r, corev1.EventTypeNormal, "Created",
-			"Created Certificate %s/%s", cert.Namespace, cert.Name)
+			"Created Certificate %q/%q", cert.Namespace, cert.Name)
 		return cert, nil
 	} else if err != nil {
 		return nil, err

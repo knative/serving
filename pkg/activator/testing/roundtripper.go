@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
-	"sync/atomic"
 
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
@@ -42,10 +41,6 @@ type FakeRoundTripper struct {
 	// LockerCh blocks responses being sent until a struct is written to the channel
 	LockerCh chan struct{}
 
-	// ProbeHostResponses are popped when a probe request is made to a given host. If
-	// no host is matched then this falls back to the behavior or ProbeResponses
-	ProbeHostResponses map[string][]FakeResponse
-
 	// Responses to probe requests are popeed from this list until it is size 1 then
 	// that response is returned indefinitely
 	ProbeResponses []FakeResponse
@@ -53,8 +48,6 @@ type FakeRoundTripper struct {
 	// Response to non-probe requests
 	RequestResponse *FakeResponse
 	responseMux     sync.Mutex
-
-	NumProbes int32
 }
 
 func defaultProbeResponse() *FakeResponse {
@@ -80,38 +73,25 @@ func response(fr *FakeResponse) (*http.Response, error) {
 	return recorder.Result(), nil
 }
 
-func popResponseSlice(in []FakeResponse) (*FakeResponse, []FakeResponse) {
-	if len(in) == 0 {
-		return defaultProbeResponse(), in
-	}
-	resp := &in[0]
-	if len(in) > 1 {
-		in = in[1:]
-	}
-
-	return resp, in
-}
-
-func (rt *FakeRoundTripper) popResponse(host string) *FakeResponse {
+func (rt *FakeRoundTripper) popResponse() *FakeResponse {
 	rt.responseMux.Lock()
 	defer rt.responseMux.Unlock()
 
-	if v, ok := rt.ProbeHostResponses[host]; ok {
-		resp, responses := popResponseSlice(v)
-		rt.ProbeHostResponses[host] = responses
-		return resp
+	responses := rt.ProbeResponses
+	if len(responses) == 0 {
+		return defaultProbeResponse()
 	}
-
-	resp, responses := popResponseSlice(rt.ProbeResponses)
-	rt.ProbeResponses = responses
+	resp := &responses[0]
+	if len(responses) > 1 {
+		rt.ProbeResponses = responses[1:]
+	}
 	return resp
 }
 
 // RT is a RoundTripperFunc
 func (rt *FakeRoundTripper) RT(req *http.Request) (*http.Response, error) {
 	if req.Header.Get(network.ProbeHeaderName) != "" {
-		atomic.AddInt32(&rt.NumProbes, 1)
-		resp := rt.popResponse(req.URL.Host)
+		resp := rt.popResponse()
 		if resp.Err != nil {
 			return nil, resp.Err
 		}

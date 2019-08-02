@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/library.sh
+source $(dirname $0)/../vendor/github.com/knative/test-infra/scripts/library.sh
 
 set -o errexit
 set -o nounset
