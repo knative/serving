@@ -123,8 +123,10 @@ func MarkDeploying(reason string) RevisionOption {
 
 // MarkProgressDeadlineExceeded calls the method of the same name on the Revision
 // with the message we expect the Revision Reconciler to pass.
-func MarkProgressDeadlineExceeded(r *v1alpha1.Revision) {
-	r.Status.MarkProgressDeadlineExceeded("Unable to create pods for more than 120 seconds.")
+func MarkProgressDeadlineExceeded(message string) RevisionOption {
+	return func(r *v1alpha1.Revision) {
+		r.Status.MarkProgressDeadlineExceeded(message)
+	}
 }
 
 // MarkContainerMissing calls .Status.MarkContainerMissing on the Revision.

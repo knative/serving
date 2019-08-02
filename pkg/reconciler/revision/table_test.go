@@ -283,7 +283,7 @@ func TestReconcile(t *testing.T) {
 			pa("foo", "pa-not-ready",
 				WithPAStatusService("its-not-confidential"),
 				WithBufferedTraffic("Something", "This is something longer")),
-			deploy(t, "foo", "pa-not-ready"),
+			readyDeploy(deploy(t, "foo", "pa-not-ready")),
 			image("foo", "pa-not-ready"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -304,7 +304,7 @@ func TestReconcile(t *testing.T) {
 				withK8sServiceName("something-in-the-way"), WithLogURL, MarkRevisionReady),
 			pa("foo", "pa-inactive",
 				WithNoTraffic("NoTraffic", "This thing is inactive.")),
-			deploy(t, "foo", "pa-inactive"),
+			readyDeploy(deploy(t, "foo", "pa-inactive")),
 			image("foo", "pa-inactive"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -325,7 +325,7 @@ func TestReconcile(t *testing.T) {
 			pa("foo", "pa-inactive",
 				WithNoTraffic("NoTraffic", "This thing is inactive."),
 				WithPAStatusService("pa-inactive-svc")),
-			deploy(t, "foo", "pa-inactive"),
+			readyDeploy(deploy(t, "foo", "pa-inactive")),
 			image("foo", "pa-inactive"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -395,7 +395,7 @@ func TestReconcile(t *testing.T) {
 			rev("foo", "deploy-timeout",
 				withK8sServiceName("the-taxman"), WithLogURL, MarkActive),
 			pa("foo", "deploy-timeout"), // pa can't be ready since deployment times out.
-			timeoutDeploy(deploy(t, "foo", "deploy-timeout")),
+			timeoutDeploy(deploy(t, "foo", "deploy-timeout"), "I timed out!"),
 			image("foo", "deploy-timeout"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -403,14 +403,30 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, AllUnknownConditions,
 				// When the revision is reconciled after a Deployment has
 				// timed out, we should see it marked with the PDE state.
-				MarkProgressDeadlineExceeded),
+				MarkProgressDeadlineExceeded("I timed out!")),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "ProgressDeadlineExceeded",
-				"Revision %s not ready due to Deployment timeout",
-				"deploy-timeout"),
-		},
 		Key: "foo/deploy-timeout",
+	}, {
+		Name: "surface replica failure",
+		// Test the propagation of FailedCreate from Deployment.
+		// This initializes the world to the stable state after its first reconcile,
+		// but changes the user deployment to have a FailedCreate condition.
+		// It then verifies that Reconcile propagates this into the status of the Revision.
+		Objects: []runtime.Object{
+			rev("foo", "deploy-replica-failure",
+				withK8sServiceName("the-taxman"), WithLogURL, MarkActive),
+			pa("foo", "deploy-replica-failure"),
+			replicaFailureDeploy(deploy(t, "foo", "deploy-replica-failure"), "I replica failed!"),
+			image("foo", "deploy-replica-failure"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "deploy-replica-failure",
+				WithLogURL, AllUnknownConditions,
+				// When the revision is reconciled after a Deployment has
+				// timed out, we should see it marked with the FailedCreate state.
+				MarkResourcesUnavailable("FailedCreate", "I replica failed!")),
+		}},
+		Key: "foo/deploy-replica-failure",
 	}, {
 		Name: "surface ImagePullBackoff",
 		// Test the propagation of ImagePullBackoff from user container.
@@ -419,7 +435,7 @@ func TestReconcile(t *testing.T) {
 				withK8sServiceName("the-taxman"), WithLogURL, MarkActivating("Deploying", "")),
 			pa("foo", "pull-backoff"), // pa can't be ready since deployment times out.
 			pod(t, "foo", "pull-backoff", WithWaitingContainer("user-container", "ImagePullBackoff", "can't pull it")),
-			timeoutDeploy(deploy(t, "foo", "pull-backoff")),
+			timeoutDeploy(deploy(t, "foo", "pull-backoff"), "Timed out!"),
 			image("foo", "pull-backoff"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -546,11 +562,30 @@ func TestReconcile(t *testing.T) {
 	}))
 }
 
-func timeoutDeploy(deploy *appsv1.Deployment) *appsv1.Deployment {
+func readyDeploy(deploy *appsv1.Deployment) *appsv1.Deployment {
 	deploy.Status.Conditions = []appsv1.DeploymentCondition{{
 		Type:   appsv1.DeploymentProgressing,
-		Status: corev1.ConditionFalse,
-		Reason: "ProgressDeadlineExceeded",
+		Status: corev1.ConditionTrue,
+	}}
+	return deploy
+}
+
+func timeoutDeploy(deploy *appsv1.Deployment, message string) *appsv1.Deployment {
+	deploy.Status.Conditions = []appsv1.DeploymentCondition{{
+		Type:    appsv1.DeploymentProgressing,
+		Status:  corev1.ConditionFalse,
+		Reason:  "ProgressDeadlineExceeded",
+		Message: message,
+	}}
+	return deploy
+}
+
+func replicaFailureDeploy(deploy *appsv1.Deployment, message string) *appsv1.Deployment {
+	deploy.Status.Conditions = []appsv1.DeploymentCondition{{
+		Type:    appsv1.DeploymentReplicaFailure,
+		Status:  corev1.ConditionTrue,
+		Reason:  "FailedCreate",
+		Message: message,
 	}}
 	return deploy
 }
