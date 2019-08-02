@@ -1638,7 +1638,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:109be9502d5b6e9be46426641dd7f7b1328788d85cd22f314ac812489d874f30"
+  digest = "1:bb229ac008f2b7ddcd122f857584627de4cf78f31f3001ca79560f48659db88f"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1731,7 +1731,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "e8df94bc5a75081fe081548c261203467448857b"
+  revision = "2b848f71969c997809a2dbea8351eaadb23e9bc9"
 
 [[projects]]
   branch = "master"
@@ -1878,6 +1878,7 @@
     "knative.dev/pkg/apis/testing",
     "knative.dev/pkg/client/clientset/versioned",
     "knative.dev/pkg/client/clientset/versioned/fake",
+    "knative.dev/pkg/client/informers/externalversions",
     "knative.dev/pkg/client/injection/client",
     "knative.dev/pkg/client/injection/client/fake",
     "knative.dev/pkg/client/injection/informers/istio/v1alpha3/gateway",

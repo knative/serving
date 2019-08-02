@@ -25,6 +25,7 @@ import (
 	"os/user"
 	"path/filepath"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -67,6 +68,17 @@ func GetConfig(masterURL, kubeconfig string) (*rest.Config, error) {
 	return nil, fmt.Errorf("could not create a valid kubeconfig")
 }
 
+// GetLoggingConfig gets the logging config from either the file system if present
+// or via reading a configMap from the API.
+// The context is expected to be initialized with injection.
+func GetLoggingConfig(ctx context.Context) (*logging.Config, error) {
+	loggingConfigMap, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(logging.ConfigMapName(), metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return logging.NewConfigFromConfigMap(loggingConfigMap)
+}
+
 func Main(component string, ctors ...injection.ControllerConstructor) {
 	// Set up signals so we handle the first shutdown signal gracefully.
 	MainWithContext(signals.NewContext(), component, ctors...)
@@ -87,29 +99,25 @@ func MainWithContext(ctx context.Context, component string, ctors ...injection.C
 }
 
 func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, ctors ...injection.ControllerConstructor) {
-	// Set up our logger.
-	loggingConfigMap, err := configmap.Load("/etc/config-logging")
-	if err != nil {
-		log.Fatal("Error loading logging configuration:", err)
-	}
-	loggingConfig, err := logging.NewConfigFromMap(loggingConfigMap)
-	if err != nil {
-		log.Fatal("Error parsing logging configuration:", err)
-	}
-	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, component)
-	defer flush(logger)
-	ctx = logging.WithLogger(ctx, logger)
-
-	logger.Infof("Registering %d clients", len(injection.Default.GetClients()))
-	logger.Infof("Registering %d informer factories", len(injection.Default.GetInformerFactories()))
-	logger.Infof("Registering %d informers", len(injection.Default.GetInformers()))
-	logger.Infof("Registering %d controllers", len(ctors))
+	log.Printf("Registering %d clients", len(injection.Default.GetClients()))
+	log.Printf("Registering %d informer factories", len(injection.Default.GetInformerFactories()))
+	log.Printf("Registering %d informers", len(injection.Default.GetInformers()))
+	log.Printf("Registering %d controllers", len(ctors))
 
 	// Adjust our client's rate limits based on the number of controller's we are running.
 	cfg.QPS = float32(len(ctors)) * rest.DefaultQPS
 	cfg.Burst = len(ctors) * rest.DefaultBurst
 
 	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
+
+	// Set up our logger.
+	loggingConfig, err := GetLoggingConfig(ctx)
+	if err != nil {
+		log.Fatal("Error reading/parsing logging configuration:", err)
+	}
+	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, component)
+	defer flush(logger)
+	ctx = logging.WithLogger(ctx, logger)
 
 	// TODO(mattmoor): This should itself take a context and be injection-based.
 	cmw := configmap.NewInformedWatcher(kubeclient.Get(ctx), system.Namespace())
