@@ -93,11 +93,12 @@ type TrafficTarget struct {
 	// the value indicates the percent of traffic that is be routed to this
 	// Revision or Configuration. `0` (zero) mean no traffic, `100` means all
 	// traffic.
-	// If "percent" appears on one or more Traffic Targets then the sum of
-	// all those percent values must equal 100.
-	// If "percent", nor any other routing mechanism is specified, then
-	// the default is that no traffic will be sent to this Revision or
-	// Configuration.
+	// When percentage based routing is being used the follow rules apply:
+	// - the sum of all percent values must equal zero
+	// - when not specified, the implied value for `percent` is zero for
+	//   that particular Revision or Configuration
+	// If some other routing mechanism is being used then that mechanism
+	// must define its processing rules.
 	// +optional
 	Percent *int64 `json:"percent,omitempty"`
 
