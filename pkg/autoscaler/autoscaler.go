@@ -76,9 +76,7 @@ func New(
 	// accumulate enough data to make conscious decisions.
 	curC, err := podCounter.ReadyCount()
 	if err != nil {
-		// This always happens on new revision creation, since decider
-		// is reconciled before SKS has even chance of creating the service/endpoints.
-		curC = 0
+		return nil, fmt.Errorf("initial pod count failed: %v", err)
 	}
 	var pt *time.Time
 	if curC > 1 {
