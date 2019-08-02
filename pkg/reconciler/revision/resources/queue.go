@@ -21,6 +21,7 @@ import (
 	"math"
 	"strconv"
 
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -181,7 +182,7 @@ func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
 
 // makeQueueContainer creates the container spec for the queue sidecar.
 func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, observabilityConfig *metrics.ObservabilityConfig,
-	autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) *corev1.Container {
+	autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) (*corev1.Container, error) {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
@@ -218,8 +219,10 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 
 	applyReadinessProbeDefaults(rp, userPort)
 
-	// TODO(joshrider) bubble up error instead of squashing it here
-	probeJSON, _ := readiness.EncodeProbe(rp)
+	probeJSON, err := readiness.EncodeProbe(rp)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to serialize readiness probe")
+	}
 
 	return &corev1.Container{
 		Name:            QueueContainerName,
@@ -313,7 +316,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 			Name:  "SERVING_READINESS_PROBE",
 			Value: probeJSON,
 		}},
-	}
+	}, nil
 }
 func applyReadinessProbeDefaults(p *corev1.Probe, port int32) {
 	switch {
