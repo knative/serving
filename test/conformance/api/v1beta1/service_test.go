@@ -245,6 +245,7 @@ func TestServiceBYOName(t *testing.T) {
 // 4. Two Revisions Specified, 50% rollout, candidate != latest
 // 5. Two Revisions Specified, 50% rollout, candidate != latest, candidate is configurationName.
 func TestServiceWithTrafficSplit(t *testing.T) {
+	t.Fatalf("FORCE FAILURE TO TEST RETRYER")
 	t.Parallel()
 	// Create Initial Service
 	clients := test.Setup(t)
