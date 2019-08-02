@@ -1573,15 +1573,7 @@ func newTestRevision(namespace string, name string) *v1alpha1.Revision {
 				autoscaling.ClassAnnotationKey: autoscaling.KPA,
 			},
 		},
-		Spec: v1alpha1.RevisionSpec{
-			DeprecatedContainer: &corev1.Container{
-				Image:      "gcr.io/repo/image",
-				Command:    []string{"echo"},
-				Args:       []string{"hello", "world"},
-				WorkingDir: "/tmp",
-			},
-			DeprecatedConcurrencyModel: v1alpha1.RevisionRequestConcurrencyModelSingle,
-		},
+		Spec: v1alpha1.RevisionSpec{},
 	}
 }
 
