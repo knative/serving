@@ -46,7 +46,7 @@ func ReconcileVirtualService(ctx context.Context, owner kmeta.Accessor, desired 
 	logger := logging.FromContext(ctx)
 	recorder := controller.GetEventRecorder(ctx)
 	if recorder == nil {
-		return nil, fmt.Errorf("recoder for reconcilging VirtualService %q/%q is not created", desired.Namespace, desired.Name)
+		return nil, fmt.Errorf("recoder for reconciling VirtualService %s/%s is not created", desired.Namespace, desired.Name)
 	}
 	ns := desired.Namespace
 	name := desired.Name
@@ -56,7 +56,7 @@ func ReconcileVirtualService(ctx context.Context, owner kmeta.Accessor, desired 
 		if err != nil {
 			logger.Errorw("Failed to create VirtualService", zap.Error(err))
 			recorder.Eventf(owner, corev1.EventTypeWarning, "CreationFailed",
-				"Failed to create VirtualService %q/%q: %v", ns, name, err)
+				"Failed to create VirtualService %s/%s: %v", ns, name, err)
 			return nil, err
 		}
 		recorder.Eventf(owner, corev1.EventTypeNormal, "Created", "Created VirtualService %q", desired.Name)
@@ -74,7 +74,7 @@ func ReconcileVirtualService(ctx context.Context, owner kmeta.Accessor, desired 
 			logger.Errorw("Failed to update VirtualService", zap.Error(err))
 			return nil, err
 		}
-		recorder.Eventf(owner, corev1.EventTypeNormal, "Updated", "Updated status for VirtualService %q/%q", ns, name)
+		recorder.Eventf(owner, corev1.EventTypeNormal, "Updated", "Updated VirtualService %s/%s", ns, name)
 	}
 	return vs, nil
 }

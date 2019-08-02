@@ -527,7 +527,7 @@ func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha
 		logger.Errorw("Failed to update Gateway", zap.Error(err))
 		return err
 	}
-	r.Recorder.Eventf(ia, corev1.EventTypeNormal, "Updated", "Updated Gateway %q/%q", gateway.Namespace, gateway.Name)
+	r.Recorder.Eventf(ia, corev1.EventTypeNormal, "Updated", "Updated Gateway %s/%s", gateway.Namespace, gateway.Name)
 	return nil
 }
 
