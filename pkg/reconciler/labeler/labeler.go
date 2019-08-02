@@ -20,7 +20,6 @@ import (
 	"context"
 
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -57,9 +56,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	route, err := c.routeLister.Routes(namespace).Get(name)
 	if apierrs.IsNotFound(err) {
 		logger.Infof("Clearing labels for deleted Route: %q", key)
-		return c.deleteLabelForOutsideOfGivenConfigurations(
-			ctx, namespace, name, sets.NewString(),
-		)
+		return c.clearLabels(ctx, namespace, name)
 	} else if err != nil {
 		return err
 	}
