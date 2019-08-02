@@ -44,7 +44,7 @@ import (
 	"knative.dev/serving/pkg/queue"
 )
 
-func revision(revID types.NamespacedName) *v1alpha1.Revision {
+func revision(revID types.NamespacedName, protocol networking.ProtocolType) *v1alpha1.Revision {
 	return &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: revID.Namespace,
@@ -53,6 +53,13 @@ func revision(revID types.NamespacedName) *v1alpha1.Revision {
 		Spec: v1alpha1.RevisionSpec{
 			RevisionSpec: v1beta1.RevisionSpec{
 				ContainerConcurrency: 1,
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Ports: []corev1.ContainerPort{{
+							Name: string(protocol),
+						}},
+					}},
+				},
 			},
 		},
 	}
@@ -113,13 +120,36 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 		clusterIP:     "129.0.0.1",
 		expectUpdates: []RevisionDestsUpdate{{Dests: []string{"128.0.0.1:1234"}}},
-		probeResponses: []activatortest.FakeResponse{{
-			Err: errors.New("clusterIP transport error"),
-		}, {
-			Err:  nil,
-			Code: http.StatusOK,
-			Body: queue.Name,
-		}},
+		probeHostResponses: map[string][]activatortest.FakeResponse{
+			"129.0.0.1:1234": []activatortest.FakeResponse{{
+				Err: errors.New("clusterIP transport error"),
+			}},
+			"128.0.0.1:1234": []activatortest.FakeResponse{{
+				Err:  nil,
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+		},
+	}, {
+		name:     "single http2 clusterIP",
+		dests:    []string{"128.0.0.1:1234"},
+		protocol: networking.ProtocolH2C,
+		clusterPort: corev1.ServicePort{
+			Name: "http2",
+			Port: 1234,
+		},
+		clusterIP:     "129.0.0.1",
+		expectUpdates: []RevisionDestsUpdate{{ClusterIPDest: "129.0.0.1:1234"}},
+		probeHostResponses: map[string][]activatortest.FakeResponse{
+			"129.0.0.1:1234": []activatortest.FakeResponse{{
+				Err:  nil,
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+			"128.0.0.1:1234": []activatortest.FakeResponse{{
+				Err: errors.New("clusterIP transport error"),
+			}},
+		},
 	}, {
 		name:  "single unavailable podIP",
 		dests: []string{"128.0.0.1:1234"},
@@ -338,10 +368,10 @@ func TestRevisionWatcher(t *testing.T) {
 	}
 }
 
-func ep(revL string, port int32, ips ...string) *corev1.Endpoints {
+func ep(revL string, port int32, portName string, ips ...string) *corev1.Endpoints {
 	ss := corev1.EndpointSubset{
 		Ports: []corev1.EndpointPort{{
-			Name: networking.ServicePortNameHTTP1,
+			Name: portName,
 			Port: port,
 		}},
 	}
@@ -373,9 +403,9 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		updateCnt          int
 	}{{
 		name:         "Add slow healthy",
-		endpointsArr: []*corev1.Endpoints{ep("test-revision", 1234, "128.0.0.1")},
+		endpointsArr: []*corev1.Endpoints{ep("test-revision", 1234, "http", "128.0.0.1")},
 		revisions: []*v1alpha1.Revision{
-			revision(types.NamespacedName{"test-namespace", "test-revision"}),
+			revision(types.NamespacedName{"test-namespace", "test-revision"}, networking.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
 			privateSksService(types.NamespacedName{"test-namespace", "test-revision"}, "129.0.0.1",
@@ -402,14 +432,44 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		},
 		updateCnt: 2,
 	}, {
+		name:         "Add slow ready http2",
+		endpointsArr: []*corev1.Endpoints{ep("test-revision", 1234, "http2", "128.0.0.1")},
+		revisions: []*v1alpha1.Revision{
+			revision(types.NamespacedName{"test-namespace", "test-revision"}, networking.ProtocolH2C),
+		},
+		services: []*corev1.Service{
+			privateSksService(types.NamespacedName{"test-namespace", "test-revision"}, "129.0.0.1",
+				[]corev1.ServicePort{{Name: "http2", Port: 1234}}),
+		},
+		probeHostResponses: map[string][]activatortest.FakeResponse{
+			"129.0.0.1:1234": []activatortest.FakeResponse{{
+				Err: errors.New("clusterIP transport error"),
+			}},
+			"128.0.0.1:1234": []activatortest.FakeResponse{{
+				Err:  nil,
+				Code: http.StatusServiceUnavailable,
+				Body: queue.Name,
+			}, {
+				Err:  nil,
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+		},
+		expectDests: map[types.NamespacedName]RevisionDestsUpdate{
+			types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}: RevisionDestsUpdate{
+				Dests: []string{"128.0.0.1:1234"},
+			},
+		},
+		updateCnt: 2,
+	}, {
 		name: "Multiple revisions",
 		endpointsArr: []*corev1.Endpoints{
-			ep("test-revision1", 1234, "128.0.0.1"),
-			ep("test-revision2", 1235, "128.1.0.2"),
+			ep("test-revision1", 1234, "http", "128.0.0.1"),
+			ep("test-revision2", 1235, "http", "128.1.0.2"),
 		},
 		revisions: []*v1alpha1.Revision{
-			revision(types.NamespacedName{"test-namespace", "test-revision1"}),
-			revision(types.NamespacedName{"test-namespace", "test-revision2"}),
+			revision(types.NamespacedName{"test-namespace", "test-revision1"}, networking.ProtocolHTTP1),
+			revision(types.NamespacedName{"test-namespace", "test-revision2"}, networking.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
 			privateSksService(types.NamespacedName{"test-namespace", "test-revision1"}, "129.0.0.1",
@@ -432,9 +492,9 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		updateCnt: 2,
 	}, {
 		name:         "slow podIP then clusterIP",
-		endpointsArr: []*corev1.Endpoints{ep("test-revision", 1234, "128.0.0.1")},
+		endpointsArr: []*corev1.Endpoints{ep("test-revision", 1234, "http", "128.0.0.1")},
 		revisions: []*v1alpha1.Revision{
-			revision(types.NamespacedName{"test-namespace", "test-revision"}),
+			revision(types.NamespacedName{"test-namespace", "test-revision"}, networking.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
 			privateSksService(types.NamespacedName{"test-namespace", "test-revision"}, "129.0.0.1",

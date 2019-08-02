@@ -56,7 +56,6 @@ type RevisionDestsUpdate struct {
 }
 
 const (
-	probePortName  string        = "http"
 	probeTimeout   time.Duration = 300 * time.Millisecond
 	probeFrequency time.Duration = 200 * time.Millisecond
 )
@@ -341,7 +340,7 @@ func (rbm *RevisionBackendsManager) getRevisionProtocol(revID types.NamespacedNa
 	return revision.GetProtocol(), nil
 }
 
-func (rbm *RevisionBackendsManager) getOrCreateDestsCh(rev types.NamespacedName) (chan []string, error) {
+func (rbm *RevisionBackendsManager) getOrCreateRevisionWatcher(rev types.NamespacedName) (*revisionWatcherCh, error) {
 	rbm.revisionWatchersMux.Lock()
 	defer rbm.revisionWatchersMux.Unlock()
 
@@ -356,10 +355,10 @@ func (rbm *RevisionBackendsManager) getOrCreateDestsCh(rev types.NamespacedName)
 		rw := newRevisionWatcher(rev, proto, rbm.updateCh, destsCh, rbm.transport, rbm.serviceLister, rbm.logger)
 		rbm.revisionWatchers[rev] = &revisionWatcherCh{rw, destsCh}
 		go rw.run(rbm.probeFrequency)
-		return destsCh, nil
+		return rbm.revisionWatchers[rev], nil
 	}
 
-	return rwCh.ch, nil
+	return rwCh, nil
 }
 
 // endpointsUpdated is a handler function to be used by the Endpoints informer.
@@ -369,13 +368,13 @@ func (rbm *RevisionBackendsManager) endpointsUpdated(newObj interface{}) {
 	endpoints := newObj.(*corev1.Endpoints)
 	revID := types.NamespacedName{endpoints.Namespace, endpoints.Labels[serving.RevisionLabelKey]}
 
-	destsCh, err := rbm.getOrCreateDestsCh(revID)
+	rwCh, err := rbm.getOrCreateRevisionWatcher(revID)
 	if err != nil {
 		rbm.logger.Errorw(fmt.Sprintf("Failed to get revision watcher for revision %q", revID.String()),
 			zap.Error(err))
 		return
 	}
-	destsCh <- EndpointsToDests(endpoints)
+	rwCh.ch <- EndpointsToDests(endpoints, networking.ServicePortName(rwCh.revisionWatcher.protocol))
 }
 
 // deleteRevisionWatcher deletes the revision wathcher for rev if it exists. It expects
