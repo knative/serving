@@ -34,7 +34,9 @@ import (
 )
 
 func (c *Reconciler) syncLabels(ctx context.Context, r *v1alpha1.Route) error {
+	revisions := sets.NewString()
 	configs := sets.NewString()
+
 	// Walk the revisions in Route's .status.traffic and build a list
 	// of Configurations to label from their OwnerReferences.
 	for _, tt := range r.Status.Traffic {
@@ -42,10 +44,18 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1alpha1.Route) error {
 		if err != nil {
 			return err
 		}
+		revisions.Insert(tt.RevisionName)
 		owner := metav1.GetControllerOf(rev)
 		if owner != nil && owner.Kind == "Configuration" {
 			configs.Insert(owner.Name)
 		}
+	}
+
+	if err := c.deleteLabelForOutsideOfGivenRevisions(ctx, r.Namespace, r.Name, revisions); err != nil {
+		return err
+	}
+	if err := c.setLabelForGivenRevisions(ctx, r, revisions); err != nil {
+		return err
 	}
 
 	if err := c.deleteLabelForOutsideOfGivenConfigurations(ctx, r.Namespace, r.Name, configs); err != nil {
@@ -159,5 +169,113 @@ func setRouteLabelForConfiguration(
 	}
 
 	_, err = configClient.Patch(configName, types.MergePatchType, patch)
+	return err
+}
+
+func (c *Reconciler) setLabelForGivenRevisions(
+	ctx context.Context,
+	route *v1alpha1.Route,
+	revisions sets.String) error {
+	logger := logging.FromContext(ctx)
+
+	// The ordered collection of Revisions to which we
+	// should patch our Route label.
+	revisionOrder := []string{}
+	revisionMap := make(map[string]*v1alpha1.Revision)
+
+	// Lookup Revisions that are missing our Route label.
+	for name := range revisions {
+		revisionOrder = append(revisionOrder, name)
+
+		revision, err := c.revisionLister.Revisions(route.Namespace).Get(name)
+		if err != nil {
+			return err
+		}
+		revisionMap[name] = revision
+		routeName, ok := revision.Labels[serving.RouteLabelKey]
+		if !ok {
+			continue
+		}
+		if routeName != route.Name {
+			return fmt.Errorf("revision %q is already in use by %q, and cannot be used by %q",
+				revision.Name, routeName, route.Name)
+		}
+	}
+	// Sort the names to give things a deterministic ordering.
+	sort.Strings(revisionOrder)
+
+	revisionClient := c.ServingClientSet.ServingV1alpha1().Revisions(route.Namespace)
+	// Set label for newly added revisions as traffic target.
+	for _, revisionName := range revisionOrder {
+		revision := revisionMap[revisionName]
+		if revision.Labels == nil {
+			revision.Labels = make(map[string]string)
+		} else if _, ok := revision.Labels[serving.RouteLabelKey]; ok {
+			continue
+		}
+
+		if err := setRouteLabelForRevision(revisionClient, revision.Name, revision.ResourceVersion, &route.Name); err != nil {
+			logger.Errorf("Failed to add route label to revision %q: %s", revision.Name, err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *Reconciler) deleteLabelForOutsideOfGivenRevisions(
+	ctx context.Context,
+	routeNamespace, routeName string,
+	revisions sets.String,
+) error {
+
+	logger := logging.FromContext(ctx)
+
+	// Get Revisions set as traffic target before this sync.
+	selector := labels.SelectorFromSet(labels.Set{serving.RouteLabelKey: routeName})
+
+	oldRevisionsList, err := c.revisionLister.Revisions(routeNamespace).List(selector)
+	if err != nil {
+		return err
+	}
+
+	// Delete label for newly removed revisions as traffic target.
+	revisionClient := c.ServingClientSet.ServingV1alpha1().Revisions(routeNamespace)
+	for _, revision := range oldRevisionsList {
+		if revisions.Has(revision.Name) {
+			continue
+		}
+
+		if err := setRouteLabelForRevision(revisionClient, revision.Name, revision.ResourceVersion, nil); err != nil {
+			logger.Errorf("Failed to remove route label to revision %q: %s", revision.Name, err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func setRouteLabelForRevision(
+	revisionClient servingv1alpha1.RevisionInterface,
+	revisionName string,
+	revisionVersion string,
+	routeName *string, // a nil route name will cause the route label to be deleted
+) error {
+
+	mergePatch := map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"labels": map[string]interface{}{
+				serving.RouteLabelKey: routeName,
+			},
+			"resourceVersion": revisionVersion,
+		},
+	}
+
+	patch, err := json.Marshal(mergePatch)
+	if err != nil {
+		return err
+	}
+
+	_, err = revisionClient.Patch(revisionName, types.MergePatchType, patch)
 	return err
 }
