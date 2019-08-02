@@ -12,7 +12,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package handler
 
 import (
@@ -358,58 +357,6 @@ func TestActivationHandler(t *testing.T) {
 	}
 }
 
-func TestActivationHandlerProbeCaching(t *testing.T) {
-	namespace := testNamespace
-	revName := testRevName
-	revID := activator.RevisionID{Namespace: namespace, Name: revName}
-
-	fakeRT := activatortest.FakeRoundTripper{}
-	rt := network.RoundTripperFunc(fakeRT.RT)
-
-	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
-	reporter := &fakeReporter{}
-
-	throttler := activator.NewThrottler(
-		breakerParams,
-		endpointsInformer(endpoints(namespace, revName, breakerParams.InitialCapacity)),
-		sksLister(sks(namespace, revName)),
-		revisionLister(revision(namespace, revName)),
-		TestLogger(t))
-
-	handler := (New(TestLogger(t), reporter, throttler,
-		revisionLister(revision(namespace, revName)),
-		serviceLister(service(namespace, revName, "http")),
-		sksLister(sks(namespace, revName)),
-	)).(*activationHandler)
-
-	// Setup transports.
-	handler.transport = rt
-	handler.probeTransport = rt
-
-	sendRequest(namespace, revName, handler)
-	if fakeRT.NumProbes != 1 {
-		t.Errorf("NumProbes = %d, want: %d", fakeRT.NumProbes, 1)
-	}
-
-	sendRequest(namespace, revName, handler)
-	// Assert that we didn't reprobe
-	if fakeRT.NumProbes != 1 {
-		t.Errorf("NumProbes = %d, want: %d", fakeRT.NumProbes, 1)
-	}
-
-	// Dropping the capacity to 0 causes the next request to probe again.
-	throttler.UpdateCapacity(revID, 0)
-	time.AfterFunc(100*time.Millisecond, func() {
-		// Asynchronously updating the capacity to let the request through.
-		throttler.UpdateCapacity(revID, 1)
-	})
-
-	sendRequest(namespace, revName, handler)
-	if fakeRT.NumProbes != 2 {
-		t.Errorf("NumProbes = %d, want: %d", fakeRT.NumProbes, 2)
-	}
-}
-
 // Make sure we return http internal server error when the Breaker is overflowed
 func TestActivationHandlerOverflow(t *testing.T) {
 	const (
@@ -422,14 +369,14 @@ func TestActivationHandlerOverflow(t *testing.T) {
 	revName := testRevName
 
 	lockerCh := make(chan struct{})
-	fakeRT := activatortest.FakeRoundTripper{
+	fakeRt := activatortest.FakeRoundTripper{
 		LockerCh: lockerCh,
 		RequestResponse: &activatortest.FakeResponse{
 			Code: http.StatusOK,
 			Body: wantBody,
 		},
 	}
-	rt := network.RoundTripperFunc(fakeRT.RT)
+	rt := network.RoundTripperFunc(fakeRt.RT)
 
 	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	reporter := &fakeReporter{}
@@ -451,7 +398,7 @@ func TestActivationHandlerOverflow(t *testing.T) {
 	handler.transport = rt
 	handler.probeTransport = rt
 
-	sendRequests(requests, namespace, revName, respCh, handler)
+	sendRequests(requests, namespace, revName, respCh, *handler)
 	assertResponses(wantedSuccess, wantedFailure, requests, lockerCh, respCh, t)
 }
 
@@ -497,7 +444,7 @@ func TestActivationHandlerOverflowSeveralRevisions(t *testing.T) {
 
 	for _, revName := range revisions {
 		requestCount := overallRequests / len(revisions)
-		sendRequests(requestCount, testNamespace, revName, respCh, handler)
+		sendRequests(requestCount, testNamespace, revName, respCh, *handler)
 	}
 	assertResponses(wantedSuccess, wantedFailure, overallRequests, lockerCh, respCh, t)
 }
@@ -528,7 +475,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	}
 	probeRt := network.RoundTripperFunc(fakeRT.RT)
 
-	handler := &activationHandler{
+	handler := activationHandler{
 		transport:      rt,
 		probeTransport: probeRt,
 		logger:         TestLogger(t),
@@ -594,7 +541,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 		revisionLister(revision(namespace, revName)),
 		TestLogger(t))
 
-	handler := &activationHandler{
+	handler := activationHandler{
 		transport:      rt,
 		probeTransport: rt,
 		logger:         TestLogger(t),
@@ -621,7 +568,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 	}
 }
 
-func sendRequest(namespace, revName string, handler *activationHandler) *httptest.ResponseRecorder {
+func sendRequest(namespace, revName string, handler activationHandler) *httptest.ResponseRecorder {
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(activator.RevisionHeaderNamespace, namespace)
@@ -632,7 +579,7 @@ func sendRequest(namespace, revName string, handler *activationHandler) *httptes
 
 // sendRequests sends `count` concurrent requests via the given handler and writes
 // the recorded responses to the `respCh`.
-func sendRequests(count int, namespace, revName string, respCh chan *httptest.ResponseRecorder, handler *activationHandler) {
+func sendRequests(count int, namespace, revName string, respCh chan *httptest.ResponseRecorder, handler activationHandler) {
 	for i := 0; i < count; i++ {
 		go func() {
 			respCh <- sendRequest(namespace, revName, handler)

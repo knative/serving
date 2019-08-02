@@ -40,15 +40,15 @@ import (
 func TestConcurrencyModelValidation(t *testing.T) {
 	tests := []struct {
 		name string
-		cm   DeprecatedRevisionRequestConcurrencyModelType
+		cm   RevisionRequestConcurrencyModelType
 		want *apis.FieldError
 	}{{
 		name: "single",
-		cm:   DeprecatedRevisionRequestConcurrencyModelSingle,
+		cm:   RevisionRequestConcurrencyModelSingle,
 		want: nil,
 	}, {
 		name: "multi",
-		cm:   DeprecatedRevisionRequestConcurrencyModelMulti,
+		cm:   RevisionRequestConcurrencyModelMulti,
 		want: nil,
 	}, {
 		name: "empty",

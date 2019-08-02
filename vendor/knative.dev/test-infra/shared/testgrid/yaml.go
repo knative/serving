@@ -21,8 +21,8 @@ import (
 	"io/ioutil"
 	"path"
 
-	yaml "gopkg.in/yaml.v2"
 	"knative.dev/test-infra/shared/common"
+	yaml "gopkg.in/yaml.v2"
 )
 
 const configPath = "ci/testgrid/config.yaml"

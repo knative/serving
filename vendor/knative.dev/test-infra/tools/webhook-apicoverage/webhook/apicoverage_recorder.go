@@ -25,6 +25,9 @@ import (
 	"reflect"
 	"strings"
 
+	"knative.dev/test-infra/tools/webhook-apicoverage/coveragecalculator"
+	"knative.dev/test-infra/tools/webhook-apicoverage/resourcetree"
+	"knative.dev/test-infra/tools/webhook-apicoverage/view"
 	"go.uber.org/zap"
 	"k8s.io/api/admission/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,9 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"knative.dev/pkg/webhook"
-	"knative.dev/test-infra/tools/webhook-apicoverage/coveragecalculator"
-	"knative.dev/test-infra/tools/webhook-apicoverage/resourcetree"
-	"knative.dev/test-infra/tools/webhook-apicoverage/view"
 )
 
 var (

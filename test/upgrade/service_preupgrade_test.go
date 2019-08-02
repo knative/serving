@@ -21,9 +21,7 @@ package upgrade
 import (
 	"testing"
 
-	"knative.dev/serving/pkg/apis/autoscaling"
 	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
-	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 	v1a1test "knative.dev/serving/test/v1alpha1"
@@ -37,11 +35,7 @@ func TestRunLatestServicePreUpgrade(t *testing.T) {
 	names.Service = serviceName
 	names.Image = test.PizzaPlanet1
 
-	resources, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names,
-		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.MinScaleAnnotationKey: "1", //make sure we don't scale to zero during the test
-		}),
-	)
+	resources, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names)
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
@@ -57,11 +51,7 @@ func TestRunLatestServicePreUpgradeAndScaleToZero(t *testing.T) {
 	names.Service = scaleToZeroServiceName
 	names.Image = test.PizzaPlanet1
 
-	resources, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names,
-		rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.WindowAnnotationKey: autoscaling.WindowMin.String(), //make sure we scale to zero quickly
-		}),
-	)
+	resources, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names)
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}

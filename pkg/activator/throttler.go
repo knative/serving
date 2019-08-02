@@ -36,7 +36,6 @@ import (
 	"knative.dev/serving/pkg/resources"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -61,7 +60,6 @@ type Throttler struct {
 	revisionLister  servinglisters.RevisionLister
 	sksLister       netlisters.ServerlessServiceLister
 
-	pcache           *probeCache
 	numActivatorsMux sync.RWMutex
 	numActivators    int
 }
@@ -87,7 +85,6 @@ func NewThrottler(
 		endpointsLister: endpointsInformer.Lister(),
 		revisionLister:  revisionLister,
 		sksLister:       sksLister,
-		pcache:          newProbeCache(),
 	}
 
 	// Update/create the breaker in the throttler when the number of endpoints changes.
@@ -130,22 +127,8 @@ func (t *Throttler) Remove(rev RevisionID) {
 	delete(t.breakers, rev)
 }
 
-// ShouldProbe returns true if we should probe.
-func (t *Throttler) ShouldProbe(revID RevisionID) bool {
-	return t.pcache.should(revID)
-}
-
-// MarkProbe marks revision as successfully probed.
-func (t *Throttler) MarkProbe(revID RevisionID) {
-	t.pcache.mark(revID)
-}
-
 // UpdateCapacity updates the max concurrency of the Breaker corresponding to a revision.
 func (t *Throttler) UpdateCapacity(rev RevisionID, size int) error {
-	// If we have no backends -- make sure to always probe.
-	if size == 0 {
-		t.pcache.unmark(rev)
-	}
 	revision, err := t.revisionLister.Revisions(rev.Namespace).Get(rev.Name)
 	if err != nil {
 		return err
@@ -404,36 +387,4 @@ func (ib *infiniteBreaker) Maybe(ctx context.Context, thunk func()) bool {
 	case <-ctx.Done():
 		return false
 	}
-}
-
-type probeCache struct {
-	mu     sync.RWMutex
-	probes sets.String
-}
-
-func newProbeCache() *probeCache {
-	return &probeCache{
-		probes: sets.NewString(),
-	}
-}
-
-// should returns true if we should probe the given revision.
-func (pc *probeCache) should(revID RevisionID) bool {
-	pc.mu.RLock()
-	defer pc.mu.RUnlock()
-	return !pc.probes.Has(revID.String())
-}
-
-// mark marks the revision as been probed.
-func (pc *probeCache) mark(revID RevisionID) {
-	pc.mu.Lock()
-	defer pc.mu.Unlock()
-	pc.probes.Insert(revID.String())
-}
-
-// unmark removes the probe cache entry for the revision.
-func (pc *probeCache) unmark(revID RevisionID) {
-	pc.mu.Lock()
-	defer pc.mu.Unlock()
-	pc.probes.Delete(revID.String())
 }

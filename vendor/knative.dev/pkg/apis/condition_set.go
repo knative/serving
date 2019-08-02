@@ -130,8 +130,8 @@ type conditionsImpl struct {
 	accessor ConditionsAccessor
 }
 
-// Manage creates a ConditionManager from an accessor object using the original
-// ConditionSet as a reference. Status must be a pointer to a struct.
+// Manage creates a ConditionManager from a accessor object using the original
+// ConditionSet as a reference. Status must be or point to a struct.
 func (r ConditionSet) Manage(status ConditionsAccessor) ConditionManager {
 	return conditionsImpl{
 		accessor:     status,

@@ -91,21 +91,20 @@ const (
 	DeprecatedRevisionServingStateRetired DeprecatedRevisionServingStateType = "Retired"
 )
 
-// DeprecatedRevisionRequestConcurrencyModelType is an enumeration of the
+// RevisionRequestConcurrencyModelType is an enumeration of the
 // concurrency models supported by a Revision.
 // DEPRECATED in favor of RevisionContainerConcurrencyType.
-// TODO(vagababov): retire completely in 0.9.
-type DeprecatedRevisionRequestConcurrencyModelType string
+type RevisionRequestConcurrencyModelType string
 
 const (
-	// DeprecatedRevisionRequestConcurrencyModelSingle guarantees that only one
+	// RevisionRequestConcurrencyModelSingle guarantees that only one
 	// request will be handled at a time (concurrently) per instance
 	// of Revision Container.
-	DeprecatedRevisionRequestConcurrencyModelSingle DeprecatedRevisionRequestConcurrencyModelType = "Single"
-	// DeprecatedRevisionRequestConcurencyModelMulti allows more than one request to
+	RevisionRequestConcurrencyModelSingle RevisionRequestConcurrencyModelType = "Single"
+	// RevisionRequestConcurencyModelMulti allows more than one request to
 	// be handled at a time (concurrently) per instance of Revision
 	// Container.
-	DeprecatedRevisionRequestConcurrencyModelMulti DeprecatedRevisionRequestConcurrencyModelType = "Multi"
+	RevisionRequestConcurrencyModelMulti RevisionRequestConcurrencyModelType = "Multi"
 )
 
 // RevisionSpec holds the desired state of the Revision (from the client).
@@ -135,7 +134,7 @@ type RevisionSpec struct {
 	// Revision. Defaults to Multi.
 	// Deprecated in favor of ContainerConcurrency.
 	// +optional
-	DeprecatedConcurrencyModel DeprecatedRevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
+	DeprecatedConcurrencyModel RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
 
 	// DeprecatedBuildName optionally holds the name of the Build responsible for
 	// producing the container image for its Revision.

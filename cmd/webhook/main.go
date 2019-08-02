@@ -21,13 +21,12 @@ import (
 	"flag"
 	"log"
 
-	// Injection related imports.
-	"knative.dev/pkg/injection"
-	"knative.dev/pkg/injection/clients/kubeclient"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"go.uber.org/zap"
+
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
@@ -54,10 +53,6 @@ var (
 
 func main() {
 	flag.Parse()
-
-	// Set up signals so we handle the first shutdown signal gracefully.
-	ctx := signals.NewContext()
-
 	cm, err := configmap.Load("/etc/config-logging")
 	if err != nil {
 		log.Fatal("Error loading logging configuration:", err)
@@ -72,17 +67,18 @@ func main() {
 
 	logger.Info("Starting the Configuration Webhook")
 
-	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
+	// Set up signals so we handle the first shutdown signal gracefully.
+	stopCh := signals.SetupSignalHandler()
+
+	clusterConfig, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
 	if err != nil {
 		logger.Fatalw("Failed to get cluster config", zap.Error(err))
 	}
 
-	logger.Infof("Registering %d clients", len(injection.Default.GetClients()))
-	logger.Infof("Registering %d informer factories", len(injection.Default.GetInformerFactories()))
-	logger.Infof("Registering %d informers", len(injection.Default.GetInformers()))
-
-	ctx, _ = injection.Default.SetupInformers(ctx, cfg)
-	kubeClient := kubeclient.Get(ctx)
+	kubeClient, err := kubernetes.NewForConfig(clusterConfig)
+	if err != nil {
+		logger.Fatalw("Failed to get the client set", zap.Error(err))
+	}
 
 	if err := version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
 		logger.Fatalw("Version check failed", err)
@@ -98,7 +94,7 @@ func main() {
 	store := apiconfig.NewStore(logger.Named("config-store"))
 	store.WatchConfigs(configMapWatcher)
 
-	if err = configMapWatcher.Start(ctx.Done()); err != nil {
+	if err = configMapWatcher.Start(stopCh); err != nil {
 		logger.Fatalw("Failed to start the ConfigMap watcher", zap.Error(err))
 	}
 
@@ -139,7 +135,7 @@ func main() {
 		logger.Fatalw("Failed to create admission controller", zap.Error(err))
 	}
 
-	if err = controller.Run(ctx.Done()); err != nil {
+	if err = controller.Run(stopCh); err != nil {
 		logger.Fatalw("Failed to start the admission controller", zap.Error(err))
 	}
 }

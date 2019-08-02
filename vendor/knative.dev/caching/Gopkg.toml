@@ -9,8 +9,8 @@ required = [
   "k8s.io/code-generator/cmd/lister-gen",
   "k8s.io/code-generator/cmd/informer-gen",
   "knative.dev/pkg/codegen/cmd/injection-gen",
-  "knative.dev/test-infra/scripts",
-  "knative.dev/test-infra/tools/dep-collector",
+  "github.com/knative/test-infra/scripts",
+  "github.com/knative/test-infra/tools/dep-collector",
 ]
 
 [[override]]
@@ -76,7 +76,7 @@ required = [
   non-go = false
 
 [[prune.project]]
-  name = "knative.dev/test-infra"
+  name = "github.com/knative/test-infra"
   non-go = false
 
 [[prune.project]]

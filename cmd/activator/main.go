@@ -26,22 +26,16 @@ import (
 	"strconv"
 	"time"
 
-	// Injection related imports.
-	"knative.dev/pkg/injection"
-	"knative.dev/pkg/injection/clients/kubeclient"
-	endpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints"
-	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
-	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
-	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
-
 	"github.com/kelseyhightower/envconfig"
 	zipkin "github.com/openzipkin/zipkin-go"
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
+	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	"knative.dev/pkg/injection/sharedmain"
 	pkglogging "knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/metrics"
@@ -54,6 +48,8 @@ import (
 	activatorhandler "knative.dev/serving/pkg/activator/handler"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/autoscaler"
+	clientset "knative.dev/serving/pkg/client/clientset/versioned"
+	servinginformers "knative.dev/serving/pkg/client/informers/externalversions"
 	"knative.dev/serving/pkg/goversion"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/logging"
@@ -87,6 +83,8 @@ const (
 
 	// The port on which autoscaler WebSocket server listens.
 	autoscalerPort = ":8080"
+
+	defaultResyncInterval = 10 * time.Hour
 )
 
 var (
@@ -117,42 +115,32 @@ type config struct {
 
 func main() {
 	flag.Parse()
-
-	// Set up signals so we handle the first shutdown signal gracefully.
-	ctx := signals.NewContext()
-
-	cfg, err := sharedmain.GetConfig(*masterURL, *kubeconfig)
+	cm, err := configmap.Load("/etc/config-logging")
 	if err != nil {
-		log.Fatal("Error building kubeconfig:", err)
+		log.Fatal("Error loading logging configuration:", err)
 	}
-
-	log.Printf("Registering %d clients", len(injection.Default.GetClients()))
-	log.Printf("Registering %d informer factories", len(injection.Default.GetInformerFactories()))
-	log.Printf("Registering %d informers", len(injection.Default.GetInformers()))
-
-	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
-
-	// Set up our logger.
-	loggingConfig, err := sharedmain.GetLoggingConfig(ctx)
+	logConfig, err := logging.NewConfigFromMap(cm)
 	if err != nil {
-		log.Fatal("Error loading/parsing logging configuration:", err)
+		log.Fatal("Error parsing logging configuration:", err)
 	}
-	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, component)
-	logger = logger.With(zap.String(logkey.ControllerType, "activator"))
+	createdLogger, atomicLevel := logging.NewLoggerFromConfig(logConfig, component)
+	logger := createdLogger.With(zap.String(logkey.ControllerType, "activator"))
 	defer flush(logger)
 
-	kubeClient := kubeclient.Get(ctx)
-	endpointInformer := endpointsinformer.Get(ctx)
-	serviceInformer := serviceinformer.Get(ctx)
-	revisionInformer := revisioninformer.Get(ctx)
-	sksInformer := sksinformer.Get(ctx)
-
-	// Run informers instead of starting them from the factory to prevent the sync hanging because of empty handler.
-	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-		logger.Fatalw("Failed to start informers", zap.Error(err))
-	}
-
 	logger.Info("Starting the knative activator")
+
+	clusterConfig, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
+	if err != nil {
+		logger.Fatalw("Error getting cluster configuration", zap.Error(err))
+	}
+	kubeClient, err := kubernetes.NewForConfig(clusterConfig)
+	if err != nil {
+		logger.Fatalw("Error building new kubernetes client", zap.Error(err))
+	}
+	servingClient, err := clientset.NewForConfig(clusterConfig)
+	if err != nil {
+		logger.Fatalw("Error building serving clientset", zap.Error(err))
+	}
 
 	// We sometimes startup faster than we can reach kube-api. Poll on failure to prevent us terminating
 	if perr := wait.PollImmediate(time.Second, 60*time.Second, func() (bool, error) {
@@ -169,11 +157,30 @@ func main() {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
 
+	// Set up signals so we handle the first shutdown signal gracefully.
+	stopCh := signals.SetupSignalHandler()
 	statCh := make(chan *autoscaler.StatMessage, statReportingQueueLength)
 	defer close(statCh)
 
 	reqCh := make(chan activatorhandler.ReqEvent, requestCountingQueueLength)
 	defer close(reqCh)
+
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, defaultResyncInterval)
+	servingInformerFactory := servinginformers.NewSharedInformerFactory(servingClient, defaultResyncInterval)
+	endpointInformer := kubeInformerFactory.Core().V1().Endpoints()
+	serviceInformer := kubeInformerFactory.Core().V1().Services()
+	revisionInformer := servingInformerFactory.Serving().V1alpha1().Revisions()
+	sksInformer := servingInformerFactory.Networking().V1alpha1().ServerlessServices()
+
+	// Run informers instead of starting them from the factory to prevent the sync hanging because of empty handler.
+	if err := controller.StartInformers(
+		stopCh,
+		revisionInformer.Informer(),
+		endpointInformer.Informer(),
+		serviceInformer.Informer(),
+		sksInformer.Informer()); err != nil {
+		logger.Fatalw("Failed to start informers", zap.Error(err))
+	}
 
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
 	throttler := activator.NewThrottler(params, endpointInformer, sksInformer.Lister(), revisionInformer.Lister(), logger)
@@ -198,14 +205,14 @@ func main() {
 
 	// Set up our config store
 	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
-	configStore := activatorconfig.NewStore(logger, tracerUpdater)
+	configStore := activatorconfig.NewStore(createdLogger, tracerUpdater)
 	configStore.WatchConfigs(configMapWatcher)
 
 	// Open a WebSocket connection to the autoscaler.
 	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s%s", "autoscaler", system.Namespace(), network.GetClusterDomainName(), autoscalerPort)
 	logger.Info("Connecting to autoscaler at", autoscalerEndpoint)
 	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
-	go statReporter(statSink, ctx.Done(), statCh, logger)
+	go statReporter(statSink, stopCh, statCh, logger)
 
 	var env config
 	if err := envconfig.Process("", &env); err != nil {
@@ -217,7 +224,7 @@ func main() {
 	reportTicker := time.NewTicker(time.Second)
 	defer reportTicker.Stop()
 	cr := activatorhandler.NewConcurrencyReporter(logger, podName, reqCh, reportTicker.C, statCh, revisionInformer.Lister(), reporter)
-	go cr.Run(ctx.Done())
+	go cr.Run(stopCh)
 
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
@@ -247,7 +254,7 @@ func main() {
 	configMapWatcher.Watch(metrics.ConfigMapName(), metrics.UpdateExporterFromConfigMap(component, logger))
 	// Watch the observability config map and dynamically update request logs.
 	configMapWatcher.Watch(metrics.ConfigMapName(), updateRequestLogFromConfigMap(logger, reqLogHandler))
-	if err = configMapWatcher.Start(ctx.Done()); err != nil {
+	if err = configMapWatcher.Start(stopCh); err != nil {
 		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
 	}
 
@@ -268,7 +275,7 @@ func main() {
 
 	// Exit as soon as we see a shutdown signal or one of the servers failed.
 	select {
-	case <-ctx.Done():
+	case <-stopCh:
 	case err := <-errCh:
 		logger.Errorw("Failed to run HTTP server", zap.Error(err))
 	}
