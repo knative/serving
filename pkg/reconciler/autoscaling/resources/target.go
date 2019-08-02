@@ -28,6 +28,10 @@ import (
 // `target` is the target value of scaling metric that we autoscaler will aim for;
 // `total` is the maximum possible value of scaling metric that is permitted on the pod.
 func ResolveMetricTarget(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) (target float64, total float64) {
+	// TODO(yanweiguo): currently concurrency is the only supported metric so
+	// we takes all concurrency knobs directly. Once we support other metric,
+	// for example requests per second, we need to calculate the target values
+	// based on which metric is used for autoscaling.
 	total = float64(pa.Spec.ContainerConcurrency)
 	// If containerConcurrency is 0 we'll always target the default.
 	if total == 0 {
