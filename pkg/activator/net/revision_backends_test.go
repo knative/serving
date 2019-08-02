@@ -250,8 +250,8 @@ func TestRevisionWatcher(t *testing.T) {
 		ticks:     []time.Time{time.Now(), time.Now()},
 		updateCnt: 3,
 	}} {
-
 		t.Run(tc.name, func(t *testing.T) {
+			defer ClearAll()
 			fakeRt := activatortest.FakeRoundTripper{
 				ExpectHost:         "test-revision",
 				ProbeHostResponses: tc.probeHostResponses,
@@ -259,8 +259,8 @@ func TestRevisionWatcher(t *testing.T) {
 			}
 			rt := network.RoundTripperFunc(fakeRt.RT)
 
-			updateCh := make(chan *RevisionDestsUpdate, 100)
-			tickerCh := make(chan time.Time, 1)
+			updateCh := make(chan *RevisionDestsUpdate, len(tc.ticks)+1)
+			tickerCh := make(chan time.Time)
 			defer close(tickerCh)
 
 			// This gets cleaned up as part of the test
@@ -300,8 +300,8 @@ func TestRevisionWatcher(t *testing.T) {
 			var wg sync.WaitGroup
 			wg.Add(1)
 			go func() {
+				defer wg.Done()
 				rw.runWithTickCh(tickerCh)
-				wg.Done()
 			}()
 
 			destsCh <- tc.dests
@@ -321,28 +321,50 @@ func TestRevisionWatcher(t *testing.T) {
 				}
 			}
 
-			// Shutdown run loop
+			// Shutdown run loop.
 			close(destsCh)
 
 			wg.Wait()
 
-			// Auto fill out Rev in expectUpdates
+			// Autofill out Rev in expectUpdates
 			for i, _ := range tc.expectUpdates {
 				tc.expectUpdates[i].Rev = revID
 			}
 
-			if diff := cmp.Diff(tc.expectUpdates, updates); diff != "" {
-				t.Errorf("Got unexpected revision dests updates (-want, +got): %v", diff)
+			if got, want := tc.expectUpdates, updates; !cmp.Equal(got, want) {
+				t.Errorf("revisionDests updates = %v, want: %v, diff (-want, +got):\n %s", got, want, cmp.Diff(want, got))
 			}
 		})
+	}
+}
 
+func ep(revL string, port int32, ips ...string) *corev1.Endpoints {
+	ss := corev1.EndpointSubset{
+		Ports: []corev1.EndpointPort{{
+			Name: networking.ServicePortNameHTTP1,
+			Port: port,
+		}},
+	}
+	for _, ip := range ips {
+		ss.Addresses = append(ss.Addresses, corev1.EndpointAddress{IP: ip})
+	}
+	return &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: revL + "-ep",
+			Labels: map[string]string{
+				serving.RevisionUID:       time.Now().Format("150415.000"),
+				networking.ServiceTypeKey: string(networking.ServiceTypePrivate),
+				serving.RevisionLabelKey:  revL,
+			},
+		},
+		Subsets: []corev1.EndpointSubset{ss},
 	}
 }
 
 func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 	for _, tc := range []struct {
 		name               string
-		endpointsArr       []corev1.Endpoints
+		endpointsArr       []*corev1.Endpoints
 		revisions          []*v1alpha1.Revision
 		services           []*corev1.Service
 		probeResponses     []activatortest.FakeResponse
@@ -350,25 +372,8 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		expectDests        map[types.NamespacedName]RevisionDestsUpdate
 		updateCnt          int
 	}{{
-		name: "Add slow healthy",
-		endpointsArr: []corev1.Endpoints{{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{
-					serving.RevisionUID:       "test",
-					networking.ServiceTypeKey: string(networking.ServiceTypePrivate),
-					serving.RevisionLabelKey:  "test-revision",
-				},
-			},
-			Subsets: []corev1.EndpointSubset{{
-				Addresses: []corev1.EndpointAddress{{
-					IP: "128.0.0.1",
-				}},
-				Ports: []corev1.EndpointPort{{
-					Name: networking.ServicePortNameHTTP1,
-					Port: 1234,
-				}},
-			}},
-		}},
+		name:         "Add slow healthy",
+		endpointsArr: []*corev1.Endpoints{ep("test-revision", 1234, "128.0.0.1")},
 		revisions: []*v1alpha1.Revision{
 			revision(types.NamespacedName{"test-namespace", "test-revision"}),
 		},
@@ -398,86 +403,36 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		updateCnt: 2,
 	}, {
 		name: "Multiple revisions",
-		endpointsArr: []corev1.Endpoints{{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "test-ep-1",
-				Labels: map[string]string{
-					serving.RevisionUID:       "test1",
-					networking.ServiceTypeKey: string(networking.ServiceTypePrivate),
-					serving.RevisionLabelKey:  "test-revision1",
-				},
-			},
-			Subsets: []corev1.EndpointSubset{{
-				Addresses: []corev1.EndpointAddress{{
-					IP: "128.0.0.1",
-				}},
-				Ports: []corev1.EndpointPort{{
-					Name: networking.ServicePortNameHTTP1,
-					Port: 1234,
-				}},
-			}},
-		}, {
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "test-ep-2",
-				Labels: map[string]string{
-					serving.RevisionUID:       "test2",
-					networking.ServiceTypeKey: string(networking.ServiceTypePrivate),
-					serving.RevisionLabelKey:  "test-revision2",
-				},
-			},
-			Subsets: []corev1.EndpointSubset{{
-				Addresses: []corev1.EndpointAddress{{
-					IP: "128.0.0.2",
-				}},
-				Ports: []corev1.EndpointPort{{
-					Name: networking.ServicePortNameHTTP1,
-					Port: 1234,
-				}},
-			}},
-		}},
+		endpointsArr: []*corev1.Endpoints{
+			ep("test-revision1", 1234, "128.0.0.1"),
+			ep("test-revision2", 1235, "128.1.0.2"),
+		},
 		revisions: []*v1alpha1.Revision{
 			revision(types.NamespacedName{"test-namespace", "test-revision1"}),
 			revision(types.NamespacedName{"test-namespace", "test-revision2"}),
 		},
 		services: []*corev1.Service{
 			privateSksService(types.NamespacedName{"test-namespace", "test-revision1"}, "129.0.0.1",
-				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
+				[]corev1.ServicePort{{Name: "http", Port: 2345}}),
 			privateSksService(types.NamespacedName{"test-namespace", "test-revision2"}, "129.0.0.2",
-				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
+				[]corev1.ServicePort{{Name: "http", Port: 2345}}),
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:1234": []activatortest.FakeResponse{{Err: errors.New("clusterIP transport error")}},
-			"129.0.0.2:1234": []activatortest.FakeResponse{{Err: errors.New("clusterIP transport error")}},
+			"129.0.0.1:2345": []activatortest.FakeResponse{{Err: errors.New("clusterIP transport error")}},
+			"129.0.0.2:2345": []activatortest.FakeResponse{{Err: errors.New("clusterIP transport error")}},
 		},
 		expectDests: map[types.NamespacedName]RevisionDestsUpdate{
 			types.NamespacedName{Namespace: "test-namespace", Name: "test-revision1"}: RevisionDestsUpdate{
 				Dests: []string{"128.0.0.1:1234"},
 			},
 			types.NamespacedName{Namespace: "test-namespace", Name: "test-revision2"}: RevisionDestsUpdate{
-				Dests: []string{"128.0.0.2:1234"},
+				Dests: []string{"128.1.0.2:1235"},
 			},
 		},
 		updateCnt: 2,
 	}, {
-		name: "slow podIP then clusterIP",
-		endpointsArr: []corev1.Endpoints{{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{
-					serving.RevisionUID:       "test",
-					networking.ServiceTypeKey: string(networking.ServiceTypePrivate),
-					serving.RevisionLabelKey:  "test-revision",
-				},
-			},
-			Subsets: []corev1.EndpointSubset{{
-				Addresses: []corev1.EndpointAddress{{
-					IP: "128.0.0.1",
-				}},
-				Ports: []corev1.EndpointPort{{
-					Name: networking.ServicePortNameHTTP1,
-					Port: 1234,
-				}},
-			}},
-		}},
+		name:         "slow podIP then clusterIP",
+		endpointsArr: []*corev1.Endpoints{ep("test-revision", 1234, "128.0.0.1")},
 		revisions: []*v1alpha1.Revision{
 			revision(types.NamespacedName{"test-namespace", "test-revision"}),
 		},
@@ -514,6 +469,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 	}} {
 
 		t.Run(tc.name, func(t *testing.T) {
+			defer ClearAll()
 			fakeRt := activatortest.FakeRoundTripper{
 				ExpectHost:         "test-revision",
 				ProbeHostResponses: tc.probeHostResponses,
@@ -531,7 +487,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			revisions := servinginformer.Serving().V1alpha1().Revisions()
 			revisionLister := revisions.Lister()
 
-			// Add the revision were testing
+			// Add the revision we're testing.
 			for _, rev := range tc.revisions {
 				servfake.ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
 				revisions.Informer().GetIndexer().Add(rev)
@@ -552,8 +508,8 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			defer bm.Clear()
 
 			for _, ep := range tc.endpointsArr {
-				fake.CoreV1().Endpoints("test-namespace").Create(&ep)
-				endpointsInformer.Informer().GetIndexer().Add(&ep)
+				fake.CoreV1().Endpoints("test-namespace").Create(ep)
+				endpointsInformer.Informer().GetIndexer().Add(ep)
 			}
 
 			if tc.updateCnt == 0 {
@@ -578,10 +534,9 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 				tc.expectDests[rev] = destUpdate
 			}
 
-			if diff := cmp.Diff(tc.expectDests, revDests); diff != "" {
-				t.Errorf("Got unexpected revision dests (-want, +got): %v", diff)
+			if got, want := revDests, tc.expectDests; !cmp.Equal(got, want) {
+				t.Errorf("RevisionDests = %v, want: %v, diff(-want,+got):%s\n", got, want, cmp.Diff(want, got))
 			}
 		})
-
 	}
 }
