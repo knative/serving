@@ -232,7 +232,7 @@ func (rw *revisionWatcher) checkDests() {
 		rw.logger.Errorw(fmt.Sprintf("Failed to probe clusterIP %s/%s", svc.Namespace, svc.Name), zap.Error(err))
 	} else if ok {
 		rw.clusterIPHealthy = true
-		rw.healthStates = make(map[string]bool)
+		rw.healthStates = nil
 		rw.updateCh <- &RevisionDestsUpdate{Rev: rw.rev, ClusterIPDest: dest}
 		return
 	}
