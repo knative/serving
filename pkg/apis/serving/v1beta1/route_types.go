@@ -89,10 +89,17 @@ type TrafficTarget struct {
 	// +optional
 	LatestRevision *bool `json:"latestRevision,omitempty"`
 
-	// Percent specifies percent of the traffic to this Revision or Configuration.
-	// This defaults to zero if unspecified.
+	// Percent indicates that percentage based routing should be used and
+	// the value indicates the percent of traffic that is be routed to this
+	// Revision or Configuration. `0` (zero) mean no traffic, `100` means all
+	// traffic.
+	// If "percent" appears on one or more Traffic Targets then the sum of
+	// all those percent values must equal 100.
+	// If "percent", nor any other routing mechanism is specified, then
+	// the default is that no traffic will be sent to this Revision or
+	// Configuration.
 	// +optional
-	Percent int `json:"percent"`
+	Percent *int64 `json:"percent,omitempty"`
 
 	// URL displays the URL for accessing named traffic targets. URL is displayed in
 	// status, and is disallowed on spec. URL must contain a scheme (e.g. http://) and

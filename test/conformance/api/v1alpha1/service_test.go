@@ -286,12 +286,12 @@ func TestReleaseService(t *testing.T) {
 			TrafficTarget: v1beta1.TrafficTarget{
 				Tag:          "current",
 				RevisionName: firstRevision,
-				Percent:      100,
+				Percent:      ptr.Int64(100),
 			},
 		}, {
 			TrafficTarget: v1beta1.TrafficTarget{
 				Tag:     "latest",
-				Percent: 0,
+				Percent: nil,
 			},
 		}},
 	})
@@ -304,7 +304,7 @@ func TestReleaseService(t *testing.T) {
 			TrafficTarget: v1beta1.TrafficTarget{
 				Tag:            "current",
 				RevisionName:   objects.Config.Status.LatestReadyRevisionName,
-				Percent:        100,
+				Percent:        ptr.Int64(100),
 				LatestRevision: ptr.Bool(false),
 			},
 		},
@@ -371,18 +371,18 @@ func TestReleaseService(t *testing.T) {
 			TrafficTarget: v1beta1.TrafficTarget{
 				Tag:          "current",
 				RevisionName: firstRevision,
-				Percent:      50,
+				Percent:      ptr.Int64(50),
 			},
 		}, {
 			TrafficTarget: v1beta1.TrafficTarget{
 				Tag:          "candidate",
 				RevisionName: secondRevision,
-				Percent:      50,
+				Percent:      ptr.Int64(50),
 			},
 		}, {
 			TrafficTarget: v1beta1.TrafficTarget{
 				Tag:     "latest",
-				Percent: 0,
+				Percent: nil,
 			},
 		}},
 	})
@@ -395,7 +395,7 @@ func TestReleaseService(t *testing.T) {
 			TrafficTarget: v1beta1.TrafficTarget{
 				Tag:            "current",
 				RevisionName:   firstRevision,
-				Percent:        50,
+				Percent:        ptr.Int64(50),
 				LatestRevision: ptr.Bool(false),
 			},
 		},
@@ -403,7 +403,7 @@ func TestReleaseService(t *testing.T) {
 			TrafficTarget: v1beta1.TrafficTarget{
 				Tag:            "candidate",
 				RevisionName:   secondRevision,
-				Percent:        50,
+				Percent:        ptr.Int64(50),
 				LatestRevision: ptr.Bool(false),
 			},
 		},
@@ -469,17 +469,17 @@ func TestReleaseService(t *testing.T) {
 			TrafficTarget: v1beta1.TrafficTarget{
 				Tag:          "current",
 				RevisionName: firstRevision,
-				Percent:      50,
+				Percent:      ptr.Int64(50),
 			},
 		}, {
 			TrafficTarget: v1beta1.TrafficTarget{
 				Tag:     "candidate",
-				Percent: 50,
+				Percent: ptr.Int64(50),
 			},
 		}, {
 			TrafficTarget: v1beta1.TrafficTarget{
 				Tag:     "latest",
-				Percent: 0,
+				Percent: nil,
 			},
 		}},
 	})
@@ -497,7 +497,7 @@ func TestReleaseService(t *testing.T) {
 		TrafficTarget: v1beta1.TrafficTarget{
 			Tag:            "candidate",
 			RevisionName:   thirdRevision,
-			Percent:        50,
+			Percent:        ptr.Int64(50),
 			LatestRevision: ptr.Bool(true),
 		},
 	}

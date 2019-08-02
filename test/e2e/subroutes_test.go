@@ -25,6 +25,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
@@ -68,7 +69,7 @@ func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descript
 			{
 				TrafficTarget: v1beta1.TrafficTarget{
 					Tag:     tag,
-					Percent: 100,
+					Percent: ptr.Int64(100),
 				},
 			},
 		},
@@ -116,7 +117,7 @@ func TestSubrouteVisibilityChange(t *testing.T) {
 			{
 				TrafficTarget: v1beta1.TrafficTarget{
 					Tag:     tag,
-					Percent: 100,
+					Percent: ptr.Int64(100),
 				},
 			},
 		},

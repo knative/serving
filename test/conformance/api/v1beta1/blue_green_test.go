@@ -25,6 +25,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/test"
@@ -92,11 +93,11 @@ func TestBlueGreenRoute(t *testing.T) {
 		Traffic: []v1beta1.TrafficTarget{{
 			Tag:          blue.TrafficTarget,
 			RevisionName: blue.Revision,
-			Percent:      50,
+			Percent:      ptr.Int64(50),
 		}, {
 			Tag:          green.TrafficTarget,
 			RevisionName: green.Revision,
-			Percent:      50,
+			Percent:      ptr.Int64(50),
 		}},
 	}); err != nil {
 		t.Fatalf("Failed to update Service: %v", err)

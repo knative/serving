@@ -47,7 +47,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						TrafficTarget: v1beta1.TrafficTarget{
 							LatestRevision: ptr.Bool(true),
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 						},
 					}},
 				},
@@ -142,7 +142,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						TrafficTarget: v1beta1.TrafficTarget{
 							LatestRevision: ptr.Bool(true),
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 						},
 					}},
 				},
@@ -265,7 +265,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName:   "asdf",
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(false),
 						},
 					}},
@@ -391,21 +391,21 @@ func TestServiceDefaulting(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:            "current",
-							Percent:        57,
+							Percent:        ptr.Int64(57),
 							RevisionName:   "foo",
 							LatestRevision: ptr.Bool(false),
 						},
 					}, {
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:            "candidate",
-							Percent:        43,
+							Percent:        ptr.Int64(43),
 							RevisionName:   "bar",
 							LatestRevision: ptr.Bool(false),
 						},
 					}, {
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:            "latest",
-							Percent:        0,
+							Percent:        nil,
 							LatestRevision: ptr.Bool(true),
 						},
 					}},
@@ -452,20 +452,20 @@ func TestServiceDefaulting(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:            "current",
-							Percent:        57,
+							Percent:        ptr.Int64(57),
 							RevisionName:   "foo",
 							LatestRevision: ptr.Bool(false),
 						},
 					}, {
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:            "candidate",
-							Percent:        43,
+							Percent:        ptr.Int64(43),
 							LatestRevision: ptr.Bool(true),
 						},
 					}, {
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:            "latest",
-							Percent:        0,
+							Percent:        nil,
 							LatestRevision: ptr.Bool(true),
 						},
 					}},
@@ -511,14 +511,14 @@ func TestServiceDefaulting(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:            "current",
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 							RevisionName:   "foo",
 							LatestRevision: ptr.Bool(false),
 						},
 					}, {
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:            "latest",
-							Percent:        0,
+							Percent:        nil,
 							LatestRevision: ptr.Bool(true),
 						},
 					}},
@@ -608,7 +608,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						TrafficTarget: v1beta1.TrafficTarget{
 							LatestRevision: ptr.Bool(true),
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 						},
 					}},
 				},
@@ -644,7 +644,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						TrafficTarget: v1beta1.TrafficTarget{
 							LatestRevision: ptr.Bool(true),
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 						},
 					}},
 				},
@@ -696,7 +696,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						TrafficTarget: v1beta1.TrafficTarget{
 							LatestRevision: ptr.Bool(true),
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 						},
 					}},
 				},
@@ -722,7 +722,7 @@ func TestServiceDefaulting(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						TrafficTarget: v1beta1.TrafficTarget{
-							Percent: 100,
+							Percent: ptr.Int64(100),
 						},
 					}},
 				},
@@ -751,7 +751,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						TrafficTarget: v1beta1.TrafficTarget{
 							LatestRevision: ptr.Bool(true),
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 						},
 					}},
 				},

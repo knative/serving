@@ -497,6 +497,11 @@ func (in *TrafficTarget) DeepCopyInto(out *TrafficTarget) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.Percent != nil {
+		in, out := &in.Percent, &out.Percent
+		*out = new(int64)
+		**out = **in
+	}
 	if in.URL != nil {
 		in, out := &in.URL, &out.URL
 		*out = new(apis.URL)

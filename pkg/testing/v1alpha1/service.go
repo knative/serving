@@ -107,7 +107,7 @@ func WithInlineRollout(s *v1alpha1.Service) {
 		RouteSpec: v1alpha1.RouteSpec{
 			Traffic: []v1alpha1.TrafficTarget{{
 				TrafficTarget: v1beta1.TrafficTarget{
-					Percent: 100,
+					Percent: ptr.Int64(100),
 				},
 			}},
 		},

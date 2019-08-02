@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"knative.dev/pkg/ptr"
 	net "knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -127,7 +128,7 @@ func TestBuildTrafficConfiguration_Vanilla(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: goodConfig.Name,
-			Percent:           100,
+			Percent:           ptr.Int64(100),
 		},
 	}}
 
@@ -137,7 +138,7 @@ func TestBuildTrafficConfiguration_Vanilla(t *testing.T) {
 				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
-					Percent:           100,
+					Percent:           ptr.Int64(100),
 				},
 				Active:   true,
 				Protocol: net.ProtocolH2C,
@@ -147,7 +148,7 @@ func TestBuildTrafficConfiguration_Vanilla(t *testing.T) {
 			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
-				Percent:           100,
+				Percent:           ptr.Int64(100),
 			},
 			Active:   true,
 			Protocol: net.ProtocolH2C,
@@ -170,7 +171,7 @@ func TestBuildTrafficConfiguration_NoNameRevision(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			RevisionName: goodNewRev.Name,
-			Percent:      100,
+			Percent:      ptr.Int64(100),
 		},
 	}}
 	expected := &Config{
@@ -179,7 +180,7 @@ func TestBuildTrafficConfiguration_NoNameRevision(t *testing.T) {
 				TrafficTarget: v1beta1.TrafficTarget{
 					RevisionName:      goodNewRev.Name,
 					ConfigurationName: goodConfig.Name,
-					Percent:           100,
+					Percent:           ptr.Int64(100),
 				},
 				Active:   true,
 				Protocol: net.ProtocolH2C,
@@ -189,7 +190,7 @@ func TestBuildTrafficConfiguration_NoNameRevision(t *testing.T) {
 			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
-				Percent:           100,
+				Percent:           ptr.Int64(100),
 			},
 			Active:   true,
 			Protocol: net.ProtocolH2C,
@@ -209,7 +210,7 @@ func TestBuildTrafficConfiguration_VanillaScaledToZero(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: inactiveConfig.Name,
-			Percent:           100,
+			Percent:           ptr.Int64(100),
 		},
 	}}
 	expected := &Config{
@@ -218,7 +219,7 @@ func TestBuildTrafficConfiguration_VanillaScaledToZero(t *testing.T) {
 				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: inactiveConfig.Name,
 					RevisionName:      inactiveRev.Name,
-					Percent:           100,
+					Percent:           ptr.Int64(100),
 				},
 				Active:   false,
 				Protocol: net.ProtocolHTTP1,
@@ -228,7 +229,7 @@ func TestBuildTrafficConfiguration_VanillaScaledToZero(t *testing.T) {
 			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: inactiveConfig.Name,
 				RevisionName:      inactiveRev.Name,
-				Percent:           100,
+				Percent:           ptr.Int64(100),
 			},
 			Active:   false,
 			Protocol: net.ProtocolHTTP1,
@@ -252,12 +253,12 @@ func TestBuildTrafficConfiguration_TwoConfigs(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: niceConfig.Name,
-			Percent:           90,
+			Percent:           ptr.Int64(90),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: goodConfig.Name,
-			Percent:           10,
+			Percent:           ptr.Int64(10),
 		},
 	}}
 	expected := &Config{
@@ -266,7 +267,7 @@ func TestBuildTrafficConfiguration_TwoConfigs(t *testing.T) {
 				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: niceConfig.Name,
 					RevisionName:      niceNewRev.Name,
-					Percent:           90,
+					Percent:           ptr.Int64(90),
 				},
 				Active:   true,
 				Protocol: net.ProtocolH2C,
@@ -274,7 +275,7 @@ func TestBuildTrafficConfiguration_TwoConfigs(t *testing.T) {
 				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
-					Percent:           10,
+					Percent:           ptr.Int64(10),
 				},
 				Active:   true,
 				Protocol: net.ProtocolH2C,
@@ -284,7 +285,7 @@ func TestBuildTrafficConfiguration_TwoConfigs(t *testing.T) {
 			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: niceConfig.Name,
 				RevisionName:      niceNewRev.Name,
-				Percent:           90,
+				Percent:           ptr.Int64(90),
 			},
 			Active:   true,
 			Protocol: net.ProtocolH2C,
@@ -292,7 +293,7 @@ func TestBuildTrafficConfiguration_TwoConfigs(t *testing.T) {
 			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
-				Percent:           10,
+				Percent:           ptr.Int64(10),
 			},
 			Active:   true,
 			Protocol: net.ProtocolH2C,
@@ -318,12 +319,12 @@ func TestBuildTrafficConfiguration_Canary(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			RevisionName: goodOldRev.Name,
-			Percent:      90,
+			Percent:      ptr.Int64(90),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: goodConfig.Name,
-			Percent:           10,
+			Percent:           ptr.Int64(10),
 		},
 	}}
 	expected := &Config{
@@ -332,7 +333,7 @@ func TestBuildTrafficConfiguration_Canary(t *testing.T) {
 				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodOldRev.Name,
-					Percent:           90,
+					Percent:           ptr.Int64(90),
 				},
 				Active:   true,
 				Protocol: net.ProtocolHTTP1,
@@ -340,7 +341,7 @@ func TestBuildTrafficConfiguration_Canary(t *testing.T) {
 				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
-					Percent:           10,
+					Percent:           ptr.Int64(10),
 				},
 				Active:   true,
 				Protocol: net.ProtocolH2C,
@@ -350,7 +351,7 @@ func TestBuildTrafficConfiguration_Canary(t *testing.T) {
 			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodOldRev.Name,
-				Percent:           90,
+				Percent:           ptr.Int64(90),
 			},
 			Active:   true,
 			Protocol: net.ProtocolHTTP1,
@@ -358,7 +359,7 @@ func TestBuildTrafficConfiguration_Canary(t *testing.T) {
 			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
-				Percent:           10,
+				Percent:           ptr.Int64(10),
 			},
 			Active:   true,
 			Protocol: net.ProtocolH2C,
@@ -384,19 +385,19 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 		TrafficTarget: v1beta1.TrafficTarget{
 			Tag:          "one",
 			RevisionName: goodOldRev.Name,
-			Percent:      49,
+			Percent:      ptr.Int64(49),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
 			Tag:          "two",
 			RevisionName: goodNewRev.Name,
-			Percent:      50,
+			Percent:      ptr.Int64(50),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
 			Tag:               "also-two",
 			ConfigurationName: goodConfig.Name,
-			Percent:           1,
+			Percent:           ptr.Int64(1),
 		},
 	}}
 	expected := &Config{
@@ -406,7 +407,7 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 					Tag:               "one",
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodOldRev.Name,
-					Percent:           49,
+					Percent:           ptr.Int64(49),
 				},
 				Active:   true,
 				Protocol: net.ProtocolHTTP1,
@@ -415,7 +416,7 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 					Tag:               "two",
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
-					Percent:           51,
+					Percent:           ptr.Int64(51),
 				},
 				Active:   true,
 				Protocol: net.ProtocolH2C,
@@ -425,7 +426,7 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 					Tag:               "one",
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodOldRev.Name,
-					Percent:           100,
+					Percent:           ptr.Int64(100),
 				},
 				Active:   true,
 				Protocol: net.ProtocolHTTP1,
@@ -435,7 +436,7 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 					Tag:               "two",
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
-					Percent:           100,
+					Percent:           ptr.Int64(100),
 				},
 				Active:   true,
 				Protocol: net.ProtocolH2C,
@@ -445,7 +446,7 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 					Tag:               "also-two",
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
-					Percent:           100,
+					Percent:           ptr.Int64(100),
 				},
 				Active:   true,
 				Protocol: net.ProtocolH2C,
@@ -456,7 +457,7 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 				Tag:               "one",
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodOldRev.Name,
-				Percent:           49,
+				Percent:           ptr.Int64(49),
 			},
 			Active:   true,
 			Protocol: net.ProtocolHTTP1,
@@ -465,7 +466,7 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 				Tag:               "two",
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
-				Percent:           50,
+				Percent:           ptr.Int64(50),
 			},
 			Active:   true,
 			Protocol: net.ProtocolH2C,
@@ -474,7 +475,7 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 				Tag:               "also-two",
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
-				Percent:           1,
+				Percent:           ptr.Int64(1),
 			},
 			Active:   true,
 			Protocol: net.ProtocolH2C,
@@ -499,12 +500,12 @@ func TestBuildTrafficConfiguration_TwoFixedRevisions(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			RevisionName: goodOldRev.Name,
-			Percent:      90,
+			Percent:      ptr.Int64(90),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
 			RevisionName: goodNewRev.Name,
-			Percent:      10,
+			Percent:      ptr.Int64(10),
 		},
 	}}
 	expected := &Config{
@@ -513,7 +514,7 @@ func TestBuildTrafficConfiguration_TwoFixedRevisions(t *testing.T) {
 				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodOldRev.Name,
-					Percent:           90,
+					Percent:           ptr.Int64(90),
 				},
 				Active:   true,
 				Protocol: net.ProtocolHTTP1,
@@ -521,7 +522,7 @@ func TestBuildTrafficConfiguration_TwoFixedRevisions(t *testing.T) {
 				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
-					Percent:           10,
+					Percent:           ptr.Int64(10),
 				},
 				Active:   true,
 				Protocol: net.ProtocolH2C,
@@ -531,7 +532,7 @@ func TestBuildTrafficConfiguration_TwoFixedRevisions(t *testing.T) {
 			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodOldRev.Name,
-				Percent:           90,
+				Percent:           ptr.Int64(90),
 			},
 			Active:   true,
 			Protocol: net.ProtocolHTTP1,
@@ -539,7 +540,7 @@ func TestBuildTrafficConfiguration_TwoFixedRevisions(t *testing.T) {
 			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
-				Percent:           10,
+				Percent:           ptr.Int64(10),
 			},
 			Active:   true,
 			Protocol: net.ProtocolH2C,
@@ -564,12 +565,12 @@ func TestBuildTrafficConfiguration_TwoFixedRevisionsFromTwoConfigurations(t *tes
 	tts := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			RevisionName: goodNewRev.Name,
-			Percent:      40,
+			Percent:      ptr.Int64(40),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
 			RevisionName: niceNewRev.Name,
-			Percent:      60,
+			Percent:      ptr.Int64(60),
 		},
 	}}
 	expected := &Config{
@@ -578,7 +579,7 @@ func TestBuildTrafficConfiguration_TwoFixedRevisionsFromTwoConfigurations(t *tes
 				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
-					Percent:           40,
+					Percent:           ptr.Int64(40),
 				},
 				Active:   true,
 				Protocol: net.ProtocolH2C,
@@ -586,7 +587,7 @@ func TestBuildTrafficConfiguration_TwoFixedRevisionsFromTwoConfigurations(t *tes
 				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: niceConfig.Name,
 					RevisionName:      niceNewRev.Name,
-					Percent:           60,
+					Percent:           ptr.Int64(60),
 				},
 				Active:   true,
 				Protocol: net.ProtocolH2C,
@@ -596,7 +597,7 @@ func TestBuildTrafficConfiguration_TwoFixedRevisionsFromTwoConfigurations(t *tes
 			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
-				Percent:           40,
+				Percent:           ptr.Int64(40),
 			},
 			Active:   true,
 			Protocol: net.ProtocolH2C,
@@ -604,7 +605,7 @@ func TestBuildTrafficConfiguration_TwoFixedRevisionsFromTwoConfigurations(t *tes
 			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: niceConfig.Name,
 				RevisionName:      niceNewRev.Name,
-				Percent:           60,
+				Percent:           ptr.Int64(60),
 			},
 			Active:   true,
 			Protocol: net.ProtocolH2C,
@@ -630,7 +631,7 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			RevisionName: goodOldRev.Name,
-			Percent:      100,
+			Percent:      ptr.Int64(100),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
@@ -649,7 +650,7 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 				TrafficTarget: v1beta1.TrafficTarget{
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodOldRev.Name,
-					Percent:           100,
+					Percent:           ptr.Int64(100),
 				},
 				Active:   true,
 				Protocol: net.ProtocolHTTP1,
@@ -675,7 +676,7 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 					Tag:               "beta",
 					ConfigurationName: goodConfig.Name,
 					RevisionName:      goodNewRev.Name,
-					Percent:           100,
+					Percent:           ptr.Int64(100),
 				},
 				Active:   true,
 				Protocol: net.ProtocolH2C,
@@ -685,7 +686,7 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 					Tag:               "alpha",
 					ConfigurationName: niceConfig.Name,
 					RevisionName:      niceNewRev.Name,
-					Percent:           100,
+					Percent:           ptr.Int64(100),
 				},
 				Active:   true,
 				Protocol: net.ProtocolH2C,
@@ -695,7 +696,7 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodOldRev.Name,
-				Percent:           100,
+				Percent:           ptr.Int64(100),
 			},
 			Active:   true,
 			Protocol: net.ProtocolHTTP1,
@@ -737,7 +738,7 @@ func TestBuildTrafficConfiguration_MissingConfig(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			RevisionName: goodOldRev.Name,
-			Percent:      100,
+			Percent:      ptr.Int64(100),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
@@ -773,7 +774,7 @@ func TestBuildTrafficConfiguration_NotRoutableRevision(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			RevisionName: unreadyRev.Name,
-			Percent:      100,
+			Percent:      ptr.Int64(100),
 		},
 	}}
 	expected := &Config{
@@ -794,7 +795,7 @@ func TestBuildTrafficConfiguration_NotRoutableConfiguration(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: unreadyConfig.Name,
-			Percent:           100,
+			Percent:           ptr.Int64(100),
 		},
 	}}
 	expected := &Config{
@@ -815,7 +816,7 @@ func TestBuildTrafficConfiguration_EmptyConfiguration(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: emptyConfig.Name,
-			Percent:           100,
+			Percent:           ptr.Int64(100),
 		},
 	}}
 
@@ -840,12 +841,12 @@ func TestBuildTrafficConfiguration_EmptyAndFailedConfigurations(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: emptyConfig.Name,
-			Percent:           50,
+			Percent:           ptr.Int64(50),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: failedConfig.Name,
-			Percent:           50,
+			Percent:           ptr.Int64(50),
 		},
 	}}
 	expected := &Config{
@@ -869,12 +870,12 @@ func TestBuildTrafficConfiguration_FailedAndEmptyConfigurations(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: failedConfig.Name,
-			Percent:           50,
+			Percent:           ptr.Int64(50),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: emptyConfig.Name,
-			Percent:           50,
+			Percent:           ptr.Int64(50),
 		},
 	}}
 	expected := &Config{
@@ -898,12 +899,12 @@ func TestBuildTrafficConfiguration_MissingRevision(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			RevisionName: missingRev.Name,
-			Percent:      50,
+			Percent:      ptr.Int64(50),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
 			RevisionName: goodNewRev.Name,
-			Percent:      50,
+			Percent:      ptr.Int64(50),
 		},
 	}}
 	expected := &Config{
@@ -924,7 +925,7 @@ func TestRoundTripping(t *testing.T) {
 	tts := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			RevisionName: goodOldRev.Name,
-			Percent:      100,
+			Percent:      ptr.Int64(100),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
@@ -940,7 +941,7 @@ func TestRoundTripping(t *testing.T) {
 	expected := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			RevisionName: goodOldRev.Name,
-			Percent:      100,
+			Percent:      ptr.Int64(100),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{

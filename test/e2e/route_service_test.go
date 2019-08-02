@@ -21,6 +21,7 @@ package e2e
 import (
 	"testing"
 
+	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
@@ -53,7 +54,7 @@ func TestRoutesNotReady(t *testing.T) {
 			{
 				TrafficTarget: v1beta1.TrafficTarget{
 					RevisionName: "foobar", // Invalid revision name. This allows Revision creation to succeed and Route configuration to fail
-					Percent:      100,
+					Percent:      ptr.Int64(100),
 				},
 			},
 		},

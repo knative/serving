@@ -46,7 +46,7 @@ func TestServiceValidation(t *testing.T) {
 	goodRouteSpec := RouteSpec{
 		Traffic: []TrafficTarget{{
 			LatestRevision: ptr.Bool(true),
-			Percent:        100,
+			Percent:        ptr.Int64(100),
 		}},
 	}
 
@@ -65,7 +65,7 @@ func TestServiceValidation(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 					}},
 				},
 			},
@@ -144,16 +144,16 @@ func TestServiceValidation(t *testing.T) {
 						Tag:            "current",
 						LatestRevision: ptr.Bool(false),
 						RevisionName:   "valid-00001",
-						Percent:        98,
+						Percent:        ptr.Int64(98),
 					}, {
 						Tag:            "candidate",
 						LatestRevision: ptr.Bool(false),
 						RevisionName:   "valid-00002",
-						Percent:        2,
+						Percent:        ptr.Int64(2),
 					}, {
 						Tag:            "latest",
 						LatestRevision: ptr.Bool(true),
-						Percent:        0,
+						Percent:        nil,
 					}},
 				},
 			},
@@ -171,7 +171,7 @@ func TestServiceValidation(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						ConfigurationName: "valid",
 						LatestRevision:    ptr.Bool(true),
-						Percent:           100,
+						Percent:           ptr.Int64(100),
 					}},
 				},
 			},
@@ -189,7 +189,7 @@ func TestServiceValidation(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						RevisionName:   "valid",
 						LatestRevision: ptr.Bool(true),
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 					}},
 				},
 			},
@@ -217,7 +217,7 @@ func TestServiceValidation(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 					}},
 				},
 			},
@@ -268,7 +268,7 @@ func TestImmutableServiceFields(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 					}},
 				},
 			},
@@ -292,7 +292,7 @@ func TestImmutableServiceFields(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 					}},
 				},
 			},
@@ -322,7 +322,7 @@ func TestImmutableServiceFields(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						RevisionName: "byo-name-foo", // Used it!
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					}},
 				},
 			},
@@ -349,7 +349,7 @@ func TestImmutableServiceFields(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						RevisionName: "byo-name-bar", // Used it!
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					}},
 				},
 			},
@@ -379,7 +379,7 @@ func TestImmutableServiceFields(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						RevisionName: "byo-name-bar", // Leave old.
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					}},
 				},
 			},
@@ -406,7 +406,7 @@ func TestImmutableServiceFields(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						RevisionName: "byo-name-bar", // Used it!
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					}},
 				},
 			},
@@ -436,7 +436,7 @@ func TestImmutableServiceFields(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 					}},
 				},
 			},
@@ -463,7 +463,7 @@ func TestImmutableServiceFields(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 					}},
 				},
 			},
@@ -516,7 +516,7 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 					}},
 				},
 			},
@@ -545,7 +545,7 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 					}},
 				},
 			},
@@ -574,7 +574,7 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 					}},
 				},
 			},
@@ -583,7 +583,7 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						Tag:          "bar",
 						RevisionName: "foo",
-						Percent:      50, URL: &apis.URL{
+						Percent:      ptr.Int64(50), URL: &apis.URL{
 							Scheme: "http",
 							Host:   "foo.bar.com",
 						},
@@ -618,7 +618,7 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 					}},
 				},
 			},
@@ -647,7 +647,7 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 					}},
 				},
 			},

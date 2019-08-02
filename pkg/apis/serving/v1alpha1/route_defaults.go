@@ -41,7 +41,7 @@ func (rs *RouteSpec) SetDefaults(ctx context.Context) {
 	if len(rs.Traffic) == 0 && v1beta1.HasDefaultConfigurationName(ctx) {
 		rs.Traffic = []TrafficTarget{{
 			TrafficTarget: v1beta1.TrafficTarget{
-				Percent:        100,
+				Percent:        ptr.Int64(100),
 				LatestRevision: ptr.Bool(true),
 			},
 		}}

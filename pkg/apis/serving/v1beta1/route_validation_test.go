@@ -39,7 +39,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		name: "valid with revisionName",
 		tt: &TrafficTarget{
 			RevisionName: "bar",
-			Percent:      12,
+			Percent:      ptr.Int64(12),
 		},
 		wc:   apis.WithinSpec,
 		want: nil,
@@ -48,7 +48,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		tt: &TrafficTarget{
 			Tag:          "foo",
 			RevisionName: "bar",
-			Percent:      12,
+			Percent:      ptr.Int64(12),
 		},
 		wc:   apis.WithinSpec,
 		want: nil,
@@ -57,7 +57,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		tt: &TrafficTarget{
 			Tag:          "foo",
 			RevisionName: "bar",
-			Percent:      12,
+			Percent:      ptr.Int64(12),
 			URL: &apis.URL{
 				Scheme: "http",
 				Host:   "foo.bar.com",
@@ -70,7 +70,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		tt: &TrafficTarget{
 			Tag:          "foo",
 			RevisionName: "bar",
-			Percent:      12,
+			Percent:      ptr.Int64(12),
 		},
 		wc:   apis.WithinStatus,
 		want: apis.ErrMissingField("url"),
@@ -78,7 +78,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		name: "invalid with bad revisionName",
 		tt: &TrafficTarget{
 			RevisionName: "b ar",
-			Percent:      12,
+			Percent:      ptr.Int64(12),
 		},
 		wc: apis.WithinSpec,
 		want: apis.ErrInvalidKeyName(
@@ -88,7 +88,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		tt: &TrafficTarget{
 			RevisionName:   "bar",
 			LatestRevision: ptr.Bool(false),
-			Percent:        12,
+			Percent:        ptr.Int64(12),
 		},
 		wc:   apis.WithinSpec,
 		want: nil,
@@ -97,7 +97,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		tt: &TrafficTarget{
 			RevisionName:   "bar",
 			LatestRevision: ptr.Bool(true),
-			Percent:        12,
+			Percent:        ptr.Int64(12),
 		},
 		wc:   apis.WithinSpec,
 		want: apis.ErrInvalidValue(true, "latestRevision"),
@@ -106,7 +106,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		tt: &TrafficTarget{
 			RevisionName:   "bar",
 			LatestRevision: ptr.Bool(true),
-			Percent:        12,
+			Percent:        ptr.Int64(12),
 		},
 		wc:   apis.WithinStatus,
 		want: nil,
@@ -114,7 +114,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		name: "valid with configurationName",
 		tt: &TrafficTarget{
 			ConfigurationName: "bar",
-			Percent:           37,
+			Percent:           ptr.Int64(37),
 		},
 		wc:   apis.WithinSpec,
 		want: nil,
@@ -123,7 +123,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		tt: &TrafficTarget{
 			Tag:               "foo",
 			ConfigurationName: "bar",
-			Percent:           37,
+			Percent:           ptr.Int64(37),
 		},
 		wc:   apis.WithinSpec,
 		want: nil,
@@ -131,7 +131,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		name: "invalid with bad configurationName",
 		tt: &TrafficTarget{
 			ConfigurationName: "b ar",
-			Percent:           37,
+			Percent:           ptr.Int64(37),
 		},
 		wc: apis.WithinSpec,
 		want: apis.ErrInvalidKeyName(
@@ -141,7 +141,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		tt: &TrafficTarget{
 			ConfigurationName: "blah",
 			LatestRevision:    ptr.Bool(true),
-			Percent:           37,
+			Percent:           ptr.Int64(37),
 		},
 		wc:   apis.WithinSpec,
 		want: nil,
@@ -150,7 +150,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		tt: &TrafficTarget{
 			ConfigurationName: "blah",
 			LatestRevision:    ptr.Bool(false),
-			Percent:           37,
+			Percent:           ptr.Int64(37),
 		},
 		wc:   apis.WithinSpec,
 		want: apis.ErrInvalidValue(false, "latestRevision"),
@@ -158,14 +158,14 @@ func TestTrafficTargetValidation(t *testing.T) {
 		name: "invalid with configurationName and default configurationName",
 		tt: &TrafficTarget{
 			ConfigurationName: "blah",
-			Percent:           37,
+			Percent:           ptr.Int64(37),
 		},
 		wc:   WithDefaultConfigurationName,
 		want: apis.ErrDisallowedFields("configurationName"),
 	}, {
 		name: "valid with only default configurationName",
 		tt: &TrafficTarget{
-			Percent: 37,
+			Percent: ptr.Int64(37),
 		},
 		wc: func(ctx context.Context) context.Context {
 			return WithDefaultConfigurationName(apis.WithinSpec(ctx))
@@ -175,7 +175,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		name: "valid with default configurationName and latestRevision",
 		tt: &TrafficTarget{
 			LatestRevision: ptr.Bool(true),
-			Percent:        37,
+			Percent:        ptr.Int64(37),
 		},
 		wc: func(ctx context.Context) context.Context {
 			return WithDefaultConfigurationName(apis.WithinSpec(ctx))
@@ -185,7 +185,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		name: "invalid with default configurationName and latestRevision",
 		tt: &TrafficTarget{
 			LatestRevision: ptr.Bool(false),
-			Percent:        37,
+			Percent:        ptr.Int64(37),
 		},
 		wc: func(ctx context.Context) context.Context {
 			return WithDefaultConfigurationName(apis.WithinSpec(ctx))
@@ -195,7 +195,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		name: "invalid without revisionName in status",
 		tt: &TrafficTarget{
 			ConfigurationName: "blah",
-			Percent:           37,
+			Percent:           ptr.Int64(37),
 		},
 		wc:   apis.WithinStatus,
 		want: apis.ErrMissingField("revisionName"),
@@ -203,7 +203,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		name: "valid with revisionName and default configurationName",
 		tt: &TrafficTarget{
 			RevisionName: "bar",
-			Percent:      12,
+			Percent:      ptr.Int64(12),
 		},
 		wc:   WithDefaultConfigurationName,
 		want: nil,
@@ -214,10 +214,24 @@ func TestTrafficTargetValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
+		name: "valid with nil percent",
+		tt: &TrafficTarget{
+			ConfigurationName: "booga",
+			Percent:           nil,
+		},
+		want: nil,
+	}, {
+		name: "valid with zero percent",
+		tt: &TrafficTarget{
+			ConfigurationName: "booga",
+			Percent:           ptr.Int64(0),
+		},
+		want: nil,
+	}, {
 		name: "valid with no name",
 		tt: &TrafficTarget{
 			ConfigurationName: "booga",
-			Percent:           100,
+			Percent:           ptr.Int64(100),
 		},
 		want: nil,
 	}, {
@@ -233,7 +247,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 	}, {
 		name: "invalid with neither",
 		tt: &TrafficTarget{
-			Percent: 100,
+			Percent: ptr.Int64(100),
 		},
 		want: &apis.FieldError{
 			Message: "expected exactly one, got neither",
@@ -243,21 +257,21 @@ func TestTrafficTargetValidation(t *testing.T) {
 		name: "invalid percent too low",
 		tt: &TrafficTarget{
 			RevisionName: "foo",
-			Percent:      -5,
+			Percent:      ptr.Int64(-5),
 		},
 		want: apis.ErrOutOfBoundsValue("-5", "0", "100", "percent"),
 	}, {
 		name: "invalid percent too high",
 		tt: &TrafficTarget{
 			RevisionName: "foo",
-			Percent:      101,
+			Percent:      ptr.Int64(101),
 		},
 		want: apis.ErrOutOfBoundsValue("101", "0", "100", "percent"),
 	}, {
 		name: "disallowed url set",
 		tt: &TrafficTarget{
 			ConfigurationName: "foo",
-			Percent:           100,
+			Percent:           ptr.Int64(100),
 			URL: &apis.URL{
 				Host: "should.not.be.set",
 			},
@@ -296,7 +310,7 @@ func TestRouteValidation(t *testing.T) {
 				Traffic: []TrafficTarget{{
 					Tag:          "bar",
 					RevisionName: "foo",
-					Percent:      100,
+					Percent:      ptr.Int64(100),
 				}},
 			},
 			Status: RouteStatus{
@@ -304,7 +318,7 @@ func TestRouteValidation(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						Tag:          "bar",
 						RevisionName: "foo",
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 						URL: &apis.URL{
 							Scheme: "http",
 							Host:   "bar.blah.com",
@@ -324,11 +338,11 @@ func TestRouteValidation(t *testing.T) {
 				Traffic: []TrafficTarget{{
 					Tag:          "prod",
 					RevisionName: "foo",
-					Percent:      90,
+					Percent:      ptr.Int64(90),
 				}, {
 					Tag:               "experiment",
 					ConfigurationName: "bar",
-					Percent:           10,
+					Percent:           ptr.Int64(10),
 				}},
 			},
 		},
@@ -343,7 +357,7 @@ func TestRouteValidation(t *testing.T) {
 				Traffic: []TrafficTarget{{
 					Tag:          "bar",
 					RevisionName: "foo",
-					Percent:      100,
+					Percent:      ptr.Int64(100),
 				}},
 			},
 			Status: RouteStatus{
@@ -351,7 +365,7 @@ func TestRouteValidation(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						Tag:          "bar",
 						RevisionName: "foo",
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					}},
 				},
 			},
@@ -371,7 +385,7 @@ func TestRouteValidation(t *testing.T) {
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
 					Tag:     "foo",
-					Percent: 100,
+					Percent: ptr.Int64(100),
 				}},
 			},
 		},
@@ -392,11 +406,11 @@ func TestRouteValidation(t *testing.T) {
 				Traffic: []TrafficTarget{{
 					Tag:          "foo",
 					RevisionName: "bar",
-					Percent:      50,
+					Percent:      ptr.Int64(50),
 				}, {
 					Tag:          "foo",
 					RevisionName: "bar",
-					Percent:      50,
+					Percent:      ptr.Int64(50),
 				}},
 			},
 		},
@@ -416,7 +430,7 @@ func TestRouteValidation(t *testing.T) {
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
 					RevisionName: "foo",
-					Percent:      100,
+					Percent:      ptr.Int64(100),
 				}},
 			},
 		},
@@ -433,7 +447,7 @@ func TestRouteValidation(t *testing.T) {
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
 					RevisionName: "foo",
-					Percent:      90,
+					Percent:      ptr.Int64(90),
 				}},
 			},
 		},
@@ -453,7 +467,7 @@ func TestRouteValidation(t *testing.T) {
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
 					RevisionName: "foo",
-					Percent:      100,
+					Percent:      ptr.Int64(100),
 				}},
 			},
 		},
@@ -479,7 +493,7 @@ func TestRouteLabelValidation(t *testing.T) {
 		Traffic: []TrafficTarget{{
 			Tag:          "bar",
 			RevisionName: "foo",
-			Percent:      100,
+			Percent:      ptr.Int64(100),
 		}},
 	}
 	tests := []struct {

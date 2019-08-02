@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"knative.dev/pkg/ptr"
 	net "knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -82,13 +83,18 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 func (t *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1alpha1.Route, clusterLocalService sets.String) ([]v1alpha1.TrafficTarget, error) {
 	results := make([]v1alpha1.TrafficTarget, len(t.revisionTargets))
 	for i, tt := range t.revisionTargets {
+		var pp *int64
+		if tt.Percent != nil {
+			pp = ptr.Int64(*tt.Percent)
+		}
+
 		// We cannot `DeepCopy` here, since tt.TrafficTarget might contain both
 		// configuration and revision.
 		results[i] = v1alpha1.TrafficTarget{
 			TrafficTarget: v1beta1.TrafficTarget{
 				Tag:            tt.Tag,
 				RevisionName:   tt.RevisionName,
-				Percent:        tt.Percent,
+				Percent:        pp,
 				LatestRevision: tt.LatestRevision,
 			},
 		}
@@ -279,7 +285,14 @@ func consolidate(targets RevisionTargets) RevisionTargets {
 			byName[name] = tt
 			names = append(names, name)
 		} else {
-			cur.TrafficTarget.Percent += tt.TrafficTarget.Percent
+			if tt.TrafficTarget.Percent != nil {
+				current := int64(0)
+				if cur.TrafficTarget.Percent != nil {
+					current += *cur.TrafficTarget.Percent
+				}
+				current += *tt.TrafficTarget.Percent
+				cur.TrafficTarget.Percent = ptr.Int64(current)
+			}
 			byName[name] = cur
 		}
 	}
@@ -288,7 +301,7 @@ func consolidate(targets RevisionTargets) RevisionTargets {
 		consolidated[i] = byName[name]
 	}
 	if len(consolidated) == 1 {
-		consolidated[0].TrafficTarget.Percent = 100
+		consolidated[0].TrafficTarget.Percent = ptr.Int64(100)
 	}
 	return consolidated
 }
