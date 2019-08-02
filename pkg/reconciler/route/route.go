@@ -407,6 +407,7 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route, cl
 		return nil, err
 	}
 	if badTarget != nil && isTargetError {
+		logger.Infof("Marking bad traffic target: %v", badTarget)
 		badTarget.MarkBadTrafficTarget(&r.Status)
 
 		// Traffic targets aren't ready, no need to configure Route.
