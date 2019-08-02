@@ -83,7 +83,8 @@ type RevisionSpec struct {
 
 	// ContainerConcurrency specifies the maximum allowed in-flight (concurrent)
 	// requests per container of the Revision.  Defaults to `0` which means
-	// unlimited concurrency.
+	// concurrency to the application is not limited, and the system decides the
+	// target concurrency for the autoscaler.
 	// +optional
 	ContainerConcurrency RevisionContainerConcurrencyType `json:"containerConcurrency,omitempty"`
 
