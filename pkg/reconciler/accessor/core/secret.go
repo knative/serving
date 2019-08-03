@@ -30,6 +30,7 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
+	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 )
 
 // SecretAccessor is an interface for accessing Secret.
@@ -43,7 +44,7 @@ func ReconcileSecret(ctx context.Context, owner kmeta.Accessor, desired *corev1.
 	logger := logging.FromContext(ctx)
 	recorder := controller.GetEventRecorder(ctx)
 	if recorder == nil {
-		return nil, fmt.Errorf("recoder for reconcilging Secret %q/%q is not created", desired.Namespace, desired.Name)
+		return nil, fmt.Errorf("recoder for reconciling Secret %q/%q is not created", desired.Namespace, desired.Name)
 	}
 	secret, err := accessor.GetSecretLister().Secrets(desired.Namespace).Get(desired.Name)
 	if apierrs.IsNotFound(err) {
@@ -58,8 +59,10 @@ func ReconcileSecret(ctx context.Context, owner kmeta.Accessor, desired *corev1.
 	} else if err != nil {
 		return nil, err
 	} else if !metav1.IsControlledBy(secret, owner) {
-		// Surface an error in the ClusterIngress's status, and return an error.
-		return nil, fmt.Errorf("owner: %q does not own Secret: %q", owner.GetName(), secret.Name)
+		// Return an error with NotControlledBy information.
+		return nil, kaccessor.NewAccessorError(
+			fmt.Errorf("owner: %q does not own Secret: %q", owner.GetName(), secret.Name),
+			kaccessor.NotOwnResource)
 	} else if !equality.Semantic.DeepEqual(secret.Data, desired.Data) {
 		// Don't modify the informers copy
 		copy := secret.DeepCopy()

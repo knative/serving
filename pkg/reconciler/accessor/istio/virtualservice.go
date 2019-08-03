@@ -31,6 +31,7 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
+	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 )
 
 // VirtualServiceAccessor is an interface for accessing VirtualService.
@@ -64,7 +65,9 @@ func ReconcileVirtualService(ctx context.Context, owner kmeta.Accessor, desired 
 		return nil, err
 	} else if !metav1.IsControlledBy(vs, owner) {
 		// Surface an error in the ClusterIngress's status, and return an error.
-		return nil, fmt.Errorf("ingress: %q does not own VirtualService: %q", owner.GetName(), name)
+		return nil, kaccessor.NewAccessorError(
+			fmt.Errorf("ingress: %q does not own VirtualService: %q", owner.GetName(), name),
+			kaccessor.NotOwnResource)
 	} else if !equality.Semantic.DeepEqual(vs.Spec, desired.Spec) {
 		// Don't modify the informers copy
 		existing := vs.DeepCopy()

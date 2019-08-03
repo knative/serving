@@ -56,6 +56,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	sharedclientset "knative.dev/pkg/client/clientset/versioned"
+	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 	coreaccessor "knative.dev/serving/pkg/reconciler/accessor/core"
 	istioaccessor "knative.dev/serving/pkg/reconciler/accessor/istio"
 )
@@ -368,6 +369,9 @@ func (r *BaseIngressReconciler) reconcileCertSecrets(ctx context.Context, ia v1a
 			certSecret.Labels[networking.OriginSecretNamespaceLabelKey],
 			certSecret.Labels[networking.OriginSecretNameLabelKey]), ia)
 		if _, err := coreaccessor.ReconcileSecret(ctx, ia, certSecret, r); err != nil {
+			if kaccessor.IsNotOwned(err) {
+				ia.GetStatus().MarkResourceNotOwned("Secret", certSecret.Name)
+			}
 			return err
 		}
 	}
@@ -381,6 +385,9 @@ func (r *BaseIngressReconciler) reconcileVirtualServices(ctx context.Context, ia
 	kept := sets.NewString()
 	for _, d := range desired {
 		if _, err := istioaccessor.ReconcileVirtualService(ctx, ia, d, r); err != nil {
+			if kaccessor.IsNotOwned(err) {
+				ia.GetStatus().MarkResourceNotOwned("VirtualService", d.Name)
+			}
 			return err
 		}
 		kept.Insert(d.Name)
