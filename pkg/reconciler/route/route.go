@@ -270,7 +270,11 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		return err
 	}
 
-	r.Status.PropagateIngressStatus(*ingress.GetStatus())
+	if ingress.GetObjectMeta().GetGeneration() != ingress.GetStatus().ObservedGeneration {
+		r.Status.MarkIngressNotConfigured()
+	} else {
+		r.Status.PropagateIngressStatus(*ingress.GetStatus())
+	}
 
 	logger.Info("Updating placeholder k8s services with clusterIngress information")
 	if err := c.updatePlaceholderServices(ctx, r, services, ingress); err != nil {
