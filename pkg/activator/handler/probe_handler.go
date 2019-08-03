@@ -14,6 +14,8 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
+	"knative.dev/serving/pkg/activator"
 	"net/http"
 
 	"knative.dev/serving/pkg/network"
@@ -25,17 +27,26 @@ type ProbeHandler struct {
 }
 
 func (h *ProbeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// If this header is set the request was sent by a Knative component
-	// probing the network, respond with a 200 and our component name.
-	if val := r.Header.Get(network.ProbeHeaderName); val != "" {
-		// if val != activator.Name {
-		//	http.Error(w, fmt.Sprintf("unexpected probe header value: %q", val), http.StatusBadRequest)
-		//	return
-		//}
-		// w.Write([]byte(activator.Name))
-		w.WriteHeader(200)
-		return
-	}
+	routeVersionHeader := "K-Route-Version"
 
-	h.NextHandler.ServeHTTP(w, r)
+	fmt.Printf("Request: %s, %s\n", r.Header.Get(network.ProbeHeaderName), r.Header.Get(routeVersionHeader))
+	if val := r.Header.Get(network.ProbeHeaderName); val != "" {
+		if val == "Ingress" { // TODO(bancel): use constant
+			if val := r.Header.Get(routeVersionHeader); val != "" {
+				w.Header().Set(routeVersionHeader, val)
+				w.WriteHeader(200)
+				fmt.Printf("return 200 with %s", val)
+			} else {
+				http.Error(w, fmt.Sprint("an Ingress probe request must contain a 'K-Route-Version' header"), http.StatusBadRequest)
+			}
+		} else if val != activator.Name {
+			http.Error(w, fmt.Sprintf("unexpected probe header value: %q", val), http.StatusBadRequest)
+		} else {
+			w.Write([]byte(activator.Name))
+			w.WriteHeader(200)
+		}
+	} else {
+		r.Header.Del(routeVersionHeader)
+		h.NextHandler.ServeHTTP(w, r)
+	}
 }

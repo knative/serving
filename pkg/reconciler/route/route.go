@@ -19,6 +19,7 @@ package route
 import (
 	"context"
 	"encoding/json"
+	"log"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -270,7 +271,11 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		return err
 	}
 
-	r.Status.PropagateIngressStatus(*ingress.GetStatus())
+	if ingress.GetObjectMeta().GetGeneration() != ingress.GetStatus().ObservedGeneration {
+		r.Status.MarkIngressNotConfigured()
+	} else {
+		r.Status.PropagateIngressStatus(*ingress.GetStatus())
+	}
 
 	logger.Info("Updating placeholder k8s services with clusterIngress information")
 	if err := c.updatePlaceholderServices(ctx, r, services, ingress); err != nil {
@@ -278,6 +283,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	}
 
 	r.Status.ObservedGeneration = r.Generation
+	log.Printf("[Route(%s/%s|%d/%d)] IsReady: %t - Ingress(%s/%s|%d%d) IsReady: %t\n", r.Namespace, r.Name, r.Generation, r.Status.ObservedGeneration, r.Status.IsReady(), ingress.GetNamespace(), ingress.GetName(), ingress.GetObjectMeta().GetGeneration(), ingress.GetStatus().ObservedGeneration, ingress.GetStatus().IsReady())
 	logger.Info("Route successfully synced")
 	return nil
 }

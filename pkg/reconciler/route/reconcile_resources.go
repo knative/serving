@@ -19,6 +19,7 @@ package route
 import (
 	"context"
 	"fmt"
+	"log"
 	"reflect"
 
 	"go.uber.org/zap"
@@ -218,6 +219,8 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Route) (*v1alpha1.Route, err
 	// Don't modify the informers copy
 	existing := route.DeepCopy()
 	existing.Status = desired.Status
+	log.Printf("Route(%s/%s) Updating Status: %t -> %t\n", route.Namespace, route.Name, route.Status.IsReady(), desired.Status.IsReady())
+
 	return c.ServingClientSet.ServingV1alpha1().Routes(desired.Namespace).UpdateStatus(existing)
 }
 

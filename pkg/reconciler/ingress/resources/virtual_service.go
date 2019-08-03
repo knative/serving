@@ -20,10 +20,10 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 
-	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -82,6 +82,18 @@ func MakeIngressVirtualService(ia v1alpha1.IngressAccessor, gateways map[v1alpha
 	return vs
 }
 
+func HostsPerGateway(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.IngressVisibility]sets.String) map[string][]string {
+	output := make(map[string][]string)
+	for _, rule := range ia.GetSpec().Rules {
+		for _, host := range expandedHosts(sets.NewString(rule.Hosts...)).List() {
+			for _, gateway := range gateways[rule.Visibility].List() {
+				output[gateway] = append(output[gateway], host)
+			}
+		}
+	}
+	return output
+}
+
 // MakeMeshVirtualService creates a mesh Virtual Service
 func MakeMeshVirtualService(ia v1alpha1.IngressAccessor) *v1alpha3.VirtualService {
 	vs := &v1alpha3.VirtualService{
@@ -111,6 +123,12 @@ func MakeMeshVirtualService(ia v1alpha1.IngressAccessor) *v1alpha3.VirtualServic
 
 // MakeVirtualServices creates a mesh virtualservice and a virtual service for each gateway
 func MakeVirtualServices(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.IngressVisibility]sets.String) ([]*v1alpha3.VirtualService, error) {
+	// Copy before modifying
+	ia = ia.DeepCopyObject().(v1alpha1.IngressAccessor)
+	if _, err := InsertProbe(ia); err != nil {
+		return nil, fmt.Errorf("failed to insert a probe into the IngressAccessor: %v", err)
+	}
+
 	vss := []*v1alpha3.VirtualService{MakeMeshVirtualService(ia)}
 
 	requiredGatewayCount := 0
@@ -126,39 +144,55 @@ func MakeVirtualServices(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.Ingr
 		vss = append(vss, MakeIngressVirtualService(ia, gateways))
 	}
 
-	// Add probe routes
-	for _, vs := range vss {
-		if _, err := InsertProbe(vs); err != nil {
-			return nil, errors.Wrapf(err, "failed to insert probe route to %s/%s", vs.Namespace, vs.Name)
-		}
-	}
-
 	return vss, nil
 }
 
+
 // InsertProbe inserts a rule used to probe the VirtualService
-func InsertProbe(vs *v1alpha3.VirtualService) (string, error) {
-	hash, err := ComputeVirtualServiceHash(vs)
+func InsertProbe(ia v1alpha1.IngressAccessor) (string, error) {
+	bytes, err := ComputeIngressHash(ia)
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to compute the hash of %s/%s", vs.Namespace, vs.Name)
+		return "", fmt.Errorf("failed to compute the hash of the IngressAccessor: %v", err)
 	}
-	// As per RFC1153, a DNS label must be under 63 8-bit octets
-	host := fmt.Sprintf("%x", hash) + ProbeHostSuffix
-	vs.Spec.Hosts = append(vs.Spec.Hosts, host)
-	vs.Spec.HTTP = append(vs.Spec.HTTP, makeProbeRoute(host))
-	return host, nil
+	hash := fmt.Sprintf("%x", bytes)
+	log.Printf("IngressAccessor hash: %s", hash)
+
+	for _, rule := range ia.GetSpec().Rules {
+		for i := range rule.HTTP.Paths {
+			if rule.HTTP.Paths[i].AppendHeaders == nil {
+				rule.HTTP.Paths[i].AppendHeaders = make(map[string]string)
+			}
+			rule.HTTP.Paths[i].AppendHeaders["K-Route-Version"] = hash
+		}
+	}
+
+	return hash, nil
 }
+
+// InsertProbe inserts a rule used to probe the VirtualService
+// func InsertProbe(vs *v1alpha3.VirtualService) (string, error) {
+// 	hash, err := ComputeVirtualServiceHash(vs)
+// 	if err != nil {
+// 		return "", errors.Wrapf(err, "failed to compute the hash of %s/%s", vs.Namespace, vs.Name)
+// 	}
+// 	// As per RFC1153, a DNS label must be under 63 8-bit octets
+// 	host := fmt.Sprintf("%x", hash) + ProbeHostSuffix
+// 	vs.Spec.Hosts = append(vs.Spec.Hosts, host)
+// 	vs.Spec.HTTP = append(vs.Spec.HTTP, makeProbeRoute(host))
+// 	return host, nil
+// }
 
 // computeVirtualService computes a hash of the VirtualService Spec and Namespace.
 // It is designed to uniquely identify the effect of a VirtualService. Therefore,
 // Name is irrelevant but Namespace is relevant because Gateway resolution is done within the
 // namespace of the VirtualService if a namespace is not specified in the Gateway definition.
-func ComputeVirtualServiceHash(vs *v1alpha3.VirtualService) ([16]byte, error) {
-	bytes, err := json.Marshal(vs.Spec)
+func ComputeIngressHash(ia v1alpha1.IngressAccessor) ([16]byte, error) {
+	bytes, err := json.Marshal(ia.GetSpec())
 	if err != nil {
-		return [16]byte{}, fmt.Errorf("failed to serialize the VirtualServiceSpec: %v", err)
+		return [16]byte{}, fmt.Errorf("failed to serialize IngressAccessor: %v", err)
 	}
-	bytes = append(bytes, []byte(vs.Namespace)...)
+	bytes = append(bytes, []byte(ia.GetNamespace())...)
+	bytes = append(bytes, []byte(ia.GetName())...)
 	return md5.Sum(bytes), nil
 }
 

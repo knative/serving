@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"reflect"
 
 	"knative.dev/pkg/apis/istio/v1alpha3"
@@ -160,24 +161,24 @@ func (r *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 	r.ConfigStore = configStore
 
 	r.Logger.Info("Setting up StatusManager")
-	resyncIngressOnVirtualServiceReady := func(vs *v1alpha3.VirtualService) {
+	resyncIngressOnVirtualServiceReady := func(ia v1alpha1.IngressAccessor) {
 		// Reconcile when a VirtualService becomes ready
-		impl.EnqueueLabelOfNamespaceScopedResource(serving.RouteNamespaceLabelKey, serving.RouteLabelKey)(vs)
+		impl.EnqueueKey(fmt.Sprintf("%s/%s", ia.GetNamespace(), ia.GetName()))
 	}
 	statusProber := NewStatusProber(r.Logger.Named("status-manager"), gatewayInformer.Lister(),
 		podInformer.Lister(), network.NewAutoTransport, resyncIngressOnVirtualServiceReady)
 	r.StatusManager = statusProber
 	statusProber.Start(ctx.Done())
 
-	virtualServiceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		// Cancel probing when a VirtualService is deleted
-		DeleteFunc: func(obj interface{}) {
-			vs, ok := obj.(*v1alpha3.VirtualService)
-			if ok {
-				statusProber.Cancel(vs)
-			}
-		},
-	})
+	// virtualServiceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	// 	// Cancel probing when a VirtualService is deleted
+	// 	DeleteFunc: func(obj interface{}) {
+	// 		vs, ok := obj.(*v1alpha3.VirtualService)
+	// 		if ok {
+	// 			statusProber.Cancel(vs)
+	// 		}
+	// 	},
+	// })
 }
 
 // SetupSecretTracker initializes Secret Tracker
@@ -323,18 +324,18 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 	ia.GetStatus().MarkNetworkConfigured()
 	ia.GetStatus().ObservedGeneration = ia.GetGeneration()
 
-	lbReady := true
-	for _, vs := range vses {
-		ready, err := r.StatusManager.IsReady(vs)
-		if err != nil {
-			return fmt.Errorf("failed to probe VirtualService %s/%s: %v", vs.Namespace, vs.Name, err)
-		}
-
-		// We don't break as soon as one VirtualService is not ready because IsReady
-		// need to be called on every VirtualService to trigger polling.
-		lbReady = lbReady && ready
+	// lbReady := true
+	// for _, vs := range vses {
+	ready, err := r.StatusManager.IsReady(ia, resources.HostsPerGateway(ia, gatewayNames))
+	if err != nil {
+		return fmt.Errorf("failed to probe IngressAccessor %s/%s: %v", ia.GetNamespace(), ia.GetName(), err)
 	}
-	if lbReady {
+
+	// 	// We don't break as soon as one VirtualService is not ready because IsReady
+	// 	// need to be called on every VirtualService to trigger polling.
+	// 	lbReady = lbReady && ready
+	// }
+	if ready {
 		lbs := getLBStatus(gatewayServiceURLFromContext(ctx, ia))
 		publicLbs := getLBStatus(publicGatewayServiceURLFromContext(ctx))
 		privateLbs := getLBStatus(privateGatewayServiceURLFromContext(ctx))
@@ -344,6 +345,7 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 		ia.GetStatus().MarkLoadBalancerPending()
 	}
 
+	log.Printf("[Ingress(%s/%s|%d/%d)] IsReady: %t\n", ia.GetNamespace(), ia.GetName(), ia.GetObjectMeta().GetGeneration(), ia.GetStatus().ObservedGeneration, ia.GetStatus().IsReady())
 	// TODO(zhiminx): Mark Route status to indicate that Gateway is configured.
 	logger.Info("ClusterIngress successfully synced")
 	return nil
@@ -500,6 +502,7 @@ func (r *BaseIngressReconciler) updateStatus(ra ReconcilerAccessor, desired v1al
 	// Don't modify the informers copy
 	existing := ingress.DeepCopyObject().(v1alpha1.IngressAccessor)
 	existing.SetStatus(*desired.GetStatus())
+	log.Printf("Ingress(%s/%s) Updating Status: %t -> %t\n", desired.GetObjectMeta().GetNamespace(), desired.GetObjectMeta().GetName(), ingress.GetStatus().IsReady(), existing.GetStatus().IsReady())
 	return ra.UpdateIngressStatus(existing)
 }
 

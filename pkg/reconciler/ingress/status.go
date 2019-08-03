@@ -18,12 +18,11 @@ package ingress
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/network"
 	"net/http"
 	"reflect"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -36,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"knative.dev/pkg/apis/istio/v1alpha3"
 	"knative.dev/serving/pkg/network/prober"
 	"knative.dev/serving/pkg/reconciler/ingress/resources"
 
@@ -55,8 +53,8 @@ const (
 
 type probingState struct {
 	// probeHost is the value of the HTTP 'Host' header sent when probing
-	probeHost      string
-	virtualService *v1alpha3.VirtualService
+	hash            string
+	ingressAccessor v1alpha1.IngressAccessor
 
 	// pendingCount is the number of pods that haven't been successfully probed yet
 	pendingCount int32
@@ -69,12 +67,12 @@ type probingState struct {
 type workItem struct {
 	*probingState
 	podIP string
-	host string
+	host  string
 }
 
 // StatusManager provides a way to check if a VirtualService is ready
 type StatusManager interface {
-	IsReady(vs *v1alpha3.VirtualService) (bool, error)
+	IsReady(ia v1alpha1.IngressAccessor, hostsByGateway map[string][]string) (bool, error)
 }
 
 // StatusProber provides a way to check if a VirtualService is ready by probing the Envoy pods
@@ -92,7 +90,7 @@ type StatusProber struct {
 	podLister        corev1listers.PodLister
 	transportFactory func() http.RoundTripper
 
-	readyCallback func(*v1alpha3.VirtualService)
+	readyCallback func(v1alpha1.IngressAccessor)
 
 	probeConcurrency int
 	stateExpiration  time.Duration
@@ -105,7 +103,7 @@ func NewStatusProber(
 	gatewayLister istiolisters.GatewayLister,
 	podLister corev1listers.PodLister,
 	transportFactory func() http.RoundTripper,
-	readyCallback func(*v1alpha3.VirtualService)) *StatusProber {
+	readyCallback func(v1alpha1.IngressAccessor)) *StatusProber {
 	return &StatusProber{
 		logger:        logger,
 		probingStates: make(map[string]*probingState),
@@ -127,29 +125,36 @@ func NewStatusProber(
 // will be called in the order of reconciliation. This means that if IsReady is called on a VirtualService,
 // this VirtualService is the latest known version and therefore anything related to older versions can be ignored.
 // Also, it means that IsReady is not called concurrently.
-func (m *StatusProber) IsReady(vs *v1alpha3.VirtualService) (bool, error) {
-	key := makeKey(vs)
+func (m *StatusProber) IsReady(ia v1alpha1.IngressAccessor, hostsByGateway map[string][]string) (bool, error) {
+	key := makeKey(ia)
+	fmt.Printf("IsReady %s\n", key)
 
 	// Find the probe host
-	var probeHost string
-	for _, host := range vs.Spec.Hosts {
-		if strings.HasSuffix(host, resources.ProbeHostSuffix) {
-			if probeHost != "" {
-				return false, fmt.Errorf("only one probe host can be defined in a VirtualService, found at least 2: %s, %s", probeHost, host)
-			}
-			probeHost = host
-		}
+	// var probeHost string
+	// for _, host := range vs.Spec.Hosts {
+	// 	if strings.HasSuffix(host, resources.ProbeHostSuffix) {
+	// 		if probeHost != "" {
+	// 			return false, fmt.Errorf("only one probe host can be defined in a VirtualService, found at least 2: %s, %s", probeHost, host)
+	// 		}
+	// 		probeHost = host
+	// 	}
+	// }
+	// if probeHost == "" {
+	// 	m.logger.Errorf("The VirtualService doesn't contain a probe host. Suffix: %q, Hosts: %v", resources.ProbeHostSuffix, vs.Spec.Hosts)
+	// 	return false, errors.New("only a VirtualService with a probe host can be probed")
+	// }
+
+	bytes, err := resources.ComputeIngressHash(ia)
+	if err != nil {
+		return false, fmt.Errorf("failed to compute the hash of the IngressAccessor: %v", err)
 	}
-	if probeHost == "" {
-		m.logger.Errorf("The VirtualService doesn't contain a probe host. Suffix: %q, Hosts: %v", resources.ProbeHostSuffix, vs.Spec.Hosts)
-		return false, errors.New("only a VirtualService with a probe host can be probed")
-	}
+	hash := fmt.Sprintf("%x", bytes)
 
 	if ready, ok := func() (bool, bool) {
 		m.mu.Lock()
 		defer m.mu.Unlock()
 		if state, ok := m.probingStates[key]; ok {
-			if state.probeHost == probeHost {
+			if state.hash == hash {
 				state.lastAccessed = time.Now()
 				return atomic.LoadInt32(&state.pendingCount) == 0, true
 			}
@@ -163,38 +168,48 @@ func (m *StatusProber) IsReady(vs *v1alpha3.VirtualService) (bool, error) {
 		return ready, nil
 	}
 
-	podIPs, err := m.listVirtualServicePodIPs(vs)
-	if err != nil {
-		return false, fmt.Errorf("failed to list the IP addresses of the Pods impacted by the VirtualService: %v", err)
-	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	state := &probingState{
-		virtualService: vs,
-		probeHost:      probeHost,
-		pendingCount:   int32(len(podIPs) * len(vs.Spec.Hosts)),
-		lastAccessed:   time.Now(),
-		context:        ctx,
-		cancel:         cancel,
+		ingressAccessor: ia,
+		hash:            hash,
+		lastAccessed:    time.Now(),
+		context:         ctx,
+		cancel:          cancel,
 	}
+
+	var workItems []*workItem
+	for gateway, hosts := range hostsByGateway {
+		podIPs, err := m.listGatewayPodIPs(gateway)
+		if err != nil {
+			return false, fmt.Errorf("failed to list the IP addresses of the Pods of Gateway %q: %v", gateway, err)
+		}
+
+		for _, podIP := range podIPs {
+			for _, host := range hosts {
+				workItem := &workItem{
+					probingState: state,
+					podIP:        podIP,
+					host:         host,
+				}
+				workItems = append(workItems, workItem)
+			}
+		}
+	}
+
+	state.pendingCount = int32(len(workItems))
 
 	func() {
 		m.mu.Lock()
 		defer m.mu.Unlock()
 		m.probingStates[key] = state
 	}()
-	for _, podIP := range podIPs {
-		for _, host := range vs.Spec.Hosts {
-			workItem := &workItem{
-				probingState: state,
-				podIP:        podIP,
-				host: host,
-			}
-			m.workQueue.AddRateLimited(workItem)
-		}
+	for _, workItem := range workItems {
+		fmt.Printf("Enqueuing %s/%s, hash: %s\n", workItem.podIP, workItem.host, hash)
+		m.workQueue.AddRateLimited(workItem)
 	}
 
-	return len(podIPs) == 0, nil
+	return len(workItems) == 0, nil
 }
 
 // Start starts the StatusManager background operations
@@ -217,20 +232,20 @@ func (m *StatusProber) Start(done <-chan struct{}) {
 	}()
 }
 
-// Cancel cancels probing of the provided VirtualService.
-func (m *StatusProber) Cancel(vs *v1alpha3.VirtualService) {
-	key := makeKey(vs)
+// Cancel cancels probing of the provided Ingress.
+func (m *StatusProber) Cancel(namespace, name string) {
+ 	key := fmt.Sprintf("%s/%s", namespace, name)
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if state, ok := m.probingStates[key]; ok {
-		state.cancel()
-		delete(m.probingStates, key)
-	}
+ 	m.mu.Lock()
+ 	defer m.mu.Unlock()
+ 	if state, ok := m.probingStates[key]; ok {
+ 		state.cancel()
+ 		delete(m.probingStates, key)
+ 	}
 }
 
-func makeKey(vs *v1alpha3.VirtualService) string {
-	return fmt.Sprintf("%s/%s", vs.Namespace, vs.Name)
+func makeKey(ia v1alpha1.IngressAccessor) string {
+	return fmt.Sprintf("%s/%s", ia.GetNamespace(), ia.GetName())
 }
 
 // expireOldStates removes the states that haven't been accessed in a while.
@@ -266,7 +281,8 @@ func (m *StatusProber) processWorkItem() bool {
 		m.transportFactory(),
 		fmt.Sprintf("http://%s/", item.podIP),
 		prober.WithHost(item.host),
-		prober.WithHeader(network.ProbeHeaderName, "ingress"))
+		prober.WithHeader(network.ProbeHeaderName, "Ingress"),
+		prober.ExpectsHeader("K-Route-Version", item.hash))
 
 	// In case of cancellation, drop the work item
 	select {
@@ -284,53 +300,45 @@ func (m *StatusProber) processWorkItem() bool {
 		m.logger.Errorf("Probing of %s, Host: %s succeeded", item.podIP, item.host)
 		// In case of success, update the state
 		if atomic.AddInt32(&item.pendingCount, -1) == 0 {
-			m.readyCallback(item.virtualService)
+			m.readyCallback(item.ingressAccessor)
 		}
 	}
 	return true
 }
 
-// listVirtualServicePodIPs lists the IP addresses of the Envoy pods impacted by the provided VirtualService.
-func (m *StatusProber) listVirtualServicePodIPs(vs *v1alpha3.VirtualService) ([]string, error) {
+// listGatewayPodIPs lists the IP addresses of the Envoy pods backing an Istio Gateway.
+func (m *StatusProber) listGatewayPodIPs(name string) ([]string, error) {
 	var podIPs []string
-	for _, name := range vs.Spec.Gateways {
-		// Only the ingress gateways are probed
-		if name == "mesh" || name == "knative-serving/cluster-local-gateway" {
-			continue
-		}
+	namespace, name, err := cache.SplitMetaNamespaceKey(name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse Gateway name %q: %v", name, err)
+	}
+	if namespace == "" {
+		return nil, fmt.Errorf("unexpected unqualified Gateway name %q", name)
+	}
+	gateway, err := m.gatewayLister.Gateways(namespace).Get(name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Gateway %s/%s: %v", namespace, name, err)
+	}
 
-		// Gateway is either "namespace/gateway" or "gateway" (implicitly inside the VirtualService's namespace)
-		namespace, name, err := cache.SplitMetaNamespaceKey(name)
+	// List matching Pods
+	selector := labels.NewSelector()
+	for key, value := range gateway.Spec.Selector {
+		requirement, err := labels.NewRequirement(key, selection.Equals, []string{value})
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse Gateway name %q: %v", name, err)
+			return nil, fmt.Errorf("failed to create 'Equals' requirement from %q=%q: %v", key, value, err)
 		}
-		if namespace == "" {
-			namespace = vs.Namespace
-		}
-		gateway, err := m.gatewayLister.Gateways(namespace).Get(name)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get Gateway %s/%s: %v", namespace, name, err)
-		}
+		selector = selector.Add(*requirement)
+	}
+	pods, err := m.podLister.List(selector)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list Pods: %v", err)
+	}
 
-		// List matching Pods
-		selector := labels.NewSelector()
-		for key, value := range gateway.Spec.Selector {
-			requirement, err := labels.NewRequirement(key, selection.Equals, []string{value})
-			if err != nil {
-				return nil, fmt.Errorf("failed to create 'Equals' requirement from %q=%q: %v", key, value, err)
-			}
-			selector = selector.Add(*requirement)
-		}
-		pods, err := m.podLister.List(selector)
-		if err != nil {
-			return nil, fmt.Errorf("failed to list Pods: %v", err)
-		}
-
-		// Filter out the Pods without an assigned IP address
-		for _, pod := range pods {
-			if pod.Status.PodIP != "" {
-				podIPs = append(podIPs, pod.Status.PodIP)
-			}
+	// Filter out the Pods without an assigned IP address
+	for _, pod := range pods {
+		if pod.Status.PodIP != "" {
+			podIPs = append(podIPs, pod.Status.PodIP)
 		}
 	}
 	return podIPs, nil

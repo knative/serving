@@ -149,10 +149,18 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 		switch {
 		case ph != "":
 			_, probeSpan := trace.StartSpan(r.Context(), "probe")
-			if ph == "ingress" {
-				w.WriteHeader(200)
+			if ph == "Ingress" {
+				routeVersionHeader := "K-Route-Version"
+				if val := r.Header.Get(routeVersionHeader); val != "" {
+					w.Header().Set(routeVersionHeader, val)
+					w.WriteHeader(200)
+				} else {
+					http.Error(w, fmt.Sprint("an Ingress probe request must contain a 'K-Route-Version' header"), http.StatusBadRequest)
+				}
+				probeSpan.End()
 				return
 			}
+
 			if ph != queue.Name {
 				http.Error(w, fmt.Sprintf(badProbeTemplate, ph), http.StatusBadRequest)
 				probeSpan.Annotate([]trace.Attribute{
@@ -184,6 +192,7 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 			probeSpan.End()
 			return
 		}
+		r.Header.Del("K-Route-Version")
 		proxyCtx, proxySpan := trace.StartSpan(r.Context(), "proxy")
 		defer proxySpan.End()
 		// Metrics for autoscaling.

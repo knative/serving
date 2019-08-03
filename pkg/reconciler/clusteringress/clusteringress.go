@@ -18,11 +18,11 @@ package clusteringress
 
 import (
 	"context"
+	"fmt"
 
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler"
 
-	"knative.dev/pkg/apis/istio/v1alpha3"
 	gatewayinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/gateway"
 	virtualserviceinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice"
 	"knative.dev/pkg/configmap"
@@ -30,7 +30,7 @@ import (
 	podinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/pod"
 	"knative.dev/pkg/tracker"
 	"knative.dev/serving/pkg/apis/networking"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	clusteringressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress"
 	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 	ing "knative.dev/serving/pkg/reconciler/ingress"
@@ -112,24 +112,24 @@ func (c *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 	c.BaseIngressReconciler.ConfigStore = configStore
 
 	c.Logger.Info("Setting up StatusManager")
-	resyncIngressOnVirtualServiceReady := func(vs *v1alpha3.VirtualService) {
+	resyncIngressOnVirtualServiceReady := func(ia v1alpha1.IngressAccessor) {
 		// Reconcile when a VirtualService becomes ready
-		impl.EnqueueLabelOfClusterScopedResource(networking.ClusterIngressLabelKey)(vs)
+		impl.EnqueueKey(fmt.Sprintf("%s/%s", ia.GetNamespace(), ia.GetName()))
 	}
 	statusProber := ing.NewStatusProber(c.Logger.Named("status-manager"), gatewayInformer.Lister(),
 		podInformer.Lister(), network.NewAutoTransport, resyncIngressOnVirtualServiceReady)
 	c.BaseIngressReconciler.StatusManager = statusProber
 	statusProber.Start(ctx.Done())
 
-	virtualServiceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		// Cancel probing when a VirtualService is deleted
-		DeleteFunc: func(obj interface{}) {
-			vs, ok := obj.(*v1alpha3.VirtualService)
-			if ok {
-				statusProber.Cancel(vs)
-			}
-		},
-	})
+	// virtualServiceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	// 	// Cancel probing when a VirtualService is deleted
+	// 	DeleteFunc: func(obj interface{}) {
+	// 		vs, ok := obj.(*v1alpha3.VirtualService)
+	// 		if ok {
+	// 			statusProber.Cancel(vs)
+	// 		}
+	// 	},
+	// })
 }
 
 // Reconcile compares the actual state with the desired, and attempts to

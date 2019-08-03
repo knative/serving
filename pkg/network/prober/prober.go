@@ -58,6 +58,13 @@ func ExpectsBody(body string) Verifier {
 	}
 }
 
+func ExpectsHeader(name, value string) Verifier {
+	return func(r *http.Response, b []byte) (bool, error) {
+		log.Printf("Want: %s, Got: %s, Status: %d, Headers: %v, Body: %s", value, r.Header.Get(name), r.StatusCode, r.Header, string(b))
+		return r.Header.Get(name) == value, nil
+	}
+}
+
 // Do sends a single probe to given target, e.g. `http://revision.default.svc.cluster.local:81`.
 // Do returns whether the probe was successful or not, or there was an error probing.
 func Do(ctx context.Context, transport http.RoundTripper, target string, ops ...interface{}) (bool, error) {
@@ -90,7 +97,7 @@ func Do(ctx context.Context, transport http.RoundTripper, target string, ops ...
 			}
 		}
 	}
-	log.Printf("Probe response: %d\n", resp.StatusCode)
+	log.Printf("Probe response: %s %s %d\n", target, req.Host, resp.StatusCode)
 	return resp.StatusCode == http.StatusOK, nil
 }
 

@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"reflect"
 	"time"
 
@@ -184,6 +185,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 
 	c.checkRoutesNotReady(config, logger, route, service)
 	service.Status.ObservedGeneration = service.Generation
+	log.Printf("[Service(%s/%s|%d/%d)] IsReady: %t - Route(%s/%s|%d/%d) IsReady: %t\n", service.Namespace, service.Name, service.Generation, service.Status.ObservedGeneration, service.Status.IsReady(), route.Namespace, route.Name, route.Generation, route.Status.ObservedGeneration, route.Status.IsReady())
 
 	return nil
 }
@@ -287,6 +289,7 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service,
 	// Don't modify the informers copy.
 	existing := service.DeepCopy()
 	existing.Status = desired.Status
+	log.Printf("Service(%s/%s) Updating Status: %t -> %t\n", service.Namespace, service.Name, service.Status.IsReady(), desired.Status.IsReady())
 
 	svc, err := c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).UpdateStatus(existing)
 	if err == nil && becomesReady {
