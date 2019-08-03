@@ -8,7 +8,7 @@ type Error struct {
 	errorReason ErrorReason
 }
 
-// ErrorReason defines the reason of AccessorError.
+// ErrorReason defines the reason of accessor Error.
 type ErrorReason string
 
 const (
@@ -16,7 +16,7 @@ const (
 	NotOwnResource ErrorReason = "NotOwned"
 )
 
-// NewAccessorError creates a new AccessorError
+// NewAccessorError creates a new accessor Error
 func NewAccessorError(err error, reason ErrorReason) Error {
 	return Error{
 		err:         err,
@@ -28,7 +28,7 @@ func (a Error) Error() string {
 	return strings.ToLower(string(a.errorReason)) + ": " + a.err.Error()
 }
 
-// IsNotOwned returns true if the error is caused by AccessorNotOwnedResource.
+// IsNotOwned returns true if the error is caused by NotOwnResource.
 func IsNotOwned(err error) bool {
 	accessorError, ok := err.(Error)
 	if !ok {
