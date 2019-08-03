@@ -283,7 +283,7 @@ function create_test_cluster_with_retries() {
       export CLUSTER_API_VERSION=${E2E_CLUSTER_VERSION}
       run_go_tool k8s.io/test-infra/kubetest \
         kubetest "$@" --gcp-region=${cluster_creation_zone} 2>&1 | tee ${cluster_creation_log}
-
+      header "clear cut between kubetest and other part"
       # Exit if test succeeded
       [[ "$(get_test_return_code)" == "0" ]] && return 0
       # Retry if cluster creation failed because of:
