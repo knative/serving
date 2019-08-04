@@ -131,7 +131,7 @@ func (r *Reconciler) SetTracker(tracker tracker.Interface) {
 // Init method performs initializations to ingress reconciler
 func (r *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *controller.Impl) {
 
-	SetupSecretTracker(ctx, cmw, r, impl)
+	SetupSecretTracker(ctx, r, impl)
 
 	r.Logger.Info("Setting up Ingress event handlers")
 	ingressInformer := ingressinformer.Get(ctx)
@@ -185,7 +185,7 @@ func (r *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 }
 
 // SetupSecretTracker initializes Secret Tracker
-func SetupSecretTracker(ctx context.Context, cmw configmap.Watcher, init ReconcilerInitializer, impl *controller.Impl) {
+func SetupSecretTracker(ctx context.Context, init ReconcilerInitializer, impl *controller.Impl) {
 
 	logger := logging.FromContext(ctx)
 	logger.Info("Setting up secret informer event handler")
