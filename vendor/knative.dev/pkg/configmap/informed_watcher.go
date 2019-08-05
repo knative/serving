@@ -79,7 +79,7 @@ var _ Watcher = (*InformedWatcher)(nil)
 var _ DefaultingWatcher = (*InformedWatcher)(nil)
 
 // WatchWithDefault implements DefaultingWatcher.
-func (i *InformedWatcher) WatchWithDefault(cm corev1.ConfigMap, o Observer) {
+func (i *InformedWatcher) WatchWithDefault(cm corev1.ConfigMap, o ...Observer) {
 	i.defaults[cm.Name] = &cm
 
 	i.m.Lock()
@@ -94,7 +94,7 @@ func (i *InformedWatcher) WatchWithDefault(cm corev1.ConfigMap, o Observer) {
 		panic("cannot WatchWithDefault after the InformedWatcher has started")
 	}
 
-	i.Watch(cm.Name, o)
+	i.Watch(cm.Name, o...)
 }
 
 // Start implements Watcher.
