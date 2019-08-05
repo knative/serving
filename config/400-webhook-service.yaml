@@ -22,7 +22,8 @@ metadata:
   namespace: knative-serving
 spec:
   ports:
-    - port: 443
+    - name: https-webhook
+      port: 443
       targetPort: 8443
   selector:
     role: webhook
