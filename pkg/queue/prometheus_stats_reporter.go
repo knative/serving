@@ -112,10 +112,10 @@ func (r *PrometheusStatsReporter) Report(stat *autoscaler.Stat) error {
 		return errors.New("PrometheusStatsReporter is not initialized yet")
 	}
 
-	operationsPerSecondGV.With(r.labels).Set((stat.RequestCount / (r.reporterReportingPeriod.Seconds())))
-	proxiedOperationsPerSecondGV.With(r.labels).Set((stat.ProxiedRequestCount / (r.reporterReportingPeriod.Seconds())))
-	averageConcurrentRequestsGV.With(r.labels).Set((stat.AverageConcurrentRequests / (r.reporterReportingPeriod.Seconds())))
-	averageProxiedConcurrentRequestsGV.With(r.labels).Set((stat.AverageProxiedConcurrentRequests / (r.reporterReportingPeriod.Seconds())))
+	operationsPerSecondGV.With(r.labels).Set(stat.RequestCount / (r.reporterReportingPeriod.Seconds()))
+	proxiedOperationsPerSecondGV.With(r.labels).Set(stat.ProxiedRequestCount / (r.reporterReportingPeriod.Seconds()))
+	averageConcurrentRequestsGV.With(r.labels).Set(stat.AverageConcurrentRequests / (r.reporterReportingPeriod.Seconds()))
+	averageProxiedConcurrentRequestsGV.With(r.labels).Set(stat.AverageProxiedConcurrentRequests / (r.reporterReportingPeriod.Seconds()))
 
 	return nil
 }
