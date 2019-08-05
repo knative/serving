@@ -32,7 +32,6 @@ import (
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/network/prober"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
@@ -79,7 +78,6 @@ type asyncProber interface {
 type scaler struct {
 	psInformerFactory duck.InformerFactory
 	dynamicClient     dynamic.Interface
-	logger            *zap.SugaredLogger
 	transport         http.RoundTripper
 
 	// For sync probes.
@@ -99,7 +97,6 @@ func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, enqu
 		// informer/lister each time.
 		psInformerFactory: psInformerFactory,
 		dynamicClient:     dynamicclient.Get(ctx),
-		logger:            logger,
 		transport:         transport,
 
 		// Production setup uses the default probe implementation.
@@ -142,7 +139,8 @@ func applyBounds(min, max, x int32) int32 {
 	return x
 }
 
-func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, sks *nv1a1.ServerlessService, desiredScale int32, config *autoscaler.Config) (int32, bool) {
+func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutoscaler,
+	sks *nv1a1.ServerlessService, desiredScale int32) (int32, bool) {
 	if desiredScale != 0 {
 		return desiredScale, true
 	}
@@ -151,15 +149,16 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, sks *nv1a1.Ser
 	//   a) enable-scale-to-zero from configmap is true
 	//   b) The PA has been active for at least the stable window, after which it gets marked inactive
 	//   c) The PA has been inactive for at least the grace period
-
+	config := config.FromContext(ctx).Autoscaler
 	if !config.EnableScaleToZero {
 		return 1, true
 	}
 
+	logger := logging.FromContext(ctx)
 	if pa.Status.IsActivating() { // Active=Unknown
 		// If we are stuck activating for longer than our progress deadline, presume we cannot succeed and scale to 0.
 		if pa.Status.CanFailActivation(activationTimeout) {
-			ks.logger.Infof("%s activation has timed out after %v.", pa.Name, activationTimeout)
+			logger.Infof("%s activation has timed out after %v.", pa.Name, activationTimeout)
 			return 0, true
 		}
 		ks.enqueueCB(pa, activationTimeout)
@@ -177,12 +176,12 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, sks *nv1a1.Ser
 		}
 		// Otherwise, scale down to at most 1 for the remainder of the idle period and then
 		// reconcile PA again.
-		ks.logger.Infof("%s sleeping additionally for %v before can scale to 0", sw-af)
+		logger.Infof("%s sleeping additionally for %v before can scale to 0", pa.Name, sw-af)
 		ks.enqueueCB(pa, sw-af)
 		desiredScale = 1
 	} else { // Active=False
 		r, err := ks.activatorProbe(pa, ks.transport)
-		ks.logger.Infof("%s probing activator = %v, err = %v", pa.Name, r, err)
+		logger.Infof("%s probing activator = %v, err = %v", pa.Name, r, err)
 		if r {
 			// This enforces that the revision has been backed by the activator for at least
 			// ScaleToZeroGracePeriod time.
@@ -202,7 +201,7 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, sks *nv1a1.Ser
 				// can scale to zero.
 				to -= sks.Status.ProxyFor()
 				if to <= 0 {
-					ks.logger.Infof("Fast path scaling to 0, in proxy mode for: %v", sks.Status.ProxyFor())
+					logger.Infof("Fast path scaling to 0, in proxy mode for: %v", sks.Status.ProxyFor())
 					return desiredScale, true
 				}
 			}
@@ -214,9 +213,9 @@ func (ks *scaler) handleScaleToZero(pa *pav1alpha1.PodAutoscaler, sks *nv1a1.Ser
 		}
 
 		// Otherwise (any prober failure) start the async probe.
-		ks.logger.Infof("%s is not yet backed by activator, cannot scale to zero", pa.Name)
+		logger.Infof("%s is not yet backed by activator, cannot scale to zero", pa.Name)
 		if !ks.probeManager.Offer(context.Background(), paToProbeTarget(pa), pa, probePeriod, probeTimeout, probeOptions...) {
-			ks.logger.Infof("Probe for %s is already in flight", pa.Name)
+			logger.Infof("Probe for %s is already in flight", pa.Name)
 		}
 		return desiredScale, false
 	}
@@ -247,7 +246,7 @@ func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, 
 	_, err = ks.dynamicClient.Resource(*gvr).Namespace(pa.Namespace).Patch(ps.Name, types.JSONPatchType,
 		patchBytes, metav1.UpdateOptions{})
 	if err != nil {
-		logger.Errorw(fmt.Sprintf("Error scaling target reference %s", name), zap.Error(err))
+		logger.Errorw("Error scaling target reference "+name, zap.Error(err))
 		return desiredScale, err
 	}
 
@@ -270,7 +269,7 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *
 		desiredScale = newScale
 	}
 
-	desiredScale, shouldApplyScale := ks.handleScaleToZero(pa, sks, desiredScale, config.FromContext(ctx).Autoscaler)
+	desiredScale, shouldApplyScale := ks.handleScaleToZero(ctx, pa, sks, desiredScale)
 	if !shouldApplyScale {
 		return desiredScale, nil
 	}

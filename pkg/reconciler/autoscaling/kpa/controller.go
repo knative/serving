@@ -39,7 +39,7 @@ import (
 
 const controllerAgentName = "kpa-class-podautoscaler-controller"
 
-// NewController returns a new HPA reconcile controller.
+// NewController returns a new KPA reconcile controller.
 // TODO(mattmoor): Fix the signature to adhere to the injection type.
 func NewController(
 	ctx context.Context,
