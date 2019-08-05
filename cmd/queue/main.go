@@ -89,7 +89,8 @@ const (
 	// The 25 millisecond retry interval is an unscientific compromise between wanting to get
 	// started as early as possible while still wanting to give the container some breathing
 	// room to get up and running.
-	aggressivePollInterval  = 25 * time.Millisecond
+	aggressivePollInterval = 25 * time.Millisecond
+	// ReporterReportingPeriod is the interval of time between reporting stats by queue proxy.
 	reporterReportingPeriod = 1 * time.Second
 )
 
@@ -328,7 +329,7 @@ func main() {
 	}
 
 	// Setup reporters and processes to handle stat reporting.
-	promStatReporter, err := queue.NewPrometheusStatsReporter(env.ServingNamespace, env.ServingConfiguration, env.ServingRevision, env.ServingPod)
+	promStatReporter, err := queue.NewPrometheusStatsReporter(env.ServingNamespace, env.ServingConfiguration, env.ServingRevision, env.ServingPod, reporterReportingPeriod)
 	if err != nil {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
@@ -345,7 +346,7 @@ func main() {
 
 	reqChan := make(chan queue.ReqEvent, requestCountingQueueLength)
 	defer close(reqChan)
-	reportTicker := time.NewTicker(queue.ReporterReportingPeriod)
+	reportTicker := time.NewTicker(reporterReportingPeriod)
 	defer reportTicker.Stop()
 	queue.NewStats(env.ServingPod, queue.Channels{
 		ReqChan:    reqChan,

@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -67,11 +68,11 @@ type PrometheusStatsReporter struct {
 	initialized             bool
 	labels                  prometheus.Labels
 	handler                 http.Handler
-	reporterReportingPeriod int64 // ReporterReportingPeriod is the interval of time between reporting stats by queue proxy.
+	reporterReportingPeriod time.Duration // ReporterReportingPeriod is the interval of time between reporting stats by queue proxy.
 }
 
 // NewPrometheusStatsReporter creates a reporter that collects and reports queue metrics.
-func NewPrometheusStatsReporter(namespace, config, revision, pod string, reporterReportingPeriod int64) (*PrometheusStatsReporter, error) {
+func NewPrometheusStatsReporter(namespace, config, revision, pod string, reporterReportingPeriod time.Duration) (*PrometheusStatsReporter, error) {
 	if namespace == "" {
 		return nil, errors.New("namespace must not be empty")
 	}
