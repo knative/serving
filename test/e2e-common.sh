@@ -298,7 +298,7 @@ function test_setup() {
   bash <( curl -sfL https://raw.githubusercontent.com/boz/kail/master/godownloader.sh) -b "$GOPATH/bin"
 
   # Capture all logs.
-  kail > ${ARTIFACTS}/k8s.log.txt &
+  # kail > ${ARTIFACTS}/k8s.log.txt &
 
   echo ">> Creating test resources (test/config/)"
   ko apply ${KO_FLAGS} -f test/config/ || return 1
