@@ -405,7 +405,7 @@ spec:
         gloo: ingress
     spec:
       containers:
-      - image: ":"
+      - image: "quay.io/solo-io/ingress:0.18.9"
         imagePullPolicy: Always
         name: ingress
         env:
