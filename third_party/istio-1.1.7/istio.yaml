@@ -1816,7 +1816,7 @@ metadata:
     app: cluster-local-gateway
     istio: cluster-local-gateway
 spec:
-  replicas: 1
+  replicas: 2
   template:
     metadata:
       labels:
@@ -2913,7 +2913,7 @@ metadata:
     release: release-name
 spec:
   maxReplicas: 4
-  minReplicas: 1
+  minReplicas: 2
   scaleTargetRef:
     apiVersion: apps/v1beta1
     kind: Deployment
