@@ -42,7 +42,8 @@ func (s *Service) Validate(ctx context.Context) (errs *apis.FieldError) {
 
 	if apis.IsInUpdate(ctx) {
 		original := apis.GetBaseline(ctx).(*Service)
-
+		errs = errs.Also(apis.ValidateCreatorAndModifier(original.Spec, s.Spec, original.GetAnnotations(),
+			s.GetAnnotations(), serving.GroupName).ViaField("metadata.annotations"))
 		err := s.Spec.ConfigurationSpec.Template.VerifyNameChange(ctx,
 			original.Spec.ConfigurationSpec.Template)
 		errs = errs.Also(err.ViaField("spec.template"))
