@@ -79,7 +79,7 @@ func (c *Reconciler) SetTracker(tracker tracker.Interface) {
 // Init method performs initializations to ingress reconciler
 func (c *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *controller.Impl) {
 
-	ing.SetupSecretTracker(ctx, cmw, c, impl)
+	ing.SetupSecretTracker(ctx, c, impl)
 
 	c.Logger.Info("Setting up Ingress event handlers")
 	clusterIngressInformer := clusteringressinformer.Get(ctx)
