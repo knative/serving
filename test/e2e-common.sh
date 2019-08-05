@@ -162,7 +162,7 @@ function install_istio() {
 }
 
 function install_gloo() {
-  local gloo_base="./third_party/gloo-${GLOO_VERSION}"
+  local gloo_base="./third_party/gloo-latest"
   INSTALL_GLOO_YAML="${gloo_base}/gloo.yaml"
   echo "Gloo YAML: ${INSTALL_GLOO_YAML}"
   echo ">> Bringing up Gloo"
@@ -316,10 +316,10 @@ function test_setup() {
   else
     # we must set these override values to allow the test spoofing client to work with Gloo
     # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
-    export GATEWAY_OVERRIDE=clusteringress-proxy
+    export GATEWAY_OVERRIDE=knative-proxy
     export GATEWAY_NAMESPACE_OVERRIDE=gloo-system
     wait_until_pods_running gloo-system || return 1
-    wait_until_service_has_external_ip gloo-system clusteringress-proxy
+    wait_until_service_has_external_ip gloo-system knative-proxy
   fi
   if [[ -n "${INSTALL_MONITORING_YAML}" ]]; then
     wait_until_pods_running knative-monitoring || return 1

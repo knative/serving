@@ -8,8 +8,6 @@ ingress:
   deployment:
     image:
       pullPolicy: Always
-      repository: quay.io/solo-io/ingress
-      tag: 0.17.1
     replicas: 1
     stats: false
   enabled: false
@@ -24,6 +22,7 @@ settings:
   integrations:
     knative:
       enabled: true
+      version: 0.8.0
       installKnative: true
       proxy:
         httpPort: "80"
@@ -31,6 +30,6 @@ settings:
         image:
           pullPolicy: Always
           repository: quay.io/solo-io/gloo-envoy-wrapper
-          tag: 0.17.1
+          tag: 0.18.9
         replicas: 1
-        stats: false
+        stats: true

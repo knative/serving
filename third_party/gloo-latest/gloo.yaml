@@ -9,25 +9,26 @@ metadata:
   annotations:
     "helm.sh/hook": pre-install
 ---
-# Source: gloo/templates/15-clusteringress-proxy-configmap.yaml
+# Source: gloo/templates/27-knative-proxy-configmap.yaml
+
 
 # configmap
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: clusteringress-envoy-config
+  name: knative-envoy-config
   namespace: gloo-system
   labels:
     app: gloo
-    gloo: clusteringress-proxy
+    gloo: knative-proxy
 data:
   envoy.yaml: |
     node:
-      cluster: clusteringress
+      cluster: knative
       id: "{{.PodName}}.{{.PodNamespace}}"
       metadata:
-        # this line must match !
-        role: "{{.PodNamespace}}~clusteringress-proxy"
+        # role's value is the key for the in-memory xds cache (projects/gloo/pkg/xds/envoy.go)
+        role: "{{.PodNamespace}}~knative-proxy"
     static_resources:
       clusters:
       - name: xds_cluster
@@ -45,6 +46,52 @@ data:
         upstream_connection_options:
           tcp_keepalive: {}
         type: STRICT_DNS
+      - name: admin_port_cluster
+        connect_timeout: 5.000s
+        type: STATIC
+        lb_policy: ROUND_ROBIN
+        load_assignment:
+          cluster_name: admin_port_cluster
+          endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: 127.0.0.1
+                    port_value: 19000
+
+      listeners:
+        - name: prometheus_listener
+          address:
+            socket_address:
+              address: 0.0.0.0
+              port_value: 8081
+          filter_chains:
+            - filters:
+                - name: envoy.http_connection_manager
+                  config:
+                    codec_type: auto
+                    stat_prefix: prometheus
+                    route_config:
+                      name: prometheus_route
+                      virtual_hosts:
+                        - name: prometheus_host
+                          domains:
+                            - "*"
+                          routes:
+                            - match:
+                                prefix: "/metrics"
+                                headers:
+                                - name: ":method"
+                                  exact_match: GET
+                              route:
+                                prefix_rewrite: "/stats/prometheus"
+                                cluster: admin_port_cluster
+                    http_filters:
+                      - name: envoy.router
+                        config: {}
+
+
     dynamic_resources:
       ads_config:
         api_type: GRPC
@@ -59,7 +106,7 @@ data:
       address:
         socket_address:
           address: 127.0.0.1
-          port_value: 19000
+          port_value: 19000 # if .Values.settings.integrations.knative.proxy.tracing
 ---
 # Source: gloo/templates/100-gloo-crds.yaml
 
@@ -81,15 +128,19 @@ spec:
       - st
   scope: Namespaced
   version: v1
+  versions:
+    - name: v1
+      served: true
+      storage: true
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: gateways.gateway.solo.io
+  name: gateways.gateway.solo.io.v2
   annotations:
     "helm.sh/hook": crd-install
 spec:
-  group: gateway.solo.io
+  group: gateway.solo.io.v2
   names:
     kind: Gateway
     listKind: GatewayList
@@ -98,7 +149,11 @@ spec:
       - gw
     singular: gateway
   scope: Namespaced
-  version: v1
+  version: v2
+  versions:
+    - name: v2
+      storage: true
+      served: true
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -117,6 +172,10 @@ spec:
     singular: virtualservice
   scope: Namespaced
   version: v1
+  versions:
+  - name: v1
+    served: true
+    storage: true
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -135,6 +194,10 @@ spec:
     singular: proxy
   scope: Namespaced
   version: v1
+  versions:
+  - name: v1
+    served: true
+    storage: true
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -153,6 +216,10 @@ spec:
     singular: upstream
   scope: Namespaced
   version: v1
+  versions:
+  - name: v1
+    served: true
+    storage: true
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -171,6 +238,10 @@ spec:
     singular: upstreamgroup
   scope: Namespaced
   version: v1
+  versions:
+  - name: v1
+    served: true
+    storage: true
 ---
 ---
 # Source: gloo/templates/22-namespace-clusterrole-knative.yaml
@@ -201,6 +272,12 @@ rules:
 - apiGroups: ["networking.internal.knative.dev"]
   resources: ["clusteringresses/status"]
   verbs: ["update"]
+- apiGroups: ["networking.internal.knative.dev"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.internal.knative.dev"]
+  resources: ["ingresses/status"]
+  verbs: ["update"]
 ---
 # Source: gloo/templates/25-namespace-clusterrolebinding-knative.yaml
 
@@ -220,29 +297,7 @@ roleRef:
   name: gloo-role-knative
   apiGroup: rbac.authorization.k8s.io
 ---
-# Source: gloo/templates/16-clusteringress-proxy-service.yaml
-
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app: gloo
-    gloo: clusteringress-proxy
-  name: clusteringress-proxy
-  namespace: gloo-system
-spec:
-  ports:
-  - port: 80
-    protocol: TCP
-    name: http
-  - port: 443
-    protocol: TCP
-    name: https
-  selector:
-    gloo: clusteringress-proxy
-  type: LoadBalancer
----
-# Source: gloo/templates/4-gloo-service.yaml
+# Source: gloo/templates/2-gloo-service.yaml
 apiVersion: v1
 kind: Service
 metadata:
@@ -259,6 +314,74 @@ spec:
     protocol: TCP
   selector:
     gloo: gloo
+
+---
+# Source: gloo/templates/28-knative-proxy-service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: gloo
+    gloo: knative-proxy
+  name: knative-proxy
+  namespace: gloo-system
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    name: http
+  - port: 443
+    protocol: TCP
+    name: https
+  selector:
+    gloo: knative-proxy
+  type: LoadBalancer
+---
+# Source: gloo/templates/1-gloo-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: gloo
+    gloo: gloo
+  name: gloo
+  namespace: gloo-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      gloo: gloo
+  template:
+    metadata:
+      labels:
+        gloo: gloo
+    spec:
+      containers:
+      - image: "quay.io/solo-io/gloo:0.18.9"
+        imagePullPolicy: IfNotPresent
+        name: gloo
+        resources:
+          requests:
+            cpu: 500m
+            memory: 256Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 10101
+          capabilities:
+            drop:
+            - ALL
+        ports:
+        - containerPort: 9977
+          name: grpc
+          protocol: TCP
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
 
 ---
 # Source: gloo/templates/10-ingress-deployment.yaml
@@ -282,7 +405,7 @@ spec:
         gloo: ingress
     spec:
       containers:
-      - image: "quay.io/solo-io/ingress:0.17.1"
+      - image: ":"
         imagePullPolicy: Always
         name: ingress
         env:
@@ -292,10 +415,13 @@ spec:
               fieldPath: metadata.namespace
         - name: "ENABLE_KNATIVE_INGRESS"
           value: "true"
+        - name: "KNATIVE_VERSION"
+          value: "0.8.0"
         - name: "DISABLE_KUBE_INGRESS"
           value: "true"
+
 ---
-# Source: gloo/templates/14-clusteringress-proxy-deployment.yaml
+# Source: gloo/templates/26-knative-proxy-deployment.yaml
 
 
 apiVersion: apps/v1
@@ -303,18 +429,18 @@ kind: Deployment
 metadata:
   labels:
     app: gloo
-    gloo: clusteringress-proxy
-  name: clusteringress-proxy
+    gloo: knative-proxy
+  name: knative-proxy
   namespace: gloo-system
 spec:
   replicas: 1
   selector:
     matchLabels:
-      gloo: clusteringress-proxy
+      gloo: knative-proxy
   template:
     metadata:
       labels:
-        gloo: clusteringress-proxy
+        gloo: knative-proxy
     spec:
       containers:
       - args: ["--disable-hot-restart"]
@@ -327,9 +453,9 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        image: quay.io/solo-io/gloo-envoy-wrapper:0.17.1
+        image: quay.io/solo-io/gloo-envoy-wrapper:0.18.9
         imagePullPolicy: Always
-        name: clusteringress-proxy
+        name: knative-proxy
         securityContext:
           readOnlyRootFilesystem: true
           allowPrivilegeEscalation: false
@@ -350,64 +476,11 @@ spec:
           name: envoy-config
       volumes:
       - configMap:
-          name: clusteringress-envoy-config
+          name: knative-envoy-config
         name: envoy-config
 
 ---
-# Source: gloo/templates/3-gloo-deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    app: gloo
-    gloo: gloo
-  name: gloo
-  namespace: gloo-system
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      gloo: gloo
-  template:
-    metadata:
-      labels:
-        gloo: gloo
-      annotations:
-        prometheus.io/path: /metrics
-        prometheus.io/port: "9091"
-        prometheus.io/scrape: "true"
-    spec:
-      containers:
-      - image: "quay.io/solo-io/gloo:0.17.1"
-        imagePullPolicy: Always
-        name: gloo
-        resources:
-          requests:
-            cpu: 500m
-            memory: 256Mi
-        securityContext:
-          readOnlyRootFilesystem: true
-          allowPrivilegeEscalation: false
-          runAsNonRoot: true
-          runAsUser: 10101
-          capabilities:
-            drop:
-            - ALL
-        ports:
-        - containerPort: 9977
-          name: grpc
-          protocol: TCP
-        env:
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
-          - name: START_STATS_SERVER
-            value: "true"
-
-
----
-# Source: gloo/templates/5-discovery-deployment.yaml
+# Source: gloo/templates/3-discovery-deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -425,14 +498,10 @@ spec:
     metadata:
       labels:
         gloo: discovery
-      annotations:
-        prometheus.io/path: /metrics
-        prometheus.io/port: "9091"
-        prometheus.io/scrape: "true"
     spec:
       containers:
-      - image: "quay.io/solo-io/discovery:0.17.1"
-        imagePullPolicy: Always
+      - image: "quay.io/solo-io/discovery:0.18.9"
+        imagePullPolicy: IfNotPresent
         name: discovery
         securityContext:
           readOnlyRootFilesystem: true
@@ -447,8 +516,6 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
-          - name: START_STATS_SERVER
-            value: "true"
 
 ---
 # Source: gloo/templates/18-settings.yaml
@@ -459,8 +526,6 @@ kind: Settings
 metadata:
   name: default
   namespace: gloo-system
-  annotations:
-    "helm.sh/hook": pre-install
 spec:
   bindAddr: 0.0.0.0:9977
   discoveryNamespace: gloo-system
@@ -469,7 +534,7 @@ spec:
   kubernetesSecretSource: {}
   refreshRate: 60s
   knative:
-    clusterIngressProxyAddress: "clusteringress-proxy.gloo-system.svc.cluster.local"
+    knativeProxyAddress: "knative-proxy.gloo-system.svc.cluster.local"
   discovery:
     fdsMode: WHITELIST
 
@@ -481,6 +546,17 @@ spec:
 
 ---
 # Source: gloo/templates/13-ingress-proxy-service.yaml
+
+---
+# Source: gloo/templates/14-clusteringress-proxy-deployment.yaml
+
+
+---
+# Source: gloo/templates/15-clusteringress-proxy-configmap.yaml
+
+---
+# Source: gloo/templates/16-clusteringress-proxy-service.yaml
+
 
 ---
 # Source: gloo/templates/20-namespace-clusterrole-gateway.yaml
@@ -495,7 +571,10 @@ spec:
 # Source: gloo/templates/24-namespace-clusterrolebinding-ingress.yaml
 
 ---
-# Source: gloo/templates/6-gateway-deployment.yaml
+# Source: gloo/templates/5-gateway-deployment.yaml
+
+---
+# Source: gloo/templates/6.5-gateway-conversion-job.yaml
 
 ---
 # Source: gloo/templates/7-gateway-proxy-deployment.yaml
@@ -506,4 +585,4 @@ spec:
 
 ---
 # Source: gloo/templates/9-gateway-proxy-configmap.yaml
-
+# if .Values.gateway.enabled
