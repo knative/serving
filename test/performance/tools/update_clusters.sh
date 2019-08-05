@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Copyright 2019 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,22 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM gcr.io/k8s-testimages/kubekins-e2e:latest-master
-LABEL maintainer "Srinivas Hegde<srinivashegde@google.com>"
+source $(dirname ${BASH_SOURCE})/common.sh
 
-ENV DEBIAN_FRONTEND noninteractive
-ENV KO_DOCKER_REPO gcr.io/knative-performance
-ENV GOPATH /go
+# set up the credential for cluster operations
+setup_user
 
-RUN apt-get update
-RUN gcloud components update
+# Get all clusters to update and ko apply config. Use newline to split
+header "Update all clusters"
+IFS=$'\n'
+for cluster in $(gcloud container clusters list --project="${PROJECT_NAME}" --format="csv[no-heading](name,zone)"); do  
+  name=$(echo $cluster | cut -f1 -d",")
+  zone=$(echo $cluster | cut -f2 -d",")
 
-# Docker
-RUN gcloud auth configure-docker
+  update_cluster ${name} ${zone}
+done
 
-# Extra tools through go get
-RUN go get -u github.com/google/ko/cmd/ko
-RUN go get -u github.com/golang/dep/cmd/dep
-
-# Add project root folder
-ADD . .
+header "Done updating all clusters"

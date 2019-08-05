@@ -14,24 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-source $(dirname ${BASH_SOURCE})/../common.sh
+source $(dirname ${BASH_SOURCE})/common.sh
 
 # set up the user credentials for cluster operations
 setup_user
 
-# get serving project
-get_serving
-
-
 header "Recreating all clusters"
-for cluster in $(gcloud container clusters list --project=knative-performance --format="csv[no-heading](name,zone,currentNodeCount)"); do  
+for cluster in $(gcloud container clusters list --project="${PROJECT_NAME}" --format="csv[no-heading](name,zone,currentNodeCount)"); do  
   name=$(echo $cluster | cut -f1 -d",")
   zone=$(echo $cluster | cut -f2 -d",")
   node_count=$(echo $cluster | cut -f3 -d",")
   (( node_count=node_count/3 ))
-  if [ ${name} = ${MASTER_CLUSTER_NAME} ]; then
-    continue
-  fi
 
   # delete the old cluster
   gcloud container clusters delete ${name} --zone ${zone} --quiet
