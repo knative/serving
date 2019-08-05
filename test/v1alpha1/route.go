@@ -70,7 +70,6 @@ func CreateRoute(t *testing.T, clients *test.Clients, names test.ResourceNames, 
 }
 
 // RetryingRouteInconsistency retries common requests seen when creating a new route
-// - 404 until the route is propagated to the proxy
 func RetryingRouteInconsistency(innerCheck spoof.ResponseChecker) spoof.ResponseChecker {
 	return func(resp *spoof.Response) (bool, error) {
 		// If we didn't match any retryable codes, invoke the ResponseChecker that we wrapped.
