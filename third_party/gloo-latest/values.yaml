@@ -7,8 +7,10 @@ gateway:
 ingress:
   deployment:
     image:
-      repository: quay.io/solo-io/ingress
-      tag: 0.18.9
+      repository: docker.io/ilackarms/ingress
+      tag: test-ilackarms
+#      repository: quay.io/solo-io/ingress
+#      tag: 0.18.9
       pullPolicy: Always
     replicas: 1
     stats: false
