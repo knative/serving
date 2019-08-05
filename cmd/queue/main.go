@@ -89,7 +89,8 @@ const (
 	// The 25 millisecond retry interval is an unscientific compromise between wanting to get
 	// started as early as possible while still wanting to give the container some breathing
 	// room to get up and running.
-	aggressivePollInterval = 25 * time.Millisecond
+	aggressivePollInterval  = 25 * time.Millisecond
+	reporterReportingPeriod = 1 * time.Second
 )
 
 var (
