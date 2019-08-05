@@ -19,6 +19,7 @@ package queue
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"knative.dev/serving/pkg/autoscaler"
@@ -35,13 +36,14 @@ const (
 
 func TestNewPrometheusStatsReporter_negative(t *testing.T) {
 	tests := []struct {
-		name      string
-		errorMsg  string
-		result    error
-		namespace string
-		config    string
-		revision  string
-		pod       string
+		name                    string
+		errorMsg                string
+		result                  error
+		namespace               string
+		config                  string
+		revision                string
+		pod                     string
+		reporterReportingPeriod time.Duration
 	}{
 		{
 			"Empty_Namespace_Value",
@@ -51,6 +53,7 @@ func TestNewPrometheusStatsReporter_negative(t *testing.T) {
 			config,
 			revision,
 			pod,
+			1 * time.Second,
 		},
 		{
 			"Empty_Config_Value",
@@ -60,6 +63,7 @@ func TestNewPrometheusStatsReporter_negative(t *testing.T) {
 			"",
 			revision,
 			pod,
+			1 * time.Second,
 		},
 		{
 			"Empty_Revision_Value",
@@ -69,6 +73,7 @@ func TestNewPrometheusStatsReporter_negative(t *testing.T) {
 			config,
 			"",
 			pod,
+			1 * time.Second,
 		},
 		{
 			"Empty_Pod_Value",
@@ -78,12 +83,13 @@ func TestNewPrometheusStatsReporter_negative(t *testing.T) {
 			config,
 			revision,
 			"",
+			1 * time.Second,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if _, err := NewPrometheusStatsReporter(test.namespace, test.config, test.revision, test.pod); err.Error() != test.result.Error() {
+			if _, err := NewPrometheusStatsReporter(test.namespace, test.config, test.revision, test.pod, test.reporterReportingPeriod); err.Error() != test.result.Error() {
 				t.Errorf("Got error msg from NewPrometheusStatsReporter(): '%+v', wanted '%+v'", err, test.errorMsg)
 			}
 		})
@@ -91,16 +97,16 @@ func TestNewPrometheusStatsReporter_negative(t *testing.T) {
 }
 
 func TestReporter_ReportNoProxied(t *testing.T) {
-	testReportWithProxiedRequests(t, &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3}, 39, 3, 0, 0)
+	testReportWithProxiedRequests(t, &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3}, 39, 3, 0, 0, 1*time.Second)
 }
 
 func TestReporter_Report(t *testing.T) {
-	testReportWithProxiedRequests(t, &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3, ProxiedRequestCount: 15, AverageProxiedConcurrentRequests: 2}, 39, 3, 15, 2)
+	testReportWithProxiedRequests(t, &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3, ProxiedRequestCount: 15, AverageProxiedConcurrentRequests: 2}, 39, 3, 15, 2, 1*time.Second)
 }
 
-func testReportWithProxiedRequests(t *testing.T, stat *autoscaler.Stat, reqCount, concurrency, proxiedCount, proxiedConcurrency float64) {
+func testReportWithProxiedRequests(t *testing.T, stat *autoscaler.Stat, reqCount, concurrency, proxiedCount, proxiedConcurrency float64, reporterReportingPeriod time.Duration) {
 	t.Helper()
-	reporter, err := NewPrometheusStatsReporter(namespace, config, revision, pod)
+	reporter, err := NewPrometheusStatsReporter(namespace, config, revision, pod, reporterReportingPeriod)
 	if err != nil {
 		t.Errorf("Something went wrong with creating a reporter, '%v'.", err)
 	}
