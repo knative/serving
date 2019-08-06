@@ -1611,7 +1611,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f5c87f088ceb7f600e159e815198c8064f150214cc678f887e69af1457ef5ce5"
+  digest = "1:1199b8dc54e680fba11b26747a38be5e60cad2647202f6cced8eaeced33602da"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1634,7 +1634,7 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "6e4e72a5e3a859a3a3ae0b338977fed327224b83"
+  revision = "a75c7402a9e7f796f67dda62041086afd6e7eec8"
 
 [[projects]]
   branch = "release-0.8"
@@ -1724,6 +1724,7 @@
     "test/logstream",
     "test/monitoring",
     "test/spoof",
+    "test/vegeta/pacers",
     "test/zipkin",
     "tracker",
     "version",
@@ -1735,7 +1736,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:16f95da071b15bd8d55063ffbb1275d784465d0de698399b2d14a3e6f11d0a58"
+  digest = "1:eb8a3a36bd8ed21d9aec5e5197b0872b0025eb062cb0f8050a405dc855cbc4bb"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1754,7 +1755,7 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "a6aed31ed1097dbfaaf1d056b5d89499f64c7235"
+  revision = "d65201fadb82dbdc5713f9ba9a1313150c7aa9b5"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1930,6 +1931,7 @@
     "knative.dev/pkg/test/logging",
     "knative.dev/pkg/test/logstream",
     "knative.dev/pkg/test/spoof",
+    "knative.dev/pkg/test/vegeta/pacers",
     "knative.dev/pkg/test/zipkin",
     "knative.dev/pkg/tracker",
     "knative.dev/pkg/version",
