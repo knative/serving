@@ -19,7 +19,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
 	"time"
 
@@ -186,7 +185,7 @@ func main() {
 	q.Input.ThresholdInputs = append(q.Input.ThresholdInputs,
 		LoadTest95PercentileLatency, LoadTestMaximumLatency)
 
-	log.Printf("Starting the load test.")
+	log.Print("Starting the load test.")
 	// Ramp up load from 1k to 3k in 2 minute steps.
 	const duration = 2 * time.Minute
 	targeter := vegeta.NewStaticTargeter(vegeta.Target{
@@ -204,5 +203,5 @@ func main() {
 	if err != nil {
 		fatalf("q.Store error: %s %v", out.String(), err)
 	}
-	fmt.Printf("Done! Run: %s\n", out.GetRunChartLink())
+	log.Printf("Done! Run: %s", out.GetRunChartLink())
 }
