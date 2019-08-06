@@ -33,6 +33,7 @@ import (
 	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
+	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 
 	. "knative.dev/pkg/reconciler/testing"
 )
@@ -74,6 +75,16 @@ var (
 			"test-secret": []byte("desired"),
 		},
 	}
+
+	notOwnedSecret = &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "secret",
+			Namespace: "default",
+		},
+		Data: map[string][]byte{
+			"test-secret": []byte("origin"),
+		},
+	}
 )
 
 type FakeAccessor struct {
@@ -89,7 +100,7 @@ func (f *FakeAccessor) GetSecretLister() corev1listers.SecretLister {
 	return f.secretLister
 }
 
-func TestReconcileSecret_Create(t *testing.T) {
+func TestReconcileSecretCreate(t *testing.T) {
 	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
 	ctx, cancel := context.WithCancel(ctx)
@@ -121,7 +132,7 @@ func TestReconcileSecret_Create(t *testing.T) {
 	}
 }
 
-func TestReconcileSecret_Update(t *testing.T) {
+func TestReconcileSecretUpdate(t *testing.T) {
 	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
 	ctx, cancel := context.WithCancel(ctx)
@@ -149,6 +160,30 @@ func TestReconcileSecret_Update(t *testing.T) {
 	ReconcileSecret(ctx, ownerObj, desired, accessor)
 	if err := h.WaitForHooks(3 * time.Second); err != nil {
 		t.Errorf("Failed to Reconcile Secret: %v", err)
+	}
+}
+
+func TestNotOwnedFailure(t *testing.T) {
+	defer logtesting.ClearAll()
+	ctx, _ := SetupFakeContext(t)
+	ctx, cancel := context.WithCancel(ctx)
+	grp := errgroup.Group{}
+	defer func() {
+		cancel()
+		if err := grp.Wait(); err != nil {
+			t.Errorf("Wait() = %v", err)
+		}
+	}()
+
+	kubeClient := fakekubeclient.Get(ctx)
+	accessor := setup(ctx, []*corev1.Secret{notOwnedSecret}, kubeClient, t)
+
+	_, err := ReconcileSecret(ctx, ownerObj, desired, accessor)
+	if err == nil {
+		t.Error("Expected to get error when calling ReconcileSecret, but got no error.")
+	}
+	if !kaccessor.IsNotOwned(err) {
+		t.Errorf("Expected to get NotOwnedError but got %v", err)
 	}
 }
 

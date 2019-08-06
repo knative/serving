@@ -44,7 +44,7 @@ func ReconcileSecret(ctx context.Context, owner kmeta.Accessor, desired *corev1.
 	logger := logging.FromContext(ctx)
 	recorder := controller.GetEventRecorder(ctx)
 	if recorder == nil {
-		return nil, fmt.Errorf("recoder for reconciling Secret %q/%q is not created", desired.Namespace, desired.Name)
+		return nil, fmt.Errorf("recoder for reconciling Secret %s/%s is not created", desired.Namespace, desired.Name)
 	}
 	secret, err := accessor.GetSecretLister().Secrets(desired.Namespace).Get(desired.Name)
 	if apierrs.IsNotFound(err) {
@@ -61,7 +61,7 @@ func ReconcileSecret(ctx context.Context, owner kmeta.Accessor, desired *corev1.
 	} else if !metav1.IsControlledBy(secret, owner) {
 		// Return an error with NotControlledBy information.
 		return nil, kaccessor.NewAccessorError(
-			fmt.Errorf("owner: %q does not own Secret: %q", owner.GetName(), secret.Name),
+			fmt.Errorf("owner: %s does not own Secret: %s", owner.GetName(), secret.Name),
 			kaccessor.NotOwnResource)
 	} else if !equality.Semantic.DeepEqual(secret.Data, desired.Data) {
 		// Don't modify the informers copy
