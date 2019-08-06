@@ -17,6 +17,8 @@ limitations under the License.
 package main
 
 import (
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	tpb "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto"
 	mpb "github.com/google/mako/spec/proto/mako_go_proto"
@@ -31,8 +33,8 @@ var (
 	Kubernetes95PercentileLatency = &tpb.ThresholdAnalyzerInput{
 		Name: proto.String("Kubernetes baseline"),
 		Configs: []*tpb.ThresholdConfig{{
-			Min: proto.Float64(0.100),
-			Max: proto.Float64(0.105),
+			Min: bound(100 * time.Millisecond),
+			Max: bound(105 * time.Millisecond),
 			DataFilter: &mpb.DataFilter{
 				DataType:            mpb.DataFilter_METRIC_AGGREGATE_PERCENTILE.Enum(),
 				PercentileMilliRank: proto.Int32(95000),
@@ -48,8 +50,8 @@ var (
 	Istio95PercentileLatency = &tpb.ThresholdAnalyzerInput{
 		Name: proto.String("Istio baseline"),
 		Configs: []*tpb.ThresholdConfig{{
-			Min: proto.Float64(0.100),
-			Max: proto.Float64(0.108),
+			Min: bound(100 * time.Millisecond),
+			Max: bound(108 * time.Millisecond),
 			DataFilter: &mpb.DataFilter{
 				DataType:            mpb.DataFilter_METRIC_AGGREGATE_PERCENTILE.Enum(),
 				PercentileMilliRank: proto.Int32(95000),
@@ -63,8 +65,8 @@ var (
 	Queue95PercentileLatency = &tpb.ThresholdAnalyzerInput{
 		Name: proto.String("Queue p95 latency"),
 		Configs: []*tpb.ThresholdConfig{{
-			Min: proto.Float64(0.100),
-			Max: proto.Float64(0.110),
+			Min: bound(100 * time.Millisecond),
+			Max: bound(110 * time.Millisecond),
 			DataFilter: &mpb.DataFilter{
 				DataType:            mpb.DataFilter_METRIC_AGGREGATE_PERCENTILE.Enum(),
 				PercentileMilliRank: proto.Int32(95000),
@@ -78,8 +80,8 @@ var (
 	Activator95PercentileLatency = &tpb.ThresholdAnalyzerInput{
 		Name: proto.String("Activator p95 latency"),
 		Configs: []*tpb.ThresholdConfig{{
-			Min: proto.Float64(0.100),
-			Max: proto.Float64(0.110),
+			Min: bound(100 * time.Millisecond),
+			Max: bound(110 * time.Millisecond),
 			DataFilter: &mpb.DataFilter{
 				DataType:            mpb.DataFilter_METRIC_AGGREGATE_PERCENTILE.Enum(),
 				PercentileMilliRank: proto.Int32(95000),
@@ -133,3 +135,9 @@ var (
 		},
 	}
 )
+
+// bound is a helper for making the inline SLOs more readable by expressing
+// them as durations.
+func bound(d time.Duration) *float64 {
+	return proto.Float64(d.Seconds())
+}

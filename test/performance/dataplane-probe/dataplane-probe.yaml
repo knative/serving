@@ -17,7 +17,7 @@ kind: CronJob
 metadata:
   name: dataplane-probe-deployment
 spec:
-  # Run every other ten minutes, offset from other jobs.
+  # Run every twenty minutes, offset from other jobs.
   schedule: "5,25,45 * * * *"
   jobTemplate:
     spec:
@@ -27,7 +27,7 @@ spec:
           containers:
           - name: dataplane-probe
             image: knative.dev/serving/test/performance/dataplane-probe
-            args: ["-target=deployment"]
+            args: ["-benchmark=5142965274017792", "-target=deployment"]
             resources:
               requests:
                 cpu: 1000m
@@ -52,7 +52,7 @@ kind: CronJob
 metadata:
   name: dataplane-probe-istio
 spec:
-  # Run every other ten minutes, offset from other jobs.
+  # Run every twenty minutes, offset from other jobs.
   schedule: "15,35,55 * * * *"
   jobTemplate:
     spec:
@@ -62,7 +62,7 @@ spec:
           containers:
           - name: dataplane-probe
             image: knative.dev/serving/test/performance/dataplane-probe
-            args: ["-target=istio"]
+            args: ["-benchmark=5142965274017792", "-target=istio"]
             resources:
               requests:
                 cpu: 1000m
@@ -87,7 +87,7 @@ kind: CronJob
 metadata:
   name: dataplane-probe-queue
 spec:
-  # Run every other ten minutes (offset from activator)
+  # Run every twenty minutes, offset from other jobs.
   schedule: "10,30,50 * * * *"
   jobTemplate:
     spec:
@@ -97,7 +97,7 @@ spec:
           containers:
           - name: dataplane-probe
             image: knative.dev/serving/test/performance/dataplane-probe
-            args: ["-target=queue"]
+            args: ["-benchmark=5142965274017792", "-target=queue"]
             resources:
               requests:
                 cpu: 1000m
@@ -122,7 +122,7 @@ kind: CronJob
 metadata:
   name: dataplane-probe-activator
 spec:
-  # Run every other ten minutes (offset from queue-proxy)
+  # Run every twenty minutes, offset from other jobs.
   schedule: "0,20,40 * * * *"
   jobTemplate:
     spec:
@@ -132,7 +132,7 @@ spec:
           containers:
           - name: dataplane-probe
             image: knative.dev/serving/test/performance/dataplane-probe
-            args: ["-target=activator"]
+            args: ["-benchmark=5142965274017792", "-target=activator"]
             resources:
               requests:
                 cpu: 1000m

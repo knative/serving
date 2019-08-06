@@ -32,7 +32,8 @@ import (
 )
 
 var (
-	target = flag.String("target", "", "The target to attack.")
+	benchmark = flag.String("benchmark", "", "The mako benchmark we are running.")
+	target    = flag.String("target", "", "The target to attack.")
 )
 
 func main() {
@@ -41,28 +42,26 @@ func main() {
 	// We want this for properly handling Kubernetes container lifecycle events.
 	ctx := signals.NewContext()
 
-	// The mako sidecar address
-	addr := "localhost:9813"
-
-	// We cron every 10 minutes, so give ourselves 6 minutes to complete.
+	// We cron every 5 minutes, so make sure that we don't severely overrun to
+	// limit how noisy a neighbor we can be.
 	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
 	defer cancel()
 
 	// Use the benchmark key created
-	q, close, err := quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
-		BenchmarkKey: proto.String("5142965274017792"),
+	q, qclose, err := quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
+		BenchmarkKey: proto.String(*benchmark),
 		Tags:         []string{"master"},
-	}, addr)
+	}, mako.SidecarAddress)
 	if err != nil {
 		log.Fatalf("failed NewAtAddress: %v", err)
 	}
 	// Use a fresh context here so that our RPC to terminate the sidecar
 	// isn't subject to our timeout (or we won't shut it down when we time out)
-	defer close(context.Background())
+	defer qclose(context.Background())
 
 	// Wrap fatalf in a helper or our sidecar will live forever.
 	fatalf := func(f string, args ...interface{}) {
-		close(context.Background())
+		qclose(context.Background())
 		log.Fatalf(f, args...)
 	}
 
@@ -87,7 +86,7 @@ func main() {
 
 	// Send 1000 QPS (1 per ms) for 5 minutes with a 30s request timeout.
 	rate := vegeta.Rate{Freq: 1, Per: time.Millisecond}
-	duration := 5 * time.Minute
+	const duration = 5 * time.Minute
 	targeter := vegeta.NewStaticTargeter(t.target)
 	attacker := vegeta.NewAttacker(vegeta.Timeout(30 * time.Second))
 
@@ -96,7 +95,7 @@ func main() {
 	// show up properly (and work with the aggregators) we must report
 	// zero values for every second over which the benchmark runs without
 	// errors.
-	errors := make(map[int64]int64)
+	errors := make(map[int64]int64, int(duration.Seconds()))
 
 	// Start the attack!
 	results := attacker.Attack(targeter, rate, duration, "load-test")
@@ -131,7 +130,7 @@ LOOP:
 				})
 				isAnError = 0
 			}
-			errors[sent(res)] = errors[sent(res)] + isAnError
+			errors[res.Timestamp.Unix()] += isAnError
 		}
 	}
 
@@ -150,8 +149,4 @@ LOOP:
 		fatalf("q.Store error: %v: %v", out, err)
 	}
 	log.Printf("Done! Run: %s\n", out.GetRunChartLink())
-}
-
-func sent(res *vegeta.Result) int64 {
-	return res.Timestamp.Unix()
 }
