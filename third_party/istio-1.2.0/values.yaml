@@ -15,8 +15,9 @@ gateways:
     enabled: true
     sds:
       enabled: true
-    autoscaleMin: 1
-    autoscaleMax: 1
+    replicaCount: 2
+    autoscaleMin: 2
+    autoscaleMax: 4
     resources:
       limits:
         cpu: 3000m
@@ -36,9 +37,9 @@ gateways:
     labels:
       app: cluster-local-gateway
       istio: cluster-local-gateway
-    replicaCount: 1
-    autoscaleMin: 1
-    autoscaleMax: 1
+    replicaCount: 2
+    autoscaleMin: 2
+    autoscaleMax: 4
     resources: {}
     cpu:
       targetAverageUtilization: 80
