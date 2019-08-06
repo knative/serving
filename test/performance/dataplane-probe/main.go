@@ -47,8 +47,7 @@ func main() {
 	defer cancel()
 
 	tags := []string{"master"}
-	commitID, err := changeset.Get()
-	if err == nil {
+	if commitID, err := changeset.Get(); err == nil {
 		tags = append(tags, commitID)
 	} else {
 		log.Printf("Error getting commit id: %v", err)

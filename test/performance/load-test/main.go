@@ -33,7 +33,6 @@ import (
 	vegeta "github.com/tsenart/vegeta/lib"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/clientcmd"
-	"knative.dev/pkg/changeset"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/signals"
