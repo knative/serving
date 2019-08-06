@@ -87,7 +87,8 @@ function parse_flags() {
       return 2
       ;;
     --gloo-version)
-      [[ $2 =~ ^[0-9]+\.[0-9]+(\.[0-9]+|\-latest)$ ]] || abort "version format must be '[0-9].[0-9].[0-9]' or '[0-9].[0-9]-latest"
+      # currently, the value of --gloo-version is ignored
+      # latest version of Gloo pinned in third_party will be installed
       readonly GLOO_VERSION=$2
       return 2
       ;;
@@ -188,7 +189,11 @@ function install_knative_serving_standard() {
 
     # install serving core if installing for Gloo
     if [[ -n "${GLOO_VERSION}" ]]; then
-      INSTALL_RELEASE_YAML="${SERVING_CORE_YAML}"
+      if (( INSTALL_BETA )); then
+        INSTALL_RELEASE_YAML="${SERVING_CORE_BETA_YAML}"
+      else
+        INSTALL_RELEASE_YAML="${SERVING_CORE_YAML}"
+      fi
     fi
 
     if (( INSTALL_MONITORING )); then
