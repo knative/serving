@@ -17,7 +17,6 @@ limitations under the License.
 package upgrade
 
 import (
-	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/test/e2e"
 	"testing"
 
@@ -30,7 +29,6 @@ import (
 	ptest "knative.dev/pkg/test"
 	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
-	v1a1testing "knative.dev/serving/pkg/testing/v1alpha1"
 	v1b1testing "knative.dev/serving/pkg/testing/v1beta1"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
@@ -71,21 +69,13 @@ func CreateService(t *testing.T, apiVersion string) {
 	var domain string
 	switch apiVersion {
 	case "v1alpha1":
-		resources, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names,
-			v1a1testing.WithConfigAnnotations(map[string]string{
-				autoscaling.MinScaleAnnotationKey: "1", //make sure we don't scale to zero during the test
-			}),
-		)
+		resources, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names)
 		if err != nil {
 			t.Fatalf("Failed to create Service: %v", err)
 		}
 		domain = resources.Service.Status.URL.Host
 	case "v1beta1":
-		resources, err := v1b1test.CreateServiceReady(t, clients, &names,
-			v1b1testing.WithServiceAnnotation(
-				autoscaling.MinScaleAnnotationKey, "1", //make sure we don't scale to zero during the test
-			),
-		)
+		resources, err := v1b1test.CreateServiceReady(t, clients, &names)
 		if err != nil {
 			t.Fatalf("Failed to create Service: %v", err)
 		}
@@ -109,18 +99,14 @@ func CreateServiceAndScaleToZero(t *testing.T, apiVersion string) {
 	var revision string
 	switch apiVersion {
 	case "v1alpha1":
-		resources, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names,
-			v1a1testing.WithConfigAnnotations(map[string]string{
-				autoscaling.WindowAnnotationKey: autoscaling.WindowMin.String(), //make sure we scale to zero quickly
-			}))
+		resources, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names)
 		if err != nil {
 			t.Fatalf("Failed to create Service: %v", err)
 		}
 		domain = resources.Service.Status.URL.Host
 		revision = revisionresourcenames.Deployment(resources.Revision)
 	case "v1beta1":
-		resources, err := v1b1test.CreateServiceReady(t, clients, &names,
-			v1b1testing.WithServiceAnnotation(autoscaling.WindowAnnotationKey, autoscaling.WindowMin.String()))
+		resources, err := v1b1test.CreateServiceReady(t, clients, &names)
 		if err != nil {
 			t.Fatalf("Failed to create Service: %v", err)
 		}
