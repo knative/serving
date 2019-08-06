@@ -48,11 +48,15 @@ function create_cluster() {
     --scopes cloud-platform
 }
 
-# Copies serice account secret to the destination
+# Copies secrets to the destination
 # $1 -> destination context. Should be of the form ${CONTEXT_PREFIX}_${zone}_${name}
-function copy_secret() {
+function copy_secrets() {
   gcloud container clusters get-credentials ${MASTER_CLUSTER_NAME} --project=${PROJECT_NAME} --zone=${MASTER_CLUSTER_ZONE}
+  # copy the service account secret used by Mako
   kubectl get secret service-account --context ${SOURCE_CONTEXT} --export -o yaml \
+    | kubectl apply --context $1 -f -
+  # copy the github token secret
+  kubectl get secret github-token --context ${SOURCE_CONTEXT} --export -o yaml \
     | kubectl apply --context $1 -f -
 }
 
@@ -74,8 +78,8 @@ function create_new_cluster() {
   # create a new cluster
   create_cluster $1 $2 $3
   
-  # copy the secret to the new cluster
-  copy_secret "${CONTEXT_PREFIX}_${2}_${1}"
+  # copy the secrets to the new cluster
+  copy_secrets "${CONTEXT_PREFIX}_${2}_${1}"
 
   # update components on the cluster, e.g. serving and istio
   update_cluster $1 $2
@@ -100,8 +104,8 @@ function update_cluster() {
   gcloud container clusters get-credentials ${name} --zone=${zone} --project knative-performance || fail_test "Failed to get cluster creds"
   
   echo ">> Delete all existing jobs and test resources"
-  ko delete -f "${PROJ_ROOT_PATH}/$1"
   kubectl delete job --all
+  ko delete -f "${PROJ_ROOT_PATH}/$1"
 
   pushd .
   cd ${GOPATH}/src/knative.dev

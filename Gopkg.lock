@@ -453,6 +453,22 @@
   revision = "abf9ef06abd9f532944e28e8942644ea4b710a40"
 
 [[projects]]
+  digest = "1:525ebc5da920b1f2c76ae763c13f4decdc3c3bc541ff0fa18f2399d4e742177f"
+  name = "github.com/google/go-github"
+  packages = ["github"]
+  pruneopts = "NUT"
+  revision = "4c1ec01570ac97daecec8c2b62b07176700f093d"
+  version = "v27.0.4"
+
+[[projects]]
+  digest = "1:a63cff6b5d8b95638bfe300385d93b2a6d9d687734b863da8e09dc834510a690"
+  name = "github.com/google/go-querystring"
+  packages = ["query"]
+  pruneopts = "NUT"
+  revision = "44c6ddd0a2342c386950e880b658017258da92fc"
+  version = "v1.0.0"
+
+[[projects]]
   branch = "master"
   digest = "1:52c5834e2bebac9030c97cc0798ac11c3aa8a39f098aeb419f142533da6cd3cc"
   name = "github.com/google/gofuzz"
@@ -912,9 +928,16 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:0e42ddb15b8bc3c5c6c38c96db5c3d3d1b9b5863167267ed9431d9a4012c21f9"
+  digest = "1:e95f005c82fdbe0741340e12cec8e6530adf5bb9873fba65d5959e7c55bfb49f"
   name = "golang.org/x/crypto"
   packages = [
+    "cast5",
+    "openpgp",
+    "openpgp/armor",
+    "openpgp/elgamal",
+    "openpgp/errors",
+    "openpgp/packet",
+    "openpgp/s2k",
     "pkcs12",
     "pkcs12/internal/rc2",
     "ssh/terminal",
@@ -1753,12 +1776,13 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:eb8a3a36bd8ed21d9aec5e5197b0872b0025eb062cb0f8050a405dc855cbc4bb"
+  digest = "1:a9e3cdb9187a4dfbcf5439957ae80bde23988519e1dfd09b3a0a3783ca20d031"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
     "shared/common",
     "shared/gcs",
+    "shared/ghutil",
     "shared/junit",
     "shared/performance",
     "shared/prometheus",
@@ -1792,6 +1816,7 @@
     "github.com/google/go-containerregistry/pkg/v1/remote",
     "github.com/google/go-containerregistry/pkg/v1/remote/transport",
     "github.com/google/go-containerregistry/pkg/v1/types",
+    "github.com/google/go-github/github",
     "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto",
     "github.com/google/mako/helpers/go/quickstore",
     "github.com/google/mako/helpers/proto/quickstore/quickstore_go_proto",
@@ -1960,6 +1985,7 @@
     "knative.dev/pkg/websocket",
     "knative.dev/test-infra/scripts",
     "knative.dev/test-infra/shared/common",
+    "knative.dev/test-infra/shared/ghutil",
     "knative.dev/test-infra/shared/junit",
     "knative.dev/test-infra/shared/performance",
     "knative.dev/test-infra/shared/prometheus",

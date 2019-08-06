@@ -40,10 +40,15 @@ spec:
             volumeMounts:
             - name: service-account
               mountPath: /var/secret
+            - name: github-token
+              mountPath: /var/github-token
           volumes:
           - name: service-account
             secret:
               secretName: service-account
+          - name: github-token
+            secret:
+              secretName: github-token
           restartPolicy: Never
       backoffLimit: 0
 ---
@@ -75,10 +80,15 @@ spec:
             volumeMounts:
             - name: service-account
               mountPath: /var/secret
+            - name: github-token
+              mountPath: /var/github-token
           volumes:
           - name: service-account
             secret:
               secretName: service-account
+          - name: github-token
+            secret:
+              secretName: github-token
           restartPolicy: Never
       backoffLimit: 0
 ---
@@ -110,10 +120,15 @@ spec:
             volumeMounts:
             - name: service-account
               mountPath: /var/secret
+            - name: github-token
+              mountPath: /var/github-token
           volumes:
           - name: service-account
             secret:
               secretName: service-account
+          - name: github-token
+            secret:
+              secretName: github-token
           restartPolicy: Never
       backoffLimit: 0
 ---
@@ -145,9 +160,14 @@ spec:
             volumeMounts:
             - name: service-account
               mountPath: /var/secret
+            - name: github-token
+              mountPath: /var/github-token
           volumes:
           - name: service-account
             secret:
               secretName: service-account
+          - name: github-token
+            secret:
+              secretName: github-token
           restartPolicy: Never
       backoffLimit: 0
