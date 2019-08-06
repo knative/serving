@@ -71,7 +71,7 @@ func (s *Service) validateLabels() (errs *apis.FieldError) {
 		switch {
 		case key == config.VisibilityLabelKey:
 			errs = errs.Also(validateClusterVisibilityLabel(val))
-		case strings.HasPrefix(key, groupNamePrefix):
+		case strings.HasPrefix(key, serving.GroupNamePrefix):
 			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
 		}
 	}

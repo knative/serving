@@ -23,6 +23,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
@@ -106,6 +107,52 @@ func TestValidateObjectMetadata(t *testing.T) {
 			err := ValidateObjectMetadata(c.objectMeta)
 
 			if !reflect.DeepEqual(c.expectErr, err) {
+				t.Errorf("Expected: '%#v', Got: '%#v'", c.expectErr, err)
+			}
+		})
+	}
+}
+
+func TestAnnotationValidation(t *testing.T) {
+	cases := []struct {
+		name        string
+		annotations map[string]string
+		expectErr   *apis.FieldError
+	}{{
+		name: "valid creator annotation label",
+		annotations: map[string]string{
+			"serving.knative.dev/creator": "svc-creator",
+		},
+		expectErr: nil,
+	}, {
+		name: "valid lastModifier annotation label",
+		annotations: map[string]string{
+			"serving.knative.dev/lastModifier": "svc-modifier",
+		},
+		expectErr: nil,
+	}, {
+		name: "valid lastPinned annotation label",
+		annotations: map[string]string{
+			"serving.knative.dev/lastPinned": "pinned-val",
+		},
+		expectErr: nil,
+	}, {
+		name: "invalid knative prefix annotation",
+		annotations: map[string]string{
+			"serving.knative.dev/testAnnotation": "value",
+		},
+		expectErr: apis.ErrInvalidKeyName("serving.knative.dev/testAnnotation", ""),
+	}, {
+		name: "valid non-knative prefix annotation label",
+		annotations: map[string]string{
+			"testAnnotation": "testValue",
+		},
+		expectErr: nil,
+	}}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := validateKnativeAnnotations(c.annotations)
+			if d := cmp.Diff(c.expectErr.Error(), err.Error()); d != "" {
 				t.Errorf("Expected: '%#v', Got: '%#v'", c.expectErr, err)
 			}
 		})

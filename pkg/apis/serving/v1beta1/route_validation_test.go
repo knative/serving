@@ -474,7 +474,7 @@ func TestRouteValidation(t *testing.T) {
 	}
 }
 
-func TestRouteLabelAnnotationValidation(t *testing.T) {
+func TestRouteLabelValidation(t *testing.T) {
 	validRouteSpec := RouteSpec{
 		Traffic: []TrafficTarget{{
 			Tag:          "bar",

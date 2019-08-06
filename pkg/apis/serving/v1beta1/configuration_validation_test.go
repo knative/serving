@@ -160,7 +160,7 @@ func TestConfigurationValidation(t *testing.T) {
 	}
 }
 
-func TestConfigurationLabelAnnotationValidation(t *testing.T) {
+func TestConfigurationLabelValidation(t *testing.T) {
 	validConfigSpec := ConfigurationSpec{
 		Template: RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{

@@ -75,7 +75,7 @@ func (c *Configuration) validateLabels() (errs *apis.FieldError) {
 		case key == serving.RouteLabelKey:
 		case key == serving.ServiceLabelKey:
 			errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", c.GetOwnerReferences()))
-		case strings.HasPrefix(key, groupNamePrefix):
+		case strings.HasPrefix(key, serving.GroupNamePrefix):
 			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
 		}
 	}
