@@ -28,7 +28,7 @@ required = [
 
 [[override]]
   name = "knative.dev/pkg"
-  branch = "release-0.8"
+  branch = "master"
 
 [[constraint]]
   name = "knative.dev/caching"
