@@ -17,6 +17,7 @@ limitations under the License.
 package upgrade
 
 import (
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/test/e2e"
 	"testing"
 
@@ -29,6 +30,7 @@ import (
 	ptest "knative.dev/pkg/test"
 	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
+	v1a1testing "knative.dev/serving/pkg/testing/v1alpha1"
 	v1b1testing "knative.dev/serving/pkg/testing/v1beta1"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
@@ -57,6 +59,7 @@ func assertServiceResourcesUpdated(t *testing.T, clients *test.Clients, names te
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, routeDomain, expectedText, err)
 	}
 }
+
 //CreateService creates a new service and test if it is created successfully using a given
 //version of client
 func CreateService(t *testing.T, apiVersion string) {
@@ -68,13 +71,21 @@ func CreateService(t *testing.T, apiVersion string) {
 	var domain string
 	switch apiVersion {
 	case "v1alpha1":
-		resources, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names)
+		resources, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names,
+			v1a1testing.WithConfigAnnotations(map[string]string{
+				autoscaling.MinScaleAnnotationKey: "1", //make sure we don't scale to zero during the test
+			}),
+		)
 		if err != nil {
 			t.Fatalf("Failed to create Service: %v", err)
 		}
 		domain = resources.Service.Status.URL.Host
 	case "v1beta1":
-		resources, err := v1b1test.CreateServiceReady(t, clients, &names)
+		resources, err := v1b1test.CreateServiceReady(t, clients, &names,
+			v1b1testing.WithServiceAnnotation(
+				autoscaling.MinScaleAnnotationKey, "1", //make sure we don't scale to zero during the test
+			),
+		)
 		if err != nil {
 			t.Fatalf("Failed to create Service: %v", err)
 		}
@@ -85,6 +96,7 @@ func CreateService(t *testing.T, apiVersion string) {
 
 	assertServiceResourcesUpdated(t, clients, names, domain, test.PizzaPlanetText1)
 }
+
 //CreateServiceAndScaleToZero creates a new service and scales it down to zero for upgrade testing using a given
 //version of client
 func CreateServiceAndScaleToZero(t *testing.T, apiVersion string) {
@@ -97,14 +109,18 @@ func CreateServiceAndScaleToZero(t *testing.T, apiVersion string) {
 	var revision string
 	switch apiVersion {
 	case "v1alpha1":
-		resources, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names)
+		resources, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names,
+			v1a1testing.WithConfigAnnotations(map[string]string{
+				autoscaling.WindowAnnotationKey: autoscaling.WindowMin.String(), //make sure we scale to zero quickly
+			}))
 		if err != nil {
 			t.Fatalf("Failed to create Service: %v", err)
 		}
 		domain = resources.Service.Status.URL.Host
 		revision = revisionresourcenames.Deployment(resources.Revision)
 	case "v1beta1":
-		resources, err := v1b1test.CreateServiceReady(t, clients, &names)
+		resources, err := v1b1test.CreateServiceReady(t, clients, &names,
+			v1b1testing.WithServiceAnnotation(autoscaling.WindowAnnotationKey, autoscaling.WindowMin.String()))
 		if err != nil {
 			t.Fatalf("Failed to create Service: %v", err)
 		}
@@ -119,6 +135,7 @@ func CreateServiceAndScaleToZero(t *testing.T, apiVersion string) {
 		t.Fatalf("Could not scale to zero: %v", err)
 	}
 }
+
 //UpdateService patches an existing service with a new image and check if it updated using a given version of client
 func UpdateService(serviceName string, t *testing.T, apiVersion string) {
 	t.Helper()
