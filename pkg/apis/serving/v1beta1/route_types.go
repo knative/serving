@@ -94,7 +94,7 @@ type TrafficTarget struct {
 	// Revision or Configuration. `0` (zero) mean no traffic, `100` means all
 	// traffic.
 	// When percentage based routing is being used the follow rules apply:
-	// - the sum of all percent values must equal zero
+	// - the sum of all percent values must equal 100
 	// - when not specified, the implied value for `percent` is zero for
 	//   that particular Revision or Configuration
 	// If some other routing mechanism is being used then that mechanism
