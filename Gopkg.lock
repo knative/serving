@@ -476,6 +476,23 @@
   revision = "e979a0b10eebe748549c702a25e997c556349da6"
 
 [[projects]]
+  branch = "github-push-test-1"
+  digest = "1:e1764a99532bc56ce10e997a59de79cd30bdb63c52b7610e7301081649e48293"
+  name = "github.com/google/mako"
+  packages = [
+    "clients/proto/analyzers/threshold_analyzer_go_proto",
+    "clients/proto/analyzers/utest_analyzer_go_proto",
+    "clients/proto/analyzers/window_deviation_go_proto",
+    "helpers/go/quickstore",
+    "helpers/proto/quickstore/quickstore_go_proto",
+    "internal/go/common",
+    "internal/quickstore_microservice/proto/quickstore_go_proto",
+    "spec/proto/mako_go_proto",
+  ]
+  pruneopts = "NUT"
+  revision = "6a1d829c31b4a93cbd03e9f998bc85094a5afd8f"
+
+[[projects]]
   digest = "1:ab3ec1fe3e39bac4b3ab63390767766622be35b7cab03f47f787f9ec60522a53"
   name = "github.com/google/uuid"
   packages = ["."]
@@ -1774,6 +1791,10 @@
     "github.com/google/go-containerregistry/pkg/v1/remote",
     "github.com/google/go-containerregistry/pkg/v1/remote/transport",
     "github.com/google/go-containerregistry/pkg/v1/types",
+    "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto",
+    "github.com/google/mako/helpers/go/quickstore",
+    "github.com/google/mako/helpers/proto/quickstore/quickstore_go_proto",
+    "github.com/google/mako/spec/proto/mako_go_proto",
     "github.com/gorilla/websocket",
     "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1",
     "github.com/kelseyhightower/envconfig",
