@@ -911,7 +911,7 @@
   version = "kubernetes-1.12.9"
 
 [[projects]]
-  digest = "1:132ea9b0bdac4c461e2de359d44ece44531b3062c1d52ff88a7cc8857be25063"
+  digest = "1:476d1780b33b4c9a27e7f7e722f36115d1e1ccd0fca97be331181c84e0f9ae68"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -1059,9 +1059,11 @@
     "pkg/apis/clientauthentication/v1beta1",
     "pkg/version",
     "plugin/pkg/client/auth/exec",
+    "plugin/pkg/client/auth/gcp",
     "rest",
     "rest/watch",
     "testing",
+    "third_party/forked/golang/template",
     "tools/auth",
     "tools/cache",
     "tools/clientcmd",
@@ -1079,6 +1081,7 @@
     "util/flowcontrol",
     "util/homedir",
     "util/integer",
+    "util/jsonpath",
     "util/retry",
     "util/workqueue",
   ]
@@ -1149,14 +1152,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:68050b4ce26531655bac0f6e109d04eb0a4550ead73e320119ed3c628ced4a0a"
+  digest = "1:39bb1014c454fbf9d8f4eab62a44fcf8d3ade774e2b42015e533e5d9f3fe23d9"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "17f2331e80ad0d3e170ea2bae45c3922744f83af"
+  revision = "d65201fadb82dbdc5713f9ba9a1313150c7aa9b5"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1196,12 +1199,14 @@
     "go.uber.org/zap/zapcore",
     "go.uber.org/zap/zaptest",
     "golang.org/x/sync/errgroup",
+    "gopkg.in/yaml.v2",
     "k8s.io/api/admission/v1beta1",
     "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/apps/v1",
     "k8s.io/api/authentication/v1",
     "k8s.io/api/batch/v1",
     "k8s.io/api/core/v1",
+    "k8s.io/api/extensions/v1beta1",
     "k8s.io/api/rbac/v1",
     "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset",
     "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake",
@@ -1242,6 +1247,7 @@
     "k8s.io/client-go/kubernetes/fake",
     "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1",
     "k8s.io/client-go/kubernetes/typed/core/v1",
+    "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/rest",
     "k8s.io/client-go/testing",
     "k8s.io/client-go/tools/cache",

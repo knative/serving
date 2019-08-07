@@ -53,9 +53,6 @@ spec:
           limits:
             cpu: 200m
             memory: 200Mi
-        volumeMounts:
-        - name: config-logging
-          mountPath: /etc/config-logging
         env:
         - name: SYSTEM_NAMESPACE
           valueFrom:
@@ -69,7 +66,3 @@ spec:
           value: knative.dev/serving
         securityContext:
           allowPrivilegeEscalation: false
-      volumes:
-        - name: config-logging
-          configMap:
-            name: config-logging

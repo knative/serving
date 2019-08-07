@@ -34,6 +34,7 @@ import (
 	"knative.dev/test-infra/shared/testgrid"
 
 	vegeta "github.com/tsenart/vegeta/lib"
+	"knative.dev/pkg/test/vegeta/pacers"
 )
 
 const (
@@ -124,11 +125,14 @@ func runTest(t *testing.T, pacer vegeta.Pacer, saveMetrics bool) {
 func TestBenchmarkSteadyTraffic(t *testing.T) {
 	for _, load := range loads {
 		t.Run(fmt.Sprintf("N%d", load), func(t *testing.T) {
-			zeroToNSteadyPacer := NewSteadyUpPacer(
+			zeroToNSteadyPacer, err := pacers.NewSteadyUp(
 				vegeta.Rate{Freq: 1, Per: time.Second},
 				vegeta.Rate{Freq: load, Per: time.Second},
 				duration/2,
 			)
+			if err != nil {
+				t.Fatalf("Cannot create the SteadyUpPacer: %v", err)
+			}
 			runTest(t, zeroToNSteadyPacer, true)
 		})
 	}
@@ -149,11 +153,14 @@ func TestBenchmarkBurstNto2N(t *testing.T) {
 	for _, load := range loads {
 		t.Run(fmt.Sprintf("N%d", load), func(t *testing.T) {
 			// Steady ramp up from 0 to N, then burst to 2N.
-			zeroToNSteadyPacer := NewSteadyUpPacer(
+			zeroToNSteadyPacer, err := pacers.NewSteadyUp(
 				vegeta.Rate{Freq: 1, Per: time.Second},
 				vegeta.Rate{Freq: load, Per: time.Second},
 				duration,
 			)
+			if err != nil {
+				t.Fatalf("Cannot create the SteadyUpPacer: %v", err)
+			}
 			// Scale up to the desired load and discard the metrics.
 			runTest(t, zeroToNSteadyPacer, false)
 

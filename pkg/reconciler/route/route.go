@@ -270,7 +270,11 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		return err
 	}
 
-	r.Status.PropagateIngressStatus(*ingress.GetStatus())
+	if ingress.GetObjectMeta().GetGeneration() != ingress.GetStatus().ObservedGeneration {
+		r.Status.MarkIngressNotConfigured()
+	} else {
+		r.Status.PropagateIngressStatus(*ingress.GetStatus())
+	}
 
 	logger.Info("Updating placeholder k8s services with clusterIngress information")
 	if err := c.updatePlaceholderServices(ctx, r, services, ingress); err != nil {
@@ -407,6 +411,7 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route, cl
 		return nil, err
 	}
 	if badTarget != nil && isTargetError {
+		logger.Infof("Marking bad traffic target: %v", badTarget)
 		badTarget.MarkBadTrafficTarget(&r.Status)
 
 		// Traffic targets aren't ready, no need to configure Route.
