@@ -40,7 +40,6 @@ import (
 
 var (
 	benchmark  = flag.String("benchmark", "", "The mako benchmark ID")
-	qps        = flag.Int("qps", 0, "The number of requests to send per second.")
 	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 )
@@ -166,9 +165,6 @@ func main() {
 	// Validate flags after setting up "fatalf" or our sidecar will run forever.
 	if *benchmark == "" {
 		fatalf("-benchmark is a required flag.")
-	}
-	if *qps < 1 {
-		fatalf("-qps is a required flag, and must have a positive value.")
 	}
 
 	// Setup a deployment informer, so that we can use the lister to track

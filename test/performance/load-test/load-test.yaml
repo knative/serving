@@ -59,7 +59,6 @@ spec:
             image: knative.dev/serving/test/performance/load-test
             args:
             - "-benchmark=5352009922248704"
-            - "-qps=1000"
             resources:
               requests:
                 cpu: 1000m
