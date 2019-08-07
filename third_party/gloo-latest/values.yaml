@@ -7,7 +7,8 @@ gateway:
 ingress:
   deployment:
     image:
-      repository: docker.io/ilackarms/ingress
+      registry: docker.io/ilackarms
+      repository: ingress
       tag: test-ilackarms
 #      repository: quay.io/solo-io/ingress
 #      tag: 0.18.9
@@ -33,7 +34,10 @@ settings:
         httpsPort: "443"
         image:
           pullPolicy: Always
-          repository: quay.io/solo-io/gloo-envoy-wrapper
+          registry: quay.io/solo-io
+          repository: gloo-envoy-wrapper
           tag: 0.18.9
         replicas: 1
         stats: true
+global:
+  pullPolicy: Always

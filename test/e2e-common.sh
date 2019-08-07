@@ -321,7 +321,7 @@ function test_setup() {
   else
     # we must set these override values to allow the test spoofing client to work with Gloo
     # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
-    export GATEWAY_OVERRIDE=knative-proxy
+    export GATEWAY_OVERRIDE=knative-external-proxy
     export GATEWAY_NAMESPACE_OVERRIDE=gloo-system
     wait_until_pods_running gloo-system || return 1
     wait_until_service_has_external_ip gloo-system knative-proxy
