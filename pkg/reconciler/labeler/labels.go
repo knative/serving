@@ -20,21 +20,32 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	servingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 )
 
+// accessor defines an abstraction for manipulating labeled entity
+// (Configuration, Revision) with shared logic.
+type accessor interface {
+	get(ns, name string) (kmeta.Accessor, error)
+	list(ns, name string) ([]kmeta.Accessor, error)
+	patch(ns, name string, pt types.PatchType, p []byte) error
+}
+
+// syncLabels makes sure that the revisions and configurations referenced from
+// a Route are labeled with route labels.
 func (c *Reconciler) syncLabels(ctx context.Context, r *v1alpha1.Route) error {
+	revisions := sets.NewString()
 	configs := sets.NewString()
+
 	// Walk the revisions in Route's .status.traffic and build a list
 	// of Configurations to label from their OwnerReferences.
 	for _, tt := range r.Status.Traffic {
@@ -42,62 +53,74 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1alpha1.Route) error {
 		if err != nil {
 			return err
 		}
+		revisions.Insert(tt.RevisionName)
 		owner := metav1.GetControllerOf(rev)
 		if owner != nil && owner.Kind == "Configuration" {
 			configs.Insert(owner.Name)
 		}
 	}
 
-	if err := c.deleteLabelForOutsideOfGivenConfigurations(ctx, r.Namespace, r.Name, configs); err != nil {
+	// Use a revision accessor to manipulate the revisions.
+	racc := &revision{r: c}
+	if err := deleteLabelForNotListed(ctx, r.Namespace, r.Name, racc, revisions); err != nil {
 		return err
 	}
-	return c.setLabelForGivenConfigurations(ctx, r, configs)
+	if err := setLabelForListed(ctx, r, racc, revisions); err != nil {
+		return err
+	}
+
+	// Use a config access to manipulate the configs.
+	cacc := &configuration{r: c}
+	if err := deleteLabelForNotListed(ctx, r.Namespace, r.Name, cacc, configs); err != nil {
+		return err
+	}
+	return setLabelForListed(ctx, r, cacc, configs)
 }
 
-func (c *Reconciler) setLabelForGivenConfigurations(
-	ctx context.Context,
-	route *v1alpha1.Route,
-	configs sets.String) error {
-	logger := logging.FromContext(ctx)
+// clearLabels removes any labels for a named route from configurations and revisions.
+func (c *Reconciler) clearLabels(ctx context.Context, ns, name string) error {
+	racc := &revision{r: c}
+	if err := deleteLabelForNotListed(ctx, ns, name, racc, sets.NewString()); err != nil {
+		return err
+	}
+	cacc := &configuration{r: c}
+	return deleteLabelForNotListed(ctx, ns, name, cacc, sets.NewString())
+}
 
-	// The ordered collection of Configurations to which we
-	// should patch our Route label.
-	configurationOrder := []string{}
-	configMap := make(map[string]*v1alpha1.Configuration)
+// setLabelForListed uses the accessor to attach the label for this route to every element
+// listed within "names" in the same namespace.
+func setLabelForListed(ctx context.Context, route *v1alpha1.Route, acc accessor, names sets.String) error {
+	nameToAccessor := make(map[string]kmeta.Accessor)
 
-	// Lookup Configurations that are missing our Route label.
-	for name := range configs {
-		configurationOrder = append(configurationOrder, name)
-
-		config, err := c.configurationLister.Configurations(route.Namespace).Get(name)
+	// Lookup names that are missing our Route label.
+	for name := range names {
+		elt, err := acc.get(route.Namespace, name)
 		if err != nil {
 			return err
 		}
-		configMap[name] = config
-		routeName, ok := config.Labels[serving.RouteLabelKey]
+		nameToAccessor[name] = elt
+		routeName, ok := elt.GetLabels()[serving.RouteLabelKey]
 		if !ok {
 			continue
 		}
 		if routeName != route.Name {
-			return fmt.Errorf("configuration %q is already in use by %q, and cannot be used by %q",
-				config.Name, routeName, route.Name)
+			return fmt.Errorf("%s %q is already in use by %q, and cannot be used by %q",
+				elt.GroupVersionKind(), elt.GetName(), routeName, route.Name)
 		}
 	}
-	// Sort the names to give things a deterministic ordering.
-	sort.Strings(configurationOrder)
 
-	configClient := c.ServingClientSet.ServingV1alpha1().Configurations(route.Namespace)
-	// Set label for newly added configurations as traffic target.
-	for _, configName := range configurationOrder {
-		config := configMap[configName]
-		if config.Labels == nil {
-			config.Labels = make(map[string]string)
-		} else if _, ok := config.Labels[serving.RouteLabelKey]; ok {
+	// Set label for newly added names as traffic target.
+	for _, name := range names.List() {
+		elt := nameToAccessor[name]
+		if elt.GetLabels() == nil {
+			elt.SetLabels(make(map[string]string))
+		} else if _, ok := elt.GetLabels()[serving.RouteLabelKey]; ok {
 			continue
 		}
 
-		if err := setRouteLabelForConfiguration(configClient, config.Name, config.ResourceVersion, &route.Name); err != nil {
-			logger.Errorf("Failed to add route label to configuration %q: %s", config.Name, err)
+		if err := setRouteLabel(acc, elt, &route.Name); err != nil {
+			logging.FromContext(ctx).Errorf("Failed to add route label to %s %q: %s",
+				elt.GroupVersionKind(), elt.GetName(), err)
 			return err
 		}
 	}
@@ -105,31 +128,24 @@ func (c *Reconciler) setLabelForGivenConfigurations(
 	return nil
 }
 
-func (c *Reconciler) deleteLabelForOutsideOfGivenConfigurations(
-	ctx context.Context,
-	routeNamespace, routeName string,
-	configs sets.String,
-) error {
-
-	logger := logging.FromContext(ctx)
-
-	// Get Configurations set as traffic target before this sync.
-	selector := labels.SelectorFromSet(labels.Set{serving.RouteLabelKey: routeName})
-
-	oldConfigsList, err := c.configurationLister.Configurations(routeNamespace).List(selector)
+// deleteLabelForNotListed uses the accessor to delete the label from any listable entity that is
+// not named within our list.  Unlike setLabelForListed, this function takes ns/name instead of a
+// Route so that it can clean things up when a Route ceases to exist.
+func deleteLabelForNotListed(ctx context.Context, ns, name string, acc accessor, names sets.String) error {
+	oldList, err := acc.list(ns, name)
 	if err != nil {
 		return err
 	}
 
-	// Delete label for newly removed configurations as traffic target.
-	configClient := c.ServingClientSet.ServingV1alpha1().Configurations(routeNamespace)
-	for _, config := range oldConfigsList {
-		if configs.Has(config.Name) {
+	// Delete label for newly removed traffic targets.
+	for _, elt := range oldList {
+		if names.Has(elt.GetName()) {
 			continue
 		}
 
-		if err := setRouteLabelForConfiguration(configClient, config.Name, config.ResourceVersion, nil); err != nil {
-			logger.Errorf("Failed to remove route label to configuration %q: %s", config.Name, err)
+		if err := setRouteLabel(acc, elt, nil); err != nil {
+			logging.FromContext(ctx).Errorf("Failed to remove route label from %s %q: %s",
+				elt.GroupVersionKind(), elt.GetName(), err)
 			return err
 		}
 	}
@@ -137,19 +153,16 @@ func (c *Reconciler) deleteLabelForOutsideOfGivenConfigurations(
 	return nil
 }
 
-func setRouteLabelForConfiguration(
-	configClient servingv1alpha1.ConfigurationInterface,
-	configName string,
-	configVersion string,
-	routeName *string, // a nil route name will cause the route label to be deleted
-) error {
-
+// setRouteLabel toggles the route label on the specified element through the provided accessor.
+// a nil route name will cause the route label to be deleted, and a non-nil route will cause
+// that route name to be attached to the element.
+func setRouteLabel(acc accessor, elt kmeta.Accessor, routeName *string) error {
 	mergePatch := map[string]interface{}{
 		"metadata": map[string]interface{}{
 			"labels": map[string]interface{}{
 				serving.RouteLabelKey: routeName,
 			},
-			"resourceVersion": configVersion,
+			"resourceVersion": elt.GetResourceVersion(),
 		},
 	}
 
@@ -158,6 +171,75 @@ func setRouteLabelForConfiguration(
 		return err
 	}
 
-	_, err = configClient.Patch(configName, types.MergePatchType, patch)
+	return acc.patch(elt.GetNamespace(), elt.GetName(), types.MergePatchType, patch)
+}
+
+// revision is an implementation of accessor for Revisions
+type revision struct {
+	r *Reconciler
+}
+
+// revision implements accessor
+var _ accessor = (*revision)(nil)
+
+// get implements accessor
+func (r *revision) get(ns, name string) (kmeta.Accessor, error) {
+	return r.r.revisionLister.Revisions(ns).Get(name)
+}
+
+// list implements accessor
+func (r *revision) list(ns, name string) ([]kmeta.Accessor, error) {
+	rl, err := r.r.revisionLister.Revisions(ns).List(labels.SelectorFromSet(labels.Set{
+		serving.RouteLabelKey: name,
+	}))
+	if err != nil {
+		return nil, err
+	}
+	// Need a copy to change types in Go
+	kl := make([]kmeta.Accessor, 0, len(rl))
+	for _, r := range rl {
+		kl = append(kl, r)
+	}
+	return kl, err
+}
+
+// patch implements accessor
+func (r *revision) patch(ns, name string, pt types.PatchType, p []byte) error {
+	_, err := r.r.ServingClientSet.ServingV1alpha1().Revisions(ns).Patch(name, pt, p)
+	return err
+}
+
+// configuration is an implementation of accessor for Configurations
+type configuration struct {
+	r *Reconciler
+}
+
+// configuration implements accessor
+var _ accessor = (*configuration)(nil)
+
+// get implements accessor
+func (c *configuration) get(ns, name string) (kmeta.Accessor, error) {
+	return c.r.configurationLister.Configurations(ns).Get(name)
+}
+
+// list implements accessor
+func (c *configuration) list(ns, name string) ([]kmeta.Accessor, error) {
+	rl, err := c.r.configurationLister.Configurations(ns).List(labels.SelectorFromSet(labels.Set{
+		serving.RouteLabelKey: name,
+	}))
+	if err != nil {
+		return nil, err
+	}
+	// Need a copy to change types in Go
+	kl := make([]kmeta.Accessor, 0, len(rl))
+	for _, r := range rl {
+		kl = append(kl, r)
+	}
+	return kl, err
+}
+
+// patch implements accessor
+func (c *configuration) patch(ns, name string, pt types.PatchType, p []byte) error {
+	_, err := c.r.ServingClientSet.ServingV1alpha1().Configurations(ns).Patch(name, pt, p)
 	return err
 }
