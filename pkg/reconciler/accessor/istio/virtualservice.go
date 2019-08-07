@@ -64,9 +64,9 @@ func ReconcileVirtualService(ctx context.Context, owner kmeta.Accessor, desired 
 	} else if err != nil {
 		return nil, err
 	} else if !metav1.IsControlledBy(vs, owner) {
-		// Surface an error in the ClusterIngress's status, and return an error.
+		// Return an error with NotControlledBy information.
 		return nil, kaccessor.NewAccessorError(
-			fmt.Errorf("ingress: %q does not own VirtualService: %q", owner.GetName(), name),
+			fmt.Errorf("owner: %s with Type %T does not own VirtualService: %q", owner.GetName(), owner, name),
 			kaccessor.NotOwnResource)
 	} else if !equality.Semantic.DeepEqual(vs.Spec, desired.Spec) {
 		// Don't modify the informers copy

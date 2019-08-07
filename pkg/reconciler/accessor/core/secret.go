@@ -61,7 +61,7 @@ func ReconcileSecret(ctx context.Context, owner kmeta.Accessor, desired *corev1.
 	} else if !metav1.IsControlledBy(secret, owner) {
 		// Return an error with NotControlledBy information.
 		return nil, kaccessor.NewAccessorError(
-			fmt.Errorf("owner: %s does not own Secret: %s", owner.GetName(), secret.Name),
+			fmt.Errorf("owner: %s with Type %T does not own Secret: %s", owner.GetName(), owner, secret.Name),
 			kaccessor.NotOwnResource)
 	} else if !equality.Semantic.DeepEqual(secret.Data, desired.Data) {
 		// Don't modify the informers copy
