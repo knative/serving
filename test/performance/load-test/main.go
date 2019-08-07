@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"time"
 
@@ -35,11 +36,13 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 
+	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/test/performance/mako"
 )
 
 var (
 	benchmark  = flag.String("benchmark", "", "The mako benchmark ID")
+	flavor     = flag.String("flavor", "", "The flavor of the benchmark to run.")
 	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 )
@@ -72,6 +75,10 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 		}
 	}()
 
+	selector := labels.SelectorFromSet(labels.Set{
+		serving.ServiceLabelKey: fmt.Sprintf("load-test-%s", *flavor),
+	})
+
 	for {
 		select {
 		case res, ok := <-results:
@@ -101,7 +108,7 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 			// and overlay the resulting data.
 
 			// Overlay the desired and ready pod counts.
-			deployments, err := dl.Deployments("default").List(labels.Everything())
+			deployments, err := dl.Deployments("default").List(selector)
 			if err != nil {
 				log.Printf("Error listing deployments: %v", err)
 				break
@@ -115,7 +122,7 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 			}
 
 			// Overlay the SKS "mode".
-			skses, err := sksl.ServerlessServices("default").List(labels.Everything())
+			skses, err := sksl.ServerlessServices("default").List(selector)
 			if err != nil {
 				log.Printf("Error listing deployments: %v", err)
 				break
@@ -147,7 +154,7 @@ func main() {
 	// Use the benchmark key created
 	q, qclose, err := quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
 		BenchmarkKey: proto.String(*benchmark),
-		Tags:         []string{"master"},
+		Tags:         []string{"master", fmt.Sprintf("tbc=%s", *flavor)},
 	}, mako.SidecarAddress)
 	if err != nil {
 		log.Fatalf("failed NewAtAddress: %v", err)
@@ -165,6 +172,9 @@ func main() {
 	// Validate flags after setting up "fatalf" or our sidecar will run forever.
 	if *benchmark == "" {
 		fatalf("-benchmark is a required flag.")
+	}
+	if *flavor == "" {
+		fatalf("-flavor is a required flag.")
 	}
 
 	// Setup a deployment informer, so that we can use the lister to track
@@ -186,7 +196,7 @@ func main() {
 	const duration = 2 * time.Minute
 	targeter := vegeta.NewStaticTargeter(vegeta.Target{
 		Method: "GET",
-		URL:    "http://load-test.default.svc.cluster.local?sleep=100",
+		URL:    fmt.Sprintf("http://load-test-%s.default.svc.cluster.local?sleep=100", *flavor),
 	})
 	// TODO(mattmoor): Replace this ramp up with a pacer.
 	for i := 1; i < 4; i++ {

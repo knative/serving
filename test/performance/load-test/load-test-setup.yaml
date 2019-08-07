@@ -15,9 +15,41 @@
 apiVersion: serving.knative.dev/v1beta1
 kind: Service
 metadata:
-  name: load-test
+  name: load-test-always
 spec:
   template:
+    metadata:
+      annotations:
+        # Always hook the activator in.
+        autoscaling.knative.dev/targetBurstCapacity: "-1"
+    spec:
+      containers:
+      - image: knative.dev/serving/test/test_images/autoscale
+---
+apiVersion: serving.knative.dev/v1beta1
+kind: Service
+metadata:
+  name: load-test-zero
+spec:
+  template:
+    metadata:
+      annotations:
+        # Only hook the activator in at zero
+        autoscaling.knative.dev/targetBurstCapacity: "0"
+    spec:
+      containers:
+      - image: knative.dev/serving/test/test_images/autoscale
+---
+apiVersion: serving.knative.dev/v1beta1
+kind: Service
+metadata:
+  name: load-test-200
+spec:
+  template:
+    metadata:
+      annotations:
+        # Hook the activator in until we reach a higher capacity.
+        autoscaling.knative.dev/targetBurstCapacity: "200"
     spec:
       containers:
       - image: knative.dev/serving/test/test_images/autoscale
