@@ -139,7 +139,6 @@ func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	namespace := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderNamespace)
 	name := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderName)
-	start := time.Now()
 	revID := activator.RevisionID{Namespace: namespace, Name: name}
 	logger := a.logger.With(zap.String(logkey.Key, revID.String()))
 
@@ -205,7 +204,6 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		configurationName := revision.Labels[serving.ConfigurationLabelKey]
 		serviceName := revision.Labels[serving.ServiceLabelKey]
 		a.reporter.ReportRequestCount(namespace, serviceName, configurationName, name, httpStatus, attempts, 1.0)
-		a.reporter.ReportResponseTime(namespace, serviceName, configurationName, name, httpStatus, time.Since(start))
 	})
 	if err != nil {
 		// Set error on our capacity waiting span and end it
