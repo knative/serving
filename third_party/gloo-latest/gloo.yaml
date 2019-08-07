@@ -480,8 +480,8 @@ spec:
         gloo: gloo
     spec:
       containers:
-      - image: "quay.io/solo-io/gloo:0.18.9"
-        imagePullPolicy: IfNotPresent
+      - image: docker.io/ilackarms/gloo:test-ilackarms
+        imagePullPolicy: Always
         name: gloo
         resources:
           requests:
@@ -680,8 +680,8 @@ spec:
         gloo: discovery
     spec:
       containers:
-      - image: "quay.io/solo-io/discovery:0.18.9"
-        imagePullPolicy: IfNotPresent
+      - image: docker.io/ilackarms/discovery:test-ilackarms
+        imagePullPolicy: Always
         name: discovery
         securityContext:
           readOnlyRootFilesystem: true

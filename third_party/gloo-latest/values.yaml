@@ -39,5 +39,9 @@ settings:
           tag: 0.18.9
         replicas: 1
         stats: true
+
+
 global:
-  pullPolicy: Always
+  image:
+    registry: docker.io/ilackarms
+    pullPolicy: Always
