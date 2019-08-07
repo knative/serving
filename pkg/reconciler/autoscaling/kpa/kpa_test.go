@@ -464,20 +464,20 @@ func TestReconcile(t *testing.T) {
 	// two constant objects above, which means, that all tests must share
 	// the same namespace and revision name.
 	table := TableTest{{
-		Name: "bad workqueue key, Part I",
-		Key:  "too/many/parts",
+		Name:                    "bad workqueue key, Part I",
+		Key:                     "too/many/parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name: "bad workqueue key, Part II",
-		Key:  "too-few-parts",
+		Name:                    "bad workqueue key, Part II",
+		Key:                     "too-few-parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name: "key not found",
-		Key:  "foo/not-found",
+		Name:                    "key not found",
+		Key:                     "foo/not-found",
 		SkipNamespaceValidation: true,
 	}, {
-		Name: "key not found",
-		Key:  "foo/not-found",
+		Name:                    "key not found",
+		Key:                     "foo/not-found",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "steady state",
@@ -1560,8 +1560,8 @@ func decider(ns, name string, desiredScale int32) *autoscaler.Decider {
 		Spec: autoscaler.DeciderSpec{
 			MaxScaleUpRate:      10.0,
 			TickInterval:        2 * time.Second,
-			TargetConcurrency:   100,
-			TotalConcurrency:    100,
+			TargetValue:         100,
+			TotalValue:          100,
 			TargetBurstCapacity: 211,
 			PanicThreshold:      200,
 			StableWindow:        60 * time.Second,
