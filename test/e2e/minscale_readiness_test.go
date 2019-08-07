@@ -20,6 +20,7 @@ package e2e
 
 import (
 	"strconv"
+	"time"
 
 	"testing"
 
@@ -79,6 +80,9 @@ func TestMinScale(t *testing.T) {
 	if err := v1a1test.WaitForRouteState(clients.ServingAlphaClient, names.Route, v1a1test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %q is not ready: %v", names.Route, err)
 	}
+
+	// TODO(tanzeeb) Remove
+	time.Sleep(10 * time.Second)
 
 	// With a route, MinScale should be observed
 	got = latestAvailableReplicas(t, clients, names)
