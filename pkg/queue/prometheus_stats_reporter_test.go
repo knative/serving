@@ -158,10 +158,6 @@ func TestReporter_WithDifferentReportingPeriods(t *testing.T) {
 	}
 }
 
-func testReportWithDifferentReportingPeriods(t *testing.T, stat *autoscaler.Stat, reqCount, concurrency, proxiedCount, proxiedConcurrency float64, reporterReportingPeriods []time.Duration) {
-
-}
-
 func testReportWithProxiedRequests(t *testing.T, stat *autoscaler.Stat, reqCount, concurrency, proxiedCount, proxiedConcurrency float64, reporterReportingPeriod time.Duration) {
 	t.Helper()
 	reporter, err := NewPrometheusStatsReporter(namespace, config, revision, pod, reporterReportingPeriod)
