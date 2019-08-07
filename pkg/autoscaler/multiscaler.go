@@ -66,7 +66,7 @@ type DeciderStatus struct {
 
 	// ExcessBurstCapacity is the difference between spare capacity
 	// (how much more load the pods in the revision deployment can take before being
-    // overloaded) and the configured target burst capacity.
+	// overloaded) and the configured target burst capacity.
 	// If this number is negative: Activator will be threaded in
 	// the request path by the PodAutoscaler controller.
 	ExcessBurstCapacity int32
