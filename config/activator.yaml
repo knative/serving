@@ -44,11 +44,11 @@ spec:
         # and substituted here.
         image: knative.dev/serving/cmd/activator
         ports:
-        - name: http1-port
+        - name: http1
           containerPort: 8012
-        - name: h2c-port
+        - name: h2c
           containerPort: 8013
-        - name: metrics-port
+        - name: metrics
           containerPort: 9090
         args:
           # Disable glog writing into stderr. Our code doesn't use glog
