@@ -48,6 +48,8 @@ func MakePA(rev *v1alpha1.Revision) *av1alpha1.PodAutoscaler {
 				Kind:       "Deployment",
 				Name:       names.Deployment(rev),
 			},
+			// TODO(tanzeeb) Tests!
+			Reachable:    rev.HasRoute(),
 			ProtocolType: rev.GetProtocol(),
 			Reachability: func() av1alpha1.ReachabilityType {
 				// We don't know the reachability if the revision has just been created
