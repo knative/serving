@@ -288,7 +288,7 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 	logger.Infof("Reconciling ingress: %#v", ia)
 
 	gatewayNames := qualifiedGatewayNamesFromContext(ctx)
-	if enableReconcileGateway(ctx) && ia.IsPublic() {
+	if ia.IsPublic() {
 		// We used to add Servers of the given Ingress to shared Gateways.
 		// Now as we start splitting Gateway, we need to remove them from the shared Gateways.
 		for _, gw := range config.FromContext(ctx).Istio.IngressGateways {
