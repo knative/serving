@@ -339,7 +339,7 @@ func TestMultiScalerUpdate(t *testing.T) {
 	defer close(statCh)
 
 	decider := newDecider()
-	decider.Spec.TargetConcurrency = 1.0
+	decider.Spec.TargetValue = 1.0
 	uniScaler.setScaleResult(0, 100, true)
 
 	// Create the decider and verify the Spec
@@ -351,12 +351,12 @@ func TestMultiScalerUpdate(t *testing.T) {
 	if err != nil {
 		t.Errorf("Get() = %v", err)
 	}
-	if got, want := m.Spec.TargetConcurrency, 1.0; got != want {
+	if got, want := m.Spec.TargetValue, 1.0; got != want {
 		t.Errorf("Got target concurrency %v. Wanted %v", got, want)
 	}
 
 	// Update the target and verify the Spec
-	decider.Spec.TargetConcurrency = 10.0
+	decider.Spec.TargetValue = 10.0
 	if _, err = ms.Update(ctx, decider); err != nil {
 		t.Errorf("Update() = %v", err)
 	}
@@ -364,7 +364,7 @@ func TestMultiScalerUpdate(t *testing.T) {
 	if err != nil {
 		t.Errorf("Get() = %v", err)
 	}
-	if got, want := m.Spec.TargetConcurrency, 10.0; got != want {
+	if got, want := m.Spec.TargetValue, 10.0; got != want {
 		t.Errorf("Got target concurrency %v. Wanted %v", got, want)
 	}
 }
@@ -425,8 +425,8 @@ func newDecider() *Decider {
 			Name:      testRevision,
 		},
 		Spec: DeciderSpec{
-			TickInterval:      tickInterval,
-			TargetConcurrency: 1,
+			TickInterval: tickInterval,
+			TargetValue:  1,
 		},
 		Status: DeciderStatus{},
 	}
