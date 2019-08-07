@@ -176,7 +176,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 		}
 		// Otherwise, scale down to at most 1 for the remainder of the idle period and then
 		// reconcile PA again.
-		logger.Infof("%s sleeping additionally for %v before can scale to 0", sw-af)
+		logger.Infof("%s sleeping additionally for %v before can scale to 0", pa.Name, sw-af)
 		ks.enqueueCB(pa, sw-af)
 		desiredScale = 1
 	} else { // Active=False

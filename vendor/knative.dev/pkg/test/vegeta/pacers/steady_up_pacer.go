@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,9 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package performance
+package pacers
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -33,50 +34,53 @@ import (
 //  Min -+------------------------------> t
 //       |<-Up->|
 type steadyUpPacer struct {
-	// UpDuration is the duration that attack request rates increase from Min to Max.
-	UpDuration time.Duration
-	// Min is the attack request rates from the beginning, must be larger than 0.
-	Min vegeta.Rate
-	// Max is the maximum and final steady attack request rates.
-	Max vegeta.Rate
+	// upDuration is the duration that attack request rates increase from Min to Max.
+	// MUST be larger than 0.
+	upDuration time.Duration
+	// min is the attack request rates from the beginning.
+	// MUST be larger than 0.
+	min vegeta.Rate
+	// max is the maximum and final steady attack request rates.
+	// MUST be larger than Min.
+	max vegeta.Rate
 
 	slope        float64
 	minHitsPerNs float64
 	maxHitsPerNs float64
 }
 
-// NewSteadyUpPacer returns a new SteadyUpPacer with the given config.
-func NewSteadyUpPacer(min vegeta.Rate, max vegeta.Rate, upDuration time.Duration) vegeta.Pacer {
-	return &steadyUpPacer{
-		Min:          min,
-		Max:          max,
-		UpDuration:   upDuration,
-		slope:        (hitsPerNs(max) - hitsPerNs(min)) / float64(upDuration),
-		minHitsPerNs: hitsPerNs(min),
-		maxHitsPerNs: hitsPerNs(max),
+// NewSteadyUp returns a new SteadyUpPacer with the given config.
+func NewSteadyUp(min vegeta.Rate, max vegeta.Rate, upDuration time.Duration) (vegeta.Pacer, error) {
+	if upDuration <= 0 || min.Freq <= 0 || min.Per <= 0 || max.Freq <= 0 || max.Per <= 0 {
+		return nil, errors.New("configuration for this SteadyUpPacer is invalid")
 	}
+	minHitsPerNs := hitsPerNs(min)
+	maxHitsPerNs := hitsPerNs(max)
+	if minHitsPerNs >= maxHitsPerNs {
+		return nil, errors.New("min rate must be smaller than max rate for SteadyUpPacer")
+	}
+
+	pacer := &steadyUpPacer{
+		min:          min,
+		max:          max,
+		upDuration:   upDuration,
+		slope:        (maxHitsPerNs - minHitsPerNs) / float64(upDuration),
+		minHitsPerNs: minHitsPerNs,
+		maxHitsPerNs: maxHitsPerNs,
+	}
+	return pacer, nil
 }
 
 // steadyUpPacer satisfies the Pacer interface.
-var _ vegeta.Pacer = steadyUpPacer{}
+var _ vegeta.Pacer = &steadyUpPacer{}
 
 // String returns a pretty-printed description of the steadyUpPacer's behaviour.
-func (sup steadyUpPacer) String() string {
-	return fmt.Sprintf("Up{%s + %s / %s}, then Steady{%s}", sup.Min, sup.Max, sup.UpDuration, sup.Max)
-}
-
-// invalid tests the constraints documented in the steadyUpPacer struct definition.
-func (sup steadyUpPacer) invalid() bool {
-	return sup.UpDuration <= 0 || sup.minHitsPerNs <= 0 || sup.maxHitsPerNs <= sup.minHitsPerNs
+func (sup *steadyUpPacer) String() string {
+	return fmt.Sprintf("Up{%s + %s / %s}, then Steady{%s}", sup.min, sup.max, sup.upDuration, sup.max)
 }
 
 // Pace determines the length of time to sleep until the next hit is sent.
-func (sup steadyUpPacer) Pace(elapsedTime time.Duration, elapsedHits uint64) (time.Duration, bool) {
-	if sup.invalid() {
-		// If pacer configuration is invalid, stop the attack.
-		return 0, true
-	}
-
+func (sup *steadyUpPacer) Pace(elapsedTime time.Duration, elapsedHits uint64) (time.Duration, bool) {
 	expectedHits := sup.hits(elapsedTime)
 	if elapsedHits < uint64(expectedHits) {
 		// Running behind, send next hit immediately.
@@ -85,8 +89,6 @@ func (sup steadyUpPacer) Pace(elapsedTime time.Duration, elapsedHits uint64) (ti
 
 	// Re-arranging our hits equation to provide a duration given the number of
 	// requests sent is non-trivial, so we must solve for the duration numerically.
-	// math.Round() added here because we have to coerce to int64 nanoseconds
-	// at some point and it corrects a bunch of off-by-one problems.
 	nsPerHit := 1 / sup.hitsPerNs(elapsedTime)
 	hitsToWait := float64(elapsedHits+1) - expectedHits
 	nextHitIn := time.Duration(nsPerHit * hitsToWait)
@@ -106,26 +108,22 @@ func (sup steadyUpPacer) Pace(elapsedTime time.Duration, elapsedHits uint64) (ti
 }
 
 // hits returns the number of expected hits for this pacer during the given time.
-func (sup steadyUpPacer) hits(t time.Duration) float64 {
-	if t <= 0 || sup.invalid() {
-		return 0
-	}
-
-	// If t is smaller than the UpDuration, calculate the hits as a trapezoid.
-	if t <= sup.UpDuration {
+func (sup *steadyUpPacer) hits(t time.Duration) float64 {
+	// If t is smaller than the upDuration, calculate the hits as a trapezoid.
+	if t <= sup.upDuration {
 		curtHitsPerNs := sup.hitsPerNs(t)
 		return (curtHitsPerNs + sup.minHitsPerNs) / 2.0 * float64(t)
 	}
 
-	// If t is larger than the UpDuration, calculate the hits as a trapezoid + a rectangle.
-	upHits := (sup.maxHitsPerNs + sup.minHitsPerNs) / 2.0 * float64(sup.UpDuration)
-	steadyHits := sup.maxHitsPerNs * float64(t-sup.UpDuration)
+	// If t is larger than the upDuration, calculate the hits as a trapezoid + a rectangle.
+	upHits := (sup.maxHitsPerNs + sup.minHitsPerNs) / 2.0 * float64(sup.upDuration)
+	steadyHits := sup.maxHitsPerNs * float64(t-sup.upDuration)
 	return upHits + steadyHits
 }
 
 // hitsPerNs returns the attack rate for this pacer at a given time.
-func (sup steadyUpPacer) hitsPerNs(t time.Duration) float64 {
-	if t <= sup.UpDuration {
+func (sup *steadyUpPacer) hitsPerNs(t time.Duration) float64 {
+	if t <= sup.upDuration {
 		return sup.minHitsPerNs + float64(t)*sup.slope
 	}
 

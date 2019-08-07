@@ -19,6 +19,7 @@ package serving
 import (
 	"context"
 	"strconv"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
@@ -30,7 +31,18 @@ import (
 // resources is correct.
 func ValidateObjectMetadata(meta metav1.Object) *apis.FieldError {
 	return apis.ValidateObjectMetadata(meta).
-		Also(autoscaling.ValidateAnnotations(meta.GetAnnotations()).ViaField("annotations"))
+		Also(autoscaling.ValidateAnnotations(meta.GetAnnotations()).
+			Also(validateKnativeAnnotations(meta.GetAnnotations())).
+			ViaField("annotations"))
+}
+
+func validateKnativeAnnotations(annotations map[string]string) (errs *apis.FieldError) {
+	for key := range annotations {
+		if strings.HasPrefix(key, GroupNamePrefix) && key != UpdaterAnnotation && key != CreatorAnnotation && key != RevisionLastPinnedAnnotationKey {
+			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
+		}
+	}
+	return
 }
 
 // ValidateQueueSidecarAnnotation validates QueueSideCarResourcePercentageAnnotation

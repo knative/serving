@@ -67,7 +67,7 @@ var _ TargetError = (*unreadyConfigError)(nil)
 
 // Error implements error.
 func (e *unreadyConfigError) Error() string {
-	return fmt.Sprintf("Configuration '%q' not ready, isFailure=%t", e.name, e.isFailure)
+	return fmt.Sprintf("Configuration %q not ready, isFailure=%t", e.name, e.isFailure)
 }
 
 // MarkBadTrafficTarget implements TargetError.

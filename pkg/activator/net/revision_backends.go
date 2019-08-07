@@ -67,8 +67,7 @@ type revisionWatcher struct {
 	rev      types.NamespacedName
 	protocol networking.ProtocolType
 	updateCh chan<- *RevisionDestsUpdate
-	// Stores the podIPs we know of
-	dests []string
+
 	// Stores the state of dests (podIPs) we know about
 	healthStates map[string]bool
 	// Stores whether the service ClusterIP has been seen as healthy
@@ -111,10 +110,6 @@ type destHealth struct {
 	health bool
 }
 
-func (rw *revisionWatcher) revisionReady() bool {
-	return len(rw.dests) > 0
-}
-
 func (rw *revisionWatcher) getK8sPrivateService() (*corev1.Service, error) {
 	selector := labels.SelectorFromSet(map[string]string{
 		serving.RevisionLabelKey:  rw.rev.Name,
@@ -127,7 +122,7 @@ func (rw *revisionWatcher) getK8sPrivateService() (*corev1.Service, error) {
 
 	switch len(svcList) {
 	case 0:
-		return nil, fmt.Errorf("found no private service for revision %q", rw.rev.String())
+		return nil, fmt.Errorf("found no private services for revision %q", rw.rev.String())
 	case 1:
 		return svcList[0], nil
 	default:
@@ -165,16 +160,16 @@ func (rw *revisionWatcher) probeClusterIP(svc *corev1.Service) (bool, string, er
 	return ok, dest, err
 }
 
-func (rw *revisionWatcher) probePodIPs() (map[string]bool, error) {
+func (rw *revisionWatcher) probePodIPs(dests []string) (map[string]bool, error) {
 	// Context used for our probe requests
 	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
 	defer cancel()
 
 	var probeGroup errgroup.Group
-	healthStatesCh := make(chan destHealth, len(rw.dests))
+	healthStatesCh := make(chan destHealth, len(dests))
 
-	for _, dest := range rw.dests {
-		// If the dest is already healthy then save this
+	for _, dest := range dests {
+		// If the dest is already healthy then preserve that.
 		if curHealthy, ok := rw.healthStates[dest]; ok && curHealthy {
 			healthStatesCh <- destHealth{dest, true}
 			continue
@@ -191,7 +186,7 @@ func (rw *revisionWatcher) probePodIPs() (map[string]bool, error) {
 	err := probeGroup.Wait()
 	close(healthStatesCh)
 
-	healthStates := make(map[string]bool, len(rw.dests))
+	healthStates := make(map[string]bool, len(dests))
 	for dh := range healthStatesCh {
 		healthStates[dh.dest] = dh.health
 	}
@@ -201,8 +196,8 @@ func (rw *revisionWatcher) probePodIPs() (map[string]bool, error) {
 
 // checkDests performs probing and potentially sends a dests update. It is
 // assumed this method is not called concurrently.
-func (rw *revisionWatcher) checkDests() {
-	if !rw.revisionReady() {
+func (rw *revisionWatcher) checkDests(dests []string) {
+	if len(dests) == 0 {
 		if rw.clusterIPHealthy {
 			// we have a healthy clusterIP but revision is not ready. We must have scaled down.
 			rw.clusterIPHealthy = false
@@ -232,12 +227,12 @@ func (rw *revisionWatcher) checkDests() {
 		rw.logger.Errorw(fmt.Sprintf("Failed to probe clusterIP %s/%s", svc.Namespace, svc.Name), zap.Error(err))
 	} else if ok {
 		rw.clusterIPHealthy = true
-		rw.healthStates = make(map[string]bool)
+		rw.healthStates = nil
 		rw.updateCh <- &RevisionDestsUpdate{Rev: rw.rev, ClusterIPDest: dest}
 		return
 	}
 
-	healthStates, err := rw.probePodIPs()
+	healthStates, err := rw.probePodIPs(dests)
 	if err != nil {
 		rw.logger.Errorw("Failed probing", zap.Error(err))
 		// We dont want to return here as an error still affects health states
@@ -255,17 +250,18 @@ func (rw *revisionWatcher) checkDests() {
 }
 
 func (rw *revisionWatcher) runWithTickCh(tickCh <-chan time.Time) {
+	var dests []string
 	for {
 		select {
-		case dests, ok := <-rw.destsChan:
+		case x, ok := <-rw.destsChan:
 			if !ok {
 				// shutdown
 				return
 			}
-			rw.dests = dests
+			dests = x
 		case <-tickCh:
 		}
-		rw.checkDests()
+		rw.checkDests(dests)
 	}
 }
 
@@ -369,6 +365,7 @@ func (rbm *RevisionBackendsManager) getOrCreateDestsCh(rev types.NamespacedName)
 // endpointsUpdated is a handler function to be used by the Endpoints informer.
 // It updates the endpoints in the RevisionBackendsManager if the hosts changed
 func (rbm *RevisionBackendsManager) endpointsUpdated(newObj interface{}) {
+	rbm.logger.Debugf("Updating Endpoints: %+v", newObj)
 	endpoints := newObj.(*corev1.Endpoints)
 	revID := types.NamespacedName{endpoints.Namespace, endpoints.Labels[serving.RevisionLabelKey]}
 
