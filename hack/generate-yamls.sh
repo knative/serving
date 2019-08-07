@@ -76,6 +76,12 @@ else
   LABEL_YAML_CMD=(cat)
 fi
 
+# Turn on reconcileExternalGateway if it is configured.
+if (( RECONCILE_GATEWAY )); then
+  echo "Turning on reconcileExternalGateway"
+  echo "  reconcileExternalGateway: \"true\"" >> config/config-istio.yaml
+fi
+
 : ${KO_DOCKER_REPO:="ko.local"}
 export KO_DOCKER_REPO
 

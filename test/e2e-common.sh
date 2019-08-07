@@ -38,6 +38,8 @@ INSTALL_MONITORING=0
 
 INSTALL_BETA=1
 
+RECONCILE_GATEWAY=0
+
 # List of custom YAMLs to install, if specified (space-separated).
 INSTALL_CUSTOM_YAMLS=""
 
@@ -77,6 +79,10 @@ function parse_flags() {
       ;;
     --install-beta)
       readonly INSTALL_BETA=1
+      return 1
+      ;;
+    --reconcile-gateway)
+      readonly RECONCILE_GATEWAY=1
       return 1
       ;;
     --custom-yamls)
