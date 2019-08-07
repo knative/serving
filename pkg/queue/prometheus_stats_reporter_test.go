@@ -104,6 +104,64 @@ func TestReporter_Report(t *testing.T) {
 	testReportWithProxiedRequests(t, &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3, ProxiedRequestCount: 15, AverageProxiedConcurrentRequests: 2}, 39, 3, 15, 2, 1*time.Second)
 }
 
+func TestReporter_WithDifferentReportingPeriods(t *testing.T) {
+	t.Helper()
+	tests := []struct {
+		reporterReportingPeriod           time.Duration
+		autoscalerStat                    *autoscaler.Stat
+		expectedReqCount                  float64
+		expectedAverageConcurrentRequests float64
+		expectedProxiedRequestCount       float64
+		expectedProxiedConcurrency        float64
+	}{
+		{
+			reporterReportingPeriod:           10 * time.Second,
+			autoscalerStat:                    &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3, ProxiedRequestCount: 15, AverageProxiedConcurrentRequests: 2},
+			expectedReqCount:                  3.9,
+			expectedAverageConcurrentRequests: 0.3,
+			expectedProxiedRequestCount:       1.5,
+			expectedProxiedConcurrency:        0.2,
+		},
+		{
+			reporterReportingPeriod:           2 * time.Second,
+			autoscalerStat:                    &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3, ProxiedRequestCount: 15, AverageProxiedConcurrentRequests: 2},
+			expectedReqCount:                  19.5,
+			expectedAverageConcurrentRequests: 1.5,
+			expectedProxiedRequestCount:       7.5,
+			expectedProxiedConcurrency:        1,
+		},
+		{
+			reporterReportingPeriod:           1 * time.Second,
+			autoscalerStat:                    &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3, ProxiedRequestCount: 15, AverageProxiedConcurrentRequests: 2},
+			expectedReqCount:                  39,
+			expectedAverageConcurrentRequests: 3,
+			expectedProxiedRequestCount:       15,
+			expectedProxiedConcurrency:        2,
+		},
+	}
+
+	for _, test := range tests {
+		reporter, err := NewPrometheusStatsReporter(namespace, config, revision, pod, test.reporterReportingPeriod)
+		if err != nil {
+			t.Errorf("Something went wrong with creating a reporter, '%v'.", err)
+		}
+		if !reporter.initialized {
+			t.Error("Reporter should be initialized")
+		}
+		if err := reporter.Report(test.autoscalerStat); err != nil {
+			t.Error(err)
+		}
+		checkData(t, operationsPerSecondGV, test.expectedReqCount)
+		checkData(t, averageConcurrentRequestsGV, test.expectedAverageConcurrentRequests)
+		checkData(t, proxiedOperationsPerSecondGV, test.expectedProxiedRequestCount)
+		checkData(t, averageProxiedConcurrentRequestsGV, test.expectedProxiedConcurrency)
+	}
+}
+
+func testReportWithDifferentReportingPeriods(t *testing.T, stat *autoscaler.Stat, reqCount, concurrency, proxiedCount, proxiedConcurrency float64, reporterReportingPeriods []time.Duration) {
+
+}
+
 func testReportWithProxiedRequests(t *testing.T, stat *autoscaler.Stat, reqCount, concurrency, proxiedCount, proxiedConcurrency float64, reporterReportingPeriod time.Duration) {
 	t.Helper()
 	reporter, err := NewPrometheusStatsReporter(namespace, config, revision, pod, reporterReportingPeriod)
