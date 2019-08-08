@@ -31,10 +31,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"knative.dev/pkg/webhook"
 	"knative.dev/pkg/test/webhook-apicoverage/coveragecalculator"
 	"knative.dev/pkg/test/webhook-apicoverage/resourcetree"
 	"knative.dev/pkg/test/webhook-apicoverage/view"
+	"knative.dev/pkg/webhook"
 )
 
 var (
