@@ -22,7 +22,7 @@ metadata:
   namespace: knative-serving
 spec:
   ports:
-  - name: metrics
+  - name: http-metrics
     port: 9090
     protocol: TCP
     targetPort: 9090

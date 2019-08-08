@@ -44,7 +44,7 @@ const (
 
 	// QueueAdminPortName specifies the port name for
 	// health check and lifecycle hooks for queue-proxy.
-	QueueAdminPortName string = "queueadm-port"
+	QueueAdminPortName string = "http-queueadm"
 
 	// AutoscalingQueueMetricsPortName specifies the port name to use for metrics
 	// emitted by queue-proxy for autoscaler.
@@ -52,11 +52,11 @@ const (
 
 	// UserQueueMetricsPortName specifies the port name to use for metrics
 	// emitted by queue-proxy for end user.
-	UserQueueMetricsPortName = "tcp-usermetrics"
+	UserQueueMetricsPortName = "http-usermetric"
 
 	// ServiceQueueMetricsPortName is the name of the port that serves metrics
 	// on the Kubernetes service.
-	ServiceQueueMetricsPortName = "tcp-metrics"
+	ServiceQueueMetricsPortName = "http-metrics"
 )
 
 var revCondSet = apis.NewLivingConditionSet(
