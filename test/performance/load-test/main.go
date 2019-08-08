@@ -21,7 +21,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	"knative.dev/pkg/injection/clients/kubeclient"
@@ -29,7 +28,6 @@ import (
 	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 
 	"github.com/google/mako/helpers/go/quickstore"
-	qpb "github.com/google/mako/helpers/proto/quickstore/quickstore_go_proto"
 	vegeta "github.com/tsenart/vegeta/lib"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/clientcmd"
@@ -175,18 +173,10 @@ func main() {
 	}
 
 	// Use the benchmark key created
-	q, qclose, err := quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
-		BenchmarkKey: mako.MustGetBenchmark(),
-		Tags: []string{
-			"master",
-			fmt.Sprintf("tbc=%s", *flavor),
-			// The format of version.String() is like "v1.13.7-gke.8",
-			// since Mako does not allow . in tags, replace them with _
-			fmt.Sprintf("kubernetes=%s", strings.ReplaceAll(version.String(), ".", "_")),
-		},
-	}, mako.SidecarAddress)
+	tags := []string{fmt.Sprintf("tbc=%s", *flavor)}
+	q, qclose, err := mako.SetupMako(ctx, *benchmark, tags)
 	if err != nil {
-		log.Fatalf("failed NewAtAddress: %v", err)
+		log.Fatalf("failed to setup mako: %v", err)
 	}
 	// Use a fresh context here so that our RPC to terminate the sidecar
 	// isn't subject to our timeout (or we won't shut it down when we time out)

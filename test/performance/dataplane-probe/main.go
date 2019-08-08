@@ -22,10 +22,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/google/mako/helpers/go/quickstore"
-	qpb "github.com/google/mako/helpers/proto/quickstore/quickstore_go_proto"
 	vegeta "github.com/tsenart/vegeta/lib"
-	"knative.dev/pkg/changeset"
 	"knative.dev/pkg/signals"
 
 	"knative.dev/serving/test/performance/mako"
@@ -46,20 +43,11 @@ func main() {
 	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
 	defer cancel()
 
-	tags := []string{"master"}
-	if commitID, err := changeset.Get(); err == nil {
-		tags = append(tags, commitID)
-	} else {
-		log.Printf("Error getting commit id: %v", err)
-	}
-
 	// Use the benchmark key created
-	q, qclose, err := quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
-		BenchmarkKey: mako.MustGetBenchmark(),
-		Tags:         tags,
-	}, mako.SidecarAddress)
+	tags := []string{}
+	q, qclose, err := mako.SetupMako(ctx, *benchmark, tags)
 	if err != nil {
-		log.Fatalf("failed NewAtAddress: %v", err)
+		log.Fatalf("failed to setup mako: %v", err)
 	}
 	// Use a fresh context here so that our RPC to terminate the sidecar
 	// isn't subject to our timeout (or we won't shut it down when we time out)

@@ -18,7 +18,10 @@ package mako
 
 import (
 	"context"
+	"fmt"
 
+	"knative.dev/pkg/changeset"
+	"knative.dev/pkg/injection/clients/kubeclient"
 	"github.com/golang/protobuf/proto"
         "github.com/google/mako/helpers/go/quickstore"
         qpb "github.com/google/mako/helpers/proto/quickstore/quickstore_go_proto"
@@ -36,18 +39,19 @@ const (
 // It returns the mako client handle to sotre metrics, a method to close the connection
 // to mako server once done and error if case of failures.
 func SetupMako(ctx context.Context, benchmarkKey string, extraTags []string)(*quickstore.Quickstore, func(context.Context), error) {
+	var close func(context.Context)
 	tags := []string{"master"}
         if commitID, err := changeset.Get(); err == nil {
                 tags = append(tags, commitID)
         } else {
-		return nil, err
+		return nil, close, err
         }
 
 	// Get the Kubernetes version from the API server.
 	if version, err := kubeclient.Get(ctx).Discovery().ServerVersion(); err == nil {
-		tags = append(tags, version)
+		tags = append(tags, fmt.Sprintf("kubernetes=%s", version))
 	} else {
-		return nil, err
+		return nil, close, err
 	}
 
 	tags = append(tags, extraTags...)
