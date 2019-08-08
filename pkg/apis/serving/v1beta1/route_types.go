@@ -97,8 +97,6 @@ type TrafficTarget struct {
 	// - the sum of all percent values must equal 100
 	// - when not specified, the implied value for `percent` is zero for
 	//   that particular Revision or Configuration
-	// If some other routing mechanism is being used then that mechanism
-	// must define its processing rules.
 	// +optional
 	Percent *int64 `json:"percent,omitempty"`
 
