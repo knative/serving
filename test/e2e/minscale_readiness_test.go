@@ -20,7 +20,6 @@ package e2e
 
 import (
 	"strconv"
-	"time"
 
 	"testing"
 
@@ -81,9 +80,6 @@ func TestMinScale(t *testing.T) {
 		t.Fatalf("The Route %q is not ready: %v", names.Route, err)
 	}
 
-	// TODO(tanzeeb) Remove
-	time.Sleep(10 * time.Second)
-
 	// With a route, MinScale should be observed
 	got = latestAvailableReplicas(t, clients, names)
 
@@ -100,8 +96,11 @@ func latestAvailableReplicas(t *testing.T, clients *test.Clients, names test.Res
 
 	revName := config.Status.LatestCreatedRevisionName
 
-	if err = v1a1test.WaitForRevisionState(clients.ServingAlphaClient, revName, v1a1test.IsRevisionReady, "RevisionIsReady"); err != nil {
-		t.Fatalf("The Revision %q did not become ready: %v", revName, err)
+	if err = v1a1test.WaitForRevisionState(clients.ServingAlphaClient, revName,
+		func(r *v1alpha1.Revision) (bool, error) {
+			return r.Generation == r.Status.ObservedGeneration && r.Status.IsReady() && !r.Status.IsActivationRequired(), nil
+		}, "RevisionIsReadyAndActive"); err != nil {
+		t.Fatalf("The Revision %q did not become ready and active: %v", revName, err)
 	}
 
 	deployment, err := clients.KubeClient.Kube.AppsV1().Deployments(test.ServingNamespace).Get(revName+"-deployment", metav1.GetOptions{})
