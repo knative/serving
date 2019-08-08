@@ -29,6 +29,7 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -52,7 +53,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		[]v1alpha1.TrafficTarget{{
 			TrafficTarget: v1beta1.TrafficTarget{
 				RevisionName: "test-rev",
-				Percent:      100,
+				Percent:      ptr.Int64(100),
 			},
 		}},
 	)

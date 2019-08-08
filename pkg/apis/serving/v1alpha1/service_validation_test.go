@@ -565,7 +565,7 @@ func TestServiceValidation(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						TrafficTarget: v1beta1.TrafficTarget{
 							LatestRevision: ptr.Bool(true),
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 						},
 					}},
 				},
@@ -596,7 +596,7 @@ func TestServiceValidation(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName: "valid-00001",
-							Percent:      100,
+							Percent:      ptr.Int64(100),
 						},
 					}},
 				},
@@ -628,7 +628,7 @@ func TestServiceValidation(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName: "valid-00001",
-							Percent:      100,
+							Percent:      ptr.Int64(100),
 						},
 					}},
 				},
@@ -659,7 +659,7 @@ func TestServiceValidation(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						TrafficTarget: v1beta1.TrafficTarget{
 							LatestRevision: ptr.Bool(true),
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 						},
 					}},
 				},
@@ -691,7 +691,7 @@ func TestServiceValidation(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						TrafficTarget: v1beta1.TrafficTarget{
-							Percent: 100,
+							Percent: ptr.Int64(100),
 						},
 					}},
 				},
@@ -1248,7 +1248,7 @@ func getServiceSpec(image string) ServiceSpec {
 			Traffic: []TrafficTarget{{
 				TrafficTarget: v1beta1.TrafficTarget{
 					LatestRevision: ptr.Bool(true),
-					Percent:        100},
+					Percent:        ptr.Int64(100)},
 			}},
 		},
 	}

@@ -194,7 +194,7 @@ func makeIngressRule(domains []string, ns string, isClusterLocal bool, targets t
 	// Optimistically allocate |targets| elements.
 	splits := make([]v1alpha1.IngressBackendSplit, 0, len(targets))
 	for _, t := range targets {
-		if t.Percent == 0 {
+		if t.Percent == nil || *t.Percent == 0 {
 			continue
 		}
 
@@ -206,7 +206,7 @@ func makeIngressRule(domains []string, ns string, isClusterLocal bool, targets t
 				// Otherwise, the serverless services can't guarantee seamless positive handoff.
 				ServicePort: intstr.FromInt(int(networking.ServicePort(t.Protocol))),
 			},
-			Percent: t.Percent,
+			Percent: int(*t.Percent),
 			AppendHeaders: map[string]string{
 				activator.RevisionHeaderName:      t.TrafficTarget.RevisionName,
 				activator.RevisionHeaderNamespace: ns,

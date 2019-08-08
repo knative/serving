@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 
@@ -82,7 +83,7 @@ func createServiceInline() *v1alpha1.Service {
 		WithInlineRouteSpec(v1alpha1.RouteSpec{
 			Traffic: []v1alpha1.TrafficTarget{{
 				TrafficTarget: v1beta1.TrafficTarget{
-					Percent: 100,
+					Percent: ptr.Int64(100),
 				},
 			}},
 		}))
