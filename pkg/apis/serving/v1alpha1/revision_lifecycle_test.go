@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -571,4 +572,103 @@ func TestRevisionGetLastPinned(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPropagateDeploymentStatus(t *testing.T) {
+	rev := &RevisionStatus{}
+	rev.InitializeConditions()
+
+	// We start out ongoing.
+	apitest.CheckConditionOngoing(rev.duck(), RevisionConditionReady, t)
+	apitest.CheckConditionOngoing(rev.duck(), RevisionConditionContainerHealthy, t)
+	apitest.CheckConditionOngoing(rev.duck(), RevisionConditionResourcesAvailable, t)
+
+	// Empty deployment conditions shouldn't affect our readiness.
+	rev.PropagateDeploymentStatus(&appsv1.DeploymentStatus{
+		Conditions: []appsv1.DeploymentCondition{},
+	})
+	apitest.CheckConditionOngoing(rev.duck(), RevisionConditionReady, t)
+	apitest.CheckConditionOngoing(rev.duck(), RevisionConditionContainerHealthy, t)
+	apitest.CheckConditionOngoing(rev.duck(), RevisionConditionResourcesAvailable, t)
+
+	// Deployment failures should be propagated and not affect ContainerHealthy.
+	rev.PropagateDeploymentStatus(&appsv1.DeploymentStatus{
+		Conditions: []appsv1.DeploymentCondition{{
+			Type:   appsv1.DeploymentProgressing,
+			Status: corev1.ConditionFalse,
+		}, {
+			Type:   appsv1.DeploymentReplicaFailure,
+			Status: corev1.ConditionUnknown,
+		}},
+	})
+	apitest.CheckConditionFailed(rev.duck(), RevisionConditionReady, t)
+	apitest.CheckConditionFailed(rev.duck(), RevisionConditionResourcesAvailable, t)
+	apitest.CheckConditionOngoing(rev.duck(), RevisionConditionContainerHealthy, t)
+
+	// Marking container healthy doesn't affect deployment status.
+	rev.MarkContainerHealthy()
+	apitest.CheckConditionFailed(rev.duck(), RevisionConditionReady, t)
+	apitest.CheckConditionFailed(rev.duck(), RevisionConditionResourcesAvailable, t)
+	apitest.CheckConditionSucceeded(rev.duck(), RevisionConditionContainerHealthy, t)
+
+	// We can recover from deployment failures.
+	rev.PropagateDeploymentStatus(&appsv1.DeploymentStatus{
+		Conditions: []appsv1.DeploymentCondition{{
+			Type:   appsv1.DeploymentProgressing,
+			Status: corev1.ConditionTrue,
+		}},
+	})
+	apitest.CheckConditionSucceeded(rev.duck(), RevisionConditionReady, t)
+	apitest.CheckConditionSucceeded(rev.duck(), RevisionConditionResourcesAvailable, t)
+	apitest.CheckConditionSucceeded(rev.duck(), RevisionConditionContainerHealthy, t)
+
+	// We can go unknown.
+	rev.PropagateDeploymentStatus(&appsv1.DeploymentStatus{
+		Conditions: []appsv1.DeploymentCondition{{
+			Type:   appsv1.DeploymentProgressing,
+			Status: corev1.ConditionUnknown,
+		}},
+	})
+	apitest.CheckConditionOngoing(rev.duck(), RevisionConditionReady, t)
+	apitest.CheckConditionOngoing(rev.duck(), RevisionConditionResourcesAvailable, t)
+	apitest.CheckConditionSucceeded(rev.duck(), RevisionConditionContainerHealthy, t)
+
+	// ReplicaFailure=True translates into Ready=False.
+	rev.PropagateDeploymentStatus(&appsv1.DeploymentStatus{
+		Conditions: []appsv1.DeploymentCondition{{
+			Type:   appsv1.DeploymentReplicaFailure,
+			Status: corev1.ConditionTrue,
+		}},
+	})
+	apitest.CheckConditionFailed(rev.duck(), RevisionConditionReady, t)
+	apitest.CheckConditionFailed(rev.duck(), RevisionConditionResourcesAvailable, t)
+	apitest.CheckConditionSucceeded(rev.duck(), RevisionConditionContainerHealthy, t)
+
+	// ReplicaFailure=True trumps Progressing=Unknown.
+	rev.PropagateDeploymentStatus(&appsv1.DeploymentStatus{
+		Conditions: []appsv1.DeploymentCondition{{
+			Type:   appsv1.DeploymentProgressing,
+			Status: corev1.ConditionUnknown,
+		}, {
+			Type:   appsv1.DeploymentReplicaFailure,
+			Status: corev1.ConditionTrue,
+		}},
+	})
+	apitest.CheckConditionFailed(rev.duck(), RevisionConditionReady, t)
+	apitest.CheckConditionFailed(rev.duck(), RevisionConditionResourcesAvailable, t)
+	apitest.CheckConditionSucceeded(rev.duck(), RevisionConditionContainerHealthy, t)
+
+	// ReplicaFailure=False + Progressing=True yields Ready.
+	rev.PropagateDeploymentStatus(&appsv1.DeploymentStatus{
+		Conditions: []appsv1.DeploymentCondition{{
+			Type:   appsv1.DeploymentProgressing,
+			Status: corev1.ConditionTrue,
+		}, {
+			Type:   appsv1.DeploymentReplicaFailure,
+			Status: corev1.ConditionFalse,
+		}},
+	})
+	apitest.CheckConditionSucceeded(rev.duck(), RevisionConditionReady, t)
+	apitest.CheckConditionSucceeded(rev.duck(), RevisionConditionResourcesAvailable, t)
+	apitest.CheckConditionSucceeded(rev.duck(), RevisionConditionContainerHealthy, t)
 }
