@@ -28,6 +28,7 @@ func TestEndpointsToDests(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		endpoints   corev1.Endpoints
+		protocol    networking.ProtocolType
 		expectDests []string
 	}{{
 		name:        "no endpoints",
@@ -86,9 +87,11 @@ func TestEndpointsToDests(t *testing.T) {
 		},
 		expectDests: []string{"128.0.0.1:1234"},
 	}} {
-
 		t.Run(tc.name, func(t *testing.T) {
-			dests := EndpointsToDests(&tc.endpoints)
+			if tc.protocol == "" {
+				tc.protocol = networking.ProtocolHTTP1
+			}
+			dests := EndpointsToDests(&tc.endpoints, networking.ServicePortName(tc.protocol))
 
 			if diff := cmp.Diff(tc.expectDests, dests); diff != "" {
 				t.Errorf("Got unexpected dests (-want, +got): %v", diff)
