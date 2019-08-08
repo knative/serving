@@ -101,43 +101,39 @@ func TestReporterReport(t *testing.T) {
 		expectedAverageConcurrentRequests float64
 		expectedProxiedRequestCount       float64
 		expectedProxiedConcurrency        float64
-	}{
-		{
-			name:                              "Test reporter report with no proxy",
-			reportingPeriod:                   1 * time.Second,
-			autoscalerStat:                    &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3},
-			expectedReqCount:                  39,
-			expectedAverageConcurrentRequests: 3,
-			expectedProxiedRequestCount:       0,
-			expectedProxiedConcurrency:        0,
-		},
-		{
-			name:                              "Test reporter report with reportingPeriod as 10s",
-			reportingPeriod:                   10 * time.Second,
-			autoscalerStat:                    &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3, ProxiedRequestCount: 15, AverageProxiedConcurrentRequests: 2},
-			expectedReqCount:                  3.9,
-			expectedAverageConcurrentRequests: 0.3,
-			expectedProxiedRequestCount:       1.5,
-			expectedProxiedConcurrency:        0.2,
-		},
-		{
-			name:                              "Test reporter report with reportingPeriod as 2s",
-			reportingPeriod:                   2 * time.Second,
-			autoscalerStat:                    &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3, ProxiedRequestCount: 15, AverageProxiedConcurrentRequests: 2},
-			expectedReqCount:                  19.5,
-			expectedAverageConcurrentRequests: 1.5,
-			expectedProxiedRequestCount:       7.5,
-			expectedProxiedConcurrency:        1,
-		},
-		{
-			name:                              "Test reporter report with reportingPeriod as 1s",
-			reportingPeriod:                   1 * time.Second,
-			autoscalerStat:                    &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3, ProxiedRequestCount: 15, AverageProxiedConcurrentRequests: 2},
-			expectedReqCount:                  39,
-			expectedAverageConcurrentRequests: 3,
-			expectedProxiedRequestCount:       15,
-			expectedProxiedConcurrency:        2,
-		},
+	}{{
+		name:                              "no proxy requests",
+		reportingPeriod:                   1 * time.Second,
+		autoscalerStat:                    &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3},
+		expectedReqCount:                  39,
+		expectedAverageConcurrentRequests: 3,
+		expectedProxiedRequestCount:       0,
+		expectedProxiedConcurrency:        0,
+	}, {
+		name:                              "reportingPeriod=10s",
+		reportingPeriod:                   10 * time.Second,
+		autoscalerStat:                    &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3, ProxiedRequestCount: 15, AverageProxiedConcurrentRequests: 2},
+		expectedReqCount:                  3.9,
+		expectedAverageConcurrentRequests: 0.3,
+		expectedProxiedRequestCount:       1.5,
+		expectedProxiedConcurrency:        0.2,
+	}, {
+		name:                              "reportingPeriod=2s",
+		reportingPeriod:                   2 * time.Second,
+		autoscalerStat:                    &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3, ProxiedRequestCount: 15, AverageProxiedConcurrentRequests: 2},
+		expectedReqCount:                  19.5,
+		expectedAverageConcurrentRequests: 1.5,
+		expectedProxiedRequestCount:       7.5,
+		expectedProxiedConcurrency:        1,
+	}, {
+		name:                              "reportingPeriod=1s",
+		reportingPeriod:                   1 * time.Second,
+		autoscalerStat:                    &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3, ProxiedRequestCount: 15, AverageProxiedConcurrentRequests: 2},
+		expectedReqCount:                  39,
+		expectedAverageConcurrentRequests: 3,
+		expectedProxiedRequestCount:       15,
+		expectedProxiedConcurrency:        2,
+	},
 	}
 
 	for _, test := range tests {
