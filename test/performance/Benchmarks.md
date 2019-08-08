@@ -4,26 +4,36 @@ Knative performance benchmarks are tests geared towards producing useful
 performance metrics of the knative system. All the raw metrics are stored in
 [mako](https://github.com/google/mako)
 
-## Existing scripts
-
-There are two existing scripts that help in recycling the benchmark clusters
-and have latest knative/serving updates:
-
-1. [update.sh](https://github.com/knative/serving/blob/master/test/performance/tools/update-serving): Update all the benchmark clusters every hour
-2. [recreate.sh](https://github.com/knative/serving/blob/master/test/performance/tools/recreate-serving): Re-create the benchmark cluster once a day
-
 ## Writing new benchmarks
 
 For creating new benchmarks, follow the steps:
 
-1. Create a new directory under `./test/performance/`. The benchmark clusters 
+1. Create a new directory under `./test/performance/`.
 2. Create a new [mako config](https://github.com/google/mako/blob/github-push-test-1/docs/GUIDE.md#preparing-your-benchmark).
-   Create a new benchmark using that config.
-3. Create a new knative service(if any) that the benchmark will use to test the knative components.
-4. Create other k8s objects(if any) needed for the benchmarks
-5. Write a go file that will run the benchmarks and store results in [mako](##Writing-to-mako)
-6. Create a cronjob that will run the benchmark at some frequency. Add the mako microservice as a sidecar and add the robot account
-7. Create a symlink to HEAD `ln -s -r .git/HEAD ./test/performance/cmd/<dir>/kodata/`
+3. Create a new benchmark using that config using the
+   [mako cli](https://github.com/google/mako/blob/github-push-test-1/docs/GUIDE.md#preparing-your-benchmark).
+4. Set up the System under test(SUT) eg. properly configured Knative resources.
+5. Write a go program to run the benchmark and store results in [mako](##Writing-to-mako)
+6. Create a cronjob that will run the benchmark at some frequency. Add the mako 
+   microservice as a sidecar and add the robot account in the spec. The secrets and robot 
+   should be mounted by the cluster creation script already 
+
+```yaml
+- name: mako
+  image: us.gcr.io/mattmoor-public/mako-microservice:latest
+  env:
+  - name: GOOGLE_APPLICATION_CREDENTIALS
+    value: /var/secret/robot.json
+    volumeMounts:
+    - name: service-account
+      mountPath: /var/secret
+     volumes:
+     - name: service-account
+       secret:
+         secretName: service-account
+```
+
+7. Create a symlink to HEAD `ln -s -r .git/HEAD ./test/performance/<dir>/kodata/`
 8. Run the [create_cluster_benchmark.sh](https://github.com/knative/serving/blob/master/test/performance/tools/create_cluster_benchmark.sh)
 script as
 
