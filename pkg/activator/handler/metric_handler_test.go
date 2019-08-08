@@ -18,11 +18,12 @@ package handler
 import (
 	"bytes"
 	"errors"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	. "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/activator"
@@ -46,14 +47,14 @@ func TestRequestMetricHandler(t *testing.T) {
 			baseHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			}),
-			newHeader:     map[string]string{"User-Agent": network.KubeProbeUAPrefix},
+			newHeader: map[string]string{"User-Agent": network.KubeProbeUAPrefix},
 		},
 		{
 			label: "network probe response",
 			baseHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			}),
-			newHeader:     map[string]string{network.ProbeHeaderName: "test-service"},
+			newHeader: map[string]string{network.ProbeHeaderName: "test-service"},
 		},
 		{
 			label: "normal response",
