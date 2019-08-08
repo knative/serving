@@ -17,16 +17,22 @@ limitations under the License.
 package performance
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"os"
 	"path"
 	"strings"
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/labels"
+	deploymentinformer "knative.dev/pkg/injection/informers/kubeinformers/appsv1/deployment"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/zipkin"
+	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 	"knative.dev/serving/test"
 	"knative.dev/test-infra/shared/common"
 	"knative.dev/test-infra/shared/prometheus"
@@ -151,4 +157,70 @@ func sanitizedURL(endpoint string) string {
 		return httpPrefix + endpoint
 	}
 	return endpoint
+}
+
+// DeploymentStatus is a struct that wraps the status of a deployment.
+type DeploymentStatus struct {
+	DesiredReplicas int32
+	ReadyReplicas   int32
+}
+
+// FetchDeploymentStatus creates a channel that can return the up-to-date DeploymentStatus periodically.
+func FetchDeploymentStatus(
+	ctx context.Context, namespace string, selector labels.Selector, ticker *time.Ticker,
+) <-chan []DeploymentStatus {
+	dl := deploymentinformer.Get(ctx).Lister()
+	ch := make(chan []DeploymentStatus)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				// Overlay the desired and ready pod counts.
+				deployments, err := dl.Deployments(namespace).List(selector)
+				if err != nil {
+					log.Printf("Error listing deployments: %v", err)
+					break
+				}
+
+				ds := make([]DeploymentStatus, len(deployments))
+				for _, d := range deployments {
+					ds = append(ds, DeploymentStatus{
+						DesiredReplicas: *d.Spec.Replicas,
+						ReadyReplicas:   d.Status.ReadyReplicas,
+					})
+				}
+				ch <- ds
+			}
+		}
+	}()
+
+	return ch
+}
+
+// FetchSKSMode creates a channel that can return the up-to-date ServerlessServiceOperationMode periodically.
+func FetchSKSMode(
+	ctx context.Context, namespace string, selector labels.Selector, ticker *time.Ticker,
+) <-chan []netv1alpha1.ServerlessServiceOperationMode {
+	sksl := sksinformer.Get(ctx).Lister()
+	ch := make(chan []netv1alpha1.ServerlessServiceOperationMode)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				// Overlay the SKS "mode".
+				skses, err := sksl.ServerlessServices("default").List(selector)
+				if err != nil {
+					log.Printf("Error listing serverless services: %v", err)
+					break
+				}
+				sksms := make([]netv1alpha1.ServerlessServiceOperationMode, len(skses))
+				for _, sks := range skses {
+					sksms = append(sksms, sks.Spec.Mode)
+				}
+				ch <- sksms
+			}
+		}
+	}()
+
+	return ch
 }

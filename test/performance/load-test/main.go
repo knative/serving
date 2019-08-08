@@ -40,6 +40,7 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/test/performance"
 	"knative.dev/serving/test/performance/mako"
 )
 
@@ -50,14 +51,6 @@ var (
 )
 
 func processResults(ctx context.Context, q *quickstore.Quickstore, results <-chan *vegeta.Result) {
-	dl := deploymentinformer.Get(ctx).Lister()
-	sksl := sksinformer.Get(ctx).Lister()
-
-	// Create a ticker to tick every second that prompts us to report a new
-	// summary sample point.
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-
 	// Accumulate the error and request rates along second boundaries.
 	errors := make(map[int64]int64)
 	requests := make(map[int64]int64)
@@ -80,6 +73,13 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 	selector := labels.SelectorFromSet(labels.Set{
 		serving.ServiceLabelKey: fmt.Sprintf("load-test-%s", *flavor),
 	})
+
+	dt := time.NewTicker(time.Second)
+	deploymentStatus := performance.FetchDeploymentStatus(ctx, "default", selector, dt)
+	defer dt.Stop()
+	skst := time.NewTicker(time.Second)
+	sksMode := performance.FetchSKSMode(ctx, "default", selector, skst)
+	defer skst.Stop()
 
 	for {
 		select {
@@ -104,38 +104,20 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 			// which we have data, even if there is no error.
 			errors[res.Timestamp.Unix()] += isAnError
 			requests[res.Timestamp.Unix()]++
-
-		case t := <-ticker.C:
-			// Each tick, fetch the state of the environment from our informer caches
-			// and overlay the resulting data.
-
-			// Overlay the desired and ready pod counts.
-			deployments, err := dl.Deployments("default").List(selector)
-			if err != nil {
-				log.Printf("Error listing deployments: %v", err)
-				break
-			}
-			// TODO(mattmoor): Consider alternatives to a singleton.
-			for _, d := range deployments {
-				q.AddSamplePoint(mako.XTime(t), map[string]float64{
-					"dp": float64(*d.Spec.Replicas),
-					"ap": float64(d.Status.ReadyReplicas),
+		case dses := <-deploymentStatus:
+			for _, ds := range dses {
+				q.AddSamplePoint(mako.XTime(time.Now()), map[string]float64{
+					"dp": float64(ds.DesiredReplicas),
+					"ap": float64(ds.ReadyReplicas),
 				})
 			}
-
-			// Overlay the SKS "mode".
-			skses, err := sksl.ServerlessServices("default").List(selector)
-			if err != nil {
-				log.Printf("Error listing deployments: %v", err)
-				break
-			}
-			// TODO(mattmoor): Consider alternatives to a singleton.
-			for _, sks := range skses {
+		case sksms := <-sksMode:
+			for _, sksm := range sksms {
 				mode := float64(0)
-				if sks.Spec.Mode == netv1alpha1.SKSOperationModeProxy {
+				if sksm == netv1alpha1.SKSOperationModeProxy {
 					mode = 1.0
 				}
-				q.AddSamplePoint(mako.XTime(t), map[string]float64{
+				q.AddSamplePoint(mako.XTime(time.Now()), map[string]float64{
 					"sks": mode,
 				})
 			}
