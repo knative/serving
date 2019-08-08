@@ -65,14 +65,14 @@ func newGV(n, h string) *prometheus.GaugeVec {
 
 // PrometheusStatsReporter structure represents a prometheus stats reporter.
 type PrometheusStatsReporter struct {
-	initialized             bool
-	labels                  prometheus.Labels
-	handler                 http.Handler
-	reporterReportingPeriod time.Duration // ReporterReportingPeriod is the interval of time between reporting stats by queue proxy.
+	initialized     bool
+	labels          prometheus.Labels
+	handler         http.Handler
+	reportingPeriod time.Duration
 }
 
 // NewPrometheusStatsReporter creates a reporter that collects and reports queue metrics.
-func NewPrometheusStatsReporter(namespace, config, revision, pod string, reporterReportingPeriod time.Duration) (*PrometheusStatsReporter, error) {
+func NewPrometheusStatsReporter(namespace, config, revision, pod string, reportingPeriod time.Duration) (*PrometheusStatsReporter, error) {
 	if namespace == "" {
 		return nil, errors.New("namespace must not be empty")
 	}
@@ -101,8 +101,8 @@ func NewPrometheusStatsReporter(namespace, config, revision, pod string, reporte
 			destinationRevLabel:    revision,
 			destinationPodLabel:    pod,
 		},
-		handler:                 promhttp.HandlerFor(registry, promhttp.HandlerOpts{}),
-		reporterReportingPeriod: reporterReportingPeriod,
+		handler:         promhttp.HandlerFor(registry, promhttp.HandlerOpts{}),
+		reportingPeriod: reportingPeriod,
 	}, nil
 }
 
@@ -112,10 +112,10 @@ func (r *PrometheusStatsReporter) Report(stat *autoscaler.Stat) error {
 		return errors.New("PrometheusStatsReporter is not initialized yet")
 	}
 
-	operationsPerSecondGV.With(r.labels).Set(stat.RequestCount / r.reporterReportingPeriod.Seconds())
-	proxiedOperationsPerSecondGV.With(r.labels).Set(stat.ProxiedRequestCount / r.reporterReportingPeriod.Seconds())
-	averageConcurrentRequestsGV.With(r.labels).Set(stat.AverageConcurrentRequests / r.reporterReportingPeriod.Seconds())
-	averageProxiedConcurrentRequestsGV.With(r.labels).Set(stat.AverageProxiedConcurrentRequests / r.reporterReportingPeriod.Seconds())
+	operationsPerSecondGV.With(r.labels).Set(stat.RequestCount / r.reportingPeriod.Seconds())
+	proxiedOperationsPerSecondGV.With(r.labels).Set(stat.ProxiedRequestCount / r.reportingPeriod.Seconds())
+	averageConcurrentRequestsGV.With(r.labels).Set(stat.AverageConcurrentRequests / r.reportingPeriod.Seconds())
+	averageProxiedConcurrentRequestsGV.With(r.labels).Set(stat.AverageProxiedConcurrentRequests / r.reportingPeriod.Seconds())
 
 	return nil
 }
