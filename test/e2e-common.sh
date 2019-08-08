@@ -324,7 +324,7 @@ function test_setup() {
     export GATEWAY_OVERRIDE=knative-external-proxy
     export GATEWAY_NAMESPACE_OVERRIDE=gloo-system
     wait_until_pods_running gloo-system || return 1
-    wait_until_service_has_external_ip gloo-system knative-proxy
+    wait_until_service_has_external_ip gloo-system knative-external-proxy
   fi
   if [[ -n "${INSTALL_MONITORING_YAML}" ]]; then
     wait_until_pods_running knative-monitoring || return 1
