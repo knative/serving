@@ -1296,7 +1296,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	// Update the KPA container concurrency.
-	kpa.Spec.ContainerConcurrency = ptr.Int64(2)
+	kpa.Spec.ContainerConcurrency = 2
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Update(kpa)
 	fakepainformer.Get(ctx).Informer().GetIndexer().Update(kpa)
 

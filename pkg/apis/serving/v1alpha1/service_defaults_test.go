@@ -88,7 +88,8 @@ func TestServiceDefaulting(t *testing.T) {
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+									TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+									ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 								},
 								DeprecatedContainer: &corev1.Container{
 									Name:           config.DefaultUserContainerName,
@@ -125,7 +126,8 @@ func TestServiceDefaulting(t *testing.T) {
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Name:           config.DefaultUserContainerName,
@@ -210,7 +212,8 @@ func TestServiceDefaulting(t *testing.T) {
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+									TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+									ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 								},
 								DeprecatedContainer: &corev1.Container{
 									Name:           config.DefaultUserContainerName,
@@ -248,7 +251,8 @@ func TestServiceDefaulting(t *testing.T) {
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Name:           config.DefaultUserContainerName,
@@ -338,7 +342,8 @@ func TestServiceDefaulting(t *testing.T) {
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								RevisionSpec: v1beta1.RevisionSpec{
-									TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+									TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+									ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 								},
 								DeprecatedContainer: &corev1.Container{
 									Name:           config.DefaultUserContainerName,
@@ -375,7 +380,8 @@ func TestServiceDefaulting(t *testing.T) {
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Name:           config.DefaultUserContainerName,
@@ -436,7 +442,8 @@ func TestServiceDefaulting(t *testing.T) {
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Name:           config.DefaultUserContainerName,
@@ -495,7 +502,8 @@ func TestServiceDefaulting(t *testing.T) {
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Name:           config.DefaultUserContainerName,
@@ -591,7 +599,8 @@ func TestServiceDefaulting(t *testing.T) {
 					DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Name:           config.DefaultUserContainerName,
@@ -630,7 +639,8 @@ func TestServiceDefaulting(t *testing.T) {
 					DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 							},
 							DeprecatedContainer: &corev1.Container{
 								Name:           config.DefaultUserContainerName,
@@ -679,7 +689,8 @@ func TestServiceDefaulting(t *testing.T) {
 					DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Name:           config.DefaultUserContainerName,
@@ -734,7 +745,8 @@ func TestServiceDefaulting(t *testing.T) {
 					DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							RevisionSpec: v1beta1.RevisionSpec{
-								TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+								ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Name:           config.DefaultUserContainerName,

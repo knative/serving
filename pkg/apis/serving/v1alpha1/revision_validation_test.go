@@ -673,7 +673,9 @@ func TestImmutableFields(t *testing.T) {
 					Image: "helloworld",
 				},
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: ptr.Int64(100),
+					PodSpec: corev1.PodSpec{
+						ServiceAccountName: "foobar",
+					},
 				},
 			},
 		},
@@ -690,9 +692,9 @@ func TestImmutableFields(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
-			Details: `{v1alpha1.RevisionSpec}.RevisionSpec.ContainerConcurrency:
-	-: "0"
-	+: "100"
+			Details: `{v1alpha1.RevisionSpec}.RevisionSpec.PodSpec.ServiceAccountName:
+	-: ""
+	+: "foobar"
 `,
 		},
 	}, {
@@ -706,7 +708,9 @@ func TestImmutableFields(t *testing.T) {
 					Image: "helloworld",
 				},
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: ptr.Int64(100),
+					PodSpec: corev1.PodSpec{
+						ServiceAccountName: "foobar",
+					},
 				},
 			},
 		},
@@ -718,17 +722,14 @@ func TestImmutableFields(t *testing.T) {
 				DeprecatedContainer: &corev1.Container{
 					Image: "busybox",
 				},
-				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: ptr.Int64(1),
-				},
 			},
 		},
 		want: &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
-			Details: `{v1alpha1.RevisionSpec}.RevisionSpec.ContainerConcurrency:
-	-: "1"
-	+: "100"
+			Details: `{v1alpha1.RevisionSpec}.RevisionSpec.PodSpec.ServiceAccountName:
+	-: ""
+	+: "foobar"
 {v1alpha1.RevisionSpec}.DeprecatedContainer.Image:
 	-: "busybox"
 	+: "helloworld"

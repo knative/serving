@@ -55,7 +55,10 @@ func TestRevisionDefaulting(t *testing.T) {
 	}{{
 		name: "empty",
 		in:   &Revision{},
-		want: &Revision{Spec: RevisionSpec{TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds)}},
+		want: &Revision{Spec: RevisionSpec{
+			TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+			ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+		}},
 	}, {
 		name: "with context",
 		in:   &Revision{Spec: RevisionSpec{PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}}}},
@@ -178,7 +181,8 @@ func TestRevisionDefaulting(t *testing.T) {
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:      config.DefaultUserContainerName,
@@ -204,7 +208,8 @@ func TestRevisionDefaulting(t *testing.T) {
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:           config.DefaultUserContainerName,
@@ -229,7 +234,8 @@ func TestRevisionDefaulting(t *testing.T) {
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:           "busybox",

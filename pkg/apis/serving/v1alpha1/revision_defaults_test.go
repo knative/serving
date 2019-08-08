@@ -277,7 +277,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				DeprecatedConcurrencyModel: "Single",
 				DeprecatedContainer:        &corev1.Container{},
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: ptr.Int64(0), // unspecified
+					ContainerConcurrency: nil, // unspecified
 				},
 			},
 		},

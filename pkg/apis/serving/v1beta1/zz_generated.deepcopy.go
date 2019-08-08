@@ -203,6 +203,11 @@ func (in *RevisionList) DeepCopyObject() runtime.Object {
 func (in *RevisionSpec) DeepCopyInto(out *RevisionSpec) {
 	*out = *in
 	in.PodSpec.DeepCopyInto(&out.PodSpec)
+	if in.ContainerConcurrency != nil {
+		in, out := &in.ContainerConcurrency, &out.ContainerConcurrency
+		*out = new(int64)
+		**out = **in
+	}
 	if in.TimeoutSeconds != nil {
 		in, out := &in.TimeoutSeconds, &out.TimeoutSeconds
 		*out = new(int64)

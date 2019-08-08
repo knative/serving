@@ -78,7 +78,7 @@ func TestMakePA(t *testing.T) {
 				}},
 			},
 			Spec: av1alpha1.PodAutoscalerSpec{
-				ContainerConcurrency: ptr.Int64(1),
+				ContainerConcurrency: 1,
 				ScaleTargetRef: corev1.ObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
@@ -127,7 +127,7 @@ func TestMakePA(t *testing.T) {
 				}},
 			},
 			Spec: av1alpha1.PodAutoscalerSpec{
-				ContainerConcurrency: ptr.Int64(0),
+				ContainerConcurrency: 0,
 				ScaleTargetRef: corev1.ObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",

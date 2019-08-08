@@ -360,9 +360,9 @@ func revision(opts ...revisionOption) *v1alpha1.Revision {
 	return revision
 }
 
-func withContainerConcurrency(cc v1beta1.RevisionContainerConcurrencyType) revisionOption {
+func withContainerConcurrency(cc int64) revisionOption {
 	return func(revision *v1alpha1.Revision) {
-		revision.Spec.ContainerConcurrency = cc
+		revision.Spec.ContainerConcurrency = &cc
 	}
 }
 
@@ -395,7 +395,7 @@ func TestMakePodSpec(t *testing.T) {
 	}{{
 		name: "user-defined user port, queue proxy have PORT env",
 		rev: revision(
-			withContainerConcurrency(ptr.Int64(1)),
+			withContainerConcurrency(1),
 			func(revision *v1alpha1.Revision) {
 				revision.Spec.GetContainer().Ports = []corev1.ContainerPort{{
 					ContainerPort: 8888,
@@ -427,7 +427,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "volumes passed through",
 		rev: revision(
-			withContainerConcurrency(ptr.Int64(1)),
+			withContainerConcurrency(1),
 			func(revision *v1alpha1.Revision) {
 				revision.Spec.GetContainer().Ports = []corev1.ContainerPort{{
 					ContainerPort: 8888,
@@ -482,7 +482,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "concurrency=1 no owner",
 		rev: revision(
-			withContainerConcurrency(ptr.Int64(1)),
+			withContainerConcurrency(1),
 			func(revision *v1alpha1.Revision) {
 				container(revision.Spec.GetContainer(),
 					withTCPReadinessProbe(),
@@ -504,7 +504,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "concurrency=1 no owner digest resolved",
 		rev: revision(
-			withContainerConcurrency(ptr.Int64(1)),
+			withContainerConcurrency(1),
 			func(revision *v1alpha1.Revision) {
 				revision.Status = v1alpha1.RevisionStatus{
 					ImageDigest: "busybox@sha256:deadbeef",
@@ -531,7 +531,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "concurrency=1 with owner",
 		rev: revision(
-			withContainerConcurrency(ptr.Int64(1)),
+			withContainerConcurrency(1),
 			withOwnerReference("parent-config"),
 			func(revision *v1alpha1.Revision) {
 				container(revision.Spec.GetContainer(),
@@ -683,7 +683,6 @@ func TestMakePodSpec(t *testing.T) {
 			}),
 	}, {
 		name: "with /var/log collection",
-<<<<<<< HEAD
 		rev: revision(withContainerConcurrency(1),
 			func(revision *v1alpha1.Revision) {
 				container(revision.Spec.GetContainer(),
@@ -692,11 +691,6 @@ func TestMakePodSpec(t *testing.T) {
 			}),
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
-=======
-		rev:  revision(withContainerConcurrency(ptr.Int64(1))),
-		lc:   &logging.Config{},
-		tc:   &tracingconfig.Config{},
->>>>>>> Switched ContainerConcurrency to pointer type
 		oc: &metrics.ObservabilityConfig{
 			EnableVarLogCollection: true,
 		},
@@ -718,7 +712,7 @@ func TestMakePodSpec(t *testing.T) {
 	}, {
 		name: "complex pod spec",
 		rev: revision(
-			withContainerConcurrency(ptr.Int64(1)),
+			withContainerConcurrency(1),
 			func(revision *v1alpha1.Revision) {
 				revision.ObjectMeta.Labels = map[string]string{}
 				revision.Spec.GetContainer().Command = []string{"/bin/bash"}
@@ -847,7 +841,6 @@ func TestMakeDeployment(t *testing.T) {
 		name: "with concurrency=1",
 		rev: revision(
 			withoutLabels,
-<<<<<<< HEAD
 			withContainerConcurrency(1),
 			func(revision *v1alpha1.Revision) {
 				container(revision.Spec.GetContainer(),
@@ -859,9 +852,6 @@ func TestMakeDeployment(t *testing.T) {
 					}),
 				)
 			},
-=======
-			withContainerConcurrency(ptr.Int64(1)),
->>>>>>> Switched ContainerConcurrency to pointer type
 		),
 		lc:   &logging.Config{},
 		tc:   &tracingconfig.Config{},

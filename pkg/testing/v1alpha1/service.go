@@ -231,10 +231,10 @@ func WithContainerConcurrency(cc int) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		if s.Spec.DeprecatedRunLatest != nil {
 			s.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.ContainerConcurrency =
-				v1beta1.RevisionContainerConcurrencyType(ptr.Int64(int64(cc)))
+				ptr.Int64(int64(cc))
 		} else {
 			s.Spec.ConfigurationSpec.Template.Spec.ContainerConcurrency =
-				v1beta1.RevisionContainerConcurrencyType(ptr.Int64(int64(cc)))
+				ptr.Int64(int64(cc))
 		}
 	}
 }

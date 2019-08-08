@@ -192,13 +192,13 @@ func TestReconcile(t *testing.T) {
 		// If we attempt to create a Revision with a bad ContainerConcurrency set, we fail.
 		WantErr: true,
 		Objects: []runtime.Object{
-			cfg("validation-failure", "foo", 1234, WithConfigContainerConcurrency(ptr.Int64(-1))),
+			cfg("validation-failure", "foo", 1234, WithConfigContainerConcurrency(-1)),
 		},
 		WantCreates: []runtime.Object{
-			rev("validation-failure", "foo", 1234, WithRevContainerConcurrency(ptr.Int64(-1))),
+			rev("validation-failure", "foo", 1234, WithRevContainerConcurrency(-1)),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: cfg("validation-failure", "foo", 1234, WithConfigContainerConcurrency(ptr.Int64(-1)),
+			Object: cfg("validation-failure", "foo", 1234, WithConfigContainerConcurrency(-1),
 				// Expect Revision creation to fail with the following error.
 				MarkRevisionCreationFailed("expected 0 <= -1 <= 1000: spec.containerConcurrency")),
 		}},

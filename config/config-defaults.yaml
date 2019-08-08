@@ -74,3 +74,7 @@ data:
     # enclosing Service or Configuration, so values such as
     # {{.Name}} are also valid.
     container-name-template: "user-container"
+
+    # container-concurrency specifies the maximum number
+    # of requests the Container can handle at once
+    container-concurrency: "0"

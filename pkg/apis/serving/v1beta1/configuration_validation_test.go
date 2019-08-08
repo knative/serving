@@ -76,7 +76,7 @@ func TestConfigurationValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrOutOfBoundsValue(
-			-10, 0, RevisionContainerConcurrencyMax,
+			-10, 0, config.DefaultMaxRevisionContainerConcurrency,
 			"spec.template.spec.containerConcurrency"),
 	}, {
 		name: "valid BYO name",

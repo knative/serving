@@ -23,7 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"knative.dev/pkg/ptr"
 	"go.uber.org/zap"
 
 	"knative.dev/pkg/controller"
@@ -50,15 +49,16 @@ import (
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 
+	"knative.dev/pkg/ptr"
 	_ "knative.dev/pkg/system/testing"
 )
 
 const (
-	testNamespace         = "good-namespace"
-	testRevision          = "good-name"
-	defaultMaxConcurrency = 1000
-	defaultConcurrency    = 10
-	initCapacity          = 0
+	testNamespace               = "good-namespace"
+	testRevision                = "good-name"
+	defaultMaxConcurrency       = 1000
+	defaultConcurrency    int64 = 10
+	initCapacity                = 0
 )
 
 var revID = RevisionID{testNamespace, testRevision}
@@ -76,7 +76,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		revisionLister: revisionLister(testNamespace, testRevision, ptr.Int64(defaultConcurrency)),
 		numEndpoints:   1,
 		maxConcurrency: defaultMaxConcurrency,
-		want:           defaultConcurrency,
+		want:           int(defaultConcurrency),
 	}, {
 		label:          "unlimited concurrency",
 		revisionLister: revisionLister(testNamespace, testRevision, ptr.Int64(0)),
@@ -105,6 +105,12 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	}, {
 		label:          "no endpoints, unlimited concurrency",
 		revisionLister: revisionLister(testNamespace, testRevision, ptr.Int64(0)),
+		numEndpoints:   0,
+		maxConcurrency: 5,
+		want:           0,
+	}, {
+		label:          "container concurrency is nil",
+		revisionLister: revisionLister(testNamespace, testRevision, nil),
 		numEndpoints:   0,
 		maxConcurrency: 5,
 		want:           0,
@@ -159,7 +165,7 @@ func TestThrottlerActivatorEndpoints(t *testing.T) {
 	scenarios := []struct {
 		name                string
 		activatorCount      int
-		revisionConcurrency int
+		revisionConcurrency int64
 		wantCapacity        int
 	}{{
 		name:                "less activators, more cc",
@@ -169,7 +175,7 @@ func TestThrottlerActivatorEndpoints(t *testing.T) {
 	}, {
 		name:                "many activators, less cc",
 		activatorCount:      3,
-		revisionConcurrency: 2,
+		revisionConcurrency: int64(2),
 		wantCapacity:        1,
 	}}
 
@@ -185,7 +191,7 @@ func TestThrottlerActivatorEndpoints(t *testing.T) {
 
 			throttler := getThrottler(
 				defaultMaxConcurrency,
-				revisionLister(testNamespace, testRevision, v1beta1.RevisionContainerConcurrencyType(ptr.Int64(int64(s.revisionConcurrency)))),
+				revisionLister(testNamespace, testRevision, ptr.Int64(s.revisionConcurrency)),
 				endpoints,
 				sksLister(testNamespace, testRevision),
 				TestLogger(t),
@@ -325,7 +331,7 @@ func TestThrottlerTryOverload(t *testing.T) {
 func TestThrottlerRemove(t *testing.T) {
 	throttler := getThrottler(
 		defaultMaxConcurrency,
-		revisionLister(testNamespace, testRevision, ptr.Int64(10)),
+		revisionLister(testNamespace, testRevision, ptr.Int64(defaultConcurrency)),
 		endpointsInformer(testNamespace, testRevision, 0),
 		sksLister(testNamespace, testRevision),
 		TestLogger(t),
@@ -369,7 +375,7 @@ func TestHelper_ReactToEndpoints(t *testing.T) {
 
 	throttler := getThrottler(
 		200,
-		revisionLister(testNamespace, testRevision, ptr.Int64(10)),
+		revisionLister(testNamespace, testRevision, ptr.Int64(defaultConcurrency)),
 		endpointsInformer,
 		sksLister(testNamespace, testRevision),
 		TestLogger(t),
@@ -393,9 +399,9 @@ func TestHelper_ReactToEndpoints(t *testing.T) {
 	newEp.Subsets = endpointsSubset(10, 1)
 	fake.Core().Endpoints(ep.Namespace).Update(newEp)
 	wait.PollImmediate(updatePollInterval, updatePollTimeout, func() (bool, error) {
-		return breaker.Capacity() == 10*defaultConcurrency, nil
+		return int64(breaker.Capacity()) == 10*defaultConcurrency, nil
 	})
-	if got, want := breaker.Capacity(), 10*defaultConcurrency; got != want {
+	if got, want := int64(breaker.Capacity()), 10*defaultConcurrency; got != want {
 		t.Errorf("Capacity() = %d, want %d", got, want)
 	}
 
@@ -409,7 +415,7 @@ func TestHelper_ReactToEndpoints(t *testing.T) {
 	}
 }
 
-func revisionLister(namespace, name string, concurrency v1beta1.RevisionContainerConcurrencyType) servinglisters.RevisionLister {
+func revisionLister(namespace, name string, concurrency *int64) servinglisters.RevisionLister {
 	rev := &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -577,7 +583,7 @@ func revisionListerN(namespace, name string, count int) servinglisters.RevisionL
 			},
 			Spec: v1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 0,
+					ContainerConcurrency: ptr.Int64(0),
 				},
 			},
 		}
@@ -646,8 +652,8 @@ func TestProbeCache(t *testing.T) {
 
 func TestThrottlerCache(t *testing.T) {
 	thtl := getThrottler(
-		defaultConcurrency,
-		revisionLister(testNamespace, testRevision, defaultConcurrency),
+		int(defaultConcurrency),
+		revisionLister(testNamespace, testRevision, ptr.Int64(defaultConcurrency)),
 		endpointsInformer(testNamespace, testRevision, 1),
 		nil, /*sksLister*/
 		TestLogger(t),

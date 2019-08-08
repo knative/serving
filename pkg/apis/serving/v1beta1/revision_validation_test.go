@@ -71,7 +71,7 @@ func TestRevisionValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrOutOfBoundsValue(
-			-10, 0, RevisionContainerConcurrencyMax,
+			-10, 0, config.DefaultMaxRevisionContainerConcurrency,
 			"spec.containerConcurrency"),
 	}}
 
@@ -245,40 +245,35 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 func TestContainerConcurrencyValidation(t *testing.T) {
 	tests := []struct {
 		name string
-		cc   RevisionContainerConcurrencyType
+		cc   int64
 		want *apis.FieldError
 	}{{
 		name: "single",
-		cc:   ptr.Int64(1),
+		cc:   1,
 		want: nil,
 	}, {
 		name: "unlimited",
-		cc:   ptr.Int64(0),
+		cc:   0,
 		want: nil,
 	}, {
 		name: "ten",
-		cc:   ptr.Int64(10),
+		cc:   10,
 		want: nil,
 	}, {
 		name: "invalid container concurrency (too small)",
-		cc:   ptr.Int64(-1),
-		want: apis.ErrOutOfBoundsValue(-1, 0, RevisionContainerConcurrencyMax,
+		cc:   -1,
+		want: apis.ErrOutOfBoundsValue(-1, 0, config.DefaultMaxRevisionContainerConcurrency,
 			apis.CurrentField),
 	}, {
 		name: "invalid container concurrency (too large)",
-		cc:   ptr.Int64(RevisionContainerConcurrencyMax + 1),
-		want: apis.ErrOutOfBoundsValue(RevisionContainerConcurrencyMax+1,
-			0, RevisionContainerConcurrencyMax, apis.CurrentField),
+		cc:   config.DefaultMaxRevisionContainerConcurrency + 1,
+		want: apis.ErrOutOfBoundsValue(config.DefaultMaxRevisionContainerConcurrency+1,
+			0, config.DefaultMaxRevisionContainerConcurrency, apis.CurrentField),
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var got *apis.FieldError
-			if *test.cc < 0 || *test.cc > RevisionContainerConcurrencyMax {
-				got = apis.ErrOutOfBoundsValue(
-					*test.cc, 0, RevisionContainerConcurrencyMax, apis.CurrentField)
-			}
-			got = test.cc.Validate(context.Background())
+			got := serving.ValidateContainerConcurrency(context.Background(), &test.cc)
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
 				t.Errorf("Validate (-want, +got) = %v", cmp.Diff(want, got))
 			}
@@ -638,7 +633,7 @@ func TestImmutableFields(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
-			Details: `{v1beta1.RevisionSpec}.ContainerConcurrency:
+			Details: `*{v1beta1.RevisionSpec}.ContainerConcurrency:
 	-: "2"
 	+: "1"
 `,
@@ -654,8 +649,8 @@ func TestImmutableFields(t *testing.T) {
 					Containers: []corev1.Container{{
 						Image: "helloworld",
 					}},
+					ServiceAccountName: "foobar",
 				},
-				ContainerConcurrency: ptr.Int64(42),
 			},
 		},
 		old: &Revision{
@@ -673,9 +668,9 @@ func TestImmutableFields(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
-			Details: `{v1beta1.RevisionSpec}.ContainerConcurrency:
-	-: "0"
-	+: "42"
+			Details: `{v1beta1.RevisionSpec}.PodSpec.ServiceAccountName:
+	-: ""
+	+: "foobar"
 `,
 		},
 	}, {
@@ -686,11 +681,11 @@ func TestImmutableFields(t *testing.T) {
 			},
 			Spec: RevisionSpec{
 				PodSpec: corev1.PodSpec{
+					ServiceAccountName: "foobar",
 					Containers: []corev1.Container{{
 						Image: "helloworld",
 					}},
 				},
-				ContainerConcurrency: ptr.Int64(2),
 			},
 		},
 		old: &Revision{
@@ -703,7 +698,6 @@ func TestImmutableFields(t *testing.T) {
 						Image: "busybox",
 					}},
 				},
-				ContainerConcurrency: ptr.Int64(4),
 			},
 		},
 		want: &apis.FieldError{
@@ -712,9 +706,9 @@ func TestImmutableFields(t *testing.T) {
 			Details: `{v1beta1.RevisionSpec}.PodSpec.Containers[0].Image:
 	-: "busybox"
 	+: "helloworld"
-{v1beta1.RevisionSpec}.ContainerConcurrency:
-	-: "4"
-	+: "2"
+{v1beta1.RevisionSpec}.PodSpec.ServiceAccountName:
+	-: ""
+	+: "foobar"
 `,
 		},
 	}}

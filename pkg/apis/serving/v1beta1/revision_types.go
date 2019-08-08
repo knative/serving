@@ -67,16 +67,6 @@ type RevisionTemplateSpec struct {
 	Spec RevisionSpec `json:"spec,omitempty"`
 }
 
-// RevisionContainerConcurrencyType is an integer expressing the maximum number of
-// in-flight (concurrent) requests.
-type RevisionContainerConcurrencyType *int64
-
-const (
-	// RevisionContainerConcurrencyMax is the maximum configurable
-	// container concurrency.
-	RevisionContainerConcurrencyMax int64 = 1000
-)
-
 // RevisionSpec holds the desired state of the Revision (from the client).
 type RevisionSpec struct {
 	corev1.PodSpec `json:",inline"`
@@ -86,7 +76,7 @@ type RevisionSpec struct {
 	// concurrency to the application is not limited, and the system decides the
 	// target concurrency for the autoscaler.
 	// +optional
-	ContainerConcurrency RevisionContainerConcurrencyType `json:"containerConcurrency,omitempty"`
+	ContainerConcurrency *int64 `json:"containerConcurrency,omitempty"`
 
 	// TimeoutSeconds holds the max duration the instance is allowed for
 	// responding to a request.  If unspecified, a system default will

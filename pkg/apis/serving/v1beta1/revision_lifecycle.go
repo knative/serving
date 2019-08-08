@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/apis/config"
 )
 
 const (
@@ -37,4 +38,13 @@ func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
 // IsReady returns if the revision is ready to serve the requested configuration.
 func (rs *RevisionStatus) IsReady() bool {
 	return revisionCondSet.Manage(rs).IsHappy()
+}
+
+// GetContainerConcurrency returns the container concurrency. If
+// container concurrency is not set, the default value will be returned
+func (rs *RevisionSpec) GetContainerConcurrency() int64 {
+	if rs.ContainerConcurrency == nil {
+		return config.DefaultContainerConcurrency
+	}
+	return *rs.ContainerConcurrency
 }

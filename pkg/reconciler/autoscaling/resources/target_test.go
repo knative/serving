@@ -19,7 +19,6 @@ package resources
 import (
 	"testing"
 
-	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler"
 
@@ -59,7 +58,7 @@ func TestResolveMetricTarget(t *testing.T) {
 		wantTot: 2,
 	}, {
 		name: "with container concurrency 12 and TU=80%, but TU annotation 75%",
-		pa:   pa(WithPAContainerConcurrency(ptr.Int64(12)), WithTUAnnotation("75")),
+		pa:   pa(WithPAContainerConcurrency(12), WithTUAnnotation("75")),
 		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
 			c.ContainerConcurrencyTargetFraction = 0.8
 			return &c
@@ -67,7 +66,7 @@ func TestResolveMetricTarget(t *testing.T) {
 		wantTgt: 9,
 	}, {
 		name: "with container concurrency 10 and TU=80%",
-		pa:   pa(WithPAContainerConcurrency(ptr.Int64(10))),
+		pa:   pa(WithPAContainerConcurrency(10)),
 		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
 			c.ContainerConcurrencyTargetFraction = 0.8
 			return &c
@@ -75,7 +74,7 @@ func TestResolveMetricTarget(t *testing.T) {
 		wantTgt: 8,
 	}, {
 		name: "with container concurrency 1 and TU=80%",
-		pa:   pa(WithPAContainerConcurrency(ptr.Int64(1))),
+		pa:   pa(WithPAContainerConcurrency(1)),
 		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
 			c.ContainerConcurrencyTargetFraction = 0.8
 			return &c
@@ -83,11 +82,11 @@ func TestResolveMetricTarget(t *testing.T) {
 		wantTgt: 1, // Not permitting less than 1.
 	}, {
 		name:    "with container concurrency 1",
-		pa:      pa(WithPAContainerConcurrency(ptr.Int64(1))),
+		pa:      pa(WithPAContainerConcurrency(1)),
 		wantTgt: 1,
 	}, {
 		name: "with container concurrency 10 and TU=80%",
-		pa:   pa(WithPAContainerConcurrency(ptr.Int64(10))),
+		pa:   pa(WithPAContainerConcurrency(10)),
 		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
 			c.ContainerConcurrencyTargetFraction = 0.8
 			return &c
@@ -96,7 +95,7 @@ func TestResolveMetricTarget(t *testing.T) {
 		wantTot: 10,
 	}, {
 		name:    "with container concurrency 10",
-		pa:      pa(WithPAContainerConcurrency(ptr.Int64(10))),
+		pa:      pa(WithPAContainerConcurrency(10)),
 		wantTgt: 10,
 	}, {
 		name:    "with target annotation 1",
@@ -122,12 +121,12 @@ func TestResolveMetricTarget(t *testing.T) {
 		wantTot: 10,
 	}, {
 		name:    "with container concurrency greater than target annotation (ok)",
-		pa:      pa(WithPAContainerConcurrency(ptr.Int64(10)), WithTargetAnnotation("1")),
+		pa:      pa(WithPAContainerConcurrency(10), WithTargetAnnotation("1")),
 		wantTgt: 1,
 		wantTot: 1,
 	}, {
 		name:    "with target annotation greater than container concurrency (ignore annotation for safety)",
-		pa:      pa(WithPAContainerConcurrency(ptr.Int64(1)), WithTargetAnnotation("10")),
+		pa:      pa(WithPAContainerConcurrency(1), WithTargetAnnotation("10")),
 		wantTgt: 1,
 		wantTot: 1,
 	}}

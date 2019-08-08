@@ -44,6 +44,13 @@ const (
 	// DefaultUserContainerName is the default name we give to the container
 	// specified by the user, if `name:` is omitted.
 	DefaultUserContainerName = "user-container"
+
+	// DefaultContainerConcurrency is the default container concurrency. It will be set if ContainerConcurrency is not specified.
+	DefaultContainerConcurrency int64 = 0
+
+	// DefaultMaxRevisionContainerConcurrency is the maximum configurable
+	// container concurrency.
+	DefaultMaxRevisionContainerConcurrency int64 = 1000
 )
 
 // NewDefaultsConfigFromMap creates a Defaults from the supplied Map
@@ -64,6 +71,10 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		key:          "max-revision-timeout-seconds",
 		field:        &nc.MaxRevisionTimeoutSeconds,
 		defaultValue: DefaultMaxRevisionTimeoutSeconds,
+	}, {
+		key:          "container-concurrency",
+		field:        &nc.ContainerConcurrency,
+		defaultValue: DefaultContainerConcurrency,
 	}} {
 		if raw, ok := data[i64.key]; !ok {
 			*i64.field = i64.defaultValue
@@ -137,7 +148,7 @@ type Defaults struct {
 
 	UserContainerNameTemplate string
 
-	ContainerConcurrency *int64
+	ContainerConcurrency int64
 
 	RevisionCPURequest    *resource.Quantity
 	RevisionCPULimit      *resource.Quantity

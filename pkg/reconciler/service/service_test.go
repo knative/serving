@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"testing"
 
-	"knative.dev/pkg/ptr"
-
 	// Install our fake informers
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
@@ -792,7 +790,7 @@ func TestReconcile(t *testing.T) {
 			// Mutate the Config/Route to have a different body than we want.
 			config("update-route-and-config", "foo", WithRunLatestRollout,
 				// This is just an unexpected mutation of the config spec vs. the service spec.
-				WithConfigContainerConcurrency(ptr.Int64(5))),
+				WithConfigContainerConcurrency(5)),
 			route("update-route-and-config", "foo", WithRunLatestRollout, MutateRoute),
 		},
 		Key: "foo/update-route-and-config",
@@ -817,7 +815,7 @@ func TestReconcile(t *testing.T) {
 			// Mutate the Config/Route to have a different body than we want.
 			config("update-route-and-config", "foo", WithRunLatestRollout,
 				// Change the concurrency to ensure it is corrected.
-				WithConfigContainerConcurrency(ptr.Int64(5))),
+				WithConfigContainerConcurrency(5)),
 			route("update-route-and-config", "foo", WithRunLatestRollout, MutateRoute),
 			&v1alpha1.Revision{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1003,7 +1001,7 @@ func TestReconcile(t *testing.T) {
 			// Mutate the Config to have an unexpected body to trigger an update.
 			config("update-config-failure", "foo", WithRunLatestRollout,
 				// This is just an unexpected mutation of the config spec vs. the service spec.
-				WithConfigContainerConcurrency(ptr.Int64(5))),
+				WithConfigContainerConcurrency(5)),
 		},
 		Key: "foo/update-config-failure",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{

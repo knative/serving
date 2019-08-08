@@ -20,6 +20,7 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/config"
 )
 
@@ -45,8 +46,7 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 
 	// Default ContainerConcurrency based on our configmap
 	if rs.ContainerConcurrency == nil {
-		cc := cfg.Defaults.ContainerConcurrency
-		rs.ContainerConcurrency = cc
+		rs.ContainerConcurrency = ptr.Int64(cfg.Defaults.ContainerConcurrency)
 	}
 
 	for idx := range rs.PodSpec.Containers {

@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
-
 	"k8s.io/apimachinery/pkg/api/equality"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -35,16 +33,11 @@ func (pa *PodAutoscaler) Validate(ctx context.Context) *apis.FieldError {
 }
 
 // Validate validates PodAutoscaler Spec.
-func (rs *PodAutoscalerSpec) Validate(ctx context.Context) *apis.FieldError {
-	if equality.Semantic.DeepEqual(rs, &PodAutoscalerSpec{}) {
+func (pa *PodAutoscalerSpec) Validate(ctx context.Context) *apis.FieldError {
+	if equality.Semantic.DeepEqual(pa, &PodAutoscalerSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
-	errs := serving.ValidateNamespacedObjectReference(&rs.ScaleTargetRef).ViaField("scaleTargetRef")
-	if *rs.ContainerConcurrency < 0 || *rs.ContainerConcurrency > v1beta1.RevisionContainerConcurrencyMax {
-		errs = errs.Also(apis.ErrOutOfBoundsValue(
-			*rs.ContainerConcurrency, 0, v1beta1.RevisionContainerConcurrencyMax, apis.CurrentField))
-	}
-	return errs.Also(validateSKSFields(ctx, rs))
+	return serving.ValidateNamespacedObjectReference(&pa.ScaleTargetRef).ViaField("scaleTargetRef").Also(serving.ValidateContainerConcurrency(ctx, &pa.ContainerConcurrency).ViaField("containerConcurrency")).Also(validateSKSFields(ctx, pa))
 }
 
 func validateSKSFields(ctx context.Context, rs *PodAutoscalerSpec) (errs *apis.FieldError) {

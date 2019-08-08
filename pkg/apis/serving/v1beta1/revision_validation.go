@@ -111,18 +111,14 @@ func (current *RevisionTemplateSpec) VerifyNameChange(ctx context.Context, og Re
 
 // Validate implements apis.Validatable
 func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
-	var errs *apis.FieldError
-	if *rs.ContainerConcurrency < 0 || *rs.ContainerConcurrency > RevisionContainerConcurrencyMax {
-		errs = apis.ErrOutOfBoundsValue(
-			*rs.ContainerConcurrency, 0, RevisionContainerConcurrencyMax, apis.CurrentField)
-	}
-
-	errs = rs.ContainerConcurrency.Validate(ctx).ViaField("containerConcurrency")
-
-	errs = errs.Also(serving.ValidatePodSpec(rs.PodSpec))
+	errs := serving.ValidatePodSpec(rs.PodSpec)
 
 	if rs.TimeoutSeconds != nil {
 		errs = errs.Also(serving.ValidateTimeoutSeconds(ctx, *rs.TimeoutSeconds))
+	}
+
+	if rs.ContainerConcurrency != nil {
+		errs = errs.Also(serving.ValidateContainerConcurrency(ctx, rs.ContainerConcurrency).ViaField("containerConcurrency"))
 	}
 
 	return errs
