@@ -112,10 +112,11 @@ func (r *PrometheusStatsReporter) Report(stat *autoscaler.Stat) error {
 		return errors.New("PrometheusStatsReporter is not initialized yet")
 	}
 
+	// Operation per second is a rate over time while concurrency is not.
 	operationsPerSecondGV.With(r.labels).Set(stat.RequestCount / r.reportingPeriod.Seconds())
 	proxiedOperationsPerSecondGV.With(r.labels).Set(stat.ProxiedRequestCount / r.reportingPeriod.Seconds())
-	averageConcurrentRequestsGV.With(r.labels).Set(stat.AverageConcurrentRequests / r.reportingPeriod.Seconds())
-	averageProxiedConcurrentRequestsGV.With(r.labels).Set(stat.AverageProxiedConcurrentRequests / r.reportingPeriod.Seconds())
+	averageConcurrentRequestsGV.With(r.labels).Set(stat.AverageConcurrentRequests)
+	averageProxiedConcurrentRequestsGV.With(r.labels).Set(stat.AverageProxiedConcurrentRequests)
 
 	return nil
 }
