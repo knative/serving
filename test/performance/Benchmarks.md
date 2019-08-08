@@ -14,9 +14,9 @@ For creating new benchmarks, follow the steps:
    [mako cli](https://github.com/google/mako/blob/github-push-test-1/docs/GUIDE.md#preparing-your-benchmark).
 4. Set up the System under test(SUT) eg. properly configured Knative resources.
 5. Write a go program to run the benchmark and store results in [mako](##Writing-to-mako)
-6. Create a cronjob that will run the benchmark at some frequency. Add the mako 
-   microservice as a sidecar and add the robot account in the spec. The secrets and robot 
-   should be mounted by the cluster creation script already 
+6. Create a cronjob that will run the benchmark at some frequency. Add the mako
+   microservice as a sidecar and add the robot account in the spec. The secrets and robot
+   should be mounted by the cluster creation script already
 
 ```yaml
 - name: mako
