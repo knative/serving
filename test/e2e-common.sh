@@ -256,8 +256,8 @@ function install_knative_serving_standard() {
     fi
   else
     # Scale replicas of the Gloo proxies to handle large qps
-    kubectl scale -n gloo-system deployment knative-external-proxy --replicas=4
-    kubectl scale -n gloo-system deployment knative-internal-proxy --replicas=4
+    kubectl scale -n gloo-system deployment knative-external-proxy --replicas=6
+    kubectl scale -n gloo-system deployment knative-internal-proxy --replicas=6
   fi
 
   if [[ -n "${INSTALL_MONITORING_YAML}" ]]; then
