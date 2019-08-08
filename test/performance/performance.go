@@ -163,64 +163,86 @@ func sanitizedURL(endpoint string) string {
 type DeploymentStatus struct {
 	DesiredReplicas int32
 	ReadyReplicas   int32
+	// Time is the time when the status is fetched
+	Time time.Time
 }
 
 // FetchDeploymentStatus creates a channel that can return the up-to-date DeploymentStatus periodically.
 func FetchDeploymentStatus(
-	ctx context.Context, namespace string, selector labels.Selector, ticker *time.Ticker,
-) <-chan []DeploymentStatus {
+	ctx context.Context, namespace string, selector labels.Selector,
+	duration time.Duration, stop <-chan struct{},
+) <-chan DeploymentStatus {
 	dl := deploymentinformer.Get(ctx).Lister()
-	ch := make(chan []DeploymentStatus)
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				// Overlay the desired and ready pod counts.
-				deployments, err := dl.Deployments(namespace).List(selector)
-				if err != nil {
-					log.Printf("Error listing deployments: %v", err)
-					break
-				}
-
-				ds := make([]DeploymentStatus, len(deployments))
-				for _, d := range deployments {
-					ds = append(ds, DeploymentStatus{
-						DesiredReplicas: *d.Spec.Replicas,
-						ReadyReplicas:   d.Status.ReadyReplicas,
-					})
-				}
-				ch <- ds
-			}
+	ch := make(chan DeploymentStatus)
+	startTick(duration, stop, func(t time.Time) error {
+		// Overlay the desired and ready pod counts.
+		deployments, err := dl.Deployments(namespace).List(selector)
+		if err != nil {
+			log.Printf("Error listing deployments: %v", err)
+			return err
 		}
-	}()
+
+		for _, d := range deployments {
+			ds := DeploymentStatus{
+				DesiredReplicas: *d.Spec.Replicas,
+				ReadyReplicas:   d.Status.ReadyReplicas,
+				Time:            t,
+			}
+			ch <- ds
+		}
+		return nil
+	})
 
 	return ch
 }
 
+// ServerlessServiceStatus is a struct that wraps the status of a serverless service.
+type ServerlessServiceStatus struct {
+	Mode netv1alpha1.ServerlessServiceOperationMode
+	// Time is the time when the status is fetched
+	Time time.Time
+}
+
 // FetchSKSMode creates a channel that can return the up-to-date ServerlessServiceOperationMode periodically.
 func FetchSKSMode(
-	ctx context.Context, namespace string, selector labels.Selector, ticker *time.Ticker,
-) <-chan []netv1alpha1.ServerlessServiceOperationMode {
+	ctx context.Context, namespace string, selector labels.Selector,
+	duration time.Duration, stop <-chan struct{},
+) <-chan ServerlessServiceStatus {
 	sksl := sksinformer.Get(ctx).Lister()
-	ch := make(chan []netv1alpha1.ServerlessServiceOperationMode)
+	ch := make(chan ServerlessServiceStatus)
+	startTick(duration, stop, func(t time.Time) error {
+		// Overlay the SKS "mode".
+		skses, err := sksl.ServerlessServices(namespace).List(selector)
+		if err != nil {
+			log.Printf("Error listing serverless services: %v", err)
+			return err
+		}
+		for _, sks := range skses {
+			skss := ServerlessServiceStatus{
+				Mode: sks.Spec.Mode,
+				Time: t,
+			}
+			ch <- skss
+		}
+		return nil
+	})
+
+	return ch
+}
+
+func startTick(duration time.Duration, stop <-chan struct{}, action func(t time.Time) error) {
+	ticker := time.NewTicker(duration)
 	go func() {
 		for {
 			select {
-			case <-ticker.C:
-				// Overlay the SKS "mode".
-				skses, err := sksl.ServerlessServices("default").List(selector)
-				if err != nil {
-					log.Printf("Error listing serverless services: %v", err)
+			case t := <-ticker.C:
+				if err := action(t); err != nil {
 					break
 				}
-				sksms := make([]netv1alpha1.ServerlessServiceOperationMode, len(skses))
-				for _, sks := range skses {
-					sksms = append(sksms, sks.Spec.Mode)
-				}
-				ch <- sksms
+			case <-stop:
+				ticker.Stop()
+				return
 			}
 		}
 	}()
-
-	return ch
 }

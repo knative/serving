@@ -74,12 +74,15 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 		serving.ServiceLabelKey: fmt.Sprintf("load-test-%s", *flavor),
 	})
 
-	dt := time.NewTicker(time.Second)
-	deploymentStatus := performance.FetchDeploymentStatus(ctx, "default", selector, dt)
-	defer dt.Stop()
-	skst := time.NewTicker(time.Second)
-	sksMode := performance.FetchSKSMode(ctx, "default", selector, skst)
-	defer skst.Stop()
+	stopDeploymentCh := make(chan struct{})
+	deploymentStatus := performance.FetchDeploymentStatus(ctx, "default", selector, time.Second, stopDeploymentCh)
+	stopSKSCh := make(chan struct{})
+	sksMode := performance.FetchSKSMode(ctx, "default", selector, time.Second, stopSKSCh)
+	// When the benchmark completes, stop fetching deployment and serverless service status.
+	defer func() {
+		stopDeploymentCh <- struct{}{}
+		stopSKSCh <- struct{}{}
+	}()
 
 	for {
 		select {
@@ -104,23 +107,21 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 			// which we have data, even if there is no error.
 			errors[res.Timestamp.Unix()] += isAnError
 			requests[res.Timestamp.Unix()]++
-		case dses := <-deploymentStatus:
-			for _, ds := range dses {
-				q.AddSamplePoint(mako.XTime(time.Now()), map[string]float64{
-					"dp": float64(ds.DesiredReplicas),
-					"ap": float64(ds.ReadyReplicas),
-				})
+		case ds := <-deploymentStatus:
+			// Add a sample point for the deployment status
+			q.AddSamplePoint(mako.XTime(ds.Time), map[string]float64{
+				"dp": float64(ds.DesiredReplicas),
+				"ap": float64(ds.ReadyReplicas),
+			})
+		case sksm := <-sksMode:
+			// Add a sample point for the serverless service mode
+			mode := float64(0)
+			if sksm.Mode == netv1alpha1.SKSOperationModeProxy {
+				mode = 1.0
 			}
-		case sksms := <-sksMode:
-			for _, sksm := range sksms {
-				mode := float64(0)
-				if sksm == netv1alpha1.SKSOperationModeProxy {
-					mode = 1.0
-				}
-				q.AddSamplePoint(mako.XTime(time.Now()), map[string]float64{
-					"sks": mode,
-				})
-			}
+			q.AddSamplePoint(mako.XTime(sksm.Time), map[string]float64{
+				"sks": mode,
+			})
 		}
 	}
 }
