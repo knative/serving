@@ -52,9 +52,12 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	sharedclientset "knative.dev/pkg/client/clientset/versioned"
+	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
+	coreaccessor "knative.dev/serving/pkg/reconciler/accessor/core"
 	istioaccessor "knative.dev/serving/pkg/reconciler/accessor/istio"
 )
 
@@ -95,7 +98,10 @@ type BaseIngressReconciler struct {
 	StatusManager StatusManager
 }
 
-var _ istioaccessor.VirtualServiceAccessor = (*BaseIngressReconciler)(nil)
+var (
+	_ coreaccessor.SecretAccessor          = (*BaseIngressReconciler)(nil)
+	_ istioaccessor.VirtualServiceAccessor = (*BaseIngressReconciler)(nil)
+)
 
 // NewBaseIngressReconciler creates a new BaseIngressReconciler
 func NewBaseIngressReconciler(ctx context.Context, agentName, finalizer string, cmw configmap.Watcher) *BaseIngressReconciler {
@@ -356,43 +362,18 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 
 func (r *BaseIngressReconciler) reconcileCertSecrets(ctx context.Context, ia v1alpha1.IngressAccessor, desiredSecrets []*corev1.Secret) error {
 	for _, certSecret := range desiredSecrets {
-		if err := r.reconcileCertSecret(ctx, ia, certSecret); err != nil {
+		// We track the origin and desired secrets so that desired secrets could be synced accordingly when the origin TLS certificate
+		// secret is refreshed.
+		r.Tracker.Track(resources.SecretRef(certSecret.Namespace, certSecret.Name), ia)
+		r.Tracker.Track(resources.SecretRef(
+			certSecret.Labels[networking.OriginSecretNamespaceLabelKey],
+			certSecret.Labels[networking.OriginSecretNameLabelKey]), ia)
+		if _, err := coreaccessor.ReconcileSecret(ctx, ia, certSecret, r); err != nil {
+			if kaccessor.IsNotOwned(err) {
+				ia.GetStatus().MarkResourceNotOwned("Secret", certSecret.Name)
+			}
 			return err
 		}
-	}
-	return nil
-}
-
-func (r *BaseIngressReconciler) reconcileCertSecret(ctx context.Context, ia v1alpha1.IngressAccessor, desired *corev1.Secret) error {
-	// We track the origin and desired secrets so that desired secrets could be synced accordingly when the origin TLS certificate
-	// secret is refreshed.
-	r.Tracker.Track(resources.SecretRef(desired.Namespace, desired.Name), ia)
-	r.Tracker.Track(resources.SecretRef(desired.Labels[networking.OriginSecretNamespaceLabelKey], desired.Labels[networking.OriginSecretNameLabelKey]), ia)
-
-	logger := logging.FromContext(ctx)
-	existing, err := r.SecretLister.Secrets(desired.Namespace).Get(desired.Name)
-	if apierrs.IsNotFound(err) {
-		_, err = r.KubeClientSet.CoreV1().Secrets(desired.Namespace).Create(desired)
-		if err != nil {
-			logger.Errorw("Failed to create Certificate Secret", zap.Error(err))
-			r.Recorder.Eventf(ia, corev1.EventTypeWarning, "CreationFailed",
-				"Failed to create Secret %s/%s: %v", desired.Namespace, desired.Name, err)
-			return err
-		}
-		r.Recorder.Eventf(ia, corev1.EventTypeNormal, "Created", "Created Secret %s/%s", desired.Namespace, desired.Name)
-	} else if err != nil {
-		return err
-	} else if !equality.Semantic.DeepEqual(existing.Data, desired.Data) {
-		// Don't modify the informers copy
-		copy := existing.DeepCopy()
-		copy.Data = desired.Data
-		_, err = r.KubeClientSet.CoreV1().Secrets(copy.Namespace).Update(copy)
-		if err != nil {
-			logger.Errorw("Failed to update target secret", zap.Error(err))
-			r.Recorder.Eventf(ia, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Secret %s/%s: %v", desired.Namespace, desired.Name, err)
-			return err
-		}
-		r.Recorder.Eventf(ia, corev1.EventTypeNormal, "Updated", "Updated Secret %s/%s", copy.Namespace, copy.Name)
 	}
 	return nil
 }
@@ -404,6 +385,9 @@ func (r *BaseIngressReconciler) reconcileVirtualServices(ctx context.Context, ia
 	kept := sets.NewString()
 	for _, d := range desired {
 		if _, err := istioaccessor.ReconcileVirtualService(ctx, ia, d, r); err != nil {
+			if kaccessor.IsNotOwned(err) {
+				ia.GetStatus().MarkResourceNotOwned("VirtualService", d.Name)
+			}
 			return err
 		}
 		kept.Insert(d.Name)
@@ -529,6 +513,16 @@ func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha
 	}
 	r.Recorder.Eventf(ia, corev1.EventTypeNormal, "Updated", "Updated Gateway %s/%s", gateway.Namespace, gateway.Name)
 	return nil
+}
+
+// GetKubeClient returns the client to access k8s resources.
+func (r *BaseIngressReconciler) GetKubeClient() kubernetes.Interface {
+	return r.KubeClientSet
+}
+
+// GetSecretLister returns the lister for Secret.
+func (r *BaseIngressReconciler) GetSecretLister() corev1listers.SecretLister {
+	return r.SecretLister
 }
 
 // GetSharedClient returns the client to access shared resources.
