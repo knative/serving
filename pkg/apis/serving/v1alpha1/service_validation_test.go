@@ -1248,7 +1248,7 @@ func getServiceSpec(image string) ServiceSpec {
 			Traffic: []TrafficTarget{{
 				TrafficTarget: v1beta1.TrafficTarget{
 					LatestRevision: ptr.Bool(true),
-					Percent:        100},
+					Percent:        ptr.Int64(100)},
 			}},
 		},
 	}
