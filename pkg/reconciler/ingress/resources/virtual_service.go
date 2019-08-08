@@ -110,7 +110,7 @@ func MakeMeshVirtualService(ia v1alpha1.IngressAccessor) *v1alpha3.VirtualServic
 }
 
 // MakeVirtualServices creates a mesh virtualservice and a virtual service for each gateway
-func MakeVirtualServices(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.IngressVisibility]sets.String) ([]*v1alpha3.VirtualService, error) {
+func MakeVirtualServices(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.IngressVisibility]sets.String) ([]*v1alpha3.VirtualService, sets.String, error) {
 	vss := []*v1alpha3.VirtualService{MakeMeshVirtualService(ia)}
 
 	requiredGatewayCount := 0
@@ -126,14 +126,17 @@ func MakeVirtualServices(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.Ingr
 		vss = append(vss, MakeIngressVirtualService(ia, gateways))
 	}
 
+	probeHosts := sets.String{}
 	// Add probe routes
 	for _, vs := range vss {
-		if _, err := InsertProbe(vs); err != nil {
-			return nil, errors.Wrapf(err, "failed to insert probe route to %s/%s", vs.Namespace, vs.Name)
+		host, err := InsertProbe(vs)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "failed to insert probe route to %s/%s", vs.Namespace, vs.Name)
 		}
+		probeHosts.Insert(host)
 	}
 
-	return vss, nil
+	return vss, probeHosts, nil
 }
 
 // InsertProbe inserts a rule used to probe the VirtualService

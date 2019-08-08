@@ -288,6 +288,7 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 	logger.Infof("Reconciling ingress: %#v", ia)
 
 	gatewayNames := qualifiedGatewayNamesFromContext(ctx)
+	var ingressGateways []*v1alpha3.Gateway
 	if ia.IsPublic() {
 		// We used to add Servers of the given Ingress to shared Gateways.
 		// Now as we start splitting Gateway, we need to remove them from the shared Gateways.
@@ -309,21 +310,27 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 		if err := r.reconcileCertSecrets(ctx, ia, targetSecrets); err != nil {
 			return err
 		}
-		ingressGateways, err := resources.MakeIngressGateways(ctx, ia, originSecrets, r.ServiceLister)
+		ingressGateways, err = resources.MakeIngressGateways(ctx, ia, originSecrets, r.ServiceLister)
 		if err != nil {
 			return err
-		}
-		for _, ingressGateway := range ingressGateways {
-			if err := r.reconcileIngressGateway(ctx, ia, ingressGateway); err != nil {
-				return err
-			}
 		}
 		gatewayNames[v1alpha1.IngressVisibilityExternalIP].Insert(resources.GetQualifiedGatewayNames(ingressGateways)...)
 	}
 
-	vses, err := resources.MakeVirtualServices(ia, gatewayNames)
+	vses, probeHosts, err := resources.MakeVirtualServices(ia, gatewayNames)
 	if err != nil {
 		return err
+	}
+
+	if ia.IsPublic() {
+		for _, ingressGateway := range ingressGateways {
+			for i := range ingressGateway.Spec.Servers {
+				ingressGateway.Spec.Servers[i].Hosts = append(ingressGateway.Spec.Servers[i].Hosts, probeHosts.List()...)
+			}
+			if err := r.reconcileIngressGateway(ctx, ia, ingressGateway); err != nil {
+				return err
+			}
+		}
 	}
 
 	// Create the VirtualServices.
