@@ -24,10 +24,6 @@ import (
 	"strings"
 	"time"
 
-	"knative.dev/pkg/injection/clients/kubeclient"
-	deploymentinformer "knative.dev/pkg/injection/informers/kubeinformers/appsv1/deployment"
-	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
-
 	"github.com/google/mako/helpers/go/quickstore"
 	qpb "github.com/google/mako/helpers/proto/quickstore/quickstore_go_proto"
 	vegeta "github.com/tsenart/vegeta/lib"
@@ -35,6 +31,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
+	"knative.dev/pkg/injection/clients/kubeclient"
 	"knative.dev/pkg/signals"
 	pkgpacers "knative.dev/pkg/test/vegeta/pacers"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
