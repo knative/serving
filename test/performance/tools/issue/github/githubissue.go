@@ -43,7 +43,7 @@ const (
 	// reopenIssueCommentTemplate is a template for the comment of an issue that is reopened
 	reopenIssueCommentTemplate = `
 New regression has been detected, reopening this issue:
-%s	
+%s
 	`
 
 	// newIssueCommentTemplate is a template for the comment of an issue that has been quiet for a long time
