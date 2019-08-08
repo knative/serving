@@ -254,6 +254,10 @@ function install_knative_serving_standard() {
       # Some versions of Istio don't provide an HPA for pilot.
       kubectl autoscale -n istio-system deploy istio-pilot --min=3 --max=10 --cpu-percent=60 || return 1
     fi
+  else
+    # Scale replicas of the Gloo proxies to handle large qps
+    kubectl scale -n gloo-system deployment knative-external-proxy --replicas=4
+    kubectl scale -n gloo-system deployment knative-internal-proxy --replicas=4
   fi
 
   if [[ -n "${INSTALL_MONITORING_YAML}" ]]; then
