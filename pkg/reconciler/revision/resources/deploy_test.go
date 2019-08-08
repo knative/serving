@@ -218,6 +218,7 @@ var (
 			Labels: map[string]string{
 				serving.ConfigurationLabelKey: "cfg",
 				serving.ServiceLabelKey:       "svc",
+				serving.RouteLabelKey:         "im-a-route",
 			},
 		},
 		Spec: v1alpha1.RevisionSpec{

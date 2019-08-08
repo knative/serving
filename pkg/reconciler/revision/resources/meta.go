@@ -25,7 +25,12 @@ import (
 
 // makeLabels constructs the labels we will apply to K8s resources.
 func makeLabels(revision *v1alpha1.Revision) map[string]string {
-	labels := resources.UnionMaps(revision.GetLabels(), map[string]string{
+	labels := resources.FilterMap(revision.GetLabels(), func(k string) bool {
+		// Exclude the Route label so that a Revision becoming routable
+		// doesn't trigger deployment updates.
+		return k == serving.RouteLabelKey
+	})
+	labels = resources.UnionMaps(labels, map[string]string{
 		serving.RevisionLabelKey: revision.Name,
 		serving.RevisionUID:      string(revision.UID),
 	})
