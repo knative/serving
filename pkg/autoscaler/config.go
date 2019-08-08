@@ -99,7 +99,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	}, {
 		key:          "target-burst-capacity",
 		field:        &lc.TargetBurstCapacity,
-		defaultValue: 200,
+		defaultValue: 0,
 	}, {
 		key:          "panic-window-percentage",
 		field:        &lc.PanicWindowPercentage,
