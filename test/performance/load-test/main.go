@@ -33,6 +33,7 @@ import (
 	"knative.dev/pkg/injection"
 	deploymentinformer "knative.dev/pkg/injection/informers/kubeinformers/appsv1/deployment"
 	"knative.dev/pkg/signals"
+	pkgpacers "knative.dev/pkg/test/vegeta/pacers"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 
@@ -198,12 +199,19 @@ func main() {
 		Method: "GET",
 		URL:    fmt.Sprintf("http://load-test-%s.default.svc.cluster.local?sleep=100", *flavor),
 	})
-	// TODO(mattmoor): Replace this ramp up with a pacer.
+
+	pacers := make([]vegeta.Pacer, 3)
+	durations := make([]time.Duration, 3)
 	for i := 1; i < 4; i++ {
-		rate := vegeta.Rate{Freq: i, Per: time.Millisecond}
-		results := vegeta.NewAttacker().Attack(targeter, rate, duration, "load-test")
-		processResults(ctx, q, results)
+		pacers = append(pacers, vegeta.Rate{Freq: i, Per: time.Millisecond})
+		durations = append(durations, duration)
 	}
+	pacer, err := pkgpacers.NewCombined(pacers, durations)
+	if err != nil {
+		fatalf("Error creating the pacer: %v", err)
+	}
+	results := vegeta.NewAttacker().Attack(targeter, pacer, 3*duration, "load-test")
+	processResults(ctx, q, results)
 
 	out, err := q.Store()
 	if err != nil {
