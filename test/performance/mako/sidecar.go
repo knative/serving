@@ -18,17 +18,15 @@ package mako
 
 import (
 	"context"
-	"fmt"
 
-	"knative.dev/pkg/changeset"
-	"knative.dev/pkg/injection/clients/kubeclient"
 	"github.com/golang/protobuf/proto"
-        "github.com/google/mako/helpers/go/quickstore"
-        qpb "github.com/google/mako/helpers/proto/quickstore/quickstore_go_proto"
+	"github.com/google/mako/helpers/go/quickstore"
+	qpb "github.com/google/mako/helpers/proto/quickstore/quickstore_go_proto"
+	"knative.dev/pkg/changeset"
 )
 
 const (
-	// SidecarAddress is the address of the Mako sidecar to which we locally
+	// sidecarAddress is the address of the Mako sidecar to which we locally
 	// write results, and it authenticates and publishes them to Mako after
 	// assorted preprocessing.
 	sidecarAddress = "localhost:9813"
@@ -38,25 +36,18 @@ const (
 // It will add a few common tags and allows each benchmark to add custm tags as well.
 // It returns the mako client handle to sotre metrics, a method to close the connection
 // to mako server once done and error if case of failures.
-func SetupMako(ctx context.Context, benchmarkKey string, extraTags []string)(*quickstore.Quickstore, func(context.Context), error) {
+func Setup(ctx context.Context, benchmarkKey string, extraTags ...string) (*quickstore.Quickstore, func(context.Context), error) {
 	var close func(context.Context)
 	tags := []string{"master"}
-        if commitID, err := changeset.Get(); err == nil {
-                tags = append(tags, commitID)
-        } else {
-		return nil, close, err
-        }
-
-	// Get the Kubernetes version from the API server.
-	if version, err := kubeclient.Get(ctx).Discovery().ServerVersion(); err == nil {
-		tags = append(tags, fmt.Sprintf("kubernetes=%s", version))
+	if commitID, err := changeset.Get(); err == nil {
+		tags = append(tags, commitID)
 	} else {
 		return nil, close, err
 	}
 
 	tags = append(tags, extraTags...)
-        return quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
-                BenchmarkKey: proto.String(benchmarkKey),
-                Tags: tags,
+	return quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
+		BenchmarkKey: proto.String(benchmarkKey),
+		Tags:         tags,
 	}, sidecarAddress)
 }

@@ -30,9 +30,11 @@ import (
 	"github.com/google/mako/helpers/go/quickstore"
 	vegeta "github.com/tsenart/vegeta/lib"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
+	"knative.dev/pkg/injection/clients/kubeclient"
 	"knative.dev/pkg/signals"
 	pkgpacers "knative.dev/pkg/test/vegeta/pacers"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -171,10 +173,23 @@ func main() {
 	if *flavor == "" {
 		log.Fatalf("-flavor is a required flag.")
 	}
+	tags := []string{fmt.Sprintf("tbc=%s", *flavor)}
+
+	// Get the Kubernetes version from the API server.
+	c := kubeclient.Get(ctx)
+	if c != nil {
+		log.Fatalf("Failed to fetch %T from context.", (kubernetes.Interface)(nil))
+	}
+
+	version, err := c.Discovery().ServerVersion()
+	if err != nil {
+		log.Fatalf("Failed to fetch kubernetes version: %v", err)
+	}
+	tags = append(tags, fmt.Sprintf("kubernetes=%s", version))
 
 	// Use the benchmark key created
-	tags := []string{fmt.Sprintf("tbc=%s", *flavor)}
-	q, qclose, err := mako.SetupMako(ctx, *benchmark, tags)
+	// TODO: Interpret the key from the config instead of copying and passing it
+	q, qclose, err := mako.Setup(ctx, *benchmark, tags...)
 	if err != nil {
 		log.Fatalf("failed to setup mako: %v", err)
 	}
