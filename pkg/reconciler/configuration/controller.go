@@ -21,13 +21,11 @@ import (
 
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
-
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/reconciler"
-	configns "knative.dev/serving/pkg/reconciler/configuration/config"
 )
 
 const controllerAgentName = "configuration-controller"
@@ -55,11 +53,6 @@ func NewController(
 		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Configuration")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
-
-	c.Logger.Info("Setting up ConfigMap receivers")
-	configStore := configns.NewStore(c.Logger.Named("config-store"), controller.GetResyncPeriod(ctx))
-	configStore.WatchConfigs(c.ConfigMapWatcher)
-	c.configStore = configStore
 
 	return impl
 }

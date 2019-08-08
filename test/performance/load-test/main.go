@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"time"
 
@@ -32,15 +33,17 @@ import (
 	"knative.dev/pkg/injection"
 	deploymentinformer "knative.dev/pkg/injection/informers/kubeinformers/appsv1/deployment"
 	"knative.dev/pkg/signals"
+	pkgpacers "knative.dev/pkg/test/vegeta/pacers"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 
+	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/test/performance/mako"
 )
 
 var (
 	benchmark  = flag.String("benchmark", "", "The mako benchmark ID")
-	qps        = flag.Int("qps", 0, "The number of requests to send per second.")
+	flavor     = flag.String("flavor", "", "The flavor of the benchmark to run.")
 	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 )
@@ -73,6 +76,10 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 		}
 	}()
 
+	selector := labels.SelectorFromSet(labels.Set{
+		serving.ServiceLabelKey: fmt.Sprintf("load-test-%s", *flavor),
+	})
+
 	for {
 		select {
 		case res, ok := <-results:
@@ -102,7 +109,7 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 			// and overlay the resulting data.
 
 			// Overlay the desired and ready pod counts.
-			deployments, err := dl.Deployments("default").List(labels.Everything())
+			deployments, err := dl.Deployments("default").List(selector)
 			if err != nil {
 				log.Printf("Error listing deployments: %v", err)
 				break
@@ -116,7 +123,7 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 			}
 
 			// Overlay the SKS "mode".
-			skses, err := sksl.ServerlessServices("default").List(labels.Everything())
+			skses, err := sksl.ServerlessServices("default").List(selector)
 			if err != nil {
 				log.Printf("Error listing deployments: %v", err)
 				break
@@ -148,7 +155,7 @@ func main() {
 	// Use the benchmark key created
 	q, qclose, err := quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
 		BenchmarkKey: proto.String(*benchmark),
-		Tags:         []string{"master"},
+		Tags:         []string{"master", fmt.Sprintf("tbc=%s", *flavor)},
 	}, mako.SidecarAddress)
 	if err != nil {
 		log.Fatalf("failed NewAtAddress: %v", err)
@@ -167,8 +174,8 @@ func main() {
 	if *benchmark == "" {
 		fatalf("-benchmark is a required flag.")
 	}
-	if *qps < 1 {
-		fatalf("-qps is a required flag, and must have a positive value.")
+	if *flavor == "" {
+		fatalf("-flavor is a required flag.")
 	}
 
 	// Setup a deployment informer, so that we can use the lister to track
@@ -190,14 +197,21 @@ func main() {
 	const duration = 2 * time.Minute
 	targeter := vegeta.NewStaticTargeter(vegeta.Target{
 		Method: "GET",
-		URL:    "http://load-test.default.svc.cluster.local?sleep=100",
+		URL:    fmt.Sprintf("http://load-test-%s.default.svc.cluster.local?sleep=100", *flavor),
 	})
-	// TODO(mattmoor): Replace this ramp up with a pacer.
+
+	pacers := make([]vegeta.Pacer, 3)
+	durations := make([]time.Duration, 3)
 	for i := 1; i < 4; i++ {
-		rate := vegeta.Rate{Freq: i, Per: time.Millisecond}
-		results := vegeta.NewAttacker().Attack(targeter, rate, duration, "load-test")
-		processResults(ctx, q, results)
+		pacers = append(pacers, vegeta.Rate{Freq: i, Per: time.Millisecond})
+		durations = append(durations, duration)
 	}
+	pacer, err := pkgpacers.NewCombined(pacers, durations)
+	if err != nil {
+		fatalf("Error creating the pacer: %v", err)
+	}
+	results := vegeta.NewAttacker().Attack(targeter, pacer, 3*duration, "load-test")
+	processResults(ctx, q, results)
 
 	out, err := q.Store()
 	if err != nil {

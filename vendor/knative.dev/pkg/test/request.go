@@ -150,12 +150,12 @@ func WaitForEndpointStateWithTimeout(
 	defer logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForEndpointState/%s", desc)).End()
 
 	// Try parsing the "theURL" with and without a scheme.
-	asURL, err := url.Parse(fmt.Sprintf("http://%s", theURL))
+	asURL, err := url.Parse(theURL)
 	if err != nil {
-		asURL, err = url.Parse(theURL)
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
+	}
+	if asURL.Scheme == "" {
+		asURL.Scheme = "http"
 	}
 
 	req, err := http.NewRequest(http.MethodGet, asURL.String(), nil)

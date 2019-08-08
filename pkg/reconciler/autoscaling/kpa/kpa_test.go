@@ -1140,8 +1140,8 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	// Wait for decider to be created.
 	if decider, err := pollDeciders(fakeDeciders, testNamespace, testRevision, nil); err != nil {
 		t.Fatalf("Failed to get decider: %v", err)
-	} else if got, want := decider.Spec.TargetConcurrency, defaultConcurrencyTarget*defaultTU; got != want {
-		t.Fatalf("TargetConcurrency = %v, want %v", got, want)
+	} else if got, want := decider.Spec.TargetValue, defaultConcurrencyTarget*defaultTU; got != want {
+		t.Fatalf("TargetValue = %v, want %v", got, want)
 	}
 
 	concurrencyTargetAfterUpdate := 100.0
@@ -1157,12 +1157,12 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 
 	// Wait for decider to be updated with the new values from the configMap.
 	cond := func(d *autoscaler.Decider) bool {
-		return d.Spec.TargetConcurrency == concurrencyTargetAfterUpdate
+		return d.Spec.TargetValue == concurrencyTargetAfterUpdate
 	}
 	if decider, err := pollDeciders(fakeDeciders, testNamespace, testRevision, cond); err != nil {
 		t.Fatalf("Failed to get decider: %v", err)
-	} else if got, want := decider.Spec.TargetConcurrency, concurrencyTargetAfterUpdate*defaultTU; got != want {
-		t.Fatalf("TargetConcurrency = %v, want %v", got, want)
+	} else if got, want := decider.Spec.TargetValue, concurrencyTargetAfterUpdate*defaultTU; got != want {
+		t.Fatalf("TargetValue = %v, want %v", got, want)
 	}
 }
 
@@ -1560,8 +1560,8 @@ func decider(ns, name string, desiredScale int32) *autoscaler.Decider {
 		Spec: autoscaler.DeciderSpec{
 			MaxScaleUpRate:      10.0,
 			TickInterval:        2 * time.Second,
-			TargetConcurrency:   100,
-			TotalConcurrency:    100,
+			TargetValue:         100,
+			TotalValue:          100,
 			TargetBurstCapacity: 211,
 			PanicThreshold:      200,
 			StableWindow:        60 * time.Second,
