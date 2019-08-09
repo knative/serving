@@ -480,8 +480,8 @@ spec:
         gloo: gloo
     spec:
       containers:
-      - image: docker.io/ilackarms/gloo:test-ilackarms
-        imagePullPolicy: Always
+      - image: quay.io/solo-io/gloo:0.18.12
+        imagePullPolicy: IfNotPresent
         name: gloo
         resources:
           requests:
@@ -527,8 +527,8 @@ spec:
         gloo: ingress
     spec:
       containers:
-      - image: docker.io/ilackarms/ingress:test-ilackarms
-        imagePullPolicy: Always
+      - image: quay.io/solo-io/ingress:0.18.12
+        imagePullPolicy: IfNotPresent
         name: ingress
         env:
         - name: POD_NAMESPACE
@@ -574,8 +574,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        image: quay.io/solo-io/gloo-envoy-wrapper:0.18.9
-        imagePullPolicy: Always
+        image: quay.io/solo-io/gloo-envoy-wrapper:0.18.12
+        imagePullPolicy: IfNotPresent
         name: knative-external-proxy
         securityContext:
           readOnlyRootFilesystem: true
@@ -632,8 +632,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        image: quay.io/solo-io/gloo-envoy-wrapper:0.18.9
-        imagePullPolicy: Always
+        image: quay.io/solo-io/gloo-envoy-wrapper:0.18.12
+        imagePullPolicy: IfNotPresent
         name: knative-internal-proxy
         securityContext:
           readOnlyRootFilesystem: true
@@ -680,8 +680,8 @@ spec:
         gloo: discovery
     spec:
       containers:
-      - image: docker.io/ilackarms/discovery:test-ilackarms
-        imagePullPolicy: Always
+      - image: quay.io/solo-io/discovery:0.18.12
+        imagePullPolicy: IfNotPresent
         name: discovery
         securityContext:
           readOnlyRootFilesystem: true
