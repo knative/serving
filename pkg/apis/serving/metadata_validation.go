@@ -138,21 +138,17 @@ func SetUserInfo(ctx context.Context, oldSpec, newSpec, resource interface{}) {
 // ValidateRevisionName validates name and generateName for the revisionTemplate
 func ValidateRevisionName(ctx context.Context, name, generateName string) *apis.FieldError {
 	if generateName != "" {
-		msgs := validation.NameIsDNS1035Label(generateName, true)
-		if len(msgs) > 0 {
-			return &apis.FieldError{
-				Message: fmt.Sprintf("not a DNS 1035 label prefix: %v", msgs),
-				Paths:   []string{"metadata.generateName"},
-			}
+		if msgs := validation.NameIsDNS1035Label(generateName, true); len(msgs) > 0 {
+			return apis.ErrInvalidValue(
+				fmt.Sprintf("not a DNS 1035 label prefix: %v", msgs),
+				"metadata.generateName")
 		}
 	}
 	if name != "" {
-		msgs := validation.NameIsDNS1035Label(name, false)
-		if len(msgs) > 0 {
-			return &apis.FieldError{
-				Message: fmt.Sprintf("not a DNS 1035 label: %v", msgs),
-				Paths:   []string{"metadata.name"},
-			}
+		if msgs := validation.NameIsDNS1035Label(name, false); len(msgs) > 0 {
+			return apis.ErrInvalidValue(
+				fmt.Sprintf("not a DNS 1035 label: %v", msgs),
+				"metadata.name")
 		}
 		om := apis.ParentMeta(ctx)
 		prefix := om.Name + "-"
