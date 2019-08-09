@@ -28,7 +28,7 @@ spec:
           - name: update-serving
             image: gcr.io/knative-performance/update-serving:latest
             imagePullPolicy: Always
-            command: ["/tools/recreate-serving/recreate.sh"]
+            command: ["/workspace/tools/recreate-serving/recreate.sh"]
             env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secret/robot.json
