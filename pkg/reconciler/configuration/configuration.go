@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"sort"
-	"time"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -37,7 +35,6 @@ import (
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 	"knative.dev/serving/pkg/reconciler"
-	configns "knative.dev/serving/pkg/reconciler/configuration/config"
 	"knative.dev/serving/pkg/reconciler/configuration/resources"
 )
 
@@ -66,8 +63,6 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return nil
 	}
 	logger := logging.FromContext(ctx)
-
-	ctx = c.configStore.ToContext(ctx)
 
 	// Get the Configuration resource with this namespace/name.
 	original, err := c.configurationLister.Configurations(namespace).Get(name)
@@ -203,7 +198,7 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 		return err
 	}
 
-	return c.gcRevisions(ctx, config)
+	return nil
 }
 
 // CheckNameAvailability checks that if the named Revision specified by the Configuration
@@ -291,73 +286,4 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Configuration) (*v1alpha1.Co
 	existing := config.DeepCopy()
 	existing.Status = desired.Status
 	return c.ServingClientSet.ServingV1alpha1().Configurations(desired.Namespace).UpdateStatus(existing)
-}
-
-func (c *Reconciler) gcRevisions(ctx context.Context, config *v1alpha1.Configuration) error {
-	cfg := configns.FromContext(ctx).RevisionGC
-	logger := logging.FromContext(ctx)
-
-	selector := labels.Set{serving.ConfigurationLabelKey: config.Name}.AsSelector()
-	revs, err := c.revisionLister.Revisions(config.Namespace).List(selector)
-	if err != nil {
-		return err
-	}
-
-	gcSkipOffset := cfg.StaleRevisionMinimumGenerations
-
-	if gcSkipOffset >= int64(len(revs)) {
-		return nil
-	}
-
-	// Sort by creation timestamp descending
-	sort.Slice(revs, func(i, j int) bool {
-		return revs[j].CreationTimestamp.Before(&revs[i].CreationTimestamp)
-	})
-
-	for _, rev := range revs[gcSkipOffset:] {
-		if isRevisionStale(ctx, rev, config) {
-			err := c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
-			if err != nil {
-				logger.Errorf("Failed to delete stale revision: %v", err)
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func isRevisionStale(ctx context.Context, rev *v1alpha1.Revision, config *v1alpha1.Configuration) bool {
-	cfg := configns.FromContext(ctx).RevisionGC
-	logger := logging.FromContext(ctx)
-
-	if config.Status.LatestReadyRevisionName == rev.Name {
-		return false
-	}
-
-	curTime := time.Now()
-	if rev.ObjectMeta.CreationTimestamp.Add(cfg.StaleRevisionCreateDelay).After(curTime) {
-		// Revision was created sooner than staleRevisionCreateDelay. Ignore it.
-		return false
-	}
-
-	lastPin, err := rev.GetLastPinned()
-	if err != nil {
-		if err.(v1alpha1.LastPinnedParseError).Type != v1alpha1.AnnotationParseErrorTypeMissing {
-			logger.Errorf("Failed to determine revision last pinned: %v", err)
-		} else {
-			// Revision was never pinned and its RevisionConditionReady is not true after staleRevisionCreateDelay.
-			// It usually happens when ksvc was deployed with wrong configuration.
-			rc := rev.Status.GetCondition(v1beta1.RevisionConditionReady)
-			if rc == nil || rc.Status != corev1.ConditionTrue {
-				return true
-			}
-		}
-		return false
-	}
-
-	ret := lastPin.Add(cfg.StaleRevisionTimeout).Before(curTime)
-	if ret {
-		logger.Infof("Detected stale revision %v with creation time %v and lastPinned time %v.", rev.ObjectMeta.Name, rev.ObjectMeta.CreationTimestamp, lastPin)
-	}
-	return ret
 }

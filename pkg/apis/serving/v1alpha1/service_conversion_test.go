@@ -87,7 +87,7 @@ func TestServiceConversion(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:            "latest",
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(true),
 						},
 					}},
@@ -109,7 +109,7 @@ func TestServiceConversion(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:            "latest",
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 							RevisionName:   "foo-00001",
 							LatestRevision: ptr.Bool(true),
 						},
@@ -154,7 +154,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 		RouteStatusFields: RouteStatusFields{
 			Traffic: []TrafficTarget{{
 				TrafficTarget: v1beta1.TrafficTarget{
-					Percent:      100,
+					Percent:      ptr.Int64(100),
 					RevisionName: "foo-00001",
 				},
 			}},
@@ -248,7 +248,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						TrafficTarget: v1beta1.TrafficTarget{
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(true),
 						},
 					}},
@@ -341,13 +341,13 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:          "current",
 							RevisionName: "foo-00001",
-							Percent:      100,
+							Percent:      ptr.Int64(100),
 						},
 					}, {
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:            "latest",
 							LatestRevision: ptr.Bool(true),
-							Percent:        0,
+							Percent:        nil,
 						},
 					}},
 				},
@@ -440,19 +440,19 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:          "current",
 							RevisionName: "foo-00001",
-							Percent:      78,
+							Percent:      ptr.Int64(78),
 						},
 					}, {
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:          "candidate",
 							RevisionName: "foo-00002",
-							Percent:      22,
+							Percent:      ptr.Int64(22),
 						},
 					}, {
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:            "latest",
 							LatestRevision: ptr.Bool(true),
-							Percent:        0,
+							Percent:        nil,
 						},
 					}},
 				},
@@ -545,19 +545,19 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:          "current",
 							RevisionName: "foo-00001",
-							Percent:      63,
+							Percent:      ptr.Int64(63),
 						},
 					}, {
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:            "candidate",
 							LatestRevision: ptr.Bool(true),
-							Percent:        37,
+							Percent:        ptr.Int64(37),
 						},
 					}, {
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:            "latest",
 							LatestRevision: ptr.Bool(true),
-							Percent:        0,
+							Percent:        nil,
 						},
 					}},
 				},
@@ -648,7 +648,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName: "foo-00001",
-							Percent:      100,
+							Percent:      ptr.Int64(100),
 						},
 					}},
 				},

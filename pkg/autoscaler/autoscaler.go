@@ -128,7 +128,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
 
 	metricKey := types.NamespacedName{Namespace: a.namespace, Name: a.revision}
-	observedStableConcurrency, observedPanicConcurrency, err := a.metricClient.StableAndPanicConcurrency(metricKey, now)
+	observedStableValue, observedPanicValue, err := a.metricClient.StableAndPanicConcurrency(metricKey, now)
 	if err != nil {
 		if err == ErrNoData {
 			logger.Debug("No data to scale on yet")
@@ -139,26 +139,26 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	}
 
 	maxScaleUp := spec.MaxScaleUpRate * readyPodsCount
-	desiredStablePodCount := int32(math.Min(math.Ceil(observedStableConcurrency/spec.TargetConcurrency), maxScaleUp))
-	desiredPanicPodCount := int32(math.Min(math.Ceil(observedPanicConcurrency/spec.TargetConcurrency), maxScaleUp))
+	desiredStablePodCount := int32(math.Min(math.Ceil(observedStableValue/spec.TargetValue), maxScaleUp))
+	desiredPanicPodCount := int32(math.Min(math.Ceil(observedPanicValue/spec.TargetValue), maxScaleUp))
 
-	a.reporter.ReportStableRequestConcurrency(observedStableConcurrency)
-	a.reporter.ReportPanicRequestConcurrency(observedPanicConcurrency)
-	a.reporter.ReportTargetRequestConcurrency(spec.TargetConcurrency)
+	a.reporter.ReportStableRequestConcurrency(observedStableValue)
+	a.reporter.ReportPanicRequestConcurrency(observedPanicValue)
+	a.reporter.ReportTargetRequestConcurrency(spec.TargetValue)
 
 	logger.Debugw(fmt.Sprintf("Observed average %0.3f concurrency, targeting %0.3f.",
-		observedStableConcurrency, spec.TargetConcurrency),
+		observedStableValue, spec.TargetValue),
 		zap.String("concurrency", "stable"))
 	logger.Debugw(fmt.Sprintf("Observed average %0.3f concurrency, targeting %0.3f.",
-		observedPanicConcurrency, spec.TargetConcurrency),
+		observedPanicValue, spec.TargetValue),
 		zap.String("concurrency", "panic"))
 
-	isOverPanicThreshold := observedPanicConcurrency/readyPodsCount >= spec.PanicThreshold
+	isOverPanicThreshold := observedPanicValue/readyPodsCount >= spec.PanicThreshold
 
 	a.stateMux.Lock()
 	defer a.stateMux.Unlock()
 	if a.panicTime == nil && isOverPanicThreshold {
-		// Begin panicking when we cross the concurrency threshold in the panic window.
+		// Begin panicking when we cross the threshold in the panic window.
 		logger.Info("PANICKING")
 		a.panicTime = &now
 		a.reporter.ReportPanic(1)
@@ -184,7 +184,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 		desiredPodCount = desiredStablePodCount
 	}
 
-	// Compute the excess burst capacity based on stable concurrency for now, since we don't want to
+	// Compute the excess burst capacity based on stable value for now, since we don't want to
 	// be making knee-jerk decisions about Activator in the request path. Negative EBC means
 	// that the deployment does not have enough capacity to serve the desired burst off hand.
 	// EBC = TotCapacity - Cur#ReqInFlight - TargetBurstCapacity
@@ -193,12 +193,12 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	case a.deciderSpec.TargetBurstCapacity == 0:
 		excessBC = 0
 	case a.deciderSpec.TargetBurstCapacity >= 0:
-		excessBC = int32(math.Floor(float64(originalReadyPodsCount)*a.deciderSpec.TotalConcurrency - observedStableConcurrency -
+		excessBC = int32(math.Floor(float64(originalReadyPodsCount)*a.deciderSpec.TotalValue - observedStableValue -
 			a.deciderSpec.TargetBurstCapacity))
 		logger.Debugf("PodCount=%v TotalConc=%v ObservedStableConc=%v TargetBC=%v ExcessBC=%v",
 			originalReadyPodsCount,
-			a.deciderSpec.TotalConcurrency,
-			observedStableConcurrency, a.deciderSpec.TargetBurstCapacity, excessBC)
+			a.deciderSpec.TotalValue,
+			observedStableValue, a.deciderSpec.TargetBurstCapacity, excessBC)
 	}
 	a.reporter.ReportExcessBurstCapacity(float64(excessBC))
 

@@ -52,7 +52,7 @@ func TestRouteRunLatest(t *testing.T) {
 	}
 	wantT := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
-			Percent:           100,
+			Percent:           ptr.Int64(100),
 			ConfigurationName: testConfigName,
 			LatestRevision:    ptr.Bool(true),
 		},
@@ -95,7 +95,7 @@ func TestRoutePinned(t *testing.T) {
 	}
 	wantT := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
-			Percent:        100,
+			Percent:        ptr.Int64(100),
 			RevisionName:   testRevisionName,
 			LatestRevision: ptr.Bool(false),
 		},
@@ -131,7 +131,7 @@ func TestRouteReleaseSingleRevision(t *testing.T) {
 	wantT := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			Tag:            v1alpha1.CurrentTrafficTarget,
-			Percent:        100,
+			Percent:        ptr.Int64(100),
 			RevisionName:   testRevisionName,
 			LatestRevision: ptr.Bool(false),
 		},
@@ -176,14 +176,14 @@ func TestRouteLatestRevisionSplit(t *testing.T) {
 	wantT := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			Tag:               v1alpha1.CurrentTrafficTarget,
-			Percent:           currentPercent,
+			Percent:           ptr.Int64(currentPercent),
 			ConfigurationName: testConfigName,
 			LatestRevision:    ptr.Bool(true),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
 			Tag:            v1alpha1.CandidateTrafficTarget,
-			Percent:        rolloutPercent,
+			Percent:        ptr.Int64(rolloutPercent),
 			RevisionName:   "juicy-revision",
 			LatestRevision: ptr.Bool(false),
 		},
@@ -228,14 +228,14 @@ func TestRouteLatestRevisionSplitCandidate(t *testing.T) {
 	wantT := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			Tag:            v1alpha1.CurrentTrafficTarget,
-			Percent:        currentPercent,
+			Percent:        ptr.Int64(currentPercent),
 			RevisionName:   "squishy-revision",
 			LatestRevision: ptr.Bool(false),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
 			Tag:               v1alpha1.CandidateTrafficTarget,
-			Percent:           rolloutPercent,
+			Percent:           ptr.Int64(rolloutPercent),
 			ConfigurationName: testConfigName,
 			LatestRevision:    ptr.Bool(true),
 		},
@@ -278,7 +278,7 @@ func TestRouteLatestRevisionNoSplit(t *testing.T) {
 	wantT := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			Tag:               v1alpha1.CurrentTrafficTarget,
-			Percent:           100,
+			Percent:           ptr.Int64(100),
 			ConfigurationName: testConfigName,
 			LatestRevision:    ptr.Bool(true),
 		},
@@ -324,14 +324,14 @@ func TestRouteReleaseTwoRevisions(t *testing.T) {
 	wantT := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
 			Tag:            v1alpha1.CurrentTrafficTarget,
-			Percent:        currentPercent,
+			Percent:        ptr.Int64(currentPercent),
 			RevisionName:   testRevisionName,
 			LatestRevision: ptr.Bool(false),
 		},
 	}, {
 		TrafficTarget: v1beta1.TrafficTarget{
 			Tag:            v1alpha1.CandidateTrafficTarget,
-			Percent:        100 - currentPercent,
+			Percent:        ptr.Int64(100 - currentPercent),
 			RevisionName:   testCandidateRevisionName,
 			LatestRevision: ptr.Bool(false),
 		},
@@ -373,7 +373,7 @@ func TestInlineRouteSpec(t *testing.T) {
 	}
 	wantT := []v1alpha1.TrafficTarget{{
 		TrafficTarget: v1beta1.TrafficTarget{
-			Percent:           100,
+			Percent:           ptr.Int64(100),
 			ConfigurationName: testConfigName,
 			LatestRevision:    ptr.Bool(true),
 		},

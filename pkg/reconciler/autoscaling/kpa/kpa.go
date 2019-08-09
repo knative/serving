@@ -19,14 +19,12 @@ package kpa
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -277,13 +275,10 @@ func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want int32, got int) {
 
 // activeThreshold returns the scale required for the pa to be marked Active
 func activeThreshold(pa *pav1alpha1.PodAutoscaler) int {
-	if min, ok := pa.Annotations[autoscaling.MinScaleAnnotationKey]; ok {
-		if ms, err := strconv.Atoi(min); err == nil {
-			if ms > 1 {
-				return ms
-			}
-		}
+	min, _ := pa.ScaleBounds()
+	if min < 1 {
+		min = 1
 	}
 
-	return 1
+	return int(min)
 }

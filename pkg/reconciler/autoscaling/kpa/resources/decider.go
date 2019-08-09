@@ -51,7 +51,7 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 		panicThresholdPercentage = x
 	}
 
-	target, total := resources.ResolveConcurrency(pa, config)
+	target, total := resources.ResolveMetricTarget(pa, config)
 	panicThreshold := target * panicThresholdPercentage / 100.0
 
 	tbc := config.TargetBurstCapacity
@@ -63,8 +63,8 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 		Spec: autoscaler.DeciderSpec{
 			TickInterval:        config.TickInterval,
 			MaxScaleUpRate:      config.MaxScaleUpRate,
-			TargetConcurrency:   target,
-			TotalConcurrency:    total,
+			TargetValue:         target,
+			TotalValue:          total,
 			TargetBurstCapacity: tbc,
 			PanicThreshold:      panicThreshold,
 			StableWindow:        resources.StableWindow(pa, config),

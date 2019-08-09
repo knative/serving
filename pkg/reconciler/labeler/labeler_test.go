@@ -34,12 +34,14 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
 	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/reconciler"
 
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
+	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -57,9 +59,11 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "first-reconcile", "the-config"),
 			simpleConfig("default", "the-config"),
-			simpleRevision("default", "the-config"),
+			rev("default", "the-config"),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddLabel("default", rev("default", "the-config").Name,
+				"serving.knative.dev/route", "first-reconcile", "v1"),
 			patchAddLabel("default", "the-config", "serving.knative.dev/route", "first-reconcile", "v1"),
 		},
 		Key: "default/first-reconcile",
@@ -67,12 +71,31 @@ func TestReconcile(t *testing.T) {
 		Name: "steady state",
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "steady-state", "the-config"),
-			routeLabel(simpleConfig("default", "the-config"), "steady-state"),
-			simpleRevision("default", "the-config"),
+			simpleConfig("default", "the-config",
+				WithConfigLabel("serving.knative.dev/route", "steady-state")),
+			rev("default", "the-config",
+				WithRevisionLabel("serving.knative.dev/route", "steady-state")),
 		},
 		Key: "default/steady-state",
 	}, {
-		Name: "failure adding label",
+		Name: "failure adding label (revision)",
+		// Induce a failure during patching
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("patch", "revisions"),
+		},
+		Objects: []runtime.Object{
+			simpleRunLatest("default", "add-label-failure", "the-config"),
+			simpleConfig("default", "the-config"),
+			rev("default", "the-config"),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddLabel("default", rev("default", "the-config").Name,
+				"serving.knative.dev/route", "add-label-failure", "v1"),
+		},
+		Key: "default/add-label-failure",
+	}, {
+		Name: "failure adding label (configuration)",
 		// Induce a failure during patching
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
@@ -81,7 +104,8 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "add-label-failure", "the-config"),
 			simpleConfig("default", "the-config"),
-			simpleRevision("default", "the-config"),
+			rev("default", "the-config",
+				WithRevisionLabel("serving.knative.dev/route", "add-label-failure")),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddLabel("default", "the-config", "serving.knative.dev/route", "add-label-failure", "v1"),
@@ -92,19 +116,28 @@ func TestReconcile(t *testing.T) {
 		WantErr: true,
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "the-route", "the-config"),
-			routeLabel(simpleConfig("default", "the-config"), "another-route"),
-			simpleRevision("default", "the-config"),
+			simpleConfig("default", "the-config",
+				WithConfigLabel("serving.knative.dev/route", "another-route")),
+			rev("default", "the-config",
+				WithRevisionLabel("serving.knative.dev/route", "another-route")),
 		},
 		Key: "default/the-route",
 	}, {
 		Name: "change configurations",
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "config-change", "new-config"),
-			routeLabel(simpleConfig("default", "old-config"), "config-change"),
+			simpleConfig("default", "old-config",
+				WithConfigLabel("serving.knative.dev/route", "config-change")),
+			rev("default", "old-config",
+				WithRevisionLabel("serving.knative.dev/route", "config-change")),
 			simpleConfig("default", "new-config"),
-			simpleRevision("default", "new-config"),
+			rev("default", "new-config"),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
+			patchRemoveLabel("default", rev("default", "old-config").Name,
+				"serving.knative.dev/route", "v1"),
+			patchAddLabel("default", rev("default", "new-config").Name,
+				"serving.knative.dev/route", "config-change", "v1"),
 			patchRemoveLabel("default", "old-config", "serving.knative.dev/route", "v1"),
 			patchAddLabel("default", "new-config", "serving.knative.dev/route", "config-change", "v1"),
 		},
@@ -112,14 +145,15 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "delete route",
 		Objects: []runtime.Object{
-			routeLabel(simpleConfig("default", "the-config"), "delete-route"),
+			simpleConfig("default", "the-config",
+				WithConfigLabel("serving.knative.dev/route", "delete-route")),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchRemoveLabel("default", "the-config", "serving.knative.dev/route", "v1"),
 		},
 		Key: "default/delete-route",
 	}, {
-		Name: "failure while removing an annotation should return an error",
+		Name: "failure while removing a cfg annotation should return an error",
 		// Induce a failure during patching
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
@@ -127,12 +161,39 @@ func TestReconcile(t *testing.T) {
 		},
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "delete-label-failure", "new-config"),
-			routeLabel(simpleConfig("default", "old-config"), "delete-label-failure"),
-			routeLabel(simpleConfig("default", "new-config"), "delete-label-failure"),
-			simpleRevision("default", "new-config"),
+			simpleConfig("default", "old-config",
+				WithConfigLabel("serving.knative.dev/route", "delete-label-failure")),
+			simpleConfig("default", "new-config",
+				WithConfigLabel("serving.knative.dev/route", "delete-label-failure")),
+			rev("default", "new-config",
+				WithRevisionLabel("serving.knative.dev/route", "delete-label-failure")),
+			rev("default", "old-config"),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchRemoveLabel("default", "old-config", "serving.knative.dev/route", "v1"),
+		},
+		Key: "default/delete-label-failure",
+	}, {
+		Name: "failure while removing a rev annotation should return an error",
+		// Induce a failure during patching
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("patch", "revisions"),
+		},
+		Objects: []runtime.Object{
+			simpleRunLatest("default", "delete-label-failure", "new-config"),
+			simpleConfig("default", "old-config",
+				WithConfigLabel("serving.knative.dev/route", "delete-label-failure")),
+			simpleConfig("default", "new-config",
+				WithConfigLabel("serving.knative.dev/route", "delete-label-failure")),
+			rev("default", "new-config",
+				WithRevisionLabel("serving.knative.dev/route", "delete-label-failure")),
+			rev("default", "old-config",
+				WithRevisionLabel("serving.knative.dev/route", "delete-label-failure")),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchRemoveLabel("default", rev("default", "old-config").Name,
+				"serving.knative.dev/route", "v1"),
 		},
 		Key: "default/delete-label-failure",
 	}}
@@ -166,20 +227,12 @@ func simpleRunLatest(namespace, name, config string) *v1alpha1.Route {
 	return routeWithTraffic(namespace, name, v1alpha1.TrafficTarget{
 		TrafficTarget: v1beta1.TrafficTarget{
 			RevisionName: config + "-dbnfd",
-			Percent:      100,
+			Percent:      ptr.Int64(100),
 		},
 	})
 }
 
-func routeLabel(cfg *v1alpha1.Configuration, route string) *v1alpha1.Configuration {
-	if cfg.Labels == nil {
-		cfg.Labels = make(map[string]string)
-	}
-	cfg.Labels["serving.knative.dev/route"] = route
-	return cfg
-}
-
-func simpleConfig(namespace, name string) *v1alpha1.Configuration {
+func simpleConfig(namespace, name string, opts ...ConfigOption) *v1alpha1.Configuration {
 	cfg := &v1alpha1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       namespace,
@@ -190,18 +243,28 @@ func simpleConfig(namespace, name string) *v1alpha1.Configuration {
 	cfg.Status.InitializeConditions()
 	cfg.Status.SetLatestCreatedRevisionName(name + "-dbnfd")
 	cfg.Status.SetLatestReadyRevisionName(name + "-dbnfd")
+
+	for _, opt := range opts {
+		opt(cfg)
+	}
 	return cfg
 }
 
-func simpleRevision(namespace, name string) *v1alpha1.Revision {
+func rev(namespace, name string, opts ...RevisionOption) *v1alpha1.Revision {
 	cfg := simpleConfig(namespace, name)
-	return &v1alpha1.Revision{
+	rev := &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       namespace,
 			Name:            cfg.Status.LatestCreatedRevisionName,
+			ResourceVersion: "v1",
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(cfg)},
 		},
 	}
+
+	for _, opt := range opts {
+		opt(rev)
+	}
+	return rev
 }
 
 func patchRemoveLabel(namespace, name, key, version string) clientgotesting.PatchActionImpl {

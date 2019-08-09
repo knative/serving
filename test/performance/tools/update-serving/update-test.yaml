@@ -15,14 +15,15 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: update-serving
+  name: update-serving-test
 spec:
   template:
     spec:
       containers:
       - name: update-serving
         image: gcr.io/knative-performance/update-serving:test
-        command: ["/go/src/source.cloud.google.com/knative-performance/performance/tools/update-serving/update.sh"]
+        imagePullPolicy: Always
+        command: ["/workspace/tools/update-serving/update.sh"]
         env:
         - name: GOOGLE_APPLICATION_CREDENTIALS
           value: /var/secret/robot.json

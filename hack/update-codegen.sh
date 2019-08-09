@@ -68,7 +68,7 @@ ${GOPATH}/bin/deepcopy-gen \
   -i knative.dev/serving/pkg/apis/config \
   -i knative.dev/serving/pkg/reconciler/ingress/config \
   -i knative.dev/serving/pkg/reconciler/certificate/config \
-  -i knative.dev/serving/pkg/reconciler/configuration/config \
+  -i knative.dev/serving/pkg/reconciler/gc/config \
   -i knative.dev/serving/pkg/reconciler/revision/config \
   -i knative.dev/serving/pkg/reconciler/route/config \
   -i knative.dev/serving/pkg/tracing/config \

@@ -25,7 +25,7 @@ import (
 	. "knative.dev/serving/pkg/testing"
 )
 
-func TestResolveConcurrency(t *testing.T) {
+func TestResolveMetricTarget(t *testing.T) {
 	cases := []struct {
 		name    string
 		pa      *v1alpha1.PodAutoscaler
@@ -137,8 +137,8 @@ func TestResolveConcurrency(t *testing.T) {
 			if tc.cfgOpt != nil {
 				cfg = tc.cfgOpt(*cfg)
 			}
-			if gotTgt, _ := ResolveConcurrency(tc.pa, cfg); gotTgt != tc.wantTgt {
-				t.Errorf("ResolveTargetConcurrency(%v, %v) = %v, want %v", tc.pa, config, gotTgt, tc.wantTgt)
+			if gotTgt, _ := ResolveMetricTarget(tc.pa, cfg); gotTgt != tc.wantTgt {
+				t.Errorf("ResolveMetricTarget(%v, %v) = %v, want %v", tc.pa, config, gotTgt, tc.wantTgt)
 			}
 		})
 	}

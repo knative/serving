@@ -31,6 +31,7 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/reconciler"
@@ -180,13 +181,13 @@ func TestReconcile(t *testing.T) {
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "pinned3-00001",
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					},
 				}, v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "pinned3-00001",
-						Percent:      0,
+						Percent:      nil,
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
 		},
@@ -205,13 +206,13 @@ func TestReconcile(t *testing.T) {
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "pinned3-00001",
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					},
 				}, v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "pinned3-00001",
-						Percent:      0,
+						Percent:      nil,
 					},
 				})),
 		}},
@@ -294,7 +295,7 @@ func TestReconcile(t *testing.T) {
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "release-nr-00001",
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
 		},
@@ -307,7 +308,7 @@ func TestReconcile(t *testing.T) {
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "release-nr-00001",
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					},
 				})),
 		}},
@@ -333,7 +334,7 @@ func TestReconcile(t *testing.T) {
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "release-nr-00001",
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
 		},
@@ -346,7 +347,7 @@ func TestReconcile(t *testing.T) {
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "release-nr-00001",
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					},
 				})),
 		}},
@@ -375,12 +376,12 @@ func TestReconcile(t *testing.T) {
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "release-nr-ts-00001",
-						Percent:      58,
+						Percent:      ptr.Int64(58),
 					},
 				}, v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "release-nr-ts-00002",
-						Percent:      42,
+						Percent:      ptr.Int64(42),
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
 		},
@@ -393,12 +394,12 @@ func TestReconcile(t *testing.T) {
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "release-nr-ts-00001",
-						Percent:      58,
+						Percent:      ptr.Int64(58),
 					},
 				}, v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "release-nr-ts-00002",
-						Percent:      42,
+						Percent:      ptr.Int64(42),
 					},
 				})),
 		}},
@@ -428,12 +429,12 @@ func TestReconcile(t *testing.T) {
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "release-nr-ts2-00002",
-						Percent:      58,
+						Percent:      ptr.Int64(58),
 					},
 				}, v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "release-nr-ts2-00003",
-						Percent:      42,
+						Percent:      ptr.Int64(42),
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
 		},
@@ -446,12 +447,12 @@ func TestReconcile(t *testing.T) {
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "release-nr-ts2-00002",
-						Percent:      58,
+						Percent:      ptr.Int64(58),
 					},
 				}, v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "release-nr-ts2-00003",
-						Percent:      42,
+						Percent:      ptr.Int64(42),
 					},
 				})),
 		}},
@@ -477,7 +478,7 @@ func TestReconcile(t *testing.T) {
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "release-ready-lr-00001",
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					},
 				}, {
 					TrafficTarget: v1beta1.TrafficTarget{
@@ -503,7 +504,7 @@ func TestReconcile(t *testing.T) {
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "release-ready-lr-00001",
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					},
 				}, {
 					TrafficTarget: v1beta1.TrafficTarget{
@@ -540,13 +541,13 @@ func TestReconcile(t *testing.T) {
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "release-ready-lr-00001",
-						Percent:      58,
+						Percent:      ptr.Int64(58),
 					},
 				}, {
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.CandidateTrafficTarget,
 						RevisionName: "release-ready-lr-00002",
-						Percent:      42,
+						Percent:      ptr.Int64(42),
 					},
 				}, {
 					TrafficTarget: v1beta1.TrafficTarget{
@@ -573,13 +574,13 @@ func TestReconcile(t *testing.T) {
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "release-ready-lr-00001",
-						Percent:      58,
+						Percent:      ptr.Int64(58),
 					},
 				}, {
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.CandidateTrafficTarget,
 						RevisionName: "release-ready-lr-00002",
-						Percent:      42,
+						Percent:      ptr.Int64(42),
 					},
 				}, {
 					TrafficTarget: v1beta1.TrafficTarget{
@@ -616,19 +617,19 @@ func TestReconcile(t *testing.T) {
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "release-ready-00001",
-						Percent:      42,
+						Percent:      ptr.Int64(42),
 					},
 				}, v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.CandidateTrafficTarget,
 						RevisionName: "release-ready-00002",
-						Percent:      58,
+						Percent:      ptr.Int64(58),
 					},
 				}, v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "release-ready-00002",
-						Percent:      0,
+						Percent:      nil,
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
 			config("release-ready", "foo", WithRunLatestRollout,
@@ -649,19 +650,19 @@ func TestReconcile(t *testing.T) {
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "release-ready-00001",
-						Percent:      42,
+						Percent:      ptr.Int64(42),
 					},
 				}, v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.CandidateTrafficTarget,
 						RevisionName: "release-ready-00002",
-						Percent:      58,
+						Percent:      ptr.Int64(58),
 					},
 				}, v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "release-ready-00002",
-						Percent:      0,
+						Percent:      nil,
 					},
 				}),
 			),
@@ -1046,7 +1047,7 @@ func TestReconcile(t *testing.T) {
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "all-ready-00001",
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
 			config("all-ready", "foo", WithRunLatestRollout,
@@ -1063,7 +1064,7 @@ func TestReconcile(t *testing.T) {
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "all-ready-00001",
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					},
 				})),
 		}},
@@ -1091,7 +1092,7 @@ func TestReconcile(t *testing.T) {
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "all-ready-00001",
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
 			config("all-ready", "foo", WithRunLatestRollout,
@@ -1109,7 +1110,7 @@ func TestReconcile(t *testing.T) {
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "all-ready-00001",
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					},
 				})),
 		}},
@@ -1134,7 +1135,7 @@ func TestReconcile(t *testing.T) {
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "config-only-ready-00001",
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
 			config("config-only-ready", "foo", WithRunLatestRollout,
@@ -1150,7 +1151,7 @@ func TestReconcile(t *testing.T) {
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "config-only-ready-00001",
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					},
 				})),
 		}},
@@ -1176,7 +1177,7 @@ func TestReconcile(t *testing.T) {
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "config-fails-00001",
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
 			config("config-fails", "foo", WithRunLatestRollout, WithGeneration(2),
@@ -1190,7 +1191,7 @@ func TestReconcile(t *testing.T) {
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "config-fails-00001",
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					},
 				}),
 				WithFailedConfig("config-fails-00002", "RevisionFailed", "blah"),
@@ -1307,7 +1308,7 @@ func TestReconcile(t *testing.T) {
 				WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "new-owner-00001",
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
 			config("new-owner", "foo", WithRunLatestRollout, WithGeneration(1), WithObservedGen,
@@ -1323,7 +1324,7 @@ func TestReconcile(t *testing.T) {
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName: "new-owner-00001",
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					},
 				})),
 		}},

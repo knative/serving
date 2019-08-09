@@ -63,6 +63,17 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 			logger.Errorf("Error updating deployment %q: %v", deploymentName, err)
 			return err
 		}
+
+		// Now that we have a Deployment, determine whether there is any relevant
+		// status to surface in the Revision.
+		//
+		// TODO(jonjohnsonjr): Should we check Generation != ObservedGeneration?
+		// The autoscaler mutates the deployment pretty often, which would cause us
+		// to flip back and forth between Ready and Unknown every time we scale up
+		// or down.
+		if !rev.Status.IsActivationRequired() {
+			rev.Status.PropagateDeploymentStatus(&deployment.Status)
+		}
 	}
 
 	// If a container keeps crashing (no active pods in the deployment although we want some)
@@ -96,15 +107,6 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 				}
 			}
 		}
-	}
-
-	// Now that we have a Deployment, determine whether there is any relevant
-	// status to surface in the Revision.
-	if hasDeploymentTimedOut(deployment) && !rev.Status.IsActivationRequired() {
-		rev.Status.MarkProgressDeadlineExceeded(fmt.Sprintf(
-			"Unable to create pods for more than %d seconds.", resources.ProgressDeadlineSeconds))
-		c.Recorder.Eventf(rev, corev1.EventTypeNormal, "ProgressDeadlineExceeded",
-			"Revision %s not ready due to Deployment timeout", rev.Name)
 	}
 
 	return nil

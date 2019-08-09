@@ -49,7 +49,7 @@ func TestServiceDefaulting(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
 					}},
 				},
@@ -91,7 +91,7 @@ func TestServiceDefaulting(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
 					}},
 				},
@@ -134,7 +134,7 @@ func TestServiceDefaulting(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
 					}},
 				},
@@ -159,11 +159,11 @@ func TestServiceDefaulting(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						Tag:          "current",
 						RevisionName: "foo",
-						Percent:      90,
+						Percent:      ptr.Int64(90),
 					}, {
 						Tag:          "candidate",
 						RevisionName: "bar",
-						Percent:      10,
+						Percent:      ptr.Int64(10),
 					}, {
 						Tag: "latest",
 					}},
@@ -191,12 +191,12 @@ func TestServiceDefaulting(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						Tag:            "current",
 						RevisionName:   "foo",
-						Percent:        90,
+						Percent:        ptr.Int64(90),
 						LatestRevision: ptr.Bool(false),
 					}, {
 						Tag:            "candidate",
 						RevisionName:   "bar",
-						Percent:        10,
+						Percent:        ptr.Int64(10),
 						LatestRevision: ptr.Bool(false),
 					}, {
 						Tag:            "latest",
