@@ -65,7 +65,7 @@ spec:
                 cpu: 1000m
                 memory: 3Gi
           - name: mako
-            image: us.gcr.io/mattmoor-public/mako-microservice:latest
+            image: us.gcr.io/knative-performance/mako-microservice:latest
             env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secret/robot.json
@@ -102,7 +102,7 @@ spec:
                 cpu: 1000m
                 memory: 3Gi
           - name: mako
-            image: us.gcr.io/mattmoor-public/mako-microservice:latest
+            image: us.gcr.io/knative-performance/mako-microservice:latest
             env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secret/robot.json
@@ -139,7 +139,7 @@ spec:
                 cpu: 1000m
                 memory: 3Gi
           - name: mako
-            image: us.gcr.io/mattmoor-public/mako-microservice:latest
+            image: us.gcr.io/knative-performance/mako-microservice:latest
             env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secret/robot.json
