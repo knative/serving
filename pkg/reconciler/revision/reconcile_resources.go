@@ -168,9 +168,6 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1alpha1.Revision) er
 		if pa, err = c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Update(want); err != nil {
 			return err
 		}
-		// This change will trigger PA -> SKS -> K8s service change;
-		// and those after reconciliation will back progpagate here.
-		rev.Status.MarkDeploying("Updating")
 	}
 
 	// Propagate the service name from the PA.
