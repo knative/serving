@@ -441,3 +441,59 @@ func TestAnnotationUpdate(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateRevisionName(t *testing.T) {
+	cases := []struct {
+		name            string
+		revName         string
+		revGenerateName string
+		objectMeta      metav1.ObjectMeta
+		expectErr       error
+	}{{
+		name:            "invalid revision generateName - dots",
+		revGenerateName: "foo.bar",
+		expectErr: &apis.FieldError{
+			Message: "not a DNS 1035 label prefix: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+			Paths:   []string{"metadata.generateName"},
+		},
+	}, {
+		name:    "invalid revision name - dots",
+		revName: "foo.bar",
+		expectErr: &apis.FieldError{
+			Message: "not a DNS 1035 label: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+			Paths:   []string{"metadata.name"},
+		},
+	}, {
+		name: "invalid name (not prefixed)",
+		objectMeta: metav1.ObjectMeta{
+			Name: "bar",
+		},
+		revName: "foo",
+		expectErr: apis.ErrInvalidValue(`"foo" must have prefix "bar-"`,
+			"metadata.name"),
+	}, {
+		name: "invalid name (with generateName)",
+		objectMeta: metav1.ObjectMeta{
+			GenerateName: "foo-bar-",
+		},
+		revName:   "foo-bar-foo",
+		expectErr: apis.ErrDisallowedFields("metadata.name"),
+	}, {
+		name: "valid name",
+		objectMeta: metav1.ObjectMeta{
+			Name: "valid",
+		},
+		revName:   "valid-name",
+		expectErr: (*apis.FieldError)(nil),
+	}}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			ctx := context.Background()
+			ctx = apis.WithinParent(ctx, c.objectMeta)
+			if err := ValidateRevisionName(ctx, c.revName, c.revGenerateName); !reflect.DeepEqual(c.expectErr, err) {
+				t.Errorf("Expected: '%#v', Got: '%#v'", c.expectErr, err)
+			}
+		})
+	}
+}

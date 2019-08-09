@@ -80,7 +80,29 @@ func TestConfigurationValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
-		name: "valid BYO name (with generateName)",
+		name: "invalid name",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "",
+			},
+			Spec: ConfigurationSpec{
+				Template: RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "hellworld",
+							}},
+						},
+					},
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "name or generateName is required",
+			Paths:   []string{"metadata.name"},
+		},
+	}, {
+		name: "invalid BYO name (with generateName)",
 		c: &Configuration{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "byo-name-",
@@ -100,7 +122,80 @@ func TestConfigurationValidation(t *testing.T) {
 				},
 			},
 		},
-		want: nil,
+		want: apis.ErrDisallowedFields("spec.template.metadata.name"),
+	}, {
+		name: "invalid BYO name (not prefixed)",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: ConfigurationSpec{
+				Template: RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "foo",
+					},
+					Spec: RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "hellworld",
+							}},
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrInvalidValue(`"foo" must have prefix "byo-name-"`,
+			"spec.template.metadata.name"),
+	}, {
+		name: "invalid name for configuration spec",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: ConfigurationSpec{
+				Template: RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "foo.bar",
+					},
+					Spec: RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "hellworld",
+							}},
+						},
+					},
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "not a DNS 1035 label: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+			Paths:   []string{"spec.template.metadata.name"},
+		},
+	}, {
+		name: "invalid generate name for configuration spec",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: ConfigurationSpec{
+				Template: RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "foo.bar",
+					},
+					Spec: RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "hellworld",
+							}},
+						},
+					},
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "not a DNS 1035 label prefix: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+			Paths:   []string{"spec.template.metadata.generateName"},
+		},
 	}}
 
 	for _, test := range tests {

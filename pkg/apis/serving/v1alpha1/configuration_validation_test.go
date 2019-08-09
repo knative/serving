@@ -269,6 +269,26 @@ func TestConfigurationValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
+		name: "invalid name",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "",
+			},
+			Spec: ConfigurationSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						DeprecatedContainer: &corev1.Container{
+							Image: "hellworld",
+						},
+					},
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "name or generateName is required",
+			Paths:   []string{"metadata.name"},
+		},
+	}, {
 		name: "invalid BYO name (with generateName)",
 		c: &Configuration{
 			ObjectMeta: metav1.ObjectMeta{
@@ -309,6 +329,52 @@ func TestConfigurationValidation(t *testing.T) {
 		},
 		want: apis.ErrInvalidValue(`"foo" must have prefix "byo-name-"`,
 			"spec.revisionTemplate.metadata.name"),
+	}, {
+		name: "invalid name for configuration spec",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: ConfigurationSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "foo@bar",
+					},
+					Spec: RevisionSpec{
+						DeprecatedContainer: &corev1.Container{
+							Image: "hellworld",
+						},
+					},
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "not a DNS 1035 label: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+			Paths:   []string{"spec.revisionTemplate.metadata.name"},
+		},
+	}, {
+		name: "invalid generate name for configuration spec",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: ConfigurationSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "foo@bar",
+					},
+					Spec: RevisionSpec{
+						DeprecatedContainer: &corev1.Container{
+							Image: "hellworld",
+						},
+					},
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "not a DNS 1035 label prefix: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+			Paths:   []string{"spec.revisionTemplate.metadata.generateName"},
+		},
 	}}
 
 	for _, test := range tests {
