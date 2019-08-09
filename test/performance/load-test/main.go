@@ -23,7 +23,6 @@ import (
 	"log"
 	"time"
 
-	"knative.dev/pkg/injection/clients/kubeclient"
 	deploymentinformer "knative.dev/pkg/injection/informers/kubeinformers/appsv1/deployment"
 	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 
@@ -162,10 +161,10 @@ func main() {
 	}
 
 	// Get the Kubernetes version from the API server.
-	version, err := kubeclient.Get(ctx).Discovery().ServerVersion()
-	if err != nil {
-		log.Fatalf("Failed to fetch kubernetes version: %v", err)
-	}
+	// version, err := kubeclient.Get(ctx).Discovery().ServerVersion()
+	// if err != nil {
+	// 	log.Fatalf("Failed to fetch kubernetes version: %v", err)
+	// }
 
 	// We cron every 10 minutes, so give ourselves 6 minutes to complete.
 	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
@@ -184,7 +183,8 @@ func main() {
 		Tags: []string{
 			"master",
 			fmt.Sprintf("tbc=%s", *flavor),
-			fmt.Sprintf("kubernetes=%s", version),
+			// TODO(Fredy-Z): uncomment after we solve the tag issue
+			// fmt.Sprintf("kubernetes=%s", version),
 		},
 	}, mako.SidecarAddress)
 	if err != nil {
