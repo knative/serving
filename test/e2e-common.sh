@@ -219,7 +219,7 @@ function install_knative_serving_standard() {
   if (( RECONCILE_GATEWAY )); then
     echo ">>Turning on reconcileExternalGateway."
     kubectl get cm config-istio -n knative-serving -o yaml | \
-      sed 's/\ \ reconcileExternalGateway: \"false\"/reconcileExternalGateway: \"true\"/g' |\
+      sed 's/  reconcileExternalGateway: \"false\"/reconcileExternalGateway: \"true\"/g' |\
         kubectl replace -f -
   fi
 
