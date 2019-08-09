@@ -208,8 +208,8 @@ func main() {
 	pacers := make([]vegeta.Pacer, 3)
 	durations := make([]time.Duration, 3)
 	for i := 1; i < 4; i++ {
-		pacers = append(pacers, vegeta.Rate{Freq: i, Per: time.Millisecond})
-		durations = append(durations, duration)
+		pacers[i-1] = vegeta.Rate{Freq: i, Per: time.Millisecond}
+		durations[i-1] = duration
 	}
 	pacer, err := pkgpacers.NewCombined(pacers, durations)
 	if err != nil {
