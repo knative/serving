@@ -216,6 +216,11 @@ function install_knative_serving_standard() {
   echo ">> Bringing up Serving"
   kubectl apply -f "${INSTALL_RELEASE_YAML}" || return 1
 
+  if ((RECONCILE_GATEWAY)); then
+    echo ">>Turning on reconcileExternalGateway."
+    kubectl get cm config-istio -n knative-serving -o yaml | sed -i 's/\ \ reconcileExternalGateway: \"false\"/reconcileExternalGateway: \"true\"/g' | kubectl replace -f -
+  fi
+
   echo ">> Adding more activator pods."
   # This command would fail if the HPA already exist, like during upgrade test.
   # Therefore we don't exit on failure, and don't log an error message.
