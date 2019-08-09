@@ -101,7 +101,7 @@ function update_cluster() {
   
   echo ">> Delete all existing jobs and test resources"
   kubectl delete job --all
-  ko delete -f "${PROJ_ROOT_PATH}/$1"  
+  ko delete -f "${PROJ_ROOT_PATH}/$1"
 
   pushd .
   cd ${GOPATH}/src/knative.dev
