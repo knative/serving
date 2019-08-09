@@ -15,7 +15,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: recreate-cluster
+  name: recreate-cluster-test
 spec:
   template:
     spec:
@@ -23,7 +23,8 @@ spec:
       # TODO: rename it?
       - name: recreate-serving
         image: gcr.io/knative-performance/update-serving:test
-        command: ["/go/src/source.cloud.google.com/knative-performance/performance/tools/recreate-serving/create.sh"]
+        imagePullPolicy: Always
+        command: ["/tools/recreate-serving/recreate.sh"]
         env:
         - name: GOOGLE_APPLICATION_CREDENTIALS
           value: /var/secret/robot.json

@@ -27,7 +27,8 @@ spec:
           # TODO: rename it?
           - name: update-serving
             image: gcr.io/knative-performance/update-serving:latest
-            command: ["/go/src/source.cloud.google.com/knative-performance/performance/tools/recreate-serving/create.sh"]
+            imagePullPolicy: Always
+            command: ["/tools/recreate-serving/recreate.sh"]
             env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secret/robot.json
