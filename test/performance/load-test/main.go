@@ -37,8 +37,8 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/test/performance"
 	"knative.dev/serving/test/performance/mako"
+	"knative.dev/serving/test/performance/metrics"
 )
 
 var (
@@ -72,9 +72,9 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 	})
 
 	stopDeploymentCh := make(chan struct{})
-	deploymentStatus := performance.FetchDeploymentStatus(ctx, "default", selector, time.Second, stopDeploymentCh)
+	deploymentStatus := metrics.FetchDeploymentStatus(ctx, "default", selector, time.Second, stopDeploymentCh)
 	stopSKSCh := make(chan struct{})
-	sksMode := performance.FetchSKSMode(ctx, "default", selector, time.Second, stopSKSCh)
+	sksMode := metrics.FetchSKSMode(ctx, "default", selector, time.Second, stopSKSCh)
 	// When the benchmark completes, stop fetching deployment and serverless service status.
 	defer func() {
 		stopDeploymentCh <- struct{}{}
