@@ -27,13 +27,16 @@ spec:
           containers:
           - name: dataplane-probe
             image: knative.dev/serving/test/performance/dataplane-probe
-            args: ["-benchmark=5142965274017792", "-target=deployment"]
+            args: ["-target=deployment"]
             resources:
               requests:
                 cpu: 1000m
                 memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
           - name: mako
-            image: us.gcr.io/knative-performance/mako-microservice:latest
+            image: us.gcr.io/mattmoor-public/mako-microservice:latest
             env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secret/robot.json
@@ -44,6 +47,9 @@ spec:
           - name: service-account
             secret:
               secretName: service-account
+          - name: config-mako
+            configMap:
+              name: config-mako
           restartPolicy: Never
       backoffLimit: 0
 ---
@@ -62,13 +68,16 @@ spec:
           containers:
           - name: dataplane-probe
             image: knative.dev/serving/test/performance/dataplane-probe
-            args: ["-benchmark=5142965274017792", "-target=istio"]
+            args: ["-target=istio"]
             resources:
               requests:
                 cpu: 1000m
                 memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
           - name: mako
-            image: us.gcr.io/knative-performance/mako-microservice:latest
+            image: us.gcr.io/mattmoor-public/mako-microservice:latest
             env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secret/robot.json
@@ -79,6 +88,9 @@ spec:
           - name: service-account
             secret:
               secretName: service-account
+          - name: config-mako
+            configMap:
+              name: config-mako
           restartPolicy: Never
       backoffLimit: 0
 ---
@@ -97,13 +109,16 @@ spec:
           containers:
           - name: dataplane-probe
             image: knative.dev/serving/test/performance/dataplane-probe
-            args: ["-benchmark=5142965274017792", "-target=queue"]
+            args: ["-target=queue"]
             resources:
               requests:
                 cpu: 1000m
                 memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
           - name: mako
-            image: us.gcr.io/knative-performance/mako-microservice:latest
+            image: us.gcr.io/mattmoor-public/mako-microservice:latest
             env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secret/robot.json
@@ -114,6 +129,9 @@ spec:
           - name: service-account
             secret:
               secretName: service-account
+          - name: config-mako
+            configMap:
+              name: config-mako
           restartPolicy: Never
       backoffLimit: 0
 ---
@@ -132,13 +150,16 @@ spec:
           containers:
           - name: dataplane-probe
             image: knative.dev/serving/test/performance/dataplane-probe
-            args: ["-benchmark=5142965274017792", "-target=activator"]
+            args: ["-target=activator"]
             resources:
               requests:
                 cpu: 1000m
                 memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
           - name: mako
-            image: us.gcr.io/knative-performance/mako-microservice:latest
+            image: us.gcr.io/mattmoor-public/mako-microservice:latest
             env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secret/robot.json
@@ -149,5 +170,8 @@ spec:
           - name: service-account
             secret:
               secretName: service-account
+          - name: config-mako
+            configMap:
+              name: config-mako
           restartPolicy: Never
       backoffLimit: 0

@@ -58,14 +58,16 @@ spec:
           - name: load-test
             image: knative.dev/serving/test/performance/load-test
             args:
-            - "-benchmark=5352009922248704"
             - "-flavor=zero"
             resources:
               requests:
                 cpu: 1000m
                 memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
           - name: mako
-            image: us.gcr.io/knative-performance/mako-microservice:latest
+            image: us.gcr.io/mattmoor-public/mako-microservice:latest
             env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secret/robot.json
@@ -76,6 +78,9 @@ spec:
           - name: service-account
             secret:
               secretName: service-account
+          - name: config-mako
+            configMap:
+              name: config-mako
           restartPolicy: Never
       backoffLimit: 0
 ---
@@ -95,14 +100,16 @@ spec:
           - name: load-test
             image: knative.dev/serving/test/performance/load-test
             args:
-            - "-benchmark=5352009922248704"
             - "-flavor=always"
             resources:
               requests:
                 cpu: 1000m
                 memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
           - name: mako
-            image: us.gcr.io/knative-performance/mako-microservice:latest
+            image: us.gcr.io/mattmoor-public/mako-microservice:latest
             env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secret/robot.json
@@ -113,6 +120,9 @@ spec:
           - name: service-account
             secret:
               secretName: service-account
+          - name: config-mako
+            configMap:
+              name: config-mako
           restartPolicy: Never
       backoffLimit: 0
 ---
@@ -132,14 +142,16 @@ spec:
           - name: load-test
             image: knative.dev/serving/test/performance/load-test
             args:
-            - "-benchmark=5352009922248704"
             - "-flavor=200"
             resources:
               requests:
                 cpu: 1000m
                 memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
           - name: mako
-            image: us.gcr.io/knative-performance/mako-microservice:latest
+            image: us.gcr.io/mattmoor-public/mako-microservice:latest
             env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secret/robot.json
@@ -150,5 +162,8 @@ spec:
           - name: service-account
             secret:
               secretName: service-account
+          - name: config-mako
+            configMap:
+              name: config-mako
           restartPolicy: Never
       backoffLimit: 0

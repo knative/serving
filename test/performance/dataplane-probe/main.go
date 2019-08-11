@@ -22,7 +22,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/google/mako/helpers/go/quickstore"
 	qpb "github.com/google/mako/helpers/proto/quickstore/quickstore_go_proto"
 	vegeta "github.com/tsenart/vegeta/lib"
@@ -32,8 +31,7 @@ import (
 )
 
 var (
-	benchmark = flag.String("benchmark", "", "The mako benchmark we are running.")
-	target    = flag.String("target", "", "The target to attack.")
+	target = flag.String("target", "", "The target to attack.")
 )
 
 func main() {
@@ -47,9 +45,11 @@ func main() {
 	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
 	defer cancel()
 
+	log.Printf("GOT benchmark_key: %v", *mako.MustGetBenchmark())
+
 	// Use the benchmark key created
 	q, qclose, err := quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
-		BenchmarkKey: proto.String(*benchmark),
+		BenchmarkKey: mako.MustGetBenchmark(),
 		Tags:         []string{"master"},
 	}, mako.SidecarAddress)
 	if err != nil {
