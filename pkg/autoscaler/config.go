@@ -41,6 +41,8 @@ type Config struct {
 	// Target concurrency knobs for different container concurrency configurations.
 	ContainerConcurrencyTargetFraction float64
 	ContainerConcurrencyTargetDefault  float64
+	TargetUtilization                  float64
+	RPSTargetDefault                   float64
 	// NB: most of our computations are in floats, so this is float to avoid casting.
 	TargetBurstCapacity float64
 
@@ -96,6 +98,10 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		key:          "container-concurrency-target-default",
 		field:        &lc.ContainerConcurrencyTargetDefault,
 		defaultValue: 100.0,
+	}, {
+		key:          "requests-per-second-target-default",
+		field:        &lc.RPSTargetDefault,
+		defaultValue: 200.0,
 	}, {
 		key:          "target-burst-capacity",
 		field:        &lc.TargetBurstCapacity,
