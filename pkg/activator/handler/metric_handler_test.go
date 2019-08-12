@@ -42,7 +42,7 @@ func TestRequestMetricHandler(t *testing.T) {
 		reporterCalls []reporterCall
 		newHeader     map[string]string
 		wantCode      int
-		wantErr       bool
+		wantPanic     bool
 	}{
 		{
 			label: "kube probe request",
@@ -89,8 +89,8 @@ func TestRequestMetricHandler(t *testing.T) {
 				Config:     "config-real-name",
 				StatusCode: http.StatusInternalServerError,
 			}},
-			wantCode: http.StatusBadRequest,
-			wantErr:  true,
+			wantCode:  http.StatusBadRequest,
+			wantPanic: true,
 		},
 	}
 
@@ -112,7 +112,7 @@ func TestRequestMetricHandler(t *testing.T) {
 
 			defer func() {
 				err := recover()
-				if test.wantErr && err == nil {
+				if test.wantPanic && err == nil {
 					t.Error("Want ServeHTTP to panic, got nothing.")
 				}
 
