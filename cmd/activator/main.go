@@ -137,7 +137,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Error loading/parsing logging configuration:", err)
 	}
-	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, component)
+	logger, atomicLevel := pkglogging.NewLoggerFromConfig(loggingConfig, component)
 	logger = logger.With(zap.String(logkey.ControllerType, "activator"))
 	defer flush(logger)
 
