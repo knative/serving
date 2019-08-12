@@ -93,7 +93,8 @@ function parse_flags() {
       return 2
       ;;
     --gloo-version)
-      [[ $2 =~ ^[0-9]+\.[0-9]+(\.[0-9]+|\-latest)$ ]] || abort "version format must be '[0-9].[0-9].[0-9]' or '[0-9].[0-9]-latest"
+      # currently, the value of --gloo-version is ignored
+      # latest version of Gloo pinned in third_party will be installed
       readonly GLOO_VERSION=$2
       return 2
       ;;
@@ -168,7 +169,7 @@ function install_istio() {
 }
 
 function install_gloo() {
-  local gloo_base="./third_party/gloo-${GLOO_VERSION}"
+  local gloo_base="./third_party/gloo-latest"
   INSTALL_GLOO_YAML="${gloo_base}/gloo.yaml"
   echo "Gloo YAML: ${INSTALL_GLOO_YAML}"
   echo ">> Bringing up Gloo"
@@ -191,6 +192,16 @@ function install_knative_serving_standard() {
     else
       INSTALL_RELEASE_YAML="${SERVING_ALPHA_YAML}"
     fi
+
+    # install serving core if installing for Gloo
+    if [[ -n "${GLOO_VERSION}" ]]; then
+      if (( INSTALL_BETA )); then
+        INSTALL_RELEASE_YAML="${SERVING_CORE_BETA_YAML}"
+      else
+        INSTALL_RELEASE_YAML="${SERVING_CORE_YAML}"
+      fi
+    fi
+
     if (( INSTALL_MONITORING )); then
       INSTALL_MONITORING_YAML="${MONITORING_YAML}"
     fi
@@ -256,6 +267,10 @@ function install_knative_serving_standard() {
       # Some versions of Istio don't provide an HPA for pilot.
       kubectl autoscale -n istio-system deploy istio-pilot --min=3 --max=10 --cpu-percent=60 || return 1
     fi
+  else
+    # Scale replicas of the Gloo proxies to handle large qps
+    kubectl scale -n gloo-system deployment knative-external-proxy --replicas=6
+    kubectl scale -n gloo-system deployment knative-internal-proxy --replicas=6
   fi
 
   if [[ -n "${INSTALL_MONITORING_YAML}" ]]; then
@@ -323,10 +338,10 @@ function test_setup() {
   else
     # we must set these override values to allow the test spoofing client to work with Gloo
     # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
-    export GATEWAY_OVERRIDE=clusteringress-proxy
+    export GATEWAY_OVERRIDE=knative-external-proxy
     export GATEWAY_NAMESPACE_OVERRIDE=gloo-system
     wait_until_pods_running gloo-system || return 1
-    wait_until_service_has_external_ip gloo-system clusteringress-proxy
+    wait_until_service_has_external_ip gloo-system knative-external-proxy
   fi
   if [[ -n "${INSTALL_MONITORING_YAML}" ]]; then
     wait_until_pods_running knative-monitoring || return 1
