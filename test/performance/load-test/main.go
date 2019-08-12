@@ -21,6 +21,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"knative.dev/pkg/injection/clients/kubeclient"
@@ -185,7 +186,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to fetch kubernetes version: %v", err)
 	}
-	tags = append(tags, fmt.Sprintf("kubernetes=%s", version))
+	// '.' is an invalid char in mako tags. Replace with "_"
+	tags = append(tags, fmt.Sprintf("kubernetes=%s", strings.ReplaceAll(version.String(), ".", "_")))
 
 	// Use the benchmark key created
 	// TODO: Interpret the key from the config instead of copying and passing it

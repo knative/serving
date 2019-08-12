@@ -38,7 +38,7 @@ const (
 // to mako server once done and error if case of failures.
 func Setup(ctx context.Context, benchmarkKey string, extraTags ...string) (*quickstore.Quickstore, func(context.Context), error) {
 	var close func(context.Context)
-	tags := []string{"master"}
+	tags := make([]string, 0)
 	if commitID, err := changeset.Get(); err == nil {
 		tags = append(tags, commitID)
 	} else {
