@@ -995,7 +995,7 @@ func TestVolumeValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrMissingField("Items[0].key").Also(apis.ErrMissingField("Items[0].path")),
+		want: apis.ErrMissingField("items[0].key").Also(apis.ErrMissingField("items[0].path")),
 	}, {
 		name: "configMap missing keyToPath values",
 		v: corev1.Volume{
@@ -1009,7 +1009,7 @@ func TestVolumeValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrMissingField("Items[0].key").Also(apis.ErrMissingField("Items[0].path")),
+		want: apis.ErrMissingField("items[0].key").Also(apis.ErrMissingField("items[0].path")),
 	}, {
 		name: "projection missing keyToPath values",
 		v: corev1.Volume{
@@ -1033,10 +1033,10 @@ func TestVolumeValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrMissingField("projected[0].secret.Items[0].key").Also(
-			apis.ErrMissingField("projected[0].secret.Items[0].path")).Also(
-			apis.ErrMissingField("projected[1].configMap.Items[0].key")).Also(
-			apis.ErrMissingField("projected[1].configMap.Items[0].path")),
+		want: apis.ErrMissingField("projected[0].secret.items[0].key").Also(
+			apis.ErrMissingField("projected[0].secret.items[0].path")).Also(
+			apis.ErrMissingField("projected[1].configMap.items[0].key")).Also(
+			apis.ErrMissingField("projected[1].configMap.items[0].path")),
 	}}
 
 	for _, test := range tests {

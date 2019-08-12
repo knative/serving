@@ -98,13 +98,13 @@ func validateVolume(volume corev1.Volume) *apis.FieldError {
 	if vs.Secret != nil {
 		specified = append(specified, "secret")
 		for i, item := range vs.Secret.Items {
-			errs = errs.Also(validateKeyToPath(item).ViaFieldIndex("Items", i))
+			errs = errs.Also(validateKeyToPath(item).ViaFieldIndex("items", i))
 		}
 	}
 	if vs.ConfigMap != nil {
 		specified = append(specified, "configMap")
 		for i, item := range vs.ConfigMap.Items {
-			errs = errs.Also(validateKeyToPath(item).ViaFieldIndex("Items", i))
+			errs = errs.Also(validateKeyToPath(item).ViaFieldIndex("items", i))
 		}
 	}
 	if vs.Projected != nil {
@@ -149,7 +149,7 @@ func validateConfigMapProjection(cmp *corev1.ConfigMapProjection) *apis.FieldErr
 		errs = errs.Also(apis.ErrMissingField("name"))
 	}
 	for i, item := range cmp.Items {
-		errs = errs.Also(validateKeyToPath(item).ViaFieldIndex("Items", i))
+		errs = errs.Also(validateKeyToPath(item).ViaFieldIndex("items", i))
 	}
 	return errs
 }
@@ -162,7 +162,7 @@ func validateSecretProjection(sp *corev1.SecretProjection) *apis.FieldError {
 		errs = errs.Also(apis.ErrMissingField("name"))
 	}
 	for i, item := range sp.Items {
-		errs = errs.Also(validateKeyToPath(item).ViaFieldIndex("Items", i))
+		errs = errs.Also(validateKeyToPath(item).ViaFieldIndex("items", i))
 	}
 	return errs
 }
