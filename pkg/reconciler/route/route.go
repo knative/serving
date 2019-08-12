@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -240,18 +241,9 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		return err
 	}
 
-	// Reconcile ingress and its children resources.
-	_, err = c.reconcileIngressResources(ctx, r, traffic, tls, clusterLocalServiceNames, ingressClassForRoute(ctx, r),
-		&ClusterIngressResources{
-			BaseIngressResources: BaseIngressResources{
-				servingClientSet: c.ServingClientSet,
-			},
-			clusterIngressLister: c.clusterIngressLister,
-		},
-		true, /* optional */
-	)
-
-	if err != nil {
+	// Delete ClusterIngress resources
+	if err := c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().DeleteCollection(
+		nil, metav1.ListOptions{LabelSelector: routeOwnerLabelSelector(r).String()}); err != nil {
 		return err
 	}
 
@@ -362,9 +354,9 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1alpha1.Route) e
 		return nil
 	}
 
-	// Delete the ClusterIngress and Ingress resources for this Route.
-	logger.Info("Cleaning up ClusterIngress and Ingress")
-	if err := c.deleteIngressesForRoute(r); err != nil {
+	// Delete the Ingress resources for this Route.
+	logger.Info("Cleaning up Ingress")
+	if err := c.deleteIngressForRoute(r); err != nil {
 		return err
 	}
 
