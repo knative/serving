@@ -984,6 +984,59 @@ func TestVolumeValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrInvalidValue("@@@", "name"),
+	}, {
+		name: "secret missing keyToPath values",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: "foo",
+					Items:      []corev1.KeyToPath{{}},
+				},
+			},
+		},
+		want: apis.ErrMissingField("Items[0].key").Also(apis.ErrMissingField("Items[0].path")),
+	}, {
+		name: "configMap missing keyToPath values",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "foo",
+					},
+					Items: []corev1.KeyToPath{{}},
+				},
+			},
+		},
+		want: apis.ErrMissingField("Items[0].key").Also(apis.ErrMissingField("Items[0].path")),
+	}, {
+		name: "projection missing keyToPath values",
+		v: corev1.Volume{
+			Name: "foo",
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{{
+						Secret: &corev1.SecretProjection{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "foo",
+							},
+							Items: []corev1.KeyToPath{{}},
+						}}, {
+						ConfigMap: &corev1.ConfigMapProjection{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "foo",
+							},
+							Items: []corev1.KeyToPath{{}},
+						}},
+					},
+				},
+			},
+		},
+		want: apis.ErrMissingField("projected[0].secret.Items[0].key").Also(
+			apis.ErrMissingField("projected[0].secret.Items[0].path")).Also(
+			apis.ErrMissingField("projected[1].configMap.Items[0].key")).Also(
+			apis.ErrMissingField("projected[1].configMap.Items[0].path")),
 	}}
 
 	for _, test := range tests {
