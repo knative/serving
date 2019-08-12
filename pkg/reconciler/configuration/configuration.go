@@ -45,8 +45,6 @@ type Reconciler struct {
 	// listers index properties about resources
 	configurationLister listers.ConfigurationLister
 	revisionLister      listers.RevisionLister
-
-	configStore reconciler.ConfigStore
 }
 
 // Check that our Reconciler implements controller.Reconciler
