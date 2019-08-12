@@ -65,6 +65,7 @@ type activationHandler struct {
 	sksLister      netlisters.ServerlessServiceLister
 }
 
+var IsTraceEnabled = false
 // The default time we'll try to probe the revision for activation.
 const defaulTimeout = 2 * time.Minute
 
@@ -84,7 +85,7 @@ func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler
 		probeTimeout:   defaulTimeout,
 		// In activator we collect metrics, so we're wrapping
 		// the RoundTripper the prober would use inside an annotating transport.
-		probeTransport: &ochttp.Transport{
+		probeTransport:	&ochttp.Transport{
 			Base: network.NewProberTransport(),
 		},
 		endpointTimeout: defaulTimeout,
@@ -225,18 +226,21 @@ func (a *activationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 	network.RewriteHostIn(r)
 	recorder := pkghttp.NewResponseRecorder(w, http.StatusOK)
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Transport = &ochttp.Transport{
-		Base: a.transport,
+	proxy.Transport = a.transport
+	if (IsTraceEnabled) {
+		proxy.Transport = &ochttp.Transport{
+			Base: a.transport,
+		}
 	}
 	proxy.FlushInterval = -1
 
 	r.Header.Set(network.ProxyHeaderName, activator.Name)
 
 	util.SetupHeaderPruning(proxy)
-
 	proxy.ServeHTTP(recorder, r)
 	return recorder.ResponseCode
 }
+
 
 // serviceHostName obtains the hostname of the underlying service and the correct
 // port to send requests to.

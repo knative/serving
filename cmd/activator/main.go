@@ -190,6 +190,7 @@ func main() {
 
 	tracerUpdater := configmap.TypeFilter(&tracingconfig.Config{})(func(name string, value interface{}) {
 		cfg := value.(*tracingconfig.Config)
+		activatorhandler.IsTraceEnabled = cfg.Enable
 		if err := oct.ApplyConfig(cfg); err != nil {
 			logger.Errorw("Unable to apply open census tracer config", zap.Error(err))
 			return
