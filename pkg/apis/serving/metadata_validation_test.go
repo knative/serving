@@ -119,6 +119,12 @@ func TestAnnotationValidation(t *testing.T) {
 		annotations map[string]string
 		expectErr   *apis.FieldError
 	}{{
+		name: "valid forceUpgrade annotation label",
+		annotations: map[string]string{
+			"serving.knative.dev/forceUpgrade": "true",
+		},
+		expectErr: nil,
+	}, {
 		name: "valid creator annotation label",
 		annotations: map[string]string{
 			"serving.knative.dev/creator": "svc-creator",

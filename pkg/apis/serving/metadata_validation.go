@@ -27,6 +27,15 @@ import (
 	"knative.dev/serving/pkg/apis/config"
 )
 
+var (
+	allowedAnnotations = map[string]struct{}{
+		UpdaterAnnotation:                struct{}{},
+		CreatorAnnotation:                struct{}{},
+		RevisionLastPinnedAnnotationKey:  struct{}{},
+		GroupNamePrefix + "forceUpgrade": struct{}{},
+	}
+)
+
 // ValidateObjectMetadata validates that `metadata` stanza of the
 // resources is correct.
 func ValidateObjectMetadata(meta metav1.Object) *apis.FieldError {
@@ -38,7 +47,7 @@ func ValidateObjectMetadata(meta metav1.Object) *apis.FieldError {
 
 func validateKnativeAnnotations(annotations map[string]string) (errs *apis.FieldError) {
 	for key := range annotations {
-		if strings.HasPrefix(key, GroupNamePrefix) && key != UpdaterAnnotation && key != CreatorAnnotation && key != RevisionLastPinnedAnnotationKey {
+		if _, ok := allowedAnnotations[key]; !ok && strings.HasPrefix(key, GroupNamePrefix) {
 			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
 		}
 	}
