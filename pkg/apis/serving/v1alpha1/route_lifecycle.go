@@ -126,7 +126,7 @@ func (rs *RouteStatus) MarkCertificateReady(name string) {
 	routeCondSet.Manage(rs).SetCondition(apis.Condition{
 		Type:     RouteConditionCertificateProvisioned,
 		Status:   corev1.ConditionTrue,
-		Severity: apis.ConditionSeverityWarning,
+		Severity: apis.ConditionSeverityInfo,
 		Reason:   "CertificateReady",
 		Message:  fmt.Sprintf("Certificate %s is successfully provisioned", name),
 	})
