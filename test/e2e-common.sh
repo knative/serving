@@ -38,6 +38,8 @@ INSTALL_MONITORING=0
 
 INSTALL_BETA=1
 
+RECONCILE_GATEWAY=0
+
 # List of custom YAMLs to install, if specified (space-separated).
 INSTALL_CUSTOM_YAMLS=""
 
@@ -77,6 +79,10 @@ function parse_flags() {
       ;;
     --install-beta)
       readonly INSTALL_BETA=1
+      return 1
+      ;;
+    --reconcile-gateway)
+      readonly RECONCILE_GATEWAY=1
       return 1
       ;;
     --custom-yamls)
@@ -209,6 +215,13 @@ function install_knative_serving_standard() {
 
   echo ">> Bringing up Serving"
   kubectl apply -f "${INSTALL_RELEASE_YAML}" || return 1
+
+  if (( RECONCILE_GATEWAY )); then
+    echo ">> Turning on reconcileExternalGateway"
+    kubectl get cm config-istio -n knative-serving -o yaml | \
+      sed 's/  reconcileExternalGateway: "false"/reconcileExternalGateway: "true"/g' |\
+      kubectl replace -f -
+  fi
 
   echo ">> Adding more activator pods."
   # This command would fail if the HPA already exist, like during upgrade test.
