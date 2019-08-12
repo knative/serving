@@ -36,6 +36,7 @@ import (
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/trace"
+	pkglogging "knative.dev/pkg/logging"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -270,7 +271,7 @@ func main() {
 	}
 
 	// Setup the logger.
-	logger, _ = logging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
+	logger, _ = pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
 	logger = logger.Named("queueproxy")
 	defer flush(logger)
 
