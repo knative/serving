@@ -96,7 +96,7 @@ func TestOurConfig(t *testing.T) {
 }
 
 func TestLogLevelTestConfig(t *testing.T) {
-	wantCfg := `{
+	const wantCfg = `{
   "level": "debug",
   "development": false,
   "outputPaths": ["stdout"],
@@ -117,7 +117,7 @@ func TestLogLevelTestConfig(t *testing.T) {
   }
 }
 `
-	wantLevel := zapcore.DebugLevel
+	const wantLevel = zapcore.DebugLevel
 	components := []string{
 		"autoscaler",
 		"controller",
@@ -141,7 +141,7 @@ func TestLogLevelTestConfig(t *testing.T) {
 		}
 	}
 	if got := cfg.LoggingConfig; got != wantCfg {
-		t.Errorf("LoggingConfig = %v, want %v, diff %s", got, wantCfg, cmp.Diff(got, wantCfg))
+		t.Errorf("LoggingConfig = %v, want %v, diff(-want +got) %s", got, wantCfg, cmp.Diff(wantCfg, got))
 	}
 }
 
