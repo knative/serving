@@ -32,13 +32,14 @@ import (
 	endpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints"
 	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
 	sksinformer "knative.dev/serving/pkg/client/private/injection/informers/networking/v1alpha1/serverlessservice"
-	revisioninformer "knative.dev/serving/pkg/client/serving/injection/informers/serving/v1alpha1/revision"
+	revisioninformer "knative.dev/serving/pkg/manual/injection/informers/serving/internalversion/revision"
 
 	"github.com/kelseyhightower/envconfig"
-	zipkin "github.com/openzipkin/zipkin-go"
+	"github.com/openzipkin/zipkin-go"
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection/sharedmain"
@@ -52,8 +53,10 @@ import (
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	activatorhandler "knative.dev/serving/pkg/activator/handler"
+	"knative.dev/serving/pkg/apis/internalversions/serving/install"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/autoscaler"
+	servingscheme "knative.dev/serving/pkg/client/serving/clientset/internalversion/scheme"
 	"knative.dev/serving/pkg/goversion"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/logging"
@@ -125,6 +128,13 @@ func main() {
 	if err != nil {
 		log.Fatal("Error building kubeconfig:", err)
 	}
+
+	dclient, err := discovery.NewDiscoveryClientForConfig(cfg)
+	if err != nil {
+		panic(err)
+	}
+
+	install.DiscoverAndUpdateVersionPriority(dclient, servingscheme.Scheme)
 
 	log.Printf("Registering %d clients", len(injection.Default.GetClients()))
 	log.Printf("Registering %d informer factories", len(injection.Default.GetInformerFactories()))

@@ -34,10 +34,10 @@ import (
 	"knative.dev/serving/pkg/activator"
 	revnet "knative.dev/serving/pkg/activator/net"
 	"knative.dev/serving/pkg/activator/util"
-	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/internalversions/serving"
+	servingcommon "knative.dev/serving/pkg/apis/serving"
 	netlisters "knative.dev/serving/pkg/client/private/listers/networking/v1alpha1"
-	servinglisters "knative.dev/serving/pkg/client/serving/listers/serving/v1alpha1"
+	servinglisters "knative.dev/serving/pkg/client/serving/listers/serving/internalversion"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/network/prober"
@@ -201,8 +201,8 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(httpStatus)
 		}
 
-		configurationName := revision.Labels[serving.ConfigurationLabelKey]
-		serviceName := revision.Labels[serving.ServiceLabelKey]
+		configurationName := revision.Labels[servingcommon.ConfigurationLabelKey]
+		serviceName := revision.Labels[servingcommon.ServiceLabelKey]
 		a.reporter.ReportRequestCount(namespace, serviceName, configurationName, name, httpStatus, attempts, 1.0)
 	})
 	if err != nil {
@@ -240,7 +240,7 @@ func (a *activationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 
 // serviceHostName obtains the hostname of the underlying service and the correct
 // port to send requests to.
-func (a *activationHandler) serviceHostName(rev *v1alpha1.Revision, serviceName string) (string, error) {
+func (a *activationHandler) serviceHostName(rev *serving.Revision, serviceName string) (string, error) {
 	svc, err := a.serviceLister.Services(rev.Namespace).Get(serviceName)
 	if err != nil {
 		return "", err

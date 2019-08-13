@@ -29,17 +29,18 @@ import (
 	. "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/test/helpers"
+	"knative.dev/serving/pkg/apis/internalversions/serving"
 	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving"
+	servingcommon "knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	privatefake "knative.dev/serving/pkg/client/private/clientset/versioned/fake"
 	privateinformers "knative.dev/serving/pkg/client/private/informers/externalversions"
 	netlisters "knative.dev/serving/pkg/client/private/listers/networking/v1alpha1"
-	servingfake "knative.dev/serving/pkg/client/serving/clientset/versioned/fake"
-	servinginformers "knative.dev/serving/pkg/client/serving/informers/externalversions"
-	servinglisters "knative.dev/serving/pkg/client/serving/listers/serving/v1alpha1"
+	servingfake "knative.dev/serving/pkg/client/serving/clientset/internalversion/fake"
+	servinginformers "knative.dev/serving/pkg/client/serving/informers/internalversion"
+	servinglisters "knative.dev/serving/pkg/client/serving/listers/serving/internalversion"
 	"knative.dev/serving/pkg/queue"
 
 	corev1 "k8s.io/api/core/v1"
@@ -186,7 +187,7 @@ func TestThrottlerActivatorEndpoints(t *testing.T) {
 
 			throttler := getThrottler(
 				defaultMaxConcurrency,
-				revisionLister(testNamespace, testRevision, v1beta1.RevisionContainerConcurrencyType(s.revisionConcurrency)),
+				revisionLister(testNamespace, testRevision, serving.RevisionContainerConcurrencyType(s.revisionConcurrency)),
 				endpoints,
 				sksLister(testNamespace, testRevision),
 				TestLogger(t),
@@ -352,9 +353,9 @@ func TestHelper_ReactToEndpoints(t *testing.T) {
 			Name:      testRevision + "-service",
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				serving.RevisionUID:       "test",
-				networking.ServiceTypeKey: string(networking.ServiceTypePrivate),
-				serving.RevisionLabelKey:  testRevision,
+				servingcommon.RevisionUID:      "test",
+				networking.ServiceTypeKey:      string(networking.ServiceTypePrivate),
+				servingcommon.RevisionLabelKey: testRevision,
 			},
 		},
 		Subsets: endpointsSubset(0, 1),
@@ -410,22 +411,20 @@ func TestHelper_ReactToEndpoints(t *testing.T) {
 	}
 }
 
-func revisionLister(namespace, name string, concurrency v1beta1.RevisionContainerConcurrencyType) servinglisters.RevisionLister {
-	rev := &v1alpha1.Revision{
+func revisionLister(namespace, name string, concurrency serving.RevisionContainerConcurrencyType) servinglisters.RevisionLister {
+	rev := &serving.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: v1alpha1.RevisionSpec{
-			RevisionSpec: v1beta1.RevisionSpec{
-				ContainerConcurrency: concurrency,
-			},
+		Spec: serving.RevisionSpec{
+			ContainerConcurrency: concurrency,
 		},
 	}
 
 	fake := servingfake.NewSimpleClientset(rev)
 	informer := servinginformers.NewSharedInformerFactory(fake, 0)
-	revisions := informer.Serving().V1alpha1().Revisions()
+	revisions := informer.Serving().InternalVersion().Revisions()
 	revisions.Informer().GetIndexer().Add(rev)
 
 	return revisions.Lister()
@@ -585,7 +584,7 @@ func revisionListerN(namespace, name string, count int) servinglisters.RevisionL
 	}
 	fake := servingfake.NewSimpleClientset(revs...)
 	informer := servinginformers.NewSharedInformerFactory(fake, 0)
-	revisions := informer.Serving().V1alpha1().Revisions()
+	revisions := informer.Serving().InternalVersion().Revisions()
 	for i := 0; i < count; i++ {
 		revisions.Informer().GetIndexer().Add(revs[i])
 	}

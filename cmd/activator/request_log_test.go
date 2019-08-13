@@ -25,11 +25,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	testing2 "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/activator"
-	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/client/serving/clientset/versioned/fake"
-	servinginformers "knative.dev/serving/pkg/client/serving/informers/externalversions"
-	servinglisters "knative.dev/serving/pkg/client/serving/listers/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/internalversions/serving"
+	servingcommon "knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/client/serving/clientset/internalversion/fake"
+	servinginformers "knative.dev/serving/pkg/client/serving/informers/internalversion"
+	servinglisters "knative.dev/serving/pkg/client/serving/listers/serving/internalversion"
 	pkghttp "knative.dev/serving/pkg/http"
 
 	corev1 "k8s.io/api/core/v1"
@@ -177,19 +177,19 @@ func TestRequestLogTemplateInputGetter(t *testing.T) {
 }
 
 func getRevisionLister(addLabels bool) servinglisters.RevisionLister {
-	rev := &v1alpha1.Revision{}
+	rev := &serving.Revision{}
 	rev.Name = testRevisionName
 	rev.Namespace = testNamespaceName
 	if addLabels {
 		rev.Labels = map[string]string{
-			serving.ConfigurationLabelKey: testConfigName,
-			serving.ServiceLabelKey:       testServiceName,
+			servingcommon.ConfigurationLabelKey: testConfigName,
+			servingcommon.ServiceLabelKey:       testServiceName,
 		}
 	}
 
 	fake := fake.NewSimpleClientset(rev)
 	informer := servinginformers.NewSharedInformerFactory(fake, 0)
-	revisions := informer.Serving().V1alpha1().Revisions()
+	revisions := informer.Serving().InternalVersion().Revisions()
 	revisions.Informer().GetIndexer().Add(rev)
 
 	return revisions.Lister()

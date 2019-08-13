@@ -1,5 +1,6 @@
 /*
 Copyright 2018 The Knative Authors
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -37,16 +38,15 @@ import (
 	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/activator"
 	activatortest "knative.dev/serving/pkg/activator/testing"
+	"knative.dev/serving/pkg/apis/internalversions/serving"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	servingcommon "knative.dev/serving/pkg/apis/serving"
 	privatefake "knative.dev/serving/pkg/client/private/clientset/versioned/fake"
 	privateinformers "knative.dev/serving/pkg/client/private/informers/externalversions"
 	netlisters "knative.dev/serving/pkg/client/private/listers/networking/v1alpha1"
-	servingfake "knative.dev/serving/pkg/client/serving/clientset/versioned/fake"
-	servinginformers "knative.dev/serving/pkg/client/serving/informers/externalversions"
-	servinglisters "knative.dev/serving/pkg/client/serving/listers/serving/v1alpha1"
+	servingfake "knative.dev/serving/pkg/client/serving/clientset/internalversion/fake"
+	servinginformers "knative.dev/serving/pkg/client/serving/informers/internalversion"
+	servinglisters "knative.dev/serving/pkg/client/serving/listers/serving/internalversion"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/tracing"
@@ -728,31 +728,29 @@ func (f *fakeReporter) ReportResponseTime(ns, service, config, rev string, respo
 	return nil
 }
 
-func revision(namespace, name string) *v1alpha1.Revision {
-	return &v1alpha1.Revision{
+func revision(namespace, name string) *serving.Revision {
+	return &serving.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      name,
 			Labels: map[string]string{
-				serving.ConfigurationLabelKey: "config-" + testRevName,
-				serving.ServiceLabelKey:       "service-" + testRevName,
+				servingcommon.ConfigurationLabelKey: "config-" + testRevName,
+				servingcommon.ServiceLabelKey:       "service-" + testRevName,
 			},
 		},
-		Spec: v1alpha1.RevisionSpec{
-			RevisionSpec: v1beta1.RevisionSpec{
-				ContainerConcurrency: 1,
-			},
+		Spec: serving.RevisionSpec{
+			ContainerConcurrency: 1,
 		},
 	}
 }
 
-func revisionLister(revs ...*v1alpha1.Revision) servinglisters.RevisionLister {
+func revisionLister(revs ...*serving.Revision) servinglisters.RevisionLister {
 	fake := servingfake.NewSimpleClientset()
 	informer := servinginformers.NewSharedInformerFactory(fake, 0)
-	revisions := informer.Serving().V1alpha1().Revisions()
+	revisions := informer.Serving().InternalVersion().Revisions()
 
 	for _, rev := range revs {
-		fake.ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
+		fake.Serving().Revisions(rev.Namespace).Create(rev)
 		revisions.Informer().GetIndexer().Add(rev)
 	}
 
