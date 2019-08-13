@@ -47,7 +47,8 @@ type Config struct {
 	// configurable now. Customers can override it by specifying
 	// autoscaling.knative.dev//targetUtilizationPercentage in Revision annotation.
 	TargetUtilization float64
-	RPSTargetDefault  float64
+	// RPSTargetDefault is the default target value for requests per second.
+	RPSTargetDefault float64
 	// NB: most of our computations are in floats, so this is float to avoid casting.
 	TargetBurstCapacity float64
 

@@ -52,6 +52,7 @@ func ResolveMetricTarget(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) 
 		tu = v
 	}
 	target = math.Max(1, total*tu)
+
 	// Use the target provided via annotation, if applicable.
 	if annotationTarget, ok := pa.Target(); ok {
 		// We pick the smaller value between the calculated target and the annotationTarget
