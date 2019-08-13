@@ -185,30 +185,30 @@ func (pas *PodAutoscalerStatus) MarkResourceFailedCreation(kind, name string) {
 
 // CanScaleToZero checks whether the pod autoscaler has been in an inactive state
 // for at least the specified grace period.
-func (pas *PodAutoscalerStatus) CanScaleToZero(gracePeriod time.Duration) bool {
-	return pas.inStatusFor(corev1.ConditionFalse, gracePeriod) > 0
+func (pas *PodAutoscalerStatus) CanScaleToZero(now time.Time, gracePeriod time.Duration) bool {
+	return pas.inStatusFor(corev1.ConditionFalse, now, gracePeriod) > 0
 }
 
 // ActiveFor returns the time PA spent being active.
-func (pas *PodAutoscalerStatus) ActiveFor() time.Duration {
-	return pas.inStatusFor(corev1.ConditionTrue, 0)
+func (pas *PodAutoscalerStatus) ActiveFor(now time.Time) time.Duration {
+	return pas.inStatusFor(corev1.ConditionTrue, now, 0)
 }
 
 // CanFailActivation checks whether the pod autoscaler has been activating
 // for at least the specified idle period.
-func (pas *PodAutoscalerStatus) CanFailActivation(idlePeriod time.Duration) bool {
-	return pas.inStatusFor(corev1.ConditionUnknown, idlePeriod) > 0
+func (pas *PodAutoscalerStatus) CanFailActivation(now time.Time, idlePeriod time.Duration) bool {
+	return pas.inStatusFor(corev1.ConditionUnknown, now, idlePeriod) > 0
 }
 
 // inStatusFor returns positive duration if the PodAutoscalerStatus's Active condition has stayed in
 // the specified status for at least the specified duration. Otherwise it returns negative duration,
 // including when the status is undetermined (Active condition is not found.)
-func (pas *PodAutoscalerStatus) inStatusFor(status corev1.ConditionStatus, dur time.Duration) time.Duration {
+func (pas *PodAutoscalerStatus) inStatusFor(status corev1.ConditionStatus, now time.Time, dur time.Duration) time.Duration {
 	cond := pas.GetCondition(PodAutoscalerConditionActive)
 	if cond == nil || cond.Status != status {
 		return -1
 	}
-	return time.Since(cond.LastTransitionTime.Inner.Add(dur))
+	return now.Sub(cond.LastTransitionTime.Inner.Add(dur))
 }
 
 func (pas *PodAutoscalerStatus) duck() *duckv1beta1.Status {
