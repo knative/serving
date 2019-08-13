@@ -71,15 +71,10 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 		serving.ServiceLabelKey: fmt.Sprintf("load-test-%s", *flavor),
 	})
 
-	stopDeploymentCh := make(chan struct{})
-	deploymentStatus := metrics.FetchDeploymentStatus(ctx, "default", selector, time.Second, stopDeploymentCh)
-	stopSKSCh := make(chan struct{})
-	sksMode := metrics.FetchSKSMode(ctx, "default", selector, time.Second, stopSKSCh)
-	// When the benchmark completes, stop fetching deployment and serverless service status.
-	defer func() {
-		close(stopDeploymentCh)
-		close(stopSKSCh)
-	}()
+	ctx, cancel := context.WithCancel(ctx)
+	deploymentStatus := metrics.FetchDeploymentStatus(ctx, "default", selector, time.Second)
+	sksMode := metrics.FetchSKSMode(ctx, "default", selector, time.Second)
+	defer cancel()
 
 	for {
 		select {

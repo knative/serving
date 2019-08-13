@@ -42,13 +42,14 @@ type DeploymentStatus struct {
 // FetchDeploymentStatus creates a channel that can return the up-to-date DeploymentStatus periodically.
 func FetchDeploymentStatus(
 	ctx context.Context, namespace string, selector labels.Selector,
-	duration time.Duration, stop <-chan struct{},
+	duration time.Duration,
 ) <-chan DeploymentStatus {
 	dl := deploymentinformer.Get(ctx).Lister()
 	ch := make(chan DeploymentStatus)
-	startTick(duration, stop, func(t time.Time) error {
+	startTick(duration, ctx.Done(), func(t time.Time) error {
 		// Overlay the desired and ready pod counts.
 		deployments, err := dl.Deployments(namespace).List(selector)
+		dl.Deployments(namespace)
 		if err != nil {
 			log.Printf("Error listing deployments: %v", err)
 			return err
@@ -78,11 +79,11 @@ type ServerlessServiceStatus struct {
 // FetchSKSMode creates a channel that can return the up-to-date ServerlessServiceOperationMode periodically.
 func FetchSKSMode(
 	ctx context.Context, namespace string, selector labels.Selector,
-	duration time.Duration, stop <-chan struct{},
+	duration time.Duration,
 ) <-chan ServerlessServiceStatus {
 	sksl := sksinformer.Get(ctx).Lister()
 	ch := make(chan ServerlessServiceStatus)
-	startTick(duration, stop, func(t time.Time) error {
+	startTick(duration, ctx.Done(), func(t time.Time) error {
 		// Overlay the SKS "mode".
 		skses, err := sksl.ServerlessServices(namespace).List(selector)
 		if err != nil {
