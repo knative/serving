@@ -192,6 +192,28 @@ func TestConfigurationValidation(t *testing.T) {
 		},
 		want: apis.ErrInvalidValue("not a DNS 1035 label prefix: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
 			"spec.template.metadata.generateName"),
+	}, {
+		name: "valid generate name for configuration spec",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: ConfigurationSpec{
+				Template: RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "valid-generatename",
+					},
+					Spec: RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "hellworld",
+							}},
+						},
+					},
+				},
+			},
+		},
+		want: nil,
 	}}
 
 	for _, test := range tests {
