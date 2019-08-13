@@ -49,8 +49,10 @@ ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
   "autoscaling:v1alpha1 networking:v1alpha1" \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 
-${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
-  knative.dev/serving/pkg/client/serving knative.dev/serving/pkg/apis \
+${CODEGEN_PKG}/generate-internal-groups.sh "conversion,client,deepcopy,informer,lister" \
+  knative.dev/serving/pkg/client/serving \
+  knative.dev/serving/pkg/apis/internalversions \
+  knative.dev/serving/pkg/apis \
   "serving:v1alpha1,v1beta1" \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 

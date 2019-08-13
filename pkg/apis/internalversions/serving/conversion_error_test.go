@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,11 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Api versions allow the api contract for a resource to be changed while keeping
-// backward compatibility by support multiple concurrent versions
-// of the same resource
+package serving
 
-// +k8s:deepcopy-gen=package
-// +k8s:conversion-gen=knative.dev/serving/pkg/apis/internalversions/serving
-// +groupName=serving.knative.dev
-package v1alpha1
+import "testing"
+
+func TestConvertError(t *testing.T) {
+	ce := ConvertErrorf("field", "foo %v %v %v", "bar", true, 42)
+
+	if got, want := ce.Error(), "foo bar true 42"; got != want {
+		t.Errorf("Error() = %s, wanted %s", got, want)
+	}
+}
