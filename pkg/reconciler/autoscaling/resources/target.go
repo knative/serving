@@ -31,15 +31,12 @@ import (
 func ResolveMetricTarget(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) (target float64, total float64) {
 	var tu float64
 
-	metric := pa.Metric()
-	switch metric {
+	switch pa.Metric() {
 	case autoscaling.RPS:
 		total = config.RPSTargetDefault
 		tu = config.TargetUtilization
-	case autoscaling.Concurrency:
-		// Concurrency is used by default
-		fallthrough
 	default:
+		// Concurrency is used by default
 		total = float64(pa.Spec.ContainerConcurrency)
 		// If containerConcurrency is 0 we'll always target the default.
 		if total == 0 {

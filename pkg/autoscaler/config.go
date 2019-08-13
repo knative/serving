@@ -45,7 +45,9 @@ type Config struct {
 	ContainerConcurrencyTargetDefault  float64
 	// TargetUtilization is used for the metrics other than concurrency. This is not
 	// configurable now. Customers can override it by specifying
-	// autoscaling.knative.dev//targetUtilizationPercentage in Revision annotation.
+	// autoscaling.knative.dev/targetUtilizationPercentage in Revision annotation.
+	// TODO(yanweiguo): Expose this to config-autoscaler configmap and eventually
+	// deprecate ContainerConcurrencyTargetFraction.
 	TargetUtilization float64
 	// RPSTargetDefault is the default target value for requests per second.
 	RPSTargetDefault float64
