@@ -37,6 +37,11 @@ data:
     # These sample configuration options may be copied out of
     # this block and unindented to actually change the configuration.
 
+    # IssuerRef is a type of issuer.
+    # Please refer to `Supported Issuer types` in https://docs.cert-manager.io/en/latest/reference/issuers.html#supported-issuer-types
+    # Currently supported values: acme, ca.
+    issuerKind: acme
+
     # IssuerRef is a reference to the issuer for this certificate.
     # IssuerRef should be either `ClusterIssuer` or `Issuer`.
     # Please refer `IssuerRef` in https://github.com/jetstack/cert-manager/blob/master/pkg/apis/certmanager/v1alpha1/types_certificate.go

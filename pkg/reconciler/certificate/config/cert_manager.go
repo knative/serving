@@ -17,6 +17,8 @@ limitations under the License.
 package config
 
 import (
+	"strings"
+
 	"github.com/ghodss/yaml"
 
 	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
@@ -26,6 +28,7 @@ import (
 const (
 	solverConfigKey = "solverConfig"
 	issuerRefKey    = "issuerRef"
+	issuerKindKey   = "issuerKind"
 
 	// CertManagerConfigName is the name of the configmap containing all
 	// configuration related to Cert-Manager.
@@ -37,15 +40,18 @@ const (
 type CertManagerConfig struct {
 	SolverConfig *certmanagerv1alpha1.SolverConfig
 	IssuerRef    *certmanagerv1alpha1.ObjectReference
+	IssuerKind   string
 }
 
 // NewCertManagerConfigFromConfigMap creates an CertManagerConfig from the supplied ConfigMap
 func NewCertManagerConfigFromConfigMap(configMap *corev1.ConfigMap) (*CertManagerConfig, error) {
 	// TODO(zhiminx): do we need to provide the default values here?
+	// TODO: validation check.
 
 	config := &CertManagerConfig{
 		SolverConfig: &certmanagerv1alpha1.SolverConfig{},
 		IssuerRef:    &certmanagerv1alpha1.ObjectReference{},
+		IssuerKind:   "acme",
 	}
 
 	if v, ok := configMap.Data[solverConfigKey]; ok {
@@ -58,6 +64,10 @@ func NewCertManagerConfigFromConfigMap(configMap *corev1.ConfigMap) (*CertManage
 		if err := yaml.Unmarshal([]byte(v), config.IssuerRef); err != nil {
 			return nil, err
 		}
+	}
+
+	if v, ok := configMap.Data[issuerKindKey]; ok {
+		config.IssuerKind = strings.ToLower(v)
 	}
 	return config, nil
 }
