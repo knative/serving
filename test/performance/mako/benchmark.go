@@ -29,17 +29,19 @@ import (
 
 const koDataPathEnvName = "KO_DATA_PATH"
 
+// MustGetBenchmark wraps getBenchmark in log.Fatalf
 func MustGetBenchmark() *string {
-	b, err := GetBenchmark()
+	b, err := getBenchmark()
 	if err != nil {
 		log.Fatalf("unable to determine benchmark_key: %v", err)
 	}
 	return b
 }
 
-func GetBenchmark() (*string, error) {
+// getBenchmark fetches the appropriate benchmark_key for this configured environment.
+func getBenchmark() (*string, error) {
 	// Figure out what environment we're running in from the Mako configmap.
-	env, err := GetEnvironment()
+	env, err := getEnvironment()
 	if err != nil {
 		return nil, err
 	}
@@ -49,8 +51,8 @@ func GetBenchmark() (*string, error) {
 		return nil, err
 	}
 	// Parse the Mako config file.
-	bi := mpb.BenchmarkInfo{}
-	if err := proto.UnmarshalText(string(data), &bi); err != nil {
+	bi := &mpb.BenchmarkInfo{}
+	if err := proto.UnmarshalText(string(data), bi); err != nil {
 		return nil, err
 	}
 
@@ -62,8 +64,7 @@ func GetBenchmark() (*string, error) {
 func readConfigFromKoData(environment string) ([]byte, error) {
 	koDataPath := os.Getenv(koDataPathEnvName)
 	if koDataPath == "" {
-		err := fmt.Errorf("%q does not exist or is empty", koDataPathEnvName)
-		return nil, err
+		return nil, fmt.Errorf("%q does not exist or is empty", koDataPathEnvName)
 	}
 	fullFilename := filepath.Join(koDataPath, environment+".config")
 	return ioutil.ReadFile(fullFilename)

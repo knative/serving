@@ -45,8 +45,6 @@ func main() {
 	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
 	defer cancel()
 
-	log.Printf("GOT benchmark_key: %v", *mako.MustGetBenchmark())
-
 	// Use the benchmark key created
 	q, qclose, err := quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
 		BenchmarkKey: mako.MustGetBenchmark(),

@@ -22,7 +22,8 @@ import (
 	"knative.dev/pkg/configmap"
 )
 
-func GetEnvironment() (string, error) {
+// getEnvironment fetches the Mako config environment to which this cluster should publish.
+func getEnvironment() (string, error) {
 	makoCM, err := configmap.Load(filepath.Join("/etc", ConfigName))
 	if err != nil {
 		return "", err

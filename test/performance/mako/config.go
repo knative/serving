@@ -33,11 +33,11 @@ type Config struct {
 
 // NewConfigFromMap creates a Config from the supplied map
 func NewConfigFromMap(data map[string]string) (*Config, error) {
-	lc := &Config{}
+	lc := &Config{
+		Environment: "dev",
+	}
 
-	if raw, ok := data["environment"]; !ok {
-		lc.Environment = "dev"
-	} else {
+	if raw, ok := data["environment"]; ok {
 		lc.Environment = raw
 	}
 
