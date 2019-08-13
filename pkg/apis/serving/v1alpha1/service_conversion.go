@@ -45,7 +45,7 @@ func (source *ServiceSpec) ConvertUp(ctx context.Context, sink *v1beta1.ServiceS
 	case source.DeprecatedRunLatest != nil:
 		sink.RouteSpec = v1beta1.RouteSpec{
 			Traffic: []v1beta1.TrafficTarget{{
-				Percent:        100,
+				Percent:        ptr.Int64(100),
 				LatestRevision: ptr.Bool(true),
 			}},
 		}
@@ -56,14 +56,14 @@ func (source *ServiceSpec) ConvertUp(ctx context.Context, sink *v1beta1.ServiceS
 			sink.RouteSpec = v1beta1.RouteSpec{
 				Traffic: []v1beta1.TrafficTarget{{
 					RevisionName: source.DeprecatedRelease.Revisions[0],
-					Percent:      100 - source.DeprecatedRelease.RolloutPercent,
+					Percent:      ptr.Int64(int64(100 - source.DeprecatedRelease.RolloutPercent)),
 					Tag:          "current",
 				}, {
 					RevisionName: source.DeprecatedRelease.Revisions[1],
-					Percent:      source.DeprecatedRelease.RolloutPercent,
+					Percent:      ptr.Int64(int64(source.DeprecatedRelease.RolloutPercent)),
 					Tag:          "candidate",
 				}, {
-					Percent:        0,
+					Percent:        nil,
 					Tag:            "latest",
 					LatestRevision: ptr.Bool(true),
 				}},
@@ -72,10 +72,10 @@ func (source *ServiceSpec) ConvertUp(ctx context.Context, sink *v1beta1.ServiceS
 			sink.RouteSpec = v1beta1.RouteSpec{
 				Traffic: []v1beta1.TrafficTarget{{
 					RevisionName: source.DeprecatedRelease.Revisions[0],
-					Percent:      100,
+					Percent:      ptr.Int64(100),
 					Tag:          "current",
 				}, {
-					Percent:        0,
+					Percent:        nil,
 					Tag:            "latest",
 					LatestRevision: ptr.Bool(true),
 				}},
@@ -93,7 +93,7 @@ func (source *ServiceSpec) ConvertUp(ctx context.Context, sink *v1beta1.ServiceS
 		sink.RouteSpec = v1beta1.RouteSpec{
 			Traffic: []v1beta1.TrafficTarget{{
 				RevisionName: source.DeprecatedPinned.RevisionName,
-				Percent:      100,
+				Percent:      ptr.Int64(100),
 			}},
 		}
 		return source.DeprecatedPinned.Configuration.ConvertUp(ctx, &sink.ConfigurationSpec)

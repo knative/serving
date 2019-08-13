@@ -45,9 +45,9 @@ roleRef:
 apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
-  name: load-test
+  name: load-test-zero
 spec:
-  schedule: "*/10 * * * *"
+  schedule: "0,30 * * * *"
   jobTemplate:
     spec:
       parallelism: 1
@@ -59,6 +59,81 @@ spec:
             image: knative.dev/serving/test/performance/load-test
             args:
             - "-benchmark=5352009922248704"
+            - "-flavor=zero"
+            resources:
+              requests:
+                cpu: 1000m
+                memory: 3Gi
+          - name: mako
+            image: us.gcr.io/knative-performance/mako-microservice:latest
+            env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secret/robot.json
+            volumeMounts:
+            - name: service-account
+              mountPath: /var/secret
+          volumes:
+          - name: service-account
+            secret:
+              secretName: service-account
+          restartPolicy: Never
+      backoffLimit: 0
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: load-test-always
+spec:
+  schedule: "10,40 * * * *"
+  jobTemplate:
+    spec:
+      parallelism: 1
+      template:
+        spec:
+          serviceAccountName: loader
+          containers:
+          - name: load-test
+            image: knative.dev/serving/test/performance/load-test
+            args:
+            - "-benchmark=5352009922248704"
+            - "-flavor=always"
+            resources:
+              requests:
+                cpu: 1000m
+                memory: 3Gi
+          - name: mako
+            image: us.gcr.io/knative-performance/mako-microservice:latest
+            env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secret/robot.json
+            volumeMounts:
+            - name: service-account
+              mountPath: /var/secret
+          volumes:
+          - name: service-account
+            secret:
+              secretName: service-account
+          restartPolicy: Never
+      backoffLimit: 0
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: load-test-200
+spec:
+  schedule: "20,50 * * * *"
+  jobTemplate:
+    spec:
+      parallelism: 1
+      template:
+        spec:
+          serviceAccountName: loader
+          containers:
+          - name: load-test
+            image: knative.dev/serving/test/performance/load-test
+            args:
+            - "-benchmark=5352009922248704"
+            - "-flavor=200"
             resources:
               requests:
                 cpu: 1000m

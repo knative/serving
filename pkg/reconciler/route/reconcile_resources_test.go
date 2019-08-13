@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -93,10 +94,10 @@ func TestReconcileClusterIngress_Update(t *testing.T) {
 	fakeciinformer.Get(ctx).Informer().GetIndexer().Add(updated)
 
 	ci2 := newTestClusterIngress(t, r, func(tc *traffic.Config) {
-		tc.Targets[traffic.DefaultTarget][0].TrafficTarget.Percent = 50
+		tc.Targets[traffic.DefaultTarget][0].TrafficTarget.Percent = ptr.Int64(50)
 		tc.Targets[traffic.DefaultTarget] = append(tc.Targets[traffic.DefaultTarget], traffic.RevisionTarget{
 			TrafficTarget: v1beta1.TrafficTarget{
-				Percent:      50,
+				Percent:      ptr.Int64(50),
 				RevisionName: "revision2",
 			},
 		})
@@ -137,7 +138,7 @@ func TestReconcileTargetRevisions(t *testing.T) {
 			traffic.DefaultTarget: {{
 				TrafficTarget: v1beta1.TrafficTarget{
 					RevisionName: "revision",
-					Percent:      100,
+					Percent:      ptr.Int64(100),
 				},
 				Active: true,
 			}}}},
@@ -147,7 +148,7 @@ func TestReconcileTargetRevisions(t *testing.T) {
 			traffic.DefaultTarget: {{
 				TrafficTarget: v1beta1.TrafficTarget{
 					RevisionName: "inal-revision",
-					Percent:      100,
+					Percent:      ptr.Int64(100),
 				},
 				Active: true,
 			}}}},
@@ -176,7 +177,7 @@ func newTestClusterIngress(t *testing.T, r *v1alpha1.Route, trafficOpts ...func(
 		traffic.DefaultTarget: {{
 			TrafficTarget: v1beta1.TrafficTarget{
 				RevisionName: "revision",
-				Percent:      100,
+				Percent:      ptr.Int64(100),
 			},
 			Active: true,
 		}}}}

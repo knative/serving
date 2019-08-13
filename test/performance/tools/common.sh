@@ -100,8 +100,8 @@ function update_cluster() {
   gcloud container clusters get-credentials ${name} --zone=${zone} --project knative-performance || fail_test "Failed to get cluster creds"
   
   echo ">> Delete all existing jobs and test resources"
-  ko delete -f "${PROJ_ROOT_PATH}/$1"
   kubectl delete job --all
+  ko delete -f "${PROJ_ROOT_PATH}/$1"
 
   pushd .
   cd ${GOPATH}/src/knative.dev

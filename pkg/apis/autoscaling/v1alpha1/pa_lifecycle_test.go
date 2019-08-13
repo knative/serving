@@ -62,6 +62,7 @@ func TestGeneration(t *testing.T) {
 }
 
 func TestCanScaleToZero(t *testing.T) {
+	now := time.Now()
 	cases := []struct {
 		name   string
 		status PodAutoscalerStatus
@@ -105,7 +106,7 @@ func TestCanScaleToZero(t *testing.T) {
 					Type:   PodAutoscalerConditionActive,
 					Status: corev1.ConditionFalse,
 					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(time.Now().Add(-30 * time.Second)),
+						Inner: metav1.NewTime(now.Add(-30 * time.Second)),
 					},
 					// LTT = 30 seconds ago.
 				}},
@@ -121,7 +122,7 @@ func TestCanScaleToZero(t *testing.T) {
 					Type:   PodAutoscalerConditionActive,
 					Status: corev1.ConditionFalse,
 					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(time.Now().Add(-10 * time.Second)),
+						Inner: metav1.NewTime(now.Add(-10 * time.Second)),
 					},
 					// LTT = 10 seconds ago.
 				}},
@@ -133,7 +134,7 @@ func TestCanScaleToZero(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if e, a := tc.result, tc.status.CanScaleToZero(tc.grace); e != a {
+			if e, a := tc.result, tc.status.CanScaleToZero(now, tc.grace); e != a {
 				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 			}
 		})
@@ -141,6 +142,7 @@ func TestCanScaleToZero(t *testing.T) {
 }
 
 func TestActiveFor(t *testing.T) {
+	now := time.Now()
 	cases := []struct {
 		name   string
 		status PodAutoscalerStatus
@@ -191,7 +193,7 @@ func TestActiveFor(t *testing.T) {
 					Type:   PodAutoscalerConditionActive,
 					Status: corev1.ConditionTrue,
 					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(time.Now().Add(-30 * time.Second)),
+						Inner: metav1.NewTime(now.Add(-30 * time.Second)),
 					},
 					// LTT = 30 seconds ago.
 				}},
@@ -206,7 +208,7 @@ func TestActiveFor(t *testing.T) {
 					Type:   PodAutoscalerConditionActive,
 					Status: corev1.ConditionTrue,
 					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(time.Now().Add(-10 * time.Second)),
+						Inner: metav1.NewTime(now.Add(-10 * time.Second)),
 					},
 					// LTT = 10 seconds ago.
 				}},
@@ -216,7 +218,7 @@ func TestActiveFor(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		if got, want := tc.result, tc.status.ActiveFor(); absDiff(got, want) > 10*time.Millisecond {
+		if got, want := tc.status.ActiveFor(now), tc.result; absDiff(got, want) > 10*time.Millisecond {
 			t.Errorf("ActiveFor = %v, want: %v", got, want)
 		}
 	}
@@ -231,6 +233,7 @@ func absDiff(a, b time.Duration) time.Duration {
 }
 
 func TestCanFailActivation(t *testing.T) {
+	now := time.Now()
 	cases := []struct {
 		name   string
 		status PodAutoscalerStatus
@@ -274,7 +277,7 @@ func TestCanFailActivation(t *testing.T) {
 					Type:   PodAutoscalerConditionActive,
 					Status: corev1.ConditionUnknown,
 					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(time.Now().Add(-30 * time.Second)),
+						Inner: metav1.NewTime(now.Add(-30 * time.Second)),
 					},
 					// LTT = 30 seconds ago.
 				}},
@@ -290,7 +293,7 @@ func TestCanFailActivation(t *testing.T) {
 					Type:   PodAutoscalerConditionActive,
 					Status: corev1.ConditionUnknown,
 					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(time.Now().Add(-10 * time.Second)),
+						Inner: metav1.NewTime(now.Add(-10 * time.Second)),
 					},
 					// LTT = 10 seconds ago.
 				}},
@@ -302,7 +305,7 @@ func TestCanFailActivation(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if e, a := tc.result, tc.status.CanFailActivation(tc.grace); e != a {
+			if e, a := tc.result, tc.status.CanFailActivation(now, tc.grace); e != a {
 				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 			}
 		})

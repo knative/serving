@@ -19,8 +19,14 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
+	"strings"
 	"time"
+
+	"knative.dev/pkg/injection/clients/kubeclient"
+	deploymentinformer "knative.dev/pkg/injection/informers/kubeinformers/appsv1/deployment"
+	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/mako/helpers/go/quickstore"
@@ -30,16 +36,17 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
-	deploymentinformer "knative.dev/pkg/injection/informers/kubeinformers/appsv1/deployment"
 	"knative.dev/pkg/signals"
+	pkgpacers "knative.dev/pkg/test/vegeta/pacers"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 
+	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/test/performance/mako"
 )
 
 var (
 	benchmark  = flag.String("benchmark", "", "The mako benchmark ID")
+	flavor     = flag.String("flavor", "", "The flavor of the benchmark to run.")
 	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 )
@@ -72,6 +79,10 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 		}
 	}()
 
+	selector := labels.SelectorFromSet(labels.Set{
+		serving.ServiceLabelKey: fmt.Sprintf("load-test-%s", *flavor),
+	})
+
 	for {
 		select {
 		case res, ok := <-results:
@@ -101,7 +112,7 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 			// and overlay the resulting data.
 
 			// Overlay the desired and ready pod counts.
-			deployments, err := dl.Deployments("default").List(labels.Everything())
+			deployments, err := dl.Deployments("default").List(selector)
 			if err != nil {
 				log.Printf("Error listing deployments: %v", err)
 				break
@@ -115,7 +126,7 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 			}
 
 			// Overlay the SKS "mode".
-			skses, err := sksl.ServerlessServices("default").List(labels.Everything())
+			skses, err := sksl.ServerlessServices("default").List(selector)
 			if err != nil {
 				log.Printf("Error listing deployments: %v", err)
 				break
@@ -140,14 +151,44 @@ func main() {
 	// We want this for properly handling Kubernetes container lifecycle events.
 	ctx := signals.NewContext()
 
+	// Setup a deployment informer, so that we can use the lister to track
+	// desired and available pod counts.
+	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
+	if err != nil {
+		log.Fatalf("Error building kubeconfig: %v", err)
+	}
+	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
+	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
+		log.Fatalf("Failed to start informers: %v", err)
+	}
+
+	// Get the Kubernetes version from the API server.
+	version, err := kubeclient.Get(ctx).Discovery().ServerVersion()
+	if err != nil {
+		log.Fatalf("Failed to fetch kubernetes version: %v", err)
+	}
+
 	// We cron every 10 minutes, so give ourselves 6 minutes to complete.
 	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
 	defer cancel()
 
+	if *benchmark == "" {
+		log.Fatalf("-benchmark is a required flag.")
+	}
+	if *flavor == "" {
+		log.Fatalf("-flavor is a required flag.")
+	}
+
 	// Use the benchmark key created
 	q, qclose, err := quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
 		BenchmarkKey: proto.String(*benchmark),
-		Tags:         []string{"master"},
+		Tags: []string{
+			"master",
+			fmt.Sprintf("tbc=%s", *flavor),
+			// The format of version.String() is like "v1.13.7-gke.8",
+			// since Mako does not allow . in tags, replace them with _
+			fmt.Sprintf("kubernetes=%s", strings.ReplaceAll(version.String(), ".", "_")),
+		},
 	}, mako.SidecarAddress)
 	if err != nil {
 		log.Fatalf("failed NewAtAddress: %v", err)
@@ -155,28 +196,6 @@ func main() {
 	// Use a fresh context here so that our RPC to terminate the sidecar
 	// isn't subject to our timeout (or we won't shut it down when we time out)
 	defer qclose(context.Background())
-
-	// Wrap fatalf in a helper or our sidecar will live forever.
-	fatalf := func(f string, args ...interface{}) {
-		qclose(context.Background())
-		log.Fatalf(f, args...)
-	}
-
-	// Validate flags after setting up "fatalf" or our sidecar will run forever.
-	if *benchmark == "" {
-		fatalf("-benchmark is a required flag.")
-	}
-
-	// Setup a deployment informer, so that we can use the lister to track
-	// desired and available pod counts.
-	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
-	if err != nil {
-		fatalf("Error building kubeconfig: %v", err)
-	}
-	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
-	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-		fatalf("Failed to start informers: %v", err)
-	}
 
 	q.Input.ThresholdInputs = append(q.Input.ThresholdInputs,
 		LoadTest95PercentileLatency, LoadTestMaximumLatency)
@@ -186,18 +205,27 @@ func main() {
 	const duration = 2 * time.Minute
 	targeter := vegeta.NewStaticTargeter(vegeta.Target{
 		Method: "GET",
-		URL:    "http://load-test.default.svc.cluster.local?sleep=100",
+		URL:    fmt.Sprintf("http://load-test-%s.default.svc.cluster.local?sleep=100", *flavor),
 	})
-	// TODO(mattmoor): Replace this ramp up with a pacer.
+
+	pacers := make([]vegeta.Pacer, 3)
+	durations := make([]time.Duration, 3)
 	for i := 1; i < 4; i++ {
-		rate := vegeta.Rate{Freq: i, Per: time.Millisecond}
-		results := vegeta.NewAttacker().Attack(targeter, rate, duration, "load-test")
-		processResults(ctx, q, results)
+		pacers[i-1] = vegeta.Rate{Freq: i, Per: time.Millisecond}
+		durations[i-1] = duration
 	}
+	pacer, err := pkgpacers.NewCombined(pacers, durations)
+	if err != nil {
+		qclose(context.Background())
+		log.Fatalf("Error creating the pacer: %v", err)
+	}
+	results := vegeta.NewAttacker().Attack(targeter, pacer, 3*duration, "load-test")
+	processResults(ctx, q, results)
 
 	out, err := q.Store()
 	if err != nil {
-		fatalf("q.Store error: %s %v", out.String(), err)
+		qclose(context.Background())
+		log.Fatalf("q.Store error: %s %v", out.String(), err)
 	}
 	log.Printf("Done! Run: %s", out.GetRunChartLink())
 }

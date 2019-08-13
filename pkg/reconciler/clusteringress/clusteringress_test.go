@@ -616,6 +616,9 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 						networking.OriginSecretNameLabelKey:      "secret0",
 						networking.OriginSecretNamespaceLabelKey: "knative-serving",
 					},
+					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
+						ingressWithTLS("reconciling-clusteringress", 1234, ingressTLSWithSecretNamespace("knative-serving")),
+					)},
 				},
 				Data: map[string][]byte{
 					"wrong_data": []byte("wrongdata"),
@@ -643,6 +646,9 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 						networking.OriginSecretNameLabelKey:      "secret0",
 						networking.OriginSecretNamespaceLabelKey: "knative-serving",
 					},
+					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
+						ingressWithTLS("reconciling-clusteringress", 1234, ingressTLSWithSecretNamespace("knative-serving")),
+					)},
 				},
 				// The data is expected to be updated to the right one.
 				Data: map[string][]byte{

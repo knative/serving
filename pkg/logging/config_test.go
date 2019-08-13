@@ -19,105 +19,21 @@ package logging
 import (
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	. "knative.dev/pkg/configmap/testing"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
-
-	. "knative.dev/pkg/configmap/testing"
 )
 
-func TestNewLogger(t *testing.T) {
-	logger, _ := NewLogger("", "")
-	if logger == nil {
-		t.Error("expected a non-nil logger")
-	}
-
-	logger, _ = NewLogger("some invalid JSON here", "")
-	if logger == nil {
-		t.Error("expected a non-nil logger")
-	}
-
-	logger, atomicLevel := NewLogger("", "debug")
-	if logger == nil {
-		t.Error("expected a non-nil logger")
-	}
-	if atomicLevel.Level() != zapcore.DebugLevel {
-		t.Error("expected level to be debug")
-	}
-
-	// No good way to test if all the config is applied,
-	// but at the minimum, we can check and see if level is getting applied.
-	logger, atomicLevel = NewLogger("{\"level\": \"error\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "")
-	if logger == nil {
-		t.Error("expected a non-nil logger")
-	}
-	if ce := logger.Desugar().Check(zap.InfoLevel, "test"); ce != nil {
-		t.Error("not expected to get info logs from the logger configured with error as min threshold")
-	}
-	if ce := logger.Desugar().Check(zap.ErrorLevel, "test"); ce == nil {
-		t.Error("expected to get error logs from the logger configured with error as min threshold")
-	}
-	if atomicLevel.Level() != zapcore.ErrorLevel {
-		t.Errorf("expected atomicLevel.Level() to be ErrorLevel but got %v.", atomicLevel.Level())
-	}
-
-	logger, atomicLevel = NewLogger("{\"level\": \"info\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "")
-	if logger == nil {
-		t.Error("expected a non-nil logger")
-	}
-	if ce := logger.Desugar().Check(zap.DebugLevel, "test"); ce != nil {
-		t.Error("not expected to get debug logs from the logger configured with info as min threshold")
-	}
-	if ce := logger.Desugar().Check(zap.InfoLevel, "test"); ce == nil {
-		t.Error("expected to get info logs from the logger configured with info as min threshold")
-	}
-	if atomicLevel.Level() != zapcore.InfoLevel {
-		t.Errorf("expected atomicLevel.Level() to be InfoLevel but got %v.", atomicLevel.Level())
-	}
-
-	// Let's change the logging level using atomicLevel
-	atomicLevel.SetLevel(zapcore.ErrorLevel)
-	if ce := logger.Desugar().Check(zap.InfoLevel, "test"); ce != nil {
-		t.Error("not expected to get info logs from the logger configured with error as min threshold")
-	}
-	if ce := logger.Desugar().Check(zap.ErrorLevel, "test"); ce == nil {
-		t.Error("expected to get error logs from the logger configured with error as min threshold")
-	}
-	if atomicLevel.Level() != zapcore.ErrorLevel {
-		t.Errorf("expected atomicLevel.Level() to be ErrorLevel but got %v.", atomicLevel.Level())
-	}
-
-	// Test logging override
-	logger, _ = NewLogger("{\"level\": \"error\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "info")
-	if logger == nil {
-		t.Error("expected a non-nil logger")
-	}
-	if ce := logger.Desugar().Check(zap.DebugLevel, "test"); ce != nil {
-		t.Error("not expected to get debug logs from the logger configured with info as min threshold")
-	}
-	if ce := logger.Desugar().Check(zap.InfoLevel, "test"); ce == nil {
-		t.Error("expected to get info logs from the logger configured with info as min threshold")
-	}
-
-	// Invalid logging override
-	logger, _ = NewLogger("{\"level\": \"error\", \"outputPaths\": [\"stdout\"],\"errorOutputPaths\": [\"stderr\"],\"encoding\": \"json\"}", "randomstring")
-	if logger == nil {
-		t.Error("expected a non-nil logger")
-	}
-	if ce := logger.Desugar().Check(zap.InfoLevel, "test"); ce != nil {
-		t.Error("not expected to get info logs from the logger configured with error as min threshold")
-	}
-	if ce := logger.Desugar().Check(zap.ErrorLevel, "test"); ce == nil {
-		t.Error("expected to get error logs from the logger configured with error as min threshold")
-	}
-}
+const testConfigFileName = "test-config-logging"
 
 func TestNewConfigNoEntry(t *testing.T) {
-	c, err := NewConfigFromConfigMap(&corev1.ConfigMap{
+	c, err := logging.NewConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "knative-something",
 			Name:      "config-logging",
@@ -142,7 +58,7 @@ func TestNewConfigNoEntry(t *testing.T) {
 func TestNewConfig(t *testing.T) {
 	wantCfg := "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}"
 	wantLevel := zapcore.InfoLevel
-	c, err := NewConfigFromConfigMap(&corev1.ConfigMap{
+	c, err := logging.NewConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      "config-logging",
@@ -166,29 +82,79 @@ func TestNewConfig(t *testing.T) {
 func TestOurConfig(t *testing.T) {
 	cm, example := ConfigMapsFromTestFile(t, logging.ConfigMapName())
 
-	if cfg, err := NewConfigFromConfigMap(cm); err != nil {
+	if cfg, err := logging.NewConfigFromConfigMap(cm); err != nil {
 		t.Errorf("Expected no errors. got: %v", err)
 	} else if cfg == nil {
 		t.Errorf("NewConfigFromConfigMap(actual) = %v, want non-nil", cfg)
 	}
 
-	if cfg, err := NewConfigFromConfigMap(example); err != nil {
+	if cfg, err := logging.NewConfigFromConfigMap(example); err != nil {
 		t.Errorf("Expected no errors. got: %v", err)
 	} else if cfg == nil {
 		t.Errorf("NewConfigFromConfigMap(example) = %v, want non-nil", cfg)
 	}
 }
 
+func TestLogLevelTestConfig(t *testing.T) {
+	const wantCfg = `{
+  "level": "debug",
+  "development": false,
+  "outputPaths": ["stdout"],
+  "errorOutputPaths": ["stderr"],
+  "encoding": "json",
+  "encoderConfig": {
+    "timeKey": "ts",
+    "levelKey": "level",
+    "nameKey": "logger",
+    "callerKey": "caller",
+    "messageKey": "msg",
+    "stacktraceKey": "stacktrace",
+    "lineEnding": "",
+    "levelEncoder": "",
+    "timeEncoder": "iso8601",
+    "durationEncoder": "",
+    "callerEncoder": ""
+  }
+}
+`
+	const wantLevel = zapcore.DebugLevel
+	components := []string{
+		"autoscaler",
+		"controller",
+		"queueproxy",
+		"webhook",
+		"activator",
+	}
+	cm, _ := ConfigMapsFromTestFile(t, testConfigFileName, "loglevel.autoscaler", "loglevel.controller", "loglevel.queueproxy", "loglevel.webhook", "loglevel.activator", "zap-logger-config")
+	cfg, err := logging.NewConfigFromConfigMap(cm)
+
+	if err != nil {
+		t.Errorf("Expected no errors. got: %v", err)
+	}
+	if cfg == nil {
+		t.Errorf("NewConfigFromConfigMap(actual) = %v, want non-nil", cfg)
+	}
+
+	for _, c := range components {
+		if got := cfg.LoggingLevel[c]; got != wantLevel {
+			t.Errorf("LoggingLevel[%q] = %v, want %v", c, got, wantLevel)
+		}
+	}
+	if got := cfg.LoggingConfig; got != wantCfg {
+		t.Errorf("LoggingConfig = %v, want %v, diff(-want +got) %s", got, wantCfg, cmp.Diff(wantCfg, got))
+	}
+}
+
 func TestNewLoggerFromConfig(t *testing.T) {
 	c, _, _ := getTestConfig()
-	_, atomicLevel := NewLoggerFromConfig(c, "queueproxy")
+	_, atomicLevel := logging.NewLoggerFromConfig(c, "queueproxy")
 	if atomicLevel.Level() != zapcore.DebugLevel {
 		t.Errorf("logger level wanted: DebugLevel, got: %v", atomicLevel)
 	}
 }
 
 func TestEmptyLevel(t *testing.T) {
-	c, err := NewConfigFromConfigMap(&corev1.ConfigMap{
+	c, err := logging.NewConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      "config-logging",
@@ -208,7 +174,7 @@ func TestEmptyLevel(t *testing.T) {
 
 func TestInvalidLevel(t *testing.T) {
 	wantCfg := "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}"
-	_, err := NewConfigFromConfigMap(&corev1.ConfigMap{
+	_, err := logging.NewConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      "config-logging",
@@ -226,7 +192,7 @@ func TestInvalidLevel(t *testing.T) {
 func getTestConfig() (*logging.Config, string, string) {
 	wantCfg := "{\"level\": \"error\",\n\"outputPaths\": [\"stdout\"],\n\"errorOutputPaths\": [\"stderr\"],\n\"encoding\": \"json\"}"
 	wantLevel := "debug"
-	c, _ := NewConfigFromConfigMap(&corev1.ConfigMap{
+	c, _ := logging.NewConfigFromConfigMap(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      "config-logging",
@@ -240,7 +206,7 @@ func getTestConfig() (*logging.Config, string, string) {
 }
 
 func TestUpdateLevelFromConfigMap(t *testing.T) {
-	logger, atomicLevel := NewLogger("", "debug")
+	logger, atomicLevel := logging.NewLogger("", "debug")
 	want := zapcore.DebugLevel
 	if atomicLevel.Level() != zapcore.DebugLevel {
 		t.Fatalf("Expected initial logger level to %v, got: %v", want, atomicLevel.Level())
@@ -268,7 +234,7 @@ func TestUpdateLevelFromConfigMap(t *testing.T) {
 		{"debug", zapcore.DebugLevel},
 	}
 
-	u := UpdateLevelFromConfigMap(logger, atomicLevel, "controller")
+	u := logging.UpdateLevelFromConfigMap(logger, atomicLevel, "controller")
 	for _, tt := range tests {
 		cm.Data["loglevel.controller"] = tt.setLevel
 		u(cm)

@@ -154,10 +154,11 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 		return 1, true
 	}
 
+	now := time.Now()
 	logger := logging.FromContext(ctx)
 	if pa.Status.IsActivating() { // Active=Unknown
 		// If we are stuck activating for longer than our progress deadline, presume we cannot succeed and scale to 0.
-		if pa.Status.CanFailActivation(activationTimeout) {
+		if pa.Status.CanFailActivation(now, activationTimeout) {
 			logger.Infof("%s activation has timed out after %v.", pa.Name, activationTimeout)
 			return 0, true
 		}
@@ -168,7 +169,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 
 		// Do not scale to 0, but return desiredScale of 0 to mark PA inactive.
 		sw := aresources.StableWindow(pa, config)
-		af := pa.Status.ActiveFor()
+		af := pa.Status.ActiveFor(now)
 		if af >= sw {
 			// We do not need to enqueue PA here, since this will
 			// make SKS reconcile and when it's done, PA will be reconciled again.
@@ -189,7 +190,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 			// defensive programming.
 
 			// Most conservative check, if it passes we're good.
-			if pa.Status.CanScaleToZero(config.ScaleToZeroGracePeriod) {
+			if pa.Status.CanScaleToZero(now, config.ScaleToZeroGracePeriod) {
 				return desiredScale, true
 			}
 

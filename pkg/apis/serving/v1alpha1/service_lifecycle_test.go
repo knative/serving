@@ -26,6 +26,7 @@ import (
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	apitesting "knative.dev/pkg/apis/testing"
+	"knative.dev/pkg/ptr"
 
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
@@ -577,12 +578,12 @@ func TestRouteStatusPropagation(t *testing.T) {
 		},
 		Traffic: []TrafficTarget{{
 			TrafficTarget: v1beta1.TrafficTarget{
-				Percent:      100,
+				Percent:      ptr.Int64(100),
 				RevisionName: "newstuff",
 			},
 		}, {
 			TrafficTarget: v1beta1.TrafficTarget{
-				Percent:      0,
+				Percent:      nil,
 				RevisionName: "oldstuff",
 			},
 		}},

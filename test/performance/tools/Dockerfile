@@ -30,4 +30,4 @@ RUN go get -u github.com/google/ko/cmd/ko
 RUN go get -u github.com/golang/dep/cmd/dep
 
 # Add project root folder
-ADD . /go/src/knative.dev/serving/test/performance/
+ADD . .

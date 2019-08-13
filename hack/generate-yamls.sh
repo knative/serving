@@ -54,6 +54,7 @@ readonly SERVING_CRD_ALPHA_YAML=${YAML_OUTPUT_DIR}/serving-alpha-crds.yaml
 readonly SERVING_ALPHA_YAML=${YAML_OUTPUT_DIR}/serving-pre-1.14.yaml
 readonly SERVING_CRD_BETA_YAML=${YAML_OUTPUT_DIR}/serving-beta-crds.yaml
 readonly SERVING_BETA_YAML=${YAML_OUTPUT_DIR}/serving-post-1.14.yaml
+readonly SERVING_CORE_BETA_YAML=${YAML_OUTPUT_DIR}/serving-core-post-1.14.yaml
 readonly SERVING_CERT_MANAGER_YAML=${YAML_OUTPUT_DIR}/serving-cert-manager.yaml
 readonly SERVING_ISTIO_YAML=${YAML_OUTPUT_DIR}/serving-istio.yaml
 
@@ -99,6 +100,10 @@ cat "${SERVING_CRD_ALPHA_YAML}" >> "${SERVING_ALPHA_YAML}"
 # Create the full beta install.
 cat "${SERVING_YAML}" > "${SERVING_BETA_YAML}"
 cat "${SERVING_CRD_BETA_YAML}" >> "${SERVING_BETA_YAML}"
+
+# Create the core beta install
+cat "${SERVING_CORE_YAML}" > "${SERVING_CORE_BETA_YAML}"
+cat "${SERVING_CRD_BETA_YAML}" >> "${SERVING_CORE_BETA_YAML}"
 
 # Our ${SERVING_YAML} should be a complete install, so bias towards the most
 # broadly compatible by default.

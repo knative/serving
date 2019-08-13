@@ -54,7 +54,7 @@ func (s *Store) Load() *Config {
 	}
 }
 
-func NewStore(logger configmap.Logger, minRevisionTimeout time.Duration) *Store {
+func NewStore(logger configmap.Logger, minRevisionTimeout time.Duration, onAfterStore ...func(name string, value interface{})) *Store {
 	return &Store{
 		UntypedStore: configmap.NewUntypedStore(
 			"configuration",
@@ -62,6 +62,7 @@ func NewStore(logger configmap.Logger, minRevisionTimeout time.Duration) *Store 
 			configmap.Constructors{
 				gc.ConfigName: gc.NewConfigFromConfigMapFunc(logger, minRevisionTimeout),
 			},
+			onAfterStore...,
 		),
 	}
 }

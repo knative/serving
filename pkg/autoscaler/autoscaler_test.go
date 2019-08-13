@@ -44,7 +44,7 @@ var (
 )
 
 func TestNewErrorWhenGivenNilReadyPodCounter(t *testing.T) {
-	_, err := New(testNamespace, testRevision, &autoscalerfake.MetricClient{}, nil, DeciderSpec{TargetConcurrency: 10, ServiceName: testService}, &mockReporter{})
+	_, err := New(testNamespace, testRevision, &autoscalerfake.MetricClient{}, nil, DeciderSpec{TargetValue: 10, ServiceName: testService}, &mockReporter{})
 	if err == nil {
 		t.Error("Expected error when ReadyPodCounter interface is nil, but got none.")
 	}
@@ -56,7 +56,7 @@ func TestNewErrorWhenGivenNilStatsReporter(t *testing.T) {
 	podCounter := resources.NewScopedEndpointsCounter(kubeInformer.Core().V1().Endpoints().Lister(), testNamespace, testService)
 
 	_, err := New(testNamespace, testRevision, &autoscalerfake.MetricClient{}, podCounter,
-		DeciderSpec{TargetConcurrency: 10, ServiceName: testService}, reporter)
+		DeciderSpec{TargetValue: 10, ServiceName: testService}, reporter)
 	if err == nil {
 		t.Error("Expected error when EndpointsInformer interface is nil, but got none.")
 	}
@@ -232,8 +232,8 @@ func TestAutoscalerUpdateTarget(t *testing.T) {
 
 	endpoints(10)
 	a.Update(DeciderSpec{
-		TargetConcurrency:   1,
-		TotalConcurrency:    1 / targetUtilization,
+		TargetValue:         1,
+		TotalValue:          1 / targetUtilization,
 		TargetBurstCapacity: 71,
 		PanicThreshold:      2,
 		MaxScaleUpRate:      10,
@@ -285,13 +285,13 @@ func (r *mockReporter) ReportExcessBurstCapacity(v float64) error {
 	return nil
 }
 
-func newTestAutoscaler(t *testing.T, targetConcurrency, targetBurstCapacity float64, metrics MetricClient) *Autoscaler {
+func newTestAutoscaler(t *testing.T, targetValue, targetBurstCapacity float64, metrics MetricClient) *Autoscaler {
 	t.Helper()
 	deciderSpec := DeciderSpec{
-		TargetConcurrency:   targetConcurrency,
-		TotalConcurrency:    targetConcurrency / targetUtilization, // For UTs presume 75% utilization
+		TargetValue:         targetValue,
+		TotalValue:          targetValue / targetUtilization, // For UTs presume 75% utilization
 		TargetBurstCapacity: targetBurstCapacity,
-		PanicThreshold:      2 * targetConcurrency,
+		PanicThreshold:      2 * targetValue,
 		MaxScaleUpRate:      10.0,
 		StableWindow:        stableWindow,
 		ServiceName:         testService,
@@ -345,8 +345,8 @@ func endpoints(count int) {
 func TestStartInPanicMode(t *testing.T) {
 	metrics := &autoscalerfake.StaticMetricClient
 	deciderSpec := DeciderSpec{
-		TargetConcurrency:   100,
-		TotalConcurrency:    120,
+		TargetValue:         100,
+		TotalValue:          120,
 		TargetBurstCapacity: 11,
 		PanicThreshold:      220,
 		MaxScaleUpRate:      10.0,
@@ -387,8 +387,8 @@ func TestNewFail(t *testing.T) {
 	eraseEndpoints()
 	metrics := &autoscalerfake.StaticMetricClient
 	deciderSpec := DeciderSpec{
-		TargetConcurrency:   100,
-		TotalConcurrency:    120,
+		TargetValue:         100,
+		TotalValue:          120,
 		TargetBurstCapacity: 11,
 		PanicThreshold:      220,
 		MaxScaleUpRate:      10.0,
