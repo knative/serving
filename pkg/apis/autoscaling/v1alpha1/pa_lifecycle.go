@@ -186,7 +186,7 @@ func (pas *PodAutoscalerStatus) MarkResourceFailedCreation(kind, name string) {
 // CanScaleToZero checks whether the pod autoscaler has been in an inactive state
 // for at least the specified grace period.
 func (pas *PodAutoscalerStatus) CanScaleToZero(now time.Time, gracePeriod time.Duration) bool {
-	return pas.inStatusFor(corev1.ConditionFalse, time.Now(), gracePeriod) > 0
+	return pas.inStatusFor(corev1.ConditionFalse, now, gracePeriod) > 0
 }
 
 // ActiveFor returns the time PA spent being active.
