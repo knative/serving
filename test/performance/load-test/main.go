@@ -77,8 +77,8 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 	sksMode := metrics.FetchSKSMode(ctx, "default", selector, time.Second, stopSKSCh)
 	// When the benchmark completes, stop fetching deployment and serverless service status.
 	defer func() {
-		stopDeploymentCh <- struct{}{}
-		stopSKSCh <- struct{}{}
+		close(stopDeploymentCh)
+		close(stopSKSCh)
 	}()
 
 	for {
