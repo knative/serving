@@ -26,6 +26,7 @@ import (
 	"knative.dev/pkg/apis/duck"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	apitest "knative.dev/pkg/apis/testing"
+	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
 )
 
@@ -932,6 +933,35 @@ func TestTargetBC(t *testing.T) {
 			}
 			if gotOK != tc.wantOK {
 				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
+			}
+		})
+	}
+}
+
+func TestIsReachable(t *testing.T) {
+	cases := []struct {
+		name string
+		pa   *PodAutoscaler
+		want bool
+	}{{
+		name: "unknown",
+		pa:   &PodAutoscaler{Spec: PodAutoscalerSpec{Reachable: nil}},
+		want: true,
+	}, {
+		name: "reachable",
+		pa:   &PodAutoscaler{Spec: PodAutoscalerSpec{Reachable: ptr.Bool(true)}},
+		want: true,
+	}, {
+		name: "not reachable",
+		pa:   &PodAutoscaler{Spec: PodAutoscalerSpec{Reachable: ptr.Bool(false)}},
+		want: false,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := tc.pa.IsReachable()
+			if got != tc.want {
+				t.Errorf("IsReachable() = %t, want %t", got, tc.want)
 			}
 		})
 	}

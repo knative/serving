@@ -283,6 +283,10 @@ func (r *Revision) GetLastPinned() (time.Time, error) {
 	return time.Unix(secs, 0), nil
 }
 
+func (r *Revision) IsReachable() bool {
+	return r.ObjectMeta.Labels[serving.RouteLabelKey] != ""
+}
+
 func (rs *RevisionStatus) duck() *duckv1beta1.Status {
 	return &rs.Status
 }

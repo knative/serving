@@ -79,6 +79,9 @@ type PodAutoscalerSpec struct {
 	// is responsible for quickly right-sizing.
 	ScaleTargetRef corev1.ObjectReference `json:"scaleTargetRef"`
 
+	// Reachable specifies whether or not the `ScaleTargetRef` can be reached.
+	Reachable *bool `json:"reachable,omitempty"`
+
 	// DeprecatedServiceName holds the name of a core Kubernetes Service resource that
 	// load balances over the pods referenced by the ScaleTargetRef.
 	DeprecatedServiceName string `json:"serviceName"`

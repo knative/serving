@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/ptr"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -49,6 +50,7 @@ func MakePA(rev *v1alpha1.Revision) *av1alpha1.PodAutoscaler {
 				Name:       names.Deployment(rev),
 			},
 			ProtocolType: rev.GetProtocol(),
+			Reachable:    ptr.Bool(rev.IsReachable()),
 		},
 	}
 }

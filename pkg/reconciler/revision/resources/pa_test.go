@@ -39,12 +39,15 @@ func TestMakePA(t *testing.T) {
 		rev  *v1alpha1.Revision
 		want *av1alpha1.PodAutoscaler
 	}{{
-		name: "name is bar (Concurrency=1)",
+		name: "name is bar (Concurrency=1, Reachable=true)",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
 				Name:      "bar",
 				UID:       "1234",
+				Labels: map[string]string{
+					serving.RouteLabelKey: "some-route",
+				},
 				Annotations: map[string]string{
 					"a":                                     "b",
 					serving.RevisionLastPinnedAnnotationKey: "timeless",
@@ -85,10 +88,11 @@ func TestMakePA(t *testing.T) {
 					Name:       "bar-deployment",
 				},
 				ProtocolType: networking.ProtocolHTTP1,
+				Reachable:    ptr.Bool(true),
 			},
 		},
 	}, {
-		name: "name is baz (Concurrency=0)",
+		name: "name is baz (Concurrency=0, Reachable=false)",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "blah",
@@ -134,6 +138,7 @@ func TestMakePA(t *testing.T) {
 					Name:       "baz-deployment",
 				},
 				ProtocolType: networking.ProtocolH2C,
+				Reachable:    ptr.Bool(false),
 			}},
 	}}
 
