@@ -53,7 +53,7 @@ func ReconcileCertificate(ctx context.Context, owner kmeta.Accessor, desired *v1
 	if apierrs.IsNotFound(err) {
 		cert, err = certAccessor.GetServingClient().NetworkingV1alpha1().Certificates(desired.Namespace).Create(desired)
 		if err != nil {
-			logger.Error("Failed to create Certificate", zap.Error(err))
+			logger.Errorw("Failed to create Certificate", zap.Error(err))
 			recorder.Eventf(owner, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create Certificate %s/%s: %v", desired.Namespace, desired.Name, err)
 			return nil, err
@@ -67,21 +67,18 @@ func ReconcileCertificate(ctx context.Context, owner kmeta.Accessor, desired *v1
 		return nil, kaccessor.NewAccessorError(
 			fmt.Errorf("owner: %s with Type %T does not own Certificate: %q", owner.GetName(), owner, cert.Name),
 			kaccessor.NotOwnResource)
-	} else {
-		if !equality.Semantic.DeepEqual(cert.Spec, desired.Spec) {
-			// Don't modify the informers copy
-			existing := cert.DeepCopy()
-			existing.Spec = desired.Spec
-			cert, err := certAccessor.GetServingClient().NetworkingV1alpha1().Certificates(existing.Namespace).Update(existing)
-			if err != nil {
-				recorder.Eventf(owner, corev1.EventTypeWarning, "UpdateFailed",
-					"Failed to update Certificate %s/%s: %v", existing.Namespace, existing.Name, err)
-				return nil, err
-			}
-			recorder.Eventf(owner, corev1.EventTypeNormal, "Updated",
-				"Updated Spec for Certificate %s/%s", existing.Namespace, existing.Name)
-			return cert, nil
+	} else if !equality.Semantic.DeepEqual(cert.Spec, desired.Spec) {
+		// Don't modify the informers copy
+		existing := cert.DeepCopy()
+		existing.Spec = desired.Spec
+		cert, err = certAccessor.GetServingClient().NetworkingV1alpha1().Certificates(existing.Namespace).Update(existing)
+		if err != nil {
+			recorder.Eventf(owner, corev1.EventTypeWarning, "UpdateFailed",
+				"Failed to update Certificate %s/%s: %v", existing.Namespace, existing.Name, err)
+			return nil, err
 		}
+		recorder.Eventf(owner, corev1.EventTypeNormal, "Updated",
+			"Updated Spec for Certificate %s/%s", existing.Namespace, existing.Name)
 	}
 	return cert, nil
 }
