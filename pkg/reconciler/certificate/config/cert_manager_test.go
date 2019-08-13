@@ -59,6 +59,19 @@ func TestIssuerRef(t *testing.T) {
 			},
 		},
 	}, {
+		name:       "invalid IssuerKind",
+		wantErr:    true,
+		wantConfig: (*CertManagerConfig)(nil),
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      CertManagerConfigName,
+			},
+			Data: map[string]string{
+				issuerKindKey: "unsupported",
+			},
+		},
+	}, {
 		name:    "valid IssuerRef",
 		wantErr: false,
 		wantConfig: &CertManagerConfig{

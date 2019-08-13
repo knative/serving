@@ -17,6 +17,7 @@ limitations under the License.
 package config
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/ghodss/yaml"
@@ -33,6 +34,8 @@ const (
 	// CertManagerConfigName is the name of the configmap containing all
 	// configuration related to Cert-Manager.
 	CertManagerConfigName = "config-certmanager"
+
+	defaultIssuerKind = "acme"
 )
 
 // CertManagerConfig contains Cert-Manager related configuration defined in the
@@ -51,7 +54,7 @@ func NewCertManagerConfigFromConfigMap(configMap *corev1.ConfigMap) (*CertManage
 	config := &CertManagerConfig{
 		SolverConfig: &certmanagerv1alpha1.SolverConfig{},
 		IssuerRef:    &certmanagerv1alpha1.ObjectReference{},
-		IssuerKind:   "acme",
+		IssuerKind:   defaultIssuerKind,
 	}
 
 	if v, ok := configMap.Data[solverConfigKey]; ok {
@@ -68,6 +71,11 @@ func NewCertManagerConfigFromConfigMap(configMap *corev1.ConfigMap) (*CertManage
 
 	if v, ok := configMap.Data[issuerKindKey]; ok {
 		config.IssuerKind = strings.ToLower(v)
+		switch config.IssuerKind {
+		case "acme", "ca":
+		default:
+			return nil, fmt.Errorf("IssuerKind %q is not supported", config.IssuerKind)
+		}
 	}
 	return config, nil
 }
