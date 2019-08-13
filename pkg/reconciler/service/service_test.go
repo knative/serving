@@ -22,10 +22,10 @@ import (
 	"testing"
 
 	// Install our fake informers
-	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/route/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/service/fake"
+	_ "knative.dev/serving/pkg/client/serving/injection/informers/serving/v1alpha1/configuration/fake"
+	_ "knative.dev/serving/pkg/client/serving/injection/informers/serving/v1alpha1/revision/fake"
+	_ "knative.dev/serving/pkg/client/serving/injection/informers/serving/v1alpha1/route/fake"
+	_ "knative.dev/serving/pkg/client/serving/injection/informers/serving/v1alpha1/service/fake"
 
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/configmap"

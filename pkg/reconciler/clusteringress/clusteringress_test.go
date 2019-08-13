@@ -29,8 +29,8 @@ import (
 	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
 	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/pod/fake"
 	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret/fake"
-	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress/fake"
+	fakeprivateclient "knative.dev/serving/pkg/client/private/injection/client/fake"
+	_ "knative.dev/serving/pkg/client/private/injection/informers/networking/v1alpha1/clusteringress/fake"
 
 	"github.com/google/go-cmp/cmp"
 	"golang.org/x/sync/errgroup"
@@ -972,12 +972,12 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 		}
 	}()
 
-	servingClient := fakeservingclient.Get(ctx)
+	privateClient := fakeprivateclient.Get(ctx)
 
 	h := NewHooks()
 
 	// Check for ClusterIngress created as a signal that syncHandler ran
-	h.OnUpdate(&servingClient.Fake, "clusteringresses", func(obj runtime.Object) HookResult {
+	h.OnUpdate(&privateClient.Fake, "clusteringresses", func(obj runtime.Object) HookResult {
 		ci := obj.(*v1alpha1.ClusterIngress)
 		t.Logf("clusteringress updated: %q", ci.Name)
 
@@ -1025,7 +1025,7 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 			},
 		},
 	)
-	ingressClient := servingClient.NetworkingV1alpha1().ClusterIngresses()
+	ingressClient := privateClient.NetworkingV1alpha1().ClusterIngresses()
 
 	// Create a ingress.
 	ingressClient.Create(ingress)
@@ -1110,7 +1110,7 @@ func TestGlobalResyncOnUpdateNetwork(t *testing.T) {
 		},
 	)
 
-	ingressClient := fakeservingclient.Get(ctx).NetworkingV1alpha1().ClusterIngresses()
+	ingressClient := fakeprivateclient.Get(ctx).NetworkingV1alpha1().ClusterIngresses()
 
 	// Create a ingress.
 	ingressClient.Create(ingress)

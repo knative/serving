@@ -25,13 +25,14 @@ import (
 
 	// Inject the informers this controller depends on.
 	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
-	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
-	fakeciinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress/fake"
-	fakeingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
-	fakecfginformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
-	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
-	fakerouteinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/route/fake"
+	fakeprivateclient "knative.dev/serving/pkg/client/private/injection/client/fake"
+	_ "knative.dev/serving/pkg/client/private/injection/informers/networking/v1alpha1/certificate/fake"
+	fakeciinformer "knative.dev/serving/pkg/client/private/injection/informers/networking/v1alpha1/clusteringress/fake"
+	fakeingressinformer "knative.dev/serving/pkg/client/private/injection/informers/networking/v1alpha1/ingress/fake"
+	fakeservingclient "knative.dev/serving/pkg/client/serving/injection/client/fake"
+	fakecfginformer "knative.dev/serving/pkg/client/serving/injection/informers/serving/v1alpha1/configuration/fake"
+	fakerevisioninformer "knative.dev/serving/pkg/client/serving/injection/informers/serving/v1alpha1/revision/fake"
+	fakerouteinformer "knative.dev/serving/pkg/client/serving/injection/informers/serving/v1alpha1/route/fake"
 
 	"github.com/google/go-cmp/cmp"
 	"golang.org/x/sync/errgroup"
@@ -212,7 +213,7 @@ func getRouteClusterIngressFromClient(ctx context.Context, t *testing.T, route *
 			serving.RouteNamespaceLabelKey: route.Namespace,
 		}).AsSelector().String(),
 	}
-	cis, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().ClusterIngresses().List(opts)
+	cis, err := fakeprivateclient.Get(ctx).NetworkingV1alpha1().ClusterIngresses().List(opts)
 	if err != nil {
 		t.Errorf("ClusterIngress.Get(%v) = %v", opts, err)
 	}
@@ -235,7 +236,7 @@ func getRouteIngressFromClient(ctx context.Context, t *testing.T, route *v1alpha
 			serving.RouteNamespaceLabelKey: route.Namespace,
 		}).AsSelector().String(),
 	}
-	ingresses, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().Ingresses(route.Namespace).List(opts)
+	ingresses, err := fakeprivateclient.Get(ctx).NetworkingV1alpha1().Ingresses(route.Namespace).List(opts)
 	if err != nil {
 		t.Errorf("Ingress.Get(%v) = %v", opts, err)
 	}
@@ -247,7 +248,7 @@ func getRouteIngressFromClient(ctx context.Context, t *testing.T, route *v1alpha
 	return &ingresses.Items[0]
 }
 func getCertificateFromClient(t *testing.T, ctx context.Context, desired *netv1alpha1.Certificate) *netv1alpha1.Certificate {
-	created, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().Certificates(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
+	created, err := fakeprivateclient.Get(ctx).NetworkingV1alpha1().Certificates(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Certificates(%s).Get(%s) = %v", desired.Namespace, desired.Name, err)
 	}

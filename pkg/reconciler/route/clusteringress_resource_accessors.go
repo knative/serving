@@ -26,7 +26,7 @@ import (
 	"knative.dev/pkg/logging"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	networkinglisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
+	networkinglisters "knative.dev/serving/pkg/client/private/listers/networking/v1alpha1"
 	"knative.dev/serving/pkg/reconciler/route/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
@@ -55,7 +55,7 @@ func (cir *ClusterIngressResources) makeIngress(
 
 // createIngress invokes APIs to create a new ClusterIngress
 func (cir *ClusterIngressResources) createIngress(desired netv1alpha1.IngressAccessor) (netv1alpha1.IngressAccessor, error) {
-	return cir.servingClientSet.NetworkingV1alpha1().ClusterIngresses().Create(desired.(*netv1alpha1.ClusterIngress))
+	return cir.privateClientSet.NetworkingV1alpha1().ClusterIngresses().Create(desired.(*netv1alpha1.ClusterIngress))
 }
 
 // getIngressForRoute retrieves a ClusterIngress from a given route
@@ -88,5 +88,5 @@ func (cir *ClusterIngressResources) getIngressForRoute(route *v1alpha1.Route) (n
 
 // updateIngress invokes APIs to update a ClusterIngress
 func (cir *ClusterIngressResources) updateIngress(origin netv1alpha1.IngressAccessor) (netv1alpha1.IngressAccessor, error) {
-	return cir.servingClientSet.NetworkingV1alpha1().ClusterIngresses().Update(origin.(*netv1alpha1.ClusterIngress))
+	return cir.privateClientSet.NetworkingV1alpha1().ClusterIngresses().Update(origin.(*netv1alpha1.ClusterIngress))
 }

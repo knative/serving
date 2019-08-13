@@ -118,5 +118,5 @@ func (c *Reconciler) createImageCache(ctx context.Context, rev *v1alpha1.Revisio
 func (c *Reconciler) createPA(ctx context.Context, rev *v1alpha1.Revision) (*av1alpha1.PodAutoscaler, error) {
 	pa := resources.MakePA(rev)
 
-	return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Create(pa)
+	return c.PrivateClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Create(pa)
 }

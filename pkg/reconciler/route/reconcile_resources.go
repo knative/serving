@@ -55,12 +55,12 @@ func (c *Reconciler) deleteIngressesForRoute(route *v1alpha1.Route) error {
 
 	// Delete ClusterIngresses and Ingresses owned by this route.
 
-	if err := c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().DeleteCollection(
+	if err := c.PrivateClientSet.NetworkingV1alpha1().ClusterIngresses().DeleteCollection(
 		nil, metav1.ListOptions{LabelSelector: selector}); err != nil {
 		return err
 	}
 
-	return c.ServingClientSet.NetworkingV1alpha1().Ingresses(route.Namespace).DeleteCollection(
+	return c.PrivateClientSet.NetworkingV1alpha1().Ingresses(route.Namespace).DeleteCollection(
 		nil, metav1.ListOptions{LabelSelector: selector})
 }
 
@@ -275,7 +275,7 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 func (c *Reconciler) reconcileCertificate(ctx context.Context, r *v1alpha1.Route, desiredCert *netv1alpha1.Certificate) (*netv1alpha1.Certificate, error) {
 	cert, err := c.certificateLister.Certificates(desiredCert.Namespace).Get(desiredCert.Name)
 	if apierrs.IsNotFound(err) {
-		cert, err = c.ServingClientSet.NetworkingV1alpha1().Certificates(desiredCert.Namespace).Create(desiredCert)
+		cert, err = c.PrivateClientSet.NetworkingV1alpha1().Certificates(desiredCert.Namespace).Create(desiredCert)
 		if err != nil {
 			c.Logger.Error("Failed to create Certificate", zap.Error(err))
 			c.Recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed",
@@ -296,7 +296,7 @@ func (c *Reconciler) reconcileCertificate(ctx context.Context, r *v1alpha1.Route
 			// Don't modify the informers copy
 			existing := cert.DeepCopy()
 			existing.Spec = desiredCert.Spec
-			cert, err := c.ServingClientSet.NetworkingV1alpha1().Certificates(existing.Namespace).Update(existing)
+			cert, err := c.PrivateClientSet.NetworkingV1alpha1().Certificates(existing.Namespace).Update(existing)
 			if err != nil {
 				c.Recorder.Eventf(r, corev1.EventTypeWarning, "UpdateFailed",
 					"Failed to update Certificate %s/%s: %v", existing.Namespace, existing.Name, err)

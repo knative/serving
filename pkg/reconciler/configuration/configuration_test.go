@@ -22,8 +22,8 @@ import (
 	"time"
 
 	// Inject the fake informers we need.
-	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
+	_ "knative.dev/serving/pkg/client/serving/injection/informers/serving/v1alpha1/configuration/fake"
+	_ "knative.dev/serving/pkg/client/serving/injection/informers/serving/v1alpha1/revision/fake"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

@@ -22,7 +22,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	cmclient "knative.dev/serving/pkg/client/certmanager/injection/client"
 	cmcertinformer "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1alpha1/certificate"
-	kcertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate"
+	kcertinformer "knative.dev/serving/pkg/client/private/injection/informers/networking/v1alpha1/certificate"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"

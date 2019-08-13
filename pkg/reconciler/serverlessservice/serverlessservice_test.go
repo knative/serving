@@ -25,7 +25,7 @@ import (
 	// Inject the fakes for informers this reconciler depends on.
 	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
 	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
+	_ "knative.dev/serving/pkg/client/private/injection/informers/networking/v1alpha1/serverlessservice/fake"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"

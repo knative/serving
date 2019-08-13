@@ -39,7 +39,7 @@ import (
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
+	listers "knative.dev/serving/pkg/client/private/listers/networking/v1alpha1"
 	rbase "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources"
 	presources "knative.dev/serving/pkg/resources"
@@ -137,7 +137,7 @@ func (r *reconciler) updateStatus(sks *netv1alpha1.ServerlessService) (*netv1alp
 	r.Logger.Debugf("StatusDiff: %s", cmp.Diff(original.Status, sks.Status))
 	original = original.DeepCopy()
 	original.Status = sks.Status
-	return r.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).UpdateStatus(original)
+	return r.PrivateClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).UpdateStatus(original)
 }
 
 func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha1.ServerlessService) error {

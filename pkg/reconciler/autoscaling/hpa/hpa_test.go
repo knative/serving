@@ -24,10 +24,10 @@ import (
 	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
 	_ "knative.dev/pkg/injection/informers/kubeinformers/autoscalingv2beta1/hpa/fake"
 	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
-	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
-	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
+	fakeprivateclient "knative.dev/serving/pkg/client/private/injection/client/fake"
+	_ "knative.dev/serving/pkg/client/private/injection/informers/autoscaling/v1alpha1/metric/fake"
+	fakepainformer "knative.dev/serving/pkg/client/private/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
+	_ "knative.dev/serving/pkg/client/private/injection/informers/networking/v1alpha1/serverlessservice/fake"
 
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
@@ -72,7 +72,7 @@ func TestControllerCanReconcile(t *testing.T) {
 	}))
 
 	podAutoscaler := pa(testNamespace, testRevision, WithHPAClass)
-	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(podAutoscaler)
+	fakeprivateclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(podAutoscaler)
 	fakepainformer.Get(ctx).Informer().GetIndexer().Add(podAutoscaler)
 
 	err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision)

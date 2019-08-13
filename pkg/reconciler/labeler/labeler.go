@@ -23,7 +23,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	listers "knative.dev/serving/pkg/client/serving/listers/serving/v1alpha1"
 	"knative.dev/serving/pkg/reconciler"
 )
 

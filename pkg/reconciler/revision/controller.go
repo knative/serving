@@ -25,8 +25,8 @@ import (
 	deploymentinformer "knative.dev/pkg/injection/informers/kubeinformers/appsv1/deployment"
 	configmapinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/configmap"
 	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
-	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
-	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
+	painformer "knative.dev/serving/pkg/client/private/injection/informers/autoscaling/v1alpha1/podautoscaler"
+	revisioninformer "knative.dev/serving/pkg/client/serving/injection/informers/serving/v1alpha1/revision"
 
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"

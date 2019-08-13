@@ -25,7 +25,7 @@ import (
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler"
-	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	servinglisters "knative.dev/serving/pkg/client/serving/listers/serving/v1alpha1"
 )
 
 // ConcurrencyReporter reports stats based on incoming requests and ticks.

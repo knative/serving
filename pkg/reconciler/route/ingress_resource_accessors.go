@@ -24,8 +24,8 @@ import (
 	"knative.dev/pkg/logging"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	clientset "knative.dev/serving/pkg/client/clientset/versioned"
-	networkinglisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
+	privateclientset "knative.dev/serving/pkg/client/private/clientset/versioned"
+	networkinglisters "knative.dev/serving/pkg/client/private/listers/networking/v1alpha1"
 	"knative.dev/serving/pkg/reconciler/route/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
@@ -50,7 +50,7 @@ type IngressResourceAccessors interface {
 
 // BaseIngressResources Common base struct for ingress resource
 type BaseIngressResources struct {
-	servingClientSet clientset.Interface
+	privateClientSet privateclientset.Interface
 }
 
 // IngressResources Namespaced ingress resources
@@ -76,7 +76,7 @@ func (ir *IngressResources) makeIngress(
 
 // createIngress invokes APIs to create a new Ingress
 func (ir *IngressResources) createIngress(desired netv1alpha1.IngressAccessor) (netv1alpha1.IngressAccessor, error) {
-	return ir.servingClientSet.NetworkingV1alpha1().Ingresses(desired.GetNamespace()).Create(desired.(*netv1alpha1.Ingress))
+	return ir.privateClientSet.NetworkingV1alpha1().Ingresses(desired.GetNamespace()).Create(desired.(*netv1alpha1.Ingress))
 }
 
 // getIngressForRoute retrieves Ingress for a given route
@@ -86,5 +86,5 @@ func (ir *IngressResources) getIngressForRoute(route *v1alpha1.Route) (netv1alph
 
 // updateIngress invokes APIs to updates an Ingress
 func (ir *IngressResources) updateIngress(origin netv1alpha1.IngressAccessor) (netv1alpha1.IngressAccessor, error) {
-	return ir.servingClientSet.NetworkingV1alpha1().Ingresses(origin.GetNamespace()).Update(origin.(*netv1alpha1.Ingress))
+	return ir.privateClientSet.NetworkingV1alpha1().Ingresses(origin.GetNamespace()).Update(origin.(*netv1alpha1.Ingress))
 }

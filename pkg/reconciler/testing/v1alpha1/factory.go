@@ -26,7 +26,8 @@ import (
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
 	fakecertmanagerclient "knative.dev/serving/pkg/client/certmanager/injection/client/fake"
-	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakeprivateclient "knative.dev/serving/pkg/client/private/injection/client/fake"
+	fakeservingclient "knative.dev/serving/pkg/client/serving/injection/client/fake"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -66,7 +67,8 @@ func MakeFactory(ctor Ctor) Factory {
 
 		ctx, kubeClient := fakekubeclient.With(ctx, ls.GetKubeObjects()...)
 		ctx, sharedClient := fakesharedclient.With(ctx, ls.GetSharedObjects()...)
-		ctx, client := fakeservingclient.With(ctx, ls.GetServingObjects()...)
+		ctx, servingClient := fakeservingclient.With(ctx, ls.GetServingObjects()...)
+		ctx, privateClient := fakeprivateclient.With(ctx, ls.GetPrivateObjects()...)
 		ctx, dynamicClient := fakedynamicclient.With(ctx,
 			ls.NewScheme(), ToUnstructured(t, ls.NewScheme(), r.Objects)...)
 		ctx, cachingClient := fakecachingclient.With(ctx, ls.GetCachingObjects()...)
@@ -94,7 +96,8 @@ func MakeFactory(ctor Ctor) Factory {
 				return false, nil, nil
 			},
 		)
-		PrependGenerateNameReactor(&client.Fake)
+		PrependGenerateNameReactor(&servingClient.Fake)
+		PrependGenerateNameReactor(&privateClient.Fake)
 		PrependGenerateNameReactor(&kubeClient.Fake)
 		PrependGenerateNameReactor(&dynamicClient.Fake)
 
@@ -104,23 +107,33 @@ func MakeFactory(ctor Ctor) Factory {
 		for _, reactor := range r.WithReactors {
 			kubeClient.PrependReactor("*", "*", reactor)
 			sharedClient.PrependReactor("*", "*", reactor)
-			client.PrependReactor("*", "*", reactor)
+			servingClient.PrependReactor("*", "*", reactor)
+			privateClient.PrependReactor("*", "*", reactor)
 			dynamicClient.PrependReactor("*", "*", reactor)
 			cachingClient.PrependReactor("*", "*", reactor)
 			certManagerClient.PrependReactor("*", "*", reactor)
 		}
 
 		// Validate all Create operations through the serving client.
-		client.PrependReactor("create", "*", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
+		servingClient.PrependReactor("create", "*", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 			// TODO(n3wscott): context.Background is the best we can do at the moment, but it should be set-able.
 			return ValidateCreates(context.Background(), action)
 		})
-		client.PrependReactor("update", "*", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
+		servingClient.PrependReactor("update", "*", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
+			// TODO(n3wscott): context.Background is the best we can do at the moment, but it should be set-able.
+			return ValidateUpdates(context.Background(), action)
+		})
+		// Validate all Create operations through the serving client.
+		privateClient.PrependReactor("create", "*", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
+			// TODO(n3wscott): context.Background is the best we can do at the moment, but it should be set-able.
+			return ValidateCreates(context.Background(), action)
+		})
+		privateClient.PrependReactor("update", "*", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 			// TODO(n3wscott): context.Background is the best we can do at the moment, but it should be set-able.
 			return ValidateUpdates(context.Background(), action)
 		})
 
-		actionRecorderList := ActionRecorderList{sharedClient, dynamicClient, client, kubeClient, cachingClient, certManagerClient}
+		actionRecorderList := ActionRecorderList{sharedClient, dynamicClient, servingClient, privateClient, kubeClient, cachingClient, certManagerClient}
 		eventList := EventList{Recorder: eventRecorder}
 
 		return c, actionRecorderList, eventList, statsReporter

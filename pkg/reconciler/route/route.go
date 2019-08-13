@@ -41,8 +41,8 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
-	networkinglisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
-	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	networkinglisters "knative.dev/serving/pkg/client/private/listers/networking/v1alpha1"
+	listers "knative.dev/serving/pkg/client/serving/listers/serving/v1alpha1"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/domains"
@@ -244,7 +244,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	_, err = c.reconcileIngressResources(ctx, r, traffic, tls, clusterLocalServiceNames, ingressClassForRoute(ctx, r),
 		&ClusterIngressResources{
 			BaseIngressResources: BaseIngressResources{
-				servingClientSet: c.ServingClientSet,
+				privateClientSet: c.PrivateClientSet,
 			},
 			clusterIngressLister: c.clusterIngressLister,
 		},
@@ -259,7 +259,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	ingress, err := c.reconcileIngressResources(ctx, r, traffic, tls, clusterLocalServiceNames, ingressClassForRoute(ctx, r),
 		&IngressResources{
 			BaseIngressResources: BaseIngressResources{
-				servingClientSet: c.ServingClientSet,
+				privateClientSet: c.PrivateClientSet,
 			},
 			ingressLister: c.ingressLister,
 		},

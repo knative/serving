@@ -38,16 +38,18 @@ import (
 	networking "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	certmanagerlisters "knative.dev/serving/pkg/client/certmanager/listers/certmanager/v1alpha1"
-	fakeservingclientset "knative.dev/serving/pkg/client/clientset/versioned/fake"
-	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
-	networkinglisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
-	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	fakeprivateclientset "knative.dev/serving/pkg/client/private/clientset/versioned/fake"
+	palisters "knative.dev/serving/pkg/client/private/listers/autoscaling/v1alpha1"
+	networkinglisters "knative.dev/serving/pkg/client/private/listers/networking/v1alpha1"
+	fakeservingclientset "knative.dev/serving/pkg/client/serving/clientset/versioned/fake"
+	servinglisters "knative.dev/serving/pkg/client/serving/listers/serving/v1alpha1"
 )
 
 var clientSetSchemes = []func(*runtime.Scheme) error{
 	fakekubeclientset.AddToScheme,
 	fakesharedclientset.AddToScheme,
 	fakeservingclientset.AddToScheme,
+	fakeprivateclientset.AddToScheme,
 	fakecachingclientset.AddToScheme,
 	certmanagerv1alpha1.AddToScheme,
 	autoscalingv2beta1.AddToScheme,
@@ -97,6 +99,10 @@ func (l *Listers) GetCachingObjects() []runtime.Object {
 
 func (l *Listers) GetServingObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakeservingclientset.AddToScheme)
+}
+
+func (l *Listers) GetPrivateObjects() []runtime.Object {
+	return l.sorter.ObjectsForSchemeFunc(fakeprivateclientset.AddToScheme)
 }
 
 func (l *Listers) GetSharedObjects() []runtime.Object {

@@ -31,8 +31,8 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
-	fakecertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
-	fakeciinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress/fake"
+	fakecertinformer "knative.dev/serving/pkg/client/private/injection/informers/networking/v1alpha1/certificate/fake"
+	fakeciinformer "knative.dev/serving/pkg/client/private/injection/informers/networking/v1alpha1/clusteringress/fake"
 	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
@@ -54,7 +54,7 @@ func TestReconcileClusterIngress_Insert(t *testing.T) {
 
 	ira := &ClusterIngressResources{
 		BaseIngressResources: BaseIngressResources{
-			servingClientSet: reconciler.ServingClientSet,
+			privateClientSet: reconciler.PrivateClientSet,
 		},
 		clusterIngressLister: reconciler.clusterIngressLister,
 	}
@@ -80,7 +80,7 @@ func TestReconcileClusterIngress_Update(t *testing.T) {
 
 	ira := &ClusterIngressResources{
 		BaseIngressResources: BaseIngressResources{
-			servingClientSet: reconciler.ServingClientSet,
+			privateClientSet: reconciler.PrivateClientSet,
 		},
 		clusterIngressLister: reconciler.clusterIngressLister,
 	}

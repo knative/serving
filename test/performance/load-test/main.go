@@ -26,7 +26,7 @@ import (
 
 	"knative.dev/pkg/injection/clients/kubeclient"
 	deploymentinformer "knative.dev/pkg/injection/informers/kubeinformers/appsv1/deployment"
-	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
+	sksinformer "knative.dev/serving/pkg/client/private/injection/informers/networking/v1alpha1/serverlessservice"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/mako/helpers/go/quickstore"

@@ -26,8 +26,8 @@ import (
 	gatewayinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/gateway"
 	virtualserviceinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice"
 	"knative.dev/pkg/logging"
-	ingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
-	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
+	ingressinformer "knative.dev/serving/pkg/client/private/injection/informers/networking/v1alpha1/ingress"
+	listers "knative.dev/serving/pkg/client/private/listers/networking/v1alpha1"
 
 	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
 	"knative.dev/pkg/configmap"

@@ -33,9 +33,10 @@ import (
 	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/configmap/fake"
 	fakeendpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
 	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
-	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
-	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
+	fakeprivateclient "knative.dev/serving/pkg/client/private/injection/client/fake"
+	fakepainformer "knative.dev/serving/pkg/client/private/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
+	fakeservingclient "knative.dev/serving/pkg/client/serving/injection/client/fake"
+	fakerevisioninformer "knative.dev/serving/pkg/client/serving/injection/informers/serving/v1alpha1/revision/fake"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
@@ -221,7 +222,7 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1alpha1.Re
 	ns := rev.Namespace
 
 	paName := resourcenames.PA(rev)
-	pa, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(rev.Namespace).Get(paName, metav1.GetOptions{})
+	pa, err := fakeprivateclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(rev.Namespace).Get(paName, metav1.GetOptions{})
 	if apierrs.IsNotFound(err) && haveBuild {
 		// If we're doing a Build this won't exist yet.
 	} else if err != nil {

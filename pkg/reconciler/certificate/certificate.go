@@ -33,7 +33,7 @@ import (
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	certmanagerclientset "knative.dev/serving/pkg/client/certmanager/clientset/versioned"
 	certmanagerlisters "knative.dev/serving/pkg/client/certmanager/listers/certmanager/v1alpha1"
-	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
+	listers "knative.dev/serving/pkg/client/private/listers/networking/v1alpha1"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/certificate/config"
 	"knative.dev/serving/pkg/reconciler/certificate/resources"
@@ -182,5 +182,5 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Certificate) (*v1alpha1.Cert
 	existing := cert.DeepCopy()
 	existing.Status = desired.Status
 
-	return c.ServingClientSet.NetworkingV1alpha1().Certificates(existing.Namespace).UpdateStatus(existing)
+	return c.PrivateClientSet.NetworkingV1alpha1().Certificates(existing.Namespace).UpdateStatus(existing)
 }

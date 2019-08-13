@@ -28,7 +28,7 @@ import (
 
 	// These are the fake informers we want setup.
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
-	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakeservingclient "knative.dev/serving/pkg/client/serving/injection/client/fake"
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
@@ -40,7 +40,9 @@ import (
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	clientset "knative.dev/serving/pkg/client/clientset/versioned"
+	privateclient "knative.dev/serving/pkg/client/private/clientset/versioned"
+	fakeprivateclient "knative.dev/serving/pkg/client/private/injection/client/fake"
+	servingclient "knative.dev/serving/pkg/client/serving/clientset/versioned"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	revisionresources "knative.dev/serving/pkg/reconciler/revision/resources"
@@ -335,7 +337,7 @@ func TestScaler(t *testing.T) {
 					return true, nil, nil
 				})
 
-			pa := newKPA(t, fakeservingclient.Get(ctx), revision)
+			pa := newKPA(t, fakeprivateclient.Get(ctx), revision)
 			if test.paMutation != nil {
 				test.paMutation(pa)
 			}
@@ -425,7 +427,7 @@ func TestDisableScaleToZero(t *testing.T) {
 				dynamicClient:     fakedynamicclient.Get(ctx),
 				psInformerFactory: presources.NewPodScalableInformerFactory(ctx),
 			}
-			pa := newKPA(t, fakeservingclient.Get(ctx), revision)
+			pa := newKPA(t, fakeprivateclient.Get(ctx), revision)
 			paMarkActive(pa, time.Now())
 
 			conf := defaultConfig()
@@ -449,17 +451,17 @@ func TestDisableScaleToZero(t *testing.T) {
 	}
 }
 
-func newKPA(t *testing.T, servingClient clientset.Interface, revision *v1alpha1.Revision) *pav1alpha1.PodAutoscaler {
+func newKPA(t *testing.T, client privateclient.Interface, revision *v1alpha1.Revision) *pav1alpha1.PodAutoscaler {
 	pa := revisionresources.MakePA(revision)
 	pa.Status.InitializeConditions()
-	_, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(pa)
+	_, err := client.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(pa)
 	if err != nil {
 		t.Fatal("Failed to create PA.", err)
 	}
 	return pa
 }
 
-func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxScale int32) *v1alpha1.Revision {
+func newRevision(t *testing.T, client servingclient.Interface, minScale, maxScale int32) *v1alpha1.Revision {
 	annotations := map[string]string{}
 	if minScale > 0 {
 		annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(int(minScale))
@@ -474,7 +476,7 @@ func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxS
 			Annotations: annotations,
 		},
 	}
-	rev, err := servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	rev, err := client.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	if err != nil {
 		t.Fatal("Failed to create revision.", err)
 	}

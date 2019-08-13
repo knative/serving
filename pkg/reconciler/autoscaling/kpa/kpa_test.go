@@ -30,11 +30,12 @@ import (
 	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
 	fakeendpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
 	fakeserviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
-	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	fakemetricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
-	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
-	fakesksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
-	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
+	fakeprivateclient "knative.dev/serving/pkg/client/private/injection/client/fake"
+	fakemetricinformer "knative.dev/serving/pkg/client/private/injection/informers/autoscaling/v1alpha1/metric/fake"
+	fakepainformer "knative.dev/serving/pkg/client/private/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
+	fakesksinformer "knative.dev/serving/pkg/client/private/injection/informers/networking/v1alpha1/serverlessservice/fake"
+	fakeservingclient "knative.dev/serving/pkg/client/serving/injection/client/fake"
+	fakerevisioninformer "knative.dev/serving/pkg/client/serving/injection/informers/serving/v1alpha1/revision/fake"
 	"knative.dev/serving/pkg/reconciler"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -1134,7 +1135,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
 	kpa := revisionresources.MakePA(rev)
-	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+	fakeprivateclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	// Wait for decider to be created.
@@ -1184,12 +1185,12 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
 	kpa := revisionresources.MakePA(rev)
-	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+	fakeprivateclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	sks := sks(testNamespace, testRevision, WithDeployRef(kpa.Spec.ScaleTargetRef.Name),
 		WithSKSReady)
-	fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
+	fakeprivateclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
 	fakesksinformer.Get(ctx).Informer().GetIndexer().Add(sks)
 
 	msvc := aresources.MakeMetricsService(kpa, map[string]string{
@@ -1207,7 +1208,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 		t.Fatalf("Create called %d times instead of once", count)
 	}
 
-	newKPA, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
+	newKPA, err := fakeprivateclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
 		kpa.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Get() = %v", err)
@@ -1218,7 +1219,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Delete(testRevision, nil)
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Delete(rev)
-	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Delete(testRevision, nil)
+	fakeprivateclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Delete(testRevision, nil)
 	fakepainformer.Get(ctx).Informer().GetIndexer().Delete(kpa)
 	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
 		t.Errorf("Reconcile() = %v", err)
@@ -1252,7 +1253,7 @@ func TestUpdate(t *testing.T) {
 
 	kpa := revisionresources.MakePA(rev)
 	kpa.SetDefaults(context.Background())
-	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+	fakeprivateclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	msvc := aresources.MakeMetricsService(kpa, map[string]string{
@@ -1262,12 +1263,12 @@ func TestUpdate(t *testing.T) {
 	fakeserviceinformer.Get(ctx).Informer().GetIndexer().Add(msvc)
 
 	metric := aresources.MakeMetric(ctx, kpa, "", defaultConfig().Autoscaler)
-	fakeservingclient.Get(ctx).AutoscalingV1alpha1().Metrics(testNamespace).Create(metric)
+	fakeprivateclient.Get(ctx).AutoscalingV1alpha1().Metrics(testNamespace).Create(metric)
 	fakemetricinformer.Get(ctx).Informer().GetIndexer().Add(metric)
 
 	sks := sks(testNamespace, testRevision, WithDeployRef(kpa.Spec.ScaleTargetRef.Name),
 		WithSKSReady)
-	fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
+	fakeprivateclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
 	fakesksinformer.Get(ctx).Informer().GetIndexer().Add(sks)
 
 	decider := resources.MakeDecider(context.Background(), kpa, defaultConfig().Autoscaler, msvc.Name)
@@ -1286,7 +1287,7 @@ func TestUpdate(t *testing.T) {
 		t.Errorf("decider mismatch: diff(+got, -want): %s", cmp.Diff(got, want))
 	}
 
-	newKPA, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
+	newKPA, err := fakeprivateclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
 		kpa.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Get() = %v", err)
@@ -1297,7 +1298,7 @@ func TestUpdate(t *testing.T) {
 
 	// Update the KPA container concurrency.
 	kpa.Spec.ContainerConcurrency = 2
-	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Update(kpa)
+	fakeprivateclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Update(kpa)
 	fakepainformer.Get(ctx).Informer().GetIndexer().Update(kpa)
 
 	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
@@ -1323,7 +1324,7 @@ func TestControllerCreateError(t *testing.T) {
 		})
 
 	kpa := revisionresources.MakePA(newTestRevision(testNamespace, testRevision))
-	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+	fakeprivateclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
@@ -1348,7 +1349,7 @@ func TestControllerUpdateError(t *testing.T) {
 		})
 
 	kpa := revisionresources.MakePA(newTestRevision(testNamespace, testRevision))
-	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+	fakeprivateclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
@@ -1372,7 +1373,7 @@ func TestControllerGetError(t *testing.T) {
 		})
 
 	kpa := revisionresources.MakePA(newTestRevision(testNamespace, testRevision))
-	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+	fakeprivateclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)

@@ -38,8 +38,8 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
-	servingfake "knative.dev/serving/pkg/client/clientset/versioned/fake"
-	servinginformers "knative.dev/serving/pkg/client/informers/externalversions"
+	servingfake "knative.dev/serving/pkg/client/serving/clientset/versioned/fake"
+	servinginformers "knative.dev/serving/pkg/client/serving/informers/externalversions"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 )

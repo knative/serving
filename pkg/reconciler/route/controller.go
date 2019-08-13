@@ -20,12 +20,12 @@ import (
 	"context"
 
 	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
-	certificateinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate"
-	clusteringressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress"
-	ingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
-	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"
-	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
-	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/route"
+	certificateinformer "knative.dev/serving/pkg/client/private/injection/informers/networking/v1alpha1/certificate"
+	clusteringressinformer "knative.dev/serving/pkg/client/private/injection/informers/networking/v1alpha1/clusteringress"
+	ingressinformer "knative.dev/serving/pkg/client/private/injection/informers/networking/v1alpha1/ingress"
+	configurationinformer "knative.dev/serving/pkg/client/serving/injection/informers/serving/v1alpha1/configuration"
+	revisioninformer "knative.dev/serving/pkg/client/serving/injection/informers/serving/v1alpha1/revision"
+	routeinformer "knative.dev/serving/pkg/client/serving/injection/informers/serving/v1alpha1/route"
 
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"

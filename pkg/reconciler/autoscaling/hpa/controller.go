@@ -21,9 +21,9 @@ import (
 
 	hpainformer "knative.dev/pkg/injection/informers/kubeinformers/autoscalingv2beta1/hpa"
 	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
-	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
-	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
-	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
+	metricinformer "knative.dev/serving/pkg/client/private/injection/informers/autoscaling/v1alpha1/metric"
+	painformer "knative.dev/serving/pkg/client/private/injection/informers/autoscaling/v1alpha1/podautoscaler"
+	sksinformer "knative.dev/serving/pkg/client/private/injection/informers/networking/v1alpha1/serverlessservice"
 
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"

@@ -29,8 +29,8 @@ import (
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	listers "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
-	nlisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
+	listers "knative.dev/serving/pkg/client/private/listers/autoscaling/v1alpha1"
+	nlisters "knative.dev/serving/pkg/client/private/listers/networking/v1alpha1"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/resources"
@@ -65,7 +65,7 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, m
 	if errors.IsNotFound(err) {
 		logger.Infof("SKS %s/%s does not exist; creating.", pa.Namespace, sksName)
 		sks = resources.MakeSKS(pa, mode)
-		_, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(sks)
+		_, err = c.PrivateClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(sks)
 		if err != nil {
 			return nil, perrors.Wrapf(err, "error creating SKS %s", sksName)
 		}
@@ -81,7 +81,7 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, m
 			want := sks.DeepCopy()
 			want.Spec = tmpl.Spec
 			logger.Infof("SKS %s changed; reconciling, want mode: %v", sksName, want.Spec.Mode)
-			if sks, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(want); err != nil {
+			if sks, err = c.PrivateClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(want); err != nil {
 				return nil, perrors.Wrapf(err, "error updating SKS %s", sksName)
 			}
 		}
@@ -166,7 +166,7 @@ func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	desiredMetric := resources.MakeMetric(ctx, pa, metricSN, config.FromContext(ctx).Autoscaler)
 	metric, err := c.MetricLister.Metrics(desiredMetric.Namespace).Get(desiredMetric.Name)
 	if errors.IsNotFound(err) {
-		_, err = c.ServingClientSet.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Create(desiredMetric)
+		_, err = c.PrivateClientSet.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Create(desiredMetric)
 		if err != nil {
 			return perrors.Wrap(err, "error creating metric")
 		}
@@ -178,7 +178,7 @@ func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		if !equality.Semantic.DeepEqual(desiredMetric, metric) {
 			want := metric.DeepCopy()
 			want.Spec = desiredMetric.Spec
-			if _, err = c.ServingClientSet.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Update(want); err != nil {
+			if _, err = c.PrivateClientSet.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Update(want); err != nil {
 				return perrors.Wrap(err, "error updating metric")
 			}
 		}
@@ -201,5 +201,5 @@ func (c *Base) UpdateStatus(desired *pav1alpha1.PodAutoscaler) (*pav1alpha1.PodA
 	existing := pa.DeepCopy()
 	existing.Status = desired.Status
 
-	return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).UpdateStatus(existing)
+	return c.PrivateClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).UpdateStatus(existing)
 }

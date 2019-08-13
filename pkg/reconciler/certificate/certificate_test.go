@@ -23,7 +23,7 @@ import (
 
 	fakecertmanagerclient "knative.dev/serving/pkg/client/certmanager/injection/client/fake"
 	_ "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1alpha1/certificate/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
+	_ "knative.dev/serving/pkg/client/private/injection/informers/networking/v1alpha1/certificate/fake"
 
 	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
 	corev1 "k8s.io/api/core/v1"

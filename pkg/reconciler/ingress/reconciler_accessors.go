@@ -36,15 +36,15 @@ func (r *Reconciler) GetIngress(ns, name string) (v1alpha1.IngressAccessor, erro
 
 // PatchIngress invokes APIs tp Patch an Ingress
 func (r *Reconciler) PatchIngress(ns, name string, pt types.PatchType, data []byte, subresources ...string) (v1alpha1.IngressAccessor, error) {
-	return r.ServingClientSet.NetworkingV1alpha1().Ingresses(ns).Patch(name, pt, data, subresources...)
+	return r.PrivateClientSet.NetworkingV1alpha1().Ingresses(ns).Patch(name, pt, data, subresources...)
 }
 
 // UpdateIngress invokes APIs tp Update an Ingress
 func (r *Reconciler) UpdateIngress(ia v1alpha1.IngressAccessor) (v1alpha1.IngressAccessor, error) {
-	return r.ServingClientSet.NetworkingV1alpha1().Ingresses(ia.GetObjectMeta().GetNamespace()).Update(ia.(*v1alpha1.Ingress))
+	return r.PrivateClientSet.NetworkingV1alpha1().Ingresses(ia.GetObjectMeta().GetNamespace()).Update(ia.(*v1alpha1.Ingress))
 }
 
 // UpdateIngressStatus invokes APIs tp Update an IngressStatus
 func (r *Reconciler) UpdateIngressStatus(ia v1alpha1.IngressAccessor) (v1alpha1.IngressAccessor, error) {
-	return r.ServingClientSet.NetworkingV1alpha1().Ingresses(ia.GetObjectMeta().GetNamespace()).UpdateStatus(ia.(*v1alpha1.Ingress))
+	return r.PrivateClientSet.NetworkingV1alpha1().Ingresses(ia.GetObjectMeta().GetNamespace()).UpdateStatus(ia.(*v1alpha1.Ingress))
 }

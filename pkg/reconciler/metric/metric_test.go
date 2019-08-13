@@ -25,7 +25,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
+	metricinformer "knative.dev/serving/pkg/client/private/injection/informers/autoscaling/v1alpha1/metric/fake"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/configmap"
@@ -118,7 +118,7 @@ func TestReconcileWithCollector(t *testing.T) {
 			}
 
 			// Make sure the provided metric is available via the fake clients/informers.
-			r.ServingClientSet.AutoscalingV1alpha1().Metrics(tt.metric.Namespace).Create(tt.metric)
+			r.PrivateClientSet.AutoscalingV1alpha1().Metrics(tt.metric.Namespace).Create(tt.metric)
 			metricInformer.Informer().GetIndexer().Add(tt.metric)
 
 			if err := r.Reconcile(ctx, tt.key); errors.Cause(err) != tt.expectErr {

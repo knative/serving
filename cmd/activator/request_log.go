@@ -23,7 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
-	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	servinglisters "knative.dev/serving/pkg/client/serving/listers/serving/v1alpha1"
 	pkghttp "knative.dev/serving/pkg/http"
 )
 

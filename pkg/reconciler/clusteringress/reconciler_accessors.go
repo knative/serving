@@ -28,15 +28,15 @@ func (r *Reconciler) GetIngress(ns, name string) (v1alpha1.IngressAccessor, erro
 
 // PatchIngress invokes APIs to Patch a ClusterIngress
 func (r *Reconciler) PatchIngress(ns, name string, pt types.PatchType, data []byte, subresources ...string) (v1alpha1.IngressAccessor, error) {
-	return r.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().Patch(name, pt, data, subresources...)
+	return r.PrivateClientSet.NetworkingV1alpha1().ClusterIngresses().Patch(name, pt, data, subresources...)
 }
 
 // UpdateIngress invokes APIs to Update a ClusterIngress
 func (r *Reconciler) UpdateIngress(ia v1alpha1.IngressAccessor) (v1alpha1.IngressAccessor, error) {
-	return r.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().Update(ia.(*v1alpha1.ClusterIngress))
+	return r.PrivateClientSet.NetworkingV1alpha1().ClusterIngresses().Update(ia.(*v1alpha1.ClusterIngress))
 }
 
 // UpdateIngressStatus invokes APIs to Update an IngressStatus
 func (r *Reconciler) UpdateIngressStatus(ia v1alpha1.IngressAccessor) (v1alpha1.IngressAccessor, error) {
-	return r.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().UpdateStatus(ia.(*v1alpha1.ClusterIngress))
+	return r.PrivateClientSet.NetworkingV1alpha1().ClusterIngresses().UpdateStatus(ia.(*v1alpha1.ClusterIngress))
 }

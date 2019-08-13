@@ -20,7 +20,7 @@ import (
 	"context"
 
 	"knative.dev/serving/pkg/autoscaler"
-	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
+	metricinformer "knative.dev/serving/pkg/client/private/injection/informers/autoscaling/v1alpha1/metric"
 	pkgreconciler "knative.dev/serving/pkg/reconciler"
 
 	"knative.dev/pkg/configmap"

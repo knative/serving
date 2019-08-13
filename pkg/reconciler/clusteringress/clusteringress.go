@@ -31,8 +31,8 @@ import (
 	"knative.dev/pkg/tracker"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	clusteringressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress"
-	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
+	clusteringressinformer "knative.dev/serving/pkg/client/private/injection/informers/networking/v1alpha1/clusteringress"
+	listers "knative.dev/serving/pkg/client/private/listers/networking/v1alpha1"
 	ing "knative.dev/serving/pkg/reconciler/ingress"
 	"knative.dev/serving/pkg/reconciler/ingress/config"
 

@@ -30,7 +30,7 @@ import (
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
-	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakeservingclient "knative.dev/serving/pkg/client/serving/injection/client/fake"
 	"knative.dev/serving/pkg/gc"
 
 	. "knative.dev/pkg/reconciler/testing"

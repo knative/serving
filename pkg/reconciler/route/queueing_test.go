@@ -34,7 +34,8 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
-	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakeprivateclient "knative.dev/serving/pkg/client/private/injection/client/fake"
+	fakeservingclient "knative.dev/serving/pkg/client/serving/injection/client/fake"
 	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
@@ -85,11 +86,12 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	ctrl := NewController(ctx, configMapWatcher)
 
 	servingClient := fakeservingclient.Get(ctx)
+	privateClient := fakeprivateclient.Get(ctx)
 
 	h := NewHooks()
 
 	// Check for Ingress created as a signal that syncHandler ran
-	h.OnCreate(&servingClient.Fake, "ingresses", func(obj runtime.Object) HookResult {
+	h.OnCreate(&privateClient.Fake, "ingresses", func(obj runtime.Object) HookResult {
 		ci := obj.(*netv1alpha1.Ingress)
 		t.Logf("ingress created: %q", ci.Name)
 

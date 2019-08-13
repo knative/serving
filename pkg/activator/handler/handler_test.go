@@ -41,10 +41,12 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
-	servingfake "knative.dev/serving/pkg/client/clientset/versioned/fake"
-	servinginformers "knative.dev/serving/pkg/client/informers/externalversions"
-	netlisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
-	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	privatefake "knative.dev/serving/pkg/client/private/clientset/versioned/fake"
+	privateinformers "knative.dev/serving/pkg/client/private/informers/externalversions"
+	netlisters "knative.dev/serving/pkg/client/private/listers/networking/v1alpha1"
+	servingfake "knative.dev/serving/pkg/client/serving/clientset/versioned/fake"
+	servinginformers "knative.dev/serving/pkg/client/serving/informers/externalversions"
+	servinglisters "knative.dev/serving/pkg/client/serving/listers/serving/v1alpha1"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/tracing"
@@ -799,8 +801,8 @@ func sks(namespace, name string) *nv1a1.ServerlessService {
 }
 
 func sksLister(skss ...*nv1a1.ServerlessService) netlisters.ServerlessServiceLister {
-	fake := servingfake.NewSimpleClientset()
-	informer := servinginformers.NewSharedInformerFactory(fake, 0)
+	fake := privatefake.NewSimpleClientset()
+	informer := privateinformers.NewSharedInformerFactory(fake, 0)
 	services := informer.Networking().V1alpha1().ServerlessServices()
 
 	for _, sks := range skss {

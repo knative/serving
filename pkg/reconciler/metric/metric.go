@@ -24,7 +24,7 @@ import (
 
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	listers "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
+	listers "knative.dev/serving/pkg/client/private/listers/autoscaling/v1alpha1"
 	rbase "knative.dev/serving/pkg/reconciler"
 
 	apierrs "k8s.io/apimachinery/pkg/api/errors"

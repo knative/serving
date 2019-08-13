@@ -25,7 +25,7 @@ import (
 
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
-	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakeprivateclient "knative.dev/serving/pkg/client/private/injection/client/fake"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -117,10 +117,10 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	// Active, should not visibly reconcile.
 	sksObj2 := SKS(ns2, sks2, WithPrivateService(sks2+"-resync"), WithPubService, WithDeployRef(sks2), markHappy)
 
-	if _, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(ns1).Create(sksObj1); err != nil {
+	if _, err := fakeprivateclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(ns1).Create(sksObj1); err != nil {
 		t.Fatalf("Error creating SKS1: %v", err)
 	}
-	if _, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(ns2).Create(sksObj2); err != nil {
+	if _, err := fakeprivateclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(ns2).Create(sksObj2); err != nil {
 		t.Fatalf("Error creating SKS2: %v", err)
 	}
 	if err := hooks.WaitForHooks(3 * time.Second); err != nil {

@@ -165,7 +165,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1alpha1.Revision) er
 
 		want := pa.DeepCopy()
 		want.Spec = tmpl.Spec
-		if pa, err = c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Update(want); err != nil {
+		if pa, err = c.PrivateClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Update(want); err != nil {
 			return err
 		}
 	}

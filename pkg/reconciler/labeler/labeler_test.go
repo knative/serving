@@ -22,9 +22,9 @@ import (
 	"testing"
 
 	// Inject the fake informers that this controller needs.
-	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/route/fake"
+	_ "knative.dev/serving/pkg/client/serving/injection/informers/serving/v1alpha1/configuration/fake"
+	_ "knative.dev/serving/pkg/client/serving/injection/informers/serving/v1alpha1/revision/fake"
+	_ "knative.dev/serving/pkg/client/serving/injection/informers/serving/v1alpha1/route/fake"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

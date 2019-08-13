@@ -35,7 +35,8 @@ import (
 	sharedclient "knative.dev/pkg/client/injection/client"
 	"knative.dev/pkg/injection/clients/dynamicclient"
 	"knative.dev/pkg/injection/clients/kubeclient"
-	servingclient "knative.dev/serving/pkg/client/injection/client"
+	privateclient "knative.dev/serving/pkg/client/private/injection/client"
+	servingclient "knative.dev/serving/pkg/client/serving/injection/client"
 
 	cachingclientset "knative.dev/caching/pkg/client/clientset/versioned"
 	sharedclientset "knative.dev/pkg/client/clientset/versioned"
@@ -43,8 +44,9 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
-	clientset "knative.dev/serving/pkg/client/clientset/versioned"
-	servingScheme "knative.dev/serving/pkg/client/clientset/versioned/scheme"
+	privateclientset "knative.dev/serving/pkg/client/private/clientset/versioned"
+	servingclientset "knative.dev/serving/pkg/client/serving/clientset/versioned"
+	servingScheme "knative.dev/serving/pkg/client/serving/clientset/versioned/scheme"
 )
 
 const (
@@ -68,8 +70,11 @@ type Base struct {
 	// SharedClientSet allows us to configure shared objects
 	SharedClientSet sharedclientset.Interface
 
+	// PrivateClientSet allows us to configure Autoscaling & Networking objects
+	PrivateClientSet privateclientset.Interface
+
 	// ServingClientSet allows us to configure Serving objects
-	ServingClientSet clientset.Interface
+	ServingClientSet servingclientset.Interface
 
 	// DynamicClientSet allows us to configure pluggable Build objects
 	DynamicClientSet dynamic.Interface
@@ -140,6 +145,7 @@ func NewBase(ctx context.Context, controllerAgentName string, cmw configmap.Watc
 		SharedClientSet:  sharedclient.Get(ctx),
 		DynamicClientSet: dynamicclient.Get(ctx),
 		ServingClientSet: servingclient.Get(ctx),
+		PrivateClientSet: privateclient.Get(ctx),
 		CachingClientSet: cachingclient.Get(ctx),
 		ConfigMapWatcher: cmw,
 		Recorder:         recorder,

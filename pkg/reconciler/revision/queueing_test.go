@@ -37,7 +37,8 @@ import (
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/autoscaler"
-	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakeprivateclient "knative.dev/serving/pkg/client/private/injection/client/fake"
+	fakeservingclient "knative.dev/serving/pkg/client/serving/injection/client/fake"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/tracing"
@@ -233,11 +234,12 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 
 	rev := testRevision()
 	servingClient := fakeservingclient.Get(ctx)
+	privateClient := fakeprivateclient.Get(ctx)
 
 	h := NewHooks()
 
 	// Check for a service created as a signal that syncHandler ran
-	h.OnCreate(&servingClient.Fake, "podautoscalers", func(obj runtime.Object) HookResult {
+	h.OnCreate(&privateClient.Fake, "podautoscalers", func(obj runtime.Object) HookResult {
 		pa := obj.(*autoscalingv1alpha1.PodAutoscaler)
 		t.Logf("PA created: %s", pa.Name)
 		return HookComplete
