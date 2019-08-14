@@ -106,38 +106,48 @@ func CreateServiceUsingV1Beta1Client(t *testing.T, serviceName string) {
 	assertServiceResourcesUpdated(t, clients, names, domain, test.PizzaPlanetText1)
 }
 
-//CreateServiceAndScaleToZero creates a new service and scales it down to zero for upgrade testing using a given
+//CreateServiceAndScaleToZero creates a new service and scales it down to zero for upgrade testing using v1alpha1
 //version of client
-func CreateServiceAndScaleToZero(t *testing.T, apiVersion string, serviceName string) {
+func CreateServiceAndScaleToZeroUsingV1Alpha1Client(t *testing.T, serviceName string) {
 	clients := e2e.Setup(t)
 
 	var names test.ResourceNames
 	names.Service = serviceName
 	names.Image = test.PizzaPlanet1
-	var domain string
-	var revision string
-	switch apiVersion {
-	case "v1alpha1":
-		resources, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names,
-			v1a1testing.WithConfigAnnotations(map[string]string{
-				autoscaling.WindowAnnotationKey: autoscaling.WindowMin.String(), //make sure we scale to zero quickly
-			}))
-		if err != nil {
-			t.Fatalf("Failed to create Service: %v", err)
-		}
-		domain = resources.Service.Status.URL.Host
-		revision = revisionresourcenames.Deployment(resources.Revision)
-	case "v1beta1":
-		resources, err := v1b1test.CreateServiceReady(t, clients, &names,
-			v1b1testing.WithServiceAnnotation(autoscaling.WindowAnnotationKey, autoscaling.WindowMin.String()))
-		if err != nil {
-			t.Fatalf("Failed to create Service: %v", err)
-		}
-		domain = resources.Service.Status.URL.Host
-		revision = revisionresourcenames.Deployment(resources.Revision)
-	default:
-		t.Fatal("Unknown API version")
+	resources, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names,
+		v1a1testing.WithConfigAnnotations(map[string]string{
+			autoscaling.WindowAnnotationKey: autoscaling.WindowMin.String(), //make sure we scale to zero quickly
+		}))
+	if err != nil {
+		t.Fatalf("Failed to create Service: %v", err)
 	}
+	domain := resources.Service.Status.URL.Host
+	revision := revisionresourcenames.Deployment(resources.Revision)
+
+	assertServiceResourcesUpdated(t, clients, names, domain, test.PizzaPlanetText1)
+
+	if err := e2e.WaitForScaleToZero(t, revision, clients); err != nil {
+		t.Fatalf("Could not scale to zero: %v", err)
+	}
+}
+
+//CreateServiceAndScaleToZero creates a new service and scales it down to zero for upgrade testing using v1beta1
+//version of client
+func CreateServiceAndScaleToZeroUsingV1Beta1Client(t *testing.T, serviceName string) {
+	clients := e2e.Setup(t)
+
+	var names test.ResourceNames
+	names.Service = serviceName
+	names.Image = test.PizzaPlanet1
+
+	resources, err := v1b1test.CreateServiceReady(t, clients, &names,
+		v1b1testing.WithServiceAnnotation(autoscaling.WindowAnnotationKey, autoscaling.WindowMin.String()))
+	if err != nil {
+		t.Fatalf("Failed to create Service: %v", err)
+	}
+	domain := resources.Service.Status.URL.Host
+	revision := revisionresourcenames.Deployment(resources.Revision)
+
 	assertServiceResourcesUpdated(t, clients, names, domain, test.PizzaPlanetText1)
 
 	if err := e2e.WaitForScaleToZero(t, revision, clients); err != nil {
