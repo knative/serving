@@ -294,6 +294,43 @@ func TestWithHostOption(t *testing.T) {
 	}
 }
 
+func TestExpectsHeaderOption(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Foo", "Bar")
+	}))
+	defer ts.Close()
+
+	tests := []struct {
+		name    string
+		options []interface{}
+		success bool
+	}{{
+		name:    "header is present",
+		options: []interface{}{ExpectsHeader("Foo", "Bar")},
+		success: true,
+	}, {
+		name:    "header is absent",
+		options: []interface{}{ExpectsHeader("Baz", "Nope")},
+		success: false,
+	}, {
+		name:    "header value doesn't match",
+		options: []interface{}{ExpectsHeader("Foo", "Baz")},
+		success: false,
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ok, err := Do(context.Background(), network.AutoTransport, ts.URL, test.options...)
+			if err != nil {
+				t.Errorf("failed to probe: %v", err)
+			}
+			if ok != test.success {
+				t.Errorf("unexpected probe result: want: %v, got: %v", test.success, ok)
+			}
+		})
+	}
+}
+
 func (m *Manager) len() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
