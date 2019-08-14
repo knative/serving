@@ -19,6 +19,9 @@ package dynamic
 import (
 	"context"
 	"fmt"
+	"math/rand"
+	"time"
+
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -26,14 +29,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/test/logging"
-	"math/rand"
-	"time"
+
+	"testing"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/test"
-	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1b1testing "knative.dev/serving/pkg/testing/v1beta1"

@@ -17,13 +17,15 @@ limitations under the License.
 package upgrade
 
 import (
+	"testing"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/test/e2e"
 	"knative.dev/serving/test/upgrade/dynamic"
-	"testing"
+
 	// Mysteriously required to support GCP auth (required by k8s libs).
 	// Apparently just importing it is enough. @_@ side effects @_@.
 	// https://github.com/kubernetes/client-go/issues/242
