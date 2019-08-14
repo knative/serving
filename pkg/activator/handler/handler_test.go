@@ -541,6 +541,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 	if err := oct.ApplyConfig(&cfg); err != nil {
 		t.Errorf("Failed to apply tracer config: %v", err)
 	}
+
 	namespace := testNamespace
 	revName := testRevName
 

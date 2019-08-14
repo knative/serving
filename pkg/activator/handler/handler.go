@@ -242,6 +242,7 @@ func (a *activationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 	r.Header.Set(network.ProxyHeaderName, activator.Name)
 
 	util.SetupHeaderPruning(proxy)
+
 	proxy.ServeHTTP(recorder, r)
 	return recorder.ResponseCode
 }
