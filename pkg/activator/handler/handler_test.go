@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"go.opencensus.io/plugin/ochttp"
 	"strings"
 	"sync"
 	"testing"
@@ -560,9 +561,10 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 		serviceLister:  serviceLister(service(testNamespace, testRevName, "http")),
 		sksLister:      sksLister(sks(testNamespace, testRevName)),
 	}
-	handler.transport = rt
+	handler.transport = &ochttp.Transport{
+		Base: rt,
+	}
 	handler.probeTransport = rt
-	IsTraceEnabled = true
 
 	_ = sendRequest(namespace, revName, handler)
 

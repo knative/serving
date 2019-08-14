@@ -131,7 +131,6 @@ func main() {
 	log.Printf("Registering %d informers", len(injection.Default.GetInformers()))
 
 	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
-
 	// Set up our logger.
 	loggingConfig, err := sharedmain.GetLoggingConfig(ctx)
 	if err != nil {
@@ -190,7 +189,6 @@ func main() {
 
 	tracerUpdater := configmap.TypeFilter(&tracingconfig.Config{})(func(name string, value interface{}) {
 		cfg := value.(*tracingconfig.Config)
-		activatorhandler.IsTraceEnabled = cfg.Enable
 		if err := oct.ApplyConfig(cfg); err != nil {
 			logger.Errorw("Unable to apply open census tracer config", zap.Error(err))
 			return

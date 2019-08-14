@@ -29,6 +29,7 @@ import (
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
+	activatorconfig "knative.dev/serving/pkg/activator/config"
 
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/serving/pkg/activator"
@@ -65,7 +66,6 @@ type activationHandler struct {
 	sksLister      netlisters.ServerlessServiceLister
 }
 
-var IsTraceEnabled = false
 // The default time we'll try to probe the revision for activation.
 const defaulTimeout = 2 * time.Minute
 
@@ -226,8 +226,13 @@ func (a *activationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 	network.RewriteHostIn(r)
 	recorder := pkghttp.NewResponseRecorder(w, http.StatusOK)
 	proxy := httputil.NewSingleHostReverseProxy(target)
+	config := activatorconfig.FromContext(r.Context())
+	isTraceEnabled := false
+	if config != nil {
+		isTraceEnabled = config.Tracing.Enable
+	}
 	proxy.Transport = a.transport
-	if (IsTraceEnabled) {
+	if (isTraceEnabled) {
 		proxy.Transport = &ochttp.Transport{
 			Base: a.transport,
 		}
