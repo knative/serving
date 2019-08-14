@@ -85,7 +85,7 @@ type PodAutoscalerSpec struct {
 	DeprecatedServiceName string `json:"serviceName"`
 
 	// The application-layer protocol. Matches `ProtocolType` inferred from the revision spec.
-	ProtocolType net.ProtocolType
+	ProtocolType net.ProtocolType `json:"protocolType"`
 }
 
 const (
