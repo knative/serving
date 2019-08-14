@@ -165,11 +165,9 @@ func TestResolveMetricTarget(t *testing.T) {
 				cfg = tc.cfgOpt(*cfg)
 			}
 			gotTgt, gotTot := ResolveMetricTarget(tc.pa, cfg)
-			if gotTgt != tc.wantTgt {
-				t.Errorf("ResolveMetricTarget(%v, %v) = %v, want %v", tc.pa, config, gotTgt, tc.wantTgt)
-			}
-			if gotTot != tc.wantTot {
-				t.Errorf("ResolveMetricTarget(%v, %v) = %v, want %v", tc.pa, config, gotTot, tc.wantTot)
+			if gotTgt != tc.wantTgt || gotTot != tc.wantTot {
+				t.Errorf("ResolveMetricTarget(%v, %v) = (%v, %v), want (%v, %v)",
+					tc.pa, config, gotTgt, gotTot, tc.wantTgt, tc.wantTot)
 			}
 		})
 	}
