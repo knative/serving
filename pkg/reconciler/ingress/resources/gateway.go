@@ -282,3 +282,16 @@ func isDefaultServer(server *v1alpha3.Server) bool {
 func isPlaceHolderServer(server *v1alpha3.Server) bool {
 	return equality.Semantic.DeepEqual(server, &placeholderServer)
 }
+
+// CanProbeGateway return whether the specified Gateway can be probe using HTTP on port 80.
+func CanProbeGateway(gateway *v1alpha3.Gateway) bool {
+	for _, server := range gateway.Spec.Servers {
+		if len(server.Hosts) == 1 &&
+			server.Hosts[0] == "*" &&
+			server.Port.Number == 80 &&
+			server.Port.Protocol == v1alpha3.ProtocolHTTP {
+			return true
+		}
+	}
+	return false
+}
