@@ -53,7 +53,8 @@ func TestRunLatestService(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	// Setup initial Service
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names)
+	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false /* https TODO(taragu) turn this on after helloworld test running with https */)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
@@ -196,7 +197,9 @@ func TestRunLatestServiceBYOName(t *testing.T) {
 	revName := names.Service + "-byoname"
 
 	// Setup initial Service
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, func(svc *v1alpha1.Service) {
+	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false /* https TODO(taragu) turn this on after helloworld test running with https */,
+		func(svc *v1alpha1.Service) {
 		svc.Spec.ConfigurationSpec.GetTemplate().Name = revName
 	})
 	if err != nil {
@@ -265,7 +268,8 @@ func TestReleaseService(t *testing.T) {
 	)
 
 	// Setup initial Service
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names)
+	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false /* https TODO(taragu) turn this on after helloworld test running with https */)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
@@ -529,7 +533,8 @@ func TestAnnotationPropagation(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	// Setup initial Service
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names)
+	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false /* https TODO(taragu) turn this on after helloworld test running with https */)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}

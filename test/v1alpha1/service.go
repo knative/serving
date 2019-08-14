@@ -19,10 +19,28 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
+	"errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/watch"
+	"knative.dev/pkg/apis/istio/v1alpha3"
+	"knative.dev/pkg/test/spoof"
+	"math/big"
+	"net"
+	"net/http"
+	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/mattbaird/jsonpatch"
 	corev1 "k8s.io/api/core/v1"
@@ -36,6 +54,17 @@ import (
 	ptest "knative.dev/pkg/test"
 	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
+)
+
+const (
+	// Namespace is the namespace of the ingress gateway
+	Namespace            = "knative-serving"
+
+	// GatewayName is the name of the ingress gateway
+	GatewayName          = "knative-ingress-gateway"
+)
+var (
+	domainName           *string
 )
 
 func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNames) error {
@@ -90,16 +119,41 @@ func GetResourceObjects(clients *test.Clients, names test.ResourceNames) (*Resou
 
 // CreateRunLatestServiceReady creates a new Service in state 'Ready'. This function expects Service and Image name passed in through 'names'.
 // Names is updated with the Route and Configuration created by the Service and ResourceObjects is returned with the Service, Route, and Configuration objects.
+// If this function is called with https == true, the gateway MUST be restored afterwards.
 // Returns error if the service does not come up correctly.
-func CreateRunLatestServiceReady(t *testing.T, clients *test.Clients, names *test.ResourceNames, fopt ...rtesting.ServiceOption) (*ResourceObjects, error) {
+func CreateRunLatestServiceReady(t *testing.T, clients *test.Clients, names *test.ResourceNames, https bool, fopt ...rtesting.ServiceOption) (*ResourceObjects, *spoof.TransportOption, error) {
 	if names.Image == "" {
-		return nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
+		return nil, nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
+	}
+
+	var httpsTransportOption *spoof.TransportOption
+	var err error
+	if https {
+		tlsOptions := &v1alpha3.TLSOptions{
+			Mode:              v1alpha3.TLSModeSimple,
+			PrivateKey:        "/etc/istio/ingressgateway-certs/tls.key",
+			ServerCertificate: "/etc/istio/ingressgateway-certs/tls.crt",
+		}
+		servers := []v1alpha3.Server{{
+			Hosts: []string{"*"},
+			Port: v1alpha3.Port{
+				Name:     "standard-https",
+				Number:   443,
+				Protocol: v1alpha3.ProtocolHTTPS,
+			},
+			TLS: tlsOptions,
+		}}
+		httpsTransportOption, err = setupHTTPS(t, clients.KubeClient, names.Service, GetDomain(t, clients))
+		if err != nil {
+			return nil, nil, err
+		}
+		setupGateway(t, clients, servers)
 	}
 
 	t.Logf("Creating a new Service %s.", names.Service)
 	svc, err := CreateLatestService(t, clients, *names, fopt...)
 	if err != nil {
-		return nil, err
+		return nil, httpsTransportOption, err
 	}
 
 	// Populate Route and Configuration Objects with name
@@ -113,13 +167,13 @@ func CreateRunLatestServiceReady(t *testing.T, clients *test.Clients, names *tes
 
 	t.Logf("Waiting for Service %q to transition to Ready.", names.Service)
 	if err := WaitForServiceState(clients.ServingAlphaClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
-		return nil, err
+		return nil, httpsTransportOption, err
 	}
 
 	t.Log("Checking to ensure Service Status is populated for Ready service", names.Service)
 	err = validateCreatedServiceStatus(clients, names)
 	if err != nil {
-		return nil, err
+		return nil, httpsTransportOption, err
 	}
 
 	t.Log("Getting latest objects Created by Service", names.Service)
@@ -127,7 +181,7 @@ func CreateRunLatestServiceReady(t *testing.T, clients *test.Clients, names *tes
 	if err == nil {
 		t.Log("Successfully created Service", names.Service)
 	}
-	return resources, err
+	return resources, httpsTransportOption, err
 }
 
 // CreateRunLatestServiceLegacyReady creates a new Service in state 'Ready'. This function expects Service and Image name passed in through 'names'.
@@ -343,4 +397,199 @@ func IsServiceNotReady(s *v1alpha1.Service) (bool, error) {
 func IsServiceRoutesNotReady(s *v1alpha1.Service) (bool, error) {
 	result := s.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady)
 	return s.Generation == s.Status.ObservedGeneration && result != nil && result.Status == corev1.ConditionFalse, nil
+}
+
+// RestoreGateway updates the gateway object to the oldGateway
+func RestoreGateway(t *testing.T, clients *test.Clients, oldGateway v1alpha3.Gateway) {
+	currGateway, err := clients.SharedClient.NetworkingV1alpha3().Gateways(Namespace).Get(GatewayName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get Gateway %s/%s", Namespace, GatewayName)
+	}
+	if equality.Semantic.DeepEqual(*currGateway, oldGateway) {
+		t.Log("Gateway not restored because it's still the same")
+		return
+	}
+	currGateway.Spec.Servers = oldGateway.Spec.Servers
+	if _, err := clients.SharedClient.NetworkingV1alpha3().Gateways(Namespace).Update(currGateway); err != nil {
+		t.Fatalf("Failed to restore Gateway %s/%s: %v", Namespace, GatewayName, err)
+	}
+}
+
+// GetDomain returns the domain name. If the saved domain name is null, it will create a dummy service in order to get
+// the domain name
+func GetDomain(t *testing.T, clients *test.Clients) string {
+	if domainName == nil {
+		names := test.ResourceNames{
+			Service: test.ObjectNameForTest(t),
+			Image:   "helloworld",
+		}
+		test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+		defer test.TearDown(clients, names)
+		objects, _, err := CreateRunLatestServiceReady(t, clients, &names, false /* https */)
+		if err != nil {
+			t.Fatalf("Failed to create Service %s: %v", names.Service, err)
+		}
+		domainName = &(strings.SplitN(objects.Route.Status.URL.Host, ".", 2)[1])
+	}
+	return *domainName
+}
+
+// setupGateway updates the ingress Gateway to the provided Servers and waits until all Envoy pods have been updated.
+func setupGateway(t *testing.T, clients *test.Clients, servers []v1alpha3.Server) {
+	// Get the current Gateway
+	curGateway, err := clients.SharedClient.NetworkingV1alpha3().Gateways(Namespace).Get(GatewayName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get Gateway %s/%s: %v", Namespace, GatewayName, err)
+	}
+
+	// Update its Spec
+	newGateway := curGateway.DeepCopy()
+	newGateway.Spec.Servers = servers
+
+	// Update the Gateway
+	gw, err := clients.SharedClient.NetworkingV1alpha3().Gateways(Namespace).Update(newGateway)
+	if err != nil {
+		t.Fatalf("Failed to update Gateway %s/%s: %v", Namespace, GatewayName, err)
+	}
+
+	var selectors []string
+	for k, v := range gw.Spec.Selector {
+		selectors = append(selectors, k+"="+v)
+	}
+	selector := strings.Join(selectors, ",")
+
+	// Restart the Gateway pods: this is needed because Istio without SDS won't refresh the cert when the secret is updated
+	pods, err := clients.KubeClient.Kube.CoreV1().Pods("istio-system").List(metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		t.Fatalf("Failed to list Gateway pods: %v", err)
+	}
+
+	// TODO(bancel): there is a race condition here if a pod listed in the call above is deleted before calling watch below
+
+	var wg sync.WaitGroup
+	wg.Add(len(pods.Items))
+	wtch, err := clients.KubeClient.Kube.CoreV1().Pods("istio-system").Watch(metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		t.Fatalf("Failed to watch Gateway pods: %v", err)
+	}
+	defer wtch.Stop()
+
+	done := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case event := <-wtch.ResultChan():
+				if event.Type == watch.Deleted {
+					wg.Done()
+				}
+			case <-done:
+				return
+			}
+		}
+	}()
+
+	err = clients.KubeClient.Kube.CoreV1().Pods("istio-system").DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		t.Fatalf("Failed to delete Gateway pods: %v", err)
+	}
+
+	wg.Wait()
+	done <- struct{}{}
+}
+
+// setupHTTPS creates a self-signed certificate, installs it as a Secret and returns an *http.Transport
+// trusting the certificate as a root CA.
+func setupHTTPS(t *testing.T, kubeClient *ptest.KubeClient, serviceName, domain string) (*spoof.TransportOption, error) {
+	t.Helper()
+	hosts := []string{serviceName + "." + domain}
+	cert, key, err := generateCertificate(hosts)
+	if err != nil {
+		return nil, err
+	}
+
+	rootCAs, _ := x509.SystemCertPool()
+	if rootCAs == nil {
+		rootCAs = x509.NewCertPool()
+	}
+
+	if ok := rootCAs.AppendCertsFromPEM(cert); !ok {
+		return nil, errors.New("failed to add the certificate to the root CA")
+	}
+
+	kubeClient.Kube.CoreV1().Secrets("istio-system").Delete("istio-ingressgateway-certs", &metav1.DeleteOptions{})
+	_, err = kubeClient.Kube.CoreV1().Secrets("istio-system").Create(&corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "istio-system",
+			Name:      "istio-ingressgateway-certs",
+		},
+		Type: corev1.SecretTypeTLS,
+		Data: map[string][]byte{
+			"tls.key": key,
+			"tls.crt": cert,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	var transportOption spoof.TransportOption = func(transport *http.Transport) *http.Transport {
+		transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
+		return transport
+	}
+	return &transportOption, nil
+}
+
+// generateCertificate generates a self-signed certificate for the provided hosts and returns
+// the PEM encoded certificate and private key.
+func generateCertificate(hosts []string) ([]byte, []byte, error) {
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate private key: %v", err)
+	}
+
+	notBefore := time.Now().Add(-5 * time.Minute)
+	notAfter := notBefore.Add(2 * time.Hour)
+
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate serial number: %v", err)
+	}
+
+	template := x509.Certificate{
+		SerialNumber: serialNumber,
+		Subject: pkix.Name{
+			Organization: []string{"Knative Serving"},
+		},
+		NotBefore: notBefore,
+		NotAfter:  notAfter,
+
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+	}
+
+	for _, h := range hosts {
+		if ip := net.ParseIP(h); ip != nil {
+			template.IPAddresses = append(template.IPAddresses, ip)
+		} else {
+			template.DNSNames = append(template.DNSNames, h)
+		}
+	}
+
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create the certificate: %v", err)
+	}
+
+	var certBuf bytes.Buffer
+	if err := pem.Encode(&certBuf, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}); err != nil {
+		return nil, nil, fmt.Errorf("failed to encode the certificate: %v", err)
+	}
+
+	var keyBuf bytes.Buffer
+	if err := pem.Encode(&keyBuf, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)}); err != nil {
+		return nil, nil, fmt.Errorf("failed to encode the private key: %v", err)
+	}
+
+	return certBuf.Bytes(), keyBuf.Bytes(), nil
 }
