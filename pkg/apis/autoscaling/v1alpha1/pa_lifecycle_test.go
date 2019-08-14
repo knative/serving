@@ -978,8 +978,7 @@ func TestIsReachable(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := tc.pa.IsReachable()
-			if got != tc.want {
+			if got := tc.pa.IsReachable(); got != tc.want {
 				t.Errorf("IsReachable() = %t, want %t", got, tc.want)
 			}
 		})
