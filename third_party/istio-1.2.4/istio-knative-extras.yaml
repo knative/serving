@@ -1,28 +1,4 @@
 ---
-# Source: istio/charts/gateways/templates/poddisruptionbudget.yaml
-
-apiVersion: policy/v1beta1
-kind: PodDisruptionBudget
-metadata:
-  name: cluster-local-gateway
-  namespace: istio-system
-  labels:
-    chart: gateways
-    heritage: Tiller
-    release: release-name
-    app: cluster-local-gateway
-    istio: cluster-local-gateway
-spec:
-
-  minAvailable: 1
-  selector:
-    matchLabels:
-      release: release-name
-      app: cluster-local-gateway
-      istio: cluster-local-gateway
----
-
----
 # Source: istio/charts/gateways/templates/serviceaccount.yaml
 
 apiVersion: v1
@@ -47,24 +23,6 @@ metadata:
   namespace: istio-system
 
 ---
-# Source: istio/charts/gateways/templates/clusterrole.yaml
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: cluster-local-gateway-istio-system
-  labels:
-    app: cluster-local-gateway
-    chart: gateways
-    heritage: Tiller
-    release: release-name
-rules:
-- apiGroups: ["networking.istio.io"]
-  resources: ["virtualservices", "destinationrules", "gateways"]
-  verbs: ["get", "watch", "list", "update"]
----
-
----
 # Source: istio/templates/clusterrole.yaml
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
@@ -79,35 +37,13 @@ rules:
     verbs: ["get", "list", "watch"]
 
 ---
-# Source: istio/charts/gateways/templates/clusterrolebindings.yaml
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: cluster-local-gateway-istio-system
-  labels:
-    app: cluster-local-gateway
-    chart: gateways
-    heritage: Tiller
-    release: release-name
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cluster-local-gateway-istio-system
-subjects:
-- kind: ServiceAccount
-  name: cluster-local-gateway-service-account
-  namespace: istio-system
----
-
----
 # Source: istio/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: istio-multi
   labels:
-    chart: istio-1.1.0
+    chart: istio-1.2.4
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -140,45 +76,20 @@ spec:
     istio: cluster-local-gateway
   ports:
     -
+      name: status-port
+      port: 15020
+    -
       name: http2
       port: 80
-      targetPort: 80
     -
       name: https
       port: 443
-    -
-      name: tcp
-      port: 31400
-    -
-      name: tcp-pilot-grpc-tls
-      port: 15011
-      targetPort: 15011
-    -
-      name: tcp-citadel-grpc-tls
-      port: 8060
-      targetPort: 8060
-    -
-      name: http2-kiali
-      port: 15029
-      targetPort: 15029
-    -
-      name: http2-prometheus
-      port: 15030
-      targetPort: 15030
-    -
-      name: http2-grafana
-      port: 15031
-      targetPort: 15031
-    -
-      name: http2-tracing
-      port: 15032
-      targetPort: 15032
 ---
 
 ---
 # Source: istio/charts/gateways/templates/deployment.yaml
 
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cluster-local-gateway
@@ -191,6 +102,10 @@ metadata:
     istio: cluster-local-gateway
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: cluster-local-gateway
+      istio: cluster-local-gateway
   template:
     metadata:
       labels:
@@ -201,23 +116,16 @@ spec:
         istio: cluster-local-gateway
       annotations:
         sidecar.istio.io/inject: "false"
-        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: cluster-local-gateway-service-account
       containers:
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.1.2"
+          image: "docker.io/istio/proxyv2:1.2.4"
           imagePullPolicy: IfNotPresent
           ports:
+            - containerPort: 15020
             - containerPort: 80
             - containerPort: 443
-            - containerPort: 31400
-            - containerPort: 15011
-            - containerPort: 8060
-            - containerPort: 15029
-            - containerPort: 15030
-            - containerPort: 15031
-            - containerPort: 15032
             - containerPort: 15090
               protocol: TCP
               name: http-envoy-prom
@@ -226,8 +134,7 @@ spec:
           - router
           - --domain
           - $(POD_NAMESPACE).svc.cluster.local
-          - --log_output_level
-          - 'info'
+          - --log_output_level=default:info
           - --drainDuration
           - '45s' #drainDuration
           - --parentShutdownDuration
@@ -237,7 +144,7 @@ spec:
           - --serviceCluster
           - cluster-local-gateway
           - --zipkinAddress
-          - zipkin.istio-system:9411
+          - zipkin:9411
           - --proxyAdminPort
           - "15000"
           - --statusPort
@@ -245,7 +152,7 @@ spec:
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
-          - istio-pilot.istio-system:15010
+          - istio-pilot:15010
           readinessProbe:
             failureThreshold: 30
             httpGet:
@@ -261,6 +168,11 @@ spec:
               cpu: 10m
 
           env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
           - name: POD_NAME
             valueFrom:
               fieldRef:
@@ -276,6 +188,11 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: status.podIP
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.hostIP
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
@@ -289,24 +206,24 @@ spec:
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
-          - name: clusterlocalgateway-certs
-            mountPath: "/etc/istio/clusterlocalgateway-certs"
+          - name: cluster-local-gateway-certs
+            mountPath: "/etc/istio/cluster-local-gateway-certs"
             readOnly: true
-          - name: clusterlocalgateway-ca-certs
-            mountPath: "/etc/istio/clusterlocalgateway-ca-certs"
+          - name: cluster-local-gateway-ca-certs
+            mountPath: "/etc/istio/cluster-local-gateway-ca-certs"
             readOnly: true
       volumes:
       - name: istio-certs
         secret:
           secretName: istio.cluster-local-gateway-service-account
           optional: true
-      - name: clusterlocalgateway-certs
+      - name: cluster-local-gateway-certs
         secret:
-          secretName: "istio-clusterlocalgateway-certs"
+          secretName: "istio-cluster-local-gateway-certs"
           optional: true
-      - name: clusterlocalgateway-ca-certs
+      - name: cluster-local-gateway-ca-certs
         secret:
-          secretName: "istio-clusterlocalgateway-ca-certs"
+          secretName: "istio-cluster-local-gateway-ca-certs"
           optional: true
       affinity:
         nodeAffinity:
@@ -345,6 +262,10 @@ spec:
 
 ---
 # Source: istio/charts/gateways/templates/autoscale.yaml
+
+
+---
+# Source: istio/charts/gateways/templates/poddisruptionbudget.yaml
 
 
 ---

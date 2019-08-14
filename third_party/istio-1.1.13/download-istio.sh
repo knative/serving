@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Download and unpack Istio
-ISTIO_VERSION=1.2.0
+ISTIO_VERSION=1.1.13
 DOWNLOAD_URL=https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-linux.tar.gz
 
 wget --no-check-certificate $DOWNLOAD_URL

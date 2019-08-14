@@ -2,6 +2,7 @@ global:
   proxy:
     # Enable proxy to write access log to /dev/stdout.
     accessLogFile: "/dev/stdout"
+    accessEncoding: 'JSON'
     autoInject: disabled
   disablePolicyChecks: true
 
@@ -39,7 +40,10 @@ gateways:
     replicaCount: 2
     autoscaleMin: 2
     autoscaleMax: 4
-    resources: {}
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
     cpu:
       targetAverageUtilization: 80
     loadBalancerIP: ""
