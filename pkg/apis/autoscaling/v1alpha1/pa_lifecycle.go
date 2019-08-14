@@ -126,7 +126,7 @@ func (pa *PodAutoscaler) PanicThresholdPercentage() (percentage float64, ok bool
 }
 
 // IsReachable returns whether the `ScaleTargetRef` is reachable (ie. has an active route).
-// Returns true if `Reachable` is either true or unknown, and false otherwise.
+// Returns true if it is reachable or it's reachability is unknown, and false otherwise.
 func (pa *PodAutoscaler) IsReachable() bool {
 	return pa.Spec.Reachable == nil || *pa.Spec.Reachable
 }

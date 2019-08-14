@@ -283,7 +283,7 @@ func (r *Revision) GetLastPinned() (time.Time, error) {
 	return time.Unix(secs, 0), nil
 }
 
-// IsReachable returns true if the revision is currently targetted by a route
+// IsReachable returns true if the revision is currently targeted by a route
 func (r *Revision) IsReachable() bool {
 	return r.ObjectMeta.Labels[serving.RouteLabelKey] != ""
 }
