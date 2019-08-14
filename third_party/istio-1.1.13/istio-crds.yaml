@@ -1471,7 +1471,7 @@ spec:
       serviceAccountName: istio-init-service-account
       containers:
       - name: istio-init-crd-10
-        image: "docker.io/istio/kubectl:1.1.2"
+        image: "docker.io/istio/kubectl:1.1.13"
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: crd-10
@@ -1500,7 +1500,7 @@ spec:
       serviceAccountName: istio-init-service-account
       containers:
       - name: istio-init-crd-11
-        image: "docker.io/istio/kubectl:1.1.2"
+        image: "docker.io/istio/kubectl:1.1.13"
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: crd-11
