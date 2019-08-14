@@ -85,7 +85,7 @@ func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler
 		probeTimeout:   defaulTimeout,
 		// In activator we collect metrics, so we're wrapping
 		// the RoundTripper the prober would use inside an annotating transport.
-		probeTransport:	&ochttp.Transport{
+		probeTransport: &ochttp.Transport{
 			Base: network.NewProberTransport(),
 		},
 		endpointTimeout: defaulTimeout,
@@ -232,7 +232,7 @@ func (a *activationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 		isTraceEnabled = config.Tracing.Enable
 	}
 	proxy.Transport = a.transport
-	if (isTraceEnabled) {
+	if isTraceEnabled {
 		proxy.Transport = &ochttp.Transport{
 			Base: a.transport,
 		}
@@ -245,7 +245,6 @@ func (a *activationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 	proxy.ServeHTTP(recorder, r)
 	return recorder.ResponseCode
 }
-
 
 // serviceHostName obtains the hostname of the underlying service and the correct
 // port to send requests to.

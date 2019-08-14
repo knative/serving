@@ -21,11 +21,12 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"go.opencensus.io/plugin/ochttp"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"go.opencensus.io/plugin/ochttp"
 
 	"knative.dev/pkg/test/helpers"
 
