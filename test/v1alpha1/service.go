@@ -204,6 +204,17 @@ func CreateLatestServiceLegacy(t *testing.T, clients *test.Clients, names test.R
 
 // PatchServiceImage patches the existing service passed in with a new imagePath. Returns the latest service object
 func PatchServiceImage(t *testing.T, clients *test.Clients, svc *v1alpha1.Service, imagePath string) (*v1alpha1.Service, error) {
+	newSvc := SetServiceImage(svc, imagePath)
+	LogResourceObject(t, ResourceObjects{Service: newSvc})
+	patchBytes, err := createPatch(svc, newSvc)
+	if err != nil {
+		return nil, err
+	}
+	return clients.ServingAlphaClient.Services.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+}
+
+//SetServiceImage sets image of a service model
+func SetServiceImage(svc *v1alpha1.Service, imagePath string) *v1alpha1.Service {
 	newSvc := svc.DeepCopy()
 	if svc.Spec.DeprecatedRunLatest != nil {
 		newSvc.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.GetContainer().Image = imagePath
@@ -214,12 +225,7 @@ func PatchServiceImage(t *testing.T, clients *test.Clients, svc *v1alpha1.Servic
 	} else {
 		newSvc.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().Image = imagePath
 	}
-	LogResourceObject(t, ResourceObjects{Service: newSvc})
-	patchBytes, err := createPatch(svc, newSvc)
-	if err != nil {
-		return nil, err
-	}
-	return clients.ServingAlphaClient.Services.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
+	return newSvc
 }
 
 // PatchService creates and applies a patch from the diff between curSvc and desiredSvc. Returns the latest service object.

@@ -16,19 +16,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package upgrade
 
 import (
-	"knative.dev/serving/test/upgrade"
 	"testing"
 )
 
-func TestRunLatestServicePostUpgrade(t *testing.T) {
-	t.Parallel()
-	upgrade.UpdateService(upgrade.ServiceName, t, "v1alpha1")
-}
+func TestRunPostUpgrade(t *testing.T) {
 
-func TestRunLatestServicePostUpgradeFromScaleToZero(t *testing.T) {
-	t.Parallel()
-	upgrade.UpdateService(upgrade.ScaleToZeroServiceName, t, "v1alpha1")
+	for name, test := range Tests {
+		t.Run(name, func(t *testing.T) {
+			if "dynamic" == test.clientType {
+				UpdateServiceUsingDynamicClient(t, GetServiceName(test.testType))
+				UpdateServiceUsingDynamicClient(t, GetScaleToZeroServiceName(test.testType))
+			} else {
+				UpdateService(t, GetServiceName(test.testType), test.clientType)
+				UpdateService(t, GetScaleToZeroServiceName(test.testType), test.clientType)
+			}
+		})
+	}
 }
