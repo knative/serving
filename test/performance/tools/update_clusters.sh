@@ -22,7 +22,7 @@ setup_user
 # Get all clusters to update and ko apply config. Use newline to split
 header "Update all clusters"
 IFS=$'\n'
-for cluster in $(gcloud container clusters list --project="${PROJECT_NAME}" --format="csv[no-heading](name,zone)"); do  
+for cluster in $(gcloud container clusters list --project="${PROJECT_NAME}" --format="csv[no-heading](name,zone)"); do
   name=$(echo $cluster | cut -f1 -d",")
   zone=$(echo $cluster | cut -f2 -d",")
 
