@@ -25,6 +25,7 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -70,7 +71,7 @@ func WithConfigTarget(config string) RouteOption {
 	return WithSpecTraffic(v1alpha1.TrafficTarget{
 		TrafficTarget: v1beta1.TrafficTarget{
 			ConfigurationName: config,
-			Percent:           100,
+			Percent:           ptr.Int64(100),
 		},
 	})
 }
@@ -80,7 +81,7 @@ func WithRevTarget(revision string) RouteOption {
 	return WithSpecTraffic(v1alpha1.TrafficTarget{
 		TrafficTarget: v1beta1.TrafficTarget{
 			RevisionName: revision,
-			Percent:      100,
+			Percent:      ptr.Int64(100),
 		},
 	})
 }

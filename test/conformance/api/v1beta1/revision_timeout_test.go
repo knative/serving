@@ -28,6 +28,7 @@ import (
 	"github.com/mattbaird/jsonpatch"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
@@ -164,11 +165,11 @@ func TestRevisionTimeout(t *testing.T) {
 		Traffic: []v1beta1.TrafficTarget{{
 			Tag:          rev2s.TrafficTarget,
 			RevisionName: rev2s.Revision,
-			Percent:      50,
+			Percent:      ptr.Int64(50),
 		}, {
 			Tag:          rev5s.TrafficTarget,
 			RevisionName: rev5s.Revision,
-			Percent:      50,
+			Percent:      ptr.Int64(50),
 		}},
 	}); err != nil {
 		t.Fatalf("Failed to update Service: %v", err)

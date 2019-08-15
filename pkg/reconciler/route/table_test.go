@@ -127,6 +127,15 @@ func TestReconcile(t *testing.T) {
 				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("mcd")),
 		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "becomes-ready",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
 		WantCreates: []runtime.Object{
 			simpleIngress(
 				route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
@@ -137,7 +146,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "mcd",
 							Active:      true,
@@ -162,7 +171,7 @@ func TestReconcile(t *testing.T) {
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName:   "config-00001",
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
 					},
 				})),
@@ -183,6 +192,15 @@ func TestReconcile(t *testing.T) {
 				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("bk")),
 		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "becomes-ready",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
 		WantCreates: []runtime.Object{
 			ingressWithClass(
 				route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
@@ -192,7 +210,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "bk",
 							Active:      true,
@@ -220,7 +238,7 @@ func TestReconcile(t *testing.T) {
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName:   "config-00001",
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
 					},
 				})),
@@ -242,6 +260,15 @@ func TestReconcile(t *testing.T) {
 				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("tb")),
 		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "becomes-ready",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
 		WantCreates: []runtime.Object{
 			simpleIngressWithVisibility(
 				route("default", "becomes-ready", WithConfigTarget("config"),
@@ -253,7 +280,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "tb",
 							Active:      true,
@@ -282,7 +309,7 @@ func TestReconcile(t *testing.T) {
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName:   "config-00001",
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
 					},
 				})),
@@ -301,21 +328,6 @@ func TestReconcile(t *testing.T) {
 			cfg("default", "config",
 				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
-			simpleReadyClusterIngress(
-				route("default", "becomes-ready", WithConfigTarget("config"), WithURL),
-				&traffic.Config{
-					Targets: map[string]traffic.RevisionTargets{
-						traffic.DefaultTarget: {{
-							TrafficTarget: v1beta1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      100,
-							},
-							Active: true,
-						}},
-					},
-				},
-			),
 			simpleReadyIngress(
 				route("default", "becomes-ready", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
@@ -324,7 +336,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							Active: true,
 						}},
@@ -332,6 +344,15 @@ func TestReconcile(t *testing.T) {
 				},
 			),
 		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "becomes-ready",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
 		WantCreates: []runtime.Object{
 			simplePlaceholderK8sService(getContext(), route("default", "becomes-ready", WithConfigTarget("config")), ""),
 		},
@@ -349,7 +370,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName:   "config-00001",
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(true),
 						},
 					})),
@@ -357,7 +378,8 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
 		},
-		Key: "default/becomes-ready",
+		Key:                     "default/becomes-ready",
+		SkipNamespaceValidation: true, // remove with WantDeleteCollections
 	}, {
 		Name: "failure creating k8s placeholder service",
 		// We induce a failure creating the placeholder service
@@ -378,7 +400,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							Active: true,
 						}},
@@ -399,7 +421,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName:   "config-00001",
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(true),
 						},
 					})),
@@ -423,6 +445,15 @@ func TestReconcile(t *testing.T) {
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "ingresses"),
 		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "ingress-create-failure",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
 		WantCreates: []runtime.Object{
 			//This is the Create we see for the ingress, but we induce a failure.
 			simpleIngress(
@@ -434,7 +465,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "astrid",
 							Active:      true,
@@ -458,7 +489,7 @@ func TestReconcile(t *testing.T) {
 				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName:   "config-00001",
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
 					},
 				})),
@@ -481,7 +512,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName:   "config-00001",
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(true),
 						},
 					})),
@@ -491,21 +522,6 @@ func TestReconcile(t *testing.T) {
 				WithConfigLabel("serving.knative.dev/route", "steady-state"),
 			),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
-			simpleReadyClusterIngress(
-				route("default", "steady-state", WithConfigTarget("config"), WithURL),
-				&traffic.Config{
-					Targets: map[string]traffic.RevisionTargets{
-						traffic.DefaultTarget: {{
-							TrafficTarget: v1beta1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      100,
-							},
-							Active: true,
-						}},
-					},
-				},
-			),
 			simpleReadyIngress(
 				route("default", "steady-state", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
@@ -514,7 +530,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							Active: true,
 						}},
@@ -523,7 +539,17 @@ func TestReconcile(t *testing.T) {
 			),
 			simpleK8sService(route("default", "steady-state", WithConfigTarget("config"))),
 		},
-		Key: "default/steady-state",
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "steady-state",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
+		Key:                     "default/steady-state",
+		SkipNamespaceValidation: true, // remove with WantDeleteCollections
 	}, {
 		Name:    "unhappy about ownership of placeholder service",
 		WantErr: true,
@@ -534,7 +560,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName: "config-00001",
-							Percent:      100,
+							Percent:      ptr.Int64(100),
 						},
 					})),
 			cfg("default", "config",
@@ -551,7 +577,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							Active: true,
 						}},
@@ -568,7 +594,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName:   "config-00001",
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(true),
 						},
 					}),
@@ -591,7 +617,7 @@ func TestReconcile(t *testing.T) {
 				WithRouteFinalizer, WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName:   "config-00001",
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
 					},
 				}), WithRouteLabel("app", "prod")),
@@ -601,23 +627,6 @@ func TestReconcile(t *testing.T) {
 				WithConfigLabel("serving.knative.dev/route", "different-domain"),
 			),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("my-service")),
-			simpleReadyClusterIngress(
-				route("default", "different-domain", WithConfigTarget("config"),
-					WithAnotherDomain),
-				&traffic.Config{
-					Targets: map[string]traffic.RevisionTargets{
-						traffic.DefaultTarget: {{
-							TrafficTarget: v1beta1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      100,
-							},
-							Active:      true,
-							ServiceName: "my-service",
-						}},
-					},
-				},
-			),
 			simpleReadyIngress(
 				route("default", "different-domain", WithConfigTarget("config"),
 					WithAnotherDomain),
@@ -627,7 +636,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							Active:      true,
 							ServiceName: "my-service",
@@ -637,30 +646,16 @@ func TestReconcile(t *testing.T) {
 			),
 			simpleK8sService(route("default", "different-domain", WithConfigTarget("config"))),
 		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: simpleReadyClusterIngress(
-				route("default", "different-domain", WithConfigTarget("config"),
-					WithAnotherDomain),
-				&traffic.Config{
-					Targets: map[string]traffic.RevisionTargets{
-						traffic.DefaultTarget: {{
-							TrafficTarget: v1beta1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      100,
-							},
-							Active:      true,
-							ServiceName: "my-service",
-						}},
-					},
-				},
-				WithHosts(
-					0,
-					"different-domain.default.svc.cluster.local",
-					"different-domain.default.another-example.com",
-				),
-			),
-		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "different-domain",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{
 			{
 				Object: simpleReadyIngress(
 					route("default", "different-domain", WithConfigTarget("config"),
@@ -671,7 +666,7 @@ func TestReconcile(t *testing.T) {
 								TrafficTarget: v1beta1.TrafficTarget{
 									// Use the Revision name from the config.
 									RevisionName: "config-00001",
-									Percent:      100,
+									Percent:      ptr.Int64(100),
 								},
 								Active:      true,
 								ServiceName: "my-service",
@@ -686,7 +681,8 @@ func TestReconcile(t *testing.T) {
 				),
 			},
 		},
-		Key: "default/different-domain",
+		Key:                     "default/different-domain",
+		SkipNamespaceValidation: true, // remove with WantDeleteCollections
 	}, {
 		Name: "new latest created revision",
 		Objects: []runtime.Object{
@@ -696,7 +692,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName:   "config-00001",
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(true),
 						},
 					})),
@@ -707,22 +703,6 @@ func TestReconcile(t *testing.T) {
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("daisy")),
 			// This is the name of the new revision we're referencing above.
 			rev("default", "config", 2, WithInitRevConditions, WithRevName("config-00002")),
-			simpleReadyClusterIngress(
-				route("default", "new-latest-created", WithConfigTarget("config"), WithURL),
-				&traffic.Config{
-					Targets: map[string]traffic.RevisionTargets{
-						traffic.DefaultTarget: {{
-							TrafficTarget: v1beta1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      100,
-							},
-							ServiceName: "daisy",
-							Active:      true,
-						}},
-					},
-				},
-			),
 			simpleReadyIngress(
 				route("default", "new-latest-created", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
@@ -731,7 +711,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "daisy",
 							Active:      true,
@@ -741,8 +721,18 @@ func TestReconcile(t *testing.T) {
 			),
 			simpleK8sService(route("default", "new-latest-created", WithConfigTarget("config"))),
 		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "new-latest-created",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
 		// A new LatestCreatedRevisionName on the Configuration alone should result in no changes to the Route.
-		Key: "default/new-latest-created",
+		Key:                     "default/new-latest-created",
+		SkipNamespaceValidation: true, // remove with WantDeleteCollections
 	}, {
 		Name: "new latest ready revision",
 		Objects: []runtime.Object{
@@ -752,7 +742,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName: "config-00001",
-							Percent:      100,
+							Percent:      ptr.Int64(100),
 						},
 					})),
 			cfg("default", "config",
@@ -771,7 +761,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "magnolia",
 							Active:      true,
@@ -787,7 +777,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "magnolia",
 							Active:      true,
@@ -797,9 +787,18 @@ func TestReconcile(t *testing.T) {
 			),
 			simpleK8sService(route("default", "new-latest-ready", WithConfigTarget("config"))),
 		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "new-latest-ready",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
 		// A new LatestReadyRevisionName on the Configuration should result in the new Revision being rolled out.
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: simpleReadyClusterIngress(
+			Object: simpleReadyIngress(
 				route("default", "new-latest-ready", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
@@ -807,7 +806,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// This is the new config we're making become ready.
 								RevisionName: "config-00002",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "belltown",
 							Active:      true,
@@ -815,26 +814,7 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-		},
-			{
-				Object: simpleReadyIngress(
-					route("default", "new-latest-ready", WithConfigTarget("config"), WithURL),
-					&traffic.Config{
-						Targets: map[string]traffic.RevisionTargets{
-							traffic.DefaultTarget: {{
-								TrafficTarget: v1beta1.TrafficTarget{
-									// This is the new config we're making become ready.
-									RevisionName: "config-00002",
-									Percent:      100,
-								},
-								ServiceName: "belltown",
-								Active:      true,
-							}},
-						},
-					},
-				),
-			},
-		},
+		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "new-latest-ready", WithConfigTarget("config"),
 				WithURL, WithAddress, WithInitRouteConditions,
@@ -842,7 +822,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName:   "config-00002",
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(true),
 						},
 					})),
@@ -854,7 +834,7 @@ func TestReconcile(t *testing.T) {
 		// Starting from the new latest ready, induce a failure updating the cluster ingress.
 		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
-			InduceFailure("update", "clusteringresses"),
+			InduceFailure("update", "ingresses"),
 		},
 		Objects: []runtime.Object{
 			route("default", "update-ci-failure", WithConfigTarget("config"),
@@ -863,7 +843,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName: "config-00001",
-							Percent:      100,
+							Percent:      ptr.Int64(100),
 						},
 					})),
 			cfg("default", "config",
@@ -874,7 +854,7 @@ func TestReconcile(t *testing.T) {
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("fremont")),
 			// This is the name of the new revision we're referencing above.
 			rev("default", "config", 2, MarkRevisionReady, WithRevName("config-00002"), WithServiceName("wallingford")),
-			simpleReadyClusterIngress(
+			simpleReadyIngress(
 				route("default", "update-ci-failure", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
@@ -882,7 +862,7 @@ func TestReconcile(t *testing.T) {
 							// Use the Revision name from the config.
 							TrafficTarget: v1beta1.TrafficTarget{
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "fremont",
 							Active:      true,
@@ -892,8 +872,17 @@ func TestReconcile(t *testing.T) {
 			),
 			simpleK8sService(route("default", "update-ci-failure", WithConfigTarget("config"))),
 		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "update-ci-failure",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: simpleReadyClusterIngress(
+			Object: simpleReadyIngress(
 				route("default", "update-ci-failure", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
@@ -901,7 +890,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// This is the new config we're making become ready.
 								RevisionName: "config-00002",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "wallingford",
 							Active:      true,
@@ -917,13 +906,13 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName:   "config-00002",
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(true),
 						},
 					})),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update clusteringresses"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update ingresses"),
 		},
 		Key:                     "default/update-ci-failure",
 		SkipNamespaceValidation: true,
@@ -936,7 +925,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName:   "config-00001",
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(true),
 						},
 					})),
@@ -946,21 +935,6 @@ func TestReconcile(t *testing.T) {
 				WithConfigLabel("serving.knative.dev/route", "svc-mutation"),
 			),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
-			simpleReadyClusterIngress(
-				route("default", "svc-mutation", WithConfigTarget("config"), WithURL),
-				&traffic.Config{
-					Targets: map[string]traffic.RevisionTargets{
-						traffic.DefaultTarget: {{
-							TrafficTarget: v1beta1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      100,
-							},
-							Active: true,
-						}},
-					},
-				},
-			),
 			simpleReadyIngress(
 				route("default", "svc-mutation", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
@@ -969,7 +943,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							Active: true,
 						}},
@@ -979,10 +953,20 @@ func TestReconcile(t *testing.T) {
 			simpleK8sService(route("default", "svc-mutation",
 				WithConfigTarget("config")), MutateK8sService),
 		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "svc-mutation",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleK8sService(route("default", "svc-mutation", WithConfigTarget("config"))),
 		}},
-		Key: "default/svc-mutation",
+		Key:                     "default/svc-mutation",
+		SkipNamespaceValidation: true, // remove with WantDeleteCollections
 	}, {
 		Name: "failure updating k8s service",
 		// We start from the service mutation test, but induce a failure updating the service resource.
@@ -997,7 +981,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName:   "config-00001",
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(true),
 						},
 					})),
@@ -1007,21 +991,6 @@ func TestReconcile(t *testing.T) {
 				WithConfigLabel("serving.knative.dev/route", "svc-mutation"),
 			),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
-			simpleReadyClusterIngress(
-				route("default", "svc-mutation", WithConfigTarget("config"), WithURL),
-				&traffic.Config{
-					Targets: map[string]traffic.RevisionTargets{
-						traffic.DefaultTarget: {{
-							TrafficTarget: v1beta1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      100,
-							},
-							Active: true,
-						}},
-					},
-				},
-			),
 			simpleReadyIngress(
 				route("default", "svc-mutation", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
@@ -1030,7 +999,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							Active: true,
 						}},
@@ -1040,13 +1009,23 @@ func TestReconcile(t *testing.T) {
 			simpleK8sService(route("default", "svc-mutation",
 				WithConfigTarget("config")), MutateK8sService),
 		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "svc-mutation",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleK8sService(route("default", "svc-mutation", WithConfigTarget("config"))),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update services"),
 		},
-		Key: "default/svc-mutation",
+		Key:                     "default/svc-mutation",
+		SkipNamespaceValidation: true, // remove with WantDeleteCollections
 	}, {
 		// In #1789 we switched this to an ExternalName Service. Services created in
 		// 0.1 will still have ClusterIP set, which is Forbidden for ExternalName
@@ -1059,7 +1038,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName:   "config-00001",
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(true),
 						},
 					})),
@@ -1069,21 +1048,6 @@ func TestReconcile(t *testing.T) {
 				WithConfigLabel("serving.knative.dev/route", "cluster-ip"),
 			),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
-			simpleReadyClusterIngress(
-				route("default", "cluster-ip", WithConfigTarget("config"), WithURL),
-				&traffic.Config{
-					Targets: map[string]traffic.RevisionTargets{
-						traffic.DefaultTarget: {{
-							TrafficTarget: v1beta1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      100,
-							},
-							Active: true,
-						}},
-					},
-				},
-			),
 			simpleReadyIngress(
 				route("default", "cluster-ip", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
@@ -1092,7 +1056,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							Active: true,
 						}},
@@ -1102,10 +1066,20 @@ func TestReconcile(t *testing.T) {
 			simpleK8sService(route("default", "cluster-ip",
 				WithConfigTarget("config")), WithClusterIP("127.0.0.1")),
 		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "cluster-ip",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleK8sService(route("default", "cluster-ip", WithConfigTarget("config"))),
 		}},
-		Key: "default/cluster-ip",
+		Key:                     "default/cluster-ip",
+		SkipNamespaceValidation: true, // remove with WantDeleteCollections
 	}, {
 		// Make sure we fix the external name if something messes with it.
 		Name: "fix external name",
@@ -1116,7 +1090,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName:   "config-00001",
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(true),
 						},
 					})),
@@ -1126,21 +1100,6 @@ func TestReconcile(t *testing.T) {
 				WithConfigLabel("serving.knative.dev/route", "external-name"),
 			),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
-			simpleReadyClusterIngress(
-				route("default", "external-name", WithConfigTarget("config"), WithURL),
-				&traffic.Config{
-					Targets: map[string]traffic.RevisionTargets{
-						traffic.DefaultTarget: {{
-							TrafficTarget: v1beta1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      100,
-							},
-							Active: true,
-						}},
-					},
-				},
-			),
 			simpleReadyIngress(
 				route("default", "external-name", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
@@ -1149,7 +1108,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							Active: true,
 						}},
@@ -1159,10 +1118,20 @@ func TestReconcile(t *testing.T) {
 			simpleK8sService(route("default", "external-name",
 				WithConfigTarget("config")), WithExternalName("this-is-the-wrong-name")),
 		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "external-name",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleK8sService(route("default", "external-name", WithConfigTarget("config"))),
 		}},
-		Key: "default/external-name",
+		Key:                     "default/external-name",
+		SkipNamespaceValidation: true, // remove with WantDeleteCollections
 	}, {
 		Name: "reconcile cluster ingress mutation",
 		Objects: []runtime.Object{
@@ -1172,7 +1141,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName:   "config-00001",
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(true),
 						},
 					})),
@@ -1190,7 +1159,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "magnusson-park",
 							Active:      true,
@@ -1206,7 +1175,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "magnusson-park",
 							Active:      true,
@@ -1216,8 +1185,17 @@ func TestReconcile(t *testing.T) {
 			)),
 			simpleK8sService(route("default", "ingress-mutation", WithConfigTarget("config"))),
 		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "ingress-mutation",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: simpleReadyClusterIngress(
+			Object: simpleReadyIngress(
 				route("default", "ingress-mutation", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
@@ -1225,7 +1203,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "windemere",
 							Active:      true,
@@ -1233,26 +1211,7 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-		},
-			{
-				Object: simpleReadyIngress(
-					route("default", "ingress-mutation", WithConfigTarget("config"), WithURL),
-					&traffic.Config{
-						Targets: map[string]traffic.RevisionTargets{
-							traffic.DefaultTarget: {{
-								TrafficTarget: v1beta1.TrafficTarget{
-									// Use the Revision name from the config.
-									RevisionName: "config-00001",
-									Percent:      100,
-								},
-								ServiceName: "windemere",
-								Active:      true,
-							}},
-						},
-					},
-				),
-			},
-		},
+		}},
 		Key:                     "default/ingress-mutation",
 		SkipNamespaceValidation: true,
 	}, {
@@ -1265,7 +1224,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName: "oldconfig-00001",
-							Percent:      100,
+							Percent:      ptr.Int64(100),
 						},
 					})),
 			// Both configs exist, but only "oldconfig" is labelled.
@@ -1278,22 +1237,6 @@ func TestReconcile(t *testing.T) {
 				WithGeneration(1), WithLatestCreated("newconfig-00001"), WithLatestReady("newconfig-00001")),
 			rev("default", "oldconfig", 1, MarkRevisionReady, WithRevName("oldconfig-00001"), WithServiceName("greenwood")),
 			rev("default", "newconfig", 1, MarkRevisionReady, WithRevName("newconfig-00001"), WithServiceName("broadview")),
-			simpleReadyClusterIngress(
-				route("default", "change-configs", WithConfigTarget("oldconfig"), WithURL),
-				&traffic.Config{
-					Targets: map[string]traffic.RevisionTargets{
-						traffic.DefaultTarget: {{
-							TrafficTarget: v1beta1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "oldconfig-00001",
-								Percent:      100,
-							},
-							ServiceName: "greenwood",
-							Active:      true,
-						}},
-					},
-				},
-			),
 			simpleReadyIngress(
 				route("default", "change-configs", WithConfigTarget("oldconfig"), WithURL),
 				&traffic.Config{
@@ -1302,7 +1245,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "oldconfig-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "greenwood",
 							Active:      true,
@@ -1312,9 +1255,18 @@ func TestReconcile(t *testing.T) {
 			),
 			simpleK8sService(route("default", "change-configs", WithConfigTarget("oldconfig"))),
 		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "change-configs",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			// Updated to point to "newconfig" things.
-			Object: simpleReadyClusterIngress(
+			Object: simpleReadyIngress(
 				route("default", "change-configs", WithConfigTarget("newconfig"), WithURL),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
@@ -1322,7 +1274,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "newconfig-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "broadview",
 							Active:      true,
@@ -1330,27 +1282,7 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-		},
-			{
-				// Updated to point to "newconfig" things.
-				Object: simpleReadyIngress(
-					route("default", "change-configs", WithConfigTarget("newconfig"), WithURL),
-					&traffic.Config{
-						Targets: map[string]traffic.RevisionTargets{
-							traffic.DefaultTarget: {{
-								TrafficTarget: v1beta1.TrafficTarget{
-									// Use the Revision name from the config.
-									RevisionName: "newconfig-00001",
-									Percent:      100,
-								},
-								ServiceName: "broadview",
-								Active:      true,
-							}},
-						},
-					},
-				),
-			},
-		},
+		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			// Status updated to "newconfig"
 			Object: route("default", "change-configs", WithConfigTarget("newconfig"),
@@ -1359,12 +1291,13 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName:   "newconfig-00001",
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(true),
 						},
 					})),
 		}},
-		Key: "default/change-configs",
+		Key:                     "default/change-configs",
+		SkipNamespaceValidation: true, // remove with WantDeleteCollections
 	}, {
 		Name: "configuration missing",
 		Objects: []runtime.Object{
@@ -1419,7 +1352,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							Active: true,
 						}},
@@ -1435,7 +1368,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							Active: true,
 						}},
@@ -1443,6 +1376,15 @@ func TestReconcile(t *testing.T) {
 				},
 			),
 		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "pinned-becomes-ready",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "pinned-becomes-ready",
 				// Use the Revision name from the config
@@ -1452,7 +1394,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName:   "config-00001",
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(false),
 						},
 					})),
@@ -1466,12 +1408,12 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						ConfigurationName: "blue",
-						Percent:           50,
+						Percent:           ptr.Int64(50),
 					},
 				}, v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						ConfigurationName: "green",
-						Percent:           50,
+						Percent:           ptr.Int64(50),
 					},
 				}), WithRouteUID("34-78"), WithRouteFinalizer),
 			cfg("default", "blue",
@@ -1481,18 +1423,27 @@ func TestReconcile(t *testing.T) {
 			rev("default", "blue", 1, MarkRevisionReady, WithRevName("blue-00001"), WithServiceName("blue-ridge")),
 			rev("default", "green", 1, MarkRevisionReady, WithRevName("green-00001"), WithServiceName("green-lake")),
 		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "named-traffic-split",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
 		WantCreates: []runtime.Object{
 			simpleIngress(
 				route("default", "named-traffic-split", WithURL, WithSpecTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							ConfigurationName: "blue",
-							Percent:           50,
+							Percent:           ptr.Int64(50),
 						},
 					}, v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							ConfigurationName: "green",
-							Percent:           50,
+							Percent:           ptr.Int64(50),
 						},
 					}), WithRouteUID("34-78")),
 				&traffic.Config{
@@ -1501,7 +1452,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "blue-00001",
-								Percent:      50,
+								Percent:      ptr.Int64(50),
 							},
 							ServiceName: "blue-ridge",
 							Active:      true,
@@ -1509,7 +1460,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "green-00001",
-								Percent:      50,
+								Percent:      ptr.Int64(50),
 							},
 							ServiceName: "green-lake",
 							Active:      true,
@@ -1523,12 +1474,12 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							ConfigurationName: "blue",
-							Percent:           50,
+							Percent:           ptr.Int64(50),
 						},
 					}, v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							ConfigurationName: "green",
-							Percent:           50,
+							Percent:           ptr.Int64(50),
 						},
 					}), WithRouteUID("34-78"), WithRouteFinalizer),
 				"",
@@ -1539,12 +1490,12 @@ func TestReconcile(t *testing.T) {
 				WithSpecTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						ConfigurationName: "blue",
-						Percent:           50,
+						Percent:           ptr.Int64(50),
 					},
 				}, v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						ConfigurationName: "green",
-						Percent:           50,
+						Percent:           ptr.Int64(50),
 					},
 				}), WithRouteUID("34-78"),
 				WithURL, WithAddress, WithInitRouteConditions,
@@ -1552,13 +1503,13 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName:   "blue-00001",
-							Percent:        50,
+							Percent:        ptr.Int64(50),
 							LatestRevision: ptr.Bool(true),
 						},
 					}, v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName:   "green-00001",
-							Percent:        50,
+							Percent:        ptr.Int64(50),
 							LatestRevision: ptr.Bool(true),
 						},
 					})),
@@ -1577,19 +1528,28 @@ func TestReconcile(t *testing.T) {
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:               "gray",
 						ConfigurationName: "gray",
-						Percent:           50,
+						Percent:           ptr.Int64(50),
 					},
 				}, v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          "also-gray",
 						RevisionName: "gray-00001",
-						Percent:      50,
+						Percent:      ptr.Int64(50),
 					},
 				}), WithRouteUID("1-2"), WithRouteFinalizer),
 			cfg("default", "gray",
 				WithGeneration(1), WithLatestCreated("gray-00001"), WithLatestReady("gray-00001")),
 			rev("default", "gray", 1, MarkRevisionReady, WithRevName("gray-00001"), WithServiceName("shades")),
 		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "same-revision-targets",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
 		WantCreates: []runtime.Object{
 			simpleIngress(
 				route("default", "same-revision-targets", WithURL, WithSpecTraffic(
@@ -1597,13 +1557,13 @@ func TestReconcile(t *testing.T) {
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:               "gray",
 							ConfigurationName: "gray",
-							Percent:           50,
+							Percent:           ptr.Int64(50),
 						},
 					}, v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:          "also-gray",
 							RevisionName: "gray-00001",
-							Percent:      50,
+							Percent:      ptr.Int64(50),
 						},
 					}), WithRouteUID("1-2")),
 				&traffic.Config{
@@ -1612,7 +1572,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "gray-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "shades",
 							Active:      true,
@@ -1621,7 +1581,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "gray-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "shades",
 							Active:      true,
@@ -1630,7 +1590,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "gray-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "shades",
 							Active:      true,
@@ -1645,13 +1605,13 @@ func TestReconcile(t *testing.T) {
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:               "gray",
 							ConfigurationName: "gray",
-							Percent:           50,
+							Percent:           ptr.Int64(50),
 						},
 					}, v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:          "also-gray",
 							RevisionName: "gray-00001",
-							Percent:      50,
+							Percent:      ptr.Int64(50),
 						},
 					}), WithRouteUID("1-2"), WithRouteFinalizer),
 				"",
@@ -1663,13 +1623,13 @@ func TestReconcile(t *testing.T) {
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:               "gray",
 							ConfigurationName: "gray",
-							Percent:           50,
+							Percent:           ptr.Int64(50),
 						},
 					}, v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:          "also-gray",
 							RevisionName: "gray-00001",
-							Percent:      50,
+							Percent:      ptr.Int64(50),
 						},
 					}), WithRouteUID("1-2"), WithRouteFinalizer),
 				"also-gray",
@@ -1681,13 +1641,13 @@ func TestReconcile(t *testing.T) {
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:               "gray",
 							ConfigurationName: "gray",
-							Percent:           50,
+							Percent:           ptr.Int64(50),
 						},
 					}, v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:          "also-gray",
 							RevisionName: "gray-00001",
-							Percent:      50,
+							Percent:      ptr.Int64(50),
 						},
 					}), WithRouteUID("1-2"), WithRouteFinalizer),
 				"gray",
@@ -1699,13 +1659,13 @@ func TestReconcile(t *testing.T) {
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:               "gray",
 						ConfigurationName: "gray",
-						Percent:           50,
+						Percent:           ptr.Int64(50),
 					},
 				}, v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          "also-gray",
 						RevisionName: "gray-00001",
-						Percent:      50,
+						Percent:      ptr.Int64(50),
 					},
 				}), WithRouteUID("1-2"), WithRouteFinalizer,
 				WithURL, WithAddress, WithInitRouteConditions,
@@ -1714,7 +1674,7 @@ func TestReconcile(t *testing.T) {
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:            "gray",
 							RevisionName:   "gray-00001",
-							Percent:        50,
+							Percent:        ptr.Int64(50),
 							LatestRevision: ptr.Bool(true),
 							URL: &apis.URL{
 								Scheme: "http",
@@ -1725,7 +1685,7 @@ func TestReconcile(t *testing.T) {
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:            "also-gray",
 							RevisionName:   "gray-00001",
-							Percent:        50,
+							Percent:        ptr.Int64(50),
 							LatestRevision: ptr.Bool(false),
 							URL: &apis.URL{
 								Scheme: "http",
@@ -1753,7 +1713,7 @@ func TestReconcile(t *testing.T) {
 						TrafficTarget: v1beta1.TrafficTarget{
 							Tag:          "blue",
 							RevisionName: "blue-00001",
-							Percent:      100,
+							Percent:      ptr.Int64(100),
 						},
 					}), WithRouteFinalizer),
 			cfg("default", "blue",
@@ -1765,22 +1725,6 @@ func TestReconcile(t *testing.T) {
 				WithGeneration(1), WithLatestCreated("green-00001"), WithLatestReady("green-00001")),
 			rev("default", "blue", 1, MarkRevisionReady, WithRevName("blue-00001"), WithServiceName("alki-beach")),
 			rev("default", "green", 1, MarkRevisionReady, WithRevName("green-00001"), WithServiceName("rainier-beach")),
-			simpleReadyClusterIngress(
-				route("default", "switch-configs", WithConfigTarget("blue"), WithURL),
-				&traffic.Config{
-					Targets: map[string]traffic.RevisionTargets{
-						traffic.DefaultTarget: {{
-							TrafficTarget: v1beta1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "blue-00001",
-								Percent:      100,
-							},
-							ServiceName: "alki-beach",
-							Active:      true,
-						}},
-					},
-				},
-			),
 			simpleReadyIngress(
 				route("default", "switch-configs", WithConfigTarget("blue"), WithURL),
 				&traffic.Config{
@@ -1789,7 +1733,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "blue-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "alki-beach",
 							Active:      true,
@@ -1799,8 +1743,17 @@ func TestReconcile(t *testing.T) {
 			),
 			simpleK8sService(route("default", "switch-configs", WithConfigTarget("blue"))),
 		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "switch-configs",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: simpleReadyClusterIngress(
+			Object: simpleReadyIngress(
 				route("default", "switch-configs", WithConfigTarget("green"), WithURL),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
@@ -1808,7 +1761,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "green-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "rainier-beach",
 							Active:      true,
@@ -1816,26 +1769,7 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			),
-		},
-			{
-				Object: simpleReadyIngress(
-					route("default", "switch-configs", WithConfigTarget("green"), WithURL),
-					&traffic.Config{
-						Targets: map[string]traffic.RevisionTargets{
-							traffic.DefaultTarget: {{
-								TrafficTarget: v1beta1.TrafficTarget{
-									// Use the Revision name from the config.
-									RevisionName: "green-00001",
-									Percent:      100,
-								},
-								ServiceName: "rainier-beach",
-								Active:      true,
-							}},
-						},
-					},
-				),
-			},
-		},
+		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "switch-configs", WithConfigTarget("green"),
 				WithURL, WithAddress, WithInitRouteConditions,
@@ -1843,7 +1777,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName:   "green-00001",
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(true),
 						},
 					}), WithRouteFinalizer),
@@ -1861,19 +1795,19 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							ConfigurationName: "blue",
-							Percent:           50,
+							Percent:           ptr.Int64(50),
 						},
 					}, v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							ConfigurationName: "green",
-							Percent:           50,
+							Percent:           ptr.Int64(50),
 						},
 					}),
 				WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							ConfigurationName: "blue",
-							Percent:           100,
+							Percent:           ptr.Int64(100),
 							LatestRevision:    ptr.Bool(true),
 						},
 					},
@@ -1892,7 +1826,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "blue-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							Active: true,
 						}},
@@ -1909,19 +1843,19 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							ConfigurationName: "blue",
-							Percent:           50,
+							Percent:           ptr.Int64(50),
 						},
 					}, v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							ConfigurationName: "green",
-							Percent:           50,
+							Percent:           ptr.Int64(50),
 						},
 					}),
 				WithStatusTraffic(
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							ConfigurationName: "blue",
-							Percent:           100,
+							Percent:           ptr.Int64(100),
 							LatestRevision:    ptr.Bool(true),
 						},
 					})),
@@ -1937,7 +1871,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName:   "config-00001",
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(true),
 						},
 					})),
@@ -1949,21 +1883,6 @@ func TestReconcile(t *testing.T) {
 			rev("default", "config", 1, MarkRevisionReady,
 				WithRevName("config-00001"),
 				WithLastPinned(fakeCurTime.Add(-10*time.Minute))),
-			simpleReadyClusterIngress(
-				route("default", "stale-lastpinned", WithConfigTarget("config"), WithURL),
-				&traffic.Config{
-					Targets: map[string]traffic.RevisionTargets{
-						traffic.DefaultTarget: {{
-							TrafficTarget: v1beta1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      100,
-							},
-							Active: true,
-						}},
-					},
-				},
-			),
 			simpleReadyIngress(
 				route("default", "stale-lastpinned", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
@@ -1972,7 +1891,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							Active: true,
 						}},
@@ -1981,10 +1900,20 @@ func TestReconcile(t *testing.T) {
 			),
 			simpleK8sService(route("default", "stale-lastpinned", WithConfigTarget("config"))),
 		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "stale-lastpinned",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchLastPinned("default", "config-00001"),
 		},
-		Key: "default/stale-lastpinned",
+		Key:                     "default/stale-lastpinned",
+		SkipNamespaceValidation: true, // remove with WantDeleteCollections
 	}, {
 		Name: "check that we can find the cluster ingress with old naming",
 		Objects: []runtime.Object{
@@ -1994,7 +1923,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName:   "config-00001",
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(true),
 						},
 					})),
@@ -2014,7 +1943,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							Active: true,
 						}},
@@ -2029,7 +1958,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							Active: true,
 						}},
@@ -2038,7 +1967,17 @@ func TestReconcile(t *testing.T) {
 			),
 			simpleK8sService(route("default", "old-naming", WithConfigTarget("config"))),
 		},
-		Key: "default/old-naming",
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "old-naming",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
+		Key:                     "default/old-naming",
+		SkipNamespaceValidation: true, // remove with WantDeleteCollections
 	}, {
 		Name: "check that we do nothing with a deletion timestamp and no finalizers",
 		Objects: []runtime.Object{
@@ -2048,7 +1987,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName: "config-00001",
-							Percent:      100,
+							Percent:      ptr.Int64(100),
 						},
 					})),
 		},
@@ -2063,7 +2002,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName: "config-00001",
-							Percent:      100,
+							Percent:      ptr.Int64(100),
 						},
 					})),
 		},
@@ -2078,7 +2017,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName: "config-00001",
-							Percent:      100,
+							Percent:      ptr.Int64(100),
 						},
 					})),
 		},
@@ -2090,17 +2029,7 @@ func TestReconcile(t *testing.T) {
 				}).AsSelector(),
 				Fields: fields.Nothing(),
 			},
-		},
-			{
-				ListRestrictions: clientgotesting.ListRestrictions{
-					Labels: labels.Set(map[string]string{
-						serving.RouteLabelKey:          "delete-in-progress",
-						serving.RouteNamespaceLabelKey: "default",
-					}).AsSelector(),
-					Fields: fields.Nothing(),
-				},
-			},
-		},
+		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: route("default", "delete-in-progress", WithConfigTarget("config"),
 				WithRouteDeletionTimestamp, // Removed: WithRouteFinalizer,
@@ -2110,7 +2039,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName: "config-00001",
-							Percent:      100,
+							Percent:      ptr.Int64(100),
 						},
 					})),
 		}},
@@ -2126,7 +2055,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName:   "config-00001",
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(true),
 						},
 					})),
@@ -2136,21 +2065,6 @@ func TestReconcile(t *testing.T) {
 				WithConfigLabel("serving.knative.dev/route", "steady-state"),
 			),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001")),
-			simpleReadyClusterIngress(
-				route("default", "my-route", WithConfigTarget("config"), WithURL),
-				&traffic.Config{
-					Targets: map[string]traffic.RevisionTargets{
-						traffic.DefaultTarget: {{
-							TrafficTarget: v1beta1.TrafficTarget{
-								// Use the Revision name from the config.
-								RevisionName: "config-00001",
-								Percent:      100,
-							},
-							Active: true,
-						}},
-					},
-				},
-			),
 			simpleReadyIngress(
 				route("default", "my-route", WithConfigTarget("config"), WithURL),
 				&traffic.Config{
@@ -2159,7 +2073,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							Active: true,
 						}},
@@ -2169,6 +2083,15 @@ func TestReconcile(t *testing.T) {
 			simpleK8sService(route("default", "my-route", WithConfigTarget("config"))),
 			simpleK8sService(route("default", "my-route"), OverrideServiceName("old-service-name")),
 		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "my-route",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
 		WantDeletes: []clientgotesting.DeleteActionImpl{{
 			ActionImpl: clientgotesting.ActionImpl{
 				Namespace: "default",
@@ -2181,7 +2104,8 @@ func TestReconcile(t *testing.T) {
 			},
 			Name: "old-service-name",
 		}},
-		Key: "default/my-route",
+		Key:                     "default/my-route",
+		SkipNamespaceValidation: true, // remove with WantDeleteCollections
 	}, {
 		Name:    "deletes service fails",
 		WantErr: true,
@@ -2196,7 +2120,7 @@ func TestReconcile(t *testing.T) {
 					v1alpha1.TrafficTarget{
 						TrafficTarget: v1beta1.TrafficTarget{
 							RevisionName:   "config-00001",
-							Percent:        100,
+							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(true),
 						},
 					})),
@@ -2214,7 +2138,7 @@ func TestReconcile(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							Active: true,
 						}},
@@ -2286,7 +2210,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "mcd",
 							Active:      true,
@@ -2304,6 +2228,15 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				WithExternalName("becomes-ready.default.example.com"),
 			),
 		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "becomes-ready",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchFinalizers("default", "becomes-ready"),
 		},
@@ -2315,14 +2248,14 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName:   "config-00001",
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
 					},
 				}), MarkCertificateNotReady),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created Certificate %q/%q", "default", "route-12-34"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Certificate %s/%s", "default", "route-12-34"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		Key:                     "default/becomes-ready",
@@ -2352,6 +2285,15 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				Status: readyCertStatus(),
 			},
 		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "becomes-ready",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
 		WantCreates: []runtime.Object{
 			ingressWithTLS(
 				route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
@@ -2362,7 +2304,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 							TrafficTarget: v1beta1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
-								Percent:      100,
+								Percent:      ptr.Int64(100),
 							},
 							ServiceName: "mcd",
 							Active:      true,
@@ -2397,7 +2339,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1beta1.TrafficTarget{
 						RevisionName:   "config-00001",
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
 					},
 				}), MarkCertificateReady,

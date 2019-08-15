@@ -42,7 +42,7 @@ func validateTrafficList(ctx context.Context, traffic []TrafficTarget) *apis.Fie
 	// Track the targets of named TrafficTarget entries (to detect duplicates).
 	trafficMap := make(map[string]int)
 
-	sum := 0
+	sum := int64(0)
 	for i, tt := range traffic {
 		errs = errs.Also(tt.Validate(ctx).ViaIndex(i))
 
@@ -59,7 +59,9 @@ func validateTrafficList(ctx context.Context, traffic []TrafficTarget) *apis.Fie
 		} else {
 			trafficMap[tt.Tag] = i
 		}
-		sum += tt.Percent
+		if tt.Percent != nil {
+			sum += *tt.Percent
+		}
 	}
 
 	if sum != 100 {
@@ -130,9 +132,9 @@ func (tt *TrafficTarget) validateRevisionAndConfiguration(ctx context.Context, e
 
 func (tt *TrafficTarget) validateTrafficPercentage(errs *apis.FieldError) *apis.FieldError {
 	// Check that the traffic Percentage is within bounds.
-	if tt.Percent < 0 || tt.Percent > 100 {
+	if tt.Percent != nil && (*tt.Percent < 0 || *tt.Percent > 100) {
 		errs = errs.Also(apis.ErrOutOfBoundsValue(
-			tt.Percent, 0, 100, "percent"))
+			*tt.Percent, 0, 100, "percent"))
 	}
 	return errs
 }
@@ -201,7 +203,7 @@ func (r *Route) validateLabels() (errs *apis.FieldError) {
 			errs = errs.Also(validateClusterVisibilityLabel(val))
 		case key == serving.ServiceLabelKey:
 			errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", r.GetOwnerReferences()))
-		case strings.HasPrefix(key, groupNamePrefix):
+		case strings.HasPrefix(key, serving.GroupNamePrefix):
 			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
 		}
 	}

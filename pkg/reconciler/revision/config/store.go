@@ -20,11 +20,10 @@ import (
 	"context"
 
 	"knative.dev/pkg/configmap"
-	pkglogging "knative.dev/pkg/logging"
+	"knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/autoscaler"
 	deployment "knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/logging"
 	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/network"
 	pkgtracing "knative.dev/serving/pkg/tracing/config"
@@ -37,7 +36,7 @@ type Config struct {
 	Deployment    *deployment.Config
 	Network       *network.Config
 	Observability *metrics.ObservabilityConfig
-	Logging       *pkglogging.Config
+	Logging       *logging.Config
 	Tracing       *pkgtracing.Config
 	Autoscaler    *autoscaler.Config
 }
@@ -66,7 +65,7 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 				network.ConfigName:         network.NewConfigFromConfigMap,
 				pkgmetrics.ConfigMapName(): metrics.NewObservabilityConfigFromConfigMap,
 				autoscaler.ConfigName:      autoscaler.NewConfigFromConfigMap,
-				pkglogging.ConfigMapName(): logging.NewConfigFromConfigMap,
+				logging.ConfigMapName():    logging.NewConfigFromConfigMap,
 				pkgtracing.ConfigName:      pkgtracing.NewTracingConfigFromConfigMap,
 			},
 			onAfterStore...,
@@ -86,7 +85,7 @@ func (s *Store) Load() *Config {
 		Deployment:    s.UntypedLoad(deployment.ConfigName).(*deployment.Config).DeepCopy(),
 		Network:       s.UntypedLoad(network.ConfigName).(*network.Config).DeepCopy(),
 		Observability: s.UntypedLoad(pkgmetrics.ConfigMapName()).(*metrics.ObservabilityConfig).DeepCopy(),
-		Logging:       s.UntypedLoad((pkglogging.ConfigMapName())).(*pkglogging.Config).DeepCopy(),
+		Logging:       s.UntypedLoad((logging.ConfigMapName())).(*logging.Config).DeepCopy(),
 		Tracing:       s.UntypedLoad(pkgtracing.ConfigName).(*pkgtracing.Config).DeepCopy(),
 		Autoscaler:    s.UntypedLoad(autoscaler.ConfigName).(*autoscaler.Config).DeepCopy(),
 	}

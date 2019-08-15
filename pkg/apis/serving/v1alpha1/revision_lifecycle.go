@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis"
@@ -269,4 +270,23 @@ func (r *Revision) GetLastPinned() (time.Time, error) {
 
 func (rs *RevisionStatus) duck() *duckv1beta1.Status {
 	return &rs.Status
+}
+
+// PropagateDeploymentStatus takes the Deployment status and applies its values
+// to the Revision status.
+func (rs *RevisionStatus) PropagateDeploymentStatus(original *appsv1.DeploymentStatus) {
+	ds := serving.TransformDeploymentStatus(original)
+	cond := ds.GetCondition(serving.DeploymentConditionReady)
+	if cond == nil {
+		return
+	}
+
+	switch cond.Status {
+	case corev1.ConditionUnknown:
+		revCondSet.Manage(rs).MarkUnknown(RevisionConditionResourcesAvailable, cond.Reason, cond.Message)
+	case corev1.ConditionTrue:
+		revCondSet.Manage(rs).MarkTrue(RevisionConditionResourcesAvailable)
+	case corev1.ConditionFalse:
+		revCondSet.Manage(rs).MarkFalse(RevisionConditionResourcesAvailable, cond.Reason, cond.Message)
+	}
 }

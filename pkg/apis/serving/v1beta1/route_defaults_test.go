@@ -40,8 +40,61 @@ func TestRouteDefaulting(t *testing.T) {
 		want: &Route{
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
-					Percent:        100,
+					Percent:        ptr.Int64(100),
 					LatestRevision: ptr.Bool(true),
+				}},
+			},
+		},
+		wc: WithDefaultConfigurationName,
+	}, {
+		// Make sure it keeps a 'nil' as a 'nil' and not 'zero'
+		name: "implied zero percent",
+		in: &Route{
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					Percent:        ptr.Int64(100),
+					LatestRevision: ptr.Bool(true),
+				}, {
+					RevisionName: "bar",
+				}},
+			},
+		},
+		want: &Route{
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					Percent:        ptr.Int64(100),
+					LatestRevision: ptr.Bool(true),
+				}, {
+					RevisionName:   "bar",
+					Percent:        nil,
+					LatestRevision: ptr.Bool(false),
+				}},
+			},
+		},
+		wc: WithDefaultConfigurationName,
+	}, {
+		// Just to make sure it doesn't convert a 'zero' into a 'nil'
+		name: "explicit zero percent",
+		in: &Route{
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					Percent:        ptr.Int64(100),
+					LatestRevision: ptr.Bool(true),
+				}, {
+					RevisionName: "bar",
+					Percent:      ptr.Int64(0),
+				}},
+			},
+		},
+		want: &Route{
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					Percent:        ptr.Int64(100),
+					LatestRevision: ptr.Bool(true),
+				}, {
+					RevisionName:   "bar",
+					Percent:        ptr.Int64(0),
+					LatestRevision: ptr.Bool(false),
 				}},
 			},
 		},
@@ -52,13 +105,13 @@ func TestRouteDefaulting(t *testing.T) {
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
 					RevisionName: "foo",
-					Percent:      12,
+					Percent:      ptr.Int64(12),
 				}, {
 					RevisionName: "bar",
-					Percent:      34,
+					Percent:      ptr.Int64(34),
 				}, {
 					ConfigurationName: "baz",
-					Percent:           54,
+					Percent:           ptr.Int64(54),
 				}},
 			},
 		},
@@ -66,15 +119,15 @@ func TestRouteDefaulting(t *testing.T) {
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
 					RevisionName:   "foo",
-					Percent:        12,
+					Percent:        ptr.Int64(12),
 					LatestRevision: ptr.Bool(false),
 				}, {
 					RevisionName:   "bar",
-					Percent:        34,
+					Percent:        ptr.Int64(34),
 					LatestRevision: ptr.Bool(false),
 				}, {
 					ConfigurationName: "baz",
-					Percent:           54,
+					Percent:           ptr.Int64(54),
 					LatestRevision:    ptr.Bool(true),
 				}},
 			},

@@ -121,6 +121,18 @@ type RouteStatusFields struct {
 	// +optional
 	URL *apis.URL `json:"url,omitempty"`
 
+	// DeprecatedDomain holds the top-level domain that will distribute traffic over the provided targets.
+	// It generally has the form {route-name}.{route-namespace}.{cluster-level-suffix}
+	// +optional
+	DeprecatedDomain string `json:"domain,omitempty"`
+
+	// DeprecatedDomainInternal holds the top-level domain that will distribute traffic over the provided
+	// targets from inside the cluster. It generally has the form
+	// {route-name}.{route-namespace}.svc.{cluster-domain-name}
+	// DEPRECATED: Use Address instead.
+	// +optional
+	DeprecatedDomainInternal string `json:"domainInternal,omitempty"`
+
 	// Address holds the information needed for a Route to be the target of an event.
 	// +optional
 	Address *duckv1alpha1.Addressable `json:"address,omitempty"`

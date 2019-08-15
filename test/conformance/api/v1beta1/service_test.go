@@ -285,10 +285,10 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		Traffic: []v1beta1.TrafficTarget{{
 			Tag:          "current",
 			RevisionName: firstRevision,
-			Percent:      100,
+			Percent:      ptr.Int64(100),
 		}, {
 			Tag:     "latest",
-			Percent: 0,
+			Percent: nil,
 		}},
 	})
 	if err != nil {
@@ -299,7 +299,7 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		"current": {
 			Tag:            "current",
 			RevisionName:   objects.Config.Status.LatestReadyRevisionName,
-			Percent:        100,
+			Percent:        ptr.Int64(100),
 			LatestRevision: ptr.Bool(false),
 		},
 		"latest": {
@@ -360,14 +360,14 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		Traffic: []v1beta1.TrafficTarget{{
 			Tag:          "current",
 			RevisionName: firstRevision,
-			Percent:      50,
+			Percent:      ptr.Int64(50),
 		}, {
 			Tag:          "candidate",
 			RevisionName: secondRevision,
-			Percent:      50,
+			Percent:      ptr.Int64(50),
 		}, {
 			Tag:     "latest",
-			Percent: 0,
+			Percent: nil,
 		}},
 	})
 	if err != nil {
@@ -378,13 +378,13 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		"current": {
 			Tag:            "current",
 			RevisionName:   firstRevision,
-			Percent:        50,
+			Percent:        ptr.Int64(50),
 			LatestRevision: ptr.Bool(false),
 		},
 		"candidate": {
 			Tag:            "candidate",
 			RevisionName:   secondRevision,
-			Percent:        50,
+			Percent:        ptr.Int64(50),
 			LatestRevision: ptr.Bool(false),
 		},
 		"latest": {
@@ -444,13 +444,13 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 		Traffic: []v1beta1.TrafficTarget{{
 			Tag:          "current",
 			RevisionName: firstRevision,
-			Percent:      50,
+			Percent:      ptr.Int64(50),
 		}, {
 			Tag:     "candidate",
-			Percent: 50,
+			Percent: ptr.Int64(50),
 		}, {
 			Tag:     "latest",
-			Percent: 0,
+			Percent: nil,
 		}},
 	})
 	if err != nil {
@@ -466,7 +466,7 @@ func TestServiceWithTrafficSplit(t *testing.T) {
 	desiredTrafficShape["candidate"] = v1beta1.TrafficTarget{
 		Tag:            "candidate",
 		RevisionName:   thirdRevision,
-		Percent:        50,
+		Percent:        ptr.Int64(50),
 		LatestRevision: ptr.Bool(true),
 	}
 	t.Log("Waiting for Service to become ready with the new shape.")

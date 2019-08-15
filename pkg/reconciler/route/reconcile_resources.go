@@ -48,18 +48,12 @@ func routeOwnerLabelSelector(route *v1alpha1.Route) labels.Selector {
 	}).AsSelector()
 }
 
-func (c *Reconciler) deleteIngressesForRoute(route *v1alpha1.Route) error {
+func (c *Reconciler) deleteIngressForRoute(route *v1alpha1.Route) error {
 
 	// We always use DeleteCollection because even with a fixed name, we apply the labels.
 	selector := routeOwnerLabelSelector(route).String()
 
-	// Delete ClusterIngresses and Ingresses owned by this route.
-
-	if err := c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().DeleteCollection(
-		nil, metav1.ListOptions{LabelSelector: selector}); err != nil {
-		return err
-	}
-
+	// Delete Ingresses owned by this route.
 	return c.ServingClientSet.NetworkingV1alpha1().Ingresses(route.Namespace).DeleteCollection(
 		nil, metav1.ListOptions{LabelSelector: selector})
 }
@@ -283,7 +277,7 @@ func (c *Reconciler) reconcileCertificate(ctx context.Context, r *v1alpha1.Route
 			return nil, err
 		}
 		c.Recorder.Eventf(r, corev1.EventTypeNormal, "Created",
-			"Created Certificate %q/%q", cert.Namespace, cert.Name)
+			"Created Certificate %s/%s", cert.Namespace, cert.Name)
 		return cert, nil
 	} else if err != nil {
 		return nil, err

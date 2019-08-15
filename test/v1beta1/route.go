@@ -19,13 +19,13 @@ package v1beta1
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
@@ -45,7 +45,7 @@ func Route(names test.ResourceNames, fopt ...rtesting.RouteOption) *v1beta1.Rout
 			Traffic: []v1beta1.TrafficTarget{{
 				Tag:               names.TrafficTarget,
 				ConfigurationName: names.Config,
-				Percent:           100,
+				Percent:           ptr.Int64(100),
 			}},
 		},
 	}
@@ -117,13 +117,8 @@ func IsRouteNotReady(r *v1beta1.Route) (bool, error) {
 }
 
 // RetryingRouteInconsistency retries common requests seen when creating a new route
-// - 404 until the route is propagated to the proxy
 func RetryingRouteInconsistency(innerCheck spoof.ResponseChecker) spoof.ResponseChecker {
 	return func(resp *spoof.Response) (bool, error) {
-		if resp.StatusCode == http.StatusNotFound {
-			return false, nil
-		}
-
 		// If we didn't match any retryable codes, invoke the ResponseChecker that we wrapped.
 		return innerCheck(resp)
 	}
@@ -134,7 +129,7 @@ func RetryingRouteInconsistency(innerCheck spoof.ResponseChecker) spoof.Response
 func AllRouteTrafficAtRevision(names test.ResourceNames) func(r *v1beta1.Route) (bool, error) {
 	return func(r *v1beta1.Route) (bool, error) {
 		for _, tt := range r.Status.Traffic {
-			if tt.Percent == 100 {
+			if tt.Percent != nil && *tt.Percent == 100 {
 				if tt.RevisionName != names.Revision {
 					return true, fmt.Errorf("expected traffic revision name to be %s but actually is %s: %s", names.Revision, tt.RevisionName, spew.Sprint(r))
 				}

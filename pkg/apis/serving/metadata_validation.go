@@ -19,6 +19,7 @@ package serving
 import (
 	"context"
 	"strconv"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
@@ -26,11 +27,31 @@ import (
 	"knative.dev/serving/pkg/apis/config"
 )
 
+var (
+	allowedAnnotations = map[string]struct{}{
+		UpdaterAnnotation:                struct{}{},
+		CreatorAnnotation:                struct{}{},
+		RevisionLastPinnedAnnotationKey:  struct{}{},
+		GroupNamePrefix + "forceUpgrade": struct{}{},
+	}
+)
+
 // ValidateObjectMetadata validates that `metadata` stanza of the
 // resources is correct.
 func ValidateObjectMetadata(meta metav1.Object) *apis.FieldError {
 	return apis.ValidateObjectMetadata(meta).
-		Also(autoscaling.ValidateAnnotations(meta.GetAnnotations()).ViaField("annotations"))
+		Also(autoscaling.ValidateAnnotations(meta.GetAnnotations()).
+			Also(validateKnativeAnnotations(meta.GetAnnotations())).
+			ViaField("annotations"))
+}
+
+func validateKnativeAnnotations(annotations map[string]string) (errs *apis.FieldError) {
+	for key := range annotations {
+		if _, ok := allowedAnnotations[key]; !ok && strings.HasPrefix(key, GroupNamePrefix) {
+			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))
+		}
+	}
+	return
 }
 
 // ValidateQueueSidecarAnnotation validates QueueSideCarResourcePercentageAnnotation

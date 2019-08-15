@@ -316,7 +316,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconcile-virtualservice-mesh"),
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for VirtualService %q/%q",
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated VirtualService %s/%s",
 				system.Namespace(), "reconcile-virtualservice"),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for Ingress %q", "reconcile-virtualservice"),
 		},
@@ -410,7 +410,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconciling-clusteringress-mesh"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconciling-clusteringress"),
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated Gateway %q/%q", system.Namespace(), "knative-ingress-gateway"),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Gateway %s/%s", system.Namespace(), "knative-ingress-gateway"),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for Ingress %q", "reconciling-clusteringress"),
 		},
 		Key: "reconciling-clusteringress",
@@ -478,7 +478,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			Object: ingressWithFinalizers("reconciling-clusteringress", 1234, ingressTLS, []string{}),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated Gateway %q/%q", system.Namespace(), "knative-ingress-gateway"),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Gateway %s/%s", system.Namespace(), "knative-ingress-gateway"),
 		},
 		Key: "reconciling-clusteringress",
 	}, {
@@ -554,7 +554,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconciling-clusteringress-mesh"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconciling-clusteringress"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Secret %s/%s", "istio-system", targetSecretName),
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated Gateway %q/%q", system.Namespace(), "knative-ingress-gateway"),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Gateway %s/%s", system.Namespace(), "knative-ingress-gateway"),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for Ingress %q", "reconciling-clusteringress"),
 		},
 		Key: "reconciling-clusteringress",
@@ -577,6 +577,9 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 						networking.OriginSecretNameLabelKey:      "secret0",
 						networking.OriginSecretNamespaceLabelKey: "knative-serving",
 					},
+					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
+						ingressWithTLS("reconciling-clusteringress", 1234, ingressTLSWithSecretNamespace("knative-serving")),
+					)},
 				},
 				Data: map[string][]byte{
 					"wrong_data": []byte("wrongdata"),
@@ -599,6 +602,9 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 						networking.OriginSecretNameLabelKey:      "secret0",
 						networking.OriginSecretNamespaceLabelKey: "knative-serving",
 					},
+					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
+						ingressWithTLS("reconciling-clusteringress", 1234, ingressTLSWithSecretNamespace("knative-serving")),
+					)},
 				},
 				// The data is expected to be updated to the right one.
 				Data: map[string][]byte{

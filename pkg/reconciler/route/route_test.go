@@ -46,6 +46,7 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -290,7 +291,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 			TrafficTarget: v1beta1.TrafficTarget{
 				RevisionName:      "test-rev",
 				ConfigurationName: "test-config",
-				Percent:           100,
+				Percent:           ptr.Int64(100),
 			},
 		}},
 	)
@@ -400,12 +401,12 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 		[]v1alpha1.TrafficTarget{{
 			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: config.Name,
-				Percent:           90,
+				Percent:           ptr.Int64(90),
 			},
 		}, {
 			TrafficTarget: v1beta1.TrafficTarget{
 				RevisionName: rev.Name,
-				Percent:      10,
+				Percent:      ptr.Int64(10),
 			},
 		}},
 	)
@@ -488,13 +489,13 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 		[]v1alpha1.TrafficTarget{{
 			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: config.Name,
-				Percent:           90,
+				Percent:           ptr.Int64(90),
 			},
 		}, {
 			TrafficTarget: v1beta1.TrafficTarget{
 				RevisionName:      rev.Name,
 				ConfigurationName: "test-config",
-				Percent:           10,
+				Percent:           ptr.Int64(10),
 			},
 		}},
 	)
@@ -574,40 +575,40 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 		[]v1alpha1.TrafficTarget{{
 			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: "test-config",
-				Percent:           30,
+				Percent:           ptr.Int64(30),
 			},
 		}, {
 			TrafficTarget: v1beta1.TrafficTarget{
 				ConfigurationName: "test-config",
-				Percent:           20,
+				Percent:           ptr.Int64(20),
 			},
 		}, {
 			TrafficTarget: v1beta1.TrafficTarget{
 				RevisionName: "test-rev",
-				Percent:      10,
+				Percent:      ptr.Int64(10),
 			},
 		}, {
 			TrafficTarget: v1beta1.TrafficTarget{
 				RevisionName: "test-rev",
-				Percent:      5,
-			},
-		}, {
-			TrafficTarget: v1beta1.TrafficTarget{
-				Tag:          "test-revision-1",
-				RevisionName: "test-rev",
-				Percent:      10,
+				Percent:      ptr.Int64(5),
 			},
 		}, {
 			TrafficTarget: v1beta1.TrafficTarget{
 				Tag:          "test-revision-1",
 				RevisionName: "test-rev",
-				Percent:      10,
+				Percent:      ptr.Int64(10),
+			},
+		}, {
+			TrafficTarget: v1beta1.TrafficTarget{
+				Tag:          "test-revision-1",
+				RevisionName: "test-rev",
+				Percent:      ptr.Int64(10),
 			},
 		}, {
 			TrafficTarget: v1beta1.TrafficTarget{
 				Tag:          "test-revision-2",
 				RevisionName: "test-rev",
-				Percent:      15,
+				Percent:      ptr.Int64(15),
 			},
 		}},
 	)
@@ -734,13 +735,13 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			TrafficTarget: v1beta1.TrafficTarget{
 				Tag:          "foo",
 				RevisionName: "test-rev",
-				Percent:      50,
+				Percent:      ptr.Int64(50),
 			},
 		}, {
 			TrafficTarget: v1beta1.TrafficTarget{
 				Tag:               "bar",
 				ConfigurationName: "test-config",
-				Percent:           50,
+				Percent:           ptr.Int64(50),
 			},
 		}},
 	)

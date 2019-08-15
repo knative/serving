@@ -29,7 +29,6 @@ import (
 	"knative.dev/pkg/test/helpers"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	openzipkin "github.com/openzipkin/zipkin-go"
 	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
 	reporterrecorder "github.com/openzipkin/zipkin-go/reporter/recorder"
@@ -101,13 +100,6 @@ func TestActivationHandler(t *testing.T) {
 			StatusCode: http.StatusOK,
 			Attempts:   2, // probe + request
 			Value:      1,
-		}, {
-			Op:         "ReportResponseTime",
-			Namespace:  testNamespace,
-			Revision:   testRevName,
-			Service:    "service-real-name",
-			Config:     "config-real-name",
-			StatusCode: http.StatusOK,
 		}},
 		probeTimeout: 100 * time.Millisecond,
 	}, {
@@ -128,13 +120,6 @@ func TestActivationHandler(t *testing.T) {
 			StatusCode: http.StatusOK,
 			Attempts:   3, // probe + probe + request
 			Value:      1,
-		}, {
-			Op:         "ReportResponseTime",
-			Namespace:  testNamespace,
-			Revision:   testRevName,
-			Service:    "service-real-name",
-			Config:     "config-real-name",
-			StatusCode: http.StatusOK,
 		}},
 		probeTimeout: 201 * time.Millisecond,
 	}, {
@@ -154,13 +139,6 @@ func TestActivationHandler(t *testing.T) {
 			StatusCode: http.StatusOK,
 			Attempts:   2, // one probe call, one proxy call.
 			Value:      1,
-		}, {
-			Op:         "ReportResponseTime",
-			Namespace:  testNamespace,
-			Revision:   testRevName,
-			Service:    "service-real-name",
-			Config:     "config-real-name",
-			StatusCode: http.StatusOK,
 		}},
 	}, {
 		label:             "no active endpoint",
@@ -188,13 +166,6 @@ func TestActivationHandler(t *testing.T) {
 			StatusCode: http.StatusInternalServerError,
 			Attempts:   2, // On failed probe we'll always try twice.
 			Value:      1,
-		}, {
-			Op:         "ReportResponseTime",
-			Namespace:  testNamespace,
-			Revision:   testRevName,
-			Service:    "service-real-name",
-			Config:     "config-real-name",
-			StatusCode: http.StatusInternalServerError,
 		}},
 	}, {
 		label:             "active endpoint (probe 500)",
@@ -213,13 +184,6 @@ func TestActivationHandler(t *testing.T) {
 			StatusCode: http.StatusInternalServerError,
 			Attempts:   2,
 			Value:      1,
-		}, {
-			Op:         "ReportResponseTime",
-			Namespace:  testNamespace,
-			Revision:   testRevName,
-			Service:    "service-real-name",
-			Config:     "config-real-name",
-			StatusCode: http.StatusInternalServerError,
 		}},
 	}, {
 		label:             "request error",
@@ -238,13 +202,6 @@ func TestActivationHandler(t *testing.T) {
 			StatusCode: http.StatusBadGateway,
 			Attempts:   2, // probe + actual request.
 			Value:      1,
-		}, {
-			Op:         "ReportResponseTime",
-			Namespace:  testNamespace,
-			Revision:   testRevName,
-			Service:    "service-real-name",
-			Config:     "config-real-name",
-			StatusCode: http.StatusBadGateway,
 		}},
 	}, {
 		label:             "broken get SKS",
@@ -351,7 +308,7 @@ func TestActivationHandler(t *testing.T) {
 				t.Errorf("Unexpected response body. Response body %q, want %q", gotBody, test.wantBody)
 			}
 
-			if diff := cmp.Diff(test.reporterCalls, reporter.calls, ignoreDurationOption); diff != "" {
+			if diff := cmp.Diff(test.reporterCalls, reporter.calls); diff != "" {
 				t.Errorf("Reporting calls are different (-want, +got) = %v", diff)
 			}
 		})
@@ -703,8 +660,6 @@ func assertResponses(wantedSuccess, wantedFailure, overallRequests int, lockerCh
 		t.Errorf("successful request count = %d, want: %d", succeeded, wantedSuccess)
 	}
 }
-
-var ignoreDurationOption = cmpopts.IgnoreFields(reporterCall{}, "Duration")
 
 type reporterCall struct {
 	Op         string

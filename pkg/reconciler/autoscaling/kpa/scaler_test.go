@@ -473,9 +473,6 @@ func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxS
 			Name:        testRevision,
 			Annotations: annotations,
 		},
-		Spec: v1alpha1.RevisionSpec{
-			DeprecatedConcurrencyModel: "Multi",
-		},
 	}
 	rev, err := servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	if err != nil {

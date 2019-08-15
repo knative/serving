@@ -305,6 +305,11 @@ func (m *StatusProber) listVirtualServicePodIPs(vs *v1alpha3.VirtualService) ([]
 			return nil, fmt.Errorf("failed to get Gateway %s/%s: %v", namespace, name, err)
 		}
 
+		// Skip gateways that cannot be probed
+		if !resources.CanProbeGateway(gateway) {
+			continue
+		}
+
 		// List matching Pods
 		selector := labels.NewSelector()
 		for key, value := range gateway.Spec.Selector {

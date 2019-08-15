@@ -40,13 +40,13 @@ func TestRouteDefaulting(t *testing.T) {
 					DeprecatedName: "foo",
 					TrafficTarget: v1beta1.TrafficTarget{
 						ConfigurationName: "foo",
-						Percent:           50,
+						Percent:           ptr.Int64(50),
 					},
 				}, {
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          "bar",
 						RevisionName: "foo",
-						Percent:      50,
+						Percent:      ptr.Int64(50),
 					},
 				}},
 			},
@@ -57,14 +57,14 @@ func TestRouteDefaulting(t *testing.T) {
 					DeprecatedName: "foo",
 					TrafficTarget: v1beta1.TrafficTarget{
 						ConfigurationName: "foo",
-						Percent:           50,
+						Percent:           ptr.Int64(50),
 						LatestRevision:    ptr.Bool(true),
 					},
 				}, {
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:            "bar",
 						RevisionName:   "foo",
-						Percent:        50,
+						Percent:        ptr.Int64(50),
 						LatestRevision: ptr.Bool(false),
 					},
 				}},
@@ -79,13 +79,13 @@ func TestRouteDefaulting(t *testing.T) {
 					DeprecatedName: "foo",
 					TrafficTarget: v1beta1.TrafficTarget{
 						ConfigurationName: "foo",
-						Percent:           50,
+						Percent:           ptr.Int64(50),
 					},
 				}, {
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          "bar",
 						RevisionName: "foo",
-						Percent:      50,
+						Percent:      ptr.Int64(50),
 					},
 				}},
 			},
@@ -96,14 +96,14 @@ func TestRouteDefaulting(t *testing.T) {
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:               "foo",
 						ConfigurationName: "foo",
-						Percent:           50,
+						Percent:           ptr.Int64(50),
 						LatestRevision:    ptr.Bool(true),
 					},
 				}, {
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:            "bar",
 						RevisionName:   "foo",
-						Percent:        50,
+						Percent:        ptr.Int64(50),
 						LatestRevision: ptr.Bool(false),
 					},
 				}},
@@ -118,14 +118,14 @@ func TestRouteDefaulting(t *testing.T) {
 					DeprecatedName: "foo",
 					TrafficTarget: v1beta1.TrafficTarget{
 						ConfigurationName: "foo",
-						Percent:           50,
+						Percent:           ptr.Int64(50),
 					},
 				}, {
 					DeprecatedName: "baz",
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          "bar",
 						RevisionName: "foo",
-						Percent:      50,
+						Percent:      ptr.Int64(50),
 					},
 				}},
 			},
@@ -136,7 +136,7 @@ func TestRouteDefaulting(t *testing.T) {
 					DeprecatedName: "foo",
 					TrafficTarget: v1beta1.TrafficTarget{
 						ConfigurationName: "foo",
-						Percent:           50,
+						Percent:           ptr.Int64(50),
 						LatestRevision:    ptr.Bool(true),
 					},
 				}, {
@@ -144,7 +144,7 @@ func TestRouteDefaulting(t *testing.T) {
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:            "bar",
 						RevisionName:   "foo",
-						Percent:        50,
+						Percent:        ptr.Int64(50),
 						LatestRevision: ptr.Bool(false),
 					},
 				}},
@@ -159,13 +159,13 @@ func TestRouteDefaulting(t *testing.T) {
 					DeprecatedName: "bar",
 					TrafficTarget: v1beta1.TrafficTarget{
 						ConfigurationName: "foo",
-						Percent:           50,
+						Percent:           ptr.Int64(50),
 					},
 				}, {
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:          "bar",
 						RevisionName: "foo",
-						Percent:      50,
+						Percent:      ptr.Int64(50),
 					},
 				}},
 			},
@@ -176,14 +176,14 @@ func TestRouteDefaulting(t *testing.T) {
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:               "bar",
 						ConfigurationName: "foo",
-						Percent:           50,
+						Percent:           ptr.Int64(50),
 						LatestRevision:    ptr.Bool(true),
 					},
 				}, {
 					TrafficTarget: v1beta1.TrafficTarget{
 						Tag:            "bar",
 						RevisionName:   "foo",
-						Percent:        50,
+						Percent:        ptr.Int64(50),
 						LatestRevision: ptr.Bool(false),
 					},
 				}},

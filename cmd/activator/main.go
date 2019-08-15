@@ -35,13 +35,13 @@ import (
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 
 	"github.com/kelseyhightower/envconfig"
-	zipkin "github.com/openzipkin/zipkin-go"
+	"github.com/openzipkin/zipkin-go"
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/clientcmd"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/injection/sharedmain"
 	pkglogging "knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/metrics"
@@ -121,31 +121,38 @@ func main() {
 	// Set up signals so we handle the first shutdown signal gracefully.
 	ctx := signals.NewContext()
 
-	cm, err := configmap.Load("/etc/config-logging")
+	cfg, err := sharedmain.GetConfig(*masterURL, *kubeconfig)
 	if err != nil {
-		log.Fatal("Error loading logging configuration:", err)
-	}
-	logConfig, err := logging.NewConfigFromMap(cm)
-	if err != nil {
-		log.Fatal("Error parsing logging configuration:", err)
-	}
-	createdLogger, atomicLevel := logging.NewLoggerFromConfig(logConfig, component)
-	logger := createdLogger.With(zap.String(logkey.ControllerType, "activator"))
-	defer flush(logger)
-
-	logger.Info("Starting the knative activator")
-
-	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
-	if err != nil {
-		logger.Fatalw("Error getting cluster configuration", zap.Error(err))
+		log.Fatal("Error building kubeconfig:", err)
 	}
 
-	logger.Infof("Registering %d clients", len(injection.Default.GetClients()))
-	logger.Infof("Registering %d informer factories", len(injection.Default.GetInformerFactories()))
-	logger.Infof("Registering %d informers", len(injection.Default.GetInformers()))
+	log.Printf("Registering %d clients", len(injection.Default.GetClients()))
+	log.Printf("Registering %d informer factories", len(injection.Default.GetInformerFactories()))
+	log.Printf("Registering %d informers", len(injection.Default.GetInformers()))
 
 	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
+
+	// Set up our logger.
+	loggingConfig, err := sharedmain.GetLoggingConfig(ctx)
+	if err != nil {
+		log.Fatal("Error loading/parsing logging configuration:", err)
+	}
+	logger, atomicLevel := pkglogging.NewLoggerFromConfig(loggingConfig, component)
+	logger = logger.With(zap.String(logkey.ControllerType, "activator"))
+	defer flush(logger)
+
 	kubeClient := kubeclient.Get(ctx)
+	endpointInformer := endpointsinformer.Get(ctx)
+	serviceInformer := serviceinformer.Get(ctx)
+	revisionInformer := revisioninformer.Get(ctx)
+	sksInformer := sksinformer.Get(ctx)
+
+	// Run informers instead of starting them from the factory to prevent the sync hanging because of empty handler.
+	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
+		logger.Fatalw("Failed to start informers", zap.Error(err))
+	}
+
+	logger.Info("Starting the knative activator")
 
 	// We sometimes startup faster than we can reach kube-api. Poll on failure to prevent us terminating
 	if perr := wait.PollImmediate(time.Second, 60*time.Second, func() (bool, error) {
@@ -167,16 +174,6 @@ func main() {
 
 	reqCh := make(chan activatorhandler.ReqEvent, requestCountingQueueLength)
 	defer close(reqCh)
-
-	endpointInformer := endpointsinformer.Get(ctx)
-	serviceInformer := serviceinformer.Get(ctx)
-	revisionInformer := revisioninformer.Get(ctx)
-	sksInformer := sksinformer.Get(ctx)
-
-	// Run informers instead of starting them from the factory to prevent the sync hanging because of empty handler.
-	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-		logger.Fatalw("Failed to start informers", zap.Error(err))
-	}
 
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
 	throttler := activator.NewThrottler(params, endpointInformer, sksInformer.Lister(), revisionInformer.Lister(), logger)
@@ -201,7 +198,7 @@ func main() {
 
 	// Set up our config store
 	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
-	configStore := activatorconfig.NewStore(createdLogger, tracerUpdater)
+	configStore := activatorconfig.NewStore(logger, tracerUpdater)
 	configStore.WatchConfigs(configMapWatcher)
 
 	// Open a WebSocket connection to the autoscaler.
@@ -243,6 +240,8 @@ func main() {
 	ah = reqLogHandler
 	ah = &activatorhandler.ProbeHandler{NextHandler: ah}
 	ah = &activatorhandler.HealthHandler{HealthCheck: statSink.Status, NextHandler: ah}
+	// NOTE: MetricHandler is being used as the outermost handler for the purpose of measuring the request latency.
+	ah = activatorhandler.NewMetricHandler(revisionInformer.Lister(), reporter, logger, ah)
 
 	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher.Watch(pkglogging.ConfigMapName(), pkglogging.UpdateLevelFromConfigMap(logger, atomicLevel, component))

@@ -310,7 +310,8 @@ function setup_test_cluster() {
   # Set the actual project the test cluster resides in
   # It will be a project assigned by Boskos if test is running on Prow,
   # otherwise will be ${GCP_PROJECT} set up by user.
-  readonly export E2E_PROJECT_ID="$(gcloud config get-value project)"
+  export E2E_PROJECT_ID="$(gcloud config get-value project)"
+  readonly E2E_PROJECT_ID
 
   # Save some metadata about cluster creation for using in prow and testgrid
   save_metadata

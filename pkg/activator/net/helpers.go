@@ -26,12 +26,12 @@ import (
 
 // EndpointsToDests takes an endpoints object and a port name and returns a list
 // of l4 dests in the endpoints object which have that port
-func EndpointsToDests(endpoints *corev1.Endpoints) []string {
+func EndpointsToDests(endpoints *corev1.Endpoints, portName string) []string {
 	ret := []string{}
 
 	for _, es := range endpoints.Subsets {
 		for _, port := range es.Ports {
-			if port.Name == probePortName {
+			if port.Name == portName {
 				portStr := strconv.Itoa(int(port.Port))
 				for _, addr := range es.Addresses {
 					// Prefer IP as we can avoid a DNS lookup this way.

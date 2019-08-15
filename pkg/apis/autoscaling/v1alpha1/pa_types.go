@@ -23,7 +23,6 @@ import (
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/kmeta"
 	net "knative.dev/serving/pkg/apis/networking"
-	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
@@ -71,15 +70,9 @@ type PodAutoscalerSpec struct {
 	// +optional
 	DeprecatedGeneration int64 `json:"generation,omitempty"`
 
-	// DeprecatedConcurrencyModel no longer does anything, use ContainerConcurrency.
-	// +optional
-	DeprecatedConcurrencyModel servingv1alpha1.RevisionRequestConcurrencyModelType `json:"concurrencyModel,omitempty"`
-
 	// ContainerConcurrency specifies the maximum allowed
 	// in-flight (concurrent) requests per container of the Revision.
 	// Defaults to `0` which means unlimited concurrency.
-	// This field replaces ConcurrencyModel. A value of `1`
-	// is equivalent to `Single` and `0` is equivalent to `Multi`.
 	// +optional
 	ContainerConcurrency servingv1beta1.RevisionContainerConcurrencyType `json:"containerConcurrency,omitempty"`
 
@@ -92,7 +85,7 @@ type PodAutoscalerSpec struct {
 	DeprecatedServiceName string `json:"serviceName"`
 
 	// The application-layer protocol. Matches `ProtocolType` inferred from the revision spec.
-	ProtocolType net.ProtocolType
+	ProtocolType net.ProtocolType `json:"protocolType"`
 }
 
 const (

@@ -25,6 +25,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
@@ -93,13 +94,13 @@ func TestBlueGreenRoute(t *testing.T) {
 			TrafficTarget: v1beta1.TrafficTarget{
 				Tag:          blue.TrafficTarget,
 				RevisionName: blue.Revision,
-				Percent:      50,
+				Percent:      ptr.Int64(50),
 			},
 		}, {
 			TrafficTarget: v1beta1.TrafficTarget{
 				Tag:          green.TrafficTarget,
 				RevisionName: green.Revision,
-				Percent:      50,
+				Percent:      ptr.Int64(50),
 			},
 		}},
 	}); err != nil {

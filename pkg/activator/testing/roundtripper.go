@@ -96,8 +96,8 @@ func (rt *FakeRoundTripper) popResponse(host string) *FakeResponse {
 	rt.responseMux.Lock()
 	defer rt.responseMux.Unlock()
 
-	if r, ok := rt.ProbeHostResponses[host]; ok {
-		resp, responses := popResponseSlice(r)
+	if v, ok := rt.ProbeHostResponses[host]; ok {
+		resp, responses := popResponseSlice(v)
 		rt.ProbeHostResponses[host] = responses
 		return resp
 	}

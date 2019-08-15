@@ -25,9 +25,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -51,7 +53,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		[]v1alpha1.TrafficTarget{{
 			TrafficTarget: v1beta1.TrafficTarget{
 				RevisionName: "test-rev",
-				Percent:      100,
+				Percent:      ptr.Int64(100),
 			},
 		}},
 	)
@@ -114,6 +116,12 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 
 	if _, err := servingClient.ServingV1alpha1().Revisions(rev.Namespace).Create(rev); err != nil {
 		t.Errorf("Unexpected error creating revision: %v", err)
+	}
+
+	for i, informer := range informers {
+		if ok := cache.WaitForCacheSync(ctx.Done(), informer.HasSynced); !ok {
+			t.Fatalf("failed to wait for cache at index %d to sync", i)
+		}
 	}
 
 	if _, err := servingClient.ServingV1alpha1().Routes(route.Namespace).Create(route); err != nil {

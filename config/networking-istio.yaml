@@ -48,9 +48,6 @@ spec:
         ports:
         - name: metrics
           containerPort: 9090
-        volumeMounts:
-        - name: config-logging
-          mountPath: /etc/config-logging
         env:
         - name: SYSTEM_NAMESPACE
           valueFrom:
@@ -64,7 +61,3 @@ spec:
           value: knative.dev/serving
         securityContext:
           allowPrivilegeEscalation: false
-      volumes:
-        - name: config-logging
-          configMap:
-            name: config-logging

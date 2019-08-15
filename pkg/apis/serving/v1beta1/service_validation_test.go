@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/serving"
 	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 
 	"knative.dev/pkg/apis"
@@ -45,7 +46,7 @@ func TestServiceValidation(t *testing.T) {
 	goodRouteSpec := RouteSpec{
 		Traffic: []TrafficTarget{{
 			LatestRevision: ptr.Bool(true),
-			Percent:        100,
+			Percent:        ptr.Int64(100),
 		}},
 	}
 
@@ -64,7 +65,7 @@ func TestServiceValidation(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 					}},
 				},
 			},
@@ -143,16 +144,16 @@ func TestServiceValidation(t *testing.T) {
 						Tag:            "current",
 						LatestRevision: ptr.Bool(false),
 						RevisionName:   "valid-00001",
-						Percent:        98,
+						Percent:        ptr.Int64(98),
 					}, {
 						Tag:            "candidate",
 						LatestRevision: ptr.Bool(false),
 						RevisionName:   "valid-00002",
-						Percent:        2,
+						Percent:        ptr.Int64(2),
 					}, {
 						Tag:            "latest",
 						LatestRevision: ptr.Bool(true),
-						Percent:        0,
+						Percent:        nil,
 					}},
 				},
 			},
@@ -170,7 +171,7 @@ func TestServiceValidation(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						ConfigurationName: "valid",
 						LatestRevision:    ptr.Bool(true),
-						Percent:           100,
+						Percent:           ptr.Int64(100),
 					}},
 				},
 			},
@@ -188,7 +189,7 @@ func TestServiceValidation(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						RevisionName:   "valid",
 						LatestRevision: ptr.Bool(true),
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 					}},
 				},
 			},
@@ -216,7 +217,7 @@ func TestServiceValidation(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 					}},
 				},
 			},
@@ -267,7 +268,7 @@ func TestImmutableServiceFields(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 					}},
 				},
 			},
@@ -291,7 +292,7 @@ func TestImmutableServiceFields(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 					}},
 				},
 			},
@@ -321,7 +322,7 @@ func TestImmutableServiceFields(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						RevisionName: "byo-name-foo", // Used it!
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					}},
 				},
 			},
@@ -348,7 +349,7 @@ func TestImmutableServiceFields(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						RevisionName: "byo-name-bar", // Used it!
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					}},
 				},
 			},
@@ -378,7 +379,7 @@ func TestImmutableServiceFields(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						RevisionName: "byo-name-bar", // Leave old.
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					}},
 				},
 			},
@@ -405,7 +406,7 @@ func TestImmutableServiceFields(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						RevisionName: "byo-name-bar", // Used it!
-						Percent:      100,
+						Percent:      ptr.Int64(100),
 					}},
 				},
 			},
@@ -435,7 +436,7 @@ func TestImmutableServiceFields(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 					}},
 				},
 			},
@@ -462,7 +463,7 @@ func TestImmutableServiceFields(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 					}},
 				},
 			},
@@ -515,7 +516,7 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 					}},
 				},
 			},
@@ -544,7 +545,7 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 					}},
 				},
 			},
@@ -573,7 +574,7 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 					}},
 				},
 			},
@@ -582,7 +583,7 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 					Traffic: []TrafficTarget{{
 						Tag:          "bar",
 						RevisionName: "foo",
-						Percent:      50, URL: &apis.URL{
+						Percent:      ptr.Int64(50), URL: &apis.URL{
 							Scheme: "http",
 							Host:   "foo.bar.com",
 						},
@@ -617,7 +618,7 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 					}},
 				},
 			},
@@ -646,7 +647,7 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
-						Percent:        100,
+						Percent:        ptr.Int64(100),
 					}},
 				},
 			},
@@ -663,6 +664,123 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 			ctx = apis.WithinUpdate(ctx, test.service)
 			ctx = apis.WithinSubResourceUpdate(ctx, test.service, test.subresource)
 			got := test.service.Validate(ctx)
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+				t.Errorf("Validate (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
+func getServiceSpec(image string) ServiceSpec {
+	return ServiceSpec{
+		ConfigurationSpec: ConfigurationSpec{
+			Template: RevisionTemplateSpec{
+				Spec: RevisionSpec{
+					PodSpec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Image: image,
+						}},
+					},
+					TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds),
+				},
+			},
+		},
+		RouteSpec: RouteSpec{
+			Traffic: []TrafficTarget{{
+				LatestRevision: ptr.Bool(true),
+				Percent:        ptr.Int64(100),
+			}},
+		},
+	}
+}
+
+func TestServiceAnnotationUpdate(t *testing.T) {
+	const (
+		u1 = "oveja@knative.dev"
+		u2 = "cabra@knative.dev"
+		u3 = "vaca@knative.dev"
+	)
+	tests := []struct {
+		name string
+		prev *Service
+		this *Service
+		want *apis.FieldError
+	}{{
+		name: "update creator annotation",
+		this: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u2,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getServiceSpec("helloworld:foo"),
+		},
+		prev: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getServiceSpec("helloworld:foo"),
+		},
+		want: (&apis.FieldError{Message: "annotation value is immutable",
+			Paths: []string{serving.CreatorAnnotation}}).ViaField("metadata.annotations"),
+	}, {
+		name: "update lastModifier without spec changes",
+		this: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u2,
+				},
+			},
+			Spec: getServiceSpec("helloworld:foo"),
+		},
+		prev: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getServiceSpec("helloworld:foo"),
+		},
+		want: apis.ErrInvalidValue(u2, serving.UpdaterAnnotation).ViaField("metadata.annotations"),
+	}, {
+		name: "update lastModifier with spec changes",
+		this: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u3,
+				},
+			},
+			Spec: getServiceSpec("helloworld:bar"),
+		},
+		prev: &Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getServiceSpec("helloworld:foo"),
+		},
+		want: nil,
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+			ctx = apis.WithinUpdate(ctx, test.prev)
+			got := test.this.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}

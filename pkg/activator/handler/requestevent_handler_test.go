@@ -47,8 +47,8 @@ func TestRequestEventHandler(t *testing.T) {
 		EventType: ReqIn,
 	}
 
-	if diff := cmp.Diff(wantIn, in); diff != "" {
-		t.Errorf("Unexpected event (-want +got): %v", diff)
+	if !cmp.Equal(wantIn, in) {
+		t.Errorf("Unexpected event (-want +got): %s", cmp.Diff(wantIn, in))
 	}
 
 	out := <-handler.ReqChan
@@ -57,7 +57,7 @@ func TestRequestEventHandler(t *testing.T) {
 		EventType: ReqOut,
 	}
 
-	if diff := cmp.Diff(wantOut, out); diff != "" {
-		t.Errorf("Unexpected event (-want +got): %v", diff)
+	if !cmp.Equal(wantOut, out) {
+		t.Errorf("Unexpected event (-want +got): %s", cmp.Diff(wantOut, out))
 	}
 }

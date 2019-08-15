@@ -19,6 +19,7 @@ package resources
 import (
 	"strconv"
 
+	"github.com/pkg/errors"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
@@ -108,7 +109,13 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 	}
 }
 
-func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, observabilityConfig *metrics.ObservabilityConfig, autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) *corev1.PodSpec {
+func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, observabilityConfig *metrics.ObservabilityConfig, autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) (*corev1.PodSpec, error) {
+	queueContainer, err := makeQueueContainer(rev, loggingConfig, tracingConfig, observabilityConfig, autoscalerConfig, deploymentConfig)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create queue-proxy container")
+	}
+
 	userContainer := rev.Spec.GetContainer().DeepCopy()
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the fieldmasks / validations in pkg/apis/serving
@@ -149,7 +156,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, tracingC
 	podSpec := &corev1.PodSpec{
 		Containers: []corev1.Container{
 			*userContainer,
-			*makeQueueContainer(rev, loggingConfig, tracingConfig, observabilityConfig, autoscalerConfig, deploymentConfig),
+			*queueContainer,
 		},
 		Volumes:                       append([]corev1.Volume{varLogVolume}, rev.Spec.Volumes...),
 		ServiceAccountName:            rev.Spec.ServiceAccountName,
@@ -161,7 +168,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, tracingC
 		podSpec.Volumes = append(podSpec.Volumes, internalVolume)
 	}
 
-	return podSpec
+	return podSpec, nil
 }
 
 func getUserPort(rev *v1alpha1.Revision) int32 {
@@ -193,7 +200,7 @@ func buildUserPortEnv(userPort string) corev1.EnvVar {
 // MakeDeployment constructs a K8s Deployment resource from a revision.
 func MakeDeployment(rev *v1alpha1.Revision,
 	loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, networkConfig *network.Config, observabilityConfig *metrics.ObservabilityConfig,
-	autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) *appsv1.Deployment {
+	autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) (*appsv1.Deployment, error) {
 
 	podTemplateAnnotations := resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
 		return k == serving.RevisionLastPinnedAnnotationKey
@@ -221,6 +228,10 @@ func MakeDeployment(rev *v1alpha1.Revision,
 			podTemplateAnnotations[IstioOutboundIPRangeAnnotation] = networkConfig.IstioOutboundIPRanges
 		}
 	}
+	podSpec, err := makePodSpec(rev, loggingConfig, tracingConfig, observabilityConfig, autoscalerConfig, deploymentConfig)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create PodSpec")
+	}
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -242,8 +253,8 @@ func MakeDeployment(rev *v1alpha1.Revision,
 					Labels:      makeLabels(rev),
 					Annotations: podTemplateAnnotations,
 				},
-				Spec: *makePodSpec(rev, loggingConfig, tracingConfig, observabilityConfig, autoscalerConfig, deploymentConfig),
+				Spec: *podSpec,
 			},
 		},
-	}
+	}, nil
 }
