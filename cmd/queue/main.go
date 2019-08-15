@@ -31,7 +31,7 @@ import (
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
-	zipkin "github.com/openzipkin/zipkin-go"
+	"github.com/openzipkin/zipkin-go"
 	"github.com/pkg/errors"
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/stats"
