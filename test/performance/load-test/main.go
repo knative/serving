@@ -149,7 +149,7 @@ func main() {
 	if *flavor == "" {
 		log.Fatalf("-flavor is a required flag.")
 	}
-	tags := []string{fmt.Sprintf("tbc=%s", *flavor)}
+	tags := []string{"tbc=" + *flavor}
 
 	// We want this for properly handling Kubernetes container lifecycle events.
 	ctx := signals.NewContext()
