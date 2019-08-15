@@ -34,7 +34,7 @@ func EndpointsToDests(endpoints *corev1.Endpoints) []string {
 			if port.Name == probePortName {
 				portStr := strconv.Itoa(int(port.Port))
 				for _, addr := range es.Addresses {
-					// Prefer IP as we can avoid a DNS lookup this way
+					// Prefer IP as we can avoid a DNS lookup this way.
 					ret = append(ret, net.JoinHostPort(addr.IP, portStr))
 				}
 			}
@@ -47,13 +47,10 @@ func EndpointsToDests(endpoints *corev1.Endpoints) []string {
 // GetServicePort takes a service and a protocol and returns the port number of
 // the port named for that protocol. If the port is not found then ok is false.
 func GetServicePort(protocol networking.ProtocolType, svc *corev1.Service) (port int, ok bool) {
-	port = 0
-	ok = false
 	wantName := networking.ServicePortName(protocol)
 	for _, p := range svc.Spec.Ports {
 		if p.Name == wantName {
-			port = int(p.Port)
-			ok = true
+			port, ok = int(p.Port), true
 			return
 		}
 	}

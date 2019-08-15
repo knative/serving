@@ -96,8 +96,8 @@ func (rt *FakeRoundTripper) popResponse(host string) *FakeResponse {
 	rt.responseMux.Lock()
 	defer rt.responseMux.Unlock()
 
-	if _, ok := rt.ProbeHostResponses[host]; ok {
-		resp, responses := popResponseSlice(rt.ProbeHostResponses[host])
+	if r, ok := rt.ProbeHostResponses[host]; ok {
+		resp, responses := popResponseSlice(r)
 		rt.ProbeHostResponses[host] = responses
 		return resp
 	}
@@ -134,7 +134,7 @@ func (rt *FakeRoundTripper) RT(req *http.Request) (*http.Response, error) {
 		return nil, resp.Err
 	}
 
-	// verify that the request has the required rewritten host header.
+	// Verify that the request has the required rewritten host header.
 	if got, want := req.Host, ""; got != want {
 		return nil, fmt.Errorf("the req.Host has not been cleared out, was: %q", got)
 	}
