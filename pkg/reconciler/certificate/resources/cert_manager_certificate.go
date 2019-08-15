@@ -32,7 +32,7 @@ func MakeCertManagerCertificate(cmConfig *config.CertManagerConfig, knCert *v1al
 			Name:            knCert.Name,
 			Namespace:       knCert.Namespace,
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(knCert)},
-			Annotations:     GetCertificateUpdaterAnnotations(knCert),
+			Annotations:     getCertificateUpdaterAnnotations(knCert),
 			Labels:          knCert.GetLabels(),
 		},
 		Spec: certmanagerv1alpha1.CertificateSpec{
@@ -49,8 +49,8 @@ func MakeCertManagerCertificate(cmConfig *config.CertManagerConfig, knCert *v1al
 	}
 }
 
-// GetCertificateUpdaterAnnotations gets a Knative Certificate's updater annotation if exists.
-func GetCertificateUpdaterAnnotations(knCert *v1alpha1.Certificate) map[string]string {
+// getCertificateUpdaterAnnotations gets a Knative Certificate's updater annotation if exists.
+func getCertificateUpdaterAnnotations(knCert *v1alpha1.Certificate) map[string]string {
 	if val, ok := knCert.GetAnnotations()[serving.UpdaterAnnotation]; ok {
 		return map[string]string{serving.CreatorAnnotation: val}
 	}
