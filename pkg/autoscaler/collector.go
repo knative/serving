@@ -94,7 +94,7 @@ type MetricClient interface {
 	// for the given replica as of the given time.
 	StableAndPanicConcurrency(key types.NamespacedName, now time.Time) (float64, float64, error)
 
-	// StableAndPanicRPS returns both the stable and the panic OPS
+	// StableAndPanicRPS returns both the stable and the panic RPS
 	// for the given replica as of the given time.
 	StableAndPanicRPS(key types.NamespacedName, now time.Time) (float64, float64, error)
 }
@@ -196,7 +196,7 @@ func (c *MetricCollector) StableAndPanicConcurrency(key types.NamespacedName, no
 	return collection.stableAndPanicConcurrency(now)
 }
 
-// StableAndPanicRPS returns both the stable and the panic OPS.
+// StableAndPanicRPS returns both the stable and the panic RPS.
 // It may truncate metric buckets as a side-effect.
 func (c *MetricCollector) StableAndPanicRPS(key types.NamespacedName, now time.Time) (float64, float64, error) {
 	c.collectionsMutex.RLock()
@@ -218,7 +218,7 @@ type collection struct {
 	scraperMutex       sync.RWMutex
 	scraper            StatsScraper
 	concurrencyBuckets *aggregation.TimedFloat64Buckets
-	opsBuckets         *aggregation.TimedFloat64Buckets
+	rpsBuckets         *aggregation.TimedFloat64Buckets
 
 	grp    sync.WaitGroup
 	stopCh chan struct{}
@@ -242,7 +242,7 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, logger *zap.S
 	c := &collection{
 		metric:             metric,
 		concurrencyBuckets: aggregation.NewTimedFloat64Buckets(BucketSize),
-		opsBuckets:         aggregation.NewTimedFloat64Buckets(BucketSize),
+		rpsBuckets:         aggregation.NewTimedFloat64Buckets(BucketSize),
 		scraper:            scraper,
 
 		stopCh: make(chan struct{}),
@@ -296,12 +296,12 @@ func (c *collection) record(stat Stat) {
 	// Proxied requests have been counted at the activator. Subtract
 	// them to avoid double counting.
 	c.concurrencyBuckets.Record(*stat.Time, stat.PodName, stat.AverageConcurrentRequests-stat.AverageProxiedConcurrentRequests)
-	c.opsBuckets.Record(*stat.Time, stat.PodName, stat.RequestCount-stat.ProxiedRequestCount)
+	c.rpsBuckets.Record(*stat.Time, stat.PodName, stat.RequestCount-stat.ProxiedRequestCount)
 
 	// Delete outdated stats taking stat.Time as current time.
 	now := stat.Time
 	c.concurrencyBuckets.RemoveOlderThan(now.Add(-spec.StableWindow))
-	c.opsBuckets.RemoveOlderThan(now.Add(-spec.StableWindow))
+	c.rpsBuckets.RemoveOlderThan(now.Add(-spec.StableWindow))
 }
 
 // stableAndPanicConcurrency calculates both stable and panic concurrency based on the
@@ -313,7 +313,7 @@ func (c *collection) stableAndPanicConcurrency(now time.Time) (float64, float64,
 // StableAndPanicRPS calculates both stable and panic RPS based on the
 // current stats.
 func (c *collection) StableAndPanicRPS(now time.Time) (float64, float64, error) {
-	return c.stableAndPanicStats(now, c.opsBuckets)
+	return c.stableAndPanicStats(now, c.rpsBuckets)
 }
 
 // stableAndPanicStats calculates both stable and panic concurrency based on the
