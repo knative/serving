@@ -2278,6 +2278,9 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 					Annotations: map[string]string{
 						networking.CertificateClassAnnotationKey: network.CertManagerCertificateClassName,
 					},
+					Labels: map[string]string{
+						serving.RouteLabelKey: "becomes-ready",
+					},
 				},
 				Spec: netv1alpha1.CertificateSpec{
 					DNSNames: []string{"abc.test.example.com"},

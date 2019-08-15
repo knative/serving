@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/reconciler/certificate/config"
 )
 
@@ -31,6 +32,8 @@ func MakeCertManagerCertificate(cmConfig *config.CertManagerConfig, knCert *v1al
 			Name:            knCert.Name,
 			Namespace:       knCert.Namespace,
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(knCert)},
+			Annotations:     GetCertificateUpdaterAnnotations(knCert),
+			Labels:          knCert.GetLabels(),
 		},
 		Spec: certmanagerv1alpha1.CertificateSpec{
 			SecretName: knCert.Spec.SecretName,
@@ -44,6 +47,14 @@ func MakeCertManagerCertificate(cmConfig *config.CertManagerConfig, knCert *v1al
 			},
 		},
 	}
+}
+
+// GetCertificateUpdaterAnnotations gets a Knative Certificate's updater annotation if exists.
+func GetCertificateUpdaterAnnotations(knCert *v1alpha1.Certificate) map[string]string {
+	if val, ok := knCert.GetAnnotations()[serving.UpdaterAnnotation]; ok {
+		return map[string]string{serving.CreatorAnnotation: val}
+	}
+	return nil
 }
 
 // GetReadyCondition gets the ready condition of a Cert-Manager `Certificate`.
