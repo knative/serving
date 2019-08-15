@@ -20,7 +20,7 @@ source $(dirname ${BASH_SOURCE})/common.sh
 setup_user
 
 header "Recreating all clusters"
-for cluster in $(gcloud container clusters list --project="${PROJECT_NAME}" --format="csv[no-heading](name,zone,currentNodeCount)"); do  
+for cluster in $(gcloud container clusters list --project="${PROJECT_NAME}" --format="csv[no-heading](name,zone,currentNodeCount)"); do
   name=$(echo $cluster | cut -f1 -d",")
   zone=$(echo $cluster | cut -f2 -d",")
   node_count=$(echo $cluster | cut -f3 -d",")
