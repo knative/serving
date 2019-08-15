@@ -19,16 +19,18 @@ package logging
 import (
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	. "knative.dev/pkg/configmap/testing"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
-
-	. "knative.dev/pkg/configmap/testing"
 )
+
+const testConfigFileName = "test-config-logging"
 
 func TestNewConfigNoEntry(t *testing.T) {
 	c, err := logging.NewConfigFromConfigMap(&corev1.ConfigMap{
@@ -90,6 +92,56 @@ func TestOurConfig(t *testing.T) {
 		t.Errorf("Expected no errors. got: %v", err)
 	} else if cfg == nil {
 		t.Errorf("NewConfigFromConfigMap(example) = %v, want non-nil", cfg)
+	}
+}
+
+func TestLogLevelTestConfig(t *testing.T) {
+	const wantCfg = `{
+  "level": "debug",
+  "development": false,
+  "outputPaths": ["stdout"],
+  "errorOutputPaths": ["stderr"],
+  "encoding": "json",
+  "encoderConfig": {
+    "timeKey": "ts",
+    "levelKey": "level",
+    "nameKey": "logger",
+    "callerKey": "caller",
+    "messageKey": "msg",
+    "stacktraceKey": "stacktrace",
+    "lineEnding": "",
+    "levelEncoder": "",
+    "timeEncoder": "iso8601",
+    "durationEncoder": "",
+    "callerEncoder": ""
+  }
+}
+`
+	const wantLevel = zapcore.DebugLevel
+	components := []string{
+		"autoscaler",
+		"controller",
+		"queueproxy",
+		"webhook",
+		"activator",
+	}
+	cm, _ := ConfigMapsFromTestFile(t, testConfigFileName, "loglevel.autoscaler", "loglevel.controller", "loglevel.queueproxy", "loglevel.webhook", "loglevel.activator", "zap-logger-config")
+	cfg, err := logging.NewConfigFromConfigMap(cm)
+
+	if err != nil {
+		t.Errorf("Expected no errors. got: %v", err)
+	}
+	if cfg == nil {
+		t.Errorf("NewConfigFromConfigMap(actual) = %v, want non-nil", cfg)
+	}
+
+	for _, c := range components {
+		if got := cfg.LoggingLevel[c]; got != wantLevel {
+			t.Errorf("LoggingLevel[%q] = %v, want %v", c, got, wantLevel)
+		}
+	}
+	if got := cfg.LoggingConfig; got != wantCfg {
+		t.Errorf("LoggingConfig = %v, want %v, diff(-want +got) %s", got, wantCfg, cmp.Diff(wantCfg, got))
 	}
 }
 

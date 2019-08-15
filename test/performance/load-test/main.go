@@ -28,7 +28,6 @@ import (
 	deploymentinformer "knative.dev/pkg/injection/informers/kubeinformers/appsv1/deployment"
 	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/google/mako/helpers/go/quickstore"
 	qpb "github.com/google/mako/helpers/proto/quickstore/quickstore_go_proto"
 	vegeta "github.com/tsenart/vegeta/lib"
@@ -45,7 +44,6 @@ import (
 )
 
 var (
-	benchmark  = flag.String("benchmark", "", "The mako benchmark ID")
 	flavor     = flag.String("flavor", "", "The flavor of the benchmark to run.")
 	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
@@ -172,16 +170,13 @@ func main() {
 	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
 	defer cancel()
 
-	if *benchmark == "" {
-		log.Fatalf("-benchmark is a required flag.")
-	}
 	if *flavor == "" {
 		log.Fatalf("-flavor is a required flag.")
 	}
 
 	// Use the benchmark key created
 	q, qclose, err := quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
-		BenchmarkKey: proto.String(*benchmark),
+		BenchmarkKey: mako.MustGetBenchmark(),
 		Tags: []string{
 			"master",
 			fmt.Sprintf("tbc=%s", *flavor),

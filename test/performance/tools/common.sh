@@ -121,6 +121,17 @@ function update_cluster() {
   kubectl patch hpa -n knative-serving activator \
         --patch '{"spec": {"minReplicas": 10}}'
 
+  echo ">> Setting up 'prod' config-mako"
+  cat | kubectl apply -f - <<EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-mako
+data:
+  # This should only be used by our performance automation.
+  environment: prod
+EOF
+
   echo ">> Applying all the yamls"
   # install the service and cronjob to run the benchmark
   # NOTE: this assumes we have a benchmark with the same name as the cluster

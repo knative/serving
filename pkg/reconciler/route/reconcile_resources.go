@@ -48,18 +48,12 @@ func routeOwnerLabelSelector(route *v1alpha1.Route) labels.Selector {
 	}).AsSelector()
 }
 
-func (c *Reconciler) deleteIngressesForRoute(route *v1alpha1.Route) error {
+func (c *Reconciler) deleteIngressForRoute(route *v1alpha1.Route) error {
 
 	// We always use DeleteCollection because even with a fixed name, we apply the labels.
 	selector := routeOwnerLabelSelector(route).String()
 
-	// Delete ClusterIngresses and Ingresses owned by this route.
-
-	if err := c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().DeleteCollection(
-		nil, metav1.ListOptions{LabelSelector: selector}); err != nil {
-		return err
-	}
-
+	// Delete Ingresses owned by this route.
 	return c.ServingClientSet.NetworkingV1alpha1().Ingresses(route.Namespace).DeleteCollection(
 		nil, metav1.ListOptions{LabelSelector: selector})
 }
