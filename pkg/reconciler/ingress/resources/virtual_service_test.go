@@ -317,6 +317,7 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 						},
 					}},
 				},
+				Visibility: v1alpha1.IngressVisibilityExternalIP,
 			}, {
 				Hosts: []string{
 					"v1.domain.com",
@@ -350,11 +351,11 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		Match: []v1alpha3.HTTPMatchRequest{{
 			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
 			Authority: &istiov1alpha1.StringMatch{Regex: `^domain\.com(?::\d{1,5})?$`},
-			Gateways:  []string{},
+			Gateways:  []string{"gateway.public"},
 		}, {
 			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
 			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns(\.svc(\.cluster\.local)?)?(?::\d{1,5})?$`},
-			Gateways:  []string{},
+			Gateways:  []string{"gateway.private"},
 		}},
 		Route: []v1alpha3.HTTPRouteDestination{{
 			Destination: v1alpha3.Destination{
@@ -411,7 +412,7 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		WebsocketUpgrade: true,
 	}}
 
-	routes := MakeIngressVirtualService(ci, makeGatewayMap([]string{"gateway"}, nil)).Spec.HTTP
+	routes := MakeIngressVirtualService(ci, makeGatewayMap([]string{"gateway.public"}, []string{"gateway.private"})).Spec.HTTP
 	if diff := cmp.Diff(expected, routes); diff != "" {
 		t.Errorf("Unexpected routes (-want +got): %v", diff)
 	}
@@ -435,7 +436,7 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 			Attempts:      networking.DefaultRetryCount,
 		},
 	}
-	route := makeVirtualServiceRoute(sets.NewString("a.com", "b.org"), ingressPath, sets.NewString("gateway-1"))
+	route := makeVirtualServiceRoute(sets.NewString("a.com", "b.org"), ingressPath, makeGatewayMap([]string{"gateway-1"}, nil), v1alpha1.IngressVisibilityExternalIP)
 	expected := v1alpha3.HTTPRoute{
 		Match: []v1alpha3.HTTPMatchRequest{{
 			Gateways:  []string{"gateway-1"},
@@ -487,7 +488,7 @@ func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 			Attempts:      networking.DefaultRetryCount,
 		},
 	}
-	route := makeVirtualServiceRoute(sets.NewString("test.org"), ingressPath, sets.NewString("knative-testing/gateway-1"))
+	route := makeVirtualServiceRoute(sets.NewString("test.org"), ingressPath, makeGatewayMap([]string{"knative-testing/gateway-1"}, nil), v1alpha1.IngressVisibilityExternalIP)
 	expected := v1alpha3.HTTPRoute{
 		Match: []v1alpha3.HTTPMatchRequest{{
 			Gateways:  []string{"knative-testing/gateway-1"},

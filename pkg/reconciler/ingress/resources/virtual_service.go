@@ -173,7 +173,7 @@ func makeVirtualServiceSpec(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.I
 		for _, p := range rule.HTTP.Paths {
 			hosts := hosts.Intersection(sets.NewString(rule.Hosts...))
 			if hosts.Len() != 0 {
-				spec.HTTP = append(spec.HTTP, *makeVirtualServiceRoute(hosts, &p, gateways[rule.Visibility]))
+				spec.HTTP = append(spec.HTTP, *makeVirtualServiceRoute(hosts, &p, gateways, rule.Visibility))
 			}
 		}
 	}
@@ -216,10 +216,16 @@ func makePortSelector(ios intstr.IntOrString) v1alpha3.PortSelector {
 	}
 }
 
-func makeVirtualServiceRoute(hosts sets.String, http *v1alpha1.HTTPIngressPath, gateways sets.String) *v1alpha3.HTTPRoute {
+func makeVirtualServiceRoute(hosts sets.String, http *v1alpha1.HTTPIngressPath, gateways map[v1alpha1.IngressVisibility]sets.String, visibility v1alpha1.IngressVisibility) *v1alpha3.HTTPRoute {
 	matches := []v1alpha3.HTTPMatchRequest{}
+	clusterDomainName := network.GetClusterDomainName()
 	for _, host := range hosts.List() {
-		matches = append(matches, makeMatch(host, http.Path, gateways))
+		g := gateways[visibility]
+		if strings.HasSuffix(host, clusterDomainName) {
+			// For local hostname, always use private gateway
+			g = gateways[v1alpha1.IngressVisibilityClusterLocal]
+		}
+		matches = append(matches, makeMatch(host, http.Path, g))
 	}
 	weights := []v1alpha3.HTTPRouteDestination{}
 	for _, split := range http.Splits {

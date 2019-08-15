@@ -134,7 +134,7 @@ func TestNewMakeK8SService(t *testing.T) {
 						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{Domain: "domain.com"}},
 					},
 					PrivateLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-						Ingress: []netv1alpha1.LoadBalancerIngressStatus{},
+						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{Domain: "domain.com"}},
 					},
 				},
 			},
@@ -162,7 +162,7 @@ func TestNewMakeK8SService(t *testing.T) {
 			expectedMeta: expectedMeta,
 			expectedSpec: corev1.ServiceSpec{
 				Type:            corev1.ServiceTypeExternalName,
-				ExternalName:    "istio-ingressgateway.istio-system.svc.cluster.local",
+				ExternalName:    "private-istio-ingressgateway.istio-system.svc.cluster.local",
 				SessionAffinity: corev1.ServiceAffinityNone,
 			},
 		},
@@ -230,7 +230,7 @@ func TestNewMakeK8SService(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			cfg := testConfig()
 			ctx := config.ToContext(context.Background(), cfg)
-			service, err := MakeK8sService(ctx, scenario.route, scenario.targetName, scenario.ingress, false)
+			service, err := MakeK8sService(ctx, scenario.route, scenario.targetName, scenario.ingress)
 			// Validate
 			if scenario.shouldFail && err == nil {
 				t.Errorf("Test %q failed: returned success but expected error", name)
