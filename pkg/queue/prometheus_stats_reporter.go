@@ -42,11 +42,12 @@ var (
 		destinationPodLabel,
 	}
 
+	// For backwards compatibility, the name is kept as `operations_per_second`.
 	requestsPerSecondGV = newGV(
-		"queue_requests_per_second",
+		"queue_operations_per_second",
 		"Number of requests per second")
 	proxiedRequestsPerSecondGV = newGV(
-		"queue_proxied_requests_per_second",
+		"queue_proxied_operations_per_second",
 		"Number of proxied requests per second")
 	averageConcurrentRequestsGV = newGV(
 		"queue_average_concurrent_requests",

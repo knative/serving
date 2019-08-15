@@ -68,8 +68,8 @@ func extractData(body io.Reader) (*Stat, error) {
 	for m, pv := range map[string]*float64{
 		"queue_average_concurrent_requests":         &stat.AverageConcurrentRequests,
 		"queue_average_proxied_concurrent_requests": &stat.AverageProxiedConcurrentRequests,
-		"queue_requests_per_second":                 &stat.RequestCount,
-		"queue_proxied_requests_per_second":         &stat.ProxiedRequestCount,
+		"queue_operations_per_second":               &stat.RequestCount,
+		"queue_proxied_operations_per_second":       &stat.ProxiedRequestCount,
 	} {
 		pm := prometheusMetric(metricFamilies, m)
 		if pm == nil {

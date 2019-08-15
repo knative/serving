@@ -148,9 +148,9 @@ func TestReporterReport(t *testing.T) {
 			if err := reporter.Report(test.autoscalerStat); err != nil {
 				t.Error(err)
 			}
-			checkData(t, operationsPerSecondGV, test.expectedReqCount)
+			checkData(t, requestsPerSecondGV, test.expectedReqCount)
 			checkData(t, averageConcurrentRequestsGV, test.expectedAverageConcurrentRequests)
-			checkData(t, proxiedOperationsPerSecondGV, test.expectedProxiedRequestCount)
+			checkData(t, proxiedRequestsPerSecondGV, test.expectedProxiedRequestCount)
 			checkData(t, averageProxiedConcurrentRequestsGV, test.expectedProxiedConcurrency)
 		})
 	}
