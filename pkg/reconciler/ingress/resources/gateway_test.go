@@ -630,7 +630,7 @@ func TestGatewayName(t *testing.T) {
 
 func TestCanProbeGateway(t *testing.T) {
 	cases := []struct {
-		name string
+		name     string
 		gateway  *v1alpha3.Gateway
 		canProbe bool
 	}{{
@@ -639,64 +639,64 @@ func TestCanProbeGateway(t *testing.T) {
 			Spec: v1alpha3.GatewaySpec{
 				Servers: []v1alpha3.Server{{
 					Hosts: []string{"*"},
-					Port:v1alpha3.Port{
-						Number: 80,
+					Port: v1alpha3.Port{
+						Number:   80,
 						Protocol: v1alpha3.ProtocolHTTP,
 					},
 				}},
 			},
 		},
 		canProbe: true,
-	},{
+	}, {
 		name: "specific host HTTP on port 80",
 		gateway: &v1alpha3.Gateway{
 			Spec: v1alpha3.GatewaySpec{
 				Servers: []v1alpha3.Server{{
 					Hosts: []string{"foo.bar.com"},
-					Port:v1alpha3.Port{
-						Number: 100,
+					Port: v1alpha3.Port{
+						Number:   100,
 						Protocol: v1alpha3.ProtocolHTTP,
 					},
 				}},
 			},
 		},
 		canProbe: false,
-	},{
+	}, {
 		name: "wildcard HTTP on port !80",
 		gateway: &v1alpha3.Gateway{
 			Spec: v1alpha3.GatewaySpec{
 				Servers: []v1alpha3.Server{{
 					Hosts: []string{"*"},
-					Port:v1alpha3.Port{
-						Number: 100,
+					Port: v1alpha3.Port{
+						Number:   100,
 						Protocol: v1alpha3.ProtocolHTTP,
 					},
 				}},
 			},
 		},
 		canProbe: false,
-	},{
+	}, {
 		name: "wildcard TCP on port 80",
 		gateway: &v1alpha3.Gateway{
 			Spec: v1alpha3.GatewaySpec{
 				Servers: []v1alpha3.Server{{
 					Hosts: []string{"*"},
-					Port:v1alpha3.Port{
-						Number: 80,
+					Port: v1alpha3.Port{
+						Number:   80,
 						Protocol: v1alpha3.ProtocolTCP,
 					},
 				}},
 			},
 		},
 		canProbe: false,
-	},{
+	}, {
 		name: "wildcard HTTPS on port 443",
 		gateway: &v1alpha3.Gateway{
 			Spec: v1alpha3.GatewaySpec{
 				Servers: []v1alpha3.Server{{
 					Hosts: []string{"*"},
-					Port:v1alpha3.Port{
-						Number: 100,
+					Port: v1alpha3.Port{
+						Number:   100,
 						Protocol: v1alpha3.ProtocolHTTP,
 					},
 				}},
