@@ -26,7 +26,7 @@ function header() {
 
 # Exit script, dumping current state info.
 # Parameters: $1 - error message (optional).
-function abort() {  
+function abort() {
   [[ -n $1 ]] && echo "SCRIPT ERROR: $1"
   exit 1
 }
