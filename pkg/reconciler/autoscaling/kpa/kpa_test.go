@@ -197,22 +197,22 @@ func markResourceNotOwned(rType, name string) PodAutoscalerOption {
 
 func TestReconcile(t *testing.T) {
 	const (
-		key        = testNamespace + "/" + testRevision
-		deployName = testRevision + "-deployment"
+		key          = testNamespace + "/" + testRevision
+		deployName   = testRevision + "-deployment"
+		defaultScale = 11
+		unknownScale = scaleUnknown
+		underscale   = defaultScale - 1
+		overscale    = defaultScale + 1
 	)
 	usualSelector := map[string]string{"a": "b"}
 
 	// Set up a default deployment with the appropriate scale so that we don't
 	// see patches to correct that scale.
-	defaultScale := int32(11)
 	defaultDeployment := deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
-		d.Spec.Replicas = &defaultScale
+		d.Spec.Replicas = ptr.Int32(defaultScale)
 	})
 
 	// Setup underscaled and overscsaled deployment
-	unknownScale := int32(scaleUnknown)
-	underscale := defaultScale - 1
-	overscale := defaultScale + 1
 	underscaledDeployment := deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 		d.Spec.Replicas = ptr.Int32(underscale)
 	})
@@ -228,15 +228,15 @@ func TestReconcile(t *testing.T) {
 
 	inactiveKpaMinScale := kpa(
 		testNamespace, testRevision, markInactive,
-		withMinScale(int(defaultScale)), WithPAStatusService(testRevision), withMSvcStatus("cargo"),
+		withMinScale(defaultScale), WithPAStatusService(testRevision), withMSvcStatus("cargo"),
 	)
 	activatingKpaMinScale := kpa(
 		testNamespace, testRevision, markActivating,
-		withMinScale(int(defaultScale)), WithPAStatusService(testRevision), withMSvcStatus("cargo"),
+		withMinScale(defaultScale), WithPAStatusService(testRevision), withMSvcStatus("cargo"),
 	)
 	activeKpaMinScale := kpa(
 		testNamespace, testRevision, markActive,
-		withMinScale(int(defaultScale)), WithPAStatusService(testRevision), withMSvcStatus("cargo"),
+		withMinScale(defaultScale), WithPAStatusService(testRevision), withMSvcStatus("cargo"),
 	)
 
 	defaultSks := sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady)
