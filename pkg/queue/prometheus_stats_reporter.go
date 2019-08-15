@@ -44,7 +44,7 @@ var (
 
 	// For backwards compatibility, the name is kept as `operations_per_second`.
 	requestsPerSecondGV = newGV(
-		"queue_operations_per_second",
+		"queue_requests_per_second",
 		"Number of requests per second")
 	proxiedRequestsPerSecondGV = newGV(
 		"queue_proxied_operations_per_second",
