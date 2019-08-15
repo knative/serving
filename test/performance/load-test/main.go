@@ -35,7 +35,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
-	"knative.dev/pkg/injection/clients/kubeclient"
 	"knative.dev/pkg/signals"
 	pkgpacers "knative.dev/pkg/test/vegeta/pacers"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -168,7 +167,7 @@ func main() {
 
 	// Get the Kubernetes version from the API server.
 	c := kubeclient.Get(ctx)
-	if c != nil {
+	if c == nil {
 		log.Fatalf("Failed to fetch %T from context.", (kubernetes.Interface)(nil))
 	}
 
