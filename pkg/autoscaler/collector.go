@@ -63,7 +63,7 @@ type Stat struct {
 	// Part of AverageConcurrentRequests, for requests going through a proxy.
 	AverageProxiedConcurrentRequests float64
 
-	// Number of requests received since last Stat (approximately QPS).
+	// Number of requests received since last Stat (approximately requests per second).
 	RequestCount float64
 
 	// Part of RequestCount, for requests going through a proxy.
@@ -94,9 +94,9 @@ type MetricClient interface {
 	// for the given replica as of the given time.
 	StableAndPanicConcurrency(key types.NamespacedName, now time.Time) (float64, float64, error)
 
-	// StableAndPanicOPS returns both the stable and the panic OPS
+	// StableAndPanicRPS returns both the stable and the panic OPS
 	// for the given replica as of the given time.
-	StableAndPanicOPS(key types.NamespacedName, now time.Time) (float64, float64, error)
+	StableAndPanicRPS(key types.NamespacedName, now time.Time) (float64, float64, error)
 }
 
 // MetricCollector manages collection of metrics for many entities.
@@ -196,9 +196,9 @@ func (c *MetricCollector) StableAndPanicConcurrency(key types.NamespacedName, no
 	return collection.stableAndPanicConcurrency(now)
 }
 
-// StableAndPanicOPS returns both the stable and the panic OPS.
+// StableAndPanicRPS returns both the stable and the panic OPS.
 // It may truncate metric buckets as a side-effect.
-func (c *MetricCollector) StableAndPanicOPS(key types.NamespacedName, now time.Time) (float64, float64, error) {
+func (c *MetricCollector) StableAndPanicRPS(key types.NamespacedName, now time.Time) (float64, float64, error) {
 	c.collectionsMutex.RLock()
 	defer c.collectionsMutex.RUnlock()
 
@@ -207,7 +207,7 @@ func (c *MetricCollector) StableAndPanicOPS(key types.NamespacedName, now time.T
 		return 0, 0, ErrNotScraping
 	}
 
-	return collection.stableAndPanicOPS(now)
+	return collection.StableAndPanicRPS(now)
 }
 
 // collection represents the collection of metrics for one specific entity.
@@ -310,9 +310,9 @@ func (c *collection) stableAndPanicConcurrency(now time.Time) (float64, float64,
 	return c.stableAndPanicStats(now, c.concurrencyBuckets)
 }
 
-// stableAndPanicConcurrency calculates both stable and panic OPS based on the
+// StableAndPanicRPS calculates both stable and panic RPS based on the
 // current stats.
-func (c *collection) stableAndPanicOPS(now time.Time) (float64, float64, error) {
+func (c *collection) StableAndPanicRPS(now time.Time) (float64, float64, error) {
 	return c.stableAndPanicStats(now, c.opsBuckets)
 }
 
