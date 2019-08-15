@@ -36,7 +36,7 @@ const (
 // It will add a few common tags and allows each benchmark to add custm tags as well.
 // It returns the mako client handle to sotre metrics, a method to close the connection
 // to mako server once done and error if case of failures.
-func Setup(ctx context.Context, benchmarkKey string, extraTags ...string) (*quickstore.Quickstore, func(context.Context), error) {
+func Setup(ctx context.Context, benchmarkKey *string, extraTags ...string) (*quickstore.Quickstore, func(context.Context), error) {
 	var close func(context.Context)
 	tags := make([]string, 0)
 	if commitID, err := changeset.Get(); err == nil {
@@ -47,7 +47,7 @@ func Setup(ctx context.Context, benchmarkKey string, extraTags ...string) (*quic
 
 	tags = append(tags, extraTags...)
 	return quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
-		BenchmarkKey: proto.String(benchmarkKey),
+		BenchmarkKey: proto.String(*benchmarkKey),
 		Tags:         tags,
 	}, sidecarAddress)
 }

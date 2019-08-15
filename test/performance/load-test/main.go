@@ -147,6 +147,11 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 func main() {
 	flag.Parse()
 
+	if *flavor == "" {
+		log.Fatalf("-flavor is a required flag.")
+	}
+	tags := []string{fmt.Sprintf("tbc=%s", *flavor)}
+
 	// We want this for properly handling Kubernetes container lifecycle events.
 	ctx := signals.NewContext()
 
@@ -162,21 +167,6 @@ func main() {
 	}
 
 	// Get the Kubernetes version from the API server.
-	version, err := kubeclient.Get(ctx).Discovery().ServerVersion()
-	if err != nil {
-		log.Fatalf("Failed to fetch kubernetes version: %v", err)
-	}
-
-	// We cron every 10 minutes, so give ourselves 6 minutes to complete.
-	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
-	defer cancel()
-
-	if *flavor == "" {
-		log.Fatalf("-flavor is a required flag.")
-	}
-	tags := []string{fmt.Sprintf("tbc=%s", *flavor)}
-
-	// Get the Kubernetes version from the API server.
 	c := kubeclient.Get(ctx)
 	if c != nil {
 		log.Fatalf("Failed to fetch %T from context.", (kubernetes.Interface)(nil))
@@ -189,9 +179,13 @@ func main() {
 	// '.' is an invalid char in mako tags. Replace with "_"
 	tags = append(tags, fmt.Sprintf("kubernetes=%s", strings.ReplaceAll(version.String(), ".", "_")))
 
+	// We cron every 10 minutes, so give ourselves 6 minutes to complete.
+	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
+	defer cancel()
+
 	// Use the benchmark key created
 	// TODO: Interpret the key from the config instead of copying and passing it
-	q, qclose, err := mako.Setup(ctx, *benchmark, tags...)
+	q, qclose, err := mako.Setup(ctx, mako.MustGetBenchmark(), tags...)
 	if err != nil {
 		log.Fatalf("failed to setup mako: %v", err)
 	}
