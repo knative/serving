@@ -77,7 +77,7 @@ func TestRevisionConversion(t *testing.T) {
 						}},
 					},
 					TimeoutSeconds:       ptr.Int64(18),
-					ContainerConcurrency: 53,
+					ContainerConcurrency: ptr.Int64(53),
 				},
 			},
 			Status: RevisionStatus{
@@ -128,7 +128,7 @@ func TestRevisionConversion(t *testing.T) {
 						}},
 					},
 					TimeoutSeconds:       ptr.Int64(18),
-					ContainerConcurrency: 53,
+					ContainerConcurrency: ptr.Int64(53),
 				},
 			},
 			Status: RevisionStatus{
@@ -228,7 +228,7 @@ func TestRevisionConversionError(t *testing.T) {
 						}},
 					},
 					TimeoutSeconds:       ptr.Int64(18),
-					ContainerConcurrency: 53,
+					ContainerConcurrency: ptr.Int64(53),
 				},
 			},
 			Status: RevisionStatus{
@@ -259,7 +259,7 @@ func TestRevisionConversionError(t *testing.T) {
 						Containers:         []corev1.Container{},
 					},
 					TimeoutSeconds:       ptr.Int64(18),
-					ContainerConcurrency: 53,
+					ContainerConcurrency: ptr.Int64(53),
 				},
 			},
 			Status: RevisionStatus{

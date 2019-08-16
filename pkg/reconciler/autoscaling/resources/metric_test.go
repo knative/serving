@@ -27,7 +27,6 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler"
-
 	. "knative.dev/serving/pkg/testing"
 )
 
@@ -167,6 +166,8 @@ var config = &autoscaler.Config{
 	EnableScaleToZero:                  true,
 	ContainerConcurrencyTargetFraction: 1.0,
 	ContainerConcurrencyTargetDefault:  100.0,
+	RPSTargetDefault:                   200.0,
+	TargetUtilization:                  0.7,
 	MaxScaleUpRate:                     10.0,
 	StableWindow:                       60 * time.Second,
 	PanicThresholdPercentage:           200,

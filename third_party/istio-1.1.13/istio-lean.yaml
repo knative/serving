@@ -731,11 +731,11 @@ spec:
             timeoutSeconds: 1
           resources:
             limits:
-              cpu: 3000m
-              memory: 2048Mi
+              cpu: 2000m
+              memory: 1024Mi
             requests:
-              cpu: 3000m
-              memory: 2048Mi
+              cpu: 1000m
+              memory: 1024Mi
 
           env:
           - name: POD_NAME
@@ -915,8 +915,8 @@ spec:
             value: "1"
           resources:
             requests:
-              cpu: 3000m
-              memory: 2048Mi
+              cpu: 1000m
+              memory: 1024Mi
 
           volumeMounts:
           - name: config-volume

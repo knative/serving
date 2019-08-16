@@ -230,8 +230,8 @@ func TestStats(t *testing.T) {
 			sorter := cmpopts.SortSlices(func(a, b *autoscaler.StatMessage) bool {
 				return a.Key.Name < b.Key.Name
 			})
-			if diff := cmp.Diff(tc.expectedStats, stats, sorter); diff != "" {
-				t.Errorf("Unexpected stats (-want +got): %v", diff)
+			if got, want := stats, tc.expectedStats; !cmp.Equal(got, want, sorter) {
+				t.Errorf("Unexpected stats (-want +got): %s", cmp.Diff(want, got, sorter))
 			}
 		})
 	}

@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	"knative.dev/serving/pkg/apis/config"
 	net "knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 )
@@ -78,6 +79,20 @@ func (rs *RevisionSpec) GetContainer() *corev1.Container {
 	}
 	// Should be unreachable post-validation, but here to ease testing.
 	return &corev1.Container{}
+}
+
+// GetContainerConcurrency returns the container concurrency. If
+// container concurrency is not set, the default value will be returned.
+// We use the original default (0) here for backwards compatibility.
+// Previous versions of Knative equated unspecified and zero, so to avoid
+// changing the value used by Revisions with unspecified values when a different
+// default is configured, we use the original default instead of the configured
+// default to remain safe across upgrades.
+func (rs *RevisionSpec) GetContainerConcurrency() int64 {
+	if rs.ContainerConcurrency == nil {
+		return config.DefaultContainerConcurrency
+	}
+	return *rs.ContainerConcurrency
 }
 
 func (r *Revision) DeprecatedBuildRef() *corev1.ObjectReference {

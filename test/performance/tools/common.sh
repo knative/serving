@@ -16,20 +16,17 @@
 
 # Setup env vars
 export PROJECT_NAME="knative-performance"
-export MASTER_CLUSTER_NAME="update-serving"
-export MASTER_CLUSTER_ZONE="us-west1"
 export USER_NAME="mako-job@knative-performance.iam.gserviceaccount.com"
-export PROJ_ROOT_PATH="$GOPATH/src/knative.dev/serving/test/performance"
-export CONTEXT_PREFIX="gke_${PROJECT_NAME}"
-export SOURCE_CONTEXT="${CONTEXT_PREFIX}_${MASTER_CLUSTER_ZONE}_${MASTER_CLUSTER_NAME}"
+export TEST_ROOT_PATH="$GOPATH/src/knative.dev/serving/test/performance"
+export KO_DOCKER_REPO="gcr.io/knative-performance"
 
 function header() {
   echo "***** $1 *****"
 }
 
-# Exit test, dumping current state info.
+# Exit script, dumping current state info.
 # Parameters: $1 - error message (optional).
-function fail_test() {  
+function abort() {
   [[ -n $1 ]] && echo "SCRIPT ERROR: $1"
   exit 1
 }
@@ -48,12 +45,12 @@ function create_cluster() {
     --scopes cloud-platform
 }
 
-# Copies serice account secret to the destination
-# $1 -> destination context. Should be of the form ${CONTEXT_PREFIX}_${zone}_${name}
-function copy_secret() {
-  gcloud container clusters get-credentials ${MASTER_CLUSTER_NAME} --project=${PROJECT_NAME} --zone=${MASTER_CLUSTER_ZONE}
-  kubectl get secret service-account --context ${SOURCE_CONTEXT} --export -o yaml \
-    | kubectl apply --context $1 -f -
+# Create serice account secret on the cluster.
+# $1 -> cluster_name, $2 -> cluster_zone
+function create_secret() {
+  echo "Create service account on cluster $1 in zone $2"
+  gcloud container clusters get-credentials $1 --zone=$1 --project=${PROJECT_NAME} || abort "Failed to get cluster creds"
+  kubectl create secret generic service-account --from-file=robot.json=${PERF_TEST_GOOGLE_APPLICATION_CREDENTIALS}
 }
 
 # Set up the user credentials for cluster operations.
@@ -61,53 +58,43 @@ function setup_user() {
   header "Setup User"
 
   gcloud config set core/account ${USER_NAME}
-  gcloud auth activate-service-account ${USER_NAME} --key-file=${GOOGLE_APPLICATION_CREDENTIALS}
+  gcloud auth activate-service-account ${USER_NAME} --key-file=${PERF_TEST_GOOGLE_APPLICATION_CREDENTIALS}
   gcloud config set core/project ${PROJECT_NAME}
 
   echo "gcloud user is $(gcloud config get-value core/account)"
-  echo "Using secret defined in $GOOGLE_APPLICATION_CREDENTIALS"
+  echo "Using secret defined in ${PERF_TEST_GOOGLE_APPLICATION_CREDENTIALS}"
 }
 
-# Create a new cluster and install serving components and apply benchmark yamls
+# Create a new cluster and install serving components and apply benchmark yamls.
 # $1 -> cluster_name, $2 -> cluster_zone, $3 -> node_count
 function create_new_cluster() {
   # create a new cluster
   create_cluster $1 $2 $3
   
-  # copy the secret to the new cluster
-  copy_secret "${CONTEXT_PREFIX}_${2}_${1}"
+  # create the secret on the new cluster
+  create_secret $1 $2
 
   # update components on the cluster, e.g. serving and istio
   update_cluster $1 $2
 }
 
-# Get serving code and apply the patch to it.
-function get_serving() {
-  header "Apply hpa patch"
-  pushd .
-  mkdir -p ${GOPATH}/src/knative.dev
-  cd ${GOPATH}/src/knative.dev
-  git clone https://github.com/knative/serving.git  
-  popd
-}
-
 # Update resources installed on the cluster with the up-to-date code.
-# $1: name, $2: zone
+# $1 -> cluster_name, $2 -> cluster_zone
 function update_cluster() {
   name=$1
   zone=$2
   echo "Updating cluster with name ${name} in zone ${zone}"
-  gcloud container clusters get-credentials ${name} --zone=${zone} --project knative-performance || fail_test "Failed to get cluster creds"
+  gcloud container clusters get-credentials ${name} --zone=${zone} --project=${PROJECT_NAME} || abort "Failed to get cluster creds"
   
   echo ">> Delete all existing jobs and test resources"
   kubectl delete job --all
-  ko delete -f "${PROJ_ROOT_PATH}/$1"
+  ko delete -f "${TEST_ROOT_PATH}/$1"
 
   pushd .
   cd ${GOPATH}/src/knative.dev
   echo ">> Update istio"
-  kubectl apply -f serving/third_party/istio-1.2-latest/istio-crds.yaml || fail_test "Failed to apply istio-crds"
-  kubectl apply -f serving/third_party/istio-1.2-latest/istio-lean.yaml || fail_test "Failed to apply istio-lean"
+  kubectl apply -f serving/third_party/istio-1.2-latest/istio-crds.yaml || abort "Failed to apply istio-crds"
+  kubectl apply -f serving/third_party/istio-1.2-latest/istio-lean.yaml || abort "Failed to apply istio-lean"
 
   # Overprovision the Istio gateways.
   kubectl patch hpa -n istio-system istio-ingressgateway \
@@ -124,7 +111,7 @@ function update_cluster() {
     n=$[$n+1]
   done
   if [ $n == 2 ]; then
-    fail_test "Failed to patch serving"
+    abort "Failed to patch serving"
   fi
   popd
 
@@ -147,7 +134,7 @@ EOF
   # install the service and cronjob to run the benchmark
   # NOTE: this assumes we have a benchmark with the same name as the cluster
   # If service creation takes long time, we will have some intially unreachable errors in the test
-  cd $PROJ_ROOT_PATH
+  cd $TEST_ROOT_PATH
   echo "Using ko version $(ko version)"
-  ko apply -f $1 || fail_test "Failed to apply benchmarks yaml"
+  ko apply -f $1 || abort "Failed to apply benchmarks yaml"
 }

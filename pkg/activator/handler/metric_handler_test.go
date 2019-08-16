@@ -117,10 +117,10 @@ func TestRequestMetricHandler(t *testing.T) {
 				}
 
 				if resp.Code != test.wantCode {
-					t.Errorf("Unexpected response status. Want %d, got %d", test.wantCode, resp.Code)
+					t.Errorf("Response Status = %d,  want: %d", resp.Code, test.wantCode)
 				}
-				if diff := cmp.Diff(test.reporterCalls, reporter.calls, ignoreDurationOption); diff != "" {
-					t.Errorf("Reporting calls are different (-want, +got) = %v", diff)
+				if got, want := reporter.calls, test.reporterCalls; !cmp.Equal(got, want, ignoreDurationOption) {
+					t.Errorf("Reporting calls are different (-want, +got) = %s", cmp.Diff(want, got, ignoreDurationOption))
 				}
 			}()
 
