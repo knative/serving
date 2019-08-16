@@ -23,7 +23,6 @@ This document describes how to start running writing benchmarks with mako on GKE
 	```shell
 	gcloud iam service-accounts keys create robot.json  --iam-account=mako-upload@${PROJECT_ID}.iam.gserviceaccount.com
 	```
- 
 1. Create a secret with it:
 
 	```shell
