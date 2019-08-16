@@ -96,8 +96,7 @@ func MakeIngress(
 			Name:      names.Ingress(r),
 			Namespace: r.Namespace,
 			Labels: map[string]string{
-				serving.RouteLabelKey:          r.Name,
-				serving.RouteNamespaceLabelKey: r.Namespace,
+				serving.RouteLabelKey: r.Name,
 			},
 			Annotations: resources.UnionMaps(map[string]string{
 				networking.IngressClassAnnotationKey: ingressClass,

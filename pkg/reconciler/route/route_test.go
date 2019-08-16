@@ -231,8 +231,7 @@ func getRouteClusterIngressFromClient(ctx context.Context, t *testing.T, route *
 func getRouteIngressFromClient(ctx context.Context, t *testing.T, route *v1alpha1.Route) *netv1alpha1.Ingress {
 	opts := metav1.ListOptions{
 		LabelSelector: labels.Set(map[string]string{
-			serving.RouteLabelKey:          route.Name,
-			serving.RouteNamespaceLabelKey: route.Namespace,
+			serving.RouteLabelKey: route.Name,
 		}).AsSelector().String(),
 	}
 	ingresses, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().Ingresses(route.Namespace).List(opts)
@@ -305,8 +304,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 
 	// Check labels
 	expectedLabels := map[string]string{
-		serving.RouteLabelKey:          route.Name,
-		serving.RouteNamespaceLabelKey: route.Namespace,
+		serving.RouteLabelKey: route.Name,
 	}
 	if diff := cmp.Diff(expectedLabels, ci.Labels); diff != "" {
 		t.Errorf("Unexpected label diff (-want +got): %v", diff)
