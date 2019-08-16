@@ -165,6 +165,8 @@ func main() {
 	}
 
 	// Get the Kubernetes version from the API server.
+	// TODO(srinivashegde86): Move this to common setup once we figure out a way to inject
+	// kubeclient into context in a common way
 	c := kubeclient.Get(ctx)
 	if c == nil {
 		log.Fatalf("Failed to fetch %T from context.", (kubernetes.Interface)(nil))

@@ -36,7 +36,7 @@ const (
 // It returns the mako client handle to sotre metrics, a method to close the connection
 // to mako server once done and error if case of failures.
 func Setup(ctx context.Context, extraTags ...string) (*quickstore.Quickstore, func(context.Context), error) {
-	tags := make([]string, 0)
+	tags := make([]string, 0, len(extraTags)+1)
 	if commitID, err := changeset.Get(); err == nil {
 		tags = append(tags, commitID)
 	} else {
