@@ -29,9 +29,9 @@ import (
 	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 
 	"github.com/google/mako/helpers/go/quickstore"
-	qpb "github.com/google/mako/helpers/proto/quickstore/quickstore_go_proto"
 	vegeta "github.com/tsenart/vegeta/lib"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
@@ -146,6 +146,10 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 func main() {
 	flag.Parse()
 
+	if *flavor == "" {
+		log.Fatalf("-flavor is a required flag.")
+	}
+
 	// We want this for properly handling Kubernetes container lifecycle events.
 	ctx := signals.NewContext()
 
@@ -161,7 +165,14 @@ func main() {
 	}
 
 	// Get the Kubernetes version from the API server.
-	version, err := kubeclient.Get(ctx).Discovery().ServerVersion()
+	// TODO(srinivashegde86): Move this to common setup once we figure out a way to inject
+	// kubeclient into context in a common way
+	c := kubeclient.Get(ctx)
+	if c == nil {
+		log.Fatalf("Failed to fetch %T from context.", (kubernetes.Interface)(nil))
+	}
+
+	version, err := c.Discovery().ServerVersion()
 	if err != nil {
 		log.Fatalf("Failed to fetch kubernetes version: %v", err)
 	}
@@ -170,23 +181,11 @@ func main() {
 	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
 	defer cancel()
 
-	if *flavor == "" {
-		log.Fatalf("-flavor is a required flag.")
-	}
-
-	// Use the benchmark key created
-	q, qclose, err := quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
-		BenchmarkKey: mako.MustGetBenchmark(),
-		Tags: []string{
-			"master",
-			fmt.Sprintf("tbc=%s", *flavor),
-			// The format of version.String() is like "v1.13.7-gke.8",
-			// since Mako does not allow . in tags, replace them with _
-			fmt.Sprintf("kubernetes=%s", strings.ReplaceAll(version.String(), ".", "_")),
-		},
-	}, mako.SidecarAddress)
+	// Use the benchmark key created.
+	// '.' is an invalid char in mako tags. Replace with "_"
+	q, qclose, err := mako.Setup(ctx, "tbc="+*flavor, "kubernetes="+strings.ReplaceAll(version.String(), ".", "_"))
 	if err != nil {
-		log.Fatalf("failed NewAtAddress: %v", err)
+		log.Fatalf("failed to setup mako: %v", err)
 	}
 	// Use a fresh context here so that our RPC to terminate the sidecar
 	// isn't subject to our timeout (or we won't shut it down when we time out)
