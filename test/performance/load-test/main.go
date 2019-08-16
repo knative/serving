@@ -175,16 +175,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to fetch kubernetes version: %v", err)
 	}
-	// '.' is an invalid char in mako tags. Replace with "_"
-	tags = append(tags, fmt.Sprintf("kubernetes=%s", strings.ReplaceAll(version.String(), ".", "_")))
 
 	// We cron every 10 minutes, so give ourselves 6 minutes to complete.
 	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
 	defer cancel()
 
-	// Use the benchmark key created
-	// TODO: Interpret the key from the config instead of copying and passing it
-	q, qclose, err := mako.Setup(ctx, mako.MustGetBenchmark(), tags...)
+	// Use the benchmark key created.
+	// '.' is an invalid char in mako tags. Replace with "_"
+	q, qclose, err := mako.Setup(ctx, "tbc="+*flavor, fmt.Sprintf("kubernetes=%s", strings.ReplaceAll(version.String(), ".", "_")))
 	if err != nil {
 		log.Fatalf("failed to setup mako: %v", err)
 	}

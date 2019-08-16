@@ -44,8 +44,7 @@ func main() {
 	defer cancel()
 
 	// Use the benchmark key created
-	// TODO: Interpret the key from the config instead of copying and passing it
-	q, qclose, err := mako.Setup(ctx, mako.MustGetBenchmark())
+	q, qclose, err := mako.Setup(ctx)
 	if err != nil {
 		log.Fatalf("failed to setup mako: %v", err)
 	}
