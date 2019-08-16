@@ -132,10 +132,12 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 
 	var observedStableValue, observedPanicValue float64
 
+	metricName := spec.ScalingMetric
 	switch spec.ScalingMetric {
 	case autoscaling.RPS:
 		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicRPS(metricKey, now)
 	default:
+		metricName = autoscaling.Concurrency // concurrency is used by default
 		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicConcurrency(metricKey, now)
 		a.reporter.ReportStableRequestConcurrency(observedStableValue)
 		a.reporter.ReportPanicRequestConcurrency(observedPanicValue)
@@ -155,11 +157,11 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	desiredStablePodCount := int32(math.Min(math.Ceil(observedStableValue/spec.TargetValue), maxScaleUp))
 	desiredPanicPodCount := int32(math.Min(math.Ceil(observedPanicValue/spec.TargetValue), maxScaleUp))
 
-	logger.Debugw(fmt.Sprintf("Observed average %0.3f concurrency, targeting %0.3f.",
-		observedStableValue, spec.TargetValue),
+	logger.Debugw(fmt.Sprintf("Observed average %0.3f %v, targeting %0.3f.",
+		observedStableValue, metricName, spec.TargetValue),
 		zap.String("concurrency", "stable"))
-	logger.Debugw(fmt.Sprintf("Observed average %0.3f concurrency, targeting %0.3f.",
-		observedPanicValue, spec.TargetValue),
+	logger.Debugw(fmt.Sprintf("Observed average %0.3f %v, targeting %0.3f.",
+		observedPanicValue, metricName, spec.TargetValue),
 		zap.String("concurrency", "panic"))
 
 	isOverPanicThreshold := observedPanicValue/readyPodsCount >= spec.PanicThreshold
@@ -204,7 +206,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	case a.deciderSpec.TargetBurstCapacity >= 0:
 		excessBC = int32(math.Floor(float64(originalReadyPodsCount)*a.deciderSpec.TotalValue - observedStableValue -
 			a.deciderSpec.TargetBurstCapacity))
-		logger.Debugf("PodCount=%v TotalConc=%v ObservedStableConc=%v TargetBC=%v ExcessBC=%v",
+		logger.Debugf("PodCount=%v TotalValue=%v ObservedStableValue=%v TargetBC=%v ExcessBC=%v",
 			originalReadyPodsCount,
 			a.deciderSpec.TotalValue,
 			observedStableValue, a.deciderSpec.TargetBurstCapacity, excessBC)

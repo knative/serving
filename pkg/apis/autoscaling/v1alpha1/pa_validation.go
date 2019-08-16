@@ -49,8 +49,7 @@ func (pa *PodAutoscaler) validateMetric() *apis.FieldError {
 		switch pa.Class() {
 		case autoscaling.KPA:
 			switch metric {
-			// TODO(yanweiguo): implement RPS autoscaling for KPA.
-			case autoscaling.Concurrency:
+			case autoscaling.Concurrency, autoscaling.RPS:
 				return nil
 			}
 		case autoscaling.HPA:
