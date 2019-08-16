@@ -193,6 +193,25 @@ func TestPodAutoscalerValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
+		name: "valid, KPA with RPS",
+		r: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					"autoscaling.knative.dev/metric": "rps",
+				},
+			},
+			Spec: PodAutoscalerSpec{
+				ScaleTargetRef: corev1.ObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "bar",
+				},
+				ProtocolType: net.ProtocolH2C,
+			},
+		},
+		want: nil,
+	}, {
 		name: "valid, HPA with concurrency",
 		r: &PodAutoscaler{
 			ObjectMeta: v1.ObjectMeta{

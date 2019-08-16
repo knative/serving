@@ -159,10 +159,10 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 
 	logger.Debugw(fmt.Sprintf("Observed average %0.3f %v, targeting %0.3f.",
 		observedStableValue, metricName, spec.TargetValue),
-		zap.String("concurrency", "stable"))
+		zap.String(metricName, "stable"))
 	logger.Debugw(fmt.Sprintf("Observed average %0.3f %v, targeting %0.3f.",
 		observedPanicValue, metricName, spec.TargetValue),
-		zap.String("concurrency", "panic"))
+		zap.String(metricName, "panic"))
 
 	isOverPanicThreshold := observedPanicValue/readyPodsCount >= spec.PanicThreshold
 
