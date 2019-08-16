@@ -29,10 +29,10 @@ import (
 
 var (
 	allowedAnnotations = map[string]struct{}{
-		UpdaterAnnotation:                struct{}{},
-		CreatorAnnotation:                struct{}{},
-		RevisionLastPinnedAnnotationKey:  struct{}{},
-		GroupNamePrefix + "forceUpgrade": struct{}{},
+		UpdaterAnnotation:                {},
+		CreatorAnnotation:                {},
+		RevisionLastPinnedAnnotationKey:  {},
+		GroupNamePrefix + "forceUpgrade": {},
 	}
 )
 
