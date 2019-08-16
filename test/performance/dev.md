@@ -17,7 +17,7 @@ This document describes how to start running writing benchmarks with mako on GKE
 	gcloud iam service-accounts create mako-upload
 	```
 1. Add the IAM service account [here](https://github.com/knative/serving/blob/47a3a2480d58ffcc1d3fd9998849fda359ab91ff/test/performance/dataplane-probe/dev.config#L19)
- (NB: a current owner must apply this before things will work):
+(A current owner must apply this before things will work and the SA must be whitelisted):
 
    ```shell
    update_benchmark test/performance/dataplane-probe/dev.config
@@ -34,7 +34,7 @@ This document describes how to start running writing benchmarks with mako on GKE
 	```
 1. Patch istio like [here](https://github.com/knative/serving/blob/47a3a2480d58ffcc1d3fd9998849fda359ab91ff/test/performance/tools/common.sh#L113-L116)
 1. Patch knative like [here](https://github.com/knative/serving/blob/47a3a2480d58ffcc1d3fd9998849fda359ab91ff/test/performance/tools/common.sh#L132-L133)
-1. Apply `setup` for benchmark: 
+1. Apply `setup` for benchmark:
 
 	``` shell
 	ko apply -f test/performance/dataplane-probe/dataplane-probe-setup.yaml
@@ -45,3 +45,4 @@ This document describes how to start running writing benchmarks with mako on GKE
 	```gcloud
 	ko apply -f test/performance/dataplane-probe/dataplane-probe.yaml
 	```
+
