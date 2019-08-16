@@ -130,9 +130,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 
 	metricKey := types.NamespacedName{Namespace: a.namespace, Name: a.revision}
 
-	var observedStableValue, observedPanicValue float64
-
 	metricName := spec.ScalingMetric
+	var observedStableValue, observedPanicValue float64
 	switch spec.ScalingMetric {
 	case autoscaling.RPS:
 		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicRPS(metricKey, now)
