@@ -28,6 +28,7 @@ import (
 
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/resources"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -128,7 +129,19 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
 
 	metricKey := types.NamespacedName{Namespace: a.namespace, Name: a.revision}
-	observedStableValue, observedPanicValue, err := a.metricClient.StableAndPanicConcurrency(metricKey, now)
+
+	var observedStableValue, observedPanicValue float64
+
+	switch spec.ScalingMetric {
+	case autoscaling.RPS:
+		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicRPS(metricKey, now)
+	default:
+		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicConcurrency(metricKey, now)
+		a.reporter.ReportStableRequestConcurrency(observedStableValue)
+		a.reporter.ReportPanicRequestConcurrency(observedPanicValue)
+		a.reporter.ReportTargetRequestConcurrency(spec.TargetValue)
+	}
+
 	if err != nil {
 		if err == ErrNoData {
 			logger.Debug("No data to scale on yet")
@@ -141,10 +154,6 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	maxScaleUp := spec.MaxScaleUpRate * readyPodsCount
 	desiredStablePodCount := int32(math.Min(math.Ceil(observedStableValue/spec.TargetValue), maxScaleUp))
 	desiredPanicPodCount := int32(math.Min(math.Ceil(observedPanicValue/spec.TargetValue), maxScaleUp))
-
-	a.reporter.ReportStableRequestConcurrency(observedStableValue)
-	a.reporter.ReportPanicRequestConcurrency(observedPanicValue)
-	a.reporter.ReportTargetRequestConcurrency(spec.TargetValue)
 
 	logger.Debugw(fmt.Sprintf("Observed average %0.3f concurrency, targeting %0.3f.",
 		observedStableValue, spec.TargetValue),
@@ -200,9 +209,10 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 			a.deciderSpec.TotalValue,
 			observedStableValue, a.deciderSpec.TargetBurstCapacity, excessBC)
 	}
-	a.reporter.ReportExcessBurstCapacity(float64(excessBC))
 
+	a.reporter.ReportExcessBurstCapacity(float64(excessBC))
 	a.reporter.ReportDesiredPodCount(int64(desiredPodCount))
+
 	return desiredPodCount, excessBC, true
 }
 

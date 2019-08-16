@@ -105,6 +105,10 @@ func TestMakeDecider(t *testing.T) {
 			withService("rock-solid"),
 			withTarget(10.0), withPanicThreshold(40.0), withTotal(10.0),
 			withTargetAnnotation("10"), withPanicThresholdPercentageAnnotation("400")),
+	}, {
+		name: "with metric annotation",
+		pa:   pa(WithMetricAnnotation("rps")),
+		want: decider(withTarget(100.0), withPanicThreshold(200.0), withTotal(100), withMetric("rps"), withMetricAnnotation("rps")),
 	}}
 
 	for _, tc := range cases {
@@ -167,6 +171,7 @@ func decider(options ...DeciderOption) *autoscaler.Decider {
 		Spec: autoscaler.DeciderSpec{
 			MaxScaleUpRate:      config.MaxScaleUpRate,
 			TickInterval:        config.TickInterval,
+			ScalingMetric:       "concurrency",
 			TargetValue:         100,
 			TotalValue:          100,
 			TargetBurstCapacity: 211,
@@ -181,6 +186,12 @@ func decider(options ...DeciderOption) *autoscaler.Decider {
 }
 
 type DeciderOption func(*autoscaler.Decider)
+
+func withMetric(metric string) DeciderOption {
+	return func(decider *autoscaler.Decider) {
+		decider.Spec.ScalingMetric = metric
+	}
+}
 
 func withTargetBurstCapacity(tbc float64) DeciderOption {
 	return func(decider *autoscaler.Decider) {
@@ -211,9 +222,16 @@ func withPanicThreshold(threshold float64) DeciderOption {
 		decider.Spec.PanicThreshold = threshold
 	}
 }
+
 func withTargetAnnotation(target string) DeciderOption {
 	return func(decider *autoscaler.Decider) {
 		decider.Annotations[autoscaling.TargetAnnotationKey] = target
+	}
+}
+
+func withMetricAnnotation(metric string) DeciderOption {
+	return func(decider *autoscaler.Decider) {
+		decider.Annotations[autoscaling.MetricAnnotationKey] = metric
 	}
 }
 
@@ -229,6 +247,8 @@ var config = &autoscaler.Config{
 	ContainerConcurrencyTargetDefault:  100.0,
 	TargetBurstCapacity:                211.0,
 	MaxScaleUpRate:                     10.0,
+	RPSTargetDefault:                   100,
+	TargetUtilization:                  1.0,
 	StableWindow:                       60 * time.Second,
 	PanicThresholdPercentage:           200,
 	PanicWindow:                        6 * time.Second,
