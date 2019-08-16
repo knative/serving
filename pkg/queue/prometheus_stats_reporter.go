@@ -42,12 +42,13 @@ var (
 		destinationPodLabel,
 	}
 
-	operationsPerSecondGV = newGV(
-		"queue_operations_per_second",
-		"Number of operations per second")
-	proxiedOperationsPerSecondGV = newGV(
+	// For backwards compatibility, the name is kept as `operations_per_second`.
+	requestsPerSecondGV = newGV(
+		"queue_requests_per_second",
+		"Number of requests per second")
+	proxiedRequestsPerSecondGV = newGV(
 		"queue_proxied_operations_per_second",
-		"Number of proxied operations per second")
+		"Number of proxied requests per second")
 	averageConcurrentRequestsGV = newGV(
 		"queue_average_concurrent_requests",
 		"Number of requests currently being handled by this pod")
@@ -87,7 +88,7 @@ func NewPrometheusStatsReporter(namespace, config, revision, pod string, reporti
 	}
 
 	registry := prometheus.NewRegistry()
-	for _, gv := range []*prometheus.GaugeVec{operationsPerSecondGV, proxiedOperationsPerSecondGV, averageConcurrentRequestsGV, averageProxiedConcurrentRequestsGV} {
+	for _, gv := range []*prometheus.GaugeVec{requestsPerSecondGV, proxiedRequestsPerSecondGV, averageConcurrentRequestsGV, averageProxiedConcurrentRequestsGV} {
 		if err := registry.Register(gv); err != nil {
 			return nil, fmt.Errorf("register metric failed: %v", err)
 		}
@@ -112,9 +113,9 @@ func (r *PrometheusStatsReporter) Report(stat *autoscaler.Stat) error {
 		return errors.New("PrometheusStatsReporter is not initialized yet")
 	}
 
-	// Operation per second is a rate over time while concurrency is not.
-	operationsPerSecondGV.With(r.labels).Set(stat.RequestCount / r.reportingPeriod.Seconds())
-	proxiedOperationsPerSecondGV.With(r.labels).Set(stat.ProxiedRequestCount / r.reportingPeriod.Seconds())
+	// Requests per second is a rate over time while concurrency is not.
+	requestsPerSecondGV.With(r.labels).Set(stat.RequestCount / r.reportingPeriod.Seconds())
+	proxiedRequestsPerSecondGV.With(r.labels).Set(stat.ProxiedRequestCount / r.reportingPeriod.Seconds())
 	averageConcurrentRequestsGV.With(r.labels).Set(stat.AverageConcurrentRequests)
 	averageProxiedConcurrentRequestsGV.With(r.labels).Set(stat.AverageProxiedConcurrentRequests)
 
