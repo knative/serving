@@ -28,7 +28,6 @@ This document describes how to start running writing benchmarks with mako on GKE
 	```shell
 	kubectl create secret generic service-account --from-file=./robot.json
 	```
- 
 1. Patch istio like [here](https://github.com/knative/serving/blob/47a3a2480d58ffcc1d3fd9998849fda359ab91ff/test/performance/tools/common.sh#L113-L116)
 1. Patch knative like [here](https://github.com/knative/serving/blob/47a3a2480d58ffcc1d3fd9998849fda359ab91ff/test/performance/tools/common.sh#L132-L133)
 1. Apply `setup` for benchmark: 
@@ -36,7 +35,6 @@ This document describes how to start running writing benchmarks with mako on GKE
 	``` shell
 	ko apply -f test/performance/dataplane-probe/dataplane-probe-setup.yaml
 	```
- 
 1. Wait for above to stabilize
 1. Apply the benchmark cron:
 
