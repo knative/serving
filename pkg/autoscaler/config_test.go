@@ -30,6 +30,8 @@ var defaultConfig = Config{
 	EnableScaleToZero:                  true,
 	ContainerConcurrencyTargetFraction: 0.7,
 	ContainerConcurrencyTargetDefault:  100.0,
+	RPSTargetDefault:                   200.0,
+	TargetUtilization:                  0.7,
 	TargetBurstCapacity:                0,
 	MaxScaleUpRate:                     1000.0,
 	StableWindow:                       time.Minute,
@@ -96,6 +98,7 @@ func TestNewConfig(t *testing.T) {
 			"max-scale-up-rate":                       "1.0",
 			"container-concurrency-target-percentage": "0.71",
 			"container-concurrency-target-default":    "10.5",
+			"requests-per-second-target-default":      "10.11",
 			"target-burst-capacity":                   "12345",
 			"stable-window":                           "5m",
 			"panic-window":                            "11s",
@@ -107,6 +110,7 @@ func TestNewConfig(t *testing.T) {
 			c.TargetBurstCapacity = 12345
 			c.ContainerConcurrencyTargetDefault = 10.5
 			c.ContainerConcurrencyTargetFraction = 0.71
+			c.RPSTargetDefault = 10.11
 			c.MaxScaleUpRate = 1
 			c.StableWindow = 5 * time.Minute
 			c.PanicWindow = 11 * time.Second
@@ -166,6 +170,12 @@ func TestNewConfig(t *testing.T) {
 		name: "invalid target %, too big",
 		input: map[string]string{
 			"container-concurrency-target-percentage": "142.4",
+		},
+		wantErr: true,
+	}, {
+		name: "invalid RPS target, too small",
+		input: map[string]string{
+			"requests-per-second-target-default": "-5.25",
 		},
 		wantErr: true,
 	}, {
