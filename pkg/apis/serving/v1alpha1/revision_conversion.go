@@ -46,10 +46,11 @@ func (source *RevisionTemplateSpec) ConvertUp(ctx context.Context, sink *v1beta1
 
 // ConvertUp helps implement apis.Convertible
 func (source *RevisionSpec) ConvertUp(ctx context.Context, sink *v1beta1.RevisionSpec) error {
-	sink.ContainerConcurrency = v1beta1.RevisionContainerConcurrencyType(
-		source.ContainerConcurrency)
 	if source.TimeoutSeconds != nil {
 		sink.TimeoutSeconds = ptr.Int64(*source.TimeoutSeconds)
+	}
+	if source.ContainerConcurrency != nil {
+		sink.ContainerConcurrency = ptr.Int64(*source.ContainerConcurrency)
 	}
 	switch {
 	case source.DeprecatedContainer != nil && len(source.Containers) > 0:

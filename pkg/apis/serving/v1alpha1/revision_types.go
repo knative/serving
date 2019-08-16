@@ -93,7 +93,7 @@ const (
 
 // DeprecatedRevisionRequestConcurrencyModelType is an enumeration of the
 // concurrency models supported by a Revision.
-// DEPRECATED in favor of RevisionContainerConcurrencyType.
+// DEPRECATED in favor of an integer based ContainerConcurrency setting.
 // TODO(vagababov): retire completely in 0.9.
 type DeprecatedRevisionRequestConcurrencyModelType string
 

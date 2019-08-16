@@ -26,7 +26,6 @@ import (
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 // PodAutoscalerOption is an option that can be applied to a PA.
@@ -108,7 +107,7 @@ func WithKPAClass(pa *autoscalingv1alpha1.PodAutoscaler) {
 
 // WithPAContainerConcurrency returns a PodAutoscalerOption which sets
 // the PodAutoscaler containerConcurrency to the provided value.
-func WithPAContainerConcurrency(cc v1beta1.RevisionContainerConcurrencyType) PodAutoscalerOption {
+func WithPAContainerConcurrency(cc int64) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Spec.ContainerConcurrency = cc
 	}

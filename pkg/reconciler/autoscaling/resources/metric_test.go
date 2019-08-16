@@ -27,7 +27,6 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler"
-
 	. "knative.dev/serving/pkg/testing"
 )
 

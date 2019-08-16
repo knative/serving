@@ -64,7 +64,8 @@ func TestConfigurationDefaulting(t *testing.T) {
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
-							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 						},
 						DeprecatedContainer: &corev1.Container{
 							Name:           config.DefaultUserContainerName,
@@ -94,7 +95,8 @@ func TestConfigurationDefaulting(t *testing.T) {
 				Template: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
-							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Name:           config.DefaultUserContainerName,
@@ -128,7 +130,8 @@ func TestConfigurationDefaulting(t *testing.T) {
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
-							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Name:           config.DefaultUserContainerName,
@@ -148,7 +151,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
-							ContainerConcurrency: 1,
+							ContainerConcurrency: ptr.Int64(1),
 							TimeoutSeconds:       ptr.Int64(99),
 						},
 						DeprecatedContainer: &corev1.Container{
@@ -164,7 +167,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
 						RevisionSpec: v1beta1.RevisionSpec{
-							ContainerConcurrency: 1,
+							ContainerConcurrency: ptr.Int64(1),
 							TimeoutSeconds:       ptr.Int64(99),
 						},
 						DeprecatedContainer: &corev1.Container{

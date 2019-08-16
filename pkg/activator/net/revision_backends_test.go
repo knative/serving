@@ -33,6 +33,7 @@ import (
 
 	"knative.dev/pkg/controller"
 	. "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/ptr"
 	activatortest "knative.dev/serving/pkg/activator/testing"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
@@ -52,7 +53,7 @@ func revision(revID types.NamespacedName, protocol networking.ProtocolType) *v1a
 		},
 		Spec: v1alpha1.RevisionSpec{
 			RevisionSpec: v1beta1.RevisionSpec{
-				ContainerConcurrency: 1,
+				ContainerConcurrency: ptr.Int64(1),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Ports: []corev1.ContainerPort{{

@@ -21,7 +21,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 // RevisionOption enables further configuration of a Revision.
@@ -60,9 +59,9 @@ func MarkResourceNotOwned(kind, name string) RevisionOption {
 }
 
 // WithRevContainerConcurrency sets the given Revision's concurrency.
-func WithRevContainerConcurrency(cc v1beta1.RevisionContainerConcurrencyType) RevisionOption {
+func WithRevContainerConcurrency(cc int64) RevisionOption {
 	return func(rev *v1alpha1.Revision) {
-		rev.Spec.ContainerConcurrency = cc
+		rev.Spec.ContainerConcurrency = &cc
 	}
 }
 

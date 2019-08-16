@@ -52,7 +52,7 @@ func TestMakePA(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 1,
+					ContainerConcurrency: ptr.Int64(1),
 				},
 			},
 		},
@@ -97,7 +97,7 @@ func TestMakePA(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 0,
+					ContainerConcurrency: ptr.Int64(0),
 				},
 				DeprecatedContainer: &corev1.Container{
 					Ports: []corev1.ContainerPort{{
