@@ -82,7 +82,12 @@ func (rs *RevisionSpec) GetContainer() *corev1.Container {
 }
 
 // GetContainerConcurrency returns the container concurrency. If
-// container concurrency is not set, the default value will be returned
+// container concurrency is not set, the default value will be returned.
+// We use the original default (0) here for backwards compatibility.
+// Previous versions of Knative equated unspecified and zero, so to avoid
+// changing the value used by Revisions with unspecified values when a different
+// default is configured, we use the original default instead of the configured
+// default to remain safe across upgrades.
 func (rs *RevisionSpec) GetContainerConcurrency() int64 {
 	if rs.ContainerConcurrency == nil {
 		return config.DefaultContainerConcurrency

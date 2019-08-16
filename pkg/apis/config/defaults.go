@@ -89,6 +89,10 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		return nil, fmt.Errorf("revision-timeout-seconds (%d) cannot be greater than max-revision-timeout-seconds (%d)", nc.RevisionTimeoutSeconds, nc.MaxRevisionTimeoutSeconds)
 	}
 
+	if nc.ContainerConcurrency < 0 || nc.ContainerConcurrency > DefaultMaxRevisionContainerConcurrency {
+		return nil, apis.ErrOutOfBoundsValue(nc.ContainerConcurrency, 0, DefaultMaxRevisionContainerConcurrency, "containerConcurrency")
+	}
+
 	// Process resource quantity fields
 	for _, rsrc := range []struct {
 		key   string
