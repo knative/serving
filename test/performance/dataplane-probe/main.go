@@ -20,6 +20,7 @@ import (
 	"context"
 	"flag"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/google/mako/helpers/go/quickstore"
@@ -32,10 +33,16 @@ import (
 
 var (
 	target = flag.String("target", "", "The target to attack.")
+	tags   = flag.String("tags", "", "The additional tags for this run in `a,b...,z` format")
 )
 
 func main() {
 	flag.Parse()
+
+	atags := []string{"master"}
+	if *tags != "" {
+		atags = append(atags, strings.Split(*tags, ",")...)
+	}
 
 	// We want this for properly handling Kubernetes container lifecycle events.
 	ctx := signals.NewContext()
@@ -48,7 +55,7 @@ func main() {
 	// Use the benchmark key created
 	q, qclose, err := quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
 		BenchmarkKey: mako.MustGetBenchmark(),
-		Tags:         []string{"master"},
+		Tags:         atags,
 	}, mako.SidecarAddress)
 	if err != nil {
 		log.Fatalf("failed NewAtAddress: %v", err)
