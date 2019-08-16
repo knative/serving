@@ -36,6 +36,7 @@ var cert = &v1alpha1.Certificate{
 			serving.RouteLabelKey: "test-route",
 		},
 		Annotations: map[string]string{
+			serving.CreatorAnnotation: "someone",
 			serving.UpdaterAnnotation: "someone",
 		},
 	},
@@ -68,6 +69,7 @@ func TestMakeCertManagerCertificate(t *testing.T) {
 			},
 			Annotations: map[string]string{
 				serving.CreatorAnnotation: "someone",
+				serving.UpdaterAnnotation: "someone",
 			},
 		},
 		Spec: certmanagerv1alpha1.CertificateSpec{
