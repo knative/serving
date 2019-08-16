@@ -20,7 +20,7 @@ This document describes how to start running writing benchmarks with mako on GKE
 (A current owner must apply this before things will work and the SA must be whitelisted):
 
    ```shell
-   update_benchmark test/performance/dataplane-probe/dev.config
+   mako update_benchmark test/performance/dataplane-probe/dev.config
    ```
 1. Create a JSON key for it.
 
