@@ -30,7 +30,7 @@ This document describes how to start running writing benchmarks with mako on GKE
 1. Create a secret with it:
 
 	```shell
-	kubectl create secret generic mako-secret --from-file=./robot.json
+	kubectl create secret generic service-account --from-file=./robot.json
 	```
  
 1. Patch istio like [here](https://github.com/knative/serving/blob/47a3a2480d58ffcc1d3fd9998849fda359ab91ff/test/performance/tools/common.sh#L113-L116)
