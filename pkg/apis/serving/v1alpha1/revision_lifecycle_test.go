@@ -720,4 +720,6 @@ func TestPropagateAutoscalerStatus(t *testing.T) {
 	})
 	apitest.CheckConditionFailed(r.duck(), RevisionConditionActive, t)
 	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionReady, t)
+	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionContainerHealthy, t)
+	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionResourcesAvailable, t)
 }

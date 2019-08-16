@@ -219,15 +219,17 @@ func (rs *RevisionStatus) PropagateAutoscalerStatus(ps *av1alpha1.PodAutoscalerS
 
 	// Reflect the PA status in our own.
 	cond := ps.GetCondition(av1alpha1.PodAutoscalerConditionReady)
-	switch {
-	case cond == nil:
+	if cond == nil {
 		rs.MarkActivating("Deploying", "")
-		// If not ready => SKS did not report a service name, we can reliably use.
-	case cond.Status == corev1.ConditionUnknown:
+		return
+	}
+
+	switch cond.Status {
+	case corev1.ConditionUnknown:
 		rs.MarkActivating(cond.Reason, cond.Message)
-	case cond.Status == corev1.ConditionFalse:
+	case corev1.ConditionFalse:
 		rs.MarkInactive(cond.Reason, cond.Message)
-	case cond.Status == corev1.ConditionTrue:
+	case corev1.ConditionTrue:
 		rs.MarkActive()
 
 		// Precondition for PA being active is SKS being active and
