@@ -183,7 +183,7 @@ func main() {
 
 	// Use the benchmark key created.
 	// '.' is an invalid char in mako tags. Replace with "_"
-	q, qclose, err := mako.Setup(ctx, "tbc="+*flavor, fmt.Sprintf("kubernetes=%s", strings.ReplaceAll(version.String(), ".", "_")))
+	q, qclose, err := mako.Setup(ctx, "tbc="+*flavor, "kubernetes="+strings.ReplaceAll(version.String(), ".", "_"))
 	if err != nil {
 		log.Fatalf("failed to setup mako: %v", err)
 	}

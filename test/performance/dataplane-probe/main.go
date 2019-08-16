@@ -46,7 +46,7 @@ func main() {
 	// Use the benchmark key created
 	q, qclose, err := mako.Setup(ctx)
 	if err != nil {
-		log.Fatalf("failed to setup mako: %v", err)
+		log.Fatalf("Failed to setup mako: %v", err)
 	}
 	// Use a fresh context here so that our RPC to terminate the sidecar
 	// isn't subject to our timeout (or we won't shut it down when we time out)
