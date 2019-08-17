@@ -40,7 +40,7 @@ data:
     # write ACL.  Users can also develop against custom configurations
     # by adding `foo.config` under their benchmark's kodata directory.
     environment: dev
-    
+
     # Additional tags to tag the runs. These tags are added
     # to the list that the binary itself publishes (Kubernetes version, etc).
     # It is a comma separated list of tags.
