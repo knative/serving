@@ -20,7 +20,6 @@ import (
 	"context"
 	"flag"
 	"log"
-	"strings"
 	"time"
 
 	vegeta "github.com/tsenart/vegeta/lib"
@@ -31,16 +30,10 @@ import (
 
 var (
 	target = flag.String("target", "", "The target to attack.")
-	tags   = flag.String("tags", "", "The additional tags for this run in `a,b...,z` format")
 )
 
 func main() {
 	flag.Parse()
-
-	atags := []string{"master"}
-	if *tags != "" {
-		atags = append(atags, strings.Split(*tags, ",")...)
-	}
 
 	// We want this for properly handling Kubernetes container lifecycle events.
 	ctx := signals.NewContext()
@@ -51,7 +44,7 @@ func main() {
 	defer cancel()
 
 	// Use the benchmark key created
-	q, qclose, err := mako.Setup(ctx, atags...)
+	q, qclose, err := mako.Setup(ctx)
 	if err != nil {
 		log.Fatalf("Failed to setup mako: %v", err)
 	}

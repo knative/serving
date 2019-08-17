@@ -33,17 +33,16 @@ const (
 
 // SetupMako sets up the mako client for the provided benchmarkKey.
 // It will add a few common tags and allows each benchmark to add custm tags as well.
-// It returns the mako client handle to sotre metrics, a method to close the connection
-// to mako server once done and error if case of failures.
-func Setup(ctx context.Context, extraTags ...string) (*quickstore.Quickstore, func(context.Context), error) {
-	tags := make([]string, 0, len(extraTags)+1)
+// It returns the mako client handle to store metrics, a method to close the connection
+// to mako server once done, or an error if case of failures.
+func Setup(ctx context.Context) (*quickstore.Quickstore, func(context.Context), error) {
+	tags := append(MustGetTags(), "master")
 	if commitID, err := changeset.Get(); err == nil {
 		tags = append(tags, commitID)
 	} else {
 		return nil, nil, err
 	}
 
-	tags = append(tags, extraTags...)
 	return quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
 		BenchmarkKey: MustGetBenchmark(),
 		Tags:         tags,
