@@ -956,31 +956,3 @@ func TestScaleStatus(t *testing.T) {
 		t.Errorf("GetActualScale = %d, want: %v", got, want)
 	}
 }
-
-func TestIsReachable(t *testing.T) {
-	cases := []struct {
-		name string
-		pa   *PodAutoscaler
-		want bool
-	}{{
-		name: "unknown",
-		pa:   &PodAutoscaler{Spec: PodAutoscalerSpec{Reachable: nil}},
-		want: true,
-	}, {
-		name: "reachable",
-		pa:   &PodAutoscaler{Spec: PodAutoscalerSpec{Reachable: ptr.Bool(true)}},
-		want: true,
-	}, {
-		name: "not reachable",
-		pa:   &PodAutoscaler{Spec: PodAutoscalerSpec{Reachable: ptr.Bool(false)}},
-		want: false,
-	}}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := tc.pa.IsReachable(); got != tc.want {
-				t.Errorf("IsReachable() = %t, want %t", got, tc.want)
-			}
-		})
-	}
-}
