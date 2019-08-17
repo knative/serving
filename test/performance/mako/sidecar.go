@@ -18,7 +18,6 @@ package mako
 
 import (
 	"context"
-	"flag"
 	"runtime"
 	"strings"
 
@@ -26,7 +25,7 @@ import (
 
 	"github.com/google/mako/helpers/go/quickstore"
 	qpb "github.com/google/mako/helpers/proto/quickstore/quickstore_go_proto"
-	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/rest"
 	"knative.dev/pkg/changeset"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
@@ -39,11 +38,7 @@ const (
 	sidecarAddress = "localhost:9813"
 )
 
-var (
-	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-)
-
+// EscapeTag replaces characters that Mako doesn't accept with ones it does.
 func EscapeTag(tag string) string {
 	return strings.ReplaceAll(tag, ".", "_")
 }
@@ -61,7 +56,7 @@ func Setup(ctx context.Context, extraTags ...string) (context.Context, *quicksto
 
 	// Setup a deployment informer, so that we can use the lister to track
 	// desired and available pod counts.
-	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
+	cfg, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, nil, nil, err
 	}
