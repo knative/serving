@@ -96,7 +96,7 @@ func NewStatsReporter(ns, service, config, rev string, countMetric *stats.Int64M
 		&view.View{
 			Description: "The number of requests that are routed to queue-proxy",
 			Measure:     countMetric,
-			Aggregation: view.Sum(),
+			Aggregation: view.Count(),
 			TagKeys:     []tag.Key{nsTag, svcTag, configTag, revTag, responseCodeTag, responseCodeClassTag},
 		},
 		&view.View{

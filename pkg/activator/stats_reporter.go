@@ -118,7 +118,7 @@ func NewStatsReporter() (*Reporter, error) {
 		&view.View{
 			Description: "The number of requests that are routed to Activator",
 			Measure:     requestCountM,
-			Aggregation: view.Sum(),
+			Aggregation: view.Count(),
 			TagKeys:     []tag.Key{r.namespaceTagKey, r.serviceTagKey, r.configTagKey, r.revisionTagKey, r.responseCodeKey, r.responseCodeClassKey, r.numTriesKey},
 		},
 		&view.View{
