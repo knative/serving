@@ -18,10 +18,18 @@ package mako
 
 import (
 	"context"
+	"flag"
+	"runtime"
+	"strings"
+
+	"knative.dev/pkg/injection/clients/kubeclient"
 
 	"github.com/google/mako/helpers/go/quickstore"
 	qpb "github.com/google/mako/helpers/proto/quickstore/quickstore_go_proto"
+	"k8s.io/client-go/tools/clientcmd"
 	"knative.dev/pkg/changeset"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/injection"
 )
 
 const (
@@ -31,21 +39,53 @@ const (
 	sidecarAddress = "localhost:9813"
 )
 
+var (
+	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+)
+
+func EscapeTag(tag string) string {
+	return strings.ReplaceAll(tag, ".", "_")
+}
+
 // SetupMako sets up the mako client for the provided benchmarkKey.
 // It will add a few common tags and allows each benchmark to add custm tags as well.
 // It returns the mako client handle to sotre metrics, a method to close the connection
 // to mako server once done and error if case of failures.
-func Setup(ctx context.Context, extraTags ...string) (*quickstore.Quickstore, func(context.Context), error) {
-	tags := make([]string, 0, len(extraTags)+1)
-	if commitID, err := changeset.Get(); err == nil {
-		tags = append(tags, commitID)
-	} else {
-		return nil, nil, err
+func Setup(ctx context.Context, extraTags ...string) (context.Context, *quickstore.Quickstore, func(context.Context), error) {
+	// Get the commit of the benchmarks
+	commitID, err := changeset.Get()
+	if err != nil {
+		return nil, nil, nil, err
 	}
 
-	tags = append(tags, extraTags...)
-	return quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
+	// Setup a deployment informer, so that we can use the lister to track
+	// desired and available pod counts.
+	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
+	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
+		return nil, nil, nil, err
+	}
+
+	// Get the Kubernetes version from the API server.
+	version, err := kubeclient.Get(ctx).Discovery().ServerVersion()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	qs, qclose, err := quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
 		BenchmarkKey: MustGetBenchmark(),
-		Tags:         tags,
+		Tags: append(extraTags,
+			"commit="+commitID,
+			"kubernetes="+EscapeTag(version.String()),
+			EscapeTag(runtime.Version()),
+		),
 	}, sidecarAddress)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return ctx, qs, qclose, nil
 }

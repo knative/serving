@@ -21,20 +21,14 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
-	"knative.dev/pkg/injection/clients/kubeclient"
 	deploymentinformer "knative.dev/pkg/injection/informers/kubeinformers/appsv1/deployment"
 	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 
 	"github.com/google/mako/helpers/go/quickstore"
 	vegeta "github.com/tsenart/vegeta/lib"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/injection"
 	"knative.dev/pkg/signals"
 	pkgpacers "knative.dev/pkg/test/vegeta/pacers"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -44,9 +38,7 @@ import (
 )
 
 var (
-	flavor     = flag.String("flavor", "", "The flavor of the benchmark to run.")
-	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	flavor = flag.String("flavor", "", "The flavor of the benchmark to run.")
 )
 
 func processResults(ctx context.Context, q *quickstore.Quickstore, results <-chan *vegeta.Result) {
@@ -153,37 +145,13 @@ func main() {
 	// We want this for properly handling Kubernetes container lifecycle events.
 	ctx := signals.NewContext()
 
-	// Setup a deployment informer, so that we can use the lister to track
-	// desired and available pod counts.
-	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
-	if err != nil {
-		log.Fatalf("Error building kubeconfig: %v", err)
-	}
-	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
-	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-		log.Fatalf("Failed to start informers: %v", err)
-	}
-
-	// Get the Kubernetes version from the API server.
-	// TODO(srinivashegde86): Move this to common setup once we figure out a way to inject
-	// kubeclient into context in a common way
-	c := kubeclient.Get(ctx)
-	if c == nil {
-		log.Fatalf("Failed to fetch %T from context.", (kubernetes.Interface)(nil))
-	}
-
-	version, err := c.Discovery().ServerVersion()
-	if err != nil {
-		log.Fatalf("Failed to fetch kubernetes version: %v", err)
-	}
-
 	// We cron every 10 minutes, so give ourselves 6 minutes to complete.
 	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
 	defer cancel()
 
 	// Use the benchmark key created.
 	// '.' is an invalid char in mako tags. Replace with "_"
-	q, qclose, err := mako.Setup(ctx, "tbc="+*flavor, "kubernetes="+strings.ReplaceAll(version.String(), ".", "_"))
+	ctx, q, qclose, err := mako.Setup(ctx, "tbc="+*flavor)
 	if err != nil {
 		log.Fatalf("failed to setup mako: %v", err)
 	}
