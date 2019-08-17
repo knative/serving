@@ -123,7 +123,7 @@ func (in *PodAutoscaler) DeepCopyInto(out *PodAutoscaler) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
-	in.Spec.DeepCopyInto(&out.Spec)
+	out.Spec = in.Spec
 	in.Status.DeepCopyInto(&out.Status)
 	return
 }
@@ -183,11 +183,6 @@ func (in *PodAutoscalerList) DeepCopyObject() runtime.Object {
 func (in *PodAutoscalerSpec) DeepCopyInto(out *PodAutoscalerSpec) {
 	*out = *in
 	out.ScaleTargetRef = in.ScaleTargetRef
-	if in.Reachable != nil {
-		in, out := &in.Reachable, &out.Reachable
-		*out = new(bool)
-		**out = **in
-	}
 	return
 }
 

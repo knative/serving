@@ -21,7 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/ptr"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -50,7 +49,19 @@ func MakePA(rev *v1alpha1.Revision) *av1alpha1.PodAutoscaler {
 				Name:       names.Deployment(rev),
 			},
 			ProtocolType: rev.GetProtocol(),
-			Reachable:    ptr.Bool(rev.IsReachable()),
+			Reachability: func() av1alpha1.ReachabilityType {
+				// We don't know the reachability if the revision has just been created or is activating
+				cond := rev.Status.GetCondition(v1alpha1.RevisionConditionActive)
+				if cond != nil && cond.Status == corev1.ConditionUnknown {
+					return av1alpha1.ReachabilityUnknown
+				}
+
+				if rev.IsReachable() {
+					return av1alpha1.ReachabilityReachable
+				} else {
+					return av1alpha1.ReachabilityUnreachable
+				}
+			}(),
 		},
 	}
 }

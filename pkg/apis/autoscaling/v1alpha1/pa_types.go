@@ -56,6 +56,22 @@ var (
 	_ kmeta.OwnerRefable = (*PodAutoscaler)(nil)
 )
 
+// ReachabilityType is the enumeration type for the different states of reachability
+// to the `ScaleTarget` of a `PodAutoscaler`
+type ReachabilityType string
+
+const (
+	// ReachabilityUnknown means the reachability of the `ScaleTarget` is unknown.
+	// Used when the reachability cannot be determined, eg. during activation.
+	ReachabilityUnknown ReachabilityType = ""
+
+	// ReachabilityReachable means the `ScaleTarget` is reachable, ie. it has an active route.
+	ReachabilityReachable ReachabilityType = "reachable"
+
+	// ReachabilityReachable means the `ScaleTarget` is not reachable, ie. it does not have an active route.
+	ReachabilityUnreachable ReachabilityType = "unreachable"
+)
+
 // PodAutoscalerSpec holds the desired state of the PodAutoscaler (from the client).
 type PodAutoscalerSpec struct {
 	// DeprecatedGeneration was used prior in Kubernetes versions <1.11
@@ -80,13 +96,9 @@ type PodAutoscalerSpec struct {
 	ScaleTargetRef corev1.ObjectReference `json:"scaleTargetRef"`
 
 	// Reachable specifies whether or not the `ScaleTargetRef` can be reached (ie. has a route).
-	// Valid values are:
-	//   `&true`  - target is reachable
-	//   `&false` - target is unreachable
-	//   `nil`    - reachability is unknown, assume `&true` for backwards compatibility
-	// Defaults to `nil`
+	// Defaults to `ReachabilityUnknown`
 	// +optional
-	Reachable *bool `json:"reachable,omitempty"`
+	Reachability ReachabilityType `json:"reachable,omitempty"`
 
 	// DeprecatedServiceName holds the name of a core Kubernetes Service resource that
 	// load balances over the pods referenced by the ScaleTargetRef.

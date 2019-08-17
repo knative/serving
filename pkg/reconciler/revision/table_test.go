@@ -173,7 +173,7 @@ func TestReconcile(t *testing.T) {
 		// are necessary.
 		Objects: []runtime.Object{
 			rev("foo", "stable-reconcile", WithLogURL, AllUnknownConditions),
-			pa("foo", "stable-reconcile"),
+			pa("foo", "stable-reconcile", WithReachabilityUnknown),
 			deploy(t, "foo", "stable-reconcile"),
 			image("foo", "stable-reconcile"),
 		},
@@ -190,7 +190,7 @@ func TestReconcile(t *testing.T) {
 				rev.Spec.DeprecatedContainer = &rev.Spec.Containers[0]
 				rev.Spec.Containers = nil
 			}),
-			pa("foo", "needs-upgrade"),
+			pa("foo", "needs-upgrade", WithReachabilityUnknown),
 			deploy(t, "foo", "needs-upgrade"),
 			image("foo", "needs-upgrade"),
 		},
@@ -209,7 +209,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "fix-containers",
 				WithLogURL, AllUnknownConditions),
-			pa("foo", "fix-containers"),
+			pa("foo", "fix-containers", WithReachabilityUnknown),
 			changeContainers(deploy(t, "foo", "fix-containers")),
 			image("foo", "fix-containers"),
 		},
@@ -258,7 +258,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "pa-ready",
 				withK8sServiceName("old-stuff"), WithLogURL, AllUnknownConditions),
-			pa("foo", "pa-ready", WithTraffic, WithPAStatusService("new-stuff")),
+			pa("foo", "pa-ready", WithTraffic, WithPAStatusService("new-stuff"), WithReachabilityUnknown),
 			deploy(t, "foo", "pa-ready"),
 			image("foo", "pa-ready"),
 		},
@@ -369,7 +369,7 @@ func TestReconcile(t *testing.T) {
 			rev("foo", "fix-mutated-pa-fail",
 				withK8sServiceName("some-old-stuff"),
 				WithLogURL, AllUnknownConditions),
-			pa("foo", "fix-mutated-pa-fail", WithProtocolType(networking.ProtocolH2C)),
+			pa("foo", "fix-mutated-pa-fail", WithProtocolType(networking.ProtocolH2C), WithReachabilityUnknown),
 			deploy(t, "foo", "fix-mutated-pa-fail"),
 			image("foo", "fix-mutated-pa-fail"),
 		},
@@ -378,7 +378,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "podautoscalers"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: pa("foo", "fix-mutated-pa-fail"),
+			Object: pa("foo", "fix-mutated-pa-fail", WithReachabilityUnknown),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update podautoscalers"),
@@ -433,7 +433,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			rev("foo", "pull-backoff",
 				withK8sServiceName("the-taxman"), WithLogURL, MarkActivating("Deploying", "")),
-			pa("foo", "pull-backoff"), // pa can't be ready since deployment times out.
+			pa("foo", "pull-backoff", WithReachabilityUnknown), // pa can't be ready since deployment times out.
 			pod(t, "foo", "pull-backoff", WithWaitingContainer("user-container", "ImagePullBackoff", "can't pull it")),
 			timeoutDeploy(deploy(t, "foo", "pull-backoff"), "Timed out!"),
 			image("foo", "pull-backoff"),
