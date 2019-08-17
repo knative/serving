@@ -80,7 +80,7 @@ func (pa *PodAutoscaler) annotationFloat64(key string) (float64, bool) {
 // Note: min will be ignored if the PA is not reachable
 // TODO(tanzeeb) Tests!
 func (pa *PodAutoscaler) ScaleBounds() (min, max int32) {
-	if pa.IsReachable() {
+	if pa.Spec.Reachability != ReachabilityUnreachable {
 		min = pa.annotationInt32(autoscaling.MinScaleAnnotationKey)
 	}
 	max = pa.annotationInt32(autoscaling.MaxScaleAnnotationKey)
