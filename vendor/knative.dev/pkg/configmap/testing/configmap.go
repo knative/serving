@@ -34,7 +34,7 @@ func ConfigMapFromTestFile(t *testing.T, name string, allowed ...string) *corev1
 	return cm
 }
 
-// ConfigMapsFromTestFile creates two corev1.ConfigMap resources from the config
+// configMapsFromTestFile creates two corev1.ConfigMap resources from the config
 // file read from the testdata directory:
 // 1. The raw configmap read in.
 // 2. A second version of the configmap augmenting `data:` with what's parsed from the value of `_example:`
