@@ -48,6 +48,7 @@ func EscapeTag(tag string) string {
 // It returns the mako client handle to sotre metrics, a method to close the connection
 // to mako server once done and error if case of failures.
 func Setup(ctx context.Context, extraTags ...string) (context.Context, *quickstore.Quickstore, func(context.Context), error) {
+	tags := append(MustGetTags(), extraTags...)
 	// Get the commit of the benchmarks
 	commitID, err := changeset.Get()
 	if err != nil {
@@ -73,7 +74,7 @@ func Setup(ctx context.Context, extraTags ...string) (context.Context, *quicksto
 
 	qs, qclose, err := quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
 		BenchmarkKey: MustGetBenchmark(),
-		Tags: append(extraTags,
+		Tags: append(tags,
 			"commit="+commitID,
 			"kubernetes="+EscapeTag(version.String()),
 			EscapeTag(runtime.Version()),
