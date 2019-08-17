@@ -57,6 +57,13 @@ func ExpectsBody(body string) Verifier {
 	}
 }
 
+// ExpectsHeader validates that the given header of the probe response matches the provided string.
+func ExpectsHeader(name, value string) Verifier {
+	return func(r *http.Response, _ []byte) (bool, error) {
+		return r.Header.Get(name) == value, nil
+	}
+}
+
 // Do sends a single probe to given target, e.g. `http://revision.default.svc.cluster.local:81`.
 // Do returns whether the probe was successful or not, or there was an error probing.
 func Do(ctx context.Context, transport http.RoundTripper, target string, ops ...interface{}) (bool, error) {

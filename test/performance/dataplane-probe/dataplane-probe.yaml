@@ -27,8 +27,6 @@ spec:
           containers:
           - name: dataplane-probe
             image: knative.dev/serving/test/performance/dataplane-probe
-            # You can add additional tags for custom runs by adding `-tags=a,b,c`
-            # argument to the list below.
             args: ["-target=deployment"]
             resources:
               requests:
