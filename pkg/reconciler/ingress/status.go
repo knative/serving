@@ -260,7 +260,9 @@ func (m *StatusProber) processWorkItem() bool {
 		item.context,
 		m.transportFactory(),
 		fmt.Sprintf("http://%s/", item.podIP),
-		prober.WithHost(item.probeHost))
+		prober.WithHost(item.probeHost),
+		prober.ExceptStatusCode(http.StatusMovedPermanently),
+	)
 
 	// In case of cancellation, drop the work item
 	select {
