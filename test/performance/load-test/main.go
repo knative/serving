@@ -23,9 +23,6 @@ import (
 	"log"
 	"time"
 
-	deploymentinformer "knative.dev/pkg/injection/informers/kubeinformers/appsv1/deployment"
-	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
-
 	"github.com/google/mako/helpers/go/quickstore"
 	vegeta "github.com/tsenart/vegeta/lib"
 	"k8s.io/apimachinery/pkg/labels"
@@ -35,6 +32,7 @@ import (
 
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/test/performance/mako"
+	"knative.dev/serving/test/performance/metrics"
 )
 
 var (
@@ -42,14 +40,6 @@ var (
 )
 
 func processResults(ctx context.Context, q *quickstore.Quickstore, results <-chan *vegeta.Result) {
-	dl := deploymentinformer.Get(ctx).Lister()
-	sksl := sksinformer.Get(ctx).Lister()
-
-	// Create a ticker to tick every second that prompts us to report a new
-	// summary sample point.
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-
 	// Accumulate the error and request rates along second boundaries.
 	errors := make(map[int64]int64)
 	requests := make(map[int64]int64)
@@ -72,6 +62,11 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 	selector := labels.SelectorFromSet(labels.Set{
 		serving.ServiceLabelKey: fmt.Sprintf("load-test-%s", *flavor),
 	})
+
+	ctx, cancel := context.WithCancel(ctx)
+	deploymentStatus := metrics.FetchDeploymentStatus(ctx, "default", selector, time.Second)
+	sksMode := metrics.FetchSKSMode(ctx, "default", selector, time.Second)
+	defer cancel()
 
 	for {
 		select {
@@ -96,41 +91,21 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 			// which we have data, even if there is no error.
 			errors[res.Timestamp.Unix()] += isAnError
 			requests[res.Timestamp.Unix()]++
-
-		case t := <-ticker.C:
-			// Each tick, fetch the state of the environment from our informer caches
-			// and overlay the resulting data.
-
-			// Overlay the desired and ready pod counts.
-			deployments, err := dl.Deployments("default").List(selector)
-			if err != nil {
-				log.Printf("Error listing deployments: %v", err)
-				break
+		case ds := <-deploymentStatus:
+			// Add a sample point for the deployment status
+			q.AddSamplePoint(mako.XTime(ds.Time), map[string]float64{
+				"dp": float64(ds.DesiredReplicas),
+				"ap": float64(ds.ReadyReplicas),
+			})
+		case sksm := <-sksMode:
+			// Add a sample point for the serverless service mode
+			mode := float64(0)
+			if sksm.Mode == netv1alpha1.SKSOperationModeProxy {
+				mode = 1.0
 			}
-			// TODO(mattmoor): Consider alternatives to a singleton.
-			for _, d := range deployments {
-				q.AddSamplePoint(mako.XTime(t), map[string]float64{
-					"dp": float64(*d.Spec.Replicas),
-					"ap": float64(d.Status.ReadyReplicas),
-				})
-			}
-
-			// Overlay the SKS "mode".
-			skses, err := sksl.ServerlessServices("default").List(selector)
-			if err != nil {
-				log.Printf("Error listing deployments: %v", err)
-				break
-			}
-			// TODO(mattmoor): Consider alternatives to a singleton.
-			for _, sks := range skses {
-				mode := float64(0)
-				if sks.Spec.Mode == netv1alpha1.SKSOperationModeProxy {
-					mode = 1.0
-				}
-				q.AddSamplePoint(mako.XTime(t), map[string]float64{
-					"sks": mode,
-				})
-			}
+			q.AddSamplePoint(mako.XTime(sksm.Time), map[string]float64{
+				"sks": mode,
+			})
 		}
 	}
 }
