@@ -1,0 +1,1 @@
+cat bad-news.txt
