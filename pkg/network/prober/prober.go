@@ -34,9 +34,6 @@ type Preparer func(r *http.Request) *http.Request
 // Verifier is a way for the caller to validate the HTTP response after it comes back.
 type Verifier func(r *http.Response, b []byte) (bool, error)
 
-// Exception is a way for the caller to validate the HTTP response after the verifier's validation.
-type Exception func(r *http.Response, b []byte) (bool, error)
-
 // WithHeader sets a header in the probe request.
 func WithHeader(name, value string) Preparer {
 	return func(r *http.Request) *http.Request {
@@ -67,10 +64,15 @@ func ExpectsHeader(name, value string) Verifier {
 	}
 }
 
-// ExceptStatusCode validates that the exceptional status code of the probe response matches the provided int.
-func ExceptStatusCode(status int) Exception {
+// ExpectsStatusCodes validates that the given status code of the probe response matches the provided int.
+func ExpectsStatusCodes(statusCodes []int) Verifier {
 	return func(r *http.Response, _ []byte) (bool, error) {
-		return r.StatusCode == status, nil
+		for _, v := range statusCodes {
+			if r.StatusCode == v {
+				return true, nil
+			}
+		}
+		return false, nil
 	}
 }
 
@@ -106,18 +108,7 @@ func Do(ctx context.Context, transport http.RoundTripper, target string, ops ...
 			}
 		}
 	}
-	if resp.StatusCode == http.StatusOK {
-		return true, nil
-	}
-	for _, op := range ops {
-		if vo, ok := op.(Exception); ok {
-			ok, err := vo(resp, body)
-			if err == nil && ok {
-				return true, nil
-			}
-		}
-	}
-	return false, nil
+	return true, nil
 }
 
 // Done is a callback that is executed when the async probe has finished.
