@@ -242,6 +242,7 @@ func main() {
 	ah = &activatorhandler.HealthHandler{HealthCheck: statSink.Status, NextHandler: ah}
 	// NOTE: MetricHandler is being used as the outermost handler for the purpose of measuring the request latency.
 	ah = activatorhandler.NewMetricHandler(revisionInformer.Lister(), reporter, logger, ah)
+	ah = network.NewProbeHandler(ah)
 
 	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher.Watch(pkglogging.ConfigMapName(), pkglogging.UpdateLevelFromConfigMap(logger, atomicLevel, component))

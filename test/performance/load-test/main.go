@@ -21,17 +21,11 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	"github.com/google/mako/helpers/go/quickstore"
-	qpb "github.com/google/mako/helpers/proto/quickstore/quickstore_go_proto"
 	vegeta "github.com/tsenart/vegeta/lib"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/clientcmd"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/injection"
-	"knative.dev/pkg/injection/clients/kubeclient"
 	"knative.dev/pkg/signals"
 	pkgpacers "knative.dev/pkg/test/vegeta/pacers"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -42,9 +36,7 @@ import (
 )
 
 var (
-	flavor     = flag.String("flavor", "", "The flavor of the benchmark to run.")
-	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	flavor = flag.String("flavor", "", "The flavor of the benchmark to run.")
 )
 
 func processResults(ctx context.Context, q *quickstore.Quickstore, results <-chan *vegeta.Result) {
@@ -121,47 +113,22 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 func main() {
 	flag.Parse()
 
+	if *flavor == "" {
+		log.Fatalf("-flavor is a required flag.")
+	}
+
 	// We want this for properly handling Kubernetes container lifecycle events.
 	ctx := signals.NewContext()
-
-	// Setup a deployment informer, so that we can use the lister to track
-	// desired and available pod counts.
-	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
-	if err != nil {
-		log.Fatalf("Error building kubeconfig: %v", err)
-	}
-	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
-	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-		log.Fatalf("Failed to start informers: %v", err)
-	}
-
-	// Get the Kubernetes version from the API server.
-	version, err := kubeclient.Get(ctx).Discovery().ServerVersion()
-	if err != nil {
-		log.Fatalf("Failed to fetch kubernetes version: %v", err)
-	}
 
 	// We cron every 10 minutes, so give ourselves 6 minutes to complete.
 	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
 	defer cancel()
 
-	if *flavor == "" {
-		log.Fatalf("-flavor is a required flag.")
-	}
-
-	// Use the benchmark key created
-	q, qclose, err := quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
-		BenchmarkKey: mako.MustGetBenchmark(),
-		Tags: []string{
-			"master",
-			fmt.Sprintf("tbc=%s", *flavor),
-			// The format of version.String() is like "v1.13.7-gke.8",
-			// since Mako does not allow . in tags, replace them with _
-			fmt.Sprintf("kubernetes=%s", strings.ReplaceAll(version.String(), ".", "_")),
-		},
-	}, mako.SidecarAddress)
+	// Use the benchmark key created.
+	// '.' is an invalid char in mako tags. Replace with "_"
+	ctx, q, qclose, err := mako.Setup(ctx, "tbc="+*flavor)
 	if err != nil {
-		log.Fatalf("failed NewAtAddress: %v", err)
+		log.Fatalf("failed to setup mako: %v", err)
 	}
 	// Use a fresh context here so that our RPC to terminate the sidecar
 	// isn't subject to our timeout (or we won't shut it down when we time out)

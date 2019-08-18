@@ -1899,6 +1899,7 @@
     "knative.dev/pkg/apis/istio/common/v1alpha1",
     "knative.dev/pkg/apis/istio/v1alpha3",
     "knative.dev/pkg/apis/testing",
+    "knative.dev/pkg/changeset",
     "knative.dev/pkg/client/clientset/versioned",
     "knative.dev/pkg/client/clientset/versioned/fake",
     "knative.dev/pkg/client/informers/externalversions",

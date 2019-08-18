@@ -17,6 +17,8 @@ limitations under the License.
 package mako
 
 import (
+	"strings"
+
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -27,18 +29,26 @@ const (
 
 // Config defines the mako configuration options.
 type Config struct {
-	// Environment holds the
+	// Environment holds the name of the environement,
+	// where the test runs, e.g. `dev`.
 	Environment string
+
+	// List of additional tags to apply to the run.
+	AdditionalTags []string
 }
 
 // NewConfigFromMap creates a Config from the supplied map
 func NewConfigFromMap(data map[string]string) (*Config, error) {
 	lc := &Config{
-		Environment: "dev",
+		Environment:    "dev",
+		AdditionalTags: []string{},
 	}
 
 	if raw, ok := data["environment"]; ok {
 		lc.Environment = raw
+	}
+	if raw, ok := data["additionalTags"]; ok && raw != "" {
+		lc.AdditionalTags = strings.Split(raw, ",")
 	}
 
 	return lc, nil
