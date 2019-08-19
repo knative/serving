@@ -217,18 +217,16 @@ func (pas *PodAutoscalerStatus) duck() *duckv1beta1.Status {
 
 // GetDesiredScale returns the desired scale if ever set, or -1.
 func (pas *PodAutoscalerStatus) GetDesiredScale() int32 {
-	ret := int32(-1)
 	if pas.DesiredScale != nil {
-		ret = *pas.DesiredScale
+		return *pas.DesiredScale
 	}
-	return ret
+	return -1
 }
 
 // GetActualScale returns the desired scale if ever set, or -1.
 func (pas *PodAutoscalerStatus) GetActualScale() int32 {
-	ret := int32(-1)
 	if pas.ActualScale != nil {
-		ret = *pas.ActualScale
+		return *pas.ActualScale
 	}
-	return ret
+	return -1
 }

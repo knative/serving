@@ -179,7 +179,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		}
 	}
 	logger.Infof("PA scale got=%d, want=%d", got, want)
-	pa.Status.DesiredScale, pa.Status.ActualScale = ptr.Int32(want), ptr.Int32(int32(got))
+	pa.Status.DesiredScale, pa.Status.ActualScale = &want, ptr.Int32(int32(got))
 
 	err = reportMetrics(pa, want, got)
 	if err != nil {
