@@ -19,11 +19,15 @@ limitations under the License.
 package e2e
 
 import (
+	"fmt"
 	"strconv"
+	"time"
 
 	"testing"
 
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -51,6 +55,7 @@ func TestMinScale(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
+	t.Log("Creating configuration")
 	if _, err := v1a1test.CreateConfiguration(t, clients, names, withMinScale(minScale)); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
@@ -59,7 +64,8 @@ func TestMinScale(t *testing.T) {
 	deploymentName := revName + "-deployment"
 
 	// Revision should reach minScale before becoming ready
-	if err := WaitForScaleToN(t, deploymentName, clients, minScale); err != nil {
+	t.Log("Waiting for revision to scale to minScale before becoming ready")
+	if err := waitForScaleToN(t, clients, deploymentName, minScale); err != nil {
 		t.Fatalf("The deployment %q did not scale to %d: %v", deploymentName, minScale, err)
 	}
 
@@ -68,11 +74,13 @@ func TestMinScale(t *testing.T) {
 	}
 
 	// With no route, ignore minScale and scale-to-zero
-	if err := WaitForScaleToZero(t, deploymentName, clients); err != nil {
+	t.Log("Waiting for revision to scale to zero after becoming ready")
+	if err := waitForScaleToN(t, clients, deploymentName, 0); err != nil {
 		t.Fatalf("The deployment %q did not scale to zero: %v", deploymentName, err)
 	}
 
 	// Create route
+	t.Log("Creating route")
 	if _, err := v1a1test.CreateRoute(t, clients, names); err != nil {
 		t.Fatalf("Failed to create Route: %v", err)
 	}
@@ -82,7 +90,8 @@ func TestMinScale(t *testing.T) {
 	}
 
 	// With a route, MinScale should be observed
-	if err := WaitForScaleToN(t, deploymentName, clients, minScale); err != nil {
+	t.Log("Waiting for revision to scale to minScale")
+	if err := waitForScaleToN(t, clients, deploymentName, minScale); err != nil {
 		t.Fatalf("The deployment %q did not scale to %d: %v", deploymentName, minScale, err)
 	}
 }
@@ -108,4 +117,17 @@ func latestRevisionName(t *testing.T, clients *test.Clients, configName string) 
 	}
 
 	return config.Status.LatestCreatedRevisionName
+}
+
+func waitForScaleToN(t *testing.T, clients *test.Clients, deploymentName string, n int) error {
+	return pkgTest.WaitForDeploymentState(
+		clients.KubeClient,
+		deploymentName,
+		func(d *appsv1.Deployment) (bool, error) {
+			return d.Status.ReadyReplicas == 0, nil
+		},
+		fmt.Sprintf("DeploymentIsScaledTo%d", n),
+		test.ServingNamespace,
+		3*time.Minute,
+	)
 }

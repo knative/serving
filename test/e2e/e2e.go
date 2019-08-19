@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"fmt"
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -57,15 +56,7 @@ func autoscalerCM(clients *test.Clients) (*autoscaler.Config, error) {
 // Will wait up to 6 times the configured ScaleToZeroGracePeriod before failing.
 func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clients) error {
 	t.Helper()
-
-	return WaitForScaleToN(t, deploymentName, clients, 0)
-}
-
-// WaitForScaleToN will wait for the specified deployment to scale to N replicas.
-// Will wait up to 6 times the configured ScaleToZeroGracePeriod before failing.
-func WaitForScaleToN(t *testing.T, deploymentName string, clients *test.Clients, n int32) error {
-	t.Helper()
-	t.Logf("Waiting for %q to scale to %d", deploymentName, n)
+	t.Logf("Waiting for %q to scale to zero", deploymentName)
 
 	cfg, err := autoscalerCM(clients)
 	if err != nil {
@@ -76,9 +67,9 @@ func WaitForScaleToN(t *testing.T, deploymentName string, clients *test.Clients,
 		clients.KubeClient,
 		deploymentName,
 		func(d *appsv1.Deployment) (bool, error) {
-			return d.Status.ReadyReplicas == n, nil
+			return d.Status.ReadyReplicas == 0, nil
 		},
-		fmt.Sprintf("DeploymentIsScaledTo%d", n),
+		"DeploymentIsScaledToZero",
 		test.ServingNamespace,
 		cfg.ScaleToZeroGracePeriod*6,
 	)
