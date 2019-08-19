@@ -35,7 +35,7 @@ var defaultLatencyDistribution = view.Distribution(5, 10, 20, 40, 60, 80, 100, 1
 
 // StatsReporter defines the interface for sending queue-proxy metrics
 type StatsReporter interface {
-	ReportRequestCount(responseCode int, v int64) error
+	ReportRequestCount(responseCode int) error
 	ReportResponseTime(responseCode int, d time.Duration) error
 }
 
@@ -143,8 +143,8 @@ func valueOrUnknown(v string) string {
 	return metricskey.ValueUnknown
 }
 
-// ReportRequestCount captures request count metric with value v.
-func (r *Reporter) ReportRequestCount(responseCode int, v int64) error {
+// ReportRequestCount captures request count metric.
+func (r *Reporter) ReportRequestCount(responseCode int) error {
 	if !r.initialized {
 		return errors.New("StatsReporter is not initialized yet")
 	}
@@ -158,7 +158,7 @@ func (r *Reporter) ReportRequestCount(responseCode int, v int64) error {
 		return err
 	}
 
-	metrics.Record(ctx, r.countMetric.M(v))
+	metrics.Record(ctx, r.countMetric.M(1))
 	return nil
 }
 

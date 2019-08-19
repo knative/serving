@@ -36,7 +36,7 @@ func unregister() {
 func TestActivatorReporter(t *testing.T) {
 	r := &Reporter{}
 
-	if err := r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", http.StatusOK, 1, 1); err == nil {
+	if err := r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", http.StatusOK, 1); err == nil {
 		t.Error("Reporter expected an error for Report call before init. Got success.")
 	}
 
@@ -75,12 +75,12 @@ func TestActivatorReporter(t *testing.T) {
 		"num_tries":                       "6",
 	}
 	expectSuccess(t, func() error {
-		return r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", http.StatusOK, 6, 1)
+		return r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", http.StatusOK, 6)
 	})
 	expectSuccess(t, func() error {
-		return r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", http.StatusOK, 6, 3)
+		return r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", http.StatusOK, 6)
 	})
-	metricstest.CheckSumData(t, "request_count", wantTags2, 4)
+	metricstest.CheckCountData(t, "request_count", wantTags2, 2)
 
 	// test ReportResponseTime
 	wantTags3 := map[string]string{
@@ -131,9 +131,9 @@ func TestActivatorReporterEmptyServiceName(t *testing.T) {
 		"num_tries":                       "6",
 	}
 	expectSuccess(t, func() error {
-		return r.ReportRequestCount("testns", "" /*service=*/, "testconfig", "testrev", 200, 6, 10)
+		return r.ReportRequestCount("testns", "" /*service=*/, "testconfig", "testrev", 200, 6)
 	})
-	metricstest.CheckSumData(t, "request_count", wantTags2, 10)
+	metricstest.CheckCountData(t, "request_count", wantTags2, 1)
 
 	// test ReportResponseTime
 	wantTags3 := map[string]string{

@@ -203,7 +203,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		configurationName := revision.Labels[serving.ConfigurationLabelKey]
 		serviceName := revision.Labels[serving.ServiceLabelKey]
-		a.reporter.ReportRequestCount(namespace, serviceName, configurationName, name, httpStatus, attempts, 1.0)
+		a.reporter.ReportRequestCount(namespace, serviceName, configurationName, name, httpStatus, attempts)
 	})
 	if err != nil {
 		// Set error on our capacity waiting span and end it
