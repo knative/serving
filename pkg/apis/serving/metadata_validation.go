@@ -29,10 +29,10 @@ import (
 
 var (
 	allowedAnnotations = map[string]struct{}{
-		UpdaterAnnotation:                struct{}{},
-		CreatorAnnotation:                struct{}{},
-		RevisionLastPinnedAnnotationKey:  struct{}{},
-		GroupNamePrefix + "forceUpgrade": struct{}{},
+		UpdaterAnnotation:                {},
+		CreatorAnnotation:                {},
+		RevisionLastPinnedAnnotationKey:  {},
+		GroupNamePrefix + "forceUpgrade": {},
 	}
 )
 
@@ -81,6 +81,18 @@ func ValidateTimeoutSeconds(ctx context.Context, timeoutSeconds int64) *apis.Fie
 			return apis.ErrOutOfBoundsValue(timeoutSeconds, 0,
 				cfg.Defaults.MaxRevisionTimeoutSeconds,
 				"timeoutSeconds")
+		}
+	}
+	return nil
+}
+
+// ValidateContainerConcurrency function validates the ContainerConcurrency field
+// TODO(#5007): Move this to autoscaling.
+func ValidateContainerConcurrency(ctx context.Context, containerConcurrency *int64) *apis.FieldError {
+	if containerConcurrency != nil {
+		if *containerConcurrency < 0 || *containerConcurrency > config.DefaultMaxRevisionContainerConcurrency {
+			return apis.ErrOutOfBoundsValue(
+				*containerConcurrency, 0, config.DefaultMaxRevisionContainerConcurrency, apis.CurrentField)
 		}
 	}
 	return nil

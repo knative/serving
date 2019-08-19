@@ -50,7 +50,7 @@ func ReconcileSecret(ctx context.Context, owner kmeta.Accessor, desired *corev1.
 	if apierrs.IsNotFound(err) {
 		secret, err = accessor.GetKubeClient().CoreV1().Secrets(desired.Namespace).Create(desired)
 		if err != nil {
-			logger.Errorw("Failed to create Certificate Secret", zap.Error(err))
+			logger.Errorw("Failed to create Secret", zap.Error(err))
 			recorder.Eventf(owner, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create Secret %s/%s: %v", desired.Namespace, desired.Name, err)
 			return nil, err

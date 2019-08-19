@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"testing"
 
@@ -27,8 +28,8 @@ import (
 
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/config"
 	net "knative.dev/serving/pkg/apis/networking"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 func TestPodAutoscalerSpecValidation(t *testing.T) {
@@ -124,7 +125,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 			ProtocolType: net.ProtocolHTTP1,
 		},
 		want: apis.ErrOutOfBoundsValue(-1, 0,
-			v1beta1.RevisionContainerConcurrencyMax, "containerConcurrency"),
+			config.DefaultMaxRevisionContainerConcurrency, "containerConcurrency"),
 	}, {
 		name: "multi invalid, bad concurrency and missing ref kind",
 		rs: &PodAutoscalerSpec{
@@ -136,7 +137,7 @@ func TestPodAutoscalerSpecValidation(t *testing.T) {
 			ProtocolType: net.ProtocolHTTP1,
 		},
 		want: apis.ErrOutOfBoundsValue(-2, 0,
-			v1beta1.RevisionContainerConcurrencyMax, "containerConcurrency").Also(
+			config.DefaultMaxRevisionContainerConcurrency, "containerConcurrency").Also(
 			apis.ErrMissingField("scaleTargetRef.kind")),
 	}}
 
@@ -160,9 +161,6 @@ func TestPodAutoscalerValidation(t *testing.T) {
 		r: &PodAutoscaler{
 			ObjectMeta: v1.ObjectMeta{
 				Name: "valid",
-				Annotations: map[string]string{
-					"minScale": "2",
-				},
 			},
 			Spec: PodAutoscalerSpec{
 				ScaleTargetRef: corev1.ObjectReference{
@@ -175,12 +173,52 @@ func TestPodAutoscalerValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
-		name: "valid, optional fields",
+		name: "valid, optional annotations",
 		r: &PodAutoscaler{
 			ObjectMeta: v1.ObjectMeta{
 				Name: "valid",
 				Annotations: map[string]string{
-					"minScale": "2",
+					"autoscaling.knative.dev/metric":   "rps",
+					"autoscaling.knative.dev/minScale": "2",
+				},
+			},
+			Spec: PodAutoscalerSpec{
+				ScaleTargetRef: corev1.ObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "bar",
+				},
+				ProtocolType: net.ProtocolH2C,
+			},
+		},
+		want: nil,
+	}, {
+		name: "valid, KPA with RPS",
+		r: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					"autoscaling.knative.dev/metric": "rps",
+				},
+			},
+			Spec: PodAutoscalerSpec{
+				ScaleTargetRef: corev1.ObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "bar",
+				},
+				ProtocolType: net.ProtocolH2C,
+			},
+		},
+		want: nil,
+	}, {
+		name: "valid, HPA with concurrency",
+		r: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					"autoscaling.knative.dev/metric": "concurrency",
+					"autoscaling.knative.dev/class":  "hpa.autoscaling.knative.dev",
 				},
 			},
 			Spec: PodAutoscalerSpec{
@@ -199,7 +237,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 			ObjectMeta: v1.ObjectMeta{
 				Name: "valid",
 				Annotations: map[string]string{
-					"minScale": "2",
+					"autoscaling.knative.dev/minScale": "2",
 				},
 			},
 			Spec: PodAutoscalerSpec{
@@ -232,6 +270,29 @@ func TestPodAutoscalerValidation(t *testing.T) {
 		},
 		want: apis.ErrOutOfBoundsValue("FOO", 1, math.MaxInt32, autoscaling.MinScaleAnnotationKey).ViaField("metadata", "annotations"),
 	}, {
+		name: "bad metric",
+		r: &PodAutoscaler{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					"autoscaling.knative.dev/metric": "memory",
+				},
+			},
+			Spec: PodAutoscalerSpec{
+				ScaleTargetRef: corev1.ObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "bar",
+				},
+				ProtocolType: net.ProtocolH2C,
+			},
+		},
+		want: &apis.FieldError{
+			Message: fmt.Sprintf("Unsupported metric %q for PodAutoscaler class %q",
+				"memory", "kpa.autoscaling.knative.dev"),
+			Paths: []string{"annotations[autoscaling.knative.dev/metric]"},
+		},
+	}, {
 		name: "empty spec",
 		r: &PodAutoscaler{
 			ObjectMeta: v1.ObjectMeta{
@@ -256,7 +317,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrOutOfBoundsValue(-1, 0,
-			v1beta1.RevisionContainerConcurrencyMax, "spec.containerConcurrency"),
+			config.DefaultMaxRevisionContainerConcurrency, "spec.containerConcurrency"),
 	}}
 
 	for _, test := range tests {

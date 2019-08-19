@@ -28,6 +28,7 @@ import (
 
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/resources"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -128,7 +129,24 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
 
 	metricKey := types.NamespacedName{Namespace: a.namespace, Name: a.revision}
-	observedStableValue, observedPanicValue, err := a.metricClient.StableAndPanicConcurrency(metricKey, now)
+
+	metricName := spec.ScalingMetric
+	var observedStableValue, observedPanicValue float64
+	switch spec.ScalingMetric {
+	case autoscaling.RPS:
+		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicRPS(metricKey, now)
+		// TODO: Add metrics for RPS used in autoscaler.
+	default:
+		metricName = autoscaling.Concurrency // concurrency is used by default
+		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicConcurrency(metricKey, now)
+		a.reporter.ReportStableRequestConcurrency(observedStableValue)
+		a.reporter.ReportPanicRequestConcurrency(observedPanicValue)
+		a.reporter.ReportTargetRequestConcurrency(spec.TargetValue)
+	}
+
+	// Put the scaling metric to logs.
+	logger = logger.With(zap.String("metric", metricName))
+
 	if err != nil {
 		if err == ErrNoData {
 			logger.Debug("No data to scale on yet")
@@ -142,16 +160,12 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	desiredStablePodCount := int32(math.Min(math.Ceil(observedStableValue/spec.TargetValue), maxScaleUp))
 	desiredPanicPodCount := int32(math.Min(math.Ceil(observedPanicValue/spec.TargetValue), maxScaleUp))
 
-	a.reporter.ReportStableRequestConcurrency(observedStableValue)
-	a.reporter.ReportPanicRequestConcurrency(observedPanicValue)
-	a.reporter.ReportTargetRequestConcurrency(spec.TargetValue)
-
-	logger.Debugw(fmt.Sprintf("Observed average %0.3f concurrency, targeting %0.3f.",
+	logger.Debugw(fmt.Sprintf("Observed average scaling metric value: %0.3f, targeting %0.3f.",
 		observedStableValue, spec.TargetValue),
-		zap.String("concurrency", "stable"))
-	logger.Debugw(fmt.Sprintf("Observed average %0.3f concurrency, targeting %0.3f.",
+		zap.String("mode", "stable"))
+	logger.Debugw(fmt.Sprintf("Observed average scaling metric value: %0.3f, targeting %0.3f.",
 		observedPanicValue, spec.TargetValue),
-		zap.String("concurrency", "panic"))
+		zap.String("mode", "panic"))
 
 	isOverPanicThreshold := observedPanicValue/readyPodsCount >= spec.PanicThreshold
 
@@ -195,14 +209,15 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	case a.deciderSpec.TargetBurstCapacity >= 0:
 		excessBC = int32(math.Floor(float64(originalReadyPodsCount)*a.deciderSpec.TotalValue - observedStableValue -
 			a.deciderSpec.TargetBurstCapacity))
-		logger.Debugf("PodCount=%v TotalConc=%v ObservedStableConc=%v TargetBC=%v ExcessBC=%v",
+		logger.Debugf("PodCount=%v TotalValue=%v ObservedStableValue=%v TargetBC=%v ExcessBC=%v",
 			originalReadyPodsCount,
 			a.deciderSpec.TotalValue,
 			observedStableValue, a.deciderSpec.TargetBurstCapacity, excessBC)
 	}
-	a.reporter.ReportExcessBurstCapacity(float64(excessBC))
 
+	a.reporter.ReportExcessBurstCapacity(float64(excessBC))
 	a.reporter.ReportDesiredPodCount(int64(desiredPodCount))
+
 	return desiredPodCount, excessBC, true
 }
 

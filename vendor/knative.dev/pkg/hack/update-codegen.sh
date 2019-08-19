@@ -47,7 +47,7 @@ ${CODEGEN_PKG}/generate-groups.sh "deepcopy" \
 
 # Depends on generate-groups.sh to install bin/deepcopy-gen
 ${GOPATH}/bin/deepcopy-gen --input-dirs \
-  knative.dev/pkg/apis,knative.dev/pkg/logging,knative.dev/pkg/testing \
+  knative.dev/pkg/apis,knative.dev/pkg/apis/v1alpha1,knative.dev/pkg/logging,knative.dev/pkg/testing \
   -O zz_generated.deepcopy \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 

@@ -49,7 +49,7 @@ function create_cluster() {
 # $1 -> cluster_name, $2 -> cluster_zone
 function create_secret() {
   echo "Create service account on cluster $1 in zone $2"
-  gcloud container clusters get-credentials $1 --zone=$1 --project=${PROJECT_NAME} || abort "Failed to get cluster creds"
+  gcloud container clusters get-credentials $1 --zone=$2 --project=${PROJECT_NAME} || abort "Failed to get cluster creds"
   kubectl create secret generic service-account --from-file=robot.json=${PERF_TEST_GOOGLE_APPLICATION_CREDENTIALS}
 }
 

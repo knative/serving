@@ -26,7 +26,6 @@ import (
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 // PodAutoscalerOption is an option that can be applied to a PA.
@@ -37,6 +36,21 @@ func WithProtocolType(pt networking.ProtocolType) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Spec.ProtocolType = pt
 	}
+}
+
+// WithReachabilityUnknown sets the reachability on the PodAutoscaler to `Unknown`
+func WithReachabilityUnknown(pa *autoscalingv1alpha1.PodAutoscaler) {
+	pa.Spec.Reachability = autoscalingv1alpha1.ReachabilityUnknown
+}
+
+// WithReachabilityReachable sets the reachability on the PodAutoscaler to `Reachable`
+func WithReachabilityReachable(pa *autoscalingv1alpha1.PodAutoscaler) {
+	pa.Spec.Reachability = autoscalingv1alpha1.ReachabilityReachable
+}
+
+// WithReachabilityUnreachable sets the reachability on the PodAutoscaler to `Unreachable`
+func WithReachabilityUnreachable(pa *autoscalingv1alpha1.PodAutoscaler) {
+	pa.Spec.Reachability = autoscalingv1alpha1.ReachabilityUnreachable
 }
 
 // WithPAOwnersRemoved clears the owner references of this PA resource.
@@ -108,7 +122,7 @@ func WithKPAClass(pa *autoscalingv1alpha1.PodAutoscaler) {
 
 // WithPAContainerConcurrency returns a PodAutoscalerOption which sets
 // the PodAutoscaler containerConcurrency to the provided value.
-func WithPAContainerConcurrency(cc v1beta1.RevisionContainerConcurrencyType) PodAutoscalerOption {
+func WithPAContainerConcurrency(cc int64) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Spec.ContainerConcurrency = cc
 	}

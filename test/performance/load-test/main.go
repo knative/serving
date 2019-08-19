@@ -21,43 +21,25 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
-	"knative.dev/pkg/injection/clients/kubeclient"
-	deploymentinformer "knative.dev/pkg/injection/informers/kubeinformers/appsv1/deployment"
-	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
-
 	"github.com/google/mako/helpers/go/quickstore"
-	qpb "github.com/google/mako/helpers/proto/quickstore/quickstore_go_proto"
 	vegeta "github.com/tsenart/vegeta/lib"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/clientcmd"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/injection"
 	"knative.dev/pkg/signals"
 	pkgpacers "knative.dev/pkg/test/vegeta/pacers"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/test/performance/mako"
+	"knative.dev/serving/test/performance/metrics"
 )
 
 var (
-	flavor     = flag.String("flavor", "", "The flavor of the benchmark to run.")
-	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	flavor = flag.String("flavor", "", "The flavor of the benchmark to run.")
 )
 
 func processResults(ctx context.Context, q *quickstore.Quickstore, results <-chan *vegeta.Result) {
-	dl := deploymentinformer.Get(ctx).Lister()
-	sksl := sksinformer.Get(ctx).Lister()
-
-	// Create a ticker to tick every second that prompts us to report a new
-	// summary sample point.
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-
 	// Accumulate the error and request rates along second boundaries.
 	errors := make(map[int64]int64)
 	requests := make(map[int64]int64)
@@ -80,6 +62,11 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 	selector := labels.SelectorFromSet(labels.Set{
 		serving.ServiceLabelKey: fmt.Sprintf("load-test-%s", *flavor),
 	})
+
+	ctx, cancel := context.WithCancel(ctx)
+	deploymentStatus := metrics.FetchDeploymentStatus(ctx, "default", selector, time.Second)
+	sksMode := metrics.FetchSKSMode(ctx, "default", selector, time.Second)
+	defer cancel()
 
 	for {
 		select {
@@ -104,41 +91,21 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 			// which we have data, even if there is no error.
 			errors[res.Timestamp.Unix()] += isAnError
 			requests[res.Timestamp.Unix()]++
-
-		case t := <-ticker.C:
-			// Each tick, fetch the state of the environment from our informer caches
-			// and overlay the resulting data.
-
-			// Overlay the desired and ready pod counts.
-			deployments, err := dl.Deployments("default").List(selector)
-			if err != nil {
-				log.Printf("Error listing deployments: %v", err)
-				break
+		case ds := <-deploymentStatus:
+			// Add a sample point for the deployment status
+			q.AddSamplePoint(mako.XTime(ds.Time), map[string]float64{
+				"dp": float64(ds.DesiredReplicas),
+				"ap": float64(ds.ReadyReplicas),
+			})
+		case sksm := <-sksMode:
+			// Add a sample point for the serverless service mode
+			mode := float64(0)
+			if sksm.Mode == netv1alpha1.SKSOperationModeProxy {
+				mode = 1.0
 			}
-			// TODO(mattmoor): Consider alternatives to a singleton.
-			for _, d := range deployments {
-				q.AddSamplePoint(mako.XTime(t), map[string]float64{
-					"dp": float64(*d.Spec.Replicas),
-					"ap": float64(d.Status.ReadyReplicas),
-				})
-			}
-
-			// Overlay the SKS "mode".
-			skses, err := sksl.ServerlessServices("default").List(selector)
-			if err != nil {
-				log.Printf("Error listing deployments: %v", err)
-				break
-			}
-			// TODO(mattmoor): Consider alternatives to a singleton.
-			for _, sks := range skses {
-				mode := float64(0)
-				if sks.Spec.Mode == netv1alpha1.SKSOperationModeProxy {
-					mode = 1.0
-				}
-				q.AddSamplePoint(mako.XTime(t), map[string]float64{
-					"sks": mode,
-				})
-			}
+			q.AddSamplePoint(mako.XTime(sksm.Time), map[string]float64{
+				"sks": mode,
+			})
 		}
 	}
 }
@@ -146,47 +113,22 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 func main() {
 	flag.Parse()
 
+	if *flavor == "" {
+		log.Fatalf("-flavor is a required flag.")
+	}
+
 	// We want this for properly handling Kubernetes container lifecycle events.
 	ctx := signals.NewContext()
-
-	// Setup a deployment informer, so that we can use the lister to track
-	// desired and available pod counts.
-	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
-	if err != nil {
-		log.Fatalf("Error building kubeconfig: %v", err)
-	}
-	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
-	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-		log.Fatalf("Failed to start informers: %v", err)
-	}
-
-	// Get the Kubernetes version from the API server.
-	version, err := kubeclient.Get(ctx).Discovery().ServerVersion()
-	if err != nil {
-		log.Fatalf("Failed to fetch kubernetes version: %v", err)
-	}
 
 	// We cron every 10 minutes, so give ourselves 6 minutes to complete.
 	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
 	defer cancel()
 
-	if *flavor == "" {
-		log.Fatalf("-flavor is a required flag.")
-	}
-
-	// Use the benchmark key created
-	q, qclose, err := quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
-		BenchmarkKey: mako.MustGetBenchmark(),
-		Tags: []string{
-			"master",
-			fmt.Sprintf("tbc=%s", *flavor),
-			// The format of version.String() is like "v1.13.7-gke.8",
-			// since Mako does not allow . in tags, replace them with _
-			fmt.Sprintf("kubernetes=%s", strings.ReplaceAll(version.String(), ".", "_")),
-		},
-	}, mako.SidecarAddress)
+	// Use the benchmark key created.
+	// '.' is an invalid char in mako tags. Replace with "_"
+	ctx, q, qclose, err := mako.Setup(ctx, "tbc="+*flavor)
 	if err != nil {
-		log.Fatalf("failed NewAtAddress: %v", err)
+		log.Fatalf("failed to setup mako: %v", err)
 	}
 	// Use a fresh context here so that our RPC to terminate the sidecar
 	// isn't subject to our timeout (or we won't shut it down when we time out)

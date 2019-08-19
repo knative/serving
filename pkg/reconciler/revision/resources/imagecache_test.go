@@ -49,7 +49,7 @@ func TestMakeImageCache(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 1,
+					ContainerConcurrency: ptr.Int64(1),
 				},
 				DeprecatedContainer: &corev1.Container{
 					Image: "busybox",
@@ -94,7 +94,7 @@ func TestMakeImageCache(t *testing.T) {
 			},
 			Spec: v1alpha1.RevisionSpec{
 				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 1,
+					ContainerConcurrency: ptr.Int64(1),
 					PodSpec: corev1.PodSpec{
 						ServiceAccountName: "privilegeless",
 					},

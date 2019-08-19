@@ -360,9 +360,9 @@ func revision(opts ...revisionOption) *v1alpha1.Revision {
 	return revision
 }
 
-func withContainerConcurrency(cc v1beta1.RevisionContainerConcurrencyType) revisionOption {
+func withContainerConcurrency(cc int64) revisionOption {
 	return func(revision *v1alpha1.Revision) {
-		revision.Spec.ContainerConcurrency = cc
+		revision.Spec.ContainerConcurrency = &cc
 	}
 }
 

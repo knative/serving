@@ -42,9 +42,11 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	networkinglisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 	"knative.dev/serving/pkg/reconciler"
+	networkaccessor "knative.dev/serving/pkg/reconciler/accessor/networking"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 	"knative.dev/serving/pkg/reconciler/route/resources"
@@ -94,7 +96,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return nil
 	}
 	logger := logging.FromContext(ctx)
-
+	ctx = controller.WithEventRecorder(ctx, c.Recorder)
 	ctx = c.configStore.ToContext(ctx)
 
 	// Get the Route resource with this namespace/name.
@@ -313,7 +315,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 	desiredCerts := resources.MakeCertificates(r, tagToDomainMap, certClass(ctx, r))
 	for _, desiredCert := range desiredCerts {
 
-		cert, err := c.reconcileCertificate(ctx, r, desiredCert)
+		cert, err := networkaccessor.ReconcileCertificate(ctx, r, desiredCert, c)
 		if err != nil {
 			r.Status.MarkCertificateProvisionFailed(desiredCert.Name)
 			return nil, err
@@ -499,6 +501,16 @@ func (c *Reconciler) getServiceNames(ctx context.Context, route *v1alpha1.Route)
 		desiredPublicServiceNames:        desiredPublicServiceNames,
 		desiredClusterLocalServiceNames:  desiredClusterLocalServiceNames,
 	}, nil
+}
+
+// GetServingClient returns the client to access Knative serving resources.
+func (c *Reconciler) GetServingClient() clientset.Interface {
+	return c.ServingClientSet
+}
+
+// GetCertificateLister returns the lister for Knative Certificate.
+func (c *Reconciler) GetCertificateLister() networkinglisters.CertificateLister {
+	return c.certificateLister
 }
 
 /////////////////////////////////////////

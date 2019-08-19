@@ -31,15 +31,15 @@ import (
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
-	"github.com/openzipkin/zipkin-go"
+	zipkin "github.com/openzipkin/zipkin-go"
 	"github.com/pkg/errors"
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/trace"
-	pkglogging "knative.dev/pkg/logging"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	pkglogging "knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/signals"
@@ -388,6 +388,7 @@ func main() {
 		composedHandler = pushRequestMetricHandler(composedHandler, requestCountM, responseTimeInMsecM, env)
 	}
 	composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
+	composedHandler = network.NewProbeHandler(composedHandler)
 	server := network.NewServer(":"+strconv.Itoa(env.QueueServingPort), composedHandler)
 
 	adminMux := http.NewServeMux()

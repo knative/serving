@@ -134,7 +134,7 @@ func (rt *FakeRoundTripper) RT(req *http.Request) (*http.Response, error) {
 		return nil, resp.Err
 	}
 
-	// verify that the request has the required rewritten host header.
+	// Verify that the request has the required rewritten host header.
 	if got, want := req.Host, ""; got != want {
 		return nil, fmt.Errorf("the req.Host has not been cleared out, was: %q", got)
 	}
