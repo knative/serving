@@ -388,6 +388,7 @@ func main() {
 		composedHandler = pushRequestMetricHandler(composedHandler, requestCountM, responseTimeInMsecM, env)
 	}
 	composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
+	composedHandler = network.NewProbeHandler(composedHandler)
 	server := network.NewServer(":"+strconv.Itoa(env.QueueServingPort), composedHandler)
 
 	adminMux := http.NewServeMux()
