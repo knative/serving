@@ -41,6 +41,12 @@ var (
 				ValueKey:            proto.String("kd"),
 			},
 		}},
+		CrossRunConfig: &tpb.CrossRunConfig{
+			RunInfoQueryList: []*mpb.RunInfoQuery{{
+				Limit: proto.Int32(10),
+			}},
+			MinRunCount: proto.Int32(10),
+		},
 	}
 
 	// This analyzer validates that the p95 latency talking to pods through Istio
@@ -58,6 +64,12 @@ var (
 				ValueKey:            proto.String("id"),
 			},
 		}},
+		CrossRunConfig: &tpb.CrossRunConfig{
+			RunInfoQueryList: []*mpb.RunInfoQuery{{
+				Limit: proto.Int32(10),
+			}},
+			MinRunCount: proto.Int32(10),
+		},
 	}
 
 	// This analyzer validates that the p95 latency hitting a Knative Service
@@ -73,6 +85,12 @@ var (
 				ValueKey:            proto.String("qp"),
 			},
 		}},
+		CrossRunConfig: &tpb.CrossRunConfig{
+			RunInfoQueryList: []*mpb.RunInfoQuery{{
+				Limit: proto.Int32(10),
+			}},
+			MinRunCount: proto.Int32(10),
+		},
 	}
 
 	// This analyzer validates that the p95 latency hitting a Knative Service
@@ -88,6 +106,12 @@ var (
 				ValueKey:            proto.String("a"),
 			},
 		}},
+		CrossRunConfig: &tpb.CrossRunConfig{
+			RunInfoQueryList: []*mpb.RunInfoQuery{{
+				Limit: proto.Int32(10),
+			}},
+			MinRunCount: proto.Int32(10),
+		},
 	}
 
 	// Map the above to our benchmark targets.

@@ -39,6 +39,12 @@ var (
 				ValueKey:            proto.String("l"),
 			},
 		}},
+		CrossRunConfig: &tpb.CrossRunConfig{
+			RunInfoQueryList: []*mpb.RunInfoQuery{{
+				Limit: proto.Int32(10),
+			}},
+			MinRunCount: proto.Int32(10),
+		},
 	}
 
 	// This analyzer validates that the maximum request latency observed over the 0->3k
@@ -55,6 +61,12 @@ var (
 				ValueKey: proto.String("l"),
 			},
 		}},
+		CrossRunConfig: &tpb.CrossRunConfig{
+			RunInfoQueryList: []*mpb.RunInfoQuery{{
+				Limit: proto.Int32(10),
+			}},
+			MinRunCount: proto.Int32(10),
+		},
 	}
 )
 
