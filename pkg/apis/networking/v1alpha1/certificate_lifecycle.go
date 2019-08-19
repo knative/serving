@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 )
@@ -35,13 +34,13 @@ func (cs *CertificateStatus) MarkReady() {
 	certificateCondSet.Manage(cs).MarkTrue(CertificateConditionReady)
 }
 
-// MarkUnknown marks the certificate status as unknown.
-func (cs *CertificateStatus) MarkUnknown(reason, message string) {
+// MarkNotReady marks the certificate status as unknown.
+func (cs *CertificateStatus) MarkNotReady(reason, message string) {
 	certificateCondSet.Manage(cs).MarkUnknown(CertificateConditionReady, reason, message)
 }
 
-// MarkNotReady marks the certificate as not ready.
-func (cs *CertificateStatus) MarkNotReady(reason, message string) {
+// MarkFailed marks the certificate as not ready.
+func (cs *CertificateStatus) MarkFailed(reason, message string) {
 	certificateCondSet.Manage(cs).MarkFalse(CertificateConditionReady, reason, message)
 }
 

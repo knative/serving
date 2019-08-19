@@ -123,13 +123,13 @@ func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate
 	cmCertReadyCondition := resources.GetReadyCondition(cmCert)
 	switch {
 	case cmCertReadyCondition == nil:
-		knCert.Status.MarkUnknown(noCMConditionReason, noCMConditionMessage)
+		knCert.Status.MarkNotReady(noCMConditionReason, noCMConditionMessage)
 	case cmCertReadyCondition.Status == cmv1alpha1.ConditionUnknown:
-		knCert.Status.MarkUnknown(cmCertReadyCondition.Reason, cmCertReadyCondition.Message)
+		knCert.Status.MarkNotReady(cmCertReadyCondition.Reason, cmCertReadyCondition.Message)
 	case cmCertReadyCondition.Status == cmv1alpha1.ConditionTrue:
 		knCert.Status.MarkReady()
 	case cmCertReadyCondition.Status == cmv1alpha1.ConditionFalse:
-		knCert.Status.MarkNotReady(cmCertReadyCondition.Reason, cmCertReadyCondition.Message)
+		knCert.Status.MarkFailed(cmCertReadyCondition.Reason, cmCertReadyCondition.Message)
 	}
 	return nil
 }
