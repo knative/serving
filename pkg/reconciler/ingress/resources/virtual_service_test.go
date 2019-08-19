@@ -227,7 +227,7 @@ func TestMakeMeshVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		Match: []v1alpha3.HTTPMatchRequest{{
 			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
 			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns(\.svc(\.cluster\.local)?)?(?::\d{1,5})?$`},
-			Gateways:  []string{},
+			Gateways:  []string{"mesh"},
 		}},
 		Route: []v1alpha3.HTTPRouteDestination{{
 			Destination: v1alpha3.Destination{
