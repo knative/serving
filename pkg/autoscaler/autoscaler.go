@@ -144,6 +144,9 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 		a.reporter.ReportTargetRequestConcurrency(spec.TargetValue)
 	}
 
+	// Put the scaling metric to logs.
+	logger = logger.With(zap.String("metric", metricName))
+
 	if err != nil {
 		if err == ErrNoData {
 			logger.Debug("No data to scale on yet")
