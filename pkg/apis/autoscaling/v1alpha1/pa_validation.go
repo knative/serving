@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"knative.dev/pkg/apis"
@@ -62,11 +61,7 @@ func (pa *PodAutoscaler) validateMetric() *apis.FieldError {
 			// Leave other classes of PodAutoscaler alone.
 			return nil
 		}
-		return &apis.FieldError{
-			Message: fmt.Sprintf("Unsupported metric %q for PodAutoscaler class %q",
-				metric, pa.Class()),
-			Paths: []string{"annotations[autoscaling.knative.dev/metric]"},
-		}
+		return apis.ErrInvalidValue(metric, "annotations[autoscaling.knative.dev/metric]")
 	}
 	return nil
 }
