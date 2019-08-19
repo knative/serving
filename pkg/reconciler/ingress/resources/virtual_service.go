@@ -23,7 +23,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -36,13 +35,9 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
+	net "knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/ingress/resources/names"
 	"knative.dev/serving/pkg/resources"
-)
-
-const (
-	// ProbeHostSuffix is the suffix of the hosts used for probing
-	ProbeHostSuffix = ".probe.invalid"
 )
 
 // VirtualServiceNamespace gives the namespace of the child
@@ -111,6 +106,12 @@ func MakeMeshVirtualService(ia v1alpha1.IngressAccessor) *v1alpha3.VirtualServic
 
 // MakeVirtualServices creates a mesh virtualservice and a virtual service for each gateway
 func MakeVirtualServices(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.IngressVisibility]sets.String) ([]*v1alpha3.VirtualService, error) {
+	// Insert probe header
+	ia = ia.DeepCopyObject().(v1alpha1.IngressAccessor)
+	if _, err := InsertProbe(ia); err != nil {
+		return nil, fmt.Errorf("failed to insert a probe into the IngressAccessor: %v", err)
+	}
+
 	vss := []*v1alpha3.VirtualService{MakeMeshVirtualService(ia)}
 
 	requiredGatewayCount := 0
@@ -126,40 +127,52 @@ func MakeVirtualServices(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.Ingr
 		vss = append(vss, MakeIngressVirtualService(ia, gateways))
 	}
 
-	// Add probe routes
-	for _, vs := range vss {
-		if _, err := InsertProbe(vs); err != nil {
-			return nil, errors.Wrapf(err, "failed to insert probe route to %s/%s", vs.Namespace, vs.Name)
-		}
-	}
-
 	return vss, nil
 }
 
-// InsertProbe inserts a rule used to probe the VirtualService
-func InsertProbe(vs *v1alpha3.VirtualService) (string, error) {
-	hash, err := computeVirtualServiceHash(vs)
+// InsertProbe adds a AppendHeader rule so that any request going through a Gateway is tagged with
+// the version of the Ingress currently deployed on the Gateway.
+func InsertProbe(ia v1alpha1.IngressAccessor) (string, error) {
+	bytes, err := ComputeIngressHash(ia)
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to compute the hash of %s/%s", vs.Namespace, vs.Name)
+		return "", fmt.Errorf("failed to compute the hash of the IngressAccessor: %v", err)
 	}
-	// As per RFC1153, a DNS label must be under 63 8-bit octets
-	host := fmt.Sprintf("%x", hash) + ProbeHostSuffix
-	vs.Spec.Hosts = append(vs.Spec.Hosts, host)
-	vs.Spec.HTTP = append(vs.Spec.HTTP, makeProbeRoute(host))
-	return host, nil
+	hash := fmt.Sprintf("%x", bytes)
+
+	for _, rule := range ia.GetSpec().Rules {
+		for i := range rule.HTTP.Paths {
+			if rule.HTTP.Paths[i].AppendHeaders == nil {
+				rule.HTTP.Paths[i].AppendHeaders = make(map[string]string, 1)
+			}
+			rule.HTTP.Paths[i].AppendHeaders[net.HashHeaderName] = hash
+		}
+	}
+
+	return hash, nil
 }
 
-// computeVirtualService computes a hash of the VirtualService Spec and Namespace.
-// It is designed to uniquely identify the effect of a VirtualService. Therefore,
-// Name is irrelevant but Namespace is relevant because Gateway resolution is done within the
-// namespace of the VirtualService if a namespace is not specified in the Gateway definition.
-func computeVirtualServiceHash(vs *v1alpha3.VirtualService) ([16]byte, error) {
-	bytes, err := json.Marshal(vs.Spec)
+// ComputeIngressHash computes a hash of the Ingress Spec, Namespace and Name
+func ComputeIngressHash(ia v1alpha1.IngressAccessor) ([16]byte, error) {
+	bytes, err := json.Marshal(ia.GetSpec())
 	if err != nil {
-		return [16]byte{}, fmt.Errorf("failed to serialize the VirtualServiceSpec: %v", err)
+		return [16]byte{}, fmt.Errorf("failed to serialize IngressAccessor: %v", err)
 	}
-	bytes = append(bytes, []byte(vs.Namespace)...)
+	bytes = append(bytes, []byte(ia.GetNamespace())...)
+	bytes = append(bytes, []byte(ia.GetName())...)
 	return md5.Sum(bytes), nil
+}
+
+// HostsPerGateway returns the set of hosts that each Gateway handles
+func HostsPerGateway(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.IngressVisibility]sets.String) map[string][]string {
+	output := make(map[string][]string)
+	for _, rule := range ia.GetSpec().Rules {
+		for host := range expandedHosts(sets.NewString(rule.Hosts...)) {
+			for gateway := range gateways[rule.Visibility] {
+				output[gateway] = append(output[gateway], host)
+			}
+		}
+	}
+	return output
 }
 
 func makeVirtualServiceSpec(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.IngressVisibility]sets.String, hosts sets.String) *v1alpha3.VirtualServiceSpec {
@@ -178,31 +191,6 @@ func makeVirtualServiceSpec(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.I
 		}
 	}
 	return &spec
-}
-
-func makeProbeRoute(host string) v1alpha3.HTTPRoute {
-	return v1alpha3.HTTPRoute{
-		// Matches the provided host
-		Match: []v1alpha3.HTTPMatchRequest{{
-			Authority: &istiov1alpha1.StringMatch{
-				Exact: host,
-			}}},
-		// Always returns HTTP 200
-		Fault: &v1alpha3.HTTPFaultInjection{
-			Abort: &v1alpha3.InjectAbort{
-				Percent:    100,
-				HTTPStatus: 200,
-			}},
-		// Unused dummy destination
-		Route: []v1alpha3.HTTPRouteDestination{{
-			Destination: v1alpha3.Destination{
-				Host: "null.invalid",
-				Port: v1alpha3.PortSelector{
-					Number: 80,
-				},
-			},
-		}},
-	}
 }
 
 func makePortSelector(ios intstr.IntOrString) v1alpha3.PortSelector {

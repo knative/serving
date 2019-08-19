@@ -1843,7 +1843,6 @@
     "go.uber.org/atomic",
     "go.uber.org/zap",
     "go.uber.org/zap/zapcore",
-    "go.uber.org/zap/zaptest",
     "golang.org/x/net/context",
     "golang.org/x/net/http2",
     "golang.org/x/net/http2/h2c",
