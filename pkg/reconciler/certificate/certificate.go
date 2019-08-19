@@ -110,6 +110,8 @@ func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate
 	knCert.Status.InitializeConditions()
 
 	logger.Infof("Reconciling Cert-Manager certificate for Knative cert %s/%s.", knCert.Namespace, knCert.Name)
+	knCert.Status.ObservedGeneration = knCert.Generation
+
 	cmConfig := config.FromContext(ctx).CertManager
 	cmCert := resources.MakeCertManagerCertificate(cmConfig, knCert)
 	cmCert, err := c.reconcileCMCertificate(ctx, knCert, cmCert)
@@ -118,7 +120,6 @@ func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate
 	}
 
 	knCert.Status.NotAfter = cmCert.Status.NotAfter
-	knCert.Status.ObservedGeneration = knCert.Generation
 	// Propagate cert-manager Certificate status to Knative Certificate.
 	cmCertReadyCondition := resources.GetReadyCondition(cmCert)
 	switch {

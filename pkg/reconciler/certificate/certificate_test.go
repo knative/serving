@@ -139,6 +139,39 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/knCert",
 	}, {
+		Name: "observed generation is still updated when error is encountered",
+		Objects: []runtime.Object{
+			knCertWithGeneration("knCert", "foo", generation+1),
+			cmCert("knCert", "foo", incorrectDNSNames),
+		},
+		WantErr: true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "certificates"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cmCert("knCert", "foo", correctDNSNames),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: knCertWithStatusAndGeneration("knCert", "foo",
+				&v1alpha1.CertificateStatus{
+					Status: duckv1beta1.Status{
+						ObservedGeneration: generation + 1,
+						Conditions: duckv1beta1.Conditions{{
+							Type:     v1alpha1.CertificateConditionReady,
+							Status:   corev1.ConditionUnknown,
+							Severity: apis.ConditionSeverityError,
+						}},
+					},
+				}, generation+1),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to create Cert-Manager Certificate %s: %v",
+				"foo/knCert", "inducing failure for update certificates"),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for Certificate %s: %v",
+				"foo/knCert", "inducing failure for update certificates"),
+		},
+		Key: "foo/knCert",
+	}, {
 		Name: "set Knative Certificate ready status with CM Certificate ready status",
 		Objects: []runtime.Object{
 			knCert("knCert", "foo"),
@@ -247,12 +280,20 @@ func knCert(name, namespace string) *v1alpha1.Certificate {
 	return knCertWithStatus(name, namespace, &v1alpha1.CertificateStatus{})
 }
 
+func knCertWithGeneration(name, namespace string, gen int) *v1alpha1.Certificate {
+	return knCertWithStatusAndGeneration(name, namespace, &v1alpha1.CertificateStatus{}, gen)
+}
+
 func knCertWithStatus(name, namespace string, status *v1alpha1.CertificateStatus) *v1alpha1.Certificate {
+	return knCertWithStatusAndGeneration(name, namespace, status, generation)
+}
+
+func knCertWithStatusAndGeneration(name, namespace string, status *v1alpha1.CertificateStatus, gen int) *v1alpha1.Certificate {
 	return &v1alpha1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       name,
 			Namespace:  namespace,
-			Generation: generation,
+			Generation: int64(gen),
 		},
 		Spec: v1alpha1.CertificateSpec{
 			DNSNames:   correctDNSNames,
