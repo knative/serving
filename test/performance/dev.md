@@ -3,13 +3,13 @@
 This document describes how to start running writing benchmarks with mako on
 GKE.
 
-# Preconditions
+## Preconditions
 
 - Assume cluster exists with istio lean and serving installed.
 - ko is installed
 - gcloud is installed
 
-# Steps
+## Steps
 
 1. Apply
    [mako config](https://raw.githubusercontent.com/knative/serving/master/test/performance/config/config-mako.yaml)
