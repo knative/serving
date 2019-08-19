@@ -52,7 +52,6 @@ GKE.
 
 1. Wait for above to stabilize
 1. Attach your desired tags to the runs by editing the config map, see the `_example` stanza for how.
-   
   ```shell
   kubectl edit cm config-mako
   ```
