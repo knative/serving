@@ -145,7 +145,7 @@ var (
 		"activator-with-cc": {
 			target: vegeta.Target{
 				Method: "GET",
-				URL:    "http://activator0with-cc.default.svc.cluster.local?sleep=100",
+				URL:    "http://activator-with-cc.default.svc.cluster.local?sleep=100",
 			},
 			stat:      "ac",
 			estat:     "be",
