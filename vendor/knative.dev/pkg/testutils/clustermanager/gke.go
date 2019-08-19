@@ -57,11 +57,11 @@ func (gs *GKEClient) Setup(numNodes *int, nodeType *string, region *string, zone
 	}
 	// check for Prow
 	if common.IsProw() {
-		project, err := boskos.AcquireGKEProject()
+		boskosRes, err := boskos.AcquireGKEProject(nil)
 		if nil != err {
 			return nil, fmt.Errorf("failed acquire boskos project: '%v'", err)
 		}
-		gc.Project = &project
+		gc.Project = &boskosRes.Name
 	}
 	if nil == gc.Project || "" == *gc.Project {
 		return nil, fmt.Errorf("gcp project must be set")
