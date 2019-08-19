@@ -121,7 +121,16 @@ var (
 				URL:    "http://queue-proxy.default.svc.cluster.local?sleep=100",
 			},
 			stat:      "qp",
-			estat:     "qp",
+			estat:     "qe",
+			analyzers: []*tpb.ThresholdAnalyzerInput{Queue95PercentileLatency},
+		},
+		"queue-with-cc": {
+			target: vegeta.Target{
+				Method: "GET",
+				URL:    "http://queue-proxy-with-cc.default.svc.cluster.local?sleep=100",
+			},
+			stat:      "qc",
+			estat:     "re",
 			analyzers: []*tpb.ThresholdAnalyzerInput{Queue95PercentileLatency},
 		},
 		"activator": {
@@ -131,6 +140,15 @@ var (
 			},
 			stat:      "a",
 			estat:     "ae",
+			analyzers: []*tpb.ThresholdAnalyzerInput{Activator95PercentileLatency},
+		},
+		"activator-with-cc": {
+			target: vegeta.Target{
+				Method: "GET",
+				URL:    "http://activator0with-cc.default.svc.cluster.local?sleep=100",
+			},
+			stat:      "ac",
+			estat:     "be",
 			analyzers: []*tpb.ThresholdAnalyzerInput{Activator95PercentileLatency},
 		},
 	}
