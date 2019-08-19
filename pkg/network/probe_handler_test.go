@@ -38,6 +38,7 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 		options: []interface{}{
 			prober.WithHeader(ProbeHeaderName, ProbeHeaderValue),
 			prober.WithHeader(HashHeaderName, "foo-bar-baz"),
+			prober.ExpectsStatusCodes([]int{http.StatusOK}),
 		},
 		want: true,
 	}, {
@@ -47,6 +48,7 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 			prober.ExpectsBody(body),
 			// Validates the header is stripped before forwarding to the inner handler
 			prober.ExpectsHeader(HashHeaderName, "false"),
+			prober.ExpectsStatusCodes([]int{http.StatusOK}),
 		},
 		want: true,
 	}, {
@@ -58,12 +60,14 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 			prober.ExpectsHeader(ProbeHeaderName, "true"),
 			// Validates the header is stripped before forwarding to the inner handler
 			prober.ExpectsHeader(HashHeaderName, "false"),
+			prober.ExpectsStatusCodes([]int{http.StatusOK}),
 		},
 		want: true,
 	}, {
 		name: "failed probe when hash header is not present",
 		options: []interface{}{
 			prober.WithHeader(ProbeHeaderName, ProbeHeaderValue),
+			prober.ExpectsStatusCodes([]int{http.StatusOK}),
 		},
 		want: false,
 	}}

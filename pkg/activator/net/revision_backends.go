@@ -136,7 +136,8 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (bool, error)
 	}
 	return prober.Do(ctx, rw.transport, httpDest.String(),
 		prober.WithHeader(network.ProbeHeaderName, queue.Name),
-		prober.ExpectsBody(queue.Name))
+		prober.ExpectsBody(queue.Name),
+		prober.ExpectsStatusCodes([]int{http.StatusOK}))
 
 }
 
