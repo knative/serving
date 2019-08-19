@@ -26,6 +26,7 @@ import (
 	_ "knative.dev/pkg/injection/clients/kubeclient/fake"
 	_ "knative.dev/serving/pkg/client/private/injection/client/fake"
 	_ "knative.dev/serving/pkg/client/serving/injection/client/fake"
+	_ "knative.dev/serving/pkg/manual/injection/client/fake"
 
 	"k8s.io/client-go/rest"
 	"knative.dev/pkg/configmap"

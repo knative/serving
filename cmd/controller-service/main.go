@@ -21,20 +21,16 @@ import (
 	"flag"
 	"log"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
-	"knative.dev/serving/pkg/apis/internalversions/serving/install"
-	servingscheme "knative.dev/serving/pkg/client/serving/clientset/internalversion/scheme"
-	"knative.dev/serving/pkg/reconciler/configuration"
-	"knative.dev/serving/pkg/reconciler/gc"
-	"knative.dev/serving/pkg/reconciler/labeler"
-	"knative.dev/serving/pkg/reconciler/revision"
-	"knative.dev/serving/pkg/reconciler/route"
-	"knative.dev/serving/pkg/reconciler/serverlessservice"
-	"knative.dev/serving/pkg/reconciler/service"
 
 	// This defines the shared main for injected controllers.
+
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/signals"
+	"knative.dev/serving/pkg/apis/serving"
+	servingscheme "knative.dev/serving/pkg/client/serving/clientset/internalversion/scheme"
+	"knative.dev/serving/pkg/reconciler/service"
 )
 
 func main() {
@@ -54,18 +50,42 @@ func main() {
 		log.Fatal("Error discovering serving APIs", err)
 	}
 
-	install.DiscoverAndUpdateVersionPriority(dclient, servingscheme.Scheme)
+	// TODO(dprotaso) We'd normally do this for the entire API group and
+	// not a single resource.
+	// For demo purposes swap the service version based on what's available
+	resourceList, err := discovery.ServerPreferredResources(dclient) // ([]*metav1.APIResourceList, error) {
+
+	if err != nil {
+		log.Panicf("error fetching k8s resources: %v", err)
+	}
+
+	var kServiceAPIVersion string
+
+outer:
+	for _, list := range resourceList {
+		gv, _ := schema.ParseGroupVersion(list.GroupVersion)
+		if gv.Group != serving.GroupName {
+			continue
+		}
+
+		for _, r := range list.APIResources {
+			if r.Kind == "Service" {
+				kServiceAPIVersion = gv.Version
+				servingscheme.Scheme.SetVersionPriority(gv)
+				break outer
+			}
+		}
+	}
+	if kServiceAPIVersion == "" {
+		panic("Unable to determine Knative Service API Version")
+	}
+
+	log.Printf("Using Service version: %v", kServiceAPIVersion)
 
 	sharedmain.MainWithConfig(
 		signals.NewContext(),
-		"controller",
+		"controller-service",
 		cfg,
-		configuration.NewController,
-		labeler.NewRouteToConfigurationController,
-		revision.NewController,
-		route.NewController,
-		serverlessservice.NewController,
 		service.NewController,
-		gc.NewController,
 	)
 }

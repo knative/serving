@@ -32,13 +32,12 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
-	listers "knative.dev/serving/pkg/client/serving/listers/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/internalversions/serving"
+	listers "knative.dev/serving/pkg/client/serving/listers/serving/internalversion"
 	"knative.dev/serving/pkg/reconciler"
-	cfgreconciler "knative.dev/serving/pkg/reconciler/configuration"
 	"knative.dev/serving/pkg/reconciler/service/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
+	. "knative.dev/serving/pkg/reconciler/todo"
 )
 
 const (
@@ -116,7 +115,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// the webhook to upgrade via defaulting.  Status updates do not trigger this due to the
 	// use of the /status resource.
 	if !equality.Semantic.DeepEqual(original.Spec, service.Spec) {
-		services := v1alpha1.SchemeGroupVersion.WithResource("services")
+		services := serving.SchemeGroupVersion.WithResource("services")
 		if err := c.MarkNeedsUpgrade(services, service.Namespace, service.Name); err != nil {
 			return err
 		}
@@ -124,23 +123,26 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	return nil
 }
 
-func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) error {
+func (c *Reconciler) reconcile(ctx context.Context, service *serving.Service) error {
 	logger := logging.FromContext(ctx)
 
 	// We may be reading a version of the object that was stored at an older version
 	// and may not have had all of the assumed defaults specified.  This won't result
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
-	service.SetDefaults(v1beta1.WithUpgradeViaDefaulting(ctx))
+	//
+	// TODO(dprotaso) sort out defaults
+	// service.SetDefaults(v1beta1.WithUpgradeViaDefaulting(ctx))
 	service.Status.InitializeConditions()
 
-	if err := service.ConvertUp(ctx, &v1beta1.Service{}); err != nil {
-		if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
-			service.Status.MarkResourceNotConvertible(ce)
-			return nil
-		}
-		return err
-	}
+	// TODO(dprotaso)
+	// if err := service.ConvertUp(ctx, &v1beta1.Service{}); err != nil {
+	// 	if ce, ok := err.(*serving.CannotConvertError); ok {
+	// 		service.Status.MarkResourceNotConvertible(ce)
+	// 		return nil
+	// 	}
+	// 	return err
+	// }
 
 	config, err := c.config(ctx, logger, service)
 	if err != nil {
@@ -160,7 +162,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	// by our Configuration and matches its generation before reprogramming the Route,
 	// otherwise a bad patch could lead to folks inadvertently routing traffic to a
 	// pre-existing Revision (possibly for another Configuration).
-	if _, err := cfgreconciler.CheckNameAvailability(config, c.revisionLister); err != nil &&
+	if _, err := CheckNameAvailability(config, c.revisionLister); err != nil &&
 		!apierrs.IsNotFound(err) {
 		service.Status.MarkRevisionNameTaken(config.Spec.GetTemplate().Name)
 		return nil
@@ -188,7 +190,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	return nil
 }
 
-func (c *Reconciler) config(ctx context.Context, logger *zap.SugaredLogger, service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
+func (c *Reconciler) config(ctx context.Context, logger *zap.SugaredLogger, service *serving.Service) (*serving.Configuration, error) {
 	configName := resourcenames.Configuration(service)
 	config, err := c.configurationLister.Configurations(service.Namespace).Get(configName)
 	if apierrs.IsNotFound(err) {
@@ -217,7 +219,7 @@ func (c *Reconciler) config(ctx context.Context, logger *zap.SugaredLogger, serv
 	return config, nil
 }
 
-func (c *Reconciler) route(ctx context.Context, logger *zap.SugaredLogger, service *v1alpha1.Service) (*v1alpha1.Route, error) {
+func (c *Reconciler) route(ctx context.Context, logger *zap.SugaredLogger, service *serving.Service) (*serving.Route, error) {
 	routeName := resourcenames.Route(service)
 	route, err := c.routeLister.Routes(service.Namespace).Get(routeName)
 	if apierrs.IsNotFound(err) {
@@ -242,9 +244,9 @@ func (c *Reconciler) route(ctx context.Context, logger *zap.SugaredLogger, servi
 	return route, nil
 }
 
-func (c *Reconciler) checkRoutesNotReady(config *v1alpha1.Configuration, logger *zap.SugaredLogger, route *v1alpha1.Route, service *v1alpha1.Service) {
+func (c *Reconciler) checkRoutesNotReady(config *serving.Configuration, logger *zap.SugaredLogger, route *serving.Route, service *serving.Service) {
 	// `manual` is not reconciled.
-	rc := service.Status.GetCondition(v1alpha1.ServiceConditionRoutesReady)
+	rc := service.Status.GetCondition(serving.ServiceConditionRoutesReady)
 	if rc == nil || rc.Status != corev1.ConditionTrue {
 		return
 	}
@@ -262,8 +264,7 @@ func (c *Reconciler) checkRoutesNotReady(config *v1alpha1.Configuration, logger 
 			want[idx].ConfigurationName = ""
 		}
 	}
-	ignoreFields := cmpopts.IgnoreFields(v1alpha1.TrafficTarget{},
-		"TrafficTarget.URL", "TrafficTarget.LatestRevision",
+	ignoreFields := cmpopts.IgnoreFields(serving.TrafficTarget{}, "URL", "LatestRevision",
 		// We specify the Routing via Tag in spec, but the status surfaces it
 		// via both names for now, so ignore the deprecated name field when
 		// comparing them.
@@ -274,7 +275,7 @@ func (c *Reconciler) checkRoutesNotReady(config *v1alpha1.Configuration, logger 
 	}
 }
 
-func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service, error) {
+func (c *Reconciler) updateStatus(desired *serving.Service) (*serving.Service, error) {
 	service, err := c.serviceLister.Services(desired.Namespace).Get(desired.Name)
 	if err != nil {
 		return nil, err
@@ -288,7 +289,7 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service,
 	existing := service.DeepCopy()
 	existing.Status = desired.Status
 
-	svc, err := c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).UpdateStatus(existing)
+	svc, err := c.InternalServingClientSet.Serving().Services(desired.Namespace).UpdateStatus(existing)
 	if err == nil && becomesReady {
 		duration := time.Since(svc.ObjectMeta.CreationTimestamp.Time)
 		c.Logger.Infof("Service %q became ready after %v", service.Name, duration)
@@ -298,21 +299,21 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service,
 	return svc, err
 }
 
-func (c *Reconciler) createConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
+func (c *Reconciler) createConfiguration(service *serving.Service) (*serving.Configuration, error) {
 	cfg, err := resources.MakeConfiguration(service)
 	if err != nil {
 		return nil, err
 	}
-	return c.ServingClientSet.ServingV1alpha1().Configurations(service.Namespace).Create(cfg)
+	return c.InternalServingClientSet.Serving().Configurations(service.Namespace).Create(cfg)
 }
 
-func configSemanticEquals(desiredConfig, config *v1alpha1.Configuration) bool {
+func configSemanticEquals(desiredConfig, config *serving.Configuration) bool {
 	return equality.Semantic.DeepEqual(desiredConfig.Spec, config.Spec) &&
 		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Labels, config.ObjectMeta.Labels) &&
 		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Annotations, config.ObjectMeta.Annotations)
 }
 
-func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alpha1.Service, config *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
+func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *serving.Service, config *serving.Configuration) (*serving.Configuration, error) {
 	logger := logging.FromContext(ctx)
 	desiredConfig, err := resources.MakeConfiguration(service)
 	if err != nil {
@@ -335,10 +336,10 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 	existing.Spec = desiredConfig.Spec
 	existing.ObjectMeta.Labels = desiredConfig.ObjectMeta.Labels
 	existing.ObjectMeta.Annotations = desiredConfig.ObjectMeta.Annotations
-	return c.ServingClientSet.ServingV1alpha1().Configurations(service.Namespace).Update(existing)
+	return c.InternalServingClientSet.Serving().Configurations(service.Namespace).Update(existing)
 }
 
-func (c *Reconciler) createRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
+func (c *Reconciler) createRoute(service *serving.Service) (*serving.Route, error) {
 	route, err := resources.MakeRoute(service)
 	if err != nil {
 		// This should be unreachable as configuration creation
@@ -346,16 +347,16 @@ func (c *Reconciler) createRoute(service *v1alpha1.Service) (*v1alpha1.Route, er
 		// that would make `MakeRoute` fail as well.
 		return nil, err
 	}
-	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Create(route)
+	return c.InternalServingClientSet.Serving().Routes(service.Namespace).Create(route)
 }
 
-func routeSemanticEquals(desiredRoute, route *v1alpha1.Route) bool {
+func routeSemanticEquals(desiredRoute, route *serving.Route) bool {
 	return equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) &&
 		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Labels, route.ObjectMeta.Labels) &&
 		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Annotations, route.ObjectMeta.Annotations)
 }
 
-func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Service, route *v1alpha1.Route) (*v1alpha1.Route, error) {
+func (c *Reconciler) reconcileRoute(ctx context.Context, service *serving.Service, route *serving.Route) (*serving.Route, error) {
 	logger := logging.FromContext(ctx)
 	desiredRoute, err := resources.MakeRoute(service)
 	if err != nil {
@@ -381,5 +382,5 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 	existing.Spec = desiredRoute.Spec
 	existing.ObjectMeta.Labels = desiredRoute.ObjectMeta.Labels
 	existing.ObjectMeta.Annotations = desiredRoute.ObjectMeta.Annotations
-	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Update(existing)
+	return c.InternalServingClientSet.Serving().Routes(service.Namespace).Update(existing)
 }

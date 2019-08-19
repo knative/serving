@@ -100,7 +100,9 @@ func Convert_v1beta1_RouteSpec_To_serving_RouteSpec(in *RouteSpec, out *serving.
 
 func Convert_serving_RouteStatusFields_To_v1beta1_RouteStatusFields(in *serving.RouteStatusFields, out *RouteStatusFields, s conversion.Scope) error {
 	out.URL = in.URL
-	out.Address = &in.Address.Addressable
+	if in.Address != nil {
+		out.Address = &in.Address.Addressable
+	}
 	out.Traffic = make([]TrafficTarget, len(in.Traffic))
 
 	for i, target := range in.Traffic {

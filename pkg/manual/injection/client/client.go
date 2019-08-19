@@ -42,7 +42,7 @@ func withClient(ctx context.Context, cfg *rest.Config) context.Context {
 func Get(ctx context.Context) internalversion.Interface {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
-		logging.FromContext(ctx).Fatalf(
+		logging.FromContext(ctx).Panicf(
 			"Unable to fetch %T from context.", (internalversion.Interface)(nil))
 	}
 	return untyped.(internalversion.Interface)

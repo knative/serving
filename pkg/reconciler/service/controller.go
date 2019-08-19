@@ -19,15 +19,15 @@ package service
 import (
 	"context"
 
-	configurationinformer "knative.dev/serving/pkg/client/serving/injection/informers/serving/v1alpha1/configuration"
-	revisioninformer "knative.dev/serving/pkg/client/serving/injection/informers/serving/v1alpha1/revision"
-	routeinformer "knative.dev/serving/pkg/client/serving/injection/informers/serving/v1alpha1/route"
-	kserviceinformer "knative.dev/serving/pkg/client/serving/injection/informers/serving/v1alpha1/service"
+	configurationinformer "knative.dev/serving/pkg/manual/injection/informers/serving/internalversion/configuration"
+	revisioninformer "knative.dev/serving/pkg/manual/injection/informers/serving/internalversion/revision"
+	routeinformer "knative.dev/serving/pkg/manual/injection/informers/serving/internalversion/route"
+	kserviceinformer "knative.dev/serving/pkg/manual/injection/informers/serving/internalversion/service"
 
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/internalversions/serving"
 	"knative.dev/serving/pkg/reconciler"
 )
 
@@ -59,12 +59,12 @@ func NewController(
 	serviceInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	configurationInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Service")),
+		FilterFunc: reconciler.FilterGroupKind(serving.Kind("Service")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
 	routeInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Service")),
+		FilterFunc: reconciler.FilterGroupKind(serving.Kind("Service")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 

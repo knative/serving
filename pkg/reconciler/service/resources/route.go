@@ -20,15 +20,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/kmeta"
-	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/internalversions/serving"
+	servingcommon "knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/reconciler/service/resources/names"
 	"knative.dev/serving/pkg/resources"
 )
 
 // MakeRoute creates a Route from a Service object.
-func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
-	c := &v1alpha1.Route{
+func MakeRoute(service *serving.Service) (*serving.Route, error) {
+	c := &serving.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.Route(service),
 			Namespace: service.Namespace,
@@ -38,7 +38,7 @@ func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 			Annotations: service.GetAnnotations(),
 			Labels: resources.UnionMaps(service.GetLabels(), map[string]string{
 				// Add this service's name to the route annotations.
-				serving.ServiceLabelKey: service.Name,
+				servingcommon.ServiceLabelKey: service.Name,
 			}),
 		},
 		Spec: *service.Spec.RouteSpec.DeepCopy(),

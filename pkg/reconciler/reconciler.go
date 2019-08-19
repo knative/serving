@@ -37,6 +37,7 @@ import (
 	"knative.dev/pkg/injection/clients/kubeclient"
 	privateclient "knative.dev/serving/pkg/client/private/injection/client"
 	servingclient "knative.dev/serving/pkg/client/serving/injection/client"
+	internalservingclient "knative.dev/serving/pkg/manual/injection/client"
 
 	cachingclientset "knative.dev/caching/pkg/client/clientset/versioned"
 	sharedclientset "knative.dev/pkg/client/clientset/versioned"
@@ -45,8 +46,9 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	privateclientset "knative.dev/serving/pkg/client/private/clientset/versioned"
+	internalservingclientset "knative.dev/serving/pkg/client/serving/clientset/internalversion"
+	internalServingScheme "knative.dev/serving/pkg/client/serving/clientset/internalversion/scheme"
 	servingclientset "knative.dev/serving/pkg/client/serving/clientset/versioned"
-	servingScheme "knative.dev/serving/pkg/client/serving/clientset/versioned/scheme"
 )
 
 const (
@@ -72,6 +74,9 @@ type Base struct {
 
 	// PrivateClientSet allows us to configure Autoscaling & Networking objects
 	PrivateClientSet privateclientset.Interface
+
+	// ServingClientSet allows us to configure Serving objects
+	InternalServingClientSet internalservingclientset.Interface
 
 	// ServingClientSet allows us to configure Serving objects
 	ServingClientSet servingclientset.Interface
@@ -153,6 +158,17 @@ func NewBase(ctx context.Context, controllerAgentName string, cmw configmap.Watc
 		Logger:           logger,
 	}
 
+	// TODO(dprotaso) Remove once we fully convert to internal APIs
+	// We recover since I temporarly don't want to convert all the
+	// reconcilers over at once
+	func() {
+		defer func() {
+			recover()
+		}()
+
+		base.InternalServingClientSet = internalservingclient.Get(ctx)
+	}()
+
 	return base
 }
 
@@ -166,5 +182,26 @@ func (b *Base) MarkNeedsUpgrade(gvr schema.GroupVersionResource, namespace, name
 func init() {
 	// Add serving types to the default Kubernetes Scheme so Events can be
 	// logged for serving types.
-	servingScheme.AddToScheme(scheme.Scheme)
+	//
+	// This installs all versions
+	internalServingScheme.Install(scheme.Scheme)
+}
+
+// FilterGroupKind makes it simple to create FilterFunc's for use with
+// cache.FilteringResourceEventHandler that filter based on the
+// schema.GroupKind of the controlling resources.
+func FilterGroupKind(gk schema.GroupKind) func(obj interface{}) bool {
+	return func(obj interface{}) bool {
+		if object, ok := obj.(metav1.Object); ok {
+			owner := metav1.GetControllerOf(object)
+
+			// TODO(dprotaso) Handle error
+			ownerGV, _ := schema.ParseGroupVersion(owner.APIVersion)
+
+			return owner != nil &&
+				ownerGV.Group == gk.Group &&
+				owner.Kind == gk.Kind
+		}
+		return false
+	}
 }
