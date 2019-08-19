@@ -118,7 +118,7 @@ func newConfigWatcher() configmap.Watcher {
 
 func withScales(g, w int32) PodAutoscalerOption {
 	return func(pa *asv1a1.PodAutoscaler) {
-		pa.Status.DesiredScale, pa.Status.ActualScale = w, g
+		pa.Status.DesiredScale, pa.Status.ActualScale = ptr.Int32(w), ptr.Int32(g)
 	}
 }
 

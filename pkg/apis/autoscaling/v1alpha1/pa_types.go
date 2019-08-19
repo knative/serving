@@ -108,10 +108,10 @@ type PodAutoscalerStatus struct {
 	MetricsServiceName string `json:"metricsServiceName"`
 
 	// DesiredScale shows the current desired number of replicas for the revision.
-	DesiredScale int32 `json:"desiredScale"`
+	DesiredScale *int32 `json:"desiredScale,omitempty"`
 
 	// ActualScale shows the actual number of replicas for the revision.
-	ActualScale int32 `json:"actualScale"`
+	ActualScale *int32 `json:"actualScale,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

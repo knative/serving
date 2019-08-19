@@ -26,6 +26,7 @@ import (
 	"knative.dev/pkg/apis/duck"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	apitest "knative.dev/pkg/apis/testing"
+	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
 )
 
@@ -934,5 +935,24 @@ func TestTargetBC(t *testing.T) {
 				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
 			}
 		})
+	}
+}
+
+func TestScaleStatus(t *testing.T) {
+	pas := &PodAutoscalerStatus{}
+	if got, want := pas.GetDesiredScale(), int32(-1); got != want {
+		t.Errorf("GetDesiredScale = %d, want: %v", got, want)
+	}
+	pas.DesiredScale = ptr.Int32(19980709)
+	if got, want := pas.GetDesiredScale(), int32(19980709); got != want {
+		t.Errorf("GetDesiredScale = %d, want: %v", got, want)
+	}
+
+	if got, want := pas.GetActualScale(), int32(-1); got != want {
+		t.Errorf("GetActualScale = %d, want: %v", got, want)
+	}
+	pas.ActualScale = ptr.Int32(20060907)
+	if got, want := pas.GetActualScale(), int32(20060907); got != want {
+		t.Errorf("GetActualScale = %d, want: %v", got, want)
 	}
 }

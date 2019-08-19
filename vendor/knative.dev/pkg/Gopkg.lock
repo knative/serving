@@ -271,6 +271,22 @@
   revision = "901d90724c7919163f472a9812253fb26761123d"
 
 [[projects]]
+  digest = "1:f0d9d74edbd40fdeada436d5ac9cb5197407899af3fef85ff0137077ffe8ae19"
+  name = "github.com/hashicorp/errwrap"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "8a6fb523712970c966eefc6b39ed2c5e74880354"
+  version = "v1.0.0"
+
+[[projects]]
+  digest = "1:2ed138049ab373f696db2081ca48f15c5abdf20893803612a284f2bdce2bf443"
+  name = "github.com/hashicorp/go-multierror"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "886a7fbe3eb1c874d46f623bfa70af45f425b3d1"
+  version = "v1.0.0"
+
+[[projects]]
   digest = "1:52094d0f8bdf831d1a2401e9b6fee5795fdc0b2a2d1f8bb1980834c289e79129"
   name = "github.com/hashicorp/golang-lru"
   packages = [
@@ -318,6 +334,14 @@
   packages = ["."]
   pruneopts = "NUT"
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
+
+[[projects]]
+  digest = "1:58999a98719fddbac6303cb17e8d85b945f60b72f48e3a2df6b950b97fa926f1"
+  name = "github.com/konsorten/go-windows-terminal-sequences"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "f55edac94c9bbba5d6182a4be46d86a2c9b5b50e"
+  version = "v1.0.2"
 
 [[projects]]
   branch = "master"
@@ -473,6 +497,14 @@
   pruneopts = "NUT"
   revision = "1744e2970ca51c86172c8190fadad617561ed6e7"
   version = "v1.0.0"
+
+[[projects]]
+  digest = "1:f4aaa07a6c33f2b354726d0571acbc8ca118837c75709f6353203ae1a3f8eeab"
+  name = "github.com/sirupsen/logrus"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "839c75faf7f98a33d445d181f3018b5c3409a45e"
+  version = "v1.4.2"
 
 [[projects]]
   digest = "1:9d8420bbf131d1618bde6530af37c3799340d3762cc47210c1d9532a4c3a2779"
@@ -1152,6 +1184,21 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:013d8728ceab59db2a90db464dc0d3c1f677bdf95f974fed26fe6094b5504cf2"
+  name = "k8s.io/test-infra"
+  packages = [
+    "boskos",
+    "boskos/client",
+    "boskos/common",
+    "boskos/crds",
+    "boskos/ranch",
+    "boskos/storage",
+  ]
+  pruneopts = "NUT"
+  revision = "356470ae778d26af50f27ff8673434bf5cf73c07"
+
+[[projects]]
+  branch = "master"
   digest = "1:39bb1014c454fbf9d8f4eab62a44fcf8d3ade774e2b42015e533e5d9f3fe23d9"
   name = "knative.dev/test-infra"
   packages = [
@@ -1160,6 +1207,14 @@
   ]
   pruneopts = "UT"
   revision = "d65201fadb82dbdc5713f9ba9a1313150c7aa9b5"
+
+[[projects]]
+  digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"
+  name = "sigs.k8s.io/yaml"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "fd68e9863619f6ec2fdd8625fe1f02e7c877e480"
+  version = "v1.1.0"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1268,6 +1323,9 @@
     "k8s.io/gengo/namer",
     "k8s.io/gengo/types",
     "k8s.io/klog",
+    "k8s.io/test-infra/boskos",
+    "k8s.io/test-infra/boskos/client",
+    "k8s.io/test-infra/boskos/common",
     "knative.dev/test-infra/scripts",
     "knative.dev/test-infra/tools/dep-collector",
   ]
