@@ -38,6 +38,21 @@ func WithProtocolType(pt networking.ProtocolType) PodAutoscalerOption {
 	}
 }
 
+// WithReachabilityUnknown sets the reachability on the PodAutoscaler to `Unknown`
+func WithReachabilityUnknown(pa *autoscalingv1alpha1.PodAutoscaler) {
+	pa.Spec.Reachability = autoscalingv1alpha1.ReachabilityUnknown
+}
+
+// WithReachabilityReachable sets the reachability on the PodAutoscaler to `Reachable`
+func WithReachabilityReachable(pa *autoscalingv1alpha1.PodAutoscaler) {
+	pa.Spec.Reachability = autoscalingv1alpha1.ReachabilityReachable
+}
+
+// WithReachabilityUnreachable sets the reachability on the PodAutoscaler to `Unreachable`
+func WithReachabilityUnreachable(pa *autoscalingv1alpha1.PodAutoscaler) {
+	pa.Spec.Reachability = autoscalingv1alpha1.ReachabilityUnreachable
+}
+
 // WithPAOwnersRemoved clears the owner references of this PA resource.
 func WithPAOwnersRemoved(pa *autoscalingv1alpha1.PodAutoscaler) {
 	pa.OwnerReferences = nil
