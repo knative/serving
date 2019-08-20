@@ -22,6 +22,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	tpb "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto"
 	mpb "github.com/google/mako/spec/proto/mako_go_proto"
+	"knative.dev/serving/test/performance/mako"
 )
 
 var (
@@ -39,12 +40,7 @@ var (
 				ValueKey:            proto.String("l"),
 			},
 		}},
-		CrossRunConfig: &tpb.CrossRunConfig{
-			RunInfoQueryList: []*mpb.RunInfoQuery{{
-				Limit: proto.Int32(10),
-			}},
-			MinRunCount: proto.Int32(10),
-		},
+		CrossRunConfig: mako.NewCrossRunConfig(10),
 	}
 
 	// This analyzer validates that the maximum request latency observed over the 0->3k
@@ -61,12 +57,7 @@ var (
 				ValueKey: proto.String("l"),
 			},
 		}},
-		CrossRunConfig: &tpb.CrossRunConfig{
-			RunInfoQueryList: []*mpb.RunInfoQuery{{
-				Limit: proto.Int32(10),
-			}},
-			MinRunCount: proto.Int32(10),
-		},
+		CrossRunConfig: mako.NewCrossRunConfig(10),
 	}
 )
 

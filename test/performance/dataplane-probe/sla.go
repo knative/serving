@@ -23,6 +23,7 @@ import (
 	tpb "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto"
 	mpb "github.com/google/mako/spec/proto/mako_go_proto"
 	vegeta "github.com/tsenart/vegeta/lib"
+	"knative.dev/serving/test/performance/mako"
 )
 
 var (
@@ -41,12 +42,7 @@ var (
 				ValueKey:            proto.String("kd"),
 			},
 		}},
-		CrossRunConfig: &tpb.CrossRunConfig{
-			RunInfoQueryList: []*mpb.RunInfoQuery{{
-				Limit: proto.Int32(10),
-			}},
-			MinRunCount: proto.Int32(10),
-		},
+		CrossRunConfig: mako.NewCrossRunConfig(10),
 	}
 
 	// This analyzer validates that the p95 latency talking to pods through Istio
@@ -64,12 +60,7 @@ var (
 				ValueKey:            proto.String("id"),
 			},
 		}},
-		CrossRunConfig: &tpb.CrossRunConfig{
-			RunInfoQueryList: []*mpb.RunInfoQuery{{
-				Limit: proto.Int32(10),
-			}},
-			MinRunCount: proto.Int32(10),
-		},
+		CrossRunConfig: mako.NewCrossRunConfig(10),
 	}
 
 	// This analyzer validates that the p95 latency hitting a Knative Service
@@ -85,12 +76,7 @@ var (
 				ValueKey:            proto.String("qp"),
 			},
 		}},
-		CrossRunConfig: &tpb.CrossRunConfig{
-			RunInfoQueryList: []*mpb.RunInfoQuery{{
-				Limit: proto.Int32(10),
-			}},
-			MinRunCount: proto.Int32(10),
-		},
+		CrossRunConfig: mako.NewCrossRunConfig(10),
 	}
 
 	// This analyzer validates that the p95 latency hitting a Knative Service
@@ -106,12 +92,7 @@ var (
 				ValueKey:            proto.String("a"),
 			},
 		}},
-		CrossRunConfig: &tpb.CrossRunConfig{
-			RunInfoQueryList: []*mpb.RunInfoQuery{{
-				Limit: proto.Int32(10),
-			}},
-			MinRunCount: proto.Int32(10),
-		},
+		CrossRunConfig: mako.NewCrossRunConfig(10),
 	}
 
 	// Map the above to our benchmark targets.
