@@ -39,7 +39,7 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 	cfg := config.FromContextOrDefaults(ctx)
 
 	// Default TimeoutSeconds based on our configmap
-	if rs.TimeoutSeconds == nil || *ptr.Int64(*rs.TimeoutSeconds) == 0 {
+	if rs.TimeoutSeconds == nil || *rs.TimeoutSeconds == 0 {
 		ts := cfg.Defaults.RevisionTimeoutSeconds
 		rs.TimeoutSeconds = &ts
 	}
