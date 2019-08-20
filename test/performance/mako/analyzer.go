@@ -24,12 +24,12 @@ import (
 
 // NewCrossRunConfig returns a config that can be used in ThresholdAnalyzer.
 // By using it, the Analyzer will only fail if there are xx continuous runs that cross the threshold.
-func NewCrossRunConfig(runCount int, tags ...string) *tpb.CrossRunConfig {
+func NewCrossRunConfig(runCount int32, tags ...string) *tpb.CrossRunConfig {
 	return &tpb.CrossRunConfig{
 		RunInfoQueryList: []*mpb.RunInfoQuery{{
-			Limit: proto.Int32(10),
+			Limit: proto.Int32(runCount),
 			Tags:  tags,
 		}},
-		MinRunCount: proto.Int32(10),
+		MinRunCount: proto.Int32(runCount),
 	}
 }
