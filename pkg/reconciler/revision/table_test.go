@@ -31,12 +31,8 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
-<<<<<<< HEAD
-	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-=======
 	tracingconfig "knative.dev/pkg/tracing/config"
-	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
->>>>>>> master
+	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
