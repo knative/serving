@@ -1756,7 +1756,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:eb8a3a36bd8ed21d9aec5e5197b0872b0025eb062cb0f8050a405dc855cbc4bb"
+  digest = "1:53a5528d294e6fd5c433efac0ac61f9ef8790593f7697a6e23fd747b0ee774b8"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1775,7 +1775,7 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "4f77ef4432b3f1faea39ede0a705a029f3cd3cc8"
+  revision = "5d61900bc90e7633c537a92d03b4b3f11e33f1eb"
 
 [solve-meta]
   analyzer-name = "dep"
