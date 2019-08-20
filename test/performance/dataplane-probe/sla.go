@@ -121,7 +121,7 @@ var (
 				URL:    "http://queue-proxy.default.svc.cluster.local?sleep=100",
 			},
 			stat:      "qp",
-			estat:     "qp",
+			estat:     "qe",
 			analyzers: []*tpb.ThresholdAnalyzerInput{Queue95PercentileLatency},
 		},
 		"activator": {
