@@ -36,11 +36,11 @@ import (
 	reporterrecorder "github.com/openzipkin/zipkin-go/reporter/recorder"
 	"go.opencensus.io/plugin/ochttp"
 	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/tracing"
+	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
-	"knative.dev/serving/pkg/tracing"
-	tracingconfig "knative.dev/serving/pkg/tracing/config"
 )
 
 const wantHost = "a-better-host.com"
