@@ -32,7 +32,7 @@ var defaultConfig = Config{
 	ContainerConcurrencyTargetDefault:  100.0,
 	RPSTargetDefault:                   200.0,
 	TargetUtilization:                  0.7,
-	TargetBurstCapacity:                0,
+	TargetBurstCapacity:                200,
 	MaxScaleUpRate:                     1000.0,
 	StableWindow:                       time.Minute,
 	PanicWindow:                        6 * time.Second,
@@ -69,6 +69,7 @@ func TestNewConfig(t *testing.T) {
 			c.ContainerConcurrencyTargetFraction = 0.5
 			c.ContainerConcurrencyTargetDefault = 10
 			c.MaxScaleUpRate = 1
+			c.TargetBurstCapacity = 0
 			c.StableWindow = 5 * time.Minute
 			c.PanicWindow = 10 * time.Second
 			return &c
