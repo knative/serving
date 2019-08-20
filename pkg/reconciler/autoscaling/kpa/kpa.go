@@ -25,6 +25,7 @@ import (
 
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/ptr"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -177,7 +178,8 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 			return perrors.Wrapf(err, "error checking endpoints %s", sks.Status.PrivateServiceName)
 		}
 	}
-	logger.Infof("PA scale got=%v, want=%v", got, want)
+	logger.Infof("PA scale got=%d, want=%d", got, want)
+	pa.Status.DesiredScale, pa.Status.ActualScale = &want, ptr.Int32(int32(got))
 
 	err = reportMetrics(pa, want, got)
 	if err != nil {

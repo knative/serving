@@ -127,6 +127,12 @@ type PodAutoscalerStatus struct {
 	// MetricsServiceName is the K8s Service name that provides revision metrics.
 	// The service is managed by the PA object.
 	MetricsServiceName string `json:"metricsServiceName"`
+
+	// DesiredScale shows the current desired number of replicas for the revision.
+	DesiredScale *int32 `json:"desiredScale,omitempty"`
+
+	// ActualScale shows the actual number of replicas for the revision.
+	ActualScale *int32 `json:"actualScale,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
