@@ -17,8 +17,11 @@ limitations under the License.
 package tracing
 
 import (
+	"contrib.go.opencensus.io/exporter/zipkin"
+	zipkinmodel "github.com/openzipkin/zipkin-go/model"
 	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
 	httpreporter "github.com/openzipkin/zipkin-go/reporter/http"
+	"go.opencensus.io/trace"
 
 	"knative.dev/pkg/tracing/config"
 )
@@ -33,4 +36,39 @@ func CreateZipkinReporter(cfg *config.Config) (zipkinreporter.Reporter, error) {
 		return zipkinreporter.NewNoopReporter(), nil
 	}
 	return httpreporter.NewReporter(cfg.ZipkinEndpoint), nil
+}
+
+func WithZipkinExporter(reporterFact ZipkinReporterFactory, endpoint *zipkinmodel.Endpoint) ConfigOption {
+	return func(cfg *config.Config) {
+		var (
+			reporter zipkinreporter.Reporter
+			exporter trace.Exporter
+		)
+
+		if cfg != nil && cfg.Enable {
+			// Initialize our reporter / exporter
+			// do this before cleanup to minimize time where we have duplicate exporters
+			reporter, err := reporterFact(cfg)
+			if err != nil {
+				// TODO(greghaynes) log this error
+				return
+			}
+			exporter := zipkin.NewExporter(reporter, endpoint)
+			trace.RegisterExporter(exporter)
+		}
+
+		// We know this is set because we are called with acquireGlobal lock held
+		oct := globalOct
+		if oct.exporter != nil {
+			trace.UnregisterExporter(oct.exporter)
+		}
+
+		if oct.closer != nil {
+			// TODO(greghaynes) log this error
+			_ = oct.closer.Close()
+		}
+
+		oct.closer = reporter
+		oct.exporter = exporter
+	}
 }

@@ -2,11 +2,9 @@ package tracing
 
 import (
 	"errors"
+	"io"
 	"sync"
 
-	"contrib.go.opencensus.io/exporter/zipkin"
-	zipkinmodel "github.com/openzipkin/zipkin-go/model"
-	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
 	"go.opencensus.io/trace"
 
 	"knative.dev/pkg/tracing/config"
@@ -17,10 +15,11 @@ type ConfigOption func(*config.Config)
 
 // OpenCensusTracer is responsible for managing and updating configuration of OpenCensus tracing
 type OpenCensusTracer struct {
-	curCfg         *config.Config
-	configOptions  []ConfigOption
-	zipkinReporter zipkinreporter.Reporter
-	zipkinExporter trace.Exporter
+	curCfg        *config.Config
+	configOptions []ConfigOption
+
+	closer   io.Closer
+	exporter trace.Exporter
 }
 
 // OpenCensus tracing keeps state in globals and therefore we can only run one OpenCensusTracer
@@ -99,39 +98,4 @@ func createOCTConfig(cfg *config.Config) *trace.Config {
 	}
 
 	return &octCfg
-}
-
-func WithZipkinExporter(reporterFact ZipkinReporterFactory, endpoint *zipkinmodel.Endpoint) ConfigOption {
-	return func(cfg *config.Config) {
-		var (
-			reporter zipkinreporter.Reporter
-			exporter trace.Exporter
-		)
-
-		if cfg != nil && cfg.Enable {
-			// Initialize our reporter / exporter
-			// do this before cleanup to minimize time where we have duplicate exporters
-			reporter, err := reporterFact(cfg)
-			if err != nil {
-				// TODO(greghaynes) log this error
-				return
-			}
-			exporter := zipkin.NewExporter(reporter, endpoint)
-			trace.RegisterExporter(exporter)
-		}
-
-		// We know this is set because we are called with acquireGlobal lock held
-		oct := globalOct
-		if oct.zipkinExporter != nil {
-			trace.UnregisterExporter(oct.zipkinExporter)
-		}
-
-		if oct.zipkinReporter != nil {
-			// TODO(greghaynes) log this error
-			_ = oct.zipkinReporter.Close()
-		}
-
-		oct.zipkinReporter = reporter
-		oct.zipkinExporter = exporter
-	}
 }
