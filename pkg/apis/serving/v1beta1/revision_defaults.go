@@ -40,8 +40,7 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 
 	// Default TimeoutSeconds based on our configmap
 	if rs.TimeoutSeconds == nil || *rs.TimeoutSeconds == 0 {
-		ts := cfg.Defaults.RevisionTimeoutSeconds
-		rs.TimeoutSeconds = &ts
+		rs.TimeoutSeconds = ptr.Int64(cfg.Defaults.RevisionTimeoutSeconds)
 	}
 
 	// Default ContainerConcurrency based on our configmap
