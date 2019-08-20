@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"testing"
 
@@ -287,11 +286,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 				ProtocolType: net.ProtocolH2C,
 			},
 		},
-		want: &apis.FieldError{
-			Message: fmt.Sprintf("Unsupported metric %q for PodAutoscaler class %q",
-				"memory", "kpa.autoscaling.knative.dev"),
-			Paths: []string{"annotations[autoscaling.knative.dev/metric]"},
-		},
+		want: apis.ErrInvalidValue("memory", "autoscaling.knative.dev/metric").ViaField("annotations"),
 	}, {
 		name: "empty spec",
 		r: &PodAutoscaler{
