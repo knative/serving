@@ -18,9 +18,11 @@ package mako
 
 import (
 	"context"
+	"log"
 	"runtime"
 	"strings"
 
+	"cloud.google.com/go/compute/metadata"
 	"knative.dev/pkg/injection/clients/kubeclient"
 
 	"github.com/google/mako/helpers/go/quickstore"
@@ -70,6 +72,13 @@ func Setup(ctx context.Context, extraTags ...string) (context.Context, *quicksto
 	version, err := kubeclient.Get(ctx).Discovery().ServerVersion()
 	if err != nil {
 		return nil, nil, nil, err
+	}
+
+	// Get GCP project ID as a tag.
+	if projectID, err := metadata.ProjectID(); err != nil {
+		log.Printf("GCP project ID is not available: %v", err)
+	} else {
+		tags = append(tags, "project-id="+EscapeTag(projectID))
 	}
 
 	qs, qclose, err := quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
