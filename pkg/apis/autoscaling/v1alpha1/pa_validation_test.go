@@ -286,7 +286,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 				ProtocolType: net.ProtocolH2C,
 			},
 		},
-		want: apis.ErrInvalidValue("memory", "annotations[autoscaling.knative.dev/metric]"),
+		want: apis.ErrInvalidValue("memory", "autoscaling.knative.dev/metric").ViaField("annotations"),
 	}, {
 		name: "empty spec",
 		r: &PodAutoscaler{

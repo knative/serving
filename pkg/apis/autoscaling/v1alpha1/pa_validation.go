@@ -61,7 +61,7 @@ func (pa *PodAutoscaler) validateMetric() *apis.FieldError {
 			// Leave other classes of PodAutoscaler alone.
 			return nil
 		}
-		return apis.ErrInvalidValue(metric, "annotations[autoscaling.knative.dev/metric]")
+		return apis.ErrInvalidValue(metric, "autoscaling.knative.dev/metric").ViaField("annotations")
 	}
 	return nil
 }
