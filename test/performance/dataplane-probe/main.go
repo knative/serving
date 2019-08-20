@@ -22,9 +22,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/google/mako/helpers/go/quickstore"
-	qpb "github.com/google/mako/helpers/proto/quickstore/quickstore_go_proto"
 	vegeta "github.com/tsenart/vegeta/lib"
 	"knative.dev/pkg/signals"
 
@@ -32,8 +29,7 @@ import (
 )
 
 var (
-	benchmark = flag.String("benchmark", "", "The mako benchmark we are running.")
-	target    = flag.String("target", "", "The target to attack.")
+	target = flag.String("target", "", "The target to attack.")
 )
 
 func main() {
@@ -48,12 +44,9 @@ func main() {
 	defer cancel()
 
 	// Use the benchmark key created
-	q, qclose, err := quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
-		BenchmarkKey: proto.String(*benchmark),
-		Tags:         []string{"master"},
-	}, mako.SidecarAddress)
+	ctx, q, qclose, err := mako.Setup(ctx)
 	if err != nil {
-		log.Fatalf("failed NewAtAddress: %v", err)
+		log.Fatalf("Failed to setup mako: %v", err)
 	}
 	// Use a fresh context here so that our RPC to terminate the sidecar
 	// isn't subject to our timeout (or we won't shut it down when we time out)

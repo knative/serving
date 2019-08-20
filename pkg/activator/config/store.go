@@ -21,7 +21,7 @@ import (
 	"net/http"
 
 	"knative.dev/pkg/configmap"
-	tracingconfig "knative.dev/serving/pkg/tracing/config"
+	tracingconfig "knative.dev/pkg/tracing/config"
 )
 
 type cfgKey struct{}

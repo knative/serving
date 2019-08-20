@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"go.opencensus.io/plugin/ochttp"
+	"knative.dev/pkg/ptr"
 
 	"knative.dev/pkg/test/helpers"
 
@@ -37,6 +38,8 @@ import (
 
 	. "knative.dev/pkg/logging/testing"
 	_ "knative.dev/pkg/system/testing"
+	"knative.dev/pkg/tracing"
+	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/activator"
 	activatortest "knative.dev/serving/pkg/activator/testing"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -49,8 +52,6 @@ import (
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
-	"knative.dev/serving/pkg/tracing"
-	tracingconfig "knative.dev/serving/pkg/tracing/config"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -742,7 +743,7 @@ func revision(namespace, name string) *v1alpha1.Revision {
 		},
 		Spec: v1alpha1.RevisionSpec{
 			RevisionSpec: v1beta1.RevisionSpec{
-				ContainerConcurrency: 1,
+				ContainerConcurrency: ptr.Int64(1),
 			},
 		},
 	}

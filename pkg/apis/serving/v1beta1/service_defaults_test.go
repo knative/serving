@@ -43,7 +43,8 @@ func TestServiceDefaulting(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 						},
 					},
 				},
@@ -85,7 +86,8 @@ func TestServiceDefaulting(t *testing.T) {
 									ReadinessProbe: defaultProbe,
 								}},
 							},
-							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 						},
 					},
 				},
@@ -109,7 +111,8 @@ func TestServiceDefaulting(t *testing.T) {
 									Image: "busybox",
 								}},
 							},
-							TimeoutSeconds: ptr.Int64(60),
+							TimeoutSeconds:       ptr.Int64(60),
+							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 						},
 					},
 				},
@@ -128,7 +131,8 @@ func TestServiceDefaulting(t *testing.T) {
 									ReadinessProbe: defaultProbe,
 								}},
 							},
-							TimeoutSeconds: ptr.Int64(60),
+							TimeoutSeconds:       ptr.Int64(60),
+							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 						},
 					},
 				},
@@ -183,7 +187,8 @@ func TestServiceDefaulting(t *testing.T) {
 									ReadinessProbe: defaultProbe,
 								}},
 							},
-							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 						},
 					},
 				},
@@ -277,7 +282,7 @@ func TestAnnotateUserInfo(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							ContainerConcurrency: 1,
+							ContainerConcurrency: ptr.Int64(1),
 						},
 					},
 				},
@@ -288,7 +293,7 @@ func TestAnnotateUserInfo(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							ContainerConcurrency: 2,
+							ContainerConcurrency: ptr.Int64(2),
 						},
 					},
 				},
@@ -305,7 +310,7 @@ func TestAnnotateUserInfo(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							ContainerConcurrency: 1,
+							ContainerConcurrency: ptr.Int64(1),
 						},
 					},
 				},
@@ -316,7 +321,7 @@ func TestAnnotateUserInfo(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							ContainerConcurrency: 2,
+							ContainerConcurrency: ptr.Int64(2),
 						},
 					},
 				},

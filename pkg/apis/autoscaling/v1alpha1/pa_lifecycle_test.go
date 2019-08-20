@@ -26,6 +26,7 @@ import (
 	"knative.dev/pkg/apis/duck"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	apitest "knative.dev/pkg/apis/testing"
+	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
 )
 
@@ -62,6 +63,7 @@ func TestGeneration(t *testing.T) {
 }
 
 func TestCanScaleToZero(t *testing.T) {
+	now := time.Now()
 	cases := []struct {
 		name   string
 		status PodAutoscalerStatus
@@ -105,7 +107,7 @@ func TestCanScaleToZero(t *testing.T) {
 					Type:   PodAutoscalerConditionActive,
 					Status: corev1.ConditionFalse,
 					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(time.Now().Add(-30 * time.Second)),
+						Inner: metav1.NewTime(now.Add(-30 * time.Second)),
 					},
 					// LTT = 30 seconds ago.
 				}},
@@ -121,7 +123,7 @@ func TestCanScaleToZero(t *testing.T) {
 					Type:   PodAutoscalerConditionActive,
 					Status: corev1.ConditionFalse,
 					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(time.Now().Add(-10 * time.Second)),
+						Inner: metav1.NewTime(now.Add(-10 * time.Second)),
 					},
 					// LTT = 10 seconds ago.
 				}},
@@ -133,7 +135,7 @@ func TestCanScaleToZero(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if e, a := tc.result, tc.status.CanScaleToZero(tc.grace); e != a {
+			if e, a := tc.result, tc.status.CanScaleToZero(now, tc.grace); e != a {
 				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 			}
 		})
@@ -141,6 +143,7 @@ func TestCanScaleToZero(t *testing.T) {
 }
 
 func TestActiveFor(t *testing.T) {
+	now := time.Now()
 	cases := []struct {
 		name   string
 		status PodAutoscalerStatus
@@ -191,7 +194,7 @@ func TestActiveFor(t *testing.T) {
 					Type:   PodAutoscalerConditionActive,
 					Status: corev1.ConditionTrue,
 					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(time.Now().Add(-30 * time.Second)),
+						Inner: metav1.NewTime(now.Add(-30 * time.Second)),
 					},
 					// LTT = 30 seconds ago.
 				}},
@@ -206,7 +209,7 @@ func TestActiveFor(t *testing.T) {
 					Type:   PodAutoscalerConditionActive,
 					Status: corev1.ConditionTrue,
 					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(time.Now().Add(-10 * time.Second)),
+						Inner: metav1.NewTime(now.Add(-10 * time.Second)),
 					},
 					// LTT = 10 seconds ago.
 				}},
@@ -216,7 +219,7 @@ func TestActiveFor(t *testing.T) {
 	}}
 
 	for _, tc := range cases {
-		if got, want := tc.result, tc.status.ActiveFor(); absDiff(got, want) > 10*time.Millisecond {
+		if got, want := tc.status.ActiveFor(now), tc.result; absDiff(got, want) > 10*time.Millisecond {
 			t.Errorf("ActiveFor = %v, want: %v", got, want)
 		}
 	}
@@ -231,6 +234,7 @@ func absDiff(a, b time.Duration) time.Duration {
 }
 
 func TestCanFailActivation(t *testing.T) {
+	now := time.Now()
 	cases := []struct {
 		name   string
 		status PodAutoscalerStatus
@@ -274,7 +278,7 @@ func TestCanFailActivation(t *testing.T) {
 					Type:   PodAutoscalerConditionActive,
 					Status: corev1.ConditionUnknown,
 					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(time.Now().Add(-30 * time.Second)),
+						Inner: metav1.NewTime(now.Add(-30 * time.Second)),
 					},
 					// LTT = 30 seconds ago.
 				}},
@@ -290,7 +294,7 @@ func TestCanFailActivation(t *testing.T) {
 					Type:   PodAutoscalerConditionActive,
 					Status: corev1.ConditionUnknown,
 					LastTransitionTime: apis.VolatileTime{
-						Inner: metav1.NewTime(time.Now().Add(-10 * time.Second)),
+						Inner: metav1.NewTime(now.Add(-10 * time.Second)),
 					},
 					// LTT = 10 seconds ago.
 				}},
@@ -302,7 +306,7 @@ func TestCanFailActivation(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if e, a := tc.result, tc.status.CanFailActivation(tc.grace); e != a {
+			if e, a := tc.result, tc.status.CanFailActivation(now, tc.grace); e != a {
 				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 			}
 		})
@@ -931,5 +935,24 @@ func TestTargetBC(t *testing.T) {
 				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
 			}
 		})
+	}
+}
+
+func TestScaleStatus(t *testing.T) {
+	pas := &PodAutoscalerStatus{}
+	if got, want := pas.GetDesiredScale(), int32(-1); got != want {
+		t.Errorf("GetDesiredScale = %d, want: %v", got, want)
+	}
+	pas.DesiredScale = ptr.Int32(19980709)
+	if got, want := pas.GetDesiredScale(), int32(19980709); got != want {
+		t.Errorf("GetDesiredScale = %d, want: %v", got, want)
+	}
+
+	if got, want := pas.GetActualScale(), int32(-1); got != want {
+		t.Errorf("GetActualScale = %d, want: %v", got, want)
+	}
+	pas.ActualScale = ptr.Int32(20060907)
+	if got, want := pas.GetActualScale(), int32(20060907); got != want {
+		t.Errorf("GetActualScale = %d, want: %v", got, want)
 	}
 }

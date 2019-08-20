@@ -30,6 +30,8 @@ import (
 const (
 	// ConfigName is the name of the config map of the autoscaler.
 	ConfigName = "config-autoscaler"
+
+	defaultTargetUtilization = 0.7
 )
 
 // Config defines the tunable autoscaler parameters
@@ -41,6 +43,14 @@ type Config struct {
 	// Target concurrency knobs for different container concurrency configurations.
 	ContainerConcurrencyTargetFraction float64
 	ContainerConcurrencyTargetDefault  float64
+	// TargetUtilization is used for the metrics other than concurrency. This is not
+	// configurable now. Customers can override it by specifying
+	// autoscaling.knative.dev/targetUtilizationPercentage in Revision annotation.
+	// TODO(yanweiguo): Expose this to config-autoscaler configmap and eventually
+	// deprecate ContainerConcurrencyTargetFraction.
+	TargetUtilization float64
+	// RPSTargetDefault is the default target value for requests per second.
+	RPSTargetDefault float64
 	// NB: most of our computations are in floats, so this is float to avoid casting.
 	TargetBurstCapacity float64
 
@@ -58,7 +68,9 @@ type Config struct {
 
 // NewConfigFromMap creates a Config from the supplied map
 func NewConfigFromMap(data map[string]string) (*Config, error) {
-	lc := &Config{}
+	lc := &Config{
+		TargetUtilization: defaultTargetUtilization,
+	}
 
 	// Process bool fields.
 	for _, b := range []struct {
@@ -91,15 +103,19 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		key:   "container-concurrency-target-percentage",
 		field: &lc.ContainerConcurrencyTargetFraction,
 		// TODO(#1956): Tune target usage based on empirical data.
-		defaultValue: 0.7,
+		defaultValue: defaultTargetUtilization,
 	}, {
 		key:          "container-concurrency-target-default",
 		field:        &lc.ContainerConcurrencyTargetDefault,
 		defaultValue: 100.0,
 	}, {
+		key:          "requests-per-second-target-default",
+		field:        &lc.RPSTargetDefault,
+		defaultValue: 200.0,
+	}, {
 		key:          "target-burst-capacity",
 		field:        &lc.TargetBurstCapacity,
-		defaultValue: 0,
+		defaultValue: 200,
 	}, {
 		key:          "panic-window-percentage",
 		field:        &lc.PanicWindowPercentage,
@@ -172,8 +188,12 @@ func validate(lc *Config) (*Config, error) {
 		return nil, fmt.Errorf("container-concurrency-target-percentage = %f is outside of valid range of (0, 100]", lc.ContainerConcurrencyTargetFraction)
 	}
 
-	if x := lc.ContainerConcurrencyTargetFraction * lc.ContainerConcurrencyTargetDefault; x < 1.0 {
+	if x := lc.ContainerConcurrencyTargetFraction * lc.ContainerConcurrencyTargetDefault; x < autoscaling.TargetMin {
 		return nil, fmt.Errorf("container-concurrency-target-percentage and container-concurrency-target-default yield target concurrency of %f, can't be less than 1", x)
+	}
+
+	if lc.RPSTargetDefault < autoscaling.TargetMin {
+		return nil, fmt.Errorf("requests-per-second-target-default must be at least %v, got %v", autoscaling.TargetMin, lc.RPSTargetDefault)
 	}
 
 	// We can't permit stable window be less than our aggregation window for correctness.

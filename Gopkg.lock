@@ -1628,7 +1628,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:d5898504defb2142b1c1ecdc33fbcf7cd3fba0850bd8720f3bd821dcd9f5cf63"
+  digest = "1:bd86a4b7413a5b33c132774581118f0d334b5ad06323b0593927d729cda530bb"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1651,11 +1651,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "19b6c0c4b2c3c4a8791658a0674c4589cf78031b"
+  revision = "2e1a1d12d196d9c712de53b3393f2a61de2a3c0f"
 
 [[projects]]
   branch = "master"
-  digest = "1:c375d4501b58273f93be7fb531b551406dc57247a865520e48e724cee9398ded"
+  digest = "1:5da0a8b3fcf5178669cae546550202e793c50a963fb4df388cec1614f79aaaa6"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1668,6 +1668,7 @@
     "apis/istio/common/v1alpha1",
     "apis/istio/v1alpha3",
     "apis/testing",
+    "apis/v1alpha1",
     "changeset",
     "client/clientset/versioned",
     "client/clientset/versioned/fake",
@@ -1743,13 +1744,15 @@
     "test/spoof",
     "test/vegeta/pacers",
     "test/zipkin",
+    "tracing",
+    "tracing/config",
     "tracker",
     "version",
     "webhook",
     "websocket",
   ]
   pruneopts = "T"
-  revision = "4707aad818fed9883f7d5255dcbf67b9382260e2"
+  revision = "12ee58e32cc8bfaaf88b057be003611e6b7d867d"
 
 [[projects]]
   branch = "master"
@@ -1772,13 +1775,12 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "af78c483e7132612431fc8c52c49bd25aee3d749"
+  revision = "4f77ef4432b3f1faea39ede0a705a029f3cd3cc8"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "contrib.go.opencensus.io/exporter/zipkin",
     "github.com/davecgh/go-spew/spew",
     "github.com/ghodss/yaml",
     "github.com/golang/protobuf/proto",
@@ -1803,9 +1805,7 @@
     "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/provider",
     "github.com/mattbaird/jsonpatch",
     "github.com/openzipkin/zipkin-go",
-    "github.com/openzipkin/zipkin-go/model",
     "github.com/openzipkin/zipkin-go/reporter",
-    "github.com/openzipkin/zipkin-go/reporter/http",
     "github.com/openzipkin/zipkin-go/reporter/recorder",
     "github.com/pkg/errors",
     "github.com/prometheus/client_golang/prometheus",
@@ -1898,6 +1898,7 @@
     "knative.dev/pkg/apis/istio/common/v1alpha1",
     "knative.dev/pkg/apis/istio/v1alpha3",
     "knative.dev/pkg/apis/testing",
+    "knative.dev/pkg/changeset",
     "knative.dev/pkg/client/clientset/versioned",
     "knative.dev/pkg/client/clientset/versioned/fake",
     "knative.dev/pkg/client/informers/externalversions",
@@ -1954,6 +1955,8 @@
     "knative.dev/pkg/test/spoof",
     "knative.dev/pkg/test/vegeta/pacers",
     "knative.dev/pkg/test/zipkin",
+    "knative.dev/pkg/tracing",
+    "knative.dev/pkg/tracing/config",
     "knative.dev/pkg/tracker",
     "knative.dev/pkg/version",
     "knative.dev/pkg/webhook",

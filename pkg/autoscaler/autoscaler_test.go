@@ -114,12 +114,21 @@ func TestAutoscalerStableModeNoChangeAlreadyScaled(t *testing.T) {
 	a.expectScale(t, time.Now(), 5, expectedEBC(10, 100, 50, 5), true)
 }
 
-func TestAutoscalerStableModeIncrease(t *testing.T) {
+func TestAutoscalerStableModeIncreaseWithConcurrencyDefault(t *testing.T) {
 	metrics := &autoscalerfake.MetricClient{StableConcurrency: 50.0}
 	a := newTestAutoscaler(t, 10, 101, metrics)
 	a.expectScale(t, time.Now(), 5, expectedEBC(10, 101, 50, 1), true)
 
 	metrics.StableConcurrency = 100
+	a.expectScale(t, time.Now(), 10, expectedEBC(10, 101, 100, 1), true)
+}
+
+func TestAutoscalerStableModeIncreaseWithRPS(t *testing.T) {
+	metrics := &autoscalerfake.MetricClient{StableRPS: 50.0}
+	a := newTestAutoscalerWithScalingMetric(t, 10, 101, metrics, "rps")
+	a.expectScale(t, time.Now(), 5, expectedEBC(10, 101, 50, 1), true)
+
+	metrics.StableRPS = 100
 	a.expectScale(t, time.Now(), 10, expectedEBC(10, 101, 100, 1), true)
 }
 
@@ -286,8 +295,13 @@ func (r *mockReporter) ReportExcessBurstCapacity(v float64) error {
 }
 
 func newTestAutoscaler(t *testing.T, targetValue, targetBurstCapacity float64, metrics MetricClient) *Autoscaler {
+	return newTestAutoscalerWithScalingMetric(t, targetValue, targetBurstCapacity, metrics, "concurrency")
+}
+
+func newTestAutoscalerWithScalingMetric(t *testing.T, targetValue, targetBurstCapacity float64, metrics MetricClient, metric string) *Autoscaler {
 	t.Helper()
 	deciderSpec := DeciderSpec{
+		ScalingMetric:       metric,
 		TargetValue:         targetValue,
 		TotalValue:          targetValue / targetUtilization, // For UTs presume 75% utilization
 		TargetBurstCapacity: targetBurstCapacity,

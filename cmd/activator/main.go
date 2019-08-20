@@ -47,6 +47,8 @@ import (
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
+	"knative.dev/pkg/tracing"
+	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/pkg/version"
 	"knative.dev/pkg/websocket"
 	"knative.dev/serving/pkg/activator"
@@ -59,8 +61,6 @@ import (
 	"knative.dev/serving/pkg/logging"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
-	"knative.dev/serving/pkg/tracing"
-	tracingconfig "knative.dev/serving/pkg/tracing/config"
 )
 
 // Fail if using unsupported go version.
@@ -242,6 +242,7 @@ func main() {
 	ah = &activatorhandler.HealthHandler{HealthCheck: statSink.Status, NextHandler: ah}
 	// NOTE: MetricHandler is being used as the outermost handler for the purpose of measuring the request latency.
 	ah = activatorhandler.NewMetricHandler(revisionInformer.Lister(), reporter, logger, ah)
+	ah = network.NewProbeHandler(ah)
 
 	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher.Watch(pkglogging.ConfigMapName(), pkglogging.UpdateLevelFromConfigMap(logger, atomicLevel, component))

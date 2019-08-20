@@ -200,6 +200,16 @@ func (in *PodAutoscalerSpec) DeepCopy() *PodAutoscalerSpec {
 func (in *PodAutoscalerStatus) DeepCopyInto(out *PodAutoscalerStatus) {
 	*out = *in
 	in.Status.DeepCopyInto(&out.Status)
+	if in.DesiredScale != nil {
+		in, out := &in.DesiredScale, &out.DesiredScale
+		*out = new(int32)
+		**out = **in
+	}
+	if in.ActualScale != nil {
+		in, out := &in.ActualScale, &out.ActualScale
+		*out = new(int32)
+		**out = **in
+	}
 	return
 }
 

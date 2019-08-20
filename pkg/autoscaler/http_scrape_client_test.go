@@ -33,9 +33,9 @@ const (
 # TYPE queue_average_concurrent_requests gauge
 queue_average_concurrent_requests{destination_namespace="test-namespace",destination_revision="test-revision",destination_pod="test-revision-1234"} 3.0
 `
-	testQPSContext = `# HELP queue_operations_per_second Number of requests received since last Stat
-# TYPE queue_operations_per_second gauge
-queue_operations_per_second{destination_namespace="test-namespace",destination_revision="test-revision",destination_pod="test-revision-1234"} 5
+	testQPSContext = `# HELP queue_requests_per_second Number of requests received since last Stat
+# TYPE queue_requests_per_second gauge
+queue_requests_per_second{destination_namespace="test-namespace",destination_revision="test-revision",destination_pod="test-revision-1234"} 5
 `
 	testAverageProxiedConcurrenyContext = `# HELP queue_average_proxied_concurrent_requests Number of proxied requests currently being handled by this pod
 # TYPE queue_average_proxied_concurrent_requests gauge
@@ -131,7 +131,7 @@ func TestHTTPScrapeClient_Scrape_ErrorCases(t *testing.T) {
 		name:            "Missing QPS",
 		responseCode:    http.StatusOK,
 		responseContext: testAverageConcurrencyContext + testAverageProxiedConcurrenyContext + testProxiedQPSContext,
-		expectedErr:     "could not find value for queue_operations_per_second in response",
+		expectedErr:     "could not find value for queue_requests_per_second in response",
 	}, {
 		name:            "Missing average proxied concurrency",
 		responseCode:    http.StatusOK,

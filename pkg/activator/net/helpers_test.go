@@ -93,8 +93,8 @@ func TestEndpointsToDests(t *testing.T) {
 			}
 			dests := EndpointsToDests(&tc.endpoints, networking.ServicePortName(tc.protocol))
 
-			if diff := cmp.Diff(tc.expectDests, dests); diff != "" {
-				t.Errorf("Got unexpected dests (-want, +got): %v", diff)
+			if got, want := dests, tc.expectDests; !cmp.Equal(got, want) {
+				t.Errorf("Got unexpected dests (-want, +got): %s", cmp.Diff(want, got))
 			}
 		})
 

@@ -52,7 +52,7 @@ type MetricHandler struct {
 func (h *MetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Filter out probe and healthy requests
-	if network.IsKubeletProbe(r) || r.Header.Get(network.ProbeHeaderName) != "" {
+	if network.IsProbe(r) {
 		h.nextHandler.ServeHTTP(w, r)
 		return
 	}

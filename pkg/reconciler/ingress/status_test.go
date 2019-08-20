@@ -85,6 +85,13 @@ func TestIsReadyFailures(t *testing.T) {
 					Name:      "gateway",
 				},
 				Spec: v1alpha3.GatewaySpec{
+					Servers: []v1alpha3.Server{{
+						Hosts: []string{"*"},
+						Port: v1alpha3.Port{
+							Number:   80,
+							Protocol: v1alpha3.ProtocolHTTP,
+						},
+					}},
 					Selector: map[string]string{
 						"gwt": "istio",
 					},
@@ -160,6 +167,13 @@ func TestProbeLifecycle(t *testing.T) {
 					Name:      "gateway",
 				},
 				Spec: v1alpha3.GatewaySpec{
+					Servers: []v1alpha3.Server{{
+						Hosts: []string{"*"},
+						Port: v1alpha3.Port{
+							Number:   80,
+							Protocol: v1alpha3.ProtocolHTTP,
+						},
+					}},
 					Selector: map[string]string{
 						"gwt": "istio",
 					},
