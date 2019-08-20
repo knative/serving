@@ -129,8 +129,9 @@ var (
 				Method: "GET",
 				URL:    "http://queue-proxy-with-cc.default.svc.cluster.local?sleep=100",
 			},
-			stat:      "qc",
-			estat:     "re",
+			stat:  "qc",
+			estat: "re",
+			// We use the same threshold analyzer, since we want Breaker to exert minimal latency impact.
 			analyzers: []*tpb.ThresholdAnalyzerInput{Queue95PercentileLatency},
 		},
 		"activator": {
@@ -147,8 +148,9 @@ var (
 				Method: "GET",
 				URL:    "http://activator-with-cc.default.svc.cluster.local?sleep=100",
 			},
-			stat:      "ac",
-			estat:     "be",
+			stat:  "ac",
+			estat: "be",
+			// We use the same threshold analyzer, since we want Breaker to exert minimal latency impact.
 			analyzers: []*tpb.ThresholdAnalyzerInput{Activator95PercentileLatency},
 		},
 	}
