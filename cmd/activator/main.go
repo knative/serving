@@ -35,7 +35,6 @@ import (
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 
 	"github.com/kelseyhightower/envconfig"
-	zipkin "github.com/openzipkin/zipkin-go"
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -178,15 +177,7 @@ func main() {
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
 	throttler := activator.NewThrottler(params, endpointInformer, sksInformer.Lister(), revisionInformer.Lister(), logger)
 
-	activatorL3 := fmt.Sprintf("%s:%d", activator.K8sServiceName, networking.ServiceHTTPPort)
-	zipkinEndpoint, err := zipkin.NewEndpoint("activator", activatorL3)
-	if err != nil {
-		logger.Errorw("Unable to create tracing endpoint", zap.Error(err))
-		return
-	}
-	oct := tracing.NewOpenCensusTracer(
-		tracing.WithZipkinExporter(tracing.CreateZipkinReporter, zipkinEndpoint),
-	)
+	oct := tracing.NewOpenCensusTracer(tracing.WithExporter("activator", logger))
 
 	tracerUpdater := configmap.TypeFilter(&tracingconfig.Config{})(func(name string, value interface{}) {
 		cfg := value.(*tracingconfig.Config)

@@ -1655,7 +1655,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:5da0a8b3fcf5178669cae546550202e793c50a963fb4df388cec1614f79aaaa6"
+  digest = "1:1acb2be34723e1aef8db2de08eac99d9a37dc23b1cf267036199b1c323c9829c"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1746,13 +1746,14 @@
     "test/zipkin",
     "tracing",
     "tracing/config",
+    "tracing/testing",
     "tracker",
     "version",
     "webhook",
     "websocket",
   ]
   pruneopts = "T"
-  revision = "12ee58e32cc8bfaaf88b057be003611e6b7d867d"
+  revision = "6785699dc3f0a87d6cc0225a547f35d9994b5d94"
 
 [[projects]]
   branch = "master"
@@ -1804,9 +1805,6 @@
     "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/cmd",
     "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/provider",
     "github.com/mattbaird/jsonpatch",
-    "github.com/openzipkin/zipkin-go",
-    "github.com/openzipkin/zipkin-go/reporter",
-    "github.com/openzipkin/zipkin-go/reporter/recorder",
     "github.com/pkg/errors",
     "github.com/prometheus/client_golang/prometheus",
     "github.com/prometheus/client_golang/prometheus/promhttp",
@@ -1957,6 +1955,7 @@
     "knative.dev/pkg/test/zipkin",
     "knative.dev/pkg/tracing",
     "knative.dev/pkg/tracing/config",
+    "knative.dev/pkg/tracing/testing",
     "knative.dev/pkg/tracker",
     "knative.dev/pkg/version",
     "knative.dev/pkg/webhook",
