@@ -31,7 +31,6 @@ import (
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
-	zipkin "github.com/openzipkin/zipkin-go"
 	"github.com/pkg/errors"
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/stats"
@@ -120,29 +119,30 @@ var (
 )
 
 type config struct {
-	ContainerConcurrency         int     `split_words:"true" required:"true"`
-	QueueServingPort             int     `split_words:"true" required:"true"`
-	RevisionTimeoutSeconds       int     `split_words:"true" required:"true"`
-	UserPort                     int     `split_words:"true" required:"true"`
-	EnableVarLogCollection       bool    `split_words:"true"` // optional
-	ServingConfiguration         string  `split_words:"true" required:"true"`
-	ServingNamespace             string  `split_words:"true" required:"true"`
-	ServingPodIP                 string  `split_words:"true" required:"true"`
-	ServingPod                   string  `split_words:"true" required:"true"`
-	ServingRevision              string  `split_words:"true" required:"true"`
-	ServingService               string  `split_words:"true"` // optional
-	UserContainerName            string  `split_words:"true" required:"true"`
-	VarLogVolumeName             string  `split_words:"true" required:"true"`
-	InternalVolumePath           string  `split_words:"true" required:"true"`
-	ServingLoggingConfig         string  `split_words:"true" required:"true"`
-	ServingLoggingLevel          string  `split_words:"true" required:"true"`
-	ServingRequestMetricsBackend string  `split_words:"true" required:"true"`
-	ServingRequestLogTemplate    string  `split_words:"true" required:"true"`
-	ServingReadinessProbe        string  `split_words:"true" required:"true"`
-	TracingConfigDebug           bool    `split_words:"true"` // optional
-	TracingConfigEnable          bool    `split_words:"true"` // optional
-	TracingConfigSampleRate      float64 `split_words:"true"` // optional
-	TracingConfigZipkinEndpoint  string  `split_words:"true"` // optional
+	ContainerConcurrency              int                       `split_words:"true" required:"true"`
+	QueueServingPort                  int                       `split_words:"true" required:"true"`
+	RevisionTimeoutSeconds            int                       `split_words:"true" required:"true"`
+	UserPort                          int                       `split_words:"true" required:"true"`
+	EnableVarLogCollection            bool                      `split_words:"true"` // optional
+	ServingConfiguration              string                    `split_words:"true" required:"true"`
+	ServingNamespace                  string                    `split_words:"true" required:"true"`
+	ServingPodIP                      string                    `split_words:"true" required:"true"`
+	ServingPod                        string                    `split_words:"true" required:"true"`
+	ServingRevision                   string                    `split_words:"true" required:"true"`
+	ServingService                    string                    `split_words:"true"` // optional
+	UserContainerName                 string                    `split_words:"true" required:"true"`
+	VarLogVolumeName                  string                    `split_words:"true" required:"true"`
+	InternalVolumePath                string                    `split_words:"true" required:"true"`
+	ServingLoggingConfig              string                    `split_words:"true" required:"true"`
+	ServingLoggingLevel               string                    `split_words:"true" required:"true"`
+	ServingRequestMetricsBackend      string                    `split_words:"true" required:"true"`
+	ServingRequestLogTemplate         string                    `split_words:"true" required:"true"`
+	ServingReadinessProbe             string                    `split_words:"true" required:"true"`
+	TracingConfigDebug                bool                      `split_words:"true"` // optional
+	TracingConfigBackend              tracingconfig.BackendType `split_words:"true"` // optional
+	TracingConfigSampleRate           float64                   `split_words:"true"` // optional
+	TracingConfigZipkinEndpoint       string                    `split_words:"true"` // optional
+	TracingConfigStackdriverProjectID string                    `split_words:"true"` // optional
 }
 
 // Make handler a closure for testing.
@@ -288,26 +288,15 @@ func main() {
 	httpProxy := httputil.NewSingleHostReverseProxy(target)
 	httpProxy.Transport = network.AutoTransport
 
-	if env.TracingConfigEnable {
-		queueProxyL3 := fmt.Sprintf("%s:%d", env.ServingPod, networking.ServiceHTTPPort)
-		zipkinEndpoint, err := zipkin.NewEndpoint(env.ServingPod, queueProxyL3)
-
-		if err != nil {
-			logger.Fatalw("Unable to create tracing endpoint", zap.Error(err))
-			return
-		}
-
-		oct := tracing.NewOpenCensusTracer(
-			tracing.WithZipkinExporter(tracing.CreateZipkinReporter, zipkinEndpoint),
-		)
-
-		cfg := tracingconfig.Config{
-			Enable:         env.TracingConfigEnable,
-			Debug:          env.TracingConfigDebug,
-			ZipkinEndpoint: env.TracingConfigZipkinEndpoint,
-			SampleRate:     env.TracingConfigSampleRate,
-		}
-		oct.ApplyConfig(&cfg)
+	if env.TracingConfigBackend != tracingconfig.None {
+		oct := tracing.NewOpenCensusTracer(tracing.WithExporter(env.ServingPod, logger))
+		oct.ApplyConfig(&tracingconfig.Config{
+			Backend:              env.TracingConfigBackend,
+			Debug:                env.TracingConfigDebug,
+			ZipkinEndpoint:       env.TracingConfigZipkinEndpoint,
+			StackdriverProjectID: env.TracingConfigStackdriverProjectID,
+			SampleRate:           env.TracingConfigSampleRate,
+		})
 
 		httpProxy.Transport = &ochttp.Transport{
 			Base: network.AutoTransport,
