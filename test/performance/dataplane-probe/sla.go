@@ -150,7 +150,7 @@ var (
 			},
 			stat:  "ac",
 			estat: "be",
-			// We use the same threshold analyzer, since we want Breaker to exert minimal latency impact.
+			// We use the same threshold analyzer, since we want Throttler/Breaker to exert minimal latency impact.
 			analyzers: []*tpb.ThresholdAnalyzerInput{Activator95PercentileLatency},
 		},
 	}
