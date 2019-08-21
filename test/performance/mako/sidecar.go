@@ -43,7 +43,7 @@ func EscapeTag(tag string) string {
 	return strings.ReplaceAll(tag, ".", "_")
 }
 
-// SetupMako sets up the mako client for the provided benchmarkKey.
+// Setup sets up the mako client for the provided benchmarkKey.
 // It will add a few common tags and allows each benchmark to add custm tags as well.
 // It returns the mako client handle to sotre metrics, a method to close the connection
 // to mako server once done and error if case of failures.
