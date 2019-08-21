@@ -33,11 +33,7 @@ type Config struct {
 
 // FromContext obtains a Config injected into the passed context
 func FromContext(ctx context.Context) *Config {
-	val, ok := ctx.Value(cfgKey{}).(*Config)
-	if ok {
-		return val
-	}
-	return nil
+	return ctx.Value(cfgKey{}).(*Config)
 }
 
 func toContext(ctx context.Context, c *Config) context.Context {

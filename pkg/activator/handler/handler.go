@@ -228,14 +228,12 @@ func (a *activationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 	recorder := pkghttp.NewResponseRecorder(w, http.StatusOK)
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	config := activatorconfig.FromContext(r.Context())
-	isTraceEnabled := false
-	if config != nil {
-		isTraceEnabled = config.Tracing.Enable
-	}
 	proxy.Transport = a.transport
-	if isTraceEnabled {
-		proxy.Transport = &ochttp.Transport{
-			Base: a.transport,
+	if config.Tracing != nil {
+		if config.Tracing.Enable {
+			proxy.Transport = &ochttp.Transport{
+				Base: a.transport,
+			}
 		}
 	}
 	proxy.FlushInterval = -1
