@@ -57,6 +57,18 @@ var (
 		"target_concurrency_per_pod",
 		"The desired number of concurrent requests for each pod",
 		stats.UnitDimensionless)
+	stableRPSM = stats.Float64(
+		"stable_requests_per_second",
+		"Average requests-per-second per observed pod over the stable window",
+		stats.UnitDimensionless)
+	panicRPSM = stats.Float64(
+		"panic_requests_per_second",
+		"Average requests-per-second per observed pod over the panic window",
+		stats.UnitDimensionless)
+	targetRPSM = stats.Float64(
+		"target_requests_per_second",
+		"The desired requests-per-second for each pod",
+		stats.UnitDimensionless)
 	panicM = stats.Int64(
 		"panic_mode",
 		"1 if autoscaler is in panic mode, 0 otherwise",
@@ -147,6 +159,24 @@ func register() {
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
+		&view.View{
+			Description: "Average requests-per-second over the stable window",
+			Measure:     stableRPSM,
+			Aggregation: view.LastValue(),
+			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
+		},
+		&view.View{
+			Description: "Average requests-per-second over the panic window",
+			Measure:     panicRPSM,
+			Aggregation: view.LastValue(),
+			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
+		},
+		&view.View{
+			Description: "The desired requests-per-second for each pod",
+			Measure:     targetRPSM,
+			Aggregation: view.LastValue(),
+			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
+		},
 	)
 	if err != nil {
 		panic(err)
@@ -161,6 +191,9 @@ type StatsReporter interface {
 	ReportStableRequestConcurrency(v float64) error
 	ReportPanicRequestConcurrency(v float64) error
 	ReportTargetRequestConcurrency(v float64) error
+	ReportStableRPS(v float64) error
+	ReportPanicRPS(v float64) error
+	ReportTargetRPS(v float64) error
 	ReportExcessBurstCapacity(v float64) error
 	ReportPanic(v int64) error
 }
@@ -233,6 +266,22 @@ func (r *Reporter) ReportPanicRequestConcurrency(v float64) error {
 // ReportTargetRequestConcurrency captures value v for target request concurrency measure.
 func (r *Reporter) ReportTargetRequestConcurrency(v float64) error {
 	return r.report(targetRequestConcurrencyM.M(v))
+}
+
+// ReportStableRPS captures value v for stable RPS measure.
+func (r *Reporter) ReportStableRPS(v float64) error {
+	return r.report(stableRPSM.M(v))
+}
+
+// ReportPanicRPS captures value v for panic RPS measure.
+func (r *Reporter) ReportPanicRPS(v float64) error {
+	return r.report(panicRPSM.M(v))
+}
+
+// ReportTargetRPS captures value v for target requests-per-second measure.
+func (r *Reporter) ReportTargetRPS(v float64) error {
+	return r.report(targetRPSM.M(v))
+
 }
 
 // ReportPanic captures value v for panic mode measure.
