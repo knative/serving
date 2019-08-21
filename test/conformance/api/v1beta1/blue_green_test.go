@@ -47,6 +47,7 @@ const (
 // revision 100% of the time.
 func TestBlueGreenRoute(t *testing.T) {
 	t.Parallel()
+	t.Fatalf("failed for debugging")
 	clients := test.Setup(t)
 
 	var imagePaths []string
