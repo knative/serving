@@ -233,18 +233,20 @@ func TestReconcile(t *testing.T) {
 	}
 
 	inactiveKPAMinScale := func(g int32) *asv1a1.PodAutoscaler {
-		return kpa(testNamespace, testRevision, markInactive, withScales(g, unknownScale),
+		return kpa(
+			testNamespace, testRevision, markInactive, withScales(g, unknownScale), WithReachabilityReachable,
 			withMinScale(defaultScale), WithPAStatusService(testRevision), withMSvcStatus("cargo"),
 		)
 	}
 	activatingKPAMinScale := func(g int32) *asv1a1.PodAutoscaler {
-		return kpa(testNamespace, testRevision, markActivating, withScales(g, defaultScale),
+		return kpa(
+			testNamespace, testRevision, markActivating, withScales(g, defaultScale), WithReachabilityReachable,
 			withMinScale(defaultScale), WithPAStatusService(testRevision), withMSvcStatus("cargo"),
 		)
 	}
 	activeKPAMinScale := func(g, w int32) *asv1a1.PodAutoscaler {
 		return kpa(
-			testNamespace, testRevision, markActive, withScales(g, w),
+			testNamespace, testRevision, markActive, withScales(g, w), WithReachabilityReachable,
 			withMinScale(defaultScale), WithPAStatusService(testRevision), withMSvcStatus("cargo"),
 		)
 	}
@@ -591,10 +593,10 @@ func TestReconcile(t *testing.T) {
 			Object: kpa(testNamespace, testRevision, markActive, WithPAStatusService(testRevision), withScales(1, defaultScale)),
 		}},
 	}, {
-		Name: "kpa does not become ready without minScale endpoints",
+		Name: "kpa does not become ready without minScale endpoints when reachable",
 		Key:  key,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, withMinScale(2), withScales(1, defaultScale)),
+			kpa(testNamespace, testRevision, withMinScale(2), withScales(1, defaultScale), WithReachabilityReachable),
 			defaultSks,
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 			metric(testNamespace, testRevision, ""),
@@ -604,13 +606,49 @@ func TestReconcile(t *testing.T) {
 			Object: metric(testNamespace, testRevision, ""),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, markActivating, withMinScale(2), withScales(1, defaultScale), WithPAStatusService(testRevision)),
+			Object: kpa(testNamespace, testRevision, markActivating, withMinScale(2),
+				withScales(1, defaultScale), WithPAStatusService(testRevision), WithReachabilityReachable),
 		}},
 	}, {
-		Name: "kpa becomes ready with minScale endpoints",
+		Name: "kpa does not become ready without minScale endpoints when reachability is unknown",
 		Key:  key,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActivating, withMinScale(2), WithPAStatusService(testRevision), withScales(1, defaultScale)),
+			kpa(testNamespace, testRevision, withMinScale(2), withScales(1, defaultScale), WithReachabilityUnknown),
+			defaultSks,
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			metric(testNamespace, testRevision, ""),
+			defaultDeployment, defaultEndpoints,
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: metric(testNamespace, testRevision, ""),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markActivating, withMinScale(2),
+				withScales(1, defaultScale), WithPAStatusService(testRevision), WithReachabilityUnknown),
+		}},
+	}, {
+		Name: "kpa becomes ready without minScale endpoints when unreachable",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, withMinScale(2), withScales(1, defaultScale), WithReachabilityUnreachable),
+			defaultSks,
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			metric(testNamespace, testRevision, ""),
+			defaultDeployment, defaultEndpoints,
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: metric(testNamespace, testRevision, ""),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markActive, withMinScale(2),
+				withScales(1, defaultScale), WithPAStatusService(testRevision), WithReachabilityUnreachable),
+		}},
+	}, {
+		Name: "kpa becomes ready with minScale endpoints when reachable",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActivating, withMinScale(2), WithPAStatusService(testRevision),
+				withScales(1, defaultScale), WithReachabilityReachable),
 			defaultSks,
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 			metric(testNamespace, testRevision, ""),
@@ -622,7 +660,26 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, markActive, withMinScale(2),
-				withScales(2, defaultScale), WithPAStatusService(testRevision)),
+				withScales(2, defaultScale), WithPAStatusService(testRevision), WithReachabilityReachable),
+		}},
+	}, {
+		Name: "kpa becomes ready with minScale endpoints when reachability is unknown",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, markActivating, withMinScale(2), WithPAStatusService(testRevision),
+				withScales(1, defaultScale), WithReachabilityUnknown),
+			defaultSks,
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			metric(testNamespace, testRevision, ""),
+			defaultDeployment,
+			makeSKSPrivateEndpoints(2, testNamespace, testRevision),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: metric(testNamespace, testRevision, ""),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markActive, withMinScale(2),
+				withScales(2, defaultScale), WithPAStatusService(testRevision), WithReachabilityUnknown),
 		}},
 	}, {
 		Name: "sks does not exist",

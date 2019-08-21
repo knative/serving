@@ -237,6 +237,7 @@ func TestScaler(t *testing.T) {
 		wantScaling:   true,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			paMarkInactive(k, time.Now().Add(-gracePeriod+time.Second))
+			WithReachabilityReachable(k)
 		},
 	}, {
 		label:         "scale down to minScale after grace period",
@@ -247,6 +248,29 @@ func TestScaler(t *testing.T) {
 		wantScaling:   true,
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			paMarkInactive(k, time.Now().Add(-gracePeriod))
+			WithReachabilityReachable(k)
+		},
+	}, {
+		label:         "ignore minScale if unreachable",
+		startReplicas: 10,
+		scaleTo:       0,
+		minScale:      2,
+		wantReplicas:  0,
+		wantScaling:   true,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod))
+			WithReachabilityUnreachable(k) // not needed, here for clarity
+		},
+	}, {
+		label:         "observe minScale if reachability unknown",
+		startReplicas: 10,
+		scaleTo:       0,
+		minScale:      2,
+		wantReplicas:  2,
+		wantScaling:   true,
+		paMutation: func(k *pav1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod))
+			WithReachabilityUnknown(k)
 		},
 	}, {
 		label:         "scales up",
@@ -336,9 +360,11 @@ func TestScaler(t *testing.T) {
 				})
 
 			pa := newKPA(t, fakeservingclient.Get(ctx), revision)
+			t.Logf("pa spec %q", pa.Spec.Reachability)
 			if test.paMutation != nil {
 				test.paMutation(pa)
 			}
+			t.Logf("pa spec %q", pa.Spec.Reachability)
 
 			sks := sks("ns", "name")
 			if test.sks != nil {
@@ -427,6 +453,7 @@ func TestDisableScaleToZero(t *testing.T) {
 			}
 			pa := newKPA(t, fakeservingclient.Get(ctx), revision)
 			paMarkActive(pa, time.Now())
+			WithReachabilityReachable(pa)
 
 			conf := defaultConfig()
 			conf.Autoscaler.EnableScaleToZero = false

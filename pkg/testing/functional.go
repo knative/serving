@@ -46,6 +46,15 @@ func WithReachability(r asv1a1.ReachabilityType) PodAutoscalerOption {
 	}
 }
 
+var (
+	// WithReachabilityUnknown sets the reachability of the PodAutoscaler to unknown
+	WithReachabilityUnknown = WithReachability(asv1a1.ReachabilityUnknown)
+	// WithReachabilityReachable sets the reachability of the PodAutoscaler to reachable
+	WithReachabilityReachable = WithReachability(asv1a1.ReachabilityReachable)
+	// WithReachabilityUnreachable sets the reachability of the PodAutoscaler to unreachable
+	WithReachabilityUnreachable = WithReachability(asv1a1.ReachabilityUnreachable)
+)
+
 // WithPAOwnersRemoved clears the owner references of this PA resource.
 func WithPAOwnersRemoved(pa *asv1a1.PodAutoscaler) {
 	pa.OwnerReferences = nil
