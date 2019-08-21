@@ -22,10 +22,20 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 func (r *Route) SetDefaults(ctx context.Context) {
 	r.Spec.SetDefaults(apis.WithinSpec(ctx))
+	if r.GetOwnerReferences() == nil {
+		if apis.IsInUpdate(ctx) {
+			serving.SetUserInfo(ctx, apis.GetBaseline(ctx).(*Route).Spec, r.Spec, r)
+		} else {
+			serving.SetUserInfo(ctx, nil, r.Spec, r)
+		}
+	}
+
 }
 
 func (rs *RouteSpec) SetDefaults(ctx context.Context) {

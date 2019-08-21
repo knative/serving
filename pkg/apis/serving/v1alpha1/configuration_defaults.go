@@ -22,11 +22,20 @@ import (
 	"knative.dev/pkg/apis"
 
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 func (c *Configuration) SetDefaults(ctx context.Context) {
 	ctx = apis.WithinParent(ctx, c.ObjectMeta)
 	c.Spec.SetDefaults(apis.WithinSpec(ctx))
+	if c.GetOwnerReferences() == nil {
+		if apis.IsInUpdate(ctx) {
+			serving.SetUserInfo(ctx, apis.GetBaseline(ctx).(*Configuration).Spec, c.Spec, c)
+		} else {
+			serving.SetUserInfo(ctx, nil, c.Spec, c)
+		}
+	}
 }
 
 func (cs *ConfigurationSpec) SetDefaults(ctx context.Context) {
