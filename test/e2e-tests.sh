@@ -61,13 +61,19 @@ else
     "--resolvabledomain=$(use_resolvable_domain)" || failed=1
 fi
 
-# Dump cluster state after e2e tests to prevent logs being truncated.
-(( failed )) && dump_cluster_state
+# Istio E2E tests mutate the cluster and must be ran separately
+# TODO(https://github.com/knative/test-infra/issues/1398): use proper flags instead of binary GLOO/no GLOO
+if [[ -z "${GLOO_VERSION}" ]]; then
+  go_test_e2e -timeout=10m \
+    ./test/e2e/istio \
+    "--resolvabledomain=$(use_resolvable_domain)" || failed=1
+fi
 
 # Run scale tests.
 go_test_e2e -timeout=10m ./test/scale || failed=1
 
-# Require that both set of tests succeeded.
+# Dump cluster state in case of failure
+(( failed )) && dump_cluster_state
 (( failed )) && fail_test
 
 success
