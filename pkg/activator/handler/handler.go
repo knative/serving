@@ -38,6 +38,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	netlisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
+	tracingconfig "knative.dev/pkg/tracing/config"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/network"
@@ -230,7 +231,7 @@ func (a *activationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 	config := activatorconfig.FromContext(r.Context())
 	proxy.Transport = a.transport
 	if config.Tracing != nil {
-		if config.Tracing.Enable {
+		if config.Tracing.Backend != tracingconfig.None {
 			proxy.Transport = &ochttp.Transport{
 				Base: a.transport,
 			}

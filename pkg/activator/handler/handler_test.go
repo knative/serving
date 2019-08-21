@@ -584,14 +584,6 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 	configStore, tracingConfig := setupConfigStore(t)
 	configStore.OnConfigChanged(tracingConfig)
 
-	cfg, _ := tracingconfig.NewTracingConfigFromConfigMap(tracingConfig)
-	cfg.Enable = true
-	cfg.Debug = true
-
-	if err := oct.ApplyConfig(cfg); err != nil {
-		t.Errorf("Failed to apply tracer config: %v", err)
-	}
-
 	_ = sendRequest(namespace, revName, handler, configStore)
 
 	gotSpans := reporter.Flush()
