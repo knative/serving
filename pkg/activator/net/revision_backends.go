@@ -99,16 +99,6 @@ func newRevisionWatcher(rev types.NamespacedName, protocol networking.ProtocolTy
 	}
 }
 
-func filterHealthyDests(dests map[string]bool) []string {
-	ret := make([]string, 0, len(dests))
-	for dest, healthy := range dests {
-		if healthy {
-			ret = append(ret, dest)
-		}
-	}
-	return ret
-}
-
 func (rw *revisionWatcher) getK8sPrivateService() (*corev1.Service, error) {
 	selector := labels.SelectorFromSet(map[string]string{
 		serving.RevisionLabelKey:  rw.rev.Name,
