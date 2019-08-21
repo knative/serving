@@ -28,8 +28,6 @@ import (
 	"knative.dev/pkg/websocket"
 )
 
-var defaultTimeoutBody = "<html><head><title>Timeout</title></head><body><h1>Timeout</h1></body></html>"
-
 // TimeToFirstByteTimeoutHandler returns a Handler that runs `h` with the
 // given time limit in which the first byte of the response must be written.
 //
@@ -57,13 +55,6 @@ type timeoutHandler struct {
 	handler http.Handler
 	body    string
 	dt      time.Duration
-}
-
-func (h *timeoutHandler) errorBody() string {
-	if h.body != "" {
-		return h.body
-	}
-	return defaultTimeoutBody
 }
 
 func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -98,7 +89,7 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case <-done:
 			return
 		case <-timeout.C:
-			if tw.TimeoutAndWriteError(h.errorBody()) {
+			if tw.TimeoutAndWriteError(h.body) {
 				return
 			}
 		}

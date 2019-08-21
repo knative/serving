@@ -49,20 +49,6 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		wantStatus: http.StatusOK,
 		wantBody:   "hi",
 	}, {
-		name:    "timeout",
-		timeout: failingTimeout,
-		handler: func(mux *sync.Mutex, writeErrors chan error) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				mux.Lock()
-				defer mux.Unlock()
-				_, werr := w.Write([]byte("hi"))
-				writeErrors <- werr
-			})
-		},
-		wantStatus:     http.StatusServiceUnavailable,
-		wantBody:       defaultTimeoutBody,
-		wantWriteError: true,
-	}, {
 		name:    "write then sleep",
 		timeout: 50 * time.Millisecond,
 		handler: func(*sync.Mutex, chan error) http.Handler {
