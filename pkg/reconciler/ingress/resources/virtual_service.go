@@ -221,7 +221,7 @@ func makeVirtualServiceRoute(hosts sets.String, http *v1alpha1.HTTPIngressPath, 
 	clusterDomainName := network.GetClusterDomainName()
 	for _, host := range hosts.List() {
 		g := gateways[visibility]
-		if strings.HasSuffix(host, clusterDomainName) {
+		if strings.HasSuffix(host, clusterDomainName) && len(gateways[v1alpha1.IngressVisibilityClusterLocal]) > 0 {
 			// For local hostname, always use private gateway
 			g = gateways[v1alpha1.IngressVisibilityClusterLocal]
 		}

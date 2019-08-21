@@ -85,8 +85,8 @@ func MakeK8sPlaceholderService(ctx context.Context, route *v1alpha1.Route, targe
 // MakeK8sService creates a Service that redirect to the loadbalancer specified
 // in ClusterIngress status. It's owned by the provided v1alpha1.Route.
 // The purpose of this service is to provide a domain name for Istio routing.
-func MakeK8sService(ctx context.Context, route *v1alpha1.Route, targetName string, ingress netv1alpha1.IngressAccessor) (*corev1.Service, error) {
-	svcSpec, err := makeServiceSpec(ingress)
+func MakeK8sService(ctx context.Context, route *v1alpha1.Route, targetName string, ingress netv1alpha1.IngressAccessor, isPrivate bool) (*corev1.Service, error) {
+	svcSpec, err := makeServiceSpec(ingress, isPrivate)
 	if err != nil {
 		return nil, err
 	}
@@ -126,13 +126,19 @@ func makeK8sService(ctx context.Context, route *v1alpha1.Route, targetName strin
 	}, nil
 }
 
-func makeServiceSpec(ingress netv1alpha1.IngressAccessor) (*corev1.ServiceSpec, error) {
+func makeServiceSpec(ingress netv1alpha1.IngressAccessor, isPrivate bool) (*corev1.ServiceSpec, error) {
 	ingressStatus := ingress.GetStatus()
 
-	// Always use private load balancer here,
-	// because k8s service is only useful for inter-cluster communication.
-	// External communication will be handle via ingress gateway, which won't be affected by what is configured here.
-	lbStatus := ingressStatus.PrivateLoadBalancer
+	var lbStatus *netv1alpha1.LoadBalancerStatus
+
+	if isPrivate || ingressStatus.PrivateLoadBalancer != nil {
+		// Always use private load balancer if it exists,
+		// because k8s service is only useful for inter-cluster communication.
+		// External communication will be handle via ingress gateway, which won't be affected by what is configured here.
+		lbStatus = ingressStatus.PrivateLoadBalancer
+	} else {
+		lbStatus = ingressStatus.PublicLoadBalancer
+	}
 
 	if lbStatus == nil || len(lbStatus.Ingress) == 0 {
 		return nil, errLoadBalancerNotFound

@@ -230,7 +230,7 @@ func TestNewMakeK8SService(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			cfg := testConfig()
 			ctx := config.ToContext(context.Background(), cfg)
-			service, err := MakeK8sService(ctx, scenario.route, scenario.targetName, scenario.ingress)
+			service, err := MakeK8sService(ctx, scenario.route, scenario.targetName, scenario.ingress, false)
 			// Validate
 			if scenario.shouldFail && err == nil {
 				t.Errorf("Test %q failed: returned success but expected error", name)
