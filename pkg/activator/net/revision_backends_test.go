@@ -86,15 +86,16 @@ func privateSksService(revID types.NamespacedName, clusterIP string, ports []cor
 
 func TestRevisionWatcher(t *testing.T) {
 	for _, tc := range []struct {
-		name               string
-		dests              []string
-		protocol           networking.ProtocolType
-		clusterPort        corev1.ServicePort
-		clusterIP          string
-		expectUpdates      []RevisionDestsUpdate
-		probeHostResponses map[string][]activatortest.FakeResponse
-		probeResponses     []activatortest.FakeResponse
-		ticks              []time.Time
+		name                  string
+		dests                 []string
+		protocol              networking.ProtocolType
+		clusterPort           corev1.ServicePort
+		clusterIP             string
+		expectUpdates         []RevisionDestsUpdate
+		probeHostResponses    map[string][]activatortest.FakeResponse
+		probeResponses        []activatortest.FakeResponse
+		ticks                 []time.Time
+		initialClusterIPState bool
 	}{{
 		name:  "single healthy podIP",
 		dests: []string{"128.0.0.1:1234"},
@@ -151,6 +152,15 @@ func TestRevisionWatcher(t *testing.T) {
 				Err: errors.New("clusterIP transport error"),
 			}},
 		},
+	}, {
+		name:      "no pods",
+		dests:     []string{},
+		clusterIP: "129.0.0.1",
+	}, {
+		name:                  "no pods, was happy",
+		dests:                 []string{},
+		clusterIP:             "129.0.0.1",
+		initialClusterIPState: true,
 	}, {
 		name:  "single unavailable podIP",
 		dests: []string{"128.0.0.1:1234"},
@@ -313,6 +323,7 @@ func TestRevisionWatcher(t *testing.T) {
 				servicesLister,
 				TestLogger(t),
 			)
+			rw.clusterIPHealthy = tc.initialClusterIPState
 
 			var wg sync.WaitGroup
 			wg.Add(1)
