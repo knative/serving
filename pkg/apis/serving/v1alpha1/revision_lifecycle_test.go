@@ -29,6 +29,7 @@ import (
 	"knative.dev/pkg/apis/duck"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	apitest "knative.dev/pkg/apis/testing"
+	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	net "knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 )
@@ -703,4 +704,54 @@ func TestPropagateDeploymentStatus(t *testing.T) {
 	apitest.CheckConditionSucceeded(rev.duck(), RevisionConditionReady, t)
 	apitest.CheckConditionSucceeded(rev.duck(), RevisionConditionResourcesAvailable, t)
 	apitest.CheckConditionSucceeded(rev.duck(), RevisionConditionContainerHealthy, t)
+}
+
+func TestPropagateAutoscalerStatus(t *testing.T) {
+	r := &RevisionStatus{}
+	r.InitializeConditions()
+	apitest.CheckConditionOngoing(r.duck(), RevisionConditionReady, t)
+
+	// PodAutoscaler has no active condition, so we are just coming up.
+	r.PropagateAutoscalerStatus(&av1alpha1.PodAutoscalerStatus{
+		Status: duckv1beta1.Status{},
+	})
+	apitest.CheckConditionOngoing(r.duck(), RevisionConditionActive, t)
+
+	// PodAutoscaler becomes ready, making us active.
+	r.PropagateAutoscalerStatus(&av1alpha1.PodAutoscalerStatus{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
+				Type:   av1alpha1.PodAutoscalerConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+	})
+	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionActive, t)
+	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionReady, t)
+
+	// PodAutoscaler flipping back to Unknown causes Active become ongoing immediately.
+	r.PropagateAutoscalerStatus(&av1alpha1.PodAutoscalerStatus{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
+				Type:   av1alpha1.PodAutoscalerConditionReady,
+				Status: corev1.ConditionUnknown,
+			}},
+		},
+	})
+	apitest.CheckConditionOngoing(r.duck(), RevisionConditionActive, t)
+	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionReady, t)
+
+	// PodAutoscaler becoming unready makes Active false, but doesn't affect readiness.
+	r.PropagateAutoscalerStatus(&av1alpha1.PodAutoscalerStatus{
+		Status: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
+				Type:   av1alpha1.PodAutoscalerConditionReady,
+				Status: corev1.ConditionFalse,
+			}},
+		},
+	})
+	apitest.CheckConditionFailed(r.duck(), RevisionConditionActive, t)
+	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionReady, t)
+	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionContainerHealthy, t)
+	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionResourcesAvailable, t)
 }
