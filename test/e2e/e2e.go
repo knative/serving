@@ -3,7 +3,6 @@ package e2e
 import (
 	"testing"
 
-	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	// Mysteriously required to support GCP auth (required by k8s libs).
@@ -66,10 +65,8 @@ func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clien
 	return pkgTest.WaitForDeploymentState(
 		clients.KubeClient,
 		deploymentName,
-		func(d *appsv1.Deployment) (bool, error) {
-			return d.Status.ReadyReplicas == 0, nil
-		},
-		"DeploymentIsScaledToZero",
+		test.DeploymentScaledToZeroFunc,
+		"DeploymentIsScaledDown",
 		test.ServingNamespace,
 		cfg.ScaleToZeroGracePeriod*6,
 	)
