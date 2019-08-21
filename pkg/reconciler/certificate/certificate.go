@@ -42,6 +42,8 @@ import (
 const (
 	noCMConditionReason  = "NoCertManagerCertCondition"
 	noCMConditionMessage = "The ready condition of Cert Manager Certifiate does not exist."
+	notReconciledReason  = "CertificateNotConfigured"
+	notReconciledMessage = "Cert-Manager certificate has not yet been reconciled."
 )
 
 // Reconciler implements controller.Reconciler for Certificate resources.
@@ -116,6 +118,7 @@ func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate
 	cmCert := resources.MakeCertManagerCertificate(cmConfig, knCert)
 	cmCert, err := c.reconcileCMCertificate(ctx, knCert, cmCert)
 	if err != nil {
+		knCert.Status.MarkNotReady(notReconciledReason, notReconciledMessage)
 		return err
 	}
 

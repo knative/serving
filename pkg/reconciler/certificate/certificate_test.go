@@ -139,9 +139,18 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/knCert",
 	}, {
-		Name: "observed generation is still updated when error is encountered",
+		Name: "observed generation is still updated when error is encountered, and ready status is unknown",
 		Objects: []runtime.Object{
-			knCertWithGeneration("knCert", "foo", generation+1),
+			knCertWithStatusAndGeneration("knCert", "foo",
+				&v1alpha1.CertificateStatus{
+					Status: duckv1beta1.Status{
+						ObservedGeneration: generation + 1,
+						Conditions: duckv1beta1.Conditions{{
+							Type:   v1alpha1.CertificateConditionReady,
+							Status: corev1.ConditionTrue,
+						}},
+					},
+				}, generation+1),
 			cmCert("knCert", "foo", incorrectDNSNames),
 		},
 		WantErr: true,
@@ -160,6 +169,8 @@ func TestReconcile(t *testing.T) {
 							Type:     v1alpha1.CertificateConditionReady,
 							Status:   corev1.ConditionUnknown,
 							Severity: apis.ConditionSeverityError,
+							Reason:   notReconciledReason,
+							Message:  notReconciledMessage,
 						}},
 					},
 				}, generation+1),
