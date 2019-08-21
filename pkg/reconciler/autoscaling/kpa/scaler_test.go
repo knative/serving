@@ -360,11 +360,9 @@ func TestScaler(t *testing.T) {
 				})
 
 			pa := newKPA(t, fakeservingclient.Get(ctx), revision)
-			t.Logf("pa spec %q", pa.Spec.Reachability)
 			if test.paMutation != nil {
 				test.paMutation(pa)
 			}
-			t.Logf("pa spec %q", pa.Spec.Reachability)
 
 			sks := sks("ns", "name")
 			if test.sks != nil {
