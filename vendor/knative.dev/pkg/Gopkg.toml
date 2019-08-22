@@ -8,7 +8,7 @@ required = [
   "k8s.io/code-generator/cmd/client-gen",
   "k8s.io/code-generator/cmd/lister-gen",
   "k8s.io/code-generator/cmd/informer-gen",
-  "k8s.io/test-infra/boskos",
+  "google.golang.org/api/container/v1",
   "github.com/evanphx/json-patch",
   "knative.dev/test-infra/scripts",
   "knative.dev/test-infra/tools/dep-collector",
