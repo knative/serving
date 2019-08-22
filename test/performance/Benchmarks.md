@@ -149,10 +149,10 @@ For testing existing benchmarks, use [dev.md](https://github.com/knative/serving
 
 We currently have four admins for benchmarking with mako.
 
-1. `mattmoor`
-2. `vagababov`
-3. `srinivashegde`
-4. `chizhg`
+1. `[mattmoor](https://github.com/mattmoor)`
+2. `[vagababov](https://github.com/vagababov)`
+3. `[srinivashegde86](https://github.com/srinivashegde86)`
+4. `[Fredy-Z](https://github.com/fredy-z)`
 
 ### Creating a new cluster
 
