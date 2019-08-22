@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"go.opencensus.io/plugin/ochttp"
-	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/ptr"
 
 	activatorconfig "knative.dev/serving/pkg/activator/config"
@@ -302,7 +301,7 @@ func TestActivationHandler(t *testing.T) {
 			req.Host = "test-host"
 
 			// set up config store to populate context
-			configStore, _ := setupConfigStore(t)
+			configStore := setupConfigStore(t)
 			ctx := configStore.ToContext(req.Context())
 
 			handler.ServeHTTP(resp, req.WithContext(ctx))
@@ -352,7 +351,7 @@ func TestActivationHandlerProbeCaching(t *testing.T) {
 	handler.probeTransport = rt
 
 	// set up config store to populate context
-	configStore, _ := setupConfigStore(t)
+	configStore := setupConfigStore(t)
 
 	sendRequest(namespace, revName, handler, configStore)
 	if fakeRT.NumProbes != 1 {
@@ -419,7 +418,7 @@ func TestActivationHandlerOverflow(t *testing.T) {
 	handler.transport = rt
 	handler.probeTransport = rt
 
-	configStore, _ := setupConfigStore(t)
+	configStore := setupConfigStore(t)
 
 	sendRequests(requests, namespace, revName, respCh, handler, configStore)
 	assertResponses(wantedSuccess, wantedFailure, requests, lockerCh, respCh, t)
@@ -466,7 +465,7 @@ func TestActivationHandlerOverflowSeveralRevisions(t *testing.T) {
 	handler.probeTransport = rt
 
 	// set up config store to populate context
-	configStore, _ := setupConfigStore(t)
+	configStore := setupConfigStore(t)
 	for _, revName := range revisions {
 		requestCount := overallRequests / len(revisions)
 		sendRequests(requestCount, testNamespace, revName, respCh, handler, configStore)
@@ -516,7 +515,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	req.Header.Set(activator.RevisionHeaderNamespace, namespace)
 	req.Header.Set(activator.RevisionHeaderName, revName)
 	// set up config store to populate context
-	configStore, _ := setupConfigStore(t)
+	configStore := setupConfigStore(t)
 	ctx := configStore.ToContext(req.Context())
 	handler.ServeHTTP(writer, req.WithContext(ctx))
 
@@ -581,8 +580,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 	}
 	handler.probeTransport = rt
 
-	configStore, tracingConfig := setupConfigStore(t)
-	configStore.OnConfigChanged(tracingConfig)
+	configStore := setupConfigStore(t)
 
 	_ = sendRequest(namespace, revName, handler, configStore)
 
@@ -805,13 +803,11 @@ func serviceLister(svcs ...*corev1.Service) corev1listers.ServiceLister {
 	return services.Lister()
 }
 
-func setupConfigStore(t *testing.T) (*activatorconfig.Store, *corev1.ConfigMap) {
-	tracerUpdater := configmap.TypeFilter(&tracingconfig.Config{})(func(name string, value interface{}) {
-	})
-	configStore := activatorconfig.NewStore(TestLogger(t), tracerUpdater)
+func setupConfigStore(t *testing.T) (*activatorconfig.Store) {
+	configStore := activatorconfig.NewStore(TestLogger(t))
 	tracingConfig := ConfigMapFromTestFile(t, tracingconfig.ConfigName)
 	configStore.OnConfigChanged(tracingConfig)
-	return configStore, tracingConfig
+	return configStore
 }
 
 func sks(namespace, name string) *nv1a1.ServerlessService {
