@@ -532,70 +532,89 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 }
 
 func TestActivationHandlerTraceSpans(t *testing.T) {
-	// Setup transport
-	fakeRt := activatortest.FakeRoundTripper{
-		RequestResponse: &activatortest.FakeResponse{
-			Err:  nil,
-			Code: http.StatusOK,
-			Body: wantBody,
-		},
-	}
-	rt := network.RoundTripperFunc(fakeRt.RT)
+	testcases := []struct {
+		name         string
+		wantSpans    int
+		traceBackend tracingconfig.BackendType
+	}{{
+		name:         "zipkin trace enabled",
+		wantSpans:    4,
+		traceBackend: tracingconfig.Zipkin,
+	}, {
+		name:         "trace disabled",
+		wantSpans:    0,
+		traceBackend: tracingconfig.None,
+	}}
 
-	// Create tracer with reporter recorder
-	reporter, co := tracetesting.FakeZipkinExporter()
-	defer reporter.Close()
-	oct := tracing.NewOpenCensusTracer(co)
-	defer oct.Finish()
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Setup transport
+			fakeRt := activatortest.FakeRoundTripper{
+				RequestResponse: &activatortest.FakeResponse{
+					Err:  nil,
+					Code: http.StatusOK,
+					Body: wantBody,
+				},
+			}
+			rt := network.RoundTripperFunc(fakeRt.RT)
 
-	cfg := tracingconfig.Config{
-		Backend: tracingconfig.Zipkin,
-		Debug:   true,
-	}
-	if err := oct.ApplyConfig(&cfg); err != nil {
-		t.Errorf("Failed to apply tracer config: %v", err)
-	}
+			// Create tracer with reporter recorder
+			reporter, co := tracetesting.FakeZipkinExporter()
+			defer reporter.Close()
+			oct := tracing.NewOpenCensusTracer(co)
+			defer oct.Finish()
 
-	namespace := testNamespace
-	revName := testRevName
+			cfg := tracingconfig.Config{
+				Backend: tc.traceBackend,
+				Debug:   true,
+			}
+			if err := oct.ApplyConfig(&cfg); err != nil {
+				t.Errorf("Failed to apply tracer config: %v", err)
+			}
 
-	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
-	throttler := activator.NewThrottler(
-		breakerParams,
-		endpointsInformer(endpoints(namespace, revName, breakerParams.InitialCapacity)),
-		sksLister(sks(namespace, revName)),
-		revisionLister(revision(namespace, revName)),
-		TestLogger(t))
+			namespace := testNamespace
+			revName := testRevName
 
-	handler := &activationHandler{
-		transport:      rt,
-		probeTransport: rt,
-		logger:         TestLogger(t),
-		reporter:       &fakeReporter{},
-		throttler:      throttler,
-		revisionLister: revisionLister(revision(testNamespace, testRevName)),
-		serviceLister:  serviceLister(service(testNamespace, testRevName, "http")),
-		sksLister:      sksLister(sks(testNamespace, testRevName)),
-	}
-	handler.transport = &ochttp.Transport{
-		Base: rt,
-	}
-	handler.probeTransport = rt
+			breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
+			throttler := activator.NewThrottler(
+				breakerParams,
+				endpointsInformer(endpoints(namespace, revName, breakerParams.InitialCapacity)),
+				sksLister(sks(namespace, revName)),
+				revisionLister(revision(namespace, revName)),
+				TestLogger(t))
 
-	// set up config store to populate context
-	configStore := setupConfigStore(t)
+			handler := &activationHandler{
+				transport:      rt,
+				probeTransport: rt,
+				logger:         TestLogger(t),
+				reporter:       &fakeReporter{},
+				throttler:      throttler,
+				revisionLister: revisionLister(revision(testNamespace, testRevName)),
+				serviceLister:  serviceLister(service(testNamespace, testRevName, "http")),
+				sksLister:      sksLister(sks(testNamespace, testRevName)),
+			}
+			handler.transport = &ochttp.Transport{
+				Base: rt,
+			}
+			handler.probeTransport = rt
 
-	_ = sendRequest(namespace, revName, handler, configStore)
+			// set up config store to populate context
+			configStore := setupConfigStore(t)
 
-	gotSpans := reporter.Flush()
-	if len(gotSpans) != 4 {
-		t.Errorf("Got %d spans, expected %d", len(gotSpans), 4)
-	}
+			_ = sendRequest(namespace, revName, handler, configStore)
 
-	for i, spanName := range []string{"throttler_try", "probe", "/", "proxy"} {
-		if gotSpans[i].Name != spanName {
-			t.Errorf("Got span %d named %q, expected %q", i, gotSpans[i].Name, spanName)
-		}
+			gotSpans := reporter.Flush()
+			if len(gotSpans) != tc.wantSpans {
+				t.Errorf("Got %d spans, expected %d", len(gotSpans), tc.wantSpans)
+			}
+
+			spanNames := []string{"throttler_try", "probe", "/", "proxy"}
+			for i, spanName := range spanNames[0:tc.wantSpans] {
+				if gotSpans[i].Name != spanName {
+					t.Errorf("Got span %d named %q, expected %q", i, gotSpans[i].Name, spanName)
+				}
+			}
+		})
 	}
 }
 
@@ -806,7 +825,7 @@ func serviceLister(svcs ...*corev1.Service) corev1listers.ServiceLister {
 	return services.Lister()
 }
 
-func setupConfigStore(t *testing.T) (*activatorconfig.Store) {
+func setupConfigStore(t *testing.T) *activatorconfig.Store {
 	configStore := activatorconfig.NewStore(TestLogger(t))
 	tracingConfig := ConfigMapFromTestFile(t, tracingconfig.ConfigName)
 	configStore.OnConfigChanged(tracingConfig)
