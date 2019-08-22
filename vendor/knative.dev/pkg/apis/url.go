@@ -57,11 +57,14 @@ func (u *URL) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, &ref); err != nil {
 		return err
 	}
-	r, err := ParseURL(ref)
-	if err != nil {
+	if r, err := ParseURL(ref); err != nil {
 		return err
+	} else if r != nil {
+		*u = *r
+	} else {
+		*u = URL{}
 	}
-	*u = *r
+
 	return nil
 }
 
