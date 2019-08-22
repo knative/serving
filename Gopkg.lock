@@ -476,8 +476,7 @@
   revision = "e979a0b10eebe748549c702a25e997c556349da6"
 
 [[projects]]
-  branch = "github-push-test-1"
-  digest = "1:e1764a99532bc56ce10e997a59de79cd30bdb63c52b7610e7301081649e48293"
+  digest = "1:3efb665a5beaa0266ff287cdb58dff8a966631000e9f8ad8d832a288b90ca247"
   name = "github.com/google/mako"
   packages = [
     "clients/proto/analyzers/threshold_analyzer_go_proto",
@@ -490,7 +489,8 @@
     "spec/proto/mako_go_proto",
   ]
   pruneopts = "NUT"
-  revision = "6a1d829c31b4a93cbd03e9f998bc85094a5afd8f"
+  revision = "d56a6e811df75f8e4d6e7c256d25acf19ef16d03"
+  version = "v0.0.0-rc.4"
 
 [[projects]]
   digest = "1:ab3ec1fe3e39bac4b3ab63390767766622be35b7cab03f47f787f9ec60522a53"

@@ -36,7 +36,7 @@ spec:
             - name: config-mako
               mountPath: /etc/config-mako
           - name: mako
-            image: gcr.io/mattmoor-public/mako-microservice:latest
+            image: gcr.io/knative-performance/mako-microservice:latest
             env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secret/robot.json
@@ -77,7 +77,7 @@ spec:
             - name: config-mako
               mountPath: /etc/config-mako
           - name: mako
-            image: gcr.io/mattmoor-public/mako-microservice:latest
+            image: gcr.io/knative-performance/mako-microservice:latest
             env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secret/robot.json
@@ -118,7 +118,7 @@ spec:
             - name: config-mako
               mountPath: /etc/config-mako
           - name: mako
-            image: gcr.io/mattmoor-public/mako-microservice:latest
+            image: gcr.io/knative-performance/mako-microservice:latest
             env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secret/robot.json
@@ -159,7 +159,7 @@ spec:
             - name: config-mako
               mountPath: /etc/config-mako
           - name: mako
-            image: gcr.io/mattmoor-public/mako-microservice:latest
+            image: gcr.io/knative-performance/mako-microservice:latest
             env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secret/robot.json
@@ -200,7 +200,7 @@ spec:
             - name: config-mako
               mountPath: /etc/config-mako
           - name: mako
-            image: gcr.io/mattmoor-public/mako-microservice:latest
+            image: gcr.io/knative-performance/mako-microservice:latest
             env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secret/robot.json
@@ -241,7 +241,7 @@ spec:
             - name: config-mako
               mountPath: /etc/config-mako
           - name: mako
-            image: gcr.io/mattmoor-public/mako-microservice:latest
+            image: gcr.io/knative-performance/mako-microservice:latest
             env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secret/robot.json

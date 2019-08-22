@@ -125,8 +125,8 @@ func main() {
 	defer cancel()
 
 	// Use the benchmark key created.
-	// '.' is an invalid char in mako tags. Replace with "_"
-	ctx, q, qclose, err := mako.Setup(ctx, "tbc="+*flavor)
+	tbcTag := "tbc=" + *flavor
+	ctx, q, qclose, err := mako.Setup(ctx, tbcTag)
 	if err != nil {
 		log.Fatalf("failed to setup mako: %v", err)
 	}
@@ -135,7 +135,8 @@ func main() {
 	defer qclose(context.Background())
 
 	q.Input.ThresholdInputs = append(q.Input.ThresholdInputs,
-		LoadTest95PercentileLatency, LoadTestMaximumLatency)
+		newLoadTest95PercentileLatency(tbcTag),
+		newLoadTestMaximumLatency(tbcTag))
 
 	log.Print("Starting the load test.")
 	// Ramp up load from 1k to 3k in 2 minute steps.
