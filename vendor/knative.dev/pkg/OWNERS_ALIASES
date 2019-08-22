@@ -23,6 +23,7 @@ aliases:
   configmap-approvers:
   - mattmoor
   - mdemirhan
+  - dprotaso
 
   controller-approvers:
   - mattmoor
