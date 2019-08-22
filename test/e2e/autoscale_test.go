@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -137,7 +138,7 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 					}
 
 					if res.StatusCode != http.StatusOK {
-						ctx.t.Logf("Status = %d, want: %d", res.StatusCode, http.StatusOK)
+						ctx.t.Logf("Status = %d, want: 200", res.StatusCode)
 						ctx.t.Logf("Response: %s", res)
 						continue
 					}
@@ -192,7 +193,7 @@ func generateTrafficAtFixedRPS(ctx *testContext, rps int, duration time.Duration
 
 			atomic.AddInt32(&totalRequests, 1)
 			if res.Code != http.StatusOK {
-				ctx.t.Logf("Status = %d, want: %d", res.Code, http.StatusOK)
+				ctx.t.Logf("Status = %d, want: 200", res.Code)
 				ctx.t.Logf("Response: %v", res)
 				continue
 			}
@@ -226,8 +227,8 @@ func setup(t *testing.T, class, metric string, target int, targetUtilization flo
 		append(fopts, rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.ClassAnnotationKey:             class,
 			autoscaling.MetricAnnotationKey:            metric,
-			autoscaling.TargetAnnotationKey:            fmt.Sprintf("%v", target),
-			autoscaling.TargetUtilizationPercentageKey: fmt.Sprintf("%f", targetUtilization*100),
+			autoscaling.TargetAnnotationKey:            strconv.FormatFloat(float64(target), 'f', -1, 64),
+			autoscaling.TargetUtilizationPercentageKey: strconv.FormatFloat(targetUtilization*100, 'f', -1, 64),
 		}), rtesting.WithResourceRequirements(corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
 				corev1.ResourceMemory: resource.MustParse("512Mi"),
