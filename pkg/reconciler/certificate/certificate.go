@@ -42,7 +42,7 @@ import (
 const (
 	noCMConditionReason  = "NoCertManagerCertCondition"
 	noCMConditionMessage = "The ready condition of Cert Manager Certifiate does not exist."
-	notReconciledReason  = "CertificateNotConfigured"
+	notReconciledReason  = "ReconcileFailed"
 	notReconciledMessage = "Cert-Manager certificate has not yet been reconciled."
 )
 
@@ -88,6 +88,11 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// Reconcile this copy of the Certificate and then write back any status
 	// updates regardless of whether the reconciliation errored out.
 	err = c.reconcile(ctx, knCert)
+	if err != nil {
+		logger.Warnw("Failed to reconcile certificate", zap.Error(err))
+		c.Recorder.Event(knCert, corev1.EventTypeWarning, "InternalError", err.Error())
+		knCert.Status.MarkNotReady(notReconciledReason, notReconciledMessage)
+	}
 	if equality.Semantic.DeepEqual(original.Status, knCert.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
@@ -98,9 +103,6 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		c.Recorder.Eventf(knCert, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for Certificate %s: %v", key, err)
 		return err
-	}
-	if err != nil {
-		c.Recorder.Event(knCert, corev1.EventTypeWarning, "InternalError", err.Error())
 	}
 	return err
 }
@@ -118,7 +120,6 @@ func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate
 	cmCert := resources.MakeCertManagerCertificate(cmConfig, knCert)
 	cmCert, err := c.reconcileCMCertificate(ctx, knCert, cmCert)
 	if err != nil {
-		knCert.Status.MarkNotReady(notReconciledReason, notReconciledMessage)
 		return err
 	}
 

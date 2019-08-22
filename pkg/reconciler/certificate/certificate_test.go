@@ -178,6 +178,7 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to create Cert-Manager Certificate %s: %v",
 				"foo/knCert", "inducing failure for update certificates"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update certificates"),
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for Certificate %s: %v",
 				"foo/knCert", "inducing failure for update certificates"),
 		},
