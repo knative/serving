@@ -48,7 +48,7 @@ and it should have four symlinks.
    Points to the dev.config file in the bechmark directory.
 
    ```sh
-   ln -r -s ./test/performance/dataplae-probe/dev.config test/performance/dataplane-probe/kodata/
+   ln -r -s ./test/performance/dataplane-probe/dev.config test/performance/dataplane-probe/kodata/
    ```
 
 2. [prod.config](https://github.com/knative/serving/blob/master/test/performance/dataplane-probe/kodata/prod.config)
