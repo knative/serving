@@ -66,6 +66,8 @@ type testContext struct {
 	deploymentName    string
 	domain            string
 	targetUtilization float64
+	targetValue       float64
+	metric            string
 }
 
 func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, stopChan chan struct{}) error {
@@ -117,6 +119,60 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 	ctx.t.Log("Waiting for all requests to complete.")
 	if err := group.Wait(); err != nil {
 		return fmt.Errorf("error making requests for scale up: %v", err)
+	}
+
+	if successfulRequests != totalRequests {
+		return fmt.Errorf("error making requests for scale up. Got %d successful requests, wanted: %d",
+			successfulRequests, totalRequests)
+	}
+	return nil
+}
+
+func generateTrafficAtFixedRPS(ctx *testContext, rps float64, duration time.Duration, stopChan chan struct{}) error {
+	var (
+		totalRequests      int32
+		successfulRequests int32
+	)
+
+	ctx.t.Logf("Maintaining %v RPS requests for %v.", rps, duration)
+	client, err := pkgTest.NewSpoofingClient(ctx.clients.KubeClient, ctx.t.Logf, ctx.domain, test.ServingFlags.ResolvableDomain)
+	if err != nil {
+		return fmt.Errorf("error creating spoofing client: %v", err)
+	}
+
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s?sleep=100", ctx.domain), nil)
+	if err != nil {
+		return fmt.Errorf("error creating HTTP request: %v", err)
+	}
+
+	ticker := time.NewTicker(time.Second / time.Duration(rps))
+	defer ticker.Stop()
+	done := time.After(duration)
+	for {
+		select {
+		case <-stopChan:
+			ctx.t.Log("Stopping generateTraffic")
+			return nil
+		case <-done:
+			ctx.t.Log("Time is up; done")
+			return nil
+		case <-ticker.C:
+			go func() {
+				atomic.AddInt32(&totalRequests, 1)
+				res, err := client.Do(req)
+				if err != nil {
+					ctx.t.Logf("Error making request %v", err)
+					return
+				}
+
+				if res.StatusCode != http.StatusOK {
+					ctx.t.Logf("Status = %d, want: %d", res.StatusCode, http.StatusOK)
+					ctx.t.Logf("Response: %s", res)
+					return
+				}
+				atomic.AddInt32(&successfulRequests, 1)
+			}()
+		}
 	}
 
 	if successfulRequests != totalRequests {
@@ -182,7 +238,9 @@ func setup(t *testing.T, class string, metric string, fopts ...rtesting.ServiceO
 		resources:         resources,
 		deploymentName:    resourcenames.Deployment(resources.Revision),
 		domain:            domain,
-		targetUtilization: cfg.ContainerConcurrencyTargetFraction,
+		targetUtilization: cfg.ContainerConcurrencyTargetFraction, // May needs to changed if annotation is used.
+		targetValue:       containerConcurrency,                   // Use concurrency by default. Other metric should change this value.
+		metric:            metric,
 	}
 }
 
@@ -240,9 +298,17 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, dur
 
 	stopChan := make(chan struct{})
 	var grp errgroup.Group
-	grp.Go(func() error {
-		return generateTraffic(ctx, int(targetPods*containerConcurrency), duration, stopChan)
-	})
+	switch ctx.metric {
+	case autoscaling.RPS:
+		grp.Go(func() error {
+			return generateTrafficAtFixedRPS(ctx, float64(targetPods)*ctx.targetValue, duration, stopChan)
+		})
+	default:
+		grp.Go(func() error {
+			return generateTraffic(ctx, int(targetPods*int32(ctx.targetValue)), duration, stopChan)
+		})
+	}
+
 	grp.Go(func() error {
 		// Short-circuit traffic generation once we exit from the check logic.
 		defer close(stopChan)
@@ -343,6 +409,33 @@ func TestAutoscaleUpCountPods(t *testing.T) {
 			assertAutoscaleUpToNumPods(ctx, 3, 4, 60*time.Second, true)
 		})
 	}
+}
+
+func TestRPSBasedAutoscaleCountPods(t *testing.T) {
+	t.Parallel()
+	cancel := logstream.Start(t)
+	defer cancel()
+
+	ctx := setup(t, autoscaling.KPA, autoscaling.RPS,
+		rtesting.WithConfigAnnotations(map[string]string{
+			autoscaling.TargetAnnotationKey:            "10",
+			autoscaling.TargetUtilizationPercentageKey: "70",
+		}))
+	ctx.targetUtilization = 0.7
+	ctx.targetValue = 10
+	defer test.TearDown(ctx.clients, ctx.names)
+
+	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
+	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
+
+	// Increase workload for 2 replicas for 60s
+	// Assert the number of expected replicas is between n-1 and n+1, where n is the # of desired replicas for 60s.
+	// Assert the number of expected replicas is n and n+1 at the end of 60s, where n is the # of desired replicas.
+	assertAutoscaleUpToNumPods(ctx, 1, 2, 60*time.Second, true)
+	// Increase workload scale to 3 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
+	assertAutoscaleUpToNumPods(ctx, 2, 3, 60*time.Second, true)
+	// Increase workload scale to 4 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
+	assertAutoscaleUpToNumPods(ctx, 3, 4, 60*time.Second, true)
 }
 
 func TestAutoscaleSustaining(t *testing.T) {
