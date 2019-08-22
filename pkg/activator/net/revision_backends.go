@@ -63,8 +63,6 @@ const (
 	probeFrequency time.Duration = 200 * time.Millisecond
 )
 
-var emptySet = sets.NewString()
-
 // revisionWatcher watches the podIPs and ClusterIP of the service for a revision. It implements the logic
 // to supply RevisionDestsUpdate events on updateCh
 type revisionWatcher struct {
@@ -91,7 +89,7 @@ func newRevisionWatcher(rev types.NamespacedName, protocol networking.ProtocolTy
 		rev:           rev,
 		protocol:      protocol,
 		updateCh:      updateCh,
-		healthyPods:   emptySet,
+		healthyPods:   sets.NewString(),
 		transport:     transport,
 		destsChan:     destsChan,
 		serviceLister: serviceLister,
@@ -233,7 +231,7 @@ func (rw *revisionWatcher) checkDests(dests []string) {
 		// We dont want to return here as an error still affects health states
 	}
 
-	rw.logger.Debug("Done probing, got healthy nodes: ", hs)
+	rw.logger.Debug("Done probing, got healthy pods: ", hs)
 	if !reflect.DeepEqual(rw.healthyPods, hs) {
 		rw.healthyPods = hs
 		rw.updateCh <- &RevisionDestsUpdate{
