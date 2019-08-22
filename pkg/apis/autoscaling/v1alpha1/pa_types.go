@@ -98,7 +98,7 @@ type PodAutoscalerSpec struct {
 	// Reachable specifies whether or not the `ScaleTargetRef` can be reached (ie. has a route).
 	// Defaults to `ReachabilityUnknown`
 	// +optional
-	Reachability ReachabilityType `json:"reachable,omitempty"`
+	Reachability ReachabilityType `json:"reachability,omitempty"`
 
 	// DeprecatedServiceName holds the name of a core Kubernetes Service resource that
 	// load balances over the pods referenced by the ScaleTargetRef.
