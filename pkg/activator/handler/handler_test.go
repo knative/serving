@@ -418,6 +418,7 @@ func TestActivationHandlerOverflow(t *testing.T) {
 	handler.transport = rt
 	handler.probeTransport = rt
 
+	// set up config store to populate context
 	configStore := setupConfigStore(t)
 
 	sendRequests(requests, namespace, revName, respCh, handler, configStore)
@@ -514,6 +515,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(activator.RevisionHeaderNamespace, namespace)
 	req.Header.Set(activator.RevisionHeaderName, revName)
+
 	// set up config store to populate context
 	configStore := setupConfigStore(t)
 	ctx := configStore.ToContext(req.Context())
@@ -580,6 +582,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 	}
 	handler.probeTransport = rt
 
+	// set up config store to populate context
 	configStore := setupConfigStore(t)
 
 	_ = sendRequest(namespace, revName, handler, configStore)
