@@ -690,7 +690,7 @@ func (f *fakeReporter) ReportRequestConcurrency(ns, service, config, rev string,
 	return nil
 }
 
-func (f *fakeReporter) ReportRequestCount(ns, service, config, rev string, responseCode, numTries int, v int64) error {
+func (f *fakeReporter) ReportRequestCount(ns, service, config, rev string, responseCode, numTries int) error {
 	f.mux.Lock()
 	defer f.mux.Unlock()
 	f.calls = append(f.calls, reporterCall{
@@ -701,7 +701,7 @@ func (f *fakeReporter) ReportRequestCount(ns, service, config, rev string, respo
 		Revision:   rev,
 		StatusCode: responseCode,
 		Attempts:   numTries,
-		Value:      v,
+		Value:      1,
 	})
 
 	return nil

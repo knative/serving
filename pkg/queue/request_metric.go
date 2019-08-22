@@ -67,6 +67,6 @@ func (h *requestMetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *requestMetricHandler) sendRequestMetrics(respCode int, latency time.Duration) {
-	h.statsReporter.ReportRequestCount(respCode, 1)
+	h.statsReporter.ReportRequestCount(respCode)
 	h.statsReporter.ReportResponseTime(respCode, latency)
 }
