@@ -62,7 +62,13 @@ import (
 )
 
 const (
-	controllerAgentName = "ingress-controller"
+	controllerAgentName  = "ingress-controller"
+
+	// NotReconciledReason specifies the reason that ingress reconciliation has failed
+	NotReconciledReason  = "ReconcileIngressFailed"
+
+	// NotReconciledMessage indicates the message that ingress reconciliation has failed
+	NotReconciledMessage = "Ingress reconciliation failed"
 )
 
 type Reconciler struct {
@@ -244,6 +250,10 @@ func (r *BaseIngressReconciler) ReconcileIngress(ctx context.Context, ra Reconci
 	// Reconcile this copy of the Ingress and then write back any status
 	// updates regardless of whether the reconciliation errored out.
 	reconcileErr := r.reconcileIngress(ctx, ra, ingress)
+	if reconcileErr != nil {
+		r.Recorder.Event(ingress, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
+		ingress.GetStatus().MarkIngressNotReady(NotReconciledReason, NotReconciledMessage)
+	}
 	if equality.Semantic.DeepEqual(original.GetStatus(), ingress.GetStatus()) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
@@ -260,9 +270,6 @@ func (r *BaseIngressReconciler) ReconcileIngress(ctx context.Context, ra Reconci
 		logger.Infof("Updated status for Ingress %q", ingress.GetName())
 		r.Recorder.Eventf(ingress, corev1.EventTypeNormal, "Updated",
 			"Updated status for Ingress %q", ingress.GetName())
-	}
-	if reconcileErr != nil {
-		r.Recorder.Event(ingress, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
 	}
 	return reconcileErr
 }
@@ -290,9 +297,8 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 
 	// First, create the VirtualServices.
 	logger.Infof("Creating/Updating VirtualServices")
+	ia.GetStatus().ObservedGeneration = ia.GetGeneration()
 	if err := r.reconcileVirtualServices(ctx, ia, vses); err != nil {
-		// TODO(lichuqiang): should we explicitly mark the ingress as unready
-		// when error reconciling VirtualService?
 		return err
 	}
 
@@ -332,7 +338,6 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 
 	// Update status
 	ia.GetStatus().MarkNetworkConfigured()
-	ia.GetStatus().ObservedGeneration = ia.GetGeneration()
 
 	lbReady := true
 	for _, vs := range vses {

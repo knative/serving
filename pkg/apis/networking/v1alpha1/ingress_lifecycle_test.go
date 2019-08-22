@@ -100,4 +100,15 @@ func TestIngressTypicalFlow(t *testing.T) {
 	// Mark not owned.
 	r.MarkResourceNotOwned("i own", "you")
 	apitest.CheckConditionFailed(r.duck(), IngressConditionReady, t)
+
+	// Mark network configured, and check that ingress is ready again
+	r.MarkNetworkConfigured()
+	apitest.CheckConditionSucceeded(r.duck(), IngressConditionReady, t)
+	if !r.IsReady() {
+		t.Fatal("IsReady()=false, wanted true")
+	}
+
+	// Mark ingress not ready
+	r.MarkIngressNotReady("", "")
+	apitest.CheckConditionOngoing(r.duck(), IngressConditionReady, t)
 }

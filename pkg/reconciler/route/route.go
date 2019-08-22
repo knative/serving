@@ -264,7 +264,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		return err
 	}
 
-	if ingress.GetObjectMeta().GetGeneration() != ingress.GetStatus().ObservedGeneration {
+	if ingress.GetObjectMeta().GetGeneration() != ingress.GetStatus().ObservedGeneration || !ingress.GetStatus().IsReady() {
 		r.Status.MarkIngressNotConfigured()
 	} else {
 		r.Status.PropagateIngressStatus(*ingress.GetStatus())
