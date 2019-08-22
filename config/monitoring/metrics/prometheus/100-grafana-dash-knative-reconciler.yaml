@@ -556,7 +556,7 @@ data:
             "multi": false,
             "name": "reconciler",
             "options": [],
-            "query": "label_values(controller_reconcile_count, reconciler)",
+            "query": "label_values(controller_reconcile_count{namespace=\"knative-serving\"}, reconciler)",
             "refresh": 1,
             "regex": "",
             "sort": 0,
