@@ -66,7 +66,7 @@ func TestMinScale(t *testing.T) {
 
 	// Before becoming ready, observe minScale
 	t.Log("Waiting for revision to scale to minScale before becoming ready")
-	if err := waitForScaleToN(t, clients, deploymentName, minScale); err != nil {
+	if err := waitForScale(t, clients, deploymentName, gte(minScale)); err != nil {
 		t.Fatalf("The deployment %q did not scale to %d: %v", deploymentName, minScale, err)
 	}
 
@@ -78,8 +78,8 @@ func TestMinScale(t *testing.T) {
 	}
 
 	// Without a route, ignore minScale
-	t.Log("Waiting for revision to scale to zero after becoming ready")
-	if err := waitForScaleToN(t, clients, deploymentName, 0); err != nil {
+	t.Log("Waiting for revision to scale down below minScale after becoming ready")
+	if err := waitForScale(t, clients, deploymentName, lt(minScale)); err != nil {
 		t.Fatalf("The deployment %q did not scale to zero: %v", deploymentName, err)
 	}
 
@@ -98,8 +98,20 @@ func TestMinScale(t *testing.T) {
 
 	// With a route, observe minScale
 	t.Log("Waiting for revision to scale to minScale after creating route")
-	if err := waitForScaleToN(t, clients, deploymentName, minScale); err != nil {
+	if err := waitForScale(t, clients, deploymentName, gte(minScale)); err != nil {
 		t.Fatalf("The deployment %q did not scale to %d: %v", deploymentName, minScale, err)
+	}
+}
+
+func gte(m int) func(int32) bool {
+	return func(n int32) bool {
+		return n >= int32(m)
+	}
+}
+
+func lt(m int) func(int32) bool {
+	return func(n int32) bool {
+		return n < int32(m)
 	}
 }
 
@@ -129,19 +141,19 @@ func latestRevisionName(t *testing.T, clients *test.Clients, configName string) 
 	return config.Status.LatestCreatedRevisionName
 }
 
-func waitForScaleToN(t *testing.T, clients *test.Clients, deploymentName string, n int) error {
+func waitForScale(t *testing.T, clients *test.Clients, deploymentName string, cond func(int32) bool) error {
 	deployments := clients.KubeClient.Kube.AppsV1().Deployments(test.ServingNamespace)
 
-	desc := fmt.Sprintf("WaitForDeploymentState/%s/DeploymentIsScaledTo%d", deploymentName, n)
+	desc := fmt.Sprintf("WaitForDeploymentState/%s/DeploymentIsScaled", deploymentName)
 	span := logging.GetEmitableSpan(context.Background(), desc)
 	defer span.End()
 
-	return wait.PollImmediate(time.Second, 5*time.Minute, func() (bool, error) {
+	return wait.PollImmediate(time.Second, 3*time.Minute, func() (bool, error) {
 		deployment, err := deployments.Get(deploymentName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}
 
-		return deployment.Status.ReadyReplicas != int32(n), nil
+		return cond(deployment.Status.ReadyReplicas), nil
 	})
 }
