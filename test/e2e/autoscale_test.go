@@ -406,8 +406,6 @@ func TestRPSBasedAutoscaleUpCountPods(t *testing.T) {
 	defer cancel()
 
 	ctx := setup(t, autoscaling.KPA, autoscaling.RPS, 10, targetUtilization)
-	ctx.targetUtilization = 0.7
-	ctx.targetValue = 10
 	defer test.TearDown(ctx.clients, ctx.names)
 
 	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
