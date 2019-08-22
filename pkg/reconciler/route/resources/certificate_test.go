@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/serving"
 
 	"knative.dev/pkg/kmeta"
 
@@ -51,6 +52,9 @@ func TestMakeCertificates(t *testing.T) {
 				Annotations: map[string]string{
 					networking.CertificateClassAnnotationKey: "foo-cert",
 				},
+				Labels: map[string]string{
+					serving.RouteLabelKey: "route",
+				},
 			},
 			Spec: netv1alpha1.CertificateSpec{
 				DNSNames:   []string{"v1-current.default.example.com"},
@@ -64,6 +68,9 @@ func TestMakeCertificates(t *testing.T) {
 				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
 				Annotations: map[string]string{
 					networking.CertificateClassAnnotationKey: "foo-cert",
+				},
+				Labels: map[string]string{
+					serving.RouteLabelKey: "route",
 				},
 			},
 			Spec: netv1alpha1.CertificateSpec{
