@@ -29,8 +29,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
+	vegeta "github.com/tsenart/vegeta/lib"
 	"golang.org/x/sync/errgroup"
-
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
@@ -66,7 +66,7 @@ type testContext struct {
 	deploymentName    string
 	domain            string
 	targetUtilization float64
-	targetValue       float64
+	targetValue       int
 	metric            string
 }
 
@@ -128,50 +128,43 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 	return nil
 }
 
-func generateTrafficAtFixedRPS(ctx *testContext, rps float64, duration time.Duration, stopChan chan struct{}) error {
+func generateTrafficAtFixedRPS(ctx *testContext, rps int, duration time.Duration, stopChan chan struct{}) error {
 	var (
 		totalRequests      int32
 		successfulRequests int32
 	)
 
+	rate := vegeta.Rate{Freq: rps, Per: time.Second}
+	target := vegeta.Target{
+		Method: "GET",
+		URL:    fmt.Sprintf("http://%s?sleep=100", ctx.domain),
+	}
+	targeter := vegeta.NewStaticTargeter(target)
+	attacker := vegeta.NewAttacker(vegeta.Timeout(duration))
+
 	ctx.t.Logf("Maintaining %v RPS requests for %v.", rps, duration)
-	client, err := pkgTest.NewSpoofingClient(ctx.clients.KubeClient, ctx.t.Logf, ctx.domain, test.ServingFlags.ResolvableDomain)
-	if err != nil {
-		return fmt.Errorf("error creating spoofing client: %v", err)
-	}
 
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s?sleep=100", ctx.domain), nil)
-	if err != nil {
-		return fmt.Errorf("error creating HTTP request: %v", err)
-	}
+	// Start the attack!
+	results := attacker.Attack(targeter, rate, duration, "load-test")
 
-	ticker := time.NewTicker(time.Second / time.Duration(rps))
-	defer ticker.Stop()
-	done := time.After(duration)
 	for {
 		select {
 		case <-stopChan:
 			ctx.t.Log("Stopping generateTraffic")
 			return nil
-		case <-done:
-			ctx.t.Log("Time is up; done")
-			return nil
-		case <-ticker.C:
-			go func() {
-				atomic.AddInt32(&totalRequests, 1)
-				res, err := client.Do(req)
-				if err != nil {
-					ctx.t.Logf("Error making request %v", err)
-					return
-				}
+		case res, ok := <-results:
+			if !ok {
+				ctx.t.Log("Time is up; done")
+				return nil
+			}
 
-				if res.StatusCode != http.StatusOK {
-					ctx.t.Logf("Status = %d, want: %d", res.StatusCode, http.StatusOK)
-					ctx.t.Logf("Response: %s", res)
-					return
-				}
-				atomic.AddInt32(&successfulRequests, 1)
-			}()
+			atomic.AddInt32(&totalRequests, 1)
+			if res.Code != http.StatusOK {
+				ctx.t.Logf("Status = %d, want: %d", res.Code, http.StatusOK)
+				ctx.t.Logf("Response: %v", res)
+				continue
+			}
+			atomic.AddInt32(&successfulRequests, 1)
 		}
 	}
 
@@ -301,11 +294,11 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, dur
 	switch ctx.metric {
 	case autoscaling.RPS:
 		grp.Go(func() error {
-			return generateTrafficAtFixedRPS(ctx, float64(targetPods)*ctx.targetValue, duration, stopChan)
+			return generateTrafficAtFixedRPS(ctx, int(targetPods)*ctx.targetValue, duration, stopChan)
 		})
 	default:
 		grp.Go(func() error {
-			return generateTraffic(ctx, int(targetPods*int32(ctx.targetValue)), duration, stopChan)
+			return generateTraffic(ctx, int(targetPods)*ctx.targetValue, duration, stopChan)
 		})
 	}
 
