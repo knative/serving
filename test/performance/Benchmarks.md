@@ -55,7 +55,7 @@ and it should have four symlinks.
    Points to the prod.config file in the benchmark directory.
 
    ```sh
-   ln -r -s ./test/performance/dataplae-probe/prod.config test/performance/dataplane-probe/kodata/
+   ln -r -s ./test/performance/dataplane-probe/prod.config test/performance/dataplane-probe/kodata/
    ```
 
 3. [HEAD](https://github.com/knative/serving/blob/master/test/performance/dataplane-probe/kodata/HEAD)
