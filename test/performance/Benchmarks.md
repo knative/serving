@@ -118,7 +118,7 @@ performance metrics. To store these metrics in the test, follow these steps:
 
     ```go
     import (
-      "knative.dev/serving/test/performance/mako"
+      "knative.dev/pkg/test/mako"
     )
     ```
 
