@@ -230,11 +230,9 @@ func (a *activationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	config := activatorconfig.FromContext(r.Context())
 	proxy.Transport = a.transport
-	if config.Tracing != nil {
-		if config.Tracing.Backend != tracingconfig.None {
-			proxy.Transport = &ochttp.Transport{
-				Base: a.transport,
-			}
+	if config.Tracing.Backend != tracingconfig.None {
+		proxy.Transport = &ochttp.Transport{
+			Base: a.transport,
 		}
 	}
 	proxy.FlushInterval = -1
