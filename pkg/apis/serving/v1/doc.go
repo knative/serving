@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Packge v1 contains the Serving v1 API types.
+// Package v1 contains the Serving v1 API types.
 
 // +k8s:deepcopy-gen=package
 // +groupName=serving.knative.dev

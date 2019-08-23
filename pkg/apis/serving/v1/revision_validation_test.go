@@ -273,7 +273,7 @@ func TestContainerConcurrencyValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := serving.ValidateContainerConcurrency(context.Background(), &test.cc)
+			got := serving.ValidateContainerConcurrency(&test.cc)
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
 				t.Errorf("Validate (-want, +got) = %v", cmp.Diff(want, got))
 			}
