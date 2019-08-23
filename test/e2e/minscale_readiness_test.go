@@ -19,8 +19,6 @@ limitations under the License.
 package e2e
 
 import (
-	"context"
-	"fmt"
 	"strconv"
 	"time"
 
@@ -28,7 +26,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -66,8 +63,8 @@ func TestMinScale(t *testing.T) {
 
 	// Before becoming ready, observe minScale
 	t.Log("Waiting for revision to scale to minScale before becoming ready")
-	if err := waitForScale(t, clients, deploymentName, gte(minScale)); err != nil {
-		t.Fatalf("The deployment %q did not scale to %d: %v", deploymentName, minScale, err)
+	if err := waitForDesiredScale(t, clients, deploymentName, gte(minScale)); err != nil {
+		t.Fatalf("The deployment %q did not scale >= %d before becoming ready: %v", deploymentName, minScale, err)
 	}
 
 	// Revision becomes ready
@@ -78,9 +75,9 @@ func TestMinScale(t *testing.T) {
 	}
 
 	// Without a route, ignore minScale
-	t.Log("Waiting for revision to scale down below minScale after becoming ready")
-	if err := waitForScale(t, clients, deploymentName, lt(minScale)); err != nil {
-		t.Fatalf("The deployment %q did not scale to zero: %v", deploymentName, err)
+	t.Log("Waiting for revision to scale below minScale after becoming ready")
+	if err := waitForDesiredScale(t, clients, deploymentName, lt(minScale)); err != nil {
+		t.Fatalf("The deployment %q did not scale < minScale after becoming ready: %v", deploymentName, err)
 	}
 
 	// Create route
@@ -98,8 +95,8 @@ func TestMinScale(t *testing.T) {
 
 	// With a route, observe minScale
 	t.Log("Waiting for revision to scale to minScale after creating route")
-	if err := waitForScale(t, clients, deploymentName, gte(minScale)); err != nil {
-		t.Fatalf("The deployment %q did not scale to %d: %v", deploymentName, minScale, err)
+	if err := waitForDesiredScale(t, clients, deploymentName, gte(minScale)); err != nil {
+		t.Fatalf("The deployment %q did not scale >= %d after creating route: %v", deploymentName, minScale, err)
 	}
 }
 
@@ -141,19 +138,15 @@ func latestRevisionName(t *testing.T, clients *test.Clients, configName string) 
 	return config.Status.LatestCreatedRevisionName
 }
 
-func waitForScale(t *testing.T, clients *test.Clients, deploymentName string, cond func(int32) bool) error {
+func waitForDesiredScale(t *testing.T, clients *test.Clients, deploymentName string, cond func(int32) bool) error {
 	deployments := clients.KubeClient.Kube.AppsV1().Deployments(test.ServingNamespace)
 
-	desc := fmt.Sprintf("WaitForDeploymentState/%s/DeploymentIsScaled", deploymentName)
-	span := logging.GetEmitableSpan(context.Background(), desc)
-	defer span.End()
-
-	return wait.PollImmediate(time.Second, 3*time.Minute, func() (bool, error) {
+	return wait.PollImmediate(time.Second, 1*time.Minute, func() (bool, error) {
 		deployment, err := deployments.Get(deploymentName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}
 
-		return cond(deployment.Status.ReadyReplicas), nil
+		return cond(*deployment.Spec.Replicas), nil
 	})
 }
