@@ -176,7 +176,7 @@ spec:
         runAsUser: 65534
       containers:
       - name: grafana
-        image: quay.io/coreos/monitoring-grafana:5.0.3
+        image: grafana/grafana:6.3.3
         volumeMounts:
         - name: grafana-storage
           mountPath: /data
