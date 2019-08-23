@@ -30,11 +30,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
-	vegeta "github.com/tsenart/vegeta/lib"
 	"golang.org/x/sync/errgroup"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
-	ingress "knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -51,7 +49,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -72,34 +69,6 @@ type testContext struct {
 	targetUtilization float64
 	targetValue       int
 	metric            string
-}
-
-func getVegetaTarget(kubeClientset *kubernetes.Clientset, domain, endpointOverride string, resolvable bool) (vegeta.Target, error) {
-	if resolvable {
-		return vegeta.Target{
-			Method: "GET",
-			URL:    fmt.Sprintf("http://%s?sleep=100", domain),
-		}, nil
-	}
-
-	endpoint := &endpointOverride
-	if endpointOverride == "" {
-		var err error
-		// If the domain that the Route controller is configured to assign to Route.Status.Domain
-		// (the domainSuffix) is not resolvable, we need to retrieve the endpoint and spoof
-		// the Host in our requests.
-		if endpoint, err = ingress.GetIngressEndpoint(kubeClientset); err != nil {
-			return vegeta.Target{}, err
-		}
-	}
-
-	h := http.Header{}
-	h.Set("Host", domain)
-	return vegeta.Target{
-		Method: "GET",
-		URL:    fmt.Sprintf("http://%s?sleep=100", *endpoint),
-		Header: h,
-	}, nil
 }
 
 func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, stopChan chan struct{}) error {
