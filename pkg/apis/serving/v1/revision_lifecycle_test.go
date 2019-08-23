@@ -21,6 +21,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis/duck"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/config"
 )
 
 func TestRevisionDuckTypes(t *testing.T) {
@@ -52,4 +54,30 @@ func TestRevisionGetGroupVersionKind(t *testing.T) {
 	if got := r.GetGroupVersionKind(); got != want {
 		t.Errorf("got: %v, want: %v", got, want)
 	}
+}
+
+func TestGetContainerConcurrency(t *testing.T) {
+	tests := []struct {
+		name     string
+		rs       *RevisionSpec
+		expected int64
+	}{{
+		name:     "nil concurrency",
+		rs:       &RevisionSpec{},
+		expected: config.DefaultContainerConcurrency,
+	}, {
+		name:     "concurrency 42",
+		rs:       &RevisionSpec{ContainerConcurrency: ptr.Int64(42)},
+		expected: 42,
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cc := test.rs.GetContainerConcurrency()
+			if cc != test.expected {
+				t.Errorf("GetContainerConcurrency() = %d, expected:%d", cc, test.expected)
+			}
+		})
+	}
+
 }

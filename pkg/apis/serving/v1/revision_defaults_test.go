@@ -249,6 +249,51 @@ func TestRevisionDefaulting(t *testing.T) {
 			},
 		},
 	}, {
+		name: "with resources from context",
+		in: &Revision{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}},
+			},
+		},
+		wc: func(ctx context.Context) context.Context {
+			s := config.NewStore(logtesting.TestLogger(t))
+			s.OnConfigChanged(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: config.DefaultsConfigName,
+				},
+				Data: map[string]string{
+					"revision-cpu-request":    "100m",
+					"revision-memory-request": "200M",
+					"revision-cpu-limit":      "300m",
+					"revision-memory-limit":   "400M",
+				},
+			})
+
+			return s.ToContext(ctx)
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: config.DefaultUserContainerName,
+						Resources: corev1.ResourceRequirements{
+							Limits: corev1.ResourceList{
+								corev1.ResourceCPU:    resource.MustParse("100m"),
+								corev1.ResourceMemory: resource.MustParse("200M"),
+							},
+							Requests: corev1.ResourceList{
+								corev1.ResourceCPU:    resource.MustParse("300m"),
+								corev1.ResourceMemory: resource.MustParse("400M"),
+							},
+						},
+						ReadinessProbe: defaultProbe,
+					}},
+				},
+			},
+		},
+	}, {
 		name: "multiple containers",
 		in: &Revision{
 			Spec: RevisionSpec{
