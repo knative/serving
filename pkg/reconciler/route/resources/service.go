@@ -131,7 +131,10 @@ func makeServiceSpec(ingress netv1alpha1.IngressAccessor, isPrivate bool) (*core
 
 	var lbStatus *netv1alpha1.LoadBalancerStatus
 
-	if isPrivate {
+	if isPrivate || ingressStatus.PrivateLoadBalancer != nil {
+		// Always use private load balancer if it exists,
+		// because k8s service is only useful for inter-cluster communication.
+		// External communication will be handle via ingress gateway, which won't be affected by what is configured here.
 		lbStatus = ingressStatus.PrivateLoadBalancer
 	} else {
 		lbStatus = ingressStatus.PublicLoadBalancer
