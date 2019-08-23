@@ -35,7 +35,7 @@ data:
       "annotations": {
         "list": []
       },
-      "description": "Knative Serving - Reconciler",
+      "description": "Knative - Reconciler",
       "editable": false,
       "gnetId": null,
       "graphTooltip": 0,
@@ -618,7 +618,7 @@ data:
         ]
       },
       "timezone": "",
-      "title": "Knative Serving - Reconciler",
+      "title": "Knative - Reconciler",
       "uid": "j0oFdEYiz",
       "version": 10
     }
