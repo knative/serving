@@ -371,7 +371,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 10, targetUtilization,
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey:                "7",
 			autoscaling.PanicThresholdPercentageAnnotationKey: "200", // makes panicking rare
@@ -452,7 +452,7 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 10, targetUtilization,
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 		}))
