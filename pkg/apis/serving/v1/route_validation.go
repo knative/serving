@@ -83,7 +83,7 @@ func (tt *TrafficTarget) Validate(ctx context.Context) *apis.FieldError {
 	errs := tt.validateLatestRevision(ctx)
 	errs = tt.validateRevisionAndConfiguration(ctx, errs)
 	errs = tt.validateTrafficPercentage(errs)
-	return tt.validateUrl(ctx, errs)
+	return tt.validateURL(ctx, errs)
 }
 
 func (tt *TrafficTarget) validateRevisionAndConfiguration(ctx context.Context, errs *apis.FieldError) *apis.FieldError {
@@ -152,7 +152,7 @@ func (tt *TrafficTarget) validateLatestRevision(ctx context.Context) *apis.Field
 	return nil
 }
 
-func (tt *TrafficTarget) validateUrl(ctx context.Context, errs *apis.FieldError) *apis.FieldError {
+func (tt *TrafficTarget) validateURL(ctx context.Context, errs *apis.FieldError) *apis.FieldError {
 	// Check that we set the URL appropriately.
 	if tt.URL.String() != "" {
 		// URL is not allowed in traffic under spec.

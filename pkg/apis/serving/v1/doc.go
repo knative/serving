@@ -14,9 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Api versions allow the api contract for a resource to be changed while keeping
-// backward compatibility by support multiple concurrent versions
-// of the same resource
+// Packge v1 contains the Serving v1 API types.
 
 // +k8s:deepcopy-gen=package
 // +groupName=serving.knative.dev
