@@ -25,12 +25,12 @@ import (
 
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
+	"knative.dev/serving/pkg/apis/networking"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
-	"knative.dev/serving/pkg/activator"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -137,7 +137,7 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 			t.Logf("Registering expected hook update for endpoints %s", eps.Name)
 			return HookComplete
 		}
-		if eps.Name == activator.K8sServiceName {
+		if eps.Name == networking.ActivatorServiceName {
 			// Expected, but not the one we're waiting for.
 			t.Log("Registering activator endpoint update")
 		} else {

@@ -183,7 +183,7 @@ func TestThrottlerActivatorEndpoints(t *testing.T) {
 		t.Run(s.name, func(t *testing.T) {
 			activatorEp := &corev1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      K8sServiceName,
+					Name:      networking.ActivatorServiceName,
 					Namespace: system.Namespace(),
 				},
 				Subsets: endpointsSubset(1, s.activatorCount),

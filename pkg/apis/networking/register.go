@@ -73,6 +73,9 @@ const (
 	// value a different reconciliation logic may be used (for examples,
 	// Cert-Manager-based Certificate will reconcile into a Cert-Manager Certificate).
 	CertificateClassAnnotationKey = GroupName + "/certificate.class"
+
+	// ActivatorServiceName is the name of the activator Kubernetes service.
+	ActivatorServiceName = "activator-service"
 )
 
 // ServiceType is the enumeration type for the Kubernetes services
