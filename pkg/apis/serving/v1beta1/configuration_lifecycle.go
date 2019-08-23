@@ -28,8 +28,3 @@ var configurationCondSet = apis.NewLivingConditionSet()
 func (r *Configuration) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Configuration")
 }
-
-// IsReady returns if the configuration is ready to serve the requested configuration.
-func (cs *ConfigurationStatus) IsReady() bool {
-	return configurationCondSet.Manage(cs).IsHappy()
-}

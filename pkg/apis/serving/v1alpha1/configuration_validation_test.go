@@ -30,7 +30,7 @@ import (
 
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/config"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestConfigurationSpecValidation(t *testing.T) {
@@ -55,7 +55,7 @@ func TestConfigurationSpecValidation(t *testing.T) {
 		c: &ConfigurationSpec{
 			DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
-					RevisionSpec: v1beta1.RevisionSpec{
+					RevisionSpec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "hellworld",
@@ -123,7 +123,7 @@ func TestConfigurationSpecValidation(t *testing.T) {
 		c: &ConfigurationSpec{
 			Template: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
-					RevisionSpec: v1beta1.RevisionSpec{
+					RevisionSpec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "hellworld",
@@ -505,7 +505,7 @@ func TestConfigurationSubresourceUpdate(t *testing.T) {
 						DeprecatedContainer: &corev1.Container{
 							Image: "helloworld",
 						},
-						RevisionSpec: v1beta1.RevisionSpec{
+						RevisionSpec: v1.RevisionSpec{
 							TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds - 1),
 						},
 					},
@@ -526,7 +526,7 @@ func TestConfigurationSubresourceUpdate(t *testing.T) {
 						DeprecatedContainer: &corev1.Container{
 							Image: "helloworld",
 						},
-						RevisionSpec: v1beta1.RevisionSpec{
+						RevisionSpec: v1.RevisionSpec{
 							TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds + 1),
 						},
 					},
@@ -547,7 +547,7 @@ func TestConfigurationSubresourceUpdate(t *testing.T) {
 						DeprecatedContainer: &corev1.Container{
 							Image: "helloworld",
 						},
-						RevisionSpec: v1beta1.RevisionSpec{
+						RevisionSpec: v1.RevisionSpec{
 							TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds - 1),
 						},
 					},
@@ -568,7 +568,7 @@ func TestConfigurationSubresourceUpdate(t *testing.T) {
 						DeprecatedContainer: &corev1.Container{
 							Image: "helloworld",
 						},
-						RevisionSpec: v1beta1.RevisionSpec{
+						RevisionSpec: v1.RevisionSpec{
 							TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds + 1),
 						},
 					},

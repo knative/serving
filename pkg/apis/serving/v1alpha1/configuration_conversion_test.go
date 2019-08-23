@@ -27,6 +27,7 @@ import (
 
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
@@ -58,7 +59,7 @@ func TestConfigurationConversion(t *testing.T) {
 			Spec: ConfigurationSpec{
 				Template: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
+						RevisionSpec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								ServiceAccountName: "robocop",
 								Containers: []corev1.Container{{
@@ -113,7 +114,7 @@ func TestConfigurationConversion(t *testing.T) {
 				},
 				Template: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
+						RevisionSpec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "busybox",

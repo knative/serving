@@ -23,7 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"knative.dev/pkg/ptr"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestRouteDefaulting(t *testing.T) {
@@ -38,12 +38,12 @@ func TestRouteDefaulting(t *testing.T) {
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
 					DeprecatedName: "foo",
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						ConfigurationName: "foo",
 						Percent:           ptr.Int64(50),
 					},
 				}, {
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:          "bar",
 						RevisionName: "foo",
 						Percent:      ptr.Int64(50),
@@ -55,13 +55,13 @@ func TestRouteDefaulting(t *testing.T) {
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
 					DeprecatedName: "foo",
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						ConfigurationName: "foo",
 						Percent:           ptr.Int64(50),
 						LatestRevision:    ptr.Bool(true),
 					},
 				}, {
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:            "bar",
 						RevisionName:   "foo",
 						Percent:        ptr.Int64(50),
@@ -72,17 +72,17 @@ func TestRouteDefaulting(t *testing.T) {
 		},
 	}, {
 		name: "lemonade",
-		wc:   v1beta1.WithUpgradeViaDefaulting,
+		wc:   v1.WithUpgradeViaDefaulting,
 		in: &Route{
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
 					DeprecatedName: "foo",
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						ConfigurationName: "foo",
 						Percent:           ptr.Int64(50),
 					},
 				}, {
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:          "bar",
 						RevisionName: "foo",
 						Percent:      ptr.Int64(50),
@@ -93,14 +93,14 @@ func TestRouteDefaulting(t *testing.T) {
 		want: &Route{
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:               "foo",
 						ConfigurationName: "foo",
 						Percent:           ptr.Int64(50),
 						LatestRevision:    ptr.Bool(true),
 					},
 				}, {
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:            "bar",
 						RevisionName:   "foo",
 						Percent:        ptr.Int64(50),
@@ -111,18 +111,18 @@ func TestRouteDefaulting(t *testing.T) {
 		},
 	}, {
 		name: "lemonade (conflict)",
-		wc:   v1beta1.WithUpgradeViaDefaulting,
+		wc:   v1.WithUpgradeViaDefaulting,
 		in: &Route{
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
 					DeprecatedName: "foo",
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						ConfigurationName: "foo",
 						Percent:           ptr.Int64(50),
 					},
 				}, {
 					DeprecatedName: "baz",
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:          "bar",
 						RevisionName: "foo",
 						Percent:      ptr.Int64(50),
@@ -134,14 +134,14 @@ func TestRouteDefaulting(t *testing.T) {
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
 					DeprecatedName: "foo",
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						ConfigurationName: "foo",
 						Percent:           ptr.Int64(50),
 						LatestRevision:    ptr.Bool(true),
 					},
 				}, {
 					DeprecatedName: "baz",
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:            "bar",
 						RevisionName:   "foo",
 						Percent:        ptr.Int64(50),
@@ -152,17 +152,17 @@ func TestRouteDefaulting(t *testing.T) {
 		},
 	}, {
 		name: "lemonade (collision)",
-		wc:   v1beta1.WithUpgradeViaDefaulting,
+		wc:   v1.WithUpgradeViaDefaulting,
 		in: &Route{
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
 					DeprecatedName: "bar",
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						ConfigurationName: "foo",
 						Percent:           ptr.Int64(50),
 					},
 				}, {
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:          "bar",
 						RevisionName: "foo",
 						Percent:      ptr.Int64(50),
@@ -173,14 +173,14 @@ func TestRouteDefaulting(t *testing.T) {
 		want: &Route{
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:               "bar",
 						ConfigurationName: "foo",
 						Percent:           ptr.Int64(50),
 						LatestRevision:    ptr.Bool(true),
 					},
 				}, {
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:            "bar",
 						RevisionName:   "foo",
 						Percent:        ptr.Int64(50),

@@ -22,6 +22,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestRouteDefaulting(t *testing.T) {
@@ -38,20 +39,20 @@ func TestRouteDefaulting(t *testing.T) {
 		name: "empty w/ default configuration",
 		in:   &Route{},
 		want: &Route{
-			Spec: RouteSpec{
-				Traffic: []TrafficTarget{{
+			Spec: v1.RouteSpec{
+				Traffic: []v1.TrafficTarget{{
 					Percent:        ptr.Int64(100),
 					LatestRevision: ptr.Bool(true),
 				}},
 			},
 		},
-		wc: WithDefaultConfigurationName,
+		wc: v1.WithDefaultConfigurationName,
 	}, {
 		// Make sure it keeps a 'nil' as a 'nil' and not 'zero'
 		name: "implied zero percent",
 		in: &Route{
-			Spec: RouteSpec{
-				Traffic: []TrafficTarget{{
+			Spec: v1.RouteSpec{
+				Traffic: []v1.TrafficTarget{{
 					Percent:        ptr.Int64(100),
 					LatestRevision: ptr.Bool(true),
 				}, {
@@ -60,8 +61,8 @@ func TestRouteDefaulting(t *testing.T) {
 			},
 		},
 		want: &Route{
-			Spec: RouteSpec{
-				Traffic: []TrafficTarget{{
+			Spec: v1.RouteSpec{
+				Traffic: []v1.TrafficTarget{{
 					Percent:        ptr.Int64(100),
 					LatestRevision: ptr.Bool(true),
 				}, {
@@ -71,13 +72,13 @@ func TestRouteDefaulting(t *testing.T) {
 				}},
 			},
 		},
-		wc: WithDefaultConfigurationName,
+		wc: v1.WithDefaultConfigurationName,
 	}, {
 		// Just to make sure it doesn't convert a 'zero' into a 'nil'
 		name: "explicit zero percent",
 		in: &Route{
-			Spec: RouteSpec{
-				Traffic: []TrafficTarget{{
+			Spec: v1.RouteSpec{
+				Traffic: []v1.TrafficTarget{{
 					Percent:        ptr.Int64(100),
 					LatestRevision: ptr.Bool(true),
 				}, {
@@ -87,8 +88,8 @@ func TestRouteDefaulting(t *testing.T) {
 			},
 		},
 		want: &Route{
-			Spec: RouteSpec{
-				Traffic: []TrafficTarget{{
+			Spec: v1.RouteSpec{
+				Traffic: []v1.TrafficTarget{{
 					Percent:        ptr.Int64(100),
 					LatestRevision: ptr.Bool(true),
 				}, {
@@ -98,12 +99,12 @@ func TestRouteDefaulting(t *testing.T) {
 				}},
 			},
 		},
-		wc: WithDefaultConfigurationName,
+		wc: v1.WithDefaultConfigurationName,
 	}, {
 		name: "latest revision defaulting",
 		in: &Route{
-			Spec: RouteSpec{
-				Traffic: []TrafficTarget{{
+			Spec: v1.RouteSpec{
+				Traffic: []v1.TrafficTarget{{
 					RevisionName: "foo",
 					Percent:      ptr.Int64(12),
 				}, {
@@ -116,8 +117,8 @@ func TestRouteDefaulting(t *testing.T) {
 			},
 		},
 		want: &Route{
-			Spec: RouteSpec{
-				Traffic: []TrafficTarget{{
+			Spec: v1.RouteSpec{
+				Traffic: []v1.TrafficTarget{{
 					RevisionName:   "foo",
 					Percent:        ptr.Int64(12),
 					LatestRevision: ptr.Bool(false),

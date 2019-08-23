@@ -42,6 +42,7 @@ import (
 	"knative.dev/pkg/tracker"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
@@ -184,7 +185,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	// and may not have had all of the assumed defaults specified.  This won't result
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
-	r.SetDefaults(v1beta1.WithUpgradeViaDefaulting(ctx))
+	r.SetDefaults(v1.WithUpgradeViaDefaulting(ctx))
 	r.Status.InitializeConditions()
 
 	if err := r.ConvertUp(ctx, &v1beta1.Route{}); err != nil {

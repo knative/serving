@@ -29,8 +29,8 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	fakecertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 	fakeciinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress/fake"
 	"knative.dev/serving/pkg/gc"
@@ -98,7 +98,7 @@ func TestReconcileClusterIngressUpdate(t *testing.T) {
 	ci2 := newTestClusterIngress(t, r, func(tc *traffic.Config) {
 		tc.Targets[traffic.DefaultTarget][0].TrafficTarget.Percent = ptr.Int64(50)
 		tc.Targets[traffic.DefaultTarget] = append(tc.Targets[traffic.DefaultTarget], traffic.RevisionTarget{
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Percent:      ptr.Int64(50),
 				RevisionName: "revision2",
 			},
@@ -139,7 +139,7 @@ func TestReconcileTargetRevisions(t *testing.T) {
 		name: "Valid target revision",
 		tc: traffic.Config{Targets: map[string]traffic.RevisionTargets{
 			traffic.DefaultTarget: {{
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					RevisionName: "revision",
 					Percent:      ptr.Int64(100),
 				},
@@ -149,7 +149,7 @@ func TestReconcileTargetRevisions(t *testing.T) {
 		name: "invalid target revision",
 		tc: traffic.Config{Targets: map[string]traffic.RevisionTargets{
 			traffic.DefaultTarget: {{
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					RevisionName: "inal-revision",
 					Percent:      ptr.Int64(100),
 				},
@@ -178,7 +178,7 @@ func TestReconcileTargetRevisions(t *testing.T) {
 func newTestClusterIngress(t *testing.T, r *v1alpha1.Route, trafficOpts ...func(tc *traffic.Config)) netv1alpha1.IngressAccessor {
 	tc := &traffic.Config{Targets: map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				RevisionName: "revision",
 				Percent:      ptr.Int64(100),
 			},

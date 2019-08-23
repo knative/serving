@@ -27,7 +27,7 @@ import (
 	"knative.dev/pkg/ptr"
 
 	"knative.dev/serving/pkg/apis/config"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/apis/serving/v1"
 )
 
 var defaultProbe = &corev1.Probe{
@@ -49,7 +49,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		in:   &Revision{},
 		want: &Revision{
 			Spec: RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(0),
 					TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				},
@@ -69,7 +69,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(0),
 					TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				},
@@ -101,7 +101,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(0),
 					TimeoutSeconds:       ptr.Int64(123),
 				},
@@ -122,7 +122,7 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name: "bar",
 					}},
 				},
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(99),
 				},
@@ -140,7 +140,7 @@ func TestRevisionDefaulting(t *testing.T) {
 					Resources:      defaultResources,
 					ReadinessProbe: defaultProbe,
 				},
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(99),
 				},
@@ -148,7 +148,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		},
 	}, {
 		name: "lemonade",
-		wc:   v1beta1.WithUpgradeViaDefaulting,
+		wc:   v1.WithUpgradeViaDefaulting,
 		in: &Revision{
 			Spec: RevisionSpec{
 				DeprecatedContainer: &corev1.Container{
@@ -157,7 +157,7 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name: "bar",
 					}},
 				},
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(99),
 				},
@@ -165,7 +165,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
 							Name:  config.DefaultUserContainerName,
@@ -185,13 +185,13 @@ func TestRevisionDefaulting(t *testing.T) {
 		},
 	}, {
 		name: "lemonade (no overwrite)",
-		wc:   v1beta1.WithUpgradeViaDefaulting,
+		wc:   v1.WithUpgradeViaDefaulting,
 		in: &Revision{
 			Spec: RevisionSpec{
 				DeprecatedContainer: &corev1.Container{
 					Image: "bar",
 				},
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(99),
 					PodSpec: corev1.PodSpec{
@@ -209,7 +209,7 @@ func TestRevisionDefaulting(t *testing.T) {
 				DeprecatedContainer: &corev1.Container{
 					Image: "bar",
 				},
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(99),
 					PodSpec: corev1.PodSpec{
@@ -228,7 +228,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		in: &Revision{
 			Spec: RevisionSpec{
 				DeprecatedContainer: &corev1.Container{},
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(99),
 				},
@@ -236,7 +236,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(99),
 				},
@@ -252,14 +252,14 @@ func TestRevisionDefaulting(t *testing.T) {
 		in: &Revision{
 			Spec: RevisionSpec{
 				DeprecatedContainer: &corev1.Container{},
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(123),
 				},
 			},
 		},
 		want: &Revision{
 			Spec: RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(123),
 					TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				},
@@ -276,7 +276,7 @@ func TestRevisionDefaulting(t *testing.T) {
 			Spec: RevisionSpec{
 				DeprecatedConcurrencyModel: "Single",
 				DeprecatedContainer:        &corev1.Container{},
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: nil, // unspecified
 				},
 			},
@@ -284,7 +284,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		want: &Revision{
 			Spec: RevisionSpec{
 				DeprecatedConcurrencyModel: "Single",
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 				},

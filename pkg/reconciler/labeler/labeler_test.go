@@ -35,8 +35,8 @@ import (
 	"knative.dev/pkg/kmeta"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/reconciler"
 
 	. "knative.dev/pkg/reconciler/testing"
@@ -225,7 +225,7 @@ func routeWithTraffic(namespace, name string, traffic ...v1alpha1.TrafficTarget)
 
 func simpleRunLatest(namespace, name, config string) *v1alpha1.Route {
 	return routeWithTraffic(namespace, name, v1alpha1.TrafficTarget{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			RevisionName: config + "-dbnfd",
 			Percent:      ptr.Int64(100),
 		},

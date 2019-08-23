@@ -26,6 +26,7 @@ import (
 
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
@@ -57,7 +58,7 @@ func TestServiceConversion(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: v1.RevisionSpec{
 								PodSpec: corev1.PodSpec{
 									ServiceAccountName: "robocop",
 									Containers: []corev1.Container{{
@@ -85,7 +86,7 @@ func TestServiceConversion(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							Tag:            "latest",
 							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(true),
@@ -107,7 +108,7 @@ func TestServiceConversion(t *testing.T) {
 				},
 				RouteStatusFields: RouteStatusFields{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							Tag:            "latest",
 							Percent:        ptr.Int64(100),
 							RevisionName:   "foo-00001",
@@ -153,7 +154,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 		},
 		RouteStatusFields: RouteStatusFields{
 			Traffic: []TrafficTarget{{
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					Percent:      ptr.Int64(100),
 					RevisionName: "foo-00001",
 				},
@@ -179,7 +180,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								RevisionSpec: v1beta1.RevisionSpec{
+								RevisionSpec: v1.RevisionSpec{
 									PodSpec: corev1.PodSpec{
 										ServiceAccountName: "robocop",
 										Volumes: []corev1.Volume{{
@@ -219,7 +220,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: v1.RevisionSpec{
 								PodSpec: corev1.PodSpec{
 									ServiceAccountName: "robocop",
 									Containers: []corev1.Container{{
@@ -247,7 +248,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(true),
 						},
@@ -270,7 +271,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								RevisionSpec: v1beta1.RevisionSpec{
+								RevisionSpec: v1.RevisionSpec{
 									PodSpec: corev1.PodSpec{
 										ServiceAccountName: "robocop",
 										Volumes: []corev1.Volume{{
@@ -310,7 +311,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: v1.RevisionSpec{
 								PodSpec: corev1.PodSpec{
 									ServiceAccountName: "robocop",
 									Containers: []corev1.Container{{
@@ -338,13 +339,13 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							Tag:          "current",
 							RevisionName: "foo-00001",
 							Percent:      ptr.Int64(100),
 						},
 					}, {
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							Tag:            "latest",
 							LatestRevision: ptr.Bool(true),
 							Percent:        nil,
@@ -369,7 +370,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								RevisionSpec: v1beta1.RevisionSpec{
+								RevisionSpec: v1.RevisionSpec{
 									PodSpec: corev1.PodSpec{
 										ServiceAccountName: "robocop",
 										Volumes: []corev1.Volume{{
@@ -409,7 +410,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: v1.RevisionSpec{
 								PodSpec: corev1.PodSpec{
 									ServiceAccountName: "robocop",
 									Containers: []corev1.Container{{
@@ -437,19 +438,19 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							Tag:          "current",
 							RevisionName: "foo-00001",
 							Percent:      ptr.Int64(78),
 						},
 					}, {
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							Tag:          "candidate",
 							RevisionName: "foo-00002",
 							Percent:      ptr.Int64(22),
 						},
 					}, {
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							Tag:            "latest",
 							LatestRevision: ptr.Bool(true),
 							Percent:        nil,
@@ -474,7 +475,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								RevisionSpec: v1beta1.RevisionSpec{
+								RevisionSpec: v1.RevisionSpec{
 									PodSpec: corev1.PodSpec{
 										ServiceAccountName: "robocop",
 										Volumes: []corev1.Volume{{
@@ -514,7 +515,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: v1.RevisionSpec{
 								PodSpec: corev1.PodSpec{
 									ServiceAccountName: "robocop",
 									Containers: []corev1.Container{{
@@ -542,19 +543,19 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							Tag:          "current",
 							RevisionName: "foo-00001",
 							Percent:      ptr.Int64(63),
 						},
 					}, {
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							Tag:            "candidate",
 							LatestRevision: ptr.Bool(true),
 							Percent:        ptr.Int64(37),
 						},
 					}, {
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							Tag:            "latest",
 							LatestRevision: ptr.Bool(true),
 							Percent:        nil,
@@ -578,7 +579,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								RevisionSpec: v1beta1.RevisionSpec{
+								RevisionSpec: v1.RevisionSpec{
 									PodSpec: corev1.PodSpec{
 										ServiceAccountName: "robocop",
 										Volumes: []corev1.Volume{{
@@ -618,7 +619,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: v1.RevisionSpec{
 								PodSpec: corev1.PodSpec{
 									ServiceAccountName: "robocop",
 									Containers: []corev1.Container{{
@@ -646,7 +647,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							RevisionName: "foo-00001",
 							Percent:      ptr.Int64(100),
 						},

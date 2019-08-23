@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	presources "knative.dev/serving/pkg/resources"
 )
@@ -59,7 +60,7 @@ func ServiceWithoutNamespace(name string, so ...ServiceOption) *v1beta1.Service 
 }
 
 // WithInlineConfigSpec confgures the Service to use the given config spec
-func WithInlineConfigSpec(config v1beta1.ConfigurationSpec) ServiceOption {
+func WithInlineConfigSpec(config v1.ConfigurationSpec) ServiceOption {
 	return func(svc *v1beta1.Service) {
 		svc.Spec.ConfigurationSpec = config
 	}

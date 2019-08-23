@@ -28,7 +28,7 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestServiceDefaulting(t *testing.T) {
@@ -45,7 +45,7 @@ func TestServiceDefaulting(t *testing.T) {
 			Spec: ServiceSpec{
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							LatestRevision: ptr.Bool(true),
 							Percent:        ptr.Int64(100),
 						},
@@ -87,7 +87,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								RevisionSpec: v1beta1.RevisionSpec{
+								RevisionSpec: v1.RevisionSpec{
 									TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 									ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 								},
@@ -104,7 +104,7 @@ func TestServiceDefaulting(t *testing.T) {
 		},
 	}, {
 		name: "run latest (lemonade)",
-		wc:   v1beta1.WithUpgradeViaDefaulting,
+		wc:   v1.WithUpgradeViaDefaulting,
 		in: &Service{
 			Spec: ServiceSpec{
 				DeprecatedRunLatest: &RunLatestType{
@@ -125,7 +125,7 @@ func TestServiceDefaulting(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: v1.RevisionSpec{
 								TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 								PodSpec: corev1.PodSpec{
@@ -142,7 +142,7 @@ func TestServiceDefaulting(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							LatestRevision: ptr.Bool(true),
 							Percent:        ptr.Int64(100),
 						},
@@ -159,7 +159,7 @@ func TestServiceDefaulting(t *testing.T) {
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								DeprecatedContainer: &corev1.Container{},
-								RevisionSpec: v1beta1.RevisionSpec{
+								RevisionSpec: v1.RevisionSpec{
 									ContainerConcurrency: ptr.Int64(1),
 									TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								},
@@ -175,7 +175,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								RevisionSpec: v1beta1.RevisionSpec{
+								RevisionSpec: v1.RevisionSpec{
 									ContainerConcurrency: ptr.Int64(1),
 									TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								},
@@ -211,7 +211,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								RevisionSpec: v1beta1.RevisionSpec{
+								RevisionSpec: v1.RevisionSpec{
 									TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 									ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 								},
@@ -228,7 +228,7 @@ func TestServiceDefaulting(t *testing.T) {
 		},
 	}, {
 		name: "pinned (lemonade)",
-		wc:   v1beta1.WithUpgradeViaDefaulting,
+		wc:   v1.WithUpgradeViaDefaulting,
 		in: &Service{
 			Spec: ServiceSpec{
 				DeprecatedPinned: &PinnedType{
@@ -250,7 +250,7 @@ func TestServiceDefaulting(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: v1.RevisionSpec{
 								TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 								PodSpec: corev1.PodSpec{
@@ -267,7 +267,7 @@ func TestServiceDefaulting(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							RevisionName:   "asdf",
 							Percent:        ptr.Int64(100),
 							LatestRevision: ptr.Bool(false),
@@ -285,7 +285,7 @@ func TestServiceDefaulting(t *testing.T) {
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								DeprecatedContainer: &corev1.Container{},
-								RevisionSpec: v1beta1.RevisionSpec{
+								RevisionSpec: v1.RevisionSpec{
 									ContainerConcurrency: ptr.Int64(1),
 									TimeoutSeconds:       ptr.Int64(99),
 								},
@@ -301,7 +301,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								RevisionSpec: v1beta1.RevisionSpec{
+								RevisionSpec: v1.RevisionSpec{
 									ContainerConcurrency: ptr.Int64(1),
 									TimeoutSeconds:       ptr.Int64(99),
 								},
@@ -341,7 +341,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								RevisionSpec: v1beta1.RevisionSpec{
+								RevisionSpec: v1.RevisionSpec{
 									TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 									ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 								},
@@ -358,7 +358,7 @@ func TestServiceDefaulting(t *testing.T) {
 		},
 	}, {
 		name: "release (double, lemonade)",
-		wc:   v1beta1.WithUpgradeViaDefaulting,
+		wc:   v1.WithUpgradeViaDefaulting,
 		in: &Service{
 			Spec: ServiceSpec{
 				DeprecatedRelease: &ReleaseType{
@@ -379,7 +379,7 @@ func TestServiceDefaulting(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: v1.RevisionSpec{
 								TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 								PodSpec: corev1.PodSpec{
@@ -395,21 +395,21 @@ func TestServiceDefaulting(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							Tag:            "current",
 							Percent:        ptr.Int64(57),
 							RevisionName:   "foo",
 							LatestRevision: ptr.Bool(false),
 						},
 					}, {
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							Tag:            "candidate",
 							Percent:        ptr.Int64(43),
 							RevisionName:   "bar",
 							LatestRevision: ptr.Bool(false),
 						},
 					}, {
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							Tag:            "latest",
 							Percent:        nil,
 							LatestRevision: ptr.Bool(true),
@@ -420,7 +420,7 @@ func TestServiceDefaulting(t *testing.T) {
 		},
 	}, {
 		name: "release (double, @latest, lemonade)",
-		wc:   v1beta1.WithUpgradeViaDefaulting,
+		wc:   v1.WithUpgradeViaDefaulting,
 		in: &Service{
 			Spec: ServiceSpec{
 				DeprecatedRelease: &ReleaseType{
@@ -441,7 +441,7 @@ func TestServiceDefaulting(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: v1.RevisionSpec{
 								TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 								PodSpec: corev1.PodSpec{
@@ -457,20 +457,20 @@ func TestServiceDefaulting(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							Tag:            "current",
 							Percent:        ptr.Int64(57),
 							RevisionName:   "foo",
 							LatestRevision: ptr.Bool(false),
 						},
 					}, {
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							Tag:            "candidate",
 							Percent:        ptr.Int64(43),
 							LatestRevision: ptr.Bool(true),
 						},
 					}, {
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							Tag:            "latest",
 							Percent:        nil,
 							LatestRevision: ptr.Bool(true),
@@ -481,7 +481,7 @@ func TestServiceDefaulting(t *testing.T) {
 		},
 	}, {
 		name: "release (single, lemonade)",
-		wc:   v1beta1.WithUpgradeViaDefaulting,
+		wc:   v1.WithUpgradeViaDefaulting,
 		in: &Service{
 			Spec: ServiceSpec{
 				DeprecatedRelease: &ReleaseType{
@@ -501,7 +501,7 @@ func TestServiceDefaulting(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: v1.RevisionSpec{
 								TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 								PodSpec: corev1.PodSpec{
@@ -517,14 +517,14 @@ func TestServiceDefaulting(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							Tag:            "current",
 							Percent:        ptr.Int64(100),
 							RevisionName:   "foo",
 							LatestRevision: ptr.Bool(false),
 						},
 					}, {
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							Tag:            "latest",
 							Percent:        nil,
 							LatestRevision: ptr.Bool(true),
@@ -542,7 +542,7 @@ func TestServiceDefaulting(t *testing.T) {
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
 								DeprecatedContainer: &corev1.Container{},
-								RevisionSpec: v1beta1.RevisionSpec{
+								RevisionSpec: v1.RevisionSpec{
 									ContainerConcurrency: ptr.Int64(1),
 									TimeoutSeconds:       ptr.Int64(99),
 								},
@@ -558,7 +558,7 @@ func TestServiceDefaulting(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								RevisionSpec: v1beta1.RevisionSpec{
+								RevisionSpec: v1.RevisionSpec{
 									ContainerConcurrency: ptr.Int64(1),
 									TimeoutSeconds:       ptr.Int64(99),
 								},
@@ -580,7 +580,7 @@ func TestServiceDefaulting(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: v1.RevisionSpec{
 								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Image: "blah",
@@ -598,7 +598,7 @@ func TestServiceDefaulting(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: v1.RevisionSpec{
 								TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 								PodSpec: corev1.PodSpec{
@@ -615,7 +615,7 @@ func TestServiceDefaulting(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							LatestRevision: ptr.Bool(true),
 							Percent:        ptr.Int64(100),
 						},
@@ -638,7 +638,7 @@ func TestServiceDefaulting(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: v1.RevisionSpec{
 								TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 							},
@@ -652,7 +652,7 @@ func TestServiceDefaulting(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							LatestRevision: ptr.Bool(true),
 							Percent:        ptr.Int64(100),
 						},
@@ -667,7 +667,7 @@ func TestServiceDefaulting(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: v1.RevisionSpec{
 								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Image: "blah",
@@ -688,7 +688,7 @@ func TestServiceDefaulting(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: v1.RevisionSpec{
 								TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 								PodSpec: corev1.PodSpec{
@@ -705,7 +705,7 @@ func TestServiceDefaulting(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							LatestRevision: ptr.Bool(true),
 							Percent:        ptr.Int64(100),
 						},
@@ -720,7 +720,7 @@ func TestServiceDefaulting(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: v1.RevisionSpec{
 								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Image: "blah",
@@ -732,7 +732,7 @@ func TestServiceDefaulting(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							Percent: ptr.Int64(100),
 						},
 					}},
@@ -744,7 +744,7 @@ func TestServiceDefaulting(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: v1.RevisionSpec{
 								TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 								ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 								PodSpec: corev1.PodSpec{
@@ -761,7 +761,7 @@ func TestServiceDefaulting(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							LatestRevision: ptr.Bool(true),
 							Percent:        ptr.Int64(100),
 						},

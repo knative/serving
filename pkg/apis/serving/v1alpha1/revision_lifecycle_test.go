@@ -34,7 +34,7 @@ import (
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	net "knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestRevisionDuckTypes(t *testing.T) {
@@ -777,7 +777,7 @@ func TestGetContainerConcurrency(t *testing.T) {
 	}, {
 		name: "get containerConcurrency by passing value",
 		status: RevisionSpec{
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				ContainerConcurrency: ptr.Int64(10),
 			},
 		},
@@ -816,7 +816,7 @@ func TestGetContainer(t *testing.T) {
 	}, {
 		name: "get first container info even after passing multiple",
 		status: RevisionSpec{
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:  "firstContainer",

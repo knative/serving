@@ -28,6 +28,7 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/spoof"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 
 	rtesting "knative.dev/serving/pkg/testing/v1beta1"
@@ -41,8 +42,8 @@ func Route(names test.ResourceNames, fopt ...rtesting.RouteOption) *v1beta1.Rout
 		ObjectMeta: metav1.ObjectMeta{
 			Name: names.Route,
 		},
-		Spec: v1beta1.RouteSpec{
-			Traffic: []v1beta1.TrafficTarget{{
+		Spec: v1.RouteSpec{
+			Traffic: []v1.TrafficTarget{{
 				Tag:               names.TrafficTarget,
 				ConfigurationName: names.Config,
 				Percent:           ptr.Int64(100),

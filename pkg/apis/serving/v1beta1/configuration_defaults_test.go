@@ -21,10 +21,10 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/ptr"
 
 	"knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestConfigurationDefaulting(t *testing.T) {
@@ -36,84 +36,17 @@ func TestConfigurationDefaulting(t *testing.T) {
 		name: "empty",
 		in:   &Configuration{},
 		want: &Configuration{
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
-					Spec: RevisionSpec{
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
+					Spec: v1.RevisionSpec{
 						TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 						ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 					},
 				},
 			},
 		},
-	}, {
-		name: "run latest",
-		in: &Configuration{
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
-					Spec: RevisionSpec{
-						PodSpec: corev1.PodSpec{
-							Containers: []corev1.Container{{
-								Image: "busybox",
-							}},
-						},
-					},
-				},
-			},
-		},
-		want: &Configuration{
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
-					Spec: RevisionSpec{
-						PodSpec: corev1.PodSpec{
-							Containers: []corev1.Container{{
-								Name:           config.DefaultUserContainerName,
-								Image:          "busybox",
-								Resources:      defaultResources,
-								ReadinessProbe: defaultProbe,
-							}},
-						},
-						TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
-						ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
-					},
-				},
-			},
-		},
-	}, {
-		name: "run latest with some default overrides",
-		in: &Configuration{
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
-					Spec: RevisionSpec{
-						PodSpec: corev1.PodSpec{
-							Containers: []corev1.Container{{
-								Image: "busybox",
-							}},
-						},
-						TimeoutSeconds:       ptr.Int64(60),
-						ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
-					},
-				},
-			},
-		},
-		want: &Configuration{
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
-					Spec: RevisionSpec{
-						PodSpec: corev1.PodSpec{
-							Containers: []corev1.Container{{
-								Name:           config.DefaultUserContainerName,
-								Image:          "busybox",
-								Resources:      defaultResources,
-								ReadinessProbe: defaultProbe,
-							}},
-						},
-						TimeoutSeconds:       ptr.Int64(60),
-						ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
-					},
-				},
-			},
-		},
-	}}
+	},
+	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

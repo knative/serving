@@ -24,6 +24,7 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/test/logging"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 
 	// 	"k8s.io/apimachinery/pkg/api/resource"
@@ -84,10 +85,10 @@ func WaitForConfigLatestRevision(clients *test.Clients, names test.ResourceNames
 
 // ConfigurationSpec returns the spec of a configuration to be used throughout different
 // CRD helpers.
-func ConfigurationSpec(imagePath string) *v1beta1.ConfigurationSpec {
-	return &v1beta1.ConfigurationSpec{
-		Template: v1beta1.RevisionTemplateSpec{
-			Spec: v1beta1.RevisionSpec{
+func ConfigurationSpec(imagePath string) *v1.ConfigurationSpec {
+	return &v1.ConfigurationSpec{
+		Template: v1.RevisionTemplateSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: imagePath,

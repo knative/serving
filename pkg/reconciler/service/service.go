@@ -32,6 +32,7 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
@@ -131,7 +132,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	// and may not have had all of the assumed defaults specified.  This won't result
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
-	service.SetDefaults(v1beta1.WithUpgradeViaDefaulting(ctx))
+	service.SetDefaults(v1.WithUpgradeViaDefaulting(ctx))
 	service.Status.InitializeConditions()
 
 	if err := service.ConvertUp(ctx, &v1beta1.Service{}); err != nil {
