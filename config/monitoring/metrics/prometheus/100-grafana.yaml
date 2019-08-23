@@ -179,11 +179,11 @@ spec:
         image: grafana/grafana:6.3.3
         volumeMounts:
         - name: grafana-storage
-          mountPath: /data
+          mountPath: /var/lib/grafana
         - name: grafana-datasources
-          mountPath: /grafana/conf/provisioning/datasources
+          mountPath: /etc/grafana/provisioning/datasources
         - name: grafana-dashboards
-          mountPath: /grafana/conf/provisioning/dashboards
+          mountPath: /etc/grafana/provisioning/dashboards
         - name: grafana-dashboard-definition-knative
           mountPath: /grafana-dashboard-definition/knative
         - name: grafana-dashboard-definition-knative-efficiency
