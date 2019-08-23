@@ -786,7 +786,7 @@ func TestGetContainerConcurrency(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if want, got := tc.want, tc.status.GetContainerConcurrency(); want != got {
-				t.Errorf("%q expected: %v got: %v", tc.name, want, got)
+				t.Errorf("got: %v want: %v", got, want)
 			}
 		})
 	}
@@ -836,7 +836,7 @@ func TestGetContainer(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if want, got := tc.want, tc.status.GetContainer(); !equality.Semantic.DeepEqual(want, got) {
-				t.Errorf("%q expected: %v got: %v", tc.name, want, got)
+				t.Errorf("got: %v want: %v", got, want)
 			}
 		})
 	}
