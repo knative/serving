@@ -19,8 +19,10 @@ package autoscaling
 import "time"
 
 const (
+	// The internal autoscaling group name. This is used for CRDs.
 	InternalGroupName = "autoscaling.internal.knative.dev"
 
+	// The publuc autoscaling group name. This is used for annotations, labels, etc.
 	GroupName = "autoscaling.knative.dev"
 
 	// ClassAnnotationKey is the annotation for the explicit class of autoscaler
