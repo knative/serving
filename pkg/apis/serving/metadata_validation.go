@@ -88,7 +88,7 @@ func ValidateTimeoutSeconds(ctx context.Context, timeoutSeconds int64) *apis.Fie
 
 // ValidateContainerConcurrency function validates the ContainerConcurrency field
 // TODO(#5007): Move this to autoscaling.
-func ValidateContainerConcurrency(ctx context.Context, containerConcurrency *int64) *apis.FieldError {
+func ValidateContainerConcurrency(containerConcurrency *int64) *apis.FieldError {
 	if containerConcurrency != nil {
 		if *containerConcurrency < 0 || *containerConcurrency > config.DefaultMaxRevisionContainerConcurrency {
 			return apis.ErrOutOfBoundsValue(
