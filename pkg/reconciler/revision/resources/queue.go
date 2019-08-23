@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	pkgNetworking "knative.dev/pkg/apis/networking"
 	"knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
@@ -45,6 +46,7 @@ import (
 const (
 	localAddress             = "127.0.0.1"
 	requestQueueHTTPPortName = "queue-port"
+	profilingPortName        = "profiling-port"
 )
 
 var (
@@ -67,6 +69,11 @@ var (
 		Name:          v1alpha1.UserQueueMetricsPortName,
 		ContainerPort: int32(networking.UserQueueMetricsPort),
 	}}
+
+	profilingPort = corev1.ContainerPort{
+		Name:          profilingPortName,
+		ContainerPort: int32(pkgNetworking.ProfilingPort),
+	}
 
 	queueSecurityContext = &corev1.SecurityContext{
 		AllowPrivilegeEscalation: ptr.Bool(false),
@@ -201,9 +208,14 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 		ts = *rev.Spec.TimeoutSeconds
 	}
 
+	ports := queueNonServingPorts
+
+	if observabilityConfig.EnableProfiling {
+		ports = append(ports, profilingPort)
+	}
+
 	// We need to configure only one serving port for the Queue proxy, since
 	// we know the protocol that is being used by this application.
-	ports := queueNonServingPorts
 	if rev.GetProtocol() == networking.ProtocolH2C {
 		ports = append(ports, queueHTTP2Port)
 	} else {
@@ -318,7 +330,10 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 		}, {
 			Name:  "SERVING_READINESS_PROBE",
 			Value: probeJSON,
-		}},
+		}, {
+			Name:  "ENABLE_PROFILING",
+			Value: strconv.FormatBool(observabilityConfig.EnableProfiling)},
+		},
 	}, nil
 }
 func applyReadinessProbeDefaults(p *corev1.Probe, port int32) {

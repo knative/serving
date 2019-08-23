@@ -36,6 +36,9 @@ const (
 	// health check and lifecycle hooks for queue-proxy.
 	QueueAdminPort = 8022
 
+	// ProfilingPort specifies the port where profiling data is available when profiling is enabled
+	ProfilingPort = 8008
+
 	// AutoscalingQueueMetricsPort specifies the port number for metrics emitted
 	// by queue-proxy for autoscaler.
 	AutoscalingQueueMetricsPort = 9090

@@ -53,8 +53,8 @@ var (
 		VolumeMounts:             []corev1.VolumeMount{varLogVolumeMount},
 		Lifecycle:                userLifecycle,
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-		Stdin:                    false,
-		TTY:                      false,
+		Stdin: false,
+		TTY:   false,
 		Env: []corev1.EnvVar{{
 			Name:  "PORT",
 			Value: "8080",
@@ -166,11 +166,14 @@ var (
 		}, {
 			Name:  "SERVING_READINESS_PROBE",
 			Value: fmt.Sprintf(`{"tcpSocket":{"port":%d,"host":"127.0.0.1"}}`, v1alpha1.DefaultUserPort),
+		}, {
+			Name:  "ENABLE_PROFILING",
+			Value: "false",
 		}},
 	}
 
 	defaultPodSpec = &corev1.PodSpec{
-		Volumes:                       []corev1.Volume{varLogVolume},
+		Volumes: []corev1.Volume{varLogVolume},
 		TerminationGracePeriodSeconds: refInt64(45),
 	}
 

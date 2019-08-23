@@ -382,6 +382,39 @@ func TestMakeQueueContainer(t *testing.T) {
 				"SERVING_REQUEST_METRICS_BACKEND": "prometheus",
 			}),
 		},
+	}, {
+		name: "enable profiling",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "foo",
+				Name:      "bar",
+				UID:       "1234",
+			},
+			Spec: v1alpha1.RevisionSpec{
+				RevisionSpec: v1beta1.RevisionSpec{
+					ContainerConcurrency: ptr.Int64(0),
+					TimeoutSeconds:       ptr.Int64(45),
+				},
+			},
+		},
+		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
+		oc: &metrics.ObservabilityConfig{EnableProfiling: true},
+		ac: &autoscaler.Config{},
+		cc: &deployment.Config{},
+		want: &corev1.Container{
+			// These are effectively constant
+			Name:            QueueContainerName,
+			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
+			Ports:           append(queueNonServingPorts, profilingPort, queueHTTPPort),
+			ReadinessProbe:  defaultKnativeQReadinessProbe,
+			SecurityContext: queueSecurityContext,
+			// These changed based on the Revision and configs passed in.
+			Env: env(map[string]string{
+				"CONTAINER_CONCURRENCY": "0",
+				"ENABLE_PROFILING":      "true",
+			}),
+		},
 	}}
 
 	for _, test := range tests {
@@ -1095,6 +1128,7 @@ var defaultEnv = map[string]string{
 	"ENABLE_VAR_LOG_COLLECTION":             "false",
 	"VAR_LOG_VOLUME_NAME":                   varLogVolumeName,
 	"INTERNAL_VOLUME_PATH":                  internalVolumePath,
+	"ENABLE_PROFILING":                      "false",
 }
 
 func probeJSON(container *corev1.Container) string {

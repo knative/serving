@@ -43,6 +43,10 @@ type ObservabilityConfig struct {
 	// RequestMetricsBackend specifies the request metrics destination, e.g. Prometheus,
 	// Stackdriver.
 	RequestMetricsBackend string
+
+	// EnableProfiling indicates whether it is allowed to retrieve runtime profiling data from
+	// the pods via an HTTP server in the format expected by the pprof visualization tool.
+	EnableProfiling bool
 }
 
 // NewObservabilityConfigFromConfigMap creates a ObservabilityConfig from the supplied ConfigMap
@@ -68,6 +72,10 @@ func NewObservabilityConfigFromConfigMap(configMap *corev1.ConfigMap) (*Observab
 
 	if mb, ok := configMap.Data["metrics.request-metrics-backend-destination"]; ok {
 		oc.RequestMetricsBackend = mb
+	}
+
+	if prof, ok := configMap.Data["profiling.enable"]; ok {
+		oc.EnableProfiling = strings.ToLower(prof) == "true"
 	}
 
 	return oc, nil
