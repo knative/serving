@@ -89,7 +89,7 @@ func TestNewStatsReporter_negative(t *testing.T) {
 
 func TestReporter_Report(t *testing.T) {
 	r := &Reporter{}
-	if err := r.ReportRequestCount(200, 10); err == nil {
+	if err := r.ReportRequestCount(200); err == nil {
 		t.Error("Reporter.ReportRequestCount() expected an error for Report call before init. Got success.")
 	}
 
@@ -107,13 +107,13 @@ func TestReporter_Report(t *testing.T) {
 	}
 
 	// Send statistics only once and observe the results
-	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200, 1) })
-	metricstest.CheckSumData(t, "request_count", wantTags, 1)
+	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200) })
+	metricstest.CheckCountData(t, "request_count", wantTags, 1)
 
 	// The stats are cumulative - record multiple entries, should get sum
-	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200, 2) })
-	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200, 3) })
-	metricstest.CheckSumData(t, "request_count", wantTags, 6)
+	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200) })
+	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200) })
+	metricstest.CheckCountData(t, "request_count", wantTags, 3)
 
 	// Send statistics only once and observe the results
 	expectSuccess(t, "ReportResponseTime", func() error { return r.ReportResponseTime(200, 100*time.Millisecond) })
@@ -141,8 +141,8 @@ func TestReporter_Report(t *testing.T) {
 	}
 
 	// Send statistics only once and observe the results
-	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200, 1) })
-	metricstest.CheckSumData(t, "request_count", wantTags, 1)
+	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200) })
+	metricstest.CheckCountData(t, "request_count", wantTags, 1)
 
 	unregisterViews(r)
 }

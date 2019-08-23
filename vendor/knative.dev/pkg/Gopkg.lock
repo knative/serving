@@ -224,6 +224,23 @@
   revision = "c3068f13fcc3961fd05f96f13c8250e350db4209"
 
 [[projects]]
+  digest = "1:3efb665a5beaa0266ff287cdb58dff8a966631000e9f8ad8d832a288b90ca247"
+  name = "github.com/google/mako"
+  packages = [
+    "clients/proto/analyzers/threshold_analyzer_go_proto",
+    "clients/proto/analyzers/utest_analyzer_go_proto",
+    "clients/proto/analyzers/window_deviation_go_proto",
+    "helpers/go/quickstore",
+    "helpers/proto/quickstore/quickstore_go_proto",
+    "internal/go/common",
+    "internal/quickstore_microservice/proto/quickstore_go_proto",
+    "spec/proto/mako_go_proto",
+  ]
+  pruneopts = "NUT"
+  revision = "d56a6e811df75f8e4d6e7c256d25acf19ef16d03"
+  version = "v0.0.0-rc.4"
+
+[[projects]]
   digest = "1:ab3ec1fe3e39bac4b3ab63390767766622be35b7cab03f47f787f9ec60522a53"
   name = "github.com/google/uuid"
   packages = ["."]
@@ -699,9 +716,13 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:9b9245bd124d95af7072487cd1e5861174b859ebc31cbe9fbab3b88456701485"
+  digest = "1:bcfc1adc3202f2ff120bc4686c613c8f34af0f9e3de49b55d3bbecd70dc6651b"
   name = "google.golang.org/api"
   packages = [
+    "container/v1",
+    "gensupport",
+    "googleapi",
+    "googleapi/internal/uritemplates",
     "googleapi/transport",
     "internal",
     "iterator",
@@ -1184,14 +1205,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:013d8728ceab59db2a90db464dc0d3c1f677bdf95f974fed26fe6094b5504cf2"
+  digest = "1:df1c1cf6d2c9ca0781705ef095cb15e06f777cddb493775aad41b72f79867d7a"
   name = "k8s.io/test-infra"
   packages = [
-    "boskos",
     "boskos/client",
     "boskos/common",
-    "boskos/crds",
-    "boskos/ranch",
     "boskos/storage",
   ]
   pruneopts = "NUT"
@@ -1199,14 +1217,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:39bb1014c454fbf9d8f4eab62a44fcf8d3ade774e2b42015e533e5d9f3fe23d9"
+  digest = "1:305af75fc194c059ae710a75276ca8f1870c959214b18ed33f7ef8671995947f"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "d65201fadb82dbdc5713f9ba9a1313150c7aa9b5"
+  revision = "f3fe0bcc30693df8e3c9616358b16045efb9ed10"
 
 [[projects]]
   digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"
@@ -1229,8 +1247,13 @@
     "github.com/evanphx/json-patch",
     "github.com/ghodss/yaml",
     "github.com/golang/glog",
+    "github.com/golang/protobuf/proto",
     "github.com/google/go-cmp/cmp",
     "github.com/google/go-cmp/cmp/cmpopts",
+    "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto",
+    "github.com/google/mako/helpers/go/quickstore",
+    "github.com/google/mako/helpers/proto/quickstore/quickstore_go_proto",
+    "github.com/google/mako/spec/proto/mako_go_proto",
     "github.com/google/uuid",
     "github.com/gorilla/websocket",
     "github.com/markbates/inflect",
@@ -1253,7 +1276,10 @@
     "go.uber.org/zap",
     "go.uber.org/zap/zapcore",
     "go.uber.org/zap/zaptest",
+    "golang.org/x/net/context",
+    "golang.org/x/oauth2/google",
     "golang.org/x/sync/errgroup",
+    "google.golang.org/api/container/v1",
     "gopkg.in/yaml.v2",
     "k8s.io/api/admission/v1beta1",
     "k8s.io/api/admissionregistration/v1beta1",
@@ -1323,7 +1349,6 @@
     "k8s.io/gengo/namer",
     "k8s.io/gengo/types",
     "k8s.io/klog",
-    "k8s.io/test-infra/boskos",
     "k8s.io/test-infra/boskos/client",
     "k8s.io/test-infra/boskos/common",
     "knative.dev/test-infra/scripts",

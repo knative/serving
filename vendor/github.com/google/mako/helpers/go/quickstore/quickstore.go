@@ -36,7 +36,7 @@
 //		}
 //  }
 //
-// See more examples inside https://github.com/google/mako/helpers/go/quickstore/quickstore_example_test.go
+// See more examples inside https://github.com/google/mako/blob/master/helpers/go/quickstore/quickstore_example_test.go
 //
 // Struct is not concurrent safe
 //
@@ -147,12 +147,12 @@ func (q *Quickstore) AddError(xval float64, errorMessage string) error {
 //  * "~error_sample_count"
 //  * "~benchmark_score"
 //  The corresponding value will be overwritten inside
-//  https://github.com/google/mako/spec/proto/mako.proto
+//  https://github.com/google/mako/blob/master/spec/proto/mako.proto
 //  of these values are provided, they will be calculated automatically by the
 //  framework based on SamplePoints/Errors provided before Store() is called.
 //
 // Otherwise the value_key will be set to a custom aggregate (See
-// https://github.com/google/mako/spec/proto/mako.proto
+// https://github.com/google/mako/blob/master/spec/proto/mako.proto
 //
 // If no run aggregates are manully set with this method, values are
 // automatically calculated.
@@ -174,11 +174,11 @@ func (q *Quickstore) AddRunAggregate(valueKey string, value float64) error {
 //  * "median_absolute_deviation"
 //  * "count"
 //  The corresponding value inside
-//  https://github.com/google/mako/spec/proto/mako.proto
+//  https://github.com/google/mako/blob/master/spec/proto/mako.proto
 //  be set.
 //
 // The value_key can also represent a percentile see
-// https://github.com/google/mako/spec/proto/mako.proto
+// https://github.com/google/mako/blob/master/spec/proto/mako.proto
 //
 // For example "p98000" would be interpreted as the 98th percentile. These
 // need to correspond to the percentiles that your benchmark has set.

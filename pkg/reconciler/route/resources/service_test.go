@@ -134,7 +134,7 @@ func TestNewMakeK8SService(t *testing.T) {
 						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{Domain: "domain.com"}},
 					},
 					PrivateLoadBalancer: &netv1alpha1.LoadBalancerStatus{
-						Ingress: []netv1alpha1.LoadBalancerIngressStatus{},
+						Ingress: []netv1alpha1.LoadBalancerIngressStatus{{Domain: "domain.com"}},
 					},
 				},
 			},
@@ -162,7 +162,7 @@ func TestNewMakeK8SService(t *testing.T) {
 			expectedMeta: expectedMeta,
 			expectedSpec: corev1.ServiceSpec{
 				Type:            corev1.ServiceTypeExternalName,
-				ExternalName:    "istio-ingressgateway.istio-system.svc.cluster.local",
+				ExternalName:    "private-istio-ingressgateway.istio-system.svc.cluster.local",
 				SessionAffinity: corev1.ServiceAffinityNone,
 			},
 		},

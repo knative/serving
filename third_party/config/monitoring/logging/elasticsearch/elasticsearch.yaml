@@ -6,7 +6,6 @@ metadata:
   labels:
     app: elasticsearch-logging
     kubernetes.io/cluster-service: "true"
-    addonmanager.kubernetes.io/mode: Reconcile
     kubernetes.io/name: "Elasticsearch"
 spec:
   ports:
@@ -24,7 +23,6 @@ metadata:
   labels:
     app: elasticsearch-logging
     kubernetes.io/cluster-service: "true"
-    addonmanager.kubernetes.io/mode: Reconcile
 ---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
@@ -33,7 +31,6 @@ metadata:
   labels:
     app: elasticsearch-logging
     kubernetes.io/cluster-service: "true"
-    addonmanager.kubernetes.io/mode: Reconcile
 rules:
 - apiGroups:
   - ""
@@ -52,7 +49,6 @@ metadata:
   labels:
     app: elasticsearch-logging
     kubernetes.io/cluster-service: "true"
-    addonmanager.kubernetes.io/mode: Reconcile
 subjects:
 - kind: ServiceAccount
   name: elasticsearch-logging
@@ -73,7 +69,6 @@ metadata:
     app: elasticsearch-logging
     version: v5.6.4
     kubernetes.io/cluster-service: "true"
-    addonmanager.kubernetes.io/mode: Reconcile
 spec:
   serviceName: elasticsearch-logging
   replicas: 2

@@ -232,3 +232,32 @@ func TestValidateTimeoutSecond(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateContainerConcurrency(t *testing.T) {
+	cases := []struct {
+		name                 string
+		containerConcurrency *int64
+		expectErr            error
+	}{{
+		name:                 "empty containerConcurrency",
+		containerConcurrency: nil,
+		expectErr:            (*apis.FieldError)(nil),
+	}, {
+		name:                 "invalid containerConcurrency value",
+		containerConcurrency: ptr.Int64(2000),
+		expectErr: apis.ErrOutOfBoundsValue(
+			2000, 0, config.DefaultMaxRevisionContainerConcurrency, apis.CurrentField),
+	}, {
+		name:                 "valid containerConcurrency value",
+		containerConcurrency: ptr.Int64(10),
+		expectErr:            (*apis.FieldError)(nil),
+	}}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := ValidateContainerConcurrency(c.containerConcurrency)
+			if !reflect.DeepEqual(c.expectErr, err) {
+				t.Errorf("Expected: '%#v', Got: '%#v'", c.expectErr, err)
+			}
+		})
+	}
+}

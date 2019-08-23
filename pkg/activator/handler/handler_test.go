@@ -26,7 +26,10 @@ import (
 	"testing"
 	"time"
 
+	"go.opencensus.io/plugin/ochttp"
 	"knative.dev/pkg/ptr"
+
+	activatorconfig "knative.dev/serving/pkg/activator/config"
 
 	"knative.dev/pkg/test/helpers"
 
@@ -56,6 +59,7 @@ import (
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	. "knative.dev/pkg/configmap/testing"
 )
 
 const (
@@ -291,13 +295,16 @@ func TestActivationHandler(t *testing.T) {
 			}
 
 			resp := httptest.NewRecorder()
-
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 			req.Header.Set(activator.RevisionHeaderNamespace, test.namespace)
 			req.Header.Set(activator.RevisionHeaderName, test.name)
 			req.Host = "test-host"
 
-			handler.ServeHTTP(resp, req)
+			// set up config store to populate context
+			configStore := setupConfigStore(t)
+			ctx := configStore.ToContext(req.Context())
+
+			handler.ServeHTTP(resp, req.WithContext(ctx))
 
 			if resp.Code != test.wantCode {
 				t.Errorf("Unexpected response status. Want %d, got %d", test.wantCode, resp.Code)
@@ -343,12 +350,15 @@ func TestActivationHandlerProbeCaching(t *testing.T) {
 	handler.transport = rt
 	handler.probeTransport = rt
 
-	sendRequest(namespace, revName, handler)
+	// set up config store to populate context
+	configStore := setupConfigStore(t)
+
+	sendRequest(namespace, revName, handler, configStore)
 	if fakeRT.NumProbes != 1 {
 		t.Errorf("NumProbes = %d, want: %d", fakeRT.NumProbes, 1)
 	}
 
-	sendRequest(namespace, revName, handler)
+	sendRequest(namespace, revName, handler, configStore)
 	// Assert that we didn't reprobe
 	if fakeRT.NumProbes != 1 {
 		t.Errorf("NumProbes = %d, want: %d", fakeRT.NumProbes, 1)
@@ -361,7 +371,7 @@ func TestActivationHandlerProbeCaching(t *testing.T) {
 		throttler.UpdateCapacity(revID, 1)
 	})
 
-	sendRequest(namespace, revName, handler)
+	sendRequest(namespace, revName, handler, configStore)
 	if fakeRT.NumProbes != 2 {
 		t.Errorf("NumProbes = %d, want: %d", fakeRT.NumProbes, 2)
 	}
@@ -408,7 +418,10 @@ func TestActivationHandlerOverflow(t *testing.T) {
 	handler.transport = rt
 	handler.probeTransport = rt
 
-	sendRequests(requests, namespace, revName, respCh, handler)
+	// set up config store to populate context
+	configStore := setupConfigStore(t)
+
+	sendRequests(requests, namespace, revName, respCh, handler, configStore)
 	assertResponses(wantedSuccess, wantedFailure, requests, lockerCh, respCh, t)
 }
 
@@ -452,9 +465,11 @@ func TestActivationHandlerOverflowSeveralRevisions(t *testing.T) {
 	handler.transport = rt
 	handler.probeTransport = rt
 
+	// set up config store to populate context
+	configStore := setupConfigStore(t)
 	for _, revName := range revisions {
 		requestCount := overallRequests / len(revisions)
-		sendRequests(requestCount, testNamespace, revName, respCh, handler)
+		sendRequests(requestCount, testNamespace, revName, respCh, handler, configStore)
 	}
 	assertResponses(wantedSuccess, wantedFailure, overallRequests, lockerCh, respCh, t)
 }
@@ -500,7 +515,11 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(activator.RevisionHeaderNamespace, namespace)
 	req.Header.Set(activator.RevisionHeaderName, revName)
-	handler.ServeHTTP(writer, req)
+
+	// set up config store to populate context
+	configStore := setupConfigStore(t)
+	ctx := configStore.ToContext(req.Context())
+	handler.ServeHTTP(writer, req.WithContext(ctx))
 
 	select {
 	case httpReq := <-interceptCh:
@@ -513,83 +532,108 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 }
 
 func TestActivationHandlerTraceSpans(t *testing.T) {
-	// Setup transport
-	fakeRt := activatortest.FakeRoundTripper{
-		RequestResponse: &activatortest.FakeResponse{
-			Err:  nil,
-			Code: http.StatusOK,
-			Body: wantBody,
-		},
-	}
-	rt := network.RoundTripperFunc(fakeRt.RT)
+	testcases := []struct {
+		name         string
+		wantSpans    int
+		traceBackend tracingconfig.BackendType
+	}{{
+		name:         "zipkin trace enabled",
+		wantSpans:    4,
+		traceBackend: tracingconfig.Zipkin,
+	}, {
+		name:         "trace disabled",
+		wantSpans:    0,
+		traceBackend: tracingconfig.None,
+	}}
 
-	// Create tracer with reporter recorder
-	reporter, co := tracetesting.FakeZipkinExporter()
-	defer reporter.Close()
-	oct := tracing.NewOpenCensusTracer(co)
-	defer oct.Finish()
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Setup transport
+			fakeRt := activatortest.FakeRoundTripper{
+				RequestResponse: &activatortest.FakeResponse{
+					Err:  nil,
+					Code: http.StatusOK,
+					Body: wantBody,
+				},
+			}
+			rt := network.RoundTripperFunc(fakeRt.RT)
 
-	cfg := tracingconfig.Config{
-		Backend: tracingconfig.Zipkin,
-		Debug:   true,
-	}
-	if err := oct.ApplyConfig(&cfg); err != nil {
-		t.Errorf("Failed to apply tracer config: %v", err)
-	}
+			// Create tracer with reporter recorder
+			reporter, co := tracetesting.FakeZipkinExporter()
+			defer reporter.Close()
+			oct := tracing.NewOpenCensusTracer(co)
+			defer oct.Finish()
 
-	namespace := testNamespace
-	revName := testRevName
+			cfg := tracingconfig.Config{
+				Backend: tc.traceBackend,
+				Debug:   true,
+			}
+			if err := oct.ApplyConfig(&cfg); err != nil {
+				t.Errorf("Failed to apply tracer config: %v", err)
+			}
 
-	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
-	throttler := activator.NewThrottler(
-		breakerParams,
-		endpointsInformer(endpoints(namespace, revName, breakerParams.InitialCapacity)),
-		sksLister(sks(namespace, revName)),
-		revisionLister(revision(namespace, revName)),
-		TestLogger(t))
+			namespace := testNamespace
+			revName := testRevName
 
-	handler := &activationHandler{
-		transport:      rt,
-		probeTransport: rt,
-		logger:         TestLogger(t),
-		reporter:       &fakeReporter{},
-		throttler:      throttler,
-		revisionLister: revisionLister(revision(testNamespace, testRevName)),
-		serviceLister:  serviceLister(service(testNamespace, testRevName, "http")),
-		sksLister:      sksLister(sks(testNamespace, testRevName)),
-	}
-	handler.transport = rt
-	handler.probeTransport = rt
+			breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
+			throttler := activator.NewThrottler(
+				breakerParams,
+				endpointsInformer(endpoints(namespace, revName, breakerParams.InitialCapacity)),
+				sksLister(sks(namespace, revName)),
+				revisionLister(revision(namespace, revName)),
+				TestLogger(t))
 
-	_ = sendRequest(namespace, revName, handler)
+			handler := &activationHandler{
+				transport:      rt,
+				probeTransport: rt,
+				logger:         TestLogger(t),
+				reporter:       &fakeReporter{},
+				throttler:      throttler,
+				revisionLister: revisionLister(revision(testNamespace, testRevName)),
+				serviceLister:  serviceLister(service(testNamespace, testRevName, "http")),
+				sksLister:      sksLister(sks(testNamespace, testRevName)),
+			}
+			handler.transport = &ochttp.Transport{
+				Base: rt,
+			}
+			handler.probeTransport = rt
 
-	gotSpans := reporter.Flush()
-	if len(gotSpans) != 4 {
-		t.Errorf("Got %d spans, expected %d", len(gotSpans), 4)
-	}
+			// set up config store to populate context
+			configStore := setupConfigStore(t)
 
-	for i, spanName := range []string{"throttler_try", "probe", "/", "proxy"} {
-		if gotSpans[i].Name != spanName {
-			t.Errorf("Got span %d named %q, expected %q", i, gotSpans[i].Name, spanName)
-		}
+			_ = sendRequest(namespace, revName, handler, configStore)
+
+			gotSpans := reporter.Flush()
+			if len(gotSpans) != tc.wantSpans {
+				t.Errorf("Got %d spans, expected %d", len(gotSpans), tc.wantSpans)
+			}
+
+			spanNames := []string{"throttler_try", "probe", "/", "proxy"}
+			for i, spanName := range spanNames[0:tc.wantSpans] {
+				if gotSpans[i].Name != spanName {
+					t.Errorf("Got span %d named %q, expected %q", i, gotSpans[i].Name, spanName)
+				}
+			}
+		})
 	}
 }
 
-func sendRequest(namespace, revName string, handler *activationHandler) *httptest.ResponseRecorder {
+func sendRequest(namespace, revName string, handler *activationHandler, store *activatorconfig.Store) *httptest.ResponseRecorder {
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(activator.RevisionHeaderNamespace, namespace)
 	req.Header.Set(activator.RevisionHeaderName, revName)
-	handler.ServeHTTP(resp, req)
+	ctx := store.ToContext(req.Context())
+	handler.ServeHTTP(resp, req.WithContext(ctx))
 	return resp
 }
 
 // sendRequests sends `count` concurrent requests via the given handler and writes
 // the recorded responses to the `respCh`.
-func sendRequests(count int, namespace, revName string, respCh chan *httptest.ResponseRecorder, handler *activationHandler) {
+func sendRequests(count int, namespace, revName string, respCh chan *httptest.ResponseRecorder, handler *activationHandler, store *activatorconfig.Store) {
 	for i := 0; i < count; i++ {
 		go func() {
-			respCh <- sendRequest(namespace, revName, handler)
+			respCh <- sendRequest(namespace, revName, handler, store)
 		}()
 	}
 }
@@ -690,7 +734,7 @@ func (f *fakeReporter) ReportRequestConcurrency(ns, service, config, rev string,
 	return nil
 }
 
-func (f *fakeReporter) ReportRequestCount(ns, service, config, rev string, responseCode, numTries int, v int64) error {
+func (f *fakeReporter) ReportRequestCount(ns, service, config, rev string, responseCode, numTries int) error {
 	f.mux.Lock()
 	defer f.mux.Unlock()
 	f.calls = append(f.calls, reporterCall{
@@ -701,7 +745,7 @@ func (f *fakeReporter) ReportRequestCount(ns, service, config, rev string, respo
 		Revision:   rev,
 		StatusCode: responseCode,
 		Attempts:   numTries,
-		Value:      v,
+		Value:      1,
 	})
 
 	return nil
@@ -779,6 +823,13 @@ func serviceLister(svcs ...*corev1.Service) corev1listers.ServiceLister {
 	}
 
 	return services.Lister()
+}
+
+func setupConfigStore(t *testing.T) *activatorconfig.Store {
+	configStore := activatorconfig.NewStore(TestLogger(t))
+	tracingConfig := ConfigMapFromTestFile(t, tracingconfig.ConfigName)
+	configStore.OnConfigChanged(tracingConfig)
+	return configStore
 }
 
 func sks(namespace, name string) *nv1a1.ServerlessService {

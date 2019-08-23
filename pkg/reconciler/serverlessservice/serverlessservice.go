@@ -36,7 +36,6 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
-	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
@@ -188,7 +187,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 		srcEps                *corev1.Endpoints
 		foundServingEndpoints bool
 	)
-	activatorEps, err := r.endpointsLister.Endpoints(system.Namespace()).Get(activator.K8sServiceName)
+	activatorEps, err := r.endpointsLister.Endpoints(system.Namespace()).Get(networking.ActivatorServiceName)
 	if err != nil {
 		logger.Errorw("Error obtaining activator service endpoints", zap.Error(err))
 		return err

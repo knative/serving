@@ -22,6 +22,7 @@ import (
 	"sort"
 
 	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/resources"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -65,6 +66,9 @@ func MakeCertificates(route *v1alpha1.Route, domainTagMap map[string]string, cer
 					map[string]string{
 						networking.CertificateClassAnnotationKey: certClass,
 					}),
+				Labels: map[string]string{
+					serving.RouteLabelKey: route.Name,
+				},
 			},
 			Spec: networkingv1alpha1.CertificateSpec{
 				DNSNames:   []string{dnsName},

@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/kmeta"
@@ -39,7 +40,9 @@ func MakeConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, erro
 				serving.RouteLabelKey:   names.Route(service),
 				serving.ServiceLabelKey: service.Name,
 			}),
-			Annotations: service.GetAnnotations(),
+			Annotations: resources.FilterMap(service.GetAnnotations(), func(key string) bool {
+				return key == corev1.LastAppliedConfigAnnotation
+			}),
 		},
 		Spec: service.Spec.ConfigurationSpec,
 	}, nil

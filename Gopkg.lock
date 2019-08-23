@@ -476,8 +476,7 @@
   revision = "e979a0b10eebe748549c702a25e997c556349da6"
 
 [[projects]]
-  branch = "github-push-test-1"
-  digest = "1:e1764a99532bc56ce10e997a59de79cd30bdb63c52b7610e7301081649e48293"
+  digest = "1:3efb665a5beaa0266ff287cdb58dff8a966631000e9f8ad8d832a288b90ca247"
   name = "github.com/google/mako"
   packages = [
     "clients/proto/analyzers/threshold_analyzer_go_proto",
@@ -490,7 +489,8 @@
     "spec/proto/mako_go_proto",
   ]
   pruneopts = "NUT"
-  revision = "6a1d829c31b4a93cbd03e9f998bc85094a5afd8f"
+  revision = "d56a6e811df75f8e4d6e7c256d25acf19ef16d03"
+  version = "v0.0.0-rc.4"
 
 [[projects]]
   digest = "1:ab3ec1fe3e39bac4b3ab63390767766622be35b7cab03f47f787f9ec60522a53"
@@ -1628,7 +1628,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:bd86a4b7413a5b33c132774581118f0d334b5ad06323b0593927d729cda530bb"
+  digest = "1:3380e8b53ee23ec0ad108ad237945afcdb8fde8eb3569a43a59518728b581521"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1651,11 +1651,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "2e1a1d12d196d9c712de53b3393f2a61de2a3c0f"
+  revision = "c4ccaeb5a025d39ab61015de585326aefcdb0cbe"
 
 [[projects]]
   branch = "master"
-  digest = "1:1acb2be34723e1aef8db2de08eac99d9a37dc23b1cf267036199b1c323c9829c"
+  digest = "1:5dddb45857ff59292216934b6f39415befab65246afac26ba14976e3ec11a343"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1753,11 +1753,11 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "6785699dc3f0a87d6cc0225a547f35d9994b5d94"
+  revision = "9f6e5334c25aeebd862b19cb6715f9fe5aa56467"
 
 [[projects]]
   branch = "master"
-  digest = "1:eb8a3a36bd8ed21d9aec5e5197b0872b0025eb062cb0f8050a405dc855cbc4bb"
+  digest = "1:fa303fc135e4ebfabaf214b2121b9effd5ac4b5d29e7510d9abf78fc2d997df5"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1776,12 +1776,13 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "4f77ef4432b3f1faea39ede0a705a029f3cd3cc8"
+  revision = "d2746f8b9470e8c8452a997e95190aba5320678a"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "cloud.google.com/go/compute/metadata",
     "github.com/davecgh/go-spew/spew",
     "github.com/ghodss/yaml",
     "github.com/golang/protobuf/proto",

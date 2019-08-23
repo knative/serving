@@ -36,7 +36,6 @@ import (
 	pkgTest "knative.dev/pkg/test"
 	ingress "knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
-	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
@@ -477,7 +476,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 10, targetUtilization,
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey:                "7",
 			autoscaling.PanicThresholdPercentageAnnotationKey: "200", // makes panicking rare
@@ -501,7 +500,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	grp.Go(func() error {
 		return generateTraffic(ctx, 7, duration, stopCh)
 	})
-	aeps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(system.Namespace()).Get(activator.K8sServiceName, metav1.GetOptions{})
+	aeps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error getting activator endpoints: %v", err)
 	}
@@ -558,7 +557,7 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 10, targetUtilization,
+	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 10 /* target concurrency*/, targetUtilization,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 		}))
@@ -569,7 +568,7 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 		t.Fatalf("Error retrieving autoscaler configmap: %v", err)
 	}
 	aeps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(
-		system.Namespace()).Get(activator.K8sServiceName, metav1.GetOptions{})
+		system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error getting activator endpoints: %v", err)
 	}

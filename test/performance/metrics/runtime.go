@@ -106,14 +106,14 @@ func FetchSKSMode(
 func startTick(duration time.Duration, stop <-chan struct{}, action func(t time.Time) error) {
 	ticker := time.NewTicker(duration)
 	go func() {
+		defer ticker.Stop()
 		for {
 			select {
 			case t := <-ticker.C:
 				if err := action(t); err != nil {
-					break
+					return
 				}
 			case <-stop:
-				ticker.Stop()
 				return
 			}
 		}

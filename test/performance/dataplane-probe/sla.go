@@ -23,6 +23,7 @@ import (
 	tpb "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto"
 	mpb "github.com/google/mako/spec/proto/mako_go_proto"
 	vegeta "github.com/tsenart/vegeta/lib"
+	"knative.dev/serving/test/performance/mako"
 )
 
 var (
@@ -41,6 +42,7 @@ var (
 				ValueKey:            proto.String("kd"),
 			},
 		}},
+		CrossRunConfig: mako.NewCrossRunConfig(10),
 	}
 
 	// This analyzer validates that the p95 latency talking to pods through Istio
@@ -58,6 +60,7 @@ var (
 				ValueKey:            proto.String("id"),
 			},
 		}},
+		CrossRunConfig: mako.NewCrossRunConfig(10),
 	}
 
 	// This analyzer validates that the p95 latency hitting a Knative Service
@@ -73,6 +76,7 @@ var (
 				ValueKey:            proto.String("qp"),
 			},
 		}},
+		CrossRunConfig: mako.NewCrossRunConfig(10),
 	}
 
 	// This analyzer validates that the p95 latency hitting a Knative Service
@@ -88,6 +92,7 @@ var (
 				ValueKey:            proto.String("a"),
 			},
 		}},
+		CrossRunConfig: mako.NewCrossRunConfig(10),
 	}
 
 	// Map the above to our benchmark targets.
@@ -129,8 +134,29 @@ var (
 				Method: "GET",
 				URL:    "http://queue-proxy-with-cc.default.svc.cluster.local?sleep=100",
 			},
-			stat:      "qc",
-			estat:     "re",
+			stat:  "qc",
+			estat: "re",
+			// We use the same threshold analyzer, since we want Breaker to exert minimal latency impact.
+			analyzers: []*tpb.ThresholdAnalyzerInput{Queue95PercentileLatency},
+		},
+		"queue-with-cc-10": {
+			target: vegeta.Target{
+				Method: "GET",
+				URL:    "http://queue-proxy-with-cc-10.default.svc.cluster.local?sleep=100",
+			},
+			stat:  "qct",
+			estat: "ret",
+			// TODO(vagababov): determine values here.
+			analyzers: []*tpb.ThresholdAnalyzerInput{Queue95PercentileLatency},
+		},
+		"queue-with-cc-1": {
+			target: vegeta.Target{
+				Method: "GET",
+				URL:    "http://queue-proxy-with-cc-1.default.svc.cluster.local?sleep=100",
+			},
+			stat:  "qc1",
+			estat: "re1",
+			// TODO(vagababov): determine values here.
 			analyzers: []*tpb.ThresholdAnalyzerInput{Queue95PercentileLatency},
 		},
 		"activator": {
@@ -147,8 +173,29 @@ var (
 				Method: "GET",
 				URL:    "http://activator-with-cc.default.svc.cluster.local?sleep=100",
 			},
-			stat:      "ac",
-			estat:     "be",
+			stat:  "ac",
+			estat: "be",
+			// We use the same threshold analyzer, since we want Throttler/Breaker to exert minimal latency impact.
+			analyzers: []*tpb.ThresholdAnalyzerInput{Activator95PercentileLatency},
+		},
+		"activator-with-cc-10": {
+			target: vegeta.Target{
+				Method: "GET",
+				URL:    "http://activator-with-cc-10.default.svc.cluster.local?sleep=100",
+			},
+			stat:  "act",
+			estat: "bet",
+			// TODO(vagababov): determine values here.
+			analyzers: []*tpb.ThresholdAnalyzerInput{Activator95PercentileLatency},
+		},
+		"activator-with-cc-1": {
+			target: vegeta.Target{
+				Method: "GET",
+				URL:    "http://activator-with-cc-1.default.svc.cluster.local?sleep=100",
+			},
+			stat:  "ac1",
+			estat: "be1",
+			// TODO(vagababov): determine values here.
 			analyzers: []*tpb.ThresholdAnalyzerInput{Activator95PercentileLatency},
 		},
 	}

@@ -111,7 +111,7 @@ func NewThrottler(
 
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: reconciler.ChainFilterFuncs(
-			reconciler.NameFilterFunc(K8sServiceName),
+			reconciler.NameFilterFunc(networking.ActivatorServiceName),
 			reconciler.NamespaceFilterFunc(system.Namespace()),
 		),
 		Handler: cache.ResourceEventHandlerFuncs{

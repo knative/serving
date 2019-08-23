@@ -123,10 +123,10 @@ type fakeStatsReporter struct {
 	lastReqLatency      time.Duration
 }
 
-func (r *fakeStatsReporter) ReportRequestCount(responseCode int, v int64) error {
+func (r *fakeStatsReporter) ReportRequestCount(responseCode int) error {
 	r.reqCountReportTimes++
 	r.lastRespCode = responseCode
-	r.lastReqCount = v
+	r.lastReqCount = 1
 	return nil
 }
 
