@@ -160,54 +160,6 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 	return nil
 }
 
-func generateTrafficAtFixedRPS(ctx *testContext, rps int, duration time.Duration, stopChan chan struct{}) error {
-	var (
-		totalRequests      int32
-		successfulRequests int32
-	)
-
-	rate := vegeta.Rate{Freq: rps, Per: time.Second}
-	target, err := getVegetaTarget(
-		ctx.clients.KubeClient.Kube, ctx.domain, pkgTest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain)
-	if err != nil {
-		return fmt.Errorf("error creating vegeta target: %v", err)
-	}
-	targeter := vegeta.NewStaticTargeter(target)
-	attacker := vegeta.NewAttacker(vegeta.Timeout(duration))
-
-	ctx.t.Logf("Maintaining %v RPS requests for %v.", rps, duration)
-
-	// Start the attack!
-	results := attacker.Attack(targeter, rate, duration, "load-test")
-
-	for {
-		select {
-		case <-stopChan:
-			ctx.t.Log("Stopping generateTraffic")
-			return nil
-		case res, ok := <-results:
-			if !ok {
-				ctx.t.Log("Time is up; done")
-				return nil
-			}
-
-			atomic.AddInt32(&totalRequests, 1)
-			if res.Code != http.StatusOK {
-				ctx.t.Logf("Status = %d, want: 200", res.Code)
-				ctx.t.Logf("Response: %v", res)
-				continue
-			}
-			atomic.AddInt32(&successfulRequests, 1)
-		}
-	}
-
-	if successfulRequests != totalRequests {
-		return fmt.Errorf("error making requests for scale up. Got %d successful requests, wanted: %d",
-			successfulRequests, totalRequests)
-	}
-	return nil
-}
-
 // setup creates a new service, with given service options.
 // It returns a testContext that has resources, K8s clients,
 // and the deployment.
@@ -321,16 +273,10 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, dur
 
 	stopChan := make(chan struct{})
 	var grp errgroup.Group
-	switch ctx.metric {
-	case autoscaling.RPS:
-		grp.Go(func() error {
-			return generateTrafficAtFixedRPS(ctx, int(targetPods)*ctx.targetValue, duration, stopChan)
-		})
-	default:
-		grp.Go(func() error {
-			return generateTraffic(ctx, int(targetPods)*ctx.targetValue, duration, stopChan)
-		})
-	}
+
+	grp.Go(func() error {
+		return generateTraffic(ctx, int(targetPods)*ctx.targetValue, duration, stopChan)
+	})
 
 	grp.Go(func() error {
 		// Short-circuit traffic generation once we exit from the check logic.
@@ -430,27 +376,6 @@ func TestAutoscaleUpCountPods(t *testing.T) {
 			assertAutoscaleUpToNumPods(ctx, 3, 4, 60*time.Second, true)
 		})
 	}
-}
-
-func TestRPSBasedAutoscaleUpCountPods(t *testing.T) {
-	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
-
-	ctx := setup(t, autoscaling.KPA, autoscaling.RPS, 10, targetUtilization)
-	defer test.TearDown(ctx.clients, ctx.names)
-
-	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
-	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
-
-	// Increase workload for 2 replicas for 60s
-	// Assert the number of expected replicas is between n-1 and n+1, where n is the # of desired replicas for 60s.
-	// Assert the number of expected replicas is n and n+1 at the end of 60s, where n is the # of desired replicas.
-	assertAutoscaleUpToNumPods(ctx, 1, 2, 60*time.Second, true)
-	// Increase workload scale to 3 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
-	assertAutoscaleUpToNumPods(ctx, 2, 3, 60*time.Second, true)
-	// Increase workload scale to 4 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
-	assertAutoscaleUpToNumPods(ctx, 3, 4, 60*time.Second, true)
 }
 
 func TestAutoscaleSustaining(t *testing.T) {
