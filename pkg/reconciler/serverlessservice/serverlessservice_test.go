@@ -32,7 +32,6 @@ import (
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
-	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	rpkg "knative.dev/serving/pkg/reconciler"
@@ -774,7 +773,7 @@ func activatorEndpoints(eo ...EndpointsOption) *corev1.Endpoints {
 	ep := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      activator.K8sServiceName,
+			Name:      networking.ActivatorServiceName,
 		},
 	}
 	for _, opt := range eo {
