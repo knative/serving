@@ -84,8 +84,6 @@ func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler
 		sksLister:      sksL,
 		serviceLister:  sl,
 		probeTimeout:   defaulTimeout,
-		// In activator we collect metrics, so we're wrapping
-		// the RoundTripper the prober would use inside an annotating transport.
 		probeTransport: network.NewProberTransport(),
 		endpointTimeout: defaulTimeout,
 	}
@@ -110,6 +108,8 @@ func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 	logger.Debugf("Actually will be probing %s", url)
 	config := activatorconfig.FromContext(r.Context())
 	if config.Tracing.Backend != tracingconfig.None {
+		// When we collect metrics, we're wrapping the RoundTripper
+		// the prober would use inside an annotating transport.
 		a.probeTransport = &ochttp.Transport{
 			Base: network.NewProberTransport(),
 		}
@@ -235,6 +235,8 @@ func (a *activationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 	config := activatorconfig.FromContext(r.Context())
 	proxy.Transport = a.transport
 	if config.Tracing.Backend != tracingconfig.None {
+		// When we collect metrics, we're wrapping the RoundTripper
+		// the proxy would use inside an annotating transport.
 		proxy.Transport = &ochttp.Transport{
 			Base: a.transport,
 		}
