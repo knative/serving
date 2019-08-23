@@ -29,7 +29,8 @@ import (
 )
 
 var (
-	target = flag.String("target", "", "The target to attack.")
+	target   = flag.String("target", "", "The target to attack.")
+	duration = flag.Duration("duration", 5*time.Minute, "The duration of the probe")
 )
 
 func main() {
@@ -38,9 +39,9 @@ func main() {
 	// We want this for properly handling Kubernetes container lifecycle events.
 	ctx := signals.NewContext()
 
-	// We cron every 5 minutes, so make sure that we don't severely overrun to
+	// We cron quite often, so make sure that we don't severely overrun to
 	// limit how noisy a neighbor we can be.
-	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, *duration+time.Minute)
 	defer cancel()
 
 	// Use the benchmark key created
@@ -79,7 +80,6 @@ func main() {
 
 	// Send 1000 QPS (1 per ms) for 5 minutes with a 30s request timeout.
 	rate := vegeta.Rate{Freq: 1, Per: time.Millisecond}
-	const duration = 5 * time.Minute
 	targeter := vegeta.NewStaticTargeter(t.target)
 	attacker := vegeta.NewAttacker(vegeta.Timeout(30 * time.Second))
 
@@ -91,7 +91,7 @@ func main() {
 	errors := make(map[int64]int64, int(duration.Seconds()))
 
 	// Start the attack!
-	results := attacker.Attack(targeter, rate, duration, "load-test")
+	results := attacker.Attack(targeter, rate, *duration, "load-test")
 
 LOOP:
 	for {

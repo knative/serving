@@ -139,6 +139,26 @@ var (
 			// We use the same threshold analyzer, since we want Breaker to exert minimal latency impact.
 			analyzers: []*tpb.ThresholdAnalyzerInput{Queue95PercentileLatency},
 		},
+		"queue-with-cc-10": {
+			target: vegeta.Target{
+				Method: "GET",
+				URL:    "http://queue-proxy-with-cc-10.default.svc.cluster.local?sleep=100",
+			},
+			stat:  "qct",
+			estat: "ret",
+			// TODO(vagababov): determine values here.
+			analyzers: []*tpb.ThresholdAnalyzerInput{Queue95PercentileLatency},
+		},
+		"queue-with-cc-1": {
+			target: vegeta.Target{
+				Method: "GET",
+				URL:    "http://queue-proxy-with-cc-1.default.svc.cluster.local?sleep=100",
+			},
+			stat:  "qc1",
+			estat: "re1",
+			// TODO(vagababov): determine values here.
+			analyzers: []*tpb.ThresholdAnalyzerInput{Queue95PercentileLatency},
+		},
 		"activator": {
 			target: vegeta.Target{
 				Method: "GET",
@@ -156,6 +176,26 @@ var (
 			stat:  "ac",
 			estat: "be",
 			// We use the same threshold analyzer, since we want Throttler/Breaker to exert minimal latency impact.
+			analyzers: []*tpb.ThresholdAnalyzerInput{Activator95PercentileLatency},
+		},
+		"activator-with-cc-10": {
+			target: vegeta.Target{
+				Method: "GET",
+				URL:    "http://activator-with-cc-10.default.svc.cluster.local?sleep=100",
+			},
+			stat:  "act",
+			estat: "bet",
+			// TODO(vagababov): determine values here.
+			analyzers: []*tpb.ThresholdAnalyzerInput{Activator95PercentileLatency},
+		},
+		"activator-with-cc-1": {
+			target: vegeta.Target{
+				Method: "GET",
+				URL:    "http://activator-with-cc-1.default.svc.cluster.local?sleep=100",
+			},
+			stat:  "ac1",
+			estat: "be1",
+			// TODO(vagababov): determine values here.
 			analyzers: []*tpb.ThresholdAnalyzerInput{Activator95PercentileLatency},
 		},
 	}
