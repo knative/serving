@@ -117,7 +117,7 @@ var (
 		stats.UnitMilliseconds)
 	queueDepthM = stats.Int64(
 		queueDepthN,
-		"The current number of items in the servind and waiting queue, or not reported if unlimited concurrency.",
+		"The current number of items in the serving and waiting queue, or not reported if unlimited concurrency.",
 		stats.UnitDimensionless)
 
 	readinessProbeTimeout = flag.Int("probe-period", -1, "run readiness probe with given timeout")
