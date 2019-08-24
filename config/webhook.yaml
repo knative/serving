@@ -44,6 +44,8 @@ spec:
         ports:
         - name: metrics-port
           containerPort: 9090
+        - name: profiling
+          containerPort: 8008
         resources:
           # Request 2x what we saw running e2e
           requests:

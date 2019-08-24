@@ -35,14 +35,14 @@ type ManualWatcher struct {
 var _ Watcher = (*ManualWatcher)(nil)
 
 // Watch implements Watcher
-func (w *ManualWatcher) Watch(name string, o Observer) {
+func (w *ManualWatcher) Watch(name string, o ...Observer) {
 	w.m.Lock()
 	defer w.m.Unlock()
 
 	if w.observers == nil {
-		w.observers = make(map[string][]Observer, 1)
+		w.observers = make(map[string][]Observer, len(o))
 	}
-	w.observers[name] = append(w.observers[name], o)
+	w.observers[name] = append(w.observers[name], o...)
 }
 
 func (w *ManualWatcher) Start(<-chan struct{}) error {
