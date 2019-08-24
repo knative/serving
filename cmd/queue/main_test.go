@@ -74,7 +74,7 @@ func TestHandlerReqEvent(t *testing.T) {
 	params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	breaker := queue.NewBreaker(params)
 	reqChan := make(chan queue.ReqEvent, 10)
-	h := handler(reqChan, breaker, proxy, func() bool { return true })
+	h := handler(reqChan, breaker, proxy, func() bool { return true }, queueDepthM)
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -134,7 +134,7 @@ func TestProbeHandler(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 			req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 
-			h := handler(nil, nil, nil, tc.prober)
+			h := handler(nil, nil, nil, tc.prober, nil)
 			h(writer, req)
 
 			if got, want := writer.Code, tc.wantCode; got != want {
@@ -397,10 +397,10 @@ func TestQueueTraceSpans(t *testing.T) {
 					Base: network.AutoTransport,
 				}
 
-				h := handler(reqChan, breaker, proxy, func() bool { return false })
+				h := handler(reqChan, breaker, proxy, func() bool { return false }, queueDepthM)
 				h(writer, req)
 			} else {
-				h := handler(nil, nil, nil, tc.prober)
+				h := handler(nil, nil, nil, tc.prober, nil)
 				req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 				h(writer, req)
 			}
