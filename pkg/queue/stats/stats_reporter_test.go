@@ -33,13 +33,13 @@ const (
 	testConf    = "helloworld-go"
 	testRev     = "helloworld-go-00001"
 	countName   = "request_count"
-	qsizeName   = "queue_size"
+	qdepthName  = "queue_depth"
 	latencyName = "request_latencies"
 )
 
 var (
 	queueSizeMetric = stats.Int64(
-		qsizeName,
+		qdepthName,
 		"Queue size",
 		stats.UnitDimensionless)
 	countMetric = stats.Int64(
@@ -98,6 +98,12 @@ func TestReporterReport(t *testing.T) {
 	if err := r.ReportRequestCount(200); err == nil {
 		t.Error("Reporter.ReportRequestCount() expected an error for Report call before init. Got success.")
 	}
+	if err := r.ReportQueueDepth(200); err == nil {
+		t.Error("Reporter.ReportQueueDepth() expected an error for Report call before init. Got success.")
+	}
+	if err := r.ReportResponseTime(200, time.Second); err == nil {
+		t.Error("Reporter.ReportRequestCount() expected an error for Report call before init. Got success.")
+	}
 
 	r, err := NewStatsReporter(testNs, testSvc, testConf, testRev, countMetric, latencyMetric, queueSizeMetric)
 	if err != nil {
@@ -129,6 +135,10 @@ func TestReporterReport(t *testing.T) {
 	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportResponseTime(200, 200*time.Millisecond) })
 	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportResponseTime(200, 300*time.Millisecond) })
 	metricstest.CheckDistributionData(t, "request_latencies", wantTags, 3, 100, 300)
+
+	expectSuccess(t, "QueueDepth", func() error { return r.ReportQueueDepth(1) })
+	expectSuccess(t, "QueueDepth", func() error { return r.ReportQueueDepth(2) })
+	metricstest.CheckLastValueData(t, "queue_depth", wantTags, 2)
 
 	unregisterViews(r)
 
@@ -164,7 +174,7 @@ func unregisterViews(r *Reporter) error {
 	if !r.initialized {
 		return errors.New("reporter is not initialized")
 	}
-	metricstest.Unregister(countName, latencyName, qsizeName)
+	metricstest.Unregister(countName, latencyName, qdepthName)
 	r.initialized = false
 	return nil
 }
