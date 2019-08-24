@@ -79,7 +79,7 @@ const (
 	responseTimeInMsecN    = "request_latencies"
 	appRequestCountN       = "app_request_count"
 	appResponseTimeInMsecN = "app_request_latencies"
-	queueDepthN            = "app_queue_depth"
+	queueDepthN            = "queue_depth"
 
 	// requestQueueHealthPath specifies the path for health checks for
 	// queue-proxy.
