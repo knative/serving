@@ -69,13 +69,13 @@ function setup_user() {
 # $1 -> cluster_name, $2 -> cluster_zone, $3 -> node_count
 function create_new_cluster() {
   # create a new cluster
-  create_cluster $1 $2 $3
+  create_cluster $1 $2 $3 || abort "Failed to create the new cluster $1"
   
   # create the secret on the new cluster
-  create_secret $1 $2
+  create_secret $1 $2 || abort "Failed to create secrets on the new cluster"
 
   # update components on the cluster, e.g. serving and istio
-  update_cluster $1 $2
+  update_cluster $1 $2 || abort "Failed to update the cluster"
 }
 
 # Update resources installed on the cluster with the up-to-date code.
