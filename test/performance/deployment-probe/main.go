@@ -19,7 +19,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -48,7 +47,7 @@ var (
 )
 
 func readTemplate() (*v1beta1.Service, error) {
-	path := filepath.Join(os.Getenv("KO_DATA_PATH"), fmt.Sprintf("%s-template.yaml", *template))
+	path := filepath.Join(os.Getenv("KO_DATA_PATH"), *template+"-template.yaml")
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -96,9 +95,14 @@ func main() {
 		log.Fatalf("Unable to read template %s: %v", *template, err)
 	}
 
+	// How long to run.
+	timeout := 25 * time.Minute
+	// Frequency at which we create a new service.
+	frequency := 5 * time.Second
+
 	// We cron every 30 minutes, so make sure that we don't severely overrun to
 	// limit how noisy a neighbor we can be.
-	ctx, cancel := context.WithTimeout(ctx, 25*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	// Use the benchmark key created
@@ -133,7 +137,7 @@ func main() {
 		fatalf("Error cleaning up services: %v", err)
 	}
 
-	lo := metav1.ListOptions{TimeoutSeconds: ptr.Int64(3600)}
+	lo := metav1.ListOptions{TimeoutSeconds: ptr.Int64(int64(timeout.Seconds()))}
 
 	// TODO(mattmoor): We could maybe use a duckv1beta1.KResource to eliminate this boilerplate.
 
@@ -186,102 +190,80 @@ func main() {
 	defer paWI.Stop()
 	paSeen := sets.String{}
 
-	// Interval for creating services.
-	tick := time.NewTicker(5 * time.Second)
+	tick := time.NewTicker(frequency)
+	func() {
+		for {
+			select {
+			case <-ctx.Done():
+				// If we timeout or the pod gets shutdown via SIGTERM then start to
+				// clean thing up.
+				return
 
-LOOP:
-	for {
-		select {
-		case <-ctx.Done():
-			// If we timeout or the pod gets shutdown via SIGTERM then start to
-			// clean thing up.
-			break LOOP
+			case ts := <-tick.C:
+				svc, err := sc.ServingV1beta1().Services(tmpl.Namespace).Create(tmpl)
+				if err != nil {
+					q.AddError(mako.XTime(ts), err.Error())
+				}
+				log.Printf("Created: %s", svc.Name)
 
-		case ts := <-tick.C:
-			svc, err := sc.ServingV1beta1().Services(tmpl.Namespace).Create(tmpl)
-			if err != nil {
-				q.AddError(mako.XTime(ts), err.Error())
-			}
-			log.Printf("Created: %s", svc.Name)
+			case event := <-serviceWI.ResultChan():
+				if event.Type != watch.Modified {
+					// Skip events other than modifications
+					break
+				}
+				svc := event.Object.(*v1beta1.Service)
+				handle(q, svc, svc.Status.Status, &serviceSeen, "dl")
 
-		case event, ok := <-serviceWI.ResultChan():
-			if !ok {
-				fatalf("Unexpected end of watch")
-			}
-			if event.Type != watch.Modified {
-				// Skip events other than modifications
-				break
-			}
-			svc := event.Object.(*v1beta1.Service)
-			handle(q, svc, svc.Status.Status, &serviceSeen, "dl")
+			case event := <-configurationWI.ResultChan():
+				if event.Type != watch.Modified {
+					// Skip events other than modifications
+					break
+				}
+				cfg := event.Object.(*v1beta1.Configuration)
+				handle(q, cfg, cfg.Status.Status, &configurationSeen, "cl")
 
-		case event, ok := <-configurationWI.ResultChan():
-			if !ok {
-				fatalf("Unexpected end of watch")
-			}
-			if event.Type != watch.Modified {
-				// Skip events other than modifications
-				break
-			}
-			cfg := event.Object.(*v1beta1.Configuration)
-			handle(q, cfg, cfg.Status.Status, &configurationSeen, "cl")
+			case event := <-routeWI.ResultChan():
+				if event.Type != watch.Modified {
+					// Skip events other than modifications
+					break
+				}
+				rt := event.Object.(*v1beta1.Route)
+				handle(q, rt, rt.Status.Status, &routeSeen, "rl")
 
-		case event, ok := <-routeWI.ResultChan():
-			if !ok {
-				fatalf("Unexpected end of watch")
-			}
-			if event.Type != watch.Modified {
-				// Skip events other than modifications
-				break
-			}
-			rt := event.Object.(*v1beta1.Route)
-			handle(q, rt, rt.Status.Status, &routeSeen, "rl")
+			case event := <-revisionWI.ResultChan():
+				if event.Type != watch.Modified {
+					// Skip events other than modifications
+					break
+				}
+				rev := event.Object.(*v1beta1.Revision)
+				handle(q, rev, rev.Status.Status, &revisionSeen, "rvl")
 
-		case event, ok := <-revisionWI.ResultChan():
-			if !ok {
-				fatalf("Unexpected end of watch")
-			}
-			if event.Type != watch.Modified {
-				// Skip events other than modifications
-				break
-			}
-			rev := event.Object.(*v1beta1.Revision)
-			handle(q, rev, rev.Status.Status, &revisionSeen, "rvl")
+			case event := <-ingressWI.ResultChan():
+				if event.Type != watch.Modified {
+					// Skip events other than modifications
+					break
+				}
+				ing := event.Object.(*netv1alpha1.Ingress)
+				handle(q, ing, ing.Status.Status, &ingressSeen, "il")
 
-		case event, ok := <-ingressWI.ResultChan():
-			if !ok {
-				fatalf("Unexpected end of watch")
-			}
-			if event.Type != watch.Modified {
-				// Skip events other than modifications
-				break
-			}
-			ing := event.Object.(*netv1alpha1.Ingress)
-			handle(q, ing, ing.Status.Status, &ingressSeen, "il")
+			case event := <-sksWI.ResultChan():
+				if event.Type != watch.Modified {
+					// Skip events other than modifications
+					break
+				}
+				ing := event.Object.(*netv1alpha1.ServerlessService)
+				handle(q, ing, ing.Status.Status, &sksSeen, "sksl")
 
-		case event, ok := <-sksWI.ResultChan():
-			if !ok {
-				fatalf("Unexpected end of watch")
+			case event := <-paWI.ResultChan():
+				if event.Type != watch.Modified {
+					// Skip events other than modifications
+					break
+				}
+				pa := event.Object.(*asv1alpha1.PodAutoscaler)
+				handle(q, pa, pa.Status.Status, &paSeen, "pal")
 			}
-			if event.Type != watch.Modified {
-				// Skip events other than modifications
-				break
-			}
-			ing := event.Object.(*netv1alpha1.ServerlessService)
-			handle(q, ing, ing.Status.Status, &sksSeen, "sksl")
-
-		case event, ok := <-paWI.ResultChan():
-			if !ok {
-				fatalf("Unexpected end of watch")
-			}
-			if event.Type != watch.Modified {
-				// Skip events other than modifications
-				break
-			}
-			pa := event.Object.(*asv1alpha1.PodAutoscaler)
-			handle(q, pa, pa.Status.Status, &paSeen, "pal")
 		}
-	}
+	}()
 
 	// Commit this benchmark run to Mako!
 	out, err := q.Store()
