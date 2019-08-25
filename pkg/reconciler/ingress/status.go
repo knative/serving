@@ -187,6 +187,7 @@ func (m *StatusProber) IsReady(vs *v1alpha3.VirtualService) (bool, error) {
 			podIP:        podIP,
 		}
 		m.workQueue.AddRateLimited(workItem)
+		m.logger.Infof("Queuing probe for %s (depth: %d)", workItem.probeHost, m.workQueue.Len())
 	}
 
 	return len(podIPs) == 0, nil
@@ -255,6 +256,7 @@ func (m *StatusProber) processWorkItem() bool {
 	if !ok {
 		m.logger.Fatalf("Unexpected work item type: want: %s, got: %s\n", "*workItem", reflect.TypeOf(obj).Name())
 	}
+	m.logger.Infof("Processing probe for %s (depth: %d)", item.probeHost, m.workQueue.Len())
 
 	ok, err := prober.Do(
 		item.context,
@@ -275,7 +277,7 @@ func (m *StatusProber) processWorkItem() bool {
 	if err != nil || !ok {
 		// In case of error, enqueue for retry
 		m.workQueue.AddRateLimited(obj)
-		m.logger.Errorf("Probing of %s failed: ready: %t, error: %v", item.podIP, ok, err)
+		m.logger.Errorf("Probing of %s failed: ready: %t, error: %v (depth: %d)", item.podIP, ok, err, m.workQueue.Len())
 	} else {
 		// In case of success, update the state
 		if atomic.AddInt32(&item.pendingCount, -1) == 0 {
