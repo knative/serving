@@ -106,7 +106,8 @@ func main() {
 	defer cancel()
 
 	// Use the benchmark key created
-	ctx, q, qclose, err := mako.Setup(ctx)
+	tag := "template=" + *template
+	ctx, q, qclose, err := mako.Setup(ctx, tag)
 	if err != nil {
 		log.Fatalf("Failed to setup mako: %v", err)
 	}
@@ -131,7 +132,10 @@ func main() {
 	// Set up the threshold analyzers for the selected benchmark.  This will
 	// cause Mako/Quickstore to analyze the results we are storing and flag
 	// things that are outside of expected bounds.
-	// q.Input.ThresholdInputs = append(q.Input.ThresholdInputs, t.analyzers...)
+	q.Input.ThresholdInputs = append(q.Input.ThresholdInputs,
+		newDeploy95PercentileLatency(tag),
+		newReadyDeploymentCount(tag),
+	)
 
 	if err := cleanup(); err != nil {
 		fatalf("Error cleaning up services: %v", err)

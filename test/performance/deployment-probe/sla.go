@@ -20,13 +20,48 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	// tpb "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto"
-	// mpb "github.com/google/mako/spec/proto/mako_go_proto"
+	tpb "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto"
+	mpb "github.com/google/mako/spec/proto/mako_go_proto"
+
+	"knative.dev/serving/test/performance/mako"
 )
 
-var (
-// TODO(mattmoor): bounds on latencies.
-)
+// This analyzer validates that the p95 latency deploying a new service takes up
+// to 15 seconds.
+func newDeploy95PercentileLatency(tags ...string) *tpb.ThresholdAnalyzerInput {
+	return &tpb.ThresholdAnalyzerInput{
+		Name: proto.String("Kubernetes baseline"),
+		Configs: []*tpb.ThresholdConfig{{
+			Min: bound(0 * time.Second),
+			Max: bound(15 * time.Second),
+			DataFilter: &mpb.DataFilter{
+				DataType:            mpb.DataFilter_METRIC_AGGREGATE_PERCENTILE.Enum(),
+				PercentileMilliRank: proto.Int32(95000),
+				ValueKey:            proto.String("dl"),
+			},
+		}},
+		CrossRunConfig: mako.NewCrossRunConfig(10, tags...),
+	}
+}
+
+// This analyzer validates that the number of services deployed to "Ready=True".
+// Configured to run for 25m with a frequency of 5s, the theoretical limit is 300
+// if deployments take 0s.  Factoring in deployment latency, we will miss a
+// handful of the trailing deployments, so we relax this to 295.
+func newReadyDeploymentCount(tags ...string) *tpb.ThresholdAnalyzerInput {
+	return &tpb.ThresholdAnalyzerInput{
+		Name: proto.String("Kubernetes baseline"),
+		Configs: []*tpb.ThresholdConfig{{
+			Min: proto.Float64(295),
+			Max: proto.Float64(300),
+			DataFilter: &mpb.DataFilter{
+				DataType: mpb.DataFilter_METRIC_AGGREGATE_COUNT.Enum(),
+				ValueKey: proto.String("dl"),
+			},
+		}},
+		CrossRunConfig: mako.NewCrossRunConfig(10, tags...),
+	}
+}
 
 // bound is a helper for making the inline SLOs more readable by expressing
 // them as durations.
