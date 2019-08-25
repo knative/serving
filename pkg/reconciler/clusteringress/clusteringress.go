@@ -105,7 +105,7 @@ func (c *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 		&network.Config{},
 	}
 	resyncIngressesOnConfigChange := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
-		controller.SendGlobalUpdates(clusterIngressInformer.Informer(), clusterIngressHandler)
+		impl.FilteredGlobalResync(myFilterFunc, clusterIngressInformer.Informer())
 	})
 	configStore := config.NewStore(c.Logger.Named("config-store"), resyncIngressesOnConfigChange)
 	configStore.WatchConfigs(cmw)
