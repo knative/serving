@@ -55,7 +55,10 @@ spec:
           containers:
           - name: probe
             image: knative.dev/serving/test/performance/deployment-probe
-            args: ["-template=basic"]
+            args:
+            - "-template=basic"
+            - "-duration=25m"
+            - "-frequency=5s"
             resources:
               requests:
                 cpu: 100m

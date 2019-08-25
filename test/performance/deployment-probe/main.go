@@ -27,9 +27,11 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/google/mako/helpers/go/quickstore"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
+	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
@@ -43,7 +45,9 @@ import (
 )
 
 var (
-	template = flag.String("template", "", "The service template to load from kodata/")
+	template  = flag.String("template", "", "The service template to load from kodata/")
+	duration  = flag.Duration("duration", 25*time.Minute, "The duration of the benchmark to run.")
+	frequency = flag.Duration("frequency", 5*time.Second, "The frequency at which to create services.")
 )
 
 func readTemplate() (*v1beta1.Service, error) {
@@ -64,8 +68,8 @@ func handle(q *quickstore.Quickstore, svc kmeta.Accessor, status duckv1beta1.Sta
 	if seen.Has(svc.GetName()) {
 		return
 	}
-	cc := status.GetCondition("Ready")
-	if cc == nil || cc.Status == "Unknown" {
+	cc := status.GetCondition(apis.ConditionReady)
+	if cc == nil || cc.Status == corev1.ConditionUnknown {
 		return
 	}
 	seen.Insert(svc.GetName())
@@ -73,12 +77,12 @@ func handle(q *quickstore.Quickstore, svc kmeta.Accessor, status duckv1beta1.Sta
 	ready := cc.LastTransitionTime.Inner.Time
 	elapsed := ready.Sub(created)
 
-	if cc.Status == "True" {
+	if cc.Status == corev1.ConditionTrue {
 		q.AddSamplePoint(mako.XTime(created), map[string]float64{
 			metric: elapsed.Seconds(),
 		})
 		log.Printf("Ready: %s", svc.GetName())
-	} else if cc.Status == "False" {
+	} else if cc.Status == corev1.ConditionFalse {
 		q.AddError(mako.XTime(created), cc.Message)
 		log.Printf("Not Ready: %s; %s: %s", svc.GetName(), cc.Reason, cc.Message)
 	}
@@ -95,19 +99,18 @@ func main() {
 		log.Fatalf("Unable to read template %s: %v", *template, err)
 	}
 
-	// How long to run.
-	timeout := 25 * time.Minute
-	// Frequency at which we create a new service.
-	frequency := 5 * time.Second
-
 	// We cron every 30 minutes, so make sure that we don't severely overrun to
 	// limit how noisy a neighbor we can be.
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	ctx, cancel := context.WithTimeout(ctx, *duration)
 	defer cancel()
 
-	// Use the benchmark key created
-	tag := "template=" + *template
-	ctx, q, qclose, err := mako.Setup(ctx, tag)
+	// Tag this run with the various flag values.
+	tags := []string{
+		"template=" + *template,
+		"duration=" + duration.String(),
+		"frequency=" + frequency.String(),
+	}
+	ctx, q, qclose, err := mako.Setup(ctx, tags...)
 	if err != nil {
 		log.Fatalf("Failed to setup mako: %v", err)
 	}
@@ -133,15 +136,15 @@ func main() {
 	// cause Mako/Quickstore to analyze the results we are storing and flag
 	// things that are outside of expected bounds.
 	q.Input.ThresholdInputs = append(q.Input.ThresholdInputs,
-		newDeploy95PercentileLatency(tag),
-		newReadyDeploymentCount(tag),
+		newDeploy95PercentileLatency(tags...),
+		newReadyDeploymentCount(tags...),
 	)
 
 	if err := cleanup(); err != nil {
 		fatalf("Error cleaning up services: %v", err)
 	}
 
-	lo := metav1.ListOptions{TimeoutSeconds: ptr.Int64(int64(timeout.Seconds()))}
+	lo := metav1.ListOptions{TimeoutSeconds: ptr.Int64(int64(duration.Seconds()))}
 
 	// TODO(mattmoor): We could maybe use a duckv1beta1.KResource to eliminate this boilerplate.
 
@@ -194,7 +197,7 @@ func main() {
 	defer paWI.Stop()
 	paSeen := sets.String{}
 
-	tick := time.NewTicker(frequency)
+	tick := time.NewTicker(*frequency)
 	func() {
 		for {
 			select {
