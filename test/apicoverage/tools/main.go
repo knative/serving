@@ -26,7 +26,7 @@ import (
 	"knative.dev/serving/test/apicoverage/image/common"
 	"knative.dev/serving/test/apicoverage/image/rules"
 	"knative.dev/test-infra/shared/prow"
-	"knative.dev/test-infra/tools/webhook-apicoverage/tools"
+	"knative.dev/pkg/test/webhook-apicoverage/tools"
 )
 
 func main() {
