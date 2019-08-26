@@ -9,21 +9,23 @@ performance metrics of the knative system. All the raw metrics are stored in
 For creating new benchmarks, follow the steps:
 
 1. Create a new directory under `./test/performance/`.
-2. Create two benchmarks using in the bechmark directory using
+2. Create two benchmarks in the bechmark directory using
    [mako](https://github.com/google/mako/blob/github-push-test-1/docs/GUIDE.md#preparing-your-benchmark)
    as mentioned in [benchmark configs](#benchmark-configs).
 3. Create a `kodata` directory and add the [four symlinks](#Benchmark-Symlinks).
 4. Write a go program that runs the test and stores the result in
    [mako](##Writing-to-mako)
-5. Create a [setup.yaml](https://github.com/knative/serving/blob/master/test/performance/dataplane-probe/dataplane-probe-setup.yaml)
+5. (Optional)Create a [setup.yaml](https://github.com/knative/serving/blob/master/test/performance/dataplane-probe/dataplane-probe-setup.yaml)
    that lists all the K8S and Knative objects needed to run the test.
 6. Create a [cron.yaml](https://github.com/knative/serving/blob/master/test/performance/dataplane-probe/dataplane-probe.yaml)
    that defines how to run and capture metrics as mentioned in
    [benchmark cronjobs](#Benchmark-cronjobs).
-7. Ask one of the [admins](#Admins) to run the `create_cluster_benchmark.sh`
+7. Create a PR with all the changes and get it merged.
+8. Test and confirm the dev config works on your personal cluster.
+9. Ask one of the [admins](#Admins) to run the `create_cluster_benchmark.sh`
    script to create a new cluster for the benchmark. Please provide the
-   bencmark name and the resource requirement for running the benchmark.
-8. Once the cluster is created, the hourly job will build, push and apply all
+   benchmark name and the resource requirement for running the benchmark.
+10. Once the cluster is created, the hourly job will build, push and apply all
    the updates and the SUT cronjobs will start running. The metrics can be
    viewed at [mako.dev](https://mako.dev/)
 
