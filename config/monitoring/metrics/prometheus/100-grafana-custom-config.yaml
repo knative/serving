@@ -25,4 +25,3 @@ data:
     [auth.anonymous]
     # enable anonymous access
     enabled = true
-    
