@@ -98,6 +98,11 @@ func (b *Breaker) Maybe(ctx context.Context, thunk func()) bool {
 	}
 }
 
+// InFlight returns the number of requests currently in flight in this breaker.
+func (b *Breaker) InFlight() int {
+	return len(b.pendingRequests)
+}
+
 // UpdateConcurrency updates the maximum number of in-flight requests.
 func (b *Breaker) UpdateConcurrency(size int) error {
 	return b.sem.updateCapacity(size)
@@ -129,7 +134,7 @@ type semaphore struct {
 	queue    chan struct{}
 	reducers int
 	capacity int
-	mux      sync.Mutex
+	mux      sync.RWMutex
 }
 
 // acquire receives the token from the semaphore, potentially blocking.
@@ -218,11 +223,10 @@ func (s *semaphore) effectiveCapacity() int {
 	return s.capacity - s.reducers
 }
 
-// Capacity is the effective capacity after taking reducers into
-// account.
+// Capacity is the effective capacity after taking reducers into account.
 func (s *semaphore) Capacity() int {
-	s.mux.Lock()
-	defer s.mux.Unlock()
+	s.mux.RLock()
+	defer s.mux.RUnlock()
 
 	return s.effectiveCapacity()
 }

@@ -79,6 +79,7 @@ const (
 	responseTimeInMsecN    = "request_latencies"
 	appRequestCountN       = "app_request_count"
 	appResponseTimeInMsecN = "app_request_latencies"
+	queueDepthN            = "queue_depth"
 
 	// requestQueueHealthPath specifies the path for health checks for
 	// queue-proxy.
@@ -114,6 +115,10 @@ var (
 		appResponseTimeInMsecN,
 		"The response time in millisecond",
 		stats.UnitMilliseconds)
+	queueDepthM = stats.Int64(
+		queueDepthN,
+		"The current number of items in the serving and waiting queue, or not reported if unlimited concurrency.",
+		stats.UnitDimensionless)
 
 	readinessProbeTimeout = flag.Int("probe-period", -1, "run readiness probe with given timeout")
 )
@@ -146,7 +151,8 @@ type config struct {
 }
 
 // Make handler a closure for testing.
-func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.Handler, prober func() bool) func(http.ResponseWriter, *http.Request) {
+func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.Handler,
+	prober func() bool) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ph := network.KnativeProbeHeader(r)
 		switch {
@@ -311,7 +317,7 @@ func main() {
 	var breaker *queue.Breaker
 	if env.ContainerConcurrency > 0 {
 		// We set the queue depth to be equal to the container concurrency * 10 to
-		// allow the autoscaler to get a strong enough signal.
+		// allow the autoscaler time to react.
 		queueDepth := env.ContainerConcurrency * 10
 		params := queue.BreakerParams{QueueDepth: queueDepth, MaxConcurrency: env.ContainerConcurrency, InitialCapacity: env.ContainerConcurrency}
 		breaker = queue.NewBreaker(params)
@@ -365,7 +371,8 @@ func main() {
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
 	var composedHandler http.Handler = httpProxy
 	if metricsSupported {
-		composedHandler = pushRequestMetricHandler(httpProxy, appRequestCountM, appResponseTimeInMsecM, env)
+		composedHandler = pushRequestMetricHandler(httpProxy, appRequestCountM, appResponseTimeInMsecM,
+			queueDepthM, breaker, env)
 	}
 	composedHandler = http.HandlerFunc(handler(reqChan, breaker, composedHandler, rp.ProbeContainer))
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
@@ -374,7 +381,8 @@ func main() {
 	composedHandler = pushRequestLogHandler(composedHandler, env)
 
 	if metricsSupported {
-		composedHandler = pushRequestMetricHandler(composedHandler, requestCountM, responseTimeInMsecM, env)
+		composedHandler = pushRequestMetricHandler(composedHandler, requestCountM, responseTimeInMsecM,
+			nil /*queueDepthM*/, nil /*breaker*/, env)
 	}
 	composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
 	composedHandler = network.NewProbeHandler(composedHandler)
@@ -495,14 +503,15 @@ func pushRequestLogHandler(currentHandler http.Handler, env config) http.Handler
 	return handler
 }
 
-func pushRequestMetricHandler(currentHandler http.Handler, countMetric *stats.Int64Measure, latencyMetric *stats.Float64Measure, env config) http.Handler {
-	r, err := queuestats.NewStatsReporter(env.ServingNamespace, env.ServingService, env.ServingConfiguration, env.ServingRevision, countMetric, latencyMetric)
+func pushRequestMetricHandler(currentHandler http.Handler, countMetric *stats.Int64Measure,
+	latencyMetric *stats.Float64Measure, queueDepthMetric *stats.Int64Measure, breaker *queue.Breaker, env config) http.Handler {
+	r, err := queuestats.NewStatsReporter(env.ServingNamespace, env.ServingService, env.ServingConfiguration, env.ServingRevision, countMetric, latencyMetric, queueDepthMetric)
 	if err != nil {
 		logger.Errorw("Error setting up request metrics reporter. Request metrics will be unavailable.", zap.Error(err))
 		return currentHandler
 	}
 
-	handler, err := queue.NewRequestMetricHandler(currentHandler, r)
+	handler, err := queue.NewRequestMetricHandler(currentHandler, r, breaker)
 	if err != nil {
 		logger.Errorw("Error setting up request metrics handler. Request metrics will be unavailable.", zap.Error(err))
 		return currentHandler
