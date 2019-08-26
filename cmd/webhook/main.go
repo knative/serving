@@ -20,13 +20,16 @@ import (
 	"context"
 	"flag"
 	"log"
+	"net/http"
 
 	// Injection related imports.
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/clients/kubeclient"
 	"knative.dev/pkg/injection/sharedmain"
+	"knative.dev/pkg/profiling"
 
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
@@ -82,12 +85,16 @@ func main() {
 		logger.Fatalw("Version check failed", err)
 	}
 
+	profilingHandler := profiling.NewHandler(logger, false)
+
 	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
-	// Watch the observability config map and dynamically update metrics exporter.
-	configMapWatcher.Watch(metrics.ConfigMapName(), metrics.UpdateExporterFromConfigMap(component, logger))
 	// Watch the observability config map and dynamically update request logs.
 	configMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
+	// Watch the observability config map
+	configMapWatcher.Watch(metrics.ConfigMapName(),
+		metrics.UpdateExporterFromConfigMap(component, logger),
+		profilingHandler.UpdateFromConfigMap)
 
 	store := apiconfig.NewStore(logger.Named("config-store"))
 	store.WatchConfigs(configMapWatcher)
@@ -133,7 +140,21 @@ func main() {
 		logger.Fatalw("Failed to create admission controller", zap.Error(err))
 	}
 
-	if err = controller.Run(ctx.Done()); err != nil {
-		logger.Fatalw("Failed to start the admission controller", zap.Error(err))
+	profilingServer := profiling.NewServer(profilingHandler)
+
+	eg, egCtx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		return controller.Run(ctx.Done())
+	})
+	eg.Go(profilingServer.ListenAndServe)
+
+	// This will block until either a signal arrives or one of the grouped functions
+	// returns an error.
+	<-egCtx.Done()
+
+	profilingServer.Shutdown(context.Background())
+	// Don't forward ErrServerClosed as that indicates we're already shutting down.
+	if err := eg.Wait(); err != nil && err != http.ErrServerClosed {
+		logger.Errorw("Error while running server", zap.Error(err))
 	}
 }

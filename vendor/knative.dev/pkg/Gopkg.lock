@@ -201,6 +201,22 @@
   revision = "6f77996f0c42f7b84e5a2b252227263f93432e9b"
 
 [[projects]]
+  digest = "1:5d27618ec973e03fca89f90767b7003cd79838b2731bf3274052934dc2919c48"
+  name = "github.com/google/go-github"
+  packages = ["github"]
+  pruneopts = "NUT"
+  revision = "45b5e3c13c1d4b0b88e192729b0042e19840635f"
+  version = "v27.0.6"
+
+[[projects]]
+  digest = "1:a63cff6b5d8b95638bfe300385d93b2a6d9d687734b863da8e09dc834510a690"
+  name = "github.com/google/go-querystring"
+  packages = ["query"]
+  pruneopts = "NUT"
+  revision = "44c6ddd0a2342c386950e880b658017258da92fc"
+  version = "v1.0.0"
+
+[[projects]]
   digest = "1:52c5834e2bebac9030c97cc0798ac11c3aa8a39f098aeb419f142533da6cd3cc"
   name = "github.com/google/gofuzz"
   packages = ["."]
@@ -601,9 +617,18 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:bbe51412d9915d64ffaa96b51d409e070665efc5194fcf145c4a27d4133107a4"
+  digest = "1:e770fca694de6d53025c299f5dffe4a315151a67489f29cb3ec0757e2916c407"
   name = "golang.org/x/crypto"
-  packages = ["ssh/terminal"]
+  packages = [
+    "cast5",
+    "openpgp",
+    "openpgp/armor",
+    "openpgp/elgamal",
+    "openpgp/errors",
+    "openpgp/packet",
+    "openpgp/s2k",
+    "ssh/terminal",
+  ]
   pruneopts = "NUT"
   revision = "4def268fd1a49955bfb3dda92fe3db4f924f2285"
 
@@ -1217,14 +1242,17 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:305af75fc194c059ae710a75276ca8f1870c959214b18ed33f7ef8671995947f"
+  digest = "1:aa89a7d5efa637489243514d2fb2babe11b03e3f523db43cdf074147928f529f"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
+    "shared/ghutil",
+    "shared/ghutil/fakeghutil",
+    "shared/slackutil",
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "f3fe0bcc30693df8e3c9616358b16045efb9ed10"
+  revision = "d7182fdc8d03f19b78b96e4aa3e94d831facf4d0"
 
 [[projects]]
   digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"
@@ -1250,6 +1278,7 @@
     "github.com/golang/protobuf/proto",
     "github.com/google/go-cmp/cmp",
     "github.com/google/go-cmp/cmp/cmpopts",
+    "github.com/google/go-github/github",
     "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto",
     "github.com/google/mako/helpers/go/quickstore",
     "github.com/google/mako/helpers/proto/quickstore/quickstore_go_proto",
@@ -1326,6 +1355,7 @@
     "k8s.io/client-go/informers/rbac/v1",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/fake",
+    "k8s.io/client-go/kubernetes/scheme",
     "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1",
     "k8s.io/client-go/kubernetes/typed/core/v1",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
@@ -1352,6 +1382,9 @@
     "k8s.io/test-infra/boskos/client",
     "k8s.io/test-infra/boskos/common",
     "knative.dev/test-infra/scripts",
+    "knative.dev/test-infra/shared/ghutil",
+    "knative.dev/test-infra/shared/ghutil/fakeghutil",
+    "knative.dev/test-infra/shared/slackutil",
     "knative.dev/test-infra/tools/dep-collector",
   ]
   solver-name = "gps-cdcl"

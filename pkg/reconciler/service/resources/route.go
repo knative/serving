@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/kmeta"
@@ -35,7 +36,9 @@ func MakeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 			OwnerReferences: []metav1.OwnerReference{
 				*kmeta.NewControllerRef(service),
 			},
-			Annotations: service.GetAnnotations(),
+			Annotations: resources.FilterMap(service.GetAnnotations(), func(key string) bool {
+				return key == corev1.LastAppliedConfigAnnotation
+			}),
 			Labels: resources.UnionMaps(service.GetLabels(), map[string]string{
 				// Add this service's name to the route annotations.
 				serving.ServiceLabelKey: service.Name,

@@ -69,13 +69,13 @@ function setup_user() {
 # $1 -> cluster_name, $2 -> cluster_zone, $3 -> node_count
 function create_new_cluster() {
   # create a new cluster
-  create_cluster $1 $2 $3
+  create_cluster $1 $2 $3 || abort "Failed to create the new cluster $1"
   
   # create the secret on the new cluster
-  create_secret $1 $2
+  create_secret $1 $2 || abort "Failed to create secrets on the new cluster"
 
   # update components on the cluster, e.g. serving and istio
-  update_cluster $1 $2
+  update_cluster $1 $2 || abort "Failed to update the cluster"
 }
 
 # Update resources installed on the cluster with the up-to-date code.
@@ -83,9 +83,12 @@ function create_new_cluster() {
 function update_cluster() {
   name=$1
   zone=$2
+  local istio_version="istio-1.2-latest"
+  # Mako needs to escape '.' in tags. USe '_' instead.
+  local istio_version_escaped=${istio_version//./_}
   echo "Updating cluster with name ${name} in zone ${zone}"
   gcloud container clusters get-credentials ${name} --zone=${zone} --project=${PROJECT_NAME} || abort "Failed to get cluster creds"
-  
+
   echo ">> Delete all existing jobs and test resources"
   kubectl delete job --all
   ko delete -f "${TEST_ROOT_PATH}/$1"
@@ -93,8 +96,8 @@ function update_cluster() {
   pushd .
   cd ${GOPATH}/src/knative.dev
   echo ">> Update istio"
-  kubectl apply -f serving/third_party/istio-1.2-latest/istio-crds.yaml || abort "Failed to apply istio-crds"
-  kubectl apply -f serving/third_party/istio-1.2-latest/istio-lean.yaml || abort "Failed to apply istio-lean"
+  kubectl apply -f serving/third_party/$istio_version/istio-crds.yaml || abort "Failed to apply istio-crds"
+  kubectl apply -f serving/third_party/$istio_version/istio-lean.yaml || abort "Failed to apply istio-lean"
 
   # Overprovision the Istio gateways.
   kubectl patch hpa -n istio-system istio-ingressgateway \
@@ -128,6 +131,7 @@ metadata:
 data:
   # This should only be used by our performance automation.
   environment: prod
+  additionalTags: "istio=$istio_version_escaped"
 EOF
 
   echo ">> Applying all the yamls"

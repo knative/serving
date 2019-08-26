@@ -21,6 +21,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	corev1 "k8s.io/api/core/v1"
+
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -39,7 +41,7 @@ func TestRouteRunLatest(t *testing.T) {
 	testConfigName := names.Configuration(s)
 	r, err := makeRoute(s)
 	if err != nil {
-		t.Errorf("UnExpected error: %v", err)
+		t.Fatalf("Unexpected error: %v", err)
 	}
 	if got, want := r.Name, testServiceName; got != want {
 		t.Errorf("Expected %q for service name got %q", want, got)
@@ -360,7 +362,7 @@ func TestInlineRouteSpec(t *testing.T) {
 	testConfigName := names.Configuration(s)
 	r, err := makeRoute(s)
 	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
+		t.Fatalf("Unexpected error: %v", err)
 	}
 	if got, want := r.Name, testServiceName; got != want {
 		t.Errorf("Expected %q for service name got %q", want, got)
@@ -388,5 +390,16 @@ func TestInlineRouteSpec(t *testing.T) {
 	}
 	if got, want := r.Labels[serving.ServiceLabelKey], testServiceName; got != want {
 		t.Errorf("expected %q labels got %q", want, got)
+	}
+}
+
+func TestRouteHasNoKubectlAnnotation(t *testing.T) {
+	s := createServiceWithKubectlAnnotation()
+	r, err := makeRoute(s)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if v, ok := r.Annotations[corev1.LastAppliedConfigAnnotation]; ok {
+		t.Errorf("Annotation %s = %q, want empty", corev1.LastAppliedConfigAnnotation, v)
 	}
 }

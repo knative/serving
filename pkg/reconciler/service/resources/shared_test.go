@@ -116,3 +116,11 @@ func createServiceWithRelease(numRevision int, rolloutPercent int) *v1alpha1.Ser
 		WithReleaseRolloutAndPercentageConfigSpec(rolloutPercent, createConfiguration(testContainerNameRelease), revisions...),
 		WithServiceLabel(testLabelKey, testLabelValueRelease))
 }
+
+func createServiceWithKubectlAnnotation() *v1alpha1.Service {
+	return Service(testServiceName, testServiceNamespace,
+		WithRunLatestConfigSpec(createConfiguration(testContainerNameRunLatest)),
+		WithServiceAnnotations(map[string]string{
+			corev1.LastAppliedConfigAnnotation: testAnnotationValue,
+		}))
+}

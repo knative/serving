@@ -29,8 +29,10 @@ import (
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
+	activatorconfig "knative.dev/serving/pkg/activator/config"
 
 	"knative.dev/pkg/logging/logkey"
+	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/activator"
 	revnet "knative.dev/serving/pkg/activator/net"
 	"knative.dev/serving/pkg/activator/util"
@@ -82,11 +84,7 @@ func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler
 		sksLister:      sksL,
 		serviceLister:  sl,
 		probeTimeout:   defaulTimeout,
-		// In activator we collect metrics, so we're wrapping
-		// the RoundTripper the prober would use inside an annotating transport.
-		probeTransport: &ochttp.Transport{
-			Base: network.NewProberTransport(),
-		},
+		probeTransport: network.NewProberTransport(),
 		endpointTimeout: defaulTimeout,
 	}
 }
@@ -108,6 +106,14 @@ func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 	)
 
 	logger.Debugf("Actually will be probing %s", url)
+	config := activatorconfig.FromContext(r.Context())
+	if config.Tracing.Backend != tracingconfig.None {
+		// When we collect metrics, we're wrapping the RoundTripper
+		// the prober would use inside an annotating transport.
+		a.probeTransport = &ochttp.Transport{
+			Base: network.NewProberTransport(),
+		}
+	}
 
 	err := wait.PollImmediate(100*time.Millisecond, a.probeTimeout, func() (bool, error) {
 		attempts++
@@ -226,8 +232,14 @@ func (a *activationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 	network.RewriteHostIn(r)
 	recorder := pkghttp.NewResponseRecorder(w, http.StatusOK)
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Transport = &ochttp.Transport{
-		Base: a.transport,
+	config := activatorconfig.FromContext(r.Context())
+	proxy.Transport = a.transport
+	if config.Tracing.Backend != tracingconfig.None {
+		// When we collect metrics, we're wrapping the RoundTripper
+		// the proxy would use inside an annotating transport.
+		proxy.Transport = &ochttp.Transport{
+			Base: a.transport,
+		}
 	}
 	proxy.FlushInterval = -1
 
