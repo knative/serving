@@ -92,7 +92,7 @@ func sendRequest(t *testing.T, clients *test.Clients, resolvableDomain bool, dom
 	return client.Do(req)
 }
 
-func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain string, inject bool) {
+func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain string, inject bool, accessibleExternal bool) {
 	// Create envVars to be used in httpproxy app.
 	envVars := []corev1.EnvVar{{
 		Name:  targetHostEnv,
@@ -141,7 +141,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 		t.Fatalf("The httpproxy response '%s' is not equal to helloworld response '%s'.", string(response.Body), helloworldResponse)
 	}
 
-	// As a final check (since we know they are both up), check that we cannot send a request directly to the helloworld app.
+	// As a final check (since we know they are both up), check that if we can access the helloworld app externally.
 	response, err = sendRequest(t, clients, test.ServingFlags.ResolvableDomain, helloworldDomain)
 	if err != nil {
 		if test.ServingFlags.ResolvableDomain {
@@ -151,8 +151,11 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 		}
 		t.Fatalf("Unexpected error when sending request to helloworld: %v", err)
 	}
-
-	if got, want := response.StatusCode, http.StatusNotFound; got != want {
+	expectedStatus := http.StatusNotFound
+	if accessibleExternal {
+		expectedStatus = http.StatusOK
+	}
+	if got, want := response.StatusCode, expectedStatus; got != want {
 		t.Errorf("helloworld response StatusCode = %v, want %v", got, want)
 	}
 }
@@ -207,7 +210,7 @@ func TestServiceToServiceCall(t *testing.T) {
 	for _, tc := range testCases {
 		helloworldDomain := strings.TrimSuffix(resources.Route.Status.URL.Host, tc.suffix)
 		t.Run(tc.name, func(t *testing.T) {
-			testProxyToHelloworld(t, clients, helloworldDomain, true)
+			testProxyToHelloworld(t, clients, helloworldDomain, true, false)
 		})
 	}
 }
@@ -256,7 +259,7 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 	}
 
 	// Send request to helloworld app via httpproxy service
-	testProxyToHelloworld(t, clients, resources.Route.Status.URL.Host, injectA)
+	testProxyToHelloworld(t, clients, resources.Route.Status.URL.Host, injectA, false)
 }
 
 // Same test as TestServiceToServiceCall but before sending requests
@@ -274,3 +277,54 @@ func TestServiceToServiceCallViaActivator(t *testing.T) {
 		})
 	}
 }
+
+// This test is similar to TestServiceToServiceCall, but create an external accessible helloworld service instead
+// It verifys that the helloworld service is accessible internally from both internal domain and external domain.
+// But it's only accessible from external via the external domain
+func TestCallToPublicService(t *testing.T) {
+	t.Parallel()
+	cancel := logstream.Start(t)
+	defer cancel()
+
+	clients := Setup(t)
+
+	t.Log("Creating a Service for the helloworld test app.")
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   "helloworld",
+	}
+
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
+
+	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		rtesting.WithConfigAnnotations(map[string]string{
+			autoscaling.WindowAnnotationKey: "6s", // shortest permitted; this is not required here, but for uniformity.
+		}))
+	if err != nil {
+		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
+	}
+
+	if resources.Route.Status.URL.Host == "" {
+		t.Fatalf("Route is missing .Status.URL: %#v", resources.Route.Status)
+	}
+	if resources.Route.Status.Address == nil {
+		t.Fatalf("Route is missing .Status.Address: %#v", resources.Route.Status)
+	}
+
+	gatewayTestCases := []struct {
+		name                 string
+		url                  string
+		accessibleExternally bool
+	}{
+		{"local_address", resources.Route.Status.Address.URL.Host, false},
+		{"external_address", resources.Route.Status.URL.Host, true},
+	}
+
+	for _, tc := range gatewayTestCases {
+		t.Run(tc.name, func(t *testing.T) {
+			testProxyToHelloworld(t, clients, tc.url, false, tc.accessibleExternally)
+		})
+	}
+}
+
