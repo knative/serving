@@ -1628,7 +1628,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:3380e8b53ee23ec0ad108ad237945afcdb8fde8eb3569a43a59518728b581521"
+  digest = "1:a83c7d6be32f1380ea409c7e90c01805682a419c6f9a21785bfbca8a253b11aa"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1651,11 +1651,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "c4ccaeb5a025d39ab61015de585326aefcdb0cbe"
+  revision = "53b3cdeccf28a1c67c21820425fe6583c0a34c4f"
 
 [[projects]]
   branch = "master"
-  digest = "1:548b1d27f85504952643a8673792d31d7d216678476ad091190c0b55c18d3a04"
+  digest = "1:c3dcb59922bdd7fcf9050e1b399e645e029a6d743ef061b5c8a8c69e6d24af74"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1754,7 +1754,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "1a3a36a996dec7645bee7084153ef8b7273e1028"
+  revision = "73daad6e4735a9ba885f3e7a08fb2a2f38865a93"
 
 [[projects]]
   branch = "master"
@@ -1777,7 +1777,7 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "d2746f8b9470e8c8452a997e95190aba5320678a"
+  revision = "ad9e83dcff273bbe9db46721f4704dba3dc687ae"
 
 [solve-meta]
   analyzer-name = "dep"
