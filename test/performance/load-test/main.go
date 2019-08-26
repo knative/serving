@@ -30,8 +30,8 @@ import (
 	pkgpacers "knative.dev/pkg/test/vegeta/pacers"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 
+	"knative.dev/pkg/test/mako"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/test/performance/mako"
 	"knative.dev/serving/test/performance/metrics"
 )
 
