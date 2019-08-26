@@ -29,6 +29,7 @@ import (
 	"github.com/google/mako/helpers/go/quickstore"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	"knative.dev/pkg/apis"
@@ -60,6 +61,16 @@ func readTemplate() (*v1beta1.Service, error) {
 	if err := yaml.Unmarshal([]byte(b), svc); err != nil {
 		return nil, err
 	}
+
+	svc.OwnerReferences = []metav1.OwnerReference{{
+		APIVersion:         "v1",
+		Kind:               "Pod",
+		Name:               os.Getenv("POD_NAME"),
+		UID:                types.UID(os.Getenv("POD_UID")),
+		Controller:         ptr.Bool(true),
+		BlockOwnerDeletion: ptr.Bool(true),
+	}}
+
 	return svc, nil
 }
 
@@ -210,6 +221,8 @@ func main() {
 				svc, err := sc.ServingV1beta1().Services(tmpl.Namespace).Create(tmpl)
 				if err != nil {
 					q.AddError(mako.XTime(ts), err.Error())
+					log.Printf("Error creating service: %v", err)
+					break
 				}
 				log.Printf("Created: %s", svc.Name)
 

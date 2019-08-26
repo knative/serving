@@ -22,6 +22,9 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: service-creator
 rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["create", "update", "get", "list", "watch", "delete", "deletecollection"]
   - apiGroups: ["serving.knative.dev", "networking.internal.knative.dev", "autoscaling.internal.knative.dev"]
     resources: ["*"]
     verbs: ["create", "update", "get", "list", "watch", "deletecollection"]
@@ -62,6 +65,15 @@ spec:
             resources:
               requests:
                 cpu: 100m
+            env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
             volumeMounts:
             - name: config-mako
               mountPath: /etc/config-mako
