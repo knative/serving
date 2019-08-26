@@ -82,8 +82,8 @@ func NamespaceFilterFunc(namespace string) func(interface{}) bool {
 
 // Not inverts the result of the predicate.
 func Not(f func(interface{}) bool) func(interface{}) bool {
-	return func(o interface{}) bool {
-		return !f(o)
+	return func(obj interface{}) bool {
+		return !f(obj)
 	}
 }
 
