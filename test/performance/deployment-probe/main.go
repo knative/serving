@@ -37,11 +37,11 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/signals"
 
+	"knative.dev/pkg/test/mako"
 	asv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
-	"knative.dev/serving/test/performance/mako"
 )
 
 var (

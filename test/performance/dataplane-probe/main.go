@@ -25,7 +25,7 @@ import (
 	vegeta "github.com/tsenart/vegeta/lib"
 	"knative.dev/pkg/signals"
 
-	"knative.dev/serving/test/performance/mako"
+	"knative.dev/pkg/test/mako"
 )
 
 var (
