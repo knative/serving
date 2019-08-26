@@ -77,13 +77,6 @@ spec:
     spec:
       containers:
       - image: knative.dev/serving/test/test_images/autoscale
-        resources:
-          requests:
-            cpu: 10m
-            memory: 50Mi
-          limits:
-            cpu: 30m
-            memory: 100Mi
       containerConcurrency: 1
 ---
 apiVersion: serving.knative.dev/v1beta1
@@ -117,13 +110,6 @@ spec:
     spec:
       containers:
       - image: knative.dev/serving/test/test_images/autoscale
-        resources:
-          requests:
-            cpu: 10m
-            memory: 50Mi
-          limits:
-            cpu: 50m
-            memory: 150Mi
       containerConcurrency: 100
 ---
 apiVersion: serving.knative.dev/v1beta1
@@ -141,13 +127,6 @@ spec:
     spec:
       containers:
       - image: knative.dev/serving/test/test_images/autoscale
-        resources:
-          requests:
-            cpu: 10m
-            memory: 50Mi
-          limits:
-            cpu: 50m
-            memory: 150Mi
       containerConcurrency: 10
 ---
 apiVersion: serving.knative.dev/v1beta1
@@ -165,13 +144,6 @@ spec:
     spec:
       containers:
       - image: knative.dev/serving/test/test_images/autoscale
-        resources:
-          requests:
-            cpu: 10m
-            memory: 50Mi
-          limits:
-            cpu: 30m
-            memory: 100Mi
       containerConcurrency: 1
 ---
 apiVersion: v1
