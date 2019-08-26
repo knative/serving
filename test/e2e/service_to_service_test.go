@@ -278,7 +278,7 @@ func TestServiceToServiceCallViaActivator(t *testing.T) {
 	}
 }
 
-// This test is similar to TestServiceToServiceCall, but create an external accessible helloworld service instead
+// This test is similar to TestServiceToServiceCall, but creates an external accessible helloworld service instead.
 // It verifys that the helloworld service is accessible internally from both internal domain and external domain.
 // But it's only accessible from external via the external domain
 func TestCallToPublicService(t *testing.T) {
