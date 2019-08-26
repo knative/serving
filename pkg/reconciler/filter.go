@@ -16,9 +16,7 @@ limitations under the License.
 
 package reconciler
 
-import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
+import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 // AnnotationFilterFunc creates a FilterFunc only accepting objects with given annotation key and value
 func AnnotationFilterFunc(key string, value string, allowUnset bool) func(interface{}) bool {
@@ -79,6 +77,13 @@ func NamespaceFilterFunc(namespace string) func(interface{}) bool {
 			return mo.GetNamespace() == namespace
 		}
 		return false
+	}
+}
+
+// Not inverts the result of the predicate.
+func Not(f func(interface{}) bool) func(interface{}) bool {
+	return func(o interface{}) bool {
+		return !f(o)
 	}
 }
 
