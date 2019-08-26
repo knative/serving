@@ -76,15 +76,15 @@ func New(l *zap.SugaredLogger, r activator.StatsReporter, t *activator.Throttler
 	sksL netlisters.ServerlessServiceLister) http.Handler {
 
 	return &activationHandler{
-		logger:         l,
-		transport:      network.AutoTransport,
-		reporter:       r,
-		throttler:      t,
-		revisionLister: rl,
-		sksLister:      sksL,
-		serviceLister:  sl,
-		probeTimeout:   defaulTimeout,
-		probeTransport: network.NewProberTransport(),
+		logger:          l,
+		transport:       network.AutoTransport,
+		reporter:        r,
+		throttler:       t,
+		revisionLister:  rl,
+		sksLister:       sksL,
+		serviceLister:   sl,
+		probeTimeout:    defaulTimeout,
+		probeTransport:  network.NewProberTransport(),
 		endpointTimeout: defaulTimeout,
 	}
 }
