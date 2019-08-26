@@ -30,7 +30,7 @@ import (
 // to 15 seconds.
 func newDeploy95PercentileLatency(tags ...string) *tpb.ThresholdAnalyzerInput {
 	return &tpb.ThresholdAnalyzerInput{
-		Name: proto.String("Kubernetes baseline"),
+		Name: proto.String("Deploy p95 latency"),
 		Configs: []*tpb.ThresholdConfig{{
 			Min: bound(0 * time.Second),
 			Max: bound(15 * time.Second),
@@ -50,7 +50,7 @@ func newDeploy95PercentileLatency(tags ...string) *tpb.ThresholdAnalyzerInput {
 // handful of the trailing deployments, so we relax this to 295.
 func newReadyDeploymentCount(tags ...string) *tpb.ThresholdAnalyzerInput {
 	return &tpb.ThresholdAnalyzerInput{
-		Name: proto.String("Kubernetes baseline"),
+		Name: proto.String("Ready deployment count"),
 		Configs: []*tpb.ThresholdConfig{{
 			Min: proto.Float64(295),
 			Max: proto.Float64(300),
