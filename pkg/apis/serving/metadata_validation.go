@@ -99,7 +99,7 @@ func ValidateContainerConcurrency(containerConcurrency *int64) *apis.FieldError 
 	return nil
 }
 
-//ValidateClusterVisibilityLabel function validates the visibility label on a Route
+// ValidateClusterVisibilityLabel function validates the visibility label on a Route
 func ValidateClusterVisibilityLabel(label string) (errs *apis.FieldError) {
 	if label != routeconfig.VisibilityClusterLocal {
 		errs = apis.ErrInvalidValue(label, routeconfig.VisibilityLabelKey)

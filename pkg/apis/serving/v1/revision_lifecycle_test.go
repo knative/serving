@@ -18,7 +18,9 @@ package v1
 import (
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/ptr"
@@ -80,4 +82,58 @@ func TestGetContainerConcurrency(t *testing.T) {
 		})
 	}
 
+}
+
+func TestRevisionIsReady(t *testing.T) {
+	tests := []struct {
+		name     string
+		rs       *RevisionStatus
+		expected bool
+	}{{
+		name:     "Ready undefined",
+		rs:       &RevisionStatus{},
+		expected: false,
+	}, {
+		name: "Ready=False",
+		rs: &RevisionStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   apis.ConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
+		},
+		expected: false,
+	}, {
+		name: "Ready=Unknown",
+		rs: &RevisionStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   apis.ConditionReady,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
+		},
+		expected: false,
+	}, {
+		name: "Ready=True",
+		rs: &RevisionStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   apis.ConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		expected: true,
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ready := test.rs.IsReady()
+			if ready != test.expected {
+				t.Errorf("IsReady() = %t; expected %t", ready, test.expected)
+			}
+		})
+	}
 }

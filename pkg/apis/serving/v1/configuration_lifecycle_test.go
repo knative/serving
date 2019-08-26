@@ -18,7 +18,9 @@ package v1
 import (
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 )
@@ -51,5 +53,59 @@ func TestConfigurationGetGroupVersionKind(t *testing.T) {
 	}
 	if got := r.GetGroupVersionKind(); got != want {
 		t.Errorf("got: %v, want: %v", got, want)
+	}
+}
+
+func TestConfigurationIsReady(t *testing.T) {
+	tests := []struct {
+		name     string
+		cs       *ConfigurationStatus
+		expected bool
+	}{{
+		name:     "Ready undefined",
+		cs:       &ConfigurationStatus{},
+		expected: false,
+	}, {
+		name: "Ready=False",
+		cs: &ConfigurationStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   apis.ConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
+		},
+		expected: false,
+	}, {
+		name: "Ready=Unknown",
+		cs: &ConfigurationStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   apis.ConditionReady,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
+		},
+		expected: false,
+	}, {
+		name: "Ready=True",
+		cs: &ConfigurationStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   apis.ConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		expected: true,
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ready := test.cs.IsReady()
+			if ready != test.expected {
+				t.Errorf("IsReady() = %t; expected %t", ready, test.expected)
+			}
+		})
 	}
 }

@@ -20,18 +20,19 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/config"
 )
 
 // SetDefaults implements apis.Defaultable
 func (r *Revision) SetDefaults(ctx context.Context) {
-	r.Spec.SetDefaults(ctx)
+	r.Spec.SetDefaults(apis.WithinSpec(ctx))
 }
 
 // SetDefaults implements apis.Defaultable
 func (rts *RevisionTemplateSpec) SetDefaults(ctx context.Context) {
-	rts.Spec.SetDefaults(ctx)
+	rts.Spec.SetDefaults(apis.WithinSpec(ctx))
 }
 
 // SetDefaults implements apis.Defaultable
