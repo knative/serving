@@ -607,6 +607,103 @@ data:
                "dashLength": 10,
                "dashes": false,
                "datasource": "prometheus",
+               "fill": 1,
+               "gridPos": {
+               "h": 9,
+               "w": 24,
+               "x": 0,
+               "y": 13
+               },
+               "id": 9,
+               "legend": {
+               "avg": false,
+               "current": false,
+               "max": false,
+               "min": false,
+               "show": true,
+               "total": false,
+               "values": false
+               },
+               "lines": true,
+               "linewidth": 1,
+               "links": [],
+               "nullPointMode": "null",
+               "percentage": false,
+               "pointradius": 5,
+               "points": false,
+               "renderer": "flot",
+               "seriesOverrides": [],
+               "spaceLength": 10,
+               "stack": false,
+               "steppedLine": true,
+               "targets": [
+               {
+                  "expr": "sum(autoscaler_stable_requests_per_second{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
+                  "format": "time_series",
+                  "interval": "1s",
+                  "intervalFactor": 1,
+                  "legendFormat": "Average RPS",
+                  "refId": "A"
+               },
+               {
+                  "expr": "sum(autoscaler_panic_requests_per_second{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
+                  "format": "time_series",
+                  "interval": "1s",
+                  "intervalFactor": 1,
+                  "legendFormat": "Average Panic RPS",
+                  "refId": "B"
+               },
+               {
+                  "expr": "sum(autoscaler_target_requests_per_second{namespace_name=\"$namespace\", configuration_name=\"$configuration\", revision_name=\"$revision\"})",
+                  "format": "time_series",
+                  "interval": "1s",
+                  "intervalFactor": 1,
+                  "legendFormat": "Target RPS",
+                  "refId": "C"
+               }
+               ],
+               "thresholds": [],
+               "timeFrom": null,
+               "timeShift": null,
+               "title": "Observed RPS",
+               "tooltip": {
+               "shared": true,
+               "sort": 0,
+               "value_type": "individual"
+               },
+               "type": "graph",
+               "xaxis": {
+               "buckets": null,
+               "mode": "time",
+               "name": null,
+               "show": true,
+               "values": []
+               },
+               "yaxes": [
+               {
+                  "format": "short",
+                  "label": "",
+                  "logBase": 1,
+                  "max": null,
+                  "min": null,
+                  "show": true
+               },
+               {
+                  "format": "short",
+                  "label": "",
+                  "logBase": 1,
+                  "max": null,
+                  "min": null,
+                  "show": false
+               }
+               ]
+            },
+            {
+               "aliasColors": {},
+               "bars": false,
+               "dashLength": 10,
+               "dashes": false,
+               "datasource": "prometheus",
                "decimals": null,
                "fill": 1,
                "gridPos": {

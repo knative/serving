@@ -135,7 +135,9 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	switch spec.ScalingMetric {
 	case autoscaling.RPS:
 		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicRPS(metricKey, now)
-		// TODO: Add metrics for RPS used in autoscaler.
+		a.reporter.ReportStableRPS(observedStableValue)
+		a.reporter.ReportPanicRPS(observedPanicValue)
+		a.reporter.ReportTargetRPS(spec.TargetValue)
 	default:
 		metricName = autoscaling.Concurrency // concurrency is used by default
 		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicConcurrency(metricKey, now)
