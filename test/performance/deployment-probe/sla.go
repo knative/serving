@@ -45,15 +45,15 @@ func newDeploy95PercentileLatency(tags ...string) *tpb.ThresholdAnalyzerInput {
 }
 
 // This analyzer validates that the number of services deployed to "Ready=True".
-// Configured to run for 25m with a frequency of 5s, the theoretical limit is 300
+// Configured to run for 35m with a frequency of 5s, the theoretical limit is 420
 // if deployments take 0s.  Factoring in deployment latency, we will miss a
-// handful of the trailing deployments, so we relax this to 295.
+// handful of the trailing deployments, so we relax this to 410.
 func newReadyDeploymentCount(tags ...string) *tpb.ThresholdAnalyzerInput {
 	return &tpb.ThresholdAnalyzerInput{
 		Name: proto.String("Ready deployment count"),
 		Configs: []*tpb.ThresholdConfig{{
-			Min: proto.Float64(295),
-			Max: proto.Float64(300),
+			Min: proto.Float64(410),
+			Max: proto.Float64(420),
 			DataFilter: &mpb.DataFilter{
 				DataType: mpb.DataFilter_METRIC_AGGREGATE_COUNT.Enum(),
 				ValueKey: proto.String("dl"),

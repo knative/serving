@@ -47,7 +47,7 @@ kind: CronJob
 metadata:
   name: deployment-probe
 spec:
-  # Run 15 minutes past the hour for 25 minutes.
+  # Run 15 minutes past the hour for 35 minutes.
   schedule: "15 * * * *"
   jobTemplate:
     spec:
@@ -60,7 +60,7 @@ spec:
             image: knative.dev/serving/test/performance/deployment-probe
             args:
             - "-template=basic"
-            - "-duration=25m"
+            - "-duration=35m"
             - "-frequency=5s"
             resources:
               requests:
