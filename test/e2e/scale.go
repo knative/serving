@@ -129,8 +129,8 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				return v1a1test.IsServiceReady(s)
 			}, "ServiceUpdatedWithURL")
 			if err != nil {
-				t.Errorf("WaitForServiceState(w/ Domain) = %v", err)
-				return errors.Wrap(err, "WaitForServiceState(w/ Domain) failed")
+				t.Errorf("WaitForServiceState(w/ URL) = %v", err)
+				return errors.Wrap(err, "WaitForServiceState(w/ URL) failed")
 			}
 			// Record the time it took to become ready.
 			latencies.Add("time-to-ready", start)
@@ -149,8 +149,8 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			// Record the time it took to get back a 200 with the expected text.
 			latencies.Add("time-to-200", start)
 
-			// Start probing the domain until the test is complete.
-			pm.Spawn(domain)
+			// Start probing the url until the test is complete.
+			pm.Spawn(serviceURL)
 
 			t.Logf("%s is ready.", names.Service)
 			return nil
@@ -191,8 +191,8 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				t.Fatalf("Stop() = %v", err)
 			}
 			// Check each of the local SLOs
-			pm.Foreach(func(domain string, p test.Prober) {
-				if err := test.CheckSLO(localSLO, domain, p); err != nil {
+			pm.Foreach(func(url string, p test.Prober) {
+				if err := test.CheckSLO(localSLO, url, p); err != nil {
 					t.Errorf("CheckSLO() = %v", err)
 				}
 			})

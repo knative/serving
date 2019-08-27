@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -64,7 +65,7 @@ type testContext struct {
 	names             test.ResourceNames
 	resources         *v1a1test.ResourceObjects
 	deploymentName    string
-	domain            string
+	url               string
 	targetUtilization float64
 }
 
@@ -76,13 +77,17 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 	)
 
 	ctx.t.Logf("Maintaining %d concurrent requests for %v.", concurrency, duration)
-	client, err := pkgTest.NewSpoofingClient(ctx.clients.KubeClient, ctx.t.Logf, ctx.domain, test.ServingFlags.ResolvableDomain)
+	requestURL, err := url.Parse(ctx.url)
+	if err != nil {
+		return fmt.Errorf("malformed url %s: %v", ctx.url, err)
+	}
+	client, err := pkgTest.NewSpoofingClient(ctx.clients.KubeClient, ctx.t.Logf, requestURL.Host, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return fmt.Errorf("error creating spoofing client: %v", err)
 	}
 	for i := 0; i < concurrency; i++ {
 		group.Go(func() error {
-			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s?sleep=100", ctx.domain), nil)
+			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s?sleep=100", ctx.url), nil)
 			if err != nil {
 				return fmt.Errorf("error creating HTTP request: %v", err)
 			}

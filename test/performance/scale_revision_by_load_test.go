@@ -156,7 +156,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 
 	targeter := vegeta.NewStaticTargeter(vegeta.Target{
 		Method: http.MethodGet,
-		Header: resolvedHeaders(domain, test.ServingFlags.ResolvableDomain),
+		Header: resolvedHeaders(hostname, test.ServingFlags.ResolvableDomain),
 		URL:    fmt.Sprintf("%s?timeout=%d", sanitizedURL(endpoint), processingTimeMillis),
 	})
 	attacker := vegeta.NewAttacker(vegeta.Workers(uint64(numClients)), vegeta.Connections(numClients))

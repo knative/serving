@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"testing"
 	"time"
 
@@ -64,9 +65,13 @@ func updateServiceWithTimeout(clients *test.Clients, names test.ResourceNames, r
 	return nil
 }
 
-// sendRequests send a request to "domain", returns error if unexpected response code, nil otherwise.
-func sendRequest(t *testing.T, clients *test.Clients, domain string, initialSleepSeconds int, sleepSeconds int, expectedResponseCode int) error {
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+// sendRequests send a request to "rawURL", returns error if unexpected response code, nil otherwise.
+func sendRequest(t *testing.T, clients *test.Clients, rawURL string, initialSleepSeconds int, sleepSeconds int, expectedResponseCode int) error {
+	requestURL, err := url.Parse(rawURL)
+	if err != nil {
+		return err
+	}
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, requestURL.Host, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Logf("Spoofing client failed: %v", err)
 		return err
@@ -78,9 +83,9 @@ func sendRequest(t *testing.T, clients *test.Clients, domain string, initialSlee
 	start := time.Now().UnixNano()
 	defer func() {
 		end := time.Now().UnixNano()
-		t.Logf("domain: %v, initialSleep: %v, sleep: %v, request elapsed %.2f ms", domain, initialSleepMs, sleepMs, float64(end-start)/1e6)
+		t.Logf("url: %v, initialSleep: %v, sleep: %v, request elapsed %.2f ms", rawURL, initialSleepMs, sleepMs, float64(end-start)/1e6)
 	}()
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s?initialTimeout=%v&timeout=%v", domain, initialSleepMs, sleepMs), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s?initialTimeout=%v&timeout=%v", rawURL, initialSleepMs, sleepMs), nil)
 	if err != nil {
 		t.Logf("Failed new request: %v", err)
 		return err
@@ -175,7 +180,7 @@ func TestRevisionTimeout(t *testing.T) {
 		t.Fatalf("Failed to update Service: %v", err)
 	}
 
-	t.Log("Wait for the service domains to be ready")
+	t.Log("Wait for the service urls to be ready")
 	if err := v1b1test.WaitForServiceState(clients.ServingBetaClient, names.Service, v1b1test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic: %v", names.Service, err)
 	}
@@ -185,55 +190,51 @@ func TestRevisionTimeout(t *testing.T) {
 		t.Fatalf("Error fetching Service %s: %v", names.Service, err)
 	}
 
-	var rev2sDomain, rev5sDomain string
+	var rev2sURL, rev5sURL string
 	for _, tt := range service.Status.Traffic {
 		if tt.Tag == rev2s.TrafficTarget {
-			// Strip prefix as WaitForEndPointState expects a domain
-			// without scheme.
-			rev2sDomain = tt.URL.Host
+			rev2sURL = tt.URL.String()
 		}
 		if tt.Tag == rev5s.TrafficTarget {
-			// Strip prefix as WaitForEndPointState expects a domain
-			// without scheme.
-			rev5sDomain = tt.URL.Host
+			rev5sURL = tt.URL.String()
 		}
 	}
-	if rev2sDomain == "" || rev5sDomain == "" {
+	if rev2sURL == "" || rev5sURL == "" {
 		t.Fatalf("Unable to fetch URLs from traffic targets: %#v", service.Status.Traffic)
 	}
 
-	t.Logf("Probing domain %s", rev5sDomain)
+	t.Logf("Probing url %s", rev5sURL)
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		rev5sDomain,
+		rev5sURL,
 		v1b1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("Error probing domain %s: %v", rev5sDomain, err)
+		t.Fatalf("Error probing url %s: %v", rev5sURL, err)
 	}
 
 	// Quick sanity check
-	if err := sendRequest(t, clients, rev2sDomain, 0, 0, http.StatusOK); err != nil {
+	if err := sendRequest(t, clients, rev2sURL, 0, 0, http.StatusOK); err != nil {
 		t.Errorf("Failed request with sleep 0s with revision timeout 2s: %v", err)
 	}
-	if err := sendRequest(t, clients, rev5sDomain, 0, 0, http.StatusOK); err != nil {
+	if err := sendRequest(t, clients, rev5sURL, 0, 0, http.StatusOK); err != nil {
 		t.Errorf("Failed request with sleep 0s with revision timeout 5s: %v", err)
 	}
 
 	// Fail by surpassing the initial timeout.
-	if err := sendRequest(t, clients, rev2sDomain, 5, 0, http.StatusServiceUnavailable); err != nil {
+	if err := sendRequest(t, clients, rev2sURL, 5, 0, http.StatusServiceUnavailable); err != nil {
 		t.Errorf("Did not fail request with sleep 5s with revision timeout 2s: %v", err)
 	}
-	if err := sendRequest(t, clients, rev5sDomain, 7, 0, http.StatusServiceUnavailable); err != nil {
+	if err := sendRequest(t, clients, rev5sURL, 7, 0, http.StatusServiceUnavailable); err != nil {
 		t.Errorf("Did not fail request with sleep 7s with revision timeout 5s: %v", err)
 	}
 
 	// Not fail by not surpassing in the initial timeout, but in the overall request duration.
-	if err := sendRequest(t, clients, rev2sDomain, 1, 3, http.StatusOK); err != nil {
+	if err := sendRequest(t, clients, rev2sURL, 1, 3, http.StatusOK); err != nil {
 		t.Errorf("Did not fail request with sleep 1s/3s with revision timeout 2s: %v", err)
 	}
-	if err := sendRequest(t, clients, rev5sDomain, 3, 3, http.StatusOK); err != nil {
+	if err := sendRequest(t, clients, rev5sURL, 3, 3, http.StatusOK); err != nil {
 		t.Errorf("Failed request with sleep 3s/3s with revision timeout 5s: %v", err)
 	}
 }

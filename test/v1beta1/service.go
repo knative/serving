@@ -40,7 +40,7 @@ func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNam
 		if s.Status.URL == nil || s.Status.URL.Host == "" {
 			return false, fmt.Errorf("url is not present in Service status: %v", s)
 		}
-		names.Domain = s.Status.URL.Host
+		names.URL = s.Status.URL.String()
 		if s.Status.LatestCreatedRevisionName == "" {
 			return false, fmt.Errorf("lastCreatedRevision is not present in Service status: %v", s)
 		}

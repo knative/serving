@@ -88,7 +88,7 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 	pacer := vegeta.ConstantPacer{Freq: baseQPS, Per: time.Second}
 	targeter := vegeta.NewStaticTargeter(vegeta.Target{
 		Method: http.MethodGet,
-		Header: resolvedHeaders(domain, test.ServingFlags.ResolvableDomain),
+		Header: resolvedHeaders(hostname, test.ServingFlags.ResolvableDomain),
 		URL:    sanitizedURL(endpoint) + "?" + query,
 	})
 	attacker := vegeta.NewAttacker()

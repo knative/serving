@@ -75,31 +75,31 @@ func validateName(generateName, name string) error {
 }
 
 func canServeRequests(t *testing.T, clients *test.Clients, route *v1beta1.Route) error {
-	t.Logf("Route %s has a domain set in its status", route.Name)
-	var domain string
+	t.Logf("Route %s has a url set in its status", route.Name)
+	var routeURL string
 	err := v1b1test.WaitForRouteState(
 		clients.ServingBetaClient,
 		route.Name,
 		func(r *v1beta1.Route) (bool, error) {
-			domain = r.Status.URL.Host
-			return domain != "", nil
+			routeURL = r.Status.URL.String()
+			return routeURL != "", nil
 		},
-		"RouteDomain",
+		"RouteURL",
 	)
 	if err != nil {
-		return fmt.Errorf("route did not get assigned a domain: %v", err)
+		return fmt.Errorf("route did not get assigned a url: %v", err)
 	}
 
 	t.Logf("Route %s can serve the expected data at the endpoint", route.Name)
 	_, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain,
+		routeURL,
 		v1b1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		return fmt.Errorf("the endpoint for Route %s at domain %s didn't serve the expected text %q: %v", route.Name, domain, test.HelloWorldText, err)
+		return fmt.Errorf("the endpoint for Route %s at url %s didn't serve the expected text %q: %v", route.Name, routeURL, test.HelloWorldText, err)
 	}
 
 	return nil

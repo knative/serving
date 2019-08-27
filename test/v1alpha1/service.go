@@ -51,10 +51,10 @@ func createPatch(cur, desired interface{}) ([]byte, error) {
 
 func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNames) error {
 	return CheckServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
-		if s.Status.URL == nil || s.Status.URL.Host == "" {
+		if s.Status.URL == nil || s.Status.URL.String() == "" {
 			return false, fmt.Errorf("url is not present in Service status: %v", s)
 		}
-		names.Domain = s.Status.URL.Host
+		names.URL = s.Status.URL.String()
 		if s.Status.LatestCreatedRevisionName == "" {
 			return false, fmt.Errorf("lastCreatedRevision is not present in Service status: %v", s)
 		}

@@ -35,12 +35,16 @@ import (
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
-func waitForExpectedResponse(t *testing.T, clients *test.Clients, domain, expectedResponse string) error {
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+func waitForExpectedResponse(t *testing.T, clients *test.Clients, rawURL, expectedResponse string) error {
+	requestURL, err := url.Parse(rawURL)
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, requestURL.Host, test.ServingFlags.ResolvableDomain)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest(http.MethodGet, rawURL, nil)
 	if err != nil {
 		return err
 	}
@@ -58,26 +62,26 @@ func validateDomains(
 	}
 
 	g, _ := errgroup.WithContext(context.Background())
-	// We don't have a good way to check if the route is updated so we will wait until a subdomain has
+	// We don't have a good way to check if the route is updated so we will wait until a subDomainURL has
 	// started returning at least one expected result to key that we should validate percentage splits.
-	// In order for tests to succeed reliably, we need to make sure that all domains succeed.
+	// In order for tests to succeed reliably, we need to make sure that all urls succeed.
 	for _, resp := range baseExpected {
-		// Check for each of the responses we expect from the base domain.
+		// Check for each of the responses we expect from the base url.
 		resp := resp
 		g.Go(func() error {
 			t.Logf("Waiting for route to update domain: %s", baseDomain)
 			return waitForExpectedResponse(t, clients, baseDomain, resp)
 		})
 	}
-	for i, s := range subdomains {
+	for i, s := range subDomainURLs {
 		i, s := i, s
 		g.Go(func() error {
-			t.Logf("Waiting for route to update domain: %s", s)
+			t.Logf("Waiting for route to update url: %s", s)
 			return waitForExpectedResponse(t, clients, s, targetsExpected[i])
 		})
 	}
 	if err := g.Wait(); err != nil {
-		return errors.Wrap(err, "error with initial domain probing")
+		return errors.Wrap(err, "error with initial url probing")
 	}
 
 	g.Go(func() error {
@@ -88,11 +92,11 @@ func validateDomains(
 		min := int(math.Floor(test.ConcurrentRequests * minBasePercentage))
 		return checkDistribution(t, clients, baseDomain, test.ConcurrentRequests, min, baseExpected)
 	})
-	for i, subdomain := range subdomains {
-		i, subdomain := i, subdomain
+	for i, subDomainURL := range subDomainURLs {
+		i, subDomainURL := i, subDomainURL
 		g.Go(func() error {
 			min := int(math.Floor(test.ConcurrentRequests * test.MinDirectPercentage))
-			return checkDistribution(t, clients, subdomain, test.ConcurrentRequests, min, []string{targetsExpected[i]})
+			return checkDistribution(t, clients, subDomainURL, test.ConcurrentRequests, min, []string{targetsExpected[i]})
 		})
 	}
 	if err := g.Wait(); err != nil {

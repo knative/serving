@@ -29,7 +29,7 @@ import (
 	rtesting "knative.dev/serving/pkg/testing/v1beta1"
 )
 
-func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clients, names test.ResourceNames, domain string, expectedGeneration, expectedText string) {
+func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clients, names test.ResourceNames, routeURL string, expectedGeneration, expectedText string) {
 	t.Log("When the Route reports as Ready, everything should be ready.")
 	if err := v1b1test.WaitForRouteState(clients.ServingBetaClient, names.Route, v1b1test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic to Revision %s: %v", names.Route, names.Revision, err)
@@ -41,12 +41,12 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clien
 	_, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain,
+		routeURL,
 		v1b1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, expectedText, err)
+		t.Fatalf("The endpoint for Route %s at url %s didn't serve the expected text \"%s\": %v", names.Route, routeURL, expectedText, err)
 	}
 
 	// We want to verify that the endpoint works as soon as Ready: True, but there are a bunch of other pieces of state that we validate for conformance.
@@ -74,8 +74,8 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clien
 	}
 }
 
-func getRouteDomain(clients *test.Clients, names test.ResourceNames) (string, error) {
-	var domain string
+func getRouteURL(clients *test.Clients, names test.ResourceNames) (string, error) {
+	var routeURL string
 
 	err := v1b1test.WaitForRouteState(
 		clients.ServingBetaClient,
@@ -84,13 +84,13 @@ func getRouteDomain(clients *test.Clients, names test.ResourceNames) (string, er
 			if r.Status.URL == nil {
 				return false, nil
 			}
-			domain = r.Status.URL.Host
-			return domain != "", nil
+			routeURL = r.Status.URL.String()
+			return routeURL != "", nil
 		},
 		"RouteDomain",
 	)
 
-	return domain, err
+	return routeURL, err
 }
 
 func TestRouteCreation(t *testing.T) {
@@ -128,16 +128,16 @@ func TestRouteCreation(t *testing.T) {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
 	}
 
-	domain, err := getRouteDomain(clients, names)
+	routeURL, err := getRouteURL(clients, names)
 	if err != nil {
-		t.Fatalf("Failed to get domain from route %s: %v", names.Route, err)
+		t.Fatalf("Failed to get url from route %s: %v", names.Route, err)
 	}
 
-	t.Logf("The Route domain is: %s", domain)
-	assertResourcesUpdatedWhenRevisionIsReady(t, clients, names, domain, "1", test.PizzaPlanetText1)
+	t.Logf("The Route url is: %s", routeURL)
+	assertResourcesUpdatedWhenRevisionIsReady(t, clients, names, routeURL, "1", test.PizzaPlanetText1)
 
 	// We start a prober at background thread to test if Route is always healthy even during Route update.
-	prober := test.RunRouteProber(t.Logf, clients, domain)
+	prober := test.RunRouteProber(t.Logf, clients, routeURL)
 	defer test.AssertProberDefault(t, prober)
 
 	t.Log("Updating the Configuration to use a different image")
@@ -152,5 +152,5 @@ func TestRouteCreation(t *testing.T) {
 		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, test.PizzaPlanet2, err)
 	}
 
-	assertResourcesUpdatedWhenRevisionIsReady(t, clients, names, domain, "2", test.PizzaPlanetText2)
+	assertResourcesUpdatedWhenRevisionIsReady(t, clients, names, routeURL, "2", test.PizzaPlanetText2)
 }

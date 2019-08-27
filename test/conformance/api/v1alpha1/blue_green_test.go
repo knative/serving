@@ -107,7 +107,7 @@ func TestBlueGreenRoute(t *testing.T) {
 		t.Fatalf("Failed to update Service: %v", err)
 	}
 
-	t.Log("Wait for the service domains to be ready")
+	t.Log("Wait for the service urls to be ready")
 	if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic: %v", names.Service, err)
 	}
@@ -137,9 +137,9 @@ func TestBlueGreenRoute(t *testing.T) {
 
 	// Istio network programming takes some time to be effective.  Currently Istio
 	// does not expose a Status, so we rely on probes to know when they are effective.
-	// Since we are updating the service the teal domain probe will succeed before our changes
-	// take effect so we probe the green domain.
-	t.Logf("Probing domain %s", greenDomain)
+	// Since we are updating the service the teal url probe will succeed before our changes
+	// take effect so we probe the green url.
+	t.Logf("Probing url %s", greenURL)
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,

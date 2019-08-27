@@ -46,7 +46,7 @@ type Prober interface {
 type prober struct {
 	// These shouldn't change after creation
 	logf          logging.FormatLogger
-	domain        string
+	url           string
 	minimumProbes int64
 
 	// m guards access to these fields
@@ -55,7 +55,7 @@ type prober struct {
 	failures int64
 	stopped  bool
 
-	// This channel is used to send errors encountered probing the domain.
+	// This channel is used to send errors encountered probing the url.
 	errCh chan error
 	// This channel is simply closed when minimumProbes has been satisfied.
 	minDoneCh chan struct{}
@@ -110,7 +110,7 @@ func (p *prober) handleResponse(response *spoof.Response) (bool, error) {
 
 	p.requests++
 	if response.StatusCode != http.StatusOK {
-		p.logf("%q status = %d, want: %d", p.domain, response.StatusCode, http.StatusOK)
+		p.logf("%q status = %d, want: %d", p.url, response.StatusCode, http.StatusOK)
 		p.logf("response: %s", response)
 		p.failures++
 	}

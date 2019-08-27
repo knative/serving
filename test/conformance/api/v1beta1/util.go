@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"testing"
@@ -35,12 +36,16 @@ import (
 	v1b1test "knative.dev/serving/test/v1beta1"
 )
 
-func waitForExpectedResponse(t *testing.T, clients *test.Clients, domain, expectedResponse string) error {
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+func waitForExpectedResponse(t *testing.T, clients *test.Clients, rawURL, expectedResponse string) error {
+	requestURL, err := url.Parse(rawURL)
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, requestURL.Host, test.ServingFlags.ResolvableDomain)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest(http.MethodGet, rawURL, nil)
 	if err != nil {
 		return err
 	}
@@ -49,35 +54,41 @@ func waitForExpectedResponse(t *testing.T, clients *test.Clients, domain, expect
 }
 
 func validateDomains(
-	t *testing.T, clients *test.Clients, baseDomain string,
+	t *testing.T, clients *test.Clients, rawURL string,
 	baseExpected, trafficTargets, targetsExpected []string) error {
-	var subdomains []string
-	split := strings.SplitN(baseDomain, ".", 2)
+	baseURL, err := url.Parse(rawURL)
+	if err != nil {
+		return errors.Wrap(err, "Malformed url")
+	}
+	var subDomainURLs []string
+	split := strings.SplitN(baseURL.Host, ".", 2)
 	for _, target := range trafficTargets {
-		subdomains = append(subdomains, fmt.Sprintf("%s-%s.%s", target, split[0], split[1]))
+		newHost := fmt.Sprintf("%s-%s.%s", target, split[0], split[1])
+		baseURL.Host = newHost
+		subDomainURLs = append(subDomainURLs, baseURL.String())
 	}
 
 	g, _ := errgroup.WithContext(context.Background())
-	// We don't have a good way to check if the route is updated so we will wait until a subdomain has
+	// We don't have a good way to check if the route is updated so we will wait until a subDomainURL has
 	// started returning at least one expected result to key that we should validate percentage splits.
-	// In order for tests to succeed reliably, we need to make sure that all domains succeed.
+	// In order for tests to succeed reliably, we need to make sure that all urls succeed.
 	for _, resp := range baseExpected {
-		// Check for each of the responses we expect from the base domain.
+		// Check for each of the responses we expect from the base url.
 		resp := resp
 		g.Go(func() error {
-			t.Logf("Waiting for route to update domain: %s", baseDomain)
-			return waitForExpectedResponse(t, clients, baseDomain, resp)
+			t.Logf("Waiting for route to update url: %s", rawURL)
+			return waitForExpectedResponse(t, clients, rawURL, resp)
 		})
 	}
-	for i, s := range subdomains {
+	for i, s := range subDomainURLs {
 		i, s := i, s
 		g.Go(func() error {
-			t.Logf("Waiting for route to update domain: %s", s)
+			t.Logf("Waiting for route to update url: %s", s)
 			return waitForExpectedResponse(t, clients, s, targetsExpected[i])
 		})
 	}
 	if err := g.Wait(); err != nil {
-		return errors.Wrap(err, "error with initial domain probing")
+		return errors.Wrap(err, "error with initial url probing")
 	}
 
 	g.Go(func() error {
@@ -86,13 +97,13 @@ func validateDomains(
 			minBasePercentage = test.MinDirectPercentage
 		}
 		min := int(math.Floor(test.ConcurrentRequests * minBasePercentage))
-		return checkDistribution(t, clients, baseDomain, test.ConcurrentRequests, min, baseExpected)
+		return checkDistribution(t, clients, rawURL, test.ConcurrentRequests, min, baseExpected)
 	})
-	for i, subdomain := range subdomains {
-		i, subdomain := i, subdomain
+	for i, subDomainURL := range subDomainURLs {
+		i, subDomainURL := i, subDomainURL
 		g.Go(func() error {
 			min := int(math.Floor(test.ConcurrentRequests * test.MinDirectPercentage))
-			return checkDistribution(t, clients, subdomain, test.ConcurrentRequests, min, []string{targetsExpected[i]})
+			return checkDistribution(t, clients, subDomainURL, test.ConcurrentRequests, min, []string{targetsExpected[i]})
 		})
 	}
 	if err := g.Wait(); err != nil {
@@ -101,25 +112,29 @@ func validateDomains(
 	return nil
 }
 
-// checkDistribution sends "num" requests to "domain", then validates that
+// checkDistribution sends "num" requests to "rawURL", then validates that
 // we see each body in "expectedResponses" at least "min" times.
-func checkDistribution(t *testing.T, clients *test.Clients, domain string, num, min int, expectedResponses []string) error {
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+func checkDistribution(t *testing.T, clients *test.Clients, rawURL string, num, min int, expectedResponses []string) error {
+	requestURL, err := url.Parse(rawURL)
+	if err != nil {
+		return err
+	}
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, requestURL.Host, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return err
 	}
 
-	t.Logf("Performing %d concurrent requests to %s", num, domain)
-	actualResponses, err := sendRequests(client, domain, num)
+	t.Logf("Performing %d concurrent requests to %s", num, rawURL)
+	actualResponses, err := sendRequests(client, rawURL, num)
 	if err != nil {
 		return err
 	}
 
-	return checkResponses(t, num, min, domain, expectedResponses, actualResponses)
+	return checkResponses(t, num, min, rawURL, expectedResponses, actualResponses)
 }
 
 // checkResponses verifies that each "expectedResponse" is present in "actualResponses" at least "min" times.
-func checkResponses(t *testing.T, num int, min int, domain string, expectedResponses []string, actualResponses []string) error {
+func checkResponses(t *testing.T, num int, min int, requestURL string, expectedResponses []string, actualResponses []string) error {
 	// counts maps the expected response body to the number of matching requests we saw.
 	counts := make(map[string]int)
 	// badCounts maps the unexpected response body to the number of matching requests we saw.
@@ -150,10 +165,10 @@ func checkResponses(t *testing.T, num int, min int, domain string, expectedRespo
 	for _, er := range expectedResponses {
 		count := counts[er]
 		if count < min {
-			return fmt.Errorf("domain %s failed: want at least %d, got %d for response %q", domain, min, count, er)
+			return fmt.Errorf("url %s failed: want at least %d, got %d for response %q", requestURL, min, count, er)
 		}
 
-		t.Logf("For domain %s: wanted at least %d, got %d requests.", domain, min, count)
+		t.Logf("For url %s: wanted at least %d, got %d requests.", requestURL, min, count)
 		totalMatches += count
 	}
 	// Verify that the total expected responses match the number of requests made.
@@ -161,14 +176,14 @@ func checkResponses(t *testing.T, num int, min int, domain string, expectedRespo
 		t.Logf("Saw unexpected response %q %d times.", badResponse, count)
 	}
 	if totalMatches < num {
-		return fmt.Errorf("domain %s: saw expected responses %d times, wanted %d", domain, totalMatches, num)
+		return fmt.Errorf("url%s: saw expected responses %d times, wanted %d", requestURL, totalMatches, num)
 	}
 	// If we made it here, the implementation conforms. Congratulations!
 	return nil
 }
 
-// sendRequests sends "num" requests to "domain", returning a string for each spoof.Response.Body.
-func sendRequests(client spoof.Interface, domain string, num int) ([]string, error) {
+// sendRequests sends "num" requests to "requestURL", returning a string for each spoof.Response.Body.
+func sendRequests(client spoof.Interface, requestURL string, num int) ([]string, error) {
 	responses := make([]string, num)
 
 	// Launch "num" requests, recording the responses we get in "responses".
@@ -177,7 +192,7 @@ func sendRequests(client spoof.Interface, domain string, num int) ([]string, err
 		// We don't index into "responses" inside the goroutine to avoid a race, see #1545.
 		result := &responses[i]
 		g.Go(func() error {
-			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
+			req, err := http.NewRequest(http.MethodGet, requestURL, nil)
 			if err != nil {
 				return err
 			}

@@ -91,7 +91,7 @@ func runTest(t *testing.T, pacer vegeta.Pacer, saveMetrics bool) {
 
 	targeter := vegeta.NewStaticTargeter(vegeta.Target{
 		Method: http.MethodGet,
-		Header: resolvedHeaders(domain, test.ServingFlags.ResolvableDomain),
+		Header: resolvedHeaders(hostname, test.ServingFlags.ResolvableDomain),
 		URL:    sanitizedURL(endpoint) + "?sleep=100",
 	})
 	attacker := vegeta.NewAttacker()

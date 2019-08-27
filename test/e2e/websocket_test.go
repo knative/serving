@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
-	ingress "knative.dev/pkg/test/ingress"
+	"knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -46,12 +46,12 @@ const (
 
 // connect attempts to establish WebSocket connection with the Service.
 // It will retry until reaching `connectTimeout` duration.
-func connect(t *testing.T, ingressIP string, domain string) (*websocket.Conn, error) {
+func connect(t *testing.T, ingressIP string, host string) (*websocket.Conn, error) {
 	u := url.URL{Scheme: "ws", Host: ingressIP, Path: "/"}
 	var conn *websocket.Conn
 	waitErr := wait.PollImmediate(connectRetryInterval, connectTimeout, func() (bool, error) {
-		t.Logf("Connecting using websocket: url=%s, host=%s", u.String(), domain)
-		c, resp, err := websocket.DefaultDialer.Dial(u.String(), http.Header{"Host": {domain}})
+		t.Logf("Connecting using websocket: url=%s, host=%s", u.String(), host)
+		c, resp, err := websocket.DefaultDialer.Dial(u.String(), http.Header{"Host": {host}})
 		if err == nil {
 			t.Log("WebSocket connection established.")
 			conn = c
@@ -84,7 +84,11 @@ func validateWebSocketConnection(t *testing.T, clients *test.Clients, names test
 	}
 
 	// Establish the websocket connection.
-	conn, err := connect(t, *gatewayIP, names.Domain)
+	serviceURL, err := url.Parse(names.URL)
+	if err != nil {
+		return err
+	}
+	conn, err := connect(t, *gatewayIP, serviceURL.Host)
 	if err != nil {
 		return err
 	}

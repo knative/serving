@@ -33,7 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
-	ingress "knative.dev/pkg/test/ingress"
+	"knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -61,7 +61,7 @@ func dial(host, domain string) (*grpc.ClientConn, error) {
 	}
 
 	if host != domain {
-		// The host to connect and the domain accepted differ.
+		// The host to connect and the url accepted differ.
 		// We need to do grpc.WithAuthority(...) here.
 		return grpc.Dial(
 			host,
@@ -202,7 +202,7 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 		}
 	}
 
-	f(t, resources, clients, *host, domain)
+	f(t, resources, clients, *host, hostname)
 }
 
 func TestGRPCUnaryPing(t *testing.T) {

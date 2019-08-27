@@ -27,7 +27,7 @@ import (
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
-func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clients, names test.ResourceNames, domain string, expectedGeneration, expectedText string) {
+func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clients, names test.ResourceNames, serviceURL string, expectedGeneration, expectedText string) {
 	t.Log("When the Route reports as Ready, everything should be ready.")
 	if err := v1a1test.WaitForRouteState(clients.ServingAlphaClient, names.Route, v1a1test.IsRouteReady, "RouteIsReady"); err != nil {
 		t.Fatalf("The Route %s was not marked as Ready to serve traffic to Revision %s: %v", names.Route, names.Revision, err)
@@ -39,12 +39,12 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clien
 	_, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain,
+		serviceURL,
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, expectedText, err)
+		t.Fatalf("The endpoint for Route %s at url %s didn't serve the expected text \"%s\": %v", names.Route, serviceURL, expectedText, err)
 	}
 
 	// We want to verify that the endpoint works as soon as Ready: True, but there are a bunch of other pieces of state that we validate for conformance.
@@ -127,7 +127,7 @@ func TestRouteCreation(t *testing.T) {
 
 	domain, err := getRouteDomain(clients, names)
 	if err != nil {
-		t.Fatalf("Failed to get domain from route %s: %v", names.Route, err)
+		t.Fatalf("Failed to get url from route %s: %v", names.Route, err)
 	}
 
 	t.Logf("The Route domain is: %s", domain)

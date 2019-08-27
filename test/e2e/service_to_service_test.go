@@ -146,7 +146,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 	if err != nil {
 		if test.ServingFlags.ResolvableDomain {
 			// When we're testing with resolvable domains, we might fail earlier trying
-			// to resolve the shorter domain(s) off-cluster.
+			// to resolve the shorter url(s) off-cluster.
 			return
 		}
 		t.Fatalf("Unexpected error when sending request to helloworld: %v", err)
@@ -197,9 +197,9 @@ func TestServiceToServiceCall(t *testing.T) {
 	if resources.Route.Status.Address == nil {
 		t.Fatalf("Route is missing .Status.Address: %#v", resources.Route.Status)
 	}
-	// Check that the target Route's Domain matches its cluster local address.
+	// Check that the target Route's URL matches its cluster local address.
 	if want, got := resources.Route.Status.Address.URL, resources.Route.Status.URL; got.String() != want.String() {
-		t.Errorf("Route.Status.URL.Host = %v, want %v", got, want)
+		t.Errorf("Route.Status.URL = %v, want %v", got, want)
 	}
 	t.Logf("helloworld internal domain is %s.", resources.Route.Status.URL.Host)
 

@@ -84,7 +84,7 @@ func canServeRequests(t *testing.T, clients *test.Clients, route *v1alpha1.Route
 			domain = r.Status.URL.Host
 			return domain != "", nil
 		},
-		"RouteDomain",
+		"RouteURL",
 	)
 	if err != nil {
 		return fmt.Errorf("route did not get assigned a domain: %v", err)
