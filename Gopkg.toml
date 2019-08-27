@@ -28,7 +28,8 @@ required = [
 
 [[override]]
   name = "knative.dev/pkg"
-  branch = "master"
+  branch = "remove-string-pointer"
+  source = "github.com/JRBANCEL/pkg"
 
 [[constraint]]
   name = "knative.dev/caching"
