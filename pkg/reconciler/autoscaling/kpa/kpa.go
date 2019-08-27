@@ -156,7 +156,6 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	// 2. The excess burst capacity is negative.
 	if want == 0 || decider.Status.ExcessBurstCapacity < 0 {
 		logger.Infof("SKS is in proxy mode: want = %d, ebc = %d", want, decider.Status.ExcessBurstCapacity)
-		logger.Debugf("SKS is in proxy mode: want = %d, ebc = %d", want, decider.Status.ExcessBurstCapacity)
 		mode = nv1alpha1.SKSOperationModeProxy
 	}
 
