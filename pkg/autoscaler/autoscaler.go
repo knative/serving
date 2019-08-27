@@ -50,9 +50,10 @@ type Autoscaler struct {
 	panicTime    *time.Time
 	maxPanicPods int32
 
-	// specMux guards the current DeciderSpec.
+	// specMux guards the current DeciderSpec and the PodCounter.
 	specMux     sync.RWMutex
 	deciderSpec DeciderSpec
+	podCounter  resources.ReadyPodCounter
 }
 
 // New creates a new instance of autoscaler
@@ -98,8 +99,10 @@ func New(
 		revision:     revision,
 		metricClient: metricClient,
 		lister:       lister,
-		deciderSpec:  deciderSpec,
 		reporter:     reporter,
+
+		deciderSpec: deciderSpec,
+		podCounter:  podCounter,
 
 		panicTime:    pt,
 		maxPanicPods: int32(curC),
@@ -112,6 +115,8 @@ func (a *Autoscaler) Update(deciderSpec DeciderSpec) error {
 	defer a.specMux.Unlock()
 
 	a.deciderSpec = deciderSpec
+	a.podCounter = resources.NewScopedEndpointsCounter(a.lister, a.namespace,
+		deciderSpec.ServiceName)
 	return nil
 }
 
@@ -121,10 +126,9 @@ func (a *Autoscaler) Update(deciderSpec DeciderSpec) error {
 func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount int32, excessBC int32, validScale bool) {
 	logger := logging.FromContext(ctx)
 
-	spec := a.currentSpec()
-	podCounter := resources.NewScopedEndpointsCounter(a.lister, a.namespace, spec.ServiceName)
+	spec, podCounter := a.currentSpec()
+	// We want to get a new endpoint counter every time, beucase
 	originalReadyPodsCount, err := podCounter.ReadyCount()
-	logger.Infof("### ORPC: %d, err: %v", originalReadyPodsCount, err)
 	// If the error is NotFound, then presume 0.
 	if err != nil && !apierrors.IsNotFound(err) {
 		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
@@ -228,8 +232,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	return desiredPodCount, excessBC, true
 }
 
-func (a *Autoscaler) currentSpec() DeciderSpec {
+func (a *Autoscaler) currentSpec() (DeciderSpec, resources.ReadyPodCounter) {
 	a.specMux.RLock()
 	defer a.specMux.RUnlock()
-	return a.deciderSpec
+	return a.deciderSpec, a.podCounter
 }

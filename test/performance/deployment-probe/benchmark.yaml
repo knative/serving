@@ -47,8 +47,8 @@ kind: CronJob
 metadata:
   name: deployment-probe
 spec:
-  # Run every 30 minutes, offset from other jobs.
-  schedule: "*/30 * * * *"
+  # Run 15 minutes past the hour for 25 minutes.
+  schedule: "15 * * * *"
   jobTemplate:
     spec:
       parallelism: 1
