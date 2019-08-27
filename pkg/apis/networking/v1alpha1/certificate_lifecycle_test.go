@@ -63,20 +63,20 @@ func TestMarkReady(t *testing.T) {
 	}
 }
 
-func TestMarkUnknown(t *testing.T) {
-	c := &CertificateStatus{}
-	c.InitializeConditions()
-	apitest.CheckCondition(c.duck(), CertificateConditionReady, corev1.ConditionUnknown)
-
-	c.MarkUnknown("unknow", "unknown")
-	apitest.CheckCondition(c.duck(), CertificateConditionReady, corev1.ConditionUnknown)
-}
-
 func TestMarkNotReady(t *testing.T) {
 	c := &CertificateStatus{}
 	c.InitializeConditions()
 	apitest.CheckCondition(c.duck(), CertificateConditionReady, corev1.ConditionUnknown)
 
-	c.MarkNotReady("not ready", "not ready")
+	c.MarkNotReady("unknow", "unknown")
+	apitest.CheckCondition(c.duck(), CertificateConditionReady, corev1.ConditionUnknown)
+}
+
+func TestMarkFailed(t *testing.T) {
+	c := &CertificateStatus{}
+	c.InitializeConditions()
+	apitest.CheckCondition(c.duck(), CertificateConditionReady, corev1.ConditionUnknown)
+
+	c.MarkFailed("failed", "failed")
 	apitest.CheckConditionFailed(c.duck(), CertificateConditionReady, t)
 }

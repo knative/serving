@@ -30,6 +30,7 @@ import (
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
+	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -39,7 +40,6 @@ import (
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/readiness"
-	tracingconfig "knative.dev/serving/pkg/tracing/config"
 )
 
 const (
@@ -280,11 +280,14 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 			Name:  "SERVING_REQUEST_METRICS_BACKEND",
 			Value: observabilityConfig.RequestMetricsBackend,
 		}, {
-			Name:  "TRACING_CONFIG_ENABLE",
-			Value: strconv.FormatBool(tracingConfig.Enable),
+			Name:  "TRACING_CONFIG_BACKEND",
+			Value: string(tracingConfig.Backend),
 		}, {
 			Name:  "TRACING_CONFIG_ZIPKIN_ENDPOINT",
 			Value: tracingConfig.ZipkinEndpoint,
+		}, {
+			Name:  "TRACING_CONFIG_STACKDRIVER_PROJECT_ID",
+			Value: tracingConfig.StackdriverProjectID,
 		}, {
 			Name:  "TRACING_CONFIG_DEBUG",
 			Value: strconv.FormatBool(tracingConfig.Debug),

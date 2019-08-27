@@ -35,8 +35,8 @@ import (
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
-	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/networking"
 	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 	ping "knative.dev/serving/test/test_images/grpc-ping/proto"
@@ -215,7 +215,7 @@ func TestGRPCStreamingPing(t *testing.T) {
 
 func waitForActivatorEPS(resources *v1a1test.ResourceObjects, clients *test.Clients) error {
 	aeps, err := clients.KubeClient.Kube.CoreV1().Endpoints(
-		system.Namespace()).Get(activator.K8sServiceName, metav1.GetOptions{})
+		system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("error getting activator endpoints: %v", err)
 	}

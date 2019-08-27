@@ -56,6 +56,7 @@ import (
 	"knative.dev/pkg/metrics"
 	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/pkg/system"
+	tracingconfig "knative.dev/pkg/tracing/config"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -64,7 +65,6 @@ import (
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
-	tracingconfig "knative.dev/serving/pkg/tracing/config"
 
 	. "knative.dev/pkg/reconciler/testing"
 )

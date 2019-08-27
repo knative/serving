@@ -26,11 +26,11 @@ import (
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 	pkgmetrics "knative.dev/pkg/metrics"
+	pkgtracing "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/autoscaler"
 	deployment "knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/network"
-	pkgtracing "knative.dev/serving/pkg/tracing/config"
 
 	. "knative.dev/pkg/configmap/testing"
 )

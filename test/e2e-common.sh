@@ -327,6 +327,9 @@ function test_setup() {
 
   # Capture all logs.
   kail > ${ARTIFACTS}/k8s.log.txt &
+  local kail_pid=$!
+  # Clean up kail so it doesn't interfere with job shutting down
+  trap "kill $kail_pid || true" EXIT
 
   echo ">> Creating test resources (test/config/)"
   ko apply ${KO_FLAGS} -f test/config/ || return 1

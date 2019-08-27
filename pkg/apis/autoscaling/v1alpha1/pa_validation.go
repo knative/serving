@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"knative.dev/pkg/apis"
@@ -37,7 +36,7 @@ func (pa *PodAutoscalerSpec) Validate(ctx context.Context) *apis.FieldError {
 	if equality.Semantic.DeepEqual(pa, &PodAutoscalerSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
-	return serving.ValidateNamespacedObjectReference(&pa.ScaleTargetRef).ViaField("scaleTargetRef").Also(serving.ValidateContainerConcurrency(ctx, &pa.ContainerConcurrency).ViaField("containerConcurrency")).Also(validateSKSFields(ctx, pa))
+	return serving.ValidateNamespacedObjectReference(&pa.ScaleTargetRef).ViaField("scaleTargetRef").Also(serving.ValidateContainerConcurrency(&pa.ContainerConcurrency).ViaField("containerConcurrency")).Also(validateSKSFields(ctx, pa))
 }
 
 func validateSKSFields(ctx context.Context, rs *PodAutoscalerSpec) (errs *apis.FieldError) {
@@ -49,8 +48,7 @@ func (pa *PodAutoscaler) validateMetric() *apis.FieldError {
 		switch pa.Class() {
 		case autoscaling.KPA:
 			switch metric {
-			// TODO(yanweiguo): implement RPS autoscaling for KPA.
-			case autoscaling.Concurrency:
+			case autoscaling.Concurrency, autoscaling.RPS:
 				return nil
 			}
 		case autoscaling.HPA:
@@ -63,11 +61,7 @@ func (pa *PodAutoscaler) validateMetric() *apis.FieldError {
 			// Leave other classes of PodAutoscaler alone.
 			return nil
 		}
-		return &apis.FieldError{
-			Message: fmt.Sprintf("Unsupported metric %q for PodAutoscaler class %q",
-				metric, pa.Class()),
-			Paths: []string{"annotations[autoscaling.knative.dev/metric]"},
-		}
+		return apis.ErrInvalidValue(metric, "autoscaling.knative.dev/metric").ViaField("annotations")
 	}
 	return nil
 }

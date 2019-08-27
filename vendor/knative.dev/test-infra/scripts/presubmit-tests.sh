@@ -172,14 +172,19 @@ function default_build_test_runner() {
   # Get all build tags in go code (ignore /vendor)
   local tags="$(grep -r '// +build' . \
       | grep -v '^./vendor/' | cut -f3 -d' ' | sort | uniq | tr '\n' ' ')"
-  if [[ -n "${tags}" ]]; then
-    errors=""
-    if ! capture_output "${report}" go test -run=^$ -tags="${tags}" ./... ; then
+  local tagged_pkgs="$(grep -r '// +build' . \
+    | grep -v '^./vendor/' | grep ":// +build " | cut -f1 -d: | xargs dirname | sort | uniq | tr '\n' ' ')"
+  for pkg in ${tagged_pkgs}; do
+    # `go test -c` lets us compile the tests but do not run them.
+    if ! capture_output "${report}" go test -c -tags="${tags}" ${pkg} ; then
       failed=1
       # Consider an error message everything that's not a successful test result.
-      errors_go2="$(grep -v '^\(ok\|\?\)\s\+\(github\.com\|knative\.dev\)/' "${report}")"
+      errors_go2+="$(grep -v '^\(ok\|\?\)\s\+\(github\.com\|knative\.dev\)/' "${report}")"
     fi
-  fi
+    # Remove unused generated binary, if any.
+    rm -f e2e.test
+  done
+  
   local errors_go="$(echo -e "${errors_go1}\n${errors_go2}" | uniq)"
   create_junit_xml _build_tests Build_Go "${errors_go}"
   if [[ -f ./hack/verify-codegen.sh ]]; then

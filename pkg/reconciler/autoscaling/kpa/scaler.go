@@ -67,6 +67,7 @@ const (
 var probeOptions = []interface{}{
 	prober.WithHeader(network.ProbeHeaderName, activator.Name),
 	prober.ExpectsBody(activator.Name),
+	prober.ExpectsStatusCodes([]int{http.StatusOK}),
 }
 
 // for mocking in tests
@@ -159,7 +160,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 	if pa.Status.IsActivating() { // Active=Unknown
 		// If we are stuck activating for longer than our progress deadline, presume we cannot succeed and scale to 0.
 		if pa.Status.CanFailActivation(now, activationTimeout) {
-			logger.Infof("%s activation has timed out after %v.", pa.Name, activationTimeout)
+			logger.Infof("Activation has timed out after %v.", activationTimeout)
 			return 0, true
 		}
 		ks.enqueueCB(pa, activationTimeout)
@@ -177,12 +178,12 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 		}
 		// Otherwise, scale down to at most 1 for the remainder of the idle period and then
 		// reconcile PA again.
-		logger.Infof("%s sleeping additionally for %v before can scale to 0", pa.Name, sw-af)
+		logger.Infof("Sleeping additionally for %v before can scale to 0", sw-af)
 		ks.enqueueCB(pa, sw-af)
 		desiredScale = 1
 	} else { // Active=False
 		r, err := ks.activatorProbe(pa, ks.transport)
-		logger.Infof("%s probing activator = %v, err = %v", pa.Name, r, err)
+		logger.Infof("Probing activator = %v, err = %v", r, err)
 		if r {
 			// This enforces that the revision has been backed by the activator for at least
 			// ScaleToZeroGracePeriod time.
@@ -214,9 +215,9 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 		}
 
 		// Otherwise (any prober failure) start the async probe.
-		logger.Infof("%s is not yet backed by activator, cannot scale to zero", pa.Name)
+		logger.Info("PA is not yet backed by activator, cannot scale to zero")
 		if !ks.probeManager.Offer(context.Background(), paToProbeTarget(pa), pa, probePeriod, probeTimeout, probeOptions...) {
-			logger.Infof("Probe for %s is already in flight", pa.Name)
+			logger.Info("Probe for revision is already in flight")
 		}
 		return desiredScale, false
 	}
@@ -277,7 +278,7 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *
 
 	ps, err := resources.GetScaleResource(pa.Namespace, pa.Spec.ScaleTargetRef, ks.psInformerFactory)
 	if err != nil {
-		logger.Errorw(fmt.Sprintf("Resource %q not found", pa.Name), zap.Error(err))
+		logger.Errorw(fmt.Sprintf("Resource %v not found", pa.Spec.ScaleTargetRef), zap.Error(err))
 		return desiredScale, err
 	}
 

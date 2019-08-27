@@ -28,7 +28,6 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/system"
-	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	presources "knative.dev/serving/pkg/resources"
@@ -85,7 +84,7 @@ func NewController(
 		// Accept only ActivatorService K8s service objects.
 		FilterFunc: pkgreconciler.ChainFilterFuncs(
 			pkgreconciler.NamespaceFilterFunc(system.Namespace()),
-			pkgreconciler.NameFilterFunc(activator.K8sServiceName)),
+			pkgreconciler.NameFilterFunc(networking.ActivatorServiceName)),
 		Handler: controller.HandleAll(grCb),
 	})
 

@@ -23,8 +23,6 @@ import (
 const (
 	// Name is the name of the component.
 	Name = "activator"
-	// K8sServiceName is the name of the activator Kubernetes service.
-	K8sServiceName = "activator-service"
 	// RevisionHeaderName is the header key for revision name.
 	RevisionHeaderName = "Knative-Serving-Revision"
 	// RevisionHeaderNamespace is the header key for revision's namespace.

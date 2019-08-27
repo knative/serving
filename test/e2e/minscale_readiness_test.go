@@ -20,9 +20,12 @@ package e2e
 
 import (
 	"strconv"
+	"time"
+
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -39,47 +42,111 @@ func TestMinScale(t *testing.T) {
 
 	clients := Setup(t)
 
+	name := test.ObjectNameForTest(t)
+
 	names := test.ResourceNames{
-		Config: test.ObjectNameForTest(t),
+		Config: name,
+		Route:  name,
 		Image:  "helloworld",
 	}
 
-	if _, err := v1a1test.CreateConfiguration(t, clients, names, func(cfg *v1alpha1.Configuration) {
-		if cfg.Spec.Template.Annotations == nil {
-			cfg.Spec.Template.Annotations = make(map[string]string)
-		}
-
-		cfg.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(minScale)
-
-	}); err != nil {
+	t.Log("Creating configuration")
+	if _, err := v1a1test.CreateConfiguration(t, clients, names, withMinScale(minScale)); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	// Wait for the Config have a LatestCreatedRevisionName
-	if err := v1a1test.WaitForConfigurationState(clients.ServingAlphaClient, names.Config, v1a1test.ConfigurationHasCreatedRevision, "ConfigurationHasCreatedRevision"); err != nil {
-		t.Fatalf("The Configuration %q does not have a LatestCreatedRevisionName: %v", names.Config, err)
+	revName := latestRevisionName(t, clients, names.Config)
+	deploymentName := revName + "-deployment"
+
+	// Before becoming ready, observe minScale
+	t.Log("Waiting for revision to scale to minScale before becoming ready")
+	if err := waitForDesiredScale(t, clients, deploymentName, gte(minScale)); err != nil {
+		t.Fatalf("The deployment %q did not scale >= %d before becoming ready: %v", deploymentName, minScale, err)
 	}
 
-	config, err := clients.ServingAlphaClient.Configs.Get(names.Config, metav1.GetOptions{})
+	// Revision becomes ready
+	if err := v1a1test.WaitForRevisionState(
+		clients.ServingAlphaClient, revName, v1a1test.IsRevisionReady, "RevisionIsReady",
+	); err != nil {
+		t.Fatalf("The Revision %q did not become ready: %v", revName, err)
+	}
+
+	// Without a route, ignore minScale
+	t.Log("Waiting for revision to scale below minScale after becoming ready")
+	if err := waitForDesiredScale(t, clients, deploymentName, lt(minScale)); err != nil {
+		t.Fatalf("The deployment %q did not scale < minScale after becoming ready: %v", deploymentName, err)
+	}
+
+	// Create route
+	t.Log("Creating route")
+	if _, err := v1a1test.CreateRoute(t, clients, names); err != nil {
+		t.Fatalf("Failed to create Route: %v", err)
+	}
+
+	// Route becomes ready
+	if err := v1a1test.WaitForRouteState(
+		clients.ServingAlphaClient, names.Route, v1a1test.IsRouteReady, "RouteIsReady",
+	); err != nil {
+		t.Fatalf("The Route %q is not ready: %v", names.Route, err)
+	}
+
+	// With a route, observe minScale
+	t.Log("Waiting for revision to scale to minScale after creating route")
+	if err := waitForDesiredScale(t, clients, deploymentName, gte(minScale)); err != nil {
+		t.Fatalf("The deployment %q did not scale >= %d after creating route: %v", deploymentName, minScale, err)
+	}
+}
+
+func gte(m int) func(int32) bool {
+	return func(n int32) bool {
+		return n >= int32(m)
+	}
+}
+
+func lt(m int) func(int32) bool {
+	return func(n int32) bool {
+		return n < int32(m)
+	}
+}
+
+func withMinScale(minScale int) func(cfg *v1alpha1.Configuration) {
+	return func(cfg *v1alpha1.Configuration) {
+		if cfg.Spec.Template.Annotations == nil {
+			cfg.Spec.Template.Annotations = make(map[string]string)
+		}
+		cfg.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(minScale)
+	}
+}
+
+func latestRevisionName(t *testing.T, clients *test.Clients, configName string) string {
+	// Wait for the Config have a LatestCreatedRevisionName
+	if err := v1a1test.WaitForConfigurationState(
+		clients.ServingAlphaClient, configName,
+		v1a1test.ConfigurationHasCreatedRevision, "ConfigurationHasCreatedRevision",
+	); err != nil {
+		t.Fatalf("The Configuration %q does not have a LatestCreatedRevisionName: %v", configName, err)
+	}
+
+	config, err := clients.ServingAlphaClient.Configs.Get(configName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Configuration after it was seen to be live: %v", err)
 	}
 
-	revName := config.Status.LatestCreatedRevisionName
+	return config.Status.LatestCreatedRevisionName
+}
 
-	if err = v1a1test.WaitForRevisionState(clients.ServingAlphaClient, revName, v1a1test.IsRevisionReady, "RevisionIsReady"); err != nil {
-		t.Fatalf("The Revision %q did not become ready: %v", revName, err)
-	}
+func waitForDesiredScale(t *testing.T, clients *test.Clients, deploymentName string, cond func(int32) bool) error {
+	deployments := clients.KubeClient.Kube.AppsV1().Deployments(test.ServingNamespace)
 
-	deployment, err := clients.KubeClient.Kube.AppsV1().Deployments(test.ServingNamespace).Get(revName+"-deployment", metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Failed to get Deployment for Revision %s, err: %v", revName, err)
-	}
+	return wait.PollImmediate(time.Second, 1*time.Minute, func() (bool, error) {
+		deployment, err := deployments.Get(deploymentName, metav1.GetOptions{})
+		if err != nil {
+			return false, nil
+		}
 
-	if deployment.Status.AvailableReplicas < int32(minScale) {
-		t.Fatalf("Reported ready with %d replicas when minScale was %d", deployment.Status.AvailableReplicas, minScale)
-	}
+		return cond(*deployment.Spec.Replicas), nil
+	})
 }

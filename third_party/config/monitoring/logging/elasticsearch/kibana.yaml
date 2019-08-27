@@ -6,7 +6,6 @@ metadata:
   labels:
     app: kibana-logging
     kubernetes.io/cluster-service: "true"
-    addonmanager.kubernetes.io/mode: Reconcile
     kubernetes.io/name: "Kibana"
 spec:
   type: NodePort
@@ -25,7 +24,6 @@ metadata:
   labels:
     app: kibana-logging
     kubernetes.io/cluster-service: "true"
-    addonmanager.kubernetes.io/mode: Reconcile
 spec:
   replicas: 1
   selector:

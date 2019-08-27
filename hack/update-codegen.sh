@@ -40,13 +40,13 @@ KNATIVE_CODEGEN_PKG=${KNATIVE_CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 ./ven
 #                  instead of the $GOPATH directly. For normal projects this can be dropped.
 ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
   knative.dev/serving/pkg/client knative.dev/serving/pkg/apis \
-  "serving:v1alpha1,v1beta1 autoscaling:v1alpha1 networking:v1alpha1" \
+  "serving:v1alpha1,v1beta1,v1 autoscaling:v1alpha1 networking:v1alpha1" \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 
 # Knative Injection
 ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
   knative.dev/serving/pkg/client knative.dev/serving/pkg/apis \
-  "serving:v1alpha1,v1beta1 autoscaling:v1alpha1 networking:v1alpha1" \
+  "serving:v1alpha1,v1beta1,v1 autoscaling:v1alpha1 networking:v1alpha1" \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 
 # Generate our own client for cert-manager (otherwise injection won't work)
@@ -71,7 +71,6 @@ ${GOPATH}/bin/deepcopy-gen \
   -i knative.dev/serving/pkg/reconciler/gc/config \
   -i knative.dev/serving/pkg/reconciler/revision/config \
   -i knative.dev/serving/pkg/reconciler/route/config \
-  -i knative.dev/serving/pkg/tracing/config \
   -i knative.dev/serving/pkg/activator/config \
   -i knative.dev/serving/pkg/autoscaler \
   -i knative.dev/serving/pkg/deployment \

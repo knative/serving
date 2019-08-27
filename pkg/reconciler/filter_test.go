@@ -293,3 +293,16 @@ func TestChainFilterFuncs(t *testing.T) {
 		})
 	}
 }
+
+func TestNotFilter(t *testing.T) {
+	odd := func(o interface{}) bool {
+		// Return true if odd.
+		return (o.(int))&1 == 1
+	}
+	if got, want := Not(odd)(1), false; got != want {
+		t.Errorf("Odd input = %v, want: %v", got, want)
+	}
+	if got, want := Not(odd)(2), true; got != want {
+		t.Errorf("Odd input = %v, want: %v", got, want)
+	}
+}

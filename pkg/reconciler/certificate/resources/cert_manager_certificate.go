@@ -31,6 +31,8 @@ func MakeCertManagerCertificate(cmConfig *config.CertManagerConfig, knCert *v1al
 			Name:            knCert.Name,
 			Namespace:       knCert.Namespace,
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(knCert)},
+			Annotations:     knCert.GetAnnotations(),
+			Labels:          knCert.GetLabels(),
 		},
 		Spec: certmanagerv1alpha1.CertificateSpec{
 			SecretName: knCert.Spec.SecretName,

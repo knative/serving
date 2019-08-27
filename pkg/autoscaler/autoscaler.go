@@ -28,10 +28,12 @@ import (
 
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/resources"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 // Autoscaler stores current state of an instance of an autoscaler.
@@ -39,7 +41,7 @@ type Autoscaler struct {
 	namespace    string
 	revision     string
 	metricClient MetricClient
-	podCounter   resources.ReadyPodCounter
+	lister       corev1listers.EndpointsLister
 	reporter     StatsReporter
 
 	// State in panic mode. Carries over multiple Scale calls. Guarded
@@ -48,9 +50,10 @@ type Autoscaler struct {
 	panicTime    *time.Time
 	maxPanicPods int32
 
-	// specMux guards the current DeciderSpec.
+	// specMux guards the current DeciderSpec and the PodCounter.
 	specMux     sync.RWMutex
 	deciderSpec DeciderSpec
+	podCounter  resources.ReadyPodCounter
 }
 
 // New creates a new instance of autoscaler
@@ -58,11 +61,11 @@ func New(
 	namespace string,
 	revision string,
 	metricClient MetricClient,
-	podCounter resources.ReadyPodCounter,
+	lister corev1listers.EndpointsLister,
 	deciderSpec DeciderSpec,
 	reporter StatsReporter) (*Autoscaler, error) {
-	if podCounter == nil {
-		return nil, errors.New("'podCounter' must not be nil")
+	if lister == nil {
+		return nil, errors.New("'lister' must not be nil")
 	}
 	if reporter == nil {
 		return nil, errors.New("stats reporter must not be nil")
@@ -74,6 +77,8 @@ func New(
 	// momentarily scale down, and that is not a desired behaviour.
 	// Thus, we're keeping at least the current scale until we
 	// accumulate enough data to make conscious decisions.
+	podCounter := resources.NewScopedEndpointsCounter(lister,
+		namespace, deciderSpec.ServiceName)
 	curC, err := podCounter.ReadyCount()
 	if err != nil {
 		// This always happens on new revision creation, since decider
@@ -93,9 +98,11 @@ func New(
 		namespace:    namespace,
 		revision:     revision,
 		metricClient: metricClient,
-		podCounter:   podCounter,
-		deciderSpec:  deciderSpec,
+		lister:       lister,
 		reporter:     reporter,
+
+		deciderSpec: deciderSpec,
+		podCounter:  podCounter,
 
 		panicTime:    pt,
 		maxPanicPods: int32(curC),
@@ -107,6 +114,11 @@ func (a *Autoscaler) Update(deciderSpec DeciderSpec) error {
 	a.specMux.Lock()
 	defer a.specMux.Unlock()
 
+	// Update the podCounter if service name changes.
+	if deciderSpec.ServiceName != a.deciderSpec.ServiceName {
+		a.podCounter = resources.NewScopedEndpointsCounter(a.lister, a.namespace,
+			deciderSpec.ServiceName)
+	}
 	a.deciderSpec = deciderSpec
 	return nil
 }
@@ -117,8 +129,8 @@ func (a *Autoscaler) Update(deciderSpec DeciderSpec) error {
 func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount int32, excessBC int32, validScale bool) {
 	logger := logging.FromContext(ctx)
 
-	spec := a.currentSpec()
-	originalReadyPodsCount, err := a.podCounter.ReadyCount()
+	spec, podCounter := a.currentSpecAndPC()
+	originalReadyPodsCount, err := podCounter.ReadyCount()
 	// If the error is NotFound, then presume 0.
 	if err != nil && !apierrors.IsNotFound(err) {
 		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
@@ -128,7 +140,26 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
 
 	metricKey := types.NamespacedName{Namespace: a.namespace, Name: a.revision}
-	observedStableValue, observedPanicValue, err := a.metricClient.StableAndPanicConcurrency(metricKey, now)
+
+	metricName := spec.ScalingMetric
+	var observedStableValue, observedPanicValue float64
+	switch spec.ScalingMetric {
+	case autoscaling.RPS:
+		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicRPS(metricKey, now)
+		a.reporter.ReportStableRPS(observedStableValue)
+		a.reporter.ReportPanicRPS(observedPanicValue)
+		a.reporter.ReportTargetRPS(spec.TargetValue)
+	default:
+		metricName = autoscaling.Concurrency // concurrency is used by default
+		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicConcurrency(metricKey, now)
+		a.reporter.ReportStableRequestConcurrency(observedStableValue)
+		a.reporter.ReportPanicRequestConcurrency(observedPanicValue)
+		a.reporter.ReportTargetRequestConcurrency(spec.TargetValue)
+	}
+
+	// Put the scaling metric to logs.
+	logger = logger.With(zap.String("metric", metricName))
+
 	if err != nil {
 		if err == ErrNoData {
 			logger.Debug("No data to scale on yet")
@@ -142,16 +173,12 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	desiredStablePodCount := int32(math.Min(math.Ceil(observedStableValue/spec.TargetValue), maxScaleUp))
 	desiredPanicPodCount := int32(math.Min(math.Ceil(observedPanicValue/spec.TargetValue), maxScaleUp))
 
-	a.reporter.ReportStableRequestConcurrency(observedStableValue)
-	a.reporter.ReportPanicRequestConcurrency(observedPanicValue)
-	a.reporter.ReportTargetRequestConcurrency(spec.TargetValue)
-
-	logger.Debugw(fmt.Sprintf("Observed average %0.3f concurrency, targeting %0.3f.",
+	logger.Debugw(fmt.Sprintf("Observed average scaling metric value: %0.3f, targeting %0.3f.",
 		observedStableValue, spec.TargetValue),
-		zap.String("concurrency", "stable"))
-	logger.Debugw(fmt.Sprintf("Observed average %0.3f concurrency, targeting %0.3f.",
+		zap.String("mode", "stable"))
+	logger.Debugw(fmt.Sprintf("Observed average scaling metric value: %0.3f, targeting %0.3f.",
 		observedPanicValue, spec.TargetValue),
-		zap.String("concurrency", "panic"))
+		zap.String("mode", "panic"))
 
 	isOverPanicThreshold := observedPanicValue/readyPodsCount >= spec.PanicThreshold
 
@@ -174,7 +201,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 		logger.Debug("Operating in panic mode.")
 		// We do not scale down while in panic mode. Only increases will be applied.
 		if desiredPanicPodCount > a.maxPanicPods {
-			logger.Infof("Increasing pods from %v to %v.", originalReadyPodsCount, desiredPanicPodCount)
+			logger.Infof("Increasing pods from %d to %d.", originalReadyPodsCount, desiredPanicPodCount)
 			a.panicTime = &now
 			a.maxPanicPods = desiredPanicPodCount
 		}
@@ -195,19 +222,20 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	case a.deciderSpec.TargetBurstCapacity >= 0:
 		excessBC = int32(math.Floor(float64(originalReadyPodsCount)*a.deciderSpec.TotalValue - observedStableValue -
 			a.deciderSpec.TargetBurstCapacity))
-		logger.Debugf("PodCount=%v TotalConc=%v ObservedStableConc=%v TargetBC=%v ExcessBC=%v",
+		logger.Infof("PodCount=%v TotalValue=%v ObservedStableValue=%v TargetBC=%v ExcessBC=%v",
 			originalReadyPodsCount,
 			a.deciderSpec.TotalValue,
 			observedStableValue, a.deciderSpec.TargetBurstCapacity, excessBC)
 	}
-	a.reporter.ReportExcessBurstCapacity(float64(excessBC))
 
+	a.reporter.ReportExcessBurstCapacity(float64(excessBC))
 	a.reporter.ReportDesiredPodCount(int64(desiredPodCount))
+
 	return desiredPodCount, excessBC, true
 }
 
-func (a *Autoscaler) currentSpec() DeciderSpec {
+func (a *Autoscaler) currentSpecAndPC() (DeciderSpec, resources.ReadyPodCounter) {
 	a.specMux.RLock()
 	defer a.specMux.RUnlock()
-	return a.deciderSpec
+	return a.deciderSpec, a.podCounter
 }

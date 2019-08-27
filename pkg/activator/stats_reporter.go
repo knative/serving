@@ -51,7 +51,7 @@ var (
 // StatsReporter defines the interface for sending activator metrics
 type StatsReporter interface {
 	ReportRequestConcurrency(ns, service, config, rev string, v int64) error
-	ReportRequestCount(ns, service, config, rev string, responseCode, numTries int, v int64) error
+	ReportRequestCount(ns, service, config, rev string, responseCode, numTries int) error
 	ReportResponseTime(ns, service, config, rev string, responseCode int, d time.Duration) error
 }
 
@@ -118,7 +118,7 @@ func NewStatsReporter() (*Reporter, error) {
 		&view.View{
 			Description: "The number of requests that are routed to Activator",
 			Measure:     requestCountM,
-			Aggregation: view.Sum(),
+			Aggregation: view.Count(),
 			TagKeys:     []tag.Key{r.namespaceTagKey, r.serviceTagKey, r.configTagKey, r.revisionTagKey, r.responseCodeKey, r.responseCodeClassKey, r.numTriesKey},
 		},
 		&view.View{
@@ -164,8 +164,8 @@ func (r *Reporter) ReportRequestConcurrency(ns, service, config, rev string, v i
 	return nil
 }
 
-// ReportRequestCount captures request count metric with value v.
-func (r *Reporter) ReportRequestCount(ns, service, config, rev string, responseCode, numTries int, v int64) error {
+// ReportRequestCount captures request count.
+func (r *Reporter) ReportRequestCount(ns, service, config, rev string, responseCode, numTries int) error {
 	if !r.initialized {
 		return errors.New("StatsReporter is not initialized yet")
 	}
@@ -184,7 +184,7 @@ func (r *Reporter) ReportRequestCount(ns, service, config, rev string, responseC
 		return err
 	}
 
-	metrics.Record(ctx, requestCountM.M(v))
+	metrics.Record(ctx, requestCountM.M(1))
 	return nil
 }
 

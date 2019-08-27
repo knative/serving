@@ -163,7 +163,7 @@ func (r *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 		&network.Config{},
 	}
 	resyncIngressesOnConfigChange := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
-		controller.SendGlobalUpdates(ingressInformer.Informer(), ingressHandler)
+		impl.FilteredGlobalResync(myFilterFunc, ingressInformer.Informer())
 	})
 	configStore := config.NewStore(r.Logger.Named("config-store"), resyncIngressesOnConfigChange)
 	configStore.WatchConfigs(cmw)
