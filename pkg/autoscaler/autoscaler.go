@@ -114,9 +114,12 @@ func (a *Autoscaler) Update(deciderSpec DeciderSpec) error {
 	a.specMux.Lock()
 	defer a.specMux.Unlock()
 
+	// Update the podCounter if service name changes.
+	if deciderSpec.ServiceName != a.deciderSpec.ServiceName {
+		a.podCounter = resources.NewScopedEndpointsCounter(a.lister, a.namespace,
+			deciderSpec.ServiceName)
+	}
 	a.deciderSpec = deciderSpec
-	a.podCounter = resources.NewScopedEndpointsCounter(a.lister, a.namespace,
-		deciderSpec.ServiceName)
 	return nil
 }
 
@@ -126,8 +129,7 @@ func (a *Autoscaler) Update(deciderSpec DeciderSpec) error {
 func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount int32, excessBC int32, validScale bool) {
 	logger := logging.FromContext(ctx)
 
-	spec, podCounter := a.currentSpec()
-	// We want to get a new endpoint counter every time, beucase
+	spec, podCounter := a.currentSpecAndPC()
 	originalReadyPodsCount, err := podCounter.ReadyCount()
 	// If the error is NotFound, then presume 0.
 	if err != nil && !apierrors.IsNotFound(err) {
@@ -232,7 +234,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	return desiredPodCount, excessBC, true
 }
 
-func (a *Autoscaler) currentSpec() (DeciderSpec, resources.ReadyPodCounter) {
+func (a *Autoscaler) currentSpecAndPC() (DeciderSpec, resources.ReadyPodCounter) {
 	a.specMux.RLock()
 	defer a.specMux.RUnlock()
 	return a.deciderSpec, a.podCounter

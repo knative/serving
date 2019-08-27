@@ -109,11 +109,14 @@ func TestAutoscalerChangeOfPodCountService(t *testing.T) {
 	metrics := &autoscalerfake.MetricClient{StableConcurrency: 50.0}
 	a := newTestAutoscaler(t, 10, 100, metrics)
 	a.expectScale(t, time.Now(), 5, expectedEBC(10, 100, 50, 1), true)
-	a.deciderSpec.ServiceName = testService + "2"
-	a.Update(a.deciderSpec)
+
+	const newTS = testService + "2"
+	newDS := a.deciderSpec
+	newDS.ServiceName = newTS
+	a.Update(newDS)
 
 	// Make two pods in the new service.
-	endpoints(2, testService+"2")
+	endpoints(2, newTS)
 	// This should change the EBC computation, but target scale doesn't change.
 	a.expectScale(t, time.Now(), 5, expectedEBC(10, 100, 50, 2), true)
 }
