@@ -20,8 +20,8 @@ For creating new benchmarks, follow the steps:
 6. Create a [cron.yaml](https://github.com/knative/serving/blob/master/test/performance/dataplane-probe/dataplane-probe.yaml)
    that defines how to run and capture metrics as mentioned in
    [benchmark cronjobs](#Benchmark-cronjobs).
-7. Create a PR with all the changes and get it merged.
-8. Test and confirm the dev config works on your personal cluster.
+7. Test and confirm the dev config works on your personal cluster.
+8. Create a PR with all the changes and get it merged.
 9. Ask one of the [admins](#Admins) to run the `create_cluster_benchmark.sh`
    script to create a new cluster for the benchmark. Please provide the
    benchmark name and the resource requirement for running the benchmark.
