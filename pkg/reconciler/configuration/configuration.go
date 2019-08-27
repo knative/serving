@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sort"
+	"strconv"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -27,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -193,7 +196,72 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 		return fmt.Errorf("unrecognized condition status: %v on revision %q", rc.Status, revName)
 	}
 
+	// Find the last ready revision and set LatestReadyRevisionName to it if the current
+	// revision is not ready
+	if rc == nil || rc.Status != corev1.ConditionTrue {
+		sortedRevisions, err := c.getSortedCreatedRevisions(config)
+		if err != nil {
+			return err
+		}
+		for _, rev := range sortedRevisions {
+			if rev.Status.IsReady() {
+				config.Status.SetLatestReadyRevisionName(rev.Name)
+				break
+			}
+		}
+	}
 	return nil
+}
+
+// getSortedCreatedRevisions returns the list of created revisions sorted in descending
+// generation order between the generation of the latest ready revision and config's generation.
+func (c *Reconciler) getSortedCreatedRevisions(config *v1alpha1.Configuration) ([]*v1alpha1.Revision, error) {
+	if config.Status.LatestReadyRevisionName == "" {
+		return nil, nil
+	}
+	lister := c.revisionLister.Revisions(config.Namespace)
+	latestReadyRev, err := lister.Get(config.Status.LatestReadyRevisionName)
+	if err != nil {
+		return nil, err
+	}
+	start := latestReadyRev.Generation
+	configSelector := labels.SelectorFromSet(map[string]string{
+		serving.ConfigurationLabelKey: config.Name,
+	})
+	generations := []string{}
+	for i := start + 1; i <= int64(config.Generation); i++ {
+		generations = append(generations, strconv.FormatInt(i, 10))
+	}
+
+	// Add an "In" filter so that the configurations we get back from List have generation
+	// in range (config's latest ready generation, config's generation]
+	generationKey := serving.ConfigurationGenerationLabelKey
+	inReq, err := labels.NewRequirement(generationKey,
+		selection.In,
+		generations,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	configSelector = configSelector.Add(*inReq)
+	list, err := lister.List(configSelector)
+
+	if err == nil && len(list) > 0 {
+		// Return a sorted list with Generation in descending order
+		if len(list) > 1 {
+			sort.Slice(list, func(i, j int) bool {
+				intI, errI := strconv.Atoi(list[i].Labels[serving.ConfigurationGenerationLabelKey])
+				intJ, errJ := strconv.Atoi(list[j].Labels[serving.ConfigurationGenerationLabelKey])
+				if errI != nil || errJ != nil {
+					return true
+				}
+				return intI > intJ
+			})
+		}
+		return list, nil
+	}
+	return nil, fmt.Errorf("Error listing configurations: %w", err)
 }
 
 // CheckNameAvailability checks that if the named Revision specified by the Configuration

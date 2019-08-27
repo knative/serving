@@ -156,6 +156,13 @@ func MarkRevisionReady(r *v1alpha1.Revision) {
 	r.Status.MarkContainerHealthyTrue()
 }
 
+// MarkRevisionFailed calls the necessary helpers to make the Revision Ready=False.
+func MarkRevisionFailed(r *v1alpha1.Revision) {
+	WithInitRevConditions(r)
+	MarkInactive("", "")
+	r.Status.MarkInactive("", "")
+}
+
 // WithRevisionLabel attaches a particular label to the revision.
 func WithRevisionLabel(key, value string) RevisionOption {
 	return func(config *v1alpha1.Revision) {
