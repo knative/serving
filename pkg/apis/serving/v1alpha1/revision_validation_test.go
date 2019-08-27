@@ -120,6 +120,34 @@ func TestRevisionSpecValidation(t *testing.T) {
 		},
 		want: apis.ErrMissingOneOf("container", "containers"),
 	}, {
+		name: "more container",
+		rs: &RevisionSpec{
+			RevisionSpec: v1beta1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+			DeprecatedContainer: &corev1.Container{
+				Name: "deprecatedContainer",
+			},
+		},
+		want: apis.ErrMultipleOneOf("container", "containers"),
+	}, {
+		name: "with ContainerConcurrency",
+		rs: &RevisionSpec{
+			RevisionSpec: v1beta1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+				ContainerConcurrency: ptr.Int64(10),
+			},
+		},
+		want: nil,
+	}, {
 		name: "with volume (ok)",
 		rs: &RevisionSpec{
 			DeprecatedContainer: &corev1.Container{
