@@ -193,7 +193,7 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 
 	host := &domain
 	if !test.ServingFlags.ResolvableDomain {
-		host = &pkgTest.Flags.IngressEndpoint
+		host = pkgTest.Flags.IngressEndpoint
 		if pkgTest.Flags.IngressEndpoint == "" {
 			host, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube)
 			if err != nil {
@@ -202,7 +202,7 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 		}
 	}
 
-	f(t, resources, clients, *host, domain)
+	f(t, resources, clients, host, domain)
 }
 
 func TestGRPCUnaryPing(t *testing.T) {
