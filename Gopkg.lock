@@ -1628,7 +1628,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a83c7d6be32f1380ea409c7e90c01805682a419c6f9a21785bfbca8a253b11aa"
+  digest = "1:41298de1259b5fc4ec62cb2747ee52c9a8b3c5a80ff96dc7c9467ae7a2954077"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1651,11 +1651,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "53b3cdeccf28a1c67c21820425fe6583c0a34c4f"
+  revision = "fc3a1eedf11e4d3054bb4b56d36b9c2c7e5bf97e"
 
 [[projects]]
   branch = "master"
-  digest = "1:c3dcb59922bdd7fcf9050e1b399e645e029a6d743ef061b5c8a8c69e6d24af74"
+  digest = "1:655572a72adfa087e24c0d8ca498a1f517ecddee1acf9768e9e89c8c3178a9e5"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1741,6 +1741,7 @@
     "test/ingress",
     "test/logging",
     "test/logstream",
+    "test/mako",
     "test/monitoring",
     "test/spoof",
     "test/vegeta/pacers",
@@ -1754,7 +1755,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "73daad6e4735a9ba885f3e7a08fb2a2f38865a93"
+  revision = "73863941e2242e1c0e47bb70021c915707995b9f"
 
 [[projects]]
   branch = "master"
@@ -1777,13 +1778,12 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "ad9e83dcff273bbe9db46721f4704dba3dc687ae"
+  revision = "b639ab478b1e4882090abb51a043ba2dc9aaafcb"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "cloud.google.com/go/compute/metadata",
     "github.com/davecgh/go-spew/spew",
     "github.com/ghodss/yaml",
     "github.com/golang/protobuf/proto",
@@ -1799,7 +1799,6 @@
     "github.com/google/go-containerregistry/pkg/v1/types",
     "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto",
     "github.com/google/mako/helpers/go/quickstore",
-    "github.com/google/mako/helpers/proto/quickstore/quickstore_go_proto",
     "github.com/google/mako/spec/proto/mako_go_proto",
     "github.com/gorilla/websocket",
     "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1",
@@ -1898,7 +1897,6 @@
     "knative.dev/pkg/apis/istio/common/v1alpha1",
     "knative.dev/pkg/apis/istio/v1alpha3",
     "knative.dev/pkg/apis/testing",
-    "knative.dev/pkg/changeset",
     "knative.dev/pkg/client/clientset/versioned",
     "knative.dev/pkg/client/clientset/versioned/fake",
     "knative.dev/pkg/client/informers/externalversions",
@@ -1953,6 +1951,7 @@
     "knative.dev/pkg/test/ingress",
     "knative.dev/pkg/test/logging",
     "knative.dev/pkg/test/logstream",
+    "knative.dev/pkg/test/mako",
     "knative.dev/pkg/test/spoof",
     "knative.dev/pkg/test/vegeta/pacers",
     "knative.dev/pkg/test/zipkin",

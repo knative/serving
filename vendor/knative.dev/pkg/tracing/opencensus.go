@@ -119,14 +119,14 @@ func WithExporter(name string, logger *zap.SugaredLogger) ConfigOption {
 				ProjectID: cfg.StackdriverProjectID,
 			})
 			if err != nil {
-				logger.Errorw("error reading project-id from metadata", err)
+				logger.Errorw("error reading project-id from metadata", zap.Error(err))
 				return
 			}
 			exporter = exp
 		case config.Zipkin:
 			zipEP, err := zipkin.NewEndpoint(name, ":80")
 			if err != nil {
-				logger.Errorw("error building zipkin endpoint", err)
+				logger.Errorw("error building zipkin endpoint", zap.Error(err))
 				return
 			}
 			reporter := httpreporter.NewReporter(cfg.ZipkinEndpoint)
