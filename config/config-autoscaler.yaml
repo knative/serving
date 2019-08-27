@@ -66,7 +66,6 @@ data:
     # target RPS.
     # Must be greater than 1.0.
     # NOTE: Only one metric can be used for autoscaling a Revision.
-    # NOTE: This has no effect now.
     requests-per-second-target-default: "200"
 
     # The target burst capacity specifies the size of burst in concurrent
