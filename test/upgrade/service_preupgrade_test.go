@@ -28,21 +28,21 @@ func TestRunPreUpgrade(t *testing.T) {
 		switch test.clientType {
 		case "v1alpha1":
 			t.Run(name, func(t *testing.T) {
-				serviceName := test.testType
-				CreateServiceUsingV1Alpha1Client(t, GetServiceName(serviceName))
-				CreateServiceAndScaleToZeroUsingV1Alpha1Client(t, GetScaleToZeroServiceName(serviceName))
+				testType := test.testType
+				CreateServiceUsingV1Alpha1Client(t, GetServiceName(testType))
+				CreateServiceAndScaleToZeroUsingV1Alpha1Client(t, GetScaleToZeroServiceName(testType))
 			})
 		case "v1beta1":
 			t.Run(name, func(t *testing.T) {
-				serviceName := test.testType
-				CreateServiceUsingV1Beta1Client(t, GetServiceName(serviceName))
-				CreateServiceAndScaleToZeroUsingV1Beta1Client(t, GetScaleToZeroServiceName(serviceName))
+				testType := test.testType
+				CreateServiceUsingV1Beta1Client(t, GetServiceName(testType))
+				CreateServiceAndScaleToZeroUsingV1Beta1Client(t, GetScaleToZeroServiceName(testType))
 			})
 		case "dynamic":
 			t.Run(name, func(t *testing.T) {
-				serviceName := test.testType
-				CreateServiceUsingDynamicClient(t, GetServiceName(serviceName))
-				CreateServiceAndScaleToZeroUsingDynamicClient(t, GetScaleToZeroServiceName(serviceName))
+				testType := test.testType
+				CreateServiceUsingDynamicClient(t, GetServiceName(testType))
+				CreateServiceAndScaleToZeroUsingDynamicClient(t, GetScaleToZeroServiceName(testType))
 			})
 		}
 
