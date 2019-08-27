@@ -188,8 +188,7 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer, m
 			return nil, err
 		}
 
-		podCounter := resources.NewScopedEndpointsCounter(endpointsInformer.Lister(), decider.Namespace, decider.Spec.ServiceName)
-		return autoscaler.New(decider.Namespace, decider.Name, metricClient, podCounter, decider.Spec, reporter)
+		return autoscaler.New(decider.Namespace, decider.Name, metricClient, endpointsInformer.Lister(), decider.Spec, reporter)
 	}
 }
 
