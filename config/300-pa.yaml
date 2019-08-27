@@ -45,3 +45,9 @@ spec:
   - name: Reason
     type: string
     JSONPath: ".status.conditions[?(@.type=='Ready')].reason"
+  - name: DesiredScale
+    type: integer
+    JSONPath: ".status.desiredScale"
+  - name: ActualScale
+    type: integer
+    JSONPath: ".status.actualScale"
