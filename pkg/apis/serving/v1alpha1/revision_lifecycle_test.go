@@ -23,15 +23,18 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	apitest "knative.dev/pkg/apis/testing"
+	"knative.dev/pkg/ptr"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	net "knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 func TestRevisionDuckTypes(t *testing.T) {
@@ -539,6 +542,12 @@ func TestRevisionGetLastPinned(t *testing.T) {
 		name:        "Valid time",
 		annotations: map[string]string{serving.RevisionLastPinnedAnnotationKey: "10000"},
 		expectTime:  time.Unix(10000, 0),
+	}, {
+		name:              "Valid time empty annotations",
+		annotations:       nil,
+		setLastPinnedTime: time.Unix(1000, 0),
+		expectTime:        time.Unix(1000, 0),
+		expectErr:         nil,
 	}}
 
 	for _, tc := range cases {
@@ -754,4 +763,81 @@ func TestPropagateAutoscalerStatus(t *testing.T) {
 	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionReady, t)
 	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionContainerHealthy, t)
 	apitest.CheckConditionSucceeded(r.duck(), RevisionConditionResourcesAvailable, t)
+}
+
+func TestGetContainerConcurrency(t *testing.T) {
+	cases := []struct {
+		name   string
+		status RevisionSpec
+		want   int64
+	}{{
+		name:   "empty revisionSpec should return default value",
+		status: RevisionSpec{},
+		want:   0,
+	}, {
+		name: "get containerConcurrency by passing value",
+		status: RevisionSpec{
+			RevisionSpec: v1beta1.RevisionSpec{
+				ContainerConcurrency: ptr.Int64(10),
+			},
+		},
+		want: 10,
+	}}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if want, got := tc.want, tc.status.GetContainerConcurrency(); want != got {
+				t.Errorf("got: %v want: %v", got, want)
+			}
+		})
+	}
+}
+
+func TestGetContainer(t *testing.T) {
+	cases := []struct {
+		name   string
+		status RevisionSpec
+		want   *corev1.Container
+	}{{
+		name:   "empty revisionSpec should return default value",
+		status: RevisionSpec{},
+		want:   &corev1.Container{},
+	}, {
+		name: "get deprecatedContainer info",
+		status: RevisionSpec{
+			DeprecatedContainer: &corev1.Container{
+				Name:  "deprecatedContainer",
+				Image: "foo",
+			},
+		},
+		want: &corev1.Container{
+			Name:  "deprecatedContainer",
+			Image: "foo",
+		},
+	}, {
+		name: "get first container info even after passing multiple",
+		status: RevisionSpec{
+			RevisionSpec: v1beta1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:  "firstContainer",
+						Image: "firstImage",
+					}, {
+						Name:  "secondContainer",
+						Image: "secondImage",
+					}},
+				},
+			},
+		},
+		want: &corev1.Container{
+			Name:  "firstContainer",
+			Image: "firstImage",
+		},
+	}}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if want, got := tc.want, tc.status.GetContainer(); !equality.Semantic.DeepEqual(want, got) {
+				t.Errorf("got: %v want: %v", got, want)
+			}
+		})
+	}
 }

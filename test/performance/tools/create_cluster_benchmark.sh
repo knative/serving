@@ -30,9 +30,9 @@ while [[ $# -ne 0 ]]; do
     shift
 done
 
-[[ ! -z "$CLUSTER_NAME" ]] || fail_test "Cluster name not set"
-[[ ! -z "$NUM_NODES" ]] || fail_test "Number of nodes not set"
-[[ ! -z "$CLUSTER_REGION" ]] || fail_test "Cluster region not set"
+[[ ! -z "$CLUSTER_NAME" ]] || abort "Cluster name not set"
+[[ ! -z "$NUM_NODES" ]] || abort "Number of nodes not set"
+[[ ! -z "$CLUSTER_REGION" ]] || abort "Cluster region not set"
 
 create_new_cluster $CLUSTER_NAME $CLUSTER_REGION $NUM_NODES
 
