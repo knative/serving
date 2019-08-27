@@ -136,7 +136,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1alpha1.Revision) er
 	ns := rev.Namespace
 	paName := resourcenames.PA(rev)
 	logger := logging.FromContext(ctx)
-	logger.Info("Reconciling PA:", paName)
+	logger.Info("Reconciling PA: ", paName)
 
 	pa, err := c.podAutoscalerLister.PodAutoscalers(ns).Get(paName)
 	if apierrs.IsNotFound(err) {
@@ -146,7 +146,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1alpha1.Revision) er
 			logger.Errorf("Error creating PA %s: %v", paName, err)
 			return err
 		}
-		logger.Info("Created PA:", paName)
+		logger.Info("Created PA: ", paName)
 	} else if err != nil {
 		logger.Errorf("Error reconciling pa %s: %v", paName, err)
 		return err
