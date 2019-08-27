@@ -14,13 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package mako
+package v1
 
 import (
-	"time"
+	"context"
+	"testing"
 )
 
-// XTime converts a time.Time into a Mako x-axis compatible timestamp.
-func XTime(t time.Time) float64 {
-	return float64(t.UnixNano()) / (1000.0 * 1000.0)
+func TestServiceConversionBadType(t *testing.T) {
+	good, bad := &Service{}, &Revision{}
+
+	if err := good.ConvertUp(context.Background(), bad); err == nil {
+		t.Errorf("ConvertUp() = %#v, wanted error", bad)
+	}
+
+	if err := good.ConvertDown(context.Background(), bad); err == nil {
+		t.Errorf("ConvertDown() = %#v, wanted error", good)
+	}
 }

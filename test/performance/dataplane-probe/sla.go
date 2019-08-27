@@ -23,7 +23,7 @@ import (
 	tpb "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto"
 	mpb "github.com/google/mako/spec/proto/mako_go_proto"
 	vegeta "github.com/tsenart/vegeta/lib"
-	"knative.dev/serving/test/performance/mako"
+	"knative.dev/pkg/test/mako"
 )
 
 var (

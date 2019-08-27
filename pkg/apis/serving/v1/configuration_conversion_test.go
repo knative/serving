@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors.
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,20 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package mako
+package v1
 
 import (
+	"context"
 	"testing"
-
-	. "knative.dev/pkg/configmap/testing"
 )
 
-func TestOurConfig(t *testing.T) {
-	cm, example := ConfigMapsFromTestFile(t, ConfigName)
-	if _, err := NewConfigFromConfigMap(cm); err != nil {
-		t.Errorf("NewConfigFromConfigMap(actual) = %v", err)
+func TestConfigurationConversionBadType(t *testing.T) {
+	good, bad := &Configuration{}, &Service{}
+
+	if err := good.ConvertUp(context.Background(), bad); err == nil {
+		t.Errorf("ConvertUp() = %#v, wanted error", bad)
 	}
-	if _, err := NewConfigFromConfigMap(example); err != nil {
-		t.Errorf("NewConfigFromConfigMap(example) = %v", err)
+
+	if err := good.ConvertDown(context.Background(), bad); err == nil {
+		t.Errorf("ConvertDown() = %#v, wanted error", good)
 	}
 }

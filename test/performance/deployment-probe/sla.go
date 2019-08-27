@@ -23,14 +23,14 @@ import (
 	tpb "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto"
 	mpb "github.com/google/mako/spec/proto/mako_go_proto"
 
-	"knative.dev/serving/test/performance/mako"
+	"knative.dev/pkg/test/mako"
 )
 
 // This analyzer validates that the p95 latency deploying a new service takes up
 // to 15 seconds.
 func newDeploy95PercentileLatency(tags ...string) *tpb.ThresholdAnalyzerInput {
 	return &tpb.ThresholdAnalyzerInput{
-		Name: proto.String("Kubernetes baseline"),
+		Name: proto.String("Deploy p95 latency"),
 		Configs: []*tpb.ThresholdConfig{{
 			Min: bound(0 * time.Second),
 			Max: bound(15 * time.Second),
@@ -50,7 +50,7 @@ func newDeploy95PercentileLatency(tags ...string) *tpb.ThresholdAnalyzerInput {
 // handful of the trailing deployments, so we relax this to 295.
 func newReadyDeploymentCount(tags ...string) *tpb.ThresholdAnalyzerInput {
 	return &tpb.ThresholdAnalyzerInput{
-		Name: proto.String("Kubernetes baseline"),
+		Name: proto.String("Ready deployment count"),
 		Configs: []*tpb.ThresholdConfig{{
 			Min: proto.Float64(295),
 			Max: proto.Float64(300),

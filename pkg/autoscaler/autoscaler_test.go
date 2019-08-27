@@ -279,6 +279,21 @@ func (r *mockReporter) ReportPanicRequestConcurrency(v float64) error {
 	return nil
 }
 
+// ReportStableRPS of a mockReporter does nothing and return nil for error.
+func (r *mockReporter) ReportStableRPS(v float64) error {
+	return nil
+}
+
+// ReportPanicRPS of a mockReporter does nothing and return nil for error.
+func (r *mockReporter) ReportPanicRPS(v float64) error {
+	return nil
+}
+
+// ReportTargetRPS of a mockReporter does nothing and return nil for error.
+func (r *mockReporter) ReportTargetRPS(v float64) error {
+	return nil
+}
+
 // ReportTargetRequestConcurrency of a mockReporter does nothing and return nil for error.
 func (r *mockReporter) ReportTargetRequestConcurrency(v float64) error {
 	return nil

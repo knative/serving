@@ -33,10 +33,15 @@ const (
 	testConf    = "helloworld-go"
 	testRev     = "helloworld-go-00001"
 	countName   = "request_count"
+	qdepthName  = "queue_depth"
 	latencyName = "request_latencies"
 )
 
 var (
+	queueSizeMetric = stats.Int64(
+		qdepthName,
+		"Queue size",
+		stats.UnitDimensionless)
 	countMetric = stats.Int64(
 		countName,
 		"The number of requests that are routed to queue-proxy",
@@ -47,7 +52,7 @@ var (
 		stats.UnitMilliseconds)
 )
 
-func TestNewStatsReporter_negative(t *testing.T) {
+func TestNewStatsReporterNegative(t *testing.T) {
 	tests := []struct {
 		name      string
 		errorMsg  string
@@ -80,20 +85,27 @@ func TestNewStatsReporter_negative(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if _, err := NewStatsReporter(test.namespace, testSvc, test.config, test.revision, countMetric, latencyMetric); err.Error() != test.result.Error() {
+			if _, err := NewStatsReporter(test.namespace, testSvc, test.config, test.revision,
+				countMetric, latencyMetric, queueSizeMetric); err.Error() != test.result.Error() {
 				t.Errorf("%+v, got: '%+v'", test.errorMsg, err)
 			}
 		})
 	}
 }
 
-func TestReporter_Report(t *testing.T) {
+func TestReporterReport(t *testing.T) {
 	r := &Reporter{}
 	if err := r.ReportRequestCount(200); err == nil {
 		t.Error("Reporter.ReportRequestCount() expected an error for Report call before init. Got success.")
 	}
+	if err := r.ReportQueueDepth(200); err == nil {
+		t.Error("Reporter.ReportQueueDepth() expected an error for Report call before init. Got success.")
+	}
+	if err := r.ReportResponseTime(200, time.Second); err == nil {
+		t.Error("Reporter.ReportRequestCount() expected an error for Report call before init. Got success.")
+	}
 
-	r, err := NewStatsReporter(testNs, testSvc, testConf, testRev, countMetric, latencyMetric)
+	r, err := NewStatsReporter(testNs, testSvc, testConf, testRev, countMetric, latencyMetric, queueSizeMetric)
 	if err != nil {
 		t.Fatalf("Unexpected error from NewStatsReporter() = %v", err)
 	}
@@ -124,10 +136,14 @@ func TestReporter_Report(t *testing.T) {
 	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportResponseTime(200, 300*time.Millisecond) })
 	metricstest.CheckDistributionData(t, "request_latencies", wantTags, 3, 100, 300)
 
+	expectSuccess(t, "QueueDepth", func() error { return r.ReportQueueDepth(1) })
+	expectSuccess(t, "QueueDepth", func() error { return r.ReportQueueDepth(2) })
+	metricstest.CheckLastValueData(t, "queue_depth", wantTags, 2)
+
 	unregisterViews(r)
 
 	// Test reporter with empty service name
-	r, err = NewStatsReporter(testNs, "" /*service name*/, testConf, testRev, countMetric, latencyMetric)
+	r, err = NewStatsReporter(testNs, "" /*service name*/, testConf, testRev, countMetric, latencyMetric, queueSizeMetric)
 	if err != nil {
 		t.Fatalf("Unexpected error from NewStatsReporter() = %v", err)
 	}
@@ -158,7 +174,7 @@ func unregisterViews(r *Reporter) error {
 	if !r.initialized {
 		return errors.New("reporter is not initialized")
 	}
-	metricstest.Unregister(countName, latencyName)
+	metricstest.Unregister(countName, latencyName, qdepthName)
 	r.initialized = false
 	return nil
 }
