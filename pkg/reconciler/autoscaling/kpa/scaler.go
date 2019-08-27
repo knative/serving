@@ -67,6 +67,7 @@ const (
 var probeOptions = []interface{}{
 	prober.WithHeader(network.ProbeHeaderName, activator.Name),
 	prober.ExpectsBody(activator.Name),
+	prober.ExpectsStatusCodes([]int{http.StatusOK}),
 }
 
 // for mocking in tests

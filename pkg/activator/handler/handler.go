@@ -117,6 +117,7 @@ func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 			url,
 			prober.WithHeader(network.ProbeHeaderName, queue.Name),
 			prober.ExpectsBody(queue.Name),
+			prober.ExpectsStatusCodes([]int{http.StatusOK}),
 			withOrigProto(r))
 		if err != nil {
 			logger.Warnw("Pod probe failed", zap.Error(err))
