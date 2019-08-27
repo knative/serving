@@ -63,13 +63,13 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, m
 	sksName := anames.SKS(pa.Name)
 	sks, err := c.SKSLister.ServerlessServices(pa.Namespace).Get(sksName)
 	if errors.IsNotFound(err) {
-		logger.Infof("SKS %s/%s does not exist; creating.", pa.Namespace, sksName)
+		logger.Info("SKS does not exist; creating.")
 		sks = resources.MakeSKS(pa, mode)
 		_, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(sks)
 		if err != nil {
 			return nil, perrors.Wrapf(err, "error creating SKS %s", sksName)
 		}
-		logger.Info("Created SKS:", sksName)
+		logger.Info("Created SKS: ", sksName)
 	} else if err != nil {
 		return nil, perrors.Wrapf(err, "error getting SKS %s", sksName)
 	} else if !metav1.IsControlledBy(sks, pa) {

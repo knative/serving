@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/logging/logkey"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 )
 
@@ -94,12 +95,12 @@ type scalerRunner struct {
 	stopCh chan struct{}
 	pokeCh chan struct{}
 
-	// mux guards access to metric
+	// mux guards access to decider.
 	mux     sync.RWMutex
 	decider Decider
 }
 
-func (sr *scalerRunner) getLatestScale() int32 {
+func (sr *scalerRunner) latestScale() int32 {
 	sr.mux.RLock()
 	defer sr.mux.RUnlock()
 	return sr.decider.Status.DesiredScale
@@ -170,9 +171,11 @@ func (m *MultiScaler) Get(ctx context.Context, namespace, name string) (*Decider
 
 // Create instantiates the desired Decider.
 func (m *MultiScaler) Create(ctx context.Context, decider *Decider) (*Decider, error) {
+	key := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
+	logger := m.logger.With(zap.String(logkey.Key, key.String()))
+	ctx = logging.WithLogger(ctx, logger)
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
-	key := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
 	scaler, exists := m.scalers[key]
 	if !exists {
 		var err error
@@ -190,6 +193,8 @@ func (m *MultiScaler) Create(ctx context.Context, decider *Decider) (*Decider, e
 // Update applied the desired DeciderSpec to a currently running Decider.
 func (m *MultiScaler) Update(ctx context.Context, decider *Decider) (*Decider, error) {
 	key := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
+	logger := m.logger.With(zap.String(logkey.Key, key.String()))
+	ctx = logging.WithLogger(ctx, logger)
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
 	if scaler, exists := m.scalers[key]; exists {
@@ -314,7 +319,7 @@ func (m *MultiScaler) Poke(key types.NamespacedName, stat Stat) {
 		return
 	}
 
-	if scaler.getLatestScale() == 0 && stat.AverageConcurrentRequests != 0 {
+	if scaler.latestScale() == 0 && stat.AverageConcurrentRequests != 0 {
 		scaler.pokeCh <- struct{}{}
 	}
 }
