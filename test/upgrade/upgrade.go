@@ -72,6 +72,7 @@ func assertServiceResourcesUpdated(t *testing.T, clients *test.Clients, names te
 
 //CreateServiceReady creates a new service and test if it is created successfully using v1alpha1 client
 func CreateServiceUsingV1Alpha1Client(t *testing.T, serviceName string) {
+	t.Helper()
 	clients := e2e.Setup(t)
 
 	var names test.ResourceNames
@@ -91,6 +92,7 @@ func CreateServiceUsingV1Alpha1Client(t *testing.T, serviceName string) {
 
 //CreateServiceReady creates a new service and test if it is created successfully using v1beta1 client
 func CreateServiceUsingV1Beta1Client(t *testing.T, serviceName string) {
+	t.Helper()
 	clients := e2e.Setup(t)
 
 	var names test.ResourceNames
@@ -111,6 +113,7 @@ func CreateServiceUsingV1Beta1Client(t *testing.T, serviceName string) {
 //CreateServiceAndScaleToZero creates a new service and scales it down to zero for upgrade testing using v1alpha1
 //version of client
 func CreateServiceAndScaleToZeroUsingV1Alpha1Client(t *testing.T, serviceName string) {
+	t.Helper()
 	clients := e2e.Setup(t)
 
 	var names test.ResourceNames
@@ -136,6 +139,7 @@ func CreateServiceAndScaleToZeroUsingV1Alpha1Client(t *testing.T, serviceName st
 //CreateServiceAndScaleToZero creates a new service and scales it down to zero for upgrade testing using v1beta1
 //version of client
 func CreateServiceAndScaleToZeroUsingV1Beta1Client(t *testing.T, serviceName string) {
+	t.Helper()
 	clients := e2e.Setup(t)
 
 	var names test.ResourceNames
@@ -248,6 +252,7 @@ func GetScaleToZeroServiceName(testType string) string {
 
 //CreateServiceUsingDynamicClient creates a new service and test if it is created successfully using dynamic client
 func CreateServiceUsingDynamicClient(t *testing.T, serviceName string) {
+	t.Helper()
 	clients := e2e.Setup(t)
 
 	var names test.ResourceNames
@@ -266,13 +271,17 @@ func CreateServiceUsingDynamicClient(t *testing.T, serviceName string) {
 		t.Fatalf("Failed to unmarshal as unstructured: %v: %v", names.Service, err)
 	}
 	uSvc.SetUnstructuredContent(u)
-	domain := dynamic.CreateServiceReady(t, clients, uSvc).Domain
+	resource, err := dynamic.CreateServiceReady(t, clients, uSvc)
+	if err != nil {
+		t.Fatalf("Failed to create service %s,%#v", names.Service, err)
+	}
 
-	assertServiceResourcesUpdated(t, clients, names, domain, test.PizzaPlanetText1)
+	assertServiceResourcesUpdated(t, clients, names, resource.Domain, test.PizzaPlanetText1)
 }
 
 //CreateServiceAndScaleToZeroUsingDynamicClient creates a new service and scales it down to zero for upgrade testing using dynamic client
 func CreateServiceAndScaleToZeroUsingDynamicClient(t *testing.T, serviceName string) {
+	t.Helper()
 	clients := e2e.Setup(t)
 
 	var names test.ResourceNames
@@ -291,7 +300,10 @@ func CreateServiceAndScaleToZeroUsingDynamicClient(t *testing.T, serviceName str
 		t.Fatalf("Failed to unmarshal as unstructured: %v: %v", names.Service, err)
 	}
 	uSvc.SetUnstructuredContent(u)
-	resources := dynamic.CreateServiceReady(t, clients, uSvc)
+	resources, err := dynamic.CreateServiceReady(t, clients, uSvc)
+	if err != nil {
+		t.Fatalf("Failed to create service %s,%#v", names.Service, err)
+	}
 
 	assertServiceResourcesUpdated(t, clients, names, resources.Domain, test.PizzaPlanetText1)
 	if err := e2e.WaitForScaleToZero(t, kmeta.ChildName(resources.Revision, "-deployment"), clients); err != nil {
@@ -308,13 +320,19 @@ func UpdateServiceUsingDynamicClient(t *testing.T, serviceName string) {
 	defer test.TearDown(clients, names)
 
 	t.Logf("Getting service %q", names.Service)
-	resources := dynamic.GetService(t, clients, serviceName)
+	resources, err := dynamic.GetService(clients, serviceName)
+	if err != nil {
+		t.Fatalf("Failed to get service %s,%#v", names.Service, err)
+	}
 	t.Log("Check that we can hit the old service and get the old response.")
 	assertServiceResourcesUpdated(t, clients, names, resources.Domain, test.PizzaPlanetText1)
 
 	t.Log("Updating the Service to use a different image")
 	newImage := pkgTest.ImagePath(test.PizzaPlanet2)
-	names = dynamic.PatchServiceImage(t, clients, resources.Service, newImage)
+	names, err = dynamic.PatchServiceImage(clients, resources.Service, newImage)
+	if err != nil {
+		t.Fatalf("Failed to patch image of service %s,%#v", names.Service, err)
+	}
 
 	t.Log("Since the Service was updated a new Revision will be created and the Service will be updated")
 	revisionName, err := dynamic.WaitForServiceLatestRevision(t, clients, names.Service, names)
@@ -324,7 +342,9 @@ func UpdateServiceUsingDynamicClient(t *testing.T, serviceName string) {
 	names.Revision = revisionName
 
 	t.Log("When the Service reports as Ready, everything should be ready.")
-	dynamic.WaitForServiceReady(t, clients, names.Service)
+	if err = dynamic.WaitForServiceReady(t, clients, names.Service); err != nil {
+		t.Fatalf("Unable to get service %s ready,%#v", names.Service, err)
+	}
 
 	assertServiceResourcesUpdated(t, clients, names, names.Domain, test.PizzaPlanetText2)
 }

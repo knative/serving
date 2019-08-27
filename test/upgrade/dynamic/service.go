@@ -69,85 +69,81 @@ func GetGroupVersionResource(version string) schema.GroupVersionResource {
 
 // CreateServiceReady creates a new Service in state 'Ready'. This function expects Service and Image name
 // passed in through 'uSvc' as unstructured.Unstructured. test.ResourceNames is returned with the Service, Domain, and Revision string.
-func CreateServiceReady(t *testing.T, clients *test.Clients, uSvc *unstructured.Unstructured) test.ResourceNames {
+func CreateServiceReady(t *testing.T, clients *test.Clients, uSvc *unstructured.Unstructured) (test.ResourceNames, error) {
 	gvr := GetGroupVersionResource(uSvc.GetAPIVersion())
 	svc, err := clients.Dynamic.Resource(gvr).Namespace(test.ServingNamespace).
 		Create(uSvc, metav1.CreateOptions{})
 	if err != nil {
-		t.Fatalf("Failed to create service %s: %#v", svc, err)
+		return test.ResourceNames{}, err
 	}
 	serviceName := svc.GetName()
-	WaitForServiceReady(t, clients, serviceName)
-	return GetService(t, clients, serviceName)
+	if err := WaitForServiceReady(t, clients, serviceName); err != nil {
+		return test.ResourceNames{}, err
+	}
+	return GetService(clients, serviceName)
 }
 
 //GeService returns test.ResourceNames with serviceName,RevisionName and domain of a given service
-func GetService(t *testing.T, clients *test.Clients, serviceName string) test.ResourceNames {
+func GetService(clients *test.Clients, serviceName string) (test.ResourceNames, error) {
 	//Choosing resource version dynamically
 	gvr := GetGroupVersionResource("")
 
 	service, err := clients.Dynamic.Resource(gvr).Namespace(test.ServingNamespace).Get(serviceName, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to get %s: %#v", serviceName, err)
+		return test.ResourceNames{}, err
 	}
-	resource, err := populateResources(*service)
-	if err != nil {
-		t.Fatalf("Failed to populate resource: %#v", err)
-	}
-	return resource
+
+	return populateResources(*service)
 }
 
 //PatchServiceImage patches the existing service passed in with a new newImage. Returns the latest test.ResourceNames
-func PatchServiceImage(t *testing.T, clients *test.Clients, serviceName string, newImage string) test.ResourceNames {
+func PatchServiceImage(clients *test.Clients, serviceName string, newImage string) (test.ResourceNames, error) {
+	resource := test.ResourceNames{}
 	//Choosing resource version dynamically
 	gvr := GetGroupVersionResource("")
 	var patchedBytes []byte
 	service, err := clients.Dynamic.Resource(gvr).Namespace(test.ServingNamespace).Get(serviceName, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to get %s: %#v", serviceName, err)
+		return resource, err
 	}
 
 	if v1beta1.SchemeGroupVersion.String() == service.GetAPIVersion() {
 		serviceObject := v1beta1.Service{}
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(service.UnstructuredContent(), &serviceObject); err != nil {
-			t.Fatalf("Failed to convert to object: %#v", err)
+			return resource, err
 		}
 		newServiceObject := serviceObject.DeepCopy()
 		v1b1testing.WithServiceImage(newImage)(newServiceObject)
 		patchedBytes, err = createPatch(serviceObject, newServiceObject)
 		if err != nil {
-			t.Fatalf("Failed to get bytes : %#v", err)
+			return resource, err
 		}
 	} else if v1alpha1.SchemeGroupVersion.String() == service.GetAPIVersion() {
 		serviceObject := v1alpha1.Service{}
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(service.UnstructuredContent(), &serviceObject); err != nil {
-			t.Fatalf("Failed to convert to object: %#v", err)
+			return resource, err
 		}
 		newServiceObject := serviceObject.DeepCopy()
 		v1a1test.SetServiceImage(newServiceObject, newImage)
 		patchedBytes, err = createPatch(serviceObject, newServiceObject)
 		if err != nil {
-			t.Fatalf("Failed to get bytes : %#v", err)
+			return resource, err
 		}
 	}
 
 	gvr = GetGroupVersionResource(service.GetAPIVersion())
 	patchedService, err := clients.Dynamic.Resource(gvr).Namespace(test.ServingNamespace).Patch(serviceName, types.JSONPatchType, patchedBytes, metav1.UpdateOptions{})
 	if err != nil {
-		t.Fatalf("Failed to patch %s: %#v", serviceName, err)
+		return resource, err
 	}
-	resource, err := populateResources(*patchedService)
-	if err != nil {
-		t.Fatalf("Failed to populate resource: %#v", err)
-	}
-	return resource
+	return populateResources(*patchedService)
 }
 
 // WaitForServiceState polls the status of the Service called serviceName
 // from client every `interval` until `inState` returns `true` indicating it
 // is done, returns an error or timeout. desc will be used to name the metric
 // that is emitted to track how long it took for name to get into the state checked by inState.
-func WaitForServiceState(t *testing.T, clients *test.Clients, serviceName string, desc string, inState func(svc *unstructured.Unstructured) (bool, error)) {
+func WaitForServiceState(clients *test.Clients, serviceName string, desc string, inState func(svc *unstructured.Unstructured) (bool, error)) error {
 	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForServiceState/%s/%s", serviceName, desc))
 	defer span.End()
 	//Choosing resource version dynamically
@@ -164,7 +160,7 @@ func WaitForServiceState(t *testing.T, clients *test.Clients, serviceName string
 			return inState(lastStateUnstruct)
 		})
 		if waitErr != nil {
-			t.Fatal(errors.Wrapf(waitErr, "service %q is not in desired state, got: %+v", serviceName, lastState))
+			return errors.Wrapf(waitErr, "service %q is not in desired state, got: %+v", serviceName, lastState)
 		}
 	} else if v1alpha1.SchemeGroupVersion.String() == gvr.GroupVersion().String() {
 		var lastState *v1alpha1.Service
@@ -178,9 +174,10 @@ func WaitForServiceState(t *testing.T, clients *test.Clients, serviceName string
 			return inState(lastStateUnstruct)
 		})
 		if waitErr != nil {
-			t.Fatal(errors.Wrapf(waitErr, "service %q is not in desired state, got: %+v", serviceName, lastState))
+			return errors.Wrapf(waitErr, "service %q is not in desired state, got: %+v", serviceName, lastState)
 		}
 	}
+	return nil
 }
 
 // WaitForServiceLatestRevision takes a revision in through names and compares it to the current state of LatestCreatedRevisionName in Service.
@@ -188,7 +185,7 @@ func WaitForServiceState(t *testing.T, clients *test.Clients, serviceName string
 // before returning the name of the revision.
 func WaitForServiceLatestRevision(t *testing.T, clients *test.Clients, serviceName string, names test.ResourceNames) (string, error) {
 	var revisionName string
-	WaitForServiceState(t, clients, serviceName, "ServiceUpdatedWithRevision", func(svc *unstructured.Unstructured) (bool, error) {
+	err := WaitForServiceState(clients, serviceName, "ServiceUpdatedWithRevision", func(svc *unstructured.Unstructured) (bool, error) {
 
 		if v1beta1.SchemeGroupVersion.String() == svc.GetAPIVersion() {
 			var lastState *v1beta1.Service
@@ -211,7 +208,10 @@ func WaitForServiceLatestRevision(t *testing.T, clients *test.Clients, serviceNa
 		}
 		return false, nil
 	})
-	WaitForServiceState(t, clients, serviceName, "ServiceReadyWithRevision", func(svc *unstructured.Unstructured) (bool, error) {
+	if err != nil {
+		return revisionName, err
+	}
+	err = WaitForServiceState(clients, serviceName, "ServiceReadyWithRevision", func(svc *unstructured.Unstructured) (bool, error) {
 		if v1beta1.SchemeGroupVersion.String() == svc.GetAPIVersion() {
 			var lastState *v1beta1.Service
 			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(svc.UnstructuredContent(), &lastState); err != nil {
@@ -227,14 +227,18 @@ func WaitForServiceLatestRevision(t *testing.T, clients *test.Clients, serviceNa
 		}
 		return false, nil
 	})
+	if err != nil {
+		return revisionName, err
+
+	}
 
 	return revisionName, nil
 }
 
 // WaitForServiceReady verifies the status of the Service called name is in `Ready` state.
 // This is the non-polling variety of WaitForServiceState.
-func WaitForServiceReady(t *testing.T, clients *test.Clients, serviceName string) {
-	WaitForServiceState(t, clients, serviceName, "ServiceReadyWithRevision", func(svc *unstructured.Unstructured) (b bool, e error) {
+func WaitForServiceReady(t *testing.T, clients *test.Clients, serviceName string) error {
+	err := WaitForServiceState(clients, serviceName, "ServiceReadyWithRevision", func(svc *unstructured.Unstructured) (b bool, e error) {
 		if v1beta1.SchemeGroupVersion.String() == svc.GetAPIVersion() {
 			var lastState *v1beta1.Service
 			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(svc.UnstructuredContent(), &lastState); err != nil {
@@ -250,6 +254,10 @@ func WaitForServiceReady(t *testing.T, clients *test.Clients, serviceName string
 		}
 		return false, nil
 	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func createPatch(cur, desired interface{}) ([]byte, error) {
