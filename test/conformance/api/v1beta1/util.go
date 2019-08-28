@@ -217,12 +217,12 @@ func validateDataPlane(t *testing.T, clients *test.Clients, names test.ResourceN
 	_, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		names.Domain,
+		names.URL,
 		v1b1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		return fmt.Errorf("the endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, names.Domain, expectedText, err)
+		return fmt.Errorf("the endpoint for Route %s at url %s didn't serve the expected text \"%s\": %v", names.Route, names.URL, expectedText, err)
 	}
 
 	return nil

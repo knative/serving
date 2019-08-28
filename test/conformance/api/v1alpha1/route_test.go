@@ -72,8 +72,8 @@ func assertResourcesUpdatedWhenRevisionIsReady(t *testing.T, clients *test.Clien
 	}
 }
 
-func getRouteDomain(clients *test.Clients, names test.ResourceNames) (string, error) {
-	var domain string
+func getRouteURL(clients *test.Clients, names test.ResourceNames) (string, error) {
+	var serviceURL string
 
 	err := v1a1test.WaitForRouteState(
 		clients.ServingAlphaClient,
@@ -82,12 +82,12 @@ func getRouteDomain(clients *test.Clients, names test.ResourceNames) (string, er
 			if r.Status.URL == nil {
 				return false, nil
 			}
-			domain = r.Status.URL.Host
-			return domain != "", nil
+			serviceURL = r.Status.URL.String()
+			return serviceURL != "", nil
 		},
 		"RouteDomain",
 	)
-	return domain, err
+	return serviceURL, err
 }
 
 func TestRouteCreation(t *testing.T) {
@@ -125,16 +125,16 @@ func TestRouteCreation(t *testing.T) {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
 	}
 
-	domain, err := getRouteDomain(clients, names)
+	serviceURL, err := getRouteURL(clients, names)
 	if err != nil {
 		t.Fatalf("Failed to get url from route %s: %v", names.Route, err)
 	}
 
-	t.Logf("The Route domain is: %s", domain)
-	assertResourcesUpdatedWhenRevisionIsReady(t, clients, names, domain, "1", test.PizzaPlanetText1)
+	t.Logf("The Route url is: %s", serviceURL)
+	assertResourcesUpdatedWhenRevisionIsReady(t, clients, names, serviceURL, "1", test.PizzaPlanetText1)
 
 	// We start a prober at background thread to test if Route is always healthy even during Route update.
-	prober := test.RunRouteProber(t.Logf, clients, domain)
+	prober := test.RunRouteProber(t.Logf, clients, serviceURL)
 	defer test.AssertProberDefault(t, prober)
 
 	t.Log("Updating the Configuration to use a different image")
@@ -149,5 +149,5 @@ func TestRouteCreation(t *testing.T) {
 		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, test.PizzaPlanet2, err)
 	}
 
-	assertResourcesUpdatedWhenRevisionIsReady(t, clients, names, domain, "2", test.PizzaPlanetText2)
+	assertResourcesUpdatedWhenRevisionIsReady(t, clients, names, serviceURL, "2", test.PizzaPlanetText2)
 }

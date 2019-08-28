@@ -21,6 +21,7 @@ package test
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"sync"
 	"testing"
 
@@ -129,10 +130,10 @@ type ProberManager interface {
 	Prober
 
 	// Spawn creates a new Prober
-	Spawn(domain string) Prober
+	Spawn(serviceURL string) Prober
 
 	// Foreach iterates over the probers spawned by this ProberManager.
-	Foreach(func(domain string, p Prober))
+	Foreach(func(serviceURL string, p Prober))
 }
 
 type manager struct {
@@ -148,25 +149,31 @@ type manager struct {
 var _ ProberManager = (*manager)(nil)
 
 // Spawn implements ProberManager
-func (m *manager) Spawn(domain string) Prober {
+func (m *manager) Spawn(rawServiceURL string) Prober {
 	m.m.Lock()
 	defer m.m.Unlock()
 
-	if p, ok := m.probes[domain]; ok {
+	if p, ok := m.probes[rawServiceURL]; ok {
 		return p
 	}
 
-	m.logf("Starting Route prober for route domain %s.", domain)
+	m.logf("Starting Route prober for route rawServiceURL %s.", rawServiceURL)
 	p := &prober{
 		logf:          m.logf,
-		domain:        domain,
+		url:           rawServiceURL,
 		minimumProbes: m.minProbes,
 		errCh:         make(chan error, 1),
 		minDoneCh:     make(chan struct{}),
 	}
-	m.probes[domain] = p
+	m.probes[rawServiceURL] = p
 	go func() {
-		client, err := pkgTest.NewSpoofingClient(m.clients.KubeClient, m.logf, domain,
+		serviceURL, err := url.Parse(rawServiceURL)
+		if err != nil {
+			m.logf("url.Parse() = %v", err)
+			p.errCh <- err
+			return
+		}
+		client, err := pkgTest.NewSpoofingClient(m.clients.KubeClient, m.logf, serviceURL.Host,
 			ServingFlags.ResolvableDomain)
 		if err != nil {
 			m.logf("NewSpoofingClient() = %v", err)
@@ -176,14 +183,14 @@ func (m *manager) Spawn(domain string) Prober {
 
 		// RequestTimeout is set to 0 to make the polling infinite.
 		client.RequestTimeout = 0
-		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
+		req, err := http.NewRequest(http.MethodGet, rawServiceURL, nil)
 		if err != nil {
 			m.logf("NewRequest() = %v", err)
 			p.errCh <- err
 			return
 		}
 
-		// We keep polling the domain and accumulate success rates
+		// We keep polling the rawServiceURL and accumulate success rates
 		// to ultimately establish the SLI and compare to the SLO.
 		_, err = client.Poll(req, p.handleResponse)
 		if err != nil {
@@ -224,12 +231,12 @@ func (m *manager) SLI() (total int64, failures int64) {
 }
 
 // Foreach implements ProberManager
-func (m *manager) Foreach(f func(domain string, p Prober)) {
+func (m *manager) Foreach(f func(serviceURL string, p Prober)) {
 	m.m.RLock()
 	defer m.m.RUnlock()
 
-	for domain, prober := range m.probes {
-		f(domain, prober)
+	for serviceURL, prober := range m.probes {
+		f(serviceURL, prober)
 	}
 }
 
@@ -243,11 +250,11 @@ func NewProberManager(logf logging.FormatLogger, clients *Clients, minProbes int
 	}
 }
 
-// RunRouteProber starts a single Prober of the given domain.
-func RunRouteProber(logf logging.FormatLogger, clients *Clients, domain string) Prober {
+// RunRouteProber starts a single Prober of the given url.
+func RunRouteProber(logf logging.FormatLogger, clients *Clients, serviceURL string) Prober {
 	// Default to 10 probes
 	pm := NewProberManager(logf, clients, 10)
-	pm.Spawn(domain)
+	pm.Spawn(serviceURL)
 	return pm
 }
 

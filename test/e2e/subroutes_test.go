@@ -80,14 +80,17 @@ func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descript
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	t.Logf("helloworld internal domain is %s.", resources.Route.Status.URL.Host)
+	t.Logf("helloworld internal url is %s.", resources.Route.Status.URL)
 
 	// helloworld app and its route are ready. Running the test cases now.
 	for _, tc := range testCases {
-		domain := fmt.Sprintf("%s-%s", tag, resources.Route.Status.Address.URL.Host)
-		helloworldDomain := strings.TrimSuffix(domain, tc.suffix)
+		serviceURL := resources.Route.Status.Address.URL
+		host := fmt.Sprintf("%s-%s", tag, resources.Route.Status.Address.URL.Host)
+		host = strings.TrimSuffix(host, tc.suffix)
+		serviceURL.Host = host
+
 		t.Run(tc.name, func(t *testing.T) {
-			testProxyToHelloworld(t, clients, helloworldDomain, true)
+			testProxyToHelloworld(t, clients, serviceURL.String(), true)
 		})
 	}
 }

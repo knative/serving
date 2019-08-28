@@ -21,6 +21,7 @@ package v1alpha1
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -58,27 +59,31 @@ func TestCustomResourcesLimits(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
-	domain := objects.Route.Status.URL.Host
+	serviceURL := objects.Route.Status.URL.String()
 
 	_, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain,
+		serviceURL,
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
 		"ResourceTestServesText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		t.Fatalf("Error probing domain %s: %v", domain, err)
+		t.Fatalf("Error probing url %s: %v", serviceURL, err)
 	}
 
-	sendPostRequest := func(resolvableDomain bool, domain string, query string) (*spoof.Response, error) {
-		t.Logf("The domain of request is %s and its query is %s", domain, query)
-		client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, resolvableDomain)
+	sendPostRequest := func(resolvableDomain bool, rawURL string, query string) (*spoof.Response, error) {
+		t.Logf("The url of request is %s and its query is %s", rawURL, query)
+		requestURL, err := url.Parse(rawURL)
+		if err != nil {
+			return nil, err
+		}
+		client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, requestURL.Host, resolvableDomain)
 		if err != nil {
 			return nil, err
 		}
 
-		req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://%s?%s", domain, query), nil)
+		req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s?%s", rawURL, query), nil)
 		if err != nil {
 			return nil, err
 		}
@@ -86,7 +91,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 	}
 
 	pokeCowForMB := func(mb int) error {
-		response, err := sendPostRequest(test.ServingFlags.ResolvableDomain, domain, fmt.Sprintf("bloat=%d", mb))
+		response, err := sendPostRequest(test.ServingFlags.ResolvableDomain, serviceURL, fmt.Sprintf("bloat=%d", mb))
 		if err != nil {
 			return err
 		}

@@ -37,17 +37,17 @@ const (
 )
 
 // Shamelessly cribbed from conformance/service_test.
-func assertServiceResourcesUpdated(t *testing.T, clients *test.Clients, names test.ResourceNames, routeDomain, expectedText string) {
+func assertServiceResourcesUpdated(t *testing.T, clients *test.Clients, names test.ResourceNames, routeURL, expectedText string) {
 	t.Helper()
 	// TODO(#1178): Remove "Wait" from all checks below this point.
 	_, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		routeDomain,
+		routeURL,
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, routeDomain, expectedText, err)
+		t.Fatalf("The endpoint for Route %s at url %s didn't serve the expected text \"%s\": %v", names.Route, routeURL, expectedText, err)
 	}
 }

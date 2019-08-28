@@ -165,9 +165,7 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
 
-	domain := objs.Route.Status.URL.Host
-	url := fmt.Sprintf("http://%s/?timeout=1000", domain)
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, objs.Route.Status.URL.Host, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("Error creating spoofing client: %v", err)
 	}
@@ -181,6 +179,7 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 	failedRequests := 0
 
 	t.Logf("Running %d concurrent requests for %v", concurrency, duration)
+	url := fmt.Sprintf("%s/?timeout=1000", objs.Route.Status.URL)
 	eg.Go(func() error {
 		return generateTraffic(t, client, url, concurrency, duration, responseChannel)
 	})

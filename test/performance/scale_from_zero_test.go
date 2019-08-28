@@ -60,7 +60,7 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *v1a1test
 	t.Helper()
 	deploymentName := names.Deployment(ro.Revision)
 
-	domain := ro.Route.Status.URL.Host
+	serviceURL := ro.Route.Status.URL.String()
 	t.Logf("%02d: waiting for deployment to scale to zero.", idx)
 	if err := e2e.WaitForScaleToZero(t, deploymentName, clients); err != nil {
 		m := fmt.Sprintf("%02d: failed waiting for deployment to scale to zero: %v", idx, err)
@@ -73,12 +73,12 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *v1a1test
 	resp, err := pkgTest.WaitForEndpointStateWithTimeout(
 		clients.KubeClient,
 		t.Logf,
-		domain,
+		serviceURL,
 		pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput)),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain, waitToServe)
 	if err != nil {
-		m := fmt.Sprintf("%02d: the endpoint for Route %q at domain %q didn't serve the expected text %q: %v", idx, ro.Route.Name, domain, helloWorldExpectedOutput, err)
+		m := fmt.Sprintf("%02d: the endpoint for Route %q at url %q didn't serve the expected text %q: %v", idx, ro.Route.Name, serviceURL, helloWorldExpectedOutput, err)
 		t.Log(m)
 		return 0, errors.New(m)
 	}

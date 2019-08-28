@@ -179,19 +179,19 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
-	domain := resources.Route.Status.URL.Host
+	serviceURL := resources.Route.Status.URL.String()
 
 	if _, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain,
+		serviceURL,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"gRPCPingReadyToServe",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("The endpoint for Route %s at domain %s didn't return success: %v", names.Route, domain, err)
+		t.Fatalf("The endpoint for Route %s with url %s didn't return success: %v", names.Route, serviceURL, err)
 	}
-
-	host := &domain
+	hostname := resources.Route.Status.URL.Host
+	host := &hostname
 	if !test.ServingFlags.ResolvableDomain {
 		host = &pkgTest.Flags.IngressEndpoint
 		if pkgTest.Flags.IngressEndpoint == "" {

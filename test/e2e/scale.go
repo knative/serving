@@ -120,12 +120,12 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			cleanupCh <- names
 
 			t.Logf("Wait for %s to become ready.", names.Service)
-			var domain string
+			var serviceURL string
 			err = v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
 				if s.Status.URL == nil {
 					return false, nil
 				}
-				domain = s.Status.URL.Host
+				serviceURL = s.Status.URL.String()
 				return v1a1test.IsServiceReady(s)
 			}, "ServiceUpdatedWithURL")
 			if err != nil {
@@ -138,7 +138,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			_, err = pkgTest.WaitForEndpointState(
 				clients.KubeClient,
 				t.Logf,
-				domain,
+				serviceURL,
 				v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 				"WaitForEndpointToServeText",
 				test.ServingFlags.ResolvableDomain)

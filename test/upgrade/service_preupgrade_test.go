@@ -45,8 +45,8 @@ func TestRunLatestServicePreUpgrade(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
-	domain := resources.Service.Status.URL.Host
-	assertServiceResourcesUpdated(t, clients, names, domain, test.PizzaPlanetText1)
+	serviceURL := resources.Service.Status.URL.String()
+	assertServiceResourcesUpdated(t, clients, names, serviceURL, test.PizzaPlanetText1)
 }
 
 func TestRunLatestServicePreUpgradeAndScaleToZero(t *testing.T) {
@@ -65,8 +65,8 @@ func TestRunLatestServicePreUpgradeAndScaleToZero(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
-	domain := resources.Service.Status.URL.Host
-	assertServiceResourcesUpdated(t, clients, names, domain, test.PizzaPlanetText1)
+	serviceURL := resources.Service.Status.URL.String()
+	assertServiceResourcesUpdated(t, clients, names, serviceURL, test.PizzaPlanetText1)
 
 	if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
 		t.Fatalf("Could not scale to zero: %v", err)

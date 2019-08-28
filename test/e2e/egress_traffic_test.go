@@ -54,15 +54,15 @@ func TestEgressTraffic(t *testing.T) {
 		t.Fatalf("Failed to create a service: %v", err)
 	}
 	if service.Route.Status.URL == nil {
-		t.Fatalf("Can't get internal request domain: service.Route.Status.URL is nil")
+		t.Fatalf("Can't get internal request URL: service.Route.Status.URL is nil")
 	}
-	t.Log(service.Route.Status.URL.Host)
+	t.Log(service.Route.Status.URL)
 
-	domain := service.Route.Status.URL.Host
+	serviceURL := service.Route.Status.URL.String()
 	if _, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain,
+		serviceURL,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"HTTPProxy",
 		test.ServingFlags.ResolvableDomain); err != nil {

@@ -72,18 +72,19 @@ func runTest(t *testing.T, pacer vegeta.Pacer, saveMetrics bool) {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
 
-	domain := objs.Route.Status.URL.Host
+	serviceURL := objs.Route.Status.URL.String()
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain,
+		serviceURL,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("Error probing domain %s: %v", domain, err)
+		t.Fatalf("Error probing url %s: %v", serviceURL, err)
 	}
 
-	endpoint, err := spoof.ResolveEndpoint(clients.KubeClient.Kube, domain, test.ServingFlags.ResolvableDomain,
+	hostname := objs.Route.Status.URL.Host
+	endpoint, err := spoof.ResolveEndpoint(clients.KubeClient.Kube, hostname, test.ServingFlags.ResolvableDomain,
 		pkgTest.Flags.IngressEndpoint)
 	if err != nil {
 		t.Fatalf("Cannot resolve service endpoint: %v", err)

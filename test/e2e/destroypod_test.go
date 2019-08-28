@@ -80,7 +80,7 @@ func TestDestroyPodInflight(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
-	domain := route.Status.URL.Host
+	serviceURL := route.Status.URL.String()
 
 	err = v1a1test.WaitForConfigurationState(clients.ServingAlphaClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
 		if c.Status.LatestCreatedRevisionName != names.Revision {
@@ -96,22 +96,23 @@ func TestDestroyPodInflight(t *testing.T) {
 	_, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain,
+		serviceURL,
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(timeoutExpectedOutput))),
 		"TimeoutAppServesText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, test.HelloWorldText, err)
+		t.Fatalf("The endpoint for Route %s with url %s didn't serve the expected text \"%s\": %v", names.Route, serviceURL, test.HelloWorldText, err)
 	}
 
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+	hostname := route.Status.URL.Host
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, hostname, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("Error creating spoofing client: %v", err)
 	}
 
 	// The timeout app sleeps for the time passed via the timeout query parameter in milliseconds
 	timeoutRequestDurationInMillis := timeoutRequestDuration / time.Millisecond
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s/?timeout=%d", domain, timeoutRequestDurationInMillis), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/?timeout=%d", serviceURL, timeoutRequestDurationInMillis), nil)
 	if err != nil {
 		t.Fatalf("Error creating http request: %v", err)
 	}

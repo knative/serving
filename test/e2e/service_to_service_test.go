@@ -18,8 +18,8 @@ limitations under the License.
 package e2e
 
 import (
-	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -78,25 +78,29 @@ var testInjection = []struct {
 	{"both-enabled", true, true},
 }
 
-func sendRequest(t *testing.T, clients *test.Clients, resolvableDomain bool, domain string) (*spoof.Response, error) {
-	t.Logf("The domain of request is %s.", domain)
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, resolvableDomain)
+func sendRequest(t *testing.T, clients *test.Clients, resolvableDomain bool, rawURL string) (*spoof.Response, error) {
+	t.Logf("The URL of request is %s.", rawURL)
+	requestURL, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, err
+	}
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, requestURL.Host, resolvableDomain)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
+	req, err := http.NewRequest(http.MethodGet, rawURL, nil)
 	if err != nil {
 		return nil, err
 	}
 	return client.Do(req)
 }
 
-func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain string, inject bool) {
+func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL string, inject bool) {
 	// Create envVars to be used in httpproxy app.
 	envVars := []corev1.EnvVar{{
 		Name:  targetHostEnv,
-		Value: helloworldDomain,
+		Value: helloworldURL,
 	}}
 
 	// Set up httpproxy app.
@@ -119,11 +123,11 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	domain := resources.Route.Status.URL.Host
+	serviceURL := resources.Route.Status.URL.String()
 	if _, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain,
+		serviceURL,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"HTTPProxy",
 		test.ServingFlags.ResolvableDomain); err != nil {
@@ -132,7 +136,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 	t.Log("httpproxy is ready.")
 
 	// Send request to httpproxy to trigger the http call from httpproxy Pod to internal service of helloworld app.
-	response, err := sendRequest(t, clients, test.ServingFlags.ResolvableDomain, domain)
+	response, err := sendRequest(t, clients, test.ServingFlags.ResolvableDomain, serviceURL)
 	if err != nil {
 		t.Fatalf("Failed to send request to httpproxy: %v", err)
 	}
@@ -142,7 +146,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 	}
 
 	// As a final check (since we know they are both up), check that we cannot send a request directly to the helloworld app.
-	response, err = sendRequest(t, clients, test.ServingFlags.ResolvableDomain, helloworldDomain)
+	response, err = sendRequest(t, clients, test.ServingFlags.ResolvableDomain, helloworldURL)
 	if err != nil {
 		if test.ServingFlags.ResolvableDomain {
 			// When we're testing with resolvable domains, we might fail earlier trying
@@ -201,13 +205,15 @@ func TestServiceToServiceCall(t *testing.T) {
 	if want, got := resources.Route.Status.Address.URL, resources.Route.Status.URL; got.String() != want.String() {
 		t.Errorf("Route.Status.URL = %v, want %v", got, want)
 	}
-	t.Logf("helloworld internal domain is %s.", resources.Route.Status.URL.Host)
+	t.Logf("helloworld internal url is %s.", resources.Route.Status.URL)
 
 	// helloworld app and its route are ready. Running the test cases now.
 	for _, tc := range testCases {
-		helloworldDomain := strings.TrimSuffix(resources.Route.Status.URL.Host, tc.suffix)
+		helloworldURL := resources.Route.Status.URL
+		helloworldHost := strings.TrimSuffix(helloworldURL.Host, tc.suffix)
+		helloworldURL.Host = helloworldHost
 		t.Run(tc.name, func(t *testing.T) {
-			testProxyToHelloworld(t, clients, helloworldDomain, true)
+			testProxyToHelloworld(t, clients, helloworldURL.String(), true)
 		})
 	}
 }
@@ -256,7 +262,7 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 	}
 
 	// Send request to helloworld app via httpproxy service
-	testProxyToHelloworld(t, clients, resources.Route.Status.URL.Host, injectA)
+	testProxyToHelloworld(t, clients, resources.Route.Status.URL.String(), injectA)
 }
 
 // Same test as TestServiceToServiceCall but before sending requests

@@ -411,7 +411,7 @@ func TestProjectedComplex(t *testing.T) {
 
 	// Verify that we get multiple files mounted in, in this case from the
 	// second source, which was partially shadowed in our check above.
-	names.Domain = names.Domain + "/another"
+	names.URL = names.URL + "/another"
 	if err = validateRunLatestDataPlane(t, clients, names, text2); err != nil {
 		t.Error(err)
 	}

@@ -32,7 +32,7 @@ type ResourceNames struct {
 	Revision      string
 	Service       string
 	TrafficTarget string
-	Domain        string
+	URL           string
 	Image         string
 }
 

@@ -167,17 +167,17 @@ func setup(t *testing.T, class string, metric string, fopts ...rtesting.ServiceO
 		t.Fatalf("Error retrieving autoscaler configmap: %v", err)
 	}
 
-	domain := resources.Route.Status.URL.Host
+	serviceURL := resources.Route.Status.URL.String()
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain,
+		serviceURL,
 		// Istio doesn't expose a status for us here: https://github.com/istio/istio/issues/6082
 		// TODO(tcnghia): Remove this when https://github.com/istio/istio/issues/882 is fixed.
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
 		"CheckingEndpointAfterUpdating",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("Error probing domain %s: %v", domain, err)
+		t.Fatalf("Error probing url %s: %v", serviceURL, err)
 	}
 
 	return &testContext{
@@ -186,7 +186,7 @@ func setup(t *testing.T, class string, metric string, fopts ...rtesting.ServiceO
 		names:             names,
 		resources:         resources,
 		deploymentName:    resourcenames.Deployment(resources.Revision),
-		domain:            domain,
+		url:               resources.Route.Status.URL.String(),
 		targetUtilization: cfg.ContainerConcurrencyTargetFraction,
 	}
 }

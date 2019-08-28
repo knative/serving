@@ -72,12 +72,14 @@ func TestActivatorOverload(t *testing.T) {
 		t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", deploymentName, err)
 	}
 
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+	hostname := resources.Route.Status.URL.Host
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, hostname, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("Error creating the Spoofing client: %v", err)
 	}
 
-	url := fmt.Sprintf("http://%s/?timeout=%d", domain, serviceSleep)
+	serviceURL := resources.Route.Status.URL.String()
+	url := fmt.Sprintf("%s/?timeout=%d", serviceURL, serviceSleep)
 
 	t.Log("Starting to send out the requests")
 

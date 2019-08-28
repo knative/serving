@@ -37,7 +37,7 @@ import (
 
 func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNames) error {
 	return CheckServiceState(clients.ServingBetaClient, names.Service, func(s *v1beta1.Service) (bool, error) {
-		if s.Status.URL == nil || s.Status.URL.Host == "" {
+		if s.Status.URL == nil || s.Status.URL.String() == "" {
 			return false, fmt.Errorf("url is not present in Service status: %v", s)
 		}
 		names.URL = s.Status.URL.String()

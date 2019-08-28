@@ -103,7 +103,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
 
-	domain := objs.Route.Status.URL.Host
+	serviceURL := objs.Route.Status.URL.String()
 
 	// Make sure we are ready to serve.
 	st := time.Now()
@@ -111,12 +111,12 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	_, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain+"/?timeout=10", // To generate any kind of a valid response.
+		serviceURL+"/?timeout=10", // To generate any kind of a valid response.
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		t.Fatalf("The endpoint at domain %s didn't serve the expected response: %v", domain, err)
+		t.Fatalf("The endpoint url %s didn't serve the expected response: %v", serviceURL, err)
 	}
 	t.Logf("Took %v for the endpoint to start serving", time.Since(st))
 
@@ -148,7 +148,8 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	})
 	controller.StartInformers(stopCh, endpointsInformer)
 
-	endpoint, err := spoof.ResolveEndpoint(clients.KubeClient.Kube, domain, test.ServingFlags.ResolvableDomain,
+	hostname := objs.Route.Status.URL.Host
+	endpoint, err := spoof.ResolveEndpoint(clients.KubeClient.Kube, hostname, test.ServingFlags.ResolvableDomain,
 		pkgTest.Flags.IngressEndpoint)
 	if err != nil {
 		t.Fatalf("Cannot resolve service endpoint: %v", err)
