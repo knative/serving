@@ -84,7 +84,7 @@ func sendRequest(t *testing.T, clients *test.Clients, rawURL string, initialSlee
 	start := time.Now().UnixNano()
 	defer func() {
 		end := time.Now().UnixNano()
-		t.Logf("url: %v, initialSleep: %v, sleep: %v, request elapsed %.2f ms", rawURL, initialSleepMs, sleepMs, float64(end-start)/1e6)
+		t.Logf("URL: %s, initialSleep: %d, sleep: %d, request elapsed %.2f ms", rawURL, initialSleepMs, sleepMs, float64(end-start)/1e6)
 	}()
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s?initialTimeout=%v&timeout=%v", rawURL, initialSleepMs, sleepMs), nil)
 	if err != nil {
