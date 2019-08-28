@@ -70,7 +70,7 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) *autoscaling
 				},
 			}}
 		}
-	case autoscaling.Concurrency:
+	case autoscaling.Concurrency, autoscaling.RPS:
 		t, _ := aresources.ResolveMetricTarget(pa, config)
 		target := int64(math.Ceil(t))
 		hpa.Spec.Metrics = []autoscalingv2beta1.MetricSpec{{
@@ -81,7 +81,7 @@ func MakeHPA(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) *autoscaling
 					Kind:       "revision",
 					Name:       pa.Name,
 				},
-				MetricName:   autoscaling.Concurrency,
+				MetricName:   pa.Metric(),
 				AverageValue: resource.NewQuantity(target, resource.DecimalSI),
 				TargetValue:  *resource.NewQuantity(target, resource.DecimalSI),
 			},

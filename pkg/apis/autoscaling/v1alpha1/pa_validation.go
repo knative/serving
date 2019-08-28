@@ -53,8 +53,7 @@ func (pa *PodAutoscaler) validateMetric() *apis.FieldError {
 			}
 		case autoscaling.HPA:
 			switch metric {
-			// TODO(yanweiguo): implement RPS autoscaling for HPA.
-			case autoscaling.CPU, autoscaling.Concurrency:
+			case autoscaling.CPU, autoscaling.Concurrency, autoscaling.RPS:
 				return nil
 			}
 		default:
