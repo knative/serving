@@ -69,7 +69,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 		"ResourceTestServesText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		t.Fatalf("Error probing url %s: %v", serviceURL, err)
+		t.Fatalf("Error probing URL %s: %v", serviceURL, err)
 	}
 
 	sendPostRequest := func(resolvableDomain bool, rawURL string, query string) (*spoof.Response, error) {
