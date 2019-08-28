@@ -209,11 +209,9 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 	}
 
 	ports := queueNonServingPorts
-
 	if observabilityConfig.EnableProfiling {
 		ports = append(ports, profilingPort)
 	}
-
 	// We need to configure only one serving port for the Queue proxy, since
 	// we know the protocol that is being used by this application.
 	if rev.GetProtocol() == networking.ProtocolH2C {

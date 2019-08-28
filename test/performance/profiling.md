@@ -2,7 +2,7 @@
 
 Knative Serving allows for collecting runtime profiling data expected
 by the pprof visualization tool. Profiling data is available for the autoscaler,
-activator, controller, and webhook containers and for the queue-proxy
+activator, controller, webhook and for the queue-proxy
 container which is injected into the user application pod. When enabled
 Knative serves profiling data on the default port 8008 through a web server.
 
