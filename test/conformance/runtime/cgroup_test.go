@@ -62,12 +62,6 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 		"/sys/fs/cgroup/memory/memory.limit_in_bytes": memoryLimit * 1000000, // 128 MB
 		"/sys/fs/cgroup/cpu/cpu.shares":               cpuRequest * 1024}     // CPURequests * 1024
 
-	// Don't check these value directly, we'll check their ratio instead
-	skipCgroups := map[string]struct{}{
-		"/sys/fs/cgroup/cpu/cpu.cfs_period_us": {},
-		"/sys/fs/cgroup/cpu/cpu.cfs_quota_us":  {},
-	}
-
 	_, ri, err := fetchRuntimeInfo(t, clients, WithResourceRequirements(resources))
 	if err != nil {
 		t.Fatalf("Error fetching runtime info: %v", err)
@@ -75,38 +69,23 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 
 	cgroups := ri.Host.Cgroups
 
-	// Check that the ratio of "period" to "quota" is the expected "limit"
-	// limit = period / quota
-	var period *int
-	var quota *int
+	// These are used to check the ratio of 'period' to 'quora'. It needs to
+	// be equal to the 'cpuLimit (limit = period / quota)
+	var period, quota *int
 
-	// Extract the values from the fetched cgroups
 	for _, cgroup := range cgroups {
+		// These two are special - just save their values and the continue
 		if cgroup.Name == "/sys/fs/cgroup/cpu/cpu.cfs_period_us" {
 			period = cgroup.Value
+			continue
 		}
 		if cgroup.Name == "/sys/fs/cgroup/cpu/cpu.cfs_quota_us" {
 			quota = cgroup.Value
-		}
-	}
-
-	if period == nil {
-		t.Errorf("Can't find the 'period' from cgroups")
-	} else if quota == nil {
-		t.Errorf("Can't find the 'quota' from cgroups")
-	} else {
-		ratio := (100 * (*period)) / (*quota)
-		if ratio != 100 {
-			t.Errorf("Ratio (%v%%) is wrong should be 100. Period: %v Quota: %v", ratio, period, quota)
-		}
-	}
-
-	for _, cgroup := range cgroups {
-		if cgroup.Error != "" {
-			t.Errorf("Error getting cgroup information: %v", cgroup.Error)
 			continue
 		}
-		if _, ok := skipCgroups[cgroup.Name]; ok {
+
+		if cgroup.Error != "" {
+			t.Errorf("Error getting cgroup information: %v", cgroup.Error)
 			continue
 		}
 		if _, ok := expectedCgroups[cgroup.Name]; !ok {
@@ -118,6 +97,19 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 			t.Errorf("%s = %d, want: %d", cgroup.Name, *cgroup.Value, expectedCgroups[cgroup.Name])
 		}
 	}
+
+	if period == nil {
+		t.Errorf("Can't find the 'cpu.cfs_period_us' from cgroups")
+	} else if quota == nil {
+		t.Errorf("Can't find the 'cpu.cfs_quota_us' from cgroups")
+	} else {
+		ratio := (100 * (*period)) / (*quota)
+		if ratio != cpuLimit*100 {
+			t.Errorf("Ratio (%v) is wrong should be %v. Period: %v Quota: %v",
+				ratio, cpuLimit*100, period, quota)
+		}
+	}
+
 }
 
 // TestShouldHaveCgroupReadOnly verifies that the Linux cgroups are mounted read-only within the
