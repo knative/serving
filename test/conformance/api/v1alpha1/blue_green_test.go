@@ -143,7 +143,7 @@ func TestBlueGreenRoute(t *testing.T) {
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("Error probing url %s: %v", greenURL, err)
+		t.Fatalf("Error probing URL %s: %v", greenURL, err)
 	}
 
 	// Send concurrentRequests to blueURL, greenURL, and tealURL.
