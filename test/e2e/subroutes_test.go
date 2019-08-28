@@ -84,7 +84,7 @@ func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descript
 
 	// helloworld app and its route are ready. Running the test cases now.
 	for _, tc := range testCases {
-		serviceURL := resources.Route.Status.Address.URL
+		serviceURL := resources.Route.Status.URL
 		host := fmt.Sprintf("%s-%s", tag, resources.Route.Status.Address.URL.Host)
 		host = strings.TrimSuffix(host, tc.suffix)
 		serviceURL.Host = host

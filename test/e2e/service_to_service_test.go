@@ -96,11 +96,15 @@ func sendRequest(t *testing.T, clients *test.Clients, resolvableDomain bool, raw
 	return client.Do(req)
 }
 
-func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL string, inject bool) {
+func testProxyToHelloworld(t *testing.T, clients *test.Clients, rawURL string, inject bool) {
 	// Create envVars to be used in httpproxy app.
+	requestURL, err := url.Parse(rawURL)
+	if err != nil {
+		t.Fatalf("Failed to create parse url: %v: %v", rawURL, err)
+	}
 	envVars := []corev1.EnvVar{{
 		Name:  targetHostEnv,
-		Value: helloworldURL,
+		Value: requestURL.Host,
 	}}
 
 	// Set up httpproxy app.
@@ -146,7 +150,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL st
 	}
 
 	// As a final check (since we know they are both up), check that we cannot send a request directly to the helloworld app.
-	response, err = sendRequest(t, clients, test.ServingFlags.ResolvableDomain, helloworldURL)
+	response, err = sendRequest(t, clients, test.ServingFlags.ResolvableDomain, rawURL)
 	if err != nil {
 		if test.ServingFlags.ResolvableDomain {
 			// When we're testing with resolvable domains, we might fail earlier trying
