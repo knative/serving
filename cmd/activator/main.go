@@ -138,7 +138,7 @@ func main() {
 		log.Fatal("Error loading/parsing logging configuration:", err)
 	}
 	logger, atomicLevel := pkglogging.NewLoggerFromConfig(loggingConfig, component)
-	logger = logger.With(zap.String(logkey.ControllerType, networking.ActivatorServiceName))
+	logger = logger.With(zap.String(logkey.ControllerType, component))
 	defer flush(logger)
 
 	kubeClient := kubeclient.Get(ctx)
