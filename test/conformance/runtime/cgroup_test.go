@@ -60,9 +60,13 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 	// https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
 	expectedCgroups := map[string]int{
 		"/sys/fs/cgroup/memory/memory.limit_in_bytes": memoryLimit * 1000000, // 128 MB
-		"/sys/fs/cgroup/cpu/cpu.cfs_period_us":        100000,                // 100ms (100,000us) default
-		"/sys/fs/cgroup/cpu/cpu.cfs_quota_us":         cpuLimit * 1000 * 100, // 1000 millicore * 100
 		"/sys/fs/cgroup/cpu/cpu.shares":               cpuRequest * 1024}     // CPURequests * 1024
+
+	// Don't check these value directly, we'll check their ratio instead
+	skipCgroups := map[string]struct{}{
+		"/sys/fs/cgroup/cpu/cpu.cfs_period_us": {},
+		"/sys/fs/cgroup/cpu/cpu.cfs_quota_us":  {},
+	}
 
 	_, ri, err := fetchRuntimeInfo(t, clients, WithResourceRequirements(resources))
 	if err != nil {
@@ -71,9 +75,38 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 
 	cgroups := ri.Host.Cgroups
 
+	// Check that the ratio of "period" to "quota" is the expected "limit"
+	// limit = period / quota
+	var period *int
+	var quota *int
+
+	// Extract the values from the fetched cgroups
+	for _, cgroup := range cgroups {
+		if cgroup.Name == "/sys/fs/cgroup/cpu/cpu.cfs_period_us" {
+			period = cgroup.Value
+		}
+		if cgroup.Name == "/sys/fs/cgroup/cpu/cpu.cfs_quota_us" {
+			quota = cgroup.Value
+		}
+	}
+
+	if period == nil {
+		t.Errorf("Can't find the 'period' from cgroups")
+	} else if quota == nil {
+		t.Errorf("Can't find the 'quota' from cgroups")
+	} else {
+		ratio := (100 * (*period)) / (*quota)
+		if ratio != 100 {
+			t.Errorf("Ratio (%v%%) is wrong should be 100. Period: %v Quota: %v", ratio, period, quota)
+		}
+	}
+
 	for _, cgroup := range cgroups {
 		if cgroup.Error != "" {
 			t.Errorf("Error getting cgroup information: %v", cgroup.Error)
+			continue
+		}
+		if _, ok := skipCgroups[cgroup.Name]; ok {
 			continue
 		}
 		if _, ok := expectedCgroups[cgroup.Name]; !ok {
