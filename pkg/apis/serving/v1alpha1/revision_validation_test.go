@@ -74,6 +74,47 @@ func TestConcurrencyModelValidation(t *testing.T) {
 	}
 }
 
+func TestServingStateType(t *testing.T) {
+	tests := []struct {
+		name string
+		cm   DeprecatedRevisionServingStateType
+		want *apis.FieldError
+	}{{
+		name: "active",
+		cm:   DeprecatedRevisionServingStateActive,
+		want: nil,
+	}, {
+		name: "reserve",
+		cm:   DeprecatedRevisionServingStateReserve,
+		want: nil,
+	}, {
+		name: "retired",
+		cm:   DeprecatedRevisionServingStateRetired,
+		want: nil,
+	}, {
+		name: "empty",
+		cm:   "",
+		want: nil,
+	}, {
+		name: "bogus",
+		cm:   "bogus",
+		want: apis.ErrInvalidValue("bogus", apis.CurrentField),
+	}, {
+		name: "balderdash",
+		cm:   "balderdash",
+		want: apis.ErrInvalidValue("balderdash", apis.CurrentField),
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := test.cm.Validate(context.Background())
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+				t.Errorf("Validate (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
 func TestRevisionSpecValidation(t *testing.T) {
 	tests := []struct {
 		name string
