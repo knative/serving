@@ -208,7 +208,7 @@ func TestRevisionTimeout(t *testing.T) {
 		t.Fatalf("Unable to fetch URLs from traffic targets: %#v", service.Status.Traffic)
 	}
 
-	t.Logf("Probing url %s", rev5sURL)
+	t.Logf("Probing URL %s", rev5sURL)
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
