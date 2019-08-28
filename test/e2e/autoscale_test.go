@@ -362,7 +362,7 @@ func TestAutoscaleSustaining(t *testing.T) {
 		rtesting.WithContainerConcurrency(containerConcurrency))
 	defer test.TearDown(ctx.clients, ctx.names)
 
-	assertAutoscaleUpToNumPods(ctx, 1, 10, 3*time.Minute, false)
+	assertAutoscaleUpToNumPods(ctx, 1, 10, 2*time.Minute, false)
 }
 
 func TestTargetBurstCapacity(t *testing.T) {
@@ -410,7 +410,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	// Wait for the endpoints to equalize.
 	// There's some jitter in the beginning possible, since it takes 2 seconds
 	// for us to start evaluating things.
-	if err := wait.Poll(250*time.Millisecond, cfg.StableWindow, func() (bool, error) {
+	if err := wait.Poll(250*time.Millisecond, 2*cfg.StableWindow, func() (bool, error) {
 		svcEps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
 			ctx.resources.Revision.Status.ServiceName, metav1.GetOptions{})
 		if err != nil {
@@ -427,7 +427,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	})
 
 	// Wait for two stable pods.
-	if err := wait.Poll(250*time.Millisecond, cfg.StableWindow+cfg.TickInterval, func() (bool, error) {
+	if err := wait.Poll(250*time.Millisecond, 2*cfg.StableWindow, func() (bool, error) {
 		x, err := numberOfPods(ctx)
 		if err != nil {
 			return false, err
@@ -441,12 +441,13 @@ func TestTargetBurstCapacity(t *testing.T) {
 	// Now read the service endpoints and make sure there are 2 endpoints there.
 	// We poll, since network programming takes times, but the timeout is set for
 	// uniformness with one above.
-	if err := wait.Poll(250*time.Millisecond, cfg.StableWindow+cfg.TickInterval, func() (bool, error) {
+	if err := wait.Poll(250*time.Millisecond, 2*cfg.StableWindow, func() (bool, error) {
 		svcEps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
 			ctx.resources.Revision.Status.ServiceName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
+		t.Logf("resources.ReadyAddressCount(svcEps) = %d", resources.ReadyAddressCount(svcEps))
 		return resources.ReadyAddressCount(svcEps) == 2, nil
 	}); err != nil {
 		t.Errorf("Never achieved subset of size 2: %v", err)
@@ -478,7 +479,7 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 	t.Logf("Activator endpoints: %v", aeps)
 
 	// Wait for the endpoints to equalize.
-	if err := wait.Poll(250*time.Millisecond, cfg.StableWindow, func() (bool, error) {
+	if err := wait.Poll(250*time.Millisecond, 2*cfg.StableWindow, func() (bool, error) {
 		svcEps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
 			ctx.resources.Revision.Status.ServiceName, metav1.GetOptions{})
 		if err != nil {

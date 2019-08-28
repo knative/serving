@@ -27,13 +27,13 @@ import (
 )
 
 // This analyzer validates that the p95 latency deploying a new service takes up
-// to 15 seconds.
+// to 25 seconds.
 func newDeploy95PercentileLatency(tags ...string) *tpb.ThresholdAnalyzerInput {
 	return &tpb.ThresholdAnalyzerInput{
 		Name: proto.String("Deploy p95 latency"),
 		Configs: []*tpb.ThresholdConfig{{
 			Min: bound(0 * time.Second),
-			Max: bound(15 * time.Second),
+			Max: bound(25 * time.Second),
 			DataFilter: &mpb.DataFilter{
 				DataType:            mpb.DataFilter_METRIC_AGGREGATE_PERCENTILE.Enum(),
 				PercentileMilliRank: proto.Int32(95000),
