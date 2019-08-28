@@ -61,7 +61,7 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 	var f ServingEnvironmentFlags
 
 	flag.BoolVar(&f.ResolvableDomain, "resolvabledomain", false,
-		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a url that will resolve to your test cluster.")
+		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
 
 	flag.Parse()
 	flag.Set("alsologtostderr", "true")
