@@ -23,7 +23,7 @@ metadata:
   name: service-creator
 rules:
   - apiGroups: [""]
-    resources: ["pods"]
+    resources: ["pods", "nodes"]
     verbs: ["create", "update", "get", "list", "watch", "delete", "deletecollection"]
   - apiGroups: ["serving.knative.dev", "networking.internal.knative.dev", "autoscaling.internal.knative.dev"]
     resources: ["*"]
