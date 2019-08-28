@@ -135,7 +135,7 @@ func TestBlueGreenRoute(t *testing.T) {
 	// does not expose a Status, so we rely on probes to know when they are effective.
 	// Since we are updating the service the teal url probe will succeed before our changes
 	// take effect so we probe the green url.
-	t.Logf("Probing url %s", greenURL)
+	t.Logf("Probing URL %s", greenURL)
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
