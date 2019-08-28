@@ -59,14 +59,32 @@ func TestIssuerRef(t *testing.T) {
 			},
 		},
 	}, {
+		name:       "invalid IssuerKind",
+		wantErr:    true,
+		wantConfig: (*CertManagerConfig)(nil),
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      CertManagerConfigName,
+			},
+			Data: map[string]string{
+				issuerKindKey: "unsupported",
+			},
+		},
+	}, {
 		name:    "valid IssuerRef",
 		wantErr: false,
 		wantConfig: &CertManagerConfig{
-			SolverConfig: &certmanagerv1alpha1.SolverConfig{},
+			SolverConfig: &certmanagerv1alpha1.SolverConfig{
+				DNS01: &certmanagerv1alpha1.DNS01SolverConfig{
+					Provider: "cloud-dns-provider",
+				},
+			},
 			IssuerRef: &certmanagerv1alpha1.ObjectReference{
 				Name: "letsencrypt-issuer",
 				Kind: "ClusterIssuer",
 			},
+			IssuerKind: "acme",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -74,7 +92,9 @@ func TestIssuerRef(t *testing.T) {
 				Name:      CertManagerConfigName,
 			},
 			Data: map[string]string{
-				issuerRefKey: "kind: ClusterIssuer\nname: letsencrypt-issuer",
+				issuerRefKey:    "kind: ClusterIssuer\nname: letsencrypt-issuer",
+				issuerKindKey:   "acme",
+				solverConfigKey: "dns01:\n  provider: cloud-dns-provider",
 			},
 		},
 	}}
@@ -119,7 +139,11 @@ func TestSolverConfig(t *testing.T) {
 					Provider: "cloud-dns-provider",
 				},
 			},
-			IssuerRef: &certmanagerv1alpha1.ObjectReference{},
+			IssuerRef: &certmanagerv1alpha1.ObjectReference{
+				Name: "letencrypt-issuer",
+				Kind: "ClusterIssuer",
+			},
+			IssuerKind: "acme",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -128,6 +152,7 @@ func TestSolverConfig(t *testing.T) {
 			},
 			Data: map[string]string{
 				solverConfigKey: "dns01:\n  provider: cloud-dns-provider",
+				issuerRefKey:    "kind: ClusterIssuer\nname: letencrypt-issuer",
 			},
 		},
 	}, {
@@ -139,7 +164,11 @@ func TestSolverConfig(t *testing.T) {
 					Ingress: "test-ingress",
 				},
 			},
-			IssuerRef: &certmanagerv1alpha1.ObjectReference{},
+			IssuerRef: &certmanagerv1alpha1.ObjectReference{
+				Name: "letencrypt-issuer",
+				Kind: "ClusterIssuer",
+			},
+			IssuerKind: "acme",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -148,6 +177,7 @@ func TestSolverConfig(t *testing.T) {
 			},
 			Data: map[string]string{
 				solverConfigKey: "http01:\n  ingress: test-ingress",
+				issuerRefKey:    "kind: ClusterIssuer\nname: letencrypt-issuer",
 			},
 		},
 	}}

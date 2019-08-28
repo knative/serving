@@ -56,6 +56,7 @@ var cmConfig = &config.CertManagerConfig{
 		Kind: "ClusterIssuer",
 		Name: "Letsencrypt-issuer",
 	},
+	IssuerKind: "acme",
 }
 
 func TestMakeCertManagerCertificate(t *testing.T) {
