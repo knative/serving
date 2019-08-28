@@ -73,7 +73,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 	}
 
 	sendPostRequest := func(resolvableDomain bool, rawURL string, query string) (*spoof.Response, error) {
-		t.Logf("The url of request is %s and its query is %s", rawURL, query)
+		t.Logf("The URL of request is %s and its query is %s", rawURL, query)
 		requestURL, err := url.Parse(rawURL)
 		if err != nil {
 			return nil, err
