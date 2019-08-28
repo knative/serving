@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
-	pkgNetworking "knative.dev/pkg/apis/networking"
+	"knative.dev/pkg/profiling"
 	"knative.dev/serving/pkg/apis/networking"
 )
 
@@ -420,7 +420,7 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 		userPort.ContainerPort == networking.QueueAdminPort ||
 		userPort.ContainerPort == networking.AutoscalingQueueMetricsPort ||
 		userPort.ContainerPort == networking.UserQueueMetricsPort ||
-		userPort.ContainerPort == pkgNetworking.ProfilingPort {
+		userPort.ContainerPort == profiling.ProfilingPort {
 		errs = errs.Also(apis.ErrInvalidValue(userPort.ContainerPort, "containerPort"))
 	}
 

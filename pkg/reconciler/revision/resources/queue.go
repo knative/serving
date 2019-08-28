@@ -26,9 +26,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	pkgNetworking "knative.dev/pkg/apis/networking"
 	"knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
+	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	tracingconfig "knative.dev/pkg/tracing/config"
@@ -72,7 +72,7 @@ var (
 
 	profilingPort = corev1.ContainerPort{
 		Name:          profilingPortName,
-		ContainerPort: int32(pkgNetworking.ProfilingPort),
+		ContainerPort: int32(profiling.ProfilingPort),
 	}
 
 	queueSecurityContext = &corev1.SecurityContext{
