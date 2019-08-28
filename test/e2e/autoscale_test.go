@@ -433,23 +433,34 @@ func TestAutoscaleUpCountPods(t *testing.T) {
 
 func TestRPSBasedAutoscaleUpCountPods(t *testing.T) {
 	t.Parallel()
-	cancel := logstream.Start(t)
-	defer cancel()
 
-	ctx := setup(t, autoscaling.KPA, autoscaling.RPS, 10, targetUtilization)
-	defer test.TearDown(ctx.clients, ctx.names)
+	classes := map[string]string{
+		"kpa": autoscaling.KPA,
+	}
 
-	ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
-	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
+	for name, class := range classes {
+		name, class := name, class
+		t.Run(name, func(tt *testing.T) {
+			tt.Parallel()
+			cancel := logstream.Start(t)
+			defer cancel()
 
-	// Increase workload for 2 replicas for 60s
-	// Assert the number of expected replicas is between n-1 and n+1, where n is the # of desired replicas for 60s.
-	// Assert the number of expected replicas is n and n+1 at the end of 60s, where n is the # of desired replicas.
-	assertAutoscaleUpToNumPods(ctx, 1, 2, 60*time.Second, true)
-	// Increase workload scale to 3 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
-	assertAutoscaleUpToNumPods(ctx, 2, 3, 60*time.Second, true)
-	// Increase workload scale to 4 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
-	assertAutoscaleUpToNumPods(ctx, 3, 4, 60*time.Second, true)
+			ctx := setup(tt, class, autoscaling.RPS, 10, targetUtilization)
+			defer test.TearDown(ctx.clients, ctx.names)
+
+			ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
+			// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
+
+			// Increase workload for 2 replicas for 60s
+			// Assert the number of expected replicas is between n-1 and n+1, where n is the # of desired replicas for 60s.
+			// Assert the number of expected replicas is n and n+1 at the end of 60s, where n is the # of desired replicas.
+			assertAutoscaleUpToNumPods(ctx, 1, 2, 60*time.Second, true)
+			// Increase workload scale to 3 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
+			assertAutoscaleUpToNumPods(ctx, 2, 3, 60*time.Second, true)
+			// Increase workload scale to 4 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
+			assertAutoscaleUpToNumPods(ctx, 3, 4, 60*time.Second, true)
+		})
+	}
 }
 
 func TestAutoscaleSustaining(t *testing.T) {
