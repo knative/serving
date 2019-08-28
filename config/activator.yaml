@@ -50,6 +50,8 @@ spec:
           containerPort: 8013
         - name: metrics
           containerPort: 9090
+        - name: profiling
+          containerPort: 8008
         args:
           # Disable glog writing into stderr. Our code doesn't use glog
           # and seeing k8s logs in addition to ours is not useful.

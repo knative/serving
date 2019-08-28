@@ -28,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
-	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
@@ -137,7 +136,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1alpha1.Revision) er
 	ns := rev.Namespace
 	paName := resourcenames.PA(rev)
 	logger := logging.FromContext(ctx)
-	logger.Info("Reconciling PA:", paName)
+	logger.Info("Reconciling PA: ", paName)
 
 	pa, err := c.podAutoscalerLister.PodAutoscalers(ns).Get(paName)
 	if apierrs.IsNotFound(err) {
@@ -147,7 +146,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1alpha1.Revision) er
 			logger.Errorf("Error creating PA %s: %v", paName, err)
 			return err
 		}
-		logger.Info("Created PA:", paName)
+		logger.Info("Created PA: ", paName)
 	} else if err != nil {
 		logger.Errorf("Error reconciling pa %s: %v", paName, err)
 		return err
@@ -170,27 +169,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1alpha1.Revision) er
 		}
 	}
 
-	// Propagate the service name from the PA.
-	rev.Status.ServiceName = pa.Status.ServiceName
-
-	// Reflect the PA status in our own.
-	cond := pa.Status.GetCondition(av1alpha1.PodAutoscalerConditionReady)
-	switch {
-	case cond == nil:
-		rev.Status.MarkActivating("Deploying", "")
-		// If not ready => SKS did not report a service name, we can reliably use.
-	case cond.Status == corev1.ConditionUnknown:
-		rev.Status.MarkActivating(cond.Reason, cond.Message)
-	case cond.Status == corev1.ConditionFalse:
-		rev.Status.MarkInactive(cond.Reason, cond.Message)
-	case cond.Status == corev1.ConditionTrue:
-		rev.Status.MarkActive()
-
-		// Precondition for PA being active is SKS being active and
-		// that entices that |service.endpoints| > 0.
-		rev.Status.MarkResourcesAvailable()
-		rev.Status.MarkContainerHealthy()
-	}
+	rev.Status.PropagateAutoscalerStatus(&pa.Status)
 	return nil
 }
 

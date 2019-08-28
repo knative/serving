@@ -2,12 +2,15 @@ package tracing
 
 import (
 	"errors"
+	"io"
 	"sync"
 
-	"contrib.go.opencensus.io/exporter/zipkin"
-	zipkinmodel "github.com/openzipkin/zipkin-go/model"
-	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
+	"contrib.go.opencensus.io/exporter/stackdriver"
+	oczipkin "contrib.go.opencensus.io/exporter/zipkin"
+	zipkin "github.com/openzipkin/zipkin-go"
+	httpreporter "github.com/openzipkin/zipkin-go/reporter/http"
 	"go.opencensus.io/trace"
+	"go.uber.org/zap"
 
 	"knative.dev/pkg/tracing/config"
 )
@@ -17,10 +20,11 @@ type ConfigOption func(*config.Config)
 
 // OpenCensusTracer is responsible for managing and updating configuration of OpenCensus tracing
 type OpenCensusTracer struct {
-	curCfg         *config.Config
-	configOptions  []ConfigOption
-	zipkinReporter zipkinreporter.Reporter
-	zipkinExporter trace.Exporter
+	curCfg        *config.Config
+	configOptions []ConfigOption
+
+	closer   io.Closer
+	exporter trace.Exporter
 }
 
 // OpenCensus tracing keeps state in globals and therefore we can only run one OpenCensusTracer
@@ -88,7 +92,7 @@ func (oct *OpenCensusTracer) acquireGlobal() error {
 func createOCTConfig(cfg *config.Config) *trace.Config {
 	octCfg := trace.Config{}
 
-	if cfg.Enable {
+	if cfg.Backend != config.None {
 		if cfg.Debug {
 			octCfg.DefaultSampler = trace.AlwaysSample()
 		} else {
@@ -101,37 +105,48 @@ func createOCTConfig(cfg *config.Config) *trace.Config {
 	return &octCfg
 }
 
-func WithZipkinExporter(reporterFact ZipkinReporterFactory, endpoint *zipkinmodel.Endpoint) ConfigOption {
+// WithExporter returns a ConfigOption for use with NewOpenCensusTracer that configures
+// it to export traces based on the configuration read from config-tracing.
+func WithExporter(name string, logger *zap.SugaredLogger) ConfigOption {
 	return func(cfg *config.Config) {
 		var (
-			reporter zipkinreporter.Reporter
 			exporter trace.Exporter
+			closer   io.Closer
 		)
-
-		if cfg != nil && cfg.Enable {
-			// Initialize our reporter / exporter
-			// do this before cleanup to minimize time where we have duplicate exporters
-			reporter, err := reporterFact(cfg)
+		switch cfg.Backend {
+		case config.Stackdriver:
+			exp, err := stackdriver.NewExporter(stackdriver.Options{
+				ProjectID: cfg.StackdriverProjectID,
+			})
 			if err != nil {
-				// TODO(greghaynes) log this error
+				logger.Errorw("error reading project-id from metadata", err)
 				return
 			}
-			exporter := zipkin.NewExporter(reporter, endpoint)
+			exporter = exp
+		case config.Zipkin:
+			zipEP, err := zipkin.NewEndpoint(name, ":80")
+			if err != nil {
+				logger.Errorw("error building zipkin endpoint", err)
+				return
+			}
+			reporter := httpreporter.NewReporter(cfg.ZipkinEndpoint)
+			exporter = oczipkin.NewExporter(reporter, zipEP)
+			closer = reporter
+		default:
+			// Disables tracing.
+		}
+		if exporter != nil {
 			trace.RegisterExporter(exporter)
 		}
-
 		// We know this is set because we are called with acquireGlobal lock held
-		oct := globalOct
-		if oct.zipkinExporter != nil {
-			trace.UnregisterExporter(oct.zipkinExporter)
+		if globalOct.exporter != nil {
+			trace.UnregisterExporter(globalOct.exporter)
+		}
+		if globalOct.closer != nil {
+			globalOct.closer.Close()
 		}
 
-		if oct.zipkinReporter != nil {
-			// TODO(greghaynes) log this error
-			_ = oct.zipkinReporter.Close()
-		}
-
-		oct.zipkinReporter = reporter
-		oct.zipkinExporter = exporter
+		globalOct.exporter = exporter
+		globalOct.closer = closer
 	}
 }

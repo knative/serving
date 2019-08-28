@@ -31,16 +31,14 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	openzipkin "github.com/openzipkin/zipkin-go"
-	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
-	reporterrecorder "github.com/openzipkin/zipkin-go/reporter/recorder"
 	"go.opencensus.io/plugin/ochttp"
 	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/tracing"
+	tracingconfig "knative.dev/pkg/tracing/config"
+	tracetesting "knative.dev/pkg/tracing/testing"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
-	"knative.dev/serving/pkg/tracing"
-	tracingconfig "knative.dev/serving/pkg/tracing/config"
 )
 
 const wantHost = "a-better-host.com"
@@ -364,17 +362,17 @@ func TestQueueTraceSpans(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create tracer with reporter recorder
-			reporter := reporterrecorder.NewReporter()
+			reporter, co := tracetesting.FakeZipkinExporter()
 			defer reporter.Close()
-			endpoint, _ := openzipkin.NewEndpoint("test", "localhost:1234")
-			oct := tracing.NewOpenCensusTracer(tracing.WithZipkinExporter(func(cfg *tracingconfig.Config) (zipkinreporter.Reporter, error) {
-				return reporter, nil
-			}, endpoint))
+			oct := tracing.NewOpenCensusTracer(co)
 			defer oct.Finish()
 
 			cfg := tracingconfig.Config{
-				Enable: tc.enableTrace,
-				Debug:  true,
+				Backend: tracingconfig.Zipkin,
+				Debug:   true,
+			}
+			if !tc.enableTrace {
+				cfg.Backend = tracingconfig.None
 			}
 			if err := oct.ApplyConfig(&cfg); err != nil {
 				t.Errorf("Failed to apply tracer config: %v", err)

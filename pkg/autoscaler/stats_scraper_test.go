@@ -136,7 +136,7 @@ func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 	}
 
 	// Make an Endpoints with 3 pods.
-	endpoints(3)
+	endpoints(3, testService)
 
 	// Scrape will set a timestamp bigger than this.
 	now := time.Now()
@@ -182,7 +182,7 @@ func TestScrapeReportErrorCannotFindEnoughPods(t *testing.T) {
 	}
 
 	// Make an Endpoints with 2 pods.
-	endpoints(2)
+	endpoints(2, testService)
 
 	_, err = scraper.Scrape()
 	if err == nil {
@@ -202,7 +202,7 @@ func TestScrapeReportErrorIfAnyFails(t *testing.T) {
 	}
 
 	// Make an Endpoints with 2 pods.
-	endpoints(2)
+	endpoints(2, testService)
 
 	_, err = scraper.Scrape()
 	if errors.Cause(err) != errTest {
@@ -218,7 +218,7 @@ func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
 	}
 
 	// Make an Endpoints with 0 pods.
-	endpoints(0)
+	endpoints(0, testService)
 
 	stat, err := scraper.Scrape()
 	if err != nil {

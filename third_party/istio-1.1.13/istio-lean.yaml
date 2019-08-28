@@ -547,7 +547,8 @@ spec:
             timeoutSeconds: 1
           resources:
             requests:
-              cpu: 10m
+              cpu: 500m
+              memory: 512Mi
 
           env:
           - name: POD_NAME
@@ -734,8 +735,8 @@ spec:
               cpu: 2000m
               memory: 1024Mi
             requests:
-              cpu: 1000m
-              memory: 1024Mi
+              cpu: 500m
+              memory: 512Mi
 
           env:
           - name: POD_NAME

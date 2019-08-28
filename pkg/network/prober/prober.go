@@ -57,6 +57,25 @@ func ExpectsBody(body string) Verifier {
 	}
 }
 
+// ExpectsHeader validates that the given header of the probe response matches the provided string.
+func ExpectsHeader(name, value string) Verifier {
+	return func(r *http.Response, _ []byte) (bool, error) {
+		return r.Header.Get(name) == value, nil
+	}
+}
+
+// ExpectsStatusCodes validates that the given status code of the probe response matches the provided int.
+func ExpectsStatusCodes(statusCodes []int) Verifier {
+	return func(r *http.Response, _ []byte) (bool, error) {
+		for _, v := range statusCodes {
+			if r.StatusCode == v {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+}
+
 // Do sends a single probe to given target, e.g. `http://revision.default.svc.cluster.local:81`.
 // Do returns whether the probe was successful or not, or there was an error probing.
 func Do(ctx context.Context, transport http.RoundTripper, target string, ops ...interface{}) (bool, error) {
@@ -89,7 +108,7 @@ func Do(ctx context.Context, transport http.RoundTripper, target string, ops ...
 			}
 		}
 	}
-	return resp.StatusCode == http.StatusOK, nil
+	return true, nil
 }
 
 // Done is a callback that is executed when the async probe has finished.

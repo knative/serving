@@ -29,10 +29,11 @@ import (
 type requestMetricHandler struct {
 	handler       http.Handler
 	statsReporter stats.StatsReporter
+	breaker       *Breaker
 }
 
 // NewRequestMetricHandler creates an http.Handler that emits request metrics.
-func NewRequestMetricHandler(h http.Handler, r stats.StatsReporter) (http.Handler, error) {
+func NewRequestMetricHandler(h http.Handler, r stats.StatsReporter, b *Breaker) (http.Handler, error) {
 	if r == nil {
 		return nil, errors.New("StatsReporter must not be nil")
 	}
@@ -40,12 +41,16 @@ func NewRequestMetricHandler(h http.Handler, r stats.StatsReporter) (http.Handle
 	return &requestMetricHandler{
 		handler:       h,
 		statsReporter: r,
+		breaker:       b,
 	}, nil
 }
 
 func (h *requestMetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rr := pkghttp.NewResponseRecorder(w, http.StatusOK)
 	startTime := time.Now()
+	if h.breaker != nil {
+		h.statsReporter.ReportQueueDepth(h.breaker.InFlight())
+	}
 
 	defer func() {
 		// Filter probe requests for revision metrics.
@@ -67,6 +72,6 @@ func (h *requestMetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *requestMetricHandler) sendRequestMetrics(respCode int, latency time.Duration) {
-	h.statsReporter.ReportRequestCount(respCode, 1)
+	h.statsReporter.ReportRequestCount(respCode)
 	h.statsReporter.ReportResponseTime(respCode, latency)
 }

@@ -476,8 +476,7 @@
   revision = "e979a0b10eebe748549c702a25e997c556349da6"
 
 [[projects]]
-  branch = "github-push-test-1"
-  digest = "1:e1764a99532bc56ce10e997a59de79cd30bdb63c52b7610e7301081649e48293"
+  digest = "1:3efb665a5beaa0266ff287cdb58dff8a966631000e9f8ad8d832a288b90ca247"
   name = "github.com/google/mako"
   packages = [
     "clients/proto/analyzers/threshold_analyzer_go_proto",
@@ -490,7 +489,8 @@
     "spec/proto/mako_go_proto",
   ]
   pruneopts = "NUT"
-  revision = "6a1d829c31b4a93cbd03e9f998bc85094a5afd8f"
+  revision = "d56a6e811df75f8e4d6e7c256d25acf19ef16d03"
+  version = "v0.0.0-rc.4"
 
 [[projects]]
   digest = "1:ab3ec1fe3e39bac4b3ab63390767766622be35b7cab03f47f787f9ec60522a53"
@@ -1628,7 +1628,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:bd86a4b7413a5b33c132774581118f0d334b5ad06323b0593927d729cda530bb"
+  digest = "1:a83c7d6be32f1380ea409c7e90c01805682a419c6f9a21785bfbca8a253b11aa"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1651,11 +1651,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "2e1a1d12d196d9c712de53b3393f2a61de2a3c0f"
+  revision = "53b3cdeccf28a1c67c21820425fe6583c0a34c4f"
 
 [[projects]]
   branch = "master"
-  digest = "1:9d7c900ebc70071471915d9cb9eecc67039ded90c553bfb985a45c06555ff864"
+  digest = "1:c3dcb59922bdd7fcf9050e1b399e645e029a6d743ef061b5c8a8c69e6d24af74"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1730,6 +1730,7 @@
     "metrics/metricskey",
     "metrics/metricstest",
     "metrics/testing",
+    "profiling",
     "ptr",
     "reconciler/testing",
     "signals",
@@ -1744,17 +1745,20 @@
     "test/spoof",
     "test/vegeta/pacers",
     "test/zipkin",
+    "tracing",
+    "tracing/config",
+    "tracing/testing",
     "tracker",
     "version",
     "webhook",
     "websocket",
   ]
   pruneopts = "T"
-  revision = "7e6f1f48c9c4cdb1a3a09628986e7e706c82ceab"
+  revision = "73daad6e4735a9ba885f3e7a08fb2a2f38865a93"
 
 [[projects]]
   branch = "master"
-  digest = "1:eb8a3a36bd8ed21d9aec5e5197b0872b0025eb062cb0f8050a405dc855cbc4bb"
+  digest = "1:fa303fc135e4ebfabaf214b2121b9effd5ac4b5d29e7510d9abf78fc2d997df5"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1773,13 +1777,13 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "d0a830ac0229c134efd3bc4858f6e7b9b69b7968"
+  revision = "ad9e83dcff273bbe9db46721f4704dba3dc687ae"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "contrib.go.opencensus.io/exporter/zipkin",
+    "cloud.google.com/go/compute/metadata",
     "github.com/davecgh/go-spew/spew",
     "github.com/ghodss/yaml",
     "github.com/golang/protobuf/proto",
@@ -1803,11 +1807,6 @@
     "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/cmd",
     "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/provider",
     "github.com/mattbaird/jsonpatch",
-    "github.com/openzipkin/zipkin-go",
-    "github.com/openzipkin/zipkin-go/model",
-    "github.com/openzipkin/zipkin-go/reporter",
-    "github.com/openzipkin/zipkin-go/reporter/http",
-    "github.com/openzipkin/zipkin-go/reporter/recorder",
     "github.com/pkg/errors",
     "github.com/prometheus/client_golang/prometheus",
     "github.com/prometheus/client_golang/prometheus/promhttp",
@@ -1943,6 +1942,7 @@
     "knative.dev/pkg/metrics/metricskey",
     "knative.dev/pkg/metrics/metricstest",
     "knative.dev/pkg/metrics/testing",
+    "knative.dev/pkg/profiling",
     "knative.dev/pkg/ptr",
     "knative.dev/pkg/reconciler/testing",
     "knative.dev/pkg/signals",
@@ -1956,6 +1956,9 @@
     "knative.dev/pkg/test/spoof",
     "knative.dev/pkg/test/vegeta/pacers",
     "knative.dev/pkg/test/zipkin",
+    "knative.dev/pkg/tracing",
+    "knative.dev/pkg/tracing/config",
+    "knative.dev/pkg/tracing/testing",
     "knative.dev/pkg/tracker",
     "knative.dev/pkg/version",
     "knative.dev/pkg/webhook",

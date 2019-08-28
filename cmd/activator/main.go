@@ -35,7 +35,6 @@ import (
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 
 	"github.com/kelseyhightower/envconfig"
-	zipkin "github.com/openzipkin/zipkin-go"
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -45,8 +44,11 @@ import (
 	pkglogging "knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/metrics"
+	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
+	"knative.dev/pkg/tracing"
+	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/pkg/version"
 	"knative.dev/pkg/websocket"
 	"knative.dev/serving/pkg/activator"
@@ -59,8 +61,6 @@ import (
 	"knative.dev/serving/pkg/logging"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
-	"knative.dev/serving/pkg/tracing"
-	tracingconfig "knative.dev/serving/pkg/tracing/config"
 )
 
 // Fail if using unsupported go version.
@@ -178,15 +178,7 @@ func main() {
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
 	throttler := activator.NewThrottler(params, endpointInformer, sksInformer.Lister(), revisionInformer.Lister(), logger)
 
-	activatorL3 := fmt.Sprintf("%s:%d", activator.K8sServiceName, networking.ServiceHTTPPort)
-	zipkinEndpoint, err := zipkin.NewEndpoint("activator", activatorL3)
-	if err != nil {
-		logger.Errorw("Unable to create tracing endpoint", zap.Error(err))
-		return
-	}
-	oct := tracing.NewOpenCensusTracer(
-		tracing.WithZipkinExporter(tracing.CreateZipkinReporter, zipkinEndpoint),
-	)
+	oct := tracing.NewOpenCensusTracer(tracing.WithExporter("activator", logger))
 
 	tracerUpdater := configmap.TypeFilter(&tracingconfig.Config{})(func(name string, value interface{}) {
 		cfg := value.(*tracingconfig.Config)
@@ -242,20 +234,26 @@ func main() {
 	ah = &activatorhandler.HealthHandler{HealthCheck: statSink.Status, NextHandler: ah}
 	// NOTE: MetricHandler is being used as the outermost handler for the purpose of measuring the request latency.
 	ah = activatorhandler.NewMetricHandler(revisionInformer.Lister(), reporter, logger, ah)
+	ah = network.NewProbeHandler(ah)
 
+	profilingHandler := profiling.NewHandler(logger, false)
 	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher.Watch(pkglogging.ConfigMapName(), pkglogging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
-	// Watch the observability config map and dynamically update metrics exporter.
-	configMapWatcher.Watch(metrics.ConfigMapName(), metrics.UpdateExporterFromConfigMap(component, logger))
-	// Watch the observability config map and dynamically update request logs.
-	configMapWatcher.Watch(metrics.ConfigMapName(), updateRequestLogFromConfigMap(logger, reqLogHandler))
+
+	// Watch the observability config map
+	configMapWatcher.Watch(metrics.ConfigMapName(),
+		metrics.UpdateExporterFromConfigMap(component, logger),
+		updateRequestLogFromConfigMap(logger, reqLogHandler),
+		profilingHandler.UpdateFromConfigMap)
+
 	if err = configMapWatcher.Start(ctx.Done()); err != nil {
 		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
 	}
 
 	servers := map[string]*http.Server{
-		"http1": network.NewServer(":"+strconv.Itoa(networking.BackendHTTPPort), ah),
-		"h2c":   network.NewServer(":"+strconv.Itoa(networking.BackendHTTP2Port), ah),
+		"http1":   network.NewServer(":"+strconv.Itoa(networking.BackendHTTPPort), ah),
+		"h2c":     network.NewServer(":"+strconv.Itoa(networking.BackendHTTP2Port), ah),
+		"profile": profiling.NewServer(profilingHandler),
 	}
 
 	errCh := make(chan error, len(servers))
@@ -267,7 +265,6 @@ func main() {
 			}
 		}(name, server)
 	}
-
 	// Exit as soon as we see a shutdown signal or one of the servers failed.
 	select {
 	case <-ctx.Done():

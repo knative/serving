@@ -31,6 +31,57 @@ spec:
 apiVersion: serving.knative.dev/v1beta1
 kind: Service
 metadata:
+  name: activator-with-cc
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "5"
+        autoscaling.knative.dev/maxScale: "5"
+        # Always hook the activator in.
+        autoscaling.knative.dev/targetBurstCapacity: "-1"
+    spec:
+      containers:
+      - image: knative.dev/serving/test/test_images/autoscale
+      containerConcurrency: 100
+---
+apiVersion: serving.knative.dev/v1beta1
+kind: Service
+metadata:
+  name: activator-with-cc-10
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "15"
+        autoscaling.knative.dev/maxScale: "15"
+        # Always hook the activator in.
+        autoscaling.knative.dev/targetBurstCapacity: "-1"
+    spec:
+      containers:
+      - image: knative.dev/serving/test/test_images/autoscale
+      containerConcurrency: 10
+---
+apiVersion: serving.knative.dev/v1beta1
+kind: Service
+metadata:
+  name: activator-with-cc-1
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "150"
+        autoscaling.knative.dev/maxScale: "150"
+        # Always hook the activator in.
+        autoscaling.knative.dev/targetBurstCapacity: "-1"
+    spec:
+      containers:
+      - image: knative.dev/serving/test/test_images/autoscale
+      containerConcurrency: 1
+---
+apiVersion: serving.knative.dev/v1beta1
+kind: Service
+metadata:
   name: queue-proxy
 spec:
   template:
@@ -43,6 +94,57 @@ spec:
     spec:
       containers:
       - image: knative.dev/serving/test/test_images/autoscale
+---
+apiVersion: serving.knative.dev/v1beta1
+kind: Service
+metadata:
+  name: queue-proxy-with-cc
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "5"
+        autoscaling.knative.dev/maxScale: "5"
+        # Only hook the activator in when scaled to zero.
+        autoscaling.knative.dev/targetBurstCapacity: "0"
+    spec:
+      containers:
+      - image: knative.dev/serving/test/test_images/autoscale
+      containerConcurrency: 100
+---
+apiVersion: serving.knative.dev/v1beta1
+kind: Service
+metadata:
+  name: queue-proxy-with-cc-10
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "15"
+        autoscaling.knative.dev/maxScale: "15"
+        # Only hook the activator in when scaled to zero.
+        autoscaling.knative.dev/targetBurstCapacity: "0"
+    spec:
+      containers:
+      - image: knative.dev/serving/test/test_images/autoscale
+      containerConcurrency: 10
+---
+apiVersion: serving.knative.dev/v1beta1
+kind: Service
+metadata:
+  name: queue-proxy-with-cc-1
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "150"
+        autoscaling.knative.dev/maxScale: "150"
+        # Only hook the activator in when scaled to zero.
+        autoscaling.knative.dev/targetBurstCapacity: "0"
+    spec:
+      containers:
+      - image: knative.dev/serving/test/test_images/autoscale
+      containerConcurrency: 1
 ---
 apiVersion: v1
 kind: Service

@@ -49,6 +49,8 @@ spec:
         ports:
         - name: metrics
           containerPort: 9090
+        - name: profiling
+          containerPort: 8008
         env:
         - name: SYSTEM_NAMESPACE
           valueFrom:

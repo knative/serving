@@ -29,12 +29,15 @@ import (
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+
 	"knative.dev/pkg/controller"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
@@ -67,8 +70,8 @@ type revisionWatcher struct {
 	protocol networking.ProtocolType
 	updateCh chan<- *RevisionDestsUpdate
 
-	// Stores the state of dests (podIPs) we know about
-	healthStates map[string]bool
+	// Stores the list of pods that have been successfully probed.
+	healthyPods sets.String
 	// Stores whether the service ClusterIP has been seen as healthy
 	clusterIPHealthy bool
 
@@ -86,27 +89,12 @@ func newRevisionWatcher(rev types.NamespacedName, protocol networking.ProtocolTy
 		rev:           rev,
 		protocol:      protocol,
 		updateCh:      updateCh,
-		healthStates:  make(map[string]bool),
+		healthyPods:   sets.NewString(),
 		transport:     transport,
 		destsChan:     destsChan,
 		serviceLister: serviceLister,
 		logger:        logger,
 	}
-}
-
-func filterHealthyDests(dests map[string]bool) []string {
-	ret := make([]string, 0, len(dests))
-	for dest, healthy := range dests {
-		if healthy {
-			ret = append(ret, dest)
-		}
-	}
-	return ret
-}
-
-type destHealth struct {
-	dest   string
-	health bool
 }
 
 func (rw *revisionWatcher) getK8sPrivateService() (*corev1.Service, error) {
@@ -136,7 +124,8 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (bool, error)
 	}
 	return prober.Do(ctx, rw.transport, httpDest.String(),
 		prober.WithHeader(network.ProbeHeaderName, queue.Name),
-		prober.ExpectsBody(queue.Name))
+		prober.ExpectsBody(queue.Name),
+		prober.ExpectsStatusCodes([]int{http.StatusOK}))
 
 }
 
@@ -159,38 +148,42 @@ func (rw *revisionWatcher) probeClusterIP(svc *corev1.Service) (bool, string, er
 	return ok, dest, err
 }
 
-func (rw *revisionWatcher) probePodIPs(dests []string) (map[string]bool, error) {
+// probePodIPs will probe the given target Pod IPs and will return
+// the ones that are successfully probed, or an error.
+func (rw *revisionWatcher) probePodIPs(dests []string) (sets.String, error) {
 	// Context used for our probe requests
 	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
 	defer cancel()
 
 	var probeGroup errgroup.Group
-	healthStatesCh := make(chan destHealth, len(dests))
+	healthyDests := make(chan string, len(dests))
 
 	for _, dest := range dests {
-		// If the dest is already healthy then preserve that.
-		if curHealthy, ok := rw.healthStates[dest]; ok && curHealthy {
-			healthStatesCh <- destHealth{dest, true}
+		// Good known Pod, no need to re-probe.
+		if rw.healthyPods.Has(dest) {
+			healthyDests <- dest
 			continue
 		}
 
-		pDest := dest
+		dest := dest // Standard Go concurrency pattern.
 		probeGroup.Go(func() error {
-			ok, err := rw.probe(ctx, pDest)
-			healthStatesCh <- destHealth{pDest, ok}
+			ok, err := rw.probe(ctx, dest)
+			if ok {
+				healthyDests <- dest
+			}
 			return err
 		})
 	}
 
 	err := probeGroup.Wait()
-	close(healthStatesCh)
+	close(healthyDests)
 
-	healthStates := make(map[string]bool, len(dests))
-	for dh := range healthStatesCh {
-		healthStates[dh.dest] = dh.health
+	hs := sets.NewString()
+	for d := range healthyDests {
+		hs.Insert(d)
 	}
 
-	return healthStates, err
+	return hs, err
 }
 
 // checkDests performs probing and potentially sends a dests update. It is
@@ -225,25 +218,25 @@ func (rw *revisionWatcher) checkDests(dests []string) {
 	if ok, dest, err := rw.probeClusterIP(svc); err != nil {
 		rw.logger.Errorw(fmt.Sprintf("Failed to probe clusterIP %s/%s", svc.Namespace, svc.Name), zap.Error(err))
 	} else if ok {
+		rw.logger.Debug("ClusterIP is successfully probed:", dest)
 		rw.clusterIPHealthy = true
-		rw.healthStates = nil
+		rw.healthyPods = nil
 		rw.updateCh <- &RevisionDestsUpdate{Rev: rw.rev, ClusterIPDest: dest}
 		return
 	}
 
-	healthStates, err := rw.probePodIPs(dests)
+	hs, err := rw.probePodIPs(dests)
 	if err != nil {
 		rw.logger.Errorw("Failed probing", zap.Error(err))
 		// We dont want to return here as an error still affects health states
 	}
 
-	rw.logger.Debugf("Done probing, got healthStates %v", healthStates)
-	if !reflect.DeepEqual(rw.healthStates, healthStates) {
-		rw.healthStates = healthStates
-		destsArr := filterHealthyDests(healthStates)
+	rw.logger.Debug("Done probing, got healthy pods: ", hs)
+	if !reflect.DeepEqual(rw.healthyPods, hs) {
+		rw.healthyPods = hs
 		rw.updateCh <- &RevisionDestsUpdate{
 			Rev:   rw.rev,
-			Dests: destsArr,
+			Dests: hs.UnsortedList(),
 		}
 	}
 }

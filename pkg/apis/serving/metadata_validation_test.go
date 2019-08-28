@@ -27,6 +27,7 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/config"
+	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 )
 
 func TestValidateObjectMetadata(t *testing.T) {
@@ -231,4 +232,63 @@ func TestValidateTimeoutSecond(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateContainerConcurrency(t *testing.T) {
+	cases := []struct {
+		name                 string
+		containerConcurrency *int64
+		expectErr            error
+	}{{
+		name:                 "empty containerConcurrency",
+		containerConcurrency: nil,
+		expectErr:            (*apis.FieldError)(nil),
+	}, {
+		name:                 "invalid containerConcurrency value",
+		containerConcurrency: ptr.Int64(2000),
+		expectErr: apis.ErrOutOfBoundsValue(
+			2000, 0, config.DefaultMaxRevisionContainerConcurrency, apis.CurrentField),
+	}, {
+		name:                 "valid containerConcurrency value",
+		containerConcurrency: ptr.Int64(10),
+		expectErr:            (*apis.FieldError)(nil),
+	}}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := ValidateContainerConcurrency(c.containerConcurrency)
+			if !reflect.DeepEqual(c.expectErr, err) {
+				t.Errorf("Expected: '%#v', Got: '%#v'", c.expectErr, err)
+			}
+		})
+	}
+}
+
+func TestValidateClusterVisibilityLabel(t *testing.T) {
+	tests := []struct {
+		name      string
+		label     string
+		expectErr error
+	}{{
+		name:      "empty label",
+		label:     "",
+		expectErr: apis.ErrInvalidValue("", routeconfig.VisibilityLabelKey),
+	}, {
+		name:      "valid label",
+		label:     routeconfig.VisibilityClusterLocal,
+		expectErr: (*apis.FieldError)(nil),
+	}, {
+		name:      "invalid label",
+		label:     "not-cluster-local",
+		expectErr: apis.ErrInvalidValue("not-cluster-local", routeconfig.VisibilityLabelKey),
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := ValidateClusterVisibilityLabel(test.label)
+			if !reflect.DeepEqual(test.expectErr, err) {
+				t.Errorf("ValidateClusterVisibilityLabel(%s) = %#v, Want: '%#v'", test.label, err, test.expectErr)
+			}
+		})
+	}
+
 }

@@ -106,7 +106,7 @@ func NewController(
 		&autoscaler.Config{},
 	}
 	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
-		controller.SendGlobalUpdates(paInformer.Informer(), paHandler)
+		impl.FilteredGlobalResync(onlyKpaClass, paInformer.Informer())
 	})
 	configStore := config.NewStore(c.Logger.Named("config-store"), resync)
 	configStore.WatchConfigs(cmw)

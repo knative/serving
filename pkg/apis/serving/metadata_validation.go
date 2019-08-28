@@ -25,6 +25,7 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
+	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 )
 
 var (
@@ -88,7 +89,7 @@ func ValidateTimeoutSeconds(ctx context.Context, timeoutSeconds int64) *apis.Fie
 
 // ValidateContainerConcurrency function validates the ContainerConcurrency field
 // TODO(#5007): Move this to autoscaling.
-func ValidateContainerConcurrency(ctx context.Context, containerConcurrency *int64) *apis.FieldError {
+func ValidateContainerConcurrency(containerConcurrency *int64) *apis.FieldError {
 	if containerConcurrency != nil {
 		if *containerConcurrency < 0 || *containerConcurrency > config.DefaultMaxRevisionContainerConcurrency {
 			return apis.ErrOutOfBoundsValue(
@@ -96,4 +97,12 @@ func ValidateContainerConcurrency(ctx context.Context, containerConcurrency *int
 		}
 	}
 	return nil
+}
+
+// ValidateClusterVisibilityLabel function validates the visibility label on a Route
+func ValidateClusterVisibilityLabel(label string) (errs *apis.FieldError) {
+	if label != routeconfig.VisibilityClusterLocal {
+		errs = apis.ErrInvalidValue(label, routeconfig.VisibilityLabelKey)
+	}
+	return
 }

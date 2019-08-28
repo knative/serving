@@ -26,6 +26,7 @@ import (
 	"knative.dev/pkg/apis/duck"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	apitest "knative.dev/pkg/apis/testing"
+	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
 )
 
@@ -512,58 +513,73 @@ func TestTargetAnnotation(t *testing.T) {
 
 func TestScaleBounds(t *testing.T) {
 	cases := []struct {
-		name    string
-		pa      *PodAutoscaler
-		wantMin int32
-		wantMax int32
+		name         string
+		min          string
+		max          string
+		reachability ReachabilityType
+		wantMin      int32
+		wantMax      int32
 	}{{
-		name: "present",
-		pa: pa(map[string]string{
-			autoscaling.MinScaleAnnotationKey: "1",
-			autoscaling.MaxScaleAnnotationKey: "100",
-		}),
+		name:    "present",
+		min:     "1",
+		max:     "100",
 		wantMin: 1,
 		wantMax: 100,
 	}, {
 		name:    "absent",
-		pa:      pa(map[string]string{}),
 		wantMin: 0,
 		wantMax: 0,
 	}, {
-		name: "only min",
-		pa: pa(map[string]string{
-			autoscaling.MinScaleAnnotationKey: "1",
-		}),
+		name:    "only min",
+		min:     "1",
 		wantMin: 1,
 		wantMax: 0,
 	}, {
-		name: "only max",
-		pa: pa(map[string]string{
-			autoscaling.MaxScaleAnnotationKey: "1",
-		}),
+		name:    "only max",
+		max:     "1",
 		wantMin: 0,
 		wantMax: 1,
 	}, {
-		name: "malformed",
-		pa: pa(map[string]string{
-			autoscaling.MinScaleAnnotationKey: "ham",
-			autoscaling.MaxScaleAnnotationKey: "sandwich",
-		}),
+		name:         "reachable",
+		min:          "1",
+		max:          "100",
+		reachability: ReachabilityReachable,
+		wantMin:      1,
+		wantMax:      100,
+	}, {
+		name:         "unreachable",
+		min:          "1",
+		max:          "100",
+		reachability: ReachabilityUnreachable,
+		wantMin:      0,
+		wantMax:      100,
+	}, {
+		name:    "malformed",
+		min:     "ham",
+		max:     "sandwich",
 		wantMin: 0,
 		wantMax: 0,
 	}, {
-		name: "too small",
-		pa: pa(map[string]string{
-			autoscaling.MinScaleAnnotationKey: "-1",
-			autoscaling.MaxScaleAnnotationKey: "-1",
-		}),
+		name:    "too small",
+		min:     "-1",
+		max:     "-1",
 		wantMin: 0,
 		wantMax: 0,
 	}}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			min, max := tc.pa.ScaleBounds()
+			pa := pa(map[string]string{})
+			if tc.min != "" {
+				pa.Annotations[autoscaling.MinScaleAnnotationKey] = tc.min
+			}
+			if tc.max != "" {
+				pa.Annotations[autoscaling.MaxScaleAnnotationKey] = tc.max
+			}
+			pa.Spec.Reachability = tc.reachability
+
+			min, max := pa.ScaleBounds()
+
 			if min != tc.wantMin {
 				t.Errorf("got min: %v wanted: %v", min, tc.wantMin)
 			}
@@ -934,5 +950,24 @@ func TestTargetBC(t *testing.T) {
 				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
 			}
 		})
+	}
+}
+
+func TestScaleStatus(t *testing.T) {
+	pas := &PodAutoscalerStatus{}
+	if got, want := pas.GetDesiredScale(), int32(-1); got != want {
+		t.Errorf("GetDesiredScale = %d, want: %v", got, want)
+	}
+	pas.DesiredScale = ptr.Int32(19980709)
+	if got, want := pas.GetDesiredScale(), int32(19980709); got != want {
+		t.Errorf("GetDesiredScale = %d, want: %v", got, want)
+	}
+
+	if got, want := pas.GetActualScale(), int32(-1); got != want {
+		t.Errorf("GetActualScale = %d, want: %v", got, want)
+	}
+	pas.ActualScale = ptr.Int32(20060907)
+	if got, want := pas.GetActualScale(), int32(20060907); got != want {
+		t.Errorf("GetActualScale = %d, want: %v", got, want)
 	}
 }

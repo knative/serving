@@ -17,9 +17,11 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -34,6 +36,7 @@ import (
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
+	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
@@ -100,11 +103,15 @@ func main() {
 	statsCh := make(chan *autoscaler.StatMessage, statsBufferLen)
 	defer close(statsCh)
 
+	profilingHandler := profiling.NewHandler(logger, false)
+
 	cmw := configmap.NewInformedWatcher(kubeclient.Get(ctx), system.Namespace())
 	// Watch the logging config map and dynamically update logging levels.
 	cmw.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
-	// Watch the observability config map and dynamically update metrics exporter.
-	cmw.Watch(metrics.ConfigMapName(), metrics.UpdateExporterFromConfigMap(component, logger))
+	// Watch the observability config map
+	cmw.Watch(metrics.ConfigMapName(),
+		metrics.UpdateExporterFromConfigMap(component, logger),
+		profilingHandler.UpdateFromConfigMap)
 
 	endpointsInformer := endpointsinformer.Get(ctx)
 
@@ -142,19 +149,24 @@ func main() {
 		}
 	}()
 
+	profilingServer := profiling.NewServer(profilingHandler)
+
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		return customMetricsAdapter.Run(ctx.Done())
 	})
 	eg.Go(statsServer.ListenAndServe)
+	eg.Go(profilingServer.ListenAndServe)
 
 	// This will block until either a signal arrives or one of the grouped functions
 	// returns an error.
 	<-egCtx.Done()
 
 	statsServer.Shutdown(5 * time.Second)
-	if err := eg.Wait(); err != nil {
-		logger.Errorw("Error while shutting down", zap.Error(err))
+	profilingServer.Shutdown(context.Background())
+	// Don't forward ErrServerClosed as that indicates we're already shutting down.
+	if err := eg.Wait(); err != nil && err != http.ErrServerClosed {
+		logger.Errorw("Error while running server", zap.Error(err))
 	}
 }
 
@@ -176,8 +188,7 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer, m
 			return nil, err
 		}
 
-		podCounter := resources.NewScopedEndpointsCounter(endpointsInformer.Lister(), decider.Namespace, decider.Spec.ServiceName)
-		return autoscaler.New(decider.Namespace, decider.Name, metricClient, podCounter, decider.Spec, reporter)
+		return autoscaler.New(decider.Namespace, decider.Name, metricClient, endpointsInformer.Lister(), decider.Spec, reporter)
 	}
 }
 

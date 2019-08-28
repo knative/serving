@@ -23,8 +23,8 @@ gateways:
     autoscaleMax: 4
     resources:
       requests:
-        cpu: 1000m
-        memory: 1024Mi
+        cpu: 500m
+        memory: 512Mi
     ports:
     - name: status-port
       port: 15020
@@ -40,7 +40,10 @@ gateways:
     replicaCount: 2
     autoscaleMin: 2
     autoscaleMax: 4
-    resources: {}
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
     cpu:
       targetAverageUtilization: 80
     loadBalancerIP: ""

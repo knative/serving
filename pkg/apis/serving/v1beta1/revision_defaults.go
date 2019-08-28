@@ -39,9 +39,8 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 	cfg := config.FromContextOrDefaults(ctx)
 
 	// Default TimeoutSeconds based on our configmap
-	if rs.TimeoutSeconds == nil {
-		ts := cfg.Defaults.RevisionTimeoutSeconds
-		rs.TimeoutSeconds = &ts
+	if rs.TimeoutSeconds == nil || *rs.TimeoutSeconds == 0 {
+		rs.TimeoutSeconds = ptr.Int64(cfg.Defaults.RevisionTimeoutSeconds)
 	}
 
 	// Default ContainerConcurrency based on our configmap

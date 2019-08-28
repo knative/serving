@@ -33,7 +33,7 @@ func TestNewRequestMetricHandlerFailure(t *testing.T) {
 	})
 
 	var r stats.StatsReporter
-	_, err := NewRequestMetricHandler(baseHandler, r)
+	_, err := NewRequestMetricHandler(baseHandler, r, nil)
 	if err == nil {
 		t.Error("should get error when StatsReporter is empty")
 	}
@@ -43,41 +43,51 @@ func TestRequestMetricHandler(t *testing.T) {
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	r := &fakeStatsReporter{}
-	handler, err := NewRequestMetricHandler(baseHandler, r)
-	if err != nil {
-		t.Fatalf("failed to create handler: %v", err)
-	}
+	for _, b := range []*Breaker{nil, NewBreaker(BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1})} {
+		r := &fakeStatsReporter{}
+		// No breaker is fine.
+		handler, err := NewRequestMetricHandler(baseHandler, r, b)
+		if err != nil {
+			t.Fatalf("failed to create handler: %v", err)
+		}
 
-	resp := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "http://example.com", bytes.NewBufferString("test"))
-	handler.ServeHTTP(resp, req)
+		resp := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "http://example.com", bytes.NewBufferString("test"))
+		handler.ServeHTTP(resp, req)
 
-	// Serve one request, should get 1 request count and none zero latency
-	if got, want := r.reqCountReportTimes, 1; got != want {
-		t.Errorf("ReportRequestCount was triggered %v times, want %v", got, want)
-	}
-	if got, want := r.respTimeReportTimes, 1; got != want {
-		t.Errorf("ReportResponseTime was triggered %v times, want %v", got, want)
-	}
-	if got, want := r.lastRespCode, http.StatusOK; got != want {
-		t.Errorf("response code got %v, want %v", got, want)
-	}
-	if got, want := r.lastReqCount, 1; got != int64(want) {
-		t.Errorf("request count got %v, want %v", got, want)
-	}
-	if r.lastReqLatency == 0 {
-		t.Errorf("request latency got %v, want larger than 0", r.lastReqLatency)
-	}
+		// Serve one request, should get 1 request count and none zero latency
+		if got, want := r.reqCountReportTimes, 1; got != want {
+			t.Errorf("ReportRequestCount was triggered %v times, want %v", got, want)
+		}
+		if got, want := r.respTimeReportTimes, 1; got != want {
+			t.Errorf("ReportResponseTime was triggered %v times, want %v", got, want)
+		}
+		if got, want := r.lastRespCode, http.StatusOK; got != want {
+			t.Errorf("response code got %v, want %v", got, want)
+		}
+		if got, want := r.lastReqCount, 1; got != int64(want) {
+			t.Errorf("request count got %v, want %v", got, want)
+		}
+		if r.lastReqLatency == 0 {
+			t.Errorf("request latency got %v, want larger than 0", r.lastReqLatency)
+		}
+		wantQD := 0
+		if b != nil {
+			wantQD++
+		}
+		if got, want := r.queueDepthTimes, wantQD; got != want {
+			t.Errorf("QueueDepth report count = %d, want: %d", got, want)
+		}
 
-	// A probe request should not be recorded.
-	req.Header.Set(network.ProbeHeaderName, "activator")
-	handler.ServeHTTP(resp, req)
-	if got, want := r.reqCountReportTimes, 1; got != want {
-		t.Errorf("ReportRequestCount was triggered %v times, want %v", got, want)
-	}
-	if got, want := r.respTimeReportTimes, 1; got != want {
-		t.Errorf("ReportResponseTime was triggered %v times, want %v", got, want)
+		// A probe request should not be recorded.
+		req.Header.Set(network.ProbeHeaderName, "activator")
+		handler.ServeHTTP(resp, req)
+		if got, want := r.reqCountReportTimes, 1; got != want {
+			t.Errorf("ReportRequestCount was triggered %v times, want %v", got, want)
+		}
+		if got, want := r.respTimeReportTimes, 1; got != want {
+			t.Errorf("ReportResponseTime was triggered %v times, want %v", got, want)
+		}
 	}
 }
 
@@ -86,7 +96,7 @@ func TestRequestMetricHandlerPanickingHandler(t *testing.T) {
 		panic("no!")
 	})
 	r := &fakeStatsReporter{}
-	handler, err := NewRequestMetricHandler(baseHandler, r)
+	handler, err := NewRequestMetricHandler(baseHandler, r, nil)
 	if err != nil {
 		t.Fatalf("Failed to create handler: %v", err)
 	}
@@ -118,15 +128,21 @@ func TestRequestMetricHandlerPanickingHandler(t *testing.T) {
 type fakeStatsReporter struct {
 	reqCountReportTimes int
 	respTimeReportTimes int
+	queueDepthTimes     int
 	lastRespCode        int
 	lastReqCount        int64
 	lastReqLatency      time.Duration
 }
 
-func (r *fakeStatsReporter) ReportRequestCount(responseCode int, v int64) error {
+func (r *fakeStatsReporter) ReportQueueDepth(qd int) error {
+	r.queueDepthTimes++
+	return nil
+}
+
+func (r *fakeStatsReporter) ReportRequestCount(responseCode int) error {
 	r.reqCountReportTimes++
 	r.lastRespCode = responseCode
-	r.lastReqCount = v
+	r.lastReqCount = 1
 	return nil
 }
 
