@@ -185,7 +185,7 @@ func TestRevisionTimeout(t *testing.T) {
 		t.Fatalf("Failed to update Service: %v", err)
 	}
 
-	t.Log("Wait for the service urls to be ready")
+	t.Log("Wait for the service URLs to be ready")
 	if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic: %v", names.Service, err)
 	}
