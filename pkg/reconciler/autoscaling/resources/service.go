@@ -33,8 +33,8 @@ import (
 func MakeMetricsService(pa *pav1alpha1.PodAutoscaler, selector map[string]string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: pa.Name + "-",
-			Namespace:    pa.Namespace,
+			Name:      kmeta.ChildName(pa.Name, "-metrics"),
+			Namespace: pa.Namespace,
 			Labels: resources.UnionMaps(pa.GetLabels(), map[string]string{
 				autoscaling.KPALabelKey:   pa.Name,
 				networking.ServiceTypeKey: string(networking.ServiceTypeMetrics),
