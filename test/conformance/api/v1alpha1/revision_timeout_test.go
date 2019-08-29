@@ -67,7 +67,7 @@ func updateServiceWithTimeout(clients *test.Clients, names test.ResourceNames, r
 
 // sendRequests send a request to "domain", returns error if unexpected response code, nil otherwise.
 func sendRequest(t *testing.T, clients *test.Clients, domain string, initialSleepSeconds int, sleepSeconds int, expectedResponseCode int) error {
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, &http.Transport{}, t.Logf, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Logf("Spoofing client failed: %v", err)
 		return err

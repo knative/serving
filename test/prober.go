@@ -166,7 +166,7 @@ func (m *manager) Spawn(domain string) Prober {
 	}
 	m.probes[domain] = p
 	go func() {
-		client, err := pkgTest.NewSpoofingClient(m.clients.KubeClient, m.logf, domain,
+		client, err := pkgTest.NewSpoofingClient(m.clients.KubeClient, &http.Transport{}, m.logf, domain,
 			ServingFlags.ResolvableDomain)
 		if err != nil {
 			m.logf("NewSpoofingClient() = %v", err)

@@ -21,6 +21,7 @@ package performance
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"testing"
 	"time"
 
@@ -72,6 +73,7 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *v1a1test
 	t.Logf("%02d: waiting for endpoint to serve request", idx)
 	resp, err := pkgTest.WaitForEndpointStateWithTimeout(
 		clients.KubeClient,
+		&http.Transport{},
 		t.Logf,
 		domain,
 		pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput)),

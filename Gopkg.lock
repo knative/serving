@@ -1655,7 +1655,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:999e5842e5917fc452ae40769030dbc049e9def569118d01804f0fc46956e4fa"
+  digest = "1:128f861541d4523830b16b78b94be8cd00440787e2e0a31f719abb5b61cc2042"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1731,6 +1731,7 @@
     "metrics/metricskey",
     "metrics/metricstest",
     "metrics/testing",
+    "network",
     "profiling",
     "ptr",
     "reconciler/testing",
@@ -1756,7 +1757,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "8cae700d29e47d30cbc05ffb230a5e8d73aaec9e"
+  revision = "3dd5d66573f6dc922b3c9357d8dc97dbba3c9f3b"
 
 [[projects]]
   branch = "master"
@@ -1942,6 +1943,7 @@
     "knative.dev/pkg/metrics/metricskey",
     "knative.dev/pkg/metrics/metricstest",
     "knative.dev/pkg/metrics/testing",
+    "knative.dev/pkg/network",
     "knative.dev/pkg/profiling",
     "knative.dev/pkg/ptr",
     "knative.dev/pkg/reconciler/testing",

@@ -78,7 +78,7 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 	)
 
 	ctx.t.Logf("Maintaining %d concurrent requests for %v.", concurrency, duration)
-	client, err := pkgTest.NewSpoofingClient(ctx.clients.KubeClient, ctx.t.Logf, ctx.domain, test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(ctx.clients.KubeClient, &http.Transport{}, ctx.t.Logf, ctx.domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return fmt.Errorf("error creating spoofing client: %v", err)
 	}

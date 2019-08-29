@@ -73,7 +73,7 @@ func TestActivatorOverload(t *testing.T) {
 		t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", deploymentName, err)
 	}
 
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, &http.Transport{}, t.Logf, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("Error creating the Spoofing client: %v", err)
 	}

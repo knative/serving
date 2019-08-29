@@ -80,7 +80,7 @@ var testInjection = []struct {
 
 func sendRequest(t *testing.T, clients *test.Clients, resolvableDomain bool, domain string) (*spoof.Response, error) {
 	t.Logf("The domain of request is %s.", domain)
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, resolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, &http.Transport{}, t.Logf, domain, resolvableDomain)
 	if err != nil {
 		return nil, err
 	}

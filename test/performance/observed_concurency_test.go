@@ -167,7 +167,7 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 
 	domain := objs.Route.Status.URL.Host
 	url := fmt.Sprintf("http://%s/?timeout=1000", domain)
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, &http.Transport{}, t.Logf, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("Error creating spoofing client: %v", err)
 	}

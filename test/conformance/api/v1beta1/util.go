@@ -36,7 +36,7 @@ import (
 )
 
 func waitForExpectedResponse(t *testing.T, clients *test.Clients, domain, expectedResponse string) error {
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, &http.Transport{}, t.Logf, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func validateDomains(
 // checkDistribution sends "num" requests to "domain", then validates that
 // we see each body in "expectedResponses" at least "min" times.
 func checkDistribution(t *testing.T, clients *test.Clients, domain string, num, min int, expectedResponses []string) error {
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, &http.Transport{}, t.Logf, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return err
 	}
