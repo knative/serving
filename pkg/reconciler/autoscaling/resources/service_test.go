@@ -14,6 +14,7 @@ limitations under the License.
 package resources
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -21,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	pav1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
@@ -30,69 +32,76 @@ import (
 )
 
 func TestMakeService(t *testing.T) {
-	pa := &pav1a1.PodAutoscaler{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "here",
-			Name:      "with-you",
-			UID:       "2006",
-			// Those labels are propagated from the Revision->PA.
-			Labels: map[string]string{
-				serving.RevisionLabelKey: "with-you",
-				serving.RevisionUID:      "2009",
-			},
-			Annotations: map[string]string{
-				"a": "b",
-			},
-		},
-		Spec: pav1a1.PodAutoscalerSpec{
-			ScaleTargetRef: corev1.ObjectReference{
-				APIVersion: "apps/v1",
-				Kind:       "Deployment",
-				Name:       "with-you",
-			},
-		},
-	}
-	selector := map[string]string{"cant": "stop"}
-	want := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:    "here",
-			GenerateName: "with-you-",
-			Labels: map[string]string{
-				// Those should be propagated.
-				serving.RevisionLabelKey:  "with-you",
-				serving.RevisionUID:       "2009",
-				autoscaling.KPALabelKey:   "with-you",
-				networking.ServiceTypeKey: string(networking.ServiceTypeMetrics),
-			},
-			Annotations: map[string]string{
-				"a": "b",
-			},
-			OwnerReferences: []metav1.OwnerReference{{
-				APIVersion:         pav1a1.SchemeGroupVersion.String(),
-				Kind:               "PodAutoscaler",
-				Name:               "with-you",
-				UID:                "2006",
-				Controller:         ptr.Bool(true),
-				BlockOwnerDeletion: ptr.Bool(true),
-			}},
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{{
-				Name:       "metrics",
-				Protocol:   corev1.ProtocolTCP,
-				Port:       9090,
-				TargetPort: intstr.FromString("queue-metrics"),
-			}, {
-				Name:       v1alpha1.UserQueueMetricsPortName,
-				Protocol:   corev1.ProtocolTCP,
-				Port:       networking.UserQueueMetricsPort,
-				TargetPort: intstr.FromString(v1alpha1.UserQueueMetricsPortName),
-			}},
-			Selector: selector,
-		},
-	}
-	got := MakeMetricsService(pa, selector)
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("Metrics K8s Service mismatch (-want, +got) = %v", diff)
+	for in, want := range map[string]string{
+		"with-you":                           "with-you-metrics",
+		strings.Repeat("apples-on-venus", 7): kmeta.ChildName(strings.Repeat("apples-on-venus", 7), "-metrics"),
+	} {
+		t.Run(in, func(t *testing.T) {
+			pa := &pav1a1.PodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "here",
+					Name:      in,
+					UID:       "2006",
+					// Those labels are propagated from the Revision->PA.
+					Labels: map[string]string{
+						serving.RevisionLabelKey: in,
+						serving.RevisionUID:      "2009",
+					},
+					Annotations: map[string]string{
+						"a": "b",
+					},
+				},
+				Spec: pav1a1.PodAutoscalerSpec{
+					ScaleTargetRef: corev1.ObjectReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       "with-you",
+					},
+				},
+			}
+			selector := map[string]string{"cant": "stop"}
+			wantS := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "here",
+					Name:      want,
+					Labels: map[string]string{
+						// Those should be propagated.
+						serving.RevisionLabelKey:  in,
+						serving.RevisionUID:       "2009",
+						autoscaling.KPALabelKey:   in,
+						networking.ServiceTypeKey: string(networking.ServiceTypeMetrics),
+					},
+					Annotations: map[string]string{
+						"a": "b",
+					},
+					OwnerReferences: []metav1.OwnerReference{{
+						APIVersion:         pav1a1.SchemeGroupVersion.String(),
+						Kind:               "PodAutoscaler",
+						Name:               in,
+						UID:                "2006",
+						Controller:         ptr.Bool(true),
+						BlockOwnerDeletion: ptr.Bool(true),
+					}},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{{
+						Name:       "metrics",
+						Protocol:   corev1.ProtocolTCP,
+						Port:       9090,
+						TargetPort: intstr.FromString("queue-metrics"),
+					}, {
+						Name:       v1alpha1.UserQueueMetricsPortName,
+						Protocol:   corev1.ProtocolTCP,
+						Port:       networking.UserQueueMetricsPort,
+						TargetPort: intstr.FromString(v1alpha1.UserQueueMetricsPortName),
+					}},
+					Selector: selector,
+				},
+			}
+			got := MakeMetricsService(pa, selector)
+			if diff := cmp.Diff(wantS, got); diff != "" {
+				t.Errorf("Metrics K8s Service mismatch (-want, +got) = %v", diff)
+			}
+		})
 	}
 }
