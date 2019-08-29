@@ -190,13 +190,13 @@ func generateTrafficAtFixedRPS(ctx *testContext, rps int, duration time.Duration
 				return nil
 			}
 
-			atomic.AddInt32(&totalRequests, 1)
+			totalRequests++
 			if res.Code != http.StatusOK {
 				ctx.t.Logf("Status = %d, want: 200", res.Code)
 				ctx.t.Logf("Response: %v", res)
 				continue
 			}
-			atomic.AddInt32(&successfulRequests, 1)
+			successfulRequests++
 		}
 	}
 
@@ -442,7 +442,7 @@ func TestRPSBasedAutoscaleUpCountPods(t *testing.T) {
 		name, class := name, class
 		t.Run(name, func(tt *testing.T) {
 			tt.Parallel()
-			cancel := logstream.Start(t)
+			cancel := logstream.Start(tt)
 			defer cancel()
 
 			ctx := setup(tt, class, autoscaling.RPS, 10, targetUtilization)
