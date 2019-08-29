@@ -74,7 +74,12 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 	var period, quota *int
 
 	for _, cgroup := range cgroups {
-		// These two are special - just save their values and the continue
+		if cgroup.Error != "" {
+			t.Errorf("Error getting cgroup information: %v", cgroup.Error)
+			continue
+		}
+
+		// These two are special - just save their values and then continue
 		if cgroup.Name == "/sys/fs/cgroup/cpu/cpu.cfs_period_us" {
 			period = cgroup.Value
 			continue
@@ -84,10 +89,6 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 			continue
 		}
 
-		if cgroup.Error != "" {
-			t.Errorf("Error getting cgroup information: %v", cgroup.Error)
-			continue
-		}
 		if _, ok := expectedCgroups[cgroup.Name]; !ok {
 			// Service returned a value we don't test
 			t.Logf("%v cgroup returned, but not validated", cgroup.Name)
@@ -103,10 +104,10 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 	} else if quota == nil {
 		t.Errorf("Can't find the 'cpu.cfs_quota_us' from cgroups")
 	} else {
-		ratio := (100 * (*period)) / (*quota)
-		if ratio != cpuLimit*100 {
-			t.Errorf("Ratio (%v) is wrong should be %v. Period: %v Quota: %v",
-				ratio, cpuLimit*100, period, quota)
+		percent := (100 * (*period)) / (*quota)
+		if percent != cpuLimit*100 {
+			t.Errorf("Percent (%v) is wrong should be %v. Period: %v Quota: %v",
+				percent, cpuLimit*100, period, quota)
 		}
 	}
 
