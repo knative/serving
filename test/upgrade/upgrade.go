@@ -49,9 +49,10 @@ var Tests = map[string]struct {
 	testType   string
 }{
 	"Using v1alpha1_client": {clientType: "v1alpha1", testType: "v1alpha1test"},
-	"Using v1beta1_client":  {clientType: "v1beta1", testType: "v1beta1test"},
-	"Using v1alpha1 for pre upgrade and v1beta1 for post upgrade": {clientType: "v1alpha1", testType: "prea1postb1"},
-	"Using dynamic client": {clientType: "dynamic", testType: "dynamictest"},
+	//TODO: Enable following test cases when the test cluster supports multiple CRD versions
+	//"Using v1beta1_client":  {clientType: "v1beta1", testType: "v1beta1test"},
+	//"Using v1alpha1 for pre upgrade and v1beta1 for post upgrade": {clientType: "v1alpha1", testType: "prea1postb1"},
+	//"Using dynamic client": {clientType: "dynamic", testType: "dynamictest"},
 }
 
 // Shamelessly cribbed from conformance/service_test.
