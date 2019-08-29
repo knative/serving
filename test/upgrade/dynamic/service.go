@@ -49,28 +49,32 @@ const (
 	timeout  = 10 * time.Minute
 )
 
-//GetGroupVersionResource returns schema.GroupVersionResource for a given version(v1alpha1/v1beta1) otherwise returns
-//randomly either v1alpha1 or v1beta1
-func GetGroupVersionResource(version string) schema.GroupVersionResource {
+//GetGroupVersionResource returns schema.GroupVersionResource for a given version(v1alpha1/v1beta1) or returns
+//randomly either v1alpha1 or v1beta1 for "" otherwise returns error
+func GetGroupVersionResource(version string) (schema.GroupVersionResource, error) {
 	versions := []schema.GroupVersionResource{
 		v1alpha1.SchemeGroupVersion.WithResource("services"),
 		v1beta1.SchemeGroupVersion.WithResource("services"),
 	}
 	if v1alpha1.SchemeGroupVersion.String() == version {
-		return versions[0]
+		return versions[0], nil
 	} else if v1beta1.SchemeGroupVersion.String() == version {
-		return versions[1]
-	} else {
+		return versions[1], nil
+	} else if version == "" {
 		source := rand.NewSource(time.Now().UnixNano())
 		random := rand.New(source)
-		return versions[random.Intn(len(versions))]
+		return versions[random.Intn(len(versions))], nil
 	}
+	return schema.GroupVersionResource{}, errors.Errorf("Unsupported version: %s", version)
 }
 
 // CreateServiceReady creates a new Service in state 'Ready'. This function expects Service and Image name
 // passed in through 'uSvc' as unstructured.Unstructured. test.ResourceNames is returned with the Service, Domain, and Revision string.
 func CreateServiceReady(t *testing.T, clients *test.Clients, uSvc *unstructured.Unstructured) (test.ResourceNames, error) {
-	gvr := GetGroupVersionResource(uSvc.GetAPIVersion())
+	gvr, err := GetGroupVersionResource(uSvc.GetAPIVersion())
+	if err != nil {
+		return test.ResourceNames{}, err
+	}
 	svc, err := clients.Dynamic.Resource(gvr).Namespace(test.ServingNamespace).
 		Create(uSvc, metav1.CreateOptions{})
 	if err != nil {
@@ -86,7 +90,10 @@ func CreateServiceReady(t *testing.T, clients *test.Clients, uSvc *unstructured.
 //GeService returns test.ResourceNames with serviceName,RevisionName and domain of a given service
 func GetService(clients *test.Clients, serviceName string) (test.ResourceNames, error) {
 	//Choosing resource version dynamically
-	gvr := GetGroupVersionResource("")
+	gvr, err := GetGroupVersionResource("")
+	if err != nil {
+		return test.ResourceNames{}, err
+	}
 
 	service, err := clients.Dynamic.Resource(gvr).Namespace(test.ServingNamespace).Get(serviceName, metav1.GetOptions{})
 	if err != nil {
@@ -100,7 +107,10 @@ func GetService(clients *test.Clients, serviceName string) (test.ResourceNames, 
 func PatchServiceImage(clients *test.Clients, serviceName string, newImage string) (test.ResourceNames, error) {
 	resource := test.ResourceNames{}
 	//Choosing resource version dynamically
-	gvr := GetGroupVersionResource("")
+	gvr, err := GetGroupVersionResource("")
+	if err != nil {
+		return resource, err
+	}
 	var patchedBytes []byte
 	service, err := clients.Dynamic.Resource(gvr).Namespace(test.ServingNamespace).Get(serviceName, metav1.GetOptions{})
 	if err != nil {
@@ -131,7 +141,10 @@ func PatchServiceImage(clients *test.Clients, serviceName string, newImage strin
 		}
 	}
 
-	gvr = GetGroupVersionResource(service.GetAPIVersion())
+	gvr, err = GetGroupVersionResource(service.GetAPIVersion())
+	if err != nil {
+		return resource, err
+	}
 	patchedService, err := clients.Dynamic.Resource(gvr).Namespace(test.ServingNamespace).Patch(serviceName, types.JSONPatchType, patchedBytes, metav1.UpdateOptions{})
 	if err != nil {
 		return resource, err
@@ -147,7 +160,10 @@ func WaitForServiceState(clients *test.Clients, serviceName string, desc string,
 	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForServiceState/%s/%s", serviceName, desc))
 	defer span.End()
 	//Choosing resource version dynamically
-	gvr := GetGroupVersionResource("")
+	gvr, err := GetGroupVersionResource("")
+	if err != nil {
+		return err
+	}
 	if v1beta1.SchemeGroupVersion.String() == gvr.GroupVersion().String() {
 		var lastState *v1beta1.Service
 		waitErr := wait.PollImmediate(interval, timeout, func() (bool, error) {
