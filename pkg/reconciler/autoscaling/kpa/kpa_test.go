@@ -311,7 +311,7 @@ func TestReconcile(t *testing.T) {
 		WantErr: true,
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
-				`error checking endpoints test-revision-rand: endpoints "test-revision-rand" not found`),
+				`error checking endpoints test-revision-private: endpoints "test-revision-private" not found`),
 		},
 	}, {
 		Name: "metric-service-mismatch",
@@ -500,7 +500,7 @@ func TestReconcile(t *testing.T) {
 		WantErr: true,
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
-				`error checking endpoints test-revision-rand: endpoints "test-revision-rand" not found`),
+				`error checking endpoints test-revision-private: endpoints "test-revision-private" not found`),
 		},
 	}, {
 		Name: "pa activates",
@@ -531,7 +531,8 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithTraffic, withMSvcStatus(testRevision),
 				withScales(0, defaultScale), WithPAStatusService(testRevision)),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPubService, WithPrivateService(testRevision+"-rand")),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPubService,
+				WithPrivateService(testRevision+"-private")),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 			metric(testNamespace, testRevision),
 			defaultDeployment, defaultEndpoints,
@@ -956,9 +957,9 @@ func TestReconcile(t *testing.T) {
 		Ctx: context.WithValue(context.Background(), deciderKey,
 			decider(testNamespace, testRevision, -1 /* desiredScale */, 0 /* ebc */)),
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markInactive, withMSvcStatus("yak-40"),
-				withScales(0, 0), WithPAStatusService(testRevision)),
-			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode),
+			kpa(testNamespace, testRevision, markInactive, withMSvcStatus(testRevision),
+				withScales(0, -1), WithPAStatusService(testRevision)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithPubService),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 			metric(testNamespace, testRevision),
 			defaultDeployment, defaultEndpoints,

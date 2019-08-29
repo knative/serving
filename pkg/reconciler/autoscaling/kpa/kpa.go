@@ -275,7 +275,6 @@ func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want int32, got int) {
 	case got >= minReady:
 		if want > 0 || !pa.Status.IsInactive() {
 			// SKS should already be active.
-			fmt.Printf("### MARKING ACTIVE\n")
 			pa.Status.MarkActive()
 		}
 	}
