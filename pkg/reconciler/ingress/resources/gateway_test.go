@@ -223,8 +223,8 @@ func TestMakeTLSServers(t *testing.T) {
 		expected: []v1alpha3.Server{{
 			Hosts: []string{"host1.example.com"},
 			Port: v1alpha3.Port{
-				// port name is created with <namespace>-<name>
-				Name:     "default-ingress:0",
+				// port name is created with <namespace>/<name>
+				Name:     "default/ingress:0",
 				Number:   443,
 				Protocol: v1alpha3.ProtocolHTTPS,
 			},
