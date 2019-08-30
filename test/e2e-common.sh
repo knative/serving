@@ -138,7 +138,6 @@ function install_knative_serving() {
     return
   fi
   echo ">> Installing Knative serving from custom YAMLs"
-  kubectl label namespace default istio-injection=enabled
   echo "Custom YAML files: ${INSTALL_CUSTOM_YAMLS}"
   for yaml in ${INSTALL_CUSTOM_YAMLS}; do
     echo "Installing '${yaml}'"
