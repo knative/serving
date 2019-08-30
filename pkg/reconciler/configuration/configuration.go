@@ -57,7 +57,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// Convert the namespace/name string into a distinct namespace and name.
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		c.Logger.Errorf("invalid resource key: %s", key)
+		c.Logger.Errorw("invalid resource key", zap.Error(err))
 		return nil
 	}
 	logger := logging.FromContext(ctx)
@@ -66,7 +66,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	original, err := c.configurationLister.Configurations(namespace).Get(name)
 	if errors.IsNotFound(err) {
 		// The resource no longer exists, in which case we stop processing.
-		logger.Errorf("configuration %q in work queue no longer exists", key)
+		logger.Error("Configuration in work queue no longer exists")
 		return nil
 	} else if err != nil {
 		return err
@@ -149,7 +149,7 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 		config.Status.MarkRevisionCreationFailed(err.Error())
 		return nil
 	} else if err != nil {
-		logger.Errorf("Failed to reconcile Configuration %q - failed to get Revision: %v", config.Name, err)
+		logger.Errorw("Failed to reconcile Configuration: failed to get Revision", zap.Error(err))
 		return err
 	}
 
@@ -164,10 +164,10 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 	rc := lcr.Status.GetCondition(v1alpha1.RevisionConditionReady)
 	switch {
 	case rc == nil || rc.Status == corev1.ConditionUnknown:
-		logger.Infof("Revision %q of configuration %q is not ready", revName, config.Name)
+		logger.Infof("Revision %q of configuration is not ready", revName)
 
 	case rc.Status == corev1.ConditionTrue:
-		logger.Infof("Revision %q of configuration %q is ready", revName, config.Name)
+		logger.Infof("Revision %q of configuration is ready", revName)
 
 		created, ready := config.Status.LatestCreatedRevisionName, config.Status.LatestReadyRevisionName
 		if ready == "" {
@@ -183,7 +183,7 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 		}
 
 	case rc.Status == corev1.ConditionFalse:
-		logger.Infof("Revision %q of configuration %q has failed", revName, config.Name)
+		logger.Infof("Revision %q of configuration has failed", revName)
 
 		// TODO(mattmoor): Only emit the event the first time we see this.
 		config.Status.MarkLatestCreatedFailed(lcr.Name, rc.Message)
@@ -192,7 +192,7 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 
 	default:
 		err := fmt.Errorf("unrecognized condition status: %v on revision %q", rc.Status, revName)
-		logger.Errorf("Error reconciling Configuration %q: %v", config.Name, err)
+		logger.Errorw("Error reconciling Configuration", zap.Error(err))
 		return err
 	}
 
@@ -266,7 +266,7 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Config
 		return nil, err
 	}
 	c.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Revision %q", created.Name)
-	logger.Infof("Created Revision: %+v", created)
+	logger.Infof("Created Revision: %#v", created)
 
 	return created, nil
 }
