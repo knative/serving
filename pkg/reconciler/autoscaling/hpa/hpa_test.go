@@ -124,7 +124,7 @@ func TestReconcile(t *testing.T) {
 		Key: key(testNamespace, testRevision),
 		WantCreates: []runtime.Object{
 			metric(pa(testNamespace, testRevision,
-				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)), testRevision+"-00001"),
+				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)), testRevision+"-metrics"),
 			sks(testNamespace, testRevision, WithDeployRef(deployName)),
 			hpa(pa(testNamespace, testRevision,
 				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency))),
@@ -135,7 +135,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency),
 				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet"),
-				WithMSvcStatus(testRevision+"-00001")),
+				WithMSvcStatus(testRevision+"-metrics")),
 		}},
 	}, {
 		Name: "create hpa, sks and metric service when RPS used",

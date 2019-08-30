@@ -33,7 +33,7 @@ import (
 func main() {
 	sharedmain.Main("controller",
 		configuration.NewController,
-		labeler.NewRouteToConfigurationController,
+		labeler.NewController,
 		revision.NewController,
 		route.NewController,
 		serverlessservice.NewController,

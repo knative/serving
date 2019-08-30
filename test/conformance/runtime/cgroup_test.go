@@ -60,8 +60,6 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 	// https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
 	expectedCgroups := map[string]int{
 		"/sys/fs/cgroup/memory/memory.limit_in_bytes": memoryLimit * 1000000, // 128 MB
-		"/sys/fs/cgroup/cpu/cpu.cfs_period_us":        100000,                // 100ms (100,000us) default
-		"/sys/fs/cgroup/cpu/cpu.cfs_quota_us":         cpuLimit * 1000 * 100, // 1000 millicore * 100
 		"/sys/fs/cgroup/cpu/cpu.shares":               cpuRequest * 1024}     // CPURequests * 1024
 
 	_, ri, err := fetchRuntimeInfo(t, clients, WithResourceRequirements(resources))
@@ -71,11 +69,26 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 
 	cgroups := ri.Host.Cgroups
 
+	// These are used to check the ratio of 'period' to 'quora'. It needs to
+	// be equal to the 'cpuLimit (limit = period / quota)
+	var period, quota *int
+
 	for _, cgroup := range cgroups {
 		if cgroup.Error != "" {
 			t.Errorf("Error getting cgroup information: %v", cgroup.Error)
 			continue
 		}
+
+		// These two are special - just save their values and then continue
+		if cgroup.Name == "/sys/fs/cgroup/cpu/cpu.cfs_period_us" {
+			period = cgroup.Value
+			continue
+		}
+		if cgroup.Name == "/sys/fs/cgroup/cpu/cpu.cfs_quota_us" {
+			quota = cgroup.Value
+			continue
+		}
+
 		if _, ok := expectedCgroups[cgroup.Name]; !ok {
 			// Service returned a value we don't test
 			t.Logf("%v cgroup returned, but not validated", cgroup.Name)
@@ -85,6 +98,19 @@ func TestMustHaveCgroupConfigured(t *testing.T) {
 			t.Errorf("%s = %d, want: %d", cgroup.Name, *cgroup.Value, expectedCgroups[cgroup.Name])
 		}
 	}
+
+	if period == nil {
+		t.Errorf("Can't find the 'cpu.cfs_period_us' from cgroups")
+	} else if quota == nil {
+		t.Errorf("Can't find the 'cpu.cfs_quota_us' from cgroups")
+	} else {
+		percent := (100 * (*period)) / (*quota)
+		if percent != cpuLimit*100 {
+			t.Errorf("Percent (%v) is wrong should be %v. Period: %v Quota: %v",
+				percent, cpuLimit*100, period, quota)
+		}
+	}
+
 }
 
 // TestShouldHaveCgroupReadOnly verifies that the Linux cgroups are mounted read-only within the

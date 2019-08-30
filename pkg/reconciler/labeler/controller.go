@@ -32,9 +32,9 @@ const (
 	controllerAgentName = "labeler-controller"
 )
 
-// NewRouteToConfigurationController wraps a new instance of the labeler that labels
+// NewController wraps a new instance of the labeler that labels
 // Configurations with Routes in a controller.
-func NewRouteToConfigurationController(
+func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {

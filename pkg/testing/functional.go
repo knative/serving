@@ -349,7 +349,7 @@ func WithDeployRef(name string) SKSOption {
 
 // WithSKSReady marks SKS as ready.
 func WithSKSReady(sks *netv1alpha1.ServerlessService) {
-	WithPrivateService(sks.Name + "-rand")(sks)
+	WithPrivateService(sks.Name + "-private")(sks)
 	WithPubService(sks)
 	sks.Status.MarkEndpointsReady()
 }
