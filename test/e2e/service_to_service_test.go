@@ -327,4 +327,3 @@ func TestCallToPublicService(t *testing.T) {
 		})
 	}
 }
-
