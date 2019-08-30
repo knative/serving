@@ -76,7 +76,7 @@ func connect(t *testing.T, ingressIP string, domain string) (*websocket.Conn, er
 
 func validateWebSocketConnection(t *testing.T, clients *test.Clients, names test.ResourceNames) error {
 	var err error
-	gatewayIP := &pkgTest.Flags.IngressEndpoint
+	gatewayIP := pkgTest.Flags.IngressEndpoint
 	if pkgTest.Flags.IngressEndpoint == "" {
 		if gatewayIP, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube); err != nil {
 			return err
@@ -84,7 +84,7 @@ func validateWebSocketConnection(t *testing.T, clients *test.Clients, names test
 	}
 
 	// Establish the websocket connection.
-	conn, err := connect(t, *gatewayIP, names.Domain)
+	conn, err := connect(t, gatewayIP, names.Domain)
 	if err != nil {
 		return err
 	}

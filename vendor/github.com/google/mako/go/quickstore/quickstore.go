@@ -36,7 +36,7 @@
 //		}
 //  }
 //
-// See more examples inside https://github.com/google/mako/blob/master/helpers/go/quickstore/quickstore_example_test.go
+// See more examples inside https://github.com/google/mako/blob/master/go/quickstore/quickstore_example_test.go
 //
 // Struct is not concurrent safe
 //
@@ -54,8 +54,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 
-	qpb "github.com/google/mako/helpers/proto/quickstore/quickstore_go_proto"
 	qspb "github.com/google/mako/internal/quickstore_microservice/proto/quickstore_go_proto"
+	qpb "github.com/google/mako/proto/quickstore/quickstore_go_proto"
 	pgpb "github.com/google/mako/spec/proto/mako_go_proto"
 
 	_ "github.com/google/mako/internal/go/common" // b/111726961

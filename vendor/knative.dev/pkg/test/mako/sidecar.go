@@ -18,6 +18,7 @@ package mako
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"runtime"
 	"strings"
@@ -25,8 +26,9 @@ import (
 	"cloud.google.com/go/compute/metadata"
 	"knative.dev/pkg/injection/clients/kubeclient"
 
-	"github.com/google/mako/helpers/go/quickstore"
-	qpb "github.com/google/mako/helpers/proto/quickstore/quickstore_go_proto"
+	"github.com/google/mako/go/quickstore"
+	qpb "github.com/google/mako/proto/quickstore/quickstore_go_proto"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"knative.dev/pkg/changeset"
 	"knative.dev/pkg/controller"
@@ -69,16 +71,34 @@ func Setup(ctx context.Context, extraTags ...string) (context.Context, *quicksto
 	}
 
 	// Get the Kubernetes version from the API server.
-	version, err := kubeclient.Get(ctx).Discovery().ServerVersion()
+	kc := kubeclient.Get(ctx)
+	version, err := kc.Discovery().ServerVersion()
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	// Get GCP project ID as a tag.
+	// Determine the number of Kubernetes nodes through the kubernetes client.
+	nodes, err := kc.CoreV1().Nodes().List(metav1.ListOptions{})
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	tags = append(tags, "nodes="+fmt.Sprintf("%d", len(nodes.Items)))
+
+	// Decorate GCP metadata as tags (when we're running on GCP).
 	if projectID, err := metadata.ProjectID(); err != nil {
 		log.Printf("GCP project ID is not available: %v", err)
 	} else {
 		tags = append(tags, "project-id="+EscapeTag(projectID))
+	}
+	if zone, err := metadata.Zone(); err != nil {
+		log.Printf("GCP zone is not available: %v", err)
+	} else {
+		tags = append(tags, "zone="+EscapeTag(zone))
+	}
+	if machineType, err := metadata.Get("instance/machine-type"); err != nil {
+		log.Printf("GCP machine type is not available: %v", err)
+	} else if parts := strings.Split(machineType, "/"); len(parts) != 4 {
+		tags = append(tags, "instanceType="+EscapeTag(parts[3]))
 	}
 
 	qs, qclose, err := quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{

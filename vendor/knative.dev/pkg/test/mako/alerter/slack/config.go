@@ -51,6 +51,7 @@ func init() {
 	contents, err := ioutil.ReadFile(configFile)
 	if err != nil {
 		log.Printf("Failed to load the config file: %v", err)
+		return
 	}
 	config := &config{}
 	if err = yaml.Unmarshal(contents, &config); err != nil {

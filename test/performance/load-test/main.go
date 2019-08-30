@@ -23,7 +23,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/google/mako/helpers/go/quickstore"
+	"github.com/google/mako/go/quickstore"
 	vegeta "github.com/tsenart/vegeta/lib"
 	"k8s.io/apimachinery/pkg/labels"
 	"knative.dev/pkg/signals"
