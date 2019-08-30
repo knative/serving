@@ -240,7 +240,7 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 	}
 
 	// Wait for the endpoints to equalize.
-	if err := wait.Poll(200*time.Millisecond, 1*time.Minute, func() (bool, error) {
+	if err := wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
 		aeps, err := clients.KubeClient.Kube.CoreV1().Endpoints(
 			system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
 		if err != nil {
