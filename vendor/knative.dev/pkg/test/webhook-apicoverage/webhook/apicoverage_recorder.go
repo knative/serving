@@ -162,7 +162,7 @@ func (a *APICoverageRecorder) GetResourceCoverage(w http.ResponseWriter, r *http
 	var ignoredFields coveragecalculator.IgnoredFields
 	ignoredFieldsFilePath := os.Getenv("KO_DATA_PATH") + "/ignoredfields.yaml"
 	if err := ignoredFields.ReadFromFile(ignoredFieldsFilePath); err != nil {
-		fmt.Fprintf(w, "Error reading file: %s", ignoredFieldsFilePath)
+		a.Logger.Errorf("Error reading file %s: %v", ignoredFieldsFilePath, err)
 	}
 
 	tree := a.ResourceForest.TopLevelTrees[resource]
@@ -184,7 +184,7 @@ func (a *APICoverageRecorder) GetTotalCoverage(w http.ResponseWriter, r *http.Re
 
 	ignoredFieldsFilePath := os.Getenv("KO_DATA_PATH") + "/ignoredfields.yaml"
 	if err = ignoredFields.ReadFromFile(ignoredFieldsFilePath); err != nil {
-		fmt.Fprintf(w, "error reading file: %s error: %v", ignoredFieldsFilePath, err)
+		a.Logger.Errorf("Error reading file %s: %v", ignoredFieldsFilePath, err)
 	}
 
 	totalCoverage := coveragecalculator.CoverageValues{}
@@ -200,6 +200,7 @@ func (a *APICoverageRecorder) GetTotalCoverage(w http.ResponseWriter, r *http.Re
 	var body []byte
 	if body, err = json.Marshal(totalCoverage); err != nil {
 		fmt.Fprintf(w, "error marshalling total coverage response: %v", err)
+		return
 	}
 
 	if _, err = w.Write(body); err != nil {

@@ -119,7 +119,7 @@ func ResolveEndpoint(kubeClientset *kubernetes.Clientset, domain string, resolva
 	// If the domain is resolvable, we can use it directly when we make requests.
 	endpoint := domain
 	if !resolvable {
-		e := &endpointOverride
+		e := endpointOverride
 		if endpointOverride == "" {
 			var err error
 			// If the domain that the Route controller is configured to assign to Route.Status.Domain
@@ -129,7 +129,7 @@ func ResolveEndpoint(kubeClientset *kubernetes.Clientset, domain string, resolva
 				return "", err
 			}
 		}
-		endpoint = *e
+		endpoint = e
 	}
 	return endpoint, nil
 }

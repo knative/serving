@@ -70,11 +70,11 @@ func (r *URIResolver) URIFromDestination(dest apisv1alpha1.Destination, parent i
 		if err != nil {
 			return "", err
 		}
-		return extendPath(url, dest.Path).String(), nil
+		return extendPath(url.DeepCopy(), dest.Path).String(), nil
 	}
 
 	if dest.URI != nil {
-		return extendPath(dest.URI, dest.Path).String(), nil
+		return extendPath(dest.URI.DeepCopy(), dest.Path).String(), nil
 	}
 
 	return "", fmt.Errorf("destination missing ObjectReference and URI, expected exactly one")

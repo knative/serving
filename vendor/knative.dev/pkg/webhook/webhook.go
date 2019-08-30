@@ -17,7 +17,6 @@ limitations under the License.
 package webhook
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -25,30 +24,22 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"sort"
-	"strings"
 	"time"
 
 	"go.uber.org/zap"
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
-	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 
-	"github.com/markbates/inflect"
-	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
-	clientadmissionregistrationv1beta1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 )
 
 const (
@@ -105,34 +96,15 @@ type ControllerOptions struct {
 	StatsReporter StatsReporter
 }
 
-// ResourceCallback defines a signature for resource specific (Route, Configuration, etc.)
-// handlers that can validate and mutate an object. If non-nil error is returned, object creation
-// is denied. Mutations should be appended to the patches operations.
-type ResourceCallback func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error
-
-// ResourceDefaulter defines a signature for resource specific (Route, Configuration, etc.)
-// handlers that can set defaults on an object. If non-nil error is returned, object creation
-// is denied. Mutations should be appended to the patches operations.
-type ResourceDefaulter func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error
-
 // AdmissionController implements the external admission webhook for validation of
 // pilot configuration.
 type AdmissionController struct {
-	Client   kubernetes.Interface
-	Options  ControllerOptions
-	Handlers map[schema.GroupVersionKind]GenericCRD
-	Logger   *zap.SugaredLogger
+	Client                      kubernetes.Interface
+	Options                     ControllerOptions
+	Logger                      *zap.SugaredLogger
+	resourceAdmissionController ResourceAdmissionController
 
-	WithContext           func(context.Context) context.Context
-	DisallowUnknownFields bool
-}
-
-// GenericCRD is the interface definition that allows us to perform the generic
-// CRD actions like deciding whether to increment generation and so forth.
-type GenericCRD interface {
-	apis.Defaultable
-	apis.Validatable
-	runtime.Object
+	WithContext func(context.Context) context.Context
 }
 
 // NewAdmissionController constructs an AdmissionController
@@ -153,12 +125,15 @@ func NewAdmissionController(
 	}
 
 	return &AdmissionController{
-		Client:                client,
-		Options:               opts,
-		Handlers:              handlers,
-		Logger:                logger,
-		WithContext:           ctx,
-		DisallowUnknownFields: disallowUnknownFields,
+		Client:  client,
+		Options: opts,
+		resourceAdmissionController: ResourceAdmissionController{
+			Handlers:              handlers,
+			Options:               opts,
+			DisallowUnknownFields: disallowUnknownFields,
+		},
+		Logger:      logger,
+		WithContext: ctx,
 	}, nil
 }
 
@@ -238,7 +213,7 @@ func getOrGenerateKeyCertsFromSecret(ctx context.Context, client kubernetes.Inte
 // validate performs validation on the provided "new" CRD.
 // For legacy purposes, this also does apis.Immutable validation,
 // which is deprecated and will be removed in a future release.
-func validate(ctx context.Context, new GenericCRD) error {
+func validate(ctx context.Context, new apis.Validatable) error {
 	if apis.IsInUpdate(ctx) {
 		old := apis.GetBaseline(ctx)
 		if immutableNew, ok := new.(apis.Immutable); ok {
@@ -317,8 +292,7 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) error {
 
 	select {
 	case <-time.After(ac.Options.RegistrationDelay):
-		cl := ac.Client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
-		if err := ac.register(ctx, cl, caCert); err != nil {
+		if err := ac.resourceAdmissionController.Register(ctx, ac.Client, caCert); err != nil {
 			logger.Errorw("failed to register webhook", zap.Error(err))
 			return err
 		}
@@ -341,97 +315,6 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) error {
 	case <-serverBootstrapErrCh:
 		return errors.New("webhook server bootstrap failed")
 	}
-}
-
-// Register registers the external admission webhook for pilot
-// configuration types.
-func (ac *AdmissionController) register(
-	ctx context.Context, client clientadmissionregistrationv1beta1.MutatingWebhookConfigurationInterface, caCert []byte) error { // nolint: lll
-	logger := logging.FromContext(ctx)
-	failurePolicy := admissionregistrationv1beta1.Fail
-
-	var rules []admissionregistrationv1beta1.RuleWithOperations
-	for gvk := range ac.Handlers {
-		plural := strings.ToLower(inflect.Pluralize(gvk.Kind))
-
-		rules = append(rules, admissionregistrationv1beta1.RuleWithOperations{
-			Operations: []admissionregistrationv1beta1.OperationType{
-				admissionregistrationv1beta1.Create,
-				admissionregistrationv1beta1.Update,
-			},
-			Rule: admissionregistrationv1beta1.Rule{
-				APIGroups:   []string{gvk.Group},
-				APIVersions: []string{gvk.Version},
-				Resources:   []string{plural + "/*"},
-			},
-		})
-	}
-
-	// Sort the rules by Group, Version, Kind so that things are deterministically ordered.
-	sort.Slice(rules, func(i, j int) bool {
-		lhs, rhs := rules[i], rules[j]
-		if lhs.APIGroups[0] != rhs.APIGroups[0] {
-			return lhs.APIGroups[0] < rhs.APIGroups[0]
-		}
-		if lhs.APIVersions[0] != rhs.APIVersions[0] {
-			return lhs.APIVersions[0] < rhs.APIVersions[0]
-		}
-		return lhs.Resources[0] < rhs.Resources[0]
-	})
-
-	webhook := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: ac.Options.WebhookName,
-		},
-		Webhooks: []admissionregistrationv1beta1.Webhook{{
-			Name:  ac.Options.WebhookName,
-			Rules: rules,
-			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-				Service: &admissionregistrationv1beta1.ServiceReference{
-					Namespace: ac.Options.Namespace,
-					Name:      ac.Options.ServiceName,
-				},
-				CABundle: caCert,
-			},
-			FailurePolicy: &failurePolicy,
-		}},
-	}
-
-	// Set the owner to our deployment.
-	deployment, err := ac.Client.Apps().Deployments(ac.Options.Namespace).Get(ac.Options.DeploymentName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to fetch our deployment: %v", err)
-	}
-	deploymentRef := metav1.NewControllerRef(deployment, deploymentKind)
-	webhook.OwnerReferences = append(webhook.OwnerReferences, *deploymentRef)
-
-	// Try to create the webhook and if it already exists validate webhook rules.
-	_, err = client.Create(webhook)
-	if err != nil {
-		if !apierrors.IsAlreadyExists(err) {
-			return fmt.Errorf("failed to create a webhook: %v", err)
-		}
-		logger.Info("Webhook already exists")
-		configuredWebhook, err := client.Get(ac.Options.WebhookName, metav1.GetOptions{})
-		if err != nil {
-			return fmt.Errorf("error retrieving webhook: %v", err)
-		}
-		if ok, err := kmp.SafeEqual(configuredWebhook.Webhooks, webhook.Webhooks); err != nil {
-			return fmt.Errorf("error diffing webhooks: %v", err)
-		} else if !ok {
-			logger.Info("Updating webhook")
-			// Set the ResourceVersion as required by update.
-			webhook.ObjectMeta.ResourceVersion = configuredWebhook.ObjectMeta.ResourceVersion
-			if _, err := client.Update(webhook); err != nil {
-				return fmt.Errorf("failed to update webhook: %s", err)
-			}
-		} else {
-			logger.Info("Webhook is already valid")
-		}
-	} else {
-		logger.Info("Created a webhook")
-	}
-	return nil
 }
 
 // ServeHTTP implements the external admission webhook for mutating
@@ -468,7 +351,7 @@ func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		ctx = ac.WithContext(ctx)
 	}
 
-	reviewResponse := ac.admit(ctx, review.Request)
+	reviewResponse := ac.resourceAdmissionController.Admit(ctx, review.Request)
 	var response admissionv1beta1.AdmissionReview
 	if reviewResponse != nil {
 		response.Response = reviewResponse
@@ -495,174 +378,6 @@ func makeErrorStatus(reason string, args ...interface{}) *admissionv1beta1.Admis
 		Result:  &result,
 		Allowed: false,
 	}
-}
-
-func (ac *AdmissionController) admit(ctx context.Context, request *admissionv1beta1.AdmissionRequest) *admissionv1beta1.AdmissionResponse {
-	logger := logging.FromContext(ctx)
-	switch request.Operation {
-	case admissionv1beta1.Create, admissionv1beta1.Update:
-	default:
-		logger.Infof("Unhandled webhook operation, letting it through %v", request.Operation)
-		return &admissionv1beta1.AdmissionResponse{Allowed: true}
-	}
-
-	patchBytes, err := ac.mutate(ctx, request)
-	if err != nil {
-		return makeErrorStatus("mutation failed: %v", err)
-	}
-	logger.Infof("Kind: %q PatchBytes: %v", request.Kind, string(patchBytes))
-
-	return &admissionv1beta1.AdmissionResponse{
-		Patch:   patchBytes,
-		Allowed: true,
-		PatchType: func() *admissionv1beta1.PatchType {
-			pt := admissionv1beta1.PatchTypeJSONPatch
-			return &pt
-		}(),
-	}
-}
-
-func (ac *AdmissionController) mutate(ctx context.Context, req *admissionv1beta1.AdmissionRequest) ([]byte, error) {
-	kind := req.Kind
-	newBytes := req.Object.Raw
-	oldBytes := req.OldObject.Raw
-	// Why, oh why are these different types...
-	gvk := schema.GroupVersionKind{
-		Group:   kind.Group,
-		Version: kind.Version,
-		Kind:    kind.Kind,
-	}
-
-	logger := logging.FromContext(ctx)
-	handler, ok := ac.Handlers[gvk]
-	if !ok {
-		logger.Errorf("Unhandled kind: %v", gvk)
-		return nil, fmt.Errorf("unhandled kind: %v", gvk)
-	}
-
-	// nil values denote absence of `old` (create) or `new` (delete) objects.
-	var oldObj, newObj GenericCRD
-
-	if len(newBytes) != 0 {
-		newObj = handler.DeepCopyObject().(GenericCRD)
-		newDecoder := json.NewDecoder(bytes.NewBuffer(newBytes))
-		if ac.DisallowUnknownFields {
-			newDecoder.DisallowUnknownFields()
-		}
-		if err := newDecoder.Decode(&newObj); err != nil {
-			return nil, fmt.Errorf("cannot decode incoming new object: %v", err)
-		}
-	}
-	if len(oldBytes) != 0 {
-		oldObj = handler.DeepCopyObject().(GenericCRD)
-		oldDecoder := json.NewDecoder(bytes.NewBuffer(oldBytes))
-		if ac.DisallowUnknownFields {
-			oldDecoder.DisallowUnknownFields()
-		}
-		if err := oldDecoder.Decode(&oldObj); err != nil {
-			return nil, fmt.Errorf("cannot decode incoming old object: %v", err)
-		}
-	}
-	var patches duck.JSONPatch
-
-	var err error
-	// Skip this step if the type we're dealing with is a duck type, since it is inherently
-	// incomplete and this will patch away all of the unspecified fields.
-	if _, ok := newObj.(duck.Populatable); !ok {
-		// Add these before defaulting fields, otherwise defaulting may cause an illegal patch
-		// because it expects the round tripped through Golang fields to be present already.
-		rtp, err := roundTripPatch(newBytes, newObj)
-		if err != nil {
-			return nil, fmt.Errorf("cannot create patch for round tripped newBytes: %v", err)
-		}
-		patches = append(patches, rtp...)
-	}
-
-	// Set up the context for defaulting and validation
-	if oldObj != nil {
-		// Copy the old object and set defaults so that we don't reject our own
-		// defaulting done earlier in the webhook.
-		oldObj = oldObj.DeepCopyObject().(GenericCRD)
-		oldObj.SetDefaults(ctx)
-
-		s, ok := oldObj.(apis.HasSpec)
-		if ok {
-			SetUserInfoAnnotations(s, ctx, req.Resource.Group)
-		}
-
-		if req.SubResource == "" {
-			ctx = apis.WithinUpdate(ctx, oldObj)
-		} else {
-			ctx = apis.WithinSubResourceUpdate(ctx, oldObj, req.SubResource)
-		}
-	} else {
-		ctx = apis.WithinCreate(ctx)
-	}
-	ctx = apis.WithUserInfo(ctx, &req.UserInfo)
-
-	// Default the new object.
-	if patches, err = setDefaults(ctx, patches, newObj); err != nil {
-		logger.Errorw("Failed the resource specific defaulter", zap.Error(err))
-		// Return the error message as-is to give the defaulter callback
-		// discretion over (our portion of) the message that the user sees.
-		return nil, err
-	}
-
-	if patches, err = ac.setUserInfoAnnotations(ctx, patches, newObj, req.Resource.Group); err != nil {
-		logger.Errorw("Failed the resource user info annotator", zap.Error(err))
-		return nil, err
-	}
-
-	// None of the validators will accept a nil value for newObj.
-	if newObj == nil {
-		return nil, errMissingNewObject
-	}
-	if err := validate(ctx, newObj); err != nil {
-		logger.Errorw("Failed the resource specific validation", zap.Error(err))
-		// Return the error message as-is to give the validation callback
-		// discretion over (our portion of) the message that the user sees.
-		return nil, err
-	}
-
-	return json.Marshal(patches)
-}
-
-func (ac *AdmissionController) setUserInfoAnnotations(ctx context.Context, patches duck.JSONPatch, new GenericCRD, groupName string) (duck.JSONPatch, error) {
-	if new == nil {
-		return patches, nil
-	}
-	nh, ok := new.(apis.HasSpec)
-	if !ok {
-		return patches, nil
-	}
-
-	b, a := new.DeepCopyObject().(apis.HasSpec), nh
-
-	SetUserInfoAnnotations(nh, ctx, groupName)
-
-	patch, err := duck.CreatePatch(b, a)
-	if err != nil {
-		return nil, err
-	}
-	return append(patches, patch...), nil
-}
-
-// roundTripPatch generates the JSONPatch that corresponds to round tripping the given bytes through
-// the Golang type (JSON -> Golang type -> JSON). Because it is not always true that
-// bytes == json.Marshal(json.Unmarshal(bytes)).
-//
-// For example, if bytes did not contain a 'spec' field and the Golang type specifies its 'spec'
-// field without omitempty, then by round tripping through the Golang type, we would have added
-// `'spec': {}`.
-func roundTripPatch(bytes []byte, unmarshalled interface{}) (duck.JSONPatch, error) {
-	if unmarshalled == nil {
-		return duck.JSONPatch{}, nil
-	}
-	marshaledBytes, err := json.Marshal(unmarshalled)
-	if err != nil {
-		return nil, fmt.Errorf("cannot marshal interface: %v", err)
-	}
-	return jsonpatch.CreatePatch(bytes, marshaledBytes)
 }
 
 func generateSecret(ctx context.Context, options *ControllerOptions) (*corev1.Secret, error) {

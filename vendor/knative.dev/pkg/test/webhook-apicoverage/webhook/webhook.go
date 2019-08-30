@@ -237,7 +237,7 @@ func BuildWebhookConfiguration(componentCommonName string, webhookName string, n
 		FailurePolicy:     admissionregistrationv1beta1.Fail,
 		ClientAuth:        tls.NoClientCert,
 		RegistrationDelay: time.Second * 2,
-		Port:              443,
+		Port:              8443, // Using port greater than 1024 as webhook runs as non-root user.
 		Namespace:         namespace,
 		DeploymentName:    componentCommonName,
 		ServiceName:       componentCommonName,

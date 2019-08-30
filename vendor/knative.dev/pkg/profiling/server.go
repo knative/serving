@@ -28,11 +28,11 @@ import (
 )
 
 const (
-	// profilingPort is the port where we expose profiling information if profiling is enabled
-	profilingPort = ":8008"
+	// ProfilingPort specifies the port where profiling data is available when profiling is enabled
+	ProfilingPort = 8008
 
-	// profilingKey is the name of the key in config-observability config map that indicates whether profiling
-	// is enabled of disabled
+	// profilingKey is the name of the key in config-observability config map
+	// that indicates whether profiling is enabled
 	profilingKey = "profiling.enable"
 )
 
@@ -104,11 +104,10 @@ func (h *Handler) UpdateFromConfigMap(configMap *corev1.ConfigMap) {
 	}
 }
 
-// NewServer creates a new http server that exposes profiling data using the
-// HTTP handler that is passed as an argument
+// NewServer creates a new http server that exposes profiling data on the default profiling port
 func NewServer(handler http.Handler) *http.Server {
 	return &http.Server{
-		Addr:    profilingPort,
+		Addr:    ":" + strconv.Itoa(ProfilingPort),
 		Handler: handler,
 	}
 }

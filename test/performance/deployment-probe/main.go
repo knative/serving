@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	"github.com/google/mako/helpers/go/quickstore"
+	"github.com/google/mako/go/quickstore"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"

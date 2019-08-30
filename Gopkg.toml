@@ -35,6 +35,10 @@ required = [
   branch = "master"
 
 [[override]]
+  name = "github.com/google/mako"
+  version = "v0.1.0"
+
+[[override]]
   name = "go.uber.org/zap"
   revision = "67bc79d13d155c02fd008f721863ff8cc5f30659"
 

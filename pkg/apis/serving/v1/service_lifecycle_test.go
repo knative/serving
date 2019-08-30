@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 func TestServiceDuckTypes(t *testing.T) {
@@ -31,7 +31,7 @@ func TestServiceDuckTypes(t *testing.T) {
 		t    duck.Implementable
 	}{{
 		name: "conditions",
-		t:    &duckv1beta1.Conditions{},
+		t:    &duckv1.Conditions{},
 	}}
 
 	for _, test := range tests {
@@ -68,8 +68,8 @@ func TestServiceIsReady(t *testing.T) {
 	}, {
 		name: "Ready=False",
 		ss: &ServiceStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
 					Type:   apis.ConditionReady,
 					Status: corev1.ConditionFalse,
 				}},
@@ -79,8 +79,8 @@ func TestServiceIsReady(t *testing.T) {
 	}, {
 		name: "Ready=Unknown",
 		ss: &ServiceStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
 					Type:   apis.ConditionReady,
 					Status: corev1.ConditionUnknown,
 				}},
@@ -90,8 +90,8 @@ func TestServiceIsReady(t *testing.T) {
 	}, {
 		name: "Ready=True",
 		ss: &ServiceStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
 					Type:   apis.ConditionReady,
 					Status: corev1.ConditionTrue,
 				}},

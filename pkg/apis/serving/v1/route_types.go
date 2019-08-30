@@ -20,7 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
 )
 
@@ -131,7 +131,7 @@ type RouteStatusFields struct {
 
 	// Address holds the information needed for a Route to be the target of an event.
 	// +optional
-	Address *duckv1beta1.Addressable `json:"address,omitempty"`
+	Address *duckv1.Addressable `json:"address,omitempty"`
 
 	// Traffic holds the configured traffic distribution.
 	// These entries will always contain RevisionName references.
@@ -143,7 +143,7 @@ type RouteStatusFields struct {
 
 // RouteStatus communicates the observed state of the Route (from the controller).
 type RouteStatus struct {
-	duckv1beta1.Status `json:",inline"`
+	duckv1.Status `json:",inline"`
 
 	RouteStatusFields `json:",inline"`
 }
