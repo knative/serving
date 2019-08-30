@@ -233,6 +233,11 @@ function install_knative_serving_standard() {
       kubectl replace -f -
   fi
 
+  echo ">> Turning on profiling.enable"
+  kubectl get cm config-observability -n knative-serving -o yaml | \
+    sed 's/  profiling.enable: "false"/profiling.enable: "true"/g' |\
+    kubectl replace -f -
+
   echo ">> Adding more activator pods."
   # This command would fail if the HPA already exist, like during upgrade test.
   # Therefore we don't exit on failure, and don't log an error message.
