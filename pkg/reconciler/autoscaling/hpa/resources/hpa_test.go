@@ -122,6 +122,43 @@ func TestMakeHPA(t *testing.T) {
 					TargetValue:  *resource.NewQuantity(50, resource.DecimalSI),
 				},
 			})),
+	}, {
+		name: "with metric=RPS",
+		pa:   pa(WithMetricAnnotation(autoscaling.RPS)),
+		want: hpa(
+			withAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.RPS),
+			withMetric(autoscalingv2beta1.MetricSpec{
+				Type: autoscalingv2beta1.ObjectMetricSourceType,
+				Object: &autoscalingv2beta1.ObjectMetricSource{
+					Target: autoscalingv2beta1.CrossVersionObjectReference{
+						APIVersion: servingv1alpha1.SchemeGroupVersion.String(),
+						Kind:       "revision",
+						Name:       testName,
+					},
+					MetricName:   autoscaling.RPS,
+					AverageValue: resource.NewQuantity(200, resource.DecimalSI),
+					TargetValue:  *resource.NewQuantity(200, resource.DecimalSI),
+				},
+			})),
+	}, {
+		name: "with metric=RPS and target=50",
+		pa:   pa(WithTargetAnnotation("50"), WithMetricAnnotation(autoscaling.RPS)),
+		want: hpa(
+			withAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.RPS),
+			withAnnotationValue(autoscaling.TargetAnnotationKey, "50"),
+			withMetric(autoscalingv2beta1.MetricSpec{
+				Type: autoscalingv2beta1.ObjectMetricSourceType,
+				Object: &autoscalingv2beta1.ObjectMetricSource{
+					Target: autoscalingv2beta1.CrossVersionObjectReference{
+						APIVersion: servingv1alpha1.SchemeGroupVersion.String(),
+						Kind:       "revision",
+						Name:       testName,
+					},
+					MetricName:   autoscaling.RPS,
+					AverageValue: resource.NewQuantity(50, resource.DecimalSI),
+					TargetValue:  *resource.NewQuantity(50, resource.DecimalSI),
+				},
+			})),
 	}}
 
 	for _, tc := range cases {
@@ -230,6 +267,8 @@ var config = &autoscaler.Config{
 	EnableScaleToZero:                  true,
 	ContainerConcurrencyTargetFraction: 1.0,
 	ContainerConcurrencyTargetDefault:  100.0,
+	RPSTargetDefault:                   200.0,
+	TargetUtilization:                  1.0,
 	MaxScaleUpRate:                     10.0,
 	StableWindow:                       60 * time.Second,
 	PanicThresholdPercentage:           200,

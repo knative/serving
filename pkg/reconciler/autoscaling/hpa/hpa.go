@@ -135,7 +135,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	}
 
 	// Only create metrics service and metric entity if we actually need to gather metrics.
-	if pa.Metric() == autoscaling.Concurrency {
+	if pa.Metric() == autoscaling.Concurrency || pa.Metric() == autoscaling.RPS {
 		metricSvc, err := c.ReconcileMetricsService(ctx, pa)
 		if err != nil {
 			return perrors.Wrap(err, "error reconciling metrics service")
