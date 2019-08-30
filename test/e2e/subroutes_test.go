@@ -87,7 +87,7 @@ func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descript
 		domain := fmt.Sprintf("%s-%s", tag, resources.Route.Status.Address.URL.Host)
 		helloworldDomain := strings.TrimSuffix(domain, tc.suffix)
 		t.Run(tc.name, func(t *testing.T) {
-			testProxyToHelloworld(t, clients, helloworldDomain, true)
+			testProxyToHelloworld(t, clients, helloworldDomain, true, false)
 		})
 	}
 }
