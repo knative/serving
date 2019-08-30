@@ -173,9 +173,7 @@ func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	} else if err != nil {
 		return perrors.Wrap(err, "error fetching metric")
 	} else {
-		// Ignore status when reconciling
-		desiredMetric.Status = metric.Status
-		if !equality.Semantic.DeepEqual(desiredMetric, metric) {
+		if !equality.Semantic.DeepEqual(desiredMetric.Spec, metric.Spec) {
 			want := metric.DeepCopy()
 			want.Spec = desiredMetric.Spec
 			if _, err = c.ServingClientSet.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Update(want); err != nil {

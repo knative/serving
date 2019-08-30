@@ -100,6 +100,26 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: key(testNamespace, testRevision),
 	}, {
+		Name: "metric-change",
+		Objects: []runtime.Object{
+			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency))),
+			pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency),
+				WithMSvcStatus(testRevision+"-metrics"), WithTraffic, WithPAStatusService(testRevision)),
+			deploy(testNamespace, testRevision),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metric(pa(testNamespace, testRevision,
+				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)), testRevision+"-metrics2"),
+			metricsSvc(testNamespace, testRevision, WithSvcSelector(usualSelector),
+				SvcWithAnnotationValue(autoscaling.ClassAnnotationKey, autoscaling.HPA),
+				SvcWithAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.Concurrency)),
+		},
+		Key:         key(testNamespace, testRevision),
+		WantCreates: []runtime.Object{},
+		WantUpdates: []ktesting.UpdateActionImpl{{
+			Object: metric(pa(testNamespace, testRevision,
+				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)), testRevision+"-metrics"),
+		}},
+	}, {
 		Name: "create hpa & sks",
 		Objects: []runtime.Object{
 			pa(testNamespace, testRevision, WithHPAClass),
@@ -351,7 +371,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testNamespace, testRevision, WithHPAClass, WithNoTraffic(
-				"FailedCreate", "Failed to create HorizontalPodAutoscaler \"test-revision\".")),
+				"FailedCreate", `Failed to create HorizontalPodAutoscaler "test-revision".`)),
 		}},
 		WantErr: true,
 		WantEvents: []string{
