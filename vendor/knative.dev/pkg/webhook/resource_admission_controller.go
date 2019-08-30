@@ -60,11 +60,24 @@ type GenericCRD interface {
 	runtime.Object
 }
 
+// ResourceAdmissionController implements the AdmissionController for resources
 type ResourceAdmissionController struct {
-	Handlers map[schema.GroupVersionKind]GenericCRD
-	Options  ControllerOptions
+	handlers map[schema.GroupVersionKind]GenericCRD
+	options  ControllerOptions
 
-	DisallowUnknownFields bool
+	disallowUnknownFields bool
+}
+
+// NewResourceAdmissionController constructs a ResourceAdmissionController
+func NewResourceAdmissionController(
+	handlers map[schema.GroupVersionKind]GenericCRD,
+	opts ControllerOptions,
+	disallowUnknownFields bool) AdmissionController {
+	return &ResourceAdmissionController{
+		handlers:              handlers,
+		options:               opts,
+		disallowUnknownFields: disallowUnknownFields,
+	}
 }
 
 func (ac *ResourceAdmissionController) Admit(ctx context.Context, request *admissionv1beta1.AdmissionRequest) *admissionv1beta1.AdmissionResponse {
@@ -98,7 +111,7 @@ func (ac *ResourceAdmissionController) Register(ctx context.Context, kubeClient 
 	failurePolicy := admissionregistrationv1beta1.Fail
 
 	var rules []admissionregistrationv1beta1.RuleWithOperations
-	for gvk := range ac.Handlers {
+	for gvk := range ac.handlers {
 		plural := strings.ToLower(inflect.Pluralize(gvk.Kind))
 
 		rules = append(rules, admissionregistrationv1beta1.RuleWithOperations{
@@ -128,15 +141,16 @@ func (ac *ResourceAdmissionController) Register(ctx context.Context, kubeClient 
 
 	webhook := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: ac.Options.WebhookName,
+			Name: ac.options.WebhookName,
 		},
 		Webhooks: []admissionregistrationv1beta1.Webhook{{
-			Name:  ac.Options.WebhookName,
+			Name:  ac.options.WebhookName,
 			Rules: rules,
 			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
 				Service: &admissionregistrationv1beta1.ServiceReference{
-					Namespace: ac.Options.Namespace,
-					Name:      ac.Options.ServiceName,
+					Namespace: ac.options.Namespace,
+					Name:      ac.options.ServiceName,
+					Path:      &ac.options.ResourceAdmissionControllerPath,
 				},
 				CABundle: caCert,
 			},
@@ -145,7 +159,7 @@ func (ac *ResourceAdmissionController) Register(ctx context.Context, kubeClient 
 	}
 
 	// Set the owner to our deployment.
-	deployment, err := kubeClient.Apps().Deployments(ac.Options.Namespace).Get(ac.Options.DeploymentName, metav1.GetOptions{})
+	deployment, err := kubeClient.Apps().Deployments(ac.options.Namespace).Get(ac.options.DeploymentName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to fetch our deployment: %v", err)
 	}
@@ -159,7 +173,7 @@ func (ac *ResourceAdmissionController) Register(ctx context.Context, kubeClient 
 			return fmt.Errorf("failed to create a webhook: %v", err)
 		}
 		logger.Info("Webhook already exists")
-		configuredWebhook, err := client.Get(ac.Options.WebhookName, metav1.GetOptions{})
+		configuredWebhook, err := client.Get(ac.options.WebhookName, metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("error retrieving webhook: %v", err)
 		}
@@ -193,7 +207,7 @@ func (ac *ResourceAdmissionController) mutate(ctx context.Context, req *admissio
 	}
 
 	logger := logging.FromContext(ctx)
-	handler, ok := ac.Handlers[gvk]
+	handler, ok := ac.handlers[gvk]
 	if !ok {
 		logger.Errorf("Unhandled kind: %v", gvk)
 		return nil, fmt.Errorf("unhandled kind: %v", gvk)
@@ -205,7 +219,7 @@ func (ac *ResourceAdmissionController) mutate(ctx context.Context, req *admissio
 	if len(newBytes) != 0 {
 		newObj = handler.DeepCopyObject().(GenericCRD)
 		newDecoder := json.NewDecoder(bytes.NewBuffer(newBytes))
-		if ac.DisallowUnknownFields {
+		if ac.disallowUnknownFields {
 			newDecoder.DisallowUnknownFields()
 		}
 		if err := newDecoder.Decode(&newObj); err != nil {
@@ -215,7 +229,7 @@ func (ac *ResourceAdmissionController) mutate(ctx context.Context, req *admissio
 	if len(oldBytes) != 0 {
 		oldObj = handler.DeepCopyObject().(GenericCRD)
 		oldDecoder := json.NewDecoder(bytes.NewBuffer(oldBytes))
-		if ac.DisallowUnknownFields {
+		if ac.disallowUnknownFields {
 			oldDecoder.DisallowUnknownFields()
 		}
 		if err := oldDecoder.Decode(&oldObj); err != nil {
@@ -322,4 +336,42 @@ func roundTripPatch(bytes []byte, unmarshalled interface{}) (duck.JSONPatch, err
 		return nil, fmt.Errorf("cannot marshal interface: %v", err)
 	}
 	return jsonpatch.CreatePatch(bytes, marshaledBytes)
+}
+
+// validate performs validation on the provided "new" CRD.
+// For legacy purposes, this also does apis.Immutable validation,
+// which is deprecated and will be removed in a future release.
+func validate(ctx context.Context, new apis.Validatable) error {
+	if apis.IsInUpdate(ctx) {
+		old := apis.GetBaseline(ctx)
+		if immutableNew, ok := new.(apis.Immutable); ok {
+			immutableOld, ok := old.(apis.Immutable)
+			if !ok {
+				return fmt.Errorf("unexpected type mismatch %T vs. %T", old, new)
+			}
+			if err := immutableNew.CheckImmutableFields(ctx, immutableOld); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Can't just `return new.Validate()` because it doesn't properly nil-check.
+	if err := new.Validate(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// setDefaults simply leverages apis.Defaultable to set defaults.
+func setDefaults(ctx context.Context, patches duck.JSONPatch, crd GenericCRD) (duck.JSONPatch, error) {
+	before, after := crd.DeepCopyObject(), crd
+	after.SetDefaults(ctx)
+
+	patch, err := duck.CreatePatch(before, after)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(patches, patch...), nil
 }

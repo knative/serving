@@ -28,8 +28,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"knative.dev/pkg/apis"
-	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 
@@ -38,7 +36,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -94,27 +91,37 @@ type ControllerOptions struct {
 	// StatsReporter reports metrics about the webhook.
 	// This will be automatically initialized by the constructor if left uninitialized.
 	StatsReporter StatsReporter
+
+	// Service path for ResourceAdmissionController webhook
+	// Default is "/" for backward compatibility and is set by the constructor
+	ResourceAdmissionControllerPath string
 }
 
-// AdmissionController implements the external admission webhook for validation of
-// pilot configuration.
-type AdmissionController struct {
-	Client                      kubernetes.Interface
-	Options                     ControllerOptions
-	Logger                      *zap.SugaredLogger
-	resourceAdmissionController ResourceAdmissionController
+// AdmissionController provides the interface for different admission controllers
+type AdmissionController interface {
+	Admit(context.Context, *admissionv1beta1.AdmissionRequest) *admissionv1beta1.AdmissionResponse
+	Register(context.Context, kubernetes.Interface, []byte) error
+}
+
+// Webhook implements the external webhook for validation of
+// resources and configuration.
+type Webhook struct {
+	Client               kubernetes.Interface
+	Options              ControllerOptions
+	Logger               *zap.SugaredLogger
+	admissionControllers map[string]AdmissionController
 
 	WithContext func(context.Context) context.Context
 }
 
-// NewAdmissionController constructs an AdmissionController
-func NewAdmissionController(
+// New constructs a Webhook
+func New(
 	client kubernetes.Interface,
 	opts ControllerOptions,
-	handlers map[schema.GroupVersionKind]GenericCRD,
+	admissionControllers map[string]AdmissionController,
 	logger *zap.SugaredLogger,
 	ctx func(context.Context) context.Context,
-	disallowUnknownFields bool) (*AdmissionController, error) {
+	) (*Webhook, error) {
 
 	if opts.StatsReporter == nil {
 		reporter, err := NewStatsReporter()
@@ -124,17 +131,124 @@ func NewAdmissionController(
 		opts.StatsReporter = reporter
 	}
 
-	return &AdmissionController{
-		Client:  client,
-		Options: opts,
-		resourceAdmissionController: ResourceAdmissionController{
-			Handlers:              handlers,
-			Options:               opts,
-			DisallowUnknownFields: disallowUnknownFields,
-		},
-		Logger:      logger,
-		WithContext: ctx,
+	return &Webhook{
+		Client:               client,
+		Options:              opts,
+		admissionControllers: admissionControllers,
+		Logger:               logger,
+		WithContext:          ctx,
 	}, nil
+}
+
+// Run implements the admission controller run loop.
+func (ac *Webhook) Run(stop <-chan struct{}) error {
+	logger := ac.Logger
+	ctx := logging.WithLogger(context.TODO(), logger)
+	tlsConfig, caCert, err := configureCerts(ctx, ac.Client, &ac.Options)
+	if err != nil {
+		logger.Errorw("could not configure admission webhook certs", zap.Error(err))
+		return err
+	}
+
+	server := &http.Server{
+		Handler:   ac,
+		Addr:      fmt.Sprintf(":%v", ac.Options.Port),
+		TLSConfig: tlsConfig,
+	}
+
+	logger.Info("Found certificates for webhook...")
+	if ac.Options.RegistrationDelay != 0 {
+		logger.Infof("Delaying admission webhook registration for %v", ac.Options.RegistrationDelay)
+	}
+
+	select {
+	case <-time.After(ac.Options.RegistrationDelay):
+		for _, c := range ac.admissionControllers {
+			if err := c.Register(ctx, ac.Client, caCert); err != nil {
+				logger.Errorw("failed to register webhook", zap.Error(err))
+				return err
+			}
+		}
+		logger.Info("Successfully registered webhook")
+	case <-stop:
+		return nil
+	}
+
+	serverBootstrapErrCh := make(chan struct{})
+	go func() {
+		if err := server.ListenAndServeTLS("", ""); err != nil {
+			logger.Errorw("ListenAndServeTLS for admission webhook returned error", zap.Error(err))
+			close(serverBootstrapErrCh)
+		}
+	}()
+
+	select {
+	case <-stop:
+		return server.Close()
+	case <-serverBootstrapErrCh:
+		return errors.New("webhook server bootstrap failed")
+	}
+}
+
+// ServeHTTP implements the external admission webhook for mutating
+// serving resources.
+func (ac *Webhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var ttStart = time.Now()
+	logger := ac.Logger
+	logger.Infof("Webhook ServeHTTP request=%#v", r)
+
+	// Verify the content type is accurate.
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		http.Error(w, "invalid Content-Type, want `application/json`", http.StatusUnsupportedMediaType)
+		return
+	}
+
+	var review admissionv1beta1.AdmissionReview
+	if err := json.NewDecoder(r.Body).Decode(&review); err != nil {
+		http.Error(w, fmt.Sprintf("could not decode body: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	logger = logger.With(
+		zap.String(logkey.Kind, fmt.Sprint(review.Request.Kind)),
+		zap.String(logkey.Namespace, review.Request.Namespace),
+		zap.String(logkey.Name, review.Request.Name),
+		zap.String(logkey.Operation, fmt.Sprint(review.Request.Operation)),
+		zap.String(logkey.Resource, fmt.Sprint(review.Request.Resource)),
+		zap.String(logkey.SubResource, fmt.Sprint(review.Request.SubResource)),
+		zap.String(logkey.UserInfo, fmt.Sprint(review.Request.UserInfo)))
+	ctx := logging.WithLogger(r.Context(), logger)
+
+	if ac.WithContext != nil {
+		ctx = ac.WithContext(ctx)
+	}
+
+	if _, ok := ac.admissionControllers[r.URL.Path]; !ok {
+		http.Error(w, fmt.Sprintf("no admission controller registered for: %s", r.URL.Path), http.StatusBadRequest)
+		return
+	}
+
+	c := ac.admissionControllers[r.URL.Path]
+	reviewResponse := c.Admit(ctx, review.Request)
+	var response admissionv1beta1.AdmissionReview
+	if reviewResponse != nil {
+		response.Response = reviewResponse
+		response.Response.UID = review.Request.UID
+	}
+
+	logger.Infof("AdmissionReview for %#v: %s/%s response=%#v",
+		review.Request.Kind, review.Request.Namespace, review.Request.Name, reviewResponse)
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, fmt.Sprintf("could encode response: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	if ac.Options.StatsReporter != nil {
+		// Only report valid requests
+		ac.Options.StatsReporter.ReportRequest(review.Request, response.Response, time.Since(ttStart))
+	}
 }
 
 // GetAPIServerExtensionCACert gets the Kubernetes aggregate apiserver
@@ -210,44 +324,6 @@ func getOrGenerateKeyCertsFromSecret(ctx context.Context, client kubernetes.Inte
 	return serverKey, serverCert, caCert, nil
 }
 
-// validate performs validation on the provided "new" CRD.
-// For legacy purposes, this also does apis.Immutable validation,
-// which is deprecated and will be removed in a future release.
-func validate(ctx context.Context, new apis.Validatable) error {
-	if apis.IsInUpdate(ctx) {
-		old := apis.GetBaseline(ctx)
-		if immutableNew, ok := new.(apis.Immutable); ok {
-			immutableOld, ok := old.(apis.Immutable)
-			if !ok {
-				return fmt.Errorf("unexpected type mismatch %T vs. %T", old, new)
-			}
-			if err := immutableNew.CheckImmutableFields(ctx, immutableOld); err != nil {
-				return err
-			}
-		}
-	}
-
-	// Can't just `return new.Validate()` because it doesn't properly nil-check.
-	if err := new.Validate(ctx); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// setDefaults simply leverages apis.Defaultable to set defaults.
-func setDefaults(ctx context.Context, patches duck.JSONPatch, crd GenericCRD) (duck.JSONPatch, error) {
-	before, after := crd.DeepCopyObject(), crd
-	after.SetDefaults(ctx)
-
-	patch, err := duck.CreatePatch(before, after)
-	if err != nil {
-		return nil, err
-	}
-
-	return append(patches, patch...), nil
-}
-
 func configureCerts(ctx context.Context, client kubernetes.Interface, options *ControllerOptions) (*tls.Config, []byte, error) {
 	var apiServerCACert []byte
 	if options.ClientAuth >= tls.VerifyClientCertIfGiven {
@@ -267,109 +343,6 @@ func configureCerts(ctx context.Context, client kubernetes.Interface, options *C
 		return nil, nil, err
 	}
 	return tlsConfig, caCert, nil
-}
-
-// Run implements the admission controller run loop.
-func (ac *AdmissionController) Run(stop <-chan struct{}) error {
-	logger := ac.Logger
-	ctx := logging.WithLogger(context.TODO(), logger)
-	tlsConfig, caCert, err := configureCerts(ctx, ac.Client, &ac.Options)
-	if err != nil {
-		logger.Errorw("could not configure admission webhook certs", zap.Error(err))
-		return err
-	}
-
-	server := &http.Server{
-		Handler:   ac,
-		Addr:      fmt.Sprintf(":%v", ac.Options.Port),
-		TLSConfig: tlsConfig,
-	}
-
-	logger.Info("Found certificates for webhook...")
-	if ac.Options.RegistrationDelay != 0 {
-		logger.Infof("Delaying admission webhook registration for %v", ac.Options.RegistrationDelay)
-	}
-
-	select {
-	case <-time.After(ac.Options.RegistrationDelay):
-		if err := ac.resourceAdmissionController.Register(ctx, ac.Client, caCert); err != nil {
-			logger.Errorw("failed to register webhook", zap.Error(err))
-			return err
-		}
-		logger.Info("Successfully registered webhook")
-	case <-stop:
-		return nil
-	}
-
-	serverBootstrapErrCh := make(chan struct{})
-	go func() {
-		if err := server.ListenAndServeTLS("", ""); err != nil {
-			logger.Errorw("ListenAndServeTLS for admission webhook returned error", zap.Error(err))
-			close(serverBootstrapErrCh)
-		}
-	}()
-
-	select {
-	case <-stop:
-		return server.Close()
-	case <-serverBootstrapErrCh:
-		return errors.New("webhook server bootstrap failed")
-	}
-}
-
-// ServeHTTP implements the external admission webhook for mutating
-// serving resources.
-func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var ttStart = time.Now()
-	logger := ac.Logger
-	logger.Infof("Webhook ServeHTTP request=%#v", r)
-
-	// Verify the content type is accurate.
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		http.Error(w, "invalid Content-Type, want `application/json`", http.StatusUnsupportedMediaType)
-		return
-	}
-
-	var review admissionv1beta1.AdmissionReview
-	if err := json.NewDecoder(r.Body).Decode(&review); err != nil {
-		http.Error(w, fmt.Sprintf("could not decode body: %v", err), http.StatusBadRequest)
-		return
-	}
-
-	logger = logger.With(
-		zap.String(logkey.Kind, fmt.Sprint(review.Request.Kind)),
-		zap.String(logkey.Namespace, review.Request.Namespace),
-		zap.String(logkey.Name, review.Request.Name),
-		zap.String(logkey.Operation, fmt.Sprint(review.Request.Operation)),
-		zap.String(logkey.Resource, fmt.Sprint(review.Request.Resource)),
-		zap.String(logkey.SubResource, fmt.Sprint(review.Request.SubResource)),
-		zap.String(logkey.UserInfo, fmt.Sprint(review.Request.UserInfo)))
-	ctx := logging.WithLogger(r.Context(), logger)
-
-	if ac.WithContext != nil {
-		ctx = ac.WithContext(ctx)
-	}
-
-	reviewResponse := ac.resourceAdmissionController.Admit(ctx, review.Request)
-	var response admissionv1beta1.AdmissionReview
-	if reviewResponse != nil {
-		response.Response = reviewResponse
-		response.Response.UID = review.Request.UID
-	}
-
-	logger.Infof("AdmissionReview for %#v: %s/%s response=%#v",
-		review.Request.Kind, review.Request.Namespace, review.Request.Name, reviewResponse)
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, fmt.Sprintf("could encode response: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	if ac.Options.StatsReporter != nil {
-		// Only report valid requests
-		ac.Options.StatsReporter.ReportRequest(review.Request, response.Response, time.Since(ttStart))
-	}
 }
 
 func makeErrorStatus(reason string, args ...interface{}) *admissionv1beta1.AdmissionResponse {
