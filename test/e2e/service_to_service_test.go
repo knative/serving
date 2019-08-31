@@ -244,7 +244,7 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 		aeps, err := clients.KubeClient.Kube.CoreV1().Endpoints(
 			system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
 		if err != nil {
-			t.Fatalf("Error getting activator endpoints: %v", err)
+			return false, err
 		}
 		svcEps, err := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
 			resources.Revision.Status.ServiceName, metav1.GetOptions{})
