@@ -172,6 +172,9 @@ func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		}
 	} else if err != nil {
 		return perrors.Wrap(err, "error fetching metric")
+	} else if !metav1.IsControlledBy(metric, pa) {
+		pa.Status.MarkResourceNotOwned("Metric", desiredMetric.Name)
+		return fmt.Errorf("PA: %s does not own Metric: %s", pa.Name, desiredMetric.Name)
 	} else {
 		if !equality.Semantic.DeepEqual(desiredMetric.Spec, metric.Spec) {
 			want := metric.DeepCopy()
