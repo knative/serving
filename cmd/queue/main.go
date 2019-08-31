@@ -415,6 +415,10 @@ func buildServer(env config, rp *readiness.Probe, reqChan chan queue.ReqEvent, l
 
 	httpProxy := httputil.NewSingleHostReverseProxy(target)
 	httpProxy.Transport = buildTransport(env, logger)
+	httpProxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
+		logger.Infof("error reverse proxying request: %v", err)
+		http.Error(w, err.Error(), http.StatusBadGateway)
+	}
 
 	httpProxy.FlushInterval = -1
 	activatorutil.SetupHeaderPruning(httpProxy)
