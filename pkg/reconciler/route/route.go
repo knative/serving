@@ -92,7 +92,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		c.Logger.Errorf("invalid resource key: %s", key)
+		c.Logger.Errorw("invalid resource key", zap.Error(err))
 		return nil
 	}
 	logger := logging.FromContext(ctx)
@@ -103,7 +103,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	original, err := c.routeLister.Routes(namespace).Get(name)
 	if apierrs.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
-		logger.Errorf("route %q in work queue no longer exists", key)
+		logger.Error("Route in work queue no longer exists")
 		return nil
 	} else if err != nil {
 		return err
