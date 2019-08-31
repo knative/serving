@@ -139,7 +139,7 @@ func (a *activationHandler) probeEndpoint(logger *zap.SugaredLogger, r *http.Req
 		return true, nil
 	})
 
-	a.logger.Debugf("Probing %s took %d attempts and %v time", target.String(), attempts, time.Since(st))
+	logger.Debugf("Probing %s took %d attempts and %v time", target.String(), attempts, time.Since(st))
 	return (err == nil), attempts
 }
 
@@ -185,7 +185,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	tryStart := time.Now()
 	err = a.throttler.Try(tryContext, revID, func() {
 		trySpan.End()
-		a.logger.Debugf("Waiting for throttler took %v time", time.Since(tryStart))
+		logger.Debugf("Waiting for throttler took %v time", time.Since(tryStart))
 
 		// This opportunistically caches the probes, so
 		// a few concurrent requests might result in concurrent probes
@@ -201,7 +201,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			// Once we see a successful probe, send traffic.
 			attempts++
 			proxyCtx, proxySpan := trace.StartSpan(r.Context(), "proxy")
-			httpStatus = a.proxyRequest(w, r.WithContext(proxyCtx), target)
+			httpStatus = a.proxyRequest(logger, w, r.WithContext(proxyCtx), target)
 			proxySpan.End()
 		} else {
 			httpStatus = http.StatusInternalServerError
@@ -228,13 +228,13 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *activationHandler) proxyRequest(w http.ResponseWriter, r *http.Request, target *url.URL) int {
+func (a *activationHandler) proxyRequest(logger *zap.SugaredLogger, w http.ResponseWriter, r *http.Request, target *url.URL) int {
 	network.RewriteHostIn(r)
-	recorder := pkghttp.NewResponseRecorder(w, http.StatusOK)
+
+	// Setup the reverse proxy.
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	config := activatorconfig.FromContext(r.Context())
 	proxy.Transport = a.transport
-	if config.Tracing.Backend != tracingconfig.None {
+	if config := activatorconfig.FromContext(r.Context()); config.Tracing.Backend != tracingconfig.None {
 		// When we collect metrics, we're wrapping the RoundTripper
 		// the proxy would use inside an annotating transport.
 		proxy.Transport = &ochttp.Transport{
@@ -242,11 +242,16 @@ func (a *activationHandler) proxyRequest(w http.ResponseWriter, r *http.Request,
 		}
 	}
 	proxy.FlushInterval = -1
+	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
+		logger.Infof("error reverse proxying request: %v", err)
+		http.Error(w, err.Error(), http.StatusBadGateway)
+	}
 
 	r.Header.Set(network.ProxyHeaderName, activator.Name)
 
 	util.SetupHeaderPruning(proxy)
 
+	recorder := pkghttp.NewResponseRecorder(w, http.StatusOK)
 	proxy.ServeHTTP(recorder, r)
 	return recorder.ResponseCode
 }

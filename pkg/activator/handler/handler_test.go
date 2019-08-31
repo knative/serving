@@ -193,7 +193,7 @@ func TestActivationHandler(t *testing.T) {
 		label:             "request error",
 		namespace:         testNamespace,
 		name:              testRevName,
-		wantBody:          "",
+		wantBody:          "request error\n",
 		wantCode:          http.StatusBadGateway,
 		wantErr:           errors.New("request error"),
 		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000)),
