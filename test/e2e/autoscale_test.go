@@ -394,16 +394,15 @@ func TestTargetBurstCapacity(t *testing.T) {
 	grp.Go(func() error {
 		return generateTraffic(ctx, 7, duration, stopCh)
 	})
-	aeps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Error getting activator endpoints: %v", err)
-	}
-	t.Logf("Activator endpoints: %v", aeps)
 
 	// Wait for the endpoints to equalize.
 	// There's some jitter in the beginning possible, since it takes 2 seconds
 	// for us to start evaluating things.
 	if err := wait.Poll(250*time.Millisecond, 2*cfg.StableWindow, func() (bool, error) {
+		aeps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
 		svcEps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
 			ctx.resources.Revision.Status.ServiceName, metav1.GetOptions{})
 		if err != nil {
