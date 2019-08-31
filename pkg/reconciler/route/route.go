@@ -48,6 +48,7 @@ import (
 	networkinglisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 	"knative.dev/serving/pkg/reconciler"
+	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 	networkaccessor "knative.dev/serving/pkg/reconciler/accessor/networking"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/domains"
@@ -337,7 +338,11 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 		if cert == nil {
 			cert, err = networkaccessor.ReconcileCertificate(ctx, r, desiredCert, c)
 			if err != nil {
-				r.Status.MarkCertificateProvisionFailed(desiredCert.Name)
+				if kaccessor.IsNotOwned(err) {
+					r.Status.MarkCertificateNotOwned(desiredCert.Name)
+				} else {
+					r.Status.MarkCertificateProvisionFailed(desiredCert.Name)
+				}
 				return nil, err
 			}
 			dnsNames = sets.NewString(cert.Spec.DNSNames...)
