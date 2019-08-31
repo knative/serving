@@ -20,13 +20,13 @@ import (
 	"context"
 	"errors"
 	"sync"
-	"sync/atomic"
 
 	"go.uber.org/zap"
 
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/system"
+	net "knative.dev/serving/pkg/activator/net"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	netlisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
@@ -241,9 +241,7 @@ func (t *Throttler) getOrCreateBreaker(revID RevisionID) (breaker, bool, error) 
 		return nil, false, err
 	}
 	if revision.Spec.GetContainerConcurrency() == 0 {
-		breaker = &infiniteBreaker{
-			broadcast: make(chan struct{}),
-		}
+		breaker = net.NewInfiniteBreaker()
 	} else {
 		breaker = queue.NewBreaker(t.breakerParams)
 	}
@@ -323,87 +321,6 @@ func (t *Throttler) endpointsDeleted(obj interface{}) {
 	}
 	revID := RevisionID{ep.Namespace, revisionName}
 	t.Remove(revID)
-}
-
-// infiniteBreaker is basically a short circuit.
-// infiniteBreaker provides us capability to send unlimited number
-// of requests to the downstream system.
-// This is to be used only when the container concurrency is unset
-// (i.e. infinity).
-// The infiniteBreaker will, though, block the requests when
-// downstream capacity is 0.
-type infiniteBreaker struct {
-	// mu guards `broadcast` channel.
-	mu sync.RWMutex
-
-	// broadcast channel is used notify the waiting requests that
-	// downstream capacity showed up.
-	// When the downstream capacity switches from 0 to 1, the channel is closed.
-	// When the downstream capacity disappears, the a new channel is created.
-	// Reads/Writes to the `broadcast` must be guarded by `mu`.
-	broadcast chan struct{}
-
-	// concurrency in the infinite breaker takes only two values
-	// 0 (no downstream capacity) and 1 (infinite downstream capacity).
-	// `Maybe` checks this value to determine whether to proxy the request
-	// immediately or wait for capacity to appear.
-	// `concurrency` should only be manipulated by `sync/atomic` methods.
-	concurrency int32
-}
-
-func (ib *infiniteBreaker) Capacity() int {
-	return int(atomic.LoadInt32(&ib.concurrency))
-}
-
-func zeroOrOne(x int) int32 {
-	if x == 0 {
-		return 0
-	}
-	return 1
-}
-
-func (ib *infiniteBreaker) UpdateConcurrency(cc int) error {
-	rcc := zeroOrOne(cc)
-	// We lock here to make sure two scale up events don't
-	// stomp on each other's feet.
-	ib.mu.Lock()
-	defer ib.mu.Unlock()
-	old := atomic.SwapInt32(&ib.concurrency, rcc)
-
-	// Scale up/down event.
-	if old != rcc {
-		if rcc == 0 {
-			// Scaled to 0.
-			ib.broadcast = make(chan struct{})
-		} else {
-			close(ib.broadcast)
-		}
-	}
-	return nil
-}
-
-func (ib *infiniteBreaker) Maybe(ctx context.Context, thunk func()) bool {
-	has := ib.Capacity()
-	// We're scaled to serve.
-	if has > 0 {
-		thunk()
-		return true
-	}
-
-	// Make sure we lock to get the channel, to avoid
-	// race between Maybe and UpdateConcurrency.
-	var ch chan struct{}
-	ib.mu.RLock()
-	ch = ib.broadcast
-	ib.mu.RUnlock()
-	select {
-	case <-ch:
-		// Scaled up.
-		thunk()
-		return true
-	case <-ctx.Done():
-		return false
-	}
 }
 
 type probeCache struct {

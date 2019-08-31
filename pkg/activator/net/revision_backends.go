@@ -56,6 +56,9 @@ type RevisionDestsUpdate struct {
 	Rev           types.NamespacedName
 	ClusterIPDest string
 	Dests         []string
+
+	// Number of addresses marked ready in the private endpoint for this revision
+	ReadyAddressCount int
 }
 
 const (
@@ -221,7 +224,7 @@ func (rw *revisionWatcher) checkDests(dests []string) {
 		rw.logger.Debug("ClusterIP is successfully probed:", dest)
 		rw.clusterIPHealthy = true
 		rw.healthyPods = nil
-		rw.updateCh <- &RevisionDestsUpdate{Rev: rw.rev, ClusterIPDest: dest}
+		rw.updateCh <- &RevisionDestsUpdate{Rev: rw.rev, ClusterIPDest: dest, ReadyAddressCount: len(dests)}
 		return
 	}
 
@@ -235,8 +238,9 @@ func (rw *revisionWatcher) checkDests(dests []string) {
 	if !reflect.DeepEqual(rw.healthyPods, hs) {
 		rw.healthyPods = hs
 		rw.updateCh <- &RevisionDestsUpdate{
-			Rev:   rw.rev,
-			Dests: hs.UnsortedList(),
+			Rev:               rw.rev,
+			Dests:             hs.UnsortedList(),
+			ReadyAddressCount: len(dests),
 		}
 	}
 }
@@ -317,6 +321,7 @@ func NewRevisionBackendsManagerWithProbeFrequency(updateCh chan<- *RevisionDests
 	return rbm
 }
 
+// NewRevisionBackendsManager creates a RevisionBackendsManager
 func NewRevisionBackendsManager(updateCh chan<- *RevisionDestsUpdate,
 	transport http.RoundTripper, revisionLister servinglisters.RevisionLister,
 	serviceLister corev1listers.ServiceLister, endpointsInformer corev1informers.EndpointsInformer,

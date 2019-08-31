@@ -104,7 +104,7 @@ func TestRevisionWatcher(t *testing.T) {
 			Port: 1234,
 		},
 		clusterIP:     "129.0.0.1",
-		expectUpdates: []RevisionDestsUpdate{{Dests: []string{"128.0.0.1:1234"}}},
+		expectUpdates: []RevisionDestsUpdate{{Dests: []string{"128.0.0.1:1234"}, ReadyAddressCount: 1}},
 		probeResponses: []activatortest.FakeResponse{{
 			Err: errors.New("clusterIP transport error"),
 		}, {
@@ -121,7 +121,7 @@ func TestRevisionWatcher(t *testing.T) {
 			Port: 1234,
 		},
 		clusterIP:     "129.0.0.1",
-		expectUpdates: []RevisionDestsUpdate{{Dests: []string{"128.0.0.1:1234"}}},
+		expectUpdates: []RevisionDestsUpdate{{Dests: []string{"128.0.0.1:1234"}, ReadyAddressCount: 1}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"129.0.0.1:1234": {{
 				Err: errors.New("clusterIP transport error"),
@@ -141,7 +141,7 @@ func TestRevisionWatcher(t *testing.T) {
 			Port: 1234,
 		},
 		clusterIP:     "129.0.0.1",
-		expectUpdates: []RevisionDestsUpdate{{ClusterIPDest: "129.0.0.1:1234"}},
+		expectUpdates: []RevisionDestsUpdate{{ClusterIPDest: "129.0.0.1:1234", ReadyAddressCount: 1}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"129.0.0.1:1234": {{
 				Err:  nil,
@@ -195,7 +195,7 @@ func TestRevisionWatcher(t *testing.T) {
 			Port: 1234,
 		},
 		clusterIP:     "129.0.0.1",
-		expectUpdates: []RevisionDestsUpdate{{Dests: []string{"128.0.0.1:1234"}}},
+		expectUpdates: []RevisionDestsUpdate{{Dests: []string{"128.0.0.1:1234"}, ReadyAddressCount: 1}},
 		probeResponses: []activatortest.FakeResponse{{
 			Err: errors.New("clusterIP transport error"),
 		}, {
@@ -218,7 +218,7 @@ func TestRevisionWatcher(t *testing.T) {
 			Port: 1234,
 		},
 		clusterIP:     "129.0.0.1",
-		expectUpdates: []RevisionDestsUpdate{{Dests: []string{"128.0.0.1:1234", "128.0.0.2:1234"}}},
+		expectUpdates: []RevisionDestsUpdate{{Dests: []string{"128.0.0.1:1234", "128.0.0.2:1234"}, ReadyAddressCount: 2}},
 		probeResponses: []activatortest.FakeResponse{{
 			Err: errors.New("clusterIP transport error"),
 		}, {
@@ -234,7 +234,7 @@ func TestRevisionWatcher(t *testing.T) {
 			Port: 1234,
 		},
 		clusterIP:     "129.0.0.1",
-		expectUpdates: []RevisionDestsUpdate{{Dests: []string{"128.0.0.2:1234"}}},
+		expectUpdates: []RevisionDestsUpdate{{Dests: []string{"128.0.0.2:1234"}, ReadyAddressCount: 2}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"129.0.0.1:1234": {{
 				Err: errors.New("clusterIP transport error"),
@@ -257,8 +257,8 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 		clusterIP: "129.0.0.1",
 		expectUpdates: []RevisionDestsUpdate{
-			{Dests: []string{"128.0.0.1:1234"}},
-			{ClusterIPDest: "129.0.0.1:1234"},
+			{Dests: []string{"128.0.0.1:1234"}, ReadyAddressCount: 1},
+			{ClusterIPDest: "129.0.0.1:1234", ReadyAddressCount: 1},
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"129.0.0.1:1234": {{
@@ -366,8 +366,8 @@ func TestRevisionWatcher(t *testing.T) {
 	}
 }
 
-func ep(revL string, port int32, portName string, ips ...string) *corev1.Endpoints {
-	ss := corev1.EndpointSubset{
+func epSubset(port int32, portName string, ips []string) *corev1.EndpointSubset {
+	ss := &corev1.EndpointSubset{
 		Ports: []corev1.EndpointPort{{
 			Name: portName,
 			Port: port,
@@ -376,6 +376,10 @@ func ep(revL string, port int32, portName string, ips ...string) *corev1.Endpoin
 	for _, ip := range ips {
 		ss.Addresses = append(ss.Addresses, corev1.EndpointAddress{IP: ip})
 	}
+	return ss
+}
+
+func ep(revL string, port int32, portName string, ips ...string) *corev1.Endpoints {
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: revL + "-ep",
@@ -385,7 +389,7 @@ func ep(revL string, port int32, portName string, ips ...string) *corev1.Endpoin
 				serving.RevisionLabelKey:  revL,
 			},
 		},
-		Subsets: []corev1.EndpointSubset{ss},
+		Subsets: []corev1.EndpointSubset{*epSubset(port, portName, ips)},
 	}
 }
 
@@ -425,7 +429,8 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		},
 		expectDests: map[types.NamespacedName]RevisionDestsUpdate{
 			{Namespace: "test-namespace", Name: "test-revision"}: {
-				Dests: []string{"128.0.0.1:1234"},
+				Dests:             []string{"128.0.0.1:1234"},
+				ReadyAddressCount: 1,
 			},
 		},
 		updateCnt: 1,
@@ -455,7 +460,8 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		},
 		expectDests: map[types.NamespacedName]RevisionDestsUpdate{
 			{Namespace: "test-namespace", Name: "test-revision"}: {
-				Dests: []string{"128.0.0.1:1234"},
+				Dests:             []string{"128.0.0.1:1234"},
+				ReadyAddressCount: 1,
 			},
 		},
 		updateCnt: 1,
@@ -481,10 +487,12 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		},
 		expectDests: map[types.NamespacedName]RevisionDestsUpdate{
 			{Namespace: "test-namespace", Name: "test-revision1"}: {
-				Dests: []string{"128.0.0.1:1234"},
+				Dests:             []string{"128.0.0.1:1234"},
+				ReadyAddressCount: 1,
 			},
 			{Namespace: "test-namespace", Name: "test-revision2"}: {
-				Dests: []string{"128.1.0.2:1235"},
+				Dests:             []string{"128.1.0.2:1235"},
+				ReadyAddressCount: 1,
 			},
 		},
 		updateCnt: 2,
@@ -520,7 +528,8 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		},
 		expectDests: map[types.NamespacedName]RevisionDestsUpdate{
 			{Namespace: "test-namespace", Name: "test-revision"}: {
-				ClusterIPDest: "129.0.0.1:1234",
+				ClusterIPDest:     "129.0.0.1:1234",
+				ReadyAddressCount: 1,
 			},
 		},
 		updateCnt: 2,
