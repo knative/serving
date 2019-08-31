@@ -349,7 +349,7 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 			sks.Status.MarkEndpointsNotReady("UpdatingPrivateService")
 			logger.Infof("Private K8s Service changed %s; reconciling: ", svc.Name)
 			if _, err = r.KubeClientSet.CoreV1().Services(sks.Namespace).Update(want); err != nil {
-				logger.Errorw("Error updating private K8s Service: ", svc.Name, zap.Error(err))
+				logger.Errorw("Error updating private K8s Service: "+svc.Name, zap.Error(err))
 				return err
 			}
 		}
