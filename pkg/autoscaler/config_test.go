@@ -55,7 +55,7 @@ func TestNewConfig(t *testing.T) {
 	}, {
 		name: "minimum",
 		input: map[string]string{
-			"max-scale-up-rate":                       "1.0",
+			"max-scale-up-rate":                       "1.001",
 			"container-concurrency-target-percentage": "0.5",
 			"container-concurrency-target-default":    "10.0",
 			"target-burst-capacity":                   "0",
@@ -68,7 +68,7 @@ func TestNewConfig(t *testing.T) {
 		want: func(c Config) *Config {
 			c.ContainerConcurrencyTargetFraction = 0.5
 			c.ContainerConcurrencyTargetDefault = 10
-			c.MaxScaleUpRate = 1
+			c.MaxScaleUpRate = 1.001
 			c.TargetBurstCapacity = 0
 			c.StableWindow = 5 * time.Minute
 			c.PanicWindow = 10 * time.Second
@@ -96,7 +96,7 @@ func TestNewConfig(t *testing.T) {
 		name: "with toggles on",
 		input: map[string]string{
 			"enable-scale-to-zero":                    "true",
-			"max-scale-up-rate":                       "1.0",
+			"max-scale-up-rate":                       "1.01",
 			"container-concurrency-target-percentage": "0.71",
 			"container-concurrency-target-default":    "10.5",
 			"requests-per-second-target-default":      "10.11",
@@ -112,7 +112,7 @@ func TestNewConfig(t *testing.T) {
 			c.ContainerConcurrencyTargetDefault = 10.5
 			c.ContainerConcurrencyTargetFraction = 0.71
 			c.RPSTargetDefault = 10.11
-			c.MaxScaleUpRate = 1
+			c.MaxScaleUpRate = 1.01
 			c.StableWindow = 5 * time.Minute
 			c.PanicWindow = 11 * time.Second
 			return &c
@@ -184,6 +184,12 @@ func TestNewConfig(t *testing.T) {
 		input: map[string]string{
 			"container-concurrency-target-percentage": "30.0",
 			"container-concurrency-target-default":    "2",
+		},
+		wantErr: true,
+	}, {
+		name: "max scale up rate 1.0",
+		input: map[string]string{
+			"max-scale-up-rate": "1",
 		},
 		wantErr: true,
 	}, {
