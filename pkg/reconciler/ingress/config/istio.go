@@ -24,8 +24,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
+	"knative.dev/pkg/network"
 	"knative.dev/pkg/system"
-	"knative.dev/serving/pkg/network"
 )
 
 const (
