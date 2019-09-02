@@ -52,7 +52,7 @@ type Autoscaler struct {
 
 	// specMux guards the current DeciderSpec and the PodCounter.
 	specMux     sync.RWMutex
-	deciderSpec DeciderSpec
+	deciderSpec *DeciderSpec
 	podCounter  resources.ReadyPodCounter
 }
 
@@ -62,7 +62,7 @@ func New(
 	revision string,
 	metricClient MetricClient,
 	lister corev1listers.EndpointsLister,
-	deciderSpec DeciderSpec,
+	deciderSpec *DeciderSpec,
 	reporter StatsReporter) (*Autoscaler, error) {
 	if lister == nil {
 		return nil, errors.New("'lister' must not be nil")
@@ -110,7 +110,7 @@ func New(
 }
 
 // Update reconfigures the UniScaler according to the DeciderSpec.
-func (a *Autoscaler) Update(deciderSpec DeciderSpec) error {
+func (a *Autoscaler) Update(deciderSpec *DeciderSpec) error {
 	a.specMux.Lock()
 	defer a.specMux.Unlock()
 
@@ -234,7 +234,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	return desiredPodCount, excessBC, true
 }
 
-func (a *Autoscaler) currentSpecAndPC() (DeciderSpec, resources.ReadyPodCounter) {
+func (a *Autoscaler) currentSpecAndPC() (*DeciderSpec, resources.ReadyPodCounter) {
 	a.specMux.RLock()
 	defer a.specMux.RUnlock()
 	return a.deciderSpec, a.podCounter

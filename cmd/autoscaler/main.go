@@ -188,7 +188,7 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer, m
 			return nil, err
 		}
 
-		return autoscaler.New(decider.Namespace, decider.Name, metricClient, endpointsInformer.Lister(), decider.Spec, reporter)
+		return autoscaler.New(decider.Namespace, decider.Name, metricClient, endpointsInformer.Lister(), &decider.Spec, reporter)
 	}
 }
 

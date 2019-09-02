@@ -43,7 +43,7 @@ var (
 )
 
 func TestNewErrorWhenGivenNilReadyPodCounter(t *testing.T) {
-	_, err := New(testNamespace, testRevision, &autoscalerfake.MetricClient{}, nil, DeciderSpec{TargetValue: 10, ServiceName: testService}, &mockReporter{})
+	_, err := New(testNamespace, testRevision, &autoscalerfake.MetricClient{}, nil, &DeciderSpec{TargetValue: 10, ServiceName: testService}, &mockReporter{})
 	if err == nil {
 		t.Error("Expected error when ReadyPodCounter interface is nil, but got none.")
 	}
@@ -54,7 +54,7 @@ func TestNewErrorWhenGivenNilStatsReporter(t *testing.T) {
 
 	l := kubeInformer.Core().V1().Endpoints().Lister()
 	_, err := New(testNamespace, testRevision, &autoscalerfake.MetricClient{}, l,
-		DeciderSpec{TargetValue: 10, ServiceName: testService}, reporter)
+		&DeciderSpec{TargetValue: 10, ServiceName: testService}, reporter)
 	if err == nil {
 		t.Error("Expected error when EndpointsInformer interface is nil, but got none.")
 	}
@@ -111,9 +111,9 @@ func TestAutoscalerChangeOfPodCountService(t *testing.T) {
 	a.expectScale(t, time.Now(), 5, expectedEBC(10, 100, 50, 1), true)
 
 	const newTS = testService + "2"
-	newDS := a.deciderSpec
+	newDS := *a.deciderSpec
 	newDS.ServiceName = newTS
-	a.Update(newDS)
+	a.Update(&newDS)
 
 	// Make two pods in the new service.
 	endpoints(2, newTS)
@@ -254,7 +254,7 @@ func TestAutoscalerUpdateTarget(t *testing.T) {
 	a.expectScale(t, time.Now(), 10, expectedEBC(10, 77, 100, 1), true)
 
 	endpoints(10, testService)
-	a.Update(DeciderSpec{
+	a.Update(&DeciderSpec{
 		TargetValue:         1,
 		TotalValue:          1 / targetUtilization,
 		TargetBurstCapacity: 71,
@@ -329,7 +329,7 @@ func newTestAutoscaler(t *testing.T, targetValue, targetBurstCapacity float64, m
 
 func newTestAutoscalerWithScalingMetric(t *testing.T, targetValue, targetBurstCapacity float64, metrics MetricClient, metric string) *Autoscaler {
 	t.Helper()
-	deciderSpec := DeciderSpec{
+	deciderSpec := &DeciderSpec{
 		ScalingMetric:       metric,
 		TargetValue:         targetValue,
 		TotalValue:          targetValue / targetUtilization, // For UTs presume 75% utilization
@@ -387,7 +387,7 @@ func endpoints(count int, svc string) {
 
 func TestStartInPanicMode(t *testing.T) {
 	metrics := &autoscalerfake.StaticMetricClient
-	deciderSpec := DeciderSpec{
+	deciderSpec := &DeciderSpec{
 		TargetValue:         100,
 		TotalValue:          120,
 		TargetBurstCapacity: 11,
@@ -429,7 +429,7 @@ func TestStartInPanicMode(t *testing.T) {
 func TestNewFail(t *testing.T) {
 	eraseEndpoints()
 	metrics := &autoscalerfake.StaticMetricClient
-	deciderSpec := DeciderSpec{
+	deciderSpec := &DeciderSpec{
 		TargetValue:         100,
 		TotalValue:          120,
 		TargetBurstCapacity: 11,

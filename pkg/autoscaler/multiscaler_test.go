@@ -414,7 +414,7 @@ func (u *fakeUniScaler) setScaleResult(replicas, surplus int32, scaled bool) {
 	u.scaled = scaled
 }
 
-func (u *fakeUniScaler) Update(DeciderSpec) error {
+func (u *fakeUniScaler) Update(*DeciderSpec) error {
 	return nil
 }
 

@@ -83,7 +83,7 @@ type UniScaler interface {
 	Scale(context.Context, time.Time) (int32, int32, bool)
 
 	// Update reconfigures the UniScaler according to the DeciderSpec.
-	Update(DeciderSpec) error
+	Update(*DeciderSpec) error
 }
 
 // UniScalerFactory creates a UniScaler for a given PA using the given dynamic configuration.
@@ -97,7 +97,7 @@ type scalerRunner struct {
 
 	// mux guards access to decider.
 	mux     sync.RWMutex
-	decider Decider
+	decider *Decider
 }
 
 func (sr *scalerRunner) latestScale() int32 {
@@ -166,7 +166,7 @@ func (m *MultiScaler) Get(ctx context.Context, namespace, name string) (*Decider
 	}
 	scaler.mux.RLock()
 	defer scaler.mux.RUnlock()
-	return (&scaler.decider).DeepCopy(), nil
+	return scaler.decider.DeepCopy(), nil
 }
 
 // Create instantiates the desired Decider.
@@ -187,7 +187,8 @@ func (m *MultiScaler) Create(ctx context.Context, decider *Decider) (*Decider, e
 	}
 	scaler.mux.RLock()
 	defer scaler.mux.RUnlock()
-	return (&scaler.decider).DeepCopy(), nil
+	// scaler.decider is already a copy of the original, so just return it.
+	return scaler.decider, nil
 }
 
 // Update applied the desired DeciderSpec to a currently running Decider.
@@ -201,8 +202,9 @@ func (m *MultiScaler) Update(ctx context.Context, decider *Decider) (*Decider, e
 		scaler.mux.Lock()
 		defer scaler.mux.Unlock()
 		oldDeciderSpec := scaler.decider.Spec
-		scaler.decider = *decider
-		scaler.scaler.Update(decider.Spec)
+		// Make sure we store the copy.
+		scaler.decider = decider.DeepCopy()
+		scaler.scaler.Update(&decider.Spec)
 		if oldDeciderSpec.TickInterval != decider.Spec.TickInterval {
 			m.updateRunner(ctx, scaler)
 		}
@@ -273,7 +275,8 @@ func (m *MultiScaler) runScalerTicker(ctx context.Context, runner *scalerRunner)
 }
 
 func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scalerRunner, error) {
-	scaler, err := m.uniScalerFactory(decider)
+	d := decider.DeepCopy()
+	scaler, err := m.uniScalerFactory(d)
 	if err != nil {
 		return nil, err
 	}
@@ -281,7 +284,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 	runner := &scalerRunner{
 		scaler:  scaler,
 		stopCh:  make(chan struct{}),
-		decider: *decider,
+		decider: d,
 		pokeCh:  make(chan struct{}),
 	}
 	runner.decider.Status.DesiredScale = -1
