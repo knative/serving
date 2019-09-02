@@ -123,7 +123,7 @@ function update_cluster() {
         --patch '{"spec": {"minReplicas": 10}}'
 
   echo ">> Setting up 'prod' config-mako"
-  cat | kubectl apply -f - <<EOF
+  cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: ConfigMap
 metadata:
