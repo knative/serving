@@ -100,6 +100,8 @@ func MakeFactory(ctor Ctor) Factory {
 
 		// Set up our Controller from the fakes.
 		c := ctor(ctx, &ls, configmap.NewStaticWatcher())
+		// Update the context with the stuff we decorated it with.
+		r.Ctx = ctx
 
 		for _, reactor := range r.WithReactors {
 			kubeClient.PrependReactor("*", "*", reactor)

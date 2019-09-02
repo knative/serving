@@ -239,15 +239,13 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 		t.Fatalf("Failed to create a service: %v", err)
 	}
 
-	aeps, err := clients.KubeClient.Kube.CoreV1().Endpoints(
-		system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Error getting activator endpoints: %v", err)
-	}
-	t.Logf("Activator endpoints: %v", aeps)
-
 	// Wait for the endpoints to equalize.
 	if err := wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
+		aeps, err := clients.KubeClient.Kube.CoreV1().Endpoints(
+			system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
 		svcEps, err := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
 			resources.Revision.Status.ServiceName, metav1.GetOptions{})
 		if err != nil {

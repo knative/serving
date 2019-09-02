@@ -127,11 +127,11 @@ func (c *Base) ReconcileMetricsService(ctx context.Context, pa *pav1alpha1.PodAu
 		return "", perrors.Wrap(err, "error retrieving scale")
 	}
 	selector := scale.Spec.Selector.MatchLabels
-	logger.Debugf("PA's %s selector: %v", pa.Name, selector)
+	logger.Debugf("PA's selector: %v", selector)
 
 	svc, err := c.metricService(pa)
 	if errors.IsNotFound(err) {
-		logger.Infof("Metrics K8s service for PA %s/%s does not exist; creating.", pa.Namespace, pa.Name)
+		logger.Info("Metrics K8s service for PA does not exist; creating.")
 		svc = resources.MakeMetricsService(pa, selector)
 		svc, err = c.KubeClientSet.CoreV1().Services(pa.Namespace).Create(svc)
 		if err != nil {
