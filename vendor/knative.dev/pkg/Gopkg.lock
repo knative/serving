@@ -161,9 +161,10 @@
   revision = "869f871628b6baa9cfbc11732cdf6546b17c1298"
 
 [[projects]]
-  digest = "1:f5a98770ab68c1146ee5cc14ed24aafa2bb1a2b3c89cbeadc9eb913b1f9d930a"
+  digest = "1:f6a318b1ad1b366c91f50dfbdfa7ee27b745b261e56cef7da53a21941f65a2b0"
   name = "github.com/golang/protobuf"
   packages = [
+    "jsonpb",
     "proto",
     "protoc-gen-go/descriptor",
     "ptypes",
@@ -240,21 +241,21 @@
   revision = "c3068f13fcc3961fd05f96f13c8250e350db4209"
 
 [[projects]]
-  digest = "1:3efb665a5beaa0266ff287cdb58dff8a966631000e9f8ad8d832a288b90ca247"
+  digest = "1:d7736b4372fa7b6d447118aca5a9a6d90a61d4e0d467316ac631e4ba58458ae4"
   name = "github.com/google/mako"
   packages = [
     "clients/proto/analyzers/threshold_analyzer_go_proto",
     "clients/proto/analyzers/utest_analyzer_go_proto",
     "clients/proto/analyzers/window_deviation_go_proto",
-    "helpers/go/quickstore",
-    "helpers/proto/quickstore/quickstore_go_proto",
+    "go/quickstore",
     "internal/go/common",
     "internal/quickstore_microservice/proto/quickstore_go_proto",
+    "proto/quickstore/quickstore_go_proto",
     "spec/proto/mako_go_proto",
   ]
   pruneopts = "NUT"
-  revision = "d56a6e811df75f8e4d6e7c256d25acf19ef16d03"
-  version = "v0.0.0-rc.4"
+  revision = "122f8dcef9e3906310e7dba05849cedb5be43b24"
+  version = "0.1.0"
 
 [[projects]]
   digest = "1:ab3ec1fe3e39bac4b3ab63390767766622be35b7cab03f47f787f9ec60522a53"
@@ -1242,7 +1243,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:aa89a7d5efa637489243514d2fb2babe11b03e3f523db43cdf074147928f529f"
+  digest = "1:4da19f1792b6cfdb27f86853678ae81024580b33320e0a947369908584c37681"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1252,7 +1253,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "d7182fdc8d03f19b78b96e4aa3e94d831facf4d0"
+  revision = "89eac9b9bdd8897c246cbd9383e19e3be23146d3"
 
 [[projects]]
   digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"
@@ -1275,13 +1276,14 @@
     "github.com/evanphx/json-patch",
     "github.com/ghodss/yaml",
     "github.com/golang/glog",
+    "github.com/golang/protobuf/jsonpb",
     "github.com/golang/protobuf/proto",
     "github.com/google/go-cmp/cmp",
     "github.com/google/go-cmp/cmp/cmpopts",
     "github.com/google/go-github/github",
     "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto",
-    "github.com/google/mako/helpers/go/quickstore",
-    "github.com/google/mako/helpers/proto/quickstore/quickstore_go_proto",
+    "github.com/google/mako/go/quickstore",
+    "github.com/google/mako/proto/quickstore/quickstore_go_proto",
     "github.com/google/mako/spec/proto/mako_go_proto",
     "github.com/google/uuid",
     "github.com/gorilla/websocket",
@@ -1309,6 +1311,7 @@
     "golang.org/x/oauth2/google",
     "golang.org/x/sync/errgroup",
     "google.golang.org/api/container/v1",
+    "google.golang.org/grpc",
     "gopkg.in/yaml.v2",
     "k8s.io/api/admission/v1beta1",
     "k8s.io/api/admissionregistration/v1beta1",
@@ -1351,12 +1354,12 @@
     "k8s.io/client-go/informers/autoscaling/v1",
     "k8s.io/client-go/informers/autoscaling/v2beta1",
     "k8s.io/client-go/informers/batch/v1",
+    "k8s.io/client-go/informers/batch/v1beta1",
     "k8s.io/client-go/informers/core/v1",
     "k8s.io/client-go/informers/rbac/v1",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/fake",
     "k8s.io/client-go/kubernetes/scheme",
-    "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1",
     "k8s.io/client-go/kubernetes/typed/core/v1",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/rest",

@@ -151,11 +151,16 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	}
 
 	mode := nv1alpha1.SKSOperationModeServe
-	// We put activator in the serving path in two cases:
-	// 1. The revision is scaled to 0.
+	// We put activator in the serving path in the following cases:
+	// 1. The revision is scaled to 0:
+	//   a. want == 0
+	//   b. want == -1 && PA is inactive (Autoscaler has no previous knowledge of
+	//			this revision, e.g. after a restart) but PA status is inactive (it was
+	//			already scaled to 0).
 	// 2. The excess burst capacity is negative.
-	if want == 0 || decider.Status.ExcessBurstCapacity < 0 {
-		logger.Infof("SKS is in proxy mode: want = %d, ebc = %d", want, decider.Status.ExcessBurstCapacity)
+	if want == 0 || decider.Status.ExcessBurstCapacity < 0 || want == -1 && pa.Status.IsInactive() {
+		logger.Infof("SKS should be in proxy mode: want = %d, ebc = %d, PA Inactive? = %v",
+			want, decider.Status.ExcessBurstCapacity, pa.Status.IsInactive())
 		mode = nv1alpha1.SKSOperationModeProxy
 	}
 
@@ -171,6 +176,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 
 	// Propagate service name.
 	pa.Status.ServiceName = sks.Status.ServiceName
+	// Currently, SKS.IsReady==True when revision has >0 ready pods.
 	if sks.Status.IsReady() {
 		podCounter := resourceutil.NewScopedEndpointsCounter(c.endpointsLister, pa.Namespace, sks.Status.PrivateServiceName)
 		got, err = podCounter.ReadyCount()
@@ -178,11 +184,10 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 			return perrors.Wrapf(err, "error checking endpoints %s", sks.Status.PrivateServiceName)
 		}
 	}
-	logger.Infof("PA scale got=%d, want=%d", got, want)
+	logger.Infof("PA scale got=%d, want=%d, ebc=%d", got, want, decider.Status.ExcessBurstCapacity)
 	pa.Status.DesiredScale, pa.Status.ActualScale = &want, ptr.Int32(int32(got))
 
-	err = reportMetrics(pa, want, got)
-	if err != nil {
+	if err = reportMetrics(pa, want, got); err != nil {
 		return perrors.Wrap(err, "error reporting metrics")
 	}
 

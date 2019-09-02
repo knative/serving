@@ -101,22 +101,32 @@ var gatewayWithPlaceholderServer = v1alpha3.Gateway{
 	},
 }
 
+var ingressSpec = v1alpha1.IngressSpec{
+	Rules: []v1alpha1.IngressRule{{
+		Hosts: []string{"host1.example.com"},
+	}},
+	TLS: []v1alpha1.IngressTLS{{
+		Hosts:             []string{"host1.example.com"},
+		SecretName:        "secret0",
+		SecretNamespace:   system.Namespace(),
+		ServerCertificate: "tls.crt",
+		PrivateKey:        "tls.key",
+	}},
+}
+
 var clusterIngress = v1alpha1.ClusterIngress{
 	ObjectMeta: metav1.ObjectMeta{
 		Name: "clusteringress",
 	},
-	Spec: v1alpha1.IngressSpec{
-		Rules: []v1alpha1.IngressRule{{
-			Hosts: []string{"host1.example.com"},
-		}},
-		TLS: []v1alpha1.IngressTLS{{
-			Hosts:             []string{"host1.example.com"},
-			SecretName:        "secret0",
-			SecretNamespace:   system.Namespace(),
-			ServerCertificate: "tls.crt",
-			PrivateKey:        "tls.key",
-		}},
+	Spec: ingressSpec,
+}
+
+var ingress = v1alpha1.Ingress{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "ingress",
+		Namespace: "default",
 	},
+	Spec: ingressSpec,
 }
 
 func TestGetServers(t *testing.T) {
@@ -160,7 +170,7 @@ func TestGetHTTPServer(t *testing.T) {
 func TestMakeTLSServers(t *testing.T) {
 	cases := []struct {
 		name                    string
-		ci                      *v1alpha1.ClusterIngress
+		ci                      v1alpha1.IngressAccessor
 		gatewayServiceNamespace string
 		originSecrets           map[string]*corev1.Secret
 		expected                []v1alpha3.Server
@@ -195,6 +205,26 @@ func TestMakeTLSServers(t *testing.T) {
 			Hosts: []string{"host1.example.com"},
 			Port: v1alpha3.Port{
 				Name:     "clusteringress:0",
+				Number:   443,
+				Protocol: v1alpha3.ProtocolHTTPS,
+			},
+			TLS: &v1alpha3.TLSOptions{
+				Mode:              v1alpha3.TLSModeSimple,
+				ServerCertificate: "tls.crt",
+				PrivateKey:        "tls.key",
+				CredentialName:    "secret0",
+			},
+		}},
+	}, {
+		name:                    "port name is created with ingress namespace-name",
+		ci:                      &ingress,
+		gatewayServiceNamespace: system.Namespace(),
+		originSecrets:           originSecrets,
+		expected: []v1alpha3.Server{{
+			Hosts: []string{"host1.example.com"},
+			Port: v1alpha3.Port{
+				// port name is created with <namespace>/<name>
+				Name:     "default/ingress:0",
 				Number:   443,
 				Protocol: v1alpha3.ProtocolHTTPS,
 			},

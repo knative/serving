@@ -42,6 +42,8 @@ import (
 const (
 	noCMConditionReason  = "NoCertManagerCertCondition"
 	noCMConditionMessage = "The ready condition of Cert Manager Certifiate does not exist."
+	notReconciledReason  = "ReconcileFailed"
+	notReconciledMessage = "Cert-Manager certificate has not yet been reconciled."
 )
 
 // Reconciler implements controller.Reconciler for Certificate resources.
@@ -86,6 +88,11 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// Reconcile this copy of the Certificate and then write back any status
 	// updates regardless of whether the reconciliation errored out.
 	err = c.reconcile(ctx, knCert)
+	if err != nil {
+		logger.Warnw("Failed to reconcile certificate", zap.Error(err))
+		c.Recorder.Event(knCert, corev1.EventTypeWarning, "InternalError", err.Error())
+		knCert.Status.MarkNotReady(notReconciledReason, notReconciledMessage)
+	}
 	if equality.Semantic.DeepEqual(original.Status, knCert.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
@@ -97,9 +104,6 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 			"Failed to update status for Certificate %s: %v", key, err)
 		return err
 	}
-	if err != nil {
-		c.Recorder.Event(knCert, corev1.EventTypeWarning, "InternalError", err.Error())
-	}
 	return err
 }
 
@@ -110,6 +114,8 @@ func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate
 	knCert.Status.InitializeConditions()
 
 	logger.Infof("Reconciling Cert-Manager certificate for Knative cert %s/%s.", knCert.Namespace, knCert.Name)
+	knCert.Status.ObservedGeneration = knCert.Generation
+
 	cmConfig := config.FromContext(ctx).CertManager
 	cmCert := resources.MakeCertManagerCertificate(cmConfig, knCert)
 	cmCert, err := c.reconcileCMCertificate(ctx, knCert, cmCert)
@@ -118,7 +124,6 @@ func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate
 	}
 
 	knCert.Status.NotAfter = cmCert.Status.NotAfter
-	knCert.Status.ObservedGeneration = knCert.Generation
 	// Propagate cert-manager Certificate status to Knative Certificate.
 	cmCertReadyCondition := resources.GetReadyCondition(cmCert)
 	switch {

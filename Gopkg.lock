@@ -476,21 +476,21 @@
   revision = "e979a0b10eebe748549c702a25e997c556349da6"
 
 [[projects]]
-  digest = "1:3efb665a5beaa0266ff287cdb58dff8a966631000e9f8ad8d832a288b90ca247"
+  digest = "1:d7736b4372fa7b6d447118aca5a9a6d90a61d4e0d467316ac631e4ba58458ae4"
   name = "github.com/google/mako"
   packages = [
     "clients/proto/analyzers/threshold_analyzer_go_proto",
     "clients/proto/analyzers/utest_analyzer_go_proto",
     "clients/proto/analyzers/window_deviation_go_proto",
-    "helpers/go/quickstore",
-    "helpers/proto/quickstore/quickstore_go_proto",
+    "go/quickstore",
     "internal/go/common",
     "internal/quickstore_microservice/proto/quickstore_go_proto",
+    "proto/quickstore/quickstore_go_proto",
     "spec/proto/mako_go_proto",
   ]
   pruneopts = "NUT"
-  revision = "d56a6e811df75f8e4d6e7c256d25acf19ef16d03"
-  version = "v0.0.0-rc.4"
+  revision = "122f8dcef9e3906310e7dba05849cedb5be43b24"
+  version = "0.1.0"
 
 [[projects]]
   digest = "1:ab3ec1fe3e39bac4b3ab63390767766622be35b7cab03f47f787f9ec60522a53"
@@ -1628,7 +1628,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a83c7d6be32f1380ea409c7e90c01805682a419c6f9a21785bfbca8a253b11aa"
+  digest = "1:40ca105e28aa319c8bd2af8983ecef1a27b3cea1bdc14afdc33ada8933478e7e"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1651,15 +1651,16 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "53b3cdeccf28a1c67c21820425fe6583c0a34c4f"
+  revision = "14c30e6f2e26f0ef11024405b9d93fc6bbe9fdf1"
 
 [[projects]]
   branch = "master"
-  digest = "1:c3dcb59922bdd7fcf9050e1b399e645e029a6d743ef061b5c8a8c69e6d24af74"
+  digest = "1:999e5842e5917fc452ae40769030dbc049e9def569118d01804f0fc46956e4fa"
   name = "knative.dev/pkg"
   packages = [
     "apis",
     "apis/duck",
+    "apis/duck/v1",
     "apis/duck/v1alpha1",
     "apis/duck/v1beta1",
     "apis/istio",
@@ -1741,6 +1742,7 @@
     "test/ingress",
     "test/logging",
     "test/logstream",
+    "test/mako",
     "test/monitoring",
     "test/spoof",
     "test/vegeta/pacers",
@@ -1754,11 +1756,11 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "73daad6e4735a9ba885f3e7a08fb2a2f38865a93"
+  revision = "8cae700d29e47d30cbc05ffb230a5e8d73aaec9e"
 
 [[projects]]
   branch = "master"
-  digest = "1:fa303fc135e4ebfabaf214b2121b9effd5ac4b5d29e7510d9abf78fc2d997df5"
+  digest = "1:6e5d15d1bbbaae5f630e8701844da486ca72d4d4734635d149ec56bba33ec3cb"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1777,13 +1779,12 @@
     "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
-  revision = "ad9e83dcff273bbe9db46721f4704dba3dc687ae"
+  revision = "90a447afb0f4562ff89ac2975334aefcf864d21d"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "cloud.google.com/go/compute/metadata",
     "github.com/davecgh/go-spew/spew",
     "github.com/ghodss/yaml",
     "github.com/golang/protobuf/proto",
@@ -1798,8 +1799,7 @@
     "github.com/google/go-containerregistry/pkg/v1/remote/transport",
     "github.com/google/go-containerregistry/pkg/v1/types",
     "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto",
-    "github.com/google/mako/helpers/go/quickstore",
-    "github.com/google/mako/helpers/proto/quickstore/quickstore_go_proto",
+    "github.com/google/mako/go/quickstore",
     "github.com/google/mako/spec/proto/mako_go_proto",
     "github.com/gorilla/websocket",
     "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1",
@@ -1893,12 +1893,12 @@
     "knative.dev/caching/pkg/client/listers/caching/v1alpha1",
     "knative.dev/pkg/apis",
     "knative.dev/pkg/apis/duck",
+    "knative.dev/pkg/apis/duck/v1",
     "knative.dev/pkg/apis/duck/v1alpha1",
     "knative.dev/pkg/apis/duck/v1beta1",
     "knative.dev/pkg/apis/istio/common/v1alpha1",
     "knative.dev/pkg/apis/istio/v1alpha3",
     "knative.dev/pkg/apis/testing",
-    "knative.dev/pkg/changeset",
     "knative.dev/pkg/client/clientset/versioned",
     "knative.dev/pkg/client/clientset/versioned/fake",
     "knative.dev/pkg/client/informers/externalversions",
@@ -1953,6 +1953,7 @@
     "knative.dev/pkg/test/ingress",
     "knative.dev/pkg/test/logging",
     "knative.dev/pkg/test/logstream",
+    "knative.dev/pkg/test/mako",
     "knative.dev/pkg/test/spoof",
     "knative.dev/pkg/test/vegeta/pacers",
     "knative.dev/pkg/test/zipkin",

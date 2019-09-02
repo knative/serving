@@ -22,6 +22,9 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: load-testing
 rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
   - apiGroups: ["apps"]
     resources: ["deployments"]
     verbs: ["get", "list", "watch"]

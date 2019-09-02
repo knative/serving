@@ -31,8 +31,8 @@ const (
 	istioIngressName      = "istio-ingressgateway"
 )
 
-// GetIngressEndpoint gets the endpoint IP or hostname to use for the service.
-func GetIngressEndpoint(kubeClientset *kubernetes.Clientset) (*string, error) {
+// GetIngressEndpoint gets the ingress public IP or hostname.
+func GetIngressEndpoint(kubeClientset *kubernetes.Clientset) (string, error) {
 	ingressName := istioIngressName
 	if gatewayOverride := os.Getenv("GATEWAY_OVERRIDE"); gatewayOverride != "" {
 		ingressName = gatewayOverride
@@ -44,13 +44,13 @@ func GetIngressEndpoint(kubeClientset *kubernetes.Clientset) (*string, error) {
 
 	ingress, err := kubeClientset.CoreV1().Services(ingressNamespace).Get(ingressName, metav1.GetOptions{})
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	endpoint, err := EndpointFromService(ingress)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return &endpoint, nil
+	return endpoint, nil
 }
 
 // EndpointFromService extracts the endpoint from the service's ingress.

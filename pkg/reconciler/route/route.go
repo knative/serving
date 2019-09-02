@@ -92,7 +92,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		c.Logger.Errorf("invalid resource key: %s", key)
+		c.Logger.Errorw("invalid resource key", zap.Error(err))
 		return nil
 	}
 	logger := logging.FromContext(ctx)
@@ -103,7 +103,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	original, err := c.routeLister.Routes(namespace).Get(name)
 	if apierrs.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
-		logger.Errorf("route %q in work queue no longer exists", key)
+		logger.Error("Route in work queue no longer exists")
 		return nil
 	} else if err != nil {
 		return err
@@ -379,21 +379,23 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route, cl
 	logger := logging.FromContext(ctx)
 	t, err := traffic.BuildTrafficConfiguration(c.configurationLister, c.revisionLister, r)
 
-	if t != nil {
-		// Tell our trackers to reconcile Route whenever the things referred to by our
-		// Traffic stanza change.
-		for _, configuration := range t.Configurations {
-			if err := c.tracker.Track(objectRef(configuration), r); err != nil {
-				return nil, err
-			}
+	if t == nil {
+		return nil, err
+	}
+
+	// Tell our trackers to reconcile Route whenever the things referred to by our
+	// Traffic stanza change.
+	for _, configuration := range t.Configurations {
+		if err := c.tracker.Track(objectRef(configuration), r); err != nil {
+			return nil, err
 		}
-		for _, revision := range t.Revisions {
-			if revision.Status.IsActivationRequired() {
-				logger.Infof("Revision %s/%s is inactive", revision.Namespace, revision.Name)
-			}
-			if err := c.tracker.Track(objectRef(revision), r); err != nil {
-				return nil, err
-			}
+	}
+	for _, revision := range t.Revisions {
+		if revision.Status.IsActivationRequired() {
+			logger.Infof("Revision %s/%s is inactive", revision.Namespace, revision.Name)
+		}
+		if err := c.tracker.Track(objectRef(revision), r); err != nil {
+			return nil, err
 		}
 	}
 

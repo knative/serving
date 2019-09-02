@@ -100,6 +100,26 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: key(testNamespace, testRevision),
 	}, {
+		Name: "metric-change",
+		Objects: []runtime.Object{
+			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency))),
+			pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency),
+				WithMSvcStatus(testRevision+"-metrics"), WithTraffic, WithPAStatusService(testRevision)),
+			deploy(testNamespace, testRevision),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metric(pa(testNamespace, testRevision,
+				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)), testRevision+"-metrics2"),
+			metricsSvc(testNamespace, testRevision, WithSvcSelector(usualSelector),
+				SvcWithAnnotationValue(autoscaling.ClassAnnotationKey, autoscaling.HPA),
+				SvcWithAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.Concurrency)),
+		},
+		Key:         key(testNamespace, testRevision),
+		WantCreates: []runtime.Object{},
+		WantUpdates: []ktesting.UpdateActionImpl{{
+			Object: metric(pa(testNamespace, testRevision,
+				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)), testRevision+"-metrics"),
+		}},
+	}, {
 		Name: "create hpa & sks",
 		Objects: []runtime.Object{
 			pa(testNamespace, testRevision, WithHPAClass),
@@ -116,7 +136,7 @@ func TestReconcile(t *testing.T) {
 				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet")),
 		}},
 	}, {
-		Name: "create hpa, sks and metric service",
+		Name: "create hpa, sks and metric service when Concurrency used",
 		Objects: []runtime.Object{
 			pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)),
 			deploy(testNamespace, testRevision),
@@ -124,7 +144,7 @@ func TestReconcile(t *testing.T) {
 		Key: key(testNamespace, testRevision),
 		WantCreates: []runtime.Object{
 			metric(pa(testNamespace, testRevision,
-				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)), testRevision+"-00001"),
+				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)), testRevision+"-metrics"),
 			sks(testNamespace, testRevision, WithDeployRef(deployName)),
 			hpa(pa(testNamespace, testRevision,
 				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency))),
@@ -135,7 +155,29 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency),
 				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet"),
-				WithMSvcStatus(testRevision+"-00001")),
+				WithMSvcStatus(testRevision+"-metrics")),
+		}},
+	}, {
+		Name: "create hpa, sks and metric service when RPS used",
+		Objects: []runtime.Object{
+			pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.RPS)),
+			deploy(testNamespace, testRevision),
+		},
+		Key: key(testNamespace, testRevision),
+		WantCreates: []runtime.Object{
+			metric(pa(testNamespace, testRevision,
+				WithHPAClass, WithMetricAnnotation(autoscaling.RPS)), testRevision+"-metrics"),
+			sks(testNamespace, testRevision, WithDeployRef(deployName)),
+			hpa(pa(testNamespace, testRevision,
+				WithHPAClass, WithMetricAnnotation(autoscaling.RPS))),
+			metricsSvc(testNamespace, testRevision, WithSvcSelector(usualSelector),
+				SvcWithAnnotationValue(autoscaling.ClassAnnotationKey, autoscaling.HPA),
+				SvcWithAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.RPS)),
+		},
+		WantStatusUpdates: []ktesting.UpdateActionImpl{{
+			Object: pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.RPS),
+				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet"),
+				WithMSvcStatus(testRevision+"-metrics")),
 		}},
 	}, {
 		Name: "reconcile sks is still not ready",
@@ -351,7 +393,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testNamespace, testRevision, WithHPAClass, WithNoTraffic(
-				"FailedCreate", "Failed to create HorizontalPodAutoscaler \"test-revision\".")),
+				"FailedCreate", `Failed to create HorizontalPodAutoscaler "test-revision".`)),
 		}},
 		WantErr: true,
 		WantEvents: []string{

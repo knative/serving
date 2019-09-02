@@ -26,7 +26,7 @@ import (
 
 // MakeCertManagerCertificate creates a Cert-Manager `Certificate` for requesting a SSL certificate.
 func MakeCertManagerCertificate(cmConfig *config.CertManagerConfig, knCert *v1alpha1.Certificate) *certmanagerv1alpha1.Certificate {
-	return &certmanagerv1alpha1.Certificate{
+	cert := &certmanagerv1alpha1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            knCert.Name,
 			Namespace:       knCert.Namespace,
@@ -38,14 +38,21 @@ func MakeCertManagerCertificate(cmConfig *config.CertManagerConfig, knCert *v1al
 			SecretName: knCert.Spec.SecretName,
 			DNSNames:   knCert.Spec.DNSNames,
 			IssuerRef:  *cmConfig.IssuerRef,
-			ACME: &certmanagerv1alpha1.ACMECertificateConfig{
-				Config: []certmanagerv1alpha1.DomainSolverConfig{{
-					Domains:      knCert.Spec.DNSNames,
-					SolverConfig: *cmConfig.SolverConfig,
-				}},
-			},
 		},
 	}
+
+	switch cmConfig.IssuerKind {
+	case "acme":
+		cert.Spec.ACME = &certmanagerv1alpha1.ACMECertificateConfig{
+			Config: []certmanagerv1alpha1.DomainSolverConfig{{
+				Domains:      knCert.Spec.DNSNames,
+				SolverConfig: *cmConfig.SolverConfig,
+			}},
+		}
+	case "ca":
+		// ca does not need any specific config.
+	}
+	return cert
 }
 
 // GetReadyCondition gets the ready condition of a Cert-Manager `Certificate`.

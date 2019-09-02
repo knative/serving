@@ -138,7 +138,7 @@ func main() {
 		log.Fatal("Error loading/parsing logging configuration:", err)
 	}
 	logger, atomicLevel := pkglogging.NewLoggerFromConfig(loggingConfig, component)
-	logger = logger.With(zap.String(logkey.ControllerType, "activator"))
+	logger = logger.With(zap.String(logkey.ControllerType, component))
 	defer flush(logger)
 
 	kubeClient := kubeclient.Get(ctx)
@@ -178,7 +178,7 @@ func main() {
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
 	throttler := activator.NewThrottler(params, endpointInformer, sksInformer.Lister(), revisionInformer.Lister(), logger)
 
-	oct := tracing.NewOpenCensusTracer(tracing.WithExporter("activator", logger))
+	oct := tracing.NewOpenCensusTracer(tracing.WithExporter(networking.ActivatorServiceName, logger))
 
 	tracerUpdater := configmap.TypeFilter(&tracingconfig.Config{})(func(name string, value interface{}) {
 		cfg := value.(*tracingconfig.Config)
