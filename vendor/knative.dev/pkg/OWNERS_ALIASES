@@ -26,13 +26,16 @@ aliases:
   - dprotaso
 
   controller-approvers:
-  - mattmoor
+  - dgerd
   - grantr
+  - mattmoor
   - tcnghia
+  - vagababov
 
   kmeta-approvers:
   - mattmoor
-  - jonjohnsonjr
+  - dgerd
+  - vagababov
 
   logging-approvers:
   - mdemirhan
