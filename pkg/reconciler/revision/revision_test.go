@@ -158,7 +158,7 @@ func newTestControllerWithConfig(t *testing.T, deploymentConfig *deployment.Conf
 			Name:      autoscaler.ConfigName,
 		},
 		Data: map[string]string{
-			"max-scale-up-rate":                       "1.0",
+			"max-scale-up-rate":                       "11.0",
 			"container-concurrency-target-percentage": "0.5",
 			"container-concurrency-target-default":    "10.0",
 			"stable-window":                           "5m",

@@ -182,7 +182,7 @@ func newTestController(t *testing.T) (
 				Name:      autoscaler.ConfigName,
 			},
 			Data: map[string]string{
-				"max-scale-up-rate":                       "1.0",
+				"max-scale-up-rate":                       "2.0",
 				"container-concurrency-target-percentage": "0.5",
 				"container-concurrency-target-default":    "10.0",
 				"stable-window":                           "5m",
