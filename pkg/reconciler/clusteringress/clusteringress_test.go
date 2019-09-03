@@ -49,6 +49,7 @@ import (
 	"knative.dev/pkg/controller"
 
 	logtesting "knative.dev/pkg/logging/testing"
+	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
 	apiconfig "knative.dev/serving/pkg/apis/config"
@@ -195,12 +196,12 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: network.GetServiceHostname("test-ingressgateway", "istio-system")},
+							{DomainInternal: pkgnet.GetServiceHostname("test-ingressgateway", "istio-system")},
 						},
 					},
 					PublicLoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: network.GetServiceHostname("test-ingressgateway", "istio-system")},
+							{DomainInternal: pkgnet.GetServiceHostname("test-ingressgateway", "istio-system")},
 						},
 					},
 					PrivateLoadBalancer: &v1alpha1.LoadBalancerStatus{
@@ -283,12 +284,12 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: network.GetServiceHostname("test-ingressgateway", "istio-system")},
+							{DomainInternal: pkgnet.GetServiceHostname("test-ingressgateway", "istio-system")},
 						},
 					},
 					PublicLoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: network.GetServiceHostname("test-ingressgateway", "istio-system")},
+							{DomainInternal: pkgnet.GetServiceHostname("test-ingressgateway", "istio-system")},
 						},
 					},
 					PrivateLoadBalancer: &v1alpha1.LoadBalancerStatus{
@@ -376,12 +377,12 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+							{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")},
 						},
 					},
 					PublicLoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+							{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")},
 						},
 					},
 					PrivateLoadBalancer: &v1alpha1.LoadBalancerStatus{
@@ -519,12 +520,12 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+							{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")},
 						},
 					},
 					PublicLoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+							{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")},
 						},
 					},
 					PrivateLoadBalancer: &v1alpha1.LoadBalancerStatus{
@@ -621,12 +622,12 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+							{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")},
 						},
 					},
 					PublicLoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+							{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")},
 						},
 					},
 					PrivateLoadBalancer: &v1alpha1.LoadBalancerStatus{
@@ -682,7 +683,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 					},
 					PublicLoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+							{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")},
 						},
 					},
 					PrivateLoadBalancer: &v1alpha1.LoadBalancerStatus{
@@ -740,7 +741,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 							IngressGateways: []config.Gateway{{
 								Namespace:  system.Namespace(),
 								Name:       "knative-ingress-gateway",
-								ServiceURL: network.GetServiceHostname("istio-ingressgateway", "istio-system"),
+								ServiceURL: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system"),
 							}},
 						},
 						Network: &network.Config{
@@ -846,11 +847,11 @@ func ReconcilerTestConfig() *config.Config {
 			IngressGateways: []config.Gateway{{
 				Namespace:  system.Namespace(),
 				Name:       "knative-test-gateway",
-				ServiceURL: network.GetServiceHostname("test-ingressgateway", "istio-system"),
+				ServiceURL: pkgnet.GetServiceHostname("test-ingressgateway", "istio-system"),
 			}, {
 				Namespace:  system.Namespace(),
 				Name:       "knative-ingress-gateway",
-				ServiceURL: network.GetServiceHostname("istio-ingressgateway", "istio-system"),
+				ServiceURL: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system"),
 			}},
 		},
 		Network: &network.Config{

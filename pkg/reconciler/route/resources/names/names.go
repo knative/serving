@@ -20,7 +20,7 @@ import (
 	"fmt"
 
 	"knative.dev/pkg/kmeta"
-	"knative.dev/serving/pkg/network"
+	"knative.dev/pkg/network"
 )
 
 func K8sService(route kmeta.Accessor) string {

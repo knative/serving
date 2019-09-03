@@ -31,11 +31,11 @@ import (
 	istiov1alpha1 "knative.dev/pkg/apis/istio/common/v1alpha1"
 	"knative.dev/pkg/apis/istio/v1alpha3"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/network"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/ingress/resources/names"
 	"knative.dev/serving/pkg/resources"
 )
