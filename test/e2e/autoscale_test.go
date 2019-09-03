@@ -106,7 +106,6 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 		totalRequests      int32
 		successfulRequests int32
 		group              errgroup.Group
-		requestsInFlight   int32
 	)
 
 	ctx.t.Logf("Maintaining %d concurrent requests for %v.", concurrency, duration)
@@ -131,9 +130,7 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 					return nil
 				default:
 					atomic.AddInt32(&totalRequests, 1)
-					atomic.AddInt32(&requestsInFlight, 1)
 					res, err := client.Do(req)
-					atomic.AddInt32(&requestsInFlight, -1)
 					if err != nil {
 						ctx.t.Logf("Error making request %v", err)
 						continue
@@ -149,18 +146,6 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 			}
 		})
 	}
-
-	go func() {
-		tickerCh := time.NewTicker(time.Second).C
-		for {
-			select {
-			case <-stopChan:
-				return
-			case <-tickerCh:
-				ctx.t.Logf("Client side concurrency is %v", atomic.LoadInt32(&requestsInFlight))
-			}
-		}
-	}()
 
 	ctx.t.Log("Waiting for all requests to complete.")
 	if err := group.Wait(); err != nil {
@@ -193,6 +178,7 @@ func generateTrafficAtFixedRPS(ctx *testContext, rps int, duration time.Duration
 
 	// Start the attack!
 	results := attacker.Attack(targeter, rate, duration, "load-test")
+	defer attacker.Stop()
 
 	for {
 		select {
