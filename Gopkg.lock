@@ -1746,6 +1746,11 @@
     "test/monitoring",
     "test/spoof",
     "test/vegeta/pacers",
+    "test/webhook-apicoverage/coveragecalculator",
+    "test/webhook-apicoverage/resourcetree",
+    "test/webhook-apicoverage/tools",
+    "test/webhook-apicoverage/view",
+    "test/webhook-apicoverage/webhook",
     "test/zipkin",
     "tracing",
     "tracing/config",
@@ -1772,11 +1777,6 @@
     "shared/prow",
     "shared/testgrid",
     "tools/dep-collector",
-    "tools/webhook-apicoverage/coveragecalculator",
-    "tools/webhook-apicoverage/resourcetree",
-    "tools/webhook-apicoverage/tools",
-    "tools/webhook-apicoverage/view",
-    "tools/webhook-apicoverage/webhook",
   ]
   pruneopts = "UT"
   revision = "90a447afb0f4562ff89ac2975334aefcf864d21d"
@@ -1956,6 +1956,10 @@
     "knative.dev/pkg/test/mako",
     "knative.dev/pkg/test/spoof",
     "knative.dev/pkg/test/vegeta/pacers",
+    "knative.dev/pkg/test/webhook-apicoverage/resourcetree",
+    "knative.dev/pkg/test/webhook-apicoverage/tools",
+    "knative.dev/pkg/test/webhook-apicoverage/view",
+    "knative.dev/pkg/test/webhook-apicoverage/webhook",
     "knative.dev/pkg/test/zipkin",
     "knative.dev/pkg/tracing",
     "knative.dev/pkg/tracing/config",
@@ -1972,10 +1976,6 @@
     "knative.dev/test-infra/shared/prow",
     "knative.dev/test-infra/shared/testgrid",
     "knative.dev/test-infra/tools/dep-collector",
-    "knative.dev/test-infra/tools/webhook-apicoverage/resourcetree",
-    "knative.dev/test-infra/tools/webhook-apicoverage/tools",
-    "knative.dev/test-infra/tools/webhook-apicoverage/view",
-    "knative.dev/test-infra/tools/webhook-apicoverage/webhook",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
