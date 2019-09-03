@@ -128,6 +128,14 @@ func TestAutoscalerStableModeNoChangeAlreadyScaled(t *testing.T) {
 	a.expectScale(t, time.Now(), 5, expectedEBC(10, 100, 50, 5), true)
 }
 
+func TestAutoscalerStableModeIncreaseWithSmallScaleUpRate(t *testing.T) {
+	metrics := &autoscalerfake.MetricClient{StableConcurrency: 3}
+	a := newTestAutoscaler(t, 1 /* target */, 1982 /* TBC */, metrics)
+	a.deciderSpec.MaxScaleUpRate = 1.1
+	endpoints(2, testService)
+	a.expectScale(t, time.Now(), 3, expectedEBC(1, 1982, 3, 2), true)
+}
+
 func TestAutoscalerStableModeIncreaseWithConcurrencyDefault(t *testing.T) {
 	metrics := &autoscalerfake.MetricClient{StableConcurrency: 50.0}
 	a := newTestAutoscaler(t, 10, 101, metrics)

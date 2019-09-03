@@ -38,6 +38,7 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
 	logtesting "knative.dev/pkg/logging/testing"
+	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -2524,13 +2525,13 @@ func readyIngressStatus() netv1alpha1.IngressStatus {
 	status.MarkNetworkConfigured()
 	status.MarkLoadBalancerReady(
 		[]netv1alpha1.LoadBalancerIngressStatus{
-			{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+			{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")},
 		},
 		[]netv1alpha1.LoadBalancerIngressStatus{
-			{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+			{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")},
 		},
 		[]netv1alpha1.LoadBalancerIngressStatus{
-			{DomainInternal: network.GetServiceHostname("private-istio-ingressgateway", "istio-system")},
+			{DomainInternal: pkgnet.GetServiceHostname("private-istio-ingressgateway", "istio-system")},
 		},
 	)
 

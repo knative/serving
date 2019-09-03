@@ -28,6 +28,7 @@ import (
 	"knative.dev/pkg/injection/clients/dynamicclient"
 	"knative.dev/pkg/logging"
 
+	pkgnet "knative.dev/pkg/network"
 	"knative.dev/serving/pkg/activator"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
@@ -114,7 +115,7 @@ func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, enqu
 
 // Resolves the pa to hostname:port.
 func paToProbeTarget(pa *pav1alpha1.PodAutoscaler) string {
-	svc := network.GetServiceHostname(pa.Status.ServiceName, pa.Namespace)
+	svc := pkgnet.GetServiceHostname(pa.Status.ServiceName, pa.Namespace)
 	port := networking.ServicePort(pa.Spec.ProtocolType)
 	return fmt.Sprintf("http://%s:%d/", svc, port)
 }

@@ -72,13 +72,17 @@ func GetHTTPServer(gateway *v1alpha3.Gateway) *v1alpha3.Server {
 }
 
 func belongsToClusterIngress(server *v1alpha3.Server, ia v1alpha1.IngressAccessor) bool {
-	// The format of the portName should be "<clusteringress-name>:<number>".
-	// For example, route-test:0.
+	// The format of the portName should be "<namespace>/<ingress_name>:<number>".
+	// For example, default/routetest:0.
 	portNameSplits := strings.Split(server.Port.Name, ":")
 	if len(portNameSplits) != 2 {
 		return false
 	}
-	return portNameSplits[0] == ia.GetName()
+	// TODO: This should be removed after ClusterIngress codes are cleaned up.
+	if len(ia.GetNamespace()) == 0 {
+		return portNameSplits[0] == ia.GetName()
+	}
+	return portNameSplits[0] == ia.GetNamespace()+"/"+ia.GetName()
 }
 
 // SortServers sorts `Server` according to its port name.
@@ -177,10 +181,17 @@ func MakeTLSServers(ia v1alpha1.IngressAccessor, gatewayServiceNamespace string,
 			}
 			credentialName = targetSecret(originSecret, ia)
 		}
+
+		port := ia.GetName()
+		// TODO: This namespace check should be removed after ClusterIngress codes are cleaned up.
+		if len(ia.GetNamespace()) > 0 {
+			port = ia.GetNamespace() + "/" + ia.GetName()
+		}
+
 		servers[i] = v1alpha3.Server{
 			Hosts: tls.Hosts,
 			Port: v1alpha3.Port{
-				Name:     fmt.Sprintf("%s:%d", ia.GetName(), i),
+				Name:     fmt.Sprintf("%s:%d", port, i),
 				Number:   443,
 				Protocol: v1alpha3.ProtocolHTTPS,
 			},

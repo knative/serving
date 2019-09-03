@@ -49,6 +49,7 @@ import (
 	"knative.dev/pkg/controller"
 
 	logtesting "knative.dev/pkg/logging/testing"
+	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
 	apiconfig "knative.dev/serving/pkg/apis/config"
@@ -195,12 +196,12 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: network.GetServiceHostname("test-ingressgateway", "istio-system")},
+							{DomainInternal: pkgnet.GetServiceHostname("test-ingressgateway", "istio-system")},
 						},
 					},
 					PublicLoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: network.GetServiceHostname("test-ingressgateway", "istio-system")},
+							{DomainInternal: pkgnet.GetServiceHostname("test-ingressgateway", "istio-system")},
 						},
 					},
 					PrivateLoadBalancer: &v1alpha1.LoadBalancerStatus{
@@ -232,6 +233,78 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for Ingress %q", "no-virtualservice-yet"),
 		},
 		Key: "no-virtualservice-yet",
+	}, {
+		Name:                    "observed generation is updated when error is encountered in reconciling, and ingress ready status is unknown",
+		SkipNamespaceValidation: true,
+		WantErr:                 true,
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "virtualservices"),
+		},
+		Objects: []runtime.Object{
+			ingressWithStatus("reconcile-failed", 1234,
+				v1alpha1.IngressStatus{
+					Status: duckv1beta1.Status{
+						Conditions: duckv1beta1.Conditions{{
+							Type:     v1alpha1.IngressConditionLoadBalancerReady,
+							Status:   corev1.ConditionTrue,
+						}, {
+							Type:     v1alpha1.IngressConditionNetworkConfigured,
+							Status:   corev1.ConditionTrue,
+						}, {
+							Type:     v1alpha1.IngressConditionReady,
+							Status:   corev1.ConditionTrue,
+						}},
+					},
+				},
+			),
+			&v1alpha3.VirtualService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "reconcile-failed",
+					Namespace: system.Namespace(),
+					Labels: map[string]string{
+						networking.ClusterIngressLabelKey: "reconcile-failed",
+						serving.RouteLabelKey:             "test-route",
+						serving.RouteNamespaceLabelKey:    "test-ns",
+					},
+					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ingress("reconcile-failed", 1234))},
+				},
+				Spec: v1alpha3.VirtualServiceSpec{},
+			},
+		},
+		WantCreates: []runtime.Object{
+			insertProbe(t, resources.MakeMeshVirtualService(ingress("reconcile-failed", 1234))),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: insertProbe(t, resources.MakeIngressVirtualService(ingress("reconcile-failed", 1234),
+				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/knative-ingress-gateway"}, nil))),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: ingressWithStatus("reconcile-failed", 1234,
+				v1alpha1.IngressStatus{
+					Status: duckv1beta1.Status{
+						Conditions: duckv1beta1.Conditions{{
+							Type:     v1alpha1.IngressConditionLoadBalancerReady,
+							Status:   corev1.ConditionTrue,
+						}, {
+							Type:     v1alpha1.IngressConditionNetworkConfigured,
+							Status:   corev1.ConditionTrue,
+						}, {
+							Type:     v1alpha1.IngressConditionReady,
+							Status:   corev1.ConditionUnknown,
+							Severity: apis.ConditionSeverityError,
+							Reason:   ing.NotReconciledReason,
+							Message:  ing.NotReconciledMessage,
+						}},
+					},
+				},
+			),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconcile-failed-mesh"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update virtualservices"),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for Ingress %q", "reconcile-failed"),
+		},
+		Key: "reconcile-failed",
 	}, {
 		Name:                    "reconcile VirtualService to match desired one",
 		SkipNamespaceValidation: true,
@@ -283,12 +356,12 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: network.GetServiceHostname("test-ingressgateway", "istio-system")},
+							{DomainInternal: pkgnet.GetServiceHostname("test-ingressgateway", "istio-system")},
 						},
 					},
 					PublicLoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: network.GetServiceHostname("test-ingressgateway", "istio-system")},
+							{DomainInternal: pkgnet.GetServiceHostname("test-ingressgateway", "istio-system")},
 						},
 					},
 					PrivateLoadBalancer: &v1alpha1.LoadBalancerStatus{
@@ -376,12 +449,12 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+							{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")},
 						},
 					},
 					PublicLoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+							{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")},
 						},
 					},
 					PrivateLoadBalancer: &v1alpha1.LoadBalancerStatus{
@@ -446,6 +519,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 							Type:     v1alpha1.IngressConditionReady,
 							Status:   corev1.ConditionUnknown,
 							Severity: apis.ConditionSeverityError,
+							Reason:   ing.NotReconciledReason,
+							Message:  ing.NotReconciledMessage,
 						}},
 					},
 				},
@@ -454,8 +529,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconciling-clusteringress-mesh"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconciling-clusteringress"),
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for Ingress %q", "reconciling-clusteringress"),
 			Eventf(corev1.EventTypeWarning, "InternalError", `gateway.networking.istio.io "knative-ingress-gateway" not found`),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for Ingress %q", "reconciling-clusteringress"),
 		},
 		// Error should be returned when there is no preinstalled gateways.
 		WantErr: true,
@@ -519,12 +594,12 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+							{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")},
 						},
 					},
 					PublicLoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+							{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")},
 						},
 					},
 					PrivateLoadBalancer: &v1alpha1.LoadBalancerStatus{
@@ -621,12 +696,12 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+							{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")},
 						},
 					},
 					PublicLoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+							{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")},
 						},
 					},
 					PrivateLoadBalancer: &v1alpha1.LoadBalancerStatus{
@@ -682,7 +757,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 					},
 					PublicLoadBalancer: &v1alpha1.LoadBalancerStatus{
 						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: network.GetServiceHostname("istio-ingressgateway", "istio-system")},
+							{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")},
 						},
 					},
 					PrivateLoadBalancer: &v1alpha1.LoadBalancerStatus{
@@ -740,7 +815,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 							IngressGateways: []config.Gateway{{
 								Namespace:  system.Namespace(),
 								Name:       "knative-ingress-gateway",
-								ServiceURL: network.GetServiceHostname("istio-ingressgateway", "istio-system"),
+								ServiceURL: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system"),
 							}},
 						},
 						Network: &network.Config{
@@ -846,11 +921,11 @@ func ReconcilerTestConfig() *config.Config {
 			IngressGateways: []config.Gateway{{
 				Namespace:  system.Namespace(),
 				Name:       "knative-test-gateway",
-				ServiceURL: network.GetServiceHostname("test-ingressgateway", "istio-system"),
+				ServiceURL: pkgnet.GetServiceHostname("test-ingressgateway", "istio-system"),
 			}, {
 				Namespace:  system.Namespace(),
 				Name:       "knative-ingress-gateway",
-				ServiceURL: network.GetServiceHostname("istio-ingressgateway", "istio-system"),
+				ServiceURL: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system"),
 			}},
 		},
 		Network: &network.Config{

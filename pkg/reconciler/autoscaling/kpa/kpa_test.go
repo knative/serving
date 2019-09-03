@@ -88,7 +88,7 @@ const (
 
 func defaultConfigMapData() map[string]string {
 	return map[string]string{
-		"max-scale-up-rate":                       "1.0",
+		"max-scale-up-rate":                       "12.0",
 		"container-concurrency-target-percentage": fmt.Sprintf("%f", defaultTU),
 		"container-concurrency-target-default":    fmt.Sprintf("%f", defaultConcurrencyTarget),
 		"stable-window":                           stableWindow.String(),

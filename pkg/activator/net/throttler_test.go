@@ -156,7 +156,7 @@ func TestThrottler(t *testing.T) {
 			ReadyAddressCount: 1,
 		}},
 		deletes: []types.NamespacedName{
-			types.NamespacedName{"test-namespace", "test-revision"},
+			{"test-namespace", "test-revision"},
 		},
 		trys: []types.NamespacedName{
 			{Namespace: "test-namespace", Name: "test-revision"},
@@ -320,7 +320,7 @@ func tryThrottler(throttler *Throttler, trys []types.NamespacedName, ctx context
 	tryWaitg.Wait()
 
 	res := make([]tryResult, len(trys))
-	for i, _ := range trys {
+	for i := range trys {
 		res[i] = <-resCh
 	}
 	close(resCh)

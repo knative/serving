@@ -1354,6 +1354,7 @@
     "k8s.io/client-go/informers/autoscaling/v1",
     "k8s.io/client-go/informers/autoscaling/v2beta1",
     "k8s.io/client-go/informers/batch/v1",
+    "k8s.io/client-go/informers/batch/v1beta1",
     "k8s.io/client-go/informers/core/v1",
     "k8s.io/client-go/informers/rbac/v1",
     "k8s.io/client-go/kubernetes",

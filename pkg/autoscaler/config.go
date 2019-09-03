@@ -196,6 +196,10 @@ func validate(lc *Config) (*Config, error) {
 		return nil, fmt.Errorf("requests-per-second-target-default must be at least %v, got %v", autoscaling.TargetMin, lc.RPSTargetDefault)
 	}
 
+	if lc.MaxScaleUpRate <= 1.0 {
+		return nil, fmt.Errorf("max-scale-up-rate = %v, must be greater than 1.0", lc.MaxScaleUpRate)
+	}
+
 	// We can't permit stable window be less than our aggregation window for correctness.
 	if lc.StableWindow < autoscaling.WindowMin {
 		return nil, fmt.Errorf("stable-window = %v, must be at least %v", lc.StableWindow, BucketSize)

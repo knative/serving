@@ -44,6 +44,7 @@ import (
 	pkglogging "knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/metrics"
+	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
@@ -194,7 +195,7 @@ func main() {
 	configStore.WatchConfigs(configMapWatcher)
 
 	// Open a WebSocket connection to the autoscaler.
-	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s%s", "autoscaler", system.Namespace(), network.GetClusterDomainName(), autoscalerPort)
+	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.%s%s", "autoscaler", system.Namespace(), pkgnet.GetClusterDomainName(), autoscalerPort)
 	logger.Info("Connecting to autoscaler at", autoscalerEndpoint)
 	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
 	go statReporter(statSink, ctx.Done(), statCh, logger)
