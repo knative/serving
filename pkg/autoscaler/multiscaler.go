@@ -166,7 +166,7 @@ func (m *MultiScaler) Get(ctx context.Context, namespace, name string) (*Decider
 	}
 	scaler.mux.RLock()
 	defer scaler.mux.RUnlock()
-	return scaler.decider.DeepCopy(), nil
+	return scaler.decider, nil
 }
 
 // Create instantiates the desired Decider.
