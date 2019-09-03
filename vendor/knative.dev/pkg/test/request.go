@@ -74,7 +74,7 @@ func IsOneOfStatusCodes(codes ...int) spoof.ResponseChecker {
 			}
 		}
 
-		return true, fmt.Errorf("status = %d, want one of: %v", resp.StatusCode, codes)
+		return true, fmt.Errorf("status = %d %s, want one of: %v", resp.StatusCode, resp.Status, codes)
 	}
 }
 
@@ -134,8 +134,15 @@ func MatchesAllOf(checkers ...spoof.ResponseChecker) spoof.ResponseChecker {
 // the domain in the request headers, otherwise it will make the request directly to domain.
 // desc will be used to name the metric that is emitted to track how long it took for the
 // domain to get into the state checked by inState.  Commas in `desc` must be escaped.
-func WaitForEndpointState(kubeClient *KubeClient, logf logging.FormatLogger, theURL string, inState spoof.ResponseChecker, desc string, resolvable bool, opts ...RequestOption) (*spoof.Response, error) {
-	return WaitForEndpointStateWithTimeout(kubeClient, logf, theURL, inState, desc, resolvable, spoof.RequestTimeout, opts...)
+func WaitForEndpointState(
+	kubeClient *KubeClient,
+	logf logging.FormatLogger,
+	theURL string,
+	inState spoof.ResponseChecker,
+	desc string,
+	resolvable bool,
+	opts ...RequestOption) (*spoof.Response, error) {
+	return WaitForEndpointStateWithTimeout(kubeClient, http.DefaultTransport.(*http.Transport), logf, theURL, inState, desc, resolvable, spoof.RequestTimeout, opts...)
 }
 
 // WaitForEndpointStateWithTimeout will poll an endpoint until inState indicates the state is achieved
@@ -145,8 +152,15 @@ func WaitForEndpointState(kubeClient *KubeClient, logf logging.FormatLogger, the
 // desc will be used to name the metric that is emitted to track how long it took for the
 // domain to get into the state checked by inState.  Commas in `desc` must be escaped.
 func WaitForEndpointStateWithTimeout(
-	kubeClient *KubeClient, logf logging.FormatLogger, theURL string, inState spoof.ResponseChecker,
-	desc string, resolvable bool, timeout time.Duration, opts ...RequestOption) (*spoof.Response, error) {
+	kubeClient *KubeClient,
+	transport *http.Transport,
+	logf logging.FormatLogger,
+	theURL string,
+	inState spoof.ResponseChecker,
+	desc string,
+	resolvable bool,
+	timeout time.Duration,
+	opts ...RequestOption) (*spoof.Response, error) {
 	defer logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForEndpointState/%s", desc)).End()
 
 	// Try parsing the "theURL" with and without a scheme.
@@ -167,7 +181,7 @@ func WaitForEndpointStateWithTimeout(
 		opt(req)
 	}
 
-	client, err := NewSpoofingClient(kubeClient, logf, asURL.Hostname(), resolvable)
+	client, err := NewSpoofingClient(kubeClient, transport, logf, asURL.Hostname(), resolvable)
 	if err != nil {
 		return nil, err
 	}
