@@ -81,7 +81,7 @@ func getVegetaTarget(kubeClientset *kubernetes.Clientset, domain, endpointOverri
 		}, nil
 	}
 
-	endpoint := &endpointOverride
+	endpoint := endpointOverride
 	if endpointOverride == "" {
 		var err error
 		// If the domain that the Route controller is configured to assign to Route.Status.Domain
@@ -96,7 +96,7 @@ func getVegetaTarget(kubeClientset *kubernetes.Clientset, domain, endpointOverri
 	h.Set("Host", domain)
 	return vegeta.Target{
 		Method: "GET",
-		URL:    fmt.Sprintf("http://%s?sleep=100", *endpoint),
+		URL:    fmt.Sprintf("http://%s?sleep=100", endpoint),
 		Header: h,
 	}, nil
 }
