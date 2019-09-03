@@ -78,6 +78,11 @@ func (is *IngressStatus) MarkLoadBalancerPending() {
 		"Waiting for VirtualService to be ready")
 }
 
+// MarkIngressNotReady marks the "IngressConditionReady" condition to unknown.
+func (is *IngressStatus) MarkIngressNotReady(reason, message string) {
+	ingressCondSet.Manage(is).MarkUnknown(IngressConditionReady, reason, message)
+}
+
 // IsReady looks at the conditions and if the Status has a condition
 // IngressConditionReady returns true if ConditionStatus is True
 func (is *IngressStatus) IsReady() bool {
