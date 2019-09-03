@@ -36,6 +36,10 @@ func init() {
 
 func withInformerFactory(ctx context.Context) context.Context {
 	c := fake.Get(ctx)
+	opts := make([]externalversions.SharedInformerOption, 0, 1)
+	if injection.HasNamespaceScope(ctx) {
+		opts = append(opts, externalversions.WithNamespace(injection.GetNamespaceScope(ctx)))
+	}
 	return context.WithValue(ctx, factory.Key{},
-		externalversions.NewSharedInformerFactory(c, controller.GetResyncPeriod(ctx)))
+		externalversions.NewSharedInformerFactoryWithOptions(c, controller.GetResyncPeriod(ctx), opts...))
 }

@@ -74,7 +74,7 @@ func IsOneOfStatusCodes(codes ...int) spoof.ResponseChecker {
 			}
 		}
 
-		return true, fmt.Errorf("status = %d, want one of: %v", resp.StatusCode, codes)
+		return true, fmt.Errorf("status = %d %s, want one of: %v", resp.StatusCode, resp.Status, codes)
 	}
 }
 

@@ -22,8 +22,8 @@ import (
 
 	"github.com/google/go-github/github"
 
+	"knative.dev/pkg/test/ghutil"
 	"knative.dev/pkg/test/mako/alerter"
-	"knative.dev/test-infra/shared/ghutil"
 )
 
 const (

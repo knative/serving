@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"knative.dev/pkg/test/mako/alerter"
-	"knative.dev/test-infra/shared/slackutil"
+	"knative.dev/pkg/test/slackutil"
 )
 
 const messageTemplate = `

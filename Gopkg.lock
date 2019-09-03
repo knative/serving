@@ -1628,7 +1628,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:40ca105e28aa319c8bd2af8983ecef1a27b3cea1bdc14afdc33ada8933478e7e"
+  digest = "1:d258688f4e3971b4844a24fdb70945193790efc2dfd2da707606f6dcef25e1c4"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1651,11 +1651,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "14c30e6f2e26f0ef11024405b9d93fc6bbe9fdf1"
+  revision = "c0c4a6433fbffc162d305b99a774ae5236c59cea"
 
 [[projects]]
   branch = "master"
-  digest = "1:999e5842e5917fc452ae40769030dbc049e9def569118d01804f0fc46956e4fa"
+  digest = "1:f34acbd4133c6168eab8d571a1da86ff30247d5d16a14664076554b41475a90b"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1731,6 +1731,7 @@
     "metrics/metricskey",
     "metrics/metricstest",
     "metrics/testing",
+    "network",
     "profiling",
     "ptr",
     "reconciler/testing",
@@ -1761,11 +1762,11 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "8cae700d29e47d30cbc05ffb230a5e8d73aaec9e"
+  revision = "5bd67436f64368eef87e48e164a4dfd8e66049c4"
 
 [[projects]]
   branch = "master"
-  digest = "1:6e5d15d1bbbaae5f630e8701844da486ca72d4d4734635d149ec56bba33ec3cb"
+  digest = "1:cb3aab76dad970a841ccf1812c0b89e7fe5b6d2f7918f083d5fd9091cc1ebe35"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1779,7 +1780,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "90a447afb0f4562ff89ac2975334aefcf864d21d"
+  revision = "66fa1c8aba0d4a919d7437a53f0d3bcc448e274f"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1942,6 +1943,7 @@
     "knative.dev/pkg/metrics/metricskey",
     "knative.dev/pkg/metrics/metricstest",
     "knative.dev/pkg/metrics/testing",
+    "knative.dev/pkg/network",
     "knative.dev/pkg/profiling",
     "knative.dev/pkg/ptr",
     "knative.dev/pkg/reconciler/testing",
