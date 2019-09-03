@@ -37,8 +37,12 @@ type Key struct{}
 
 func withInformerFactory(ctx context.Context) context.Context {
 	c := client.Get(ctx)
+	opts := make([]externalversions.SharedInformerOption, 0, 1)
+	if injection.HasNamespaceScope(ctx) {
+		opts = append(opts, externalversions.WithNamespace(injection.GetNamespaceScope(ctx)))
+	}
 	return context.WithValue(ctx, Key{},
-		externalversions.NewSharedInformerFactory(c, controller.GetResyncPeriod(ctx)))
+		externalversions.NewSharedInformerFactoryWithOptions(c, controller.GetResyncPeriod(ctx), opts...))
 }
 
 // Get extracts the InformerFactory from the context.

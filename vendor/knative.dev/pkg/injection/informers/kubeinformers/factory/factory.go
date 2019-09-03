@@ -37,8 +37,12 @@ type Key struct{}
 
 func withInformerFactory(ctx context.Context) context.Context {
 	kc := kubeclient.Get(ctx)
+	opts := make([]informers.SharedInformerOption, 0, 1)
+	if injection.HasNamespaceScope(ctx) {
+		opts = append(opts, informers.WithNamespace(injection.GetNamespaceScope(ctx)))
+	}
 	return context.WithValue(ctx, Key{},
-		informers.NewSharedInformerFactory(kc, controller.GetResyncPeriod(ctx)))
+		informers.NewSharedInformerFactoryWithOptions(kc, controller.GetResyncPeriod(ctx), opts...))
 }
 
 // Get extracts the Kubernetes InformerFactory from the context.
