@@ -245,14 +245,14 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.IngressStatus{
 					Status: duckv1beta1.Status{
 						Conditions: duckv1beta1.Conditions{{
-							Type:     v1alpha1.IngressConditionLoadBalancerReady,
-							Status:   corev1.ConditionTrue,
+							Type:   v1alpha1.IngressConditionLoadBalancerReady,
+							Status: corev1.ConditionTrue,
 						}, {
-							Type:     v1alpha1.IngressConditionNetworkConfigured,
-							Status:   corev1.ConditionTrue,
+							Type:   v1alpha1.IngressConditionNetworkConfigured,
+							Status: corev1.ConditionTrue,
 						}, {
-							Type:     v1alpha1.IngressConditionReady,
-							Status:   corev1.ConditionTrue,
+							Type:   v1alpha1.IngressConditionReady,
+							Status: corev1.ConditionTrue,
 						}},
 					},
 				},
@@ -283,11 +283,11 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.IngressStatus{
 					Status: duckv1beta1.Status{
 						Conditions: duckv1beta1.Conditions{{
-							Type:     v1alpha1.IngressConditionLoadBalancerReady,
-							Status:   corev1.ConditionTrue,
+							Type:   v1alpha1.IngressConditionLoadBalancerReady,
+							Status: corev1.ConditionTrue,
 						}, {
-							Type:     v1alpha1.IngressConditionNetworkConfigured,
-							Status:   corev1.ConditionTrue,
+							Type:   v1alpha1.IngressConditionNetworkConfigured,
+							Status: corev1.ConditionTrue,
 						}, {
 							Type:     v1alpha1.IngressConditionReady,
 							Status:   corev1.ConditionUnknown,

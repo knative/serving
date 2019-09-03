@@ -62,10 +62,10 @@ import (
 )
 
 const (
-	controllerAgentName  = "ingress-controller"
+	controllerAgentName = "ingress-controller"
 
 	// NotReconciledReason specifies the reason that ingress reconciliation has failed
-	NotReconciledReason  = "ReconcileIngressFailed"
+	NotReconciledReason = "ReconcileIngressFailed"
 
 	// NotReconciledMessage indicates the message that ingress reconciliation has failed
 	NotReconciledMessage = "Ingress reconciliation failed"
