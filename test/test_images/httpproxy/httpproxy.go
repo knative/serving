@@ -57,7 +57,12 @@ func initialHTTPProxy(proxyURL string) *httputil.ReverseProxy {
 	if err != nil {
 		log.Fatalf("Failed to parse url %v", proxyURL)
 	}
-	return httputil.NewSingleHostReverseProxy(target)
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
+		log.Printf("error reverse proxying request: %v", err)
+		http.Error(w, err.Error(), http.StatusBadGateway)
+	}
+	return proxy
 }
 
 func main() {
