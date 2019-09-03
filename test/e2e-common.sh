@@ -228,9 +228,18 @@ function install_knative_serving_standard() {
 
   if (( RECONCILE_GATEWAY )); then
     echo ">> Turning on reconcileExternalGateway"
-    kubectl get cm config-istio -n knative-serving -o yaml | \
-      sed 's/  reconcileExternalGateway: "false"/reconcileExternalGateway: "true"/g' |\
-      kubectl replace -f -
+    cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-istio
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
+    networking.knative.dev/ingress-provider: istio
+data:
+  reconcileExternalGateway: "true"
+EOF
   fi
 
   echo ">> Adding more activator pods."
