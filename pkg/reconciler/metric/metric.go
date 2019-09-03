@@ -60,8 +60,13 @@ func (r *reconciler) Reconcile(ctx context.Context, key string) error {
 		return errors.Wrapf(err, "failed to fetch metric %q", key)
 	}
 
+	metric.Status.InitializeConditions()
+
 	if err := r.collector.CreateOrUpdate(metric); err != nil {
+		metric.Status.MarkMetricNotReady("CreateOrUpdateFailed", "Metric creation or update has failed.")
 		return errors.Wrapf(err, "failed to initiate or update scraping")
 	}
+
+	metric.Status.MarkMetricReady()
 	return nil
 }

@@ -176,6 +176,10 @@ func markActive(pa *asv1a1.PodAutoscaler) {
 	pa.Status.MarkActive()
 }
 
+func markMetricNotReady(pa *asv1a1.PodAutoscaler) {
+	pa.Status.MarkMetricNotReady(areconciler.NoMetricConditionReason, areconciler.NoMetricConditionMessage)
+}
+
 func markUnknown(pa *asv1a1.PodAutoscaler) {
 	pa.Status.MarkActivating("", "")
 }
@@ -311,7 +315,7 @@ func TestReconcile(t *testing.T) {
 			defaultDeployment,
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, markUnknown, withMSvcStatus(testRevision), withScales(1, defaultScale),
+			Object: kpa(testNamespace, testRevision, markUnknown, markMetricNotReady, withMSvcStatus(testRevision), withScales(1, defaultScale),
 				WithPAStatusService(testRevision)),
 		}},
 		WantErr: true,
@@ -474,6 +478,10 @@ func TestReconcile(t *testing.T) {
 			Name:  deployName,
 			Patch: []byte(`[{"op":"add","path":"/spec/replicas","value":11}]`),
 		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markActive, markMetricNotReady, WithPAStatusService(testRevision),
+				withMSvcStatus(testRevision), withScales(1, defaultScale)),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
 				`error scaling target: inducing failure for patch deployments`),
@@ -551,6 +559,10 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeWarning, "InternalError",
 				`error checking endpoints test-revision-private: endpoints "test-revision-private" not found`),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markActive, markMetricNotReady, WithPAStatusService(testRevision),
+				withMSvcStatus(testRevision), withScales(1, defaultScale)),
+		}},
 	}, {
 		Name: "pa activates",
 		Key:  key,
@@ -737,6 +749,10 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeWarning, "InternalError",
 				"error reconciling SKS: error creating SKS test-revision: inducing failure for create serverlessservices"),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markActive, markMetricNotReady,
+				withMSvcStatus(testRevision), withScales(1, defaultScale)),
+		}},
 	}, {
 		Name: "sks cannot be updated",
 		Key:  key,
@@ -757,6 +773,10 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling SKS: error updating SKS test-revision: inducing failure for update serverlessservices"),
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markActive, markMetricNotReady,
+				withMSvcStatus(testRevision), withScales(1, defaultScale)),
+		}},
 	}, {
 		Name: "sks is disowned",
 		Key:  key,
@@ -893,6 +913,11 @@ func TestReconcile(t *testing.T) {
 				WithPubService, WithPrivateService("king-crimson")),
 			defaultMetric, defaultMetricsSvc,
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, withMinScale(defaultScale), markInactive, markMetricNotReady,
+				WithPAStatusService(testRevision), WithReachabilityReachable,
+				withMSvcStatus(testRevision), withScales(0, -1)),
+		}},
 	}, {
 		Name: "want=1, underscaled, PA inactive",
 		// Status -> Activating and Deployment has to be patched.
@@ -1012,7 +1037,7 @@ func TestReconcile(t *testing.T) {
 			Object: activeKPAMinScale(overscale, defaultScale),
 		}},
 	}, {
-		Name: "scaled-to-0-no-scale-data",
+		Name: "scaled to 0 no scale data",
 		Key:  key,
 		Ctx: context.WithValue(context.Background(), deciderKey,
 			decider(testNamespace, testRevision, unknownScale /* desiredScale */, 0 /* ebc */)),
@@ -1024,6 +1049,10 @@ func TestReconcile(t *testing.T) {
 			metric(testNamespace, testRevision),
 			defaultDeployment, defaultEndpoints,
 		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markInactive, markMetricNotReady, WithPAStatusService(testRevision),
+				withMSvcStatus(testRevision), withScales(0, -1)),
+		}},
 	}, {
 		Name: "steady not enough capacity",
 		Key:  key,
