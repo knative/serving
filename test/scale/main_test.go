@@ -1,4 +1,4 @@
-// +build preupgrade
+// +build e2e
 
 /*
 Copyright 2019 The Knative Authors
@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package upgrade
+package e2e
 
 import (
 	"os"
