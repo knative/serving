@@ -610,7 +610,10 @@ func TestContainerValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("readinessProbe.failureThreshold"),
+		want: &apis.FieldError{
+			Message: "failureThreshold is disallowed when periodSeconds is zero",
+			Paths:   []string{"readinessProbe.failureThreshold"},
+		},
 	}, {
 		name: "invalid readiness probe (has timeoutSeconds while using special probe)",
 		c: corev1.Container{
@@ -626,7 +629,10 @@ func TestContainerValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrDisallowedFields("readinessProbe.timeoutSeconds"),
+		want: &apis.FieldError{
+			Message: "timeoutSeconds is disallowed when periodSeconds is zero",
+			Paths:   []string{"readinessProbe.timeoutSeconds"},
+		},
 	}, {
 		name: "out of bounds probe values",
 		c: corev1.Container{

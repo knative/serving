@@ -284,6 +284,8 @@ func TestServiceToServiceCallViaActivator(t *testing.T) {
 // It verifies that the helloworld service is accessible internally from both internal domain and external domain.
 // But it's only accessible from external via the external domain
 func TestCallToPublicService(t *testing.T) {
+	t.Skip("Skipping until #5389 is resolved.")
+
 	t.Parallel()
 	cancel := logstream.Start(t)
 	defer cancel()
