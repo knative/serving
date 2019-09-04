@@ -167,7 +167,7 @@ func TestReconcileTargetRevisions(t *testing.T) {
 			})
 			err := reconciler.reconcileTargetRevisions(ctx, &tc.tc, r)
 			if err != tc.expectErr {
-				t.Fatalf("Expected err %v got %v", tc.expectErr, err)
+				t.Fatalf("Got error = %v, want: %v", err, tc.expectErr)
 			}
 		})
 
@@ -221,7 +221,7 @@ func TestReconcileCertificatesInsert(t *testing.T) {
 	}
 	created := getCertificateFromClient(t, ctx, certificate)
 	if diff := cmp.Diff(certificate, created); diff != "" {
-		t.Errorf("Unexpected diff (-want +got): %v", diff)
+		t.Errorf("Unexpected diff (-want +got): %s", diff)
 	}
 }
 
@@ -250,7 +250,7 @@ func TestReconcileCertificateUpdate(t *testing.T) {
 
 	updated := getCertificateFromClient(t, ctx, newCertificate)
 	if diff := cmp.Diff(newCertificate, updated); diff != "" {
-		t.Errorf("Unexpected diff (-want +got): %v", diff)
+		t.Errorf("Unexpected diff (-want +got): %s", diff)
 	}
 	if diff := cmp.Diff(certificate, updated); diff == "" {
 		t.Error("Expected difference, but found none")
@@ -272,7 +272,6 @@ func newCerts(dnsNames []string, r *v1alpha1.Route) *netv1alpha1.Certificate {
 }
 
 func getContext() context.Context {
-	ctx := context.Background()
-	cancelg := ReconcilerTestConfig(false)
-	return config.ToContext(ctx, cancelg)
+	cfg := ReconcilerTestConfig(false)
+	return config.ToContext(context.Background(), cfg)
 }

@@ -131,7 +131,7 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 		t.Fatalf("Unexpected error creating configuration: %v", err)
 	}
 
-	if err := h.WaitForHooks(3 * time.Second); err != nil {
+	if err := h.WaitForHooks(5 * time.Second); err != nil {
 		t.Error(err)
 	}
 }
