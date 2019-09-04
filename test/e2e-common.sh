@@ -25,6 +25,15 @@ E2E_CLUSTER_MACHINE=${E2E_CLUSTER_MACHINE:-n1-standard-8}
 # This script provides helper methods to perform cluster actions.
 source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/e2e-tests.sh
 
+# DEBUG ONLY: uses go1.13 for testing
+GO_113="go1.13.linux-amd64.tar.gz"
+rm -rf /usr/local/go && \
+wget -q "https://storage.googleapis.com/golang/${GO_113}" && \
+tar xzf "${GO_113}" -C /usr/local && \
+rm "${GO_113}"
+
+echo "go version: $(go version)"
+
 # Default Istio configuration to install: 1.2-latest, no mesh, cert manager 0.6.1.
 ISTIO_VERSION="1.2-latest"
 ISTIO_MESH=0
