@@ -50,14 +50,14 @@ const (
 )
 
 // ServingFlags holds the flags or defaults for knative/serving settings in the user's environment.
-var ServingFlags = initializeServingFlags()
+var ServingFlags *ServingEnvironmentFlags
 
 // ServingEnvironmentFlags holds the e2e flags needed only by the serving repo.
 type ServingEnvironmentFlags struct {
 	ResolvableDomain bool // Resolve Route controller's `domainSuffix`
 }
 
-func initializeServingFlags() *ServingEnvironmentFlags {
+func InitializeServingFlags() {
 	var f ServingEnvironmentFlags
 
 	flag.BoolVar(&f.ResolvableDomain, "resolvabledomain", false,
@@ -71,5 +71,5 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 		logging.InitializeMetricExporter(E2EMetricExporter)
 	}
 
-	return &f
+	ServingFlags = &f
 }
