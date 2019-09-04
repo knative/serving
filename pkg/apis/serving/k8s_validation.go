@@ -456,11 +456,17 @@ func validateReadinessProbe(p *corev1.Probe) *apis.FieldError {
 	// PeriodSeconds == 0 indicates Knative's special probe with aggressive retries
 	if p.PeriodSeconds == 0 {
 		if p.FailureThreshold != 0 {
-			errs = errs.Also(apis.ErrDisallowedFields("failureThreshold"))
+			errs = errs.Also(&apis.FieldError{
+				Message: "failureThreshold is disallowed when periodSeconds is zero",
+				Paths:   []string{"periodSeconds", "failureThreshold"},
+			})
 		}
 
 		if p.TimeoutSeconds != 0 {
-			errs = errs.Also(apis.ErrDisallowedFields("timeoutSeconds"))
+			errs = errs.Also(&apis.FieldError{
+				Message: "timeoutSeconds is disallowed when periodSeconds is zero",
+				Paths:   []string{"periodSeconds", "timeoutSeconds"},
+			})
 		}
 	} else {
 		if p.TimeoutSeconds < 1 {
