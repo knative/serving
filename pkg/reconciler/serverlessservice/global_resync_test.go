@@ -17,7 +17,6 @@ limitations under the License.
 package serverlessservice
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -48,18 +47,16 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 		sks2 = "test-sks-2"
 	)
 	defer logtesting.ClearAll()
-	ctx, tcancel, informers := SetupFakeContextWithCancel(t)
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 	// Replace the fake dynamic client with one containing our objects.
 	ctx, _ = fakedynamicclient.With(ctx, runtime.NewScheme(),
 		ToUnstructured(t, NewScheme(), []runtime.Object{deploy(ns1, sks1), deploy(ns2, sks2)})...,
 	)
 	ctrl := NewController(ctx, configmap.NewStaticWatcher())
 
-	ctx, cancel := context.WithCancel(ctx)
 	grp := errgroup.Group{}
 	defer func() {
 		cancel()
-		tcancel()
 		if err := grp.Wait(); err != nil {
 			t.Fatalf("Error waiting for contoller to terminate: %v", err)
 		}

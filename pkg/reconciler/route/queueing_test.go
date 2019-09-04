@@ -43,7 +43,7 @@ import (
 
 func TestNewRouteCallsSyncHandler(t *testing.T) {
 	defer logtesting.ClearAll()
-	ctx, informers, cancel := SetupFakeContextWithCancelt(t)
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 
 	// A standalone revision
 	rev := getTestRevision("test-rev")

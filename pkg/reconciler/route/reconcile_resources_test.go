@@ -41,9 +41,9 @@ import (
 	. "knative.dev/pkg/logging/testing"
 )
 
-func TestReconcileClusterIngress_Insert(t *testing.T) {
-	ctx, _, reconciler, _, cf := newTestReconciler(t)
-	defer cf()
+func TestReconcileClusterIngressInsert(t *testing.T) {
+	ctx, _, reconciler, _, cancel := newTestReconciler(t)
+	defer cancel()
 
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
@@ -69,9 +69,9 @@ func TestReconcileClusterIngress_Insert(t *testing.T) {
 	}
 }
 
-func TestReconcileClusterIngress_Update(t *testing.T) {
-	ctx, _, reconciler, _, cf := newTestReconciler(t)
-	defer cf()
+func TestReconcileClusterIngressUpdate(t *testing.T) {
+	ctx, _, reconciler, _, cancel := newTestReconciler(t)
+	defer cancel()
 
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
@@ -118,8 +118,8 @@ func TestReconcileClusterIngress_Update(t *testing.T) {
 }
 
 func TestReconcileTargetRevisions(t *testing.T) {
-	_, _, reconciler, _, cf := newTestReconciler(t)
-	defer cf()
+	_, _, reconciler, _, cancel := newTestReconciler(t)
+	defer cancel()
 
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
@@ -205,9 +205,9 @@ func newTestClusterIngress(t *testing.T, r *v1alpha1.Route, trafficOpts ...func(
 	return ingress
 }
 
-func TestReconcileCertificates_Insert(t *testing.T) {
-	ctx, _, reconciler, _, cf := newTestReconciler(t)
-	defer cf()
+func TestReconcileCertificatesInsert(t *testing.T) {
+	ctx, _, reconciler, _, cancel := newTestReconciler(t)
+	defer cancel()
 
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
@@ -225,9 +225,9 @@ func TestReconcileCertificates_Insert(t *testing.T) {
 	}
 }
 
-func TestReconcileCertificate_Update(t *testing.T) {
-	ctx, _, reconciler, _, cf := newTestReconciler(t)
-	defer cf()
+func TestReconcileCertificateUpdate(t *testing.T) {
+	ctx, _, reconciler, _, cancel := newTestReconciler(t)
+	defer cancel()
 
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
@@ -273,6 +273,6 @@ func newCerts(dnsNames []string, r *v1alpha1.Route) *netv1alpha1.Certificate {
 
 func getContext() context.Context {
 	ctx := context.Background()
-	cfg := ReconcilerTestConfig(false)
-	return config.ToContext(ctx, cfg)
+	cancelg := ReconcilerTestConfig(false)
+	return config.ToContext(ctx, cancelg)
 }

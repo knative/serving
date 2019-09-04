@@ -86,7 +86,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 
 func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 	defer logtesting.ClearAll()
-	ctx, cancel1, informers := SetupFakeContextWithCancelt(t)
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 
 	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -98,10 +98,8 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 
 	ctrl := NewController(ctx, configMapWatcher)
 
-	ctx, cancel := context.WithCancel(ctx)
 	eg := errgroup.Group{}
 	defer func() {
-		cancel1()
 		cancel()
 		if err := eg.Wait(); err != nil {
 			t.Fatalf("Error running controller: %v", err)
@@ -133,7 +131,7 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 		t.Fatalf("Unexpected error creating configuration: %v", err)
 	}
 
-	if err := h.WaitForHooks(5 * time.Second); err != nil {
+	if err := h.WaitForHooks(3 * time.Second); err != nil {
 		t.Error(err)
 	}
 }
