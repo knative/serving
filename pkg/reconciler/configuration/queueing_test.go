@@ -86,7 +86,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 
 func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 	defer logtesting.ClearAll()
-	ctx, cancel1, informers := SetupFakeContext(t)
+	ctx, cancel1, informers := SetupFakeContextWithCancelt(t)
 
 	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{

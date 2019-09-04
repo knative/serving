@@ -42,7 +42,8 @@ import (
 )
 
 func TestReconcileClusterIngress_Insert(t *testing.T) {
-	ctx, _, reconciler, _ := newTestReconciler(t)
+	ctx, _, reconciler, _, cf := newTestReconciler(t)
+	defer cf()
 
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
@@ -69,7 +70,8 @@ func TestReconcileClusterIngress_Insert(t *testing.T) {
 }
 
 func TestReconcileClusterIngress_Update(t *testing.T) {
-	ctx, _, reconciler, _ := newTestReconciler(t)
+	ctx, _, reconciler, _, cf := newTestReconciler(t)
+	defer cf()
 
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
@@ -116,7 +118,8 @@ func TestReconcileClusterIngress_Update(t *testing.T) {
 }
 
 func TestReconcileTargetRevisions(t *testing.T) {
-	_, _, reconciler, _ := newTestReconciler(t)
+	_, _, reconciler, _, cf := newTestReconciler(t)
+	defer cf()
 
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
@@ -203,7 +206,8 @@ func newTestClusterIngress(t *testing.T, r *v1alpha1.Route, trafficOpts ...func(
 }
 
 func TestReconcileCertificates_Insert(t *testing.T) {
-	ctx, _, reconciler, _ := newTestReconciler(t)
+	ctx, _, reconciler, _, cf := newTestReconciler(t)
+	defer cf()
 
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
@@ -222,7 +226,8 @@ func TestReconcileCertificates_Insert(t *testing.T) {
 }
 
 func TestReconcileCertificate_Update(t *testing.T) {
-	ctx, _, reconciler, _ := newTestReconciler(t)
+	ctx, _, reconciler, _, cf := newTestReconciler(t)
+	defer cf()
 
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{

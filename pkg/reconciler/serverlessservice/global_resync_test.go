@@ -48,7 +48,7 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 		sks2 = "test-sks-2"
 	)
 	defer logtesting.ClearAll()
-	ctx, informers := SetupFakeContext(t)
+	ctx, tcancel, informers := SetupFakeContextWithCancel(t)
 	// Replace the fake dynamic client with one containing our objects.
 	ctx, _ = fakedynamicclient.With(ctx, runtime.NewScheme(),
 		ToUnstructured(t, NewScheme(), []runtime.Object{deploy(ns1, sks1), deploy(ns2, sks2)})...,
@@ -59,6 +59,7 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	grp := errgroup.Group{}
 	defer func() {
 		cancel()
+		tcancel()
 		if err := grp.Wait(); err != nil {
 			t.Fatalf("Error waiting for contoller to terminate: %v", err)
 		}
