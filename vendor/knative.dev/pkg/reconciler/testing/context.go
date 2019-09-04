@@ -28,10 +28,8 @@ import (
 	logtesting "knative.dev/pkg/logging/testing"
 )
 
-func SetupFakeContext(t *testing.T) (context.Context, context.CancelFunc, []controller.Informer) {
+func SetupFakeContext(t *testing.T) (context.Context, []controller.Informer) {
 	ctx := logtesting.TestContextWithLogger(t)
-	ctx, c := context.WithCancel(ctx)
 	ctx = controller.WithEventRecorder(ctx, record.NewFakeRecorder(1000))
-	ctx, ret := injection.Fake.SetupInformers(ctx, &rest.Config{})
-	return ctx, c, ret
+	return injection.Fake.SetupInformers(ctx, &rest.Config{})
 }
