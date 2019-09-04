@@ -242,6 +242,17 @@ data:
 EOF
   fi
 
+  echo ">> Turning on profiling.enable"
+  cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-observability
+  namespace: knative-serving
+data:
+  profiling.enable: "true"
+EOF
+
   echo ">> Adding more activator pods."
   # This command would fail if the HPA already exist, like during upgrade test.
   # Therefore we don't exit on failure, and don't log an error message.
