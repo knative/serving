@@ -68,8 +68,7 @@ IS_BOSKOS=0
 # Tear down the test resources.
 function teardown_test_resources() {
   # On boskos, save time and don't teardown as the cluster will be destroyed anyway.
-  # (( IS_BOSKOS )) && return
-  return
+  (( IS_BOSKOS )) && return
   header "Tearing down test environment"
   function_exists test_teardown && test_teardown
   (( ! SKIP_KNATIVE_SETUP )) && function_exists knative_teardown && knative_teardown
@@ -90,7 +89,6 @@ function go_test_e2e() {
 # Dump info about the test cluster. If dump_extra_cluster_info() is defined, calls it too.
 # This is intended to be called when a test fails to provide debugging information.
 function dump_cluster_state() {
-  return
   echo "***************************************"
   echo "***         E2E TEST FAILED         ***"
   echo "***    Start of information dump    ***"
@@ -219,8 +217,7 @@ function create_test_cluster() {
   if (( IS_BOSKOS )); then # Add arbitrary duration, wait for Boskos projects acquisition before error out
     extra_flags+=(--boskos-wait-duration=20m)
   else # Only let kubetest tear down the cluster if not using Boskos, it's done by Janitor if using Boskos
-    echo "skip"
-    # extra_flags+=(--down)
+    extra_flags+=(--down)
   fi
 
   # Set a minimal kubernetes environment that satisfies kubetest
