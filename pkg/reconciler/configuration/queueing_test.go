@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
@@ -84,7 +85,9 @@ func getTestConfiguration() *v1alpha1.Configuration {
 }
 
 func TestNewConfigurationCallsSyncHandler(t *testing.T) {
-	ctx, informers := SetupFakeContext(t)
+	defer logtesting.ClearAll()
+	ctx, cancel1, informers := SetupFakeContext(t)
+
 	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      gc.ConfigName,
@@ -98,6 +101,7 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 	ctx, cancel := context.WithCancel(ctx)
 	eg := errgroup.Group{}
 	defer func() {
+		cancel1()
 		cancel()
 		if err := eg.Wait(); err != nil {
 			t.Fatalf("Error running controller: %v", err)
@@ -108,16 +112,16 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 
 	h := NewHooks()
 
-	// Check for revision created as a signal that syncHandler ran
+	// Check for revision created as a signal that syncHandler ran.
 	h.OnCreate(&servingClient.Fake, "revisions", func(obj runtime.Object) HookResult {
 		rev := obj.(*v1alpha1.Revision)
-		t.Logf("revision created: %q", rev.Name)
+		t.Logf("Revision created: %q", rev.Name)
 
 		return HookComplete
 	})
 
 	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-		t.Fatalf("failed to start cluster ingress manager: %v", err)
+		t.Fatalf("Failed to start cluster ingress manager: %v", err)
 	}
 
 	eg.Go(func() error {
@@ -129,7 +133,7 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 		t.Fatalf("Unexpected error creating configuration: %v", err)
 	}
 
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
+	if err := h.WaitForHooks(5 * time.Second); err != nil {
 		t.Error(err)
 	}
 }
