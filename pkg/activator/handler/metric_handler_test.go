@@ -96,6 +96,7 @@ func TestRequestMetricHandler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
+			defer ClearAll()
 			reporter := &fakeReporter{}
 			handler := NewMetricHandler(revisionLister(revision(testNamespace, testRevName)), reporter,
 				TestLogger(t), test.baseHandler)
