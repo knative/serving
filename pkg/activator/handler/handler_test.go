@@ -58,6 +58,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	kubeinformers "k8s.io/client-go/informers"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	kubefake "k8s.io/client-go/kubernetes/fake"
@@ -89,6 +90,7 @@ func TestActivationHandler(t *testing.T) {
 		endpointsInformer corev1informers.EndpointsInformer
 		sksLister         netlisters.ServerlessServiceLister
 		svcLister         corev1listers.ServiceLister
+		destsUpdates      []*activatornet.RevisionDestsUpdate
 		reporterCalls     []reporterCall
 	}{{
 		label:             "active endpoint",
@@ -98,6 +100,11 @@ func TestActivationHandler(t *testing.T) {
 		wantCode:          http.StatusOK,
 		wantErr:           nil,
 		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000, networking.ServicePortNameHTTP1)),
+		destsUpdates: []*activatornet.RevisionDestsUpdate{{
+			Rev:               types.NamespacedName{testNamespace, testRevName},
+			Dests:             dests(1000),
+			ReadyAddressCount: 1000,
+		}},
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
 			Namespace:  testNamespace,
@@ -110,44 +117,6 @@ func TestActivationHandler(t *testing.T) {
 		}},
 		tryTimeout: 100 * time.Millisecond,
 	}, {
-		label:             "slowly active endpoint",
-		namespace:         testNamespace,
-		name:              testRevName,
-		wantBody:          "everything good!",
-		wantCode:          http.StatusOK,
-		wantErr:           nil,
-		probeResp:         []string{activator.Name, queue.Name},
-		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000, networking.ServicePortNameHTTP1)),
-		reporterCalls: []reporterCall{{
-			Op:         "ReportRequestCount",
-			Namespace:  testNamespace,
-			Revision:   testRevName,
-			Service:    "service-real-name",
-			Config:     "config-real-name",
-			StatusCode: http.StatusOK,
-			Attempts:   1,
-			Value:      1,
-		}},
-		tryTimeout: 700 * time.Millisecond, // TODO(greghaynes) testing massive timeout in CI for flake
-	}, {
-		label:             "active endpoint with missing count header",
-		namespace:         testNamespace,
-		name:              testRevName,
-		wantBody:          "everything good!",
-		wantCode:          http.StatusOK,
-		wantErr:           nil,
-		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000, networking.ServicePortNameHTTP1)),
-		reporterCalls: []reporterCall{{
-			Op:         "ReportRequestCount",
-			Namespace:  testNamespace,
-			Revision:   testRevName,
-			Service:    "service-real-name",
-			Config:     "config-real-name",
-			StatusCode: http.StatusOK,
-			Attempts:   1,
-			Value:      1,
-		}},
-	}, {
 		label:             "no active endpoint",
 		namespace:         "fake-namespace",
 		name:              "fake-name",
@@ -155,43 +124,13 @@ func TestActivationHandler(t *testing.T) {
 		wantCode:          http.StatusNotFound,
 		wantErr:           nil,
 		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000, networking.ServicePortNameHTTP1)),
-		reporterCalls:     nil,
-	}, {
-		label:             "active endpoint (probe failure)",
-		namespace:         testNamespace,
-		name:              testRevName,
-		probeErr:          errors.New("probe error"),
-		wantCode:          http.StatusInternalServerError,
-		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000, networking.ServicePortNameHTTP1)),
-		tryTimeout:        100 * time.Millisecond,
-		reporterCalls: []reporterCall{{
-			Op:         "ReportRequestCount",
-			Namespace:  testNamespace,
-			Revision:   testRevName,
-			Service:    "service-real-name",
-			Config:     "config-real-name",
-			StatusCode: http.StatusInternalServerError,
-			Attempts:   1,
-			Value:      1,
+		destsUpdates: []*activatornet.RevisionDestsUpdate{{
+			Rev:               types.NamespacedName{"fake-namespace", testRevName},
+			Dests:             []string{},
+			ReadyAddressCount: 0,
 		}},
-	}, {
-		label:             "active endpoint (probe 500)",
-		namespace:         testNamespace,
-		name:              testRevName,
-		probeCode:         http.StatusServiceUnavailable,
-		wantCode:          http.StatusInternalServerError,
-		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000, networking.ServicePortNameHTTP1)),
-		tryTimeout:        10 * time.Millisecond,
-		reporterCalls: []reporterCall{{
-			Op:         "ReportRequestCount",
-			Namespace:  testNamespace,
-			Revision:   testRevName,
-			Service:    "service-real-name",
-			Config:     "config-real-name",
-			StatusCode: http.StatusInternalServerError,
-			Attempts:   1,
-			Value:      1,
-		}},
+		reporterCalls: nil,
+		tryTimeout:    100 * time.Millisecond,
 	}, {
 		label:             "request error",
 		namespace:         testNamespace,
@@ -200,6 +139,11 @@ func TestActivationHandler(t *testing.T) {
 		wantCode:          http.StatusBadGateway,
 		wantErr:           errors.New("request error"),
 		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000, networking.ServicePortNameHTTP1)),
+		destsUpdates: []*activatornet.RevisionDestsUpdate{{
+			Rev:               types.NamespacedName{testNamespace, testRevName},
+			Dests:             dests(1000),
+			ReadyAddressCount: 1000,
+		}},
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
 			Namespace:  testNamespace,
@@ -211,35 +155,6 @@ func TestActivationHandler(t *testing.T) {
 			Value:      1,
 		}},
 	}, {
-		label:             "broken get SKS",
-		namespace:         testNamespace,
-		name:              testRevName,
-		wantBody:          errMsg("serverlessservice.networking.internal.knative.dev \"real-name\" not found"),
-		wantCode:          http.StatusNotFound,
-		wantErr:           nil,
-		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000, networking.ServicePortNameHTTP1)),
-		sksLister:         sksLister(sks("bogus-namespace", testRevName)),
-		reporterCalls: []reporterCall{{
-			Op:         "ReportRequestCount",
-			Namespace:  testNamespace,
-			Revision:   testRevName,
-			Service:    "service-real-name",
-			Config:     "config-real-name",
-			StatusCode: http.StatusNotFound,
-			Attempts:   1,
-			Value:      1,
-		}},
-	}, {
-		label:             "k8s svc incorrectly spec'd",
-		namespace:         testNamespace,
-		name:              testRevName,
-		wantBody:          activatornet.ErrActivatorOverload.Error() + "\n",
-		wantCode:          http.StatusServiceUnavailable,
-		wantErr:           nil,
-		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000, "bogus")),
-		svcLister:         serviceLister(service(testNamespace, testRevName, "bogus")),
-		reporterCalls:     nil,
-	}, {
 		label:             "broken get k8s svc",
 		namespace:         testNamespace,
 		name:              testRevName,
@@ -248,15 +163,6 @@ func TestActivationHandler(t *testing.T) {
 		wantErr:           nil,
 		endpointsInformer: endpointsInformer(endpoints("bogus-namespace", testRevName, 1000, networking.ServicePortNameHTTP1)),
 		svcLister:         serviceLister(service("bogus-namespace", testRevName, "http")),
-		reporterCalls:     nil,
-	}, {
-		label:             "broken get endpoints",
-		namespace:         testNamespace,
-		name:              testRevName,
-		wantBody:          activatornet.ErrActivatorOverload.Error() + "\n",
-		wantCode:          http.StatusServiceUnavailable,
-		wantErr:           nil,
-		endpointsInformer: endpointsInformer(endpoints("bogus-namespace", testRevName, 1000, networking.ServicePortNameHTTP1)),
 		reporterCalls:     nil,
 	}}
 	for _, test := range tests {
@@ -299,11 +205,12 @@ func TestActivationHandler(t *testing.T) {
 			defer close(rbmUpdateCh)
 			go throttler.Run(rbmUpdateCh)
 
+			for _, destsUpdate := range test.destsUpdates {
+				rbmUpdateCh <- destsUpdate
+			}
+
 			stopCh := make(chan struct{})
 			controller.StartInformers(stopCh, revisions.Informer(), test.endpointsInformer.Informer())
-
-			activatornet.NewRevisionBackendsManager(stopCh, rbmUpdateCh, rt, revisions.Lister(),
-				test.svcLister, test.endpointsInformer, logger)
 
 			// We want to stop our informers and rbm before we clear rbm
 			defer close(stopCh)
@@ -782,6 +689,14 @@ func sksLister(skss ...*nv1a1.ServerlessService) netlisters.ServerlessServiceLis
 	}
 
 	return services.Lister()
+}
+
+func dests(count int) []string {
+	ret := make([]string, count)
+	for i := 1; i <= count; i++ {
+		ret[i-1] = fmt.Sprintf("127.0.0.%v:1234", i)
+	}
+	return ret
 }
 
 func endpoints(namespace, name string, count int, portName string) *corev1.Endpoints {
