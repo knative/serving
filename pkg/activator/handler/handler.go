@@ -182,10 +182,8 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		defer cancel()
 	}
 
-	tryStart := time.Now()
 	err = a.throttler.Try(tryContext, revID, func() {
 		trySpan.End()
-		logger.Debugf("Waiting for throttler took %v time", time.Since(tryStart))
 
 		// This opportunistically caches the probes, so
 		// a few concurrent requests might result in concurrent probes
