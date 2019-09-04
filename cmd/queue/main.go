@@ -85,7 +85,7 @@ const (
 	// queue-proxy.
 	requestQueueHealthPath = "/health"
 
-	healthURLTemplate = "http://127.0.0.1:%d" + requestQueueHealthPath
+	healthURLTemplate = "http://localhost:%d" + requestQueueHealthPath
 	tcpProbeTimeout   = 100 * time.Millisecond
 	// The 25 millisecond retry interval is an unscientific compromise between wanting to get
 	// started as early as possible while still wanting to give the container some breathing
@@ -410,7 +410,7 @@ func buildProbe(probeJSON string) *readiness.Probe {
 func buildServer(env config, rp *readiness.Probe, reqChan chan queue.ReqEvent, logger *zap.SugaredLogger) *http.Server {
 	target := &url.URL{
 		Scheme: "http",
-		Host:   net.JoinHostPort("127.0.0.1", strconv.Itoa(env.UserPort)),
+		Host:   net.JoinHostPort("localhost", strconv.Itoa(env.UserPort)),
 	}
 
 	httpProxy := httputil.NewSingleHostReverseProxy(target)
