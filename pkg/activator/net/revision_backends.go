@@ -69,6 +69,7 @@ const (
 // revisionWatcher watches the podIPs and ClusterIP of the service for a revision. It implements the logic
 // to supply RevisionDestsUpdate events on updateCh
 type revisionWatcher struct {
+	doneCh   <-chan struct{}
 	rev      types.NamespacedName
 	protocol networking.ProtocolType
 	updateCh chan<- *RevisionDestsUpdate
@@ -84,11 +85,12 @@ type revisionWatcher struct {
 	logger        *zap.SugaredLogger
 }
 
-func newRevisionWatcher(rev types.NamespacedName, protocol networking.ProtocolType,
+func newRevisionWatcher(doneCh <-chan struct{}, rev types.NamespacedName, protocol networking.ProtocolType,
 	updateCh chan<- *RevisionDestsUpdate, destsChan <-chan []string,
 	transport http.RoundTripper, serviceLister corev1listers.ServiceLister,
 	logger *zap.SugaredLogger) *revisionWatcher {
 	return &revisionWatcher{
+		doneCh:        doneCh,
 		rev:           rev,
 		protocol:      protocol,
 		updateCh:      updateCh,
@@ -198,7 +200,10 @@ func (rw *revisionWatcher) checkDests(dests []string) {
 			rw.clusterIPHealthy = false
 
 			// Send update that were now inactive
-			rw.updateCh <- &RevisionDestsUpdate{Rev: rw.rev}
+			select {
+			case <-rw.doneCh:
+			case rw.updateCh <- &RevisionDestsUpdate{Rev: rw.rev}:
+			}
 		}
 
 		// We know this revision cannot be healthy so short circuit
@@ -224,7 +229,10 @@ func (rw *revisionWatcher) checkDests(dests []string) {
 		rw.logger.Debug("ClusterIP is successfully probed:", dest)
 		rw.clusterIPHealthy = true
 		rw.healthyPods = nil
-		rw.updateCh <- &RevisionDestsUpdate{Rev: rw.rev, ClusterIPDest: dest, ReadyAddressCount: len(dests)}
+		select {
+		case <-rw.doneCh:
+		case rw.updateCh <- &RevisionDestsUpdate{Rev: rw.rev, ClusterIPDest: dest, ReadyAddressCount: len(dests)}:
+		}
 		return
 	}
 
@@ -236,11 +244,15 @@ func (rw *revisionWatcher) checkDests(dests []string) {
 
 	rw.logger.Debug("Done probing, got healthy pods: ", hs)
 	if !reflect.DeepEqual(rw.healthyPods, hs) {
-		rw.healthyPods = hs
-		rw.updateCh <- &RevisionDestsUpdate{
+		destsUpdate := &RevisionDestsUpdate{
 			Rev:               rw.rev,
 			Dests:             hs.UnsortedList(),
 			ReadyAddressCount: len(dests),
+		}
+		rw.healthyPods = hs
+		select {
+		case <-rw.doneCh:
+		case rw.updateCh <- destsUpdate:
 		}
 	}
 }
@@ -276,6 +288,7 @@ type revisionWatcherCh struct {
 // RevisionBackendsManager listens to revision endpoints and keeps track of healthy
 // l4 dests which can be used to reach a revision
 type RevisionBackendsManager struct {
+	doneCh         <-chan struct{}
 	revisionLister servinglisters.RevisionLister
 	serviceLister  corev1listers.ServiceLister
 
@@ -290,11 +303,12 @@ type RevisionBackendsManager struct {
 
 // NewRevisionBackendsManagerWithProbeFrequency returnes a RevisionBackendsManager that uses the supplied
 // probe frequency
-func NewRevisionBackendsManagerWithProbeFrequency(updateCh chan<- *RevisionDestsUpdate,
+func NewRevisionBackendsManagerWithProbeFrequency(doneCh <-chan struct{}, updateCh chan<- *RevisionDestsUpdate,
 	transport http.RoundTripper, revisionLister servinglisters.RevisionLister,
 	serviceLister corev1listers.ServiceLister, endpointsInformer corev1informers.EndpointsInformer,
 	logger *zap.SugaredLogger, probeFrequency time.Duration) *RevisionBackendsManager {
 	rbm := &RevisionBackendsManager{
+		doneCh:           doneCh,
 		revisionLister:   revisionLister,
 		serviceLister:    serviceLister,
 		revisionWatchers: make(map[types.NamespacedName]*revisionWatcherCh),
@@ -322,11 +336,11 @@ func NewRevisionBackendsManagerWithProbeFrequency(updateCh chan<- *RevisionDests
 }
 
 // NewRevisionBackendsManager creates a RevisionBackendsManager
-func NewRevisionBackendsManager(updateCh chan<- *RevisionDestsUpdate,
+func NewRevisionBackendsManager(doneCh <-chan struct{}, updateCh chan<- *RevisionDestsUpdate,
 	transport http.RoundTripper, revisionLister servinglisters.RevisionLister,
 	serviceLister corev1listers.ServiceLister, endpointsInformer corev1informers.EndpointsInformer,
 	logger *zap.SugaredLogger) *RevisionBackendsManager {
-	return NewRevisionBackendsManagerWithProbeFrequency(updateCh, transport, revisionLister, serviceLister,
+	return NewRevisionBackendsManagerWithProbeFrequency(doneCh, updateCh, transport, revisionLister, serviceLister,
 		endpointsInformer, logger, probeFrequency)
 }
 
@@ -350,7 +364,7 @@ func (rbm *RevisionBackendsManager) getOrCreateRevisionWatcher(rev types.Namespa
 		}
 
 		destsCh := make(chan []string)
-		rw := newRevisionWatcher(rev, proto, rbm.updateCh, destsCh, rbm.transport, rbm.serviceLister, rbm.logger)
+		rw := newRevisionWatcher(rbm.doneCh, rev, proto, rbm.updateCh, destsCh, rbm.transport, rbm.serviceLister, rbm.logger)
 		rbm.revisionWatchers[rev] = &revisionWatcherCh{rw, destsCh}
 		go rw.run(rbm.probeFrequency)
 		return rbm.revisionWatchers[rev], nil

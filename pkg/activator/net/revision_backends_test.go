@@ -291,6 +291,9 @@ func TestRevisionWatcher(t *testing.T) {
 			}
 			rt := network.RoundTripperFunc(fakeRt.RT)
 
+			doneCh := make(chan struct{})
+			defer close(doneCh)
+
 			updateCh := make(chan *RevisionDestsUpdate, len(tc.ticks)+1)
 			tickerCh := make(chan time.Time)
 			defer close(tickerCh)
@@ -315,6 +318,7 @@ func TestRevisionWatcher(t *testing.T) {
 			}
 
 			rw := newRevisionWatcher(
+				doneCh,
 				revID,
 				tc.protocol,
 				updateCh,
@@ -533,6 +537,28 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			},
 		},
 		updateCnt: 2,
+	}, {
+		name:         "unhealthy",
+		endpointsArr: []*corev1.Endpoints{ep("test-revision", 1234, "http", "128.0.0.1")},
+		revisions: []*v1alpha1.Revision{
+			revision(types.NamespacedName{"test-namespace", "test-revision"}, networking.ProtocolHTTP1),
+		},
+		services: []*corev1.Service{
+			privateSksService(types.NamespacedName{"test-namespace", "test-revision"}, "129.0.0.1",
+				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
+		},
+		probeHostResponses: map[string][]activatortest.FakeResponse{
+			"129.0.0.1:1234": {{
+				Err: errors.New("clusterIP transport error"),
+			}},
+			"128.0.0.1:1234": {{
+				Err:  nil,
+				Code: http.StatusServiceUnavailable,
+				Body: queue.Name,
+			}},
+		},
+		expectDests: map[types.NamespacedName]RevisionDestsUpdate{},
+		updateCnt:   0,
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			defer ClearAll()
@@ -569,7 +595,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			controller.StartInformers(stopCh, endpointsInformer.Informer())
 
 			updateCh := make(chan *RevisionDestsUpdate, 100)
-			bm := NewRevisionBackendsManagerWithProbeFrequency(updateCh, rt, revisionLister,
+			bm := NewRevisionBackendsManagerWithProbeFrequency(stopCh, updateCh, rt, revisionLister,
 				servicesLister, endpointsInformer, TestLogger(t), 50*time.Millisecond)
 			defer bm.Clear()
 
