@@ -135,11 +135,12 @@ func getTestDeploymentConfigMap() *corev1.ConfigMap {
 
 func newTestController(t *testing.T) (
 	context.Context,
+	context.CancelFunc,
 	[]controller.Informer,
 	*controller.Impl,
 	*configmap.ManualWatcher) {
 
-	ctx, informers := SetupFakeContext(t)
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 	configMapWatcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
 	controller := NewController(ctx, configMapWatcher)
 
@@ -195,12 +196,11 @@ func newTestController(t *testing.T) (
 		configMapWatcher.OnChange(configMap)
 	}
 
-	return ctx, informers, controller, configMapWatcher
+	return ctx, cancel, informers, controller, configMapWatcher
 }
 
 func TestNewRevisionCallsSyncHandler(t *testing.T) {
-	ctx, informers, ctrl, _ := newTestController(t)
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel, informers, ctrl, _ := newTestController(t)
 	// Create tracer with reporter recorder
 	reporter, co := tracetesting.FakeZipkinExporter()
 	defer reporter.Close()

@@ -1137,7 +1137,7 @@ func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment
 
 func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	defer logtesting.ClearAll()
-	ctx, informers := SetupFakeContext(t)
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 	watcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
 
 	fakeDeciders := newTestDeciders()
@@ -1152,7 +1152,6 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 		Data: defaultConfigMapData(),
 	})
 
-	ctx, cancel := context.WithCancel(ctx)
 	grp := errgroup.Group{}
 	defer func() {
 		cancel()
@@ -1208,7 +1207,8 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 
 func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	defer logtesting.ClearAll()
-	ctx, _ := SetupFakeContext(t)
+	ctx, cancel, _ := SetupFakeContextWithCancel(t)
+	defer cancel()
 
 	fakeDeciders := newTestDeciders()
 	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders)
@@ -1275,7 +1275,8 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	defer logtesting.ClearAll()
-	ctx, _ := SetupFakeContext(t)
+	ctx, cancel, _ := SetupFakeContextWithCancel(t)
+	defer cancel()
 
 	fakeDeciders := newTestDeciders()
 	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders)
@@ -1351,7 +1352,8 @@ func TestUpdate(t *testing.T) {
 
 func TestControllerCreateError(t *testing.T) {
 	defer logtesting.ClearAll()
-	ctx, _ := SetupFakeContext(t)
+	ctx, cancel, _ := SetupFakeContextWithCancel(t)
+	defer cancel()
 
 	key := testNamespace + "/" + testRevision
 	want := apierrors.NewBadRequest("asdf")
@@ -1376,7 +1378,8 @@ func TestControllerCreateError(t *testing.T) {
 
 func TestControllerUpdateError(t *testing.T) {
 	defer logtesting.ClearAll()
-	ctx, _ := SetupFakeContext(t)
+	ctx, cancel, _ := SetupFakeContextWithCancel(t)
+	defer cancel()
 
 	key := testNamespace + "/" + testRevision
 	want := apierrors.NewBadRequest("asdf")

@@ -270,7 +270,8 @@ func (r *errorResolver) Resolve(_ string, _ k8schain.Options, _ sets.String) (st
 }
 
 func TestResolutionFailed(t *testing.T) {
-	ctx, _, controller, _ := newTestController(t)
+	ctx, cancel, _, controller, _ := newTestController(t)
+	defer cancel()
 
 	// Unconditionally return this error during resolution.
 	errorMessage := "I am the expected error message, hear me ROAR!"
@@ -350,7 +351,8 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 
 // TODO(mattmoor): Remove when we have coverage of EnqueueEndpointsRevision
 func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
-	ctx, _, controller, _ := newTestController(t)
+	ctx, cancel, _, controller, _ := newTestController(t)
+	defer cancel()
 	rev := testRevision()
 
 	fakeRecorder := controller.Reconciler.(*Reconciler).Base.Recorder.(*record.FakeRecorder)
@@ -414,7 +416,8 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 }
 
 func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
-	ctx, _, controller, watcher := newTestController(t)
+	ctx, cancel, _, controller, watcher := newTestController(t)
+	defer cancel()
 
 	rev := testRevision()
 	config := testConfiguration()
