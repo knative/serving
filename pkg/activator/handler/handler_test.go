@@ -128,7 +128,7 @@ func TestActivationHandler(t *testing.T) {
 			Attempts:   1,
 			Value:      1,
 		}},
-		tryTimeout: 401 * time.Millisecond,
+		tryTimeout: 700 * time.Millisecond, // TODO(greghaynes) testing massive timeout in CI for flake
 	}, {
 		label:             "active endpoint with missing count header",
 		namespace:         testNamespace,
