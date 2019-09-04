@@ -166,7 +166,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 		}
 		ks.enqueueCB(pa, activationTimeout)
 		return scaleUnknown, false
-	} else if pa.Status.IsActive() { // Active=True
+	} else if pa.Status.IsReady() { // Active=True
 		// Don't scale-to-zero if the PA is active
 
 		// Do not scale to 0, but return desiredScale of 0 to mark PA inactive.

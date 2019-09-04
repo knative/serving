@@ -190,19 +190,6 @@ func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		}
 	}
 
-	// Reflect the metric status in our own.
-	cond := desiredMetric.Status.GetCondition(pav1alpha1.MetricConditionReady)
-	switch {
-	case cond == nil:
-		pa.Status.MarkMetricNotReady(NoMetricConditionReason, NoMetricConditionMessage)
-	case cond.Status == corev1.ConditionUnknown:
-		pa.Status.MarkMetricNotReady(cond.Reason, cond.Message)
-	case cond.Status == corev1.ConditionFalse:
-		pa.Status.MarkMetricFailed(cond.Reason, cond.Message)
-	case cond.Status == corev1.ConditionTrue:
-		pa.Status.MarkMetricReady()
-	}
-
 	return nil
 }
 

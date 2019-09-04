@@ -31,7 +31,6 @@ import (
 
 var podCondSet = apis.NewLivingConditionSet(
 	PodAutoscalerConditionActive,
-	MetricConditionReady,
 )
 
 func (pa *PodAutoscaler) GetGroupVersionKind() schema.GroupVersionKind {
@@ -131,16 +130,10 @@ func (pa *PodAutoscaler) PanicThresholdPercentage() (percentage float64, ok bool
 	return pa.annotationFloat64(autoscaling.PanicThresholdPercentageAnnotationKey)
 }
 
-// IsReady looks at the conditions and if the Status has conditions
-// PodAutoscalerConditionReady and MetricConditionReady both true
+// IsReady looks at the conditions and if the Status has a condition
+// PodAutoscalerConditionReady returns true if ConditionStatus is True
 func (pas *PodAutoscalerStatus) IsReady() bool {
 	return podCondSet.Manage(pas.duck()).IsHappy()
-}
-
-// IsActive returns true if PodAutoscalerConditionReady is true
-func (pas *PodAutoscalerStatus) IsActive() bool {
-	cond := pas.GetCondition(PodAutoscalerConditionActive)
-	return cond != nil && cond.Status == corev1.ConditionTrue
 }
 
 // IsActivating returns true if the pod autoscaler is Activating if it is neither
@@ -179,21 +172,6 @@ func (pas *PodAutoscalerStatus) MarkActivating(reason, message string) {
 // MarkInactive marks the PA as inactive.
 func (pas *PodAutoscalerStatus) MarkInactive(reason, message string) {
 	podCondSet.Manage(pas.duck()).MarkFalse(PodAutoscalerConditionActive, reason, message)
-}
-
-// MarkMetricReady marks the PA's metric as ready.
-func (pas *PodAutoscalerStatus) MarkMetricReady() {
-	podCondSet.Manage(pas.duck()).MarkTrue(MetricConditionReady)
-}
-
-// MarkMetricNotReady marks the PA's metric as ready == Unknown.
-func (pas *PodAutoscalerStatus) MarkMetricNotReady(reason, message string) {
-	podCondSet.Manage(pas.duck()).MarkUnknown(MetricConditionReady, reason, message)
-}
-
-// MarkMetricFailed marks the PA's metric as not ready.
-func (pas *PodAutoscalerStatus) MarkMetricFailed(reason, message string) {
-	podCondSet.Manage(pas.duck()).MarkFalse(MetricConditionReady, reason, message)
 }
 
 // MarkResourceNotOwned changes the "Active" condition to false to reflect that the
