@@ -346,14 +346,14 @@ func main() {
 	adminServer := buildAdminServer(healthState, probe, logger)
 	metricsServer := buildMetricsServer(promStatReporter)
 
-	profilingHandler := profiling.NewHandler(logger, env.EnableProfiling)
-	profilingServer := profiling.NewServer(profilingHandler)
-
 	servers := map[string]*http.Server{
 		"main":    server,
 		"admin":   adminServer,
 		"metrics": metricsServer,
-		"profile": profilingServer,
+	}
+
+	if env.EnableProfiling {
+		servers["profile"] = profiling.NewServer(profiling.NewHandler(logger, true))
 	}
 
 	errCh := make(chan error, len(servers))
@@ -394,11 +394,12 @@ func main() {
 			if err := server.Shutdown(context.Background()); err != nil {
 				logger.Errorw("Failed to shutdown proxy server", zap.Error(err))
 			}
+			delete(servers, "main")
 		})
 
 		flush(logger)
-		for _, serverName := range []string{"admin", "metrics", "profile"} {
-			if err := servers[serverName].Shutdown(context.Background()); err != nil {
+		for serverName, srv := range servers {
+			if err := srv.Shutdown(context.Background()); err != nil {
 				logger.Errorw("Failed to shutdown server", zap.String("server", serverName), zap.Error(err))
 			}
 		}
