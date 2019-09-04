@@ -64,6 +64,7 @@ const (
 var revID = RevisionID{testNamespace, testRevision}
 
 func TestThrottlerUpdateCapacity(t *testing.T) {
+	defer ClearAll()
 	samples := []struct {
 		label          string
 		revisionLister servinglisters.RevisionLister
@@ -126,10 +127,8 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 				initCapacity)
 
 			err := throttler.UpdateCapacity(revID, s.numEndpoints)
-			if err == nil && s.wantError {
-				t.Errorf("UpdateCapacity() did not return an error")
-			} else if err != nil && !s.wantError {
-				t.Errorf("UpdateCapacity() = `%v`, wanted no error", err)
+			if got, want := err != nil, s.wantError; got != want {
+				t.Fatalf("UpdateCapacity error != nil = %v, want: %v, err: %v", got, want, err)
 			}
 			if s.want > 0 {
 				if got := throttler.breakers[revID].Capacity(); got != s.want {
@@ -181,6 +180,7 @@ func TestThrottlerActivatorEndpoints(t *testing.T) {
 
 	for _, s := range scenarios {
 		t.Run(s.name, func(t *testing.T) {
+			defer ClearAll()
 			activatorEp := &corev1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      networking.ActivatorServiceName,
@@ -285,6 +285,7 @@ func TestThrottlerTryOverload(t *testing.T) {
 	maxConcurrency := 1
 	initialCapacity := 1
 	queueLength := 1
+	defer ClearAll()
 	th := getThrottler(
 		maxConcurrency,
 		revisionLister(testNamespace, testRevision, ptr.Int64(1)),
@@ -329,6 +330,7 @@ func TestThrottlerTryOverload(t *testing.T) {
 }
 
 func TestThrottlerRemove(t *testing.T) {
+	defer ClearAll()
 	throttler := getThrottler(
 		defaultMaxConcurrency,
 		revisionLister(testNamespace, testRevision, ptr.Int64(defaultConcurrency)),
@@ -351,6 +353,7 @@ func TestThrottlerRemove(t *testing.T) {
 func TestHelper_ReactToEndpoints(t *testing.T) {
 	const updatePollInterval = 10 * time.Millisecond
 	const updatePollTimeout = 3 * time.Second
+	defer ClearAll()
 
 	ep := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
@@ -585,6 +588,7 @@ func TestProbeCache(t *testing.T) {
 }
 
 func TestThrottlerCache(t *testing.T) {
+	defer ClearAll()
 	thtl := getThrottler(
 		int(defaultConcurrency),
 		revisionLister(testNamespace, testRevision, ptr.Int64(defaultConcurrency)),
@@ -592,7 +596,7 @@ func TestThrottlerCache(t *testing.T) {
 		nil, /*sksLister*/
 		TestLogger(t),
 		0)
-	revID = RevisionID{}
+	revID := RevisionID{}
 	if !thtl.ShouldProbe(revID) {
 		t.Error("Expected request to probe")
 	}
