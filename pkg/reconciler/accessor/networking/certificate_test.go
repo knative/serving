@@ -95,8 +95,7 @@ func (f *FakeAccessor) GetCertificateLister() listers.CertificateLister {
 
 func TestReconcileCertificateCreate(t *testing.T) {
 	defer logtesting.ClearAll()
-	ctx, _ := SetupFakeContext(t)
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 	grp := errgroup.Group{}
 	defer func() {
 		cancel()
@@ -127,8 +126,7 @@ func TestReconcileCertificateCreate(t *testing.T) {
 
 func TestReconcileCertificateUpdate(t *testing.T) {
 	defer logtesting.ClearAll()
-	ctx, _ := SetupFakeContext(t)
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 	grp := errgroup.Group{}
 	defer func() {
 		cancel()

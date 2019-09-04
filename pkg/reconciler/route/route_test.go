@@ -158,8 +158,9 @@ func newTestReconciler(t *testing.T, configs ...*corev1.ConfigMap) (
 	ctx context.Context,
 	informers []controller.Informer,
 	reconciler *Reconciler,
-	configMapWatcher *configmap.ManualWatcher) {
-	ctx, informers, _, reconciler, configMapWatcher = newTestSetup(t)
+	configMapWatcher *configmap.ManualWatcher,
+	cf context.CancelFunc) {
+	ctx, informers, _, reconciler, configMapWatcher, cf = newTestSetup(t)
 	return
 }
 
@@ -168,9 +169,10 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	informers []controller.Informer,
 	ctrl *controller.Impl,
 	reconciler *Reconciler,
-	configMapWatcher *configmap.ManualWatcher) {
+	configMapWatcher *configmap.ManualWatcher,
+	cf context.CancelFunc) {
 
-	ctx, informers = SetupFakeContext(t)
+	ctx, cf, informers = SetupFakeContextWithCancel(t)
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 	ctrl = NewController(ctx, configMapWatcher)
 	reconciler = ctrl.Reconciler.(*Reconciler)
@@ -201,7 +203,6 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	for _, cfg := range cms {
 		configMapWatcher.OnChange(cfg)
 	}
-
 	return
 }
 
@@ -274,7 +275,8 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, route *v1alpha1.
 
 // Test the only revision in the route is in Reserve (inactive) serving status.
 func TestCreateRouteForOneReserveRevision(t *testing.T) {
-	ctx, _, reconciler, _ := newTestReconciler(t)
+	ctx, _, reconciler, _, cf := newTestReconciler(t)
+	defer cf()
 
 	fakeRecorder := reconciler.Base.Recorder.(*record.FakeRecorder)
 
@@ -378,7 +380,8 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 }
 
 func TestCreateRouteWithMultipleTargets(t *testing.T) {
-	ctx, _, reconciler, _ := newTestReconciler(t)
+	ctx, _, reconciler, _, cf := newTestReconciler(t)
+	defer cf()
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -464,7 +467,8 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 
 // Test one out of multiple target revisions is in Reserve serving state.
 func TestCreateRouteWithOneTargetReserve(t *testing.T) {
-	ctx, _, reconciler, _ := newTestReconciler(t)
+	ctx, _, reconciler, _, cf := newTestReconciler(t)
+	defer cf()
 	// A standalone inactive revision
 	rev := getTestRevision("test-rev")
 	rev.Status.MarkInactive("NoTraffic", "no message")
@@ -551,7 +555,8 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 }
 
 func TestCreateRouteWithDuplicateTargets(t *testing.T) {
-	ctx, _, reconciler, _ := newTestReconciler(t)
+	ctx, _, reconciler, _, cf := newTestReconciler(t)
+	defer cf()
 
 	// A standalone revision
 	rev := getTestRevision("test-rev")
@@ -710,7 +715,8 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 }
 
 func TestCreateRouteWithNamedTargets(t *testing.T) {
-	ctx, _, reconciler, _ := newTestReconciler(t)
+	ctx, _, reconciler, _, cf := newTestReconciler(t)
+	defer cf()
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -844,7 +850,8 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 }
 
 func TestUpdateDomainConfigMap(t *testing.T) {
-	ctx, _, reconciler, watcher := newTestReconciler(t)
+	ctx, _, reconciler, watcher, cf := newTestReconciler(t)
+	defer cf()
 	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
 	routeClient := fakeservingclient.Get(ctx).ServingV1alpha1().Routes(route.Namespace)
 
@@ -989,12 +996,11 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.expectedDomainSuffix, func(t *testing.T) {
-			ctx, informers, ctrl, _, watcher := newTestSetup(t)
+			ctx, informers, ctrl, _, watcher, cf := newTestSetup(t)
 
-			ctx, cancel := context.WithCancel(ctx)
 			grp := errgroup.Group{}
 			defer func() {
-				cancel()
+				cf()
 				if err := grp.Wait(); err != nil {
 					t.Errorf("Wait() = %v", err)
 				}

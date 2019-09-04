@@ -17,7 +17,6 @@ limitations under the License.
 package route
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -44,7 +43,7 @@ import (
 
 func TestNewRouteCallsSyncHandler(t *testing.T) {
 	defer logtesting.ClearAll()
-	ctx, informers := SetupFakeContext(t)
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 
 	// A standalone revision
 	rev := getTestRevision("test-rev")
@@ -96,7 +95,6 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		return HookComplete
 	})
 
-	ctx, cancel := context.WithCancel(ctx)
 	eg := errgroup.Group{}
 	defer func() {
 		cancel()

@@ -102,8 +102,7 @@ func (f *FakeAccessor) GetSecretLister() corev1listers.SecretLister {
 
 func TestReconcileSecretCreate(t *testing.T) {
 	defer logtesting.ClearAll()
-	ctx, _ := SetupFakeContext(t)
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 	grp := errgroup.Group{}
 	defer func() {
 		cancel()
@@ -134,8 +133,7 @@ func TestReconcileSecretCreate(t *testing.T) {
 
 func TestReconcileSecretUpdate(t *testing.T) {
 	defer logtesting.ClearAll()
-	ctx, _ := SetupFakeContext(t)
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 	grp := errgroup.Group{}
 	defer func() {
 		cancel()
@@ -165,8 +163,7 @@ func TestReconcileSecretUpdate(t *testing.T) {
 
 func TestNotOwnedFailure(t *testing.T) {
 	defer logtesting.ClearAll()
-	ctx, _ := SetupFakeContext(t)
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 	grp := errgroup.Group{}
 	defer func() {
 		cancel()

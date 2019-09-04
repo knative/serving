@@ -997,11 +997,12 @@ func ingressWithTLSAndStatusClusterLocal(name string, generation int64, tls []v1
 
 func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	context.Context,
+	context.CancelFunc,
 	[]controller.Informer,
 	*controller.Impl,
 	*configmap.ManualWatcher) {
 
-	ctx, informers := SetupFakeContext(t)
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 	configMapWatcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
 	controller := NewController(ctx, configMapWatcher)
 
@@ -1031,14 +1032,13 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		configMapWatcher.OnChange(cfg)
 	}
 
-	return ctx, informers, controller, configMapWatcher
+	return ctx, cancel, informers, controller, configMapWatcher
 }
 
 func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 	defer logtesting.ClearAll()
-	ctx, informers, ctrl, watcher := newTestSetup(t)
+	ctx, cancel, informers, ctrl, watcher := newTestSetup(t)
 
-	ctx, cancel := context.WithCancel(ctx)
 	grp := errgroup.Group{}
 	defer func() {
 		cancel()
@@ -1122,9 +1122,8 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 
 func TestGlobalResyncOnUpdateNetwork(t *testing.T) {
 	defer logtesting.ClearAll()
-	ctx, informers, ctrl, watcher := newTestSetup(t)
+	ctx, cancel, informers, ctrl, watcher := newTestSetup(t)
 
-	ctx, cancel := context.WithCancel(ctx)
 	grp := errgroup.Group{}
 	defer func() {
 		cancel()
