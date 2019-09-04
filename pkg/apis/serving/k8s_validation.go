@@ -458,14 +458,14 @@ func validateReadinessProbe(p *corev1.Probe) *apis.FieldError {
 		if p.FailureThreshold != 0 {
 			errs = errs.Also(&apis.FieldError{
 				Message: "failureThreshold is disallowed when periodSeconds is zero",
-				Paths:   []string{"periodSeconds", "failureThreshold"},
+				Paths:   []string{"failureThreshold"},
 			})
 		}
 
 		if p.TimeoutSeconds != 0 {
 			errs = errs.Also(&apis.FieldError{
 				Message: "timeoutSeconds is disallowed when periodSeconds is zero",
-				Paths:   []string{"periodSeconds", "timeoutSeconds"},
+				Paths:   []string{"timeoutSeconds"},
 			})
 		}
 	} else {
