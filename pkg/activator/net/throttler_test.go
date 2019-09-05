@@ -88,24 +88,6 @@ func TestThrottler(t *testing.T) {
 			{Dest: "129.0.0.1:1234"},
 		},
 	}, {
-		name: "spread podIP load",
-		revisions: []*v1alpha1.Revision{
-			revision(types.NamespacedName{"test-namespace", "test-revision"}, networking.ProtocolHTTP1),
-		},
-		initUpdates: []*RevisionDestsUpdate{{
-			Rev:               types.NamespacedName{"test-namespace", "test-revision"},
-			Dests:             []string{"128.0.0.1:1234", "128.0.0.2:1234"},
-			ReadyAddressCount: 2,
-		}},
-		trys: []types.NamespacedName{
-			{Namespace: "test-namespace", Name: "test-revision"},
-			{Namespace: "test-namespace", Name: "test-revision"},
-		},
-		expectTryResults: []tryResult{
-			{Dest: "128.0.0.1:1234"},
-			{Dest: "128.0.0.2:1234"},
-		},
-	}, {
 		name: "multiple clusterip requests after podip",
 		revisions: []*v1alpha1.Revision{
 			revision(types.NamespacedName{"test-namespace", "test-revision"}, networking.ProtocolHTTP1),

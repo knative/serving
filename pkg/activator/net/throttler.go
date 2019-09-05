@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"sync"
 	"sync/atomic"
 
@@ -117,33 +118,30 @@ func (rt *revisionThrottler) checkClusterIPDest() (string, error) {
 // Returns a dest after incrementing its request count and a completion callback
 // to be called after request completion. If no dest is found it returns "", nil.
 func (rt *revisionThrottler) acquireDest() (string, func()) {
-	var leastConn *podIPTracker
+	var tracker *podIPTracker
 	clusterIPDest := func() string {
-		rt.mux.Lock()
-		defer rt.mux.Unlock()
+		rt.mux.RLock()
+		defer rt.mux.RUnlock()
 
 		// This is intended to be called only after performing a read lock check on clusterIPDest
 		if rt.clusterIPDest != "" {
 			return rt.clusterIPDest
 		}
 
-		// Find the dest with fewest active connections.
-		for _, tracker := range rt.podIPTrackers {
-			if leastConn == nil || atomic.LoadInt32(&leastConn.requests) > tracker.requests {
-				leastConn = tracker
-			}
-		}
-
+		// Pick a tracker at random
+		trackerNdx := rand.Intn(len(rt.podIPTrackers))
+		tracker = rt.podIPTrackers[trackerNdx]
 		return ""
 	}()
+
 	if clusterIPDest != "" {
 		return clusterIPDest, func() {}
 	}
 
-	if leastConn != nil {
-		atomic.AddInt32(&leastConn.requests, 1)
-		return leastConn.dest, func() {
-			atomic.AddInt32(&leastConn.requests, -1)
+	if tracker != nil {
+		atomic.AddInt32(&tracker.requests, 1)
+		return tracker.dest, func() {
+			atomic.AddInt32(&tracker.requests, -1)
 		}
 	}
 	return "", nil
