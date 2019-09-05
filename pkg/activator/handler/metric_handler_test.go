@@ -98,7 +98,7 @@ func TestRequestMetricHandler(t *testing.T) {
 		t.Run(test.label, func(t *testing.T) {
 			defer ClearAll()
 			reporter := &fakeReporter{}
-			handler := NewMetricHandler(revisionLister(revision(testNamespace, testRevName)), reporter,
+			handler := NewMetricHandler(revisionInformer(revision(testNamespace, testRevName)).Lister(), reporter,
 				TestLogger(t), test.baseHandler)
 
 			resp := httptest.NewRecorder()

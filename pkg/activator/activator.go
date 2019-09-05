@@ -16,10 +16,6 @@ limitations under the License.
 
 package activator
 
-import (
-	"fmt"
-)
-
 const (
 	// Name is the name of the component.
 	Name = "activator"
@@ -28,16 +24,3 @@ const (
 	// RevisionHeaderNamespace is the header key for revision's namespace.
 	RevisionHeaderNamespace = "Knative-Serving-Namespace"
 )
-
-// RevisionID is the combination of namespace and revision name
-// TODO(greghaynes) once we remove old throttler code for revision_backends
-// we can delete this type (in leu of k8s NamespacedName)
-type RevisionID struct {
-	Namespace string
-	Name      string
-}
-
-// String returns the namespaced name of the RevisionID.
-func (rev RevisionID) String() string {
-	return fmt.Sprintf("%s/%s", rev.Namespace, rev.Name)
-}

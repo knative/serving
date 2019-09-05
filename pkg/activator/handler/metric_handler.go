@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/types"
 
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/serving/pkg/activator"
@@ -60,7 +61,7 @@ func (h *MetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	namespace := r.Header.Get(activator.RevisionHeaderNamespace)
 	name := r.Header.Get(activator.RevisionHeaderName)
 
-	revID := activator.RevisionID{Namespace: namespace, Name: name}
+	revID := types.NamespacedName{Namespace: namespace, Name: name}
 	logger := h.logger.With(zap.String(logkey.Key, revID.String()))
 
 	revision, err := h.revisionLister.Revisions(namespace).Get(name)

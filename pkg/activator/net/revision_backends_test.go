@@ -291,6 +291,9 @@ func TestRevisionWatcher(t *testing.T) {
 			}
 			rt := network.RoundTripperFunc(fakeRt.RT)
 
+			doneCh := make(chan struct{})
+			defer close(doneCh)
+
 			updateCh := make(chan *RevisionDestsUpdate, len(tc.ticks)+1)
 			tickerCh := make(chan time.Time)
 			defer close(tickerCh)
@@ -315,6 +318,7 @@ func TestRevisionWatcher(t *testing.T) {
 			}
 
 			rw := newRevisionWatcher(
+				doneCh,
 				revID,
 				tc.protocol,
 				updateCh,
@@ -397,6 +401,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 	for _, tc := range []struct {
 		name               string
 		endpointsArr       []*corev1.Endpoints
+		deleteEndpoints    []*corev1.Endpoints
 		revisions          []*v1alpha1.Revision
 		services           []*corev1.Service
 		probeResponses     []activatortest.FakeResponse
@@ -533,6 +538,57 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			},
 		},
 		updateCnt: 2,
+	}, {
+		name:         "unhealthy",
+		endpointsArr: []*corev1.Endpoints{ep("test-revision", 1234, "http", "128.0.0.1")},
+		revisions: []*v1alpha1.Revision{
+			revision(types.NamespacedName{"test-namespace", "test-revision"}, networking.ProtocolHTTP1),
+		},
+		services: []*corev1.Service{
+			privateSksService(types.NamespacedName{"test-namespace", "test-revision"}, "129.0.0.1",
+				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
+		},
+		probeHostResponses: map[string][]activatortest.FakeResponse{
+			"129.0.0.1:1234": {{
+				Err: errors.New("clusterIP transport error"),
+			}},
+			"128.0.0.1:1234": {{
+				Err:  nil,
+				Code: http.StatusServiceUnavailable,
+				Body: queue.Name,
+			}},
+		},
+		expectDests: map[types.NamespacedName]RevisionDestsUpdate{},
+		updateCnt:   0,
+	}, {
+		name:            "removed endpoint",
+		endpointsArr:    []*corev1.Endpoints{ep("test-revision", 1234, "http", "128.0.0.1")},
+		deleteEndpoints: []*corev1.Endpoints{ep("test-revision", 1234, "http", "128.0.0.1")},
+		revisions: []*v1alpha1.Revision{
+			revision(types.NamespacedName{"test-namespace", "test-revision"}, networking.ProtocolHTTP1),
+		},
+		services: []*corev1.Service{
+			privateSksService(types.NamespacedName{"test-namespace", "test-revision"}, "129.0.0.1",
+				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
+		},
+		probeHostResponses: map[string][]activatortest.FakeResponse{
+			"129.0.0.1:1234": {{
+				Err:  nil,
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+			"128.0.0.1:1234": {{
+				Err:  nil,
+				Code: http.StatusServiceUnavailable,
+				Body: queue.Name,
+			}},
+		},
+		expectDests: map[types.NamespacedName]RevisionDestsUpdate{
+			types.NamespacedName{"test-namespace", "test-revision"}: RevisionDestsUpdate{
+				Rev: types.NamespacedName{"test-namespace", "test-revision"},
+			},
+		},
+		updateCnt: 2,
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			defer ClearAll()
@@ -568,21 +624,27 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			defer close(stopCh)
 			controller.StartInformers(stopCh, endpointsInformer.Informer())
 
-			updateCh := make(chan *RevisionDestsUpdate, 100)
-			bm := NewRevisionBackendsManagerWithProbeFrequency(updateCh, rt, revisionLister,
+			rbm := NewRevisionBackendsManagerWithProbeFrequency(stopCh, rt, revisionLister,
 				servicesLister, endpointsInformer, TestLogger(t), 50*time.Millisecond)
-			defer bm.Clear()
 
 			for _, ep := range tc.endpointsArr {
 				fake.CoreV1().Endpoints("test-namespace").Create(ep)
 				endpointsInformer.Informer().GetIndexer().Add(ep)
 			}
 
+			if tc.deleteEndpoints != nil {
+				time.Sleep(100 * time.Millisecond)
+			}
+			for _, ep := range tc.deleteEndpoints {
+				fake.CoreV1().Endpoints("test-namespace").Delete(ep.Name, nil)
+				endpointsInformer.Informer().GetIndexer().Delete(ep)
+			}
+
 			revDests := make(map[types.NamespacedName]RevisionDestsUpdate)
 			// Wait for updateCb to be called
 			for i := 0; i < tc.updateCnt; i++ {
 				select {
-				case update := <-updateCh:
+				case update := <-rbm.UpdateCh():
 					sort.Strings(update.Dests)
 					revDests[update.Rev] = *update
 				case <-time.After(300 * time.Millisecond):
