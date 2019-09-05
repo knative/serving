@@ -57,6 +57,8 @@ type ServingEnvironmentFlags struct {
 	ResolvableDomain bool // Resolve Route controller's `domainSuffix`
 }
 
+// initializeServingFlags registers flags used by e2e tests, calling flag.Parse() here would fail in
+// go1.13+, see https://github.com/knative/test-infra/issues/1329 for details
 func initializeServingFlags() *ServingEnvironmentFlags {
 	var f ServingEnvironmentFlags
 
