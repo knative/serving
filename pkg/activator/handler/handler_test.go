@@ -390,6 +390,9 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 			endpoints := endpointsInformer(endpoints(namespace, revName, breakerParams.InitialCapacity, networking.ServicePortNameHTTP1))
 			services := serviceLister(service(testNamespace, testRevName, "http"))
 
+			updateCh := make(chan *activatornet.RevisionDestsUpdate)
+			defer close(updateCh)
+
 			stopCh := make(chan struct{})
 			defer close(stopCh)
 			controller.StartInformers(stopCh, revisions.Informer(), endpoints.Informer())
@@ -400,9 +403,13 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 				endpoints,
 				TestLogger(t))
 
-			rbm := activatornet.NewRevisionBackendsManager(stopCh, rt, revisions.Lister(),
-				services, endpoints, TestLogger(t))
-			go throttler.Run(rbm.UpdateCh())
+			go throttler.Run(updateCh)
+
+			updateCh <- &activatornet.RevisionDestsUpdate{
+				Rev:               types.NamespacedName{namespace, revName},
+				ClusterIPDest:     "129.0.0.1:1234",
+				ReadyAddressCount: breakerParams.InitialCapacity,
+			}
 
 			handler := &activationHandler{
 				transport:      rt,
