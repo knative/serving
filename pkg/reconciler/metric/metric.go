@@ -63,7 +63,13 @@ func (r *reconciler) Reconcile(ctx context.Context, key string) error {
 	metric.Status.InitializeConditions()
 
 	if err := r.collector.CreateOrUpdate(metric); err != nil {
-		metric.Status.MarkMetricNotReady("CreateOrUpdateFailed", "Metric creation or update has failed.")
+		if err.Error() == "failed to get endpoints" {
+			metric.Status.MarkMetricNotReady("NoEndpoints", "Failed to get endpoints.")
+		} else if err.Error() == "did not receive stat from an unscraped pod" {
+			metric.Status.MarkMetricFailed("DidNotReceivedStat", "Did not receive stat from an unscraped pod.")
+		} else {
+			metric.Status.MarkMetricNotReady("CreateOrUpdateFailed", "Collector has failed.")
+		}
 		return errors.Wrapf(err, "failed to initiate or update scraping")
 	}
 

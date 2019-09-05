@@ -56,14 +56,6 @@ type Base struct {
 	PSInformerFactory duck.InformerFactory
 }
 
-const (
-	// NoMetricConditionReason indicates that there is no condition on metric
-	NoMetricConditionReason  = "NoMetricCondition"
-
-	// NoMetricConditionMessage is the message for when there is no condition on metric
-	NoMetricConditionMessage = "The ready condition of Metrics does not exist."
-)
-
 // ReconcileSKS reconciles a ServerlessService based on the given PodAutoscaler.
 func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, mode nv1alpha1.ServerlessServiceOperationMode) (*nv1alpha1.ServerlessService, error) {
 	logger := logging.FromContext(ctx)

@@ -18,19 +18,158 @@ package v1alpha1
 import (
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/apis/duck"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	apitest "knative.dev/pkg/apis/testing"
 )
 
+func TestMetricDuckTypes(t *testing.T) {
+	tests := []struct {
+		name string
+		t    duck.Implementable
+	}{{
+		name: "conditions",
+		t:    &duckv1beta1.Conditions{},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := duck.VerifyType(&Metric{}, test.t)
+			if err != nil {
+				t.Errorf("VerifyType(Metric, %T) = %v", test.t, err)
+			}
+		})
+	}
+}
+
+func TestMetricIsReady(t *testing.T) {
+	cases := []struct {
+		name    string
+		status  MetricStatus
+		isReady bool
+	}{{
+		name:    "empty status should not be ready",
+		status:  MetricStatus{},
+		isReady: false,
+	}, {
+		name: "Different condition type should not be ready",
+		status: MetricStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   "FooCondition",
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		isReady: false,
+	}, {
+		name: "False condition status should not be ready",
+		status: MetricStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   MetricConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
+		},
+		isReady: false,
+	}, {
+		name: "Unknown condition status should not be ready",
+		status: MetricStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   MetricConditionReady,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
+		},
+		isReady: false,
+	}, {
+		name: "Missing condition status should not be ready",
+		status: MetricStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type: MetricConditionReady,
+				}},
+			},
+		},
+		isReady: false,
+	}, {
+		name: "True condition status should be ready",
+		status: MetricStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{{
+					Type:   MetricConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		isReady: true,
+	}}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if e, a := tc.isReady, tc.status.IsReady(); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+			}
+		})
+	}
+}
+
+func TestMetricGetSetCondition(t *testing.T) {
+	ms := &MetricStatus{}
+	if a := ms.GetCondition(MetricConditionReady); a != nil {
+		t.Errorf("empty MetricStatus returned %v when expected nil", a)
+	}
+
+	mc := &apis.Condition{
+		Type:   MetricConditionReady,
+		Status: corev1.ConditionTrue,
+	}
+
+	ms.MarkMetricReady()
+
+	if diff := cmp.Diff(mc, ms.GetCondition(MetricConditionReady), cmpopts.IgnoreFields(apis.Condition{}, "LastTransitionTime")); diff != "" {
+		t.Errorf("GetCondition refs diff (-want +got): %v", diff)
+	}
+}
+
+func TestTypicalFlowWithMetricCondition(t *testing.T) {
+	m := &MetricStatus{}
+	m.InitializeConditions()
+	apitest.CheckConditionOngoing(m.duck(), MetricConditionReady, t)
+
+	const wantReason = "reason"
+	const wantMessage = "the error message"
+	m.MarkMetricFailed(wantReason, wantMessage)
+	apitest.CheckConditionFailed(m.duck(), MetricConditionReady, t)
+	if got := m.GetCondition(MetricConditionReady); got == nil || got.Reason != wantReason || got.Message != wantMessage {
+		t.Errorf("MarkMetricFailed = %v, wantReason %v, wantMessage %v", got, wantReason, wantMessage)
+	}
+
+	m.MarkMetricNotReady(wantReason, wantMessage)
+	apitest.CheckConditionOngoing(m.duck(), MetricConditionReady, t)
+	if got := m.GetCondition(MetricConditionReady); got == nil || got.Reason != wantReason || got.Message != wantMessage {
+		t.Errorf("MarkMetricNotReady = %v, wantReason %v, wantMessage %v", got, wantReason, wantMessage)
+	}
+
+	m.MarkMetricReady()
+	apitest.CheckConditionSucceeded(m.duck(), MetricConditionReady, t)
+}
+
 func TestMetricGetGroupVersionKind(t *testing.T) {
-	m := &Metric{}
+	r := &Metric{}
 	want := schema.GroupVersionKind{
-		Group:   autoscaling.InternalGroupName,
+		Group:   "autoscaling.internal.knative.dev",
 		Version: "v1alpha1",
 		Kind:    "Metric",
 	}
-	if got := m.GetGroupVersionKind(); got != want {
+	if got := r.GetGroupVersionKind(); got != want {
 		t.Errorf("got: %v, want: %v", got, want)
 	}
 }

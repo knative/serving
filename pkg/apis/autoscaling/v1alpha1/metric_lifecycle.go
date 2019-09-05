@@ -57,7 +57,7 @@ func (ms *MetricStatus) MarkMetricNotReady(reason, message string) {
 	condSet.Manage(ms).MarkUnknown(MetricConditionReady, reason, message)
 }
 
-// MarkMetricFailed marks the metric status as not ready
+// MarkMetricFailed marks the metric status as failed
 func (ms *MetricStatus) MarkMetricFailed(reason, message string) {
 	condSet.Manage(ms).MarkFalse(MetricConditionReady, reason, message)
 }
