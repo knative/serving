@@ -194,7 +194,10 @@ func (rw *revisionWatcher) probePodIPs(dests []string) (sets.String, error) {
 func (rw *revisionWatcher) sendUpdate(update *RevisionDestsUpdate) {
 	select {
 	case <-rw.doneCh:
-		close(rw.updateCh)
+		// We're not closing updateCh because this would result in 1 close per revisionWatcher.
+		// the GC should take care of closing the channel and this is only for shutdown so it is not very
+		// risky
+		// TODO(greghaynes) find a way to explicitly close the channel. Potentially use channel per watcher.
 		return
 	default:
 		rw.updateCh <- update
