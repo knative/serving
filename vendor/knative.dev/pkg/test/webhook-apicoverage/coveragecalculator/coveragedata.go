@@ -16,7 +16,10 @@ limitations under the License.
 
 package coveragecalculator
 
-import "k8s.io/apimachinery/pkg/util/sets"
+import (
+	"strings"
+	"k8s.io/apimachinery/pkg/util/sets"
+)
 
 // FieldCoverage represents coverage data for a field.
 type FieldCoverage struct {
@@ -41,6 +44,11 @@ func (f *FieldCoverage) GetValues() []string {
 		values = append(values, key)
 	}
 	return values
+}
+
+// GetValuesForDisplay returns value strings as comma separated string.
+func (f *FieldCoverage) GetValuesForDisplay() string {
+	return strings.Join(f.GetValues(), ",")
 }
 
 // TypeCoverage encapsulates type information and field coverage.

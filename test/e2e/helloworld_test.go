@@ -54,16 +54,16 @@ func TestHelloWorld(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
-	domain := resources.Route.Status.URL.Host
 
+	url := resources.Route.Status.URL.String()
 	if _, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain,
+		url,
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, test.HelloWorldText, err)
+		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text \"%s\": %v", url, names.Route, test.HelloWorldText, err)
 	}
 
 	revision := resources.Revision
