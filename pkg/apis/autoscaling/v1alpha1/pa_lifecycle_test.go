@@ -627,17 +627,17 @@ func TestClass(t *testing.T) {
 		pa: pa(map[string]string{
 			autoscaling.ClassAnnotationKey: autoscaling.KPA,
 		}),
-		want: "kpa.autoscaling.knative.dev",
+		want: autoscaling.KPA,
 	}, {
 		name: "hpa class",
 		pa: pa(map[string]string{
 			autoscaling.ClassAnnotationKey: autoscaling.HPA,
 		}),
-		want: "hpa.autoscaling.knative.dev",
+		want: autoscaling.HPA,
 	}, {
 		name: "default class",
 		pa:   pa(map[string]string{}),
-		want: "kpa.autoscaling.knative.dev",
+		want: autoscaling.KPA,
 	}, {
 		name: "custom class",
 		pa: pa(map[string]string{

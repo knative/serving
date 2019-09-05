@@ -177,7 +177,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 			ObjectMeta: v1.ObjectMeta{
 				Name: "valid",
 				Annotations: map[string]string{
-					autoscaling.MetricAnnotationKey:   "rps",
+					autoscaling.MetricAnnotationKey:   autoscaling.RPS,
 					autoscaling.MinScaleAnnotationKey: "2",
 				},
 			},
@@ -197,7 +197,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 			ObjectMeta: v1.ObjectMeta{
 				Name: "valid",
 				Annotations: map[string]string{
-					autoscaling.MetricAnnotationKey: "rps",
+					autoscaling.MetricAnnotationKey: autoscaling.RPS,
 				},
 			},
 			Spec: PodAutoscalerSpec{
@@ -216,8 +216,8 @@ func TestPodAutoscalerValidation(t *testing.T) {
 			ObjectMeta: v1.ObjectMeta{
 				Name: "valid",
 				Annotations: map[string]string{
-					autoscaling.MetricAnnotationKey: "concurrency",
-					autoscaling.ClassAnnotationKey:  "hpa.autoscaling.knative.dev",
+					autoscaling.MetricAnnotationKey: autoscaling.Concurrency,
+					autoscaling.ClassAnnotationKey:  autoscaling.HPA,
 				},
 			},
 			Spec: PodAutoscalerSpec{
@@ -236,8 +236,8 @@ func TestPodAutoscalerValidation(t *testing.T) {
 			ObjectMeta: v1.ObjectMeta{
 				Name: "valid",
 				Annotations: map[string]string{
-					autoscaling.MetricAnnotationKey: "rps",
-					autoscaling.ClassAnnotationKey:  "hpa.autoscaling.knative.dev",
+					autoscaling.MetricAnnotationKey: autoscaling.RPS,
+					autoscaling.ClassAnnotationKey:  autoscaling.HPA,
 				},
 			},
 			Spec: PodAutoscalerSpec{
