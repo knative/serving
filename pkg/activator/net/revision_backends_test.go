@@ -624,8 +624,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			defer close(stopCh)
 			controller.StartInformers(stopCh, endpointsInformer.Informer())
 
-			updateCh := make(chan *RevisionDestsUpdate, 100)
-			NewRevisionBackendsManagerWithProbeFrequency(stopCh, updateCh, rt, revisionLister,
+			rbm := NewRevisionBackendsManagerWithProbeFrequency(stopCh, rt, revisionLister,
 				servicesLister, endpointsInformer, TestLogger(t), 50*time.Millisecond)
 
 			for _, ep := range tc.endpointsArr {
@@ -645,7 +644,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			// Wait for updateCb to be called
 			for i := 0; i < tc.updateCnt; i++ {
 				select {
-				case update := <-updateCh:
+				case update := <-rbm.UpdateCh():
 					sort.Strings(update.Dests)
 					revDests[update.Rev] = *update
 				case <-time.After(300 * time.Millisecond):

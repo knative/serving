@@ -177,18 +177,16 @@ func main() {
 	reqCh := make(chan activatorhandler.ReqEvent, requestCountingQueueLength)
 	defer close(reqCh)
 
-	revDestsCh := make(chan *activatornet.RevisionDestsUpdate, 10)
-	defer close(revDestsCh)
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
-
-	// Start throttler
-	throttler := activatornet.NewThrottler(params, revisionInformer, endpointInformer, logger)
-	go throttler.Run(revDestsCh)
 
 	// Start revision backends manager
 	// TODO(greghaynes) use ctx with clients injected
-	activatornet.NewRevisionBackendsManager(ctx.Done(), revDestsCh, network.AutoTransport, revisionInformer.Lister(),
+	rbm := activatornet.NewRevisionBackendsManager(ctx.Done(), network.AutoTransport, revisionInformer.Lister(),
 		serviceInformer.Lister(), endpointInformer, logger)
+
+	// Start throttler
+	throttler := activatornet.NewThrottler(params, revisionInformer, endpointInformer, logger)
+	go throttler.Run(rbm.UpdateCh())
 
 	oct := tracing.NewOpenCensusTracer(tracing.WithExporter(networking.ActivatorServiceName, logger))
 

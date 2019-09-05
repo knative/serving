@@ -119,7 +119,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Scheme: "http",
 			Host:   dest,
 		}
-		// Once we see a successful probe, send traffic.
+
 		proxyCtx, proxySpan := trace.StartSpan(r.Context(), "proxy")
 		httpStatus = a.proxyRequest(logger, w, r.WithContext(proxyCtx), &target)
 		proxySpan.End()
@@ -140,10 +140,10 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		if err == activatornet.ErrActivatorOverload {
 			http.Error(w, activatornet.ErrActivatorOverload.Error(), http.StatusServiceUnavailable)
-		} else {
-			w.WriteHeader(http.StatusInternalServerError)
-			logger.Errorw("Error processing request in the activator", zap.Error(err))
+			return
 		}
+		w.WriteHeader(http.StatusInternalServerError)
+		logger.Errorw("Error processing request in the activator", zap.Error(err))
 	}
 }
 

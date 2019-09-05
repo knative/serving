@@ -191,21 +191,13 @@ func (rw *revisionWatcher) probePodIPs(dests []string) (sets.String, error) {
 	return hs, err
 }
 
-func (rw *revisionWatcher) sendUpdate(update *RevisionDestsUpdate) bool {
-	// In many cases we are doing blocking work while determining whether we have an update.
-	// we could have been asked to shut down and updateCh / doneCh are closed. Force a
-	// check of doneCh first in case this is the situation.
+func (rw *revisionWatcher) sendUpdate(update *RevisionDestsUpdate) {
 	select {
 	case <-rw.doneCh:
-		return false
+		close(rw.updateCh)
+		return
 	default:
-	}
-
-	select {
-	case <-rw.doneCh:
-		return false
-	case rw.updateCh <- update:
-		return true
+		rw.updateCh <- update
 	}
 }
 
@@ -306,7 +298,7 @@ type RevisionBackendsManager struct {
 	revisionWatchers    map[types.NamespacedName]*revisionWatcherCh
 	revisionWatchersMux sync.RWMutex
 
-	updateCh       chan<- *RevisionDestsUpdate
+	updateCh       chan *RevisionDestsUpdate
 	transport      http.RoundTripper
 	logger         *zap.SugaredLogger
 	probeFrequency time.Duration
@@ -314,7 +306,7 @@ type RevisionBackendsManager struct {
 
 // NewRevisionBackendsManagerWithProbeFrequency returnes a RevisionBackendsManager that uses the supplied
 // probe frequency
-func NewRevisionBackendsManagerWithProbeFrequency(doneCh <-chan struct{}, updateCh chan<- *RevisionDestsUpdate,
+func NewRevisionBackendsManagerWithProbeFrequency(doneCh <-chan struct{},
 	transport http.RoundTripper, revisionLister servinglisters.RevisionLister,
 	serviceLister corev1listers.ServiceLister, endpointsInformer corev1informers.EndpointsInformer,
 	logger *zap.SugaredLogger, probeFrequency time.Duration) *RevisionBackendsManager {
@@ -323,7 +315,7 @@ func NewRevisionBackendsManagerWithProbeFrequency(doneCh <-chan struct{}, update
 		revisionLister:   revisionLister,
 		serviceLister:    serviceLister,
 		revisionWatchers: make(map[types.NamespacedName]*revisionWatcherCh),
-		updateCh:         updateCh,
+		updateCh:         make(chan *RevisionDestsUpdate),
 		transport:        transport,
 		logger:           logger,
 		probeFrequency:   probeFrequency,
@@ -347,12 +339,17 @@ func NewRevisionBackendsManagerWithProbeFrequency(doneCh <-chan struct{}, update
 }
 
 // NewRevisionBackendsManager creates a RevisionBackendsManager
-func NewRevisionBackendsManager(doneCh <-chan struct{}, updateCh chan<- *RevisionDestsUpdate,
+func NewRevisionBackendsManager(doneCh <-chan struct{},
 	transport http.RoundTripper, revisionLister servinglisters.RevisionLister,
 	serviceLister corev1listers.ServiceLister, endpointsInformer corev1informers.EndpointsInformer,
 	logger *zap.SugaredLogger) *RevisionBackendsManager {
-	return NewRevisionBackendsManagerWithProbeFrequency(doneCh, updateCh, transport, revisionLister, serviceLister,
+	return NewRevisionBackendsManagerWithProbeFrequency(doneCh, transport, revisionLister, serviceLister,
 		endpointsInformer, logger, probeFrequency)
+}
+
+// Returns channel where dests updates are sent to
+func (rbm *RevisionBackendsManager) UpdateCh() <-chan *RevisionDestsUpdate {
+	return rbm.updateCh
 }
 
 func (rbm *RevisionBackendsManager) getRevisionProtocol(revID types.NamespacedName) (networking.ProtocolType, error) {

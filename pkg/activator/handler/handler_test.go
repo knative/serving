@@ -283,7 +283,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	namespace, revName := testNamespace, testRevName
 	revisions := revisionInformer(revision(namespace, revName))
 	endpoints := endpointsInformer(endpoints(namespace, revName, breakerParams.InitialCapacity, networking.ServicePortNameHTTP1))
-	services := serviceLister(service(testNamespace, testRevName, "http"))
+	services := serviceLister(service(testNamespace, testRevName, networking.ServicePortNameHTTP1))
 
 	interceptCh := make(chan *http.Request, 1)
 	rt := network.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
@@ -291,6 +291,9 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 		fake := httptest.NewRecorder()
 		return fake.Result(), nil
 	})
+
+	updateCh := make(chan *activatornet.RevisionDestsUpdate)
+	defer close(updateCh)
 
 	stopCh := make(chan struct{})
 	defer close(stopCh)
@@ -301,21 +304,13 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 		revisions,
 		endpoints,
 		TestLogger(t))
+	go throttler.Run(updateCh)
 
-	rbmUpdateCh := make(chan *activatornet.RevisionDestsUpdate)
-	defer close(rbmUpdateCh)
-	go throttler.Run(rbmUpdateCh)
-
-	fakeRT := activatortest.FakeRoundTripper{
-		RequestResponse: &activatortest.FakeResponse{
-			Err:  nil,
-			Code: http.StatusOK,
-			Body: wantBody,
-		},
+	updateCh <- &activatornet.RevisionDestsUpdate{
+		Rev:               types.NamespacedName{namespace, revName},
+		ClusterIPDest:     "129.0.0.1:1234",
+		ReadyAddressCount: breakerParams.InitialCapacity,
 	}
-	probeRt := network.RoundTripperFunc(fakeRT.RT)
-	activatornet.NewRevisionBackendsManager(stopCh, rbmUpdateCh, probeRt, revisions.Lister(),
-		services, endpoints, TestLogger(t))
 
 	handler := &activationHandler{
 		transport:      rt,
@@ -405,12 +400,9 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 				endpoints,
 				TestLogger(t))
 
-			rbmUpdateCh := make(chan *activatornet.RevisionDestsUpdate)
-			defer close(rbmUpdateCh)
-			go throttler.Run(rbmUpdateCh)
-
-			activatornet.NewRevisionBackendsManager(stopCh, rbmUpdateCh, rt, revisions.Lister(),
+			rbm := activatornet.NewRevisionBackendsManager(stopCh, rt, revisions.Lister(),
 				services, endpoints, TestLogger(t))
+			go throttler.Run(rbm.UpdateCh())
 
 			handler := &activationHandler{
 				transport:      rt,
