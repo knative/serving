@@ -584,7 +584,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			}},
 		},
 		expectDests: map[types.NamespacedName]RevisionDestsUpdate{
-			types.NamespacedName{"test-namespace", "test-revision"}: RevisionDestsUpdate{
+			{"test-namespace", "test-revision"}: {
 				Rev: types.NamespacedName{"test-namespace", "test-revision"},
 			},
 		},
