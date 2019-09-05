@@ -21,6 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
@@ -969,5 +970,17 @@ func TestScaleStatus(t *testing.T) {
 	pas.ActualScale = ptr.Int32(20060907)
 	if got, want := pas.GetActualScale(), int32(20060907); got != want {
 		t.Errorf("GetActualScale = %d, want: %v", got, want)
+	}
+}
+
+func TestPodAutoscalerGetGroupVersionKind(t *testing.T) {
+	p := &PodAutoscaler{}
+	want := schema.GroupVersionKind{
+		Group:   autoscaling.InternalGroupName,
+		Version: "v1alpha1",
+		Kind:    "PodAutoscaler",
+	}
+	if got := p.GetGroupVersionKind(); got != want {
+		t.Errorf("got: %v, want: %v", got, want)
 	}
 }
