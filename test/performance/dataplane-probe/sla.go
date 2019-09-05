@@ -26,12 +26,12 @@ import (
 	"knative.dev/pkg/test/mako"
 )
 
-var (
-	// This analyzer validates that the p95 latency talking to pods through a Kubernetes
-	// Service falls in the +5ms range.  This does not have Knative or Istio components
-	// on the dataplane, and so it is intended as a canary to flag environmental
-	// problems that might be causing contemporaneous Knative or Istio runs to fall out of SLA.
-	Kubernetes95PercentileLatency = &tpb.ThresholdAnalyzerInput{
+// This analyzer validates that the p95 latency talking to pods through a Kubernetes
+// Service falls in the +5ms range.  This does not have Knative or Istio components
+// on the dataplane, and so it is intended as a canary to flag environmental
+// problems that might be causing contemporaneous Knative or Istio runs to fall out of SLA.
+func newKubernetes95PercentileLatency(valueKey string) *tpb.ThresholdAnalyzerInput {
+	return &tpb.ThresholdAnalyzerInput{
 		Name: proto.String("Kubernetes baseline"),
 		Configs: []*tpb.ThresholdConfig{{
 			Min: bound(100 * time.Millisecond),
@@ -39,17 +39,19 @@ var (
 			DataFilter: &mpb.DataFilter{
 				DataType:            mpb.DataFilter_METRIC_AGGREGATE_PERCENTILE.Enum(),
 				PercentileMilliRank: proto.Int32(95000),
-				ValueKey:            proto.String("kd"),
+				ValueKey:            proto.String(valueKey),
 			},
 		}},
 		CrossRunConfig: mako.NewCrossRunConfig(10),
 	}
+}
 
-	// This analyzer validates that the p95 latency talking to pods through Istio
-	// falls in the +8ms range.  This does not actually have Knative components
-	// on the dataplane, and so it is intended as a canary to flag environmental
-	// problems that might be causing contemporaneous Knative runs to fall out of SLA.
-	Istio95PercentileLatency = &tpb.ThresholdAnalyzerInput{
+// This analyzer validates that the p95 latency talking to pods through Istio
+// falls in the +8ms range.  This does not actually have Knative components
+// on the dataplane, and so it is intended as a canary to flag environmental
+// problems that might be causing contemporaneous Knative runs to fall out of SLA.
+func newIstio95PercentileLatency(valueKey string) *tpb.ThresholdAnalyzerInput {
+	return &tpb.ThresholdAnalyzerInput{
 		Name: proto.String("Istio baseline"),
 		Configs: []*tpb.ThresholdConfig{{
 			Min: bound(100 * time.Millisecond),
@@ -57,15 +59,17 @@ var (
 			DataFilter: &mpb.DataFilter{
 				DataType:            mpb.DataFilter_METRIC_AGGREGATE_PERCENTILE.Enum(),
 				PercentileMilliRank: proto.Int32(95000),
-				ValueKey:            proto.String("id"),
+				ValueKey:            proto.String(valueKey),
 			},
 		}},
 		CrossRunConfig: mako.NewCrossRunConfig(10),
 	}
+}
 
-	// This analyzer validates that the p95 latency hitting a Knative Service
-	// going through JUST the queue-proxy falls in the +10ms range.
-	Queue95PercentileLatency = &tpb.ThresholdAnalyzerInput{
+// This analyzer validates that the p95 latency hitting a Knative Service
+// going through JUST the queue-proxy falls in the +10ms range.
+func newQueue95PercentileLatency(valueKey string) *tpb.ThresholdAnalyzerInput {
+	return &tpb.ThresholdAnalyzerInput{
 		Name: proto.String("Queue p95 latency"),
 		Configs: []*tpb.ThresholdConfig{{
 			Min: bound(100 * time.Millisecond),
@@ -73,15 +77,17 @@ var (
 			DataFilter: &mpb.DataFilter{
 				DataType:            mpb.DataFilter_METRIC_AGGREGATE_PERCENTILE.Enum(),
 				PercentileMilliRank: proto.Int32(95000),
-				ValueKey:            proto.String("qp"),
+				ValueKey:            proto.String(valueKey),
 			},
 		}},
 		CrossRunConfig: mako.NewCrossRunConfig(10),
 	}
+}
 
-	// This analyzer validates that the p95 latency hitting a Knative Service
-	// going through BOTH the activator and queue-proxy falls in the +10ms range.
-	Activator95PercentileLatency = &tpb.ThresholdAnalyzerInput{
+// This analyzer validates that the p95 latency hitting a Knative Service
+// going through BOTH the activator and queue-proxy falls in the +10ms range.
+func newActivator95PercentileLatency(valueKey string) *tpb.ThresholdAnalyzerInput {
+	return &tpb.ThresholdAnalyzerInput{
 		Name: proto.String("Activator p95 latency"),
 		Configs: []*tpb.ThresholdConfig{{
 			Min: bound(100 * time.Millisecond),
@@ -89,12 +95,14 @@ var (
 			DataFilter: &mpb.DataFilter{
 				DataType:            mpb.DataFilter_METRIC_AGGREGATE_PERCENTILE.Enum(),
 				PercentileMilliRank: proto.Int32(95000),
-				ValueKey:            proto.String("a"),
+				ValueKey:            proto.String(valueKey),
 			},
 		}},
 		CrossRunConfig: mako.NewCrossRunConfig(10),
 	}
+}
 
+var (
 	// Map the above to our benchmark targets.
 	targets = map[string]struct {
 		target    vegeta.Target
@@ -109,7 +117,7 @@ var (
 			},
 			stat:      "kd",
 			estat:     "ke",
-			analyzers: []*tpb.ThresholdAnalyzerInput{Kubernetes95PercentileLatency},
+			analyzers: []*tpb.ThresholdAnalyzerInput{newKubernetes95PercentileLatency("kd")},
 		},
 		"istio": {
 			target: vegeta.Target{
@@ -118,7 +126,7 @@ var (
 			},
 			stat:      "id",
 			estat:     "ie",
-			analyzers: []*tpb.ThresholdAnalyzerInput{Istio95PercentileLatency},
+			analyzers: []*tpb.ThresholdAnalyzerInput{newIstio95PercentileLatency("id")},
 		},
 		"queue": {
 			target: vegeta.Target{
@@ -127,7 +135,7 @@ var (
 			},
 			stat:      "qp",
 			estat:     "qe",
-			analyzers: []*tpb.ThresholdAnalyzerInput{Queue95PercentileLatency},
+			analyzers: []*tpb.ThresholdAnalyzerInput{newQueue95PercentileLatency("qp")},
 		},
 		"queue-with-cc": {
 			target: vegeta.Target{
@@ -137,7 +145,7 @@ var (
 			stat:  "qc",
 			estat: "re",
 			// We use the same threshold analyzer, since we want Breaker to exert minimal latency impact.
-			analyzers: []*tpb.ThresholdAnalyzerInput{Queue95PercentileLatency},
+			analyzers: []*tpb.ThresholdAnalyzerInput{newQueue95PercentileLatency("qc")},
 		},
 		"queue-with-cc-10": {
 			target: vegeta.Target{
@@ -147,7 +155,7 @@ var (
 			stat:  "qct",
 			estat: "ret",
 			// TODO(vagababov): determine values here.
-			analyzers: []*tpb.ThresholdAnalyzerInput{Queue95PercentileLatency},
+			analyzers: []*tpb.ThresholdAnalyzerInput{},
 		},
 		"queue-with-cc-1": {
 			target: vegeta.Target{
@@ -157,7 +165,7 @@ var (
 			stat:  "qc1",
 			estat: "re1",
 			// TODO(vagababov): determine values here.
-			analyzers: []*tpb.ThresholdAnalyzerInput{Queue95PercentileLatency},
+			analyzers: []*tpb.ThresholdAnalyzerInput{},
 		},
 		"activator": {
 			target: vegeta.Target{
@@ -166,7 +174,7 @@ var (
 			},
 			stat:      "a",
 			estat:     "ae",
-			analyzers: []*tpb.ThresholdAnalyzerInput{Activator95PercentileLatency},
+			analyzers: []*tpb.ThresholdAnalyzerInput{newActivator95PercentileLatency("a")},
 		},
 		"activator-with-cc": {
 			target: vegeta.Target{
@@ -176,7 +184,7 @@ var (
 			stat:  "ac",
 			estat: "be",
 			// We use the same threshold analyzer, since we want Throttler/Breaker to exert minimal latency impact.
-			analyzers: []*tpb.ThresholdAnalyzerInput{Activator95PercentileLatency},
+			analyzers: []*tpb.ThresholdAnalyzerInput{newActivator95PercentileLatency("ac")},
 		},
 		"activator-with-cc-10": {
 			target: vegeta.Target{
@@ -186,7 +194,7 @@ var (
 			stat:  "act",
 			estat: "bet",
 			// TODO(vagababov): determine values here.
-			analyzers: []*tpb.ThresholdAnalyzerInput{Activator95PercentileLatency},
+			analyzers: []*tpb.ThresholdAnalyzerInput{},
 		},
 		"activator-with-cc-1": {
 			target: vegeta.Target{
@@ -196,7 +204,7 @@ var (
 			stat:  "ac1",
 			estat: "be1",
 			// TODO(vagababov): determine values here.
-			analyzers: []*tpb.ThresholdAnalyzerInput{Activator95PercentileLatency},
+			analyzers: []*tpb.ThresholdAnalyzerInput{},
 		},
 	}
 )
