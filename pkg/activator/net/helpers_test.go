@@ -134,7 +134,7 @@ func TestGetServicePort(t *testing.T) {
 				},
 			}
 
-			port, ok := GetServicePort(tc.protocol, &svc)
+			port, ok := getServicePort(tc.protocol, &svc)
 			if ok != tc.expectOK {
 				t.Errorf("Wanted ok %v, got %v", tc.expectOK, ok)
 			}
