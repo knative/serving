@@ -1655,7 +1655,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:c58bb491fe5be973899a0c744db8a283745641503bed8ddb683da4ad9bff09c5"
+  digest = "1:ba9e318c6f8ac8881becb790c84f78606a8d7fb48428a042c9702b471eb91d50"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1713,6 +1713,8 @@
     "injection/informers/kubeinformers/corev1/configmap/fake",
     "injection/informers/kubeinformers/corev1/endpoints",
     "injection/informers/kubeinformers/corev1/endpoints/fake",
+    "injection/informers/kubeinformers/corev1/namespace",
+    "injection/informers/kubeinformers/corev1/namespace/fake",
     "injection/informers/kubeinformers/corev1/pod",
     "injection/informers/kubeinformers/corev1/pod/fake",
     "injection/informers/kubeinformers/corev1/secret",
@@ -1763,11 +1765,11 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "75da3911c0205df6c1b8acb74662d96a6e37b305"
+  revision = "e58c7a08d97da6c69a1c06efb63c451f9814c6fe"
 
 [[projects]]
   branch = "master"
-  digest = "1:63b0ef4a1966fc81259eff223ced3902a64f6d3e64dccbbf7fb09c3022bc0b7a"
+  digest = "1:9fc8982baedc37d87c646f79cd1947011ee74e75f304218d2537c1c812c514f2"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1780,7 +1782,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "cfee08011fea83b3a3b4fc0d3dfe436789a1ac24"
+  revision = "2c83a176f473acb4b6b851e98e53882f594ffb5c"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1927,12 +1929,15 @@
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/configmap/fake",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints/fake",
+    "knative.dev/pkg/injection/informers/kubeinformers/corev1/namespace",
+    "knative.dev/pkg/injection/informers/kubeinformers/corev1/namespace/fake",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/pod",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/pod/fake",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret/fake",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/service",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake",
+    "knative.dev/pkg/injection/informers/kubeinformers/factory",
     "knative.dev/pkg/injection/sharedmain",
     "knative.dev/pkg/kmeta",
     "knative.dev/pkg/kmp",
