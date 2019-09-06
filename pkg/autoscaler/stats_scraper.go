@@ -24,8 +24,8 @@ import (
 
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/types"
-
 	"github.com/pkg/errors"
+
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
@@ -46,6 +46,16 @@ const (
 	// to retry if a Scrape returns an error or if the Scrape goes to a pod we already
 	// scraped.
 	scraperMaxRetries = 10
+)
+
+var (
+	// errFailedGetEndpoints specifies the error returned by scraper when it fails to
+	// get endpoints.
+	errFailedGetEndpoints = "failed to get endpoints"
+
+	// errDidNotReceiveStat specifies the error returned by scraper when it does not receive
+	// stat from an unscraped pod
+	errDidNotReceiveStat = "did not receive stat from an unscraped pod"
 )
 
 // StatsScraper defines the interface for collecting Revision metrics
@@ -131,7 +141,7 @@ func urlFromTarget(t, ns string) string {
 func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 	readyPodsCount, err := s.counter.ReadyCount()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get endpoints")
+		return nil, errors.Wrap(err, errFailedGetEndpoints)
 	}
 
 	if readyPodsCount == 0 {
@@ -220,8 +230,20 @@ func (s *ServiceScraper) tryScrape(scrapedPods *sync.Map) (*Stat, error) {
 	}
 
 	if _, exists := scrapedPods.LoadOrStore(stat.PodName, struct{}{}); exists {
-		return nil, errors.New("did not receive stat from an unscraped pod")
+		return nil, errors.New(errDidNotReceiveStat)
 	}
 
 	return stat, nil
+}
+
+// IsErrFailedGetEndpoints determines if the err is an error which indicates
+// the scaper fails to get endpoints
+func IsErrFailedGetEndpoints(err error) bool {
+	return err.Error() == errFailedGetEndpoints
+}
+
+// IsErrDidNotReceiveStat determines if the err is an error which indicates
+// the scaper did not receive stat from an unscraped pod
+func IsErrDidNotReceiveStat(err error) bool {
+	return err.Error() == errDidNotReceiveStat
 }

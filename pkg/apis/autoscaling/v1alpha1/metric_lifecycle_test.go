@@ -26,6 +26,7 @@ import (
 	"knative.dev/pkg/apis/duck"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	apitest "knative.dev/pkg/apis/testing"
+	"knative.dev/serving/pkg/apis/autoscaling"
 )
 
 func TestMetricDuckTypes(t *testing.T) {
@@ -115,7 +116,7 @@ func TestMetricIsReady(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if e, a := tc.isReady, tc.status.IsReady(); e != a {
-				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
+				t.Errorf("Ready = %v, want: %v", a, e)
 			}
 		})
 	}
@@ -126,14 +127,11 @@ func TestMetricGetSetCondition(t *testing.T) {
 	if a := ms.GetCondition(MetricConditionReady); a != nil {
 		t.Errorf("empty MetricStatus returned %v when expected nil", a)
 	}
-
 	mc := &apis.Condition{
 		Type:   MetricConditionReady,
 		Status: corev1.ConditionTrue,
 	}
-
 	ms.MarkMetricReady()
-
 	if diff := cmp.Diff(mc, ms.GetCondition(MetricConditionReady), cmpopts.IgnoreFields(apis.Condition{}, "LastTransitionTime")); diff != "" {
 		t.Errorf("GetCondition refs diff (-want +got): %v", diff)
 	}
@@ -144,8 +142,10 @@ func TestTypicalFlowWithMetricCondition(t *testing.T) {
 	m.InitializeConditions()
 	apitest.CheckConditionOngoing(m.duck(), MetricConditionReady, t)
 
-	const wantReason = "reason"
-	const wantMessage = "the error message"
+	const (
+		wantReason  = "reason"
+		wantMessage = "the error message"
+	)
 	m.MarkMetricFailed(wantReason, wantMessage)
 	apitest.CheckConditionFailed(m.duck(), MetricConditionReady, t)
 	if got := m.GetCondition(MetricConditionReady); got == nil || got.Reason != wantReason || got.Message != wantMessage {
@@ -165,7 +165,7 @@ func TestTypicalFlowWithMetricCondition(t *testing.T) {
 func TestMetricGetGroupVersionKind(t *testing.T) {
 	r := &Metric{}
 	want := schema.GroupVersionKind{
-		Group:   "autoscaling.internal.knative.dev",
+		Group:   autoscaling.InternalGroupName,
 		Version: "v1alpha1",
 		Kind:    "Metric",
 	}
