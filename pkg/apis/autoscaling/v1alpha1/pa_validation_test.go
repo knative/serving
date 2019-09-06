@@ -177,8 +177,8 @@ func TestPodAutoscalerValidation(t *testing.T) {
 			ObjectMeta: v1.ObjectMeta{
 				Name: "valid",
 				Annotations: map[string]string{
-					"autoscaling.knative.dev/metric":   "rps",
-					"autoscaling.knative.dev/minScale": "2",
+					autoscaling.MetricAnnotationKey:   autoscaling.RPS,
+					autoscaling.MinScaleAnnotationKey: "2",
 				},
 			},
 			Spec: PodAutoscalerSpec{
@@ -197,7 +197,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 			ObjectMeta: v1.ObjectMeta{
 				Name: "valid",
 				Annotations: map[string]string{
-					"autoscaling.knative.dev/metric": "rps",
+					autoscaling.MetricAnnotationKey: autoscaling.RPS,
 				},
 			},
 			Spec: PodAutoscalerSpec{
@@ -216,8 +216,8 @@ func TestPodAutoscalerValidation(t *testing.T) {
 			ObjectMeta: v1.ObjectMeta{
 				Name: "valid",
 				Annotations: map[string]string{
-					"autoscaling.knative.dev/metric": "concurrency",
-					"autoscaling.knative.dev/class":  "hpa.autoscaling.knative.dev",
+					autoscaling.MetricAnnotationKey: autoscaling.Concurrency,
+					autoscaling.ClassAnnotationKey:  autoscaling.HPA,
 				},
 			},
 			Spec: PodAutoscalerSpec{
@@ -236,8 +236,8 @@ func TestPodAutoscalerValidation(t *testing.T) {
 			ObjectMeta: v1.ObjectMeta{
 				Name: "valid",
 				Annotations: map[string]string{
-					"autoscaling.knative.dev/metric": "rps",
-					"autoscaling.knative.dev/class":  "hpa.autoscaling.knative.dev",
+					autoscaling.MetricAnnotationKey: autoscaling.RPS,
+					autoscaling.ClassAnnotationKey:  autoscaling.HPA,
 				},
 			},
 			Spec: PodAutoscalerSpec{
@@ -256,7 +256,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 			ObjectMeta: v1.ObjectMeta{
 				Name: "valid",
 				Annotations: map[string]string{
-					"autoscaling.knative.dev/minScale": "2",
+					autoscaling.MinScaleAnnotationKey: "2",
 				},
 			},
 			Spec: PodAutoscalerSpec{
@@ -294,7 +294,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 			ObjectMeta: v1.ObjectMeta{
 				Name: "valid",
 				Annotations: map[string]string{
-					"autoscaling.knative.dev/metric": "memory",
+					autoscaling.MetricAnnotationKey: "memory",
 				},
 			},
 			Spec: PodAutoscalerSpec{
@@ -306,7 +306,7 @@ func TestPodAutoscalerValidation(t *testing.T) {
 				ProtocolType: net.ProtocolH2C,
 			},
 		},
-		want: apis.ErrInvalidValue("memory", "autoscaling.knative.dev/metric").ViaField("annotations"),
+		want: apis.ErrInvalidValue("memory", autoscaling.MetricAnnotationKey).ViaField("annotations"),
 	}, {
 		name: "empty spec",
 		r: &PodAutoscaler{
