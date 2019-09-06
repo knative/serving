@@ -134,21 +134,28 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (bool, error)
 
 }
 
-func (rw *revisionWatcher) probeClusterIP(svc *corev1.Service) (bool, string, error) {
+func (rw *revisionWatcher) getDest(svc *corev1.Service) (string, error) {
 	if svc.Spec.ClusterIP == "" {
-		return false, "", fmt.Errorf("private service %s/%s clusterIP is nil, this should never happen", svc.ObjectMeta.Namespace, svc.ObjectMeta.Name)
+		return "", fmt.Errorf("private service %s/%s clusterIP is nil, this should never happen", svc.ObjectMeta.Namespace, svc.ObjectMeta.Name)
 	}
 
 	svcPort, ok := GetServicePort(rw.protocol, svc)
 	if !ok {
-		return false, "", fmt.Errorf("unable to find port in service %s/%s", svc.Namespace, svc.Name)
+		return "", fmt.Errorf("unable to find port in service %s/%s", svc.Namespace, svc.Name)
+	}
+	return net.JoinHostPort(svc.Spec.ClusterIP, strconv.Itoa(svcPort)), nil
+}
+
+func (rw *revisionWatcher) probeClusterIP(svc *corev1.Service) (bool, string, error) {
+	dest, err := rw.getDest(svc)
+	if err != nil {
+		return false, "", err
 	}
 
 	// Context used for our probe requests
 	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
 	defer cancel()
 
-	dest := net.JoinHostPort(svc.Spec.ClusterIP, strconv.Itoa(svcPort))
 	ok, err := rw.probe(ctx, dest)
 	return ok, dest, err
 }
@@ -212,16 +219,11 @@ func (rw *revisionWatcher) checkDests(dests []string) {
 			// we have a healthy clusterIP but revision is not ready. We must have scaled down.
 			rw.clusterIPHealthy = false
 
-			// Send update that were now inactive
+			// Send update that we are now inactive
 			rw.sendUpdate(&RevisionDestsUpdate{Rev: rw.rev})
 		}
 
 		// We know this revision cannot be healthy so short circuit
-		return
-	}
-
-	if rw.clusterIPHealthy {
-		// cluster IP is healthy and we havent scaled down, short circuit
 		return
 	}
 
@@ -232,11 +234,23 @@ func (rw *revisionWatcher) checkDests(dests []string) {
 		return
 	}
 
+	if rw.clusterIPHealthy {
+		dest, err := rw.getDest(svc)
+		if err != nil {
+			rw.logger.Errorw("Failed to determine service destination", zap.Error(err))
+			return
+		}
+		// cluster IP is healthy and we havent scaled down, short circuit
+		rw.logger.Debugf("ClusterIP %s already probed (backends: %d)", dest, len(dests))
+		rw.sendUpdate(&RevisionDestsUpdate{Rev: rw.rev, ClusterIPDest: dest, ReadyAddressCount: len(dests)})
+		return
+	}
+
 	// If clusterIP is healthy send this update and we are done
 	if ok, dest, err := rw.probeClusterIP(svc); err != nil {
 		rw.logger.Errorw(fmt.Sprintf("Failed to probe clusterIP %s/%s", svc.Namespace, svc.Name), zap.Error(err))
 	} else if ok {
-		rw.logger.Debug("ClusterIP is successfully probed:", dest)
+		rw.logger.Debugf("ClusterIP is successfully probed: %s (backends: %d)", dest, len(dests))
 		rw.clusterIPHealthy = true
 		rw.healthyPods = nil
 		rw.sendUpdate(&RevisionDestsUpdate{Rev: rw.rev, ClusterIPDest: dest, ReadyAddressCount: len(dests)})
@@ -389,7 +403,6 @@ func (rbm *RevisionBackendsManager) getOrCreateRevisionWatcher(rev types.Namespa
 func (rbm *RevisionBackendsManager) endpointsUpdated(newObj interface{}) {
 	endpoints := newObj.(*corev1.Endpoints)
 	revID := types.NamespacedName{endpoints.Namespace, endpoints.Labels[serving.RevisionLabelKey]}
-	rbm.logger.Debugf("Updating Endpoints: %q", revID.String())
 
 	rwCh, err := rbm.getOrCreateRevisionWatcher(revID)
 	if err != nil {
@@ -398,6 +411,7 @@ func (rbm *RevisionBackendsManager) endpointsUpdated(newObj interface{}) {
 		return
 	}
 	dests := EndpointsToDests(endpoints, networking.ServicePortName(rwCh.revisionWatcher.protocol))
+	rbm.logger.Debugf("Updating Endpoints: %q (backends: %d)", revID.String(), len(dests))
 	rwCh.ch <- dests
 }
 
