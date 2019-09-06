@@ -26,10 +26,10 @@ import (
 
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
+	"knative.dev/pkg/test/prometheus"
 	"knative.dev/pkg/test/zipkin"
 	"knative.dev/serving/test"
 	"knative.dev/test-infra/shared/common"
-	"knative.dev/test-infra/shared/prometheus"
 	"knative.dev/test-infra/shared/prow"
 
 	// Mysteriously required to support GCP auth (required by k8s libs). Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242

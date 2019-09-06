@@ -1745,6 +1745,7 @@
     "test/logstream",
     "test/mako",
     "test/monitoring",
+    "test/prometheus",
     "test/spoof",
     "test/vegeta/pacers",
     "test/webhook-apicoverage/coveragecalculator",
@@ -1766,7 +1767,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:cb3aab76dad970a841ccf1812c0b89e7fe5b6d2f7918f083d5fd9091cc1ebe35"
+  digest = "1:63b0ef4a1966fc81259eff223ced3902a64f6d3e64dccbbf7fb09c3022bc0b7a"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1774,13 +1775,12 @@
     "shared/gcs",
     "shared/junit",
     "shared/performance",
-    "shared/prometheus",
     "shared/prow",
     "shared/testgrid",
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "66fa1c8aba0d4a919d7437a53f0d3bcc448e274f"
+  revision = "cfee08011fea83b3a3b4fc0d3dfe436789a1ac24"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1956,6 +1956,7 @@
     "knative.dev/pkg/test/logging",
     "knative.dev/pkg/test/logstream",
     "knative.dev/pkg/test/mako",
+    "knative.dev/pkg/test/prometheus",
     "knative.dev/pkg/test/spoof",
     "knative.dev/pkg/test/vegeta/pacers",
     "knative.dev/pkg/test/webhook-apicoverage/resourcetree",
@@ -1974,7 +1975,6 @@
     "knative.dev/test-infra/shared/common",
     "knative.dev/test-infra/shared/junit",
     "knative.dev/test-infra/shared/performance",
-    "knative.dev/test-infra/shared/prometheus",
     "knative.dev/test-infra/shared/prow",
     "knative.dev/test-infra/shared/testgrid",
     "knative.dev/test-infra/tools/dep-collector",
