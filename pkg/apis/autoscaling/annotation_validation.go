@@ -118,12 +118,9 @@ func validateMinMaxScale(annotations map[string]string) *apis.FieldError {
 
 func validateMetric(annotations map[string]string) *apis.FieldError {
 	if metric, ok := annotations[MetricAnnotationKey]; ok {
-		var classValue string
+		classValue := KPA
 		if c, ok := annotations[ClassAnnotationKey]; ok {
 			classValue = c
-		} else {
-			// Default to "kpa" class for backward compatibility.
-			classValue = KPA
 		}
 		switch classValue {
 		case KPA:

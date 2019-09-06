@@ -199,6 +199,9 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 	}, {
 		name:        "valid class HPA with metric RPS",
 		annotations: map[string]string{ClassAnnotationKey: HPA, MetricAnnotationKey: RPS},
+	}, {
+		name:        "other than HPA and KPA class",
+		annotations: map[string]string{ClassAnnotationKey: "other", MetricAnnotationKey: RPS},
 	}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
