@@ -259,7 +259,7 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, logger *zap.S
 				scrapeTicker.Stop()
 				return
 			case <-scrapeTicker.C:
-				message, err := c.getScraper().Scrape()
+				message, err := c.getScraper().Scrape(logger)
 				if err != nil {
 					logger.Errorw("Failed to scrape metrics", zap.Error(err))
 					metric.Status.MarkMetricFailed("FailToScapeMetricsReason", "Metrics scaping failed.")

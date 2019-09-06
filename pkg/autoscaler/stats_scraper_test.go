@@ -25,6 +25,7 @@ import (
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	. "knative.dev/pkg/logging/testing"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/resources"
@@ -129,6 +130,9 @@ func TestNewServiceScraperWithClientErrorCases(t *testing.T) {
 }
 
 func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
+	defer ClearAll()
+	logger := TestLogger(t)
+
 	client := newTestScrapeClient(testStats, []error{nil})
 	scraper, err := serviceScraperForTest(client)
 	if err != nil {
@@ -140,9 +144,9 @@ func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 
 	// Scrape will set a timestamp bigger than this.
 	now := time.Now()
-	got, err := scraper.Scrape()
+	got, err := scraper.Scrape(logger)
 	if err != nil {
-		t.Fatalf("unexpected error from scraper.Scrape(): %v", err)
+		t.Fatalf("unexpected error from scraper.Scrape(logger): %v", err)
 	}
 
 	if got.Key != testPAKey {
@@ -175,6 +179,9 @@ func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 }
 
 func TestScrapeReportErrorCannotFindEnoughPods(t *testing.T) {
+	defer ClearAll()
+	logger := TestLogger(t)
+
 	client := newTestScrapeClient(testStats[2:], []error{nil})
 	scraper, err := serviceScraperForTest(client)
 	if err != nil {
@@ -184,13 +191,16 @@ func TestScrapeReportErrorCannotFindEnoughPods(t *testing.T) {
 	// Make an Endpoints with 2 pods.
 	endpoints(2, testService)
 
-	_, err = scraper.Scrape()
+	_, err = scraper.Scrape(logger)
 	if err == nil {
-		t.Errorf("scrape.Scrape() = nil, expected an error")
+		t.Errorf("scrape.Scrape(logger) = nil, expected an error")
 	}
 }
 
 func TestScrapeReportErrorIfAnyFails(t *testing.T) {
+	defer ClearAll()
+	logger := TestLogger(t)
+
 	errTest := errors.New("test")
 
 	// 1 success and 10 failures so one scrape fails permanently through retries.
@@ -204,13 +214,16 @@ func TestScrapeReportErrorIfAnyFails(t *testing.T) {
 	// Make an Endpoints with 2 pods.
 	endpoints(2, testService)
 
-	_, err = scraper.Scrape()
+	_, err = scraper.Scrape(logger)
 	if errors.Cause(err) != errTest {
-		t.Errorf("scraper.Scrape() = %v, want %v", err, errTest)
+		t.Errorf("scraper.Scrape(logger) = %v, want %v", err, errTest)
 	}
 }
 
 func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
+	defer ClearAll()
+	logger := TestLogger(t)
+
 	client := newTestScrapeClient(testStats, nil)
 	scraper, err := serviceScraperForTest(client)
 	if err != nil {
@@ -220,9 +233,9 @@ func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
 	// Make an Endpoints with 0 pods.
 	endpoints(0, testService)
 
-	stat, err := scraper.Scrape()
+	stat, err := scraper.Scrape(logger)
 	if err != nil {
-		t.Fatalf("got error from scraper.Scrape() = %v", err)
+		t.Fatalf("got error from scraper.Scrape(logger) = %v", err)
 	}
 	if stat != nil {
 		t.Error("Received unexpected StatMessage.")
@@ -277,5 +290,55 @@ func (c *fakeScrapeClient) Scrape(url string) (*Stat, error) {
 func TestURLFromTarget(t *testing.T) {
 	if got, want := "http://dance.now:9090/metrics", urlFromTarget("dance", "now"); got != want {
 		t.Errorf("urlFromTarget = %s, want: %s, diff: %s", got, want, cmp.Diff(got, want))
+	}
+}
+
+func TestIsErrFailedGetEndpoints(t *testing.T) {
+	testCases := []struct {
+		name           string
+		err            error
+		expectedResult bool
+	}{{
+		name:           "Failed to get endpoints error",
+		err:            errors.New("failed to get endpoints"),
+		expectedResult: true,
+	}, {
+		name:           "Other random error",
+		err:            errors.New("foo"),
+		expectedResult: false,
+	}}
+	for _, test := range testCases {
+		t.Run(test.name, func(t *testing.T) {
+			got := IsErrFailedGetEndpoints(test.err)
+			want := test.expectedResult
+			if got != want {
+				t.Errorf("Got: %v. Want: %v", got, want)
+			}
+		})
+	}
+}
+
+func TestIsErrDidNotReceiveStat(t *testing.T) {
+	testCases := []struct {
+		name           string
+		err            error
+		expectedResult bool
+	}{{
+		name:           "Did not receive stat error",
+		err:            errors.New("did not receive stat from an unscraped pod"),
+		expectedResult: true,
+	}, {
+		name:           "Other random error",
+		err:            errors.New("foo"),
+		expectedResult: false,
+	}}
+	for _, test := range testCases {
+		t.Run(test.name, func(t *testing.T) {
+			got := IsErrDidNotReceiveStat(test.err)
+			want := test.expectedResult
+			if got != want {
+				t.Errorf("Got: %v. Want: %v", got, want)
+			}
+		})
 	}
 }

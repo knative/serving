@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/types"
 	"github.com/pkg/errors"
@@ -51,17 +52,17 @@ const (
 var (
 	// errFailedGetEndpoints specifies the error returned by scraper when it fails to
 	// get endpoints.
-	errFailedGetEndpoints = "failed to get endpoints"
+	errFailedGetEndpoints = errors.New("failed to get endpoints")
 
 	// errDidNotReceiveStat specifies the error returned by scraper when it does not receive
 	// stat from an unscraped pod
-	errDidNotReceiveStat = "did not receive stat from an unscraped pod"
+	errDidNotReceiveStat = errors.New("did not receive stat from an unscraped pod")
 )
 
 // StatsScraper defines the interface for collecting Revision metrics
 type StatsScraper interface {
 	// Scrape scrapes the Revision queue metric endpoint.
-	Scrape() (*StatMessage, error)
+	Scrape(logger *zap.SugaredLogger) (*StatMessage, error)
 }
 
 // scrapeClient defines the interface for collecting Revision metrics for a given
@@ -138,10 +139,11 @@ func urlFromTarget(t, ns string) string {
 
 // Scrape calls the destination service then sends it
 // to the given stats channel.
-func (s *ServiceScraper) Scrape() (*StatMessage, error) {
+func (s *ServiceScraper) Scrape(logger *zap.SugaredLogger) (*StatMessage, error) {
 	readyPodsCount, err := s.counter.ReadyCount()
 	if err != nil {
-		return nil, errors.Wrap(err, errFailedGetEndpoints)
+		logger.Errorw(errFailedGetEndpoints.Error(), zap.Error(err))
+		return nil, errFailedGetEndpoints
 	}
 
 	if readyPodsCount == 0 {
@@ -172,7 +174,8 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 
 	// Return the inner error, if any.
 	if err := grp.Wait(); err != nil {
-		return nil, errors.Wrapf(err, "unsuccessful scrape, sampleSize=%d", sampleSize)
+		logger.Errorw(fmt.Sprintf("unsuccessful scrape, sampleSize=%d", sampleSize), zap.Error(err))
+		return nil, err
 	}
 	close(statCh)
 
@@ -230,7 +233,7 @@ func (s *ServiceScraper) tryScrape(scrapedPods *sync.Map) (*Stat, error) {
 	}
 
 	if _, exists := scrapedPods.LoadOrStore(stat.PodName, struct{}{}); exists {
-		return nil, errors.New(errDidNotReceiveStat)
+		return nil, errDidNotReceiveStat
 	}
 
 	return stat, nil
@@ -239,11 +242,11 @@ func (s *ServiceScraper) tryScrape(scrapedPods *sync.Map) (*Stat, error) {
 // IsErrFailedGetEndpoints determines if the err is an error which indicates
 // the scaper fails to get endpoints
 func IsErrFailedGetEndpoints(err error) bool {
-	return err.Error() == errFailedGetEndpoints
+	return err.Error() == errFailedGetEndpoints.Error()
 }
 
 // IsErrDidNotReceiveStat determines if the err is an error which indicates
 // the scaper did not receive stat from an unscraped pod
 func IsErrDidNotReceiveStat(err error) bool {
-	return err.Error() == errDidNotReceiveStat
+	return err.Error() == errDidNotReceiveStat.Error()
 }

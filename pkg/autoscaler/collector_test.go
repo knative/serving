@@ -27,6 +27,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	. "knative.dev/pkg/logging/testing"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+
+	"go.uber.org/zap"
 )
 
 var (
@@ -238,6 +240,6 @@ type testScraper struct {
 	url string
 }
 
-func (s *testScraper) Scrape() (*StatMessage, error) {
+func (s *testScraper) Scrape(logger *zap.SugaredLogger) (*StatMessage, error) {
 	return s.s()
 }
