@@ -63,14 +63,6 @@ func (r *reconciler) Reconcile(ctx context.Context, key string) error {
 	metric.Status.InitializeConditions()
 
 	if err := r.collector.CreateOrUpdate(metric); err != nil {
-		switch {
-		case autoscaler.IsErrFailedGetEndpoints(err):
-			metric.Status.MarkMetricNotReady("NoEndpoints", "Failed to get endpoints.")
-		case autoscaler.IsErrDidNotReceiveStat(err):
-			metric.Status.MarkMetricFailed("DidNotReceivedStat", "Did not receive stat from an unscraped pod.")
-		default:
-			metric.Status.MarkMetricNotReady("CreateOrUpdateFailed", "Collector has failed.")
-		}
 		return errors.Wrapf(err, "failed to initiate or update scraping")
 	}
 
