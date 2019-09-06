@@ -166,6 +166,13 @@ func MarkCertificateReady(r *v1alpha1.Route) {
 	r.Status.MarkCertificateReady(routenames.Certificate(r))
 }
 
+// WithReadyCertificateName marks the certificate specified by name as ready.
+func WithReadyCertificateName(name string) func(*v1alpha1.Route) {
+	return func(r *v1alpha1.Route) {
+		r.Status.MarkCertificateReady(name)
+	}
+}
+
 // MarkIngressReady propagates a Ready=True ClusterIngress status to the Route.
 func MarkIngressReady(r *v1alpha1.Route) {
 	r.Status.PropagateIngressStatus(netv1alpha1.IngressStatus{
