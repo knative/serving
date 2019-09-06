@@ -233,8 +233,6 @@ func TestMetricCollectorRecord(t *testing.T) {
 }
 
 func TestMetricCollectorError(t *testing.T) {
-	defer ClearAll()
-	logger := TestLogger(t)
 
 	testCases := []struct {
 		name                 string
@@ -326,18 +324,26 @@ func TestMetricCollectorError(t *testing.T) {
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
+			defer ClearAll()
+			logger := TestLogger(t)
 			factory := scraperFactory(test.scraper, nil)
 			coll := NewMetricCollector(factory, logger)
 			coll.CreateOrUpdate(test.metric)
+			key := types.NamespacedName{Namespace: test.metric.Namespace, Name: test.metric.Name}
 
 			var got duckv1beta1.Status
-			wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
-				got = test.metric.Status.Status
-				return equality.Semantic.DeepEqual(got, test.expectedMetricStatus), nil
+			wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+				collection, ok := coll.collections[key]
+				if ok {
+					got = collection.currentMetric().Status.Status
+					return equality.Semantic.DeepEqual(got, test.expectedMetricStatus), nil
+				}
+				return false, nil
 			})
-			if got, want := test.metric.Status.Status, test.expectedMetricStatus; !equality.Semantic.DeepEqual(got, want) {
-				t.Errorf("Got = %#v, want: %#v, diff:\n%q", got, want, cmp.Diff(got, want))
+			if !equality.Semantic.DeepEqual(got, test.expectedMetricStatus) {
+				t.Errorf("Got = %#v, want: %#v, diff:\n%q", got, test.expectedMetricStatus, cmp.Diff(got, test.expectedMetricStatus))
 			}
+			coll.Delete(test.metric.Namespace, test.metric.Name)
 		})
 	}
 }
