@@ -96,8 +96,7 @@ func (gsc *GKESDKClient) get(project, location, cluster string) (*container.Clus
 // nodeType: default to n1-standard-4 if not provided
 // region: default to regional cluster if not provided, and use default backup regions
 // zone: default is none, must be provided together with region
-func (gs *GKEClient) Setup(numNodes *int64, nodeType *string, region *string, zone *string, project *string) (ClusterOperations, error) {
-	var err error
+func (gs *GKEClient) Setup(numNodes *int64, nodeType *string, region *string, zone *string, project *string) ClusterOperations {
 	gc := &GKECluster{
 		Request: &GKERequest{
 			NumNodes:      DefaultGKENumNodes,
@@ -107,60 +106,70 @@ func (gs *GKEClient) Setup(numNodes *int64, nodeType *string, region *string, zo
 			BackupRegions: DefaultGKEBackupRegions},
 	}
 
-	ctx := context.Background()
+	if nil != project { // use provided project and create cluster
+		gc.Project = project
+		gc.NeedCleanup = true
+	}
 
+	if nil != numNodes {
+		gc.Request.NumNodes = *numNodes
+	}
+	if nil != nodeType {
+		gc.Request.NodeType = *nodeType
+	}
+	if nil != region {
+		gc.Request.Region = *region
+	}
+	if "" != common.GetOSEnv(regionEnv) {
+		gc.Request.Region = common.GetOSEnv(regionEnv)
+	}
+	if "" != common.GetOSEnv(backupRegionEnv) {
+		gc.Request.BackupRegions = strings.Split(common.GetOSEnv(backupRegionEnv), " ")
+	}
+	if nil != zone {
+		gc.Request.Zone = *zone
+		gc.Request.BackupRegions = make([]string, 0)
+	}
+
+	ctx := context.Background()
 	c, err := google.DefaultClient(ctx, container.CloudPlatformScope)
 	if nil != err {
-		return nil, fmt.Errorf("failed create google client: '%v'", err)
+		log.Fatalf("failed create google client: '%v'", err)
 	}
 
 	containerService, err := container.New(c)
 	if nil != err {
-		return nil, fmt.Errorf("failed create container service: '%v'", err)
+		log.Fatalf("failed create container service: '%v'", err)
 	}
 	gc.operations = &GKESDKClient{containerService}
 
-	if nil != project { // use provided project and create cluster
-		gc.Project = project
-		gc.NeedCleanup = true
-	} else if err := gc.checkEnvironment(); nil != err {
-		return nil, fmt.Errorf("failed checking existing cluster: '%v'", err)
-	} else if nil != gc.Cluster { // return if Cluster was already set by kubeconfig
-		return gc, nil
+	return gc
+}
+
+// Initialize sets up GKE SDK client, checks environment for cluster and
+// projects to decide whether use existing cluster/project or creating new ones.
+func (gc *GKECluster) Initialize() error {
+	if nil == gc.Project {
+		if err := gc.checkEnvironment(); nil != err {
+			return fmt.Errorf("failed checking existing cluster: '%v'", err)
+		} else if nil != gc.Cluster { // return if Cluster was already set by kubeconfig
+			return nil
+		}
 	}
 	if nil == gc.Cluster {
 		if common.IsProw() {
 			project, err := boskos.AcquireGKEProject(nil)
 			if nil != err {
-				return nil, fmt.Errorf("failed acquire boskos project: '%v'", err)
+				return fmt.Errorf("failed acquire boskos project: '%v'", err)
 			}
 			gc.Project = &project.Name
 		}
-		if nil != numNodes {
-			gc.Request.NumNodes = *numNodes
-		}
-		if nil != nodeType {
-			gc.Request.NodeType = *nodeType
-		}
-		if nil != region {
-			gc.Request.Region = *region
-		}
-		if "" != common.GetOSEnv(regionEnv) {
-			gc.Request.Region = common.GetOSEnv(regionEnv)
-		}
-		if "" != common.GetOSEnv(backupRegionEnv) {
-			gc.Request.BackupRegions = strings.Split(common.GetOSEnv(backupRegionEnv), " ")
-		}
-		if nil != zone {
-			gc.Request.Zone = *zone
-			gc.Request.BackupRegions = make([]string, 0)
-		}
 	}
 	if nil == gc.Project || "" == *gc.Project {
-		return nil, fmt.Errorf("gcp project must be set")
+		return fmt.Errorf("gcp project must be set")
 	}
 	log.Printf("use project '%s' for running test", *gc.Project)
-	return gc, nil
+	return nil
 }
 
 // Provider returns gke
