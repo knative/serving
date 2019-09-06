@@ -30,9 +30,11 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
+	vegeta "github.com/tsenart/vegeta/lib"
 	"golang.org/x/sync/errgroup"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
+	ingress "knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/networking"
@@ -48,6 +50,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -70,6 +73,35 @@ type testContext struct {
 	metric            string
 }
 
+func getVegetaTarget(kubeClientset *kubernetes.Clientset, domain, endpointOverride string, resolvable bool) (vegeta.Target, error) {
+	if resolvable {
+		return vegeta.Target{
+			Method: "GET",
+			URL:    fmt.Sprintf("http://%s?sleep=100", domain),
+		}, nil
+	}
+
+	endpoint := endpointOverride
+	if endpointOverride == "" {
+		var err error
+		// If the domain that the Route controller is configured to assign to Route.Status.Domain
+		// (the domainSuffix) is not resolvable, we need to retrieve the endpoint and spoof
+		// the Host in our requests.
+		if endpoint, err = ingress.GetIngressEndpoint(kubeClientset); err != nil {
+			return vegeta.Target{}, err
+		}
+	}
+
+	h := http.Header{}
+	h.Set("Host", domain)
+	return vegeta.Target{
+		Method: "GET",
+		URL:    fmt.Sprintf("http://%s?sleep=100", endpoint),
+		Header: h,
+	}, nil
+}
+
+// TODO: use vegeta to send traffic for this func as well.
 func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, stopChan chan struct{}) error {
 	var (
 		totalRequests      int32
@@ -122,8 +154,57 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 	}
 
 	if successfulRequests != totalRequests {
-		return fmt.Errorf("error making requests for scale up. Got %d successful requests, wanted: %d",
-			successfulRequests, totalRequests)
+		return fmt.Errorf("error making requests for scale up. total = %d, errors = %d, expected 0",
+		    totalRequests, totalRequests-successfulRequests)
+	}
+	return nil
+}
+
+func generateTrafficAtFixedRPS(ctx *testContext, rps int, duration time.Duration, stopChan chan struct{}) error {
+	var (
+		totalRequests      int32
+		successfulRequests int32
+	)
+
+	rate := vegeta.Rate{Freq: rps, Per: time.Second}
+	target, err := getVegetaTarget(
+		ctx.clients.KubeClient.Kube, ctx.domain, pkgTest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain)
+	if err != nil {
+		return fmt.Errorf("error creating vegeta target: %v", err)
+	}
+	targeter := vegeta.NewStaticTargeter(target)
+	attacker := vegeta.NewAttacker(vegeta.Timeout(duration))
+
+	ctx.t.Logf("Maintaining %v RPS requests for %v.", rps, duration)
+
+	// Start the attack!
+	results := attacker.Attack(targeter, rate, duration, "load-test")
+	defer attacker.Stop()
+
+	for {
+		select {
+		case <-stopChan:
+			ctx.t.Log("Stopping generateTraffic")
+			return nil
+		case res, ok := <-results:
+			if !ok {
+				ctx.t.Log("Time is up; done")
+				return nil
+			}
+
+			totalRequests++
+			if res.Code != http.StatusOK {
+				ctx.t.Logf("Status = %d, want: 200", res.Code)
+				ctx.t.Logf("Response: %v", res)
+				continue
+			}
+			successfulRequests++
+		}
+	}
+
+	if successfulRequests != totalRequests {
+		return fmt.Errorf("error making requests for scale up. total = %d, errors = %d, expected 0",
+		    totalRequests, totalRequests-successfulRequests)
 	}
 	return nil
 }
@@ -241,10 +322,16 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, dur
 
 	stopChan := make(chan struct{})
 	var grp errgroup.Group
-
-	grp.Go(func() error {
-		return generateTraffic(ctx, int(targetPods)*ctx.targetValue, duration, stopChan)
-	})
+	switch ctx.metric {
+	case autoscaling.RPS:
+		grp.Go(func() error {
+			return generateTrafficAtFixedRPS(ctx, int(targetPods)*ctx.targetValue, duration, stopChan)
+		})
+	default:
+		grp.Go(func() error {
+			return generateTraffic(ctx, int(targetPods)*ctx.targetValue, duration, stopChan)
+		})
+	}
 
 	grp.Go(func() error {
 		// Short-circuit traffic generation once we exit from the check logic.
@@ -329,6 +416,39 @@ func TestAutoscaleUpCountPods(t *testing.T) {
 			defer cancel()
 
 			ctx := setup(tt, class, autoscaling.Concurrency, containerConcurrency, targetUtilization)
+			defer test.TearDown(ctx.clients, ctx.names)
+
+			ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
+			// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
+
+			// Increase workload for 2 replicas for 60s
+			// Assert the number of expected replicas is between n-1 and n+1, where n is the # of desired replicas for 60s.
+			// Assert the number of expected replicas is n and n+1 at the end of 60s, where n is the # of desired replicas.
+			assertAutoscaleUpToNumPods(ctx, 1, 2, 60*time.Second, true)
+			// Increase workload scale to 3 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
+			assertAutoscaleUpToNumPods(ctx, 2, 3, 60*time.Second, true)
+			// Increase workload scale to 4 replicas, assert between [n-1, n+1] during scale up, assert between [n, n+1] after scaleup.
+			assertAutoscaleUpToNumPods(ctx, 3, 4, 60*time.Second, true)
+		})
+	}
+}
+
+func TestRPSBasedAutoscaleUpCountPods(t *testing.T) {
+	t.Parallel()
+
+	classes := map[string]string{
+		"hpa": autoscaling.HPA,
+		"kpa": autoscaling.KPA,
+	}
+
+	for name, class := range classes {
+		name, class := name, class
+		t.Run(name, func(tt *testing.T) {
+			tt.Parallel()
+			cancel := logstream.Start(tt)
+			defer cancel()
+
+			ctx := setup(tt, class, autoscaling.RPS, 10, targetUtilization)
 			defer test.TearDown(ctx.clients, ctx.names)
 
 			ctx.t.Log("The autoscaler spins up additional replicas when traffic increases.")
