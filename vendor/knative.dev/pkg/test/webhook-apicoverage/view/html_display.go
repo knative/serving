@@ -17,14 +17,14 @@ limitations under the License.
 package view
 
 import (
-	"strings"
 	"html/template"
+	"strings"
 
 	"knative.dev/pkg/test/webhook-apicoverage/coveragecalculator"
 )
 
 type HtmlDisplayData struct {
-	TypeCoverages []coveragecalculator.TypeCoverage
+	TypeCoverages   []coveragecalculator.TypeCoverage
 	CoverageNumbers *coveragecalculator.CoverageValues
 }
 
@@ -32,7 +32,7 @@ type HtmlDisplayData struct {
 func GetHTMLDisplay(coverageData []coveragecalculator.TypeCoverage, coverageValues *coveragecalculator.CoverageValues) (string, error) {
 
 	htmlData := HtmlDisplayData{
-		TypeCoverages: coverageData,
+		TypeCoverages:   coverageData,
 		CoverageNumbers: coverageValues,
 	}
 
@@ -49,7 +49,6 @@ func GetHTMLDisplay(coverageData []coveragecalculator.TypeCoverage, coverageValu
 
 	return buffer.String(), nil
 }
-
 
 // GetHTMLCoverageValuesDisplay is a helper method to display coverage values inside a HTML table.
 func GetHTMLCoverageValuesDisplay(coverageValues *coveragecalculator.CoverageValues) (string, error) {
