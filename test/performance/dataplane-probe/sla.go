@@ -26,16 +26,13 @@ import (
 	"knative.dev/pkg/test/mako"
 )
 
-// This analyzer validates that the p95 latency talking to pods through a Kubernetes
-// Service falls in the +5ms range.  This does not have Knative or Istio components
-// on the dataplane, and so it is intended as a canary to flag environmental
-// problems that might be causing contemporaneous Knative or Istio runs to fall out of SLA.
-func newKubernetes95PercentileLatency(valueKey string) *tpb.ThresholdAnalyzerInput {
+// This function constructs an analyzer that validates the p95 aggregate value of the given metric.
+func new95PercentileLatency(name, valueKey string, min, max time.Duration) *tpb.ThresholdAnalyzerInput {
 	return &tpb.ThresholdAnalyzerInput{
-		Name: proto.String("Kubernetes baseline"),
+		Name: proto.String(name),
 		Configs: []*tpb.ThresholdConfig{{
-			Min: bound(100 * time.Millisecond),
-			Max: bound(105 * time.Millisecond),
+			Min: bound(min),
+			Max: bound(max),
 			DataFilter: &mpb.DataFilter{
 				DataType:            mpb.DataFilter_METRIC_AGGREGATE_PERCENTILE.Enum(),
 				PercentileMilliRank: proto.Int32(95000),
@@ -44,6 +41,14 @@ func newKubernetes95PercentileLatency(valueKey string) *tpb.ThresholdAnalyzerInp
 		}},
 		CrossRunConfig: mako.NewCrossRunConfig(10),
 	}
+}
+
+// This analyzer validates that the p95 latency talking to pods through a Kubernetes
+// Service falls in the +5ms range.  This does not have Knative or Istio components
+// on the dataplane, and so it is intended as a canary to flag environmental
+// problems that might be causing contemporaneous Knative or Istio runs to fall out of SLA.
+func newKubernetes95PercentileLatency(valueKey string) *tpb.ThresholdAnalyzerInput {
+	return new95PercentileLatency("Kubernetes baseline", valueKey, 100*time.Millisecond, 105*time.Millisecond)
 }
 
 // This analyzer validates that the p95 latency talking to pods through Istio
@@ -51,55 +56,19 @@ func newKubernetes95PercentileLatency(valueKey string) *tpb.ThresholdAnalyzerInp
 // on the dataplane, and so it is intended as a canary to flag environmental
 // problems that might be causing contemporaneous Knative runs to fall out of SLA.
 func newIstio95PercentileLatency(valueKey string) *tpb.ThresholdAnalyzerInput {
-	return &tpb.ThresholdAnalyzerInput{
-		Name: proto.String("Istio baseline"),
-		Configs: []*tpb.ThresholdConfig{{
-			Min: bound(100 * time.Millisecond),
-			Max: bound(108 * time.Millisecond),
-			DataFilter: &mpb.DataFilter{
-				DataType:            mpb.DataFilter_METRIC_AGGREGATE_PERCENTILE.Enum(),
-				PercentileMilliRank: proto.Int32(95000),
-				ValueKey:            proto.String(valueKey),
-			},
-		}},
-		CrossRunConfig: mako.NewCrossRunConfig(10),
-	}
+	return new95PercentileLatency("Istio baseline", valueKey, 100*time.Millisecond, 108*time.Millisecond)
 }
 
 // This analyzer validates that the p95 latency hitting a Knative Service
 // going through JUST the queue-proxy falls in the +10ms range.
 func newQueue95PercentileLatency(valueKey string) *tpb.ThresholdAnalyzerInput {
-	return &tpb.ThresholdAnalyzerInput{
-		Name: proto.String("Queue p95 latency"),
-		Configs: []*tpb.ThresholdConfig{{
-			Min: bound(100 * time.Millisecond),
-			Max: bound(110 * time.Millisecond),
-			DataFilter: &mpb.DataFilter{
-				DataType:            mpb.DataFilter_METRIC_AGGREGATE_PERCENTILE.Enum(),
-				PercentileMilliRank: proto.Int32(95000),
-				ValueKey:            proto.String(valueKey),
-			},
-		}},
-		CrossRunConfig: mako.NewCrossRunConfig(10),
-	}
+	return new95PercentileLatency("Queue p95 latency", valueKey, 100*time.Millisecond, 110*time.Millisecond)
 }
 
 // This analyzer validates that the p95 latency hitting a Knative Service
 // going through BOTH the activator and queue-proxy falls in the +10ms range.
 func newActivator95PercentileLatency(valueKey string) *tpb.ThresholdAnalyzerInput {
-	return &tpb.ThresholdAnalyzerInput{
-		Name: proto.String("Activator p95 latency"),
-		Configs: []*tpb.ThresholdConfig{{
-			Min: bound(100 * time.Millisecond),
-			Max: bound(110 * time.Millisecond),
-			DataFilter: &mpb.DataFilter{
-				DataType:            mpb.DataFilter_METRIC_AGGREGATE_PERCENTILE.Enum(),
-				PercentileMilliRank: proto.Int32(95000),
-				ValueKey:            proto.String(valueKey),
-			},
-		}},
-		CrossRunConfig: mako.NewCrossRunConfig(10),
-	}
+	return new95PercentileLatency("Activator p95 latency", valueKey, 100*time.Millisecond, 110*time.Millisecond)
 }
 
 var (
