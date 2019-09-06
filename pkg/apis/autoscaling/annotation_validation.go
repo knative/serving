@@ -41,7 +41,7 @@ func ValidateAnnotations(anns map[string]string) *apis.FieldError {
 	if len(anns) == 0 {
 		return nil
 	}
-	return validateMinMaxScale(anns).Also(validateFloats(anns)).Also(validateWindows(anns))
+	return validateMinMaxScale(anns).Also(validateFloats(anns)).Also(validateWindows(anns).Also(validateMetric(anns)))
 }
 
 func validateFloats(annotations map[string]string) *apis.FieldError {
@@ -114,4 +114,33 @@ func validateMinMaxScale(annotations map[string]string) *apis.FieldError {
 		})
 	}
 	return errs
+}
+
+func validateMetric(annotations map[string]string) *apis.FieldError {
+	if metric, ok := annotations[MetricAnnotationKey]; ok {
+		var classValue string
+		if c, ok := annotations[ClassAnnotationKey]; ok {
+			classValue = c
+		} else {
+			// Default to "kpa" class for backward compatibility.
+			classValue = KPA
+		}
+		switch classValue {
+		case KPA:
+			switch metric {
+			case Concurrency, RPS:
+				return nil
+			}
+		case HPA:
+			switch metric {
+			case CPU, Concurrency, RPS:
+				return nil
+			}
+		default:
+			// Leave other classes of PodAutoscaler alone.
+			return nil
+		}
+		return apis.ErrInvalidValue(metric, MetricAnnotationKey)
+	}
+	return nil
 }

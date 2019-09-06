@@ -172,85 +172,6 @@ func TestPodAutoscalerValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
-		name: "valid, optional annotations",
-		r: &PodAutoscaler{
-			ObjectMeta: v1.ObjectMeta{
-				Name: "valid",
-				Annotations: map[string]string{
-					autoscaling.MetricAnnotationKey:   autoscaling.RPS,
-					autoscaling.MinScaleAnnotationKey: "2",
-				},
-			},
-			Spec: PodAutoscalerSpec{
-				ScaleTargetRef: corev1.ObjectReference{
-					APIVersion: "apps/v1",
-					Kind:       "Deployment",
-					Name:       "bar",
-				},
-				ProtocolType: net.ProtocolH2C,
-			},
-		},
-		want: nil,
-	}, {
-		name: "valid, KPA with RPS",
-		r: &PodAutoscaler{
-			ObjectMeta: v1.ObjectMeta{
-				Name: "valid",
-				Annotations: map[string]string{
-					autoscaling.MetricAnnotationKey: autoscaling.RPS,
-				},
-			},
-			Spec: PodAutoscalerSpec{
-				ScaleTargetRef: corev1.ObjectReference{
-					APIVersion: "apps/v1",
-					Kind:       "Deployment",
-					Name:       "bar",
-				},
-				ProtocolType: net.ProtocolH2C,
-			},
-		},
-		want: nil,
-	}, {
-		name: "valid, HPA with concurrency",
-		r: &PodAutoscaler{
-			ObjectMeta: v1.ObjectMeta{
-				Name: "valid",
-				Annotations: map[string]string{
-					autoscaling.MetricAnnotationKey: autoscaling.Concurrency,
-					autoscaling.ClassAnnotationKey:  autoscaling.HPA,
-				},
-			},
-			Spec: PodAutoscalerSpec{
-				ScaleTargetRef: corev1.ObjectReference{
-					APIVersion: "apps/v1",
-					Kind:       "Deployment",
-					Name:       "bar",
-				},
-				ProtocolType: net.ProtocolH2C,
-			},
-		},
-		want: nil,
-	}, {
-		name: "valid, HPA with RPS",
-		r: &PodAutoscaler{
-			ObjectMeta: v1.ObjectMeta{
-				Name: "valid",
-				Annotations: map[string]string{
-					autoscaling.MetricAnnotationKey: autoscaling.RPS,
-					autoscaling.ClassAnnotationKey:  autoscaling.HPA,
-				},
-			},
-			Spec: PodAutoscalerSpec{
-				ScaleTargetRef: corev1.ObjectReference{
-					APIVersion: "apps/v1",
-					Kind:       "Deployment",
-					Name:       "bar",
-				},
-				ProtocolType: net.ProtocolH2C,
-			},
-		},
-		want: nil,
-	}, {
 		name: "bad protocol",
 		r: &PodAutoscaler{
 			ObjectMeta: v1.ObjectMeta{
@@ -288,25 +209,6 @@ func TestPodAutoscalerValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrOutOfBoundsValue("FOO", 1, math.MaxInt32, autoscaling.MinScaleAnnotationKey).ViaField("metadata", "annotations"),
-	}, {
-		name: "bad metric",
-		r: &PodAutoscaler{
-			ObjectMeta: v1.ObjectMeta{
-				Name: "valid",
-				Annotations: map[string]string{
-					autoscaling.MetricAnnotationKey: "memory",
-				},
-			},
-			Spec: PodAutoscalerSpec{
-				ScaleTargetRef: corev1.ObjectReference{
-					APIVersion: "apps/v1",
-					Kind:       "Deployment",
-					Name:       "bar",
-				},
-				ProtocolType: net.ProtocolH2C,
-			},
-		},
-		want: apis.ErrInvalidValue("memory", autoscaling.MetricAnnotationKey).ViaField("annotations"),
 	}, {
 		name: "empty spec",
 		r: &PodAutoscaler{

@@ -21,13 +21,11 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"knative.dev/pkg/apis"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
 func (pa *PodAutoscaler) Validate(ctx context.Context) *apis.FieldError {
 	errs := serving.ValidateObjectMetadata(pa.GetObjectMeta()).ViaField("metadata")
-	errs = errs.Also(pa.validateMetric())
 	return errs.Also(pa.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 }
 
@@ -41,26 +39,4 @@ func (pa *PodAutoscalerSpec) Validate(ctx context.Context) *apis.FieldError {
 
 func validateSKSFields(ctx context.Context, rs *PodAutoscalerSpec) (errs *apis.FieldError) {
 	return errs.Also(rs.ProtocolType.Validate(ctx)).ViaField("protocolType")
-}
-
-func (pa *PodAutoscaler) validateMetric() *apis.FieldError {
-	if metric, ok := pa.Annotations[autoscaling.MetricAnnotationKey]; ok {
-		switch pa.Class() {
-		case autoscaling.KPA:
-			switch metric {
-			case autoscaling.Concurrency, autoscaling.RPS:
-				return nil
-			}
-		case autoscaling.HPA:
-			switch metric {
-			case autoscaling.CPU, autoscaling.Concurrency, autoscaling.RPS:
-				return nil
-			}
-		default:
-			// Leave other classes of PodAutoscaler alone.
-			return nil
-		}
-		return apis.ErrInvalidValue(metric, autoscaling.MetricAnnotationKey).ViaField("annotations")
-	}
-	return nil
 }
