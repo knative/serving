@@ -31,7 +31,6 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 )
 
@@ -107,10 +106,6 @@ func makeK8sService(ctx context.Context, route *v1alpha1.Route, targetName strin
 
 	svcLabels := map[string]string{
 		serving.RouteLabelKey: route.Name,
-	}
-
-	if visibility, ok := route.Labels[config.VisibilityLabelKey]; ok {
-		svcLabels[config.VisibilityLabelKey] = visibility
 	}
 
 	return &corev1.Service{
