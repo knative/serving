@@ -831,6 +831,159 @@ func TestReconcile(t *testing.T) {
 		Key:                     "default/new-latest-ready",
 		SkipNamespaceValidation: true,
 	}, {
+		Name: "public becomes cluster local",
+		Objects: []runtime.Object{
+			route("default", "becomes-local", WithConfigTarget("config"),
+				WithRouteLabel("serving.knative.dev/visibility", "cluster-local"),
+				WithRouteUID("65-23")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("tb")),
+			simpleIngress(
+				route("default", "becomes-local", WithConfigTarget("config"), WithRouteUID("65-23")),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1beta1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: "config-00001",
+								Percent:      ptr.Int64(100),
+							},
+							ServiceName: "tb",
+							Active:      true,
+						}},
+					},
+				},
+			),
+			simpleK8sService(route("default", "becomes-local", WithConfigTarget("config"),
+				WithRouteLabel("serving.knative.dev/visibility", "cluster-local"),
+				WithRouteUID("65-23"))),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: simpleIngressWithVisibility(
+				route("default", "becomes-local", WithConfigTarget("config"),
+					WithRouteUID("65-23"),
+					WithRouteLabel("serving.knative.dev/visibility", "cluster-local")),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1beta1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: "config-00001",
+								Percent:      ptr.Int64(100),
+							},
+							ServiceName: "tb",
+							Active:      true,
+						}},
+					},
+				},
+				sets.NewString("becomes-local"),
+			),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchFinalizers("default", "becomes-local"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "becomes-local", WithConfigTarget("config"),
+				WithRouteUID("65-23"),
+				MarkTrafficAssigned, MarkIngressNotConfigured,
+				WithLocalDomain, WithAddress, WithInitRouteConditions,
+				WithRouteLabel("serving.knative.dev/visibility", "cluster-local"),
+				WithStatusTraffic(v1alpha1.TrafficTarget{
+					TrafficTarget: v1beta1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					},
+				})),
+		}},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "becomes-local",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
+		Key:                     "default/becomes-local",
+		SkipNamespaceValidation: true,
+	}, {
+		Name: "cluster local becomes public",
+		Objects: []runtime.Object{
+			route("default", "becomes-public", WithConfigTarget("config"),
+				WithRouteUID("65-23")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("tb")),
+			simpleIngressWithVisibility(
+				route("default", "becomes-public", WithConfigTarget("config"), WithRouteUID("65-23"),
+					WithRouteLabel("serving.knative.dev/visibility", "cluster-local")),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1beta1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: "config-00001",
+								Percent:      ptr.Int64(100),
+							},
+							ServiceName: "tb",
+							Active:      true,
+						}},
+					},
+				},
+				sets.NewString("becomes-public"),
+			),
+			simpleK8sService(route("default", "becomes-public", WithConfigTarget("config"),
+				WithRouteUID("65-23"))),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: simpleIngress(
+				route("default", "becomes-public", WithConfigTarget("config"),
+					WithRouteUID("65-23")),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1beta1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: "config-00001",
+								Percent:      ptr.Int64(100),
+							},
+							ServiceName: "tb",
+							Active:      true,
+						}},
+					},
+				},
+			),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchFinalizers("default", "becomes-public"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "becomes-public", WithConfigTarget("config"),
+				WithRouteUID("65-23"),
+				MarkTrafficAssigned, MarkIngressNotConfigured,
+				WithAddress, WithInitRouteConditions, WithURL,
+				WithStatusTraffic(v1alpha1.TrafficTarget{
+					TrafficTarget: v1beta1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					},
+				})),
+		}},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "becomes-public",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
+		Key:                     "default/becomes-public",
+		SkipNamespaceValidation: true,
+	}, {
 		Name: "failure updating cluster ingress",
 		// Starting from the new latest ready, induce a failure updating the cluster ingress.
 		WantErr: true,

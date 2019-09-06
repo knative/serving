@@ -485,17 +485,20 @@ func (c *Reconciler) getServiceNames(ctx context.Context, route *v1alpha1.Route)
 	if err != nil {
 		return nil, err
 	}
+	if labels.IsObjectLocalVisibility(route.ObjectMeta) {
+		return &serviceNames{
+			existingPublicServiceNames:       existingPublicServiceNames,
+			existingClusterLocalServiceNames: existingClusterLocalServiceNames,
+			desiredPublicServiceNames:        sets.NewString(),
+			desiredClusterLocalServiceNames:  desiredServiceNames,
+		}, nil
+	}
 	desiredPublicServiceNames := desiredServiceNames.Intersection(existingPublicServiceNames)
 	desiredClusterLocalServiceNames := desiredServiceNames.Intersection(existingClusterLocalServiceNames)
 
-	// Any new desired services will follow the default route visibility. We only need to consider the case where it is
-	// "cluster-local". The alternative visibility means it should not be cluster local.
+	// Any new desired services will follow the default route visibility, which is public.
 	serviceWithDefaultVisibility := desiredServiceNames.Difference(existingServiceNames)
-	if labels.IsObjectLocalVisibility(route.ObjectMeta) {
-		desiredClusterLocalServiceNames = desiredClusterLocalServiceNames.Union(serviceWithDefaultVisibility)
-	} else {
-		desiredPublicServiceNames = desiredPublicServiceNames.Union(serviceWithDefaultVisibility)
-	}
+	desiredPublicServiceNames = desiredPublicServiceNames.Union(serviceWithDefaultVisibility)
 
 	return &serviceNames{
 		existingPublicServiceNames:       existingPublicServiceNames,
