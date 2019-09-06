@@ -261,7 +261,7 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, logger *zap.S
 			case <-scrapeTicker.C:
 				message, err := c.getScraper().Scrape(logger)
 				if err != nil {
-					copy := *(metric.DeepCopy())
+					copy := metric.DeepCopy()
 					switch {
 					case err == ErrFailedGetEndpoints:
 						copy.Status.MarkMetricNotReady("NoEndpoints", ErrFailedGetEndpoints.Error())
@@ -271,7 +271,7 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, logger *zap.S
 						copy.Status.MarkMetricNotReady("CreateOrUpdateFailed", "Collector has failed.")
 					}
 					logger.Errorw("Failed to scrape metrics", zap.Error(err))
-					c.updateMetric(&copy)
+					c.updateMetric(copy)
 				}
 				if message != nil {
 					c.record(message.Stat)

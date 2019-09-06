@@ -332,7 +332,7 @@ func TestMetricCollectorError(t *testing.T) {
 			key := types.NamespacedName{Namespace: test.metric.Namespace, Name: test.metric.Name}
 
 			var got duckv1beta1.Status
-			wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+			wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 				collection, ok := coll.collections[key]
 				if ok {
 					got = collection.currentMetric().Status.Status
