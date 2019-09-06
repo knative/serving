@@ -22,11 +22,16 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	. "knative.dev/pkg/logging/testing"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
 )
 
 var (
@@ -227,6 +232,122 @@ func TestMetricCollectorRecord(t *testing.T) {
 	}
 }
 
+func TestMetricCollectorError(t *testing.T) {
+
+	testCases := []struct {
+		name                 string
+		scraper              *testScraper
+		metric               *av1alpha1.Metric
+		expectedMetricStatus duckv1beta1.Status
+	}{{
+		name: "Failed to get endpoints scraper error",
+		scraper: &testScraper{
+			s: func() (*StatMessage, error) {
+				return nil, ErrFailedGetEndpoints
+			},
+		},
+		metric: &av1alpha1.Metric{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: testNamespace,
+				Name:      testRevision,
+				Labels: map[string]string{
+					serving.RevisionLabelKey: testRevision,
+				},
+			},
+			Spec: av1alpha1.MetricSpec{
+				ScrapeTarget: testRevision + "-zhudex",
+			},
+		},
+		expectedMetricStatus: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
+				Type:    av1alpha1.MetricConditionReady,
+				Status:  corev1.ConditionUnknown,
+				Reason:  "NoEndpoints",
+				Message: ErrFailedGetEndpoints.Error(),
+			}},
+		},
+	}, {
+		name: "Did not receive stat scraper error",
+		scraper: &testScraper{
+			s: func() (*StatMessage, error) {
+				return nil, ErrDidNotReceiveStat
+			},
+		},
+		metric: &av1alpha1.Metric{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: testNamespace,
+				Name:      testRevision,
+				Labels: map[string]string{
+					serving.RevisionLabelKey: testRevision,
+				},
+			},
+			Spec: av1alpha1.MetricSpec{
+				ScrapeTarget: testRevision + "-zhudex",
+			},
+		},
+		expectedMetricStatus: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
+				Type:    av1alpha1.MetricConditionReady,
+				Status:  corev1.ConditionFalse,
+				Reason:  "DidNotReceiveStat",
+				Message: ErrDidNotReceiveStat.Error(),
+			}},
+		},
+	}, {
+		name: "Other scraper error",
+		scraper: &testScraper{
+			s: func() (*StatMessage, error) {
+				return nil, errors.New("foo")
+			},
+		},
+		metric: &av1alpha1.Metric{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: testNamespace,
+				Name:      testRevision,
+				Labels: map[string]string{
+					serving.RevisionLabelKey: testRevision,
+				},
+			},
+			Spec: av1alpha1.MetricSpec{
+				ScrapeTarget: testRevision + "-zhudex",
+			},
+		},
+		expectedMetricStatus: duckv1beta1.Status{
+			Conditions: duckv1beta1.Conditions{{
+				Type:    av1alpha1.MetricConditionReady,
+				Status:  corev1.ConditionUnknown,
+				Reason:  "CreateOrUpdateFailed",
+				Message: "Collector has failed.",
+			}},
+		},
+	}}
+
+	for _, test := range testCases {
+		t.Run(test.name, func(t *testing.T) {
+			defer ClearAll()
+			logger := TestLogger(t)
+			factory := scraperFactory(test.scraper, nil)
+			coll := NewMetricCollector(factory, logger)
+			coll.CreateOrUpdate(test.metric)
+			key := types.NamespacedName{Namespace: test.metric.Namespace, Name: test.metric.Name}
+
+			var got duckv1beta1.Status
+			wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+				collection, ok := coll.collections[key]
+				if ok {
+					got = collection.currentMetric().Status.Status
+					return equality.Semantic.DeepEqual(got, test.expectedMetricStatus), nil
+				}
+				return false, nil
+			})
+			if !equality.Semantic.DeepEqual(got, test.expectedMetricStatus) {
+				t.Errorf("Got = %#v, want: %#v, diff:\n%q", got, test.expectedMetricStatus, cmp.Diff(got, test.expectedMetricStatus))
+			}
+			coll.Delete(test.metric.Namespace, test.metric.Name)
+		})
+	}
+}
+
 func scraperFactory(scraper StatsScraper, err error) StatsScraperFactory {
 	return func(*av1alpha1.Metric) (StatsScraper, error) {
 		return scraper, err
@@ -238,6 +359,6 @@ type testScraper struct {
 	url string
 }
 
-func (s *testScraper) Scrape() (*StatMessage, error) {
+func (s *testScraper) Scrape(logger *zap.SugaredLogger) (*StatMessage, error) {
 	return s.s()
 }
