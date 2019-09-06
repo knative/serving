@@ -76,9 +76,9 @@ func fetchRuntimeInfo(
 	return names, &ri, err
 }
 
-func splitOpts(opts ...interface{}) ([]ServiceOption, []pkgTest.RequestOption, error) {
+func splitOpts(opts ...interface{}) ([]ServiceOption, []interface{}, error) {
 	serviceOpts := []ServiceOption{}
-	reqOpts := []pkgTest.RequestOption{}
+	reqOpts := []interface{}{}
 	for _, opt := range opts {
 		switch t := opt.(type) {
 		case ServiceOption:

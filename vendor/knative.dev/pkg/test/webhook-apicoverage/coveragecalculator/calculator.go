@@ -21,6 +21,14 @@ type CoverageValues struct {
 	TotalFields   int
 	CoveredFields int
 	IgnoredFields int
+
+	PercentCoverage float64
+}
+
+func (c *CoverageValues) CalculatePercentageValue() {
+	if c.TotalFields > 0 {
+		c.PercentCoverage = (float64(c.CoveredFields) / float64(c.TotalFields-c.IgnoredFields)) * 100
+	}
 }
 
 // CalculateTypeCoverage calculates aggregate coverage values based on provided []TypeCoverage
