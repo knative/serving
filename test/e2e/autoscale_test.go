@@ -101,6 +101,7 @@ func getVegetaTarget(kubeClientset *kubernetes.Clientset, domain, endpointOverri
 	}, nil
 }
 
+// TODO: use vegeta to send traffic for this func as well.
 func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, stopChan chan struct{}) error {
 	var (
 		totalRequests      int32
