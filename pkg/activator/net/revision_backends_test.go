@@ -678,6 +678,8 @@ func TestCheckDests(t *testing.T) {
 	default:
 		// success.
 	}
+	// To make sure context switch happens and informers terminate.
+	time.Sleep(100 * time.Millisecond)
 }
 
 func TestRevisionDeleted(t *testing.T) {
