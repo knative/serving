@@ -45,7 +45,7 @@ func newLoadTest95PercentileLatency(tags ...string) *tpb.ThresholdAnalyzerInput 
 }
 
 // This analyzer validates that the maximum request latency observed over the 0->3k
-// stepped burst is no more than +15 seconds.  This is not strictly a cold-start
+// stepped burst is no more than +10 seconds.  This is not strictly a cold-start
 // metric, but it is a superset that includes steady state latency and the latency
 // of non-cold-start overload requests.
 func newLoadTestMaximumLatency(tags ...string) *tpb.ThresholdAnalyzerInput {
@@ -53,7 +53,7 @@ func newLoadTestMaximumLatency(tags ...string) *tpb.ThresholdAnalyzerInput {
 		Name: proto.String("Maximum latency"),
 		Configs: []*tpb.ThresholdConfig{{
 			Min: bound(100 * time.Millisecond),
-			Max: bound(100*time.Millisecond + 15*time.Second),
+			Max: bound(100*time.Millisecond + 10*time.Second),
 			DataFilter: &mpb.DataFilter{
 				DataType: mpb.DataFilter_METRIC_AGGREGATE_MAX.Enum(),
 				ValueKey: proto.String("l"),
