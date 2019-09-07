@@ -34,13 +34,15 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"knative.dev/pkg/controller"
+	endpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints"
+	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/network/prober"
@@ -321,23 +323,26 @@ type RevisionBackendsManager struct {
 	probeFrequency time.Duration
 }
 
-// NewRevisionBackendsManagerWithProbeFrequency returnes a RevisionBackendsManager that uses the supplied
-// probe frequency
-func NewRevisionBackendsManagerWithProbeFrequency(doneCh <-chan struct{},
-	transport http.RoundTripper, revisionLister servinglisters.RevisionLister,
-	serviceLister corev1listers.ServiceLister, endpointsInformer corev1informers.EndpointsInformer,
-	logger *zap.SugaredLogger, probeFrequency time.Duration) *RevisionBackendsManager {
+// NewRevisionBackendsManager returns a new RevisionBackendsManager with default
+// probe time out.
+func NewRevisionBackendsManager(ctx context.Context, tr http.RoundTripper, logger *zap.SugaredLogger) *RevisionBackendsManager {
+	return NewRevisionBackendsManagerWithProbeFrequency(ctx, tr, logger, probeFrequency)
+}
+
+// NewRevisionBackendsManagerWithProbeFrequency creates a fully spec'd RevisionBackendsManager.
+func NewRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.RoundTripper,
+	logger *zap.SugaredLogger, probeFreq time.Duration) *RevisionBackendsManager {
 	rbm := &RevisionBackendsManager{
-		doneCh:           doneCh,
-		revisionLister:   revisionLister,
-		serviceLister:    serviceLister,
+		doneCh:           ctx.Done(),
+		revisionLister:   revisioninformer.Get(ctx).Lister(),
+		serviceLister:    serviceinformer.Get(ctx).Lister(),
 		revisionWatchers: make(map[types.NamespacedName]*revisionWatcherCh),
 		updateCh:         make(chan *RevisionDestsUpdate),
-		transport:        transport,
+		transport:        tr,
 		logger:           logger,
 		probeFrequency:   probeFrequency,
 	}
-
+	endpointsInformer := endpointsinformer.Get(ctx)
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: reconciler.ChainFilterFuncs(
 			reconciler.LabelExistsFilterFunc(serving.RevisionUID),
@@ -353,15 +358,6 @@ func NewRevisionBackendsManagerWithProbeFrequency(doneCh <-chan struct{},
 	})
 
 	return rbm
-}
-
-// NewRevisionBackendsManager creates a RevisionBackendsManager
-func NewRevisionBackendsManager(doneCh <-chan struct{},
-	transport http.RoundTripper, revisionLister servinglisters.RevisionLister,
-	serviceLister corev1listers.ServiceLister, endpointsInformer corev1informers.EndpointsInformer,
-	logger *zap.SugaredLogger) *RevisionBackendsManager {
-	return NewRevisionBackendsManagerWithProbeFrequency(doneCh, transport, revisionLister, serviceLister,
-		endpointsInformer, logger, probeFrequency)
 }
 
 // Returns channel where dests updates are sent to

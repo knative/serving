@@ -180,9 +180,7 @@ func main() {
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
 
 	// Start revision backends manager
-	// TODO(greghaynes) use ctx with clients injected
-	rbm := activatornet.NewRevisionBackendsManager(ctx.Done(), network.AutoTransport, revisionInformer.Lister(),
-		serviceInformer.Lister(), endpointInformer, logger)
+	rbm := activatornet.NewRevisionBackendsManager(ctx, network.AutoTransport, logger)
 
 	// Start throttler
 	throttler := activatornet.NewThrottler(params, revisionInformer, endpointInformer, logger)

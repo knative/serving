@@ -33,17 +33,27 @@ import (
 	kubefake "k8s.io/client-go/kubernetes/fake"
 
 	"knative.dev/pkg/controller"
-	. "knative.dev/pkg/logging/testing"
+	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
+	fakeendpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
+	fakeserviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
 	"knative.dev/pkg/ptr"
+	rtesting "knative.dev/pkg/reconciler/testing"
 	activatortest "knative.dev/serving/pkg/activator/testing"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
-	servingfake "knative.dev/serving/pkg/client/clientset/versioned/fake"
-	servinginformers "knative.dev/serving/pkg/client/informers/externalversions"
+	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
+
+	. "knative.dev/pkg/logging/testing"
+)
+
+const (
+	testNamespace = "test-namespace"
+	testRevision  = "test-revision"
 )
 
 func revision(revID types.NamespacedName, protocol networking.ProtocolType) *v1alpha1.Revision {
@@ -284,12 +294,12 @@ func TestRevisionWatcher(t *testing.T) {
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			defer ClearAll()
-			fakeRt := activatortest.FakeRoundTripper{
+			fakeRT := activatortest.FakeRoundTripper{
 				ExpectHost:         "test-revision",
 				ProbeHostResponses: tc.probeHostResponses,
 				ProbeResponses:     tc.probeResponses,
 			}
-			rt := network.RoundTripperFunc(fakeRt.RT)
+			rt := network.RoundTripperFunc(fakeRT.RT)
 
 			doneCh := make(chan struct{})
 			defer close(doneCh)
@@ -398,6 +408,8 @@ func ep(revL string, port int32, portName string, ips ...string) *corev1.Endpoin
 }
 
 func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
+	defer ClearAll()
+	logger := TestLogger(t)
 	for _, tc := range []struct {
 		name               string
 		endpointsArr       []*corev1.Endpoints
@@ -561,44 +573,40 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		updateCnt:   0,
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
-			defer ClearAll()
-			fakeRt := activatortest.FakeRoundTripper{
+			fakeRT := activatortest.FakeRoundTripper{
 				ExpectHost:         "test-revision",
 				ProbeHostResponses: tc.probeHostResponses,
 				ProbeResponses:     tc.probeResponses,
 			}
-			rt := network.RoundTripperFunc(fakeRt.RT)
+			rt := network.RoundTripperFunc(fakeRT.RT)
 
-			fake := kubefake.NewSimpleClientset()
-			informer := kubeinformers.NewSharedInformerFactory(fake, 0)
-			endpointsInformer := informer.Core().V1().Endpoints()
-			servicesLister := informer.Core().V1().Services().Lister()
+			stopCh := make(chan struct{})
+			defer close(stopCh)
+			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+			defer cancel()
 
-			servfake := servingfake.NewSimpleClientset()
-			servinginformer := servinginformers.NewSharedInformerFactory(servfake, 0)
-			revisions := servinginformer.Serving().V1alpha1().Revisions()
-			revisionLister := revisions.Lister()
+			endpointsInformer := fakeendpointsinformer.Get(ctx)
+			serviceInformer := fakeserviceinformer.Get(ctx)
+
+			revisions := fakerevisioninformer.Get(ctx)
 
 			// Add the revision we're testing.
 			for _, rev := range tc.revisions {
-				servfake.ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
+				fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
 				revisions.Informer().GetIndexer().Add(rev)
 			}
 
 			for _, svc := range tc.services {
-				fake.Core().Services(svc.Namespace).Create(svc)
-				informer.Core().V1().Services().Informer().GetIndexer().Add(svc)
+				fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(svc)
+				serviceInformer.Informer().GetIndexer().Add(svc)
 			}
 
-			stopCh := make(chan struct{})
-			defer close(stopCh)
 			controller.StartInformers(stopCh, endpointsInformer.Informer())
 
-			rbm := NewRevisionBackendsManagerWithProbeFrequency(stopCh, rt, revisionLister,
-				servicesLister, endpointsInformer, TestLogger(t), 50*time.Millisecond)
+			rbm := NewRevisionBackendsManagerWithProbeFrequency(ctx, rt, logger, 50*time.Millisecond)
 
 			for _, ep := range tc.endpointsArr {
-				fake.CoreV1().Endpoints("test-namespace").Create(ep)
+				fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
 				endpointsInformer.Informer().GetIndexer().Add(ep)
 			}
 
@@ -623,6 +631,105 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			if got, want := revDests, tc.expectDests; !cmp.Equal(got, want) {
 				t.Errorf("RevisionDests = %v, want: %v, diff(-want,+got):%s\n", got, want, cmp.Diff(want, got))
 			}
+			// We need a context switch to make sure the informers end their work
+			time.Sleep(10 * time.Millisecond)
 		})
+	}
+}
+
+func TestCheckDests(t *testing.T) {
+	// This test covers some edge cases in `checkDests` which are next to impossible to
+	// test via tests above.
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	defer cancel()
+	defer ClearAll()
+
+	svc := privateSksService(
+		types.NamespacedName{testNamespace, testRevision},
+		"129.0.0.1",
+		[]corev1.ServicePort{{Name: "http", Port: 1234}},
+	)
+	fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(svc)
+	si := fakeserviceinformer.Get(ctx)
+	si.Informer().GetIndexer().Add(svc)
+	// Make it buffered,so that we can make the test linear.
+	uCh := make(chan *RevisionDestsUpdate, 1)
+	dCh := make(chan struct{})
+	rw := &revisionWatcher{
+		clusterIPHealthy: true,
+		rev:              types.NamespacedName{testNamespace, testRevision},
+		updateCh:         uCh,
+		serviceLister:    si.Lister(),
+		logger:           TestLogger(t),
+		doneCh:           dCh,
+	}
+	rw.checkDests([]string{"10.1.1.5"})
+	select {
+	case <-uCh:
+		// success.
+	default:
+		t.Error("Expected update but it never went out.")
+	}
+
+	close(dCh)
+	rw.checkDests([]string{"10.1.1.5"})
+	select {
+	case <-uCh:
+		t.Error("Expected no update but got one")
+	default:
+		// success.
+	}
+}
+
+func TestRevisionDeleted(t *testing.T) {
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	defer cancel()
+	defer ClearAll()
+
+	svc := privateSksService(
+		types.NamespacedName{testNamespace, testRevision},
+		"129.0.0.1",
+		[]corev1.ServicePort{{Name: "http", Port: 1234}},
+	)
+	fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(svc)
+	si := fakeserviceinformer.Get(ctx)
+	si.Informer().GetIndexer().Add(svc)
+
+	ei := fakeendpointsinformer.Get(ctx)
+	ep := ep(testRevision, 1234, "http", "128.0.0.1")
+	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
+	controller.StartInformers(ctx.Done(), ei.Informer())
+
+	rev := revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	ri := fakerevisioninformer.Get(ctx)
+	ri.Informer().GetIndexer().Add(rev)
+
+	fakeRT := activatortest.FakeRoundTripper{}
+	rt := network.RoundTripperFunc(fakeRT.RT)
+
+	rbm := NewRevisionBackendsManager(
+		ctx,
+		rt,
+		TestLogger(t))
+	// Make some movements.
+	ei.Informer().GetIndexer().Add(ep)
+	select {
+	case <-rbm.UpdateCh():
+	case <-time.After(time.Second * 2):
+		t.Errorf("Timedout waiting for initial response")
+	}
+	// Now delete the endpoints.
+	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Delete(ep.Name, &metav1.DeleteOptions{})
+	select {
+	case r := <-rbm.UpdateCh():
+		if got, want := r.ClusterIPDest, ""; got != want {
+			t.Errorf(`ClusterIP = %s, want ""`, got)
+		}
+		if got, want := len(r.Dests), 0; got != want {
+			t.Errorf("DestsLen = %d, want: 0", got)
+		}
+	case <-time.After(time.Second * 2):
+		t.Errorf("Timedout waiting for initial response")
 	}
 }
