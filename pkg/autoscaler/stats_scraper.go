@@ -19,13 +19,14 @@ package autoscaler
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/types"
-	"github.com/pkg/errors"
 
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
@@ -62,7 +63,7 @@ var (
 // StatsScraper defines the interface for collecting Revision metrics
 type StatsScraper interface {
 	// Scrape scrapes the Revision queue metric endpoint.
-	Scrape(logger *zap.SugaredLogger) (*StatMessage, error)
+	Scrape() (*StatMessage, error)
 }
 
 // scrapeClient defines the interface for collecting Revision metrics for a given
@@ -92,22 +93,24 @@ type ServiceScraper struct {
 	namespace string
 	metricKey types.NamespacedName
 	url       string
+	logger    *zap.SugaredLogger
 }
 
 // NewServiceScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
-func NewServiceScraper(metric *av1alpha1.Metric, counter resources.ReadyPodCounter) (*ServiceScraper, error) {
+func NewServiceScraper(metric *av1alpha1.Metric, counter resources.ReadyPodCounter, logger *zap.SugaredLogger) (*ServiceScraper, error) {
 	sClient, err := newHTTPScrapeClient(cacheDisabledClient)
 	if err != nil {
 		return nil, err
 	}
-	return newServiceScraperWithClient(metric, counter, sClient)
+	return newServiceScraperWithClient(metric, counter, sClient, logger)
 }
 
 func newServiceScraperWithClient(
 	metric *av1alpha1.Metric,
 	counter resources.ReadyPodCounter,
-	sClient scrapeClient) (*ServiceScraper, error) {
+	sClient scrapeClient,
+	logger *zap.SugaredLogger) (*ServiceScraper, error) {
 	if metric == nil {
 		return nil, errors.New("metric must not be nil")
 	}
@@ -128,6 +131,7 @@ func newServiceScraperWithClient(
 		url:       urlFromTarget(metric.Spec.ScrapeTarget, metric.ObjectMeta.Namespace),
 		metricKey: types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name},
 		namespace: metric.Namespace,
+		logger:    logger,
 	}, nil
 }
 
@@ -139,10 +143,10 @@ func urlFromTarget(t, ns string) string {
 
 // Scrape calls the destination service then sends it
 // to the given stats channel.
-func (s *ServiceScraper) Scrape(logger *zap.SugaredLogger) (*StatMessage, error) {
+func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 	readyPodsCount, err := s.counter.ReadyCount()
 	if err != nil {
-		logger.Errorw(ErrFailedGetEndpoints.Error(), zap.Error(err))
+		s.logger.Errorw(ErrFailedGetEndpoints.Error(), zap.Error(err))
 		return nil, ErrFailedGetEndpoints
 	}
 
@@ -174,7 +178,7 @@ func (s *ServiceScraper) Scrape(logger *zap.SugaredLogger) (*StatMessage, error)
 
 	// Return the inner error, if any.
 	if err := grp.Wait(); err != nil {
-		logger.Errorw(fmt.Sprintf("unsuccessful scrape, sampleSize=%d", sampleSize), zap.Error(err))
+		s.logger.Errorw("unsuccessful scrape, sampleSize="+strconv.Itoa(sampleSize), zap.Error(err))
 		return nil, err
 	}
 	close(statCh)
