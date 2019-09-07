@@ -711,7 +711,6 @@ func TestRevisionDeleted(t *testing.T) {
 		ctx,
 		rt,
 		TestLogger(t))
-
 	// Make some movements.
 	ei.Informer().GetIndexer().Add(ep)
 	select {
