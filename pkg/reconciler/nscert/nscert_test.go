@@ -30,9 +30,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 
+	fakeinformerfactory "knative.dev/pkg/client/injection/kube/informers/factory"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	fakeinformerfactory "knative.dev/pkg/injection/informers/kubeinformers/factory"
 	. "knative.dev/pkg/logging/testing"
 	. "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/system"
@@ -47,7 +47,7 @@ import (
 	routecfg "knative.dev/serving/pkg/reconciler/route/config"
 	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
 
-	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/namespace/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/namespace/fake"
 	_ "knative.dev/pkg/system/testing"
 	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 )

@@ -1628,7 +1628,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:d258688f4e3971b4844a24fdb70945193790efc2dfd2da707606f6dcef25e1c4"
+  digest = "1:b1c59d39c71f9f628b848060d6f354480fecc22b9db2eb9d65a77a85f60ddf83"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1644,18 +1644,18 @@
     "pkg/client/informers/externalversions/internalinterfaces",
     "pkg/client/injection/client",
     "pkg/client/injection/client/fake",
-    "pkg/client/injection/informers/caching/factory",
-    "pkg/client/injection/informers/caching/factory/fake",
     "pkg/client/injection/informers/caching/v1alpha1/image",
     "pkg/client/injection/informers/caching/v1alpha1/image/fake",
+    "pkg/client/injection/informers/factory",
+    "pkg/client/injection/informers/factory/fake",
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "c0c4a6433fbffc162d305b99a774ae5236c59cea"
+  revision = "20b5480da37ac4807b7bca08d6a3c86b60d26c8e"
 
 [[projects]]
   branch = "master"
-  digest = "1:38226cb742766a4f78effcbbae38ce0c83ff696529553356c908467a1871fdd8"
+  digest = "1:0dca180a6449f2cd457f8efea003336352c5a412212fce072cad9661d5a71b61"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1686,12 +1686,32 @@
     "client/informers/externalversions/istio/v1alpha3",
     "client/injection/client",
     "client/injection/client/fake",
-    "client/injection/informers/istio/factory",
-    "client/injection/informers/istio/factory/fake",
+    "client/injection/informers/factory",
+    "client/injection/informers/factory/fake",
     "client/injection/informers/istio/v1alpha3/gateway",
     "client/injection/informers/istio/v1alpha3/gateway/fake",
     "client/injection/informers/istio/v1alpha3/virtualservice",
     "client/injection/informers/istio/v1alpha3/virtualservice/fake",
+    "client/injection/kube/client",
+    "client/injection/kube/client/fake",
+    "client/injection/kube/informers/apps/v1/deployment",
+    "client/injection/kube/informers/apps/v1/deployment/fake",
+    "client/injection/kube/informers/autoscaling/v2beta1/horizontalpodautoscaler",
+    "client/injection/kube/informers/autoscaling/v2beta1/horizontalpodautoscaler/fake",
+    "client/injection/kube/informers/core/v1/configmap",
+    "client/injection/kube/informers/core/v1/configmap/fake",
+    "client/injection/kube/informers/core/v1/endpoints",
+    "client/injection/kube/informers/core/v1/endpoints/fake",
+    "client/injection/kube/informers/core/v1/namespace",
+    "client/injection/kube/informers/core/v1/namespace/fake",
+    "client/injection/kube/informers/core/v1/pod",
+    "client/injection/kube/informers/core/v1/pod/fake",
+    "client/injection/kube/informers/core/v1/secret",
+    "client/injection/kube/informers/core/v1/secret/fake",
+    "client/injection/kube/informers/core/v1/service",
+    "client/injection/kube/informers/core/v1/service/fake",
+    "client/injection/kube/informers/factory",
+    "client/injection/kube/informers/factory/fake",
     "client/listers/authentication/v1alpha1",
     "client/listers/istio/v1alpha3",
     "codegen/cmd/injection-gen",
@@ -1703,26 +1723,6 @@
     "injection",
     "injection/clients/dynamicclient",
     "injection/clients/dynamicclient/fake",
-    "injection/clients/kubeclient",
-    "injection/clients/kubeclient/fake",
-    "injection/informers/kubeinformers/appsv1/deployment",
-    "injection/informers/kubeinformers/appsv1/deployment/fake",
-    "injection/informers/kubeinformers/autoscalingv2beta1/hpa",
-    "injection/informers/kubeinformers/autoscalingv2beta1/hpa/fake",
-    "injection/informers/kubeinformers/corev1/configmap",
-    "injection/informers/kubeinformers/corev1/configmap/fake",
-    "injection/informers/kubeinformers/corev1/endpoints",
-    "injection/informers/kubeinformers/corev1/endpoints/fake",
-    "injection/informers/kubeinformers/corev1/namespace",
-    "injection/informers/kubeinformers/corev1/namespace/fake",
-    "injection/informers/kubeinformers/corev1/pod",
-    "injection/informers/kubeinformers/corev1/pod/fake",
-    "injection/informers/kubeinformers/corev1/secret",
-    "injection/informers/kubeinformers/corev1/secret/fake",
-    "injection/informers/kubeinformers/corev1/service",
-    "injection/informers/kubeinformers/corev1/service/fake",
-    "injection/informers/kubeinformers/factory",
-    "injection/informers/kubeinformers/factory/fake",
     "injection/sharedmain",
     "kmeta",
     "kmp",
@@ -1765,7 +1765,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "5f0515d33675c298c4054ac52268700bae3ceaa7"
+  revision = "528ad1c1dd627059b95aef17ccf27f9ab0f46c10"
 
 [[projects]]
   branch = "master"
@@ -1911,6 +1911,25 @@
     "knative.dev/pkg/client/injection/informers/istio/v1alpha3/gateway/fake",
     "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice",
     "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice/fake",
+    "knative.dev/pkg/client/injection/kube/client",
+    "knative.dev/pkg/client/injection/kube/client/fake",
+    "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment",
+    "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment/fake",
+    "knative.dev/pkg/client/injection/kube/informers/autoscaling/v2beta1/horizontalpodautoscaler",
+    "knative.dev/pkg/client/injection/kube/informers/autoscaling/v2beta1/horizontalpodautoscaler/fake",
+    "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap",
+    "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap/fake",
+    "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints",
+    "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake",
+    "knative.dev/pkg/client/injection/kube/informers/core/v1/namespace",
+    "knative.dev/pkg/client/injection/kube/informers/core/v1/namespace/fake",
+    "knative.dev/pkg/client/injection/kube/informers/core/v1/pod",
+    "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake",
+    "knative.dev/pkg/client/injection/kube/informers/core/v1/secret",
+    "knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake",
+    "knative.dev/pkg/client/injection/kube/informers/core/v1/service",
+    "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake",
+    "knative.dev/pkg/client/injection/kube/informers/factory",
     "knative.dev/pkg/client/listers/istio/v1alpha3",
     "knative.dev/pkg/codegen/cmd/injection-gen",
     "knative.dev/pkg/configmap",
@@ -1919,25 +1938,6 @@
     "knative.dev/pkg/injection",
     "knative.dev/pkg/injection/clients/dynamicclient",
     "knative.dev/pkg/injection/clients/dynamicclient/fake",
-    "knative.dev/pkg/injection/clients/kubeclient",
-    "knative.dev/pkg/injection/clients/kubeclient/fake",
-    "knative.dev/pkg/injection/informers/kubeinformers/appsv1/deployment",
-    "knative.dev/pkg/injection/informers/kubeinformers/appsv1/deployment/fake",
-    "knative.dev/pkg/injection/informers/kubeinformers/autoscalingv2beta1/hpa",
-    "knative.dev/pkg/injection/informers/kubeinformers/autoscalingv2beta1/hpa/fake",
-    "knative.dev/pkg/injection/informers/kubeinformers/corev1/configmap",
-    "knative.dev/pkg/injection/informers/kubeinformers/corev1/configmap/fake",
-    "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints",
-    "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints/fake",
-    "knative.dev/pkg/injection/informers/kubeinformers/corev1/namespace",
-    "knative.dev/pkg/injection/informers/kubeinformers/corev1/namespace/fake",
-    "knative.dev/pkg/injection/informers/kubeinformers/corev1/pod",
-    "knative.dev/pkg/injection/informers/kubeinformers/corev1/pod/fake",
-    "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret",
-    "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret/fake",
-    "knative.dev/pkg/injection/informers/kubeinformers/corev1/service",
-    "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake",
-    "knative.dev/pkg/injection/informers/kubeinformers/factory",
     "knative.dev/pkg/injection/sharedmain",
     "knative.dev/pkg/kmeta",
     "knative.dev/pkg/kmp",

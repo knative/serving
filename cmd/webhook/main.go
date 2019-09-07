@@ -23,8 +23,8 @@ import (
 	"net/http"
 
 	// Injection related imports.
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection"
-	"knative.dev/pkg/injection/clients/kubeclient"
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/profiling"
 

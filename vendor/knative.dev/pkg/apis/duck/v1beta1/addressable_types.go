@@ -25,7 +25,7 @@ import (
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
-	"knative.dev/pkg/apis/duck/v1"
+	v1 "knative.dev/pkg/apis/duck/v1"
 )
 
 // Addressable provides a generic mechanism for a custom resource

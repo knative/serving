@@ -21,9 +21,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
+	nsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/namespace"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	nsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/namespace"
 	"knative.dev/serving/pkg/apis/networking"
 	kcertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate"
 	routecfg "knative.dev/serving/pkg/reconciler/route/config"

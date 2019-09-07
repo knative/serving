@@ -23,8 +23,8 @@ import (
 
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
-	fake "knative.dev/serving/pkg/client/injection/informers/autoscaling/factory/fake"
 	podautoscaler "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
+	fake "knative.dev/serving/pkg/client/injection/informers/factory/fake"
 )
 
 var Get = podautoscaler.Get

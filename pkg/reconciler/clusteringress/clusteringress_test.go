@@ -26,9 +26,9 @@ import (
 	fakesharedclient "knative.dev/pkg/client/injection/client/fake"
 	_ "knative.dev/pkg/client/injection/informers/istio/v1alpha3/gateway/fake"
 	_ "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice/fake"
-	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
-	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/pod/fake"
-	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret/fake"
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress/fake"
 

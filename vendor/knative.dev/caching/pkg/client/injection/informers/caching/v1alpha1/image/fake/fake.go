@@ -21,8 +21,8 @@ package fake
 import (
 	"context"
 
-	fake "knative.dev/caching/pkg/client/injection/informers/caching/factory/fake"
 	image "knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image"
+	fake "knative.dev/caching/pkg/client/injection/informers/factory/fake"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
 )

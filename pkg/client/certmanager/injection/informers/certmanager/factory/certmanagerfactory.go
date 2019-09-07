@@ -49,8 +49,8 @@ func withInformerFactory(ctx context.Context) context.Context {
 func Get(ctx context.Context) externalversions.SharedInformerFactory {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
-		logging.FromContext(ctx).Fatalf(
-			"Unable to fetch %T from context.", (externalversions.SharedInformerFactory)(nil))
+		logging.FromContext(ctx).Panic(
+			"Unable to fetch knative.dev/serving/pkg/client/certmanager/informers/externalversions.SharedInformerFactory from context.")
 	}
 	return untyped.(externalversions.SharedInformerFactory)
 }
