@@ -631,7 +631,6 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			if got, want := revDests, tc.expectDests; !cmp.Equal(got, want) {
 				t.Errorf("RevisionDests = %v, want: %v, diff(-want,+got):%s\n", got, want, cmp.Diff(want, got))
 			}
-			// We need a context switch to make sure the informers end their work
 			time.Sleep(10 * time.Millisecond)
 		})
 	}
@@ -712,6 +711,7 @@ func TestRevisionDeleted(t *testing.T) {
 		ctx,
 		rt,
 		TestLogger(t))
+
 	// Make some movements.
 	ei.Informer().GetIndexer().Add(ep)
 	select {
