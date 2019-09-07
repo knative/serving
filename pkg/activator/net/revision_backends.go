@@ -134,30 +134,26 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (bool, error)
 
 }
 
-func (rw *revisionWatcher) getDest(svc *corev1.Service) (string, error) {
+func (rw *revisionWatcher) getDest() (string, error) {
+	svc, err := rw.getK8sPrivateService()
+	if err != nil {
+		return "", err
+	}
 	if svc.Spec.ClusterIP == "" {
 		return "", fmt.Errorf("private service %s/%s clusterIP is nil, this should never happen", svc.ObjectMeta.Namespace, svc.ObjectMeta.Name)
 	}
 
-	svcPort, ok := GetServicePort(rw.protocol, svc)
+	svcPort, ok := getServicePort(rw.protocol, svc)
 	if !ok {
 		return "", fmt.Errorf("unable to find port in service %s/%s", svc.Namespace, svc.Name)
 	}
 	return net.JoinHostPort(svc.Spec.ClusterIP, strconv.Itoa(svcPort)), nil
 }
 
-func (rw *revisionWatcher) probeClusterIP(svc *corev1.Service) (bool, string, error) {
-	dest, err := rw.getDest(svc)
-	if err != nil {
-		return false, "", err
-	}
-
-	// Context used for our probe requests
+func (rw *revisionWatcher) probeClusterIP(dest string) (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
 	defer cancel()
-
-	ok, err := rw.probe(ctx, dest)
-	return ok, dest, err
+	return rw.probe(ctx, dest)
 }
 
 // probePodIPs will probe the given target Pod IPs and will return
@@ -216,39 +212,33 @@ func (rw *revisionWatcher) sendUpdate(update *RevisionDestsUpdate) {
 func (rw *revisionWatcher) checkDests(dests []string) {
 	if len(dests) == 0 {
 		if rw.clusterIPHealthy {
-			// we have a healthy clusterIP but revision is not ready. We must have scaled down.
+			// We have a healthy clusterIP but revision is not ready. We must have scaled down.
 			rw.clusterIPHealthy = false
 
-			// Send update that we are now inactive
+			// Send update that we are now inactive.
 			rw.sendUpdate(&RevisionDestsUpdate{Rev: rw.rev})
 		}
-
-		// We know this revision cannot be healthy so short circuit
 		return
 	}
 
-	// First check the clusterIP
-	svc, err := rw.getK8sPrivateService()
+	// First check the clusterIP. We can't cache it, since user might go rogue
+	// and delete the K8s service. We'll fix it, but the cluster IP will be different.
+	dest, err := rw.getDest()
 	if err != nil {
-		rw.logger.Errorw("Failed to lookup private service for revision", zap.Error(err))
+		rw.logger.Errorw("Failed to determine service destination", zap.Error(err))
 		return
 	}
 
 	if rw.clusterIPHealthy {
-		dest, err := rw.getDest(svc)
-		if err != nil {
-			rw.logger.Errorw("Failed to determine service destination", zap.Error(err))
-			return
-		}
-		// cluster IP is healthy and we havent scaled down, short circuit
+		// cluster IP is healthy and we haven't scaled down, short circuit.
 		rw.logger.Debugf("ClusterIP %s already probed (backends: %d)", dest, len(dests))
 		rw.sendUpdate(&RevisionDestsUpdate{Rev: rw.rev, ClusterIPDest: dest, ReadyAddressCount: len(dests)})
 		return
 	}
 
-	// If clusterIP is healthy send this update and we are done
-	if ok, dest, err := rw.probeClusterIP(svc); err != nil {
-		rw.logger.Errorw(fmt.Sprintf("Failed to probe clusterIP %s/%s", svc.Namespace, svc.Name), zap.Error(err))
+	// If clusterIP is healthy send this update and we are done.
+	if ok, err := rw.probeClusterIP(dest); err != nil {
+		rw.logger.Errorw("Failed to probe clusterIP "+dest, zap.Error(err))
 	} else if ok {
 		rw.logger.Debugf("ClusterIP is successfully probed: %s (backends: %d)", dest, len(dests))
 		rw.clusterIPHealthy = true
@@ -260,7 +250,7 @@ func (rw *revisionWatcher) checkDests(dests []string) {
 	hs, err := rw.probePodIPs(dests)
 	if err != nil {
 		rw.logger.Errorw("Failed probing", zap.Error(err))
-		// We dont want to return here as an error still affects health states
+		// We dont want to return here as an error still affects health states.
 	}
 
 	rw.logger.Debugf("Done probing, got %d healthy pods", len(hs))
@@ -271,7 +261,6 @@ func (rw *revisionWatcher) checkDests(dests []string) {
 			ReadyAddressCount: len(dests),
 		}
 		rw.healthyPods = hs
-
 		rw.sendUpdate(destsUpdate)
 	}
 }
@@ -401,6 +390,7 @@ func (rbm *RevisionBackendsManager) getOrCreateRevisionWatcher(rev types.Namespa
 // endpointsUpdated is a handler function to be used by the Endpoints informer.
 // It updates the endpoints in the RevisionBackendsManager if the hosts changed
 func (rbm *RevisionBackendsManager) endpointsUpdated(newObj interface{}) {
+	rbm.logger.Debugf("Endpoints updated: %#v", newObj)
 	endpoints := newObj.(*corev1.Endpoints)
 	revID := types.NamespacedName{endpoints.Namespace, endpoints.Labels[serving.RevisionLabelKey]}
 
