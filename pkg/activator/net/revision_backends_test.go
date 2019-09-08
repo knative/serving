@@ -52,8 +52,9 @@ import (
 )
 
 const (
-	testNamespace = "test-namespace"
-	testRevision  = "test-revision"
+	testNamespace      = "test-namespace"
+	testRevision       = "test-revision"
+	informerRestPeriod = 3 * time.Second
 )
 
 func revision(revID types.NamespacedName, protocol networking.ProtocolType) *v1alpha1.Revision {
@@ -631,9 +632,9 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			if got, want := revDests, tc.expectDests; !cmp.Equal(got, want) {
 				t.Errorf("RevisionDests = %v, want: %v, diff(-want,+got):%s\n", got, want, cmp.Diff(want, got))
 			}
-			time.Sleep(10 * time.Millisecond)
 		})
 	}
+	time.Sleep(informerRestPeriod)
 }
 
 func TestCheckDests(t *testing.T) {
@@ -679,7 +680,7 @@ func TestCheckDests(t *testing.T) {
 		// success.
 	}
 	// To make sure context switch happens and informers terminate.
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(informerRestPeriod)
 }
 
 func TestRevisionDeleted(t *testing.T) {
@@ -733,4 +734,5 @@ func TestRevisionDeleted(t *testing.T) {
 	case <-time.After(time.Second * 2):
 		t.Errorf("Timedout waiting for initial response")
 	}
+	time.Sleep(time.Second)
 }
