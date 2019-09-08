@@ -20,7 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
 	net "knative.dev/serving/pkg/apis/networking"
 )
@@ -118,7 +118,7 @@ const (
 
 // PodAutoscalerStatus communicates the observed state of the PodAutoscaler (from the controller).
 type PodAutoscalerStatus struct {
-	duckv1beta1.Status
+	duckv1.Status
 
 	// ServiceName is the K8s Service name that serves the revision, scaled by this PA.
 	// The service is created and owned by the ServerlessService object owned by this PA.

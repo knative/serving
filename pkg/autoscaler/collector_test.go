@@ -28,7 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	. "knative.dev/pkg/logging/testing"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -237,7 +237,7 @@ func TestMetricCollectorError(t *testing.T) {
 		name                 string
 		scraper              *testScraper
 		metric               *av1alpha1.Metric
-		expectedMetricStatus duckv1beta1.Status
+		expectedMetricStatus duckv1.Status
 	}{{
 		name: "Failed to get endpoints scraper error",
 		scraper: &testScraper{
@@ -257,8 +257,8 @@ func TestMetricCollectorError(t *testing.T) {
 				ScrapeTarget: testRevision + "-zhudex",
 			},
 		},
-		expectedMetricStatus: duckv1beta1.Status{
-			Conditions: duckv1beta1.Conditions{{
+		expectedMetricStatus: duckv1.Status{
+			Conditions: duckv1.Conditions{{
 				Type:    av1alpha1.MetricConditionReady,
 				Status:  corev1.ConditionUnknown,
 				Reason:  "NoEndpoints",
@@ -284,8 +284,8 @@ func TestMetricCollectorError(t *testing.T) {
 				ScrapeTarget: testRevision + "-zhudex",
 			},
 		},
-		expectedMetricStatus: duckv1beta1.Status{
-			Conditions: duckv1beta1.Conditions{{
+		expectedMetricStatus: duckv1.Status{
+			Conditions: duckv1.Conditions{{
 				Type:    av1alpha1.MetricConditionReady,
 				Status:  corev1.ConditionFalse,
 				Reason:  "DidNotReceiveStat",
@@ -311,8 +311,8 @@ func TestMetricCollectorError(t *testing.T) {
 				ScrapeTarget: testRevision + "-zhudex",
 			},
 		},
-		expectedMetricStatus: duckv1beta1.Status{
-			Conditions: duckv1beta1.Conditions{{
+		expectedMetricStatus: duckv1.Status{
+			Conditions: duckv1.Conditions{{
 				Type:    av1alpha1.MetricConditionReady,
 				Status:  corev1.ConditionUnknown,
 				Reason:  "CreateOrUpdateFailed",
@@ -330,7 +330,7 @@ func TestMetricCollectorError(t *testing.T) {
 			coll.CreateOrUpdate(test.metric)
 			key := types.NamespacedName{Namespace: test.metric.Namespace, Name: test.metric.Name}
 
-			var got duckv1beta1.Status
+			var got duckv1.Status
 			wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 				collection, ok := coll.collections[key]
 				if ok {

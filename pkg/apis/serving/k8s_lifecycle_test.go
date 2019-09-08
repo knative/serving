@@ -24,18 +24,18 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 func TestTransformDeploymentStatus(t *testing.T) {
 	tests := []struct {
 		name string
 		ds   *appsv1.DeploymentStatus
-		want *duckv1beta1.Status
+		want *duckv1.Status
 	}{{
 		name: "initial conditions",
 		ds:   &appsv1.DeploymentStatus{},
-		want: &duckv1beta1.Status{
+		want: &duckv1.Status{
 			Conditions: []apis.Condition{{
 				Type:   DeploymentConditionProgressing,
 				Status: corev1.ConditionUnknown,
@@ -55,7 +55,7 @@ func TestTransformDeploymentStatus(t *testing.T) {
 				Status: corev1.ConditionTrue,
 			}},
 		},
-		want: &duckv1beta1.Status{
+		want: &duckv1.Status{
 			Conditions: []apis.Condition{{
 				Type:   DeploymentConditionProgressing,
 				Status: corev1.ConditionTrue,
@@ -78,7 +78,7 @@ func TestTransformDeploymentStatus(t *testing.T) {
 				Status: corev1.ConditionFalse,
 			}},
 		},
-		want: &duckv1beta1.Status{
+		want: &duckv1.Status{
 			Conditions: []apis.Condition{{
 				Type:   DeploymentConditionProgressing,
 				Status: corev1.ConditionTrue,
@@ -101,7 +101,7 @@ func TestTransformDeploymentStatus(t *testing.T) {
 				Status: corev1.ConditionUnknown,
 			}},
 		},
-		want: &duckv1beta1.Status{
+		want: &duckv1.Status{
 			Conditions: []apis.Condition{{
 				Type:   DeploymentConditionProgressing,
 				Status: corev1.ConditionFalse,
@@ -124,7 +124,7 @@ func TestTransformDeploymentStatus(t *testing.T) {
 				Status: corev1.ConditionTrue,
 			}},
 		},
-		want: &duckv1beta1.Status{
+		want: &duckv1.Status{
 			Conditions: []apis.Condition{{
 				Type:   DeploymentConditionProgressing,
 				Status: corev1.ConditionUnknown,
@@ -149,7 +149,7 @@ func TestTransformDeploymentStatus(t *testing.T) {
 				Message: "Something bag happened",
 			}},
 		},
-		want: &duckv1beta1.Status{
+		want: &duckv1.Status{
 			Conditions: []apis.Condition{{
 				Type:   DeploymentConditionProgressing,
 				Status: corev1.ConditionUnknown,

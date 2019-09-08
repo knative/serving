@@ -24,8 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
-	apitest "knative.dev/pkg/apis/testing"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
+	apitestv1 "knative.dev/pkg/apis/testing/v1"
 	"knative.dev/serving/pkg/apis/autoscaling"
 )
 
@@ -35,7 +35,7 @@ func TestMetricDuckTypes(t *testing.T) {
 		t    duck.Implementable
 	}{{
 		name: "conditions",
-		t:    &duckv1beta1.Conditions{},
+		t:    &duckv1.Conditions{},
 	}}
 
 	for _, test := range tests {
@@ -60,8 +60,8 @@ func TestMetricIsReady(t *testing.T) {
 	}, {
 		name: "Different condition type should not be ready",
 		status: MetricStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
 					Type:   "FooCondition",
 					Status: corev1.ConditionTrue,
 				}},
@@ -71,8 +71,8 @@ func TestMetricIsReady(t *testing.T) {
 	}, {
 		name: "False condition status should not be ready",
 		status: MetricStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
 					Type:   MetricConditionReady,
 					Status: corev1.ConditionFalse,
 				}},
@@ -82,8 +82,8 @@ func TestMetricIsReady(t *testing.T) {
 	}, {
 		name: "Unknown condition status should not be ready",
 		status: MetricStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
 					Type:   MetricConditionReady,
 					Status: corev1.ConditionUnknown,
 				}},
@@ -93,8 +93,8 @@ func TestMetricIsReady(t *testing.T) {
 	}, {
 		name: "Missing condition status should not be ready",
 		status: MetricStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
 					Type: MetricConditionReady,
 				}},
 			},
@@ -103,8 +103,8 @@ func TestMetricIsReady(t *testing.T) {
 	}, {
 		name: "True condition status should be ready",
 		status: MetricStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
 					Type:   MetricConditionReady,
 					Status: corev1.ConditionTrue,
 				}},
@@ -140,26 +140,26 @@ func TestMetricGetSetCondition(t *testing.T) {
 func TestTypicalFlowWithMetricCondition(t *testing.T) {
 	m := &MetricStatus{}
 	m.InitializeConditions()
-	apitest.CheckConditionOngoing(m.duck(), MetricConditionReady, t)
+	apitestv1.CheckConditionOngoing(m.duck(), MetricConditionReady, t)
 
 	const (
 		wantReason  = "reason"
 		wantMessage = "the error message"
 	)
 	m.MarkMetricFailed(wantReason, wantMessage)
-	apitest.CheckConditionFailed(m.duck(), MetricConditionReady, t)
+	apitestv1.CheckConditionFailed(m.duck(), MetricConditionReady, t)
 	if got := m.GetCondition(MetricConditionReady); got == nil || got.Reason != wantReason || got.Message != wantMessage {
 		t.Errorf("MarkMetricFailed = %v, wantReason %v, wantMessage %v", got, wantReason, wantMessage)
 	}
 
 	m.MarkMetricNotReady(wantReason, wantMessage)
-	apitest.CheckConditionOngoing(m.duck(), MetricConditionReady, t)
+	apitestv1.CheckConditionOngoing(m.duck(), MetricConditionReady, t)
 	if got := m.GetCondition(MetricConditionReady); got == nil || got.Reason != wantReason || got.Message != wantMessage {
 		t.Errorf("MarkMetricNotReady = %v, wantReason %v, wantMessage %v", got, wantReason, wantMessage)
 	}
 
 	m.MarkMetricReady()
-	apitest.CheckConditionSucceeded(m.duck(), MetricConditionReady, t)
+	apitestv1.CheckConditionSucceeded(m.duck(), MetricConditionReady, t)
 }
 
 func TestMetricGetGroupVersionKind(t *testing.T) {

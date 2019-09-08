@@ -21,7 +21,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 var ingressCondSet = apis.NewLivingConditionSet(
@@ -89,6 +89,6 @@ func (is *IngressStatus) IsReady() bool {
 	return ingressCondSet.Manage(is).IsHappy()
 }
 
-func (is *IngressStatus) duck() *duckv1beta1.Status {
+func (is *IngressStatus) duck() *duckv1.Status {
 	return &is.Status
 }

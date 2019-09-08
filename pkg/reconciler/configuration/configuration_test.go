@@ -29,7 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -280,8 +280,8 @@ func TestReconcile(t *testing.T) {
 			rev("bad-condition", "foo", 5555,
 				WithRevName("bad-condition"),
 				WithRevStatus(v1alpha1.RevisionStatus{
-					Status: duckv1beta1.Status{
-						Conditions: duckv1beta1.Conditions{{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{{
 							Type:     v1alpha1.RevisionConditionReady,
 							Status:   "Bad",
 							Severity: "Error",

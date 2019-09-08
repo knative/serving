@@ -24,7 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
@@ -94,9 +94,9 @@ func TestServiceConversion(t *testing.T) {
 				},
 			},
 			Status: ServiceStatus{
-				Status: duckv1beta1.Status{
+				Status: duckv1.Status{
 					ObservedGeneration: 1,
-					Conditions: duckv1beta1.Conditions{{
+					Conditions: duckv1.Conditions{{
 						Type:   "Ready",
 						Status: "True",
 					}},
@@ -140,9 +140,9 @@ func TestServiceConversion(t *testing.T) {
 
 func TestServiceConversionFromDeprecated(t *testing.T) {
 	status := ServiceStatus{
-		Status: duckv1beta1.Status{
+		Status: duckv1.Status{
 			ObservedGeneration: 1,
-			Conditions: duckv1beta1.Conditions{{
+			Conditions: duckv1.Conditions{{
 				Type:   "Ready",
 				Status: "True",
 			}},

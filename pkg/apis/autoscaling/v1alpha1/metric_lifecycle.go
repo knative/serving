@@ -19,7 +19,7 @@ package v1alpha1
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 const (
@@ -68,6 +68,6 @@ func (ms *MetricStatus) IsReady() bool {
 	return condSet.Manage(ms.duck()).IsHappy()
 }
 
-func (ms *MetricStatus) duck() *duckv1beta1.Status {
-	return (*duckv1beta1.Status)(&ms.Status)
+func (ms *MetricStatus) duck() *duckv1.Status {
+	return (*duckv1.Status)(&ms.Status)
 }

@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/ptr"
@@ -176,8 +177,8 @@ func WithReadyCertificateName(name string) func(*v1alpha1.Route) {
 // MarkIngressReady propagates a Ready=True ClusterIngress status to the Route.
 func MarkIngressReady(r *v1alpha1.Route) {
 	r.Status.PropagateIngressStatus(netv1alpha1.IngressStatus{
-		Status: duckv1beta1.Status{
-			Conditions: duckv1beta1.Conditions{{
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
 				Type:   "Ready",
 				Status: "True",
 			}},

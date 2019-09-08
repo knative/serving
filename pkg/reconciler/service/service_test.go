@@ -27,7 +27,7 @@ import (
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/route/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/service/fake"
 
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -1399,8 +1399,8 @@ func MutateRoute(rt *v1alpha1.Route) {
 
 func RouteReady(cfg *v1alpha1.Route) {
 	cfg.Status = v1alpha1.RouteStatus{
-		Status: duckv1beta1.Status{
-			Conditions: duckv1beta1.Conditions{{
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
 				Type:   "Ready",
 				Status: "True",
 			}},
@@ -1411,8 +1411,8 @@ func RouteReady(cfg *v1alpha1.Route) {
 func RouteFailed(reason, message string) RouteOption {
 	return func(cfg *v1alpha1.Route) {
 		cfg.Status = v1alpha1.RouteStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
 					Type:    "Ready",
 					Status:  "False",
 					Reason:  reason,

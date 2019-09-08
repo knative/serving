@@ -20,7 +20,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis/duck"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1"
 )
 
 func TestRouteDuckTypes(t *testing.T) {

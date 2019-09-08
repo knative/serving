@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package testing
+package v1
 
 import (
 	"fmt"
@@ -21,12 +21,11 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
-	duckv1b1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 // CheckCondition checks if condition `c` on `cc` has value `cs`.
-// DEPRECATED: Use versioned test helper
-func CheckCondition(s *duckv1b1.Status, c apis.ConditionType, cs corev1.ConditionStatus) error {
+func CheckCondition(s *duckv1.Status, c apis.ConditionType, cs corev1.ConditionStatus) error {
 	cond := s.GetCondition(c)
 	if cond == nil {
 		return fmt.Errorf("condition %v is nil", c)
@@ -38,8 +37,7 @@ func CheckCondition(s *duckv1b1.Status, c apis.ConditionType, cs corev1.Conditio
 }
 
 // CheckConditionOngoing checks if the condition is in state `Unknown`.
-// DEPRECATED: Use versioned test helper
-func CheckConditionOngoing(s *duckv1b1.Status, c apis.ConditionType, t *testing.T) {
+func CheckConditionOngoing(s *duckv1.Status, c apis.ConditionType, t *testing.T) {
 	t.Helper()
 	if err := CheckCondition(s, c, corev1.ConditionUnknown); err != nil {
 		t.Error(err)
@@ -47,8 +45,7 @@ func CheckConditionOngoing(s *duckv1b1.Status, c apis.ConditionType, t *testing.
 }
 
 // CheckConditionFailed checks if the condition is in state `False`.
-// DEPRECATED: Use versioned test helper
-func CheckConditionFailed(s *duckv1b1.Status, c apis.ConditionType, t *testing.T) {
+func CheckConditionFailed(s *duckv1.Status, c apis.ConditionType, t *testing.T) {
 	t.Helper()
 	if err := CheckCondition(s, c, corev1.ConditionFalse); err != nil {
 		t.Error(err)
@@ -56,8 +53,7 @@ func CheckConditionFailed(s *duckv1b1.Status, c apis.ConditionType, t *testing.T
 }
 
 // CheckConditionSucceeded checks if the condition is in state `True`.
-// DEPRECATED: Use versioned test helper
-func CheckConditionSucceeded(s *duckv1b1.Status, c apis.ConditionType, t *testing.T) {
+func CheckConditionSucceeded(s *duckv1.Status, c apis.ConditionType, t *testing.T) {
 	t.Helper()
 	if err := CheckCondition(s, c, corev1.ConditionTrue); err != nil {
 		t.Error(err)

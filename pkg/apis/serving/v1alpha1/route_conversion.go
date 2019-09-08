@@ -22,6 +22,7 @@ import (
 
 	"knative.dev/pkg/apis"
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
@@ -76,7 +77,10 @@ func (source *RouteStatusFields) ConvertUp(ctx context.Context, sink *v1beta1.Ro
 	}
 
 	if source.Address != nil {
-		sink.Address = source.Address.Addressable.DeepCopy()
+		if sink.Address == nil {
+			sink.Address = &duckv1beta1.Addressable{}
+		}
+		source.Address.ConvertUp(ctx, sink.Address)
 	}
 
 	sink.Traffic = make([]v1beta1.TrafficTarget, len(source.Traffic))
@@ -125,9 +129,10 @@ func (sink *RouteStatusFields) ConvertDown(ctx context.Context, source v1beta1.R
 	}
 
 	if source.Address != nil {
-		sink.Address = &duckv1alpha1.Addressable{
-			Addressable: *source.Address,
+		if sink.Address == nil {
+			sink.Address = &duckv1alpha1.Addressable{}
 		}
+		sink.Address.ConvertDown(ctx, source.Address)
 	}
 
 	sink.Traffic = make([]TrafficTarget, len(source.Traffic))
