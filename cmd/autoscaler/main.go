@@ -170,7 +170,8 @@ func main() {
 	}
 }
 
-func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer, metricClient autoscaler.MetricClient) func(decider *autoscaler.Decider) (autoscaler.UniScaler, error) {
+func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer,
+	metricClient autoscaler.MetricClient) autoscaler.UniScalerFactory {
 	return func(decider *autoscaler.Decider) (autoscaler.UniScaler, error) {
 		if v, ok := decider.Labels[serving.ConfigurationLabelKey]; !ok || v == "" {
 			return nil, fmt.Errorf("label %q not found or empty in Decider %s", serving.ConfigurationLabelKey, decider.Name)
@@ -192,10 +193,11 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer, m
 	}
 }
 
-func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) func(metric *av1alpha1.Metric) (autoscaler.StatsScraper, error) {
-	return func(metric *av1alpha1.Metric) (autoscaler.StatsScraper, error) {
-		podCounter := resources.NewScopedEndpointsCounter(endpointsLister, metric.Namespace, metric.Spec.ScrapeTarget)
-		return autoscaler.NewServiceScraper(metric, podCounter)
+func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) autoscaler.StatsScraperFactory {
+	return func(metric *av1alpha1.Metric, l *zap.SugaredLogger) (autoscaler.StatsScraper, error) {
+		podCounter := resources.NewScopedEndpointsCounter(
+			endpointsLister, metric.Namespace, metric.Spec.ScrapeTarget)
+		return autoscaler.NewServiceScraper(metric, podCounter, l)
 	}
 }
 

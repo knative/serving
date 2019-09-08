@@ -233,7 +233,6 @@ func TestMetricCollectorRecord(t *testing.T) {
 }
 
 func TestMetricCollectorError(t *testing.T) {
-
 	testCases := []struct {
 		name                 string
 		scraper              *testScraper
@@ -349,7 +348,7 @@ func TestMetricCollectorError(t *testing.T) {
 }
 
 func scraperFactory(scraper StatsScraper, err error) StatsScraperFactory {
-	return func(*av1alpha1.Metric) (StatsScraper, error) {
+	return func(*av1alpha1.Metric, *zap.SugaredLogger) (StatsScraper, error) {
 		return scraper, err
 	}
 }
@@ -359,6 +358,6 @@ type testScraper struct {
 	url string
 }
 
-func (s *testScraper) Scrape(logger *zap.SugaredLogger) (*StatMessage, error) {
+func (s *testScraper) Scrape() (*StatMessage, error) {
 	return s.s()
 }
