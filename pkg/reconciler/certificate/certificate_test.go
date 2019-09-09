@@ -292,10 +292,6 @@ func knCert(name, namespace string) *v1alpha1.Certificate {
 	return knCertWithStatus(name, namespace, &v1alpha1.CertificateStatus{})
 }
 
-func knCertWithGeneration(name, namespace string, gen int) *v1alpha1.Certificate {
-	return knCertWithStatusAndGeneration(name, namespace, &v1alpha1.CertificateStatus{}, gen)
-}
-
 func knCertWithStatus(name, namespace string, status *v1alpha1.CertificateStatus) *v1alpha1.Certificate {
 	return knCertWithStatusAndGeneration(name, namespace, status, generation)
 }

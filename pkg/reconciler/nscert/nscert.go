@@ -29,6 +29,7 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubelabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	kubelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -64,8 +65,12 @@ func (c *reconciler) Reconcile(ctx context.Context, key string) error {
 	ctx = c.configStore.ToContext(ctx)
 
 	_, ns, err := cache.SplitMetaNamespaceKey(key)
-	namespace, err := c.nsLister.Get(ns)
+	if err != nil {
+		runtime.HandleError(fmt.Errorf("invalid resource key %s: %v", key, err))
+		return nil
+	}
 
+	namespace, err := c.nsLister.Get(ns)
 	if apierrs.IsNotFound(err) {
 		logger.Errorf("Namespace %s in work queue no longer exists %s", key, err)
 		return nil

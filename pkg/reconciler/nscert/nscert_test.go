@@ -29,7 +29,6 @@ import (
 	clientgotesting "k8s.io/client-go/testing"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	ctrl "knative.dev/pkg/controller"
 	fakeinformerfactory "knative.dev/pkg/injection/informers/kubeinformers/factory"
 	. "knative.dev/pkg/logging/testing"
 	. "knative.dev/pkg/reconciler/testing"
@@ -47,7 +46,6 @@ import (
 
 	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/namespace/fake"
 	_ "knative.dev/pkg/system/testing"
-	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 )
 
 var (
@@ -60,7 +58,7 @@ var (
 func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	ctx context.Context,
 	informers []controller.Informer,
-	controller *ctrl.Impl,
+	controller *controller.Impl,
 	rclr *reconciler,
 	configMapWatcher *configmap.ManualWatcher) {
 
@@ -175,7 +173,7 @@ func TestReconcile(t *testing.T) {
 
 	defer ClearAll()
 
-	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) ctrl.Reconciler {
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &reconciler{
 			Base:                pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
 			knCertificateLister: listers.GetKnCertificateLister(),
@@ -259,10 +257,6 @@ func TestUpdateDomainTemplate(t *testing.T) {
 		LabelSelector: selector,
 	})
 	actual = certs.Items[0].Spec.DNSNames
-
-	certs, _ = fakeservingclient.Get(ctx).NetworkingV1alpha1().Certificates(ns.Name).List(metav1.ListOptions{
-		LabelSelector: selector,
-	})
 
 	// A new domain format not matched by the existing certificate should update the DNSName
 	if diff := cmp.Diff(expected, actual, sorter); diff != "" {
