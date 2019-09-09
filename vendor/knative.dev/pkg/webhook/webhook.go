@@ -121,7 +121,7 @@ func New(
 	admissionControllers map[string]AdmissionController,
 	logger *zap.SugaredLogger,
 	ctx func(context.Context) context.Context,
-	) (*Webhook, error) {
+) (*Webhook, error) {
 
 	if opts.StatsReporter == nil {
 		reporter, err := NewStatsReporter()

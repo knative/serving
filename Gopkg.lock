@@ -1655,7 +1655,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:c58bb491fe5be973899a0c744db8a283745641503bed8ddb683da4ad9bff09c5"
+  digest = "1:845161fa3410fee06ef74c53a1581724d9675f656c42f08b71de8fad64108bc6"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1713,6 +1713,8 @@
     "injection/informers/kubeinformers/corev1/configmap/fake",
     "injection/informers/kubeinformers/corev1/endpoints",
     "injection/informers/kubeinformers/corev1/endpoints/fake",
+    "injection/informers/kubeinformers/corev1/namespace",
+    "injection/informers/kubeinformers/corev1/namespace/fake",
     "injection/informers/kubeinformers/corev1/pod",
     "injection/informers/kubeinformers/corev1/pod/fake",
     "injection/informers/kubeinformers/corev1/secret",
@@ -1745,6 +1747,7 @@
     "test/logstream",
     "test/mako",
     "test/monitoring",
+    "test/prometheus",
     "test/spoof",
     "test/vegeta/pacers",
     "test/webhook-apicoverage/coveragecalculator",
@@ -1762,11 +1765,11 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "75da3911c0205df6c1b8acb74662d96a6e37b305"
+  revision = "bf5252e748cfaf9017228abdc74a93a42b3bcbff"
 
 [[projects]]
   branch = "master"
-  digest = "1:cb3aab76dad970a841ccf1812c0b89e7fe5b6d2f7918f083d5fd9091cc1ebe35"
+  digest = "1:9fc8982baedc37d87c646f79cd1947011ee74e75f304218d2537c1c812c514f2"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1774,13 +1777,12 @@
     "shared/gcs",
     "shared/junit",
     "shared/performance",
-    "shared/prometheus",
     "shared/prow",
     "shared/testgrid",
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "66fa1c8aba0d4a919d7437a53f0d3bcc448e274f"
+  revision = "2c83a176f473acb4b6b851e98e53882f594ffb5c"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1927,12 +1929,15 @@
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/configmap/fake",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints/fake",
+    "knative.dev/pkg/injection/informers/kubeinformers/corev1/namespace",
+    "knative.dev/pkg/injection/informers/kubeinformers/corev1/namespace/fake",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/pod",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/pod/fake",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret/fake",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/service",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake",
+    "knative.dev/pkg/injection/informers/kubeinformers/factory",
     "knative.dev/pkg/injection/sharedmain",
     "knative.dev/pkg/kmeta",
     "knative.dev/pkg/kmp",
@@ -1956,6 +1961,7 @@
     "knative.dev/pkg/test/logging",
     "knative.dev/pkg/test/logstream",
     "knative.dev/pkg/test/mako",
+    "knative.dev/pkg/test/prometheus",
     "knative.dev/pkg/test/spoof",
     "knative.dev/pkg/test/vegeta/pacers",
     "knative.dev/pkg/test/webhook-apicoverage/resourcetree",
@@ -1974,7 +1980,6 @@
     "knative.dev/test-infra/shared/common",
     "knative.dev/test-infra/shared/junit",
     "knative.dev/test-infra/shared/performance",
-    "knative.dev/test-infra/shared/prometheus",
     "knative.dev/test-infra/shared/prow",
     "knative.dev/test-infra/shared/testgrid",
     "knative.dev/test-infra/tools/dep-collector",

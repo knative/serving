@@ -30,7 +30,7 @@ if err != nil {
 ## Prometheus metrics
 
 Knative provides a
-[prometheus wrapper](https://github.com/knative/test-infra/tree/master/shared/prometheus)
+[prometheus wrapper](https://github.com/knative/pkg/tree/master/test/prometheus)
 that provides methods to wait for prometheus to scrap for the metrics once the
 test is finished. It also provides a way to query the prometheus server for any
 server-side metrics and then display those in [testgrid](#displaying-metrics)

@@ -543,19 +543,24 @@ function get_canonical_path() {
   echo "$(cd ${path%/*} && echo $PWD/${path##*/})"
 }
 
-# Returns the URL to the latest manifest for the given Knative project.
-# Parameters: $1 - repository name of the given project
-#             $2 - name of the yaml file, without extension
-function get_latest_knative_yaml_source() {
+# Returns whether the current branch is a release branch.
+function is_release_branch() {
   local branch_name=""
-  local repo_name="$1"
-  local yaml_name="$2"
   # Get the branch name from Prow's env var, see https://github.com/kubernetes/test-infra/blob/master/prow/jobs.md.
   # Otherwise, try getting the current branch from git.
   (( IS_PROW )) && branch_name="${PULL_BASE_REF:-}"
   [[ -z "${branch_name}" ]] && branch_name="$(git rev-parse --abbrev-ref HEAD)"
+  [[ ${branch_name} =~ ^release-[0-9\.]+$ ]]
+}
+
+# Returns the URL to the latest manifest for the given Knative project.
+# Parameters: $1 - repository name of the given project
+#             $2 - name of the yaml file, without extension
+function get_latest_knative_yaml_source() {
+  local repo_name="$1"
+  local yaml_name="$2"
   # If it's a release branch, the yaml source URL should point to a specific version.
-  if [[ ${branch_name} =~ ^release-[0-9\.]+$ ]]; then
+  if is_release_branch; then
     # Get the latest tag name for the current branch, which is likely formatted as v0.5.0
     local tag_name="$(git describe --tags --abbrev=0)"
     # The given repo might not have this tag, so we need to find its latest release manifest with the same major&minor version.
