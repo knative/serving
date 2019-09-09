@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -57,12 +58,13 @@ var (
 
 func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	ctx context.Context,
+	cancel context.CancelFunc,
 	informers []controller.Informer,
 	controller *controller.Impl,
 	rclr *reconciler,
 	configMapWatcher *configmap.ManualWatcher) {
 
-	ctx, informers = SetupFakeContext(t)
+	ctx, cancel, informers = SetupFakeContextWithCancel(t)
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 
 	controller = NewController(ctx, configMapWatcher)
@@ -189,8 +191,12 @@ func TestReconcile(t *testing.T) {
 }
 
 func TestUpdateDomainTemplate(t *testing.T) {
-	defer ClearAll()
-	ctx, _, _, reconciler, watcher := newTestSetup(t)
+	ctx, cancel, _, _, reconciler, watcher := newTestSetup(t)
+	defer func() {
+		cancel()
+		time.Sleep(3 * time.Second)
+		ClearAll()
+	}()
 
 	sorter := cmpopts.SortSlices(func(a, b string) bool {
 		return a < b
@@ -297,7 +303,12 @@ func TestDomainConfigDefaultDomain(t *testing.T) {
 			"other.com": "selector:\n app: dev",
 		},
 	}
-	ctx, _, _, reconciler, _ := newTestSetup(t, domCfg)
+	ctx, cancel, _, _, reconciler, _ := newTestSetup(t, domCfg)
+	defer func() {
+		cancel()
+		time.Sleep(3 * time.Second)
+		ClearAll()
+	}()
 
 	ns := kubeNamespace("testns")
 	nsInformer := fakeinformerfactory.Get(ctx).Core().V1().Namespaces()
@@ -330,7 +341,12 @@ func TestDomainConfigExplicitDefaultDomain(t *testing.T) {
 			"default.com": "",
 		},
 	}
-	ctx, _, _, reconciler, _ := newTestSetup(t, domCfg)
+	ctx, cancel, _, _, reconciler, _ := newTestSetup(t, domCfg)
+	defer func() {
+		cancel()
+		time.Sleep(3 * time.Second)
+		ClearAll()
+	}()
 
 	namespace := kubeNamespace("testns")
 	nsInformer := fakeinformerfactory.Get(ctx).Core().V1().Namespaces()

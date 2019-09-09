@@ -1130,6 +1130,8 @@ func TestGlobalResyncOnUpdateNetwork(t *testing.T) {
 		if err := grp.Wait(); err != nil {
 			t.Errorf("Wait() = %v", err)
 		}
+		// To let the informers shut down.
+		time.Sleep(3 * time.Second)
 	}()
 
 	sharedClient := fakesharedclient.Get(ctx)
