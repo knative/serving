@@ -212,15 +212,21 @@ func (rt *revisionThrottler) updateThrottleState(throttler *Throttler, backendCo
 	// Update trackers / clusterIP before capacity. Otherwise we can race updating our breaker when
 	// we increase capacity, causing a request to fall through before a tracker is added, causing an
 	// incorrect LB decision.
-	func() {
+	if func() bool {
 		rt.mux.Lock()
 		defer rt.mux.Unlock()
 		rt.podIPTrackers = trackers
 		rt.clusterIPDest = clusterIPDest
-	}()
-
-	// Breaker has its own internal locking
-	rt.updateCapacity(throttler, backendCount)
+		return clusterIPDest != "" || len(trackers) > 0
+	}() {
+		// If we have an address to target, then pass through an accurate
+		// accounting of the number of backends.
+		rt.updateCapacity(throttler, backendCount)
+	} else {
+		// If we do not have an address to target, then we should treat it
+		// as though we have zero backends.
+		rt.updateCapacity(throttler, 0)
+	}
 }
 
 // This function will never be called in parallel but try can be called in parallel to this so we need
