@@ -23,8 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func TestIngressAccessorMethods(t *testing.T) {
-	ci := &Ingress{
+func TestCIAccessorMethods(t *testing.T) {
+	ci := &ClusterIngress{
 		Status: IngressStatus{
 			LoadBalancer: &LoadBalancerStatus{
 				Ingress: []LoadBalancerIngressStatus{{

@@ -19,6 +19,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	corev1 "k8s.io/api/core/v1"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	apitestv1 "knative.dev/pkg/apis/testing/v1"
@@ -111,4 +113,35 @@ func TestIngressTypicalFlow(t *testing.T) {
 	// Mark ingress not ready
 	r.MarkIngressNotReady("", "")
 	apitestv1.CheckConditionOngoing(r.duck(), IngressConditionReady, t)
+}
+
+func TestIngressGetCondition(t *testing.T) {
+	ingressStatus := &IngressStatus{}
+	ingressStatus.InitializeConditions()
+	tests := []struct {
+		name     string
+		condType apis.ConditionType
+		expect   *apis.Condition
+	}{{
+		name:     "random condition",
+		condType: apis.ConditionType("random"),
+		expect:   nil,
+	}, {
+		name:     "ready condition",
+		condType: apis.ConditionReady,
+		expect: &apis.Condition{
+			Status: corev1.ConditionUnknown,
+		},
+	}, {
+		name:     "succeeded condition",
+		condType: apis.ConditionSucceeded,
+		expect:   nil,
+	}}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got, want := ingressStatus.GetCondition(tc.condType), tc.expect; got != nil && got.Status != want.Status {
+				t.Errorf("got: %v, want: %v", got, want)
+			}
+		})
+	}
 }

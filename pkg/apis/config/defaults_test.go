@@ -153,6 +153,19 @@ func TestDefaultsConfiguration(t *testing.T) {
 				"max-revision-timeout-seconds": "123",
 			},
 		},
+	}, {
+		name:         "containerConcurrency is bigger than default DefaultMaxRevisionContainerConcurrency",
+		wantErr:      true,
+		wantDefaults: (*Defaults)(nil),
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      DefaultsConfigName,
+			},
+			Data: map[string]string{
+				"container-concurrency": "2000",
+			},
+		},
 	}}
 
 	for _, tt := range configTests {
