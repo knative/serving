@@ -52,8 +52,9 @@ import (
 )
 
 const (
-	testNamespace = "test-namespace"
-	testRevision  = "test-revision"
+	testNamespace      = "test-namespace"
+	testRevision       = "test-revision"
+	informerRestPeriod = 3 * time.Second
 )
 
 func revision(revID types.NamespacedName, protocol networking.ProtocolType) *v1alpha1.Revision {
@@ -408,8 +409,10 @@ func ep(revL string, port int32, portName string, ips ...string) *corev1.Endpoin
 }
 
 func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
-	defer ClearAll()
 	logger := TestLogger(t)
+	defer ClearAll()
+	// Make sure we wait out all the jitter in the system.
+	defer time.Sleep(informerRestPeriod)
 	for _, tc := range []struct {
 		name               string
 		endpointsArr       []*corev1.Endpoints
@@ -580,8 +583,6 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			}
 			rt := network.RoundTripperFunc(fakeRT.RT)
 
-			stopCh := make(chan struct{})
-			defer close(stopCh)
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer cancel()
 
@@ -601,10 +602,9 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 				serviceInformer.Informer().GetIndexer().Add(svc)
 			}
 
-			controller.StartInformers(stopCh, endpointsInformer.Informer())
+			controller.StartInformers(ctx.Done(), endpointsInformer.Informer())
 
-			rbm := NewRevisionBackendsManagerWithProbeFrequency(stopCh, rt, revisions.Lister(),
-				serviceInformer.Lister(), endpointsInformer, logger, 50*time.Millisecond)
+			rbm := NewRevisionBackendsManagerWithProbeFrequency(ctx, rt, logger, 50*time.Millisecond)
 
 			for _, ep := range tc.endpointsArr {
 				fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
@@ -632,7 +632,6 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			if got, want := revDests, tc.expectDests; !cmp.Equal(got, want) {
 				t.Errorf("RevisionDests = %v, want: %v, diff(-want,+got):%s\n", got, want, cmp.Diff(want, got))
 			}
-			time.Sleep(10 * time.Millisecond)
 		})
 	}
 }
@@ -640,6 +639,9 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 func TestCheckDests(t *testing.T) {
 	// This test covers some edge cases in `checkDests` which are next to impossible to
 	// test via tests above.
+
+	// To make sure context switch happens and informers terminate.
+	defer time.Sleep(informerRestPeriod)
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 	defer ClearAll()
@@ -682,12 +684,10 @@ func TestCheckDests(t *testing.T) {
 }
 
 func TestRevisionDeleted(t *testing.T) {
+	defer time.Sleep(informerRestPeriod)
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 	defer ClearAll()
-
-	dCh := make(chan struct{})
-	defer close(dCh)
 
 	svc := privateSksService(
 		types.NamespacedName{testNamespace, testRevision},
@@ -701,7 +701,7 @@ func TestRevisionDeleted(t *testing.T) {
 	ei := fakeendpointsinformer.Get(ctx)
 	ep := ep(testRevision, 1234, "http", "128.0.0.1")
 	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
-	controller.StartInformers(dCh, ei.Informer())
+	controller.StartInformers(ctx.Done(), ei.Informer())
 
 	rev := revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1)
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -712,13 +712,9 @@ func TestRevisionDeleted(t *testing.T) {
 	rt := network.RoundTripperFunc(fakeRT.RT)
 
 	rbm := NewRevisionBackendsManager(
-		dCh,
+		ctx,
 		rt,
-		ri.Lister(),
-		si.Lister(),
-		ei,
-		TestLogger(t),
-	)
+		TestLogger(t))
 	// Make some movements.
 	ei.Informer().GetIndexer().Add(ep)
 	select {
