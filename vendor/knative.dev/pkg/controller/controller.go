@@ -273,7 +273,13 @@ func (c *Impl) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer runtime.HandleCrash()
 	sg := sync.WaitGroup{}
 	defer sg.Wait()
-	defer c.WorkQueue.ShutDown()
+	defer func() {
+		c.WorkQueue.ShutDown()
+		// Wait for the queue to drain.
+		for c.WorkQueue.Len() > 0 {
+			time.Sleep(100 * time.Millisecond)
+		}
+	}()
 
 	// Launch workers to process resources that get enqueued to our workqueue.
 	logger := c.logger
@@ -368,11 +374,13 @@ func (c *Impl) GlobalResync(si cache.SharedInformer) {
 // FilteredGlobalResync enqueues (with a delay) all objects from the
 // SharedInformer that pass the filter function
 func (c *Impl) FilteredGlobalResync(f func(interface{}) bool, si cache.SharedInformer) {
-	list := si.GetStore().List()
-	count := float64(len(list))
-	for _, obj := range list {
-		if f(obj) {
-			c.EnqueueAfter(obj, wait.Jitter(time.Second, count))
+	if !c.WorkQueue.ShuttingDown() {
+		list := si.GetStore().List()
+		count := float64(len(list))
+		for _, obj := range list {
+			if f(obj) {
+				c.EnqueueAfter(obj, wait.Jitter(time.Second, count))
+			}
 		}
 	}
 }
