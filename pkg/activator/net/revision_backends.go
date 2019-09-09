@@ -213,13 +213,13 @@ func (rw *revisionWatcher) sendUpdate(update *RevisionDestsUpdate) {
 // assumed this method is not called concurrently.
 func (rw *revisionWatcher) checkDests(dests []string) {
 	if len(dests) == 0 {
-		if rw.clusterIPHealthy {
-			// We have a healthy clusterIP but revision is not ready. We must have scaled down.
-			rw.clusterIPHealthy = false
+		// We must have scaled down.
+		rw.clusterIPHealthy = false
 
-			// Send update that we are now inactive.
-			rw.sendUpdate(&RevisionDestsUpdate{Rev: rw.rev})
-		}
+		rw.logger.Debug("ClusterIP is no longer healthy.")
+
+		// Send update that we are now inactive.
+		rw.sendUpdate(&RevisionDestsUpdate{Rev: rw.rev})
 		return
 	}
 
