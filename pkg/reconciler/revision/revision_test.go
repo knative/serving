@@ -271,7 +271,10 @@ func (r *errorResolver) Resolve(_ string, _ k8schain.Options, _ sets.String) (st
 
 func TestResolutionFailed(t *testing.T) {
 	ctx, cancel, _, controller, _ := newTestController(t)
-	defer cancel()
+	defer func() {
+		cancel()
+		time.Sleep(3 * time.Second)
+	}()
 
 	// Unconditionally return this error during resolution.
 	errorMessage := "I am the expected error message, hear me ROAR!"
@@ -568,6 +571,8 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 				if err := grp.Wait(); err != nil {
 					t.Errorf("Wait() = %v", err)
 				}
+				// To allow all the informers shut down.
+				time.Sleep(3 * time.Second)
 			}()
 
 			servingClient := fakeservingclient.Get(ctx)
@@ -722,6 +727,8 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 				if err := grp.Wait(); err != nil {
 					t.Errorf("Wait() = %v", err)
 				}
+				// To allow all the informers shut down.
+				time.Sleep(3 * time.Second)
 			}()
 
 			kubeClient := fakekubeclient.Get(ctx)

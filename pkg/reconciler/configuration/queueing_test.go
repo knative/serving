@@ -85,7 +85,6 @@ func getTestConfiguration() *v1alpha1.Configuration {
 }
 
 func TestNewConfigurationCallsSyncHandler(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 
 	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
@@ -104,6 +103,9 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 		if err := eg.Wait(); err != nil {
 			t.Fatalf("Error running controller: %v", err)
 		}
+		// To let the informers shut down.
+		time.Sleep(3 * time.Second)
+		logtesting.ClearAll()
 	}()
 
 	servingClient := fakeservingclient.Get(ctx)
