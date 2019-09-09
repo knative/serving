@@ -155,7 +155,7 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 
 	if successfulRequests != totalRequests {
 		return fmt.Errorf("error making requests for scale up. total = %d, errors = %d, expected 0",
-		    totalRequests, totalRequests-successfulRequests)
+			totalRequests, totalRequests-successfulRequests)
 	}
 	return nil
 }
@@ -204,7 +204,7 @@ func generateTrafficAtFixedRPS(ctx *testContext, rps int, duration time.Duration
 
 	if successfulRequests != totalRequests {
 		return fmt.Errorf("error making requests for scale up. total = %d, errors = %d, expected 0",
-		    totalRequests, totalRequests-successfulRequests)
+			totalRequests, totalRequests-successfulRequests)
 	}
 	return nil
 }
