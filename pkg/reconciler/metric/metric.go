@@ -80,7 +80,7 @@ func (r *reconciler) Reconcile(ctx context.Context, key string) error {
 	if !equality.Semantic.DeepEqual(original.Status, metric.Status) {
 		// Change of status, need to update the object.
 		if uErr := r.updateStatus(metric); uErr != nil {
-			logger.Warnw("Failed to update metric  status", zap.Error(uErr))
+			logger.Warnw("Failed to update metric status", zap.Error(uErr))
 			r.Recorder.Eventf(metric, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update metric status: %v", uErr)
 			return uErr
