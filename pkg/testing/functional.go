@@ -187,6 +187,11 @@ func WithMetricAnnotation(metric string) PodAutoscalerOption {
 	return withAnnotationValue(autoscaling.MetricAnnotationKey, metric)
 }
 
+// WithMetricOwnersRemoved clears the owner references of this PodAutoscaler.
+func WithMetricOwnersRemoved(m *asv1a1.Metric) {
+	m.OwnerReferences = nil
+}
+
 // WithUpperScaleBound sets maxScale to the given number.
 func WithUpperScaleBound(i int) PodAutoscalerOption {
 	return withAnnotationValue(autoscaling.MaxScaleAnnotationKey, strconv.Itoa(i))

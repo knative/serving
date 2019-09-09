@@ -143,10 +143,16 @@ func metricWithDiffSvc(ns, n string) *asv1a1.Metric {
 	return m
 }
 
-func metric(ns, n string) *asv1a1.Metric {
+type metricOption func(*asv1a1.Metric)
+
+func metric(ns, n string, opts ...metricOption) *asv1a1.Metric {
 	pa := kpa(ns, n)
-	return aresources.MakeMetric(context.Background(), pa,
+	m := aresources.MakeMetric(context.Background(), pa,
 		kmeta.ChildName(n, "-metrics"), defaultConfig().Autoscaler)
+	for _, o := range opts {
+		o(m)
+	}
+	return m
 }
 
 func sks(ns, n string, so ...SKSOption) *nv1a1.ServerlessService {
@@ -775,6 +781,24 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling SKS: PA: test-revision does not own SKS: test-revision"),
+		},
+	}, {
+		Name: "metric is disowned",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, withScales(1, defaultScale), withMSvcStatus(testRevision), markActive),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			metric(testNamespace, testRevision, WithMetricOwnersRemoved),
+			defaultDeployment,
+		},
+		WantErr: true,
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, withScales(1, defaultScale),
+				withMSvcStatus(testRevision), markResourceNotOwned("Metric", testRevision)),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", `error reconciling metric: PA: test-revision does not own Metric: test-revision`),
 		},
 	}, {
 		Name: "steady not serving",
