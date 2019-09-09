@@ -91,11 +91,10 @@ In a highly-shared environment, containers might experience the following:
 
 ### Lifecycle
 
-- The container MAY be killed when the container is inactive.
-  Containers MUST be considered "active" while they are
-  handling at least one request, but other conditions MAY
-  also be used to determine that a container is active.
-  The container is sent a `SIGTERM` signal when it is killed via the
+- The container MAY be killed when the container is inactive. Containers MUST be
+  considered "active" while they are handling at least one request, but other
+  conditions MAY also be used to determine that a container is active. The
+  container is sent a `SIGTERM` signal when it is killed via the
   [OCI specification's `kill`](https://github.com/opencontainers/runtime-spec/blob/master/runtime.md#kill)
   command to allow for a graceful shutdown of existing resources and
   connections. If the container has not shut down after a defined grace period,
