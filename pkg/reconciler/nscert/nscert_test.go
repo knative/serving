@@ -24,10 +24,12 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
+
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	fakeinformerfactory "knative.dev/pkg/injection/informers/kubeinformers/factory"
@@ -47,6 +49,7 @@ import (
 
 	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/namespace/fake"
 	_ "knative.dev/pkg/system/testing"
+	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 )
 
 var (
@@ -59,15 +62,13 @@ var (
 func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	ctx context.Context,
 	cancel context.CancelFunc,
-	informers []controller.Informer,
-	controller *controller.Impl,
 	rclr *reconciler,
 	configMapWatcher *configmap.ManualWatcher) {
 
-	ctx, cancel, informers = SetupFakeContextWithCancel(t)
+	ctx, cancel, _ = SetupFakeContextWithCancel(t)
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 
-	controller = NewController(ctx, configMapWatcher)
+	controller := NewController(ctx, configMapWatcher)
 	rclr = controller.Reconciler.(*reconciler)
 
 	cms := []*corev1.ConfigMap{{
@@ -191,7 +192,7 @@ func TestReconcile(t *testing.T) {
 }
 
 func TestUpdateDomainTemplate(t *testing.T) {
-	ctx, cancel, _, _, reconciler, watcher := newTestSetup(t)
+	ctx, cancel, reconciler, watcher := newTestSetup(t)
 	defer func() {
 		cancel()
 		time.Sleep(3 * time.Second)
@@ -264,6 +265,10 @@ func TestUpdateDomainTemplate(t *testing.T) {
 	})
 	actual = certs.Items[0].Spec.DNSNames
 
+	certs, _ = fakeservingclient.Get(ctx).NetworkingV1alpha1().Certificates(ns.Name).List(metav1.ListOptions{
+		LabelSelector: selector,
+	})
+
 	// A new domain format not matched by the existing certificate should update the DNSName
 	if diff := cmp.Diff(expected, actual, sorter); diff != "" {
 		t.Errorf("DNSNames (-want, +got) = %s", diff)
@@ -303,7 +308,7 @@ func TestDomainConfigDefaultDomain(t *testing.T) {
 			"other.com": "selector:\n app: dev",
 		},
 	}
-	ctx, cancel, _, _, reconciler, _ := newTestSetup(t, domCfg)
+	ctx, cancel, reconciler, _ := newTestSetup(t, domCfg)
 	defer func() {
 		cancel()
 		time.Sleep(3 * time.Second)
@@ -341,7 +346,7 @@ func TestDomainConfigExplicitDefaultDomain(t *testing.T) {
 			"default.com": "",
 		},
 	}
-	ctx, cancel, _, _, reconciler, _ := newTestSetup(t, domCfg)
+	ctx, cancel, reconciler, _ := newTestSetup(t, domCfg)
 	defer func() {
 		cancel()
 		time.Sleep(3 * time.Second)
