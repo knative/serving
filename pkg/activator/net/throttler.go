@@ -152,7 +152,6 @@ func (rt *revisionThrottler) acquireDest() (string, func()) {
 func (rt *revisionThrottler) try(ctx context.Context, function func(string) error) error {
 	var ret error
 
-	rt.logger.Debug("Trying")
 	if !rt.breaker.Maybe(ctx, func() {
 		// See if we can get by with only a readlock
 		dest, err := rt.checkClusterIPDest()
@@ -199,15 +198,20 @@ func (rt *revisionThrottler) updateCapacity(throttler *Throttler, backendCount i
 	rt.capacityMux.Lock()
 	defer rt.capacityMux.Unlock()
 
-	capacity := rt.calculateCapacity(backendCount, throttler.activatorCount(), throttler.breakerParams.MaxConcurrency)
+	ac := throttler.activatorCount()
+	capacity := rt.calculateCapacity(backendCount, ac, throttler.breakerParams.MaxConcurrency)
 	rt.backendCount = backendCount
 	rt.breaker.UpdateConcurrency(capacity)
-	rt.logger.Debugf("Set capacity to %d", capacity)
+	rt.logger.Debugf("Set capacity to %d (backends: %d, activators: %d)", capacity, backendCount, ac)
 }
 
 func (rt *revisionThrottler) updateThrottleState(throttler *Throttler, backendCount int, trackers []*podIPTracker, clusterIPDest string) {
-	// Update trackers / clusterIP before capacity. Otherwise we can race updating our breaker when we increase
-	// capacity, causing a request to fall through before a tracker is added, causing an incorrect LB decision
+	rt.logger.Infof("Updating Revision Throttler with: clusterIP = %s, trackers = %d, backends = %d",
+		clusterIPDest, len(trackers), backendCount)
+
+	// Update trackers / clusterIP before capacity. Otherwise we can race updating our breaker when
+	// we increase capacity, causing a request to fall through before a tracker is added, causing an
+	// incorrect LB decision.
 	func() {
 		rt.mux.Lock()
 		defer rt.mux.Unlock()
@@ -222,8 +226,7 @@ func (rt *revisionThrottler) updateThrottleState(throttler *Throttler, backendCo
 // This function will never be called in parallel but try can be called in parallel to this so we need
 // to lock on updating concurrency / trackers
 func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update *RevisionDestsUpdate) {
-	rt.logger.Debug("Got update")
-
+	rt.logger.Debugf("Handling update w/ %d ready and dests: %v", update.ReadyAddressCount, update.Dests)
 	if update.Dests != nil {
 		// Because this wont be called in parallel we can build a new podIPTrackers array before taking out a lock
 		// Create a map for fast lookup of existing trackers
@@ -385,6 +388,7 @@ func (t *Throttler) activatorEndpointsUpdated(newObj interface{}) {
 	endpoints := newObj.(*corev1.Endpoints)
 
 	activatorCount := resources.ReadyAddressCount(endpoints)
+	t.logger.Debugf("Got %d ready activator endpoints.", activatorCount)
 	atomic.StoreInt32(&t.numActivators, int32(activatorCount))
 	t.updateAllThrottlerCapacity()
 }
