@@ -39,7 +39,7 @@ import (
 	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 	"knative.dev/serving/pkg/network"
 	rbase "knative.dev/serving/pkg/reconciler"
-	"knative.dev/serving/pkg/reconciler/nscert/config"
+	config "knative.dev/serving/pkg/reconciler/nscert/config"
 	"knative.dev/serving/pkg/reconciler/nscert/resources"
 )
 
