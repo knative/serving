@@ -19,23 +19,28 @@ package metric
 import (
 	"context"
 	"testing"
+	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	clientgotesting "k8s.io/client-go/testing"
 	"knative.dev/serving/pkg/autoscaler"
 
 	"github.com/pkg/errors"
 
-	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
 	. "knative.dev/pkg/reconciler/testing"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
 	rpkg "knative.dev/serving/pkg/reconciler"
 	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
 )
+
+type collectorKey struct{}
 
 func TestNewController(t *testing.T) {
 	defer logtesting.ClearAll()
@@ -55,12 +60,82 @@ func TestReconcile(t *testing.T) {
 		Name:                    "bad workqueue key, Part II",
 		Key:                     "too-few-parts",
 		SkipNamespaceValidation: true,
+	}, {
+		Name: "update status",
+		Key:  "status/update",
+		Objects: []runtime.Object{
+			metric("status", "update"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: metric("status", "update", ready),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated",
+				"Successfully updated metric status status/update"),
+		},
+	}, {
+		Name: "update status failed",
+		Key:  "status/update-failed",
+		Objects: []runtime.Object{
+			metric("status", "update-failed"),
+		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("update", "metrics"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: metric("status", "update-failed", ready),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "UpdateFailed",
+				"Failed to update metric status: inducing failure for update metrics"),
+		},
+		WantErr: true,
+	}, {
+		Name: "cannot create collection-part I",
+		Ctx: context.WithValue(context.Background(), collectorKey{},
+			&testCollector{createOrUpdateError: errors.New("the-error")},
+		),
+		Key: "bad/collector",
+		Objects: []runtime.Object{
+			metric("bad", "collector"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				"failed to initiate or update scraping: the-error"),
+			Eventf(corev1.EventTypeNormal, "Updated",
+				"Successfully updated metric status bad/collector"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: metric("bad", "collector", failed("CollectionFailed",
+				"Failed to reconcile metric collection")),
+		}},
+		WantErr: true,
+	}, {
+		Name: "cannot create collection-part II",
+		Ctx: context.WithValue(context.Background(), collectorKey{},
+			&testCollector{createOrUpdateError: errors.New("the-error")},
+		),
+		Key: "bad/collector",
+		Objects: []runtime.Object{
+			metric("bad", "collector", failed("CollectionFailed",
+				"Failed to reconcile metric collection")),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				"failed to initiate or update scraping: the-error"),
+		},
+		WantErr: true,
 	}}
 
 	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		col := &testCollector{}
+		if c := ctx.Value(collectorKey{}); c != nil {
+			col = c.(*testCollector)
+		}
 		return &reconciler{
 			Base:         rpkg.NewBase(ctx, controllerAgentName, cmw),
+			collector:    col,
 			metricLister: listers.GetMetricLister(),
 		}
 	}))
@@ -135,13 +210,34 @@ func TestReconcileWithCollector(t *testing.T) {
 	}
 }
 
-func metric(namespace, name string) *av1alpha1.Metric {
-	return &av1alpha1.Metric{
+type metricOption func(*av1alpha1.Metric)
+
+func failed(r, m string) metricOption {
+	return func(metric *av1alpha1.Metric) {
+		metric.Status.MarkMetricFailed(r, m)
+	}
+}
+
+func ready(m *av1alpha1.Metric) {
+	m.Status.MarkMetricReady()
+}
+
+func metric(namespace, name string, opts ...metricOption) *av1alpha1.Metric {
+	m := &av1alpha1.Metric{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      name,
 		},
+		Spec: av1alpha1.MetricSpec{
+			// Doesn't really matter what is by default, but we need something, so that
+			// Spec is not empty.
+			StableWindow: time.Minute,
+		},
 	}
+	for _, o := range opts {
+		o(m)
+	}
+	return m
 }
 
 type testCollector struct {
