@@ -26,10 +26,11 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 )
 
-// endpointsToDests takes an endpoints object and a port name and returns a list
-// of l4 dests in the endpoints object which have that port
-func endpointsToDests(endpoints *corev1.Endpoints, portName string) sets.String {
-	ret := sets.NewString()
+// endpointsToDests takes an endpoints object and a port name and returns both
+// ready and not ready l4 dests in the endpoints object which have that port
+func endpointsToDests(endpoints *corev1.Endpoints, portName string) destSets {
+	readyDests := sets.NewString()
+	notReadyDests := sets.NewString()
 
 	for _, es := range endpoints.Subsets {
 		for _, port := range es.Ports {
@@ -37,13 +38,21 @@ func endpointsToDests(endpoints *corev1.Endpoints, portName string) sets.String 
 				portStr := strconv.Itoa(int(port.Port))
 				for _, addr := range es.Addresses {
 					// Prefer IP as we can avoid a DNS lookup this way.
-					ret.Insert(net.JoinHostPort(addr.IP, portStr))
+					readyDests.Insert(net.JoinHostPort(addr.IP, portStr))
+				}
+				// Append not ready addresses because we want to send requests to
+				// pods before kube knows they are ready
+				for _, addr := range es.NotReadyAddresses {
+					notReadyDests.Insert(net.JoinHostPort(addr.IP, portStr))
 				}
 			}
 		}
 	}
 
-	return ret
+	return destSets{
+		readyDests:    readyDests,
+		notReadyDests: notReadyDests,
+	}
 }
 
 // getServicePort takes a service and a protocol and returns the port number of

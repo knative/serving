@@ -95,6 +95,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				}),
 				v1alpha1testing.WithConfigAnnotations(map[string]string{
 					"autoscaling.knative.dev/maxScale": "1",
+					"sidecar.istio.io/inject":          "false",
 				}),
 				v1alpha1testing.WithReadinessProbe(&corev1.Probe{
 					Handler: corev1.Handler{
@@ -127,7 +128,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				return v1a1test.IsServiceReady(s)
 			}, "ServiceUpdatedWithURL")
 			if err != nil {
-				t.Errorf("WaitForServiceState(w/ Domain) = %v", err)
+				// t.Errorf("WaitForServiceState(w/ Domain) = %v", err)
 				return fmt.Errorf("WaitForServiceState(w/ Domain) failed: %w", err)
 			}
 			// Record the time it took to become ready.
@@ -141,7 +142,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				"WaitForEndpointToServeText",
 				test.ServingFlags.ResolvableDomain)
 			if err != nil {
-				t.Errorf("WaitForEndpointState(expected text) = %v", err)
+				// t.Errorf("WaitForEndpointState(expected text) = %v", err)
 				return fmt.Errorf("WaitForEndpointState(expected text) failed: %w", err)
 			}
 			// Record the time it took to get back a 200 with the expected text.

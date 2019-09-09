@@ -61,8 +61,10 @@ type revisionDestsUpdate struct {
 }
 
 const (
-	probeTimeout   time.Duration = 300 * time.Millisecond
-	probeFrequency time.Duration = 200 * time.Millisecond
+	probeTimeoutDefault         time.Duration = 300 * time.Millisecond
+	probeTimeoutNotReadyDests   time.Duration = 300 * time.Millisecond
+	probeFrequencyDefault       time.Duration = 400 * time.Millisecond
+	probeFrequencyNotReadyDests time.Duration = 800 * time.Millisecond
 )
 
 // revisionWatcher watches the podIPs and ClusterIP of the service for a revision. It implements the logic
@@ -81,7 +83,7 @@ type revisionWatcher struct {
 	clusterIPHealthy bool
 
 	transport     http.RoundTripper
-	destsCh       chan sets.String
+	destsCh       chan destSets
 	serviceLister corev1listers.ServiceLister
 	logger        *zap.SugaredLogger
 
@@ -90,8 +92,14 @@ type revisionWatcher struct {
 	podsAddressable bool
 }
 
+// destSets holds both ready addresses and not ready addresses
+type destSets struct {
+	readyDests    sets.String
+	notReadyDests sets.String
+}
+
 func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol networking.ProtocolType,
-	updateCh chan<- revisionDestsUpdate, destsCh chan sets.String,
+	updateCh chan<- revisionDestsUpdate, destsCh chan destSets,
 	transport http.RoundTripper, serviceLister corev1listers.ServiceLister,
 	logger *zap.SugaredLogger) *revisionWatcher {
 	ctx, cancel := context.WithCancel(ctx)
@@ -162,19 +170,19 @@ func (rw *revisionWatcher) getDest() (string, error) {
 }
 
 func (rw *revisionWatcher) probeClusterIP(dest string) (bool, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), probeTimeoutDefault)
 	defer cancel()
 	return rw.probe(ctx, dest)
 }
 
-// probePodIPs will probe the given target Pod IPs and will return
-// the ones that are successfully probed, whether the update was a no-op, or an error.
-func (rw *revisionWatcher) probePodIPs(dests sets.String) (sets.String, bool, error) {
+// probePodIPs will probe the given target Pod IPs (which can be ready or
+// not ready addresses) and return the ones that are successfully probed,
+// whether the update was a no-op, or an error.
+func (rw *revisionWatcher) probePodIPs(dests sets.String, areReadyAddresses bool) (sets.String, bool, error) {
 	// Short circuit case where dests == healthyPods
 	if rw.healthyPods.Equal(dests) {
 		return rw.healthyPods, true /*no-op*/, nil
 	}
-
 	toProbe := sets.NewString()
 	healthy := sets.NewString()
 	for dest := range dests {
@@ -190,6 +198,10 @@ func (rw *revisionWatcher) probePodIPs(dests sets.String) (sets.String, bool, er
 		return healthy, false, nil
 	}
 
+	probeTimeout := probeTimeoutDefault
+	if !areReadyAddresses {
+		probeTimeout = probeTimeoutNotReadyDests
+	}
 	// Context used for our probe requests
 	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
 	defer cancel()
@@ -229,7 +241,8 @@ func (rw *revisionWatcher) sendUpdate(clusterIP string, dests sets.String) {
 
 // checkDests performs probing and potentially sends a dests update. It is
 // assumed this method is not called concurrently.
-func (rw *revisionWatcher) checkDests(dests sets.String) {
+func (rw *revisionWatcher) checkDests(dests sets.String, areReadyAddresses bool) {
+	rw.logger.Infof("entering checkDests, dests are %#v, areReadyAddresses is %#v, rw.podsAddressable is %#v", dests, areReadyAddresses, rw.podsAddressable)
 	if len(dests) == 0 {
 		// We must have scaled down.
 		rw.clusterIPHealthy = false
@@ -246,7 +259,7 @@ func (rw *revisionWatcher) checkDests(dests sets.String) {
 		// First check the pod IPs. If we can individually address
 		// the Pods we should go that route, since it permits us to do
 		// precise load balancing in the throttler.
-		hs, noop, err := rw.probePodIPs(dests)
+		hs, noop, err := rw.probePodIPs(dests, areReadyAddresses)
 		if err != nil {
 			rw.logger.Errorw("Failed probing", zap.Error(err))
 			// We dont want to return here as an error still affects health states.
@@ -294,10 +307,12 @@ func (rw *revisionWatcher) checkDests(dests sets.String) {
 	}
 }
 
-func (rw *revisionWatcher) run(probeFrequency time.Duration) {
-	defer close(rw.done)
+func (rw *revisionWatcher) run(probeFrequency time.Duration, probeFrequencyNotReady time.Duration) {
+	defer close(rw.destsCh)
 
-	var dests sets.String
+	var dests destSets
+	var destsToProbe sets.String
+	areReadyAddresses := false
 	timer := time.NewTicker(probeFrequency)
 	defer timer.Stop()
 
@@ -307,9 +322,15 @@ func (rw *revisionWatcher) run(probeFrequency time.Duration) {
 		// successfully probed or clusterIP has not been probed (no pod addressability),
 		// then we want to probe on timer.
 		rw.logger.Debugf("Dests: %+v, healthy dests: %+v, clusterIP: %v", dests, rw.healthyPods, rw.clusterIPHealthy)
-		if len(dests) > 0 && !(rw.clusterIPHealthy || dests.Equal(rw.healthyPods)) {
-			rw.logger.Debug("Probing on timer")
+		//if len(dests) > 0 && !(rw.clusterIPHealthy || dests.Equal(rw.healthyPods)) {
+		if (len(dests.readyDests) != 0 || len(dests.notReadyDests) != 0) && !(rw.clusterIPHealthy || (dests.readyDests.Equal(rw.healthyPods) && len(rw.healthyPods) != 0)) {
+			rw.logger.Debugf("Probing on timer, dests are %#v", dests)
 			tickCh = timer.C
+			if len(dests.readyDests) == 0 {
+				timer = time.NewTicker(probeFrequencyNotReady)
+			} else {
+				timer = time.NewTicker(probeFrequency)
+			}
 		} else {
 			rw.logger.Debug("Not Probing on timer")
 			tickCh = nil
@@ -320,10 +341,17 @@ func (rw *revisionWatcher) run(probeFrequency time.Duration) {
 			return
 		case x := <-rw.destsCh:
 			dests = x
+			if len(dests.readyDests) != 0 {
+				destsToProbe = dests.readyDests
+				areReadyAddresses = true
+			} else if len(dests.notReadyDests) != 0 {
+				destsToProbe = dests.notReadyDests
+			}
+
 		case <-tickCh:
 		}
 
-		rw.checkDests(dests)
+		rw.checkDests(destsToProbe, areReadyAddresses)
 	}
 }
 
@@ -337,21 +365,22 @@ type revisionBackendsManager struct {
 	revisionWatchers    map[types.NamespacedName]*revisionWatcher
 	revisionWatchersMux sync.RWMutex
 
-	updateCh       chan revisionDestsUpdate
-	transport      http.RoundTripper
-	logger         *zap.SugaredLogger
-	probeFrequency time.Duration
+	updateCh                    chan revisionDestsUpdate
+	transport                   http.RoundTripper
+	logger                      *zap.SugaredLogger
+	probeFrequencyDefault       time.Duration
+	probeFrequencyNotReadyDests time.Duration
 }
 
 // NewRevisionBackendsManager returns a new RevisionBackendsManager with default
 // probe time out.
 func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper) *revisionBackendsManager {
-	return newRevisionBackendsManagerWithProbeFrequency(ctx, tr, probeFrequency)
+	return newRevisionBackendsManagerWithProbeFrequency(ctx, tr, probeFrequencyDefault, probeFrequencyNotReadyDests)
 }
 
 // newRevisionBackendsManagerWithProbeFrequency creates a fully spec'd RevisionBackendsManager.
 func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.RoundTripper,
-	probeFreq time.Duration) *revisionBackendsManager {
+	probeFreqDefault time.Duration, probeFreqNotReadyDests time.Duration) *revisionBackendsManager {
 	rbm := &revisionBackendsManager{
 		ctx:              ctx,
 		revisionLister:   revisioninformer.Get(ctx).Lister(),
@@ -360,7 +389,8 @@ func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.R
 		updateCh:         make(chan revisionDestsUpdate),
 		transport:        tr,
 		logger:           logging.FromContext(ctx),
-		probeFrequency:   probeFrequency,
+		probeFrequencyDefault:       probeFreqDefault,
+		probeFrequencyNotReadyDests: probeFreqNotReadyDests,
 	}
 	endpointsInformer := endpointsinformer.Get(ctx)
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -419,10 +449,10 @@ func (rbm *revisionBackendsManager) getOrCreateRevisionWatcher(rev types.Namespa
 			return nil, err
 		}
 
-		destsCh := make(chan sets.String)
+		destsCh := make(chan destSets)
 		rw := newRevisionWatcher(rbm.ctx, rev, proto, rbm.updateCh, destsCh, rbm.transport, rbm.serviceLister, rbm.logger)
 		rbm.revisionWatchers[rev] = rw
-		go rw.run(rbm.probeFrequency)
+		go rw.run(rbm.probeFrequencyDefault, rbm.probeFrequencyNotReadyDests)
 		return rw, nil
 	}
 
@@ -448,7 +478,7 @@ func (rbm *revisionBackendsManager) endpointsUpdated(newObj interface{}) {
 		return
 	}
 	dests := endpointsToDests(endpoints, networking.ServicePortName(rw.protocol))
-	rbm.logger.Debugf("Updating Endpoints: %q (backends: %d)", revID.String(), len(dests))
+	rbm.logger.Debugf("Updating Endpoints: %q (ready dests: %d, not ready dests: %d)", revID.String(), len(dests.readyDests), len(dests.notReadyDests))
 	select {
 	case <-rbm.ctx.Done():
 		return

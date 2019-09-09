@@ -97,7 +97,7 @@ func TestRevisionWatcher(t *testing.T) {
 	logger := TestLogger(t)
 	for _, tc := range []struct {
 		name                  string
-		dests                 []string
+		dests                 destSets
 		protocol              networking.ProtocolType
 		clusterPort           corev1.ServicePort
 		clusterIP             string
@@ -107,8 +107,10 @@ func TestRevisionWatcher(t *testing.T) {
 		initialClusterIPState bool
 		noPodAddressability   bool // This keeps the test defs shorter.
 	}{{
-		name:  "single healthy podIP",
-		dests: []string{"128.0.0.1:1234"},
+		name: "single healthy podIP",
+		dests: destSets{
+			readyDests: sets.NewString("128.0.0.1:1234"),
+		},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
 			Port: 1234,
@@ -122,8 +124,27 @@ func TestRevisionWatcher(t *testing.T) {
 			}},
 		},
 	}, {
-		name:     "single http2 podIP",
-		dests:    []string{"128.0.0.1:1234"},
+		name: "single healthy podIP with not ready dest",
+		dests: destSets{
+			notReadyDests: sets.NewString("128.0.0.1:1234"),
+		},
+		clusterPort: corev1.ServicePort{
+			Name: "http",
+			Port: 1234,
+		},
+		clusterIP:     "129.0.0.1",
+		expectUpdates: []revisionDestsUpdate{{Dests: sets.NewString("128.0.0.1:1234")}},
+		probeResponses: []activatortest.FakeResponse{{
+			Code: http.StatusOK,
+			Body: queue.Name,
+		},{
+			Err: errors.New("clusterIP transport error"),
+		}},
+	}, {
+		name: "single http2 podIP",
+		dests: destSets{
+			readyDests: sets.NewString("128.0.0.1:1234"),
+		},
 		protocol: networking.ProtocolH2C,
 		clusterPort: corev1.ServicePort{
 			Name: "http2",
@@ -141,8 +162,10 @@ func TestRevisionWatcher(t *testing.T) {
 			}},
 		},
 	}, {
-		name:     "single http2 clusterIP",
-		dests:    []string{"128.0.0.1:1234"},
+		name: "single http2 clusterIP",
+		dests: destSets{
+			readyDests: sets.NewString("128.0.0.1:1234"),
+		},
 		protocol: networking.ProtocolH2C,
 		clusterPort: corev1.ServicePort{
 			Name: "http2",
@@ -162,16 +185,18 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 	}, {
 		name:      "no pods",
-		dests:     []string{},
+		dests:     destSets{},
 		clusterIP: "129.0.0.1",
 	}, {
 		name:                  "no pods, was happy",
-		dests:                 []string{},
+		dests:                 destSets{},
 		clusterIP:             "129.0.0.1",
 		initialClusterIPState: true,
 	}, {
-		name:  "single unavailable podIP",
-		dests: []string{"128.0.0.1:1234"},
+		name: "single unavailable podIP",
+		dests: destSets{
+			notReadyDests: sets.NewString("128.0.0.1:1234"),
+		},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
 			Port: 1234,
@@ -182,8 +207,10 @@ func TestRevisionWatcher(t *testing.T) {
 			Body: queue.Name,
 		}},
 	}, {
-		name:  "single error podIP",
-		dests: []string{"128.0.0.1:1234"},
+		name: "single error podIP",
+		dests: destSets{
+			readyDests: sets.NewString("128.0.0.1:1234"),
+		},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
 			Port: 1234,
@@ -195,8 +222,10 @@ func TestRevisionWatcher(t *testing.T) {
 			Body: queue.Name,
 		}},
 	}, {
-		name:  "podIP slow ready",
-		dests: []string{"128.0.0.1:1234"},
+		name: "podIP slow ready",
+		dests: destSets{
+			readyDests: sets.NewString("128.0.0.1:1234"),
+		},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
 			Port: 1234,
@@ -215,8 +244,10 @@ func TestRevisionWatcher(t *testing.T) {
 			}},
 		},
 	}, {
-		name:  "multiple healthy podIP",
-		dests: []string{"128.0.0.1:1234", "128.0.0.2:1234"},
+		name: "multiple healthy podIP",
+		dests: destSets{
+			readyDests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
+		},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
 			Port: 1234,
@@ -234,8 +265,11 @@ func TestRevisionWatcher(t *testing.T) {
 			}},
 		},
 	}, {
-		name:  "one healthy one unhealthy podIP",
-		dests: []string{"128.0.0.1:1234", "128.0.0.2:1234"},
+		name: "one healthy one unhealthy podIP",
+		dests: destSets{
+			notReadyDests: sets.NewString("128.0.0.1:1234"),
+			readyDests:    sets.NewString("128.0.0.2:1234"),
+		},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
 			Port: 1234,
@@ -253,7 +287,9 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 	}, {
 		name:  "one healthy one unhealthy podIP then both healthy",
-		dests: []string{"128.0.0.1:1234", "128.0.0.2:1234"},
+		dests: destSets{
+			readyDests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
+		},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
 			Port: 4321,
@@ -280,7 +316,9 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 	}, {
 		name:  "clusterIP slow ready, no pod addressability",
-		dests: []string{"128.0.0.1:1234"},
+		dests: destSets{
+			readyDests: sets.NewString("128.0.0.1:1234"),
+		},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
 			Port: 1234,
@@ -306,7 +344,10 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 	}, {
 		name:  "clusterIP  ready, no pod addressability",
-		dests: []string{"128.0.0.1:1234"},
+		dests: destSets{
+			//readyDests:    nil,
+			readyDests: sets.NewString("128.0.0.1:1234"),
+		},
 		clusterPort: corev1.ServicePort{
 			Name: "http",
 			Port: 1235,
@@ -315,7 +356,7 @@ func TestRevisionWatcher(t *testing.T) {
 		clusterIP:           "129.0.0.1",
 		expectUpdates: []revisionDestsUpdate{{
 			ClusterIPDest: "129.0.0.1:1235",
-			Dests:         sets.NewString("128.0.0.1:1234"),
+			Dests:         sets.String{"128.0.0.1:1234": {}},
 		}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"129.0.0.1:1234": {{
@@ -342,7 +383,7 @@ func TestRevisionWatcher(t *testing.T) {
 			defer close(updateCh)
 
 			// This gets closed up by revisionWatcher
-			destsCh := make(chan sets.String)
+			destsCh := make(chan destSets)
 
 			// Default for protocol is http1
 			if tc.protocol == "" {
@@ -375,10 +416,10 @@ func TestRevisionWatcher(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				rw.run(100 * time.Millisecond)
+				rw.run(100*time.Millisecond, 100*time.Millisecond)
 			}()
 
-			destsCh <- sets.NewString(tc.dests...)
+			destsCh <- tc.dests
 
 			updates := []revisionDestsUpdate{}
 			for i := 0; i < len(tc.expectUpdates); i++ {
@@ -407,39 +448,57 @@ func TestRevisionWatcher(t *testing.T) {
 				t.Errorf("revisionDests updates = %v, want: %v, diff (-want, +got):\n %s", got, want, cmp.Diff(want, got))
 			}
 
-			assertChClosed(t, rw.done)
+			assertChClosed(t, destsCh)
 		})
 	}
 }
 
-func assertChClosed(t *testing.T, ch chan struct{}) {
+func assertChClosed(t *testing.T, ch chan destSets) {
 	defer func() {
 		if r := recover(); r == nil {
 			t.Errorf("the channel was not closed")
 		}
 	}()
 	select {
-	case ch <- struct{}{}:
+	case ch <- destSets{}:
 		// Panics if the channel is closed
 	default:
 		// Prevents from blocking forever if the channel is not closed
 	}
 }
 
-func epSubset(port int32, portName string, ips []string) *corev1.EndpointSubset {
+func epSubset(port int32, portName string, eo ...endpointSubsetOption) *corev1.EndpointSubset {
 	ss := &corev1.EndpointSubset{
 		Ports: []corev1.EndpointPort{{
 			Name: portName,
 			Port: port,
 		}},
 	}
-	for _, ip := range ips {
-		ss.Addresses = append(ss.Addresses, corev1.EndpointAddress{IP: ip})
+	for _, opt := range eo {
+		opt(ss)
 	}
 	return ss
 }
 
-func ep(revL string, port int32, portName string, ips ...string) *corev1.Endpoints {
+type endpointSubsetOption func(*corev1.EndpointSubset)
+
+func withReadyAddresses(ips []string) endpointSubsetOption {
+	return func(epSubset *corev1.EndpointSubset) {
+		for _, ip := range ips {
+			epSubset.Addresses = append(epSubset.Addresses, corev1.EndpointAddress{IP: ip})
+		}
+	}
+}
+
+func withNotReadyAddresses(ips []string) endpointSubsetOption {
+	return func(epSubset *corev1.EndpointSubset) {
+		for _, ip := range ips {
+			epSubset.NotReadyAddresses = append(epSubset.NotReadyAddresses, corev1.EndpointAddress{IP: ip})
+		}
+	}
+}
+
+func ep(revL string, port int32, portName string, eo ...endpointSubsetOption) *corev1.Endpoints {
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: revL + "-ep",
@@ -449,7 +508,7 @@ func ep(revL string, port int32, portName string, ips ...string) *corev1.Endpoin
 				serving.RevisionLabelKey:  revL,
 			},
 		},
-		Subsets: []corev1.EndpointSubset{*epSubset(port, portName, ips)},
+		Subsets: []corev1.EndpointSubset{*epSubset(port, portName, eo...)},
 	}
 }
 
@@ -467,7 +526,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		updateCnt          int
 	}{{
 		name:         "add slow healthy",
-		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http", "128.0.0.1")},
+		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http", withReadyAddresses([]string{"128.0.0.1"}))},
 		revisions: []*v1alpha1.Revision{
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
@@ -495,7 +554,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		updateCnt: 1,
 	}, {
 		name:         "add slow ready http2",
-		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http2", "128.0.0.1")},
+		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http2", withReadyAddresses([]string{"128.0.0.1"}))},
 		revisions: []*v1alpha1.Revision{
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolH2C),
 		},
@@ -524,8 +583,8 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 	}, {
 		name: "multiple revisions",
 		endpointsArr: []*corev1.Endpoints{
-			ep("test-revision1", 1234, "http", "128.0.0.1"),
-			ep("test-revision2", 1235, "http", "128.1.0.2"),
+			ep("test-revision1", 1234, "http", withReadyAddresses([]string{"128.0.0.1"})),
+			ep("test-revision2", 1235, "http", withReadyAddresses([]string{"128.1.0.2"})),
 		},
 		revisions: []*v1alpha1.Revision{
 			revision(types.NamespacedName{testNamespace, "test-revision1"}, networking.ProtocolHTTP1),
@@ -552,7 +611,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		updateCnt: 2,
 	}, {
 		name:         "slow podIP",
-		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http", "128.0.0.1")},
+		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http", withReadyAddresses([]string{"128.0.0.1"}))},
 		revisions: []*v1alpha1.Revision{
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
@@ -579,7 +638,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		updateCnt: 1,
 	}, {
 		name:         "no pod addressability",
-		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http", "128.0.0.1")},
+		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http", withReadyAddresses([]string{"128.0.0.1"}))},
 		revisions: []*v1alpha1.Revision{
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
@@ -599,13 +658,13 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		expectDests: map[types.NamespacedName]revisionDestsUpdate{
 			{Namespace: testNamespace, Name: testRevision}: {
 				ClusterIPDest: "129.0.0.1:1234",
-				Dests:         sets.NewString("128.0.0.1:1234"),
+				Dests:         sets.String{"128.0.0.1:1234": {}},
 			},
 		},
 		updateCnt: 1,
 	}, {
 		name:         "unhealthy",
-		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http", "128.0.0.1")},
+		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http", withNotReadyAddresses([]string{"128.0.0.1"}))},
 		revisions: []*v1alpha1.Revision{
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
@@ -658,7 +717,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 				waitInformers()
 			}()
 
-			rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, rt, 50*time.Millisecond)
+			rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, rt, 50*time.Millisecond, 50*time.Millisecond)
 
 			for _, ep := range tc.endpointsArr {
 				fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
@@ -721,7 +780,7 @@ func TestCheckDests(t *testing.T) {
 		logger:           TestLogger(t),
 		stopCh:           dCh,
 	}
-	rw.checkDests(sets.NewString("10.1.1.5"))
+	rw.checkDests(sets.NewString("10.1.1.5"), true /* areReadyAddresses */)
 	select {
 	case <-uCh:
 		// Success.
@@ -730,7 +789,7 @@ func TestCheckDests(t *testing.T) {
 	}
 
 	close(dCh)
-	rw.checkDests(sets.NewString("10.1.1.5"))
+	rw.checkDests(sets.NewString("10.1.1.5"), true /* areReadyAddresses */)
 	select {
 	case <-uCh:
 		t.Error("Expected no update but got one")
@@ -805,7 +864,9 @@ func TestCheckDestsSwinging(t *testing.T) {
 		transport:       network.RoundTripperFunc(fakeRT.RT),
 	}
 	// First not ready, second good, clusterIP: not ready.
-	rw.checkDests(sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"))
+	rw.checkDests(sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"), true /* areReadyAddresses */)
+	//rw.checkDests(sets.NewString("10.0.0.1:1234"), false /* areReadyAddresses */)
+
 	want := revisionDestsUpdate{
 		Rev:           types.NamespacedName{testNamespace, testRevision},
 		ClusterIPDest: "",
@@ -821,8 +882,10 @@ func TestCheckDestsSwinging(t *testing.T) {
 		t.Error("Expected update but it never went out.")
 	}
 
-	// Second gone, first becomes ready, clusterIP still not ready.
-	rw.checkDests(sets.NewString("10.0.0.1:1234"))
+	// The ready dest gone, the not ready dest becomes ready (but kube doesn't know it's ready);
+	// clusterIP still not ready.
+	rw.checkDests(sets.NewString("10.0.0.1:1234"), false /* areReadyAddresses */)
+
 	select {
 	case got := <-uCh:
 		want.Dests = sets.NewString("10.0.0.1:1234")
@@ -833,8 +896,9 @@ func TestCheckDestsSwinging(t *testing.T) {
 		t.Error("Expected update but it never went out.")
 	}
 
-	// Second is back, but not healthy yet.
-	rw.checkDests(sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"))
+	// The originally ready dest is back, but not healthy yet.
+	rw.checkDests(sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"), false /* areReadyAddresses */)
+
 	select {
 	case got := <-uCh:
 		// No update should be sent out, since there's only healthy pod, same as above.
@@ -843,7 +907,8 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// All pods are happy now.
-	rw.checkDests(sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"))
+	rw.checkDests(sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"), true /* areReadyAddresses */)
+
 	select {
 	case got := <-uCh:
 		want.Dests = sets.NewString("10.0.0.2:1234", "10.0.0.1:1234")
@@ -855,7 +920,8 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// Make sure we do not send out redundant updates.
-	rw.checkDests(sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"))
+	rw.checkDests(sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"), true /* areReadyAddresses */)
+
 	select {
 	case got := <-uCh:
 		t.Errorf("Expected no update, but got %#v", got)
@@ -864,7 +930,8 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// Swing to a different pods.
-	rw.checkDests(sets.NewString("10.0.0.3:1234", "10.0.0.2:1234"))
+	rw.checkDests(sets.NewString("10.0.0.3:1234", "10.0.0.2:1234"), true /* areReadyAddresses */)
+
 	select {
 	case got := <-uCh:
 		want.Dests = sets.NewString("10.0.0.2:1234", "10.0.0.3:1234")
@@ -876,7 +943,8 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// Scale down by 1.
-	rw.checkDests(sets.NewString("10.0.0.2:1234"))
+	rw.checkDests(sets.NewString("10.0.0.2:1234"), true /* areReadyAddresses */)
+
 	select {
 	case got := <-uCh:
 		want.Dests = sets.NewString("10.0.0.2:1234")
@@ -901,7 +969,7 @@ func TestRevisionDeleted(t *testing.T) {
 	si.Informer().GetIndexer().Add(svc)
 
 	ei := fakeendpointsinformer.Get(ctx)
-	ep := ep(testRevision, 1234, "http", "128.0.0.1")
+	ep := ep(testRevision, 1234, "http", withReadyAddresses([]string{"128.0.0.1"}))
 	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
 	waitInformers, err := controller.RunInformers(ctx.Done(), ei.Informer())
 	if err != nil {

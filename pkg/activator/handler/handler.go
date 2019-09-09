@@ -93,7 +93,10 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	err = a.throttler.Try(tryContext, revID, func(dest string) error {
+		logger.Infof("Trying destination %q", dest)
+		defer logger.Infof("Finish")
 		trySpan.End()
+		logger.Infof("------------TARALOG in serve http, dest is %s", dest)
 
 		var httpStatus int
 		target := url.URL{
@@ -103,6 +106,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		proxyCtx, proxySpan := trace.StartSpan(r.Context(), "proxy")
 		httpStatus = a.proxyRequest(logger, w, r.WithContext(proxyCtx), &target)
+		logger.Infof("*********** httpStatus is %#v ******************* ", httpStatus)
 		proxySpan.End()
 
 		configurationName := revision.Labels[serving.ConfigurationLabelKey]

@@ -451,7 +451,7 @@ func TestMultipleActivators(t *testing.T) {
 			Name:      networking.ActivatorServiceName,
 			Namespace: system.Namespace(),
 		},
-		Subsets: []corev1.EndpointSubset{*epSubset(8012, "http", []string{"130.0.0.1", "130.0.0.2"})},
+		Subsets: []corev1.EndpointSubset{*epSubset(8012, "http", withReadyAddresses([]string{"130.0.0.1", "130.0.0.2"}))},
 	}
 	fake.CoreV1().Endpoints(system.Namespace()).Create(activatorEp)
 	endpoints.Informer().GetIndexer().Add(activatorEp)
