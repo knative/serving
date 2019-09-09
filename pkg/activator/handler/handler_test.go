@@ -22,7 +22,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -452,80 +451,6 @@ func sendRequest(namespace, revName string, handler *activationHandler, store *a
 	ctx := store.ToContext(req.Context())
 	handler.ServeHTTP(resp, req.WithContext(ctx))
 	return resp
-}
-
-// sendRequests sends `count` concurrent requests via the given handler and writes
-// the recorded responses to the `respCh`.
-func sendRequests(count int, namespace, revName string, respCh chan *httptest.ResponseRecorder, handler *activationHandler, store *activatorconfig.Store) {
-	for i := 0; i < count; i++ {
-		go func() {
-			respCh <- sendRequest(namespace, revName, handler, store)
-		}()
-	}
-}
-
-func assertResponses(wantedSuccess, wantedFailure, overallRequests int, lockerCh chan struct{}, respCh chan *httptest.ResponseRecorder, t *testing.T) {
-	t.Helper()
-
-	const channelTimeout = 3 * time.Second
-	var (
-		successCode = http.StatusOK
-		failureCode = http.StatusServiceUnavailable
-
-		succeeded int
-		failed    int
-	)
-
-	processResponse := func(chan *httptest.ResponseRecorder) {
-		select {
-		case resp := <-respCh:
-			bodyBytes, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				t.Fatalf("Failed to read body: %v", err)
-			}
-			gotBody := strings.TrimSpace(string(bodyBytes))
-
-			switch resp.Code {
-			case successCode:
-				succeeded++
-				if gotBody != wantBody {
-					t.Errorf("response body = %q, want: %q", gotBody, wantBody)
-				}
-			case failureCode:
-				failed++
-				if gotBody != activatornet.ErrActivatorOverload.Error() {
-					t.Errorf("error message = %q, want: %q", gotBody, activatornet.ErrActivatorOverload.Error())
-				}
-			default:
-				t.Errorf("http response code = %d, want: %d or %d", resp.Code, successCode, failureCode)
-			}
-		case <-time.After(channelTimeout):
-			t.Fatalf("Timed out waiting for a request to be returned")
-		}
-	}
-
-	// The failures will arrive first, because we block other requests from being executed
-	for i := 0; i < wantedFailure; i++ {
-		processResponse(respCh)
-	}
-
-	for i := 0; i < wantedSuccess; i++ {
-		// All of the success requests are locked via the lockerCh.
-		select {
-		case <-lockerCh:
-			// All good.
-		case <-time.After(channelTimeout):
-			t.Fatalf("Timed out waiting for a request to reach the RoundTripper")
-		}
-		processResponse(respCh)
-	}
-
-	if wantedFailure != failed {
-		t.Errorf("failed request count = %d, want: %d", failed, wantedFailure)
-	}
-	if succeeded != wantedSuccess {
-		t.Errorf("successful request count = %d, want: %d", succeeded, wantedSuccess)
-	}
 }
 
 type reporterCall struct {

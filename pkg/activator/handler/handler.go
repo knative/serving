@@ -38,7 +38,6 @@ import (
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/network/prober"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -78,15 +77,6 @@ func New(l *zap.SugaredLogger, r activator.StatsReporter,
 		sksLister:       sksL,
 		serviceLister:   sl,
 		endpointTimeout: defaulTimeout,
-	}
-}
-
-func withOrigProto(or *http.Request) prober.Preparer {
-	return func(r *http.Request) *http.Request {
-		r.Proto = or.Proto
-		r.ProtoMajor = or.ProtoMajor
-		r.ProtoMinor = or.ProtoMinor
-		return r
 	}
 }
 
