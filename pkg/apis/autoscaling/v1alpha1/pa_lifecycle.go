@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/serving/pkg/apis/autoscaling"
 )
 
@@ -216,8 +216,8 @@ func (pas *PodAutoscalerStatus) inStatusFor(status corev1.ConditionStatus, now t
 	return now.Sub(cond.LastTransitionTime.Inner.Add(dur))
 }
 
-func (pas *PodAutoscalerStatus) duck() *duckv1beta1.Status {
-	return (*duckv1beta1.Status)(&pas.Status)
+func (pas *PodAutoscalerStatus) duck() *duckv1.Status {
+	return (*duckv1.Status)(&pas.Status)
 }
 
 // GetDesiredScale returns the desired scale if ever set, or -1.

@@ -25,7 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
@@ -85,9 +85,9 @@ func TestConfigurationConversion(t *testing.T) {
 				},
 			},
 			Status: ConfigurationStatus{
-				Status: duckv1beta1.Status{
+				Status: duckv1.Status{
 					ObservedGeneration: 1,
-					Conditions: duckv1beta1.Conditions{{
+					Conditions: duckv1.Conditions{{
 						Type:   "Ready",
 						Status: "True",
 					}},
@@ -124,9 +124,9 @@ func TestConfigurationConversion(t *testing.T) {
 				},
 			},
 			Status: ConfigurationStatus{
-				Status: duckv1beta1.Status{
+				Status: duckv1.Status{
 					ObservedGeneration: 1,
-					Conditions: duckv1beta1.Conditions{{
+					Conditions: duckv1.Conditions{{
 						Type:   "Ready",
 						Status: "True",
 					}},

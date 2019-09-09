@@ -42,7 +42,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -106,8 +106,8 @@ func getTestRevisionWithCondition(name string, cond apis.Condition) *v1alpha1.Re
 		},
 		Status: v1alpha1.RevisionStatus{
 			ServiceName: name,
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{cond},
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{cond},
 			},
 		},
 	}

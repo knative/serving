@@ -1655,7 +1655,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:845161fa3410fee06ef74c53a1581724d9675f656c42f08b71de8fad64108bc6"
+  digest = "1:38226cb742766a4f78effcbbae38ce0c83ff696529553356c908467a1871fdd8"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1668,7 +1668,7 @@
     "apis/istio/authentication/v1alpha1",
     "apis/istio/common/v1alpha1",
     "apis/istio/v1alpha3",
-    "apis/testing",
+    "apis/testing/v1",
     "apis/v1alpha1",
     "changeset",
     "client/clientset/versioned",
@@ -1765,7 +1765,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "bf5252e748cfaf9017228abdc74a93a42b3bcbff"
+  revision = "5f0515d33675c298c4054ac52268700bae3ceaa7"
 
 [[projects]]
   branch = "master"
@@ -1901,7 +1901,7 @@
     "knative.dev/pkg/apis/duck/v1beta1",
     "knative.dev/pkg/apis/istio/common/v1alpha1",
     "knative.dev/pkg/apis/istio/v1alpha3",
-    "knative.dev/pkg/apis/testing",
+    "knative.dev/pkg/apis/testing/v1",
     "knative.dev/pkg/client/clientset/versioned",
     "knative.dev/pkg/client/clientset/versioned/fake",
     "knative.dev/pkg/client/informers/externalversions",

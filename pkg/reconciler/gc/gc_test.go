@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgotesting "k8s.io/client-go/testing"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -226,8 +226,8 @@ func TestIsRevisionStale(t *testing.T) {
 				CreationTimestamp: metav1.NewTime(staleTime),
 			},
 			Status: v1alpha1.RevisionStatus{
-				Status: duckv1beta1.Status{
-					Conditions: duckv1beta1.Conditions{{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{{
 						Type:   v1alpha1.RevisionConditionReady,
 						Status: "True",
 					}},
@@ -243,8 +243,8 @@ func TestIsRevisionStale(t *testing.T) {
 				CreationTimestamp: metav1.NewTime(staleTime),
 			},
 			Status: v1alpha1.RevisionStatus{
-				Status: duckv1beta1.Status{
-					Conditions: duckv1beta1.Conditions{{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{{
 						Type:   v1alpha1.RevisionConditionReady,
 						Status: "Unknown",
 					}},

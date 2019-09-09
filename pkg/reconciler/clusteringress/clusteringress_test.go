@@ -43,7 +43,7 @@ import (
 	"knative.dev/pkg/kmeta"
 
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/apis/istio/v1alpha3"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -209,8 +209,8 @@ func TestReconcile(t *testing.T) {
 							{MeshOnly: true},
 						},
 					},
-					Status: duckv1beta1.Status{
-						Conditions: duckv1beta1.Conditions{{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{{
 							Type:     v1alpha1.IngressConditionLoadBalancerReady,
 							Status:   corev1.ConditionTrue,
 							Severity: apis.ConditionSeverityError,
@@ -243,8 +243,8 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			ingressWithStatus("reconcile-failed", 1234,
 				v1alpha1.IngressStatus{
-					Status: duckv1beta1.Status{
-						Conditions: duckv1beta1.Conditions{{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{{
 							Type:   v1alpha1.IngressConditionLoadBalancerReady,
 							Status: corev1.ConditionTrue,
 						}, {
@@ -281,8 +281,8 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: ingressWithStatus("reconcile-failed", 1234,
 				v1alpha1.IngressStatus{
-					Status: duckv1beta1.Status{
-						Conditions: duckv1beta1.Conditions{{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{{
 							Type:   v1alpha1.IngressConditionLoadBalancerReady,
 							Status: corev1.ConditionTrue,
 						}, {
@@ -369,8 +369,8 @@ func TestReconcile(t *testing.T) {
 							{MeshOnly: true},
 						},
 					},
-					Status: duckv1beta1.Status{
-						Conditions: duckv1beta1.Conditions{{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{{
 							Type:     v1alpha1.IngressConditionLoadBalancerReady,
 							Status:   corev1.ConditionTrue,
 							Severity: apis.ConditionSeverityError,
@@ -462,8 +462,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 							{MeshOnly: true},
 						},
 					},
-					Status: duckv1beta1.Status{
-						Conditions: duckv1beta1.Conditions{{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{{
 							Type:     v1alpha1.IngressConditionLoadBalancerReady,
 							Status:   corev1.ConditionTrue,
 							Severity: apis.ConditionSeverityError,
@@ -506,8 +506,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			Object: ingressWithTLSAndStatus("reconciling-clusteringress", 1234,
 				ingressTLS,
 				v1alpha1.IngressStatus{
-					Status: duckv1beta1.Status{
-						Conditions: duckv1beta1.Conditions{{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{{
 							Type:     v1alpha1.IngressConditionLoadBalancerReady,
 							Status:   corev1.ConditionUnknown,
 							Severity: apis.ConditionSeverityError,
@@ -607,8 +607,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 							{MeshOnly: true},
 						},
 					},
-					Status: duckv1beta1.Status{
-						Conditions: duckv1beta1.Conditions{{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{{
 							Type:     v1alpha1.IngressConditionLoadBalancerReady,
 							Status:   corev1.ConditionTrue,
 							Severity: apis.ConditionSeverityError,
@@ -709,8 +709,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 							{MeshOnly: true},
 						},
 					},
-					Status: duckv1beta1.Status{
-						Conditions: duckv1beta1.Conditions{{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{{
 							Type:     v1alpha1.IngressConditionLoadBalancerReady,
 							Status:   corev1.ConditionTrue,
 							Severity: apis.ConditionSeverityError,
@@ -765,8 +765,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 							{MeshOnly: true},
 						},
 					},
-					Status: duckv1beta1.Status{
-						Conditions: duckv1beta1.Conditions{{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{{
 							Type:     v1alpha1.IngressConditionLoadBalancerReady,
 							Status:   corev1.ConditionTrue,
 							Severity: apis.ConditionSeverityError,
@@ -1086,8 +1086,8 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 					{DomainInternal: ""},
 				},
 			},
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
 					Type:   v1alpha1.IngressConditionLoadBalancerReady,
 					Status: corev1.ConditionTrue,
 				}, {
@@ -1171,8 +1171,8 @@ func TestGlobalResyncOnUpdateNetwork(t *testing.T) {
 					{DomainInternal: originDomainInternal},
 				},
 			},
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
 					Type:   v1alpha1.IngressConditionLoadBalancerReady,
 					Status: corev1.ConditionTrue,
 				}, {

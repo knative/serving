@@ -25,7 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
@@ -81,9 +81,9 @@ func TestRevisionConversion(t *testing.T) {
 				},
 			},
 			Status: RevisionStatus{
-				Status: duckv1beta1.Status{
+				Status: duckv1.Status{
 					ObservedGeneration: 1,
-					Conditions: duckv1beta1.Conditions{{
+					Conditions: duckv1.Conditions{{
 						Type:   "Ready",
 						Status: "True",
 					}},
@@ -132,9 +132,9 @@ func TestRevisionConversion(t *testing.T) {
 				},
 			},
 			Status: RevisionStatus{
-				Status: duckv1beta1.Status{
+				Status: duckv1.Status{
 					ObservedGeneration: 1,
-					Conditions: duckv1beta1.Conditions{{
+					Conditions: duckv1.Conditions{{
 						Type:   "Ready",
 						Status: "True",
 					}},
@@ -232,9 +232,9 @@ func TestRevisionConversionError(t *testing.T) {
 				},
 			},
 			Status: RevisionStatus{
-				Status: duckv1beta1.Status{
+				Status: duckv1.Status{
 					ObservedGeneration: 1,
-					Conditions: duckv1beta1.Conditions{{
+					Conditions: duckv1.Conditions{{
 						Type:   "Ready",
 						Status: "True",
 					}},
@@ -263,9 +263,9 @@ func TestRevisionConversionError(t *testing.T) {
 				},
 			},
 			Status: RevisionStatus{
-				Status: duckv1beta1.Status{
+				Status: duckv1.Status{
 					ObservedGeneration: 1,
-					Conditions: duckv1beta1.Conditions{{
+					Conditions: duckv1.Conditions{{
 						Type:   "Ready",
 						Status: "True",
 					}},

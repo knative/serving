@@ -21,7 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 var depCondSet = apis.NewLivingConditionSet(
@@ -41,10 +41,10 @@ const (
 )
 
 // transformDeploymentStatus transforms the kubernetes DeploymentStatus into a
-// duckv1beta1.Status that uses ConditionSets to propagate failures and expose
+// duckv1.Status that uses ConditionSets to propagate failures and expose
 // a top-level happy state, per our condition conventions.
-func TransformDeploymentStatus(ds *appsv1.DeploymentStatus) *duckv1beta1.Status {
-	s := &duckv1beta1.Status{}
+func TransformDeploymentStatus(ds *appsv1.DeploymentStatus) *duckv1.Status {
+	s := &duckv1.Status{}
 
 	depCondSet.Manage(s).InitializeConditions()
 	// The absence of this condition means no failure has occurred. If we find it

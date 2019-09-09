@@ -17,6 +17,9 @@ limitations under the License.
 package v1
 
 import (
+	"context"
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -34,8 +37,12 @@ type Addressable struct {
 	URL *apis.URL `json:"url,omitempty"`
 }
 
-// Addressable is an Implementable "duck type".
-var _ duck.Implementable = (*Addressable)(nil)
+var (
+	// Addressable is an Implementable "duck type".
+	_ duck.Implementable = (*Addressable)(nil)
+	// Addressable is a Convertible type.
+	_ apis.Convertible = (*Addressable)(nil)
+)
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -66,6 +73,16 @@ var (
 // GetFullType implements duck.Implementable
 func (*Addressable) GetFullType() duck.Populatable {
 	return &AddressableType{}
+}
+
+// ConvertUp implements apis.Convertible
+func (a *Addressable) ConvertUp(ctx context.Context, to apis.Convertible) error {
+	return fmt.Errorf("v1 is the highest known version, got: %T", to)
+}
+
+// ConvertDown implements apis.Convertible
+func (a *Addressable) ConvertDown(ctx context.Context, from apis.Convertible) error {
+	return fmt.Errorf("v1 is the highest known version, got: %T", from)
 }
 
 // Populate implements duck.Populatable

@@ -33,7 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/signals"
@@ -74,7 +74,7 @@ func readTemplate() (*v1beta1.Service, error) {
 	return svc, nil
 }
 
-func handle(q *quickstore.Quickstore, svc kmeta.Accessor, status duckv1beta1.Status,
+func handle(q *quickstore.Quickstore, svc kmeta.Accessor, status duckv1.Status,
 	seen *sets.String, metric string) {
 	if seen.Has(svc.GetName()) {
 		return
@@ -157,7 +157,7 @@ func main() {
 
 	lo := metav1.ListOptions{TimeoutSeconds: ptr.Int64(int64(duration.Seconds()))}
 
-	// TODO(mattmoor): We could maybe use a duckv1beta1.KResource to eliminate this boilerplate.
+	// TODO(mattmoor): We could maybe use a duckv1.KResource to eliminate this boilerplate.
 
 	serviceWI, err := sc.ServingV1beta1().Services(tmpl.Namespace).Watch(lo)
 	if err != nil {

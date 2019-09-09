@@ -25,7 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/config"
 	net "knative.dev/serving/pkg/apis/networking"
@@ -316,7 +316,7 @@ func (r *Revision) IsReachable() bool {
 	return r.ObjectMeta.Labels[serving.RouteLabelKey] != ""
 }
 
-func (rs *RevisionStatus) duck() *duckv1beta1.Status {
+func (rs *RevisionStatus) duck() *duckv1.Status {
 	return &rs.Status
 }
 

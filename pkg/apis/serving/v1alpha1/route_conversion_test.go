@@ -24,6 +24,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
+	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
@@ -63,9 +65,9 @@ func TestRouteConversion(t *testing.T) {
 				}},
 			},
 			Status: RouteStatus{
-				Status: duckv1beta1.Status{
+				Status: duckv1.Status{
 					ObservedGeneration: 1,
-					Conditions: duckv1beta1.Conditions{{
+					Conditions: duckv1.Conditions{{
 						Type:   "Ready",
 						Status: "True",
 					}},
@@ -77,9 +79,20 @@ func TestRouteConversion(t *testing.T) {
 							Percent:      ptr.Int64(100),
 						},
 					}},
-					// TODO(mattmoor): Addressable
-					// TODO(mattmoor): Domain
-					// TODO(mattmoor): DomainInternal
+					Address: &duckv1alpha1.Addressable{
+						Addressable: duckv1beta1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   "hostname.com",
+							},
+						},
+					},
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   "hostname.com",
+					},
+					// TODO(mattmoor): Domain is emptied
+					// TODO(mattmoor): DomainInternal is emptied
 				},
 			},
 		},
@@ -100,9 +113,9 @@ func TestRouteConversion(t *testing.T) {
 				}},
 			},
 			Status: RouteStatus{
-				Status: duckv1beta1.Status{
+				Status: duckv1.Status{
 					ObservedGeneration: 1,
-					Conditions: duckv1beta1.Conditions{{
+					Conditions: duckv1.Conditions{{
 						Type:   "Ready",
 						Status: "True",
 					}},
@@ -114,9 +127,20 @@ func TestRouteConversion(t *testing.T) {
 							Percent:      ptr.Int64(100),
 						},
 					}},
-					// TODO(mattmoor): Addressable
-					// TODO(mattmoor): Domain
-					// TODO(mattmoor): DomainInternal
+					Address: &duckv1alpha1.Addressable{
+						Addressable: duckv1beta1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   "hostname.com",
+							},
+						},
+					},
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   "hostname.com",
+					},
+					// TODO(mattmoor): Domain is emptied
+					// TODO(mattmoor): DomainInternal is emptied
 				},
 			},
 		},
@@ -156,9 +180,9 @@ func TestRouteConversion(t *testing.T) {
 				}},
 			},
 			Status: RouteStatus{
-				Status: duckv1beta1.Status{
+				Status: duckv1.Status{
 					ObservedGeneration: 3,
-					Conditions: duckv1beta1.Conditions{{
+					Conditions: duckv1.Conditions{{
 						Type:   "Ready",
 						Status: "True",
 					}},
@@ -230,9 +254,9 @@ func TestRouteConversion(t *testing.T) {
 				}},
 			},
 			Status: RouteStatus{
-				Status: duckv1beta1.Status{
+				Status: duckv1.Status{
 					ObservedGeneration: 3,
-					Conditions: duckv1beta1.Conditions{{
+					Conditions: duckv1.Conditions{{
 						Type:   "Ready",
 						Status: "True",
 					}},

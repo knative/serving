@@ -21,7 +21,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 // InitializeConditions initializes the certificate conditions.
@@ -75,6 +75,6 @@ func (c *Certificate) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Certificate")
 }
 
-func (cs *CertificateStatus) duck() *duckv1beta1.Status {
+func (cs *CertificateStatus) duck() *duckv1.Status {
 	return &cs.Status
 }

@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/system"
@@ -94,9 +94,9 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: knCertWithStatus("knCert", "foo",
 				&v1alpha1.CertificateStatus{
-					Status: duckv1beta1.Status{
+					Status: duckv1.Status{
 						ObservedGeneration: generation,
-						Conditions: duckv1beta1.Conditions{{
+						Conditions: duckv1.Conditions{{
 							Type:     v1alpha1.CertificateConditionReady,
 							Status:   corev1.ConditionUnknown,
 							Severity: apis.ConditionSeverityError,
@@ -122,9 +122,9 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: knCertWithStatus("knCert", "foo",
 				&v1alpha1.CertificateStatus{
-					Status: duckv1beta1.Status{
+					Status: duckv1.Status{
 						ObservedGeneration: generation,
-						Conditions: duckv1beta1.Conditions{{
+						Conditions: duckv1.Conditions{{
 							Type:     v1alpha1.CertificateConditionReady,
 							Status:   corev1.ConditionUnknown,
 							Severity: apis.ConditionSeverityError,
@@ -143,9 +143,9 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			knCertWithStatusAndGeneration("knCert", "foo",
 				&v1alpha1.CertificateStatus{
-					Status: duckv1beta1.Status{
+					Status: duckv1.Status{
 						ObservedGeneration: generation + 1,
-						Conditions: duckv1beta1.Conditions{{
+						Conditions: duckv1.Conditions{{
 							Type:   v1alpha1.CertificateConditionReady,
 							Status: corev1.ConditionTrue,
 						}},
@@ -163,9 +163,9 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: knCertWithStatusAndGeneration("knCert", "foo",
 				&v1alpha1.CertificateStatus{
-					Status: duckv1beta1.Status{
+					Status: duckv1.Status{
 						ObservedGeneration: generation + 1,
-						Conditions: duckv1beta1.Conditions{{
+						Conditions: duckv1.Conditions{{
 							Type:     v1alpha1.CertificateConditionReady,
 							Status:   corev1.ConditionUnknown,
 							Severity: apis.ConditionSeverityError,
@@ -193,9 +193,9 @@ func TestReconcile(t *testing.T) {
 			Object: knCertWithStatus("knCert", "foo",
 				&v1alpha1.CertificateStatus{
 					NotAfter: notAfter,
-					Status: duckv1beta1.Status{
+					Status: duckv1.Status{
 						ObservedGeneration: generation,
-						Conditions: duckv1beta1.Conditions{{
+						Conditions: duckv1.Conditions{{
 							Type:     v1alpha1.CertificateConditionReady,
 							Status:   corev1.ConditionTrue,
 							Severity: apis.ConditionSeverityError,
@@ -214,9 +214,9 @@ func TestReconcile(t *testing.T) {
 			Object: knCertWithStatus("knCert", "foo",
 				&v1alpha1.CertificateStatus{
 					NotAfter: notAfter,
-					Status: duckv1beta1.Status{
+					Status: duckv1.Status{
 						ObservedGeneration: generation,
-						Conditions: duckv1beta1.Conditions{{
+						Conditions: duckv1.Conditions{{
 							Type:     v1alpha1.CertificateConditionReady,
 							Status:   corev1.ConditionUnknown,
 							Severity: apis.ConditionSeverityError,
@@ -235,9 +235,9 @@ func TestReconcile(t *testing.T) {
 			Object: knCertWithStatus("knCert", "foo",
 				&v1alpha1.CertificateStatus{
 					NotAfter: notAfter,
-					Status: duckv1beta1.Status{
+					Status: duckv1.Status{
 						ObservedGeneration: generation,
-						Conditions: duckv1beta1.Conditions{{
+						Conditions: duckv1.Conditions{{
 							Type:     v1alpha1.CertificateConditionReady,
 							Status:   corev1.ConditionFalse,
 							Severity: apis.ConditionSeverityError,
