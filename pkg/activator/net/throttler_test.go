@@ -160,6 +160,20 @@ func TestThrottler(t *testing.T) {
 		expectTryResults: []tryResult{
 			{ErrString: "revision.serving.knative.dev \"test-revision\" not found"},
 		},
+	}, {
+		name: "ready addresses with no clusterip or dests",
+		revisions: []*v1alpha1.Revision{
+			revision(types.NamespacedName{"test-namespace", "test-revision"}, networking.ProtocolHTTP1),
+		},
+		initUpdates: []*RevisionDestsUpdate{{
+			Rev: types.NamespacedName{"test-namespace", "test-revision"},
+		}},
+		trys: []types.NamespacedName{
+			{Namespace: "test-namespace", Name: "test-revision"},
+		},
+		expectTryResults: []tryResult{
+			{ErrString: ErrActivatorOverload.Error()},
+		},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			updateCh := make(chan *RevisionDestsUpdate, 100)
