@@ -28,7 +28,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
-	ingress "knative.dev/pkg/test/ingress"
+	"knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/pkg/test/spoof"
 	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
@@ -105,7 +105,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 	// ref: https://github.com/knative/serving/issues/5389
 	if !test.ServingFlags.ResolvableDomain && accessibleExternal {
 		gatewayTarget := pkgTest.Flags.IngressEndpoint
-		if pkgTest.Flags.IngressEndpoint == "" {
+		if gatewayTarget == "" {
 			var err error
 			if gatewayTarget, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube); err != nil {
 				t.Fatalf("Failed to get gateway IP: %v", err)

@@ -76,7 +76,7 @@ func main() {
 	// for external access test, as xip.io is flaky.
 	// ref: https://github.com/knative/serving/issues/5389
 	gateway := os.Getenv(gatewayHostEnv)
-	if len(gateway) > 0 {
+	if gateway != "" {
 		targetHost = gateway
 	}
 	targetURL := fmt.Sprintf("http://%s", targetHost)
