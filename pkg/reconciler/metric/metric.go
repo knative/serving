@@ -62,7 +62,7 @@ func (r *reconciler) Reconcile(ctx context.Context, key string) error {
 		// The metric object is gone, so delete the collection.
 		return r.collector.Delete(namespace, name)
 	} else if err != nil {
-		return errors.Wrapf(err, "failed to fetch metric "+key)
+		return errors.Wrap(err, "failed to fetch metric "+key)
 	}
 
 	// Don't mess with informer's copy.
@@ -95,7 +95,7 @@ func (r *reconciler) reconcileCollection(ctx context.Context, metric *v1alpha1.M
 	if err != nil {
 		// If create or update failes, we won't be able to collect at all.
 		metric.Status.MarkMetricFailed("CollectionFailed", "Failed to reconcile metric collection")
-		return errors.Wrapf(err, "failed to initiate or update scraping")
+		return errors.Wrap(err, "failed to initiate or update scraping")
 	}
 	return nil
 }
