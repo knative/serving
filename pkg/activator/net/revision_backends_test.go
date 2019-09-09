@@ -409,8 +409,10 @@ func ep(revL string, port int32, portName string, ips ...string) *corev1.Endpoin
 }
 
 func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
-	defer ClearAll()
 	logger := TestLogger(t)
+	defer ClearAll()
+	// Make sure we wait out all the jitter in the system.
+	defer time.Sleep(informerRestPeriod)
 	for _, tc := range []struct {
 		name               string
 		endpointsArr       []*corev1.Endpoints
@@ -581,8 +583,6 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			}
 			rt := network.RoundTripperFunc(fakeRT.RT)
 
-			stopCh := make(chan struct{})
-			defer close(stopCh)
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer cancel()
 
@@ -602,7 +602,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 				serviceInformer.Informer().GetIndexer().Add(svc)
 			}
 
-			controller.StartInformers(stopCh, endpointsInformer.Informer())
+			controller.StartInformers(ctx.Done(), endpointsInformer.Informer())
 
 			rbm := NewRevisionBackendsManagerWithProbeFrequency(ctx, rt, logger, 50*time.Millisecond)
 
@@ -634,12 +634,14 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			}
 		})
 	}
-	time.Sleep(informerRestPeriod)
 }
 
 func TestCheckDests(t *testing.T) {
 	// This test covers some edge cases in `checkDests` which are next to impossible to
 	// test via tests above.
+
+	// To make sure context switch happens and informers terminate.
+	defer time.Sleep(informerRestPeriod)
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 	defer ClearAll()
@@ -679,11 +681,10 @@ func TestCheckDests(t *testing.T) {
 	default:
 		// success.
 	}
-	// To make sure context switch happens and informers terminate.
-	time.Sleep(informerRestPeriod)
 }
 
 func TestRevisionDeleted(t *testing.T) {
+	defer time.Sleep(informerRestPeriod)
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 	defer ClearAll()
@@ -734,5 +735,4 @@ func TestRevisionDeleted(t *testing.T) {
 	case <-time.After(time.Second * 2):
 		t.Errorf("Timedout waiting for initial response")
 	}
-	time.Sleep(time.Second)
 }
