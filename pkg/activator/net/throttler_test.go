@@ -198,16 +198,15 @@ func TestThrottler(t *testing.T) {
 			}
 			close(updateCh)
 
-			var runLock sync.Mutex
-			runLock.Lock()
+			var wg sync.WaitGroup
+			wg.Add(1)
 			go func() {
+				defer wg.Done()
 				throttler.Run(updateCh)
-				runLock.Unlock()
 			}()
 
 			// Wait for throttler to complete processing updates and exit
-			runLock.Lock()
-			runLock.Unlock()
+			wg.Wait()
 
 			for _, delRev := range tc.deletes {
 				servfake.ServingV1alpha1().Revisions(delRev.Namespace).Delete(delRev.Name, nil)
