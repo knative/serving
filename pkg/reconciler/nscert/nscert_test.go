@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -194,7 +193,6 @@ func TestUpdateDomainTemplate(t *testing.T) {
 	ctx, cancel, reconciler, watcher := newTestSetup(t)
 	defer func() {
 		cancel()
-		time.Sleep(3 * time.Second)
 		ClearAll()
 	}()
 
@@ -306,7 +304,6 @@ func TestDomainConfigDefaultDomain(t *testing.T) {
 	ctx, cancel, reconciler, _ := newTestSetup(t, domCfg)
 	defer func() {
 		cancel()
-		time.Sleep(3 * time.Second)
 		ClearAll()
 	}()
 
@@ -344,7 +341,6 @@ func TestDomainConfigExplicitDefaultDomain(t *testing.T) {
 	ctx, cancel, reconciler, _ := newTestSetup(t, domCfg)
 	defer func() {
 		cancel()
-		time.Sleep(3 * time.Second)
 		ClearAll()
 	}()
 

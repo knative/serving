@@ -273,7 +273,12 @@ func (c *Impl) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer runtime.HandleCrash()
 	sg := sync.WaitGroup{}
 	defer sg.Wait()
-	defer c.WorkQueue.ShutDown()
+	defer func() {
+		c.WorkQueue.ShutDown()
+		for c.WorkQueue.Len() > 0 {
+			time.Sleep(time.Millisecond * 100)
+		}
+	}()
 
 	// Launch workers to process resources that get enqueued to our workqueue.
 	logger := c.logger
@@ -350,7 +355,10 @@ func (c *Impl) handleErr(err error, key string) {
 	c.logger.Errorw("Reconcile error", zap.Error(err))
 
 	// Re-queue the key if it's an transient error.
-	if !IsPermanentError(err) {
+	// We want to check that the queue is shutting down here
+	// since controller Run might have exited by now (since while this item was
+	// being processed, queue.Len==0).
+	if !IsPermanentError(err) && !c.WorkQueue.ShuttingDown() {
 		c.WorkQueue.AddRateLimited(key)
 		c.logger.Debugf("Requeuing key %s due to non-permanent error (depth: %d)", key, c.WorkQueue.Len())
 		return
@@ -368,6 +376,9 @@ func (c *Impl) GlobalResync(si cache.SharedInformer) {
 // FilteredGlobalResync enqueues (with a delay) all objects from the
 // SharedInformer that pass the filter function
 func (c *Impl) FilteredGlobalResync(f func(interface{}) bool, si cache.SharedInformer) {
+	if c.WorkQueue.ShuttingDown() {
+		return
+	}
 	list := si.GetStore().List()
 	count := float64(len(list))
 	for _, obj := range list {

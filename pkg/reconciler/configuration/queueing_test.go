@@ -103,8 +103,6 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 		if err := eg.Wait(); err != nil {
 			t.Fatalf("Error running controller: %v", err)
 		}
-		// To let the informers shut down.
-		time.Sleep(3 * time.Second)
 		logtesting.ClearAll()
 	}()
 
