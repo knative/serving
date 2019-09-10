@@ -19,14 +19,14 @@ index d90ac4d1..36fb28a9 100644
  	if authConfig.Auth != "" {
  		return "Basic " + authConfig.Auth, nil
  	}
-@@ -161,5 +164,8 @@ func (kc *keychain) Resolve(reg name.Registry) (authn.Authenticator, error) {
+@@ -161,5 +164,8 @@ func (kc *keychain) Resolve(target authn.Resource) (authn.Authenticator, error) {
  		return authn.Anonymous, nil
  	}
  	// TODO(mattmoor): How to support multiple credentials?
 -	return lazyProvider(creds[0]), nil
 +	return lazyProvider{
 +		provider: creds[0],
-+		repo:     reg.String(),
++		repo:     target.String(),
 +	}, nil
  }
 diff --git a/vendor/k8s.io/client-go/tools/cache/expiration_cache.go b/vendor/k8s.io/client-go/tools/cache/expiration_cache.go
