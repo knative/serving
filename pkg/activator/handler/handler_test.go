@@ -100,9 +100,8 @@ func TestActivationHandler(t *testing.T) {
 		wantErr:           nil,
 		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000, networking.ServicePortNameHTTP1)),
 		destsUpdates: []*activatornet.RevisionDestsUpdate{{
-			Rev:               types.NamespacedName{testNamespace, testRevName},
-			Dests:             dests(1000),
-			ReadyAddressCount: 1000,
+			Rev:   types.NamespacedName{testNamespace, testRevName},
+			Dests: dests(1000),
 		}},
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
@@ -124,9 +123,8 @@ func TestActivationHandler(t *testing.T) {
 		wantErr:           nil,
 		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000, networking.ServicePortNameHTTP1)),
 		destsUpdates: []*activatornet.RevisionDestsUpdate{{
-			Rev:               types.NamespacedName{"fake-namespace", testRevName},
-			Dests:             []string{},
-			ReadyAddressCount: 0,
+			Rev:   types.NamespacedName{"fake-namespace", testRevName},
+			Dests: []string{},
 		}},
 		reporterCalls: nil,
 		tryTimeout:    100 * time.Millisecond,
@@ -139,9 +137,8 @@ func TestActivationHandler(t *testing.T) {
 		wantErr:           errors.New("request error"),
 		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000, networking.ServicePortNameHTTP1)),
 		destsUpdates: []*activatornet.RevisionDestsUpdate{{
-			Rev:               types.NamespacedName{testNamespace, testRevName},
-			Dests:             dests(1000),
-			ReadyAddressCount: 1000,
+			Rev:   types.NamespacedName{testNamespace, testRevName},
+			Dests: dests(1000),
 		}},
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
@@ -306,9 +303,9 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	go throttler.Run(updateCh)
 
 	updateCh <- &activatornet.RevisionDestsUpdate{
-		Rev:               types.NamespacedName{namespace, revName},
-		ClusterIPDest:     "129.0.0.1:1234",
-		ReadyAddressCount: breakerParams.InitialCapacity,
+		Rev:           types.NamespacedName{namespace, revName},
+		ClusterIPDest: "129.0.0.1:1234",
+		Dests:         dests(breakerParams.InitialCapacity),
 	}
 
 	handler := &activationHandler{
@@ -405,9 +402,9 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 			go throttler.Run(updateCh)
 
 			updateCh <- &activatornet.RevisionDestsUpdate{
-				Rev:               types.NamespacedName{namespace, revName},
-				ClusterIPDest:     "129.0.0.1:1234",
-				ReadyAddressCount: breakerParams.InitialCapacity,
+				Rev:           types.NamespacedName{namespace, revName},
+				ClusterIPDest: "129.0.0.1:1234",
+				Dests:         dests(breakerParams.InitialCapacity),
 			}
 
 			handler := &activationHandler{

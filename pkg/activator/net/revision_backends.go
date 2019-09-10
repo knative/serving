@@ -58,9 +58,6 @@ type RevisionDestsUpdate struct {
 	Rev           types.NamespacedName
 	ClusterIPDest string
 	Dests         []string
-
-	// Number of addresses marked ready in the private endpoint for this revision
-	ReadyAddressCount int
 }
 
 const (
@@ -196,7 +193,7 @@ func (rw *revisionWatcher) probePodIPs(dests []string) (sets.String, error) {
 	return hs, err
 }
 
-func (rw *revisionWatcher) sendUpdate(update *RevisionDestsUpdate) {
+func (rw *revisionWatcher) sendUpdate(clusterIP string, dests []string) {
 	select {
 	case <-rw.doneCh:
 		// We're not closing updateCh because this would result in 1 close per revisionWatcher.
@@ -205,7 +202,7 @@ func (rw *revisionWatcher) sendUpdate(update *RevisionDestsUpdate) {
 		// TODO(greghaynes) find a way to explicitly close the channel. Potentially use channel per watcher.
 		return
 	default:
-		rw.updateCh <- update
+		rw.updateCh <- &RevisionDestsUpdate{Rev: rw.rev, ClusterIPDest: clusterIP, Dests: dests}
 	}
 }
 
@@ -218,8 +215,8 @@ func (rw *revisionWatcher) checkDests(dests []string) {
 
 		rw.logger.Debug("ClusterIP is no longer healthy.")
 
-		// Send update that we are now inactive.
-		rw.sendUpdate(&RevisionDestsUpdate{Rev: rw.rev})
+		// Send update that we are now inactive (both params invalid).
+		rw.sendUpdate("", nil)
 		return
 	}
 
@@ -234,7 +231,7 @@ func (rw *revisionWatcher) checkDests(dests []string) {
 	if rw.clusterIPHealthy {
 		// cluster IP is healthy and we haven't scaled down, short circuit.
 		rw.logger.Debugf("ClusterIP %s already probed (backends: %d)", dest, len(dests))
-		rw.sendUpdate(&RevisionDestsUpdate{Rev: rw.rev, ClusterIPDest: dest, ReadyAddressCount: len(dests)})
+		rw.sendUpdate(dest, dests)
 		return
 	}
 
@@ -245,7 +242,7 @@ func (rw *revisionWatcher) checkDests(dests []string) {
 		rw.logger.Debugf("ClusterIP is successfully probed: %s (backends: %d)", dest, len(dests))
 		rw.clusterIPHealthy = true
 		rw.healthyPods = nil
-		rw.sendUpdate(&RevisionDestsUpdate{Rev: rw.rev, ClusterIPDest: dest, ReadyAddressCount: len(dests)})
+		rw.sendUpdate(dest, dests)
 		return
 	}
 
@@ -257,13 +254,8 @@ func (rw *revisionWatcher) checkDests(dests []string) {
 
 	rw.logger.Debugf("Done probing, got %d healthy pods", len(hs))
 	if !reflect.DeepEqual(rw.healthyPods, hs) {
-		destsUpdate := &RevisionDestsUpdate{
-			Rev:               rw.rev,
-			Dests:             hs.UnsortedList(),
-			ReadyAddressCount: len(dests),
-		}
 		rw.healthyPods = hs
-		rw.sendUpdate(destsUpdate)
+		rw.sendUpdate("" /*clusterIP not ready yet*/, hs.UnsortedList())
 	}
 }
 

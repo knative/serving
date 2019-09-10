@@ -61,9 +61,8 @@ func TestThrottler(t *testing.T) {
 			revision(types.NamespacedName{"test-namespace", "test-revision"}, networking.ProtocolHTTP1),
 		},
 		initUpdates: []*RevisionDestsUpdate{{
-			Rev:               types.NamespacedName{"test-namespace", "test-revision"},
-			Dests:             []string{"128.0.0.1:1234"},
-			ReadyAddressCount: 1,
+			Rev:   types.NamespacedName{"test-namespace", "test-revision"},
+			Dests: []string{"128.0.0.1:1234"},
 		}},
 		trys: []types.NamespacedName{
 			{Namespace: "test-namespace", Name: "test-revision"},
@@ -77,9 +76,9 @@ func TestThrottler(t *testing.T) {
 			revision(types.NamespacedName{"test-namespace", "test-revision"}, networking.ProtocolHTTP1),
 		},
 		initUpdates: []*RevisionDestsUpdate{{
-			Rev:               types.NamespacedName{"test-namespace", "test-revision"},
-			ClusterIPDest:     "129.0.0.1:1234",
-			ReadyAddressCount: 1,
+			Rev:           types.NamespacedName{"test-namespace", "test-revision"},
+			ClusterIPDest: "129.0.0.1:1234",
+			Dests:         []string{"128.0.0.1:1234"},
 		}},
 		trys: []types.NamespacedName{
 			{Namespace: "test-namespace", Name: "test-revision"},
@@ -93,9 +92,8 @@ func TestThrottler(t *testing.T) {
 			revision(types.NamespacedName{"test-namespace", "test-revision"}, networking.ProtocolHTTP1),
 		},
 		initUpdates: []*RevisionDestsUpdate{{
-			Rev:               types.NamespacedName{"test-namespace", "test-revision"},
-			Dests:             []string{"128.0.0.1:1234", "128.0.0.2:1234"},
-			ReadyAddressCount: 2,
+			Rev:   types.NamespacedName{"test-namespace", "test-revision"},
+			Dests: []string{"128.0.0.1:1234", "128.0.0.2:1234"},
 		}},
 		trys: []types.NamespacedName{
 			{Namespace: "test-namespace", Name: "test-revision"},
@@ -106,18 +104,17 @@ func TestThrottler(t *testing.T) {
 			{Dest: "128.0.0.2:1234"},
 		},
 	}, {
-		name: "multiple clusterip requests after podip",
+		name: "multiple ClusterIP requests after PodIP",
 		revisions: []*v1alpha1.Revision{
 			revision(types.NamespacedName{"test-namespace", "test-revision"}, networking.ProtocolHTTP1),
 		},
 		initUpdates: []*RevisionDestsUpdate{{
-			Rev:               types.NamespacedName{"test-namespace", "test-revision"},
-			Dests:             []string{"128.0.0.1:1234", "128.0.0.2:1234"},
-			ReadyAddressCount: 2,
+			Rev:   types.NamespacedName{"test-namespace", "test-revision"},
+			Dests: []string{"128.0.0.1:1234", "128.0.0.2:1234"},
 		}, {
-			Rev:               types.NamespacedName{"test-namespace", "test-revision"},
-			ClusterIPDest:     "129.0.0.1:1234",
-			ReadyAddressCount: 2,
+			Rev:           types.NamespacedName{"test-namespace", "test-revision"},
+			ClusterIPDest: "129.0.0.1:1234",
+			Dests:         []string{"128.0.0.1:1234", "128.0.0.2:1234"},
 		}},
 		trys: []types.NamespacedName{
 			{Namespace: "test-namespace", Name: "test-revision"},
@@ -133,9 +130,9 @@ func TestThrottler(t *testing.T) {
 			revision(types.NamespacedName{"test-namespace", "test-revision"}, networking.ProtocolHTTP1),
 		},
 		initUpdates: []*RevisionDestsUpdate{{
-			Rev:               types.NamespacedName{"test-namespace", "test-revision"},
-			ClusterIPDest:     "129.0.0.1:1234",
-			ReadyAddressCount: 1,
+			Rev:           types.NamespacedName{"test-namespace", "test-revision"},
+			ClusterIPDest: "129.0.0.1:1234",
+			Dests:         []string{"128.0.0.1:1234"},
 		}},
 		trys: []types.NamespacedName{
 			{Namespace: "test-namespace", Name: "test-revision"},
@@ -151,9 +148,8 @@ func TestThrottler(t *testing.T) {
 			revision(types.NamespacedName{"test-namespace", "test-revision"}, networking.ProtocolHTTP1),
 		},
 		initUpdates: []*RevisionDestsUpdate{{
-			Rev:               types.NamespacedName{"test-namespace", "test-revision"},
-			Dests:             []string{"128.0.0.1:1234"},
-			ReadyAddressCount: 1,
+			Rev:   types.NamespacedName{"test-namespace", "test-revision"},
+			Dests: []string{"128.0.0.1:1234"},
 		}},
 		deletes: []types.NamespacedName{
 			{"test-namespace", "test-revision"},
@@ -260,9 +256,8 @@ func TestMultipleActivator(t *testing.T) {
 	revID := types.NamespacedName{"test-namespace", "test-revision"}
 	updateCh := make(chan *RevisionDestsUpdate, 10)
 	updateCh <- &RevisionDestsUpdate{
-		Rev:               revID,
-		Dests:             []string{"128.0.0.1:1234"},
-		ReadyAddressCount: 3,
+		Rev:   revID,
+		Dests: []string{"128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234"},
 	}
 	close(updateCh)
 	throttler.Run(updateCh)

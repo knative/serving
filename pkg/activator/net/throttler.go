@@ -232,9 +232,12 @@ func (rt *revisionThrottler) updateThrottleState(throttler *Throttler, backendCo
 // This function will never be called in parallel but try can be called in parallel to this so we need
 // to lock on updating concurrency / trackers
 func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update *RevisionDestsUpdate) {
-	rt.logger.Debugf("Handling update w/ %d ready and dests: %v", update.ReadyAddressCount, update.Dests)
-	if update.Dests != nil {
-		// Because this wont be called in parallel we can build a new podIPTrackers array before taking out a lock
+	rt.logger.Debugf("Handling update w/ %d ready and dests: %v", len(update.Dests), update.Dests)
+
+	// ClusterIP is not yet ready, so we want to send requests directly to the pods.
+	// NB: this will not be called in parallel, thus we can build a new podIPTrackers
+	// array before taking out a lock.
+	if update.ClusterIPDest == "" {
 		// Create a map for fast lookup of existing trackers
 		trackersMap := make(map[string]*podIPTracker, len(rt.podIPTrackers))
 		for _, tracker := range rt.podIPTrackers {
@@ -252,11 +255,11 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update *Revision
 			trackers = append(trackers, tracker)
 		}
 
-		rt.updateThrottleState(throttler, update.ReadyAddressCount, trackers, "")
+		rt.updateThrottleState(throttler, len(update.Dests), trackers, "" /*clusterIP*/)
 		return
 	}
 
-	rt.updateThrottleState(throttler, update.ReadyAddressCount, nil, update.ClusterIPDest)
+	rt.updateThrottleState(throttler, len(update.Dests), nil /*trackers*/, update.ClusterIPDest)
 }
 
 // Throttler load balances requests to revisions based on capacity. When `Run` is called it listens for
