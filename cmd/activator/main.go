@@ -27,6 +27,7 @@ import (
 	"time"
 
 	// Injection related imports.
+	"golang.org/x/sync/errgroup"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
@@ -179,12 +180,16 @@ func main() {
 
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
 
+	var grp errgroup.Group
+	defer grp.Wait()
+
 	// Start revision backends manager
 	rbm := activatornet.NewRevisionBackendsManager(ctx, network.AutoTransport, logger)
+	grp.Go(func() error { rbm.Run(); return nil })
 
 	// Start throttler
 	throttler := activatornet.NewThrottler(params, revisionInformer, endpointInformer, logger)
-	go throttler.Run(rbm.UpdateCh())
+	grp.Go(func() error { throttler.Run(rbm.UpdateCh()); return nil })
 
 	oct := tracing.NewOpenCensusTracer(tracing.WithExporter(networking.ActivatorServiceName, logger))
 

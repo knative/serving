@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
@@ -310,6 +311,7 @@ type RevisionBackendsManager struct {
 	transport      http.RoundTripper
 	logger         *zap.SugaredLogger
 	probeFrequency time.Duration
+	workQueue      workqueue.Interface
 }
 
 // NewRevisionBackendsManager returns a new RevisionBackendsManager with default
@@ -330,7 +332,9 @@ func NewRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.R
 		transport:        tr,
 		logger:           logger,
 		probeFrequency:   probeFrequency,
+		workQueue:        workqueue.NewNamed("RevisionBackend"),
 	}
+
 	endpointsInformer := endpointsinformer.Get(ctx)
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: reconciler.ChainFilterFuncs(
@@ -340,13 +344,45 @@ func NewRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.R
 			reconciler.LabelFilterFunc(networking.ServiceTypeKey, string(networking.ServiceTypePrivate), false),
 		),
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    rbm.endpointsUpdated,
-			UpdateFunc: controller.PassNew(rbm.endpointsUpdated),
+			AddFunc:    rbm.workQueue.Add,
+			UpdateFunc: controller.PassNew(rbm.workQueue.Add),
 			DeleteFunc: rbm.endpointsDeleted,
 		},
 	})
 
 	return rbm
+}
+
+func (rbm *RevisionBackendsManager) next() bool {
+	o, done := rbm.workQueue.Get()
+	if done {
+		return false
+	}
+	rbm.endpointsUpdated(o)
+	return true
+}
+
+const numThreads = 2
+
+// Run starts the backend processing goroutines in the RBM.
+func (rbm *RevisionBackendsManager) Run() {
+	var wg errgroup.Group
+
+	for i := 0; i < numThreads; i++ {
+		wg.Go(func() error {
+			for rbm.next() {
+			}
+			return nil
+		})
+	}
+	<-rbm.doneCh
+	// Make the queue to stop accepting work.
+	rbm.workQueue.ShutDown()
+	// And wait for it to drain.
+	for rbm.workQueue.Len() > 0 {
+		time.Sleep(50 * time.Millisecond)
+	}
+	wg.Wait()
 }
 
 // Returns channel where dests updates are sent to

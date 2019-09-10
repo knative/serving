@@ -26,6 +26,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -411,8 +412,6 @@ func ep(revL string, port int32, portName string, ips ...string) *corev1.Endpoin
 func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 	logger := TestLogger(t)
 	defer ClearAll()
-	// Make sure we wait out all the jitter in the system.
-	defer time.Sleep(informerRestPeriod)
 	for _, tc := range []struct {
 		name               string
 		endpointsArr       []*corev1.Endpoints
@@ -583,8 +582,12 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			}
 			rt := network.RoundTripperFunc(fakeRT.RT)
 
+			var grp errgroup.Group
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-			defer cancel()
+			defer func() {
+				cancel()
+				grp.Wait()
+			}()
 
 			endpointsInformer := fakeendpointsinformer.Get(ctx)
 			serviceInformer := fakeserviceinformer.Get(ctx)
@@ -605,6 +608,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			controller.StartInformers(ctx.Done(), endpointsInformer.Informer())
 
 			rbm := NewRevisionBackendsManagerWithProbeFrequency(ctx, rt, logger, 50*time.Millisecond)
+			grp.Go(func() error { rbm.Run(); return nil })
 
 			for _, ep := range tc.endpointsArr {
 				fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
@@ -641,7 +645,6 @@ func TestCheckDests(t *testing.T) {
 	// test via tests above.
 
 	// To make sure context switch happens and informers terminate.
-	defer time.Sleep(informerRestPeriod)
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 	defer ClearAll()
@@ -684,10 +687,13 @@ func TestCheckDests(t *testing.T) {
 }
 
 func TestRevisionDeleted(t *testing.T) {
-	defer time.Sleep(informerRestPeriod)
+	var grp errgroup.Group
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-	defer cancel()
-	defer ClearAll()
+	defer func() {
+		cancel()
+		grp.Wait()
+		ClearAll()
+	}()
 
 	svc := privateSksService(
 		types.NamespacedName{testNamespace, testRevision},
@@ -715,6 +721,8 @@ func TestRevisionDeleted(t *testing.T) {
 		ctx,
 		rt,
 		TestLogger(t))
+
+	grp.Go(func() error { rbm.Run(); return nil })
 	// Make some movements.
 	ei.Informer().GetIndexer().Add(ep)
 	select {
