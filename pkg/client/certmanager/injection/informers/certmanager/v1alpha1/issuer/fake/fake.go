@@ -23,8 +23,8 @@ import (
 
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
-	fake "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/factory/fake"
 	issuer "knative.dev/serving/pkg/client/certmanager/injection/informers/certmanager/v1alpha1/issuer"
+	fake "knative.dev/serving/pkg/client/certmanager/injection/informers/factory/fake"
 )
 
 var Get = issuer.Get

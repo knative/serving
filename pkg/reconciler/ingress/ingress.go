@@ -29,11 +29,11 @@ import (
 	ingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
 	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 
+	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
+	secretinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/secret"
 	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	podinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/pod"
-	secretinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret"
 	"knative.dev/pkg/tracker"
 
 	"go.uber.org/zap"

@@ -24,7 +24,7 @@ import (
 	"strings"
 
 	"cloud.google.com/go/compute/metadata"
-	"knative.dev/pkg/injection/clients/kubeclient"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 
 	"github.com/google/mako/go/quickstore"
 	qpb "github.com/google/mako/proto/quickstore/quickstore_go_proto"

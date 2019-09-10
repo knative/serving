@@ -33,8 +33,8 @@ import (
 
 	cachingclient "knative.dev/caching/pkg/client/injection/client"
 	sharedclient "knative.dev/pkg/client/injection/client"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection/clients/dynamicclient"
-	"knative.dev/pkg/injection/clients/kubeclient"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 
 	cachingclientset "knative.dev/caching/pkg/client/clientset/versioned"

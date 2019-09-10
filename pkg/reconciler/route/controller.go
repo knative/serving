@@ -19,7 +19,7 @@ package route
 import (
 	"context"
 
-	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
+	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	certificateinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate"
 	clusteringressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress"
 	ingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"

@@ -22,8 +22,8 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
-	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
 	"knative.dev/serving/pkg/apis/networking"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 
