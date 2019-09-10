@@ -57,6 +57,9 @@ func TestMakeIngress_CorrectMetadata(t *testing.T) {
 			Labels: map[string]string{
 				"test-label": "foo",
 			},
+			Annotations: map[string]string{
+				"test-annotation": "bar",
+			},
 			UID: "1234-5678",
 		},
 		Status: v1alpha1.RouteStatus{
@@ -78,6 +81,7 @@ func TestMakeIngress_CorrectMetadata(t *testing.T) {
 		},
 		Annotations: map[string]string{
 			networking.IngressClassAnnotationKey: ingressClass,
+			"test-annotation":                    "bar",
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 	}

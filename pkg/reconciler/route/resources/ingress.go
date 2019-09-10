@@ -95,7 +95,7 @@ func MakeIngress(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.Ingress(r),
 			Namespace: r.Namespace,
-			Labels: resources.UnionMaps(r.GetLabels(), map[string]string{
+			Labels: resources.UnionMaps(r.ObjectMeta.Labels, map[string]string{
 				serving.RouteLabelKey:          r.Name,
 				serving.RouteNamespaceLabelKey: r.Namespace,
 			}),
