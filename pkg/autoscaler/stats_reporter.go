@@ -73,10 +73,16 @@ var (
 		"panic_mode",
 		"1 if autoscaler is in panic mode, 0 otherwise",
 		stats.UnitDimensionless)
-	namespaceTagKey tag.Key
-	configTagKey    tag.Key
-	revisionTagKey  tag.Key
-	serviceTagKey   tag.Key
+
+	// Create the tag keys that will be used to add tags to our measurements.
+	// Tag keys must conform to the restrictions described in
+	// go.opencensus.io/tag/validate.go. Currently those restrictions are:
+	// - length between 1 and 255 inclusive
+	// - characters are printable US-ASCII
+	namespaceTagKey = tag.MustNewKey(metricskey.LabelNamespaceName)
+	serviceTagKey   = tag.MustNewKey(metricskey.LabelServiceName)
+	configTagKey    = tag.MustNewKey(metricskey.LabelConfigurationName)
+	revisionTagKey  = tag.MustNewKey(metricskey.LabelRevisionName)
 )
 
 func init() {
@@ -85,27 +91,6 @@ func init() {
 
 func register() {
 	var err error
-	// Create the tag keys that will be used to add tags to our measurements.
-	// Tag keys must conform to the restrictions described in
-	// go.opencensus.io/tag/validate.go. Currently those restrictions are:
-	// - length between 1 and 255 inclusive
-	// - characters are printable US-ASCII
-	namespaceTagKey, err = tag.NewKey(metricskey.LabelNamespaceName)
-	if err != nil {
-		panic(err)
-	}
-	serviceTagKey, err = tag.NewKey(metricskey.LabelServiceName)
-	if err != nil {
-		panic(err)
-	}
-	configTagKey, err = tag.NewKey(metricskey.LabelConfigurationName)
-	if err != nil {
-		panic(err)
-	}
-	revisionTagKey, err = tag.NewKey(metricskey.LabelRevisionName)
-	if err != nil {
-		panic(err)
-	}
 
 	// Create views to see our measurements. This can return an error if
 	// a previously-registered view has the same name with a different value.

@@ -44,19 +44,17 @@ var (
 		"Number of services that became ready",
 		stats.UnitDimensionless)
 
-	reconcilerTagKey tag.Key
-	keyTagKey        tag.Key
-)
-
-func init() {
-	var err error
 	// Create the tag keys that will be used to add tags to our measurements.
 	// Tag keys must conform to the restrictions described in
 	// go.opencensus.io/tag/validate.go. Currently those restrictions are:
 	// - length between 1 and 255 inclusive
 	// - characters are printable US-ASCII
-	reconcilerTagKey = mustNewTagKey("reconciler")
-	keyTagKey = mustNewTagKey("key")
+	reconcilerTagKey = tag.MustNewKey("reconciler")
+	keyTagKey        = tag.MustNewKey("key")
+)
+
+func init() {
+	var err error
 
 	// Create views to see our measurements. This can return an error if
 	// a previously-registered view has the same name with a different value.
@@ -134,12 +132,4 @@ func (r *reporter) ReportServiceReady(namespace, service string, d time.Duration
 	metrics.Record(ctx, serviceReadyCountStat.M(1))
 	metrics.Record(ctx, serviceReadyLatencyStat.M(v))
 	return nil
-}
-
-func mustNewTagKey(s string) tag.Key {
-	tagKey, err := tag.NewKey(s)
-	if err != nil {
-		panic(err)
-	}
-	return tagKey
 }

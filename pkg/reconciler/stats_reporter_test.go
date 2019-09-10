@@ -17,6 +17,7 @@ limitations under the License.
 package reconciler
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -81,4 +82,10 @@ func getMetric(t *testing.T, metric string) *view.Row {
 		return nil
 	}
 	return rows[0]
+}
+
+func TestWithStatsReporter(t *testing.T) {
+	if WithStatsReporter(context.TODO(), nil) == nil {
+		t.Errorf("stats reporter reports empty context")
+	}
 }
