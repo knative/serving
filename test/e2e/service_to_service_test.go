@@ -28,6 +28,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/pkg/test/spoof"
 	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
@@ -47,6 +48,7 @@ import (
 
 const (
 	targetHostEnv      = "TARGET_HOST"
+	gatewayHostEnv     = "GATEWAY_HOST"
 	helloworldResponse = "Hello World! How about some tasty noodles?"
 )
 
@@ -98,6 +100,22 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 		Name:  targetHostEnv,
 		Value: helloworldDomain,
 	}}
+
+	// When resolvable domain is not set for external access test, use gateway for the endpoint as xip.io is flaky.
+	// ref: https://github.com/knative/serving/issues/5389
+	if !test.ServingFlags.ResolvableDomain && accessibleExternal {
+		gatewayTarget := pkgTest.Flags.IngressEndpoint
+		if gatewayTarget == "" {
+			var err error
+			if gatewayTarget, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube); err != nil {
+				t.Fatalf("Failed to get gateway IP: %v", err)
+			}
+		}
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  gatewayHostEnv,
+			Value: gatewayTarget,
+		})
+	}
 
 	// Set up httpproxy app.
 	t.Log("Creating a Service for the httpproxy test app.")
@@ -284,8 +302,6 @@ func TestServiceToServiceCallViaActivator(t *testing.T) {
 // It verifies that the helloworld service is accessible internally from both internal domain and external domain.
 // But it's only accessible from external via the external domain
 func TestCallToPublicService(t *testing.T) {
-	t.Skip("Skipping until #5389 is resolved.")
-
 	t.Parallel()
 	cancel := logstream.Start(t)
 	defer cancel()
