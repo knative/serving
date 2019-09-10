@@ -62,9 +62,6 @@ func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNam
 		if s.Status.LatestReadyRevisionName == "" {
 			return false, fmt.Errorf("lastReadyRevision is not present in Service status: %v", s)
 		}
-		if s.Status.LatestReadyRevisionName == "" {
-			return false, fmt.Errorf("lastReadyRevision is not present in Service status: %v", s)
-		}
 		if s.Status.ObservedGeneration != 1 {
 			return false, fmt.Errorf("observedGeneration is not 1 in Service status: %v", s)
 		}
