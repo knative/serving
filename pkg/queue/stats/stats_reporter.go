@@ -69,33 +69,19 @@ func NewStatsReporter(ns, service, config, rev string, countMetric *stats.Int64M
 	}
 
 	// Create the tag keys that will be used to add tags to our measurements.
-	nsTag, err := tag.NewKey(metricskey.LabelNamespaceName)
-	if err != nil {
-		return nil, err
-	}
-	svcTag, err := tag.NewKey(metricskey.LabelServiceName)
-	if err != nil {
-		return nil, err
-	}
-	configTag, err := tag.NewKey(metricskey.LabelConfigurationName)
-	if err != nil {
-		return nil, err
-	}
-	revTag, err := tag.NewKey(metricskey.LabelRevisionName)
-	if err != nil {
-		return nil, err
-	}
-	responseCodeTag, err := tag.NewKey("response_code")
-	if err != nil {
-		return nil, err
-	}
-	responseCodeClassTag, err := tag.NewKey("response_code_class")
-	if err != nil {
-		return nil, err
-	}
+	// Tag keys must conform to the restrictions described in
+	// go.opencensus.io/tag/validate.go. Currently those restrictions are:
+	// - length between 1 and 255 inclusive
+	// - characters are printable US-ASCII
+	nsTag := tag.MustNewKey(metricskey.LabelNamespaceName)
+	svcTag := tag.MustNewKey(metricskey.LabelServiceName)
+	configTag := tag.MustNewKey(metricskey.LabelConfigurationName)
+	revTag := tag.MustNewKey(metricskey.LabelRevisionName)
+	responseCodeTag := tag.MustNewKey("response_code")
+	responseCodeClassTag := tag.MustNewKey("response_code_class")
 
 	// Create view to see our measurements.
-	if err = view.Register(
+	if err := view.Register(
 		&view.View{
 			Description: "The number of requests that are routed to queue-proxy",
 			Measure:     countMetric,
@@ -113,7 +99,7 @@ func NewStatsReporter(ns, service, config, rev string, countMetric *stats.Int64M
 	}
 	// If queue size reporter is provided register the view for it too.
 	if queueSizeMetric != nil {
-		if err = view.Register(
+		if err := view.Register(
 			&view.View{
 				Description: "The number of items queued at this queue proxy.",
 				Measure:     queueSizeMetric,

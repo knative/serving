@@ -72,43 +72,19 @@ func NewStatsReporter() (*Reporter, error) {
 	var r = &Reporter{}
 
 	// Create the tag keys that will be used to add tags to our measurements.
-	nsTag, err := tag.NewKey(metricskey.LabelNamespaceName)
-	if err != nil {
-		return nil, err
-	}
-	r.namespaceTagKey = nsTag
-	serviceTag, err := tag.NewKey(metricskey.LabelServiceName)
-	if err != nil {
-		return nil, err
-	}
-	r.serviceTagKey = serviceTag
-	configTag, err := tag.NewKey(metricskey.LabelConfigurationName)
-	if err != nil {
-		return nil, err
-	}
-	r.configTagKey = configTag
-	revTag, err := tag.NewKey(metricskey.LabelRevisionName)
-	if err != nil {
-		return nil, err
-	}
-	r.revisionTagKey = revTag
-	responseCodeTag, err := tag.NewKey("response_code")
-	if err != nil {
-		return nil, err
-	}
-	r.responseCodeKey = responseCodeTag
-	responseCodeClassTag, err := tag.NewKey("response_code_class")
-	if err != nil {
-		return nil, err
-	}
-	r.responseCodeClassKey = responseCodeClassTag
-	numTriesTag, err := tag.NewKey("num_tries")
-	if err != nil {
-		return nil, err
-	}
-	r.numTriesKey = numTriesTag
+	// Tag keys must conform to the restrictions described in
+	// go.opencensus.io/tag/validate.go. Currently those restrictions are:
+	// - length between 1 and 255 inclusive
+	// - characters are printable US-ASCII
+	r.namespaceTagKey = tag.MustNewKey(metricskey.LabelNamespaceName)
+	r.serviceTagKey = tag.MustNewKey(metricskey.LabelServiceName)
+	r.configTagKey = tag.MustNewKey(metricskey.LabelConfigurationName)
+	r.revisionTagKey = tag.MustNewKey(metricskey.LabelRevisionName)
+	r.responseCodeKey = tag.MustNewKey("response_code")
+	r.responseCodeClassKey = tag.MustNewKey("response_code_class")
+	r.numTriesKey = tag.MustNewKey("num_tries")
 	// Create view to see our measurements.
-	err = view.Register(
+	err := view.Register(
 		&view.View{
 			Description: "Concurrent requests that are routed to Activator",
 			Measure:     requestConcurrencyM,
