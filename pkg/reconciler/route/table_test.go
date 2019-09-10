@@ -47,6 +47,7 @@ import (
 	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler"
+	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
@@ -2577,6 +2578,58 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Certificate %s/%s", "default", "route-12-34"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
+		},
+		Key:                     "default/becomes-ready",
+		SkipNamespaceValidation: true,
+	}, {
+		Name:    "check that Route updates status and produces event log when valid name but not owned certificate",
+		WantErr: true,
+		Objects: []runtime.Object{
+			route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("mcd")),
+			&netv1alpha1.Certificate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "route-12-34",
+					Namespace: "default",
+					// Mark OwnerReferences for this test.
+					OwnerReferences: nil,
+					Annotations: map[string]string{
+						networking.CertificateClassAnnotationKey: network.CertManagerCertificateClassName,
+					},
+					Labels: map[string]string{
+						serving.RouteLabelKey: "becomes-ready",
+					},
+				},
+				Spec: netv1alpha1.CertificateSpec{
+					DNSNames: []string{"becomes-ready.default.example.com"},
+				},
+				Status: readyCertStatus(),
+			},
+		},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{},
+		WantCreates: []runtime.Object{
+			simplePlaceholderK8sService(getContext(), route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")), ""),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchFinalizers("default", "becomes-ready"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "becomes-ready", WithConfigTarget("config"),
+				WithRouteUID("12-34"),
+				WithAddress, WithInitRouteConditions, WithURL,
+				MarkTrafficAssigned, WithStatusTraffic(v1alpha1.TrafficTarget{
+					TrafficTarget: v1beta1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					},
+				}), MarkCertificateNotOwned),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
+			Eventf(corev1.EventTypeWarning, "InternalError", kaccessor.NewAccessorError(fmt.Errorf("owner: %s with Type %T does not own Certificate: %q", "becomes-ready", &v1alpha1.Route{}, "route-12-34"), kaccessor.NotOwnResource).Error()),
 		},
 		Key:                     "default/becomes-ready",
 		SkipNamespaceValidation: true,

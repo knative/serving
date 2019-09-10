@@ -162,6 +162,11 @@ func MarkCertificateNotReady(r *v1alpha1.Route) {
 	r.Status.MarkCertificateNotReady(routenames.Certificate(r))
 }
 
+// MarkCertificateNotOwned calls the method of the same name on .Status
+func MarkCertificateNotOwned(r *v1alpha1.Route) {
+	r.Status.MarkCertificateNotOwned(routenames.Certificate(r))
+}
+
 // MarkCertificateReady calls the method of the same name on .Status
 func MarkCertificateReady(r *v1alpha1.Route) {
 	r.Status.MarkCertificateReady(routenames.Certificate(r))
