@@ -39,7 +39,6 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	fakecertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 	"knative.dev/serving/pkg/network"
 	pkgreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/nscert/config"
@@ -49,7 +48,7 @@ import (
 
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/namespace/fake"
 	_ "knative.dev/pkg/system/testing"
-	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
+	fakecertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 )
 
 var (
@@ -264,10 +263,6 @@ func TestUpdateDomainTemplate(t *testing.T) {
 		LabelSelector: selector,
 	})
 	actual = certs.Items[0].Spec.DNSNames
-
-	certs, _ = fakeservingclient.Get(ctx).NetworkingV1alpha1().Certificates(ns.Name).List(metav1.ListOptions{
-		LabelSelector: selector,
-	})
 
 	// A new domain format not matched by the existing certificate should update the DNSName
 	if diff := cmp.Diff(expected, actual, sorter); diff != "" {
