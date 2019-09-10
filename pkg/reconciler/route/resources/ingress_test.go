@@ -49,16 +49,20 @@ func getServiceVisibility() sets.String {
 
 func TestMakeIngress_CorrectMetadata(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{}
-	ingressClass := "foo-ingress"
+	ingressClass := "ng-ingress"
+	passdownIngressClass := "ok-ingress"
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
 			Namespace: "test-ns",
 			Labels: map[string]string{
-				"test-label": "foo",
+				serving.RouteLabelKey:          "try-to-override",
+				serving.RouteNamespaceLabelKey: "try-to-override",
+				"test-label":                   "foo",
 			},
 			Annotations: map[string]string{
-				"test-annotation": "bar",
+				networking.IngressClassAnnotationKey: passdownIngressClass,
+				"test-annotation":                    "bar",
 			},
 			UID: "1234-5678",
 		},
@@ -80,7 +84,8 @@ func TestMakeIngress_CorrectMetadata(t *testing.T) {
 			"test-label":                   "foo",
 		},
 		Annotations: map[string]string{
-			networking.IngressClassAnnotationKey: ingressClass,
+			// Make sure to get passdownIngressClass instead of ingressClass
+			networking.IngressClassAnnotationKey: passdownIngressClass,
 			"test-annotation":                    "bar",
 		},
 		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
