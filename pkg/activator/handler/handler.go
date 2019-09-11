@@ -129,21 +129,18 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}, "ThrottlerTry")
 		trySpan.End()
 
-		var errmsg string
+		logger.Errorw("Throttler try error", zap.Error(err))
+
 		switch err {
 		case activatornet.ErrActivatorOverload:
-			errmsg = err.Error()
 			fallthrough
-		case queue.ErrContextDone:
-			errmsg = "Timed out"
+		case context.DeadlineExceeded:
 			fallthrough
 		case queue.ErrRequestQueueFull:
-			errmsg = activatornet.ErrActivatorOverload.Error()
-			http.Error(w, errmsg, http.StatusServiceUnavailable)
-			return
+			http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		default:
+			w.WriteHeader(http.StatusInternalServerError)
 		}
-		w.WriteHeader(http.StatusInternalServerError)
-		logger.Errorw("Error processing request in the activator", zap.Error(err))
 	}
 }
 

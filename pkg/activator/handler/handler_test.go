@@ -154,7 +154,7 @@ func TestActivationHandler(t *testing.T) {
 		label:             "broken get k8s svc",
 		namespace:         testNamespace,
 		name:              testRevName,
-		wantBody:          activatornet.ErrActivatorOverload.Error() + "\n",
+		wantBody:          context.DeadlineExceeded.Error() + "\n",
 		wantCode:          http.StatusServiceUnavailable,
 		wantErr:           nil,
 		endpointsInformer: endpointsInformer(endpoints("bogus-namespace", testRevName, 1000, networking.ServicePortNameHTTP1)),

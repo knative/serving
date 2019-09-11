@@ -28,8 +28,6 @@ var (
 	ErrUpdateCapacity = errors.New("failed to add all capacity to the breaker")
 	// ErrRelease indicates that release was called more often than acquire.
 	ErrRelease = errors.New("semaphore release error: returned tokens must be <= acquired tokens")
-	// ErrContextDone indicates that the request context completed before opened. Usually this means a timeout.
-	ErrContextDone = errors.New("semaphore acquire failed due to cancelled context")
 	// ErrRequestQueueFull indicates the breaker queue depth was exceeded.
 	ErrRequestQueueFull = errors.New("pending request queue full")
 )
@@ -147,7 +145,7 @@ func (s *semaphore) acquire(ctx context.Context) error {
 	case <-s.queue:
 		return nil
 	case <-ctx.Done():
-		return ErrContextDone
+		return ctx.Err()
 	}
 }
 

@@ -509,6 +509,6 @@ func (ib *InfiniteBreaker) Maybe(ctx context.Context, thunk func()) error {
 		return nil
 	case <-ctx.Done():
 		ib.logger.Infof("Context is closed: %v", ctx.Err())
-		return queue.ErrContextDone
+		return ctx.Err()
 	}
 }
