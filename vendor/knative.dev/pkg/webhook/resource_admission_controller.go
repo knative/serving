@@ -141,10 +141,10 @@ func (ac *ResourceAdmissionController) Register(ctx context.Context, kubeClient 
 
 	webhook := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: ac.options.WebhookName,
+			Name: ac.options.ResourceMutatingWebhookName,
 		},
 		Webhooks: []admissionregistrationv1beta1.Webhook{{
-			Name:  ac.options.WebhookName,
+			Name:  ac.options.ResourceMutatingWebhookName,
 			Rules: rules,
 			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
 				Service: &admissionregistrationv1beta1.ServiceReference{
@@ -173,7 +173,7 @@ func (ac *ResourceAdmissionController) Register(ctx context.Context, kubeClient 
 			return fmt.Errorf("failed to create a webhook: %v", err)
 		}
 		logger.Info("Webhook already exists")
-		configuredWebhook, err := client.Get(ac.options.WebhookName, metav1.GetOptions{})
+		configuredWebhook, err := client.Get(ac.options.ResourceMutatingWebhookName, metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("error retrieving webhook: %v", err)
 		}

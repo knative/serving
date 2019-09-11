@@ -52,9 +52,9 @@ var (
 
 // ControllerOptions contains the configuration for the webhook
 type ControllerOptions struct {
-	// WebhookName is the name of the webhook we create to handle
+	// ResourceMutatingWebhookName is the name of the webhook we create to handle
 	// mutations before they get stored in the storage.
-	WebhookName string
+	ResourceMutatingWebhookName string
 
 	// ServiceName is the service name of the webhook.
 	ServiceName string
