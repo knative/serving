@@ -281,36 +281,31 @@ func (rw *revisionWatcher) run(probeFrequency time.Duration) {
 	var timer *time.Timer
 
 	for {
-		if func() bool {
-			var tickCh <-chan time.Time
+		var tickCh <-chan time.Time
 
-			if len(dests) != 0 && !rw.clusterIPHealthy {
-				if timer == nil {
-					timer = time.NewTimer(probeFrequency)
-				} else {
-					timer.Reset(probeFrequency)
-				}
-
-				defer timer.Stop()
-				tickCh = timer.C
+		if len(dests) != 0 && !rw.clusterIPHealthy {
+			if timer == nil {
+				timer = time.NewTimer(probeFrequency)
+			} else {
+				timer.Reset(probeFrequency)
 			}
-
-			select {
-			case <-rw.doneCh:
-				return true
-			case x, ok := <-rw.destsChan:
-				if !ok {
-					return true
-				}
-				dests = x
-			case <-tickCh:
-			}
-
-			rw.checkDests(dests)
-			return false
-		}() {
-			return
+			tickCh = timer.C
+		} else if timer != nil { // We dont need to tick, if we have a timer stop it
+			timer.Stop()
 		}
+
+		select {
+		case <-rw.doneCh:
+			return
+		case x, ok := <-rw.destsChan:
+			if !ok {
+				return
+			}
+			dests = x
+		case <-tickCh:
+		}
+
+		rw.checkDests(dests)
 	}
 }
 
