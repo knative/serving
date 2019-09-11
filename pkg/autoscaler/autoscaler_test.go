@@ -61,7 +61,6 @@ func TestNewErrorWhenGivenNilStatsReporter(t *testing.T) {
 }
 
 func TestAutoscalerNoDataNoAutoscale(t *testing.T) {
-	defer ClearAll()
 	metrics := &autoscalerfake.MetricClient{
 		ErrF: func(key types.NamespacedName, now time.Time) error {
 			return errors.New("no metrics")

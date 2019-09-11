@@ -40,7 +40,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/certificate/config"
 	"knative.dev/serving/pkg/reconciler/certificate/resources"
 
-	. "knative.dev/pkg/logging/testing"
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
 )
@@ -56,7 +55,6 @@ var (
 )
 
 func TestNewController(t *testing.T) {
-	defer ClearAll()
 	ctx, _ := SetupFakeContext(t)
 
 	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
@@ -248,7 +246,6 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/knCert",
 	}}
 
-	defer ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
 			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),

@@ -25,7 +25,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
-	. "knative.dev/pkg/logging/testing"
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/network"
@@ -100,7 +99,6 @@ func TestRequestMetricHandler(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer func() {
 				cancel()
-				ClearAll()
 			}()
 			reporter := &fakeReporter{}
 			revisionInformer(ctx, revision(testNamespace, testRevName))

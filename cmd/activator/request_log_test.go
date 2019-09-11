@@ -93,7 +93,6 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			defer testing2.ClearAll()
 			buf.Reset()
 			cm := &corev1.ConfigMap{}
 			cm.Data = map[string]string{"logging.request-log-template": test.template}

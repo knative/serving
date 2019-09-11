@@ -28,7 +28,6 @@ import (
 )
 
 func TestStoreLoadWithContext(t *testing.T) {
-	defer logtesting.ClearAll()
 	store := NewStore(logtesting.TestLogger(t))
 
 	autoscalerConfig := ConfigMapFromTestFile(t, autoscaler.ConfigName)
@@ -42,7 +41,6 @@ func TestStoreLoadWithContext(t *testing.T) {
 }
 
 func TestStoreImmutableConfig(t *testing.T) {
-	defer logtesting.ClearAll()
 	store := NewStore(logtesting.TestLogger(t))
 
 	store.OnConfigChanged(ConfigMapFromTestFile(t, autoscaler.ConfigName))

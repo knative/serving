@@ -142,7 +142,7 @@ func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 	now := time.Now()
 	got, err := scraper.Scrape()
 	if err != nil {
-		t.Fatalf("unexpected error from scraper.Scrape(logger): %v", err)
+		t.Fatalf("unexpected error from scraper.Scrape(): %v", err)
 	}
 
 	if got.Key != testPAKey {

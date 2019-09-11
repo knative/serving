@@ -37,7 +37,6 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
-	logtesting "knative.dev/pkg/logging/testing"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -2324,7 +2323,6 @@ func TestReconcile(t *testing.T) {
 	// TODO(mattmoor): Revision inactive (indirect reference)
 	// TODO(mattmoor): Multiple inactive Revisions
 
-	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
 			Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
@@ -2808,7 +2806,6 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		Key:                     "default/becomes-local",
 		SkipNamespaceValidation: true,
 	}}
-	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
 			Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
@@ -2945,7 +2942,6 @@ func TestReconcile_EnableAutoTLS_HTTPDisabled(t *testing.T) {
 		Key:                     "default/becomes-ready",
 		SkipNamespaceValidation: true,
 	}}
-	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		cfg := ReconcilerTestConfig(true)
 		cfg.Network.HTTPProtocol = network.HTTPDisabled

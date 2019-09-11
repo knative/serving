@@ -27,7 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
@@ -94,7 +93,6 @@ func (f *FakeAccessor) GetCertificateLister() listers.CertificateLister {
 }
 
 func TestReconcileCertificateCreate(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 	grp := errgroup.Group{}
 	defer func() {
@@ -125,7 +123,6 @@ func TestReconcileCertificateCreate(t *testing.T) {
 }
 
 func TestReconcileCertificateUpdate(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 	grp := errgroup.Group{}
 	defer func() {

@@ -31,7 +31,6 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 
@@ -101,7 +100,6 @@ func (f *FakeAccessor) GetSecretLister() corev1listers.SecretLister {
 }
 
 func TestReconcileSecretCreate(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 	grp := errgroup.Group{}
 	defer func() {
@@ -132,7 +130,6 @@ func TestReconcileSecretCreate(t *testing.T) {
 }
 
 func TestReconcileSecretUpdate(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 	grp := errgroup.Group{}
 	defer func() {
@@ -162,7 +159,6 @@ func TestReconcileSecretUpdate(t *testing.T) {
 }
 
 func TestNotOwnedFailure(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 	grp := errgroup.Group{}
 	defer func() {
