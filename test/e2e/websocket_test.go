@@ -23,16 +23,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/gorilla/websocket"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	ingress "knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/apis/networking"
 	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
@@ -165,22 +161,9 @@ func TestWebSocketViaActivator(t *testing.T) {
 		t.Fatalf("Failed to create WebSocket server: %v", err)
 	}
 
-	// Wait for the endpoints to equalize.
-	if err := wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
-		aeps, err := clients.KubeClient.Kube.CoreV1().Endpoints(
-			system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		t.Logf("Activator endpoints: %v", aeps)
-		svcEps, err := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
-			resources.Revision.Status.ServiceName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		return cmp.Equal(svcEps.Subsets, aeps.Subsets), nil
-	}); err != nil {
-		t.Fatalf("Initial state never achieved: %v", err)
+	// Wait for the activator endpoints to equalize.
+	if err := WaitForActivatorEndpoints(resources, clients); err != nil {
+		t.Fatal("Never got Activator endpoints in the service")
 	}
 	if err := validateWebSocketConnection(t, clients, names); err != nil {
 		t.Error(err)

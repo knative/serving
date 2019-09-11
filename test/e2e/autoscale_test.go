@@ -28,7 +28,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	vegeta "github.com/tsenart/vegeta/lib"
 	"golang.org/x/sync/errgroup"
@@ -515,22 +514,9 @@ func TestTargetBurstCapacity(t *testing.T) {
 		return generateTraffic(ctx, 7, duration, stopCh)
 	})
 
-	// Wait for the endpoints to equalize.
-	// There's some jitter in the beginning possible, since it takes 2 seconds
-	// for us to start evaluating things.
-	if err := wait.Poll(250*time.Millisecond, 2*cfg.StableWindow, func() (bool, error) {
-		aeps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		svcEps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
-			ctx.resources.Revision.Status.ServiceName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		return cmp.Equal(svcEps.Subsets, aeps.Subsets), nil
-	}); err != nil {
-		t.Fatalf("Initial state never achieved: %v", err)
+	// Wait for the activator endpoints to equalize.
+	if err := WaitForActivatorEndpoints(ctx.resources, ctx.clients); err != nil {
+		t.Fatal("Never got Activator endpoints in the service")
 	}
 
 	// Start second load generator.
@@ -577,7 +563,7 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 		}))
 	defer test.TearDown(ctx.clients, ctx.names)
 
-	cfg, err := autoscalerCM(ctx.clients)
+	_, err := autoscalerCM(ctx.clients)
 	if err != nil {
 		t.Fatalf("Error retrieving autoscaler configmap: %v", err)
 	}
@@ -588,16 +574,9 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 	}
 	t.Logf("Activator endpoints: %v", aeps)
 
-	// Wait for the endpoints to equalize.
-	if err := wait.Poll(250*time.Millisecond, 2*cfg.StableWindow, func() (bool, error) {
-		svcEps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
-			ctx.resources.Revision.Status.ServiceName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		return cmp.Equal(svcEps.Subsets, aeps.Subsets), nil
-	}); err != nil {
-		t.Fatalf("Initial state never achieved: %v", err)
+	// Wait for the activator endpoints to equalize.
+	if err := WaitForActivatorEndpoints(ctx.resources, ctx.clients); err != nil {
+		t.Fatal("Never got Activator endpoints in the service")
 	}
 }
 

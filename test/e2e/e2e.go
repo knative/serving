@@ -2,18 +2,24 @@ package e2e
 
 import (
 	"testing"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	// Mysteriously required to support GCP auth (required by k8s libs).
 	// Apparently just importing it is enough. @_@ side effects @_@.
 	// https://github.com/kubernetes/client-go/issues/242
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
+	"github.com/google/go-cmp/cmp"
 	perrors "github.com/pkg/errors"
+	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
 // Setup creates the client objects needed in the e2e tests.
@@ -70,4 +76,21 @@ func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clien
 		test.ServingNamespace,
 		cfg.ScaleToZeroGracePeriod*6,
 	)
+}
+
+func WaitForActivatorEndpoints(resources *v1a1test.ResourceObjects, clients *test.Clients) error {
+	// Wait for the endpoints to equalize.
+	return wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
+		aeps, err := clients.KubeClient.Kube.CoreV1().Endpoints(
+			system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
+		if err != nil {
+			return false, nil
+		}
+		svcEps, err := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
+			resources.Revision.Status.ServiceName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		return cmp.Equal(svcEps.Subsets, aeps.Subsets), nil
+	})
 }
