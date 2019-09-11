@@ -53,7 +53,7 @@ func validateDomains(
 	baseExpected, trafficTargets, targetsExpected []string) error {
 	var subdomains []string
 	for _, target := range trafficTargets {
-		subdomains = append(subdomains, target + "-" + baseDomain)
+		subdomains = append(subdomains, target+"-"+baseDomain)
 	}
 
 	g, _ := errgroup.WithContext(context.Background())
