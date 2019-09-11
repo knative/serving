@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving/v1"
@@ -43,6 +44,8 @@ func TestServiceConversionBadType(t *testing.T) {
 }
 
 func TestServiceConversion(t *testing.T) {
+	versions := []apis.Convertible{&v1.Service{}, &v1beta1.Service{}}
+
 	tests := []struct {
 		name string
 		in   *Service
@@ -121,21 +124,23 @@ func TestServiceConversion(t *testing.T) {
 	}}
 
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			beta := &v1beta1.Service{}
-			if err := test.in.ConvertUp(context.Background(), beta); err != nil {
-				t.Errorf("ConvertUp() = %v", err)
-			}
-			t.Logf("ConvertUp() = %#v", beta)
-			got := &Service{}
-			if err := got.ConvertDown(context.Background(), beta); err != nil {
-				t.Errorf("ConvertDown() = %v", err)
-			}
-			t.Logf("ConvertDown() = %#v", got)
-			if diff := cmp.Diff(test.in, got); diff != "" {
-				t.Errorf("roundtrip (-want, +got) = %v", diff)
-			}
-		})
+		for _, version := range versions {
+			t.Run(test.name, func(t *testing.T) {
+				ver := version
+				if err := test.in.ConvertUp(context.Background(), ver); err != nil {
+					t.Errorf("ConvertUp() = %v", err)
+				}
+				t.Logf("ConvertUp() = %#v", ver)
+				got := &Service{}
+				if err := got.ConvertDown(context.Background(), ver); err != nil {
+					t.Errorf("ConvertDown() = %v", err)
+				}
+				t.Logf("ConvertDown() = %#v", got)
+				if diff := cmp.Diff(test.in, got); diff != "" {
+					t.Errorf("roundtrip (-want, +got) = %v", diff)
+				}
+			})
+		}
 	}
 }
 
@@ -162,6 +167,7 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 		},
 	}
 
+	versions := []apis.Convertible{&v1.Service{}, &v1beta1.Service{}}
 	tests := []struct {
 		name     string
 		in       *Service
@@ -673,26 +679,28 @@ func TestServiceConversionFromDeprecated(t *testing.T) {
 	}}
 
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			beta := &v1beta1.Service{}
-			if err := test.in.ConvertUp(context.Background(), beta); err != nil {
-				if test.badField != "" {
-					cce, ok := err.(*CannotConvertError)
-					if ok && cce.Field == test.badField {
-						return
+		for _, version := range versions {
+			t.Run(test.name, func(t *testing.T) {
+				ver := version
+				if err := test.in.ConvertUp(context.Background(), ver); err != nil {
+					if test.badField != "" {
+						cce, ok := err.(*CannotConvertError)
+						if ok && cce.Field == test.badField {
+							return
+						}
 					}
+					t.Errorf("ConvertUp() = %v", err)
 				}
-				t.Errorf("ConvertUp() = %v", err)
-			}
-			t.Logf("ConvertUp() = %#v", beta)
-			got := &Service{}
-			if err := got.ConvertDown(context.Background(), beta); err != nil {
-				t.Errorf("ConvertDown() = %v", err)
-			}
-			t.Logf("ConvertDown() = %#v", got)
-			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Errorf("roundtrip (-want, +got) = %v", diff)
-			}
-		})
+				t.Logf("ConvertUp() = %#v", ver)
+				got := &Service{}
+				if err := got.ConvertDown(context.Background(), ver); err != nil {
+					t.Errorf("ConvertDown() = %v", err)
+				}
+				t.Logf("ConvertDown() = %#v", got)
+				if diff := cmp.Diff(test.want, got); diff != "" {
+					t.Errorf("roundtrip (-want, +got) = %v", diff)
+				}
+			})
+		}
 	}
 }

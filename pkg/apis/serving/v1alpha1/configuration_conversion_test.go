@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving/v1"
@@ -43,7 +44,34 @@ func TestConfigurationConversionBadType(t *testing.T) {
 	}
 }
 
+func TestConfigurationConversionTemplateError(t *testing.T) {
+	tests := []struct {
+		name string
+		cs   *ConfigurationSpec
+	}{{
+		name: "multiple of",
+		cs: &ConfigurationSpec{
+			Template:                   &RevisionTemplateSpec{},
+			DeprecatedRevisionTemplate: &RevisionTemplateSpec{},
+		},
+	}, {
+		name: "missing",
+		cs:   &ConfigurationSpec{},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := &v1.ConfigurationSpec{}
+			if err := test.cs.ConvertUp(context.Background(), result); err == nil {
+				t.Errorf("ConvertUp() = %#v, wanted error", result)
+			}
+		})
+	}
+}
+
 func TestConfigurationConversion(t *testing.T) {
+	versions := []apis.Convertible{&v1.Configuration{}, &v1beta1.Configuration{}}
+
 	tests := []struct {
 		name     string
 		in       *Configuration
@@ -150,55 +178,57 @@ func TestConfigurationConversion(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			beta := &v1beta1.Configuration{}
-			if err := test.in.ConvertUp(context.Background(), beta); err != nil {
-				if test.badField != "" {
-					cce, ok := err.(*CannotConvertError)
-					if ok && cce.Field == test.badField {
-						return
+		for _, version := range versions {
+			t.Run(test.name, func(t *testing.T) {
+				ver := version
+				if err := test.in.ConvertUp(context.Background(), ver); err != nil {
+					if test.badField != "" {
+						cce, ok := err.(*CannotConvertError)
+						if ok && cce.Field == test.badField {
+							return
+						}
 					}
+					t.Errorf("ConvertUp() = %v", err)
+				} else if test.badField != "" {
+					t.Errorf("CovnertUp() = %#v, wanted bad field %q", ver,
+						test.badField)
+					return
 				}
-				t.Errorf("ConvertUp() = %v", err)
-			} else if test.badField != "" {
-				t.Errorf("CovnertUp() = %#v, wanted bad field %q", beta,
-					test.badField)
-				return
-			}
-			got := &Configuration{}
-			if err := got.ConvertDown(context.Background(), beta); err != nil {
-				t.Errorf("ConvertDown() = %v", err)
-			}
-			if diff := cmp.Diff(test.in, got); diff != "" {
-				t.Errorf("roundtrip (-want, +got) = %v", diff)
-			}
-		})
+				got := &Configuration{}
+				if err := got.ConvertDown(context.Background(), ver); err != nil {
+					t.Errorf("ConvertDown() = %v", err)
+				}
+				if diff := cmp.Diff(test.in, got); diff != "" {
+					t.Errorf("roundtrip (-want, +got) = %v", diff)
+				}
+			})
 
-		// A variant of the test that uses `revisionTemplate:` and `container:`,
-		// but end up with what we have above anyways.
-		t.Run(test.name+" (deprecated)", func(t *testing.T) {
-			start := toDeprecated(test.in)
-			beta := &v1beta1.Configuration{}
-			if err := start.ConvertUp(context.Background(), beta); err != nil {
-				if test.badField != "" {
-					cce, ok := err.(*CannotConvertError)
-					if ok && cce.Field == test.badField {
-						return
+			// A variant of the test that uses `revisionTemplate:` and `container:`,
+			// but end up with what we have above anyways.
+			t.Run(test.name+" (deprecated)", func(t *testing.T) {
+				ver := version
+				start := toDeprecated(test.in)
+				if err := start.ConvertUp(context.Background(), ver); err != nil {
+					if test.badField != "" {
+						cce, ok := err.(*CannotConvertError)
+						if ok && cce.Field == test.badField {
+							return
+						}
 					}
+					t.Errorf("ConvertUp() = %v", err)
+				} else if test.badField != "" {
+					t.Errorf("CovnertUp() = %#v, wanted bad field %q", ver,
+						test.badField)
+					return
 				}
-				t.Errorf("ConvertUp() = %v", err)
-			} else if test.badField != "" {
-				t.Errorf("CovnertUp() = %#v, wanted bad field %q", beta,
-					test.badField)
-				return
-			}
-			got := &Configuration{}
-			if err := got.ConvertDown(context.Background(), beta); err != nil {
-				t.Errorf("ConvertDown() = %v", err)
-			}
-			if diff := cmp.Diff(test.in, got); diff != "" {
-				t.Errorf("roundtrip (-want, +got) = %v", diff)
-			}
-		})
+				got := &Configuration{}
+				if err := got.ConvertDown(context.Background(), ver); err != nil {
+					t.Errorf("ConvertDown() = %v", err)
+				}
+				if diff := cmp.Diff(test.in, got); diff != "" {
+					t.Errorf("roundtrip (-want, +got) = %v", diff)
+				}
+			})
+		}
 	}
 }
