@@ -56,6 +56,7 @@ type Config struct {
 
 	// General autoscaler algorithm configuration.
 	MaxScaleUpRate           float64
+	MaxScaleDownRate         float64
 	StableWindow             time.Duration
 	PanicWindowPercentage    float64
 	PanicThresholdPercentage float64
@@ -99,6 +100,10 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		key:          "max-scale-up-rate",
 		field:        &lc.MaxScaleUpRate,
 		defaultValue: 1000.0,
+	}, {
+		key:          "max-scale-down-rate",
+		field:        &lc.MaxScaleDownRate,
+		defaultValue: 2.0,
 	}, {
 		key:   "container-concurrency-target-percentage",
 		field: &lc.ContainerConcurrencyTargetFraction,
@@ -198,6 +203,10 @@ func validate(lc *Config) (*Config, error) {
 
 	if lc.MaxScaleUpRate <= 1.0 {
 		return nil, fmt.Errorf("max-scale-up-rate = %v, must be greater than 1.0", lc.MaxScaleUpRate)
+	}
+
+	if lc.MaxScaleDownRate <= 1.0 {
+		return nil, fmt.Errorf("max-scale-down-rate = %v, must be greater than 1.0", lc.MaxScaleDownRate)
 	}
 
 	// We can't permit stable window be less than our aggregation window for correctness.
