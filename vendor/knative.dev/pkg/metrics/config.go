@@ -17,6 +17,7 @@ limitations under the License.
 package metrics
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -290,4 +291,33 @@ following import:
 import (
 	_ "knative.dev/pkg/metrics/testing"
 )`, DomainEnv, DomainEnv))
+}
+
+// JsonToMetricsOptions converts a json string of a
+// ExporterOptions. Returns a non-nil ExporterOptions always.
+func JsonToMetricsOptions(jsonOpts string) (*ExporterOptions, error) {
+	var opts ExporterOptions
+	if jsonOpts == "" {
+		return nil, errors.New("json options string is empty")
+	}
+
+	if err := json.Unmarshal([]byte(jsonOpts), &opts); err != nil {
+		return nil, err
+	}
+
+	return &opts, nil
+}
+
+// MetricsOptionsToJson converts a ExporterOptions to a json string.
+func MetricsOptionsToJson(opts *ExporterOptions) (string, error) {
+	if opts == nil {
+		return "", nil
+	}
+
+	jsonOpts, err := json.Marshal(opts)
+	if err != nil {
+		return "", err
+	}
+
+	return string(jsonOpts), nil
 }
