@@ -39,6 +39,7 @@ import (
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
+	"knative.dev/serving/pkg/queue/health"
 )
 
 const wantHost = "a-better-host.com"
@@ -74,7 +75,7 @@ func TestHandlerReqEvent(t *testing.T) {
 	params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	breaker := queue.NewBreaker(params)
 	reqChan := make(chan queue.ReqEvent, 10)
-	h := handler(reqChan, breaker, proxy)
+	h := handler(reqChan, breaker, proxy, nil, func() bool { return true }, false /* isAggresive*/)
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -98,8 +99,7 @@ func TestHandlerReqEvent(t *testing.T) {
 func TestProbeHandler(t *testing.T) {
 	testcases := []struct {
 		name          string
-		healthState  *health.State
-		rp *readiness.Probe
+		prober        func() bool
 		wantCode      int
 		wantBody      string
 		requestHeader string
@@ -113,23 +113,30 @@ func TestProbeHandler(t *testing.T) {
 		name:          "true probe function",
 		prober:        func() bool { return true },
 		wantCode:      http.StatusOK,
-		wantBody:      queue.Name,
+		wantBody:      "alive: true",
+		requestHeader: queue.Name,
+	}, {
+		name:          "nil probe function",
+		prober:        nil,
+		wantCode:      http.StatusInternalServerError,
+		wantBody:      "no probe",
 		requestHeader: queue.Name,
 	}, {
 		name:          "false probe function",
 		prober:        func() bool { return false },
 		wantCode:      http.StatusServiceUnavailable,
-		wantBody:      "container not ready",
+		wantBody:      "alive: false",
 		requestHeader: queue.Name,
 	}}
 
+	healthState := &health.State{}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			writer := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 			req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 
-			h := probeHandler(nil, nil, nil)
+			h := handler(nil, nil, nil, healthState, tc.prober, false /* isAggresive*/)
 			h(writer, req)
 
 			if got, want := writer.Code, tc.wantCode; got != want {
@@ -295,7 +302,7 @@ func TestProbeQueueDelayedReady(t *testing.T) {
 	}
 }
 
-func testQueueTraceSpans(t *testing.T) {
+func TestQueueTraceSpans(t *testing.T) {
 	testcases := []struct {
 		name          string
 		prober        func() bool
@@ -354,6 +361,7 @@ func testQueueTraceSpans(t *testing.T) {
 		enableTrace:   false,
 	}}
 
+	healthState := &health.State{}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create tracer with reporter recorder
@@ -392,10 +400,10 @@ func testQueueTraceSpans(t *testing.T) {
 					Base: network.AutoTransport,
 				}
 
-				h := handler(reqChan, breaker, proxy)
+				h := handler(reqChan, breaker, proxy, healthState, func() bool { return false }, false /* isAggresive*/)
 				h(writer, req)
 			} else {
-				h := handler(nil, nil, nil)
+				h := handler(nil, nil, nil, healthState, tc.prober, false /* isAggresive*/)
 				req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 				h(writer, req)
 			}
@@ -413,7 +421,9 @@ func testQueueTraceSpans(t *testing.T) {
 					t.Errorf("Got span %d named %q, expected %q", i, gotSpans[i].Name, spanName)
 				}
 				if tc.probeWillFail {
-					if gotSpans[i].Annotations[0].Value != "error" {
+					if len(gotSpans[i].Annotations) == 0 {
+						t.Error("Expected error as value for failed span Annotation, got empty Annotation")
+					} else if gotSpans[i].Annotations[0].Value != "error" {
 						t.Errorf("Expected error as value for failed span Annotation, got %q", gotSpans[i].Annotations[0].Value)
 					}
 				}

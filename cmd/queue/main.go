@@ -152,12 +152,13 @@ type config struct {
 
 // Make handler a closure for testing.
 func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.Handler,
-	healthState *health.State, rp *readiness.Probe) func(http.ResponseWriter, *http.Request) {
+	healthState *health.State, prober func() bool, isAggressive bool) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// TODO: Move probe part network.NewProbeHandler if possible or another handler.
 		ph := network.KnativeProbeHeader(r)
-        switch {
+		switch {
 		case ph != "":
-			handleKnativeProbe(w, r, ph, healthState, rp)
+			handleKnativeProbe(w, r, ph, healthState, prober, isAggressive)
 			return
 		case network.IsKubeletProbe(r):
 			probeCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
@@ -194,21 +195,7 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 	}
 }
 
-// func probeHandler(nextH http.Handler, healthState *health.State, rp *readiness.Probe) http.Handler {
-// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 		ph := network.KnativeProbeHeader(r)
-// 		// Health probe requests either from activator or queue-proxy itself via Exec probe
-// 		if ph != "" {
-// 			handleKnativeProbe(w, r, ph, healthState, rp)
-// 			return
-// 		}
-
-// 		// None health probe requests
-// 		nextH.ServeHTTP(w, r)
-// 	})
-// }
-
-func handleKnativeProbe(w http.ResponseWriter, r *http.Request, ph string, healthState *health.State, rp *readiness.Probe) {
+func handleKnativeProbe(w http.ResponseWriter, r *http.Request, ph string, healthState *health.State, prober func() bool, isAggressive bool) {
 	_, probeSpan := trace.StartSpan(r.Context(), "probe")
 	defer probeSpan.End()
 
@@ -219,14 +206,21 @@ func handleKnativeProbe(w http.ResponseWriter, r *http.Request, ph string, healt
 		return
 	}
 
+	if prober == nil {
+		http.Error(w, "no probe", http.StatusInternalServerError)
+		probeSpan.Annotate([]trace.Attribute{
+			trace.StringAttribute("queueproxy.probe.error", "no probe")}, "error")
+		return
+	}
+
 	healthState.HandleHealthProbe(func() bool {
-		if !rp.ProbeContainer() {
+		if ready := prober(); !ready {
+			probeSpan.Annotate([]trace.Attribute{
+				trace.StringAttribute("queueproxy.probe.error", "container not ready")}, "error")
 			return false
 		}
-		probeSpan.Annotate([]trace.Attribute{
-			trace.StringAttribute("queueproxy.probe.error", "container not ready")}, "error")
 		return true
-	}, rp.IsAggressive(), w, r)
+	}, isAggressive, w, r)
 }
 
 func probeQueueHealthPath(port int, timeoutSeconds int) error {
@@ -443,7 +437,7 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, req
 			queueDepthM, breaker, env)
 	}
 
-	composedHandler = http.HandlerFunc(handler(reqChan, breaker, composedHandler,  healthState, rp))
+	composedHandler = http.HandlerFunc(handler(reqChan, breaker, composedHandler, healthState, rp.ProbeContainer, rp.IsAggressive()))
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
 	composedHandler = queue.TimeToFirstByteTimeoutHandler(composedHandler,
 		time.Duration(env.RevisionTimeoutSeconds)*time.Second, "request timeout")
