@@ -20,7 +20,6 @@ package e2e
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"strconv"
 	"strings"
@@ -214,14 +213,13 @@ func TestGRPCStreamingPing(t *testing.T) {
 }
 
 func waitForActivatorEPS(resources *v1a1test.ResourceObjects, clients *test.Clients) error {
-	aeps, err := clients.KubeClient.Kube.CoreV1().Endpoints(
-		system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("error getting activator endpoints: %v", err)
-	}
-
 	// Wait for the endpoints to equalize.
 	return wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
+		aeps, err := clients.KubeClient.Kube.CoreV1().Endpoints(
+			system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
+		if err != nil {
+			return false, nil
+		}
 		svcEps, err := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
 			resources.Revision.Status.ServiceName, metav1.GetOptions{})
 		if err != nil {
