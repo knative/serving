@@ -78,7 +78,7 @@ func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clien
 	)
 }
 
-func WaitForActivatorEndpoints(resources *v1a1test.ResourceObjects, clients *test.Clients) error {
+func waitForActivatorEndpoints(resources *v1a1test.ResourceObjects, clients *test.Clients) error {
 	// Wait for the endpoints to equalize.
 	return wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
 		// We need to fetch the activator endpoints at every check, since it can change.

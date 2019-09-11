@@ -515,7 +515,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	})
 
 	// Wait for the activator endpoints to equalize.
-	if err := WaitForActivatorEndpoints(ctx.resources, ctx.clients); err != nil {
+	if err := waitForActivatorEndpoints(ctx.resources, ctx.clients); err != nil {
 		t.Fatal("Never got Activator endpoints in the service")
 	}
 
@@ -575,7 +575,7 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 	t.Logf("Activator endpoints: %v", aeps)
 
 	// Wait for the activator endpoints to equalize.
-	if err := WaitForActivatorEndpoints(ctx.resources, ctx.clients); err != nil {
+	if err := waitForActivatorEndpoints(ctx.resources, ctx.clients); err != nil {
 		t.Fatal("Never got Activator endpoints in the service")
 	}
 }

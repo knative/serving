@@ -210,7 +210,7 @@ func TestGRPCStreamingPing(t *testing.T) {
 func TestGRPCUnaryPingViaActivator(t *testing.T) {
 	testGRPC(t,
 		func(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.Clients, host, domain string) {
-			if err := WaitForActivatorEndpoints(resources, clients); err != nil {
+			if err := waitForActivatorEndpoints(resources, clients); err != nil {
 				t.Fatal("Never got Activator endpoints in the service")
 			}
 			unaryTest(t, resources, clients, host, domain)
@@ -224,7 +224,7 @@ func TestGRPCUnaryPingViaActivator(t *testing.T) {
 func TestGRPCStreamingPingViaActivator(t *testing.T) {
 	testGRPC(t,
 		func(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.Clients, host, domain string) {
-			if err := WaitForActivatorEndpoints(resources, clients); err != nil {
+			if err := waitForActivatorEndpoints(resources, clients); err != nil {
 				t.Fatal("Never got Activator endpoints in the service")
 			}
 			streamTest(t, resources, clients, host, domain)
