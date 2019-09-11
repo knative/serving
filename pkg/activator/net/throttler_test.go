@@ -323,8 +323,10 @@ func tryThrottler(throttler *Throttler, trys []types.NamespacedName, ctx context
 }
 
 func TestInfiniteBreaker(t *testing.T) {
+	defer ClearAll()
 	b := &InfiniteBreaker{
 		broadcast: make(chan struct{}),
+		logger:    TestLogger(t),
 	}
 
 	// Verify initial condition.
