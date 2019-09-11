@@ -158,6 +158,11 @@ func (rw *revisionWatcher) probeClusterIP(dest string) (bool, error) {
 // probePodIPs will probe the given target Pod IPs and will return
 // the ones that are successfully probed, or an error.
 func (rw *revisionWatcher) probePodIPs(dests []string) (sets.String, error) {
+	// Short circuit case where dests == healthyPods
+	if rw.allDestsHealthy(dests) {
+		return rw.healthyPods, nil
+	}
+
 	// Context used for our probe requests
 	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
 	defer cancel()
@@ -257,6 +262,18 @@ func (rw *revisionWatcher) checkDests(dests []string) {
 		rw.healthyPods = hs
 		rw.sendUpdate("" /*clusterIP not ready yet*/, hs.UnsortedList())
 	}
+}
+
+func (rw *revisionWatcher) allDestsHealthy(dests []string) bool {
+	if len(dests) != len(rw.healthyPods) {
+		return false
+	}
+	for _, dest := range dests {
+		if !rw.healthyPods.Has(dest) {
+			return false
+		}
+	}
+	return true
 }
 
 func (rw *revisionWatcher) runWithTickCh(tickCh <-chan time.Time) {
