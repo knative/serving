@@ -106,11 +106,19 @@ data:
     # Max scale up rate limits the rate at which the autoscaler will
     # increase pod count. It is the maximum ratio of desired pods versus
     # observed pods.
+    # Cannot less or equal to 1.
+    # I.e with value of 2.0 the number of pods can at most go N to 2N
+    # over single Autoscler period (see tick-interval), but at least N to
+    # N+1, if Autoscaler needs to scale up.
     max-scale-up-rate: "1000.0"
 
     # Max scale down rate limits the rate at which the autoscaler will
     # decrease pod count. It is the maximum ratio of observed pods versus
     # desired pods.
+    # Cannot less or equal to 1.
+    # I.e. with value of 2.0 the number of pods can at most go N to N/2
+    # over single Autoscaler evaluation period (see tick-interval), but at
+    # least N to N-1, if Autoscaler needs to scale down.
     # Not yet used // TODO(vagababov) remove once other parts are ready.
     max-scale-down-rate: "2.0"
 
