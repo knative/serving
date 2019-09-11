@@ -63,6 +63,7 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 		Spec: autoscaler.DeciderSpec{
 			TickInterval:        config.TickInterval,
 			MaxScaleUpRate:      config.MaxScaleUpRate,
+			MaxScaleDownRate:    config.MaxScaleDownRate,
 			ScalingMetric:       pa.Metric(),
 			TargetValue:         target,
 			TotalValue:          total,

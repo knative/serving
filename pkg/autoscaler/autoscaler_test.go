@@ -75,6 +75,7 @@ func TestAutoscalerNoDataNoAutoscale(t *testing.T) {
 func expectedEBC(tc, tbc, rc, np float64) int32 {
 	return int32(math.Floor(tc/targetUtilization*np - tbc - rc))
 }
+
 func TestAutoscalerNoDataAtZeroNoAutoscale(t *testing.T) {
 	a := newTestAutoscaler(t, 10, 100, &autoscalerfake.MetricClient{})
 	// We always presume at least 1 pod, even if counter says 0.
@@ -134,6 +135,14 @@ func TestAutoscalerStableModeIncreaseWithSmallScaleUpRate(t *testing.T) {
 	a.deciderSpec.MaxScaleUpRate = 1.1
 	endpoints(2, testService)
 	a.expectScale(t, time.Now(), 3, expectedEBC(1, 1982, 3, 2), true)
+}
+
+func TestAutoscalerStableModeIncreaseWithSmallScaleDownRate(t *testing.T) {
+	metrics := &autoscalerfake.MetricClient{StableConcurrency: 1}
+	a := newTestAutoscaler(t, 10 /* target */, 1982 /* TBC */, metrics)
+	a.deciderSpec.MaxScaleDownRate = 1.1
+	endpoints(100, testService)
+	a.expectScale(t, time.Now(), 90, expectedEBC(10, 1982, 1, 100), true)
 }
 
 func TestAutoscalerStableModeIncreaseWithConcurrencyDefault(t *testing.T) {
@@ -235,6 +244,19 @@ func TestAutoscalerRateLimitScaleUp(t *testing.T) {
 	a.expectScale(t, time.Now(), 100, expectedEBC(10, 61, 1000, 10), true)
 }
 
+func TestAutoscalerRateLimitScaleDown(t *testing.T) {
+	metrics := &autoscalerfake.MetricClient{StableConcurrency: 1}
+	a := newTestAutoscaler(t, 10, 61, metrics)
+
+	// Need 1 pods but can only scale down ten times, to 10.
+	endpoints(100, testService)
+	a.expectScale(t, time.Now(), 10, expectedEBC(10, 61, 1, 100), true)
+
+	endpoints(10, testService)
+	// Scale ÷10 again.
+	a.expectScale(t, time.Now(), 1, expectedEBC(10, 61, 1, 10), true)
+}
+
 func eraseEndpoints() {
 	ep, _ := kubeClient.CoreV1().Endpoints(testNamespace).Get(testService, metav1.GetOptions{})
 	kubeClient.CoreV1().Endpoints(testNamespace).Delete(testService, nil)
@@ -267,6 +289,7 @@ func TestAutoscalerUpdateTarget(t *testing.T) {
 		TotalValue:          1 / targetUtilization,
 		TargetBurstCapacity: 71,
 		PanicThreshold:      2,
+		MaxScaleDownRate:    10,
 		MaxScaleUpRate:      10,
 		StableWindow:        stableWindow,
 		ServiceName:         testService,
@@ -343,7 +366,8 @@ func newTestAutoscalerWithScalingMetric(t *testing.T, targetValue, targetBurstCa
 		TotalValue:          targetValue / targetUtilization, // For UTs presume 75% utilization
 		TargetBurstCapacity: targetBurstCapacity,
 		PanicThreshold:      2 * targetValue,
-		MaxScaleUpRate:      10.0,
+		MaxScaleUpRate:      10,
+		MaxScaleDownRate:    10,
 		StableWindow:        stableWindow,
 		ServiceName:         testService,
 	}
@@ -400,7 +424,8 @@ func TestStartInPanicMode(t *testing.T) {
 		TotalValue:          120,
 		TargetBurstCapacity: 11,
 		PanicThreshold:      220,
-		MaxScaleUpRate:      10.0,
+		MaxScaleUpRate:      10,
+		MaxScaleDownRate:    10,
 		StableWindow:        stableWindow,
 		ServiceName:         testService,
 	}
@@ -442,7 +467,8 @@ func TestNewFail(t *testing.T) {
 		TotalValue:          120,
 		TargetBurstCapacity: 11,
 		PanicThreshold:      220,
-		MaxScaleUpRate:      10.0,
+		MaxScaleUpRate:      10,
+		MaxScaleDownRate:    10,
 		StableWindow:        stableWindow,
 		ServiceName:         testService,
 	}

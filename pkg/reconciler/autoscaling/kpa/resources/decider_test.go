@@ -22,7 +22,9 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler"
@@ -46,6 +48,16 @@ func TestMakeDecider(t *testing.T) {
 		want: decider(withTarget(80), withPanicThreshold(160.0), withTotal(100)),
 		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
 			c.ContainerConcurrencyTargetFraction = 0.8
+			return &c
+		},
+	}, {
+		name: "scale up and scale down rates",
+		pa:   pa(),
+		want: decider(withTarget(100.0), withPanicThreshold(200.0), withTotal(100),
+			withScaleUpDownRates(19.84, 19.88)),
+		cfgOpt: func(c autoscaler.Config) *autoscaler.Config {
+			c.MaxScaleUpRate = 19.84
+			c.MaxScaleDownRate = 19.88
 			return &c
 		},
 	}, {
@@ -196,6 +208,13 @@ func withMetric(metric string) DeciderOption {
 func withTargetBurstCapacity(tbc float64) DeciderOption {
 	return func(decider *autoscaler.Decider) {
 		decider.Spec.TargetBurstCapacity = tbc
+	}
+}
+
+func withScaleUpDownRates(up, down float64) DeciderOption {
+	return func(decider *autoscaler.Decider) {
+		decider.Spec.MaxScaleUpRate = up
+		decider.Spec.MaxScaleDownRate = down
 	}
 }
 
