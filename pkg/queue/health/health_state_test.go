@@ -90,7 +90,7 @@ func TestHealthStateHealthHandler(t *testing.T) {
 		state:           &State{alive: false},
 		prober:          func() bool { return false },
 		isNotAggressive: true,
-		wantStatus:      http.StatusBadRequest,
+		wantStatus:      http.StatusServiceUnavailable,
 		wantBody:        notAliveBody,
 	}, {
 		name:            "alive: false, no prober, K-Probe",
@@ -102,7 +102,7 @@ func TestHealthStateHealthHandler(t *testing.T) {
 		name:            "shuttingDown: true, K-Probe",
 		state:           &State{shuttingDown: true},
 		isNotAggressive: true,
-		wantStatus:      http.StatusBadRequest,
+		wantStatus:      http.StatusServiceUnavailable,
 		wantBody:        notAliveBody,
 	}, {
 		name:            "no prober, shuttingDown: false",
@@ -115,7 +115,7 @@ func TestHealthStateHealthHandler(t *testing.T) {
 		state:           &State{shuttingDown: true},
 		prober:          func() bool { return true },
 		isNotAggressive: false,
-		wantStatus:      http.StatusBadRequest,
+		wantStatus:      http.StatusServiceUnavailable,
 		wantBody:        notAliveBody,
 	}, {
 		name:            "prober: true, shuttingDown: false",
@@ -129,21 +129,21 @@ func TestHealthStateHealthHandler(t *testing.T) {
 		state:           &State{},
 		prober:          func() bool { return false },
 		isNotAggressive: false,
-		wantStatus:      http.StatusBadRequest,
+		wantStatus:      http.StatusServiceUnavailable,
 		wantBody:        notAliveBody,
 	}, {
 		name:            "prober: false, shuttingDown: true",
 		state:           &State{},
 		prober:          func() bool { return false },
 		isNotAggressive: false,
-		wantStatus:      http.StatusBadRequest,
+		wantStatus:      http.StatusServiceUnavailable,
 		wantBody:        notAliveBody,
 	}, {
 		name:            "alive: true, prober: false, shuttingDown: false",
 		state:           &State{alive: true},
 		prober:          func() bool { return false },
 		isNotAggressive: false,
-		wantStatus:      http.StatusBadRequest,
+		wantStatus:      http.StatusServiceUnavailable,
 		wantBody:        notAliveBody,
 	}}
 	for _, test := range tests {
@@ -154,7 +154,7 @@ func TestHealthStateHealthHandler(t *testing.T) {
 			}
 
 			rr := httptest.NewRecorder()
-			handler := http.HandlerFunc(test.state.HealthHandler(test.prober, test.isNotAggressive))
+			handler := http.HandlerFunc(test.state.HealthHandleFunc(test.prober, test.isNotAggressive))
 
 			handler.ServeHTTP(rr, req)
 
@@ -183,7 +183,7 @@ func TestHealthStateDrainHandler(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	completedCh := make(chan struct{}, 1)
-	handler := http.HandlerFunc(state.DrainHandler())
+	handler := http.HandlerFunc(state.DrainHandleFunc())
 	go func(handler http.Handler, recorder *httptest.ResponseRecorder) {
 		handler.ServeHTTP(recorder, req)
 		close(completedCh)

@@ -81,37 +81,45 @@ func (h *State) drainFinished() {
 
 }
 
-// HealthHandler constructs a handler that returns the current state of the
+// HealthHandleFunc constructs a handler function that returns the current state of the
 // health server. If isNotAggressive is true and prober has succeeded previously,
 // the function return success without probing user-container again (until
 // shutdown).
-func (h *State) HealthHandler(prober func() bool, isNotAggressive bool) func(w http.ResponseWriter, r *http.Request) {
+func (h *State) HealthHandleFunc(prober func() bool, isNotAggressive bool) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		sendAlive := func() {
-			io.WriteString(w, "alive: true")
-		}
-
-		sendNotAlive := func() {
-			w.WriteHeader(http.StatusBadRequest)
-			io.WriteString(w, "alive: false")
-		}
-
-		switch {
-		case isNotAggressive && h.IsAlive():
-			sendAlive()
-		case h.IsShuttingDown():
-			sendNotAlive()
-		case prober != nil && !prober():
-			sendNotAlive()
-		default:
-			h.setAlive()
-			sendAlive()
-		}
+		h.HandleHealthProbe(prober, isNotAggressive, w, r)
 	}
 }
 
-// DrainHandler constructs a handler that waits until the proxy server is shut down.
-func (h *State) DrainHandler() func(_ http.ResponseWriter, _ *http.Request) {
+// HandleHealthProbe handles the request according to the current state of the
+// health server. If isNotAggressive is true and prober has succeeded previously,
+// the function return success without probing user-container again (until
+// shutdown).
+func (h *State) HandleHealthProbe(prober func() bool, isNotAggressive bool, w http.ResponseWriter, r *http.Request) {
+	sendAlive := func() {
+		io.WriteString(w, "alive: true")
+	}
+
+	sendNotAlive := func() {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		io.WriteString(w, "alive: false")
+	}
+
+	switch {
+	case isNotAggressive && h.IsAlive():
+		sendAlive()
+	case h.IsShuttingDown():
+		sendNotAlive()
+	case prober != nil && !prober():
+		sendNotAlive()
+	default:
+		h.setAlive()
+		sendAlive()
+	}
+}
+
+// DrainHandleFunc constructs a handle function that waits until the proxy server is shut down.
+func (h *State) DrainHandleFunc() func(_ http.ResponseWriter, _ *http.Request) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 	if h.drainCh == nil {
