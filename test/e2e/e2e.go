@@ -78,8 +78,8 @@ func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clien
 	)
 }
 
+// waitForActivatorEndpoints waits for the Service endpoints to match that of activator.
 func waitForActivatorEndpoints(resources *v1a1test.ResourceObjects, clients *test.Clients) error {
-	// Wait for the endpoints to equalize.
 	return wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
 		// We need to fetch the activator endpoints at every check, since it can change.
 		aeps, err := clients.KubeClient.Kube.CoreV1().Endpoints(
