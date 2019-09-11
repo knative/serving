@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -235,4 +236,21 @@ func WithIngressClass(ingressClass string) RouteOption {
 		}
 		r.Annotations[networking.IngressClassAnnotationKey] = ingressClass
 	}
+}
+
+// Route creates a route with ServiceOptions
+func Route(namespace, name string, labels, annotations map[string]string, ro ...RouteOption) *v1alpha1.Route {
+	r := &v1alpha1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:   namespace,
+			Name:        name,
+			Labels:      labels,
+			Annotations: annotations,
+		},
+	}
+	for _, opt := range ro {
+		opt(r)
+	}
+	r.SetDefaults(context.Background())
+	return r
 }

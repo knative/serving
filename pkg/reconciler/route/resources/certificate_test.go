@@ -27,21 +27,17 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+
+	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
 
-var route = &v1alpha1.Route{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:      "route",
-		Namespace: "default",
-		UID:       "12345",
-	},
-}
-
-var dnsNameTagMap = map[string]string{
-	"v1.default.example.com":         "",
-	"v1-current.default.example.com": "current",
-}
+var (
+	dnsNameTagMap = map[string]string{
+		"v1.default.example.com":         "",
+		"v1-current.default.example.com": "current",
+	}
+	route = Route("default", "route", map[string]string{}, map[string]string{}, WithRouteUID("12345"))
+)
 
 func TestMakeCertificates(t *testing.T) {
 	want := []*netv1alpha1.Certificate{

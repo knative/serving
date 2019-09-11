@@ -39,18 +39,14 @@ import (
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 
 	. "knative.dev/pkg/logging/testing"
+	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
 
 func TestReconcileIngressInsert(t *testing.T) {
 	_, _, reconciler, _, cancel := newTestReconciler(t)
 	defer cancel()
 
-	r := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-route",
-			Namespace: "test-ns",
-		},
-	}
+	r := Route("test-ns", "test-route")
 	ci := newTestIngress(t, r)
 
 	ira := &IngressResources{
@@ -69,13 +65,7 @@ func TestReconcileIngressUpdate(t *testing.T) {
 	ctx, _, reconciler, _, cancel := newTestReconciler(t)
 	defer cancel()
 
-	r := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-route",
-			Namespace: "test-ns",
-		},
-	}
-
+	r := Route("test-ns", "test-route")
 	ira := &IngressResources{
 		BaseIngressResources: BaseIngressResources{
 			servingClientSet: reconciler.ServingClientSet,
@@ -117,16 +107,7 @@ func TestReconcileTargetRevisions(t *testing.T) {
 	_, _, reconciler, _, cancel := newTestReconciler(t)
 	defer cancel()
 
-	r := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-route",
-			Namespace: "test-ns",
-			Labels: map[string]string{
-				"route": "test-route",
-			},
-		},
-	}
-
+	r := Route("test-ns", "test-route", WithRouteLabel(map[string]string{"route": "test-route"}))
 	cases := []struct {
 		name      string
 		tc        traffic.Config
@@ -205,12 +186,7 @@ func TestReconcileCertificatesInsert(t *testing.T) {
 	ctx, _, reconciler, _, cancel := newTestReconciler(t)
 	defer cancel()
 
-	r := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-route",
-			Namespace: "test-ns",
-		},
-	}
+	r := Route("test-ns", "test-route")
 	certificate := newCerts([]string{"*.default.example.com"}, r)
 	if _, err := reconciler.reconcileCertificate(TestContextWithLogger(t), r, certificate); err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -225,12 +201,7 @@ func TestReconcileCertificateUpdate(t *testing.T) {
 	ctx, _, reconciler, _, cancel := newTestReconciler(t)
 	defer cancel()
 
-	r := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-route",
-			Namespace: "test-ns",
-		},
-	}
+	r := Route("test-ns", "test-route")
 	certificate := newCerts([]string{"old.example.com"}, r)
 	if _, err := reconciler.reconcileCertificate(TestContextWithLogger(t), r, certificate); err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -271,3 +242,4 @@ func getContext() context.Context {
 	cfg := ReconcilerTestConfig(false)
 	return config.ToContext(context.Background(), cfg)
 }
+
