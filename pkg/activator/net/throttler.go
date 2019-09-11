@@ -29,6 +29,7 @@ import (
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -86,9 +87,10 @@ func newRevisionThrottler(revID types.NamespacedName,
 	containerConcurrency int64,
 	breakerParams queue.BreakerParams,
 	logger *zap.SugaredLogger) *revisionThrottler {
+	logger = logger.With(zap.String(logkey.Key, revID.String()))
 	var revBreaker breaker
 	if containerConcurrency == 0 {
-		revBreaker = NewInfiniteBreaker()
+		revBreaker = NewInfiniteBreaker(logger)
 	} else {
 		revBreaker = queue.NewBreaker(breakerParams)
 	}
@@ -96,7 +98,7 @@ func newRevisionThrottler(revID types.NamespacedName,
 		revID:                revID,
 		containerConcurrency: containerConcurrency,
 		breaker:              revBreaker,
-		logger:               logger.With(zap.String("revision", revID.String())),
+		logger:               logger,
 	}
 }
 
@@ -440,12 +442,15 @@ type InfiniteBreaker struct {
 	// immediately or wait for capacity to appear.
 	// `concurrency` should only be manipulated by `sync/atomic` methods.
 	concurrency int32
+
+	logger *zap.SugaredLogger
 }
 
 // NewInfiniteBreaker creates an InfiniteBreaker
-func NewInfiniteBreaker() *InfiniteBreaker {
+func NewInfiniteBreaker(logger *zap.SugaredLogger) *InfiniteBreaker {
 	return &InfiniteBreaker{
 		broadcast: make(chan struct{}),
+		logger:    logger,
 	}
 }
 
@@ -503,6 +508,7 @@ func (ib *InfiniteBreaker) Maybe(ctx context.Context, thunk func()) bool {
 		thunk()
 		return true
 	case <-ctx.Done():
+		ib.logger.Infof("Context is closed: %v", ctx.Err())
 		return false
 	}
 }
