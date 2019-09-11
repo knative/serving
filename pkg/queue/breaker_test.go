@@ -371,10 +371,10 @@ func (r *requestor) request() {
 // or block until processSuccessfully is called.
 func (r *requestor) requestWithContext(ctx context.Context) {
 	go func() {
-		ok := r.breaker.Maybe(ctx, func() {
+		err := r.breaker.Maybe(ctx, func() {
 			<-r.barrierCh
 		})
-		r.acceptedCh <- ok
+		r.acceptedCh <- err == nil
 	}()
 }
 

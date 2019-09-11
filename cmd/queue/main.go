@@ -181,10 +181,15 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 
 		// Enforce queuing and concurrency limits.
 		if breaker != nil {
-			if !breaker.Maybe(r.Context(), func() {
+			if err := breaker.Maybe(r.Context(), func() {
 				handler.ServeHTTP(w, r.WithContext(proxyCtx))
-			}) {
-				http.Error(w, "overload", http.StatusServiceUnavailable)
+			}); err != nil {
+				switch err {
+				case context.DeadlineExceeded, queue.ErrRequestQueueFull:
+					http.Error(w, err.Error(), http.StatusServiceUnavailable)
+				default:
+					w.WriteHeader(http.StatusInternalServerError)
+				}
 			}
 		} else {
 			handler.ServeHTTP(w, r.WithContext(proxyCtx))

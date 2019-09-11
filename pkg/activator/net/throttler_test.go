@@ -140,7 +140,7 @@ func TestThrottler(t *testing.T) {
 		},
 		expectTryResults: []tryResult{
 			{Dest: "129.0.0.1:1234"},
-			{ErrString: ErrActivatorOverload.Error()},
+			{ErrString: context.DeadlineExceeded.Error()},
 		},
 	}, {
 		name: "remove before try",
@@ -285,7 +285,7 @@ func TestMultipleActivator(t *testing.T) {
 		results := tryThrottler(throttler, []types.NamespacedName{revID, revID}, tryContext)
 		if diff := cmp.Diff([]tryResult{
 			{Dest: "128.0.0.1:1234"},
-			{ErrString: ErrActivatorOverload.Error()},
+			{ErrString: context.DeadlineExceeded.Error()},
 		}, results); diff != "" {
 			t.Errorf("Got unexpected try results (-want, +got): %v", diff)
 		}
@@ -336,7 +336,7 @@ func TestInfiniteBreaker(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if b.Maybe(ctx, nil) {
+	if err := b.Maybe(ctx, nil); err == nil {
 		t.Error("Should have failed, but didn't")
 	}
 
@@ -351,7 +351,7 @@ func TestInfiniteBreaker(t *testing.T) {
 		ctx, cancel = context.WithCancel(context.Background())
 		cancel()
 		res := false
-		if !b.Maybe(ctx, func() { res = true }) {
+		if err := b.Maybe(ctx, func() { res = true }); err != nil {
 			t.Error("Should have succeeded, but didn't")
 		}
 		if !res {
@@ -365,7 +365,7 @@ func TestInfiniteBreaker(t *testing.T) {
 	// Repeat initial test.
 	ctx, cancel = context.WithCancel(context.Background())
 	cancel()
-	if b.Maybe(ctx, nil) {
+	if err := b.Maybe(ctx, nil); err == nil {
 		t.Error("Should have failed, but didn't")
 	}
 	if got, want := b.Capacity(), 0; got != want {
@@ -382,7 +382,7 @@ func TestInfiniteBreaker(t *testing.T) {
 		b.UpdateConcurrency(1)
 	}()
 	res := false
-	if !b.Maybe(ctx, func() { res = true }) {
+	if err := b.Maybe(ctx, func() { res = true }); err != nil {
 		t.Error("Should have succeeded, but didn't")
 	}
 	if !res {
