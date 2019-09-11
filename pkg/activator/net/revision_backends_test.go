@@ -374,7 +374,7 @@ func TestRevisionWatcher(t *testing.T) {
 				tc.expectUpdates[i].Rev = revID
 			}
 
-			if got, want := tc.expectUpdates, updates; !cmp.Equal(got, want, cmpopts.EquateEmpty()) {
+			if got, want := updates, tc.expectUpdates; !cmp.Equal(got, want, cmpopts.EquateEmpty()) {
 				t.Errorf("revisionDests updates = %v, want: %v, diff (-want, +got):\n %s", got, want, cmp.Diff(want, got))
 			}
 		})
