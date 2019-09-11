@@ -151,10 +151,7 @@ func (a *activationHandler) proxyRequest(logger *zap.SugaredLogger, w http.Respo
 		}
 	}
 	proxy.FlushInterval = -1
-	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
-		logger.Infof("error reverse proxying request: %v", err)
-		http.Error(w, err.Error(), http.StatusBadGateway)
-	}
+	proxy.ErrorHandler = network.ErrorHandler(logger)
 
 	r.Header.Set(network.ProxyHeaderName, activator.Name)
 
