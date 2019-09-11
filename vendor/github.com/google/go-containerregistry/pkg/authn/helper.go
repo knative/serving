@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-
-	"github.com/google/go-containerregistry/pkg/name"
 )
 
 // magicNotFoundMessage is the string that the CLI special cases to mean
@@ -46,7 +44,7 @@ func (dr *defaultRunner) Run(cmd *exec.Cmd) error {
 // helper executes the named credential helper against the given domain.
 type helper struct {
 	name   string
-	domain name.Registry
+	domain string
 
 	// We add this layer of indirection to facilitate unit testing.
 	r runner

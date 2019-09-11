@@ -16,8 +16,8 @@ package remote
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -28,6 +28,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/google/go-containerregistry/pkg/v1/v1util"
 )
 
 var defaultPlatform = v1.Platform{
@@ -38,7 +39,21 @@ var defaultPlatform = v1.Platform{
 // ErrSchema1 indicates that we received a schema1 manifest from the registry.
 // This library doesn't have plans to support this legacy image format:
 // https://github.com/google/go-containerregistry/issues/377
-var ErrSchema1 = errors.New("unsupported MediaType: https://github.com/google/go-containerregistry/issues/377")
+type ErrSchema1 struct {
+	schema string
+}
+
+// newErrSchema1 returns an ErrSchema1 with the unexpected MediaType.
+func newErrSchema1(schema types.MediaType) error {
+	return &ErrSchema1{
+		schema: string(schema),
+	}
+}
+
+// Error implements error.
+func (e *ErrSchema1) Error() string {
+	return fmt.Sprintf("unsupported MediaType: %q, see https://github.com/google/go-containerregistry/issues/377", e.schema)
+}
 
 // Descriptor provides access to metadata about remote artifact and accessors
 // for efficiently converting it into a v1.Image or v1.ImageIndex.
@@ -70,28 +85,20 @@ func Get(ref name.Reference, options ...Option) (*Descriptor, error) {
 // Handle options and fetch the manifest with the acceptable MediaTypes in the
 // Accept header.
 func get(ref name.Reference, acceptable []types.MediaType, options ...Option) (*Descriptor, error) {
-	o, err := makeOptions(ref.Context().Registry, options...)
+	o, err := makeOptions(ref.Context(), options...)
 	if err != nil {
 		return nil, err
 	}
-
-	tr, err := transport.New(ref.Context().Registry, o.auth, o.transport, []string{ref.Scope(transport.PullScope)})
+	f, err := makeFetcher(ref, o)
 	if err != nil {
 		return nil, err
 	}
-
-	f := fetcher{
-		Ref:    ref,
-		Client: &http.Client{Transport: tr},
-	}
-
 	b, desc, err := f.fetchManifest(ref, acceptable)
 	if err != nil {
 		return nil, err
 	}
-
 	return &Descriptor{
-		fetcher:    f,
+		fetcher:    *f,
 		Manifest:   b,
 		Descriptor: *desc,
 		platform:   o.platform,
@@ -111,7 +118,7 @@ func (d *Descriptor) Image() (v1.Image, error) {
 	case types.DockerManifestSchema1, types.DockerManifestSchema1Signed:
 		// We don't care to support schema 1 images:
 		// https://github.com/google/go-containerregistry/issues/377
-		return nil, ErrSchema1
+		return nil, newErrSchema1(d.MediaType)
 	case types.OCIImageIndex, types.DockerManifestList:
 		// We want an image but the registry has an index, resolve it to an image.
 		return d.remoteIndex().imageByPlatform(d.platform)
@@ -141,7 +148,7 @@ func (d *Descriptor) ImageIndex() (v1.ImageIndex, error) {
 	case types.DockerManifestSchema1, types.DockerManifestSchema1Signed:
 		// We don't care to support schema 1 images:
 		// https://github.com/google/go-containerregistry/issues/377
-		return nil, ErrSchema1
+		return nil, newErrSchema1(d.MediaType)
 	case types.OCIManifestSchema1, types.DockerManifestSchema2:
 		// We want an index but the registry has an image, nothing we can do.
 		return nil, fmt.Errorf("unexpected media type for ImageIndex(): %s; call Image() instead", d.MediaType)
@@ -181,6 +188,17 @@ func (d *Descriptor) remoteIndex() *remoteIndex {
 type fetcher struct {
 	Ref    name.Reference
 	Client *http.Client
+}
+
+func makeFetcher(ref name.Reference, o *options) (*fetcher, error) {
+	tr, err := transport.New(ref.Context().Registry, o.auth, o.transport, []string{ref.Scope(transport.PullScope)})
+	if err != nil {
+		return nil, err
+	}
+	return &fetcher{
+		Ref:    ref,
+		Client: &http.Client{Transport: tr},
+	}, nil
 }
 
 // url returns a url.Url for the specified path in the context of this remote image reference.
@@ -256,4 +274,34 @@ func (f *fetcher) fetchManifest(ref name.Reference, acceptable []types.MediaType
 	}
 
 	return manifest, &desc, nil
+}
+
+func (f *fetcher) fetchBlob(h v1.Hash) (io.ReadCloser, error) {
+	u := f.url("blobs", h.String())
+	resp, err := f.Client.Get(u.String())
+	if err != nil {
+		return nil, err
+	}
+
+	if err := transport.CheckError(resp, http.StatusOK); err != nil {
+		resp.Body.Close()
+		return nil, err
+	}
+
+	return v1util.VerifyReadCloser(resp.Body, h)
+}
+
+func (f *fetcher) headBlob(h v1.Hash) (*http.Response, error) {
+	u := f.url("blobs", h.String())
+	resp, err := f.Client.Head(u.String())
+	if err != nil {
+		return nil, err
+	}
+
+	if err := transport.CheckError(resp, http.StatusOK); err != nil {
+		resp.Body.Close()
+		return nil, err
+	}
+
+	return resp, nil
 }
