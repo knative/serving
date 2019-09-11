@@ -74,7 +74,7 @@ func TestHandlerReqEvent(t *testing.T) {
 	params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	breaker := queue.NewBreaker(params)
 	reqChan := make(chan queue.ReqEvent, 10)
-	h := handler(reqChan, breaker, proxy, func() bool { return true })
+	h := handler(reqChan, breaker, proxy)
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -98,7 +98,8 @@ func TestHandlerReqEvent(t *testing.T) {
 func TestProbeHandler(t *testing.T) {
 	testcases := []struct {
 		name          string
-		prober        func() bool
+		healthState  *health.State
+		rp *readiness.Probe
 		wantCode      int
 		wantBody      string
 		requestHeader string
@@ -115,12 +116,6 @@ func TestProbeHandler(t *testing.T) {
 		wantBody:      queue.Name,
 		requestHeader: queue.Name,
 	}, {
-		name:          "nil probe function",
-		prober:        nil,
-		wantCode:      http.StatusInternalServerError,
-		wantBody:      "no probe",
-		requestHeader: queue.Name,
-	}, {
 		name:          "false probe function",
 		prober:        func() bool { return false },
 		wantCode:      http.StatusServiceUnavailable,
@@ -134,7 +129,7 @@ func TestProbeHandler(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 			req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 
-			h := handler(nil, nil, nil, tc.prober)
+			h := probeHandler(nil, nil, nil)
 			h(writer, req)
 
 			if got, want := writer.Code, tc.wantCode; got != want {
@@ -300,7 +295,7 @@ func TestProbeQueueDelayedReady(t *testing.T) {
 	}
 }
 
-func TestQueueTraceSpans(t *testing.T) {
+func testQueueTraceSpans(t *testing.T) {
 	testcases := []struct {
 		name          string
 		prober        func() bool
@@ -397,10 +392,10 @@ func TestQueueTraceSpans(t *testing.T) {
 					Base: network.AutoTransport,
 				}
 
-				h := handler(reqChan, breaker, proxy, func() bool { return false })
+				h := handler(reqChan, breaker, proxy)
 				h(writer, req)
 			} else {
-				h := handler(nil, nil, nil, tc.prober)
+				h := handler(nil, nil, nil)
 				req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 				h(writer, req)
 			}

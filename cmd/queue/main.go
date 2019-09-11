@@ -152,12 +152,12 @@ type config struct {
 
 // Make handler a closure for testing.
 func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.Handler,
-	prober func() bool) func(http.ResponseWriter, *http.Request) {
+	healthState *health.State, rp *readiness.Probe) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ph := network.KnativeProbeHeader(r)
-		switch {
+        switch {
 		case ph != "":
-			handleKnativeProbe(w, r, ph, prober)
+			handleKnativeProbe(w, r, ph, healthState, rp)
 			return
 		case network.IsKubeletProbe(r):
 			probeCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
@@ -166,8 +166,10 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 			probeSpan.End()
 			return
 		}
+
 		proxyCtx, proxySpan := trace.StartSpan(r.Context(), "proxy")
 		defer proxySpan.End()
+
 		// Metrics for autoscaling.
 		in, out := queue.ReqIn, queue.ReqOut
 		if activator.Name == network.KnativeProxyHeader(r) {
@@ -192,7 +194,21 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 	}
 }
 
-func handleKnativeProbe(w http.ResponseWriter, r *http.Request, ph string, prober func() bool) {
+// func probeHandler(nextH http.Handler, healthState *health.State, rp *readiness.Probe) http.Handler {
+// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// 		ph := network.KnativeProbeHeader(r)
+// 		// Health probe requests either from activator or queue-proxy itself via Exec probe
+// 		if ph != "" {
+// 			handleKnativeProbe(w, r, ph, healthState, rp)
+// 			return
+// 		}
+
+// 		// None health probe requests
+// 		nextH.ServeHTTP(w, r)
+// 	})
+// }
+
+func handleKnativeProbe(w http.ResponseWriter, r *http.Request, ph string, healthState *health.State, rp *readiness.Probe) {
 	_, probeSpan := trace.StartSpan(r.Context(), "probe")
 	defer probeSpan.End()
 
@@ -203,22 +219,14 @@ func handleKnativeProbe(w http.ResponseWriter, r *http.Request, ph string, probe
 		return
 	}
 
-	if prober == nil {
-		http.Error(w, "no probe", http.StatusInternalServerError)
-		probeSpan.Annotate([]trace.Attribute{
-			trace.StringAttribute("queueproxy.probe.error", "no probe")}, "error")
-		return
-	}
-
-	if !prober() {
-		http.Error(w, "container not ready", http.StatusServiceUnavailable)
+	healthState.HandleHealthProbe(func() bool {
+		if !rp.ProbeContainer() {
+			return false
+		}
 		probeSpan.Annotate([]trace.Attribute{
 			trace.StringAttribute("queueproxy.probe.error", "container not ready")}, "error")
-		return
-	}
-
-	// Respond with the name of the component handling the request.
-	w.Write([]byte(queue.Name))
+		return true
+	}, rp.IsAggressive(), w, r)
 }
 
 func probeQueueHealthPath(port int, timeoutSeconds int) error {
@@ -327,7 +335,7 @@ func main() {
 	probe := buildProbe(env.ServingReadinessProbe)
 	healthState := &health.State{}
 
-	server := buildServer(env, probe, reqChan, logger)
+	server := buildServer(env, healthState, probe, reqChan, logger)
 	adminServer := buildAdminServer(healthState, probe, logger)
 	metricsServer := buildMetricsServer(promStatReporter)
 
@@ -407,7 +415,8 @@ func buildProbe(probeJSON string) *readiness.Probe {
 	return readiness.NewProbe(coreProbe)
 }
 
-func buildServer(env config, rp *readiness.Probe, reqChan chan queue.ReqEvent, logger *zap.SugaredLogger) *http.Server {
+func buildServer(env config, healthState *health.State, rp *readiness.Probe, reqChan chan queue.ReqEvent,
+	logger *zap.SugaredLogger) *http.Server {
 	target := &url.URL{
 		Scheme: "http",
 		Host:   net.JoinHostPort("127.0.0.1", strconv.Itoa(env.UserPort)),
@@ -433,7 +442,8 @@ func buildServer(env config, rp *readiness.Probe, reqChan chan queue.ReqEvent, l
 		composedHandler = pushRequestMetricHandler(httpProxy, appRequestCountM, appResponseTimeInMsecM,
 			queueDepthM, breaker, env)
 	}
-	composedHandler = http.HandlerFunc(handler(reqChan, breaker, composedHandler, rp.ProbeContainer))
+
+	composedHandler = http.HandlerFunc(handler(reqChan, breaker, composedHandler,  healthState, rp))
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
 	composedHandler = queue.TimeToFirstByteTimeoutHandler(composedHandler,
 		time.Duration(env.RevisionTimeoutSeconds)*time.Second, "request timeout")
@@ -498,14 +508,14 @@ func supportsMetrics(env config, logger *zap.SugaredLogger) bool {
 
 func buildAdminServer(healthState *health.State, probe *readiness.Probe, logger *zap.SugaredLogger) *http.Server {
 	adminMux := http.NewServeMux()
-	adminMux.HandleFunc(requestQueueHealthPath, healthState.HealthHandler(func() bool {
+	adminMux.HandleFunc(requestQueueHealthPath, healthState.HealthHandleFunc(func() bool {
 		if !probe.ProbeContainer() {
 			return false
 		}
 		logger.Info("User-container successfully probed.")
 		return true
 	}, probe.IsAggressive()))
-	adminMux.HandleFunc(queue.RequestQueueDrainPath, healthState.DrainHandler())
+	adminMux.HandleFunc(queue.RequestQueueDrainPath, healthState.DrainHandleFunc())
 
 	return &http.Server{
 		Addr:    ":" + strconv.Itoa(networking.QueueAdminPort),
