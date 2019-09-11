@@ -841,7 +841,7 @@ func TestReconcile(t *testing.T) {
 				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("tb")),
 			simpleIngress(
-				route("default", "becomes-local", WithConfigTarget("config"), WithRouteUID("65-23")),
+				route("default", "becomes-local", WithConfigTarget("config"), WithRouteUID("65-23"), WithRouteLabel("serving.knative.dev/visibility", "cluster-local")),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
@@ -941,7 +941,7 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleIngress(
 				route("default", "becomes-public", WithConfigTarget("config"),
-					WithRouteUID("65-23")),
+					WithRouteUID("65-23"), WithRouteLabel("serving.knative.dev/visibility", "cluster-local")),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
