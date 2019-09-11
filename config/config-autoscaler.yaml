@@ -108,7 +108,7 @@ data:
     # observed pods.
     # Cannot less or equal to 1.
     # I.e with value of 2.0 the number of pods can at most go N to 2N
-    # over single Autoscler period (see tick-interval), but at least N to
+    # over single Autoscaler period (see tick-interval), but at least N to
     # N+1, if Autoscaler needs to scale up.
     max-scale-up-rate: "1000.0"
 
