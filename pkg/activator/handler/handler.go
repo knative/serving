@@ -28,6 +28,7 @@ import (
 	"go.uber.org/zap"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/queue"
 
 	"knative.dev/pkg/logging/logkey"
 	tracingconfig "knative.dev/pkg/tracing/config"
@@ -128,8 +129,17 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}, "ThrottlerTry")
 		trySpan.End()
 
-		if err == activatornet.ErrActivatorOverload {
-			http.Error(w, activatornet.ErrActivatorOverload.Error(), http.StatusServiceUnavailable)
+		var errmsg string
+		switch err {
+		case activatornet.ErrActivatorOverload:
+			errmsg = err.Error()
+			fallthrough
+		case queue.ErrContextDone:
+			errmsg = "Timed out"
+			fallthrough
+		case queue.ErrRequestQueueFull:
+			errmsg = activatornet.ErrActivatorOverload.Error()
+			http.Error(w, errmsg, http.StatusServiceUnavailable)
 			return
 		}
 		w.WriteHeader(http.StatusInternalServerError)

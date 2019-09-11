@@ -47,7 +47,7 @@ type podIPTracker struct {
 
 type breaker interface {
 	Capacity() int
-	Maybe(ctx context.Context, thunk func()) bool
+	Maybe(ctx context.Context, thunk func()) error
 	UpdateConcurrency(int) error
 }
 
@@ -154,7 +154,7 @@ func (rt *revisionThrottler) acquireDest() (string, func()) {
 func (rt *revisionThrottler) try(ctx context.Context, function func(string) error) error {
 	var ret error
 
-	if !rt.breaker.Maybe(ctx, func() {
+	if err := rt.breaker.Maybe(ctx, func() {
 		// See if we can get by with only a readlock
 		dest, err := rt.checkClusterIPDest()
 		if err != nil {
@@ -176,8 +176,8 @@ func (rt *revisionThrottler) try(ctx context.Context, function func(string) erro
 
 		defer completionCb()
 		ret = function(dest)
-	}) {
-		return ErrActivatorOverload
+	}); err != nil {
+		return err
 	}
 	return ret
 }
@@ -488,12 +488,12 @@ func (ib *InfiniteBreaker) UpdateConcurrency(cc int) error {
 }
 
 // Maybe executes thunk when capacity is available
-func (ib *InfiniteBreaker) Maybe(ctx context.Context, thunk func()) bool {
+func (ib *InfiniteBreaker) Maybe(ctx context.Context, thunk func()) error {
 	has := ib.Capacity()
 	// We're scaled to serve.
 	if has > 0 {
 		thunk()
-		return true
+		return nil
 	}
 
 	// Make sure we lock to get the channel, to avoid
@@ -506,9 +506,9 @@ func (ib *InfiniteBreaker) Maybe(ctx context.Context, thunk func()) bool {
 	case <-ch:
 		// Scaled up.
 		thunk()
-		return true
+		return nil
 	case <-ctx.Done():
 		ib.logger.Infof("Context is closed: %v", ctx.Err())
-		return false
+		return queue.ErrContextDone
 	}
 }
