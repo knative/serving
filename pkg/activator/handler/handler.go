@@ -132,11 +132,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		logger.Errorw("Throttler try error", zap.Error(err))
 
 		switch err {
-		case activatornet.ErrActivatorOverload:
-			fallthrough
-		case context.DeadlineExceeded:
-			fallthrough
-		case queue.ErrRequestQueueFull:
+		case activatornet.ErrActivatorOverload, context.DeadlineExceeded, queue.ErrRequestQueueFull:
 			http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		default:
 			w.WriteHeader(http.StatusInternalServerError)
