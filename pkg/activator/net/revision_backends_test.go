@@ -105,7 +105,6 @@ func TestRevisionWatcher(t *testing.T) {
 		expectUpdates         []RevisionDestsUpdate
 		probeHostResponses    map[string][]activatortest.FakeResponse
 		probeResponses        []activatortest.FakeResponse
-		ticks                 []time.Time
 		initialClusterIPState bool
 	}{{
 		name:  "single healthy podIP",
@@ -220,7 +219,6 @@ func TestRevisionWatcher(t *testing.T) {
 			Code: http.StatusOK,
 			Body: queue.Name,
 		}},
-		ticks: []time.Time{time.Now()},
 	}, {
 		name:  "multiple healthy podIP",
 		dests: []string{"128.0.0.1:1234", "128.0.0.2:1234"},
@@ -291,7 +289,6 @@ func TestRevisionWatcher(t *testing.T) {
 				Body: queue.Name,
 			}},
 		},
-		ticks: []time.Time{time.Now().Add(-time.Second), time.Now()},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			defer ClearAll()
@@ -305,9 +302,7 @@ func TestRevisionWatcher(t *testing.T) {
 			doneCh := make(chan struct{})
 			defer close(doneCh)
 
-			updateCh := make(chan *RevisionDestsUpdate, len(tc.ticks)+1)
-			tickerCh := make(chan time.Time)
-			defer close(tickerCh)
+			updateCh := make(chan *RevisionDestsUpdate, len(tc.expectUpdates)+1)
 
 			// This gets cleaned up as part of the test
 			destsCh := make(chan []string)
@@ -344,14 +339,10 @@ func TestRevisionWatcher(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				rw.runWithTickCh(tickerCh)
+				rw.run(100 * time.Millisecond)
 			}()
 
 			destsCh <- tc.dests
-
-			for _, tick := range tc.ticks {
-				tickerCh <- tick
-			}
 
 			updates := []RevisionDestsUpdate{}
 			for i := 0; i < len(tc.expectUpdates); i++ {

@@ -276,28 +276,44 @@ func (rw *revisionWatcher) allDestsHealthy(dests []string) bool {
 	return true
 }
 
-func (rw *revisionWatcher) runWithTickCh(tickCh <-chan time.Time) {
+func (rw *revisionWatcher) run(probeFrequency time.Duration) {
 	var dests []string
+
 	for {
-		select {
-		case <-rw.doneCh:
-			return
-		case x, ok := <-rw.destsChan:
-			if !ok {
+		// We dont need to tick for probes if we have no dests or we are in clusterIP mode
+		if dests == nil || rw.clusterIPHealthy {
+			select {
+			case <-rw.doneCh:
+				return
+			case x, ok := <-rw.destsChan:
+				if !ok {
+					return
+				}
+				dests = x
+				rw.checkDests(dests)
+			}
+		} else {
+			// Create a closure around a timer for probeFrequency because we need to probe podIPs
+			if func() bool {
+				timer := time.NewTimer(probeFrequency)
+				defer timer.Stop()
+				select {
+				case <-rw.doneCh:
+					return true
+				case x, ok := <-rw.destsChan:
+					if !ok {
+						return true
+					}
+					dests = x
+				case <-timer.C:
+				}
+				rw.checkDests(dests)
+				return false
+			}() {
 				return
 			}
-			dests = x
-		case <-tickCh:
 		}
-		rw.checkDests(dests)
 	}
-}
-
-func (rw *revisionWatcher) run(probeFrequency time.Duration) {
-	ticker := time.NewTicker(probeFrequency)
-	defer ticker.Stop()
-
-	rw.runWithTickCh(ticker.C)
 }
 
 type revisionWatcherCh struct {
