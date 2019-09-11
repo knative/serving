@@ -69,7 +69,7 @@ func dialBackOffHelper(ctx context.Context, network, address string, steps int, 
 	for i := 0; i < steps; i++ {
 		c, err := dialer.DialContext(ctx, network, address)
 		if err != nil {
-			if err, ok := err.(net.Error); ok && err.Timeout() {
+			if err, ok := err.(net.Error); ok && (err.Timeout() || err.Temporary()) {
 				if i == steps-1 {
 					break
 				}
