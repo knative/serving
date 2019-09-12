@@ -117,7 +117,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		configurationName := revision.Labels[serving.ConfigurationLabelKey]
 		serviceName := revision.Labels[serving.ServiceLabelKey]
 		// Do not report response time here. It is reported in pkg/activator/metric_handler.go to
-		// sum up all time spent on multiple hanlders.
+		// sum up all time spent on multiple handlers.
 		a.reporter.ReportRequestCount(namespace, serviceName, configurationName, name, httpStatus, 1)
 
 		return nil
