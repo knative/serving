@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/google/go-cmp/cmp"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -44,6 +45,60 @@ const ns = "test-ns"
 
 func getServiceVisibility() sets.String {
 	return sets.NewString()
+}
+
+func TestMakeIngress_CorrectMetadata(t *testing.T) {
+	targets := map[string]traffic.RevisionTargets{}
+	ingressClass := "ng-ingress"
+	passdownIngressClass := "ok-ingress"
+	r := &v1alpha1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-route",
+			Namespace: "test-ns",
+			Labels: map[string]string{
+				serving.RouteLabelKey:          "try-to-override",
+				serving.RouteNamespaceLabelKey: "try-to-override",
+				"test-label":                   "foo",
+			},
+			Annotations: map[string]string{
+				networking.IngressClassAnnotationKey: passdownIngressClass,
+				"test-annotation":                    "bar",
+			},
+			UID: "1234-5678",
+		},
+		Status: v1alpha1.RouteStatus{
+			RouteStatusFields: v1alpha1.RouteStatusFields{
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   "domain.com",
+				},
+			},
+		},
+	}
+	expected := metav1.ObjectMeta{
+		Name:      "test-route",
+		Namespace: "test-ns",
+		Labels: map[string]string{
+			serving.RouteLabelKey:          "test-route",
+			serving.RouteNamespaceLabelKey: "test-ns",
+			"test-label":                   "foo",
+		},
+		Annotations: map[string]string{
+			// Make sure to get passdownIngressClass instead of ingressClass
+			networking.IngressClassAnnotationKey: passdownIngressClass,
+			"test-annotation":                    "bar",
+		},
+		OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
+	}
+	ia, err := MakeIngress(getContext(), r, &traffic.Config{Targets: targets}, nil, getServiceVisibility(), ingressClass)
+	if err != nil {
+		t.Errorf("Unexpected error %v", err)
+	}
+
+	ci := ia.(*netv1alpha1.Ingress)
+	if !cmp.Equal(expected, ci.ObjectMeta) {
+		t.Errorf("Unexpected metadata (-want, +got): %s", cmp.Diff(expected, ci.ObjectMeta))
+	}
 }
 
 func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {

@@ -19,7 +19,6 @@ package activator
 import (
 	"errors"
 	"net/http"
-	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -29,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	kubeinformers "k8s.io/client-go/informers"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 
@@ -105,7 +105,6 @@ func TestRevisionWatcher(t *testing.T) {
 		expectUpdates         []RevisionDestsUpdate
 		probeHostResponses    map[string][]activatortest.FakeResponse
 		probeResponses        []activatortest.FakeResponse
-		ticks                 []time.Time
 		initialClusterIPState bool
 	}{{
 		name:  "single healthy podIP",
@@ -115,7 +114,7 @@ func TestRevisionWatcher(t *testing.T) {
 			Port: 1234,
 		},
 		clusterIP:     "129.0.0.1",
-		expectUpdates: []RevisionDestsUpdate{{Dests: []string{"128.0.0.1:1234"}}},
+		expectUpdates: []RevisionDestsUpdate{{Dests: sets.NewString("128.0.0.1:1234")}},
 		probeResponses: []activatortest.FakeResponse{{
 			Err: errors.New("clusterIP transport error"),
 		}, {
@@ -132,7 +131,7 @@ func TestRevisionWatcher(t *testing.T) {
 			Port: 1234,
 		},
 		clusterIP:     "129.0.0.1",
-		expectUpdates: []RevisionDestsUpdate{{Dests: []string{"128.0.0.1:1234"}}},
+		expectUpdates: []RevisionDestsUpdate{{Dests: sets.NewString("128.0.0.1:1234")}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"129.0.0.1:1234": {{
 				Err: errors.New("clusterIP transport error"),
@@ -152,7 +151,7 @@ func TestRevisionWatcher(t *testing.T) {
 			Port: 1234,
 		},
 		clusterIP:     "129.0.0.1",
-		expectUpdates: []RevisionDestsUpdate{{ClusterIPDest: "129.0.0.1:1234", Dests: []string{"128.0.0.1:1234"}}},
+		expectUpdates: []RevisionDestsUpdate{{ClusterIPDest: "129.0.0.1:1234", Dests: sets.NewString("128.0.0.1:1234")}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"129.0.0.1:1234": {{
 				Err:  nil,
@@ -206,7 +205,7 @@ func TestRevisionWatcher(t *testing.T) {
 			Port: 1234,
 		},
 		clusterIP:     "129.0.0.1",
-		expectUpdates: []RevisionDestsUpdate{{Dests: []string{"128.0.0.1:1234"}}},
+		expectUpdates: []RevisionDestsUpdate{{Dests: sets.NewString("128.0.0.1:1234")}},
 		probeResponses: []activatortest.FakeResponse{{
 			Err: errors.New("clusterIP transport error"),
 		}, {
@@ -220,7 +219,6 @@ func TestRevisionWatcher(t *testing.T) {
 			Code: http.StatusOK,
 			Body: queue.Name,
 		}},
-		ticks: []time.Time{time.Now()},
 	}, {
 		name:  "multiple healthy podIP",
 		dests: []string{"128.0.0.1:1234", "128.0.0.2:1234"},
@@ -229,7 +227,7 @@ func TestRevisionWatcher(t *testing.T) {
 			Port: 1234,
 		},
 		clusterIP:     "129.0.0.1",
-		expectUpdates: []RevisionDestsUpdate{{Dests: []string{"128.0.0.1:1234", "128.0.0.2:1234"}}},
+		expectUpdates: []RevisionDestsUpdate{{Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234")}},
 		probeResponses: []activatortest.FakeResponse{{
 			Err: errors.New("clusterIP transport error"),
 		}, {
@@ -245,7 +243,7 @@ func TestRevisionWatcher(t *testing.T) {
 			Port: 1234,
 		},
 		clusterIP:     "129.0.0.1",
-		expectUpdates: []RevisionDestsUpdate{{Dests: []string{"128.0.0.2:1234"}}},
+		expectUpdates: []RevisionDestsUpdate{{Dests: sets.NewString("128.0.0.2:1234")}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"129.0.0.1:1234": {{
 				Err: errors.New("clusterIP transport error"),
@@ -268,8 +266,8 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 		clusterIP: "129.0.0.1",
 		expectUpdates: []RevisionDestsUpdate{
-			{Dests: []string{"128.0.0.1:1234"}},
-			{Dests: []string{"128.0.0.1:1234"}, ClusterIPDest: "129.0.0.1:1234"},
+			{Dests: sets.NewString("128.0.0.1:1234")},
+			{Dests: sets.NewString("128.0.0.1:1234"), ClusterIPDest: "129.0.0.1:1234"},
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"129.0.0.1:1234": {{
@@ -291,7 +289,6 @@ func TestRevisionWatcher(t *testing.T) {
 				Body: queue.Name,
 			}},
 		},
-		ticks: []time.Time{time.Now().Add(-time.Second), time.Now()},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			defer ClearAll()
@@ -305,12 +302,10 @@ func TestRevisionWatcher(t *testing.T) {
 			doneCh := make(chan struct{})
 			defer close(doneCh)
 
-			updateCh := make(chan *RevisionDestsUpdate, len(tc.ticks)+1)
-			tickerCh := make(chan time.Time)
-			defer close(tickerCh)
+			updateCh := make(chan *RevisionDestsUpdate, len(tc.expectUpdates)+1)
 
 			// This gets cleaned up as part of the test
-			destsCh := make(chan []string)
+			destsCh := make(chan sets.String)
 
 			// Default for protocol is http1
 			if tc.protocol == "" {
@@ -344,20 +339,15 @@ func TestRevisionWatcher(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				rw.runWithTickCh(tickerCh)
+				rw.run(100 * time.Millisecond)
 			}()
 
-			destsCh <- tc.dests
-
-			for _, tick := range tc.ticks {
-				tickerCh <- tick
-			}
+			destsCh <- sets.NewString(tc.dests...)
 
 			updates := []RevisionDestsUpdate{}
 			for i := 0; i < len(tc.expectUpdates); i++ {
 				select {
 				case update := <-updateCh:
-					sort.Strings(update.Dests)
 					updates = append(updates, *update)
 				case <-time.After(200 * time.Millisecond):
 					t.Error("Timed out waiting for update event")
@@ -374,7 +364,7 @@ func TestRevisionWatcher(t *testing.T) {
 				tc.expectUpdates[i].Rev = revID
 			}
 
-			if got, want := tc.expectUpdates, updates; !cmp.Equal(got, want, cmpopts.EquateEmpty()) {
+			if got, want := updates, tc.expectUpdates; !cmp.Equal(got, want, cmpopts.EquateEmpty()) {
 				t.Errorf("revisionDests updates = %v, want: %v, diff (-want, +got):\n %s", got, want, cmp.Diff(want, got))
 			}
 		})
@@ -448,7 +438,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		},
 		expectDests: map[types.NamespacedName]RevisionDestsUpdate{
 			{Namespace: "test-namespace", Name: "test-revision"}: {
-				Dests: []string{"128.0.0.1:1234"},
+				Dests: sets.NewString("128.0.0.1:1234"),
 			},
 		},
 		updateCnt: 1,
@@ -478,7 +468,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		},
 		expectDests: map[types.NamespacedName]RevisionDestsUpdate{
 			{Namespace: "test-namespace", Name: "test-revision"}: {
-				Dests: []string{"128.0.0.1:1234"},
+				Dests: sets.NewString("128.0.0.1:1234"),
 			},
 		},
 		updateCnt: 1,
@@ -504,10 +494,10 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		},
 		expectDests: map[types.NamespacedName]RevisionDestsUpdate{
 			{Namespace: "test-namespace", Name: "test-revision1"}: {
-				Dests: []string{"128.0.0.1:1234"},
+				Dests: sets.NewString("128.0.0.1:1234"),
 			},
 			{Namespace: "test-namespace", Name: "test-revision2"}: {
-				Dests: []string{"128.1.0.2:1235"},
+				Dests: sets.NewString("128.1.0.2:1235"),
 			},
 		},
 		updateCnt: 2,
@@ -544,7 +534,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		expectDests: map[types.NamespacedName]RevisionDestsUpdate{
 			{Namespace: "test-namespace", Name: "test-revision"}: {
 				ClusterIPDest: "129.0.0.1:1234",
-				Dests:         []string{"128.0.0.1:1234"},
+				Dests:         sets.NewString("128.0.0.1:1234"),
 			},
 		},
 		updateCnt: 2,
@@ -611,7 +601,6 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			for i := 0; i < tc.updateCnt; i++ {
 				select {
 				case update := <-rbm.UpdateCh():
-					sort.Strings(update.Dests)
 					revDests[update.Rev] = *update
 				case <-time.After(300 * time.Millisecond):
 					t.Errorf("Timed out waiting for update event")
@@ -660,7 +649,7 @@ func TestCheckDests(t *testing.T) {
 		logger:           TestLogger(t),
 		doneCh:           dCh,
 	}
-	rw.checkDests([]string{"10.1.1.5"})
+	rw.checkDests(sets.NewString("10.1.1.5"))
 	select {
 	case <-uCh:
 		// success.
@@ -669,7 +658,7 @@ func TestCheckDests(t *testing.T) {
 	}
 
 	close(dCh)
-	rw.checkDests([]string{"10.1.1.5"})
+	rw.checkDests(sets.NewString("10.1.1.5"))
 	select {
 	case <-uCh:
 		t.Error("Expected no update but got one")

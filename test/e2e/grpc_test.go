@@ -20,23 +20,17 @@ package e2e
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	ingress "knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/apis/networking"
 	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 	ping "knative.dev/serving/test/test_images/grpc-ping/proto"
@@ -213,28 +207,10 @@ func TestGRPCStreamingPing(t *testing.T) {
 	testGRPC(t, streamTest)
 }
 
-func waitForActivatorEPS(resources *v1a1test.ResourceObjects, clients *test.Clients) error {
-	aeps, err := clients.KubeClient.Kube.CoreV1().Endpoints(
-		system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("error getting activator endpoints: %v", err)
-	}
-
-	// Wait for the endpoints to equalize.
-	return wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
-		svcEps, err := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
-			resources.Revision.Status.ServiceName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		return cmp.Equal(svcEps.Subsets, aeps.Subsets), nil
-	})
-}
-
 func TestGRPCUnaryPingViaActivator(t *testing.T) {
 	testGRPC(t,
 		func(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.Clients, host, domain string) {
-			if err := waitForActivatorEPS(resources, clients); err != nil {
+			if err := waitForActivatorEndpoints(resources, clients); err != nil {
 				t.Fatal("Never got Activator endpoints in the service")
 			}
 			unaryTest(t, resources, clients, host, domain)
@@ -248,7 +224,7 @@ func TestGRPCUnaryPingViaActivator(t *testing.T) {
 func TestGRPCStreamingPingViaActivator(t *testing.T) {
 	testGRPC(t,
 		func(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.Clients, host, domain string) {
-			if err := waitForActivatorEPS(resources, clients); err != nil {
+			if err := waitForActivatorEndpoints(resources, clients); err != nil {
 				t.Fatal("Never got Activator endpoints in the service")
 			}
 			streamTest(t, resources, clients, host, domain)

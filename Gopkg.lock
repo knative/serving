@@ -435,22 +435,29 @@
   revision = "6f77996f0c42f7b84e5a2b252227263f93432e9b"
 
 [[projects]]
-  digest = "1:0ad3e9d1315404755b862dc03e599b2f97c75bf843e1d0582a360b83061ac571"
+  digest = "1:244554add7692579a59f70199e2a09b217c21a328279a71b05ecf261b32aaf03"
   name = "github.com/google/go-containerregistry"
   packages = [
     "pkg/authn",
     "pkg/authn/k8schain",
+    "pkg/internal/retry",
+    "pkg/internal/retry/wait",
+    "pkg/logs",
     "pkg/name",
     "pkg/v1",
+    "pkg/v1/empty",
+    "pkg/v1/mutate",
     "pkg/v1/partial",
     "pkg/v1/random",
     "pkg/v1/remote",
     "pkg/v1/remote/transport",
+    "pkg/v1/stream",
+    "pkg/v1/tarball",
     "pkg/v1/types",
     "pkg/v1/v1util",
   ]
   pruneopts = "NUT"
-  revision = "abf9ef06abd9f532944e28e8942644ea4b710a40"
+  revision = "b02d448a3705facf11018efff34f1d2830be5724"
 
 [[projects]]
   branch = "master"
@@ -1655,7 +1662,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:317a3a16bca32f918782654b282480b64d9cc5fd6357bd0bf2e36e174bf556bd"
+  digest = "1:03c8c36f66fba88d6184f87e0bcc24262a53efc9d47adbd9a071a69ad4c001fc"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1765,7 +1772,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "7db4b798fbbc6b3960c3d7f9a4c97f0471dafcaf"
+  revision = "c39ee25c42f53e4024d60511a2edef2065ea7333"
 
 [[projects]]
   branch = "master"

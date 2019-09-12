@@ -29,11 +29,12 @@ import (
 var defaultConfig = Config{
 	EnableScaleToZero:                  true,
 	ContainerConcurrencyTargetFraction: 0.7,
-	ContainerConcurrencyTargetDefault:  100.0,
-	RPSTargetDefault:                   200.0,
+	ContainerConcurrencyTargetDefault:  100,
+	RPSTargetDefault:                   200,
 	TargetUtilization:                  0.7,
 	TargetBurstCapacity:                200,
-	MaxScaleUpRate:                     1000.0,
+	MaxScaleUpRate:                     1000,
+	MaxScaleDownRate:                   2,
 	StableWindow:                       time.Minute,
 	PanicWindow:                        6 * time.Second,
 	ScaleToZeroGracePeriod:             30 * time.Second,
@@ -96,6 +97,7 @@ func TestNewConfig(t *testing.T) {
 		name: "with toggles on",
 		input: map[string]string{
 			"enable-scale-to-zero":                    "true",
+			"max-scale-down-rate":                     "3.0",
 			"max-scale-up-rate":                       "1.01",
 			"container-concurrency-target-percentage": "0.71",
 			"container-concurrency-target-default":    "10.5",
@@ -112,6 +114,7 @@ func TestNewConfig(t *testing.T) {
 			c.ContainerConcurrencyTargetDefault = 10.5
 			c.ContainerConcurrencyTargetFraction = 0.71
 			c.RPSTargetDefault = 10.11
+			c.MaxScaleDownRate = 3
 			c.MaxScaleUpRate = 1.01
 			c.StableWindow = 5 * time.Minute
 			c.PanicWindow = 11 * time.Second
@@ -190,6 +193,18 @@ func TestNewConfig(t *testing.T) {
 		name: "max scale up rate 1.0",
 		input: map[string]string{
 			"max-scale-up-rate": "1",
+		},
+		wantErr: true,
+	}, {
+		name: "max down down rate negative",
+		input: map[string]string{
+			"max-scale-down-rate": "-55",
+		},
+		wantErr: true,
+	}, {
+		name: "max down down rate 1.0",
+		input: map[string]string{
+			"max-scale-down-rate": "1",
 		},
 		wantErr: true,
 	}, {

@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"golang.org/x/sync/errgroup"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,14 +61,13 @@ var (
 func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	ctx context.Context,
 	cancel context.CancelFunc,
-	rclr *reconciler,
+	controller *controller.Impl,
 	configMapWatcher *configmap.ManualWatcher) {
 
 	ctx, cancel, _ = SetupFakeContextWithCancel(t)
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 
-	controller := NewController(ctx, configMapWatcher)
-	rclr = controller.Reconciler.(*reconciler)
+	controller = NewController(ctx, configMapWatcher)
 
 	cms := []*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{
@@ -190,11 +190,15 @@ func TestReconcile(t *testing.T) {
 }
 
 func TestUpdateDomainTemplate(t *testing.T) {
-	ctx, cancel, reconciler, watcher := newTestSetup(t)
+	var eg errgroup.Group
+	ctx, cancel, controller, watcher := newTestSetup(t)
 	defer func() {
 		cancel()
+		eg.Wait()
 		ClearAll()
 	}()
+	eg.Go(func() error { return controller.Run(2, ctx.Done()) })
+	reconciler := controller.Reconciler.(*reconciler)
 
 	sorter := cmpopts.SortSlices(func(a, b string) bool {
 		return a < b
@@ -301,11 +305,15 @@ func TestDomainConfigDefaultDomain(t *testing.T) {
 			"other.com": "selector:\n app: dev",
 		},
 	}
-	ctx, cancel, reconciler, _ := newTestSetup(t, domCfg)
+	var eg errgroup.Group
+	ctx, cancel, controller, _ := newTestSetup(t, domCfg)
 	defer func() {
 		cancel()
+		eg.Wait()
 		ClearAll()
 	}()
+	eg.Go(func() error { return controller.Run(2, ctx.Done()) })
+	reconciler := controller.Reconciler.(*reconciler)
 
 	ns := kubeNamespace("testns")
 	nsInformer := fakeinformerfactory.Get(ctx).Core().V1().Namespaces()
@@ -338,12 +346,15 @@ func TestDomainConfigExplicitDefaultDomain(t *testing.T) {
 			"default.com": "",
 		},
 	}
-	ctx, cancel, reconciler, _ := newTestSetup(t, domCfg)
+	var eg errgroup.Group
+	ctx, cancel, controller, _ := newTestSetup(t, domCfg)
 	defer func() {
 		cancel()
+		eg.Wait()
 		ClearAll()
 	}()
-
+	eg.Go(func() error { return controller.Run(2, ctx.Done()) })
+	reconciler := controller.Reconciler.(*reconciler)
 	namespace := kubeNamespace("testns")
 	nsInformer := fakeinformerfactory.Get(ctx).Core().V1().Namespaces()
 	nsInformer.Informer().GetIndexer().Add(namespace)

@@ -479,8 +479,8 @@ spec:
             timeoutSeconds: 1
           resources:
             requests:
-              cpu: 500m
-              memory: 512Mi
+              cpu: 1000m
+              memory: 1024Mi
 
           env:
           - name: NODE_NAME
@@ -676,8 +676,8 @@ spec:
               cpu: 2000m
               memory: 1024Mi
             requests:
-              cpu: 500m
-              memory: 512Mi
+              cpu: 1000m
+              memory: 1024Mi
 
           env:
           - name: NODE_NAME

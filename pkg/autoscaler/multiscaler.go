@@ -42,8 +42,9 @@ type Decider struct {
 
 // DeciderSpec is the parameters in which the Revision should scaled.
 type DeciderSpec struct {
-	TickInterval   time.Duration
-	MaxScaleUpRate float64
+	TickInterval     time.Duration
+	MaxScaleUpRate   float64
+	MaxScaleDownRate float64
 	// The metric used for scaling, i.e. concurrency, rps.
 	ScalingMetric string
 	// The value of scaling metric per pod that we target to maintain.

@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	kubeinformers "k8s.io/client-go/informers"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 
@@ -62,7 +63,7 @@ func TestThrottler(t *testing.T) {
 		},
 		initUpdates: []*RevisionDestsUpdate{{
 			Rev:   types.NamespacedName{"test-namespace", "test-revision"},
-			Dests: []string{"128.0.0.1:1234"},
+			Dests: sets.NewString("128.0.0.1:1234"),
 		}},
 		trys: []types.NamespacedName{
 			{Namespace: "test-namespace", Name: "test-revision"},
@@ -78,7 +79,7 @@ func TestThrottler(t *testing.T) {
 		initUpdates: []*RevisionDestsUpdate{{
 			Rev:           types.NamespacedName{"test-namespace", "test-revision"},
 			ClusterIPDest: "129.0.0.1:1234",
-			Dests:         []string{"128.0.0.1:1234"},
+			Dests:         sets.NewString("128.0.0.1:1234"),
 		}},
 		trys: []types.NamespacedName{
 			{Namespace: "test-namespace", Name: "test-revision"},
@@ -93,7 +94,7 @@ func TestThrottler(t *testing.T) {
 		},
 		initUpdates: []*RevisionDestsUpdate{{
 			Rev:   types.NamespacedName{"test-namespace", "test-revision"},
-			Dests: []string{"128.0.0.1:1234", "128.0.0.2:1234"},
+			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
 		}},
 		trys: []types.NamespacedName{
 			{Namespace: "test-namespace", Name: "test-revision"},
@@ -110,11 +111,11 @@ func TestThrottler(t *testing.T) {
 		},
 		initUpdates: []*RevisionDestsUpdate{{
 			Rev:   types.NamespacedName{"test-namespace", "test-revision"},
-			Dests: []string{"128.0.0.1:1234", "128.0.0.2:1234"},
+			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
 		}, {
 			Rev:           types.NamespacedName{"test-namespace", "test-revision"},
 			ClusterIPDest: "129.0.0.1:1234",
-			Dests:         []string{"128.0.0.1:1234", "128.0.0.2:1234"},
+			Dests:         sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
 		}},
 		trys: []types.NamespacedName{
 			{Namespace: "test-namespace", Name: "test-revision"},
@@ -132,7 +133,7 @@ func TestThrottler(t *testing.T) {
 		initUpdates: []*RevisionDestsUpdate{{
 			Rev:           types.NamespacedName{"test-namespace", "test-revision"},
 			ClusterIPDest: "129.0.0.1:1234",
-			Dests:         []string{"128.0.0.1:1234"},
+			Dests:         sets.NewString("128.0.0.1:1234"),
 		}},
 		trys: []types.NamespacedName{
 			{Namespace: "test-namespace", Name: "test-revision"},
@@ -140,7 +141,7 @@ func TestThrottler(t *testing.T) {
 		},
 		expectTryResults: []tryResult{
 			{Dest: "129.0.0.1:1234"},
-			{ErrString: ErrActivatorOverload.Error()},
+			{ErrString: context.DeadlineExceeded.Error()},
 		},
 	}, {
 		name: "remove before try",
@@ -149,7 +150,7 @@ func TestThrottler(t *testing.T) {
 		},
 		initUpdates: []*RevisionDestsUpdate{{
 			Rev:   types.NamespacedName{"test-namespace", "test-revision"},
-			Dests: []string{"128.0.0.1:1234"},
+			Dests: sets.NewString("128.0.0.1:1234"),
 		}},
 		deletes: []types.NamespacedName{
 			{"test-namespace", "test-revision"},
@@ -228,6 +229,7 @@ func TestThrottler(t *testing.T) {
 }
 
 func TestMultipleActivator(t *testing.T) {
+	defer ClearAll()
 	fake := kubefake.NewSimpleClientset()
 	informer := kubeinformers.NewSharedInformerFactory(fake, 0)
 	endpoints := informer.Core().V1().Endpoints()
@@ -254,10 +256,11 @@ func TestMultipleActivator(t *testing.T) {
 	throttler := NewThrottler(params, revisions, endpoints, TestLogger(t))
 
 	revID := types.NamespacedName{"test-namespace", "test-revision"}
-	updateCh := make(chan *RevisionDestsUpdate, 10)
+	possibleDests := sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234")
+	updateCh := make(chan *RevisionDestsUpdate, 1)
 	updateCh <- &RevisionDestsUpdate{
 		Rev:   revID,
-		Dests: []string{"128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234"},
+		Dests: possibleDests,
 	}
 	close(updateCh)
 	throttler.Run(updateCh)
@@ -283,18 +286,18 @@ func TestMultipleActivator(t *testing.T) {
 		defer cancel()
 
 		results := tryThrottler(throttler, []types.NamespacedName{revID, revID}, tryContext)
-		if diff := cmp.Diff([]tryResult{
-			{Dest: "128.0.0.1:1234"},
-			{ErrString: ErrActivatorOverload.Error()},
-		}, results); diff != "" {
-			t.Errorf("Got unexpected try results (-want, +got): %v", diff)
+		if !possibleDests.Has(results[0].Dest) {
+			t.Errorf("Request went to an unknown destination: %s, possibles: %v", results[0].Dest, possibleDests)
 		}
-
+		if got, want := results[1].ErrString, context.DeadlineExceeded.Error(); got != want {
+			t.Errorf("Error = %s, want: %s", got, want)
+		}
 	}()
 }
 
 func tryThrottler(throttler *Throttler, trys []types.NamespacedName, ctx context.Context) []tryResult {
 	resCh := make(chan tryResult)
+	defer close(resCh)
 	var tryWaitg sync.WaitGroup
 	tryWaitg.Add(len(trys))
 	for _, revID := range trys {
@@ -317,14 +320,14 @@ func tryThrottler(throttler *Throttler, trys []types.NamespacedName, ctx context
 	for i := range trys {
 		res[i] = <-resCh
 	}
-	close(resCh)
-
 	return res
 }
 
 func TestInfiniteBreaker(t *testing.T) {
+	defer ClearAll()
 	b := &InfiniteBreaker{
 		broadcast: make(chan struct{}),
+		logger:    TestLogger(t),
 	}
 
 	// Verify initial condition.
@@ -334,7 +337,7 @@ func TestInfiniteBreaker(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if b.Maybe(ctx, nil) {
+	if err := b.Maybe(ctx, nil); err == nil {
 		t.Error("Should have failed, but didn't")
 	}
 
@@ -349,7 +352,7 @@ func TestInfiniteBreaker(t *testing.T) {
 		ctx, cancel = context.WithCancel(context.Background())
 		cancel()
 		res := false
-		if !b.Maybe(ctx, func() { res = true }) {
+		if err := b.Maybe(ctx, func() { res = true }); err != nil {
 			t.Error("Should have succeeded, but didn't")
 		}
 		if !res {
@@ -363,7 +366,7 @@ func TestInfiniteBreaker(t *testing.T) {
 	// Repeat initial test.
 	ctx, cancel = context.WithCancel(context.Background())
 	cancel()
-	if b.Maybe(ctx, nil) {
+	if err := b.Maybe(ctx, nil); err == nil {
 		t.Error("Should have failed, but didn't")
 	}
 	if got, want := b.Capacity(), 0; got != want {
@@ -380,7 +383,7 @@ func TestInfiniteBreaker(t *testing.T) {
 		b.UpdateConcurrency(1)
 	}()
 	res := false
-	if !b.Maybe(ctx, func() { res = true }) {
+	if err := b.Maybe(ctx, func() { res = true }); err != nil {
 		t.Error("Should have succeeded, but didn't")
 	}
 	if !res {

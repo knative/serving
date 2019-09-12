@@ -29,6 +29,7 @@ import (
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -46,7 +47,7 @@ type podIPTracker struct {
 
 type breaker interface {
 	Capacity() int
-	Maybe(ctx context.Context, thunk func()) bool
+	Maybe(ctx context.Context, thunk func()) error
 	UpdateConcurrency(int) error
 }
 
@@ -86,9 +87,10 @@ func newRevisionThrottler(revID types.NamespacedName,
 	containerConcurrency int64,
 	breakerParams queue.BreakerParams,
 	logger *zap.SugaredLogger) *revisionThrottler {
+	logger = logger.With(zap.String(logkey.Key, revID.String()))
 	var revBreaker breaker
 	if containerConcurrency == 0 {
-		revBreaker = NewInfiniteBreaker()
+		revBreaker = NewInfiniteBreaker(logger)
 	} else {
 		revBreaker = queue.NewBreaker(breakerParams)
 	}
@@ -96,7 +98,7 @@ func newRevisionThrottler(revID types.NamespacedName,
 		revID:                revID,
 		containerConcurrency: containerConcurrency,
 		breaker:              revBreaker,
-		logger:               logger.With(zap.String("revision", revID.String())),
+		logger:               logger,
 	}
 }
 
@@ -152,7 +154,7 @@ func (rt *revisionThrottler) acquireDest() (string, func()) {
 func (rt *revisionThrottler) try(ctx context.Context, function func(string) error) error {
 	var ret error
 
-	if !rt.breaker.Maybe(ctx, func() {
+	if err := rt.breaker.Maybe(ctx, func() {
 		// See if we can get by with only a readlock
 		dest, err := rt.checkClusterIPDest()
 		if err != nil {
@@ -174,8 +176,8 @@ func (rt *revisionThrottler) try(ctx context.Context, function func(string) erro
 
 		defer completionCb()
 		ret = function(dest)
-	}) {
-		return ErrActivatorOverload
+	}); err != nil {
+		return err
 	}
 	return ret
 }
@@ -247,7 +249,7 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update *Revision
 		trackers := make([]*podIPTracker, 0, len(update.Dests))
 
 		// Loop over dests, reuse existing tracker if we have one otherwise create new
-		for _, newDest := range update.Dests {
+		for newDest := range update.Dests {
 			tracker, ok := trackersMap[newDest]
 			if !ok {
 				tracker = &podIPTracker{dest: newDest}
@@ -440,12 +442,15 @@ type InfiniteBreaker struct {
 	// immediately or wait for capacity to appear.
 	// `concurrency` should only be manipulated by `sync/atomic` methods.
 	concurrency int32
+
+	logger *zap.SugaredLogger
 }
 
 // NewInfiniteBreaker creates an InfiniteBreaker
-func NewInfiniteBreaker() *InfiniteBreaker {
+func NewInfiniteBreaker(logger *zap.SugaredLogger) *InfiniteBreaker {
 	return &InfiniteBreaker{
 		broadcast: make(chan struct{}),
+		logger:    logger,
 	}
 }
 
@@ -483,12 +488,12 @@ func (ib *InfiniteBreaker) UpdateConcurrency(cc int) error {
 }
 
 // Maybe executes thunk when capacity is available
-func (ib *InfiniteBreaker) Maybe(ctx context.Context, thunk func()) bool {
+func (ib *InfiniteBreaker) Maybe(ctx context.Context, thunk func()) error {
 	has := ib.Capacity()
 	// We're scaled to serve.
 	if has > 0 {
 		thunk()
-		return true
+		return nil
 	}
 
 	// Make sure we lock to get the channel, to avoid
@@ -501,8 +506,9 @@ func (ib *InfiniteBreaker) Maybe(ctx context.Context, thunk func()) bool {
 	case <-ch:
 		// Scaled up.
 		thunk()
-		return true
+		return nil
 	case <-ctx.Done():
-		return false
+		ib.logger.Infof("Context is closed: %v", ctx.Err())
+		return ctx.Err()
 	}
 }

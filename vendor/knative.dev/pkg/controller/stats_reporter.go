@@ -42,9 +42,9 @@ var (
 	// go.opencensus.io/tag/validate.go. Currently those restrictions are:
 	// - length between 1 and 255 inclusive
 	// - characters are printable US-ASCII
-	reconcilerTagKey = mustNewTagKey("reconciler")
-	keyTagKey        = mustNewTagKey("key")
-	successTagKey    = mustNewTagKey("success")
+	reconcilerTagKey = tag.MustNewKey("reconciler")
+	keyTagKey        = tag.MustNewKey("key")
+	successTagKey    = tag.MustNewKey("success")
 )
 
 func init() {
@@ -137,12 +137,4 @@ func (r *reporter) ReportReconcile(duration time.Duration, key, success string) 
 	metrics.Record(ctx, reconcileCountStat.M(1))
 	metrics.Record(ctx, reconcileLatencyStat.M(int64(duration/time.Millisecond)))
 	return nil
-}
-
-func mustNewTagKey(s string) tag.Key {
-	tagKey, err := tag.NewKey(s)
-	if err != nil {
-		panic(err)
-	}
-	return tagKey
 }

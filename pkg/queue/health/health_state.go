@@ -82,20 +82,20 @@ func (h *State) drainFinished() {
 }
 
 // HealthHandleFunc constructs a handler function that returns the current state of the
-// health server. If isNotAggressive is true and prober has succeeded previously,
+// health server. If isAggressive is false and prober has succeeded previously,
 // the function return success without probing user-container again (until
 // shutdown).
-func (h *State) HealthHandleFunc(prober func() bool, isNotAggressive bool) func(w http.ResponseWriter, r *http.Request) {
+func (h *State) HealthHandleFunc(prober func() bool, isAggressive bool) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		h.HandleHealthProbe(prober, isNotAggressive, w, r)
+		h.HandleHealthProbe(prober, isAggressive, w, r)
 	}
 }
 
 // HandleHealthProbe handles the request according to the current state of the
-// health server. If isNotAggressive is true and prober has succeeded previously,
+// health server. If isAggressive is false and prober has succeeded previously,
 // the function return success without probing user-container again (until
 // shutdown).
-func (h *State) HandleHealthProbe(prober func() bool, isNotAggressive bool, w http.ResponseWriter, r *http.Request) {
+func (h *State) HandleHealthProbe(prober func() bool, isAggressive bool, w http.ResponseWriter, r *http.Request) {
 	sendAlive := func() {
 		io.WriteString(w, "alive: true")
 	}
@@ -106,7 +106,7 @@ func (h *State) HandleHealthProbe(prober func() bool, isNotAggressive bool, w ht
 	}
 
 	switch {
-	case isNotAggressive && h.IsAlive():
+	case !isAggressive && h.IsAlive():
 		sendAlive()
 	case h.IsShuttingDown():
 		sendNotAlive()

@@ -85,6 +85,7 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 	if err != nil {
 		return err
 	}
+	defer res.Body.Close()
 
 	if !IsHTTPProbeReady(res) {
 		return fmt.Errorf("HTTP probe did not respond Ready, got status code: %d", res.StatusCode)

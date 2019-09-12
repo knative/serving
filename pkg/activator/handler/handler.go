@@ -28,6 +28,7 @@ import (
 	"go.uber.org/zap"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/queue"
 
 	"knative.dev/pkg/logging/logkey"
 	tracingconfig "knative.dev/pkg/tracing/config"
@@ -128,12 +129,14 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}, "ThrottlerTry")
 		trySpan.End()
 
-		if err == activatornet.ErrActivatorOverload {
-			http.Error(w, activatornet.ErrActivatorOverload.Error(), http.StatusServiceUnavailable)
-			return
+		logger.Errorw("Throttler try error", zap.Error(err))
+
+		switch err {
+		case activatornet.ErrActivatorOverload, context.DeadlineExceeded, queue.ErrRequestQueueFull:
+			http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		default:
+			w.WriteHeader(http.StatusInternalServerError)
 		}
-		w.WriteHeader(http.StatusInternalServerError)
-		logger.Errorw("Error processing request in the activator", zap.Error(err))
 	}
 }
 
@@ -151,10 +154,7 @@ func (a *activationHandler) proxyRequest(logger *zap.SugaredLogger, w http.Respo
 		}
 	}
 	proxy.FlushInterval = -1
-	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
-		logger.Infof("error reverse proxying request: %v", err)
-		http.Error(w, err.Error(), http.StatusBadGateway)
-	}
+	proxy.ErrorHandler = network.ErrorHandler(logger)
 
 	r.Header.Set(network.ProxyHeaderName, activator.Name)
 

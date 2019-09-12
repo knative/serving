@@ -18,12 +18,14 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	// Injection related imports.
@@ -120,8 +122,9 @@ type config struct {
 func main() {
 	flag.Parse()
 
-	// Set up signals so we handle the first shutdown signal gracefully.
-	ctx := signals.NewContext()
+	// Set up a context that we can cancel to tell informers and other subprocesses to stop.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	cfg, err := sharedmain.GetConfig(*masterURL, *kubeconfig)
 	if err != nil {
@@ -239,7 +242,12 @@ func main() {
 	}
 	ah = reqLogHandler
 	ah = &activatorhandler.ProbeHandler{NextHandler: ah}
-	ah = &activatorhandler.HealthHandler{HealthCheck: statSink.Status, NextHandler: ah}
+
+	// Set up our health check based on the health of stat sink and environmental factors.
+	// When drainCh is closed, we should start to drain connections.
+	hc, drainCh := newHealthCheck(logger, statSink)
+	ah = &activatorhandler.HealthHandler{HealthCheck: hc, NextHandler: ah}
+
 	// NOTE: MetricHandler is being used as the outermost handler for the purpose of measuring the request latency.
 	ah = activatorhandler.NewMetricHandler(revisionInformer.Lister(), reporter, logger, ah)
 	ah = network.NewProbeHandler(ah)
@@ -273,16 +281,50 @@ func main() {
 			}
 		}(name, server)
 	}
-	// Exit as soon as we see a shutdown signal or one of the servers failed.
+
+	// Wait for the signal to drain.
 	select {
-	case <-ctx.Done():
+	case <-drainCh:
+		logger.Info("Received the drain signal.")
 	case err := <-errCh:
 		logger.Errorw("Failed to run HTTP server", zap.Error(err))
 	}
 
+	// The drain has started (we are now failing readiness probes).  Let the effects of this
+	// propagate so that new requests are no longer routed our way.
+	time.Sleep(30 * time.Second)
+	logger.Info("Done waiting, shutting down servers.")
+
+	// Drain outstanding requests, and stop accepting new ones.
 	for _, server := range servers {
 		server.Shutdown(context.Background())
 	}
+	logger.Info("Servers shutdown.")
+}
+
+func newHealthCheck(logger *zap.SugaredLogger, statSink *websocket.ManagedConnection) (func() error, <-chan struct{}) {
+	// When we get SIGTERM (sigCh closes), start failing readiness probes.
+	sigCh := signals.SetupSignalHandler()
+
+	// Some duration after our first readiness probe failure (to allow time
+	// for the network to reprogram) send the signal to drain connections.
+	drainCh := make(chan struct{})
+	once := sync.Once{}
+
+	return func() error {
+		select {
+		case <-sigCh:
+			// Signal to start the process of draining.
+			once.Do(func() {
+				logger.Info("Received SIGTERM")
+				close(drainCh)
+			})
+			return errors.New("received SIGTERM from kubelet.")
+		default:
+			logger.Debug("No signal yet.")
+			return statSink.Status()
+		}
+	}, drainCh
 }
 
 func flush(logger *zap.SugaredLogger) {

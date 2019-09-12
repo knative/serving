@@ -22,7 +22,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"reflect"
 	"strconv"
 	"sync"
 	"time"
@@ -57,7 +56,7 @@ import (
 type RevisionDestsUpdate struct {
 	Rev           types.NamespacedName
 	ClusterIPDest string
-	Dests         []string
+	Dests         sets.String
 }
 
 const (
@@ -79,13 +78,13 @@ type revisionWatcher struct {
 	clusterIPHealthy bool
 
 	transport     http.RoundTripper
-	destsChan     <-chan []string
+	destsChan     <-chan sets.String
 	serviceLister corev1listers.ServiceLister
 	logger        *zap.SugaredLogger
 }
 
 func newRevisionWatcher(doneCh <-chan struct{}, rev types.NamespacedName, protocol networking.ProtocolType,
-	updateCh chan<- *RevisionDestsUpdate, destsChan <-chan []string,
+	updateCh chan<- *RevisionDestsUpdate, destsChan <-chan sets.String,
 	transport http.RoundTripper, serviceLister corev1listers.ServiceLister,
 	logger *zap.SugaredLogger) *revisionWatcher {
 	return &revisionWatcher{
@@ -156,22 +155,24 @@ func (rw *revisionWatcher) probeClusterIP(dest string) (bool, error) {
 }
 
 // probePodIPs will probe the given target Pod IPs and will return
-// the ones that are successfully probed, or an error.
-func (rw *revisionWatcher) probePodIPs(dests []string) (sets.String, error) {
+// the ones that are successfully probed, whether the update was a no-op, or an error.
+func (rw *revisionWatcher) probePodIPs(dests sets.String) (sets.String, bool, error) {
+	// Short circuit case where dests == healthyPods
+	if rw.healthyPods.Equal(dests) {
+		return rw.healthyPods, true /*no-op*/, nil
+	}
+
+	toProbe := dests.Difference(rw.healthyPods)
+	healthy := dests.Intersection(rw.healthyPods)
+
 	// Context used for our probe requests
 	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
 	defer cancel()
 
 	var probeGroup errgroup.Group
-	healthyDests := make(chan string, len(dests))
+	healthyDests := make(chan string, len(toProbe))
 
-	for _, dest := range dests {
-		// Good known Pod, no need to re-probe.
-		if rw.healthyPods.Has(dest) {
-			healthyDests <- dest
-			continue
-		}
-
+	for dest := range toProbe {
 		dest := dest // Standard Go concurrency pattern.
 		probeGroup.Go(func() error {
 			ok, err := rw.probe(ctx, dest)
@@ -185,15 +186,13 @@ func (rw *revisionWatcher) probePodIPs(dests []string) (sets.String, error) {
 	err := probeGroup.Wait()
 	close(healthyDests)
 
-	hs := sets.NewString()
 	for d := range healthyDests {
-		hs.Insert(d)
+		healthy.Insert(d)
 	}
-
-	return hs, err
+	return healthy, false, err
 }
 
-func (rw *revisionWatcher) sendUpdate(clusterIP string, dests []string) {
+func (rw *revisionWatcher) sendUpdate(clusterIP string, dests sets.String) {
 	select {
 	case <-rw.doneCh:
 		// We're not closing updateCh because this would result in 1 close per revisionWatcher.
@@ -208,7 +207,7 @@ func (rw *revisionWatcher) sendUpdate(clusterIP string, dests []string) {
 
 // checkDests performs probing and potentially sends a dests update. It is
 // assumed this method is not called concurrently.
-func (rw *revisionWatcher) checkDests(dests []string) {
+func (rw *revisionWatcher) checkDests(dests sets.String) {
 	if len(dests) == 0 {
 		// We must have scaled down.
 		rw.clusterIPHealthy = false
@@ -246,22 +245,37 @@ func (rw *revisionWatcher) checkDests(dests []string) {
 		return
 	}
 
-	hs, err := rw.probePodIPs(dests)
+	hs, noop, err := rw.probePodIPs(dests)
 	if err != nil {
 		rw.logger.Errorw("Failed probing", zap.Error(err))
 		// We dont want to return here as an error still affects health states.
 	}
 
 	rw.logger.Debugf("Done probing, got %d healthy pods", len(hs))
-	if !reflect.DeepEqual(rw.healthyPods, hs) {
+	if !noop && !hs.Equal(rw.healthyPods) {
 		rw.healthyPods = hs
-		rw.sendUpdate("" /*clusterIP not ready yet*/, hs.UnsortedList())
+		rw.sendUpdate("" /*clusterIP not ready yet*/, hs)
 	}
 }
 
-func (rw *revisionWatcher) runWithTickCh(tickCh <-chan time.Time) {
-	var dests []string
+func (rw *revisionWatcher) run(probeFrequency time.Duration) {
+	var dests sets.String
+	var timer *time.Timer
+
 	for {
+		var tickCh <-chan time.Time
+
+		if len(dests) != 0 && !rw.clusterIPHealthy {
+			if timer == nil {
+				timer = time.NewTimer(probeFrequency)
+			} else {
+				timer.Reset(probeFrequency)
+			}
+			tickCh = timer.C
+		} else if timer != nil { // We dont need to tick, if we have a timer stop it
+			timer.Stop()
+		}
+
 		select {
 		case <-rw.doneCh:
 			return
@@ -272,20 +286,14 @@ func (rw *revisionWatcher) runWithTickCh(tickCh <-chan time.Time) {
 			dests = x
 		case <-tickCh:
 		}
+
 		rw.checkDests(dests)
 	}
 }
 
-func (rw *revisionWatcher) run(probeFrequency time.Duration) {
-	ticker := time.NewTicker(probeFrequency)
-	defer ticker.Stop()
-
-	rw.runWithTickCh(ticker.C)
-}
-
 type revisionWatcherCh struct {
 	revisionWatcher *revisionWatcher
-	ch              chan []string
+	ch              chan sets.String
 }
 
 // RevisionBackendsManager listens to revision endpoints and keeps track of healthy
@@ -365,7 +373,7 @@ func (rbm *RevisionBackendsManager) getOrCreateRevisionWatcher(rev types.Namespa
 			return nil, err
 		}
 
-		destsCh := make(chan []string)
+		destsCh := make(chan sets.String)
 		rw := newRevisionWatcher(rbm.doneCh, rev, proto, rbm.updateCh, destsCh, rbm.transport, rbm.serviceLister, rbm.logger)
 		rbm.revisionWatchers[rev] = &revisionWatcherCh{rw, destsCh}
 		go rw.run(rbm.probeFrequency)
@@ -388,7 +396,7 @@ func (rbm *RevisionBackendsManager) endpointsUpdated(newObj interface{}) {
 			zap.Error(err))
 		return
 	}
-	dests := EndpointsToDests(endpoints, networking.ServicePortName(rwCh.revisionWatcher.protocol))
+	dests := endpointsToDests(endpoints, networking.ServicePortName(rwCh.revisionWatcher.protocol))
 	rbm.logger.Debugf("Updating Endpoints: %q (backends: %d)", revID.String(), len(dests))
 	rwCh.ch <- dests
 }

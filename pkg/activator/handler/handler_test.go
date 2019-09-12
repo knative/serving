@@ -58,6 +58,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	kubeinformers "k8s.io/client-go/informers"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	kubefake "k8s.io/client-go/kubernetes/fake"
@@ -124,7 +125,7 @@ func TestActivationHandler(t *testing.T) {
 		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000, networking.ServicePortNameHTTP1)),
 		destsUpdates: []*activatornet.RevisionDestsUpdate{{
 			Rev:   types.NamespacedName{"fake-namespace", testRevName},
-			Dests: []string{},
+			Dests: sets.NewString(),
 		}},
 		reporterCalls: nil,
 		tryTimeout:    100 * time.Millisecond,
@@ -154,7 +155,7 @@ func TestActivationHandler(t *testing.T) {
 		label:             "broken get k8s svc",
 		namespace:         testNamespace,
 		name:              testRevName,
-		wantBody:          activatornet.ErrActivatorOverload.Error() + "\n",
+		wantBody:          context.DeadlineExceeded.Error() + "\n",
 		wantCode:          http.StatusServiceUnavailable,
 		wantErr:           nil,
 		endpointsInformer: endpointsInformer(endpoints("bogus-namespace", testRevName, 1000, networking.ServicePortNameHTTP1)),
@@ -612,10 +613,10 @@ func sksLister(skss ...*nv1a1.ServerlessService) netlisters.ServerlessServiceLis
 	return services.Lister()
 }
 
-func dests(count int) []string {
-	ret := make([]string, count)
+func dests(count int) sets.String {
+	ret := sets.NewString()
 	for i := 1; i <= count; i++ {
-		ret[i-1] = fmt.Sprintf("127.0.0.%v:1234", i)
+		ret.Insert(fmt.Sprintf("127.0.0.%v:1234", i))
 	}
 	return ret
 }

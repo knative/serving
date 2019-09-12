@@ -184,10 +184,15 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 
 		// Enforce queuing and concurrency limits.
 		if breaker != nil {
-			if !breaker.Maybe(r.Context(), func() {
+			if err := breaker.Maybe(r.Context(), func() {
 				handler.ServeHTTP(w, r.WithContext(proxyCtx))
-			}) {
-				http.Error(w, "overload", http.StatusServiceUnavailable)
+			}); err != nil {
+				switch err {
+				case context.DeadlineExceeded, queue.ErrRequestQueueFull:
+					http.Error(w, err.Error(), http.StatusServiceUnavailable)
+				default:
+					w.WriteHeader(http.StatusInternalServerError)
+				}
 			}
 		} else {
 			handler.ServeHTTP(w, r.WithContext(proxyCtx))
@@ -418,10 +423,7 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, req
 
 	httpProxy := httputil.NewSingleHostReverseProxy(target)
 	httpProxy.Transport = buildTransport(env, logger)
-	httpProxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
-		logger.Infof("error reverse proxying request: %v", err)
-		http.Error(w, err.Error(), http.StatusBadGateway)
-	}
+	httpProxy.ErrorHandler = network.ErrorHandler(logger)
 
 	httpProxy.FlushInterval = -1
 	activatorutil.SetupHeaderPruning(httpProxy)
