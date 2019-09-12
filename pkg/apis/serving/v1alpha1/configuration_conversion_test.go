@@ -190,7 +190,7 @@ func TestConfigurationConversion(t *testing.T) {
 					}
 					t.Errorf("ConvertUp() = %v", err)
 				} else if test.badField != "" {
-					t.Errorf("CovnertUp() = %#v, wanted bad field %q", ver,
+					t.Errorf("ConvertUp() = %#v, wanted bad field %q", ver,
 						test.badField)
 					return
 				}
