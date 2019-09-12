@@ -23,6 +23,11 @@ import (
 	"time"
 )
 
+const (
+	aliveBody    = "queue"
+	notAliveBody = "queue not ready"
+)
+
 func TestHealthStateSetsState(t *testing.T) {
 	s := &State{}
 
@@ -66,68 +71,80 @@ func TestHealthStateHealthHandler(t *testing.T) {
 		prober       func() bool
 		isAggressive bool
 		wantStatus   int
+		wantBody     string
 	}{{
 		name:         "alive: true, K-Probe",
 		state:        &State{alive: true},
 		isAggressive: false,
 		wantStatus:   http.StatusOK,
+		wantBody:     aliveBody,
 	}, {
 		name:         "alive: false, prober: true, K-Probe",
 		state:        &State{alive: false},
 		prober:       func() bool { return true },
 		isAggressive: false,
 		wantStatus:   http.StatusOK,
+		wantBody:     aliveBody,
 	}, {
 		name:         "alive: false, prober: false, K-Probe",
 		state:        &State{alive: false},
 		prober:       func() bool { return false },
 		isAggressive: false,
 		wantStatus:   http.StatusServiceUnavailable,
+		wantBody:     notAliveBody,
 	}, {
 		name:         "alive: false, no prober, K-Probe",
 		state:        &State{alive: false},
 		isAggressive: false,
 		wantStatus:   http.StatusOK,
+		wantBody:     aliveBody,
 	}, {
 		name:         "shuttingDown: true, K-Probe",
 		state:        &State{shuttingDown: true},
 		isAggressive: false,
 		wantStatus:   http.StatusServiceUnavailable,
+		wantBody:     notAliveBody,
 	}, {
 		name:         "no prober, shuttingDown: false",
 		state:        &State{},
 		isAggressive: true,
 		wantStatus:   http.StatusOK,
+		wantBody:     aliveBody,
 	}, {
 		name:         "prober: true, shuttingDown: true",
 		state:        &State{shuttingDown: true},
 		prober:       func() bool { return true },
 		isAggressive: true,
 		wantStatus:   http.StatusServiceUnavailable,
+		wantBody:     notAliveBody,
 	}, {
 		name:         "prober: true, shuttingDown: false",
 		state:        &State{},
 		prober:       func() bool { return true },
 		isAggressive: true,
 		wantStatus:   http.StatusOK,
+		wantBody:     aliveBody,
 	}, {
 		name:         "prober: false, shuttingDown: false",
 		state:        &State{},
 		prober:       func() bool { return false },
 		isAggressive: true,
 		wantStatus:   http.StatusServiceUnavailable,
+		wantBody:     notAliveBody,
 	}, {
 		name:         "prober: false, shuttingDown: true",
 		state:        &State{},
 		prober:       func() bool { return false },
 		isAggressive: true,
 		wantStatus:   http.StatusServiceUnavailable,
+		wantBody:     notAliveBody,
 	}, {
 		name:         "alive: true, prober: false, shuttingDown: false",
 		state:        &State{alive: true},
 		prober:       func() bool { return false },
 		isAggressive: true,
 		wantStatus:   http.StatusServiceUnavailable,
+		wantBody:     notAliveBody,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -146,9 +163,9 @@ func TestHealthStateHealthHandler(t *testing.T) {
 					rr.Code, test.wantStatus)
 			}
 
-			if wantBody := "queue"; rr.Body.String() != wantBody {
+			if rr.Body.String() != test.wantBody {
 				t.Errorf("handler returned unexpected body: got %v want %v",
-					rr.Body.String(), wantBody)
+					rr.Body.String(), test.wantBody)
 			}
 		})
 	}

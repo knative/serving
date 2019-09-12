@@ -113,7 +113,7 @@ func TestProbeHandler(t *testing.T) {
 		name:          "true probe function",
 		prober:        func() bool { return true },
 		wantCode:      http.StatusOK,
-		wantBody:      "queue",
+		wantBody:      queue.Name,
 		requestHeader: queue.Name,
 	}, {
 		name:          "nil probe function",
@@ -125,7 +125,7 @@ func TestProbeHandler(t *testing.T) {
 		name:          "false probe function",
 		prober:        func() bool { return false },
 		wantCode:      http.StatusServiceUnavailable,
-		wantBody:      "queue",
+		wantBody:      "queue not ready",
 		requestHeader: queue.Name,
 	}}
 

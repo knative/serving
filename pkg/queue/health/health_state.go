@@ -96,15 +96,14 @@ func (h *State) HealthHandleFunc(prober func() bool, isAggressive bool) func(w h
 // the function return success without probing user-container again (until
 // shutdown).
 func (h *State) HandleHealthProbe(prober func() bool, isAggressive bool, w http.ResponseWriter, r *http.Request) {
-	// Always return `queue` as body to indicate the response is from queue-proxy.
-	// Please use the status code to determine whether the queue-proxy is alive.
 	sendAlive := func() {
+		// Return `queue` as body to indicate the response is from queue-proxy.
 		io.WriteString(w, "queue")
 	}
 
 	sendNotAlive := func() {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		io.WriteString(w, "queue")
+		io.WriteString(w, "queue not ready")
 	}
 
 	switch {
