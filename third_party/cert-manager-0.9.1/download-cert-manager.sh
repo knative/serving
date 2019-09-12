@@ -24,7 +24,7 @@ YAML_URL=https://github.com/jetstack/cert-manager/releases/download/v${CERT_MANA
 wget $ARCHIVE_DOWNLOAD_URL
 tar xzf v${CERT_MANAGER_VERSION}.tar.gz
 
-( 
+(
 # subshell in downloaded directory
 cd cert-manager-${CERT_MANAGER_VERSION} || exit
 
