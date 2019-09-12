@@ -172,11 +172,20 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	// Make sure we don't get stuck with the same number of pods, if the scale up rate
 	// is too conservative and MaxScaleUp*RPC==RPC, so this permits us to grow at least by a single
 	// pod if we need to scale up.
-	// E.g. MSUR=1.1, OCC=3, RPC=2, TV=1 => OCC/RPC=3, MSU=2.2 => DSPC=2, while we definitely, need
+	// E.g. MSUR=1.1, OCC=3, RPC=2, TV=1 => OCC/TV=3, MSU=2.2 => DSPC=2, while we definitely, need
 	// 3 pods. See the unit test for this scenario in action.
 	maxScaleUp := math.Ceil(spec.MaxScaleUpRate * readyPodsCount)
-	desiredStablePodCount := int32(math.Min(math.Ceil(observedStableValue/spec.TargetValue), maxScaleUp))
-	desiredPanicPodCount := int32(math.Min(math.Ceil(observedPanicValue/spec.TargetValue), maxScaleUp))
+	// Same logic, opposite math applies here.
+	maxScaleDown := math.Floor(readyPodsCount / spec.MaxScaleDownRate)
+
+	dspc := math.Ceil(observedStableValue / spec.TargetValue)
+	dppc := math.Ceil(observedPanicValue / spec.TargetValue)
+	logger.Debugf("DesiredStablePodCount = %0.3f, DesiredPanicPodCount = %0.3f, MaxScaleUp = %0.3f, MaxScaleDown = %0.3f",
+		dspc, dppc, maxScaleUp, maxScaleDown)
+
+	// We want to keep desired pod count in the  [maxScaleDown, maxScaleUp] range.
+	desiredStablePodCount := int32(math.Min(math.Max(dspc, maxScaleDown), maxScaleUp))
+	desiredPanicPodCount := int32(math.Min(math.Max(dppc, maxScaleDown), maxScaleUp))
 
 	logger.Debugw(fmt.Sprintf("Observed average scaling metric value: %0.3f, targeting %0.3f.",
 		observedStableValue, spec.TargetValue),
