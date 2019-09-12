@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/serving/pkg/apis/networking"
 )
 
@@ -91,9 +92,9 @@ func TestEndpointsToDests(t *testing.T) {
 			if tc.protocol == "" {
 				tc.protocol = networking.ProtocolHTTP1
 			}
-			dests := EndpointsToDests(&tc.endpoints, networking.ServicePortName(tc.protocol))
+			dests := endpointsToDests(&tc.endpoints, networking.ServicePortName(tc.protocol))
 
-			if got, want := dests, tc.expectDests; !cmp.Equal(got, want) {
+			if got, want := dests, sets.NewString(tc.expectDests...); !got.Equal(want) {
 				t.Errorf("Got unexpected dests (-want, +got): %s", cmp.Diff(want, got))
 			}
 		})

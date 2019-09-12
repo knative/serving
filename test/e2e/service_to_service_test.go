@@ -236,7 +236,6 @@ func TestServiceToServiceCall(t *testing.T) {
 }
 
 func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA bool, injectB bool) {
-
 	t.Log("Creating helloworld Service")
 
 	testNames := test.ResourceNames{
