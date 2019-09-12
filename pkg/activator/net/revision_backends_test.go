@@ -41,8 +41,8 @@ import (
 	activatortest "knative.dev/serving/pkg/activator/testing"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 	"knative.dev/serving/pkg/network"
@@ -64,7 +64,7 @@ func revision(revID types.NamespacedName, protocol networking.ProtocolType) *v1a
 			Name:      revID.Name,
 		},
 		Spec: v1alpha1.RevisionSpec{
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				ContainerConcurrency: ptr.Int64(1),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{

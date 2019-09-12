@@ -30,8 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/test/logging"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 
 	ptest "knative.dev/pkg/test"
 	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
@@ -91,7 +91,7 @@ func ConfigurationSpec(imagePath string) *v1alpha1.ConfigurationSpec {
 	return &v1alpha1.ConfigurationSpec{
 		Template: &v1alpha1.RevisionTemplateSpec{
 			Spec: v1alpha1.RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
 							Image: imagePath,
@@ -112,7 +112,7 @@ func LegacyConfigurationSpec(imagePath string) *v1alpha1.ConfigurationSpec {
 				DeprecatedContainer: &corev1.Container{
 					Image: imagePath,
 				},
-				RevisionSpec: v1beta1.RevisionSpec{},
+				RevisionSpec: v1.RevisionSpec{},
 			},
 		},
 	}

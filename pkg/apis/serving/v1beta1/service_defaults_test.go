@@ -28,6 +28,7 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestServiceDefaulting(t *testing.T) {
@@ -39,17 +40,17 @@ func TestServiceDefaulting(t *testing.T) {
 		name: "empty",
 		in:   &Service{},
 		want: &Service{
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 						},
 					},
 				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
 					}},
@@ -59,10 +60,10 @@ func TestServiceDefaulting(t *testing.T) {
 	}, {
 		name: "run latest",
 		in: &Service{
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "busybox",
@@ -74,10 +75,10 @@ func TestServiceDefaulting(t *testing.T) {
 			},
 		},
 		want: &Service{
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Name:           config.DefaultUserContainerName,
@@ -91,8 +92,8 @@ func TestServiceDefaulting(t *testing.T) {
 						},
 					},
 				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
 					}},
@@ -102,10 +103,10 @@ func TestServiceDefaulting(t *testing.T) {
 	}, {
 		name: "run latest with some default overrides",
 		in: &Service{
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "busybox",
@@ -119,10 +120,10 @@ func TestServiceDefaulting(t *testing.T) {
 			},
 		},
 		want: &Service{
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Name:           config.DefaultUserContainerName,
@@ -136,8 +137,8 @@ func TestServiceDefaulting(t *testing.T) {
 						},
 					},
 				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
 					}},
@@ -147,10 +148,10 @@ func TestServiceDefaulting(t *testing.T) {
 	}, {
 		name: "byo traffic block",
 		in: &Service{
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "busybox",
@@ -159,8 +160,8 @@ func TestServiceDefaulting(t *testing.T) {
 						},
 					},
 				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						Tag:          "current",
 						RevisionName: "foo",
 						Percent:      ptr.Int64(90),
@@ -175,10 +176,10 @@ func TestServiceDefaulting(t *testing.T) {
 			},
 		},
 		want: &Service{
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Name:           config.DefaultUserContainerName,
@@ -192,8 +193,8 @@ func TestServiceDefaulting(t *testing.T) {
 						},
 					},
 				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						Tag:            "current",
 						RevisionName:   "foo",
 						Percent:        ptr.Int64(90),
@@ -278,10 +279,10 @@ func TestAnnotateUserInfo(t *testing.T) {
 		name: "update-diff-old-object",
 		user: u2,
 		this: &Service{
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							ContainerConcurrency: ptr.Int64(1),
 						},
 					},
@@ -289,10 +290,10 @@ func TestAnnotateUserInfo(t *testing.T) {
 			},
 		},
 		prev: &Service{
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							ContainerConcurrency: ptr.Int64(2),
 						},
 					},
@@ -306,10 +307,10 @@ func TestAnnotateUserInfo(t *testing.T) {
 		name: "update-diff-new-object",
 		user: u3,
 		this: withUserAnns(u1, u2, &Service{
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							ContainerConcurrency: ptr.Int64(1),
 						},
 					},
@@ -317,10 +318,10 @@ func TestAnnotateUserInfo(t *testing.T) {
 			},
 		}),
 		prev: withUserAnns(u1, u2, &Service{
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							ContainerConcurrency: ptr.Int64(2),
 						},
 					},

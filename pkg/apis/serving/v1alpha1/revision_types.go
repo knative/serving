@@ -23,7 +23,7 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
 
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/apis/serving/v1"
 )
 
 // +genclient
@@ -110,7 +110,7 @@ const (
 
 // RevisionSpec holds the desired state of the Revision (from the client).
 type RevisionSpec struct {
-	v1beta1.RevisionSpec `json:",inline"`
+	v1.RevisionSpec `json:",inline"`
 
 	// DeprecatedGeneration was used prior in Kubernetes versions <1.11
 	// when metadata.generation was not being incremented by the api server

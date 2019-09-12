@@ -29,8 +29,8 @@ import (
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	"knative.dev/serving/pkg/gc"
 
@@ -51,7 +51,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 		Spec: v1alpha1.ConfigurationSpec{
 			Template: &v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
-					RevisionSpec: v1beta1.RevisionSpec{
+					RevisionSpec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							ServiceAccountName: "test-account",
 							// corev1.Container has a lot of setting.  We try to pass many

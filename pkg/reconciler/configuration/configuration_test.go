@@ -34,8 +34,8 @@ import (
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/configuration/resources"
 
@@ -45,7 +45,7 @@ import (
 )
 
 var revisionSpec = v1alpha1.RevisionSpec{
-	RevisionSpec: v1beta1.RevisionSpec{
+	RevisionSpec: v1.RevisionSpec{
 		PodSpec: corev1.PodSpec{
 			Containers: []corev1.Container{{
 				Image: "busybox",
@@ -426,7 +426,7 @@ func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1alpha1
 
 func rev(name, namespace string, generation int64, ro ...RevisionOption) *v1alpha1.Revision {
 	r := resources.MakeRevision(cfg(name, namespace, generation))
-	r.SetDefaults(v1beta1.WithUpgradeViaDefaulting(context.Background()))
+	r.SetDefaults(v1.WithUpgradeViaDefaulting(context.Background()))
 	for _, opt := range ro {
 		opt(r)
 	}

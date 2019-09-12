@@ -23,13 +23,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 func makeConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
 	// We do this prior to reconciliation, so test with it enabled.
-	service.SetDefaults(v1beta1.WithUpgradeViaDefaulting(context.Background()))
+	service.SetDefaults(v1.WithUpgradeViaDefaulting(context.Background()))
 	return MakeConfiguration(service)
 }
 

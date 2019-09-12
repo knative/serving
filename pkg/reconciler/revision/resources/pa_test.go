@@ -29,8 +29,8 @@ import (
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 func TestMakePA(t *testing.T) {
@@ -55,7 +55,7 @@ func TestMakePA(t *testing.T) {
 					},
 				},
 				Spec: v1alpha1.RevisionSpec{
-					RevisionSpec: v1beta1.RevisionSpec{
+					RevisionSpec: v1.RevisionSpec{
 						ContainerConcurrency: ptr.Int64(1),
 					},
 				},
@@ -105,7 +105,7 @@ func TestMakePA(t *testing.T) {
 					UID:       "4321",
 				},
 				Spec: v1alpha1.RevisionSpec{
-					RevisionSpec: v1beta1.RevisionSpec{
+					RevisionSpec: v1.RevisionSpec{
 						ContainerConcurrency: ptr.Int64(0),
 					},
 					DeprecatedContainer: &corev1.Container{
@@ -158,7 +158,7 @@ func TestMakePA(t *testing.T) {
 					UID:       "4321",
 				},
 				Spec: v1alpha1.RevisionSpec{
-					RevisionSpec: v1beta1.RevisionSpec{
+					RevisionSpec: v1.RevisionSpec{
 						ContainerConcurrency: ptr.Int64(0),
 					},
 					DeprecatedContainer: &corev1.Container{

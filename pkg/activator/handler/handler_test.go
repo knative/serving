@@ -46,8 +46,8 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	servingfake "knative.dev/serving/pkg/client/clientset/versioned/fake"
 	servinginformers "knative.dev/serving/pkg/client/informers/externalversions"
 	servingv1informers "knative.dev/serving/pkg/client/informers/externalversions/serving/v1alpha1"
@@ -527,7 +527,7 @@ func revision(namespace, name string) *v1alpha1.Revision {
 			},
 		},
 		Spec: v1alpha1.RevisionSpec{
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				ContainerConcurrency: ptr.Int64(1),
 			},
 		},

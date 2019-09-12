@@ -29,8 +29,8 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 
@@ -143,7 +143,7 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: "config",
 				RevisionName:      "v2",
 				Percent:           ptr.Int64(100),
@@ -152,7 +152,7 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 			Active:      true,
 		}},
 		"v1": {{
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: "config",
 				RevisionName:      "v1",
 				Percent:           ptr.Int64(100),
@@ -305,7 +305,7 @@ func TestMakeClusterIngressSpec_CorrectRuleVisibility(t *testing.T) {
 		},
 		targets: map[string]traffic.RevisionTargets{
 			traffic.DefaultTarget: {{
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					ConfigurationName: "config",
 					RevisionName:      "v2",
 					Percent:           ptr.Int64(100),
@@ -332,7 +332,7 @@ func TestMakeClusterIngressSpec_CorrectRuleVisibility(t *testing.T) {
 		},
 		targets: map[string]traffic.RevisionTargets{
 			traffic.DefaultTarget: {{
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					ConfigurationName: "config",
 					RevisionName:      "v2",
 					Percent:           ptr.Int64(100),
@@ -360,7 +360,7 @@ func TestMakeClusterIngressSpec_CorrectRuleVisibility(t *testing.T) {
 		},
 		targets: map[string]traffic.RevisionTargets{
 			traffic.DefaultTarget: {{
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					ConfigurationName: "config",
 					RevisionName:      "v2",
 					Percent:           ptr.Int64(100),
@@ -481,7 +481,7 @@ func TestGetRouteDomains_NamedTarget(t *testing.T) {
 // One active target.
 func TestMakeClusterIngressRule_Vanilla(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "config",
 			RevisionName:      "revision",
 			Percent:           ptr.Int64(100),
@@ -523,7 +523,7 @@ func TestMakeClusterIngressRule_Vanilla(t *testing.T) {
 // One active target and a target of zero percent.
 func TestMakeClusterIngressRule_ZeroPercentTarget(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "config",
 			RevisionName:      "revision",
 			Percent:           ptr.Int64(100),
@@ -531,7 +531,7 @@ func TestMakeClusterIngressRule_ZeroPercentTarget(t *testing.T) {
 		ServiceName: "active-target",
 		Active:      true,
 	}, {
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "new-config",
 			RevisionName:      "new-revision",
 			Percent:           ptr.Int64(0),
@@ -570,7 +570,7 @@ func TestMakeClusterIngressRule_ZeroPercentTarget(t *testing.T) {
 // One active target and a target of nil (implied zero) percent.
 func TestMakeClusterIngressRule_NilPercentTarget(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "config",
 			RevisionName:      "revision",
 			Percent:           ptr.Int64(100),
@@ -578,7 +578,7 @@ func TestMakeClusterIngressRule_NilPercentTarget(t *testing.T) {
 		ServiceName: "active-target",
 		Active:      true,
 	}, {
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "new-config",
 			RevisionName:      "new-revision",
 			Percent:           nil,
@@ -617,7 +617,7 @@ func TestMakeClusterIngressRule_NilPercentTarget(t *testing.T) {
 // Two active targets.
 func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "config",
 			RevisionName:      "revision",
 			Percent:           ptr.Int64(80),
@@ -625,7 +625,7 @@ func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 		ServiceName: "nigh",
 		Active:      true,
 	}, {
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "new-config",
 			RevisionName:      "new-revision",
 			Percent:           ptr.Int64(20),
@@ -675,7 +675,7 @@ func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 // Inactive target.
 func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "config",
 			RevisionName:      "revision",
 			Percent:           ptr.Int64(100),
@@ -716,7 +716,7 @@ func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 // Two inactive targets.
 func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "config",
 			RevisionName:      "revision",
 			Percent:           ptr.Int64(80),
@@ -724,7 +724,7 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 		ServiceName: "up-quark",
 		Active:      false,
 	}, {
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "new-config",
 			RevisionName:      "new-revision",
 			Percent:           ptr.Int64(20),
@@ -775,7 +775,7 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 
 func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "config",
 			RevisionName:      "revision",
 			Percent:           ptr.Int64(100),
@@ -783,7 +783,7 @@ func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 		ServiceName: "apathy-sets-in",
 		Active:      true,
 	}, {
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "new-config",
 			RevisionName:      "new-revision",
 			Percent:           ptr.Int64(0),
@@ -820,7 +820,7 @@ func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 
 func TestMakeClusterIngressRule_NilPercentTargetInactive(t *testing.T) {
 	targets := []traffic.RevisionTarget{{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "config",
 			RevisionName:      "revision",
 			Percent:           ptr.Int64(100),
@@ -828,7 +828,7 @@ func TestMakeClusterIngressRule_NilPercentTargetInactive(t *testing.T) {
 		ServiceName: "apathy-sets-in",
 		Active:      true,
 	}, {
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: "new-config",
 			RevisionName:      "new-revision",
 			Percent:           nil,

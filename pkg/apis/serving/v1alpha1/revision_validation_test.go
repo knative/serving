@@ -34,7 +34,7 @@ import (
 	net "knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestConcurrencyModelValidation(t *testing.T) {
@@ -105,7 +105,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 	}, {
 		name: "missing container",
 		rs: &RevisionSpec{
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Volumes: []corev1.Volume{{
 						Name: "the-name",
@@ -122,7 +122,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 	}, {
 		name: "more container",
 		rs: &RevisionSpec{
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "helloworld",
@@ -137,7 +137,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 	}, {
 		name: "with ContainerConcurrency",
 		rs: &RevisionSpec{
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "helloworld",
@@ -158,7 +158,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 					ReadOnly:  true,
 				}},
 			},
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Volumes: []corev1.Volume{{
 						Name: "the-name",
@@ -183,7 +183,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 					ReadOnly:  true,
 				}},
 			},
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Volumes: []corev1.Volume{{
 						Name: "the-name",
@@ -239,7 +239,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 			DeprecatedContainer: &corev1.Container{
 				Image: "helloworld",
 			},
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				TimeoutSeconds: ptr.Int64(6000),
 			},
 		},
@@ -252,7 +252,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 			DeprecatedContainer: &corev1.Container{
 				Image: "helloworld",
 			},
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				TimeoutSeconds: ptr.Int64(100),
 			},
 		},
@@ -275,7 +275,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 			DeprecatedContainer: &corev1.Container{
 				Image: "helloworld",
 			},
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				TimeoutSeconds: ptr.Int64(0),
 			},
 		},
@@ -286,7 +286,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 			DeprecatedContainer: &corev1.Container{
 				Image: "helloworld",
 			},
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				TimeoutSeconds: ptr.Int64(-30),
 			},
 		},
@@ -557,7 +557,7 @@ func TestImmutableFields(t *testing.T) {
 				DeprecatedContainer: &corev1.Container{
 					Image: "helloworld",
 				},
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					TimeoutSeconds: ptr.Int64(100),
 				},
 			},
@@ -570,7 +570,7 @@ func TestImmutableFields(t *testing.T) {
 				DeprecatedContainer: &corev1.Container{
 					Image: "helloworld",
 				},
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					TimeoutSeconds: ptr.Int64(100),
 				},
 			},
@@ -700,7 +700,7 @@ func TestImmutableFields(t *testing.T) {
 				DeprecatedContainer: &corev1.Container{
 					Image: "helloworld",
 				},
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					PodSpec: corev1.PodSpec{
 						ServiceAccountName: "foobar",
 					},
@@ -735,7 +735,7 @@ func TestImmutableFields(t *testing.T) {
 				DeprecatedContainer: &corev1.Container{
 					Image: "helloworld",
 				},
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					PodSpec: corev1.PodSpec{
 						ServiceAccountName: "foobar",
 					},

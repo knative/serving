@@ -42,6 +42,7 @@ import (
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	apiconfig "knative.dev/serving/pkg/apis/config"
 	net "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
@@ -122,6 +123,10 @@ func main() {
 		v1beta1.SchemeGroupVersion.WithKind("Configuration"):             &v1beta1.Configuration{},
 		v1beta1.SchemeGroupVersion.WithKind("Route"):                     &v1beta1.Route{},
 		v1beta1.SchemeGroupVersion.WithKind("Service"):                   &v1beta1.Service{},
+		v1.SchemeGroupVersion.WithKind("Revision"):                       &v1.Revision{},
+		v1.SchemeGroupVersion.WithKind("Configuration"):                  &v1.Configuration{},
+		v1.SchemeGroupVersion.WithKind("Route"):                          &v1.Route{},
+		v1.SchemeGroupVersion.WithKind("Service"):                        &v1.Service{},
 		autoscalingv1alpha1.SchemeGroupVersion.WithKind("PodAutoscaler"): &autoscalingv1alpha1.PodAutoscaler{},
 		autoscalingv1alpha1.SchemeGroupVersion.WithKind("Metric"):        &autoscalingv1alpha1.Metric{},
 		net.SchemeGroupVersion.WithKind("Certificate"):                   &net.Certificate{},
@@ -137,7 +142,7 @@ func main() {
 
 	// Decorate contexts with the current state of the config.
 	ctxFunc := func(ctx context.Context) context.Context {
-		return v1beta1.WithUpgradeViaDefaulting(store.ToContext(ctx))
+		return v1.WithUpgradeViaDefaulting(store.ToContext(ctx))
 	}
 
 	controller, err := webhook.New(kubeClient, options, admissionControllers, logger, ctxFunc)

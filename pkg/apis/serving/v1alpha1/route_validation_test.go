@@ -26,7 +26,7 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
 
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestRouteValidation(t *testing.T) {
@@ -42,7 +42,7 @@ func TestRouteValidation(t *testing.T) {
 			},
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "foo",
 						Percent:      ptr.Int64(100),
 					},
@@ -59,13 +59,13 @@ func TestRouteValidation(t *testing.T) {
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
 					DeprecatedName: "prod",
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "foo",
 						Percent:      ptr.Int64(90),
 					},
 				}, {
 					DeprecatedName: "experiment",
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						ConfigurationName: "bar",
 						Percent:           ptr.Int64(10),
 					},
@@ -82,7 +82,7 @@ func TestRouteValidation(t *testing.T) {
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
 					DeprecatedName: "foo",
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Percent: ptr.Int64(100),
 					},
 				}},
@@ -103,7 +103,7 @@ func TestRouteValidation(t *testing.T) {
 			},
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "foo",
 						Percent:      ptr.Int64(100),
 					},
@@ -122,7 +122,7 @@ func TestRouteValidation(t *testing.T) {
 			},
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "foo",
 						Percent:      ptr.Int64(90),
 					},
@@ -144,7 +144,7 @@ func TestRouteValidation(t *testing.T) {
 			},
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "foo",
 						Percent:      ptr.Int64(100),
 					},
@@ -180,7 +180,7 @@ func TestRouteSpecValidation(t *testing.T) {
 		name: "valid",
 		rs: &RouteSpec{
 			Traffic: []TrafficTarget{{
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					RevisionName: "foo",
 					Percent:      ptr.Int64(100),
 				},
@@ -192,13 +192,13 @@ func TestRouteSpecValidation(t *testing.T) {
 		rs: &RouteSpec{
 			Traffic: []TrafficTarget{{
 				DeprecatedName: "prod",
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					RevisionName: "foo",
 					Percent:      ptr.Int64(90),
 				},
 			}, {
 				DeprecatedName: "experiment",
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					ConfigurationName: "bar",
 					Percent:           ptr.Int64(10),
 				},
@@ -214,7 +214,7 @@ func TestRouteSpecValidation(t *testing.T) {
 		rs: &RouteSpec{
 			Traffic: []TrafficTarget{{
 				DeprecatedName: "foo",
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					Percent: ptr.Int64(100),
 				},
 			}},
@@ -230,7 +230,7 @@ func TestRouteSpecValidation(t *testing.T) {
 		name: "invalid revision name",
 		rs: &RouteSpec{
 			Traffic: []TrafficTarget{{
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					RevisionName: "b@r",
 					Percent:      ptr.Int64(100),
 				},
@@ -245,7 +245,7 @@ func TestRouteSpecValidation(t *testing.T) {
 		name: "invalid revision name",
 		rs: &RouteSpec{
 			Traffic: []TrafficTarget{{
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					ConfigurationName: "f**",
 					Percent:           ptr.Int64(100),
 				},
@@ -261,13 +261,13 @@ func TestRouteSpecValidation(t *testing.T) {
 		rs: &RouteSpec{
 			Traffic: []TrafficTarget{{
 				DeprecatedName: "foo",
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					RevisionName: "bar",
 					Percent:      ptr.Int64(50),
 				},
 			}, {
 				DeprecatedName: "foo",
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					RevisionName: "baz",
 					Percent:      ptr.Int64(50),
 				},
@@ -279,13 +279,13 @@ func TestRouteSpecValidation(t *testing.T) {
 		rs: &RouteSpec{
 			Traffic: []TrafficTarget{{
 				DeprecatedName: "foo",
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					RevisionName: "bar",
 					Percent:      ptr.Int64(50),
 				},
 			}, {
 				DeprecatedName: "foo",
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					RevisionName: "bar",
 					Percent:      ptr.Int64(50),
 				},
@@ -297,13 +297,13 @@ func TestRouteSpecValidation(t *testing.T) {
 		rs: &RouteSpec{
 			Traffic: []TrafficTarget{{
 				DeprecatedName: "foo",
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					ConfigurationName: "bar",
 					Percent:           ptr.Int64(50),
 				},
 			}, {
 				DeprecatedName: "foo",
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					ConfigurationName: "bar",
 					Percent:           ptr.Int64(50),
 				},
@@ -314,12 +314,12 @@ func TestRouteSpecValidation(t *testing.T) {
 		name: "invalid total percentage",
 		rs: &RouteSpec{
 			Traffic: []TrafficTarget{{
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					RevisionName: "bar",
 					Percent:      ptr.Int64(99),
 				},
 			}, {
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					RevisionName: "baz",
 					Percent:      ptr.Int64(99),
 				},
@@ -334,7 +334,7 @@ func TestRouteSpecValidation(t *testing.T) {
 		rs: &RouteSpec{
 			Traffic: []TrafficTarget{{
 				DeprecatedName: "foo",
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					Tag:          "foo",
 					RevisionName: "bar",
 					Percent:      ptr.Int64(100),
@@ -347,12 +347,12 @@ func TestRouteSpecValidation(t *testing.T) {
 		rs: &RouteSpec{
 			Traffic: []TrafficTarget{{
 				DeprecatedName: "foo",
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					RevisionName: "bar",
 					Percent:      ptr.Int64(50),
 				},
 			}, {
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					Tag:          "foo",
 					RevisionName: "bar",
 					Percent:      ptr.Int64(50),
@@ -387,7 +387,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		name: "valid with name and revision",
 		tt: &TrafficTarget{
 			DeprecatedName: "foo",
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				RevisionName: "bar",
 				Percent:      ptr.Int64(12),
 			},
@@ -397,7 +397,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		name: "valid with name and configuration",
 		tt: &TrafficTarget{
 			DeprecatedName: "baz",
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: "blah",
 				Percent:           ptr.Int64(37),
 			},
@@ -407,7 +407,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		name: "valid with no percent",
 		tt: &TrafficTarget{
 			DeprecatedName: "ooga",
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: "booga",
 			},
 		},
@@ -415,7 +415,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 	}, {
 		name: "valid with no name",
 		tt: &TrafficTarget{
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: "booga",
 				Percent:           ptr.Int64(100),
 			},
@@ -424,7 +424,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 	}, {
 		name: "invalid with both",
 		tt: &TrafficTarget{
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				RevisionName:      "foo",
 				ConfigurationName: "bar",
 			},
@@ -437,7 +437,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		name: "invalid with neither",
 		tt: &TrafficTarget{
 			DeprecatedName: "foo",
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Percent: ptr.Int64(100),
 			},
 		},
@@ -448,7 +448,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 	}, {
 		name: "invalid percent too low",
 		tt: &TrafficTarget{
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				RevisionName: "foo",
 				Percent:      ptr.Int64(-5),
 			},
@@ -457,7 +457,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 	}, {
 		name: "invalid percent too high",
 		tt: &TrafficTarget{
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				RevisionName: "foo",
 				Percent:      ptr.Int64(101),
 			},
@@ -466,7 +466,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 	}, {
 		name: "disallowed url set",
 		tt: &TrafficTarget{
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				ConfigurationName: "foo",
 				Percent:           ptr.Int64(100),
 				URL: &apis.URL{

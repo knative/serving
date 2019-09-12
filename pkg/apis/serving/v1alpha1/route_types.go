@@ -24,7 +24,7 @@ import (
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
 	"knative.dev/pkg/kmeta"
 
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/apis/serving/v1"
 )
 
 // +genclient
@@ -70,9 +70,9 @@ type TrafficTarget struct {
 	// +optional
 	DeprecatedName string `json:"name,omitempty"`
 
-	// We inherit most of our fields by inlining the v1beta1 type.
-	// Ultimately all non-v1beta1 fields will be deprecated.
-	v1beta1.TrafficTarget `json:",inline"`
+	// We inherit most of our fields by inlining the v1 type.
+	// Ultimately all non-v1 fields will be deprecated.
+	v1.TrafficTarget `json:",inline"`
 }
 
 // RouteSpec holds the desired state of the Route (from the client).

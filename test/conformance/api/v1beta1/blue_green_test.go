@@ -27,7 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/test"
 	v1b1test "knative.dev/serving/test/v1beta1"
 
@@ -89,8 +89,8 @@ func TestBlueGreenRoute(t *testing.T) {
 	}
 
 	t.Log("Updating RouteSpec")
-	if _, err := v1b1test.UpdateServiceRouteSpec(t, clients, names, v1beta1.RouteSpec{
-		Traffic: []v1beta1.TrafficTarget{{
+	if _, err := v1b1test.UpdateServiceRouteSpec(t, clients, names, v1.RouteSpec{
+		Traffic: []v1.TrafficTarget{{
 			Tag:          blue.TrafficTarget,
 			RevisionName: blue.Revision,
 			Percent:      ptr.Int64(50),

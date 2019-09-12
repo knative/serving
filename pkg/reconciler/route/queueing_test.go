@@ -31,8 +31,8 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/network"
@@ -50,7 +50,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	// A route targeting the revision
 	route := getTestRouteWithTrafficTargets(
 		[]v1alpha1.TrafficTarget{{
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				RevisionName: "test-rev",
 				Percent:      ptr.Int64(100),
 			},

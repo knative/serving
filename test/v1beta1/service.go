@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	ptest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1beta1"
@@ -152,7 +153,7 @@ func PatchService(t *testing.T, clients *test.Clients, svc *v1beta1.Service, fop
 }
 
 // UpdateServiceRouteSpec updates a service to use the route name in names.
-func UpdateServiceRouteSpec(t *testing.T, clients *test.Clients, names test.ResourceNames, rs v1beta1.RouteSpec) (*v1beta1.Service, error) {
+func UpdateServiceRouteSpec(t *testing.T, clients *test.Clients, names test.ResourceNames, rs v1.RouteSpec) (*v1beta1.Service, error) {
 	patches := []jsonpatch.JsonPatchOperation{{
 		Operation: "replace",
 		Path:      "/spec/traffic",

@@ -24,6 +24,7 @@ import (
 	"knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestRevisionDuckTypes(t *testing.T) {
@@ -60,15 +61,15 @@ func TestRevisionGetGroupVersionKind(t *testing.T) {
 func TestIsReady(t *testing.T) {
 	cases := []struct {
 		name    string
-		status  RevisionStatus
+		status  v1.RevisionStatus
 		isReady bool
 	}{{
 		name:    "empty status should not be ready",
-		status:  RevisionStatus{},
+		status:  v1.RevisionStatus{},
 		isReady: false,
 	}, {
 		name: "Different condition type should not be ready",
-		status: RevisionStatus{
+		status: v1.RevisionStatus{
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
 					Type:   apis.ConditionSucceeded,
@@ -79,7 +80,7 @@ func TestIsReady(t *testing.T) {
 		isReady: false,
 	}, {
 		name: "False condition status should not be ready",
-		status: RevisionStatus{
+		status: v1.RevisionStatus{
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
 					Type:   RevisionConditionReady,
@@ -90,7 +91,7 @@ func TestIsReady(t *testing.T) {
 		isReady: false,
 	}, {
 		name: "Unknown condition status should not be ready",
-		status: RevisionStatus{
+		status: v1.RevisionStatus{
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
 					Type:   RevisionConditionReady,
@@ -101,7 +102,7 @@ func TestIsReady(t *testing.T) {
 		isReady: false,
 	}, {
 		name: "Missing condition status should not be ready",
-		status: RevisionStatus{
+		status: v1.RevisionStatus{
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
 					Type: RevisionConditionReady,
@@ -111,7 +112,7 @@ func TestIsReady(t *testing.T) {
 		isReady: false,
 	}, {
 		name: "True condition status should be ready",
-		status: RevisionStatus{
+		status: v1.RevisionStatus{
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
 					Type:   RevisionConditionReady,
@@ -122,7 +123,7 @@ func TestIsReady(t *testing.T) {
 		isReady: true,
 	}, {
 		name: "Multiple conditions with ready status should be ready",
-		status: RevisionStatus{
+		status: v1.RevisionStatus{
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
 					Type:   apis.ConditionSucceeded,
@@ -136,7 +137,7 @@ func TestIsReady(t *testing.T) {
 		isReady: true,
 	}, {
 		name: "Multiple conditions with ready status false should not be ready",
-		status: RevisionStatus{
+		status: v1.RevisionStatus{
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
 					Type:   apis.ConditionSucceeded,
@@ -161,15 +162,15 @@ func TestIsReady(t *testing.T) {
 func TestGetContainerConcurrency(t *testing.T) {
 	cases := []struct {
 		name   string
-		status RevisionSpec
+		status v1.RevisionSpec
 		want   int64
 	}{{
 		name:   "empty revisionSpec should return default value",
-		status: RevisionSpec{},
+		status: v1.RevisionSpec{},
 		want:   0,
 	}, {
 		name: "get containerConcurrency by passing value",
-		status: RevisionSpec{
+		status: v1.RevisionSpec{
 			ContainerConcurrency: ptr.Int64(10),
 		},
 		want: 10,

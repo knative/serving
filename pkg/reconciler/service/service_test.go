@@ -32,8 +32,8 @@ import (
 	"knative.dev/pkg/controller"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/service/resources"
 	presources "knative.dev/serving/pkg/resources"
@@ -178,13 +178,13 @@ func TestReconcile(t *testing.T) {
 			route("pinned3", "foo", WithReleaseRollout("pinned3-00001"),
 				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "pinned3-00001",
 						Percent:      ptr.Int64(100),
 					},
 				}, v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "pinned3-00001",
 						Percent:      nil,
@@ -203,13 +203,13 @@ func TestReconcile(t *testing.T) {
 				// The delta induced by route object.
 				WithReadyRoute, WithSvcStatusDomain, WithSvcStatusAddress,
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "pinned3-00001",
 						Percent:      ptr.Int64(100),
 					},
 				}, v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "pinned3-00001",
 						Percent:      nil,
@@ -293,7 +293,7 @@ func TestReconcile(t *testing.T) {
 			route("release-nr", "foo", WithReleaseRollout("release-nr-00002"), RouteReady,
 				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "release-nr-00001",
 						Percent:      ptr.Int64(100),
 					},
@@ -306,7 +306,7 @@ func TestReconcile(t *testing.T) {
 				WithReadyConfig("release-nr-00002"),
 				WithServiceStatusRouteNotReady, WithSvcStatusDomain, WithSvcStatusAddress,
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "release-nr-00001",
 						Percent:      ptr.Int64(100),
 					},
@@ -332,7 +332,7 @@ func TestReconcile(t *testing.T) {
 			route("release-nr", "foo", WithReleaseRollout("release-nr-00002", "release-nr-00003"),
 				RouteReady, WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "release-nr-00001",
 						Percent:      ptr.Int64(100),
 					},
@@ -345,7 +345,7 @@ func TestReconcile(t *testing.T) {
 				WithReadyConfig("release-nr-00003"),
 				WithServiceStatusRouteNotReady, WithSvcStatusDomain, WithSvcStatusAddress,
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "release-nr-00001",
 						Percent:      ptr.Int64(100),
 					},
@@ -374,12 +374,12 @@ func TestReconcile(t *testing.T) {
 				WithReleaseRolloutAndPercentage(42, "release-nr-ts-00002", "release-nr-ts-00003"),
 				RouteReady, WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "release-nr-ts-00001",
 						Percent:      ptr.Int64(58),
 					},
 				}, v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "release-nr-ts-00002",
 						Percent:      ptr.Int64(42),
 					},
@@ -392,12 +392,12 @@ func TestReconcile(t *testing.T) {
 				WithReadyConfig("release-nr-ts-00003"),
 				WithServiceStatusRouteNotReady, WithSvcStatusDomain, WithSvcStatusAddress,
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "release-nr-ts-00001",
 						Percent:      ptr.Int64(58),
 					},
 				}, v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "release-nr-ts-00002",
 						Percent:      ptr.Int64(42),
 					},
@@ -427,12 +427,12 @@ func TestReconcile(t *testing.T) {
 				RouteReady, WithURL, WithAddress, WithInitRouteConditions,
 				// NB: here the revisions match, but percentages, don't.
 				WithStatusTraffic(v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "release-nr-ts2-00002",
 						Percent:      ptr.Int64(58),
 					},
 				}, v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "release-nr-ts2-00003",
 						Percent:      ptr.Int64(42),
 					},
@@ -445,12 +445,12 @@ func TestReconcile(t *testing.T) {
 				WithReadyConfig("release-nr-ts2-00003"),
 				WithServiceStatusRouteNotReady, WithSvcStatusDomain, WithSvcStatusAddress,
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "release-nr-ts2-00002",
 						Percent:      ptr.Int64(58),
 					},
 				}, v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "release-nr-ts2-00003",
 						Percent:      ptr.Int64(42),
 					},
@@ -475,13 +475,13 @@ func TestReconcile(t *testing.T) {
 				WithReleaseRollout(v1alpha1.ReleaseLatestRevisionKeyword),
 				RouteReady, WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic([]v1alpha1.TrafficTarget{{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "release-ready-lr-00001",
 						Percent:      ptr.Int64(100),
 					},
 				}, {
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "release-ready-lr-00001",
 					},
@@ -501,13 +501,13 @@ func TestReconcile(t *testing.T) {
 				// The delta induced by route object.
 				WithReadyRoute, WithSvcStatusDomain, WithSvcStatusAddress,
 				WithSvcStatusTraffic([]v1alpha1.TrafficTarget{{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "release-ready-lr-00001",
 						Percent:      ptr.Int64(100),
 					},
 				}, {
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "release-ready-lr-00001",
 					},
@@ -538,19 +538,19 @@ func TestReconcile(t *testing.T) {
 					42, "release-ready-lr-00001", v1alpha1.ReleaseLatestRevisionKeyword),
 				RouteReady, WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic([]v1alpha1.TrafficTarget{{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "release-ready-lr-00001",
 						Percent:      ptr.Int64(58),
 					},
 				}, {
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:          v1alpha1.CandidateTrafficTarget,
 						RevisionName: "release-ready-lr-00002",
 						Percent:      ptr.Int64(42),
 					},
 				}, {
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "release-ready-lr-00002",
 					},
@@ -571,19 +571,19 @@ func TestReconcile(t *testing.T) {
 				// The delta induced by route object.
 				WithReadyRoute, WithSvcStatusDomain, WithSvcStatusAddress,
 				WithSvcStatusTraffic([]v1alpha1.TrafficTarget{{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "release-ready-lr-00001",
 						Percent:      ptr.Int64(58),
 					},
 				}, {
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:          v1alpha1.CandidateTrafficTarget,
 						RevisionName: "release-ready-lr-00002",
 						Percent:      ptr.Int64(42),
 					},
 				}, {
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "release-ready-lr-00002",
 					},
@@ -614,19 +614,19 @@ func TestReconcile(t *testing.T) {
 					"release-ready-00001", "release-ready-00002"),
 				RouteReady, WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "release-ready-00001",
 						Percent:      ptr.Int64(42),
 					},
 				}, v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:          v1alpha1.CandidateTrafficTarget,
 						RevisionName: "release-ready-00002",
 						Percent:      ptr.Int64(58),
 					},
 				}, v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "release-ready-00002",
 						Percent:      nil,
@@ -647,19 +647,19 @@ func TestReconcile(t *testing.T) {
 				// The delta induced by route object.
 				WithReadyRoute, WithSvcStatusDomain, WithSvcStatusAddress,
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:          v1alpha1.CurrentTrafficTarget,
 						RevisionName: "release-ready-00001",
 						Percent:      ptr.Int64(42),
 					},
 				}, v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:          v1alpha1.CandidateTrafficTarget,
 						RevisionName: "release-ready-00002",
 						Percent:      ptr.Int64(58),
 					},
 				}, v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						Tag:          v1alpha1.LatestTrafficTarget,
 						RevisionName: "release-ready-00002",
 						Percent:      nil,
@@ -1045,7 +1045,7 @@ func TestReconcile(t *testing.T) {
 			route("all-ready", "foo", WithRunLatestRollout, RouteReady,
 				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "all-ready-00001",
 						Percent:      ptr.Int64(100),
 					},
@@ -1062,7 +1062,7 @@ func TestReconcile(t *testing.T) {
 				// The delta induced by route object.
 				WithReadyRoute, WithSvcStatusDomain, WithSvcStatusAddress,
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "all-ready-00001",
 						Percent:      ptr.Int64(100),
 					},
@@ -1090,7 +1090,7 @@ func TestReconcile(t *testing.T) {
 			route("all-ready", "foo", WithRunLatestRollout, RouteReady,
 				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "all-ready-00001",
 						Percent:      ptr.Int64(100),
 					},
@@ -1108,7 +1108,7 @@ func TestReconcile(t *testing.T) {
 				WithReadyRoute, WithSvcStatusDomain, WithSvcStatusAddress,
 				MarkConfigurationNotReconciled,
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "all-ready-00001",
 						Percent:      ptr.Int64(100),
 					},
@@ -1133,7 +1133,7 @@ func TestReconcile(t *testing.T) {
 			route("config-only-ready", "foo", WithRunLatestRollout, RouteReady,
 				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "config-only-ready-00001",
 						Percent:      ptr.Int64(100),
 					},
@@ -1149,7 +1149,7 @@ func TestReconcile(t *testing.T) {
 				WithReadyConfig("config-only-ready-00002"),
 				WithServiceStatusRouteNotReady, WithSvcStatusDomain, WithSvcStatusAddress,
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "config-only-ready-00001",
 						Percent:      ptr.Int64(100),
 					},
@@ -1175,7 +1175,7 @@ func TestReconcile(t *testing.T) {
 			route("config-fails", "foo", WithRunLatestRollout, RouteReady,
 				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "config-fails-00001",
 						Percent:      ptr.Int64(100),
 					},
@@ -1189,7 +1189,7 @@ func TestReconcile(t *testing.T) {
 			Object: Service("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions,
 				WithReadyRoute, WithSvcStatusDomain, WithSvcStatusAddress,
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "config-fails-00001",
 						Percent:      ptr.Int64(100),
 					},
@@ -1306,7 +1306,7 @@ func TestReconcile(t *testing.T) {
 			route("new-owner", "foo", WithRunLatestRollout, RouteReady,
 				WithURL, WithAddress, WithInitRouteConditions,
 				WithStatusTraffic(v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "new-owner-00001",
 						Percent:      ptr.Int64(100),
 					},
@@ -1322,7 +1322,7 @@ func TestReconcile(t *testing.T) {
 				// The delta induced by route object.
 				WithReadyRoute, WithSvcStatusDomain, WithSvcStatusAddress,
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "new-owner-00001",
 						Percent:      ptr.Int64(100),
 					},
@@ -1368,7 +1368,7 @@ func TestNew(t *testing.T) {
 
 func config(name, namespace string, so ServiceOption, co ...ConfigOption) *v1alpha1.Configuration {
 	s := Service(name, namespace, so)
-	s.SetDefaults(v1beta1.WithUpgradeViaDefaulting(context.Background()))
+	s.SetDefaults(v1.WithUpgradeViaDefaulting(context.Background()))
 	cfg, err := resources.MakeConfiguration(s)
 	if err != nil {
 		panic(fmt.Sprintf("MakeConfiguration() = %v", err))
@@ -1381,7 +1381,7 @@ func config(name, namespace string, so ServiceOption, co ...ConfigOption) *v1alp
 
 func route(name, namespace string, so ServiceOption, ro ...RouteOption) *v1alpha1.Route {
 	s := Service(name, namespace, so)
-	s.SetDefaults(v1beta1.WithUpgradeViaDefaulting(context.Background()))
+	s.SetDefaults(v1.WithUpgradeViaDefaulting(context.Background()))
 	route, err := resources.MakeRoute(s)
 	if err != nil {
 		panic(fmt.Sprintf("MakeRoute() = %v", err))

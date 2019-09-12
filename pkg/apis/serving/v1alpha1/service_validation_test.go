@@ -30,7 +30,7 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/apis/serving/v1"
 )
 
 const incorrectDNS1035Label = "not a DNS 1035 label: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]"
@@ -52,7 +52,7 @@ func TestServiceValidation(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								RevisionSpec: v1beta1.RevisionSpec{
+								RevisionSpec: v1.RevisionSpec{
 									PodSpec: corev1.PodSpec{
 										Containers: []corev1.Container{{
 											Image: "hellworld",
@@ -79,7 +79,7 @@ func TestServiceValidation(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								RevisionSpec: v1beta1.RevisionSpec{
+								RevisionSpec: v1.RevisionSpec{
 									PodSpec: corev1.PodSpec{
 										Containers: []corev1.Container{{
 											Image: "hellworld",
@@ -129,7 +129,7 @@ func TestServiceValidation(t *testing.T) {
 					Configuration: ConfigurationSpec{
 						DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 							Spec: RevisionSpec{
-								RevisionSpec: v1beta1.RevisionSpec{
+								RevisionSpec: v1.RevisionSpec{
 									PodSpec: corev1.PodSpec{
 										Containers: []corev1.Container{{
 											Image: "hellworld",
@@ -563,7 +563,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							LatestRevision: ptr.Bool(true),
 							Percent:        ptr.Int64(100),
 						},
@@ -582,7 +582,7 @@ func TestServiceValidation(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: v1.RevisionSpec{
 								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Image: "helloworld",
@@ -594,7 +594,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							RevisionName: "valid-00001",
 							Percent:      ptr.Int64(100),
 						},
@@ -614,7 +614,7 @@ func TestServiceValidation(t *testing.T) {
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
 							DeprecatedConcurrencyModel: "Multi",
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: v1.RevisionSpec{
 								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Image: "helloworld",
@@ -626,7 +626,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							RevisionName: "valid-00001",
 							Percent:      ptr.Int64(100),
 						},
@@ -645,7 +645,7 @@ func TestServiceValidation(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: v1.RevisionSpec{
 								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Image: "helloworld",
@@ -657,7 +657,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							LatestRevision: ptr.Bool(true),
 							Percent:        ptr.Int64(100),
 						},
@@ -678,7 +678,7 @@ func TestServiceValidation(t *testing.T) {
 				ConfigurationSpec: ConfigurationSpec{
 					Template: &RevisionTemplateSpec{
 						Spec: RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: v1.RevisionSpec{
 								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Image: "hellworld",
@@ -690,7 +690,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 				RouteSpec: RouteSpec{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							Percent: ptr.Int64(100),
 						},
 					}},
@@ -997,7 +997,7 @@ func TestImmutableServiceFields(t *testing.T) {
 							Name: "byo-name-bar",
 						},
 						Spec: RevisionSpec{
-							RevisionSpec: v1beta1.RevisionSpec{
+							RevisionSpec: v1.RevisionSpec{
 								PodSpec: corev1.PodSpec{
 									Containers: []corev1.Container{{
 										Image: "helloworld:bar",
@@ -1127,7 +1127,7 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 								DeprecatedContainer: &corev1.Container{
 									Image: "helloworld",
 								},
-								RevisionSpec: v1beta1.RevisionSpec{
+								RevisionSpec: v1.RevisionSpec{
 									TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds - 1),
 								},
 							},
@@ -1152,7 +1152,7 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 								DeprecatedContainer: &corev1.Container{
 									Image: "helloworld",
 								},
-								RevisionSpec: v1beta1.RevisionSpec{
+								RevisionSpec: v1.RevisionSpec{
 									TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds + 1),
 								},
 							},
@@ -1177,7 +1177,7 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 								DeprecatedContainer: &corev1.Container{
 									Image: "helloworld",
 								},
-								RevisionSpec: v1beta1.RevisionSpec{
+								RevisionSpec: v1.RevisionSpec{
 									TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds - 1),
 								},
 							},
@@ -1202,7 +1202,7 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 								DeprecatedContainer: &corev1.Container{
 									Image: "helloworld",
 								},
-								RevisionSpec: v1beta1.RevisionSpec{
+								RevisionSpec: v1.RevisionSpec{
 									TimeoutSeconds: ptr.Int64(config.DefaultMaxRevisionTimeoutSeconds + 1),
 								},
 							},
@@ -1234,7 +1234,7 @@ func getServiceSpec(image string) ServiceSpec {
 		ConfigurationSpec: ConfigurationSpec{
 			Template: &RevisionTemplateSpec{
 				Spec: RevisionSpec{
-					RevisionSpec: v1beta1.RevisionSpec{
+					RevisionSpec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{Containers: []corev1.Container{{
 							Image: image,
 						}},
@@ -1246,7 +1246,7 @@ func getServiceSpec(image string) ServiceSpec {
 		},
 		RouteSpec: RouteSpec{
 			Traffic: []TrafficTarget{{
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					LatestRevision: ptr.Bool(true),
 					Percent:        ptr.Int64(100)},
 			}},

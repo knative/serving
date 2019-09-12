@@ -28,8 +28,8 @@ import (
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 	servicenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	"knative.dev/serving/pkg/resources"
@@ -94,7 +94,7 @@ func WithInlineRollout(s *v1alpha1.Service) {
 		ConfigurationSpec: v1alpha1.ConfigurationSpec{
 			Template: &v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
-					RevisionSpec: v1beta1.RevisionSpec{
+					RevisionSpec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "busybox",
@@ -107,7 +107,7 @@ func WithInlineRollout(s *v1alpha1.Service) {
 		},
 		RouteSpec: v1alpha1.RouteSpec{
 			Traffic: []v1alpha1.TrafficTarget{{
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					Percent: ptr.Int64(100),
 				},
 			}},
