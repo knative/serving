@@ -69,16 +69,13 @@ func dialBackOffHelper(ctx context.Context, network, address string, steps int, 
 	for i := 0; i < steps; i++ {
 		c, err := dialer.DialContext(ctx, network, address)
 		if err != nil {
-			if err, ok := err.(net.Error); ok && err.Temporary() {
-				if i == steps-1 {
-					break
-				}
-				to *= factor
-				dialer.Timeout = time.Duration(to)
-				time.Sleep(wait.Jitter(sleep, 1.0)) // Sleep with jitter.
-				continue
+			if i == steps-1 {
+				break
 			}
-			return nil, err
+			to *= factor
+			dialer.Timeout = time.Duration(to)
+			time.Sleep(wait.Jitter(sleep, 1.0)) // Sleep with jitter.
+			continue
 		}
 		return c, err
 	}
