@@ -49,7 +49,7 @@ required = [
 
 [[constraint]]
   name = "github.com/jetstack/cert-manager"
-  version = "v0.9.0"
+  version = "v0.9.1"
 
 [[override]]
   name = "k8s.io/api"
