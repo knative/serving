@@ -14,16 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package clustermanager
+// error.go helps with error handling
 
-// Client is the entrypoint
-type Client interface {
-	Setup(...interface{}) (ClusterOperations, error)
-}
+package helpers
 
-// ClusterOperations contains all provider specific logics
-type ClusterOperations interface {
-	Provider() string
-	Initialize() error
-	Acquire() error
+import (
+	"errors"
+	"strings"
+)
+
+// CombineErrors combines slice of errors and return a single error
+func CombineErrors(errs []error) error {
+	if len(errs) == 0 {
+		return nil
+	}
+	var sb strings.Builder
+	for _, err := range errs {
+		sb.WriteString(err.Error())
+		sb.WriteString("\n")
+	}
+	return errors.New(strings.Trim(sb.String(), "\n"))
 }

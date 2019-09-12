@@ -36,7 +36,7 @@ import (
 //   2) The backend is not Stackdriver.
 //   3) The backend is Stackdriver and it is allowed to use custom metrics.
 //   4) The backend is Stackdriver and the metric is one of the built-in metrics: "knative_revision", "knative_broker",
-//      "knative_trigger", "knative_importer".
+//      "knative_trigger", "knative_source".
 func Record(ctx context.Context, ms stats.Measurement) {
 	mc := getCurMetricsConfig()
 
@@ -57,7 +57,7 @@ func Record(ctx context.Context, ms stats.Measurement) {
 	isServingBuiltIn := metricskey.KnativeRevisionMetrics.Has(metricType)
 	isEventingBuiltIn := metricskey.KnativeTriggerMetrics.Has(metricType) ||
 		metricskey.KnativeBrokerMetrics.Has(metricType) ||
-		metricskey.KnativeImporterMetrics.Has(metricType)
+		metricskey.KnativeSourceMetrics.Has(metricType)
 
 	if isServingBuiltIn || isEventingBuiltIn {
 		stats.Record(ctx, ms)

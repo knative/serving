@@ -1661,8 +1661,8 @@
   revision = "20b5480da37ac4807b7bca08d6a3c86b60d26c8e"
 
 [[projects]]
-  branch = "master"
-  digest = "1:03c8c36f66fba88d6184f87e0bcc24262a53efc9d47adbd9a071a69ad4c001fc"
+  branch = "release-0.9"
+  digest = "1:99655a6e1b016f47a8b0bb0695f8276c2e0cd438a8564870b8e9eee2a3ba4b61"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1772,7 +1772,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "c39ee25c42f53e4024d60511a2edef2065ea7333"
+  revision = "2e2ab7a878b5dda4e3c89a194fece358b2843ea9"
 
 [[projects]]
   branch = "master"
@@ -1975,7 +1975,6 @@
     "knative.dev/pkg/test/webhook-apicoverage/tools",
     "knative.dev/pkg/test/webhook-apicoverage/view",
     "knative.dev/pkg/test/webhook-apicoverage/webhook",
-    "knative.dev/pkg/test/zipkin",
     "knative.dev/pkg/tracing",
     "knative.dev/pkg/tracing/config",
     "knative.dev/pkg/tracing/testing",
@@ -1984,7 +1983,6 @@
     "knative.dev/pkg/webhook",
     "knative.dev/pkg/websocket",
     "knative.dev/test-infra/scripts",
-    "knative.dev/test-infra/shared/common",
     "knative.dev/test-infra/shared/junit",
     "knative.dev/test-infra/shared/performance",
     "knative.dev/test-infra/shared/prow",
