@@ -231,10 +231,12 @@ func setup(t *testing.T, class, metric string, target int, targetUtilization flo
 			autoscaling.TargetUtilizationPercentageKey: strconv.FormatFloat(targetUtilization*100, 'f', -1, 64),
 		}), rtesting.WithResourceRequirements(corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("512Mi"),
+				corev1.ResourceMemory: resource.MustParse("1024Mi"),
+				corev1.ResourceCPU:    resource.MustParse("1000m"),
 			},
 			Requests: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("300Mi"),
+				corev1.ResourceMemory: resource.MustParse("512Mi"),
+				corev1.ResourceCPU:    resource.MustParse("500m"),
 			},
 		}))...)
 	if err != nil {
