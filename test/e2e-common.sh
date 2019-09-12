@@ -28,7 +28,7 @@ source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/e2e-tests.sh
 # Default Istio configuration to install: 1.2-latest, no mesh, cert manager 0.6.1.
 ISTIO_VERSION="1.2-latest"
 ISTIO_MESH=0
-CERT_MANAGER_VERSION="0.6.1"
+CERT_MANAGER_VERSION="0.9.1"
 
 # Current YAMLs used to install Knative Serving.
 INSTALL_RELEASE_YAML=""

@@ -49,6 +49,7 @@ type tryResult struct {
 }
 
 func TestThrottler(t *testing.T) {
+	defer ClearAll()
 	for _, tc := range []struct {
 		name             string
 		revisions        []*v1alpha1.Revision
