@@ -19,11 +19,16 @@ package v1alpha1
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 // +genclient
-// +k8s:openapi-gen=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// +kubebuilder:resource:path=certificates
 // Certificate is a type to represent a Certificate from ACME
+// +k8s:openapi-gen=true
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=="Ready")].status",description=""
+// +kubebuilder:printcolumn:name="Secret",type="string",JSONPath=".spec.secretName",description=""
+// +kubebuilder:printcolumn:name="Issuer",type="string",JSONPath=".spec.issuerRef.name",description="",priority=1
+// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[?(@.type=="Ready")].message",priority=1
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC."
+// +kubebuilder:resource:path=certificates,shortName=cert;certs
 type Certificate struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -49,22 +54,46 @@ const (
 	ECDSAKeyAlgorithm KeyAlgorithm = "ecdsa"
 )
 
+type KeyEncoding string
+
+const (
+	PKCS1 KeyEncoding = "pkcs1"
+	PKCS8 KeyEncoding = "pkcs8"
+)
+
 // CertificateSpec defines the desired state of Certificate
 type CertificateSpec struct {
-	// CommonName is a common name to be used on the Certificate
+	// CommonName is a common name to be used on the Certificate.
+	// If no CommonName is given, then the first entry in DNSNames is used as
+	// the CommonName.
+	// The CommonName should have a length of 64 characters or fewer to avoid
+	// generating invalid CSRs; in order to have longer domain names, set the
+	// CommonName (or first DNSNames entry) to have 64 characters or fewer,
+	// and then add the longer domain name to DNSNames.
+	// +optional
 	CommonName string `json:"commonName,omitempty"`
 
 	// Organization is the organization to be used on the Certificate
+	// +optional
 	Organization []string `json:"organization,omitempty"`
 
 	// Certificate default Duration
+	// +optional
 	Duration *metav1.Duration `json:"duration,omitempty"`
 
 	// Certificate renew before expiration duration
+	// +optional
 	RenewBefore *metav1.Duration `json:"renewBefore,omitempty"`
 
-	// DNSNames is a list of subject alt names to be used on the Certificate
+	// DNSNames is a list of subject alt names to be used on the Certificate.
+	// If no CommonName is given, then the first entry in DNSNames is used as
+	// the CommonName and must have a length of 64 characters or fewer.
+	// +optional
 	DNSNames []string `json:"dnsNames,omitempty"`
+
+	// IPAddresses is a list of IP addresses to be used on the Certificate
+	// +optional
+	IPAddresses []string `json:"ipAddresses,omitempty"`
 
 	// SecretName is the name of the secret resource to store this secret in
 	SecretName string `json:"secretName"`
@@ -79,25 +108,37 @@ type CertificateSpec struct {
 
 	// IsCA will mark this Certificate as valid for signing.
 	// This implies that the 'signing' usage is set
+	// +optional
 	IsCA bool `json:"isCA,omitempty"`
 
 	// ACME contains configuration specific to ACME Certificates.
 	// Notably, this contains details on how the domain names listed on this
 	// Certificate resource should be 'solved', i.e. mapping HTTP01 and DNS01
 	// providers to DNS names.
+	// +optional
 	ACME *ACMECertificateConfig `json:"acme,omitempty"`
 
 	// KeySize is the key bit size of the corresponding private key for this certificate.
 	// If provided, value must be between 2048 and 8192 inclusive when KeyAlgorithm is
 	// empty or is set to "rsa", and value must be one of (256, 384, 521) when
 	// KeyAlgorithm is set to "ecdsa".
+	// +optional
 	KeySize int `json:"keySize,omitempty"`
+
 	// KeyAlgorithm is the private key algorithm of the corresponding private key
 	// for this certificate. If provided, allowed values are either "rsa" or "ecdsa"
 	// If KeyAlgorithm is specified and KeySize is not provided,
 	// key size of 256 will be used for "ecdsa" key algorithm and
 	// key size of 2048 will be used for "rsa" key algorithm.
+	// +kubebuilder:validation:Enum=rsa,ecdsa
+	// +optional
 	KeyAlgorithm KeyAlgorithm `json:"keyAlgorithm,omitempty"`
+
+	// KeyEncoding is the private key cryptography standards (PKCS)
+	// for this certificate's private key to be encoded in. If provided, allowed
+	// values are "pkcs1" and "pkcs8" standing for PKCS#1 and PKCS#8, respectively.
+	// If KeyEncoding is not specified, then PKCS#1 will be used by default.
+	KeyEncoding KeyEncoding `json:"keyEncoding,omitempty"`
 }
 
 // ACMECertificateConfig contains the configuration for the ACME certificate provider
@@ -107,11 +148,15 @@ type ACMECertificateConfig struct {
 
 // CertificateStatus defines the observed state of Certificate
 type CertificateStatus struct {
-	Conditions      []CertificateCondition `json:"conditions,omitempty"`
-	LastFailureTime *metav1.Time           `json:"lastFailureTime,omitempty"`
+	// +optional
+	Conditions []CertificateCondition `json:"conditions,omitempty"`
+
+	// +optional
+	LastFailureTime *metav1.Time `json:"lastFailureTime,omitempty"`
 
 	// The expiration time of the certificate stored in the secret named
 	// by this resource in spec.secretName.
+	// +optional
 	NotAfter *metav1.Time `json:"notAfter,omitempty"`
 }
 
@@ -121,19 +166,23 @@ type CertificateCondition struct {
 	Type CertificateConditionType `json:"type"`
 
 	// Status of the condition, one of ('True', 'False', 'Unknown').
+	// +kubebuilder:validation:Enum=True,False,Unknown
 	Status ConditionStatus `json:"status"`
 
 	// LastTransitionTime is the timestamp corresponding to the last status
 	// change of this condition.
-	LastTransitionTime metav1.Time `json:"lastTransitionTime"`
+	// +optional
+	LastTransitionTime *metav1.Time `json:"lastTransitionTime,omitempty"`
 
 	// Reason is a brief machine readable explanation for the condition's last
 	// transition.
-	Reason string `json:"reason"`
+	// +optional
+	Reason string `json:"reason,omitempty"`
 
 	// Message is a human readable description of the details of the last
 	// transition, complementing reason.
-	Message string `json:"message"`
+	// +optional
+	Message string `json:"message,omitempty"`
 }
 
 // CertificateConditionType represents an Certificate condition value.
