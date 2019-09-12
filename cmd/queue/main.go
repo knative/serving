@@ -151,7 +151,7 @@ type config struct {
 func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.Handler,
 	healthState *health.State, prober func() bool, isAggressive bool) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO: Move probe part network.NewProbeHandler if possible or another handler.
+		// TODO: Move probe part to network.NewProbeHandler if possible or another handler.
 		ph := network.KnativeProbeHeader(r)
 		switch {
 		case ph != "":

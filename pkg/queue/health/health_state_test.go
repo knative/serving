@@ -154,9 +154,7 @@ func TestHealthStateHealthHandler(t *testing.T) {
 			}
 
 			rr := httptest.NewRecorder()
-			handler := http.HandlerFunc(test.state.HealthHandleFunc(test.prober, test.isAggressive))
-
-			handler.ServeHTTP(rr, req)
+			test.state.HandleHealthProbe(test.prober, test.isAggressive, rr, req)
 
 			if rr.Code != test.wantStatus {
 				t.Errorf("handler returned wrong status code: got %v want %v",

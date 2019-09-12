@@ -81,16 +81,6 @@ func (h *State) drainFinished() {
 
 }
 
-// HealthHandleFunc constructs a handler function that returns the current state of the
-// health server. If isAggressive is false and prober has succeeded previously,
-// the function return success without probing user-container again (until
-// shutdown).
-func (h *State) HealthHandleFunc(prober func() bool, isAggressive bool) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		h.HandleHealthProbe(prober, isAggressive, w, r)
-	}
-}
-
 // HandleHealthProbe handles the request according to the current state of the
 // health server. If isAggressive is false and prober has succeeded previously,
 // the function return success without probing user-container again (until
