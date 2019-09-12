@@ -258,6 +258,42 @@ func TestRevisionWatcher(t *testing.T) {
 			}},
 		},
 	}, {
+		name:  "one healthy one unhealthy podIP then 2, then cluster",
+		dests: []string{"128.0.0.1:1234", "128.0.0.2:1234"},
+		clusterPort: corev1.ServicePort{
+			Name: "http",
+			Port: 4321,
+		},
+		clusterIP: "129.0.0.1",
+		expectUpdates: []RevisionDestsUpdate{
+			{Dests: sets.NewString("128.0.0.2:1234")},
+			{Dests: sets.NewString("128.0.0.2:1234", "128.0.0.1:1234")},
+			{ClusterIPDest: "129.0.0.1:4321", Dests: sets.NewString("128.0.0.2:1234", "128.0.0.1:1234")},
+		},
+		probeHostResponses: map[string][]activatortest.FakeResponse{
+			"129.0.0.1:4321": {{
+				Err: errors.New("clusterIP transport error"),
+			}, {
+				Err: errors.New("clusterIP transport error"),
+			}, {
+				Err:  nil,
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+			"128.0.0.1:1234": {{
+				Err: errors.New("podIP transport error"),
+			}, {
+				Err:  nil,
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+			"128.0.0.2:1234": {{
+				Err:  nil,
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+		},
+	}, {
 		name:  "podIP slow ready then clusterIP",
 		dests: []string{"128.0.0.1:1234"},
 		clusterPort: corev1.ServicePort{
