@@ -250,9 +250,15 @@ func probeQueueHealthPath(port int, timeoutSeconds int) error {
 	// Using PollImmediateUntil instead of PollImmediate because if timeout is reached while waiting for first
 	// invocation of conditionFunc, it exits immediately without trying for a second time.
 	timeoutErr := wait.PollImmediateUntil(aggressivePollInterval, func() (bool, error) {
-		var res *http.Response
-		if res, lastErr = httpClient.Get(url); res == nil {
-			return false, nil
+		req, err := http.NewRequest(http.MethodGet, url, nil)
+		if err != nil {
+			return false, err
+		}
+		// Add the header to indicate this is a probe request.
+		req.Header.Add(network.ProbeHeaderName, queue.Name)
+		res, err := httpClient.Do(req)
+		if err != nil {
+			return false, err
 		}
 		defer res.Body.Close()
 		return health.IsHTTPProbeReady(res), nil
