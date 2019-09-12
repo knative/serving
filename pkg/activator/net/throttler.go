@@ -249,7 +249,7 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update *Revision
 		trackers := make([]*podIPTracker, 0, len(update.Dests))
 
 		// Loop over dests, reuse existing tracker if we have one otherwise create new
-		for _, newDest := range update.Dests {
+		for newDest := range update.Dests {
 			tracker, ok := trackersMap[newDest]
 			if !ok {
 				tracker = &podIPTracker{dest: newDest}
