@@ -75,7 +75,7 @@ func TestHandlerReqEvent(t *testing.T) {
 	params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	breaker := queue.NewBreaker(params)
 	reqChan := make(chan queue.ReqEvent, 10)
-	h := handler(reqChan, breaker, proxy, nil, func() bool { return true }, false /* isAggresive*/)
+	h := handler(reqChan, breaker, proxy, nil, func() bool { return true }, true /* isAggresive*/)
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -113,7 +113,7 @@ func TestProbeHandler(t *testing.T) {
 		name:          "true probe function",
 		prober:        func() bool { return true },
 		wantCode:      http.StatusOK,
-		wantBody:      "alive: true",
+		wantBody:      "queue",
 		requestHeader: queue.Name,
 	}, {
 		name:          "nil probe function",
@@ -125,7 +125,7 @@ func TestProbeHandler(t *testing.T) {
 		name:          "false probe function",
 		prober:        func() bool { return false },
 		wantCode:      http.StatusServiceUnavailable,
-		wantBody:      "alive: false",
+		wantBody:      "queue",
 		requestHeader: queue.Name,
 	}}
 
@@ -136,7 +136,7 @@ func TestProbeHandler(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 			req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 
-			h := handler(nil, nil, nil, healthState, tc.prober, false /* isAggresive*/)
+			h := handler(nil, nil, nil, healthState, tc.prober, true /* isAggresive*/)
 			h(writer, req)
 
 			if got, want := writer.Code, tc.wantCode; got != want {
@@ -400,10 +400,10 @@ func TestQueueTraceSpans(t *testing.T) {
 					Base: network.AutoTransport,
 				}
 
-				h := handler(reqChan, breaker, proxy, healthState, func() bool { return false }, false /* isAggresive*/)
+				h := handler(reqChan, breaker, proxy, healthState, func() bool { return false }, true /* isAggresive*/)
 				h(writer, req)
 			} else {
-				h := handler(nil, nil, nil, healthState, tc.prober, false /* isAggresive*/)
+				h := handler(nil, nil, nil, healthState, tc.prober, true /* isAggresive*/)
 				req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 				h(writer, req)
 			}
