@@ -81,11 +81,7 @@ const (
 	appResponseTimeInMsecN = "app_request_latencies"
 	queueDepthN            = "queue_depth"
 
-	// requestQueueHealthPath specifies the path for health checks for
-	// queue-proxy.
-	requestQueueHealthPath = "/health"
-
-	healthURLTemplate = "http://127.0.0.1:%d" + requestQueueHealthPath
+	healthURLTemplate = "http://127.0.0.1:%d"
 	tcpProbeTimeout   = 100 * time.Millisecond
 	// The 25 millisecond retry interval is an unscientific compromise between wanting to get
 	// started as early as possible while still wanting to give the container some breathing
@@ -121,6 +117,7 @@ var (
 		stats.UnitDimensionless)
 
 	readinessProbeTimeout = flag.Int("probe-period", -1, "run readiness probe with given timeout")
+	readinessProbePort    = flag.Int("port", -1, "run readiness probe to the given port")
 )
 
 type config struct {
@@ -229,6 +226,10 @@ func handleKnativeProbe(w http.ResponseWriter, r *http.Request, ph string, healt
 }
 
 func probeQueueHealthPath(port int, timeoutSeconds int) error {
+	if port <= 0 {
+		return errors.New("-port flag must be set a positive value")
+	}
+
 	url := fmt.Sprintf(healthURLTemplate, port)
 	timeoutDuration := readiness.PollTimeout
 	if timeoutSeconds != 0 {
@@ -274,7 +275,7 @@ func main() {
 
 	// If this is set, we run as a standalone binary to probe the queue-proxy.
 	if *readinessProbeTimeout >= 0 {
-		if err := probeQueueHealthPath(networking.QueueAdminPort, *readinessProbeTimeout); err != nil {
+		if err := probeQueueHealthPath(*readinessProbePort, *readinessProbeTimeout); err != nil {
 			// used instead of the logger to produce a concise event message
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -504,13 +505,6 @@ func supportsMetrics(env config, logger *zap.SugaredLogger) bool {
 
 func buildAdminServer(healthState *health.State, probe *readiness.Probe, logger *zap.SugaredLogger) *http.Server {
 	adminMux := http.NewServeMux()
-	adminMux.HandleFunc(requestQueueHealthPath, healthState.HealthHandleFunc(func() bool {
-		if !probe.ProbeContainer() {
-			return false
-		}
-		logger.Info("User-container successfully probed.")
-		return true
-	}, probe.IsAggressive()))
 	adminMux.HandleFunc(queue.RequestQueueDrainPath, healthState.DrainHandleFunc())
 
 	return &http.Server{

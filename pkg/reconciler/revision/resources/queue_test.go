@@ -52,7 +52,7 @@ var (
 	defaultKnativeQReadinessProbe = &corev1.Probe{
 		Handler: corev1.Handler{
 			Exec: &corev1.ExecAction{
-				Command: []string{"/ko-app/queue", "-probe-period", "0"},
+				Command: []string{"/ko-app/queue", "-probe-period", "0", "-port", "8012"},
 			},
 		},
 		// We want to mark the service as not ready as soon as the
@@ -150,10 +150,19 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:            QueueContainerName,
-			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
-			Ports:           append(queueNonServingPorts, queueHTTP2Port),
-			ReadinessProbe:  defaultKnativeQReadinessProbe,
+			Name:      QueueContainerName,
+			Resources: createQueueResources(make(map[string]string), &corev1.Container{}),
+			Ports:     append(queueNonServingPorts, queueHTTP2Port),
+			// The port is 8013 since the protocol is HTTP2.
+			ReadinessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					Exec: &corev1.ExecAction{
+						Command: []string{"/ko-app/queue", "-probe-period", "0", "-port", "8013"},
+					},
+				},
+				PeriodSeconds:  1,
+				TimeoutSeconds: 10,
+			},
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
@@ -750,7 +759,7 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 		ReadinessProbe: &corev1.Probe{
 			Handler: corev1.Handler{
 				Exec: &corev1.ExecAction{
-					Command: []string{"/ko-app/queue", "-probe-period", "10"},
+					Command: []string{"/ko-app/queue", "-probe-period", "10", "-port", "8012"},
 				},
 			},
 			PeriodSeconds:  1,
@@ -844,7 +853,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 		ReadinessProbe: &corev1.Probe{
 			Handler: corev1.Handler{
 				Exec: &corev1.ExecAction{
-					Command: []string{"/ko-app/queue", "-probe-period", "10"},
+					Command: []string{"/ko-app/queue", "-probe-period", "10", "-port", "8012"},
 				},
 			},
 			PeriodSeconds:  2,
@@ -916,7 +925,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 			ReadinessProbe: &corev1.Probe{
 				Handler: corev1.Handler{
 					Exec: &corev1.ExecAction{
-						Command: []string{"/ko-app/queue", "-probe-period", "0"},
+						Command: []string{"/ko-app/queue", "-probe-period", "0", "-port", "8012"},
 					},
 				},
 				PeriodSeconds:  1,
@@ -963,7 +972,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 			ReadinessProbe: &corev1.Probe{
 				Handler: corev1.Handler{
 					Exec: &corev1.ExecAction{
-						Command: []string{"/ko-app/queue", "-probe-period", "1"},
+						Command: []string{"/ko-app/queue", "-probe-period", "1", "-port", "8012"},
 					},
 				},
 				PeriodSeconds:  1,
@@ -1020,7 +1029,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 			ReadinessProbe: &corev1.Probe{
 				Handler: corev1.Handler{
 					Exec: &corev1.ExecAction{
-						Command: []string{"/ko-app/queue", "-probe-period", "15"},
+						Command: []string{"/ko-app/queue", "-probe-period", "15", "-port", "8012"},
 					},
 				},
 				PeriodSeconds:       2,

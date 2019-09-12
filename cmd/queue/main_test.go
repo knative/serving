@@ -176,6 +176,16 @@ func TestCreateVarLogLink(t *testing.T) {
 	}
 }
 
+func TestProbeQueueInvalidPort(t *testing.T) {
+	port := 0 // invalid port
+
+	if err := probeQueueHealthPath(port, 1); err == nil {
+		t.Error("Expected error, got nil")
+	} else if diff := cmp.Diff(err.Error(), "-port flag must be set a positive value"); diff != "" {
+		t.Errorf("Unexpected not ready message: %s", diff)
+	}
+}
+
 func TestProbeQueueConnectionFailure(t *testing.T) {
 	port := 12345 // some random port (that's not listening)
 

@@ -135,12 +135,12 @@ func fractionFromPercentage(m map[string]string, k string) (float64, bool) {
 	return float64(value / 100), err == nil
 }
 
-func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
+func makeQueueProbe(in *corev1.Probe, port string) *corev1.Probe {
 	if in == nil || in.PeriodSeconds == 0 {
 		out := &corev1.Probe{
 			Handler: corev1.Handler{
 				Exec: &corev1.ExecAction{
-					Command: []string{"/ko-app/queue", "-probe-period", "0"},
+					Command: []string{"/ko-app/queue", "-probe-period", "0", "-port", port},
 				},
 			},
 			// We want to mark the service as not ready as soon as the
@@ -169,7 +169,7 @@ func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
 	return &corev1.Probe{
 		Handler: corev1.Handler{
 			Exec: &corev1.ExecAction{
-				Command: []string{"/ko-app/queue", "-probe-period", strconv.Itoa(timeout)},
+				Command: []string{"/ko-app/queue", "-probe-period", strconv.Itoa(timeout), "-port", port},
 			},
 		},
 		PeriodSeconds:       in.PeriodSeconds,
@@ -224,12 +224,13 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 		return nil, errors.Wrap(err, "failed to serialize readiness probe")
 	}
 
+	servingPort := strconv.Itoa(int(ports[len(ports)-1].ContainerPort))
 	return &corev1.Container{
 		Name:            QueueContainerName,
 		Image:           deploymentConfig.QueueSidecarImage,
 		Resources:       createQueueResources(rev.GetAnnotations(), rev.Spec.GetContainer()),
 		Ports:           ports,
-		ReadinessProbe:  makeQueueProbe(rp),
+		ReadinessProbe:  makeQueueProbe(rp, servingPort),
 		VolumeMounts:    volumeMounts,
 		SecurityContext: queueSecurityContext,
 		Env: []corev1.EnvVar{{
@@ -246,7 +247,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 			Value: rev.Name,
 		}, {
 			Name:  "QUEUE_SERVING_PORT",
-			Value: strconv.Itoa(int(ports[len(ports)-1].ContainerPort)),
+			Value: servingPort,
 		}, {
 			Name:  "CONTAINER_CONCURRENCY",
 			Value: strconv.Itoa(int(rev.Spec.GetContainerConcurrency())),
