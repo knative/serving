@@ -17,7 +17,6 @@ limitations under the License.
 package performance
 
 import (
-	"strings"
 	"testing"
 	"time"
 
@@ -35,7 +34,6 @@ const (
 	// Property name used by testgrid.
 	perfLatency = "perf_latency"
 	duration    = 1 * time.Minute
-	httpPrefix  = "http://"
 )
 
 // Enable monitoring components
@@ -88,12 +86,4 @@ func resolvedHeaders(domain string, resolvableDomain bool) map[string][]string {
 		headers["Host"] = []string{domain}
 	}
 	return headers
-}
-
-// sanitizedURL returns a URL that is guaranteed to have an httpPrefix.
-func sanitizedURL(endpoint string) string {
-	if !strings.HasPrefix(endpoint, httpPrefix) {
-		return httpPrefix + endpoint
-	}
-	return endpoint
 }

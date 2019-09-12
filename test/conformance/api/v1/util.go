@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"testing"
@@ -35,12 +36,12 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-func waitForExpectedResponse(t *testing.T, clients *test.Clients, domain, expectedResponse string) error {
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+func waitForExpectedResponse(t *testing.T, clients *test.Clients, url *url.URL, expectedResponse string) error {
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
+	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 	if err != nil {
 		return err
 	}
@@ -49,11 +50,13 @@ func waitForExpectedResponse(t *testing.T, clients *test.Clients, domain, expect
 }
 
 func validateDomains(
-	t *testing.T, clients *test.Clients, baseDomain string,
+	t *testing.T, clients *test.Clients, baseDomain *url.URL,
 	baseExpected, trafficTargets, targetsExpected []string) error {
-	var subdomains []string
+	var subdomains []*url.URL
 	for _, target := range trafficTargets {
-		subdomains = append(subdomains, target+"-"+baseDomain)
+		subdomain, _ := url.Parse(baseDomain.String())
+		subdomain.Host = target + "-" + baseDomain.Host
+		subdomains = append(subdomains, subdomain)
 	}
 
 	g, _ := errgroup.WithContext(context.Background())
@@ -64,14 +67,14 @@ func validateDomains(
 		// Check for each of the responses we expect from the base domain.
 		resp := resp
 		g.Go(func() error {
-			t.Logf("Waiting for route to update domain: %s", baseDomain)
+			t.Logf("Waiting for route to update %s", baseDomain)
 			return waitForExpectedResponse(t, clients, baseDomain, resp)
 		})
 	}
 	for i, s := range subdomains {
 		i, s := i, s
 		g.Go(func() error {
-			t.Logf("Waiting for route to update domain: %s", s)
+			t.Logf("Waiting for route to update %s", s)
 			return waitForExpectedResponse(t, clients, s, targetsExpected[i])
 		})
 	}
@@ -102,19 +105,19 @@ func validateDomains(
 
 // checkDistribution sends "num" requests to "domain", then validates that
 // we see each body in "expectedResponses" at least "min" times.
-func checkDistribution(t *testing.T, clients *test.Clients, domain string, num, min int, expectedResponses []string) error {
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+func checkDistribution(t *testing.T, clients *test.Clients, url *url.URL, num, min int, expectedResponses []string) error {
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return err
 	}
 
-	t.Logf("Performing %d concurrent requests to %s", num, domain)
-	actualResponses, err := sendRequests(client, domain, num)
+	t.Logf("Performing %d concurrent requests to %s", num, url)
+	actualResponses, err := sendRequests(client, url, num)
 	if err != nil {
 		return err
 	}
 
-	return checkResponses(t, num, min, domain, expectedResponses, actualResponses)
+	return checkResponses(t, num, min, url.Hostname(), expectedResponses, actualResponses)
 }
 
 // checkResponses verifies that each "expectedResponse" is present in "actualResponses" at least "min" times.
@@ -166,8 +169,8 @@ func checkResponses(t *testing.T, num int, min int, domain string, expectedRespo
 	return nil
 }
 
-// sendRequests sends "num" requests to "domain", returning a string for each spoof.Response.Body.
-func sendRequests(client spoof.Interface, domain string, num int) ([]string, error) {
+// sendRequests sends "num" requests to "url", returning a string for each spoof.Response.Body.
+func sendRequests(client spoof.Interface, url *url.URL, num int) ([]string, error) {
 	responses := make([]string, num)
 
 	// Launch "num" requests, recording the responses we get in "responses".
@@ -176,7 +179,7 @@ func sendRequests(client spoof.Interface, domain string, num int) ([]string, err
 		// We don't index into "responses" inside the goroutine to avoid a race, see #1545.
 		result := &responses[i]
 		g.Go(func() error {
-			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
+			req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 			if err != nil {
 				return err
 			}
@@ -201,12 +204,12 @@ func validateDataPlane(t *testing.T, clients *test.Clients, names test.ResourceN
 	_, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		names.Domain,
+		names.URL,
 		v1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		return fmt.Errorf("the endpoint for Route %s at domain %s didn't serve the expected text %q: %v", names.Route, names.Domain, expectedText, err)
+		return fmt.Errorf("the endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, names.URL, expectedText, err)
 	}
 
 	return nil

@@ -80,7 +80,7 @@ func validateWebSocketConnection(t *testing.T, clients *test.Clients, names test
 	}
 
 	// Establish the websocket connection.
-	conn, err := connect(t, gatewayIP, names.Domain)
+	conn, err := connect(t, gatewayIP, names.URL.Hostname())
 	if err != nil {
 		return err
 	}

@@ -33,7 +33,7 @@ type FakeBoskosClient struct {
 }
 
 func (c *FakeBoskosClient) getOwner(host *string) string {
-	if nil == host {
+	if host == nil {
 		return fakeOwner
 	}
 	return *host

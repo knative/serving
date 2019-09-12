@@ -85,9 +85,10 @@ func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descript
 	// helloworld app and its route are ready. Running the test cases now.
 	for _, tc := range testCases {
 		domain := fmt.Sprintf("%s-%s", tag, resources.Route.Status.Address.URL.Host)
-		helloworldDomain := strings.TrimSuffix(domain, tc.suffix)
+		helloworldURL := resources.Route.Status.Address.URL.URL()
+		helloworldURL.Host = strings.TrimSuffix(domain, tc.suffix)
 		t.Run(tc.name, func(t *testing.T) {
-			testProxyToHelloworld(t, clients, helloworldDomain, true, false)
+			testProxyToHelloworld(t, clients, helloworldURL, true, false)
 		})
 	}
 }

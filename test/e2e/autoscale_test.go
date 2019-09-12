@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -66,7 +67,7 @@ type testContext struct {
 	names             test.ResourceNames
 	resources         *v1a1test.ResourceObjects
 	deploymentName    string
-	domain            string
+	url               *url.URL
 	targetUtilization float64
 	targetValue       int
 	metric            string
@@ -109,13 +110,17 @@ func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, 
 	)
 
 	ctx.t.Logf("Maintaining %d concurrent requests for %v.", concurrency, duration)
-	client, err := pkgTest.NewSpoofingClient(ctx.clients.KubeClient, ctx.t.Logf, ctx.domain, test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(ctx.clients.KubeClient, ctx.t.Logf, ctx.url.Hostname(), test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return fmt.Errorf("error creating spoofing client: %v", err)
 	}
 	for i := 0; i < concurrency; i++ {
 		group.Go(func() error {
-			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s?sleep=100", ctx.domain), nil)
+			u, _ := url.Parse(ctx.url.String())
+			q := u.Query()
+			q.Set("sleep", "100")
+			u.RawQuery = q.Encode()
+			req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 			if err != nil {
 				return fmt.Errorf("error creating HTTP request: %v", err)
 			}
@@ -167,7 +172,7 @@ func generateTrafficAtFixedRPS(ctx *testContext, rps int, duration time.Duration
 
 	rate := vegeta.Rate{Freq: rps, Per: time.Second}
 	target, err := getVegetaTarget(
-		ctx.clients.KubeClient.Kube, ctx.domain, pkgTest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain)
+		ctx.clients.KubeClient.Kube, ctx.url.Hostname(), pkgTest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return fmt.Errorf("error creating vegeta target: %v", err)
 	}
@@ -241,17 +246,15 @@ func setup(t *testing.T, class, metric string, target int, targetUtilization flo
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	domain := resources.Route.Status.URL.Host
+	url := resources.Route.Status.URL.URL()
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain,
-		// Istio doesn't expose a status for us here: https://github.com/istio/istio/issues/6082
-		// TODO(tcnghia): Remove this when https://github.com/istio/istio/issues/882 is fixed.
+		url,
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK)),
 		"CheckingEndpointAfterUpdating",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("Error probing domain %s: %v", domain, err)
+		t.Fatalf("Error probing %s: %v", url, err)
 	}
 
 	return &testContext{
@@ -260,7 +263,7 @@ func setup(t *testing.T, class, metric string, target int, targetUtilization flo
 		names:             names,
 		resources:         resources,
 		deploymentName:    resourcenames.Deployment(resources.Revision),
-		domain:            domain,
+		url:               url,
 		targetUtilization: targetUtilization,
 		targetValue:       target,
 		metric:            metric,
