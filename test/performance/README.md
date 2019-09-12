@@ -49,58 +49,6 @@ if err != nil {
 }
 ```
 
-## Zipkin trace
-
-Zipkin tracing can be enabled if needed by the performance test during setup.
-
-```go
-perfClients, err := Setup(t, EnableZipkinTracing)
-```
-
-Once enabled, all requests made by the `SpoofingClient` will have an additional
-trace header. This can be used to get the entire request trace and store it in a
-trace file in the artifacts directory using the
-[AddTrace()](https://github.com/knative/serving/blob/master/test/performance/performance.go)
-method.
-
-Sample Trace:
-
-```
-[
-    ...
-    {
-      "traceId": "f5bd1989e056eec7aa790bbb914b77f9",
-      "parentId": "b7dfefa0fe93308b",
-      "id": "c994972581898fcd",
-      "kind": "SERVER",
-      "name": "activator-service.knative-serving.svc.cluster.local:80/*",
-      "timestamp": 1552595276313951,
-      "duration": 1872929,
-      "localEndpoint": {
-        "serviceName": "activator",
-        "ipv4": "10.16.4.89"
-      },
-      "tags": {
-        "component": "proxy",
-        "downstream_cluster": "-",
-        "error": "true",
-        "guid:x-request-id": "efacbe52-9a03-40a7-a7f2-d35f9c8b1dff",
-        "http.method": "GET",
-        "http.protocol": "HTTP/1.1",
-        "http.status_code": "500",
-        "http.url": "http://scale-to-n-scale-100-40-xxackadp.serving-tests.example.com/",
-        "node_id": "sidecar~10.16.4.89~activator-68664559c9-zl2sl.knative-serving~knative-serving.svc.cluster.local",
-        "request_size": "0",
-        "response_flags": "-",
-        "response_size": "0",
-        "upstream_cluster": "inbound|80||activator-service.knative-serving.svc.cluster.local",
-        "user_agent": "Go-http-client/1.1"
-      },
-      "shared": true
-    }
-]
-```
-
 ## Displaying metrics
 
 Once the test is done, each test can define which metrics they want to be
