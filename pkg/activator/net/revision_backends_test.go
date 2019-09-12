@@ -54,7 +54,7 @@ import (
 const (
 	testNamespace      = "test-namespace"
 	testRevision       = "test-revision"
-	informerRestPeriod = 3 * time.Second
+	informerRestPeriod = 2 * time.Second
 )
 
 func revision(revID types.NamespacedName, protocol networking.ProtocolType) *v1alpha1.Revision {
@@ -118,7 +118,6 @@ func TestRevisionWatcher(t *testing.T) {
 		probeResponses: []activatortest.FakeResponse{{
 			Err: errors.New("clusterIP transport error"),
 		}, {
-			Err:  nil,
 			Code: http.StatusOK,
 			Body: queue.Name,
 		}},
@@ -137,7 +136,6 @@ func TestRevisionWatcher(t *testing.T) {
 				Err: errors.New("clusterIP transport error"),
 			}},
 			"128.0.0.1:1234": {{
-				Err:  nil,
 				Code: http.StatusOK,
 				Body: queue.Name,
 			}},
@@ -154,7 +152,6 @@ func TestRevisionWatcher(t *testing.T) {
 		expectUpdates: []RevisionDestsUpdate{{ClusterIPDest: "129.0.0.1:1234", Dests: sets.NewString("128.0.0.1:1234")}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"129.0.0.1:1234": {{
-				Err:  nil,
 				Code: http.StatusOK,
 				Body: queue.Name,
 			}},
@@ -180,7 +177,6 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 		clusterIP: "129.0.0.1",
 		probeResponses: []activatortest.FakeResponse{{
-			Err:  nil,
 			Code: http.StatusServiceUnavailable,
 			Body: queue.Name,
 		}},
@@ -209,13 +205,11 @@ func TestRevisionWatcher(t *testing.T) {
 		probeResponses: []activatortest.FakeResponse{{
 			Err: errors.New("clusterIP transport error"),
 		}, {
-			Err:  nil,
 			Code: http.StatusServiceUnavailable,
 			Body: queue.Name,
 		}, {
 			Err: errors.New("clusterIP transport error"),
 		}, {
-			Err:  nil,
 			Code: http.StatusOK,
 			Body: queue.Name,
 		}},
@@ -231,7 +225,6 @@ func TestRevisionWatcher(t *testing.T) {
 		probeResponses: []activatortest.FakeResponse{{
 			Err: errors.New("clusterIP transport error"),
 		}, {
-			Err:  nil,
 			Code: http.StatusOK,
 			Body: queue.Name,
 		}},
@@ -252,7 +245,6 @@ func TestRevisionWatcher(t *testing.T) {
 				Err: errors.New("clusterIP transport error"),
 			}},
 			"128.0.0.2:1234": {{
-				Err:  nil,
 				Code: http.StatusOK,
 				Body: queue.Name,
 			}},
@@ -276,19 +268,16 @@ func TestRevisionWatcher(t *testing.T) {
 			}, {
 				Err: errors.New("clusterIP transport error"),
 			}, {
-				Err:  nil,
 				Code: http.StatusOK,
 				Body: queue.Name,
 			}},
 			"128.0.0.1:1234": {{
 				Err: errors.New("podIP transport error"),
 			}, {
-				Err:  nil,
 				Code: http.StatusOK,
 				Body: queue.Name,
 			}},
 			"128.0.0.2:1234": {{
-				Err:  nil,
 				Code: http.StatusOK,
 				Body: queue.Name,
 			}},
@@ -311,16 +300,13 @@ func TestRevisionWatcher(t *testing.T) {
 			}, {
 				Err: errors.New("clusterIP transport error"),
 			}, {
-				Err:  nil,
 				Code: http.StatusOK,
 				Body: queue.Name,
 			}},
 			"128.0.0.1:1234": {{
-				Err:  nil,
 				Code: http.StatusServiceUnavailable,
 				Body: queue.Name,
 			}, {
-				Err:  nil,
 				Code: http.StatusOK,
 				Body: queue.Name,
 			}},
@@ -463,11 +449,9 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 				Err: errors.New("clusterIP transport error"),
 			}},
 			"128.0.0.1:1234": {{
-				Err:  nil,
 				Code: http.StatusServiceUnavailable,
 				Body: queue.Name,
 			}, {
-				Err:  nil,
 				Code: http.StatusOK,
 				Body: queue.Name,
 			}},
@@ -493,11 +477,9 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 				Err: errors.New("clusterIP transport error"),
 			}},
 			"128.0.0.1:1234": {{
-				Err:  nil,
 				Code: http.StatusServiceUnavailable,
 				Body: queue.Name,
 			}, {
-				Err:  nil,
 				Code: http.StatusOK,
 				Body: queue.Name,
 			}},
@@ -553,16 +535,13 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			}, {
 				Err: errors.New("clusterIP transport error"),
 			}, {
-				Err:  nil,
 				Code: http.StatusOK,
 				Body: queue.Name,
 			}},
 			"128.0.0.1:1234": {{
-				Err:  nil,
 				Code: http.StatusServiceUnavailable,
 				Body: queue.Name,
 			}, {
-				Err:  nil,
 				Code: http.StatusOK,
 				Body: queue.Name,
 			}},
@@ -589,7 +568,6 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 				Err: errors.New("clusterIP transport error"),
 			}},
 			"128.0.0.1:1234": {{
-				Err:  nil,
 				Code: http.StatusServiceUnavailable,
 				Body: queue.Name,
 			}},
@@ -661,10 +639,12 @@ func TestCheckDests(t *testing.T) {
 	// test via tests above.
 
 	// To make sure context switch happens and informers terminate.
-	defer time.Sleep(informerRestPeriod)
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-	defer cancel()
-	defer ClearAll()
+	defer func() {
+		cancel()
+		time.Sleep(informerRestPeriod)
+		ClearAll()
+	}()
 
 	svc := privateSksService(
 		types.NamespacedName{testNamespace, testRevision},
@@ -703,11 +683,140 @@ func TestCheckDests(t *testing.T) {
 	}
 }
 
-func TestRevisionDeleted(t *testing.T) {
-	defer time.Sleep(informerRestPeriod)
+func TestCheckDestsSwinging(t *testing.T) {
+	// This test permits us to test the case when endpoints actually change
+	// underneath (e.g. pod crash/restart).
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-	defer cancel()
-	defer ClearAll()
+	defer func() {
+		cancel()
+		time.Sleep(informerRestPeriod)
+		ClearAll()
+	}()
+
+	svc := privateSksService(
+		types.NamespacedName{testNamespace, testRevision},
+		"10.5.0.1",
+		[]corev1.ServicePort{{Name: "http", Port: 1234}},
+	)
+
+	fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(svc)
+	si := fakeserviceinformer.Get(ctx)
+	si.Informer().GetIndexer().Add(svc)
+
+	fakeRT := activatortest.FakeRoundTripper{
+		ExpectHost: testRevision,
+		ProbeHostResponses: map[string][]activatortest.FakeResponse{
+			"10.5.0.1:1234": {{
+				Err: errors.New("clusterIP transport error"),
+			}, {
+				Err: errors.New("clusterIP transport error"),
+			}, {
+				Err: errors.New("clusterIP transport error"),
+			}, {
+				Err: errors.New("clusterIP transport error"),
+			}, {
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+			"10.0.0.1:1234": {{
+				Err: errors.New("podIP transport error"),
+			}, {
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+			"10.0.0.2:1234": {{
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}, {
+				Err: errors.New("podIP transport error"),
+			}, {
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+		},
+	}
+
+	// Make it buffered,so that we can make the test linear.
+	uCh := make(chan *RevisionDestsUpdate, 1)
+	dCh := make(chan struct{})
+	rw := &revisionWatcher{
+		rev:           types.NamespacedName{testNamespace, testRevision},
+		updateCh:      uCh,
+		serviceLister: si.Lister(),
+		logger:        TestLogger(t),
+		doneCh:        dCh,
+		transport:     network.RoundTripperFunc(fakeRT.RT),
+	}
+	// First not ready, second good, clusterIP: not ready.
+	rw.checkDests(sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"))
+	want := &RevisionDestsUpdate{
+		Rev:           types.NamespacedName{testNamespace, testRevision},
+		ClusterIPDest: "",
+		Dests:         sets.NewString("10.0.0.2:1234"),
+	}
+
+	select {
+	case got := <-uCh:
+		if !cmp.Equal(got, want) {
+			t.Errorf("Update = %#v, want: %#v, diff: %s", got, want, cmp.Diff(want, got))
+		}
+	default:
+		t.Error("Expected update but it never went out.")
+	}
+
+	// Second gone, first becomes ready, clusterIP still not ready.
+	rw.checkDests(sets.NewString("10.0.0.1:1234"))
+	select {
+	case got := <-uCh:
+		want.Dests = sets.NewString("10.0.0.1:1234")
+		if !cmp.Equal(got, want) {
+			t.Errorf("Update = %#v, want: %#v, diff: %s", got, want, cmp.Diff(want, got))
+		}
+	default:
+		t.Error("Expected update but it never went out.")
+	}
+
+	// Second is back, but not healthy yet.
+	rw.checkDests(sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"))
+	select {
+	case got := <-uCh:
+		// No update should be sent out, since there's only healthy pod, same as above.
+		t.Errorf("Got = %#v, expected no update", got)
+	default:
+	}
+
+	// All pods are happy now.
+	rw.checkDests(sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"))
+	select {
+	case got := <-uCh:
+		want.Dests = sets.NewString("10.0.0.2:1234", "10.0.0.1:1234")
+		if !cmp.Equal(got, want) {
+			t.Errorf("Update = %#v, want: %#v, diff: %s", got, want, cmp.Diff(want, got))
+		}
+	default:
+		t.Error("Expected update but it never went out.")
+	}
+
+	// And finally the cluster IP is ready.
+	rw.checkDests(sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"))
+	want.ClusterIPDest = "10.5.0.1:1234"
+	select {
+	case got := <-uCh:
+		if !cmp.Equal(got, want) {
+			t.Errorf("Update = %#v, want: %#v, diff: %s", got, want, cmp.Diff(want, got))
+		}
+	default:
+		t.Error("Expected update but it never went out.")
+	}
+}
+
+func TestRevisionDeleted(t *testing.T) {
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	defer func() {
+		cancel()
+		time.Sleep(informerRestPeriod)
+		ClearAll()
+	}()
 
 	svc := privateSksService(
 		types.NamespacedName{testNamespace, testRevision},
