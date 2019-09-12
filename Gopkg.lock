@@ -1195,15 +1195,15 @@
   version = "kubernetes-1.12.9"
 
 [[projects]]
-  digest = "1:36f810d2079bd6bdd07350f50d8a96e816d1a659671757931eb721e2989d0ae1"
+  digest = "1:b8a1dcc5f4e559b7af185ba12dd341cb8c175ea3d36227a02699b251ae5fde05"
   name = "k8s.io/apiextensions-apiserver"
   packages = [
     "pkg/apis/apiextensions",
     "pkg/apis/apiextensions/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "d1ef975d28cef52202a75257723ffed4293eae3d"
-  version = "kubernetes-1.15.1"
+  revision = "fa58353d80f37509c2b8de8e67f2377a2bc2ce80"
+  version = "kubernetes-1.12.9"
 
 [[projects]]
   digest = "1:9b911316f4641b42323e80636e4126523d4da86e65aec9d85f6b1adeae4ba0e9"
@@ -1644,14 +1644,6 @@
   pruneopts = "NUT"
   revision = "05eb8901940c297ce4b9e06358ab471b3f8250ce"
   version = "kubernetes-1.12.9"
-
-[[projects]]
-  branch = "master"
-  digest = "1:98bfb68d62e4df4c94f54f333dea17c1f2d26c5b70620b6c9ad6d7bbc6a0f7ea"
-  name = "k8s.io/utils"
-  packages = ["pointer"]
-  pruneopts = "NUT"
-  revision = "3d4f5b7dea0b7c63c77d7fb1f0ee433ad8d54667"
 
 [[projects]]
   branch = "master"
