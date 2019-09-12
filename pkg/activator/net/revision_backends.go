@@ -162,15 +162,27 @@ func (rw *revisionWatcher) probePodIPs(dests sets.String) (sets.String, bool, er
 		return rw.healthyPods, true /*no-op*/, nil
 	}
 
-	toProbe := dests.Difference(rw.healthyPods)
-	healthy := dests.Intersection(rw.healthyPods)
+	toProbe := sets.NewString()
+	healthy := sets.NewString()
+	for dest := range dests {
+		if rw.healthyPods.Has(dest) {
+			healthy.Insert(dest)
+		} else {
+			toProbe.Insert(dest)
+		}
+	}
+
+	// Short circuit case where the healthy list got effectively smaller
+	if toProbe.Len() == 0 {
+		return healthy, false, nil
+	}
 
 	// Context used for our probe requests
 	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
 	defer cancel()
 
 	var probeGroup errgroup.Group
-	healthyDests := make(chan string, len(toProbe))
+	healthyDests := make(chan string, toProbe.Len())
 
 	for dest := range toProbe {
 		dest := dest // Standard Go concurrency pattern.
@@ -185,11 +197,12 @@ func (rw *revisionWatcher) probePodIPs(dests sets.String) (sets.String, bool, er
 
 	err := probeGroup.Wait()
 	close(healthyDests)
+	changed := len(healthyDests) > 0
 
 	for d := range healthyDests {
 		healthy.Insert(d)
 	}
-	return healthy, false, err
+	return healthy, !changed, err
 }
 
 func (rw *revisionWatcher) sendUpdate(clusterIP string, dests sets.String) {
@@ -252,7 +265,7 @@ func (rw *revisionWatcher) checkDests(dests sets.String) {
 	}
 
 	rw.logger.Debugf("Done probing, got %d healthy pods", len(hs))
-	if !noop && !hs.Equal(rw.healthyPods) {
+	if !noop {
 		rw.healthyPods = hs
 		rw.sendUpdate("" /*clusterIP not ready yet*/, hs)
 	}
