@@ -331,24 +331,18 @@ func (m *StatusProber) listVirtualServicePodIPs(vs *v1alpha3.VirtualService) ([]
 			return nil, fmt.Errorf("failed to list Endpoints: %v", err)
 		}
 
-		for _, eps := range endpoints {
-			for _, sub := range eps.Subsets {
-				gatewayPort := ""
-				for _, port := range sub.Ports {
-					// Per Istio's documentation https://istio.io/docs/tasks/traffic-management/ingress/ingress-control/
-					// the portName for an unsecure gateway is "http2", a secure gateway uses "https".
-					// TODO(5156): Implement HTTPS handling.
-					if port.Name == "http2" {
-						gatewayPort = strconv.Itoa(int(port.Port))
-						break
-					}
-				}
-				if gatewayPort == "" {
-					return nil, fmt.Errorf("endpoints %q did not contain http2 port: %v", eps.Name, sub.Ports)
-				}
+		for _, server := range gateway.Spec.Servers {
+			if len(server.Hosts) != 1 ||
+				server.Hosts[0] != "*" ||
+				server.Port.Protocol != v1alpha3.ProtocolHTTP {
+				continue
+			}
 
-				for _, address := range sub.Addresses {
-					podIPs = append(podIPs, net.JoinHostPort(address.IP, gatewayPort))
+			for _, eps := range endpoints {
+				for _, sub := range eps.Subsets {
+					for _, addr := range sub.Addresses {
+						podIPs = append(podIPs, net.JoinHostPort(addr.IP, strconv.Itoa(server.Port.Number)))
+					}
 				}
 			}
 		}
