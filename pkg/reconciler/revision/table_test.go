@@ -445,6 +445,9 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, AllUnknownConditions,
 				MarkResourcesUnavailable("ImagePullBackoff", "can't pull it")),
 		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: pa("foo", "pull-backoff", WithReachability(asv1a1.ReachabilityUnreachable)),
+		}},
 		Key: "foo/pull-backoff",
 	}, {
 		Name: "surface pod errors",
