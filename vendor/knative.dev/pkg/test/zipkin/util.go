@@ -137,7 +137,7 @@ func CheckZipkinPortAvailability() error {
 // again. If it reaches timeout, then it returns everything it has so far with an error.
 func JSONTrace(traceID string, expected int, timeout time.Duration) (trace []model.SpanModel, err error) {
 	t := time.After(timeout)
-	for ; len(trace) != expected; {
+	for len(trace) != expected {
 		select {
 		case <-t:
 			return trace, &TimeoutError{}
@@ -153,7 +153,8 @@ func JSONTrace(traceID string, expected int, timeout time.Duration) (trace []mod
 
 // TimeoutError is an error returned by JSONTrace if it times out before getting the expected number
 // of traces.
-type TimeoutError struct {}
+type TimeoutError struct{}
+
 func (*TimeoutError) Error() string {
 	return "timeout getting JSONTrace"
 }
