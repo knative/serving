@@ -340,6 +340,7 @@ func (m *StatusProber) listVirtualServicePodIPs(vs *v1alpha3.VirtualService) ([]
 					// TODO(5156): Implement HTTPS handling.
 					if port.Name == "http2" {
 						gatewayPort = strconv.Itoa(int(port.Port))
+						break
 					}
 				}
 				if gatewayPort == "" {
