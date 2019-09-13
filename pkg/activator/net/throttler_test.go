@@ -48,123 +48,76 @@ type tryResult struct {
 	ErrString string
 }
 
-func TestThrottler(t *testing.T) {
+func TestThrottlerWithErrorf(t *testing.T) {
 	defer ClearAll()
 	for _, tc := range []struct {
+<<<<<<< HEAD
 		name             string
 		revisions        []*v1alpha1.Revision
-		initUpdates      []*RevisionDestsUpdate
+		initUpdates      []RevisionDestsUpdate
 		deletes          []types.NamespacedName
 		expectTryResults []tryResult
 		trys             []types.NamespacedName
+=======
+		name        string
+		revisions   []*v1alpha1.Revision
+		initUpdates []*RevisionDestsUpdate
+		deletes     []types.NamespacedName
+		trys        []types.NamespacedName
+		wantResults []tryResult
+>>>>>>> fix-test-order
 	}{{
-		name: "single healthy podIP",
-		revisions: []*v1alpha1.Revision{
-			revision(types.NamespacedName{"test-namespace", "test-revision"}, networking.ProtocolHTTP1),
-		},
-		initUpdates: []*RevisionDestsUpdate{{
-			Rev:   types.NamespacedName{"test-namespace", "test-revision"},
-			Dests: sets.NewString("128.0.0.1:1234"),
-		}},
-		trys: []types.NamespacedName{
-			{Namespace: "test-namespace", Name: "test-revision"},
-		},
-		expectTryResults: []tryResult{
-			{Dest: "128.0.0.1:1234"},
-		},
-	}, {
-		name: "single healthy clusterIP",
-		revisions: []*v1alpha1.Revision{
-			revision(types.NamespacedName{"test-namespace", "test-revision"}, networking.ProtocolHTTP1),
-		},
-		initUpdates: []*RevisionDestsUpdate{{
-			Rev:           types.NamespacedName{"test-namespace", "test-revision"},
-			ClusterIPDest: "129.0.0.1:1234",
-			Dests:         sets.NewString("128.0.0.1:1234"),
-		}},
-		trys: []types.NamespacedName{
-			{Namespace: "test-namespace", Name: "test-revision"},
-		},
-		expectTryResults: []tryResult{
-			{Dest: "129.0.0.1:1234"},
-		},
-	}, {
-		name: "spread podIP load",
-		revisions: []*v1alpha1.Revision{
-			revision(types.NamespacedName{"test-namespace", "test-revision"}, networking.ProtocolHTTP1),
-		},
-		initUpdates: []*RevisionDestsUpdate{{
-			Rev:   types.NamespacedName{"test-namespace", "test-revision"},
-			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
-		}},
-		trys: []types.NamespacedName{
-			{Namespace: "test-namespace", Name: "test-revision"},
-			{Namespace: "test-namespace", Name: "test-revision"},
-		},
-		expectTryResults: []tryResult{
-			{Dest: "128.0.0.1:1234"},
-			{Dest: "128.0.0.2:1234"},
-		},
-	}, {
-		name: "multiple ClusterIP requests after PodIP",
-		revisions: []*v1alpha1.Revision{
-			revision(types.NamespacedName{"test-namespace", "test-revision"}, networking.ProtocolHTTP1),
-		},
-		initUpdates: []*RevisionDestsUpdate{{
-			Rev:   types.NamespacedName{"test-namespace", "test-revision"},
-			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
-		}, {
-			Rev:           types.NamespacedName{"test-namespace", "test-revision"},
-			ClusterIPDest: "129.0.0.1:1234",
-			Dests:         sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
-		}},
-		trys: []types.NamespacedName{
-			{Namespace: "test-namespace", Name: "test-revision"},
-			{Namespace: "test-namespace", Name: "test-revision"},
-		},
-		expectTryResults: []tryResult{
-			{Dest: "129.0.0.1:1234"},
-			{Dest: "129.0.0.1:1234"},
-		},
-	}, {
 		name: "second request timeout",
 		revisions: []*v1alpha1.Revision{
-			revision(types.NamespacedName{"test-namespace", "test-revision"}, networking.ProtocolHTTP1),
+			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
+<<<<<<< HEAD
+		initUpdates: []RevisionDestsUpdate{{
+			Rev:   types.NamespacedName{"test-namespace", "test-revision"},
+			Dests: sets.NewString("128.0.0.1:1234"),
+=======
 		initUpdates: []*RevisionDestsUpdate{{
-			Rev:           types.NamespacedName{"test-namespace", "test-revision"},
+			Rev:           types.NamespacedName{testNamespace, testRevision},
 			ClusterIPDest: "129.0.0.1:1234",
 			Dests:         sets.NewString("128.0.0.1:1234"),
+>>>>>>> fix-test-order
 		}},
 		trys: []types.NamespacedName{
-			{Namespace: "test-namespace", Name: "test-revision"},
-			{Namespace: "test-namespace", Name: "test-revision"},
+			{Namespace: testNamespace, Name: testRevision},
+			{Namespace: testNamespace, Name: testRevision},
 		},
-		expectTryResults: []tryResult{
+		wantResults: []tryResult{
 			{Dest: "129.0.0.1:1234"},
 			{ErrString: context.DeadlineExceeded.Error()},
 		},
 	}, {
 		name: "remove before try",
 		revisions: []*v1alpha1.Revision{
-			revision(types.NamespacedName{"test-namespace", "test-revision"}, networking.ProtocolHTTP1),
+			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
+<<<<<<< HEAD
+		initUpdates: []RevisionDestsUpdate{{
+			Rev:           types.NamespacedName{"test-namespace", "test-revision"},
+			ClusterIPDest: "129.0.0.1:1234",
+			Dests:         sets.NewString("128.0.0.1:1234"),
+=======
 		initUpdates: []*RevisionDestsUpdate{{
-			Rev:   types.NamespacedName{"test-namespace", "test-revision"},
+			Rev:   types.NamespacedName{testNamespace, testRevision},
 			Dests: sets.NewString("128.0.0.1:1234"),
+>>>>>>> fix-test-order
 		}},
 		deletes: []types.NamespacedName{
-			{"test-namespace", "test-revision"},
+			{testNamespace, testRevision},
 		},
 		trys: []types.NamespacedName{
-			{Namespace: "test-namespace", Name: "test-revision"},
+			{Namespace: testNamespace, Name: testRevision},
 		},
-		expectTryResults: []tryResult{
+		wantResults: []tryResult{
 			{ErrString: "revision.serving.knative.dev \"test-revision\" not found"},
 		},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
-			updateCh := make(chan *RevisionDestsUpdate, 100)
+			updateCh := make(chan *RevisionDestsUpdate, 2)
 
 			params := queue.BreakerParams{
 				QueueDepth:      1,
@@ -216,14 +169,178 @@ func TestThrottler(t *testing.T) {
 				time.Sleep(200 * time.Millisecond)
 			}
 
-			var cancel context.CancelFunc
 			tryContext, cancel := context.WithTimeout(context.TODO(), 100*time.Millisecond)
 			defer cancel()
 
-			gotResults := tryThrottler(throttler, tc.trys, tryContext)
+			gotTries := tryThrottler(throttler, tc.trys, tryContext)
 
-			if diff := cmp.Diff(tc.expectTryResults, gotResults); diff != "" {
-				t.Errorf("Got unexpected try results (-want, +got): %v", diff)
+			if got, want := gotTries, tc.wantResults; !cmp.Equal(got, want) {
+				t.Errorf("Dests = %v, want: %v, diff: %s", got, want, cmp.Diff(want, got))
+			}
+		})
+	}
+}
+
+func TestThrottlerSuccesses(t *testing.T) {
+	defer ClearAll()
+	for _, tc := range []struct {
+		name        string
+		revisions   []*v1alpha1.Revision
+		initUpdates []*RevisionDestsUpdate
+		deletes     []types.NamespacedName
+		trys        []types.NamespacedName
+		wantDests   sets.String
+	}{{
+		name: "single healthy podIP",
+		revisions: []*v1alpha1.Revision{
+			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
+		},
+<<<<<<< HEAD
+		initUpdates: []RevisionDestsUpdate{{
+			Rev:   types.NamespacedName{"test-namespace", "test-revision"},
+			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
+=======
+		initUpdates: []*RevisionDestsUpdate{{
+			Rev:   types.NamespacedName{testNamespace, testRevision},
+			Dests: sets.NewString("128.0.0.1:1234"),
+>>>>>>> fix-test-order
+		}},
+		trys: []types.NamespacedName{
+			{Namespace: testNamespace, Name: testRevision},
+		},
+		wantDests: sets.NewString("128.0.0.1:1234"),
+	}, {
+		name: "single healthy clusterIP",
+		revisions: []*v1alpha1.Revision{
+			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
+		},
+<<<<<<< HEAD
+		initUpdates: []RevisionDestsUpdate{{
+			Rev:   types.NamespacedName{"test-namespace", "test-revision"},
+			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
+		}, {
+			Rev:           types.NamespacedName{"test-namespace", "test-revision"},
+=======
+		initUpdates: []*RevisionDestsUpdate{{
+			Rev:           types.NamespacedName{testNamespace, testRevision},
+>>>>>>> fix-test-order
+			ClusterIPDest: "129.0.0.1:1234",
+			Dests:         sets.NewString("128.0.0.1:1234"),
+		}},
+		trys: []types.NamespacedName{
+			{Namespace: testNamespace, Name: testRevision},
+		},
+		wantDests: sets.NewString("129.0.0.1:1234"),
+	}, {
+		name: "spread podIP load",
+		revisions: []*v1alpha1.Revision{
+			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
+		},
+<<<<<<< HEAD
+		initUpdates: []RevisionDestsUpdate{{
+			Rev:           types.NamespacedName{"test-namespace", "test-revision"},
+			ClusterIPDest: "129.0.0.1:1234",
+			Dests:         sets.NewString("128.0.0.1:1234"),
+=======
+		initUpdates: []*RevisionDestsUpdate{{
+			Rev:   types.NamespacedName{testNamespace, testRevision},
+			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
+>>>>>>> fix-test-order
+		}},
+		trys: []types.NamespacedName{
+			{Namespace: testNamespace, Name: testRevision},
+			{Namespace: testNamespace, Name: testRevision},
+		},
+		wantDests: sets.NewString("128.0.0.2:1234", "128.0.0.1:1234"),
+	}, {
+		name: "multiple ClusterIP requests after PodIP",
+		revisions: []*v1alpha1.Revision{
+			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
+		},
+<<<<<<< HEAD
+		initUpdates: []RevisionDestsUpdate{{
+			Rev:   types.NamespacedName{"test-namespace", "test-revision"},
+			Dests: sets.NewString("128.0.0.1:1234"),
+=======
+		initUpdates: []*RevisionDestsUpdate{{
+			Rev:   types.NamespacedName{testNamespace, testRevision},
+			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
+		}, {
+			Rev:           types.NamespacedName{testNamespace, testRevision},
+			ClusterIPDest: "129.0.0.1:1234",
+			Dests:         sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
+>>>>>>> fix-test-order
+		}},
+		trys: []types.NamespacedName{
+			{Namespace: testNamespace, Name: testRevision},
+			{Namespace: testNamespace, Name: testRevision},
+		},
+		wantDests: sets.NewString("129.0.0.1:1234"),
+	} /**/} {
+		t.Run(tc.name, func(t *testing.T) {
+			updateCh := make(chan RevisionDestsUpdate, 2)
+
+			params := queue.BreakerParams{
+				QueueDepth:      1,
+				MaxConcurrency:  defaultMaxConcurrency,
+				InitialCapacity: 0,
+			}
+
+			fake := kubefake.NewSimpleClientset()
+			informer := kubeinformers.NewSharedInformerFactory(fake, 0)
+			endpoints := informer.Core().V1().Endpoints()
+
+			servfake := servingfake.NewSimpleClientset()
+			servinginformer := servinginformers.NewSharedInformerFactory(servfake, 0)
+			revisions := servinginformer.Serving().V1alpha1().Revisions()
+
+			stopCh := make(chan struct{})
+			defer close(stopCh)
+			controller.StartInformers(stopCh, endpoints.Informer(), revisions.Informer())
+
+			// Add the revision were testing
+			for _, rev := range tc.revisions {
+				servfake.ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
+				revisions.Informer().GetIndexer().Add(rev)
+			}
+
+			throttler := NewThrottler(params, revisions, endpoints, TestLogger(t))
+			for _, update := range tc.initUpdates {
+				updateCh <- update
+			}
+			close(updateCh)
+
+			var wg sync.WaitGroup
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				throttler.Run(updateCh)
+			}()
+
+			// Wait for throttler to complete processing updates and exit
+			wg.Wait()
+
+			for _, delRev := range tc.deletes {
+				servfake.ServingV1alpha1().Revisions(delRev.Namespace).Delete(delRev.Name, nil)
+				revisions.Informer().GetIndexer().Delete(delRev)
+			}
+
+			// Make sure our informer event has fired
+			if len(tc.deletes) > 0 {
+				time.Sleep(200 * time.Millisecond)
+			}
+
+			tryContext, cancel := context.WithTimeout(context.TODO(), 100*time.Millisecond)
+			defer cancel()
+
+			gotTries := tryThrottler(throttler, tc.trys, tryContext)
+			gotDests := sets.NewString()
+			for _, tr := range gotTries {
+				gotDests.Insert(tr.Dest)
+			}
+
+			if got, want := gotDests, tc.wantDests; !got.Equal(want) {
+				t.Errorf("Dests = %v, want: %v, diff: %s", got, want, cmp.Diff(want, got))
 			}
 		})
 	}
@@ -243,7 +360,7 @@ func TestMultipleActivator(t *testing.T) {
 	defer close(stopCh)
 	controller.StartInformers(stopCh, endpoints.Informer(), revisions.Informer())
 
-	rev := revision(types.NamespacedName{"test-namespace", "test-revision"}, networking.ProtocolHTTP1)
+	rev := revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1)
 	// Add the revision were testing
 	servfake.ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
 	revisions.Informer().GetIndexer().Add(rev)
@@ -256,10 +373,10 @@ func TestMultipleActivator(t *testing.T) {
 
 	throttler := NewThrottler(params, revisions, endpoints, TestLogger(t))
 
-	revID := types.NamespacedName{"test-namespace", "test-revision"}
+	revID := types.NamespacedName{testNamespace, testRevision}
 	possibleDests := sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234")
-	updateCh := make(chan *RevisionDestsUpdate, 1)
-	updateCh <- &RevisionDestsUpdate{
+	updateCh := make(chan RevisionDestsUpdate, 1)
+	updateCh <- RevisionDestsUpdate{
 		Rev:   revID,
 		Dests: possibleDests,
 	}
@@ -317,11 +434,11 @@ func tryThrottler(throttler *Throttler, trys []types.NamespacedName, ctx context
 
 	tryWaitg.Wait()
 
-	res := make([]tryResult, len(trys))
+	ret := make([]tryResult, len(trys))
 	for i := range trys {
-		res[i] = <-resCh
+		ret[i] = <-resCh
 	}
-	return res
+	return ret
 }
 
 func TestInfiniteBreaker(t *testing.T) {

@@ -70,7 +70,7 @@ type revisionWatcher struct {
 	doneCh   <-chan struct{}
 	rev      types.NamespacedName
 	protocol networking.ProtocolType
-	updateCh chan<- *RevisionDestsUpdate
+	updateCh chan<- RevisionDestsUpdate
 
 	// Stores the list of pods that have been successfully probed.
 	healthyPods sets.String
@@ -84,7 +84,7 @@ type revisionWatcher struct {
 }
 
 func newRevisionWatcher(doneCh <-chan struct{}, rev types.NamespacedName, protocol networking.ProtocolType,
-	updateCh chan<- *RevisionDestsUpdate, destsChan <-chan sets.String,
+	updateCh chan<- RevisionDestsUpdate, destsChan <-chan sets.String,
 	transport http.RoundTripper, serviceLister corev1listers.ServiceLister,
 	logger *zap.SugaredLogger) *revisionWatcher {
 	return &revisionWatcher{
@@ -214,7 +214,7 @@ func (rw *revisionWatcher) sendUpdate(clusterIP string, dests sets.String) {
 		// TODO(greghaynes) find a way to explicitly close the channel. Potentially use channel per watcher.
 		return
 	default:
-		rw.updateCh <- &RevisionDestsUpdate{Rev: rw.rev, ClusterIPDest: clusterIP, Dests: dests}
+		rw.updateCh <- RevisionDestsUpdate{Rev: rw.rev, ClusterIPDest: clusterIP, Dests: dests}
 	}
 }
 
@@ -319,7 +319,7 @@ type RevisionBackendsManager struct {
 	revisionWatchers    map[types.NamespacedName]*revisionWatcherCh
 	revisionWatchersMux sync.RWMutex
 
-	updateCh       chan *RevisionDestsUpdate
+	updateCh       chan RevisionDestsUpdate
 	transport      http.RoundTripper
 	logger         *zap.SugaredLogger
 	probeFrequency time.Duration
@@ -339,7 +339,7 @@ func NewRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.R
 		revisionLister:   revisioninformer.Get(ctx).Lister(),
 		serviceLister:    serviceinformer.Get(ctx).Lister(),
 		revisionWatchers: make(map[types.NamespacedName]*revisionWatcherCh),
-		updateCh:         make(chan *RevisionDestsUpdate),
+		updateCh:         make(chan RevisionDestsUpdate),
 		transport:        tr,
 		logger:           logger,
 		probeFrequency:   probeFrequency,
@@ -363,7 +363,7 @@ func NewRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.R
 }
 
 // Returns channel where dests updates are sent to
-func (rbm *RevisionBackendsManager) UpdateCh() <-chan *RevisionDestsUpdate {
+func (rbm *RevisionBackendsManager) UpdateCh() <-chan RevisionDestsUpdate {
 	return rbm.updateCh
 }
 
@@ -420,7 +420,7 @@ func (rbm *RevisionBackendsManager) deleteRevisionWatcher(rev types.NamespacedNa
 	if rw, ok := rbm.revisionWatchers[rev]; ok {
 		close(rw.ch)
 		delete(rbm.revisionWatchers, rev)
-		rbm.updateCh <- &RevisionDestsUpdate{Rev: rev}
+		rbm.updateCh <- RevisionDestsUpdate{Rev: rev}
 	}
 }
 
