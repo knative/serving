@@ -252,12 +252,14 @@ func probeQueueHealthPath(port int, timeoutSeconds int) error {
 	timeoutErr := wait.PollImmediateUntil(aggressivePollInterval, func() (bool, error) {
 		req, lastErr := http.NewRequest(http.MethodGet, url, nil)
 		if lastErr != nil {
+			// Return nil error for retrying
 			return false, nil
 		}
 		// Add the header to indicate this is a probe request.
 		req.Header.Add(network.ProbeHeaderName, queue.Name)
 		res, lastErr := httpClient.Do(req)
 		if lastErr != nil {
+			// Return nil error for retrying
 			return false, nil
 		}
 		defer res.Body.Close()
