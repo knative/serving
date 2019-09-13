@@ -31,6 +31,7 @@ spec:
         sidecar.istio.io/inject: "false"
       labels:
         app: networking-certmanager
+        serving.knative.dev/release: devel
     spec:
       serviceAccountName: controller
       containers:
