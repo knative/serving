@@ -319,7 +319,10 @@ func cmCert(name, namespace string, dnsNames []string) *certmanagerv1alpha1.Cert
 
 func cmCertWithStatus(name, namespace string, dnsNames []string, status certmanagerv1alpha1.ConditionStatus) *certmanagerv1alpha1.Certificate {
 	cert := cmCert(name, namespace, dnsNames)
-	cert.UpdateStatusCondition(certmanagerv1alpha1.CertificateConditionReady, status, "", "", false)
+	cert.Status.Conditions = []certmanagerv1alpha1.CertificateCondition{{
+		Type:   certmanagerv1alpha1.CertificateConditionReady,
+		Status: status,
+	}}
 	cert.Status.NotAfter = notAfter
 	return cert
 }

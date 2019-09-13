@@ -582,14 +582,15 @@
   revision = "bf2b5ad3c0a925c44a0d2842c5d8182113cd248e"
 
 [[projects]]
-  digest = "1:2a40bae32c6caa0b7ccc5458450be1d003b459e42094e850d3c28b56abe40346"
+  digest = "1:aafa4e5c2d58591c3f33bc886cdbef4e40101391ee31157e8ee20510ffcefd42"
   name = "github.com/jetstack/cert-manager"
   packages = [
     "pkg/apis/certmanager",
     "pkg/apis/certmanager/v1alpha1",
   ]
   pruneopts = "NUT"
-  revision = "45fbfcd16cdd6a6a73c79f26d67ce72a2886c746"
+  revision = "95e8b7de3982455dc9b7cff38f39b98a7390f6e7"
+  version = "v0.9.1"
 
 [[projects]]
   digest = "1:1f2aebae7e7c856562355ec0198d8ca2fa222fb05e5b1b66632a1fce39631885"
@@ -1191,6 +1192,17 @@
   ]
   pruneopts = "NUT"
   revision = "9ad12a4af32677db3ae70bef3371bf9b618eb3a0"
+  version = "kubernetes-1.12.9"
+
+[[projects]]
+  digest = "1:b8a1dcc5f4e559b7af185ba12dd341cb8c175ea3d36227a02699b251ae5fde05"
+  name = "k8s.io/apiextensions-apiserver"
+  packages = [
+    "pkg/apis/apiextensions",
+    "pkg/apis/apiextensions/v1beta1",
+  ]
+  pruneopts = "NUT"
+  revision = "fa58353d80f37509c2b8de8e67f2377a2bc2ce80"
   version = "kubernetes-1.12.9"
 
 [[projects]]
@@ -1975,7 +1987,6 @@
     "knative.dev/pkg/test/webhook-apicoverage/tools",
     "knative.dev/pkg/test/webhook-apicoverage/view",
     "knative.dev/pkg/test/webhook-apicoverage/webhook",
-    "knative.dev/pkg/test/zipkin",
     "knative.dev/pkg/tracing",
     "knative.dev/pkg/tracing/config",
     "knative.dev/pkg/tracing/testing",
@@ -1984,7 +1995,6 @@
     "knative.dev/pkg/webhook",
     "knative.dev/pkg/websocket",
     "knative.dev/test-infra/scripts",
-    "knative.dev/test-infra/shared/common",
     "knative.dev/test-infra/shared/junit",
     "knative.dev/test-infra/shared/performance",
     "knative.dev/test-infra/shared/prow",
