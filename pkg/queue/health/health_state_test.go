@@ -23,11 +23,6 @@ import (
 	"time"
 )
 
-const (
-	aliveBody    = "queue"
-	notAliveBody = "queue not ready"
-)
-
 func TestHealthStateSetsState(t *testing.T) {
 	s := &State{}
 
@@ -181,7 +176,7 @@ func TestHealthStateDrainHandler(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	completedCh := make(chan struct{}, 1)
-	handler := http.HandlerFunc(state.DrainHandleFunc())
+	handler := http.HandlerFunc(state.DrainHandlerFunc())
 	go func(handler http.Handler, recorder *httptest.ResponseRecorder) {
 		handler.ServeHTTP(recorder, req)
 		close(completedCh)

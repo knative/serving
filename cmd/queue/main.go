@@ -216,7 +216,7 @@ func handleKnativeProbe(w http.ResponseWriter, r *http.Request, ph string, healt
 	}
 
 	healthState.HandleHealthProbe(func() bool {
-		if ready := prober(); !ready {
+		if !prober() {
 			probeSpan.Annotate([]trace.Attribute{
 				trace.StringAttribute("queueproxy.probe.error", "container not ready")}, "error")
 			return false
@@ -250,15 +250,15 @@ func probeQueueHealthPath(port int, timeoutSeconds int) error {
 	// Using PollImmediateUntil instead of PollImmediate because if timeout is reached while waiting for first
 	// invocation of conditionFunc, it exits immediately without trying for a second time.
 	timeoutErr := wait.PollImmediateUntil(aggressivePollInterval, func() (bool, error) {
-		req, err := http.NewRequest(http.MethodGet, url, nil)
-		if err != nil {
-			return false, err
+		req, lastErr := http.NewRequest(http.MethodGet, url, nil)
+		if lastErr != nil {
+			return false, nil
 		}
 		// Add the header to indicate this is a probe request.
 		req.Header.Add(network.ProbeHeaderName, queue.Name)
-		res, err := httpClient.Do(req)
-		if err != nil {
-			return false, err
+		res, lastErr := httpClient.Do(req)
+		if lastErr != nil {
+			return false, nil
 		}
 		defer res.Body.Close()
 		return health.IsHTTPProbeReady(res), nil
@@ -342,7 +342,7 @@ func main() {
 	healthState := &health.State{}
 
 	server := buildServer(env, healthState, probe, reqChan, logger)
-	adminServer := buildAdminServer(healthState, probe, logger)
+	adminServer := buildAdminServer(healthState, probe)
 	metricsServer := buildMetricsServer(promStatReporter)
 
 	servers := map[string]*http.Server{
@@ -445,7 +445,6 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, req
 		composedHandler = pushRequestMetricHandler(httpProxy, appRequestCountM, appResponseTimeInMsecM,
 			queueDepthM, breaker, env)
 	}
-
 	composedHandler = http.HandlerFunc(handler(reqChan, breaker, composedHandler, healthState, rp.ProbeContainer, rp.IsAggressive()))
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
 	composedHandler = queue.TimeToFirstByteTimeoutHandler(composedHandler,
@@ -509,9 +508,9 @@ func supportsMetrics(env config, logger *zap.SugaredLogger) bool {
 	return true
 }
 
-func buildAdminServer(healthState *health.State, probe *readiness.Probe, logger *zap.SugaredLogger) *http.Server {
+func buildAdminServer(healthState *health.State, probe *readiness.Probe) *http.Server {
 	adminMux := http.NewServeMux()
-	adminMux.HandleFunc(queue.RequestQueueDrainPath, healthState.DrainHandleFunc())
+	adminMux.HandleFunc(queue.RequestQueueDrainPath, healthState.DrainHandlerFunc())
 
 	return &http.Server{
 		Addr:    ":" + strconv.Itoa(networking.QueueAdminPort),

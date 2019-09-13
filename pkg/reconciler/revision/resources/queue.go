@@ -204,10 +204,13 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 	// We need to configure only one serving port for the Queue proxy, since
 	// we know the protocol that is being used by this application.
 	ports := queueNonServingPorts
+	var servingPort string
 	if rev.GetProtocol() == networking.ProtocolH2C {
 		ports = append(ports, queueHTTP2Port)
+		servingPort = strconv.Itoa(int(queueHTTP2Port.ContainerPort))
 	} else {
 		ports = append(ports, queueHTTPPort)
+		servingPort = strconv.Itoa(int(queueHTTPPort.ContainerPort))
 	}
 
 	var volumeMounts []corev1.VolumeMount
@@ -224,7 +227,6 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 		return nil, errors.Wrap(err, "failed to serialize readiness probe")
 	}
 
-	servingPort := strconv.Itoa(int(ports[len(ports)-1].ContainerPort))
 	return &corev1.Container{
 		Name:            QueueContainerName,
 		Image:           deploymentConfig.QueueSidecarImage,

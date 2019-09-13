@@ -22,6 +22,12 @@ import (
 	"sync"
 )
 
+const (
+	// Return `queue` as body for 200 responses to indicate the response is from queue-proxy.
+	aliveBody    = "queue"
+	notAliveBody = "queue not ready"
+)
+
 // State holds state about the current healthiness of the component.
 type State struct {
 	alive        bool
@@ -87,13 +93,12 @@ func (h *State) drainFinished() {
 // shutdown).
 func (h *State) HandleHealthProbe(prober func() bool, isAggressive bool, w http.ResponseWriter, r *http.Request) {
 	sendAlive := func() {
-		// Return `queue` as body to indicate the response is from queue-proxy.
-		io.WriteString(w, "queue")
+		io.WriteString(w, aliveBody)
 	}
 
 	sendNotAlive := func() {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		io.WriteString(w, "queue not ready")
+		io.WriteString(w, notAliveBody)
 	}
 
 	switch {
@@ -109,8 +114,8 @@ func (h *State) HandleHealthProbe(prober func() bool, isAggressive bool, w http.
 	}
 }
 
-// DrainHandleFunc constructs a handle function that waits until the proxy server is shut down.
-func (h *State) DrainHandleFunc() func(_ http.ResponseWriter, _ *http.Request) {
+// DrainHandlerFunc constructs a handle function that waits until the proxy server is shut down.
+func (h *State) DrainHandlerFunc() func(_ http.ResponseWriter, _ *http.Request) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 	if h.drainCh == nil {
