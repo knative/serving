@@ -388,6 +388,9 @@ func main() {
 			if err := server.Shutdown(context.Background()); err != nil {
 				logger.Errorw("Failed to shutdown proxy server", zap.Error(err))
 			}
+
+			// Wait until queue has nothing left.
+			time.Sleep(quitSleepDuration)
 		})
 
 		flush(logger)
