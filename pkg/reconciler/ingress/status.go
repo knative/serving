@@ -20,8 +20,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -87,7 +89,7 @@ type StatusProber struct {
 	workQueue workqueue.RateLimitingInterface
 
 	gatewayLister    istiolisters.GatewayLister
-	podLister        corev1listers.PodLister
+	endpointsLister  corev1listers.EndpointsLister
 	transportFactory func() http.RoundTripper
 
 	readyCallback func(*v1alpha3.VirtualService)
@@ -101,7 +103,7 @@ type StatusProber struct {
 func NewStatusProber(
 	logger *zap.SugaredLogger,
 	gatewayLister istiolisters.GatewayLister,
-	podLister corev1listers.PodLister,
+	endpointsLister corev1listers.EndpointsLister,
 	transportFactory func() http.RoundTripper,
 	readyCallback func(*v1alpha3.VirtualService)) *StatusProber {
 	return &StatusProber{
@@ -111,7 +113,7 @@ func NewStatusProber(
 			workqueue.DefaultControllerRateLimiter(),
 			"ProbingQueue"),
 		gatewayLister:    gatewayLister,
-		podLister:        podLister,
+		endpointsLister:  endpointsLister,
 		transportFactory: transportFactory,
 		readyCallback:    readyCallback,
 		probeConcurrency: probeConcurrency,
@@ -314,7 +316,7 @@ func (m *StatusProber) listVirtualServicePodIPs(vs *v1alpha3.VirtualService) ([]
 			continue
 		}
 
-		// List matching Pods
+		// List matching endpoints
 		selector := labels.NewSelector()
 		for key, value := range gateway.Spec.Selector {
 			requirement, err := labels.NewRequirement(key, selection.Equals, []string{value})
@@ -323,15 +325,31 @@ func (m *StatusProber) listVirtualServicePodIPs(vs *v1alpha3.VirtualService) ([]
 			}
 			selector = selector.Add(*requirement)
 		}
-		pods, err := m.podLister.List(selector)
+
+		endpoints, err := m.endpointsLister.List(selector)
 		if err != nil {
-			return nil, fmt.Errorf("failed to list Pods: %v", err)
+			return nil, fmt.Errorf("failed to list Endpoints: %v", err)
 		}
 
-		// Filter out the Pods without an assigned IP address
-		for _, pod := range pods {
-			if pod.Status.PodIP != "" {
-				podIPs = append(podIPs, pod.Status.PodIP)
+		for _, eps := range endpoints {
+			for _, sub := range eps.Subsets {
+				gatewayPort := ""
+				for _, port := range sub.Ports {
+					// Per Istio's documentation https://istio.io/docs/tasks/traffic-management/ingress/ingress-control/
+					// the portName for an unsecure gateway is "http2", a secure gateway uses "https".
+					// TODO(5156): Implement HTTPS handling.
+					if port.Name == "http2" {
+						gatewayPort = strconv.Itoa(int(port.Port))
+						break
+					}
+				}
+				if gatewayPort == "" {
+					return nil, fmt.Errorf("endpoints %q did not contain http2 port: %v", eps.Name, sub.Ports)
+				}
+
+				for _, address := range sub.Addresses {
+					podIPs = append(podIPs, net.JoinHostPort(address.IP, gatewayPort))
+				}
 			}
 		}
 	}
