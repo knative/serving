@@ -59,15 +59,13 @@ var (
 )
 
 func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
-	ctx context.Context,
-	cancel context.CancelFunc,
-	controller *controller.Impl,
-	configMapWatcher *configmap.ManualWatcher) {
+	context.Context, context.CancelFunc,
+	*controller.Impl, *configmap.ManualWatcher) {
 
-	ctx, cancel, _ = SetupFakeContextWithCancel(t)
-	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
+	ctx, cancel, _ := SetupFakeContextWithCancel(t)
+	configMapWatcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
 
-	controller = NewController(ctx, configMapWatcher)
+	controller := NewController(ctx, configMapWatcher)
 
 	cms := []*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{
@@ -92,7 +90,13 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	for _, cfg := range cms {
 		configMapWatcher.OnChange(cfg)
 	}
-	return
+
+	var eg errgroup.Group
+	eg.Go(func() error { return controller.Run(2, ctx.Done()) })
+	return ctx, func() {
+		cancel()
+		eg.Wait()
+	}, controller, configMapWatcher
 }
 
 func TestNewController(t *testing.T) {
@@ -190,14 +194,11 @@ func TestReconcile(t *testing.T) {
 }
 
 func TestUpdateDomainTemplate(t *testing.T) {
-	var eg errgroup.Group
 	ctx, cancel, controller, watcher := newTestSetup(t)
 	defer func() {
 		cancel()
-		eg.Wait()
 		ClearAll()
 	}()
-	eg.Go(func() error { return controller.Run(2, ctx.Done()) })
 	reconciler := controller.Reconciler.(*reconciler)
 
 	sorter := cmpopts.SortSlices(func(a, b string) bool {
@@ -305,14 +306,11 @@ func TestDomainConfigDefaultDomain(t *testing.T) {
 			"other.com": "selector:\n app: dev",
 		},
 	}
-	var eg errgroup.Group
 	ctx, cancel, controller, _ := newTestSetup(t, domCfg)
 	defer func() {
 		cancel()
-		eg.Wait()
 		ClearAll()
 	}()
-	eg.Go(func() error { return controller.Run(2, ctx.Done()) })
 	reconciler := controller.Reconciler.(*reconciler)
 
 	ns := kubeNamespace("testns")
@@ -346,14 +344,11 @@ func TestDomainConfigExplicitDefaultDomain(t *testing.T) {
 			"default.com": "",
 		},
 	}
-	var eg errgroup.Group
 	ctx, cancel, controller, _ := newTestSetup(t, domCfg)
 	defer func() {
 		cancel()
-		eg.Wait()
 		ClearAll()
 	}()
-	eg.Go(func() error { return controller.Run(2, ctx.Done()) })
 	reconciler := controller.Reconciler.(*reconciler)
 	namespace := kubeNamespace("testns")
 	nsInformer := fakeinformerfactory.Get(ctx).Core().V1().Namespaces()
