@@ -143,13 +143,8 @@ func TestHealthStateHealthHandler(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			req, err := http.NewRequest(http.MethodGet, "/", nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-
 			rr := httptest.NewRecorder()
-			test.state.HandleHealthProbe(test.prober, test.isAggressive, rr, req)
+			test.state.HandleHealthProbe(test.prober, test.isAggressive, rr)
 
 			if rr.Code != test.wantStatus {
 				t.Errorf("handler returned wrong status code: got %v want %v",

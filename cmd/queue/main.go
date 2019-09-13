@@ -222,7 +222,7 @@ func handleKnativeProbe(w http.ResponseWriter, r *http.Request, ph string, healt
 			return false
 		}
 		return true
-	}, isAggressive, w, r)
+	}, isAggressive, w)
 }
 
 func probeQueueHealthPath(port int, timeoutSeconds int) error {
