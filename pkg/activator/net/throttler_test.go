@@ -48,39 +48,24 @@ type tryResult struct {
 	ErrString string
 }
 
-func TestThrottlerWithErrorf(t *testing.T) {
+func TestThrottlerWithError(t *testing.T) {
 	defer ClearAll()
 	for _, tc := range []struct {
-<<<<<<< HEAD
-		name             string
-		revisions        []*v1alpha1.Revision
-		initUpdates      []RevisionDestsUpdate
-		deletes          []types.NamespacedName
-		expectTryResults []tryResult
-		trys             []types.NamespacedName
-=======
 		name        string
 		revisions   []*v1alpha1.Revision
-		initUpdates []*RevisionDestsUpdate
+		initUpdates []RevisionDestsUpdate
 		deletes     []types.NamespacedName
 		trys        []types.NamespacedName
 		wantResults []tryResult
->>>>>>> fix-test-order
 	}{{
 		name: "second request timeout",
 		revisions: []*v1alpha1.Revision{
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
-<<<<<<< HEAD
 		initUpdates: []RevisionDestsUpdate{{
-			Rev:   types.NamespacedName{"test-namespace", "test-revision"},
-			Dests: sets.NewString("128.0.0.1:1234"),
-=======
-		initUpdates: []*RevisionDestsUpdate{{
 			Rev:           types.NamespacedName{testNamespace, testRevision},
 			ClusterIPDest: "129.0.0.1:1234",
 			Dests:         sets.NewString("128.0.0.1:1234"),
->>>>>>> fix-test-order
 		}},
 		trys: []types.NamespacedName{
 			{Namespace: testNamespace, Name: testRevision},
@@ -95,16 +80,9 @@ func TestThrottlerWithErrorf(t *testing.T) {
 		revisions: []*v1alpha1.Revision{
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
-<<<<<<< HEAD
 		initUpdates: []RevisionDestsUpdate{{
-			Rev:           types.NamespacedName{"test-namespace", "test-revision"},
-			ClusterIPDest: "129.0.0.1:1234",
-			Dests:         sets.NewString("128.0.0.1:1234"),
-=======
-		initUpdates: []*RevisionDestsUpdate{{
 			Rev:   types.NamespacedName{testNamespace, testRevision},
 			Dests: sets.NewString("128.0.0.1:1234"),
->>>>>>> fix-test-order
 		}},
 		deletes: []types.NamespacedName{
 			{testNamespace, testRevision},
@@ -117,7 +95,7 @@ func TestThrottlerWithErrorf(t *testing.T) {
 		},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
-			updateCh := make(chan *RevisionDestsUpdate, 2)
+			updateCh := make(chan RevisionDestsUpdate, 2)
 
 			params := queue.BreakerParams{
 				QueueDepth:      1,
@@ -186,7 +164,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		revisions   []*v1alpha1.Revision
-		initUpdates []*RevisionDestsUpdate
+		initUpdates []RevisionDestsUpdate
 		deletes     []types.NamespacedName
 		trys        []types.NamespacedName
 		wantDests   sets.String
@@ -195,15 +173,9 @@ func TestThrottlerSuccesses(t *testing.T) {
 		revisions: []*v1alpha1.Revision{
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
-<<<<<<< HEAD
 		initUpdates: []RevisionDestsUpdate{{
-			Rev:   types.NamespacedName{"test-namespace", "test-revision"},
-			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
-=======
-		initUpdates: []*RevisionDestsUpdate{{
 			Rev:   types.NamespacedName{testNamespace, testRevision},
 			Dests: sets.NewString("128.0.0.1:1234"),
->>>>>>> fix-test-order
 		}},
 		trys: []types.NamespacedName{
 			{Namespace: testNamespace, Name: testRevision},
@@ -214,16 +186,11 @@ func TestThrottlerSuccesses(t *testing.T) {
 		revisions: []*v1alpha1.Revision{
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
-<<<<<<< HEAD
 		initUpdates: []RevisionDestsUpdate{{
-			Rev:   types.NamespacedName{"test-namespace", "test-revision"},
+			Rev:   types.NamespacedName{testNamespace, testRevision},
 			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
 		}, {
-			Rev:           types.NamespacedName{"test-namespace", "test-revision"},
-=======
-		initUpdates: []*RevisionDestsUpdate{{
 			Rev:           types.NamespacedName{testNamespace, testRevision},
->>>>>>> fix-test-order
 			ClusterIPDest: "129.0.0.1:1234",
 			Dests:         sets.NewString("128.0.0.1:1234"),
 		}},
@@ -236,16 +203,9 @@ func TestThrottlerSuccesses(t *testing.T) {
 		revisions: []*v1alpha1.Revision{
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
-<<<<<<< HEAD
 		initUpdates: []RevisionDestsUpdate{{
-			Rev:           types.NamespacedName{"test-namespace", "test-revision"},
-			ClusterIPDest: "129.0.0.1:1234",
-			Dests:         sets.NewString("128.0.0.1:1234"),
-=======
-		initUpdates: []*RevisionDestsUpdate{{
 			Rev:   types.NamespacedName{testNamespace, testRevision},
 			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
->>>>>>> fix-test-order
 		}},
 		trys: []types.NamespacedName{
 			{Namespace: testNamespace, Name: testRevision},
@@ -253,30 +213,21 @@ func TestThrottlerSuccesses(t *testing.T) {
 		},
 		wantDests: sets.NewString("128.0.0.2:1234", "128.0.0.1:1234"),
 	}, {
-		name: "multiple ClusterIP requests after PodIP",
+		name: "multiple ClusterIP requests",
 		revisions: []*v1alpha1.Revision{
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
-<<<<<<< HEAD
 		initUpdates: []RevisionDestsUpdate{{
-			Rev:   types.NamespacedName{"test-namespace", "test-revision"},
-			Dests: sets.NewString("128.0.0.1:1234"),
-=======
-		initUpdates: []*RevisionDestsUpdate{{
-			Rev:   types.NamespacedName{testNamespace, testRevision},
-			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
-		}, {
 			Rev:           types.NamespacedName{testNamespace, testRevision},
 			ClusterIPDest: "129.0.0.1:1234",
 			Dests:         sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
->>>>>>> fix-test-order
 		}},
 		trys: []types.NamespacedName{
 			{Namespace: testNamespace, Name: testRevision},
 			{Namespace: testNamespace, Name: testRevision},
 		},
 		wantDests: sets.NewString("129.0.0.1:1234"),
-	} /**/} {
+	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			updateCh := make(chan RevisionDestsUpdate, 2)
 
