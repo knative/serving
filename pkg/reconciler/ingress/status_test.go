@@ -100,42 +100,6 @@ func TestIsReadyFailures(t *testing.T) {
 			}},
 		},
 		endpointsLister: &fakeEndpointsLister{fails: true},
-	}, {
-		name: "missing port",
-		vsSpec: v1alpha3.VirtualServiceSpec{
-			Gateways: []string{"default/gateway"},
-			Hosts:    []string{"foobar" + resources.ProbeHostSuffix},
-		},
-		gatewayLister: &fakeGatewayLister{
-			gateways: []*v1alpha3.Gateway{{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "default",
-					Name:      "gateway",
-				},
-				Spec: v1alpha3.GatewaySpec{
-					Servers: []v1alpha3.Server{{
-						Hosts: []string{"*"},
-						Port: v1alpha3.Port{
-							Number:   80,
-							Protocol: v1alpha3.ProtocolHTTP,
-						},
-					}},
-					Selector: map[string]string{
-						"gwt": "istio",
-					},
-				},
-			}},
-		},
-		endpointsLister: &fakeEndpointsLister{
-			endpoints: []*v1.Endpoints{{
-				Subsets: []v1.EndpointSubset{{
-					Ports: []v1.EndpointPort{{
-						Name: "foo",
-						Port: 80,
-					}},
-				}},
-			}},
-		},
 	}}
 
 	for _, test := range tests {
@@ -213,7 +177,7 @@ func TestProbeLifecycle(t *testing.T) {
 					Servers: []v1alpha3.Server{{
 						Hosts: []string{"*"},
 						Port: v1alpha3.Port{
-							Number:   80,
+							Number:   port,
 							Protocol: v1alpha3.ProtocolHTTP,
 						},
 					}},
@@ -232,10 +196,6 @@ func TestProbeLifecycle(t *testing.T) {
 				Subsets: []v1.EndpointSubset{{
 					Addresses: []v1.EndpointAddress{{
 						IP: hostname,
-					}},
-					Ports: []v1.EndpointPort{{
-						Name: "http2",
-						Port: int32(port),
 					}},
 				}},
 			}},
