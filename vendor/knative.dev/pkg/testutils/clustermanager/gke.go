@@ -17,6 +17,7 @@ limitations under the License.
 package clustermanager
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -41,7 +42,9 @@ const (
 
 var (
 	DefaultGKEBackupRegions = []string{"us-west1", "us-east1"}
-	// This is an arbitrary number determined based on past experience
+	protectedProjects       = []string{"knative-tests"}
+	protectedClusters       = []string{"knative-prow"}
+	// These are arbitrary numbers determined based on past experience
 	creationTimeout = 20 * time.Minute
 )
 
@@ -68,12 +71,14 @@ type GKECluster struct {
 	NeedCleanup bool
 	Cluster     *container.Cluster
 	operations  GKESDKOperations
+	boskosOps   boskos.Operation
 }
 
 // GKESDKOperations wraps GKE SDK related functions
 type GKESDKOperations interface {
 	create(string, string, *container.CreateClusterRequest) (*container.Operation, error)
 	get(string, string, string) (*container.Cluster, error)
+	getOperation(string, string, string) (*container.Operation, error)
 }
 
 // GKESDKClient Implement GKESDKOperations
@@ -89,6 +94,11 @@ func (gsc *GKESDKClient) create(project, location string, rb *container.CreateCl
 func (gsc *GKESDKClient) get(project, location, cluster string) (*container.Cluster, error) {
 	clusterFullPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s", project, location, cluster)
 	return gsc.Projects.Locations.Clusters.Get(clusterFullPath).Context(context.Background()).Do()
+}
+
+func (gsc *GKESDKClient) getOperation(project, location, opName string) (*container.Operation, error) {
+	name := fmt.Sprintf("projects/%s/locations/%s/operations/%s", project, location, opName)
+	return gsc.Service.Projects.Locations.Operations.Get(name).Do()
 }
 
 // Setup sets up a GKECluster client.
@@ -143,12 +153,15 @@ func (gs *GKEClient) Setup(numNodes *int64, nodeType *string, region *string, zo
 	}
 	gc.operations = &GKESDKClient{containerService}
 
+	gc.boskosOps = &boskos.Client{}
+
 	return gc
 }
 
 // Initialize sets up GKE SDK client, checks environment for cluster and
 // projects to decide whether use existing cluster/project or creating new ones.
 func (gc *GKECluster) Initialize() error {
+	// Try obtain project name via `kubectl`, `gcloud`
 	if nil == gc.Project {
 		if err := gc.checkEnvironment(); nil != err {
 			return fmt.Errorf("failed checking existing cluster: '%v'", err)
@@ -156,19 +169,21 @@ func (gc *GKECluster) Initialize() error {
 			return nil
 		}
 	}
-	if nil == gc.Cluster {
-		if common.IsProw() {
-			project, err := boskos.AcquireGKEProject(nil)
-			if nil != err {
-				return fmt.Errorf("failed acquire boskos project: '%v'", err)
-			}
-			gc.Project = &project.Name
+	// Get project name from boskos if running in Prow
+	if nil == gc.Project && common.IsProw() {
+		project, err := gc.boskosOps.AcquireGKEProject(nil)
+		if nil != err {
+			return fmt.Errorf("failed acquire boskos project: '%v'", err)
 		}
+		gc.Project = &project.Name
 	}
 	if nil == gc.Project || "" == *gc.Project {
-		return fmt.Errorf("gcp project must be set")
+		return errors.New("gcp project must be set")
 	}
-	log.Printf("use project '%s' for running test", *gc.Project)
+	if !common.IsProw() && nil == gc.Cluster {
+		gc.NeedCleanup = true
+	}
+	log.Printf("Using project %q for running test", *gc.Project)
 	return nil
 }
 
@@ -182,6 +197,7 @@ func (gc *GKECluster) Provider() string {
 // in us-central1, and default BackupRegions are us-west1 and us-east1. If
 // Region or Zone is provided then there is no retries
 func (gc *GKECluster) Acquire() error {
+	gc.ensureProtected()
 	var err error
 	// Check if using existing cluster
 	if nil != gc.Cluster {
@@ -217,41 +233,30 @@ func (gc *GKECluster) Acquire() error {
 			},
 			ProjectId: *gc.Project,
 		}
-		log.Printf("Creating cluster in %s", getClusterLocation(region, gc.Request.Zone))
-		_, err = gc.operations.create(*gc.Project, getClusterLocation(region, gc.Request.Zone), rb)
+
+		clusterLoc := getClusterLocation(region, gc.Request.Zone)
+		// TODO(chaodaiG): add deleting logic once cluster deletion logic is done
+
+		log.Printf("Creating cluster %q' in %q", clusterName, clusterLoc)
+		var createOp *container.Operation
+		createOp, err = gc.operations.create(*gc.Project, clusterLoc, rb)
 		if nil == err {
-			// The process above doesn't seem to wait, wait for it
-			log.Printf("Waiting for cluster creation")
-			timeout := time.After(creationTimeout)
-			tick := time.Tick(50 * time.Millisecond)
-			for {
-				select {
-				// Got a timeout! fail with a timeout error
-				case <-timeout:
-					err = fmt.Errorf("timed out waiting for cluster creation")
-					break
-				case <-tick:
-					cluster, err = gc.operations.get(*gc.Project, getClusterLocation(region, gc.Request.Zone), clusterName)
-				}
-				if err != nil || cluster.Status == "RUNNING" {
-					break
-				}
-				if cluster.Status != "PROVISIONING" {
-					err = fmt.Errorf("cluster in bad state: '%s'", cluster.Status)
-					break
-				}
+			if err = gc.wait(clusterLoc, createOp.Name, creationTimeout); nil == err {
+				cluster, err = gc.operations.get(*gc.Project, clusterLoc, rb.Cluster.Name)
 			}
 		}
-
 		if nil != err {
 			errMsg := fmt.Sprintf("error creating cluster: '%v'", err)
+			if gc.NeedCleanup { // Delete half created cluster if it's user created
+				// TODO(chaodaiG): add this part when deletion logic is done
+			}
 			// TODO(chaodaiG): catch specific errors as we know what the error look like for stockout etc.
 			if len(regions) != i+1 {
 				errMsg = fmt.Sprintf("%s. Retry another region '%s' for cluster creation", errMsg, regions[i+1])
 			}
 			log.Printf(errMsg)
 		} else {
-			log.Printf("cluster creation succeeded")
+			log.Print("Cluster creation completed")
 			gc.Cluster = cluster
 			break
 		}
@@ -260,13 +265,68 @@ func (gc *GKECluster) Acquire() error {
 	return err
 }
 
-// Delete deletes a GKE cluster
-func (gc *GKECluster) Delete() error {
-	if !gc.NeedCleanup {
-		return nil
+// wait depends on unique opName(operation ID created by cloud), and waits until
+// it's done
+func (gc *GKECluster) wait(location, opName string, wait time.Duration) error {
+	const (
+		pendingStatus = "PENDING"
+		runningStatus = "RUNNING"
+		doneStatus    = "DONE"
+	)
+	var op *container.Operation
+	var err error
+
+	timeout := time.After(wait)
+	tick := time.Tick(500 * time.Millisecond)
+	for {
+		select {
+		// Got a timeout! fail with a timeout error
+		case <-timeout:
+			return errors.New("timed out waiting")
+		case <-tick:
+			// Retry 3 times in case of weird network error, or rate limiting
+			for r, w := 0, 50*time.Microsecond; r < 3; r, w = r+1, w*2 {
+				op, err = gc.operations.getOperation(*gc.Project, location, opName)
+				if nil == err {
+					if op.Status == doneStatus {
+						return nil
+					} else if op.Status == pendingStatus || op.Status == runningStatus {
+						// Valid operation, no need to retry
+						break
+					} else {
+						// Have seen intermittent error state and fixed itself,
+						// let it retry to avoid too much flakiness
+						err = fmt.Errorf("unexpected operation status: %q", op.Status)
+					}
+				}
+				time.Sleep(w)
+			}
+			// If err still persist after retries, exit
+			if nil != err {
+				return err
+			}
+		}
 	}
-	// TODO: Perform GKE specific cluster deletion logics
-	return nil
+
+	return err
+}
+
+// ensureProtected ensures not operating on protected project/cluster
+func (gc *GKECluster) ensureProtected() {
+	if nil != gc.Project {
+		for _, pp := range protectedProjects {
+			if *gc.Project == pp {
+				log.Fatalf("project %q is protected", *gc.Project)
+			}
+		}
+	}
+	if nil != gc.Cluster {
+		for _, pc := range protectedClusters {
+			if gc.Cluster.Name == pc {
+				log.Fatalf("cluster %q is protected", gc.Cluster.Name)
+			}
+		}
+	}
 }
 
 // checks for existing cluster by looking at kubeconfig,

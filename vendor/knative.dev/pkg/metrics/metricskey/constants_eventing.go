@@ -27,8 +27,8 @@ const (
 	// ResourceTypeKnativeBroker is the Stackdriver resource type for Knative Brokers.
 	ResourceTypeKnativeBroker = "knative_broker"
 
-	// ResourceTypeKnativeImporter is the Stackdriver resource type for Knative Importers.
-	ResourceTypeKnativeImporter = "knative_importer"
+	// ResourceTypeKnativeSource is the Stackdriver resource type for Knative Sources.
+	ResourceTypeKnativeSource = "knative_source"
 
 	// LabelTriggerName is the label for the name of the Trigger.
 	LabelTriggerName = "trigger_name"
@@ -48,11 +48,11 @@ const (
 	// LabelFilterSource is the label for the Trigger filter attribute "source".
 	LabelFilterSource = "filter_source"
 
-	// LabelImporterName is the label for the name of the Importer.
-	LabelImporterName = "importer_name"
+	// LabelSourceName is the label for the name of the Source.
+	LabelSourceName = "source_name"
 
-	// LabelImporterResourceGroup is the name of the Importer CRD.
-	LabelImporterResourceGroup = "importer_resource_group"
+	// LabelSourceResourceGroup is the name of the Source CRD.
+	LabelSourceResourceGroup = "source_resource_group"
 )
 
 var (
@@ -89,19 +89,19 @@ var (
 		"knative.dev/eventing/broker/event_count",
 	)
 
-	// KnativeImporterLabels stores the set of resource labels for resource type knative_importer.
-	KnativeImporterLabels = sets.NewString(
+	// KnativeSourceLabels stores the set of resource labels for resource type knative_source.
+	KnativeSourceLabels = sets.NewString(
 		LabelProject,
 		LabelLocation,
 		LabelClusterName,
 		LabelNamespaceName,
-		LabelImporterName,
-		LabelImporterResourceGroup,
+		LabelSourceName,
+		LabelSourceResourceGroup,
 	)
 
-	// KnativeImporterMetrics stores a set of metric types which are supported
-	// by resource type knative_importer.
-	KnativeImporterMetrics = sets.NewString(
-		"knative.dev/eventing/importer/event_count",
+	// KnativeSourceMetrics stores a set of metric types which are supported
+	// by resource type knative_source.
+	KnativeSourceMetrics = sets.NewString(
+		"knative.dev/eventing/source/event_count",
 	)
 )

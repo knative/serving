@@ -14,24 +14,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// error.go helps with error handling
-
-package alerter
+package view
 
 import (
-	"errors"
 	"strings"
+	"text/template"
+
+	"knative.dev/pkg/test/webhook-apicoverage/coveragecalculator"
 )
 
-// CombineErrors combines slice of errors and return a single error
-func CombineErrors(errs []error) error {
-	if len(errs) == 0 {
-		return nil
+// GetCoveragePercentageXMLDisplay is a helper method to write resource coverage
+// percentage values to junit xml file format.
+func GetCoveragePercentageXMLDisplay(
+	percentageCoverages *coveragecalculator.CoveragePercentages) (string, error) {
+	tmpl, err := template.New("JunitResult").Parse(JunitResultTmpl)
+	if err != nil {
+		return "", err
 	}
-	var sb strings.Builder
-	for _, err := range errs {
-		sb.WriteString(err.Error())
-		sb.WriteString("\n")
+
+	var buffer strings.Builder
+	err = tmpl.Execute(&buffer, percentageCoverages)
+	if err != nil {
+		return "", err
 	}
-	return errors.New(strings.Trim(sb.String(), "\n"))
+
+	return buffer.String(), nil
 }

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// messaging.go includes functions to send message to Slack channel.
+// message_write.go includes functions to send messages to Slack.
 
 package slackutil
 
@@ -24,67 +24,54 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"net/http"
 	"net/url"
 )
 
 const postMessageURL = "https://slack.com/api/chat.postMessage"
 
-// Operations defines the operations that can be done to Slack
-type Operations interface {
+// WriteOperations defines the write operations that can be done to Slack
+type WriteOperations interface {
 	Post(text, channel string) error
 }
 
-// client contains Slack bot related information
-type client struct {
-	userName  string
-	tokenStr  string
-	iconEmoji *string
+// writeClient contains Slack bot related information to perform write operations
+type writeClient struct {
+	userName string
+	tokenStr string
 }
 
-// NewClient reads token file and stores it for later authentication
-func NewClient(userName, tokenPath string) (Operations, error) {
+// NewWriteClient reads token file and stores it for later authentication
+func NewWriteClient(userName, tokenPath string) (WriteOperations, error) {
 	b, err := ioutil.ReadFile(tokenPath)
 	if err != nil {
 		return nil, err
 	}
-	return &client{
+	return &writeClient{
 		userName: userName,
 		tokenStr: strings.TrimSpace(string(b)),
 	}, nil
 }
 
 // Post posts the given text to channel
-func (c *client) Post(text, channel string) error {
+func (c *writeClient) Post(text, channel string) error {
 	uv := url.Values{}
 	uv.Add("username", c.userName)
 	uv.Add("token", c.tokenStr)
-	if nil != c.iconEmoji {
-		uv.Add("icon_emoji", *c.iconEmoji)
-	}
 	uv.Add("channel", channel)
 	uv.Add("text", text)
 
-	return c.postMessage(uv)
-}
-
-// postMessage does http post
-func (c *client) postMessage(uv url.Values) error {
-	resp, err := http.PostForm(postMessageURL, uv)
+	content, err := post(postMessageURL, uv)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
-	t, _ := ioutil.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("http response code is not '%d': '%s'", http.StatusOK, string(t))
-	}
+
 	// response code could also be 200 if channel doesn't exist, parse response body to find out
 	var b struct {
 		OK bool `json:"ok"`
 	}
-	if err = json.Unmarshal(t, &b); nil != err || !b.OK {
-		return fmt.Errorf("response not ok '%s'", string(t))
+	if err = json.Unmarshal(content, &b); nil != err || !b.OK {
+		return fmt.Errorf("response not ok '%s'", string(content))
 	}
+
 	return nil
 }
