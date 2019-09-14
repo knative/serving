@@ -324,7 +324,7 @@ func TestRevisionWatcher(t *testing.T) {
 			doneCh := make(chan struct{})
 			defer close(doneCh)
 
-			updateCh := make(chan *RevisionDestsUpdate, len(tc.expectUpdates)+1)
+			updateCh := make(chan RevisionDestsUpdate, len(tc.expectUpdates)+1)
 
 			// This gets cleaned up as part of the test
 			destsCh := make(chan sets.String)
@@ -370,7 +370,7 @@ func TestRevisionWatcher(t *testing.T) {
 			for i := 0; i < len(tc.expectUpdates); i++ {
 				select {
 				case update := <-updateCh:
-					updates = append(updates, *update)
+					updates = append(updates, update)
 				case <-time.After(200 * time.Millisecond):
 					t.Error("Timed out waiting for update event")
 				}
@@ -615,7 +615,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			for i := 0; i < tc.updateCnt; i++ {
 				select {
 				case update := <-rbm.UpdateCh():
-					revDests[update.Rev] = *update
+					revDests[update.Rev] = update
 				case <-time.After(300 * time.Millisecond):
 					t.Errorf("Timed out waiting for update event")
 				}
@@ -655,7 +655,7 @@ func TestCheckDests(t *testing.T) {
 	si := fakeserviceinformer.Get(ctx)
 	si.Informer().GetIndexer().Add(svc)
 	// Make it buffered,so that we can make the test linear.
-	uCh := make(chan *RevisionDestsUpdate, 1)
+	uCh := make(chan RevisionDestsUpdate, 1)
 	dCh := make(chan struct{})
 	rw := &revisionWatcher{
 		clusterIPHealthy: true,
@@ -737,7 +737,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// Make it buffered,so that we can make the test linear.
-	uCh := make(chan *RevisionDestsUpdate, 1)
+	uCh := make(chan RevisionDestsUpdate, 1)
 	dCh := make(chan struct{})
 	rw := &revisionWatcher{
 		rev:           types.NamespacedName{testNamespace, testRevision},
@@ -749,7 +749,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 	// First not ready, second good, clusterIP: not ready.
 	rw.checkDests(sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"))
-	want := &RevisionDestsUpdate{
+	want := RevisionDestsUpdate{
 		Rev:           types.NamespacedName{testNamespace, testRevision},
 		ClusterIPDest: "",
 		Dests:         sets.NewString("10.0.0.2:1234"),

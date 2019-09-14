@@ -53,7 +53,7 @@ func TestThrottlerWithError(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		revisions   []*v1alpha1.Revision
-		initUpdates []*RevisionDestsUpdate
+		initUpdates []RevisionDestsUpdate
 		deletes     []types.NamespacedName
 		trys        []types.NamespacedName
 		wantResults []tryResult
@@ -62,7 +62,7 @@ func TestThrottlerWithError(t *testing.T) {
 		revisions: []*v1alpha1.Revision{
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
-		initUpdates: []*RevisionDestsUpdate{{
+		initUpdates: []RevisionDestsUpdate{{
 			Rev:           types.NamespacedName{testNamespace, testRevision},
 			ClusterIPDest: "129.0.0.1:1234",
 			Dests:         sets.NewString("128.0.0.1:1234"),
@@ -80,7 +80,7 @@ func TestThrottlerWithError(t *testing.T) {
 		revisions: []*v1alpha1.Revision{
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
-		initUpdates: []*RevisionDestsUpdate{{
+		initUpdates: []RevisionDestsUpdate{{
 			Rev:   types.NamespacedName{testNamespace, testRevision},
 			Dests: sets.NewString("128.0.0.1:1234"),
 		}},
@@ -95,7 +95,7 @@ func TestThrottlerWithError(t *testing.T) {
 		},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
-			updateCh := make(chan *RevisionDestsUpdate, 2)
+			updateCh := make(chan RevisionDestsUpdate, 2)
 
 			params := queue.BreakerParams{
 				QueueDepth:      1,
@@ -164,7 +164,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		revisions   []*v1alpha1.Revision
-		initUpdates []*RevisionDestsUpdate
+		initUpdates []RevisionDestsUpdate
 		deletes     []types.NamespacedName
 		trys        []types.NamespacedName
 		wantDests   sets.String
@@ -173,7 +173,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 		revisions: []*v1alpha1.Revision{
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
-		initUpdates: []*RevisionDestsUpdate{{
+		initUpdates: []RevisionDestsUpdate{{
 			Rev:   types.NamespacedName{testNamespace, testRevision},
 			Dests: sets.NewString("128.0.0.1:1234"),
 		}},
@@ -186,7 +186,10 @@ func TestThrottlerSuccesses(t *testing.T) {
 		revisions: []*v1alpha1.Revision{
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
-		initUpdates: []*RevisionDestsUpdate{{
+		initUpdates: []RevisionDestsUpdate{{
+			Rev:   types.NamespacedName{testNamespace, testRevision},
+			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
+		}, {
 			Rev:           types.NamespacedName{testNamespace, testRevision},
 			ClusterIPDest: "129.0.0.1:1234",
 			Dests:         sets.NewString("128.0.0.1:1234"),
@@ -200,7 +203,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 		revisions: []*v1alpha1.Revision{
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
-		initUpdates: []*RevisionDestsUpdate{{
+		initUpdates: []RevisionDestsUpdate{{
 			Rev:   types.NamespacedName{testNamespace, testRevision},
 			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
 		}},
@@ -210,14 +213,11 @@ func TestThrottlerSuccesses(t *testing.T) {
 		},
 		wantDests: sets.NewString("128.0.0.2:1234", "128.0.0.1:1234"),
 	}, {
-		name: "multiple ClusterIP requests after PodIP",
+		name: "multiple ClusterIP requests",
 		revisions: []*v1alpha1.Revision{
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
-		initUpdates: []*RevisionDestsUpdate{{
-			Rev:   types.NamespacedName{testNamespace, testRevision},
-			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
-		}, {
+		initUpdates: []RevisionDestsUpdate{{
 			Rev:           types.NamespacedName{testNamespace, testRevision},
 			ClusterIPDest: "129.0.0.1:1234",
 			Dests:         sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
@@ -229,7 +229,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 		wantDests: sets.NewString("129.0.0.1:1234"),
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
-			updateCh := make(chan *RevisionDestsUpdate, 100)
+			updateCh := make(chan RevisionDestsUpdate, 2)
 
 			params := queue.BreakerParams{
 				QueueDepth:      1,
@@ -326,8 +326,8 @@ func TestMultipleActivator(t *testing.T) {
 
 	revID := types.NamespacedName{testNamespace, testRevision}
 	possibleDests := sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234")
-	updateCh := make(chan *RevisionDestsUpdate, 1)
-	updateCh <- &RevisionDestsUpdate{
+	updateCh := make(chan RevisionDestsUpdate, 1)
+	updateCh <- RevisionDestsUpdate{
 		Rev:   revID,
 		Dests: possibleDests,
 	}

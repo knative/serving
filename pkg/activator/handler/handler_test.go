@@ -90,7 +90,7 @@ func TestActivationHandler(t *testing.T) {
 		endpointsInformer corev1informers.EndpointsInformer
 		sksLister         netlisters.ServerlessServiceLister
 		svcLister         corev1listers.ServiceLister
-		destsUpdates      []*activatornet.RevisionDestsUpdate
+		destsUpdate       activatornet.RevisionDestsUpdate
 		reporterCalls     []reporterCall
 	}{{
 		label:             "active endpoint",
@@ -100,10 +100,10 @@ func TestActivationHandler(t *testing.T) {
 		wantCode:          http.StatusOK,
 		wantErr:           nil,
 		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000, networking.ServicePortNameHTTP1)),
-		destsUpdates: []*activatornet.RevisionDestsUpdate{{
+		destsUpdate: activatornet.RevisionDestsUpdate{
 			Rev:   types.NamespacedName{testNamespace, testRevName},
 			Dests: dests(1000),
-		}},
+		},
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
 			Namespace:  testNamespace,
@@ -123,10 +123,10 @@ func TestActivationHandler(t *testing.T) {
 		wantCode:          http.StatusNotFound,
 		wantErr:           nil,
 		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000, networking.ServicePortNameHTTP1)),
-		destsUpdates: []*activatornet.RevisionDestsUpdate{{
+		destsUpdate: activatornet.RevisionDestsUpdate{
 			Rev:   types.NamespacedName{"fake-namespace", testRevName},
 			Dests: sets.NewString(),
-		}},
+		},
 		reporterCalls: nil,
 		tryTimeout:    100 * time.Millisecond,
 	}, {
@@ -137,10 +137,10 @@ func TestActivationHandler(t *testing.T) {
 		wantCode:          http.StatusBadGateway,
 		wantErr:           errors.New("request error"),
 		endpointsInformer: endpointsInformer(endpoints(testNamespace, testRevName, 1000, networking.ServicePortNameHTTP1)),
-		destsUpdates: []*activatornet.RevisionDestsUpdate{{
+		destsUpdate: activatornet.RevisionDestsUpdate{
 			Rev:   types.NamespacedName{testNamespace, testRevName},
 			Dests: dests(1000),
-		}},
+		},
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
 			Namespace:  testNamespace,
@@ -198,18 +198,16 @@ func TestActivationHandler(t *testing.T) {
 				test.endpointsInformer,
 				logger)
 
-			rbmUpdateCh := make(chan *activatornet.RevisionDestsUpdate)
+			rbmUpdateCh := make(chan activatornet.RevisionDestsUpdate)
 			defer close(rbmUpdateCh)
 			go throttler.Run(rbmUpdateCh)
 
-			for _, destsUpdate := range test.destsUpdates {
-				rbmUpdateCh <- destsUpdate
-			}
+			rbmUpdateCh <- test.destsUpdate
 
 			stopCh := make(chan struct{})
 			controller.StartInformers(stopCh, revisions.Informer(), test.endpointsInformer.Informer())
 
-			// We want to stop our informers and rbm before we clear rbm
+			// We want to stop our informers and RBM before we clear RBM.
 			defer close(stopCh)
 
 			handler := (New(logger, reporter, throttler,
@@ -238,10 +236,10 @@ func TestActivationHandler(t *testing.T) {
 			if test.tryTimeout == 0 {
 				test.tryTimeout = 200 * time.Millisecond
 			}
-			tryContext, cancel := context.WithTimeout(context.TODO(), test.tryTimeout)
+			tryContext, cancel := context.WithTimeout(context.Background(), test.tryTimeout)
 			defer cancel()
 
-			// set up config store to populate context
+			// Set up config store to populate context.
 			configStore := setupConfigStore(t)
 			ctx := configStore.ToContext(tryContext)
 
@@ -289,7 +287,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 		return fake.Result(), nil
 	})
 
-	updateCh := make(chan *activatornet.RevisionDestsUpdate)
+	updateCh := make(chan activatornet.RevisionDestsUpdate)
 	defer close(updateCh)
 
 	stopCh := make(chan struct{})
@@ -303,7 +301,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 		TestLogger(t))
 	go throttler.Run(updateCh)
 
-	updateCh <- &activatornet.RevisionDestsUpdate{
+	updateCh <- activatornet.RevisionDestsUpdate{
 		Rev:           types.NamespacedName{namespace, revName},
 		ClusterIPDest: "129.0.0.1:1234",
 		Dests:         dests(breakerParams.InitialCapacity),
@@ -387,7 +385,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 			endpoints := endpointsInformer(endpoints(namespace, revName, breakerParams.InitialCapacity, networking.ServicePortNameHTTP1))
 			services := serviceLister(service(testNamespace, testRevName, "http"))
 
-			updateCh := make(chan *activatornet.RevisionDestsUpdate)
+			updateCh := make(chan activatornet.RevisionDestsUpdate)
 			defer close(updateCh)
 
 			stopCh := make(chan struct{})
@@ -402,7 +400,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 
 			go throttler.Run(updateCh)
 
-			updateCh <- &activatornet.RevisionDestsUpdate{
+			updateCh <- activatornet.RevisionDestsUpdate{
 				Rev:           types.NamespacedName{namespace, revName},
 				ClusterIPDest: "129.0.0.1:1234",
 				Dests:         dests(breakerParams.InitialCapacity),
