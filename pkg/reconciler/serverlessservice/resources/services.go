@@ -110,8 +110,13 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 				// port queue-proxy listens on.
 				TargetPort: targetPort(sks),
 			}, {
-				// Expose the QueueAdminPort in order to allow PreStop hooks to be called.
-				// This is important for graceful shutdown of user-container.
+				// When run with the Istio mesh, Envoy blocks traffic to any ports not
+				// recognized, and has special treatment for probes, but not PreStop hooks.
+				// That results in the PreStop hook /wait-for-drain in queue-proxy not
+				// reachable, thus triggering SIGTERM immediately during shutdown and
+				// causing requests to be dropped.
+				//
+				// So we expose this port here to work around this Istio bug.
 				Name:       servingv1alpha1.QueueAdminPortName,
 				Protocol:   corev1.ProtocolTCP,
 				Port:       networking.QueueAdminPort,
