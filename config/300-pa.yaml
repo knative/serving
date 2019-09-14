@@ -39,15 +39,15 @@ spec:
   subresources:
     status: {}
   additionalPrinterColumns:
-  - name: Ready
-    type: string
-    JSONPath: ".status.conditions[?(@.type=='Ready')].status"
-  - name: Reason
-    type: string
-    JSONPath: ".status.conditions[?(@.type=='Ready')].reason"
   - name: DesiredScale
     type: integer
     JSONPath: ".status.desiredScale"
   - name: ActualScale
     type: integer
     JSONPath: ".status.actualScale"
+  - name: Ready
+    type: string
+    JSONPath: ".status.conditions[?(@.type=='Ready')].status"
+  - name: Reason
+    type: string
+    JSONPath: ".status.conditions[?(@.type=='Ready')].reason"
