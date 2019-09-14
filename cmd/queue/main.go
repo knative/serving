@@ -517,6 +517,15 @@ func buildAdminServer(healthState *health.State, probe *readiness.Probe, logger 
 	}, probe.IsAggressive()))
 	adminMux.HandleFunc(queue.RequestQueueDrainPath, healthState.DrainHandler())
 
+	// This is not strictly needed for any sort of healthiness check!
+	// When run with the Istio mesh, Envoy blocks traffic to any ports not
+	// recognized, and has special treatment for probes (like this), but
+	// not PreStop hooks.  So we expose this to work around this Istio bug
+	// by using the admin port in a way that it recognizes.  See: #5540
+	adminMux.HandleFunc(queue.DummyProbePath, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("ok"))
+	})
+
 	return &http.Server{
 		Addr:    ":" + strconv.Itoa(networking.QueueAdminPort),
 		Handler: adminMux,

@@ -112,6 +112,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
 			Ports:           append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe:  defaultKnativeQReadinessProbe,
+			LivenessProbe:   dummyLivenessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Env: env(nil),
@@ -154,6 +155,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
 			Ports:           append(queueNonServingPorts, queueHTTP2Port),
 			ReadinessProbe:  defaultKnativeQReadinessProbe,
+			LivenessProbe:   dummyLivenessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
@@ -193,6 +195,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
 			Ports:           append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe:  defaultKnativeQReadinessProbe,
+			LivenessProbe:   dummyLivenessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
@@ -232,6 +235,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
 			Ports:           append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe:  defaultKnativeQReadinessProbe,
+			LivenessProbe:   dummyLivenessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Env: env(map[string]string{
@@ -272,6 +276,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
 			Ports:           append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe:  defaultKnativeQReadinessProbe,
+			LivenessProbe:   dummyLivenessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Env: env(map[string]string{
@@ -308,6 +313,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
 			Ports:           append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe:  defaultKnativeQReadinessProbe,
+			LivenessProbe:   dummyLivenessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Env: env(map[string]string{
@@ -340,6 +346,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
 			Ports:           append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe:  defaultKnativeQReadinessProbe,
+			LivenessProbe:   dummyLivenessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Env: env(map[string]string{
@@ -375,6 +382,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
 			Ports:           append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe:  defaultKnativeQReadinessProbe,
+			LivenessProbe:   dummyLivenessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Env: env(map[string]string{
@@ -477,6 +485,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			},
 			Ports:           append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe:  defaultKnativeQReadinessProbe,
+			LivenessProbe:   dummyLivenessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
@@ -534,6 +543,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			},
 			Ports:           append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe:  defaultKnativeQReadinessProbe,
+			LivenessProbe:   dummyLivenessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
@@ -590,6 +600,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			},
 			Ports:           append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe:  defaultKnativeQReadinessProbe,
+			LivenessProbe:   dummyLivenessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
@@ -646,6 +657,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 			},
 			Ports:           append(queueNonServingPorts, queueHTTPPort),
 			ReadinessProbe:  defaultKnativeQReadinessProbe,
+			LivenessProbe:   dummyLivenessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
@@ -756,6 +768,7 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 			PeriodSeconds:  1,
 			TimeoutSeconds: 10,
 		},
+		LivenessProbe: dummyLivenessProbe,
 		// These changed based on the Revision and configs passed in.
 		Env: env(map[string]string{
 			"SERVING_READINESS_PROBE": string(wantProbeJSON),
@@ -850,6 +863,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 			PeriodSeconds:  2,
 			TimeoutSeconds: 10,
 		},
+		LivenessProbe: dummyLivenessProbe,
 		// These changed based on the Revision and configs passed in.
 		Env: env(map[string]string{
 			"USER_PORT":               strconv.Itoa(userPort),
@@ -922,6 +936,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 				PeriodSeconds:  1,
 				TimeoutSeconds: 10,
 			},
+			LivenessProbe: dummyLivenessProbe,
 			// These changed based on the Revision and configs passed in.
 			Env:             env(map[string]string{"USER_PORT": strconv.Itoa(userPort)}),
 			SecurityContext: queueSecurityContext,
@@ -969,6 +984,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 				PeriodSeconds:  1,
 				TimeoutSeconds: 1,
 			},
+			LivenessProbe: dummyLivenessProbe,
 			// These changed based on the Revision and configs passed in.
 			Env:             env(map[string]string{}),
 			SecurityContext: queueSecurityContext,
@@ -1029,6 +1045,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 				FailureThreshold:    7,
 				InitialDelaySeconds: 3,
 			},
+			LivenessProbe: dummyLivenessProbe,
 			// These changed based on the Revision and configs passed in.
 			Env:             env(map[string]string{"USER_PORT": strconv.Itoa(userPort)}),
 			SecurityContext: queueSecurityContext,

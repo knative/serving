@@ -71,6 +71,26 @@ var (
 	queueSecurityContext = &corev1.SecurityContext{
 		AllowPrivilegeEscalation: ptr.Bool(false),
 	}
+
+	// This is not strictly needed for any sort of healthiness check!
+	// When run with the Istio mesh, Envoy blocks traffic to any ports not
+	// recognized, and has special treatment for probes (like this), but
+	// not PreStop hooks.  So we expose this to work around this Istio bug
+	// by using the admin port in a way that it recognizes.  See: #5540
+	dummyLivenessProbe = &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: queue.DummyProbePath,
+				Port: intstr.FromInt(networking.QueueAdminPort),
+			},
+		},
+		// Make these super long so that if it block startup we know.
+		InitialDelaySeconds: 100,
+		PeriodSeconds:       100,
+		TimeoutSeconds:      100,
+		SuccessThreshold:    50,
+		FailureThreshold:    50,
+	}
 )
 
 func createQueueResources(annotations map[string]string, userContainer *corev1.Container) corev1.ResourceRequirements {
@@ -230,6 +250,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 		Resources:       createQueueResources(rev.GetAnnotations(), rev.Spec.GetContainer()),
 		Ports:           ports,
 		ReadinessProbe:  makeQueueProbe(rp),
+		LivenessProbe:   dummyLivenessProbe,
 		VolumeMounts:    volumeMounts,
 		SecurityContext: queueSecurityContext,
 		Env: []corev1.EnvVar{{

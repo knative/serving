@@ -83,6 +83,7 @@ var (
 			PeriodSeconds:  1,
 			TimeoutSeconds: 10,
 		},
+		LivenessProbe:   dummyLivenessProbe,
 		SecurityContext: queueSecurityContext,
 		Env: []corev1.EnvVar{{
 			Name:  "SERVING_NAMESPACE",

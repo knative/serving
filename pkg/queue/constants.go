@@ -26,4 +26,13 @@ const (
 	// Main usage is to delay the termination of user-container until all
 	// accepted requests have been processed.
 	RequestQueueDrainPath = "/wait-for-drain"
+
+	// DummyProbePath is used to expose a liveness probe on the queue-proxy
+	// that is not intended to establish any sort of healthiness, but to
+	// work around a bug in Istio.
+	// When run with the Istio mesh, Envoy blocks traffic to any ports not
+	// recognized, and has special treatment for probes, but not PreStop hooks.
+	// So we use this dummy path to expose an otherwise useless probe to
+	// workaround the bug.  See: #5540
+	DummyProbePath = "/dummy-probe"
 )
