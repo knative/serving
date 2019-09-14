@@ -110,6 +110,8 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 				// port queue-proxy listens on.
 				TargetPort: targetPort(sks),
 			}, {
+				// Expose the QueueAdminPort in order to allow PreStop hooks to be called.
+				// This is important for graceful shutdown of user-container.
 				Name:       servingv1alpha1.QueueAdminPortName,
 				Protocol:   corev1.ProtocolTCP,
 				Port:       networking.QueueAdminPort,
