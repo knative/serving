@@ -19,6 +19,7 @@ import (
 
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
+	pkglogging "knative.dev/pkg/logging"
 	"knative.dev/pkg/signals"
 )
 
@@ -37,9 +38,32 @@ func ListenAndServeGracefully(addr string, handler func(w http.ResponseWriter, r
 // and handles incoming requests with the given handler.
 // It blocks until SIGTERM is received and the underlying server has shutdown gracefully.
 func ListenAndServeGracefullyWithHandler(addr string, handler http.Handler) {
+	logger, _ := pkglogging.NewLogger(`{
+              "level": "info",
+              "development": false,
+              "outputPaths": ["stdout"],
+              "errorOutputPaths": ["stderr"],
+              "encoding": "json",
+              "encoderConfig": {
+                "timeKey": "ts",
+                "levelKey": "level",
+                "nameKey": "logger",
+                "callerKey": "caller",
+                "messageKey": "msg",
+                "stacktraceKey": "stacktrace",
+                "lineEnding": "",
+                "levelEncoder": "",
+                "timeEncoder": "iso8601",
+                "durationEncoder": "",
+                "callerEncoder": ""
+              }
+            }`, "")
+
 	server := http.Server{Addr: addr, Handler: h2c.NewHandler(handler, &http2.Server{})}
 	go server.ListenAndServe()
 
 	<-signals.SetupSignalHandler()
+	logger.Info("Receiving SIGTERM. Attempting to gracefully shutdown server.")
 	server.Shutdown(context.Background())
+	logger.Info("Server shutdown.")
 }

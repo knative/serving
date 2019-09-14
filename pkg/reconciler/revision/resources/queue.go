@@ -44,7 +44,7 @@ import (
 
 const (
 	localAddress             = "127.0.0.1"
-	requestQueueHTTPPortName = "queue-port"
+	requestQueueHTTPPortName = "http-queue-port"
 )
 
 var (

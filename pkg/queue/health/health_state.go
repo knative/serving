@@ -20,6 +20,8 @@ import (
 	"io"
 	"net/http"
 	"sync"
+
+	pkglogging "knative.dev/pkg/logging"
 )
 
 // State holds state about the current healthiness of the component.
@@ -119,7 +121,32 @@ func (h *State) DrainHandler() func(_ http.ResponseWriter, _ *http.Request) {
 	}
 
 	return func(_ http.ResponseWriter, _ *http.Request) {
+		// Setup the logger.
+		logger, _ := pkglogging.NewLogger(`{
+              "level": "info",
+              "development": false,
+              "outputPaths": ["stdout"],
+              "errorOutputPaths": ["stderr"],
+              "encoding": "json",
+              "encoderConfig": {
+                "timeKey": "ts",
+                "levelKey": "level",
+                "nameKey": "logger",
+                "callerKey": "caller",
+                "messageKey": "msg",
+                "stacktraceKey": "stacktrace",
+                "lineEnding": "",
+                "levelEncoder": "",
+                "timeEncoder": "iso8601",
+                "durationEncoder": "",
+                "callerEncoder": ""
+              }
+            }`, "")
+		logger = logger.Named("queueproxy")
+
+		logger.Info("Waiting for drain.")
 		<-h.drainCh
+		logger.Info("Drained.")
 	}
 }
 
@@ -132,5 +159,29 @@ func (h *State) Shutdown(drain func()) {
 		drain()
 	}
 
+	// Setup the logger.
+	logger, _ := pkglogging.NewLogger(`{
+              "level": "info",
+              "development": false,
+              "outputPaths": ["stdout"],
+              "errorOutputPaths": ["stderr"],
+              "encoding": "json",
+              "encoderConfig": {
+                "timeKey": "ts",
+                "levelKey": "level",
+                "nameKey": "logger",
+                "callerKey": "caller",
+                "messageKey": "msg",
+                "stacktraceKey": "stacktrace",
+                "lineEnding": "",
+                "levelEncoder": "",
+                "timeEncoder": "iso8601",
+                "durationEncoder": "",
+                "callerEncoder": ""
+              }
+            }`, "")
+	logger = logger.Named("queueproxy")
+
+	logger.Info("Done shutting down servers, marking drained")
 	h.drainFinished()
 }

@@ -108,6 +108,13 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 				// This one is matching the public one, since this is the
 				// port queue-proxy listens on.
 				TargetPort: targetPort(sks),
+			}, {
+				Name:     "http-prestop",
+				Protocol: corev1.ProtocolTCP,
+				Port:     888,
+				// This one is matching the public one, since this is the
+				// port queue-proxy listens on.
+				TargetPort: intstr.FromInt(8022),
 			}},
 			Selector: selector,
 		},

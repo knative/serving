@@ -380,17 +380,16 @@ func main() {
 	case <-signals.SetupSignalHandler():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
 		healthState.Shutdown(func() {
+			logger.Info("Sleep to give Istio more time.")
 			// Give Istio time to sync our "not ready" state.
 			time.Sleep(quitSleepDuration)
 
+			logger.Info("Shutting down servers.")
 			// Calling server.Shutdown() allows pending requests to
 			// complete, while no new work is accepted.
 			if err := server.Shutdown(context.Background()); err != nil {
 				logger.Errorw("Failed to shutdown proxy server", zap.Error(err))
 			}
-
-			// Wait until queue has nothing left.
-			time.Sleep(quitSleepDuration)
 		})
 
 		flush(logger)
