@@ -88,6 +88,8 @@ func FilterSubsetPorts(sks *v1alpha1.ServerlessService, subsets []corev1.Endpoin
 }
 
 // filterSubsetPorts internal implementation that takes in port.
+// Those are not arbitrary endpoints, but the endpoints we construct ourselves,
+// thus we know that at least one of the ports will always match.
 func filterSubsetPorts(targetPort int32, subsets []corev1.EndpointSubset) []corev1.EndpointSubset {
 	if len(subsets) == 0 {
 		return nil
@@ -96,14 +98,12 @@ func filterSubsetPorts(targetPort int32, subsets []corev1.EndpointSubset) []core
 	for i, sss := range subsets {
 		sst := sss.DeepCopy()
 		// Find the port we care about and remove all others.
-		for _, p := range sst.Ports {
+		for j, p := range sst.Ports {
 			if p.Port == targetPort {
-				sst.Ports[0] = p
+				sst.Ports = sst.Ports[j : j+1]
 				break
 			}
 		}
-		// Strip all the others.
-		sst.Ports = sst.Ports[:1]
 		ret[i] = *sst
 	}
 	return ret
