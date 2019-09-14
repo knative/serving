@@ -392,7 +392,7 @@ func knCertWithStatus(namespace *corev1.Namespace, status *v1alpha1.CertificateS
 		},
 		Spec: v1alpha1.CertificateSpec{
 			DNSNames:   wildcardDNSNames,
-			SecretName: namespace.Name,
+			SecretName: defaultCertName,
 		},
 		Status: *status,
 	}
