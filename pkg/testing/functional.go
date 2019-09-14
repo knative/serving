@@ -262,6 +262,7 @@ type EndpointsOption func(*corev1.Endpoints)
 func WithSubsets(ep *corev1.Endpoints) {
 	ep.Subsets = []corev1.EndpointSubset{{
 		Addresses: []corev1.EndpointAddress{{IP: "127.0.0.1"}},
+		Ports:     []corev1.EndpointPort{{Port: 8012}, {Port: 8013}},
 	}}
 }
 

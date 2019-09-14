@@ -76,13 +76,37 @@ func MakePublicEndpoints(sks *v1alpha1.ServerlessService, src *corev1.Endpoints)
 			Annotations:     resources.CopyMap(sks.GetAnnotations()),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(sks)},
 		},
-		Subsets: func() (ret []corev1.EndpointSubset) {
-			for _, r := range src.Subsets {
-				ret = append(ret, *r.DeepCopy())
-			}
-			return
-		}(),
+		Subsets: FilterSubsetPorts(sks, src.Subsets),
 	}
+}
+
+// FilterSubsetPorts makes a copy of the ep.Subsets, filtering out ports
+// that are not serving (e.g. 8012 for HTTP).
+func FilterSubsetPorts(sks *v1alpha1.ServerlessService, subsets []corev1.EndpointSubset) []corev1.EndpointSubset {
+	targetPort := targetPort(sks).IntVal
+	return filterSubsetPorts(targetPort, subsets)
+}
+
+// filterSubsetPorts internal implementation that takes in port.
+func filterSubsetPorts(targetPort int32, subsets []corev1.EndpointSubset) []corev1.EndpointSubset {
+	if len(subsets) == 0 {
+		return nil
+	}
+	ret := make([]corev1.EndpointSubset, len(subsets))
+	for i, sss := range subsets {
+		sst := sss.DeepCopy()
+		// Find the port we care about and remove all others.
+		for _, p := range sst.Ports {
+			if p.Port == targetPort {
+				sst.Ports[0] = p
+				break
+			}
+		}
+		// Strip all the others.
+		sst.Ports = sst.Ports[:1]
+		ret[i] = *sst
+	}
+	return ret
 }
 
 // MakePrivateService constructs a K8s service, that is backed by the pod selector
