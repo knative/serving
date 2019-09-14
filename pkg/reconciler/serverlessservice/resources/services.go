@@ -20,6 +20,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/resources"
 
 	corev1 "k8s.io/api/core/v1"
@@ -108,6 +109,11 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 				// This one is matching the public one, since this is the
 				// port queue-proxy listens on.
 				TargetPort: targetPort(sks),
+			}, {
+				Name:       servingv1alpha1.QueueAdminPortName,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       networking.QueueAdminPort,
+				TargetPort: intstr.FromInt(networking.QueueAdminPort),
 			}},
 			Selector: selector,
 		},

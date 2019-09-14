@@ -28,6 +28,7 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
+	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
 var (
@@ -503,6 +504,11 @@ func TestMakePrivateService(t *testing.T) {
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.ServiceHTTPPort,
 					TargetPort: intstr.FromInt(networking.BackendHTTPPort),
+				}, {
+					Name:       servingv1alpha1.QueueAdminPortName,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       networking.QueueAdminPort,
+					TargetPort: intstr.FromInt(networking.QueueAdminPort),
 				}},
 			},
 		},
@@ -561,6 +567,11 @@ func TestMakePrivateService(t *testing.T) {
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.ServiceHTTPPort,
 					TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
+				}, {
+					Name:       servingv1alpha1.QueueAdminPortName,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       networking.QueueAdminPort,
+					TargetPort: intstr.FromInt(networking.QueueAdminPort),
 				}},
 			},
 		},
