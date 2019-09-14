@@ -377,7 +377,7 @@ func (t *Throttler) revisionDeleted(obj interface{}) {
 
 func (t *Throttler) handleUpdate(update RevisionDestsUpdate) {
 	if rt, err := t.getOrCreateRevisionThrottler(update.Rev); err != nil {
-		t.logger.Errorw(fmt.Sprintf("Failed to get revision throttler for revision %q", update.Rev.String()),
+		t.logger.Warnw(fmt.Sprintf("Failed to get revision throttler for revision %q", update.Rev.String()),
 			zap.Error(err))
 	} else {
 		rt.handleUpdate(t, update)
