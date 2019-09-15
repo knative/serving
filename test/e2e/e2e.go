@@ -92,6 +92,14 @@ func waitForActivatorEndpoints(resources *v1a1test.ResourceObjects, clients *tes
 		if err != nil {
 			return false, err
 		}
-		return cmp.Equal(svcEps.Subsets, aeps.Subsets), nil
+		if len(svcEps.Subsets) != len(aeps.Subsets) {
+			return false, nil
+		}
+		for i, ss := range svcEps.Subsets {
+			if !cmp.Equal(ss.Addresses, aeps.Subsets[i].Addresses) {
+				return false, nil
+			}
+		}
+		return true, nil
 	})
 }

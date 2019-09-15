@@ -82,7 +82,7 @@ func TestReconcile(t *testing.T) {
 			deploy("steady", "bar"),
 			svcpub("steady", "state"),
 			svcpriv("steady", "state", svcWithName("state-fsdf")),
-			endpointspub("steady", "state", WithSubsets),
+			endpointspub("steady", "state", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 			endpointspriv("steady", "state", WithSubsets, epsWithName("state-fsdf")),
 			activatorEndpoints(WithSubsets),
 		},
@@ -96,7 +96,7 @@ func TestReconcile(t *testing.T) {
 			deploy("steady", "bar"),
 			svcpub("steady", "to-proxy"),
 			svcpriv("steady", "to-proxy", svcWithName("to-proxy-deadbeef")),
-			endpointspub("steady", "to-proxy", withOtherSubsets),
+			endpointspub("steady", "to-proxy", withOtherSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 			endpointspriv("steady", "to-proxy", epsWithName("to-proxy-deadbeef")),
 			activatorEndpoints(WithSubsets),
 		},
@@ -105,7 +105,7 @@ func TestReconcile(t *testing.T) {
 				withProxyMode, WithPubService, WithPrivateService("to-proxy-deadbeef")),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: endpointspub("steady", "to-proxy", WithSubsets),
+			Object: endpointspub("steady", "to-proxy", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "steady/to-proxy"`),
@@ -121,12 +121,12 @@ func TestReconcile(t *testing.T) {
 			deploy("steady", "bar"),
 			svcpub("steady", "to-proxy"),
 			svcpriv("steady", "to-proxy", svcWithName("to-proxy-deadbeef")),
-			endpointspub("steady", "to-proxy", withOtherSubsets),
+			endpointspub("steady", "to-proxy", withOtherSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 			endpointspriv("steady", "to-proxy", epsWithName("to-proxy-deadbeef"), WithSubsets),
 			activatorEndpoints(WithSubsets),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: endpointspub("steady", "to-proxy", WithSubsets),
+			Object: endpointspub("steady", "to-proxy", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 		}},
 	}, {
 		Name: "many-private-services",
@@ -140,7 +140,7 @@ func TestReconcile(t *testing.T) {
 			svcpriv("many", "privates", svcWithName("privates-brutality-is-here")),
 			svcpriv("many", "privates", svcWithName("privates-uncharacteristically-pretty"),
 				WithK8sSvcOwnersRemoved), // unowned, should remain.
-			endpointspub("many", "privates", WithSubsets),
+			endpointspub("many", "privates", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 			endpointspriv("many", "privates", WithSubsets, epsWithName("privates-elegance-required")),
 			activatorEndpoints(WithSubsets),
 		},
@@ -165,7 +165,7 @@ func TestReconcile(t *testing.T) {
 			deploy("public", "bar"),
 			svcpub("public", "svc-change", withTimeSelector),
 			svcpriv("public", "svc-change", svcWithName("svc-change-feedbeef")),
-			endpointspub("public", "svc-change", WithSubsets),
+			endpointspub("public", "svc-change", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 			endpointspriv("public", "svc-change", WithSubsets, epsWithName("svc-change-feedbeef")),
 			activatorEndpoints(WithSubsets),
 		},
@@ -181,14 +181,14 @@ func TestReconcile(t *testing.T) {
 			deploy("private", "baz"),
 			svcpub("private", "svc-change"),
 			svcpriv("private", "svc-change", withTimeSelector, svcWithName("svc-change-fade")),
-			endpointspub("private", "svc-change", withOtherSubsets),
+			endpointspub("private", "svc-change", withOtherSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 			endpointspriv("private", "svc-change", WithSubsets, epsWithName("svc-change-fade")),
 			activatorEndpoints(WithSubsets),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svcpriv("private", "svc-change", svcWithName("svc-change-fade")),
 		}, {
-			Object: endpointspub("private", "svc-change", WithSubsets),
+			Object: endpointspub("private", "svc-change", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 		}},
 	}, {
 		Name: "OnCreate-deployment-does-not-exist",
@@ -215,7 +215,7 @@ func TestReconcile(t *testing.T) {
 		WantCreates: []runtime.Object{
 			svcpriv("on", "cde"),
 			svcpub("on", "cde"),
-			endpointspub("on", "cde", WithSubsets),
+			endpointspub("on", "cde", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: SKS("on", "cde", WithDeployRef("blah"),
@@ -241,7 +241,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "endpoints"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: endpointspub("update-eps", "failA", WithSubsets), // The attempted update.
+			Object: endpointspub("update-eps", "failA", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)), // The attempted update.
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for update endpoints"),
@@ -291,7 +291,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantCreates: []runtime.Object{
 			svcpub("eps", "fail3"),
-			endpointspub("eps", "fail3", WithSubsets),
+			endpointspub("eps", "fail3", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for create endpoints"),
@@ -309,7 +309,7 @@ func TestReconcile(t *testing.T) {
 		WantCreates: []runtime.Object{
 			svcpriv("on", "cneps"),
 			svcpub("on", "cneps"),
-			endpointspub("on", "cneps", WithSubsets),
+			endpointspub("on", "cneps", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: SKS("on", "cneps", WithDeployRef("blah"),
@@ -325,7 +325,7 @@ func TestReconcile(t *testing.T) {
 			SKS("on", "cnaeps2", WithDeployRef("blah")),
 			deploy("on", "blah"),
 			endpointspriv("on", "cnaeps2", WithSubsets, epsWithName("cnaeps2-00001")),
-			endpointspub("on", "cnaeps2", WithSubsets),
+			endpointspub("on", "cnaeps2", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 		},
 		WantErr: true,
 		WantCreates: []runtime.Object{
@@ -365,13 +365,13 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cnaeps3"`),
 		},
 	}, {
-		Name: "OnCreate-no-activator-eps-serve",
+		Name: "OnCreate-no-activator-eps-service",
 		Key:  "on/cnaeps",
 		Objects: []runtime.Object{
 			SKS("on", "cnaeps", WithDeployRef("blah")),
 			deploy("on", "blah"),
 			endpointspriv("on", "cnaeps", WithSubsets, epsWithName("cnaeps-00001")),
-			endpointspub("on", "cnaeps", WithSubsets),
+			endpointspub("on", "cnaeps", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 			activatorEndpoints(),
 		},
 		WantCreates: []runtime.Object{
@@ -439,7 +439,7 @@ func TestReconcile(t *testing.T) {
 			deploy("update-sks", "blah"),
 			svcpub("update-sks", "fail4"),
 			svcpriv("update-sks", "fail4", svcWithName("fail4-42x")),
-			endpointspub("update-sks", "fail4", WithSubsets),
+			endpointspub("update-sks", "fail4", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 			endpointspriv("update-sks", "fail4", WithSubsets, epsWithName("fail4-42x")),
 			activatorEndpoints(WithSubsets),
 		},
@@ -585,7 +585,7 @@ func TestReconcile(t *testing.T) {
 				activatorEndpoints(WithSubsets),
 			},
 			WantUpdates: []clientgotesting.UpdateActionImpl{{
-				Object: endpointspub("pod", "change", withOtherSubsets),
+				Object: endpointspub("pod", "change", withOtherSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 			}},
 		}, {
 			Name: "proxy mode; pod change - activator",
@@ -601,7 +601,7 @@ func TestReconcile(t *testing.T) {
 				activatorEndpoints(withOtherSubsets),
 			},
 			WantUpdates: []clientgotesting.UpdateActionImpl{{
-				Object: endpointspub("pod", "change", withOtherSubsets),
+				Object: endpointspub("pod", "change", withOtherSubsets, withFilteredPorts(networking.BackendHTTP2Port)),
 			}},
 		}, {
 			Name: "serving mode; serving pod comes online",
@@ -624,7 +624,7 @@ func TestReconcile(t *testing.T) {
 				Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "pod/change"`),
 			},
 			WantUpdates: []clientgotesting.UpdateActionImpl{{
-				Object: endpointspub("pod", "change", WithSubsets),
+				Object: endpointspub("pod", "change", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 			}},
 		}, {
 			Name: "serving mode; no backend endpoints",
@@ -647,7 +647,7 @@ func TestReconcile(t *testing.T) {
 				Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "pod/change"`),
 			},
 			WantUpdates: []clientgotesting.UpdateActionImpl{{
-				Object: endpointspub("pod", "change", withOtherSubsets),
+				Object: endpointspub("pod", "change", withOtherSubsets, withFilteredPorts(networking.BackendHTTP2Port)),
 			}},
 		}}
 
@@ -663,10 +663,25 @@ func TestReconcile(t *testing.T) {
 	}))
 }
 
+// Keeps only desired port.
+func withFilteredPorts(port int32) EndpointsOption {
+	return func(ep *corev1.Endpoints) {
+		for _, p := range ep.Subsets[0].Ports {
+			if p.Port == port {
+				ep.Subsets[0].Ports[0] = p
+				break
+			}
+		}
+		// Strip all the others.
+		ep.Subsets[0].Ports = ep.Subsets[0].Ports[:1]
+	}
+}
+
 // withOtherSubsets uses different IP set than functional::withSubsets.
 func withOtherSubsets(ep *corev1.Endpoints) {
 	ep.Subsets = []corev1.EndpointSubset{{
 		Addresses: []corev1.EndpointAddress{{IP: "127.0.0.2"}},
+		Ports:     []corev1.EndpointPort{{Port: 8013}, {Port: 8012}},
 	}}
 }
 

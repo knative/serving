@@ -360,7 +360,7 @@ func TestMakeEndpoints(t *testing.T) {
 			},
 		},
 	}, {
-		name: "some endpoints",
+		name: "some endpoints, many ports",
 		sks: &v1alpha1.ServerlessService{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "melon",
@@ -391,7 +391,15 @@ func TestMakeEndpoints(t *testing.T) {
 				}},
 				Ports: []corev1.EndpointPort{{
 					Name:     "http",
+					Port:     8022,
+					Protocol: "TCP",
+				}, {
+					Name:     "http",
 					Port:     8012,
+					Protocol: "TCP",
+				}, {
+					Name:     "https",
+					Port:     8043,
 					Protocol: "TCP",
 				}},
 			}},
@@ -440,6 +448,88 @@ func TestMakeEndpoints(t *testing.T) {
 			got := MakePublicEndpoints(test.sks, test.eps)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("Public K8s Endpoints mismatch (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
+func TestFilterSubsetPorts(t *testing.T) {
+	tests := []struct {
+		name    string
+		port    int32
+		subsets []corev1.EndpointSubset
+		want    []corev1.EndpointSubset
+	}{{
+		name: "nil",
+		port: 1982,
+	}, {
+		name: "one port",
+		port: 1984,
+		subsets: []corev1.EndpointSubset{{
+			Ports: []corev1.EndpointPort{{
+				Name:     "http",
+				Port:     1984,
+				Protocol: "TCP",
+			}},
+		}},
+		want: []corev1.EndpointSubset{{
+			Ports: []corev1.EndpointPort{{
+				Name:     "http",
+				Port:     1984,
+				Protocol: "TCP",
+			}},
+		}},
+	}, {
+		name: "two  ports, keep first",
+		port: 1988,
+		subsets: []corev1.EndpointSubset{{
+			Ports: []corev1.EndpointPort{{
+				Name:     "http",
+				Port:     1988,
+				Protocol: "TCP",
+			}, {
+				Name:     "http",
+				Port:     1983,
+				Protocol: "TCP",
+			}},
+		}},
+		want: []corev1.EndpointSubset{{
+			Ports: []corev1.EndpointPort{{
+				Name:     "http",
+				Port:     1988,
+				Protocol: "TCP",
+			}},
+		}},
+	}, {
+		name: "three ports, keep middle",
+		port: 2006,
+		subsets: []corev1.EndpointSubset{{
+			Ports: []corev1.EndpointPort{{
+				Name:     "http",
+				Port:     2009,
+				Protocol: "TCP",
+			}, {
+				Name:     "http",
+				Port:     2006,
+				Protocol: "TCP",
+			}, {
+				Name:     "http",
+				Port:     2019,
+				Protocol: "TCP",
+			}},
+		}},
+		want: []corev1.EndpointSubset{{
+			Ports: []corev1.EndpointPort{{
+				Name:     "http",
+				Port:     2006,
+				Protocol: "TCP",
+			}},
+		}},
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got, want := filterSubsetPorts(test.port, test.subsets), test.want; !cmp.Equal(got, want) {
+				t.Errorf("Got = %v, want: %v, diff:\n%s", got, want, cmp.Diff(want, got))
 			}
 		})
 	}
