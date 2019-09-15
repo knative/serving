@@ -212,3 +212,69 @@ func TestDestroyPodTimely(t *testing.T) {
 		t.Errorf("Time to delete pods = %v, want < %v", timeToDelete, revisionTimeout)
 	}
 }
+
+func TestDestroyPodWithRequests(t *testing.T) {
+	cancel := logstream.Start(t)
+	defer cancel()
+
+	clients := Setup(t)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   "autoscale",
+	}
+	defer test.TearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
+	if err != nil {
+		t.Fatalf("Failed to create a service: %v", err)
+	}
+	domain := objects.Route.Status.URL.Host
+
+	pods, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).List(metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", serving.RevisionLabelKey, objects.Revision.Name),
+	})
+	if err != nil || len(pods.Items) == 0 {
+		t.Fatalf("No pods or error: %v", err)
+	}
+
+	// The request will leep for more than 25 seconds.
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s?sleep=25001", domain), nil)
+	if err != nil {
+		t.Fatalf("Error creating HTTP request: %v", err)
+	}
+	httpClient, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+	if err != nil {
+		t.Fatalf("Error creating spoofing client: %v", err)
+	}
+
+	// Start several requests staggered with 1s delay.
+	var eg errgroup.Group
+	for i := 1; i < 7; i++ {
+		i := i
+		t.Logf("Starting request %d at %v", i, time.Now())
+		eg.Go(func() error {
+			res, err := httpClient.Do(req)
+			t.Logf("Request %d done at %v", i, time.Now())
+			if err != nil {
+				return err
+			}
+			if res.StatusCode != http.StatusOK {
+				return fmt.Errorf("request status = %v, want StatusOK", res.StatusCode)
+			}
+			return nil
+		})
+		time.Sleep(time.Second)
+	}
+
+	// And immeditately kill the pod.
+	podToDelete := pods.Items[0].Name
+	t.Logf("Deleting pod %q", podToDelete)
+	clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).Delete(podToDelete, &metav1.DeleteOptions{})
+
+	// Make sure all the requests succeed.
+	if err := eg.Wait(); err != nil {
+		t.Errorf("Not all requests finished with success, eg: %v", err)
+	}
+}
