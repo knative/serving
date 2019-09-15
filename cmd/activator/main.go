@@ -241,9 +241,10 @@ func main() {
 	ah = reqLogHandler
 	ah = &activatorhandler.ProbeHandler{NextHandler: ah}
 
+	sigCtx, sigCancel := context.WithCancel(context.Background())
+
 	// Set up our health check based on the health of stat sink and environmental factors.
-	// When drainCh is closed, we should start to drain connections.
-	hc, drainCh := newHealthCheck(logger, statSink)
+	hc := newHealthCheck(logger, statSink, sigCtx)
 	ah = &activatorhandler.HealthHandler{HealthCheck: hc, NextHandler: ah}
 
 	ah = network.NewProbeHandler(ah)
@@ -281,10 +282,14 @@ func main() {
 		}(name, server)
 	}
 
+	sigCh := signals.SetupSignalHandler()
+
 	// Wait for the signal to drain.
 	select {
-	case <-drainCh:
-		logger.Info("Received the drain signal.")
+	case <-sigCh:
+		logger.Info("Received SIGTERM")
+		// Send a signal to let readiness probes start failing.
+		sigCancel()
 	case err := <-errCh:
 		logger.Errorw("Failed to run HTTP server", zap.Error(err))
 	}
@@ -301,29 +306,21 @@ func main() {
 	logger.Info("Servers shutdown.")
 }
 
-func newHealthCheck(logger *zap.SugaredLogger, statSink *websocket.ManagedConnection) (func() error, <-chan struct{}) {
-	// When we get SIGTERM (sigCh closes), start failing readiness probes.
-	sigCh := signals.SetupSignalHandler()
-
-	// Some duration after our first readiness probe failure (to allow time
-	// for the network to reprogram) send the signal to drain connections.
-	drainCh := make(chan struct{})
+func newHealthCheck(logger *zap.SugaredLogger, statSink *websocket.ManagedConnection, sigCtx context.Context) func() error {
 	once := sync.Once{}
-
 	return func() error {
 		select {
-		case <-sigCh:
-			// Signal to start the process of draining.
+		// When we get SIGTERM (sigCtx done), let readiness probes start failing.
+		case <-sigCtx.Done():
 			once.Do(func() {
-				logger.Info("Received SIGTERM")
-				close(drainCh)
+				logger.Info("signal context canceled")
 			})
 			return errors.New("received SIGTERM from kubelet")
 		default:
 			logger.Debug("No signal yet.")
 			return statSink.Status()
 		}
-	}, drainCh
+	}
 }
 
 func flush(logger *zap.SugaredLogger) {
