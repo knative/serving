@@ -166,7 +166,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfg("byo-name-wrong-gen-wrong-spec", "foo", 1234, func(cfg *v1alpha1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-name-wrong-gen-wrong-spec-foo"
-			}, MarkRevisionCreationFailed(`revisions.serving.knative.dev "byo-name-wrong-gen-wrong-spec-foo" already exists`)),
+			}, MarkRevisionCreationFailed(`revisions.serving.knative.dev "byo-name-wrong-gen-wrong-spec-foo" already exists`), WithObservedGen),
 		}},
 		Key: "foo/byo-name-wrong-gen-wrong-spec",
 	}, {
@@ -184,7 +184,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfg("byo-rev-not-owned", "foo", 1234, func(cfg *v1alpha1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-rev-not-owned-foo"
-			}, MarkRevisionCreationFailed(`revisions.serving.knative.dev "byo-rev-not-owned-foo" already exists`)),
+			}, MarkRevisionCreationFailed(`revisions.serving.knative.dev "byo-rev-not-owned-foo" already exists`), WithObservedGen),
 		}},
 		Key: "foo/byo-rev-not-owned",
 	}, {
@@ -200,7 +200,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfg("validation-failure", "foo", 1234, WithConfigContainerConcurrency(-1),
 				// Expect Revision creation to fail with the following error.
-				MarkRevisionCreationFailed("expected 0 <= -1 <= 1000: spec.containerConcurrency")),
+				MarkRevisionCreationFailed("expected 0 <= -1 <= 1000: spec.containerConcurrency"), WithObservedGen),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision for Configuration %q: %v",
@@ -311,7 +311,7 @@ func TestReconcile(t *testing.T) {
 			Object: cfg("create-revision-failure", "foo", 99998,
 				// When we fail to create a Revision is should be surfaced in
 				// the Configuration status.
-				MarkRevisionCreationFailed("inducing failure for create revisions")),
+				MarkRevisionCreationFailed("inducing failure for create revisions"), WithObservedGen),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision for Configuration %q: %v",

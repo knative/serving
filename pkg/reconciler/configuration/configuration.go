@@ -127,6 +127,10 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 		return err
 	}
 
+	// Bump observed generation to denote that we have processed this
+	// generation regardless of success or failure.
+	config.Status.ObservedGeneration = config.Generation
+
 	// First, fetch the revision that should exist for the current generation.
 	lcr, err := c.latestCreatedRevision(config)
 	if errors.IsNotFound(err) {
@@ -158,7 +162,6 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 
 	// Second, set this to be the latest revision that we have created.
 	config.Status.SetLatestCreatedRevisionName(revName)
-	config.Status.ObservedGeneration = config.Generation
 
 	// Last, determine whether we should set LatestReadyRevisionName to our
 	// LatestCreatedRevision based on its readiness.
