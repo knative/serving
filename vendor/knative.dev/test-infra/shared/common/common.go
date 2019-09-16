@@ -55,7 +55,7 @@ func GetRootDir() (string, error) {
 // CDToRootDir change directory to git root dir
 func CDToRootDir() error {
 	d, err := GetRootDir()
-	if nil != err {
+	if err != nil {
 		return err
 	}
 	return os.Chdir(d)

@@ -65,7 +65,7 @@ func CreateXMLOutput(tc []junit.TestCase, testName string) error {
 
 	// ensure artifactsDir exist, in case not invoked from this script
 	artifactsDir := prow.GetLocalArtifactsDir()
-	if err := common.CreateDir(artifactsDir); nil != err {
+	if err := common.CreateDir(artifactsDir); err != nil {
 		return err
 	}
 	op, err := ts.ToBytes("", "  ")

@@ -927,7 +927,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:0dca180a6449f2cd457f8efea003336352c5a412212fce072cad9661d5a71b61"
+  digest = "1:bdd1f7aa0a13b578d332f970e36861a834ff8559e06b0b718fa5d8df78e448d8"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -946,18 +946,18 @@
     "metrics/metricskey",
   ]
   pruneopts = "T"
-  revision = "528ad1c1dd627059b95aef17ccf27f9ab0f46c10"
+  revision = "34157973944a3419f1e38fce8dfb11a2fb5aadbb"
 
 [[projects]]
   branch = "master"
-  digest = "1:ab8dac73d2e2118e42f22b3f1208eb7a44ee9493a9e9d97976fea509f8e0337f"
+  digest = "1:615f3c6b974179c583edf50234fd87c5731d02ef941f314cbd4dd2766d3a619a"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "2c83a176f473acb4b6b851e98e53882f594ffb5c"
+  revision = "ca04b8453a8779f3c800c5e4bcda43ff53ec6f80"
 
 [solve-meta]
   analyzer-name = "dep"

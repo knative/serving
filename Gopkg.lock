@@ -1647,7 +1647,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:b1c59d39c71f9f628b848060d6f354480fecc22b9db2eb9d65a77a85f60ddf83"
+  digest = "1:3c39a0a0b6ba96433dfbf02d283b3b987494c6773a31fdd6dc3c60aaa5c1fb4a"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1670,7 +1670,7 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "20b5480da37ac4807b7bca08d6a3c86b60d26c8e"
+  revision = "6185837d36c863cd1637f12ff1b63c8b3ffb425e"
 
 [[projects]]
   branch = "release-0.9"
@@ -1723,8 +1723,6 @@
     "client/injection/kube/informers/core/v1/endpoints/fake",
     "client/injection/kube/informers/core/v1/namespace",
     "client/injection/kube/informers/core/v1/namespace/fake",
-    "client/injection/kube/informers/core/v1/pod",
-    "client/injection/kube/informers/core/v1/pod/fake",
     "client/injection/kube/informers/core/v1/secret",
     "client/injection/kube/informers/core/v1/secret/fake",
     "client/injection/kube/informers/core/v1/service",
@@ -1788,7 +1786,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:9fc8982baedc37d87c646f79cd1947011ee74e75f304218d2537c1c812c514f2"
+  digest = "1:c4a18b18fa3646930c2efaab99d00f9bfd790b95d9c3f9440fc91547bce811a9"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1801,7 +1799,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "2c83a176f473acb4b6b851e98e53882f594ffb5c"
+  revision = "4adb699576a34afae2e163f0ad5a0d2db0b30a5b"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1942,8 +1940,6 @@
     "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/namespace",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/namespace/fake",
-    "knative.dev/pkg/client/injection/kube/informers/core/v1/pod",
-    "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/secret",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/service",

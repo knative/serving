@@ -110,7 +110,7 @@ func (testSuites *TestSuites) GetTestSuite(suiteName string) (*TestSuite, error)
 
 // AddTestSuite adds TestSuite to TestSuites
 func (testSuites *TestSuites) AddTestSuite(testSuite *TestSuite) error {
-	if _, err := testSuites.GetTestSuite(testSuite.Name); nil == err {
+	if _, err := testSuites.GetTestSuite(testSuite.Name); err == nil {
 		return fmt.Errorf("Test suite '%s' already exists", testSuite.Name)
 	}
 	testSuites.Suites = append(testSuites.Suites, *testSuite)
@@ -129,13 +129,13 @@ func (testSuites *TestSuites) ToBytes(prefix, indent string) ([]byte, error) {
 // the input Suite
 func UnMarshal(buf []byte) (*TestSuites, error) {
 	var testSuites TestSuites
-	if err := xml.Unmarshal(buf, &testSuites); nil == err {
+	if err := xml.Unmarshal(buf, &testSuites); err == nil {
 		return &testSuites, nil
 	}
 
 	// The input might be a TestSuite if reach here, try parsing with TestSuite
 	testSuites.Suites = append([]TestSuite(nil), TestSuite{})
-	if err := xml.Unmarshal(buf, &testSuites.Suites[0]); nil != err {
+	if err := xml.Unmarshal(buf, &testSuites.Suites[0]); err != nil {
 		return nil, err
 	}
 	return &testSuites, nil
