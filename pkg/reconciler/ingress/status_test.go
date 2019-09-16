@@ -102,34 +102,6 @@ func TestIsReadyFailures(t *testing.T) {
 		},
 		serviceLister: &fakeServiceLister{fails: true},
 	}, {
-		name: "empty service list",
-		vsSpec: v1alpha3.VirtualServiceSpec{
-			Gateways: []string{"default/gateway"},
-			Hosts:    []string{"foobar" + resources.ProbeHostSuffix},
-		},
-		gatewayLister: &fakeGatewayLister{
-			gateways: []*v1alpha3.Gateway{{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "default",
-					Name:      "gateway",
-				},
-				Spec: v1alpha3.GatewaySpec{
-					Servers: []v1alpha3.Server{{
-						Hosts: []string{"*"},
-						Port: v1alpha3.Port{
-							Number:   80,
-							Protocol: v1alpha3.ProtocolHTTP,
-						},
-					}},
-					Selector: map[string]string{
-						"gwt": "istio",
-					},
-				},
-			}},
-		},
-		serviceLister:   &fakeServiceLister{},
-		endpointsLister: &fakeEndpointsLister{fails: true},
-	}, {
 		name: "endpoints error",
 		vsSpec: v1alpha3.VirtualServiceSpec{
 			Gateways: []string{"default/gateway"},

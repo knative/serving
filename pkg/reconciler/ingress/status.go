@@ -335,7 +335,8 @@ func (m *StatusProber) listVirtualServicePodIPs(vs *v1alpha3.VirtualService) ([]
 			return nil, fmt.Errorf("failed to list Service: %v", err)
 		}
 		if len(services) == 0 {
-			return nil, errors.New("did not find a Service")
+			// Allow an empty services list to not unnecessarily interrupt.
+			return podIPs, nil
 		}
 		service := services[0]
 
@@ -351,7 +352,6 @@ func (m *StatusProber) listVirtualServicePodIPs(vs *v1alpha3.VirtualService) ([]
 				continue
 			}
 
-			// Resolve the current gateway server's port to a name defined in the gateway's service.
 			portName, err := findNameForPortNumber(service, int32(server.Port.Number))
 			if err != nil {
 				return nil, fmt.Errorf("failed to find port name: %v", err)
