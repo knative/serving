@@ -52,9 +52,9 @@ readonly SERVING_YAML=${YAML_OUTPUT_DIR}/serving.yaml
 readonly SERVING_CORE_YAML=${YAML_OUTPUT_DIR}/serving-core.yaml
 readonly SERVING_CRD_ALPHA_YAML=${YAML_OUTPUT_DIR}/serving-alpha-crds.yaml
 readonly SERVING_ALPHA_YAML=${YAML_OUTPUT_DIR}/serving-pre-1.14.yaml
-readonly SERVING_CRD_BETA_YAML=${YAML_OUTPUT_DIR}/serving-beta-crds.yaml
-readonly SERVING_BETA_YAML=${YAML_OUTPUT_DIR}/serving-post-1.14.yaml
-readonly SERVING_CORE_BETA_YAML=${YAML_OUTPUT_DIR}/serving-core-post-1.14.yaml
+readonly SERVING_CRD_V1_YAML=${YAML_OUTPUT_DIR}/serving-v1-crds.yaml
+readonly SERVING_V1_YAML=${YAML_OUTPUT_DIR}/serving-post-1.14.yaml
+readonly SERVING_CORE_V1_YAML=${YAML_OUTPUT_DIR}/serving-core-post-1.14.yaml
 readonly SERVING_CERT_MANAGER_YAML=${YAML_OUTPUT_DIR}/serving-cert-manager.yaml
 readonly SERVING_ISTIO_YAML=${YAML_OUTPUT_DIR}/serving-istio.yaml
 readonly SERVING_NSCERT_YAML=${YAML_OUTPUT_DIR}/serving-nscert.yaml
@@ -88,7 +88,7 @@ ko resolve ${KO_YAML_FLAGS} -f config/ --selector networking.knative.dev/certifi
 ko resolve ${KO_YAML_FLAGS} -f config/ --selector networking.knative.dev/certificate-provider!=cert-manager,networking.knative.dev/ingress-provider!=istio,networking.knative.dev/wildcard-certificate-provider!=nscert | "${LABEL_YAML_CMD[@]}" > "${SERVING_CORE_YAML}"
 # These don't have images, but ko will concatenate them for us.
 ko resolve ${KO_YAML_FLAGS} -f config/v1alpha1 | "${LABEL_YAML_CMD[@]}" > "${SERVING_CRD_ALPHA_YAML}"
-ko resolve ${KO_YAML_FLAGS} -f config/v1beta1 | "${LABEL_YAML_CMD[@]}" > "${SERVING_CRD_BETA_YAML}"
+ko resolve ${KO_YAML_FLAGS} -f config/v1 | "${LABEL_YAML_CMD[@]}" > "${SERVING_CRD_V1_YAML}"
 # Create cert-manager related yaml
 ko resolve ${KO_YAML_FLAGS} -f config/ --selector networking.knative.dev/certificate-provider=cert-manager | "${LABEL_YAML_CMD[@]}" > "${SERVING_CERT_MANAGER_YAML}"
 # Create Istio related yaml
@@ -100,13 +100,13 @@ ko resolve ${KO_YAML_FLAGS} -f config/ --selector  networking.knative.dev/wildca
 cat "${SERVING_YAML}" > "${SERVING_ALPHA_YAML}"
 cat "${SERVING_CRD_ALPHA_YAML}" >> "${SERVING_ALPHA_YAML}"
 
-# Create the full beta install.
-cat "${SERVING_YAML}" > "${SERVING_BETA_YAML}"
-cat "${SERVING_CRD_BETA_YAML}" >> "${SERVING_BETA_YAML}"
+# Create the full v1 install.
+cat "${SERVING_YAML}" > "${SERVING_V1_YAML}"
+cat "${SERVING_CRD_V1_YAML}" >> "${SERVING_V1_YAML}"
 
-# Create the core beta install
-cat "${SERVING_CORE_YAML}" > "${SERVING_CORE_BETA_YAML}"
-cat "${SERVING_CRD_BETA_YAML}" >> "${SERVING_CORE_BETA_YAML}"
+# Create the core v1 install
+cat "${SERVING_CORE_YAML}" > "${SERVING_CORE_V1_YAML}"
+cat "${SERVING_CRD_V1_YAML}" >> "${SERVING_CORE_V1_YAML}"
 
 # Our ${SERVING_YAML} should be a complete install, so bias towards the most
 # broadly compatible by default.
@@ -153,8 +153,8 @@ ${SERVING_YAML}
 ${SERVING_CORE_YAML}
 ${SERVING_CRD_ALPHA_YAML}
 ${SERVING_ALPHA_YAML}
-${SERVING_CRD_BETA_YAML}
-${SERVING_BETA_YAML}
+${SERVING_CRD_V1_YAML}
+${SERVING_V1_YAML}
 ${SERVING_CERT_MANAGER_YAML}
 ${SERVING_ISTIO_YAML}
 ${SERVING_NSCERT_YAML}

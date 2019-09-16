@@ -66,15 +66,15 @@ func CreateRoute(t *testing.T, clients *test.Clients, names test.ResourceNames, 
 }
 
 // WaitForRouteState polls the status of the Route called name from client every
-// interval until inState returns `true` indicating it is done, returns an
-// error or timeout. desc will be used to name the metric that is emitted to
+// PollInterval until inState returns `true` indicating it is done, returns an
+// error or PollTimeout. desc will be used to name the metric that is emitted to
 // track how long it took for name to get into the state checked by inState.
 func WaitForRouteState(client *test.ServingBetaClients, name string, inState func(r *v1beta1.Route) (bool, error), desc string) error {
 	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForRouteState/%s/%s", name, desc))
 	defer span.End()
 
 	var lastState *v1beta1.Route
-	waitErr := wait.PollImmediate(interval, timeout, func() (bool, error) {
+	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		var err error
 		lastState, err = client.Routes.Get(name, metav1.GetOptions{})
 		if err != nil {

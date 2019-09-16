@@ -14,9 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// route.go provides methods to perform actions on the route resource.
-
-package v1alpha1
+package v1
 
 import (
 	"context"
@@ -30,28 +28,24 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/spoof"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1"
 
-	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
-	v1alpha1testing "knative.dev/serving/pkg/testing/v1alpha1"
+	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 )
 
 // Route returns a Route object in namespace using the route and configuration
 // names in names.
-func Route(names test.ResourceNames, fopt ...v1alpha1testing.RouteOption) *v1alpha1.Route {
-	route := &v1alpha1.Route{
+func Route(names test.ResourceNames, fopt ...rtesting.RouteOption) *v1.Route {
+	route := &v1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: names.Route,
 		},
-		Spec: v1alpha1.RouteSpec{
-			Traffic: []v1alpha1.TrafficTarget{{
-				TrafficTarget: v1.TrafficTarget{
-					Tag:               names.TrafficTarget,
-					ConfigurationName: names.Config,
-					Percent:           ptr.Int64(100),
-				},
+		Spec: v1.RouteSpec{
+			Traffic: []v1.TrafficTarget{{
+				Tag:               names.TrafficTarget,
+				ConfigurationName: names.Config,
+				Percent:           ptr.Int64(100),
 			}},
 		},
 	}
@@ -64,29 +58,21 @@ func Route(names test.ResourceNames, fopt ...v1alpha1testing.RouteOption) *v1alp
 }
 
 // CreateRoute creates a route in the given namespace using the route name in names
-func CreateRoute(t *testing.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.RouteOption) (*v1alpha1.Route, error) {
+func CreateRoute(t *testing.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.RouteOption) (*v1.Route, error) {
 	route := Route(names, fopt...)
 	LogResourceObject(t, ResourceObjects{Route: route})
-	return clients.ServingAlphaClient.Routes.Create(route)
-}
-
-// RetryingRouteInconsistency retries common requests seen when creating a new route
-func RetryingRouteInconsistency(innerCheck spoof.ResponseChecker) spoof.ResponseChecker {
-	return func(resp *spoof.Response) (bool, error) {
-		// If we didn't match any retryable codes, invoke the ResponseChecker that we wrapped.
-		return innerCheck(resp)
-	}
+	return clients.ServingClient.Routes.Create(route)
 }
 
 // WaitForRouteState polls the status of the Route called name from client every
 // PollInterval until inState returns `true` indicating it is done, returns an
-// error or PollTimeout. desc will be used to name the metric that is emitted to
+// error or timeout. desc will be used to name the metric that is emitted to
 // track how long it took for name to get into the state checked by inState.
-func WaitForRouteState(client *test.ServingAlphaClients, name string, inState func(r *v1alpha1.Route) (bool, error), desc string) error {
+func WaitForRouteState(client *test.ServingClients, name string, inState func(r *v1.Route) (bool, error), desc string) error {
 	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForRouteState/%s/%s", name, desc))
 	defer span.End()
 
-	var lastState *v1alpha1.Route
+	var lastState *v1.Route
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		var err error
 		lastState, err = client.Routes.Get(name, metav1.GetOptions{})
@@ -105,7 +91,7 @@ func WaitForRouteState(client *test.ServingAlphaClients, name string, inState fu
 // CheckRouteState verifies the status of the Route called name from client
 // is in a particular state by calling `inState` and expecting `true`.
 // This is the non-polling variety of WaitForRouteState
-func CheckRouteState(client *test.ServingAlphaClients, name string, inState func(r *v1alpha1.Route) (bool, error)) error {
+func CheckRouteState(client *test.ServingClients, name string, inState func(r *v1.Route) (bool, error)) error {
 	r, err := client.Routes.Get(name, metav1.GetOptions{})
 	if err != nil {
 		return err
@@ -120,20 +106,28 @@ func CheckRouteState(client *test.ServingAlphaClients, name string, inState func
 
 // IsRouteReady will check the status conditions of the route and return true if the route is
 // ready.
-func IsRouteReady(r *v1alpha1.Route) (bool, error) {
+func IsRouteReady(r *v1.Route) (bool, error) {
 	return r.Generation == r.Status.ObservedGeneration && r.Status.IsReady(), nil
 }
 
 // IsRouteNotReady will check the status conditions of the route and return true if the route is
 // not ready.
-func IsRouteNotReady(r *v1alpha1.Route) (bool, error) {
+func IsRouteNotReady(r *v1.Route) (bool, error) {
 	return !r.Status.IsReady(), nil
+}
+
+// RetryingRouteInconsistency retries common requests seen when creating a new route
+func RetryingRouteInconsistency(innerCheck spoof.ResponseChecker) spoof.ResponseChecker {
+	return func(resp *spoof.Response) (bool, error) {
+		// If we didn't match any retryable codes, invoke the ResponseChecker that we wrapped.
+		return innerCheck(resp)
+	}
 }
 
 // AllRouteTrafficAtRevision will check the revision that route r is routing
 // traffic to and return true if 100% of the traffic is routing to revisionName.
-func AllRouteTrafficAtRevision(names test.ResourceNames) func(r *v1alpha1.Route) (bool, error) {
-	return func(r *v1alpha1.Route) (bool, error) {
+func AllRouteTrafficAtRevision(names test.ResourceNames) func(r *v1.Route) (bool, error) {
+	return func(r *v1.Route) (bool, error) {
 		for _, tt := range r.Status.Traffic {
 			if tt.Percent != nil && *tt.Percent == 100 {
 				if tt.RevisionName != names.Revision {

@@ -22,7 +22,6 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -39,11 +38,6 @@ import (
 	"knative.dev/serving/test"
 )
 
-const (
-	interval = 1 * time.Second
-	timeout  = 10 * time.Minute
-)
-
 // CreateConfiguration create a configuration resource in namespace with the name names.Config
 // that uses the image specified by names.Image.
 func CreateConfiguration(t *testing.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ConfigOption) (*v1alpha1.Configuration, error) {
@@ -56,7 +50,7 @@ func CreateConfiguration(t *testing.T, clients *test.Clients, names test.Resourc
 func PatchConfigImage(clients *test.Clients, cfg *v1alpha1.Configuration, imagePath string) (*v1alpha1.Configuration, error) {
 	newCfg := cfg.DeepCopy()
 	newCfg.Spec.GetTemplate().Spec.GetContainer().Image = imagePath
-	patchBytes, err := createPatch(cfg, newCfg)
+	patchBytes, err := test.CreateBytePatch(cfg, newCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -136,15 +130,15 @@ func Configuration(names test.ResourceNames, fopt ...v1alpha1testing.ConfigOptio
 }
 
 // WaitForConfigurationState polls the status of the Configuration called name
-// from client every interval until inState returns `true` indicating it
-// is done, returns an error or timeout. desc will be used to name the metric
+// from client every PollInterval until inState returns `true` indicating it
+// is done, returns an error or PollTimeout. desc will be used to name the metric
 // that is emitted to track how long it took for name to get into the state checked by inState.
 func WaitForConfigurationState(client *test.ServingAlphaClients, name string, inState func(c *v1alpha1.Configuration) (bool, error), desc string) error {
 	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForConfigurationState/%s/%s", name, desc))
 	defer span.End()
 
 	var lastState *v1alpha1.Configuration
-	waitErr := wait.PollImmediate(interval, timeout, func() (bool, error) {
+	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		var err error
 		lastState, err = client.Configs.Get(name, metav1.GetOptions{})
 		if err != nil {

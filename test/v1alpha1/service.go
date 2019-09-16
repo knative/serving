@@ -30,7 +30,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
@@ -39,15 +38,6 @@ import (
 	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 )
-
-// TODO(dangerd): Move function to duck.CreateBytePatch
-func createPatch(cur, desired interface{}) ([]byte, error) {
-	patch, err := duck.CreatePatch(cur, desired)
-	if err != nil {
-		return nil, err
-	}
-	return patch.MarshalJSON()
-}
 
 func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNames) error {
 	return CheckServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
@@ -212,7 +202,7 @@ func PatchServiceImage(t *testing.T, clients *test.Clients, svc *v1alpha1.Servic
 		newSvc.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().Image = imagePath
 	}
 	LogResourceObject(t, ResourceObjects{Service: newSvc})
-	patchBytes, err := createPatch(svc, newSvc)
+	patchBytes, err := test.CreateBytePatch(svc, newSvc)
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +212,7 @@ func PatchServiceImage(t *testing.T, clients *test.Clients, svc *v1alpha1.Servic
 // PatchService creates and applies a patch from the diff between curSvc and desiredSvc. Returns the latest service object.
 func PatchService(t *testing.T, clients *test.Clients, curSvc *v1alpha1.Service, desiredSvc *v1alpha1.Service) (*v1alpha1.Service, error) {
 	LogResourceObject(t, ResourceObjects{Service: desiredSvc})
-	patchBytes, err := createPatch(curSvc, desiredSvc)
+	patchBytes, err := test.CreateBytePatch(curSvc, desiredSvc)
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +238,7 @@ func PatchServiceTemplateMetadata(t *testing.T, clients *test.Clients, svc *v1al
 	newSvc := svc.DeepCopy()
 	newSvc.Spec.ConfigurationSpec.Template.ObjectMeta = metadata
 	LogResourceObject(t, ResourceObjects{Service: newSvc})
-	patchBytes, err := createPatch(svc, newSvc)
+	patchBytes, err := test.CreateBytePatch(svc, newSvc)
 	if err != nil {
 		return nil, err
 	}
@@ -299,15 +289,15 @@ func LatestServiceLegacy(names test.ResourceNames, fopt ...rtesting.ServiceOptio
 }
 
 // WaitForServiceState polls the status of the Service called name
-// from client every `interval` until `inState` returns `true` indicating it
-// is done, returns an error or timeout. desc will be used to name the metric
+// from client every `PollInterval` until `inState` returns `true` indicating it
+// is done, returns an error or PollTimeout. desc will be used to name the metric
 // that is emitted to track how long it took for name to get into the state checked by inState.
 func WaitForServiceState(client *test.ServingAlphaClients, name string, inState func(s *v1alpha1.Service) (bool, error), desc string) error {
 	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForServiceState/%s/%s", name, desc))
 	defer span.End()
 
 	var lastState *v1alpha1.Service
-	waitErr := wait.PollImmediate(interval, timeout, func() (bool, error) {
+	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		var err error
 		lastState, err = client.Services.Get(name, metav1.GetOptions{})
 		if err != nil {
