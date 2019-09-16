@@ -77,13 +77,12 @@ func TestReconcile(t *testing.T) {
 		Name: "steady state",
 		Key:  "steady/state",
 		Objects: []runtime.Object{
-			SKS("steady", "state", markHappy, WithPubService, WithPrivateService("state-fsdf"),
-				WithDeployRef("bar")),
+			SKS("steady", "state", markHappy, WithPubService, WithPrivateService, WithDeployRef("bar")),
 			deploy("steady", "bar"),
 			svcpub("steady", "state"),
-			svcpriv("steady", "state", svcWithName("state-fsdf")),
+			svcpriv("steady", "state"),
 			endpointspub("steady", "state", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
-			endpointspriv("steady", "state", WithSubsets, epsWithName("state-fsdf")),
+			endpointspriv("steady", "state", WithSubsets),
 			activatorEndpoints(WithSubsets),
 		},
 	}, {
@@ -91,18 +90,18 @@ func TestReconcile(t *testing.T) {
 		Name: "steady switch to proxy mode",
 		Key:  "steady/to-proxy",
 		Objects: []runtime.Object{
-			SKS("steady", "to-proxy", markHappy, WithPubService, WithPrivateService("to-proxy-deadbeef"),
+			SKS("steady", "to-proxy", markHappy, WithPubService, WithPrivateService,
 				WithDeployRef("bar"), withProxyMode),
 			deploy("steady", "bar"),
 			svcpub("steady", "to-proxy"),
-			svcpriv("steady", "to-proxy", svcWithName("to-proxy-deadbeef")),
+			svcpriv("steady", "to-proxy"),
 			endpointspub("steady", "to-proxy", withOtherSubsets, withFilteredPorts(networking.BackendHTTPPort)),
-			endpointspriv("steady", "to-proxy", epsWithName("to-proxy-deadbeef")),
+			endpointspriv("steady", "to-proxy"),
 			activatorEndpoints(WithSubsets),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: SKS("steady", "to-proxy", WithDeployRef("bar"), markNoEndpoints,
-				withProxyMode, WithPubService, WithPrivateService("to-proxy-deadbeef")),
+				withProxyMode, WithPubService, WithPrivateService),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: endpointspub("steady", "to-proxy", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
@@ -116,13 +115,13 @@ func TestReconcile(t *testing.T) {
 		Name: "steady switch to proxy mode with endpoints",
 		Key:  "steady/to-proxy",
 		Objects: []runtime.Object{
-			SKS("steady", "to-proxy", markHappy, WithPubService, WithPrivateService("to-proxy-deadbeef"),
+			SKS("steady", "to-proxy", markHappy, WithPubService, WithPrivateService,
 				WithDeployRef("bar"), withProxyMode),
 			deploy("steady", "bar"),
 			svcpub("steady", "to-proxy"),
-			svcpriv("steady", "to-proxy", svcWithName("to-proxy-deadbeef")),
+			svcpriv("steady", "to-proxy"),
 			endpointspub("steady", "to-proxy", withOtherSubsets, withFilteredPorts(networking.BackendHTTPPort)),
-			endpointspriv("steady", "to-proxy", epsWithName("to-proxy-deadbeef"), WithSubsets),
+			endpointspriv("steady", "to-proxy", WithSubsets),
 			activatorEndpoints(WithSubsets),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -132,16 +131,16 @@ func TestReconcile(t *testing.T) {
 		Name: "many-private-services",
 		Key:  "many/privates",
 		Objects: []runtime.Object{
-			SKS("many", "privates", markHappy, WithPubService, WithPrivateService("privates-elegance-required"),
+			SKS("many", "privates", markHappy, WithPubService, WithPrivateService,
 				WithDeployRef("bar")),
 			deploy("many", "bar"),
 			svcpub("many", "privates"),
-			svcpriv("many", "privates", svcWithName("privates-elegance-required")),
+			svcpriv("many", "privates"),
 			svcpriv("many", "privates", svcWithName("privates-brutality-is-here")),
 			svcpriv("many", "privates", svcWithName("privates-uncharacteristically-pretty"),
 				WithK8sSvcOwnersRemoved), // unowned, should remain.
 			endpointspub("many", "privates", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
-			endpointspriv("many", "privates", WithSubsets, epsWithName("privates-elegance-required")),
+			endpointspriv("many", "privates", WithSubsets),
 			activatorEndpoints(WithSubsets),
 		},
 		WantDeletes: []clientgotesting.DeleteActionImpl{{
@@ -161,12 +160,12 @@ func TestReconcile(t *testing.T) {
 		Key:  "public/svc-change",
 		Objects: []runtime.Object{
 			SKS("public", "svc-change", WithPubService, WithSKSReady,
-				WithPrivateService("svc-change-feedbeef"), WithDeployRef("bar")),
+				WithPrivateService, WithDeployRef("bar")),
 			deploy("public", "bar"),
 			svcpub("public", "svc-change", withTimeSelector),
-			svcpriv("public", "svc-change", svcWithName("svc-change-feedbeef")),
+			svcpriv("public", "svc-change"),
 			endpointspub("public", "svc-change", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
-			endpointspriv("public", "svc-change", WithSubsets, epsWithName("svc-change-feedbeef")),
+			endpointspriv("public", "svc-change", WithSubsets),
 			activatorEndpoints(WithSubsets),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -177,16 +176,16 @@ func TestReconcile(t *testing.T) {
 		Key:  "private/svc-change",
 		Objects: []runtime.Object{
 			SKS("private", "svc-change", markHappy, WithPubService,
-				WithPrivateService("svc-change-fade"), WithDeployRef("baz")),
+				WithPrivateService, WithDeployRef("baz")),
 			deploy("private", "baz"),
 			svcpub("private", "svc-change"),
-			svcpriv("private", "svc-change", withTimeSelector, svcWithName("svc-change-fade")),
+			svcpriv("private", "svc-change", withTimeSelector),
 			endpointspub("private", "svc-change", withOtherSubsets, withFilteredPorts(networking.BackendHTTPPort)),
-			endpointspriv("private", "svc-change", WithSubsets, epsWithName("svc-change-fade")),
+			endpointspriv("private", "svc-change", WithSubsets),
 			activatorEndpoints(WithSubsets),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svcpriv("private", "svc-change", svcWithName("svc-change-fade")),
+			Object: svcpriv("private", "svc-change"),
 		}, {
 			Object: endpointspub("private", "svc-change", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 		}},
@@ -209,7 +208,7 @@ func TestReconcile(t *testing.T) {
 			SKS("on", "cde", WithDeployRef("blah")),
 			deploy("on", "blah"),
 			// This "has" to pre-exist, otherwise I can't populate it with subsets.
-			endpointspriv("on", "cde", WithSubsets, epsWithName("cde-00001")),
+			endpointspriv("on", "cde", WithSubsets),
 			activatorEndpoints(WithSubsets),
 		},
 		WantCreates: []runtime.Object{
@@ -219,7 +218,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: SKS("on", "cde", WithDeployRef("blah"),
-				markHappy, WithPubService, WithPrivateService("cde-00001")),
+				markHappy, WithPubService, WithPrivateService),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cde"`),
@@ -229,12 +228,12 @@ func TestReconcile(t *testing.T) {
 		Key:     "update-eps/failA",
 		WantErr: true,
 		Objects: []runtime.Object{
-			SKS("update-eps", "failA", WithPubService, WithPrivateService("failA-abba"), WithDeployRef("blah"), markNoEndpoints),
+			SKS("update-eps", "failA", WithPubService, WithPrivateService, WithDeployRef("blah"), markNoEndpoints),
 			deploy("update-eps", "blah"),
 			svcpub("update-eps", "failA"),
-			svcpriv("update-eps", "failA", svcWithName("failA-abba")),
+			svcpriv("update-eps", "failA"),
 			endpointspub("update-eps", "failA"),
-			endpointspriv("update-eps", "failA", WithSubsets, epsWithName("failA-abba")),
+			endpointspriv("update-eps", "failA", WithSubsets),
 			activatorEndpoints(WithSubsets),
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
@@ -253,7 +252,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			SKS("svc", "fail2", WithDeployRef("blah")),
 			deploy("svc", "blah"),
-			svcpriv("svc", "fail2", svcWithName("fail2-badbeef")),
+			svcpriv("svc", "fail2"),
 			endpointspriv("svc", "fail2"),
 			activatorEndpoints(WithSubsets),
 		},
@@ -261,8 +260,8 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "services"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: SKS("svc", "fail2", WithPrivateService("fail2-badbeef"), WithDeployRef("blah"),
-				markTransitioning("CreatingPublicService")),
+			Object: SKS("svc", "fail2", WithPrivateService,
+				WithDeployRef("blah"), markTransitioning("CreatingPublicService")),
 		}},
 		WantCreates: []runtime.Object{
 			svcpub("svc", "fail2"),
@@ -278,16 +277,16 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			SKS("eps", "fail3", WithDeployRef("blah")),
 			deploy("eps", "blah"),
-			svcpriv("eps", "fail3", svcWithName("fail3-abbad")),
-			endpointspriv("eps", "fail3", WithSubsets, epsWithName("fail3-abbad")),
+			svcpriv("eps", "fail3"),
+			endpointspriv("eps", "fail3", WithSubsets),
 			activatorEndpoints(withOtherSubsets),
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "endpoints"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: SKS("eps", "fail3", WithPubService, WithPrivateService("fail3-abbad"), WithDeployRef("blah"),
-				markTransitioning("CreatingPublicEndpoints")),
+			Object: SKS("eps", "fail3", WithPubService, WithPrivateService,
+				WithDeployRef("blah"), markTransitioning("CreatingPublicEndpoints")),
 		}},
 		WantCreates: []runtime.Object{
 			svcpub("eps", "fail3"),
@@ -301,9 +300,9 @@ func TestReconcile(t *testing.T) {
 		Name: "OnCreate-no-eps",
 		Key:  "on/cneps",
 		Objects: []runtime.Object{
-			SKS("on", "cneps", WithDeployRef("blah"), WithPrivateService("cneps-incorrect")),
+			SKS("on", "cneps", WithDeployRef("blah"), WithPrivateService),
 			deploy("on", "blah"),
-			endpointspriv("on", "cneps", epsWithName("cneps-00001")),
+			endpointspriv("on", "cneps"),
 			activatorEndpoints(WithSubsets),
 		},
 		WantCreates: []runtime.Object{
@@ -313,7 +312,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: SKS("on", "cneps", WithDeployRef("blah"),
-				markNoEndpoints, WithPubService, WithPrivateService("cneps-00001")),
+				markNoEndpoints, WithPubService, WithPrivateService),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cneps"`),
@@ -324,7 +323,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			SKS("on", "cnaeps2", WithDeployRef("blah")),
 			deploy("on", "blah"),
-			endpointspriv("on", "cnaeps2", WithSubsets, epsWithName("cnaeps2-00001")),
+			endpointspriv("on", "cnaeps2", WithSubsets),
 			endpointspub("on", "cnaeps2", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 		},
 		WantErr: true,
@@ -334,7 +333,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: SKS("on", "cnaeps2", WithDeployRef("blah"), WithPubService,
-				WithPrivateService("cnaeps2-00001"),
+				WithPrivateService,
 				markTransitioning("CreatingPublicService")),
 		}},
 		WantEvents: []string{
@@ -357,11 +356,11 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: SKS("on", "cnaeps3", WithDeployRef("blah"), WithPubService,
-				WithPrivateService("cnaeps3-00001"),
+				WithPrivateService,
 				markTransitioning("CreatingPublicService")),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: endpoints "cnaeps3-00001" not found`),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: endpoints "cnaeps3-private" not found`),
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cnaeps3"`),
 		},
 	}, {
@@ -370,7 +369,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			SKS("on", "cnaeps", WithDeployRef("blah")),
 			deploy("on", "blah"),
-			endpointspriv("on", "cnaeps", WithSubsets, epsWithName("cnaeps-00001")),
+			endpointspriv("on", "cnaeps", WithSubsets),
 			endpointspub("on", "cnaeps", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 			activatorEndpoints(),
 		},
@@ -380,7 +379,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: SKS("on", "cnaeps", WithDeployRef("blah"),
-				markHappy, WithPubService, WithPrivateService("cnaeps-00001")),
+				markHappy, WithPubService, WithPrivateService),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cnaeps"`),
@@ -391,7 +390,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			SKS("on", "cnaeps", WithDeployRef("blah"), withProxyMode),
 			deploy("on", "blah"),
-			endpointspriv("on", "cnaeps", epsWithName("cnaeps-00001")), // This should be ignored.
+			endpointspriv("on", "cnaeps"), // This should be ignored.
 			activatorEndpoints(),
 		},
 		WantCreates: []runtime.Object{
@@ -401,7 +400,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: SKS("on", "cnaeps", WithDeployRef("blah"), withProxyMode,
-				markNoEndpoints, WithPubService, WithPrivateService("cnaeps-00001")),
+				markNoEndpoints, WithPubService, WithPrivateService),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cnaeps"`),
@@ -413,7 +412,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			SKS("svc", "fail", WithDeployRef("blah")),
 			deploy("svc", "blah"),
-			endpointspriv("svc", "fail", epsWithName("blah-00001")),
+			endpointspriv("svc", "fail"),
 			activatorEndpoints(WithSubsets),
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
@@ -434,13 +433,13 @@ func TestReconcile(t *testing.T) {
 		Key:     "update-sks/fail4",
 		WantErr: true,
 		Objects: []runtime.Object{
-			SKS("update-sks", "fail4", WithPubService, WithPrivateService("fail4-42x"),
+			SKS("update-sks", "fail4", WithPubService, WithPrivateService,
 				WithDeployRef("blah")),
 			deploy("update-sks", "blah"),
 			svcpub("update-sks", "fail4"),
-			svcpriv("update-sks", "fail4", svcWithName("fail4-42x")),
+			svcpriv("update-sks", "fail4"),
 			endpointspub("update-sks", "fail4", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
-			endpointspriv("update-sks", "fail4", WithSubsets, epsWithName("fail4-42x")),
+			endpointspriv("update-sks", "fail4", WithSubsets),
 			activatorEndpoints(WithSubsets),
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
@@ -449,7 +448,7 @@ func TestReconcile(t *testing.T) {
 		// We still record update, but it fails.
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: SKS("update-sks", "fail4",
-				WithDeployRef("blah"), markHappy, WithPubService, WithPrivateService("fail4-42x")),
+				WithDeployRef("blah"), markHappy, WithPubService, WithPrivateService),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status: inducing failure for update serverlessservices"),
@@ -459,21 +458,21 @@ func TestReconcile(t *testing.T) {
 		Key:     "ronin-priv-service/fail5",
 		WantErr: true,
 		Objects: []runtime.Object{
-			SKS("ronin-priv-service", "fail5", WithPubService, WithPrivateService("fail5-fender"),
+			SKS("ronin-priv-service", "fail5", WithPubService, WithPrivateService,
 				WithDeployRef("blah"), markHappy),
 			deploy("ronin-priv-service", "blah"),
 			svcpub("ronin-priv-service", "fail5"),
-			svcpriv("ronin-priv-service", "fail5", WithK8sSvcOwnersRemoved, svcWithName("fail5-fender")),
+			svcpriv("ronin-priv-service", "fail5", WithK8sSvcOwnersRemoved),
 			endpointspub("ronin-priv-service", "fail5", WithSubsets),
-			endpointspriv("ronin-priv-service", "fail5", WithSubsets, epsWithName("fail5-fender")),
+			endpointspriv("ronin-priv-service", "fail5", WithSubsets),
 			activatorEndpoints(WithSubsets),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: SKS("ronin-priv-service", "fail5", WithPubService, WithPrivateService("fail5-fender"),
-				WithDeployRef("blah"), markUnowned("Service", "fail5-fender")),
+			Object: SKS("ronin-priv-service", "fail5", WithPubService, WithPrivateService,
+				WithDeployRef("blah"), markUnowned("Service", "fail5-private")),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: fail5 does not own Service: fail5-fender`),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: SKS: fail5 does not own Service: fail5-private`),
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "ronin-priv-service/fail5"`),
 		},
 	}, {
@@ -481,17 +480,17 @@ func TestReconcile(t *testing.T) {
 		Key:     "ronin-pub-service/fail6",
 		WantErr: true,
 		Objects: []runtime.Object{
-			SKS("ronin-pub-service", "fail6", WithPubService, WithPrivateService("fail6-gibson"),
+			SKS("ronin-pub-service", "fail6", WithPubService, WithPrivateService,
 				WithDeployRef("blah")),
 			deploy("ronin-pub-service", "blah"),
 			svcpub("ronin-pub-service", "fail6", WithK8sSvcOwnersRemoved),
-			svcpriv("ronin-pub-service", "fail6", svcWithName("fail6-gibson")),
+			svcpriv("ronin-pub-service", "fail6"),
 			endpointspub("ronin-pub-service", "fail6", WithSubsets),
-			endpointspriv("ronin-pub-service", "fail6", WithSubsets, epsWithName("fail6-gibson")),
+			endpointspriv("ronin-pub-service", "fail6", WithSubsets),
 			activatorEndpoints(WithSubsets),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: SKS("ronin-pub-service", "fail6", WithPubService, WithPrivateService("fail6-gibson"),
+			Object: SKS("ronin-pub-service", "fail6", WithPubService, WithPrivateService,
 				WithDeployRef("blah"), markUnowned("Service", "fail6")),
 		}},
 		WantEvents: []string{
@@ -503,17 +502,17 @@ func TestReconcile(t *testing.T) {
 		Key:     "ronin-pub-eps/fail7",
 		WantErr: true,
 		Objects: []runtime.Object{
-			SKS("ronin-pub-eps", "fail7", WithPubService, WithPrivateService("fail7-schecter"),
+			SKS("ronin-pub-eps", "fail7", WithPubService, WithPrivateService,
 				WithDeployRef("blah")),
 			deploy("ronin-pub-eps", "blah"),
 			svcpub("ronin-pub-eps", "fail7"),
-			svcpriv("ronin-pub-eps", "fail7", svcWithName("fail7-schecter")),
+			svcpriv("ronin-pub-eps", "fail7"),
 			endpointspub("ronin-pub-eps", "fail7", WithSubsets, WithEndpointsOwnersRemoved),
-			endpointspriv("ronin-pub-eps", "fail7", WithSubsets, epsWithName("fail7-schecter")),
+			endpointspriv("ronin-pub-eps", "fail7", WithSubsets),
 			activatorEndpoints(WithSubsets),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: SKS("ronin-pub-eps", "fail7", WithPubService, WithPrivateService("fail7-schecter"),
+			Object: SKS("ronin-pub-eps", "fail7", WithPubService, WithPrivateService,
 				WithDeployRef("blah"), markUnowned("Endpoints", "fail7")),
 		}},
 		WantEvents: []string{
@@ -525,24 +524,24 @@ func TestReconcile(t *testing.T) {
 		Key:     "update-svc/fail9",
 		WantErr: true,
 		Objects: []runtime.Object{
-			SKS("update-svc", "fail9", WithPubService, WithPrivateService("fail9-yamaha"),
+			SKS("update-svc", "fail9", WithPubService, WithPrivateService,
 				WithDeployRef("blah")),
 			deploy("update-svc", "blah"),
 			svcpub("update-svc", "fail9"),
-			svcpriv("update-svc", "fail9", withTimeSelector, svcWithName("fail9-yamaha")),
+			svcpriv("update-svc", "fail9", withTimeSelector),
 			endpointspub("update-svc", "fail9"),
-			endpointspriv("update-svc", "fail9", epsWithName("fail9-yamaha")),
+			endpointspriv("update-svc", "fail9"),
 			activatorEndpoints(WithSubsets),
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("update", "services"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: SKS("update-svc", "fail9", WithPubService, WithPrivateService("fail9-yamaha"),
+			Object: SKS("update-svc", "fail9", WithPubService, WithPrivateService,
 				WithDeployRef("blah"), markTransitioning("UpdatingPrivateService")),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: svcpriv("update-svc", "fail9", svcWithName("fail9-yamaha")),
+			Object: svcpriv("update-svc", "fail9"),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for update services"),
@@ -554,12 +553,12 @@ func TestReconcile(t *testing.T) {
 			Key:     "update-svc/fail8",
 			WantErr: true,
 			Objects: []runtime.Object{
-				SKS("update-svc", "fail8", WithPubService, WithDeployRef("blah"), markHappy, WithPrivateService("fail8-ibanez")),
+				SKS("update-svc", "fail8", WithPubService, WithDeployRef("blah"), markHappy, WithPrivateService),
 				deploy("update-svc", "blah"),
 				svcpub("update-svc", "fail8", withTimeSelector),
-				svcpriv("update-svc", "fail8", svcWithName("fail8-ibanez")),
+				svcpriv("update-svc", "fail8"),
 				endpointspub("update-svc", "fail8", WithSubsets),
-				endpointspriv("update-svc", "fail8", WithSubsets, epsWithName("fail8-ibanez")),
+				endpointspriv("update-svc", "fail8", WithSubsets),
 				activatorEndpoints(WithSubsets),
 			},
 			WithReactors: []clientgotesting.ReactionFunc{
@@ -575,13 +574,13 @@ func TestReconcile(t *testing.T) {
 			Name: "pod change",
 			Key:  "pod/change",
 			Objects: []runtime.Object{
-				SKS("pod", "change", markHappy, WithPubService, WithPrivateService("change-prs"),
+				SKS("pod", "change", markHappy, WithPubService, WithPrivateService,
 					WithDeployRef("blah")),
 				deploy("pod", "blah"),
 				svcpub("pod", "change"),
-				svcpriv("pod", "change", svcWithName("change-prs")),
+				svcpriv("pod", "change"),
 				endpointspub("pod", "change", WithSubsets),
-				endpointspriv("pod", "change", withOtherSubsets, epsWithName("change-prs")),
+				endpointspriv("pod", "change", withOtherSubsets),
 				activatorEndpoints(WithSubsets),
 			},
 			WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -592,12 +591,12 @@ func TestReconcile(t *testing.T) {
 			Key:  "pod/change",
 			Objects: []runtime.Object{
 				SKS("pod", "change", markNoEndpoints, WithPubService, withHTTP2Protocol,
-					WithPrivateService("change-taylor"), withProxyMode, WithDeployRef("blah")),
+					WithPrivateService, WithDeployRef("blah")),
 				deploy("pod", "blah"),
 				svcpub("pod", "change", withHTTP2),
-				svcpriv("pod", "change", withHTTP2Priv, svcWithName("change-taylor")),
+				svcpriv("pod", "change", withHTTP2Priv),
 				endpointspub("pod", "change", WithSubsets),
-				endpointspriv("pod", "change", epsWithName("change-taylor")),
+				endpointspriv("pod", "change"),
 				activatorEndpoints(withOtherSubsets),
 			},
 			WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -608,17 +607,17 @@ func TestReconcile(t *testing.T) {
 			Key:  "pod/change",
 			Objects: []runtime.Object{
 				SKS("pod", "change", markNoEndpoints, WithPubService,
-					WithPrivateService("change-gretsch"), WithDeployRef("blah")),
+					WithPrivateService, WithDeployRef("blah")),
 				deploy("pod", "blah"),
 				svcpub("pod", "change"),
-				svcpriv("pod", "change", svcWithName("change-gretsch")),
+				svcpriv("pod", "change"),
 				endpointspub("pod", "change", withOtherSubsets),
-				endpointspriv("pod", "change", WithSubsets, epsWithName("change-gretsch")),
+				endpointspriv("pod", "change", WithSubsets),
 				activatorEndpoints(withOtherSubsets),
 			},
 			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 				Object: SKS("pod", "change",
-					WithDeployRef("blah"), markHappy, WithPubService, WithPrivateService("change-gretsch")),
+					WithDeployRef("blah"), markHappy, WithPubService, WithPrivateService, WithDeployRef("blah")),
 			}},
 			WantEvents: []string{
 				Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "pod/change"`),
@@ -631,17 +630,17 @@ func TestReconcile(t *testing.T) {
 			Key:  "pod/change",
 			Objects: []runtime.Object{
 				SKS("pod", "change", WithSKSReady, WithPubService, withHTTP2Protocol,
-					WithPrivateService("change-rickenbecker"), WithDeployRef("blah")),
+					WithPrivateService, WithDeployRef("blah")),
 				deploy("pod", "blah"),
 				svcpub("pod", "change", withHTTP2),
-				svcpriv("pod", "change", withHTTP2Priv, svcWithName("change-rickenbecker")),
-				endpointspub("pod", "change", WithSubsets),                         // We had endpoints...
-				endpointspriv("pod", "change", epsWithName("change-rickenbecker")), // but now we don't.
+				svcpriv("pod", "change", withHTTP2Priv),
+				endpointspub("pod", "change", WithSubsets), // We had endpoints...
+				endpointspriv("pod", "change"),             // but now we don't.
 				activatorEndpoints(withOtherSubsets),
 			},
 			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 				Object: SKS("pod", "change", withHTTP2Protocol,
-					WithDeployRef("blah"), markNoEndpoints, WithPubService, WithPrivateService("change-rickenbecker")),
+					WithDeployRef("blah"), markNoEndpoints, WithPubService, WithPrivateService),
 			}},
 			WantEvents: []string{
 				Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "pod/change"`),

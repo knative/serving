@@ -110,9 +110,9 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	})
 
 	// Inactive, will reconcile.
-	sksObj1 := SKS(ns1, sks1, WithPrivateService(sks1+"-global"), WithPubService, WithDeployRef(sks1), WithProxyMode)
+	sksObj1 := SKS(ns1, sks1, WithPrivateService, WithPubService, WithDeployRef(sks1), WithProxyMode)
 	// Active, should not visibly reconcile.
-	sksObj2 := SKS(ns2, sks2, WithPrivateService(sks2+"-resync"), WithPubService, WithDeployRef(sks2), markHappy)
+	sksObj2 := SKS(ns2, sks2, WithPrivateService, WithPubService, WithDeployRef(sks2), markHappy)
 
 	if _, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(ns1).Create(sksObj1); err != nil {
 		t.Fatalf("Error creating SKS1: %v", err)
