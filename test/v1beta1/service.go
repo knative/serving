@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	ptest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
-	"knative.dev/serving/pkg/apis/serving/v1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1beta1"

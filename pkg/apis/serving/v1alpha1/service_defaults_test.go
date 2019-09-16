@@ -28,7 +28,7 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestServiceDefaulting(t *testing.T) {

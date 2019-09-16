@@ -33,7 +33,7 @@ import (
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 	. "knative.dev/pkg/reconciler/testing"
-	"knative.dev/serving/pkg/apis/serving/v1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"

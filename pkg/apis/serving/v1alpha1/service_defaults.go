@@ -23,7 +23,7 @@ import (
 	"knative.dev/pkg/apis"
 
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func (s *Service) SetDefaults(ctx context.Context) {

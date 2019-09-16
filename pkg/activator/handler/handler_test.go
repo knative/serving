@@ -46,7 +46,7 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	servingfake "knative.dev/serving/pkg/client/clientset/versioned/fake"
 	servinginformers "knative.dev/serving/pkg/client/informers/externalversions"

@@ -28,7 +28,7 @@ import (
 	apitestv1 "knative.dev/pkg/apis/testing/v1"
 	"knative.dev/pkg/ptr"
 
-	"knative.dev/serving/pkg/apis/serving/v1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestServiceDuckTypes(t *testing.T) {

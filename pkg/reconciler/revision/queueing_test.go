@@ -34,7 +34,7 @@ import (
 	tracetesting "knative.dev/pkg/tracing/testing"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
