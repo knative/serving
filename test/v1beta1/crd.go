@@ -18,29 +18,10 @@ package v1beta1
 
 import (
 	"testing"
-	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"knative.dev/pkg/apis/duck"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
-
-const (
-	// Default for user containers in e2e tests. This value is lower than the general
-	// Knative's default so as to run more effectively in CI with limited resources.
-	defaultRequestCPU = "100m"
-	interval          = 1 * time.Second
-	timeout           = 10 * time.Minute
-)
-
-// TODO(dangerd): Move function to duck.CreateBytePatch
-func createPatch(cur, desired interface{}) ([]byte, error) {
-	patch, err := duck.CreatePatch(cur, desired)
-	if err != nil {
-		return nil, err
-	}
-	return patch.MarshalJSON()
-}
 
 // ResourceObjects holds types of the resource objects.
 type ResourceObjects struct {

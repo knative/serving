@@ -14,21 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1
 
 import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1"
 )
 
 // ResourceObjects holds types of the resource objects.
 type ResourceObjects struct {
-	Route    *v1alpha1.Route
-	Config   *v1alpha1.Configuration
-	Service  *v1alpha1.Service
-	Revision *v1alpha1.Revision
+	Route    *v1.Route
+	Config   *v1.Configuration
+	Service  *v1.Service
+	Revision *v1.Revision
 }
 
 // LogResourceObject logs the resource object with the resource name and value

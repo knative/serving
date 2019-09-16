@@ -110,7 +110,7 @@ function update_cluster() {
   local n=0
   until [ $n -ge 2 ]
   do
-    ko apply -f serving/config/ -f serving/config/v1beta1 && break
+    ko apply -f serving/config/ -f serving/config/v1&& break
     n=$[$n+1]
   done
   if [ $n == 2 ]; then
