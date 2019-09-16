@@ -239,7 +239,7 @@ func TestDestroyPodWithRequests(t *testing.T) {
 		t.Fatalf("No pods or error: %v", err)
 	}
 
-	// The request will leep for more than 25 seconds.
+	// The request will sleep for more than 25 seconds.
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s?sleep=25001", domain), nil)
 	if err != nil {
 		t.Fatalf("Error creating HTTP request: %v", err)
