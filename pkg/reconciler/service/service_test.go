@@ -64,6 +64,23 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/delete-pending",
 	}, {
+		Name: "inline - byo rev name used in traffic serialize",
+		Objects: []runtime.Object{
+			Service("byo-rev", "foo", WithInlineNamedRevision),
+			config("byo-rev", "foo", WithInlineNamedRevision, WithGeneration(2)),
+		},
+		// Route should not be created until config progresses
+		WantCreates: []runtime.Object{},
+		Key:         "foo/byo-rev",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Service("byo-rev", "foo", WithInlineNamedRevision,
+				// Route conditions should be at init state while Config should be OutOfDate
+				WithInitSvcConditions, WithOutOfDateConfig),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "byo-rev"),
+		},
+	}, {
 		Name: "inline - byo rev name used in traffic",
 		Objects: []runtime.Object{
 			Service("byo-rev", "foo", WithInlineNamedRevision),

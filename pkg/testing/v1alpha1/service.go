@@ -442,6 +442,12 @@ func WithFailedRoute(reason, message string) ServiceOption {
 	}
 }
 
+// WithOutOfDateConfig reflects the Configuration's readiness in the Service
+// resource.
+func WithOutOfDateConfig(s *v1alpha1.Service) {
+	s.Status.MarkConfigurationNotReconciled()
+}
+
 // WithReadyConfig reflects the Configuration's readiness in the Service
 // resource.  This must coincide with the setting of Latest{Created,Ready}
 // to the provided revision name.
