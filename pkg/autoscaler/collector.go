@@ -331,11 +331,15 @@ func (c *collection) StableAndPanicRPS(now time.Time) (float64, float64, error) 
 // stableAndPanicStats calculates both stable and panic concurrency based on the
 // given stats buckets.
 func (c *collection) stableAndPanicStats(now time.Time, buckets *aggregation.TimedFloat64Buckets) (float64, float64, error) {
-	spec := c.currentMetric().Spec
-
+	metric := c.currentMetric()
+	copy := metric.DeepCopy()
 	if buckets.IsEmpty() {
+		copy := metric.DeepCopy()
+		copy.Status.MarkMetricNotReady("NoData", ErrNoData.Error())
+		c.updateMetric(copy)
 		return 0, 0, ErrNoData
 	}
+	spec := metric.Spec
 
 	panicAverage := aggregation.Average{}
 	stableAverage := aggregation.Average{}
@@ -344,6 +348,8 @@ func (c *collection) stableAndPanicStats(now time.Time, buckets *aggregation.Tim
 		aggregation.YoungerThan(now.Add(-spec.StableWindow), stableAverage.Accumulate),
 	)
 
+	copy.Status.MarkMetricReady()
+	c.updateMetric(copy)
 	return stableAverage.Value(), panicAverage.Value(), nil
 }
 

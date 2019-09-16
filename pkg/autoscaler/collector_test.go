@@ -220,6 +220,17 @@ func TestMetricCollectorRecord(t *testing.T) {
 		t.Error("StableAndPanicRPS() = nil, wanted an error")
 	}
 
+	// The metric object should be marked as not ready
+	collection, exists := coll.collections[metricKey]
+	if !exists {
+		t.Error("Metric collection doesn't exist")
+	}
+	metric := collection.currentMetric()
+	wantStatus := corev1.ConditionUnknown
+	if got := metric.Status.GetCondition(av1alpha1.MetricConditionReady).Status; wantStatus != got {
+		t.Errorf("Metric status = %q, want %q", got, wantStatus)
+	}
+
 	// Add two stats. The second record operation will remove the first outdated one.
 	// After this the concurrencies are calculated correctly.
 	coll.Record(metricKey, outdatedStat)
@@ -229,6 +240,13 @@ func TestMetricCollectorRecord(t *testing.T) {
 	}
 	if stable, panic, err := coll.StableAndPanicRPS(metricKey, now); stable != panic || stable != want || err != nil {
 		t.Errorf("StableAndPanicRPS() = %v, %v, %v; want %v, %v, nil", stable, panic, err, want, want)
+	}
+
+	// Check the metric status again. It should be ready.
+	metric = collection.currentMetric()
+	wantStatus = corev1.ConditionTrue
+	if got := metric.Status.GetCondition(av1alpha1.MetricConditionReady).Status; wantStatus != got {
+		t.Errorf("Metric status = %q, want %q", got, wantStatus)
 	}
 }
 
