@@ -235,8 +235,8 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	pods, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).List(metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", serving.RevisionLabelKey, objects.Revision.Name),
 	})
-	if err != nil || len(pods.Items) == 0 {
-		t.Fatalf("No pods or error: %v", err)
+	if err != nil || len(pods.Items) != 1 {
+		t.Fatalf("Number of pods is not 1 or an error: %v", err)
 	}
 
 	// The request will sleep for more than 25 seconds.
