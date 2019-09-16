@@ -35,7 +35,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
-	"knative.dev/serving/pkg/apis/serving/v1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/reconciler"
 

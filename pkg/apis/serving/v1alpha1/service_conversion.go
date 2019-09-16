@@ -22,7 +22,7 @@ import (
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
-	"knative.dev/serving/pkg/apis/serving/v1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 

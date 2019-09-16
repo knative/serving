@@ -33,7 +33,7 @@ import (
 	cachinglisters "knative.dev/caching/pkg/client/listers/caching/v1alpha1"
 	"knative.dev/pkg/controller"
 	commonlogging "knative.dev/pkg/logging"
-	"knative.dev/serving/pkg/apis/serving/v1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"

@@ -26,7 +26,7 @@ import (
 	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 

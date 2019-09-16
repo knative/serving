@@ -30,7 +30,7 @@ import (
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
 
-	"knative.dev/serving/pkg/apis/serving/v1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/test"

@@ -23,7 +23,7 @@ import (
 
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/test/logstream"
-	"knative.dev/serving/pkg/apis/serving/v1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	. "knative.dev/serving/pkg/testing/v1alpha1"

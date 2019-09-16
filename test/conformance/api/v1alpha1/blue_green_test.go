@@ -30,7 +30,7 @@ import (
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 
-	"knative.dev/serving/pkg/apis/serving/v1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 

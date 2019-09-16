@@ -30,7 +30,7 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/spoof"
-	"knative.dev/serving/pkg/apis/serving/v1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 
 	rtesting "knative.dev/serving/pkg/testing/v1alpha1"

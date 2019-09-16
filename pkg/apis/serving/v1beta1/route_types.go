@@ -21,7 +21,7 @@ import (
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmeta"
-	"knative.dev/serving/pkg/apis/serving/v1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 // +genclient
