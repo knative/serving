@@ -94,9 +94,12 @@ func MakeFactory(ctor Ctor) Factory {
 				return false, nil, nil
 			},
 		)
+		// This is needed by the Configuration controller tests, which
+		// use GenerateName to produce Revisions.
 		PrependGenerateNameReactor(&client.Fake)
+		// This is needed by the ServerlessService controller tests, which
+		// use GenerateName to produce K8s Services.
 		PrependGenerateNameReactor(&kubeClient.Fake)
-		PrependGenerateNameReactor(&dynamicClient.Fake)
 
 		// Set up our Controller from the fakes.
 		c := ctor(ctx, &ls, configmap.NewStaticWatcher())
