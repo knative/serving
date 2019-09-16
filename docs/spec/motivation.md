@@ -17,7 +17,3 @@ standardizing on higher-level primitives which perform substantial amounts of
 automation of common infrastructure, it should be possible to build consistent
 toolkits that provide a richer experience than updating yaml files with
 `kubectl`.
-
-The Knative Serving APIs consist of Compute API (these documents),
-[Build API](https://github.com/knative/build) and
-[Eventing API](https://github.com/knative/eventing).
