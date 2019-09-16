@@ -36,7 +36,7 @@ var (
 		"v1.default.example.com":         "",
 		"v1-current.default.example.com": "current",
 	}
-	route = Route("default", "route", map[string]string{}, map[string]string{}, WithRouteUID("12345"))
+	route = Route("default", "route", WithRouteUID("12345"))
 )
 
 func TestMakeCertificates(t *testing.T) {

@@ -40,7 +40,7 @@ import (
 )
 
 var (
-	r            = Route("test-ns", "test-route", map[string]string{}, map[string]string{})
+	r            = Route("test-ns", "test-route")
 	expectedMeta = metav1.ObjectMeta{
 		Name:      "test-route",
 		Namespace: "test-ns",
@@ -268,7 +268,7 @@ func TestMakeK8sPlaceholderService(t *testing.T) {
 		wantErr: false,
 	}, {
 		name:  "cluster local route",
-		route: Route("test-ns", "test-route", map[string]string{config.VisibilityLabelKey: config.VisibilityClusterLocal}, map[string]string{}),
+		route: Route("test-ns", "test-route", WithRouteLabel(config.VisibilityLabelKey, config.VisibilityClusterLocal)),
 		expectedSpec: corev1.ServiceSpec{
 			Type:            corev1.ServiceTypeExternalName,
 			ExternalName:    "foo-test-route.test-ns.svc.cluster.local",

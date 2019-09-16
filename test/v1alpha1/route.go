@@ -37,34 +37,16 @@ import (
 	"knative.dev/serving/test"
 )
 
-// Route returns a Route object in namespace using the route and configuration
-// names in names.
-func Route(names test.ResourceNames, fopt ...v1alpha1testing.RouteOption) *v1alpha1.Route {
-	route := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: names.Route,
-		},
-		Spec: v1alpha1.RouteSpec{
-			Traffic: []v1alpha1.TrafficTarget{{
-				TrafficTarget: v1.TrafficTarget{
-					Tag:               names.TrafficTarget,
-					ConfigurationName: names.Config,
-					Percent:           ptr.Int64(100),
-				},
-			}},
-		},
-	}
-
-	for _, opt := range fopt {
-		opt(route)
-	}
-
-	return route
-}
-
 // CreateRoute creates a route in the given namespace using the route name in names
 func CreateRoute(t *testing.T, clients *test.Clients, names test.ResourceNames, fopt ...v1alpha1testing.RouteOption) (*v1alpha1.Route, error) {
-	route := Route(names, fopt...)
+	fopt = append(fopt, rtesting.WithSpecTraffic(v1alpha1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
+			Tag:               names.TrafficTarget,
+			ConfigurationName: names.Config,
+			Percent:           ptr.Int64(100),
+		},
+	}))
+	route := v1alpha1testing.Route(test.ServingNamespace, names.Route, fopt...)
 	LogResourceObject(t, ResourceObjects{Route: route})
 	return clients.ServingAlphaClient.Routes.Create(route)
 }

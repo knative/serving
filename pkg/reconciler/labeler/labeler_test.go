@@ -208,7 +208,7 @@ func TestReconcile(t *testing.T) {
 }
 
 func routeWithTraffic(namespace, name string, traffic v1alpha1.TrafficTarget) *v1alpha1.Route {
-	return Route(namespace, name, map[string]string{}, map[string]string{}, WithStatusTraffic(traffic))
+	return Route(namespace, name, WithStatusTraffic(traffic))
 }
 
 func simpleRunLatest(namespace, name, config string) *v1alpha1.Route {

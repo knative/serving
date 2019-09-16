@@ -66,8 +66,8 @@ const (
 	prodDomainSuffix    = "prod-domain.com"
 )
 
-func getTestRouteWithTrafficTargets(ro RouteOption) *v1alpha1.Route {
-	return Route(testNamespace, "test-route", map[string]string{"route": "test-route"}, map[string]string{}, ro)
+func getTestRouteWithTrafficTargets(trafficTarget RouteOption) *v1alpha1.Route {
+	return Route(testNamespace, "test-route", WithRouteLabel("route", "test-route"), trafficTarget)
 }
 
 func getTestRevision(name string) *v1alpha1.Revision {
@@ -1002,7 +1002,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 }
 
 func TestRouteDomain(t *testing.T) {
-	route := Route("default", "myapp", map[string]string{"route": "myapp"}, map[string]string{"sub": "mysub"})
+	route := Route("default", "myapp", WithRouteLabel("route", "myapp"), WithRouteAnnotation("sub", "mysub"))
 	context := context.Background()
 	cfg := ReconcilerTestConfig(false)
 	context = config.ToContext(context, cfg)

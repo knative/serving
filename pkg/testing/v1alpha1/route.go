@@ -228,6 +228,16 @@ func WithRouteLabel(key, value string) RouteOption {
 	}
 }
 
+// WithRouteAnnotation sets the specified annotation on the Route.
+func WithRouteAnnotation(key, value string) RouteOption {
+	return func(r *v1alpha1.Route) {
+		if r.Annotations == nil {
+			r.Annotations = make(map[string]string)
+		}
+		r.Annotations[key] = value
+	}
+}
+
 // WithIngressClass sets the ingress class annotation on the Route.
 func WithIngressClass(ingressClass string) RouteOption {
 	return func(r *v1alpha1.Route) {
@@ -238,14 +248,12 @@ func WithIngressClass(ingressClass string) RouteOption {
 	}
 }
 
-// Route creates a route with ServiceOptions
-func Route(namespace, name string, labels, annotations map[string]string, ro ...RouteOption) *v1alpha1.Route {
+// Route creates a route with RouteOptions
+func Route(namespace, name string, ro ...RouteOption) *v1alpha1.Route {
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   namespace,
-			Name:        name,
-			Labels:      labels,
-			Annotations: annotations,
+			Namespace: namespace,
+			Name:      name,
 		},
 	}
 	for _, opt := range ro {
