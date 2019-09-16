@@ -54,6 +54,7 @@ func SetupWebhookServer() {
 	m.HandleFunc("/", ac.RecordResourceCoverage)
 	m.HandleFunc(webhook.ResourceCoverageEndPoint, ac.GetResourceCoverage)
 	m.HandleFunc(webhook.TotalCoverageEndPoint, ac.GetTotalCoverage)
+	m.HandleFunc(webhook.ResourcePercentageCoverageEndPoint, ac.GetResourceCoveragePercentages)
 
 	err := webhookConf.SetupWebhook(m, ac.ResourceMap, namespace, signals.SetupSignalHandler())
 	if err != nil {
