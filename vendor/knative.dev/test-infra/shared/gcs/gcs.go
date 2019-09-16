@@ -48,13 +48,13 @@ func Authenticate(ctx context.Context, serviceAccount string) error {
 func Exists(ctx context.Context, bucketName, storagePath string) bool {
 	// Check if this is a file
 	handle := createStorageObject(bucketName, storagePath)
-	if _, err := handle.Attrs(ctx); nil == err {
+	if _, err := handle.Attrs(ctx); err == nil {
 		return true
 	}
 	// Check if this is a directory,
 	// gcs directory paths are virtual paths, they automatically got deleted if there is no child file
 	_, err := getObjectsIter(ctx, bucketName, strings.TrimRight(storagePath, " /")+"/", "").Next()
-	return nil == err
+	return err == nil
 }
 
 // ListChildrenFiles recursively lists all children files.
@@ -82,7 +82,7 @@ func Copy(ctx context.Context, srcBucketName, srcPath, dstBucketName, dstPath st
 // Download file from gcs
 func Download(ctx context.Context, bucketName, srcPath, dstPath string) error {
 	handle := createStorageObject(bucketName, srcPath)
-	if _, err := handle.Attrs(ctx); nil != err {
+	if _, err := handle.Attrs(ctx); err != nil {
 		return err
 	}
 
@@ -95,24 +95,20 @@ func Download(ctx context.Context, bucketName, srcPath, dstPath string) error {
 		return err
 	}
 	defer src.Close()
-	if _, err = io.Copy(dst, src); nil != err {
-		return err
-	}
-	return nil
+	_, err = io.Copy(dst, src)
+	return err
 }
 
 // Upload file to gcs
 func Upload(ctx context.Context, bucketName, dstPath, srcPath string) error {
 	src, err := os.Open(srcPath)
-	if nil != err {
+	if err != nil {
 		return err
 	}
 	dst := createStorageObject(bucketName, dstPath).NewWriter(ctx)
-	if _, err = io.Copy(dst, src); nil != err {
-		return err
-	}
-	dst.Close()
-	return nil
+	defer dst.Close()
+	_, err = io.Copy(dst, src)
+	return err
 }
 
 // Read reads the specified file
@@ -123,11 +119,7 @@ func Read(ctx context.Context, bucketName, filePath string) ([]byte, error) {
 		return contents, err
 	}
 	defer f.Close()
-	contents, err = ioutil.ReadAll(f)
-	if err != nil {
-		return contents, err
-	}
-	return contents, nil
+	return ioutil.ReadAll(f)
 }
 
 // ReadURL reads from a gsUrl and return a log structure
