@@ -273,20 +273,14 @@ func (rw *revisionWatcher) checkDests(dests sets.String) {
 
 func (rw *revisionWatcher) run(probeFrequency time.Duration) {
 	var dests sets.String
-	var timer *time.Timer
+	timer := time.NewTicker(probeFrequency)
 
+	var tickCh <-chan time.Time
 	for {
-		var tickCh <-chan time.Time
-
 		if len(dests) != 0 && !rw.clusterIPHealthy {
-			if timer == nil {
-				timer = time.NewTimer(probeFrequency)
-			} else {
-				timer.Reset(probeFrequency)
-			}
 			tickCh = timer.C
-		} else if timer != nil { // We dont need to tick, if we have a timer stop it
-			timer.Stop()
+		} else {
+			tickCh = nil
 		}
 
 		select {
