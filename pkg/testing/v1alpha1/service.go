@@ -115,6 +115,38 @@ func WithInlineRollout(s *v1alpha1.Service) {
 	}
 }
 
+// WithInlineNamedRevision configures the Service to use BYO Revision in the
+// template spec and reference that same revision name in the route spec.
+func WithInlineNamedRevision(s *v1alpha1.Service) {
+	s.Spec = v1alpha1.ServiceSpec{
+		ConfigurationSpec: v1alpha1.ConfigurationSpec{
+			Template: &v1alpha1.RevisionTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: s.Name + "-byo",
+				},
+				Spec: v1alpha1.RevisionSpec{
+					RevisionSpec: v1.RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "busybox",
+							}},
+						},
+						TimeoutSeconds: ptr.Int64(60),
+					},
+				},
+			},
+		},
+		RouteSpec: v1alpha1.RouteSpec{
+			Traffic: []v1alpha1.TrafficTarget{{
+				TrafficTarget: v1.TrafficTarget{
+					RevisionName: s.Name + "-byo",
+					Percent:      ptr.Int64(100),
+				},
+			}},
+		},
+	}
+}
+
 // WithRunLatestRollout configures the Service to use a "runLatest" rollout.
 func WithRunLatestRollout(s *v1alpha1.Service) {
 	s.Spec = v1alpha1.ServiceSpec{
@@ -408,6 +440,12 @@ func WithFailedRoute(reason, message string) ServiceOption {
 			},
 		})
 	}
+}
+
+// WithOutOfDateConfig reflects the Configuration's readiness in the Service
+// resource.
+func WithOutOfDateConfig(s *v1alpha1.Service) {
+	s.Status.MarkConfigurationNotReconciled()
 }
 
 // WithReadyConfig reflects the Configuration's readiness in the Service
