@@ -274,6 +274,7 @@ func (rw *revisionWatcher) checkDests(dests sets.String) {
 func (rw *revisionWatcher) run(probeFrequency time.Duration) {
 	var dests sets.String
 	timer := time.NewTicker(probeFrequency)
+	defer close(timer.C)
 
 	var tickCh <-chan time.Time
 	for {
