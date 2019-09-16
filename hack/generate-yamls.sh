@@ -52,7 +52,7 @@ readonly SERVING_YAML=${YAML_OUTPUT_DIR}/serving.yaml
 readonly SERVING_CORE_YAML=${YAML_OUTPUT_DIR}/serving-core.yaml
 readonly SERVING_CRD_ALPHA_YAML=${YAML_OUTPUT_DIR}/serving-alpha-crds.yaml
 readonly SERVING_ALPHA_YAML=${YAML_OUTPUT_DIR}/serving-pre-1.14.yaml
-readonly SERVING_CRD_V1_YAML=${YAML_OUTPUT_DIR}/serving-beta-crds.yaml
+readonly SERVING_CRD_V1_YAML=${YAML_OUTPUT_DIR}/serving-v1-crds.yaml
 readonly SERVING_V1_YAML=${YAML_OUTPUT_DIR}/serving-post-1.14.yaml
 readonly SERVING_CORE_V1_YAML=${YAML_OUTPUT_DIR}/serving-core-post-1.14.yaml
 readonly SERVING_CERT_MANAGER_YAML=${YAML_OUTPUT_DIR}/serving-cert-manager.yaml
@@ -100,11 +100,11 @@ ko resolve ${KO_YAML_FLAGS} -f config/ --selector  networking.knative.dev/wildca
 cat "${SERVING_YAML}" > "${SERVING_ALPHA_YAML}"
 cat "${SERVING_CRD_ALPHA_YAML}" >> "${SERVING_ALPHA_YAML}"
 
-# Create the full beta install.
+# Create the full v1 install.
 cat "${SERVING_YAML}" > "${SERVING_V1_YAML}"
 cat "${SERVING_CRD_V1_YAML}" >> "${SERVING_V1_YAML}"
 
-# Create the core beta install
+# Create the core v1 install
 cat "${SERVING_CORE_YAML}" > "${SERVING_CORE_V1_YAML}"
 cat "${SERVING_CRD_V1_YAML}" >> "${SERVING_CORE_V1_YAML}"
 
