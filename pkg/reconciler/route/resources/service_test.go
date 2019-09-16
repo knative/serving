@@ -375,9 +375,10 @@ func TestGetNames(t *testing.T) {
 }
 
 func TestGetDesiredServiceNames(t *testing.T) {
+	var route *v1alpha1.Route
 	tests := []struct {
 		name    string
-		traffic []v1alpha1.TrafficTarget
+		traffic RouteOption
 		want    sets.String
 		wantErr bool
 	}{
@@ -386,17 +387,27 @@ func TestGetDesiredServiceNames(t *testing.T) {
 		},
 		{
 			name:    "only default traffic",
-			traffic: []v1alpha1.TrafficTarget{{TrafficTarget: v1.TrafficTarget{}}},
+			traffic: WithSpecTraffic(v1alpha1.TrafficTarget{TrafficTarget: v1.TrafficTarget{}}),
 			want:    sets.NewString("myroute"),
 		},
 		{
 			name: "traffic targets with tag",
-			traffic: []v1alpha1.TrafficTarget{
-				{TrafficTarget: v1.TrafficTarget{}},
-				{TrafficTarget: v1.TrafficTarget{Tag: "hello"}},
-				{TrafficTarget: v1.TrafficTarget{Tag: "hello"}},
-				{TrafficTarget: v1.TrafficTarget{Tag: "bye"}},
+			traffic: WithSpecTraffic(v1alpha1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{},
+			}, v1alpha1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
+					Tag: "hello",
+				},
+			}, v1alpha1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
+					Tag: "hello",
+				},
+			}, v1alpha1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
+					Tag: "bye",
+				},
 			},
+			),
 			want: sets.NewString("myroute", "hello-myroute", "bye-myroute"),
 		},
 	}
@@ -404,14 +415,10 @@ func TestGetDesiredServiceNames(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := testConfig()
 			ctx := config.ToContext(context.Background(), cfg)
-
-			route := &v1alpha1.Route{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "myroute",
-				},
-				Spec: v1alpha1.RouteSpec{
-					Traffic: tt.traffic,
-				},
+			if tt.traffic != nil {
+				route = Route("default", "myroute", tt.traffic)
+			} else {
+				route = Route("default", "myroute")
 			}
 			got, err := GetDesiredServiceNames(ctx, route)
 			if (err != nil) != tt.wantErr {
