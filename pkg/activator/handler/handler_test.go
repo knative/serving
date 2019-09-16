@@ -570,7 +570,7 @@ func serviceLister(svcs ...*corev1.Service) corev1listers.ServiceLister {
 	services := informer.Core().V1().Services()
 
 	for _, svc := range svcs {
-		fake.Core().Services(svc.Namespace).Create(svc)
+		fake.CoreV1().Services(svc.Namespace).Create(svc)
 		services.Informer().GetIndexer().Add(svc)
 	}
 
@@ -604,7 +604,7 @@ func sksLister(skss ...*nv1a1.ServerlessService) netlisters.ServerlessServiceLis
 	services := informer.Networking().V1alpha1().ServerlessServices()
 
 	for _, sks := range skss {
-		fake.Networking().ServerlessServices(sks.Namespace).Create(sks)
+		fake.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(sks)
 		services.Informer().GetIndexer().Add(sks)
 	}
 
@@ -653,7 +653,7 @@ func endpointsInformer(eps ...*corev1.Endpoints) corev1informers.EndpointsInform
 	endpoints := informer.Core().V1().Endpoints()
 
 	for _, ep := range eps {
-		fake.Core().Endpoints(ep.Namespace).Create(ep)
+		fake.CoreV1().Endpoints(ep.Namespace).Create(ep)
 		endpoints.Informer().GetIndexer().Add(ep)
 	}
 

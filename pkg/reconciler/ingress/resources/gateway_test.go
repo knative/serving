@@ -630,7 +630,7 @@ func serviceLister(svcs ...*corev1.Service) corev1listers.ServiceLister {
 	services := informer.Core().V1().Services()
 
 	for _, svc := range svcs {
-		fake.Core().Services(svc.Namespace).Create(svc)
+		fake.CoreV1().Services(svc.Namespace).Create(svc)
 		services.Informer().GetIndexer().Add(svc)
 	}
 
