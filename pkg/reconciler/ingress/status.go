@@ -41,6 +41,7 @@ import (
 	"knative.dev/serving/pkg/network/prober"
 	"knative.dev/serving/pkg/reconciler/ingress/resources"
 
+	corev1 "k8s.io/api/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
 )
@@ -90,6 +91,7 @@ type StatusProber struct {
 
 	gatewayLister    istiolisters.GatewayLister
 	endpointsLister  corev1listers.EndpointsLister
+	serviceLister    corev1listers.ServiceLister
 	transportFactory func() http.RoundTripper
 
 	readyCallback func(*v1alpha3.VirtualService)
@@ -104,6 +106,7 @@ func NewStatusProber(
 	logger *zap.SugaredLogger,
 	gatewayLister istiolisters.GatewayLister,
 	endpointsLister corev1listers.EndpointsLister,
+	serviceLister corev1listers.ServiceLister,
 	transportFactory func() http.RoundTripper,
 	readyCallback func(*v1alpha3.VirtualService)) *StatusProber {
 	return &StatusProber{
@@ -114,6 +117,7 @@ func NewStatusProber(
 			"ProbingQueue"),
 		gatewayLister:    gatewayLister,
 		endpointsLister:  endpointsLister,
+		serviceLister:    serviceLister,
 		transportFactory: transportFactory,
 		readyCallback:    readyCallback,
 		probeConcurrency: probeConcurrency,
@@ -326,6 +330,15 @@ func (m *StatusProber) listVirtualServicePodIPs(vs *v1alpha3.VirtualService) ([]
 			selector = selector.Add(*requirement)
 		}
 
+		services, err := m.serviceLister.List(selector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list Service: %v", err)
+		}
+		if len(services) == 0 {
+			return nil, errors.New("did not find a Service")
+		}
+		service := services[0]
+
 		endpoints, err := m.endpointsLister.List(selector)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list Endpoints: %v", err)
@@ -338,14 +351,45 @@ func (m *StatusProber) listVirtualServicePodIPs(vs *v1alpha3.VirtualService) ([]
 				continue
 			}
 
+			// Resolve the current gateway server's port to a name defined in the gateway's service.
+			portName, err := findNameForPortNumber(service, int32(server.Port.Number))
+			if err != nil {
+				return nil, fmt.Errorf("failed to find port name: %v", err)
+			}
 			for _, eps := range endpoints {
 				for _, sub := range eps.Subsets {
+					portNumber, err := findPortNumberForName(sub, portName)
+					if err != nil {
+						return nil, fmt.Errorf("failed to find port number: %v", err)
+					}
+
+					portStr := strconv.Itoa(int(portNumber))
 					for _, addr := range sub.Addresses {
-						podIPs = append(podIPs, net.JoinHostPort(addr.IP, strconv.Itoa(server.Port.Number)))
+						podIPs = append(podIPs, net.JoinHostPort(addr.IP, portStr))
 					}
 				}
 			}
 		}
 	}
 	return podIPs, nil
+}
+
+// findNameForPortNumber finds the name for a given port as defined by a Service.
+func findNameForPortNumber(svc *corev1.Service, portNumber int32) (string, error) {
+	for _, port := range svc.Spec.Ports {
+		if port.Port == portNumber {
+			return port.Name, nil
+		}
+	}
+	return "", fmt.Errorf("no port with number %d found", portNumber)
+}
+
+// findPortNumberForName resolves a given name to a portNumber as defined by an EndpointSubset.
+func findPortNumberForName(sub corev1.EndpointSubset, portName string) (int32, error) {
+	for _, subPort := range sub.Ports {
+		if subPort.Name == portName {
+			return subPort.Port, nil
+		}
+	}
+	return 0, fmt.Errorf("no port for name %q found", portName)
 }
