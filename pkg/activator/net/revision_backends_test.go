@@ -341,7 +341,7 @@ func TestRevisionWatcher(t *testing.T) {
 			revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
 			if tc.clusterIP != "" {
 				svc := privateSksService(revID, tc.clusterIP, []corev1.ServicePort{tc.clusterPort})
-				fake.Core().Services(svc.Namespace).Create(svc)
+				fake.CoreV1().Services(svc.Namespace).Create(svc)
 				informer.Core().V1().Services().Informer().GetIndexer().Add(svc)
 			}
 
