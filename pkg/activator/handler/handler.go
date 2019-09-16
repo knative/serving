@@ -84,7 +84,6 @@ func New(l *zap.SugaredLogger, r activator.StatsReporter,
 func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	namespace := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderNamespace)
 	name := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderName)
-	start := time.Now()
 	revID := types.NamespacedName{Namespace: namespace, Name: name}
 	logger := a.logger.With(zap.String(logkey.Key, revID.String()))
 
@@ -117,8 +116,9 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		configurationName := revision.Labels[serving.ConfigurationLabelKey]
 		serviceName := revision.Labels[serving.ServiceLabelKey]
+		// Do not report response time here. It is reported in pkg/activator/metric_handler.go to
+		// sum up all time spent on multiple handlers.
 		a.reporter.ReportRequestCount(namespace, serviceName, configurationName, name, httpStatus, 1)
-		a.reporter.ReportResponseTime(namespace, serviceName, configurationName, name, httpStatus, time.Since(start))
 
 		return nil
 	})
