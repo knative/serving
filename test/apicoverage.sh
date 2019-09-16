@@ -28,25 +28,32 @@
 source $(dirname $0)/e2e-common.sh
 
 readonly SERVING_TEST_DIR=$(dirname $0)
-readonly APICOVERAGE_IMAGE=$SERVING_TEST_DIR/apicoverage/image
-readonly APICOVERAGE_TOOL=$SERVING_TEST_DIR/apicoverage/tools
+readonly APICOVERAGE_IMAGE="${SERVING_TEST_DIR}/apicoverage/image"
+readonly APICOVERAGE_TOOL="${SERVING_TEST_DIR}/apicoverage/tools"
 
 function knative_setup() {
   install_knative_serving
+}
+
+# Wrapper to fail_test to write apicoverage junit result file.
+# Parameters: $1 - Error message to pass onto fail_test
+function fail_apicoverage_run() {
+  go run "${APICOVERAGE_TOOL}/main.go" --build_failed=true
+  fail_test $1
 }
 
 # Script entry point.
 initialize $@ --skip-istio-addon
 
 header "Setting up API Coverage Webhook"
-kubectl apply -f $APICOVERAGE_IMAGE/service-account.yaml || fail_test "Failed setting up service account for apicoverage-webhook"
-ko apply -f $APICOVERAGE_IMAGE/apicoverage-webhook.yaml || fail_test "Failed setting up apicoverage-webhook"
+kubectl apply -f "${APICOVERAGE_IMAGE}/service-account.yaml" || fail_apicoverage_run "Failed setting up service account for apicoverage-webhook"
+ko apply -f "${APICOVERAGE_IMAGE}/apicoverage-webhook.yaml" || fail_apicoverage_run "Failed setting up apicoverage-webhook"
 
 header "Running tests"
 # Run conformance tests and e2e tests
-go_test_e2e -timeout=30m ./test/conformance/api/v1alpha1 ./test/conformance/api/v1beta1 ./test/conformance/api/v1 ./test/conformance/runtime ./test/e2e || fail_test "Failed in executing Tests"
+go_test_e2e -timeout=30m ./test/conformance/api/v1alpha1 ./test/conformance/api/v1beta1 ./test/conformance/runtime ./test/e2e || fail_apicoverage_run "Failed in executing Tests"
 
 header "Retrieving API Coverage values"
-go run $APICOVERAGE_TOOL/main.go || fail_test "Failed retrieving API coverage values"
+go run "${APICOVERAGE_TOOL}/main.go" || fail_test "Failed retrieving API coverage values"
 
 success
