@@ -23,9 +23,24 @@ import (
 	"knative.dev/pkg/testutils/clustermanager/boskos"
 )
 
+const (
+	fakeOwner = "fake-owner"
+)
+
 // FakeBoskosClient implements boskos.Operation
 type FakeBoskosClient struct {
 	resources []*boskoscommon.Resource
+}
+
+func (c *FakeBoskosClient) getOwner(host *string) string {
+	if nil == host {
+		return fakeOwner
+	}
+	return *host
+}
+
+func (c *FakeBoskosClient) GetResources() []*boskoscommon.Resource {
+	return c.resources
 }
 
 // AcquireGKEProject fakes to be no op
@@ -33,6 +48,7 @@ func (c *FakeBoskosClient) AcquireGKEProject(host *string) (*boskoscommon.Resour
 	for _, res := range c.resources {
 		if res.State == boskoscommon.Free {
 			res.State = boskoscommon.Busy
+			res.Owner = c.getOwner(host)
 			return res, nil
 		}
 	}
@@ -41,18 +57,15 @@ func (c *FakeBoskosClient) AcquireGKEProject(host *string) (*boskoscommon.Resour
 
 // ReleaseGKEProject fakes to be no op
 func (c *FakeBoskosClient) ReleaseGKEProject(host *string, name string) error {
-	if nil == host {
-		return fmt.Errorf("host has to be set")
-	}
-
+	owner := c.getOwner(host)
 	for _, res := range c.resources {
 		if res.Name == name {
-			if res.Owner == *host {
+			if res.Owner == owner {
 				res.Owner = ""
 				res.State = boskoscommon.Free
 				return nil
 			} else {
-				return fmt.Errorf("Got owner: '%s', expect owner: '%s'", res.Owner, *host)
+				return fmt.Errorf("Got owner: '%s', expect owner: '%s'", res.Owner, owner)
 			}
 		}
 	}

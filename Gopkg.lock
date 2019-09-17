@@ -1673,8 +1673,8 @@
   revision = "6185837d36c863cd1637f12ff1b63c8b3ffb425e"
 
 [[projects]]
-  branch = "release-0.9"
-  digest = "1:19beb74b5d34a69dc256f965c3ef2519fdb2ae74590174b1231a1f0da7e26fd4"
+  branch = "master"
+  digest = "1:28bec577231fb3a03b5918299e5c1747a786ff4fdae034747301809dcffcfddb"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1782,7 +1782,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "74659889c421b26b9a416fd203f5a8d3e602bfb2"
+  revision = "4febcfe6aeade8dfa7df45d84ed1ca510ea1d466"
 
 [[projects]]
   branch = "master"
@@ -1979,6 +1979,7 @@
     "knative.dev/pkg/test/prometheus",
     "knative.dev/pkg/test/spoof",
     "knative.dev/pkg/test/vegeta/pacers",
+    "knative.dev/pkg/test/webhook-apicoverage/coveragecalculator",
     "knative.dev/pkg/test/webhook-apicoverage/resourcetree",
     "knative.dev/pkg/test/webhook-apicoverage/tools",
     "knative.dev/pkg/test/webhook-apicoverage/view",
