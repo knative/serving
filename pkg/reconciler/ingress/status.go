@@ -336,7 +336,7 @@ func (m *StatusProber) listVirtualServicePodIPs(vs *v1alpha3.VirtualService) ([]
 		}
 		if len(services) == 0 {
 			// Allow an empty services list to not unnecessarily interrupt.
-			break
+			continue
 		}
 		service := services[0]
 
