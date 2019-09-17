@@ -285,6 +285,8 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 }
 
 func (r *reconciler) privateService(sks *netv1alpha1.ServerlessService) (*corev1.Service, error) {
+	// The code below is for backwards compatibility, when we had
+	// GenerateName for the private services.
 	svcs, err := r.serviceLister.Services(sks.Namespace).List(labels.SelectorFromSet(map[string]string{
 		networking.SKSLabelKey:    sks.Name,
 		networking.ServiceTypeKey: string(networking.ServiceTypePrivate),

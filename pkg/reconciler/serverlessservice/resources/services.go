@@ -115,8 +115,8 @@ func filterSubsetPorts(targetPort int32, subsets []corev1.EndpointSubset) []core
 func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: sks.Name + "-",
-			Namespace:    sks.Namespace,
+			Name:      kmeta.ChildName(sks.Name, "-private"),
+			Namespace: sks.Namespace,
 			Labels: resources.UnionMaps(sks.GetLabels(), map[string]string{
 				// Add our own special key.
 				networking.SKSLabelKey:    sks.Name,

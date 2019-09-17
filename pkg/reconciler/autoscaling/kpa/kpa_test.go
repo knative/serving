@@ -581,7 +581,7 @@ func TestReconcile(t *testing.T) {
 			kpa(testNamespace, testRevision, WithTraffic, withMSvcStatus(testRevision),
 				withScales(0, defaultScale), WithPAStatusService(testRevision)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPubService,
-				WithPrivateService(testRevision+"-private")),
+				WithPrivateService),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 			metric(testNamespace, testRevision),
 			defaultDeployment, defaultEndpoints,
@@ -890,7 +890,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			inactiveKPAMinScale(0), underscaledEndpoints, underscaledDeployment,
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode,
-				WithPubService, WithPrivateService("king-crimson")),
+				WithPubService, WithPrivateService),
 			defaultMetric, defaultMetricsSvc,
 		},
 	}, {
@@ -902,7 +902,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			inactiveKPAMinScale(0), underscaledEndpoints, underscaledDeployment,
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode,
-				WithPubService, WithPrivateService("king-gizzard")),
+				WithPubService, WithPrivateService),
 			defaultMetric, defaultMetricsSvc,
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -913,7 +913,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: sks(testNamespace, testRevision, WithDeployRef(deployName),
-				WithPubService, WithPrivateService("king-gizzard")),
+				WithPubService, WithPrivateService),
 		}},
 	}, {
 		Name: "underscaled, PA activating",
