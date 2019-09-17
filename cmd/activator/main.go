@@ -318,7 +318,7 @@ func newHealthCheck(logger *zap.SugaredLogger, statSink *websocket.ManagedConnec
 				logger.Info("Received SIGTERM")
 				close(drainCh)
 			})
-			return errors.New("received SIGTERM from kubelet.")
+			return errors.New("received SIGTERM from kubelet")
 		default:
 			logger.Debug("No signal yet.")
 			return statSink.Status()
