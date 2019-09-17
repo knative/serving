@@ -494,7 +494,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue(10, "spec.release.rolloutPercent"),
+		want: apis.ErrGeneric("May not set rolloutPercent for a single revision", "spec.release.rolloutPercent"),
 	}, {
 		name: "invalid name - dots",
 		s: &Service{
