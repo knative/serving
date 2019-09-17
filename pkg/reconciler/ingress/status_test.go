@@ -136,6 +136,108 @@ func TestIsReadyFailures(t *testing.T) {
 			}},
 		},
 		endpointsLister: &fakeEndpointsLister{fails: true},
+	}, {
+		name: "service port not found",
+		vsSpec: v1alpha3.VirtualServiceSpec{
+			Gateways: []string{"default/gateway"},
+			Hosts:    []string{"foobar" + resources.ProbeHostSuffix},
+		},
+		gatewayLister: &fakeGatewayLister{
+			gateways: []*v1alpha3.Gateway{{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "gateway",
+				},
+				Spec: v1alpha3.GatewaySpec{
+					Servers: []v1alpha3.Server{{
+						Hosts: []string{"*"},
+						Port: v1alpha3.Port{
+							Number:   80,
+							Protocol: v1alpha3.ProtocolHTTP,
+						},
+					}},
+					Selector: map[string]string{
+						"gwt": "istio",
+					},
+				},
+			}},
+		},
+		serviceLister: &fakeServiceLister{
+			services: []*v1.Service{{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "gateway",
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{{
+						Name: "bogus",
+						Port: 8080,
+					}},
+				},
+			}},
+		},
+		endpointsLister: &fakeEndpointsLister{
+			endpoints: []*v1.Endpoints{{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "gateway",
+				},
+			}},
+		},
+	}, {
+		name: "service port not found",
+		vsSpec: v1alpha3.VirtualServiceSpec{
+			Gateways: []string{"default/gateway"},
+			Hosts:    []string{"foobar" + resources.ProbeHostSuffix},
+		},
+		gatewayLister: &fakeGatewayLister{
+			gateways: []*v1alpha3.Gateway{{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "gateway",
+				},
+				Spec: v1alpha3.GatewaySpec{
+					Servers: []v1alpha3.Server{{
+						Hosts: []string{"*"},
+						Port: v1alpha3.Port{
+							Number:   80,
+							Protocol: v1alpha3.ProtocolHTTP,
+						},
+					}},
+					Selector: map[string]string{
+						"gwt": "istio",
+					},
+				},
+			}},
+		},
+		serviceLister: &fakeServiceLister{
+			services: []*v1.Service{{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "gateway",
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{{
+						Name: "real",
+						Port: 80,
+					}},
+				},
+			}},
+		},
+		endpointsLister: &fakeEndpointsLister{
+			endpoints: []*v1.Endpoints{{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "gateway",
+				},
+				Subsets: []v1.EndpointSubset{{
+					Ports: []v1.EndpointPort{{
+						Name: "bogus",
+						Port: 8080,
+					}},
+				}},
+			}},
+		},
 	}}
 
 	for _, test := range tests {
