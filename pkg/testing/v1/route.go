@@ -17,7 +17,7 @@ limitations under the License.
 package v1
 
 import (
-	"knative.dev/serving/pkg/apis/serving/v1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 // RouteOption enables further configuration of a Route.

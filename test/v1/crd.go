@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"knative.dev/serving/pkg/apis/serving/v1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 // ResourceObjects holds types of the resource objects.
