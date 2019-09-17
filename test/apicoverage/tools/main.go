@@ -36,7 +36,7 @@ var buildFailed = flag.Bool("build_failed", false,
 // Helper method to produce failed coverage results.
 func getFailedResourceCoverages() *coveragecalculator.CoveragePercentages {
 	percentCoverages := make(map[string]float64)
-	for resourceKind, _ := range common.ResourceMap {
+	for resourceKind := range common.ResourceMap {
 		percentCoverages[resourceKind.Kind] = 0.0
 	}
 	percentCoverages["Overall"] = 0.0
