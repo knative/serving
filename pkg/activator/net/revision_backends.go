@@ -206,7 +206,7 @@ func (rw *revisionWatcher) probePodIPs(dests sets.String) (sets.String, bool, er
 	return healthy, !changed, err
 }
 
-func (rw *revisionWatcher) sendUpdate(clusterIP string, dests sets.String, deleted bool) {
+func (rw *revisionWatcher) sendUpdate(clusterIP string, dests sets.String) {
 	select {
 	case <-rw.doneCh:
 		// We're not closing updateCh because this would result in 1 close per revisionWatcher.
@@ -215,7 +215,7 @@ func (rw *revisionWatcher) sendUpdate(clusterIP string, dests sets.String, delet
 		// TODO(greghaynes) find a way to explicitly close the channel. Potentially use channel per watcher.
 		return
 	default:
-		rw.updateCh <- RevisionDestsUpdate{Rev: rw.rev, ClusterIPDest: clusterIP, Dests: dests, Deleted: deleted}
+		rw.updateCh <- RevisionDestsUpdate{Rev: rw.rev, ClusterIPDest: clusterIP, Dests: dests}
 	}
 }
 
@@ -226,8 +226,7 @@ func (rw *revisionWatcher) checkDests(dests sets.String) {
 		// We must have scaled down.
 		rw.clusterIPHealthy = false
 		rw.logger.Debug("ClusterIP is no longer healthy.")
-		// Send update that we are now inactive (Deleted true).
-		rw.sendUpdate("", nil, true)
+		// We do not send this update, as we will send it via endpointsDeleted.
 		return
 	}
 
@@ -242,7 +241,7 @@ func (rw *revisionWatcher) checkDests(dests sets.String) {
 	if rw.clusterIPHealthy {
 		// cluster IP is healthy and we haven't scaled down, short circuit.
 		rw.logger.Debugf("ClusterIP %s already probed (backends: %d)", dest, len(dests))
-		rw.sendUpdate(dest, dests, false)
+		rw.sendUpdate(dest, dests)
 		return
 	}
 
@@ -253,7 +252,7 @@ func (rw *revisionWatcher) checkDests(dests sets.String) {
 		rw.logger.Debugf("ClusterIP is successfully probed: %s (backends: %d)", dest, len(dests))
 		rw.clusterIPHealthy = true
 		rw.healthyPods = nil
-		rw.sendUpdate(dest, dests, false)
+		rw.sendUpdate(dest, dests)
 		return
 	}
 
@@ -266,7 +265,7 @@ func (rw *revisionWatcher) checkDests(dests sets.String) {
 	rw.logger.Debugf("Done probing, got %d healthy pods", len(hs))
 	if !noop {
 		rw.healthyPods = hs
-		rw.sendUpdate("" /*clusterIP not ready yet*/, hs, false)
+		rw.sendUpdate("" /*clusterIP not ready yet*/, hs)
 	}
 }
 
