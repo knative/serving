@@ -299,7 +299,7 @@ func assertScaleDown(ctx *testContext) {
 }
 
 func numberOfPods(ctx *testContext) (int32, error) {
-	deployment, err := ctx.clients.KubeClient.Kube.Apps().Deployments(test.ServingNamespace).Get(ctx.deploymentName, metav1.GetOptions{})
+	deployment, err := ctx.clients.KubeClient.Kube.AppsV1().Deployments(test.ServingNamespace).Get(ctx.deploymentName, metav1.GetOptions{})
 	if err != nil {
 		return 0, errors.Wrapf(err, "Failed to get deployment %q", deployment)
 	}
