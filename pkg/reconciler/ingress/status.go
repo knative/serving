@@ -335,7 +335,7 @@ func (m *StatusProber) listVirtualServicePodIPs(vs *v1alpha3.VirtualService) ([]
 			return nil, fmt.Errorf("failed to list Service: %v", err)
 		}
 		if len(services) == 0 {
-			// Allow an empty services list to not unnecessarily interrupt.
+			// Skip gateways where we cannot find a corresponding service
 			continue
 		}
 		service := services[0]
