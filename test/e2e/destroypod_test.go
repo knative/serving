@@ -93,14 +93,13 @@ func TestDestroyPodInflight(t *testing.T) {
 		t.Fatalf("Error obtaining Revision's name %v", err)
 	}
 
-	_, err = pkgTest.WaitForEndpointState(
+	if _, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
 		domain,
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(timeoutExpectedOutput))),
 		"TimeoutAppServesText",
-		test.ServingFlags.ResolvableDomain)
-	if err != nil {
+		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, test.HelloWorldText, err)
 	}
 
@@ -232,14 +231,13 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	}
 	domain := objects.Route.Status.URL.Host
 
-	_, err = pkgTest.WaitForEndpointState(
+	if _, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
 		domain,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"RouteServes",
-		test.ServingFlags.ResolvableDomain)
-	if err != nil {
+		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("The endpoint for Route %s at domain %s didn't serve correctly: %v", names.Route, domain, err)
 	}
 
