@@ -146,7 +146,7 @@ func (tt *TrafficTarget) validateLatestRevision(ctx context.Context) *apis.Field
 		if pinned == lr {
 			// The senses for whether to pin to a particular revision or
 			// float forward to the latest revision must match.
-			return apis.ErrGeneric(fmt.Sprintf("May not set revisionName %q when latestRevision is %t", tt.RevisionName, lr), "latestRevision")
+			return apis.ErrGeneric(fmt.Sprintf("may not set revisionName %q when latestRevision is %t", tt.RevisionName, lr), "latestRevision")
 		}
 	}
 	return nil

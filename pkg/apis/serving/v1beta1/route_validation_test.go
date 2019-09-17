@@ -101,7 +101,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 			Percent:        ptr.Int64(12),
 		},
 		wc:   apis.WithinSpec,
-		want: apis.ErrGeneric(`May not set revisionName "bar" when latestRevision is true`, "latestRevision"),
+		want: apis.ErrGeneric(`may not set revisionName "bar" when latestRevision is true`, "latestRevision"),
 	}, {
 		name: "valid with revisionName and latestRevision (status)",
 		tt: &v1.TrafficTarget{
@@ -154,7 +154,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 			Percent:           ptr.Int64(37),
 		},
 		wc:   apis.WithinSpec,
-		want: apis.ErrGeneric(`May not set revisionName "" when latestRevision is false`, "latestRevision"),
+		want: apis.ErrGeneric(`may not set revisionName "" when latestRevision is false`, "latestRevision"),
 	}, {
 		name: "invalid with configurationName and default configurationName",
 		tt: &v1.TrafficTarget{
@@ -191,7 +191,7 @@ func TestTrafficTargetValidation(t *testing.T) {
 		wc: func(ctx context.Context) context.Context {
 			return v1.WithDefaultConfigurationName(apis.WithinSpec(ctx))
 		},
-		want: apis.ErrGeneric(`May not set revisionName "" when latestRevision is false`, "latestRevision"),
+		want: apis.ErrGeneric(`may not set revisionName "" when latestRevision is false`, "latestRevision"),
 	}, {
 		name: "invalid without revisionName in status",
 		tt: &v1.TrafficTarget{
