@@ -54,9 +54,9 @@ A **Service** encapsulates a **Route** and **Configuration** which together
 provide a software component. Service exists to provide a singular abstraction
 which can be access controlled, reasoned about, and which encapsulates software
 lifecycle decisions such as rollout policy and team resource ownership. Service
-acts only as an orchestrator of the underlying Route and Configuration (much
-as a kubernetes Deployment orchestrates ReplicaSets). Its usage is optional
-but recommended.
+acts only as an orchestrator of the underlying Route and Configuration (much as
+a kubernetes Deployment orchestrates ReplicaSets). Its usage is optional but
+recommended.
 
 The Service's controller will track the statuses of its owned Configuration and
 Route, reflecting their statuses and conditions as its own.
@@ -67,8 +67,8 @@ as the Service's RoutesReady condition.
 
 ## Orchestration
 
-Revisions are created indirectly when a Configuration is created or
-updated. This provides:
+Revisions are created indirectly when a Configuration is created or updated.
+This provides:
 
 - a single referenceable resource for the route to perform automated rollouts
 - a single resource that can be watched to see a history of all the revisions
