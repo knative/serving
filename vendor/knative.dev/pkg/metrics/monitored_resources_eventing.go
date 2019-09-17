@@ -59,7 +59,7 @@ func (kt *KnativeTrigger) MonitoredResource() (resType string, labels map[string
 		metricskey.LabelLocation:      kt.Location,
 		metricskey.LabelClusterName:   kt.ClusterName,
 		metricskey.LabelNamespaceName: kt.NamespaceName,
-		metricskey.LabelTriggerName:   kt.TriggerName,
+		metricskey.LabelName:          kt.TriggerName,
 		metricskey.LabelBrokerName:    kt.BrokerName,
 	}
 	return metricskey.ResourceTypeKnativeTrigger, labels
@@ -71,19 +71,19 @@ func (kb *KnativeBroker) MonitoredResource() (resType string, labels map[string]
 		metricskey.LabelLocation:      kb.Location,
 		metricskey.LabelClusterName:   kb.ClusterName,
 		metricskey.LabelNamespaceName: kb.NamespaceName,
-		metricskey.LabelBrokerName:    kb.BrokerName,
+		metricskey.LabelName:          kb.BrokerName,
 	}
 	return metricskey.ResourceTypeKnativeBroker, labels
 }
 
 func (ki *KnativeSource) MonitoredResource() (resType string, labels map[string]string) {
 	labels = map[string]string{
-		metricskey.LabelProject:             ki.Project,
-		metricskey.LabelLocation:            ki.Location,
-		metricskey.LabelClusterName:         ki.ClusterName,
-		metricskey.LabelNamespaceName:       ki.NamespaceName,
-		metricskey.LabelSourceName:          ki.SourceName,
-		metricskey.LabelSourceResourceGroup: ki.SourceResourceGroup,
+		metricskey.LabelProject:       ki.Project,
+		metricskey.LabelLocation:      ki.Location,
+		metricskey.LabelClusterName:   ki.ClusterName,
+		metricskey.LabelNamespaceName: ki.NamespaceName,
+		metricskey.LabelName:          ki.SourceName,
+		metricskey.LabelResourceGroup: ki.SourceResourceGroup,
 	}
 	return metricskey.ResourceTypeKnativeSource, labels
 }
@@ -98,7 +98,7 @@ func GetKnativeBrokerMonitoredResource(
 		ClusterName: gm.cluster,
 		// The rest resource labels are from metrics labels.
 		NamespaceName: valueOrUnknown(metricskey.LabelNamespaceName, tagsMap),
-		BrokerName:    valueOrUnknown(metricskey.LabelBrokerName, tagsMap),
+		BrokerName:    valueOrUnknown(metricskey.LabelName, tagsMap),
 	}
 
 	var newTags []tag.Tag
@@ -122,7 +122,7 @@ func GetKnativeTriggerMonitoredResource(
 		ClusterName: gm.cluster,
 		// The rest resource labels are from metrics labels.
 		NamespaceName: valueOrUnknown(metricskey.LabelNamespaceName, tagsMap),
-		TriggerName:   valueOrUnknown(metricskey.LabelTriggerName, tagsMap),
+		TriggerName:   valueOrUnknown(metricskey.LabelName, tagsMap),
 		BrokerName:    valueOrUnknown(metricskey.LabelBrokerName, tagsMap),
 	}
 
@@ -147,8 +147,8 @@ func GetKnativeSourceMonitoredResource(
 		ClusterName: gm.cluster,
 		// The rest resource labels are from metrics labels.
 		NamespaceName:       valueOrUnknown(metricskey.LabelNamespaceName, tagsMap),
-		SourceName:          valueOrUnknown(metricskey.LabelSourceName, tagsMap),
-		SourceResourceGroup: valueOrUnknown(metricskey.LabelSourceResourceGroup, tagsMap),
+		SourceName:          valueOrUnknown(metricskey.LabelName, tagsMap),
+		SourceResourceGroup: valueOrUnknown(metricskey.LabelResourceGroup, tagsMap),
 	}
 
 	var newTags []tag.Tag

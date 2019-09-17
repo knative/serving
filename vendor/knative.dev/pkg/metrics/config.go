@@ -42,10 +42,11 @@ const (
 	// The following keys are used to configure metrics reporting.
 	// See https://github.com/knative/serving/blob/master/config/config-observability.yaml
 	// for details.
-	AllowStackdriverCustomMetricsKey = "metrics.allow-stackdriver-custom-metrics"
-	BackendDestinationKey            = "metrics.backend-destination"
-	ReportingPeriodKey               = "metrics.reporting-period-seconds"
-	StackdriverProjectIDKey          = "metrics.stackdriver-project-id"
+	AllowStackdriverCustomMetricsKey    = "metrics.allow-stackdriver-custom-metrics"
+	BackendDestinationKey               = "metrics.backend-destination"
+	ReportingPeriodKey                  = "metrics.reporting-period-seconds"
+	StackdriverProjectIDKey             = "metrics.stackdriver-project-id"
+	StackdriverCustomMetricSubDomainKey = "metrics.stackdriver-custom-metrics-subdomain"
 
 	// Stackdriver is used for Stackdriver backend
 	Stackdriver metricsBackend = "stackdriver"
@@ -103,10 +104,14 @@ type metricsConfig struct {
 	stackdriverProjectID string
 	// allowStackdriverCustomMetrics indicates whether it is allowed to send metrics to
 	// Stackdriver using "global" resource type and custom metric type if the
-	// metrics are not supported by "knative_revision" resource type. Setting this
+	// metrics are not supported by the registered monitored resource types. Setting this
 	// flag to "true" could cause extra Stackdriver charge.
 	// If backendDestination is not Stackdriver, this is ignored.
 	allowStackdriverCustomMetrics bool
+	// stackdriverCustomMetricsSubDomain is the subdomain to use when sending custom metrics to StackDriver.
+	// If not specified, the default is `knative.dev`.
+	// If backendDestination is not Stackdriver, this is ignored.
+	stackdriverCustomMetricsSubDomain string
 	// True if backendDestination equals to "stackdriver". Store this in a variable
 	// to reduce string comparison operations.
 	isStackdriverBackend bool
@@ -114,8 +119,8 @@ type metricsConfig struct {
 	// "knative.dev/serving/activator". Store this in a variable to reduce string
 	// join operations.
 	stackdriverMetricTypePrefix string
-	// stackdriverCustomMetricTypePrefix is "custom.googleapis.com/knative.dev" joins
-	// component, e.g. "custom.googleapis.com/knative.dev/serving/activator".
+	// stackdriverCustomMetricTypePrefix is "custom.googleapis.com" joined with the subdomain and component.
+	// E.g., "custom.googleapis.com/<subdomain>/<component>".
 	// Store this in a variable to reduce string join operations.
 	stackdriverCustomMetricTypePrefix string
 }
@@ -173,7 +178,12 @@ func getMetricsConfig(ops ExporterOptions, logger *zap.SugaredLogger) (*metricsC
 		mc.stackdriverProjectID = m[StackdriverProjectIDKey]
 		mc.isStackdriverBackend = true
 		mc.stackdriverMetricTypePrefix = path.Join(mc.domain, mc.component)
-		mc.stackdriverCustomMetricTypePrefix = path.Join(customMetricTypePrefix, mc.component)
+
+		mc.stackdriverCustomMetricsSubDomain = defaultCustomMetricSubDomain
+		if sdcmd, ok := m[StackdriverCustomMetricSubDomainKey]; ok && sdcmd != "" {
+			mc.stackdriverCustomMetricsSubDomain = sdcmd
+		}
+		mc.stackdriverCustomMetricTypePrefix = path.Join(customMetricTypePrefix, mc.stackdriverCustomMetricsSubDomain, mc.component)
 		if ascmStr, ok := m[AllowStackdriverCustomMetricsKey]; ok && ascmStr != "" {
 			ascmBool, err := strconv.ParseBool(ascmStr)
 			if err != nil {

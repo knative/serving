@@ -37,18 +37,20 @@ import (
 //   3) The backend is Stackdriver and it is allowed to use custom metrics.
 //   4) The backend is Stackdriver and the metric is one of the built-in metrics: "knative_revision", "knative_broker",
 //      "knative_trigger", "knative_source".
-func Record(ctx context.Context, ms stats.Measurement) {
+func Record(ctx context.Context, ms stats.Measurement, ros ...stats.Options) {
 	mc := getCurMetricsConfig()
+
+	ros = append(ros, stats.WithMeasurements(ms))
 
 	// Condition 1)
 	if mc == nil {
-		stats.Record(ctx, ms)
+		stats.RecordWithOptions(ctx, ros...)
 		return
 	}
 
 	// Condition 2) and 3)
 	if !mc.isStackdriverBackend || mc.allowStackdriverCustomMetrics {
-		stats.Record(ctx, ms)
+		stats.RecordWithOptions(ctx, ros...)
 		return
 	}
 
@@ -60,7 +62,7 @@ func Record(ctx context.Context, ms stats.Measurement) {
 		metricskey.KnativeSourceMetrics.Has(metricType)
 
 	if isServingBuiltIn || isEventingBuiltIn {
-		stats.Record(ctx, ms)
+		stats.RecordWithOptions(ctx, ros...)
 	}
 }
 
@@ -71,6 +73,16 @@ func Buckets125(low, high float64) []float64 {
 	buckets := []float64{low}
 	for last := low; last < high; last = last * 10 {
 		buckets = append(buckets, 2*last, 5*last, 10*last)
+	}
+	return buckets
+}
+
+// BucketsNBy10 generates an array of N buckets starting from low and
+// multiplying by 10 n times.
+func BucketsNBy10(low float64, n int) []float64 {
+	buckets := []float64{low}
+	for last, i := low, len(buckets); i < n; last, i = 10*last, i+1 {
+		buckets = append(buckets, 10*last)
 	}
 	return buckets
 }
