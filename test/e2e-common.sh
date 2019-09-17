@@ -346,7 +346,7 @@ function test_setup() {
   echo ">> Setting up logging..."
 
   # Install kail if needed.
-  if [[ ! -x "$GOPATH/bin/kail" ]]; then
+  if ! which kail > /dev/null; then
     bash <( curl -sfL https://raw.githubusercontent.com/boz/kail/master/godownloader.sh) -b "$GOPATH/bin"
   fi
 
