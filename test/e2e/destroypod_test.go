@@ -232,6 +232,17 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	}
 	domain := objects.Route.Status.URL.Host
 
+	_, err = pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		t.Logf,
+		domain,
+		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		"RouteServes",
+		test.ServingFlags.ResolvableDomain)
+	if err != nil {
+		t.Fatalf("The endpoint for Route %s at domain %s didn't serve correctly: %v", names.Route, domain, err)
+	}
+
 	pods, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).List(metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", serving.RevisionLabelKey, objects.Revision.Name),
 	})
