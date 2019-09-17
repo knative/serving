@@ -20,7 +20,9 @@ import (
 	"context"
 	"fmt"
 
+	cm_rest "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/apiserver/registry/rest"
 	"github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/provider"
+
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,7 +39,7 @@ type REST struct {
 }
 
 var _ rest.Storage = &REST{}
-var _ rest.Lister = &REST{}
+var _ cm_rest.ListerWithOptions = &REST{}
 
 func NewREST(cmProvider provider.CustomMetricsProvider) *REST {
 	return &REST{
@@ -51,17 +53,35 @@ func (r *REST) New() runtime.Object {
 	return &custom_metrics.MetricValue{}
 }
 
-// Implement Lister
+// Implement ListerWithOptions
 
 func (r *REST) NewList() runtime.Object {
 	return &custom_metrics.MetricValueList{}
 }
 
-func (r *REST) List(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
+func (r *REST) NewListOptions() (runtime.Object, bool, string) {
+	return &custom_metrics.MetricListOptions{}, true, "metricName"
+}
+
+func (r *REST) List(ctx context.Context, options *metainternalversion.ListOptions, metricOpts runtime.Object) (runtime.Object, error) {
+	metricOptions, ok := metricOpts.(*custom_metrics.MetricListOptions)
+	if !ok {
+		return nil, fmt.Errorf("invalid options object: %#v", options)
+	}
+
 	// populate the label selector, defaulting to all
 	selector := labels.Everything()
 	if options != nil && options.LabelSelector != nil {
 		selector = options.LabelSelector
+	}
+
+	metricLabelSelector := labels.Everything()
+	if metricOptions != nil && len(metricOptions.MetricLabelSelector) > 0 {
+		sel, err := labels.Parse(metricOptions.MetricLabelSelector)
+		if err != nil {
+			return nil, err
+		}
+		metricLabelSelector = sel
 	}
 
 	// grab the name, if present, from the field selector list options
@@ -97,18 +117,18 @@ func (r *REST) List(ctx context.Context, options *metainternalversion.ListOption
 
 	// handle namespaced and root metrics
 	if name == "*" {
-		return r.handleWildcardOp(namespace, groupResource, selector, metricName)
+		return r.handleWildcardOp(namespace, groupResource, selector, metricName, metricLabelSelector)
 	} else {
-		return r.handleIndividualOp(namespace, groupResource, name, metricName)
+		return r.handleIndividualOp(namespace, groupResource, name, metricName, metricLabelSelector)
 	}
 }
 
-func (r *REST) handleIndividualOp(namespace string, groupResource schema.GroupResource, name string, metricName string) (*custom_metrics.MetricValueList, error) {
+func (r *REST) handleIndividualOp(namespace string, groupResource schema.GroupResource, name string, metricName string, metricLabelSelector labels.Selector) (*custom_metrics.MetricValueList, error) {
 	singleRes, err := r.cmProvider.GetMetricByName(types.NamespacedName{Namespace: namespace, Name: name}, provider.CustomMetricInfo{
 		GroupResource: groupResource,
 		Metric:        metricName,
 		Namespaced:    namespace != "",
-	})
+	}, metricLabelSelector)
 	if err != nil {
 		return nil, err
 	}
@@ -118,10 +138,10 @@ func (r *REST) handleIndividualOp(namespace string, groupResource schema.GroupRe
 	}, nil
 }
 
-func (r *REST) handleWildcardOp(namespace string, groupResource schema.GroupResource, selector labels.Selector, metricName string) (*custom_metrics.MetricValueList, error) {
+func (r *REST) handleWildcardOp(namespace string, groupResource schema.GroupResource, selector labels.Selector, metricName string, metricLabelSelector labels.Selector) (*custom_metrics.MetricValueList, error) {
 	return r.cmProvider.GetMetricBySelector(namespace, selector, provider.CustomMetricInfo{
 		GroupResource: groupResource,
 		Metric:        metricName,
 		Namespaced:    namespace != "",
-	})
+	}, metricLabelSelector)
 }

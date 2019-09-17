@@ -31,14 +31,4 @@ rm -rf $(find vendor/ -name '*_test.go')
 
 update_licenses third_party/VENDOR-LICENSE "./cmd/*"
 
-# Patch k8s.io/client-go/tools/cache and k8s.io/kbernetes/pkg/credentialprovider
-# to make k8schain work with ECR. This is a workaround for:
-# https://github.com/google/go-containerregistry/issues/355
-#
-# Once we're on 1.15 we can drop this patch, but we will have to be careful when
-# bumping kubernetes dependencies.
-#
-# TODO(#4549): Drop this patch.
-git apply ${REPO_ROOT_DIR}/hack/1996.patch
-
 remove_broken_symlinks ./vendor

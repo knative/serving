@@ -131,7 +131,7 @@ func (c *FakeConfigurations) DeleteCollection(options *v1.DeleteOptions, listOpt
 // Patch applies the patch and returns the patched configuration.
 func (c *FakeConfigurations) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *servingv1.Configuration, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(configurationsResource, c.ns, name, data, subresources...), &servingv1.Configuration{})
+		Invokes(testing.NewPatchSubresourceAction(configurationsResource, c.ns, name, pt, data, subresources...), &servingv1.Configuration{})
 
 	if obj == nil {
 		return nil, err

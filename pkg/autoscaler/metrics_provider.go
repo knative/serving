@@ -63,7 +63,8 @@ func NewMetricProvider(metricClient MetricClient) *MetricProvider {
 }
 
 // GetMetricByName implements the interface.
-func (p *MetricProvider) GetMetricByName(name types.NamespacedName, info provider.CustomMetricInfo) (*cmetrics.MetricValue, error) {
+func (p *MetricProvider) GetMetricByName(name types.NamespacedName, info provider.CustomMetricInfo,
+	metricSelector labels.Selector) (*cmetrics.MetricValue, error) {
 	now := time.Now()
 	var data float64
 	var err error
@@ -88,7 +89,7 @@ func (p *MetricProvider) GetMetricByName(name types.NamespacedName, info provide
 }
 
 // GetMetricBySelector implements the interface.
-func (p *MetricProvider) GetMetricBySelector(namespace string, selector labels.Selector, info provider.CustomMetricInfo) (*cmetrics.MetricValueList, error) {
+func (p *MetricProvider) GetMetricBySelector(string, labels.Selector, provider.CustomMetricInfo, labels.Selector) (*cmetrics.MetricValueList, error) {
 	return nil, errNotImplemented
 }
 

@@ -82,7 +82,7 @@ func TestGetMetricByName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := NewMetricProvider(staticMetrics(10.3, 14))
-			got, err := p.GetMetricByName(tt.args.name, tt.args.info)
+			got, err := p.GetMetricByName(tt.args.name, tt.args.info, labels.Everything())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetMetricByName() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -100,12 +100,12 @@ func TestGetMetricByName(t *testing.T) {
 
 func TestGetMetricBySelector(t *testing.T) {
 	provider := NewMetricProvider(staticMetrics(10.0, 14))
-	_, got := provider.GetMetricBySelector("foo", labels.NewSelector(), concurrencyMetricInfo)
+	_, got := provider.GetMetricBySelector("foo", labels.NewSelector(), concurrencyMetricInfo, labels.Everything())
 	if got != errNotImplemented {
 		t.Errorf("GetMetricBySelector() = %v, want %v", got, errNotImplemented)
 	}
 
-	_, got = provider.GetMetricBySelector("foo", labels.NewSelector(), rpsMetricInfo)
+	_, got = provider.GetMetricBySelector("foo", labels.NewSelector(), rpsMetricInfo, labels.Everything())
 	if got != errNotImplemented {
 		t.Errorf("GetMetricBySelector() = %v, want %v", got, errNotImplemented)
 	}

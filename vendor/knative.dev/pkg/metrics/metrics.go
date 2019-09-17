@@ -92,8 +92,10 @@ type floatMetric struct {
 }
 
 var (
-	_ workqueue.SummaryMetric = (*floatMetric)(nil)
-	_ cache.GaugeMetric       = (*floatMetric)(nil)
+	_ workqueue.SummaryMetric       = (*floatMetric)(nil)
+	_ workqueue.SettableGaugeMetric = (*floatMetric)(nil)
+	_ workqueue.HistogramMetric     = (*floatMetric)(nil)
+	_ cache.GaugeMetric             = (*floatMetric)(nil)
 )
 
 // Observe implements SummaryMetric
@@ -150,3 +152,22 @@ func measureView(m stats.Measure, agg *view.Aggregation) *view.View {
 		TagKeys:     []tag.Key{tagName},
 	}
 }
+
+// noopMetric implements all the cache and workqueue metric interfaces.
+// Note: we cannot implement the metrics.FooMetric types due to
+// overlapping method names.
+type noopMetric struct{}
+
+var (
+	_ cache.CounterMetric           = (*noopMetric)(nil)
+	_ cache.GaugeMetric             = (*noopMetric)(nil)
+	_ workqueue.CounterMetric       = (*noopMetric)(nil)
+	_ workqueue.GaugeMetric         = (*noopMetric)(nil)
+	_ workqueue.HistogramMetric     = (*noopMetric)(nil)
+	_ workqueue.SettableGaugeMetric = (*noopMetric)(nil)
+)
+
+func (noopMetric) Inc()            {}
+func (noopMetric) Dec()            {}
+func (noopMetric) Set(float64)     {}
+func (noopMetric) Observe(float64) {}

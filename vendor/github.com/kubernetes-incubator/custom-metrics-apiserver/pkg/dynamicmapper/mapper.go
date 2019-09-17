@@ -5,13 +5,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
-
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/klog"
 )
 
 // RengeneratingDiscoveryRESTMapper is a RESTMapper which Regenerates its cache of mappings periodically.
@@ -44,7 +43,7 @@ func NewRESTMapper(discoveryClient discovery.DiscoveryInterface, refreshInterval
 func (m *RegeneratingDiscoveryRESTMapper) RunUntil(stop <-chan struct{}) {
 	go wait.Until(func() {
 		if err := m.RegenerateMappings(); err != nil {
-			glog.Errorf("error regenerating REST mappings from discovery: %v", err)
+			klog.Errorf("error regenerating REST mappings from discovery: %v", err)
 		}
 	}, m.refreshInterval, stop)
 }

@@ -143,7 +143,7 @@ func (ac *ResourceAdmissionController) Register(ctx context.Context, kubeClient 
 		ObjectMeta: metav1.ObjectMeta{
 			Name: ac.options.ResourceMutatingWebhookName,
 		},
-		Webhooks: []admissionregistrationv1beta1.Webhook{{
+		Webhooks: []admissionregistrationv1beta1.MutatingWebhook{{
 			Name:  ac.options.ResourceMutatingWebhookName,
 			Rules: rules,
 			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
@@ -159,7 +159,7 @@ func (ac *ResourceAdmissionController) Register(ctx context.Context, kubeClient 
 	}
 
 	// Set the owner to our deployment.
-	deployment, err := kubeClient.Apps().Deployments(ac.options.Namespace).Get(ac.options.DeploymentName, metav1.GetOptions{})
+	deployment, err := kubeClient.AppsV1().Deployments(ac.options.Namespace).Get(ac.options.DeploymentName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to fetch our deployment: %v", err)
 	}
