@@ -121,7 +121,6 @@ function update_cluster() {
   # Update the activator hpa minReplicas to 10
   kubectl patch hpa -n knative-serving activator \
     --patch '{"spec": {"minReplicas": 10}}'
-  
   # According to https://kubernetes.io/docs/tasks/administer-cluster/dns-horizontal-autoscaling/,
   # replicas = max( ceil( cores * 1/coresPerReplica ) , ceil( nodes * 1/nodesPerReplica ) ).
   # By changing nodesPerReplica from the default 16 to 4, we make kube-dns to be able to scale to 4x replicas.
