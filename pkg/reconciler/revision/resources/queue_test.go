@@ -391,7 +391,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(0),
 					TimeoutSeconds:       ptr.Int64(45),
 				},
