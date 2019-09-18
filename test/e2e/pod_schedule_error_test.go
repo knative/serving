@@ -78,7 +78,7 @@ func TestPodScheduleError(t *testing.T) {
 				return true, nil
 			}
 			t.Logf("Reason: %s ; Message: %s ; Status: %s", cond.Reason, cond.Message, cond.Status)
-			return true, fmt.Errorf("the service %s was not marked with expected error condition (Reason=\"%s\", Message=\"%s\", Status=\"%s\"), but with (Reason=\"%s\", Message=\"%s\", Status=\"%s\")",
+			return true, fmt.Errorf("the service %s was not marked with expected error condition (Reason=%q, Message=%q, Status=%q), but with (Reason=%q, Message=%q, Status=%q)",
 				names.Config, errorReason, errorMsg, "False", cond.Reason, cond.Message, cond.Status)
 		}
 		return false, nil
