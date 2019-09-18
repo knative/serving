@@ -49,22 +49,22 @@ func TestSingleConcurrency(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
-	domain := objects.Service.Status.URL.Host
+	url := objects.Service.Status.URL.URL()
 
 	// Ready does not actually mean Ready for a Route just yet.
 	// See https://knative.dev/serving/issues/1582
-	t.Logf("Probing domain %s", domain)
+	t.Logf("Probing %s", url)
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain,
+		url,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("Error probing domain %s: %v", domain, err)
+		t.Fatalf("Error probing %s: %v", url, err)
 	}
 
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("Error creating spoofing client: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestSingleConcurrency(t *testing.T) {
 	for i := 0; i < concurrency; i++ {
 		group.Go(func() error {
 			done := time.After(duration)
-			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
+			req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 			if err != nil {
 				return fmt.Errorf("error creating http request: %v", err)
 			}
