@@ -37,7 +37,6 @@ import (
 	"knative.dev/test-infra/shared/testgrid"
 
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/zipkin"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -70,25 +69,21 @@ func runScaleFromZero(idx int, t *testing.T, clients *test.Clients, ro *v1a1test
 
 	start := time.Now()
 	t.Logf("%02d: waiting for endpoint to serve request", idx)
-	resp, err := pkgTest.WaitForEndpointStateWithTimeout(
+	if _, err := pkgTest.WaitForEndpointStateWithTimeout(
 		clients.KubeClient,
 		t.Logf,
 		domain,
 		pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput)),
 		"HelloWorldServesText",
-		test.ServingFlags.ResolvableDomain, waitToServe)
-	if err != nil {
+		test.ServingFlags.ResolvableDomain, waitToServe); err != nil {
 		m := fmt.Sprintf("%02d: the endpoint for Route %q at domain %q didn't serve the expected text %q: %v", idx, ro.Route.Name, domain, helloWorldExpectedOutput, err)
 		t.Log(m)
 		return 0, errors.New(m)
 	}
-	dur := time.Since(start)
+
 	t.Logf("%02d: request completed", idx)
 
-	traceID := resp.Header.Get(zipkin.ZipkinTraceIDHeader)
-	AddTrace(t.Logf, t.Name(), traceID)
-
-	return dur, nil
+	return time.Since(start), nil
 }
 
 func createServices(t *testing.T, pc *Client, count int) ([]*v1a1test.ResourceObjects, func(), error) {
@@ -210,7 +205,7 @@ func getMultiRunStats(runStats []*stats) *stats {
 }
 
 func testScaleFromZero(t *testing.T, count, numRuns int) {
-	pc, err := Setup(t, EnableZipkinTracing)
+	pc, err := Setup(t)
 	if err != nil {
 		t.Fatalf("Failed to setup clients: %v", err)
 	}

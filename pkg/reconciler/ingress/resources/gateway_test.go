@@ -630,7 +630,7 @@ func serviceLister(svcs ...*corev1.Service) corev1listers.ServiceLister {
 	services := informer.Core().V1().Services()
 
 	for _, svc := range svcs {
-		fake.Core().Services(svc.Namespace).Create(svc)
+		fake.CoreV1().Services(svc.Namespace).Create(svc)
 		services.Informer().GetIndexer().Add(svc)
 	}
 
@@ -704,7 +704,7 @@ func TestCanProbeGateway(t *testing.T) {
 				}},
 			},
 		},
-		canProbe: false,
+		canProbe: true,
 	}, {
 		name: "wildcard TCP on port 80",
 		gateway: &v1alpha3.Gateway{
@@ -727,7 +727,7 @@ func TestCanProbeGateway(t *testing.T) {
 					Hosts: []string{"*"},
 					Port: v1alpha3.Port{
 						Number:   100,
-						Protocol: v1alpha3.ProtocolHTTP,
+						Protocol: v1alpha3.ProtocolHTTPS,
 					},
 				}},
 			},

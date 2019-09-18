@@ -20,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"knative.dev/pkg/apis"
-	"knative.dev/serving/pkg/apis/config"
 )
 
 const (
@@ -33,23 +32,4 @@ var revisionCondSet = apis.NewLivingConditionSet()
 // GetGroupVersionKind returns the GroupVersionKind.
 func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Revision")
-}
-
-// IsReady returns if the revision is ready to serve the requested configuration.
-func (rs *RevisionStatus) IsReady() bool {
-	return revisionCondSet.Manage(rs).IsHappy()
-}
-
-// GetContainerConcurrency returns the container concurrency. If
-// container concurrency is not set, the default value will be returned.
-// We use the original default (0) here for backwards compatibility.
-// Previous versions of Knative equated unspecified and zero, so to avoid
-// changing the value used by Revisions with unspecified values when a different
-// default is configured, we use the original default instead of the configured
-// default to remain safe across upgrades.
-func (rs *RevisionSpec) GetContainerConcurrency() int64 {
-	if rs.ContainerConcurrency == nil {
-		return config.DefaultContainerConcurrency
-	}
-	return *rs.ContainerConcurrency
 }

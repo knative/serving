@@ -73,7 +73,7 @@ data:
       # Scrape only the the targets matching the following metadata
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_pod_label_app, __meta_kubernetes_pod_container_port_name]
         action: keep
-        regex: knative-serving;activator;metrics-port
+        regex: knative-serving;activator;metrics
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
         target_label: namespace
@@ -91,7 +91,7 @@ data:
       # Scrape only the the targets matching the following metadata
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_pod_label_role, __meta_kubernetes_pod_container_port_name]
         action: keep
-        regex: knative-serving;webhook;metrics-port
+        regex: knative-serving;webhook;metrics
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
         target_label: namespace

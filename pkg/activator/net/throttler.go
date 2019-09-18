@@ -233,7 +233,7 @@ func (rt *revisionThrottler) updateThrottleState(throttler *Throttler, backendCo
 
 // This function will never be called in parallel but try can be called in parallel to this so we need
 // to lock on updating concurrency / trackers
-func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update *RevisionDestsUpdate) {
+func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update RevisionDestsUpdate) {
 	rt.logger.Debugf("Handling update w/ %d ready and dests: %v", len(update.Dests), update.Dests)
 
 	// ClusterIP is not yet ready, so we want to send requests directly to the pods.
@@ -310,8 +310,8 @@ func NewThrottler(breakerParams queue.BreakerParams,
 	return t
 }
 
-// Run starts the throttler and blocks until updateCh is closed
-func (t *Throttler) Run(updateCh <-chan *RevisionDestsUpdate) {
+// Run starts the throttler and blocks until updateCh is closed.
+func (t *Throttler) Run(updateCh <-chan RevisionDestsUpdate) {
 	for update := range updateCh {
 		t.handleUpdate(update)
 	}
@@ -375,7 +375,7 @@ func (t *Throttler) revisionDeleted(obj interface{}) {
 	delete(t.revisionThrottlers, revID)
 }
 
-func (t *Throttler) handleUpdate(update *RevisionDestsUpdate) {
+func (t *Throttler) handleUpdate(update RevisionDestsUpdate) {
 	if rt, err := t.getOrCreateRevisionThrottler(update.Rev); err != nil {
 		t.logger.Errorw(fmt.Sprintf("Failed to get revision throttler for revision %q", update.Rev.String()),
 			zap.Error(err))

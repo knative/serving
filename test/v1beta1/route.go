@@ -28,6 +28,7 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/spoof"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 
 	rtesting "knative.dev/serving/pkg/testing/v1beta1"
@@ -41,8 +42,8 @@ func Route(names test.ResourceNames, fopt ...rtesting.RouteOption) *v1beta1.Rout
 		ObjectMeta: metav1.ObjectMeta{
 			Name: names.Route,
 		},
-		Spec: v1beta1.RouteSpec{
-			Traffic: []v1beta1.TrafficTarget{{
+		Spec: v1.RouteSpec{
+			Traffic: []v1.TrafficTarget{{
 				Tag:               names.TrafficTarget,
 				ConfigurationName: names.Config,
 				Percent:           ptr.Int64(100),
@@ -65,15 +66,15 @@ func CreateRoute(t *testing.T, clients *test.Clients, names test.ResourceNames, 
 }
 
 // WaitForRouteState polls the status of the Route called name from client every
-// interval until inState returns `true` indicating it is done, returns an
-// error or timeout. desc will be used to name the metric that is emitted to
+// PollInterval until inState returns `true` indicating it is done, returns an
+// error or PollTimeout. desc will be used to name the metric that is emitted to
 // track how long it took for name to get into the state checked by inState.
 func WaitForRouteState(client *test.ServingBetaClients, name string, inState func(r *v1beta1.Route) (bool, error), desc string) error {
 	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForRouteState/%s/%s", name, desc))
 	defer span.End()
 
 	var lastState *v1beta1.Route
-	waitErr := wait.PollImmediate(interval, timeout, func() (bool, error) {
+	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		var err error
 		lastState, err = client.Routes.Get(name, metav1.GetOptions{})
 		if err != nil {

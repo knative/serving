@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/network"
@@ -30,8 +30,8 @@ import (
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
 
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
@@ -67,7 +67,7 @@ func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descript
 	withTrafficSpec := WithInlineRouteSpec(v1alpha1.RouteSpec{
 		Traffic: []v1alpha1.TrafficTarget{
 			{
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					Tag:     tag,
 					Percent: ptr.Int64(100),
 				},
@@ -115,7 +115,7 @@ func TestSubrouteVisibilityChange(t *testing.T) {
 	withTrafficSpec := WithInlineRouteSpec(v1alpha1.RouteSpec{
 		Traffic: []v1alpha1.TrafficTarget{
 			{
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					Tag:     tag,
 					Percent: ptr.Int64(100),
 				},
@@ -135,7 +135,7 @@ func TestSubrouteVisibilityChange(t *testing.T) {
 	}
 
 	serviceName := fmt.Sprintf("%s-%s", tag, resources.Route.Name)
-	svc, err := clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Get(serviceName, v1.GetOptions{})
+	svc, err := clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Get(serviceName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get k8s service to modify: %s", err.Error())
 	}

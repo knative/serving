@@ -24,8 +24,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
@@ -295,7 +295,7 @@ func TestMakeK8sPlaceholderService(t *testing.T) {
 			cfg := testConfig()
 			ctx := config.ToContext(context.Background(), cfg)
 			target := traffic.RevisionTarget{
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					Tag: "foo",
 				},
 			}
@@ -398,16 +398,16 @@ func TestGetDesiredServiceNames(t *testing.T) {
 		},
 		{
 			name:    "only default traffic",
-			traffic: []v1alpha1.TrafficTarget{{TrafficTarget: v1beta1.TrafficTarget{}}},
+			traffic: []v1alpha1.TrafficTarget{{TrafficTarget: v1.TrafficTarget{}}},
 			want:    sets.NewString("myroute"),
 		},
 		{
 			name: "traffic targets with tag",
 			traffic: []v1alpha1.TrafficTarget{
-				{TrafficTarget: v1beta1.TrafficTarget{}},
-				{TrafficTarget: v1beta1.TrafficTarget{Tag: "hello"}},
-				{TrafficTarget: v1beta1.TrafficTarget{Tag: "hello"}},
-				{TrafficTarget: v1beta1.TrafficTarget{Tag: "bye"}},
+				{TrafficTarget: v1.TrafficTarget{}},
+				{TrafficTarget: v1.TrafficTarget{Tag: "hello"}},
+				{TrafficTarget: v1.TrafficTarget{Tag: "hello"}},
+				{TrafficTarget: v1.TrafficTarget{Tag: "bye"}},
 			},
 			want: sets.NewString("myroute", "hello-myroute", "bye-myroute"),
 		},

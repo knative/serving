@@ -39,8 +39,8 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/metrics"
@@ -95,7 +95,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(45),
 				},
@@ -125,7 +125,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(45),
 					PodSpec: corev1.PodSpec{
@@ -183,7 +183,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(45),
 				},
@@ -224,7 +224,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				}},
 			},
 			Spec: v1alpha1.RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(0),
 					TimeoutSeconds:       ptr.Int64(45),
 				},
@@ -259,7 +259,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(0),
 					TimeoutSeconds:       ptr.Int64(45),
 				},
@@ -300,7 +300,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(10),
 					TimeoutSeconds:       ptr.Int64(45),
 				},
@@ -332,7 +332,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(0),
 					TimeoutSeconds:       ptr.Int64(45),
 				},
@@ -365,7 +365,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(0),
 					TimeoutSeconds:       ptr.Int64(45),
 				},
@@ -447,7 +447,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(45),
 					PodSpec: corev1.PodSpec{
@@ -507,7 +507,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(45),
 					PodSpec: corev1.PodSpec{
@@ -564,7 +564,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(45),
 					PodSpec: corev1.PodSpec{
@@ -620,7 +620,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				},
 			},
 			Spec: v1alpha1.RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					ContainerConcurrency: ptr.Int64(1),
 					TimeoutSeconds:       ptr.Int64(45),
 					PodSpec: corev1.PodSpec{
@@ -703,7 +703,7 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 			UID:       "1234",
 		},
 		Spec: v1alpha1.RevisionSpec{
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				ContainerConcurrency: ptr.Int64(1),
 				TimeoutSeconds:       ptr.Int64(45),
 				PodSpec: corev1.PodSpec{
@@ -793,7 +793,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 			UID:       "1234",
 		},
 		Spec: v1alpha1.RevisionSpec{
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				ContainerConcurrency: ptr.Int64(1),
 				TimeoutSeconds:       ptr.Int64(45),
 				PodSpec: corev1.PodSpec{
@@ -897,7 +897,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 			SuccessThreshold: 3,
 		},
 		rev: v1alpha1.RevisionSpec{
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				ContainerConcurrency: ptr.Int64(1),
 				TimeoutSeconds:       ptr.Int64(45),
 				PodSpec: corev1.PodSpec{
@@ -938,7 +938,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 	}, {
 		name: "tcp defaults",
 		rev: v1alpha1.RevisionSpec{
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				ContainerConcurrency: ptr.Int64(1),
 				TimeoutSeconds:       ptr.Int64(45),
 				PodSpec: corev1.PodSpec{
@@ -998,7 +998,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 			InitialDelaySeconds: 3,
 		},
 		rev: v1alpha1.RevisionSpec{
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				ContainerConcurrency: ptr.Int64(1),
 				TimeoutSeconds:       ptr.Int64(45),
 				PodSpec: corev1.PodSpec{

@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
@@ -45,10 +46,11 @@ func TestIsReadyFailures(t *testing.T) {
 	}
 
 	tests := []struct {
-		name          string
-		vsSpec        v1alpha3.VirtualServiceSpec
-		gatewayLister istiolisters.GatewayLister
-		podLister     corev1listers.PodLister
+		name            string
+		vsSpec          v1alpha3.VirtualServiceSpec
+		gatewayLister   istiolisters.GatewayLister
+		endpointsLister corev1listers.EndpointsLister
+		serviceLister   corev1listers.ServiceLister
 	}{{
 		name: "multiple probes",
 		vsSpec: v1alpha3.VirtualServiceSpec{
@@ -73,7 +75,7 @@ func TestIsReadyFailures(t *testing.T) {
 		},
 		gatewayLister: &fakeGatewayLister{fails: true},
 	}, {
-		name: "pod error",
+		name: "service error",
 		vsSpec: v1alpha3.VirtualServiceSpec{
 			Gateways: []string{"default/gateway"},
 			Hosts:    []string{"foobar" + resources.ProbeHostSuffix},
@@ -98,7 +100,144 @@ func TestIsReadyFailures(t *testing.T) {
 				},
 			}},
 		},
-		podLister: &fakePodLister{fails: true},
+		serviceLister: &fakeServiceLister{fails: true},
+	}, {
+		name: "endpoints error",
+		vsSpec: v1alpha3.VirtualServiceSpec{
+			Gateways: []string{"default/gateway"},
+			Hosts:    []string{"foobar" + resources.ProbeHostSuffix},
+		},
+		gatewayLister: &fakeGatewayLister{
+			gateways: []*v1alpha3.Gateway{{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "gateway",
+				},
+				Spec: v1alpha3.GatewaySpec{
+					Servers: []v1alpha3.Server{{
+						Hosts: []string{"*"},
+						Port: v1alpha3.Port{
+							Number:   80,
+							Protocol: v1alpha3.ProtocolHTTP,
+						},
+					}},
+					Selector: map[string]string{
+						"gwt": "istio",
+					},
+				},
+			}},
+		},
+		serviceLister: &fakeServiceLister{
+			services: []*v1.Service{{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "gateway",
+				},
+			}},
+		},
+		endpointsLister: &fakeEndpointsLister{fails: true},
+	}, {
+		name: "service port not found",
+		vsSpec: v1alpha3.VirtualServiceSpec{
+			Gateways: []string{"default/gateway"},
+			Hosts:    []string{"foobar" + resources.ProbeHostSuffix},
+		},
+		gatewayLister: &fakeGatewayLister{
+			gateways: []*v1alpha3.Gateway{{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "gateway",
+				},
+				Spec: v1alpha3.GatewaySpec{
+					Servers: []v1alpha3.Server{{
+						Hosts: []string{"*"},
+						Port: v1alpha3.Port{
+							Number:   80,
+							Protocol: v1alpha3.ProtocolHTTP,
+						},
+					}},
+					Selector: map[string]string{
+						"gwt": "istio",
+					},
+				},
+			}},
+		},
+		serviceLister: &fakeServiceLister{
+			services: []*v1.Service{{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "gateway",
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{{
+						Name: "bogus",
+						Port: 8080,
+					}},
+				},
+			}},
+		},
+		endpointsLister: &fakeEndpointsLister{
+			endpoints: []*v1.Endpoints{{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "gateway",
+				},
+			}},
+		},
+	}, {
+		name: "service port not found",
+		vsSpec: v1alpha3.VirtualServiceSpec{
+			Gateways: []string{"default/gateway"},
+			Hosts:    []string{"foobar" + resources.ProbeHostSuffix},
+		},
+		gatewayLister: &fakeGatewayLister{
+			gateways: []*v1alpha3.Gateway{{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "gateway",
+				},
+				Spec: v1alpha3.GatewaySpec{
+					Servers: []v1alpha3.Server{{
+						Hosts: []string{"*"},
+						Port: v1alpha3.Port{
+							Number:   80,
+							Protocol: v1alpha3.ProtocolHTTP,
+						},
+					}},
+					Selector: map[string]string{
+						"gwt": "istio",
+					},
+				},
+			}},
+		},
+		serviceLister: &fakeServiceLister{
+			services: []*v1.Service{{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "gateway",
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{{
+						Name: "real",
+						Port: 80,
+					}},
+				},
+			}},
+		},
+		endpointsLister: &fakeEndpointsLister{
+			endpoints: []*v1.Endpoints{{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "gateway",
+				},
+				Subsets: []v1.EndpointSubset{{
+					Ports: []v1.EndpointPort{{
+						Name: "bogus",
+						Port: 8080,
+					}},
+				}},
+			}},
+		},
 	}}
 
 	for _, test := range tests {
@@ -106,7 +245,8 @@ func TestIsReadyFailures(t *testing.T) {
 			prober := NewStatusProber(
 				zaptest.NewLogger(t).Sugar(),
 				test.gatewayLister,
-				test.podLister,
+				test.endpointsLister,
+				test.serviceLister,
 				network.NewAutoTransport,
 				func(vs *v1alpha3.VirtualService) {})
 			copy := vs.DeepCopy()
@@ -157,6 +297,12 @@ func TestProbeLifecycle(t *testing.T) {
 		t.Fatalf("failed to parse URL %q: %v", ts.URL, err)
 	}
 
+	hostname := url.Hostname()
+	port, err := strconv.Atoi(url.Port())
+	if err != nil {
+		t.Fatalf("failed to parse port %q: %v", url.Port(), err)
+	}
+
 	ready := make(chan *v1alpha3.VirtualService)
 	prober := NewStatusProber(
 		zaptest.NewLogger(t).Sugar(),
@@ -180,14 +326,40 @@ func TestProbeLifecycle(t *testing.T) {
 				},
 			}},
 		},
-		&fakePodLister{
-			pods: []*v1.Pod{{
+		&fakeEndpointsLister{
+			endpoints: []*v1.Endpoints{{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 					Name:      "gateway",
 				},
-				Status: v1.PodStatus{
-					PodIP: url.Host,
+				Subsets: []v1.EndpointSubset{{
+					Ports: []v1.EndpointPort{{
+						Name: "bogus",
+						Port: 8080,
+					}, {
+						Name: "real",
+						Port: int32(port),
+					}},
+					Addresses: []v1.EndpointAddress{{
+						IP: hostname,
+					}},
+				}},
+			}},
+		},
+		&fakeServiceLister{
+			services: []*v1.Service{{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "gateway",
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{{
+						Name: "bogus",
+						Port: 8080,
+					}, {
+						Name: "real",
+						Port: 80,
+					}},
 				},
 			}},
 		},
@@ -306,20 +478,43 @@ func (l *fakeGatewayNamespaceLister) Get(name string) (*v1alpha3.Gateway, error)
 	return nil, errors.New("not found")
 }
 
-type fakePodLister struct {
-	pods  []*v1.Pod
-	fails bool
+type fakeEndpointsLister struct {
+	endpoints []*v1.Endpoints
+	fails     bool
 }
 
-func (l *fakePodLister) List(selector labels.Selector) (ret []*v1.Pod, err error) {
+func (l *fakeEndpointsLister) List(selector labels.Selector) (ret []*v1.Endpoints, err error) {
 	if l.fails {
-		return nil, errors.New("failed to get Pod")
+		return nil, errors.New("failed to get Endpoints")
 	}
 	// TODO(bancel): use selector
-	return l.pods, nil
+	return l.endpoints, nil
 }
 
-func (l *fakePodLister) Pods(namespace string) corev1listers.PodNamespaceLister {
+func (l *fakeEndpointsLister) Endpoints(namespace string) corev1listers.EndpointsNamespaceLister {
 	log.Panic("not implemented")
 	return nil
+}
+
+type fakeServiceLister struct {
+	services []*v1.Service
+	fails    bool
+}
+
+func (l *fakeServiceLister) List(selector labels.Selector) (ret []*v1.Service, err error) {
+	if l.fails {
+		return nil, errors.New("failed to get Services")
+	}
+	// TODO(bancel): use selector
+	return l.services, nil
+}
+
+func (l *fakeServiceLister) Services(namespace string) corev1listers.ServiceNamespaceLister {
+	log.Panic("not implemented")
+	return nil
+}
+
+func (l *fakeServiceLister) GetPodServices(pod *v1.Pod) ([]*v1.Service, error) {
+	log.Panic("not implemented")
+	return nil, nil
 }

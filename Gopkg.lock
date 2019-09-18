@@ -582,14 +582,15 @@
   revision = "bf2b5ad3c0a925c44a0d2842c5d8182113cd248e"
 
 [[projects]]
-  digest = "1:2a40bae32c6caa0b7ccc5458450be1d003b459e42094e850d3c28b56abe40346"
+  digest = "1:aafa4e5c2d58591c3f33bc886cdbef4e40101391ee31157e8ee20510ffcefd42"
   name = "github.com/jetstack/cert-manager"
   packages = [
     "pkg/apis/certmanager",
     "pkg/apis/certmanager/v1alpha1",
   ]
   pruneopts = "NUT"
-  revision = "45fbfcd16cdd6a6a73c79f26d67ce72a2886c746"
+  revision = "95e8b7de3982455dc9b7cff38f39b98a7390f6e7"
+  version = "v0.9.1"
 
 [[projects]]
   digest = "1:1f2aebae7e7c856562355ec0198d8ca2fa222fb05e5b1b66632a1fce39631885"
@@ -1194,6 +1195,17 @@
   version = "kubernetes-1.12.9"
 
 [[projects]]
+  digest = "1:b8a1dcc5f4e559b7af185ba12dd341cb8c175ea3d36227a02699b251ae5fde05"
+  name = "k8s.io/apiextensions-apiserver"
+  packages = [
+    "pkg/apis/apiextensions",
+    "pkg/apis/apiextensions/v1beta1",
+  ]
+  pruneopts = "NUT"
+  revision = "fa58353d80f37509c2b8de8e67f2377a2bc2ce80"
+  version = "kubernetes-1.12.9"
+
+[[projects]]
   digest = "1:9b911316f4641b42323e80636e4126523d4da86e65aec9d85f6b1adeae4ba0e9"
   name = "k8s.io/apimachinery"
   packages = [
@@ -1635,7 +1647,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:b1c59d39c71f9f628b848060d6f354480fecc22b9db2eb9d65a77a85f60ddf83"
+  digest = "1:3c39a0a0b6ba96433dfbf02d283b3b987494c6773a31fdd6dc3c60aaa5c1fb4a"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1658,11 +1670,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "20b5480da37ac4807b7bca08d6a3c86b60d26c8e"
+  revision = "6185837d36c863cd1637f12ff1b63c8b3ffb425e"
 
 [[projects]]
   branch = "master"
-  digest = "1:03c8c36f66fba88d6184f87e0bcc24262a53efc9d47adbd9a071a69ad4c001fc"
+  digest = "1:28bec577231fb3a03b5918299e5c1747a786ff4fdae034747301809dcffcfddb"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1711,8 +1723,6 @@
     "client/injection/kube/informers/core/v1/endpoints/fake",
     "client/injection/kube/informers/core/v1/namespace",
     "client/injection/kube/informers/core/v1/namespace/fake",
-    "client/injection/kube/informers/core/v1/pod",
-    "client/injection/kube/informers/core/v1/pod/fake",
     "client/injection/kube/informers/core/v1/secret",
     "client/injection/kube/informers/core/v1/secret/fake",
     "client/injection/kube/informers/core/v1/service",
@@ -1772,11 +1782,11 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "c39ee25c42f53e4024d60511a2edef2065ea7333"
+  revision = "4febcfe6aeade8dfa7df45d84ed1ca510ea1d466"
 
 [[projects]]
   branch = "master"
-  digest = "1:9fc8982baedc37d87c646f79cd1947011ee74e75f304218d2537c1c812c514f2"
+  digest = "1:c4a18b18fa3646930c2efaab99d00f9bfd790b95d9c3f9440fc91547bce811a9"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1789,7 +1799,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "2c83a176f473acb4b6b851e98e53882f594ffb5c"
+  revision = "4adb699576a34afae2e163f0ad5a0d2db0b30a5b"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1930,8 +1940,6 @@
     "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/namespace",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/namespace/fake",
-    "knative.dev/pkg/client/injection/kube/informers/core/v1/pod",
-    "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/secret",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/service",
@@ -1971,11 +1979,11 @@
     "knative.dev/pkg/test/prometheus",
     "knative.dev/pkg/test/spoof",
     "knative.dev/pkg/test/vegeta/pacers",
+    "knative.dev/pkg/test/webhook-apicoverage/coveragecalculator",
     "knative.dev/pkg/test/webhook-apicoverage/resourcetree",
     "knative.dev/pkg/test/webhook-apicoverage/tools",
     "knative.dev/pkg/test/webhook-apicoverage/view",
     "knative.dev/pkg/test/webhook-apicoverage/webhook",
-    "knative.dev/pkg/test/zipkin",
     "knative.dev/pkg/tracing",
     "knative.dev/pkg/tracing/config",
     "knative.dev/pkg/tracing/testing",
@@ -1984,7 +1992,6 @@
     "knative.dev/pkg/webhook",
     "knative.dev/pkg/websocket",
     "knative.dev/test-infra/scripts",
-    "knative.dev/test-infra/shared/common",
     "knative.dev/test-infra/shared/junit",
     "knative.dev/test-infra/shared/performance",
     "knative.dev/test-infra/shared/prow",

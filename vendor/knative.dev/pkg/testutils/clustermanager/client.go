@@ -24,6 +24,7 @@ type Client interface {
 // ClusterOperations contains all provider specific logics
 type ClusterOperations interface {
 	Provider() string
+	Initialize() error
 	Acquire() error
 	Delete() error
 }

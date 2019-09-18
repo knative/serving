@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
@@ -39,13 +40,13 @@ func (source *Revision) ConvertUp(ctx context.Context, obj apis.Convertible) err
 }
 
 // ConvertUp helps implement apis.Convertible
-func (source *RevisionTemplateSpec) ConvertUp(ctx context.Context, sink *v1beta1.RevisionTemplateSpec) error {
+func (source *RevisionTemplateSpec) ConvertUp(ctx context.Context, sink *v1.RevisionTemplateSpec) error {
 	sink.ObjectMeta = source.ObjectMeta
 	return source.Spec.ConvertUp(ctx, &sink.Spec)
 }
 
 // ConvertUp helps implement apis.Convertible
-func (source *RevisionSpec) ConvertUp(ctx context.Context, sink *v1beta1.RevisionSpec) error {
+func (source *RevisionSpec) ConvertUp(ctx context.Context, sink *v1.RevisionSpec) error {
 	if source.TimeoutSeconds != nil {
 		sink.TimeoutSeconds = ptr.Int64(*source.TimeoutSeconds)
 	}
@@ -76,7 +77,7 @@ func (source *RevisionSpec) ConvertUp(ctx context.Context, sink *v1beta1.Revisio
 }
 
 // ConvertUp helps implement apis.Convertible
-func (source *RevisionStatus) ConvertUp(ctx context.Context, sink *v1beta1.RevisionStatus) {
+func (source *RevisionStatus) ConvertUp(ctx context.Context, sink *v1.RevisionStatus) {
 	source.Status.ConvertTo(ctx, &sink.Status)
 
 	sink.ServiceName = source.ServiceName
@@ -97,19 +98,19 @@ func (sink *Revision) ConvertDown(ctx context.Context, obj apis.Convertible) err
 }
 
 // ConvertDown helps implement apis.Convertible
-func (sink *RevisionTemplateSpec) ConvertDown(ctx context.Context, source v1beta1.RevisionTemplateSpec) error {
+func (sink *RevisionTemplateSpec) ConvertDown(ctx context.Context, source v1.RevisionTemplateSpec) error {
 	sink.ObjectMeta = source.ObjectMeta
 	return sink.Spec.ConvertDown(ctx, source.Spec)
 }
 
 // ConvertDown helps implement apis.Convertible
-func (sink *RevisionSpec) ConvertDown(ctx context.Context, source v1beta1.RevisionSpec) error {
+func (sink *RevisionSpec) ConvertDown(ctx context.Context, source v1.RevisionSpec) error {
 	sink.RevisionSpec = *source.DeepCopy()
 	return nil
 }
 
 // ConvertDown helps implement apis.Convertible
-func (sink *RevisionStatus) ConvertDown(ctx context.Context, source v1beta1.RevisionStatus) {
+func (sink *RevisionStatus) ConvertDown(ctx context.Context, source v1.RevisionStatus) {
 	source.Status.ConvertTo(ctx, &sink.Status)
 
 	sink.ServiceName = source.ServiceName

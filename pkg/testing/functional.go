@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
@@ -262,6 +263,7 @@ type EndpointsOption func(*corev1.Endpoints)
 func WithSubsets(ep *corev1.Endpoints) {
 	ep.Subsets = []corev1.EndpointSubset{{
 		Addresses: []corev1.EndpointAddress{{IP: "127.0.0.1"}},
+		Ports:     []corev1.EndpointPort{{Port: 8012}, {Port: 8013}},
 	}}
 }
 
@@ -349,16 +351,14 @@ func WithDeployRef(name string) SKSOption {
 
 // WithSKSReady marks SKS as ready.
 func WithSKSReady(sks *netv1alpha1.ServerlessService) {
-	WithPrivateService(sks.Name + "-private")(sks)
+	WithPrivateService(sks)
 	WithPubService(sks)
 	sks.Status.MarkEndpointsReady()
 }
 
 // WithPrivateService annotates SKS status with the private service name.
-func WithPrivateService(n string) SKSOption {
-	return func(sks *netv1alpha1.ServerlessService) {
-		sks.Status.PrivateServiceName = n
-	}
+func WithPrivateService(sks *netv1alpha1.ServerlessService) {
+	sks.Status.PrivateServiceName = kmeta.ChildName(sks.Name, "-private")
 }
 
 // WithSKSOwnersRemoved clears the owner references of this SKS resource.

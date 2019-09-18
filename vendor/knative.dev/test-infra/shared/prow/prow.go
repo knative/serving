@@ -180,10 +180,10 @@ func (j *Job) NewBuild(buildID int) *Build {
 		BuildID:     buildID,
 	}
 
-	if startTime, err := build.GetStartTime(); nil == err {
+	if startTime, err := build.GetStartTime(); err == nil {
 		build.StartTime = &startTime
 	}
-	if finishTime, err := build.GetFinishTime(); nil == err {
+	if finishTime, err := build.GetFinishTime(); err == nil {
 		build.FinishTime = &finishTime
 	}
 	return &build
@@ -195,7 +195,7 @@ func (j *Job) GetFinishedBuilds() []Build {
 	var finishedBuilds []Build
 	builds := j.GetBuilds()
 	for _, build := range builds {
-		if true == build.IsFinished() {
+		if build.IsFinished() {
 			finishedBuilds = append(finishedBuilds, build)
 		}
 	}
@@ -219,7 +219,7 @@ func (j *Job) GetBuildIDs() []int {
 	var buildIDs []int
 	gcsBuildPaths := gcs.ListDirectChildren(ctx, j.Bucket, j.StoragePath)
 	for _, gcsBuildPath := range gcsBuildPaths {
-		if buildID, err := getBuildIDFromBuildPath(gcsBuildPath); nil == err {
+		if buildID, err := getBuildIDFromBuildPath(gcsBuildPath); err == nil {
 			buildIDs = append(buildIDs, buildID)
 		}
 	}
@@ -234,10 +234,10 @@ func (j *Job) GetLatestBuilds(count int) []Build {
 	// so use 'started.json' creation date for latest builds
 	builds := j.GetFinishedBuilds()
 	sort.Slice(builds, func(i, j int) bool {
-		if nil == builds[i].StartTime {
+		if builds[i].StartTime == nil {
 			return false
 		}
-		if nil == builds[j].StartTime {
+		if builds[j].StartTime == nil {
 			return true
 		}
 		return *builds[i].StartTime > *builds[j].StartTime
@@ -262,7 +262,7 @@ func (b *Build) IsFinished() bool {
 // returning -1 if the build didn't start or if it failed to get the timestamp
 func (b *Build) GetStartTime() (int64, error) {
 	var started Started
-	if err := unmarshalJSONFile(path.Join(b.StoragePath, StartedJSON), &started); nil != err {
+	if err := unmarshalJSONFile(path.Join(b.StoragePath, StartedJSON), &started); err != nil {
 		return -1, err
 	}
 	return started.Timestamp, nil
@@ -272,7 +272,7 @@ func (b *Build) GetStartTime() (int64, error) {
 // returning -1 if the build didn't finish or if it failed to get the timestamp
 func (b *Build) GetFinishTime() (int64, error) {
 	var finished Finished
-	if err := unmarshalJSONFile(path.Join(b.StoragePath, FinishedJSON), &finished); nil != err {
+	if err := unmarshalJSONFile(path.Join(b.StoragePath, FinishedJSON), &finished); err != nil {
 		return -1, err
 	}
 	return finished.Timestamp, nil
@@ -328,11 +328,8 @@ func getBuildIDFromBuildPath(buildPath string) (int, error) {
 // v must be an arbitrary struct, slice, or string.
 func unmarshalJSONFile(storagePath string, v interface{}) error {
 	contents, err := gcs.Read(ctx, BucketName, storagePath)
-	if nil != err {
+	if err != nil {
 		return err
 	}
-	if err := json.Unmarshal(contents, v); nil != err {
-		return err
-	}
-	return nil
+	return json.Unmarshal(contents, v)
 }

@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	"knative.dev/serving/test"
@@ -161,8 +162,8 @@ func TestRevisionTimeout(t *testing.T) {
 	rev5s.TrafficTarget = "rev5s"
 
 	t.Log("Updating RouteSpec")
-	if _, err := v1b1test.UpdateServiceRouteSpec(t, clients, names, v1beta1.RouteSpec{
-		Traffic: []v1beta1.TrafficTarget{{
+	if _, err := v1b1test.UpdateServiceRouteSpec(t, clients, names, v1.RouteSpec{
+		Traffic: []v1.TrafficTarget{{
 			Tag:          rev2s.TrafficTarget,
 			RevisionName: rev2s.Revision,
 			Percent:      ptr.Int64(50),

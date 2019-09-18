@@ -42,7 +42,7 @@ spec:
         # and substituted here.
         image: knative.dev/serving/cmd/webhook
         ports:
-        - name: metrics-port
+        - name: metrics
           containerPort: 9090
         - name: profiling
           containerPort: 8008

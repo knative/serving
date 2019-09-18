@@ -25,9 +25,9 @@ fi
 source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/library.sh
 
 
-# Clone the v1beta1 types to v1alpha1 sans v1beta1.
-for x in $(ls "${REPO_ROOT_DIR}/config/v1beta1"); do
-  sed -e '28,30d' "${REPO_ROOT_DIR}/config/v1beta1/$x" > "${REPO_ROOT_DIR}/config/v1alpha1/$x"
+# Clone the v1/v1beta1 types to v1alpha1 sans v1/v1beta1.
+for x in $(ls "${REPO_ROOT_DIR}/config/v1"); do
+  sed -e '28,33d' "${REPO_ROOT_DIR}/config/v1/$x" > "${REPO_ROOT_DIR}/config/v1alpha1/$x"
 done
 
 CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}

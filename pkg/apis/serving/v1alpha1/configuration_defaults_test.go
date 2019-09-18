@@ -27,7 +27,7 @@ import (
 	"knative.dev/pkg/ptr"
 
 	"knative.dev/serving/pkg/apis/config"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 var (
@@ -63,7 +63,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
+						RevisionSpec: v1.RevisionSpec{
 							TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 						},
@@ -78,7 +78,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 		},
 	}, {
 		name: "lemonade",
-		wc:   v1beta1.WithUpgradeViaDefaulting,
+		wc:   v1.WithUpgradeViaDefaulting,
 		in: &Configuration{
 			Spec: ConfigurationSpec{
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
@@ -94,7 +94,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				Template: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
+						RevisionSpec: v1.RevisionSpec{
 							TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 							PodSpec: corev1.PodSpec{
@@ -116,7 +116,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
+						RevisionSpec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{}},
 							},
@@ -129,7 +129,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
+						RevisionSpec: v1.RevisionSpec{
 							TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 							PodSpec: corev1.PodSpec{
@@ -150,7 +150,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
+						RevisionSpec: v1.RevisionSpec{
 							ContainerConcurrency: ptr.Int64(1),
 							TimeoutSeconds:       ptr.Int64(99),
 						},
@@ -166,7 +166,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
+						RevisionSpec: v1.RevisionSpec{
 							ContainerConcurrency: ptr.Int64(1),
 							TimeoutSeconds:       ptr.Int64(99),
 						},

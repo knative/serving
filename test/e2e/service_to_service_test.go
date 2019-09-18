@@ -23,10 +23,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/google/go-cmp/cmp"
-	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
@@ -36,11 +33,8 @@ import (
 	v1a1test "knative.dev/serving/test/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/apis/networking"
 	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 
 	. "knative.dev/serving/pkg/testing/v1alpha1"
@@ -258,21 +252,9 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 		t.Fatalf("Failed to create a service: %v", err)
 	}
 
-	// Wait for the endpoints to equalize.
-	if err := wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
-		aeps, err := clients.KubeClient.Kube.CoreV1().Endpoints(
-			system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		svcEps, err := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
-			resources.Revision.Status.ServiceName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		return cmp.Equal(svcEps.Subsets, aeps.Subsets), nil
-	}); err != nil {
-		t.Fatalf("Initial state never achieved: %v", err)
+	// Wait for the activator endpoints to equalize.
+	if err := waitForActivatorEndpoints(resources, clients); err != nil {
+		t.Fatal("Never got Activator endpoints in the service")
 	}
 
 	// Send request to helloworld app via httpproxy service

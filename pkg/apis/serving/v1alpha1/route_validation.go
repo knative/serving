@@ -47,7 +47,7 @@ func (rs *RouteSpec) Validate(ctx context.Context) *apis.FieldError {
 
 	percentSum := int64(0)
 	for i, tt := range rs.Traffic {
-		// Delegate to the v1beta1 validation.
+		// Delegate to the v1 validation.
 		errs = errs.Also(tt.TrafficTarget.Validate(ctx).ViaFieldIndex("traffic", i))
 
 		if tt.Percent != nil {

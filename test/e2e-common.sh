@@ -28,7 +28,7 @@ source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/e2e-tests.sh
 # Default Istio configuration to install: 1.2-latest, no mesh, cert manager 0.6.1.
 ISTIO_VERSION="1.2-latest"
 ISTIO_MESH=0
-CERT_MANAGER_VERSION="0.6.1"
+CERT_MANAGER_VERSION="0.9.1"
 
 # Current YAMLs used to install Knative Serving.
 INSTALL_RELEASE_YAML=""
@@ -36,7 +36,7 @@ INSTALL_MONITORING_YAML=""
 
 INSTALL_MONITORING=0
 
-INSTALL_BETA=1
+INSTALL_V1=1
 
 RECONCILE_GATEWAY=0
 
@@ -74,11 +74,15 @@ function parse_flags() {
       return 1
       ;;
     --install-alpha)
-      readonly INSTALL_BETA=0
+      readonly INSTALL_V1=0
       return 1
       ;;
     --install-beta)
-      readonly INSTALL_BETA=1
+      readonly INSTALL_V1=1
+      return 1
+      ;;
+    --install-v1)
+      readonly INSTALL_V1=1
       return 1
       ;;
     --reconcile-gateway)
@@ -186,16 +190,16 @@ function install_knative_serving_standard() {
   if [[ -z "$1" ]]; then
     # install_knative_serving_standard was called with no arg.
     build_knative_from_source
-    if (( INSTALL_BETA )); then
-      INSTALL_RELEASE_YAML="${SERVING_BETA_YAML}"
+    if (( INSTALL_V1 )); then
+      INSTALL_RELEASE_YAML="${SERVING_V1_YAML}"
     else
       INSTALL_RELEASE_YAML="${SERVING_ALPHA_YAML}"
     fi
 
     # install serving core if installing for Gloo
     if [[ -n "${GLOO_VERSION}" ]]; then
-      if (( INSTALL_BETA )); then
-        INSTALL_RELEASE_YAML="${SERVING_CORE_BETA_YAML}"
+      if (( INSTALL_V1 )); then
+        INSTALL_RELEASE_YAML="${SERVING_CORE_V1_YAML}"
       else
         INSTALL_RELEASE_YAML="${SERVING_CORE_YAML}"
       fi
@@ -341,8 +345,10 @@ function knative_teardown() {
 function test_setup() {
   echo ">> Setting up logging..."
 
-  # Install kail.
-  bash <( curl -sfL https://raw.githubusercontent.com/boz/kail/master/godownloader.sh) -b "$GOPATH/bin"
+  # Install kail if needed.
+  if ! which kail > /dev/null; then
+    bash <( curl -sfL https://raw.githubusercontent.com/boz/kail/master/godownloader.sh) -b "$GOPATH/bin"
+  fi
 
   # Capture all logs.
   kail > ${ARTIFACTS}/k8s.log.txt &

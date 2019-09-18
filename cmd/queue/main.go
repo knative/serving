@@ -121,25 +121,33 @@ var (
 )
 
 type config struct {
-	ContainerConcurrency              int                       `split_words:"true" required:"true"`
-	QueueServingPort                  int                       `split_words:"true" required:"true"`
-	RevisionTimeoutSeconds            int                       `split_words:"true" required:"true"`
-	UserPort                          int                       `split_words:"true" required:"true"`
-	EnableVarLogCollection            bool                      `split_words:"true"` // optional
-	ServingConfiguration              string                    `split_words:"true" required:"true"`
-	ServingNamespace                  string                    `split_words:"true" required:"true"`
-	ServingPodIP                      string                    `split_words:"true" required:"true"`
-	ServingPod                        string                    `split_words:"true" required:"true"`
-	ServingRevision                   string                    `split_words:"true" required:"true"`
-	ServingService                    string                    `split_words:"true"` // optional
-	UserContainerName                 string                    `split_words:"true" required:"true"`
-	VarLogVolumeName                  string                    `split_words:"true" required:"true"`
-	InternalVolumePath                string                    `split_words:"true" required:"true"`
-	ServingLoggingConfig              string                    `split_words:"true" required:"true"`
-	ServingLoggingLevel               string                    `split_words:"true" required:"true"`
-	ServingRequestMetricsBackend      string                    `split_words:"true" required:"true"`
-	ServingRequestLogTemplate         string                    `split_words:"true" required:"true"`
-	ServingReadinessProbe             string                    `split_words:"true" required:"true"`
+	ContainerConcurrency   int    `split_words:"true" required:"true"`
+	QueueServingPort       int    `split_words:"true" required:"true"`
+	UserPort               int    `split_words:"true" required:"true"`
+	RevisionTimeoutSeconds int    `split_words:"true" required:"true"`
+	ServingReadinessProbe  string `split_words:"true" required:"true"`
+
+	// Logging configuration
+	ServingLoggingConfig      string `split_words:"true" required:"true"`
+	ServingLoggingLevel       string `split_words:"true" required:"true"`
+	ServingRequestLogTemplate string `split_words:"true"` // optional
+
+	// Metrics configuration
+	ServingNamespace             string `split_words:"true" required:"true"`
+	ServingRevision              string `split_words:"true" required:"true"`
+	ServingConfiguration         string `split_words:"true" required:"true"`
+	ServingPodIP                 string `split_words:"true" required:"true"`
+	ServingPod                   string `split_words:"true" required:"true"`
+	ServingService               string `split_words:"true"` // optional
+	ServingRequestMetricsBackend string `split_words:"true"` // optional
+
+	// /var/log configuration
+	EnableVarLogCollection bool   `split_words:"true"` // optional
+	UserContainerName      string `split_words:"true"` // optional
+	VarLogVolumeName       string `split_words:"true"` // optional
+	InternalVolumePath     string `split_words:"true"` // optional
+
+	// Tracing configuration
 	TracingConfigDebug                bool                      `split_words:"true"` // optional
 	TracingConfigBackend              tracingconfig.BackendType `split_words:"true"` // optional
 	TracingConfigSampleRate           float64                   `split_words:"true"` // optional

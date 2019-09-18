@@ -744,10 +744,10 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:bcfc1adc3202f2ff120bc4686c613c8f34af0f9e3de49b55d3bbecd70dc6651b"
+  digest = "1:3b865f5fdc62cc6f52865a3bf29146a384fd5b2f250d8d86c0c2a41a4ffa10c4"
   name = "google.golang.org/api"
   packages = [
-    "container/v1",
+    "container/v1beta1",
     "gensupport",
     "googleapi",
     "googleapi/internal/uritemplates",
@@ -1245,14 +1245,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:e873112f19e9ce823bc01ca715de355bd5cf8e4d6045ed5f34b3eb0d6ec2c655"
+  digest = "1:964a4f9e12d5021b9d550e04c36cf23feb880e286ceede1b246d5c0e43b523b9"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "5449c8bad49d3528b5cb0b58a0cdce0f8a526f03"
+  revision = "efad44559f944cfc58dc5bca076eeb3ec20fb346"
 
 [[projects]]
   digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"
@@ -1313,7 +1313,7 @@
     "golang.org/x/oauth2",
     "golang.org/x/oauth2/google",
     "golang.org/x/sync/errgroup",
-    "google.golang.org/api/container/v1",
+    "google.golang.org/api/container/v1beta1",
     "google.golang.org/grpc",
     "gopkg.in/yaml.v2",
     "k8s.io/api/admission/v1beta1",
@@ -1369,6 +1369,7 @@
     "k8s.io/client-go/testing",
     "k8s.io/client-go/tools/cache",
     "k8s.io/client-go/tools/clientcmd",
+    "k8s.io/client-go/tools/metrics",
     "k8s.io/client-go/tools/record",
     "k8s.io/client-go/util/flowcontrol",
     "k8s.io/client-go/util/workqueue",

@@ -28,7 +28,7 @@ import (
 	apitestv1 "knative.dev/pkg/apis/testing/v1"
 	"knative.dev/pkg/ptr"
 
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestServiceDuckTypes(t *testing.T) {
@@ -577,12 +577,12 @@ func TestRouteStatusPropagation(t *testing.T) {
 			Host:   "route.namespace.example.com",
 		},
 		Traffic: []TrafficTarget{{
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Percent:      ptr.Int64(100),
 				RevisionName: "newstuff",
 			},
 		}, {
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Percent:      nil,
 				RevisionName: "oldstuff",
 			},

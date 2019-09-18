@@ -21,8 +21,9 @@ import (
 	"fmt"
 
 	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
@@ -39,8 +40,8 @@ func (source *Route) ConvertUp(ctx context.Context, obj apis.Convertible) error 
 }
 
 // ConvertUp helps implement apis.Convertible
-func (source *RouteSpec) ConvertUp(ctx context.Context, sink *v1beta1.RouteSpec) error {
-	sink.Traffic = make([]v1beta1.TrafficTarget, len(source.Traffic))
+func (source *RouteSpec) ConvertUp(ctx context.Context, sink *v1.RouteSpec) error {
+	sink.Traffic = make([]v1.TrafficTarget, len(source.Traffic))
 	for i := range source.Traffic {
 		if err := source.Traffic[i].ConvertUp(ctx, &sink.Traffic[i]); err != nil {
 			return err
@@ -50,7 +51,7 @@ func (source *RouteSpec) ConvertUp(ctx context.Context, sink *v1beta1.RouteSpec)
 }
 
 // ConvertUp helps implement apis.Convertible
-func (source *TrafficTarget) ConvertUp(ctx context.Context, sink *v1beta1.TrafficTarget) error {
+func (source *TrafficTarget) ConvertUp(ctx context.Context, sink *v1.TrafficTarget) error {
 	*sink = source.TrafficTarget
 	switch {
 	case source.Tag != "" && source.DeprecatedName != "":
@@ -64,26 +65,26 @@ func (source *TrafficTarget) ConvertUp(ctx context.Context, sink *v1beta1.Traffi
 }
 
 // ConvertUp helps implement apis.Convertible
-func (source *RouteStatus) ConvertUp(ctx context.Context, sink *v1beta1.RouteStatus) {
+func (source *RouteStatus) ConvertUp(ctx context.Context, sink *v1.RouteStatus) {
 	source.Status.ConvertTo(ctx, &sink.Status)
 
 	source.RouteStatusFields.ConvertUp(ctx, &sink.RouteStatusFields)
 }
 
 // ConvertUp helps implement apis.Convertible
-func (source *RouteStatusFields) ConvertUp(ctx context.Context, sink *v1beta1.RouteStatusFields) {
+func (source *RouteStatusFields) ConvertUp(ctx context.Context, sink *v1.RouteStatusFields) {
 	if source.URL != nil {
 		sink.URL = source.URL.DeepCopy()
 	}
 
 	if source.Address != nil {
 		if sink.Address == nil {
-			sink.Address = &duckv1beta1.Addressable{}
+			sink.Address = &duckv1.Addressable{}
 		}
 		source.Address.ConvertUp(ctx, sink.Address)
 	}
 
-	sink.Traffic = make([]v1beta1.TrafficTarget, len(source.Traffic))
+	sink.Traffic = make([]v1.TrafficTarget, len(source.Traffic))
 	for i := range source.Traffic {
 		source.Traffic[i].ConvertUp(ctx, &sink.Traffic[i])
 	}
@@ -103,7 +104,7 @@ func (sink *Route) ConvertDown(ctx context.Context, obj apis.Convertible) error 
 }
 
 // ConvertDown helps implement apis.Convertible
-func (sink *RouteSpec) ConvertDown(ctx context.Context, source v1beta1.RouteSpec) {
+func (sink *RouteSpec) ConvertDown(ctx context.Context, source v1.RouteSpec) {
 	sink.Traffic = make([]TrafficTarget, len(source.Traffic))
 	for i := range source.Traffic {
 		sink.Traffic[i].ConvertDown(ctx, source.Traffic[i])
@@ -111,19 +112,19 @@ func (sink *RouteSpec) ConvertDown(ctx context.Context, source v1beta1.RouteSpec
 }
 
 // ConvertDown helps implement apis.Convertible
-func (sink *TrafficTarget) ConvertDown(ctx context.Context, source v1beta1.TrafficTarget) {
+func (sink *TrafficTarget) ConvertDown(ctx context.Context, source v1.TrafficTarget) {
 	sink.TrafficTarget = source
 }
 
 // ConvertDown helps implement apis.Convertible
-func (sink *RouteStatus) ConvertDown(ctx context.Context, source v1beta1.RouteStatus) {
+func (sink *RouteStatus) ConvertDown(ctx context.Context, source v1.RouteStatus) {
 	source.Status.ConvertTo(ctx, &sink.Status)
 
 	sink.RouteStatusFields.ConvertDown(ctx, source.RouteStatusFields)
 }
 
 // ConvertDown helps implement apis.Convertible
-func (sink *RouteStatusFields) ConvertDown(ctx context.Context, source v1beta1.RouteStatusFields) {
+func (sink *RouteStatusFields) ConvertDown(ctx context.Context, source v1.RouteStatusFields) {
 	if source.URL != nil {
 		sink.URL = source.URL.DeepCopy()
 	}

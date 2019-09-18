@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	ptest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1beta1"
@@ -144,7 +145,7 @@ func PatchService(t *testing.T, clients *test.Clients, svc *v1beta1.Service, fop
 		opt(newSvc)
 	}
 	LogResourceObject(t, ResourceObjects{Service: newSvc})
-	patchBytes, err := createPatch(svc, newSvc)
+	patchBytes, err := test.CreateBytePatch(svc, newSvc)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +153,7 @@ func PatchService(t *testing.T, clients *test.Clients, svc *v1beta1.Service, fop
 }
 
 // UpdateServiceRouteSpec updates a service to use the route name in names.
-func UpdateServiceRouteSpec(t *testing.T, clients *test.Clients, names test.ResourceNames, rs v1beta1.RouteSpec) (*v1beta1.Service, error) {
+func UpdateServiceRouteSpec(t *testing.T, clients *test.Clients, names test.ResourceNames, rs v1.RouteSpec) (*v1beta1.Service, error) {
 	patches := []jsonpatch.JsonPatchOperation{{
 		Operation: "replace",
 		Path:      "/spec/traffic",
@@ -197,15 +198,15 @@ func Service(names test.ResourceNames, fopt ...rtesting.ServiceOption) *v1beta1.
 }
 
 // WaitForServiceState polls the status of the Service called name
-// from client every `interval` until `inState` returns `true` indicating it
-// is done, returns an error or timeout. desc will be used to name the metric
+// from client every `PollInterval` until `inState` returns `true` indicating it
+// is done, returns an error or PollTimeout. desc will be used to name the metric
 // that is emitted to track how long it took for name to get into the state checked by inState.
 func WaitForServiceState(client *test.ServingBetaClients, name string, inState func(s *v1beta1.Service) (bool, error), desc string) error {
 	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForServiceState/%s/%s", name, desc))
 	defer span.End()
 
 	var lastState *v1beta1.Service
-	waitErr := wait.PollImmediate(interval, timeout, func() (bool, error) {
+	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		var err error
 		lastState, err = client.Services.Get(name, metav1.GetOptions{})
 		if err != nil {

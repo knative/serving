@@ -30,8 +30,8 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/spoof"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 
 	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
 	v1alpha1testing "knative.dev/serving/pkg/testing/v1alpha1"
@@ -47,7 +47,7 @@ func Route(names test.ResourceNames, fopt ...v1alpha1testing.RouteOption) *v1alp
 		},
 		Spec: v1alpha1.RouteSpec{
 			Traffic: []v1alpha1.TrafficTarget{{
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					Tag:               names.TrafficTarget,
 					ConfigurationName: names.Config,
 					Percent:           ptr.Int64(100),
@@ -71,6 +71,7 @@ func CreateRoute(t *testing.T, clients *test.Clients, names test.ResourceNames, 
 }
 
 // RetryingRouteInconsistency retries common requests seen when creating a new route
+// TODO(5573): Remove this.
 func RetryingRouteInconsistency(innerCheck spoof.ResponseChecker) spoof.ResponseChecker {
 	return func(resp *spoof.Response) (bool, error) {
 		// If we didn't match any retryable codes, invoke the ResponseChecker that we wrapped.
@@ -79,15 +80,15 @@ func RetryingRouteInconsistency(innerCheck spoof.ResponseChecker) spoof.Response
 }
 
 // WaitForRouteState polls the status of the Route called name from client every
-// interval until inState returns `true` indicating it is done, returns an
-// error or timeout. desc will be used to name the metric that is emitted to
+// PollInterval until inState returns `true` indicating it is done, returns an
+// error or PollTimeout. desc will be used to name the metric that is emitted to
 // track how long it took for name to get into the state checked by inState.
 func WaitForRouteState(client *test.ServingAlphaClients, name string, inState func(r *v1alpha1.Route) (bool, error), desc string) error {
 	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForRouteState/%s/%s", name, desc))
 	defer span.End()
 
 	var lastState *v1alpha1.Route
-	waitErr := wait.PollImmediate(interval, timeout, func() (bool, error) {
+	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		var err error
 		lastState, err = client.Routes.Get(name, metav1.GetOptions{})
 		if err != nil {

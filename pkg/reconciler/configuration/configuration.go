@@ -31,6 +31,7 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
@@ -116,7 +117,7 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 	// and may not have had all of the assumed defaults specified.  This won't result
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
-	config.SetDefaults(v1beta1.WithUpgradeViaDefaulting(ctx))
+	config.SetDefaults(v1.WithUpgradeViaDefaulting(ctx))
 	config.Status.InitializeConditions()
 
 	if err := config.ConvertUp(ctx, &v1beta1.Configuration{}); err != nil {
@@ -125,6 +126,10 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 		}
 		return err
 	}
+
+	// Bump observed generation to denote that we have processed this
+	// generation regardless of success or failure.
+	config.Status.ObservedGeneration = config.Generation
 
 	// First, fetch the revision that should exist for the current generation.
 	lcr, err := c.latestCreatedRevision(config)
@@ -157,7 +162,6 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 
 	// Second, set this to be the latest revision that we have created.
 	config.Status.SetLatestCreatedRevisionName(revName)
-	config.Status.ObservedGeneration = config.Generation
 
 	// Last, determine whether we should set LatestReadyRevisionName to our
 	// LatestCreatedRevision based on its readiness.

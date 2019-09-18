@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"knative.dev/pkg/test"
 	"knative.dev/serving/pkg/client/clientset/versioned"
+	servingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
 	servingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	servingv1beta1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1beta1"
 )
@@ -35,6 +36,7 @@ type Clients struct {
 	KubeClient         *test.KubeClient
 	ServingAlphaClient *ServingAlphaClients
 	ServingBetaClient  *ServingBetaClients
+	ServingClient      *ServingClients
 	Dynamic            dynamic.Interface
 }
 
@@ -52,6 +54,14 @@ type ServingBetaClients struct {
 	Configs   servingv1beta1.ConfigurationInterface
 	Revisions servingv1beta1.RevisionInterface
 	Services  servingv1beta1.ServiceInterface
+}
+
+// ServingClients holds instances of interfaces for making requests to knative serving clients
+type ServingClients struct {
+	Routes    servingv1.RouteInterface
+	Configs   servingv1.ConfigurationInterface
+	Revisions servingv1.RevisionInterface
+	Services  servingv1.ServiceInterface
 }
 
 // NewClients instantiates and returns several clientsets required for making request to the
@@ -79,6 +89,11 @@ func NewClients(configPath string, clusterName string, namespace string) (*Clien
 	}
 
 	clients.ServingBetaClient, err = newServingBetaClients(cfg, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	clients.ServingClient, err = newServingClients(cfg, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -120,6 +135,22 @@ func newServingBetaClients(cfg *rest.Config, namespace string) (*ServingBetaClie
 		Revisions: cs.ServingV1beta1().Revisions(namespace),
 		Routes:    cs.ServingV1beta1().Routes(namespace),
 		Services:  cs.ServingV1beta1().Services(namespace),
+	}, nil
+}
+
+// NewServingClients instantiates and returns the serving clientset required to make requests to the
+// knative serving cluster.
+func newServingClients(cfg *rest.Config, namespace string) (*ServingClients, error) {
+	cs, err := versioned.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ServingClients{
+		Configs:   cs.ServingV1().Configurations(namespace),
+		Revisions: cs.ServingV1().Revisions(namespace),
+		Routes:    cs.ServingV1().Routes(namespace),
+		Services:  cs.ServingV1().Services(namespace),
 	}, nil
 }
 

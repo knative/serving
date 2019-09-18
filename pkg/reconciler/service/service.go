@@ -32,6 +32,7 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
@@ -131,7 +132,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	// and may not have had all of the assumed defaults specified.  This won't result
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
-	service.SetDefaults(v1beta1.WithUpgradeViaDefaulting(ctx))
+	service.SetDefaults(v1.WithUpgradeViaDefaulting(ctx))
 	service.Status.InitializeConditions()
 
 	if err := service.ConvertUp(ctx, &v1beta1.Service{}); err != nil {
@@ -151,6 +152,12 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 		// The Configuration hasn't yet reconciled our latest changes to
 		// its desired state, so its conditions are outdated.
 		service.Status.MarkConfigurationNotReconciled()
+
+		// If BYO-Revision name is used we must serialize reconciling the Configuration
+		// and Route. Wait for observed generation to match before continuing.
+		if config.Spec.GetTemplate().Name != "" {
+			return nil
+		}
 	} else {
 		// Update our Status based on the state of our underlying Configuration.
 		service.Status.PropagateConfigurationStatus(&config.Status)

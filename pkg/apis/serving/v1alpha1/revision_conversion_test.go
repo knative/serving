@@ -27,6 +27,7 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/ptr"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
@@ -56,7 +57,7 @@ func TestRevisionConversion(t *testing.T) {
 				Generation: 1,
 			},
 			Spec: RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					PodSpec: corev1.PodSpec{
 						ServiceAccountName: "robocop",
 						Containers: []corev1.Container{{
@@ -107,7 +108,7 @@ func TestRevisionConversion(t *testing.T) {
 					Kind:       "Build",
 					Name:       "foo",
 				},
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					PodSpec: corev1.PodSpec{
 						ServiceAccountName: "robocop",
 						Containers: []corev1.Container{{
@@ -218,7 +219,7 @@ func TestRevisionConversionError(t *testing.T) {
 				Generation: 1,
 			},
 			Spec: RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					PodSpec: corev1.PodSpec{
 						ServiceAccountName: "robocop",
 						Containers: []corev1.Container{{
@@ -253,7 +254,7 @@ func TestRevisionConversionError(t *testing.T) {
 				Generation: 1,
 			},
 			Spec: RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					PodSpec: corev1.PodSpec{
 						ServiceAccountName: "robocop",
 						Containers:         []corev1.Container{},

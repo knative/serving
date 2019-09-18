@@ -25,8 +25,8 @@ import (
 	"knative.dev/pkg/ptr"
 	net "knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
@@ -40,7 +40,7 @@ const (
 // A RevisionTarget adds the Active/Inactive state and the transport protocol of a
 // Revision to a flattened TrafficTarget.
 type RevisionTarget struct {
-	v1beta1.TrafficTarget
+	v1.TrafficTarget
 	Active      bool
 	Protocol    net.ProtocolType
 	ServiceName string // Revision service name.
@@ -91,7 +91,7 @@ func (t *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1alpha1.Rout
 		// We cannot `DeepCopy` here, since tt.TrafficTarget might contain both
 		// configuration and revision.
 		results[i] = v1alpha1.TrafficTarget{
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:            tt.Tag,
 				RevisionName:   tt.RevisionName,
 				Percent:        pp,

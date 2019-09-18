@@ -32,7 +32,7 @@ import (
 	"knative.dev/serving/test"
 )
 
-func TestV1beta1Translation(t *testing.T) {
+func TestTranslation(t *testing.T) {
 	t.Parallel()
 	cancel := logstream.Start(t)
 	defer cancel()
@@ -61,9 +61,18 @@ func TestV1beta1Translation(t *testing.T) {
 		t.Fatalf("Failed to get v1beta1.Service: %v: %v", names.Service, err)
 	}
 
-	// Check that the PodSpecs match
+	// Access the service over the v1 endpoint.
+	v1, err := clients.ServingClient.Services.Get(service.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get v1.Service: %v: %v", names.Service, err)
+	}
+
+	// Check that all PodSpecs match
 	if !equality.Semantic.DeepEqual(v1b1.Spec.Template.Spec.PodSpec, service.Spec.Template.Spec.PodSpec) {
 		t.Fatalf("Failed to parse unstructured as v1beta1.Service: %v: %v", names.Service, err)
+	}
+	if !equality.Semantic.DeepEqual(v1.Spec.Template.Spec.PodSpec, service.Spec.Template.Spec.PodSpec) {
+		t.Fatalf("Failed to parse unstructured as v1.Service: %v: %v", names.Service, err)
 	}
 }
 

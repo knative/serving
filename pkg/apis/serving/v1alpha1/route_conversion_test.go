@@ -28,6 +28,7 @@ import (
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/ptr"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
@@ -58,7 +59,7 @@ func TestRouteConversion(t *testing.T) {
 			},
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						ConfigurationName: "foo",
 						Percent:           ptr.Int64(100),
 					},
@@ -74,7 +75,7 @@ func TestRouteConversion(t *testing.T) {
 				},
 				RouteStatusFields: RouteStatusFields{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							RevisionName: "foo-00001",
 							Percent:      ptr.Int64(100),
 						},
@@ -106,7 +107,7 @@ func TestRouteConversion(t *testing.T) {
 			},
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "foo-00002",
 						Percent:      ptr.Int64(100),
 					},
@@ -122,7 +123,7 @@ func TestRouteConversion(t *testing.T) {
 				},
 				RouteStatusFields: RouteStatusFields{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							RevisionName: "foo-00001",
 							Percent:      ptr.Int64(100),
 						},
@@ -154,25 +155,25 @@ func TestRouteConversion(t *testing.T) {
 			},
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "foo-00001",
 						Percent:      ptr.Int64(90),
 						Tag:          "current",
 					},
 				}, {
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "foo-00002",
 						Percent:      ptr.Int64(10),
 						Tag:          "candidate",
 					},
 				}, {
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						ConfigurationName: "foo",
 						Percent:           nil,
 						Tag:               "latest",
 					},
 				}, {
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						ConfigurationName: "foo",
 						Percent:           ptr.Int64(0),
 						Tag:               "latest2",
@@ -189,7 +190,7 @@ func TestRouteConversion(t *testing.T) {
 				},
 				RouteStatusFields: RouteStatusFields{
 					Traffic: []TrafficTarget{{
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							RevisionName: "foo-00001",
 							Percent:      ptr.Int64(90),
 							Tag:          "current",
@@ -199,7 +200,7 @@ func TestRouteConversion(t *testing.T) {
 							},
 						},
 					}, {
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							RevisionName: "foo-00002",
 							Percent:      ptr.Int64(10),
 							Tag:          "candidate",
@@ -209,7 +210,7 @@ func TestRouteConversion(t *testing.T) {
 							},
 						},
 					}, {
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							RevisionName: "foo-00003",
 							Percent:      nil,
 							Tag:          "latest",
@@ -219,7 +220,7 @@ func TestRouteConversion(t *testing.T) {
 							},
 						},
 					}, {
-						TrafficTarget: v1beta1.TrafficTarget{
+						TrafficTarget: v1.TrafficTarget{
 							RevisionName: "foo-00003",
 							Percent:      ptr.Int64(0),
 							Tag:          "latest2",
@@ -246,7 +247,7 @@ func TestRouteConversion(t *testing.T) {
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
 					DeprecatedName: "candidate",
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName: "foo-00001",
 						Percent:      ptr.Int64(100),
 						Tag:          "current",

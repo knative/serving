@@ -28,8 +28,8 @@ import (
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/ptr"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 	servicenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	"knative.dev/serving/pkg/resources"
@@ -94,7 +94,7 @@ func WithInlineRollout(s *v1alpha1.Service) {
 		ConfigurationSpec: v1alpha1.ConfigurationSpec{
 			Template: &v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
-					RevisionSpec: v1beta1.RevisionSpec{
+					RevisionSpec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "busybox",
@@ -107,8 +107,40 @@ func WithInlineRollout(s *v1alpha1.Service) {
 		},
 		RouteSpec: v1alpha1.RouteSpec{
 			Traffic: []v1alpha1.TrafficTarget{{
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					Percent: ptr.Int64(100),
+				},
+			}},
+		},
+	}
+}
+
+// WithInlineNamedRevision configures the Service to use BYO Revision in the
+// template spec and reference that same revision name in the route spec.
+func WithInlineNamedRevision(s *v1alpha1.Service) {
+	s.Spec = v1alpha1.ServiceSpec{
+		ConfigurationSpec: v1alpha1.ConfigurationSpec{
+			Template: &v1alpha1.RevisionTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: s.Name + "-byo",
+				},
+				Spec: v1alpha1.RevisionSpec{
+					RevisionSpec: v1.RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "busybox",
+							}},
+						},
+						TimeoutSeconds: ptr.Int64(60),
+					},
+				},
+			},
+		},
+		RouteSpec: v1alpha1.RouteSpec{
+			Traffic: []v1alpha1.TrafficTarget{{
+				TrafficTarget: v1.TrafficTarget{
+					RevisionName: s.Name + "-byo",
+					Percent:      ptr.Int64(100),
 				},
 			}},
 		},
@@ -408,6 +440,12 @@ func WithFailedRoute(reason, message string) ServiceOption {
 			},
 		})
 	}
+}
+
+// WithOutOfDateConfig reflects the Configuration's readiness in the Service
+// resource.
+func WithOutOfDateConfig(s *v1alpha1.Service) {
+	s.Status.MarkConfigurationNotReconciled()
 }
 
 // WithReadyConfig reflects the Configuration's readiness in the Service

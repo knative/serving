@@ -23,6 +23,7 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 
 	"github.com/google/go-cmp/cmp"
@@ -43,9 +44,9 @@ func TestConfigurationValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
-					Spec: RevisionSpec{
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
+					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "busybox",
@@ -57,42 +58,20 @@ func TestConfigurationValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
-		name: "invalid container concurrency",
-		c: &Configuration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "valid",
-			},
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
-					Spec: RevisionSpec{
-						PodSpec: corev1.PodSpec{
-							Containers: []corev1.Container{{
-								Image: "busybox",
-							}},
-						},
-						ContainerConcurrency: ptr.Int64(-10),
-					},
-				},
-			},
-		},
-		want: apis.ErrOutOfBoundsValue(
-			-10, 0, config.DefaultMaxRevisionContainerConcurrency,
-			"spec.template.spec.containerConcurrency"),
-	}, {
 		name: "valid BYO name",
 		c: &Configuration{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 			},
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "byo-name-foo",
 					},
-					Spec: RevisionSpec{
+					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
-								Image: "hellworld",
+								Image: "busybox",
 							}},
 						},
 					},
@@ -106,15 +85,15 @@ func TestConfigurationValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "byo-name-",
 			},
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "byo-name-foo",
 					},
-					Spec: RevisionSpec{
+					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
-								Image: "hellworld",
+								Image: "busybox",
 							}},
 						},
 					},
@@ -122,32 +101,7 @@ func TestConfigurationValidation(t *testing.T) {
 			},
 		},
 		want: nil,
-	}, {
-		name: "invalid BYO name (not prefixed)",
-		c: &Configuration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "byo-name",
-			},
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "foo",
-					},
-					Spec: RevisionSpec{
-						PodSpec: corev1.PodSpec{
-							Containers: []corev1.Container{{
-								Image: "hellworld",
-							}},
-						},
-					},
-				},
-			},
-		},
-		want: apis.ErrInvalidValue(`"foo" must have prefix "byo-name-"`,
-			"spec.template.metadata.name"),
 	}}
-
-	// TODO(dangerd): PodSpec validation failures.
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -161,15 +115,15 @@ func TestConfigurationValidation(t *testing.T) {
 }
 
 func TestConfigurationLabelValidation(t *testing.T) {
-	validConfigSpec := ConfigurationSpec{
-		Template: RevisionTemplateSpec{
+	validConfigSpec := v1.ConfigurationSpec{
+		Template: v1.RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name-foo",
 			},
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Image: "hellworld",
+						Image: "busybox",
 					}},
 				},
 			},
@@ -333,9 +287,9 @@ func TestImmutableConfigurationFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "no-byo-name",
 			},
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
-					Spec: RevisionSpec{
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
+					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "helloworld:foo",
@@ -349,9 +303,9 @@ func TestImmutableConfigurationFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "no-byo-name",
 			},
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
-					Spec: RevisionSpec{
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
+					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "helloworld:bar",
@@ -368,12 +322,12 @@ func TestImmutableConfigurationFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 			},
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "byo-name-foo",
 					},
-					Spec: RevisionSpec{
+					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "helloworld:foo",
@@ -387,12 +341,12 @@ func TestImmutableConfigurationFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 			},
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "byo-name-bar",
 					},
-					Spec: RevisionSpec{
+					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "helloworld:bar",
@@ -409,12 +363,12 @@ func TestImmutableConfigurationFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 			},
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "byo-name-foo",
 					},
-					Spec: RevisionSpec{
+					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "helloworld:foo",
@@ -428,12 +382,12 @@ func TestImmutableConfigurationFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 			},
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "byo-name-foo",
 					},
-					Spec: RevisionSpec{
+					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "helloworld:foo",
@@ -450,12 +404,12 @@ func TestImmutableConfigurationFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 			},
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "byo-name-foo",
 					},
-					Spec: RevisionSpec{
+					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "helloworld:foo",
@@ -469,12 +423,12 @@ func TestImmutableConfigurationFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 			},
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "byo-name-foo",
 					},
-					Spec: RevisionSpec{
+					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "helloworld:bar",
@@ -487,7 +441,7 @@ func TestImmutableConfigurationFields(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Saw the following changes without a name change (-old +new)",
 			Paths:   []string{"spec.template"},
-			Details: "{*v1beta1.RevisionTemplateSpec}.Spec.PodSpec.Containers[0].Image:\n\t-: \"helloworld:bar\"\n\t+: \"helloworld:foo\"\n",
+			Details: "{*v1.RevisionTemplateSpec}.Spec.PodSpec.Containers[0].Image:\n\t-: \"helloworld:bar\"\n\t+: \"helloworld:foo\"\n",
 		},
 	}}
 
@@ -516,9 +470,9 @@ func TestConfigurationSubresourceUpdate(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
-					Spec: RevisionSpec{
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
+					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "busybox",
@@ -537,9 +491,9 @@ func TestConfigurationSubresourceUpdate(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
-					Spec: RevisionSpec{
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
+					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "busybox",
@@ -558,9 +512,9 @@ func TestConfigurationSubresourceUpdate(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
-					Spec: RevisionSpec{
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
+					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "busybox",
@@ -579,9 +533,9 @@ func TestConfigurationSubresourceUpdate(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
-					Spec: RevisionSpec{
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
+					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "busybox",

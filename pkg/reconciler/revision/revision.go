@@ -33,6 +33,7 @@ import (
 	cachinglisters "knative.dev/caching/pkg/client/listers/caching/v1alpha1"
 	"knative.dev/pkg/controller"
 	commonlogging "knative.dev/pkg/logging"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
@@ -161,7 +162,7 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 	// and may not have had all of the assumed defaults specified.  This won't result
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
-	rev.SetDefaults(v1beta1.WithUpgradeViaDefaulting(ctx))
+	rev.SetDefaults(v1.WithUpgradeViaDefaulting(ctx))
 
 	rev.Status.InitializeConditions()
 	c.updateRevisionLoggingURL(ctx, rev)

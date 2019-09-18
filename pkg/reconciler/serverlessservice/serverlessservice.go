@@ -240,7 +240,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 	eps, err := r.endpointsLister.Endpoints(sks.Namespace).Get(sn)
 
 	if apierrs.IsNotFound(err) {
-		logger.Infof("K8s endpoints %s does not exist; creating.", sn)
+		logger.Infof("Public endpoints %s does not exist; creating.", sn)
 		sks.Status.MarkEndpointsNotReady("CreatingPublicEndpoints")
 		eps, err = r.KubeClientSet.CoreV1().Endpoints(sks.Namespace).Create(resources.MakePublicEndpoints(sks, srcEps))
 		if err != nil {
@@ -254,15 +254,16 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 	} else if !metav1.IsControlledBy(eps, sks) {
 		sks.Status.MarkEndpointsNotOwned("Endpoints", sn)
 		return fmt.Errorf("SKS: %s does not own Endpoints: %s", sks.Name, sn)
-	}
-	want := eps.DeepCopy()
-	want.Subsets = srcEps.Subsets
-
-	if !equality.Semantic.DeepEqual(want.Subsets, eps.Subsets) {
-		logger.Info("Public K8s Endpoints changed; reconciling: ", sn)
-		if _, err = r.KubeClientSet.CoreV1().Endpoints(sks.Namespace).Update(want); err != nil {
-			logger.Errorw("Error updating public K8s Endpoints: "+sn, zap.Error(err))
-			return err
+	} else {
+		wantSubsets := resources.FilterSubsetPorts(sks, srcEps.Subsets)
+		if !equality.Semantic.DeepEqual(wantSubsets, eps.Subsets) {
+			want := eps.DeepCopy()
+			want.Subsets = wantSubsets
+			logger.Info("Public K8s Endpoints changed; reconciling: ", sn)
+			if _, err = r.KubeClientSet.CoreV1().Endpoints(sks.Namespace).Update(want); err != nil {
+				logger.Errorw("Error updating public K8s Endpoints: "+sn, zap.Error(err))
+				return err
+			}
 		}
 	}
 	if foundServingEndpoints {
@@ -284,6 +285,8 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 }
 
 func (r *reconciler) privateService(sks *netv1alpha1.ServerlessService) (*corev1.Service, error) {
+	// The code below is for backwards compatibility, when we had
+	// GenerateName for the private services.
 	svcs, err := r.serviceLister.Services(sks.Namespace).List(labels.SelectorFromSet(map[string]string{
 		networking.SKSLabelKey:    sks.Name,
 		networking.ServiceTypeKey: string(networking.ServiceTypePrivate),

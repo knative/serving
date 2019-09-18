@@ -26,8 +26,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
@@ -283,13 +283,13 @@ func TestReleaseService(t *testing.T) {
 	t.Log("1. Updating Service to ReleaseType using lastCreatedRevision")
 	objects.Service, err = v1a1test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{
 		Traffic: []v1alpha1.TrafficTarget{{
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:          "current",
 				RevisionName: firstRevision,
 				Percent:      ptr.Int64(100),
 			},
 		}, {
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:     "latest",
 				Percent: nil,
 			},
@@ -301,7 +301,7 @@ func TestReleaseService(t *testing.T) {
 
 	desiredTrafficShape := map[string]v1alpha1.TrafficTarget{
 		"current": {
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:            "current",
 				RevisionName:   objects.Config.Status.LatestReadyRevisionName,
 				Percent:        ptr.Int64(100),
@@ -309,7 +309,7 @@ func TestReleaseService(t *testing.T) {
 			},
 		},
 		"latest": {
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:            "latest",
 				RevisionName:   objects.Config.Status.LatestReadyRevisionName,
 				LatestRevision: ptr.Bool(true),
@@ -344,7 +344,7 @@ func TestReleaseService(t *testing.T) {
 
 	// Also verify traffic is in the correct shape.
 	desiredTrafficShape["latest"] = v1alpha1.TrafficTarget{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			Tag:            "latest",
 			RevisionName:   secondRevision,
 			LatestRevision: ptr.Bool(true),
@@ -368,19 +368,19 @@ func TestReleaseService(t *testing.T) {
 	t.Log("3. Updating Service to split traffic between two revisions using Release mode")
 	objects.Service, err = v1a1test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{
 		Traffic: []v1alpha1.TrafficTarget{{
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:          "current",
 				RevisionName: firstRevision,
 				Percent:      ptr.Int64(50),
 			},
 		}, {
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:          "candidate",
 				RevisionName: secondRevision,
 				Percent:      ptr.Int64(50),
 			},
 		}, {
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:     "latest",
 				Percent: nil,
 			},
@@ -392,7 +392,7 @@ func TestReleaseService(t *testing.T) {
 
 	desiredTrafficShape = map[string]v1alpha1.TrafficTarget{
 		"current": {
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:            "current",
 				RevisionName:   firstRevision,
 				Percent:        ptr.Int64(50),
@@ -400,7 +400,7 @@ func TestReleaseService(t *testing.T) {
 			},
 		},
 		"candidate": {
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:            "candidate",
 				RevisionName:   secondRevision,
 				Percent:        ptr.Int64(50),
@@ -408,7 +408,7 @@ func TestReleaseService(t *testing.T) {
 			},
 		},
 		"latest": {
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:            "latest",
 				RevisionName:   secondRevision,
 				LatestRevision: ptr.Bool(true),
@@ -441,7 +441,7 @@ func TestReleaseService(t *testing.T) {
 	thirdRevision := names.Revision
 
 	desiredTrafficShape["latest"] = v1alpha1.TrafficTarget{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			Tag:            "latest",
 			RevisionName:   thirdRevision,
 			LatestRevision: ptr.Bool(true),
@@ -466,18 +466,18 @@ func TestReleaseService(t *testing.T) {
 
 	objects.Service, err = v1a1test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{
 		Traffic: []v1alpha1.TrafficTarget{{
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:          "current",
 				RevisionName: firstRevision,
 				Percent:      ptr.Int64(50),
 			},
 		}, {
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:     "candidate",
 				Percent: ptr.Int64(50),
 			},
 		}, {
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:     "latest",
 				Percent: nil,
 			},
@@ -494,7 +494,7 @@ func TestReleaseService(t *testing.T) {
 
 	// `candidate` now points to the latest.
 	desiredTrafficShape["candidate"] = v1alpha1.TrafficTarget{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			Tag:            "candidate",
 			RevisionName:   thirdRevision,
 			Percent:        ptr.Int64(50),

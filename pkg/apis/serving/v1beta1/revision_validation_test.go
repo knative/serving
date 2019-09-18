@@ -33,6 +33,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestRevisionValidation(t *testing.T) {
@@ -46,7 +48,7 @@ func TestRevisionValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "busybox",
@@ -61,7 +63,7 @@ func TestRevisionValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "busybox",
@@ -89,7 +91,7 @@ func TestRevisionValidation(t *testing.T) {
 }
 
 func TestRevisionLabelAnnotationValidation(t *testing.T) {
-	validRevisionSpec := RevisionSpec{
+	validRevisionSpec := v1.RevisionSpec{
 		PodSpec: corev1.PodSpec{
 			Containers: []corev1.Container{{
 				Image: "busybox",
@@ -284,12 +286,12 @@ func TestContainerConcurrencyValidation(t *testing.T) {
 func TestRevisionSpecValidation(t *testing.T) {
 	tests := []struct {
 		name string
-		rs   *RevisionSpec
+		rs   *v1.RevisionSpec
 		wc   func(context.Context) context.Context
 		want *apis.FieldError
 	}{{
 		name: "valid",
-		rs: &RevisionSpec{
+		rs: &v1.RevisionSpec{
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
 					Image: "helloworld",
@@ -299,7 +301,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 		want: nil,
 	}, {
 		name: "with volume (ok)",
-		rs: &RevisionSpec{
+		rs: &v1.RevisionSpec{
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
 					Image: "helloworld",
@@ -322,7 +324,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 		want: nil,
 	}, {
 		name: "with volume name collision",
-		rs: &RevisionSpec{
+		rs: &v1.RevisionSpec{
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
 					Image: "helloworld",
@@ -353,7 +355,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 		}).ViaFieldIndex("volumes", 1),
 	}, {
 		name: "bad pod spec",
-		rs: &RevisionSpec{
+		rs: &v1.RevisionSpec{
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
 					Name:      "steve",
@@ -365,7 +367,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 		want: apis.ErrDisallowedFields("containers[0].lifecycle"),
 	}, {
 		name: "missing container",
-		rs: &RevisionSpec{
+		rs: &v1.RevisionSpec{
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{},
 			},
@@ -373,7 +375,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 		want: apis.ErrMissingField("containers"),
 	}, {
 		name: "too many containers",
-		rs: &RevisionSpec{
+		rs: &v1.RevisionSpec{
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
 					Image: "busybox",
@@ -385,7 +387,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 		want: apis.ErrMultipleOneOf("containers"),
 	}, {
 		name: "exceed max timeout",
-		rs: &RevisionSpec{
+		rs: &v1.RevisionSpec{
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
 					Image: "helloworld",
@@ -398,7 +400,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 			"timeoutSeconds"),
 	}, {
 		name: "exceed custom max timeout",
-		rs: &RevisionSpec{
+		rs: &v1.RevisionSpec{
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
 					Image: "helloworld",
@@ -421,7 +423,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 		want: apis.ErrOutOfBoundsValue(100, 0, 50, "timeoutSeconds"),
 	}, {
 		name: "negative timeout",
-		rs: &RevisionSpec{
+		rs: &v1.RevisionSpec{
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
 					Image: "helloworld",
@@ -461,7 +463,7 @@ func TestImmutableFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "helloworld",
@@ -473,7 +475,7 @@ func TestImmutableFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "helloworld",
@@ -491,7 +493,7 @@ func TestImmutableFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "helloworld",
@@ -504,7 +506,7 @@ func TestImmutableFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "helloworld",
@@ -532,7 +534,7 @@ func TestImmutableFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Resources: corev1.ResourceRequirements{
@@ -548,7 +550,7 @@ func TestImmutableFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Resources: corev1.ResourceRequirements{
@@ -563,7 +565,7 @@ func TestImmutableFields(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
-			Details: `{v1beta1.RevisionSpec}.PodSpec.Containers[0].Resources.Requests["cpu"]:
+			Details: `{v1.RevisionSpec}.PodSpec.Containers[0].Resources.Requests["cpu"]:
 	-: resource.Quantity: "{i:{value:100 scale:-3} d:{Dec:<nil>} s:100m Format:DecimalSI}"
 	+: resource.Quantity: "{i:{value:50 scale:-3} d:{Dec:<nil>} s:50m Format:DecimalSI}"
 `,
@@ -574,7 +576,7 @@ func TestImmutableFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "helloworld",
@@ -586,7 +588,7 @@ func TestImmutableFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "busybox",
@@ -597,7 +599,7 @@ func TestImmutableFields(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
-			Details: `{v1beta1.RevisionSpec}.PodSpec.Containers[0].Image:
+			Details: `{v1.RevisionSpec}.PodSpec.Containers[0].Image:
 	-: "busybox"
 	+: "helloworld"
 `,
@@ -608,7 +610,7 @@ func TestImmutableFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "helloworld",
@@ -621,7 +623,7 @@ func TestImmutableFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "helloworld",
@@ -633,7 +635,7 @@ func TestImmutableFields(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
-			Details: `*{v1beta1.RevisionSpec}.ContainerConcurrency:
+			Details: `*{v1.RevisionSpec}.ContainerConcurrency:
 	-: "2"
 	+: "1"
 `,
@@ -644,7 +646,7 @@ func TestImmutableFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "helloworld",
@@ -657,7 +659,7 @@ func TestImmutableFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "helloworld",
@@ -668,7 +670,7 @@ func TestImmutableFields(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
-			Details: `{v1beta1.RevisionSpec}.PodSpec.ServiceAccountName:
+			Details: `{v1.RevisionSpec}.PodSpec.ServiceAccountName:
 	-: ""
 	+: "foobar"
 `,
@@ -679,7 +681,7 @@ func TestImmutableFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					ServiceAccountName: "foobar",
 					Containers: []corev1.Container{{
@@ -692,7 +694,7 @@ func TestImmutableFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "busybox",
@@ -703,10 +705,10 @@ func TestImmutableFields(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
-			Details: `{v1beta1.RevisionSpec}.PodSpec.Containers[0].Image:
+			Details: `{v1.RevisionSpec}.PodSpec.Containers[0].Image:
 	-: "busybox"
 	+: "helloworld"
-{v1beta1.RevisionSpec}.PodSpec.ServiceAccountName:
+{v1.RevisionSpec}.PodSpec.ServiceAccountName:
 	-: ""
 	+: "foobar"
 `,
@@ -730,12 +732,12 @@ func TestImmutableFields(t *testing.T) {
 func TestRevisionTemplateSpecValidation(t *testing.T) {
 	tests := []struct {
 		name string
-		rts  *RevisionTemplateSpec
+		rts  *v1.RevisionTemplateSpec
 		want *apis.FieldError
 	}{{
 		name: "valid",
-		rts: &RevisionTemplateSpec{
-			Spec: RevisionSpec{
+		rts: &v1.RevisionTemplateSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "helloworld",
@@ -746,12 +748,12 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		want: nil,
 	}, {
 		name: "empty spec",
-		rts:  &RevisionTemplateSpec{},
+		rts:  &v1.RevisionTemplateSpec{},
 		want: apis.ErrMissingField("spec.containers"),
 	}, {
 		name: "nested spec error",
-		rts: &RevisionTemplateSpec{
-			Spec: RevisionSpec{
+		rts: &v1.RevisionTemplateSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:      "kevin",
@@ -764,12 +766,12 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		want: apis.ErrDisallowedFields("spec.containers[0].lifecycle"),
 	}, {
 		name: "has revision template name",
-		rts: &RevisionTemplateSpec{
+		rts: &v1.RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				// We let users bring their own revision name.
 				Name: "parent-foo",
 			},
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "helloworld",
@@ -780,14 +782,14 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		want: nil,
 	}, {
 		name: "invalid metadata.annotations for scale",
-		rts: &RevisionTemplateSpec{
+		rts: &v1.RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					autoscaling.MinScaleAnnotationKey: "5",
 					autoscaling.MaxScaleAnnotationKey: "",
 				},
 			},
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "helloworld",
@@ -801,13 +803,13 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		}).ViaField("annotations").ViaField("metadata"),
 	}, {
 		name: "Queue sidecar resource percentage annotation more than 100",
-		rts: &RevisionTemplateSpec{
+		rts: &v1.RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					serving.QueueSideCarResourcePercentageAnnotation: "200",
 				},
 			},
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "helloworld",
@@ -821,13 +823,13 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		}).ViaField("metadata.annotations"),
 	}, {
 		name: "Invalid queue sidecar resource percentage annotation",
-		rts: &RevisionTemplateSpec{
+		rts: &v1.RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					serving.QueueSideCarResourcePercentageAnnotation: "50mx",
 				},
 			},
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "helloworld",

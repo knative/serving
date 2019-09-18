@@ -34,8 +34,8 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/network"
@@ -445,6 +445,9 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, AllUnknownConditions,
 				MarkResourcesUnavailable("ImagePullBackoff", "can't pull it")),
 		}},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: pa("foo", "pull-backoff", WithReachability(asv1a1.ReachabilityUnreachable)),
+		}},
 		Key: "foo/pull-backoff",
 	}, {
 		Name: "surface pod errors",
@@ -613,7 +616,7 @@ func rev(namespace, name string, ro ...RevisionOption) *v1alpha1.Revision {
 			UID:       "test-uid",
 		},
 		Spec: v1alpha1.RevisionSpec{
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "busybox",
