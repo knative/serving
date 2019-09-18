@@ -394,6 +394,7 @@ func main() {
 			if err := server.Shutdown(context.Background()); err != nil {
 				logger.Errorw("Failed to shutdown proxy server", zap.Error(err))
 			}
+			// Removing the main server from the shutdown logic as we've already shut it down.
 			delete(servers, "main")
 		})
 
