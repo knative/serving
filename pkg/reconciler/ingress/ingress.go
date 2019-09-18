@@ -31,6 +31,7 @@ import (
 
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	secretinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/secret"
+	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -149,6 +150,7 @@ func (r *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 	ingressInformer := ingressinformer.Get(ctx)
 	gatewayInformer := gatewayinformer.Get(ctx)
 	endpointsInformer := endpointsinformer.Get(ctx)
+	serviceInformer := serviceinformer.Get(ctx)
 
 	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
 	ingressHandler := cache.FilteringResourceEventHandler{
@@ -180,8 +182,13 @@ func (r *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 		// Reconcile when a VirtualService becomes ready
 		impl.EnqueueLabelOfNamespaceScopedResource(serving.RouteNamespaceLabelKey, serving.RouteLabelKey)(vs)
 	}
-	statusProber := NewStatusProber(r.Logger.Named("status-manager"), gatewayInformer.Lister(),
-		endpointsInformer.Lister(), network.NewAutoTransport, resyncIngressOnVirtualServiceReady)
+	statusProber := NewStatusProber(
+		r.Logger.Named("status-manager"),
+		gatewayInformer.Lister(),
+		endpointsInformer.Lister(),
+		serviceInformer.Lister(),
+		network.NewAutoTransport,
+		resyncIngressOnVirtualServiceReady)
 	r.StatusManager = statusProber
 	statusProber.Start(ctx.Done())
 
