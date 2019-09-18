@@ -46,6 +46,14 @@ func validateTrafficList(ctx context.Context, traffic []TrafficTarget) *apis.Fie
 	for i, tt := range traffic {
 		errs = errs.Also(tt.Validate(ctx).ViaIndex(i))
 
+		if tt.Percent != nil {
+			sum += *tt.Percent
+		}
+
+		if tt.Tag == "" {
+			continue
+		}
+
 		if idx, ok := trafficMap[tt.Tag]; ok {
 			// We want only single definition of the route, even if it points
 			// to the same config or revision.
@@ -58,9 +66,6 @@ func validateTrafficList(ctx context.Context, traffic []TrafficTarget) *apis.Fie
 			})
 		} else {
 			trafficMap[tt.Tag] = i
-		}
-		if tt.Percent != nil {
-			sum += *tt.Percent
 		}
 	}
 
