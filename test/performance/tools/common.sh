@@ -89,15 +89,6 @@ function update_cluster() {
   echo "Updating cluster with name ${name} in zone ${zone}"
   gcloud container clusters get-credentials ${name} --zone=${zone} --project=${PROJECT_NAME} || abort "Failed to get cluster creds"
 
-  # According to https://kubernetes.io/docs/tasks/administer-cluster/dns-horizontal-autoscaling/,
-  # replicas = max( ceil( cores * 1/coresPerReplica ) , ceil( nodes * 1/nodesPerReplica ) ).
-  # By changing nodesPerReplica from the default 16 to 4, we make kube-dns to be able to scale to 4x replicas.
-  echo ">> Update kube-dns-autoscaler configmap"
-  kubectl patch configmap/kube-dns-autoscaler \
-    -n kube-system \
-    --type merge \
-    -p '{"data":{"linear":"{\"coresPerReplica\":256,\"nodesPerReplica\":4,\"preventSinglePointFailure\":true}"}}'
-
   echo ">> Delete all existing jobs and test resources"
   kubectl delete job --all
   ko delete -f "${TEST_ROOT_PATH}/$1"
@@ -110,9 +101,9 @@ function update_cluster() {
 
   # Overprovision the Istio gateways.
   kubectl patch hpa -n istio-system istio-ingressgateway \
-        --patch '{"spec": {"minReplicas": 10, "maxReplicas": 10}}'
+    --patch '{"spec": {"minReplicas": 10, "maxReplicas": 10}}'
   kubectl patch deploy -n istio-system cluster-local-gateway \
-        --patch '{"spec": {"replicas": 10}}'
+    --patch '{"spec": {"replicas": 10}}'
 
   echo ">> Updating serving"
   # Retry installation for at most two times as there can sometime be a race condition when applying serving CRDs
@@ -129,7 +120,16 @@ function update_cluster() {
 
   # Update the activator hpa minReplicas to 10
   kubectl patch hpa -n knative-serving activator \
-        --patch '{"spec": {"minReplicas": 10}}'
+    --patch '{"spec": {"minReplicas": 10}}'
+  
+  # According to https://kubernetes.io/docs/tasks/administer-cluster/dns-horizontal-autoscaling/,
+  # replicas = max( ceil( cores * 1/coresPerReplica ) , ceil( nodes * 1/nodesPerReplica ) ).
+  # By changing nodesPerReplica from the default 16 to 4, we make kube-dns to be able to scale to 4x replicas.
+  echo ">> Update kube-dns-autoscaler configmap"
+  kubectl patch configmap/kube-dns-autoscaler \
+    -n kube-system \
+    --type merge \
+    -p '{"data":{"linear":"{\"coresPerReplica\":256,\"nodesPerReplica\":4,\"preventSinglePointFailure\":true}"}}'
 
   echo ">> Setting up 'prod' config-mako"
   cat <<EOF | kubectl apply -f -
