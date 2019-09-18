@@ -125,6 +125,7 @@ function update_cluster() {
   # According to https://kubernetes.io/docs/tasks/administer-cluster/dns-horizontal-autoscaling/,
   # replicas = max( ceil( cores * 1/coresPerReplica ) , ceil( nodes * 1/nodesPerReplica ) ).
   # By changing nodesPerReplica from the default 16 to 4, we make kube-dns to be able to scale to 4x replicas.
+  # This helps us to get rid of the "no such host" errors for DNS requests in some of our benchmarking runs.
   echo ">> Update kube-dns-autoscaler configmap"
   kubectl patch configmap/kube-dns-autoscaler \
     -n kube-system \
