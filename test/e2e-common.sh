@@ -119,11 +119,10 @@ function build_knative_from_source() {
   fi
 
   # Generate manifests, capture environment variables pointing to the YAML files.
-  local FULL_OUTPUT="$( \
+  local FULL_OUTPUT
+  FULL_OUTPUT="$( \
       source $(dirname $0)/../hack/generate-yamls.sh ${REPO_ROOT_DIR} ${YAML_LIST} ; \
       set | grep _YAML=/)"
-  # Fail if generate-yamls.sh failed
-  (( $? )) && return 1
   local LOG_OUTPUT="$(echo "${FULL_OUTPUT}" | grep -v _YAML=/)"
   local ENV_OUTPUT="$(echo "${FULL_OUTPUT}" | grep '^[_0-9A-Z]\+_YAML=/')"
   [[ -z "${LOG_OUTPUT}" || -z "${ENV_OUTPUT}" ]] && fail_test "Error generating manifests"
