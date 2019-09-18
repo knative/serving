@@ -344,7 +344,7 @@ func main() {
 	healthState := &health.State{}
 
 	server := buildServer(env, healthState, probe, reqChan, logger)
-	adminServer := buildAdminServer(healthState, probe)
+	adminServer := buildAdminServer(healthState)
 	metricsServer := buildMetricsServer(promStatReporter)
 
 	servers := map[string]*http.Server{
@@ -510,7 +510,7 @@ func supportsMetrics(env config, logger *zap.SugaredLogger) bool {
 	return true
 }
 
-func buildAdminServer(healthState *health.State, probe *readiness.Probe) *http.Server {
+func buildAdminServer(healthState *health.State) *http.Server {
 	adminMux := http.NewServeMux()
 	adminMux.HandleFunc(queue.RequestQueueDrainPath, healthState.DrainHandlerFunc())
 

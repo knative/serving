@@ -114,7 +114,7 @@ func (h *State) HandleHealthProbe(prober func() bool, isAggressive bool, w http.
 	}
 }
 
-// DrainHandlerFunc constructs a handle function that waits until the proxy server is shut down.
+// DrainHandlerFunc constructs an HTTP handler that waits until the proxy server is shut down.
 func (h *State) DrainHandlerFunc() func(_ http.ResponseWriter, _ *http.Request) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()

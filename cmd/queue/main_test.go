@@ -177,7 +177,7 @@ func TestCreateVarLogLink(t *testing.T) {
 }
 
 func TestProbeQueueInvalidPort(t *testing.T) {
-	port := 0 // invalid port
+	const port = 0 // invalid port
 
 	if err := probeQueueHealthPath(port, 1); err == nil {
 		t.Error("Expected error, got nil")
