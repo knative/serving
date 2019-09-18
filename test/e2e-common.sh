@@ -345,8 +345,10 @@ function knative_teardown() {
 function test_setup() {
   echo ">> Setting up logging..."
 
-  # Install kail.
-  bash <( curl -sfL https://raw.githubusercontent.com/boz/kail/master/godownloader.sh) -b "$GOPATH/bin"
+  # Install kail if needed.
+  if ! which kail > /dev/null; then
+    bash <( curl -sfL https://raw.githubusercontent.com/boz/kail/master/godownloader.sh) -b "$GOPATH/bin"
+  fi
 
   # Capture all logs.
   kail > ${ARTIFACTS}/k8s.log.txt &
