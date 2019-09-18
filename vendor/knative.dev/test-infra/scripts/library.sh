@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2018 The Knative Authors
 #
@@ -283,9 +283,9 @@ function acquire_cluster_admin_role() {
     local key=$(mktemp)
     echo "Certificate in ${cert}, key in ${key}"
     gcloud --format="value(masterAuth.clientCertificate)" \
-      container clusters describe $2 ${geoflag} | base64 -d > ${cert}
+      container clusters describe $2 ${geoflag} | base64 --decode > ${cert}
     gcloud --format="value(masterAuth.clientKey)" \
-      container clusters describe $2 ${geoflag} | base64 -d > ${key}
+      container clusters describe $2 ${geoflag} | base64 --decode > ${key}
     kubectl config set-credentials cluster-admin \
       --client-certificate=${cert} --client-key=${key}
   fi
@@ -584,5 +584,5 @@ readonly REPO_NAME_FORMATTED="Knative $(capitalize ${REPO_NAME//-/ })"
 
 # Public latest nightly or release yaml files.
 readonly KNATIVE_SERVING_RELEASE="$(get_latest_knative_yaml_source "serving" "serving")"
-readonly KNATIVE_BUILD_RELEASE="$(get_latest_knative_yaml_source "build" "build")"
 readonly KNATIVE_EVENTING_RELEASE="$(get_latest_knative_yaml_source "eventing" "release")"
+readonly KNATIVE_MONITORING_RELEASE="$(get_latest_knative_yaml_source "serving" "monitoring")"
