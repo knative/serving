@@ -279,11 +279,11 @@ func TestRevisionDefaulting(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: config.DefaultUserContainerName,
 						Resources: corev1.ResourceRequirements{
-							Limits: corev1.ResourceList{
+							Requests: corev1.ResourceList{
 								corev1.ResourceCPU:    resource.MustParse("100m"),
 								corev1.ResourceMemory: resource.MustParse("200M"),
 							},
-							Requests: corev1.ResourceList{
+							Limits: corev1.ResourceList{
 								corev1.ResourceCPU:    resource.MustParse("300m"),
 								corev1.ResourceMemory: resource.MustParse("400M"),
 							},
