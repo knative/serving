@@ -86,7 +86,7 @@ func TestMakeCertificates(t *testing.T) {
 	}
 }
 
-func TestMakeCertificates_CorrectMetadata(t *testing.T) {
+func TestMakeCertificates_FilterLastAppliedAnno(t *testing.T) {
 	var orgRoute = &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "route",
