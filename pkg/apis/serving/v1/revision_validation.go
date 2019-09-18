@@ -61,8 +61,7 @@ func (rts *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError 
 
 	// If the RevisionTemplateSpec has a name specified, then check that
 	// it follows the requirements on the name.
-        errs = errs.Also(serving.ValidateRevisionName(ctx, rts.Name, rts.GenerateName))
-
+	errs = errs.Also(serving.ValidateRevisionName(ctx, rts.Name, rts.GenerateName))
 	errs = errs.Also(serving.ValidateQueueSidecarAnnotation(rts.Annotations).ViaField("metadata.annotations"))
 	return errs
 }

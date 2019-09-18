@@ -85,9 +85,9 @@ func TestConfigurationValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "",
 			},
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
-					Spec: RevisionSpec{
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
+					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "hellworld",
@@ -129,12 +129,12 @@ func TestConfigurationValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 			},
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "foo",
 					},
-					Spec: RevisionSpec{
+					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "hellworld",
@@ -152,12 +152,12 @@ func TestConfigurationValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 			},
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "foo.bar",
 					},
-					Spec: RevisionSpec{
+					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "hellworld",
@@ -175,12 +175,12 @@ func TestConfigurationValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 			},
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "foo.bar",
 					},
-					Spec: RevisionSpec{
+					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "hellworld",
@@ -198,12 +198,12 @@ func TestConfigurationValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 			},
-			Spec: ConfigurationSpec{
-				Template: RevisionTemplateSpec{
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "valid-generatename",
 					},
-					Spec: RevisionSpec{
+					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "hellworld",
