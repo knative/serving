@@ -32,31 +32,35 @@ import (
 )
 
 func (s *CustomMetricsAdapterServer) InstallCustomMetricsAPI() error {
-	groupInfo := genericapiserver.NewDefaultAPIGroupInfo(custom_metrics.GroupName, Scheme, metav1.ParameterCodec, Codecs)
+	groupInfo := genericapiserver.NewDefaultAPIGroupInfo(custom_metrics.GroupName, Scheme, runtime.NewParameterCodec(Scheme), Codecs)
+	container := s.GenericAPIServer.Handler.GoRestfulContainer
 
-	mainGroupVer := groupInfo.PrioritizedVersions[0]
-	preferredVersionForDiscovery := metav1.GroupVersionForDiscovery{
-		GroupVersion: mainGroupVer.String(),
-		Version:      mainGroupVer.Version,
-	}
-	groupVersion := metav1.GroupVersionForDiscovery{
-		GroupVersion: mainGroupVer.String(),
-		Version:      mainGroupVer.Version,
-	}
-	apiGroup := metav1.APIGroup{
-		Name:             mainGroupVer.Group,
-		Versions:         []metav1.GroupVersionForDiscovery{groupVersion},
-		PreferredVersion: preferredVersionForDiscovery,
-	}
+	// Register custom metrics REST handler for all supported API versions.
+	for versionIndex, mainGroupVer := range groupInfo.PrioritizedVersions {
+		preferredVersionForDiscovery := metav1.GroupVersionForDiscovery{
+			GroupVersion: mainGroupVer.String(),
+			Version:      mainGroupVer.Version,
+		}
+		groupVersion := metav1.GroupVersionForDiscovery{
+			GroupVersion: mainGroupVer.String(),
+			Version:      mainGroupVer.Version,
+		}
+		apiGroup := metav1.APIGroup{
+			Name:             mainGroupVer.Group,
+			Versions:         []metav1.GroupVersionForDiscovery{groupVersion},
+			PreferredVersion: preferredVersionForDiscovery,
+		}
 
-	cmAPI := s.cmAPI(&groupInfo, mainGroupVer)
-	if err := cmAPI.InstallREST(s.GenericAPIServer.Handler.GoRestfulContainer); err != nil {
-		return err
+		cmAPI := s.cmAPI(&groupInfo, mainGroupVer)
+		if err := cmAPI.InstallREST(container); err != nil {
+			return err
+		}
+
+		if versionIndex == 0 {
+			s.GenericAPIServer.DiscoveryGroupManager.AddGroup(apiGroup)
+			container.Add(discovery.NewAPIGroupHandler(s.GenericAPIServer.Serializer, apiGroup).WebService())
+		}
 	}
-
-	s.GenericAPIServer.DiscoveryGroupManager.AddGroup(apiGroup)
-	s.GenericAPIServer.Handler.GoRestfulContainer.Add(discovery.NewAPIGroupHandler(s.GenericAPIServer.Serializer, apiGroup).WebService())
-
 	return nil
 }
 

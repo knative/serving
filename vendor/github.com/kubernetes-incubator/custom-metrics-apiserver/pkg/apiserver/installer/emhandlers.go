@@ -106,7 +106,16 @@ func (ch *EMHandlers) registerResourceHandlers(a *MetricsAPIInstaller, ws *restf
 		},
 	}
 
-	externalMetricHandler := metrics.InstrumentRouteFunc("LIST", "external-metrics", "", "", restfulListResource(lister, nil, reqScope, false, a.minRequestTimeout))
+	externalMetricHandler := metrics.InstrumentRouteFunc(
+		"LIST",
+		a.group.GroupVersion.Group,
+		a.group.GroupVersion.Version,
+		reqScope.Resource.Resource,
+		reqScope.Subresource,
+		"cluster",
+		"external-metrics",
+		restfulListResource(lister, nil, reqScope, false, a.minRequestTimeout),
+	)
 
 	externalMetricRoute := ws.GET(externalMetricPath).To(externalMetricHandler).
 		Doc(doc).

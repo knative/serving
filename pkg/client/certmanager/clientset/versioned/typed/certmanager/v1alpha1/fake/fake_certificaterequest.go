@@ -131,7 +131,7 @@ func (c *FakeCertificateRequests) DeleteCollection(options *v1.DeleteOptions, li
 // Patch applies the patch and returns the patched certificateRequest.
 func (c *FakeCertificateRequests) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.CertificateRequest, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(certificaterequestsResource, c.ns, name, data, subresources...), &v1alpha1.CertificateRequest{})
+		Invokes(testing.NewPatchSubresourceAction(certificaterequestsResource, c.ns, name, pt, data, subresources...), &v1alpha1.CertificateRequest{})
 
 	if obj == nil {
 		return nil, err

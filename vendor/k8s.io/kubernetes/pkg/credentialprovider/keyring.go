@@ -23,8 +23,9 @@ import (
 	"sort"
 	"strings"
 
-	dockertypes "github.com/docker/docker/api/types"
 	"github.com/golang/glog"
+
+	dockertypes "github.com/docker/docker/api/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -266,7 +267,7 @@ func (dk *lazyDockerKeyring) Lookup(image string) ([]LazyAuthConfiguration, bool
 	keyring := &BasicDockerKeyring{}
 
 	for _, p := range dk.Providers {
-		keyring.Add(p.Provide(image))
+		keyring.Add(p.Provide())
 	}
 
 	return keyring.Lookup(image)
