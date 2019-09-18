@@ -321,7 +321,7 @@ You can delete all of the service components with:
 ```shell
 ko delete --ignore-not-found=true \
   -f config/monitoring/100-namespace.yaml \
-  -f config/ \
+  -f config/ -f config/v1 \
   -f ./third_party/istio-1.2-latest/istio.yaml \
   -f ./third_party/istio-1.2-latest/istio-crds.yaml \
   -f ./third_party/cert-manager-0.9.1/cert-manager-crds.yaml \
