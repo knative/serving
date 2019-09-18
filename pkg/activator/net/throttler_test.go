@@ -299,6 +299,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 
 func TestMultipleActivator(t *testing.T) {
 	defer ClearAll()
+	log.Fatalf("fail test purposely for testing retryer")
 	fake := kubefake.NewSimpleClientset()
 	informer := kubeinformers.NewSharedInformerFactory(fake, 0)
 	endpoints := informer.Core().V1().Endpoints()
@@ -394,6 +395,7 @@ func tryThrottler(throttler *Throttler, trys []types.NamespacedName, ctx context
 
 func TestInfiniteBreaker(t *testing.T) {
 	defer ClearAll()
+	log.Fatalf("fail test purposely for testing retryer")
 	b := &InfiniteBreaker{
 		broadcast: make(chan struct{}),
 		logger:    TestLogger(t),
