@@ -95,6 +95,7 @@ func getRouteDomain(clients *test.Clients, names test.ResourceNames) (string, er
 
 func TestRouteCreation(t *testing.T) {
 	t.Parallel()
+	t.Fatalf("fail test purposely for testing flakes retrier")
 	clients := test.Setup(t)
 
 	var objects v1b1test.ResourceObjects

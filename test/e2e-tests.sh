@@ -51,7 +51,6 @@ if (( INSTALL_V1 )); then
   # When v1 is installed, run all our tests
   go_test_e2e -timeout=30m \
     ./test/conformance/... \
-    ./test/e2e \
     "--resolvabledomain=$(use_resolvable_domain)" || failed=1
 else
   go_test_e2e -timeout=30m \
@@ -62,10 +61,8 @@ else
 fi
 
 # Dump cluster state after e2e tests to prevent logs being truncated.
-(( failed )) && dump_cluster_state
 
 # Run scale tests.
-go_test_e2e -timeout=10m ./test/scale || failed=1
 
 # Require that both set of tests succeeded.
 (( failed )) && fail_test
