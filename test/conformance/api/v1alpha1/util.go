@@ -206,7 +206,7 @@ func validateRunLatestDataPlane(t *testing.T, clients *test.Clients, names test.
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		return fmt.Errorf("the endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, names.Domain, expectedText, err)
+		return fmt.Errorf("the endpoint for Route %s at domain %s didn't serve the expected text %q: %v", names.Route, names.Domain, expectedText, err)
 	}
 
 	return nil

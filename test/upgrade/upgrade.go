@@ -48,6 +48,6 @@ func assertServiceResourcesUpdated(t *testing.T, clients *test.Clients, names te
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, routeDomain, expectedText, err)
+		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text %q: %v", names.Route, routeDomain, expectedText, err)
 	}
 }

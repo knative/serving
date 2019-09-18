@@ -111,7 +111,7 @@ func TestHTTPScrapeClient_Scrape_ErrorCases(t *testing.T) {
 	}{{
 		name:         "Non 200 return code",
 		responseCode: http.StatusForbidden,
-		expectedErr:  fmt.Sprintf(`GET request for URL "%s" returned HTTP status 403`, testURL),
+		expectedErr:  fmt.Sprintf(`GET request for URL %q returned HTTP status 403`, testURL),
 	}, {
 		name:         "Error got when sending request",
 		responseCode: http.StatusOK,
