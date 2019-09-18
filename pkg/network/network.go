@@ -106,9 +106,7 @@ const (
 	//
 	// We should consider exposing this as a configuration.
 	DefaultConnTimeout = 200 * time.Millisecond
-)
 
-var (
 	// DefaultDomainTemplate is the default golang template to use when
 	// constructing the Knative Route's Domain(host)
 	DefaultDomainTemplate = "{{.Name}}.{{.Namespace}}.{{.Domain}}"
