@@ -20,6 +20,7 @@ import (
 	"context"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -41,7 +42,15 @@ import (
 	_ "knative.dev/pkg/system/testing"
 )
 
-const ns = "test-ns"
+const (
+	// TODO: `ns` should be proper name when/after clusterIngress code is cleaned up.
+	// ref: https://github.com/knative/serving/issues/5331
+	ns = "test-ns"
+
+	testRouteName       = "test-route"
+	testAnnotationValue = "test-annotation-value"
+	testIngressClass    = "test-ingress"
+)
 
 func getServiceVisibility() sets.String {
 	return sets.NewString()
@@ -137,6 +146,37 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 	ci := ia.(*netv1alpha1.ClusterIngress)
 	if !cmp.Equal(expected, ci.ObjectMeta) {
 		t.Errorf("Unexpected metadata (-want, +got): %s", cmp.Diff(expected, ci.ObjectMeta))
+	}
+}
+
+func TestIngress_NoKubectlAnnotation(t *testing.T) {
+	targets := map[string]traffic.RevisionTargets{}
+	r := &v1alpha1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testRouteName,
+			Namespace: ns,
+			Annotations: map[string]string{
+				networking.IngressClassAnnotationKey: testIngressClass,
+				corev1.LastAppliedConfigAnnotation:   testAnnotationValue,
+			},
+			UID: "1234-5678",
+		},
+		Status: v1alpha1.RouteStatus{
+			RouteStatusFields: v1alpha1.RouteStatusFields{
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   "domain.com",
+				},
+			},
+		},
+	}
+	ia, err := MakeIngress(getContext(), r, &traffic.Config{Targets: targets}, nil, getServiceVisibility(), testIngressClass)
+	if err != nil {
+		t.Errorf("Unexpected error %v", err)
+	}
+	ci := ia.(*netv1alpha1.Ingress)
+	if v, ok := ci.Annotations[corev1.LastAppliedConfigAnnotation]; ok {
+		t.Errorf("Annotation %s = %q, want empty", corev1.LastAppliedConfigAnnotation, v)
 	}
 }
 

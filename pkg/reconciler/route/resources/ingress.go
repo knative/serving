@@ -20,6 +20,7 @@ import (
 	"context"
 	"sort"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -99,9 +100,11 @@ func MakeIngress(
 				serving.RouteLabelKey:          r.Name,
 				serving.RouteNamespaceLabelKey: r.Namespace,
 			}),
-			Annotations: resources.UnionMaps(map[string]string{
+			Annotations: resources.FilterMap(resources.UnionMaps(map[string]string{
 				networking.IngressClassAnnotationKey: ingressClass,
-			}, r.ObjectMeta.Annotations),
+			}, r.GetAnnotations()), func(key string) bool {
+				return key == corev1.LastAppliedConfigAnnotation
+			}),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 		},
 		Spec: spec,
