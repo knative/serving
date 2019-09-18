@@ -332,10 +332,10 @@ func (m *StatusProber) listVirtualServicePodIPs(vs *v1alpha3.VirtualService) ([]
 
 		services, err := m.serviceLister.List(selector)
 		if err != nil {
-			return nil, fmt.Errorf("failed to list Service: %v", err)
+			return nil, fmt.Errorf("failed to list Services: %v", err)
 		}
 		if len(services) == 0 {
-			// Skip gateways where we cannot find a corresponding service
+			m.logger.Infof("Skip Gateway %s/%s because it has no corresponding Service", gateway.Namespace, gateway.Name)
 			continue
 		}
 		service := services[0]
