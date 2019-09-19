@@ -214,14 +214,12 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 	}
 	// We need to configure only one serving port for the Queue proxy, since
 	// we know the protocol that is being used by this application.
-	var servingPort string
+	servingPort := queueHTTPPort
 	if rev.GetProtocol() == networking.ProtocolH2C {
-		ports = append(ports, queueHTTP2Port)
-		servingPort = strconv.Itoa(int(queueHTTP2Port.ContainerPort))
-	} else {
-		ports = append(ports, queueHTTPPort)
-		servingPort = strconv.Itoa(int(queueHTTPPort.ContainerPort))
+		servingPort = queueHTTP2Port
 	}
+	servingPortStr := strconv.Itoa(int(servingPort.ContainerPort))
+	ports = append(ports, servingPort)
 
 	var volumeMounts []corev1.VolumeMount
 	if observabilityConfig.EnableVarLogCollection {
@@ -242,7 +240,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 		Image:           deploymentConfig.QueueSidecarImage,
 		Resources:       createQueueResources(rev.GetAnnotations(), rev.Spec.GetContainer()),
 		Ports:           ports,
-		ReadinessProbe:  makeQueueProbe(rp, servingPort),
+		ReadinessProbe:  makeQueueProbe(rp, servingPortStr),
 		VolumeMounts:    volumeMounts,
 		SecurityContext: queueSecurityContext,
 		Env: []corev1.EnvVar{{
@@ -259,7 +257,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 			Value: rev.Name,
 		}, {
 			Name:  "QUEUE_SERVING_PORT",
-			Value: servingPort,
+			Value: servingPortStr,
 		}, {
 			Name:  "CONTAINER_CONCURRENCY",
 			Value: strconv.Itoa(int(rev.Spec.GetContainerConcurrency())),
