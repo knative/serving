@@ -796,12 +796,6 @@ func activatorEndpoints(eo ...EndpointsOption) *corev1.Endpoints {
 	return ep
 }
 
-func epsWithName(n string) EndpointsOption {
-	return func(e *corev1.Endpoints) {
-		e.Name = n
-	}
-}
-
 func endpointspriv(namespace, name string, eo ...EndpointsOption) *corev1.Endpoints {
 	service := svcpriv(namespace, name)
 	ep := &corev1.Endpoints{

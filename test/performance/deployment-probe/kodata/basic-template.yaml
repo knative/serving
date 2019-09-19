@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: serving.knative.dev/v1beta1
+apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
   generateName: basic-

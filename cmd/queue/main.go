@@ -41,6 +41,7 @@ import (
 	pkglogging "knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/metrics"
+	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/tracing"
 	tracingconfig "knative.dev/pkg/tracing/config"
@@ -129,6 +130,7 @@ type config struct {
 	UserPort               int    `split_words:"true" required:"true"`
 	RevisionTimeoutSeconds int    `split_words:"true" required:"true"`
 	ServingReadinessProbe  string `split_words:"true" required:"true"`
+	EnableProfiling        bool   `split_words:"true"` // optional
 
 	// Logging configuration
 	ServingLoggingConfig      string `split_words:"true" required:"true"`
@@ -350,6 +352,10 @@ func main() {
 		"metrics": metricsServer,
 	}
 
+	if env.EnableProfiling {
+		servers["profile"] = profiling.NewServer(profiling.NewHandler(logger, true))
+	}
+
 	errCh := make(chan error, len(servers))
 	for name, server := range servers {
 		go func(name string, s *http.Server) {
@@ -388,11 +394,15 @@ func main() {
 			if err := server.Shutdown(context.Background()); err != nil {
 				logger.Errorw("Failed to shutdown proxy server", zap.Error(err))
 			}
+			// Removing the main server from the shutdown logic as we've already shut it down.
+			delete(servers, "main")
 		})
 
 		flush(logger)
-		if err := adminServer.Shutdown(context.Background()); err != nil {
-			logger.Errorw("Failed to shutdown admin-server", zap.Error(err))
+		for serverName, srv := range servers {
+			if err := srv.Shutdown(context.Background()); err != nil {
+				logger.Errorw("Failed to shutdown server", zap.String("server", serverName), zap.Error(err))
+			}
 		}
 	}
 }

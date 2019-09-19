@@ -74,9 +74,9 @@ Take `dataplane-probe` benchmark for example:
 1. Attach your desired tags to the runs by editing the config map, see the
    `_example` stanza for how.
 
-    ```shell
-    kubectl edit cm config-mako
-    ```
+   ```shell
+   kubectl edit cm config-mako
+   ```
 
 1. Apply the benchmark cron:
 
