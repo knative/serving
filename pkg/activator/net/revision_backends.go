@@ -226,7 +226,8 @@ func (rw *revisionWatcher) checkDests(dests sets.String) {
 		// We must have scaled down.
 		rw.clusterIPHealthy = false
 		rw.logger.Debug("ClusterIP is no longer healthy.")
-		// We do not send this update, as we will send it via endpointsDeleted.
+		// Send update that we are now inactive (both params invalid).
+		rw.sendUpdate("", nil)
 		return
 	}
 

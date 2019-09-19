@@ -856,7 +856,7 @@ func TestRevisionDeleted(t *testing.T) {
 	select {
 	case r := <-rbm.UpdateCh():
 		if got, want := r.Deleted, true; got != want {
-			t.Errorf(`Deleted = %t, want true`, got)
+			t.Errorf("Deleted = %t, want true", got)
 		}
 		if got, want := r.ClusterIPDest, ""; got != want {
 			t.Errorf(`ClusterIP = %s, want ""`, got)

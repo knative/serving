@@ -25,6 +25,7 @@ import (
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -380,7 +381,12 @@ func (t *Throttler) handleUpdate(update RevisionDestsUpdate) {
 		// Nothing to do as revisionDeleted is already called by DeleteFunc of Informer.
 		return
 	} else if rt, err := t.getOrCreateRevisionThrottler(update.Rev); err != nil {
-		t.logger.Errorw(fmt.Sprintf("Failed to get revision throttler for revision %q", update.Rev.String()))
+		if k8serrors.IsNotFound(err) {
+			t.logger.Debugf("Revision %q is not found. Probably it was removed", update.Rev.String())
+		} else {
+			t.logger.Errorw(fmt.Sprintf("Failed to get revision throttler for revision %q", update.Rev.String()),
+				zap.Error(err))
+		}
 	} else {
 		rt.handleUpdate(t, update)
 	}
