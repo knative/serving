@@ -45,12 +45,16 @@ function create_cluster() {
     --scopes cloud-platform
 }
 
-# Create serice account secret on the cluster.
+# Create secrets for Mako integration on the cluster.
 # $1 -> cluster_name, $2 -> cluster_zone
 function create_secret() {
   echo "Create service account on cluster $1 in zone $2"
   gcloud container clusters get-credentials $1 --zone=$2 --project=${PROJECT_NAME} || abort "Failed to get cluster creds"
-  kubectl create secret generic service-account --from-file=robot.json=${PERF_TEST_GOOGLE_APPLICATION_CREDENTIALS}
+  kubectl create secret generic mako-secrets \
+    --from-file=robot.json=${PERF_TEST_GOOGLE_APPLICATION_CREDENTIALS} \
+    --from-file=github-token=${GITHUB_TOKEN} \
+    --from-file=slack-read-token=${SLACK_READ_TOKEN} \
+    --from-file=slack-write-token=${SLACK_WRITE_TOKEN}
 }
 
 # Set up the user credentials for cluster operations.

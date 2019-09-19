@@ -402,6 +402,22 @@
   revision = "b02d448a3705facf11018efff34f1d2830be5724"
 
 [[projects]]
+  digest = "1:91099c6f78b1e7bdf9ed06eb4cb7f017174293a3689d76b995a06f4c8d64a7f0"
+  name = "github.com/google/go-github"
+  packages = ["github"]
+  pruneopts = "NUT"
+  revision = "9686ff0746200cf521ce225525b421e13b4eac1a"
+  version = "v28.1.1"
+
+[[projects]]
+  digest = "1:a63cff6b5d8b95638bfe300385d93b2a6d9d687734b863da8e09dc834510a690"
+  name = "github.com/google/go-querystring"
+  packages = ["query"]
+  pruneopts = "NUT"
+  revision = "44c6ddd0a2342c386950e880b658017258da92fc"
+  version = "v1.0.0"
+
+[[projects]]
   branch = "master"
   digest = "1:52c5834e2bebac9030c97cc0798ac11c3aa8a39f098aeb419f142533da6cd3cc"
   name = "github.com/google/gofuzz"
@@ -837,9 +853,16 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:0e42ddb15b8bc3c5c6c38c96db5c3d3d1b9b5863167267ed9431d9a4012c21f9"
+  digest = "1:e95f005c82fdbe0741340e12cec8e6530adf5bb9873fba65d5959e7c55bfb49f"
   name = "golang.org/x/crypto"
   packages = [
+    "cast5",
+    "openpgp",
+    "openpgp/armor",
+    "openpgp/elgamal",
+    "openpgp/errors",
+    "openpgp/packet",
+    "openpgp/s2k",
     "pkcs12",
     "pkcs12/internal/rc2",
     "ssh/terminal",
@@ -1649,7 +1672,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:05ff542194cea2600f57e68a032cdd0f471ba11b48f95d5de54a52f63a4d2a09"
+  digest = "1:40bc98faaf4e29673da841dfc4d4a5740ceb8c225576b91438472c8542af0849"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1733,13 +1756,19 @@
     "system",
     "system/testing",
     "test",
+    "test/ghutil",
     "test/helpers",
     "test/ingress",
     "test/logging",
     "test/logstream",
     "test/mako",
+    "test/mako/alerter",
+    "test/mako/alerter/github",
+    "test/mako/alerter/slack",
+    "test/mako/config",
     "test/monitoring",
     "test/prometheus",
+    "test/slackutil",
     "test/spoof",
     "test/vegeta/pacers",
     "test/webhook-apicoverage/coveragecalculator",
@@ -1757,7 +1786,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "e4ac97c25251614f10913e68ca9ab25050d02ded"
+  revision = "1fb9a433083f3e74ff9de88a5ff6bd37ab7bd709"
 
 [[projects]]
   branch = "master"
@@ -1815,6 +1844,7 @@
     "github.com/google/go-containerregistry/pkg/v1/remote/transport",
     "github.com/google/go-containerregistry/pkg/v1/types",
     "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto",
+    "github.com/google/mako/clients/proto/analyzers/window_deviation_go_proto",
     "github.com/google/mako/go/quickstore",
     "github.com/google/mako/spec/proto/mako_go_proto",
     "github.com/gorilla/websocket",
@@ -1972,6 +2002,8 @@
     "knative.dev/pkg/test/logging",
     "knative.dev/pkg/test/logstream",
     "knative.dev/pkg/test/mako",
+    "knative.dev/pkg/test/mako/alerter",
+    "knative.dev/pkg/test/mako/alerter/slack",
     "knative.dev/pkg/test/prometheus",
     "knative.dev/pkg/test/spoof",
     "knative.dev/pkg/test/vegeta/pacers",

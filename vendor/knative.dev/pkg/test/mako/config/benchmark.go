@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package mako
+package config
 
 import (
 	"fmt"
@@ -46,7 +46,7 @@ func getBenchmark() (*string, error) {
 		return nil, err
 	}
 	// Read the Mako config file for this environment.
-	data, err := readConfigFromKoData(env)
+	data, err := readFileFromKoData(env + ".config")
 	if err != nil {
 		return nil, err
 	}
@@ -60,12 +60,12 @@ func getBenchmark() (*string, error) {
 	return bi.BenchmarkKey, nil
 }
 
-// readConfigFromKoData reads the named config file from kodata.
-func readConfigFromKoData(environment string) ([]byte, error) {
+// readFileFromKoData reads the named file from kodata.
+func readFileFromKoData(name string) ([]byte, error) {
 	koDataPath := os.Getenv(koDataPathEnvName)
 	if koDataPath == "" {
 		return nil, fmt.Errorf("%q does not exist or is empty", koDataPathEnvName)
 	}
-	fullFilename := filepath.Join(koDataPath, environment+".config")
+	fullFilename := filepath.Join(koDataPath, name)
 	return ioutil.ReadFile(fullFilename)
 }

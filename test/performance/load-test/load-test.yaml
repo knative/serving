@@ -62,6 +62,10 @@ spec:
             image: knative.dev/serving/test/performance/load-test
             args:
             - "-flavor=zero"
+            - "-github-token=/var/secret/github-token"
+            - "-slack-user-name=Knative Testgrid Robot"
+            - "-slack-read-token=/var/secret/slack-read-token"
+            - "-slack-write-token=/var/secret/slack-write-token"
             resources:
               requests:
                 cpu: 1000m
@@ -75,12 +79,12 @@ spec:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secret/robot.json
             volumeMounts:
-            - name: service-account
+            - name: mako-secrets
               mountPath: /var/secret
           volumes:
-          - name: service-account
+          - name: mako-secrets
             secret:
-              secretName: service-account
+              secretName: mako-secrets
           - name: config-mako
             configMap:
               name: config-mako
@@ -104,6 +108,10 @@ spec:
             image: knative.dev/serving/test/performance/load-test
             args:
             - "-flavor=always"
+            - "-github-token=/var/secret/github-token"
+            - "-slack-user-name=Knative Testgrid Robot"
+            - "-slack-read-token=/var/secret/slack-read-token"
+            - "-slack-write-token=/var/secret/slack-write-token"
             resources:
               requests:
                 cpu: 1000m
@@ -117,12 +125,12 @@ spec:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secret/robot.json
             volumeMounts:
-            - name: service-account
+            - name: mako-secrets
               mountPath: /var/secret
           volumes:
-          - name: service-account
+          - name: mako-secrets
             secret:
-              secretName: service-account
+              secretName: mako-secrets
           - name: config-mako
             configMap:
               name: config-mako
@@ -146,6 +154,10 @@ spec:
             image: knative.dev/serving/test/performance/load-test
             args:
             - "-flavor=200"
+            - "-github-token=/var/secret/github-token"
+            - "-slack-user-name=Knative Testgrid Robot"
+            - "-slack-read-token=/var/secret/slack-read-token"
+            - "-slack-write-token=/var/secret/slack-write-token"
             resources:
               requests:
                 cpu: 1000m
@@ -159,12 +171,12 @@ spec:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secret/robot.json
             volumeMounts:
-            - name: service-account
+            - name: mako-secrets
               mountPath: /var/secret
           volumes:
-          - name: service-account
+          - name: mako-secrets
             secret:
-              secretName: service-account
+              secretName: mako-secrets
           - name: config-mako
             configMap:
               name: config-mako

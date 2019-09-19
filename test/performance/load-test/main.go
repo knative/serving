@@ -31,12 +31,18 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 
 	"knative.dev/pkg/test/mako"
+	"knative.dev/pkg/test/mako/alerter"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/test/performance"
 	"knative.dev/serving/test/performance/metrics"
 )
 
 var (
-	flavor = flag.String("flavor", "", "The flavor of the benchmark to run.")
+	flavor          = flag.String("flavor", "", "The flavor of the benchmark to run.")
+	githubToken     = flag.String("github-token", "", "The path of github token")
+	slackUserName   = flag.String("slack-user-name", "", "The user name of the slack bot")
+	slackReadToken  = flag.String("slack-read-token", "", "The path of slack read token")
+	slackWriteToken = flag.String("slack-write-token", "", "The path of slack write token")
 )
 
 func processResults(ctx context.Context, q *quickstore.Quickstore, results <-chan *vegeta.Result) {
@@ -161,9 +167,13 @@ func main() {
 	processResults(ctx, q, results)
 
 	out, err := q.Store()
-	if err != nil {
-		qclose(context.Background())
-		log.Fatalf("q.Store error: %s %v", out.String(), err)
+	alerter := alerter.Alerter{}
+	if err := alerter.SetupSlack(*slackUserName, *slackReadToken, *slackWriteToken, performance.SlackChannels); err != nil {
+		log.Printf("Failed to setup slack client: %v\n", err)
 	}
+	if err := alerter.SetupGitHub("knative", "serving", *githubToken); err != nil {
+		log.Printf("Failed to setup github client: %v\n", err)
+	}
+	alerter.HandleBenchmarkResult("load-test", out, err)
 	log.Printf("Done! Run: %s", out.GetRunChartLink())
 }

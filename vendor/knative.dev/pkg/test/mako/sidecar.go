@@ -33,6 +33,7 @@ import (
 	"knative.dev/pkg/changeset"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
+	"knative.dev/pkg/test/mako/config"
 )
 
 const (
@@ -52,7 +53,7 @@ func EscapeTag(tag string) string {
 // It returns the mako client handle to store metrics, a method to close the connection
 // to mako server once done and error in case of failures.
 func Setup(ctx context.Context, extraTags ...string) (context.Context, *quickstore.Quickstore, func(context.Context), error) {
-	tags := append(MustGetTags(), extraTags...)
+	tags := append(config.MustGetTags(), extraTags...)
 	// Get the commit of the benchmarks
 	commitID, err := changeset.Get()
 	if err != nil {
@@ -102,7 +103,7 @@ func Setup(ctx context.Context, extraTags ...string) (context.Context, *quicksto
 	}
 
 	qs, qclose, err := quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
-		BenchmarkKey: MustGetBenchmark(),
+		BenchmarkKey: config.MustGetBenchmark(),
 		Tags: append(tags,
 			"commit="+commitID,
 			"kubernetes="+EscapeTag(version.String()),

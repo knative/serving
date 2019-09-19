@@ -21,6 +21,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	tpb "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto"
+	wpb "github.com/google/mako/clients/proto/analyzers/window_deviation_go_proto"
 	mpb "github.com/google/mako/spec/proto/mako_go_proto"
 	"knative.dev/pkg/test/mako"
 )
@@ -60,6 +61,32 @@ func newLoadTestMaximumLatency(tags ...string) *tpb.ThresholdAnalyzerInput {
 			},
 		}},
 		CrossRunConfig: mako.NewCrossRunConfig(10, tags...),
+	}
+}
+
+// This analyzer validates that the mean error rate observed over the 0->3k
+// stepped burst is no more than +1 than the historic runs. The settings, e.g.
+// window size, tolerance params, are derived mainly base on
+// https://github.com/google/mako/blob/master/docs/WDA_ANALYZER.md#const-term
+func newLoadTestMaximumErrorRate(tags ...string) *wpb.WindowDeviationInput {
+	return &wpb.WindowDeviationInput{
+		Name: proto.String("Mean error rate"),
+		RunInfoQueryList: []*mpb.RunInfoQuery{{
+			Tags:  tags,
+			Limit: proto.Int32(50),
+		}},
+		ToleranceCheckList: []*wpb.ToleranceCheck{{
+			RecentWindowSize:            proto.Int32(7),
+			MinimumHistoricalWindowSize: proto.Int32(50),
+			DirectionBias:               wpb.ToleranceCheck_IGNORE_DECREASE.Enum(),
+			DataFilter: &mpb.DataFilter{
+				DataType: mpb.DataFilter_METRIC_AGGREGATE_MEAN.Enum(),
+				ValueKey: proto.String("es"),
+			},
+			MedianToleranceParamsList: []*wpb.MedianToleranceParams{{
+				ConstTerm: proto.Float64(1),
+			}},
+		}},
 	}
 }
 
