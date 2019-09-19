@@ -19,6 +19,7 @@ limitations under the License.
 package v1
 
 import (
+	"path"
 	"path/filepath"
 	"testing"
 
@@ -411,7 +412,7 @@ func TestProjectedComplex(t *testing.T) {
 
 	// Verify that we get multiple files mounted in, in this case from the
 	// second source, which was partially shadowed in our check above.
-	names.Domain = names.Domain + "/another"
+	names.URL.Path = path.Join(names.URL.Path, "another")
 	if err = validateDataPlane(t, clients, names, text2); err != nil {
 		t.Error(err)
 	}

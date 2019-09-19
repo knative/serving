@@ -21,6 +21,7 @@ package v1beta1
 import (
 	"context"
 	"math"
+	"net/url"
 	"testing"
 
 	"golang.org/x/sync/errgroup"
@@ -113,52 +114,48 @@ func TestBlueGreenRoute(t *testing.T) {
 		t.Fatalf("Error fetching Service %s: %v", names.Service, err)
 	}
 
-	var blueDomain, greenDomain string
+	var blueURL, greenURL *url.URL
 	for _, tt := range service.Status.Traffic {
 		if tt.Tag == blue.TrafficTarget {
-			// Strip prefix as WaitForEndPointState expects a domain
-			// without scheme.
-			blueDomain = tt.URL.Host
+			blueURL = tt.URL.URL()
 		}
 		if tt.Tag == green.TrafficTarget {
-			// Strip prefix as WaitForEndPointState expects a domain
-			// without scheme.
-			greenDomain = tt.URL.Host
+			greenURL = tt.URL.URL()
 		}
 	}
-	if blueDomain == "" || greenDomain == "" {
+	if blueURL == nil || greenURL == nil {
 		t.Fatalf("Unable to fetch URLs from traffic targets: %#v", service.Status.Traffic)
 	}
-	tealDomain := service.Status.URL.Host
+	tealURL := service.Status.URL.URL()
 
 	// Istio network programming takes some time to be effective.  Currently Istio
 	// does not expose a Status, so we rely on probes to know when they are effective.
 	// Since we are updating the service the teal domain probe will succeed before our changes
 	// take effect so we probe the green domain.
-	t.Logf("Probing domain %s", greenDomain)
+	t.Logf("Probing %s", greenURL)
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		greenDomain,
+		greenURL,
 		v1b1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("Error probing domain %s: %v", greenDomain, err)
+		t.Fatalf("Error probing %s: %v", greenURL, err)
 	}
 
-	// Send concurrentRequests to blueDomain, greenDomain, and tealDomain.
+	// Send concurrentRequests to blueURL, greenURL, and tealURL.
 	g, _ := errgroup.WithContext(context.Background())
 	g.Go(func() error {
 		min := int(math.Floor(test.ConcurrentRequests * test.MinSplitPercentage))
-		return checkDistribution(t, clients, tealDomain, test.ConcurrentRequests, min, []string{expectedBlue, expectedGreen})
+		return checkDistribution(t, clients, tealURL, test.ConcurrentRequests, min, []string{expectedBlue, expectedGreen})
 	})
 	g.Go(func() error {
 		min := int(math.Floor(test.ConcurrentRequests * test.MinDirectPercentage))
-		return checkDistribution(t, clients, blueDomain, test.ConcurrentRequests, min, []string{expectedBlue})
+		return checkDistribution(t, clients, blueURL, test.ConcurrentRequests, min, []string{expectedBlue})
 	})
 	g.Go(func() error {
 		min := int(math.Floor(test.ConcurrentRequests * test.MinDirectPercentage))
-		return checkDistribution(t, clients, greenDomain, test.ConcurrentRequests, min, []string{expectedGreen})
+		return checkDistribution(t, clients, greenURL, test.ConcurrentRequests, min, []string{expectedGreen})
 	})
 	if err := g.Wait(); err != nil {
 		t.Fatalf("Error sending requests: %v", err)

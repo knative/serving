@@ -28,7 +28,7 @@ import (
 
 	"google.golang.org/grpc"
 	pkgTest "knative.dev/pkg/test"
-	ingress "knative.dev/pkg/test/ingress"
+	"knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
@@ -173,19 +173,19 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
-	domain := resources.Route.Status.URL.Host
+	url := resources.Route.Status.URL.URL()
 
 	if _, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain,
+		url,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"gRPCPingReadyToServe",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("The endpoint for Route %s at domain %s didn't return success: %v", names.Route, domain, err)
+		t.Fatalf("The endpoint for Route %s at %s didn't return success: %v", names.Route, url, err)
 	}
 
-	host := domain
+	host := url.Host
 	if !test.ServingFlags.ResolvableDomain {
 		host = pkgTest.Flags.IngressEndpoint
 		if pkgTest.Flags.IngressEndpoint == "" {
@@ -196,7 +196,7 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 		}
 	}
 
-	f(t, resources, clients, host, domain)
+	f(t, resources, clients, host, url.Hostname())
 }
 
 func TestGRPCUnaryPing(t *testing.T) {

@@ -24,16 +24,20 @@ import (
 	"sync/atomic"
 
 	"go.uber.org/zap"
+
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
+
+	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	servinginformers "knative.dev/serving/pkg/client/informers/externalversions/serving/v1alpha1"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/reconciler"
@@ -276,15 +280,14 @@ type Throttler struct {
 }
 
 // NewThrottler creates a new Throttler
-func NewThrottler(breakerParams queue.BreakerParams,
-	revisionInformer servinginformers.RevisionInformer,
-	endpointsInformer corev1informers.EndpointsInformer,
-	logger *zap.SugaredLogger) *Throttler {
+func NewThrottler(ctx context.Context,
+	breakerParams queue.BreakerParams) *Throttler {
+	revisionInformer := revisioninformer.Get(ctx)
 	t := &Throttler{
 		revisionThrottlers: make(map[types.NamespacedName]*revisionThrottler),
 		breakerParams:      breakerParams,
 		revisionLister:     revisionInformer.Lister(),
-		logger:             logger,
+		logger:             logging.FromContext(ctx),
 	}
 
 	// Watch revisions to create throttler with backlog immediately and delete
@@ -296,6 +299,7 @@ func NewThrottler(breakerParams queue.BreakerParams,
 	})
 
 	// Watch activator endpoint to maintain activator count
+	endpointsInformer := endpointsinformer.Get(ctx)
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: reconciler.ChainFilterFuncs(
 			reconciler.NameFilterFunc(networking.ActivatorServiceName),
@@ -376,9 +380,17 @@ func (t *Throttler) revisionDeleted(obj interface{}) {
 }
 
 func (t *Throttler) handleUpdate(update RevisionDestsUpdate) {
+	if update.Deleted {
+		// Nothing to do as revisionDeleted is already called by DeleteFunc of Informer.
+		return
+	}
 	if rt, err := t.getOrCreateRevisionThrottler(update.Rev); err != nil {
-		t.logger.Errorw(fmt.Sprintf("Failed to get revision throttler for revision %q", update.Rev.String()),
-			zap.Error(err))
+		if k8serrors.IsNotFound(err) {
+			t.logger.Debugf("Revision %q is not found. Probably it was removed", update.Rev.String())
+		} else {
+			t.logger.Errorw(fmt.Sprintf("Failed to get revision throttler for revision %q", update.Rev.String()),
+				zap.Error(err))
+		}
 	} else {
 		rt.handleUpdate(t, update)
 	}

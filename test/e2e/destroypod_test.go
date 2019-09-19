@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"testing"
 	"time"
 
@@ -80,7 +81,7 @@ func TestDestroyPodInflight(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
-	domain := route.Status.URL.Host
+	routeURL := route.Status.URL.URL()
 
 	err = v1a1test.WaitForConfigurationState(clients.ServingAlphaClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
 		if c.Status.LatestCreatedRevisionName != names.Revision {
@@ -96,21 +97,25 @@ func TestDestroyPodInflight(t *testing.T) {
 	if _, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain,
+		routeURL,
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(timeoutExpectedOutput))),
 		"TimeoutAppServesText",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, timeoutExpectedOutput, err)
+		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, routeURL, timeoutExpectedOutput, err)
 	}
 
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, routeURL.Hostname(), test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("Error creating spoofing client: %v", err)
 	}
 
 	// The timeout app sleeps for the time passed via the timeout query parameter in milliseconds
 	timeoutRequestDurationInMillis := timeoutRequestDuration / time.Millisecond
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s/?timeout=%d", domain, timeoutRequestDurationInMillis), nil)
+	u, _ := url.Parse(routeURL.String())
+	q := u.Query()
+	q.Set("timeout", fmt.Sprintf("%d", timeoutRequestDurationInMillis))
+	u.RawQuery = q.Encode()
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
 		t.Fatalf("Error creating http request: %v", err)
 	}
@@ -229,16 +234,16 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
 	}
-	domain := objects.Route.Status.URL.Host
+	routeURL := objects.Route.Status.URL.URL()
 
 	if _, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain,
+		routeURL,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"RouteServes",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("The endpoint for Route %s at domain %s didn't serve correctly: %v", names.Route, domain, err)
+		t.Fatalf("The endpoint for Route %s at %s didn't serve correctly: %v", names.Route, routeURL, err)
 	}
 
 	pods, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).List(metav1.ListOptions{
@@ -249,11 +254,15 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	}
 
 	// The request will sleep for more than 25 seconds.
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s?sleep=25001", domain), nil)
+	u, _ := url.Parse(routeURL.String())
+	q := u.Query()
+	q.Set("sleep", "25001")
+	u.RawQuery = q.Encode()
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
 		t.Fatalf("Error creating HTTP request: %v", err)
 	}
-	httpClient, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+	httpClient, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, u.Hostname(), test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("Error creating spoofing client: %v", err)
 	}

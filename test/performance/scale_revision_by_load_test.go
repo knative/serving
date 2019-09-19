@@ -21,6 +21,7 @@ package performance
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -103,20 +104,24 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
 
-	domain := objs.Route.Status.URL.Host
+	routeURL := objs.Route.Status.URL.URL()
 
 	// Make sure we are ready to serve.
+	u, _ := url.Parse(routeURL.String())
+	q := u.Query()
+	q.Set("timeout", "10")
+	u.RawQuery = q.Encode()
 	st := time.Now()
-	t.Log("Starting to probe the endpoint at", st)
+	t.Logf("Starting to probe %s at %s", u, st)
 	_, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain+"/?timeout=10", // To generate any kind of a valid response.
+		u,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		t.Fatalf("The endpoint at domain %s didn't serve the expected response: %v", domain, err)
+		t.Fatalf("The endpoint at %s didn't serve the expected response: %v", u, err)
 	}
 	t.Logf("Took %v for the endpoint to start serving", time.Since(st))
 
@@ -148,16 +153,21 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	})
 	controller.StartInformers(stopCh, endpointsInformer)
 
-	endpoint, err := spoof.ResolveEndpoint(clients.KubeClient.Kube, domain, test.ServingFlags.ResolvableDomain,
+	endpoint, err := spoof.ResolveEndpoint(clients.KubeClient.Kube, routeURL.Hostname(), test.ServingFlags.ResolvableDomain,
 		pkgTest.Flags.IngressEndpoint)
 	if err != nil {
 		t.Fatalf("Cannot resolve service endpoint: %v", err)
 	}
 
+	u, _ = url.Parse(routeURL.String())
+	u.Host = endpoint
+	q = u.Query()
+	q.Set("timeout", fmt.Sprintf("%d", processingTimeMillis))
+	u.RawQuery = q.Encode()
 	targeter := vegeta.NewStaticTargeter(vegeta.Target{
 		Method: http.MethodGet,
-		Header: resolvedHeaders(domain, test.ServingFlags.ResolvableDomain),
-		URL:    fmt.Sprintf("%s?timeout=%d", sanitizedURL(endpoint), processingTimeMillis),
+		Header: resolvedHeaders(u.Hostname(), test.ServingFlags.ResolvableDomain),
+		URL:    u.String(),
 	})
 	attacker := vegeta.NewAttacker(vegeta.Workers(uint64(numClients)), vegeta.Connections(numClients))
 	pacer := vegeta.ConstantPacer{Freq: qpsPerClient * numClients, Per: time.Second}

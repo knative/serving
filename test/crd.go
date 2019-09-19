@@ -19,6 +19,7 @@ package test
 // crd contains functions that construct boilerplate CRD definitions.
 
 import (
+	"net/url"
 	"strings"
 	"testing"
 
@@ -32,7 +33,7 @@ type ResourceNames struct {
 	Revision      string
 	Service       string
 	TrafficTarget string
-	Domain        string
+	URL           *url.URL
 	Image         string
 }
 

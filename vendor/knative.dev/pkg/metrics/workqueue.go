@@ -26,11 +26,13 @@ import (
 // WorkqueueProvider implements workqueue.MetricsProvider and may be used with
 // workqueue.SetProvider to have metrics exported to the provided metrics.
 type WorkqueueProvider struct {
-	Adds         *stats.Int64Measure
-	Depth        *stats.Int64Measure
-	Latency      *stats.Float64Measure
-	Retries      *stats.Int64Measure
-	WorkDuration *stats.Float64Measure
+	Adds                           *stats.Int64Measure
+	Depth                          *stats.Int64Measure
+	Latency                        *stats.Float64Measure
+	UnfinishedWorkSeconds          *stats.Float64Measure
+	LongestRunningProcessorSeconds *stats.Float64Measure
+	Retries                        *stats.Int64Measure
+	WorkDuration                   *stats.Float64Measure
 }
 
 var (
@@ -64,7 +66,7 @@ func (wp *WorkqueueProvider) DepthView() *view.View {
 }
 
 // NewLatencyMetric implements MetricsProvider
-func (wp *WorkqueueProvider) NewLatencyMetric(name string) workqueue.SummaryMetric {
+func (wp *WorkqueueProvider) NewLatencyMetric(name string) workqueue.HistogramMetric {
 	return floatMetric{
 		mutators: []tag.Mutator{tag.Insert(tagName, name)},
 		measure:  wp.Latency,
@@ -74,6 +76,19 @@ func (wp *WorkqueueProvider) NewLatencyMetric(name string) workqueue.SummaryMetr
 // LatencyView returns a view of the Latency metric.
 func (wp *WorkqueueProvider) LatencyView() *view.View {
 	return measureView(wp.Latency, view.Distribution(BucketsNBy10(1e-08, 10)...))
+}
+
+// NewLongestRunningProcessorSecondsMetric implements MetricsProvider
+func (wp *WorkqueueProvider) NewLongestRunningProcessorSecondsMetric(name string) workqueue.SettableGaugeMetric {
+	return floatMetric{
+		mutators: []tag.Mutator{tag.Insert(tagName, name)},
+		measure:  wp.LongestRunningProcessorSeconds,
+	}
+}
+
+// LongestRunningProcessorSecondsView returns a view of the LongestRunningProcessorSeconds metric.
+func (wp *WorkqueueProvider) LongestRunningProcessorSecondsView() *view.View {
+	return measureView(wp.LongestRunningProcessorSeconds, view.Distribution(BucketsNBy10(1e-08, 10)...))
 }
 
 // NewRetriesMetric implements MetricsProvider
@@ -89,8 +104,21 @@ func (wp *WorkqueueProvider) RetriesView() *view.View {
 	return measureView(wp.Retries, view.Count())
 }
 
+// NewUnfinishedWorkSecondsMetric implements MetricsProvider
+func (wp *WorkqueueProvider) NewUnfinishedWorkSecondsMetric(name string) workqueue.SettableGaugeMetric {
+	return floatMetric{
+		mutators: []tag.Mutator{tag.Insert(tagName, name)},
+		measure:  wp.UnfinishedWorkSeconds,
+	}
+}
+
+// UnfinishedWorkSecondsView returns a view of the UnfinishedWorkSeconds metric.
+func (wp *WorkqueueProvider) UnfinishedWorkSecondsView() *view.View {
+	return measureView(wp.UnfinishedWorkSeconds, view.Distribution(BucketsNBy10(1e-08, 10)...))
+}
+
 // NewWorkDurationMetric implements MetricsProvider
-func (wp *WorkqueueProvider) NewWorkDurationMetric(name string) workqueue.SummaryMetric {
+func (wp *WorkqueueProvider) NewWorkDurationMetric(name string) workqueue.HistogramMetric {
 	return floatMetric{
 		mutators: []tag.Mutator{tag.Insert(tagName, name)},
 		measure:  wp.WorkDuration,
@@ -110,5 +138,42 @@ func (wp *WorkqueueProvider) DefaultViews() []*view.View {
 		wp.LatencyView(),
 		wp.RetriesView(),
 		wp.WorkDurationView(),
+		wp.UnfinishedWorkSecondsView(),
+		wp.LongestRunningProcessorSecondsView(),
 	}
+}
+
+// NewDeprecatedAddsMetric implements MetricsProvider
+func (wp *WorkqueueProvider) NewDeprecatedAddsMetric(name string) workqueue.CounterMetric {
+	return noopMetric{}
+}
+
+// NewDeprecatedDepthMetric implements MetricsProvider
+func (wp *WorkqueueProvider) NewDeprecatedDepthMetric(name string) workqueue.GaugeMetric {
+	return noopMetric{}
+}
+
+// NewDeprecatedLatencyMetric implements MetricsProvider
+func (wp *WorkqueueProvider) NewDeprecatedLatencyMetric(name string) workqueue.SummaryMetric {
+	return noopMetric{}
+}
+
+// NewDeprecatedLongestRunningProcessorMicrosecondsMetric implements MetricsProvider
+func (wp *WorkqueueProvider) NewDeprecatedLongestRunningProcessorMicrosecondsMetric(name string) workqueue.SettableGaugeMetric {
+	return noopMetric{}
+}
+
+// NewDeprecatedRetriesMetric implements MetricsProvider
+func (wp *WorkqueueProvider) NewDeprecatedRetriesMetric(name string) workqueue.CounterMetric {
+	return noopMetric{}
+}
+
+// NewDeprecatedUnfinishedWorkSecondsMetric implements MetricsProvider
+func (wp *WorkqueueProvider) NewDeprecatedUnfinishedWorkSecondsMetric(name string) workqueue.SettableGaugeMetric {
+	return noopMetric{}
+}
+
+// NewDeprecatedWorkDurationMetric implements MetricsProvider
+func (wp *WorkqueueProvider) NewDeprecatedWorkDurationMetric(name string) workqueue.SummaryMetric {
+	return noopMetric{}
 }

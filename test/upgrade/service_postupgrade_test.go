@@ -54,10 +54,10 @@ func updateService(serviceName string, t *testing.T) {
 	names.Config = serviceresourcenames.Configuration(svc)
 	names.Revision = svc.Status.LatestCreatedRevisionName
 
-	routeDomain := svc.Status.URL.Host
+	routeURL := svc.Status.URL.URL()
 
 	t.Log("Check that we can hit the old service and get the old response.")
-	assertServiceResourcesUpdated(t, clients, names, routeDomain, test.PizzaPlanetText1)
+	assertServiceResourcesUpdated(t, clients, names, routeURL, test.PizzaPlanetText1)
 
 	t.Log("Updating the Service to use a different image")
 	newImage := ptest.ImagePath(test.PizzaPlanet2)
@@ -76,5 +76,5 @@ func updateService(serviceName string, t *testing.T) {
 	if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic to Revision %s: %v", names.Service, names.Revision, err)
 	}
-	assertServiceResourcesUpdated(t, clients, names, routeDomain, test.PizzaPlanetText2)
+	assertServiceResourcesUpdated(t, clients, names, routeURL, test.PizzaPlanetText2)
 }

@@ -32,6 +32,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"go.uber.org/zap"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -77,7 +78,11 @@ func GetConfig(masterURL, kubeconfig string) (*rest.Config, error) {
 func GetLoggingConfig(ctx context.Context) (*logging.Config, error) {
 	loggingConfigMap, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(logging.ConfigMapName(), metav1.GetOptions{})
 	if err != nil {
-		return nil, err
+		if apierrors.IsNotFound(err) {
+			return logging.NewConfigFromMap(make(map[string]string))
+		} else {
+			return nil, err
+		}
 	}
 
 	return logging.NewConfigFromConfigMap(loggingConfigMap)

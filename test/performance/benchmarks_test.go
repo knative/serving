@@ -21,6 +21,7 @@ package performance
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -72,27 +73,32 @@ func runTest(t *testing.T, pacer vegeta.Pacer, saveMetrics bool) {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
 
-	domain := objs.Route.Status.URL.Host
+	routeURL := objs.Route.Status.URL.URL()
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain,
+		routeURL,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("Error probing domain %s: %v", domain, err)
+		t.Fatalf("Error probing %s: %v", routeURL, err)
 	}
 
-	endpoint, err := spoof.ResolveEndpoint(clients.KubeClient.Kube, domain, test.ServingFlags.ResolvableDomain,
+	endpoint, err := spoof.ResolveEndpoint(clients.KubeClient.Kube, routeURL.Hostname(), test.ServingFlags.ResolvableDomain,
 		pkgTest.Flags.IngressEndpoint)
 	if err != nil {
 		t.Fatalf("Cannot resolve service endpoint: %v", err)
 	}
 
+	u, _ := url.Parse(routeURL.String())
+	u.Host = endpoint
+	q := u.Query()
+	q.Set("sleep", "100")
+	u.RawQuery = q.Encode()
 	targeter := vegeta.NewStaticTargeter(vegeta.Target{
 		Method: http.MethodGet,
-		Header: resolvedHeaders(domain, test.ServingFlags.ResolvableDomain),
-		URL:    sanitizedURL(endpoint) + "?sleep=100",
+		Header: resolvedHeaders(u.Hostname(), test.ServingFlags.ResolvableDomain),
+		URL:    u.String(),
 	})
 	attacker := vegeta.NewAttacker()
 

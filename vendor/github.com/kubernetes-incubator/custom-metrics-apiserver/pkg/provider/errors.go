@@ -23,6 +23,7 @@ import (
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -45,5 +46,16 @@ func NewMetricNotFoundForError(resource schema.GroupResource, metricName string,
 		Code:    int32(http.StatusNotFound),
 		Reason:  metav1.StatusReasonNotFound,
 		Message: fmt.Sprintf("the server could not find the metric %s for %s %s", metricName, resource.String(), resourceName),
+	}}
+}
+
+// NewMetricNotFoundForError returns a StatusError indicating the given metric could not be found for
+// the given named object. It is similar to NewNotFound, but more specialized
+func NewMetricNotFoundForSelectorError(resource schema.GroupResource, metricName string, resourceName string, selector labels.Selector) *apierr.StatusError {
+	return &apierr.StatusError{metav1.Status{
+		Status:  metav1.StatusFailure,
+		Code:    int32(http.StatusNotFound),
+		Reason:  metav1.StatusReasonNotFound,
+		Message: fmt.Sprintf("the server could not find the metric %s for %s %s with selector %s", metricName, resource.String(), resourceName, selector.String()),
 	}}
 }

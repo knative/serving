@@ -39,18 +39,18 @@ import (
 func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNames) error {
 	return CheckServiceState(clients.ServingBetaClient, names.Service, func(s *v1beta1.Service) (bool, error) {
 		if s.Status.URL == nil || s.Status.URL.Host == "" {
-			return false, fmt.Errorf("url is not present in Service status: %v", s)
+			return false, fmt.Errorf("URL is not present in Service status: %v", s)
 		}
-		names.Domain = s.Status.URL.Host
+		names.URL = s.Status.URL.URL()
 		if s.Status.LatestCreatedRevisionName == "" {
-			return false, fmt.Errorf("lastCreatedRevision is not present in Service status: %v", s)
+			return false, fmt.Errorf("LatestCreatedRevisionName is not present in Service status: %v", s)
 		}
 		names.Revision = s.Status.LatestCreatedRevisionName
 		if s.Status.LatestReadyRevisionName == "" {
-			return false, fmt.Errorf("lastReadyRevision is not present in Service status: %v", s)
+			return false, fmt.Errorf("LatestReadyRevisionName is not present in Service status: %v", s)
 		}
 		if s.Status.ObservedGeneration != 1 {
-			return false, fmt.Errorf("observedGeneration is not 1 in Service status: %v", s)
+			return false, fmt.Errorf("ObservedGeneration is not 1 in Service status: %v", s)
 		}
 		return true, nil
 	})

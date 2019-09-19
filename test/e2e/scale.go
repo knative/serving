@@ -19,6 +19,7 @@ package e2e
 import (
 	"fmt"
 	"math"
+	"net/url"
 	"testing"
 	"time"
 
@@ -120,12 +121,12 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			cleanupCh <- names
 
 			t.Logf("Wait for %s to become ready.", names.Service)
-			var domain string
+			var url *url.URL
 			err = v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
 				if s.Status.URL == nil {
 					return false, nil
 				}
-				domain = s.Status.URL.Host
+				url = s.Status.URL.URL()
 				return v1a1test.IsServiceReady(s)
 			}, "ServiceUpdatedWithURL")
 			if err != nil {
@@ -138,7 +139,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			_, err = pkgTest.WaitForEndpointState(
 				clients.KubeClient,
 				t.Logf,
-				domain,
+				url,
 				v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 				"WaitForEndpointToServeText",
 				test.ServingFlags.ResolvableDomain)
@@ -150,7 +151,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			latencies.Add("time-to-200", start)
 
 			// Start probing the domain until the test is complete.
-			pm.Spawn(domain)
+			pm.Spawn(url)
 
 			t.Logf("%s is ready.", names.Service)
 			return nil
@@ -191,8 +192,8 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				t.Fatalf("Stop() = %v", err)
 			}
 			// Check each of the local SLOs
-			pm.Foreach(func(domain string, p test.Prober) {
-				if err := test.CheckSLO(localSLO, domain, p); err != nil {
+			pm.Foreach(func(u *url.URL, p test.Prober) {
+				if err := test.CheckSLO(localSLO, u.String(), p); err != nil {
 					t.Errorf("CheckSLO() = %v", err)
 				}
 			})

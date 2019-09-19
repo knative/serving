@@ -78,6 +78,16 @@ func init() {
 			"How long in seconds processing an item from workqueue takes.",
 			"s",
 		),
+		UnfinishedWorkSeconds: stats.Float64(
+			"workqueue_unfinished_work_seconds",
+			"How long in seconds the outstanding workqueue items have been in flight (total).",
+			"s",
+		),
+		LongestRunningProcessorSeconds: stats.Float64(
+			"workqueue_longest_running_processor_seconds",
+			"How long in seconds the longest outstanding workqueue item has been in flight.",
+			"s",
+		),
 	}
 	workqueue.SetProvider(wp)
 

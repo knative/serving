@@ -126,12 +126,6 @@ func CleanupZipkinTracingSetup(logf logging.FormatLogger) {
 	})
 }
 
-// CheckZipkinPortAvailability checks to see if Zipkin Port is available on the machine.
-// returns error if the port is not available.
-func CheckZipkinPortAvailability() error {
-	return monitoring.CheckPortAvailability(ZipkinPort)
-}
-
 // JSONTrace returns a trace for the given traceID. It will continually try to get the trace. If the
 // trace it gets has the expected number of spans, then it will be returned. If not, it will try
 // again. If it reaches timeout, then it returns everything it has so far with an error.
@@ -162,11 +156,6 @@ func (*TimeoutError) Error() string {
 // jsonTrace gets a trace from Zipkin and returns it.
 func jsonTrace(traceID string) ([]model.SpanModel, error) {
 	var empty []model.SpanModel
-
-	// Check if zipkin port forwarding is setup correctly
-	if err := CheckZipkinPortAvailability(); err == nil {
-		return empty, err
-	}
 
 	resp, err := http.Get(ZipkinTraceEndpoint + traceID)
 	if err != nil {

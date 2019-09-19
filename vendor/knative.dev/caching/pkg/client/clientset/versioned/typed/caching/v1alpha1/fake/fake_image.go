@@ -131,7 +131,7 @@ func (c *FakeImages) DeleteCollection(options *v1.DeleteOptions, listOptions v1.
 // Patch applies the patch and returns the patched image.
 func (c *FakeImages) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.Image, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(imagesResource, c.ns, name, data, subresources...), &v1alpha1.Image{})
+		Invokes(testing.NewPatchSubresourceAction(imagesResource, c.ns, name, pt, data, subresources...), &v1alpha1.Image{})
 
 	if obj == nil {
 		return nil, err

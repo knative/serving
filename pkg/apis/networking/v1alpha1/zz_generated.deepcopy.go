@@ -58,7 +58,7 @@ func (in *Certificate) DeepCopyObject() runtime.Object {
 func (in *CertificateList) DeepCopyInto(out *CertificateList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]Certificate, len(*in))
@@ -168,7 +168,7 @@ func (in *ClusterIngress) DeepCopyObject() runtime.Object {
 func (in *ClusterIngressList) DeepCopyInto(out *ClusterIngressList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]ClusterIngress, len(*in))
@@ -376,7 +376,7 @@ func (in *IngressBackendSplit) DeepCopy() *IngressBackendSplit {
 func (in *IngressList) DeepCopyInto(out *IngressList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]Ingress, len(*in))
@@ -583,7 +583,7 @@ func (in *ServerlessService) DeepCopyObject() runtime.Object {
 func (in *ServerlessServiceList) DeepCopyInto(out *ServerlessServiceList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]ServerlessService, len(*in))

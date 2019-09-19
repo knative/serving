@@ -18,8 +18,8 @@ limitations under the License.
 package e2e
 
 import (
-	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -74,25 +74,25 @@ var testInjection = []struct {
 	{"both-enabled", true, true},
 }
 
-func sendRequest(t *testing.T, clients *test.Clients, resolvableDomain bool, domain string) (*spoof.Response, error) {
-	t.Logf("The domain of request is %s.", domain)
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, resolvableDomain)
+func sendRequest(t *testing.T, clients *test.Clients, resolvableDomain bool, url *url.URL) (*spoof.Response, error) {
+	t.Logf("The domain of request is %s.", url.Hostname())
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), resolvableDomain)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
+	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 	if err != nil {
 		return nil, err
 	}
 	return client.Do(req)
 }
 
-func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain string, inject bool, accessibleExternal bool) {
+func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *url.URL, inject bool, accessibleExternal bool) {
 	// Create envVars to be used in httpproxy app.
 	envVars := []corev1.EnvVar{{
 		Name:  targetHostEnv,
-		Value: helloworldDomain,
+		Value: helloworldURL.Hostname(),
 	}}
 
 	// When resolvable domain is not set for external access test, use gateway for the endpoint as xip.io is flaky.
@@ -131,11 +131,11 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	domain := resources.Route.Status.URL.Host
+	url := resources.Route.Status.URL.URL()
 	if _, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain,
+		url,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"HTTPProxy",
 		test.ServingFlags.ResolvableDomain); err != nil {
@@ -144,7 +144,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 	t.Log("httpproxy is ready.")
 
 	// Send request to httpproxy to trigger the http call from httpproxy Pod to internal service of helloworld app.
-	response, err := sendRequest(t, clients, test.ServingFlags.ResolvableDomain, domain)
+	response, err := sendRequest(t, clients, test.ServingFlags.ResolvableDomain, url)
 	if err != nil {
 		t.Fatalf("Failed to send request to httpproxy: %v", err)
 	}
@@ -154,7 +154,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 	}
 
 	// As a final check (since we know they are both up), check that if we can access the helloworld app externally.
-	response, err = sendRequest(t, clients, test.ServingFlags.ResolvableDomain, helloworldDomain)
+	response, err = sendRequest(t, clients, test.ServingFlags.ResolvableDomain, helloworldURL)
 	if err != nil {
 		if test.ServingFlags.ResolvableDomain {
 			// When we're testing with resolvable domains, we might fail earlier trying
@@ -220,11 +220,11 @@ func TestServiceToServiceCall(t *testing.T) {
 
 	// helloworld app and its route are ready. Running the test cases now.
 	for _, tc := range testCases {
-		helloworldDomain := strings.TrimSuffix(resources.Route.Status.URL.Host, tc.suffix)
+		helloworldURL := resources.Route.Status.URL.URL()
 		t.Run(tc.name, func(t *testing.T) {
 			cancel := logstream.Start(t)
 			defer cancel()
-			testProxyToHelloworld(t, clients, helloworldDomain, true, false)
+			testProxyToHelloworld(t, clients, helloworldURL, true, false)
 		})
 	}
 }
@@ -258,7 +258,7 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 	}
 
 	// Send request to helloworld app via httpproxy service
-	testProxyToHelloworld(t, clients, resources.Route.Status.URL.Host, injectA, false)
+	testProxyToHelloworld(t, clients, resources.Route.Status.URL.URL(), injectA, false)
 }
 
 // Same test as TestServiceToServiceCall but before sending requests
@@ -315,11 +315,11 @@ func TestCallToPublicService(t *testing.T) {
 
 	gatewayTestCases := []struct {
 		name                 string
-		url                  string
+		url                  *url.URL
 		accessibleExternally bool
 	}{
-		{"local_address", resources.Route.Status.Address.URL.Host, false},
-		{"external_address", resources.Route.Status.URL.Host, true},
+		{"local_address", resources.Route.Status.Address.URL.URL(), false},
+		{"external_address", resources.Route.Status.URL.URL(), true},
 	}
 
 	for _, tc := range gatewayTestCases {

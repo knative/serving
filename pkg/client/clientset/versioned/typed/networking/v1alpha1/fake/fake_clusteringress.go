@@ -123,7 +123,7 @@ func (c *FakeClusterIngresses) DeleteCollection(options *v1.DeleteOptions, listO
 // Patch applies the patch and returns the patched clusterIngress.
 func (c *FakeClusterIngresses) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.ClusterIngress, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(clusteringressesResource, name, data, subresources...), &v1alpha1.ClusterIngress{})
+		Invokes(testing.NewRootPatchSubresourceAction(clusteringressesResource, name, pt, data, subresources...), &v1alpha1.ClusterIngress{})
 	if obj == nil {
 		return nil, err
 	}

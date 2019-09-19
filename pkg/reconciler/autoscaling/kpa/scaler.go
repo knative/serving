@@ -247,7 +247,7 @@ func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, 
 	}
 
 	_, err = ks.dynamicClient.Resource(*gvr).Namespace(pa.Namespace).Patch(ps.Name, types.JSONPatchType,
-		patchBytes, metav1.UpdateOptions{})
+		patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		logger.Errorw("Error scaling target reference "+name, zap.Error(err))
 		return desiredScale, err

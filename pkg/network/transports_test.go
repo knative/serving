@@ -79,8 +79,12 @@ func TestDialWithBackoff(t *testing.T) {
 		t.Error("Unexpected success dialing")
 	}
 
+	// Make the test short.
+	bo := backOffTemplate
+	bo.Steps = 2
+
 	// Timeout. Use special testing IP address.
-	c, err = dialBackOffHelper(context.Background(), "tcp4", "198.18.0.254:8888", 2, initialTO, sleepTO)
+	c, err = dialBackOffHelper(context.Background(), "tcp4", "198.18.0.254:8888", bo, sleepTO)
 	if err == nil {
 		c.Close()
 		t.Error("Unexpected success dialing")

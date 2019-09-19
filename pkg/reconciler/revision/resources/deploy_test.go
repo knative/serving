@@ -166,6 +166,9 @@ var (
 		}, {
 			Name:  "SERVING_READINESS_PROBE",
 			Value: fmt.Sprintf(`{"tcpSocket":{"port":%d,"host":"127.0.0.1"}}`, v1alpha1.DefaultUserPort),
+		}, {
+			Name:  "ENABLE_PROFILING",
+			Value: "false",
 		}},
 	}
 

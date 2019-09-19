@@ -17,13 +17,18 @@ limitations under the License.
 package handler
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+
 	"k8s.io/apimachinery/pkg/types"
+
+	"knative.dev/pkg/logging"
 	. "knative.dev/pkg/logging/testing"
+	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/autoscaler"
 )
@@ -199,12 +204,13 @@ func TestStats(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			defer ClearAll()
-			stopCh := make(chan struct{})
-			defer close(stopCh)
-			s, cr := newTestStats(t, fakeClock{})
+			s, cr, ctx, cancel := newTestStats(t, fakeClock{})
+			defer func() {
+				cancel()
+				ClearAll()
+			}()
 			go func() {
-				cr.Run(stopCh)
+				cr.Run(ctx.Done())
 			}()
 
 			// Apply request operations
@@ -245,7 +251,7 @@ type testStats struct {
 	reportBiChan chan time.Time
 }
 
-func newTestStats(t *testing.T, clock system.Clock) (*testStats, *ConcurrencyReporter) {
+func newTestStats(t *testing.T, clock system.Clock) (*testStats, *ConcurrencyReporter, context.Context, context.CancelFunc) {
 	reportBiChan := make(chan time.Time)
 	ts := &testStats{
 		reqChan:      make(chan ReqEvent),
@@ -253,6 +259,11 @@ func newTestStats(t *testing.T, clock system.Clock) (*testStats, *ConcurrencyRep
 		statChan:     make(chan *autoscaler.StatMessage, 20),
 		reportBiChan: reportBiChan,
 	}
-	cr := NewConcurrencyReporterWithClock(TestLogger(t), "activator", ts.reqChan, ts.reportChan, ts.statChan, revisionInformer(revision(testNamespace, testRevName)).Lister(), &fakeReporter{}, clock)
-	return ts, cr
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	revisions := revisionInformer(ctx, revision(testNamespace, testRevName))
+
+	cr := NewConcurrencyReporterWithClock(logging.FromContext(ctx), "activator",
+		ts.reqChan, ts.reportChan, ts.statChan,
+		revisions.Lister(), &fakeReporter{}, clock)
+	return ts, cr, ctx, cancel
 }
