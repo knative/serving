@@ -28,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
@@ -237,7 +238,7 @@ func (rt *revisionThrottler) updateThrottleState(throttler *Throttler, backendCo
 
 // This function will never be called in parallel but try can be called in parallel to this so we need
 // to lock on updating concurrency / trackers
-func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update RevisionDestsUpdate) {
+func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionDestsUpdate) {
 	rt.logger.Debugf("Handling update w/ %d ready and dests: %v", len(update.Dests), update.Dests)
 
 	// ClusterIP is not yet ready, so we want to send requests directly to the pods.
@@ -315,7 +316,7 @@ func NewThrottler(ctx context.Context,
 }
 
 // Run starts the throttler and blocks until updateCh is closed.
-func (t *Throttler) Run(updateCh <-chan RevisionDestsUpdate) {
+func (t *Throttler) Run(updateCh <-chan revisionDestsUpdate) {
 	for update := range updateCh {
 		t.handleUpdate(update)
 	}
@@ -379,7 +380,7 @@ func (t *Throttler) revisionDeleted(obj interface{}) {
 	delete(t.revisionThrottlers, revID)
 }
 
-func (t *Throttler) handleUpdate(update RevisionDestsUpdate) {
+func (t *Throttler) handleUpdate(update revisionDestsUpdate) {
 	if update.Deleted {
 		// Nothing to do as revisionDeleted is already called by DeleteFunc of Informer.
 		return
@@ -388,7 +389,8 @@ func (t *Throttler) handleUpdate(update RevisionDestsUpdate) {
 		if k8serrors.IsNotFound(err) {
 			t.logger.Debugf("Revision %q is not found. Probably it was removed", update.Rev.String())
 		} else {
-			t.logger.Errorw(fmt.Sprintf("Failed to get revision throttler for revision %q", update.Rev.String()),
+			t.logger.Errorw(
+				fmt.Sprintf("Failed to get revision throttler for revision %q", update.Rev.String()),
 				zap.Error(err))
 		}
 	} else {
@@ -523,4 +525,24 @@ func (ib *InfiniteBreaker) Maybe(ctx context.Context, thunk func()) error {
 		ib.logger.Infof("Context is closed: %v", ctx.Err())
 		return ctx.Err()
 	}
+}
+
+// SetCapacity is a test helper that sets Throttler in a desired
+// state for unit testing external components.
+// This permits us to hide behind the veneer the details of how Thorttler is updated.
+func (t *Throttler) SetCapacity(ns, n string, backends int, clusterIP string) {
+	upd := revisionDestsUpdate{
+		Rev:           types.NamespacedName{ns, n},
+		ClusterIPDest: clusterIP,
+		Dests:         dests(backends),
+	}
+	t.handleUpdate(upd)
+}
+
+func dests(count int) sets.String {
+	ret := sets.NewString()
+	for i := 1; i <= count; i++ {
+		ret.Insert(fmt.Sprintf("127.0.0.%v:1234", i))
+	}
+	return ret
 }

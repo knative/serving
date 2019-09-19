@@ -58,8 +58,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 
@@ -89,20 +87,17 @@ func TestActivationHandler(t *testing.T) {
 		tryTimeout    time.Duration
 		endpoints     *corev1.Endpoints
 		service       *corev1.Service
-		destsUpdate   activatornet.RevisionDestsUpdate
+		numBackends   int
 		reporterCalls []reporterCall
 	}{{
-		label:     "active endpoint",
-		namespace: testNamespace,
-		name:      testRevName,
-		wantBody:  wantBody,
-		wantCode:  http.StatusOK,
-		wantErr:   nil,
-		endpoints: endpoints(testNamespace, testRevName, 1000, networking.ServicePortNameHTTP1),
-		destsUpdate: activatornet.RevisionDestsUpdate{
-			Rev:   types.NamespacedName{testNamespace, testRevName},
-			Dests: dests(1000),
-		},
+		label:       "active endpoint",
+		namespace:   testNamespace,
+		name:        testRevName,
+		wantBody:    wantBody,
+		wantCode:    http.StatusOK,
+		wantErr:     nil,
+		endpoints:   endpoints(testNamespace, testRevName, 10, networking.ServicePortNameHTTP1),
+		numBackends: 5,
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
 			Namespace:  testNamespace,
@@ -115,31 +110,25 @@ func TestActivationHandler(t *testing.T) {
 		}},
 		tryTimeout: 100 * time.Millisecond,
 	}, {
-		label:     "no active endpoint",
-		namespace: "fake-namespace",
-		name:      "fake-name",
-		wantBody:  errMsg("revision.serving.knative.dev \"fake-name\" not found"),
-		wantCode:  http.StatusNotFound,
-		wantErr:   nil,
-		endpoints: endpoints(testNamespace, testRevName, 1000, networking.ServicePortNameHTTP1),
-		destsUpdate: activatornet.RevisionDestsUpdate{
-			Rev:   types.NamespacedName{"fake-namespace", testRevName},
-			Dests: sets.NewString(),
-		},
+		label:         "no active endpoint",
+		namespace:     "fake-namespace",
+		name:          "fake-name",
+		wantBody:      errMsg("revision.serving.knative.dev \"fake-name\" not found"),
+		wantCode:      http.StatusNotFound,
+		wantErr:       nil,
+		endpoints:     endpoints(testNamespace, testRevName, 0, networking.ServicePortNameHTTP1),
+		numBackends:   0,
 		reporterCalls: nil,
 		tryTimeout:    100 * time.Millisecond,
 	}, {
-		label:     "request error",
-		namespace: testNamespace,
-		name:      testRevName,
-		wantBody:  "request error\n",
-		wantCode:  http.StatusBadGateway,
-		wantErr:   errors.New("request error"),
-		endpoints: endpoints(testNamespace, testRevName, 1000, networking.ServicePortNameHTTP1),
-		destsUpdate: activatornet.RevisionDestsUpdate{
-			Rev:   types.NamespacedName{testNamespace, testRevName},
-			Dests: dests(1000),
-		},
+		label:       "request error",
+		namespace:   testNamespace,
+		name:        testRevName,
+		wantBody:    "request error\n",
+		wantCode:    http.StatusBadGateway,
+		wantErr:     errors.New("request error"),
+		endpoints:   endpoints(testNamespace, testRevName, 10, networking.ServicePortNameHTTP1),
+		numBackends: 10,
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
 			Namespace:  testNamespace,
@@ -157,7 +146,7 @@ func TestActivationHandler(t *testing.T) {
 		wantBody:      context.DeadlineExceeded.Error() + "\n",
 		wantCode:      http.StatusServiceUnavailable,
 		wantErr:       nil,
-		endpoints:     endpoints("bogus-namespace", testRevName, 1000, networking.ServicePortNameHTTP1),
+		endpoints:     endpoints("bogus-namespace", testRevName, 10, networking.ServicePortNameHTTP1),
 		service:       service("bogus-namespace", testRevName, "http"),
 		reporterCalls: nil,
 	}}
@@ -190,8 +179,8 @@ func TestActivationHandler(t *testing.T) {
 				cancel()
 				ClearAll()
 			}()
-			revisions := revisionInformer(ctx, revision(testNamespace, testRevName))
-			endpoints := endpointsInformer(ctx, test.endpoints)
+			revisionInformer(ctx, revision(testNamespace, testRevName))
+			endpointsInformer(ctx, test.endpoints)
 
 			svc := test.service
 			if svc == nil {
@@ -201,14 +190,7 @@ func TestActivationHandler(t *testing.T) {
 			sksLister(ctx, sks(testNamespace, testRevName))
 
 			throttler := activatornet.NewThrottler(ctx, params)
-
-			rbmUpdateCh := make(chan activatornet.RevisionDestsUpdate)
-			defer close(rbmUpdateCh)
-			go throttler.Run(rbmUpdateCh)
-
-			rbmUpdateCh <- test.destsUpdate
-
-			controller.StartInformers(ctx.Done(), revisions.Informer(), endpoints.Informer())
+			throttler.SetCapacity(testNamespace, testRevName, test.numBackends, "" /*clusterIP*/)
 
 			handler := (New(ctx, throttler, reporter)).(*activationHandler)
 
@@ -264,7 +246,6 @@ func TestActivationHandler(t *testing.T) {
 
 func TestActivationHandlerProxyHeader(t *testing.T) {
 	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
-	namespace, revName := testNamespace, testRevName
 
 	interceptCh := make(chan *http.Request, 1)
 	rt := network.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
@@ -273,37 +254,28 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 		return fake.Result(), nil
 	})
 
-	updateCh := make(chan activatornet.RevisionDestsUpdate)
-	defer close(updateCh)
-
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer func() {
 		cancel()
 		ClearAll()
 	}()
 	endpoints := endpointsInformer(ctx,
-		endpoints(namespace, revName, breakerParams.InitialCapacity, networking.ServicePortNameHTTP1))
-	revisionInformer(ctx, revision(namespace, revName))
+		endpoints(testNamespace, testRevName, breakerParams.InitialCapacity, networking.ServicePortNameHTTP1))
+	revisionInformer(ctx, revision(testNamespace, testRevName))
 	serviceLister(ctx, service(testNamespace, testRevName, networking.ServicePortNameHTTP1))
 	sksLister(ctx, sks(testNamespace, testRevName))
 	controller.StartInformers(ctx.Done(), endpoints.Informer())
 
 	throttler := activatornet.NewThrottler(ctx, breakerParams)
-	go throttler.Run(updateCh)
-
-	updateCh <- activatornet.RevisionDestsUpdate{
-		Rev:           types.NamespacedName{namespace, revName},
-		ClusterIPDest: "129.0.0.1:1234",
-		Dests:         dests(breakerParams.InitialCapacity),
-	}
+	throttler.SetCapacity(testNamespace, testRevName, 5, "129.0.0.1:2112")
 
 	handler := (New(ctx, throttler, &fakeReporter{})).(*activationHandler)
 	handler.transport = rt
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
-	req.Header.Set(activator.RevisionHeaderNamespace, namespace)
-	req.Header.Set(activator.RevisionHeaderName, revName)
+	req.Header.Set(activator.RevisionHeaderNamespace, testNamespace)
+	req.Header.Set(activator.RevisionHeaderName, testRevName)
 
 	// Set up config store to populate context.
 	configStore := setupConfigStore(t)
@@ -371,20 +343,12 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 			endpoints := endpointsInformer(ctx,
 				endpoints(testNamespace, testRevName,
 					breakerParams.InitialCapacity, networking.ServicePortNameHTTP1))
-			updateCh := make(chan activatornet.RevisionDestsUpdate)
-			defer close(updateCh)
 
 			controller.StartInformers(ctx.Done(), revisions.Informer(), endpoints.Informer())
-
 			throttler := activatornet.NewThrottler(ctx, breakerParams)
 
-			go throttler.Run(updateCh)
-
-			updateCh <- activatornet.RevisionDestsUpdate{
-				Rev:           types.NamespacedName{testNamespace, testRevName},
-				ClusterIPDest: "129.0.0.1:1234",
-				Dests:         dests(breakerParams.InitialCapacity),
-			}
+			throttler.SetCapacity(testNamespace, testRevName,
+				breakerParams.InitialCapacity, "129.0.0.1:1234")
 
 			serviceLister(ctx, service(testNamespace, testRevName, "http"))
 			sksLister(ctx, sks(testNamespace, testRevName))
@@ -580,14 +544,6 @@ func sksLister(ctx context.Context, skss ...*nv1a1.ServerlessService) netlisters
 	}
 
 	return services.Lister()
-}
-
-func dests(count int) sets.String {
-	ret := sets.NewString()
-	for i := 1; i <= count; i++ {
-		ret.Insert(fmt.Sprintf("127.0.0.%v:1234", i))
-	}
-	return ret
 }
 
 func endpoints(namespace, name string, count int, portName string) *corev1.Endpoints {
