@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2019 The Knative Authors
 #
@@ -226,7 +226,7 @@ function create_test_cluster() {
   local test_wrapper="${kubedir}/e2e-test.sh"
   mkdir ${kubedir}/cluster
   ln -s "$(which kubectl)" ${kubedir}/cluster/kubectl.sh
-  echo "#!/bin/bash" > ${test_wrapper}
+  echo "#!/usr/bin/env bash" > ${test_wrapper}
   echo "cd $(pwd) && set -x" >> ${test_wrapper}
   echo "${E2E_SCRIPT} ${test_cmd_args}" >> ${test_wrapper}
   chmod +x ${test_wrapper}

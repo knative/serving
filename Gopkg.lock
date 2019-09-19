@@ -1649,7 +1649,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:05ff542194cea2600f57e68a032cdd0f471ba11b48f95d5de54a52f63a4d2a09"
+  digest = "1:40bc98faaf4e29673da841dfc4d4a5740ceb8c225576b91438472c8542af0849"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1738,6 +1738,7 @@
     "test/logging",
     "test/logstream",
     "test/mako",
+    "test/mako/config",
     "test/monitoring",
     "test/prometheus",
     "test/spoof",
@@ -1757,11 +1758,11 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "e4ac97c25251614f10913e68ca9ab25050d02ded"
+  revision = "1fb9a433083f3e74ff9de88a5ff6bd37ab7bd709"
 
 [[projects]]
   branch = "master"
-  digest = "1:c4a18b18fa3646930c2efaab99d00f9bfd790b95d9c3f9440fc91547bce811a9"
+  digest = "1:72fc7b87de413bd136464d50fd5b5210f7910ed5aa43d41e71beb1f6eb8dce81"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1774,7 +1775,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "4adb699576a34afae2e163f0ad5a0d2db0b30a5b"
+  revision = "eab25edcb2c13ed4eaa76f8cdd9fb5e13b26797e"
 
 [[projects]]
   digest = "1:fef5992ddf85e9ccad899b11338339858936a10fbce96b9d5c43767669d95398"
