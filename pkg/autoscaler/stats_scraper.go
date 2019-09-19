@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -93,24 +92,22 @@ type ServiceScraper struct {
 	namespace string
 	metricKey types.NamespacedName
 	url       string
-	logger    *zap.SugaredLogger
 }
 
 // NewServiceScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
-func NewServiceScraper(metric *av1alpha1.Metric, counter resources.ReadyPodCounter, logger *zap.SugaredLogger) (*ServiceScraper, error) {
+func NewServiceScraper(metric *av1alpha1.Metric, counter resources.ReadyPodCounter) (*ServiceScraper, error) {
 	sClient, err := newHTTPScrapeClient(cacheDisabledClient)
 	if err != nil {
 		return nil, err
 	}
-	return newServiceScraperWithClient(metric, counter, sClient, logger)
+	return newServiceScraperWithClient(metric, counter, sClient)
 }
 
 func newServiceScraperWithClient(
 	metric *av1alpha1.Metric,
 	counter resources.ReadyPodCounter,
-	sClient scrapeClient,
-	logger *zap.SugaredLogger) (*ServiceScraper, error) {
+	sClient scrapeClient) (*ServiceScraper, error) {
 	if metric == nil {
 		return nil, errors.New("metric must not be nil")
 	}
@@ -131,7 +128,6 @@ func newServiceScraperWithClient(
 		url:       urlFromTarget(metric.Spec.ScrapeTarget, metric.ObjectMeta.Namespace),
 		metricKey: types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name},
 		namespace: metric.Namespace,
-		logger:    logger,
 	}, nil
 }
 
@@ -146,7 +142,6 @@ func urlFromTarget(t, ns string) string {
 func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 	readyPodsCount, err := s.counter.ReadyCount()
 	if err != nil {
-		s.logger.Errorw(ErrFailedGetEndpoints.Error(), zap.Error(err))
 		return nil, ErrFailedGetEndpoints
 	}
 
@@ -178,8 +173,7 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 
 	// Return the inner error, if any.
 	if err := grp.Wait(); err != nil {
-		s.logger.Errorw("unsuccessful scrape, sampleSize="+strconv.Itoa(sampleSize), zap.Error(err))
-		return nil, err
+		return nil, errors.Wrap(err, "unsuccessful scrape, sampleSize="+strconv.Itoa(sampleSize))
 	}
 	close(statCh)
 
