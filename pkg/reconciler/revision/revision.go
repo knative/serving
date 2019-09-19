@@ -152,7 +152,6 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1alpha1.Revision
 }
 
 func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) error {
-	logger := commonlogging.FromContext(ctx)
 	if rev.GetDeletionTimestamp() != nil {
 		return nil
 	}
@@ -194,7 +193,6 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 
 	for _, phase := range phases {
 		if err := phase.f(ctx, rev); err != nil {
-			logger.Errorw("Failed to reconcile", zap.String("phase", phase.name), zap.Error(err))
 			return err
 		}
 	}
