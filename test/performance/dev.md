@@ -11,8 +11,15 @@ GKE.
 
 ## Steps
 
+Take `dataplane-probe` benchmark for example:
+
 1. Apply
    [mako config](https://raw.githubusercontent.com/knative/serving/master/test/performance/config/config-mako.yaml)
+
+   ```shell
+   kubectl apply -f test/performance/config/config-mako.yaml
+   ```
+
 1. Create an IAM service account:
 
    ```shell
@@ -22,7 +29,7 @@ GKE.
 1. Add the IAM service account
    [here](https://github.com/knative/serving/blob/47a3a2480d58ffcc1d3fd9998849fda359ab91ff/test/performance/dataplane-probe/dev.config#L19)
    (A current owner must apply this before things will work and the SA must be
-   whitelisted):
+   whitelisted) then run:
 
    ```shell
    mako update_benchmark test/performance/dataplane-probe/dev.config
@@ -31,7 +38,8 @@ GKE.
 1. Create a JSON key for it.
 
    ```shell
-   gcloud iam service-accounts keys create robot.json  --iam-account=mako-upload@${PROJECT_ID}.iam.gserviceaccount.com
+   gcloud iam service-accounts keys create robot.json \
+     --iam-account=mako-upload@${PROJECT_ID}.iam.gserviceaccount.com
    ```
 
 1. Create a secret with it:
@@ -40,10 +48,21 @@ GKE.
    kubectl create secret generic service-account --from-file=./robot.json
    ```
 
-1. Patch istio like
-   [here](https://github.com/knative/serving/blob/47a3a2480d58ffcc1d3fd9998849fda359ab91ff/test/performance/tools/common.sh#L113-L116)
-1. Patch knative like
-   [here](https://github.com/knative/serving/blob/47a3a2480d58ffcc1d3fd9998849fda359ab91ff/test/performance/tools/common.sh#L132-L133)
+1. Patch istio:
+
+   ```shell
+   kubectl patch hpa -n istio-system istio-ingressgateway \
+     --patch '{"spec": {"minReplicas": 10, "maxReplicas": 10}}'
+   kubectl patch deploy -n istio-system cluster-local-gateway \
+     --patch '{"spec": {"replicas": 10}}'
+   ```
+
+1. Patch knative:
+
+   ```shell
+   kubectl patch hpa -n knative-serving activator --patch '{"spec": {"minReplicas": 10}}'
+   ```
+
 1. Apply `setup` for benchmark:
 
    ```shell
@@ -51,12 +70,13 @@ GKE.
    ```
 
 1. Wait for above to stabilize
+
 1. Attach your desired tags to the runs by editing the config map, see the
    `_example` stanza for how.
 
-```shell
-kubectl edit cm config-mako
-```
+    ```shell
+    kubectl edit cm config-mako
+    ```
 
 1. Apply the benchmark cron:
 
