@@ -40,7 +40,7 @@ data:
     accessLogFormat: ""
 
     # Set accessLogEncoding to JSON or TEXT to configure sidecar access log
-    accessLogEncoding: 'TEXT'
+    accessLogEncoding: 'JSON'
     # Let Pilot give ingresses the public IP of the Istio ingressgateway
     ingressService: istio-ingressgateway
 
@@ -48,7 +48,7 @@ data:
     connectTimeout: 10s
 
     # DNS refresh rate for Envoy clusters of type STRICT_DNS
-    dnsRefreshRate: 5s
+    dnsRefreshRate: 300s
 
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
     # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
@@ -194,38 +194,6 @@ metadata:
   namespace: istio-system
 
 ---
-# Source: istio/charts/gateways/templates/clusterrole.yaml
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: cluster-local-gateway-istio-system
-  labels:
-    app: cluster-local-gateway
-    chart: gateways
-    heritage: Tiller
-    release: release-name
-rules:
-- apiGroups: ["networking.istio.io"]
-  resources: ["virtualservices", "destinationrules", "gateways"]
-  verbs: ["get", "watch", "list", "update"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-ingressgateway-istio-system
-  labels:
-    app: ingressgateway
-    chart: gateways
-    heritage: Tiller
-    release: release-name
-rules:
-- apiGroups: ["networking.istio.io"]
-  resources: ["virtualservices", "destinationrules", "gateways"]
-  verbs: ["get", "watch", "list", "update"]
----
-
----
 # Source: istio/charts/pilot/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -277,46 +245,6 @@ rules:
     verbs: ["get", "list", "watch"]
 
 ---
-# Source: istio/charts/gateways/templates/clusterrolebindings.yaml
-
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: cluster-local-gateway-istio-system
-  labels:
-    app: cluster-local-gateway
-    chart: gateways
-    heritage: Tiller
-    release: release-name
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cluster-local-gateway-istio-system
-subjects:
-- kind: ServiceAccount
-  name: cluster-local-gateway-service-account
-  namespace: istio-system
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-ingressgateway-istio-system
-  labels:
-    app: ingressgateway
-    chart: gateways
-    heritage: Tiller
-    release: release-name
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-ingressgateway-istio-system
-subjects:
-- kind: ServiceAccount
-  name: istio-ingressgateway-service-account
-  namespace: istio-system
----
-
----
 # Source: istio/charts/pilot/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -343,7 +271,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-multi
   labels:
-    chart: istio-1.1.13
+    chart: istio-1.2.6
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -475,7 +403,7 @@ spec:
 ---
 # Source: istio/charts/gateways/templates/deployment.yaml
 
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cluster-local-gateway
@@ -488,6 +416,10 @@ metadata:
     istio: cluster-local-gateway
 spec:
   replicas: 2
+  selector:
+    matchLabels:
+      app: cluster-local-gateway
+      istio: cluster-local-gateway
   template:
     metadata:
       labels:
@@ -502,7 +434,7 @@ spec:
       serviceAccountName: cluster-local-gateway-service-account
       containers:
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.1.13"
+          image: "docker.io/istio/proxyv2:1.2.6"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 15020
@@ -551,6 +483,11 @@ spec:
               memory: 1024Mi
 
           env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
           - name: POD_NAME
             valueFrom:
               fieldRef:
@@ -637,7 +574,7 @@ spec:
                 values:
                 - s390x
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-ingressgateway
@@ -649,6 +586,10 @@ metadata:
     app: istio-ingressgateway
     istio: ingressgateway
 spec:
+  selector:
+    matchLabels:
+      app: istio-ingressgateway
+      istio: ingressgateway
   template:
     metadata:
       labels:
@@ -663,7 +604,7 @@ spec:
       serviceAccountName: istio-ingressgateway-service-account
       containers:
         - name: ingress-sds
-          image: "docker.io/istio/node-agent-k8s:1.1.13"
+          image: "docker.io/istio/node-agent-k8s:1.2.6"
           imagePullPolicy: IfNotPresent
           resources:
             limits:
@@ -687,7 +628,7 @@ spec:
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.1.13"
+          image: "docker.io/istio/proxyv2:1.2.6"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 15020
@@ -739,6 +680,11 @@ spec:
               memory: 1024Mi
 
           env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
           - name: POD_NAME
             valueFrom:
               fieldRef:
@@ -836,7 +782,7 @@ spec:
 
 ---
 # Source: istio/charts/pilot/templates/deployment.yaml
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-pilot
@@ -872,7 +818,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
         - name: discovery
-          image: "docker.io/istio/pilot:1.1.13"
+          image: "docker.io/istio/pilot:1.2.6"
           imagePullPolicy: IfNotPresent
           args:
           - "discovery"
@@ -976,15 +922,16 @@ metadata:
   name: istio-ingressgateway
   namespace: istio-system
   labels:
-    app: ingressgateway
     chart: gateways
     heritage: Tiller
     release: release-name
+    app: istio-ingressgateway
+    istio: ingressgateway
 spec:
-  maxReplicas: 4
+  maxReplicas: 5
   minReplicas: 2
   scaleTargetRef:
-    apiVersion: apps/v1beta1
+    apiVersion: apps/v1
     kind: Deployment
     name: istio-ingressgateway
   metrics:
@@ -1011,7 +958,7 @@ spec:
   maxReplicas: 5
   minReplicas: 1
   scaleTargetRef:
-    apiVersion: apps/v1beta1
+    apiVersion: apps/v1
     kind: Deployment
     name: istio-pilot
   metrics:

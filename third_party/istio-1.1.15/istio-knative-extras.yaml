@@ -23,6 +23,24 @@ metadata:
   namespace: istio-system
 
 ---
+# Source: istio/charts/gateways/templates/clusterrole.yaml
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cluster-local-gateway-istio-system
+  labels:
+    app: cluster-local-gateway
+    chart: gateways
+    heritage: Tiller
+    release: release-name
+rules:
+- apiGroups: ["networking.istio.io"]
+  resources: ["virtualservices", "destinationrules", "gateways"]
+  verbs: ["get", "watch", "list", "update"]
+---
+
+---
 # Source: istio/templates/clusterrole.yaml
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
@@ -37,13 +55,35 @@ rules:
     verbs: ["get", "list", "watch"]
 
 ---
+# Source: istio/charts/gateways/templates/clusterrolebindings.yaml
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cluster-local-gateway-istio-system
+  labels:
+    app: cluster-local-gateway
+    chart: gateways
+    heritage: Tiller
+    release: release-name
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-local-gateway-istio-system
+subjects:
+- kind: ServiceAccount
+  name: cluster-local-gateway-service-account
+  namespace: istio-system
+---
+
+---
 # Source: istio/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: istio-multi
   labels:
-    chart: istio-1.2.4
+    chart: istio-1.1.15
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -89,7 +129,7 @@ spec:
 ---
 # Source: istio/charts/gateways/templates/deployment.yaml
 
-apiVersion: apps/v1
+apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: cluster-local-gateway
@@ -102,10 +142,6 @@ metadata:
     istio: cluster-local-gateway
 spec:
   replicas: 1
-  selector:
-    matchLabels:
-      app: cluster-local-gateway
-      istio: cluster-local-gateway
   template:
     metadata:
       labels:
@@ -120,7 +156,7 @@ spec:
       serviceAccountName: cluster-local-gateway-service-account
       containers:
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.2.4"
+          image: "docker.io/istio/proxyv2:1.1.15"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 15020
@@ -168,11 +204,6 @@ spec:
               cpu: 10m
 
           env:
-          - name: NODE_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: spec.nodeName
           - name: POD_NAME
             valueFrom:
               fieldRef:
