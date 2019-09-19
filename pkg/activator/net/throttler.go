@@ -292,7 +292,8 @@ func NewThrottler(ctx context.Context,
 	// Watch revisions to create throttler with backlog immediately and delete
 	// throttlers on revision delete
 	revisionInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: t.revisionUpdated, UpdateFunc: controller.PassNew(t.revisionUpdated),
+		AddFunc:    t.revisionUpdated,
+		UpdateFunc: controller.PassNew(t.revisionUpdated),
 		DeleteFunc: t.revisionDeleted,
 	})
 
