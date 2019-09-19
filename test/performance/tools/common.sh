@@ -31,29 +31,21 @@ function abort() {
   exit 1
 }
 
-# Waits until the given object doesn't exist.
-# Parameters: $1 - the kind of the object.
-#             $2 - object's name.
-#             $3 - namespace (optional).
-function wait_until_object_does_not_exist() {
-  local KUBECTL_ARGS="get $1 $2"
-  local DESCRIPTION="$1 $2"
+# Waits until the given namespace doesn't exist.
+# Parameters: $1 - object's name.
+function wait_until_namespace_does_not_exist() {
+  local KUBECTL_ARGS="get namespaces $1"
 
-  if [[ -n $3 ]]; then
-    KUBECTL_ARGS="get -n $3 $1 $2"
-    DESCRIPTION="$1 $3/$2"
-  fi
-  echo -n "Waiting until ${DESCRIPTION} does not exist"
+  echo -n "Waiting until namespace $1 does not exist"
   for i in {1..150}; do  # timeout after 5 minutes
     if ! kubectl ${KUBECTL_ARGS} > /dev/null 2>&1; then
-      echo -e "\n${DESCRIPTION} does not exist"
+      echo -e "\nnamespace $1 does not exist"
       return 0
     fi
     echo -n "."
     sleep 2
   done
-  echo -e "\n\nERROR: timeout waiting for ${DESCRIPTION} not to exist"
-  kubectl ${KUBECTL_ARGS}
+  echo -e "\n\nERROR: timeout waiting for namespace $1 not to exist"
   return 1
 }
 
@@ -124,7 +116,7 @@ function update_cluster() {
   echo ">> Update istio"
   kubectl delete -f serving/third_party/$istio_version/istio-crds.yaml --ignore-not-found --timeout 100s
   kubectl delete -f serving/third_party/$istio_version/istio-lean.yaml --ignore-not-found --timeout 100s
-  wait_until_object_does_not_exist namespaces istio-system 
+  wait_until_namespace_does_not_exist istio-system 
   kubectl apply -f serving/third_party/$istio_version/istio-crds.yaml || abort "Failed to apply istio-crds"
   kubectl apply -f serving/third_party/$istio_version/istio-lean.yaml || abort "Failed to apply istio-lean"
 
@@ -137,7 +129,7 @@ function update_cluster() {
   echo ">> Updating serving"
   ko delete -f serving/config/ --ignore-not-found --timeout 100s
   ko delete -f serving/config/v1 --ignore-not-found --timeout 100s
-  wait_until_object_does_not_exist namespaces knative-serving
+  wait_until_namespace_does_not_exist knative-serving
   # Retry installation for at most two times as there can sometime be a race condition when applying serving CRDs
   local n=0
   until [ $n -ge 2 ]
