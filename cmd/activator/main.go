@@ -30,7 +30,6 @@ import (
 
 	// Injection related imports.
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/injection"
 	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
@@ -144,10 +143,10 @@ func main() {
 	}
 	logger, atomicLevel := pkglogging.NewLoggerFromConfig(loggingConfig, component)
 	logger = logger.With(zap.String(logkey.ControllerType, component))
+	ctx = pkglogging.WithLogger(ctx, logger)
 	defer flush(logger)
 
 	kubeClient := kubeclient.Get(ctx)
-	endpointInformer := endpointsinformer.Get(ctx)
 	serviceInformer := serviceinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
 	sksInformer := sksinformer.Get(ctx)
@@ -183,10 +182,10 @@ func main() {
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
 
 	// Start revision backends manager
-	rbm := activatornet.NewRevisionBackendsManager(ctx, network.AutoTransport, logger)
+	rbm := activatornet.NewRevisionBackendsManager(ctx, network.AutoTransport)
 
 	// Start throttler
-	throttler := activatornet.NewThrottler(params, revisionInformer, endpointInformer, logger)
+	throttler := activatornet.NewThrottler(ctx, params)
 	go throttler.Run(rbm.UpdateCh())
 
 	oct := tracing.NewOpenCensusTracer(tracing.WithExporter(networking.ActivatorServiceName, logger))

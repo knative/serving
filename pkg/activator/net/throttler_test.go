@@ -27,17 +27,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	kubeinformers "k8s.io/client-go/informers"
-	kubefake "k8s.io/client-go/kubernetes/fake"
 
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
+	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	"knative.dev/pkg/controller"
 	. "knative.dev/pkg/logging/testing"
+	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	servingfake "knative.dev/serving/pkg/client/clientset/versioned/fake"
-	servinginformers "knative.dev/serving/pkg/client/informers/externalversions"
+	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
+	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 	"knative.dev/serving/pkg/queue"
 )
 
@@ -49,7 +51,6 @@ type tryResult struct {
 }
 
 func TestThrottlerWithError(t *testing.T) {
-	defer ClearAll()
 	for _, tc := range []struct {
 		name        string
 		revisions   []*v1alpha1.Revision
@@ -95,6 +96,11 @@ func TestThrottlerWithError(t *testing.T) {
 		},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+			defer func() {
+				cancel()
+				ClearAll()
+			}()
 			updateCh := make(chan RevisionDestsUpdate, 2)
 
 			params := queue.BreakerParams{
@@ -103,17 +109,11 @@ func TestThrottlerWithError(t *testing.T) {
 				InitialCapacity: 0,
 			}
 
-			fake := kubefake.NewSimpleClientset()
-			informer := kubeinformers.NewSharedInformerFactory(fake, 0)
-			endpoints := informer.Core().V1().Endpoints()
+			endpoints := fakeendpointsinformer.Get(ctx)
 
-			servfake := servingfake.NewSimpleClientset()
-			servinginformer := servinginformers.NewSharedInformerFactory(servfake, 0)
-			revisions := servinginformer.Serving().V1alpha1().Revisions()
-
-			stopCh := make(chan struct{})
-			defer close(stopCh)
-			controller.StartInformers(stopCh, endpoints.Informer(), revisions.Informer())
+			servfake := fakeservingclient.Get(ctx)
+			revisions := fakerevisioninformer.Get(ctx)
+			controller.StartInformers(ctx.Done(), endpoints.Informer(), revisions.Informer())
 
 			// Add the revision were testing
 			for _, rev := range tc.revisions {
@@ -121,7 +121,7 @@ func TestThrottlerWithError(t *testing.T) {
 				revisions.Informer().GetIndexer().Add(rev)
 			}
 
-			throttler := NewThrottler(params, revisions, endpoints, TestLogger(t))
+			throttler := NewThrottler(ctx, params)
 			for _, update := range tc.initUpdates {
 				updateCh <- update
 			}
@@ -160,7 +160,6 @@ func TestThrottlerWithError(t *testing.T) {
 }
 
 func TestThrottlerSuccesses(t *testing.T) {
-	defer ClearAll()
 	for _, tc := range []struct {
 		name        string
 		revisions   []*v1alpha1.Revision
@@ -229,6 +228,11 @@ func TestThrottlerSuccesses(t *testing.T) {
 		wantDests: sets.NewString("129.0.0.1:1234"),
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+			defer func() {
+				cancel()
+				ClearAll()
+			}()
 			updateCh := make(chan RevisionDestsUpdate, 2)
 
 			params := queue.BreakerParams{
@@ -237,17 +241,11 @@ func TestThrottlerSuccesses(t *testing.T) {
 				InitialCapacity: 0,
 			}
 
-			fake := kubefake.NewSimpleClientset()
-			informer := kubeinformers.NewSharedInformerFactory(fake, 0)
-			endpoints := informer.Core().V1().Endpoints()
+			endpoints := fakeendpointsinformer.Get(ctx)
+			servfake := fakeservingclient.Get(ctx)
+			revisions := fakerevisioninformer.Get(ctx)
 
-			servfake := servingfake.NewSimpleClientset()
-			servinginformer := servinginformers.NewSharedInformerFactory(servfake, 0)
-			revisions := servinginformer.Serving().V1alpha1().Revisions()
-
-			stopCh := make(chan struct{})
-			defer close(stopCh)
-			controller.StartInformers(stopCh, endpoints.Informer(), revisions.Informer())
+			controller.StartInformers(ctx.Done(), endpoints.Informer(), revisions.Informer())
 
 			// Add the revision were testing
 			for _, rev := range tc.revisions {
@@ -255,7 +253,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 				revisions.Informer().GetIndexer().Add(rev)
 			}
 
-			throttler := NewThrottler(params, revisions, endpoints, TestLogger(t))
+			throttler := NewThrottler(ctx, params)
 			for _, update := range tc.initUpdates {
 				updateCh <- update
 			}
@@ -298,18 +296,18 @@ func TestThrottlerSuccesses(t *testing.T) {
 }
 
 func TestMultipleActivator(t *testing.T) {
-	defer ClearAll()
-	fake := kubefake.NewSimpleClientset()
-	informer := kubeinformers.NewSharedInformerFactory(fake, 0)
-	endpoints := informer.Core().V1().Endpoints()
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	defer func() {
+		cancel()
+		ClearAll()
+	}()
 
-	servfake := servingfake.NewSimpleClientset()
-	servinginformer := servinginformers.NewSharedInformerFactory(servfake, 0)
-	revisions := servinginformer.Serving().V1alpha1().Revisions()
+	fake := fakekubeclient.Get(ctx)
+	endpoints := fakeendpointsinformer.Get(ctx)
+	servfake := fakeservingclient.Get(ctx)
+	revisions := revisioninformer.Get(ctx)
 
-	stopCh := make(chan struct{})
-	defer close(stopCh)
-	controller.StartInformers(stopCh, endpoints.Informer(), revisions.Informer())
+	controller.StartInformers(ctx.Done(), endpoints.Informer(), revisions.Informer())
 
 	rev := revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1)
 	// Add the revision were testing
@@ -322,7 +320,7 @@ func TestMultipleActivator(t *testing.T) {
 		InitialCapacity: 0,
 	}
 
-	throttler := NewThrottler(params, revisions, endpoints, TestLogger(t))
+	throttler := NewThrottler(ctx, params)
 
 	revID := types.NamespacedName{testNamespace, testRevision}
 	possibleDests := sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234")
@@ -334,7 +332,7 @@ func TestMultipleActivator(t *testing.T) {
 	close(updateCh)
 	throttler.Run(updateCh)
 
-	// Add activator endpoint with 2 activators
+	// Add activator endpoint with 2 activators.
 	activatorEp := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      networking.ActivatorServiceName,
@@ -345,10 +343,10 @@ func TestMultipleActivator(t *testing.T) {
 	fake.CoreV1().Endpoints(system.Namespace()).Create(activatorEp)
 	endpoints.Informer().GetIndexer().Add(activatorEp)
 
-	// Make sure our informer event has fired
+	// Make sure our informer event has fired.
 	time.Sleep(200 * time.Millisecond)
 
-	// Test with 2 activators, 3 endpoints we can send 1 request
+	// Test with 2 activators, 3 endpoints we can send 1 request.
 	func() {
 		var cancel context.CancelFunc
 		tryContext, cancel := context.WithTimeout(context.TODO(), 100*time.Millisecond)
