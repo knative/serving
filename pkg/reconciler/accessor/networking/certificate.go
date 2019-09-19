@@ -20,14 +20,13 @@ import (
 	"context"
 	"fmt"
 
-	"go.uber.org/zap"
+	perrors "github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
@@ -44,7 +43,6 @@ type CertificateAccessor interface {
 func ReconcileCertificate(ctx context.Context, owner kmeta.Accessor, desired *v1alpha1.Certificate,
 	certAccessor CertificateAccessor) (*v1alpha1.Certificate, error) {
 
-	logger := logging.FromContext(ctx)
 	recorder := controller.GetEventRecorder(ctx)
 	if recorder == nil {
 		return nil, fmt.Errorf("recoder for reconciling Certificate %s/%s is not created", desired.Namespace, desired.Name)
@@ -53,15 +51,14 @@ func ReconcileCertificate(ctx context.Context, owner kmeta.Accessor, desired *v1
 	if apierrs.IsNotFound(err) {
 		cert, err = certAccessor.GetServingClient().NetworkingV1alpha1().Certificates(desired.Namespace).Create(desired)
 		if err != nil {
-			logger.Errorw("Failed to create Certificate", zap.Error(err))
 			recorder.Eventf(owner, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create Certificate %s/%s: %v", desired.Namespace, desired.Name, err)
-			return nil, err
+			return nil, perrors.Wrap(err, "failed to create Certificate")
 		}
 		recorder.Eventf(owner, corev1.EventTypeNormal, "Created", "Created Certificate %s/%s", cert.Namespace, cert.Name)
 		return cert, nil
 	} else if err != nil {
-		return nil, err
+		return nil, perrors.Wrap(err, "failed to get Certificate")
 	} else if !metav1.IsControlledBy(cert, owner) {
 		// Return an error with NotControlledBy information.
 		return nil, kaccessor.NewAccessorError(
@@ -75,7 +72,7 @@ func ReconcileCertificate(ctx context.Context, owner kmeta.Accessor, desired *v1
 		if err != nil {
 			recorder.Eventf(owner, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update Certificate %s/%s: %v", existing.Namespace, existing.Name, err)
-			return nil, err
+			return nil, perrors.Wrap(err, "failed to update Certificate")
 		}
 		recorder.Eventf(owner, corev1.EventTypeNormal, "Updated",
 			"Updated Spec for Certificate %s/%s", existing.Namespace, existing.Name)
