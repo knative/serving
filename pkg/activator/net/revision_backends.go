@@ -39,6 +39,7 @@ import (
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
@@ -322,13 +323,13 @@ type RevisionBackendsManager struct {
 
 // NewRevisionBackendsManager returns a new RevisionBackendsManager with default
 // probe time out.
-func NewRevisionBackendsManager(ctx context.Context, tr http.RoundTripper, logger *zap.SugaredLogger) *RevisionBackendsManager {
-	return NewRevisionBackendsManagerWithProbeFrequency(ctx, tr, logger, probeFrequency)
+func NewRevisionBackendsManager(ctx context.Context, tr http.RoundTripper) *RevisionBackendsManager {
+	return NewRevisionBackendsManagerWithProbeFrequency(ctx, tr, probeFrequency)
 }
 
 // NewRevisionBackendsManagerWithProbeFrequency creates a fully spec'd RevisionBackendsManager.
 func NewRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.RoundTripper,
-	logger *zap.SugaredLogger, probeFreq time.Duration) *RevisionBackendsManager {
+	probeFreq time.Duration) *RevisionBackendsManager {
 	rbm := &RevisionBackendsManager{
 		doneCh:           ctx.Done(),
 		revisionLister:   revisioninformer.Get(ctx).Lister(),
@@ -336,7 +337,7 @@ func NewRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.R
 		revisionWatchers: make(map[types.NamespacedName]*revisionWatcherCh),
 		updateCh:         make(chan RevisionDestsUpdate),
 		transport:        tr,
-		logger:           logger,
+		logger:           logging.FromContext(ctx),
 		probeFrequency:   probeFrequency,
 	}
 	endpointsInformer := endpointsinformer.Get(ctx)

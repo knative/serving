@@ -421,7 +421,6 @@ func ep(revL string, port int32, portName string, ips ...string) *corev1.Endpoin
 }
 
 func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
-	logger := TestLogger(t)
 	defer ClearAll()
 	// Make sure we wait out all the jitter in the system.
 	defer time.Sleep(informerRestPeriod)
@@ -603,7 +602,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 
 			controller.StartInformers(ctx.Done(), endpointsInformer.Informer())
 
-			rbm := NewRevisionBackendsManagerWithProbeFrequency(ctx, rt, logger, 50*time.Millisecond)
+			rbm := NewRevisionBackendsManagerWithProbeFrequency(ctx, rt, 50*time.Millisecond)
 
 			for _, ep := range tc.endpointsArr {
 				fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
@@ -842,8 +841,7 @@ func TestRevisionDeleted(t *testing.T) {
 
 	rbm := NewRevisionBackendsManager(
 		ctx,
-		rt,
-		TestLogger(t))
+		rt)
 	// Make some movements.
 	ei.Informer().GetIndexer().Add(ep)
 	select {
