@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: serving.knative.dev/v1beta1
+apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
   name: load-test-always
@@ -26,7 +26,7 @@ spec:
       containers:
       - image: knative.dev/serving/test/test_images/autoscale
 ---
-apiVersion: serving.knative.dev/v1beta1
+apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
   name: load-test-zero
@@ -40,7 +40,7 @@ spec:
       containers:
       - image: knative.dev/serving/test/test_images/autoscale
 ---
-apiVersion: serving.knative.dev/v1beta1
+apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
   name: load-test-200
