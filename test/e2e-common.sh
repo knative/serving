@@ -36,8 +36,6 @@ INSTALL_MONITORING_YAML=""
 
 INSTALL_MONITORING=0
 
-INSTALL_V1=1
-
 RECONCILE_GATEWAY=0
 
 # List of custom YAMLs to install, if specified (space-separated).
@@ -71,18 +69,6 @@ function parse_flags() {
       ;;
     --install-monitoring)
       readonly INSTALL_MONITORING=1
-      return 1
-      ;;
-    --install-alpha)
-      readonly INSTALL_V1=0
-      return 1
-      ;;
-    --install-beta)
-      readonly INSTALL_V1=1
-      return 1
-      ;;
-    --install-v1)
-      readonly INSTALL_V1=1
       return 1
       ;;
     --reconcile-gateway)
@@ -190,19 +176,11 @@ function install_knative_serving_standard() {
   if [[ -z "$1" ]]; then
     # install_knative_serving_standard was called with no arg.
     build_knative_from_source
-    if (( INSTALL_V1 )); then
-      INSTALL_RELEASE_YAML="${SERVING_V1_YAML}"
-    else
-      INSTALL_RELEASE_YAML="${SERVING_ALPHA_YAML}"
-    fi
+    INSTALL_RELEASE_YAML="${SERVING_YAML}"
 
     # install serving core if installing for Gloo
     if [[ -n "${GLOO_VERSION}" ]]; then
-      if (( INSTALL_V1 )); then
-        INSTALL_RELEASE_YAML="${SERVING_CORE_V1_YAML}"
-      else
-        INSTALL_RELEASE_YAML="${SERVING_CORE_YAML}"
-      fi
+      INSTALL_RELEASE_YAML="${SERVING_CORE_YAML}"
     fi
 
     if (( INSTALL_MONITORING )); then
