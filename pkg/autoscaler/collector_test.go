@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -348,7 +347,7 @@ func TestMetricCollectorError(t *testing.T) {
 }
 
 func scraperFactory(scraper StatsScraper, err error) StatsScraperFactory {
-	return func(*av1alpha1.Metric, *zap.SugaredLogger) (StatsScraper, error) {
+	return func(*av1alpha1.Metric) (StatsScraper, error) {
 		return scraper, err
 	}
 }
