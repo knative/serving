@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"go.uber.org/zap"
+	perrors "github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -30,7 +30,6 @@ import (
 	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/logging"
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 )
 
@@ -44,7 +43,6 @@ type VirtualServiceAccessor interface {
 func ReconcileVirtualService(ctx context.Context, owner kmeta.Accessor, desired *v1alpha3.VirtualService,
 	vsAccessor VirtualServiceAccessor) (*v1alpha3.VirtualService, error) {
 
-	logger := logging.FromContext(ctx)
 	recorder := controller.GetEventRecorder(ctx)
 	if recorder == nil {
 		return nil, fmt.Errorf("recoder for reconciling VirtualService %s/%s is not created", desired.Namespace, desired.Name)
@@ -55,10 +53,9 @@ func ReconcileVirtualService(ctx context.Context, owner kmeta.Accessor, desired 
 	if apierrs.IsNotFound(err) {
 		vs, err = vsAccessor.GetSharedClient().NetworkingV1alpha3().VirtualServices(ns).Create(desired)
 		if err != nil {
-			logger.Errorw("Failed to create VirtualService", zap.Error(err))
 			recorder.Eventf(owner, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create VirtualService %s/%s: %v", ns, name, err)
-			return nil, err
+			return nil, perrors.Wrap(err, "failed to create VirtualService")
 		}
 		recorder.Eventf(owner, corev1.EventTypeNormal, "Created", "Created VirtualService %q", desired.Name)
 	} else if err != nil {
@@ -74,8 +71,7 @@ func ReconcileVirtualService(ctx context.Context, owner kmeta.Accessor, desired 
 		existing.Spec = desired.Spec
 		vs, err = vsAccessor.GetSharedClient().NetworkingV1alpha3().VirtualServices(ns).Update(existing)
 		if err != nil {
-			logger.Errorw("Failed to update VirtualService", zap.Error(err))
-			return nil, err
+			return nil, perrors.Wrap(err, "failed to update VirtualService")
 		}
 		recorder.Eventf(owner, corev1.EventTypeNormal, "Updated", "Updated VirtualService %s/%s", ns, name)
 	}
