@@ -37,6 +37,7 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/tracker"
 
+	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -392,7 +393,6 @@ func (r *BaseIngressReconciler) reconcileCertSecrets(ctx context.Context, ia v1a
 
 func (r *BaseIngressReconciler) reconcileVirtualServices(ctx context.Context, ia v1alpha1.IngressAccessor,
 	desired []*v1alpha3.VirtualService) error {
-	logger := logging.FromContext(ctx)
 	// First, create all needed VirtualServices.
 	kept := sets.NewString()
 	for _, d := range desired {
@@ -410,8 +410,7 @@ func (r *BaseIngressReconciler) reconcileVirtualServices(ctx context.Context, ia
 			serving.RouteLabelKey:          ia.GetLabels()[serving.RouteLabelKey],
 			serving.RouteNamespaceLabelKey: ia.GetLabels()[serving.RouteNamespaceLabelKey]}).AsSelector())
 	if err != nil {
-		logger.Errorw("Failed to get VirtualServices", zap.Error(err))
-		return err
+		return perrors.Wrap(err, "failed to get VirtualServices")
 	}
 	for _, vs := range vses {
 		n, ns := vs.Name, vs.Namespace
@@ -419,8 +418,7 @@ func (r *BaseIngressReconciler) reconcileVirtualServices(ctx context.Context, ia
 			continue
 		}
 		if err = r.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Delete(n, &metav1.DeleteOptions{}); err != nil {
-			logger.Errorw("Failed to delete VirtualService", zap.Error(err))
-			return err
+			return perrors.Wrap(err, "failed to delete VirtualService")
 		}
 	}
 	return nil
@@ -493,13 +491,11 @@ func (r *BaseIngressReconciler) ensureFinalizer(ra ReconcilerAccessor, ia v1alph
 func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha1.IngressAccessor, gw config.Gateway, desired []v1alpha3.Server) error {
 	// TODO(zhiminx): Need to handle the scenario when deleting ClusterIngress. In this scenario,
 	// the Gateway servers of the ClusterIngress need also be removed from Gateway.
-	logger := logging.FromContext(ctx)
 	gateway, err := r.GatewayLister.Gateways(gw.Namespace).Get(gw.Name)
 	if err != nil {
-		// Not like VirtualService, A default gateway needs to be existed.
+		// Unlike VirtualService, a default gateway needs to be existent.
 		// It should be installed when installing Knative.
-		logger.Errorw("Failed to get Gateway.", zap.Error(err))
-		return err
+		return perrors.Wrap(err, "failed to get Gateway")
 	}
 
 	existing := resources.GetServers(gateway, ia)
@@ -520,8 +516,7 @@ func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha
 	copy := gateway.DeepCopy()
 	copy = resources.UpdateGateway(copy, desired, existing)
 	if _, err := r.SharedClientSet.NetworkingV1alpha3().Gateways(copy.Namespace).Update(copy); err != nil {
-		logger.Errorw("Failed to update Gateway", zap.Error(err))
-		return err
+		return perrors.Wrap(err, "failed to update Gateway")
 	}
 	r.Recorder.Eventf(ia, corev1.EventTypeNormal, "Updated", "Updated Gateway %s/%s", gateway.Namespace, gateway.Name)
 	return nil

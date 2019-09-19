@@ -302,7 +302,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconcile-failed-mesh"),
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update virtualservices"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to update VirtualService: inducing failure for update virtualservices"),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for Ingress %q", "reconcile-failed"),
 		},
 		Key: "reconcile-failed",
@@ -530,7 +530,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconciling-clusteringress-mesh"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconciling-clusteringress"),
-			Eventf(corev1.EventTypeWarning, "InternalError", `gateway.networking.istio.io "knative-ingress-gateway" not found`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `failed to get Gateway: gateway.networking.istio.io "knative-ingress-gateway" not found`),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for Ingress %q", "reconciling-clusteringress"),
 		},
 		// Error should be returned when there is no preinstalled gateways.

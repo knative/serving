@@ -381,7 +381,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "horizontalpodautoscalers"),
 		},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update horizontalpodautoscalers"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to update HPA: inducing failure for update horizontalpodautoscalers"),
 		},
 	}, {
 		Name: "update hpa with target usage",
@@ -421,7 +421,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantErr: true,
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create horizontalpodautoscalers"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create HPA: inducing failure for create horizontalpodautoscalers"),
 		},
 	}}
 

@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"go.uber.org/zap"
+	perrors "github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -29,7 +29,6 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/logging"
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 )
 
@@ -41,7 +40,6 @@ type SecretAccessor interface {
 
 // ReconcileSecret reconciles Secret to the desired status.
 func ReconcileSecret(ctx context.Context, owner kmeta.Accessor, desired *corev1.Secret, accessor SecretAccessor) (*corev1.Secret, error) {
-	logger := logging.FromContext(ctx)
 	recorder := controller.GetEventRecorder(ctx)
 	if recorder == nil {
 		return nil, fmt.Errorf("recoder for reconciling Secret %s/%s is not created", desired.Namespace, desired.Name)
@@ -50,14 +48,13 @@ func ReconcileSecret(ctx context.Context, owner kmeta.Accessor, desired *corev1.
 	if apierrs.IsNotFound(err) {
 		secret, err = accessor.GetKubeClient().CoreV1().Secrets(desired.Namespace).Create(desired)
 		if err != nil {
-			logger.Errorw("Failed to create Secret", zap.Error(err))
 			recorder.Eventf(owner, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create Secret %s/%s: %v", desired.Namespace, desired.Name, err)
-			return nil, err
+			return nil, perrors.Wrap(err, "failed to create Secret")
 		}
 		recorder.Eventf(owner, corev1.EventTypeNormal, "Created", "Created Secret %s/%s", desired.Namespace, desired.Name)
 	} else if err != nil {
-		return nil, err
+		return nil, perrors.Wrap(err, "failed to get Secret")
 	} else if !metav1.IsControlledBy(secret, owner) {
 		// Return an error with NotControlledBy information.
 		return nil, kaccessor.NewAccessorError(
@@ -69,9 +66,8 @@ func ReconcileSecret(ctx context.Context, owner kmeta.Accessor, desired *corev1.
 		copy.Data = desired.Data
 		secret, err = accessor.GetKubeClient().CoreV1().Secrets(copy.Namespace).Update(copy)
 		if err != nil {
-			logger.Errorw("Failed to update target secret", zap.Error(err))
 			recorder.Eventf(owner, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Secret %s/%s: %v", desired.Namespace, desired.Name, err)
-			return nil, err
+			return nil, perrors.Wrap(err, "failed to update Secret")
 		}
 		recorder.Eventf(owner, corev1.EventTypeNormal, "Updated", "Updated Secret %s/%s", copy.Namespace, copy.Name)
 	}
