@@ -493,7 +493,7 @@ func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha
 	// the Gateway servers of the ClusterIngress need also be removed from Gateway.
 	gateway, err := r.GatewayLister.Gateways(gw.Namespace).Get(gw.Name)
 	if err != nil {
-		// Not like VirtualService, A default gateway needs to be existent.
+		// Unlike VirtualService, a default gateway needs to be existent.
 		// It should be installed when installing Knative.
 		return perrors.Wrap(err, "failed to get Gateway")
 	}
