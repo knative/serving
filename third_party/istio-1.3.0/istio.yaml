@@ -604,12 +604,6 @@ data:
       {{- end }}
       containers:
       - name: istio-proxy
-        # PATCH #2: Delay Envoy lameduck a bit, since Endpoint propagation may be slow.
-        lifecycle:
-          preStop:
-            exec:
-              command: ["sleep", "20"]
-        # PATCH #2 ends.
       {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
         image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
       {{- else }}
