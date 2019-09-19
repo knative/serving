@@ -96,8 +96,8 @@ function update_cluster() {
   pushd .
   cd ${GOPATH}/src/knative.dev
   echo ">> Update istio"
-  kubectl delete -f serving/third_party/$istio_version/istio-crds.yaml > /dev/null 2>&1
-  kubectl delete -f serving/third_party/$istio_version/istio-lean.yaml > /dev/null 2>&1
+  kubectl delete -f serving/third_party/$istio_version/istio-crds.yaml --ignore-not-found --timeout 60s > /dev/null 2>&1
+  kubectl delete -f serving/third_party/$istio_version/istio-lean.yaml --ignore-not-found --timeout 60s > /dev/null 2>&1
   kubectl apply -f serving/third_party/$istio_version/istio-crds.yaml || abort "Failed to apply istio-crds"
   kubectl apply -f serving/third_party/$istio_version/istio-lean.yaml || abort "Failed to apply istio-lean"
 
@@ -108,8 +108,8 @@ function update_cluster() {
     --patch '{"spec": {"replicas": 10}}'
 
   echo ">> Updating serving"
-  ko delete -f serving/config/ > /dev/null 2>&1
-  ko delete -f serving/config/v1 > /dev/null 2>&1
+  ko delete -f serving/config/ --ignore-not-found --timeout 60s > /dev/null 2>&1
+  ko delete -f serving/config/v1 --ignore-not-found --timeout 60s > /dev/null 2>&1
   # Retry installation for at most two times as there can sometime be a race condition when applying serving CRDs
   local n=0
   until [ $n -ge 2 ]
@@ -152,6 +152,6 @@ EOF
   # NOTE: this assumes we have a benchmark with the same name as the cluster
   # If service creation takes long time, we will have some intially unreachable errors in the test
   cd $TEST_ROOT_PATH
-  ko delete -f $1 > /dev/null 2>&1
+  ko delete -f $1 --ignore-not-found --timeout 60s > /dev/null 2>&1
   ko apply -f $1 || abort "Failed to apply benchmarks yaml"
 }
