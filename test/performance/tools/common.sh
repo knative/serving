@@ -31,6 +31,32 @@ function abort() {
   exit 1
 }
 
+# Waits until the given object doesn't exist.
+# Parameters: $1 - the kind of the object.
+#             $2 - object's name.
+#             $3 - namespace (optional).
+function wait_until_object_does_not_exist() {
+  local KUBECTL_ARGS="get $1 $2"
+  local DESCRIPTION="$1 $2"
+
+  if [[ -n $3 ]]; then
+    KUBECTL_ARGS="get -n $3 $1 $2"
+    DESCRIPTION="$1 $3/$2"
+  fi
+  echo -n "Waiting until ${DESCRIPTION} does not exist"
+  for i in {1..150}; do  # timeout after 5 minutes
+    if ! kubectl ${KUBECTL_ARGS} > /dev/null 2>&1; then
+      echo -e "\n${DESCRIPTION} does not exist"
+      return 0
+    fi
+    echo -n "."
+    sleep 2
+  done
+  echo -e "\n\nERROR: timeout waiting for ${DESCRIPTION} not to exist"
+  kubectl ${KUBECTL_ARGS}
+  return 1
+}
+
 # Creates a new cluster.
 # $1 -> name, $2 -> zone/region, $3 -> num_nodes
 function create_cluster() {
@@ -96,8 +122,9 @@ function update_cluster() {
   pushd .
   cd ${GOPATH}/src/knative.dev
   echo ">> Update istio"
-  kubectl delete -f serving/third_party/$istio_version/istio-crds.yaml --ignore-not-found --timeout 60s > /dev/null 2>&1
-  kubectl delete -f serving/third_party/$istio_version/istio-lean.yaml --ignore-not-found --timeout 60s > /dev/null 2>&1
+  kubectl delete -f serving/third_party/$istio_version/istio-crds.yaml --ignore-not-found --timeout 60s
+  kubectl delete -f serving/third_party/$istio_version/istio-lean.yaml --ignore-not-found --timeout 60s
+  wait_until_object_does_not_exist namespaces istio-system 
   kubectl apply -f serving/third_party/$istio_version/istio-crds.yaml || abort "Failed to apply istio-crds"
   kubectl apply -f serving/third_party/$istio_version/istio-lean.yaml || abort "Failed to apply istio-lean"
 
@@ -108,8 +135,9 @@ function update_cluster() {
     --patch '{"spec": {"replicas": 10}}'
 
   echo ">> Updating serving"
-  ko delete -f serving/config/ --ignore-not-found --timeout 60s > /dev/null 2>&1
-  ko delete -f serving/config/v1 --ignore-not-found --timeout 60s > /dev/null 2>&1
+  ko delete -f serving/config/ --ignore-not-found --timeout 60s
+  ko delete -f serving/config/v1 --ignore-not-found --timeout 60s
+  wait_until_object_does_not_exist namespaces knative-serving
   # Retry installation for at most two times as there can sometime be a race condition when applying serving CRDs
   local n=0
   until [ $n -ge 2 ]
