@@ -114,13 +114,11 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	if errors.IsNotFound(err) {
 		logger.Infof("Creating HPA %q", desiredHpa.Name)
 		if hpa, err = c.KubeClientSet.AutoscalingV2beta1().HorizontalPodAutoscalers(pa.Namespace).Create(desiredHpa); err != nil {
-			logger.Errorf("Error creating HPA %q: %v", desiredHpa.Name, err)
 			pa.Status.MarkResourceFailedCreation("HorizontalPodAutoscaler", desiredHpa.Name)
-			return err
+			return perrors.Wrap(err, "failed to create HPA")
 		}
 	} else if err != nil {
-		logger.Errorf("Error getting existing HPA %q: %v", desiredHpa.Name, err)
-		return err
+		return perrors.Wrap(err, "failed to get HPA")
 	} else if !metav1.IsControlledBy(hpa, pa) {
 		// Surface an error in the PodAutoscaler's status, and return an error.
 		pa.Status.MarkResourceNotOwned("HorizontalPodAutoscaler", desiredHpa.Name)
@@ -129,8 +127,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	if !equality.Semantic.DeepEqual(desiredHpa.Spec, hpa.Spec) {
 		logger.Infof("Updating HPA %q", desiredHpa.Name)
 		if _, err := c.KubeClientSet.AutoscalingV2beta1().HorizontalPodAutoscalers(pa.Namespace).Update(desiredHpa); err != nil {
-			logger.Errorf("Error updating HPA %q: %v", desiredHpa.Name, err)
-			return err
+			return perrors.Wrap(err, "failed to update HPA")
 		}
 	}
 
