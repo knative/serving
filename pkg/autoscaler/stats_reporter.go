@@ -90,12 +90,10 @@ func init() {
 }
 
 func register() {
-	var err error
-
 	// Create views to see our measurements. This can return an error if
 	// a previously-registered view has the same name with a different value.
 	// View name defaults to the measure name if unspecified.
-	err = view.Register(
+	if err := view.Register(
 		&view.View{
 			Description: "Number of pods autoscaler wants to allocate",
 			Measure:     desiredPodCountM,
@@ -162,8 +160,7 @@ func register() {
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
 		},
-	)
-	if err != nil {
+	); err != nil {
 		panic(err)
 	}
 }
