@@ -57,6 +57,7 @@ type RevisionDestsUpdate struct {
 	Rev           types.NamespacedName
 	ClusterIPDest string
 	Dests         sets.String
+	Deleted       bool
 }
 
 const (
@@ -224,9 +225,7 @@ func (rw *revisionWatcher) checkDests(dests sets.String) {
 	if len(dests) == 0 {
 		// We must have scaled down.
 		rw.clusterIPHealthy = false
-
 		rw.logger.Debug("ClusterIP is no longer healthy.")
-
 		// Send update that we are now inactive (both params invalid).
 		rw.sendUpdate("", nil)
 		return
@@ -415,7 +414,7 @@ func (rbm *RevisionBackendsManager) deleteRevisionWatcher(rev types.NamespacedNa
 	if rw, ok := rbm.revisionWatchers[rev]; ok {
 		close(rw.ch)
 		delete(rbm.revisionWatchers, rev)
-		rbm.updateCh <- RevisionDestsUpdate{Rev: rev}
+		rbm.updateCh <- RevisionDestsUpdate{Rev: rev, Deleted: true}
 	}
 }
 
