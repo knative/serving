@@ -38,7 +38,8 @@ Take `dataplane-probe` benchmark for example:
 1. Create a JSON key for it.
 
    ```shell
-   gcloud iam service-accounts keys create robot.json  --iam-account=mako-upload@${PROJECT_ID}.iam.gserviceaccount.com
+   gcloud iam service-accounts keys create robot.json \
+     --iam-account=mako-upload@${PROJECT_ID}.iam.gserviceaccount.com
    ```
 
 1. Create a secret with it:
@@ -50,8 +51,10 @@ Take `dataplane-probe` benchmark for example:
 1. Patch istio:
 
    ```shell
-   kubectl patch hpa -n istio-system istio-ingressgateway --patch '{"spec": {"minReplicas": 10, "maxReplicas": 10}}'
-   kubectl patch deploy -n istio-system cluster-local-gateway --patch '{"spec": {"replicas": 10}}'
+   kubectl patch hpa -n istio-system istio-ingressgateway \
+     --patch '{"spec": {"minReplicas": 10, "maxReplicas": 10}}'
+   kubectl patch deploy -n istio-system cluster-local-gateway \
+     --patch '{"spec": {"replicas": 10}}'
    ```
 
 1. Patch knative:
