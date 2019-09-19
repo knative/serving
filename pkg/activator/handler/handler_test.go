@@ -70,7 +70,7 @@ import (
 )
 
 const (
-	wantBody         = "everything is awesome!"
+	wantBody         = "♫ everything is awesome! ♫"
 	testNamespace    = "real-namespace"
 	testRevName      = "real-name"
 	testRevNameOther = "other-name"
