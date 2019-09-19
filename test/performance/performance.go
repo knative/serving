@@ -30,6 +30,9 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
+// SlackUserName is the user name used to send alert to Slack channels.
+const SlackUserName = "Knative Testgrid Robot"
+
 // SlackChannels is a slice of channels we want to alert for performance regressions.
 var SlackChannels = []slack.Channel{{
 	Name:     "performance",

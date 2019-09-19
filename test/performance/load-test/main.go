@@ -40,7 +40,6 @@ import (
 var (
 	flavor          = flag.String("flavor", "", "The flavor of the benchmark to run.")
 	githubToken     = flag.String("github-token", "", "The path of github token")
-	slackUserName   = flag.String("slack-user-name", "", "The user name of the slack bot")
 	slackReadToken  = flag.String("slack-read-token", "", "The path of slack read token")
 	slackWriteToken = flag.String("slack-write-token", "", "The path of slack write token")
 )
@@ -168,7 +167,7 @@ func main() {
 
 	out, err := q.Store()
 	alerter := alerter.Alerter{}
-	if err := alerter.SetupSlack(*slackUserName, *slackReadToken, *slackWriteToken, performance.SlackChannels); err != nil {
+	if err := alerter.SetupSlack(performance.SlackUserName, *slackReadToken, *slackWriteToken, performance.SlackChannels); err != nil {
 		log.Printf("Failed to setup slack client: %v\n", err)
 	}
 	if err := alerter.SetupGitHub("knative", "serving", *githubToken); err != nil {

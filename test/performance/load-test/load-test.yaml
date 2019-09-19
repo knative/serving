@@ -63,7 +63,6 @@ spec:
             args:
             - "-flavor=zero"
             - "-github-token=/var/secret/github-token"
-            - "-slack-user-name=Knative Testgrid Robot"
             - "-slack-read-token=/var/secret/slack-read-token"
             - "-slack-write-token=/var/secret/slack-write-token"
             resources:
@@ -109,7 +108,6 @@ spec:
             args:
             - "-flavor=always"
             - "-github-token=/var/secret/github-token"
-            - "-slack-user-name=Knative Testgrid Robot"
             - "-slack-read-token=/var/secret/slack-read-token"
             - "-slack-write-token=/var/secret/slack-write-token"
             resources:
@@ -155,7 +153,6 @@ spec:
             args:
             - "-flavor=200"
             - "-github-token=/var/secret/github-token"
-            - "-slack-user-name=Knative Testgrid Robot"
             - "-slack-read-token=/var/secret/slack-read-token"
             - "-slack-write-token=/var/secret/slack-write-token"
             resources:
