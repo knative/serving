@@ -2729,6 +2729,85 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		},
 		Key:                     "default/becomes-ready",
 		SkipNamespaceValidation: true,
+	}, {
+		// This test is a same with "public becomes cluster local" above, but confirm it does not create certs with autoTLS for cluster-local.
+		Name: "public becomes cluster local",
+		Objects: []runtime.Object{
+			route("default", "becomes-local", WithConfigTarget("config"),
+				WithRouteLabel(config.VisibilityLabelKey, config.VisibilityClusterLocal),
+				WithRouteUID("65-23")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("tb")),
+			simpleIngress(
+				route("default", "becomes-local", WithConfigTarget("config"), WithRouteUID("65-23"), WithRouteLabel("serving.knative.dev/visibility", "cluster-local")),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: "config-00001",
+								Percent:      ptr.Int64(100),
+							},
+							ServiceName: "tb",
+							Active:      true,
+						}},
+					},
+				},
+			),
+			simpleK8sService(route("default", "becomes-local", WithConfigTarget("config"),
+				WithRouteLabel(config.VisibilityLabelKey, config.VisibilityClusterLocal),
+				WithRouteUID("65-23"))),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: simpleIngressWithVisibility(
+				route("default", "becomes-local", WithConfigTarget("config"),
+					WithRouteUID("65-23"),
+					WithRouteLabel(config.VisibilityLabelKey, config.VisibilityClusterLocal)),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: "config-00001",
+								Percent:      ptr.Int64(100),
+							},
+							ServiceName: "tb",
+							Active:      true,
+						}},
+					},
+				},
+				sets.NewString("becomes-local"),
+			),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchFinalizers("default", "becomes-local"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "becomes-local", WithConfigTarget("config"),
+				WithRouteUID("65-23"),
+				MarkTrafficAssigned, MarkIngressNotConfigured,
+				WithLocalDomain, WithAddress, WithInitRouteConditions,
+				WithRouteLabel(config.VisibilityLabelKey, config.VisibilityClusterLocal),
+				WithStatusTraffic(v1alpha1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					},
+				})),
+		}},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "becomes-local",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
+		Key:                     "default/becomes-local",
+		SkipNamespaceValidation: true,
 	}}
 	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
