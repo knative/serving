@@ -23,6 +23,7 @@ import (
 	"regexp"
 	"text/template"
 
+	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -109,8 +110,7 @@ func (c *reconciler) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 
 	dnsName, err := wildcardDomain(cfg.Network.DomainTemplate, defaultDomain, ns.Name)
 	if err != nil {
-		c.Logger.Errorf("failed to apply domain template %s to domain %s and namespace %s: %v", cfg.Network.DomainTemplate, defaultDomain, ns.Name, err)
-		return err
+		return perrors.Wrapf(err, "failed to apply domain template %s to domain %s and namespace %s", cfg.Network.DomainTemplate, defaultDomain, ns.Name)
 	}
 
 	// If any labeled cert has been issued for our DNSName then there's nothing to do
@@ -128,10 +128,9 @@ func (c *reconciler) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 	if apierrs.IsNotFound(err) {
 		cert, err := c.ServingClientSet.NetworkingV1alpha1().Certificates(ns.Name).Create(desiredCert)
 		if err != nil {
-			c.Logger.Errorw("Failed to create namespace certificate", zap.Error(err))
 			c.Recorder.Eventf(ns, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create Knative certificate %s/%s: %v", ns.Name, desiredCert.ObjectMeta.Name, err)
-			return err
+			return perrors.Wrap(err, "failed to create namespace certificate")
 		}
 
 		c.Recorder.Eventf(cert, corev1.EventTypeNormal, "Created",

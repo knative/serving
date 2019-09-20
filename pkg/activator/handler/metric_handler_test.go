@@ -25,7 +25,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
-	"knative.dev/pkg/logging"
 	. "knative.dev/pkg/logging/testing"
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/activator"
@@ -104,9 +103,8 @@ func TestRequestMetricHandler(t *testing.T) {
 				ClearAll()
 			}()
 			reporter := &fakeReporter{}
-			handler := NewMetricHandler(
-				revisionInformer(ctx, revision(testNamespace, testRevName)).Lister(),
-				reporter, logging.FromContext(ctx), test.baseHandler)
+			revisionInformer(ctx, revision(testNamespace, testRevName))
+			handler := NewMetricHandler(ctx, reporter, test.baseHandler)
 
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", bytes.NewBufferString(""))
