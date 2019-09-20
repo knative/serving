@@ -220,10 +220,7 @@ when you use Minikube or Docker Desktop as the Kubernetes environment.
 Next, run:
 
 ```shell
-# There are some issues with multi-versioned CRDs before Kubernetes 1.14, so
-# depending on how you plan to use knative you may need to switch this to
-# v1alpha1, see also: https://github.com/knative/serving/issues/4533
-ko apply -f config/ -f config/v1
+ko apply -f config/
 
 # Optional steps
 
@@ -321,7 +318,7 @@ You can delete all of the service components with:
 ```shell
 ko delete --ignore-not-found=true \
   -f config/monitoring/100-namespace.yaml \
-  -f config/ -f config/v1 \
+  -f config/ \
   -f ./third_party/istio-1.2-latest/istio.yaml \
   -f ./third_party/istio-1.2-latest/istio-crds.yaml \
   -f ./third_party/cert-manager-0.9.1/cert-manager-crds.yaml \

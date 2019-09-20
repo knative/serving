@@ -30,6 +30,7 @@ import (
 	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
+	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	secretinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/secret"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
@@ -152,6 +153,7 @@ func (r *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 	gatewayInformer := gatewayinformer.Get(ctx)
 	endpointsInformer := endpointsinformer.Get(ctx)
 	serviceInformer := serviceinformer.Get(ctx)
+	podInformer := podinformer.Get(ctx)
 
 	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
 	ingressHandler := cache.FilteringResourceEventHandler{
@@ -179,17 +181,15 @@ func (r *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 	r.ConfigStore = configStore
 
 	r.Logger.Info("Setting up StatusManager")
-	resyncIngressOnVirtualServiceReady := func(vs *v1alpha3.VirtualService) {
-		// Reconcile when a VirtualService becomes ready
-		impl.EnqueueLabelOfNamespaceScopedResource(serving.RouteNamespaceLabelKey, serving.RouteLabelKey)(vs)
+	resyncOnIngressReady := func(ia v1alpha1.IngressAccessor) {
+		impl.EnqueueKey(fmt.Sprintf("%s/%s", ia.GetNamespace(), ia.GetName()))
 	}
 	statusProber := NewStatusProber(
 		r.Logger.Named("status-manager"),
 		gatewayInformer.Lister(),
 		endpointsInformer.Lister(),
 		serviceInformer.Lister(),
-		network.NewAutoTransport,
-		resyncIngressOnVirtualServiceReady)
+		resyncOnIngressReady)
 	r.StatusManager = statusProber
 	statusProber.Start(ctx.Done())
 
@@ -198,7 +198,16 @@ func (r *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 		DeleteFunc: func(obj interface{}) {
 			vs, ok := obj.(*v1alpha3.VirtualService)
 			if ok {
-				statusProber.Cancel(vs)
+				statusProber.CancelVirtualServiceProbing(vs)
+			}
+		},
+	})
+	podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		// Cancel probing when a Pod is deleted
+		DeleteFunc: func(obj interface{}) {
+			pod, ok := obj.(*corev1.Pod)
+			if ok {
+				statusProber.CancelPodProbing(pod)
 			}
 		},
 	})
@@ -347,22 +356,14 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 	// Update status
 	ia.GetStatus().MarkNetworkConfigured()
 
-	lbReady := true
-	for _, vs := range vses {
-		ready, err := r.StatusManager.IsReady(vs)
-		if err != nil {
-			return fmt.Errorf("failed to probe VirtualService %s/%s: %v", vs.Namespace, vs.Name, err)
-		}
-
-		// We don't break as soon as one VirtualService is not ready because IsReady
-		// need to be called on every VirtualService to trigger polling.
-		lbReady = lbReady && ready
+	ready, err := r.StatusManager.IsReady(ia, gatewayNames)
+	if err != nil {
+		return fmt.Errorf("failed to probe IngressAccessor %s/%s: %v", ia.GetNamespace(), ia.GetName(), err)
 	}
-	if lbReady {
+	if ready {
 		lbs := getLBStatus(gatewayServiceURLFromContext(ctx, ia))
 		publicLbs := getLBStatus(publicGatewayServiceURLFromContext(ctx))
 		privateLbs := getLBStatus(privateGatewayServiceURLFromContext(ctx))
-
 		ia.GetStatus().MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
 	} else {
 		ia.GetStatus().MarkLoadBalancerPending()
@@ -456,6 +457,7 @@ func (r *BaseIngressReconciler) updateStatus(ra ReconcilerAccessor, desired v1al
 	if err != nil {
 		return nil, err
 	}
+
 	// If there's nothing to update, just return.
 	if reflect.DeepEqual(ingress.GetStatus(), desired.GetStatus()) {
 		return ingress, nil

@@ -18,6 +18,7 @@ package clusteringress
 
 import (
 	"context"
+	"fmt"
 
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler"
@@ -26,17 +27,19 @@ import (
 	gatewayinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/gateway"
 	virtualserviceinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
+	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/tracker"
 	"knative.dev/serving/pkg/apis/networking"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	clusteringressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress"
 	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 	ing "knative.dev/serving/pkg/reconciler/ingress"
 	"knative.dev/serving/pkg/reconciler/ingress/config"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -87,6 +90,7 @@ func (c *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 	gatewayInformer := gatewayinformer.Get(ctx)
 	endpointsInformer := endpointsinformer.Get(ctx)
 	serviceInformer := serviceinformer.Get(ctx)
+	podInformer := podinformer.Get(ctx)
 
 	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
 	clusterIngressHandler := cache.FilteringResourceEventHandler{
@@ -114,17 +118,15 @@ func (c *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 	c.BaseIngressReconciler.ConfigStore = configStore
 
 	c.Logger.Info("Setting up StatusManager")
-	resyncIngressOnVirtualServiceReady := func(vs *v1alpha3.VirtualService) {
-		// Reconcile when a VirtualService becomes ready
-		impl.EnqueueLabelOfClusterScopedResource(networking.ClusterIngressLabelKey)(vs)
+	resyncOnIngressReady := func(ia v1alpha1.IngressAccessor) {
+		impl.EnqueueKey(fmt.Sprintf("%s/%s", ia.GetNamespace(), ia.GetName()))
 	}
 	statusProber := ing.NewStatusProber(
 		c.Logger.Named("status-manager"),
 		gatewayInformer.Lister(),
 		endpointsInformer.Lister(),
 		serviceInformer.Lister(),
-		network.NewAutoTransport,
-		resyncIngressOnVirtualServiceReady)
+		resyncOnIngressReady)
 	c.BaseIngressReconciler.StatusManager = statusProber
 	statusProber.Start(ctx.Done())
 
@@ -133,7 +135,16 @@ func (c *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 		DeleteFunc: func(obj interface{}) {
 			vs, ok := obj.(*v1alpha3.VirtualService)
 			if ok {
-				statusProber.Cancel(vs)
+				statusProber.CancelVirtualServiceProbing(vs)
+			}
+		},
+	})
+	podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		// Cancel probing when a Pod is deleted
+		DeleteFunc: func(obj interface{}) {
+			pod, ok := obj.(*corev1.Pod)
+			if ok {
+				statusProber.CancelPodProbing(pod)
 			}
 		},
 	})
