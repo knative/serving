@@ -45,13 +45,18 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+// Throttler is the interface that Handler calls to Try to proxy the user request.
+type Throttler interface {
+	Try(context.Context, types.NamespacedName, func(string) error) error
+}
+
 // activationHandler will wait for an active endpoint for a revision
 // to be available before proxing the request
 type activationHandler struct {
 	logger    *zap.SugaredLogger
 	transport http.RoundTripper
 	reporter  activator.StatsReporter
-	throttler *activatornet.Throttler
+	throttler Throttler
 
 	revisionLister servinglisters.RevisionLister
 }
@@ -60,7 +65,7 @@ type activationHandler struct {
 const defaulTimeout = 2 * time.Minute
 
 // New constructs a new http.Handler that deals with revision activation.
-func New(ctx context.Context, t *activatornet.Throttler, sr activator.StatsReporter) http.Handler {
+func New(ctx context.Context, t Throttler, sr activator.StatsReporter) http.Handler {
 	return &activationHandler{
 		logger:         logging.FromContext(ctx),
 		transport:      network.AutoTransport,
