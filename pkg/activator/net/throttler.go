@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"sync"
 	"sync/atomic"
 
@@ -40,6 +39,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/resources"
@@ -316,8 +316,8 @@ func NewThrottler(ctx context.Context,
 }
 
 // Run starts the throttler and blocks until the context is done.
-func (t *Throttler) Run(ctx context.Context, rt http.RoundTripper) {
-	rbm := newRevisionBackendsManager(ctx, rt)
+func (t *Throttler) Run(ctx context.Context) {
+	rbm := newRevisionBackendsManager(ctx, network.AutoTransport)
 	// Update channel is closed when ctx is done.
 	t.run(rbm.updates())
 }

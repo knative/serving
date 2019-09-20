@@ -178,7 +178,7 @@ func main() {
 
 	// Start throttler.
 	throttler := activatornet.NewThrottler(ctx, params)
-	go throttler.Run(ctx, network.AutoTransport)
+	go throttler.Run(ctx)
 
 	oct := tracing.NewOpenCensusTracer(tracing.WithExporter(networking.ActivatorServiceName, logger))
 

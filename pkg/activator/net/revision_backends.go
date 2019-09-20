@@ -320,7 +320,7 @@ type RevisionBackendsManager struct {
 	probeFrequency time.Duration
 }
 
-// newRevisionBackendsManager returns a new RevisionBackendsManager with default
+// NewRevisionBackendsManager returns a new RevisionBackendsManager with default
 // probe time out.
 func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper) *RevisionBackendsManager {
 	return newRevisionBackendsManagerWithProbeFrequency(ctx, tr, probeFrequency)
@@ -357,7 +357,7 @@ func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.R
 	return rbm
 }
 
-// Returns the channel where dests updates are sent to
+// Returns channel where destination updates are sent to.
 func (rbm *RevisionBackendsManager) updates() <-chan revisionDestsUpdate {
 	return rbm.updateCh
 }
