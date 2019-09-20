@@ -58,6 +58,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 
@@ -72,6 +73,16 @@ const (
 	testRevName      = "real-name"
 	testRevNameOther = "other-name"
 )
+
+type fakeThrottler struct {
+	err   error
+	delay time.Duration
+}
+
+func (ft fakeThrottler) Try(context.Context, types.NamespacedName, func(string) error) error {
+	time.Sleep(ft.delay)
+	return ft.err
+}
 
 func TestActivationHandler(t *testing.T) {
 	tests := []struct {
@@ -95,8 +106,8 @@ func TestActivationHandler(t *testing.T) {
 		name:        testRevName,
 		wantBody:    wantBody,
 		wantCode:    http.StatusOK,
-		wantErr:     nil,
 		endpoints:   endpoints(testNamespace, testRevName, 10, networking.ServicePortNameHTTP1),
+		wantErr:     nil,
 		numBackends: 5,
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
