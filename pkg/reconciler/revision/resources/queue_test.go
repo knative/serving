@@ -150,19 +150,10 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		want: &corev1.Container{
 			// These are effectively constant
-			Name:      QueueContainerName,
-			Resources: createQueueResources(make(map[string]string), &corev1.Container{}),
-			Ports:     append(queueNonServingPorts, queueHTTP2Port),
-			// The port is 8013 since the protocol is HTTP2.
-			ReadinessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
-					Exec: &corev1.ExecAction{
-						Command: []string{"/ko-app/queue", "-probe-period", "0"},
-					},
-				},
-				PeriodSeconds:  1,
-				TimeoutSeconds: 10,
-			},
+			Name:            QueueContainerName,
+			Resources:       createQueueResources(make(map[string]string), &corev1.Container{}),
+			Ports:           append(queueNonServingPorts, queueHTTP2Port),
+			ReadinessProbe:  defaultKnativeQReadinessProbe,
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Image: "alpine",
