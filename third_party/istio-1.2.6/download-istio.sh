@@ -49,5 +49,3 @@ rm istio-${ISTIO_VERSION}-linux.tar.gz
 patch istio-crds.yaml namespace.yaml.patch
 patch istio.yaml namespace.yaml.patch
 patch istio-lean.yaml namespace.yaml.patch
-
-patch -l istio.yaml prestop-sleep.yaml.patch
