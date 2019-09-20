@@ -39,8 +39,8 @@ func (alerter *Alerter) SetupGitHub(org, repo, githubTokenPath string) error {
 }
 
 // SetupSlack will setup Slack for the alerter.
-func (alerter *Alerter) SetupSlack(repo, userName, readTokenPath, writeTokenPath string) error {
-	messageHandler, err := slack.Setup(userName, readTokenPath, writeTokenPath, repo, false)
+func (alerter *Alerter) SetupSlack(userName, readTokenPath, writeTokenPath string, channels []slack.Channel) error {
+	messageHandler, err := slack.Setup(userName, readTokenPath, writeTokenPath, channels, false)
 	if err != nil {
 		return err
 	}
