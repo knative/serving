@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"sync"
 	"sync/atomic"
 
@@ -314,8 +315,14 @@ func NewThrottler(ctx context.Context,
 	return t
 }
 
-// Run starts the throttler and blocks until updateCh is closed.
-func (t *Throttler) Run(updateCh <-chan revisionDestsUpdate) {
+// Run starts the throttler and blocks until the context is done.
+func (t *Throttler) Run(ctx context.Context, rt http.RoundTripper) {
+	rbm := newRevisionBackendsManager(ctx, rt)
+	// Update channel is closed when ctx is done.
+	t.run(rbm.updates())
+}
+
+func (t *Throttler) run(updateCh <-chan revisionDestsUpdate) {
 	for update := range updateCh {
 		t.handleUpdate(update)
 	}
