@@ -38,6 +38,7 @@ import (
 	tracetesting "knative.dev/pkg/tracing/testing"
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
+	anet "knative.dev/serving/pkg/activator/net"
 	activatortest "knative.dev/serving/pkg/activator/testing"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
@@ -47,7 +48,6 @@ import (
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/queue"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -95,7 +95,6 @@ func TestActivationHandler(t *testing.T) {
 		probeErr      error
 		probeCode     int
 		probeResp     []string
-		tryTimeout    time.Duration
 		throttler     Throttler
 		reporterCalls []reporterCall
 	}{{
@@ -131,7 +130,6 @@ func TestActivationHandler(t *testing.T) {
 		name:      testRevName,
 		wantBody:  "request error\n",
 		wantCode:  http.StatusBadGateway,
-		endpoints: endpoints(testNamespace, testRevName, 10, networking.ServicePortNameHTTP1),
 		throttler: fakeThrottler{},
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
@@ -150,8 +148,16 @@ func TestActivationHandler(t *testing.T) {
 		wantBody:      context.DeadlineExceeded.Error() + "\n",
 		wantCode:      http.StatusServiceUnavailable,
 		wantErr:       nil,
-		tryTimeout:    50 * time.Millisecond,
-		throttler:     fakeThrottler{delay: 500 * time.Millisecond},
+		throttler:     fakeThrottler{delay: 120 * time.Millisecond},
+		reporterCalls: nil,
+	}, {
+		label:         "overflow",
+		namespace:     testNamespace,
+		name:          testRevName,
+		wantBody:      "activator overload\n",
+		wantCode:      http.StatusServiceUnavailable,
+		wantErr:       nil,
+		throttler:     fakeThrottler{err: anet.ErrActivatorOverload},
 		reporterCalls: nil,
 	}}
 	for _, test := range tests {
@@ -183,8 +189,6 @@ func TestActivationHandler(t *testing.T) {
 				ClearAll()
 			}()
 			revisionInformer(ctx, revision(testNamespace, testRevName))
-			endpointsInformer(ctx,
-				endpoints(testNamespace, testRevName, params.InitialCapacity, networking.ServicePortNameHTTP1))
 
 			handler := (New(ctx, test.throttler, reporter)).(*activationHandler)
 
@@ -236,8 +240,6 @@ func TestActivationHandler(t *testing.T) {
 }
 
 func TestActivationHandlerProxyHeader(t *testing.T) {
-	breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
-
 	interceptCh := make(chan *http.Request, 1)
 	rt := network.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
 		interceptCh <- r
@@ -250,8 +252,6 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 		cancel()
 		ClearAll()
 	}()
-	endpointsInformer(ctx,
-		endpoints(testNamespace, testRevName, breakerParams.InitialCapacity, networking.ServicePortNameHTTP1))
 	revisionInformer(ctx, revision(testNamespace, testRevName))
 
 	handler := (New(ctx, fakeThrottler{}, &fakeReporter{})).(*activationHandler)
@@ -316,7 +316,6 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 				t.Errorf("Failed to apply tracer config: %v", err)
 			}
 
-			breakerParams := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer func() {
 				cancel()
@@ -325,11 +324,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 				oct.Finish()
 			}()
 			revisions := revisionInformer(ctx, revision(testNamespace, testRevName))
-			endpoints := endpointsInformer(ctx,
-				endpoints(testNamespace, testRevName,
-					breakerParams.InitialCapacity, networking.ServicePortNameHTTP1))
-
-			controller.StartInformers(ctx.Done(), revisions.Informer(), endpoints.Informer())
+			controller.StartInformers(ctx.Done(), revisions.Informer())
 
 			handler := (New(ctx, fakeThrottler{}, &fakeReporter{})).(*activationHandler)
 			handler.transport = &ochttp.Transport{
