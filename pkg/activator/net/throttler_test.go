@@ -131,7 +131,7 @@ func TestThrottlerWithError(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				throttler.Run(updateCh)
+				throttler.run(updateCh)
 			}()
 
 			// Wait for throttler to complete processing updates and exit
@@ -263,7 +263,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				throttler.Run(updateCh)
+				throttler.run(updateCh)
 			}()
 
 			// Wait for throttler to complete processing updates and exit
@@ -330,7 +330,7 @@ func TestMultipleActivator(t *testing.T) {
 		Dests: possibleDests,
 	}
 	close(updateCh)
-	throttler.Run(updateCh)
+	throttler.run(updateCh)
 
 	// Add activator endpoint with 2 activators.
 	activatorEp := &corev1.Endpoints{

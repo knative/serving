@@ -602,7 +602,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 
 			controller.StartInformers(ctx.Done(), endpointsInformer.Informer())
 
-			rbm := NewRevisionBackendsManagerWithProbeFrequency(ctx, rt, 50*time.Millisecond)
+			rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, rt, 50*time.Millisecond)
 
 			for _, ep := range tc.endpointsArr {
 				fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
@@ -613,7 +613,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			// Wait for updateCb to be called
 			for i := 0; i < tc.updateCnt; i++ {
 				select {
-				case update := <-rbm.UpdateCh():
+				case update := <-rbm.updates():
 					revDests[update.Rev] = update
 				case <-time.After(300 * time.Millisecond):
 					t.Errorf("Timed out waiting for update event")
@@ -839,20 +839,18 @@ func TestRevisionDeleted(t *testing.T) {
 	fakeRT := activatortest.FakeRoundTripper{}
 	rt := network.RoundTripperFunc(fakeRT.RT)
 
-	rbm := NewRevisionBackendsManager(
-		ctx,
-		rt)
+	rbm := newRevisionBackendsManager(ctx, rt)
 	// Make some movements.
 	ei.Informer().GetIndexer().Add(ep)
 	select {
-	case <-rbm.UpdateCh():
+	case <-rbm.updates():
 	case <-time.After(time.Second * 2):
 		t.Errorf("Timedout waiting for initial response")
 	}
 	// Now delete the endpoints.
 	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Delete(ep.Name, &metav1.DeleteOptions{})
 	select {
-	case r := <-rbm.UpdateCh():
+	case r := <-rbm.updates():
 		if got, want := r.Deleted, true; got != want {
 			t.Errorf("Deleted = %t, want true", got)
 		}

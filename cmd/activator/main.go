@@ -176,12 +176,9 @@ func main() {
 
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
 
-	// Start revision backends manager
-	rbm := activatornet.NewRevisionBackendsManager(ctx, network.AutoTransport)
-
-	// Start throttler
+	// Start throttler.
 	throttler := activatornet.NewThrottler(ctx, params)
-	go throttler.Run(rbm.UpdateCh())
+	go throttler.Run(ctx)
 
 	oct := tracing.NewOpenCensusTracer(tracing.WithExporter(networking.ActivatorServiceName, logger))
 
