@@ -26,7 +26,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"knative.dev/pkg/logging"
 	. "knative.dev/pkg/logging/testing"
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/system"
@@ -260,10 +259,9 @@ func newTestStats(t *testing.T, clock system.Clock) (*testStats, *ConcurrencyRep
 		reportBiChan: reportBiChan,
 	}
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-	revisions := revisionInformer(ctx, revision(testNamespace, testRevName))
+	revisionInformer(ctx, revision(testNamespace, testRevName))
 
-	cr := NewConcurrencyReporterWithClock(logging.FromContext(ctx), "activator",
-		ts.reqChan, ts.reportChan, ts.statChan,
-		revisions.Lister(), &fakeReporter{}, clock)
+	cr := NewConcurrencyReporterWithClock(ctx, "activator",
+		ts.reqChan, ts.reportChan, ts.statChan, &fakeReporter{}, clock)
 	return ts, cr, ctx, cancel
 }

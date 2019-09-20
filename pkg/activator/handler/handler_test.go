@@ -33,7 +33,6 @@ import (
 	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	fakeserviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/test/helpers"
@@ -198,8 +197,8 @@ func TestActivationHandler(t *testing.T) {
 			if svc == nil {
 				svc = service(testNamespace, testRevName, "http")
 			}
-			svcLister := serviceLister(ctx, svc)
-			sksLister := sksLister(ctx, sks(testNamespace, testRevName))
+			serviceLister(ctx, svc)
+			sksLister(ctx, sks(testNamespace, testRevName))
 
 			throttler := activatornet.NewThrottler(ctx, params)
 
@@ -211,8 +210,7 @@ func TestActivationHandler(t *testing.T) {
 
 			controller.StartInformers(ctx.Done(), revisions.Informer(), endpoints.Informer())
 
-			handler := (New(logging.FromContext(ctx), reporter, throttler,
-				revisions.Lister(), svcLister, sksLister)).(*activationHandler)
+			handler := (New(ctx, throttler, reporter)).(*activationHandler)
 
 			// Setup transports.
 			handler.transport = rt
@@ -285,8 +283,10 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	}()
 	endpoints := endpointsInformer(ctx,
 		endpoints(namespace, revName, breakerParams.InitialCapacity, networking.ServicePortNameHTTP1))
-	revisions := revisionInformer(ctx, revision(namespace, revName))
-	controller.StartInformers(ctx.Done(), revisions.Informer(), endpoints.Informer())
+	revisionInformer(ctx, revision(namespace, revName))
+	serviceLister(ctx, service(testNamespace, testRevName, networking.ServicePortNameHTTP1))
+	sksLister(ctx, sks(testNamespace, testRevName))
+	controller.StartInformers(ctx.Done(), endpoints.Informer())
 
 	throttler := activatornet.NewThrottler(ctx, breakerParams)
 	go throttler.Run(updateCh)
@@ -297,15 +297,8 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 		Dests:         dests(breakerParams.InitialCapacity),
 	}
 
-	handler := &activationHandler{
-		transport:      rt,
-		logger:         logging.FromContext(ctx),
-		reporter:       &fakeReporter{},
-		throttler:      throttler,
-		revisionLister: revisions.Lister(),
-		serviceLister:  serviceLister(ctx, service(testNamespace, testRevName, networking.ServicePortNameHTTP1)),
-		sksLister:      sksLister(ctx, sks(testNamespace, testRevName)),
-	}
+	handler := (New(ctx, throttler, &fakeReporter{})).(*activationHandler)
+	handler.transport = rt
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -393,15 +386,9 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 				Dests:         dests(breakerParams.InitialCapacity),
 			}
 
-			handler := &activationHandler{
-				transport:      rt,
-				logger:         TestLogger(t),
-				reporter:       &fakeReporter{},
-				throttler:      throttler,
-				revisionLister: revisions.Lister(),
-				serviceLister:  serviceLister(ctx, service(testNamespace, testRevName, "http")),
-				sksLister:      sksLister(ctx, sks(testNamespace, testRevName)),
-			}
+			serviceLister(ctx, service(testNamespace, testRevName, "http"))
+			sksLister(ctx, sks(testNamespace, testRevName))
+			handler := (New(ctx, throttler, &fakeReporter{})).(*activationHandler)
 			handler.transport = &ochttp.Transport{
 				Base: rt,
 			}

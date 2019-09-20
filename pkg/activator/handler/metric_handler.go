@@ -16,27 +16,30 @@ limitations under the License.
 package handler
 
 import (
+	"context"
 	"net/http"
 	"time"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/network"
 )
 
 // NewMetricHandler creates a handler collects and reports request metrics
-func NewMetricHandler(rl servinglisters.RevisionLister, r activator.StatsReporter, l *zap.SugaredLogger, next http.Handler) *MetricHandler {
+func NewMetricHandler(ctx context.Context, r activator.StatsReporter, next http.Handler) *MetricHandler {
 	handler := &MetricHandler{
 		nextHandler:    next,
-		revisionLister: rl,
+		revisionLister: revisioninformer.Get(ctx).Lister(),
 		reporter:       r,
-		logger:         l,
+		logger:         logging.FromContext(ctx),
 	}
 
 	return handler

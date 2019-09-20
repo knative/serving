@@ -26,19 +26,23 @@ import (
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
-	activatorconfig "knative.dev/serving/pkg/activator/config"
-	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/queue"
 
+	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/activator"
+	activatorconfig "knative.dev/serving/pkg/activator/config"
 	activatornet "knative.dev/serving/pkg/activator/net"
 	"knative.dev/serving/pkg/activator/util"
+	"knative.dev/serving/pkg/apis/serving"
+	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 	netlisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/queue"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -53,8 +57,6 @@ type activationHandler struct {
 	reporter  activator.StatsReporter
 	throttler *activatornet.Throttler
 
-	endpointTimeout time.Duration
-
 	revisionLister servinglisters.RevisionLister
 	serviceLister  corev1listers.ServiceLister
 	sksLister      netlisters.ServerlessServiceLister
@@ -64,20 +66,15 @@ type activationHandler struct {
 const defaulTimeout = 2 * time.Minute
 
 // New constructs a new http.Handler that deals with revision activation.
-func New(l *zap.SugaredLogger, r activator.StatsReporter,
-	t *activatornet.Throttler,
-	rl servinglisters.RevisionLister, sl corev1listers.ServiceLister,
-	sksL netlisters.ServerlessServiceLister) http.Handler {
-
+func New(ctx context.Context, t *activatornet.Throttler, sr activator.StatsReporter) http.Handler {
 	return &activationHandler{
-		logger:          l,
-		transport:       network.AutoTransport,
-		reporter:        r,
-		throttler:       t,
-		revisionLister:  rl,
-		sksLister:       sksL,
-		serviceLister:   sl,
-		endpointTimeout: defaulTimeout,
+		logger:         logging.FromContext(ctx),
+		transport:      network.AutoTransport,
+		reporter:       sr,
+		throttler:      t,
+		revisionLister: revisioninformer.Get(ctx).Lister(),
+		sksLister:      sksinformer.Get(ctx).Lister(),
+		serviceLister:  serviceinformer.Get(ctx).Lister(),
 	}
 }
 
@@ -95,11 +92,8 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tryContext, trySpan := trace.StartSpan(r.Context(), "throttler_try")
-	if a.endpointTimeout > 0 {
-		var cancel context.CancelFunc
-		tryContext, cancel = context.WithTimeout(tryContext, a.endpointTimeout)
-		defer cancel()
-	}
+	tryContext, cancel := context.WithTimeout(tryContext, defaulTimeout)
+	defer cancel()
 
 	err = a.throttler.Try(tryContext, revID, func(dest string) error {
 		trySpan.End()
