@@ -182,7 +182,7 @@ func (r *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 
 	r.Logger.Info("Setting up StatusManager")
 	resyncOnIngressReady := func(ia v1alpha1.IngressAccessor) {
-		impl.EnqueueKey(fmt.Sprintf("%s/%s", ia.GetNamespace(), ia.GetName()))
+		impl.EnqueueKey(types.NamespacedName{Namespace: ia.GetNamespace(), Name: ia.GetName()})
 	}
 	statusProber := NewStatusProber(
 		r.Logger.Named("status-manager"),

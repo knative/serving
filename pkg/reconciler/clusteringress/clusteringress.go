@@ -18,7 +18,6 @@ package clusteringress
 
 import (
 	"context"
-	"fmt"
 
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler"
@@ -40,6 +39,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/ingress/config"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -119,7 +119,7 @@ func (c *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 
 	c.Logger.Info("Setting up StatusManager")
 	resyncOnIngressReady := func(ia v1alpha1.IngressAccessor) {
-		impl.EnqueueKey(fmt.Sprintf("%s/%s", ia.GetNamespace(), ia.GetName()))
+		impl.EnqueueKey(types.NamespacedName{Namespace: ia.GetNamespace(), Name: ia.GetName()})
 	}
 	statusProber := ing.NewStatusProber(
 		c.Logger.Named("status-manager"),
