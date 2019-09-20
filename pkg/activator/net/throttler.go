@@ -28,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
@@ -525,24 +524,4 @@ func (ib *InfiniteBreaker) Maybe(ctx context.Context, thunk func()) error {
 		ib.logger.Infof("Context is closed: %v", ctx.Err())
 		return ctx.Err()
 	}
-}
-
-// SetCapacity is a test helper that sets Throttler in a desired
-// state for unit testing external components.
-// This permits us to hide behind the veneer the details of how Thorttler is updated.
-func (t *Throttler) SetCapacity(ns, n string, backends int, clusterIP string) {
-	upd := revisionDestsUpdate{
-		Rev:           types.NamespacedName{ns, n},
-		ClusterIPDest: clusterIP,
-		Dests:         dests(backends),
-	}
-	t.handleUpdate(upd)
-}
-
-func dests(count int) sets.String {
-	ret := sets.NewString()
-	for i := 1; i <= count; i++ {
-		ret.Insert(fmt.Sprintf("127.0.0.%v:1234", i))
-	}
-	return ret
 }

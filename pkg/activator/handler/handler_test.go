@@ -41,7 +41,6 @@ import (
 	tracetesting "knative.dev/pkg/tracing/testing"
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
-	activatornet "knative.dev/serving/pkg/activator/net"
 	activatortest "knative.dev/serving/pkg/activator/testing"
 	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -79,9 +78,17 @@ type fakeThrottler struct {
 	delay time.Duration
 }
 
-func (ft fakeThrottler) Try(context.Context, types.NamespacedName, func(string) error) error {
+func (ft fakeThrottler) Try(ctx context.Context, _ types.NamespacedName, f func(string) error) error {
 	time.Sleep(ft.delay)
-	return ft.err
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+	if ft.err != nil {
+		return ft.err
+	}
+	return f("10.10.10.10:1234")
 }
 
 func TestActivationHandler(t *testing.T) {
@@ -98,17 +105,17 @@ func TestActivationHandler(t *testing.T) {
 		tryTimeout    time.Duration
 		endpoints     *corev1.Endpoints
 		service       *corev1.Service
-		numBackends   int
+		throttler     Throttler
 		reporterCalls []reporterCall
 	}{{
-		label:       "active endpoint",
-		namespace:   testNamespace,
-		name:        testRevName,
-		wantBody:    wantBody,
-		wantCode:    http.StatusOK,
-		endpoints:   endpoints(testNamespace, testRevName, 10, networking.ServicePortNameHTTP1),
-		wantErr:     nil,
-		numBackends: 5,
+		label:     "active endpoint",
+		namespace: testNamespace,
+		name:      testRevName,
+		wantBody:  wantBody,
+		wantCode:  http.StatusOK,
+		endpoints: endpoints(testNamespace, testRevName, 10, networking.ServicePortNameHTTP1),
+		wantErr:   nil,
+		throttler: fakeThrottler{},
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
 			Namespace:  testNamespace,
@@ -121,25 +128,25 @@ func TestActivationHandler(t *testing.T) {
 		}},
 		tryTimeout: 100 * time.Millisecond,
 	}, {
-		label:         "no active endpoint",
+		label:         "unknown revision",
 		namespace:     "fake-namespace",
 		name:          "fake-name",
-		wantBody:      errMsg("revision.serving.knative.dev \"fake-name\" not found"),
+		wantBody:      errMsg(`revision.serving.knative.dev "fake-name" not found`),
 		wantCode:      http.StatusNotFound,
 		wantErr:       nil,
 		endpoints:     endpoints(testNamespace, testRevName, 0, networking.ServicePortNameHTTP1),
-		numBackends:   0,
+		throttler:     fakeThrottler{},
 		reporterCalls: nil,
 		tryTimeout:    100 * time.Millisecond,
 	}, {
-		label:       "request error",
-		namespace:   testNamespace,
-		name:        testRevName,
-		wantBody:    "request error\n",
-		wantCode:    http.StatusBadGateway,
-		wantErr:     errors.New("request error"),
-		endpoints:   endpoints(testNamespace, testRevName, 10, networking.ServicePortNameHTTP1),
-		numBackends: 10,
+		label:     "request error",
+		namespace: testNamespace,
+		name:      testRevName,
+		wantBody:  "request error\n",
+		wantCode:  http.StatusBadGateway,
+		wantErr:   errors.New("request error"),
+		endpoints: endpoints(testNamespace, testRevName, 10, networking.ServicePortNameHTTP1),
+		throttler: fakeThrottler{},
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
 			Namespace:  testNamespace,
@@ -151,12 +158,14 @@ func TestActivationHandler(t *testing.T) {
 			Value:      1,
 		}},
 	}, {
-		label:         "broken get k8s svc",
+		label:         "throttler timeout",
 		namespace:     testNamespace,
 		name:          testRevName,
 		wantBody:      context.DeadlineExceeded.Error() + "\n",
 		wantCode:      http.StatusServiceUnavailable,
 		wantErr:       nil,
+		tryTimeout:    50 * time.Millisecond,
+		throttler:     fakeThrottler{delay: 500 * time.Millisecond},
 		endpoints:     endpoints("bogus-namespace", testRevName, 10, networking.ServicePortNameHTTP1),
 		service:       service("bogus-namespace", testRevName, "http"),
 		reporterCalls: nil,
@@ -183,7 +192,6 @@ func TestActivationHandler(t *testing.T) {
 			rt := network.RoundTripperFunc(fakeRt.RT)
 
 			reporter := &fakeReporter{}
-			params := queue.BreakerParams{QueueDepth: 1000, MaxConcurrency: 1000, InitialCapacity: 0}
 
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer func() {
@@ -200,10 +208,7 @@ func TestActivationHandler(t *testing.T) {
 			serviceLister(ctx, svc)
 			sksLister(ctx, sks(testNamespace, testRevName))
 
-			throttler := activatornet.NewThrottler(ctx, params)
-			throttler.SetCapacity(testNamespace, testRevName, test.numBackends, "" /*clusterIP*/)
-
-			handler := (New(ctx, throttler, reporter)).(*activationHandler)
+			handler := (New(ctx, test.throttler, reporter)).(*activationHandler)
 
 			// Setup transports.
 			handler.transport = rt
@@ -277,10 +282,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	sksLister(ctx, sks(testNamespace, testRevName))
 	controller.StartInformers(ctx.Done(), endpoints.Informer())
 
-	throttler := activatornet.NewThrottler(ctx, breakerParams)
-	throttler.SetCapacity(testNamespace, testRevName, 5, "129.0.0.1:2112")
-
-	handler := (New(ctx, throttler, &fakeReporter{})).(*activationHandler)
+	handler := (New(ctx, fakeThrottler{}, &fakeReporter{})).(*activationHandler)
 	handler.transport = rt
 
 	writer := httptest.NewRecorder()
@@ -356,14 +358,10 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 					breakerParams.InitialCapacity, networking.ServicePortNameHTTP1))
 
 			controller.StartInformers(ctx.Done(), revisions.Informer(), endpoints.Informer())
-			throttler := activatornet.NewThrottler(ctx, breakerParams)
-
-			throttler.SetCapacity(testNamespace, testRevName,
-				breakerParams.InitialCapacity, "129.0.0.1:1234")
 
 			serviceLister(ctx, service(testNamespace, testRevName, "http"))
 			sksLister(ctx, sks(testNamespace, testRevName))
-			handler := (New(ctx, throttler, &fakeReporter{})).(*activationHandler)
+			handler := (New(ctx, fakeThrottler{}, &fakeReporter{})).(*activationHandler)
 			handler.transport = &ochttp.Transport{
 				Base: rt,
 			}
