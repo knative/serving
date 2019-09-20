@@ -237,7 +237,7 @@ func (rt *revisionThrottler) updateThrottleState(throttler *Throttler, backendCo
 
 // This function will never be called in parallel but try can be called in parallel to this so we need
 // to lock on updating concurrency / trackers
-func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update RevisionDestsUpdate) {
+func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionDestsUpdate) {
 	rt.logger.Debugf("Handling update w/ %d ready and dests: %v", len(update.Dests), update.Dests)
 
 	// ClusterIP is not yet ready, so we want to send requests directly to the pods.
@@ -315,7 +315,7 @@ func NewThrottler(ctx context.Context,
 }
 
 // Run starts the throttler and blocks until updateCh is closed.
-func (t *Throttler) Run(updateCh <-chan RevisionDestsUpdate) {
+func (t *Throttler) Run(updateCh <-chan revisionDestsUpdate) {
 	for update := range updateCh {
 		t.handleUpdate(update)
 	}
@@ -379,7 +379,7 @@ func (t *Throttler) revisionDeleted(obj interface{}) {
 	delete(t.revisionThrottlers, revID)
 }
 
-func (t *Throttler) handleUpdate(update RevisionDestsUpdate) {
+func (t *Throttler) handleUpdate(update revisionDestsUpdate) {
 	if update.Deleted {
 		// Nothing to do as revisionDeleted is already called by DeleteFunc of Informer.
 		return
@@ -388,7 +388,8 @@ func (t *Throttler) handleUpdate(update RevisionDestsUpdate) {
 		if k8serrors.IsNotFound(err) {
 			t.logger.Debugf("Revision %q is not found. Probably it was removed", update.Rev.String())
 		} else {
-			t.logger.Errorw(fmt.Sprintf("Failed to get revision throttler for revision %q", update.Rev.String()),
+			t.logger.Errorw(
+				fmt.Sprintf("Failed to get revision throttler for revision %q", update.Rev.String()),
 				zap.Error(err))
 		}
 	} else {
