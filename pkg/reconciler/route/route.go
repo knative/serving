@@ -48,6 +48,7 @@ import (
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	networkinglisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler"
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 	networkaccessor "knative.dev/serving/pkg/reconciler/accessor/networking"
@@ -349,25 +350,28 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 			dnsNames = sets.NewString(cert.Spec.DNSNames...)
 		}
 
+		// r.Status.URL is for the major domain, so only change if the cert is for
+		// the major domain
+		if dnsNames.Has(host) {
+			r.Status.URL.Scheme = "https"
+		}
+		// TODO: we should only mark https for the public visible targets when
+		// we are able to configure visibility per target.
+		setTargetsScheme(&r.Status, dnsNames.List(), "https")
 		if cert.Status.IsReady() {
 			r.Status.MarkCertificateReady(cert.Name)
-			// r.Status.URL is for the major domain, so only change if the cert is for
-			// the major domain
-			if dnsNames.Has(host) {
-				r.Status.URL.Scheme = "https"
-			}
-			// TODO: we should only mark https for the public visible targets when
-			// we are able to configure visibility per target.
-			setTargetsScheme(&r.Status, dnsNames.List(), "https")
 		} else {
 			r.Status.MarkCertificateNotReady(cert.Name)
-			if dnsNames.Has(host) {
-				r.Status.URL = &apis.URL{
-					Scheme: "http",
-					Host:   host,
+			// When httpProtocol is enabled, downward http scheme.
+			if config.FromContext(ctx).Network.HTTPProtocol == network.HTTPEnabled {
+				if dnsNames.Has(host) {
+					r.Status.URL = &apis.URL{
+						Scheme: "http",
+						Host:   host,
+					}
 				}
+				setTargetsScheme(&r.Status, dnsNames.List(), "http")
 			}
-			setTargetsScheme(&r.Status, dnsNames.List(), "http")
 		}
 		tls = append(tls, resources.MakeIngressTLS(cert, dnsNames.List()))
 	}

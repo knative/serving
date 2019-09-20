@@ -17,6 +17,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -28,8 +29,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"go.opencensus.io/plugin/ochttp"
 
-	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
-	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
 	rtesting "knative.dev/pkg/reconciler/testing"
@@ -40,7 +39,6 @@ import (
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	anet "knative.dev/serving/pkg/activator/net"
 	activatortest "knative.dev/serving/pkg/activator/testing"
-	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -49,10 +47,8 @@ import (
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 	"knative.dev/serving/pkg/network"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	corev1informers "k8s.io/client-go/informers/core/v1"
 
 	. "knative.dev/pkg/configmap/testing"
 	. "knative.dev/pkg/logging/testing"
@@ -130,6 +126,7 @@ func TestActivationHandler(t *testing.T) {
 		name:      testRevName,
 		wantBody:  "request error\n",
 		wantCode:  http.StatusBadGateway,
+		wantErr:   errors.New("request error"),
 		throttler: fakeThrottler{},
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
@@ -189,7 +186,6 @@ func TestActivationHandler(t *testing.T) {
 				ClearAll()
 			}()
 			revisionInformer(ctx, revision(testNamespace, testRevName))
-
 			handler := (New(ctx, test.throttler, reporter)).(*activationHandler)
 
 			// Setup transports.
@@ -460,45 +456,6 @@ func setupConfigStore(t *testing.T) *activatorconfig.Store {
 	tracingConfig := ConfigMapFromTestFile(t, tracingconfig.ConfigName)
 	configStore.OnConfigChanged(tracingConfig)
 	return configStore
-}
-
-func endpoints(namespace, name string, count int, portName string) *corev1.Endpoints {
-	ep := &corev1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels: map[string]string{
-				serving.RevisionUID:       "fake-uid",
-				networking.ServiceTypeKey: string(networking.ServiceTypePrivate),
-				serving.RevisionLabelKey:  name,
-			},
-		}}
-
-	epAddresses := []corev1.EndpointAddress{}
-	for i := 1; i <= count; i++ {
-		ip := fmt.Sprintf("127.0.0.%v", i)
-		epAddresses = append(epAddresses, corev1.EndpointAddress{IP: ip})
-	}
-	ep.Subsets = []corev1.EndpointSubset{{
-		Addresses: epAddresses,
-		Ports: []corev1.EndpointPort{{
-			Name: portName,
-			Port: 1234,
-		}},
-	}}
-
-	return ep
-}
-
-func endpointsInformer(ctx context.Context, eps ...*corev1.Endpoints) corev1informers.EndpointsInformer {
-	fake := fakekubeclient.Get(ctx)
-	endpoints := fakeendpointsinformer.Get(ctx)
-
-	for _, ep := range eps {
-		fake.CoreV1().Endpoints(ep.Namespace).Create(ep)
-		endpoints.Informer().GetIndexer().Add(ep)
-	}
-	return endpoints
 }
 
 func errMsg(msg string) string {
