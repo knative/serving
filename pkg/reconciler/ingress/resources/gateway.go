@@ -279,7 +279,13 @@ func UpdateGateway(gateway *v1alpha3.Gateway, want []v1alpha3.Server, existing [
 }
 
 func isDefaultServer(server *v1alpha3.Server) bool {
-	return server.Port.Name == "http" || server.Port.Name == "https"
+	if server.Port.Name == "https" {
+		if len(server.Hosts) > 0 && server.Hosts[0] == "*" {
+			return true
+		}
+		return false
+	}
+	return server.Port.Name == "http"
 }
 
 func isPlaceHolderServer(server *v1alpha3.Server) bool {
