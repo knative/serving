@@ -118,7 +118,6 @@ var (
 		stats.UnitDimensionless)
 
 	readinessProbeTimeout = flag.Int("probe-period", -1, "run readiness probe with given timeout")
-	readinessProbePort    = flag.Int("port", -1, "run readiness probe to the given port")
 )
 
 type config struct {
@@ -292,19 +291,16 @@ func probeQueueHealthPath(port int, timeoutSeconds int) error {
 func main() {
 	flag.Parse()
 
-	s := time.Now()
 	// Parse the environment.
 	var env config
 	if err := envconfig.Process("", &env); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	d := time.Since(s)
-	fmt.Printf("***** it cost=%vns", d.Nanoseconds())
 
 	// If this is set, we run as a standalone binary to probe the queue-proxy.
 	if *readinessProbeTimeout >= 0 {
-		if err := probeQueueHealthPath(*readinessProbePort, *readinessProbeTimeout); err != nil {
+		if err := probeQueueHealthPath(env.QueueServingPort, *readinessProbeTimeout); err != nil {
 			// used instead of the logger to produce a concise event message
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)

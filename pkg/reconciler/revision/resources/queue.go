@@ -142,12 +142,12 @@ func fractionFromPercentage(m map[string]string, k string) (float64, bool) {
 	return float64(value / 100), err == nil
 }
 
-func makeQueueProbe(in *corev1.Probe, port string) *corev1.Probe {
+func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
 	if in == nil || in.PeriodSeconds == 0 {
 		out := &corev1.Probe{
 			Handler: corev1.Handler{
 				Exec: &corev1.ExecAction{
-					Command: []string{"/ko-app/queue", "-probe-period", "0", "-port", port},
+					Command: []string{"/ko-app/queue", "-probe-period", "0"},
 				},
 			},
 			// We want to mark the service as not ready as soon as the
@@ -176,7 +176,7 @@ func makeQueueProbe(in *corev1.Probe, port string) *corev1.Probe {
 	return &corev1.Probe{
 		Handler: corev1.Handler{
 			Exec: &corev1.ExecAction{
-				Command: []string{"/ko-app/queue", "-probe-period", strconv.Itoa(timeout), "-port", port},
+				Command: []string{"/ko-app/queue", "-probe-period", strconv.Itoa(timeout)},
 			},
 		},
 		PeriodSeconds:       in.PeriodSeconds,
@@ -218,7 +218,6 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 	if rev.GetProtocol() == networking.ProtocolH2C {
 		servingPort = queueHTTP2Port
 	}
-	servingPortStr := strconv.Itoa(int(servingPort.ContainerPort))
 	ports = append(ports, servingPort)
 
 	var volumeMounts []corev1.VolumeMount
@@ -240,7 +239,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 		Image:           deploymentConfig.QueueSidecarImage,
 		Resources:       createQueueResources(rev.GetAnnotations(), rev.Spec.GetContainer()),
 		Ports:           ports,
-		ReadinessProbe:  makeQueueProbe(rp, servingPortStr),
+		ReadinessProbe:  makeQueueProbe(rp),
 		VolumeMounts:    volumeMounts,
 		SecurityContext: queueSecurityContext,
 		Env: []corev1.EnvVar{{
@@ -257,7 +256,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 			Value: rev.Name,
 		}, {
 			Name:  "QUEUE_SERVING_PORT",
-			Value: servingPortStr,
+			Value: strconv.Itoa(int(servingPort.ContainerPort)),
 		}, {
 			Name:  "CONTAINER_CONCURRENCY",
 			Value: strconv.Itoa(int(rev.Spec.GetContainerConcurrency())),
@@ -335,6 +334,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 		},
 	}, nil
 }
+
 func applyReadinessProbeDefaults(p *corev1.Probe, port int32) {
 	switch {
 	case p == nil:
