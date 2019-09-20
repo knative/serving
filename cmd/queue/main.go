@@ -161,16 +161,8 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 	healthState *health.State, prober func() bool, isAggressive bool) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// TODO: Move probe part to network.NewProbeHandler if possible or another handler.
-		ph := network.KnativeProbeHeader(r)
-		switch {
-		case ph != "":
+		if ph := network.KnativeProbeHeader(r); ph != "" {
 			handleKnativeProbe(w, r, ph, healthState, prober, isAggressive)
-			return
-		case network.IsKubeletProbe(r):
-			probeCtx, probeSpan := trace.StartSpan(r.Context(), "probe")
-			// Do not count health checks for concurrency metrics
-			handler.ServeHTTP(w, r.WithContext(probeCtx))
-			probeSpan.End()
 			return
 		}
 
