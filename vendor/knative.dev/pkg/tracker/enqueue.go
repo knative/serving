@@ -24,8 +24,8 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation"
-	"k8s.io/client-go/tools/cache"
 
 	"knative.dev/pkg/kmeta"
 )
@@ -38,7 +38,7 @@ import (
 // When OnChanged is called by the informer for a particular
 // GroupVersionKind, the provided callback is called with the "key"
 // of each object actively watching the changed object.
-func New(callback func(string), lease time.Duration) Interface {
+func New(callback func(types.NamespacedName), lease time.Duration) Interface {
 	return &impl{
 		leaseDuration: lease,
 		cb:            callback,
@@ -55,14 +55,14 @@ type impl struct {
 	// before having to renew the lease.
 	leaseDuration time.Duration
 
-	cb func(string)
+	cb func(types.NamespacedName)
 }
 
 // Check that impl implements Interface.
 var _ Interface = (*impl)(nil)
 
 // set is a map from keys to expirations
-type set map[string]time.Time
+type set map[types.NamespacedName]time.Time
 
 // Track implements Interface.
 func (i *impl) Track(ref corev1.ObjectReference, obj interface{}) error {
@@ -83,10 +83,12 @@ func (i *impl) Track(ref corev1.ObjectReference, obj interface{}) error {
 		return fmt.Errorf("invalid ObjectReference:\n%s", strings.Join(fieldErrors, "\n"))
 	}
 
-	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	object, err := kmeta.DeletionHandlingAccessor(obj)
 	if err != nil {
 		return err
 	}
+
+	key := types.NamespacedName{Namespace: object.GetNamespace(), Name: object.GetName()}
 
 	i.m.Lock()
 	defer i.m.Unlock()

@@ -1649,7 +1649,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:05ff542194cea2600f57e68a032cdd0f471ba11b48f95d5de54a52f63a4d2a09"
+  digest = "1:14109e81d8a6ed56b6c2e1d34fe463fad006b56908478f97d23ddb8d15801e37"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1698,6 +1698,8 @@
     "client/injection/kube/informers/core/v1/endpoints/fake",
     "client/injection/kube/informers/core/v1/namespace",
     "client/injection/kube/informers/core/v1/namespace/fake",
+    "client/injection/kube/informers/core/v1/pod",
+    "client/injection/kube/informers/core/v1/pod/fake",
     "client/injection/kube/informers/core/v1/secret",
     "client/injection/kube/informers/core/v1/secret/fake",
     "client/injection/kube/informers/core/v1/service",
@@ -1738,6 +1740,7 @@
     "test/logging",
     "test/logstream",
     "test/mako",
+    "test/mako/config",
     "test/monitoring",
     "test/prometheus",
     "test/spoof",
@@ -1757,7 +1760,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "e4ac97c25251614f10913e68ca9ab25050d02ded"
+  revision = "1ba51667e839a0e6363e1ea0d5608a79c44d6bae"
 
 [[projects]]
   branch = "master"
@@ -1839,6 +1842,7 @@
     "go.uber.org/atomic",
     "go.uber.org/zap",
     "go.uber.org/zap/zapcore",
+    "go.uber.org/zap/zaptest",
     "golang.org/x/net/context",
     "golang.org/x/net/http2",
     "golang.org/x/net/http2/h2c",
@@ -1935,6 +1939,8 @@
     "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/namespace",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/namespace/fake",
+    "knative.dev/pkg/client/injection/kube/informers/core/v1/pod",
+    "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/secret",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/service",

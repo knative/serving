@@ -214,7 +214,7 @@ func JsonToLoggingConfig(jsonCfg string) (*Config, error) {
 	cfg, err := NewConfigFromMap(configMap)
 	if err != nil {
 		// Get the default config from logging package.
-		if cfg, err = NewConfigFromMap(map[string]string{}); err != nil {
+		if cfg, err = NewConfigFromMap(nil); err != nil {
 			return nil, err
 		}
 	}
