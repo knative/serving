@@ -2677,7 +2677,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
-							TrafficTarget: v1beta1.TrafficTarget{
+							TrafficTarget: v1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
 								Percent:      ptr.Int64(100),
@@ -2713,7 +2713,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				// Populated by reconciliation when all traffic has been assigned.
 				WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName:   "config-00001",
 						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
@@ -2814,7 +2814,7 @@ func TestReconcile_EnableAutoTLS_HTTPDisabled(t *testing.T) {
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
-							TrafficTarget: v1beta1.TrafficTarget{
+							TrafficTarget: v1.TrafficTarget{
 								// Use the Revision name from the config.
 								RevisionName: "config-00001",
 								Percent:      ptr.Int64(100),
@@ -2850,7 +2850,7 @@ func TestReconcile_EnableAutoTLS_HTTPDisabled(t *testing.T) {
 				// Populated by reconciliation when all traffic has been assigned.
 				WithAddress, WithInitRouteConditions,
 				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(v1alpha1.TrafficTarget{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						RevisionName:   "config-00001",
 						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
