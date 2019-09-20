@@ -292,6 +292,16 @@ func probeQueueHealthPath(port int, timeoutSeconds int) error {
 func main() {
 	flag.Parse()
 
+	s := time.Now()
+	// Parse the environment.
+	var env config
+	if err := envconfig.Process("", &env); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	d := time.Since(s)
+	fmt.Printf("***** it cost=%vns", d.Nanoseconds())
+
 	// If this is set, we run as a standalone binary to probe the queue-proxy.
 	if *readinessProbeTimeout >= 0 {
 		if err := probeQueueHealthPath(*readinessProbePort, *readinessProbeTimeout); err != nil {
@@ -300,13 +310,6 @@ func main() {
 			os.Exit(1)
 		}
 		os.Exit(0)
-	}
-
-	// Parse the environment.
-	var env config
-	if err := envconfig.Process("", &env); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
 	}
 
 	// Setup the logger.

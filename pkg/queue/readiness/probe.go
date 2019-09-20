@@ -65,11 +65,11 @@ func (p *Probe) ProbeContainer() bool {
 		// Should never be reachable. Exec probes to be translated to
 		// TCP probes when container is built.
 		// Using Fprintf for a concise error message in the event log.
-		fmt.Fprint(os.Stderr, "exec probe not supported")
+		fmt.Fprintln(os.Stderr, "exec probe not supported")
 		return false
 	default:
 		// Using Fprintf for a concise error message in the event log.
-		fmt.Fprint(os.Stderr, "no probe found")
+		fmt.Fprintln(os.Stderr, "no probe found")
 		return false
 	}
 
