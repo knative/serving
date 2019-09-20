@@ -27,7 +27,6 @@ import (
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 
-	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	tracingconfig "knative.dev/pkg/tracing/config"
@@ -36,9 +35,7 @@ import (
 	activatornet "knative.dev/serving/pkg/activator/net"
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/serving"
-	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
-	netlisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/network"
@@ -46,7 +43,6 @@ import (
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 // activationHandler will wait for an active endpoint for a revision
@@ -58,8 +54,6 @@ type activationHandler struct {
 	throttler *activatornet.Throttler
 
 	revisionLister servinglisters.RevisionLister
-	serviceLister  corev1listers.ServiceLister
-	sksLister      netlisters.ServerlessServiceLister
 }
 
 // The default time we'll try to probe the revision for activation.
@@ -73,8 +67,6 @@ func New(ctx context.Context, t *activatornet.Throttler, sr activator.StatsRepor
 		reporter:       sr,
 		throttler:      t,
 		revisionLister: revisioninformer.Get(ctx).Lister(),
-		sksLister:      sksinformer.Get(ctx).Lister(),
-		serviceLister:  serviceinformer.Get(ctx).Lister(),
 	}
 }
 

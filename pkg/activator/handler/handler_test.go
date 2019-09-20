@@ -31,11 +31,9 @@ import (
 
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
-	fakeserviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
 	rtesting "knative.dev/pkg/reconciler/testing"
-	"knative.dev/pkg/test/helpers"
 	"knative.dev/pkg/tracing"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	tracetesting "knative.dev/pkg/tracing/testing"
@@ -44,22 +42,18 @@ import (
 	activatornet "knative.dev/serving/pkg/activator/net"
 	activatortest "knative.dev/serving/pkg/activator/testing"
 	"knative.dev/serving/pkg/apis/networking"
-	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	servingv1informers "knative.dev/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	fakesksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
-	netlisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 
 	. "knative.dev/pkg/configmap/testing"
 	. "knative.dev/pkg/logging/testing"
@@ -67,10 +61,10 @@ import (
 )
 
 const (
-	wantBody         = "♫ everything is awesome! ♫"
-	testNamespace    = "real-namespace"
-	testRevName      = "real-name"
-	testRevNameOther = "other-name"
+	wantBody      = "♫ everything is awesome! ♫"
+	testNamespace = "real-namespace"
+	testRevName   = "real-name"
+	testTimeout   = 100 * time.Millisecond
 )
 
 func TestActivationHandler(t *testing.T) {
@@ -84,9 +78,6 @@ func TestActivationHandler(t *testing.T) {
 		probeErr      error
 		probeCode     int
 		probeResp     []string
-		tryTimeout    time.Duration
-		endpoints     *corev1.Endpoints
-		service       *corev1.Service
 		numBackends   int
 		reporterCalls []reporterCall
 	}{{
@@ -96,7 +87,6 @@ func TestActivationHandler(t *testing.T) {
 		wantBody:    wantBody,
 		wantCode:    http.StatusOK,
 		wantErr:     nil,
-		endpoints:   endpoints(testNamespace, testRevName, 10, networking.ServicePortNameHTTP1),
 		numBackends: 5,
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
@@ -108,7 +98,6 @@ func TestActivationHandler(t *testing.T) {
 			Attempts:   1,
 			Value:      1,
 		}},
-		tryTimeout: 100 * time.Millisecond,
 	}, {
 		label:         "no active endpoint",
 		namespace:     "fake-namespace",
@@ -116,10 +105,8 @@ func TestActivationHandler(t *testing.T) {
 		wantBody:      errMsg("revision.serving.knative.dev \"fake-name\" not found"),
 		wantCode:      http.StatusNotFound,
 		wantErr:       nil,
-		endpoints:     endpoints(testNamespace, testRevName, 0, networking.ServicePortNameHTTP1),
 		numBackends:   0,
 		reporterCalls: nil,
-		tryTimeout:    100 * time.Millisecond,
 	}, {
 		label:       "request error",
 		namespace:   testNamespace,
@@ -127,7 +114,6 @@ func TestActivationHandler(t *testing.T) {
 		wantBody:    "request error\n",
 		wantCode:    http.StatusBadGateway,
 		wantErr:     errors.New("request error"),
-		endpoints:   endpoints(testNamespace, testRevName, 10, networking.ServicePortNameHTTP1),
 		numBackends: 10,
 		reporterCalls: []reporterCall{{
 			Op:         "ReportRequestCount",
@@ -146,8 +132,6 @@ func TestActivationHandler(t *testing.T) {
 		wantBody:      context.DeadlineExceeded.Error() + "\n",
 		wantCode:      http.StatusServiceUnavailable,
 		wantErr:       nil,
-		endpoints:     endpoints("bogus-namespace", testRevName, 10, networking.ServicePortNameHTTP1),
-		service:       service("bogus-namespace", testRevName, "http"),
 		reporterCalls: nil,
 	}}
 	for _, test := range tests {
@@ -180,14 +164,8 @@ func TestActivationHandler(t *testing.T) {
 				ClearAll()
 			}()
 			revisionInformer(ctx, revision(testNamespace, testRevName))
-			endpointsInformer(ctx, test.endpoints)
-
-			svc := test.service
-			if svc == nil {
-				svc = service(testNamespace, testRevName, "http")
-			}
-			serviceLister(ctx, svc)
-			sksLister(ctx, sks(testNamespace, testRevName))
+			endpointsInformer(ctx,
+				endpoints(testNamespace, testRevName, params.InitialCapacity, networking.ServicePortNameHTTP1))
 
 			throttler := activatornet.NewThrottler(ctx, params)
 			throttler.SetCapacity(testNamespace, testRevName, test.numBackends, "" /*clusterIP*/)
@@ -204,10 +182,7 @@ func TestActivationHandler(t *testing.T) {
 			req.Host = "test-host"
 
 			// Timeout context
-			if test.tryTimeout == 0 {
-				test.tryTimeout = 200 * time.Millisecond
-			}
-			tryContext, cancel := context.WithTimeout(ctx, test.tryTimeout)
+			tryContext, cancel := context.WithTimeout(ctx, testTimeout)
 			defer cancel()
 
 			// Set up config store to populate context.
@@ -259,12 +234,9 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 		cancel()
 		ClearAll()
 	}()
-	endpoints := endpointsInformer(ctx,
+	endpointsInformer(ctx,
 		endpoints(testNamespace, testRevName, breakerParams.InitialCapacity, networking.ServicePortNameHTTP1))
 	revisionInformer(ctx, revision(testNamespace, testRevName))
-	serviceLister(ctx, service(testNamespace, testRevName, networking.ServicePortNameHTTP1))
-	sksLister(ctx, sks(testNamespace, testRevName))
-	controller.StartInformers(ctx.Done(), endpoints.Informer())
 
 	throttler := activatornet.NewThrottler(ctx, breakerParams)
 	throttler.SetCapacity(testNamespace, testRevName, 5, "129.0.0.1:2112")
@@ -321,9 +293,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 
 			// Create tracer with reporter recorder
 			reporter, co := tracetesting.FakeZipkinExporter()
-			defer reporter.Close()
 			oct := tracing.NewOpenCensusTracer(co)
-			defer oct.Finish()
 
 			cfg := tracingconfig.Config{
 				Backend: tc.traceBackend,
@@ -338,6 +308,8 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 			defer func() {
 				cancel()
 				ClearAll()
+				reporter.Close()
+				oct.Finish()
 			}()
 			revisions := revisionInformer(ctx, revision(testNamespace, testRevName))
 			endpoints := endpointsInformer(ctx,
@@ -350,16 +322,13 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 			throttler.SetCapacity(testNamespace, testRevName,
 				breakerParams.InitialCapacity, "129.0.0.1:1234")
 
-			serviceLister(ctx, service(testNamespace, testRevName, "http"))
-			sksLister(ctx, sks(testNamespace, testRevName))
 			handler := (New(ctx, throttler, &fakeReporter{})).(*activationHandler)
 			handler.transport = &ochttp.Transport{
 				Base: rt,
 			}
 
-			// set up config store to populate context
+			// Set up config store to populate context.
 			configStore := setupConfigStore(t)
-
 			sendRequest(testNamespace, testRevName, handler, configStore)
 
 			gotSpans := reporter.Flush()
@@ -482,68 +451,11 @@ func revisionInformer(ctx context.Context, revs ...*v1alpha1.Revision) servingv1
 	return revisions
 }
 
-func service(namespace, name string, portName string) *corev1.Service {
-	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-			Labels: map[string]string{
-				networking.ServiceTypeKey: string(networking.ServiceTypePrivate),
-				serving.RevisionLabelKey:  name,
-			},
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{{
-				Name: portName,
-				Port: 8080,
-			}},
-			ClusterIP: "129.0.0.1",
-		}}
-}
-
-func serviceLister(ctx context.Context, svcs ...*corev1.Service) corev1listers.ServiceLister {
-	fake := fakekubeclient.Get(ctx)
-	services := fakeserviceinformer.Get(ctx)
-
-	for _, svc := range svcs {
-		fake.CoreV1().Services(svc.Namespace).Create(svc)
-		services.Informer().GetIndexer().Add(svc)
-	}
-
-	return services.Lister()
-}
-
 func setupConfigStore(t *testing.T) *activatorconfig.Store {
 	configStore := activatorconfig.NewStore(TestLogger(t))
 	tracingConfig := ConfigMapFromTestFile(t, tracingconfig.ConfigName)
 	configStore.OnConfigChanged(tracingConfig)
 	return configStore
-}
-
-func sks(namespace, name string) *nv1a1.ServerlessService {
-	return &nv1a1.ServerlessService{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-		},
-		Status: nv1a1.ServerlessServiceStatus{
-			// Randomize the test.
-			PrivateServiceName: name,
-			ServiceName:        helpers.AppendRandomString(name),
-		},
-	}
-}
-
-func sksLister(ctx context.Context, skss ...*nv1a1.ServerlessService) netlisters.ServerlessServiceLister {
-	fake := fakeservingclient.Get(ctx)
-	services := fakesksinformer.Get(ctx)
-
-	for _, sks := range skss {
-		fake.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(sks)
-		services.Informer().GetIndexer().Add(sks)
-	}
-
-	return services.Lister()
 }
 
 func endpoints(namespace, name string, count int, portName string) *corev1.Endpoints {
@@ -582,7 +494,6 @@ func endpointsInformer(ctx context.Context, eps ...*corev1.Endpoints) corev1info
 		fake.CoreV1().Endpoints(ep.Namespace).Create(ep)
 		endpoints.Informer().GetIndexer().Add(ep)
 	}
-
 	return endpoints
 }
 
