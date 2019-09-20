@@ -105,6 +105,10 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	pa.Status.InitializeConditions()
 	logger.Debug("PA exists")
 
+	// MarkReconciled set status to true in order to indicate given class implemented by PodAutoscaler.
+	// In future if new class has been extended to support PodAutoscaler then that class has to implement MarkReconciled
+	// Currently KPA and HPA class supported by PodAutoscaler and both implement MarkReconciled in order to indicate valid classes.
+	pa.Status.MarkReconciled()
 	// HPA-class PAs don't yet support scale-to-zero
 	pa.Status.MarkActive()
 

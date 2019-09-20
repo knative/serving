@@ -83,7 +83,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "first-reconcile",
 				// The first reconciliation Populates the following status properties.
-				WithLogURL, AllUnknownConditions, MarkDeploying("Deploying")),
+				WithLogURL, AllUnknownConditions, MarkDeploying("Deploying"), MarkResourcesUnavailable("PodAutoscalerHasNotReconciledYet", "PodAutoscaler with class  has not been reconciled yet")),
 		}},
 		Key: "foo/first-reconcile",
 	}, {

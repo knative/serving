@@ -900,6 +900,11 @@ func TestTypicalFlow(t *testing.T) {
 	r.MarkActive()
 	apitestv1.CheckConditionSucceeded(r.duck(), PodAutoscalerConditionActive, t)
 	apitestv1.CheckConditionSucceeded(r.duck(), PodAutoscalerConditionReady, t)
+	r.MarkReconciled()
+	apitestv1.CheckConditionSucceeded(r.duck(), PodAutoscalerReconciled, t)
+	if !r.IsReconciled() {
+		t.Errorf("IsReconciled not set.")
+	}
 }
 
 func TestTargetBC(t *testing.T) {

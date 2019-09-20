@@ -109,6 +109,10 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		return nil
 	}
 
+	// MarkReconciled set status to true in order to indicate given class implemented by PodAutoscaler.
+	// In future if new class has been extended to support PodAutoscaler then that class has to implement MarkReconciled
+	// Currently KPA and HPA class supported by PodAutoscaler and both implement MarkReconciled in order to indicate valid classes.
+	pa.Status.MarkReconciled()
 	// We may be reading a version of the object that was stored at an older version
 	// and may not have had all of the assumed defaults specified.  This won't result
 	// in this getting written back to the API Server, but lets downstream logic make

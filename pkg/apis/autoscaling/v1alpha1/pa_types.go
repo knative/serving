@@ -114,6 +114,8 @@ const (
 	PodAutoscalerConditionReady = apis.ConditionReady
 	// PodAutoscalerConditionActive is set when the PodAutoscaler's ScaleTargetRef is receiving traffic.
 	PodAutoscalerConditionActive apis.ConditionType = "Active"
+	// PodAutoscalerReconciled is set to show supported class for PodAutoscaler.
+	PodAutoscalerReconciled apis.ConditionType = "Reconciled"
 )
 
 // PodAutoscalerStatus communicates the observed state of the PodAutoscaler (from the controller).

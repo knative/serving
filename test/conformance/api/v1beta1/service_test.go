@@ -19,17 +19,13 @@ limitations under the License.
 package v1beta1
 
 import (
-	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/test"
@@ -239,42 +235,6 @@ func TestServiceBYOName(t *testing.T) {
 	image2 := pkgTest.ImagePath(names.Image)
 	if _, err := v1b1test.PatchService(t, clients, objects.Service, rtesting.WithServiceImage(image2)); err == nil {
 		t.Fatalf("Patch update for Service %s didn't fail.", names.Service)
-	}
-}
-
-// TestRunLatestServiceForPodAutoscalerAnnotation creates a Service with invalid class annotation for autoscaler.
-func TestRunLatestServiceForPodAutoscalerAnnotation(t *testing.T) {
-	t.Parallel()
-	clients := test.Setup(t)
-	names := test.ResourceNames{
-		Service: test.ObjectNameForTest(t),
-		Image:   test.PizzaPlanet1,
-	}
-	// Clean up on test failure or interrupt
-	defer test.TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	// Setup initial Service
-	_, err := v1b1test.CreateService(t, clients, names, rtesting.WithConfigAnnotations(map[string]string{
-		autoscaling.ClassAnnotationKey: "hpa1", //Invalid class annotation other than KPA and HPA
-	}))
-	if err != nil {
-		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
-	}
-	var lastState *v1beta1.Service
-	var waitErr = wait.PollImmediate(1*time.Second, 1*time.Minute, func() (bool, error) {
-		var err error
-		lastState, err = clients.ServingBetaClient.Services.Get(names.Service, metav1.GetOptions{})
-		if err != nil {
-			return true, err
-		}
-		return v1b1test.IsServiceReady(lastState)
-	})
-	if waitErr != nil {
-		for i := range lastState.Status.Status.GetConditions() {
-			if strings.EqualFold(lastState.Status.Status.GetConditions()[i].Reason, "RevisionFailed") && !strings.Contains(lastState.Status.Status.GetConditions()[i].Message, "Failed to create PA because of invalid class hpa1") {
-				t.Fatalf("service %q is not in desired state, got: %+v", names.Service, lastState)
-			}
-		}
 	}
 }
 

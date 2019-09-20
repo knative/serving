@@ -142,12 +142,8 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1alpha1.Revision) er
 		if err != nil {
 			return perrors.Wrapf(err, "failed to create PA %q", paName)
 		}
-		/* TODO #5403 once after confirmation of number of classes autoscaler can support than this condition can be removed and handled through validation.
-		Currently when given class value is other than (KPA and HPA) /metric value will be empty
-		so based on the empty value of metric we can decide whether provided class is valid or invalid*/
-		if value, ok := pa.Annotations[autoscaling.MetricAnnotationKey]; ok && value == "" {
-			rev.Status.MarkResourcesUnavailable("Create PA failed", "Failed to create PA because of invalid class "+pa.Annotations[autoscaling.ClassAnnotationKey])
-			return fmt.Errorf("Failed to create PA because of invalid class %s", pa.Annotations[autoscaling.ClassAnnotationKey])
+		if !pa.Status.IsReconciled() {
+			rev.Status.MarkResourcesUnavailable("PodAutoscalerHasNotReconciledYet", "PodAutoscaler with class "+pa.Annotations[autoscaling.ClassAnnotationKey]+" has not been reconciled yet")
 		}
 		logger.Info("Created PA: ", paName)
 	} else if err != nil {

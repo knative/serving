@@ -118,14 +118,6 @@ func WithServiceAnnotationRemoved(k string) ServiceOption {
 	}
 }
 
-// WithConfigAnnotations assigns config annotations to a service
-func WithConfigAnnotations(annotations map[string]string) ServiceOption {
-	return func(service *v1.Service) {
-		service.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations = presources.UnionMaps(
-			service.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations, annotations)
-	}
-}
-
 // WithServiceImage sets the container image to be the provided string.
 func WithServiceImage(img string) ServiceOption {
 	return func(svc *v1.Service) {

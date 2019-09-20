@@ -164,6 +164,17 @@ func (pas *PodAutoscalerStatus) MarkActive() {
 	podCondSet.Manage(pas.duck()).MarkTrue(PodAutoscalerConditionActive)
 }
 
+// MarkReconciled marks the PodAutoscaler status to true if reconciled by KPA and HPA.
+func (pas *PodAutoscalerStatus) MarkReconciled() {
+	podCondSet.Manage(pas.duck()).MarkTrue(PodAutoscalerReconciled)
+}
+
+// IsReconciled returns true if the PodAutoscaler implemented by KPA and HPA.
+func (pas *PodAutoscalerStatus) IsReconciled() bool {
+	cond := pas.GetCondition(PodAutoscalerReconciled)
+	return cond != nil && cond.Status == corev1.ConditionTrue
+}
+
 // MarkActivating marks the PA as activating.
 func (pas *PodAutoscalerStatus) MarkActivating(reason, message string) {
 	podCondSet.Manage(pas.duck()).MarkUnknown(PodAutoscalerConditionActive, reason, message)

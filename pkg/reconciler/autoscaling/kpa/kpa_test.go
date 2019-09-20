@@ -186,6 +186,10 @@ func markUnknown(pa *asv1a1.PodAutoscaler) {
 	pa.Status.MarkActivating("", "")
 }
 
+func markReconcile(pa *asv1a1.PodAutoscaler) {
+	pa.Status.MarkReconciled()
+}
+
 func markInactive(pa *asv1a1.PodAutoscaler) {
 	pa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
 }
@@ -246,19 +250,19 @@ func TestReconcile(t *testing.T) {
 
 	inactiveKPAMinScale := func(g int32) *asv1a1.PodAutoscaler {
 		return kpa(
-			testNamespace, testRevision, markInactive, withScales(g, unknownScale), WithReachabilityReachable,
+			testNamespace, testRevision, markInactive, markReconcile, withScales(g, unknownScale), WithReachabilityReachable,
 			withMinScale(defaultScale), WithPAStatusService(testRevision), withMSvcStatus(testRevision),
 		)
 	}
 	activatingKPAMinScale := func(g int32) *asv1a1.PodAutoscaler {
 		return kpa(
-			testNamespace, testRevision, markActivating, withScales(g, defaultScale), WithReachabilityReachable,
+			testNamespace, testRevision, markActivating, markReconcile, withScales(g, defaultScale), WithReachabilityReachable,
 			withMinScale(defaultScale), WithPAStatusService(testRevision), withMSvcStatus(testRevision),
 		)
 	}
 	activeKPAMinScale := func(g, w int32) *asv1a1.PodAutoscaler {
 		return kpa(
-			testNamespace, testRevision, markActive, withScales(g, w), WithReachabilityReachable,
+			testNamespace, testRevision, markActive, markReconcile, withScales(g, w), WithReachabilityReachable,
 			withMinScale(defaultScale), WithPAStatusService(testRevision), withMSvcStatus(testRevision),
 		)
 	}
@@ -298,7 +302,7 @@ func TestReconcile(t *testing.T) {
 		Name: "steady state",
 		Key:  key,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive, withMSvcStatus(testRevision),
+			kpa(testNamespace, testRevision, markActive, markReconcile, withMSvcStatus(testRevision),
 				withScales(1, defaultScale), WithPAStatusService(testRevision)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
@@ -317,7 +321,7 @@ func TestReconcile(t *testing.T) {
 			defaultDeployment,
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, markUnknown, withMSvcStatus(testRevision), withScales(1, defaultScale),
+			Object: kpa(testNamespace, testRevision, markUnknown, markReconcile, withMSvcStatus(testRevision), withScales(1, defaultScale),
 				WithPAStatusService(testRevision)),
 		}},
 		WantErr: true,
@@ -350,7 +354,7 @@ func TestReconcile(t *testing.T) {
 			Name: "whatever",
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, markActive,
+			Object: kpa(testNamespace, testRevision, markActive, markReconcile,
 				withScales(1, defaultScale), WithPAStatusService(testRevision), withMSvcStatus(testRevision)),
 		}},
 		WantCreates: []runtime.Object{
@@ -360,7 +364,7 @@ func TestReconcile(t *testing.T) {
 		Name: "failure-creating-metric-object",
 		Key:  key,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive, withMSvcStatus(testRevision),
+			kpa(testNamespace, testRevision, markActive, markReconcile, withMSvcStatus(testRevision),
 				withScales(1, defaultScale), WithPAStatusService(testRevision)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
@@ -381,7 +385,7 @@ func TestReconcile(t *testing.T) {
 		Name: "failure-updating-metric-object",
 		Key:  key,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive, withMSvcStatus(testRevision),
+			kpa(testNamespace, testRevision, markActive, markReconcile, withMSvcStatus(testRevision),
 				withScales(1, defaultScale), WithPAStatusService(testRevision)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
@@ -403,14 +407,14 @@ func TestReconcile(t *testing.T) {
 		Name: "create metrics service",
 		Key:  key,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive,
+			kpa(testNamespace, testRevision, markActive, markReconcile,
 				withScales(1, defaultScale), WithPAStatusService(testRevision)),
 			defaultSKS,
 			defaultDeployment,
 			defaultEndpoints,
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, markActive, withScales(1, defaultScale),
+			Object: kpa(testNamespace, testRevision, markActive, markReconcile, withScales(1, defaultScale),
 				WithPAStatusService(testRevision), withMSvcStatus(testRevision)),
 		}},
 		WantCreates: []runtime.Object{
@@ -425,7 +429,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantErr: true,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive,
+			kpa(testNamespace, testRevision, markActive, markReconcile,
 				WithPAStatusService(testRevision)),
 			defaultSKS,
 			defaultDeployment,
@@ -442,7 +446,7 @@ func TestReconcile(t *testing.T) {
 		Name: "scale up deployment",
 		Key:  key,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive, withMSvcStatus(testRevision),
+			kpa(testNamespace, testRevision, markActive, markReconcile, withMSvcStatus(testRevision),
 				withScales(1, defaultScale), WithPAStatusService(testRevision)),
 			defaultSKS,
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
@@ -465,7 +469,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantErr: true,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive, withMSvcStatus(testRevision),
+			kpa(testNamespace, testRevision, markActive, markReconcile, withMSvcStatus(testRevision),
 				withScales(1, defaultScale), WithPAStatusService(testRevision)),
 			defaultSKS,
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
@@ -488,7 +492,7 @@ func TestReconcile(t *testing.T) {
 		Name: "update metrics service",
 		Key:  key,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive, withMSvcStatus(testRevision),
+			kpa(testNamespace, testRevision, markActive, markReconcile, withMSvcStatus(testRevision),
 				withScales(1, defaultScale), WithPAStatusService(testRevision)),
 			defaultSKS,
 			defaultDeployment, defaultEndpoints,
@@ -506,7 +510,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantErr: true,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive, withMSvcStatus(testRevision),
+			kpa(testNamespace, testRevision, markActive, markReconcile, withMSvcStatus(testRevision),
 				withScales(1, defaultScale), WithPAStatusService(testRevision)),
 			defaultSKS,
 			defaultDeployment, defaultEndpoints,
@@ -524,7 +528,7 @@ func TestReconcile(t *testing.T) {
 		Key:     key,
 		WantErr: true,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive,
+			kpa(testNamespace, testRevision, markActive, markReconcile,
 				withScales(1, defaultScale), WithPAStatusService(testRevision), withMSvcStatus(testRevision)),
 			defaultSKS,
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector), func(s *corev1.Service) {
@@ -533,7 +537,7 @@ func TestReconcile(t *testing.T) {
 			defaultDeployment, defaultEndpoints,
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, markActive, WithPAStatusService(testRevision),
+			Object: kpa(testNamespace, testRevision, markActive, markReconcile, WithPAStatusService(testRevision),
 				withMSvcStatus(testRevision), withScales(1, defaultScale),
 				// We expect this change in status:
 				markResourceNotOwned("Service", testRevision+"-metrics")),
@@ -545,7 +549,7 @@ func TestReconcile(t *testing.T) {
 		Name: "can't read endpoints",
 		Key:  key,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive, withMSvcStatus(testRevision),
+			kpa(testNamespace, testRevision, markActive, markReconcile, withMSvcStatus(testRevision),
 				withScales(1, defaultScale), WithPAStatusService(testRevision)),
 			defaultSKS,
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
@@ -576,7 +580,7 @@ func TestReconcile(t *testing.T) {
 				WithDeployRef(deployName)),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, markActivating, withScales(0, defaultScale),
+			Object: kpa(testNamespace, testRevision, markActivating, markReconcile, withScales(0, defaultScale),
 				withMSvcStatus(testRevision),
 				WithPAStatusService(testRevision)),
 		}},
@@ -593,7 +597,7 @@ func TestReconcile(t *testing.T) {
 			defaultDeployment, defaultEndpoints,
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, markActivating, withScales(0, defaultScale),
+			Object: kpa(testNamespace, testRevision, markActivating, markReconcile, withScales(0, defaultScale),
 				withMSvcStatus(testRevision), WithPAStatusService(testRevision)),
 		}},
 	}, {
@@ -607,7 +611,7 @@ func TestReconcile(t *testing.T) {
 			defaultDeployment, defaultEndpoints,
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, markActive, WithPAStatusService(testRevision),
+			Object: kpa(testNamespace, testRevision, markActive, markReconcile, WithPAStatusService(testRevision),
 				withMSvcStatus(testRevision), withScales(1, defaultScale)),
 		}},
 	}, {
@@ -622,7 +626,7 @@ func TestReconcile(t *testing.T) {
 			defaultDeployment, defaultEndpoints,
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, markActivating, withMinScale(2), withMSvcStatus(testRevision),
+			Object: kpa(testNamespace, testRevision, markActivating, markReconcile, withMinScale(2), withMSvcStatus(testRevision),
 				withScales(1, defaultScale), WithPAStatusService(testRevision), WithReachabilityReachable),
 		}},
 	}, {
@@ -637,7 +641,7 @@ func TestReconcile(t *testing.T) {
 			defaultDeployment, defaultEndpoints,
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, markActivating, withMinScale(2), withMSvcStatus(testRevision),
+			Object: kpa(testNamespace, testRevision, markActivating, markReconcile, withMinScale(2), withMSvcStatus(testRevision),
 				withScales(1, defaultScale), WithPAStatusService(testRevision), WithReachabilityUnknown),
 		}},
 	}, {
@@ -652,7 +656,7 @@ func TestReconcile(t *testing.T) {
 			defaultDeployment, defaultEndpoints,
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, markActive, withMinScale(2), withMSvcStatus(testRevision),
+			Object: kpa(testNamespace, testRevision, markActive, markReconcile, withMinScale(2), withMSvcStatus(testRevision),
 				withScales(1, defaultScale), WithPAStatusService(testRevision), WithReachabilityUnreachable),
 		}},
 	}, {
@@ -668,7 +672,7 @@ func TestReconcile(t *testing.T) {
 			makeSKSPrivateEndpoints(2, testNamespace, testRevision),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, markActive, withMinScale(2), withMSvcStatus(testRevision),
+			Object: kpa(testNamespace, testRevision, markActive, markReconcile, withMinScale(2), withMSvcStatus(testRevision),
 				withScales(2, defaultScale), WithPAStatusService(testRevision), WithReachabilityReachable),
 		}},
 	}, {
@@ -684,7 +688,7 @@ func TestReconcile(t *testing.T) {
 			makeSKSPrivateEndpoints(2, testNamespace, testRevision),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: kpa(testNamespace, testRevision, markActive, withMinScale(2), withMSvcStatus(testRevision),
+			Object: kpa(testNamespace, testRevision, markActive, markReconcile, withMinScale(2), withMSvcStatus(testRevision),
 				withScales(2, defaultScale), WithPAStatusService(testRevision), WithReachabilityUnknown),
 		}},
 	}, {
@@ -698,7 +702,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			// SKS does not exist, so we're just creating and have no status.
-			Object: kpa(testNamespace, testRevision, markActivating, withMSvcStatus(testRevision), withScales(0, defaultScale)),
+			Object: kpa(testNamespace, testRevision, markActivating, markReconcile, withMSvcStatus(testRevision), withScales(0, defaultScale)),
 		}},
 		WantCreates: []runtime.Object{
 			sks(testNamespace, testRevision, WithDeployRef(deployName)),
@@ -716,7 +720,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			// SKS just got updated and we don't have up to date status.
-			Object: kpa(testNamespace, testRevision, markActivating, withMSvcStatus(testRevision),
+			Object: kpa(testNamespace, testRevision, markActivating, markReconcile, withMSvcStatus(testRevision),
 				withScales(0, defaultScale), WithPAStatusService(testRevision)),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -727,7 +731,7 @@ func TestReconcile(t *testing.T) {
 		Name: "sks cannot be created",
 		Key:  key,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive, withMSvcStatus(testRevision), withScales(1, defaultScale)),
+			kpa(testNamespace, testRevision, markActive, markReconcile, withMSvcStatus(testRevision), withScales(1, defaultScale)),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 			metric(testNamespace, testRevision),
 			defaultDeployment,
@@ -747,7 +751,7 @@ func TestReconcile(t *testing.T) {
 		Name: "sks cannot be updated",
 		Key:  key,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, withScales(1, defaultScale), withMSvcStatus(testRevision), markActive),
+			kpa(testNamespace, testRevision, withScales(1, defaultScale), withMSvcStatus(testRevision), markActive, markReconcile),
 			sks(testNamespace, testRevision, WithDeployRef("bar")),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 			metric(testNamespace, testRevision),
@@ -767,7 +771,7 @@ func TestReconcile(t *testing.T) {
 		Name: "sks is disowned",
 		Key:  key,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, withScales(1, defaultScale), withMSvcStatus(testRevision), markActive),
+			kpa(testNamespace, testRevision, withScales(1, defaultScale), withMSvcStatus(testRevision), markActive, markReconcile),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady,
 				WithSKSOwnersRemoved),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
@@ -777,7 +781,7 @@ func TestReconcile(t *testing.T) {
 		WantErr: true,
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, withScales(1, defaultScale),
-				withMSvcStatus(testRevision), markResourceNotOwned("ServerlessService", testRevision)),
+				withMSvcStatus(testRevision), markResourceNotOwned("ServerlessService", testRevision), markReconcile),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling SKS: PA: test-revision does not own SKS: test-revision"),
@@ -786,7 +790,7 @@ func TestReconcile(t *testing.T) {
 		Name: "metric is disowned",
 		Key:  key,
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, withScales(1, defaultScale), withMSvcStatus(testRevision), markActive),
+			kpa(testNamespace, testRevision, withScales(1, defaultScale), withMSvcStatus(testRevision), markActive, markReconcile),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
 			metric(testNamespace, testRevision, WithMetricOwnersRemoved),
@@ -795,7 +799,7 @@ func TestReconcile(t *testing.T) {
 		WantErr: true,
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, withScales(1, defaultScale),
-				withMSvcStatus(testRevision), markResourceNotOwned("Metric", testRevision)),
+				withMSvcStatus(testRevision), markResourceNotOwned("Metric", testRevision), markReconcile),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", `error reconciling metric: PA: test-revision does not own Metric: test-revision`),
@@ -807,7 +811,7 @@ func TestReconcile(t *testing.T) {
 			decider(testNamespace, testRevision, 0 /* desiredScale */, 0 /* ebc */)),
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, withScales(0, 0),
-				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
+				WithNoTraffic("NoTraffic", "The target is not receiving traffic."), markReconcile,
 				markOld, WithPAStatusService(testRevision), withMSvcStatus(testRevision)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
@@ -825,7 +829,7 @@ func TestReconcile(t *testing.T) {
 			decider(testNamespace, testRevision, 0 /* desiredScale */, 0 /* ebc */)),
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, withScales(0, 0),
-				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
+				WithNoTraffic("NoTraffic", "The target is not receiving traffic."), markReconcile,
 				markOld, WithPAStatusService(testRevision), withMSvcStatus(testRevision)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
@@ -846,7 +850,7 @@ func TestReconcile(t *testing.T) {
 		Key:  key,
 		Ctx:  context.WithValue(context.Background(), deciderKey, decider(testNamespace, testRevision, 0 /* desiredScale */, 0 /* ebc */)),
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive, markOld, withScales(0, 0),
+			kpa(testNamespace, testRevision, markActive, markReconcile, markOld, withScales(0, 0),
 				WithPAStatusService(testRevision), withMSvcStatus(testRevision)),
 			defaultSKS,
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
@@ -856,7 +860,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, withScales(1, 0),
 				withMSvcStatus(testRevision),
-				WithNoTraffic("NoTraffic", "The target is not receiving traffic."),
+				WithNoTraffic("NoTraffic", "The target is not receiving traffic."), markReconcile,
 				WithPAStatusService(testRevision), withMSvcStatus(testRevision)),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -868,7 +872,7 @@ func TestReconcile(t *testing.T) {
 		Key:  key,
 		Ctx:  context.WithValue(context.Background(), deciderKey, decider(testNamespace, testRevision, 0 /* desiredScale */, 0 /* ebc */)),
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive, withScales(1, 1),
+			kpa(testNamespace, testRevision, markActive, markReconcile, withScales(1, 1),
 				WithPAStatusService(testRevision), withMSvcStatus(testRevision)),
 			defaultSKS,
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
@@ -881,7 +885,7 @@ func TestReconcile(t *testing.T) {
 		Ctx: context.WithValue(context.Background(), deciderKey, decider(testNamespace,
 			testRevision, 0 /* desiredScale */, 0 /* ebc */)),
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActivating, markOld,
+			kpa(testNamespace, testRevision, markActivating, markReconcile, markOld,
 				WithPAStatusService(testRevision), withScales(0, 0),
 				withMSvcStatus(testRevision)),
 			defaultSKS,
@@ -891,7 +895,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, withMSvcStatus(testRevision),
-				WithNoTraffic("TimedOut", "The target could not be activated."), withScales(1, 0),
+				WithNoTraffic("TimedOut", "The target could not be activated."), markReconcile, withScales(1, 0),
 				WithPAStatusService(testRevision), withMSvcStatus(testRevision)),
 		}},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -1041,7 +1045,7 @@ func TestReconcile(t *testing.T) {
 		Ctx: context.WithValue(context.Background(), deciderKey,
 			decider(testNamespace, testRevision, unknownScale /* desiredScale */, 0 /* ebc */)),
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markInactive, withMSvcStatus(testRevision),
+			kpa(testNamespace, testRevision, markInactive, markReconcile, withMSvcStatus(testRevision),
 				withScales(0, -1), WithPAStatusService(testRevision)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithPubService),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
@@ -1054,7 +1058,7 @@ func TestReconcile(t *testing.T) {
 		Ctx: context.WithValue(context.Background(), deciderKey,
 			decider(testNamespace, testRevision, defaultScale /* desiredScale */, -42 /* ebc */)),
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive, withMSvcStatus(testRevision),
+			kpa(testNamespace, testRevision, markActive, markReconcile, withMSvcStatus(testRevision),
 				withScales(1, defaultScale), WithPAStatusService(testRevision)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
@@ -1067,7 +1071,7 @@ func TestReconcile(t *testing.T) {
 		Ctx: context.WithValue(context.Background(), deciderKey,
 			decider(testNamespace, testRevision, defaultScale /* desiredScale */, -18 /* ebc */)),
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive, withMSvcStatus(testRevision),
+			kpa(testNamespace, testRevision, markActive, markReconcile, withMSvcStatus(testRevision),
 				withScales(1, defaultScale), WithPAStatusService(testRevision)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
@@ -1084,7 +1088,7 @@ func TestReconcile(t *testing.T) {
 		Ctx: context.WithValue(context.Background(), deciderKey,
 			decider(testNamespace, testRevision, defaultScale /* desiredScale */, 1 /* ebc */)),
 		Objects: []runtime.Object{
-			kpa(testNamespace, testRevision, markActive, withMSvcStatus(testRevision),
+			kpa(testNamespace, testRevision, markActive, markReconcile, withMSvcStatus(testRevision),
 				withScales(1, defaultScale), WithPAStatusService(testRevision)),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady, WithProxyMode),
 			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),

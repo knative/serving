@@ -185,7 +185,6 @@ func createRevision(
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
-
 	if err := controller.Reconciler.Reconcile(context.Background(), KeyOrDie(rev)); err == nil {
 		rev, _, _ = addResourcesToInformers(t, ctx, rev)
 	}
@@ -367,10 +366,11 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 		got := deployingRev.Status.GetCondition(ct)
 		want := &apis.Condition{
 			Type:               ct,
-			Status:             corev1.ConditionUnknown,
-			Reason:             "Deploying",
+			Status:             corev1.ConditionFalse,
+			Reason:             "PodAutoscalerHasNotReconciledYet",
 			LastTransitionTime: got.LastTransitionTime,
 			Severity:           apis.ConditionSeverityError,
+			Message:            "PodAutoscaler with class  has not been reconciled yet",
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
@@ -412,6 +412,27 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 		}
 	case <-time.After(3 * time.Second):
 		t.Error("Timeout")
+	}
+}
+
+func TestInvalidClassForPodAutoscaler(t *testing.T) {
+	ctx, cancel, _, controller, _ := newTestController(t)
+	defer cancel()
+	rev := testRevision("test")
+	deployingRev := createRevision(t, ctx, controller, rev)
+	// The revision is not marked ready because of invalid /class.
+	for _, ct := range []apis.ConditionType{"ResourcesAvailable"} {
+		got := deployingRev.Status.GetCondition(ct)
+		want := &apis.Condition{
+			Type:               ct,
+			Status:             corev1.ConditionFalse,
+			Reason:             "PodAutoscalerHasNotReconciledYet",
+			LastTransitionTime: got.LastTransitionTime,
+			Message:            "PodAutoscaler with class test has not been reconciled yet",
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
+		}
 	}
 }
 

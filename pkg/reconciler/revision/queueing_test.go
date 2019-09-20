@@ -18,6 +18,7 @@ package revision
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -32,6 +33,7 @@ import (
 	"knative.dev/pkg/tracing"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	tracetesting "knative.dev/pkg/tracing/testing"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -61,7 +63,7 @@ const (
 	testQueueImage      = "queueImage"
 )
 
-func testRevision() *v1alpha1.Revision {
+func testRevision(classAnnotationValue ...string) *v1alpha1.Revision {
 	rev := &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/revisions/test-rev",
@@ -73,7 +75,8 @@ func testRevision() *v1alpha1.Revision {
 				serving.RouteLabelKey: "test-route",
 			},
 			Annotations: map[string]string{
-				"testAnnotation": "test",
+				"testAnnotation":               "test",
+				autoscaling.ClassAnnotationKey: strings.Join(classAnnotationValue, ""),
 			},
 			UID: "test-rev-uid",
 		},
