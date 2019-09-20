@@ -34,7 +34,7 @@ const (
 	retryInterval = 50 * time.Millisecond
 )
 
-// Probe wraps a corev1.Probe along with a logger and a count of consecutive, successful probes
+// Probe wraps a corev1.Probe along with a count of consecutive, successful probes
 type Probe struct {
 	*corev1.Probe
 	count int32
