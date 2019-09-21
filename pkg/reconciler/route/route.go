@@ -303,7 +303,7 @@ func (c *Reconciler) reconcileIngressResources(ctx context.Context, r *v1alpha1.
 
 func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, traffic *traffic.Config, clusterLocalServiceNames sets.String) ([]netv1alpha1.IngressTLS, error) {
 	tls := []netv1alpha1.IngressTLS{}
-	if !config.FromContext(ctx).Network.AutoTLS || r.Labels[config.VisibilityLabelKey] == config.VisibilityClusterLocal {
+	if !config.FromContext(ctx).Network.AutoTLS {
 		return tls, nil
 	}
 	tagToDomainMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets), clusterLocalServiceNames)
@@ -311,9 +311,9 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 		return nil, err
 	}
 
-	for tag, domain := range tagToDomainMap {
+	for domain := range tagToDomainMap {
 		if domains.IsClusterLocal(domain) {
-			delete(tagToDomainMap, tag)
+			delete(tagToDomainMap, domain)
 		}
 	}
 
