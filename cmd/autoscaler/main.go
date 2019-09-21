@@ -24,10 +24,14 @@ import (
 	"net/http"
 	"time"
 
+	basecmd "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/cmd"
 	"github.com/spf13/pflag"
+	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-
+	corev1informers "k8s.io/client-go/informers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/rest"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	"knative.dev/pkg/configmap"
@@ -46,11 +50,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa"
 	"knative.dev/serving/pkg/reconciler/metric"
 	"knative.dev/serving/pkg/resources"
-
-	basecmd "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/cmd"
-	corev1informers "k8s.io/client-go/informers/core/v1"
-	corev1listers "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/rest"
 )
 
 const (
@@ -73,6 +72,13 @@ func main() {
 
 	// Set up signals so we handle the first shutdown signal gracefully.
 	ctx := signals.NewContext()
+
+	// Report stats on Go memory usage every 30 seconds.
+	msp := metrics.NewMemStatsAll()
+	msp.Start(ctx, 30*time.Second)
+	if err := view.Register(msp.DefaultViews()...); err != nil {
+		log.Fatalf("Error exporting go memstats view: %v", err)
+	}
 
 	cfg, err := sharedmain.GetConfig(*masterURL, *kubeconfig)
 	if err != nil {

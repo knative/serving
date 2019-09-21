@@ -21,6 +21,7 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"time"
 
 	// Injection related imports.
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
@@ -28,6 +29,7 @@ import (
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/profiling"
 
+	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -61,6 +63,13 @@ func main() {
 
 	// Set up signals so we handle the first shutdown signal gracefully.
 	ctx := signals.NewContext()
+
+	// Report stats on Go memory usage every 30 seconds.
+	msp := metrics.NewMemStatsAll()
+	msp.Start(ctx, 30*time.Second)
+	if err := view.Register(msp.DefaultViews()...); err != nil {
+		log.Fatalf("Error exporting go memstats view: %v", err)
+	}
 
 	cfg, err := sharedmain.GetConfig(*masterURL, *kubeconfig)
 	if err != nil {
