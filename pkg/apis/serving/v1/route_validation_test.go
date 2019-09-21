@@ -348,6 +348,23 @@ func TestRouteValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
+		name: "valid split without tag",
+		r: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+			},
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					RevisionName: "foo",
+					Percent:      ptr.Int64(90),
+				}, {
+					RevisionName: "bar",
+					Percent:      ptr.Int64(10),
+				}},
+			},
+		},
+		want: nil,
+	}, {
 		name: "missing url in status",
 		r: &Route{
 			ObjectMeta: metav1.ObjectMeta{

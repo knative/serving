@@ -45,19 +45,20 @@ func validateTrafficList(ctx context.Context, traffic []TrafficTarget) *apis.Fie
 	sum := int64(0)
 	for i, tt := range traffic {
 		errs = errs.Also(tt.Validate(ctx).ViaIndex(i))
-
-		if idx, ok := trafficMap[tt.Tag]; ok {
-			// We want only single definition of the route, even if it points
-			// to the same config or revision.
-			errs = errs.Also(&apis.FieldError{
-				Message: fmt.Sprintf("Multiple definitions for %q", tt.Tag),
-				Paths: []string{
-					fmt.Sprintf("[%d].tag", i),
-					fmt.Sprintf("[%d].tag", idx),
-				},
-			})
-		} else {
-			trafficMap[tt.Tag] = i
+		if tt.Tag != "" {
+			if idx, ok := trafficMap[tt.Tag]; ok {
+				// We want only single definition of the route, even if it points
+				// to the same config or revision.
+				errs = errs.Also(&apis.FieldError{
+					Message: fmt.Sprintf("Multiple definitions for %q", tt.Tag),
+					Paths: []string{
+						fmt.Sprintf("[%d].tag", i),
+						fmt.Sprintf("[%d].tag", idx),
+					},
+				})
+			} else {
+				trafficMap[tt.Tag] = i
+			}
 		}
 		if tt.Percent != nil {
 			sum += *tt.Percent
