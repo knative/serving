@@ -78,7 +78,7 @@ func revision(revID types.NamespacedName, protocol networking.ProtocolType) *v1a
 	}
 }
 
-func privateSksService(revID types.NamespacedName, clusterIP string, ports []corev1.ServicePort) *corev1.Service {
+func privateSKSService(revID types.NamespacedName, clusterIP string, ports []corev1.ServicePort) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: revID.Namespace,
@@ -340,7 +340,7 @@ func TestRevisionWatcher(t *testing.T) {
 
 			revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
 			if tc.clusterIP != "" {
-				svc := privateSksService(revID, tc.clusterIP, []corev1.ServicePort{tc.clusterPort})
+				svc := privateSKSService(revID, tc.clusterIP, []corev1.ServicePort{tc.clusterPort})
 				fake.CoreV1().Services(svc.Namespace).Create(svc)
 				informer.Core().V1().Services().Informer().GetIndexer().Add(svc)
 			}
@@ -440,7 +440,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
-			privateSksService(types.NamespacedName{testNamespace, testRevision}, "129.0.0.1",
+			privateSKSService(types.NamespacedName{testNamespace, testRevision}, "129.0.0.1",
 				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
@@ -468,7 +468,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolH2C),
 		},
 		services: []*corev1.Service{
-			privateSksService(types.NamespacedName{testNamespace, testRevision}, "129.0.0.1",
+			privateSKSService(types.NamespacedName{testNamespace, testRevision}, "129.0.0.1",
 				[]corev1.ServicePort{{Name: "http2", Port: 1234}}),
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
@@ -500,9 +500,9 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			revision(types.NamespacedName{testNamespace, "test-revision2"}, networking.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
-			privateSksService(types.NamespacedName{testNamespace, "test-revision1"}, "129.0.0.1",
+			privateSKSService(types.NamespacedName{testNamespace, "test-revision1"}, "129.0.0.1",
 				[]corev1.ServicePort{{Name: "http", Port: 2345}}),
-			privateSksService(types.NamespacedName{testNamespace, "test-revision2"}, "129.0.0.2",
+			privateSKSService(types.NamespacedName{testNamespace, "test-revision2"}, "129.0.0.2",
 				[]corev1.ServicePort{{Name: "http", Port: 2345}}),
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
@@ -525,7 +525,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
-			privateSksService(types.NamespacedName{testNamespace, testRevision}, "129.0.0.1",
+			privateSKSService(types.NamespacedName{testNamespace, testRevision}, "129.0.0.1",
 				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
@@ -559,7 +559,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
-			privateSksService(types.NamespacedName{testNamespace, testRevision}, "129.0.0.1",
+			privateSKSService(types.NamespacedName{testNamespace, testRevision}, "129.0.0.1",
 				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
@@ -645,7 +645,7 @@ func TestCheckDests(t *testing.T) {
 		ClearAll()
 	}()
 
-	svc := privateSksService(
+	svc := privateSKSService(
 		types.NamespacedName{testNamespace, testRevision},
 		"129.0.0.1",
 		[]corev1.ServicePort{{Name: "http", Port: 1234}},
@@ -692,7 +692,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 		ClearAll()
 	}()
 
-	svc := privateSksService(
+	svc := privateSKSService(
 		types.NamespacedName{testNamespace, testRevision},
 		"10.5.0.1",
 		[]corev1.ServicePort{{Name: "http", Port: 1234}},
@@ -817,7 +817,7 @@ func TestRevisionDeleted(t *testing.T) {
 		ClearAll()
 	}()
 
-	svc := privateSksService(
+	svc := privateSKSService(
 		types.NamespacedName{testNamespace, testRevision},
 		"129.0.0.1",
 		[]corev1.ServicePort{{Name: "http", Port: 1234}},

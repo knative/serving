@@ -46,53 +46,116 @@ import (
 const defaultMaxConcurrency = 1000
 
 type tryResult struct {
-	Dest      string
-	ErrString string
+	dest      string
+	errString string
+}
+
+func TestThrottlerUpdateCapacity(t *testing.T) {
+	logger := TestLogger(t)
+	defer ClearAll()
+	params := queue.BreakerParams{
+		QueueDepth:      1,
+		MaxConcurrency:  defaultMaxConcurrency,
+		InitialCapacity: 0,
+	}
+	throttler := &Throttler{
+		revisionThrottlers: make(map[types.NamespacedName]*revisionThrottler),
+		breakerParams:      params,
+		numActivators:      1,
+		logger:             logger,
+	}
+	rt := &revisionThrottler{
+		logger:               logger,
+		breaker:              queue.NewBreaker(params),
+		containerConcurrency: 10,
+	}
+
+	rt.updateCapacity(throttler, 1)
+	if got, want := rt.breaker.Capacity(), 10; got != want {
+		t.Errorf("Capacity = %d, want: %d", got, want)
+	}
+	rt.updateCapacity(throttler, 10)
+	if got, want := rt.breaker.Capacity(), 100; got != want {
+		t.Errorf("Capacity = %d, want: %d", got, want)
+	}
+	rt.updateCapacity(throttler, defaultMaxConcurrency) // So in theory should be 10x.
+	if got, want := rt.breaker.Capacity(), defaultMaxConcurrency; got != want {
+		t.Errorf("Capacity = %d, want: %d", got, want)
+	}
+	throttler.numActivators = 10
+	rt.updateCapacity(throttler, 10)
+	if got, want := rt.breaker.Capacity(), 10; got != want {
+		t.Errorf("Capacity = %d, want: %d", got, want)
+	}
+	throttler.numActivators = 200
+	rt.updateCapacity(throttler, 10)
+	if got, want := rt.breaker.Capacity(), 1; got != want {
+		t.Errorf("Capacity = %d, want: %d", got, want)
+	}
+	rt.updateCapacity(throttler, 0)
+	if got, want := rt.breaker.Capacity(), 0; got != want {
+		t.Errorf("Capacity = %d, want: %d", got, want)
+	}
+
+	rt.containerConcurrency = 0
+	rt.updateCapacity(throttler, 1)
+	if got, want := rt.breaker.Capacity(), defaultMaxConcurrency; got != want {
+		t.Errorf("Capacity = %d, want: %d", got, want)
+	}
+	rt.updateCapacity(throttler, 10)
+	if got, want := rt.breaker.Capacity(), defaultMaxConcurrency; got != want {
+		t.Errorf("Capacity = %d, want: %d", got, want)
+	}
+	throttler.numActivators = 200
+	rt.updateCapacity(throttler, 1)
+	if got, want := rt.breaker.Capacity(), defaultMaxConcurrency; got != want {
+		t.Errorf("Capacity = %d, want: %d", got, want)
+	}
+	rt.updateCapacity(throttler, 0)
+	if got, want := rt.breaker.Capacity(), 0; got != want {
+		t.Errorf("Capacity = %d, want: %d", got, want)
+	}
 }
 
 func TestThrottlerWithError(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
-		revisions   []*v1alpha1.Revision
-		initUpdates []revisionDestsUpdate
-		deletes     []types.NamespacedName
+		revision    *v1alpha1.Revision
+		initUpdate  revisionDestsUpdate
+		delete      *types.NamespacedName
 		trys        []types.NamespacedName
 		wantResults []tryResult
 	}{{
-		name: "second request timeout",
-		revisions: []*v1alpha1.Revision{
-			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
-		},
-		initUpdates: []revisionDestsUpdate{{
+		name:     "second request timeout",
+		revision: revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
+		initUpdate: revisionDestsUpdate{
 			Rev:           types.NamespacedName{testNamespace, testRevision},
 			ClusterIPDest: "129.0.0.1:1234",
 			Dests:         sets.NewString("128.0.0.1:1234"),
-		}},
+		},
 		trys: []types.NamespacedName{
 			{Namespace: testNamespace, Name: testRevision},
 			{Namespace: testNamespace, Name: testRevision},
 		},
 		wantResults: []tryResult{
-			{Dest: "129.0.0.1:1234"},
-			{ErrString: context.DeadlineExceeded.Error()},
+			{dest: "129.0.0.1:1234"},
+			{errString: context.DeadlineExceeded.Error()},
 		},
 	}, {
-		name: "remove before try",
-		revisions: []*v1alpha1.Revision{
-			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
-		},
-		initUpdates: []revisionDestsUpdate{{
+		name:     "remove before try",
+		revision: revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
+		initUpdate: revisionDestsUpdate{
 			Rev:   types.NamespacedName{testNamespace, testRevision},
 			Dests: sets.NewString("128.0.0.1:1234"),
-		}},
-		deletes: []types.NamespacedName{
-			{testNamespace, testRevision},
+		},
+		delete: &types.NamespacedName{
+			testNamespace, testRevision,
 		},
 		trys: []types.NamespacedName{
 			{Namespace: testNamespace, Name: testRevision},
 		},
 		wantResults: []tryResult{
-			{ErrString: "revision.serving.knative.dev \"test-revision\" not found"},
+			{errString: "revision.serving.knative.dev \"test-revision\" not found"},
 		},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -115,16 +178,12 @@ func TestThrottlerWithError(t *testing.T) {
 			revisions := fakerevisioninformer.Get(ctx)
 			controller.StartInformers(ctx.Done(), endpoints.Informer(), revisions.Informer())
 
-			// Add the revision were testing
-			for _, rev := range tc.revisions {
-				servfake.ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
-				revisions.Informer().GetIndexer().Add(rev)
-			}
+			// Add the revision we're testing
+			servfake.ServingV1alpha1().Revisions(tc.revision.Namespace).Create(tc.revision)
+			revisions.Informer().GetIndexer().Add(tc.revision)
 
 			throttler := NewThrottler(ctx, params)
-			for _, update := range tc.initUpdates {
-				updateCh <- update
-			}
+			updateCh <- tc.initUpdate
 			close(updateCh)
 
 			var wg sync.WaitGroup
@@ -137,13 +196,10 @@ func TestThrottlerWithError(t *testing.T) {
 			// Wait for throttler to complete processing updates and exit
 			wg.Wait()
 
-			for _, delRev := range tc.deletes {
-				servfake.ServingV1alpha1().Revisions(delRev.Namespace).Delete(delRev.Name, nil)
-				revisions.Informer().GetIndexer().Delete(delRev)
-			}
-
-			// Make sure our informer event has fired
-			if len(tc.deletes) > 0 {
+			// Make sure our informer event has fired.
+			if tc.delete != nil {
+				servfake.ServingV1alpha1().Revisions(tc.delete.Namespace).Delete(tc.delete.Name, nil)
+				revisions.Informer().GetIndexer().Delete(tc.delete)
 				time.Sleep(200 * time.Millisecond)
 			}
 
@@ -152,8 +208,8 @@ func TestThrottlerWithError(t *testing.T) {
 
 			gotTries := tryThrottler(throttler, tc.trys, tryContext)
 
-			if got, want := gotTries, tc.wantResults; !cmp.Equal(got, want) {
-				t.Errorf("Dests = %v, want: %v, diff: %s", got, want, cmp.Diff(want, got))
+			if got, want := gotTries, tc.wantResults; !cmp.Equal(got, want, cmp.AllowUnexported(tryResult{})) {
+				t.Errorf("Dests = %v, want: %v, diff: %s", got, want, cmp.Diff(want, got, cmp.AllowUnexported(tryResult{})))
 			}
 		})
 	}
@@ -162,16 +218,13 @@ func TestThrottlerWithError(t *testing.T) {
 func TestThrottlerSuccesses(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
-		revisions   []*v1alpha1.Revision
+		revision    *v1alpha1.Revision
 		initUpdates []revisionDestsUpdate
-		deletes     []types.NamespacedName
 		trys        []types.NamespacedName
 		wantDests   sets.String
 	}{{
-		name: "single healthy podIP",
-		revisions: []*v1alpha1.Revision{
-			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
-		},
+		name:     "single healthy podIP",
+		revision: revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{testNamespace, testRevision},
 			Dests: sets.NewString("128.0.0.1:1234"),
@@ -181,10 +234,8 @@ func TestThrottlerSuccesses(t *testing.T) {
 		},
 		wantDests: sets.NewString("128.0.0.1:1234"),
 	}, {
-		name: "single healthy clusterIP",
-		revisions: []*v1alpha1.Revision{
-			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
-		},
+		name:     "single healthy clusterIP",
+		revision: revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{testNamespace, testRevision},
 			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
@@ -198,10 +249,8 @@ func TestThrottlerSuccesses(t *testing.T) {
 		},
 		wantDests: sets.NewString("129.0.0.1:1234"),
 	}, {
-		name: "spread podIP load",
-		revisions: []*v1alpha1.Revision{
-			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
-		},
+		name:     "spread podIP load",
+		revision: revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{testNamespace, testRevision},
 			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
@@ -212,10 +261,8 @@ func TestThrottlerSuccesses(t *testing.T) {
 		},
 		wantDests: sets.NewString("128.0.0.2:1234", "128.0.0.1:1234"),
 	}, {
-		name: "multiple ClusterIP requests",
-		revisions: []*v1alpha1.Revision{
-			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
-		},
+		name:     "multiple ClusterIP requests",
+		revision: revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		initUpdates: []revisionDestsUpdate{{
 			Rev:           types.NamespacedName{testNamespace, testRevision},
 			ClusterIPDest: "129.0.0.1:1234",
@@ -248,10 +295,8 @@ func TestThrottlerSuccesses(t *testing.T) {
 			controller.StartInformers(ctx.Done(), endpoints.Informer(), revisions.Informer())
 
 			// Add the revision were testing
-			for _, rev := range tc.revisions {
-				servfake.ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
-				revisions.Informer().GetIndexer().Add(rev)
-			}
+			servfake.ServingV1alpha1().Revisions(tc.revision.Namespace).Create(tc.revision)
+			revisions.Informer().GetIndexer().Add(tc.revision)
 
 			throttler := NewThrottler(ctx, params)
 			for _, update := range tc.initUpdates {
@@ -269,23 +314,13 @@ func TestThrottlerSuccesses(t *testing.T) {
 			// Wait for throttler to complete processing updates and exit
 			wg.Wait()
 
-			for _, delRev := range tc.deletes {
-				servfake.ServingV1alpha1().Revisions(delRev.Namespace).Delete(delRev.Name, nil)
-				revisions.Informer().GetIndexer().Delete(delRev)
-			}
-
-			// Make sure our informer event has fired
-			if len(tc.deletes) > 0 {
-				time.Sleep(200 * time.Millisecond)
-			}
-
 			tryContext, cancel := context.WithTimeout(context.TODO(), 100*time.Millisecond)
 			defer cancel()
 
 			gotTries := tryThrottler(throttler, tc.trys, tryContext)
 			gotDests := sets.NewString()
 			for _, tr := range gotTries {
-				gotDests.Insert(tr.Dest)
+				gotDests.Insert(tr.dest)
 			}
 
 			if got, want := gotDests, tc.wantDests; !got.Equal(want) {
@@ -295,7 +330,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 	}
 }
 
-func TestMultipleActivator(t *testing.T) {
+func TestMultipleActivators(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer func() {
 		cancel()
@@ -353,10 +388,10 @@ func TestMultipleActivator(t *testing.T) {
 		defer cancel()
 
 		results := tryThrottler(throttler, []types.NamespacedName{revID, revID}, tryContext)
-		if !possibleDests.Has(results[0].Dest) {
-			t.Errorf("Request went to an unknown destination: %s, possibles: %v", results[0].Dest, possibleDests)
+		if !possibleDests.Has(results[0].dest) {
+			t.Errorf("Request went to an unknown destination: %s, possibles: %v", results[0].dest, possibleDests)
 		}
-		if got, want := results[1].ErrString, context.DeadlineExceeded.Error(); got != want {
+		if got, want := results[1].errString, context.DeadlineExceeded.Error(); got != want {
 			t.Errorf("Error = %s, want: %s", got, want)
 		}
 	}()
@@ -371,12 +406,12 @@ func tryThrottler(throttler *Throttler, trys []types.NamespacedName, ctx context
 		go func(revID types.NamespacedName) {
 			err := throttler.Try(ctx, revID, func(dest string) error {
 				tryWaitg.Done()
-				resCh <- tryResult{Dest: dest}
+				resCh <- tryResult{dest: dest}
 				return nil
 			})
 			if err != nil {
 				tryWaitg.Done()
-				resCh <- tryResult{ErrString: err.Error()}
+				resCh <- tryResult{errString: err.Error()}
 			}
 		}(revID)
 	}
