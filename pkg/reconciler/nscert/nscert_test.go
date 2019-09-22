@@ -194,7 +194,16 @@ func TestReconcile(t *testing.T) {
 }
 
 func TestUpdateDomainTemplate(t *testing.T) {
-	ctx, cancel, controller, watcher := newTestSetup(t)
+	netCfg := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      network.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{
+			"autoTLS": "Enabled",
+		},
+	}
+	ctx, cancel, controller, watcher := newTestSetup(t, netCfg)
 	defer func() {
 		cancel()
 		ClearAll()
@@ -227,13 +236,14 @@ func TestUpdateDomainTemplate(t *testing.T) {
 	}
 
 	// Update the domain template to something matched by the existing DNSName
-	netCfg := &corev1.ConfigMap{
+	netCfg = &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      network.ConfigName,
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
 			"domainTemplate": "{{.Name}}-suffix.{{.Namespace}}.{{.Domain}}",
+			"autoTLS":        "Enabled",
 		},
 	}
 	watcher.OnChange(netCfg)
@@ -256,6 +266,7 @@ func TestUpdateDomainTemplate(t *testing.T) {
 		},
 		Data: map[string]string{
 			"domainTemplate": "{{.Name}}.subdomain.{{.Namespace}}.{{.Domain}}",
+			"autoTLS":        "Enabled",
 		},
 	}
 	watcher.OnChange(netCfg)
@@ -279,6 +290,7 @@ func TestUpdateDomainTemplate(t *testing.T) {
 		},
 		Data: map[string]string{
 			"domainTemplate": "{{.Namespace}}.{{.Name}}.{{.Domain}}",
+			"autoTLS":        "Enabled",
 		},
 	}
 	watcher.OnChange(netCfg)
@@ -306,7 +318,16 @@ func TestDomainConfigDefaultDomain(t *testing.T) {
 			"other.com": "selector:\n app: dev",
 		},
 	}
-	ctx, cancel, controller, _ := newTestSetup(t, domCfg)
+	netCfg := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      network.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{
+			"autoTLS": "Enabled",
+		},
+	}
+	ctx, cancel, controller, _ := newTestSetup(t, domCfg, netCfg)
 	defer func() {
 		cancel()
 		ClearAll()
@@ -344,7 +365,16 @@ func TestDomainConfigExplicitDefaultDomain(t *testing.T) {
 			"default.com": "",
 		},
 	}
-	ctx, cancel, controller, _ := newTestSetup(t, domCfg)
+	netCfg := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      network.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{
+			"autoTLS": "Enabled",
+		},
+	}
+	ctx, cancel, controller, _ := newTestSetup(t, domCfg, netCfg)
 	defer func() {
 		cancel()
 		ClearAll()
@@ -420,6 +450,7 @@ func kubeExcludedNamespace(name string) *corev1.Namespace {
 func networkConfig() *network.Config {
 	return &network.Config{
 		DomainTemplate: defaultDomainTemplate,
+		AutoTLS:        true,
 	}
 }
 
