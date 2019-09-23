@@ -95,7 +95,7 @@ func newRevisionThrottler(revID types.NamespacedName,
 	logger = logger.With(zap.String(logkey.Key, revID.String()))
 	var revBreaker breaker
 	if containerConcurrency == 0 {
-		revBreaker = NewInfiniteBreaker(logger)
+		revBreaker = newInfiniteBreaker(logger)
 	} else {
 		revBreaker = queue.NewBreaker(breakerParams)
 	}
@@ -437,15 +437,14 @@ func minOneOrValue(num int) int {
 	return 1
 }
 
-// InfiniteBreaker is basically a short circuit.
-// InfiniteBreaker provides us capability to send unlimited number
+// infiniteBreaker is basically a short circuit.
+// infiniteBreaker provides us capability to send unlimited number
 // of requests to the downstream system.
 // This is to be used only when the container concurrency is unset
 // (i.e. infinity).
-// The InfiniteBreaker will, though, block the requests when
+// The infiniteBreaker will, though, block the requests when
 // downstream capacity is 0.
-// TODO(greghaynes) When the old throttler is removed this struct can be private.
-type InfiniteBreaker struct {
+type infiniteBreaker struct {
 	// mu guards `broadcast` channel.
 	mu sync.RWMutex
 
@@ -466,16 +465,16 @@ type InfiniteBreaker struct {
 	logger *zap.SugaredLogger
 }
 
-// NewInfiniteBreaker creates an InfiniteBreaker
-func NewInfiniteBreaker(logger *zap.SugaredLogger) *InfiniteBreaker {
-	return &InfiniteBreaker{
+// newInfiniteBreaker creates an infiniteBreaker
+func newInfiniteBreaker(logger *zap.SugaredLogger) *infiniteBreaker {
+	return &infiniteBreaker{
 		broadcast: make(chan struct{}),
 		logger:    logger,
 	}
 }
 
 // Capacity returns the current capacity of the breaker
-func (ib *InfiniteBreaker) Capacity() int {
+func (ib *infiniteBreaker) Capacity() int {
 	return int(atomic.LoadInt32(&ib.concurrency))
 }
 
@@ -487,7 +486,7 @@ func zeroOrOne(x int) int32 {
 }
 
 // UpdateConcurrency sets the concurrency of the breaker
-func (ib *InfiniteBreaker) UpdateConcurrency(cc int) error {
+func (ib *infiniteBreaker) UpdateConcurrency(cc int) error {
 	rcc := zeroOrOne(cc)
 	// We lock here to make sure two scale up events don't
 	// stomp on each other's feet.
@@ -508,7 +507,7 @@ func (ib *InfiniteBreaker) UpdateConcurrency(cc int) error {
 }
 
 // Maybe executes thunk when capacity is available
-func (ib *InfiniteBreaker) Maybe(ctx context.Context, thunk func()) error {
+func (ib *infiniteBreaker) Maybe(ctx context.Context, thunk func()) error {
 	has := ib.Capacity()
 	// We're scaled to serve.
 	if has > 0 {
