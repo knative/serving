@@ -2731,7 +2731,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		SkipNamespaceValidation: true,
 	}, {
 		// This test is a same with "public becomes cluster local" above, but confirm it does not create certs with autoTLS for cluster-local.
-		Name: "public becomes cluster local",
+		Name: "public becomes cluster local w/ autoTLS",
 		Objects: []runtime.Object{
 			route("default", "becomes-local", WithConfigTarget("config"),
 				WithRouteLabel(config.VisibilityLabelKey, config.VisibilityClusterLocal),
