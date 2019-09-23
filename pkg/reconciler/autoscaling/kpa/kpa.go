@@ -18,7 +18,6 @@ package kpa
 
 import (
 	"context"
-	"fmt"
 
 	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -39,7 +38,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/runtime"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
@@ -58,13 +56,14 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 
 // Reconcile right sizes PA ScaleTargetRefs based on the state of decisions in Deciders.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		runtime.HandleError(fmt.Errorf("invalid resource key %s: %v", key, err))
-		return nil
-	}
 	logger := logging.FromContext(ctx)
 	ctx = c.ConfigStore.ToContext(ctx)
+
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		logger.Errorw("Invalid resource key", zap.Error(err))
+		return nil
+	}
 
 	logger.Debug("Reconcile kpa-class PodAutoscaler")
 

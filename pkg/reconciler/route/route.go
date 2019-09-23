@@ -94,15 +94,15 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 // converge the two. It then updates the Status block of the Route resource
 // with the current status of the resource.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
-	// Convert the namespace/name string into a distinct namespace and name
+	logger := logging.FromContext(ctx)
+	ctx = c.configStore.ToContext(ctx)
+	ctx = controller.WithEventRecorder(ctx, c.Recorder)
+
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		c.Logger.Errorw("invalid resource key", zap.Error(err))
+		logger.Errorw("Invalid resource key", zap.Error(err))
 		return nil
 	}
-	logger := logging.FromContext(ctx)
-	ctx = controller.WithEventRecorder(ctx, c.Recorder)
-	ctx = c.configStore.ToContext(ctx)
 
 	// Get the Route resource with this namespace/name.
 	original, err := c.routeLister.Routes(namespace).Get(name)

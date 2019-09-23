@@ -56,15 +56,14 @@ var _ controller.Reconciler = (*reconciler)(nil)
 // converge the two. It then updates the Status block of the Garbage Collection
 // resource with the current status of the resource.
 func (c *reconciler) Reconcile(ctx context.Context, key string) error {
-	// Convert the namespace/name string into a distinct namespace and name.
+	logger := logging.FromContext(ctx)
+	ctx = c.configStore.ToContext(ctx)
+
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		c.Logger.Errorf("invalid resource key %q: %v", key, err)
+		logger.Errorw("Invalid resource key", zap.Error(err))
 		return nil
 	}
-	logger := logging.FromContext(ctx)
-
-	ctx = c.configStore.ToContext(ctx)
 
 	// Get the Configuration resource with this namespace/name.
 	config, err := c.configurationLister.Configurations(namespace).Get(name)

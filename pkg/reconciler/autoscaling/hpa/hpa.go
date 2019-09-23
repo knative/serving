@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/runtime"
 	autoscalingv2beta1listers "k8s.io/client-go/listers/autoscaling/v2beta1"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/controller"
@@ -50,13 +49,15 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 
 // Reconcile is the entry point to the reconciliation control loop.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		runtime.HandleError(fmt.Errorf("invalid resource key %s: %v", key, err))
-		return nil
-	}
 	logger := logging.FromContext(ctx)
 	ctx = c.ConfigStore.ToContext(ctx)
+
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		logger.Errorw("Invalid resource key", zap.Error(err))
+		return nil
+	}
+
 	logger.Debug("Reconcile hpa-class PodAutoscaler")
 
 	original, err := c.PALister.PodAutoscalers(namespace).Get(name)
