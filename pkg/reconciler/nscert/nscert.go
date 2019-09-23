@@ -135,7 +135,7 @@ func (c *reconciler) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 		c.Recorder.Eventf(cert, corev1.EventTypeNormal, "Created",
 			"Created Knative Certificate %s/%s", ns.Name, cert.ObjectMeta.Name)
 	} else if err != nil {
-		return err
+		return perrors.Wrap(err, "failed to get namespace certificate")
 	} else if !metav1.IsControlledBy(existingCert, ns) {
 		return fmt.Errorf("namespace %s does not own Knative Certificate: %s", ns.Name, existingCert.Name)
 	} else if !equality.Semantic.DeepEqual(existingCert.Spec, desiredCert.Spec) {
@@ -143,10 +143,9 @@ func (c *reconciler) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 		copy.Spec = desiredCert.Spec
 		_, err := c.ServingClientSet.NetworkingV1alpha1().Certificates(copy.Namespace).Update(copy)
 		if err != nil {
-			c.Logger.Errorw("Failed to update Knative Certificate", zap.Error(err))
 			c.Recorder.Eventf(existingCert, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update Knative Certificate %s/%s: %v", existingCert.Namespace, existingCert.Name, err)
-			return err
+			return perrors.Wrap(err, "failed to update namespace certificate")
 		}
 		c.Recorder.Eventf(existingCert, corev1.EventTypeNormal, "Updated",
 			"Updated Spec for Knative Certificate %s/%s", desiredCert.Namespace, desiredCert.Name)
