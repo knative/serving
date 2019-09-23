@@ -196,7 +196,7 @@ func TestProbeQueueConnectionFailure(t *testing.T) {
 
 func TestProbeQueueNotReady(t *testing.T) {
 	queueProbed := ptr.Int32(0)
-	ts := NewTestServer(func(w http.ResponseWriter) {
+	ts := newProbeTestServer(func(w http.ResponseWriter) {
 		atomic.AddInt32(queueProbed, 1)
 		w.WriteHeader(http.StatusBadRequest)
 	})
@@ -226,7 +226,7 @@ func TestProbeQueueNotReady(t *testing.T) {
 
 func TestProbeQueueReady(t *testing.T) {
 	queueProbed := ptr.Int32(0)
-	ts := NewTestServer(func(w http.ResponseWriter) {
+	ts := newProbeTestServer(func(w http.ResponseWriter) {
 		atomic.AddInt32(queueProbed, 1)
 		w.WriteHeader(http.StatusOK)
 	})
@@ -254,7 +254,7 @@ func TestProbeQueueReady(t *testing.T) {
 
 func TestProbeQueueTimeout(t *testing.T) {
 	queueProbed := ptr.Int32(0)
-	ts := NewTestServer(func(w http.ResponseWriter) {
+	ts := newProbeTestServer(func(w http.ResponseWriter) {
 		atomic.AddInt32(queueProbed, 1)
 		time.Sleep(2 * time.Second)
 		w.WriteHeader(http.StatusOK)
@@ -286,7 +286,7 @@ func TestProbeQueueTimeout(t *testing.T) {
 
 func TestProbeQueueDelayedReady(t *testing.T) {
 	count := ptr.Int32(0)
-	ts := NewTestServer(func(w http.ResponseWriter) {
+	ts := newProbeTestServer(func(w http.ResponseWriter) {
 		if atomic.AddInt32(count, 1) < 9 {
 			w.WriteHeader(http.StatusBadRequest)
 			return
@@ -442,7 +442,7 @@ func TestQueueTraceSpans(t *testing.T) {
 	}
 }
 
-func NewTestServer(f func(w http.ResponseWriter)) *httptest.Server {
+func newProbeTestServer(f func(w http.ResponseWriter)) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("User-Agent") == "Knative-Queue-Proxy-Probe" {
 			f(w)
