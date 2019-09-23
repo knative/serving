@@ -431,7 +431,7 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create placeholder service %q: %v",
 				"create-svc-failure", "inducing failure for create services"),
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create services"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create placeholder service: inducing failure for create services"),
 		},
 		Key: "default/create-svc-failure",
 	}, {
@@ -498,9 +498,8 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "ingress-create-failure"),
-			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress for route %s/%s: %v",
-				"default", "ingress-create-failure", "inducing failure for create ingresses"),
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create ingresses"),
+			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress: inducing failure for create ingresses"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create Ingress: inducing failure for create ingresses"),
 		},
 		Key:                     "default/ingress-create-failure",
 		SkipNamespaceValidation: true,
@@ -1067,7 +1066,7 @@ func TestReconcile(t *testing.T) {
 					})),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update ingresses"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to update Ingress: inducing failure for update ingresses"),
 		},
 		Key:                     "default/update-ci-failure",
 		SkipNamespaceValidation: true,
@@ -2316,7 +2315,7 @@ func TestReconcile(t *testing.T) {
 			Name: "old-service-name",
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for delete services"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to delete Service: inducing failure for delete services"),
 		},
 		Key: "default/my-route",
 	}}

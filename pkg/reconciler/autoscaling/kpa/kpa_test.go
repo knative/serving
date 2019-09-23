@@ -482,7 +482,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
-				`error scaling target: inducing failure for patch deployments`),
+				`error scaling target: failed to apply scale to scale target test-revision-deployment: inducing failure for patch deployments`),
 		},
 	}, {
 		Name: "update metrics service",

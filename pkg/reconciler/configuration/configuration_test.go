@@ -203,10 +203,8 @@ func TestReconcile(t *testing.T) {
 				MarkRevisionCreationFailed("expected 0 <= -1 <= 1000: spec.containerConcurrency"), WithObservedGen),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision for Configuration %q: %v",
-				"validation-failure", "expected 0 <= -1 <= 1000: spec.containerConcurrency"),
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for Configuration %q: %v",
-				"validation-failure", "expected 0 <= -1 <= 1000: spec.template.spec.containerConcurrency"),
+			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision: expected 0 <= -1 <= 1000: spec.containerConcurrency"),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status: expected 0 <= -1 <= 1000: spec.template.spec.containerConcurrency"),
 		},
 		Key: "foo/validation-failure",
 	}, {
@@ -314,9 +312,8 @@ func TestReconcile(t *testing.T) {
 				MarkRevisionCreationFailed("inducing failure for create revisions"), WithObservedGen),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision for Configuration %q: %v",
-				"create-revision-failure", "inducing failure for create revisions"),
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create revisions"),
+			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision: inducing failure for create revisions"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create Revision: inducing failure for create revisions"),
 		},
 		Key: "foo/create-revision-failure",
 	}, {
@@ -341,8 +338,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Revision %q", "update-config-failure-00001"),
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for Configuration %q: %v",
-				"update-config-failure", "inducing failure for update configurations"),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status: inducing failure for update configurations"),
 		},
 		Key: "foo/update-config-failure",
 	}, {
