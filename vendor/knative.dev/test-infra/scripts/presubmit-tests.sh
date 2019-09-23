@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2018 The Knative Authors
 #
@@ -49,7 +49,7 @@ function pr_only_contains() {
 # List changed files in the current PR.
 # This is implemented as a function so it can be mocked in unit tests.
 function list_changed_files() {
-  /workspace/githubhelper -list-changed-files
+  /workspace/githubhelper -list-changed-files -github-token /etc/repoview-token/token
 }
 
 # Initialize flags and context for presubmit tests:
@@ -304,7 +304,7 @@ function main() {
     go version
     echo ">> git version"
     git version
-    echo ">> ko built from commit"
+    echo ">> ko version"
     [[ -f /ko_version ]] && cat /ko_version || echo "unknown"
     echo ">> bazel version"
     [[ -f /bazel_version ]] && cat /bazel_version || echo "unknown"
