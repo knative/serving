@@ -42,6 +42,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/network/prober"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	revisionresources "knative.dev/serving/pkg/reconciler/revision/resources"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
@@ -603,10 +604,11 @@ func TestActivatorProbe(t *testing.T) {
 
 	pa := kpa("who-let", "the-dogs-out", WithPAStatusService("woof"))
 	tests := []struct {
-		name    string
-		rt      network.RoundTripperFunc
-		wantRes bool
-		wantErr bool
+		name      string
+		rt        network.RoundTripperFunc
+		wantRes   bool
+		wantErr   bool
+		verifyErr bool
 	}{{
 		name: "ok",
 		rt: func(r *http.Request) (*http.Response, error) {
@@ -623,7 +625,8 @@ func TestActivatorProbe(t *testing.T) {
 			rsp.Write([]byte("wrong header, I guess?"))
 			return rsp.Result(), nil
 		},
-		wantRes: false,
+		wantRes:   false,
+		verifyErr: true,
 	}, {
 		name: "wrong body",
 		rt: func(r *http.Request) (*http.Response, error) {
@@ -631,7 +634,8 @@ func TestActivatorProbe(t *testing.T) {
 			rsp.Write([]byte("haxoorprober"))
 			return rsp.Result(), nil
 		},
-		wantRes: false,
+		wantRes:   false,
+		verifyErr: true,
 	}, {
 		name: "all wrong",
 		rt: func(r *http.Request) (*http.Response, error) {
@@ -648,7 +652,9 @@ func TestActivatorProbe(t *testing.T) {
 				t.Errorf("Result = %v, want: %v", got, want)
 			}
 			if got, want := err != nil, test.wantErr; got != want {
-				t.Errorf("WantErr = %v, want: %v", got, want)
+				if test.verifyErr != prober.IsVerifierError(err) {
+					t.Errorf("WantErr = %v, want: %v: actual error is: %v", got, want, err)
+				}
 			}
 		})
 	}

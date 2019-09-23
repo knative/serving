@@ -58,26 +58,30 @@ func TestDoServing(t *testing.T) {
 		name        string
 		headerValue string
 		want        bool
+		verifyErr   bool
 	}{{
 		name:        "ok",
 		headerValue: systemName,
 		want:        true,
+		verifyErr:   false,
 	}, {
 		name:        "wrong system",
 		headerValue: "bells-and-whistles",
 		want:        false,
+		verifyErr:   true,
 	}, {
 		name:        "no header",
 		headerValue: "",
 		want:        false,
+		verifyErr:   true,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := Do(context.Background(), network.NewAutoTransport(), ts.URL, WithHeader(network.ProbeHeaderName, test.headerValue), ExpectsBody(test.headerValue), ExpectsStatusCodes([]int{http.StatusOK}))
+			got, err := Do(context.Background(), network.NewAutoTransport(), ts.URL, WithHeader(network.ProbeHeaderName, test.headerValue), ExpectsBody(systemName), ExpectsStatusCodes([]int{http.StatusOK}))
 			if want := test.want; got != want {
 				t.Errorf("Got = %v, want: %v", got, want)
 			}
-			if err != nil {
+			if err != nil && test.verifyErr != IsVerifierError(err) {
 				t.Errorf("Do returned error: %v", err)
 			}
 		})
@@ -265,27 +269,31 @@ func TestWithHostOption(t *testing.T) {
 	defer ts.Close()
 
 	tests := []struct {
-		name    string
-		options []interface{}
-		success bool
+		name      string
+		options   []interface{}
+		success   bool
+		verifyErr bool
 	}{{
-		name:    "no hosts",
-		options: []interface{}{ExpectsStatusCodes([]int{http.StatusOK})},
-		success: false,
+		name:      "no hosts",
+		options:   []interface{}{ExpectsStatusCodes([]int{http.StatusOK})},
+		success:   false,
+		verifyErr: true,
 	}, {
-		name:    "expected host",
-		options: []interface{}{WithHost(host), ExpectsStatusCodes([]int{http.StatusOK})},
-		success: true,
+		name:      "expected host",
+		options:   []interface{}{WithHost(host), ExpectsStatusCodes([]int{http.StatusOK})},
+		success:   true,
+		verifyErr: false,
 	}, {
-		name:    "wrong host",
-		options: []interface{}{WithHost("nope.com"), ExpectsStatusCodes([]int{http.StatusOK})},
-		success: false,
+		name:      "wrong host",
+		options:   []interface{}{WithHost("nope.com"), ExpectsStatusCodes([]int{http.StatusOK})},
+		success:   false,
+		verifyErr: true,
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ok, err := Do(context.Background(), network.AutoTransport, ts.URL, test.options...)
-			if err != nil {
+			if err != nil && test.verifyErr != IsVerifierError(err) {
 				t.Errorf("failed to probe: %v", err)
 			}
 			if ok != test.success {
@@ -302,27 +310,31 @@ func TestExpectsHeaderOption(t *testing.T) {
 	defer ts.Close()
 
 	tests := []struct {
-		name    string
-		options []interface{}
-		success bool
+		name      string
+		options   []interface{}
+		success   bool
+		verifyErr bool
 	}{{
-		name:    "header is present",
-		options: []interface{}{ExpectsHeader("Foo", "Bar"), ExpectsStatusCodes([]int{http.StatusOK})},
-		success: true,
+		name:      "header is present",
+		options:   []interface{}{ExpectsHeader("Foo", "Bar"), ExpectsStatusCodes([]int{http.StatusOK})},
+		success:   true,
+		verifyErr: false,
 	}, {
-		name:    "header is absent",
-		options: []interface{}{ExpectsHeader("Baz", "Nope"), ExpectsStatusCodes([]int{http.StatusOK})},
-		success: false,
+		name:      "header is absent",
+		options:   []interface{}{ExpectsHeader("Baz", "Nope"), ExpectsStatusCodes([]int{http.StatusOK})},
+		success:   false,
+		verifyErr: true,
 	}, {
-		name:    "header value doesn't match",
-		options: []interface{}{ExpectsHeader("Foo", "Baz"), ExpectsStatusCodes([]int{http.StatusOK})},
-		success: false,
+		name:      "header value doesn't match",
+		options:   []interface{}{ExpectsHeader("Foo", "Baz"), ExpectsStatusCodes([]int{http.StatusOK})},
+		success:   false,
+		verifyErr: true,
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ok, err := Do(context.Background(), network.AutoTransport, ts.URL, test.options...)
-			if err != nil {
+			if err != nil && test.verifyErr != IsVerifierError(err) {
 				t.Errorf("failed to probe: %v", err)
 			}
 			if ok != test.success {

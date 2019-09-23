@@ -18,6 +18,7 @@ package prober
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"sync"
@@ -50,17 +51,43 @@ func WithHost(host string) Preparer {
 	}
 }
 
+type verifierError struct {
+	field  string
+	exp    interface{}
+	actual interface{}
+}
+
+func (e *verifierError) Error() string {
+	return fmt.Sprintf("Unexpected %v want %v got %v", e.field, e.exp, e.actual)
+}
+
+func IsVerifierError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if _, ok := err.(*verifierError); ok {
+		return true
+	}
+	return false
+}
+
 // ExpectsBody validates that the body of the probe response matches the provided string.
 func ExpectsBody(body string) Verifier {
 	return func(r *http.Response, b []byte) (bool, error) {
-		return string(b) == body, nil
+		if string(b) == body {
+			return true, nil
+		}
+		return false, &verifierError{"body", body, string(b)}
 	}
 }
 
 // ExpectsHeader validates that the given header of the probe response matches the provided string.
 func ExpectsHeader(name, value string) Verifier {
 	return func(r *http.Response, _ []byte) (bool, error) {
-		return r.Header.Get(name) == value, nil
+		if r.Header.Get(name) == value {
+			return true, nil
+		}
+		return false, &verifierError{"header " + name, value, r.Header.Get(name)}
 	}
 }
 
@@ -72,7 +99,7 @@ func ExpectsStatusCodes(statusCodes []int) Verifier {
 				return true, nil
 			}
 		}
-		return false, nil
+		return false, &verifierError{"statuscode", statusCodes, r.StatusCode}
 	}
 }
 
@@ -174,6 +201,10 @@ func (m *Manager) doAsync(ctx context.Context, target string, arg interface{}, p
 
 		err = wait.PollImmediate(period, timeout, func() (bool, error) {
 			result, err = Do(ctx, m.transport, target, ops...)
+			if IsVerifierError(err) {
+				// Do not return error when getting verifierError as retry is expected until timeout.
+				return result, nil
+			}
 			return result, err
 		})
 		m.cb(arg, result, err)
