@@ -444,7 +444,7 @@ func TestQueueTraceSpans(t *testing.T) {
 
 func newProbeTestServer(f func(w http.ResponseWriter)) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("User-Agent") == "Knative-Queue-Proxy-Probe" {
+		if r.Header.Get(network.UserAgentKey) == network.QueueProxyUserAgent {
 			f(w)
 		}
 	}))

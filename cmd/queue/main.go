@@ -267,7 +267,7 @@ func probeQueueHealthPath(port int, timeoutSeconds int) error {
 		}
 		// Add the header to indicate this is a probe request.
 		req.Header.Add(network.ProbeHeaderName, queue.Name)
-		req.Header.Add(network.UserAgentKey, queue.UserAgent)
+		req.Header.Add(network.UserAgentKey, network.QueueProxyUserAgent)
 		res, lastErr := httpClient.Do(req)
 		if lastErr != nil {
 			// Return nil error for retrying

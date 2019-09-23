@@ -26,8 +26,4 @@ const (
 	// Main usage is to delay the termination of user-container until all
 	// accepted requests have been processed.
 	RequestQueueDrainPath = "/wait-for-drain"
-
-	// UserAgent is the user-agent header value set in probe requests sent
-	// from queue-proxy to user container.
-	UserAgent = "Knative-Queue-Proxy-Probe"
 )

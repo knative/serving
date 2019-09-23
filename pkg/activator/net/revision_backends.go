@@ -64,10 +64,6 @@ type revisionDestsUpdate struct {
 const (
 	probeTimeout   time.Duration = 300 * time.Millisecond
 	probeFrequency time.Duration = 200 * time.Millisecond
-
-	// UserAgent is the user-agent header value set in probe requests sent
-	// from activator to user pods.
-	UserAgent = "Knative-Activator-Probe"
 )
 
 // revisionWatcher watches the podIPs and ClusterIP of the service for a revision. It implements the logic
@@ -134,7 +130,7 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (bool, error)
 	// NOTE: changes below may require changes to testing/roundtripper.go to make unit tests passing.
 	return prober.Do(ctx, rw.transport, httpDest.String(),
 		prober.WithHeader(network.ProbeHeaderName, queue.Name),
-		prober.WithHeader(network.UserAgentKey, UserAgent),
+		prober.WithHeader(network.UserAgentKey, network.ActivatorUserAgent),
 		prober.ExpectsBody(queue.Name),
 		prober.ExpectsStatusCodes([]int{http.StatusOK}))
 

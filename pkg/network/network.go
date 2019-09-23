@@ -125,6 +125,14 @@ const (
 
 	// UserAgentKey is the constant for header "User-Agent".
 	UserAgentKey = "User-Agent"
+
+	// ActivatorUserAgent is the user-agent header value set in probe requests sent
+	// from activator.
+	ActivatorUserAgent = "Knative-Activator-Probe"
+
+	// QueueProxyUserAgent is the user-agent header value set in probe requests sent
+	// from queue-proxy.
+	QueueProxyUserAgent = "Knative-Queue-Proxy-Probe"
 )
 
 // DomainTemplateValues are the available properties people can choose from
