@@ -173,7 +173,7 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 	}, {
 		name:        "provide too short value and invalid class for /window annotation",
 		annotations: map[string]string{WindowAnnotationKey: "1s", ClassAnnotationKey: HPA},
-		expectErr:   "expected 6s <= 1s <= 1h0m0s: " + WindowAnnotationKey + "\n" + `invalid key name "autoscaling.knative.dev/window": ` + HPA,
+		expectErr:   `invalid key name "autoscaling.knative.dev/window": ` + HPA,
 	}, {
 		name:        "provide too long value and valid class for /window annotation",
 		annotations: map[string]string{WindowAnnotationKey: "365h", ClassAnnotationKey: KPA},
