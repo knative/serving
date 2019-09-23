@@ -91,7 +91,7 @@ need to add the following:
 
 1. [Mako sidecar](https://github.com/knative/serving/blob/master/test/performance/dataplane-probe/dataplane-probe.yaml#L38-L45)
    This allows mako to capture the metrics and write to its server.
-2. [Service Account volume](https://github.com/knative/serving/blob/master/test/performance/dataplane-probe/dataplane-probe.yaml#L47)
+2. [Mako Secrets volume](https://github.com/knative/serving/blob/master/test/performance/dataplane-probe/dataplane-probe.yaml#L47)
    Robot ACL permissions to write to mako.
 3. [Config Map](https://github.com/knative/serving/blob/master/test/performance/dataplane-probe/dataplane-probe.yaml#L50)
    Config map that defines which config to use at runtime.
@@ -103,12 +103,12 @@ need to add the following:
     - name: GOOGLE_APPLICATION_CREDENTIALS
       value: /var/secret/robot.json
   volumeMounts:
-    - name: service-account
+    - name: mako-secrets
       mountPath: /var/secret
   volumes:
-    - name: service-account
+    - name: mako-secrets
       secret:
-        secretName: service-account
+        secretName: mako-secrets
     - name: config-mako
       configMap:
         name: config-mako

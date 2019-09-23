@@ -45,7 +45,7 @@ Take `dataplane-probe` benchmark for example:
 1. Create a secret with it:
 
    ```shell
-   kubectl create secret generic service-account --from-file=./robot.json
+   kubectl create secret generic mako-secrets --from-file=./robot.json
    ```
 
 1. Patch istio:
