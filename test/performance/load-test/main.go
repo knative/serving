@@ -141,7 +141,8 @@ func main() {
 
 	q.Input.ThresholdInputs = append(q.Input.ThresholdInputs,
 		newLoadTest95PercentileLatency(tbcTag),
-		newLoadTestMaximumLatency(tbcTag))
+		newLoadTestMaximumLatency(tbcTag),
+		newLoadTestMaximumErrorRate(tbcTag))
 
 	log.Print("Starting the load test.")
 	// Ramp up load from 1k to 3k in 2 minute steps.
