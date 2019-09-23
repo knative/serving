@@ -306,14 +306,14 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 	if !config.FromContext(ctx).Network.AutoTLS {
 		return tls, nil
 	}
-	tagToDomainMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets), clusterLocalServiceNames)
+	domainToTagMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets), clusterLocalServiceNames)
 	if err != nil {
 		return nil, err
 	}
 
-	for tag, domain := range tagToDomainMap {
+	for domain := range domainToTagMap {
 		if domains.IsClusterLocal(domain) {
-			delete(tagToDomainMap, tag)
+			delete(domainToTagMap, domain)
 		}
 	}
 
@@ -329,7 +329,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 		return nil, err
 	}
 
-	desiredCerts := resources.MakeCertificates(r, tagToDomainMap, certClass(ctx, r))
+	desiredCerts := resources.MakeCertificates(r, domainToTagMap, certClass(ctx, r))
 	for _, desiredCert := range desiredCerts {
 		dnsNames := sets.NewString(desiredCert.Spec.DNSNames...)
 		// Look for a matching wildcard cert before provisioning a new one. This saves the
