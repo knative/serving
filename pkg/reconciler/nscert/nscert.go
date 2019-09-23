@@ -30,7 +30,6 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubelabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	kubelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -67,7 +66,7 @@ func (c *reconciler) Reconcile(ctx context.Context, key string) error {
 
 	_, ns, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(fmt.Errorf("invalid resource key %s: %v", key, err))
+		logger.Errorw("Invalid resource key", zap.Error(err))
 		return nil
 	}
 
@@ -136,7 +135,7 @@ func (c *reconciler) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 		c.Recorder.Eventf(cert, corev1.EventTypeNormal, "Created",
 			"Created Knative Certificate %s/%s", ns.Name, cert.ObjectMeta.Name)
 	} else if err != nil {
-		return err
+		return perrors.Wrap(err, "failed to get namespace certificate")
 	} else if !metav1.IsControlledBy(existingCert, ns) {
 		return fmt.Errorf("namespace %s does not own Knative Certificate: %s", ns.Name, existingCert.Name)
 	} else if !equality.Semantic.DeepEqual(existingCert.Spec, desiredCert.Spec) {
@@ -144,10 +143,9 @@ func (c *reconciler) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 		copy.Spec = desiredCert.Spec
 		_, err := c.ServingClientSet.NetworkingV1alpha1().Certificates(copy.Namespace).Update(copy)
 		if err != nil {
-			c.Logger.Errorw("Failed to update Knative Certificate", zap.Error(err))
 			c.Recorder.Eventf(existingCert, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update Knative Certificate %s/%s: %v", existingCert.Namespace, existingCert.Name, err)
-			return err
+			return perrors.Wrap(err, "failed to update namespace certificate")
 		}
 		c.Recorder.Eventf(existingCert, corev1.EventTypeNormal, "Updated",
 			"Updated Spec for Knative Certificate %s/%s", desiredCert.Namespace, desiredCert.Name)

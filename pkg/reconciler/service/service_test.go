@@ -952,7 +952,8 @@ func TestReconcile(t *testing.T) {
 				}),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "Failed to parse image reference: spec.template.spec.containers[0].image\nimage: \"#\", error: could not parse reference"),
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				"failed to reconcile Configuration: Failed to parse image reference: spec.template.spec.containers[0].image\nimage: \"#\", error: could not parse reference"),
 		},
 	}, {
 		Name: "runLatest - route creation failure",
@@ -978,7 +979,7 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "create-route-failure"),
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Route %q: %v",
 				"create-route-failure", "inducing failure for create routes"),
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create routes"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create Route: inducing failure for create routes"),
 		},
 	}, {
 		Name: "runLatest - configuration creation failure",
@@ -1003,7 +1004,7 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Configuration %q: %v",
 				"create-config-failure", "inducing failure for create configurations"),
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create configurations"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create Configuration: inducing failure for create configurations"),
 		},
 	}, {
 		Name: "runLatest - update route failure",
@@ -1023,7 +1024,7 @@ func TestReconcile(t *testing.T) {
 			Object: route("update-route-failure", "foo", WithRunLatestRollout),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update routes"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to reconcile Route: inducing failure for update routes"),
 		},
 	}, {
 		Name: "runLatest - update config failure",
@@ -1045,7 +1046,7 @@ func TestReconcile(t *testing.T) {
 			Object: config("update-config-failure", "foo", WithRunLatestRollout),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update configurations"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to reconcile Configuration: inducing failure for update configurations"),
 		},
 	}, {
 		Name: "runLatest - failure updating service status",

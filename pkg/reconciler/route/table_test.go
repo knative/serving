@@ -431,7 +431,7 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create placeholder service %q: %v",
 				"create-svc-failure", "inducing failure for create services"),
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create services"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create placeholder service: inducing failure for create services"),
 		},
 		Key: "default/create-svc-failure",
 	}, {
@@ -498,9 +498,8 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "ingress-create-failure"),
-			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress for route %s/%s: %v",
-				"default", "ingress-create-failure", "inducing failure for create ingresses"),
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create ingresses"),
+			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress: inducing failure for create ingresses"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create Ingress: inducing failure for create ingresses"),
 		},
 		Key:                     "default/ingress-create-failure",
 		SkipNamespaceValidation: true,
@@ -1067,7 +1066,7 @@ func TestReconcile(t *testing.T) {
 					})),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update ingresses"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to update Ingress: inducing failure for update ingresses"),
 		},
 		Key:                     "default/update-ci-failure",
 		SkipNamespaceValidation: true,
@@ -2316,7 +2315,7 @@ func TestReconcile(t *testing.T) {
 			Name: "old-service-name",
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for delete services"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to delete Service: inducing failure for delete services"),
 		},
 		Key: "default/my-route",
 	}}
@@ -2728,6 +2727,85 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		Key:                     "default/becomes-ready",
+		SkipNamespaceValidation: true,
+	}, {
+		// This test is a same with "public becomes cluster local" above, but confirm it does not create certs with autoTLS for cluster-local.
+		Name: "public becomes cluster local w/ autoTLS",
+		Objects: []runtime.Object{
+			route("default", "becomes-local", WithConfigTarget("config"),
+				WithRouteLabel(config.VisibilityLabelKey, config.VisibilityClusterLocal),
+				WithRouteUID("65-23")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("tb")),
+			simpleIngress(
+				route("default", "becomes-local", WithConfigTarget("config"), WithRouteUID("65-23"), WithRouteLabel("serving.knative.dev/visibility", "cluster-local")),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: "config-00001",
+								Percent:      ptr.Int64(100),
+							},
+							ServiceName: "tb",
+							Active:      true,
+						}},
+					},
+				},
+			),
+			simpleK8sService(route("default", "becomes-local", WithConfigTarget("config"),
+				WithRouteLabel(config.VisibilityLabelKey, config.VisibilityClusterLocal),
+				WithRouteUID("65-23"))),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: simpleIngressWithVisibility(
+				route("default", "becomes-local", WithConfigTarget("config"),
+					WithRouteUID("65-23"),
+					WithRouteLabel(config.VisibilityLabelKey, config.VisibilityClusterLocal)),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: "config-00001",
+								Percent:      ptr.Int64(100),
+							},
+							ServiceName: "tb",
+							Active:      true,
+						}},
+					},
+				},
+				sets.NewString("becomes-local"),
+			),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchFinalizers("default", "becomes-local"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "becomes-local", WithConfigTarget("config"),
+				WithRouteUID("65-23"),
+				MarkTrafficAssigned, MarkIngressNotConfigured,
+				WithLocalDomain, WithAddress, WithInitRouteConditions,
+				WithRouteLabel(config.VisibilityLabelKey, config.VisibilityClusterLocal),
+				WithStatusTraffic(v1alpha1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					},
+				})),
+		}},
+		WantDeleteCollections: []clientgotesting.DeleteCollectionActionImpl{{
+			ListRestrictions: clientgotesting.ListRestrictions{
+				Labels: labels.Set(map[string]string{
+					serving.RouteLabelKey:          "becomes-local",
+					serving.RouteNamespaceLabelKey: "default",
+				}).AsSelector(),
+				Fields: fields.Nothing(),
+			},
+		}},
+		Key:                     "default/becomes-local",
 		SkipNamespaceValidation: true,
 	}}
 	defer logtesting.ClearAll()

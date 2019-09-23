@@ -94,15 +94,15 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 // converge the two. It then updates the Status block of the Route resource
 // with the current status of the resource.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
-	// Convert the namespace/name string into a distinct namespace and name
+	logger := logging.FromContext(ctx)
+	ctx = c.configStore.ToContext(ctx)
+	ctx = controller.WithEventRecorder(ctx, c.Recorder)
+
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		c.Logger.Errorw("invalid resource key", zap.Error(err))
+		logger.Errorw("Invalid resource key", zap.Error(err))
 		return nil
 	}
-	logger := logging.FromContext(ctx)
-	ctx = controller.WithEventRecorder(ctx, c.Recorder)
-	ctx = c.configStore.ToContext(ctx)
 
 	// Get the Route resource with this namespace/name.
 	original, err := c.routeLister.Routes(namespace).Get(name)
@@ -306,14 +306,14 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 	if !config.FromContext(ctx).Network.AutoTLS {
 		return tls, nil
 	}
-	tagToDomainMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets), clusterLocalServiceNames)
+	domainToTagMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets), clusterLocalServiceNames)
 	if err != nil {
 		return nil, err
 	}
 
-	for tag, domain := range tagToDomainMap {
+	for domain := range domainToTagMap {
 		if domains.IsClusterLocal(domain) {
-			delete(tagToDomainMap, tag)
+			delete(domainToTagMap, domain)
 		}
 	}
 
@@ -329,7 +329,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 		return nil, err
 	}
 
-	desiredCerts := resources.MakeCertificates(r, tagToDomainMap, certClass(ctx, r))
+	desiredCerts := resources.MakeCertificates(r, domainToTagMap, certClass(ctx, r))
 	for _, desiredCert := range desiredCerts {
 		dnsNames := sets.NewString(desiredCert.Spec.DNSNames...)
 		// Look for a matching wildcard cert before provisioning a new one. This saves the

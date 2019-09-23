@@ -66,14 +66,14 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 // converge the two. It then updates the Status block of the Certificate resource
 // with the current status of the resource.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
-	// Convert the namespace/name string into a distinct namespace and name
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		c.Logger.Errorf("invalid resource key: %s", key)
-		return nil
-	}
 	logger := logging.FromContext(ctx)
 	ctx = c.configStore.ToContext(ctx)
+
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		logger.Errorw("Invalid resource key", zap.Error(err))
+		return nil
+	}
 
 	original, err := c.knCertificateLister.Certificates(namespace).Get(name)
 	if apierrs.IsNotFound(err) {

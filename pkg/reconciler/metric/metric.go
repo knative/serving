@@ -51,9 +51,10 @@ var _ controller.Reconciler = (*reconciler)(nil)
 // converge the two.
 func (r *reconciler) Reconcile(ctx context.Context, key string) error {
 	logger := logging.FromContext(ctx)
+
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if namespace == "" || err != nil {
-		logger.Error("Invalid resource key: " + key)
+	if err != nil {
+		logger.Errorw("Invalid resource key", zap.Error(err))
 		return nil
 	}
 
