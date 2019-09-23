@@ -61,6 +61,7 @@ func (e *verifierError) Error() string {
 	return fmt.Sprintf("Unexpected %v want %v got %v", e.field, e.exp, e.actual)
 }
 
+// IsVerifierError returns true if and only if err is produced by Verifier.
 func IsVerifierError(err error) bool {
 	if err == nil {
 		return false
