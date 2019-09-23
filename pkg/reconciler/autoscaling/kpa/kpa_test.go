@@ -1540,7 +1540,7 @@ func (km *testDeciders) Update(ctx context.Context, decider *autoscaler.Decider)
 	return decider, nil
 }
 
-func (km *testDeciders) Watch(fn func(string)) {}
+func (km *testDeciders) Watch(fn func(types.NamespacedName)) {}
 
 type failingDeciders struct {
 	getErr    error
@@ -1560,7 +1560,7 @@ func (km *failingDeciders) Delete(ctx context.Context, namespace, name string) e
 	return km.deleteErr
 }
 
-func (km *failingDeciders) Watch(fn func(string)) {
+func (km *failingDeciders) Watch(fn func(types.NamespacedName)) {
 }
 
 func (km *failingDeciders) Update(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error) {

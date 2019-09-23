@@ -26,24 +26,29 @@ import (
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
-	activatorconfig "knative.dev/serving/pkg/activator/config"
-	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/queue"
 
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/activator"
+	activatorconfig "knative.dev/serving/pkg/activator/config"
 	activatornet "knative.dev/serving/pkg/activator/net"
 	"knative.dev/serving/pkg/activator/util"
-	netlisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/queue"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 )
+
+// Throttler is the interface that Handler calls to Try to proxy the user request.
+type Throttler interface {
+	Try(context.Context, types.NamespacedName, func(string) error) error
+}
 
 // activationHandler will wait for an active endpoint for a revision
 // to be available before proxing the request
@@ -51,33 +56,22 @@ type activationHandler struct {
 	logger    *zap.SugaredLogger
 	transport http.RoundTripper
 	reporter  activator.StatsReporter
-	throttler *activatornet.Throttler
-
-	endpointTimeout time.Duration
+	throttler Throttler
 
 	revisionLister servinglisters.RevisionLister
-	serviceLister  corev1listers.ServiceLister
-	sksLister      netlisters.ServerlessServiceLister
 }
 
 // The default time we'll try to probe the revision for activation.
 const defaulTimeout = 2 * time.Minute
 
 // New constructs a new http.Handler that deals with revision activation.
-func New(l *zap.SugaredLogger, r activator.StatsReporter,
-	t *activatornet.Throttler,
-	rl servinglisters.RevisionLister, sl corev1listers.ServiceLister,
-	sksL netlisters.ServerlessServiceLister) http.Handler {
-
+func New(ctx context.Context, t Throttler, sr activator.StatsReporter) http.Handler {
 	return &activationHandler{
-		logger:          l,
-		transport:       network.AutoTransport,
-		reporter:        r,
-		throttler:       t,
-		revisionLister:  rl,
-		sksLister:       sksL,
-		serviceLister:   sl,
-		endpointTimeout: defaulTimeout,
+		logger:         logging.FromContext(ctx),
+		transport:      network.AutoTransport,
+		reporter:       sr,
+		throttler:      t,
+		revisionLister: revisioninformer.Get(ctx).Lister(),
 	}
 }
 
@@ -95,11 +89,8 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tryContext, trySpan := trace.StartSpan(r.Context(), "throttler_try")
-	if a.endpointTimeout > 0 {
-		var cancel context.CancelFunc
-		tryContext, cancel = context.WithTimeout(tryContext, a.endpointTimeout)
-		defer cancel()
-	}
+	tryContext, cancel := context.WithTimeout(tryContext, defaulTimeout)
+	defer cancel()
 
 	err = a.throttler.Try(tryContext, revID, func(dest string) error {
 		trySpan.End()

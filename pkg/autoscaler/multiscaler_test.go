@@ -38,9 +38,9 @@ const (
 )
 
 // watchFunc generates a function to assert the changes happening in the multiscaler.
-func watchFunc(ctx context.Context, ms *MultiScaler, decider *Decider, desiredScale int, errCh chan error) func(key string) {
-	metricKey := fmt.Sprintf("%s/%s", decider.Namespace, decider.Name)
-	return func(key string) {
+func watchFunc(ctx context.Context, ms *MultiScaler, decider *Decider, desiredScale int, errCh chan error) func(key types.NamespacedName) {
+	metricKey := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
+	return func(key types.NamespacedName) {
 		if key != metricKey {
 			errCh <- fmt.Errorf("Watch() = %v, wanted %v", key, metricKey)
 			return
@@ -306,7 +306,7 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	}
 
 	errCh := make(chan error)
-	ms.Watch(func(key string) {
+	ms.Watch(func(key types.NamespacedName) {
 		// Let the main process know when this is called.
 		errCh <- nil
 	})

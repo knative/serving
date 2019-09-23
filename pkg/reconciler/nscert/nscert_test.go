@@ -172,7 +172,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Knative certificate %s/%s: inducing failure for create certificates", "foo", defaultCertName),
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create certificates"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create namespace certificate: inducing failure for create certificates"),
 		},
 	}}
 

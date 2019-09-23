@@ -72,6 +72,8 @@ spec:
             volumeMounts:
             - name: config-mako
               mountPath: /etc/config-mako
+            - name: mako-secrets
+              mountPath: /var/secret
           - name: mako
             image: gcr.io/knative-performance/mako-microservice:latest
             env:
@@ -117,6 +119,8 @@ spec:
             volumeMounts:
             - name: config-mako
               mountPath: /etc/config-mako
+            - name: mako-secrets
+              mountPath: /var/secret
           - name: mako
             image: gcr.io/knative-performance/mako-microservice:latest
             env:
@@ -162,6 +166,8 @@ spec:
             volumeMounts:
             - name: config-mako
               mountPath: /etc/config-mako
+            - name: mako-secrets
+              mountPath: /var/secret
           - name: mako
             image: gcr.io/knative-performance/mako-microservice:latest
             env:

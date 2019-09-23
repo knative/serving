@@ -22,6 +22,7 @@ import (
 	"reflect"
 
 	cmv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
+	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -140,20 +141,18 @@ func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate
 }
 
 func (c *Reconciler) reconcileCMCertificate(ctx context.Context, knCert *v1alpha1.Certificate, desired *cmv1alpha1.Certificate) (*cmv1alpha1.Certificate, error) {
-	logger := logging.FromContext(ctx)
 	cmCert, err := c.cmCertificateLister.Certificates(desired.Namespace).Get(desired.Name)
 	if apierrs.IsNotFound(err) {
 		cmCert, err = c.certManagerClient.CertmanagerV1alpha1().Certificates(desired.Namespace).Create(desired)
 		if err != nil {
-			logger.Errorw("Failed to create Cert-Manager certificate", zap.Error(err))
 			c.Recorder.Eventf(knCert, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create Cert-Manager Certificate %s/%s: %v", desired.Name, desired.Namespace, err)
-			return nil, err
+			return nil, perrors.Wrap(err, "failed to create Cert-Manager Certificate")
 		}
 		c.Recorder.Eventf(knCert, corev1.EventTypeNormal, "Created",
 			"Created Cert-Manager Certificate %s/%s", desired.Namespace, desired.Name)
 	} else if err != nil {
-		return nil, err
+		return nil, perrors.Wrap(err, "failed to get Cert-Manager Certificate")
 	} else if !metav1.IsControlledBy(desired, knCert) {
 		knCert.Status.MarkResourceNotOwned("CertManagerCertificate", desired.Name)
 		return nil, fmt.Errorf("knative Certificate %s in namespace %s does not own CertManager Certificate: %s", knCert.Name, knCert.Namespace, desired.Name)
@@ -162,10 +161,9 @@ func (c *Reconciler) reconcileCMCertificate(ctx context.Context, knCert *v1alpha
 		copy.Spec = desired.Spec
 		updated, err := c.certManagerClient.CertmanagerV1alpha1().Certificates(copy.Namespace).Update(copy)
 		if err != nil {
-			logger.Errorw("Failed to update Cert-Manager Certificate", zap.Error(err))
 			c.Recorder.Eventf(knCert, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to create Cert-Manager Certificate %s/%s: %v", desired.Namespace, desired.Name, err)
-			return nil, err
+			return nil, perrors.Wrap(err, "failed to update Cert-Manager Certificate")
 		}
 		c.Recorder.Eventf(knCert, corev1.EventTypeNormal, "Updated",
 			"Updated Spec for Cert-Manager Certificate %s/%s", desired.Namespace, desired.Name)

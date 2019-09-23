@@ -25,7 +25,9 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"time"
 
+	"go.opencensus.io/stats/view"
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
@@ -79,7 +81,7 @@ func GetLoggingConfig(ctx context.Context) (*logging.Config, error) {
 	loggingConfigMap, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(logging.ConfigMapName(), metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return logging.NewConfigFromMap(make(map[string]string))
+			return logging.NewConfigFromMap(nil)
 		} else {
 			return nil, err
 		}
@@ -112,6 +114,14 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 	log.Printf("Registering %d informer factories", len(injection.Default.GetInformerFactories()))
 	log.Printf("Registering %d informers", len(injection.Default.GetInformers()))
 	log.Printf("Registering %d controllers", len(ctors))
+
+	// Report stats on Go memory usage every 30 seconds.
+	msp := metrics.NewMemStatsAll()
+	msp.Start(ctx, 30*time.Second)
+
+	if err := view.Register(msp.DefaultViews()...); err != nil {
+		log.Fatalf("Error exporting go memstats view: %v", err)
+	}
 
 	// Adjust our client's rate limits based on the number of controller's we are running.
 	cfg.QPS = float32(len(ctors)) * rest.DefaultQPS

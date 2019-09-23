@@ -22,6 +22,12 @@ import (
 	"sync"
 )
 
+const (
+	// Return `queue` as body for 200 responses to indicate the response is from queue-proxy.
+	aliveBody    = "queue"
+	notAliveBody = "queue not ready"
+)
+
 // State holds state about the current healthiness of the component.
 type State struct {
 	alive        bool
@@ -81,37 +87,35 @@ func (h *State) drainFinished() {
 
 }
 
-// HealthHandler constructs a handler that returns the current state of the
+// HandleHealthProbe handles the probe according to the current state of the
 // health server. If isAggressive is false and prober has succeeded previously,
 // the function return success without probing user-container again (until
 // shutdown).
-func (h *State) HealthHandler(prober func() bool, isAggressive bool) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		sendAlive := func() {
-			io.WriteString(w, "alive: true")
-		}
+func (h *State) HandleHealthProbe(prober func() bool, isAggressive bool, w http.ResponseWriter) {
+	sendAlive := func() {
+		io.WriteString(w, aliveBody)
+	}
 
-		sendNotAlive := func() {
-			w.WriteHeader(http.StatusBadRequest)
-			io.WriteString(w, "alive: false")
-		}
+	sendNotAlive := func() {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		io.WriteString(w, notAliveBody)
+	}
 
-		switch {
-		case !isAggressive && h.IsAlive():
-			sendAlive()
-		case h.IsShuttingDown():
-			sendNotAlive()
-		case prober != nil && !prober():
-			sendNotAlive()
-		default:
-			h.setAlive()
-			sendAlive()
-		}
+	switch {
+	case !isAggressive && h.IsAlive():
+		sendAlive()
+	case h.IsShuttingDown():
+		sendNotAlive()
+	case prober != nil && !prober():
+		sendNotAlive()
+	default:
+		h.setAlive()
+		sendAlive()
 	}
 }
 
-// DrainHandler constructs a handler that waits until the proxy server is shut down.
-func (h *State) DrainHandler() func(_ http.ResponseWriter, _ *http.Request) {
+// DrainHandlerFunc constructs an HTTP handler that waits until the proxy server is shut down.
+func (h *State) DrainHandlerFunc() func(_ http.ResponseWriter, _ *http.Request) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 	if h.drainCh == nil {

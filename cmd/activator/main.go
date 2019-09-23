@@ -30,9 +30,7 @@ import (
 
 	// Injection related imports.
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/injection"
-	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 
 	"github.com/kelseyhightower/envconfig"
@@ -147,9 +145,6 @@ func main() {
 	defer flush(logger)
 
 	kubeClient := kubeclient.Get(ctx)
-	serviceInformer := serviceinformer.Get(ctx)
-	revisionInformer := revisioninformer.Get(ctx)
-	sksInformer := sksinformer.Get(ctx)
 
 	// Run informers instead of starting them from the factory to prevent the sync hanging because of empty handler.
 	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
@@ -181,12 +176,9 @@ func main() {
 
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
 
-	// Start revision backends manager
-	rbm := activatornet.NewRevisionBackendsManager(ctx, network.AutoTransport)
-
-	// Start throttler
+	// Start throttler.
 	throttler := activatornet.NewThrottler(ctx, params)
-	go throttler.Run(rbm.UpdateCh())
+	go throttler.Run(ctx)
 
 	oct := tracing.NewOpenCensusTracer(tracing.WithExporter(networking.ActivatorServiceName, logger))
 
@@ -211,31 +203,28 @@ func main() {
 
 	var env config
 	if err := envconfig.Process("", &env); err != nil {
-		logger.Fatal("Failed to process env", err)
+		logger.Fatalw("Failed to process env", zap.Error(err))
 	}
 	podName := env.PodName
 
 	// Create and run our concurrency reporter
 	reportTicker := time.NewTicker(time.Second)
 	defer reportTicker.Stop()
-	cr := activatorhandler.NewConcurrencyReporter(logger, podName, reqCh, reportTicker.C, statCh, revisionInformer.Lister(), reporter)
+	cr := activatorhandler.NewConcurrencyReporter(ctx, podName, reqCh,
+		reportTicker.C, statCh, reporter)
 	go cr.Run(ctx.Done())
 
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
 	var ah http.Handler = activatorhandler.New(
-		logger,
-		reporter,
+		ctx,
 		throttler,
-		revisionInformer.Lister(),
-		serviceInformer.Lister(),
-		sksInformer.Lister(),
-	)
+		reporter)
 	ah = activatorhandler.NewRequestEventHandler(reqCh, ah)
 	ah = tracing.HTTPSpanMiddleware(ah)
 	ah = configStore.HTTPMiddleware(ah)
 	reqLogHandler, err := pkghttp.NewRequestLogHandler(ah, logging.NewSyncFileWriter(os.Stdout), "",
-		requestLogTemplateInputGetter(revisionInformer.Lister()))
+		requestLogTemplateInputGetter(revisioninformer.Get(ctx).Lister()))
 	if err != nil {
 		logger.Fatalw("Unable to create request log handler", zap.Error(err))
 	}
@@ -248,7 +237,7 @@ func main() {
 	ah = &activatorhandler.HealthHandler{HealthCheck: hc, NextHandler: ah}
 
 	// NOTE: MetricHandler is being used as the outermost handler for the purpose of measuring the request latency.
-	ah = activatorhandler.NewMetricHandler(revisionInformer.Lister(), reporter, logger, ah)
+	ah = activatorhandler.NewMetricHandler(ctx, reporter, ah)
 	ah = network.NewProbeHandler(ah)
 
 	profilingHandler := profiling.NewHandler(logger, false)

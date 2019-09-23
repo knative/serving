@@ -65,7 +65,7 @@ func CheckMinimumVersion(versioner ServerVersioner) error {
 	// Compare returns 1 if the first version is greater than the
 	// second version.
 	if semver.Compare(minimumVersion, currentVersion) == 1 {
-		return fmt.Errorf("kubernetes version %q is not compatible, need at least %q (this can be overriden with the env var %q)",
+		return fmt.Errorf("kubernetes version %q is not compatible, need at least %q (this can be overridden with the env var %q)",
 			currentVersion, minimumVersion, KubernetesMinVersionKey)
 	}
 	return nil

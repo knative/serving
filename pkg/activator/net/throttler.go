@@ -39,6 +39,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/resources"
@@ -237,7 +238,7 @@ func (rt *revisionThrottler) updateThrottleState(throttler *Throttler, backendCo
 
 // This function will never be called in parallel but try can be called in parallel to this so we need
 // to lock on updating concurrency / trackers
-func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update RevisionDestsUpdate) {
+func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionDestsUpdate) {
 	rt.logger.Debugf("Handling update w/ %d ready and dests: %v", len(update.Dests), update.Dests)
 
 	// ClusterIP is not yet ready, so we want to send requests directly to the pods.
@@ -314,8 +315,14 @@ func NewThrottler(ctx context.Context,
 	return t
 }
 
-// Run starts the throttler and blocks until updateCh is closed.
-func (t *Throttler) Run(updateCh <-chan RevisionDestsUpdate) {
+// Run starts the throttler and blocks until the context is done.
+func (t *Throttler) Run(ctx context.Context) {
+	rbm := newRevisionBackendsManager(ctx, network.AutoTransport)
+	// Update channel is closed when ctx is done.
+	t.run(rbm.updates())
+}
+
+func (t *Throttler) run(updateCh <-chan revisionDestsUpdate) {
 	for update := range updateCh {
 		t.handleUpdate(update)
 	}
@@ -379,7 +386,7 @@ func (t *Throttler) revisionDeleted(obj interface{}) {
 	delete(t.revisionThrottlers, revID)
 }
 
-func (t *Throttler) handleUpdate(update RevisionDestsUpdate) {
+func (t *Throttler) handleUpdate(update revisionDestsUpdate) {
 	if update.Deleted {
 		// Nothing to do as revisionDeleted is already called by DeleteFunc of Informer.
 		return
@@ -388,7 +395,8 @@ func (t *Throttler) handleUpdate(update RevisionDestsUpdate) {
 		if k8serrors.IsNotFound(err) {
 			t.logger.Debugf("Revision %q is not found. Probably it was removed", update.Rev.String())
 		} else {
-			t.logger.Errorw(fmt.Sprintf("Failed to get revision throttler for revision %q", update.Rev.String()),
+			t.logger.Errorw(
+				fmt.Sprintf("Failed to get revision throttler for revision %q", update.Rev.String()),
 				zap.Error(err))
 		}
 	} else {

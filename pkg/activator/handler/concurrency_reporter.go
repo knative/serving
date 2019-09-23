@@ -17,14 +17,19 @@ limitations under the License.
 package handler
 
 import (
+	"context"
 	"time"
 
 	"go.uber.org/zap"
+
 	"k8s.io/apimachinery/pkg/types"
+
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 )
 
@@ -48,22 +53,25 @@ type ConcurrencyReporter struct {
 
 // NewConcurrencyReporter creates a ConcurrencyReporter which listens to incoming
 // ReqEvents on reqCh and ticks on reportCh and reports stats on statCh.
-func NewConcurrencyReporter(logger *zap.SugaredLogger, podName string, reqCh chan ReqEvent, reportCh <-chan time.Time,
-	statCh chan *autoscaler.StatMessage, rl servinglisters.RevisionLister, sr activator.StatsReporter) *ConcurrencyReporter {
-	return NewConcurrencyReporterWithClock(logger, podName, reqCh, reportCh, statCh, rl, sr, system.RealClock{})
+func NewConcurrencyReporter(ctx context.Context, podName string,
+	reqCh chan ReqEvent, reportCh <-chan time.Time, statCh chan *autoscaler.StatMessage,
+	sr activator.StatsReporter) *ConcurrencyReporter {
+	return NewConcurrencyReporterWithClock(ctx, podName, reqCh, reportCh,
+		statCh, sr, system.RealClock{})
 }
 
 // NewConcurrencyReporterWithClock instantiates a new concurrency reporter
 // which uses the passed clock.
-func NewConcurrencyReporterWithClock(logger *zap.SugaredLogger, podName string, reqCh chan ReqEvent, reportCh <-chan time.Time,
-	statCh chan *autoscaler.StatMessage, rl servinglisters.RevisionLister, sr activator.StatsReporter, clock system.Clock) *ConcurrencyReporter {
+func NewConcurrencyReporterWithClock(ctx context.Context, podName string, reqCh chan ReqEvent,
+	reportCh <-chan time.Time, statCh chan *autoscaler.StatMessage,
+	sr activator.StatsReporter, clock system.Clock) *ConcurrencyReporter {
 	return &ConcurrencyReporter{
-		logger:   logger,
+		logger:   logging.FromContext(ctx),
 		podName:  podName,
 		reqCh:    reqCh,
 		reportCh: reportCh,
 		statCh:   statCh,
-		rl:       rl,
+		rl:       revisioninformer.Get(ctx).Lister(),
 		sr:       sr,
 		clock:    clock,
 	}

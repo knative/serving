@@ -1672,7 +1672,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:40bc98faaf4e29673da841dfc4d4a5740ceb8c225576b91438472c8542af0849"
+  digest = "1:6e410a2318808cce9fd9fcdc5c1821b96b89ad1cbe17251c9915c3c4da1b27fe"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1721,6 +1721,8 @@
     "client/injection/kube/informers/core/v1/endpoints/fake",
     "client/injection/kube/informers/core/v1/namespace",
     "client/injection/kube/informers/core/v1/namespace/fake",
+    "client/injection/kube/informers/core/v1/pod",
+    "client/injection/kube/informers/core/v1/pod/fake",
     "client/injection/kube/informers/core/v1/secret",
     "client/injection/kube/informers/core/v1/secret/fake",
     "client/injection/kube/informers/core/v1/service",
@@ -1786,7 +1788,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "1fb9a433083f3e74ff9de88a5ff6bd37ab7bd709"
+  revision = "d90ec6a0150ac99846556d88d5a54093418ec2a7"
 
 [[projects]]
   branch = "master"
@@ -1966,6 +1968,8 @@
     "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/namespace",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/namespace/fake",
+    "knative.dev/pkg/client/injection/kube/informers/core/v1/pod",
+    "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/secret",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/service",
