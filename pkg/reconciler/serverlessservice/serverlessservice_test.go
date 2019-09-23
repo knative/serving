@@ -243,7 +243,8 @@ func TestReconcile(t *testing.T) {
 			Object: endpointspub("update-eps", "failA", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)), // The attempted update.
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for update endpoints"),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed",
+				"InternalError: failed to update public K8s Endpoints: inducing failure for update endpoints"),
 		},
 	}, {
 		Name:    "svc-fail-pub",
@@ -267,7 +268,8 @@ func TestReconcile(t *testing.T) {
 			svcpub("svc", "fail2"),
 		},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for create services"),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed",
+				"InternalError: failed to create public K8s Service: inducing failure for create services"),
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "svc/fail2"`),
 		},
 	}, {
@@ -293,7 +295,8 @@ func TestReconcile(t *testing.T) {
 			endpointspub("eps", "fail3", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 		},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for create endpoints"),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed",
+				"InternalError: failed to create public K8s Endpoints: inducing failure for create endpoints"),
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "eps/fail3"`),
 		},
 	}, {
@@ -337,7 +340,8 @@ func TestReconcile(t *testing.T) {
 				markTransitioning("CreatingPublicService")),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: endpoints "activator-service" not found`),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed",
+				`InternalError: failed to get activator service endpoints: endpoints "activator-service" not found`),
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cnaeps2"`),
 		},
 	}, {
@@ -360,7 +364,8 @@ func TestReconcile(t *testing.T) {
 				markTransitioning("CreatingPublicService")),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", `InternalError: endpoints "cnaeps3-private" not found`),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed",
+				`InternalError: failed to get private K8s Service endpoints: endpoints "cnaeps3-private" not found`),
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "on/cnaeps3"`),
 		},
 	}, {
@@ -425,7 +430,8 @@ func TestReconcile(t *testing.T) {
 			svcpriv("svc", "fail"),
 		},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for create services"),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed",
+				"InternalError: failed to create private K8s Service: inducing failure for create services"),
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "svc/fail"`),
 		},
 	}, {
@@ -544,7 +550,8 @@ func TestReconcile(t *testing.T) {
 			Object: svcpriv("update-svc", "fail9"),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for update services"),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed",
+				"InternalError: failed to update private K8s Service: inducing failure for update services"),
 			Eventf(corev1.EventTypeNormal, "Updated", `Successfully updated ServerlessService "update-svc/fail9"`),
 		},
 	},
@@ -568,7 +575,7 @@ func TestReconcile(t *testing.T) {
 				Object: svcpub("update-svc", "fail8"),
 			}},
 			WantEvents: []string{
-				Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: inducing failure for update services"),
+				Eventf(corev1.EventTypeWarning, "UpdateFailed", "InternalError: failed to update public K8s Service: inducing failure for update services"),
 			},
 		}, {
 			Name: "pod change",
