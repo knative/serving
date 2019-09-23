@@ -181,7 +181,7 @@ func TestProbeQueueInvalidPort(t *testing.T) {
 
 	if err := probeQueueHealthPath(port, 1); err == nil {
 		t.Error("Expected error, got nil")
-	} else if diff := cmp.Diff(err.Error(), "-port flag must be set a positive value"); diff != "" {
+	} else if diff := cmp.Diff(err.Error(), "port must be a positive value, got 0"); diff != "" {
 		t.Errorf("Unexpected not ready message: %s", diff)
 	}
 }
@@ -196,10 +196,10 @@ func TestProbeQueueConnectionFailure(t *testing.T) {
 
 func TestProbeQueueNotReady(t *testing.T) {
 	queueProbed := ptr.Int32(0)
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := NewTestServer(func(w http.ResponseWriter) {
 		atomic.AddInt32(queueProbed, 1)
 		w.WriteHeader(http.StatusBadRequest)
-	}))
+	})
 
 	defer ts.Close()
 
@@ -226,10 +226,10 @@ func TestProbeQueueNotReady(t *testing.T) {
 
 func TestProbeQueueReady(t *testing.T) {
 	queueProbed := ptr.Int32(0)
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := NewTestServer(func(w http.ResponseWriter) {
 		atomic.AddInt32(queueProbed, 1)
 		w.WriteHeader(http.StatusOK)
-	}))
+	})
 
 	defer ts.Close()
 
@@ -254,11 +254,11 @@ func TestProbeQueueReady(t *testing.T) {
 
 func TestProbeQueueTimeout(t *testing.T) {
 	queueProbed := ptr.Int32(0)
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := NewTestServer(func(w http.ResponseWriter) {
 		atomic.AddInt32(queueProbed, 1)
 		time.Sleep(2 * time.Second)
 		w.WriteHeader(http.StatusOK)
-	}))
+	})
 
 	defer ts.Close()
 
@@ -286,13 +286,13 @@ func TestProbeQueueTimeout(t *testing.T) {
 
 func TestProbeQueueDelayedReady(t *testing.T) {
 	count := ptr.Int32(0)
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := NewTestServer(func(w http.ResponseWriter) {
 		if atomic.AddInt32(count, 1) < 9 {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-	}))
+	})
 
 	defer ts.Close()
 
@@ -440,4 +440,12 @@ func TestQueueTraceSpans(t *testing.T) {
 			}
 		})
 	}
+}
+
+func NewTestServer(f func(w http.ResponseWriter)) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("User-Agent") == "Knative-Queue-Proxy-Probe" {
+			f(w)
+		}
+	}))
 }

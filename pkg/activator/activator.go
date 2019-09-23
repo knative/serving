@@ -23,4 +23,7 @@ const (
 	RevisionHeaderName = "Knative-Serving-Revision"
 	// RevisionHeaderNamespace is the header key for revision's namespace.
 	RevisionHeaderNamespace = "Knative-Serving-Namespace"
+	// UserAgent is the user-agent header value set in probe requests sent
+	// from activator to user pods.
+	UserAgent = "Knative-Activator-Probe"
 )

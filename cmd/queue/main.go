@@ -236,7 +236,7 @@ func handleKnativeProbe(w http.ResponseWriter, r *http.Request, ph string, healt
 
 func probeQueueHealthPath(port int, timeoutSeconds int) error {
 	if port <= 0 {
-		return errors.New("-port flag must be set a positive value")
+		return fmt.Errorf("port must be a positive value, got %d", port)
 	}
 
 	url := fmt.Sprintf(healthURLTemplate, port)
@@ -267,6 +267,7 @@ func probeQueueHealthPath(port int, timeoutSeconds int) error {
 		}
 		// Add the header to indicate this is a probe request.
 		req.Header.Add(network.ProbeHeaderName, queue.Name)
+		req.Header.Add(network.UserAgentKey, queue.UserAgent)
 		res, lastErr := httpClient.Do(req)
 		if lastErr != nil {
 			// Return nil error for retrying

@@ -122,6 +122,9 @@ const (
 	// HTTPProtocolKey is the name of the configuration entry that
 	// specifies the HTTP endpoint behavior of Knative ingress.
 	HTTPProtocolKey = "httpProtocol"
+
+	// UserAgentKey is the constant for header "User-Agent".
+	UserAgentKey = "User-Agent"
 )
 
 // DomainTemplateValues are the available properties people can choose from
