@@ -122,7 +122,7 @@ func (rw *revisionWatcher) getK8sPrivateService() (*corev1.Service, error) {
 	}
 }
 
-func (rw *revisionWatcher) probe(ctx context.Context, dest string) (bool, error) {
+func (rw *revisionWatcher) probe(ctx context.Context, dest string) error {
 	httpDest := url.URL{
 		Scheme: "http",
 		Host:   dest,
@@ -152,7 +152,7 @@ func (rw *revisionWatcher) getDest() (string, error) {
 	return net.JoinHostPort(svc.Spec.ClusterIP, strconv.Itoa(svcPort)), nil
 }
 
-func (rw *revisionWatcher) probeClusterIP(dest string) (bool, error) {
+func (rw *revisionWatcher) probeClusterIP(dest string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
 	defer cancel()
 	return rw.probe(ctx, dest)
@@ -191,8 +191,8 @@ func (rw *revisionWatcher) probePodIPs(dests sets.String) (sets.String, bool, er
 	for dest := range toProbe {
 		dest := dest // Standard Go concurrency pattern.
 		probeGroup.Go(func() error {
-			ok, err := rw.probe(ctx, dest)
-			if ok {
+			err := rw.probe(ctx, dest)
+			if err == nil {
 				healthyDests <- dest
 			}
 			return err
@@ -250,9 +250,9 @@ func (rw *revisionWatcher) checkDests(dests sets.String) {
 	}
 
 	// If clusterIP is healthy send this update and we are done.
-	if ok, err := rw.probeClusterIP(dest); err != nil {
+	if err := rw.probeClusterIP(dest); err != nil {
 		rw.logger.Errorw("Failed to probe clusterIP "+dest, zap.Error(err))
-	} else if ok {
+	} else {
 		rw.logger.Debugf("ClusterIP is successfully probed: %s (backends: %d)", dest, len(dests))
 		rw.clusterIPHealthy = true
 		rw.healthyPods = nil

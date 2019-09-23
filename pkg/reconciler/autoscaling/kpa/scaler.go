@@ -82,7 +82,7 @@ type scaler struct {
 	transport         http.RoundTripper
 
 	// For sync probes.
-	activatorProbe func(pa *pav1alpha1.PodAutoscaler, transport http.RoundTripper) (bool, error)
+	activatorProbe func(pa *pav1alpha1.PodAutoscaler, transport http.RoundTripper) error
 
 	// For async probes.
 	probeManager asyncProber
@@ -121,10 +121,10 @@ func paToProbeTarget(pa *pav1alpha1.PodAutoscaler) string {
 
 // activatorProbe returns true if via probe it determines that the
 // PA is backed by the Activator.
-func activatorProbe(pa *pav1alpha1.PodAutoscaler, transport http.RoundTripper) (bool, error) {
+func activatorProbe(pa *pav1alpha1.PodAutoscaler, transport http.RoundTripper) error {
 	// No service name -- no probe.
 	if pa.Status.ServiceName == "" {
-		return false, nil
+		return fmt.Errorf("service name is empty")
 	}
 	return prober.Do(context.Background(), transport, paToProbeTarget(pa), probeOptions...)
 }
@@ -182,9 +182,9 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 		ks.enqueueCB(pa, sw-af)
 		desiredScale = 1
 	} else { // Active=False
-		r, err := ks.activatorProbe(pa, ks.transport)
-		logger.Infof("Probing activator = %v, err = %v", r, err)
-		if r {
+		err := ks.activatorProbe(pa, ks.transport)
+		logger.Infof("Probing activator err: %v", err)
+		if err == nil {
 			// This enforces that the revision has been backed by the activator for at least
 			// ScaleToZeroGracePeriod time.
 			// Note: SKS will always be present when scaling to zero, so nil checks are just

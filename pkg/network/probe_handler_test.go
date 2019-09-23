@@ -30,10 +30,9 @@ import (
 func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 	body := "Inner Body"
 	cases := []struct {
-		name      string
-		options   []interface{}
-		want      bool
-		verifyErr bool
+		name    string
+		options []interface{}
+		expErr  bool
 	}{{
 		name: "successful probe when both headers are specified",
 		options: []interface{}{
@@ -41,8 +40,6 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 			prober.WithHeader(HashHeaderName, "foo-bar-baz"),
 			prober.ExpectsStatusCodes([]int{http.StatusOK}),
 		},
-		want:      true,
-		verifyErr: false,
 	}, {
 		name: "forwards to inner handler when probe header is not specified",
 		options: []interface{}{
@@ -52,8 +49,6 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 			prober.ExpectsHeader(HashHeaderName, "false"),
 			prober.ExpectsStatusCodes([]int{http.StatusOK}),
 		},
-		want:      true,
-		verifyErr: false,
 	}, {
 		name: "forwards to inner handler when probe header is not 'probe'",
 		options: []interface{}{
@@ -65,16 +60,13 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 			prober.ExpectsHeader(HashHeaderName, "false"),
 			prober.ExpectsStatusCodes([]int{http.StatusOK}),
 		},
-		want:      true,
-		verifyErr: false,
 	}, {
 		name: "failed probe when hash header is not present",
 		options: []interface{}{
 			prober.WithHeader(ProbeHeaderName, ProbeHeaderValue),
 			prober.ExpectsStatusCodes([]int{http.StatusOK}),
 		},
-		want:      false,
-		verifyErr: true,
+		expErr: true,
 	}}
 
 	var h http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -90,12 +82,12 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got, err := prober.Do(context.Background(), AutoTransport, ts.URL, c.options...)
-			if err != nil && c.verifyErr != prober.IsVerifierError(err) {
+			err := prober.Do(context.Background(), AutoTransport, ts.URL, c.options...)
+			if err != nil && !c.expErr {
 				t.Errorf("failed to probe: %v", err)
 			}
-			if got != c.want {
-				t.Errorf("unexpected probe result: want: %t, got: %t", c.want, got)
+			if err == nil && c.expErr {
+				t.Errorf("expected to fail to probe, but nil")
 			}
 		})
 	}

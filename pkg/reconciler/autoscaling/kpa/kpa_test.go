@@ -1116,7 +1116,7 @@ func TestReconcile(t *testing.T) {
 
 		psFactory := presources.NewPodScalableInformerFactory(ctx)
 		scaler := newScaler(ctx, psFactory, func(interface{}, time.Duration) {})
-		scaler.activatorProbe = func(*asv1a1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
+		scaler.activatorProbe = func(*asv1a1.PodAutoscaler, http.RoundTripper) error { return nil }
 		return &Reconciler{
 			Base: &areconciler.Base{
 				Base:              reconciler.NewBase(ctx, controllerAgentName, newConfigWatcher()),

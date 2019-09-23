@@ -340,7 +340,7 @@ func (m *StatusProber) processWorkItem() bool {
 			return dialContext(ctx, network, addr)
 		}}
 
-	ok, err := prober.Do(
+	err := prober.Do(
 		item.podState.context,
 		transport,
 		item.url,
@@ -357,7 +357,7 @@ func (m *StatusProber) processWorkItem() bool {
 	default:
 	}
 
-	if err != nil || !ok {
+	if err != nil {
 		// In case of error, enqueue for retry
 		m.workQueue.AddRateLimited(obj)
 		m.logger.Errorf("Probing of %s failed, IP: %s, ready: %t, error: %v (depth: %d)", item.url, item.podIP, ok, err, m.workQueue.Len())

@@ -42,7 +42,6 @@ import (
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/network/prober"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	revisionresources "knative.dev/serving/pkg/reconciler/revision/resources"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
@@ -78,7 +77,7 @@ func TestScaler(t *testing.T) {
 		wantScaling         bool
 		sks                 SKSOption
 		paMutation          func(*pav1alpha1.PodAutoscaler)
-		proberfunc          func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error)
+		proberfunc          func(*pav1alpha1.PodAutoscaler, http.RoundTripper) error
 		wantCBCount         int
 		wantAsyncProbeCount int
 	}{{
@@ -195,8 +194,8 @@ func TestScaler(t *testing.T) {
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			paMarkInactive(k, time.Now().Add(-gracePeriod))
 		},
-		proberfunc: func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error) {
-			return false, errors.New("hell or high water")
+		proberfunc: func(*pav1alpha1.PodAutoscaler, http.RoundTripper) error {
+			return errors.New("hell or high water")
 		},
 		wantAsyncProbeCount: 1,
 	}, {
@@ -208,7 +207,7 @@ func TestScaler(t *testing.T) {
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			paMarkInactive(k, time.Now().Add(-gracePeriod))
 		},
-		proberfunc:          func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error) { return false, nil },
+		proberfunc:          func(*pav1alpha1.PodAutoscaler, http.RoundTripper) error { return fmt.Errorf("hell or high water") },
 		wantAsyncProbeCount: 1,
 	}, {
 		label:         "waits to scale to zero while activating until after deadline exceeded",
@@ -342,7 +341,7 @@ func TestScaler(t *testing.T) {
 			if test.proberfunc != nil {
 				revisionScaler.activatorProbe = test.proberfunc
 			} else {
-				revisionScaler.activatorProbe = func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
+				revisionScaler.activatorProbe = func(*pav1alpha1.PodAutoscaler, http.RoundTripper) error { return nil }
 			}
 			cp := &countingProber{}
 			revisionScaler.probeManager = cp
@@ -604,11 +603,9 @@ func TestActivatorProbe(t *testing.T) {
 
 	pa := kpa("who-let", "the-dogs-out", WithPAStatusService("woof"))
 	tests := []struct {
-		name      string
-		rt        network.RoundTripperFunc
-		wantRes   bool
-		wantErr   bool
-		verifyErr bool
+		name    string
+		rt      network.RoundTripperFunc
+		wantErr bool
 	}{{
 		name: "ok",
 		rt: func(r *http.Request) (*http.Response, error) {
@@ -616,7 +613,6 @@ func TestActivatorProbe(t *testing.T) {
 			rsp.Write([]byte(activator.Name))
 			return rsp.Result(), nil
 		},
-		wantRes: true,
 	}, {
 		name: "400",
 		rt: func(r *http.Request) (*http.Response, error) {
@@ -625,8 +621,7 @@ func TestActivatorProbe(t *testing.T) {
 			rsp.Write([]byte("wrong header, I guess?"))
 			return rsp.Result(), nil
 		},
-		wantRes:   false,
-		verifyErr: true,
+		wantErr: true,
 	}, {
 		name: "wrong body",
 		rt: func(r *http.Request) (*http.Response, error) {
@@ -634,27 +629,20 @@ func TestActivatorProbe(t *testing.T) {
 			rsp.Write([]byte("haxoorprober"))
 			return rsp.Result(), nil
 		},
-		wantRes:   false,
-		verifyErr: true,
+		wantErr: true,
 	}, {
 		name: "all wrong",
 		rt: func(r *http.Request) (*http.Response, error) {
 			return nil, theErr
 		},
-		wantRes: false,
 		wantErr: true,
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			res, err := activatorProbe(pa, test.rt)
-			if got, want := res, test.wantRes; got != want {
-				t.Errorf("Result = %v, want: %v", got, want)
-			}
+			err := activatorProbe(pa, test.rt)
 			if got, want := err != nil, test.wantErr; got != want {
-				if test.verifyErr != prober.IsVerifierError(err) {
-					t.Errorf("WantErr = %v, want: %v: actual error is: %v", got, want, err)
-				}
+				t.Errorf("WantErr = %v, want: %v: actual error is: %v", got, want, err)
 			}
 		})
 	}

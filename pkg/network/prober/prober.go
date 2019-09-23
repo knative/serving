@@ -33,7 +33,7 @@ import (
 type Preparer func(r *http.Request) *http.Request
 
 // Verifier is a way for the caller to validate the HTTP response after it comes back.
-type Verifier func(r *http.Response, b []byte) (bool, error)
+type Verifier func(r *http.Response, b []byte) error
 
 // WithHeader sets a header in the probe request.
 func WithHeader(name, value string) Preparer {
@@ -51,65 +51,44 @@ func WithHost(host string) Preparer {
 	}
 }
 
-type verifierError struct {
-	field  string
-	exp    interface{}
-	actual interface{}
-}
-
-func (e *verifierError) Error() string {
-	return fmt.Sprintf("Unexpected %v want %v got %v", e.field, e.exp, e.actual)
-}
-
-// IsVerifierError returns true if and only if err is produced by Verifier.
-func IsVerifierError(err error) bool {
-	if err == nil {
-		return false
-	}
-	if _, ok := err.(*verifierError); ok {
-		return true
-	}
-	return false
-}
-
 // ExpectsBody validates that the body of the probe response matches the provided string.
 func ExpectsBody(body string) Verifier {
-	return func(r *http.Response, b []byte) (bool, error) {
+	return func(r *http.Response, b []byte) error {
 		if string(b) == body {
-			return true, nil
+			return nil
 		}
-		return false, &verifierError{"body", body, string(b)}
+		return fmt.Errorf("unexpected body: want %v got %v", body, string(b))
 	}
 }
 
 // ExpectsHeader validates that the given header of the probe response matches the provided string.
 func ExpectsHeader(name, value string) Verifier {
-	return func(r *http.Response, _ []byte) (bool, error) {
+	return func(r *http.Response, _ []byte) error {
 		if r.Header.Get(name) == value {
-			return true, nil
+			return nil
 		}
-		return false, &verifierError{"header " + name, value, r.Header.Get(name)}
+		return fmt.Errorf("unexpected header %s: want %v got %v", name, value, r.Header.Get(name))
 	}
 }
 
 // ExpectsStatusCodes validates that the given status code of the probe response matches the provided int.
 func ExpectsStatusCodes(statusCodes []int) Verifier {
-	return func(r *http.Response, _ []byte) (bool, error) {
+	return func(r *http.Response, _ []byte) error {
 		for _, v := range statusCodes {
 			if r.StatusCode == v {
-				return true, nil
+				return nil
 			}
 		}
-		return false, &verifierError{"statuscode", statusCodes, r.StatusCode}
+		return fmt.Errorf("unexpected statuscode: want %v got %v", statusCodes, r.StatusCode)
 	}
 }
 
 // Do sends a single probe to given target, e.g. `http://revision.default.svc.cluster.local:81`.
 // Do returns whether the probe was successful or not, or there was an error probing.
-func Do(ctx context.Context, transport http.RoundTripper, target string, ops ...interface{}) (bool, error) {
+func Do(ctx context.Context, transport http.RoundTripper, target string, ops ...interface{}) error {
 	req, err := http.NewRequest(http.MethodGet, target, nil)
 	if err != nil {
-		return false, errors.Wrapf(err, "%s is not a valid URL", target)
+		return errors.Wrapf(err, "%s is not a valid URL", target)
 	}
 	for _, op := range ops {
 		if po, ok := op.(Preparer); ok {
@@ -120,23 +99,23 @@ func Do(ctx context.Context, transport http.RoundTripper, target string, ops ...
 	req = req.WithContext(ctx)
 	resp, err := transport.RoundTrip(req)
 	if err != nil {
-		return false, errors.Wrapf(err, "error roundtripping %s", target)
+		return errors.Wrapf(err, "error roundtripping %s", target)
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return false, errors.Wrap(err, "error reading body")
+		return errors.Wrap(err, "error reading body")
 	}
 
 	for _, op := range ops {
 		if vo, ok := op.(Verifier); ok {
-			ok, err := vo(resp, body)
-			if err != nil || !ok {
-				return false, err
+			err := vo(resp, body)
+			if err != nil {
+				return err
 			}
 		}
 	}
-	return true, nil
+	return nil
 }
 
 // Done is a callback that is executed when the async probe has finished.
@@ -196,18 +175,18 @@ func (m *Manager) doAsync(ctx context.Context, target string, arg interface{}, p
 			m.keys.Delete(target)
 		}()
 		var (
-			result bool
-			err    error
+			err   error
+			inErr error
 		)
 
 		err = wait.PollImmediate(period, timeout, func() (bool, error) {
-			result, err = Do(ctx, m.transport, target, ops...)
-			if IsVerifierError(err) {
+			inErr = Do(ctx, m.transport, target, ops...)
+			if inErr != nil {
 				// Do not return error when getting verifierError as retry is expected until timeout.
-				return result, nil
+				return false, nil
 			}
-			return result, err
+			return true, nil
 		})
-		m.cb(arg, result, err)
+		m.cb(arg, inErr == nil, err)
 	}()
 }
