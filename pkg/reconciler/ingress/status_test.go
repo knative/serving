@@ -295,7 +295,7 @@ func TestIsReadyFailureAndSuccess(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ia := &(*iaTemplate)
+			ia := iaTemplate.DeepCopy()
 			prober := NewStatusProber(
 				zaptest.NewLogger(t).Sugar(),
 				test.gatewayLister,
@@ -317,7 +317,7 @@ func TestProbeLifecycle(t *testing.T) {
 		v1alpha1.IngressVisibilityExternalIP: sets.NewString("default/gateway"),
 	}
 
-	ia := &(*iaTemplate)
+	ia := iaTemplate.DeepCopy()
 	hash, err := resources.InsertProbe(ia)
 	if err != nil {
 		t.Fatalf("failed to insert probe: %v", err)
@@ -514,7 +514,7 @@ func TestProbeLifecycle(t *testing.T) {
 }
 
 func TestCancellation(t *testing.T) {
-	ia := &(*iaTemplate)
+	ia := iaTemplate.DeepCopy()
 	gw := map[v1alpha1.IngressVisibility]sets.String{
 		v1alpha1.IngressVisibilityExternalIP: sets.NewString("default/gateway"),
 	}
