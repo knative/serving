@@ -427,7 +427,7 @@ func tryThrottler(throttler *Throttler, trys []types.NamespacedName, ctx context
 
 func TestInfiniteBreaker(t *testing.T) {
 	defer ClearAll()
-	b := &InfiniteBreaker{
+	b := &infiniteBreaker{
 		broadcast: make(chan struct{}),
 		logger:    TestLogger(t),
 	}
