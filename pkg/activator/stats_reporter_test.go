@@ -25,7 +25,7 @@ import (
 	"knative.dev/pkg/metrics/metricstest"
 )
 
-// unregister, ehm, unregisters the metrics that were registered, by
+// unregister, unregisters the metrics that were registered, by
 // virtue of StatsReporter creation.
 // Since golang executes test iterations within the same process, the stats reporter
 // returns an error if the metric is already registered and the test panics.
