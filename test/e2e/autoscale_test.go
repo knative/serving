@@ -414,7 +414,7 @@ func TestAutoscaleUpCountPods(t *testing.T) {
 		name, class := name, class
 		t.Run(name, func(tt *testing.T) {
 			tt.Parallel()
-			cancel := logstream.Start(t)
+			cancel := logstream.Start(tt)
 			defer cancel()
 
 			ctx := setup(tt, class, autoscaling.Concurrency, containerConcurrency, targetUtilization)
