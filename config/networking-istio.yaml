@@ -31,6 +31,7 @@ spec:
         sidecar.istio.io/inject: "false"
       labels:
         app: networking-istio
+        serving.knative.dev/release: devel
     spec:
       serviceAccountName: controller
       containers:
