@@ -81,6 +81,7 @@ data:
 
     # If true, this enables queue proxy writing request logs for probe requests to stdout.
     # It uses the same template for user requests, i.e. logging.request-log-template.
+    # Not yet used // TODO(yanweiguo) remove once other parts are ready.
     logging.enable-probe-request-log: "false"
   
     # metrics.backend-destination field specifies the system metrics destination.
