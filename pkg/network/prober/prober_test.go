@@ -82,10 +82,10 @@ func TestDoServing(t *testing.T) {
 				t.Errorf("Got = %v, want: %v", got, want)
 			}
 			if err != nil && !test.expErr {
-				t.Errorf("Do returned error: %v", err)
+				t.Errorf("Do() = %v, no error expected", err)
 			}
 			if err == nil && test.expErr {
-				t.Errorf("expected to fail to probe, but nil")
+				t.Errorf("Do() = nil, expected an error")
 			}
 		})
 	}
@@ -300,10 +300,10 @@ func TestWithHostOption(t *testing.T) {
 				t.Errorf("unexpected probe result: want: %v, got: %v", test.success, ok)
 			}
 			if err != nil && !test.expErr {
-				t.Errorf("failed to probe: %v", err)
+				t.Errorf("Do() = %v, no error expected", err)
 			}
 			if err == nil && test.expErr {
-				t.Errorf("expected to fail to probe, but nil")
+				t.Errorf("Do() = nil, expected an error")
 			}
 		})
 	}
@@ -343,10 +343,10 @@ func TestExpectsHeaderOption(t *testing.T) {
 				t.Errorf("unexpected probe result: want: %v, got: %v", test.success, ok)
 			}
 			if err != nil && !test.expErr {
-				t.Errorf("failed to probe: %v", err)
+				t.Errorf("Do() = %v, no error expected", err)
 			}
 			if err == nil && test.expErr {
-				t.Errorf("expected to fail to probe, but nil")
+				t.Errorf("Do() = nil, expected an error")
 			}
 		})
 	}

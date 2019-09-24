@@ -89,7 +89,10 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			got, err := prober.Do(context.Background(), AutoTransport, ts.URL, c.options...)
 			if err != nil && !c.expErr {
-				t.Errorf("failed to probe: %v", err)
+				t.Errorf("prober.Do() = %v, no error expected", err)
+			}
+			if err == nil && c.expErr {
+				t.Errorf("prober.Do() = nil, expected an error")
 			}
 			if got != c.want {
 				t.Errorf("unexpected probe result: want: %t, got: %t", c.want, got)

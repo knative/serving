@@ -57,7 +57,7 @@ func ExpectsBody(body string) Verifier {
 		if string(b) == body {
 			return true, nil
 		}
-		return false, fmt.Errorf("unexpected body: want %v got %v", body, string(b))
+		return false, fmt.Errorf("unexpected body: want %q, got %q", body, string(b))
 	}
 }
 
@@ -67,7 +67,7 @@ func ExpectsHeader(name, value string) Verifier {
 		if r.Header.Get(name) == value {
 			return true, nil
 		}
-		return false, fmt.Errorf("unexpected header %s: want %v got %v", name, value, r.Header.Get(name))
+		return false, fmt.Errorf("unexpected header %q: want %q, got %q", name, value, r.Header.Get(name))
 	}
 }
 
@@ -79,7 +79,7 @@ func ExpectsStatusCodes(statusCodes []int) Verifier {
 				return true, nil
 			}
 		}
-		return false, fmt.Errorf("unexpected statuscode: want %v got %v", statusCodes, r.StatusCode)
+		return false, fmt.Errorf("unexpected status code: want %v, got %v", statusCodes, r.StatusCode)
 	}
 }
 
