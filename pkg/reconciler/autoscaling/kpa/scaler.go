@@ -183,7 +183,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 		desiredScale = 1
 	} else { // Active=False
 		r, err := ks.activatorProbe(pa, ks.transport)
-		logger.Infof("Probing activator err: %v", err)
+		logger.Infof("Probing activator = %v, err = %v", r, err)
 		if r {
 			// This enforces that the revision has been backed by the activator for at least
 			// ScaleToZeroGracePeriod time.
