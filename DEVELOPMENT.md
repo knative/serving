@@ -1,4 +1,4 @@
-# Development
+# Developments
 
 This doc explains how to setup a development environment so you can get started
 [contributing](https://www.knative.dev/contributing/) to `Knative Serving`. Also

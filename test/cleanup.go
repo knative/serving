@@ -40,7 +40,6 @@ func CleanupOnInterrupt(cleanup func()) {
 func TearDown(clients *Clients, names ResourceNames) {
 	if clients != nil && clients.ServingBetaClient != nil {
 		clients.ServingAlphaClient.Delete(
-			[]string{names.Route},
 			[]string{names.Config},
 			[]string{names.Service},
 		)
