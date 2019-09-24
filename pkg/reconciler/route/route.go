@@ -485,7 +485,8 @@ func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1alpha1.R
 	}
 
 	mainRouteMeta := route.ObjectMeta.DeepCopy()
-	labels.SetVisibility(mainRouteMeta, clusterLocalServices.Has(mainRouteServiceName))
+	isClusterLocal := clusterLocalServices.Has(mainRouteServiceName) || labels.IsObjectLocalVisibility(route.ObjectMeta)
+	labels.SetVisibility(mainRouteMeta, isClusterLocal)
 
 	host, err := domains.DomainNameFromTemplate(ctx, *mainRouteMeta, route.Name)
 	if err != nil {
