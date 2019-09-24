@@ -19,8 +19,10 @@ limitations under the License.
 package e2e
 
 import (
+	"strings"
 	"testing"
 
+	"knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/test/logstream"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -81,5 +83,116 @@ func TestRoutesNotReady(t *testing.T) {
 	t.Logf("Validating Service %q has reconciled to RoutesReady == False.", names.Service)
 	if err = v1a1test.CheckServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceRoutesNotReady); err != nil {
 		t.Fatalf("Service %q was not marked RoutesReady  == False: %#v", names.Service, err)
+	}
+}
+
+func TestRouteVisibilityChanges(t *testing.T) {
+	testCases := []struct {
+		name            string
+		withTrafficSpec ServiceOption
+	}{
+		{
+			name: "Route visibility changes from public to private with single traffic",
+			withTrafficSpec: WithInlineRouteSpec(v1alpha1.RouteSpec{
+				Traffic: []v1alpha1.TrafficTarget{
+					{
+						TrafficTarget: v1.TrafficTarget{
+							Percent: ptr.Int64(100),
+						},
+					},
+				},
+			}),
+		},
+		{
+			name: "Route visibility changes from public to private with tag only",
+			withTrafficSpec: WithInlineRouteSpec(v1alpha1.RouteSpec{
+				Traffic: []v1alpha1.TrafficTarget{
+					{
+						TrafficTarget: v1.TrafficTarget{
+							Percent: ptr.Int64(100),
+							Tag:     "cow",
+						},
+					},
+				},
+			}),
+		},
+		{
+			name: "Route visibility changes from public to private with both tagged and non-tagged traffic",
+			withTrafficSpec: WithInlineRouteSpec(v1alpha1.RouteSpec{
+				Traffic: []v1alpha1.TrafficTarget{
+					{
+						TrafficTarget: v1.TrafficTarget{
+							Percent: ptr.Int64(60),
+						},
+					},
+					{
+						TrafficTarget: v1.TrafficTarget{
+							Percent: ptr.Int64(40),
+							Tag:     "cow",
+						},
+					},
+				},
+			}),
+		},
+	}
+
+	hasPublicRoute := func(r *v1alpha1.Route) (b bool, e error) {
+		return !strings.HasSuffix(r.Status.URL.Host, network.GetClusterDomainName()), nil
+	}
+
+	hasPrivateRoute := func(r *v1alpha1.Route) (b bool, e error) {
+		return strings.HasSuffix(r.Status.URL.Host, network.GetClusterDomainName()), nil
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(st *testing.T) {
+			st.Parallel()
+			cancel := logstream.Start(st)
+			defer cancel()
+
+			clients := Setup(st)
+
+			names := test.ResourceNames{
+				Service: test.ObjectNameForTest(t),
+				Image:   test.PizzaPlanet1,
+			}
+
+			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+			defer test.TearDown(clients, names)
+
+			st.Log("Creating a new Service")
+			svc, err := v1a1test.CreateLatestService(st, clients, names, testCase.withTrafficSpec)
+			if err != nil {
+				st.Fatalf("Failed to create initial Service %q: %#v", names.Service, err)
+			}
+
+			st.Logf("Waiting for Service %q ObservedGeneration to match Generation, and status transition to Ready == True", names.Service)
+			if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
+				st.Fatalf("Failed waiting for Service %q to transition to Ready == True: %#v", names.Service, err)
+			}
+
+			st.Logf("Validating Route %q has non cluster-local address", serviceresourcenames.Route(svc))
+			// Check Route is not ready
+
+			if err = v1a1test.CheckRouteState(clients.ServingAlphaClient, serviceresourcenames.Route(svc), hasPublicRoute); err != nil {
+				st.Fatalf("The Route %q should be publicly visible but it was not: %#v", serviceresourcenames.Route(svc), err)
+			}
+
+			newSvc := svc.DeepCopy()
+			newSvc.SetLabels(map[string]string{"serving.knative.dev/visibility": "cluster-local"})
+			v1a1test.PatchService(st, clients, svc, newSvc)
+
+			st.Logf("Waiting for Service %q ObservedGeneration to match Generation, and status transition to Ready == True", names.Service)
+			if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
+				st.Fatalf("Failed waiting for Service %q to transition to Ready == True: %#v", names.Service, err)
+			}
+
+			st.Logf("Validating Route %q has cluster-local address", serviceresourcenames.Route(svc))
+			// Check Route is not ready
+
+			if err = v1a1test.WaitForRouteState(clients.ServingAlphaClient, serviceresourcenames.Route(svc), hasPrivateRoute, "RouteIsClusterLocal"); err != nil {
+				st.Fatalf("The Route %q should be privately visible but it was not: %#v", serviceresourcenames.Route(svc), err)
+			}
+		})
 	}
 }
