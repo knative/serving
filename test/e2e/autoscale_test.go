@@ -124,7 +124,7 @@ func generateTraffic(
 		case <-stopChan:
 			ctx.t.Log("Stopping generateTraffic")
 			if successfulRequests != totalRequests {
-				return fmt.Errorf("error making requests for scale up. total = %d, errors = %d, expected 0",
+				return fmt.Errorf("error making requests for scale up: total = %d, errors = %d, expected 0",
 					totalRequests, totalRequests-successfulRequests)
 			}
 			return nil
