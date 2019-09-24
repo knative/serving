@@ -519,7 +519,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 
 	// Wait for the activator endpoints to equalize.
 	if err := waitForActivatorEndpoints(ctx.resources, ctx.clients); err != nil {
-		t.Fatal("Never got Activator endpoints in the service")
+		t.Fatalf("Never got Activator endpoints in the service: %v", err)
 	}
 
 	// Start second load generator.
@@ -579,7 +579,7 @@ func TestTargetBurstCapacityMinusOne(t *testing.T) {
 
 	// Wait for the activator endpoints to equalize.
 	if err := waitForActivatorEndpoints(ctx.resources, ctx.clients); err != nil {
-		t.Fatal("Never got Activator endpoints in the service")
+		t.Fatalf("Never got Activator endpoints in the service: %v", err)
 	}
 }
 
