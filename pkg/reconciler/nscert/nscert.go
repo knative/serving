@@ -64,6 +64,11 @@ func (c *reconciler) Reconcile(ctx context.Context, key string) error {
 	logger := logging.FromContext(ctx)
 	ctx = c.configStore.ToContext(ctx)
 
+	if !config.FromContext(ctx).Network.AutoTLS {
+		logger.Debug("AutoTLS is disabled. Skipping wildcard certificate creation")
+		return nil
+	}
+
 	_, ns, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		logger.Errorw("Invalid resource key", zap.Error(err))
