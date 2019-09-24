@@ -112,6 +112,7 @@ func New(
 	}
 
 	// Spoof the hostname at the resolver level
+	logf("Spoofing %s -> %s", domain, endpoint)
 	transport := &http.Transport{
 		DialContext: func(ctx context.Context, network, addr string) (conn net.Conn, e error) {
 			spoofed := addr
@@ -119,7 +120,6 @@ func New(
 				// The original hostname:port is spoofed by replacing the hostname by the value
 				// returned by ResolveEndpoint.
 				spoofed = endpoint + ":" + addr[i+1:]
-				logf("Spoofing %s -> %s", addr, spoofed)
 			}
 			return dialContext(ctx, network, spoofed)
 		},
