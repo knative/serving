@@ -320,7 +320,7 @@ func (gc *GKECluster) Acquire() error {
 			}
 			// Retry another region if cluster creation failed.
 			// TODO(chaodaiG): catch specific errors as we know what the error look like for stockout etc.
-			if len(regions) != i+1 {
+			if i != len(regions)-1 {
 				errMsg = fmt.Sprintf("%sRetry another region %q for cluster creation", errMsg, regions[i+1])
 			}
 			log.Printf(errMsg)
@@ -430,8 +430,6 @@ func (gc *GKECluster) wait(location, opName string, wait time.Duration) error {
 			}
 		}
 	}
-
-	return err
 }
 
 // ensureProtected ensures not operating on protected project/cluster
