@@ -33,7 +33,6 @@ import (
 	fakesharedclient "knative.dev/pkg/client/injection/client/fake"
 	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
 	"knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 
 	. "knative.dev/pkg/reconciler/testing"
@@ -92,7 +91,6 @@ func (f *FakeAccessor) GetVirtualServiceLister() istiolisters.VirtualServiceList
 }
 
 func TestReconcileVirtualService_Create(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
 	ctx, cancel := context.WithCancel(ctx)
 	grp := errgroup.Group{}
@@ -124,7 +122,6 @@ func TestReconcileVirtualService_Create(t *testing.T) {
 }
 
 func TestReconcileVirtualService_Update(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
 	ctx, cancel := context.WithCancel(ctx)
 	grp := errgroup.Group{}

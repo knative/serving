@@ -96,6 +96,7 @@ func privateSKSService(revID types.NamespacedName, clusterIP string, ports []cor
 }
 
 func TestRevisionWatcher(t *testing.T) {
+	logger := TestLogger(t)
 	for _, tc := range []struct {
 		name                  string
 		dests                 []string
@@ -313,7 +314,6 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
-			defer ClearAll()
 			fakeRT := activatortest.FakeRoundTripper{
 				ExpectHost:         testRevision,
 				ProbeHostResponses: tc.probeHostResponses,
@@ -353,7 +353,7 @@ func TestRevisionWatcher(t *testing.T) {
 				destsCh,
 				rt,
 				servicesLister,
-				TestLogger(t),
+				logger,
 			)
 			rw.clusterIPHealthy = tc.initialClusterIPState
 
@@ -421,7 +421,6 @@ func ep(revL string, port int32, portName string, ips ...string) *corev1.Endpoin
 }
 
 func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
-	defer ClearAll()
 	// Make sure we wait out all the jitter in the system.
 	defer time.Sleep(informerRestPeriod)
 	for _, tc := range []struct {
@@ -642,7 +641,6 @@ func TestCheckDests(t *testing.T) {
 	defer func() {
 		cancel()
 		time.Sleep(informerRestPeriod)
-		ClearAll()
 	}()
 
 	svc := privateSKSService(
@@ -689,7 +687,6 @@ func TestCheckDestsSwinging(t *testing.T) {
 	defer func() {
 		cancel()
 		time.Sleep(informerRestPeriod)
-		ClearAll()
 	}()
 
 	svc := privateSKSService(
@@ -814,7 +811,6 @@ func TestRevisionDeleted(t *testing.T) {
 	defer func() {
 		cancel()
 		time.Sleep(informerRestPeriod)
-		ClearAll()
 	}()
 
 	svc := privateSKSService(

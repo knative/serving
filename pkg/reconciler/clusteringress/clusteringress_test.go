@@ -50,7 +50,6 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 
-	logtesting "knative.dev/pkg/logging/testing"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
@@ -398,7 +397,6 @@ func TestReconcile(t *testing.T) {
 		Key: "reconcile-virtualservice",
 	}}
 
-	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
 			BaseIngressReconciler: &ing.BaseIngressReconciler{
@@ -1040,7 +1038,6 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 }
 
 func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, cancel, informers, ctrl, watcher := newTestSetup(t)
 
 	grp := errgroup.Group{}
@@ -1131,7 +1128,6 @@ func insertProbe(ia v1alpha1.IngressAccessor) v1alpha1.IngressAccessor {
 }
 
 func TestGlobalResyncOnUpdateNetwork(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, cancel, informers, ctrl, watcher := newTestSetup(t)
 
 	grp := errgroup.Group{}

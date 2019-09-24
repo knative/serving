@@ -50,7 +50,6 @@ var (
 )
 
 func TestMetricCollectorCRUD(t *testing.T) {
-	defer ClearAll()
 	logger := TestLogger(t)
 
 	scraper := &testScraper{
@@ -114,7 +113,6 @@ func TestMetricCollectorCRUD(t *testing.T) {
 }
 
 func TestMetricCollectorScraper(t *testing.T) {
-	defer ClearAll()
 	logger := TestLogger(t)
 
 	now := time.Now()
@@ -180,7 +178,6 @@ func TestMetricCollectorScraper(t *testing.T) {
 }
 
 func TestMetricCollectorRecord(t *testing.T) {
-	defer ClearAll()
 	logger := TestLogger(t)
 
 	now := time.Now()
@@ -320,10 +317,9 @@ func TestMetricCollectorError(t *testing.T) {
 		},
 	}}
 
+	logger := TestLogger(t)
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			defer ClearAll()
-			logger := TestLogger(t)
 			factory := scraperFactory(test.scraper, nil)
 			coll := NewMetricCollector(factory, logger)
 			coll.CreateOrUpdate(test.metric)

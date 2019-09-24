@@ -26,7 +26,6 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
-	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/apis/networking"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 
@@ -45,7 +44,6 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 		sks1 = "test-sks-1"
 		sks2 = "test-sks-2"
 	)
-	defer logtesting.ClearAll()
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 	// Replace the fake dynamic client with one containing our objects.
 	ctx, _ = fakedynamicclient.With(ctx, runtime.NewScheme(),

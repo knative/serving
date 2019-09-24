@@ -27,7 +27,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -42,7 +41,6 @@ import (
 )
 
 func TestNewRouteCallsSyncHandler(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 
 	// A standalone revision

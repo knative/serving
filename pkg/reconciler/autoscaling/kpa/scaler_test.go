@@ -32,7 +32,6 @@ import (
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
-	logtesting "knative.dev/pkg/logging/testing"
 	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -66,7 +65,6 @@ const (
 )
 
 func TestScaler(t *testing.T) {
-	defer logtesting.ClearAll()
 	tests := []struct {
 		label               string
 		startReplicas       int
@@ -394,7 +392,6 @@ func TestScaler(t *testing.T) {
 }
 
 func TestDisableScaleToZero(t *testing.T) {
-	defer logtesting.ClearAll()
 	tests := []struct {
 		label         string
 		startReplicas int

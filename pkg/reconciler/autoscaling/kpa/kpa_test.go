@@ -49,7 +49,6 @@ import (
 	perrors "github.com/pkg/errors"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
@@ -1097,7 +1096,6 @@ func TestReconcile(t *testing.T) {
 		}},
 	}}
 
-	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		fakeDeciders := newTestDeciders()
 		// TODO(vagababov): see if we can get rid of the static piece of configuration and
@@ -1160,7 +1158,6 @@ func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment
 }
 
 func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 	watcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
 
@@ -1230,7 +1227,6 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 }
 
 func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 	defer cancel()
 
@@ -1298,7 +1294,6 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 	defer cancel()
 
@@ -1375,7 +1370,6 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestControllerCreateError(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 	defer cancel()
 
@@ -1401,7 +1395,6 @@ func TestControllerCreateError(t *testing.T) {
 }
 
 func TestControllerUpdateError(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 	defer cancel()
 
@@ -1427,7 +1420,6 @@ func TestControllerUpdateError(t *testing.T) {
 }
 
 func TestControllerGetError(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
 
 	key := testNamespace + "/" + testRevision
@@ -1451,7 +1443,6 @@ func TestControllerGetError(t *testing.T) {
 }
 
 func TestScaleFailure(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
 
 	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders())

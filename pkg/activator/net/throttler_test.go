@@ -52,7 +52,6 @@ type tryResult struct {
 
 func TestThrottlerUpdateCapacity(t *testing.T) {
 	logger := TestLogger(t)
-	defer ClearAll()
 	params := queue.BreakerParams{
 		QueueDepth:      1,
 		MaxConcurrency:  defaultMaxConcurrency,
@@ -162,7 +161,6 @@ func TestThrottlerWithError(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer func() {
 				cancel()
-				ClearAll()
 			}()
 			updateCh := make(chan revisionDestsUpdate, 2)
 
@@ -278,7 +276,6 @@ func TestThrottlerSuccesses(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer func() {
 				cancel()
-				ClearAll()
 			}()
 			updateCh := make(chan revisionDestsUpdate, 2)
 
@@ -334,7 +331,6 @@ func TestMultipleActivators(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer func() {
 		cancel()
-		ClearAll()
 	}()
 
 	fake := fakekubeclient.Get(ctx)
@@ -426,7 +422,6 @@ func tryThrottler(throttler *Throttler, trys []types.NamespacedName, ctx context
 }
 
 func TestInfiniteBreaker(t *testing.T) {
-	defer ClearAll()
 	b := &infiniteBreaker{
 		broadcast: make(chan struct{}),
 		logger:    TestLogger(t),

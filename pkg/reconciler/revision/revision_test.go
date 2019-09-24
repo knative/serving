@@ -52,7 +52,6 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
-	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics"
 	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/pkg/system"
@@ -520,7 +519,6 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 }
 
 func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
-	defer logtesting.ClearAll()
 	// Test that changes to the ConfigMap result in the desired changes on an existing
 	// revision.
 	tests := []struct {
@@ -600,7 +598,6 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 }
 
 func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
-	defer logtesting.ClearAll()
 	// Test that changes to the ConfigMap result in the desired changes on an existing
 	// deployment.
 	tests := []struct {

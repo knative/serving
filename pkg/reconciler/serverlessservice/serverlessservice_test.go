@@ -29,7 +29,6 @@ import (
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking"
@@ -52,7 +51,6 @@ import (
 )
 
 func TestNewController(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
 	c := NewController(ctx, configmap.NewStaticWatcher())
 	if c == nil {
@@ -657,7 +655,6 @@ func TestReconcile(t *testing.T) {
 			}},
 		}}
 
-	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &reconciler{
 			Base:              rpkg.NewBase(ctx, controllerAgentName, cmw),
