@@ -86,8 +86,7 @@ type TableRow struct {
 	// of this row of the table-driven-test.
 	WithReactors []clientgotesting.ReactionFunc
 
-	// For cluster-scoped resources like ClusterIngress, it does not have to be
-	// in the same namespace with its child resources.
+	// For cluster-scoped resources, it does not have to be in the same namespace with its child resources.
 	SkipNamespaceValidation bool
 }
 

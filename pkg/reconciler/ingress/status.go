@@ -127,7 +127,7 @@ func NewStatusProber(
 }
 
 // IsReady checks if the provided VirtualService is ready, i.e. the Envoy pods serving the VirtualService
-// have all been updated. This function is designed to be used by the ClusterIngress controller, i.e. it
+// have all been updated. This function is designed to be used by the Ingress controller, i.e. it
 // will be called in the order of reconciliation. This means that if IsReady is called on a VirtualService,
 // this VirtualService is the latest known version and therefore anything related to older versions can be ignored.
 // Also, it means that IsReady is not called concurrently.

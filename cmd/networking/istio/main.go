@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"knative.dev/serving/pkg/reconciler/clusteringress"
 	"knative.dev/serving/pkg/reconciler/ingress"
 
 	// This defines the shared main for injected controllers.
@@ -25,6 +24,5 @@ import (
 )
 
 func main() {
-	sharedmain.Main("istiocontroller",
-		clusteringress.NewController, ingress.NewController)
+	sharedmain.Main("istiocontroller", ingress.NewController)
 }

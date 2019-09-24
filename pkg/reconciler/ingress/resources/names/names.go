@@ -21,21 +21,15 @@ import (
 )
 
 // IngressVirtualService returns the name of the VirtualService child
-// resource for given ClusterIngress that programs traffic for Ingress
+// resource for given Ingress that programs traffic for Ingress
 // Gateways.
 func IngressVirtualService(i kmeta.Accessor) string {
-	if len(i.GetNamespace()) == 0 {
-		return i.GetName()
-	}
 	return kmeta.ChildName(i.GetName(), "")
 }
 
 // MeshVirtualService returns the name of the VirtualService child
-// resource for given ClusterIngress that programs traffic for Service
+// resource for given Ingress that programs traffic for Service
 // Mesh.
 func MeshVirtualService(i kmeta.Accessor) string {
-	if len(i.GetNamespace()) == 0 {
-		return i.GetName() + "-mesh"
-	}
 	return kmeta.ChildName(i.GetName(), "-mesh")
 }

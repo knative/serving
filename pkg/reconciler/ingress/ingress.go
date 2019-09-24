@@ -368,7 +368,7 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 	}
 
 	// TODO(zhiminx): Mark Route status to indicate that Gateway is configured.
-	logger.Info("ClusterIngress successfully synced")
+	logger.Info("Ingress successfully synced")
 	return nil
 }
 
@@ -429,13 +429,13 @@ func (r *BaseIngressReconciler) reconcileVirtualServices(ctx context.Context, ia
 func (r *BaseIngressReconciler) reconcileDeletion(ctx context.Context, ra ReconcilerAccessor, ia v1alpha1.IngressAccessor) error {
 	logger := logging.FromContext(ctx)
 
-	// If our Finalizer is first, delete the `Servers` from Gateway for this ClusterIngress,
+	// If our Finalizer is first, delete the `Servers` from Gateway for this Ingress,
 	// and remove the finalizer.
 	if len(ia.GetFinalizers()) == 0 || ia.GetFinalizers()[0] != r.Finalizer {
 		return nil
 	}
 	istiocfg := config.FromContext(ctx).Istio
-	logger.Infof("Cleaning up Gateway Servers for ClusterIngress %s", ia.GetName())
+	logger.Infof("Cleaning up Gateway Servers for Ingress %s", ia.GetName())
 	for _, gws := range [][]config.Gateway{istiocfg.IngressGateways, istiocfg.LocalGateways} {
 		for _, gw := range gws {
 			if err := r.reconcileGateway(ctx, ia, gw, []v1alpha3.Server{}); err != nil {
@@ -491,8 +491,8 @@ func (r *BaseIngressReconciler) ensureFinalizer(ra ReconcilerAccessor, ia v1alph
 }
 
 func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha1.IngressAccessor, gw config.Gateway, desired []v1alpha3.Server) error {
-	// TODO(zhiminx): Need to handle the scenario when deleting ClusterIngress. In this scenario,
-	// the Gateway servers of the ClusterIngress need also be removed from Gateway.
+	// TODO(zhiminx): Need to handle the scenario when deleting Ingress. In this scenario,
+	// the Gateway servers of the Ingress need also be removed from Gateway.
 	logger := logging.FromContext(ctx)
 	gateway, err := r.GatewayLister.Gateways(gw.Namespace).Get(gw.Name)
 	if err != nil {
@@ -596,7 +596,7 @@ func privateGatewayServiceURLFromContext(ctx context.Context) string {
 
 // getLBStatus get LB Status
 func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus {
-	// The ClusterIngress isn't load-balanced by any particular
+	// The Ingress isn't load-balanced by any particular
 	// Service, but through a Service mesh.
 	if gatewayServiceURL == "" {
 		return []v1alpha1.LoadBalancerIngressStatus{

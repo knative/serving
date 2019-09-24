@@ -60,16 +60,16 @@ const (
 	// that specifies Istio outbound ip ranges.
 	IstioOutboundIPRangesKey = "istio.sidecar.includeOutboundIPRanges"
 
-	// DefaultClusterIngressClassKey is the name of the configuration entry
-	// that specifies the default ClusterIngress.
-	DefaultClusterIngressClassKey = "clusteringress.class"
+	// DefaultIngressClassKey is the name of the configuration entry
+	// that specifies the default Ingress.
+	DefaultIngressClassKey = "ingress.class"
 
 	// DefaultCertificateClassKey is the name of the configuration entry
 	// that specifies the default Certificate.
 	DefaultCertificateClassKey = "certificate.class"
 
 	// IstioIngressClassName value for specifying knative's Istio
-	// ClusterIngress reconciler.
+	// Ingress reconciler.
 	IstioIngressClassName = "istio.ingress.networking.knative.dev"
 
 	// CertManagerCertificateClassName value for specifying Knative's Cert-Manager
@@ -149,8 +149,8 @@ type Config struct {
 	// by Istio sidecar.
 	IstioOutboundIPRanges string
 
-	// DefaultClusterIngressClass specifies the default ClusterIngress class.
-	DefaultClusterIngressClass string
+	// DefaultIngressClass specifies the default Ingress class.
+	DefaultIngressClass string
 
 	// DomainTemplate is the golang text template to use to generate the
 	// Route's domain (host) for the Service.
@@ -223,10 +223,10 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 		nc.IstioOutboundIPRanges = normalizedIpr
 	}
 
-	if ingressClass, ok := configMap.Data[DefaultClusterIngressClassKey]; !ok {
-		nc.DefaultClusterIngressClass = IstioIngressClassName
+	if ingressClass, ok := configMap.Data[DefaultIngressClassKey]; !ok {
+		nc.DefaultIngressClass = IstioIngressClassName
 	} else {
-		nc.DefaultClusterIngressClass = ingressClass
+		nc.DefaultIngressClass = ingressClass
 	}
 
 	nc.DefaultCertificateClass = CertManagerCertificateClassName

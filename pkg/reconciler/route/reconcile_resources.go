@@ -59,13 +59,10 @@ func (c *Reconciler) deleteIngressForRoute(route *v1alpha1.Route) error {
 }
 
 func (c *Reconciler) reconcileIngress(
-	ctx context.Context, ira IngressResourceAccessors, r *v1alpha1.Route, desired netv1alpha1.IngressAccessor, optional bool) (netv1alpha1.IngressAccessor, error) {
+	ctx context.Context, ira IngressResourceAccessors, r *v1alpha1.Route, desired netv1alpha1.IngressAccessor) (netv1alpha1.IngressAccessor, error) {
 	logger := logging.FromContext(ctx)
 	ingress, err := ira.getIngressForRoute(r)
 	if apierrs.IsNotFound(err) {
-		if optional {
-			return nil, nil
-		}
 		ingress, err = ira.createIngress(desired)
 		if err != nil {
 			logger.Errorw("Failed to create Ingress", zap.Error(err))
@@ -74,8 +71,7 @@ func (c *Reconciler) reconcileIngress(
 			return nil, err
 		}
 
-		c.Recorder.Eventf(r, corev1.EventTypeNormal, "Created",
-			"Created %s %q", resources.GetIngressTypeName(ingress), ingress.GetName())
+		c.Recorder.Eventf(r, corev1.EventTypeNormal, "Created", "Created Ingress %q", ingress.GetName())
 		return ingress, nil
 	} else if err != nil {
 		return nil, err
@@ -90,7 +86,7 @@ func (c *Reconciler) reconcileIngress(
 
 			updated, err := ira.updateIngress(origin)
 			if err != nil {
-				logger.Errorw("Failed to update "+resources.GetIngressTypeName(ingress), zap.Error(err))
+				logger.Errorw("Failed to update Ingress", zap.Error(err))
 				return nil, err
 			}
 			return updated, nil

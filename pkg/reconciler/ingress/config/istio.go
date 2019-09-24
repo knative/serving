@@ -33,10 +33,10 @@ const (
 	// customizations for istio related features.
 	IstioConfigName = "config-istio"
 
-	// GatewayKeyPrefix is the prefix of all keys to configure Istio gateways for public ClusterIngresses.
+	// GatewayKeyPrefix is the prefix of all keys to configure Istio gateways for public Ingresses.
 	GatewayKeyPrefix = "gateway."
 
-	// LocalGatewayKeyPrefix is the prefix of all keys to configure Istio gateways for public & private ClusterIngresses.
+	// LocalGatewayKeyPrefix is the prefix of all keys to configure Istio gateways for public & private Ingresses.
 	LocalGatewayKeyPrefix = "local-gateway."
 
 	// ReconcileExternalGatewayKey the is the name of the configuration entry that specifies
@@ -79,10 +79,10 @@ func (g Gateway) QualifiedName() string {
 // Istio contains istio related configuration defined in the
 // istio config map.
 type Istio struct {
-	// IngressGateway specifies the gateway urls for public ClusterIngress.
+	// IngressGateway specifies the gateway urls for public Ingress.
 	IngressGateways []Gateway
 
-	// LocalGateway specifies the gateway urls for public & private ClusterIngress.
+	// LocalGateway specifies the gateway urls for public & private Ingress.
 	LocalGateways []Gateway
 
 	// ReconcileExternalGateway specifies if external Istio Gateways will be reconciled or not.

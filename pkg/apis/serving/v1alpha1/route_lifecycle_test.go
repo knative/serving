@@ -251,7 +251,7 @@ func TestTargetRevisionFailedToBeReadyFlow(t *testing.T) {
 	apitestv1.CheckConditionFailed(r.duck(), RouteConditionReady, t)
 }
 
-func TestClusterIngressFailureRecovery(t *testing.T) {
+func TestIngressFailureRecovery(t *testing.T) {
 	r := &RouteStatus{}
 	r.InitializeConditions()
 	r.PropagateIngressStatus(netv1alpha1.IngressStatus{
