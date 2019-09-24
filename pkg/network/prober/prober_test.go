@@ -219,6 +219,9 @@ func TestDoAsyncTimeout(t *testing.T) {
 	defer close(wch)
 
 	cb := func(arg interface{}, done bool, err error) {
+		if done {
+			t.Errorf("done was true")
+		}
 		if err != wait.ErrWaitTimeout {
 			t.Errorf("Unexpected error = %v", err)
 		}

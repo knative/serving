@@ -25,8 +25,10 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/pkg/logging"
 )
 
 // Preparer is a way for the caller to modify the HTTP request before it goes out.
@@ -168,6 +170,7 @@ func (m *Manager) Offer(ctx context.Context, target string, arg interface{}, per
 
 // doAsync starts a go routine that probes the target with given period.
 func (m *Manager) doAsync(ctx context.Context, target string, arg interface{}, period, timeout time.Duration, ops ...interface{}) {
+	logger := logging.FromContext(ctx)
 	go func() {
 		defer func() {
 			m.mu.Lock()
@@ -175,19 +178,17 @@ func (m *Manager) doAsync(ctx context.Context, target string, arg interface{}, p
 			m.keys.Delete(target)
 		}()
 		var (
-			err   error
-			inErr error
-			ok    bool
+			result bool
+			inErr  error
 		)
-
-		err = wait.PollImmediate(period, timeout, func() (bool, error) {
-			ok, inErr = Do(ctx, m.transport, target, ops...)
-			if inErr != nil || !ok {
-				// Do not return error when getting verifierError as retry is expected until timeout.
-				return false, nil
-			}
-			return true, nil
+		err := wait.PollImmediate(period, timeout, func() (bool, error) {
+			result, inErr = Do(ctx, m.transport, target, ops...)
+			// Do not return error, which is from verifierError, as retry is expected until timeout.
+			return result, nil
 		})
-		m.cb(arg, inErr == nil, err)
+		if inErr != nil {
+			logger.Errorw("Unable to read sockstat", zap.Error(inErr))
+		}
+		m.cb(arg, result, err)
 	}()
 }
