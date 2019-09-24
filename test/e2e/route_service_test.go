@@ -147,10 +147,10 @@ func TestRouteVisibilityChanges(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(st *testing.T) {
 			st.Parallel()
-			cancel := logstream.Start(t)
+			cancel := logstream.Start(st)
 			defer cancel()
 
-			clients := Setup(t)
+			clients := Setup(st)
 
 			names := test.ResourceNames{
 				Service: test.ObjectNameForTest(t),
@@ -161,7 +161,7 @@ func TestRouteVisibilityChanges(t *testing.T) {
 			defer test.TearDown(clients, names)
 
 			st.Log("Creating a new Service")
-			svc, err := v1a1test.CreateLatestService(t, clients, names, testCase.withTrafficSpec)
+			svc, err := v1a1test.CreateLatestService(st, clients, names, testCase.withTrafficSpec)
 			if err != nil {
 				st.Fatalf("Failed to create initial Service %q: %#v", names.Service, err)
 			}
@@ -180,7 +180,7 @@ func TestRouteVisibilityChanges(t *testing.T) {
 
 			newSvc := svc.DeepCopy()
 			newSvc.SetLabels(map[string]string{"serving.knative.dev/visibility": "cluster-local"})
-			v1a1test.PatchService(t, clients, svc, newSvc)
+			v1a1test.PatchService(st, clients, svc, newSvc)
 
 			st.Logf("Waiting for Service %q ObservedGeneration to match Generation, and status transition to Ready == True", names.Service)
 			if err := v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, v1a1test.IsServiceReady, "ServiceIsReady"); err != nil {
