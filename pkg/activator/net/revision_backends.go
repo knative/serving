@@ -127,8 +127,10 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (bool, error)
 		Scheme: "http",
 		Host:   dest,
 	}
+	// NOTE: changes below may require changes to testing/roundtripper.go to make unit tests passing.
 	return prober.Do(ctx, rw.transport, httpDest.String(),
 		prober.WithHeader(network.ProbeHeaderName, queue.Name),
+		prober.WithHeader(network.UserAgentKey, network.ActivatorUserAgent),
 		prober.ExpectsBody(queue.Name),
 		prober.ExpectsStatusCodes([]int{http.StatusOK}))
 
