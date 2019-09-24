@@ -43,8 +43,9 @@ header "Running tests"
 
 failed=0
 
-# Patch tests to run serially in the mesh scenario
-(( ISTIO_MESH )) && find . -iname '*_test.go' | xargs sed -i -e '/^.*\.Parallel()/d'
+# Run tests serially in the mesh scenario
+parallelism=""
+(( ISTIO_MESH )) && parallelism="-parallel 1"
 
 # Run conformance and e2e tests.
 if (( INSTALL_V1 )); then
@@ -52,12 +53,14 @@ if (( INSTALL_V1 )); then
   go_test_e2e -timeout=30m \
     ./test/conformance/... \
     ./test/e2e \
+    ${parallelism} \
     "--resolvabledomain=$(use_resolvable_domain)" || failed=1
 else
   go_test_e2e -timeout=30m \
     ./test/conformance/api/v1alpha1 \
     ./test/conformance/runtime \
     ./test/e2e \
+    ${parallelism} \
     "--resolvabledomain=$(use_resolvable_domain)" || failed=1
 fi
 
@@ -65,7 +68,9 @@ fi
 (( failed )) && dump_cluster_state
 
 # Run scale tests.
-go_test_e2e -timeout=10m ./test/scale || failed=1
+go_test_e2e -timeout=10m \
+  ${parallelism} \
+  ./test/scale || failed=1
 
 # Require that both set of tests succeeded.
 (( failed )) && fail_test
