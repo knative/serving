@@ -40,6 +40,9 @@ type ObservabilityConfig struct {
 	// RequestLogTemplate is the go template to use to shape the request logs.
 	RequestLogTemplate string
 
+	// EnableProbeRequestLog enables queue-proxy to write health check probe request logs.
+	EnableProbeRequestLog bool
+
 	// RequestMetricsBackend specifies the request metrics destination, e.g. Prometheus,
 	// Stackdriver.
 	RequestMetricsBackend string
@@ -68,6 +71,10 @@ func NewObservabilityConfigFromConfigMap(configMap *corev1.ConfigMap) (*Observab
 			return nil, err
 		}
 		oc.RequestLogTemplate = rlt
+	}
+
+	if eprl, ok := configMap.Data["logging.enable-probe-request-log"]; ok {
+		oc.EnableProbeRequestLog = strings.ToLower(eprl) == "true"
 	}
 
 	if mb, ok := configMap.Data["metrics.request-metrics-backend-destination"]; ok {
