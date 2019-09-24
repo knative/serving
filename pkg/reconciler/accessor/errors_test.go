@@ -42,7 +42,7 @@ func TestIsNotOwned(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := IsNotOwned(tc.err); tc.want != got {
-				t.Errorf("IsNotOwned function fails. got: %t, want: %t", tc.want, got)
+				t.Errorf("IsNotOwned(%v) = %v, want = %v", tc.err, got, tc.want)
 			}
 		})
 	}
@@ -54,7 +54,7 @@ func TestError(t *testing.T) {
 		errorReason: NotOwnResource,
 	}
 	if got, want := err.Error(), "notowned: test error"; got != want {
-		t.Errorf("Error function fails. got: %q, want: %q", got, want)
+		t.Errorf("Error() = %q, want = %q", got, want)
 	}
 }
 
@@ -88,7 +88,7 @@ func TestNewAccessorError(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := NewAccessorError(tc.err, tc.reason); got.Error() != tc.want {
-				t.Errorf("NewAccessorError function fails. got: %q, want: %q", got, tc.want)
+				t.Errorf("NewAccessorError() = %q, want = %q", got.Error(), tc.want)
 			}
 		})
 	}
