@@ -163,7 +163,7 @@ func TestWebSocketViaActivator(t *testing.T) {
 
 	// Wait for the activator endpoints to equalize.
 	if err := waitForActivatorEndpoints(resources, clients); err != nil {
-		t.Fatal("Never got Activator endpoints in the service")
+		t.Fatalf("Never got Activator endpoints in the service: %v", err)
 	}
 	if err := validateWebSocketConnection(t, clients, names); err != nil {
 		t.Error(err)
