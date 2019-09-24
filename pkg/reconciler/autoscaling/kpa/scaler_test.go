@@ -77,7 +77,7 @@ func TestScaler(t *testing.T) {
 		wantScaling         bool
 		sks                 SKSOption
 		paMutation          func(*pav1alpha1.PodAutoscaler)
-		proberfunc          func(*pav1alpha1.PodAutoscaler, http.RoundTripper) error
+		proberfunc          func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error)
 		wantCBCount         int
 		wantAsyncProbeCount int
 	}{{
@@ -194,8 +194,8 @@ func TestScaler(t *testing.T) {
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			paMarkInactive(k, time.Now().Add(-gracePeriod))
 		},
-		proberfunc: func(*pav1alpha1.PodAutoscaler, http.RoundTripper) error {
-			return errors.New("hell or high water")
+		proberfunc: func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error) {
+			return false, errors.New("hell or high water")
 		},
 		wantAsyncProbeCount: 1,
 	}, {
@@ -207,7 +207,7 @@ func TestScaler(t *testing.T) {
 		paMutation: func(k *pav1alpha1.PodAutoscaler) {
 			paMarkInactive(k, time.Now().Add(-gracePeriod))
 		},
-		proberfunc:          func(*pav1alpha1.PodAutoscaler, http.RoundTripper) error { return fmt.Errorf("hell or high water") },
+		proberfunc:          func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error) { return false, nil },
 		wantAsyncProbeCount: 1,
 	}, {
 		label:         "waits to scale to zero while activating until after deadline exceeded",
@@ -341,7 +341,7 @@ func TestScaler(t *testing.T) {
 			if test.proberfunc != nil {
 				revisionScaler.activatorProbe = test.proberfunc
 			} else {
-				revisionScaler.activatorProbe = func(*pav1alpha1.PodAutoscaler, http.RoundTripper) error { return nil }
+				revisionScaler.activatorProbe = func(*pav1alpha1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
 			}
 			cp := &countingProber{}
 			revisionScaler.probeManager = cp
@@ -605,6 +605,7 @@ func TestActivatorProbe(t *testing.T) {
 	tests := []struct {
 		name    string
 		rt      network.RoundTripperFunc
+		wantRes bool
 		wantErr bool
 	}{{
 		name: "ok",
@@ -613,6 +614,7 @@ func TestActivatorProbe(t *testing.T) {
 			rsp.Write([]byte(activator.Name))
 			return rsp.Result(), nil
 		},
+		wantRes: true,
 	}, {
 		name: "400",
 		rt: func(r *http.Request) (*http.Response, error) {
@@ -621,6 +623,7 @@ func TestActivatorProbe(t *testing.T) {
 			rsp.Write([]byte("wrong header, I guess?"))
 			return rsp.Result(), nil
 		},
+		wantRes: false,
 		wantErr: true,
 	}, {
 		name: "wrong body",
@@ -629,18 +632,23 @@ func TestActivatorProbe(t *testing.T) {
 			rsp.Write([]byte("haxoorprober"))
 			return rsp.Result(), nil
 		},
+		wantRes: false,
 		wantErr: true,
 	}, {
 		name: "all wrong",
 		rt: func(r *http.Request) (*http.Response, error) {
 			return nil, theErr
 		},
+		wantRes: false,
 		wantErr: true,
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			err := activatorProbe(pa, test.rt)
+			res, err := activatorProbe(pa, test.rt)
+			if got, want := res, test.wantRes; got != want {
+				t.Errorf("Result = %v, want: %v", got, want)
+			}
 			if got, want := err != nil, test.wantErr; got != want {
 				t.Errorf("WantErr = %v, want: %v: actual error is: %v", got, want, err)
 			}

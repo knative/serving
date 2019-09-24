@@ -32,6 +32,7 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 	cases := []struct {
 		name    string
 		options []interface{}
+		want    bool
 		expErr  bool
 	}{{
 		name: "successful probe when both headers are specified",
@@ -40,6 +41,7 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 			prober.WithHeader(HashHeaderName, "foo-bar-baz"),
 			prober.ExpectsStatusCodes([]int{http.StatusOK}),
 		},
+		want: true,
 	}, {
 		name: "forwards to inner handler when probe header is not specified",
 		options: []interface{}{
@@ -49,6 +51,7 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 			prober.ExpectsHeader(HashHeaderName, "false"),
 			prober.ExpectsStatusCodes([]int{http.StatusOK}),
 		},
+		want: true,
 	}, {
 		name: "forwards to inner handler when probe header is not 'probe'",
 		options: []interface{}{
@@ -60,12 +63,14 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 			prober.ExpectsHeader(HashHeaderName, "false"),
 			prober.ExpectsStatusCodes([]int{http.StatusOK}),
 		},
+		want: true,
 	}, {
 		name: "failed probe when hash header is not present",
 		options: []interface{}{
 			prober.WithHeader(ProbeHeaderName, ProbeHeaderValue),
 			prober.ExpectsStatusCodes([]int{http.StatusOK}),
 		},
+		want:   false,
 		expErr: true,
 	}}
 
@@ -82,12 +87,12 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			err := prober.Do(context.Background(), AutoTransport, ts.URL, c.options...)
+			got, err := prober.Do(context.Background(), AutoTransport, ts.URL, c.options...)
 			if err != nil && !c.expErr {
 				t.Errorf("failed to probe: %v", err)
 			}
-			if err == nil && c.expErr {
-				t.Errorf("expected to fail to probe, but nil")
+			if got != c.want {
+				t.Errorf("unexpected probe result: want: %t, got: %t", c.want, got)
 			}
 		})
 	}

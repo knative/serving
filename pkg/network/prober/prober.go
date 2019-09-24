@@ -33,7 +33,7 @@ import (
 type Preparer func(r *http.Request) *http.Request
 
 // Verifier is a way for the caller to validate the HTTP response after it comes back.
-type Verifier func(r *http.Response, b []byte) error
+type Verifier func(r *http.Response, b []byte) (bool, error)
 
 // WithHeader sets a header in the probe request.
 func WithHeader(name, value string) Preparer {
@@ -53,42 +53,42 @@ func WithHost(host string) Preparer {
 
 // ExpectsBody validates that the body of the probe response matches the provided string.
 func ExpectsBody(body string) Verifier {
-	return func(r *http.Response, b []byte) error {
+	return func(r *http.Response, b []byte) (bool, error) {
 		if string(b) == body {
-			return nil
+			return true, nil
 		}
-		return fmt.Errorf("unexpected body: want %v got %v", body, string(b))
+		return false, fmt.Errorf("unexpected body: want %v got %v", body, string(b))
 	}
 }
 
 // ExpectsHeader validates that the given header of the probe response matches the provided string.
 func ExpectsHeader(name, value string) Verifier {
-	return func(r *http.Response, _ []byte) error {
+	return func(r *http.Response, _ []byte) (bool, error) {
 		if r.Header.Get(name) == value {
-			return nil
+			return true, nil
 		}
-		return fmt.Errorf("unexpected header %s: want %v got %v", name, value, r.Header.Get(name))
+		return false, fmt.Errorf("unexpected header %s: want %v got %v", name, value, r.Header.Get(name))
 	}
 }
 
 // ExpectsStatusCodes validates that the given status code of the probe response matches the provided int.
 func ExpectsStatusCodes(statusCodes []int) Verifier {
-	return func(r *http.Response, _ []byte) error {
+	return func(r *http.Response, _ []byte) (bool, error) {
 		for _, v := range statusCodes {
 			if r.StatusCode == v {
-				return nil
+				return true, nil
 			}
 		}
-		return fmt.Errorf("unexpected statuscode: want %v got %v", statusCodes, r.StatusCode)
+		return false, fmt.Errorf("unexpected statuscode: want %v got %v", statusCodes, r.StatusCode)
 	}
 }
 
 // Do sends a single probe to given target, e.g. `http://revision.default.svc.cluster.local:81`.
 // Do returns whether the probe was successful or not, or there was an error probing.
-func Do(ctx context.Context, transport http.RoundTripper, target string, ops ...interface{}) error {
+func Do(ctx context.Context, transport http.RoundTripper, target string, ops ...interface{}) (bool, error) {
 	req, err := http.NewRequest(http.MethodGet, target, nil)
 	if err != nil {
-		return errors.Wrapf(err, "%s is not a valid URL", target)
+		return false, errors.Wrapf(err, "%s is not a valid URL", target)
 	}
 	for _, op := range ops {
 		if po, ok := op.(Preparer); ok {
@@ -99,23 +99,23 @@ func Do(ctx context.Context, transport http.RoundTripper, target string, ops ...
 	req = req.WithContext(ctx)
 	resp, err := transport.RoundTrip(req)
 	if err != nil {
-		return errors.Wrapf(err, "error roundtripping %s", target)
+		return false, errors.Wrapf(err, "error roundtripping %s", target)
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return errors.Wrap(err, "error reading body")
+		return false, errors.Wrap(err, "error reading body")
 	}
 
 	for _, op := range ops {
 		if vo, ok := op.(Verifier); ok {
-			err := vo(resp, body)
-			if err != nil {
-				return err
+			ok, err := vo(resp, body)
+			if err != nil || !ok {
+				return false, err
 			}
 		}
 	}
-	return nil
+	return true, nil
 }
 
 // Done is a callback that is executed when the async probe has finished.
@@ -177,11 +177,12 @@ func (m *Manager) doAsync(ctx context.Context, target string, arg interface{}, p
 		var (
 			err   error
 			inErr error
+			ok    bool
 		)
 
 		err = wait.PollImmediate(period, timeout, func() (bool, error) {
-			inErr = Do(ctx, m.transport, target, ops...)
-			if inErr != nil {
+			ok, inErr = Do(ctx, m.transport, target, ops...)
+			if inErr != nil || !ok {
 				// Do not return error when getting verifierError as retry is expected until timeout.
 				return false, nil
 			}
