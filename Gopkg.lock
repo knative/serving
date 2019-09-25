@@ -573,9 +573,10 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:df495c9184b4e6cbb9d55652236dbcbe72c65a1c8b6469da50722628cea474e7"
+  digest = "1:06268133e9584afdd4ec94092076965820dbd23ecbe3b1c19bb156e501a14972"
   name = "github.com/mailru/easyjson"
   packages = [
+    ".",
     "buffer",
     "jlexer",
     "jwriter",
@@ -763,7 +764,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:2f94b13edb425d3ba58e6b9cf01348a930f57b0324193ad4c840b9d3f1e299df"
+  digest = "1:d6264baf1274b5857bc7f36eeb1a5772bf90727cc828008876e0f3a68d72ecfa"
   name = "github.com/tsenart/vegeta"
   packages = [
     ".",
@@ -773,7 +774,7 @@
     "lib/plot",
   ]
   pruneopts = "NUT"
-  revision = "28707121bb7840461a563aabcb510a9636e5c5a1"
+  revision = "ab06ddb56e2f6097bba8c5a6d168621088867949"
 
 [[projects]]
   digest = "1:0e3fd52087079d1289983e4fef32268ca965973f5370b69204e2934185527baa"

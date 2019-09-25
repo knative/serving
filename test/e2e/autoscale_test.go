@@ -25,7 +25,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -54,7 +53,6 @@ import (
 )
 
 const (
-	autoscaleExpectedOutput = "399989"
 	// Concurrency must be high enough to avoid the problems with sampling
 	// but not high enough to generate scheduling problems.
 	containerConcurrency = 6
@@ -101,94 +99,34 @@ func getVegetaTarget(kubeClientset *kubernetes.Clientset, domain, endpointOverri
 	}, nil
 }
 
-// TODO: use vegeta to send traffic for this func as well.
-func generateTraffic(ctx *testContext, concurrency int, duration time.Duration, stopChan chan struct{}) error {
-	var (
-		totalRequests      int32
-		successfulRequests int32
-		group              errgroup.Group
-	)
+func generateTraffic(
+	ctx *testContext,
+	attacker *vegeta.Attacker,
+	pacer vegeta.Pacer,
+	duration time.Duration,
+	stopChan chan struct{}) error {
 
-	ctx.t.Logf("Maintaining %d concurrent requests for %v.", concurrency, duration)
-	client, err := pkgTest.NewSpoofingClient(ctx.clients.KubeClient, ctx.t.Logf, ctx.url.Hostname(), test.ServingFlags.ResolvableDomain)
-	if err != nil {
-		return fmt.Errorf("error creating spoofing client: %v", err)
-	}
-	for i := 0; i < concurrency; i++ {
-		group.Go(func() error {
-			u, _ := url.Parse(ctx.url.String())
-			q := u.Query()
-			q.Set("sleep", "100")
-			u.RawQuery = q.Encode()
-			req, err := http.NewRequest(http.MethodGet, u.String(), nil)
-			if err != nil {
-				return fmt.Errorf("error creating HTTP request: %v", err)
-			}
-			done := time.After(duration)
-			for {
-				select {
-				case <-stopChan:
-					ctx.t.Log("Stopping generateTraffic")
-					return nil
-				case <-done:
-					ctx.t.Log("Time is up; done")
-					return nil
-				default:
-					atomic.AddInt32(&totalRequests, 1)
-					res, err := client.Do(req)
-					if err != nil {
-						ctx.t.Logf("Error making request %v", err)
-						continue
-					}
-
-					if res.StatusCode != http.StatusOK {
-						ctx.t.Logf("Status = %d, want: 200", res.StatusCode)
-						ctx.t.Logf("Response: %s", res)
-						continue
-					}
-					atomic.AddInt32(&successfulRequests, 1)
-				}
-			}
-		})
-	}
-
-	ctx.t.Log("Waiting for all requests to complete.")
-	if err := group.Wait(); err != nil {
-		return fmt.Errorf("error making requests for scale up: %v", err)
-	}
-
-	if successfulRequests != totalRequests {
-		return fmt.Errorf("error making requests for scale up. total = %d, errors = %d, expected 0",
-			totalRequests, totalRequests-successfulRequests)
-	}
-	return nil
-}
-
-func generateTrafficAtFixedRPS(ctx *testContext, rps int, duration time.Duration, stopChan chan struct{}) error {
-	var (
-		totalRequests      int32
-		successfulRequests int32
-	)
-
-	rate := vegeta.Rate{Freq: rps, Per: time.Second}
 	target, err := getVegetaTarget(
 		ctx.clients.KubeClient.Kube, ctx.url.Hostname(), pkgTest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return fmt.Errorf("error creating vegeta target: %v", err)
 	}
-	targeter := vegeta.NewStaticTargeter(target)
-	attacker := vegeta.NewAttacker(vegeta.Timeout(duration))
 
-	ctx.t.Logf("Maintaining %v RPS requests for %v.", rps, duration)
-
-	// Start the attack!
-	results := attacker.Attack(targeter, rate, duration, "load-test")
+	results := attacker.Attack(vegeta.NewStaticTargeter(target), pacer, duration, "load-test")
 	defer attacker.Stop()
 
+	var (
+		totalRequests      int32
+		successfulRequests int32
+	)
 	for {
 		select {
 		case <-stopChan:
 			ctx.t.Log("Stopping generateTraffic")
+			if successfulRequests != totalRequests {
+				return fmt.Errorf("error making requests for scale up: total = %d, errors = %d, expected 0",
+					totalRequests, totalRequests-successfulRequests)
+			}
 			return nil
 		case res, ok := <-results:
 			if !ok {
@@ -205,12 +143,22 @@ func generateTrafficAtFixedRPS(ctx *testContext, rps int, duration time.Duration
 			successfulRequests++
 		}
 	}
+}
 
-	if successfulRequests != totalRequests {
-		return fmt.Errorf("error making requests for scale up. total = %d, errors = %d, expected 0",
-			totalRequests, totalRequests-successfulRequests)
-	}
-	return nil
+func generateTrafficAtFixedConcurrency(ctx *testContext, concurrency int, duration time.Duration, stopChan chan struct{}) error {
+	pacer := vegeta.ConstantPacer{} // Sends requests as quickly as possible, capped by MaxWorkers below.
+	attacker := vegeta.NewAttacker(vegeta.Timeout(duration), vegeta.Workers(uint64(concurrency)), vegeta.MaxWorkers(uint64(concurrency)))
+
+	ctx.t.Logf("Maintaining %d concurrent requests for %v.", concurrency, duration)
+	return generateTraffic(ctx, attacker, pacer, duration, stopChan)
+}
+
+func generateTrafficAtFixedRPS(ctx *testContext, rps int, duration time.Duration, stopChan chan struct{}) error {
+	pacer := vegeta.ConstantPacer{Freq: rps, Per: time.Second}
+	attacker := vegeta.NewAttacker(vegeta.Timeout(duration))
+
+	ctx.t.Logf("Maintaining %v RPS requests for %v.", rps, duration)
+	return generateTraffic(ctx, attacker, pacer, duration, stopChan)
 }
 
 // setup creates a new service, with given service options.
@@ -306,7 +254,7 @@ func numberOfPods(ctx *testContext) (int32, error) {
 	if err != nil {
 		return 0, errors.Wrapf(err, "Failed to get deployment %q", deployment)
 	}
-	return deployment.Status.ReadyReplicas, nil
+	return deployment.Status.AvailableReplicas, nil
 }
 
 func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, duration time.Duration, quick bool) {
@@ -324,16 +272,14 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, dur
 
 	stopChan := make(chan struct{})
 	var grp errgroup.Group
-	switch ctx.metric {
-	case autoscaling.RPS:
-		grp.Go(func() error {
+	grp.Go(func() error {
+		switch ctx.metric {
+		case autoscaling.RPS:
 			return generateTrafficAtFixedRPS(ctx, int(targetPods)*ctx.targetValue, duration, stopChan)
-		})
-	default:
-		grp.Go(func() error {
-			return generateTraffic(ctx, int(targetPods)*ctx.targetValue, duration, stopChan)
-		})
-	}
+		default:
+			return generateTrafficAtFixedConcurrency(ctx, int(targetPods)*ctx.targetValue, duration, stopChan)
+		}
+	})
 
 	grp.Go(func() error {
 		// Short-circuit traffic generation once we exit from the check logic.
@@ -514,7 +460,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 	const duration = time.Hour
 
 	grp.Go(func() error {
-		return generateTraffic(ctx, 7, duration, stopCh)
+		return generateTrafficAtFixedConcurrency(ctx, 7, duration, stopCh)
 	})
 
 	// Wait for the activator endpoints to equalize.
@@ -524,7 +470,7 @@ func TestTargetBurstCapacity(t *testing.T) {
 
 	// Start second load generator.
 	grp.Go(func() error {
-		return generateTraffic(ctx, 5, duration, stopCh)
+		return generateTrafficAtFixedConcurrency(ctx, 5, duration, stopCh)
 	})
 
 	// Wait for two stable pods.

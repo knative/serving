@@ -218,6 +218,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 			logger.Infof("Increasing pods from %d to %d.", originalReadyPodsCount, desiredPanicPodCount)
 			a.panicTime = &now
 			a.maxPanicPods = desiredPanicPodCount
+		} else if desiredPanicPodCount < a.maxPanicPods {
+			logger.Debugf("Skipping decrease from %d to %d.", a.maxPanicPods, desiredPanicPodCount)
 		}
 		desiredPodCount = a.maxPanicPods
 	} else {
