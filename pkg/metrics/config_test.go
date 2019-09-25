@@ -54,6 +54,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 			LoggingURLTemplate:     "https://logging.io",
 			EnableVarLogCollection: true,
 			RequestLogTemplate:     `{"requestMethod": "{{.Request.Method}}"}`,
+			EnableProbeRequestLog:  true,
 			RequestMetricsBackend:  "stackdriver",
 		},
 		config: &corev1.ConfigMap{
@@ -64,6 +65,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 			Data: map[string]string{
 				"logging.enable-var-log-collection":           "true",
 				"logging.revision-url-template":               "https://logging.io",
+				"logging.enable-probe-request-log":            "true",
 				"logging.write-request-logs":                  "true",
 				"logging.request-log-template":                `{"requestMethod": "{{.Request.Method}}"}`,
 				"metrics.request-metrics-backend-destination": "stackdriver",
