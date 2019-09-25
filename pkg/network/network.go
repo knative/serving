@@ -275,7 +275,7 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 		nc.TagTemplate = tt
 	}
 
-	nc.AutoTLS = strings.ToLower(configMap.Data[AutoTLSKey]) == "enabled"
+	nc.AutoTLS = strings.EqualFold(configMap.Data[AutoTLSKey], "enabled")
 
 	switch strings.ToLower(configMap.Data[HTTPProtocolKey]) {
 	case string(HTTPEnabled):
