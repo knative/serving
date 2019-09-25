@@ -345,9 +345,8 @@ func (m *StatusProber) processWorkItem() bool {
 		transport,
 		item.url,
 		prober.WithHeader(network.ProbeHeaderName, network.ProbeHeaderValue),
-		prober.ExpectsHeader(network.HashHeaderName, item.ingressState.hash),
 		prober.ExpectsStatusCodes([]int{http.StatusOK}),
-	)
+		prober.ExpectsHeader(network.HashHeaderName, item.ingressState.hash))
 
 	// In case of cancellation, drop the work item
 	select {
