@@ -102,7 +102,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	}()
 
 	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-		t.Fatalf("failed to start cluster ingress manager: %v", err)
+		t.Fatalf("Failed to start informers: %v", err)
 	}
 
 	// Run the controller.
