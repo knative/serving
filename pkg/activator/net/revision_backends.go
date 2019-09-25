@@ -212,10 +212,6 @@ func (rw *revisionWatcher) probePodIPs(dests sets.String) (sets.String, bool, er
 func (rw *revisionWatcher) sendUpdate(clusterIP string, dests sets.String) {
 	select {
 	case <-rw.doneCh:
-		// We're not closing updateCh because this would result in 1 close per revisionWatcher.
-		// the GC should take care of closing the channel and this is only for shutdown so it is not very
-		// risky
-		// TODO(greghaynes) find a way to explicitly close the channel. Potentially use channel per watcher.
 		return
 	default:
 		rw.updateCh <- revisionDestsUpdate{Rev: rw.rev, ClusterIPDest: clusterIP, Dests: dests}
@@ -306,9 +302,9 @@ type revisionWatcherCh struct {
 	ch              chan sets.String
 }
 
-// RevisionBackendsManager listens to revision endpoints and keeps track of healthy
+// revisionBackendsManager listens to revision endpoints and keeps track of healthy
 // l4 dests which can be used to reach a revision
-type RevisionBackendsManager struct {
+type revisionBackendsManager struct {
 	doneCh         <-chan struct{}
 	revisionLister servinglisters.RevisionLister
 	serviceLister  corev1listers.ServiceLister
@@ -324,14 +320,14 @@ type RevisionBackendsManager struct {
 
 // NewRevisionBackendsManager returns a new RevisionBackendsManager with default
 // probe time out.
-func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper) *RevisionBackendsManager {
+func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper) *revisionBackendsManager {
 	return newRevisionBackendsManagerWithProbeFrequency(ctx, tr, probeFrequency)
 }
 
 // newRevisionBackendsManagerWithProbeFrequency creates a fully spec'd RevisionBackendsManager.
 func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.RoundTripper,
-	probeFreq time.Duration) *RevisionBackendsManager {
-	rbm := &RevisionBackendsManager{
+	probeFreq time.Duration) *revisionBackendsManager {
+	rbm := &revisionBackendsManager{
 		doneCh:           ctx.Done(),
 		revisionLister:   revisioninformer.Get(ctx).Lister(),
 		serviceLister:    serviceinformer.Get(ctx).Lister(),
@@ -355,16 +351,24 @@ func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.R
 			DeleteFunc: rbm.endpointsDeleted,
 		},
 	})
+	// Make sure we close the update channel when we're done,
+	// to make sure Throttler will stop.
+	go func() {
+		select {
+		case <-rbm.doneCh:
+			close(rbm.updateCh)
+		}
+	}()
 
 	return rbm
 }
 
 // Returns channel where destination updates are sent to.
-func (rbm *RevisionBackendsManager) updates() <-chan revisionDestsUpdate {
+func (rbm *revisionBackendsManager) updates() <-chan revisionDestsUpdate {
 	return rbm.updateCh
 }
 
-func (rbm *RevisionBackendsManager) getRevisionProtocol(revID types.NamespacedName) (networking.ProtocolType, error) {
+func (rbm *revisionBackendsManager) getRevisionProtocol(revID types.NamespacedName) (networking.ProtocolType, error) {
 	revision, err := rbm.revisionLister.Revisions(revID.Namespace).Get(revID.Name)
 	if err != nil {
 		return "", err
@@ -372,7 +376,7 @@ func (rbm *RevisionBackendsManager) getRevisionProtocol(revID types.NamespacedNa
 	return revision.GetProtocol(), nil
 }
 
-func (rbm *RevisionBackendsManager) getOrCreateRevisionWatcher(rev types.NamespacedName) (*revisionWatcherCh, error) {
+func (rbm *revisionBackendsManager) getOrCreateRevisionWatcher(rev types.NamespacedName) (*revisionWatcherCh, error) {
 	rbm.revisionWatchersMux.Lock()
 	defer rbm.revisionWatchersMux.Unlock()
 
@@ -395,7 +399,13 @@ func (rbm *RevisionBackendsManager) getOrCreateRevisionWatcher(rev types.Namespa
 
 // endpointsUpdated is a handler function to be used by the Endpoints informer.
 // It updates the endpoints in the RevisionBackendsManager if the hosts changed
-func (rbm *RevisionBackendsManager) endpointsUpdated(newObj interface{}) {
+func (rbm *revisionBackendsManager) endpointsUpdated(newObj interface{}) {
+	// Ignore the updates when we've terminated.
+	select {
+	case <-rbm.doneCh:
+		return
+	default:
+	}
 	rbm.logger.Debugf("Endpoints updated: %#v", newObj)
 	endpoints := newObj.(*corev1.Endpoints)
 	revID := types.NamespacedName{endpoints.Namespace, endpoints.Labels[serving.RevisionLabelKey]}
@@ -413,7 +423,7 @@ func (rbm *RevisionBackendsManager) endpointsUpdated(newObj interface{}) {
 
 // deleteRevisionWatcher deletes the revision wathcher for rev if it exists. It expects
 // a write lock is held on revisionWatchersMux when calling.
-func (rbm *RevisionBackendsManager) deleteRevisionWatcher(rev types.NamespacedName) {
+func (rbm *revisionBackendsManager) deleteRevisionWatcher(rev types.NamespacedName) {
 	if rw, ok := rbm.revisionWatchers[rev]; ok {
 		close(rw.ch)
 		delete(rbm.revisionWatchers, rev)
@@ -421,7 +431,13 @@ func (rbm *RevisionBackendsManager) deleteRevisionWatcher(rev types.NamespacedNa
 	}
 }
 
-func (rbm *RevisionBackendsManager) endpointsDeleted(obj interface{}) {
+func (rbm *revisionBackendsManager) endpointsDeleted(obj interface{}) {
+	// Ignore the updates when we've terminated.
+	select {
+	case <-rbm.doneCh:
+		return
+	default:
+	}
 	ep := obj.(*corev1.Endpoints)
 	revID := types.NamespacedName{ep.Namespace, ep.Labels[serving.RevisionLabelKey]}
 
