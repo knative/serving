@@ -56,7 +56,7 @@ type ObservabilityConfig struct {
 func NewObservabilityConfigFromConfigMap(configMap *corev1.ConfigMap) (*ObservabilityConfig, error) {
 	oc := &ObservabilityConfig{}
 	if evlc, ok := configMap.Data["logging.enable-var-log-collection"]; ok {
-		oc.EnableVarLogCollection = strings.ToLower(evlc) == "true"
+		oc.EnableVarLogCollection = strings.EqualFold(evlc, "true")
 	}
 
 	if rut, ok := configMap.Data["logging.revision-url-template"]; ok {
@@ -74,7 +74,7 @@ func NewObservabilityConfigFromConfigMap(configMap *corev1.ConfigMap) (*Observab
 	}
 
 	if eprl, ok := configMap.Data["logging.enable-probe-request-log"]; ok {
-		oc.EnableProbeRequestLog = strings.ToLower(eprl) == "true"
+		oc.EnableProbeRequestLog = strings.EqualFold(eprl, "true")
 	}
 
 	if mb, ok := configMap.Data["metrics.request-metrics-backend-destination"]; ok {
@@ -82,7 +82,7 @@ func NewObservabilityConfigFromConfigMap(configMap *corev1.ConfigMap) (*Observab
 	}
 
 	if prof, ok := configMap.Data["profiling.enable"]; ok {
-		oc.EnableProfiling = strings.ToLower(prof) == "true"
+		oc.EnableProfiling = strings.EqualFold(prof, "true")
 	}
 
 	return oc, nil
