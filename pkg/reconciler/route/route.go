@@ -18,7 +18,6 @@ package route
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 
 	"go.uber.org/zap"
@@ -26,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -435,27 +433,6 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route, cl
 	r.Status.MarkTrafficAssigned()
 
 	return t, nil
-}
-
-func (c *Reconciler) ensureFinalizer(route *v1alpha1.Route) error {
-	finalizers := sets.NewString(route.Finalizers...)
-	if finalizers.Has(routeFinalizer) {
-		return nil
-	}
-	mergePatch := map[string]interface{}{
-		"metadata": map[string]interface{}{
-			"finalizers":      append(route.Finalizers, routeFinalizer),
-			"resourceVersion": route.ResourceVersion,
-		},
-	}
-
-	patch, err := json.Marshal(mergePatch)
-	if err != nil {
-		return err
-	}
-
-	_, err = c.ServingClientSet.ServingV1alpha1().Routes(route.Namespace).Patch(route.Name, types.MergePatchType, patch)
-	return err
 }
 
 func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1alpha1.Route, clusterLocalServices sets.String) error {
