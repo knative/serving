@@ -90,6 +90,7 @@ func (rt *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError {
 // VerifyNameChange checks that if a user brought their own name previously that it
 // changes at the appropriate times.
 func (current *RevisionTemplateSpec) VerifyNameChange(ctx context.Context, og *RevisionTemplateSpec) *apis.FieldError {
+	fmt.Println("FIRST")
 	if current.Name == "" {
 		// We only check that Name changes when the DeprecatedRevisionTemplate changes.
 		return nil
@@ -108,7 +109,7 @@ func (current *RevisionTemplateSpec) VerifyNameChange(ctx context.Context, og *R
 	} else if diff != "" {
 		return &apis.FieldError{
 			Message: "Saw the following changes without a name change (-old +new)",
-			Paths:   []string{apis.CurrentField},
+			Paths:   []string{"metadata.name"},
 			Details: diff,
 		}
 	}
