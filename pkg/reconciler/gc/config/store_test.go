@@ -30,8 +30,8 @@ import (
 )
 
 func TestStoreLoadWithContext(t *testing.T) {
-	defer logtesting.ClearAll()
-	store := NewStore(logtesting.TestLogger(t), 10*time.Hour)
+	logger := logtesting.TestLogger(t)
+	store := NewStore(logger, 10*time.Hour)
 
 	gcConfig := ConfigMapFromTestFile(t, "config-gc")
 
@@ -40,7 +40,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 	config := FromContext(store.ToContext(context.Background()))
 
 	t.Run("revision-gc", func(t *testing.T) {
-		expected, _ := gc.NewConfigFromConfigMapFunc(logtesting.TestLogger(t), 10*time.Hour)(gcConfig)
+		expected, _ := gc.NewConfigFromConfigMapFunc(logger, 10*time.Hour)(gcConfig)
 		if diff := cmp.Diff(expected, config.RevisionGC); diff != "" {
 			t.Errorf("Unexpected controller config (-want, +got): %v", diff)
 		}

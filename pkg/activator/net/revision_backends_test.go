@@ -78,7 +78,7 @@ func revision(revID types.NamespacedName, protocol networking.ProtocolType) *v1a
 	}
 }
 
-func privateSksService(revID types.NamespacedName, clusterIP string, ports []corev1.ServicePort) *corev1.Service {
+func privateSKSService(revID types.NamespacedName, clusterIP string, ports []corev1.ServicePort) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: revID.Namespace,
@@ -96,13 +96,14 @@ func privateSksService(revID types.NamespacedName, clusterIP string, ports []cor
 }
 
 func TestRevisionWatcher(t *testing.T) {
+	logger := TestLogger(t)
 	for _, tc := range []struct {
 		name                  string
 		dests                 []string
 		protocol              networking.ProtocolType
 		clusterPort           corev1.ServicePort
 		clusterIP             string
-		expectUpdates         []RevisionDestsUpdate
+		expectUpdates         []revisionDestsUpdate
 		probeHostResponses    map[string][]activatortest.FakeResponse
 		probeResponses        []activatortest.FakeResponse
 		initialClusterIPState bool
@@ -114,7 +115,7 @@ func TestRevisionWatcher(t *testing.T) {
 			Port: 1234,
 		},
 		clusterIP:     "129.0.0.1",
-		expectUpdates: []RevisionDestsUpdate{{Dests: sets.NewString("128.0.0.1:1234")}},
+		expectUpdates: []revisionDestsUpdate{{Dests: sets.NewString("128.0.0.1:1234")}},
 		probeResponses: []activatortest.FakeResponse{{
 			Err: errors.New("clusterIP transport error"),
 		}, {
@@ -130,7 +131,7 @@ func TestRevisionWatcher(t *testing.T) {
 			Port: 1234,
 		},
 		clusterIP:     "129.0.0.1",
-		expectUpdates: []RevisionDestsUpdate{{Dests: sets.NewString("128.0.0.1:1234")}},
+		expectUpdates: []revisionDestsUpdate{{Dests: sets.NewString("128.0.0.1:1234")}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"129.0.0.1:1234": {{
 				Err: errors.New("clusterIP transport error"),
@@ -149,7 +150,7 @@ func TestRevisionWatcher(t *testing.T) {
 			Port: 1234,
 		},
 		clusterIP:     "129.0.0.1",
-		expectUpdates: []RevisionDestsUpdate{{ClusterIPDest: "129.0.0.1:1234", Dests: sets.NewString("128.0.0.1:1234")}},
+		expectUpdates: []revisionDestsUpdate{{ClusterIPDest: "129.0.0.1:1234", Dests: sets.NewString("128.0.0.1:1234")}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"129.0.0.1:1234": {{
 				Code: http.StatusOK,
@@ -201,7 +202,7 @@ func TestRevisionWatcher(t *testing.T) {
 			Port: 1234,
 		},
 		clusterIP:     "129.0.0.1",
-		expectUpdates: []RevisionDestsUpdate{{Dests: sets.NewString("128.0.0.1:1234")}},
+		expectUpdates: []revisionDestsUpdate{{Dests: sets.NewString("128.0.0.1:1234")}},
 		probeResponses: []activatortest.FakeResponse{{
 			Err: errors.New("clusterIP transport error"),
 		}, {
@@ -221,7 +222,7 @@ func TestRevisionWatcher(t *testing.T) {
 			Port: 1234,
 		},
 		clusterIP:     "129.0.0.1",
-		expectUpdates: []RevisionDestsUpdate{{Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234")}},
+		expectUpdates: []revisionDestsUpdate{{Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234")}},
 		probeResponses: []activatortest.FakeResponse{{
 			Err: errors.New("clusterIP transport error"),
 		}, {
@@ -236,7 +237,7 @@ func TestRevisionWatcher(t *testing.T) {
 			Port: 1234,
 		},
 		clusterIP:     "129.0.0.1",
-		expectUpdates: []RevisionDestsUpdate{{Dests: sets.NewString("128.0.0.2:1234")}},
+		expectUpdates: []revisionDestsUpdate{{Dests: sets.NewString("128.0.0.2:1234")}},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"129.0.0.1:1234": {{
 				Err: errors.New("clusterIP transport error"),
@@ -257,7 +258,7 @@ func TestRevisionWatcher(t *testing.T) {
 			Port: 4321,
 		},
 		clusterIP: "129.0.0.1",
-		expectUpdates: []RevisionDestsUpdate{
+		expectUpdates: []revisionDestsUpdate{
 			{Dests: sets.NewString("128.0.0.2:1234")},
 			{Dests: sets.NewString("128.0.0.2:1234", "128.0.0.1:1234")},
 			{ClusterIPDest: "129.0.0.1:4321", Dests: sets.NewString("128.0.0.2:1234", "128.0.0.1:1234")},
@@ -290,7 +291,7 @@ func TestRevisionWatcher(t *testing.T) {
 			Port: 1234,
 		},
 		clusterIP: "129.0.0.1",
-		expectUpdates: []RevisionDestsUpdate{
+		expectUpdates: []revisionDestsUpdate{
 			{Dests: sets.NewString("128.0.0.1:1234")},
 			{Dests: sets.NewString("128.0.0.1:1234"), ClusterIPDest: "129.0.0.1:1234"},
 		},
@@ -313,7 +314,6 @@ func TestRevisionWatcher(t *testing.T) {
 		},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
-			defer ClearAll()
 			fakeRT := activatortest.FakeRoundTripper{
 				ExpectHost:         testRevision,
 				ProbeHostResponses: tc.probeHostResponses,
@@ -324,7 +324,7 @@ func TestRevisionWatcher(t *testing.T) {
 			doneCh := make(chan struct{})
 			defer close(doneCh)
 
-			updateCh := make(chan RevisionDestsUpdate, len(tc.expectUpdates)+1)
+			updateCh := make(chan revisionDestsUpdate, len(tc.expectUpdates)+1)
 
 			// This gets cleaned up as part of the test
 			destsCh := make(chan sets.String)
@@ -340,7 +340,7 @@ func TestRevisionWatcher(t *testing.T) {
 
 			revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
 			if tc.clusterIP != "" {
-				svc := privateSksService(revID, tc.clusterIP, []corev1.ServicePort{tc.clusterPort})
+				svc := privateSKSService(revID, tc.clusterIP, []corev1.ServicePort{tc.clusterPort})
 				fake.CoreV1().Services(svc.Namespace).Create(svc)
 				informer.Core().V1().Services().Informer().GetIndexer().Add(svc)
 			}
@@ -353,7 +353,7 @@ func TestRevisionWatcher(t *testing.T) {
 				destsCh,
 				rt,
 				servicesLister,
-				TestLogger(t),
+				logger,
 			)
 			rw.clusterIPHealthy = tc.initialClusterIPState
 
@@ -366,7 +366,7 @@ func TestRevisionWatcher(t *testing.T) {
 
 			destsCh <- sets.NewString(tc.dests...)
 
-			updates := []RevisionDestsUpdate{}
+			updates := []revisionDestsUpdate{}
 			for i := 0; i < len(tc.expectUpdates); i++ {
 				select {
 				case update := <-updateCh:
@@ -421,8 +421,6 @@ func ep(revL string, port int32, portName string, ips ...string) *corev1.Endpoin
 }
 
 func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
-	logger := TestLogger(t)
-	defer ClearAll()
 	// Make sure we wait out all the jitter in the system.
 	defer time.Sleep(informerRestPeriod)
 	for _, tc := range []struct {
@@ -432,7 +430,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		services           []*corev1.Service
 		probeResponses     []activatortest.FakeResponse
 		probeHostResponses map[string][]activatortest.FakeResponse
-		expectDests        map[types.NamespacedName]RevisionDestsUpdate
+		expectDests        map[types.NamespacedName]revisionDestsUpdate
 		updateCnt          int
 	}{{
 		name:         "add slow healthy",
@@ -441,7 +439,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
-			privateSksService(types.NamespacedName{testNamespace, testRevision}, "129.0.0.1",
+			privateSKSService(types.NamespacedName{testNamespace, testRevision}, "129.0.0.1",
 				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
@@ -456,7 +454,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 				Body: queue.Name,
 			}},
 		},
-		expectDests: map[types.NamespacedName]RevisionDestsUpdate{
+		expectDests: map[types.NamespacedName]revisionDestsUpdate{
 			{Namespace: testNamespace, Name: testRevision}: {
 				Dests: sets.NewString("128.0.0.1:1234"),
 			},
@@ -469,7 +467,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolH2C),
 		},
 		services: []*corev1.Service{
-			privateSksService(types.NamespacedName{testNamespace, testRevision}, "129.0.0.1",
+			privateSKSService(types.NamespacedName{testNamespace, testRevision}, "129.0.0.1",
 				[]corev1.ServicePort{{Name: "http2", Port: 1234}}),
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
@@ -484,7 +482,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 				Body: queue.Name,
 			}},
 		},
-		expectDests: map[types.NamespacedName]RevisionDestsUpdate{
+		expectDests: map[types.NamespacedName]revisionDestsUpdate{
 			{Namespace: testNamespace, Name: testRevision}: {
 				Dests: sets.NewString("128.0.0.1:1234"),
 			},
@@ -501,16 +499,16 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			revision(types.NamespacedName{testNamespace, "test-revision2"}, networking.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
-			privateSksService(types.NamespacedName{testNamespace, "test-revision1"}, "129.0.0.1",
+			privateSKSService(types.NamespacedName{testNamespace, "test-revision1"}, "129.0.0.1",
 				[]corev1.ServicePort{{Name: "http", Port: 2345}}),
-			privateSksService(types.NamespacedName{testNamespace, "test-revision2"}, "129.0.0.2",
+			privateSKSService(types.NamespacedName{testNamespace, "test-revision2"}, "129.0.0.2",
 				[]corev1.ServicePort{{Name: "http", Port: 2345}}),
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
 			"129.0.0.1:2345": {{Err: errors.New("clusterIP transport error")}},
 			"129.0.0.2:2345": {{Err: errors.New("clusterIP transport error")}},
 		},
-		expectDests: map[types.NamespacedName]RevisionDestsUpdate{
+		expectDests: map[types.NamespacedName]revisionDestsUpdate{
 			{Namespace: testNamespace, Name: "test-revision1"}: {
 				Dests: sets.NewString("128.0.0.1:1234"),
 			},
@@ -526,7 +524,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
-			privateSksService(types.NamespacedName{testNamespace, testRevision}, "129.0.0.1",
+			privateSKSService(types.NamespacedName{testNamespace, testRevision}, "129.0.0.1",
 				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
@@ -546,7 +544,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 				Body: queue.Name,
 			}},
 		},
-		expectDests: map[types.NamespacedName]RevisionDestsUpdate{
+		expectDests: map[types.NamespacedName]revisionDestsUpdate{
 			{Namespace: testNamespace, Name: testRevision}: {
 				ClusterIPDest: "129.0.0.1:1234",
 				Dests:         sets.NewString("128.0.0.1:1234"),
@@ -560,7 +558,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
-			privateSksService(types.NamespacedName{testNamespace, testRevision}, "129.0.0.1",
+			privateSKSService(types.NamespacedName{testNamespace, testRevision}, "129.0.0.1",
 				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
 		},
 		probeHostResponses: map[string][]activatortest.FakeResponse{
@@ -572,7 +570,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 				Body: queue.Name,
 			}},
 		},
-		expectDests: map[types.NamespacedName]RevisionDestsUpdate{},
+		expectDests: map[types.NamespacedName]revisionDestsUpdate{},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			fakeRT := activatortest.FakeRoundTripper{
@@ -603,18 +601,18 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 
 			controller.StartInformers(ctx.Done(), endpointsInformer.Informer())
 
-			rbm := NewRevisionBackendsManagerWithProbeFrequency(ctx, rt, logger, 50*time.Millisecond)
+			rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, rt, 50*time.Millisecond)
 
 			for _, ep := range tc.endpointsArr {
 				fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
 				endpointsInformer.Informer().GetIndexer().Add(ep)
 			}
 
-			revDests := make(map[types.NamespacedName]RevisionDestsUpdate)
+			revDests := make(map[types.NamespacedName]revisionDestsUpdate)
 			// Wait for updateCb to be called
 			for i := 0; i < tc.updateCnt; i++ {
 				select {
-				case update := <-rbm.UpdateCh():
+				case update := <-rbm.updates():
 					revDests[update.Rev] = update
 				case <-time.After(300 * time.Millisecond):
 					t.Errorf("Timed out waiting for update event")
@@ -643,10 +641,9 @@ func TestCheckDests(t *testing.T) {
 	defer func() {
 		cancel()
 		time.Sleep(informerRestPeriod)
-		ClearAll()
 	}()
 
-	svc := privateSksService(
+	svc := privateSKSService(
 		types.NamespacedName{testNamespace, testRevision},
 		"129.0.0.1",
 		[]corev1.ServicePort{{Name: "http", Port: 1234}},
@@ -655,7 +652,7 @@ func TestCheckDests(t *testing.T) {
 	si := fakeserviceinformer.Get(ctx)
 	si.Informer().GetIndexer().Add(svc)
 	// Make it buffered,so that we can make the test linear.
-	uCh := make(chan RevisionDestsUpdate, 1)
+	uCh := make(chan revisionDestsUpdate, 1)
 	dCh := make(chan struct{})
 	rw := &revisionWatcher{
 		clusterIPHealthy: true,
@@ -690,10 +687,9 @@ func TestCheckDestsSwinging(t *testing.T) {
 	defer func() {
 		cancel()
 		time.Sleep(informerRestPeriod)
-		ClearAll()
 	}()
 
-	svc := privateSksService(
+	svc := privateSKSService(
 		types.NamespacedName{testNamespace, testRevision},
 		"10.5.0.1",
 		[]corev1.ServicePort{{Name: "http", Port: 1234}},
@@ -737,7 +733,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 
 	// Make it buffered,so that we can make the test linear.
-	uCh := make(chan RevisionDestsUpdate, 1)
+	uCh := make(chan revisionDestsUpdate, 1)
 	dCh := make(chan struct{})
 	rw := &revisionWatcher{
 		rev:           types.NamespacedName{testNamespace, testRevision},
@@ -749,7 +745,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 	}
 	// First not ready, second good, clusterIP: not ready.
 	rw.checkDests(sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"))
-	want := RevisionDestsUpdate{
+	want := revisionDestsUpdate{
 		Rev:           types.NamespacedName{testNamespace, testRevision},
 		ClusterIPDest: "",
 		Dests:         sets.NewString("10.0.0.2:1234"),
@@ -815,10 +811,9 @@ func TestRevisionDeleted(t *testing.T) {
 	defer func() {
 		cancel()
 		time.Sleep(informerRestPeriod)
-		ClearAll()
 	}()
 
-	svc := privateSksService(
+	svc := privateSKSService(
 		types.NamespacedName{testNamespace, testRevision},
 		"129.0.0.1",
 		[]corev1.ServicePort{{Name: "http", Port: 1234}},
@@ -840,21 +835,21 @@ func TestRevisionDeleted(t *testing.T) {
 	fakeRT := activatortest.FakeRoundTripper{}
 	rt := network.RoundTripperFunc(fakeRT.RT)
 
-	rbm := NewRevisionBackendsManager(
-		ctx,
-		rt,
-		TestLogger(t))
+	rbm := newRevisionBackendsManager(ctx, rt)
 	// Make some movements.
 	ei.Informer().GetIndexer().Add(ep)
 	select {
-	case <-rbm.UpdateCh():
+	case <-rbm.updates():
 	case <-time.After(time.Second * 2):
 		t.Errorf("Timedout waiting for initial response")
 	}
 	// Now delete the endpoints.
 	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Delete(ep.Name, &metav1.DeleteOptions{})
 	select {
-	case r := <-rbm.UpdateCh():
+	case r := <-rbm.updates():
+		if got, want := r.Deleted, true; got != want {
+			t.Errorf("Deleted = %t, want true", got)
+		}
 		if got, want := r.ClusterIPDest, ""; got != want {
 			t.Errorf(`ClusterIP = %s, want ""`, got)
 		}

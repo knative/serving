@@ -54,12 +54,10 @@ var (
 )
 
 func init() {
-	var err error
-
 	// Create views to see our measurements. This can return an error if
 	// a previously-registered view has the same name with a different value.
 	// View name defaults to the measure name if unspecified.
-	err = view.Register(
+	if err := view.Register(
 		&view.View{
 			Description: serviceReadyCountStat.Description(),
 			Measure:     serviceReadyCountStat,
@@ -72,8 +70,7 @@ func init() {
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{reconcilerTagKey, keyTagKey},
 		},
-	)
-	if err != nil {
+	); err != nil {
 		panic(err)
 	}
 }

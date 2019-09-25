@@ -46,7 +46,7 @@ var (
 )
 
 func TestRevisionDefaulting(t *testing.T) {
-	defer logtesting.ClearAll()
+	logger := logtesting.TestLogger(t)
 	tests := []struct {
 		name string
 		in   *Revision
@@ -63,7 +63,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		name: "with context",
 		in:   &Revision{Spec: RevisionSpec{PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}}}},
 		wc: func(ctx context.Context) context.Context {
-			s := config.NewStore(logtesting.TestLogger(t))
+			s := config.NewStore(logger)
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
@@ -126,7 +126,7 @@ func TestRevisionDefaulting(t *testing.T) {
 		name: "timeout sets to default when 0 is specified",
 		in:   &Revision{Spec: RevisionSpec{PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}}, TimeoutSeconds: ptr.Int64(0)}},
 		wc: func(ctx context.Context) context.Context {
-			s := config.NewStore(logtesting.TestLogger(t))
+			s := config.NewStore(logger)
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
@@ -256,7 +256,7 @@ func TestRevisionDefaulting(t *testing.T) {
 			},
 		},
 		wc: func(ctx context.Context) context.Context {
-			s := config.NewStore(logtesting.TestLogger(t))
+			s := config.NewStore(logger)
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,

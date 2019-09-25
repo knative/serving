@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/pkg/logging/logkey"
 	"knative.dev/serving/pkg/autoscaler/aggregation"
 
 	"go.uber.org/zap"
@@ -47,7 +46,7 @@ var (
 )
 
 // StatsScraperFactory creates a StatsScraper for a given Metric.
-type StatsScraperFactory func(*av1alpha1.Metric, *zap.SugaredLogger) (StatsScraper, error)
+type StatsScraperFactory func(*av1alpha1.Metric) (StatsScraper, error)
 
 // Stat defines a single measurement at a point in time
 type Stat struct {
@@ -128,8 +127,7 @@ func NewMetricCollector(statsScraperFactory StatsScraperFactory, logger *zap.Sug
 // it already exist.
 // Map access optimized via double-checked locking.
 func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
-	l := c.logger.With(zap.String(logkey.Key, metric.Namespace+"/"+metric.Name))
-	scraper, err := c.statsScraperFactory(metric, l)
+	scraper, err := c.statsScraperFactory(metric)
 	if err != nil {
 		return err
 	}

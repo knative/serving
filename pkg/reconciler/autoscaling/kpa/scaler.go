@@ -22,12 +22,11 @@ import (
 	"net/http"
 	"time"
 
-	"go.uber.org/zap"
-
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/injection/clients/dynamicclient"
 	"knative.dev/pkg/logging"
 
+	"github.com/pkg/errors"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/serving/pkg/activator"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
@@ -247,10 +246,9 @@ func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, 
 	}
 
 	_, err = ks.dynamicClient.Resource(*gvr).Namespace(pa.Namespace).Patch(ps.Name, types.JSONPatchType,
-		patchBytes, metav1.UpdateOptions{})
+		patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		logger.Errorw("Error scaling target reference "+name, zap.Error(err))
-		return desiredScale, err
+		return desiredScale, errors.Wrapf(err, "failed to apply scale to scale target "+name)
 	}
 
 	logger.Debug("Successfully scaled.")
@@ -279,8 +277,7 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *
 
 	ps, err := resources.GetScaleResource(pa.Namespace, pa.Spec.ScaleTargetRef, ks.psInformerFactory)
 	if err != nil {
-		logger.Errorw(fmt.Sprintf("Resource %v not found", pa.Spec.ScaleTargetRef), zap.Error(err))
-		return desiredScale, err
+		return desiredScale, errors.Wrapf(err, "failed to get scale target %v", pa.Spec.ScaleTargetRef)
 	}
 
 	currentScale := int32(1)

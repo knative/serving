@@ -53,23 +53,41 @@ required = [
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.12.9"
+  version = "kubernetes-1.15.3"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.12.9"
+  version = "kubernetes-1.15.3"
 
 [[override]]
   name = "k8s.io/code-generator"
-  version = "kubernetes-1.12.9"
+  version = "kubernetes-1.15.3"
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.12.9"
+  version = "kubernetes-1.15.3"
 
 [[override]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.12.9"
+  version = "kubernetes-1.15.3"
+
+[[override]]
+  name = "k8s.io/apiserver"
+  version = "kubernetes-1.15.3"
+
+[[override]]
+  name = "k8s.io/metrics"
+  version = "kubernetes-1.15.3"
+
+[[override]]
+  name = "k8s.io/kube-openapi"
+  # This is the version at which k8s.io/apiserver depends on this at its 1.15.3 tag.
+  revision = "b3a7cee44a305be0a69e1b9ac03018307287e1b0"
+
+[[override]]
+  name = "sigs.k8s.io/structured-merge-diff"
+  # This is the version at which k8s.io/apiserver depends on this at its 1.15.3 tag.
+  revision = "e85c7b244fd2cc57bb829d73a061f93a441e63ce"
 
 [[override]]
   name = "github.com/rogpeppe/go-internal"
@@ -82,15 +100,7 @@ required = [
 # Added for the custom-metrics-apiserver specifically
 [[override]]
   name = "github.com/kubernetes-incubator/custom-metrics-apiserver"
-  revision = "b7016fc85e1c960758aef23e1d456a66997d1e26"
-
-[[override]]
-  name = "k8s.io/apiserver"
-  version = "kubernetes-1.12.9"
-
-[[override]]
-  name = "k8s.io/metrics"
-  version = "kubernetes-1.12.9"
+  revision = "3d9be26a50eb64531fc40eb31a5f3e6720956dc6"
 
 [[override]]
   name = "bitbucket.org/ww/goautoneg"

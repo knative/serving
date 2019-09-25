@@ -29,15 +29,12 @@ import (
 	"k8s.io/client-go/rest"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/injection"
-	logtesting "knative.dev/pkg/logging/testing"
 	_ "knative.dev/pkg/system/testing"
 )
 
 var reconcilerName = "test-reconciler"
 
 func TestNew(t *testing.T) {
-	defer logtesting.ClearAll()
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

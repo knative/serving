@@ -26,6 +26,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -35,7 +36,6 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
-	logtesting "knative.dev/pkg/logging/testing"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -365,7 +365,7 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create placeholder service %q: %v",
 				"create-svc-failure", "inducing failure for create services"),
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create services"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create placeholder service: inducing failure for create services"),
 		},
 		Key: "default/create-svc-failure",
 	}, {
@@ -423,9 +423,8 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "ingress-create-failure"),
-			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress for route %s/%s: %v",
-				"default", "ingress-create-failure", "inducing failure for create ingresses"),
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create ingresses"),
+			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress: inducing failure for create ingresses"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create Ingress: inducing failure for create ingresses"),
 		},
 		Key:                     "default/ingress-create-failure",
 		SkipNamespaceValidation: true,
@@ -889,7 +888,7 @@ func TestReconcile(t *testing.T) {
 					})),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update ingresses"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to update Ingress: inducing failure for update ingresses"),
 		},
 		Key:                     "default/update-ci-failure",
 		SkipNamespaceValidation: true,
@@ -1868,7 +1867,7 @@ func TestReconcile(t *testing.T) {
 			Name: "old-service-name",
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for delete services"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to delete Service: inducing failure for delete services"),
 		},
 		Key: "default/my-route",
 	}}
@@ -1877,7 +1876,6 @@ func TestReconcile(t *testing.T) {
 	// TODO(mattmoor): Revision inactive (indirect reference)
 	// TODO(mattmoor): Multiple inactive Revisions
 
-	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
 			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
@@ -2145,8 +2143,158 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		},
 		Key:                     "default/becomes-ready",
 		SkipNamespaceValidation: true,
+	}, {
+		Name: "check that Route is correctly updated when Certificate is not ready",
+		Objects: []runtime.Object{
+			route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("mcd")),
+			// MakeCertificates will create a certificate with DNS name "*.test-ns.example.com" which is not the host name
+			// needed by the input Route.
+			&netv1alpha1.Certificate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "route-12-34",
+					Namespace: "default",
+					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
+						route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")))},
+					Labels: labels.Set(map[string]string{
+						serving.RouteLabelKey: "becomes-ready",
+					}),
+					Annotations: map[string]string{
+						networking.CertificateClassAnnotationKey: network.CertManagerCertificateClassName,
+					},
+				},
+				Spec: netv1alpha1.CertificateSpec{
+					DNSNames: []string{"abc.test.example.com"},
+				},
+				Status: notReadyCertStatus(),
+			},
+		},
+		WantCreates: []runtime.Object{
+			ingressWithTLS(
+				route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
+					WithRouteUID("12-34")),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: "config-00001",
+								Percent:      ptr.Int64(100),
+							},
+							ServiceName: "mcd",
+							Active:      true,
+						}},
+					},
+				},
+				[]netv1alpha1.IngressTLS{
+					{
+						Hosts:           []string{"becomes-ready.default.example.com"},
+						SecretName:      "route-12-34",
+						SecretNamespace: "default",
+					},
+				},
+			),
+			simpleK8sService(
+				route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
+				WithExternalName("becomes-ready.default.example.com"),
+			),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: certificateWithStatus(resources.MakeCertificates(route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
+				map[string]string{"becomes-ready.default.example.com": ""}, network.CertManagerCertificateClassName)[0], notReadyCertStatus()),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "becomes-ready", WithConfigTarget("config"),
+				WithRouteUID("12-34"),
+				// Populated by reconciliation when all traffic has been assigned.
+				WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(v1alpha1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					},
+				}), MarkCertificateNotReady, MarkIngressNotConfigured,
+				// The certificate is not ready. So we want to have HTTP URL.
+				WithURL),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Certificate %s/%s", "default", "route-12-34"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
+		},
+		Key:                     "default/becomes-ready",
+		SkipNamespaceValidation: true,
+	}, {
+		// This test is a same with "public becomes cluster local" above, but confirm it does not create certs with autoTLS for cluster-local.
+		Name: "public becomes cluster local w/ autoTLS",
+		Objects: []runtime.Object{
+			route("default", "becomes-local", WithConfigTarget("config"),
+				WithRouteLabel(config.VisibilityLabelKey, config.VisibilityClusterLocal),
+				WithRouteUID("65-23")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("tb")),
+			simpleIngress(
+				route("default", "becomes-local", WithConfigTarget("config"), WithRouteUID("65-23"), WithRouteLabel("serving.knative.dev/visibility", "cluster-local")),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: "config-00001",
+								Percent:      ptr.Int64(100),
+							},
+							ServiceName: "tb",
+							Active:      true,
+						}},
+					},
+				},
+			),
+			simpleK8sService(route("default", "becomes-local", WithConfigTarget("config"),
+				WithRouteLabel(config.VisibilityLabelKey, config.VisibilityClusterLocal),
+				WithRouteUID("65-23"))),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: simpleIngressWithVisibility(
+				route("default", "becomes-local", WithConfigTarget("config"),
+					WithRouteUID("65-23"),
+					WithRouteLabel(config.VisibilityLabelKey, config.VisibilityClusterLocal)),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: "config-00001",
+								Percent:      ptr.Int64(100),
+							},
+							ServiceName: "tb",
+							Active:      true,
+						}},
+					},
+				},
+				sets.NewString("becomes-local"),
+			),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "becomes-local", WithConfigTarget("config"),
+				WithRouteUID("65-23"),
+				MarkTrafficAssigned, MarkIngressNotConfigured,
+				WithLocalDomain, WithAddress, WithInitRouteConditions,
+				WithRouteLabel(config.VisibilityLabelKey, config.VisibilityClusterLocal),
+				WithStatusTraffic(v1alpha1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					},
+				})),
+		}},
+		Key:                     "default/becomes-local",
+		SkipNamespaceValidation: true,
 	}}
-	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
 			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
@@ -2182,6 +2330,112 @@ func wildcardCert(namespace string, domain string) *netv1alpha1.Certificate {
 	}
 
 	return cert
+}
+
+func TestReconcile_EnableAutoTLS_HTTPDisabled(t *testing.T) {
+	table := TableTest{{
+		Name: "check that Route is correctly updated when Certificate is not ready",
+		Objects: []runtime.Object{
+			route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("mcd")),
+			// MakeCertificates will create a certificate with DNS name "*.test-ns.example.com" which is not the host name
+			// needed by the input Route.
+			&netv1alpha1.Certificate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "route-12-34",
+					Namespace: "default",
+					Labels: labels.Set(map[string]string{
+						serving.RouteLabelKey: "becomes-ready",
+					}),
+					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
+						route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")))},
+					Annotations: map[string]string{
+						networking.CertificateClassAnnotationKey: network.CertManagerCertificateClassName,
+					},
+				},
+				Spec: netv1alpha1.CertificateSpec{
+					DNSNames: []string{"abc.test.example.com"},
+				},
+				Status: notReadyCertStatus(),
+			},
+		},
+		WantCreates: []runtime.Object{
+			ingressWithTLS(
+				route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
+					WithRouteUID("12-34")),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: "config-00001",
+								Percent:      ptr.Int64(100),
+							},
+							ServiceName: "mcd",
+							Active:      true,
+						}},
+					},
+				},
+				[]netv1alpha1.IngressTLS{
+					{
+						Hosts:           []string{"becomes-ready.default.example.com"},
+						SecretName:      "route-12-34",
+						SecretNamespace: "default",
+					},
+				},
+			),
+			simpleK8sService(
+				route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
+				WithExternalName("becomes-ready.default.example.com"),
+			),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: certificateWithStatus(resources.MakeCertificates(route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
+				map[string]string{"becomes-ready.default.example.com": ""}, network.CertManagerCertificateClassName)[0], notReadyCertStatus()),
+		}},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: route("default", "becomes-ready", WithConfigTarget("config"),
+				WithRouteUID("12-34"),
+				// Populated by reconciliation when all traffic has been assigned.
+				WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(v1alpha1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					},
+				}), MarkCertificateNotReady, MarkIngressNotConfigured,
+				// The certificate is not ready. But we still want to have HTTPS URL.
+				WithHTTPSDomain),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Certificate %s/%s", "default", "route-12-34"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
+		},
+		Key:                     "default/becomes-ready",
+		SkipNamespaceValidation: true,
+	}}
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		cfg := ReconcilerTestConfig(true)
+		cfg.Network.HTTPProtocol = network.HTTPDisabled
+		return &Reconciler{
+			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
+			routeLister:         listers.GetRouteLister(),
+			configurationLister: listers.GetConfigurationLister(),
+			revisionLister:      listers.GetRevisionLister(),
+			serviceLister:       listers.GetK8sServiceLister(),
+			ingressLister:       listers.GetIngressLister(),
+			certificateLister:   listers.GetCertificateLister(),
+			tracker:             &NullTracker{},
+			configStore: &testConfigStore{
+				config: cfg,
+			},
+			clock: FakeClock{Time: fakeCurTime},
+		}
+	}))
 }
 
 func route(namespace, name string, ro ...RouteOption) *v1alpha1.Route {
@@ -2413,6 +2667,7 @@ func ReconcilerTestConfig(enableAutoTLS bool) *config.Config {
 			AutoTLS:                 enableAutoTLS,
 			DomainTemplate:          network.DefaultDomainTemplate,
 			TagTemplate:             network.DefaultTagTemplate,
+			HTTPProtocol:            network.HTTPEnabled,
 		},
 		GC: &gc.Config{
 			StaleRevisionLastpinnedDebounce: time.Duration(1 * time.Minute),
@@ -2423,6 +2678,12 @@ func ReconcilerTestConfig(enableAutoTLS bool) *config.Config {
 func readyCertStatus() netv1alpha1.CertificateStatus {
 	certStatus := &netv1alpha1.CertificateStatus{}
 	certStatus.MarkReady()
+	return *certStatus
+}
+
+func notReadyCertStatus() netv1alpha1.CertificateStatus {
+	certStatus := &netv1alpha1.CertificateStatus{}
+	certStatus.MarkNotReady("not ready", "not ready")
 	return *certStatus
 }
 

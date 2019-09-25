@@ -19,10 +19,10 @@ package dynamicmapper
 import (
 	"fmt"
 
-	"github.com/emicklei/go-restful-swagger12"
-	"github.com/googleapis/gnostic/OpenAPIv2"
+	swagger "github.com/emicklei/go-restful-swagger12"
+	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/version"
@@ -59,6 +59,24 @@ func (c *FakeDiscovery) ServerResources() ([]*metav1.APIResourceList, error) {
 	}
 	c.Invokes(action, nil)
 	return c.Resources, nil
+}
+
+func (c *FakeDiscovery) ServerGroupsAndResources() ([]*metav1.APIGroup, []*metav1.APIResourceList, error) {
+	sgs, err := c.ServerGroups()
+	if err != nil {
+		return nil, nil, err
+	}
+	resultGroups := []*metav1.APIGroup{}
+	for i := range sgs.Groups {
+		resultGroups = append(resultGroups, &sgs.Groups[i])
+	}
+
+	action := testing.ActionImpl{
+		Verb:     "get",
+		Resource: schema.GroupVersionResource{Resource: "resource"},
+	}
+	c.Invokes(action, nil)
+	return resultGroups, c.Resources, nil
 }
 
 func (c *FakeDiscovery) ServerPreferredResources() ([]*metav1.APIResourceList, error) {

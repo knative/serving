@@ -138,7 +138,7 @@ type MultiScaler struct {
 
 	logger *zap.SugaredLogger
 
-	watcher      func(string)
+	watcher      func(types.NamespacedName)
 	watcherMutex sync.RWMutex
 }
 
@@ -228,7 +228,7 @@ func (m *MultiScaler) Delete(ctx context.Context, namespace, name string) error 
 }
 
 // Watch registers a singleton function to call when DeciderStatus is updated.
-func (m *MultiScaler) Watch(fn func(string)) {
+func (m *MultiScaler) Watch(fn func(types.NamespacedName)) {
 	m.watcherMutex.Lock()
 	defer m.watcherMutex.Unlock()
 
@@ -239,7 +239,7 @@ func (m *MultiScaler) Watch(fn func(string)) {
 }
 
 // Inform sends an update to the registered watcher function, if it is set.
-func (m *MultiScaler) Inform(event string) bool {
+func (m *MultiScaler) Inform(event types.NamespacedName) bool {
 	m.watcherMutex.RLock()
 	defer m.watcherMutex.RUnlock()
 
@@ -309,7 +309,7 @@ func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, runner *
 	}
 
 	if runner.updateLatestScale(desiredScale, excessBC) {
-		m.Inform(metricKey.String())
+		m.Inform(metricKey)
 	}
 }
 

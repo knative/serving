@@ -131,7 +131,7 @@ func (c *FakeRoutes) DeleteCollection(options *v1.DeleteOptions, listOptions v1.
 // Patch applies the patch and returns the patched route.
 func (c *FakeRoutes) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1beta1.Route, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(routesResource, c.ns, name, data, subresources...), &v1beta1.Route{})
+		Invokes(testing.NewPatchSubresourceAction(routesResource, c.ns, name, pt, data, subresources...), &v1beta1.Route{})
 
 	if obj == nil {
 		return nil, err

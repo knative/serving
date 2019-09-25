@@ -164,13 +164,13 @@ func withTBCAnnotation(tbc string) PodAutoscalerOption {
 	}
 }
 
-func withDeciderTBCAnnotation(tbc string) DeciderOption {
+func withDeciderTBCAnnotation(tbc string) deciderOption {
 	return func(d *autoscaler.Decider) {
 		d.Annotations[autoscaling.TargetBurstCapacityKey] = tbc
 	}
 }
 
-func decider(options ...DeciderOption) *autoscaler.Decider {
+func decider(options ...deciderOption) *autoscaler.Decider {
 	m := &autoscaler.Decider{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "test-namespace",
@@ -197,64 +197,64 @@ func decider(options ...DeciderOption) *autoscaler.Decider {
 	return m
 }
 
-type DeciderOption func(*autoscaler.Decider)
+type deciderOption func(*autoscaler.Decider)
 
-func withMetric(metric string) DeciderOption {
+func withMetric(metric string) deciderOption {
 	return func(decider *autoscaler.Decider) {
 		decider.Spec.ScalingMetric = metric
 	}
 }
 
-func withTargetBurstCapacity(tbc float64) DeciderOption {
+func withTargetBurstCapacity(tbc float64) deciderOption {
 	return func(decider *autoscaler.Decider) {
 		decider.Spec.TargetBurstCapacity = tbc
 	}
 }
 
-func withScaleUpDownRates(up, down float64) DeciderOption {
+func withScaleUpDownRates(up, down float64) deciderOption {
 	return func(decider *autoscaler.Decider) {
 		decider.Spec.MaxScaleUpRate = up
 		decider.Spec.MaxScaleDownRate = down
 	}
 }
 
-func withTotal(total float64) DeciderOption {
+func withTotal(total float64) deciderOption {
 	return func(decider *autoscaler.Decider) {
 		decider.Spec.TotalValue = total
 	}
 }
 
-func withTarget(target float64) DeciderOption {
+func withTarget(target float64) deciderOption {
 	return func(decider *autoscaler.Decider) {
 		decider.Spec.TargetValue = target
 	}
 }
 
-func withService(s string) DeciderOption {
+func withService(s string) deciderOption {
 	return func(d *autoscaler.Decider) {
 		d.Spec.ServiceName = s
 	}
 }
 
-func withPanicThreshold(threshold float64) DeciderOption {
+func withPanicThreshold(threshold float64) deciderOption {
 	return func(decider *autoscaler.Decider) {
 		decider.Spec.PanicThreshold = threshold
 	}
 }
 
-func withTargetAnnotation(target string) DeciderOption {
+func withTargetAnnotation(target string) deciderOption {
 	return func(decider *autoscaler.Decider) {
 		decider.Annotations[autoscaling.TargetAnnotationKey] = target
 	}
 }
 
-func withMetricAnnotation(metric string) DeciderOption {
+func withMetricAnnotation(metric string) deciderOption {
 	return func(decider *autoscaler.Decider) {
 		decider.Annotations[autoscaling.MetricAnnotationKey] = metric
 	}
 }
 
-func withPanicThresholdPercentageAnnotation(percentage string) DeciderOption {
+func withPanicThresholdPercentageAnnotation(percentage string) deciderOption {
 	return func(decider *autoscaler.Decider) {
 		decider.Annotations[autoscaling.PanicThresholdPercentageAnnotationKey] = percentage
 	}

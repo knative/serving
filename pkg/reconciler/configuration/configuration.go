@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 
+	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -55,13 +56,13 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 // converge the two. It then updates the Status block of the Configuration
 // resource with the current status of the resource.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
-	// Convert the namespace/name string into a distinct namespace and name.
+	logger := logging.FromContext(ctx)
+
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		c.Logger.Errorw("invalid resource key", zap.Error(err))
+		logger.Errorw("Invalid resource key", zap.Error(err))
 		return nil
 	}
-	logger := logging.FromContext(ctx)
 
 	// Get the Configuration resource with this namespace/name.
 	original, err := c.configurationLister.Configurations(namespace).Get(name)
@@ -86,8 +87,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// to status with this stale state.
 	} else if _, err = c.updateStatus(config); err != nil {
 		logger.Warnw("Failed to update configuration status", zap.Error(err))
-		c.Recorder.Eventf(config, corev1.EventTypeWarning, "UpdateFailed",
-			"Failed to update status for Configuration %q: %v", config.Name, err)
+		c.Recorder.Eventf(config, corev1.EventTypeWarning, "UpdateFailed", "Failed to update status: %v", err)
 		return err
 	}
 	if reconcileErr != nil {
@@ -136,16 +136,13 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 	if errors.IsNotFound(err) {
 		lcr, err = c.createRevision(ctx, config)
 		if err != nil {
-			errMsg := fmt.Sprintf("Failed to create Revision for Configuration %q: %v", config.Name, err)
-
-			logger.Error(errMsg)
-			c.Recorder.Event(config, corev1.EventTypeWarning, "CreationFailed", errMsg)
+			c.Recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision: %v", err)
 
 			// Mark the Configuration as not-Ready since creating
 			// its latest revision failed.
 			config.Status.MarkRevisionCreationFailed(err.Error())
 
-			return err
+			return perrors.Wrap(err, "failed to create Revision")
 		}
 	} else if errors.IsAlreadyExists(err) {
 		// If we get an already-exists error from latestCreatedRevision it means
@@ -154,8 +151,7 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 		config.Status.MarkRevisionCreationFailed(err.Error())
 		return nil
 	} else if err != nil {
-		logger.Errorw("Failed to reconcile Configuration: failed to get Revision", zap.Error(err))
-		return err
+		return perrors.Wrap(err, "failed to get Revision")
 	}
 
 	revName := lcr.Name
@@ -195,9 +191,7 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 			"Latest created revision %q has failed", lcr.Name)
 
 	default:
-		err := fmt.Errorf("unrecognized condition status: %v on revision %q", rc.Status, revName)
-		logger.Errorw("Error reconciling Configuration", zap.Error(err))
-		return err
+		return fmt.Errorf("unrecognized condition status: %v on revision %q", rc.Status, revName)
 	}
 
 	return nil

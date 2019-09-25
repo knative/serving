@@ -123,6 +123,12 @@ func (rt *FakeRoundTripper) RT(req *http.Request) (*http.Response, error) {
 				Body: "probe sent to a wrong system",
 			})
 		}
+		if req.Header.Get(network.UserAgentKey) != network.ActivatorUserAgent {
+			return response(&FakeResponse{
+				Code: http.StatusBadRequest,
+				Body: "probe set with a wrong User-Agent value",
+			})
+		}
 		return response(resp)
 	}
 	resp := rt.RequestResponse

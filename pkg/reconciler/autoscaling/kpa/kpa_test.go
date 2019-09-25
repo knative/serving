@@ -49,7 +49,6 @@ import (
 	perrors "github.com/pkg/errors"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
@@ -143,10 +142,16 @@ func metricWithDiffSvc(ns, n string) *asv1a1.Metric {
 	return m
 }
 
-func metric(ns, n string) *asv1a1.Metric {
+type metricOption func(*asv1a1.Metric)
+
+func metric(ns, n string, opts ...metricOption) *asv1a1.Metric {
 	pa := kpa(ns, n)
-	return aresources.MakeMetric(context.Background(), pa,
+	m := aresources.MakeMetric(context.Background(), pa,
 		kmeta.ChildName(n, "-metrics"), defaultConfig().Autoscaler)
+	for _, o := range opts {
+		o(m)
+	}
+	return m
 }
 
 func sks(ns, n string, so ...SKSOption) *nv1a1.ServerlessService {
@@ -476,7 +481,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
-				`error scaling target: inducing failure for patch deployments`),
+				`error scaling target: failed to apply scale to scale target test-revision-deployment: inducing failure for patch deployments`),
 		},
 	}, {
 		Name: "update metrics service",
@@ -777,6 +782,24 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling SKS: PA: test-revision does not own SKS: test-revision"),
 		},
 	}, {
+		Name: "metric is disowned",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, withScales(1, defaultScale), withMSvcStatus(testRevision), markActive),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metricsSvc(testNamespace, testRevision, withSvcSelector(usualSelector)),
+			metric(testNamespace, testRevision, WithMetricOwnersRemoved),
+			defaultDeployment,
+		},
+		WantErr: true,
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, withScales(1, defaultScale),
+				withMSvcStatus(testRevision), markResourceNotOwned("Metric", testRevision)),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError", `error reconciling metric: PA: test-revision does not own Metric: test-revision`),
+		},
+	}, {
 		Name: "steady not serving",
 		Key:  key,
 		Ctx: context.WithValue(context.Background(), deciderKey,
@@ -1073,7 +1096,6 @@ func TestReconcile(t *testing.T) {
 		}},
 	}}
 
-	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		fakeDeciders := newTestDeciders()
 		// TODO(vagababov): see if we can get rid of the static piece of configuration and
@@ -1136,7 +1158,6 @@ func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment
 }
 
 func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 	watcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
 
@@ -1206,7 +1227,6 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 }
 
 func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 	defer cancel()
 
@@ -1274,7 +1294,6 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 	defer cancel()
 
@@ -1351,7 +1370,6 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestControllerCreateError(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 	defer cancel()
 
@@ -1377,7 +1395,6 @@ func TestControllerCreateError(t *testing.T) {
 }
 
 func TestControllerUpdateError(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 	defer cancel()
 
@@ -1403,7 +1420,6 @@ func TestControllerUpdateError(t *testing.T) {
 }
 
 func TestControllerGetError(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
 
 	key := testNamespace + "/" + testRevision
@@ -1427,7 +1443,6 @@ func TestControllerGetError(t *testing.T) {
 }
 
 func TestScaleFailure(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
 
 	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders())
@@ -1516,7 +1531,7 @@ func (km *testDeciders) Update(ctx context.Context, decider *autoscaler.Decider)
 	return decider, nil
 }
 
-func (km *testDeciders) Watch(fn func(string)) {}
+func (km *testDeciders) Watch(fn func(types.NamespacedName)) {}
 
 type failingDeciders struct {
 	getErr    error
@@ -1536,7 +1551,7 @@ func (km *failingDeciders) Delete(ctx context.Context, namespace, name string) e
 	return km.deleteErr
 }
 
-func (km *failingDeciders) Watch(fn func(string)) {
+func (km *failingDeciders) Watch(fn func(types.NamespacedName)) {
 }
 
 func (km *failingDeciders) Update(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error) {

@@ -23,8 +23,12 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
+
+	"k8s.io/apimachinery/pkg/util/sets"
+	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 
 	"go.uber.org/zap/zaptest"
 	v1 "k8s.io/api/core/v1"
@@ -37,49 +41,45 @@ import (
 	"knative.dev/serving/pkg/reconciler/ingress/resources"
 )
 
-func TestIsReadyFailures(t *testing.T) {
-	vs := &v1alpha3.VirtualService{
+var (
+	iaTemplate = &v1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
 			Name:      "whatever",
 		},
+		Spec: v1alpha1.IngressSpec{
+			Rules: []v1alpha1.IngressRule{{
+				Hosts: []string{
+					"foo.bar.com",
+				},
+				Visibility: v1alpha1.IngressVisibilityExternalIP,
+				HTTP:       &v1alpha1.HTTPIngressRuleValue{},
+			}},
+		},
 	}
+)
 
+func TestIsReadyFailureAndSuccess(t *testing.T) {
 	tests := []struct {
 		name            string
-		vsSpec          v1alpha3.VirtualServiceSpec
+		gateways        map[v1alpha1.IngressVisibility]sets.String
 		gatewayLister   istiolisters.GatewayLister
 		endpointsLister corev1listers.EndpointsLister
 		serviceLister   corev1listers.ServiceLister
+		succeeds        bool
 	}{{
-		name: "multiple probes",
-		vsSpec: v1alpha3.VirtualServiceSpec{
-			Hosts: []string{"foobar" + resources.ProbeHostSuffix, "barbaz" + resources.ProbeHostSuffix},
-		},
+		name:     "invalid gateway",
+		gateways: map[v1alpha1.IngressVisibility]sets.String{v1alpha1.IngressVisibilityExternalIP: sets.NewString("not/valid/gateway")},
 	}, {
-		name: "no probe",
-		vsSpec: v1alpha3.VirtualServiceSpec{
-			Hosts: []string{"foobar.com"},
-		},
+		name:     "unqualified gateway",
+		gateways: map[v1alpha1.IngressVisibility]sets.String{v1alpha1.IngressVisibilityExternalIP: sets.NewString("gateway")},
 	}, {
-		name: "invalid gateway",
-		vsSpec: v1alpha3.VirtualServiceSpec{
-			Gateways: []string{"not/valid/gateway"},
-			Hosts:    []string{"foobar" + resources.ProbeHostSuffix},
-		},
-	}, {
-		name: "gateway error",
-		vsSpec: v1alpha3.VirtualServiceSpec{
-			Gateways: []string{"knative/ingress-gateway"},
-			Hosts:    []string{"foobar" + resources.ProbeHostSuffix},
-		},
+		name:          "gateway error",
+		gateways:      map[v1alpha1.IngressVisibility]sets.String{v1alpha1.IngressVisibilityExternalIP: sets.NewString("default/gateway")},
 		gatewayLister: &fakeGatewayLister{fails: true},
 	}, {
-		name: "service error",
-		vsSpec: v1alpha3.VirtualServiceSpec{
-			Gateways: []string{"default/gateway"},
-			Hosts:    []string{"foobar" + resources.ProbeHostSuffix},
-		},
+		name:     "service error",
+		gateways: map[v1alpha1.IngressVisibility]sets.String{v1alpha1.IngressVisibilityExternalIP: sets.NewString("default/gateway")},
 		gatewayLister: &fakeGatewayLister{
 			gateways: []*v1alpha3.Gateway{{
 				ObjectMeta: metav1.ObjectMeta{
@@ -102,11 +102,8 @@ func TestIsReadyFailures(t *testing.T) {
 		},
 		serviceLister: &fakeServiceLister{fails: true},
 	}, {
-		name: "endpoints error",
-		vsSpec: v1alpha3.VirtualServiceSpec{
-			Gateways: []string{"default/gateway"},
-			Hosts:    []string{"foobar" + resources.ProbeHostSuffix},
-		},
+		name:     "endpoints error",
+		gateways: map[v1alpha1.IngressVisibility]sets.String{v1alpha1.IngressVisibilityExternalIP: sets.NewString("default/gateway")},
 		gatewayLister: &fakeGatewayLister{
 			gateways: []*v1alpha3.Gateway{{
 				ObjectMeta: metav1.ObjectMeta{
@@ -137,11 +134,9 @@ func TestIsReadyFailures(t *testing.T) {
 		},
 		endpointsLister: &fakeEndpointsLister{fails: true},
 	}, {
-		name: "service port not found",
-		vsSpec: v1alpha3.VirtualServiceSpec{
-			Gateways: []string{"default/gateway"},
-			Hosts:    []string{"foobar" + resources.ProbeHostSuffix},
-		},
+		name:     "service port not found",
+		succeeds: true,
+		gateways: map[v1alpha1.IngressVisibility]sets.String{v1alpha1.IngressVisibilityExternalIP: sets.NewString("default/gateway")},
 		gatewayLister: &fakeGatewayLister{
 			gateways: []*v1alpha3.Gateway{{
 				ObjectMeta: metav1.ObjectMeta{
@@ -185,11 +180,9 @@ func TestIsReadyFailures(t *testing.T) {
 			}},
 		},
 	}, {
-		name: "service port not found",
-		vsSpec: v1alpha3.VirtualServiceSpec{
-			Gateways: []string{"default/gateway"},
-			Hosts:    []string{"foobar" + resources.ProbeHostSuffix},
-		},
+		name:     "no endpoints",
+		succeeds: true,
+		gateways: map[v1alpha1.IngressVisibility]sets.String{v1alpha1.IngressVisibilityExternalIP: sets.NewString("default/gateway")},
 		gatewayLister: &fakeGatewayLister{
 			gateways: []*v1alpha3.Gateway{{
 				ObjectMeta: metav1.ObjectMeta{
@@ -218,7 +211,7 @@ func TestIsReadyFailures(t *testing.T) {
 				},
 				Spec: v1.ServiceSpec{
 					Ports: []v1.ServicePort{{
-						Name: "real",
+						Name: "http",
 						Port: 80,
 					}},
 				},
@@ -230,67 +223,141 @@ func TestIsReadyFailures(t *testing.T) {
 					Namespace: "default",
 					Name:      "gateway",
 				},
-				Subsets: []v1.EndpointSubset{{
-					Ports: []v1.EndpointPort{{
-						Name: "bogus",
-						Port: 8080,
-					}},
-				}},
+				Subsets: []v1.EndpointSubset{},
 			}},
 		},
+	}, {
+		name:     "no services",
+		succeeds: true,
+		gateways: map[v1alpha1.IngressVisibility]sets.String{v1alpha1.IngressVisibilityExternalIP: sets.NewString("default/gateway")},
+		gatewayLister: &fakeGatewayLister{
+			gateways: []*v1alpha3.Gateway{{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "gateway",
+				},
+				Spec: v1alpha3.GatewaySpec{
+					Servers: []v1alpha3.Server{{
+						Hosts: []string{"*"},
+						Port: v1alpha3.Port{
+							Number:   80,
+							Protocol: v1alpha3.ProtocolHTTP,
+						},
+					}},
+					Selector: map[string]string{
+						"gwt": "istio",
+					},
+				},
+			}},
+		},
+		serviceLister:   &fakeServiceLister{},
+		endpointsLister: &fakeEndpointsLister{},
+	}, {
+		name:     "unsupported protocol",
+		succeeds: true,
+		gateways: map[v1alpha1.IngressVisibility]sets.String{v1alpha1.IngressVisibilityExternalIP: sets.NewString("default/gateway")},
+		gatewayLister: &fakeGatewayLister{
+			gateways: []*v1alpha3.Gateway{{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "gateway",
+				},
+				Spec: v1alpha3.GatewaySpec{
+					Servers: []v1alpha3.Server{{
+						Hosts: []string{"*"},
+						Port: v1alpha3.Port{
+							Number:   80,
+							Protocol: v1alpha3.ProtocolMongo,
+						},
+					}},
+					Selector: map[string]string{
+						"gwt": "istio",
+					},
+				},
+			}},
+		},
+		serviceLister: &fakeServiceLister{
+			services: []*v1.Service{{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "gateway",
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{{
+						Name: "http",
+						Port: 80,
+					}},
+				},
+			}},
+		},
+		endpointsLister: &fakeEndpointsLister{},
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			ia := iaTemplate.DeepCopy()
 			prober := NewStatusProber(
 				zaptest.NewLogger(t).Sugar(),
 				test.gatewayLister,
 				test.endpointsLister,
 				test.serviceLister,
-				network.NewAutoTransport,
-				func(vs *v1alpha3.VirtualService) {})
-			copy := vs.DeepCopy()
-			copy.Spec = test.vsSpec
-			_, err := prober.IsReady(copy)
-			if err == nil {
+				func(ia v1alpha1.IngressAccessor) {})
+			ok, err := prober.IsReady(ia, test.gateways)
+			if !test.succeeds && err == nil {
 				t.Errorf("expected an error, got nil")
+			} else if test.succeeds && !ok {
+				t.Errorf("expected %t, got %t", test.succeeds, ok)
 			}
 		})
 	}
 }
 
 func TestProbeLifecycle(t *testing.T) {
-	vs := &v1alpha3.VirtualService{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "default",
-			Name:      "whatever",
-		},
-		Spec: v1alpha3.VirtualServiceSpec{
-			Gateways: []string{"gateway", "mesh"},
-		},
+	gw := map[v1alpha1.IngressVisibility]sets.String{
+		v1alpha1.IngressVisibilityExternalIP: sets.NewString("default/gateway"),
 	}
 
-	host, err := resources.InsertProbe(vs)
+	ia := iaTemplate.DeepCopy()
+	hash, err := resources.InsertProbe(ia)
 	if err != nil {
-		t.Fatalf("failed to insert probe route: %v", err)
+		t.Fatalf("failed to insert probe: %v", err)
 	}
 
-	// Simulate no matching route on the first call and matching in subsequent requests
-	hosts := make(chan string, 1)
-	hosts <- "foobar.com"
+	// Simulate that the latest configuration is not applied yet by returning a different
+	// hash once and then the by returning the expected hash.
+	hashes := make(chan string, 1)
+	hashes <- "not-the-hash-you-are-looking-for"
 	go func() {
 		for {
-			hosts <- host
+			hashes <- hash
 		}
 	}()
 
-	requests := make(chan struct{})
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Host != <-hosts {
+	// Dummy handler returning HTTP 500 (it should never be called during probing)
+	dummyRequests := make(chan *http.Request)
+	dummyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		dummyRequests <- r
+		w.WriteHeader(500)
+	})
+
+	// Actual probe handler used in Activator and Queue-Proxy
+	probeHandler := network.NewProbeHandler(dummyHandler)
+
+	// Dummy handler keeping track of received requests, mimicking AppendHeader of K-Network-Hash
+	// and simulate a non-existing host by returning 404.
+	probeRequests := make(chan *http.Request)
+	finalHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.Host, "foo.bar.com") {
 			w.WriteHeader(404)
+			return
 		}
-		requests <- struct{}{}
-	}))
+
+		probeRequests <- r
+		r.Header.Set(network.HashHeaderName, <-hashes)
+		probeHandler.ServeHTTP(w, r)
+	})
+
+	ts := httptest.NewServer(finalHandler)
 	defer ts.Close()
 	url, err := url.Parse(ts.URL)
 	if err != nil {
@@ -302,8 +369,7 @@ func TestProbeLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to parse port %q: %v", url.Port(), err)
 	}
-
-	ready := make(chan *v1alpha3.VirtualService)
+	ready := make(chan v1alpha1.IngressAccessor)
 	prober := NewStatusProber(
 		zaptest.NewLogger(t).Sugar(),
 		&fakeGatewayLister{
@@ -316,8 +382,16 @@ func TestProbeLifecycle(t *testing.T) {
 					Servers: []v1alpha3.Server{{
 						Hosts: []string{"*"},
 						Port: v1alpha3.Port{
+							Name:     "http",
 							Number:   80,
 							Protocol: v1alpha3.ProtocolHTTP,
+						},
+					}, {
+						Hosts: []string{"*"},
+						Port: v1alpha3.Port{
+							Name:     "https",
+							Number:   443,
+							Protocol: v1alpha3.ProtocolHTTPS,
 						},
 					}},
 					Selector: map[string]string{
@@ -363,9 +437,8 @@ func TestProbeLifecycle(t *testing.T) {
 				},
 			}},
 		},
-		network.NewAutoTransport,
-		func(vs *v1alpha3.VirtualService) {
-			ready <- vs
+		func(ia v1alpha1.IngressAccessor) {
+			ready <- ia
 		})
 
 	prober.stateExpiration = 2 * time.Second
@@ -376,7 +449,7 @@ func TestProbeLifecycle(t *testing.T) {
 	prober.Start(done)
 
 	// The first call to IsReady must succeed and return false
-	ok, err := prober.IsReady(vs)
+	ok, err := prober.IsReady(ia, gw)
 	if err != nil {
 		t.Fatalf("IsReady failed: %v", err)
 	}
@@ -385,17 +458,17 @@ func TestProbeLifecycle(t *testing.T) {
 	}
 
 	// Wait for the first request (failing) to be executed
-	<-requests
+	<-probeRequests
 
 	// Wait for the second request (success) to be executed
-	<-requests
+	<-probeRequests
 
 	// Wait for the probing to eventually succeed
 	<-ready
 
 	// The subsequent calls to IsReady must succeed and return true
 	for i := 0; i < 5; i++ {
-		if ok, err = prober.IsReady(vs); err != nil {
+		if ok, err = prober.IsReady(ia, gw); err != nil {
 			t.Fatalf("IsReady failed: %v", err)
 		} else if !ok {
 			t.Fatalf("IsReady returned %v, want: %v", ok, false)
@@ -408,13 +481,16 @@ func TestProbeLifecycle(t *testing.T) {
 	// Wait for the cleanup to happen
 	case <-time.After(prober.stateExpiration + prober.cleanupPeriod):
 		break
-	// Validate that no requests were issued (cached)
-	case <-requests:
-		t.Fatal("an unexpected request was received")
+	// Validate that no probe requests were issued (cached)
+	case <-probeRequests:
+		t.Fatal("an unexpected probe request was received")
+	// Validate that no requests went through the probe handler
+	case <-dummyRequests:
+		t.Fatal("an unexpected request went through the probe handler")
 	}
 
 	// The state has expired and been removed
-	ok, err = prober.IsReady(vs)
+	ok, err = prober.IsReady(ia, gw)
 	if err != nil {
 		t.Fatalf("IsReady failed: %v", err)
 	}
@@ -423,10 +499,168 @@ func TestProbeLifecycle(t *testing.T) {
 	}
 
 	// Wait for the first request (success) to be executed
-	<-requests
+	<-probeRequests
 
 	// Wait for the probing to eventually succeed
 	<-ready
+
+	select {
+	// Validate that no requests went through the probe handler
+	case <-dummyRequests:
+		t.Fatal("an unexpected request went through the probe handler")
+	default:
+		break
+	}
+}
+
+func TestCancellation(t *testing.T) {
+	ia := iaTemplate.DeepCopy()
+	gw := map[v1alpha1.IngressVisibility]sets.String{
+		v1alpha1.IngressVisibilityExternalIP: sets.NewString("default/gateway"),
+	}
+
+	// Handler keeping track of received requests and mimicking an Ingress not ready
+	requests := make(chan *http.Request, 100)
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests <- r
+		w.WriteHeader(404)
+	})
+
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+	url, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatalf("failed to parse URL %q: %v", ts.URL, err)
+	}
+
+	port, err := strconv.Atoi(url.Port())
+	if err != nil {
+		t.Fatalf("failed to parse port %q: %v", url.Port(), err)
+	}
+
+	pod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "gateway",
+		},
+		Status: v1.PodStatus{
+			PodIP: strings.Split(url.Host, ":")[0],
+		},
+	}
+
+	ready := make(chan v1alpha1.IngressAccessor)
+	prober := NewStatusProber(
+		zaptest.NewLogger(t).Sugar(),
+		&fakeGatewayLister{
+			gateways: []*v1alpha3.Gateway{{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "gateway",
+				},
+				Spec: v1alpha3.GatewaySpec{
+					Servers: []v1alpha3.Server{{
+						Hosts: []string{"*"},
+						Port: v1alpha3.Port{
+							Number:   port,
+							Protocol: v1alpha3.ProtocolHTTP,
+						},
+					}},
+					Selector: map[string]string{
+						"gwt": "istio",
+					},
+				},
+			}},
+		},
+		&fakeEndpointsLister{
+			endpoints: []*v1.Endpoints{{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "gateway",
+				},
+				Subsets: []v1.EndpointSubset{{
+					Addresses: []v1.EndpointAddress{{
+						IP: url.Hostname(),
+					}},
+					Ports: []v1.EndpointPort{{
+						Name: "http2",
+						Port: int32(port),
+					}},
+				}},
+			}},
+		},
+		&fakeServiceLister{
+			services: []*v1.Service{{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "gateway",
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{{
+						Name: "bogus",
+						Port: 8080,
+					}, {
+						Name: "http2",
+						Port: int32(port),
+					}},
+				},
+			}},
+		},
+		func(ia v1alpha1.IngressAccessor) {
+			ready <- ia
+		})
+
+	done := make(chan struct{})
+	defer close(done)
+	prober.Start(done)
+
+	ok, err := prober.IsReady(ia, gw)
+	if err != nil {
+		t.Fatalf("IsReady failed: %v", err)
+	}
+	if ok {
+		t.Fatalf("IsReady returned %v, want: %v", ok, false)
+	}
+
+	// Wait for the first probe request
+	<-requests
+
+	// Create a new version of the Ingress
+	ia = ia.DeepCopy()
+	ia.Spec.Rules[0].Hosts[0] = "blabla.net"
+
+	// Check that probing is unsuccessful
+	select {
+	case <-ready:
+		t.Fatal("Probing succeeded while it should not have succeeded")
+	default:
+	}
+
+	ok, err = prober.IsReady(ia, gw)
+	if err != nil {
+		t.Fatalf("IsReady failed: %v", err)
+	}
+	if ok {
+		t.Fatalf("IsReady returned %v, want: %v", ok, false)
+	}
+
+	// Drain requests for the old version
+	for req := range requests {
+		log.Printf("req.Host: %s", req.Host)
+		if strings.HasPrefix(req.Host, "blabla.net") {
+			break
+		}
+	}
+
+	// Cancel Pod probing
+	prober.CancelPodProbing(pod)
+
+	// Check that the requests were for the new version
+	close(requests)
+	for req := range requests {
+		if !strings.HasPrefix(req.Host, "blabla.net") {
+			t.Fatalf("Unexpected Host: want: %s, got: %s", "blabla.net", req.Host)
+		}
+	}
 }
 
 type fakeGatewayLister struct {

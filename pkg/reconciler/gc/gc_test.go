@@ -30,7 +30,6 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 	. "knative.dev/pkg/reconciler/testing"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -181,7 +180,6 @@ func TestGCReconcile(t *testing.T) {
 		Key: "foo/keep-all",
 	}}
 
-	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &reconciler{
 			Base:                pkgreconciler.NewBase(ctx, controllerAgentName, cmw),

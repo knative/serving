@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/runtime"
 	autoscalingv2beta1listers "k8s.io/client-go/listers/autoscaling/v2beta1"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/controller"
@@ -50,13 +49,15 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 
 // Reconcile is the entry point to the reconciliation control loop.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		runtime.HandleError(fmt.Errorf("invalid resource key %s: %v", key, err))
-		return nil
-	}
 	logger := logging.FromContext(ctx)
 	ctx = c.ConfigStore.ToContext(ctx)
+
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		logger.Errorw("Invalid resource key", zap.Error(err))
+		return nil
+	}
+
 	logger.Debug("Reconcile hpa-class PodAutoscaler")
 
 	original, err := c.PALister.PodAutoscalers(namespace).Get(name)
@@ -114,13 +115,11 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	if errors.IsNotFound(err) {
 		logger.Infof("Creating HPA %q", desiredHpa.Name)
 		if hpa, err = c.KubeClientSet.AutoscalingV2beta1().HorizontalPodAutoscalers(pa.Namespace).Create(desiredHpa); err != nil {
-			logger.Errorf("Error creating HPA %q: %v", desiredHpa.Name, err)
 			pa.Status.MarkResourceFailedCreation("HorizontalPodAutoscaler", desiredHpa.Name)
-			return err
+			return perrors.Wrap(err, "failed to create HPA")
 		}
 	} else if err != nil {
-		logger.Errorf("Error getting existing HPA %q: %v", desiredHpa.Name, err)
-		return err
+		return perrors.Wrap(err, "failed to get HPA")
 	} else if !metav1.IsControlledBy(hpa, pa) {
 		// Surface an error in the PodAutoscaler's status, and return an error.
 		pa.Status.MarkResourceNotOwned("HorizontalPodAutoscaler", desiredHpa.Name)
@@ -129,8 +128,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	if !equality.Semantic.DeepEqual(desiredHpa.Spec, hpa.Spec) {
 		logger.Infof("Updating HPA %q", desiredHpa.Name)
 		if _, err := c.KubeClientSet.AutoscalingV2beta1().HorizontalPodAutoscalers(pa.Namespace).Update(desiredHpa); err != nil {
-			logger.Errorf("Error updating HPA %q: %v", desiredHpa.Name, err)
-			return err
+			return perrors.Wrap(err, "failed to update HPA")
 		}
 	}
 

@@ -23,10 +23,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	. "knative.dev/pkg/logging/testing"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/resources"
@@ -64,10 +62,8 @@ var (
 )
 
 func TestNewServiceScraperWithClientHappyCase(t *testing.T) {
-	defer ClearAll()
-	logger := TestLogger(t)
 	client := newTestScrapeClient(testStats, []error{nil})
-	if scraper, err := serviceScraperForTest(client, logger); err != nil {
+	if scraper, err := serviceScraperForTest(client); err != nil {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	} else {
 		if scraper.url != testURL {
@@ -86,8 +82,6 @@ func TestNewServiceScraperWithClientErrorCases(t *testing.T) {
 	client := newTestScrapeClient(testStats, []error{nil})
 	lister := kubeInformer.Core().V1().Endpoints().Lister()
 	counter := resources.NewScopedEndpointsCounter(lister, testNamespace, testService)
-	logger := TestLogger(t)
-	defer ClearAll()
 
 	testCases := []struct {
 		name        string
@@ -121,7 +115,7 @@ func TestNewServiceScraperWithClientErrorCases(t *testing.T) {
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			if _, err := newServiceScraperWithClient(test.metric, test.counter, test.client, logger); err != nil {
+			if _, err := newServiceScraperWithClient(test.metric, test.counter, test.client); err != nil {
 				got := err.Error()
 				want := test.expectedErr
 				if got != want {
@@ -135,11 +129,8 @@ func TestNewServiceScraperWithClientErrorCases(t *testing.T) {
 }
 
 func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
-	defer ClearAll()
-	logger := TestLogger(t)
-
 	client := newTestScrapeClient(testStats, []error{nil})
-	scraper, err := serviceScraperForTest(client, logger)
+	scraper, err := serviceScraperForTest(client)
 	if err != nil {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	}
@@ -151,7 +142,7 @@ func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 	now := time.Now()
 	got, err := scraper.Scrape()
 	if err != nil {
-		t.Fatalf("unexpected error from scraper.Scrape(logger): %v", err)
+		t.Fatalf("unexpected error from scraper.Scrape(): %v", err)
 	}
 
 	if got.Key != testPAKey {
@@ -184,10 +175,8 @@ func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 }
 
 func TestScrapeReportErrorCannotFindEnoughPods(t *testing.T) {
-	defer ClearAll()
-	logger := TestLogger(t)
 	client := newTestScrapeClient(testStats[2:], []error{nil})
-	scraper, err := serviceScraperForTest(client, logger)
+	scraper, err := serviceScraperForTest(client)
 	if err != nil {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	}
@@ -202,14 +191,12 @@ func TestScrapeReportErrorCannotFindEnoughPods(t *testing.T) {
 }
 
 func TestScrapeReportErrorIfAnyFails(t *testing.T) {
-	defer ClearAll()
-	logger := TestLogger(t)
 	errTest := errors.New("test")
 
 	// 1 success and 10 failures so one scrape fails permanently through retries.
 	client := newTestScrapeClient(testStats, []error{nil,
 		errTest, errTest, errTest, errTest, errTest, errTest, errTest, errTest, errTest, errTest})
-	scraper, err := serviceScraperForTest(client, logger)
+	scraper, err := serviceScraperForTest(client)
 	if err != nil {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	}
@@ -224,10 +211,8 @@ func TestScrapeReportErrorIfAnyFails(t *testing.T) {
 }
 
 func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
-	defer ClearAll()
-	logger := TestLogger(t)
 	client := newTestScrapeClient(testStats, nil)
-	scraper, err := serviceScraperForTest(client, logger)
+	scraper, err := serviceScraperForTest(client)
 	if err != nil {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	}
@@ -244,10 +229,10 @@ func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
 	}
 }
 
-func serviceScraperForTest(sClient scrapeClient, l *zap.SugaredLogger) (*ServiceScraper, error) {
+func serviceScraperForTest(sClient scrapeClient) (*ServiceScraper, error) {
 	metric := testMetric()
 	counter := resources.NewScopedEndpointsCounter(kubeInformer.Core().V1().Endpoints().Lister(), testNamespace, testService)
-	return newServiceScraperWithClient(metric, counter, sClient, l)
+	return newServiceScraperWithClient(metric, counter, sClient)
 }
 
 func testMetric() *av1alpha1.Metric {

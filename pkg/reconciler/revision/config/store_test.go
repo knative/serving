@@ -36,7 +36,6 @@ import (
 )
 
 func TestStoreLoadWithContext(t *testing.T) {
-	defer logtesting.ClearAll()
 	store := NewStore(logtesting.TestLogger(t))
 
 	deploymentConfig := ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey)
@@ -101,7 +100,6 @@ func TestStoreLoadWithContext(t *testing.T) {
 }
 
 func TestStoreImmutableConfig(t *testing.T) {
-	defer logtesting.ClearAll()
 	store := NewStore(logtesting.TestLogger(t))
 
 	store.OnConfigChanged(ConfigMapFromTestFile(t, deployment.ConfigName, deployment.QueueSidecarImageKey))

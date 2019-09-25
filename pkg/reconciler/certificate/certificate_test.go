@@ -40,7 +40,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/certificate/config"
 	"knative.dev/serving/pkg/reconciler/certificate/resources"
 
-	. "knative.dev/pkg/logging/testing"
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
 )
@@ -56,7 +55,6 @@ var (
 )
 
 func TestNewController(t *testing.T) {
-	defer ClearAll()
 	ctx, _ := SetupFakeContext(t)
 
 	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
@@ -178,7 +176,7 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to create Cert-Manager Certificate %s: %v",
 				"foo/knCert", "inducing failure for update certificates"),
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update certificates"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to update Cert-Manager Certificate: inducing failure for update certificates"),
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for Certificate %s: %v",
 				"foo/knCert", "inducing failure for update certificates"),
 		},
@@ -248,7 +246,6 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/knCert",
 	}}
 
-	defer ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
 			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),

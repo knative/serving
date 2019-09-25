@@ -30,7 +30,6 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -952,7 +951,8 @@ func TestReconcile(t *testing.T) {
 				}),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "Failed to parse image reference: spec.template.spec.containers[0].image\nimage: \"#\", error: could not parse reference"),
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				"failed to reconcile Configuration: Failed to parse image reference: spec.template.spec.containers[0].image\nimage: \"#\", error: could not parse reference"),
 		},
 	}, {
 		Name: "runLatest - route creation failure",
@@ -978,7 +978,7 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "create-route-failure"),
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Route %q: %v",
 				"create-route-failure", "inducing failure for create routes"),
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create routes"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create Route: inducing failure for create routes"),
 		},
 	}, {
 		Name: "runLatest - configuration creation failure",
@@ -1003,7 +1003,7 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Configuration %q: %v",
 				"create-config-failure", "inducing failure for create configurations"),
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create configurations"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create Configuration: inducing failure for create configurations"),
 		},
 	}, {
 		Name: "runLatest - update route failure",
@@ -1023,7 +1023,7 @@ func TestReconcile(t *testing.T) {
 			Object: route("update-route-failure", "foo", WithRunLatestRollout),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update routes"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to reconcile Route: inducing failure for update routes"),
 		},
 	}, {
 		Name: "runLatest - update config failure",
@@ -1045,7 +1045,7 @@ func TestReconcile(t *testing.T) {
 			Object: config("update-config-failure", "foo", WithRunLatestRollout),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update configurations"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to reconcile Configuration: inducing failure for update configurations"),
 		},
 	}, {
 		Name: "runLatest - failure updating service status",
@@ -1380,7 +1380,6 @@ func TestReconcile(t *testing.T) {
 		},
 	}}
 
-	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
 			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
@@ -1393,7 +1392,6 @@ func TestReconcile(t *testing.T) {
 }
 
 func TestNew(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
 
 	c := NewController(ctx, configmap.NewStaticWatcher())

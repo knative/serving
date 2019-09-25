@@ -24,17 +24,22 @@ import (
 	"sync/atomic"
 
 	"go.uber.org/zap"
+
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
+
+	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	servinginformers "knative.dev/serving/pkg/client/informers/externalversions/serving/v1alpha1"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/resources"
@@ -90,7 +95,7 @@ func newRevisionThrottler(revID types.NamespacedName,
 	logger = logger.With(zap.String(logkey.Key, revID.String()))
 	var revBreaker breaker
 	if containerConcurrency == 0 {
-		revBreaker = NewInfiniteBreaker(logger)
+		revBreaker = newInfiniteBreaker(logger)
 	} else {
 		revBreaker = queue.NewBreaker(breakerParams)
 	}
@@ -233,7 +238,7 @@ func (rt *revisionThrottler) updateThrottleState(throttler *Throttler, backendCo
 
 // This function will never be called in parallel but try can be called in parallel to this so we need
 // to lock on updating concurrency / trackers
-func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update RevisionDestsUpdate) {
+func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionDestsUpdate) {
 	rt.logger.Debugf("Handling update w/ %d ready and dests: %v", len(update.Dests), update.Dests)
 
 	// ClusterIP is not yet ready, so we want to send requests directly to the pods.
@@ -276,15 +281,14 @@ type Throttler struct {
 }
 
 // NewThrottler creates a new Throttler
-func NewThrottler(breakerParams queue.BreakerParams,
-	revisionInformer servinginformers.RevisionInformer,
-	endpointsInformer corev1informers.EndpointsInformer,
-	logger *zap.SugaredLogger) *Throttler {
+func NewThrottler(ctx context.Context,
+	breakerParams queue.BreakerParams) *Throttler {
+	revisionInformer := revisioninformer.Get(ctx)
 	t := &Throttler{
 		revisionThrottlers: make(map[types.NamespacedName]*revisionThrottler),
 		breakerParams:      breakerParams,
 		revisionLister:     revisionInformer.Lister(),
-		logger:             logger,
+		logger:             logging.FromContext(ctx),
 	}
 
 	// Watch revisions to create throttler with backlog immediately and delete
@@ -296,6 +300,7 @@ func NewThrottler(breakerParams queue.BreakerParams,
 	})
 
 	// Watch activator endpoint to maintain activator count
+	endpointsInformer := endpointsinformer.Get(ctx)
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: reconciler.ChainFilterFuncs(
 			reconciler.NameFilterFunc(networking.ActivatorServiceName),
@@ -310,8 +315,14 @@ func NewThrottler(breakerParams queue.BreakerParams,
 	return t
 }
 
-// Run starts the throttler and blocks until updateCh is closed.
-func (t *Throttler) Run(updateCh <-chan RevisionDestsUpdate) {
+// Run starts the throttler and blocks until the context is done.
+func (t *Throttler) Run(ctx context.Context) {
+	rbm := newRevisionBackendsManager(ctx, network.AutoTransport)
+	// Update channel is closed when ctx is done.
+	t.run(rbm.updates())
+}
+
+func (t *Throttler) run(updateCh <-chan revisionDestsUpdate) {
 	for update := range updateCh {
 		t.handleUpdate(update)
 	}
@@ -375,10 +386,19 @@ func (t *Throttler) revisionDeleted(obj interface{}) {
 	delete(t.revisionThrottlers, revID)
 }
 
-func (t *Throttler) handleUpdate(update RevisionDestsUpdate) {
+func (t *Throttler) handleUpdate(update revisionDestsUpdate) {
+	if update.Deleted {
+		// Nothing to do as revisionDeleted is already called by DeleteFunc of Informer.
+		return
+	}
 	if rt, err := t.getOrCreateRevisionThrottler(update.Rev); err != nil {
-		t.logger.Errorw(fmt.Sprintf("Failed to get revision throttler for revision %q", update.Rev.String()),
-			zap.Error(err))
+		if k8serrors.IsNotFound(err) {
+			t.logger.Debugf("Revision %q is not found. Probably it was removed", update.Rev.String())
+		} else {
+			t.logger.Errorw(
+				fmt.Sprintf("Failed to get revision throttler for revision %q", update.Rev.String()),
+				zap.Error(err))
+		}
 	} else {
 		rt.handleUpdate(t, update)
 	}
@@ -417,15 +437,14 @@ func minOneOrValue(num int) int {
 	return 1
 }
 
-// InfiniteBreaker is basically a short circuit.
-// InfiniteBreaker provides us capability to send unlimited number
+// infiniteBreaker is basically a short circuit.
+// infiniteBreaker provides us capability to send unlimited number
 // of requests to the downstream system.
 // This is to be used only when the container concurrency is unset
 // (i.e. infinity).
-// The InfiniteBreaker will, though, block the requests when
+// The infiniteBreaker will, though, block the requests when
 // downstream capacity is 0.
-// TODO(greghaynes) When the old throttler is removed this struct can be private.
-type InfiniteBreaker struct {
+type infiniteBreaker struct {
 	// mu guards `broadcast` channel.
 	mu sync.RWMutex
 
@@ -446,16 +465,16 @@ type InfiniteBreaker struct {
 	logger *zap.SugaredLogger
 }
 
-// NewInfiniteBreaker creates an InfiniteBreaker
-func NewInfiniteBreaker(logger *zap.SugaredLogger) *InfiniteBreaker {
-	return &InfiniteBreaker{
+// newInfiniteBreaker creates an infiniteBreaker
+func newInfiniteBreaker(logger *zap.SugaredLogger) *infiniteBreaker {
+	return &infiniteBreaker{
 		broadcast: make(chan struct{}),
 		logger:    logger,
 	}
 }
 
 // Capacity returns the current capacity of the breaker
-func (ib *InfiniteBreaker) Capacity() int {
+func (ib *infiniteBreaker) Capacity() int {
 	return int(atomic.LoadInt32(&ib.concurrency))
 }
 
@@ -467,7 +486,7 @@ func zeroOrOne(x int) int32 {
 }
 
 // UpdateConcurrency sets the concurrency of the breaker
-func (ib *InfiniteBreaker) UpdateConcurrency(cc int) error {
+func (ib *infiniteBreaker) UpdateConcurrency(cc int) error {
 	rcc := zeroOrOne(cc)
 	// We lock here to make sure two scale up events don't
 	// stomp on each other's feet.
@@ -488,7 +507,7 @@ func (ib *InfiniteBreaker) UpdateConcurrency(cc int) error {
 }
 
 // Maybe executes thunk when capacity is available
-func (ib *InfiniteBreaker) Maybe(ctx context.Context, thunk func()) error {
+func (ib *infiniteBreaker) Maybe(ctx context.Context, thunk func()) error {
 	has := ib.Capacity()
 	// We're scaled to serve.
 	if has > 0 {

@@ -28,8 +28,6 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	CachingV1alpha1() cachingv1alpha1.CachingV1alpha1Interface
-	// Deprecated: please explicitly pick a version if possible.
-	Caching() cachingv1alpha1.CachingV1alpha1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
@@ -41,12 +39,6 @@ type Clientset struct {
 
 // CachingV1alpha1 retrieves the CachingV1alpha1Client
 func (c *Clientset) CachingV1alpha1() cachingv1alpha1.CachingV1alpha1Interface {
-	return c.cachingV1alpha1
-}
-
-// Deprecated: Caching retrieves the default version of CachingClient.
-// Please explicitly pick a version.
-func (c *Clientset) Caching() cachingv1alpha1.CachingV1alpha1Interface {
 	return c.cachingV1alpha1
 }
 

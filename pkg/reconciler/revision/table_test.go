@@ -30,7 +30,6 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	logtesting "knative.dev/pkg/logging/testing"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
@@ -137,7 +136,7 @@ func TestReconcile(t *testing.T) {
 				MarkDeploying("Deploying")),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create podautoscalers"),
+			Eventf(corev1.EventTypeWarning, "InternalError", `failed to create PA "create-pa-failure": inducing failure for create podautoscalers`),
 		},
 		Key: "foo/create-pa-failure",
 	}, {
@@ -163,7 +162,8 @@ func TestReconcile(t *testing.T) {
 				MarkDeploying("Deploying")),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for create deployments"),
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				`failed to create deployment "create-user-deploy-failure-deployment": inducing failure for create deployments`),
 		},
 		Key: "foo/create-user-deploy-failure",
 	}, {
@@ -237,7 +237,8 @@ func TestReconcile(t *testing.T) {
 			Object: deploy(t, "foo", "failure-update-deploy"),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update deployments"),
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				`failed to update deployment "failure-update-deploy-deployment": inducing failure for update deployments`),
 		},
 		Key: "foo/failure-update-deploy",
 	}, {
@@ -383,7 +384,7 @@ func TestReconcile(t *testing.T) {
 			Object: pa("foo", "fix-mutated-pa-fail", WithReachability(asv1a1.ReachabilityUnknown)),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update podautoscalers"),
+			Eventf(corev1.EventTypeWarning, "InternalError", `failed to update PA "fix-mutated-pa-fail": inducing failure for update podautoscalers`),
 		},
 		Key: "foo/fix-mutated-pa-fail",
 	}, {
@@ -551,7 +552,6 @@ func TestReconcile(t *testing.T) {
 		Key: "foo/missing-owners",
 	}}
 
-	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
 			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),

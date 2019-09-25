@@ -28,6 +28,7 @@ import (
 	_ "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice/fake"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
@@ -49,7 +50,6 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 
-	logtesting "knative.dev/pkg/logging/testing"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
@@ -187,9 +187,9 @@ func TestReconcile(t *testing.T) {
 			ingress("no-virtualservice-yet", 1234),
 		},
 		WantCreates: []runtime.Object{
-			insertProbe(t, resources.MakeMeshVirtualService(ingress("no-virtualservice-yet", 1234))),
-			insertProbe(t, resources.MakeIngressVirtualService(ingress("no-virtualservice-yet", 1234),
-				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/knative-ingress-gateway"}, nil))),
+			resources.MakeMeshVirtualService(insertProbe(ingress("no-virtualservice-yet", 1234))),
+			resources.MakeIngressVirtualService(insertProbe(ingress("no-virtualservice-yet", 1234)),
+				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/knative-ingress-gateway"}, nil)),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: ingressWithStatus("no-virtualservice-yet", 1234,
@@ -271,11 +271,11 @@ func TestReconcile(t *testing.T) {
 			},
 		},
 		WantCreates: []runtime.Object{
-			insertProbe(t, resources.MakeMeshVirtualService(ingress("reconcile-failed", 1234))),
+			resources.MakeMeshVirtualService(insertProbe(ingress("reconcile-failed", 1234))),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: insertProbe(t, resources.MakeIngressVirtualService(ingress("reconcile-failed", 1234),
-				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/knative-ingress-gateway"}, nil))),
+			Object: resources.MakeIngressVirtualService(insertProbe(ingress("reconcile-failed", 1234)),
+				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/knative-ingress-gateway"}, nil)),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: ingressWithStatus("reconcile-failed", 1234,
@@ -300,7 +300,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconcile-failed-mesh"),
-			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update virtualservices"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "failed to update VirtualService: inducing failure for update virtualservices"),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for Ingress %q", "reconcile-failed"),
 		},
 		Key: "test-ns/reconcile-failed",
@@ -335,11 +335,11 @@ func TestReconcile(t *testing.T) {
 			},
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: insertProbe(t, resources.MakeIngressVirtualService(ingress("reconcile-virtualservice", 1234),
-				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/knative-ingress-gateway"}, nil))),
+			Object: resources.MakeIngressVirtualService(insertProbe(ingress("reconcile-virtualservice", 1234)),
+				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/knative-ingress-gateway"}, nil)),
 		}},
 		WantCreates: []runtime.Object{
-			insertProbe(t, resources.MakeMeshVirtualService(ingress("reconcile-virtualservice", 1234))),
+			resources.MakeMeshVirtualService(insertProbe(ingress("reconcile-virtualservice", 1234))),
 		},
 		WantDeletes: []clientgotesting.DeleteActionImpl{{
 			ActionImpl: clientgotesting.ActionImpl{
@@ -393,7 +393,6 @@ func TestReconcile(t *testing.T) {
 		Key: "test-ns/reconcile-virtualservice",
 	}}
 
-	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
 			BaseIngressReconciler: &BaseIngressReconciler{
@@ -405,7 +404,7 @@ func TestReconcile(t *testing.T) {
 					config: ReconcilerTestConfig(),
 				},
 				StatusManager: &fakeStatusManager{
-					FakeIsReady: func(service *v1alpha3.VirtualService) (b bool, e error) {
+					FakeIsReady: func(ia v1alpha1.IngressAccessor, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error) {
 						return true, nil
 					},
 				},
@@ -429,9 +428,9 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			// The creation of gateways are triggered when setting up the test.
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevantServer}),
 
-			insertProbe(t, resources.MakeMeshVirtualService(ingress("reconciling-ingress", 1234))),
-			insertProbe(t, resources.MakeIngressVirtualService(ingress("reconciling-ingress", 1234),
-				makeGatewayMap([]string{"knative-testing/knative-ingress-gateway"}, nil))),
+			resources.MakeMeshVirtualService(insertProbe(ingressWithTLS("reconciling-ingress", 1234, ingressTLS))),
+			resources.MakeIngressVirtualService(insertProbe(ingressWithTLS("reconciling-ingress", 1234, ingressTLS)),
+				makeGatewayMap([]string{"knative-testing/knative-ingress-gateway"}, nil)),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			// ingressTLSServer needs to be added into Gateway.
@@ -492,9 +491,9 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			originSecret("istio-system", "secret0"),
 		},
 		WantCreates: []runtime.Object{
-			insertProbe(t, resources.MakeMeshVirtualService(ingress("reconciling-ingress", 1234))),
-			insertProbe(t, resources.MakeIngressVirtualService(ingress("reconciling-ingress", 1234),
-				makeGatewayMap([]string{"knative-testing/knative-ingress-gateway"}, nil))),
+			resources.MakeMeshVirtualService(insertProbe(ingressWithTLS("reconciling-ingress", 1234, ingressTLS))),
+			resources.MakeIngressVirtualService(insertProbe(ingressWithTLS("reconciling-ingress", 1234, ingressTLS)),
+				makeGatewayMap([]string{"knative-testing/knative-ingress-gateway"}, nil)),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddFinalizerAction("reconciling-ingress", ingressFinalizer),
@@ -526,7 +525,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconciling-ingress-mesh"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconciling-ingress"),
-			Eventf(corev1.EventTypeWarning, "InternalError", `gateway.networking.istio.io "knative-ingress-gateway" not found`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `failed to get Gateway: gateway.networking.istio.io "knative-ingress-gateway" not found`),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for Ingress %q", "reconciling-ingress"),
 		},
 		// Error should be returned when there is no preinstalled gateways.
@@ -568,9 +567,9 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			// The creation of gateways are triggered when setting up the test.
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevantServer}),
 
-			insertProbe(t, resources.MakeMeshVirtualService(ingress("reconciling-ingress", 1234))),
-			insertProbe(t, resources.MakeIngressVirtualService(ingress("reconciling-ingress", 1234),
-				makeGatewayMap([]string{"knative-testing/knative-ingress-gateway"}, nil))),
+			resources.MakeMeshVirtualService(insertProbe(ingressWithTLS("reconciling-ingress", 1234, ingressTLSWithSecretNamespace("knative-serving")))),
+			resources.MakeIngressVirtualService(insertProbe(ingressWithTLS("reconciling-ingress", 1234, ingressTLSWithSecretNamespace("knative-serving"))),
+				makeGatewayMap([]string{"knative-testing/knative-ingress-gateway"}, nil)),
 
 			// The secret copy under istio-system.
 			secret("istio-system", targetSecretName, map[string]string{
@@ -661,9 +660,9 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		WantCreates: []runtime.Object{
 			// The creation of gateways are triggered when setting up the test.
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{*withCredentialName(ingressTLSServer.DeepCopy(), targetSecretName), irrelevantServer}),
-			insertProbe(t, resources.MakeMeshVirtualService(ingress("reconciling-ingress", 1234))),
-			insertProbe(t, resources.MakeIngressVirtualService(ingress("reconciling-ingress", 1234),
-				makeGatewayMap([]string{"knative-testing/knative-ingress-gateway"}, nil))),
+			resources.MakeMeshVirtualService(insertProbe(ingressWithTLS("reconciling-ingress", 1234, ingressTLSWithSecretNamespace("knative-serving")))),
+			resources.MakeIngressVirtualService(insertProbe(ingressWithTLS("reconciling-ingress", 1234, ingressTLSWithSecretNamespace("knative-serving"))),
+				makeGatewayMap([]string{"knative-testing/knative-ingress-gateway"}, nil)),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: &corev1.Secret{
@@ -743,7 +742,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		WantCreates: []runtime.Object{
 			// The creation of gateways are triggered when setting up the test.
 			gateway("knative-ingress-gateway", system.Namespace(), []v1alpha3.Server{irrelevantServer}),
-			insertProbe(t, resources.MakeMeshVirtualService(ingressWithTLSClusterLocal("reconciling-ingress", 1234, []v1alpha1.IngressTLS{}))),
+			resources.MakeMeshVirtualService(insertProbe(ingressWithTLSClusterLocal("reconciling-ingress", 1234, ingressTLS))),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: ingressWithTLSAndStatusClusterLocal("reconciling-ingress", 1234,
@@ -822,7 +821,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 					},
 				},
 				StatusManager: &fakeStatusManager{
-					FakeIsReady: func(service *v1alpha3.VirtualService) (b bool, e error) {
+					FakeIsReady: func(ia v1alpha1.IngressAccessor, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error) {
 						return true, nil
 					},
 				},
@@ -945,6 +944,8 @@ func ingressWithStatus(name string, generation int64, status v1alpha1.IngressSta
 		Spec: v1alpha1.IngressSpec{
 			DeprecatedGeneration: generation,
 			Rules:                ingressRules,
+			// Deprecated, needed because of DeepCopy behavior
+			Visibility: v1alpha1.IngressVisibilityExternalIP,
 		},
 		Status: status,
 	}
@@ -1005,7 +1006,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	controller := NewController(ctx, configMapWatcher)
 
 	controller.Reconciler.(*Reconciler).StatusManager = &fakeStatusManager{
-		FakeIsReady: func(*v1alpha3.VirtualService) (bool, error) {
+		FakeIsReady: func(ia v1alpha1.IngressAccessor, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error) {
 			return true, nil
 		},
 	}
@@ -1034,7 +1035,6 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 }
 
 func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, cancel, informers, ctrl, watcher := newTestSetup(t)
 
 	grp := errgroup.Group{}
@@ -1118,8 +1118,13 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 	}
 }
 
+func insertProbe(ia v1alpha1.IngressAccessor) v1alpha1.IngressAccessor {
+	ia = ia.DeepCopyObject().(v1alpha1.IngressAccessor)
+	resources.InsertProbe(ia)
+	return ia
+}
+
 func TestGlobalResyncOnUpdateNetwork(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, cancel, informers, ctrl, watcher := newTestSetup(t)
 
 	grp := errgroup.Group{}
@@ -1226,18 +1231,10 @@ func makeGatewayMap(publicGateways []string, privateGateways []string) map[v1alp
 	}
 }
 
-func insertProbe(t *testing.T, vs *v1alpha3.VirtualService) *v1alpha3.VirtualService {
-	t.Helper()
-	if _, err := resources.InsertProbe(vs); err != nil {
-		t.Errorf("failed to insert probe: %v", err)
-	}
-	return vs
-}
-
 type fakeStatusManager struct {
-	FakeIsReady func(*v1alpha3.VirtualService) (bool, error)
+	FakeIsReady func(ia v1alpha1.IngressAccessor, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error)
 }
 
-func (m *fakeStatusManager) IsReady(vs *v1alpha3.VirtualService) (bool, error) {
-	return m.FakeIsReady(vs)
+func (m *fakeStatusManager) IsReady(ia v1alpha1.IngressAccessor, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error) {
+	return m.FakeIsReady(ia, gw)
 }

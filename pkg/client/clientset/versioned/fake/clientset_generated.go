@@ -49,7 +49,7 @@ func NewSimpleClientset(objects ...runtime.Object) *Clientset {
 		}
 	}
 
-	cs := &Clientset{}
+	cs := &Clientset{tracker: o}
 	cs.discovery = &fakediscovery.FakeDiscovery{Fake: &cs.Fake}
 	cs.AddReactor("*", "*", testing.ObjectReaction(o))
 	cs.AddWatchReactor("*", func(action testing.Action) (handled bool, ret watch.Interface, err error) {
@@ -71,10 +71,15 @@ func NewSimpleClientset(objects ...runtime.Object) *Clientset {
 type Clientset struct {
 	testing.Fake
 	discovery *fakediscovery.FakeDiscovery
+	tracker   testing.ObjectTracker
 }
 
 func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 	return c.discovery
+}
+
+func (c *Clientset) Tracker() testing.ObjectTracker {
+	return c.tracker
 }
 
 var _ clientset.Interface = &Clientset{}
@@ -84,18 +89,8 @@ func (c *Clientset) AutoscalingV1alpha1() autoscalingv1alpha1.AutoscalingV1alpha
 	return &fakeautoscalingv1alpha1.FakeAutoscalingV1alpha1{Fake: &c.Fake}
 }
 
-// Autoscaling retrieves the AutoscalingV1alpha1Client
-func (c *Clientset) Autoscaling() autoscalingv1alpha1.AutoscalingV1alpha1Interface {
-	return &fakeautoscalingv1alpha1.FakeAutoscalingV1alpha1{Fake: &c.Fake}
-}
-
 // NetworkingV1alpha1 retrieves the NetworkingV1alpha1Client
 func (c *Clientset) NetworkingV1alpha1() networkingv1alpha1.NetworkingV1alpha1Interface {
-	return &fakenetworkingv1alpha1.FakeNetworkingV1alpha1{Fake: &c.Fake}
-}
-
-// Networking retrieves the NetworkingV1alpha1Client
-func (c *Clientset) Networking() networkingv1alpha1.NetworkingV1alpha1Interface {
 	return &fakenetworkingv1alpha1.FakeNetworkingV1alpha1{Fake: &c.Fake}
 }
 
@@ -111,10 +106,5 @@ func (c *Clientset) ServingV1beta1() servingv1beta1.ServingV1beta1Interface {
 
 // ServingV1 retrieves the ServingV1Client
 func (c *Clientset) ServingV1() servingv1.ServingV1Interface {
-	return &fakeservingv1.FakeServingV1{Fake: &c.Fake}
-}
-
-// Serving retrieves the ServingV1Client
-func (c *Clientset) Serving() servingv1.ServingV1Interface {
 	return &fakeservingv1.FakeServingV1{Fake: &c.Fake}
 }

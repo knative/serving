@@ -23,13 +23,13 @@ import (
 	"regexp"
 	"text/template"
 
+	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubelabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	kubelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -64,9 +64,14 @@ func (c *reconciler) Reconcile(ctx context.Context, key string) error {
 	logger := logging.FromContext(ctx)
 	ctx = c.configStore.ToContext(ctx)
 
+	if !config.FromContext(ctx).Network.AutoTLS {
+		logger.Debug("AutoTLS is disabled. Skipping wildcard certificate creation")
+		return nil
+	}
+
 	_, ns, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		runtime.HandleError(fmt.Errorf("invalid resource key %s: %v", key, err))
+		logger.Errorw("Invalid resource key", zap.Error(err))
 		return nil
 	}
 
@@ -109,8 +114,7 @@ func (c *reconciler) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 
 	dnsName, err := wildcardDomain(cfg.Network.DomainTemplate, defaultDomain, ns.Name)
 	if err != nil {
-		c.Logger.Errorf("failed to apply domain template %s to domain %s and namespace %s: %v", cfg.Network.DomainTemplate, defaultDomain, ns.Name, err)
-		return err
+		return perrors.Wrapf(err, "failed to apply domain template %s to domain %s and namespace %s", cfg.Network.DomainTemplate, defaultDomain, ns.Name)
 	}
 
 	// If any labeled cert has been issued for our DNSName then there's nothing to do
@@ -128,16 +132,15 @@ func (c *reconciler) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 	if apierrs.IsNotFound(err) {
 		cert, err := c.ServingClientSet.NetworkingV1alpha1().Certificates(ns.Name).Create(desiredCert)
 		if err != nil {
-			c.Logger.Errorw("Failed to create namespace certificate", zap.Error(err))
 			c.Recorder.Eventf(ns, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create Knative certificate %s/%s: %v", ns.Name, desiredCert.ObjectMeta.Name, err)
-			return err
+			return perrors.Wrap(err, "failed to create namespace certificate")
 		}
 
 		c.Recorder.Eventf(cert, corev1.EventTypeNormal, "Created",
 			"Created Knative Certificate %s/%s", ns.Name, cert.ObjectMeta.Name)
 	} else if err != nil {
-		return err
+		return perrors.Wrap(err, "failed to get namespace certificate")
 	} else if !metav1.IsControlledBy(existingCert, ns) {
 		return fmt.Errorf("namespace %s does not own Knative Certificate: %s", ns.Name, existingCert.Name)
 	} else if !equality.Semantic.DeepEqual(existingCert.Spec, desiredCert.Spec) {
@@ -145,10 +148,9 @@ func (c *reconciler) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 		copy.Spec = desiredCert.Spec
 		_, err := c.ServingClientSet.NetworkingV1alpha1().Certificates(copy.Namespace).Update(copy)
 		if err != nil {
-			c.Logger.Errorw("Failed to update Knative Certificate", zap.Error(err))
 			c.Recorder.Eventf(existingCert, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update Knative Certificate %s/%s: %v", existingCert.Namespace, existingCert.Name, err)
-			return err
+			return perrors.Wrap(err, "failed to update namespace certificate")
 		}
 		c.Recorder.Eventf(existingCert, corev1.EventTypeNormal, "Updated",
 			"Updated Spec for Knative Certificate %s/%s", desiredCert.Namespace, desiredCert.Name)

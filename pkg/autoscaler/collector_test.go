@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,7 +50,6 @@ var (
 )
 
 func TestMetricCollectorCRUD(t *testing.T) {
-	defer ClearAll()
 	logger := TestLogger(t)
 
 	scraper := &testScraper{
@@ -115,7 +113,6 @@ func TestMetricCollectorCRUD(t *testing.T) {
 }
 
 func TestMetricCollectorScraper(t *testing.T) {
-	defer ClearAll()
 	logger := TestLogger(t)
 
 	now := time.Now()
@@ -181,7 +178,6 @@ func TestMetricCollectorScraper(t *testing.T) {
 }
 
 func TestMetricCollectorRecord(t *testing.T) {
-	defer ClearAll()
 	logger := TestLogger(t)
 
 	now := time.Now()
@@ -321,10 +317,9 @@ func TestMetricCollectorError(t *testing.T) {
 		},
 	}}
 
+	logger := TestLogger(t)
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			defer ClearAll()
-			logger := TestLogger(t)
 			factory := scraperFactory(test.scraper, nil)
 			coll := NewMetricCollector(factory, logger)
 			coll.CreateOrUpdate(test.metric)
@@ -348,7 +343,7 @@ func TestMetricCollectorError(t *testing.T) {
 }
 
 func scraperFactory(scraper StatsScraper, err error) StatsScraperFactory {
-	return func(*av1alpha1.Metric, *zap.SugaredLogger) (StatsScraper, error) {
+	return func(*av1alpha1.Metric) (StatsScraper, error) {
 		return scraper, err
 	}
 }

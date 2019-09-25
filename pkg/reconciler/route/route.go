@@ -47,6 +47,7 @@ import (
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	networkinglisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler"
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 	networkaccessor "knative.dev/serving/pkg/reconciler/accessor/networking"
@@ -91,15 +92,15 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 // converge the two. It then updates the Status block of the Route resource
 // with the current status of the resource.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
-	// Convert the namespace/name string into a distinct namespace and name
+	logger := logging.FromContext(ctx)
+	ctx = c.configStore.ToContext(ctx)
+	ctx = controller.WithEventRecorder(ctx, c.Recorder)
+
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		c.Logger.Errorw("invalid resource key", zap.Error(err))
+		logger.Errorw("Invalid resource key", zap.Error(err))
 		return nil
 	}
-	logger := logging.FromContext(ctx)
-	ctx = controller.WithEventRecorder(ctx, c.Recorder)
-	ctx = c.configStore.ToContext(ctx)
 
 	// Get the Route resource with this namespace/name.
 	original, err := c.routeLister.Routes(namespace).Get(name)
@@ -291,14 +292,14 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 	if !config.FromContext(ctx).Network.AutoTLS {
 		return tls, nil
 	}
-	tagToDomainMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets), clusterLocalServiceNames)
+	domainToTagMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets), clusterLocalServiceNames)
 	if err != nil {
 		return nil, err
 	}
 
-	for tag, domain := range tagToDomainMap {
+	for domain := range domainToTagMap {
 		if domains.IsClusterLocal(domain) {
-			delete(tagToDomainMap, tag)
+			delete(domainToTagMap, domain)
 		}
 	}
 
@@ -314,7 +315,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 		return nil, err
 	}
 
-	desiredCerts := resources.MakeCertificates(r, tagToDomainMap, certClass(ctx, r))
+	desiredCerts := resources.MakeCertificates(r, domainToTagMap, certClass(ctx, r))
 	for _, desiredCert := range desiredCerts {
 		dnsNames := sets.NewString(desiredCert.Spec.DNSNames...)
 		// Look for a matching wildcard cert before provisioning a new one. This saves the
@@ -335,25 +336,28 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 			dnsNames = sets.NewString(cert.Spec.DNSNames...)
 		}
 
+		// r.Status.URL is for the major domain, so only change if the cert is for
+		// the major domain
+		if dnsNames.Has(host) {
+			r.Status.URL.Scheme = "https"
+		}
+		// TODO: we should only mark https for the public visible targets when
+		// we are able to configure visibility per target.
+		setTargetsScheme(&r.Status, dnsNames.List(), "https")
 		if cert.Status.IsReady() {
 			r.Status.MarkCertificateReady(cert.Name)
-			// r.Status.URL is for the major domain, so only change if the cert is for
-			// the major domain
-			if dnsNames.Has(host) {
-				r.Status.URL.Scheme = "https"
-			}
-			// TODO: we should only mark https for the public visible targets when
-			// we are able to configure visibility per target.
-			setTargetsScheme(&r.Status, dnsNames.List(), "https")
 		} else {
 			r.Status.MarkCertificateNotReady(cert.Name)
-			if dnsNames.Has(host) {
-				r.Status.URL = &apis.URL{
-					Scheme: "http",
-					Host:   host,
+			// When httpProtocol is enabled, downward http scheme.
+			if config.FromContext(ctx).Network.HTTPProtocol == network.HTTPEnabled {
+				if dnsNames.Has(host) {
+					r.Status.URL = &apis.URL{
+						Scheme: "http",
+						Host:   host,
+					}
 				}
+				setTargetsScheme(&r.Status, dnsNames.List(), "http")
 			}
-			setTargetsScheme(&r.Status, dnsNames.List(), "http")
 		}
 		tls = append(tls, resources.MakeIngressTLS(cert, dnsNames.List()))
 	}
@@ -461,7 +465,8 @@ func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1alpha1.R
 	}
 
 	mainRouteMeta := route.ObjectMeta.DeepCopy()
-	labels.SetVisibility(mainRouteMeta, clusterLocalServices.Has(mainRouteServiceName))
+	isClusterLocal := clusterLocalServices.Has(mainRouteServiceName) || labels.IsObjectLocalVisibility(route.ObjectMeta)
+	labels.SetVisibility(mainRouteMeta, isClusterLocal)
 
 	host, err := domains.DomainNameFromTemplate(ctx, *mainRouteMeta, route.Name)
 	if err != nil {

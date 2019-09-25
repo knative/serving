@@ -38,7 +38,6 @@ var defaultProbe = &corev1.Probe{
 }
 
 func TestRevisionDefaulting(t *testing.T) {
-	defer logtesting.ClearAll()
 	tests := []struct {
 		name string
 		in   *Revision

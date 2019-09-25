@@ -32,7 +32,6 @@ import (
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
-	logtesting "knative.dev/pkg/logging/testing"
 	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -66,7 +65,6 @@ const (
 )
 
 func TestScaler(t *testing.T) {
-	defer logtesting.ClearAll()
 	tests := []struct {
 		label               string
 		startReplicas       int
@@ -394,7 +392,6 @@ func TestScaler(t *testing.T) {
 }
 
 func TestDisableScaleToZero(t *testing.T) {
-	defer logtesting.ClearAll()
 	tests := []struct {
 		label         string
 		startReplicas int
@@ -624,6 +621,7 @@ func TestActivatorProbe(t *testing.T) {
 			return rsp.Result(), nil
 		},
 		wantRes: false,
+		wantErr: true,
 	}, {
 		name: "wrong body",
 		rt: func(r *http.Request) (*http.Response, error) {
@@ -632,6 +630,7 @@ func TestActivatorProbe(t *testing.T) {
 			return rsp.Result(), nil
 		},
 		wantRes: false,
+		wantErr: true,
 	}, {
 		name: "all wrong",
 		rt: func(r *http.Request) (*http.Response, error) {
@@ -648,7 +647,7 @@ func TestActivatorProbe(t *testing.T) {
 				t.Errorf("Result = %v, want: %v", got, want)
 			}
 			if got, want := err != nil, test.wantErr; got != want {
-				t.Errorf("WantErr = %v, want: %v", got, want)
+				t.Errorf("WantErr = %v, want: %v: actual error is: %v", got, want, err)
 			}
 		})
 	}

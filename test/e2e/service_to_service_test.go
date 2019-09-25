@@ -254,7 +254,7 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 
 	// Wait for the activator endpoints to equalize.
 	if err := waitForActivatorEndpoints(resources, clients); err != nil {
-		t.Fatal("Never got Activator endpoints in the service")
+		t.Fatalf("Never got Activator endpoints in the service: %v", err)
 	}
 
 	// Send request to helloworld app via httpproxy service

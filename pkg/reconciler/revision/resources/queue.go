@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
+	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	tracingconfig "knative.dev/pkg/tracing/config"
@@ -45,6 +46,7 @@ import (
 const (
 	localAddress             = "127.0.0.1"
 	requestQueueHTTPPortName = "queue-port"
+	profilingPortName        = "profiling-port"
 )
 
 var (
@@ -67,6 +69,11 @@ var (
 		Name:          v1alpha1.UserQueueMetricsPortName,
 		ContainerPort: int32(networking.UserQueueMetricsPort),
 	}}
+
+	profilingPort = corev1.ContainerPort{
+		Name:          profilingPortName,
+		ContainerPort: int32(profiling.ProfilingPort),
+	}
 
 	queueSecurityContext = &corev1.SecurityContext{
 		AllowPrivilegeEscalation: ptr.Bool(false),
@@ -201,14 +208,17 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 		ts = *rev.Spec.TimeoutSeconds
 	}
 
+	ports := queueNonServingPorts
+	if observabilityConfig.EnableProfiling {
+		ports = append(ports, profilingPort)
+	}
 	// We need to configure only one serving port for the Queue proxy, since
 	// we know the protocol that is being used by this application.
-	ports := queueNonServingPorts
+	servingPort := queueHTTPPort
 	if rev.GetProtocol() == networking.ProtocolH2C {
-		ports = append(ports, queueHTTP2Port)
-	} else {
-		ports = append(ports, queueHTTPPort)
+		servingPort = queueHTTP2Port
 	}
+	ports = append(ports, servingPort)
 
 	var volumeMounts []corev1.VolumeMount
 	if observabilityConfig.EnableVarLogCollection {
@@ -246,7 +256,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 			Value: rev.Name,
 		}, {
 			Name:  "QUEUE_SERVING_PORT",
-			Value: strconv.Itoa(int(ports[len(ports)-1].ContainerPort)),
+			Value: strconv.Itoa(int(servingPort.ContainerPort)),
 		}, {
 			Name:  "CONTAINER_CONCURRENCY",
 			Value: strconv.Itoa(int(rev.Spec.GetContainerConcurrency())),
@@ -318,9 +328,13 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 		}, {
 			Name:  "SERVING_READINESS_PROBE",
 			Value: probeJSON,
-		}},
+		}, {
+			Name:  "ENABLE_PROFILING",
+			Value: strconv.FormatBool(observabilityConfig.EnableProfiling)},
+		},
 	}, nil
 }
+
 func applyReadinessProbeDefaults(p *corev1.Probe, port int32) {
 	switch {
 	case p == nil:

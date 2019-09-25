@@ -45,7 +45,6 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -916,7 +915,6 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 }
 
 func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
-	defer logtesting.ClearAll()
 	// Test changes in domain config map. Routes should get updated appropriately.
 	// We're expecting exactly one route modification per config-map change.
 	tests := []struct {
