@@ -394,7 +394,7 @@ func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 		t.Error("Expected success.")
 	}
 
-	if atomic.LoadInt32(&count) != threshold+requestFailure {
+	if atomic.LoadInt32(&count) < threshold+requestFailure {
 		t.Errorf("Wanted %d requests before reporting success, got=%d", threshold+requestFailure, count)
 	}
 }
