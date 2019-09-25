@@ -621,6 +621,7 @@ func TestActivatorProbe(t *testing.T) {
 			return rsp.Result(), nil
 		},
 		wantRes: false,
+		wantErr: true,
 	}, {
 		name: "wrong body",
 		rt: func(r *http.Request) (*http.Response, error) {
@@ -629,6 +630,7 @@ func TestActivatorProbe(t *testing.T) {
 			return rsp.Result(), nil
 		},
 		wantRes: false,
+		wantErr: true,
 	}, {
 		name: "all wrong",
 		rt: func(r *http.Request) (*http.Response, error) {
@@ -645,7 +647,7 @@ func TestActivatorProbe(t *testing.T) {
 				t.Errorf("Result = %v, want: %v", got, want)
 			}
 			if got, want := err != nil, test.wantErr; got != want {
-				t.Errorf("WantErr = %v, want: %v", got, want)
+				t.Errorf("WantErr = %v, want: %v: actual error is: %v", got, want, err)
 			}
 		})
 	}

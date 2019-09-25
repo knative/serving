@@ -58,27 +58,34 @@ func TestDoServing(t *testing.T) {
 		name        string
 		headerValue string
 		want        bool
+		expErr      bool
 	}{{
 		name:        "ok",
 		headerValue: systemName,
 		want:        true,
+		expErr:      false,
 	}, {
 		name:        "wrong system",
 		headerValue: "bells-and-whistles",
 		want:        false,
+		expErr:      true,
 	}, {
 		name:        "no header",
 		headerValue: "",
 		want:        false,
+		expErr:      true,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := Do(context.Background(), network.NewAutoTransport(), ts.URL, WithHeader(network.ProbeHeaderName, test.headerValue), ExpectsBody(test.headerValue), ExpectsStatusCodes([]int{http.StatusOK}))
+			got, err := Do(context.Background(), network.NewAutoTransport(), ts.URL, WithHeader(network.ProbeHeaderName, test.headerValue), ExpectsBody(systemName), ExpectsStatusCodes([]int{http.StatusOK}))
 			if want := test.want; got != want {
 				t.Errorf("Got = %v, want: %v", got, want)
 			}
-			if err != nil {
-				t.Errorf("Do returned error: %v", err)
+			if err != nil && !test.expErr {
+				t.Errorf("Do() = %v, no error expected", err)
+			}
+			if err == nil && test.expErr {
+				t.Errorf("Do() = nil, expected an error")
 			}
 		})
 	}
@@ -212,6 +219,9 @@ func TestDoAsyncTimeout(t *testing.T) {
 	defer close(wch)
 
 	cb := func(arg interface{}, done bool, err error) {
+		if done {
+			t.Errorf("done was true")
+		}
 		if err != wait.ErrWaitTimeout {
 			t.Errorf("Unexpected error = %v", err)
 		}
@@ -268,28 +278,35 @@ func TestWithHostOption(t *testing.T) {
 		name    string
 		options []interface{}
 		success bool
+		expErr  bool
 	}{{
 		name:    "no hosts",
 		options: []interface{}{ExpectsStatusCodes([]int{http.StatusOK})},
 		success: false,
+		expErr:  true,
 	}, {
 		name:    "expected host",
 		options: []interface{}{WithHost(host), ExpectsStatusCodes([]int{http.StatusOK})},
 		success: true,
+		expErr:  false,
 	}, {
 		name:    "wrong host",
 		options: []interface{}{WithHost("nope.com"), ExpectsStatusCodes([]int{http.StatusOK})},
 		success: false,
+		expErr:  true,
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ok, err := Do(context.Background(), network.AutoTransport, ts.URL, test.options...)
-			if err != nil {
-				t.Errorf("failed to probe: %v", err)
-			}
 			if ok != test.success {
 				t.Errorf("unexpected probe result: want: %v, got: %v", test.success, ok)
+			}
+			if err != nil && !test.expErr {
+				t.Errorf("Do() = %v, no error expected", err)
+			}
+			if err == nil && test.expErr {
+				t.Errorf("Do() = nil, expected an error")
 			}
 		})
 	}
@@ -305,6 +322,7 @@ func TestExpectsHeaderOption(t *testing.T) {
 		name    string
 		options []interface{}
 		success bool
+		expErr  bool
 	}{{
 		name:    "header is present",
 		options: []interface{}{ExpectsHeader("Foo", "Bar"), ExpectsStatusCodes([]int{http.StatusOK})},
@@ -313,20 +331,25 @@ func TestExpectsHeaderOption(t *testing.T) {
 		name:    "header is absent",
 		options: []interface{}{ExpectsHeader("Baz", "Nope"), ExpectsStatusCodes([]int{http.StatusOK})},
 		success: false,
+		expErr:  true,
 	}, {
 		name:    "header value doesn't match",
 		options: []interface{}{ExpectsHeader("Foo", "Baz"), ExpectsStatusCodes([]int{http.StatusOK})},
 		success: false,
+		expErr:  true,
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ok, err := Do(context.Background(), network.AutoTransport, ts.URL, test.options...)
-			if err != nil {
-				t.Errorf("failed to probe: %v", err)
-			}
 			if ok != test.success {
 				t.Errorf("unexpected probe result: want: %v, got: %v", test.success, ok)
+			}
+			if err != nil && !test.expErr {
+				t.Errorf("Do() = %v, no error expected", err)
+			}
+			if err == nil && test.expErr {
+				t.Errorf("Do() = nil, expected an error")
 			}
 		})
 	}

@@ -33,6 +33,7 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 		name    string
 		options []interface{}
 		want    bool
+		expErr  bool
 	}{{
 		name: "successful probe when both headers are specified",
 		options: []interface{}{
@@ -69,7 +70,8 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 			prober.WithHeader(ProbeHeaderName, ProbeHeaderValue),
 			prober.ExpectsStatusCodes([]int{http.StatusOK}),
 		},
-		want: false,
+		want:   false,
+		expErr: true,
 	}}
 
 	var h http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -86,8 +88,11 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			got, err := prober.Do(context.Background(), AutoTransport, ts.URL, c.options...)
-			if err != nil {
-				t.Errorf("failed to probe: %v", err)
+			if err != nil && !c.expErr {
+				t.Errorf("prober.Do() = %v, no error expected", err)
+			}
+			if err == nil && c.expErr {
+				t.Errorf("prober.Do() = nil, expected an error")
 			}
 			if got != c.want {
 				t.Errorf("unexpected probe result: want: %t, got: %t", c.want, got)
