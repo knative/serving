@@ -351,7 +351,7 @@ func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.R
 			DeleteFunc: rbm.endpointsDeleted,
 		},
 	})
-	// Make sure we close the update channel when we're done,
+	// We close the update channel when we're done,
 	// to make sure Throttler will stop.
 	go func() {
 		select {
