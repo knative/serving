@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"reflect"
 
 	"knative.dev/pkg/apis/istio/v1alpha3"
@@ -306,6 +307,9 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 	logger.Infof("Reconciling ingress: %#v", ia)
 
 	gatewayNames := qualifiedGatewayNamesFromContext(ctx)
+	// Fetch user-defined custom gateways to add if specified.
+	gatewayNames = addCustomGatewaysToGatewayList(ia, gatewayNames)
+
 	vses, err := resources.MakeVirtualServices(ia, gatewayNames)
 	if err != nil {
 		return err
@@ -606,4 +610,28 @@ func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus 
 
 func enableReconcileGateway(ctx context.Context) bool {
 	return config.FromContext(ctx).Network.AutoTLS || config.FromContext(ctx).Istio.ReconcileExternalGateway
+}
+
+func addCustomGatewaysToGatewayList(ia v1alpha1.IngressAccessor, gatewayList map[v1alpha1.IngressVisibility]sets.String) map[v1alpha1.IngressVisibility]sets.String {
+	externalIPCustomGateway := ia.GetAnnotations()[networking.CustomExternalIPGatewayAnnotationKey]
+	if externalIPCustomGateway != "" {
+		externalIPCustomGateway = getQualifiedName(ia, externalIPCustomGateway)
+		gatewayList[v1alpha1.IngressVisibilityExternalIP].Insert(externalIPCustomGateway)
+	}
+
+	clusterLocalCustomGateway := ia.GetAnnotations()[networking.CustomClusterLocalGatewayAnnotationKey]
+	if clusterLocalCustomGateway != "" {
+		clusterLocalCustomGateway = getQualifiedName(ia, clusterLocalCustomGateway)
+		gatewayList[v1alpha1.IngressVisibilityClusterLocal].Insert(clusterLocalCustomGateway)
+	}
+	return gatewayList
+}
+
+// Qualified name format of the custom gateway is either {namespace}/{gateway-name} or {gateway-name}.
+// If namespace is not specified, it will default to the service namespace.		
+func getQualifiedName(ia v1alpha1.IngressAccessor, gatewayName string) string {
+	if !strings.Contains(gatewayName, "/") {
+		gatewayName = ia.GetNamespace() + "/" + gatewayName
+	}
+	return gatewayName
 }
