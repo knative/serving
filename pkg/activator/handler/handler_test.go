@@ -26,9 +26,9 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/zap"
 	"github.com/google/go-cmp/cmp"
 	"go.opencensus.io/plugin/ochttp"
+	"go.uber.org/zap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
 	rtesting "knative.dev/pkg/reconciler/testing"
