@@ -172,13 +172,3 @@ func CheckConfigurationState(client *test.ServingAlphaClients, name string, inSt
 func ConfigurationHasCreatedRevision(c *v1alpha1.Configuration) (bool, error) {
 	return c.Status.LatestCreatedRevisionName != "", nil
 }
-
-// IsConfigRevisionCreationFailed will check the status conditions of the
-// configuration and return true if the configuration's revision failed to
-// create.
-func IsConfigRevisionCreationFailed(c *v1alpha1.Configuration) (bool, error) {
-	if cond := c.Status.GetCondition(v1alpha1.ConfigurationConditionReady); cond != nil {
-		return cond.Status == corev1.ConditionFalse && cond.Reason == "RevisionFailed", nil
-	}
-	return false, nil
-}
