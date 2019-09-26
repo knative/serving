@@ -30,7 +30,7 @@ type TestServer struct {
 	listenAddr chan string
 }
 
-func NewTestServer(statsCh chan<- *autoscaler.StatMessage) *TestServer {
+func NewTestServer(statsCh chan<- autoscaler.StatMessage) *TestServer {
 	return &TestServer{
 		Server:     New(testAddress, statsCh, zap.NewNop().Sugar()),
 		listenAddr: make(chan string, 1),

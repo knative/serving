@@ -43,7 +43,7 @@ type ConcurrencyReporter struct {
 	// Ticks with every stat report request
 	reportCh <-chan time.Time
 	// Stat reporting channel
-	statCh chan *autoscaler.StatMessage
+	statCh chan autoscaler.StatMessage
 
 	rl servinglisters.RevisionLister
 	sr activator.StatsReporter
@@ -54,7 +54,7 @@ type ConcurrencyReporter struct {
 // NewConcurrencyReporter creates a ConcurrencyReporter which listens to incoming
 // ReqEvents on reqCh and ticks on reportCh and reports stats on statCh.
 func NewConcurrencyReporter(ctx context.Context, podName string,
-	reqCh chan ReqEvent, reportCh <-chan time.Time, statCh chan *autoscaler.StatMessage,
+	reqCh chan ReqEvent, reportCh <-chan time.Time, statCh chan autoscaler.StatMessage,
 	sr activator.StatsReporter) *ConcurrencyReporter {
 	return NewConcurrencyReporterWithClock(ctx, podName, reqCh, reportCh,
 		statCh, sr, system.RealClock{})
@@ -63,7 +63,7 @@ func NewConcurrencyReporter(ctx context.Context, podName string,
 // NewConcurrencyReporterWithClock instantiates a new concurrency reporter
 // which uses the passed clock.
 func NewConcurrencyReporterWithClock(ctx context.Context, podName string, reqCh chan ReqEvent,
-	reportCh <-chan time.Time, statCh chan *autoscaler.StatMessage,
+	reportCh <-chan time.Time, statCh chan autoscaler.StatMessage,
 	sr activator.StatsReporter, clock system.Clock) *ConcurrencyReporter {
 	return &ConcurrencyReporter{
 		logger:   logging.FromContext(ctx),
@@ -86,7 +86,7 @@ func (cr *ConcurrencyReporter) reportToAutoscaler(key types.NamespacedName, conc
 
 	// Send the stat to another goroutine to transmit
 	// so we can continue bucketing stats.
-	cr.statCh <- &autoscaler.StatMessage{
+	cr.statCh <- autoscaler.StatMessage{
 		Key:  key,
 		Stat: stat,
 	}

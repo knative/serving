@@ -106,7 +106,7 @@ func main() {
 	ctx = logging.WithLogger(ctx, logger)
 
 	// statsCh is the main communication channel between the stats server and multiscaler.
-	statsCh := make(chan *autoscaler.StatMessage, statsBufferLen)
+	statsCh := make(chan autoscaler.StatMessage, statsBufferLen)
 	defer close(statsCh)
 
 	profilingHandler := profiling.NewHandler(logger, false)

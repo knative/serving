@@ -37,7 +37,7 @@ import (
 )
 
 func TestServerLifecycle(t *testing.T) {
-	statsCh := make(chan *autoscaler.StatMessage)
+	statsCh := make(chan autoscaler.StatMessage)
 	server := stats.NewTestServer(statsCh)
 
 	eg := errgroup.Group{}
@@ -54,7 +54,7 @@ func TestServerLifecycle(t *testing.T) {
 }
 
 func TestProbe(t *testing.T) {
-	statsCh := make(chan *autoscaler.StatMessage)
+	statsCh := make(chan autoscaler.StatMessage)
 	server := stats.NewTestServer(statsCh)
 
 	defer server.Shutdown(0)
@@ -76,7 +76,7 @@ func TestProbe(t *testing.T) {
 }
 
 func TestStatsReceived(t *testing.T) {
-	statsCh := make(chan *autoscaler.StatMessage)
+	statsCh := make(chan autoscaler.StatMessage)
 	server := stats.NewTestServer(statsCh)
 
 	defer server.Shutdown(0)
@@ -91,7 +91,7 @@ func TestStatsReceived(t *testing.T) {
 }
 
 func TestServerShutdown(t *testing.T) {
-	statsCh := make(chan *autoscaler.StatMessage)
+	statsCh := make(chan autoscaler.StatMessage)
 	server := stats.NewTestServer(statsCh)
 
 	go server.ListenAndServe()
@@ -136,7 +136,7 @@ func TestServerShutdown(t *testing.T) {
 }
 
 func TestServerDoesNotLeakGoroutines(t *testing.T) {
-	statsCh := make(chan *autoscaler.StatMessage)
+	statsCh := make(chan autoscaler.StatMessage)
 	server := stats.NewTestServer(statsCh)
 
 	go server.ListenAndServe()
@@ -165,8 +165,8 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 	server.Shutdown(time.Second)
 }
 
-func newStatMessage(revKey types.NamespacedName, podName string, averageConcurrentRequests float64, requestCount float64) *autoscaler.StatMessage {
-	return &autoscaler.StatMessage{
+func newStatMessage(revKey types.NamespacedName, podName string, averageConcurrentRequests float64, requestCount float64) autoscaler.StatMessage {
+	return autoscaler.StatMessage{
 		Key: revKey,
 		Stat: autoscaler.Stat{
 			PodName:                   podName,
@@ -176,7 +176,7 @@ func newStatMessage(revKey types.NamespacedName, podName string, averageConcurre
 	}
 }
 
-func assertReceivedOk(sm *autoscaler.StatMessage, statSink *websocket.Conn, statsCh <-chan *autoscaler.StatMessage, t *testing.T) bool {
+func assertReceivedOk(sm autoscaler.StatMessage, statSink *websocket.Conn, statsCh <-chan autoscaler.StatMessage, t *testing.T) bool {
 	send(statSink, sm, t)
 	recv, ok := <-statsCh
 	if !ok {
@@ -214,7 +214,7 @@ func dial(serverURL string, t *testing.T) (*websocket.Conn, error) {
 	return statSink, err
 }
 
-func send(statSink *websocket.Conn, sm *autoscaler.StatMessage, t *testing.T) {
+func send(statSink *websocket.Conn, sm autoscaler.StatMessage, t *testing.T) {
 	var b bytes.Buffer
 	enc := gob.NewEncoder(&b)
 
