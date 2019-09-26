@@ -110,9 +110,10 @@ func TestDestroyPodInflight(t *testing.T) {
 	}
 
 	// The timeout app sleeps for the time passed via the timeout query parameter in milliseconds
+	timeoutRequestDurationInMillis := int64(timeoutRequestDuration / time.Millisecond)
 	u, _ := url.Parse(routeURL.String())
 	q := u.Query()
-	q.Set("timeout", fmt.Sprintf("%d", timeoutRequestDuration.Milliseconds()))
+	q.Set("timeout", fmt.Sprintf("%d", timeoutRequestDurationInMillis))
 	u.RawQuery = q.Encode()
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
@@ -131,7 +132,7 @@ func TestDestroyPodInflight(t *testing.T) {
 		if res.StatusCode != http.StatusOK {
 			return fmt.Errorf("Expected response to have status 200, had %d", res.StatusCode)
 		}
-		expectedBody := fmt.Sprintf("Slept for %d milliseconds", timeoutRequestDuration.Milliseconds())
+		expectedBody := fmt.Sprintf("Slept for %d milliseconds", timeoutRequestDurationInMillis)
 		gotBody := string(res.Body)
 		if gotBody != expectedBody {
 			return fmt.Errorf("Unexpected body, expected: %q got: %q", expectedBody, gotBody)
