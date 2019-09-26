@@ -92,7 +92,7 @@ spec:
           - name: POD_IP
             valueFrom:
               fieldRef:
-                fieldPath: status.podIP                
+                fieldPath: status.podIP
           - name: SYSTEM_NAMESPACE
             valueFrom:
               fieldRef:
