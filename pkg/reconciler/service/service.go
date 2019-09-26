@@ -100,7 +100,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 
-	} else if _, uErr := c.updateStatus(service); uErr != nil {
+	} else if _, uErr := c.updateStatus(service, logger); uErr != nil {
 		logger.Warnw("Failed to update service status", zap.Error(uErr))
 		c.Recorder.Eventf(service, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for Service %q: %v", service.Name, uErr)
@@ -272,7 +272,7 @@ func (c *Reconciler) checkRoutesNotReady(config *v1alpha1.Configuration, logger 
 	}
 }
 
-func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service, error) {
+func (c *Reconciler) updateStatus(desired *v1alpha1.Service, logger *zap.SugaredLogger) (*v1alpha1.Service, error) {
 	service, err := c.serviceLister.Services(desired.Namespace).Get(desired.Name)
 	if err != nil {
 		return nil, err
@@ -289,7 +289,7 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service,
 	svc, err := c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).UpdateStatus(existing)
 	if err == nil && becomesReady {
 		duration := time.Since(svc.ObjectMeta.CreationTimestamp.Time)
-		c.Logger.Infof("Service became ready after %v", duration)
+		logger.Infof("Service became ready after %v", duration)
 		c.StatsReporter.ReportServiceReady(service.Namespace, service.Name, duration)
 	}
 
