@@ -40,28 +40,28 @@ func newHTTPScrapeClient(httpClient *http.Client) (*httpScrapeClient, error) {
 	}, nil
 }
 
-func (c *httpScrapeClient) Scrape(url string) (*Stat, error) {
+func (c *httpScrapeClient) Scrape(url string) (Stat, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		return nil, err
+		return Stat{}, err
 	}
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return Stat{}, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return nil, fmt.Errorf("GET request for URL %q returned HTTP status %v", url, resp.StatusCode)
+		return Stat{}, fmt.Errorf("GET request for URL %q returned HTTP status %v", url, resp.StatusCode)
 	}
 
 	return extractData(resp.Body)
 }
 
-func extractData(body io.Reader) (*Stat, error) {
+func extractData(body io.Reader) (Stat, error) {
 	var parser expfmt.TextParser
 	metricFamilies, err := parser.TextToMetricFamilies(body)
 	if err != nil {
-		return nil, fmt.Errorf("reading text format failed: %v", err)
+		return Stat{}, fmt.Errorf("reading text format failed: %v", err)
 	}
 
 	stat := Stat{}
@@ -73,18 +73,18 @@ func extractData(body io.Reader) (*Stat, error) {
 	} {
 		pm := prometheusMetric(metricFamilies, m)
 		if pm == nil {
-			return nil, fmt.Errorf("could not find value for %s in response", m)
+			return Stat{}, fmt.Errorf("could not find value for %s in response", m)
 		}
 		*pv = *pm.Gauge.Value
 
 		if stat.PodName == "" {
 			stat.PodName = prometheusLabel(pm.Label, "destination_pod")
 			if stat.PodName == "" {
-				return nil, errors.New("could not find pod name in metric labels")
+				return Stat{}, errors.New("could not find pod name in metric labels")
 			}
 		}
 	}
-	return &stat, nil
+	return stat, nil
 }
 
 // prometheusMetric returns the point of the first Metric of the MetricFamily

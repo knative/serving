@@ -281,7 +281,7 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 		AverageConcurrentRequests: 1,
 		RequestCount:              1,
 	}
-	ms.Poke(testPAKey, testStat)
+	ms.Poke(metricKey, testStat)
 
 	// Verify that we see a "tick"
 	if err := verifyTick(errCh); err != nil {
