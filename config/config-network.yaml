@@ -74,7 +74,7 @@ data:
     #
     istio.sidecar.includeOutboundIPRanges: "*"
 
-    # ingress.class specifies the default ingress class
+    # clusteringress.class specifies the default ingress class
     # to use when not dictated by Route annotation.
     #
     # If not specified, will use the Istio ingress.
@@ -83,7 +83,7 @@ data:
     # will result in undefined behavior.  Therefore it is best to only
     # update this value during the setup of Knative, to avoid getting
     # undefined behavior.
-    ingress.class: "istio.ingress.networking.knative.dev"
+    clusteringress.class: "istio.ingress.networking.knative.dev"
 
     # certificate.class specifies the default Certificate class
     # to use when not dictated by Route annotation.

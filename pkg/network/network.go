@@ -62,7 +62,7 @@ const (
 
 	// DefaultIngressClassKey is the name of the configuration entry
 	// that specifies the default Ingress.
-	DefaultIngressClassKey = "ingress.class"
+	DefaultIngressClassKey = "clusteringress.class"
 
 	// DefaultCertificateClassKey is the name of the configuration entry
 	// that specifies the default Certificate.
