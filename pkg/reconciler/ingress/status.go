@@ -84,6 +84,7 @@ type workItem struct {
 	ingressState *ingressState
 	podState     *podState
 	url          string
+	port         string
 	podIP        string
 }
 
@@ -228,10 +229,17 @@ func (m *StatusProber) IsReady(ia v1alpha1.IngressAccessor, gw map[v1alpha1.Ingr
 
 			for _, host := range hosts {
 				for _, url := range urls {
+					fullUrl := fmt.Sprintf(url, host)
+					port := ""
+					if i := strings.LastIndex(fullUrl, ":"); i != -1 {
+						port = fullUrl[i+1:]
+						fullUrl = fullUrl[:i]
+					}
 					workItem := &workItem{
 						ingressState: ingressState,
 						podState:     podState,
-						url:          fmt.Sprintf(url, host),
+						url:          fullUrl,
+						port:         port,
 						podIP:        ip,
 					}
 					workItems = append(workItems, workItem)
@@ -248,7 +256,7 @@ func (m *StatusProber) IsReady(ia v1alpha1.IngressAccessor, gw map[v1alpha1.Ingr
 	}()
 	for _, workItem := range workItems {
 		m.workQueue.AddRateLimited(workItem)
-		m.logger.Infof("Queuing probe for %s, IP: %s (depth: %d)", workItem.url, workItem.podIP, m.workQueue.Len())
+		m.logger.Infof("Queuing probe for %s:%s, IP: %s (depth: %d)", workItem.url, workItem.port, workItem.podIP, m.workQueue.Len())
 	}
 	return len(workItems) == 0, nil
 }
@@ -321,7 +329,7 @@ func (m *StatusProber) processWorkItem() bool {
 	if !ok {
 		m.logger.Fatalf("Unexpected work item type: want: %s, got: %s\n", reflect.TypeOf(&workItem{}).Name(), reflect.TypeOf(obj).Name())
 	}
-	m.logger.Infof("Processing probe for %s, IP: %s (depth: %d)", item.url, item.podIP, m.workQueue.Len())
+	m.logger.Infof("Processing probe for %s, IP: %s:%s (depth: %d)", item.url, item.podIP, item.port, m.workQueue.Len())
 
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
@@ -334,8 +342,11 @@ func (m *StatusProber) processWorkItem() bool {
 			// because the HTTP client validates that the hostname (not the Host header) matches the server
 			// TLS certificate Common Name or Alternative Names. Therefore, http.Request.URL is set to the
 			// hostname and it is substituted it here with the target IP.
-			if i := strings.LastIndex(addr, ":"); i != -1 {
-				addr = item.podIP + ":" + addr[i+1:]
+			if item.port != "" {
+				addr = item.podIP + ":" + item.port
+			} else {
+				// We can assume that item.port is always non-empty, but just in case.
+				addr = item.podIP
 			}
 			return dialContext(ctx, network, addr)
 		}}
@@ -359,7 +370,7 @@ func (m *StatusProber) processWorkItem() bool {
 	if err != nil || !ok {
 		// In case of error, enqueue for retry
 		m.workQueue.AddRateLimited(obj)
-		m.logger.Errorf("Probing of %s failed, IP: %s, ready: %t, error: %v (depth: %d)", item.url, item.podIP, ok, err, m.workQueue.Len())
+		m.logger.Errorf("Probing of %s failed, IP: %s:%s, ready: %t, error: %v (depth: %d)", item.url, item.podIP, item.port, ok, err, m.workQueue.Len())
 	} else {
 		m.updateStates(item.ingressState, item.podState)
 	}
@@ -422,10 +433,10 @@ func (m *StatusProber) listGatewayURLsPerPods(gateway *v1alpha3.Gateway) (map[st
 		switch server.Port.Protocol {
 		case v1alpha3.ProtocolHTTP, v1alpha3.ProtocolHTTP2:
 			if server.TLS == nil || !server.TLS.HTTPSRedirect {
-				urlTmpl = "http://%%s:%d/"
+				urlTmpl = "http://%%s:%d"
 			}
 		case v1alpha3.ProtocolHTTPS:
-			urlTmpl = "https://%%s:%d/"
+			urlTmpl = "https://%%s:%d"
 		default:
 			m.logger.Infof("Skipping Server %q because protocol %q is not supported", server.Port.Name, server.Port.Protocol)
 			continue
