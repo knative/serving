@@ -393,6 +393,15 @@ func TestMultipleActivators(t *testing.T) {
 	}()
 }
 
+func TestInfiniteBreakerCreation(t *testing.T) {
+	// This test verifies that we use infiniteBreaker when CC==0.
+	tttl := newRevisionThrottler(types.NamespacedName{"a", "b"}, 0, /*cc*/
+		queue.BreakerParams{}, TestLogger(t))
+	if _, ok := tttl.breaker.(*infiniteBreaker); !ok {
+		t.Errorf("The type of revisionBreker = %T, want %T", tttl, (*infiniteBreaker)(nil))
+	}
+}
+
 func tryThrottler(throttler *Throttler, trys []types.NamespacedName, ctx context.Context) []tryResult {
 	resCh := make(chan tryResult)
 	defer close(resCh)
