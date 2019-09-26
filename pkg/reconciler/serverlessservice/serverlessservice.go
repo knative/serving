@@ -93,7 +93,7 @@ func (r *reconciler) Reconcile(ctx context.Context, key string) error {
 		r.Recorder.Eventf(sks, corev1.EventTypeWarning, "UpdateFailed", "InternalError: %v", reconcileErr.Error())
 	}
 	if !equality.Semantic.DeepEqual(sks.Status, original.Status) {
-		if _, err := r.updateStatus(sks); err != nil {
+		if _, err := r.updateStatus(sks, logger); err != nil {
 			r.Recorder.Eventf(sks, corev1.EventTypeWarning, "UpdateFailed", "Failed to update status: %v", err)
 			return err
 		}
@@ -126,7 +126,7 @@ func (r *reconciler) reconcile(ctx context.Context, sks *netv1alpha1.ServerlessS
 	return nil
 }
 
-func (r *reconciler) updateStatus(sks *netv1alpha1.ServerlessService) (*netv1alpha1.ServerlessService, error) {
+func (r *reconciler) updateStatus(sks *netv1alpha1.ServerlessService, logger *zap.SugaredLogger) (*netv1alpha1.ServerlessService, error) {
 	original, err := r.sksLister.ServerlessServices(sks.Namespace).Get(sks.Name)
 	if err != nil {
 		return nil, err
@@ -134,7 +134,7 @@ func (r *reconciler) updateStatus(sks *netv1alpha1.ServerlessService) (*netv1alp
 	if reflect.DeepEqual(original.Status, sks.Status) {
 		return original, nil
 	}
-	r.Logger.Debugf("StatusDiff: %s", cmp.Diff(original.Status, sks.Status))
+	logger.Debugf("StatusDiff: %s", cmp.Diff(original.Status, sks.Status))
 	original = original.DeepCopy()
 	original.Status = sks.Status
 	return r.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).UpdateStatus(original)
