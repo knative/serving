@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -31,6 +30,7 @@ import (
 	"github.com/pkg/errors"
 	vegeta "github.com/tsenart/vegeta/lib"
 	"golang.org/x/sync/errgroup"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	ingress "knative.dev/pkg/test/ingress"
@@ -64,8 +64,6 @@ type testContext struct {
 	clients           *test.Clients
 	names             test.ResourceNames
 	resources         *v1a1test.ResourceObjects
-	deploymentName    string
-	url               *url.URL
 	targetUtilization float64
 	targetValue       int
 	metric            string
@@ -107,7 +105,7 @@ func generateTraffic(
 	stopChan chan struct{}) error {
 
 	target, err := getVegetaTarget(
-		ctx.clients.KubeClient.Kube, ctx.url.Hostname(), pkgTest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain)
+		ctx.clients.KubeClient.Kube, ctx.resources.Route.Status.URL.URL().Hostname(), pkgTest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		return fmt.Errorf("error creating vegeta target: %v", err)
 	}
@@ -162,8 +160,8 @@ func generateTrafficAtFixedRPS(ctx *testContext, rps int, duration time.Duration
 }
 
 // setup creates a new service, with given service options.
-// It returns a testContext that has resources, K8s clients,
-// and the deployment.
+// It returns a testContext that has resources, K8s clients and other needed
+// data points.
 // It sets up CleanupOnInterrupt as well that will destroy the resources
 // when the test terminates.
 func setup(t *testing.T, class, metric string, target int, targetUtilization float64, fopts ...rtesting.ServiceOption) *testContext {
@@ -210,8 +208,6 @@ func setup(t *testing.T, class, metric string, target int, targetUtilization flo
 		clients:           clients,
 		names:             names,
 		resources:         resources,
-		deploymentName:    resourcenames.Deployment(resources.Revision),
-		url:               url,
 		targetUtilization: targetUtilization,
 		targetValue:       target,
 		metric:            metric,
@@ -219,8 +215,9 @@ func setup(t *testing.T, class, metric string, target int, targetUtilization flo
 }
 
 func assertScaleDown(ctx *testContext) {
-	if err := WaitForScaleToZero(ctx.t, ctx.deploymentName, ctx.clients); err != nil {
-		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", ctx.deploymentName, err)
+	deploymentName := resourcenames.Deployment(ctx.resources.Revision)
+	if err := WaitForScaleToZero(ctx.t, deploymentName, ctx.clients); err != nil {
+		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", deploymentName, err)
 	}
 
 	// Account for the case where scaling up uses all available pods.
@@ -230,7 +227,7 @@ func assertScaleDown(ctx *testContext) {
 		ctx.clients.KubeClient,
 		func(p *v1.PodList) (bool, error) {
 			for _, pod := range p.Items {
-				if strings.Contains(pod.Name, ctx.deploymentName) &&
+				if strings.Contains(pod.Name, deploymentName) &&
 					!strings.Contains(pod.Status.Reason, "Evicted") {
 					return false, nil
 				}
@@ -238,7 +235,7 @@ func assertScaleDown(ctx *testContext) {
 			return true, nil
 		},
 		"WaitForAvailablePods", test.ServingNamespace); err != nil {
-		ctx.t.Fatalf("Waiting for Pod.List to have no non-Evicted pods of %q: %v", ctx.deploymentName, err)
+		ctx.t.Fatalf("Waiting for Pod.List to have no non-Evicted pods of %q: %v", deploymentName, err)
 	}
 
 	ctx.t.Log("The Revision should remain ready after scaling to zero.")
@@ -249,15 +246,16 @@ func assertScaleDown(ctx *testContext) {
 	ctx.t.Log("Scaled down.")
 }
 
-func numberOfPods(ctx *testContext) (int32, error) {
-	deployment, err := ctx.clients.KubeClient.Kube.AppsV1().Deployments(test.ServingNamespace).Get(ctx.deploymentName, metav1.GetOptions{})
+func numberOfPods(ctx *testContext) (int, error) {
+	eps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
+		kmeta.ChildName(ctx.resources.Revision.Name, "-private"), metav1.GetOptions{})
 	if err != nil {
-		return 0, errors.Wrapf(err, "Failed to get deployment %q", deployment)
+		return 0, errors.Wrap(err, "Failed to get endpoints")
 	}
-	return deployment.Status.AvailableReplicas, nil
+	return resources.ReadyAddressCount(eps), nil
 }
 
-func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, duration time.Duration, quick bool) {
+func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int, duration time.Duration, quick bool) {
 	ctx.t.Helper()
 	// There are two test modes: quick, and not quick.
 	// 1) Quick mode: succeeds when the number of pods meets targetPods.
@@ -267,8 +265,8 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, dur
 	// Relax the bounds to reduce the flakiness caused by sampling in the autoscaling algorithm.
 	// Also adjust the values by the target utilization values.
 
-	minPods := int32(math.Floor(float64(curPods)/ctx.targetUtilization)) - 1
-	maxPods := int32(math.Ceil(float64(targetPods)/ctx.targetUtilization)) + 1
+	minPods := int(math.Floor(float64(curPods)/ctx.targetUtilization)) - 1
+	maxPods := int(math.Ceil(float64(targetPods)/ctx.targetUtilization)) + 1
 
 	stopChan := make(chan struct{})
 	var grp errgroup.Group
@@ -296,7 +294,7 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, dur
 				if err != nil {
 					return err
 				}
-				mes := fmt.Sprintf("deployment '%s' #replicas: %d, want at least: %d", ctx.deploymentName, got, minPods)
+				mes := fmt.Sprintf("revision '%s' #replicas: %d, want at least: %d", ctx.resources.Revision.Name, got, minPods)
 				ctx.t.Log(mes)
 				if got < minPods {
 					return errors.New(mes)
@@ -311,7 +309,7 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, dur
 				}
 				if minPods < targetPods-1 {
 					// Increase `minPods`, but leave room to reduce flakiness.
-					minPods = int32(math.Min(float64(got), float64(targetPods))) - 1
+					minPods = int(math.Min(float64(got), float64(targetPods))) - 1
 				}
 			case <-done:
 				// The test duration is over. Do a last check to verify that the number of pods is at `targetPods`
@@ -320,7 +318,7 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods int32, dur
 				if err != nil {
 					return err
 				}
-				mes := fmt.Sprintf("got %d replicas, expected between [%d, %d] replicas for deployment %s", got, targetPods-1, maxPods, ctx.deploymentName)
+				mes := fmt.Sprintf("got %d replicas, expected between [%d, %d] replicas for revision %s", got, targetPods-1, maxPods, ctx.resources.Revision.Name)
 				ctx.t.Log(mes)
 				if got < targetPods-1 || got > maxPods {
 					return errors.New(mes)
