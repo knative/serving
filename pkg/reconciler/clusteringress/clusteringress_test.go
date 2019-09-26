@@ -1159,10 +1159,10 @@ func TestGlobalResyncOnUpdateNetwork(t *testing.T) {
 	})
 
 	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-		t.Fatalf("failed to start cluster ingress manager: %v", err)
+		t.Fatalf("Failed to start cluster ingress manager: %v", err)
 	}
 	if err := watcher.Start(ctx.Done()); err != nil {
-		t.Fatalf("failed to start cluster ingress manager: %v", err)
+		t.Fatalf("Failed to start watcher: %v", err)
 	}
 
 	grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })
