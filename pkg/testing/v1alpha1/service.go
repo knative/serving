@@ -156,21 +156,21 @@ func WithRunLatestRollout(s *v1alpha1.Service) {
 	}
 }
 
-// WithInlineConfigSpec confgures the Service to use the given config spec
+// WithInlineConfigSpec configures the Service to use the given config spec
 func WithInlineConfigSpec(config v1alpha1.ConfigurationSpec) ServiceOption {
 	return func(svc *v1alpha1.Service) {
 		svc.Spec.ConfigurationSpec = config
 	}
 }
 
-// WithInlineRouteSpec confgures the Service to use the given route spec
+// WithInlineRouteSpec configures the Service to use the given route spec
 func WithInlineRouteSpec(config v1alpha1.RouteSpec) ServiceOption {
 	return func(svc *v1alpha1.Service) {
 		svc.Spec.RouteSpec = config
 	}
 }
 
-// WithRunLatestConfigSpec confgures the Service to use a "runLatest" configuration
+// WithRunLatestConfigSpec configures the Service to use a "runLatest" configuration
 func WithRunLatestConfigSpec(config v1alpha1.ConfigurationSpec) ServiceOption {
 	return func(svc *v1alpha1.Service) {
 		svc.Spec = v1alpha1.ServiceSpec{
