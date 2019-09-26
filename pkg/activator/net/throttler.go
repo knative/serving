@@ -326,7 +326,7 @@ func (t *Throttler) run(updateCh <-chan revisionDestsUpdate) {
 	for update := range updateCh {
 		t.handleUpdate(update)
 	}
-	t.logger.Info("The Throttler has stopped!")
+	t.logger.Info("The Throttler has stopped.")
 }
 
 // Try waits for capacity and then executes function, passing in a l4 dest to send a request
