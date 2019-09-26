@@ -18,14 +18,15 @@ package autoscaler
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/serving/pkg/autoscaler/aggregation"
-
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/pkg/logging/logkey"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler/aggregation"
 )
 
 const (
@@ -132,7 +133,6 @@ func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
 		return err
 	}
 	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
-	c.logger.Info("Starting collection for ", key.String())
 
 	c.collectionsMutex.RLock()
 	collection, exists := c.collections[key]
@@ -161,8 +161,6 @@ func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
 func (c *MetricCollector) Delete(namespace, name string) error {
 	c.collectionsMutex.Lock()
 	defer c.collectionsMutex.Unlock()
-
-	c.logger.Infof("Stopping metric collection of %s/%s", namespace, name)
 
 	key := types.NamespacedName{Namespace: namespace, Name: name}
 	if collection, ok := c.collections[key]; ok {
@@ -247,6 +245,9 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, logger *zap.S
 
 		stopCh: make(chan struct{}),
 	}
+
+	logger = logger.Named("collector").With(
+		zap.String(logkey.Key, fmt.Sprintf("%s/%s", metric.Namespace, metric.Name)))
 
 	c.grp.Add(1)
 	go func() {

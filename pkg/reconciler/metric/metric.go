@@ -61,6 +61,7 @@ func (r *reconciler) Reconcile(ctx context.Context, key string) error {
 	original, err := r.metricLister.Metrics(namespace).Get(name)
 	if apierrs.IsNotFound(err) {
 		// The metric object is gone, so delete the collection.
+		logger.Info("Stopping to collect metrics")
 		return r.collector.Delete(namespace, name)
 	} else if err != nil {
 		return errors.Wrap(err, "failed to fetch metric "+key)
