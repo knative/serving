@@ -33,14 +33,13 @@ import (
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 
 	ptest "knative.dev/pkg/test"
-	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
 	v1alpha1testing "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 )
 
 // CreateConfiguration create a configuration resource in namespace with the name names.Config
 // that uses the image specified by names.Image.
-func CreateConfiguration(t *testing.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ConfigOption) (*v1alpha1.Configuration, error) {
+func CreateConfiguration(t *testing.T, clients *test.Clients, names test.ResourceNames, fopt ...v1alpha1testing.ConfigOption) (*v1alpha1.Configuration, error) {
 	config := Configuration(names, fopt...)
 	LogResourceObject(t, ResourceObjects{Config: config})
 	return clients.ServingAlphaClient.Configs.Create(config)
