@@ -45,7 +45,6 @@ import (
 	v1a1test "knative.dev/serving/test/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -225,7 +224,7 @@ func assertScaleDown(ctx *testContext) {
 
 	if err := pkgTest.WaitForPodListState(
 		ctx.clients.KubeClient,
-		func(p *v1.PodList) (bool, error) {
+		func(p *corev1.PodList) (bool, error) {
 			for _, pod := range p.Items {
 				if strings.Contains(pod.Name, deploymentName) &&
 					!strings.Contains(pod.Status.Reason, "Evicted") {

@@ -27,7 +27,7 @@ import (
 	"knative.dev/serving/test/types"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 
-	. "knative.dev/serving/pkg/testing/v1alpha1"
+	v1alpha1testing "knative.dev/serving/pkg/testing/v1alpha1"
 )
 
 // fetchRuntimeInfo creates a Service that uses the 'runtime' test image, and extracts the returned output into the
@@ -76,13 +76,13 @@ func fetchRuntimeInfo(
 	return names, &ri, err
 }
 
-func splitOpts(opts ...interface{}) ([]ServiceOption, []interface{}, error) {
-	serviceOpts := []ServiceOption{}
+func splitOpts(opts ...interface{}) ([]v1alpha1testing.ServiceOption, []interface{}, error) {
+	serviceOpts := []v1alpha1testing.ServiceOption{}
 	reqOpts := []interface{}{}
 	for _, opt := range opts {
 		switch t := opt.(type) {
-		case ServiceOption:
-			serviceOpts = append(serviceOpts, opt.(ServiceOption))
+		case v1alpha1testing.ServiceOption:
+			serviceOpts = append(serviceOpts, opt.(v1alpha1testing.ServiceOption))
 		case pkgTest.RequestOption:
 			reqOpts = append(reqOpts, opt.(pkgTest.RequestOption))
 		default:

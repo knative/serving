@@ -110,7 +110,7 @@ func TestDestroyPodInflight(t *testing.T) {
 	}
 
 	// The timeout app sleeps for the time passed via the timeout query parameter in milliseconds
-	timeoutRequestDurationInMillis := timeoutRequestDuration / time.Millisecond
+	timeoutRequestDurationInMillis := int64(timeoutRequestDuration / time.Millisecond)
 	u, _ := url.Parse(routeURL.String())
 	q := u.Query()
 	q.Set("timeout", fmt.Sprintf("%d", timeoutRequestDurationInMillis))
