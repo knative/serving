@@ -22,6 +22,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -112,6 +113,7 @@ func statReporter(statSink *websocket.ManagedConnection, stopCh <-chan struct{},
 
 type config struct {
 	PodName string `split_words:"true" required:"true"`
+	PodIP   string `split_words:"true" required:"true"`
 }
 
 func main() {
@@ -158,6 +160,11 @@ func main() {
 
 	logger.Info("Starting the knative activator")
 
+	var env config
+	if err := envconfig.Process("", &env); err != nil {
+		logger.Fatalw("Failed to process env", zap.Error(err))
+	}
+
 	// We sometimes startup faster than we can reach kube-api. Poll on failure to prevent us terminating
 	if perr := wait.PollImmediate(time.Second, 60*time.Second, func() (bool, error) {
 		if err = version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
@@ -182,7 +189,9 @@ func main() {
 	params := queue.BreakerParams{QueueDepth: breakerQueueDepth, MaxConcurrency: breakerMaxConcurrency, InitialCapacity: 0}
 
 	// Start throttler.
-	throttler := activatornet.NewThrottler(ctx, params)
+	throttler := activatornet.NewThrottler(ctx, params,
+		// We want to join host port since that will be our search space in the Throttler.
+		net.JoinHostPort(env.PodIP, strconv.Itoa(networking.BackendHTTPPort)))
 	go throttler.Run(ctx)
 
 	oct := tracing.NewOpenCensusTracer(tracing.WithExporter(networking.ActivatorServiceName, logger))
@@ -206,16 +215,10 @@ func main() {
 	statSink := websocket.NewDurableSendingConnection(autoscalerEndpoint, logger)
 	go statReporter(statSink, ctx.Done(), statCh, logger)
 
-	var env config
-	if err := envconfig.Process("", &env); err != nil {
-		logger.Fatalw("Failed to process env", zap.Error(err))
-	}
-	podName := env.PodName
-
 	// Create and run our concurrency reporter
 	reportTicker := time.NewTicker(time.Second)
 	defer reportTicker.Stop()
-	cr := activatorhandler.NewConcurrencyReporter(ctx, podName, reqCh,
+	cr := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, reqCh,
 		reportTicker.C, statCh, reporter)
 	go cr.Run(ctx.Done())
 
