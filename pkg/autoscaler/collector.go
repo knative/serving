@@ -52,7 +52,7 @@ type StatsScraperFactory func(*av1alpha1.Metric) (StatsScraper, error)
 // Stat defines a single measurement at a point in time
 type Stat struct {
 	// The time the data point was received by autoscaler.
-	Time *time.Time
+	Time time.Time
 
 	// The unique identity of this pod.  Used to count how many pods
 	// are contributing to the metrics.
@@ -308,8 +308,8 @@ func (c *collection) record(stat Stat) {
 
 	// Proxied requests have been counted at the activator. Subtract
 	// them to avoid double counting.
-	c.concurrencyBuckets.Record(*stat.Time, stat.PodName, stat.AverageConcurrentRequests-stat.AverageProxiedConcurrentRequests)
-	c.rpsBuckets.Record(*stat.Time, stat.PodName, stat.RequestCount-stat.ProxiedRequestCount)
+	c.concurrencyBuckets.Record(stat.Time, stat.PodName, stat.AverageConcurrentRequests-stat.AverageProxiedConcurrentRequests)
+	c.rpsBuckets.Record(stat.Time, stat.PodName, stat.RequestCount-stat.ProxiedRequestCount)
 
 	// Delete outdated stats taking stat.Time as current time.
 	now := stat.Time

@@ -274,9 +274,8 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 		t.Error("Failed to set scale for metric to 0")
 	}
 
-	now := time.Now()
 	testStat := Stat{
-		Time:                      &now,
+		Time:                      time.Now(),
 		PodName:                   "test-pod",
 		AverageConcurrentRequests: 1,
 		RequestCount:              1,

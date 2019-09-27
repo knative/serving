@@ -120,7 +120,7 @@ func TestMetricCollectorScraper(t *testing.T) {
 	wantConcurrency := 10.0
 	wantRPS := 20.0
 	stat := Stat{
-		Time:                      &now,
+		Time:                      now,
 		PodName:                   "testPod",
 		AverageConcurrentRequests: wantConcurrency,
 		RequestCount:              wantRPS,
@@ -182,13 +182,13 @@ func TestMetricCollectorRecord(t *testing.T) {
 	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
 	want := 10.0
 	outdatedStat := Stat{
-		Time:                      &oldTime,
+		Time:                      oldTime,
 		PodName:                   "testPod",
 		AverageConcurrentRequests: 100,
 		RequestCount:              100,
 	}
 	stat := Stat{
-		Time:                             &now,
+		Time:                             now,
 		PodName:                          "testPod",
 		AverageConcurrentRequests:        want + 10,
 		AverageProxiedConcurrentRequests: 10, // this should be subtracted from the above.
