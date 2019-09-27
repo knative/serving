@@ -70,6 +70,8 @@ type Stat struct {
 	ProxiedRequestCount float64
 }
 
+var emptyStat = Stat{}
+
 // StatMessage wraps a Stat with identifying information so it can be routed
 // to the correct receiver.
 type StatMessage struct {
@@ -273,7 +275,7 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, logger *zap.S
 					logger.Errorw("Failed to scrape metrics", zap.Error(err))
 					c.updateMetric(copy)
 				}
-				if stat != (Stat{}) {
+				if stat != emptyStat {
 					c.record(stat)
 				}
 			}

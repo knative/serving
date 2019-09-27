@@ -43,15 +43,15 @@ func newHTTPScrapeClient(httpClient *http.Client) (*httpScrapeClient, error) {
 func (c *httpScrapeClient) Scrape(url string) (Stat, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		return Stat{}, err
+		return emptyStat, err
 	}
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return Stat{}, err
+		return emptyStat, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return Stat{}, fmt.Errorf("GET request for URL %q returned HTTP status %v", url, resp.StatusCode)
+		return emptyStat, fmt.Errorf("GET request for URL %q returned HTTP status %v", url, resp.StatusCode)
 	}
 
 	return extractData(resp.Body)
@@ -61,10 +61,10 @@ func extractData(body io.Reader) (Stat, error) {
 	var parser expfmt.TextParser
 	metricFamilies, err := parser.TextToMetricFamilies(body)
 	if err != nil {
-		return Stat{}, fmt.Errorf("reading text format failed: %v", err)
+		return emptyStat, fmt.Errorf("reading text format failed: %v", err)
 	}
 
-	stat := Stat{}
+	stat := emptyStat
 	for m, pv := range map[string]*float64{
 		"queue_average_concurrent_requests":         &stat.AverageConcurrentRequests,
 		"queue_average_proxied_concurrent_requests": &stat.AverageProxiedConcurrentRequests,
@@ -73,14 +73,14 @@ func extractData(body io.Reader) (Stat, error) {
 	} {
 		pm := prometheusMetric(metricFamilies, m)
 		if pm == nil {
-			return Stat{}, fmt.Errorf("could not find value for %s in response", m)
+			return emptyStat, fmt.Errorf("could not find value for %s in response", m)
 		}
 		*pv = *pm.Gauge.Value
 
 		if stat.PodName == "" {
 			stat.PodName = prometheusLabel(pm.Label, "destination_pod")
 			if stat.PodName == "" {
-				return Stat{}, errors.New("could not find pod name in metric labels")
+				return emptyStat, errors.New("could not find pod name in metric labels")
 			}
 		}
 	}

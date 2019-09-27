@@ -137,11 +137,11 @@ func urlFromTarget(t, ns string) string {
 func (s *ServiceScraper) Scrape() (Stat, error) {
 	readyPodsCount, err := s.counter.ReadyCount()
 	if err != nil {
-		return Stat{}, ErrFailedGetEndpoints
+		return emptyStat, ErrFailedGetEndpoints
 	}
 
 	if readyPodsCount == 0 {
-		return Stat{}, nil
+		return emptyStat, nil
 	}
 
 	sampleSize := populationMeanSampleSize(readyPodsCount)
@@ -168,7 +168,7 @@ func (s *ServiceScraper) Scrape() (Stat, error) {
 
 	// Return the inner error, if any.
 	if err := grp.Wait(); err != nil {
-		return Stat{}, errors.Wrap(err, "unsuccessful scrape, sampleSize="+strconv.Itoa(sampleSize))
+		return emptyStat, errors.Wrap(err, "unsuccessful scrape, sampleSize="+strconv.Itoa(sampleSize))
 	}
 	close(statCh)
 
@@ -217,11 +217,11 @@ func (s *ServiceScraper) Scrape() (Stat, error) {
 func (s *ServiceScraper) tryScrape(scrapedPods *sync.Map) (Stat, error) {
 	stat, err := s.sClient.Scrape(s.url)
 	if err != nil {
-		return Stat{}, err
+		return emptyStat, err
 	}
 
 	if _, exists := scrapedPods.LoadOrStore(stat.PodName, struct{}{}); exists {
-		return Stat{}, ErrDidNotReceiveStat
+		return emptyStat, ErrDidNotReceiveStat
 	}
 
 	return stat, nil

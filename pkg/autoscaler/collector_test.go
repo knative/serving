@@ -54,13 +54,13 @@ func TestMetricCollectorCRUD(t *testing.T) {
 
 	scraper := &testScraper{
 		s: func() (Stat, error) {
-			return Stat{}, nil
+			return emptyStat, nil
 		},
 		url: "just-right",
 	}
 	scraper2 := &testScraper{
 		s: func() (Stat, error) {
-			return Stat{}, nil
+			return emptyStat, nil
 		},
 		url: "slightly-off",
 	}
@@ -197,7 +197,7 @@ func TestMetricCollectorRecord(t *testing.T) {
 	}
 	scraper := &testScraper{
 		s: func() (Stat, error) {
-			return Stat{}, nil
+			return emptyStat, nil
 		},
 	}
 	factory := scraperFactory(scraper, nil)
@@ -235,7 +235,7 @@ func TestMetricCollectorError(t *testing.T) {
 		name: "Failed to get endpoints scraper error",
 		scraper: &testScraper{
 			s: func() (Stat, error) {
-				return Stat{}, ErrFailedGetEndpoints
+				return emptyStat, ErrFailedGetEndpoints
 			},
 		},
 		metric: &av1alpha1.Metric{
@@ -262,7 +262,7 @@ func TestMetricCollectorError(t *testing.T) {
 		name: "Did not receive stat scraper error",
 		scraper: &testScraper{
 			s: func() (Stat, error) {
-				return Stat{}, ErrDidNotReceiveStat
+				return emptyStat, ErrDidNotReceiveStat
 			},
 		},
 		metric: &av1alpha1.Metric{
@@ -289,7 +289,7 @@ func TestMetricCollectorError(t *testing.T) {
 		name: "Other scraper error",
 		scraper: &testScraper{
 			s: func() (Stat, error) {
-				return Stat{}, errors.New("foo")
+				return emptyStat, errors.New("foo")
 			},
 		},
 		metric: &av1alpha1.Metric{

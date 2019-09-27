@@ -214,7 +214,7 @@ func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("scraper.Scrape() returned error: %v", err)
 	}
-	if stat != (Stat{}) {
+	if stat != emptyStat {
 		t.Error("Received unexpected Stat.")
 	}
 }
