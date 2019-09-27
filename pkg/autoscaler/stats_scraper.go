@@ -193,7 +193,6 @@ func (s *ServiceScraper) Scrape() (Stat, error) {
 	avgProxiedConcurrency = avgProxiedConcurrency / successCount
 	reqCount = reqCount / successCount
 	proxiedReqCount = proxiedReqCount / successCount
-	now := time.Now()
 
 	// Assumption: A particular pod can stand for other pods, i.e. other pods
 	// have similar concurrency and QPS.
@@ -203,7 +202,7 @@ func (s *ServiceScraper) Scrape() (Stat, error) {
 	// scraperPodName so in autoscaler all stats are either from activator or
 	// scraper.
 	return Stat{
-		Time:                             &now,
+		Time:                             time.Now(),
 		PodName:                          scraperPodName,
 		AverageConcurrentRequests:        avgConcurrency * frpc,
 		AverageProxiedConcurrentRequests: avgProxiedConcurrency * frpc,

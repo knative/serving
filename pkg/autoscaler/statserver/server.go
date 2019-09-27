@@ -165,8 +165,7 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 			s.logger.Error(err)
 			continue
 		}
-		now := time.Now()
-		sm.Stat.Time = &now
+		sm.Stat.Time = time.Now()
 
 		s.logger.Debugf("Received stat message: %+v", sm)
 		s.statsCh <- &sm

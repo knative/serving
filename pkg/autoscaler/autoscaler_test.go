@@ -436,7 +436,7 @@ func TestStartInPanicMode(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Error creating test autoscaler: %v", err)
 		}
-		if a.panicTime != nil {
+		if !a.panicTime.IsZero() {
 			t.Errorf("Create at scale %d had panic mode on", i)
 		}
 		if got, want := int(a.maxPanicPods), i; got != want {
@@ -450,7 +450,7 @@ func TestStartInPanicMode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating test autoscaler: %v", err)
 	}
-	if a.panicTime == nil {
+	if a.panicTime.IsZero() {
 		t.Error("Create at scale 2 had panic mode off")
 	}
 	if got, want := int(a.maxPanicPods), 2; got != want {
