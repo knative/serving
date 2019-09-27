@@ -527,16 +527,9 @@ func TestInferIndex(t *testing.T) {
 		[]string{"10.10.10.1:1234", "10.10.10.2:1234", "10.10.10.3:1234"},
 		2,
 	}}
-	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-	defer cancel()
-	ttl := NewThrottler(ctx, queue.BreakerParams{
-		QueueDepth:      1,
-		MaxConcurrency:  defaultMaxConcurrency,
-		InitialCapacity: 0,
-	}, myIP)
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
-			if got, want := ttl.inferIndex(test.ips), test.want; got != want {
+			if got, want := inferIndex(test.ips, myIP), test.want; got != want {
 				t.Errorf("Index = %d, wand: %d", got, want)
 			}
 		})
