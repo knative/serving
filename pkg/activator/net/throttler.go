@@ -446,6 +446,7 @@ func (t *Throttler) updateAllThrottlerCapacity() {
 func (t *Throttler) activatorEndpointsUpdated(newObj interface{}) {
 	endpoints := newObj.(*corev1.Endpoints)
 
+	// We want to pass sorted list, so that we get _some_ stability in the results.
 	idx := t.inferIndex(endpointsToDests(endpoints, networking.ServicePortNameHTTP1).List())
 	activatorCount := resources.ReadyAddressCount(endpoints)
 	t.logger.Infof("Got %d ready activator endpoints, our position is: %d", activatorCount, idx)

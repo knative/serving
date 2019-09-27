@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
@@ -376,16 +377,10 @@ func TestMultipleActivators(t *testing.T) {
 	endpoints.Informer().GetIndexer().Add(activatorEp)
 
 	// Make sure our informer event has fired.
-	recCtx, cancel2 := context.WithTimeout(ctx, time.Second)
-	ai := int32(-1)
-	for ai == -1 {
-		select {
-		case <-recCtx.Done():
-			t.Fatal("Timed out waiting for the Activator Endpoints to fire")
-		case <-time.Tick(10 * time.Millisecond):
-			ai = atomic.LoadInt32(&throttler.activatorIndex)
-			t.Log("One more iteration, got: ", ai)
-		}
+	if err := wait.PollImmediate(10*time.Millisecond, 1*time.Second, func() (bool, error) {
+		return atomic.LoadInt32(&throttler.activatorIndex) != -1, nil
+	}); err != nil {
+		t.Fatal("Timed out waiting for the Activator Endpoints to fire")
 	}
 
 	// Test with 2 activators, 3 endpoints we can send 1 request and the second times out.
