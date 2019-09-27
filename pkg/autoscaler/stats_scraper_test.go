@@ -24,7 +24,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/resources"
@@ -37,8 +36,7 @@ const (
 )
 
 var (
-	testPAKey = types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}
-	testStats = []*Stat{
+	testStats = []Stat{
 		{
 			PodName:                          "pod-1",
 			AverageConcurrentRequests:        3.0,
@@ -65,13 +63,8 @@ func TestNewServiceScraperWithClientHappyCase(t *testing.T) {
 	client := newTestScrapeClient(testStats, []error{nil})
 	if scraper, err := serviceScraperForTest(client); err != nil {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
-	} else {
-		if scraper.url != testURL {
-			t.Errorf("scraper.url=%v, want %v", scraper.url, testURL)
-		}
-		if scraper.metricKey != testPAKey {
-			t.Errorf("scraper.metricKey=%v, want %v", scraper.metricKey, testPAKey)
-		}
+	} else if scraper.url != testURL {
+		t.Errorf("scraper.url=%v, want %v", scraper.url, testURL)
 	}
 }
 
@@ -145,32 +138,29 @@ func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 		t.Fatalf("unexpected error from scraper.Scrape(): %v", err)
 	}
 
-	if got.Key != testPAKey {
-		t.Errorf("StatMessage.Key=%v, want %v", got.Key, testPAKey)
+	if got.Time.Before(now) {
+		t.Errorf("stat.Time=%v, want bigger than %v", got.Time, now)
 	}
-	if got.Stat.Time.Before(now) {
-		t.Errorf("stat.Time=%v, want bigger than %v", got.Stat.Time, now)
-	}
-	if got.Stat.PodName != scraperPodName {
-		t.Errorf("StatMessage.Stat.PodName=%v, want %v", got.Stat.PodName, scraperPodName)
+	if got.PodName != scraperPodName {
+		t.Errorf("stat.PodName=%v, want %v", got.PodName, scraperPodName)
 	}
 	// (3.0 + 5.0 + 3.0) / 3.0 * 3 = 11
-	if got.Stat.AverageConcurrentRequests != 11.0 {
-		t.Errorf("StatMessage.Stat.AverageConcurrentRequests=%v, want %v",
-			got.Stat.AverageConcurrentRequests, 11.0)
+	if got.AverageConcurrentRequests != 11.0 {
+		t.Errorf("stat.AverageConcurrentRequests=%v, want %v",
+			got.AverageConcurrentRequests, 11.0)
 	}
 	// ((5 + 7 + 5) / 3.0) * 3 = 17
-	if got.Stat.RequestCount != 17 {
-		t.Errorf("StatMessage.Stat.RequestCount=%v, want %v", got.Stat.RequestCount, 15)
+	if got.RequestCount != 17 {
+		t.Errorf("stat.RequestCount=%v, want %v", got.RequestCount, 15)
 	}
 	// (2.0 + 4.0 + 2.0) / 3.0 * 3 = 8
-	if got.Stat.AverageProxiedConcurrentRequests != 8.0 {
-		t.Errorf("StatMessage.Stat.AverageProxiedConcurrentRequests=%v, want %v",
-			got.Stat.AverageProxiedConcurrentRequests, 8.0)
+	if got.AverageProxiedConcurrentRequests != 8.0 {
+		t.Errorf("stat.AverageProxiedConcurrentRequests=%v, want %v",
+			got.AverageProxiedConcurrentRequests, 8.0)
 	}
 	// ((4 + 6 + 4) / 3.0) * 3 = 14
-	if got.Stat.ProxiedRequestCount != 14 {
-		t.Errorf("StatMessage.Stat.ProxiedCount=%v, want %v", got.Stat.ProxiedRequestCount, 12)
+	if got.ProxiedRequestCount != 14 {
+		t.Errorf("stat.ProxiedCount=%v, want %v", got.ProxiedRequestCount, 12)
 	}
 }
 
@@ -222,10 +212,10 @@ func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
 
 	stat, err := scraper.Scrape()
 	if err != nil {
-		t.Fatalf(" scraper.Scrape() returned error: %v", err)
+		t.Fatalf("scraper.Scrape() returned error: %v", err)
 	}
-	if stat != nil {
-		t.Error("Received unexpected StatMessage.")
+	if stat != emptyStat {
+		t.Error("Received unexpected Stat.")
 	}
 }
 
@@ -250,7 +240,7 @@ func testMetric() *av1alpha1.Metric {
 	}
 }
 
-func newTestScrapeClient(stats []*Stat, errs []error) scrapeClient {
+func newTestScrapeClient(stats []Stat, errs []error) scrapeClient {
 	return &fakeScrapeClient{
 		stats: stats,
 		errs:  errs,
@@ -259,13 +249,13 @@ func newTestScrapeClient(stats []*Stat, errs []error) scrapeClient {
 
 type fakeScrapeClient struct {
 	i     int
-	stats []*Stat
+	stats []Stat
 	errs  []error
 	mutex sync.Mutex
 }
 
 // Scrape return the next item in the stats and error array of fakeScrapeClient.
-func (c *fakeScrapeClient) Scrape(url string) (*Stat, error) {
+func (c *fakeScrapeClient) Scrape(url string) (Stat, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	ans := c.stats[c.i%len(c.stats)]

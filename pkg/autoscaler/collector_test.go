@@ -53,14 +53,14 @@ func TestMetricCollectorCRUD(t *testing.T) {
 	logger := TestLogger(t)
 
 	scraper := &testScraper{
-		s: func() (*StatMessage, error) {
-			return nil, nil
+		s: func() (Stat, error) {
+			return emptyStat, nil
 		},
 		url: "just-right",
 	}
 	scraper2 := &testScraper{
-		s: func() (*StatMessage, error) {
-			return nil, nil
+		s: func() (Stat, error) {
+			return emptyStat, nil
 		},
 		url: "slightly-off",
 	}
@@ -119,17 +119,14 @@ func TestMetricCollectorScraper(t *testing.T) {
 	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
 	wantConcurrency := 10.0
 	wantRPS := 20.0
-	stat := &StatMessage{
-		Key: metricKey,
-		Stat: Stat{
-			Time:                      &now,
-			PodName:                   "testPod",
-			AverageConcurrentRequests: wantConcurrency,
-			RequestCount:              wantRPS,
-		},
+	stat := Stat{
+		Time:                      &now,
+		PodName:                   "testPod",
+		AverageConcurrentRequests: wantConcurrency,
+		RequestCount:              wantRPS,
 	}
 	scraper := &testScraper{
-		s: func() (*StatMessage, error) {
+		s: func() (Stat, error) {
 			return stat, nil
 		},
 	}
@@ -199,8 +196,8 @@ func TestMetricCollectorRecord(t *testing.T) {
 		ProxiedRequestCount:              20, // this should be subtracted from the above.
 	}
 	scraper := &testScraper{
-		s: func() (*StatMessage, error) {
-			return nil, nil
+		s: func() (Stat, error) {
+			return emptyStat, nil
 		},
 	}
 	factory := scraperFactory(scraper, nil)
@@ -237,8 +234,8 @@ func TestMetricCollectorError(t *testing.T) {
 	}{{
 		name: "Failed to get endpoints scraper error",
 		scraper: &testScraper{
-			s: func() (*StatMessage, error) {
-				return nil, ErrFailedGetEndpoints
+			s: func() (Stat, error) {
+				return emptyStat, ErrFailedGetEndpoints
 			},
 		},
 		metric: &av1alpha1.Metric{
@@ -264,8 +261,8 @@ func TestMetricCollectorError(t *testing.T) {
 	}, {
 		name: "Did not receive stat scraper error",
 		scraper: &testScraper{
-			s: func() (*StatMessage, error) {
-				return nil, ErrDidNotReceiveStat
+			s: func() (Stat, error) {
+				return emptyStat, ErrDidNotReceiveStat
 			},
 		},
 		metric: &av1alpha1.Metric{
@@ -291,8 +288,8 @@ func TestMetricCollectorError(t *testing.T) {
 	}, {
 		name: "Other scraper error",
 		scraper: &testScraper{
-			s: func() (*StatMessage, error) {
-				return nil, errors.New("foo")
+			s: func() (Stat, error) {
+				return emptyStat, errors.New("foo")
 			},
 		},
 		metric: &av1alpha1.Metric{
@@ -349,10 +346,10 @@ func scraperFactory(scraper StatsScraper, err error) StatsScraperFactory {
 }
 
 type testScraper struct {
-	s   func() (*StatMessage, error)
+	s   func() (Stat, error)
 	url string
 }
 
-func (s *testScraper) Scrape() (*StatMessage, error) {
+func (s *testScraper) Scrape() (Stat, error) {
 	return s.s()
 }
