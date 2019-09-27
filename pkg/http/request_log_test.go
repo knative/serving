@@ -26,14 +26,17 @@ import (
 	"knative.dev/serving/pkg/network"
 )
 
-var defaultRevInfo = &RequestLogRevision{
-	Name:          "rev",
-	Namespace:     "ns",
-	Service:       "svc",
-	Configuration: "cfg",
-	PodName:       "pn",
-	PodIP:         "ip",
-}
+var (
+	defaultRevInfo = &RequestLogRevision{
+		Name:          "rev",
+		Namespace:     "ns",
+		Service:       "svc",
+		Configuration: "cfg",
+		PodName:       "pn",
+		PodIP:         "ip",
+	}
+	defaultInputGetter = RequestLogTemplateInputGetterFromRevision(defaultRevInfo)
+)
 
 func TestRequestLogHandler(t *testing.T) {
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -41,13 +44,14 @@ func TestRequestLogHandler(t *testing.T) {
 	})
 
 	tests := []struct {
-		name     string
-		url      string
-		body     string
-		template string
-		want     string
-		wantErr  bool
-		isProbe  bool
+		name                  string
+		url                   string
+		body                  string
+		template              string
+		want                  string
+		wantErr               bool
+		isProbe               bool
+		enableProbeRequestLog bool
 	}{{
 		name:     "empty template",
 		url:      "http://example.com/testpage",
@@ -80,19 +84,27 @@ func TestRequestLogHandler(t *testing.T) {
 		template: "{{.Revision.Name}}, {{.Revision.Namespace}}, {{.Revision.Service}}, {{.Revision.Configuration}}, {{.Revision.PodName}}, {{.Revision.PodIP}}",
 		want:     "rev, ns, svc, cfg, pn, ip\n",
 	}, {
-		name:     "probe request",
+		name:     "probe request and logging support disabled",
 		url:      "http://example.com",
 		body:     "test",
 		template: "{{.Request.ContentLength}}",
 		want:     "",
 		isProbe:  true,
+	}, {
+		name:                  "probe request and logging support enabled",
+		url:                   "http://example.com",
+		body:                  "test",
+		template:              "{{.Request.ContentLength}}",
+		want:                  "4\n",
+		isProbe:               true,
+		enableProbeRequestLog: true,
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			buf := bytes.NewBufferString("")
-			handler, err := NewRequestLogHandler(baseHandler, buf, test.template,
-				RequestLogTemplateInputGetterFromRevision(defaultRevInfo))
+			handler, err := NewRequestLogHandler(
+				baseHandler, buf, test.template, defaultInputGetter, test.enableProbeRequestLog)
 			if test.wantErr != (err != nil) {
 				t.Errorf("got %v, want error %v", err, test.wantErr)
 			}
@@ -119,8 +131,8 @@ func TestPanickingHandler(t *testing.T) {
 		panic("no!")
 	})
 	buf := bytes.NewBufferString("")
-	handler, err := NewRequestLogHandler(baseHandler, buf, "{{.Request.URL}}",
-		RequestLogTemplateInputGetterFromRevision(defaultRevInfo))
+	handler, err := NewRequestLogHandler(
+		baseHandler, buf, "{{.Request.URL}}", defaultInputGetter, false)
 	if err != nil {
 		t.Errorf("got %v, want error: %v", err, false)
 	}
@@ -146,8 +158,8 @@ func TestFailedTemplateExecution(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 	buf := bytes.NewBufferString("")
-	handler, err := NewRequestLogHandler(baseHandler, buf, "{{.Request.Something}}",
-		RequestLogTemplateInputGetterFromRevision(defaultRevInfo))
+	handler, err := NewRequestLogHandler(
+		baseHandler, buf, "{{.Request.Something}}", defaultInputGetter, false)
 	if err != nil {
 		t.Errorf("got %v, wantErr %v, ", err, false)
 	}
@@ -206,8 +218,7 @@ func TestSetTemplate(t *testing.T) {
 	}}
 
 	buf := bytes.NewBufferString("")
-	handler, err := NewRequestLogHandler(baseHandler, buf, "",
-		RequestLogTemplateInputGetterFromRevision(defaultRevInfo))
+	handler, err := NewRequestLogHandler(baseHandler, buf, "", defaultInputGetter, false)
 	if err != nil {
 		t.Fatalf("want: no error, got: %v", err)
 	}

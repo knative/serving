@@ -315,7 +315,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			}),
 		},
 	}, {
-		name: "request log as env var",
+		name: "request log configuration as env var",
 		rev: &v1alpha1.Revision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
@@ -331,7 +331,10 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
-		oc: &metrics.ObservabilityConfig{RequestLogTemplate: "test template"},
+		oc: &metrics.ObservabilityConfig{
+			RequestLogTemplate:    "test template",
+			EnableProbeRequestLog: true,
+		},
 		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
 		want: &corev1.Container{
@@ -343,8 +346,9 @@ func TestMakeQueueContainer(t *testing.T) {
 			SecurityContext: queueSecurityContext,
 			// These changed based on the Revision and configs passed in.
 			Env: env(map[string]string{
-				"CONTAINER_CONCURRENCY":        "0",
-				"SERVING_REQUEST_LOG_TEMPLATE": "test template",
+				"CONTAINER_CONCURRENCY":            "0",
+				"SERVING_REQUEST_LOG_TEMPLATE":     "test template",
+				"SERVING_ENABLE_PROBE_REQUEST_LOG": "true",
 			}),
 		},
 	}, {
@@ -1129,6 +1133,7 @@ var defaultEnv = map[string]string{
 	"VAR_LOG_VOLUME_NAME":                   varLogVolumeName,
 	"INTERNAL_VOLUME_PATH":                  internalVolumePath,
 	"ENABLE_PROFILING":                      "false",
+	"SERVING_ENABLE_PROBE_REQUEST_LOG":      "false",
 }
 
 func probeJSON(container *corev1.Container) string {

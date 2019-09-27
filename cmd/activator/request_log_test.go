@@ -48,7 +48,7 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 	})
 	buf := bytes.NewBufferString("")
 	handler, err := pkghttp.NewRequestLogHandler(baseHandler, buf, "",
-		requestLogTemplateInputGetter(getRevisionLister(true)))
+		requestLogTemplateInputGetter(getRevisionLister(true)), false /*enableProbeRequestLog*/)
 	if err != nil {
 		t.Fatalf("want: no error, got: %v", err)
 	}

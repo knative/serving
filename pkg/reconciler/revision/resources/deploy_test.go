@@ -169,6 +169,9 @@ var (
 		}, {
 			Name:  "ENABLE_PROFILING",
 			Value: "false",
+		}, {
+			Name:  "SERVING_ENABLE_PROBE_REQUEST_LOG",
+			Value: "false",
 		}},
 	}
 
