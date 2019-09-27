@@ -71,11 +71,6 @@ var _ = goversion.IsSupported()
 const (
 	component = "activator"
 
-	// Add a little buffer space between request handling and stat
-	// reporting so that latency in the stat pipeline doesn't
-	// interfere with request handling.
-	statReportingQueueLength = 10
-
 	// Add enough buffer to not block request serving on stats collection
 	requestCountingQueueLength = 100
 
@@ -102,9 +97,11 @@ func statReporter(statSink *websocket.ManagedConnection, stopCh <-chan struct{},
 	for {
 		select {
 		case sm := <-statChan:
-			if err := statSink.Send(sm); err != nil {
-				logger.Errorw("Error while sending stat", zap.Error(err))
-			}
+			go func() {
+				if err := statSink.Send(sm); err != nil {
+					logger.Errorw("Error while sending stat", zap.Error(err))
+				}
+			}()
 		case <-stopCh:
 			// It's a sending connection, so no drainage required.
 			statSink.Shutdown()
@@ -176,7 +173,7 @@ func main() {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
 
-	statCh := make(chan *autoscaler.StatMessage, statReportingQueueLength)
+	statCh := make(chan *autoscaler.StatMessage)
 	defer close(statCh)
 
 	reqCh := make(chan activatorhandler.ReqEvent, requestCountingQueueLength)
