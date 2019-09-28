@@ -33,7 +33,6 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 
-	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
 	v1alpha1testing "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 )
@@ -64,7 +63,7 @@ func Route(names test.ResourceNames, fopt ...v1alpha1testing.RouteOption) *v1alp
 }
 
 // CreateRoute creates a route in the given namespace using the route name in names
-func CreateRoute(t *testing.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.RouteOption) (*v1alpha1.Route, error) {
+func CreateRoute(t *testing.T, clients *test.Clients, names test.ResourceNames, fopt ...v1alpha1testing.RouteOption) (*v1alpha1.Route, error) {
 	route := Route(names, fopt...)
 	LogResourceObject(t, ResourceObjects{Route: route})
 	return clients.ServingAlphaClient.Routes.Create(route)

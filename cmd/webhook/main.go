@@ -21,13 +21,16 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"time"
 
 	// Injection related imports.
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/profiling"
 
+	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -45,6 +48,19 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/gc"
+	"knative.dev/serving/pkg/network"
+
+	// config validation constructors
+	pkgmetrics "knative.dev/pkg/metrics"
+	tracingconfig "knative.dev/pkg/tracing/config"
+	defaultconfig "knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/autoscaler"
+	metricsconfig "knative.dev/serving/pkg/metrics"
+	certconfig "knative.dev/serving/pkg/reconciler/certificate/config"
+	istioconfig "knative.dev/serving/pkg/reconciler/ingress/config"
+	domainconfig "knative.dev/serving/pkg/reconciler/route/config"
 )
 
 const (
@@ -61,6 +77,13 @@ func main() {
 
 	// Set up signals so we handle the first shutdown signal gracefully.
 	ctx := signals.NewContext()
+
+	// Report stats on Go memory usage every 30 seconds.
+	msp := metrics.NewMemStatsAll()
+	msp.Start(ctx, 30*time.Second)
+	if err := view.Register(msp.DefaultViews()...); err != nil {
+		log.Fatalf("Error exporting go memstats view: %v", err)
+	}
 
 	cfg, err := sharedmain.GetConfig(*masterURL, *kubeconfig)
 	if err != nil {
@@ -110,8 +133,11 @@ func main() {
 		Namespace:                       system.Namespace(),
 		Port:                            8443,
 		SecretName:                      "webhook-certs",
-		ResourceMutatingWebhookName:     "webhook.serving.knative.dev",
+		ResourceMutatingWebhookName:     "resource.webhook.serving.knative.dev",
 		ResourceAdmissionControllerPath: "/",
+		ConfigValidationWebhookName:     "config.webhook.serving.knative.dev",
+		ConfigValidationControllerPath:  "/config-validation",
+		ConfigValidationNamespaceLabel:  "serving.knative.dev/release",
 	}
 
 	resourceHandlers := map[schema.GroupVersionKind]webhook.GenericCRD{
@@ -134,9 +160,25 @@ func main() {
 		net.SchemeGroupVersion.WithKind("ServerlessService"):             &net.ServerlessService{},
 	}
 
+	configHandlers := configmap.Constructors{
+		tracingconfig.ConfigName:         tracingconfig.NewTracingConfigFromConfigMap,
+		autoscaler.ConfigName:            autoscaler.NewConfigFromConfigMap,
+		certconfig.CertManagerConfigName: certconfig.NewCertManagerConfigFromConfigMap,
+		gc.ConfigName:                    gc.NewConfigFromConfigMapFunc(logger, controller.GetResyncPeriod(ctx)),
+		network.ConfigName:               network.NewConfigFromConfigMap,
+		istioconfig.IstioConfigName:      istioconfig.NewIstioFromConfigMap,
+		deployment.ConfigName:            deployment.NewConfigFromConfigMap,
+		pkgmetrics.ConfigMapName():       metricsconfig.NewObservabilityConfigFromConfigMap,
+		logging.ConfigMapName():          logging.NewConfigFromConfigMap,
+		domainconfig.DomainConfigName:    domainconfig.NewDomainFromConfigMap,
+		defaultconfig.DefaultsConfigName: defaultconfig.NewDefaultsConfigFromConfigMap,
+	}
+
+	configValidationController := webhook.NewConfigValidationController(configHandlers, options)
 	resourceAdmissionController := webhook.NewResourceAdmissionController(resourceHandlers, options, true)
 	admissionControllers := map[string]webhook.AdmissionController{
 		options.ResourceAdmissionControllerPath: resourceAdmissionController,
+		options.ConfigValidationControllerPath:  configValidationController,
 	}
 
 	// Decorate contexts with the current state of the config.

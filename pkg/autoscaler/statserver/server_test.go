@@ -182,7 +182,7 @@ func assertReceivedOk(sm *autoscaler.StatMessage, statSink *websocket.Conn, stat
 	if !ok {
 		t.Fatalf("statistic not received")
 	}
-	if recv.Stat.Time == nil {
+	if recv.Stat.Time == (time.Time{}) {
 		t.Fatalf("Stat time is nil")
 	}
 	ignoreTimeField := cmpopts.IgnoreFields(autoscaler.StatMessage{}, "Stat.Time")

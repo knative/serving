@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 	"sync/atomic"
 
@@ -276,18 +277,23 @@ type Throttler struct {
 	revisionThrottlersMutex sync.RWMutex
 	breakerParams           queue.BreakerParams
 	revisionLister          servinglisters.RevisionLister
-	numActivators           int32
+	numActivators           int32  // Total number of activators.
+	activatorIndex          int32  // The assigned index of this activator, -1 is Activator is not expected to receive traffic.
+	ipAddress               string // The IP address of this activator.
 	logger                  *zap.SugaredLogger
 }
 
 // NewThrottler creates a new Throttler
 func NewThrottler(ctx context.Context,
-	breakerParams queue.BreakerParams) *Throttler {
+	breakerParams queue.BreakerParams,
+	ipAddr string) *Throttler {
 	revisionInformer := revisioninformer.Get(ctx)
 	t := &Throttler{
 		revisionThrottlers: make(map[types.NamespacedName]*revisionThrottler),
 		breakerParams:      breakerParams,
 		revisionLister:     revisionInformer.Lister(),
+		ipAddress:          ipAddr,
+		activatorIndex:     -1, // Unset yet.
 		logger:             logging.FromContext(ctx),
 	}
 
@@ -326,6 +332,7 @@ func (t *Throttler) run(updateCh <-chan revisionDestsUpdate) {
 	for update := range updateCh {
 		t.handleUpdate(update)
 	}
+	t.logger.Info("The Throttler has stopped.")
 }
 
 // Try waits for capacity and then executes function, passing in a l4 dest to send a request
@@ -404,13 +411,29 @@ func (t *Throttler) handleUpdate(update revisionDestsUpdate) {
 	}
 }
 
+// inferIndex returns the index of this activator slice.
+// If inferIndex returns -1, it means that this activator will not recive
+// any traffic just yet so, do not participate in slicing, this happens after
+// startup, but before this activator is threaded into the endpoints
+// (which is up to 10s after reporting healthy).
+// For now we are just sorting the IP addresses of all activators
+// and finding our index in that list.
+func inferIndex(eps []string, ipAddress string) int {
+	// `eps` will contain port, so binary search of the insertion point would be fine.
+	idx := sort.SearchStrings(eps, ipAddress)
+
+	// Check if this activator is part of the endpoints slice?
+	if idx == len(eps) || eps[idx] != ipAddress {
+		idx = -1
+	}
+	return idx
+}
+
 func (t *Throttler) updateAllThrottlerCapacity() {
-	t.logger.Debugf("Updating activator count to %d.", t.activatorCount())
 	t.revisionThrottlersMutex.RLock()
 	defer t.revisionThrottlersMutex.RUnlock()
 
 	for _, rt := range t.revisionThrottlers {
-		t.logger.Debugf("Updating rt %v with backend count %d", rt, rt.backendCount)
 		rt.updateCapacity(t, rt.backendCount)
 	}
 }
@@ -418,9 +441,14 @@ func (t *Throttler) updateAllThrottlerCapacity() {
 func (t *Throttler) activatorEndpointsUpdated(newObj interface{}) {
 	endpoints := newObj.(*corev1.Endpoints)
 
+	// We want to pass sorted list, so that we get _some_ stability in the results.
+	eps := endpointsToDests(endpoints, networking.ServicePortNameHTTP1).List()
+	t.logger.Debugf("All Activator IPS: %v, my IP: %s", eps, t.ipAddress)
+	idx := inferIndex(eps, t.ipAddress)
 	activatorCount := resources.ReadyAddressCount(endpoints)
-	t.logger.Debugf("Got %d ready activator endpoints.", activatorCount)
+	t.logger.Infof("Got %d ready activator endpoints, our position is: %d", activatorCount, idx)
 	atomic.StoreInt32(&t.numActivators, int32(activatorCount))
+	atomic.StoreInt32(&t.activatorIndex, int32(idx))
 	t.updateAllThrottlerCapacity()
 }
 

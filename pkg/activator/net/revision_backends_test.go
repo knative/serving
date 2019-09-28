@@ -54,7 +54,7 @@ import (
 const (
 	testNamespace      = "test-namespace"
 	testRevision       = "test-revision"
-	informerRestPeriod = 2 * time.Second
+	informerRestPeriod = 500 * time.Millisecond
 )
 
 func revision(revID types.NamespacedName, protocol networking.ProtocolType) *v1alpha1.Revision {

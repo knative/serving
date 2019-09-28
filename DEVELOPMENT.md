@@ -149,14 +149,14 @@ kubectl apply -f ./third_party/istio-1.2-latest/istio-crds.yaml
 while [[ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
   echo "Waiting on Istio CRDs"; sleep 1
 done
-kubectl apply -f ./third_party/istio-1.2-latest/istio.yaml
+kubectl apply -f ./third_party/istio-1.2-latest/istio-lean.yaml
 ```
 
 Follow the
 [instructions](https://www.knative.dev/docs/serving/gke-assigning-static-ip-address/)
 if you need to set up static IP for Ingresses in the cluster.
 
-If you want to adopt preinstalled istio, please check whether
+If you want to adopt preinstalled Istio, please check whether
 cluster-local-gateway is deployed in namespace istio-system or not. If it's not
 installed, please install it with following commands. You could also adjust
 parameters if needed.

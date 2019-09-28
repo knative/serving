@@ -28,13 +28,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/pool"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
+	v1alpha1testing "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
-
-	"knative.dev/serving/pkg/pool"
-
-	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
 
 // Latencies is an interface for providing mechanisms for recording timings
@@ -86,7 +84,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			defer latencies.Add("time-to-done", start)
 
 			svc, err := v1a1test.CreateLatestService(t, clients, names,
-				WithResourceRequirements(corev1.ResourceRequirements{
+				v1alpha1testing.WithResourceRequirements(corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
 						corev1.ResourceCPU:    resource.MustParse("10m"),
 						corev1.ResourceMemory: resource.MustParse("50Mi"),
@@ -96,17 +94,17 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 						corev1.ResourceMemory: resource.MustParse("20Mi"),
 					},
 				}),
-				WithConfigAnnotations(map[string]string{
+				v1alpha1testing.WithConfigAnnotations(map[string]string{
 					"autoscaling.knative.dev/maxScale": "1",
 				}),
-				WithReadinessProbe(&corev1.Probe{
+				v1alpha1testing.WithReadinessProbe(&corev1.Probe{
 					Handler: corev1.Handler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
 						},
 					},
 				}),
-				WithRevisionTimeoutSeconds(10))
+				v1alpha1testing.WithRevisionTimeoutSeconds(10))
 
 			if err != nil {
 				t.Errorf("CreateLatestService() = %v", err)

@@ -290,12 +290,10 @@ func (gc *GKECluster) Acquire() error {
 		}
 		// Creating cluster only if previous step succeeded
 		if err == nil {
-			log.Printf("Creating cluster %q in %q", clusterName, clusterLoc)
+			log.Printf("Creating cluster %q in %q with:\n%+v", clusterName, clusterLoc, gc.Request)
 			op, err = gc.operations.create(*gc.Project, clusterLoc, rb)
 			if err == nil {
-				if err = gc.wait(clusterLoc, op.Name, creationTimeout); err == nil {
-					cluster, err = gc.operations.get(*gc.Project, clusterLoc, rb.Cluster.Name)
-				}
+				err = gc.wait(clusterLoc, op.Name, creationTimeout)
 			}
 			if err == nil { // Enable autoscaling and set limits
 				arb := &container.SetNodePoolAutoscalingRequest{
@@ -310,6 +308,9 @@ func (gc *GKECluster) Acquire() error {
 				if err == nil {
 					err = gc.wait(clusterLoc, op.Name, autoscalingTimeout)
 				}
+			}
+			if err == nil { // Get cluster at last
+				cluster, err = gc.operations.get(*gc.Project, clusterLoc, rb.Cluster.Name)
 			}
 		}
 		if err != nil {

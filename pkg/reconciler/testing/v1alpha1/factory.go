@@ -39,7 +39,7 @@ import (
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
 
-	. "knative.dev/pkg/reconciler/testing"
+	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/reconciler"
 )
 
@@ -53,8 +53,9 @@ const (
 type Ctor func(context.Context, *Listers, configmap.Watcher) controller.Reconciler
 
 // MakeFactory creates a reconciler factory with fake clients and controller created by `ctor`.
-func MakeFactory(ctor Ctor) Factory {
-	return func(t *testing.T, r *TableRow) (controller.Reconciler, ActionRecorderList, EventList, *FakeStatsReporter) {
+func MakeFactory(ctor Ctor) rtesting.Factory {
+	return func(t *testing.T, r *rtesting.TableRow) (
+		controller.Reconciler, rtesting.ActionRecorderList, rtesting.EventList, *rtesting.FakeStatsReporter) {
 		ls := NewListers(r.Objects)
 
 		ctx := r.Ctx
@@ -82,7 +83,7 @@ func MakeFactory(ctor Ctor) Factory {
 
 		eventRecorder := record.NewFakeRecorder(maxEventBufferSize)
 		ctx = controller.WithEventRecorder(ctx, eventRecorder)
-		statsReporter := &FakeStatsReporter{}
+		statsReporter := &rtesting.FakeStatsReporter{}
 		ctx = reconciler.WithStatsReporter(ctx, statsReporter)
 
 		// This is needed for the tests that use generated names and
@@ -96,7 +97,7 @@ func MakeFactory(ctor Ctor) Factory {
 		)
 		// This is needed by the Configuration controller tests, which
 		// use GenerateName to produce Revisions.
-		PrependGenerateNameReactor(&client.Fake)
+		rtesting.PrependGenerateNameReactor(&client.Fake)
 
 		// Set up our Controller from the fakes.
 		c := ctor(ctx, &ls, configmap.NewStaticWatcher())
@@ -115,15 +116,15 @@ func MakeFactory(ctor Ctor) Factory {
 		// Validate all Create operations through the serving client.
 		client.PrependReactor("create", "*", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 			// TODO(n3wscott): context.Background is the best we can do at the moment, but it should be set-able.
-			return ValidateCreates(context.Background(), action)
+			return rtesting.ValidateCreates(context.Background(), action)
 		})
 		client.PrependReactor("update", "*", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 			// TODO(n3wscott): context.Background is the best we can do at the moment, but it should be set-able.
-			return ValidateUpdates(context.Background(), action)
+			return rtesting.ValidateUpdates(context.Background(), action)
 		})
 
-		actionRecorderList := ActionRecorderList{sharedClient, dynamicClient, client, kubeClient, cachingClient, certManagerClient}
-		eventList := EventList{Recorder: eventRecorder}
+		actionRecorderList := rtesting.ActionRecorderList{sharedClient, dynamicClient, client, kubeClient, cachingClient, certManagerClient}
+		eventList := rtesting.EventList{Recorder: eventRecorder}
 
 		return c, actionRecorderList, eventList, statsReporter
 	}

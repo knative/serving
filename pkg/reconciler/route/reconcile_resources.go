@@ -209,6 +209,7 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Route) (*v1alpha1.Route, err
 // Update the lastPinned annotation on revisions we target so they don't get GC'd.
 func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Config, route *v1alpha1.Route) error {
 	gcConfig := config.FromContext(ctx).GC
+	logger := logging.FromContext(ctx)
 	lpDebounce := gcConfig.StaleRevisionLastpinnedDebounce
 
 	eg, _ := errgroup.WithContext(ctx)
@@ -218,7 +219,7 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 			eg.Go(func() error {
 				rev, err := c.revisionLister.Revisions(route.Namespace).Get(tt.RevisionName)
 				if apierrs.IsNotFound(err) {
-					c.Logger.Infof("Unable to update lastPinned for missing revision %q", tt.RevisionName)
+					logger.Infof("Unable to update lastPinned for missing revision %q", tt.RevisionName)
 					return nil
 				} else if err != nil {
 					return err

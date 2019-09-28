@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	perrors "github.com/pkg/errors"
+	appsv1 "k8s.io/api/apps/v1"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/networking"
@@ -71,7 +72,9 @@ func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clien
 	return pkgTest.WaitForDeploymentState(
 		clients.KubeClient,
 		deploymentName,
-		test.DeploymentScaledToZeroFunc,
+		func(d *appsv1.Deployment) (bool, error) {
+			return d.Status.ReadyReplicas == 0, nil
+		},
 		"DeploymentIsScaledDown",
 		test.ServingNamespace,
 		cfg.ScaleToZeroGracePeriod*6,
