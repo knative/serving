@@ -52,7 +52,7 @@ type DeciderSpec struct {
 	TargetValue float64
 	// The total value of scaling metric that a pod can maintain.
 	TotalValue float64
-	// The burst capacity that user wants to maintain without queing at the POD level.
+	// The burst capacity that user wants to maintain without queuing at the POD level.
 	// Note, that queueing still might happen due to the non-ideal load balancing.
 	TargetBurstCapacity float64
 	PanicThreshold      float64
