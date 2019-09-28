@@ -26,8 +26,8 @@ func TestRegisterHelpers(t *testing.T) {
 		kind string
 		want string
 	}{{
-		kind: "ClusterIngress",
-		want: "ClusterIngress.networking.internal.knative.dev",
+		kind: "Ingress",
+		want: "Ingress.networking.internal.knative.dev",
 	}, {
 		kind: "ServerlessService",
 		want: "ServerlessService.networking.internal.knative.dev",

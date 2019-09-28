@@ -156,7 +156,6 @@ func main() {
 		autoscalingv1alpha1.SchemeGroupVersion.WithKind("PodAutoscaler"): &autoscalingv1alpha1.PodAutoscaler{},
 		autoscalingv1alpha1.SchemeGroupVersion.WithKind("Metric"):        &autoscalingv1alpha1.Metric{},
 		net.SchemeGroupVersion.WithKind("Certificate"):                   &net.Certificate{},
-		net.SchemeGroupVersion.WithKind("ClusterIngress"):                &net.ClusterIngress{},
 		net.SchemeGroupVersion.WithKind("Ingress"):                       &net.Ingress{},
 		net.SchemeGroupVersion.WithKind("ServerlessService"):             &net.ServerlessService{},
 	}

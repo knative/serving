@@ -26,8 +26,6 @@ import (
 type Interface interface {
 	// Certificates returns a CertificateInformer.
 	Certificates() CertificateInformer
-	// ClusterIngresses returns a ClusterIngressInformer.
-	ClusterIngresses() ClusterIngressInformer
 	// Ingresses returns a IngressInformer.
 	Ingresses() IngressInformer
 	// ServerlessServices returns a ServerlessServiceInformer.
@@ -48,11 +46,6 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // Certificates returns a CertificateInformer.
 func (v *version) Certificates() CertificateInformer {
 	return &certificateInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// ClusterIngresses returns a ClusterIngressInformer.
-func (v *version) ClusterIngresses() ClusterIngressInformer {
-	return &clusterIngressInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // Ingresses returns a IngressInformer.

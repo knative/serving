@@ -15,5 +15,5 @@ limitations under the License.
 */
 
 // Package resources holds simple functions for synthesizing child resources from
-// an Ingress resource and any relevant ClusterIngress controller configuration.
+// an Ingress resource and any relevant Ingress controller configuration.
 package resources
