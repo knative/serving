@@ -369,6 +369,9 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1alpha1.Route) e
 	for i, v := range r.Finalizers {
 		if v == routeFinalizer {
 			r.Finalizers = append(r.Finalizers[:i], r.Finalizers[i+1:]...)
+			if _, err := c.ServingClientSet.ServingV1alpha1().Routes(r.Namespace).Update(r); err != nil {
+				return err
+			}
 			break
 		}
 	}
