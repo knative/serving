@@ -22,22 +22,12 @@ import (
 
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
-	"knative.dev/pkg/test/mako/alerter/slack"
 	"knative.dev/pkg/test/prometheus"
 	"knative.dev/serving/test"
 
 	// Mysteriously required to support GCP auth (required by k8s libs). Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
-
-// SlackUserName is the user name used to send alert to Slack channels.
-const SlackUserName = "Knative Testgrid Robot"
-
-// SlackChannels is a slice of channels we want to alert for performance regressions.
-var SlackChannels = []slack.Channel{{
-	Name:     "performance",
-	Identity: "CBDMABCTF",
-}}
 
 const (
 	monitoringNS = "knative-monitoring"

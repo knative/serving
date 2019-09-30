@@ -135,7 +135,7 @@ func main() {
 	}
 	// Use a fresh context here so that our RPC to terminate the sidecar
 	// isn't subject to our timeout (or we won't shut it down when we time out)
-	defer mc.ShutDownFunc(context.Background())
+	defer qclose(context.Background())
 
 	q.Input.ThresholdInputs = append(q.Input.ThresholdInputs,
 		newLoadTest95PercentileLatency(tbcTag),
