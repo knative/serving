@@ -23,6 +23,7 @@ import (
 	"net"
 	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -447,7 +448,7 @@ func (m *StatusProber) listGatewayURLsPerPods(gateway *v1alpha3.Gateway) (map[st
 				}
 
 				for _, addr := range sub.Addresses {
-					ingressPodAddress := fmt.Sprintf("%s:%d", addr.IP, portNumber)
+					ingressPodAddress := net.JoinHostPort(addr.IP, strconv.Itoa(int(portNumber)))
 					urlsPerPods[ingressPodAddress] = append(urlsPerPods[ingressPodAddress], fmt.Sprintf(urlTmpl, int32(server.Port.Number)))
 				}
 			}
