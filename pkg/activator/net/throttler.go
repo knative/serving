@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -108,6 +109,39 @@ func newRevisionThrottler(revID types.NamespacedName,
 	}
 }
 
+// pickP2C implements power of two choices algorithm for fast load balancing.
+// See here: https://www.eecs.harvard.edu/~michaelm/postscripts/mythesis.pdf.
+// The function picks a target to send request to, given list of `podIPTracker` objects, a
+// callback to release the slot is returned as well.
+func pickP2C(tgts []*podIPTracker) (string, func()) {
+	var t1, t2 *podIPTracker
+	switch len(tgts) {
+	case 0:
+		return "", nil
+	case 1:
+		t1, t2 = tgts[0], tgts[0]
+	case 2:
+		t1, t2 = tgts[0], tgts[1]
+	default:
+		i1 := rand.Intn(len(tgts))
+		t1 = tgts[i1]
+		i2 := rand.Intn(len(tgts))
+		for i1 == i2 {
+			i2 = rand.Intn(len(tgts))
+		}
+		t2 = tgts[i2]
+	}
+	// Note that this is not guaranteed to be precise, due to the case
+	// that Load here and Add below are not atomic.
+	if atomic.LoadInt32(&t1.requests) > atomic.LoadInt32(&t2.requests) {
+		t1 = t2
+	}
+	atomic.AddInt32(&t1.requests, 1)
+	return t1.dest, func() {
+		atomic.AddInt32(&t1.requests, -1)
+	}
+}
+
 // Returns clusterIP if it is the current valid dest. If neither clusterIP or podIPs are valid
 // dests returns error.
 func (rt *revisionThrottler) checkClusterIPDest() (string, error) {
@@ -122,39 +156,19 @@ func (rt *revisionThrottler) checkClusterIPDest() (string, error) {
 	return rt.clusterIPDest, nil
 }
 
+func noop() {}
+
 // Returns a dest after incrementing its request count and a completion callback
 // to be called after request completion. If no dest is found it returns "", nil.
 func (rt *revisionThrottler) acquireDest() (string, func()) {
-	var leastConn *podIPTracker
-	clusterIPDest := func() string {
-		rt.mux.Lock()
-		defer rt.mux.Unlock()
+	rt.mux.Lock()
+	defer rt.mux.Unlock()
 
-		// This is intended to be called only after performing a read lock check on clusterIPDest
-		if rt.clusterIPDest != "" {
-			return rt.clusterIPDest
-		}
-
-		// Find the dest with fewest active connections.
-		for _, tracker := range rt.podIPTrackers {
-			if leastConn == nil || atomic.LoadInt32(&leastConn.requests) > tracker.requests {
-				leastConn = tracker
-			}
-		}
-
-		return ""
-	}()
-	if clusterIPDest != "" {
-		return clusterIPDest, func() {}
+	// This is intended to be called only after performing a read lock check on clusterIPDest
+	if rt.clusterIPDest != "" {
+		return rt.clusterIPDest, noop
 	}
-
-	if leastConn != nil {
-		atomic.AddInt32(&leastConn.requests, 1)
-		return leastConn.dest, func() {
-			atomic.AddInt32(&leastConn.requests, -1)
-		}
-	}
-	return "", nil
+	return pickP2C(rt.podIPTrackers)
 }
 
 func (rt *revisionThrottler) try(ctx context.Context, function func(string) error) error {

@@ -18,6 +18,7 @@ package net
 
 import (
 	"context"
+	"regexp"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -534,4 +535,104 @@ func TestInferIndex(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPickP2C(t *testing.T) {
+	tests := []struct {
+		l      string
+		tgts   []*podIPTracker
+		wantRE string
+	}{{
+		l:      "empty",
+		tgts:   []*podIPTracker{},
+		wantRE: "",
+	}, {
+		l: "single",
+		tgts: []*podIPTracker{
+			&podIPTracker{
+				"good-place",
+				1,
+			},
+		},
+		wantRE: "good-place",
+	}, {
+		l: "two",
+		tgts: []*podIPTracker{
+			&podIPTracker{
+				"bad-place",
+				11,
+			},
+			&podIPTracker{
+				"good-place",
+				1,
+			},
+		},
+		wantRE: "good-place",
+	}, {
+		l: "three",
+		tgts: []*podIPTracker{
+			&podIPTracker{
+				"bad",
+				7,
+			},
+			&podIPTracker{
+				"neutral",
+				5,
+			},
+			&podIPTracker{
+				"good",
+				1,
+			},
+		},
+		wantRE: "good|neutral",
+	}}
+	for _, test := range tests {
+		t.Run(test.l, func(t *testing.T) {
+			// Run the same code several times to make sure the selection is stable and callback
+			// properly removes the load.
+			for i := 0; i < 5; i++ {
+				re := regexp.MustCompile(test.wantRE)
+				got, cb := pickP2C(test.tgts)
+				if !re.MatchString(got) {
+					t.Errorf("target = %s, want to match: %s", got, test.wantRE)
+				}
+				if cb != nil {
+					cb()
+				}
+			}
+		})
+	}
+	t.Run("multiple", func(t *testing.T) {
+		tgts := []*podIPTracker{
+			&podIPTracker{
+				"bad-place",
+				3,
+			},
+			&podIPTracker{
+				"good-place",
+				1,
+			},
+		}
+		cbs := make([]func(), 0, 4)
+		for i := 0; i < 2; i++ {
+			got, cb := pickP2C(tgts)
+			if got != "good-place" {
+				t.Fatalf("Got = %s, want: good-place", got)
+			}
+			cbs = append(cbs, cb)
+		}
+		// Now this next request can be `good` or `bad` depending on random # generator
+		got, cb := pickP2C(tgts)
+		cbs = append(cbs, cb)
+		if got == "good-place" {
+			got, cb = pickP2C(tgts)
+			cbs = append(cbs, cb)
+			if got != "bad-place" {
+				t.Errorf("Got = %s, want: bad-place", got)
+			}
+		}
+		for _, cb := range cbs {
+			cb()
+		}
+	})
 }
