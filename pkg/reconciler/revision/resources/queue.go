@@ -329,8 +329,11 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 			Value: probeJSON,
 		}, {
 			Name:  "ENABLE_PROFILING",
-			Value: strconv.FormatBool(observabilityConfig.EnableProfiling)},
-		},
+			Value: strconv.FormatBool(observabilityConfig.EnableProfiling),
+		}, {
+			Name:  "SERVING_ENABLE_PROBE_REQUEST_LOG",
+			Value: strconv.FormatBool(observabilityConfig.EnableProbeRequestLog),
+		}},
 	}, nil
 }
 

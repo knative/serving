@@ -125,9 +125,10 @@ type config struct {
 	EnableProfiling        bool   `split_words:"true"` // optional
 
 	// Logging configuration
-	ServingLoggingConfig      string `split_words:"true" required:"true"`
-	ServingLoggingLevel       string `split_words:"true" required:"true"`
-	ServingRequestLogTemplate string `split_words:"true"` // optional
+	ServingLoggingConfig         string `split_words:"true" required:"true"`
+	ServingLoggingLevel          string `split_words:"true" required:"true"`
+	ServingRequestLogTemplate    string `split_words:"true"` // optional
+	ServingEnableProbeRequestLog bool   `split_words:"true"` // optional
 
 	// Metrics configuration
 	ServingNamespace             string `split_words:"true" required:"true"`
@@ -569,7 +570,7 @@ func pushRequestLogHandler(currentHandler http.Handler, env config) http.Handler
 		PodIP:         env.ServingPodIP,
 	}
 	handler, err := pkghttp.NewRequestLogHandler(currentHandler, logging.NewSyncFileWriter(os.Stdout), env.ServingRequestLogTemplate,
-		pkghttp.RequestLogTemplateInputGetterFromRevision(revInfo))
+		pkghttp.RequestLogTemplateInputGetterFromRevision(revInfo), env.ServingEnableProbeRequestLog)
 
 	if err != nil {
 		logger.Errorw("Error setting up request logger. Request logs will be unavailable.", zap.Error(err))
