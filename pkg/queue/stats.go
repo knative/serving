@@ -50,7 +50,7 @@ type Channels struct {
 	// Ticks with every stat report request
 	ReportChan <-chan time.Time
 	// Stat reporting channel
-	StatChan chan *autoscaler.Stat
+	StatChan chan autoscaler.Stat
 }
 
 // Stats is a structure for holding channels per pod.
@@ -114,7 +114,7 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 			case now := <-s.ch.ReportChan:
 				updateState(now)
 
-				stat := &autoscaler.Stat{
+				stat := autoscaler.Stat{
 					Time:                             now,
 					PodName:                          s.podName,
 					AverageConcurrentRequests:        weightedAverage(timeOnConcurrency),
