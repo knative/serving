@@ -30,6 +30,33 @@ import (
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
+// testCases for table-driven testing.
+var testCases = []struct {
+	// name of the test case, which will be inserted in names of routes, configurations, etc.
+	// Use a short name here to avoid hitting the 63-character limit in names
+	// (e.g., "service-to-service-call-svc-cluster-local-uagkdshh-frkml-service" is too long.)
+	name string
+	// handler to be used for readiness probe in user container.
+	handler corev1.Handler
+}{
+	{
+		"httpGet",
+		corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/healthz",
+			},
+		},
+	},
+	{
+		"exec",
+		corev1.Handler{
+			Exec: &corev1.ExecAction{
+				Command: []string{"/ko-app/runtime", "probe"},
+			},
+		},
+	},
+}
+
 func TestProbeRuntime(t *testing.T) {
 	t.Parallel()
 	cancel := logstream.Start(t)
@@ -37,31 +64,32 @@ func TestProbeRuntime(t *testing.T) {
 
 	clients := test.Setup(t)
 
-	names := test.ResourceNames{
-		Service: test.ObjectNameForTest(t),
-		Image:   "runtime",
-	}
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			names := test.ResourceNames{
+				Service: test.ObjectNameForTest(t),
+				Image:   test.Runtime,
+			}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
+			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+			defer test.TearDown(clients, names)
 
-	t.Log("Creating a new Service")
-	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		false, /* https TODO(taragu) turn this on after helloworld test running with https */
-		v1a1opts.WithReadinessProbe(
-			&corev1.Probe{
-				Handler: corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/healthz",
-					},
-				},
-			}))
-	if err != nil {
-		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
-	}
-
-	// Check if scaling down works even if access from liveness probe exists.
-	if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
-		t.Fatalf("Could not scale to zero: %v", err)
+			t.Log("Creating a new Service")
+			resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+				false, /* https TODO(taragu) turn this on after helloworld test running with https */
+				v1a1opts.WithReadinessProbe(
+					&corev1.Probe{
+						Handler: tc.handler,
+					}))
+			if err != nil {
+				t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
+			}
+			// Check if scaling down works even if access from liveness probe exists.
+			if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
+				t.Fatalf("Could not scale to zero: %v", err)
+			}
+		})
 	}
 }
