@@ -18,14 +18,15 @@ package autoscaler
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/serving/pkg/autoscaler/aggregation"
-
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/pkg/logging/logkey"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler/aggregation"
 )
 
 const (
@@ -51,7 +52,7 @@ type StatsScraperFactory func(*av1alpha1.Metric) (StatsScraper, error)
 // Stat defines a single measurement at a point in time
 type Stat struct {
 	// The time the data point was received by autoscaler.
-	Time *time.Time
+	Time time.Time
 
 	// The unique identity of this pod.  Used to count how many pods
 	// are contributing to the metrics.
@@ -69,6 +70,8 @@ type Stat struct {
 	// Part of RequestCount, for requests going through a proxy.
 	ProxiedRequestCount float64
 }
+
+var emptyStat = Stat{}
 
 // StatMessage wraps a Stat with identifying information so it can be routed
 // to the correct receiver.
@@ -132,7 +135,6 @@ func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
 		return err
 	}
 	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
-	c.logger.Info("Starting collection for ", key.String())
 
 	c.collectionsMutex.RLock()
 	collection, exists := c.collections[key]
@@ -161,8 +163,6 @@ func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
 func (c *MetricCollector) Delete(namespace, name string) error {
 	c.collectionsMutex.Lock()
 	defer c.collectionsMutex.Unlock()
-
-	c.logger.Infof("Stopping metric collection of %s/%s", namespace, name)
 
 	key := types.NamespacedName{Namespace: namespace, Name: name}
 	if collection, ok := c.collections[key]; ok {
@@ -248,6 +248,9 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, logger *zap.S
 		stopCh: make(chan struct{}),
 	}
 
+	logger = logger.Named("collector").With(
+		zap.String(logkey.Key, fmt.Sprintf("%s/%s", metric.Namespace, metric.Name)))
+
 	c.grp.Add(1)
 	go func() {
 		defer c.grp.Done()
@@ -259,7 +262,7 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, logger *zap.S
 				scrapeTicker.Stop()
 				return
 			case <-scrapeTicker.C:
-				message, err := c.getScraper().Scrape()
+				stat, err := c.getScraper().Scrape()
 				if err != nil {
 					copy := metric.DeepCopy()
 					switch {
@@ -273,8 +276,8 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, logger *zap.S
 					logger.Errorw("Failed to scrape metrics", zap.Error(err))
 					c.updateMetric(copy)
 				}
-				if message != nil {
-					c.record(message.Stat)
+				if stat != emptyStat {
+					c.record(stat)
 				}
 			}
 		}
@@ -305,8 +308,8 @@ func (c *collection) record(stat Stat) {
 
 	// Proxied requests have been counted at the activator. Subtract
 	// them to avoid double counting.
-	c.concurrencyBuckets.Record(*stat.Time, stat.PodName, stat.AverageConcurrentRequests-stat.AverageProxiedConcurrentRequests)
-	c.rpsBuckets.Record(*stat.Time, stat.PodName, stat.RequestCount-stat.ProxiedRequestCount)
+	c.concurrencyBuckets.Record(stat.Time, stat.PodName, stat.AverageConcurrentRequests-stat.AverageProxiedConcurrentRequests)
+	c.rpsBuckets.Record(stat.Time, stat.PodName, stat.RequestCount-stat.ProxiedRequestCount)
 
 	// Delete outdated stats taking stat.Time as current time.
 	now := stat.Time

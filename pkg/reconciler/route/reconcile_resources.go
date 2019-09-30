@@ -60,20 +60,16 @@ func (c *Reconciler) deleteIngressForRoute(route *v1alpha1.Route) error {
 }
 
 func (c *Reconciler) reconcileIngress(
-	ctx context.Context, ira IngressResourceAccessors, r *v1alpha1.Route, desired netv1alpha1.IngressAccessor, optional bool) (netv1alpha1.IngressAccessor, error) {
+	ctx context.Context, ira IngressResourceAccessors, r *v1alpha1.Route, desired netv1alpha1.IngressAccessor) (netv1alpha1.IngressAccessor, error) {
 	ingress, err := ira.getIngressForRoute(r)
 	if apierrs.IsNotFound(err) {
-		if optional {
-			return nil, nil
-		}
 		ingress, err = ira.createIngress(desired)
 		if err != nil {
 			c.Recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress: %v", err)
 			return nil, perrors.Wrap(err, "failed to create Ingress")
 		}
 
-		c.Recorder.Eventf(r, corev1.EventTypeNormal, "Created",
-			"Created %s %q", resources.GetIngressTypeName(ingress), ingress.GetName())
+		c.Recorder.Eventf(r, corev1.EventTypeNormal, "Created", "Created Ingress %q", ingress.GetName())
 		return ingress, nil
 	} else if err != nil {
 		return nil, err
@@ -88,7 +84,7 @@ func (c *Reconciler) reconcileIngress(
 
 			updated, err := ira.updateIngress(origin)
 			if err != nil {
-				return nil, perrors.Wrap(err, "failed to update "+resources.GetIngressTypeName(ingress))
+				return nil, perrors.Wrap(err, "failed to update Ingress")
 			}
 			return updated, nil
 		}
@@ -213,6 +209,7 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Route) (*v1alpha1.Route, err
 // Update the lastPinned annotation on revisions we target so they don't get GC'd.
 func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Config, route *v1alpha1.Route) error {
 	gcConfig := config.FromContext(ctx).GC
+	logger := logging.FromContext(ctx)
 	lpDebounce := gcConfig.StaleRevisionLastpinnedDebounce
 
 	eg, _ := errgroup.WithContext(ctx)
@@ -222,7 +219,7 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 			eg.Go(func() error {
 				rev, err := c.revisionLister.Revisions(route.Namespace).Get(tt.RevisionName)
 				if apierrs.IsNotFound(err) {
-					c.Logger.Infof("Unable to update lastPinned for missing revision %q", tt.RevisionName)
+					logger.Infof("Unable to update lastPinned for missing revision %q", tt.RevisionName)
 					return nil
 				} else if err != nil {
 					return err

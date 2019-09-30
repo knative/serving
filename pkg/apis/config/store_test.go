@@ -33,7 +33,6 @@ var ignoreStuff = cmp.Options{
 }
 
 func TestStoreLoadWithContext(t *testing.T) {
-	defer logtesting.ClearAll()
 	store := NewStore(logtesting.TestLogger(t))
 
 	defaultsConfig := ConfigMapFromTestFile(t, DefaultsConfigName)
@@ -51,8 +50,6 @@ func TestStoreLoadWithContext(t *testing.T) {
 }
 
 func TestStoreLoadWithContextOrDefaults(t *testing.T) {
-	defer logtesting.ClearAll()
-
 	defaultsConfig := ConfigMapFromTestFile(t, DefaultsConfigName)
 	config := FromContextOrDefaults(context.Background())
 
@@ -65,7 +62,6 @@ func TestStoreLoadWithContextOrDefaults(t *testing.T) {
 }
 
 func TestStoreImmutableConfig(t *testing.T) {
-	defer logtesting.ClearAll()
 	store := NewStore(logtesting.TestLogger(t))
 
 	store.OnConfigChanged(ConfigMapFromTestFile(t, DefaultsConfigName))

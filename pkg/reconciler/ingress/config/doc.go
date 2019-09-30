@@ -17,5 +17,5 @@ limitations under the License.
 // +k8s:deepcopy-gen=package
 
 // Package config holds the typed objects that define the schemas for
-// assorted ConfigMap objects on which the ClusterIngress controller depends.
+// assorted ConfigMap objects on which the Ingress controller depends.
 package config

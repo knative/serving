@@ -86,7 +86,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		if raw, ok := data[b.key]; !ok {
 			*b.field = b.defaultValue
 		} else {
-			*b.field = strings.ToLower(raw) == "true"
+			*b.field = strings.EqualFold(raw, "true")
 		}
 	}
 

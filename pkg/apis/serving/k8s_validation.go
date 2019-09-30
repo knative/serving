@@ -508,7 +508,7 @@ func validateProbe(p *corev1.Probe) *apis.FieldError {
 	}
 
 	if len(handlers) == 0 {
-		errs = errs.Also(apis.ErrMissingField("handler"))
+		errs = errs.Also(apis.ErrMissingOneOf("httpGet", "tcpSocket", "exec"))
 	} else if len(handlers) > 1 {
 		errs = errs.Also(apis.ErrMultipleOneOf(handlers...))
 	}

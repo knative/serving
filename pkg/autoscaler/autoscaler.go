@@ -27,7 +27,6 @@ import (
 	"go.uber.org/zap"
 
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/resources"
 
@@ -47,7 +46,7 @@ type Autoscaler struct {
 	// State in panic mode. Carries over multiple Scale calls. Guarded
 	// by the stateMux.
 	stateMux     sync.Mutex
-	panicTime    *time.Time
+	panicTime    time.Time
 	maxPanicPods int32
 
 	// specMux guards the current DeciderSpec and the PodCounter.
@@ -85,9 +84,9 @@ func New(
 		// is reconciled before SKS has even chance of creating the service/endpoints.
 		curC = 0
 	}
-	var pt *time.Time
+	var pt time.Time
 	if curC > 1 {
-		pt = ptr.Time(time.Now())
+		pt = time.Now()
 		// A new instance of autoscaler is created in panic mode.
 		reporter.ReportPanic(1)
 	} else {
@@ -198,26 +197,28 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 
 	a.stateMux.Lock()
 	defer a.stateMux.Unlock()
-	if a.panicTime == nil && isOverPanicThreshold {
+	if a.panicTime.IsZero() && isOverPanicThreshold {
 		// Begin panicking when we cross the threshold in the panic window.
 		logger.Info("PANICKING")
-		a.panicTime = &now
+		a.panicTime = now
 		a.reporter.ReportPanic(1)
-	} else if a.panicTime != nil && !isOverPanicThreshold && a.panicTime.Add(spec.StableWindow).Before(now) {
+	} else if !a.panicTime.IsZero() && !isOverPanicThreshold && a.panicTime.Add(spec.StableWindow).Before(now) {
 		// Stop panicking after the surge has made its way into the stable metric.
 		logger.Info("Un-panicking.")
-		a.panicTime = nil
+		a.panicTime = time.Time{}
 		a.maxPanicPods = 0
 		a.reporter.ReportPanic(0)
 	}
 
-	if a.panicTime != nil {
+	if !a.panicTime.IsZero() {
 		logger.Debug("Operating in panic mode.")
 		// We do not scale down while in panic mode. Only increases will be applied.
 		if desiredPanicPodCount > a.maxPanicPods {
 			logger.Infof("Increasing pods from %d to %d.", originalReadyPodsCount, desiredPanicPodCount)
-			a.panicTime = &now
+			a.panicTime = now
 			a.maxPanicPods = desiredPanicPodCount
+		} else if desiredPanicPodCount < a.maxPanicPods {
+			logger.Debugf("Skipping decrease from %d to %d.", a.maxPanicPods, desiredPanicPodCount)
 		}
 		desiredPodCount = a.maxPanicPods
 	} else {

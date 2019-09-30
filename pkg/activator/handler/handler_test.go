@@ -28,7 +28,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"go.opencensus.io/plugin/ochttp"
-
+	"go.uber.org/zap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
 	rtesting "knative.dev/pkg/reconciler/testing"
@@ -51,7 +51,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	. "knative.dev/pkg/configmap/testing"
-	. "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/logging"
 	_ "knative.dev/pkg/system/testing"
 )
 
@@ -183,7 +183,6 @@ func TestActivationHandler(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer func() {
 				cancel()
-				ClearAll()
 			}()
 			revisionInformer(ctx, revision(testNamespace, testRevName))
 			handler := (New(ctx, test.throttler, reporter)).(*activationHandler)
@@ -202,7 +201,7 @@ func TestActivationHandler(t *testing.T) {
 			defer cancel()
 
 			// Set up config store to populate context.
-			configStore := setupConfigStore(t)
+			configStore := setupConfigStore(t, logging.FromContext(ctx))
 			ctx = configStore.ToContext(tryContext)
 
 			handler.ServeHTTP(resp, req.WithContext(ctx))
@@ -246,7 +245,6 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer func() {
 		cancel()
-		ClearAll()
 	}()
 	revisionInformer(ctx, revision(testNamespace, testRevName))
 
@@ -258,8 +256,8 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	req.Header.Set(activator.RevisionHeaderNamespace, testNamespace)
 	req.Header.Set(activator.RevisionHeaderName, testRevName)
 
-	// Set up config store to populate context.
-	configStore := setupConfigStore(t)
+	// set up config store to populate context
+	configStore := setupConfigStore(t, logging.FromContext(ctx))
 	ctx = configStore.ToContext(req.Context())
 	handler.ServeHTTP(writer, req.WithContext(ctx))
 
@@ -315,7 +313,6 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer func() {
 				cancel()
-				ClearAll()
 				reporter.Close()
 				oct.Finish()
 			}()
@@ -328,7 +325,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 			}
 
 			// Set up config store to populate context.
-			configStore := setupConfigStore(t)
+			configStore := setupConfigStore(t, logging.FromContext(ctx))
 			sendRequest(testNamespace, testRevName, handler, configStore)
 
 			gotSpans := reporter.Flush()
@@ -451,8 +448,8 @@ func revisionInformer(ctx context.Context, revs ...*v1alpha1.Revision) servingv1
 	return revisions
 }
 
-func setupConfigStore(t *testing.T) *activatorconfig.Store {
-	configStore := activatorconfig.NewStore(TestLogger(t))
+func setupConfigStore(t *testing.T, logger *zap.SugaredLogger) *activatorconfig.Store {
+	configStore := activatorconfig.NewStore(logger)
 	tracingConfig := ConfigMapFromTestFile(t, tracingconfig.ConfigName)
 	configStore.OnConfigChanged(tracingConfig)
 	return configStore

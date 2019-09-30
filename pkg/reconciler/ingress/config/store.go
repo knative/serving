@@ -60,7 +60,7 @@ type Store struct {
 func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value interface{})) *Store {
 	store := &Store{
 		UntypedStore: configmap.NewUntypedStore(
-			"clusteringress",
+			"ingress",
 			logger,
 			configmap.Constructors{
 				IstioConfigName:    NewIstioFromConfigMap,

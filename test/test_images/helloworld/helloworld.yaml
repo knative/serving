@@ -28,7 +28,6 @@ spec:
           httpGet:
             path: /
           initialDelaySeconds: 3
-          periodSeconds: 3
 ---
 apiVersion: serving.knative.dev/v1
 kind: Route

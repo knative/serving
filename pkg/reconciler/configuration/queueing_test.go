@@ -26,12 +26,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/system"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakeconfigurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
 	"knative.dev/serving/pkg/gc"
 
 	. "knative.dev/pkg/reconciler/testing"
@@ -85,7 +84,14 @@ func getTestConfiguration() *v1alpha1.Configuration {
 }
 
 func TestNewConfigurationCallsSyncHandler(t *testing.T) {
-	ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	ctx, cancel, _ := SetupFakeContextWithCancel(t)
+	eg := errgroup.Group{}
+	defer func() {
+		cancel()
+		if err := eg.Wait(); err != nil {
+			t.Fatalf("Error running controller: %v", err)
+		}
+	}()
 
 	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -96,15 +102,6 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 	})
 
 	ctrl := NewController(ctx, configMapWatcher)
-
-	eg := errgroup.Group{}
-	defer func() {
-		cancel()
-		if err := eg.Wait(); err != nil {
-			t.Fatalf("Error running controller: %v", err)
-		}
-		logtesting.ClearAll()
-	}()
 
 	servingClient := fakeservingclient.Get(ctx)
 
@@ -118,18 +115,14 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 		return HookComplete
 	})
 
-	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-		t.Fatalf("Failed to start cluster ingress manager: %v", err)
-	}
-
 	eg.Go(func() error {
 		return ctrl.Run(2, ctx.Done())
 	})
 
 	config := getTestConfiguration()
-	if _, err := servingClient.ServingV1alpha1().Configurations(config.Namespace).Create(config); err != nil {
-		t.Fatalf("Unexpected error creating configuration: %v", err)
-	}
+	configI := fakeconfigurationinformer.Get(ctx)
+	configI.Informer().GetIndexer().Add(config)
+	ctrl.Enqueue(config)
 
 	if err := h.WaitForHooks(5 * time.Second); err != nil {
 		t.Error(err)

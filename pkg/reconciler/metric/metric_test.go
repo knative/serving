@@ -32,7 +32,6 @@ import (
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
 	. "knative.dev/pkg/reconciler/testing"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
@@ -43,7 +42,6 @@ import (
 type collectorKey struct{}
 
 func TestNewController(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
 	c := NewController(ctx, configmap.NewStaticWatcher(), &testCollector{})
 	if c == nil {
@@ -127,7 +125,6 @@ func TestReconcile(t *testing.T) {
 		WantErr: true,
 	}}
 
-	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		col := &testCollector{}
 		if c := ctx.Value(collectorKey{}); c != nil {

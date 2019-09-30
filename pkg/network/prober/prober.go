@@ -18,14 +18,17 @@ package prober
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/pkg/logging"
 )
 
 // Preparer is a way for the caller to modify the HTTP request before it goes out.
@@ -53,14 +56,20 @@ func WithHost(host string) Preparer {
 // ExpectsBody validates that the body of the probe response matches the provided string.
 func ExpectsBody(body string) Verifier {
 	return func(r *http.Response, b []byte) (bool, error) {
-		return string(b) == body, nil
+		if string(b) == body {
+			return true, nil
+		}
+		return false, fmt.Errorf("unexpected body: want %q, got %q", body, string(b))
 	}
 }
 
 // ExpectsHeader validates that the given header of the probe response matches the provided string.
 func ExpectsHeader(name, value string) Verifier {
 	return func(r *http.Response, _ []byte) (bool, error) {
-		return r.Header.Get(name) == value, nil
+		if r.Header.Get(name) == value {
+			return true, nil
+		}
+		return false, fmt.Errorf("unexpected header %q: want %q, got %q", name, value, r.Header.Get(name))
 	}
 }
 
@@ -72,7 +81,7 @@ func ExpectsStatusCodes(statusCodes []int) Verifier {
 				return true, nil
 			}
 		}
-		return false, nil
+		return false, fmt.Errorf("unexpected status code: want %v, got %v", statusCodes, r.StatusCode)
 	}
 }
 
@@ -161,6 +170,7 @@ func (m *Manager) Offer(ctx context.Context, target string, arg interface{}, per
 
 // doAsync starts a go routine that probes the target with given period.
 func (m *Manager) doAsync(ctx context.Context, target string, arg interface{}, period, timeout time.Duration, ops ...interface{}) {
+	logger := logging.FromContext(ctx)
 	go func() {
 		defer func() {
 			m.mu.Lock()
@@ -169,13 +179,16 @@ func (m *Manager) doAsync(ctx context.Context, target string, arg interface{}, p
 		}()
 		var (
 			result bool
-			err    error
+			inErr  error
 		)
-
-		err = wait.PollImmediate(period, timeout, func() (bool, error) {
-			result, err = Do(ctx, m.transport, target, ops...)
-			return result, err
+		err := wait.PollImmediate(period, timeout, func() (bool, error) {
+			result, inErr = Do(ctx, m.transport, target, ops...)
+			// Do not return error, which is from verifierError, as retry is expected until timeout.
+			return result, nil
 		})
+		if inErr != nil {
+			logger.Errorw("Unable to read sockstat", zap.Error(inErr))
+		}
 		m.cb(arg, result, err)
 	}()
 }

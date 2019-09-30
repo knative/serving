@@ -22,8 +22,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"os/user"
 	"path"
+	"path/filepath"
+	"regexp"
 
 	"github.com/pkg/errors"
 	"knative.dev/pkg/test/webhook-apicoverage/coveragecalculator"
@@ -52,6 +55,10 @@ const (
 	// WebhookResourcePercentageCoverageEndPoint constant for
 	// ResourcePercentageCoverage API endpoint.
 	WebhookResourcePercentageCoverageEndPoint = "https://%s:443" + webhook.ResourcePercentageCoverageEndPoint
+)
+
+var (
+	jUnitFileRegexExpr = regexp.MustCompile(`junit_.*\.xml`)
 )
 
 // GetDefaultKubePath helper method to fetch kubeconfig path.
@@ -228,4 +235,16 @@ func WriteResourcePercentages(outputFile string,
 	}
 
 	return ioutil.WriteFile(outputFile, []byte(htmlData), 0400)
+}
+
+// Helper function to cleanup any existing Junit XML files.
+// This is done to ensure that we only have one Junit XML file providing the
+// API Coverage summary.
+func CleanupJunitFiles(artifactsDir string) {
+	filepath.Walk(artifactsDir, func(path string, info os.FileInfo, err error) error {
+		if !info.IsDir() && jUnitFileRegexExpr.MatchString(info.Name()) {
+			os.Remove(path)
+		}
+		return nil
+	})
 }

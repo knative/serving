@@ -290,12 +290,10 @@ func (gc *GKECluster) Acquire() error {
 		}
 		// Creating cluster only if previous step succeeded
 		if err == nil {
-			log.Printf("Creating cluster %q in %q", clusterName, clusterLoc)
+			log.Printf("Creating cluster %q in %q with:\n%+v", clusterName, clusterLoc, gc.Request)
 			op, err = gc.operations.create(*gc.Project, clusterLoc, rb)
 			if err == nil {
-				if err = gc.wait(clusterLoc, op.Name, creationTimeout); err == nil {
-					cluster, err = gc.operations.get(*gc.Project, clusterLoc, rb.Cluster.Name)
-				}
+				err = gc.wait(clusterLoc, op.Name, creationTimeout)
 			}
 			if err == nil { // Enable autoscaling and set limits
 				arb := &container.SetNodePoolAutoscalingRequest{
@@ -311,6 +309,9 @@ func (gc *GKECluster) Acquire() error {
 					err = gc.wait(clusterLoc, op.Name, autoscalingTimeout)
 				}
 			}
+			if err == nil { // Get cluster at last
+				cluster, err = gc.operations.get(*gc.Project, clusterLoc, rb.Cluster.Name)
+			}
 		}
 		if err != nil {
 			errMsg := fmt.Sprintf("Error during cluster creation: '%v'. ", err)
@@ -320,7 +321,7 @@ func (gc *GKECluster) Acquire() error {
 			}
 			// Retry another region if cluster creation failed.
 			// TODO(chaodaiG): catch specific errors as we know what the error look like for stockout etc.
-			if len(regions) != i+1 {
+			if i != len(regions)-1 {
 				errMsg = fmt.Sprintf("%sRetry another region %q for cluster creation", errMsg, regions[i+1])
 			}
 			log.Printf(errMsg)
@@ -430,8 +431,6 @@ func (gc *GKECluster) wait(location, opName string, wait time.Duration) error {
 			}
 		}
 	}
-
-	return err
 }
 
 // ensureProtected ensures not operating on protected project/cluster

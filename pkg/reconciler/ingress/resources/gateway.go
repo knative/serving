@@ -50,11 +50,11 @@ var placeholderServer = v1alpha3.Server{
 	},
 }
 
-// GetServers gets the `Servers` from `Gateway` that belongs to the given ClusterIngress.
+// GetServers gets the `Servers` from `Gateway` that belongs to the given Ingress.
 func GetServers(gateway *v1alpha3.Gateway, ia v1alpha1.IngressAccessor) []v1alpha3.Server {
 	servers := []v1alpha3.Server{}
 	for i := range gateway.Spec.Servers {
-		if belongsToClusterIngress(&gateway.Spec.Servers[i], ia) {
+		if belongsToIngress(&gateway.Spec.Servers[i], ia) {
 			servers = append(servers, gateway.Spec.Servers[i])
 		}
 	}
@@ -71,16 +71,12 @@ func GetHTTPServer(gateway *v1alpha3.Gateway) *v1alpha3.Server {
 	return nil
 }
 
-func belongsToClusterIngress(server *v1alpha3.Server, ia v1alpha1.IngressAccessor) bool {
+func belongsToIngress(server *v1alpha3.Server, ia v1alpha1.IngressAccessor) bool {
 	// The format of the portName should be "<namespace>/<ingress_name>:<number>".
 	// For example, default/routetest:0.
 	portNameSplits := strings.Split(server.Port.Name, ":")
 	if len(portNameSplits) != 2 {
 		return false
-	}
-	// TODO: This should be removed after ClusterIngress codes are cleaned up.
-	if len(ia.GetNamespace()) == 0 {
-		return portNameSplits[0] == ia.GetName()
 	}
 	return portNameSplits[0] == ia.GetNamespace()+"/"+ia.GetName()
 }
@@ -168,7 +164,7 @@ func GatewayName(accessor kmeta.Accessor, gatewaySvc *corev1.Service) string {
 // IngressAccessor.
 func MakeTLSServers(ia v1alpha1.IngressAccessor, gatewayServiceNamespace string, originSecrets map[string]*corev1.Secret) ([]v1alpha3.Server, error) {
 	servers := make([]v1alpha3.Server, len(ia.GetSpec().TLS))
-	// TODO(zhiminx): for the hosts that does not included in the ClusterIngressTLS but listed in the ClusterIngressRule,
+	// TODO(zhiminx): for the hosts that does not included in the IngressTLS but listed in the IngressRule,
 	// do we consider them as hosts for HTTP?
 	for i, tls := range ia.GetSpec().TLS {
 		credentialName := tls.SecretName
@@ -182,11 +178,7 @@ func MakeTLSServers(ia v1alpha1.IngressAccessor, gatewayServiceNamespace string,
 			credentialName = targetSecret(originSecret, ia)
 		}
 
-		port := ia.GetName()
-		// TODO: This namespace check should be removed after ClusterIngress codes are cleaned up.
-		if len(ia.GetNamespace()) > 0 {
-			port = ia.GetNamespace() + "/" + ia.GetName()
-		}
+		port := ia.GetNamespace() + "/" + ia.GetName()
 
 		servers[i] = v1alpha3.Server{
 			Hosts: tls.Hosts,

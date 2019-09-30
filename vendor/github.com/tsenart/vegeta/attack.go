@@ -22,10 +22,11 @@ import (
 func attackCmd() command {
 	fs := flag.NewFlagSet("vegeta attack", flag.ExitOnError)
 	opts := &attackOpts{
-		headers: headers{http.Header{}},
-		laddr:   localAddr{&vegeta.DefaultLocalAddr},
-		rate:    vegeta.Rate{Freq: 50, Per: time.Second},
-		maxBody: vegeta.DefaultMaxBody,
+		headers:      headers{http.Header{}},
+		proxyHeaders: headers{http.Header{}},
+		laddr:        localAddr{&vegeta.DefaultLocalAddr},
+		rate:         vegeta.Rate{Freq: 50, Per: time.Second},
+		maxBody:      vegeta.DefaultMaxBody,
 	}
 	fs.StringVar(&opts.name, "name", "", "Attack name")
 	fs.StringVar(&opts.targetsf, "targets", "stdin", "Targets file")
@@ -43,11 +44,13 @@ func attackCmd() command {
 	fs.DurationVar(&opts.duration, "duration", 0, "Duration of the test [0 = forever]")
 	fs.DurationVar(&opts.timeout, "timeout", vegeta.DefaultTimeout, "Requests timeout")
 	fs.Uint64Var(&opts.workers, "workers", vegeta.DefaultWorkers, "Initial number of workers")
+	fs.Uint64Var(&opts.maxWorkers, "max-workers", vegeta.DefaultMaxWorkers, "Maximum number of workers")
 	fs.IntVar(&opts.connections, "connections", vegeta.DefaultConnections, "Max open idle connections per target host")
 	fs.IntVar(&opts.redirects, "redirects", vegeta.DefaultRedirects, "Number of redirects to follow. -1 will not follow but marks as success")
 	fs.Var(&maxBodyFlag{&opts.maxBody}, "max-body", "Maximum number of bytes to capture from response bodies. [-1 = no limit]")
-	fs.Var(&rateFlag{&opts.rate}, "rate", "Number of requests per time unit")
+	fs.Var(&rateFlag{&opts.rate}, "rate", "Number of requests per time unit [0 = infinity]")
 	fs.Var(&opts.headers, "header", "Request header")
+	fs.Var(&opts.proxyHeaders, "proxy-header", "Proxy CONNECT header")
 	fs.Var(&opts.laddr, "laddr", "Local IP address")
 	fs.BoolVar(&opts.keepalive, "keepalive", true, "Use persistent connections")
 	fs.StringVar(&opts.unixSocket, "unix-socket", "", "Connect over a unix socket. This overrides the host address in target URLs")
@@ -66,37 +69,39 @@ var (
 
 // attackOpts aggregates the attack function command options
 type attackOpts struct {
-	name        string
-	targetsf    string
-	format      string
-	outputf     string
-	bodyf       string
-	certf       string
-	keyf        string
-	rootCerts   csl
-	http2       bool
-	h2c         bool
-	insecure    bool
-	lazy        bool
-	duration    time.Duration
-	timeout     time.Duration
-	rate        vegeta.Rate
-	workers     uint64
-	connections int
-	redirects   int
-	maxBody     int64
-	headers     headers
-	laddr       localAddr
-	keepalive   bool
-	resolvers   csl
-	unixSocket  string
+	name         string
+	targetsf     string
+	format       string
+	outputf      string
+	bodyf        string
+	certf        string
+	keyf         string
+	rootCerts    csl
+	http2        bool
+	h2c          bool
+	insecure     bool
+	lazy         bool
+	duration     time.Duration
+	timeout      time.Duration
+	rate         vegeta.Rate
+	workers      uint64
+	maxWorkers   uint64
+	connections  int
+	redirects    int
+	maxBody      int64
+	headers      headers
+	proxyHeaders headers
+	laddr        localAddr
+	keepalive    bool
+	resolvers    csl
+	unixSocket   string
 }
 
 // attack validates the attack arguments, sets up the
 // required resources, launches the attack and writes the results
 func attack(opts *attackOpts) (err error) {
-	if opts.rate.Per <= 0 || opts.rate.Freq <= 0 {
-		return errZeroRate
+	if opts.maxWorkers == vegeta.DefaultMaxWorkers && opts.rate.Freq == 0 {
+		return fmt.Errorf("-rate=0 requires setting -max-workers")
 	}
 
 	if len(opts.resolvers) > 0 {
@@ -128,9 +133,10 @@ func attack(opts *attackOpts) (err error) {
 	}
 
 	var (
-		tr  vegeta.Targeter
-		src = files[opts.targetsf]
-		hdr = opts.headers.Header
+		tr       vegeta.Targeter
+		src      = files[opts.targetsf]
+		hdr      = opts.headers.Header
+		proxyHdr = opts.proxyHeaders.Header
 	)
 
 	switch opts.format {
@@ -168,12 +174,14 @@ func attack(opts *attackOpts) (err error) {
 		vegeta.LocalAddr(*opts.laddr.IPAddr),
 		vegeta.TLSConfig(tlsc),
 		vegeta.Workers(opts.workers),
+		vegeta.MaxWorkers(opts.maxWorkers),
 		vegeta.KeepAlive(opts.keepalive),
 		vegeta.Connections(opts.connections),
 		vegeta.HTTP2(opts.http2),
 		vegeta.H2C(opts.h2c),
 		vegeta.MaxBody(opts.maxBody),
 		vegeta.UnixSocket(opts.unixSocket),
+		vegeta.ProxyHeader(proxyHdr),
 	)
 
 	res := atk.Attack(tr, opts.rate, opts.duration, opts.name)

@@ -14,11 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package activator
+package net
 
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -27,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
@@ -52,7 +54,6 @@ type tryResult struct {
 
 func TestThrottlerUpdateCapacity(t *testing.T) {
 	logger := TestLogger(t)
-	defer ClearAll()
 	params := queue.BreakerParams{
 		QueueDepth:      1,
 		MaxConcurrency:  defaultMaxConcurrency,
@@ -162,7 +163,6 @@ func TestThrottlerWithError(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer func() {
 				cancel()
-				ClearAll()
 			}()
 			updateCh := make(chan revisionDestsUpdate, 2)
 
@@ -182,7 +182,7 @@ func TestThrottlerWithError(t *testing.T) {
 			servfake.ServingV1alpha1().Revisions(tc.revision.Namespace).Create(tc.revision)
 			revisions.Informer().GetIndexer().Add(tc.revision)
 
-			throttler := NewThrottler(ctx, params)
+			throttler := NewThrottler(ctx, params, "10.10.10.10:8012")
 			updateCh <- tc.initUpdate
 			close(updateCh)
 
@@ -278,7 +278,6 @@ func TestThrottlerSuccesses(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer func() {
 				cancel()
-				ClearAll()
 			}()
 			updateCh := make(chan revisionDestsUpdate, 2)
 
@@ -298,7 +297,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			servfake.ServingV1alpha1().Revisions(tc.revision.Namespace).Create(tc.revision)
 			revisions.Informer().GetIndexer().Add(tc.revision)
 
-			throttler := NewThrottler(ctx, params)
+			throttler := NewThrottler(ctx, params, "10.10.10.10:8012")
 			for _, update := range tc.initUpdates {
 				updateCh <- update
 			}
@@ -334,7 +333,6 @@ func TestMultipleActivators(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer func() {
 		cancel()
-		ClearAll()
 	}()
 
 	fake := fakekubeclient.Get(ctx)
@@ -355,7 +353,7 @@ func TestMultipleActivators(t *testing.T) {
 		InitialCapacity: 0,
 	}
 
-	throttler := NewThrottler(ctx, params)
+	throttler := NewThrottler(ctx, params, "130.0.0.2:8012")
 
 	revID := types.NamespacedName{testNamespace, testRevision}
 	possibleDests := sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234")
@@ -373,28 +371,38 @@ func TestMultipleActivators(t *testing.T) {
 			Name:      networking.ActivatorServiceName,
 			Namespace: system.Namespace(),
 		},
-		Subsets: []corev1.EndpointSubset{*epSubset(999, "http", []string{"130.0.0.1", "130.0.0.2"})},
+		Subsets: []corev1.EndpointSubset{*epSubset(8012, "http", []string{"130.0.0.1", "130.0.0.2"})},
 	}
 	fake.CoreV1().Endpoints(system.Namespace()).Create(activatorEp)
 	endpoints.Informer().GetIndexer().Add(activatorEp)
 
 	// Make sure our informer event has fired.
-	time.Sleep(200 * time.Millisecond)
+	if err := wait.PollImmediate(10*time.Millisecond, 1*time.Second, func() (bool, error) {
+		return atomic.LoadInt32(&throttler.activatorIndex) != -1, nil
+	}); err != nil {
+		t.Fatal("Timed out waiting for the Activator Endpoints to fire")
+	}
 
-	// Test with 2 activators, 3 endpoints we can send 1 request.
-	func() {
-		var cancel context.CancelFunc
-		tryContext, cancel := context.WithTimeout(context.TODO(), 100*time.Millisecond)
-		defer cancel()
+	// Test with 2 activators, 3 endpoints we can send 1 request and the second times out.
+	tryContext, cancel2 := context.WithTimeout(context.TODO(), 100*time.Millisecond)
+	defer cancel2()
 
-		results := tryThrottler(throttler, []types.NamespacedName{revID, revID}, tryContext)
-		if !possibleDests.Has(results[0].dest) {
-			t.Errorf("Request went to an unknown destination: %s, possibles: %v", results[0].dest, possibleDests)
-		}
-		if got, want := results[1].errString, context.DeadlineExceeded.Error(); got != want {
-			t.Errorf("Error = %s, want: %s", got, want)
-		}
-	}()
+	results := tryThrottler(throttler, []types.NamespacedName{revID, revID}, tryContext)
+	if !possibleDests.Has(results[0].dest) {
+		t.Errorf("Request went to an unknown destination: %s, possibles: %v", results[0].dest, possibleDests)
+	}
+	if got, want := results[1].errString, context.DeadlineExceeded.Error(); got != want {
+		t.Errorf("Error = %s, want: %s", got, want)
+	}
+}
+
+func TestInfiniteBreakerCreation(t *testing.T) {
+	// This test verifies that we use infiniteBreaker when CC==0.
+	tttl := newRevisionThrottler(types.NamespacedName{"a", "b"}, 0, /*cc*/
+		queue.BreakerParams{}, TestLogger(t))
+	if _, ok := tttl.breaker.(*infiniteBreaker); !ok {
+		t.Errorf("The type of revisionBreker = %T, want %T", tttl, (*infiniteBreaker)(nil))
+	}
 }
 
 func tryThrottler(throttler *Throttler, trys []types.NamespacedName, ctx context.Context) []tryResult {
@@ -426,8 +434,7 @@ func tryThrottler(throttler *Throttler, trys []types.NamespacedName, ctx context
 }
 
 func TestInfiniteBreaker(t *testing.T) {
-	defer ClearAll()
-	b := &InfiniteBreaker{
+	b := &infiniteBreaker{
 		broadcast: make(chan struct{}),
 		logger:    TestLogger(t),
 	}
@@ -490,5 +497,41 @@ func TestInfiniteBreaker(t *testing.T) {
 	}
 	if !res {
 		t.Error("thunk was not invoked")
+	}
+}
+
+func TestInferIndex(t *testing.T) {
+	const myIP = "10.10.10.3:1234"
+	tests := []struct {
+		label string
+		ips   []string
+		want  int
+	}{{
+		"empty",
+		[]string{},
+		-1,
+	}, {
+		"missing",
+		[]string{"11.11.11.11:1234", "11.11.11.12:1234"},
+		-1,
+	}, {
+		"first",
+		[]string{"10.10.10.3:1234,11.11.11.11:1234"},
+		-1,
+	}, {
+		"middle",
+		[]string{"10.10.10.1:1212", "10.10.10.2:1234", "10.10.10.3:1234", "11.11.11.11:1234"},
+		2,
+	}, {
+		"last",
+		[]string{"10.10.10.1:1234", "10.10.10.2:1234", "10.10.10.3:1234"},
+		2,
+	}}
+	for _, test := range tests {
+		t.Run(test.label, func(t *testing.T) {
+			if got, want := inferIndex(test.ips, myIP), test.want; got != want {
+				t.Errorf("Index = %d, wand: %d", got, want)
+			}
+		})
 	}
 }

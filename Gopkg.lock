@@ -589,9 +589,10 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:df495c9184b4e6cbb9d55652236dbcbe72c65a1c8b6469da50722628cea474e7"
+  digest = "1:06268133e9584afdd4ec94092076965820dbd23ecbe3b1c19bb156e501a14972"
   name = "github.com/mailru/easyjson"
   packages = [
+    ".",
     "buffer",
     "jlexer",
     "jwriter",
@@ -779,7 +780,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:2f94b13edb425d3ba58e6b9cf01348a930f57b0324193ad4c840b9d3f1e299df"
+  digest = "1:d6264baf1274b5857bc7f36eeb1a5772bf90727cc828008876e0f3a68d72ecfa"
   name = "github.com/tsenart/vegeta"
   packages = [
     ".",
@@ -789,7 +790,7 @@
     "lib/plot",
   ]
   pruneopts = "NUT"
-  revision = "28707121bb7840461a563aabcb510a9636e5c5a1"
+  revision = "ab06ddb56e2f6097bba8c5a6d168621088867949"
 
 [[projects]]
   digest = "1:0e3fd52087079d1289983e4fef32268ca965973f5370b69204e2934185527baa"
@@ -1645,7 +1646,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:b68475d5cbb08f8c866238c657f22abde6a6a1f25d4e4ee9459a39cfb00b5860"
+  digest = "1:1b4546f9e06261c63176ca42b07132bb2b8825dc006951973b080b4e1bf9962c"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1668,11 +1669,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "ff16d2246160e55c3df5a76a75617fae62368b01"
+  revision = "fac9d81895416907c3197fd036e6d64ba3fabece"
 
 [[projects]]
   branch = "master"
-  digest = "1:6e410a2318808cce9fd9fcdc5c1821b96b89ad1cbe17251c9915c3c4da1b27fe"
+  digest = "1:0127448c20afb08cb5a41e352d5c93c07b79d5162fe8829acaf7518ac81bd05f"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1788,7 +1789,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "d90ec6a0150ac99846556d88d5a54093418ec2a7"
+  revision = "f00ff90b54ec3bd43d0a8f12b4a93f87385287cc"
 
 [[projects]]
   branch = "master"
@@ -1805,7 +1806,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "baf7e79986726748f7b36aa8f31f8bbfaa8717b6"
+  revision = "e253fe07d282bd3d80bd9dd9f439fa550fbb9365"
 
 [[projects]]
   digest = "1:fef5992ddf85e9ccad899b11338339858936a10fbce96b9d5c43767669d95398"

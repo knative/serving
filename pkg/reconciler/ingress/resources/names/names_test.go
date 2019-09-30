@@ -28,12 +28,12 @@ import (
 func TestNamer(t *testing.T) {
 	tests := []struct {
 		name    string
-		ingress *v1alpha1.ClusterIngress
+		ingress *v1alpha1.Ingress
 		f       func(kmeta.Accessor) string
 		want    string
 	}{{
 		name: "IngressVirtualService",
-		ingress: &v1alpha1.ClusterIngress{
+		ingress: &v1alpha1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},
@@ -42,7 +42,7 @@ func TestNamer(t *testing.T) {
 		want: "foo",
 	}, {
 		name: "IngressVirtualService",
-		ingress: &v1alpha1.ClusterIngress{
+		ingress: &v1alpha1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "foo",
 				Namespace: "ns1",
@@ -52,7 +52,7 @@ func TestNamer(t *testing.T) {
 		want: "foo",
 	}, {
 		name: "MeshVirtualService",
-		ingress: &v1alpha1.ClusterIngress{
+		ingress: &v1alpha1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},
@@ -61,7 +61,7 @@ func TestNamer(t *testing.T) {
 		want: "foo-mesh",
 	}, {
 		name: "MeshVirtualService",
-		ingress: &v1alpha1.ClusterIngress{
+		ingress: &v1alpha1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "foo",
 				Namespace: "ns2",

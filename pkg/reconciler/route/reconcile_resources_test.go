@@ -32,7 +32,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	fakecertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
-	fakeciinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress/fake"
+	fakeciinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
 	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
@@ -41,8 +41,8 @@ import (
 	. "knative.dev/pkg/logging/testing"
 )
 
-func TestReconcileClusterIngressInsert(t *testing.T) {
-	ctx, _, reconciler, _, cancel := newTestReconciler(t)
+func TestReconcileIngressInsert(t *testing.T) {
+	_, _, reconciler, _, cancel := newTestReconciler(t)
 	defer cancel()
 
 	r := &v1alpha1.Route{
@@ -51,25 +51,21 @@ func TestReconcileClusterIngressInsert(t *testing.T) {
 			Namespace: "test-ns",
 		},
 	}
-	ci := newTestClusterIngress(t, r)
+	ci := newTestIngress(t, r)
 
-	ira := &ClusterIngressResources{
+	ira := &IngressResources{
 		BaseIngressResources: BaseIngressResources{
 			servingClientSet: reconciler.ServingClientSet,
 		},
-		clusterIngressLister: reconciler.clusterIngressLister,
+		ingressLister: reconciler.ingressLister,
 	}
 
-	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), ira, r, ci, true /* optional*/); err != nil {
+	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), ira, r, ci); err != nil {
 		t.Errorf("Unexpected error: %v", err)
-	}
-	created := getRouteClusterIngressFromClient(ctx, t, r)
-	if created != nil {
-		t.Errorf("Unexpected ClusterIngress creation")
 	}
 }
 
-func TestReconcileClusterIngressUpdate(t *testing.T) {
+func TestReconcileIngressUpdate(t *testing.T) {
 	ctx, _, reconciler, _, cancel := newTestReconciler(t)
 	defer cancel()
 
@@ -80,22 +76,22 @@ func TestReconcileClusterIngressUpdate(t *testing.T) {
 		},
 	}
 
-	ira := &ClusterIngressResources{
+	ira := &IngressResources{
 		BaseIngressResources: BaseIngressResources{
 			servingClientSet: reconciler.ServingClientSet,
 		},
-		clusterIngressLister: reconciler.clusterIngressLister,
+		ingressLister: reconciler.ingressLister,
 	}
 
-	ci := newTestClusterIngress(t, r)
-	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), ira, r, ci, false /*optional*/); err != nil {
+	ci := newTestIngress(t, r)
+	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), ira, r, ci); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	updated := getRouteClusterIngressFromClient(ctx, t, r)
+	updated := getRouteIngressFromClient(ctx, t, r)
 	fakeciinformer.Get(ctx).Informer().GetIndexer().Add(updated)
 
-	ci2 := newTestClusterIngress(t, r, func(tc *traffic.Config) {
+	ci2 := newTestIngress(t, r, func(tc *traffic.Config) {
 		tc.Targets[traffic.DefaultTarget][0].TrafficTarget.Percent = ptr.Int64(50)
 		tc.Targets[traffic.DefaultTarget] = append(tc.Targets[traffic.DefaultTarget], traffic.RevisionTarget{
 			TrafficTarget: v1.TrafficTarget{
@@ -104,11 +100,11 @@ func TestReconcileClusterIngressUpdate(t *testing.T) {
 			},
 		})
 	})
-	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), ira, r, ci2, true /*optional*/); err != nil {
+	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), ira, r, ci2); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	updated = getRouteClusterIngressFromClient(ctx, t, r)
+	updated = getRouteIngressFromClient(ctx, t, r)
 	if diff := cmp.Diff(ci2, updated); diff != "" {
 		t.Errorf("Unexpected diff (-want +got): %v", diff)
 	}
@@ -175,7 +171,7 @@ func TestReconcileTargetRevisions(t *testing.T) {
 	}
 }
 
-func newTestClusterIngress(t *testing.T, r *v1alpha1.Route, trafficOpts ...func(tc *traffic.Config)) netv1alpha1.IngressAccessor {
+func newTestIngress(t *testing.T, r *v1alpha1.Route, trafficOpts ...func(tc *traffic.Config)) netv1alpha1.IngressAccessor {
 	tc := &traffic.Config{Targets: map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
 			TrafficTarget: v1.TrafficTarget{
@@ -198,7 +194,7 @@ func newTestClusterIngress(t *testing.T, r *v1alpha1.Route, trafficOpts ...func(
 			ServerCertificate: "tls.crt",
 		},
 	}
-	ingress, err := resources.MakeClusterIngress(getContext(), r, tc, tls, sets.NewString(), "foo-ingress")
+	ingress, err := resources.MakeIngress(getContext(), r, tc, tls, sets.NewString(), "foo-ingress")
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}

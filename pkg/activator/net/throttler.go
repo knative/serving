@@ -14,12 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package activator
+package net
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 	"sync/atomic"
 
@@ -95,7 +96,7 @@ func newRevisionThrottler(revID types.NamespacedName,
 	logger = logger.With(zap.String(logkey.Key, revID.String()))
 	var revBreaker breaker
 	if containerConcurrency == 0 {
-		revBreaker = NewInfiniteBreaker(logger)
+		revBreaker = newInfiniteBreaker(logger)
 	} else {
 		revBreaker = queue.NewBreaker(breakerParams)
 	}
@@ -276,18 +277,23 @@ type Throttler struct {
 	revisionThrottlersMutex sync.RWMutex
 	breakerParams           queue.BreakerParams
 	revisionLister          servinglisters.RevisionLister
-	numActivators           int32
+	numActivators           int32  // Total number of activators.
+	activatorIndex          int32  // The assigned index of this activator, -1 is Activator is not expected to receive traffic.
+	ipAddress               string // The IP address of this activator.
 	logger                  *zap.SugaredLogger
 }
 
 // NewThrottler creates a new Throttler
 func NewThrottler(ctx context.Context,
-	breakerParams queue.BreakerParams) *Throttler {
+	breakerParams queue.BreakerParams,
+	ipAddr string) *Throttler {
 	revisionInformer := revisioninformer.Get(ctx)
 	t := &Throttler{
 		revisionThrottlers: make(map[types.NamespacedName]*revisionThrottler),
 		breakerParams:      breakerParams,
 		revisionLister:     revisionInformer.Lister(),
+		ipAddress:          ipAddr,
+		activatorIndex:     -1, // Unset yet.
 		logger:             logging.FromContext(ctx),
 	}
 
@@ -326,6 +332,7 @@ func (t *Throttler) run(updateCh <-chan revisionDestsUpdate) {
 	for update := range updateCh {
 		t.handleUpdate(update)
 	}
+	t.logger.Info("The Throttler has stopped.")
 }
 
 // Try waits for capacity and then executes function, passing in a l4 dest to send a request
@@ -404,13 +411,29 @@ func (t *Throttler) handleUpdate(update revisionDestsUpdate) {
 	}
 }
 
+// inferIndex returns the index of this activator slice.
+// If inferIndex returns -1, it means that this activator will not recive
+// any traffic just yet so, do not participate in slicing, this happens after
+// startup, but before this activator is threaded into the endpoints
+// (which is up to 10s after reporting healthy).
+// For now we are just sorting the IP addresses of all activators
+// and finding our index in that list.
+func inferIndex(eps []string, ipAddress string) int {
+	// `eps` will contain port, so binary search of the insertion point would be fine.
+	idx := sort.SearchStrings(eps, ipAddress)
+
+	// Check if this activator is part of the endpoints slice?
+	if idx == len(eps) || eps[idx] != ipAddress {
+		idx = -1
+	}
+	return idx
+}
+
 func (t *Throttler) updateAllThrottlerCapacity() {
-	t.logger.Debugf("Updating activator count to %d.", t.activatorCount())
 	t.revisionThrottlersMutex.RLock()
 	defer t.revisionThrottlersMutex.RUnlock()
 
 	for _, rt := range t.revisionThrottlers {
-		t.logger.Debugf("Updating rt %v with backend count %d", rt, rt.backendCount)
 		rt.updateCapacity(t, rt.backendCount)
 	}
 }
@@ -418,9 +441,14 @@ func (t *Throttler) updateAllThrottlerCapacity() {
 func (t *Throttler) activatorEndpointsUpdated(newObj interface{}) {
 	endpoints := newObj.(*corev1.Endpoints)
 
+	// We want to pass sorted list, so that we get _some_ stability in the results.
+	eps := endpointsToDests(endpoints, networking.ServicePortNameHTTP1).List()
+	t.logger.Debugf("All Activator IPS: %v, my IP: %s", eps, t.ipAddress)
+	idx := inferIndex(eps, t.ipAddress)
 	activatorCount := resources.ReadyAddressCount(endpoints)
-	t.logger.Debugf("Got %d ready activator endpoints.", activatorCount)
+	t.logger.Infof("Got %d ready activator endpoints, our position is: %d", activatorCount, idx)
 	atomic.StoreInt32(&t.numActivators, int32(activatorCount))
+	atomic.StoreInt32(&t.activatorIndex, int32(idx))
 	t.updateAllThrottlerCapacity()
 }
 
@@ -437,15 +465,14 @@ func minOneOrValue(num int) int {
 	return 1
 }
 
-// InfiniteBreaker is basically a short circuit.
-// InfiniteBreaker provides us capability to send unlimited number
+// infiniteBreaker is basically a short circuit.
+// infiniteBreaker provides us capability to send unlimited number
 // of requests to the downstream system.
 // This is to be used only when the container concurrency is unset
 // (i.e. infinity).
-// The InfiniteBreaker will, though, block the requests when
+// The infiniteBreaker will, though, block the requests when
 // downstream capacity is 0.
-// TODO(greghaynes) When the old throttler is removed this struct can be private.
-type InfiniteBreaker struct {
+type infiniteBreaker struct {
 	// mu guards `broadcast` channel.
 	mu sync.RWMutex
 
@@ -466,16 +493,16 @@ type InfiniteBreaker struct {
 	logger *zap.SugaredLogger
 }
 
-// NewInfiniteBreaker creates an InfiniteBreaker
-func NewInfiniteBreaker(logger *zap.SugaredLogger) *InfiniteBreaker {
-	return &InfiniteBreaker{
+// newInfiniteBreaker creates an infiniteBreaker
+func newInfiniteBreaker(logger *zap.SugaredLogger) *infiniteBreaker {
+	return &infiniteBreaker{
 		broadcast: make(chan struct{}),
 		logger:    logger,
 	}
 }
 
 // Capacity returns the current capacity of the breaker
-func (ib *InfiniteBreaker) Capacity() int {
+func (ib *infiniteBreaker) Capacity() int {
 	return int(atomic.LoadInt32(&ib.concurrency))
 }
 
@@ -487,7 +514,7 @@ func zeroOrOne(x int) int32 {
 }
 
 // UpdateConcurrency sets the concurrency of the breaker
-func (ib *InfiniteBreaker) UpdateConcurrency(cc int) error {
+func (ib *infiniteBreaker) UpdateConcurrency(cc int) error {
 	rcc := zeroOrOne(cc)
 	// We lock here to make sure two scale up events don't
 	// stomp on each other's feet.
@@ -508,7 +535,7 @@ func (ib *InfiniteBreaker) UpdateConcurrency(cc int) error {
 }
 
 // Maybe executes thunk when capacity is available
-func (ib *InfiniteBreaker) Maybe(ctx context.Context, thunk func()) error {
+func (ib *infiniteBreaker) Maybe(ctx context.Context, thunk func()) error {
 	has := ib.Capacity()
 	// We're scaled to serve.
 	if has > 0 {

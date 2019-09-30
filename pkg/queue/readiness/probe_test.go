@@ -347,7 +347,7 @@ func TestKnHTTPSuccessWithThreshold(t *testing.T) {
 		t.Error("Expected success after second attempt.")
 	}
 
-	if atomic.LoadInt32(&count) != threshold {
+	if atomic.LoadInt32(&count) < threshold {
 		t.Errorf("Expected %d requests before reporting success", threshold)
 	}
 }
@@ -394,7 +394,7 @@ func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 		t.Error("Expected success.")
 	}
 
-	if atomic.LoadInt32(&count) != threshold+requestFailure {
+	if atomic.LoadInt32(&count) < threshold+requestFailure {
 		t.Errorf("Wanted %d requests before reporting success, got=%d", threshold+requestFailure, count)
 	}
 }
@@ -513,7 +513,7 @@ func TestKnTCPProbeSuccessWithThreshold(t *testing.T) {
 		t.Error("Got probe error. Wanted success.")
 	}
 
-	if pb.Count() != 3 {
+	if pb.Count() < 3 {
 		t.Errorf("Expected count to be 3, go %d", pb.Count())
 	}
 }
@@ -577,7 +577,7 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 	if probeErr := <-errChan; !probeErr {
 		t.Error("Wanted ProbeContainer() successed but got error")
 	}
-	if pb.Count() != successThreshold {
+	if pb.Count() < successThreshold {
 		t.Errorf("Expected count to be %d but got %d", successThreshold, pb.Count())
 	}
 }

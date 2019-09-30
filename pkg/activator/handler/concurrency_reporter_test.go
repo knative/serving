@@ -26,7 +26,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	. "knative.dev/pkg/logging/testing"
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/autoscaler"
@@ -206,7 +205,6 @@ func TestStats(t *testing.T) {
 			s, cr, ctx, cancel := newTestStats(t, fakeClock{})
 			defer func() {
 				cancel()
-				ClearAll()
 			}()
 			go func() {
 				cr.Run(ctx.Done())

@@ -351,19 +351,6 @@ func WithReleaseRolloutAndPercentageConfigSpec(percentage int, config v1alpha1.C
 	}
 }
 
-// WithReleaseRolloutConfigSpec configures the Service to use a "release" rollout,
-// which spans the provided revisions.
-func WithReleaseRolloutConfigSpec(config v1alpha1.ConfigurationSpec, names ...string) ServiceOption {
-	return func(s *v1alpha1.Service) {
-		s.Spec = v1alpha1.ServiceSpec{
-			DeprecatedRelease: &v1alpha1.ReleaseType{
-				Revisions:     names,
-				Configuration: config,
-			},
-		}
-	}
-}
-
 // WithReleaseRollout configures the Service to use a "release" rollout,
 // which spans the provided revisions.
 func WithReleaseRollout(names ...string) ServiceOption {

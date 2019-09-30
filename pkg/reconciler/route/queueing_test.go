@@ -27,7 +27,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -42,7 +41,6 @@ import (
 )
 
 func TestNewRouteCallsSyncHandler(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 
 	// A standalone revision
@@ -104,7 +102,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	}()
 
 	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-		t.Fatalf("failed to start cluster ingress manager: %v", err)
+		t.Fatalf("Failed to start informers: %v", err)
 	}
 
 	// Run the controller.

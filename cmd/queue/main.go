@@ -34,6 +34,7 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
@@ -228,7 +229,7 @@ func handleKnativeProbe(w http.ResponseWriter, r *http.Request, ph string, healt
 
 func probeQueueHealthPath(port int, timeoutSeconds int) error {
 	if port <= 0 {
-		return errors.New("-port flag must be set a positive value")
+		return fmt.Errorf("port must be a positive value, got %d", port)
 	}
 
 	url := fmt.Sprintf(healthURLTemplate, port)
@@ -259,6 +260,7 @@ func probeQueueHealthPath(port int, timeoutSeconds int) error {
 		}
 		// Add the header to indicate this is a probe request.
 		req.Header.Add(network.ProbeHeaderName, queue.Name)
+		req.Header.Add(network.UserAgentKey, network.QueueProxyUserAgent)
 		res, lastErr := httpClient.Do(req)
 		if lastErr != nil {
 			// Return nil error for retrying
@@ -306,11 +308,21 @@ func main() {
 	defer flush(logger)
 
 	logger = logger.With(
-		zap.String(logkey.Key, types.NamespacedName{Namespace: env.ServingNamespace, Name: env.ServingRevision}.String()),
+		zap.String(logkey.Key, types.NamespacedName{
+			Namespace: env.ServingNamespace,
+			Name:      env.ServingRevision,
+		}.String()),
 		zap.String(logkey.Pod, env.ServingPod))
 
 	if err := validateEnv(env); err != nil {
 		logger.Fatal(err.Error())
+	}
+
+	// Report stats on Go memory usage every 30 seconds.
+	msp := metrics.NewMemStatsAll()
+	msp.Start(context.Background(), 30*time.Second)
+	if err := view.Register(msp.DefaultViews()...); err != nil {
+		logger.Fatalw("Error exporting go memstats view", zap.Error(err))
 	}
 
 	// Setup reporters and processes to handle stat reporting.
@@ -323,9 +335,7 @@ func main() {
 	defer close(statChan)
 	go func() {
 		for s := range statChan {
-			if err := promStatReporter.Report(s); err != nil {
-				logger.Errorw("Error while sending stat", zap.Error(err))
-			}
+			promStatReporter.Report(s)
 		}
 	}()
 

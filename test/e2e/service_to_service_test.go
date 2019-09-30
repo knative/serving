@@ -28,7 +28,7 @@ import (
 	"knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/pkg/test/spoof"
-	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
+	v1alph1testing "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 
@@ -36,8 +36,6 @@ import (
 
 	"knative.dev/serving/pkg/apis/autoscaling"
 	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
-
-	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
 
 const (
@@ -122,8 +120,8 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 	defer test.TearDown(clients, names)
 
 	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		rtesting.WithEnv(envVars...),
-		rtesting.WithConfigAnnotations(map[string]string{
+		v1alph1testing.WithEnv(envVars...),
+		v1alph1testing.WithConfigAnnotations(map[string]string{
 			autoscaling.WindowAnnotationKey: "6s", // shortest permitted; this is not required here, but for uniformity.
 			"sidecar.istio.io/inject":       strconv.FormatBool(inject),
 		}))
@@ -195,11 +193,11 @@ func TestServiceToServiceCall(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	withInternalVisibility := WithServiceLabel(
+	withInternalVisibility := v1alph1testing.WithServiceLabel(
 		routeconfig.VisibilityLabelKey, routeconfig.VisibilityClusterLocal)
 	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
 		withInternalVisibility,
-		rtesting.WithConfigAnnotations(map[string]string{
+		v1alph1testing.WithConfigAnnotations(map[string]string{
 			autoscaling.WindowAnnotationKey: "6s", // shortest permitted; this is not required here, but for uniformity.
 		}))
 	if err != nil {
@@ -237,14 +235,14 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 		Image:   "helloworld",
 	}
 
-	withInternalVisibility := WithServiceLabel(
+	withInternalVisibility := v1alph1testing.WithServiceLabel(
 		routeconfig.VisibilityLabelKey, routeconfig.VisibilityClusterLocal)
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, testNames) })
 	defer test.TearDown(clients, testNames)
 
 	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &testNames,
-		rtesting.WithConfigAnnotations(map[string]string{
+		v1alph1testing.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 			"sidecar.istio.io/inject":          strconv.FormatBool(injectB),
 		}), withInternalVisibility)
@@ -254,7 +252,7 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 
 	// Wait for the activator endpoints to equalize.
 	if err := waitForActivatorEndpoints(resources, clients); err != nil {
-		t.Fatal("Never got Activator endpoints in the service")
+		t.Fatalf("Never got Activator endpoints in the service: %v", err)
 	}
 
 	// Send request to helloworld app via httpproxy service
@@ -299,7 +297,7 @@ func TestCallToPublicService(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		rtesting.WithConfigAnnotations(map[string]string{
+		v1alph1testing.WithConfigAnnotations(map[string]string{
 			autoscaling.WindowAnnotationKey: "6s", // shortest permitted; this is not required here, but for uniformity.
 		}))
 	if err != nil {

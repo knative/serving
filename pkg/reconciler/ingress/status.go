@@ -28,8 +28,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
-
 	"go.uber.org/zap"
 
 	corev1 "k8s.io/api/core/v1"
@@ -286,7 +284,7 @@ func (m *StatusProber) CancelVirtualServiceProbing(vs *v1alpha3.VirtualService) 
 }
 
 // CancelPodProbing cancels probing of the provided Pod IP.
-func (m *StatusProber) CancelPodProbing(pod *v1.Pod) {
+func (m *StatusProber) CancelPodProbing(pod *corev1.Pod) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if state, ok := m.podStates[pod.Status.PodIP]; ok {
@@ -345,9 +343,8 @@ func (m *StatusProber) processWorkItem() bool {
 		transport,
 		item.url,
 		prober.WithHeader(network.ProbeHeaderName, network.ProbeHeaderValue),
-		prober.ExpectsHeader(network.HashHeaderName, item.ingressState.hash),
 		prober.ExpectsStatusCodes([]int{http.StatusOK}),
-	)
+		prober.ExpectsHeader(network.HashHeaderName, item.ingressState.hash))
 
 	// In case of cancellation, drop the work item
 	select {

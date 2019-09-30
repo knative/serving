@@ -143,11 +143,6 @@ func (l *Listers) GetHorizontalPodAutoscalerLister() autoscalingv2beta1listers.H
 	return autoscalingv2beta1listers.NewHorizontalPodAutoscalerLister(l.IndexerFor(&autoscalingv2beta1.HorizontalPodAutoscaler{}))
 }
 
-// GetClusterIngressLister get lister for ClusterIngress resource.
-func (l *Listers) GetClusterIngressLister() networkinglisters.ClusterIngressLister {
-	return networkinglisters.NewClusterIngressLister(l.IndexerFor(&networking.ClusterIngress{}))
-}
-
 // GetIngressLister get lister for Ingress resource.
 func (l *Listers) GetIngressLister() networkinglisters.IngressLister {
 	return networkinglisters.NewIngressLister(l.IndexerFor(&networking.Ingress{}))

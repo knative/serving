@@ -32,7 +32,6 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/system"
-	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	net "knative.dev/serving/pkg/network"
@@ -41,7 +40,7 @@ import (
 )
 
 // VirtualServiceNamespace gives the namespace of the child
-// VirtualServices for a given ClusterIngress.
+// VirtualServices for a given Ingress.
 func VirtualServiceNamespace(ia v1alpha1.IngressAccessor) string {
 	if len(ia.GetNamespace()) == 0 {
 		return system.Namespace()
@@ -62,13 +61,9 @@ func MakeIngressVirtualService(ia v1alpha1.IngressAccessor, gateways map[v1alpha
 		Spec: *makeVirtualServiceSpec(ia, gateways, expandedHosts(getHosts(ia))),
 	}
 
-	// Populate the ClusterIngress labels.
+	// Populate the Ingress labels.
 	if vs.Labels == nil {
 		vs.Labels = make(map[string]string)
-	}
-
-	if len(ia.GetNamespace()) == 0 {
-		vs.Labels[networking.ClusterIngressLabelKey] = ia.GetName()
 	}
 
 	ingressLabels := ia.GetLabels()
@@ -91,15 +86,9 @@ func MakeMeshVirtualService(ia v1alpha1.IngressAccessor) *v1alpha3.VirtualServic
 			v1alpha1.IngressVisibilityClusterLocal: sets.NewString("mesh"),
 		}, keepLocalHostnames(getHosts(ia))),
 	}
-	// Populate the ClusterIngress labels.
-
 	vs.Labels = resources.FilterMap(ia.GetLabels(), func(k string) bool {
 		return k != serving.RouteLabelKey && k != serving.RouteNamespaceLabelKey
 	})
-
-	if len(ia.GetNamespace()) == 0 {
-		vs.Labels[networking.ClusterIngressLabelKey] = ia.GetName()
-	}
 
 	return vs
 }

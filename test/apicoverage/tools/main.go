@@ -59,6 +59,7 @@ func main() {
 			log.Fatalf("Failed to create directory: %v", err)
 		}
 	}
+	tools.CleanupJunitFiles(artifactsDir)
 
 	if *buildFailed {
 		if err := tools.WriteResourcePercentages(path.Join(

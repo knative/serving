@@ -121,14 +121,6 @@ func WithHPAClass(pa *asv1a1.PodAutoscaler) {
 	pa.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.HPA
 }
 
-// WithKPAClass updates the PA to add the kpa class annotation.
-func WithKPAClass(pa *asv1a1.PodAutoscaler) {
-	if pa.Annotations == nil {
-		pa.Annotations = make(map[string]string)
-	}
-	pa.Annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
-}
-
 // WithPAContainerConcurrency returns a PodAutoscalerOption which sets
 // the PodAutoscaler containerConcurrency to the provided value.
 func WithPAContainerConcurrency(cc int64) PodAutoscalerOption {

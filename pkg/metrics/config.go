@@ -40,6 +40,9 @@ type ObservabilityConfig struct {
 	// RequestLogTemplate is the go template to use to shape the request logs.
 	RequestLogTemplate string
 
+	// EnableProbeRequestLog enables queue-proxy to write health check probe request logs.
+	EnableProbeRequestLog bool
+
 	// RequestMetricsBackend specifies the request metrics destination, e.g. Prometheus,
 	// Stackdriver.
 	RequestMetricsBackend string
@@ -53,7 +56,7 @@ type ObservabilityConfig struct {
 func NewObservabilityConfigFromConfigMap(configMap *corev1.ConfigMap) (*ObservabilityConfig, error) {
 	oc := &ObservabilityConfig{}
 	if evlc, ok := configMap.Data["logging.enable-var-log-collection"]; ok {
-		oc.EnableVarLogCollection = strings.ToLower(evlc) == "true"
+		oc.EnableVarLogCollection = strings.EqualFold(evlc, "true")
 	}
 
 	if rut, ok := configMap.Data["logging.revision-url-template"]; ok {
@@ -70,12 +73,16 @@ func NewObservabilityConfigFromConfigMap(configMap *corev1.ConfigMap) (*Observab
 		oc.RequestLogTemplate = rlt
 	}
 
+	if eprl, ok := configMap.Data["logging.enable-probe-request-log"]; ok {
+		oc.EnableProbeRequestLog = strings.EqualFold(eprl, "true")
+	}
+
 	if mb, ok := configMap.Data["metrics.request-metrics-backend-destination"]; ok {
 		oc.RequestMetricsBackend = mb
 	}
 
 	if prof, ok := configMap.Data["profiling.enable"]; ok {
-		oc.EnableProfiling = strings.ToLower(prof) == "true"
+		oc.EnableProfiling = strings.EqualFold(prof, "true")
 	}
 
 	return oc, nil

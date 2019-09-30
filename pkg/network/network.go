@@ -60,16 +60,16 @@ const (
 	// that specifies Istio outbound ip ranges.
 	IstioOutboundIPRangesKey = "istio.sidecar.includeOutboundIPRanges"
 
-	// DefaultClusterIngressClassKey is the name of the configuration entry
-	// that specifies the default ClusterIngress.
-	DefaultClusterIngressClassKey = "clusteringress.class"
+	// DefaultIngressClassKey is the name of the configuration entry
+	// that specifies the default Ingress.
+	DefaultIngressClassKey = "clusteringress.class"
 
 	// DefaultCertificateClassKey is the name of the configuration entry
 	// that specifies the default Certificate.
 	DefaultCertificateClassKey = "certificate.class"
 
 	// IstioIngressClassName value for specifying knative's Istio
-	// ClusterIngress reconciler.
+	// Ingress reconciler.
 	IstioIngressClassName = "istio.ingress.networking.knative.dev"
 
 	// CertManagerCertificateClassName value for specifying Knative's Cert-Manager
@@ -122,6 +122,17 @@ const (
 	// HTTPProtocolKey is the name of the configuration entry that
 	// specifies the HTTP endpoint behavior of Knative ingress.
 	HTTPProtocolKey = "httpProtocol"
+
+	// UserAgentKey is the constant for header "User-Agent".
+	UserAgentKey = "User-Agent"
+
+	// ActivatorUserAgent is the user-agent header value set in probe requests sent
+	// from activator.
+	ActivatorUserAgent = "Knative-Activator-Probe"
+
+	// QueueProxyUserAgent is the user-agent header value set in probe requests sent
+	// from queue-proxy.
+	QueueProxyUserAgent = "Knative-Queue-Proxy-Probe"
 )
 
 // DomainTemplateValues are the available properties people can choose from
@@ -149,8 +160,8 @@ type Config struct {
 	// by Istio sidecar.
 	IstioOutboundIPRanges string
 
-	// DefaultClusterIngressClass specifies the default ClusterIngress class.
-	DefaultClusterIngressClass string
+	// DefaultIngressClass specifies the default Ingress class.
+	DefaultIngressClass string
 
 	// DomainTemplate is the golang text template to use to generate the
 	// Route's domain (host) for the Service.
@@ -223,10 +234,10 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 		nc.IstioOutboundIPRanges = normalizedIpr
 	}
 
-	if ingressClass, ok := configMap.Data[DefaultClusterIngressClassKey]; !ok {
-		nc.DefaultClusterIngressClass = IstioIngressClassName
+	if ingressClass, ok := configMap.Data[DefaultIngressClassKey]; !ok {
+		nc.DefaultIngressClass = IstioIngressClassName
 	} else {
-		nc.DefaultClusterIngressClass = ingressClass
+		nc.DefaultIngressClass = ingressClass
 	}
 
 	nc.DefaultCertificateClass = CertManagerCertificateClassName
@@ -264,7 +275,7 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 		nc.TagTemplate = tt
 	}
 
-	nc.AutoTLS = strings.ToLower(configMap.Data[AutoTLSKey]) == "enabled"
+	nc.AutoTLS = strings.EqualFold(configMap.Data[AutoTLSKey], "enabled")
 
 	switch strings.ToLower(configMap.Data[HTTPProtocolKey]) {
 	case string(HTTPEnabled):

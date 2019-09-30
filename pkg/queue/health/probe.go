@@ -75,7 +75,7 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 		return fmt.Errorf("error constructing probe request %v", err)
 	}
 
-	req.Header.Add("User-Agent", network.KubeProbeUAPrefix+config.KubeMajor+"/"+config.KubeMinor)
+	req.Header.Add(network.UserAgentKey, network.KubeProbeUAPrefix+config.KubeMajor+"/"+config.KubeMinor)
 
 	for _, header := range config.HTTPHeaders {
 		req.Header.Add(header.Name, header.Value)
