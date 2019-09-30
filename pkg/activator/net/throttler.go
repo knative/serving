@@ -127,6 +127,8 @@ func pickP2C(tgts []*podIPTracker) (string, func()) {
 			i2 = rand.Intn(len(tgts))
 		}
 		t2 := tgts[i2]
+		// Note that this not guaranteed to be precise, due to the case
+		// that Load here and Add below are not atomic.
 		if atomic.LoadInt32(&t1.requests) > atomic.LoadInt32(&t2.requests) {
 			t1 = t2
 		}
@@ -151,7 +153,7 @@ func (rt *revisionThrottler) checkClusterIPDest() (string, error) {
 	return rt.clusterIPDest, nil
 }
 
-func nonce() {}
+func noop() {}
 
 // Returns a dest after incrementing its request count and a completion callback
 // to be called after request completion. If no dest is found it returns "", nil.
@@ -161,7 +163,7 @@ func (rt *revisionThrottler) acquireDest() (string, func()) {
 
 	// This is intended to be called only after performing a read lock check on clusterIPDest
 	if rt.clusterIPDest != "" {
-		return rt.clusterIPDest, nonce
+		return rt.clusterIPDest, noop
 	}
 	return pickP2C(rt.podIPTrackers)
 }
