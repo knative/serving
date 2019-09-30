@@ -60,11 +60,6 @@ import (
 )
 
 const (
-	// Add a little buffer space between request handling and stat
-	// reporting so that latency in the stat pipeline doesn't
-	// interfere with request handling.
-	statReportingQueueLength = 10
-
 	// Add enough buffer to not block request serving on stats collection
 	requestCountingQueueLength = 100
 
@@ -331,7 +326,7 @@ func main() {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
 
-	statChan := make(chan *autoscaler.Stat, statReportingQueueLength)
+	statChan := make(chan *autoscaler.Stat)
 	defer close(statChan)
 	go func() {
 		for s := range statChan {
