@@ -94,13 +94,15 @@ var (
 )
 
 func statReporter(statSink *websocket.ManagedConnection, stopCh <-chan struct{},
-	statChan <-chan autoscaler.StatMessage, logger *zap.SugaredLogger) {
+	statChan <-chan []autoscaler.StatMessage, logger *zap.SugaredLogger) {
 	for {
 		select {
 		case sm := <-statChan:
 			go func() {
-				if err := statSink.Send(sm); err != nil {
-					logger.Errorw("Error while sending stat", zap.Error(err))
+				for _, msg := range sm {
+					if err := statSink.Send(msg); err != nil {
+						logger.Errorw("Error while sending stat", zap.Error(err))
+					}
 				}
 			}()
 		case <-stopCh:
@@ -180,7 +182,7 @@ func main() {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
 
-	statCh := make(chan autoscaler.StatMessage)
+	statCh := make(chan []autoscaler.StatMessage)
 	defer close(statCh)
 
 	reqCh := make(chan activatorhandler.ReqEvent, requestCountingQueueLength)
