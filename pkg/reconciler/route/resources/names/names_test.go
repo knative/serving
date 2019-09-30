@@ -52,7 +52,7 @@ func TestNamer(t *testing.T) {
 		f:    K8sServiceFullname,
 		want: "bar.default.svc.cluster.local",
 	}, {
-		name: "ClusterIngressPrefix",
+		name: "IngressPrefix",
 		route: &v1alpha1.Route{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "bar",
@@ -60,8 +60,8 @@ func TestNamer(t *testing.T) {
 				UID:       "1234-5678-910",
 			},
 		},
-		f:    ClusterIngress,
-		want: "route-1234-5678-910",
+		f:    Ingress,
+		want: "bar",
 	}, {
 		name: "Certificate",
 		route: &v1alpha1.Route{

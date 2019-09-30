@@ -43,14 +43,15 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		gateways map[v1alpha1.IngressVisibility]sets.String
-		ci       *v1alpha1.ClusterIngress
+		ci       *v1alpha1.Ingress
 		expected []metav1.ObjectMeta
 	}{{
 		name:     "mesh and ingress",
 		gateways: makeGatewayMap([]string{"gateway"}, []string{"private-gateway"}),
-		ci: &v1alpha1.ClusterIngress{
+		ci: &v1alpha1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "test-ingress",
+				Name:      "test-ingress",
+				Namespace: system.Namespace(),
 				Labels: map[string]string{
 					serving.RouteLabelKey:          "test-route",
 					serving.RouteNamespaceLabelKey: "test-ns",
@@ -65,25 +66,24 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 			Name:      "test-ingress-mesh",
 			Namespace: system.Namespace(),
 			Labels: map[string]string{
-				networking.ClusterIngressLabelKey: "test-ingress",
-				serving.RouteLabelKey:             "test-route",
-				serving.RouteNamespaceLabelKey:    "test-ns",
+				serving.RouteLabelKey:          "test-route",
+				serving.RouteNamespaceLabelKey: "test-ns",
 			},
 		}, {
 			Name:      "test-ingress",
 			Namespace: system.Namespace(),
 			Labels: map[string]string{
-				networking.ClusterIngressLabelKey: "test-ingress",
-				serving.RouteLabelKey:             "test-route",
-				serving.RouteNamespaceLabelKey:    "test-ns",
+				serving.RouteLabelKey:          "test-route",
+				serving.RouteNamespaceLabelKey: "test-ns",
 			},
 		}},
 	}, {
 		name:     "mesh only",
 		gateways: nil,
-		ci: &v1alpha1.ClusterIngress{
+		ci: &v1alpha1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "test-ingress",
+				Name:      "test-ingress",
+				Namespace: system.Namespace(),
 				Labels: map[string]string{
 					serving.RouteLabelKey:          "test-route",
 					serving.RouteNamespaceLabelKey: "test-ns",
@@ -95,15 +95,14 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 			Name:      "test-ingress-mesh",
 			Namespace: system.Namespace(),
 			Labels: map[string]string{
-				networking.ClusterIngressLabelKey: "test-ingress",
-				serving.RouteLabelKey:             "test-route",
-				serving.RouteNamespaceLabelKey:    "test-ns",
+				serving.RouteLabelKey:          "test-route",
+				serving.RouteNamespaceLabelKey: "test-ns",
 			},
 		}},
 	}, {
 		name:     "mesh only with namespace",
 		gateways: nil,
-		ci: &v1alpha1.ClusterIngress{
+		ci: &v1alpha1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-ingress",
 				Namespace: "test-ns",
@@ -142,9 +141,10 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 }
 
 func TestMakeMeshVirtualServiceSpec_CorrectGateways(t *testing.T) {
-	ci := &v1alpha1.ClusterIngress{
+	ci := &v1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-ingress",
+			Name:      "test-ingress",
+			Namespace: system.Namespace(),
 			Labels: map[string]string{
 				serving.RouteLabelKey:          "test-route",
 				serving.RouteNamespaceLabelKey: "test-ns",
@@ -160,9 +160,10 @@ func TestMakeMeshVirtualServiceSpec_CorrectGateways(t *testing.T) {
 }
 
 func TestMakeMeshVirtualServiceSpec_CorrectRoutes(t *testing.T) {
-	ci := &v1alpha1.ClusterIngress{
+	ci := &v1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-ingress",
+			Name:      "test-ingress",
+			Namespace: system.Namespace(),
 		},
 		Spec: v1alpha1.IngressSpec{
 			Rules: []v1alpha1.IngressRule{{
@@ -265,9 +266,10 @@ func TestMakeMeshVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 }
 
 func TestMakeIngressVirtualServiceSpec_CorrectGateways(t *testing.T) {
-	ci := &v1alpha1.ClusterIngress{
+	ci := &v1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-ingress",
+			Name:      "test-ingress",
+			Namespace: system.Namespace(),
 			Labels: map[string]string{
 				serving.RouteLabelKey:          "test-route",
 				serving.RouteNamespaceLabelKey: "test-ns",
@@ -283,9 +285,10 @@ func TestMakeIngressVirtualServiceSpec_CorrectGateways(t *testing.T) {
 }
 
 func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
-	ci := &v1alpha1.ClusterIngress{
+	ci := &v1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-ingress",
+			Name:      "test-ingress",
+			Namespace: system.Namespace(),
 		},
 		Spec: v1alpha1.IngressSpec{
 			Rules: []v1alpha1.IngressRule{{
@@ -520,7 +523,7 @@ func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 }
 
 func TestGetHosts_Duplicate(t *testing.T) {
-	ci := &v1alpha1.ClusterIngress{
+	ci := &v1alpha1.Ingress{
 		Spec: v1alpha1.IngressSpec{
 			Rules: []v1alpha1.IngressRule{{
 				Hosts: []string{"test-route1", "test-route2"},

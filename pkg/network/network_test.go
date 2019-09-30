@@ -56,12 +56,12 @@ func TestConfiguration(t *testing.T) {
 		name:    "network configuration with no network input",
 		wantErr: false,
 		wantConfig: &Config{
-			IstioOutboundIPRanges:      "*",
-			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
-			DefaultCertificateClass:    CertManagerCertificateClassName,
-			DomainTemplate:             DefaultDomainTemplate,
-			TagTemplate:                DefaultTagTemplate,
-			HTTPProtocol:               HTTPEnabled,
+			IstioOutboundIPRanges:   "*",
+			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass: CertManagerCertificateClassName,
+			DomainTemplate:          DefaultDomainTemplate,
+			TagTemplate:             DefaultTagTemplate,
+			HTTPProtocol:            HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -85,11 +85,11 @@ func TestConfiguration(t *testing.T) {
 		name:    "network configuration with empty network",
 		wantErr: false,
 		wantConfig: &Config{
-			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
-			DefaultCertificateClass:    CertManagerCertificateClassName,
-			DomainTemplate:             DefaultDomainTemplate,
-			TagTemplate:                DefaultTagTemplate,
-			HTTPProtocol:               HTTPEnabled,
+			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass: CertManagerCertificateClassName,
+			DomainTemplate:          DefaultDomainTemplate,
+			TagTemplate:             DefaultTagTemplate,
+			HTTPProtocol:            HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -164,11 +164,11 @@ func TestConfiguration(t *testing.T) {
 		name:    "network configuration with invalid network string",
 		wantErr: false,
 		wantConfig: &Config{
-			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
-			DefaultCertificateClass:    CertManagerCertificateClassName,
-			DomainTemplate:             DefaultDomainTemplate,
-			TagTemplate:                DefaultTagTemplate,
-			HTTPProtocol:               HTTPEnabled,
+			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass: CertManagerCertificateClassName,
+			DomainTemplate:          DefaultDomainTemplate,
+			TagTemplate:             DefaultTagTemplate,
+			HTTPProtocol:            HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -183,11 +183,11 @@ func TestConfiguration(t *testing.T) {
 		name:    "network configuration with invalid network string",
 		wantErr: false,
 		wantConfig: &Config{
-			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
-			DefaultCertificateClass:    CertManagerCertificateClassName,
-			DomainTemplate:             DefaultDomainTemplate,
-			TagTemplate:                DefaultTagTemplate,
-			HTTPProtocol:               HTTPEnabled,
+			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass: CertManagerCertificateClassName,
+			DomainTemplate:          DefaultDomainTemplate,
+			TagTemplate:             DefaultTagTemplate,
+			HTTPProtocol:            HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -202,11 +202,11 @@ func TestConfiguration(t *testing.T) {
 		name:    "network configuration with invalid network range",
 		wantErr: false,
 		wantConfig: &Config{
-			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
-			DefaultCertificateClass:    CertManagerCertificateClassName,
-			DomainTemplate:             DefaultDomainTemplate,
-			TagTemplate:                DefaultTagTemplate,
-			HTTPProtocol:               HTTPEnabled,
+			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass: CertManagerCertificateClassName,
+			DomainTemplate:          DefaultDomainTemplate,
+			TagTemplate:             DefaultTagTemplate,
+			HTTPProtocol:            HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -221,12 +221,12 @@ func TestConfiguration(t *testing.T) {
 		name:    "network configuration with valid CIDR network range",
 		wantErr: false,
 		wantConfig: &Config{
-			IstioOutboundIPRanges:      "10.10.10.0/24",
-			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
-			DefaultCertificateClass:    CertManagerCertificateClassName,
-			DomainTemplate:             DefaultDomainTemplate,
-			TagTemplate:                DefaultTagTemplate,
-			HTTPProtocol:               HTTPEnabled,
+			IstioOutboundIPRanges:   "10.10.10.0/24",
+			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass: CertManagerCertificateClassName,
+			DomainTemplate:          DefaultDomainTemplate,
+			TagTemplate:             DefaultTagTemplate,
+			HTTPProtocol:            HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -241,12 +241,12 @@ func TestConfiguration(t *testing.T) {
 		name:    "network configuration with multiple valid network ranges",
 		wantErr: false,
 		wantConfig: &Config{
-			IstioOutboundIPRanges:      "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16",
-			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
-			DefaultCertificateClass:    CertManagerCertificateClassName,
-			DomainTemplate:             DefaultDomainTemplate,
-			TagTemplate:                DefaultTagTemplate,
-			HTTPProtocol:               HTTPEnabled,
+			IstioOutboundIPRanges:   "10.10.10.0/24,10.240.10.0/14,192.192.10.0/16",
+			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass: CertManagerCertificateClassName,
+			DomainTemplate:          DefaultDomainTemplate,
+			TagTemplate:             DefaultTagTemplate,
+			HTTPProtocol:            HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -261,12 +261,12 @@ func TestConfiguration(t *testing.T) {
 		name:    "network configuration with valid network",
 		wantErr: false,
 		wantConfig: &Config{
-			IstioOutboundIPRanges:      "*",
-			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
-			DefaultCertificateClass:    CertManagerCertificateClassName,
-			DomainTemplate:             DefaultDomainTemplate,
-			TagTemplate:                DefaultTagTemplate,
-			HTTPProtocol:               HTTPEnabled,
+			IstioOutboundIPRanges:   "*",
+			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass: CertManagerCertificateClassName,
+			DomainTemplate:          DefaultDomainTemplate,
+			TagTemplate:             DefaultTagTemplate,
+			HTTPProtocol:            HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -281,12 +281,12 @@ func TestConfiguration(t *testing.T) {
 		name:    "network configuration with non-Istio ingress type",
 		wantErr: false,
 		wantConfig: &Config{
-			IstioOutboundIPRanges:      "*",
-			DefaultClusterIngressClass: "foo-ingress",
-			DefaultCertificateClass:    CertManagerCertificateClassName,
-			DomainTemplate:             DefaultDomainTemplate,
-			TagTemplate:                DefaultTagTemplate,
-			HTTPProtocol:               HTTPEnabled,
+			IstioOutboundIPRanges:   "*",
+			DefaultIngressClass:     "foo-ingress",
+			DefaultCertificateClass: CertManagerCertificateClassName,
+			DomainTemplate:          DefaultDomainTemplate,
+			TagTemplate:             DefaultTagTemplate,
+			HTTPProtocol:            HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -294,20 +294,20 @@ func TestConfiguration(t *testing.T) {
 				Name:      ConfigName,
 			},
 			Data: map[string]string{
-				IstioOutboundIPRangesKey:      "*",
-				DefaultClusterIngressClassKey: "foo-ingress",
+				IstioOutboundIPRangesKey: "*",
+				DefaultIngressClassKey:   "foo-ingress",
 			},
 		},
 	}, {
 		name:    "network configuration with non-Cert-Manager Certificate type",
 		wantErr: false,
 		wantConfig: &Config{
-			IstioOutboundIPRanges:      "*",
-			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
-			DefaultCertificateClass:    "foo-cert",
-			DomainTemplate:             DefaultDomainTemplate,
-			TagTemplate:                DefaultTagTemplate,
-			HTTPProtocol:               HTTPEnabled,
+			IstioOutboundIPRanges:   "*",
+			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass: "foo-cert",
+			DomainTemplate:          DefaultDomainTemplate,
+			TagTemplate:             DefaultTagTemplate,
+			HTTPProtocol:            HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -323,12 +323,12 @@ func TestConfiguration(t *testing.T) {
 		name:    "network configuration with diff domain template",
 		wantErr: false,
 		wantConfig: &Config{
-			IstioOutboundIPRanges:      "*",
-			DefaultClusterIngressClass: "foo-ingress",
-			DefaultCertificateClass:    CertManagerCertificateClassName,
-			DomainTemplate:             nonDefaultDomainTemplate,
-			TagTemplate:                DefaultTagTemplate,
-			HTTPProtocol:               HTTPEnabled,
+			IstioOutboundIPRanges:   "*",
+			DefaultIngressClass:     "foo-ingress",
+			DefaultCertificateClass: CertManagerCertificateClassName,
+			DomainTemplate:          nonDefaultDomainTemplate,
+			TagTemplate:             DefaultTagTemplate,
+			HTTPProtocol:            HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -336,9 +336,9 @@ func TestConfiguration(t *testing.T) {
 				Name:      ConfigName,
 			},
 			Data: map[string]string{
-				IstioOutboundIPRangesKey:      "*",
-				DefaultClusterIngressClassKey: "foo-ingress",
-				DomainTemplateKey:             nonDefaultDomainTemplate,
+				IstioOutboundIPRangesKey: "*",
+				DefaultIngressClassKey:   "foo-ingress",
+				DomainTemplateKey:        nonDefaultDomainTemplate,
 			},
 		},
 	}, {
@@ -350,9 +350,9 @@ func TestConfiguration(t *testing.T) {
 				Name:      ConfigName,
 			},
 			Data: map[string]string{
-				IstioOutboundIPRangesKey:      "*",
-				DefaultClusterIngressClassKey: "foo-ingress",
-				DomainTemplateKey:             "",
+				IstioOutboundIPRangesKey: "*",
+				DefaultIngressClassKey:   "foo-ingress",
+				DomainTemplateKey:        "",
 			},
 		},
 	}, {
@@ -364,8 +364,8 @@ func TestConfiguration(t *testing.T) {
 				Name:      ConfigName,
 			},
 			Data: map[string]string{
-				IstioOutboundIPRangesKey:      "*",
-				DefaultClusterIngressClassKey: "foo-ingress",
+				IstioOutboundIPRangesKey: "*",
+				DefaultIngressClassKey:   "foo-ingress",
 				// This is missing a closing brace.
 				DomainTemplateKey: "{{.Namespace}.{{.Name}}.{{.Domain}}",
 			},
@@ -379,8 +379,8 @@ func TestConfiguration(t *testing.T) {
 				Name:      ConfigName,
 			},
 			Data: map[string]string{
-				IstioOutboundIPRangesKey:      "*",
-				DefaultClusterIngressClassKey: "foo-ingress",
+				IstioOutboundIPRangesKey: "*",
+				DefaultIngressClassKey:   "foo-ingress",
 				// This is missing a closing brace.
 				DomainTemplateKey: "{{.Namespace}.{{.Name}}.{{.Domain}}",
 			},
@@ -394,8 +394,8 @@ func TestConfiguration(t *testing.T) {
 				Name:      ConfigName,
 			},
 			Data: map[string]string{
-				IstioOutboundIPRangesKey:      "*",
-				DefaultClusterIngressClassKey: "foo-ingress",
+				IstioOutboundIPRangesKey: "*",
+				DefaultIngressClassKey:   "foo-ingress",
 				// Paths are disallowed
 				DomainTemplateKey: "{{.Domain}}/{{.Namespace}}/{{.Name}}.",
 			},
@@ -409,8 +409,8 @@ func TestConfiguration(t *testing.T) {
 				Name:      ConfigName,
 			},
 			Data: map[string]string{
-				IstioOutboundIPRangesKey:      "*",
-				DefaultClusterIngressClassKey: "foo-ingress",
+				IstioOutboundIPRangesKey: "*",
+				DefaultIngressClassKey:   "foo-ingress",
 				// Bad variable
 				DomainTemplateKey: "{{.Name}}.{{.NAmespace}}.{{.Domain}}",
 			},
@@ -419,13 +419,13 @@ func TestConfiguration(t *testing.T) {
 		name:    "network configuration with Auto TLS enabled",
 		wantErr: false,
 		wantConfig: &Config{
-			IstioOutboundIPRanges:      "*",
-			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
-			DefaultCertificateClass:    CertManagerCertificateClassName,
-			DomainTemplate:             DefaultDomainTemplate,
-			TagTemplate:                DefaultTagTemplate,
-			AutoTLS:                    true,
-			HTTPProtocol:               HTTPEnabled,
+			IstioOutboundIPRanges:   "*",
+			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass: CertManagerCertificateClassName,
+			DomainTemplate:          DefaultDomainTemplate,
+			TagTemplate:             DefaultTagTemplate,
+			AutoTLS:                 true,
+			HTTPProtocol:            HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -441,13 +441,13 @@ func TestConfiguration(t *testing.T) {
 		name:    "network configuration with Auto TLS disabled",
 		wantErr: false,
 		wantConfig: &Config{
-			IstioOutboundIPRanges:      "*",
-			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
-			DefaultCertificateClass:    CertManagerCertificateClassName,
-			DomainTemplate:             DefaultDomainTemplate,
-			TagTemplate:                DefaultTagTemplate,
-			AutoTLS:                    false,
-			HTTPProtocol:               HTTPEnabled,
+			IstioOutboundIPRanges:   "*",
+			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass: CertManagerCertificateClassName,
+			DomainTemplate:          DefaultDomainTemplate,
+			TagTemplate:             DefaultTagTemplate,
+			AutoTLS:                 false,
+			HTTPProtocol:            HTTPEnabled,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -463,13 +463,13 @@ func TestConfiguration(t *testing.T) {
 		name:    "network configuration with HTTPProtocol disabled",
 		wantErr: false,
 		wantConfig: &Config{
-			IstioOutboundIPRanges:      "*",
-			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
-			DefaultCertificateClass:    CertManagerCertificateClassName,
-			DomainTemplate:             DefaultDomainTemplate,
-			TagTemplate:                DefaultTagTemplate,
-			AutoTLS:                    true,
-			HTTPProtocol:               HTTPDisabled,
+			IstioOutboundIPRanges:   "*",
+			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass: CertManagerCertificateClassName,
+			DomainTemplate:          DefaultDomainTemplate,
+			TagTemplate:             DefaultTagTemplate,
+			AutoTLS:                 true,
+			HTTPProtocol:            HTTPDisabled,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -486,13 +486,13 @@ func TestConfiguration(t *testing.T) {
 		name:    "network configuration with HTTPProtocol redirected",
 		wantErr: false,
 		wantConfig: &Config{
-			IstioOutboundIPRanges:      "*",
-			DefaultClusterIngressClass: "istio.ingress.networking.knative.dev",
-			DefaultCertificateClass:    CertManagerCertificateClassName,
-			DomainTemplate:             DefaultDomainTemplate,
-			TagTemplate:                DefaultTagTemplate,
-			AutoTLS:                    true,
-			HTTPProtocol:               HTTPRedirected,
+			IstioOutboundIPRanges:   "*",
+			DefaultIngressClass:     "istio.ingress.networking.knative.dev",
+			DefaultCertificateClass: CertManagerCertificateClassName,
+			DomainTemplate:          DefaultDomainTemplate,
+			TagTemplate:             DefaultTagTemplate,
+			AutoTLS:                 true,
+			HTTPProtocol:            HTTPRedirected,
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -556,9 +556,9 @@ func TestAnnotationsInDomainTemplate(t *testing.T) {
 				Name:      ConfigName,
 			},
 			Data: map[string]string{
-				IstioOutboundIPRangesKey:      "*",
-				DefaultClusterIngressClassKey: "foo-ingress",
-				DomainTemplateKey:             `{{.Name}}.{{ index .Annotations "sub"}}.{{.Domain}}`,
+				IstioOutboundIPRangesKey: "*",
+				DefaultIngressClassKey:   "foo-ingress",
+				DomainTemplateKey:        `{{.Name}}.{{ index .Annotations "sub"}}.{{.Domain}}`,
 			},
 		},
 		data: DomainTemplateValues{
@@ -577,9 +577,9 @@ func TestAnnotationsInDomainTemplate(t *testing.T) {
 				Name:      ConfigName,
 			},
 			Data: map[string]string{
-				IstioOutboundIPRangesKey:      "*",
-				DefaultClusterIngressClassKey: "foo-ingress",
-				DomainTemplateKey:             `{{.Name}}.{{.Namespace}}.{{.Domain}}`,
+				IstioOutboundIPRangesKey: "*",
+				DefaultIngressClassKey:   "foo-ingress",
+				DomainTemplateKey:        `{{.Name}}.{{.Namespace}}.{{.Domain}}`,
 			},
 		},
 		data: DomainTemplateValues{

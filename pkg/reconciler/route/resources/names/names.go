@@ -31,12 +31,6 @@ func K8sServiceFullname(route kmeta.Accessor) string {
 	return network.GetServiceHostname(K8sService(route), route.GetNamespace())
 }
 
-// ClusterIngress returns the name for the ClusterIngress
-// child resource for the given Route.
-func ClusterIngress(route kmeta.Accessor) string {
-	return fmt.Sprintf("route-%s", route.GetUID())
-}
-
 // Ingress returns the name for the Ingress
 // child resource for the given Route.
 func Ingress(route kmeta.Accessor) string {

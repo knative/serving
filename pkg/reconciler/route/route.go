@@ -18,16 +18,13 @@ package route
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -74,15 +71,14 @@ type Reconciler struct {
 	*reconciler.Base
 
 	// Listers index properties about resources
-	routeLister          listers.RouteLister
-	configurationLister  listers.ConfigurationLister
-	revisionLister       listers.RevisionLister
-	serviceLister        corev1listers.ServiceLister
-	clusterIngressLister networkinglisters.ClusterIngressLister
-	ingressLister        networkinglisters.IngressLister
-	certificateLister    networkinglisters.CertificateLister
-	configStore          reconciler.ConfigStore
-	tracker              tracker.Interface
+	routeLister         listers.RouteLister
+	configurationLister listers.ConfigurationLister
+	revisionLister      listers.RevisionLister
+	serviceLister       corev1listers.ServiceLister
+	ingressLister       networkinglisters.IngressLister
+	certificateLister   networkinglisters.CertificateLister
+	configStore         reconciler.ConfigStore
+	tracker             tracker.Interface
 
 	clock system.Clock
 }
@@ -151,7 +147,7 @@ func ingressClassForRoute(ctx context.Context, r *v1alpha1.Route) string {
 	if ingressClass := r.Annotations[networking.IngressClassAnnotationKey]; ingressClass != "" {
 		return ingressClass
 	}
-	return config.FromContext(ctx).Network.DefaultClusterIngressClass
+	return config.FromContext(ctx).Network.DefaultIngressClass
 }
 
 func certClass(ctx context.Context, r *v1alpha1.Route) string {
@@ -231,11 +227,6 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		},
 	}
 
-	// Add the finalizer before creating the ClusterIngress so that we can be sure it gets cleaned up.
-	if err := c.ensureFinalizer(r); err != nil {
-		return err
-	}
-
 	logger.Info("Creating placeholder k8s services")
 	services, err := c.reconcilePlaceholderServices(ctx, r, traffic.Targets, serviceNames.existing())
 	if err != nil {
@@ -248,12 +239,6 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		return err
 	}
 
-	// Delete ClusterIngress resources
-	if err := c.ServingClientSet.NetworkingV1alpha1().ClusterIngresses().DeleteCollection(
-		nil, metav1.ListOptions{LabelSelector: routeOwnerLabelSelector(r).String()}); err != nil {
-		return err
-	}
-
 	// Reconcile ingress and its children resources.
 	ingress, err := c.reconcileIngressResources(ctx, r, traffic, tls, clusterLocalServiceNames, ingressClassForRoute(ctx, r),
 		&IngressResources{
@@ -262,7 +247,6 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 			},
 			ingressLister: c.ingressLister,
 		},
-		false, /*optional*/
 	)
 
 	if err != nil {
@@ -275,7 +259,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		r.Status.PropagateIngressStatus(*ingress.GetStatus())
 	}
 
-	logger.Info("Updating placeholder k8s services with clusterIngress information")
+	logger.Info("Updating placeholder k8s services with ingress information")
 	if err := c.updatePlaceholderServices(ctx, r, services, ingress); err != nil {
 		return err
 	}
@@ -286,19 +270,19 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 }
 
 func (c *Reconciler) reconcileIngressResources(ctx context.Context, r *v1alpha1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS,
-	clusterLocalServices sets.String, ingressClass string, ira IngressResourceAccessors, optional bool) (netv1alpha1.IngressAccessor, error) {
+	clusterLocalServices sets.String, ingressClass string, ira IngressResourceAccessors) (netv1alpha1.IngressAccessor, error) {
 
 	desired, err := ira.makeIngress(ctx, r, tc, tls, clusterLocalServices, ingressClass)
 	if err != nil {
 		return nil, err
 	}
 
-	clusterIngress, err := c.reconcileIngress(ctx, ira, r, desired, optional)
+	ingress, err := c.reconcileIngress(ctx, ira, r, desired)
 	if err != nil {
 		return nil, err
 	}
 
-	return clusterIngress, nil
+	return ingress, nil
 }
 
 func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, traffic *traffic.Config, clusterLocalServiceNames sets.String) ([]netv1alpha1.IngressTLS, error) {
@@ -381,23 +365,17 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1alpha1.Route) error {
 	logger := logging.FromContext(ctx)
 
-	// If our Finalizer is first, delete the ClusterIngress for this Route
-	// and remove the finalizer.
-	if len(r.Finalizers) == 0 || r.Finalizers[0] != routeFinalizer {
-		return nil
+	// remove our finalizer if it is found
+	for i, v := range r.Finalizers {
+		if v == routeFinalizer {
+			r.Finalizers = append(r.Finalizers[:i], r.Finalizers[i+1:]...)
+			break
+		}
 	}
 
 	// Delete the Ingress resources for this Route.
 	logger.Info("Cleaning up Ingress")
-	if err := c.deleteIngressForRoute(r); err != nil {
-		return err
-	}
-
-	// Update the Route to remove the Finalizer.
-	logger.Info("Removing Finalizer")
-	r.Finalizers = r.Finalizers[1:]
-	_, err := c.ServingClientSet.ServingV1alpha1().Routes(r.Namespace).Update(r)
-	return err
+	return c.deleteIngressForRoute(r)
 }
 
 // configureTraffic attempts to configure traffic based on the RouteSpec.  If there are missing
@@ -455,27 +433,6 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route, cl
 	r.Status.MarkTrafficAssigned()
 
 	return t, nil
-}
-
-func (c *Reconciler) ensureFinalizer(route *v1alpha1.Route) error {
-	finalizers := sets.NewString(route.Finalizers...)
-	if finalizers.Has(routeFinalizer) {
-		return nil
-	}
-	mergePatch := map[string]interface{}{
-		"metadata": map[string]interface{}{
-			"finalizers":      append(route.Finalizers, routeFinalizer),
-			"resourceVersion": route.ResourceVersion,
-		},
-	}
-
-	patch, err := json.Marshal(mergePatch)
-	if err != nil {
-		return err
-	}
-
-	_, err = c.ServingClientSet.ServingV1alpha1().Routes(route.Namespace).Patch(route.Name, types.MergePatchType, patch)
-	return err
 }
 
 func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1alpha1.Route, clusterLocalServices sets.String) error {
