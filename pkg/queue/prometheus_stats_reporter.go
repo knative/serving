@@ -66,10 +66,13 @@ func newGV(n, h string) *prometheus.GaugeVec {
 
 // PrometheusStatsReporter structure represents a prometheus stats reporter.
 type PrometheusStatsReporter struct {
-	initialized     bool
-	labels          prometheus.Labels
 	handler         http.Handler
 	reportingPeriod time.Duration
+
+	requestsPerSecond                prometheus.Gauge
+	proxiedRequestsPerSecond         prometheus.Gauge
+	averageConcurrentRequests        prometheus.Gauge
+	averageProxiedConcurrentRequests prometheus.Gauge
 }
 
 // NewPrometheusStatsReporter creates a reporter that collects and reports queue metrics.
@@ -94,32 +97,31 @@ func NewPrometheusStatsReporter(namespace, config, revision, pod string, reporti
 		}
 	}
 
+	labels := prometheus.Labels{
+		destinationNsLabel:     namespace,
+		destinationConfigLabel: config,
+		destinationRevLabel:    revision,
+		destinationPodLabel:    pod,
+	}
+
 	return &PrometheusStatsReporter{
-		initialized: true,
-		labels: prometheus.Labels{
-			destinationNsLabel:     namespace,
-			destinationConfigLabel: config,
-			destinationRevLabel:    revision,
-			destinationPodLabel:    pod,
-		},
 		handler:         promhttp.HandlerFor(registry, promhttp.HandlerOpts{}),
 		reportingPeriod: reportingPeriod,
+
+		requestsPerSecond:                requestsPerSecondGV.With(labels),
+		proxiedRequestsPerSecond:         proxiedRequestsPerSecondGV.With(labels),
+		averageConcurrentRequests:        averageConcurrentRequestsGV.With(labels),
+		averageProxiedConcurrentRequests: averageProxiedConcurrentRequestsGV.With(labels),
 	}, nil
 }
 
 // Report captures request metrics.
-func (r *PrometheusStatsReporter) Report(stat *autoscaler.Stat) error {
-	if !r.initialized {
-		return errors.New("PrometheusStatsReporter is not initialized yet")
-	}
-
+func (r *PrometheusStatsReporter) Report(stat *autoscaler.Stat) {
 	// Requests per second is a rate over time while concurrency is not.
-	requestsPerSecondGV.With(r.labels).Set(stat.RequestCount / r.reportingPeriod.Seconds())
-	proxiedRequestsPerSecondGV.With(r.labels).Set(stat.ProxiedRequestCount / r.reportingPeriod.Seconds())
-	averageConcurrentRequestsGV.With(r.labels).Set(stat.AverageConcurrentRequests)
-	averageProxiedConcurrentRequestsGV.With(r.labels).Set(stat.AverageProxiedConcurrentRequests)
-
-	return nil
+	r.requestsPerSecond.Set(stat.RequestCount / r.reportingPeriod.Seconds())
+	r.proxiedRequestsPerSecond.Set(stat.ProxiedRequestCount / r.reportingPeriod.Seconds())
+	r.averageConcurrentRequests.Set(stat.AverageConcurrentRequests)
+	r.averageProxiedConcurrentRequests.Set(stat.AverageProxiedConcurrentRequests)
 }
 
 // Handler returns an uninstrumented http.Handler used to serve stats registered by this
