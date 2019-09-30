@@ -71,38 +71,8 @@ func TestAutoscalerNoDataNoAutoscale(t *testing.T) {
 	a.expectScale(t, time.Now(), 0, 0, false)
 }
 
-func expectedEBC(tc, tbc, rc, np float64) int32 {
-	return int32(math.Floor(tc/targetUtilization*np - tbc - rc))
-}
-
-func TestAutoscalerNoDataAtZeroNoAutoscale(t *testing.T) {
-	a := newTestAutoscaler(t, 10, 100, &autoscalerfake.MetricClient{})
-	// We always presume at least 1 pod, even if counter says 0.
-	a.expectScale(t, time.Now(), 0, expectedEBC(10, 100, 0, 1), true)
-}
-
-func TestAutoscalerNoDataAtZeroNoAutoscaleWithExplicitEPs(t *testing.T) {
-	a := newTestAutoscaler(t, 10, 100, &autoscalerfake.MetricClient{})
-	endpoints(1, testService)
-	a.expectScale(t, time.Now(), 0, expectedEBC(10, 100, 0, 1), true)
-}
-
-func TestAutoscalerStableModeUnlimitedTBC(t *testing.T) {
-	metrics := &autoscalerfake.MetricClient{StableConcurrency: 21.0}
-	a := newTestAutoscaler(t, 181, -1, metrics)
-	a.expectScale(t, time.Now(), 1, -1, true)
-}
-
-func TestAutoscaler0TBC(t *testing.T) {
-	metrics := &autoscalerfake.MetricClient{StableConcurrency: 50.0}
-	a := newTestAutoscaler(t, 10, 0, metrics)
-	a.expectScale(t, time.Now(), 5, 0, true)
-}
-
-func TestAutoscalerStableModeNoChange(t *testing.T) {
-	metrics := &autoscalerfake.MetricClient{StableConcurrency: 50.0}
-	a := newTestAutoscaler(t, 10, 100, metrics)
-	a.expectScale(t, time.Now(), 5, expectedEBC(10, 100, 50, 1), true)
+func expectedEBC(totCap, targetBC, recordedConcurrency, numPods float64) int32 {
+	return int32(math.Floor(totCap/targetUtilization*numPods - targetBC - recordedConcurrency))
 }
 
 func TestAutoscalerChangeOfPodCountService(t *testing.T) {
@@ -119,29 +89,6 @@ func TestAutoscalerChangeOfPodCountService(t *testing.T) {
 	endpoints(2, newTS)
 	// This should change the EBC computation, but target scale doesn't change.
 	a.expectScale(t, time.Now(), 5, expectedEBC(10, 100, 50, 2), true)
-}
-
-func TestAutoscalerStableModeNoChangeAlreadyScaled(t *testing.T) {
-	metrics := &autoscalerfake.MetricClient{StableConcurrency: 50.0}
-	a := newTestAutoscaler(t, 10, 100, metrics)
-	endpoints(5, testService)
-	a.expectScale(t, time.Now(), 5, expectedEBC(10, 100, 50, 5), true)
-}
-
-func TestAutoscalerStableModeIncreaseWithSmallScaleUpRate(t *testing.T) {
-	metrics := &autoscalerfake.MetricClient{StableConcurrency: 3}
-	a := newTestAutoscaler(t, 1 /* target */, 1982 /* TBC */, metrics)
-	a.deciderSpec.MaxScaleUpRate = 1.1
-	endpoints(2, testService)
-	a.expectScale(t, time.Now(), 3, expectedEBC(1, 1982, 3, 2), true)
-}
-
-func TestAutoscalerStableModeIncreaseWithSmallScaleDownRate(t *testing.T) {
-	metrics := &autoscalerfake.MetricClient{StableConcurrency: 1}
-	a := newTestAutoscaler(t, 10 /* target */, 1982 /* TBC */, metrics)
-	a.deciderSpec.MaxScaleDownRate = 1.1
-	endpoints(100, testService)
-	a.expectScale(t, time.Now(), 90, expectedEBC(10, 1982, 1, 100), true)
 }
 
 func TestAutoscalerStableModeIncreaseWithConcurrencyDefault(t *testing.T) {
@@ -181,14 +128,6 @@ func TestAutoscalerStableModeNoTrafficScaleToZero(t *testing.T) {
 	a.expectScale(t, time.Now(), 0, expectedEBC(10, 75, 0, 1), true)
 }
 
-func TestAutoscalerPanicModeDoublePodCount(t *testing.T) {
-	metrics := &autoscalerfake.MetricClient{StableConcurrency: 50, PanicConcurrency: 100}
-	a := newTestAutoscaler(t, 10, 84, metrics)
-
-	// PanicConcurrency takes precedence.
-	a.expectScale(t, time.Now(), 10, expectedEBC(10, 84, 50, 1), true)
-}
-
 // QPS is increasing exponentially. Each scaling event bring concurrency
 // back to the target level (1.0) but then traffic continues to increase.
 // At 1296 QPS traffic stablizes.
@@ -210,6 +149,89 @@ func TestAutoscalerPanicModeExponentialTrackAndStablize(t *testing.T) {
 	a.expectScale(t, time.Now(), 1296, expectedEBC(1, 101, 1296, 216), true)
 	endpoints(1296, testService)
 	a.expectScale(t, time.Now(), 1296, expectedEBC(1, 101, 1296, 1296), true)
+}
+
+func TestAutoscalerScale(t *testing.T) {
+	tests := []struct {
+		label       string
+		as          *Autoscaler
+		prepFunc    func(as *Autoscaler)
+		wantScale   int32
+		wantEBC     int32
+		wantInvalid bool
+	}{{
+		label:     "AutoscalerNoDataAtZeroNoAutoscale",
+		as:        newTestAutoscaler(t, 10, 100, &autoscalerfake.MetricClient{}),
+		wantScale: 0,
+		wantEBC:   expectedEBC(10, 100, 0, 1),
+	}, {
+		label:     "AutoscalerNoDataAtZeroNoAutoscaleWithExplicitEPs",
+		as:        newTestAutoscaler(t, 10, 100, &autoscalerfake.MetricClient{}),
+		prepFunc:  func(*Autoscaler) { endpoints(1, testService) },
+		wantScale: 0,
+		wantEBC:   expectedEBC(10, 100, 0, 1),
+	}, {
+		label:     "AutoscalerStableModeUnlimitedTBC",
+		as:        newTestAutoscaler(t, 181, -1, &autoscalerfake.MetricClient{StableConcurrency: 21.0}),
+		wantScale: 1,
+		wantEBC:   -1,
+	}, {
+		label:     "Autoscaler0TBC",
+		as:        newTestAutoscaler(t, 10, 0, &autoscalerfake.MetricClient{StableConcurrency: 50.0}),
+		wantScale: 5,
+		wantEBC:   0,
+	}, {
+		label:     "AutoscalerStableModeNoChange",
+		as:        newTestAutoscaler(t, 10, 100, &autoscalerfake.MetricClient{StableConcurrency: 50.0}),
+		wantScale: 5,
+		wantEBC:   expectedEBC(10, 100, 50, 1),
+	}, {
+		label:     "AutoscalerStableModeNoChangeAlreadyScaled",
+		as:        newTestAutoscaler(t, 10, 100, &autoscalerfake.MetricClient{StableConcurrency: 50.0}),
+		prepFunc:  func(*Autoscaler) { endpoints(5, testService) },
+		wantScale: 5,
+		wantEBC:   expectedEBC(10, 100, 50, 5),
+	}, {
+		label:     "AutoscalerStableModeNoChangeAlreadyScaled",
+		as:        newTestAutoscaler(t, 10, 100, &autoscalerfake.MetricClient{StableConcurrency: 50.0}),
+		prepFunc:  func(*Autoscaler) { endpoints(5, testService) },
+		wantScale: 5,
+		wantEBC:   expectedEBC(10, 100, 50, 5),
+	}, {
+		label: "AutoscalerStableModeIncreaseWithSmallScaleUpRate",
+		as:    newTestAutoscaler(t, 1 /* target */, 1982 /* TBC */, &autoscalerfake.MetricClient{StableConcurrency: 3}),
+		prepFunc: func(a *Autoscaler) {
+			a.deciderSpec.MaxScaleUpRate = 1.1
+			endpoints(2, testService)
+		},
+		wantScale: 3,
+		wantEBC:   expectedEBC(1, 1982, 3, 2),
+	}, {
+		label: "AutoscalerStableModeIncreaseWithSmallScaleDownRate",
+		as:    newTestAutoscaler(t, 10 /* target */, 1982 /* TBC */, &autoscalerfake.MetricClient{StableConcurrency: 1}),
+		prepFunc: func(a *Autoscaler) {
+			a.deciderSpec.MaxScaleDownRate = 1.1
+			endpoints(100, testService)
+		},
+		wantScale: 90,
+		wantEBC:   expectedEBC(10, 1982, 1, 100),
+	}, {
+		label: "AutoscalerPanicModeDoublePodCount",
+		as:    newTestAutoscaler(t, 10, 84, &autoscalerfake.MetricClient{StableConcurrency: 50, PanicConcurrency: 100}),
+		// PanicConcurrency takes precedence.
+		wantScale: 10,
+		wantEBC:   expectedEBC(10, 84, 50, 1),
+	}}
+	for _, test := range tests {
+		t.Run(test.label, func(tt *testing.T) {
+			// Reset the endpoints state to the default before every test.
+			endpoints(1, testService)
+			if test.prepFunc != nil {
+				test.prepFunc(test.as)
+			}
+			test.as.expectScale(tt, time.Now(), test.wantScale, test.wantEBC, !test.wantInvalid)
+		})
+	}
 }
 
 func TestAutoscalerPanicThenUnPanicScaleDown(t *testing.T) {
@@ -382,11 +404,11 @@ func newTestAutoscalerWithScalingMetric(t *testing.T, targetValue, targetBurstCa
 	return a
 }
 
-func (a *Autoscaler) expectScale(t *testing.T, now time.Time, expectScale, expectEBC int32, expectOk bool) {
+func (a *Autoscaler) expectScale(t *testing.T, now time.Time, expectScale, expectEBC int32, expectOK bool) {
 	t.Helper()
 	scale, ebc, ok := a.Scale(TestContextWithLogger(t), now)
-	if ok != expectOk {
-		t.Errorf("Unexpected autoscale decision. Expected %v. Got %v.", expectOk, ok)
+	if ok != expectOK {
+		t.Errorf("Unexpected autoscale decision. Expected %v. Got %v.", expectOK, ok)
 	}
 	if got, want := scale, expectScale; got != want {
 		t.Errorf("Scale %d, want: %d", got, want)
