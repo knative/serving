@@ -114,24 +114,27 @@ func newRevisionThrottler(revID types.NamespacedName,
 // The function picks a target to send request to, given list of `podIPTracker` objects, a
 // callback to release the slot is returned as well.
 func pickP2C(tgts []*podIPTracker) (string, func()) {
-	if len(tgts) == 0 {
+	var t1, t2 *podIPTracker
+	switch len(tgts) {
+	case 0:
 		return "", nil
-	}
-	i1 := rand.Intn(len(tgts))
-	t1 := tgts[i1]
-	// Single target, no reason to try to pick another one.
-	// TODO(vagababov): perhaps carve out |2| case?
-	if len(tgts) > 1 {
+	case 1:
+		t1, t2 = tgts[0], tgts[0]
+	case 2:
+		t1, t2 = tgts[0], tgts[1]
+	default:
+		i1 := rand.Intn(len(tgts))
+		t1 = tgts[i1]
 		i2 := rand.Intn(len(tgts))
 		for i1 == i2 {
 			i2 = rand.Intn(len(tgts))
 		}
-		t2 := tgts[i2]
-		// Note that this not guaranteed to be precise, due to the case
-		// that Load here and Add below are not atomic.
-		if atomic.LoadInt32(&t1.requests) > atomic.LoadInt32(&t2.requests) {
-			t1 = t2
-		}
+		t2 = tgts[i2]
+	}
+	// Note that this is not guaranteed to be precise, due to the case
+	// that Load here and Add below are not atomic.
+	if atomic.LoadInt32(&t1.requests) > atomic.LoadInt32(&t2.requests) {
+		t1 = t2
 	}
 	atomic.AddInt32(&t1.requests, 1)
 	return t1.dest, func() {
