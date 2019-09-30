@@ -74,12 +74,12 @@ data:
     #
     istio.sidecar.includeOutboundIPRanges: "*"
 
-    # clusteringress.class specifies the default cluster ingress class
+    # clusteringress.class specifies the default ingress class
     # to use when not dictated by Route annotation.
     #
     # If not specified, will use the Istio ingress.
     #
-    # Note that changing the ClusterIngress class of an existing Route
+    # Note that changing the Ingress class of an existing Route
     # will result in undefined behavior.  Therefore it is best to only
     # update this value during the setup of Knative, to avoid getting
     # undefined behavior.

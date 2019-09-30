@@ -179,7 +179,7 @@ func WithReadyCertificateName(name string) func(*v1alpha1.Route) {
 	}
 }
 
-// MarkIngressReady propagates a Ready=True ClusterIngress status to the Route.
+// MarkIngressReady propagates a Ready=True Ingress status to the Route.
 func MarkIngressReady(r *v1alpha1.Route) {
 	r.Status.PropagateIngressStatus(netv1alpha1.IngressStatus{
 		Status: duckv1.Status{

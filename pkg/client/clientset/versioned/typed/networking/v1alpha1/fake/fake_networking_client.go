@@ -32,10 +32,6 @@ func (c *FakeNetworkingV1alpha1) Certificates(namespace string) v1alpha1.Certifi
 	return &FakeCertificates{c, namespace}
 }
 
-func (c *FakeNetworkingV1alpha1) ClusterIngresses() v1alpha1.ClusterIngressInterface {
-	return &FakeClusterIngresses{c}
-}
-
 func (c *FakeNetworkingV1alpha1) Ingresses(namespace string) v1alpha1.IngressInterface {
 	return &FakeIngresses{c, namespace}
 }

@@ -336,9 +336,7 @@ func main() {
 	defer close(statChan)
 	go func() {
 		for s := range statChan {
-			if err := promStatReporter.Report(s); err != nil {
-				logger.Errorw("Error while sending stat", zap.Error(err))
-			}
+			promStatReporter.Report(s)
 		}
 	}()
 

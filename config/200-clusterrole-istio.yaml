@@ -15,7 +15,7 @@
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  # These are the permissions needed by the Istio ClusterIngress implementation.
+  # These are the permissions needed by the Istio Ingress implementation.
   name: knative-serving-istio
   labels:
     serving.knative.dev/release: devel

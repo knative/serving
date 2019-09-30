@@ -29,7 +29,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func checkResponse(t *testing.T, clients *test.Clients, names test.ResourceNames, expectedText string) error {
@@ -116,7 +115,7 @@ func TestConflictingRouteService(t *testing.T) {
 	altClients := SetupAlternativeNamespace(t)
 	altClients.KubeClient.Kube.CoreV1().Services(test.AlternativeServingNamespace).Create(svc)
 	cleanup := func() {
-		altClients.KubeClient.Kube.CoreV1().Services(test.AlternativeServingNamespace).Delete(svc.Name, &v1.DeleteOptions{})
+		altClients.KubeClient.Kube.CoreV1().Services(test.AlternativeServingNamespace).Delete(svc.Name, &metav1.DeleteOptions{})
 	}
 	test.CleanupOnInterrupt(cleanup)
 	defer cleanup()

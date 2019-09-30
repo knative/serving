@@ -142,12 +142,7 @@ func TestReporterReport(t *testing.T) {
 			if err != nil {
 				t.Errorf("Something went wrong with creating a reporter, '%v'.", err)
 			}
-			if !reporter.initialized {
-				t.Error("Reporter should be initialized")
-			}
-			if err := reporter.Report(test.autoscalerStat); err != nil {
-				t.Error(err)
-			}
+			reporter.Report(test.autoscalerStat)
 			checkData(t, requestsPerSecondGV, test.expectedReqCount)
 			checkData(t, averageConcurrentRequestsGV, test.expectedAverageConcurrentRequests)
 			checkData(t, proxiedRequestsPerSecondGV, test.expectedProxiedRequestCount)

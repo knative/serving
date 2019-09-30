@@ -115,7 +115,7 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 				updateState(now)
 
 				stat := &autoscaler.Stat{
-					Time:                             &now,
+					Time:                             now,
 					PodName:                          s.podName,
 					AverageConcurrentRequests:        weightedAverage(timeOnConcurrency),
 					AverageProxiedConcurrentRequests: weightedAverage(timeOnProxiedConcurrency),
