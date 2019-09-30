@@ -354,10 +354,8 @@ func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.R
 	// We close the update channel when we're done,
 	// to make sure Throttler will stop.
 	go func() {
-		select {
-		case <-rbm.doneCh:
-			close(rbm.updateCh)
-		}
+		<-rbm.doneCh
+		close(rbm.updateCh)
 	}()
 
 	return rbm
