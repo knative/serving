@@ -111,8 +111,7 @@ func Do(ctx context.Context, transport http.RoundTripper, target string, ops ...
 
 	for _, op := range ops {
 		if vo, ok := op.(Verifier); ok {
-			ok, err := vo(resp, body)
-			if err != nil || !ok {
+			if ok, err := vo(resp, body); err != nil || !ok {
 				return false, err
 			}
 		}
