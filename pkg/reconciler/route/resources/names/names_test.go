@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -32,41 +33,25 @@ func TestNamer(t *testing.T) {
 		f     func(kmeta.Accessor) string
 		want  string
 	}{{
-		name: "K8sService",
-		route: &v1alpha1.Route{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "blah",
-				Namespace: "default",
-			},
-		},
-		f:    K8sService,
-		want: "blah",
+		name:  "K8sService",
+		route: getRoute("blah", "default", ""),
+		f:     K8sService,
+		want:  "blah",
 	}, {
-		name: "K8sServiceFullname",
-		route: &v1alpha1.Route{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "bar",
-				Namespace: "default",
-			},
-		},
-		f:    K8sServiceFullname,
-		want: "bar.default.svc.cluster.local",
+		name:  "K8sServiceFullname",
+		route: getRoute("bar", "default", ""),
+		f:     K8sServiceFullname,
+		want:  "bar.default.svc.cluster.local",
 	}, {
 		name:  "IngressPrefix",
 		route: getRoute("bar", "default", "1234-5678-910"),
 		f:     Ingress,
 		want:  "bar",
 	}, {
-		name: "Certificate",
-		route: &v1alpha1.Route{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "bar",
-				Namespace: "default",
-				UID:       "1234-5678-910",
-			},
-		},
-		f:    Certificate,
-		want: "route-1234-5678-910",
+		name:  "Certificate",
+		route: getRoute("bar", "default", "1234-5678-910"),
+		f:     Certificate,
+		want:  "route-1234-5678-910",
 	}}
 
 	for _, test := range tests {
@@ -88,4 +73,3 @@ func getRoute(name, ns string, uid types.UID) *v1alpha1.Route {
 		},
 	}
 }
-

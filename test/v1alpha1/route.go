@@ -39,7 +39,7 @@ import (
 
 // CreateRoute creates a route in the given namespace using the route name in names
 func CreateRoute(t *testing.T, clients *test.Clients, names test.ResourceNames, fopt ...v1alpha1testing.RouteOption) (*v1alpha1.Route, error) {
-	fopt = append(fopt, rtesting.WithSpecTraffic(v1alpha1.TrafficTarget{
+	fopt = append(fopt, v1alpha1testing.WithSpecTraffic(v1alpha1.TrafficTarget{
 		TrafficTarget: v1.TrafficTarget{
 			Tag:               names.TrafficTarget,
 			ConfigurationName: names.Config,

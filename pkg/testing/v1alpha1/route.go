@@ -219,22 +219,12 @@ func MarkConfigurationFailed(name string) RouteOption {
 }
 
 // WithRouteLabel sets the specified label on the Route.
-func WithRouteLabel(key, value string) RouteOption {
+func WithRouteLabel(labels map[string]string) RouteOption {
 	return func(r *v1alpha1.Route) {
 		if r.Labels == nil {
 			r.Labels = make(map[string]string)
 		}
-		r.Labels[key] = value
-	}
-}
-
-// WithRouteAnnotation sets the specified annotation on the Route.
-func WithRouteAnnotation(key, value string) RouteOption {
-	return func(r *v1alpha1.Route) {
-		if r.Annotations == nil {
-			r.Annotations = make(map[string]string)
-		}
-		r.Annotations[key] = value
+		r.Labels = labels
 	}
 }
 
@@ -245,6 +235,16 @@ func WithIngressClass(ingressClass string) RouteOption {
 			r.Annotations = make(map[string]string)
 		}
 		r.Annotations[networking.IngressClassAnnotationKey] = ingressClass
+	}
+}
+
+// WithRouteAnnotation sets the specified annotation on the Route.
+func WithRouteAnnotation(annotation map[string]string) RouteOption {
+	return func(r *v1alpha1.Route) {
+		if r.Annotations == nil {
+			r.Annotations = make(map[string]string)
+		}
+		r.Annotations = annotation
 	}
 }
 

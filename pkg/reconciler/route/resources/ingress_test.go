@@ -92,31 +92,6 @@ func TestMakeIngress_CorrectMetadata(t *testing.T) {
 	}
 }
 
-func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
-	targets := map[string]traffic.RevisionTargets{}
-	ingressClass := "foo-ingress"
-	r := Route("test-ns", "test-route", WithRouteUID("1234-5678"), WithURL)
-	expected := metav1.ObjectMeta{
-		Name: "route-1234-5678",
-		Labels: map[string]string{
-			serving.RouteLabelKey:          "test-route",
-			serving.RouteNamespaceLabelKey: "test-ns",
-		},
-		Annotations: map[string]string{
-			networking.IngressClassAnnotationKey: ingressClass,
-		},
-	}
-	ia, err := MakeClusterIngress(getContext(), r, &traffic.Config{Targets: targets}, nil, getServiceVisibility(), ingressClass)
-	if err != nil {
-		t.Errorf("Unexpected error %v", err)
-	}
-
-	ci := ia.(*netv1alpha1.ClusterIngress)
-	if !cmp.Equal(expected, ci.ObjectMeta) {
-		t.Errorf("Unexpected metadata (-want, +got): %s", cmp.Diff(expected, ci.ObjectMeta))
-	}
-}
-
 func TestIngress_NoKubectlAnnotation(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{}
 	r := Route(ns, testRouteName, WithRouteAnnotation(map[string]string{
@@ -156,6 +131,7 @@ func TestMakeIngressSpec_CorrectRules(t *testing.T) {
 	}
 
 	r := Route(ns, "test-route", WithURL)
+
 	expected := []netv1alpha1.IngressRule{{
 		Hosts: []string{
 			"test-route." + ns + ".svc.cluster.local",
@@ -815,4 +791,3 @@ func getContext() context.Context {
 	cfg := testConfig()
 	return config.ToContext(ctx, cfg)
 }
-
