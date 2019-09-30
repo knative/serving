@@ -670,7 +670,7 @@ func deploy(t *testing.T, namespace, name string, opts ...interface{}) *appsv1.D
 	// before calling MakeDeployment within Reconcile.
 	rev.SetDefaults(context.Background())
 	deployment, err := resources.MakeDeployment(rev, cfg.Logging, cfg.Tracing, cfg.Network,
-		cfg.Observability, cfg.Autoscaler, cfg.Deployment,
+		cfg.Observability, cfg.Deployment,
 	)
 
 	if err != nil {
