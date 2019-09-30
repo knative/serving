@@ -86,7 +86,7 @@ func TestMarkResourceNotOwned(t *testing.T) {
 	c := &CertificateStatus{}
 	c.InitializeConditions()
 	c.MarkResourceNotOwned("doesn't", "own")
-	apitest.CheckConditionFailed(c.duck(), CertificateConditionReady, t)
+	apitestv1.CheckConditionFailed(c.duck(), CertificateConditionReady, t)
 }
 
 func TestGetCondition(t *testing.T) {
