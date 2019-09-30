@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -33,6 +34,7 @@ import (
 	"knative.dev/pkg/changeset"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
+	"knative.dev/pkg/test/mako/alerter"
 	"knative.dev/pkg/test/mako/config"
 )
 
@@ -41,7 +43,28 @@ const (
 	// write results, and it authenticates and publishes them to Mako after
 	// assorted preprocessing.
 	sidecarAddress = "localhost:9813"
+
+	// org is the orgnization name that is used by Github client
+	org = "knative"
+
+	// slackUserName is the slack user name that is used by Slack client
+	slackUserName = "Knative Testgrid Robot"
 )
+
+// Client is a wrapper that wraps all Mako related operations
+type Client struct {
+	Quickstore    *quickstore.Quickstore
+	Context       context.Context
+	ShutDownFunc  func(context.Context)
+	benchmarkName string
+	alerter       *alerter.Alerter
+}
+
+// StoreAndHandleResult stores the benchmarking data and handles the result.
+func (c *Client) StoreAndHandleResult() error {
+	out, err := c.Quickstore.Store()
+	return c.alerter.HandleBenchmarkResult(c.benchmarkName, out, err)
+}
 
 // EscapeTag replaces characters that Mako doesn't accept with ones it does.
 func EscapeTag(tag string) string {
@@ -52,36 +75,36 @@ func EscapeTag(tag string) string {
 // It will add a few common tags and allow each benchmark to add custm tags as well.
 // It returns the mako client handle to store metrics, a method to close the connection
 // to mako server once done and error in case of failures.
-func Setup(ctx context.Context, extraTags ...string) (context.Context, *quickstore.Quickstore, func(context.Context), error) {
+func Setup(ctx context.Context, extraTags ...string) (*Client, error) {
 	tags := append(config.MustGetTags(), extraTags...)
 	// Get the commit of the benchmarks
 	commitID, err := changeset.Get()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	// Setup a deployment informer, so that we can use the lister to track
 	// desired and available pod counts.
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
 	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	// Get the Kubernetes version from the API server.
 	kc := kubeclient.Get(ctx)
 	version, err := kc.Discovery().ServerVersion()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	// Determine the number of Kubernetes nodes through the kubernetes client.
 	nodes, err := kc.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	tags = append(tags, "nodes="+fmt.Sprintf("%d", len(nodes.Items)))
 
@@ -102,8 +125,10 @@ func Setup(ctx context.Context, extraTags ...string) (context.Context, *quicksto
 		tags = append(tags, "instanceType="+EscapeTag(parts[3]))
 	}
 
+	benchmarkKey, benchmarkName := config.MustGetBenchmark()
+	// Create a new Quickstore that connects to the microservice
 	qs, qclose, err := quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
-		BenchmarkKey: config.MustGetBenchmark(),
+		BenchmarkKey: benchmarkKey,
 		Tags: append(tags,
 			"commit="+commitID,
 			"kubernetes="+EscapeTag(version.String()),
@@ -111,7 +136,34 @@ func Setup(ctx context.Context, extraTags ...string) (context.Context, *quicksto
 		),
 	}, sidecarAddress)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
-	return ctx, qs, qclose, nil
+
+	// Create a new Alerter that alerts for performance regressions
+	alerter := &alerter.Alerter{}
+	alerter.SetupGitHub(
+		org,
+		config.MustGetRepository(),
+		tokenPath("github-token"),
+	)
+	alerter.SetupSlack(
+		slackUserName,
+		tokenPath("slack-read-token"),
+		tokenPath("slack-write-token"),
+		config.GetSlackChannels(*benchmarkName),
+	)
+
+	client := &Client{
+		Quickstore:    qs,
+		Context:       ctx,
+		ShutDownFunc:  qclose,
+		alerter:       alerter,
+		benchmarkName: *benchmarkName,
+	}
+
+	return client, nil
+}
+
+func tokenPath(token string) string {
+	return filepath.Join("/var/secrets", token)
 }

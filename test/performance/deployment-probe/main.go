@@ -121,7 +121,10 @@ func main() {
 		"duration=" + duration.String(),
 		"frequency=" + frequency.String(),
 	}
-	ctx, q, qclose, err := mako.Setup(ctx, tags...)
+	mc, err := mako.Setup(ctx, tags...)
+	q := mc.Quickstore
+	qclose := mc.ShutDownFunc
+	ctx = mc.Context
 	if err != nil {
 		log.Fatalf("Failed to setup mako: %v", err)
 	}

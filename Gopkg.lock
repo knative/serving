@@ -1673,7 +1673,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:0127448c20afb08cb5a41e352d5c93c07b79d5162fe8829acaf7518ac81bd05f"
+  digest = "1:25a242a329c571b1b288af9ad1a7cbbd1c99a07bef77dfff29f6874e69056b8e"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1789,7 +1789,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "f00ff90b54ec3bd43d0a8f12b4a93f87385287cc"
+  revision = "9c2cf0549d1ada2cd41aad9637f69346e77b8bce"
 
 [[projects]]
   branch = "master"
@@ -1847,7 +1847,6 @@
     "github.com/google/go-containerregistry/pkg/v1/remote/transport",
     "github.com/google/go-containerregistry/pkg/v1/types",
     "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto",
-    "github.com/google/mako/clients/proto/analyzers/window_deviation_go_proto",
     "github.com/google/mako/go/quickstore",
     "github.com/google/mako/spec/proto/mako_go_proto",
     "github.com/gorilla/websocket",
@@ -1888,7 +1887,6 @@
     "k8s.io/apimachinery/pkg/api/resource",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
-    "k8s.io/apimachinery/pkg/fields",
     "k8s.io/apimachinery/pkg/labels",
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
@@ -2007,7 +2005,6 @@
     "knative.dev/pkg/test/logging",
     "knative.dev/pkg/test/logstream",
     "knative.dev/pkg/test/mako",
-    "knative.dev/pkg/test/mako/alerter",
     "knative.dev/pkg/test/mako/alerter/slack",
     "knative.dev/pkg/test/prometheus",
     "knative.dev/pkg/test/spoof",

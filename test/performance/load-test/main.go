@@ -31,17 +31,12 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 
 	"knative.dev/pkg/test/mako"
-	"knative.dev/pkg/test/mako/alerter"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/test/performance"
 	"knative.dev/serving/test/performance/metrics"
 )
 
 var (
-	flavor          = flag.String("flavor", "", "The flavor of the benchmark to run.")
-	githubToken     = flag.String("github-token", "", "The path of github token")
-	slackReadToken  = flag.String("slack-read-token", "", "The path of slack read token")
-	slackWriteToken = flag.String("slack-write-token", "", "The path of slack write token")
+	flavor = flag.String("flavor", "", "The flavor of the benchmark to run.")
 )
 
 func processResults(ctx context.Context, q *quickstore.Quickstore, results <-chan *vegeta.Result) {
@@ -131,13 +126,16 @@ func main() {
 
 	// Use the benchmark key created.
 	tbcTag := "tbc=" + *flavor
-	ctx, q, qclose, err := mako.Setup(ctx, tbcTag)
+	mc, err := mako.Setup(ctx, tbcTag)
+	q := mc.Quickstore
+	qclose := mc.ShutDownFunc
+	ctx = mc.Context
 	if err != nil {
 		log.Fatalf("failed to setup mako: %v", err)
 	}
 	// Use a fresh context here so that our RPC to terminate the sidecar
 	// isn't subject to our timeout (or we won't shut it down when we time out)
-	defer qclose(context.Background())
+	defer mc.ShutDownFunc(context.Background())
 
 	q.Input.ThresholdInputs = append(q.Input.ThresholdInputs,
 		newLoadTest95PercentileLatency(tbcTag),
@@ -166,14 +164,7 @@ func main() {
 	results := vegeta.NewAttacker().Attack(targeter, pacer, 3*duration, "load-test")
 	processResults(ctx, q, results)
 
-	out, err := q.Store()
-	alerter := alerter.Alerter{}
-	if err := alerter.SetupSlack(performance.SlackUserName, *slackReadToken, *slackWriteToken, performance.SlackChannels); err != nil {
-		log.Printf("Failed to setup slack client: %v\n", err)
+	if err := mc.StoreAndHandleResult(); err != nil {
+		log.Fatalf("Failed to store and handle benchmarking result: %v", err)
 	}
-	if err := alerter.SetupGitHub("knative", "serving", *githubToken); err != nil {
-		log.Printf("Failed to setup github client: %v\n", err)
-	}
-	alerter.HandleBenchmarkResult("load-test", out, err)
-	log.Printf("Done! Run: %s", out.GetRunChartLink())
 }

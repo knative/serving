@@ -45,7 +45,10 @@ func main() {
 	defer cancel()
 
 	// Use the benchmark key created
-	ctx, q, qclose, err := mako.Setup(ctx)
+	mc, err := mako.Setup(ctx)
+	q := mc.Quickstore
+	qclose := mc.ShutDownFunc
+	ctx = mc.Context
 	if err != nil {
 		log.Fatalf("Failed to setup mako: %v", err)
 	}

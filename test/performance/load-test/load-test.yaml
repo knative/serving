@@ -62,9 +62,6 @@ spec:
             image: knative.dev/serving/test/performance/load-test
             args:
             - "-flavor=zero"
-            - "-github-token=/var/secret/github-token"
-            - "-slack-read-token=/var/secret/slack-read-token"
-            - "-slack-write-token=/var/secret/slack-write-token"
             resources:
               requests:
                 cpu: 1000m
@@ -109,9 +106,6 @@ spec:
             image: knative.dev/serving/test/performance/load-test
             args:
             - "-flavor=always"
-            - "-github-token=/var/secret/github-token"
-            - "-slack-read-token=/var/secret/slack-read-token"
-            - "-slack-write-token=/var/secret/slack-write-token"
             resources:
               requests:
                 cpu: 1000m
@@ -156,9 +150,6 @@ spec:
             image: knative.dev/serving/test/performance/load-test
             args:
             - "-flavor=200"
-            - "-github-token=/var/secret/github-token"
-            - "-slack-read-token=/var/secret/slack-read-token"
-            - "-slack-write-token=/var/secret/slack-write-token"
             resources:
               requests:
                 cpu: 1000m
