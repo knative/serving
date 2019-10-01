@@ -96,7 +96,7 @@ func TestReporterReport(t *testing.T) {
 	tests := []struct {
 		name                              string
 		reportingPeriod                   time.Duration
-		autoscalerStat                    *autoscaler.Stat
+		autoscalerStat                    autoscaler.Stat
 		expectedReqCount                  float64
 		expectedAverageConcurrentRequests float64
 		expectedProxiedRequestCount       float64
@@ -104,7 +104,7 @@ func TestReporterReport(t *testing.T) {
 	}{{
 		name:                              "no proxy requests",
 		reportingPeriod:                   1 * time.Second,
-		autoscalerStat:                    &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3},
+		autoscalerStat:                    autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3},
 		expectedReqCount:                  39,
 		expectedAverageConcurrentRequests: 3,
 		expectedProxiedRequestCount:       0,
@@ -112,7 +112,7 @@ func TestReporterReport(t *testing.T) {
 	}, {
 		name:                              "reportingPeriod=10s",
 		reportingPeriod:                   10 * time.Second,
-		autoscalerStat:                    &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3, ProxiedRequestCount: 15, AverageProxiedConcurrentRequests: 2},
+		autoscalerStat:                    autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3, ProxiedRequestCount: 15, AverageProxiedConcurrentRequests: 2},
 		expectedReqCount:                  3.9,
 		expectedAverageConcurrentRequests: 3,
 		expectedProxiedRequestCount:       1.5,
@@ -120,7 +120,7 @@ func TestReporterReport(t *testing.T) {
 	}, {
 		name:                              "reportingPeriod=2s",
 		reportingPeriod:                   2 * time.Second,
-		autoscalerStat:                    &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3, ProxiedRequestCount: 15, AverageProxiedConcurrentRequests: 2},
+		autoscalerStat:                    autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3, ProxiedRequestCount: 15, AverageProxiedConcurrentRequests: 2},
 		expectedReqCount:                  19.5,
 		expectedAverageConcurrentRequests: 3,
 		expectedProxiedRequestCount:       7.5,
@@ -128,7 +128,7 @@ func TestReporterReport(t *testing.T) {
 	}, {
 		name:                              "reportingPeriod=1s",
 		reportingPeriod:                   1 * time.Second,
-		autoscalerStat:                    &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3, ProxiedRequestCount: 15, AverageProxiedConcurrentRequests: 2},
+		autoscalerStat:                    autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3, ProxiedRequestCount: 15, AverageProxiedConcurrentRequests: 2},
 		expectedReqCount:                  39,
 		expectedAverageConcurrentRequests: 3,
 		expectedProxiedRequestCount:       15,

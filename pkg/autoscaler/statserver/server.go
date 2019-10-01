@@ -39,13 +39,13 @@ type Server struct {
 	wsSrv       http.Server
 	servingCh   chan struct{}
 	stopCh      chan struct{}
-	statsCh     chan<- *autoscaler.StatMessage
+	statsCh     chan<- autoscaler.StatMessage
 	openClients sync.WaitGroup
 	logger      *zap.SugaredLogger
 }
 
 // New creates a Server which will receive autoscaler statistics and forward them to statsCh until Shutdown is called.
-func New(statsServerAddr string, statsCh chan<- *autoscaler.StatMessage, logger *zap.SugaredLogger) *Server {
+func New(statsServerAddr string, statsCh chan<- autoscaler.StatMessage, logger *zap.SugaredLogger) *Server {
 	svr := Server{
 		addr:        statsServerAddr,
 		servingCh:   make(chan struct{}),
@@ -168,7 +168,7 @@ func (s *Server) Handler(w http.ResponseWriter, r *http.Request) {
 		sm.Stat.Time = time.Now()
 
 		s.logger.Debugf("Received stat message: %+v", sm)
-		s.statsCh <- &sm
+		s.statsCh <- sm
 	}
 }
 

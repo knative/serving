@@ -116,7 +116,7 @@ func NewPrometheusStatsReporter(namespace, config, revision, pod string, reporti
 }
 
 // Report captures request metrics.
-func (r *PrometheusStatsReporter) Report(stat *autoscaler.Stat) {
+func (r *PrometheusStatsReporter) Report(stat autoscaler.Stat) {
 	// Requests per second is a rate over time while concurrency is not.
 	r.requestsPerSecond.Set(stat.RequestCount / r.reportingPeriod.Seconds())
 	r.proxiedRequestsPerSecond.Set(stat.ProxiedRequestCount / r.reportingPeriod.Seconds())

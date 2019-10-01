@@ -327,7 +327,7 @@ func main() {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
 
-	statChan := make(chan *autoscaler.Stat)
+	statChan := make(chan autoscaler.Stat)
 	defer close(statChan)
 	go func() {
 		for s := range statChan {

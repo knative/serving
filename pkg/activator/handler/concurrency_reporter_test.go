@@ -61,7 +61,7 @@ func TestStats(t *testing.T) {
 	tt := []struct {
 		name          string
 		ops           []reqOp
-		expectedStats []*autoscaler.StatMessage
+		expectedStats []autoscaler.StatMessage
 	}{{
 		name: "Scale-from-zero sends stat",
 		ops: []reqOp{{
@@ -71,7 +71,7 @@ func TestStats(t *testing.T) {
 			op:  requestOpStart,
 			key: pod2,
 		}},
-		expectedStats: []*autoscaler.StatMessage{{
+		expectedStats: []autoscaler.StatMessage{{
 			Key: pod1,
 			Stat: autoscaler.Stat{
 				AverageConcurrentRequests: 1,
@@ -95,7 +95,7 @@ func TestStats(t *testing.T) {
 		}, {
 			op: requestOpTick,
 		}},
-		expectedStats: []*autoscaler.StatMessage{{
+		expectedStats: []autoscaler.StatMessage{{
 			Key: pod1,
 			Stat: autoscaler.Stat{
 				AverageConcurrentRequests: 1,
@@ -122,7 +122,7 @@ func TestStats(t *testing.T) {
 			op:  requestOpStart,
 			key: pod1,
 		}},
-		expectedStats: []*autoscaler.StatMessage{{
+		expectedStats: []autoscaler.StatMessage{{
 			Key: pod1,
 			Stat: autoscaler.Stat{
 				AverageConcurrentRequests: 1,
@@ -154,7 +154,7 @@ func TestStats(t *testing.T) {
 		}, {
 			op: requestOpTick,
 		}},
-		expectedStats: []*autoscaler.StatMessage{{
+		expectedStats: []autoscaler.StatMessage{{
 			Key: pod1,
 			Stat: autoscaler.Stat{
 				AverageConcurrentRequests: 1,
@@ -223,14 +223,14 @@ func TestStats(t *testing.T) {
 			}
 
 			// Gather reported stats
-			stats := make([]*autoscaler.StatMessage, 0, len(tc.expectedStats))
+			stats := make([]autoscaler.StatMessage, 0, len(tc.expectedStats))
 			for i := 0; i < len(tc.expectedStats); i++ {
 				sm := <-s.statChan
 				stats = append(stats, sm)
 			}
 
 			// Check the stats we got match what we wanted
-			sorter := cmpopts.SortSlices(func(a, b *autoscaler.StatMessage) bool {
+			sorter := cmpopts.SortSlices(func(a, b autoscaler.StatMessage) bool {
 				return a.Key.Name < b.Key.Name
 			})
 			if got, want := stats, tc.expectedStats; !cmp.Equal(got, want, sorter) {
@@ -244,7 +244,7 @@ func TestStats(t *testing.T) {
 type testStats struct {
 	reqChan      chan ReqEvent
 	reportChan   <-chan time.Time
-	statChan     chan *autoscaler.StatMessage
+	statChan     chan autoscaler.StatMessage
 	reportBiChan chan time.Time
 }
 
@@ -253,7 +253,7 @@ func newTestStats(t *testing.T, clock system.Clock) (*testStats, *ConcurrencyRep
 	ts := &testStats{
 		reqChan:      make(chan ReqEvent),
 		reportChan:   (<-chan time.Time)(reportBiChan),
-		statChan:     make(chan *autoscaler.StatMessage, 20),
+		statChan:     make(chan autoscaler.StatMessage, 20),
 		reportBiChan: reportBiChan,
 	}
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
