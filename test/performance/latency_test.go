@@ -121,6 +121,6 @@ func TestTimeToServeLatency(t *testing.T) {
 // Performs perf testing on a long running app.
 // It uses the timeout app that sleeps for the specified amount of time.
 func TestTimeToServeLatencyLongRunning(t *testing.T) {
-	q := fmt.Sprintf("timeout=%d", sleepTime/time.Millisecond)
+	q := fmt.Sprintf("timeout=%d", sleepTime.Milliseconds())
 	timeToServe(t, "timeout", q, sleepReqTimeout)
 }

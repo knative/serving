@@ -26,7 +26,7 @@ Start by creating [a GitHub account](https://github.com/join), then setup
 You must install these tools:
 
 1. [`go`](https://golang.org/doc/install): The language `Knative Serving` is
-   built in (1.12rc1 or later)
+   built in (1.13 or later)
 1. [`git`](https://help.github.com/articles/set-up-git/): For source control
 1. [`dep`](https://github.com/golang/dep): For managing external Go
    dependencies.

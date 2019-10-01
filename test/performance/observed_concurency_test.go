@@ -217,7 +217,7 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 			t.Logf("Never scaled to %d", i)
 		} else {
 			t.Logf("Took %v to scale to %d", toConcurrency, i)
-			tc = append(tc, perf.CreatePerfTestCase(float32(toConcurrency/time.Millisecond), fmt.Sprintf("to%d(ms)", i), t.Name()))
+			tc = append(tc, perf.CreatePerfTestCase(float32(toConcurrency.Milliseconds()), fmt.Sprintf("to%d(ms)", i), t.Name()))
 		}
 	}
 	tc = append(tc, perf.CreatePerfTestCase(float32(failedRequests), "failed requests", t.Name()))

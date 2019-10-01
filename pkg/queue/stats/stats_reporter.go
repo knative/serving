@@ -166,8 +166,7 @@ func (r *Reporter) ReportResponseTime(responseCode int, d time.Duration) error {
 		return err
 	}
 
-	// convert time.Duration in nanoseconds to milliseconds
-	pkgmetrics.Record(ctx, r.latencyMetric.M(float64(d/time.Millisecond)))
+	pkgmetrics.Record(ctx, r.latencyMetric.M(float64(d.Milliseconds())))
 	return nil
 }
 

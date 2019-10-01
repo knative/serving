@@ -118,7 +118,6 @@ func NewStatsReporter(reconciler string) (StatsReporter, error) {
 // ReportServiceReady reports the time it took a service to become Ready
 func (r *reporter) ReportServiceReady(namespace, service string, d time.Duration) error {
 	key := fmt.Sprintf("%s/%s", namespace, service)
-	v := int64(d / time.Millisecond)
 	ctx, err := tag.New(
 		r.ctx,
 		tag.Insert(keyTagKey, key))
@@ -127,6 +126,6 @@ func (r *reporter) ReportServiceReady(namespace, service string, d time.Duration
 	}
 
 	metrics.Record(ctx, serviceReadyCountStat.M(1))
-	metrics.Record(ctx, serviceReadyLatencyStat.M(v))
+	metrics.Record(ctx, serviceReadyLatencyStat.M(d.Milliseconds()))
 	return nil
 }
