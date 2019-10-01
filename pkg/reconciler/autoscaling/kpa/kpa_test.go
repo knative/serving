@@ -1388,9 +1388,9 @@ func TestControllerCreateError(t *testing.T) {
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
-	got := errors.Unwrap(errors.Unwrap(ctl.Reconciler.Reconcile(context.Background(), key)))
-	if got != want {
-		t.Errorf("Reconcile() = %v, wanted %v", got, want)
+	got := ctl.Reconciler.Reconcile(context.Background(), key)
+	if !errors.Is(got, want) {
+		t.Errorf("Reconcile() = %v, wanted %v wrapped", got, want)
 	}
 }
 
@@ -1413,9 +1413,9 @@ func TestControllerUpdateError(t *testing.T) {
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
-	got := errors.Unwrap(errors.Unwrap((ctl.Reconciler.Reconcile(context.Background(), key))))
-	if got != want {
-		t.Errorf("Reconcile() = %v, wanted %v", got, want)
+	got := ctl.Reconciler.Reconcile(context.Background(), key)
+	if !errors.Is(got, want) {
+		t.Errorf("Reconcile() = %v, wanted %v wrapped", got, want)
 	}
 }
 
@@ -1436,9 +1436,9 @@ func TestControllerGetError(t *testing.T) {
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
-	got := errors.Unwrap(errors.Unwrap(ctl.Reconciler.Reconcile(context.Background(), key)))
-	if got != want {
-		t.Errorf("Reconcile() = %v, wanted %v", got, want)
+	got := ctl.Reconciler.Reconcile(context.Background(), key)
+	if !errors.Is(got, want) {
+		t.Errorf("Reconcile() = %v, wanted %v wrapped", got, want)
 	}
 }
 
