@@ -19,6 +19,7 @@ package kmeta
 import (
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -58,4 +59,17 @@ func DeletionHandlingAccessor(obj interface{}) (Accessor, error) {
 	}
 
 	return accessor, nil
+}
+
+// ObjectReference returns an core/v1.ObjectReference for the given object
+func ObjectReference(obj Accessor) corev1.ObjectReference {
+	gvk := obj.GroupVersionKind()
+	apiVersion, kind := gvk.ToAPIVersionAndKind()
+
+	return corev1.ObjectReference{
+		APIVersion: apiVersion,
+		Kind:       kind,
+		Namespace:  obj.GetNamespace(),
+		Name:       obj.GetName(),
+	}
 }

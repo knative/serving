@@ -79,7 +79,7 @@ type TableRow struct {
 	// WantEvents holds the ordered list of events we expect during reconciliation.
 	WantEvents []string
 
-	// WantServiceReadyStats holds the ServiceReady stats we exepect during reconciliation.
+	// WantServiceReadyStats holds the ServiceReady stats we expect during reconciliation.
 	WantServiceReadyStats map[string]int
 
 	// WithReactors is a set of functions that are installed as Reactors for the execution
