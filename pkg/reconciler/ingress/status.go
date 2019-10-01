@@ -398,7 +398,7 @@ func (m *StatusProber) getGateway(name string) (*v1alpha3.Gateway, error) {
 
 // listGatewayPodsURLs returns a map where the keys are the Gateway Pod IPs and the values are the corresponding
 // URL templates and the Gateway Pod Port to be probed.
-func (m *StatusProber) listGatewayTargetsPerPods(gateway *v1alpha3.Gateway) (map[string][]*probeTarget, error) {
+func (m *StatusProber) listGatewayTargetsPerPods(gateway *v1alpha3.Gateway) (map[string][]probeTarget, error) {
 	selector := labels.NewSelector()
 	for key, value := range gateway.Spec.Selector {
 		requirement, err := labels.NewRequirement(key, selection.Equals, []string{value})
@@ -423,7 +423,7 @@ func (m *StatusProber) listGatewayTargetsPerPods(gateway *v1alpha3.Gateway) (map
 		return nil, fmt.Errorf("failed to list Endpoints: %v", err)
 	}
 
-	targetsPerPods := make(map[string][]*probeTarget)
+	targetsPerPods := make(map[string][]probeTarget)
 	for _, server := range gateway.Spec.Servers {
 		var urlTmpl string
 		switch server.Port.Protocol {
@@ -452,7 +452,7 @@ func (m *StatusProber) listGatewayTargetsPerPods(gateway *v1alpha3.Gateway) (map
 				}
 
 				for _, addr := range sub.Addresses {
-					targetsPerPods[addr.IP] = append(targetsPerPods[addr.IP], &probeTarget{urlTmpl: fmt.Sprintf(urlTmpl, server.Port.Number), targetPort: strconv.Itoa(int(portNumber))})
+					targetsPerPods[addr.IP] = append(targetsPerPods[addr.IP], probeTarget{urlTmpl: fmt.Sprintf(urlTmpl, server.Port.Number), targetPort: strconv.Itoa(int(portNumber))})
 				}
 			}
 		}
