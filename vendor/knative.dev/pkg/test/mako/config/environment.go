@@ -18,33 +18,34 @@ package config
 
 import (
 	"log"
-	"path/filepath"
-
-	"knative.dev/pkg/configmap"
 )
 
 // TODO: perhaps cache the loaded CM.
 
+// MustGetRepository returns the repository from the configmap, or dies.
+func MustGetRepository() string {
+	cfg, err := loadConfig()
+	if err != nil {
+		log.Fatalf("unable to load config from the configmap: %v", err)
+	}
+	if cfg.Repository == "" {
+		log.Fatal("unable to get repository from the configmap")
+	}
+	return cfg.Repository
+}
+
 // MustGetTags returns the additional tags from the configmap, or dies.
 func MustGetTags() []string {
-	makoCM, err := configmap.Load(filepath.Join("/etc", ConfigName))
+	cfg, err := loadConfig()
 	if err != nil {
-		log.Fatalf("unable to load configmap: %v", err)
-	}
-	cfg, err := NewConfigFromMap(makoCM)
-	if err != nil {
-		log.Fatalf("unable to parse configmap: %v", err)
+		log.Fatalf("unable to load config from the configmap: %v", err)
 	}
 	return cfg.AdditionalTags
 }
 
 // getEnvironment fetches the Mako config environment to which this cluster should publish.
 func getEnvironment() (string, error) {
-	makoCM, err := configmap.Load(filepath.Join("/etc", ConfigName))
-	if err != nil {
-		return "", err
-	}
-	cfg, err := NewConfigFromMap(makoCM)
+	cfg, err := loadConfig()
 	if err != nil {
 		return "", err
 	}

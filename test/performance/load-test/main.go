@@ -126,17 +126,19 @@ func main() {
 
 	// Use the benchmark key created.
 	tbcTag := "tbc=" + *flavor
-	ctx, q, qclose, err := mako.Setup(ctx, tbcTag)
+	mc, err := mako.Setup(ctx, tbcTag)
 	if err != nil {
 		log.Fatalf("failed to setup mako: %v", err)
 	}
+	q, qclose, ctx := mc.Quickstore, mc.ShutDownFunc, mc.Context
 	// Use a fresh context here so that our RPC to terminate the sidecar
 	// isn't subject to our timeout (or we won't shut it down when we time out)
 	defer qclose(context.Background())
 
 	q.Input.ThresholdInputs = append(q.Input.ThresholdInputs,
 		newLoadTest95PercentileLatency(tbcTag),
-		newLoadTestMaximumLatency(tbcTag))
+		newLoadTestMaximumLatency(tbcTag),
+		newLoadTestMaximumErrorRate(tbcTag))
 
 	log.Print("Starting the load test.")
 	// Ramp up load from 1k to 3k in 2 minute steps.
@@ -160,10 +162,7 @@ func main() {
 	results := vegeta.NewAttacker().Attack(targeter, pacer, 3*duration, "load-test")
 	processResults(ctx, q, results)
 
-	out, err := q.Store()
-	if err != nil {
-		qclose(context.Background())
-		log.Fatalf("q.Store error: %s %v", out.String(), err)
+	if err := mc.StoreAndHandleResult(); err != nil {
+		log.Fatalf("Failed to store and handle benchmarking result: %v", err)
 	}
-	log.Printf("Done! Run: %s", out.GetRunChartLink())
 }

@@ -69,18 +69,20 @@ spec:
             volumeMounts:
             - name: config-mako
               mountPath: /etc/config-mako
+            - name: mako-secrets
+              mountPath: /var/secret
           - name: mako
             image: gcr.io/knative-performance/mako-microservice:latest
             env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secret/robot.json
             volumeMounts:
-            - name: service-account
+            - name: mako-secrets
               mountPath: /var/secret
           volumes:
-          - name: service-account
+          - name: mako-secrets
             secret:
-              secretName: service-account
+              secretName: mako-secrets
           - name: config-mako
             configMap:
               name: config-mako
@@ -111,18 +113,20 @@ spec:
             volumeMounts:
             - name: config-mako
               mountPath: /etc/config-mako
+            - name: mako-secrets
+              mountPath: /var/secret
           - name: mako
             image: gcr.io/knative-performance/mako-microservice:latest
             env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secret/robot.json
             volumeMounts:
-            - name: service-account
+            - name: mako-secrets
               mountPath: /var/secret
           volumes:
-          - name: service-account
+          - name: mako-secrets
             secret:
-              secretName: service-account
+              secretName: mako-secrets
           - name: config-mako
             configMap:
               name: config-mako
@@ -153,18 +157,20 @@ spec:
             volumeMounts:
             - name: config-mako
               mountPath: /etc/config-mako
+            - name: mako-secrets
+              mountPath: /var/secret
           - name: mako
             image: gcr.io/knative-performance/mako-microservice:latest
             env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secret/robot.json
             volumeMounts:
-            - name: service-account
+            - name: mako-secrets
               mountPath: /var/secret
           volumes:
-          - name: service-account
+          - name: mako-secrets
             secret:
-              secretName: service-account
+              secretName: mako-secrets
           - name: config-mako
             configMap:
               name: config-mako

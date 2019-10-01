@@ -18,8 +18,10 @@ package alerter
 
 import (
 	qpb "github.com/google/mako/proto/quickstore/quickstore_go_proto"
+	"knative.dev/pkg/test/helpers"
 	"knative.dev/pkg/test/mako/alerter/github"
 	"knative.dev/pkg/test/mako/alerter/slack"
+	"knative.dev/pkg/test/mako/config"
 )
 
 // Alerter controls alert for performance regressions detected by Mako.
@@ -39,7 +41,7 @@ func (alerter *Alerter) SetupGitHub(org, repo, githubTokenPath string) error {
 }
 
 // SetupSlack will setup Slack for the alerter.
-func (alerter *Alerter) SetupSlack(userName, readTokenPath, writeTokenPath string, channels []slack.Channel) error {
+func (alerter *Alerter) SetupSlack(userName, readTokenPath, writeTokenPath string, channels []config.Channel) error {
 	messageHandler, err := slack.Setup(userName, readTokenPath, writeTokenPath, channels, false)
 	if err != nil {
 		return err
@@ -49,20 +51,28 @@ func (alerter *Alerter) SetupSlack(userName, readTokenPath, writeTokenPath strin
 }
 
 // HandleBenchmarkResult will handle the benchmark result which returns from `q.Store()`
-func (alerter *Alerter) HandleBenchmarkResult(testName string, output qpb.QuickstoreOutput, err error) {
+func (alerter *Alerter) HandleBenchmarkResult(testName string, output qpb.QuickstoreOutput, err error) error {
 	if err != nil {
 		if output.GetStatus() == qpb.QuickstoreOutput_ANALYSIS_FAIL {
+			var errs []error
 			summary := output.GetSummaryOutput()
 			if alerter.githubIssueHandler != nil {
-				alerter.githubIssueHandler.CreateIssueForTest(testName, summary)
+				if err := alerter.githubIssueHandler.CreateIssueForTest(testName, summary); err != nil {
+					errs = append(errs, err)
+				}
 			}
 			if alerter.slackMessageHandler != nil {
-				alerter.slackMessageHandler.SendAlert(summary)
+				if err := alerter.slackMessageHandler.SendAlert(summary); err != nil {
+					errs = append(errs, err)
+				}
 			}
+			return helpers.CombineErrors(errs)
 		}
-		return
+		return err
 	}
 	if alerter.githubIssueHandler != nil {
-		alerter.githubIssueHandler.CloseIssueForTest(testName)
+		return alerter.githubIssueHandler.CloseIssueForTest(testName)
 	}
+
+	return nil
 }

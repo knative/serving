@@ -402,6 +402,22 @@
   revision = "b02d448a3705facf11018efff34f1d2830be5724"
 
 [[projects]]
+  digest = "1:91099c6f78b1e7bdf9ed06eb4cb7f017174293a3689d76b995a06f4c8d64a7f0"
+  name = "github.com/google/go-github"
+  packages = ["github"]
+  pruneopts = "NUT"
+  revision = "9686ff0746200cf521ce225525b421e13b4eac1a"
+  version = "v28.1.1"
+
+[[projects]]
+  digest = "1:a63cff6b5d8b95638bfe300385d93b2a6d9d687734b863da8e09dc834510a690"
+  name = "github.com/google/go-querystring"
+  packages = ["query"]
+  pruneopts = "NUT"
+  revision = "44c6ddd0a2342c386950e880b658017258da92fc"
+  version = "v1.0.0"
+
+[[projects]]
   branch = "master"
   digest = "1:52c5834e2bebac9030c97cc0798ac11c3aa8a39f098aeb419f142533da6cd3cc"
   name = "github.com/google/gofuzz"
@@ -838,9 +854,16 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:0e42ddb15b8bc3c5c6c38c96db5c3d3d1b9b5863167267ed9431d9a4012c21f9"
+  digest = "1:e95f005c82fdbe0741340e12cec8e6530adf5bb9873fba65d5959e7c55bfb49f"
   name = "golang.org/x/crypto"
   packages = [
+    "cast5",
+    "openpgp",
+    "openpgp/armor",
+    "openpgp/elgamal",
+    "openpgp/errors",
+    "openpgp/packet",
+    "openpgp/s2k",
     "pkcs12",
     "pkcs12/internal/rc2",
     "ssh/terminal",
@@ -1650,7 +1673,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:0127448c20afb08cb5a41e352d5c93c07b79d5162fe8829acaf7518ac81bd05f"
+  digest = "1:25a242a329c571b1b288af9ad1a7cbbd1c99a07bef77dfff29f6874e69056b8e"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1736,14 +1759,19 @@
     "system",
     "system/testing",
     "test",
+    "test/ghutil",
     "test/helpers",
     "test/ingress",
     "test/logging",
     "test/logstream",
     "test/mako",
+    "test/mako/alerter",
+    "test/mako/alerter/github",
+    "test/mako/alerter/slack",
     "test/mako/config",
     "test/monitoring",
     "test/prometheus",
+    "test/slackutil",
     "test/spoof",
     "test/vegeta/pacers",
     "test/webhook-apicoverage/coveragecalculator",
@@ -1761,7 +1789,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "f00ff90b54ec3bd43d0a8f12b4a93f87385287cc"
+  revision = "9c2cf0549d1ada2cd41aad9637f69346e77b8bce"
 
 [[projects]]
   branch = "master"
@@ -1859,7 +1887,6 @@
     "k8s.io/apimachinery/pkg/api/resource",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
-    "k8s.io/apimachinery/pkg/fields",
     "k8s.io/apimachinery/pkg/labels",
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
@@ -1978,6 +2005,7 @@
     "knative.dev/pkg/test/logging",
     "knative.dev/pkg/test/logstream",
     "knative.dev/pkg/test/mako",
+    "knative.dev/pkg/test/mako/alerter/slack",
     "knative.dev/pkg/test/prometheus",
     "knative.dev/pkg/test/spoof",
     "knative.dev/pkg/test/vegeta/pacers",

@@ -41,6 +41,9 @@ data:
     # by adding `foo.config` under their benchmark's kodata directory.
     environment: dev
 
+    # Repository name that holds the benchmark.
+    repository: test-repo
+
     # Additional tags to tag the runs. These tags are added
     # to the list that the binary itself publishes (Kubernetes version, etc).
     # It is a comma separated list of tags.

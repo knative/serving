@@ -39,6 +39,7 @@ const (
 	DefaultGKEZone     = ""
 	regionEnv          = "E2E_CLUSTER_REGION"
 	backupRegionEnv    = "E2E_CLUSTER_BACKUP_REGIONS"
+	defaultGKEVersion  = "latest"
 )
 
 var (
@@ -57,13 +58,35 @@ type GKEClient struct {
 
 // GKERequest contains all requests collected for cluster creation
 type GKERequest struct {
-	MinNodes      int64
-	MaxNodes      int64
-	NodeType      string
-	Region        string
-	Zone          string
+	// Project: GKE project, no default. Fall back to get project from kubeconfig
+	// then gcloud config
+	Project string
+
+	// ClusterName: custom cluster name to use. Fall back to cluster set by
+	// kubeconfig, else composed as k[REPO]-cls-e2e-[BUILD_ID]
+	ClusterName string
+
+	// MinNodes: default to 1 if not provided
+	MinNodes int64
+
+	// MaxNodes: default to max(3, MinNodes) if not provided
+	MaxNodes int64
+
+	// NodeType: default to n1-standard-4 if not provided
+	NodeType string
+
+	// Region: default to regional cluster if not provided, and use default backup regions
+	Region string
+
+	// Zone: default is none, must be provided together with region
+	Zone string
+
+	// BackupRegions: fall back regions to try out in case of cluster creation
+	// failure due to regional issue(s)
 	BackupRegions []string
-	Addons        []string
+
+	// Addons: cluster addons to be added to cluster, such as istio
+	Addons []string
 }
 
 // GKECluster implements ClusterOperations
@@ -123,54 +146,49 @@ func (gsc *GKESDKClient) setAutoscaling(project, clusterName, location, nodepool
 	return gsc.Service.Projects.Locations.Clusters.NodePools.SetAutoscaling(parent, rb).Do()
 }
 
-// Setup sets up a GKECluster client.
-// minNodes: default to 1 if not provided
-// maxNodes: default to 3 if not provided
-// nodeType: default to n1-standard-4 if not provided
-// region: default to regional cluster if not provided, and use default backup regions
-// zone: default is none, must be provided together with region
-// project: no default
-// addons: cluster addons to be added to cluster
-func (gs *GKEClient) Setup(minNodes *int64, maxNodes *int64, nodeType *string, region *string, zone *string, project *string, addons []string) ClusterOperations {
-	gc := &GKECluster{
-		Request: &GKERequest{
-			MinNodes:      DefaultGKEMinNodes,
-			MaxNodes:      DefaultGKEMaxNodes,
-			NodeType:      DefaultGKENodeType,
-			Region:        DefaultGKERegion,
-			Zone:          DefaultGKEZone,
-			BackupRegions: DefaultGKEBackupRegions,
-			Addons:        addons,
-		},
-	}
+// Setup sets up a GKECluster client, takes GEKRequest as parameter and applies
+// all defaults if not defined.
+func (gs *GKEClient) Setup(r GKERequest) ClusterOperations {
+	gc := &GKECluster{}
 
-	if project != nil { // use provided project and create cluster
-		gc.Project = project
+	if r.Project != "" { // use provided project and create cluster
+		gc.Project = &r.Project
 		gc.NeedCleanup = true
 	}
 
-	if minNodes != nil {
-		gc.Request.MinNodes = *minNodes
+	if r.MinNodes == 0 {
+		r.MinNodes = DefaultGKEMinNodes
 	}
-	if maxNodes != nil {
-		gc.Request.MaxNodes = *maxNodes
+	if r.MaxNodes == 0 {
+		r.MaxNodes = DefaultGKEMaxNodes
+		// We don't want MaxNodes < MinNodes
+		if r.MinNodes > r.MaxNodes {
+			r.MaxNodes = r.MinNodes
+		}
 	}
-	if nodeType != nil {
-		gc.Request.NodeType = *nodeType
+	if r.NodeType == "" {
+		r.NodeType = DefaultGKENodeType
 	}
-	if region != nil {
-		gc.Request.Region = *region
+	// Only use default backup regions if region is not provided
+	if len(r.BackupRegions) == 0 && r.Region == "" {
+		r.BackupRegions = DefaultGKEBackupRegions
+		if common.GetOSEnv(backupRegionEnv) != "" {
+			r.BackupRegions = strings.Split(common.GetOSEnv(backupRegionEnv), " ")
+		}
 	}
-	if common.GetOSEnv(regionEnv) != "" {
-		gc.Request.Region = common.GetOSEnv(regionEnv)
+	if r.Region == "" {
+		r.Region = DefaultGKERegion
+		if common.GetOSEnv(regionEnv) != "" {
+			r.Region = common.GetOSEnv(regionEnv)
+		}
 	}
-	if common.GetOSEnv(backupRegionEnv) != "" {
-		gc.Request.BackupRegions = strings.Split(common.GetOSEnv(backupRegionEnv), " ")
+	if r.Zone == "" {
+		r.Zone = DefaultGKEZone
+	} else { // No backupregions if zone is provided
+		r.BackupRegions = make([]string, 0)
 	}
-	if zone != nil {
-		gc.Request.Zone = *zone
-		gc.Request.BackupRegions = make([]string, 0)
-	}
+
+	gc.Request = &r
 
 	ctx := context.Background()
 	c, err := google.DefaultClient(ctx, container.CloudPlatformScope)
@@ -189,8 +207,8 @@ func (gs *GKEClient) Setup(minNodes *int64, maxNodes *int64, nodeType *string, r
 	return gc
 }
 
-// Initialize sets up GKE SDK client, checks environment for cluster and
-// projects to decide whether use existing cluster/project or creating new ones.
+// Initialize checks environment for cluster and projects to decide whether using
+// existing cluster/project or creating new ones.
 func (gc *GKECluster) Initialize() error {
 	// Try obtain project name via `kubectl`, `gcloud`
 	if gc.Project == nil {
@@ -229,15 +247,20 @@ func (gc *GKECluster) Provider() string {
 // Region or Zone is provided then there is no retries
 func (gc *GKECluster) Acquire() error {
 	gc.ensureProtected()
+	var clusterName string
 	var err error
 	// Check if using existing cluster
 	if gc.Cluster != nil {
 		return nil
 	}
 	// Perform GKE specific cluster creation logics
-	clusterName, err := getResourceName(ClusterResource)
-	if err != nil {
-		return fmt.Errorf("failed getting cluster name: '%v'", err)
+	if gc.Request.ClusterName == "" {
+		clusterName, err = getResourceName(ClusterResource)
+		if err != nil {
+			return fmt.Errorf("failed getting cluster name: '%v'", err)
+		}
+	} else {
+		clusterName = gc.Request.ClusterName
 	}
 
 	regions := []string{gc.Request.Region}
@@ -260,6 +283,9 @@ func (gc *GKECluster) Acquire() error {
 		rb := &container.CreateClusterRequest{
 			Cluster: &container.Cluster{
 				Name: clusterName,
+				// The default cluster version is not latest, has to explicitly
+				// set it as "latest"
+				InitialClusterVersion: defaultGKEVersion,
 				// Installing addons after cluster creation takes at least 5
 				// minutes, so install addons as part of cluster creation, which
 				// doesn't seem to add much time on top of cluster creation

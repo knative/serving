@@ -17,9 +17,11 @@ limitations under the License.
 package config
 
 import (
+	"path/filepath"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/pkg/configmap"
 )
 
 const (
@@ -29,12 +31,19 @@ const (
 
 // Config defines the mako configuration options.
 type Config struct {
+	// Repository holds the name of the repository that runs the benchmarks.
+	Repository string
+
 	// Environment holds the name of the environement,
 	// where the test runs, e.g. `dev`.
 	Environment string
 
 	// List of additional tags to apply to the run.
 	AdditionalTags []string
+
+	// SlackConfig holds the slack configurations for the benchmarks,
+	// it's used to determine which slack channels to alert on if there is performance regression.
+	SlackConfig string
 }
 
 // NewConfigFromMap creates a Config from the supplied map
@@ -44,11 +53,17 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		AdditionalTags: []string{},
 	}
 
+	if raw, ok := data["repository"]; ok {
+		lc.Repository = raw
+	}
 	if raw, ok := data["environment"]; ok {
 		lc.Environment = raw
 	}
 	if raw, ok := data["additionalTags"]; ok && raw != "" {
 		lc.AdditionalTags = strings.Split(raw, ",")
+	}
+	if raw, ok := data["slackConfig"]; ok {
+		lc.SlackConfig = raw
 	}
 
 	return lc, nil
@@ -57,4 +72,16 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 // NewConfigFromConfigMap creates a Config from the supplied ConfigMap
 func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 	return NewConfigFromMap(configMap.Data)
+}
+
+func loadConfig() (*Config, error) {
+	makoCM, err := configmap.Load(filepath.Join("/etc", ConfigName))
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := NewConfigFromMap(makoCM)
+	if err != nil {
+		return nil, err
+	}
+	return cfg, nil
 }

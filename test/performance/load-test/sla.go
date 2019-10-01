@@ -63,6 +63,22 @@ func newLoadTestMaximumLatency(tags ...string) *tpb.ThresholdAnalyzerInput {
 	}
 }
 
+// This analyzer validates that the mean error rate observed over the 0->3k
+// stepped burst is 0.
+func newLoadTestMaximumErrorRate(tags ...string) *tpb.ThresholdAnalyzerInput {
+	return &tpb.ThresholdAnalyzerInput{
+		Name: proto.String("Mean error rate"),
+		Configs: []*tpb.ThresholdConfig{{
+			Max: proto.Float64(0),
+			DataFilter: &mpb.DataFilter{
+				DataType: mpb.DataFilter_METRIC_AGGREGATE_MEAN.Enum(),
+				ValueKey: proto.String("es"),
+			},
+		}},
+		CrossRunConfig: mako.NewCrossRunConfig(10, tags...),
+	}
+}
+
 // bound is a helper for making the inline SLOs more readable by expressing
 // them as durations.
 func bound(d time.Duration) *float64 {

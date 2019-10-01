@@ -121,10 +121,11 @@ func main() {
 		"duration=" + duration.String(),
 		"frequency=" + frequency.String(),
 	}
-	ctx, q, qclose, err := mako.Setup(ctx, tags...)
+	mc, err := mako.Setup(ctx, tags...)
 	if err != nil {
 		log.Fatalf("Failed to setup mako: %v", err)
 	}
+	q, qclose, ctx := mc.Quickstore, mc.ShutDownFunc, mc.Context
 	// Use a fresh context here so that our RPC to terminate the sidecar
 	// isn't subject to our timeout (or we won't shut it down when we time out)
 	defer qclose(context.Background())
