@@ -274,19 +274,15 @@ data:
       - source_labels: [__meta_kubernetes_service_name]
         target_label: service
     # Kube state metrics on https-main port
-    - job_name: kube-state-metrics-https-main
+    - job_name: kube-state-metrics-http-metrics
       honor_labels: true
-      scheme: https
       kubernetes_sd_configs:
       - role: endpoints
-      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-      tls_config:
-        insecure_skip_verify: true
       relabel_configs:
       # Scrape only the the targets matching the following metadata
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_label_app, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: knative-monitoring;kube-state-metrics;https-main
+        regex: knative-monitoring;kube-state-metrics;http-metrics
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
         target_label: namespace
@@ -295,18 +291,14 @@ data:
       - source_labels: [__meta_kubernetes_service_name]
         target_label: service
     # Kube state metrics on https-self port
-    - job_name: kube-state-metrics-https-self
-      scheme: https
+    - job_name: kube-state-metrics-telemetry
       kubernetes_sd_configs:
       - role: endpoints
-      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-      tls_config:
-        insecure_skip_verify: true
       relabel_configs:
       # Scrape only the the targets matching the following metadata
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_label_app, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: knative-monitoring;kube-state-metrics;https-self
+        regex: knative-monitoring;kube-state-metrics;telemetry
       # Rename metadata labels to be reader friendly
       - source_labels: [__meta_kubernetes_namespace]
         target_label: namespace
