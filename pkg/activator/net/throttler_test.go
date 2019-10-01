@@ -549,7 +549,7 @@ func TestPickP2C(t *testing.T) {
 	}, {
 		l: "single",
 		tgts: []*podIPTracker{
-			&podIPTracker{
+			{
 				"good-place",
 				1,
 			},
@@ -558,11 +558,11 @@ func TestPickP2C(t *testing.T) {
 	}, {
 		l: "two",
 		tgts: []*podIPTracker{
-			&podIPTracker{
+			{
 				"bad-place",
 				11,
 			},
-			&podIPTracker{
+			{
 				"good-place",
 				1,
 			},
@@ -571,15 +571,15 @@ func TestPickP2C(t *testing.T) {
 	}, {
 		l: "three",
 		tgts: []*podIPTracker{
-			&podIPTracker{
+			{
 				"bad",
 				7,
 			},
-			&podIPTracker{
+			{
 				"neutral",
 				5,
 			},
-			&podIPTracker{
+			{
 				"good",
 				1,
 			},
@@ -604,11 +604,11 @@ func TestPickP2C(t *testing.T) {
 	}
 	t.Run("multiple", func(t *testing.T) {
 		tgts := []*podIPTracker{
-			&podIPTracker{
+			{
 				"bad-place",
 				3,
 			},
-			&podIPTracker{
+			{
 				"good-place",
 				1,
 			},
