@@ -207,18 +207,8 @@ func TestReconcile(t *testing.T) {
 	}))
 }
 
-func routeWithTraffic(namespace, name string, traffic ...v1alpha1.TrafficTarget) *v1alpha1.Route {
-	return &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-		},
-		Status: v1alpha1.RouteStatus{
-			RouteStatusFields: v1alpha1.RouteStatusFields{
-				Traffic: traffic,
-			},
-		},
-	}
+func routeWithTraffic(namespace, name string, traffic v1alpha1.TrafficTarget) *v1alpha1.Route {
+	return Route(namespace, name, WithStatusTraffic(traffic))
 }
 
 func simpleRunLatest(namespace, name, config string) *v1alpha1.Route {

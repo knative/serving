@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -218,12 +219,12 @@ func MarkConfigurationFailed(name string) RouteOption {
 }
 
 // WithRouteLabel sets the specified label on the Route.
-func WithRouteLabel(key, value string) RouteOption {
+func WithRouteLabel(labels map[string]string) RouteOption {
 	return func(r *v1alpha1.Route) {
 		if r.Labels == nil {
 			r.Labels = make(map[string]string)
 		}
-		r.Labels[key] = value
+		r.Labels = labels
 	}
 }
 
@@ -235,4 +236,29 @@ func WithIngressClass(ingressClass string) RouteOption {
 		}
 		r.Annotations[networking.IngressClassAnnotationKey] = ingressClass
 	}
+}
+
+// WithRouteAnnotation sets the specified annotation on the Route.
+func WithRouteAnnotation(annotation map[string]string) RouteOption {
+	return func(r *v1alpha1.Route) {
+		if r.Annotations == nil {
+			r.Annotations = make(map[string]string)
+		}
+		r.Annotations = annotation
+	}
+}
+
+// Route creates a route with RouteOptions
+func Route(namespace, name string, ro ...RouteOption) *v1alpha1.Route {
+	r := &v1alpha1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+	}
+	for _, opt := range ro {
+		opt(r)
+	}
+	r.SetDefaults(context.Background())
+	return r
 }

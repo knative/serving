@@ -57,6 +57,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/route/domains"
 
 	. "knative.dev/pkg/reconciler/testing"
+	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
 
 const (
@@ -65,22 +66,8 @@ const (
 	prodDomainSuffix    = "prod-domain.com"
 )
 
-func getTestRouteWithTrafficTargets(traffic []v1alpha1.TrafficTarget) *v1alpha1.Route {
-	route := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/Routes/test-route",
-			Name:      "test-route",
-			Namespace: testNamespace,
-			Labels: map[string]string{
-				"route": "test-route",
-			},
-		},
-		Spec: v1alpha1.RouteSpec{
-			Traffic: traffic,
-		},
-	}
-	route.SetDefaults(context.Background())
-	return route
+func getTestRouteWithTrafficTargets(trafficTarget RouteOption) *v1alpha1.Route {
+	return Route(testNamespace, "test-route", WithRouteLabel(map[string]string{"route": "test-route"}), trafficTarget)
 }
 
 func getTestRevision(name string) *v1alpha1.Revision {
@@ -264,15 +251,13 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
 	// A route targeting the revision
-	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{{
-			TrafficTarget: v1.TrafficTarget{
-				RevisionName:      "test-rev",
-				ConfigurationName: "test-config",
-				Percent:           ptr.Int64(100),
-			},
-		}},
-	)
+	route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
+			RevisionName:      "test-rev",
+			ConfigurationName: "test-config",
+			Percent:           ptr.Int64(100),
+		},
+	}))
 	fakeservingclient.Get(ctx).ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
@@ -377,19 +362,17 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(cfgrev)
 
 	// A route targeting both the config and standalone revision.
-	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{{
-			TrafficTarget: v1.TrafficTarget{
-				ConfigurationName: config.Name,
-				Percent:           ptr.Int64(90),
-			},
-		}, {
-			TrafficTarget: v1.TrafficTarget{
-				RevisionName: rev.Name,
-				Percent:      ptr.Int64(10),
-			},
-		}},
-	)
+	route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
+			ConfigurationName: config.Name,
+			Percent:           ptr.Int64(90),
+		},
+	}, v1alpha1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
+			RevisionName: rev.Name,
+			Percent:      ptr.Int64(10),
+		},
+	}))
 	fakeservingclient.Get(ctx).ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since Reconcile looks in the lister, we need to add it to the informer.
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
@@ -466,20 +449,18 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(cfgrev)
 
 	// A route targeting both the config and standalone revision
-	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{{
-			TrafficTarget: v1.TrafficTarget{
-				ConfigurationName: config.Name,
-				Percent:           ptr.Int64(90),
-			},
-		}, {
-			TrafficTarget: v1.TrafficTarget{
-				RevisionName:      rev.Name,
-				ConfigurationName: "test-config",
-				Percent:           ptr.Int64(10),
-			},
-		}},
-	)
+	route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
+			ConfigurationName: config.Name,
+			Percent:           ptr.Int64(90),
+		},
+	}, v1alpha1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
+			RevisionName:      rev.Name,
+			ConfigurationName: "test-config",
+			Percent:           ptr.Int64(10),
+		},
+	}))
 	fakeservingclient.Get(ctx).ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
@@ -553,47 +534,45 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(cfgrev)
 
 	// A route with duplicate targets. These will be deduped.
-	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{{
-			TrafficTarget: v1.TrafficTarget{
-				ConfigurationName: "test-config",
-				Percent:           ptr.Int64(30),
-			},
-		}, {
-			TrafficTarget: v1.TrafficTarget{
-				ConfigurationName: "test-config",
-				Percent:           ptr.Int64(20),
-			},
-		}, {
-			TrafficTarget: v1.TrafficTarget{
-				RevisionName: "test-rev",
-				Percent:      ptr.Int64(10),
-			},
-		}, {
-			TrafficTarget: v1.TrafficTarget{
-				RevisionName: "test-rev",
-				Percent:      ptr.Int64(5),
-			},
-		}, {
-			TrafficTarget: v1.TrafficTarget{
-				Tag:          "test-revision-1",
-				RevisionName: "test-rev",
-				Percent:      ptr.Int64(10),
-			},
-		}, {
-			TrafficTarget: v1.TrafficTarget{
-				Tag:          "test-revision-1",
-				RevisionName: "test-rev",
-				Percent:      ptr.Int64(10),
-			},
-		}, {
-			TrafficTarget: v1.TrafficTarget{
-				Tag:          "test-revision-2",
-				RevisionName: "test-rev",
-				Percent:      ptr.Int64(15),
-			},
-		}},
-	)
+	route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
+			ConfigurationName: "test-config",
+			Percent:           ptr.Int64(30),
+		},
+	}, v1alpha1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
+			ConfigurationName: "test-config",
+			Percent:           ptr.Int64(20),
+		},
+	}, v1alpha1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
+			RevisionName: "test-rev",
+			Percent:      ptr.Int64(10),
+		},
+	}, v1alpha1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
+			RevisionName: "test-rev",
+			Percent:      ptr.Int64(5),
+		},
+	}, v1alpha1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
+			Tag:          "test-revision-1",
+			RevisionName: "test-rev",
+			Percent:      ptr.Int64(10),
+		},
+	}, v1alpha1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
+			Tag:          "test-revision-1",
+			RevisionName: "test-rev",
+			Percent:      ptr.Int64(10),
+		},
+	}, v1alpha1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
+			Tag:          "test-revision-2",
+			RevisionName: "test-rev",
+			Percent:      ptr.Int64(15),
+		},
+	}))
 	fakeservingclient.Get(ctx).ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
@@ -713,21 +692,19 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 
 	// A route targeting both the config and standalone revision with named
 	// targets
-	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{{
-			TrafficTarget: v1.TrafficTarget{
-				Tag:          "foo",
-				RevisionName: "test-rev",
-				Percent:      ptr.Int64(50),
-			},
-		}, {
-			TrafficTarget: v1.TrafficTarget{
-				Tag:               "bar",
-				ConfigurationName: "test-config",
-				Percent:           ptr.Int64(50),
-			},
-		}},
-	)
+	route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
+			Tag:          "foo",
+			RevisionName: "test-rev",
+			Percent:      ptr.Int64(50),
+		},
+	}, v1alpha1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
+			Tag:               "bar",
+			ConfigurationName: "test-config",
+			Percent:           ptr.Int64(50),
+		},
+	}))
 
 	fakeservingclient.Get(ctx).ServingV1alpha1().Routes(testNamespace).Create(route)
 	// Since Reconcile looks in the lister, we need to add it to the informer
@@ -829,7 +806,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 func TestUpdateDomainConfigMap(t *testing.T) {
 	ctx, _, reconciler, watcher, cf := newTestReconciler(t)
 	defer cf()
-	route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
+	route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{}))
 	routeClient := fakeservingclient.Get(ctx).ServingV1alpha1().Routes(route.Namespace)
 
 	// Create a route.
@@ -1010,7 +987,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })
 
 			// Create a route.
-			route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
+			route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{}))
 			route.Labels = map[string]string{"app": "prod"}
 
 			servingClient.ServingV1alpha1().Routes(route.Namespace).Create(route)
@@ -1025,20 +1002,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 }
 
 func TestRouteDomain(t *testing.T) {
-	route := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/Routes/myapp",
-			Name:      "myapp",
-			Namespace: "default",
-			Labels: map[string]string{
-				"route": "myapp",
-			},
-			Annotations: map[string]string{
-				"sub": "mysub",
-			},
-		},
-	}
-
+	route := Route("default", "myapp", WithRouteLabel(map[string]string{"route": "myapp"}), WithRouteAnnotation(map[string]string{"sub": "mysub"}))
 	context := context.Background()
 	cfg := ReconcilerTestConfig(false)
 	context = config.ToContext(context, cfg)

@@ -38,6 +38,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/route/config"
 
 	. "knative.dev/pkg/reconciler/testing"
+	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
 
 func TestNewRouteCallsSyncHandler(t *testing.T) {
@@ -46,14 +47,12 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	// A route targeting the revision
-	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{{
-			TrafficTarget: v1.TrafficTarget{
-				RevisionName: "test-rev",
-				Percent:      ptr.Int64(100),
-			},
-		}},
-	)
+	route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
+			RevisionName: "test-rev",
+			Percent:      ptr.Int64(100),
+		},
+	}))
 
 	// Create fake clients
 	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{

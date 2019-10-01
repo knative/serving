@@ -35,11 +35,11 @@ import (
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 
-	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 
 	_ "knative.dev/pkg/system/testing"
+	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
 
 const (
@@ -58,30 +58,14 @@ func TestMakeIngress_CorrectMetadata(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{}
 	ingressClass := "ng-ingress"
 	passdownIngressClass := "ok-ingress"
-	r := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-route",
-			Namespace: ns,
-			Labels: map[string]string{
-				serving.RouteLabelKey:          "try-to-override",
-				serving.RouteNamespaceLabelKey: "try-to-override",
-				"test-label":                   "foo",
-			},
-			Annotations: map[string]string{
-				networking.IngressClassAnnotationKey: passdownIngressClass,
-				"test-annotation":                    "bar",
-			},
-			UID: "1234-5678",
-		},
-		Status: v1alpha1.RouteStatus{
-			RouteStatusFields: v1alpha1.RouteStatusFields{
-				URL: &apis.URL{
-					Scheme: "http",
-					Host:   "domain.com",
-				},
-			},
-		},
-	}
+	r := Route(ns, "test-route", WithRouteLabel(map[string]string{
+		serving.RouteLabelKey:          "try-to-override",
+		serving.RouteNamespaceLabelKey: "try-to-override",
+		"test-label":                   "foo",
+	}), WithRouteAnnotation(map[string]string{
+		networking.IngressClassAnnotationKey: passdownIngressClass,
+		"test-annotation":                    "bar",
+	}), WithRouteUID("1234-5678"), WithURL)
 	expected := metav1.ObjectMeta{
 		Name:      "test-route",
 		Namespace: ns,
@@ -110,25 +94,10 @@ func TestMakeIngress_CorrectMetadata(t *testing.T) {
 
 func TestIngress_NoKubectlAnnotation(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{}
-	r := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      testRouteName,
-			Namespace: ns,
-			Annotations: map[string]string{
-				networking.IngressClassAnnotationKey: testIngressClass,
-				corev1.LastAppliedConfigAnnotation:   testAnnotationValue,
-			},
-			UID: "1234-5678",
-		},
-		Status: v1alpha1.RouteStatus{
-			RouteStatusFields: v1alpha1.RouteStatusFields{
-				URL: &apis.URL{
-					Scheme: "http",
-					Host:   "domain.com",
-				},
-			},
-		},
-	}
+	r := Route(ns, testRouteName, WithRouteAnnotation(map[string]string{
+		networking.IngressClassAnnotationKey: testIngressClass,
+		corev1.LastAppliedConfigAnnotation:   testAnnotationValue,
+	}), WithRouteUID("1234-5678"), WithURL)
 	ia, err := MakeIngress(getContext(), r, &traffic.Config{Targets: targets}, nil, getServiceVisibility(), testIngressClass)
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
@@ -161,20 +130,7 @@ func TestMakeIngressSpec_CorrectRules(t *testing.T) {
 		}},
 	}
 
-	r := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-route",
-			Namespace: ns,
-		},
-		Status: v1alpha1.RouteStatus{
-			RouteStatusFields: v1alpha1.RouteStatusFields{
-				URL: &apis.URL{
-					Scheme: "http",
-					Host:   "domain.com",
-				},
-			},
-		},
-	}
+	r := Route(ns, "test-route", WithURL)
 
 	expected := []netv1alpha1.IngressRule{{
 		Hosts: []string{
@@ -235,40 +191,23 @@ func TestMakeIngressSpec_CorrectRules(t *testing.T) {
 func TestMakeIngressSpec_CorrectVisibility(t *testing.T) {
 	cases := []struct {
 		name               string
-		route              v1alpha1.Route
+		route              *v1alpha1.Route
 		serviceVisibility  sets.String
 		expectedVisibility netv1alpha1.IngressVisibility
 	}{{
-		name: "public route",
-		route: v1alpha1.Route{
-			Status: v1alpha1.RouteStatus{
-				RouteStatusFields: v1alpha1.RouteStatusFields{
-					URL: &apis.URL{
-						Scheme: "http",
-						Host:   "domain.com",
-					},
-				},
-			},
-		},
+		name:  "public route",
+		route: Route("", "", WithURL),
+
 		expectedVisibility: netv1alpha1.IngressVisibilityExternalIP,
 	}, {
-		name: "private route",
-		route: v1alpha1.Route{
-			Status: v1alpha1.RouteStatus{
-				RouteStatusFields: v1alpha1.RouteStatusFields{
-					URL: &apis.URL{
-						Scheme: "http",
-						Host:   "local-route.default.svc.cluster.local",
-					},
-				},
-			},
-		},
+		name:               "private route",
+		route:              Route("", "", WithAddress),
 		serviceVisibility:  sets.NewString(""),
 		expectedVisibility: netv1alpha1.IngressVisibilityClusterLocal,
 	}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			ci, err := MakeIngressSpec(getContext(), &c.route, nil, c.serviceVisibility, nil)
+			ci, err := MakeIngressSpec(getContext(), c.route, nil, c.serviceVisibility, nil)
 			if err != nil {
 				t.Errorf("Unexpected error %v", err)
 			}
@@ -283,25 +222,13 @@ func TestMakeIngressSpec_CorrectVisibility(t *testing.T) {
 func TestMakeIngressSpec_CorrectRuleVisibility(t *testing.T) {
 	cases := []struct {
 		name               string
-		route              v1alpha1.Route
+		route              *v1alpha1.Route
 		targets            map[string]traffic.RevisionTargets
 		serviceVisibility  sets.String
 		expectedVisibility netv1alpha1.IngressVisibility
 	}{{
-		name: "public route",
-		route: v1alpha1.Route{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "myroute",
-			},
-			Status: v1alpha1.RouteStatus{
-				RouteStatusFields: v1alpha1.RouteStatusFields{
-					URL: &apis.URL{
-						Scheme: "http",
-						Host:   "domain.com",
-					},
-				},
-			},
-		},
+		name:  "public route",
+		route: Route("default", "myroute", WithURL),
 		targets: map[string]traffic.RevisionTargets{
 			traffic.DefaultTarget: {{
 				TrafficTarget: v1.TrafficTarget{
@@ -315,20 +242,8 @@ func TestMakeIngressSpec_CorrectRuleVisibility(t *testing.T) {
 		},
 		expectedVisibility: netv1alpha1.IngressVisibilityExternalIP,
 	}, {
-		name: "private route",
-		route: v1alpha1.Route{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "myroute",
-			},
-			Status: v1alpha1.RouteStatus{
-				RouteStatusFields: v1alpha1.RouteStatusFields{
-					URL: &apis.URL{
-						Scheme: "http",
-						Host:   "local-route.default.svc.cluster.local",
-					},
-				},
-			},
-		},
+		name:  "private route",
+		route: Route("default", "myroute", WithLocalDomain),
 		targets: map[string]traffic.RevisionTargets{
 			traffic.DefaultTarget: {{
 				TrafficTarget: v1.TrafficTarget{
@@ -343,20 +258,8 @@ func TestMakeIngressSpec_CorrectRuleVisibility(t *testing.T) {
 		serviceVisibility:  sets.NewString("myroute"),
 		expectedVisibility: netv1alpha1.IngressVisibilityClusterLocal,
 	}, {
-		name: "unspecified route",
-		route: v1alpha1.Route{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "myroute",
-			},
-			Status: v1alpha1.RouteStatus{
-				RouteStatusFields: v1alpha1.RouteStatusFields{
-					URL: &apis.URL{
-						Scheme: "http",
-						Host:   "local-route.default.svc.cluster.local",
-					},
-				},
-			},
-		},
+		name:  "unspecified route",
+		route: Route("default", "myroute", WithLocalDomain),
 		targets: map[string]traffic.RevisionTargets{
 			traffic.DefaultTarget: {{
 				TrafficTarget: v1.TrafficTarget{
@@ -373,7 +276,7 @@ func TestMakeIngressSpec_CorrectRuleVisibility(t *testing.T) {
 	}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			ci, err := MakeIngressSpec(getContext(), &c.route, nil, c.serviceVisibility, c.targets)
+			ci, err := MakeIngressSpec(getContext(), c.route, nil, c.serviceVisibility, c.targets)
 			if err != nil {
 				t.Errorf("Unexpected error %v", err)
 			}
@@ -386,21 +289,7 @@ func TestMakeIngressSpec_CorrectRuleVisibility(t *testing.T) {
 }
 
 func TestGetRouteDomains_NamelessTargetDup(t *testing.T) {
-	const base = "test-route." + ns
-	r := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-route",
-			Namespace: ns,
-		},
-		Status: v1alpha1.RouteStatus{
-			RouteStatusFields: v1alpha1.RouteStatusFields{
-				URL: &apis.URL{
-					Scheme: "http",
-					Host:   base,
-				},
-			},
-		},
-	}
+	r := Route("test-ns", "test-route", WithURL)
 	expected := []string{
 		"test-route." + ns + ".svc.cluster.local",
 		"test-route." + ns + ".example.com",
@@ -415,21 +304,7 @@ func TestGetRouteDomains_NamelessTargetDup(t *testing.T) {
 	}
 }
 func TestGetRouteDomains_NamelessTarget(t *testing.T) {
-	const base = "domain.com"
-	r := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-route",
-			Namespace: ns,
-		},
-		Status: v1alpha1.RouteStatus{
-			RouteStatusFields: v1alpha1.RouteStatusFields{
-				URL: &apis.URL{
-					Scheme: "http",
-					Host:   base,
-				},
-			},
-		},
-	}
+	r := Route("test-ns", "test-route", WithURL)
 	expected := []string{
 		"test-route." + ns + ".svc.cluster.local",
 		"test-route." + ns + ".example.com",
@@ -447,22 +322,8 @@ func TestGetRouteDomains_NamelessTarget(t *testing.T) {
 func TestGetRouteDomains_NamedTarget(t *testing.T) {
 	const (
 		name = "v1"
-		base = "domain.com"
 	)
-	r := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-route",
-			Namespace: "test-ns",
-		},
-		Status: v1alpha1.RouteStatus{
-			RouteStatusFields: v1alpha1.RouteStatusFields{
-				URL: &apis.URL{
-					Scheme: "http",
-					Host:   base,
-				},
-			},
-		},
-	}
+	r := Route("test-ns", "test-route", WithURL)
 	expected := []string{
 
 		"v1-test-route." + ns + ".svc.cluster.local",
@@ -864,20 +725,7 @@ func TestMakeIngressRule_NilPercentTargetInactive(t *testing.T) {
 func TestMakeIngress_WithTLS(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{}
 	ingressClass := "foo-ingress"
-	r := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-route",
-			Namespace: ns,
-			UID:       "1234-5678",
-		},
-		Status: v1alpha1.RouteStatus{
-			RouteStatusFields: v1alpha1.RouteStatusFields{
-				URL: &apis.URL{
-					Host: "domain.com",
-				},
-			},
-		},
-	}
+	r := Route(ns, "test-route", WithRouteUID("1234-5678"), WithURL)
 	tls := []netv1alpha1.IngressTLS{
 		{
 			Hosts:             []string{"*.default.domain.com"},
