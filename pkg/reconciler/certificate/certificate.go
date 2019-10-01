@@ -22,13 +22,14 @@ import (
 	"reflect"
 
 	cmv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
-	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
+
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -147,12 +148,12 @@ func (c *Reconciler) reconcileCMCertificate(ctx context.Context, knCert *v1alpha
 		if err != nil {
 			c.Recorder.Eventf(knCert, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create Cert-Manager Certificate %s/%s: %v", desired.Name, desired.Namespace, err)
-			return nil, perrors.Wrap(err, "failed to create Cert-Manager Certificate")
+			return nil, fmt.Errorf("failed to create Cert-Manager Certificate: %w", err)
 		}
 		c.Recorder.Eventf(knCert, corev1.EventTypeNormal, "Created",
 			"Created Cert-Manager Certificate %s/%s", desired.Namespace, desired.Name)
 	} else if err != nil {
-		return nil, perrors.Wrap(err, "failed to get Cert-Manager Certificate")
+		return nil, fmt.Errorf("failed to get Cert-Manager Certificate: %w", err)
 	} else if !metav1.IsControlledBy(desired, knCert) {
 		knCert.Status.MarkResourceNotOwned("CertManagerCertificate", desired.Name)
 		return nil, fmt.Errorf("knative Certificate %s in namespace %s does not own CertManager Certificate: %s", knCert.Name, knCert.Namespace, desired.Name)
@@ -163,7 +164,7 @@ func (c *Reconciler) reconcileCMCertificate(ctx context.Context, knCert *v1alpha
 		if err != nil {
 			c.Recorder.Eventf(knCert, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to create Cert-Manager Certificate %s/%s: %v", desired.Namespace, desired.Name, err)
-			return nil, perrors.Wrap(err, "failed to update Cert-Manager Certificate")
+			return nil, fmt.Errorf("failed to update Cert-Manager Certificate: %w", err)
 		}
 		c.Recorder.Eventf(knCert, corev1.EventTypeNormal, "Updated",
 			"Updated Spec for Cert-Manager Certificate %s/%s", desired.Namespace, desired.Name)

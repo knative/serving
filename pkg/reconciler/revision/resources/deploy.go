@@ -17,9 +17,9 @@ limitations under the License.
 package resources
 
 import (
+	"fmt"
 	"strconv"
 
-	"github.com/pkg/errors"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
@@ -112,7 +112,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, tracingC
 	queueContainer, err := makeQueueContainer(rev, loggingConfig, tracingConfig, observabilityConfig, deploymentConfig)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create queue-proxy container")
+		return nil, fmt.Errorf("failed to create queue-proxy container: %w", err)
 	}
 
 	userContainer := rev.Spec.GetContainer().DeepCopy()
@@ -229,7 +229,7 @@ func MakeDeployment(rev *v1alpha1.Revision,
 	}
 	podSpec, err := makePodSpec(rev, loggingConfig, tracingConfig, observabilityConfig, deploymentConfig)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create PodSpec")
+		return nil, fmt.Errorf("failed to create PodSpec: %w", err)
 	}
 
 	return &appsv1.Deployment{

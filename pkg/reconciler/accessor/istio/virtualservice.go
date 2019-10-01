@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	perrors "github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -55,7 +54,7 @@ func ReconcileVirtualService(ctx context.Context, owner kmeta.Accessor, desired 
 		if err != nil {
 			recorder.Eventf(owner, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create VirtualService %s/%s: %v", ns, name, err)
-			return nil, perrors.Wrap(err, "failed to create VirtualService")
+			return nil, fmt.Errorf("failed to create VirtualService: %w", err)
 		}
 		recorder.Eventf(owner, corev1.EventTypeNormal, "Created", "Created VirtualService %q", desired.Name)
 	} else if err != nil {
@@ -71,7 +70,7 @@ func ReconcileVirtualService(ctx context.Context, owner kmeta.Accessor, desired 
 		existing.Spec = desired.Spec
 		vs, err = vsAccessor.GetSharedClient().NetworkingV1alpha3().VirtualServices(ns).Update(existing)
 		if err != nil {
-			return nil, perrors.Wrap(err, "failed to update VirtualService")
+			return nil, fmt.Errorf("failed to update VirtualService: %w", err)
 		}
 		recorder.Eventf(owner, corev1.EventTypeNormal, "Updated", "Updated VirtualService %s/%s", ns, name)
 	}

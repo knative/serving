@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	perrors "github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -50,11 +49,11 @@ func ReconcileSecret(ctx context.Context, owner kmeta.Accessor, desired *corev1.
 		if err != nil {
 			recorder.Eventf(owner, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create Secret %s/%s: %v", desired.Namespace, desired.Name, err)
-			return nil, perrors.Wrap(err, "failed to create Secret")
+			return nil, fmt.Errorf("failed to create Secret: %w", err)
 		}
 		recorder.Eventf(owner, corev1.EventTypeNormal, "Created", "Created Secret %s/%s", desired.Namespace, desired.Name)
 	} else if err != nil {
-		return nil, perrors.Wrap(err, "failed to get Secret")
+		return nil, fmt.Errorf("failed to get Secret: %w", err)
 	} else if !metav1.IsControlledBy(secret, owner) {
 		// Return an error with NotControlledBy information.
 		return nil, kaccessor.NewAccessorError(
@@ -67,7 +66,7 @@ func ReconcileSecret(ctx context.Context, owner kmeta.Accessor, desired *corev1.
 		secret, err = accessor.GetKubeClient().CoreV1().Secrets(copy.Namespace).Update(copy)
 		if err != nil {
 			recorder.Eventf(owner, corev1.EventTypeWarning, "UpdateFailed", "Failed to update Secret %s/%s: %v", desired.Namespace, desired.Name, err)
-			return nil, perrors.Wrap(err, "failed to update Secret")
+			return nil, fmt.Errorf("failed to update Secret: %w", err)
 		}
 		recorder.Eventf(owner, corev1.EventTypeNormal, "Updated", "Updated Secret %s/%s", copy.Namespace, copy.Name)
 	}

@@ -21,7 +21,6 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -230,7 +229,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 
 	probeJSON, err := readiness.EncodeProbe(rp)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to serialize readiness probe")
+		return nil, fmt.Errorf("failed to serialize readiness probe: %w", err)
 	}
 
 	return &corev1.Container{

@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"reflect"
 
-	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -142,7 +141,7 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 			// its latest revision failed.
 			config.Status.MarkRevisionCreationFailed(err.Error())
 
-			return perrors.Wrap(err, "failed to create Revision")
+			return fmt.Errorf("failed to create Revision: %w", err)
 		}
 	} else if errors.IsAlreadyExists(err) {
 		// If we get an already-exists error from latestCreatedRevision it means
@@ -151,7 +150,7 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 		config.Status.MarkRevisionCreationFailed(err.Error())
 		return nil
 	} else if err != nil {
-		return perrors.Wrap(err, "failed to get Revision")
+		return fmt.Errorf("failed to get Revision: %w", err)
 	}
 
 	revName := lcr.Name

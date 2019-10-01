@@ -18,8 +18,8 @@ package resources
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/pkg/errors"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/controller"
@@ -57,16 +57,16 @@ func ScaleResourceArguments(ref corev1.ObjectReference) (*schema.GroupVersionRes
 func GetScaleResource(namespace string, ref corev1.ObjectReference, psInformerFactory duck.InformerFactory) (*pav1alpha1.PodScalable, error) {
 	gvr, name, err := ScaleResourceArguments(ref)
 	if err != nil {
-		return nil, errors.Wrap(err, "error getting the scale arguments")
+		return nil, fmt.Errorf("error getting the scale arguments: %w", err)
 	}
 	_, lister, err := psInformerFactory.Get(*gvr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error getting a lister for a pod scalable resource '%+v'", gvr)
+		return nil, fmt.Errorf("error getting a lister for a pod scalable resource '%+v': %w", gvr, err)
 	}
 
 	psObj, err := lister.ByNamespace(namespace).Get(name)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error fetching Pod Scalable %s/%s", namespace, name)
+		return nil, fmt.Errorf("error fetching Pod Scalable %s/%s: %w", namespace, name, err)
 	}
 	return psObj.(*pav1alpha1.PodScalable), nil
 }

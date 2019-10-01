@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"reflect"
 
-	perrors "github.com/pkg/errors"
-
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -67,11 +65,11 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, m
 		sks = resources.MakeSKS(pa, mode)
 		_, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(sks)
 		if err != nil {
-			return nil, perrors.Wrapf(err, "error creating SKS %s", sksName)
+			return nil, fmt.Errorf("error creating SKS %s: %w", sksName, err)
 		}
-		logger.Info("Created SKS: ", sksName)
+		logger.Info("Created SKS")
 	} else if err != nil {
-		return nil, perrors.Wrapf(err, "error getting SKS %s", sksName)
+		return nil, fmt.Errorf("error getting SKS %s: %w", sksName, err)
 	} else if !metav1.IsControlledBy(sks, pa) {
 		pa.Status.MarkResourceNotOwned("ServerlessService", sksName)
 		return nil, fmt.Errorf("PA: %s does not own SKS: %s", pa.Name, sksName)
@@ -82,7 +80,7 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, m
 			want.Spec = tmpl.Spec
 			logger.Infof("SKS %s changed; reconciling, want mode: %v", sksName, want.Spec.Mode)
 			if sks, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(want); err != nil {
-				return nil, perrors.Wrapf(err, "error updating SKS %s", sksName)
+				return nil, fmt.Errorf("error updating SKS %s: %w", sksName, err)
 			}
 		}
 	}
@@ -124,7 +122,7 @@ func (c *Base) ReconcileMetricsService(ctx context.Context, pa *pav1alpha1.PodAu
 
 	scale, err := resourceutil.GetScaleResource(pa.Namespace, pa.Spec.ScaleTargetRef, c.PSInformerFactory)
 	if err != nil {
-		return "", perrors.Wrap(err, "error retrieving scale")
+		return "", fmt.Errorf("error retrieving scale: %w", err)
 	}
 	selector := scale.Spec.Selector.MatchLabels
 	logger.Debugf("PA's selector: %v", selector)
@@ -135,11 +133,11 @@ func (c *Base) ReconcileMetricsService(ctx context.Context, pa *pav1alpha1.PodAu
 		svc = resources.MakeMetricsService(pa, selector)
 		svc, err = c.KubeClientSet.CoreV1().Services(pa.Namespace).Create(svc)
 		if err != nil {
-			return "", perrors.Wrapf(err, "error creating metrics K8s service for %s/%s", pa.Namespace, pa.Name)
+			return "", fmt.Errorf("error creating metrics K8s service for %s/%s: %w", pa.Namespace, pa.Name, err)
 		}
 		logger.Info("Created K8s service:", svc.Name)
 	} else if err != nil {
-		return "", perrors.Wrap(err, "error getting metrics K8s service")
+		return "", fmt.Errorf("error getting metrics K8s service: %w", err)
 	} else if !metav1.IsControlledBy(svc, pa) {
 		pa.Status.MarkResourceNotOwned("Service", svc.Name)
 		return "", fmt.Errorf("PA: %s does not own Service: %s", pa.Name, svc.Name)
@@ -152,7 +150,7 @@ func (c *Base) ReconcileMetricsService(ctx context.Context, pa *pav1alpha1.PodAu
 		if !equality.Semantic.DeepEqual(want.Spec, svc.Spec) {
 			logger.Info("Metrics K8s Service changed; reconciling:", svc.Name)
 			if _, err = c.KubeClientSet.CoreV1().Services(pa.Namespace).Update(want); err != nil {
-				return "", perrors.Wrapf(err, "error updating K8s Service %s", svc.Name)
+				return "", fmt.Errorf("error updating K8s Service %s: %w", svc.Name, err)
 			}
 		}
 	}
@@ -168,10 +166,10 @@ func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	if errors.IsNotFound(err) {
 		_, err = c.ServingClientSet.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Create(desiredMetric)
 		if err != nil {
-			return perrors.Wrap(err, "error creating metric")
+			return fmt.Errorf("error creating metric: %w", err)
 		}
 	} else if err != nil {
-		return perrors.Wrap(err, "error fetching metric")
+		return fmt.Errorf("error fetching metric: %w", err)
 	} else if !metav1.IsControlledBy(metric, pa) {
 		pa.Status.MarkResourceNotOwned("Metric", desiredMetric.Name)
 		return fmt.Errorf("PA: %s does not own Metric: %s", pa.Name, desiredMetric.Name)
@@ -180,7 +178,7 @@ func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 			want := metric.DeepCopy()
 			want.Spec = desiredMetric.Spec
 			if _, err = c.ServingClientSet.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Update(want); err != nil {
-				return perrors.Wrap(err, "error updating metric")
+				return fmt.Errorf("error updating metric: %w", err)
 			}
 		}
 	}

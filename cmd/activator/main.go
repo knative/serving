@@ -35,7 +35,6 @@ import (
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 
 	"github.com/kelseyhightower/envconfig"
-	perrors "github.com/pkg/errors"
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -273,7 +272,7 @@ func main() {
 		go func(name string, s *http.Server) {
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
 			if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				errCh <- perrors.Wrapf(err, "%s server failed", name)
+				errCh <- fmt.Errorf("%s server failed: %w", name, err)
 			}
 		}(name, server)
 	}

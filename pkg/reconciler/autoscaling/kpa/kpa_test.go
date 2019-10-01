@@ -18,6 +18,7 @@ package kpa
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -46,7 +47,6 @@ import (
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
-	perrors "github.com/pkg/errors"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
@@ -373,7 +373,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
-				`error reconciling metric: error creating metric: inducing failure for create metrics`),
+				`error reconciling Metric: error creating metric: inducing failure for create metrics`),
 		},
 		WantErr: true,
 	}, {
@@ -395,7 +395,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
-				`error reconciling metric: error updating metric: inducing failure for update metrics`),
+				`error reconciling Metric: error updating metric: inducing failure for update metrics`),
 		},
 		WantErr: true,
 	}, {
@@ -435,7 +435,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
-				`error reconciling metrics service: error creating metrics K8s service for test-namespace/test-revision: inducing failure for create services`),
+				`error reconciling metrics Service: error creating metrics K8s service for test-namespace/test-revision: inducing failure for create services`),
 		},
 	}, {
 		Name: "scale up deployment",
@@ -516,7 +516,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
-				`error reconciling metrics service: error updating K8s Service test-revision-metrics: inducing failure for update services`),
+				`error reconciling metrics Service: error updating K8s Service test-revision-metrics: inducing failure for update services`),
 		},
 	}, {
 		Name:    "metrics service isn't owned",
@@ -538,7 +538,7 @@ func TestReconcile(t *testing.T) {
 				markResourceNotOwned("Service", testRevision+"-metrics")),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling metrics service: PA: test-revision does not own Service: test-revision-metrics"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "error reconciling metrics Service: PA: test-revision does not own Service: test-revision-metrics"),
 		},
 	}, {
 		Name: "can't read endpoints",
@@ -797,7 +797,7 @@ func TestReconcile(t *testing.T) {
 				withMSvcStatus(testRevision), markResourceNotOwned("Metric", testRevision)),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "InternalError", `error reconciling metric: PA: test-revision does not own Metric: test-revision`),
+			Eventf(corev1.EventTypeWarning, "InternalError", `error reconciling Metric: PA: test-revision does not own Metric: test-revision`),
 		},
 	}, {
 		Name: "steady not serving",
@@ -1388,9 +1388,9 @@ func TestControllerCreateError(t *testing.T) {
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
-	got := perrors.Cause(ctl.Reconciler.Reconcile(context.Background(), key))
-	if got != want {
-		t.Errorf("Reconcile() = %v, wanted %v", got, want)
+	got := ctl.Reconciler.Reconcile(context.Background(), key)
+	if !errors.Is(got, want) {
+		t.Errorf("Reconcile() = %v, wanted %v wrapped", got, want)
 	}
 }
 
@@ -1413,9 +1413,9 @@ func TestControllerUpdateError(t *testing.T) {
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
-	got := perrors.Cause(ctl.Reconciler.Reconcile(context.Background(), key))
-	if got != want {
-		t.Errorf("Reconcile() = %v, wanted %v", got, want)
+	got := ctl.Reconciler.Reconcile(context.Background(), key)
+	if !errors.Is(got, want) {
+		t.Errorf("Reconcile() = %v, wanted %v wrapped", got, want)
 	}
 }
 
@@ -1436,9 +1436,9 @@ func TestControllerGetError(t *testing.T) {
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
-	got := perrors.Cause(ctl.Reconciler.Reconcile(context.Background(), key))
-	if got != want {
-		t.Errorf("Reconcile() = %v, wanted %v", got, want)
+	got := ctl.Reconciler.Reconcile(context.Background(), key)
+	if !errors.Is(got, want) {
+		t.Errorf("Reconcile() = %v, wanted %v wrapped", got, want)
 	}
 }
 

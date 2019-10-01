@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -45,11 +44,11 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		rev.Status.MarkDeploying("Deploying")
 		deployment, err = c.createDeployment(ctx, rev)
 		if err != nil {
-			return perrors.Wrapf(err, "failed to create deployment %q", deploymentName)
+			return fmt.Errorf("failed to create deployment %q: %w", deploymentName, err)
 		}
 		logger.Infof("Created deployment %q", deploymentName)
 	} else if err != nil {
-		return perrors.Wrapf(err, "failed to get deployment %q", deploymentName)
+		return fmt.Errorf("failed to get deployment %q: %w", deploymentName, err)
 	} else if !metav1.IsControlledBy(deployment, rev) {
 		// Surface an error in the revision's status, and return an error.
 		rev.Status.MarkResourceNotOwned("Deployment", deploymentName)
@@ -58,7 +57,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		// The deployment exists, but make sure that it has the shape that we expect.
 		deployment, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
 		if err != nil {
-			return perrors.Wrapf(err, "failed to update deployment %q", deploymentName)
+			return fmt.Errorf("failed to update deployment %q: %w", deploymentName, err)
 		}
 
 		// Now that we have a Deployment, determine whether there is any relevant
@@ -118,11 +117,11 @@ func (c *Reconciler) reconcileImageCache(ctx context.Context, rev *v1alpha1.Revi
 	if apierrs.IsNotFound(err) {
 		_, err := c.createImageCache(ctx, rev)
 		if err != nil {
-			return perrors.Wrapf(err, "failed to create image cache %q", imageName)
+			return fmt.Errorf("failed to create image cache %q: %w", imageName, err)
 		}
 		logger.Infof("Created image cache %q", imageName)
 	} else if err != nil {
-		return perrors.Wrapf(err, "failed to get image cache %q", imageName)
+		return fmt.Errorf("failed to get image cache %q: %w", imageName, err)
 	}
 
 	return nil
@@ -139,11 +138,11 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1alpha1.Revision) er
 		// PA does not exist. Create it.
 		pa, err = c.createPA(ctx, rev)
 		if err != nil {
-			return perrors.Wrapf(err, "failed to create PA %q", paName)
+			return fmt.Errorf("failed to create PA %q: %w", paName, err)
 		}
 		logger.Info("Created PA: ", paName)
 	} else if err != nil {
-		return perrors.Wrapf(err, "failed to get PA %q", paName)
+		return fmt.Errorf("failed to get PA %q: %w", paName, err)
 	} else if !metav1.IsControlledBy(pa, rev) {
 		// Surface an error in the revision's status, and return an error.
 		rev.Status.MarkResourceNotOwned("PodAutoscaler", paName)
@@ -159,7 +158,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1alpha1.Revision) er
 		want := pa.DeepCopy()
 		want.Spec = tmpl.Spec
 		if pa, err = c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Update(want); err != nil {
-			return perrors.Wrapf(err, "failed to update PA %q", paName)
+			return fmt.Errorf("failed to update PA %q: %w", paName, err)
 		}
 	}
 

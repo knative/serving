@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	corev1 "k8s.io/api/core/v1"
@@ -116,10 +115,10 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 		logger.Infof("Creating HPA %q", desiredHpa.Name)
 		if hpa, err = c.KubeClientSet.AutoscalingV2beta1().HorizontalPodAutoscalers(pa.Namespace).Create(desiredHpa); err != nil {
 			pa.Status.MarkResourceFailedCreation("HorizontalPodAutoscaler", desiredHpa.Name)
-			return perrors.Wrap(err, "failed to create HPA")
+			return fmt.Errorf("failed to create HPA: %w", err)
 		}
 	} else if err != nil {
-		return perrors.Wrap(err, "failed to get HPA")
+		return fmt.Errorf("failed to get HPA: %w", err)
 	} else if !metav1.IsControlledBy(hpa, pa) {
 		// Surface an error in the PodAutoscaler's status, and return an error.
 		pa.Status.MarkResourceNotOwned("HorizontalPodAutoscaler", desiredHpa.Name)
@@ -128,7 +127,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	if !equality.Semantic.DeepEqual(desiredHpa.Spec, hpa.Spec) {
 		logger.Infof("Updating HPA %q", desiredHpa.Name)
 		if _, err := c.KubeClientSet.AutoscalingV2beta1().HorizontalPodAutoscalers(pa.Namespace).Update(desiredHpa); err != nil {
-			return perrors.Wrap(err, "failed to update HPA")
+			return fmt.Errorf("failed to update HPA: %w", err)
 		}
 	}
 
@@ -136,17 +135,17 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	if pa.Metric() == autoscaling.Concurrency || pa.Metric() == autoscaling.RPS {
 		metricSvc, err := c.ReconcileMetricsService(ctx, pa)
 		if err != nil {
-			return perrors.Wrap(err, "error reconciling metrics service")
+			return fmt.Errorf("error reconciling metrics service: %w", err)
 		}
 
 		if err := c.ReconcileMetric(ctx, pa, metricSvc); err != nil {
-			return perrors.Wrap(err, "error reconciling metric")
+			return fmt.Errorf("error reconciling metric: %w", err)
 		}
 	}
 
 	sks, err := c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe)
 	if err != nil {
-		return perrors.Wrap(err, "error reconciling SKS")
+		return fmt.Errorf("error reconciling SKS: %w", err)
 	}
 	// Propagate the service name regardless of the status.
 	pa.Status.ServiceName = sks.Status.ServiceName

@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	perrors "github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -53,12 +52,12 @@ func ReconcileCertificate(ctx context.Context, owner kmeta.Accessor, desired *v1
 		if err != nil {
 			recorder.Eventf(owner, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create Certificate %s/%s: %v", desired.Namespace, desired.Name, err)
-			return nil, perrors.Wrap(err, "failed to create Certificate")
+			return nil, fmt.Errorf("failed to create Certificate: %w", err)
 		}
 		recorder.Eventf(owner, corev1.EventTypeNormal, "Created", "Created Certificate %s/%s", cert.Namespace, cert.Name)
 		return cert, nil
 	} else if err != nil {
-		return nil, perrors.Wrap(err, "failed to get Certificate")
+		return nil, fmt.Errorf("failed to get Certificate: %w", err)
 	} else if !metav1.IsControlledBy(cert, owner) {
 		// Return an error with NotControlledBy information.
 		return nil, kaccessor.NewAccessorError(
@@ -72,7 +71,7 @@ func ReconcileCertificate(ctx context.Context, owner kmeta.Accessor, desired *v1
 		if err != nil {
 			recorder.Eventf(owner, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update Certificate %s/%s: %v", existing.Namespace, existing.Name, err)
-			return nil, perrors.Wrap(err, "failed to update Certificate")
+			return nil, fmt.Errorf("failed to update Certificate: %w", err)
 		}
 		recorder.Eventf(owner, corev1.EventTypeNormal, "Updated",
 			"Updated Spec for Certificate %s/%s", existing.Namespace, existing.Name)

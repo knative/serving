@@ -267,7 +267,7 @@ func probeQueueHealthPath(port int, timeoutSeconds int) error {
 	}, stopCh)
 
 	if lastErr != nil {
-		return errors.Wrap(lastErr, "failed to probe")
+		return fmt.Errorf("failed to probe: %w", lastErr)
 	}
 
 	// An http.StatusOK was never returned during probing
@@ -370,7 +370,7 @@ func main() {
 		go func(name string, s *http.Server) {
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
 			if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				errCh <- errors.Wrapf(err, "%s server failed", name)
+				errCh <- fmt.Errorf("%s server failed: %w", name, err)
 			}
 		}(name, server)
 	}
