@@ -43,7 +43,7 @@ type ConcurrencyReporter struct {
 	// Ticks with every stat report request
 	reportCh <-chan time.Time
 	// Stat reporting channel
-	statCh chan autoscaler.StatMessage
+	statCh chan []autoscaler.StatMessage
 
 	rl servinglisters.RevisionLister
 	sr activator.StatsReporter
@@ -54,7 +54,7 @@ type ConcurrencyReporter struct {
 // NewConcurrencyReporter creates a ConcurrencyReporter which listens to incoming
 // ReqEvents on reqCh and ticks on reportCh and reports stats on statCh.
 func NewConcurrencyReporter(ctx context.Context, podName string,
-	reqCh chan ReqEvent, reportCh <-chan time.Time, statCh chan autoscaler.StatMessage,
+	reqCh chan ReqEvent, reportCh <-chan time.Time, statCh chan []autoscaler.StatMessage,
 	sr activator.StatsReporter) *ConcurrencyReporter {
 	return NewConcurrencyReporterWithClock(ctx, podName, reqCh, reportCh,
 		statCh, sr, system.RealClock{})
@@ -63,7 +63,7 @@ func NewConcurrencyReporter(ctx context.Context, podName string,
 // NewConcurrencyReporterWithClock instantiates a new concurrency reporter
 // which uses the passed clock.
 func NewConcurrencyReporterWithClock(ctx context.Context, podName string, reqCh chan ReqEvent,
-	reportCh <-chan time.Time, statCh chan autoscaler.StatMessage,
+	reportCh <-chan time.Time, statCh chan []autoscaler.StatMessage,
 	sr activator.StatsReporter, clock system.Clock) *ConcurrencyReporter {
 	return &ConcurrencyReporter{
 		logger:   logging.FromContext(ctx),
@@ -74,21 +74,6 @@ func NewConcurrencyReporterWithClock(ctx context.Context, podName string, reqCh 
 		rl:       revisioninformer.Get(ctx).Lister(),
 		sr:       sr,
 		clock:    clock,
-	}
-}
-
-func (cr *ConcurrencyReporter) reportToAutoscaler(key types.NamespacedName, concurrency, requestCount int32) {
-	stat := autoscaler.Stat{
-		PodName:                   cr.podName,
-		AverageConcurrentRequests: float64(concurrency),
-		RequestCount:              float64(requestCount),
-	}
-
-	// Send the stat to another goroutine to transmit
-	// so we can continue bucketing stats.
-	cr.statCh <- autoscaler.StatMessage{
-		Key:  key,
-		Stat: stat,
 	}
 }
 
@@ -122,21 +107,37 @@ func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
 
 				// Report the first request for a key immediately.
 				if _, ok := outstandingRequestsPerKey[event.Key]; !ok {
-					cr.reportToAutoscaler(event.Key, 1, incomingRequestsPerKey[event.Key])
+					cr.statCh <- []autoscaler.StatMessage{{
+						Key: event.Key,
+						Stat: autoscaler.Stat{
+							PodName:                   cr.podName,
+							AverageConcurrentRequests: 1,
+							RequestCount:              float64(incomingRequestsPerKey[event.Key]),
+						},
+					}}
 				}
 				outstandingRequestsPerKey[event.Key]++
 			case ReqOut:
 				outstandingRequestsPerKey[event.Key]--
 			}
 		case <-cr.reportCh:
+			messages := make([]autoscaler.StatMessage, 0, len(outstandingRequestsPerKey))
 			for key, concurrency := range outstandingRequestsPerKey {
 				if concurrency == 0 {
 					delete(outstandingRequestsPerKey, key)
 				} else {
-					cr.reportToAutoscaler(key, concurrency, incomingRequestsPerKey[key])
+					messages = append(messages, autoscaler.StatMessage{
+						Key: key,
+						Stat: autoscaler.Stat{
+							PodName:                   cr.podName,
+							AverageConcurrentRequests: float64(concurrency),
+							RequestCount:              float64(incomingRequestsPerKey[key]),
+						},
+					})
 				}
 				cr.reportToMetricsBackend(key, concurrency)
 			}
+			cr.statCh <- messages
 
 			incomingRequestsPerKey = make(map[types.NamespacedName]int32)
 		case <-stopCh:

@@ -210,23 +210,24 @@ func TestStats(t *testing.T) {
 				cr.Run(ctx.Done())
 			}()
 
-			// Apply request operations
-			for _, op := range tc.ops {
-				switch op.op {
-				case requestOpStart:
-					s.reqChan <- ReqEvent{Key: op.key, EventType: ReqIn}
-				case requestOpEnd:
-					s.reqChan <- ReqEvent{Key: op.key, EventType: ReqOut}
-				case requestOpTick:
-					s.reportBiChan <- op.time
+			go func() {
+				// Apply request operations
+				for _, op := range tc.ops {
+					switch op.op {
+					case requestOpStart:
+						s.reqChan <- ReqEvent{Key: op.key, EventType: ReqIn}
+					case requestOpEnd:
+						s.reqChan <- ReqEvent{Key: op.key, EventType: ReqOut}
+					case requestOpTick:
+						s.reportBiChan <- op.time
+					}
 				}
-			}
+			}()
 
 			// Gather reported stats
 			stats := make([]autoscaler.StatMessage, 0, len(tc.expectedStats))
-			for i := 0; i < len(tc.expectedStats); i++ {
-				sm := <-s.statChan
-				stats = append(stats, sm)
+			for len(stats) < len(tc.expectedStats) {
+				stats = append(stats, <-s.statChan...)
 			}
 
 			// Check the stats we got match what we wanted
@@ -244,7 +245,7 @@ func TestStats(t *testing.T) {
 type testStats struct {
 	reqChan      chan ReqEvent
 	reportChan   <-chan time.Time
-	statChan     chan autoscaler.StatMessage
+	statChan     chan []autoscaler.StatMessage
 	reportBiChan chan time.Time
 }
 
@@ -253,7 +254,7 @@ func newTestStats(t *testing.T, clock system.Clock) (*testStats, *ConcurrencyRep
 	ts := &testStats{
 		reqChan:      make(chan ReqEvent),
 		reportChan:   (<-chan time.Time)(reportBiChan),
-		statChan:     make(chan autoscaler.StatMessage, 20),
+		statChan:     make(chan []autoscaler.StatMessage),
 		reportBiChan: reportBiChan,
 	}
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
