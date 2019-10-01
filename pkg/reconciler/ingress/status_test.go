@@ -463,7 +463,7 @@ func TestProbeLifecycle(t *testing.T) {
 	case req := <-probeRequests:
 		// Verify Host header as it is set to item.url in IsReady().
 		if req.Host != expHostHeader {
-			t.Fatalf("unexpected reqeust is sent, want: %s, got %s", expHostHeader, req.Host)
+			t.Fatalf("unexpected reqeust was sent, want: %s, got %s", expHostHeader, req.Host)
 		}
 	}
 
@@ -472,7 +472,7 @@ func TestProbeLifecycle(t *testing.T) {
 	case req := <-probeRequests:
 		// Verify Host header as it is set to item.url in IsReady().
 		if req.Host != expHostHeader {
-			t.Fatalf("unexpected reqeust is sent, want: %s, got %s", expHostHeader, req.Host)
+			t.Fatalf("unexpected reqeust was sent, want: %s, got %s", expHostHeader, req.Host)
 		}
 	}
 

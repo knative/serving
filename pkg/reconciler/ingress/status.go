@@ -24,7 +24,6 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -195,9 +194,9 @@ func (m *StatusProber) IsReady(ia v1alpha1.IngressAccessor, gw map[v1alpha1.Ingr
 		}
 
 		for address, urls := range urlsPerPod {
-			ip := address
-			if i := strings.LastIndex(address, ":"); i != -1 {
-				ip = address[:i]
+			ip, _, err := net.SplitHostPort(address)
+			if err != nil {
+				return false, fmt.Errorf("failed to split host and port for %q: %v", address, err)
 			}
 			// Each Pod backing a Gateway is probed using the different hosts, protocol and ports until
 			// one of the probing calls succeeds. Then, the Pod is considered ready and all pending work items
