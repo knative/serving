@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	rtesting "knative.dev/pkg/reconciler/testing"
-	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/autoscaler"
 )
 
@@ -42,14 +41,6 @@ var (
 	pod2 = types.NamespacedName{Namespace: "test", Name: "pod2"}
 	pod3 = types.NamespacedName{Namespace: "test", Name: "pod3"}
 )
-
-type fakeClock struct {
-	Time time.Time
-}
-
-func (c fakeClock) Now() time.Time {
-	return c.Time
-}
 
 type reqOp struct {
 	op   string
@@ -202,7 +193,7 @@ func TestStats(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			s, cr, ctx, cancel := newTestStats(t, fakeClock{})
+			s, cr, ctx, cancel := newTestStats(t)
 			defer func() {
 				cancel()
 			}()
@@ -249,7 +240,7 @@ type testStats struct {
 	reportBiChan chan time.Time
 }
 
-func newTestStats(t *testing.T, clock system.Clock) (*testStats, *ConcurrencyReporter, context.Context, context.CancelFunc) {
+func newTestStats(t *testing.T) (*testStats, *ConcurrencyReporter, context.Context, context.CancelFunc) {
 	reportBiChan := make(chan time.Time)
 	ts := &testStats{
 		reqChan:      make(chan ReqEvent),
@@ -260,7 +251,7 @@ func newTestStats(t *testing.T, clock system.Clock) (*testStats, *ConcurrencyRep
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	revisionInformer(ctx, revision(testNamespace, testRevName))
 
-	cr := NewConcurrencyReporterWithClock(ctx, "activator",
-		ts.reqChan, ts.reportChan, ts.statChan, &fakeReporter{}, clock)
+	cr := NewConcurrencyReporter(ctx, "activator",
+		ts.reqChan, ts.reportChan, ts.statChan, &fakeReporter{})
 	return ts, cr, ctx, cancel
 }

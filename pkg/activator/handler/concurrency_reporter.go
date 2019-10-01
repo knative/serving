@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler"
@@ -47,8 +46,6 @@ type ConcurrencyReporter struct {
 
 	rl servinglisters.RevisionLister
 	sr activator.StatsReporter
-
-	clock system.Clock
 }
 
 // NewConcurrencyReporter creates a ConcurrencyReporter which listens to incoming
@@ -56,15 +53,6 @@ type ConcurrencyReporter struct {
 func NewConcurrencyReporter(ctx context.Context, podName string,
 	reqCh chan ReqEvent, reportCh <-chan time.Time, statCh chan []autoscaler.StatMessage,
 	sr activator.StatsReporter) *ConcurrencyReporter {
-	return NewConcurrencyReporterWithClock(ctx, podName, reqCh, reportCh,
-		statCh, sr, system.RealClock{})
-}
-
-// NewConcurrencyReporterWithClock instantiates a new concurrency reporter
-// which uses the passed clock.
-func NewConcurrencyReporterWithClock(ctx context.Context, podName string, reqCh chan ReqEvent,
-	reportCh <-chan time.Time, statCh chan []autoscaler.StatMessage,
-	sr activator.StatsReporter, clock system.Clock) *ConcurrencyReporter {
 	return &ConcurrencyReporter{
 		logger:   logging.FromContext(ctx),
 		podName:  podName,
@@ -73,7 +61,6 @@ func NewConcurrencyReporterWithClock(ctx context.Context, podName string, reqCh 
 		statCh:   statCh,
 		rl:       revisioninformer.Get(ctx).Lister(),
 		sr:       sr,
-		clock:    clock,
 	}
 }
 
@@ -110,6 +97,7 @@ func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
 					cr.statCh <- []autoscaler.StatMessage{{
 						Key: event.Key,
 						Stat: autoscaler.Stat{
+							// Stat time is unset by design. The receiver will set the time.
 							PodName:                   cr.podName,
 							AverageConcurrentRequests: 1,
 							RequestCount:              float64(incomingRequestsPerKey[event.Key]),
@@ -129,6 +117,7 @@ func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
 					messages = append(messages, autoscaler.StatMessage{
 						Key: key,
 						Stat: autoscaler.Stat{
+							// Stat time is unset by design. The receiver will set the time.
 							PodName:                   cr.podName,
 							AverageConcurrentRequests: float64(concurrency),
 							RequestCount:              float64(incomingRequestsPerKey[key]),
