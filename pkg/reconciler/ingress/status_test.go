@@ -457,11 +457,24 @@ func TestProbeLifecycle(t *testing.T) {
 		t.Fatalf("IsReady returned %v, want: %v", ok, false)
 	}
 
+	const expHostHeader = "foo.bar.com:80"
 	// Wait for the first request (failing) to be executed
-	<-probeRequests
+	select {
+	case req := <-probeRequests:
+		// Verify Host header as it is set to item.url in IsReady().
+		if req.Host != expHostHeader {
+			t.Fatalf("unexpected reqeust was sent, want: %s, got %s", expHostHeader, req.Host)
+		}
+	}
 
 	// Wait for the second request (success) to be executed
-	<-probeRequests
+	select {
+	case req := <-probeRequests:
+		// Verify Host header as it is set to item.url in IsReady().
+		if req.Host != expHostHeader {
+			t.Fatalf("unexpected reqeust was sent, want: %s, got %s", expHostHeader, req.Host)
+		}
+	}
 
 	// Wait for the probing to eventually succeed
 	<-ready

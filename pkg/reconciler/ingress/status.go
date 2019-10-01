@@ -23,7 +23,7 @@ import (
 	"net"
 	"net/http"
 	"reflect"
-	"strings"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -83,6 +83,15 @@ type workItem struct {
 	podState     *podState
 	url          string
 	podIP        string
+	podPort      string
+}
+
+// probeTargets represents the target to probe.
+type probeTarget struct {
+	// urlTmpl is an url template to probe.
+	urlTmpl string
+	// targetPort is a port of Gateway pod.
+	targetPort string
 }
 
 // StatusManager provides a way to check if a VirtualService is ready
@@ -183,15 +192,15 @@ func (m *StatusProber) IsReady(ia v1alpha1.IngressAccessor, gw map[v1alpha1.Ingr
 		if err != nil {
 			return false, fmt.Errorf("failed to get Gateway %q: %v", gatewayName, err)
 		}
-		urlsPerPod, err := m.listGatewayURLsPerPods(gateway)
+		targetsPerPod, err := m.listGatewayTargetsPerPods(gateway)
 		if err != nil {
 			return false, fmt.Errorf("failed to list the probing URLs of Gateway %q: %v", gatewayName, err)
 		}
-		if len(urlsPerPod) == 0 {
+		if len(targetsPerPod) == 0 {
 			continue
 		}
 
-		for ip, urls := range urlsPerPod {
+		for ip, targets := range targetsPerPod {
 			// Each Pod backing a Gateway is probed using the different hosts, protocol and ports until
 			// one of the probing calls succeeds. Then, the Pod is considered ready and all pending work items
 			// scheduled for that pod are cancelled.
@@ -225,18 +234,19 @@ func (m *StatusProber) IsReady(ia v1alpha1.IngressAccessor, gw map[v1alpha1.Ingr
 			}(ip)
 
 			for _, host := range hosts {
-				for _, url := range urls {
+				for _, target := range targets {
 					workItem := &workItem{
 						ingressState: ingressState,
 						podState:     podState,
-						url:          fmt.Sprintf(url, host),
+						url:          fmt.Sprintf(target.urlTmpl, host),
 						podIP:        ip,
+						podPort:      target.targetPort,
 					}
 					workItems = append(workItems, workItem)
 				}
 			}
 		}
-		ingressState.pendingCount += int32(len(urlsPerPod))
+		ingressState.pendingCount += int32(len(targetsPerPod))
 	}
 
 	func() {
@@ -246,7 +256,7 @@ func (m *StatusProber) IsReady(ia v1alpha1.IngressAccessor, gw map[v1alpha1.Ingr
 	}()
 	for _, workItem := range workItems {
 		m.workQueue.AddRateLimited(workItem)
-		m.logger.Infof("Queuing probe for %s, IP: %s (depth: %d)", workItem.url, workItem.podIP, m.workQueue.Len())
+		m.logger.Infof("Queuing probe for %s, IP: %s:%s (depth: %d)", workItem.url, workItem.podIP, workItem.podPort, m.workQueue.Len())
 	}
 	return len(workItems) == 0, nil
 }
@@ -319,7 +329,7 @@ func (m *StatusProber) processWorkItem() bool {
 	if !ok {
 		m.logger.Fatalf("Unexpected work item type: want: %s, got: %s\n", reflect.TypeOf(&workItem{}).Name(), reflect.TypeOf(obj).Name())
 	}
-	m.logger.Infof("Processing probe for %s, IP: %s (depth: %d)", item.url, item.podIP, m.workQueue.Len())
+	m.logger.Infof("Processing probe for %s, IP: %s:%s (depth: %d)", item.url, item.podIP, item.podPort, m.workQueue.Len())
 
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
@@ -332,10 +342,7 @@ func (m *StatusProber) processWorkItem() bool {
 			// because the HTTP client validates that the hostname (not the Host header) matches the server
 			// TLS certificate Common Name or Alternative Names. Therefore, http.Request.URL is set to the
 			// hostname and it is substituted it here with the target IP.
-			if i := strings.LastIndex(addr, ":"); i != -1 {
-				addr = item.podIP + ":" + addr[i+1:]
-			}
-			return dialContext(ctx, network, addr)
+			return dialContext(ctx, network, net.JoinHostPort(item.podIP, item.podPort))
 		}}
 
 	ok, err := prober.Do(
@@ -357,7 +364,7 @@ func (m *StatusProber) processWorkItem() bool {
 	if err != nil || !ok {
 		// In case of error, enqueue for retry
 		m.workQueue.AddRateLimited(obj)
-		m.logger.Errorf("Probing of %s failed, IP: %s, ready: %t, error: %v (depth: %d)", item.url, item.podIP, ok, err, m.workQueue.Len())
+		m.logger.Errorf("Probing of %s failed, IP: %s:%s, ready: %t, error: %v (depth: %d)", item.url, item.podIP, item.podPort, ok, err, m.workQueue.Len())
 	} else {
 		m.updateStates(item.ingressState, item.podState)
 	}
@@ -388,8 +395,8 @@ func (m *StatusProber) getGateway(name string) (*v1alpha3.Gateway, error) {
 }
 
 // listGatewayPodsURLs returns a map where the keys are the Gateway Pod IPs and the values are the corresponding
-// URL templates to be probed.
-func (m *StatusProber) listGatewayURLsPerPods(gateway *v1alpha3.Gateway) (map[string][]string, error) {
+// URL templates and the Gateway Pod Port to be probed.
+func (m *StatusProber) listGatewayTargetsPerPods(gateway *v1alpha3.Gateway) (map[string][]probeTarget, error) {
 	selector := labels.NewSelector()
 	for key, value := range gateway.Spec.Selector {
 		requirement, err := labels.NewRequirement(key, selection.Equals, []string{value})
@@ -414,7 +421,7 @@ func (m *StatusProber) listGatewayURLsPerPods(gateway *v1alpha3.Gateway) (map[st
 		return nil, fmt.Errorf("failed to list Endpoints: %v", err)
 	}
 
-	urlsPerPods := make(map[string][]string)
+	targetsPerPods := make(map[string][]probeTarget)
 	for _, server := range gateway.Spec.Servers {
 		var urlTmpl string
 		switch server.Port.Protocol {
@@ -443,12 +450,12 @@ func (m *StatusProber) listGatewayURLsPerPods(gateway *v1alpha3.Gateway) (map[st
 				}
 
 				for _, addr := range sub.Addresses {
-					urlsPerPods[addr.IP] = append(urlsPerPods[addr.IP], fmt.Sprintf(urlTmpl, portNumber))
+					targetsPerPods[addr.IP] = append(targetsPerPods[addr.IP], probeTarget{urlTmpl: fmt.Sprintf(urlTmpl, server.Port.Number), targetPort: strconv.Itoa(int(portNumber))})
 				}
 			}
 		}
 	}
-	return urlsPerPods, nil
+	return targetsPerPods, nil
 }
 
 // findNameForPortNumber finds the name for a given port as defined by a Service.
