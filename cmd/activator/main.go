@@ -272,7 +272,7 @@ func main() {
 		go func(name string, s *http.Server) {
 			// Don't forward ErrServerClosed as that indicates we're already shutting down.
 			if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				errCh <- fmt.Errorf("%s serviver failed: %w", name, err)
+				errCh <- fmt.Errorf("%s server failed: %w", name, err)
 			}
 		}(name, server)
 	}
