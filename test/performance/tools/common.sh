@@ -146,16 +146,17 @@ data:
   environment: prod
   repository: serving
   additionalTags: "istio=$istio_version_escaped"
-  benchmarkChannels:
-    Serving dataplane probe:
-    - name: networking
-      identity: CA9RHBGJX
-    Serving deployment probe:
-    - name: serving-api
-      identity: CA4DNJ9A4
-    Serving load testing:
-    - name: autoscaling
-      identity: C94SPR60H
+  slackConfig: |
+    benchmarkChannels:
+      "Serving dataplane probe":
+      - name: networking
+        identity: CA9RHBGJX
+      "Serving deployment probe":
+      - name: serving-api
+        identity: CA4DNJ9A4
+      "Serving load testing":
+      - name: autoscaling
+        identity: C94SPR60H
 EOF
 
   echo ">> Applying all the yamls"
