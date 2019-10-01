@@ -365,6 +365,11 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1alpha1.Route) error {
 	logger := logging.FromContext(ctx)
 
+	// Delete the Ingress resources for this Route.
+	logger.Info("Cleaning up Ingress")
+	if err := c.deleteIngressForRoute(r); err != nil {
+		return err
+	}
 	// remove our finalizer if it is found
 	for i, v := range r.Finalizers {
 		if v == routeFinalizer {
@@ -375,10 +380,7 @@ func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1alpha1.Route) e
 			break
 		}
 	}
-
-	// Delete the Ingress resources for this Route.
-	logger.Info("Cleaning up Ingress")
-	return c.deleteIngressForRoute(r)
+	return nil
 }
 
 // configureTraffic attempts to configure traffic based on the RouteSpec.  If there are missing
