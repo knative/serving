@@ -463,7 +463,7 @@ func TestProbeLifecycle(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		req := <-probeRequests
 		if req.Host != expHostHeader {
-			t.Fatalf("a request with an unexpected Host header was sent, want: %q, got %q", expHostHeader, req.Host)
+			t.Fatalf("Host header = %q, want %q", req.Host, expHostHeader)
 		}
 	}
 
