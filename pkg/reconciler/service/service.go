@@ -23,13 +23,14 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
-	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
+
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
@@ -203,17 +204,17 @@ func (c *Reconciler) config(ctx context.Context, logger *zap.SugaredLogger, serv
 		config, err = c.createConfiguration(service)
 		if err != nil {
 			c.Recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Configuration %q: %v", configName, err)
-			return nil, perrors.Wrap(err, "failed to create Configuration")
+			return nil, fmt.Errorf("failed to create Configuration: %w", err)
 		}
 		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Created", "Created Configuration %q", configName)
 	} else if err != nil {
-		return nil, perrors.Wrap(err, "failed to get Configuration")
+		return nil, fmt.Errorf("failed to get Configuration: %w", err)
 	} else if !metav1.IsControlledBy(config, service) {
 		// Surface an error in the service's status,and return an error.
 		service.Status.MarkConfigurationNotOwned(configName)
 		return nil, fmt.Errorf("service: %q does not own configuration: %q", service.Name, configName)
 	} else if config, err = c.reconcileConfiguration(ctx, service, config); err != nil {
-		return nil, perrors.Wrap(err, "failed to reconcile Configuration")
+		return nil, fmt.Errorf("failed to reconcile Configuration: %w", err)
 	}
 	return config, nil
 }
@@ -225,17 +226,17 @@ func (c *Reconciler) route(ctx context.Context, logger *zap.SugaredLogger, servi
 		route, err = c.createRoute(service)
 		if err != nil {
 			c.Recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Route %q: %v", routeName, err)
-			return nil, perrors.Wrap(err, "failed to create Route")
+			return nil, fmt.Errorf("failed to create Route: %w", err)
 		}
 		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Created", "Created Route %q", routeName)
 	} else if err != nil {
-		return nil, perrors.Wrap(err, "failed to get Route")
+		return nil, fmt.Errorf("failed to get Route: %w", err)
 	} else if !metav1.IsControlledBy(route, service) {
 		// Surface an error in the service's status, and return an error.
 		service.Status.MarkRouteNotOwned(routeName)
 		return nil, fmt.Errorf("service: %q does not own route: %q", service.Name, routeName)
 	} else if route, err = c.reconcileRoute(ctx, service, route); err != nil {
-		return nil, perrors.Wrap(err, "failed to reconcile Route")
+		return nil, fmt.Errorf("failed to reconcile Route: %w", err)
 	}
 	return route, nil
 }
@@ -323,7 +324,7 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 	}
 	diff, err := kmp.SafeDiff(desiredConfig.Spec, config.Spec)
 	if err != nil {
-		return nil, perrors.Wrap(err, "failed to diff Configuration")
+		return nil, fmt.Errorf("failed to diff Configuration: %w", err)
 	}
 	logger.Infof("Reconciling configuration diff (-desired, +observed): %s", diff)
 
@@ -369,7 +370,7 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 	}
 	diff, err := kmp.SafeDiff(desiredRoute.Spec, route.Spec)
 	if err != nil {
-		return nil, perrors.Wrap(err, "failed to diff Route")
+		return nil, fmt.Errorf("failed to diff Route: %w", err)
 	}
 	logger.Infof("Reconciling route diff (-desired, +observed): %s", diff)
 

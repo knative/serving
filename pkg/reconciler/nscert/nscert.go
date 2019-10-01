@@ -23,7 +23,6 @@ import (
 	"regexp"
 	"text/template"
 
-	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -114,7 +113,8 @@ func (c *reconciler) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 
 	dnsName, err := wildcardDomain(cfg.Network.DomainTemplate, defaultDomain, ns.Name)
 	if err != nil {
-		return perrors.Wrapf(err, "failed to apply domain template %s to domain %s and namespace %s", cfg.Network.DomainTemplate, defaultDomain, ns.Name)
+		return fmt.Errorf("failed to apply domain template %s to domain %s and namespace %s: %w",
+			cfg.Network.DomainTemplate, defaultDomain, ns.Name, err)
 	}
 
 	// If any labeled cert has been issued for our DNSName then there's nothing to do
@@ -134,13 +134,13 @@ func (c *reconciler) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 		if err != nil {
 			c.Recorder.Eventf(ns, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create Knative certificate %s/%s: %v", ns.Name, desiredCert.ObjectMeta.Name, err)
-			return perrors.Wrap(err, "failed to create namespace certificate")
+			return fmt.Errorf("failed to create namespace certificate: %w", err)
 		}
 
 		c.Recorder.Eventf(cert, corev1.EventTypeNormal, "Created",
 			"Created Knative Certificate %s/%s", ns.Name, cert.ObjectMeta.Name)
 	} else if err != nil {
-		return perrors.Wrap(err, "failed to get namespace certificate")
+		return fmt.Errorf("failed to get namespace certificate: %w", err)
 	} else if !metav1.IsControlledBy(existingCert, ns) {
 		return fmt.Errorf("namespace %s does not own Knative Certificate: %s", ns.Name, existingCert.Name)
 	} else if !equality.Semantic.DeepEqual(existingCert.Spec, desiredCert.Spec) {
@@ -150,7 +150,7 @@ func (c *reconciler) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 		if err != nil {
 			c.Recorder.Eventf(existingCert, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update Knative Certificate %s/%s: %v", existingCert.Namespace, existingCert.Name, err)
-			return perrors.Wrap(err, "failed to update namespace certificate")
+			return fmt.Errorf("failed to update namespace certificate: %w", err)
 		}
 		c.Recorder.Eventf(existingCert, corev1.EventTypeNormal, "Updated",
 			"Updated Spec for Knative Certificate %s/%s", desiredCert.Namespace, desiredCert.Name)

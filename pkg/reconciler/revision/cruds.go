@@ -18,8 +18,8 @@ package revision
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
@@ -45,7 +45,7 @@ func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 	)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to make deployment")
+		return nil, fmt.Errorf("failed to make deployment: %w", err)
 	}
 
 	return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
@@ -65,7 +65,7 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 	)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to update deployment")
+		return nil, fmt.Errorf("failed to update deployment: %w", err)
 	}
 
 	// Preserve the current scale of the Deployment.

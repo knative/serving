@@ -18,8 +18,8 @@ package metric
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler"
@@ -64,7 +64,7 @@ func (r *reconciler) Reconcile(ctx context.Context, key string) error {
 		logger.Info("Stopping to collect metrics")
 		return r.collector.Delete(namespace, name)
 	} else if err != nil {
-		return errors.Wrap(err, "failed to fetch metric "+key)
+		return fmt.Errorf("failed to fetch metric %s: %v", key, err)
 	}
 
 	// Don't mess with informer's copy.
@@ -97,7 +97,7 @@ func (r *reconciler) reconcileCollection(ctx context.Context, metric *v1alpha1.M
 	if err != nil {
 		// If create or update failes, we won't be able to collect at all.
 		metric.Status.MarkMetricFailed("CollectionFailed", "Failed to reconcile metric collection")
-		return errors.Wrap(err, "failed to initiate or update scraping")
+		return fmt.Errorf("failed to initiate or update scraping: %w", err)
 	}
 	return nil
 }

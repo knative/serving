@@ -402,7 +402,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "sandwich///",
 	}, {
-		Name: "failure to create hpa",
+		Name: "failure to create HPA",
 		Objects: []runtime.Object{
 			pa(testNamespace, testRevision, WithHPAClass),
 			deploy(testNamespace, testRevision),

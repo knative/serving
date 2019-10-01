@@ -38,7 +38,6 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/tracker"
 
-	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -411,7 +410,7 @@ func (r *BaseIngressReconciler) reconcileVirtualServices(ctx context.Context, ia
 			serving.RouteLabelKey:          ia.GetLabels()[serving.RouteLabelKey],
 			serving.RouteNamespaceLabelKey: ia.GetLabels()[serving.RouteNamespaceLabelKey]}).AsSelector())
 	if err != nil {
-		return perrors.Wrap(err, "failed to get VirtualServices")
+		return fmt.Errorf("failed to get VirtualServices: %w", err)
 	}
 	for _, vs := range vses {
 		n, ns := vs.Name, vs.Namespace
@@ -419,7 +418,7 @@ func (r *BaseIngressReconciler) reconcileVirtualServices(ctx context.Context, ia
 			continue
 		}
 		if err = r.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Delete(n, &metav1.DeleteOptions{}); err != nil {
-			return perrors.Wrap(err, "failed to delete VirtualService")
+			return fmt.Errorf("failed to delete VirtualService: %w", err)
 		}
 	}
 	return nil
@@ -497,7 +496,7 @@ func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha
 	if err != nil {
 		// Unlike VirtualService, a default gateway needs to be existent.
 		// It should be installed when installing Knative.
-		return perrors.Wrap(err, "failed to get Gateway")
+		return fmt.Errorf("failed to get Gateway: %w", err)
 	}
 
 	existing := resources.GetServers(gateway, ia)
@@ -518,7 +517,7 @@ func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha
 	copy := gateway.DeepCopy()
 	copy = resources.UpdateGateway(copy, desired, existing)
 	if _, err := r.SharedClientSet.NetworkingV1alpha3().Gateways(copy.Namespace).Update(copy); err != nil {
-		return perrors.Wrap(err, "failed to update Gateway")
+		return fmt.Errorf("failed to update Gateway: %w", err)
 	}
 	r.Recorder.Eventf(ia, corev1.EventTypeNormal, "Updated", "Updated Gateway %s/%s", gateway.Namespace, gateway.Name)
 	return nil

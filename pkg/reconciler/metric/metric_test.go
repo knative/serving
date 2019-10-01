@@ -18,6 +18,7 @@ package metric
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -27,8 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	clientgotesting "k8s.io/client-go/testing"
 	"knative.dev/serving/pkg/autoscaler"
-
-	"github.com/pkg/errors"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -193,8 +192,8 @@ func TestReconcileWithCollector(t *testing.T) {
 			r.ServingClientSet.AutoscalingV1alpha1().Metrics(tt.metric.Namespace).Create(tt.metric)
 			metricInformer.Informer().GetIndexer().Add(tt.metric)
 
-			if err := r.Reconcile(ctx, tt.key); errors.Cause(err) != tt.expectErr {
-				t.Errorf("Reconcile() = %v, wanted %v", errors.Cause(err), tt.expectErr)
+			if err := r.Reconcile(ctx, tt.key); !errors.Is(err, tt.expectErr) {
+				t.Errorf("Reconcile() = %v, wanted %v", err, tt.expectErr)
 			}
 
 			if tt.createOrUpdateCalls != tt.collector.createOrUpdateCalls {
