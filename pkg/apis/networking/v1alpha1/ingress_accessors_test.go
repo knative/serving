@@ -58,8 +58,12 @@ func TestIngressAccessorMethods(t *testing.T) {
 	}
 
 	ia := ci
+	for i, _ := range ci.Spec.Rules {
+		ci.Spec.Rules[i].Hosts = append(ci.Spec.Rules[i].Hosts, "exampletest.com")
+	}
+	ia.SetSpec(ci.Spec)
 	spec := ia.GetSpec()
-	if strings.Compare(spec.Rules[0].Hosts[0], "example.com") != 0 {
+	if strings.Compare(spec.Rules[0].Hosts[0], "example.com") != 0 && strings.Compare(spec.Rules[0].Hosts[1], "exampletest.com") != 0 {
 		t.Error("Failed to call IngressAccessor.getHost()")
 	}
 
