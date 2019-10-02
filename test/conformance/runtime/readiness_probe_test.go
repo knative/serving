@@ -38,27 +38,28 @@ var testCases = []struct {
 	name string
 	// handler to be used for readiness probe in user container.
 	handler corev1.Handler
-}{
-	{
-		"httpGet",
-		corev1.Handler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Path: "/healthz",
-			},
+}{{
+	"httpGet",
+	corev1.Handler{
+		HTTPGet: &corev1.HTTPGetAction{
+			Path: "/healthz",
 		},
 	},
-	{
-		"exec",
-		corev1.Handler{
-			Exec: &corev1.ExecAction{
-				Command: []string{"/ko-app/runtime", "probe"},
-			},
+}, {
+	"tcpSocket",
+	corev1.Handler{
+		TCPSocket: &corev1.TCPSocketAction{},
+	},
+}, {
+	"exec",
+	corev1.Handler{
+		Exec: &corev1.ExecAction{
+			Command: []string{"/ko-app/runtime", "probe"},
 		},
 	},
-}
+}}
 
 func TestProbeRuntime(t *testing.T) {
-	t.Parallel()
 	cancel := logstream.Start(t)
 	defer cancel()
 

@@ -38,7 +38,7 @@ func main() {
 		url := "http://localhost:" + port
 		_, err := http.Get(url)
 		if err != nil {
-			log.Fatalf("failed to probe %v", err)
+			log.Fatalf("Failed to probe %v", err)
 		}
 		return
 	}
