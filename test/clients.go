@@ -24,6 +24,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	sharedclientset "knative.dev/pkg/client/clientset/versioned"
 	"knative.dev/pkg/test"
 	"knative.dev/serving/pkg/client/clientset/versioned"
 	servingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
@@ -38,6 +39,7 @@ type Clients struct {
 	ServingBetaClient  *ServingBetaClients
 	ServingClient      *ServingClients
 	Dynamic            dynamic.Interface
+	SharedClient       sharedclientset.Interface
 }
 
 // ServingAlphaClients holds instances of interfaces for making requests to knative serving clients
@@ -99,6 +101,11 @@ func NewClients(configPath string, clusterName string, namespace string) (*Clien
 	}
 
 	clients.Dynamic, err = dynamic.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	clients.SharedClient, err = sharedclientset.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
