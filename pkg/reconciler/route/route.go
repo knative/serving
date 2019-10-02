@@ -365,7 +365,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1alpha1.Route) error {
 	logger := logging.FromContext(ctx)
 
-	// If our Finalizer is first, delete the ClusterIngress for this Route
+	// If our Finalizer is first, delete the Ingress for this Route
 	// and remove the finalizer.
 	if len(r.Finalizers) == 0 || r.Finalizers[0] != routeFinalizer {
 		return nil
