@@ -539,6 +539,38 @@ func TestContainerValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
+		name: "missing timeoutSeconds for readinessProbe",
+		c: corev1.Container{
+			Image: "foo",
+			ReadinessProbe: &corev1.Probe{
+				PeriodSeconds:    1,
+				SuccessThreshold: 1,
+				FailureThreshold: 2,
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/",
+					},
+				},
+			},
+		},
+		want: &apis.FieldError{Message: "expected 1 <= 0 <= 2147483647", Paths: []string{"readinessProbe.timeoutSeconds"}},
+	}, {
+		name: "missing failureThreshold for readinessProbe",
+		c: corev1.Container{
+			Image: "foo",
+			ReadinessProbe: &corev1.Probe{
+				TimeoutSeconds:   1,
+				PeriodSeconds:    1,
+				SuccessThreshold: 1,
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/",
+					},
+				},
+			},
+		},
+		want: &apis.FieldError{Message: "expected 1 <= 0 <= 2147483647", Paths: []string{"readinessProbe.failureThreshold"}},
+	}, {
 		name: "invalid with no handler",
 		c: corev1.Container{
 			Image: "foo",
