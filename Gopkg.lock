@@ -649,7 +649,7 @@
   revision = "2ae31c8b6b30d2f4c8100c20d527b571e9c433bb"
 
 [[projects]]
-  digest = "1:5ff10da739fc2c719e3a11454e5794aa226c918cb0286cd3842aa6ae077a82a1"
+  digest = "1:ba4312bc8a900105f0c5b85d23b289d594dc88af6608ce971c8696435f43ae85"
   name = "github.com/openzipkin/zipkin-go"
   packages = [
     ".",
@@ -661,8 +661,8 @@
     "reporter/recorder",
   ]
   pruneopts = "NUT"
-  revision = "bf896b1c622eed731380e8291d9b6c02043de5e8"
-  version = "v0.1.5"
+  revision = "c29478e51bfb2e9c93e0e9f5e015e5993a490399"
+  version = "v0.2.2"
 
 [[projects]]
   digest = "1:93b1d84c5fa6d1ea52f4114c37714cddd84d5b78f151b62bb101128dd51399bf"
