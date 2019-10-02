@@ -451,6 +451,10 @@ func validateReadinessProbe(p *corev1.Probe) *apis.FieldError {
 		errs = errs.Also(apis.ErrOutOfBoundsValue(p.PeriodSeconds, 0, math.MaxInt32, "periodSeconds"))
 	}
 
+	if p.InitialDelaySeconds < 0 {
+		errs = errs.Also(apis.ErrOutOfBoundsValue(p.InitialDelaySeconds, 0, math.MaxInt32, "initialDelaySeconds"))
+	}
+
 	if p.SuccessThreshold < 1 {
 		errs = errs.Also(apis.ErrOutOfBoundsValue(p.SuccessThreshold, 1, math.MaxInt32, "successThreshold"))
 	}
