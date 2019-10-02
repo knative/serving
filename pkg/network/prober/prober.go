@@ -24,7 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -90,7 +89,7 @@ func ExpectsStatusCodes(statusCodes []int) Verifier {
 func Do(ctx context.Context, transport http.RoundTripper, target string, ops ...interface{}) (bool, error) {
 	req, err := http.NewRequest(http.MethodGet, target, nil)
 	if err != nil {
-		return false, errors.Wrapf(err, "%s is not a valid URL", target)
+		return false, fmt.Errorf("%s is not a valid URL: %w", target, err)
 	}
 	for _, op := range ops {
 		if po, ok := op.(Preparer); ok {
@@ -101,12 +100,12 @@ func Do(ctx context.Context, transport http.RoundTripper, target string, ops ...
 	req = req.WithContext(ctx)
 	resp, err := transport.RoundTrip(req)
 	if err != nil {
-		return false, errors.Wrapf(err, "error roundtripping %s", target)
+		return false, fmt.Errorf("error roundtripping %s: %w", target, err)
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return false, errors.Wrap(err, "error reading body")
+		return false, fmt.Errorf("error reading body: %w", err)
 	}
 
 	for _, op := range ops {

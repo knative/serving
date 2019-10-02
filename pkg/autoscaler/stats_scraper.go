@@ -19,7 +19,6 @@ package autoscaler
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
@@ -168,7 +167,7 @@ func (s *ServiceScraper) Scrape() (Stat, error) {
 
 	// Return the inner error, if any.
 	if err := grp.Wait(); err != nil {
-		return emptyStat, errors.Wrap(err, "unsuccessful scrape, sampleSize="+strconv.Itoa(sampleSize))
+		return emptyStat, fmt.Errorf("unsuccessful scrape, sampleSize=%d: %w", sampleSize, err)
 	}
 	close(statCh)
 
