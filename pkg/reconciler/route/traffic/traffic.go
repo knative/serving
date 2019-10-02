@@ -19,6 +19,7 @@ package traffic
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -65,6 +66,10 @@ type Config struct {
 	// The referred `Configuration`s and `Revision`s.
 	Configurations map[string]*v1alpha1.Configuration
 	Revisions      map[string]*v1alpha1.Revision
+
+	// MissingTargets are references to Configuration's or Revision's
+	// that are missing
+	MissingTargets []corev1.ObjectReference
 }
 
 // BuildTrafficConfiguration consolidates and flattens the Route.Spec.Traffic to the Revision-level. It also provides a
@@ -135,6 +140,10 @@ type configBuilder struct {
 	// revisions contains all the referred Revision, keyed by their name.
 	revisions map[string]*v1alpha1.Revision
 
+	// missingTargets is a collection of targets that weren't present
+	// in our listers
+	missingTargets []corev1.ObjectReference
+
 	// TargetError are deferred until we got a complete list of all referred targets.
 	deferredTargetErr TargetError
 }
@@ -204,6 +213,18 @@ func (t *configBuilder) addTrafficTarget(tt *v1alpha1.TrafficTarget) error {
 		err = t.addRevisionTarget(tt)
 	} else if tt.ConfigurationName != "" {
 		err = t.addConfigurationTarget(tt)
+	}
+	if err, ok := err.(*missingTargetError); err != nil && ok {
+		apiVersion, kind := v1alpha1.SchemeGroupVersion.
+			WithKind(err.kind).
+			ToAPIVersionAndKind()
+
+		t.missingTargets = append(t.missingTargets, corev1.ObjectReference{
+			APIVersion: apiVersion,
+			Kind:       kind,
+			Name:       err.name,
+			Namespace:  t.namespace,
+		})
 	}
 	if err, ok := err.(TargetError); err != nil && ok {
 		// Defer target errors, as we still want to compile a list of
@@ -323,5 +344,6 @@ func (t *configBuilder) build() (*Config, error) {
 		revisionTargets: t.revisionTargets,
 		Configurations:  t.configurations,
 		Revisions:       t.revisions,
+		MissingTargets:  t.missingTargets,
 	}, t.deferredTargetErr
 }

@@ -781,7 +781,14 @@ func TestBuildTrafficConfiguration_MissingConfig(t *testing.T) {
 			goodOldRev.Name: goodOldRev,
 			goodNewRev.Name: goodNewRev,
 		},
+		MissingTargets: []corev1.ObjectReference{{
+			APIVersion: "serving.knative.dev/v1alpha1",
+			Kind:       "Configuration",
+			Name:       missingConfig.Name,
+			Namespace:  missingConfig.Namespace,
+		}},
 	}
+
 	expectedErr := errMissingConfiguration(missingConfig.Name)
 	r := testRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{
 		TrafficTarget: v1.TrafficTarget{
@@ -925,6 +932,12 @@ func TestBuildTrafficConfiguration_MissingRevision(t *testing.T) {
 		Targets:        map[string]RevisionTargets{},
 		Configurations: map[string]*v1alpha1.Configuration{goodConfig.Name: goodConfig},
 		Revisions:      map[string]*v1alpha1.Revision{goodNewRev.Name: goodNewRev},
+		MissingTargets: []corev1.ObjectReference{{
+			APIVersion: "serving.knative.dev/v1alpha1",
+			Kind:       "Revision",
+			Name:       missingRev.Name,
+			Namespace:  missingRev.Namespace,
+		}},
 	}
 	expectedErr := errMissingRevision(missingRev.Name)
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, testRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{

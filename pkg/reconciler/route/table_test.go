@@ -38,6 +38,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/tracker"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -1208,6 +1209,9 @@ func TestReconcile(t *testing.T) {
 			Object: Route("default", "config-missing", WithConfigTarget("not-found"), WithURL,
 				WithInitRouteConditions, MarkMissingTrafficTarget("Configuration", "not-found")),
 		}},
+		PostConditions: []func(*testing.T, *TableRow){
+			AssertTrackingConfig("default", "not-found"),
+		},
 		Key: "default/config-missing",
 	}, {
 		Name: "revision missing (direct)",
@@ -1220,6 +1224,9 @@ func TestReconcile(t *testing.T) {
 			Object: Route("default", "missing-revision-direct", WithRevTarget("not-found"), WithURL,
 				WithInitRouteConditions, MarkMissingTrafficTarget("Revision", "not-found")),
 		}},
+		PostConditions: []func(*testing.T, *TableRow){
+			AssertTrackingRevision("default", "not-found"),
+		},
 		Key: "default/missing-revision-direct",
 	}, {
 		Name: "revision missing (indirect)",
@@ -1884,7 +1891,7 @@ func TestReconcile(t *testing.T) {
 			revisionLister:      listers.GetRevisionLister(),
 			serviceLister:       listers.GetK8sServiceLister(),
 			ingressLister:       listers.GetIngressLister(),
-			tracker:             &NullTracker{},
+			tracker:             ctx.Value(TrackerKey).(tracker.Interface),
 			configStore: &testConfigStore{
 				config: ReconcilerTestConfig(false),
 			},

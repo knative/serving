@@ -393,7 +393,14 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1alpha1.Route, cl
 	}
 
 	// Tell our trackers to reconcile Route whenever the things referred to by our
-	// Traffic stanza change.
+	// traffic stanza change. We also track missing targets since there may be
+	// race conditions were routes are reconciled before their targets appear
+	// in the informer cache
+	for _, obj := range t.MissingTargets {
+		if err := c.tracker.Track(obj, r); err != nil {
+			return nil, err
+		}
+	}
 	for _, configuration := range t.Configurations {
 		if err := c.tracker.Track(objectRef(configuration), r); err != nil {
 			return nil, err
