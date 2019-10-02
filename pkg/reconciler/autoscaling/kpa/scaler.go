@@ -26,7 +26,6 @@ import (
 	"knative.dev/pkg/injection/clients/dynamicclient"
 	"knative.dev/pkg/logging"
 
-	"github.com/pkg/errors"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/serving/pkg/activator"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
@@ -248,7 +247,7 @@ func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, 
 	_, err = ks.dynamicClient.Resource(*gvr).Namespace(pa.Namespace).Patch(ps.Name, types.JSONPatchType,
 		patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		return desiredScale, errors.Wrapf(err, "failed to apply scale to scale target "+name)
+		return desiredScale, fmt.Errorf("failed to apply scale to scale target %s: %w", name, err)
 	}
 
 	logger.Debug("Successfully scaled.")
@@ -277,7 +276,7 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *
 
 	ps, err := resources.GetScaleResource(pa.Namespace, pa.Spec.ScaleTargetRef, ks.psInformerFactory)
 	if err != nil {
-		return desiredScale, errors.Wrapf(err, "failed to get scale target %v", pa.Spec.ScaleTargetRef)
+		return desiredScale, fmt.Errorf("failed to get scale target %v: %w", pa.Spec.ScaleTargetRef, err)
 	}
 
 	currentScale := int32(1)

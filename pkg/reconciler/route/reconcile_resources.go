@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"reflect"
 
-	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
@@ -66,7 +65,7 @@ func (c *Reconciler) reconcileIngress(
 		ingress, err = ira.createIngress(desired)
 		if err != nil {
 			c.Recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress: %v", err)
-			return nil, perrors.Wrap(err, "failed to create Ingress")
+			return nil, fmt.Errorf("failed to create Ingress: %w", err)
 		}
 
 		c.Recorder.Eventf(r, corev1.EventTypeNormal, "Created", "Created Ingress %q", ingress.GetName())
@@ -84,7 +83,7 @@ func (c *Reconciler) reconcileIngress(
 
 			updated, err := ira.updateIngress(origin)
 			if err != nil {
-				return nil, perrors.Wrap(err, "failed to update Ingress")
+				return nil, fmt.Errorf("failed to update Ingress: %w", err)
 			}
 			return updated, nil
 		}
@@ -96,7 +95,7 @@ func (c *Reconciler) reconcileIngress(
 func (c *Reconciler) deleteServices(namespace string, serviceNames sets.String) error {
 	for _, serviceName := range serviceNames.List() {
 		if err := c.KubeClientSet.CoreV1().Services(namespace).Delete(serviceName, nil); err != nil {
-			return perrors.Wrap(err, "failed to delete Service")
+			return fmt.Errorf("failed to delete Service: %w", err)
 		}
 	}
 
@@ -129,7 +128,7 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 			if err != nil {
 				c.Recorder.Eventf(route, corev1.EventTypeWarning, "CreationFailed",
 					"Failed to create placeholder service %q: %v", desiredService.Name, err)
-				return nil, perrors.Wrap(err, "failed to create placeholder service")
+				return nil, fmt.Errorf("failed to create placeholder service: %w", err)
 			}
 			logger.Infof("Created service %s", desiredService.Name)
 			c.Recorder.Eventf(route, corev1.EventTypeNormal, "Created", "Created placeholder service %q", desiredService.Name)
@@ -248,7 +247,7 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 				}
 
 				if _, err := c.ServingClientSet.ServingV1alpha1().Revisions(route.Namespace).Patch(rev.Name, types.MergePatchType, patch); err != nil {
-					return perrors.Wrap(err, "failed to set revision annotation")
+					return fmt.Errorf("failed to set revision annotation: %w", err)
 				}
 				return nil
 			})
@@ -263,7 +262,7 @@ func (c *Reconciler) reconcileCertificate(ctx context.Context, r *v1alpha1.Route
 		cert, err = c.ServingClientSet.NetworkingV1alpha1().Certificates(desiredCert.Namespace).Create(desiredCert)
 		if err != nil {
 			c.Recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed", "Failed to create Certificate: %v", err)
-			return nil, perrors.Wrap(err, "failed to create Certificate")
+			return nil, fmt.Errorf("failed to create Certificate: %w", err)
 		}
 		c.Recorder.Eventf(r, corev1.EventTypeNormal, "Created",
 			"Created Certificate %s/%s", cert.Namespace, cert.Name)

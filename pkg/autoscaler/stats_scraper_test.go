@@ -17,12 +17,12 @@ limitations under the License.
 package autoscaler
 
 import (
+	"errors"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -195,8 +195,8 @@ func TestScrapeReportErrorIfAnyFails(t *testing.T) {
 	endpoints(2, testService)
 
 	_, err = scraper.Scrape()
-	if errors.Cause(err) != errTest {
-		t.Errorf("scraper.Scrape() = %v, want %v", err, errTest)
+	if !errors.Is(err, errTest) {
+		t.Errorf("scraper.Scrape() = %v, want %v wrapped", err, errTest)
 	}
 }
 
