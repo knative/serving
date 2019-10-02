@@ -121,17 +121,6 @@ func (i *impl) Track(ref corev1.ObjectReference, obj interface{}) error {
 	return nil
 }
 
-func objectReference(item kmeta.Accessor) corev1.ObjectReference {
-	gvk := item.GroupVersionKind()
-	apiVersion, kind := gvk.ToAPIVersionAndKind()
-	return corev1.ObjectReference{
-		APIVersion: apiVersion,
-		Kind:       kind,
-		Namespace:  item.GetNamespace(),
-		Name:       item.GetName(),
-	}
-}
-
 func isExpired(expiry time.Time) bool {
 	return time.Now().After(expiry)
 }
@@ -144,7 +133,7 @@ func (i *impl) OnChanged(obj interface{}) {
 		return
 	}
 
-	or := objectReference(item)
+	or := kmeta.ObjectReference(item)
 
 	// TODO(mattmoor): Consider locking the mapping (global) for a
 	// smaller scope and leveraging a per-set lock to guard its access.

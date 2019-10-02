@@ -1673,7 +1673,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:25a242a329c571b1b288af9ad1a7cbbd1c99a07bef77dfff29f6874e69056b8e"
+  digest = "1:fcc5eebe1f1abd3fb211a1435369473ce7a605bb6859c9a247b740b41bb5d861"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1789,7 +1789,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "9c2cf0549d1ada2cd41aad9637f69346e77b8bce"
+  revision = "613c1d31ee3272fa269f2960375f1ad2c3fd4030"
 
 [[projects]]
   branch = "master"
@@ -2005,7 +2005,6 @@
     "knative.dev/pkg/test/logging",
     "knative.dev/pkg/test/logstream",
     "knative.dev/pkg/test/mako",
-    "knative.dev/pkg/test/mako/alerter/slack",
     "knative.dev/pkg/test/prometheus",
     "knative.dev/pkg/test/spoof",
     "knative.dev/pkg/test/vegeta/pacers",

@@ -47,9 +47,8 @@ var (
 	protectedProjects       = []string{"knative-tests"}
 	protectedClusters       = []string{"knative-prow"}
 	// These are arbitrary numbers determined based on past experience
-	creationTimeout    = 20 * time.Minute
-	deletionTimeout    = 10 * time.Minute
-	autoscalingTimeout = 1 * time.Minute
+	creationTimeout = 20 * time.Minute
+	deletionTimeout = 10 * time.Minute
 )
 
 // GKEClient implements Client
@@ -87,6 +86,13 @@ type GKERequest struct {
 
 	// Addons: cluster addons to be added to cluster, such as istio
 	Addons []string
+
+	// SkipCreation: skips cluster creation
+	SkipCreation bool
+
+	// NeedsCleanup: enforce clean up if given this option, used when running
+	// locally
+	NeedsCleanup bool
 }
 
 // GKECluster implements ClusterOperations
@@ -94,12 +100,12 @@ type GKECluster struct {
 	Request *GKERequest
 	// Project might be GKE specific, so put it here
 	Project *string
-	// NeedCleanup tells whether the cluster needs to be deleted afterwards
+	// NeedsCleanup tells whether the cluster needs to be deleted afterwards
 	// This probably should be part of task wrapper's logic
-	NeedCleanup bool
-	Cluster     *container.Cluster
-	operations  GKESDKOperations
-	boskosOps   boskos.Operation
+	NeedsCleanup bool
+	Cluster      *container.Cluster
+	operations   GKESDKOperations
+	boskosOps    boskos.Operation
 }
 
 // GKESDKOperations wraps GKE SDK related functions
@@ -108,7 +114,6 @@ type GKESDKOperations interface {
 	delete(string, string, string) (*container.Operation, error)
 	get(string, string, string) (*container.Cluster, error)
 	getOperation(string, string, string) (*container.Operation, error)
-	setAutoscaling(string, string, string, string, *container.SetNodePoolAutoscalingRequest) (*container.Operation, error)
 }
 
 // GKESDKClient Implement GKESDKOperations
@@ -117,33 +122,36 @@ type GKESDKClient struct {
 }
 
 func (gsc *GKESDKClient) create(project, location string, rb *container.CreateClusterRequest) (*container.Operation, error) {
+	if zoneFromLoc(location) != "" {
+		return gsc.Projects.Zones.Clusters.Create(project, location, rb).Context(context.Background()).Do()
+	}
 	parent := fmt.Sprintf("projects/%s/locations/%s", project, location)
 	return gsc.Projects.Locations.Clusters.Create(parent, rb).Context(context.Background()).Do()
 }
 
 // delete deletes GKE cluster and waits until completion
-func (gsc *GKESDKClient) delete(project, clusterName, location string) (*container.Operation, error) {
+func (gsc *GKESDKClient) delete(project, location, clusterName string) (*container.Operation, error) {
+	if zoneFromLoc(location) != "" {
+		return gsc.Projects.Zones.Clusters.Delete(project, location, clusterName).Context(context.Background()).Do()
+	}
 	parent := fmt.Sprintf("projects/%s/locations/%s/clusters/%s", project, location, clusterName)
 	return gsc.Projects.Locations.Clusters.Delete(parent).Context(context.Background()).Do()
 }
 
-func (gsc *GKESDKClient) get(project, location, cluster string) (*container.Cluster, error) {
-	clusterFullPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s", project, location, cluster)
+func (gsc *GKESDKClient) get(project, location, clusterName string) (*container.Cluster, error) {
+	if zoneFromLoc(location) != "" {
+		return gsc.Projects.Zones.Clusters.Get(project, location, clusterName).Context(context.Background()).Do()
+	}
+	clusterFullPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s", project, location, clusterName)
 	return gsc.Projects.Locations.Clusters.Get(clusterFullPath).Context(context.Background()).Do()
 }
 
 func (gsc *GKESDKClient) getOperation(project, location, opName string) (*container.Operation, error) {
+	if zoneFromLoc(location) != "" {
+		return gsc.Service.Projects.Zones.Operations.Get(project, location, opName).Do()
+	}
 	name := fmt.Sprintf("projects/%s/locations/%s/operations/%s", project, location, opName)
 	return gsc.Service.Projects.Locations.Operations.Get(name).Do()
-}
-
-// setAutoscaling sets up autoscaling for a nodepool. This function is not
-// covered by either `Clusters.Update` or `NodePools.Update`, so can not really
-// make it as generic as the others
-func (gsc *GKESDKClient) setAutoscaling(project, clusterName, location, nodepoolName string,
-	rb *container.SetNodePoolAutoscalingRequest) (*container.Operation, error) {
-	parent := fmt.Sprintf("projects/%s/locations/%s/clusters/%s/nodePools/%s", project, location, clusterName, nodepoolName)
-	return gsc.Service.Projects.Locations.Clusters.NodePools.SetAutoscaling(parent, rb).Do()
 }
 
 // Setup sets up a GKECluster client, takes GEKRequest as parameter and applies
@@ -153,7 +161,7 @@ func (gs *GKEClient) Setup(r GKERequest) ClusterOperations {
 
 	if r.Project != "" { // use provided project and create cluster
 		gc.Project = &r.Project
-		gc.NeedCleanup = true
+		gc.NeedsCleanup = true
 	}
 
 	if r.MinNodes == 0 {
@@ -207,15 +215,21 @@ func (gs *GKEClient) Setup(r GKERequest) ClusterOperations {
 	return gc
 }
 
-// Initialize checks environment for cluster and projects to decide whether using
+// initialize checks environment for cluster and projects to decide whether using
 // existing cluster/project or creating new ones.
-func (gc *GKECluster) Initialize() error {
+func (gc *GKECluster) initialize() error {
 	// Try obtain project name via `kubectl`, `gcloud`
 	if gc.Project == nil {
 		if err := gc.checkEnvironment(); err != nil {
 			return fmt.Errorf("failed checking existing cluster: '%v'", err)
-		} else if gc.Cluster != nil { // return if Cluster was already set by kubeconfig
-			return nil
+		} else if gc.Cluster != nil { // Return if Cluster was already set by kubeconfig
+			// If clustername provided and kubeconfig set, ignore kubeconfig
+			if gc.Request != nil && gc.Request.ClusterName != "" && gc.Cluster.Name != gc.Request.ClusterName {
+				gc.Cluster = nil
+			}
+			if gc.Cluster != nil {
+				return nil
+			}
 		}
 	}
 	// Get project name from boskos if running in Prow
@@ -230,7 +244,7 @@ func (gc *GKECluster) Initialize() error {
 		return errors.New("gcp project must be set")
 	}
 	if !common.IsProw() && gc.Cluster == nil {
-		gc.NeedCleanup = true
+		gc.NeedsCleanup = true
 	}
 	log.Printf("Using project %q for running test", *gc.Project)
 	return nil
@@ -246,11 +260,18 @@ func (gc *GKECluster) Provider() string {
 // in us-central1, and default BackupRegions are us-west1 and us-east1. If
 // Region or Zone is provided then there is no retries
 func (gc *GKECluster) Acquire() error {
+	if err := gc.initialize(); err != nil {
+		return fmt.Errorf("failed initialing with environment: '%v'", err)
+	}
 	gc.ensureProtected()
-	var clusterName string
+	clusterName := gc.Request.ClusterName
 	var err error
 	// Check if using existing cluster
 	if gc.Cluster != nil {
+		return nil
+	}
+	if gc.Request.SkipCreation {
+		log.Println("Skipping cluster creation as SkipCreation is set")
 		return nil
 	}
 	// Perform GKE specific cluster creation logics
@@ -259,8 +280,6 @@ func (gc *GKECluster) Acquire() error {
 		if err != nil {
 			return fmt.Errorf("failed getting cluster name: '%v'", err)
 		}
-	} else {
-		clusterName = gc.Request.ClusterName
 	}
 
 	regions := []string{gc.Request.Region}
@@ -282,6 +301,19 @@ func (gc *GKECluster) Acquire() error {
 		err = nil
 		rb := &container.CreateClusterRequest{
 			Cluster: &container.Cluster{
+				NodePools: []*container.NodePool{
+					{
+						Name: "default-pool",
+						Autoscaling: &container.NodePoolAutoscaling{
+							Enabled:      true,
+							MinNodeCount: gc.Request.MinNodes,
+							MaxNodeCount: gc.Request.MaxNodes,
+						},
+						Config: &container.NodeConfig{
+							MachineType: gc.Request.NodeType,
+						},
+					},
+				},
 				Name: clusterName,
 				// The default cluster version is not latest, has to explicitly
 				// set it as "latest"
@@ -294,11 +326,7 @@ func (gc *GKECluster) Acquire() error {
 				// later on retrieved for setting up cluster roles. Use the
 				// default username from gcloud command, the password will be
 				// automatically generated by GKE SDK
-				MasterAuth:       &container.MasterAuth{Username: "admin"},
-				InitialNodeCount: gc.Request.MinNodes,
-				NodeConfig: &container.NodeConfig{
-					MachineType: gc.Request.NodeType,
-				},
+				MasterAuth: &container.MasterAuth{Username: "admin"},
 			},
 			ProjectId: *gc.Project,
 		}
@@ -309,7 +337,7 @@ func (gc *GKECluster) Acquire() error {
 		existingCluster, _ := gc.operations.get(*gc.Project, clusterLoc, clusterName)
 		if existingCluster != nil {
 			log.Printf("Cluster %q already exists in %q. Deleting...", clusterName, clusterLoc)
-			op, err = gc.operations.delete(*gc.Project, clusterName, clusterLoc)
+			op, err = gc.operations.delete(*gc.Project, clusterLoc, clusterName)
 			if err == nil {
 				err = gc.wait(clusterLoc, op.Name, deletionTimeout)
 			}
@@ -321,29 +349,15 @@ func (gc *GKECluster) Acquire() error {
 			if err == nil {
 				err = gc.wait(clusterLoc, op.Name, creationTimeout)
 			}
-			if err == nil { // Enable autoscaling and set limits
-				arb := &container.SetNodePoolAutoscalingRequest{
-					Autoscaling: &container.NodePoolAutoscaling{
-						Enabled:      true,
-						MinNodeCount: gc.Request.MinNodes,
-						MaxNodeCount: gc.Request.MaxNodes,
-					},
-				}
-
-				op, err = gc.operations.setAutoscaling(*gc.Project, clusterName, clusterLoc, "default-pool", arb)
-				if err == nil {
-					err = gc.wait(clusterLoc, op.Name, autoscalingTimeout)
-				}
-			}
 			if err == nil { // Get cluster at last
 				cluster, err = gc.operations.get(*gc.Project, clusterLoc, rb.Cluster.Name)
 			}
 		}
 		if err != nil {
 			errMsg := fmt.Sprintf("Error during cluster creation: '%v'. ", err)
-			if gc.NeedCleanup { // Delete half created cluster if it's user created
+			if gc.NeedsCleanup { // Delete half created cluster if it's user created
 				errMsg = fmt.Sprintf("%sDeleting cluster %q in %q in background...\n", errMsg, clusterName, clusterLoc)
-				go gc.operations.delete(*gc.Project, clusterName, clusterLoc)
+				go gc.operations.delete(*gc.Project, clusterLoc, clusterName)
 			}
 			// Retry another region if cluster creation failed.
 			// TODO(chaodaiG): catch specific errors as we know what the error look like for stockout etc.
@@ -364,6 +378,9 @@ func (gc *GKECluster) Acquire() error {
 // Delete takes care of GKE cluster resource cleanup. It only release Boskos resource if running in
 // Prow, otherwise deletes the cluster if marked NeedsCleanup
 func (gc *GKECluster) Delete() error {
+	if err := gc.initialize(); err != nil {
+		return fmt.Errorf("failed initialing with environment: '%v'", err)
+	}
 	gc.ensureProtected()
 	// Release Boskos if running in Prow, will let Janitor taking care of
 	// clusters deleting
@@ -372,9 +389,9 @@ func (gc *GKECluster) Delete() error {
 		return gc.boskosOps.ReleaseGKEProject(nil, *gc.Project)
 	}
 
-	// NeedCleanup is only true if running locally and cluster created by the
+	// NeedsCleanup is only true if running locally and cluster created by the
 	// process
-	if !gc.NeedCleanup {
+	if !gc.NeedsCleanup && !gc.Request.NeedsCleanup {
 		return nil
 	}
 	// Should only get here if running locally and cluster created by this
@@ -384,7 +401,7 @@ func (gc *GKECluster) Delete() error {
 	}
 
 	log.Printf("Deleting cluster %q in %q", gc.Cluster.Name, gc.Cluster.Location)
-	op, err := gc.operations.delete(*gc.Project, gc.Cluster.Name, gc.Cluster.Location)
+	op, err := gc.operations.delete(*gc.Project, gc.Cluster.Location, gc.Cluster.Name)
 	if err == nil {
 		err = gc.wait(gc.Cluster.Location, op.Name, deletionTimeout)
 	}

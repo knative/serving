@@ -18,6 +18,7 @@ package clustermanager
 
 import (
 	"fmt"
+	"strings"
 
 	"knative.dev/pkg/testutils/common"
 )
@@ -57,4 +58,15 @@ func getClusterLocation(region, zone string) string {
 		region = fmt.Sprintf("%s-%s", region, zone)
 	}
 	return region
+}
+
+func zoneFromLoc(location string) string {
+	parts := strings.Split(location, "-")
+	// zonal location is the form of us-central1-a, and this pattern is
+	// consistent in all available GCP locations so far, so we are looking for
+	// location with more than 2 "-"
+	if len(parts) > 2 {
+		return parts[len(parts)-1]
+	}
+	return ""
 }
