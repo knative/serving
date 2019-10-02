@@ -242,4 +242,3 @@ func getContext() context.Context {
 	cfg := ReconcilerTestConfig(false)
 	return config.ToContext(context.Background(), cfg)
 }
-

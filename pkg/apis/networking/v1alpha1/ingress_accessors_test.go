@@ -58,7 +58,7 @@ func TestIngressAccessorMethods(t *testing.T) {
 	}
 
 	ia := ci
-	for i, _ := range ci.Spec.Rules {
+	for i := range ci.Spec.Rules {
 		ci.Spec.Rules[i].Hosts = append(ci.Spec.Rules[i].Hosts, "exampletest.com")
 	}
 	ia.SetSpec(ci.Spec)
