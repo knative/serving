@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	"knative.dev/pkg/ptr"
-	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -74,17 +73,6 @@ func TestRollbackBYOName(t *testing.T) {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 	originalServiceSpec := resources.Service.Spec
-	url := resources.Route.Status.URL.URL()
-	if _, err = pkgTest.WaitForEndpointState(
-		clients.KubeClient,
-		t.Logf,
-		url,
-		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
-		"HelloWorldServesText",
-		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.HelloWorldText, err)
-	}
-
 	revisionName := resources.Revision.ObjectMeta.Name
 	if revisionName != byoNameOld {
 		t.Fatalf("Expect configuration name in revision label %q but got %q ", byoNameOld, revisionName)
