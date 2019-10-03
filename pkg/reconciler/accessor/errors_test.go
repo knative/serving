@@ -75,12 +75,12 @@ func TestNewAccessorError(t *testing.T) {
 		reason: "",
 		want:   ": test error",
 	}, {
-		name:   "no error with reason",
+		name:   "error with no message and with reason",
 		err:    errors.New(""),
 		reason: NotOwnResource,
 		want:   "notowned: ",
 	}, {
-		name:   "no error and reason",
+		name:   "error with no message and reason",
 		err:    errors.New(""),
 		reason: "",
 		want:   ": ",
