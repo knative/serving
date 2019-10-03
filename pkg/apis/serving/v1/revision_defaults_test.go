@@ -229,6 +229,76 @@ func TestRevisionDefaulting(t *testing.T) {
 			},
 		},
 	}, {
+		name: "with non zero period seconds and zero failure threshold",
+		in: &Revision{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						ReadinessProbe: &corev1.Probe{
+							PeriodSeconds:  10,
+							TimeoutSeconds: 15,
+						},
+					}},
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:      config.DefaultUserContainerName,
+						Resources: defaultResources,
+						ReadinessProbe: &corev1.Probe{
+							SuccessThreshold: 1,
+							PeriodSeconds:    10,
+							FailureThreshold: 3,
+							TimeoutSeconds:   15,
+							Handler: corev1.Handler{
+								TCPSocket: &corev1.TCPSocketAction{},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}, {
+		name: "with non zero period seconds and zero timeout second",
+		in: &Revision{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						ReadinessProbe: &corev1.Probe{
+							PeriodSeconds:    10,
+							FailureThreshold: 4,
+						},
+					}},
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:      config.DefaultUserContainerName,
+						Resources: defaultResources,
+						ReadinessProbe: &corev1.Probe{
+							SuccessThreshold: 1,
+							PeriodSeconds:    10,
+							FailureThreshold: 4,
+							TimeoutSeconds:   10,
+							Handler: corev1.Handler{
+								TCPSocket: &corev1.TCPSocketAction{},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}, {
 		name: "partially initialized",
 		in: &Revision{
 			Spec: RevisionSpec{
