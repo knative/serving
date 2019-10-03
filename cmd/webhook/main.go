@@ -106,7 +106,7 @@ func main() {
 	logger = logger.With(zap.String(logkey.ControllerType, component))
 
 	if err := version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
-		logger.Fatalw("Version check failed", err)
+		logger.Fatalw("Version check failed", zap.Error(err))
 	}
 
 	profilingHandler := profiling.NewHandler(logger, false)

@@ -143,7 +143,7 @@ func main() {
 
 	// Start all of the informers and wait for them to sync.
 	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-		logger.Fatalw("Failed to start informers", err)
+		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
 	go controller.StartAll(ctx.Done(), controllers...)
