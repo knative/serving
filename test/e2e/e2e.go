@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -13,7 +14,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	"github.com/google/go-cmp/cmp"
-	perrors "github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
@@ -66,7 +66,7 @@ func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clien
 
 	cfg, err := autoscalerCM(clients)
 	if err != nil {
-		return perrors.Wrap(err, "failed to get autoscaler configmap")
+		return fmt.Errorf("failed to get autoscaler configmap: %w", err)
 	}
 
 	return pkgTest.WaitForDeploymentState(

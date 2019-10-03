@@ -26,7 +26,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
@@ -79,7 +78,7 @@ func validateDomains(
 		})
 	}
 	if err := g.Wait(); err != nil {
-		return errors.Wrap(err, "error with initial domain probing")
+		return fmt.Errorf("error with initial domain probing: %w", err)
 	}
 
 	g.Go(func() error {
@@ -98,7 +97,7 @@ func validateDomains(
 		})
 	}
 	if err := g.Wait(); err != nil {
-		return errors.Wrap(err, "error checking routing distribution")
+		return fmt.Errorf("error checking routing distribution: %w", err)
 	}
 	return nil
 }

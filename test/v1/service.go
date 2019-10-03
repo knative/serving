@@ -23,10 +23,11 @@ import (
 	"testing"
 
 	"github.com/mattbaird/jsonpatch"
-	"github.com/pkg/errors"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+
 	ptest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -215,7 +216,7 @@ func WaitForServiceState(client *test.ServingClients, name string, inState func(
 	})
 
 	if waitErr != nil {
-		return errors.Wrapf(waitErr, "service %q is not in desired state, got: %+v", name, lastState)
+		return fmt.Errorf("service %q is not in desired state, got: %+v: %w", name, lastState, waitErr)
 	}
 	return nil
 }

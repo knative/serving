@@ -27,7 +27,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -95,12 +94,12 @@ func parseResponse(body string) (*event, *event, error) {
 
 	start, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to parse start timestamp, body %q", body)
+		return nil, nil, fmt.Errorf("failed to parse start timestamp, body %q: %w", body, err)
 	}
 
 	end, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to parse end timestamp, body %q", body)
+		return nil, nil, fmt.Errorf("failed to parse end timestamp, body %q: %w", body, err)
 	}
 
 	startEvent := &event{1, time.Unix(0, int64(start))}

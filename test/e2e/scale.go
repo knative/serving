@@ -23,7 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	pkgTest "knative.dev/pkg/test"
@@ -108,7 +107,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 
 			if err != nil {
 				t.Errorf("CreateLatestService() = %v", err)
-				return errors.Wrap(err, "CreateLatestService() failed")
+				return fmt.Errorf("CreateLatestService() failed: %w", err)
 			}
 			// Record the time it took to create the service.
 			latencies.Add("time-to-create", start)
@@ -129,7 +128,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			}, "ServiceUpdatedWithURL")
 			if err != nil {
 				t.Errorf("WaitForServiceState(w/ Domain) = %v", err)
-				return errors.Wrap(err, "WaitForServiceState(w/ Domain) failed")
+				return fmt.Errorf("WaitForServiceState(w/ Domain) failed: %w", err)
 			}
 			// Record the time it took to become ready.
 			latencies.Add("time-to-ready", start)
@@ -143,7 +142,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				test.ServingFlags.ResolvableDomain)
 			if err != nil {
 				t.Errorf("WaitForEndpointState(expected text) = %v", err)
-				return errors.Wrap(err, "WaitForEndpointState(expected text) failed")
+				return fmt.Errorf("WaitForEndpointState(expected text) failed: %w", err)
 			}
 			// Record the time it took to get back a 200 with the expected text.
 			latencies.Add("time-to-200", start)

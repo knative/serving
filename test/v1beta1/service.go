@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	"github.com/mattbaird/jsonpatch"
-	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -216,7 +215,7 @@ func WaitForServiceState(client *test.ServingBetaClients, name string, inState f
 	})
 
 	if waitErr != nil {
-		return errors.Wrapf(waitErr, "service %q is not in desired state, got: %+v", name, lastState)
+		return fmt.Errorf("service %q is not in desired state, got: %+v: %w", name, lastState, waitErr)
 	}
 	return nil
 }
