@@ -195,7 +195,7 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue(true, "spec.traffic[0].latestRevision"),
+		want: apis.ErrGeneric(`may not set revisionName "valid" when latestRevision is true`, "spec.traffic[0].latestRevision"),
 	}, {
 		name: "invalid container concurrency",
 		r: &Service{
