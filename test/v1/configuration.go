@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/test/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -132,7 +131,7 @@ func WaitForConfigurationState(client *test.ServingClients, name string, inState
 	})
 
 	if waitErr != nil {
-		return errors.Wrapf(waitErr, "configuration %q is not in desired state, got: %+v", name, lastState)
+		return fmt.Errorf("configuration %q is not in desired state, got: %+v: %w", name, lastState, waitErr)
 	}
 	return nil
 }

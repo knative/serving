@@ -22,15 +22,15 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/pkg/errors"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/spoof"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
-
 	rtesting "knative.dev/serving/pkg/testing/v1beta1"
 	"knative.dev/serving/test"
 )
@@ -84,7 +84,7 @@ func WaitForRouteState(client *test.ServingBetaClients, name string, inState fun
 	})
 
 	if waitErr != nil {
-		return errors.Wrapf(waitErr, "route %q is not in desired state, got: %+v", name, lastState)
+		return fmt.Errorf("route %q is not in desired state, got: %+v: %w", name, lastState, waitErr)
 	}
 	return nil
 }

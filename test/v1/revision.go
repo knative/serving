@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/test/logging"
@@ -48,7 +47,7 @@ func WaitForRevisionState(client *test.ServingClients, name string, inState func
 	})
 
 	if waitErr != nil {
-		return errors.Wrapf(waitErr, "revision %q is not in desired state, got: %+v", name, lastState)
+		return fmt.Errorf("revision %q is not in desired state, got: %+v: %w", name, lastState, waitErr)
 	}
 	return nil
 }
