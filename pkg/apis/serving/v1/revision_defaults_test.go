@@ -181,6 +181,9 @@ func TestRevisionDefaulting(t *testing.T) {
 						Resources: defaultResources,
 						ReadinessProbe: &corev1.Probe{
 							SuccessThreshold: 1,
+							PeriodSeconds:    0,
+							FailureThreshold: 0,
+							TimeoutSeconds:   0,
 							Handler: corev1.Handler{
 								TCPSocket: &corev1.TCPSocketAction{
 									Host: "127.0.0.2",
@@ -222,6 +225,76 @@ func TestRevisionDefaulting(t *testing.T) {
 								Exec: &corev1.ExecAction{
 									Command: []string{"echo", "hi"},
 								},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}, {
+		name: "with zero period seconds and zero failure threshold",
+		in: &Revision{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						ReadinessProbe: &corev1.Probe{
+							PeriodSeconds:  0,
+							TimeoutSeconds: 15,
+						},
+					}},
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:      config.DefaultUserContainerName,
+						Resources: defaultResources,
+						ReadinessProbe: &corev1.Probe{
+							SuccessThreshold: 1,
+							PeriodSeconds:    0,
+							FailureThreshold: 0,
+							TimeoutSeconds:   15,
+							Handler: corev1.Handler{
+								TCPSocket: &corev1.TCPSocketAction{},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}, {
+		name: "with zero period seconds and zero timeout second",
+		in: &Revision{
+			Spec: RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						ReadinessProbe: &corev1.Probe{
+							PeriodSeconds:    0,
+							FailureThreshold: 4,
+						},
+					}},
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:      config.DefaultUserContainerName,
+						Resources: defaultResources,
+						ReadinessProbe: &corev1.Probe{
+							SuccessThreshold: 1,
+							PeriodSeconds:    0,
+							FailureThreshold: 4,
+							TimeoutSeconds:   0,
+							Handler: corev1.Handler{
+								TCPSocket: &corev1.TCPSocketAction{},
 							},
 						},
 					}},
