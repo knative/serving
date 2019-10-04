@@ -48,21 +48,11 @@ parallelism=""
 (( ISTIO_MESH )) && parallelism="-parallel 1"
 
 # Run conformance and e2e tests.
-if (( INSTALL_V1 )); then
-  # When v1 is installed, run all our tests
-  go_test_e2e -timeout=30m \
-    ./test/conformance/... \
-    ./test/e2e \
-    ${parallelism} \
-    "--resolvabledomain=$(use_resolvable_domain)" || failed=1
-else
-  go_test_e2e -timeout=30m \
-    ./test/conformance/api/v1alpha1 \
-    ./test/conformance/runtime \
-    ./test/e2e \
-    ${parallelism} \
-    "--resolvabledomain=$(use_resolvable_domain)" || failed=1
-fi
+go_test_e2e -timeout=30m \
+  ./test/conformance/... \
+  ./test/e2e \
+  ${parallelism} \
+  "--resolvabledomain=$(use_resolvable_domain)" || failed=1
 
 # Istio E2E tests mutate the cluster and must be ran separately
 # TODO(https://github.com/knative/test-infra/issues/1398): use proper flags instead of binary GLOO/no GLOO
