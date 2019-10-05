@@ -70,6 +70,7 @@ const (
 // to supply revisionDestsUpdate events on updateCh
 type revisionWatcher struct {
 	doneCh   <-chan struct{}
+	cancel   context.CancelFunc
 	rev      types.NamespacedName
 	protocol networking.ProtocolType
 	updateCh chan<- revisionDestsUpdate
@@ -80,23 +81,25 @@ type revisionWatcher struct {
 	clusterIPHealthy bool
 
 	transport     http.RoundTripper
-	destsChan     <-chan sets.String
+	destsCh       chan sets.String
 	serviceLister corev1listers.ServiceLister
 	logger        *zap.SugaredLogger
 }
 
-func newRevisionWatcher(doneCh <-chan struct{}, rev types.NamespacedName, protocol networking.ProtocolType,
-	updateCh chan<- revisionDestsUpdate, destsChan <-chan sets.String,
+func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol networking.ProtocolType,
+	updateCh chan<- revisionDestsUpdate, destsCh chan sets.String,
 	transport http.RoundTripper, serviceLister corev1listers.ServiceLister,
 	logger *zap.SugaredLogger) *revisionWatcher {
+	ctx, cancel := context.WithCancel(ctx)
 	return &revisionWatcher{
-		doneCh:        doneCh,
+		doneCh:        ctx.Done(),
+		cancel:        cancel,
 		rev:           rev,
 		protocol:      protocol,
 		updateCh:      updateCh,
 		healthyPods:   sets.NewString(),
 		transport:     transport,
-		destsChan:     destsChan,
+		destsCh:       destsCh,
 		serviceLister: serviceLister,
 		logger:        logger,
 	}
@@ -270,6 +273,8 @@ func (rw *revisionWatcher) checkDests(dests sets.String) {
 }
 
 func (rw *revisionWatcher) run(probeFrequency time.Duration) {
+	defer close(rw.destsCh)
+
 	var dests sets.String
 	timer := time.NewTicker(probeFrequency)
 	defer timer.Stop()
@@ -285,10 +290,7 @@ func (rw *revisionWatcher) run(probeFrequency time.Duration) {
 		select {
 		case <-rw.doneCh:
 			return
-		case x, ok := <-rw.destsChan:
-			if !ok {
-				return
-			}
+		case x := <-rw.destsCh:
 			dests = x
 		case <-tickCh:
 		}
@@ -297,19 +299,14 @@ func (rw *revisionWatcher) run(probeFrequency time.Duration) {
 	}
 }
 
-type revisionWatcherCh struct {
-	revisionWatcher *revisionWatcher
-	ch              chan sets.String
-}
-
 // revisionBackendsManager listens to revision endpoints and keeps track of healthy
 // l4 dests which can be used to reach a revision
 type revisionBackendsManager struct {
-	doneCh         <-chan struct{}
+	ctx            context.Context
 	revisionLister servinglisters.RevisionLister
 	serviceLister  corev1listers.ServiceLister
 
-	revisionWatchers    map[types.NamespacedName]*revisionWatcherCh
+	revisionWatchers    map[types.NamespacedName]*revisionWatcher
 	revisionWatchersMux sync.RWMutex
 
 	updateCh       chan revisionDestsUpdate
@@ -328,10 +325,10 @@ func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper) *revi
 func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.RoundTripper,
 	probeFreq time.Duration) *revisionBackendsManager {
 	rbm := &revisionBackendsManager{
-		doneCh:           ctx.Done(),
+		ctx:              ctx,
 		revisionLister:   revisioninformer.Get(ctx).Lister(),
 		serviceLister:    serviceinformer.Get(ctx).Lister(),
-		revisionWatchers: make(map[types.NamespacedName]*revisionWatcherCh),
+		revisionWatchers: make(map[types.NamespacedName]*revisionWatcher),
 		updateCh:         make(chan revisionDestsUpdate),
 		transport:        tr,
 		logger:           logging.FromContext(ctx),
@@ -351,11 +348,20 @@ func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.R
 			DeleteFunc: rbm.endpointsDeleted,
 		},
 	})
-	// We close the update channel when we're done,
-	// to make sure Throttler will stop.
+
 	go func() {
-		<-rbm.doneCh
-		close(rbm.updateCh)
+		// updateCh can only be closed after revisionWatchers are done running
+		defer close(rbm.updateCh)
+
+		// Wait for cancellation
+		<-rbm.ctx.Done()
+
+		// Wait for all revisionWatchers to be done
+		rbm.revisionWatchersMux.Lock()
+		defer rbm.revisionWatchersMux.Unlock()
+		for _, rw := range rbm.revisionWatchers {
+			<-rw.destsCh
+		}
 	}()
 
 	return rbm
@@ -374,7 +380,7 @@ func (rbm *revisionBackendsManager) getRevisionProtocol(revID types.NamespacedNa
 	return revision.GetProtocol(), nil
 }
 
-func (rbm *revisionBackendsManager) getOrCreateRevisionWatcher(rev types.NamespacedName) (*revisionWatcherCh, error) {
+func (rbm *revisionBackendsManager) getOrCreateRevisionWatcher(rev types.NamespacedName) (*revisionWatcher, error) {
 	rbm.revisionWatchersMux.Lock()
 	defer rbm.revisionWatchersMux.Unlock()
 
@@ -386,10 +392,10 @@ func (rbm *revisionBackendsManager) getOrCreateRevisionWatcher(rev types.Namespa
 		}
 
 		destsCh := make(chan sets.String)
-		rw := newRevisionWatcher(rbm.doneCh, rev, proto, rbm.updateCh, destsCh, rbm.transport, rbm.serviceLister, rbm.logger)
-		rbm.revisionWatchers[rev] = &revisionWatcherCh{rw, destsCh}
+		rw := newRevisionWatcher(rbm.ctx, rev, proto, rbm.updateCh, destsCh, rbm.transport, rbm.serviceLister, rbm.logger)
+		rbm.revisionWatchers[rev] = rw
 		go rw.run(rbm.probeFrequency)
-		return rbm.revisionWatchers[rev], nil
+		return rw, nil
 	}
 
 	return rwCh, nil
@@ -400,7 +406,7 @@ func (rbm *revisionBackendsManager) getOrCreateRevisionWatcher(rev types.Namespa
 func (rbm *revisionBackendsManager) endpointsUpdated(newObj interface{}) {
 	// Ignore the updates when we've terminated.
 	select {
-	case <-rbm.doneCh:
+	case <-rbm.ctx.Done():
 		return
 	default:
 	}
@@ -408,22 +414,22 @@ func (rbm *revisionBackendsManager) endpointsUpdated(newObj interface{}) {
 	endpoints := newObj.(*corev1.Endpoints)
 	revID := types.NamespacedName{endpoints.Namespace, endpoints.Labels[serving.RevisionLabelKey]}
 
-	rwCh, err := rbm.getOrCreateRevisionWatcher(revID)
+	rw, err := rbm.getOrCreateRevisionWatcher(revID)
 	if err != nil {
 		rbm.logger.Errorw(fmt.Sprintf("Failed to get revision watcher for revision %q", revID.String()),
 			zap.Error(err))
 		return
 	}
-	dests := endpointsToDests(endpoints, networking.ServicePortName(rwCh.revisionWatcher.protocol))
+	dests := endpointsToDests(endpoints, networking.ServicePortName(rw.protocol))
 	rbm.logger.Debugf("Updating Endpoints: %q (backends: %d)", revID.String(), len(dests))
-	rwCh.ch <- dests
+	rw.destsCh <- dests
 }
 
-// deleteRevisionWatcher deletes the revision wathcher for rev if it exists. It expects
+// deleteRevisionWatcher deletes the revision watcher for rev if it exists. It expects
 // a write lock is held on revisionWatchersMux when calling.
 func (rbm *revisionBackendsManager) deleteRevisionWatcher(rev types.NamespacedName) {
 	if rw, ok := rbm.revisionWatchers[rev]; ok {
-		close(rw.ch)
+		rw.cancel()
 		delete(rbm.revisionWatchers, rev)
 		rbm.updateCh <- revisionDestsUpdate{Rev: rev, Deleted: true}
 	}
@@ -432,7 +438,7 @@ func (rbm *revisionBackendsManager) deleteRevisionWatcher(rev types.NamespacedNa
 func (rbm *revisionBackendsManager) endpointsDeleted(obj interface{}) {
 	// Ignore the updates when we've terminated.
 	select {
-	case <-rbm.doneCh:
+	case <-rbm.ctx.Done():
 		return
 	default:
 	}
