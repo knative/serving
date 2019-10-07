@@ -214,18 +214,21 @@ func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker) (*Res
 		resp, err = sc.Do(req)
 		if err != nil {
 			if isTCPTimeout(err) {
-				sc.Logf("Retrying %s for TCP timeout %v", req.URL.String(), err)
+				sc.Logf("Retrying %s for TCP timeout: %v", req.URL, err)
 				return false, nil
 			}
 			// Retrying on DNS error, since we may be using xip.io or nip.io in tests.
 			if isDNSError(err) {
-				sc.Logf("Retrying %s for DNS error %v", req.URL.String(), err)
+				sc.Logf("Retrying %s for DNS error: %v", req.URL, err)
 				return false, nil
 			}
 			// Repeat the poll on `connection refused` errors, which are usually transient Istio errors.
-			if isTCPConnectRefuse(err) {
-				sc.Logf("Retrying %s for connection refused %v", req.URL.String(), err)
+			if isConnectionRefused(err) {
+				sc.Logf("Retrying %s for connection refused: %v", req.URL, err)
 				return false, nil
+			}
+			if isConnectionReset(err) {
+				sc.Logf("Retrying %s for connection reset: %v", req.URL, err)
 			}
 			return true, err
 		}

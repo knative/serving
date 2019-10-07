@@ -51,10 +51,3 @@ func getResourceName(rt ResourceType) (string, error) {
 	}
 	return resName, nil
 }
-
-func getClusterLocation(region, zone string) string {
-	if zone != "" {
-		region = fmt.Sprintf("%s-%s", region, zone)
-	}
-	return region
-}

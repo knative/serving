@@ -17,6 +17,7 @@ limitations under the License.
 package github
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -69,6 +70,12 @@ type config struct {
 
 // Setup creates the necessary setup to make calls to work with github issues
 func Setup(org, repo, githubTokenPath string, dryrun bool) (*IssueHandler, error) {
+	if org == "" {
+		return nil, errors.New("org cannot be empty")
+	}
+	if repo == "" {
+		return nil, errors.New("repo cannot be empty")
+	}
 	ghc, err := ghutil.NewGithubClient(githubTokenPath)
 	if err != nil {
 		return nil, fmt.Errorf("cannot authenticate to github: %v", err)
