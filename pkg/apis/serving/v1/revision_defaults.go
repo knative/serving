@@ -99,7 +99,7 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 			}
 
 			if rs.PodSpec.Containers[idx].ReadinessProbe.TimeoutSeconds == 0 {
-				rs.PodSpec.Containers[idx].ReadinessProbe.TimeoutSeconds = 10
+				rs.PodSpec.Containers[idx].ReadinessProbe.TimeoutSeconds = 1
 			}
 		}
 		vms := rs.PodSpec.Containers[idx].VolumeMounts

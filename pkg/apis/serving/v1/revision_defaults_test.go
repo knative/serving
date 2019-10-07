@@ -362,7 +362,7 @@ func TestRevisionDefaulting(t *testing.T) {
 							SuccessThreshold: 1,
 							PeriodSeconds:    10,
 							FailureThreshold: 4,
-							TimeoutSeconds:   10,
+							TimeoutSeconds:   1,
 							Handler: corev1.Handler{
 								TCPSocket: &corev1.TCPSocketAction{},
 							},
