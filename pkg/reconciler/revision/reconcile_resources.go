@@ -43,7 +43,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		// Deployment does not exist. Create it.
 		rev.Status.MarkResourcesAvailableUnknown(v1alpha1.Deploying, "")
 		rev.Status.MarkContainerHealthyUnknown(v1alpha1.Deploying, "")
-		deployment, err = c.createDeployment(ctx, rev)
+		deployment, err = c.createDeployment(ctx, rev, c.secretLister)
 		if err != nil {
 			return fmt.Errorf("failed to create deployment %q: %w", deploymentName, err)
 		}
@@ -56,7 +56,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		return fmt.Errorf("revision: %q does not own Deployment: %q", rev.Name, deploymentName)
 	} else {
 		// The deployment exists, but make sure that it has the shape that we expect.
-		deployment, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
+		deployment, err = c.checkAndUpdateDeployment(ctx, rev, deployment, c.secretLister)
 		if err != nil {
 			return fmt.Errorf("failed to update deployment %q: %w", deploymentName, err)
 		}

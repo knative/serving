@@ -58,6 +58,7 @@ type Reconciler struct {
 	podAutoscalerLister palisters.PodAutoscalerLister
 	imageLister         cachinglisters.ImageLister
 	deploymentLister    appsv1listers.DeploymentLister
+	secretLister        corev1listers.SecretLister
 	serviceLister       corev1listers.ServiceLister
 	configMapLister     corev1listers.ConfigMapLister
 

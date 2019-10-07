@@ -25,8 +25,6 @@ import (
 	"testing"
 	"time"
 
-	"knative.dev/serving/pkg/apis/config"
-
 	// Inject the fakes for informers this controller relies on.
 	fakecachingclient "knative.dev/caching/pkg/client/injection/client/fake"
 	fakeimageinformer "knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake"
@@ -34,6 +32,7 @@ import (
 	fakedeploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap/fake"
 	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
@@ -59,6 +58,7 @@ import (
 	"knative.dev/pkg/system"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler"
@@ -117,6 +117,7 @@ func newTestControllerWithConfig(t *testing.T, deploymentConfig *deployment.Conf
 
 	ctx, informers := SetupFakeContext(t)
 	configMapWatcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
+
 	controller := NewController(ctx, configMapWatcher)
 
 	controller.Reconciler.(*Reconciler).resolver = &nopResolver{}

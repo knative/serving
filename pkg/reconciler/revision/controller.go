@@ -24,6 +24,7 @@ import (
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	configmapinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap"
+	secretinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/secret"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
@@ -60,6 +61,7 @@ func NewController(
 
 	deploymentInformer := deploymentinformer.Get(ctx)
 	serviceInformer := serviceinformer.Get(ctx)
+	secretInformer := secretinformer.Get(ctx)
 	configMapInformer := configmapinformer.Get(ctx)
 	imageInformer := imageinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
@@ -72,6 +74,7 @@ func NewController(
 		imageLister:         imageInformer.Lister(),
 		deploymentLister:    deploymentInformer.Lister(),
 		serviceLister:       serviceInformer.Lister(),
+		secretLister:        secretInformer.Lister(),
 		configMapLister:     configMapInformer.Lister(),
 		resolver: &digestResolver{
 			client:    kubeclient.Get(ctx),

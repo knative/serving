@@ -19,9 +19,11 @@ package revision
 import (
 	"context"
 	"fmt"
+	"knative.dev/pkg/apis"
 
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	v1 "k8s.io/client-go/listers/core/v1"
 	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
@@ -32,7 +34,7 @@ import (
 	presources "knative.dev/serving/pkg/resources"
 )
 
-func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revision) (*appsv1.Deployment, error) {
+func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revision, secretLister v1.SecretLister) (*appsv1.Deployment, error) {
 	cfgs := config.FromContext(ctx)
 
 	deployment, err := resources.MakeDeployment(
@@ -47,11 +49,13 @@ func (c *Reconciler) createDeployment(ctx context.Context, rev *v1alpha1.Revisio
 	if err != nil {
 		return nil, fmt.Errorf("failed to make deployment: %w", err)
 	}
-
+	if err := verifySecrets(rev, secretLister); err != nil {
+		return nil, fmt.Errorf("failed to verify secrets: %w", err)
+	}
 	return c.KubeClientSet.AppsV1().Deployments(deployment.Namespace).Create(deployment)
 }
 
-func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1.Revision, have *appsv1.Deployment) (*appsv1.Deployment, error) {
+func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1.Revision, have *appsv1.Deployment, secretLister v1.SecretLister) (*appsv1.Deployment, error) {
 	logger := logging.FromContext(ctx)
 	cfgs := config.FromContext(ctx)
 
@@ -66,6 +70,9 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1alpha1
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to update deployment: %w", err)
+	}
+	if err := verifySecrets(rev, secretLister); err != nil {
+		return nil, fmt.Errorf("failed to verify secrets: %w", err)
 	}
 
 	// Preserve the current scale of the Deployment.
@@ -117,4 +124,57 @@ func (c *Reconciler) createPA(ctx context.Context, rev *v1alpha1.Revision) (*av1
 	pa := resources.MakePA(rev)
 
 	return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Create(pa)
+}
+
+func tryFetchSecret(name, ns string, optional *bool, secretLister v1.SecretLister) *apis.FieldError {
+	if optional == nil || *optional == false {
+		if _, err := secretLister.Secrets(ns).Get(name); err != nil {
+			return (&apis.FieldError{
+				Message: err.Error(),
+				Paths:   []string{apis.CurrentField},
+			})
+		}
+	}
+	return nil
+}
+
+func verifySecrets(rev *v1alpha1.Revision, secretLister v1.SecretLister) *apis.FieldError {
+	var apiErrs *apis.FieldError
+	// Check secrets in volume source
+	for i, volume := range rev.Spec.Volumes {
+		if secret := volume.VolumeSource.Secret; secret != nil {
+			if err := tryFetchSecret(secret.SecretName, rev.Namespace, secret.Optional, secretLister); err != nil {
+				apiErrs = apiErrs.Also(err.
+					ViaField("secretName").ViaField("volumeSource").
+					ViaFieldIndex("volumes", i).ViaField("spec"))
+			}
+		}
+		if projected := volume.VolumeSource.Projected; projected != nil {
+			for j, sources := range projected.Sources {
+				if secret := sources.Secret; secret != nil {
+					if err := tryFetchSecret(secret.Name, rev.Namespace, secret.Optional, secretLister); err != nil {
+						apiErrs = apiErrs.Also(err.
+							ViaField("secret").ViaFieldIndex("sources", j).ViaField("projected").
+							ViaField("volumeSource").ViaFieldIndex("volumes", i).ViaField("spec"))
+					}
+				}
+			}
+		}
+	}
+
+	// Check secrets in container envfrom
+	for i, container := range rev.Spec.Containers {
+		if len(container.EnvFrom) != 0 {
+			for j, env := range container.EnvFrom {
+				if secret := env.SecretRef; secret != nil {
+					if err := tryFetchSecret(secret.Name, rev.Namespace, secret.Optional, secretLister); err != nil {
+						apiErrs = apiErrs.Also(err.
+							ViaField("secretRef").ViaFieldIndex("envFrom", j).
+							ViaFieldIndex("containers", i).ViaField("spec"))
+					}
+				}
+			}
+		}
+	}
+	return apiErrs
 }

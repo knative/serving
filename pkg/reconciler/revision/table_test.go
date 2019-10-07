@@ -24,6 +24,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	k8sinformers "k8s.io/client-go/informers"
+	corev1informer "k8s.io/client-go/informers/core/v1"
+	kubefake "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
 	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
@@ -566,6 +570,46 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, AllUnknownConditions, MarkDeploying("Deploying")),
 		}},
 		Key: "foo/image-pull-secrets",
+	}, {
+		Name:    "secrets (from volume source) not found",
+		WantErr: true,
+		Objects: []runtime.Object{
+			rev("foo", "secret-not-found-volume-source",
+				withoutLabels(),
+				withK8sServiceName("secret-not-found-volume-source"), WithLogURL,
+				MarkRevisionReady,
+				func(revision *v1alpha1.Revision) {
+					revision.Spec.GetContainer().VolumeMounts = []corev1.VolumeMount{{
+						Name:      "asdf1",
+						MountPath: "/asdf1",
+					}}
+					revision.Spec.GetContainer().ReadinessProbe = &corev1.Probe{
+						Handler: corev1.Handler{
+							TCPSocket: &corev1.TCPSocketAction{
+								Host: "127.0.0.1",
+								Port: intstr.FromInt(v1alpha1.DefaultUserPort),
+							},
+						},
+					}
+					revision.Spec.Volumes = []corev1.Volume{{
+						Name: "asdf1",
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: "asdf1",
+							},
+						},
+					}}
+				},
+			),
+			pa("foo", "secret-not-found-volume-source", WithTraffic),
+			deploy(t, "foo", "secret-not-found-volume-source"),
+			image("foo", "secret-not-found-volume-source"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				`failed to update deployment "secret-not-found-volume-source-deployment": failed to verify secrets: secret "asdf1" not found: spec.volumes[0].volumeSource.secretName`),
+		},
+		Key: "foo/secret-not-found-volume-source",
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
@@ -576,6 +620,7 @@ func TestReconcile(t *testing.T) {
 			imageLister:         listers.GetImageLister(),
 			deploymentLister:    listers.GetDeploymentLister(),
 			serviceLister:       listers.GetK8sServiceLister(),
+			secretLister:        listers.GetSecretLister(),
 			configMapLister:     listers.GetConfigMapLister(),
 			resolver:            &nopResolver{},
 			configStore:         &testConfigStore{config: ReconcilerTestConfig()},
@@ -666,6 +711,12 @@ func rev(namespace, name string, ro ...RevisionOption) *v1alpha1.Revision {
 func withK8sServiceName(sn string) RevisionOption {
 	return func(r *v1alpha1.Revision) {
 		r.Status.ServiceName = sn
+	}
+}
+
+func withoutLabels() RevisionOption {
+	return func(r *v1alpha1.Revision) {
+		r.ObjectMeta.Labels = map[string]string{}
 	}
 }
 
@@ -766,4 +817,10 @@ func ReconcilerTestConfig() *config.Config {
 		Logging: &logging.Config{},
 		Tracing: &tracingconfig.Config{},
 	}
+}
+
+func getSecretInformer() corev1informer.SecretInformer {
+	fake := kubefake.NewSimpleClientset()
+	informer := k8sinformers.NewSharedInformerFactory(fake, 0)
+	return informer.Core().V1().Secrets()
 }
