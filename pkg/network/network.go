@@ -60,9 +60,12 @@ const (
 	// that specifies Istio outbound ip ranges.
 	IstioOutboundIPRangesKey = "istio.sidecar.includeOutboundIPRanges"
 
+	// DepreciatedDefaultIngressClassKey.  Please use DefaultIngressClassKey instread
+	DepreciatedDefaultIngressClassKey = "clusteringress.class"
+
 	// DefaultIngressClassKey is the name of the configuration entry
 	// that specifies the default Ingress.
-	DefaultIngressClassKey = "clusteringress.class"
+	DefaultIngressClassKey = "ingress.class"
 
 	// DefaultCertificateClassKey is the name of the configuration entry
 	// that specifies the default Certificate.
@@ -235,7 +238,12 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 	}
 
 	if ingressClass, ok := configMap.Data[DefaultIngressClassKey]; !ok {
-		nc.DefaultIngressClass = IstioIngressClassName
+		// Honor depreciated clusteringress class key in the case that ingress.class is not specified
+		if ingressClass, ok = configMap.Data[DepreciatedDefaultIngressClassKey]; !ok {
+			nc.DefaultIngressClass = IstioIngressClassName
+		} else {
+			nc.DefaultIngressClass = ingressClass
+		}
 	} else {
 		nc.DefaultIngressClass = ingressClass
 	}

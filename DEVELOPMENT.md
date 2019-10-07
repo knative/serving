@@ -211,7 +211,7 @@ metadata:
 
 data:
   istio.sidecar.includeOutboundIPRanges: "172.30.0.0/16,172.20.0.0/16,10.10.10.0/24"
-  clusteringress.class: "istio.ingress.networking.knative.dev"
+  ingress.class: "istio.ingress.networking.knative.dev"
 ```
 
 You should keep the default value for "istio.sidecar.includeOutboundIPRanges",
