@@ -21,6 +21,7 @@ package e2e
 import (
 	"context"
 	"io"
+	"net"
 	"strconv"
 	"strings"
 	"testing"
@@ -57,9 +58,16 @@ func dial(host, domain string) (*grpc.ClientConn, error) {
 	if host != domain {
 		// The host to connect and the domain accepted differ.
 		// We need to do grpc.WithAuthority(...) here.
+
+		// We need to remove the port part in the domain to use it as the authority
+		authority, _, err := net.SplitHostPort(domain)
+		if err != nil {
+			return nil, err
+		}
+
 		return grpc.Dial(
 			host,
-			grpc.WithAuthority(domain),
+			grpc.WithAuthority(authority),
 			grpc.WithInsecure(),
 			// Retrying DNS errors to avoid .xip.io issues.
 			grpc.WithDefaultCallOptions(grpc.FailFast(false)),
