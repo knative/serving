@@ -74,7 +74,7 @@ data:
     #
     istio.sidecar.includeOutboundIPRanges: "*"
 
-    # clusteringress.class has been depreciated.   Please use ingress.class instead
+    # clusteringress.class has been depreciated.   Please use ingress.class instead.
     clusteringress.class: "istio.ingress.networking.knative.dev"
 
     # ingress.class specifies the default ingress class
