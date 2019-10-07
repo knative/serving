@@ -20,12 +20,13 @@ import (
 	"context"
 	"flag"
 	"log"
+	"net/http"
 	"time"
 
 	vegeta "github.com/tsenart/vegeta/lib"
 	"knative.dev/pkg/signals"
-
 	"knative.dev/pkg/test/mako"
+	"knative.dev/pkg/test/spoof"
 )
 
 var (
@@ -74,12 +75,28 @@ func main() {
 		fatalf("Unrecognized target: %s", *target)
 	}
 
+	// Make sure the target is ready before sending the large amount of requests.
+	spoofingClient := spoof.SpoofingClient{
+		Client:          &http.Client{},
+		RequestInterval: 1 * time.Second,
+		RequestTimeout:  *duration,
+		Logf: func(fmt string, args ...interface{}) {
+			log.Printf(fmt, args)
+		},
+	}
+	req, _ := http.NewRequest(http.MethodGet, t.target.URL, nil)
+	if _, err := spoofingClient.Poll(req, func(resp *spoof.Response) (done bool, err error) {
+		return true, nil
+	}); err != nil {
+		fatalf("Failed to get target ready for attacking: %v", err)
+	}
+
 	// Set up the threshold analyzers for the selected benchmark.  This will
 	// cause Mako/Quickstore to analyze the results we are storing and flag
 	// things that are outside of expected bounds.
 	q.Input.ThresholdInputs = append(q.Input.ThresholdInputs, t.analyzers...)
 
-	// Send 1000 QPS (1 per ms) for 5 minutes with a 30s request timeout.
+	// Send 1000 QPS (1 per ms) for the given duration with a 30s request timeout.
 	rate := vegeta.Rate{Freq: 1, Per: time.Millisecond}
 	targeter := vegeta.NewStaticTargeter(t.target)
 	attacker := vegeta.NewAttacker(vegeta.Timeout(30 * time.Second))

@@ -49,6 +49,15 @@ const (
 
 	// slackUserName is the slack user name that is used by Slack client
 	slackUserName = "Knative Testgrid Robot"
+
+	// These token settings are for alerter.
+	// If we want to enable the alerter for a benchmark, we need to mount the
+	// token to the pod, with the same name and path.
+	// See https://github.com/knative/serving/blob/master/test/performance/dataplane-probe/dataplane-probe.yaml
+	tokenFolder     = "/var/secret"
+	githubToken     = "github-token"
+	slackReadToken  = "slack-read-token"
+	slackWriteToken = "slack-write-token"
 )
 
 // Client is a wrapper that wraps all Mako related operations
@@ -71,11 +80,11 @@ func EscapeTag(tag string) string {
 	return strings.ReplaceAll(tag, ".", "_")
 }
 
-// Setup sets up the mako client for the provided benchmarkKey.
+// SetupHelper sets up the mako client for the provided benchmarkKey.
 // It will add a few common tags and allow each benchmark to add custm tags as well.
 // It returns the mako client handle to store metrics, a method to close the connection
 // to mako server once done and error in case of failures.
-func Setup(ctx context.Context, extraTags ...string) (*Client, error) {
+func SetupHelper(ctx context.Context, benchmarkKey *string, benchmarkName *string, extraTags ...string) (*Client, error) {
 	tags := append(config.MustGetTags(), extraTags...)
 	// Get the commit of the benchmarks
 	commitID, err := changeset.Get()
@@ -125,7 +134,6 @@ func Setup(ctx context.Context, extraTags ...string) (*Client, error) {
 		tags = append(tags, "instanceType="+EscapeTag(parts[3]))
 	}
 
-	benchmarkKey, benchmarkName := config.MustGetBenchmark()
 	// Create a new Quickstore that connects to the microservice
 	qs, qclose, err := quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
 		BenchmarkKey: benchmarkKey,
@@ -143,13 +151,13 @@ func Setup(ctx context.Context, extraTags ...string) (*Client, error) {
 	alerter := &alerter.Alerter{}
 	alerter.SetupGitHub(
 		org,
-		config.MustGetRepository(),
-		tokenPath("github-token"),
+		config.GetRepository(),
+		tokenPath(githubToken),
 	)
 	alerter.SetupSlack(
 		slackUserName,
-		tokenPath("slack-read-token"),
-		tokenPath("slack-write-token"),
+		tokenPath(slackReadToken),
+		tokenPath(slackWriteToken),
 		config.GetSlackChannels(*benchmarkName),
 	)
 
@@ -164,6 +172,15 @@ func Setup(ctx context.Context, extraTags ...string) (*Client, error) {
 	return client, nil
 }
 
+func Setup(ctx context.Context, extraTags ...string) (*Client, error) {
+	benchmarkKey, benchmarkName := config.MustGetBenchmark()
+	return SetupHelper(ctx, benchmarkKey, benchmarkName, extraTags...)
+}
+
+func SetupWithBenchmarkConfig(ctx context.Context, benchmarkKey *string, benchmarkName *string, extraTags ...string) (*Client, error) {
+	return SetupHelper(ctx, benchmarkKey, benchmarkName, extraTags...)
+}
+
 func tokenPath(token string) string {
-	return filepath.Join("/var/secrets", token)
+	return filepath.Join(tokenFolder, token)
 }

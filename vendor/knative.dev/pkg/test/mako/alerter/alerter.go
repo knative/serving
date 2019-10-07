@@ -17,6 +17,8 @@ limitations under the License.
 package alerter
 
 import (
+	"log"
+
 	qpb "github.com/google/mako/proto/quickstore/quickstore_go_proto"
 	"knative.dev/pkg/test/helpers"
 	"knative.dev/pkg/test/mako/alerter/github"
@@ -31,23 +33,21 @@ type Alerter struct {
 }
 
 // SetupGitHub will setup SetupGitHub for the alerter.
-func (alerter *Alerter) SetupGitHub(org, repo, githubTokenPath string) error {
+func (alerter *Alerter) SetupGitHub(org, repo, githubTokenPath string) {
 	issueHandler, err := github.Setup(org, repo, githubTokenPath, false)
 	if err != nil {
-		return err
+		log.Printf("Error happens in setup '%v', Github alerter will not be enabled", err)
 	}
 	alerter.githubIssueHandler = issueHandler
-	return nil
 }
 
 // SetupSlack will setup Slack for the alerter.
-func (alerter *Alerter) SetupSlack(userName, readTokenPath, writeTokenPath string, channels []config.Channel) error {
+func (alerter *Alerter) SetupSlack(userName, readTokenPath, writeTokenPath string, channels []config.Channel) {
 	messageHandler, err := slack.Setup(userName, readTokenPath, writeTokenPath, channels, false)
 	if err != nil {
-		return err
+		log.Printf("Error happens in setup '%v', Slack alerter will not be enabled", err)
 	}
 	alerter.slackMessageHandler = messageHandler
-	return nil
 }
 
 // HandleBenchmarkResult will handle the benchmark result which returns from `q.Store()`
