@@ -17,6 +17,7 @@ limitations under the License.
 package net
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"sync"
@@ -321,12 +322,13 @@ func TestRevisionWatcher(t *testing.T) {
 			}
 			rt := network.RoundTripperFunc(fakeRT.RT)
 
-			doneCh := make(chan struct{})
-			defer close(doneCh)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 
 			updateCh := make(chan revisionDestsUpdate, len(tc.expectUpdates)+1)
+			defer close(updateCh)
 
-			// This gets cleaned up as part of the test
+			// This gets closed up by revisionWatcher
 			destsCh := make(chan sets.String)
 
 			// Default for protocol is http1
@@ -346,7 +348,7 @@ func TestRevisionWatcher(t *testing.T) {
 			}
 
 			rw := newRevisionWatcher(
-				doneCh,
+				ctx,
 				revID,
 				tc.protocol,
 				updateCh,
@@ -377,7 +379,7 @@ func TestRevisionWatcher(t *testing.T) {
 			}
 
 			// Shutdown run loop.
-			close(destsCh)
+			cancel()
 
 			wg.Wait()
 
@@ -389,7 +391,23 @@ func TestRevisionWatcher(t *testing.T) {
 			if got, want := updates, tc.expectUpdates; !cmp.Equal(got, want, cmpopts.EquateEmpty()) {
 				t.Errorf("revisionDests updates = %v, want: %v, diff (-want, +got):\n %s", got, want, cmp.Diff(want, got))
 			}
+
+			assertChClosed(t, destsCh)
 		})
+	}
+}
+
+func assertChClosed(t *testing.T, ch chan sets.String) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("the channel was not closed")
+		}
+	}()
+	select {
+	case ch <- nil:
+		// Panics if the channel is closed
+	default:
+		// Prevents from blocking forever if the channel is not closed
 	}
 }
 
