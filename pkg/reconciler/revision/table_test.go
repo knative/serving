@@ -35,7 +35,6 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler"
@@ -733,8 +732,7 @@ func ReconcilerTestConfig() *config.Config {
 		Observability: &metrics.ObservabilityConfig{
 			LoggingURLTemplate: "http://logger.io/${REVISION_UID}",
 		},
-		Logging:    &logging.Config{},
-		Tracing:    &tracingconfig.Config{},
-		Autoscaler: &autoscaler.Config{},
+		Logging: &logging.Config{},
+		Tracing: &tracingconfig.Config{},
 	}
 }
