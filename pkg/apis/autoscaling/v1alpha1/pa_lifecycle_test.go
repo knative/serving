@@ -470,43 +470,43 @@ func TestTargetAnnotation(t *testing.T) {
 		name       string
 		pa         *PodAutoscaler
 		wantTarget float64
-		wantOk     bool
+		wantOK     bool
 	}{{
 		name:       "not present",
 		pa:         pa(map[string]string{}),
 		wantTarget: 0,
-		wantOk:     false,
+		wantOK:     false,
 	}, {
 		name: "present",
 		pa: pa(map[string]string{
 			autoscaling.TargetAnnotationKey: "1",
 		}),
 		wantTarget: 1,
-		wantOk:     true,
+		wantOK:     true,
 	}, {
 		name: "present float",
 		pa: pa(map[string]string{
 			autoscaling.TargetAnnotationKey: "19.82",
 		}),
 		wantTarget: 19.82,
-		wantOk:     true,
+		wantOK:     true,
 	}, {
 		name: "invalid format",
 		pa: pa(map[string]string{
 			autoscaling.TargetAnnotationKey: "sandwich",
 		}),
 		wantTarget: 0,
-		wantOk:     false,
+		wantOK:     false,
 	}}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			gotTarget, gotOk := tc.pa.Target()
+			gotTarget, gotOK := tc.pa.Target()
 			if gotTarget != tc.wantTarget {
 				t.Errorf("got target: %v wanted: %v", gotTarget, tc.wantTarget)
 			}
-			if gotOk != tc.wantOk {
-				t.Errorf("got ok: %v wanted %v", gotOk, tc.wantOk)
+			if gotOK != tc.wantOK {
+				t.Errorf("got ok: %v wanted %v", gotOK, tc.wantOK)
 			}
 		})
 	}
@@ -702,36 +702,36 @@ func TestWindowAnnotation(t *testing.T) {
 		name       string
 		pa         *PodAutoscaler
 		wantWindow time.Duration
-		wantOk     bool
+		wantOK     bool
 	}{{
 		name:       "not present",
 		pa:         pa(map[string]string{}),
 		wantWindow: 0,
-		wantOk:     false,
+		wantOK:     false,
 	}, {
 		name: "present",
 		pa: pa(map[string]string{
 			autoscaling.WindowAnnotationKey: "120s",
 		}),
 		wantWindow: time.Second * 120,
-		wantOk:     true,
+		wantOK:     true,
 	}, {
 		name: "invalid",
 		pa: pa(map[string]string{
 			autoscaling.WindowAnnotationKey: "365d",
 		}),
 		wantWindow: 0,
-		wantOk:     false,
+		wantOK:     false,
 	}}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			gotWindow, gotOk := tc.pa.Window()
+			gotWindow, gotOK := tc.pa.Window()
 			if gotWindow != tc.wantWindow {
 				t.Errorf("%q expected target: %v got: %v", tc.name, tc.wantWindow, gotWindow)
 			}
-			if gotOk != tc.wantOk {
-				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOk, gotOk)
+			if gotOK != tc.wantOK {
+				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
 			}
 		})
 	}
@@ -742,36 +742,36 @@ func TestPanicWindowPercentageAnnotation(t *testing.T) {
 		name           string
 		pa             *PodAutoscaler
 		wantPercentage float64
-		wantOk         bool
+		wantOK         bool
 	}{{
 		name:           "not present",
 		pa:             pa(map[string]string{}),
 		wantPercentage: 0.0,
-		wantOk:         false,
+		wantOK:         false,
 	}, {
 		name: "present",
 		pa: pa(map[string]string{
 			autoscaling.PanicWindowPercentageAnnotationKey: "10.0",
 		}),
 		wantPercentage: 10.0,
-		wantOk:         true,
+		wantOK:         true,
 	}, {
 		name: "malformed",
 		pa: pa(map[string]string{
 			autoscaling.PanicWindowPercentageAnnotationKey: "sandwich",
 		}),
 		wantPercentage: 0.0,
-		wantOk:         false,
+		wantOK:         false,
 	}}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			gotPercentage, gotOk := tc.pa.PanicWindowPercentage()
+			gotPercentage, gotOK := tc.pa.PanicWindowPercentage()
 			if gotPercentage != tc.wantPercentage {
 				t.Errorf("%q expected target: %v got: %v", tc.name, tc.wantPercentage, gotPercentage)
 			}
-			if gotOk != tc.wantOk {
-				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOk, gotOk)
+			if gotOK != tc.wantOK {
+				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
 			}
 		})
 	}
@@ -822,29 +822,29 @@ func TestPanicThresholdPercentage(t *testing.T) {
 		name           string
 		pa             *PodAutoscaler
 		wantPercentage float64
-		wantOk         bool
+		wantOK         bool
 	}{{
 		name:           "not present",
 		pa:             pa(map[string]string{}),
 		wantPercentage: 0.0,
-		wantOk:         false,
+		wantOK:         false,
 	}, {
 		name: "present",
 		pa: pa(map[string]string{
 			autoscaling.PanicThresholdPercentageAnnotationKey: "300.0",
 		}),
 		wantPercentage: 300.0,
-		wantOk:         true,
+		wantOK:         true,
 	}}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			gotPercentage, gotOk := tc.pa.PanicThresholdPercentage()
+			gotPercentage, gotOK := tc.pa.PanicThresholdPercentage()
 			if gotPercentage != tc.wantPercentage {
 				t.Errorf("%q expected target: %v got: %v", tc.name, tc.wantPercentage, gotPercentage)
 			}
-			if gotOk != tc.wantOk {
-				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOk, gotOk)
+			if gotOK != tc.wantOK {
+				t.Errorf("%q expected ok: %v got %v", tc.name, tc.wantOK, gotOK)
 			}
 		})
 	}
