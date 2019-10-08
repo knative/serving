@@ -252,31 +252,31 @@ func (rt *revisionThrottler) updateThrottleState(throttler *Throttler, backendCo
 }
 
 // pickIndices picks the indices for the slicing.
-func pickIndices(lt, selfIndex, numActivators int) (bi, ei int) {
-	if numActivators > lt {
+func pickIndices(numTrackers, selfIndex, numActivators int) (beginIndex, endIndex int) {
+	if numActivators > numTrackers {
 		// 1. We have fewer pods than than activators. Assign the pod in round robin fashion.
 		// NB: when we implement subsetting this will be less of a problem.
-		// e.g. lt=3, #ac = 5; for si = 3 => 3 % 3 = 0, or for si = 5 => 5%3 = 2
-		bi = selfIndex % lt
-		ei = bi + 1
+		// e.g. lt=3, #ac = 5; for selfIdx = 3 => 3 % 3 = 0, or for si = 5 => 5%3 = 2
+		beginIndex = selfIndex % numTrackers
+		endIndex = beginIndex + 1
 		return
 	}
 	// 2. We have at least as many pods as activators. Assign equal slices
 	// to the Activators. If the numbers don't divide evenly, assign the remnants
 	// to first k Activators, where k = #trackers % #activators
-	sliceSize := lt / numActivators
-	remnants := lt % numActivators
+	sliceSize := numTrackers / numActivators
+	remnants := numTrackers % numActivators
 	if selfIndex < remnants {
 		// 2.1. We get one more pod!
 		// The first k activators get `sliceSize+1` pods assigned.
-		bi = selfIndex * (sliceSize + 1)
-		ei = bi + sliceSize + 1
+		beginIndex = selfIndex * (sliceSize + 1)
+		endIndex = beginIndex + sliceSize + 1
 		return
 	}
 
 	// 2.2. equally divided or smaller slice.
-	bi = remnants + selfIndex*sliceSize
-	ei = bi + sliceSize
+	beginIndex = remnants + selfIndex*sliceSize
+	endIndex = beginIndex + sliceSize
 	return
 }
 
