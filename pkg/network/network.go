@@ -237,14 +237,10 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 		nc.IstioOutboundIPRanges = normalizedIpr
 	}
 
-	if ingressClass, ok := configMap.Data[DefaultIngressClassKey]; !ok {
-		// Honor deprecated clusteringress class key in the case that ingress.class is not specified
-		if ingressClass, ok = configMap.Data[DeprecatedDefaultIngressClassKey]; !ok {
-			nc.DefaultIngressClass = IstioIngressClassName
-		} else {
-			nc.DefaultIngressClass = ingressClass
-		}
-	} else {
+	nc.DefaultIngressClass = IstioIngressClassName
+	if ingressClass, ok := configMap.Data[DefaultIngressClassKey]; ok {
+		nc.DefaultIngressClass = ingressClass
+	} else if ingressClass, ok := configMap.Data[DeprecatedDefaultIngressClassKey]; ok {
 		nc.DefaultIngressClass = ingressClass
 	}
 
