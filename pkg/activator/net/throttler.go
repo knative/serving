@@ -285,11 +285,8 @@ func pickIndices(numTrackers, selfIndex, numActivators int) (beginIndex, endInde
 // to pod IP routing, and is irrelevant, when ClusterIP is used.
 func assignSlice(trackers []*podIPTracker, selfIndex, numActivators int) []*podIPTracker {
 	// When we're unassigned, doesn't matter what we return.
-	if selfIndex == -1 {
-		return trackers
-	}
 	lt := len(trackers)
-	if lt == 1 {
+	if selfIndex == -1 || lt <= 1 {
 		return trackers
 	}
 	// Sort, so we get more or less stable results.

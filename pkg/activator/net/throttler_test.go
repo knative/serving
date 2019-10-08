@@ -761,6 +761,12 @@ func TestAssignSlice(t *testing.T) {
 			dest: "3",
 		},
 	}
+	t.Run("notrackers", func(t *testing.T) {
+		got := assignSlice([]*podIPTracker{}, 0, 1)
+		if !reflect.DeepEqual(got, []*podIPTracker{}) {
+			t.Errorf("Got=%v, want: %v", got, trackers)
+		}
+	})
 	t.Run("idx=-1", func(t *testing.T) {
 		got := assignSlice(trackers, -1, 1)
 		if !reflect.DeepEqual(got, trackers) {
