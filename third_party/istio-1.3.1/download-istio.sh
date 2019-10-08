@@ -50,4 +50,5 @@ patch istio-crds.yaml namespace.yaml.patch
 patch istio.yaml namespace.yaml.patch
 patch istio-lean.yaml namespace.yaml.patch
 
-patch -l istio.yaml prestop-sleep.yaml.patch
+# Increase termination drain duration seconds.
+patch -l istio.yaml drain-seconds.yaml.patch

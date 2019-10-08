@@ -45,7 +45,7 @@ import (
 const (
 	timeoutExpectedOutput  = "Slept for 0 milliseconds"
 	revisionTimeoutSeconds = 45
-	timeoutRequestDuration = 43 * time.Second
+	timeoutRequestDuration = 35 * time.Second
 )
 
 func TestDestroyPodInflight(t *testing.T) {
