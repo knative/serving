@@ -60,7 +60,7 @@ const (
 	// that specifies Istio outbound ip ranges.
 	IstioOutboundIPRangesKey = "istio.sidecar.includeOutboundIPRanges"
 
-	// DepreciatedDefaultIngressClassKey.  Please use DefaultIngressClassKey instead.
+	// DepreciatedDefaultIngressClassKey  Please use DefaultIngressClassKey instead.
 	DepreciatedDefaultIngressClassKey = "clusteringress.class"
 
 	// DefaultIngressClassKey is the name of the configuration entry
