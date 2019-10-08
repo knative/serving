@@ -83,10 +83,10 @@ func TestStatsReceived(t *testing.T) {
 	defer server.Shutdown(0)
 	go server.listenAndServe()
 
-	statSink := dialOk(server.listenAddr(), t)
+	statSink := dialOK(server.listenAddr(), t)
 
-	assertReceivedOk(newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, t)
-	assertReceivedOk(newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision2"}, "activator2", 2.2, 30), statSink, statsCh, t)
+	assertReceivedOK(newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, t)
+	assertReceivedOK(newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision2"}, "activator2", 2.2, 30), statSink, statsCh, t)
 
 	closeSink(statSink, t)
 }
@@ -98,9 +98,9 @@ func TestServerShutdown(t *testing.T) {
 	go server.listenAndServe()
 
 	listenAddr := server.listenAddr()
-	statSink := dialOk(listenAddr, t)
+	statSink := dialOK(listenAddr, t)
 
-	assertReceivedOk(newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, t)
+	assertReceivedOK(newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, t)
 
 	server.Shutdown(time.Second)
 	// We own the channel.
@@ -145,9 +145,9 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 	originalGoroutines := runtime.NumGoroutine()
 
 	listenAddr := server.listenAddr()
-	statSink := dialOk(listenAddr, t)
+	statSink := dialOK(listenAddr, t)
 
-	assertReceivedOk(newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, t)
+	assertReceivedOK(newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, t)
 
 	closeSink(statSink, t)
 
@@ -177,7 +177,7 @@ func newStatMessage(revKey types.NamespacedName, podName string, averageConcurre
 	}
 }
 
-func assertReceivedOk(sm autoscaler.StatMessage, statSink *websocket.Conn, statsCh <-chan autoscaler.StatMessage, t *testing.T) bool {
+func assertReceivedOK(sm autoscaler.StatMessage, statSink *websocket.Conn, statsCh <-chan autoscaler.StatMessage, t *testing.T) bool {
 	send(statSink, sm, t)
 	recv, ok := <-statsCh
 	if !ok {
@@ -193,7 +193,7 @@ func assertReceivedOk(sm autoscaler.StatMessage, statSink *websocket.Conn, stats
 	return true
 }
 
-func dialOk(serverURL string, t *testing.T) *websocket.Conn {
+func dialOK(serverURL string, t *testing.T) *websocket.Conn {
 	statSink, err := dial(serverURL, t)
 	if err != nil {
 		t.Fatal("Dial failed:", err)
