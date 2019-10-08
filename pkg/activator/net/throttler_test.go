@@ -18,6 +18,7 @@ package net
 
 import (
 	"context"
+	"reflect"
 	"regexp"
 	"sync"
 	"sync/atomic"
@@ -229,6 +230,9 @@ func TestThrottlerSuccesses(t *testing.T) {
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{testNamespace, testRevision},
 			Dests: sets.NewString("128.0.0.1:1234"),
+		}, {
+			Rev:   types.NamespacedName{testNamespace, testRevision},
+			Dests: sets.NewString("128.0.0.1:1234"),
 		}},
 		trys: []types.NamespacedName{
 			{Namespace: testNamespace, Name: testRevision},
@@ -299,6 +303,9 @@ func TestThrottlerSuccesses(t *testing.T) {
 			revisions.Informer().GetIndexer().Add(tc.revision)
 
 			throttler := NewThrottler(ctx, params, "10.10.10.10:8012")
+			atomic.StoreInt32(&throttler.numActivators, 1)
+			atomic.StoreInt32(&throttler.activatorIndex, 0)
+
 			for _, update := range tc.initUpdates {
 				updateCh <- update
 			}
@@ -633,6 +640,144 @@ func TestPickP2C(t *testing.T) {
 		}
 		for _, cb := range cbs {
 			cb()
+		}
+	})
+}
+
+func TestPickIndices(t *testing.T) {
+	tests := []struct {
+		l            string
+		pods         int
+		acts         int
+		idx          int
+		wantB, wantE int
+	}{{
+		l:     "1 pod, 1 activator",
+		pods:  1,
+		acts:  1,
+		idx:   0,
+		wantB: 0,
+		wantE: 1,
+	}, {
+		l:     "1 pod, 2 activators, this is 0",
+		pods:  1,
+		acts:  2,
+		idx:   0,
+		wantB: 0,
+		wantE: 1,
+	}, {
+		l:     "1 pod, 2 activators, this is 1",
+		pods:  1,
+		acts:  2,
+		idx:   1,
+		wantB: 0,
+		wantE: 1,
+	}, {
+		l:     "2 pods, 3 activators, this is 1",
+		pods:  2,
+		acts:  3,
+		idx:   1,
+		wantB: 1,
+		wantE: 2,
+	}, {
+		l:     "2 pods, 3 activators, this is 2",
+		pods:  2,
+		acts:  3,
+		idx:   2,
+		wantB: 0,
+		wantE: 1,
+	}, {
+		l:     "3 pods, 3 activators, this is 2",
+		pods:  3,
+		acts:  3,
+		idx:   2,
+		wantB: 2,
+		wantE: 3,
+	}, {
+		l:     "10 pods, 3 activators this is 0",
+		pods:  10,
+		acts:  3,
+		idx:   0,
+		wantB: 0,
+		wantE: 4,
+	}, {
+		l:     "10 pods, 3 activators this is 1",
+		pods:  10,
+		acts:  3,
+		idx:   1,
+		wantB: 4,
+		wantE: 7,
+	}, {
+		l:     "10 pods, 3 activators this is 2",
+		pods:  10,
+		acts:  3,
+		idx:   2,
+		wantB: 7,
+		wantE: 10,
+	}, {
+		l:     "150 pods, 5 activators this is 0",
+		pods:  150,
+		acts:  5,
+		idx:   0,
+		wantB: 0,
+		wantE: 30,
+	}, {
+		l:     "150 pods, 5 activators this is 1",
+		pods:  150,
+		acts:  5,
+		idx:   1,
+		wantB: 30,
+		wantE: 60,
+	}, {
+		l:     "10 pods, 3 activators this is 4",
+		pods:  150,
+		acts:  5,
+		idx:   4,
+		wantB: 120,
+		wantE: 150,
+	}}
+	for _, test := range tests {
+		t.Run(test.l, func(tt *testing.T) {
+			bi, ei := pickIndices(test.pods, test.idx, test.acts)
+			if got, want := bi, test.wantB; got != want {
+				t.Errorf("BeginIndex = %d, want: %d", got, want)
+			}
+			if got, want := ei, test.wantE; got != want {
+				t.Errorf("EndIndex = %d, want: %d", got, want)
+			}
+		})
+	}
+}
+
+func TestAssignSlice(t *testing.T) {
+	trackers := []*podIPTracker{
+		&podIPTracker{
+			dest: "2",
+		},
+		&podIPTracker{
+			dest: "1",
+		},
+		&podIPTracker{
+			dest: "3",
+		},
+	}
+	t.Run("idx=-1", func(t *testing.T) {
+		got := assignSlice(trackers, -1, 1)
+		if !reflect.DeepEqual(got, trackers) {
+			t.Errorf("Got=%v, want: %v", got, trackers)
+		}
+	})
+	t.Run("idx=1", func(t *testing.T) {
+		cp := append(trackers[:0:0], trackers...)
+		got := assignSlice(cp, 1, 3)
+		if !reflect.DeepEqual(got, trackers[0:1]) {
+			t.Errorf("Got=%v, want: %v", got, trackers[0:1])
+		}
+	})
+	t.Run("len=1", func(t *testing.T) {
+		got := assignSlice(trackers[0:1], 1, 3)
+		if !reflect.DeepEqual(got, trackers[0:1]) {
+			t.Errorf("Got=%v, want: %v", got, trackers[0:1])
 		}
 	})
 }
