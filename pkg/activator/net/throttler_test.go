@@ -18,7 +18,6 @@ package net
 
 import (
 	"context"
-	"reflect"
 	"regexp"
 	"sync"
 	"sync/atomic"
@@ -26,6 +25,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -763,27 +763,31 @@ func TestAssignSlice(t *testing.T) {
 	}
 	t.Run("notrackers", func(t *testing.T) {
 		got := assignSlice([]*podIPTracker{}, 0, 1)
-		if !reflect.DeepEqual(got, []*podIPTracker{}) {
-			t.Errorf("Got=%v, want: %v", got, trackers)
+		if !cmp.Equal(got, []*podIPTracker{}, cmpopts.IgnoreUnexported(podIPTracker{})) {
+			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
+				cmp.Diff([]*podIPTracker{}, got, cmpopts.IgnoreUnexported(podIPTracker{})))
 		}
 	})
 	t.Run("idx=-1", func(t *testing.T) {
 		got := assignSlice(trackers, -1, 1)
-		if !reflect.DeepEqual(got, trackers) {
-			t.Errorf("Got=%v, want: %v", got, trackers)
+		if !cmp.Equal(got, trackers, cmpopts.IgnoreUnexported(podIPTracker{})) {
+			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
+				cmp.Diff(trackers, got, cmpopts.IgnoreUnexported(podIPTracker{})))
 		}
 	})
 	t.Run("idx=1", func(t *testing.T) {
 		cp := append(trackers[:0:0], trackers...)
 		got := assignSlice(cp, 1, 3)
-		if !reflect.DeepEqual(got, trackers[0:1]) {
-			t.Errorf("Got=%v, want: %v", got, trackers[0:1])
+		if !cmp.Equal(got, trackers[0:1], cmpopts.IgnoreUnexported(podIPTracker{})) {
+			t.Errorf("Got=%v, want: %v; diff: %s", got, trackers[0:1],
+				cmp.Diff(trackers[0:1], got, cmpopts.IgnoreUnexported(podIPTracker{})))
 		}
 	})
 	t.Run("len=1", func(t *testing.T) {
 		got := assignSlice(trackers[0:1], 1, 3)
-		if !reflect.DeepEqual(got, trackers[0:1]) {
-			t.Errorf("Got=%v, want: %v", got, trackers[0:1])
+		if !cmp.Equal(got, trackers[0:1], cmpopts.IgnoreUnexported(podIPTracker{})) {
+			t.Errorf("Got=%v, want: %v; diff: %s", got, trackers[0:1],
+				cmp.Diff(trackers[0:1], got, cmpopts.IgnoreUnexported(podIPTracker{})))
 		}
 	})
 }
