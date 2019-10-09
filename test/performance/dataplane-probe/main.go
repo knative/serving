@@ -20,13 +20,13 @@ import (
 	"context"
 	"flag"
 	"log"
-	"net/http"
 	"time"
 
 	vegeta "github.com/tsenart/vegeta/lib"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/test/mako"
-	"knative.dev/pkg/test/spoof"
+
+	"knative.dev/serving/test/performance"
 )
 
 var (
@@ -76,18 +76,7 @@ func main() {
 	}
 
 	// Make sure the target is ready before sending the large amount of requests.
-	spoofingClient := spoof.SpoofingClient{
-		Client:          &http.Client{},
-		RequestInterval: 1 * time.Second,
-		RequestTimeout:  *duration,
-		Logf: func(fmt string, args ...interface{}) {
-			log.Printf(fmt, args)
-		},
-	}
-	req, _ := http.NewRequest(http.MethodGet, t.target.URL, nil)
-	if _, err := spoofingClient.Poll(req, func(resp *spoof.Response) (done bool, err error) {
-		return true, nil
-	}); err != nil {
+	if err := performance.ProbeTargetTillReady(t.target.URL, *duration); err != nil {
 		fatalf("Failed to get target ready for attacking: %v", err)
 	}
 

@@ -32,6 +32,7 @@ import (
 
 	"knative.dev/pkg/test/mako"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/test/performance"
 	"knative.dev/serving/test/performance/metrics"
 )
 
@@ -135,6 +136,12 @@ func main() {
 	// isn't subject to our timeout (or we won't shut it down when we time out)
 	defer qclose(context.Background())
 
+	// Wrap fatalf in a helper or our sidecar will live forever.
+	fatalf := func(f string, args ...interface{}) {
+		qclose(context.Background())
+		log.Fatalf(f, args...)
+	}
+
 	q.Input.ThresholdInputs = append(q.Input.ThresholdInputs,
 		newLoadTest95PercentileLatency(tbcTag),
 		newLoadTestMaximumLatency(tbcTag),
@@ -143,10 +150,16 @@ func main() {
 	log.Print("Starting the load test.")
 	// Ramp up load from 1k to 3k in 2 minute steps.
 	const duration = 2 * time.Minute
+	url := fmt.Sprintf("http://load-test-%s.default.svc.cluster.local?sleep=100", *flavor)
 	targeter := vegeta.NewStaticTargeter(vegeta.Target{
 		Method: "GET",
-		URL:    fmt.Sprintf("http://load-test-%s.default.svc.cluster.local?sleep=100", *flavor),
+		URL:    url,
 	})
+
+	// Make sure the target is ready before sending the large amount of requests.
+	if err := performance.ProbeTargetTillReady(url, duration); err != nil {
+		fatalf("Failed to get target ready for attacking: %v", err)
+	}
 
 	pacers := make([]vegeta.Pacer, 3)
 	durations := make([]time.Duration, 3)
@@ -156,13 +169,12 @@ func main() {
 	}
 	pacer, err := pkgpacers.NewCombined(pacers, durations)
 	if err != nil {
-		qclose(context.Background())
-		log.Fatalf("Error creating the pacer: %v", err)
+		fatalf("Error creating the pacer: %v", err)
 	}
 	results := vegeta.NewAttacker().Attack(targeter, pacer, 3*duration, "load-test")
 	processResults(ctx, q, results)
 
 	if err := mc.StoreAndHandleResult(); err != nil {
-		log.Fatalf("Failed to store and handle benchmarking result: %v", err)
+		fatalf("Failed to store and handle benchmarking result: %v", err)
 	}
 }
