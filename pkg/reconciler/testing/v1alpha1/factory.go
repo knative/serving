@@ -25,6 +25,7 @@ import (
 	fakesharedclient "knative.dev/pkg/client/injection/client/fake"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	fakecertmanagerclient "knative.dev/serving/pkg/client/certmanager/injection/client/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 
@@ -36,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
 
@@ -72,6 +74,7 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 			ls.NewScheme(), ToUnstructured(t, ls.NewScheme(), r.Objects)...)
 		ctx, cachingClient := fakecachingclient.With(ctx, ls.GetCachingObjects()...)
 		ctx, certManagerClient := fakecertmanagerclient.With(ctx, ls.GetCMCertificateObjects()...)
+		ctx = context.WithValue(ctx, TrackerKey, &rtesting.FakeTracker{})
 
 		// The dynamic client's support for patching is BS.  Implement it
 		// here via PrependReactor (this can be overridden below by the
@@ -161,4 +164,43 @@ func ToUnstructured(t *testing.T, sch *runtime.Scheme, objs []runtime.Object) (u
 		us = append(us, u)
 	}
 	return
+}
+
+type key struct{}
+
+// TrackerKey is used to looking a FakeTracker in a context.Context
+var TrackerKey key = struct{}{}
+
+// AssertTrackingConfig will ensure the provided Configuration is being tracked
+func AssertTrackingConfig(namespace, name string) func(*testing.T, *rtesting.TableRow) {
+	gvk := v1alpha1.SchemeGroupVersion.WithKind("Configuration")
+	return AssertTrackingObject(gvk, namespace, name)
+}
+
+// AssertTrackingRevision will ensure the provided Revision is being tracked
+func AssertTrackingRevision(namespace, name string) func(*testing.T, *rtesting.TableRow) {
+	gvk := v1alpha1.SchemeGroupVersion.WithKind("Revision")
+	return AssertTrackingObject(gvk, namespace, name)
+}
+
+// AssertTrackingObject will ensure the following objects are being tracked
+func AssertTrackingObject(gvk schema.GroupVersionKind, namespace, name string) func(*testing.T, *rtesting.TableRow) {
+	apiVersion, kind := gvk.ToAPIVersionAndKind()
+
+	return func(t *testing.T, r *rtesting.TableRow) {
+		tracker := r.Ctx.Value(TrackerKey).(*rtesting.FakeTracker)
+		refs := tracker.References()
+
+		for _, ref := range refs {
+			if ref.APIVersion == apiVersion &&
+				ref.Name == name &&
+				ref.Namespace == namespace &&
+				ref.Kind == kind {
+				return
+			}
+		}
+
+		t.Errorf("Object was not tracked - %s, Name=%s, Namespace=%s", gvk.String(), name, namespace)
+	}
+
 }
