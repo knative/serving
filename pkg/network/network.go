@@ -97,6 +97,9 @@ const (
 	// user-agent.  So we augment the probes with this header.
 	KubeletProbeHeaderName = "K-Kubelet-Probe"
 
+        // Prometheus UA prefix. Refer to https://github.com/prometheus/prometheus/blob/master/scrape/scrape.go
+        PrometheusUAPrefix = "Prometheus/"
+
 	// DefaultConnTimeout specifies a short default connection timeout
 	// to avoid hitting the issue fixed in
 	// https://github.com/kubernetes/kubernetes/pull/72534 but only
@@ -357,6 +360,10 @@ func IsKubeletProbe(r *http.Request) bool {
 		r.Header.Get(KubeletProbeHeaderName) != ""
 }
 
+func IsPrometheusScrape(r *http.Request) bool {
+	return strings.HasPrefix(r.Header.Get("User-Agent"), PrometheusUAPrefix)
+}
+
 // KnativeProbeHeader returns the value for key ProbeHeaderName in request headers.
 func KnativeProbeHeader(r *http.Request) string {
 	return r.Header.Get(ProbeHeaderName)
@@ -370,7 +377,7 @@ func KnativeProxyHeader(r *http.Request) string {
 // IsProbe returns true if the request is a Kubernetes probe or a Knative probe,
 // i.e. non-empty ProbeHeaderName header.
 func IsProbe(r *http.Request) bool {
-	return IsKubeletProbe(r) || KnativeProbeHeader(r) != ""
+	return IsKubeletProbe(r) || KnativeProbeHeader(r) != "" || IsPrometheusScrape(r)
 }
 
 // RewriteHostIn removes the `Host` header from the inbound (server) request
