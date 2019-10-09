@@ -416,8 +416,7 @@ func (rbm *revisionBackendsManager) endpointsUpdated(newObj interface{}) {
 
 	rw, err := rbm.getOrCreateRevisionWatcher(revID)
 	if err != nil {
-		rbm.logger.Errorw(fmt.Sprintf("Failed to get revision watcher for revision %q", revID.String()),
-			zap.Error(err))
+		rbm.logger.With(zap.Error(err)).Error("Failed to get revision watcher for revision %q", revID.String())
 		return
 	}
 	dests := endpointsToDests(endpoints, networking.ServicePortName(rw.protocol))

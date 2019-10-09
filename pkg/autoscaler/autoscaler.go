@@ -19,7 +19,6 @@ package autoscaler
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -186,12 +185,10 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	desiredStablePodCount := int32(math.Min(math.Max(dspc, maxScaleDown), maxScaleUp))
 	desiredPanicPodCount := int32(math.Min(math.Max(dppc, maxScaleDown), maxScaleUp))
 
-	logger.Debugw(fmt.Sprintf("Observed average scaling metric value: %0.3f, targeting %0.3f.",
-		observedStableValue, spec.TargetValue),
-		zap.String("mode", "stable"))
-	logger.Debugw(fmt.Sprintf("Observed average scaling metric value: %0.3f, targeting %0.3f.",
-		observedPanicValue, spec.TargetValue),
-		zap.String("mode", "panic"))
+	logger.With(zap.String("mode", "stable")).Debugf("Observed average scaling metric value: %0.3f, targeting %0.3f.",
+		observedStableValue, spec.TargetValue)
+	logger.With(zap.String("mode", "panic")).Debugf("Observed average scaling metric value: %0.3f, targeting %0.3f.",
+		observedPanicValue, spec.TargetValue)
 
 	isOverPanicThreshold := observedPanicValue/readyPodsCount >= spec.PanicThreshold
 
