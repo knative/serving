@@ -228,7 +228,7 @@ func (rt *revisionThrottler) updateCapacity(throttler *Throttler, backendCount i
 }
 
 func (rt *revisionThrottler) updateThrottleState(throttler *Throttler, backendCount int, trackers []*podIPTracker, clusterIPDest string) {
-	rt.logger.Infof("Updating Revision Throttler with: clusterIP = %s, trackers = %d, backends = %d",
+	rt.logger.Infof("Updating Revision Throttler with: clusterIP = %q, trackers = %d, backends = %d",
 		clusterIPDest, len(trackers), backendCount)
 
 	// Update trackers / clusterIP before capacity. Otherwise we can race updating our breaker when
@@ -251,16 +251,63 @@ func (rt *revisionThrottler) updateThrottleState(throttler *Throttler, backendCo
 	}
 }
 
+// pickIndices picks the indices for the slicing.
+func pickIndices(numTrackers, selfIndex, numActivators int) (beginIndex, endIndex int) {
+	if numActivators > numTrackers {
+		// 1. We have fewer pods than than activators. Assign the pod in round robin fashion.
+		// NB: when we implement subsetting this will be less of a problem.
+		// e.g. lt=3, #ac = 5; for selfIdx = 3 => 3 % 3 = 0, or for si = 5 => 5%3 = 2
+		beginIndex = selfIndex % numTrackers
+		endIndex = beginIndex + 1
+		return
+	}
+	// 2. We have at least as many pods as activators. Assign equal slices
+	// to the Activators. If the numbers don't divide evenly, assign the remnants
+	// to first k Activators, where k = #trackers % #activators
+	sliceSize := numTrackers / numActivators
+	remnants := numTrackers % numActivators
+	if selfIndex < remnants {
+		// 2.1. We get one more pod!
+		// The first k activators get `sliceSize+1` pods assigned.
+		beginIndex = selfIndex * (sliceSize + 1)
+		endIndex = beginIndex + sliceSize + 1
+		return
+	}
+
+	// 2.2. equally divided or smaller slice.
+	beginIndex = remnants + selfIndex*sliceSize
+	endIndex = beginIndex + sliceSize
+	return
+}
+
+// assignSlice picks a subset of the individual pods to send requests to
+// for this Activator instance. This only matters in case of direct
+// to pod IP routing, and is irrelevant, when ClusterIP is used.
+func assignSlice(trackers []*podIPTracker, selfIndex, numActivators int) []*podIPTracker {
+	// When we're unassigned, doesn't matter what we return.
+	lt := len(trackers)
+	if selfIndex == -1 || lt <= 1 {
+		return trackers
+	}
+	// Sort, so we get more or less stable results.
+	sort.Slice(trackers, func(i, j int) bool {
+		return trackers[i].dest < trackers[j].dest
+	})
+	bi, ei := pickIndices(lt, selfIndex, numActivators)
+	return trackers[bi:ei]
+}
+
 // This function will never be called in parallel but try can be called in parallel to this so we need
 // to lock on updating concurrency / trackers
 func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionDestsUpdate) {
-	rt.logger.Debugf("Handling update w/ %d ready and dests: %v", len(update.Dests), update.Dests)
+	rt.logger.Debugf("Handling update w/ ClusterIP=%q, %d ready and dests: %v",
+		update.ClusterIPDest, len(update.Dests), update.Dests)
 
 	// ClusterIP is not yet ready, so we want to send requests directly to the pods.
 	// NB: this will not be called in parallel, thus we can build a new podIPTrackers
 	// array before taking out a lock.
 	if update.ClusterIPDest == "" {
-		// Create a map for fast lookup of existing trackers
+		// Create a map for fast lookup of existing trackers.
 		trackersMap := make(map[string]*podIPTracker, len(rt.podIPTrackers))
 		for _, tracker := range rt.podIPTrackers {
 			trackersMap[tracker.dest] = tracker
@@ -268,7 +315,8 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionD
 
 		trackers := make([]*podIPTracker, 0, len(update.Dests))
 
-		// Loop over dests, reuse existing tracker if we have one otherwise create new
+		// Loop over dests, reuse existing tracker if we have one otherwise create
+		// a new one.
 		for newDest := range update.Dests {
 			tracker, ok := trackersMap[newDest]
 			if !ok {
@@ -277,6 +325,7 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionD
 			trackers = append(trackers, tracker)
 		}
 
+		trackers = assignSlice(trackers, throttler.index(), throttler.activatorCount())
 		rt.updateThrottleState(throttler, len(update.Dests), trackers, "" /*clusterIP*/)
 		return
 	}
@@ -464,6 +513,10 @@ func (t *Throttler) activatorEndpointsUpdated(newObj interface{}) {
 	atomic.StoreInt32(&t.numActivators, int32(activatorCount))
 	atomic.StoreInt32(&t.activatorIndex, int32(idx))
 	t.updateAllThrottlerCapacity()
+}
+
+func (t *Throttler) index() int {
+	return int(atomic.LoadInt32(&t.activatorIndex))
 }
 
 func (t *Throttler) activatorCount() int {
