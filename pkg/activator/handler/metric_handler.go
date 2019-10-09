@@ -55,7 +55,7 @@ type MetricHandler struct {
 
 func (h *MetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
-	// Filter out probe and healthy requests
+	// Filter out probe and health check requests.
 	if network.IsProbe(r) {
 		h.nextHandler.ServeHTTP(w, r)
 		return

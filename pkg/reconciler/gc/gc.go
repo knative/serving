@@ -18,7 +18,6 @@ package gc
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"time"
 
@@ -107,7 +106,7 @@ func (c *reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 		if isRevisionStale(ctx, rev, config) {
 			err := c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
 			if err != nil {
-				logger.Errorw(fmt.Sprintf("Failed to delete stale revision %q", rev.Name), zap.Error(err))
+				logger.With(zap.Error(err)).Errorf("Failed to delete stale revision %q", rev.Name)
 				continue
 			}
 		}
