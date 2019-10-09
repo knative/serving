@@ -30,7 +30,8 @@ import (
 
 	"knative.dev/pkg/test/spoof"
 
-	// Mysteriously required to support GCP auth (required by k8s libs). Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242
+	// Mysteriously required to support GCP auth (required by k8s libs).
+	// Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
@@ -99,10 +100,12 @@ func ProbeTargetTillReady(target string, duration time.Duration) error {
 	if err != nil {
 		return fmt.Errorf("target %q is invalid, cannot probe: %v", target, err)
 	}
-	_, err = spoofingClient.Poll(req, func(resp *spoof.Response) (done bool, err error) {
+	if _, err = spoofingClient.Poll(req, func(resp *spoof.Response) (done bool, err error) {
 		return true, nil
-	})
-	return fmt.Errorf("failed to get target %q ready: %v", target, err)
+	}); err != nil {
+		return fmt.Errorf("failed to get target %q ready: %v", target, err)
+	}
+	return nil
 }
 
 // resolvedHeaders returns headers for the request.
