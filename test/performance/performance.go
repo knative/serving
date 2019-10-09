@@ -17,6 +17,9 @@ limitations under the License.
 package performance
 
 import (
+	"fmt"
+	"log"
+	"net/http"
 	"testing"
 	"time"
 
@@ -25,7 +28,10 @@ import (
 	"knative.dev/pkg/test/prometheus"
 	"knative.dev/serving/test"
 
-	// Mysteriously required to support GCP auth (required by k8s libs). Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242
+	"knative.dev/pkg/test/spoof"
+
+	// Mysteriously required to support GCP auth (required by k8s libs).
+	// Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
@@ -77,6 +83,29 @@ func TearDown(client *Client, names test.ResourceNames, logf logging.FormatLogge
 	if client.PromClient != nil {
 		client.PromClient.Teardown(logf)
 	}
+}
+
+// ProbeTargetTillReady will probe the target once per second for the given duration, until it's ready or error happens
+func ProbeTargetTillReady(target string, duration time.Duration) error {
+	// Make sure the target is ready before sending the large amount of requests.
+	spoofingClient := spoof.SpoofingClient{
+		Client:          &http.Client{},
+		RequestInterval: 1 * time.Second,
+		RequestTimeout:  duration,
+		Logf: func(fmt string, args ...interface{}) {
+			log.Printf(fmt, args)
+		},
+	}
+	req, err := http.NewRequest(http.MethodGet, target, nil)
+	if err != nil {
+		return fmt.Errorf("target %q is invalid, cannot probe: %v", target, err)
+	}
+	if _, err = spoofingClient.Poll(req, func(resp *spoof.Response) (done bool, err error) {
+		return true, nil
+	}); err != nil {
+		return fmt.Errorf("failed to get target %q ready: %v", target, err)
+	}
+	return nil
 }
 
 // resolvedHeaders returns headers for the request.
