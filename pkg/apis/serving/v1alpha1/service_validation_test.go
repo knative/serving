@@ -708,8 +708,7 @@ func TestServiceValidation(t *testing.T) {
 			if test.wc != nil {
 				ctx = test.wc(ctx)
 			}
-			got := test.s.Validate(ctx)
-			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), test.s.Validate(ctx).Error()); diff != "" {
 				t.Errorf("Validate() (-want, +got) = %v", diff)
 			}
 		})
@@ -755,8 +754,7 @@ func TestRunLatestTypeValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.rlt.Validate(context.Background())
-			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), test.rlt.Validate(context.Background()).Error()); diff != "" {
 				t.Errorf("validateContainer (-want, +got) = %v", diff)
 			}
 		})
@@ -818,8 +816,7 @@ func TestPinnedTypeValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.pt.Validate(context.Background())
-			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), test.pt.Validate(context.Background()).Error()); diff != "" {
 				t.Errorf("validateContainer (-want, +got) = %v", diff)
 			}
 		})
@@ -1099,8 +1096,7 @@ func TestImmutableServiceFields(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			ctx = apis.WithinUpdate(ctx, test.old)
-			got := test.new.Validate(ctx)
-			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), test.new.Validate(ctx).Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})
@@ -1221,8 +1217,7 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			ctx = apis.WithinSubResourceUpdate(ctx, test.service, test.subresource)
-			got := test.service.Validate(ctx)
-			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), test.service.Validate(ctx).Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})
@@ -1340,8 +1335,7 @@ func TestServiceAnnotationUpdate(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			ctx = apis.WithinUpdate(ctx, test.prev)
-			got := test.this.Validate(ctx)
-			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), test.this.Validate(ctx).Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})

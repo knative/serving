@@ -631,3 +631,130 @@ func TestRouteLabelValidation(t *testing.T) {
 		})
 	}
 }
+
+func getRouteSpec(confName string) v1.RouteSpec {
+	return v1.RouteSpec{
+		Traffic: []v1.TrafficTarget{{
+			LatestRevision:    ptr.Bool(true),
+			Percent:           ptr.Int64(100),
+			ConfigurationName: confName,
+		}},
+	}
+}
+
+func TestRouteAnnotationUpdate(t *testing.T) {
+	const (
+		u1 = "oveja@knative.dev"
+		u2 = "cabra@knative.dev"
+		u3 = "vaca@knative.dev"
+	)
+	tests := []struct {
+		name string
+		prev *Route
+		this *Route
+		want *apis.FieldError
+	}{{
+		name: "update creator annotation",
+		this: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u2,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getRouteSpec("old"),
+		},
+		prev: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getRouteSpec("old"),
+		},
+		want: (&apis.FieldError{Message: "annotation value is immutable",
+			Paths: []string{serving.CreatorAnnotation}}).ViaField("metadata.annotations"),
+	}, {
+		name: "update creator annotation with spec changes",
+		this: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u2,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getRouteSpec("new"),
+		},
+		prev: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getRouteSpec("old"),
+		},
+		want: (&apis.FieldError{Message: "annotation value is immutable",
+			Paths: []string{serving.CreatorAnnotation}}).ViaField("metadata.annotations"),
+	}, {
+		name: "update lastModifier without spec changes",
+		this: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u2,
+				},
+			},
+			Spec: getRouteSpec("old"),
+		},
+		prev: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getRouteSpec("old"),
+		},
+		want: apis.ErrInvalidValue(u2, serving.UpdaterAnnotation).ViaField("metadata.annotations"),
+	}, {
+		name: "update lastModifier with spec changes",
+		this: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u3,
+				},
+			},
+			Spec: getRouteSpec("new"),
+		},
+		prev: &Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getRouteSpec("old"),
+		},
+		want: nil,
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+			ctx = apis.WithinUpdate(ctx, test.prev)
+			if diff := cmp.Diff(test.want.Error(), test.this.Validate(ctx).Error()); diff != "" {
+				t.Errorf("Validate (-want, +got) = %v", diff)
+			}
+		})
+	}
+}

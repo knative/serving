@@ -23,6 +23,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	authv1 "k8s.io/api/authentication/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
@@ -113,7 +116,7 @@ func TestValidateObjectMetadata(t *testing.T) {
 		objectMeta: &metav1.ObjectMeta{
 			GenerateName: "some-name",
 			Annotations: map[string]string{
-				"serving.knative.dev/creator": "svc-creator",
+				CreatorAnnotation: "svc-creator",
 			},
 		},
 
@@ -123,7 +126,7 @@ func TestValidateObjectMetadata(t *testing.T) {
 		objectMeta: &metav1.ObjectMeta{
 			GenerateName: "some-name",
 			Annotations: map[string]string{
-				"serving.knative.dev/lastModifier": "svc-modifier",
+				UpdaterAnnotation: "svc-modifier",
 			},
 		},
 		expectErr: (*apis.FieldError)(nil),
@@ -132,7 +135,7 @@ func TestValidateObjectMetadata(t *testing.T) {
 		objectMeta: &metav1.ObjectMeta{
 			GenerateName: "some-name",
 			Annotations: map[string]string{
-				"serving.knative.dev/lastPinned": "pinned-val",
+				RevisionLastPinnedAnnotationKey: "pinned-val",
 			},
 		},
 		expectErr: (*apis.FieldError)(nil),
@@ -194,6 +197,22 @@ func TestValidateQueueSidecarAnnotation(t *testing.T) {
 			Message: "invalid value: ",
 			Paths:   []string{fmt.Sprintf("[%s]", QueueSideCarResourcePercentageAnnotation)},
 		},
+	}, {
+		name:       "empty annotation",
+		annotation: map[string]string{},
+		expectErr:  (*apis.FieldError)(nil),
+	}, {
+		name: "different annotation other than QueueSideCarResourcePercentageAnnotation",
+		annotation: map[string]string{
+			CreatorAnnotation: "",
+		},
+		expectErr: (*apis.FieldError)(nil),
+	}, {
+		name: "valid value for Queue sidecar resource percentage annotation",
+		annotation: map[string]string{
+			QueueSideCarResourcePercentageAnnotation: "100",
+		},
+		expectErr: (*apis.FieldError)(nil),
 	}}
 
 	for _, c := range cases {
@@ -291,4 +310,134 @@ func TestValidateClusterVisibilityLabel(t *testing.T) {
 		})
 	}
 
+}
+
+type WithPod struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              corev1.PodSpec `json:"spec,omitempty"`
+}
+
+func getSpec(image string) corev1.PodSpec {
+	return corev1.PodSpec{
+		Containers: []corev1.Container{{
+			Image: image,
+		}},
+	}
+}
+
+func TestAnnotationCreate(t *testing.T) {
+	const (
+		u1 = "oveja@knative.dev"
+		u2 = "cabra@knative.dev"
+	)
+	tests := []struct {
+		name string
+		user string
+		this *WithPod
+		want map[string]string
+	}{{
+		name: "create annotation",
+		user: u1,
+		this: &WithPod{
+			Spec: getSpec("foo"),
+		},
+		want: map[string]string{
+			CreatorAnnotation: u1,
+			UpdaterAnnotation: u1,
+		},
+	}, {
+		name: "create annotation should override user provided annotations",
+		user: u1,
+		this: &WithPod{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					CreatorAnnotation: u2,
+					UpdaterAnnotation: u2,
+				},
+			},
+			Spec: getSpec("foo"),
+		},
+		want: map[string]string{
+			CreatorAnnotation: u1,
+			UpdaterAnnotation: u1,
+		},
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := apis.WithUserInfo(context.Background(), &authv1.UserInfo{
+				Username: test.user,
+			})
+			SetUserInfo(ctx, nil, test.this.Spec, test.this)
+			if !reflect.DeepEqual(test.this.Annotations, test.want) {
+				t.Errorf("Annotations = %v, want: %v, diff (-got, +want): %s", test.this.Annotations, test.want, cmp.Diff(test.this.Annotations, test.want))
+			}
+		})
+	}
+}
+
+func TestAnnotationUpdate(t *testing.T) {
+	const (
+		u1 = "oveja@knative.dev"
+		u2 = "cabra@knative.dev"
+	)
+	tests := []struct {
+		name string
+		user string
+		prev *WithPod
+		this *WithPod
+		want map[string]string
+	}{{
+		name: "update annotation without spec changes",
+		user: u2,
+		this: &WithPod{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					CreatorAnnotation: u1,
+					UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getSpec("foo"),
+		},
+		prev: &WithPod{
+			Spec: getSpec("foo"),
+		},
+		want: map[string]string{
+			CreatorAnnotation: u1,
+			UpdaterAnnotation: u1,
+		},
+	}, {
+		name: "update annotation with spec changes",
+		user: u2,
+		this: &WithPod{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					CreatorAnnotation: u1,
+					UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getSpec("bar"),
+		},
+		prev: &WithPod{
+			Spec: getSpec("foo"),
+		},
+		want: map[string]string{
+			CreatorAnnotation: u1,
+			UpdaterAnnotation: u2,
+		},
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := apis.WithUserInfo(context.Background(), &authv1.UserInfo{
+				Username: test.user,
+			})
+			if test.prev != nil {
+				ctx = apis.WithinUpdate(ctx, test.prev)
+			}
+			SetUserInfo(ctx, test.prev.Spec, test.this.Spec, test.this)
+			if !reflect.DeepEqual(test.this.Annotations, test.want) {
+				t.Errorf("Annotations = %v, want: %v, diff (-got, +want): %s", test.this.Annotations, test.want, cmp.Diff(test.this.Annotations, test.want))
+			}
+		})
+	}
 }
