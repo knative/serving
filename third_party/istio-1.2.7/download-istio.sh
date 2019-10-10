@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Download and unpack Istio
-ISTIO_VERSION=1.3.1
+ISTIO_VERSION=1.2.7
 DOWNLOAD_URL=https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-linux.tar.gz
 
 wget --no-check-certificate $DOWNLOAD_URL
@@ -50,5 +50,4 @@ patch istio-crds.yaml namespace.yaml.patch
 patch istio.yaml namespace.yaml.patch
 patch istio-lean.yaml namespace.yaml.patch
 
-# Increase termination drain duration seconds.
-patch -l istio.yaml drain-seconds.yaml.patch
+patch -l istio.yaml prestop-sleep.yaml.patch
