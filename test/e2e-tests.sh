@@ -43,9 +43,12 @@ header "Running tests"
 
 failed=0
 
-# Run tests serially in the mesh scenario
-parallelism="-parallel 1"
-#(( ISTIO_MESH )) && parallelism="-parallel 1"
+# Run tests serially in the mesh scenario or for Istio 1.3.x
+parallelism=""
+(( ISTIO_MESH )) && parallelism="-parallel 1"
+if [[ ${ISTIO_VERSION} =~ 1.3.* ]]; then
+  parallelism="-parallel 1"
+fi
 
 # Run conformance and e2e tests.
 go_test_e2e -timeout=30m \
