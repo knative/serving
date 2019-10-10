@@ -632,9 +632,9 @@ func TestRouteLabelValidation(t *testing.T) {
 	}
 }
 
-func getRouteSpec(confName string) RouteSpec {
-	return RouteSpec{
-		Traffic: []TrafficTarget{{
+func getRouteSpec(confName string) v1.RouteSpec {
+	return v1.RouteSpec{
+		Traffic: []v1.TrafficTarget{{
 			LatestRevision:    ptr.Bool(true),
 			Percent:           ptr.Int64(100),
 			ConfigurationName: confName,
@@ -752,8 +752,7 @@ func TestRouteAnnotationUpdate(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			ctx = apis.WithinUpdate(ctx, test.prev)
-			got := test.this.Validate(ctx)
-			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), test.this.Validate(ctx).Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})

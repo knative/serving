@@ -22,13 +22,12 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	authv1 "k8s.io/api/authentication/v1"
-	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/ptr"
 
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/config"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestConfigurationDefaulting(t *testing.T) {
@@ -117,18 +116,18 @@ func TestConfigurationUserInfo(t *testing.T) {
 			name: "update-diff-old-object",
 			user: u2,
 			this: &Configuration{
-				Spec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+				Spec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							ContainerConcurrency: ptr.Int64(1),
 						},
 					},
 				},
 			},
 			prev: &Configuration{
-				Spec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+				Spec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							ContainerConcurrency: ptr.Int64(2),
 						},
 					},
@@ -141,18 +140,18 @@ func TestConfigurationUserInfo(t *testing.T) {
 			name: "update-diff-new-object",
 			user: u3,
 			this: withUserAnns(u1, u2, &Configuration{
-				Spec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+				Spec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							ContainerConcurrency: ptr.Int64(1),
 						},
 					},
 				},
 			}),
 			prev: withUserAnns(u1, u2, &Configuration{
-				Spec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+				Spec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							ContainerConcurrency: ptr.Int64(2),
 						},
 					},
@@ -164,9 +163,7 @@ func TestConfigurationUserInfo(t *testing.T) {
 			},
 		}}
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			ctx := apis.WithUserInfo(context.Background(), &authv1.UserInfo{
 				Username: test.user,
 			})

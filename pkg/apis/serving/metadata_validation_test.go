@@ -116,7 +116,7 @@ func TestValidateObjectMetadata(t *testing.T) {
 		objectMeta: &metav1.ObjectMeta{
 			GenerateName: "some-name",
 			Annotations: map[string]string{
-				"serving.knative.dev/creator": "svc-creator",
+				CreatorAnnotation: "svc-creator",
 			},
 		},
 
@@ -126,7 +126,7 @@ func TestValidateObjectMetadata(t *testing.T) {
 		objectMeta: &metav1.ObjectMeta{
 			GenerateName: "some-name",
 			Annotations: map[string]string{
-				"serving.knative.dev/lastModifier": "svc-modifier",
+				UpdaterAnnotation: "svc-modifier",
 			},
 		},
 		expectErr: (*apis.FieldError)(nil),
@@ -135,7 +135,7 @@ func TestValidateObjectMetadata(t *testing.T) {
 		objectMeta: &metav1.ObjectMeta{
 			GenerateName: "some-name",
 			Annotations: map[string]string{
-				"serving.knative.dev/lastPinned": "pinned-val",
+				RevisionLastPinnedAnnotationKey: "pinned-val",
 			},
 		},
 		expectErr: (*apis.FieldError)(nil),
@@ -343,8 +343,8 @@ func TestAnnotationCreate(t *testing.T) {
 			Spec: getSpec("foo"),
 		},
 		want: map[string]string{
-			"serving.knative.dev/creator":      u1,
-			"serving.knative.dev/lastModifier": u1,
+			CreatorAnnotation: u1,
+			UpdaterAnnotation: u1,
 		},
 	}, {
 		name: "create annotation should override user provided annotations",
@@ -352,15 +352,15 @@ func TestAnnotationCreate(t *testing.T) {
 		this: &WithPod{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					"serving.knative.dev/creator":      u2,
-					"serving.knative.dev/lastModifier": u2,
+					CreatorAnnotation: u2,
+					UpdaterAnnotation: u2,
 				},
 			},
 			Spec: getSpec("foo"),
 		},
 		want: map[string]string{
-			"serving.knative.dev/creator":      u1,
-			"serving.knative.dev/lastModifier": u1,
+			CreatorAnnotation: u1,
+			UpdaterAnnotation: u1,
 		},
 	}}
 	for _, test := range tests {
@@ -393,8 +393,8 @@ func TestAnnotationUpdate(t *testing.T) {
 		this: &WithPod{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					"serving.knative.dev/creator":      u1,
-					"serving.knative.dev/lastModifier": u1,
+					CreatorAnnotation: u1,
+					UpdaterAnnotation: u1,
 				},
 			},
 			Spec: getSpec("foo"),
@@ -403,8 +403,8 @@ func TestAnnotationUpdate(t *testing.T) {
 			Spec: getSpec("foo"),
 		},
 		want: map[string]string{
-			"serving.knative.dev/creator":      u1,
-			"serving.knative.dev/lastModifier": u1,
+			CreatorAnnotation: u1,
+			UpdaterAnnotation: u1,
 		},
 	}, {
 		name: "update annotation with spec changes",
@@ -412,8 +412,8 @@ func TestAnnotationUpdate(t *testing.T) {
 		this: &WithPod{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					"serving.knative.dev/creator":      u1,
-					"serving.knative.dev/lastModifier": u1,
+					CreatorAnnotation: u1,
+					UpdaterAnnotation: u1,
 				},
 			},
 			Spec: getSpec("bar"),
@@ -422,8 +422,8 @@ func TestAnnotationUpdate(t *testing.T) {
 			Spec: getSpec("foo"),
 		},
 		want: map[string]string{
-			"serving.knative.dev/creator":      u1,
-			"serving.knative.dev/lastModifier": u2,
+			CreatorAnnotation: u1,
+			UpdaterAnnotation: u2,
 		},
 	}}
 	for _, test := range tests {

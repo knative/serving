@@ -37,10 +37,10 @@ func (s *Service) SetDefaults(ctx context.Context) {
 
 func (ss *ServiceSpec) SetDefaults(ctx context.Context) {
 	if v1.IsUpgradeViaDefaulting(ctx) {
-		v1 := v1.ServiceSpec{}
-		if ss.ConvertUp(ctx, &v1) == nil {
+		v := v1.ServiceSpec{}
+		if ss.ConvertUp(ctx, &v) == nil {
 			alpha := ServiceSpec{}
-			if alpha.ConvertDown(ctx, v1) == nil {
+			if alpha.ConvertDown(ctx, v) == nil {
 				*ss = alpha
 			}
 		}

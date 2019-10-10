@@ -25,9 +25,8 @@ import (
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestRouteDefaulting(t *testing.T) {
@@ -264,7 +263,7 @@ func TestRouteUserInfo(t *testing.T) {
 		this: &Route{
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						ConfigurationName: "new",
 					},
 				}},
@@ -273,7 +272,7 @@ func TestRouteUserInfo(t *testing.T) {
 		prev: &Route{
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						ConfigurationName: "old",
 					},
 				}},
@@ -288,7 +287,7 @@ func TestRouteUserInfo(t *testing.T) {
 		this: withUserAnns(u1, u2, &Route{
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						ConfigurationName: "new",
 					},
 				}},
@@ -297,7 +296,7 @@ func TestRouteUserInfo(t *testing.T) {
 		prev: withUserAnns(u1, u2, &Route{
 			Spec: RouteSpec{
 				Traffic: []TrafficTarget{{
-					TrafficTarget: v1beta1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
 						ConfigurationName: "old",
 					},
 				}},
@@ -309,9 +308,7 @@ func TestRouteUserInfo(t *testing.T) {
 		},
 	}}
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			ctx := apis.WithUserInfo(context.Background(), &authv1.UserInfo{
 				Username: test.user,
 			})

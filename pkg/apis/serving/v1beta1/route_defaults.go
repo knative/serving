@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"knative.dev/pkg/apis"
-	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
@@ -34,5 +33,4 @@ func (r *Route) SetDefaults(ctx context.Context) {
 			serving.SetUserInfo(ctx, nil, r.Spec, r)
 		}
 	}
-
 }

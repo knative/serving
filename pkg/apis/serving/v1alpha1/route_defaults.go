@@ -21,9 +21,8 @@ import (
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func (r *Route) SetDefaults(ctx context.Context) {
@@ -40,10 +39,10 @@ func (r *Route) SetDefaults(ctx context.Context) {
 
 func (rs *RouteSpec) SetDefaults(ctx context.Context) {
 	if v1.IsUpgradeViaDefaulting(ctx) {
-		v1 := v1.RouteSpec{}
-		if rs.ConvertUp(ctx, &v1) == nil {
+		v := v1.RouteSpec{}
+		if rs.ConvertUp(ctx, &v) == nil {
 			alpha := RouteSpec{}
-			alpha.ConvertDown(ctx, v1)
+			alpha.ConvertDown(ctx, v)
 			*rs = alpha
 		}
 	}

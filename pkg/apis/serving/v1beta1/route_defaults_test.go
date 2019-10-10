@@ -24,6 +24,7 @@ import (
 	authv1 "k8s.io/api/authentication/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
@@ -205,15 +206,15 @@ func TestRouteUserInfo(t *testing.T) {
 		name: "update-diff-old-object",
 		user: u2,
 		this: &Route{
-			Spec: RouteSpec{
-				Traffic: []TrafficTarget{{
+			Spec: v1.RouteSpec{
+				Traffic: []v1.TrafficTarget{{
 					ConfigurationName: "new",
 				}},
 			},
 		},
 		prev: &Route{
-			Spec: RouteSpec{
-				Traffic: []TrafficTarget{{
+			Spec: v1.RouteSpec{
+				Traffic: []v1.TrafficTarget{{
 					ConfigurationName: "old",
 				}},
 			},
@@ -225,15 +226,15 @@ func TestRouteUserInfo(t *testing.T) {
 		name: "update-diff-new-object",
 		user: u3,
 		this: withUserAnns(u1, u2, &Route{
-			Spec: RouteSpec{
-				Traffic: []TrafficTarget{{
+			Spec: v1.RouteSpec{
+				Traffic: []v1.TrafficTarget{{
 					ConfigurationName: "new",
 				}},
 			},
 		}),
 		prev: withUserAnns(u1, u2, &Route{
-			Spec: RouteSpec{
-				Traffic: []TrafficTarget{{
+			Spec: v1.RouteSpec{
+				Traffic: []v1.TrafficTarget{{
 					ConfigurationName: "old",
 				}},
 			},
@@ -244,9 +245,7 @@ func TestRouteUserInfo(t *testing.T) {
 		},
 	}}
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			ctx := apis.WithUserInfo(context.Background(), &authv1.UserInfo{
 				Username: test.user,
 			})

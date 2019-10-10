@@ -29,9 +29,8 @@ import (
 	"knative.dev/pkg/ptr"
 
 	"knative.dev/serving/pkg/apis/config"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 var (
@@ -269,12 +268,32 @@ func TestConfigurationUserInfo(t *testing.T) {
 		user: u3,
 		this: withUserAnns(u1, u2, &Configuration{
 			Spec: ConfigurationSpec{
-				DeprecatedRevisionTemplate: &RevisionTemplateSpec{},
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						RevisionSpec: v1.RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Image: "busybox",
+								}},
+							},
+						},
+					},
+				},
 			},
 		}),
 		prev: withUserAnns(u1, u2, &Configuration{
 			Spec: ConfigurationSpec{
-				Template: &RevisionTemplateSpec{},
+				Template: &RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						RevisionSpec: v1.RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Image: "helloworld",
+								}},
+							},
+						},
+					},
+				},
 			},
 		}),
 		wantAnns: map[string]string{
@@ -283,9 +302,7 @@ func TestConfigurationUserInfo(t *testing.T) {
 		},
 	}}
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			ctx := apis.WithUserInfo(context.Background(), &authv1.UserInfo{
 				Username: test.user,
 			})

@@ -21,7 +21,11 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	authv1 "k8s.io/api/authentication/v1"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
+
+	"knative.dev/serving/pkg/apis/serving"
 )
 
 func TestRouteDefaulting(t *testing.T) {
@@ -145,6 +149,113 @@ func TestRouteDefaulting(t *testing.T) {
 			if !cmp.Equal(test.want, got) {
 				t.Errorf("SetDefaults (-want, +got) = %v",
 					cmp.Diff(test.want, got))
+			}
+		})
+	}
+}
+
+func TestRouteUserInfo(t *testing.T) {
+	const (
+		u1 = "oveja@knative.dev"
+		u2 = "cabra@knative.dev"
+		u3 = "vaca@knative.dev"
+	)
+	withUserAnns := func(u1, u2 string, s *Route) *Route {
+		a := s.GetAnnotations()
+		if a == nil {
+			a = map[string]string{}
+			s.SetAnnotations(a)
+		}
+		a[serving.CreatorAnnotation] = u1
+		a[serving.UpdaterAnnotation] = u2
+		return s
+	}
+	tests := []struct {
+		name     string
+		user     string
+		this     *Route
+		prev     *Route
+		wantAnns map[string]string
+	}{{
+		name: "create-new",
+		user: u1,
+		this: &Route{},
+		prev: nil,
+		wantAnns: map[string]string{
+			serving.CreatorAnnotation: u1,
+			serving.UpdaterAnnotation: u1,
+		},
+	}, {
+		// Old objects don't have the annotation, and unless there's a change in
+		// data they won't get it.
+		name:     "update-no-diff-old-object",
+		user:     u1,
+		this:     &Route{},
+		prev:     &Route{},
+		wantAnns: map[string]string{},
+	}, {
+		name: "update-no-diff-new-object",
+		user: u2,
+		this: withUserAnns(u1, u1, &Route{}),
+		prev: withUserAnns(u1, u1, &Route{}),
+		wantAnns: map[string]string{
+			serving.CreatorAnnotation: u1,
+			serving.UpdaterAnnotation: u1,
+		},
+	}, {
+		name: "update-diff-old-object",
+		user: u2,
+		this: &Route{
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					ConfigurationName: "new",
+				}},
+			},
+		},
+		prev: &Route{
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					ConfigurationName: "old",
+				}},
+			},
+		},
+		wantAnns: map[string]string{
+			serving.UpdaterAnnotation: u2,
+		},
+	}, {
+		name: "update-diff-new-object",
+		user: u3,
+		this: withUserAnns(u1, u2, &Route{
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					ConfigurationName: "new",
+				}},
+			},
+		}),
+		prev: withUserAnns(u1, u2, &Route{
+			Spec: RouteSpec{
+				Traffic: []TrafficTarget{{
+					ConfigurationName: "old",
+				}},
+			},
+		}),
+		wantAnns: map[string]string{
+			serving.CreatorAnnotation: u1,
+			serving.UpdaterAnnotation: u3,
+		},
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := apis.WithUserInfo(context.Background(), &authv1.UserInfo{
+				Username: test.user,
+			})
+			if test.prev != nil {
+				ctx = apis.WithinUpdate(ctx, test.prev)
+				test.prev.SetDefaults(ctx)
+			}
+			test.this.SetDefaults(ctx)
+			if got, want := test.this.GetAnnotations(), test.wantAnns; !cmp.Equal(got, want) {
+				t.Errorf("Annotations = %v, want: %v, diff (-got, +want): %s", got, want, cmp.Diff(got, want))
 			}
 		})
 	}
