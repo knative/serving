@@ -865,16 +865,8 @@ func TestRevisionDeleted(t *testing.T) {
 	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Delete(ep.Name, &metav1.DeleteOptions{})
 	select {
 	case r := <-rbm.updates():
-		if got, want := r.Deleted, true; got != want {
-			t.Errorf("Deleted = %t, want true", got)
-		}
-		if got, want := r.ClusterIPDest, ""; got != want {
-			t.Errorf(`ClusterIP = %s, want ""`, got)
-		}
-		if got, want := len(r.Dests), 0; got != want {
-			t.Errorf("DestsLen = %d, want: 0", got)
-		}
-	case <-time.After(time.Second * 2):
-		t.Errorf("Timedout waiting for initial response")
+		t.Errorf("Unexpected update: %#v", r)
+	case <-time.After(time.Millisecond * 200):
+		// Wait to make sure the callbacks are executed.
 	}
 }

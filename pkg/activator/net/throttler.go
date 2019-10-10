@@ -457,10 +457,6 @@ func (t *Throttler) revisionDeleted(obj interface{}) {
 }
 
 func (t *Throttler) handleUpdate(update revisionDestsUpdate) {
-	if update.Deleted {
-		// Nothing to do as revisionDeleted is already called by DeleteFunc of Informer.
-		return
-	}
 	if rt, err := t.getOrCreateRevisionThrottler(update.Rev); err != nil {
 		if k8serrors.IsNotFound(err) {
 			t.logger.Debugf("Revision %q is not found. Probably it was removed", update.Rev.String())
