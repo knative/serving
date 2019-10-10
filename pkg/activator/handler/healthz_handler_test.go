@@ -55,7 +55,7 @@ func TestHealthHandler(t *testing.T) {
 			handler := HealthHandler{HealthCheck: e.check, NextHandler: baseHandler}
 
 			resp := httptest.NewRecorder()
-			req := httptest.NewRequest("GET", "http://example.com", nil)
+			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 			req.Header = e.headers
 
 			handler.ServeHTTP(resp, req)

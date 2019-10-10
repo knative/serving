@@ -181,9 +181,7 @@ func TestActivationHandler(t *testing.T) {
 			reporter := &fakeReporter{}
 
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-			defer func() {
-				cancel()
-			}()
+			defer cancel()
 			revisionInformer(ctx, revision(testNamespace, testRevName))
 			handler := (New(ctx, test.throttler, reporter)).(*activationHandler)
 
@@ -210,7 +208,10 @@ func TestActivationHandler(t *testing.T) {
 				t.Errorf("Unexpected response status. Want %d, got %d", test.wantCode, resp.Code)
 			}
 
-			gotBody, _ := ioutil.ReadAll(resp.Body)
+			gotBody, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatalf("Error reading body: %v", err)
+			}
 			if string(gotBody) != test.wantBody {
 				t.Errorf("Unexpected response body. Response body %q, want %q", gotBody, test.wantBody)
 			}
@@ -229,7 +230,6 @@ func TestActivationHandler(t *testing.T) {
 			if diff := cmp.Diff(test.reporterCalls, gotCalls); diff != "" {
 				t.Errorf("Reporting calls are different (-want, +got) = %v", diff)
 			}
-
 		})
 	}
 }
@@ -243,9 +243,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	})
 
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-	defer func() {
-		cancel()
-	}()
+	defer cancel()
 	revisionInformer(ctx, revision(testNamespace, testRevName))
 
 	handler := (New(ctx, fakeThrottler{}, &fakeReporter{})).(*activationHandler)

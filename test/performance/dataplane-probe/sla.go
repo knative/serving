@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -81,7 +82,7 @@ var (
 	}{
 		"deployment": {
 			target: vegeta.Target{
-				Method: "GET",
+				Method: http.MethodGet,
 				URL:    "http://deployment.default.svc.cluster.local?sleep=100",
 			},
 			stat:      "kd",
@@ -90,7 +91,7 @@ var (
 		},
 		"istio": {
 			target: vegeta.Target{
-				Method: "GET",
+				Method: http.MethodGet,
 				URL:    "http://istio.default.svc.cluster.local?sleep=100",
 			},
 			stat:      "id",
@@ -99,7 +100,7 @@ var (
 		},
 		"queue": {
 			target: vegeta.Target{
-				Method: "GET",
+				Method: http.MethodGet,
 				URL:    "http://queue-proxy.default.svc.cluster.local?sleep=100",
 			},
 			stat:      "qp",
@@ -108,7 +109,7 @@ var (
 		},
 		"queue-with-cc": {
 			target: vegeta.Target{
-				Method: "GET",
+				Method: http.MethodGet,
 				URL:    "http://queue-proxy-with-cc.default.svc.cluster.local?sleep=100",
 			},
 			stat:  "qc",
@@ -118,7 +119,7 @@ var (
 		},
 		"queue-with-cc-10": {
 			target: vegeta.Target{
-				Method: "GET",
+				Method: http.MethodGet,
 				URL:    "http://queue-proxy-with-cc-10.default.svc.cluster.local?sleep=100",
 			},
 			stat:  "qct",
@@ -128,7 +129,7 @@ var (
 		},
 		"queue-with-cc-1": {
 			target: vegeta.Target{
-				Method: "GET",
+				Method: http.MethodGet,
 				URL:    "http://queue-proxy-with-cc-1.default.svc.cluster.local?sleep=100",
 			},
 			stat:  "qc1",
@@ -138,7 +139,7 @@ var (
 		},
 		"activator": {
 			target: vegeta.Target{
-				Method: "GET",
+				Method: http.MethodGet,
 				URL:    "http://activator.default.svc.cluster.local?sleep=100",
 			},
 			stat:      "a",
@@ -147,7 +148,7 @@ var (
 		},
 		"activator-with-cc": {
 			target: vegeta.Target{
-				Method: "GET",
+				Method: http.MethodGet,
 				URL:    "http://activator-with-cc.default.svc.cluster.local?sleep=100",
 			},
 			stat:  "ac",
@@ -157,7 +158,7 @@ var (
 		},
 		"activator-with-cc-10": {
 			target: vegeta.Target{
-				Method: "GET",
+				Method: http.MethodGet,
 				URL:    "http://activator-with-cc-10.default.svc.cluster.local?sleep=100",
 			},
 			stat:  "act",
@@ -167,7 +168,7 @@ var (
 		},
 		"activator-with-cc-1": {
 			target: vegeta.Target{
-				Method: "GET",
+				Method: http.MethodGet,
 				URL:    "http://activator-with-cc-1.default.svc.cluster.local?sleep=100",
 			},
 			stat:  "ac1",
