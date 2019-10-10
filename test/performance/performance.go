@@ -17,12 +17,16 @@ limitations under the License.
 package performance
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/wait"
+	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/prometheus"
@@ -106,6 +110,25 @@ func ProbeTargetTillReady(target string, duration time.Duration) error {
 		return fmt.Errorf("failed to get target %q ready: %v", target, err)
 	}
 	return nil
+}
+
+// WaitForScaleToZero will wait for the deployments in the indexer to scale to 0
+func WaitForScaleToZero(ctx context.Context, namespace string, selector labels.Selector, duration time.Duration) error {
+	dl := deploymentinformer.Get(ctx).Lister()
+	return wait.PollImmediate(1*time.Second, duration, func() (bool, error) {
+		ds, err := dl.Deployments(namespace).List(selector)
+		if err != nil {
+			return true, err
+		}
+		scaledToZero := true
+		for _, d := range ds {
+			if d.Status.ReadyReplicas != 0 {
+				scaledToZero = false
+				break
+			}
+		}
+		return scaledToZero, nil
+	})
 }
 
 // resolvedHeaders returns headers for the request.
