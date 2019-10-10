@@ -36,8 +36,11 @@ import (
 	"knative.dev/serving/test/performance/metrics"
 )
 
+const namespace = "default"
+
 var (
-	flavor = flag.String("flavor", "", "The flavor of the benchmark to run.")
+	flavor   = flag.String("flavor", "", "The flavor of the benchmark to run.")
+	selector labels.Selector
 )
 
 func processResults(ctx context.Context, q *quickstore.Quickstore, results <-chan *vegeta.Result) {
@@ -60,13 +63,9 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 		}
 	}()
 
-	selector := labels.SelectorFromSet(labels.Set{
-		serving.ServiceLabelKey: fmt.Sprintf("load-test-%s", *flavor),
-	})
-
 	ctx, cancel := context.WithCancel(ctx)
-	deploymentStatus := metrics.FetchDeploymentStatus(ctx, "default", selector, time.Second)
-	sksMode := metrics.FetchSKSMode(ctx, "default", selector, time.Second)
+	deploymentStatus := metrics.FetchDeploymentStatus(ctx, namespace, selector, time.Second)
+	sksMode := metrics.FetchSKSMode(ctx, namespace, selector, time.Second)
 	defer cancel()
 
 	for {
@@ -117,12 +116,15 @@ func main() {
 	if *flavor == "" {
 		log.Fatalf("-flavor is a required flag.")
 	}
+	selector = labels.SelectorFromSet(labels.Set{
+		serving.ServiceLabelKey: "load-test-" + *flavor,
+	})
 
 	// We want this for properly handling Kubernetes container lifecycle events.
 	ctx := signals.NewContext()
 
-	// We cron every 10 minutes, so give ourselves 6 minutes to complete.
-	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
+	// We cron every 10 minutes, so give ourselves 8 minutes to complete.
+	ctx, cancel := context.WithTimeout(ctx, 8*time.Minute)
 	defer cancel()
 
 	// Use the benchmark key created.
@@ -159,6 +161,10 @@ func main() {
 	// Make sure the target is ready before sending the large amount of requests.
 	if err := performance.ProbeTargetTillReady(url, duration); err != nil {
 		fatalf("Failed to get target ready for attacking: %v", err)
+	}
+	// Wait for scale back to 0
+	if err := performance.WaitForScaleToZero(ctx, namespace, selector, 2*time.Minute); err != nil {
+		fatalf("Failed to wait for scale-to-0: %v", err)
 	}
 
 	pacers := make([]vegeta.Pacer, 3)
