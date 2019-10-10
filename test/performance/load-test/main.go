@@ -117,7 +117,7 @@ func main() {
 		log.Fatalf("-flavor is a required flag.")
 	}
 	selector = labels.SelectorFromSet(labels.Set{
-		serving.ServiceLabelKey: fmt.Sprintf("load-test-%s", *flavor),
+		serving.ServiceLabelKey: "load-test-" + *flavor,
 	})
 
 	// We want this for properly handling Kubernetes container lifecycle events.
