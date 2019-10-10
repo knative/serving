@@ -44,8 +44,8 @@ header "Running tests"
 failed=0
 
 # Run tests serially in the mesh scenario
-parallelism=""
-(( ISTIO_MESH )) && parallelism="-parallel 1"
+parallelism="-parallel 1"
+#(( ISTIO_MESH )) && parallelism="-parallel 1"
 
 # Run conformance and e2e tests.
 go_test_e2e -timeout=30m \
