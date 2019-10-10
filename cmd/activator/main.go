@@ -245,9 +245,10 @@ func main() {
 	hc, drainCh := newHealthCheck(logger, statSink)
 	ah = &activatorhandler.HealthHandler{HealthCheck: hc, NextHandler: ah}
 
+	ah = network.NewProbeHandler(ah)
+
 	// NOTE: MetricHandler is being used as the outermost handler for the purpose of measuring the request latency.
 	ah = activatorhandler.NewMetricHandler(ctx, reporter, ah)
-	ah = network.NewProbeHandler(ah)
 
 	profilingHandler := profiling.NewHandler(logger, false)
 	// Watch the logging config map and dynamically update logging levels.
