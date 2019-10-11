@@ -278,20 +278,20 @@ func TestReconcile(t *testing.T) {
 	// two constant objects above, which means, that all tests must share
 	// the same namespace and revision name.
 	table := TableTest{{
-		Name:                    "bad workqueue key, Part I",
-		Key:                     "too/many/parts",
+		Name: "bad workqueue key, Part I",
+		Key:  "too/many/parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name:                    "bad workqueue key, Part II",
-		Key:                     "too-few-parts",
+		Name: "bad workqueue key, Part II",
+		Key:  "too-few-parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name:                    "key not found",
-		Key:                     "foo/not-found",
+		Name: "key not found",
+		Key:  "foo/not-found",
 		SkipNamespaceValidation: true,
 	}, {
-		Name:                    "key not found",
-		Key:                     "foo/not-found",
+		Name: "key not found",
+		Key:  "foo/not-found",
 		SkipNamespaceValidation: true,
 	}, {
 		Name: "steady state",
@@ -1174,14 +1174,17 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	})
 
 	grp := errgroup.Group{}
+	waitInformers := func() {}
 	defer func() {
 		cancel()
 		if err := grp.Wait(); err != nil {
 			t.Errorf("Wait() = %v", err)
 		}
+		waitInformers()
 	}()
 
-	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
+	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
 		t.Fatalf("failed to start informers: %v", err)
 	}
 	if err := watcher.Start(ctx.Done()); err != nil {

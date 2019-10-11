@@ -52,11 +52,13 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	ctrl := NewController(ctx, configmap.NewStaticWatcher())
 
 	grp := errgroup.Group{}
+	waitInformers := func() {}
 	defer func() {
 		cancel()
 		if err := grp.Wait(); err != nil {
 			t.Fatalf("Error waiting for contoller to terminate: %v", err)
 		}
+		waitInformers()
 	}()
 
 	kubeClnt := fakekubeclient.Get(ctx)
@@ -78,7 +80,8 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 		t.Fatalf("Error creating private endpoints: %v", err)
 	}
 
-	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
+	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
 		t.Fatalf("Error starting informers: %v", err)
 	}
 

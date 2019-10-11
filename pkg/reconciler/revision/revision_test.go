@@ -561,11 +561,13 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 
 			ctx, cancel := context.WithCancel(ctx)
 			grp := errgroup.Group{}
+			waitInformers := func() {}
 			defer func() {
 				cancel()
 				if err := grp.Wait(); err != nil {
 					t.Errorf("Wait() = %v", err)
 				}
+				waitInformers()
 			}()
 
 			servingClient := fakeservingclient.Get(ctx)
@@ -577,7 +579,8 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 
 			h.OnUpdate(&servingClient.Fake, "revisions", test.callback(t))
 
-			if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
+			waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+			if err != nil {
 				t.Fatalf("Failed to start informers: %v", err)
 			}
 			if err := watcher.Start(ctx.Done()); err != nil {
@@ -714,11 +717,13 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 
 			ctx, cancel := context.WithCancel(ctx)
 			grp := errgroup.Group{}
+			waitInformers := func() {}
 			defer func() {
 				cancel()
 				if err := grp.Wait(); err != nil {
 					t.Errorf("Wait() = %v", err)
 				}
+				waitInformers()
 			}()
 
 			kubeClient := fakekubeclient.Get(ctx)
@@ -735,7 +740,8 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 				return HookComplete
 			})
 
-			if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
+			waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+			if err != nil {
 				t.Fatalf("Failed to start informers: %v", err)
 			}
 			if err := watcher.Start(ctx.Done()); err != nil {

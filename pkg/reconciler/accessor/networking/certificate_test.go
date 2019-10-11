@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"golang.org/x/sync/errgroup"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -96,12 +95,10 @@ func (f *FakeAccessor) GetCertificateLister() listers.CertificateLister {
 
 func TestReconcileCertificateCreate(t *testing.T) {
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-	grp := errgroup.Group{}
+	waitInformers := func() {}
 	defer func() {
 		cancel()
-		if err := grp.Wait(); err != nil {
-			t.Errorf("Wait() = %v", err)
-		}
+		waitInformers()
 	}()
 
 	client := fakeclient.Get(ctx)
@@ -116,7 +113,7 @@ func TestReconcileCertificateCreate(t *testing.T) {
 		return HookComplete
 	})
 
-	accessor := setup(ctx, []*v1alpha1.Certificate{}, client, t)
+	accessor, waitInformers := setup(ctx, []*v1alpha1.Certificate{}, client, t)
 	ReconcileCertificate(ctx, ownerObj, desired, accessor)
 
 	if err := h.WaitForHooks(3 * time.Second); err != nil {
@@ -126,16 +123,14 @@ func TestReconcileCertificateCreate(t *testing.T) {
 
 func TestReconcileCertificateUpdate(t *testing.T) {
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-	grp := errgroup.Group{}
+	waitInformers := func() {}
 	defer func() {
 		cancel()
-		if err := grp.Wait(); err != nil {
-			t.Errorf("Wait() = %v", err)
-		}
+		waitInformers()
 	}()
 
 	client := fakeclient.Get(ctx)
-	accessor := setup(ctx, []*v1alpha1.Certificate{origin}, client, t)
+	accessor, waitInformers := setup(ctx, []*v1alpha1.Certificate{origin}, client, t)
 
 	h := NewHooks()
 	h.OnUpdate(&client.Fake, "certificates", func(obj runtime.Object) HookResult {
@@ -154,7 +149,7 @@ func TestReconcileCertificateUpdate(t *testing.T) {
 }
 
 func setup(ctx context.Context, certs []*v1alpha1.Certificate,
-	client clientset.Interface, t *testing.T) *FakeAccessor {
+	client clientset.Interface, t *testing.T) (*FakeAccessor, func()) {
 
 	fake := fakeservingclient.Get(ctx)
 	certInformer := fakecertinformer.Get(ctx)
@@ -164,12 +159,13 @@ func setup(ctx context.Context, certs []*v1alpha1.Certificate,
 		certInformer.Informer().GetIndexer().Add(cert)
 	}
 
-	if err := controller.StartInformers(ctx.Done(), certInformer.Informer()); err != nil {
+	waitInformers, err := controller.RunInformers(ctx.Done(), certInformer.Informer())
+	if err != nil {
 		t.Fatalf("failed to start Certificate informer: %v", err)
 	}
 
 	return &FakeAccessor{
 		client:     client,
 		certLister: certInformer.Lister(),
-	}
+	}, waitInformers
 }

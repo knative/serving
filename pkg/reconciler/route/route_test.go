@@ -269,7 +269,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	expectedLabels := map[string]string{
 		serving.RouteLabelKey:          route.Name,
 		serving.RouteNamespaceLabelKey: route.Namespace,
-		"route":                        "test-route",
+		"route": "test-route",
 	}
 	if diff := cmp.Diff(expectedLabels, ci.Labels); diff != "" {
 		t.Errorf("Unexpected label diff (-want +got): %v", diff)
@@ -951,11 +951,13 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			ctx, informers, ctrl, _, watcher, cf := newTestSetup(t)
 
 			grp := errgroup.Group{}
+			waitInformers := func() {}
 			defer func() {
 				cf()
 				if err := grp.Wait(); err != nil {
 					t.Errorf("Wait() = %v", err)
 				}
+				waitInformers()
 			}()
 
 			servingClient := fakeservingclient.Get(ctx)
@@ -975,7 +977,8 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 				return HookComplete
 			})
 
-			if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
+			waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+			if err != nil {
 				t.Fatalf("Failed to start informers: %v", err)
 			}
 

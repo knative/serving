@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"golang.org/x/sync/errgroup"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -102,12 +101,10 @@ func (f *FakeAccessor) GetSecretLister() corev1listers.SecretLister {
 
 func TestReconcileSecretCreate(t *testing.T) {
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-	grp := errgroup.Group{}
+	waitInformers := func() {}
 	defer func() {
 		cancel()
-		if err := grp.Wait(); err != nil {
-			t.Errorf("Wait() = %v", err)
-		}
+		waitInformers()
 	}()
 
 	kubeClient := fakekubeclient.Get(ctx)
@@ -122,7 +119,7 @@ func TestReconcileSecretCreate(t *testing.T) {
 		return HookComplete
 	})
 
-	accessor := setup(ctx, []*corev1.Secret{}, kubeClient, t)
+	accessor, waitInformers := setup(ctx, []*corev1.Secret{}, kubeClient, t)
 	ReconcileSecret(ctx, ownerObj, desired, accessor)
 
 	if err := h.WaitForHooks(3 * time.Second); err != nil {
@@ -132,16 +129,14 @@ func TestReconcileSecretCreate(t *testing.T) {
 
 func TestReconcileSecretUpdate(t *testing.T) {
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-	grp := errgroup.Group{}
+	waitInformers := func() {}
 	defer func() {
 		cancel()
-		if err := grp.Wait(); err != nil {
-			t.Errorf("Wait() = %v", err)
-		}
+		waitInformers()
 	}()
 
 	kubeClient := fakekubeclient.Get(ctx)
-	accessor := setup(ctx, []*corev1.Secret{origin}, kubeClient, t)
+	accessor, waitInformers := setup(ctx, []*corev1.Secret{origin}, kubeClient, t)
 
 	h := NewHooks()
 	h.OnUpdate(&kubeClient.Fake, "secrets", func(obj runtime.Object) HookResult {
@@ -161,16 +156,14 @@ func TestReconcileSecretUpdate(t *testing.T) {
 
 func TestNotOwnedFailure(t *testing.T) {
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-	grp := errgroup.Group{}
+	waitInformers := func() {}
 	defer func() {
 		cancel()
-		if err := grp.Wait(); err != nil {
-			t.Errorf("Wait() = %v", err)
-		}
+		waitInformers()
 	}()
 
 	kubeClient := fakekubeclient.Get(ctx)
-	accessor := setup(ctx, []*corev1.Secret{notOwnedSecret}, kubeClient, t)
+	accessor, waitInformers := setup(ctx, []*corev1.Secret{notOwnedSecret}, kubeClient, t)
 
 	_, err := ReconcileSecret(ctx, ownerObj, desired, accessor)
 	if err == nil {
@@ -182,7 +175,7 @@ func TestNotOwnedFailure(t *testing.T) {
 }
 
 func setup(ctx context.Context, secrets []*corev1.Secret,
-	kubeClient kubernetes.Interface, t *testing.T) *FakeAccessor {
+	kubeClient kubernetes.Interface, t *testing.T) (*FakeAccessor, func()) {
 
 	secretInformer := fakesecretinformer.Get(ctx)
 
@@ -192,12 +185,13 @@ func setup(ctx context.Context, secrets []*corev1.Secret,
 		secretInformer.Informer().GetIndexer().Add(secret)
 	}
 
-	if err := controller.StartInformers(ctx.Done(), secretInformer.Informer()); err != nil {
+	waitInformers, err := controller.RunInformers(ctx.Done(), secretInformer.Informer())
+	if err != nil {
 		t.Fatalf("failed to start secret informer: %v", err)
 	}
 
 	return &FakeAccessor{
 		client:       kubeClient,
 		secretLister: secretInformer.Lister(),
-	}
+	}, waitInformers
 }

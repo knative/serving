@@ -309,13 +309,18 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 			}
 
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+			waitInformers := func() {}
 			defer func() {
 				cancel()
 				reporter.Close()
 				oct.Finish()
+				waitInformers()
 			}()
 			revisions := revisionInformer(ctx, revision(testNamespace, testRevName))
-			controller.StartInformers(ctx.Done(), revisions.Informer())
+			waitInformers, err := controller.RunInformers(ctx.Done(), revisions.Informer())
+			if err != nil {
+				t.Fatalf("Failed to start informers: %v", err)
+			}
 
 			handler := (New(ctx, fakeThrottler{}, &fakeReporter{})).(*activationHandler)
 			handler.transport = &ochttp.Transport{
