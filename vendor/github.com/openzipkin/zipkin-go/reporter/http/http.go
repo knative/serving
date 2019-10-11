@@ -1,3 +1,17 @@
+// Copyright 2019 The OpenZipkin Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 /*
 Package http implements a HTTP reporter to send spans to Zipkin V2 collectors.
 */
@@ -5,7 +19,6 @@ package http
 
 import (
 	"bytes"
-	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -32,13 +45,14 @@ type httpReporter struct {
 	batchInterval time.Duration
 	batchSize     int
 	maxBacklog    int
-	sendMtx       *sync.Mutex
 	batchMtx      *sync.Mutex
 	batch         []*model.SpanModel
 	spanC         chan *model.SpanModel
+	sendC         chan struct{}
 	quit          chan struct{}
 	shutdown      chan error
 	reqCallback   RequestCallbackFn
+	serializer    reporter.SpanSerializer
 }
 
 // Send implements reporter
@@ -66,21 +80,32 @@ func (r *httpReporter) loop() {
 			currentBatchSize := r.append(span)
 			if currentBatchSize >= r.batchSize {
 				nextSend = time.Now().Add(r.batchInterval)
-				go func() {
-					_ = r.sendBatch()
-				}()
+				r.enqueueSend()
 			}
 		case <-tickerChan:
 			if time.Now().After(nextSend) {
 				nextSend = time.Now().Add(r.batchInterval)
-				go func() {
-					_ = r.sendBatch()
-				}()
+				r.enqueueSend()
 			}
 		case <-r.quit:
-			r.shutdown <- r.sendBatch()
+			close(r.sendC)
 			return
 		}
+	}
+}
+
+func (r *httpReporter) sendLoop() {
+	for range r.sendC {
+		_ = r.sendBatch()
+	}
+	r.shutdown <- r.sendBatch()
+}
+
+func (r *httpReporter) enqueueSend() {
+	select {
+	case r.sendC <- struct{}{}:
+	default:
+		// Do nothing if there's a pending send request already
 	}
 }
 
@@ -100,10 +125,6 @@ func (r *httpReporter) append(span *model.SpanModel) (newBatchSize int) {
 }
 
 func (r *httpReporter) sendBatch() error {
-	// in order to prevent sending the same batch twice
-	r.sendMtx.Lock()
-	defer r.sendMtx.Unlock()
-
 	// Select all current spans in the batch to be sent
 	r.batchMtx.Lock()
 	sendBatch := r.batch[:]
@@ -113,7 +134,7 @@ func (r *httpReporter) sendBatch() error {
 		return nil
 	}
 
-	body, err := json.Marshal(sendBatch)
+	body, err := r.serializer.Serialize(sendBatch)
 	if err != nil {
 		r.logger.Printf("failed when marshalling the spans batch: %s\n", err.Error())
 		return err
@@ -124,7 +145,7 @@ func (r *httpReporter) sendBatch() error {
 		r.logger.Printf("failed when creating the request: %s\n", err.Error())
 		return err
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", r.serializer.ContentType())
 	if r.reqCallback != nil {
 		r.reqCallback(req)
 	}
@@ -195,6 +216,16 @@ func Logger(l *log.Logger) ReporterOption {
 	return func(r *httpReporter) { r.logger = l }
 }
 
+// Serializer sets the serialization function to use for sending span data to
+// Zipkin.
+func Serializer(serializer reporter.SpanSerializer) ReporterOption {
+	return func(r *httpReporter) {
+		if serializer != nil {
+			r.serializer = serializer
+		}
+	}
+}
+
 // NewReporter returns a new HTTP Reporter.
 // url should be the endpoint to send the spans to, e.g.
 // http://localhost:9411/api/v2/spans
@@ -208,10 +239,11 @@ func NewReporter(url string, opts ...ReporterOption) reporter.Reporter {
 		maxBacklog:    defaultMaxBacklog,
 		batch:         []*model.SpanModel{},
 		spanC:         make(chan *model.SpanModel),
+		sendC:         make(chan struct{}, 1),
 		quit:          make(chan struct{}, 1),
 		shutdown:      make(chan error, 1),
-		sendMtx:       &sync.Mutex{},
 		batchMtx:      &sync.Mutex{},
+		serializer:    reporter.JSONSerializer{},
 	}
 
 	for _, opt := range opts {
@@ -219,6 +251,7 @@ func NewReporter(url string, opts ...ReporterOption) reporter.Reporter {
 	}
 
 	go r.loop()
+	go r.sendLoop()
 
 	return &r
 }
