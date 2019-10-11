@@ -21,6 +21,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/google/mako/go/quickstore"
@@ -154,7 +155,7 @@ func main() {
 	const duration = 2 * time.Minute
 	url := fmt.Sprintf("http://load-test-%s.default.svc.cluster.local?sleep=100", *flavor)
 	targeter := vegeta.NewStaticTargeter(vegeta.Target{
-		Method: "GET",
+		Method: http.MethodGet,
 		URL:    url,
 	})
 
