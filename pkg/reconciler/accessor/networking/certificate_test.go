@@ -23,16 +23,18 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"golang.org/x/sync/errgroup"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
-	sharedfake "knative.dev/serving/pkg/client/clientset/versioned/fake"
-	informers "knative.dev/serving/pkg/client/informers/externalversions"
 	fakeclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakecertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 
 	. "knative.dev/pkg/reconciler/testing"
@@ -154,9 +156,8 @@ func TestReconcileCertificateUpdate(t *testing.T) {
 func setup(ctx context.Context, certs []*v1alpha1.Certificate,
 	client clientset.Interface, t *testing.T) *FakeAccessor {
 
-	fake := sharedfake.NewSimpleClientset()
-	informer := informers.NewSharedInformerFactory(fake, 0)
-	certInformer := informer.Networking().V1alpha1().Certificates()
+	fake := fakeservingclient.Get(ctx)
+	certInformer := fakecertinformer.Get(ctx)
 
 	for _, cert := range certs {
 		fake.NetworkingV1alpha1().Certificates(cert.Namespace).Create(cert)

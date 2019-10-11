@@ -22,17 +22,19 @@ import (
 	"hash/adler32"
 	"testing"
 
-	"knative.dev/serving/pkg/apis/networking"
-
 	"github.com/google/go-cmp/cmp"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kubeinformers "k8s.io/client-go/informers"
-	kubefake "k8s.io/client-go/kubernetes/fake"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+
 	"knative.dev/pkg/apis/istio/v1alpha3"
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
+	fakeserviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	"knative.dev/pkg/kmeta"
+	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/ingress/config"
@@ -593,8 +595,10 @@ func TestMakeIngressGateways(t *testing.T) {
 	}}
 
 	for _, c := range cases {
-		svcLister := serviceLister(c.gatewayService)
-		ctx := config.ToContext(context.Background(), &config.Config{
+		ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+		defer cancel()
+		svcLister := serviceLister(ctx, c.gatewayService)
+		ctx = config.ToContext(context.Background(), &config.Config{
 			Istio: &config.Istio{
 				IngressGateways: []config.Gateway{{
 					Name:       "knative-ingress-gateway",
@@ -617,17 +621,16 @@ func TestMakeIngressGateways(t *testing.T) {
 	}
 }
 
-func serviceLister(svcs ...*corev1.Service) corev1listers.ServiceLister {
-	fake := kubefake.NewSimpleClientset()
-	informer := kubeinformers.NewSharedInformerFactory(fake, 0)
-	services := informer.Core().V1().Services()
+func serviceLister(ctx context.Context, svcs ...*corev1.Service) corev1listers.ServiceLister {
+	fake := fakekubeclient.Get(ctx)
+	informer := fakeserviceinformer.Get(ctx)
 
 	for _, svc := range svcs {
 		fake.CoreV1().Services(svc.Namespace).Create(svc)
-		services.Informer().GetIndexer().Add(svc)
+		informer.Informer().GetIndexer().Add(svc)
 	}
 
-	return services.Lister()
+	return informer.Lister()
 }
 
 func TestGatewayName(t *testing.T) {

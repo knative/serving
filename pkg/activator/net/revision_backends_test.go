@@ -17,7 +17,6 @@ limitations under the License.
 package net
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"sync"
@@ -30,8 +29,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	kubeinformers "k8s.io/client-go/informers"
-	kubefake "k8s.io/client-go/kubernetes/fake"
 
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
@@ -322,7 +319,7 @@ func TestRevisionWatcher(t *testing.T) {
 			}
 			rt := network.RoundTripperFunc(fakeRT.RT)
 
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer cancel()
 
 			updateCh := make(chan revisionDestsUpdate, len(tc.expectUpdates)+1)
@@ -336,15 +333,14 @@ func TestRevisionWatcher(t *testing.T) {
 				tc.protocol = networking.ProtocolHTTP1
 			}
 
-			fake := kubefake.NewSimpleClientset()
-			informer := kubeinformers.NewSharedInformerFactory(fake, 0)
-			servicesLister := informer.Core().V1().Services().Lister()
+			fake := fakekubeclient.Get(ctx)
+			informer := fakeserviceinformer.Get(ctx)
 
 			revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
 			if tc.clusterIP != "" {
 				svc := privateSKSService(revID, tc.clusterIP, []corev1.ServicePort{tc.clusterPort})
 				fake.CoreV1().Services(svc.Namespace).Create(svc)
-				informer.Core().V1().Services().Informer().GetIndexer().Add(svc)
+				informer.Informer().GetIndexer().Add(svc)
 			}
 
 			rw := newRevisionWatcher(
@@ -354,7 +350,7 @@ func TestRevisionWatcher(t *testing.T) {
 				updateCh,
 				destsCh,
 				rt,
-				servicesLister,
+				informer.Lister(),
 				logger,
 			)
 			rw.clusterIPHealthy = tc.initialClusterIPState
