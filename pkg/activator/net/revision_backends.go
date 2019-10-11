@@ -58,7 +58,6 @@ type revisionDestsUpdate struct {
 	Rev           types.NamespacedName
 	ClusterIPDest string
 	Dests         sets.String
-	Deleted       bool
 }
 
 const (
@@ -430,7 +429,6 @@ func (rbm *revisionBackendsManager) deleteRevisionWatcher(rev types.NamespacedNa
 	if rw, ok := rbm.revisionWatchers[rev]; ok {
 		rw.cancel()
 		delete(rbm.revisionWatchers, rev)
-		rbm.updateCh <- revisionDestsUpdate{Rev: rev, Deleted: true}
 	}
 }
 
