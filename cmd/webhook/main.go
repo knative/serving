@@ -43,7 +43,6 @@ import (
 	"knative.dev/pkg/version"
 	"knative.dev/pkg/webhook"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	apiconfig "knative.dev/serving/pkg/apis/config"
 	net "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -53,7 +52,7 @@ import (
 	"knative.dev/serving/pkg/network"
 
 	// config validation constructors
-	pkgmetrics "knative.dev/pkg/metrics"
+
 	tracingconfig "knative.dev/pkg/tracing/config"
 	defaultconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/autoscaler"
@@ -120,7 +119,7 @@ func main() {
 		metrics.UpdateExporterFromConfigMap(component, logger),
 		profilingHandler.UpdateFromConfigMap)
 
-	store := apiconfig.NewStore(logger.Named("config-store"))
+	store := defaultconfig.NewStore(logger.Named("config-store"))
 	store.WatchConfigs(configMapWatcher)
 
 	if err = configMapWatcher.Start(ctx.Done()); err != nil {
@@ -168,7 +167,7 @@ func main() {
 		network.ConfigName:               network.NewConfigFromConfigMap,
 		istioconfig.IstioConfigName:      istioconfig.NewIstioFromConfigMap,
 		deployment.ConfigName:            deployment.NewConfigFromConfigMap,
-		pkgmetrics.ConfigMapName():       metricsconfig.NewObservabilityConfigFromConfigMap,
+		metrics.ConfigMapName():          metricsconfig.NewObservabilityConfigFromConfigMap,
 		logging.ConfigMapName():          logging.NewConfigFromConfigMap,
 		domainconfig.DomainConfigName:    domainconfig.NewDomainFromConfigMap,
 		defaultconfig.DefaultsConfigName: defaultconfig.NewDefaultsConfigFromConfigMap,

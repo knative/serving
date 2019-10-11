@@ -2581,24 +2581,10 @@ func ingressWithStatus(r *v1alpha1.Route, tc *traffic.Config, status netv1alpha1
 	return ci
 }
 
-func changeIngressName(ci netv1alpha1.IngressAccessor) netv1alpha1.IngressAccessor {
-	ci.SetName("not-what-we-thought")
-	return ci
-}
-
 func mutateIngress(ci netv1alpha1.IngressAccessor) netv1alpha1.IngressAccessor {
 	// Thor's Hammer
 	ci.SetSpec(netv1alpha1.IngressSpec{})
 	return ci
-}
-
-func patchFinalizers(namespace, name string) clientgotesting.PatchActionImpl {
-	action := clientgotesting.PatchActionImpl{}
-	action.Name = name
-	action.Namespace = namespace
-	patch := `{"metadata":{"finalizers":["routes.serving.knative.dev"],"resourceVersion":""}}`
-	action.Patch = []byte(patch)
-	return action
 }
 
 func patchLastPinned(namespace, name string) clientgotesting.PatchActionImpl {

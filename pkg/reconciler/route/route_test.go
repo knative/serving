@@ -27,7 +27,6 @@ import (
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
-	fakeciinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
 	fakeingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
 	fakecfginformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
@@ -230,7 +229,7 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, route *v1alpha1.
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
 	if ci := getRouteIngressFromClient(ctx, t, route); ci != nil {
-		fakeciinformer.Get(ctx).Informer().GetIndexer().Add(ci)
+		fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(ci)
 	}
 	ingress := getRouteIngressFromClient(ctx, t, route)
 	fakeingressinformer.Get(ctx).Informer().GetIndexer().Add(ingress)
@@ -316,7 +315,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 			}},
 		},
 	}
-	fakeciinformer.Get(ctx).Informer().GetIndexer().Update(ci)
+	fakeingressinformer.Get(ctx).Informer().GetIndexer().Update(ci)
 	reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
 	// Look for the events. Events are delivered asynchronously so we need to use
