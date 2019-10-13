@@ -235,11 +235,6 @@ data:
   profiling.enable: "true"
 EOF
 
-  echo ">> Adding more activator pods."
-  # This command would fail if the HPA already exist, like during upgrade test.
-  # Therefore we don't exit on failure, and don't log an error message.
-  kubectl autoscale deploy --min=2 --max=2 -n knative-serving activator 2>/dev/null
-
   # post-install steps for istio
   if [[ -z "${GLOO_VERSION}" ]]; then
     # Due to the lack of Status in Istio, we have to ignore failures in initial requests.
