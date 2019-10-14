@@ -1002,9 +1002,9 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 
 func TestRouteDomain(t *testing.T) {
 	route := Route("default", "myapp", WithRouteLabel(map[string]string{"route": "myapp"}), WithRouteAnnotation(map[string]string{"sub": "mysub"}))
-	context := context.Background()
+	ctx := context.Background()
 	cfg := ReconcilerTestConfig(false)
-	context = config.ToContext(context, cfg)
+	ctx = config.ToContext(ctx, cfg)
 
 	tests := []struct {
 		Name     string
@@ -1045,17 +1045,17 @@ func TestRouteDomain(t *testing.T) {
 	}}
 
 	for _, test := range tests {
-		cfg.Network.DomainTemplate = test.Template
+		t.Run(test.Name, func(t *testing.T) {
+			cfg.Network.DomainTemplate = test.Template
 
-		res, err := domains.DomainNameFromTemplate(context, route.ObjectMeta, route.Name)
+			res, err := domains.DomainNameFromTemplate(ctx, route.ObjectMeta, route.Name)
 
-		if test.Pass != (err == nil) {
-			t.Fatalf("TestRouteDomain %q test: supposed to fail but didn't",
-				test.Name)
-		}
-		if res != test.Expected {
-			t.Fatalf("TestRouteDomain %q test: got: %q exp: %q",
-				test.Name, res, test.Expected)
-		}
+			if test.Pass != (err == nil) {
+				t.Fatal("DomainNameFromTemplate supposed to fail but didn't")
+			}
+			if got, want := res, test.Expected; got != want {
+				t.Errorf("DomainNameFromTemplate = %q, want: %q", res, test.Expected)
+			}
+		})
 	}
 }
