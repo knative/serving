@@ -127,7 +127,7 @@ func NewClients(configPath string, clusterName string, namespace string) (*Clien
 	return clients, nil
 }
 
-// NewNetworkingClients instantiates and returns the networking clientset required to make requests
+// newNetworkingClients instantiates and returns the networking clientset required to make requests
 // to Networking resources on the Knative service cluster
 func newNetworkingClients(cfg *rest.Config, namespace string) (*NetworkingClients, error) {
 	cs, err := versioned.NewForConfig(cfg)

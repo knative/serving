@@ -260,7 +260,7 @@ func numberOfPods(ctx *testContext) (float64, error) {
 	eps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
 		sks.Status.PrivateServiceName, metav1.GetOptions{})
 	if err != nil {
-		return 0, fmt.Errorf("Failed to get endpoints %s: %w", sks.Status.PrivateServiceName, err)
+		return 0, fmt.Errorf("failed to get endpoints %s: %w", sks.Status.PrivateServiceName, err)
 	}
 	return float64(resources.ReadyAddressCount(eps)), nil
 }
