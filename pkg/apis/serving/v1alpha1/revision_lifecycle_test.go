@@ -250,7 +250,7 @@ func TestGetSetCondition(t *testing.T) {
 		Severity: apis.ConditionSeverityError,
 	}
 
-	rs.MarkResourcesAvailable()
+	rs.MarkResourcesAvailableTrue()
 
 	if diff := cmp.Diff(rc, rs.GetCondition(RevisionConditionResourcesAvailable), cmpopts.IgnoreFields(apis.Condition{}, "LastTransitionTime")); diff != "" {
 		t.Errorf("GetCondition refs diff (-want +got): %v", diff)
@@ -268,7 +268,7 @@ func TestTypicalFlowWithProgressDeadlineExceeded(t *testing.T) {
 	apitestv1.CheckConditionOngoing(r.duck(), RevisionConditionReady, t)
 
 	const want = "the error message"
-	r.MarkProgressDeadlineExceeded(want)
+	r.MarkResourcesAvailableFalse(ProgressDeadlineExceeded, want)
 	apitestv1.CheckConditionFailed(r.duck(), RevisionConditionResourcesAvailable, t)
 	apitestv1.CheckConditionFailed(r.duck(), RevisionConditionReady, t)
 	if got := r.GetCondition(RevisionConditionResourcesAvailable); got == nil || got.Message != want {
@@ -287,7 +287,7 @@ func TestTypicalFlowWithContainerMissing(t *testing.T) {
 	apitestv1.CheckConditionOngoing(r.duck(), RevisionConditionReady, t)
 
 	const want = "something about the container being not found"
-	r.MarkContainerMissing(want)
+	r.MarkContainerHealthyFalse(ContainerMissing, want)
 	apitestv1.CheckConditionOngoing(r.duck(), RevisionConditionResourcesAvailable, t)
 	apitestv1.CheckConditionFailed(r.duck(), RevisionConditionContainerHealthy, t)
 	apitestv1.CheckConditionFailed(r.duck(), RouteConditionReady, t)
@@ -311,16 +311,16 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	apitestv1.CheckConditionOngoing(r.duck(), RevisionConditionReady, t)
 
 	// Enter a Ready state.
-	r.MarkActive()
-	r.MarkContainerHealthy()
-	r.MarkResourcesAvailable()
+	r.MarkActiveTrue()
+	r.MarkContainerHealthyTrue()
+	r.MarkResourcesAvailableTrue()
 	apitestv1.CheckConditionSucceeded(r.duck(), RevisionConditionResourcesAvailable, t)
 	apitestv1.CheckConditionSucceeded(r.duck(), RevisionConditionContainerHealthy, t)
 	apitestv1.CheckConditionSucceeded(r.duck(), RevisionConditionReady, t)
 
 	// From a Ready state, make the revision inactive to simulate scale to zero.
 	const want = "Deactivated"
-	r.MarkInactive(want, "Reserve")
+	r.MarkActiveFalse(want, "Reserve")
 	apitestv1.CheckConditionSucceeded(r.duck(), RevisionConditionResourcesAvailable, t)
 	apitestv1.CheckConditionSucceeded(r.duck(), RevisionConditionContainerHealthy, t)
 	apitestv1.CheckConditionFailed(r.duck(), RevisionConditionActive, t)
@@ -331,7 +331,7 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 
 	// From an Inactive state, start to activate the revision.
 	const want2 = "Activating"
-	r.MarkActivating(want2, "blah blah blah")
+	r.MarkActiveUnknown(want2, "blah blah blah")
 	apitestv1.CheckConditionSucceeded(r.duck(), RevisionConditionResourcesAvailable, t)
 	apitestv1.CheckConditionSucceeded(r.duck(), RevisionConditionContainerHealthy, t)
 	apitestv1.CheckConditionOngoing(r.duck(), RevisionConditionActive, t)
@@ -341,7 +341,7 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	apitestv1.CheckConditionSucceeded(r.duck(), RevisionConditionReady, t)
 
 	// From the activating state, simulate the transition back to readiness.
-	r.MarkActive()
+	r.MarkActiveTrue()
 	apitestv1.CheckConditionSucceeded(r.duck(), RevisionConditionResourcesAvailable, t)
 	apitestv1.CheckConditionSucceeded(r.duck(), RevisionConditionContainerHealthy, t)
 	apitestv1.CheckConditionSucceeded(r.duck(), RevisionConditionReady, t)
@@ -355,7 +355,7 @@ func TestRevisionNotOwnedStuff(t *testing.T) {
 	apitestv1.CheckConditionOngoing(r.duck(), RevisionConditionReady, t)
 
 	const want = "NotOwned"
-	r.MarkResourceNotOwned("Resource", "mark")
+	r.MarkResourcesAvailableFalse(NotOwned, "mark")
 	apitestv1.CheckConditionFailed(r.duck(), RevisionConditionResourcesAvailable, t)
 	apitestv1.CheckConditionFailed(r.duck(), RevisionConditionReady, t)
 	if got := r.GetCondition(RevisionConditionResourcesAvailable); got == nil || got.Reason != want {
@@ -374,7 +374,7 @@ func TestRevisionResourcesUnavailable(t *testing.T) {
 	apitestv1.CheckConditionOngoing(r.duck(), RevisionConditionReady, t)
 
 	const wantReason, wantMessage = "unschedulable", "insufficient energy"
-	r.MarkResourcesUnavailable(wantReason, wantMessage)
+	r.MarkResourcesAvailableFalse(wantReason, wantMessage)
 	apitestv1.CheckConditionFailed(r.duck(), RevisionConditionResourcesAvailable, t)
 	apitestv1.CheckConditionFailed(r.duck(), RevisionConditionReady, t)
 	if got := r.GetCondition(RevisionConditionResourcesAvailable); got == nil || got.Reason != wantReason {
@@ -648,7 +648,7 @@ func TestPropagateDeploymentStatus(t *testing.T) {
 	apitestv1.CheckConditionOngoing(rev.duck(), RevisionConditionContainerHealthy, t)
 
 	// Marking container healthy doesn't affect deployment status.
-	rev.MarkContainerHealthy()
+	rev.MarkContainerHealthyTrue()
 	apitestv1.CheckConditionFailed(rev.duck(), RevisionConditionReady, t)
 	apitestv1.CheckConditionFailed(rev.duck(), RevisionConditionResourcesAvailable, t)
 	apitestv1.CheckConditionSucceeded(rev.duck(), RevisionConditionContainerHealthy, t)

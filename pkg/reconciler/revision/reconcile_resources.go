@@ -41,7 +41,8 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	deployment, err := c.deploymentLister.Deployments(ns).Get(deploymentName)
 	if apierrs.IsNotFound(err) {
 		// Deployment does not exist. Create it.
-		rev.Status.MarkDeploying("Deploying")
+		rev.Status.MarkResourcesAvailableUnknown(v1alpha1.Deploying, "")
+		rev.Status.MarkContainerHealthyUnknown(v1alpha1.Deploying, "")
 		deployment, err = c.createDeployment(ctx, rev)
 		if err != nil {
 			return fmt.Errorf("failed to create deployment %q: %w", deploymentName, err)
@@ -51,7 +52,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		return fmt.Errorf("failed to get deployment %q: %w", deploymentName, err)
 	} else if !metav1.IsControlledBy(deployment, rev) {
 		// Surface an error in the revision's status, and return an error.
-		rev.Status.MarkResourceNotOwned("Deployment", deploymentName)
+		rev.Status.MarkResourcesAvailableFalse(v1alpha1.NotOwned, v1alpha1.ResourceNotOwnedMessage("Deployment", deploymentName))
 		return fmt.Errorf("revision: %q does not own Deployment: %q", rev.Name, deploymentName)
 	} else {
 		// The deployment exists, but make sure that it has the shape that we expect.
@@ -85,7 +86,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 			// If pod cannot be scheduled then we expect the container status to be empty.
 			for _, cond := range pod.Status.Conditions {
 				if cond.Type == corev1.PodScheduled && cond.Status == corev1.ConditionFalse {
-					rev.Status.MarkResourcesUnavailable(cond.Reason, cond.Message)
+					rev.Status.MarkResourcesAvailableFalse(cond.Reason, cond.Message)
 					break
 				}
 			}
@@ -94,10 +95,10 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 				if status.Name == rev.Spec.GetContainer().Name {
 					if t := status.LastTerminationState.Terminated; t != nil {
 						logger.Infof("%s marking exiting with: %d/%s", rev.Name, t.ExitCode, t.Message)
-						rev.Status.MarkContainerExiting(t.ExitCode, t.Message)
+						rev.Status.MarkContainerHealthyFalse(v1alpha1.ExitCodeReason(t.ExitCode), t.Message)
 					} else if w := status.State.Waiting; w != nil && hasDeploymentTimedOut(deployment) {
 						logger.Infof("%s marking resources unavailable with: %s: %s", rev.Name, w.Reason, w.Message)
-						rev.Status.MarkResourcesUnavailable(w.Reason, w.Message)
+						rev.Status.MarkResourcesAvailableFalse(w.Reason, w.Message)
 					}
 					break
 				}
@@ -145,7 +146,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1alpha1.Revision) er
 		return fmt.Errorf("failed to get PA %q: %w", paName, err)
 	} else if !metav1.IsControlledBy(pa, rev) {
 		// Surface an error in the revision's status, and return an error.
-		rev.Status.MarkResourceNotOwned("PodAutoscaler", paName)
+		rev.Status.MarkResourcesAvailableFalse(v1alpha1.NotOwned, v1alpha1.ResourceNotOwnedMessage("PodAutoscaler", paName))
 		return fmt.Errorf("revision: %q does not own PodAutoscaler: %q", rev.Name, paName)
 	}
 

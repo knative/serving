@@ -1069,7 +1069,7 @@ func getTestFailedConfig(name string) (*v1alpha1.Configuration, *v1alpha1.Revisi
 	rev := testRevForConfig(config, name+"-revision")
 	config.Status.SetLatestCreatedRevisionName(rev.Name)
 	config.Status.MarkLatestCreatedFailed(rev.Name, "Permanently failed")
-	rev.Status.MarkContainerMissing("Should have used ko")
+	rev.Status.MarkContainerHealthyFalse(v1alpha1.ContainerMissing, "Should have used ko")
 	return config, rev
 }
 
@@ -1079,16 +1079,16 @@ func getTestInactiveConfig(name string) (*v1alpha1.Configuration, *v1alpha1.Revi
 	config.Status.SetLatestReadyRevisionName(rev.Name)
 	config.Status.SetLatestCreatedRevisionName(rev.Name)
 	rev.Status.InitializeConditions()
-	rev.Status.MarkInactive("Reserve", "blah blah blah")
+	rev.Status.MarkActiveFalse("Reserve", "blah blah blah")
 	return config, rev
 }
 
 func getTestReadyConfig(name string) (*v1alpha1.Configuration, *v1alpha1.Revision, *v1alpha1.Revision) {
 	config := testConfig(name + "-config")
 	rev1 := testRevForConfig(config, name+"-revision-1")
-	rev1.Status.MarkResourcesAvailable()
-	rev1.Status.MarkContainerHealthy()
-	rev1.Status.MarkActive()
+	rev1.Status.MarkResourcesAvailableTrue()
+	rev1.Status.MarkContainerHealthyTrue()
+	rev1.Status.MarkActiveTrue()
 
 	// rev1 will use http1, rev2 will use h2c
 	config.Spec.GetTemplate().Spec.GetContainer().Ports = []corev1.ContainerPort{{
@@ -1096,9 +1096,9 @@ func getTestReadyConfig(name string) (*v1alpha1.Configuration, *v1alpha1.Revisio
 	}}
 
 	rev2 := testRevForConfig(config, name+"-revision-2")
-	rev2.Status.MarkResourcesAvailable()
-	rev2.Status.MarkContainerHealthy()
-	rev2.Status.MarkActive()
+	rev2.Status.MarkResourcesAvailableTrue()
+	rev2.Status.MarkContainerHealthyTrue()
+	rev2.Status.MarkActiveTrue()
 	config.Status.SetLatestReadyRevisionName(rev2.Name)
 	config.Status.SetLatestCreatedRevisionName(rev2.Name)
 	return config, rev1, rev2
