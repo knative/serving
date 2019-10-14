@@ -30,7 +30,6 @@ import (
 	"github.com/pkg/errors"
 	vegeta "github.com/tsenart/vegeta/lib"
 	"golang.org/x/sync/errgroup"
-	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	ingress "knative.dev/pkg/test/ingress"
@@ -246,10 +245,22 @@ func assertScaleDown(ctx *testContext) {
 }
 
 func numberOfPods(ctx *testContext) (float64, error) {
-	eps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
-		kmeta.ChildName(ctx.resources.Revision.Name, "-private"), metav1.GetOptions{})
+	// SKS name matches that of revision.
+	n := ctx.resources.Revision.Name
+	sks, err := ctx.clients.NetworkingClient.ServerlessServices.Get(n, metav1.GetOptions{})
 	if err != nil {
-		return 0, fmt.Errorf("Failed to get endpoints: %w", err)
+		ctx.t.Logf("Error getting SKS %q: %v", n, err)
+		return 0, fmt.Errorf("error retrieving sks %q: %w", n, err)
+	}
+	if sks.Status.PrivateServiceName == "" {
+		ctx.t.Logf("SKS %s has not yet reconciled", n)
+		// Not an error, but no pods either.
+		return 0, nil
+	}
+	eps, err := ctx.clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
+		sks.Status.PrivateServiceName, metav1.GetOptions{})
+	if err != nil {
+		return 0, fmt.Errorf("failed to get endpoints %s: %w", sks.Status.PrivateServiceName, err)
 	}
 	return float64(resources.ReadyAddressCount(eps)), nil
 }
