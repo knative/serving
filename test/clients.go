@@ -24,9 +24,11 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
 	sharedclientset "knative.dev/pkg/client/clientset/versioned"
 	"knative.dev/pkg/test"
 	"knative.dev/serving/pkg/client/clientset/versioned"
+	networkingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/networking/v1alpha1"
 	servingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
 	servingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	servingv1beta1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1beta1"
@@ -38,6 +40,7 @@ type Clients struct {
 	ServingAlphaClient *ServingAlphaClients
 	ServingBetaClient  *ServingBetaClients
 	ServingClient      *ServingClients
+	NetworkingClient   *NetworkingClients
 	Dynamic            dynamic.Interface
 	SharedClient       sharedclientset.Interface
 }
@@ -64,6 +67,12 @@ type ServingClients struct {
 	Configs   servingv1.ConfigurationInterface
 	Revisions servingv1.RevisionInterface
 	Services  servingv1.ServiceInterface
+}
+
+// NetworkingClients holds instances of interfaces for making requests to Knative
+// networking clients.
+type NetworkingClients struct {
+	ServerlessServices networkingv1alpha1.ServerlessServiceInterface
 }
 
 // NewClients instantiates and returns several clientsets required for making request to the
@@ -110,7 +119,24 @@ func NewClients(configPath string, clusterName string, namespace string) (*Clien
 		return nil, err
 	}
 
+	clients.NetworkingClient, err = newNetworkingClients(cfg, namespace)
+	if err != nil {
+		return nil, err
+	}
+
 	return clients, nil
+}
+
+// NewNetworkingClients instantiates and returns the networking clientset required to make requests
+// to Networking resources on the Knative service cluster
+func newNetworkingClients(cfg *rest.Config, namespace string) (*NetworkingClients, error) {
+	cs, err := versioned.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &NetworkingClients{
+		ServerlessServices: cs.NetworkingV1alpha1().ServerlessServices(namespace),
+	}, nil
 }
 
 // NewServingAlphaClients instantiates and returns the serving clientset required to make requests to the
