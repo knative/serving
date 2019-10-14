@@ -31,7 +31,7 @@ var minInterval = flag.Duration("min-alert-interval", 24*time.Hour, "The minimum
 
 const (
 	messageTemplate = `
-As of %s, there is a new performance regression detected from automation test:
+As of %s, there is a new performance regression detected from test automation for **%s**:
 %s`
 )
 
@@ -61,8 +61,8 @@ func Setup(userName, readTokenPath, writeTokenPath string, channels []config.Cha
 	}, nil
 }
 
-// SendAlert will send the alert text to the slack channel(s)
-func (smh *MessageHandler) SendAlert(text string) error {
+// SendAlert will send alert for performance regression to the slack channel(s)
+func (smh *MessageHandler) SendAlert(testName, summary string) error {
 	dryrun := smh.dryrun
 	errCh := make(chan error)
 	var wg sync.WaitGroup
@@ -90,7 +90,7 @@ func (smh *MessageHandler) SendAlert(text string) error {
 				return
 			}
 			// send the alert message to the channel
-			message := fmt.Sprintf(messageTemplate, time.Now(), text)
+			message := fmt.Sprintf(messageTemplate, time.Now().UTC(), testName, summary)
 			if err := helpers.Run(
 				fmt.Sprintf("sending message %q to channel %q", message, channel.Name),
 				func() error {

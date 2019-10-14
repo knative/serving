@@ -20,7 +20,7 @@ import (
 	"fmt"
 
 	boskoscommon "k8s.io/test-infra/boskos/common"
-	"knative.dev/pkg/testutils/clustermanager/boskos"
+	"knative.dev/pkg/testutils/clustermanager/e2e-tests/boskos"
 )
 
 const (
