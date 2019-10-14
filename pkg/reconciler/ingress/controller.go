@@ -30,14 +30,14 @@ const (
 )
 
 // ReconcilerInitializer creates an Ingress Reconciler and exposes methods to perform
-// initializations
+// initializations.
 type ReconcilerInitializer interface {
 	controller.Reconciler
 
-	// init method to perform initializations
+	// Init initializes the reconciler.
 	Init(ctx context.Context, cmw configmap.Watcher, impl *controller.Impl)
 
-	// set tracker
+	// Sets tracker.
 	SetTracker(tracker.Interface)
 }
 
