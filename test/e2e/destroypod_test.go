@@ -33,7 +33,6 @@ import (
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
@@ -50,11 +49,26 @@ const (
 )
 
 // testToDestroy for table-driven testing.
-var testToDestroy = []string{
+var testToDestroy = []struct {
+	name   string
+	rmFunc func(*test.Clients) error
+}{
 	// Destroy pods which is receiving the requests.
-	"pods",
+	{"pods", killRevisionPods},
 	// Destroy activator pods.
-	"activators",
+	{"activator", killActivatorPods},
+}
+
+func killRevisionPods(clients *test.Clients) error {
+	return clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{
+		LabelSelector: "knative.dev=delete-to-test",
+	})
+}
+
+func killActivatorPods(clients *test.Clients) error {
+	return clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{
+		LabelSelector: "app=activator",
+	})
 }
 
 func TestDestroyPodInflight(t *testing.T) {
@@ -64,53 +78,25 @@ func TestDestroyPodInflight(t *testing.T) {
 	clients := Setup(t)
 
 	for _, tc := range testToDestroy {
-		t.Run(tc, func(t *testing.T) {
-			cancel := logstream.Start(t)
-			defer cancel()
-			testDestroyPodInflight(t, clients, tc)
+		t.Run(tc.name, func(t *testing.T) {
+			testDestroyPodInflight(t, clients, tc.rmFunc)
 		})
 	}
 }
 
-func testDestroyPodInflight(t *testing.T, clients *test.Clients, testCase string) {
-	svcName := test.ObjectNameForTest(t)
+func testDestroyPodInflight(t *testing.T, clients *test.Clients, rmFunc func(*test.Clients) error) {
 	names := test.ResourceNames{
-		Config: svcName,
-		Route:  svcName,
-		Image:  "timeout",
+		Service: test.ObjectNameForTest(t),
+		Image:   "timeout",
 	}
-
-	if _, err := v1a1test.CreateConfiguration(t, clients, names, v1a1opts.WithConfigRevisionTimeoutSeconds(revisionTimeoutSeconds)); err != nil {
-		t.Fatalf("Failed to create Configuration: %v", err)
-	}
-	if _, err := v1a1test.CreateRoute(t, clients, names); err != nil {
-		t.Fatalf("Failed to create Route: %v", err)
-	}
-
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	t.Log("When the Revision can have traffic routed to it, the Route is marked as Ready")
-	if err := v1a1test.WaitForRouteState(clients.ServingAlphaClient, names.Route, v1a1test.IsRouteReady, "RouteIsReady"); err != nil {
-		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
-	}
-
-	route, err := clients.ServingAlphaClient.Routes.Get(names.Route, metav1.GetOptions{})
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())), v1a1opts.WithConfigLabels(map[string]string{"knative.dev": "delete-to-test"}))
 	if err != nil {
-		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
+		t.Fatalf("Failed to create a service: %v", err)
 	}
-	routeURL := route.Status.URL.URL()
-
-	err = v1a1test.WaitForConfigurationState(clients.ServingAlphaClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
-		if c.Status.LatestCreatedRevisionName != names.Revision {
-			names.Revision = c.Status.LatestCreatedRevisionName
-			return true, nil
-		}
-		return false, nil
-	}, "ConfigurationUpdatedWithRevision")
-	if err != nil {
-		t.Fatalf("Error obtaining Revision's name %v", err)
-	}
+	routeURL := objects.Route.Status.URL.URL()
 
 	if _, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
@@ -161,18 +147,8 @@ func testDestroyPodInflight(t *testing.T, clients *test.Clients, testCase string
 	g.Go(func() error {
 		// Give the request a bit of time to be established and reach the pod.
 		time.Sleep(timeoutRequestDuration / 2)
-
-		switch testCase {
-		case "pods":
-			t.Log("Destroying the configuration (also destroys the pods)")
-			return clients.ServingAlphaClient.Configs.Delete(names.Config, nil)
-		case "activators":
-			t.Log("Destroying the activator pods")
-			return clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{
-				LabelSelector: "app=activator", // TODO:
-			})
-		}
-		return nil
+		t.Logf("Deleting")
+		return rmFunc(clients)
 	})
 
 	if err := g.Wait(); err != nil {
@@ -251,15 +227,13 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	clients := Setup(t)
 
 	for _, tc := range testToDestroy {
-		t.Run(tc, func(t *testing.T) {
-			cancel := logstream.Start(t)
-			defer cancel()
-			testDestroyPodWithRequests(t, clients, tc)
+		t.Run(tc.name, func(t *testing.T) {
+			testDestroyPodWithRequests(t, clients, tc.rmFunc)
 		})
 	}
 }
 
-func testDestroyPodWithRequests(t *testing.T, clients *test.Clients, testCase string) {
+func testDestroyPodWithRequests(t *testing.T, clients *test.Clients, rmFunc func(*test.Clients) error) {
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   "autoscale",
@@ -267,7 +241,7 @@ func testDestroyPodWithRequests(t *testing.T, clients *test.Clients, testCase st
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())), v1a1opts.WithConfigLabels(map[string]string{"knative.dev": "delete-to-test"}))
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
 	}
@@ -281,13 +255,6 @@ func testDestroyPodWithRequests(t *testing.T, clients *test.Clients, testCase st
 		"RouteServes",
 		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve correctly: %v", names.Route, routeURL, err)
-	}
-
-	pods, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).List(metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s=%s", serving.RevisionLabelKey, objects.Revision.Name),
-	})
-	if err != nil || len(pods.Items) != 1 {
-		t.Fatalf("Number of pods is not 1 or an error: %v", err)
 	}
 
 	// The request will sleep for more than 25 seconds.
@@ -323,17 +290,10 @@ func testDestroyPodWithRequests(t *testing.T, clients *test.Clients, testCase st
 		time.Sleep(time.Second)
 	}
 
+	t.Logf("Deleting")
 	// And immeditately kill the pod or activators.
-	switch testCase {
-	case "pods":
-		podToDelete := pods.Items[0].Name
-		t.Logf("Deleting pod %q", podToDelete)
-		clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).Delete(podToDelete, &metav1.DeleteOptions{})
-	case "activators":
-		t.Log("Destroying the activator pods")
-		clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{
-			LabelSelector: "app=activator",
-		})
+	if err := rmFunc(clients); err != nil {
+		t.Fatalf("Error deleting pods: %v", err)
 	}
 
 	// Make sure all the requests succeed.
