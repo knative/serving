@@ -29,6 +29,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/davecgh/go-spew/spew"
+	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/serving"
@@ -48,13 +49,30 @@ const (
 	timeoutRequestDuration = 35 * time.Second
 )
 
+// testToDestroy for table-driven testing.
+var testToDestroy = []string{
+	// Destroy pods which is receiving the requests.
+	"pods",
+	// Destroy activator pods.
+	"activators",
+}
+
 func TestDestroyPodInflight(t *testing.T) {
-	t.Parallel()
+	// Not running in parallel as this test delete activator pods
 	cancel := logstream.Start(t)
 	defer cancel()
-
 	clients := Setup(t)
 
+	for _, tc := range testToDestroy {
+		t.Run(tc, func(t *testing.T) {
+			cancel := logstream.Start(t)
+			defer cancel()
+			testDestroyPodInflight(t, clients, tc)
+		})
+	}
+}
+
+func testDestroyPodInflight(t *testing.T, clients *test.Clients, testCase string) {
 	svcName := test.ObjectNameForTest(t)
 	names := test.ResourceNames{
 		Config: svcName,
@@ -144,8 +162,17 @@ func TestDestroyPodInflight(t *testing.T) {
 		// Give the request a bit of time to be established and reach the pod.
 		time.Sleep(timeoutRequestDuration / 2)
 
-		t.Log("Destroying the configuration (also destroys the pods)")
-		return clients.ServingAlphaClient.Configs.Delete(names.Config, nil)
+		switch testCase {
+		case "pods":
+			t.Log("Destroying the configuration (also destroys the pods)")
+			return clients.ServingAlphaClient.Configs.Delete(names.Config, nil)
+		case "activators":
+			t.Log("Destroying the activator pods")
+			return clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{
+				LabelSelector: "app=activator", // TODO:
+			})
+		}
+		return nil
 	})
 
 	if err := g.Wait(); err != nil {
@@ -218,11 +245,21 @@ func TestDestroyPodTimely(t *testing.T) {
 }
 
 func TestDestroyPodWithRequests(t *testing.T) {
+	// Not running in parallel as this test delete activator pods
 	cancel := logstream.Start(t)
 	defer cancel()
-
 	clients := Setup(t)
 
+	for _, tc := range testToDestroy {
+		t.Run(tc, func(t *testing.T) {
+			cancel := logstream.Start(t)
+			defer cancel()
+			testDestroyPodWithRequests(t, clients, tc)
+		})
+	}
+}
+
+func testDestroyPodWithRequests(t *testing.T, clients *test.Clients, testCase string) {
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   "autoscale",
@@ -286,10 +323,18 @@ func TestDestroyPodWithRequests(t *testing.T) {
 		time.Sleep(time.Second)
 	}
 
-	// And immeditately kill the pod.
-	podToDelete := pods.Items[0].Name
-	t.Logf("Deleting pod %q", podToDelete)
-	clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).Delete(podToDelete, &metav1.DeleteOptions{})
+	// And immeditately kill the pod or activators.
+	switch testCase {
+	case "pods":
+		podToDelete := pods.Items[0].Name
+		t.Logf("Deleting pod %q", podToDelete)
+		clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).Delete(podToDelete, &metav1.DeleteOptions{})
+	case "activators":
+		t.Log("Destroying the activator pods")
+		clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{
+			LabelSelector: "app=activator",
+		})
+	}
 
 	// Make sure all the requests succeed.
 	if err := eg.Wait(); err != nil {
