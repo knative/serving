@@ -73,12 +73,12 @@ func killActivatorPods(clients *test.Clients) error {
 
 func TestDestroyPodInflight(t *testing.T) {
 	// Not running in parallel as this test delete activator pods
-	cancel := logstream.Start(t)
-	defer cancel()
 	clients := Setup(t)
 
 	for _, tc := range testToDestroy {
 		t.Run(tc.name, func(t *testing.T) {
+			cancel := logstream.Start(t)
+			defer cancel()
 			testDestroyPodInflight(t, clients, tc.rmFunc)
 		})
 	}
@@ -222,12 +222,12 @@ func TestDestroyPodTimely(t *testing.T) {
 
 func TestDestroyPodWithRequests(t *testing.T) {
 	// Not running in parallel as this test delete activator pods
-	cancel := logstream.Start(t)
-	defer cancel()
 	clients := Setup(t)
 
 	for _, tc := range testToDestroy {
 		t.Run(tc.name, func(t *testing.T) {
+			cancel := logstream.Start(t)
+			defer cancel()
 			testDestroyPodWithRequests(t, clients, tc.rmFunc)
 		})
 	}
