@@ -32,6 +32,7 @@ import (
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
@@ -93,7 +94,10 @@ func testDestroyPodInflight(t *testing.T, clients *test.Clients, rmFunc func(*te
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())), v1a1opts.WithConfigLabels(map[string]string{"knative.dev": "delete-to-test"}))
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		v1a1opts.WithConfigAnnotations(map[string]string{autoscaling.TargetBurstCapacityKey: "-1"}),
+		v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())),
+		v1a1opts.WithConfigLabels(map[string]string{"knative.dev": "delete-to-test"}))
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
 	}
@@ -148,7 +152,7 @@ func testDestroyPodInflight(t *testing.T, clients *test.Clients, rmFunc func(*te
 	g.Go(func() error {
 		// Give the request a bit of time to be established and reach the pod.
 		time.Sleep(timeoutRequestDuration / 2)
-		t.Logf("Deleting")
+		t.Log("Deleting")
 		return rmFunc(clients)
 	})
 
@@ -177,7 +181,7 @@ func testDestroyPodInflight(t *testing.T, clients *test.Clients, rmFunc func(*te
 		return true, nil
 	}); err != nil {
 		t.Logf("Latest state: %s", spew.Sprint(latestPodState))
-		t.Fatalf("Did not observe activator pods respawn")
+		t.Fatal("Did not observe activator pods respawn")
 	}
 }
 
@@ -266,7 +270,10 @@ func testDestroyPodWithRequests(t *testing.T, clients *test.Clients, rmFunc func
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())), v1a1opts.WithConfigLabels(map[string]string{"knative.dev": "delete-to-test"}))
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		v1a1opts.WithConfigAnnotations(map[string]string{autoscaling.TargetBurstCapacityKey: "-1"}),
+		v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())),
+		v1a1opts.WithConfigLabels(map[string]string{"knative.dev": "delete-to-test"}))
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
 	}
@@ -315,7 +322,7 @@ func testDestroyPodWithRequests(t *testing.T, clients *test.Clients, rmFunc func
 		time.Sleep(time.Second)
 	}
 
-	t.Logf("Deleting")
+	t.Log("Deleting")
 	// And immeditately kill the pod or activators.
 	if err := rmFunc(clients); err != nil {
 		t.Fatalf("Error deleting pods: %v", err)
@@ -347,6 +354,6 @@ func testDestroyPodWithRequests(t *testing.T, clients *test.Clients, rmFunc func
 		return true, nil
 	}); err != nil {
 		t.Logf("Latest state: %s", spew.Sprint(latestPodState))
-		t.Fatalf("Did not observe activator pods respawn")
+		t.Fatal("Did not observe activator pods respawn")
 	}
 }
