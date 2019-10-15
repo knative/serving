@@ -43,9 +43,10 @@ import (
 )
 
 const (
-	timeoutExpectedOutput  = "Slept for 0 milliseconds"
-	revisionTimeoutSeconds = 45
-	timeoutRequestDuration = 35 * time.Second
+	timeoutExpectedOutput   = "Slept for 0 milliseconds"
+	revisionTimeoutSeconds  = 45
+	timeoutRequestDuration  = 35 * time.Second
+	activatorRespawnTimeout = 5 * time.Minute
 )
 
 // testToDestroy for table-driven testing.
@@ -53,8 +54,8 @@ var testToDestroy = []struct {
 	name   string
 	rmFunc func(*test.Clients) error
 }{
-	// Destroy pods which is receiving the requests.
-	{"pods", killRevisionPods},
+	// Destroy pod which is receiving the requests.
+	{"pod", killRevisionPods},
 	// Destroy activator pods.
 	{"activator", killActivatorPods},
 }
@@ -72,7 +73,7 @@ func killActivatorPods(clients *test.Clients) error {
 }
 
 func TestDestroyPodInflight(t *testing.T) {
-	// Not running in parallel as this test delete activator pods
+	// Not running in parallel as this test deletes activator pods
 	clients := Setup(t)
 
 	for _, tc := range testToDestroy {
@@ -154,6 +155,30 @@ func testDestroyPodInflight(t *testing.T, clients *test.Clients, rmFunc func(*te
 	if err := g.Wait(); err != nil {
 		t.Errorf("Something went wrong with the request: %v", err)
 	}
+
+	// Make sure activator pods are running for following tests.
+	var latestPodState *v1.Pod
+	if err := wait.PollImmediate(1*time.Second, activatorRespawnTimeout, func() (bool, error) {
+		pods, err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).List(metav1.ListOptions{
+			LabelSelector: "app=activator",
+		})
+		if err != nil {
+			return false, nil
+		}
+		for _, pod := range pods.Items {
+			latestPodState = &pod
+			for _, status := range pod.Status.ContainerStatuses {
+				// There are still containers running, keep retrying.
+				if !status.Ready {
+					return false, nil
+				}
+			}
+		}
+		return true, nil
+	}); err != nil {
+		t.Logf("Latest state: %s", spew.Sprint(latestPodState))
+		t.Fatalf("Did not observe activator pods respawn")
+	}
 }
 
 // We choose a relatively high upper boundary for the test to give even a busy
@@ -221,7 +246,7 @@ func TestDestroyPodTimely(t *testing.T) {
 }
 
 func TestDestroyPodWithRequests(t *testing.T) {
-	// Not running in parallel as this test delete activator pods
+	// Not running in parallel as this test deletes activator pods
 	clients := Setup(t)
 
 	for _, tc := range testToDestroy {
@@ -299,5 +324,29 @@ func testDestroyPodWithRequests(t *testing.T, clients *test.Clients, rmFunc func
 	// Make sure all the requests succeed.
 	if err := eg.Wait(); err != nil {
 		t.Errorf("Not all requests finished with success, eg: %v", err)
+	}
+
+	// Make sure activator pods are running for following tests.
+	var latestPodState *v1.Pod
+	if err := wait.PollImmediate(1*time.Second, activatorRespawnTimeout, func() (bool, error) {
+		pods, err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).List(metav1.ListOptions{
+			LabelSelector: "app=activator",
+		})
+		if err != nil {
+			return false, nil
+		}
+		for _, pod := range pods.Items {
+			latestPodState = &pod
+			for _, status := range pod.Status.ContainerStatuses {
+				// There are still containers not running, keep retrying.
+				if !status.Ready {
+					return false, nil
+				}
+			}
+		}
+		return true, nil
+	}); err != nil {
+		t.Logf("Latest state: %s", spew.Sprint(latestPodState))
+		t.Fatalf("Did not observe activator pods respawn")
 	}
 }
