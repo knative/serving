@@ -114,15 +114,6 @@ func TestContainerErrorMsg(t *testing.T) {
 		t.Fatalf("Failed to validate revision state: %s", err)
 	}
 
-	t.Log("When the revision has error condition, logUrl should be populated.")
-	logURL, err := getLogURLFromRevision(clients, revisionName)
-	if err != nil {
-		t.Fatalf("Failed to get logUrl from revision %s: %v", revisionName, err)
-	}
-
-	// TODO(jessiezcc): actually validate the logURL, but requires kibana setup
-	t.Logf("LogURL: %s", logURL)
-
 	t.Log("When the revision has error condition, route should not be ready.")
 	err = v1a1test.CheckRouteState(clients.ServingAlphaClient, names.Route, v1a1test.IsRouteNotReady)
 	if err != nil {
@@ -221,11 +212,6 @@ func TestContainerExitingMsg(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to validate revision state: %s", err)
 			}
-
-			t.Log("When the revision has error condition, logUrl should be populated.")
-			if _, err = getLogURLFromRevision(clients, revisionName); err != nil {
-				t.Fatalf("Failed to get logUrl from revision %s: %v", revisionName, err)
-			}
 		})
 	}
 }
@@ -240,16 +226,4 @@ func getRevisionFromConfiguration(clients *test.Clients, configName string) (str
 		return config.Status.LatestCreatedRevisionName, nil
 	}
 	return "", fmt.Errorf("No valid revision name found in configuration %s", configName)
-}
-
-// Get LogURL from revision.
-func getLogURLFromRevision(clients *test.Clients, revisionName string) (string, error) {
-	revision, err := clients.ServingAlphaClient.Revisions.Get(revisionName, metav1.GetOptions{})
-	if err != nil {
-		return "", err
-	}
-	if revision.Status.LogURL != "" && strings.Contains(revision.Status.LogURL, string(revision.GetUID())) {
-		return revision.Status.LogURL, nil
-	}
-	return "", fmt.Errorf("The revision %s does't have valid logUrl: %s", revisionName, revision.Status.LogURL)
 }
