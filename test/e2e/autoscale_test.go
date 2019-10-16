@@ -122,7 +122,7 @@ func generateTraffic(
 			ctx.t.Log("Stopping generateTraffic")
 			successRate := float64(1)
 			if totalRequests > 0 {
-				successRate := float64(successfulRequests) / float64(totalRequests)
+				successRate = float64(successfulRequests) / float64(totalRequests)
 			}
 			if successRate < successRateSLO {
 				return fmt.Errorf("request success rate under SLO: total = %d, errors = %d, rate = %f, SLO = %f",
