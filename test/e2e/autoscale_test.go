@@ -55,6 +55,7 @@ const (
 	// but not high enough to generate scheduling problems.
 	containerConcurrency = 6.0
 	targetUtilization    = 0.7
+	successRateSLO       = 0.999
 )
 
 type testContext struct {
@@ -119,9 +120,10 @@ func generateTraffic(
 		select {
 		case <-stopChan:
 			ctx.t.Log("Stopping generateTraffic")
-			if successfulRequests != totalRequests {
-				return fmt.Errorf("error making requests for scale up: total = %d, errors = %d, expected 0",
-					totalRequests, totalRequests-successfulRequests)
+			successRate := float32(successfulRequests)/float32(totalRequests)
+			if successRate < successRateSLO {
+				return fmt.Errorf("request success rate under SLO: total = %d, errors = %d, rate = %f, SLO = %f",
+					totalRequests, totalRequests-successfulRequests, successRate, successRateSLO)
 			}
 			return nil
 		case res, ok := <-results:
