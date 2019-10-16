@@ -83,6 +83,10 @@ type revisionWatcher struct {
 	destsCh       chan sets.String
 	serviceLister corev1listers.ServiceLister
 	logger        *zap.SugaredLogger
+
+	// noPodAddressability will be set to true if we cannot
+	// probe a pod directly, but its cluster IP has beeen successfully probed.
+	noPodAddressability bool
 }
 
 func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol networking.ProtocolType,
@@ -178,7 +182,7 @@ func (rw *revisionWatcher) probePodIPs(dests sets.String) (sets.String, bool, er
 		}
 	}
 
-	// Short circuit case where the healthy list got effectively smaller
+	// Short circuit case where the healthy list got effectively smaller.
 	if toProbe.Len() == 0 {
 		return healthy, false, nil
 	}
@@ -203,12 +207,12 @@ func (rw *revisionWatcher) probePodIPs(dests sets.String) (sets.String, bool, er
 
 	err := probeGroup.Wait()
 	close(healthyDests)
-	changed := len(healthyDests) > 0
+	unchanged := len(healthyDests) == 0
 
 	for d := range healthyDests {
 		healthy.Insert(d)
 	}
-	return healthy, !changed, err
+	return healthy, unchanged, err
 }
 
 func (rw *revisionWatcher) sendUpdate(clusterIP string, dests sets.String) {
@@ -226,13 +230,39 @@ func (rw *revisionWatcher) checkDests(dests sets.String) {
 	if len(dests) == 0 {
 		// We must have scaled down.
 		rw.clusterIPHealthy = false
+		rw.healthyPods = sets.NewString()
 		rw.logger.Debug("ClusterIP is no longer healthy.")
 		// Send update that we are now inactive (both params invalid).
 		rw.sendUpdate("", nil)
 		return
 	}
 
-	// First check the clusterIP. We can't cache it, since user might go rogue
+	// If we have discovered that this revision cannot be probed directly
+	// do not spend time trying.
+	if !rw.noPodAddressability {
+		// First check the pod IPs. If we can individually address
+		// the Pods we should go that route, since it permits us to do
+		// precise load balancing in the throttler.
+		hs, noop, err := rw.probePodIPs(dests)
+		if err != nil {
+			rw.logger.Errorw("Failed probing", zap.Error(err))
+			// We dont want to return here as an error still affects health states.
+		}
+
+		rw.logger.Debugf("Done probing, got %d healthy pods", len(hs))
+		if !noop {
+			rw.healthyPods = hs
+			rw.sendUpdate("" /*clusterIP*/, hs)
+			return
+		}
+		// no-op, and we have successfully probed at least one pod.
+		if len(hs) > 0 {
+			return
+		}
+	}
+
+	// If we failed to probe even a single pods, check the clusterIP.
+	// NB: We can't cache the IP address, since user might go rogue
 	// and delete the K8s service. We'll fix it, but the cluster IP will be different.
 	dest, err := rw.getDest()
 	if err != nil {
@@ -241,7 +271,7 @@ func (rw *revisionWatcher) checkDests(dests sets.String) {
 	}
 
 	if rw.clusterIPHealthy {
-		// cluster IP is healthy and we haven't scaled down, short circuit.
+		// If cluster IP is healthy and we haven't scaled down, short circuit.
 		rw.logger.Debugf("ClusterIP %s already probed (backends: %d)", dest, len(dests))
 		rw.sendUpdate(dest, dests)
 		return
@@ -251,23 +281,13 @@ func (rw *revisionWatcher) checkDests(dests sets.String) {
 	if ok, err := rw.probeClusterIP(dest); err != nil {
 		rw.logger.Errorw("Failed to probe clusterIP "+dest, zap.Error(err))
 	} else if ok {
+		// We can reach here only iff pods are not successfully individually probed
+		// but ClusterIP conversely has been successfully probed.
+		rw.noPodAddressability = true
 		rw.logger.Debugf("ClusterIP is successfully probed: %s (backends: %d)", dest, len(dests))
 		rw.clusterIPHealthy = true
 		rw.healthyPods = nil
 		rw.sendUpdate(dest, dests)
-		return
-	}
-
-	hs, noop, err := rw.probePodIPs(dests)
-	if err != nil {
-		rw.logger.Errorw("Failed probing", zap.Error(err))
-		// We dont want to return here as an error still affects health states.
-	}
-
-	rw.logger.Debugf("Done probing, got %d healthy pods", len(hs))
-	if !noop {
-		rw.healthyPods = hs
-		rw.sendUpdate("" /*clusterIP not ready yet*/, hs)
 	}
 }
 
@@ -280,9 +300,15 @@ func (rw *revisionWatcher) run(probeFrequency time.Duration) {
 
 	var tickCh <-chan time.Time
 	for {
-		if len(dests) != 0 && !rw.clusterIPHealthy {
+		// If we have at least one pod and either there are pods that have not been
+		// successfuly probed or clusterIP has not been probed (no pod adressability),
+		// then we want to probe on timer.
+		rw.logger.Debugf("Dests: %+v, healthy dests: %+v, clusterIP: %v", dests, rw.healthyPods, rw.clusterIPHealthy)
+		if len(dests) > 0 && !(rw.clusterIPHealthy || dests.Equal(rw.healthyPods)) {
+			rw.logger.Debug("Probing on timer")
 			tickCh = timer.C
 		} else {
+			rw.logger.Debug("Not Probing on timer")
 			tickCh = nil
 		}
 
