@@ -63,14 +63,23 @@ type Reporter struct {
 }
 
 // NewStatsReporter creates a reporter that collects and reports activator metrics
-func NewStatsReporter() (*Reporter, error) {
+func NewStatsReporter(pod string) (*Reporter, error) {
+	ctx, err := tag.New(
+		context.Background(),
+		tag.Insert(metrics.PodTagKey, pod),
+		tag.Insert(metrics.ContainerTagKey, Name),
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	var r = &Reporter{
 		initialized: true,
-		ctx:         context.Background(),
+		ctx:         ctx,
 	}
 
 	// Create view to see our measurements.
-	err := view.Register(
+	err = view.Register(
 		&view.View{
 			Description: "Concurrent requests that are routed to Activator",
 			Measure:     requestConcurrencyM,
@@ -81,13 +90,15 @@ func NewStatsReporter() (*Reporter, error) {
 			Description: "The number of requests that are routed to Activator",
 			Measure:     requestCountM,
 			Aggregation: view.Count(),
-			TagKeys:     append(metrics.CommonRevisionKeys, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey, metrics.NumTriesKey),
+			TagKeys: append(metrics.CommonRevisionKeys, metrics.PodTagKey, metrics.ContainerTagKey,
+				metrics.ResponseCodeKey, metrics.ResponseCodeClassKey, metrics.NumTriesKey),
 		},
 		&view.View{
 			Description: "The response time in millisecond",
 			Measure:     responseTimeInMsecM,
 			Aggregation: defaultLatencyDistribution,
-			TagKeys:     append(metrics.CommonRevisionKeys, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey),
+			TagKeys: append(metrics.CommonRevisionKeys, metrics.PodTagKey, metrics.ContainerTagKey,
+				metrics.ResponseCodeKey, metrics.ResponseCodeClassKey),
 		},
 	)
 	if err != nil {

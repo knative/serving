@@ -581,7 +581,7 @@ func pushRequestLogHandler(currentHandler http.Handler, env config) http.Handler
 
 func pushRequestMetricHandler(currentHandler http.Handler, countMetric *stats.Int64Measure,
 	latencyMetric *stats.Float64Measure, queueDepthMetric *stats.Int64Measure, breaker *queue.Breaker, env config) http.Handler {
-	r, err := queuestats.NewStatsReporter(env.ServingNamespace, env.ServingService, env.ServingConfiguration, env.ServingRevision, countMetric, latencyMetric, queueDepthMetric)
+	r, err := queuestats.NewStatsReporter(env.ServingNamespace, env.ServingService, env.ServingConfiguration, env.ServingRevision, env.ServingPod, countMetric, latencyMetric, queueDepthMetric)
 	if err != nil {
 		logger.Errorw("Error setting up request metrics reporter. Request metrics will be unavailable.", zap.Error(err))
 		return currentHandler

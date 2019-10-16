@@ -51,7 +51,7 @@ type Reporter struct {
 }
 
 // NewStatsReporter creates a reporter that collects and reports queue proxy metrics.
-func NewStatsReporter(ns, service, config, rev string, countMetric *stats.Int64Measure,
+func NewStatsReporter(ns, service, config, rev, pod string, countMetric *stats.Int64Measure,
 	latencyMetric *stats.Float64Measure, queueSizeMetric *stats.Int64Measure) (*Reporter, error) {
 	if ns == "" {
 		return nil, errors.New("namespace must not be empty")
@@ -63,7 +63,7 @@ func NewStatsReporter(ns, service, config, rev string, countMetric *stats.Int64M
 		return nil, errors.New("revision must not be empty")
 	}
 
-	keys := append(metrics.CommonRevisionKeys, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey)
+	keys := append(metrics.CommonRevisionKeys, metrics.PodTagKey, metrics.ContainerTagKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey)
 	// Create view to see our measurements.
 	if err := view.Register(
 		&view.View{
@@ -101,6 +101,8 @@ func NewStatsReporter(ns, service, config, rev string, countMetric *stats.Int64M
 		tag.Insert(metrics.ServiceTagKey, valueOrUnknown(service)),
 		tag.Insert(metrics.ConfigTagKey, config),
 		tag.Insert(metrics.RevisionTagKey, rev),
+		tag.Insert(metrics.PodTagKey, pod),
+		tag.Insert(metrics.ContainerTagKey, "queue-proxy"),
 	)
 	if err != nil {
 		return nil, err

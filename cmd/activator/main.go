@@ -176,7 +176,7 @@ func main() {
 		logger.Fatalw("Timed out attempting to get k8s version", zap.Error(err))
 	}
 
-	reporter, err := activator.NewStatsReporter()
+	reporter, err := activator.NewStatsReporter(env.PodName)
 	if err != nil {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}

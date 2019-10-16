@@ -32,6 +32,7 @@ const (
 	testSvc     = "helloworld-go-service"
 	testConf    = "helloworld-go"
 	testRev     = "helloworld-go-00001"
+	testPod     = "helloworld-go-00001-abcd"
 	countName   = "request_count"
 	qdepthName  = "queue_depth"
 	latencyName = "request_latencies"
@@ -85,7 +86,7 @@ func TestNewStatsReporterNegative(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if _, err := NewStatsReporter(test.namespace, testSvc, test.config, test.revision,
+			if _, err := NewStatsReporter(test.namespace, testSvc, test.config, test.revision, testPod,
 				countMetric, latencyMetric, queueSizeMetric); err.Error() != test.result.Error() {
 				t.Errorf("%+v, got: '%+v'", test.errorMsg, err)
 			}
@@ -105,7 +106,7 @@ func TestReporterReport(t *testing.T) {
 		t.Error("Reporter.ReportRequestCount() expected an error for Report call before init. Got success.")
 	}
 
-	r, err := NewStatsReporter(testNs, testSvc, testConf, testRev, countMetric, latencyMetric, queueSizeMetric)
+	r, err := NewStatsReporter(testNs, testSvc, testConf, testRev, testPod, countMetric, latencyMetric, queueSizeMetric)
 	if err != nil {
 		t.Fatalf("Unexpected error from NewStatsReporter() = %v", err)
 	}
@@ -114,6 +115,8 @@ func TestReporterReport(t *testing.T) {
 		metricskey.LabelServiceName:       testSvc,
 		metricskey.LabelConfigurationName: testConf,
 		metricskey.LabelRevisionName:      testRev,
+		"pod_name":                        testPod,
+		"container_name":                  "queue-proxy",
 		"response_code":                   "200",
 		"response_code_class":             "2xx",
 	}
@@ -143,7 +146,7 @@ func TestReporterReport(t *testing.T) {
 	unregisterViews(r)
 
 	// Test reporter with empty service name
-	r, err = NewStatsReporter(testNs, "" /*service name*/, testConf, testRev, countMetric, latencyMetric, queueSizeMetric)
+	r, err = NewStatsReporter(testNs, "" /*service name*/, testConf, testRev, testPod, countMetric, latencyMetric, queueSizeMetric)
 	if err != nil {
 		t.Fatalf("Unexpected error from NewStatsReporter() = %v", err)
 	}
@@ -152,6 +155,8 @@ func TestReporterReport(t *testing.T) {
 		metricskey.LabelServiceName:       "unknown",
 		metricskey.LabelConfigurationName: testConf,
 		metricskey.LabelRevisionName:      testRev,
+		"pod_name":                        testPod,
+		"container_name":                  "queue-proxy",
 		"response_code":                   "200",
 		"response_code_class":             "2xx",
 	}
