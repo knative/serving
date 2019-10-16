@@ -55,9 +55,7 @@ var testToDestroy = []struct {
 	name   string
 	rmFunc func(*test.Clients) error
 }{
-	// Destroy pod which is receiving the requests.
 	{"pod", killRevisionPods},
-	// Destroy activator pods.
 	{"activator", killActivatorPods},
 }
 
