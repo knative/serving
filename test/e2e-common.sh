@@ -235,10 +235,9 @@ data:
   profiling.enable: "true"
 EOF
 
-  echo ">> Adding more activator pods."
-  # This command would fail if the HPA already exist, like during upgrade test.
-  # Therefore we don't exit on failure, and don't log an error message.
-  kubectl autoscale deploy --min=2 --max=2 -n knative-serving activator 2>/dev/null
+  echo ">> Patching activator hpa"
+  # We set min replicas to 2 for testing multiple activator pods.
+  kubectl -n knative-serving patch hpa activator --patch '{"spec":{"minReplicas":2}}' || return 1
 
   # post-install steps for istio
   if [[ -z "${GLOO_VERSION}" ]]; then
@@ -258,12 +257,8 @@ EOF
     # There are reports of Envoy failing (503) when istio-pilot is overloaded.
     # We generously add more pilot instances here to verify if we can reduce flakes.
     if kubectl get hpa -n istio-system istio-pilot 2>/dev/null; then
-      # If HPA exists, update it.  Since patching will return non-zero if no change
-      # is made, we don't return on failure here.
       kubectl patch hpa -n istio-system istio-pilot \
-        --patch '{"spec": {"minReplicas": 3, "maxReplicas": 10, "targetCPUUtilizationPercentage": 60}}' \
-        `# Ignore error messages to avoid causing red herrings in the tests` \
-        2>/dev/null
+        --patch '{"spec": {"minReplicas": 3, "maxReplicas": 10, "targetCPUUtilizationPercentage": 60}}' || return 1
     else
       # Some versions of Istio don't provide an HPA for pilot.
       kubectl autoscale -n istio-system deploy istio-pilot --min=3 --max=10 --cpu-percent=60 || return 1
