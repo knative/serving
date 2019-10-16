@@ -285,19 +285,6 @@ func WithConfigAnnotations(annotations map[string]string) ServiceOption {
 	}
 }
 
-// WithConfigLabels assigns config labels to a service
-func WithConfigLabels(labels map[string]string) ServiceOption {
-	return func(service *v1alpha1.Service) {
-		if service.Spec.DeprecatedRunLatest != nil {
-			service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().ObjectMeta.Labels = resources.UnionMaps(
-				service.Spec.DeprecatedRunLatest.Configuration.GetTemplate().ObjectMeta.Labels, labels)
-		} else {
-			service.Spec.ConfigurationSpec.Template.ObjectMeta.Labels = resources.UnionMaps(
-				service.Spec.ConfigurationSpec.Template.ObjectMeta.Labels, labels)
-		}
-	}
-}
-
 // WithRevisionTimeoutSeconds sets revision timeout
 func WithRevisionTimeoutSeconds(revisionTimeoutSeconds int64) ServiceOption {
 	return func(service *v1alpha1.Service) {

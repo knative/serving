@@ -29,11 +29,10 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/davecgh/go-spew/spew"
-	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
@@ -44,62 +43,56 @@ import (
 )
 
 const (
-	timeoutExpectedOutput   = "Slept for 0 milliseconds"
-	revisionTimeoutSeconds  = 45
-	timeoutRequestDuration  = 35 * time.Second
-	activatorRespawnTimeout = 5 * time.Minute
+	timeoutExpectedOutput  = "Slept for 0 milliseconds"
+	revisionTimeoutSeconds = 45
+	timeoutRequestDuration = 35 * time.Second
 )
 
-// testToDestroy for table-driven testing.
-var testToDestroy = []struct {
-	name   string
-	rmFunc func(*test.Clients) error
-}{
-	{"pod", killRevisionPods},
-	{"activator", killActivatorPods},
-}
-
-func killRevisionPods(clients *test.Clients) error {
-	return clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{
-		LabelSelector: "knative.dev=delete-to-test",
-	})
-}
-
-func killActivatorPods(clients *test.Clients) error {
-	return clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{
-		LabelSelector: "app=activator",
-	})
-}
-
 func TestDestroyPodInflight(t *testing.T) {
-	// Not running in parallel as this test deletes activator pods
+	t.Parallel()
+	cancel := logstream.Start(t)
+	defer cancel()
+
 	clients := Setup(t)
 
-	for _, tc := range testToDestroy {
-		t.Run(tc.name, func(t *testing.T) {
-			cancel := logstream.Start(t)
-			defer cancel()
-			testDestroyPodInflight(t, clients, tc.rmFunc)
-		})
-	}
-}
-
-func testDestroyPodInflight(t *testing.T, clients *test.Clients, rmFunc func(*test.Clients) error) {
+	svcName := test.ObjectNameForTest(t)
 	names := test.ResourceNames{
-		Service: test.ObjectNameForTest(t),
-		Image:   "timeout",
+		Config: svcName,
+		Route:  svcName,
+		Image:  "timeout",
 	}
-	defer test.TearDown(clients, names)
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		v1a1opts.WithConfigAnnotations(map[string]string{autoscaling.TargetBurstCapacityKey: "-1"}),
-		v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())),
-		v1a1opts.WithConfigLabels(map[string]string{"knative.dev": "delete-to-test"}))
-	if err != nil {
-		t.Fatalf("Failed to create a service: %v", err)
+	if _, err := v1a1test.CreateConfiguration(t, clients, names, v1a1opts.WithConfigRevisionTimeoutSeconds(revisionTimeoutSeconds)); err != nil {
+		t.Fatalf("Failed to create Configuration: %v", err)
 	}
-	routeURL := objects.Route.Status.URL.URL()
+	if _, err := v1a1test.CreateRoute(t, clients, names); err != nil {
+		t.Fatalf("Failed to create Route: %v", err)
+	}
+
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
+
+	t.Log("When the Revision can have traffic routed to it, the Route is marked as Ready")
+	if err := v1a1test.WaitForRouteState(clients.ServingAlphaClient, names.Route, v1a1test.IsRouteReady, "RouteIsReady"); err != nil {
+		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
+	}
+
+	route, err := clients.ServingAlphaClient.Routes.Get(names.Route, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
+	}
+	routeURL := route.Status.URL.URL()
+
+	err = v1a1test.WaitForConfigurationState(clients.ServingAlphaClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
+		if c.Status.LatestCreatedRevisionName != names.Revision {
+			names.Revision = c.Status.LatestCreatedRevisionName
+			return true, nil
+		}
+		return false, nil
+	}, "ConfigurationUpdatedWithRevision")
+	if err != nil {
+		t.Fatalf("Error obtaining Revision's name %v", err)
+	}
 
 	if _, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
@@ -150,36 +143,13 @@ func testDestroyPodInflight(t *testing.T, clients *test.Clients, rmFunc func(*te
 	g.Go(func() error {
 		// Give the request a bit of time to be established and reach the pod.
 		time.Sleep(timeoutRequestDuration / 2)
-		t.Log("Deleting")
-		return rmFunc(clients)
+
+		t.Log("Destroying the configuration (also destroys the pods)")
+		return clients.ServingAlphaClient.Configs.Delete(names.Config, nil)
 	})
 
 	if err := g.Wait(); err != nil {
 		t.Errorf("Something went wrong with the request: %v", err)
-	}
-
-	// Make sure activator pods are running for following tests.
-	var latestPodState *v1.Pod
-	if err := wait.PollImmediate(1*time.Second, activatorRespawnTimeout, func() (bool, error) {
-		pods, err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).List(metav1.ListOptions{
-			LabelSelector: "app=activator",
-		})
-		if err != nil {
-			return false, nil
-		}
-		for _, pod := range pods.Items {
-			latestPodState = &pod
-			for _, status := range pod.Status.ContainerStatuses {
-				// There are still containers running, keep retrying.
-				if !status.Ready {
-					return false, nil
-				}
-			}
-		}
-		return true, nil
-	}); err != nil {
-		t.Logf("Latest state: %s", spew.Sprint(latestPodState))
-		t.Fatal("Did not observe activator pods respawn")
 	}
 }
 
@@ -248,19 +218,11 @@ func TestDestroyPodTimely(t *testing.T) {
 }
 
 func TestDestroyPodWithRequests(t *testing.T) {
-	// Not running in parallel as this test deletes activator pods
+	cancel := logstream.Start(t)
+	defer cancel()
+
 	clients := Setup(t)
 
-	for _, tc := range testToDestroy {
-		t.Run(tc.name, func(t *testing.T) {
-			cancel := logstream.Start(t)
-			defer cancel()
-			testDestroyPodWithRequests(t, clients, tc.rmFunc)
-		})
-	}
-}
-
-func testDestroyPodWithRequests(t *testing.T, clients *test.Clients, rmFunc func(*test.Clients) error) {
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   "autoscale",
@@ -268,10 +230,7 @@ func testDestroyPodWithRequests(t *testing.T, clients *test.Clients, rmFunc func
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		v1a1opts.WithConfigAnnotations(map[string]string{autoscaling.TargetBurstCapacityKey: "-1"}),
-		v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())),
-		v1a1opts.WithConfigLabels(map[string]string{"knative.dev": "delete-to-test"}))
+	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
 	}
@@ -285,6 +244,13 @@ func testDestroyPodWithRequests(t *testing.T, clients *test.Clients, rmFunc func
 		"RouteServes",
 		test.ServingFlags.ResolvableDomain); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't serve correctly: %v", names.Route, routeURL, err)
+	}
+
+	pods, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).List(metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", serving.RevisionLabelKey, objects.Revision.Name),
+	})
+	if err != nil || len(pods.Items) != 1 {
+		t.Fatalf("Number of pods is not 1 or an error: %v", err)
 	}
 
 	// The request will sleep for more than 25 seconds.
@@ -320,38 +286,13 @@ func testDestroyPodWithRequests(t *testing.T, clients *test.Clients, rmFunc func
 		time.Sleep(time.Second)
 	}
 
-	t.Log("Deleting")
-	// And immeditately kill the pod or activators.
-	if err := rmFunc(clients); err != nil {
-		t.Fatalf("Error deleting pods: %v", err)
-	}
+	// And immeditately kill the pod.
+	podToDelete := pods.Items[0].Name
+	t.Logf("Deleting pod %q", podToDelete)
+	clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).Delete(podToDelete, &metav1.DeleteOptions{})
 
 	// Make sure all the requests succeed.
 	if err := eg.Wait(); err != nil {
 		t.Errorf("Not all requests finished with success, eg: %v", err)
-	}
-
-	// Make sure activator pods are running for following tests.
-	var latestPodState *v1.Pod
-	if err := wait.PollImmediate(1*time.Second, activatorRespawnTimeout, func() (bool, error) {
-		pods, err := clients.KubeClient.Kube.CoreV1().Pods(system.Namespace()).List(metav1.ListOptions{
-			LabelSelector: "app=activator",
-		})
-		if err != nil {
-			return false, nil
-		}
-		for _, pod := range pods.Items {
-			latestPodState = &pod
-			for _, status := range pod.Status.ContainerStatuses {
-				// There are still containers not running, keep retrying.
-				if !status.Ready {
-					return false, nil
-				}
-			}
-		}
-		return true, nil
-	}); err != nil {
-		t.Logf("Latest state: %s", spew.Sprint(latestPodState))
-		t.Fatal("Did not observe activator pods respawn")
 	}
 }
