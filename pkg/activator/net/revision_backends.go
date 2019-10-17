@@ -84,9 +84,9 @@ type revisionWatcher struct {
 	serviceLister corev1listers.ServiceLister
 	logger        *zap.SugaredLogger
 
-	// noPodAddressability will be set to true if we cannot
+	// podsAddressable will be set to false if we cannot
 	// probe a pod directly, but its cluster IP has beeen successfully probed.
-	noPodAddressability bool
+	podsAddressable bool
 }
 
 func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol networking.ProtocolType,
@@ -95,16 +95,17 @@ func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol 
 	logger *zap.SugaredLogger) *revisionWatcher {
 	ctx, cancel := context.WithCancel(ctx)
 	return &revisionWatcher{
-		doneCh:        ctx.Done(),
-		cancel:        cancel,
-		rev:           rev,
-		protocol:      protocol,
-		updateCh:      updateCh,
-		healthyPods:   sets.NewString(),
-		transport:     transport,
-		destsCh:       destsCh,
-		serviceLister: serviceLister,
-		logger:        logger,
+		doneCh:          ctx.Done(),
+		cancel:          cancel,
+		rev:             rev,
+		protocol:        protocol,
+		updateCh:        updateCh,
+		healthyPods:     sets.NewString(),
+		transport:       transport,
+		destsCh:         destsCh,
+		serviceLister:   serviceLister,
+		podsAddressable: true, // By default we presume we can talk to pods directly.
+		logger:          logger,
 	}
 }
 
@@ -239,7 +240,7 @@ func (rw *revisionWatcher) checkDests(dests sets.String) {
 
 	// If we have discovered that this revision cannot be probed directly
 	// do not spend time trying.
-	if !rw.noPodAddressability {
+	if rw.podsAddressable {
 		// First check the pod IPs. If we can individually address
 		// the Pods we should go that route, since it permits us to do
 		// precise load balancing in the throttler.
@@ -261,7 +262,7 @@ func (rw *revisionWatcher) checkDests(dests sets.String) {
 		}
 	}
 
-	// If we failed to probe even a single pods, check the clusterIP.
+	// If we failed to probe even a single pod, check the clusterIP.
 	// NB: We can't cache the IP address, since user might go rogue
 	// and delete the K8s service. We'll fix it, but the cluster IP will be different.
 	dest, err := rw.getDest()
@@ -283,7 +284,7 @@ func (rw *revisionWatcher) checkDests(dests sets.String) {
 	} else if ok {
 		// We can reach here only iff pods are not successfully individually probed
 		// but ClusterIP conversely has been successfully probed.
-		rw.noPodAddressability = true
+		rw.podsAddressable = false
 		rw.logger.Debugf("ClusterIP is successfully probed: %s (backends: %d)", dest, len(dests))
 		rw.clusterIPHealthy = true
 		rw.healthyPods = nil

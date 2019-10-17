@@ -105,7 +105,7 @@ func TestRevisionWatcher(t *testing.T) {
 		probeHostResponses    map[string][]activatortest.FakeResponse
 		probeResponses        []activatortest.FakeResponse
 		initialClusterIPState bool
-		noPodAddressability   bool
+		noPodAddressability   bool // This keeps the test defs shorter.
 	}{{
 		name:  "single healthy podIP",
 		dests: []string{"128.0.0.1:1234"},
@@ -389,7 +389,7 @@ func TestRevisionWatcher(t *testing.T) {
 					t.Error("Timed out waiting for update event")
 				}
 			}
-			if got, want := rw.noPodAddressability, tc.noPodAddressability; got != want {
+			if got, want := rw.podsAddressable, !tc.noPodAddressability; got != want {
 				t.Errorf("Revision pod addressability = %v, want: %v", got, want)
 			}
 
@@ -708,13 +708,13 @@ func TestCheckDests(t *testing.T) {
 	uCh := make(chan revisionDestsUpdate, 1)
 	dCh := make(chan struct{})
 	rw := &revisionWatcher{
-		clusterIPHealthy:    true,
-		noPodAddressability: true,
-		rev:                 types.NamespacedName{testNamespace, testRevision},
-		updateCh:            uCh,
-		serviceLister:       si.Lister(),
-		logger:              TestLogger(t),
-		doneCh:              dCh,
+		clusterIPHealthy: true,
+		podsAddressable:  false,
+		rev:              types.NamespacedName{testNamespace, testRevision},
+		updateCh:         uCh,
+		serviceLister:    si.Lister(),
+		logger:           TestLogger(t),
+		doneCh:           dCh,
 	}
 	rw.checkDests(sets.NewString("10.1.1.5"))
 	select {
@@ -791,12 +791,13 @@ func TestCheckDestsSwinging(t *testing.T) {
 	uCh := make(chan revisionDestsUpdate, 1)
 	dCh := make(chan struct{})
 	rw := &revisionWatcher{
-		rev:           types.NamespacedName{testNamespace, testRevision},
-		updateCh:      uCh,
-		serviceLister: si.Lister(),
-		logger:        TestLogger(t),
-		doneCh:        dCh,
-		transport:     network.RoundTripperFunc(fakeRT.RT),
+		rev:             types.NamespacedName{testNamespace, testRevision},
+		updateCh:        uCh,
+		serviceLister:   si.Lister(),
+		logger:          TestLogger(t),
+		doneCh:          dCh,
+		podsAddressable: true,
+		transport:       network.RoundTripperFunc(fakeRT.RT),
 	}
 	// First not ready, second good, clusterIP: not ready.
 	rw.checkDests(sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"))
