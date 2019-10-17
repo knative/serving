@@ -270,8 +270,8 @@ func (rw *revisionWatcher) checkDests(dests sets.String) {
 		return
 	}
 
+	// If cluster IP is healthy and we haven't scaled down, short circuit.
 	if rw.clusterIPHealthy {
-		// If cluster IP is healthy and we haven't scaled down, short circuit.
 		rw.logger.Debugf("ClusterIP %s already probed (backends: %d)", dest, len(dests))
 		rw.sendUpdate(dest, dests)
 		return
@@ -301,7 +301,7 @@ func (rw *revisionWatcher) run(probeFrequency time.Duration) {
 	var tickCh <-chan time.Time
 	for {
 		// If we have at least one pod and either there are pods that have not been
-		// successfuly probed or clusterIP has not been probed (no pod adressability),
+		// successfuly probed or clusterIP has not been probed (no pod addressability),
 		// then we want to probe on timer.
 		rw.logger.Debugf("Dests: %+v, healthy dests: %+v, clusterIP: %v", dests, rw.healthyPods, rw.clusterIPHealthy)
 		if len(dests) > 0 && !(rw.clusterIPHealthy || dests.Equal(rw.healthyPods)) {
