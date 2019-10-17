@@ -60,7 +60,7 @@ func TestMakePA(t *testing.T) {
 					},
 				},
 			}
-			rev.Status.MarkActive()
+			rev.Status.MarkActiveTrue()
 			return &rev
 		}(),
 		want: &av1alpha1.PodAutoscaler{
@@ -116,7 +116,7 @@ func TestMakePA(t *testing.T) {
 					},
 				},
 			}
-			rev.Status.MarkActive()
+			rev.Status.MarkActiveTrue()
 			return &rev
 		}(),
 		want: &av1alpha1.PodAutoscaler{
@@ -169,7 +169,7 @@ func TestMakePA(t *testing.T) {
 					},
 				},
 			}
-			rev.Status.MarkActivating("reasons", "because")
+			rev.Status.MarkActiveUnknown("reasons", "because")
 			return &rev
 		}(),
 		want: &av1alpha1.PodAutoscaler{
@@ -222,8 +222,8 @@ func TestMakePA(t *testing.T) {
 					},
 				},
 			}
-			rev.Status.MarkActivating("reasons", "because")
-			rev.Status.MarkResourcesUnavailable("foo", "bar")
+			rev.Status.MarkActiveUnknown("reasons", "because")
+			rev.Status.MarkResourcesAvailableFalse("foo", "bar")
 			return &rev
 		}(),
 		want: &av1alpha1.PodAutoscaler{
@@ -280,8 +280,8 @@ func TestMakePA(t *testing.T) {
 					},
 				},
 			}
-			rev.Status.MarkActivating("reasons", "because")
-			rev.Status.MarkResourcesUnavailable("foo", "bar")
+			rev.Status.MarkActiveUnknown("reasons", "because")
+			rev.Status.MarkResourcesAvailableFalse("foo", "bar")
 			return &rev
 		}(),
 		want: &av1alpha1.PodAutoscaler{

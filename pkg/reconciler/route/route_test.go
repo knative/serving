@@ -134,8 +134,8 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 			ServiceName: "p-deadbeef",
 		},
 	}
-	rev.Status.MarkResourcesAvailable()
-	rev.Status.MarkContainerHealthy()
+	rev.Status.MarkResourcesAvailableTrue()
+	rev.Status.MarkContainerHealthyTrue()
 	return rev
 }
 
@@ -244,7 +244,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 
 	// An inactive revision
 	rev := getTestRevision("test-rev")
-	rev.Status.MarkInactive("NoTraffic", "no message")
+	rev.Status.MarkActiveFalse("NoTraffic", "no message")
 
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
@@ -430,7 +430,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	defer cf()
 	// A standalone inactive revision
 	rev := getTestRevision("test-rev")
-	rev.Status.MarkInactive("NoTraffic", "no message")
+	rev.Status.MarkActiveFalse("NoTraffic", "no message")
 
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
