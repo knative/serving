@@ -257,12 +257,6 @@ func RevisionContainerMissingMessage(image string, message string) string {
 	return fmt.Sprintf("Unable to fetch image %q: %s", image, message)
 }
 
-// RevisionContainerExitingMessage constructs the status message if a container
-// fails to come up.
-func RevisionContainerExitingMessage(message string) string {
-	return fmt.Sprintf("Container failed with: %s", message)
-}
-
 // ResourceNotOwnedMessage constructs the status message if ownership on the
 // resource is not right.
 func ResourceNotOwnedMessage(kind, name string) string {
