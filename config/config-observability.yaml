@@ -110,6 +110,3 @@ data:
     # enabled, the Knative Serving pods expose the profiling data on an alternate HTTP port 8008.
     # The HTTP context root for profiling is then /debug/pprof/.
     profiling.enable: "false"
-  metrics.request-metrics-backend-destination: stackdriver
-  metrics.backend-destination: stackdriver
-  metrics.allow-stackdriver-custom-metrics: "false"
