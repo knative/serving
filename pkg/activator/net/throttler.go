@@ -73,8 +73,12 @@ type revisionThrottler struct {
 	// a podIPTracker and are then called.
 	breaker breaker
 
-	// If we have a healthy clusterIPDest this is set to nil.
+	// This will be non empty when we're able to use pod addressing.
 	podIPTrackers []*podIPTracker
+
+	// Effective trackers that are assigned to this Activator.
+	// This is a subset of podIPTrackers.
+	assignedTrackers []*podIPTracker
 
 	// If we dont have a healthy clusterIPDest this is set to the default (""), otherwise
 	// it is the l4dest for this revision's private clusterIP
@@ -161,14 +165,14 @@ func noop() {}
 // Returns a dest after incrementing its request count and a completion callback
 // to be called after request completion. If no dest is found it returns "", nil.
 func (rt *revisionThrottler) acquireDest() (string, func()) {
-	rt.mux.Lock()
-	defer rt.mux.Unlock()
+	rt.mux.RLock()
+	defer rt.mux.RUnlock()
 
 	// This is intended to be called only after performing a read lock check on clusterIPDest
 	if rt.clusterIPDest != "" {
 		return rt.clusterIPDest, noop
 	}
-	return pickP2C(rt.podIPTrackers)
+	return pickP2C(rt.assignedTrackers)
 }
 
 func (rt *revisionThrottler) try(ctx context.Context, function func(string) error) error {
@@ -217,19 +221,43 @@ func (rt *revisionThrottler) calculateCapacity(size, activatorCount, maxConcurre
 }
 
 func (rt *revisionThrottler) updateCapacity(throttler *Throttler, backendCount int) {
+	ac := throttler.activatorCount()
+
+	// We have to make assignments on each updateCapacity, since if number
+	// of activators changes, then we need to rebalance the assignedTrackers.
+	numTrackers := func() int {
+		rt.mux.Lock()
+		defer rt.mux.Unlock()
+		rt.assignedTrackers = assignSlice(rt.podIPTrackers, throttler.index(), ac)
+		return len(rt.assignedTrackers)
+	}()
+
+	capacity := 0
+	if numTrackers > 0 {
+		// Capacity is computed based off number of trackers,
+		// when using pod direct routing. Since this number is how many
+		// this particular Activator gets, the number of activatos is 1.
+		capacity = rt.calculateCapacity(numTrackers, 1 /*numActivators*/, throttler.breakerParams.MaxConcurrency)
+	} else {
+		// Capacity is computed off of number of backends, when we are using clusterIP routing.
+		capacity = rt.calculateCapacity(backendCount, ac, throttler.breakerParams.MaxConcurrency)
+	}
+	rt.logger.Infof("Set capacity to %d (backends: %d, index: %d/%d)",
+		capacity, backendCount, throttler.index(), ac)
+
+	// TODO(vagababov): analyze to see if we need this mutex at all?
 	rt.capacityMux.Lock()
 	defer rt.capacityMux.Unlock()
 
-	ac := throttler.activatorCount()
-	capacity := rt.calculateCapacity(backendCount, ac, throttler.breakerParams.MaxConcurrency)
 	rt.backendCount = backendCount
 	rt.breaker.UpdateConcurrency(capacity)
-	rt.logger.Debugf("Set capacity to %d (backends: %d, activators: %d)", capacity, backendCount, ac)
 }
 
-func (rt *revisionThrottler) updateThrottleState(throttler *Throttler, backendCount int, trackers []*podIPTracker, clusterIPDest string) {
-	rt.logger.Infof("Updating Revision Throttler with: clusterIP = %q, trackers = %d, backends = %d",
-		clusterIPDest, len(trackers), backendCount)
+func (rt *revisionThrottler) updateThrottleState(
+	throttler *Throttler, backendCount int,
+	trackers []*podIPTracker, clusterIPDest string) {
+	rt.logger.Infof("Updating Revision Throttler with: clusterIP = %q, trackers = %d, backends = %d activator pos %d/%d",
+		clusterIPDest, len(trackers), backendCount, throttler.index(), throttler.activatorCount())
 
 	// Update trackers / clusterIP before capacity. Otherwise we can race updating our breaker when
 	// we increase capacity, causing a request to fall through before a tracker is added, causing an
@@ -325,7 +353,6 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionD
 			trackers = append(trackers, tracker)
 		}
 
-		trackers = assignSlice(trackers, throttler.index(), throttler.activatorCount())
 		rt.updateThrottleState(throttler, len(update.Dests), trackers, "" /*clusterIP*/)
 		return
 	}
