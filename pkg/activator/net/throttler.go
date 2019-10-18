@@ -77,6 +77,7 @@ type revisionThrottler struct {
 	podIPTrackers []*podIPTracker
 
 	// Effective trackers that are assigned to this Activator.
+	// This is a subset of podIPTrackers.
 	assignedTrackers []*podIPTracker
 
 	// If we dont have a healthy clusterIPDest this is set to the default (""), otherwise
@@ -233,11 +234,12 @@ func (rt *revisionThrottler) updateCapacity(throttler *Throttler, backendCount i
 
 	capacity := 0
 	if numTrackers > 0 {
-		// capacity is computed based off number of trackers,
-		// when using pod direct routing.
+		// Capacity is computed based off number of trackers,
+		// when using pod direct routing. Since this number is how many
+		// this particular Activator gets, the number of activatos is 1.
 		capacity = rt.calculateCapacity(numTrackers, 1 /*numActivators*/, throttler.breakerParams.MaxConcurrency)
 	} else {
-		// capacity is computed off of number of backends, when we are using clusterIP routing.
+		// Capacity is computed off of number of backends, when we are using clusterIP routing.
 		capacity = rt.calculateCapacity(backendCount, ac, throttler.breakerParams.MaxConcurrency)
 	}
 	rt.logger.Infof("Set capacity to %d (backends: %d, index: %d/%d)",
