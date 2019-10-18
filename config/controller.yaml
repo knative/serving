@@ -61,7 +61,7 @@ spec:
           value: config-logging
         - name: CONFIG_OBSERVABILITY_NAME
           value: config-observability
-        # Currently used for Stackdriver only.
+        # Used for Stackdriver only.
         # knative.dev/internal/serving is the one for revision metrics.
         - name: METRICS_DOMAIN
           value: knative.dev/internal/serving
