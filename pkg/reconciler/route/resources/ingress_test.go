@@ -306,6 +306,178 @@ func TestMakeIngressSpec_CorrectRuleVisibility(t *testing.T) {
 	}
 }
 
+func TestMakeIngressSpec_CorrectRulesWithTagBasedRouting(t *testing.T) {
+	targets := map[string]traffic.RevisionTargets{
+		traffic.DefaultTarget: {{
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: "config",
+				RevisionName:      "v2",
+				Percent:           ptr.Int64(100),
+			},
+			ServiceName: "gilberto",
+			Active:      true,
+		}},
+		"v1": {{
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: "config",
+				RevisionName:      "v1",
+				Percent:           ptr.Int64(100),
+			},
+			ServiceName: "jobim",
+			Active:      true,
+		}},
+	}
+
+	r := Route(ns, "test-route", WithURL)
+
+	expected := []netv1alpha1.IngressRule{{
+		Hosts: []string{
+			"test-route." + ns + ".svc.cluster.local",
+		},
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{{
+				Headers: map[string]netv1alpha1.HeaderMatch{
+					network.TagHeaderName: {
+						Exact: "v1",
+					},
+				},
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: ns,
+						ServiceName:      "jobim",
+						ServicePort:      intstr.FromInt(80),
+					},
+					Percent: 100,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "v1",
+						"Knative-Serving-Namespace": ns,
+					},
+				}},
+			}, {
+				AppendHeaders: map[string]string{
+					network.DefaultRouteHeaderName: "true",
+				},
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: ns,
+						ServiceName:      "gilberto",
+						ServicePort:      intstr.FromInt(80),
+					},
+					Percent: 100,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "v2",
+						"Knative-Serving-Namespace": ns,
+					},
+				}},
+			}},
+		},
+		Visibility: netv1alpha1.IngressVisibilityClusterLocal,
+	}, {
+		Hosts: []string{
+			"test-route." + ns + ".example.com",
+		},
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{{
+				Headers: map[string]netv1alpha1.HeaderMatch{
+					network.TagHeaderName: {
+						Exact: "v1",
+					},
+				},
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: ns,
+						ServiceName:      "jobim",
+						ServicePort:      intstr.FromInt(80),
+					},
+					Percent: 100,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "v1",
+						"Knative-Serving-Namespace": ns,
+					},
+				}},
+			}, {
+				AppendHeaders: map[string]string{
+					network.DefaultRouteHeaderName: "true",
+				},
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: ns,
+						ServiceName:      "gilberto",
+						ServicePort:      intstr.FromInt(80),
+					},
+					Percent: 100,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "v2",
+						"Knative-Serving-Namespace": ns,
+					},
+				}},
+			}},
+		},
+		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+	}, {
+		Hosts: []string{
+			"v1-test-route." + ns + ".svc.cluster.local",
+		},
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{{
+				AppendHeaders: map[string]string{
+					network.TagHeaderName: "v1",
+				},
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: ns,
+						ServiceName:      "jobim",
+						ServicePort:      intstr.FromInt(80),
+					},
+					Percent: 100,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "v1",
+						"Knative-Serving-Namespace": ns,
+					},
+				}},
+			}},
+		},
+		Visibility: netv1alpha1.IngressVisibilityClusterLocal,
+	}, {
+		Hosts: []string{
+			"v1-test-route." + ns + ".example.com",
+		},
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{{
+				AppendHeaders: map[string]string{
+					network.TagHeaderName: "v1",
+				},
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: ns,
+						ServiceName:      "jobim",
+						ServicePort:      intstr.FromInt(80),
+					},
+					Percent: 100,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "v1",
+						"Knative-Serving-Namespace": ns,
+					},
+				}},
+			}},
+		},
+		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+	}}
+
+	cfg := testConfig()
+	cfg.Network.TagHeaderBasedRouting = true
+	ctx := config.ToContext(context.Background(), cfg)
+
+	ci, err := MakeIngressSpec(ctx, r, nil, targets, nil /* visibility */)
+	if err != nil {
+		t.Errorf("Unexpected error %v", err)
+	}
+
+	if !cmp.Equal(expected, ci.Rules) {
+		t.Errorf("Unexpected rules (-want, +got): %s", cmp.Diff(expected, ci.Rules))
+	}
+}
+
 // One active target.
 func TestMakeIngressRule_Vanilla(t *testing.T) {
 	targets := []traffic.RevisionTarget{{

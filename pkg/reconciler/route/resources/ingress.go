@@ -30,6 +30,8 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
 	"knative.dev/serving/pkg/reconciler/route/resources/names"
@@ -99,6 +101,8 @@ func MakeIngressSpec(
 	rules := make([]netv1alpha1.IngressRule, 0, len(names))
 	challengeHosts := getChallengeHosts(acmeChallenges)
 
+	networkConfig := config.FromContext(ctx).Network
+
 	for _, name := range names {
 		visibilities := []netv1alpha1.IngressVisibility{netv1alpha1.IngressVisibilityClusterLocal}
 		// If this is a public target (or not being marked as cluster-local), we also make public rule.
@@ -111,6 +115,20 @@ func MakeIngressSpec(
 				return netv1alpha1.IngressSpec{}, err
 			}
 			rule := *makeIngressRule([]string{domain}, r.Namespace, visibility, targets[name])
+			if networkConfig.TagHeaderBasedRouting {
+				if rule.HTTP.Paths[0].AppendHeaders == nil {
+					rule.HTTP.Paths[0].AppendHeaders = make(map[string]string)
+				}
+
+				if name == traffic.DefaultTarget {
+					rule.HTTP.Paths[0].AppendHeaders[network.DefaultRouteHeaderName] = "true"
+					rule.HTTP.Paths = append(
+						makeTagBasedRoutingIngressPaths(r.Namespace, targets, names), rule.HTTP.Paths...)
+				} else {
+
+					rule.HTTP.Paths[0].AppendHeaders[network.TagHeaderName] = name
+				}
+			}
 			// If this is a public rule, we need to configure ACME challenge paths.
 			if visibility == netv1alpha1.IngressVisibilityExternalIP {
 				rule.HTTP.Paths = append(
@@ -173,6 +191,32 @@ func makeACMEIngressPaths(challenges map[string]netv1alpha1.HTTP01Challenge, dom
 }
 
 func makeIngressRule(domains []string, ns string, visibility netv1alpha1.IngressVisibility, targets traffic.RevisionTargets) *netv1alpha1.IngressRule {
+	return &netv1alpha1.IngressRule{
+		Hosts:      domains,
+		Visibility: visibility,
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{
+				*makeBaseIngressPath(ns, targets),
+			},
+		},
+	}
+}
+
+func makeTagBasedRoutingIngressPaths(ns string, targets map[string]traffic.RevisionTargets, names []string) []netv1alpha1.HTTPIngressPath {
+	paths := []netv1alpha1.HTTPIngressPath{}
+
+	for _, name := range names {
+		if name != traffic.DefaultTarget {
+			path := makeBaseIngressPath(ns, targets[name])
+			path.Headers = map[string]netv1alpha1.HeaderMatch{network.TagHeaderName: {Exact: name}}
+			paths = append(paths, *path)
+		}
+	}
+
+	return paths
+}
+
+func makeBaseIngressPath(ns string, targets traffic.RevisionTargets) *netv1alpha1.HTTPIngressPath {
 	// Optimistically allocate |targets| elements.
 	splits := make([]netv1alpha1.IngressBackendSplit, 0, len(targets))
 	for _, t := range targets {
@@ -196,14 +240,8 @@ func makeIngressRule(domains []string, ns string, visibility netv1alpha1.Ingress
 		})
 	}
 
-	return &netv1alpha1.IngressRule{
-		Hosts:      domains,
-		Visibility: visibility,
-		HTTP: &netv1alpha1.HTTPIngressRuleValue{
-			Paths: []netv1alpha1.HTTPIngressPath{{
-				Splits: splits,
-				// TODO(lichuqiang): #2201, plumbing to config timeout and retries.
-			}},
-		},
+	return &netv1alpha1.HTTPIngressPath{
+		Splits: splits,
+		// TODO(lichuqiang): #2201, plumbing to config timeout and retries.
 	}
 }
