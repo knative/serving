@@ -19,6 +19,7 @@ package net
 import (
 	"context"
 	"regexp"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -118,6 +119,53 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	if got, want := rt.breaker.Capacity(), 0; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
+
+	// Now test with podIP trackers in tow.
+	// Simple case.
+	throttler.numActivators = 1
+	throttler.activatorIndex = 0
+	rt.podIPTrackers = makeTrackers(1)
+	rt.containerConcurrency = 10
+	rt.updateCapacity(throttler, 0 /* doesn't matter here*/)
+	if got, want := rt.breaker.Capacity(), 10; got != want {
+		t.Errorf("Capacity = %d, want: %d", got, want)
+	}
+
+	// 2 backends.
+	rt.podIPTrackers = makeTrackers(2)
+	rt.updateCapacity(throttler, -1 /* doesn't matter here*/)
+	if got, want := rt.breaker.Capacity(), 20; got != want {
+		t.Errorf("Capacity = %d, want: %d", got, want)
+	}
+
+	// 2 activators.
+	throttler.numActivators = 2
+	rt.updateCapacity(throttler, -1 /* doesn't matter here*/)
+	if got, want := rt.breaker.Capacity(), 10; got != want {
+		t.Errorf("Capacity = %d, want: %d", got, want)
+	}
+
+	// 3 pods, index 0.
+	rt.podIPTrackers = makeTrackers(3)
+	rt.updateCapacity(throttler, -1 /* doesn't matter here*/)
+	if got, want := rt.breaker.Capacity(), 20; got != want {
+		t.Errorf("Capacity = %d, want: %d", got, want)
+	}
+
+	// 3 pods, index 1.
+	throttler.activatorIndex = 1
+	rt.updateCapacity(throttler, -1 /* doesn't matter here*/)
+	if got, want := rt.breaker.Capacity(), 10; got != want {
+		t.Errorf("Capacity = %d, want: %d", got, want)
+	}
+}
+
+func makeTrackers(num int) []*podIPTracker {
+	x := make([]*podIPTracker, num)
+	for i := 0; i < num; i++ {
+		x[i] = &podIPTracker{dest: strconv.Itoa(i)}
+	}
+	return x
 }
 
 func TestThrottlerWithError(t *testing.T) {
