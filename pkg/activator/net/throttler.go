@@ -73,7 +73,7 @@ type revisionThrottler struct {
 	// a podIPTracker and are then called.
 	breaker breaker
 
-	// This will be non empty when we're unable to use pod addressing.
+	// This will be non empty when we're able to use pod addressing.
 	podIPTrackers []*podIPTracker
 
 	// Effective trackers that are assigned to this Activator.
