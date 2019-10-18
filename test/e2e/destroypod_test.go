@@ -253,10 +253,11 @@ func TestDestroyPodWithRequests(t *testing.T) {
 		t.Fatalf("Number of pods is not 1 or an error: %v", err)
 	}
 
-	// The request will sleep for more than 25 seconds.
+	// The request will sleep for more than 15 seconds.
+	// NOTE: it needs to be less than TERMINATION_DRAIN_DURATION_SECONDS.
 	u, _ := url.Parse(routeURL.String())
 	q := u.Query()
-	q.Set("sleep", "25001")
+	q.Set("sleep", "15001")
 	u.RawQuery = q.Encode()
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
