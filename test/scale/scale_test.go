@@ -55,7 +55,8 @@ func TestScaleToN(t *testing.T) {
 		size:    10,
 		timeout: 60 * time.Second,
 	}, {
-		size:    100,
+		size: 100,
+		// timeout should be shorter than `-timeout` option for go test.
 		timeout: 10 * time.Minute,
 	}}
 
