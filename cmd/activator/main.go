@@ -244,7 +244,7 @@ func main() {
 	sigCtx, sigCancel := context.WithCancel(context.Background())
 
 	// Set up our health check based on the health of stat sink and environmental factors.
-	hc := newHealthCheck(logger, statSink, sigCtx)
+	hc := newHealthCheck(sigCtx, logger, statSink)
 	ah = &activatorhandler.HealthHandler{HealthCheck: hc, NextHandler: ah}
 
 	ah = network.NewProbeHandler(ah)
@@ -306,7 +306,7 @@ func main() {
 	logger.Info("Servers shutdown.")
 }
 
-func newHealthCheck(logger *zap.SugaredLogger, statSink *websocket.ManagedConnection, sigCtx context.Context) func() error {
+func newHealthCheck(sigCtx context.Context, logger *zap.SugaredLogger, statSink *websocket.ManagedConnection) func() error {
 	once := sync.Once{}
 	return func() error {
 		select {
