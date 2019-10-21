@@ -445,6 +445,27 @@ func StartInformers(stopCh <-chan struct{}, informers ...Informer) error {
 	return nil
 }
 
+// RunInformers kicks off all of the passed informers and then waits for all of
+// them to synchronize. Returned function will wait for all informers to finish.
+func RunInformers(stopCh <-chan struct{}, informers ...Informer) (func(), error) {
+	var wg sync.WaitGroup
+	wg.Add(len(informers))
+	for _, informer := range informers {
+		informer := informer
+		go func() {
+			defer wg.Done()
+			informer.Run(stopCh)
+		}()
+	}
+
+	for i, informer := range informers {
+		if ok := cache.WaitForCacheSync(stopCh, informer.HasSynced); !ok {
+			return wg.Wait, fmt.Errorf("failed to wait for cache at index %d to sync", i)
+		}
+	}
+	return wg.Wait, nil
+}
+
 // StartAll kicks off all of the passed controllers with DefaultThreadsPerController.
 func StartAll(stopCh <-chan struct{}, controllers ...*Impl) {
 	wg := sync.WaitGroup{}

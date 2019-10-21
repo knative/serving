@@ -142,9 +142,13 @@ func pickP2C(tgts []*podIPTracker) (string, func()) {
 	if atomic.LoadInt32(&t1.requests) > atomic.LoadInt32(&t2.requests) {
 		t1 = t2
 	}
-	atomic.AddInt32(&t1.requests, t1.weight)
+
+	// NB: we capture it as a variable, since `weight` might change
+	// but we want it to be appropriately deducted later.
+	w := t1.weight
+	atomic.AddInt32(&t1.requests, w)
 	return t1.dest, func() {
-		atomic.AddInt32(&t1.requests, t1.weight)
+		atomic.AddInt32(&t1.requests, w)
 	}
 }
 
@@ -241,8 +245,6 @@ func (rt *revisionThrottler) updateCapacity(throttler *Throttler, backendCount i
 		if rt.clusterIPDest != "" {
 			return 0
 		}
-		// Each time we have to re-assignment, presume no history.
-		rt.resetTrackers()
 		rt.assignedTrackers = assignSlice(rt.podIPTrackers, throttler.index(), ac)
 		rt.logger.Infof("### Trackers %d/%d  %s", throttler.index(), ac, spew.Sprint(rt.assignedTrackers))
 		return len(rt.assignedTrackers)

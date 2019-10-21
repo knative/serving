@@ -93,16 +93,18 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	})
 
 	eg := errgroup.Group{}
+
+	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
+		t.Fatalf("Failed to start informers: %v", err)
+	}
 	defer func() {
 		cancel()
 		if err := eg.Wait(); err != nil {
 			t.Fatalf("Error running controller: %v", err)
 		}
+		waitInformers()
 	}()
-
-	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-		t.Fatalf("Failed to start informers: %v", err)
-	}
 
 	// Run the controller.
 	eg.Go(func() error {
