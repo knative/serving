@@ -216,12 +216,6 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 	}
 
 	eg := errgroup.Group{}
-	defer func() {
-		cancel()
-		if err := eg.Wait(); err != nil {
-			t.Fatalf("Error running controller: %v", err)
-		}
-	}()
 
 	rev := testRevision()
 	servingClient := fakeservingclient.Get(ctx)
@@ -235,9 +229,17 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 		return HookComplete
 	})
 
-	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
+	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
 		t.Fatalf("Error starting informers: %v", err)
 	}
+	defer func() {
+		cancel()
+		if err := eg.Wait(); err != nil {
+			t.Fatalf("Error running controller: %v", err)
+		}
+		waitInformers()
+	}()
 
 	eg.Go(func() error {
 		return ctrl.Run(2, ctx.Done())
