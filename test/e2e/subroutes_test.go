@@ -150,8 +150,7 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	_, err = clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Patch(serviceName, types.JSONPatchType, svcpatchBytes)
-	if err != nil {
+	if _, err = clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Patch(serviceName, types.JSONPatchType, svcpatchBytes); err != nil {
 		t.Fatalf("Failed to patch service: %s", err.Error())
 	}
 
@@ -165,8 +164,7 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 			},
 		})
 
-	_, err = v1a1test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{Traffic: ksvcCopyRouteTraffic})
-	if err != nil {
+	if _, err = v1a1test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{Traffic: ksvcCopyRouteTraffic}); err != nil {
 		t.Fatalf("Failed to patch service: %s", err.Error())
 	}
 
@@ -192,11 +190,9 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 	}
 
 	// update route to private
-
 	ksvclabelCopy := resources.Service.DeepCopy()
 	labels.SetVisibility(&ksvclabelCopy.ObjectMeta, true)
-	_, err = v1a1test.PatchService(t, clients, resources.Service, ksvclabelCopy)
-	if err != nil {
+	if _, err = v1a1test.PatchService(t, clients, resources.Service, ksvclabelCopy); err != nil {
 		t.Fatalf("Failed to patch service: %s", err.Error())
 	}
 
@@ -272,6 +268,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 	if !isRouteClusterLocal(resources.Route.Status) {
 		t.Fatalf("Expected route to be cluster local")
 	}
+
 	// change subroute 1 - private
 	serviceName := fmt.Sprintf("%s-%s", subrouteTag1, resources.Route.Name)
 	svc, err := clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Get(serviceName, metav1.GetOptions{})
@@ -287,8 +284,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	_, err = clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Patch(serviceName, types.JSONPatchType, svcpatchBytes)
-	if err != nil {
+	if _, err = clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Patch(serviceName, types.JSONPatchType, svcpatchBytes); err != nil {
 		t.Fatalf("Failed to patch service: %s", err.Error())
 	}
 
@@ -311,12 +307,11 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 		t.Fatalf("Expected route to be cluster local")
 	}
 
-	// change route - public
+	// change route - public (Updating ksvc as it will reconcile the route)
 	// check route = public
 	ksvclabelCopy := resources.Service.DeepCopy()
 	labels.SetVisibility(&ksvclabelCopy.ObjectMeta, false)
-	_, err = v1a1test.PatchService(t, clients, resources.Service, ksvclabelCopy)
-	if err != nil {
+	if _, err = v1a1test.PatchService(t, clients, resources.Service, ksvclabelCopy); err != nil {
 		t.Fatalf("Failed to patch service: %s", err.Error())
 	}
 
@@ -362,8 +357,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	_, err = clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Patch(serviceName1, types.JSONPatchType, svc1patchBytes)
-	if err != nil {
+	if _, err = clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Patch(serviceName1, types.JSONPatchType, svc1patchBytes); err != nil {
 		t.Fatalf("Failed to patch service: %s", err.Error())
 	}
 
