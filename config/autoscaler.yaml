@@ -92,6 +92,7 @@ spec:
           value: config-logging
         - name: CONFIG_OBSERVABILITY_NAME
           value: config-observability
+        # Used for Stackdriver only.
         - name: METRICS_DOMAIN
           value: knative.dev/serving
         securityContext:
