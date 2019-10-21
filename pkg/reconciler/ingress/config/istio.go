@@ -34,10 +34,10 @@ const (
 	IstioConfigName = "config-istio"
 
 	// GatewayKeyPrefix is the prefix of all keys to configure Istio gateways for public Ingresses.
-	GatewayKeyPrefix = "gateway."
+	GatewayKeyPrefix = "gateway/"
 
 	// LocalGatewayKeyPrefix is the prefix of all keys to configure Istio gateways for public & private Ingresses.
-	LocalGatewayKeyPrefix = "local-gateway."
+	LocalGatewayKeyPrefix = "local-gateway/"
 
 	// ReconcileExternalGatewayKey the is the name of the configuration entry that specifies
 	// reconciling external Istio Gateways or not.
@@ -91,25 +91,34 @@ type Istio struct {
 
 func parseGateways(configMap *corev1.ConfigMap, prefix string) ([]Gateway, error) {
 	urls := map[string]string{}
-	gatewayNames := []string{}
+	gatewayNameNamespaces := []string{}
 	for k, v := range configMap.Data {
 		if !strings.HasPrefix(k, prefix) {
 			continue
 		}
-		gatewayName, serviceURL := k[len(prefix):], v
+		gatewayNameNamespace, serviceURL := k[len(prefix):], v
 		if errs := validation.IsDNS1123Subdomain(serviceURL); len(errs) > 0 {
 			return nil, fmt.Errorf("invalid gateway format: %v", errs)
 		}
-		gatewayNames = append(gatewayNames, gatewayName)
-		urls[gatewayName] = serviceURL
+		gatewayNameNamespaces = append(gatewayNameNamespaces, gatewayNameNamespace)
+		urls[gatewayNameNamespace] = serviceURL
 	}
-	sort.Strings(gatewayNames)
-	gateways := make([]Gateway, len(gatewayNames))
-	for i, gatewayName := range gatewayNames {
+	sort.Strings(gatewayNameNamespaces)
+	gateways := make([]Gateway, len(gatewayNameNamespaces))
+	for i, gatewayNameNamespace := range gatewayNameNamespaces {
+		var name, namespace string
+		idx := strings.Index(gatewayNameNamespace, ".")
+		if idx == -1 {
+			name = gatewayNameNamespace
+			namespace = system.Namespace()
+		} else {
+			name = gatewayNameNamespace[:idx]
+			namespace = gatewayNameNamespace[idx + 1:]
+		}
 		gateways[i] = Gateway{
-			Namespace:  system.Namespace(),
-			Name:       gatewayName,
-			ServiceURL: urls[gatewayName],
+			Namespace:  namespace,
+			Name:       name,
+			ServiceURL: urls[gatewayNameNamespace],
 		}
 	}
 	return gateways, nil
