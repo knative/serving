@@ -34,10 +34,10 @@ const (
 	IstioConfigName = "config-istio"
 
 	// GatewayKeyPrefix is the prefix of all keys to configure Istio gateways for public Ingresses.
-	GatewayKeyPrefix = "gateway/"
+	GatewayKeyPrefix = "gateway."
 
 	// LocalGatewayKeyPrefix is the prefix of all keys to configure Istio gateways for public & private Ingresses.
-	LocalGatewayKeyPrefix = "local-gateway/"
+	LocalGatewayKeyPrefix = "local-gateway."
 
 	// ReconcileExternalGatewayKey the is the name of the configuration entry that specifies
 	// reconciling external Istio Gateways or not.

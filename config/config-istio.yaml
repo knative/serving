@@ -22,7 +22,7 @@ metadata:
     networking.knative.dev/ingress-provider: istio
 data:
   # TODO(nghia): Extract the .svc.cluster.local suffix into its own config.
-  gateway/custom-ingress-gateway.custom-namespace: "istio-ingressgateway.istio-system.svc.cluster.local"
+  gateway.custom-ingress-gateway.custom-namespace: "istio-ingressgateway.istio-system.svc.cluster.local"
 
   _example: |
     ################################
