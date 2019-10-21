@@ -51,7 +51,7 @@ import (
 type podIPTracker struct {
 	dest     string
 	requests int32
-	weight   int32
+	weight   int
 }
 
 type breaker interface {
@@ -145,10 +145,10 @@ func pickP2C(tgts []*podIPTracker) (string, func()) {
 
 	// NB: we capture it as a variable, since `weight` might change
 	// but we want it to be appropriately deducted later.
-	w := t1.weight
+	w := int32(minOneOrValue(t1.weight))
 	atomic.AddInt32(&t1.requests, w)
 	return t1.dest, func() {
-		atomic.AddInt32(&t1.requests, w)
+		atomic.AddInt32(&t1.requests, -w)
 	}
 }
 
@@ -229,7 +229,6 @@ func (rt *revisionThrottler) calculateCapacity(size, activatorCount, maxConcurre
 func (rt *revisionThrottler) resetTrackers() {
 	for _, t := range rt.podIPTrackers {
 		t.weight = 1
-		t.requests = 0
 	}
 }
 
@@ -245,15 +244,22 @@ func (rt *revisionThrottler) updateCapacity(throttler *Throttler, backendCount i
 		if rt.clusterIPDest != "" {
 			return 0
 		}
+		rt.resetTrackers()
 		rt.assignedTrackers = assignSlice(rt.podIPTrackers, throttler.index(), ac)
-		rt.logger.Infof("### Trackers %d/%d  %s", throttler.index(), ac, spew.Sprint(rt.assignedTrackers))
+		rt.logger.Debugf("Trackers %d/%d  %s", throttler.index(), ac, spew.Sprint(rt.assignedTrackers))
 		return len(rt.assignedTrackers)
 	}()
 
 	capacity := 0
 	if numTrackers > 0 {
-		// Capacity is computed based off number of trackers,
-		// when using pod direct routing.
+		// Capacity is computed based off of number of trackers,
+		// when using pod direct routing. So capacity would be (#pods * concurrency) / #activators.
+		// So, for example for #pods=7, #activators = 5, CC = 10, then each activator will get 14 concurrent
+		// requests (70/5=14).
+		// Now, each of the activators will get 3 assgined pod IP trackers, one with weight=1 and
+		// two with weight of 5. This will ensure that the ones with weight 5 will get 5x fewer requests
+		// than, so in this case exclusive pod will get 10 requests and non exclusive pods will get 2 requests
+		// each (on average).
 		capacity = rt.calculateCapacity(len(rt.podIPTrackers), ac, throttler.breakerParams.MaxConcurrency)
 	} else {
 		// Capacity is computed off of number of backends, when we are using clusterIP routing.
@@ -336,7 +342,7 @@ func assignSlice(trackers []*podIPTracker, selfIndex, numActivators int) []*podI
 		t := trackers[i]
 		// Those are going to be shared between
 		// all the activators, so the weight is |numActivators|.
-		t.weight = int32(numActivators)
+		t.weight = numActivators
 		ret = append(ret, trackers[i])
 	}
 	return ret
@@ -365,7 +371,7 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionD
 		for newDest := range update.Dests {
 			tracker, ok := trackersMap[newDest]
 			if !ok {
-				tracker = &podIPTracker{dest: newDest}
+				tracker = &podIPTracker{dest: newDest, weight: 1}
 			}
 			trackers = append(trackers, tracker)
 		}
