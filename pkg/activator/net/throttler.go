@@ -25,6 +25,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/davecgh/go-spew/spew"
 	"go.uber.org/zap"
 
 	corev1 "k8s.io/api/core/v1"
@@ -50,6 +51,7 @@ import (
 type podIPTracker struct {
 	dest     string
 	requests int32
+	weight   int32
 }
 
 type breaker interface {
@@ -140,9 +142,9 @@ func pickP2C(tgts []*podIPTracker) (string, func()) {
 	if atomic.LoadInt32(&t1.requests) > atomic.LoadInt32(&t2.requests) {
 		t1 = t2
 	}
-	atomic.AddInt32(&t1.requests, 1)
+	atomic.AddInt32(&t1.requests, t1.weight)
 	return t1.dest, func() {
-		atomic.AddInt32(&t1.requests, -1)
+		atomic.AddInt32(&t1.requests, t1.weight)
 	}
 }
 
@@ -220,6 +222,13 @@ func (rt *revisionThrottler) calculateCapacity(size, activatorCount, maxConcurre
 	return targetCapacity
 }
 
+func (rt *revisionThrottler) resetTrackers() {
+	for _, t := range rt.podIPTrackers {
+		t.weight = 1
+		t.requests = 0
+	}
+}
+
 func (rt *revisionThrottler) updateCapacity(throttler *Throttler, backendCount int) {
 	ac := throttler.activatorCount()
 
@@ -228,16 +237,22 @@ func (rt *revisionThrottler) updateCapacity(throttler *Throttler, backendCount i
 	numTrackers := func() int {
 		rt.mux.Lock()
 		defer rt.mux.Unlock()
+		// We're using cluster IP.
+		if rt.clusterIPDest != "" {
+			return 0
+		}
+		// Each time we have to re-assignment, presume no history.
+		rt.resetTrackers()
 		rt.assignedTrackers = assignSlice(rt.podIPTrackers, throttler.index(), ac)
+		rt.logger.Infof("### Trackers %d/%d  %s", throttler.index(), ac, spew.Sprint(rt.assignedTrackers))
 		return len(rt.assignedTrackers)
 	}()
 
 	capacity := 0
 	if numTrackers > 0 {
 		// Capacity is computed based off number of trackers,
-		// when using pod direct routing. Since this number is how many
-		// this particular Activator gets, the number of activatos is 1.
-		capacity = rt.calculateCapacity(numTrackers, 1 /*numActivators*/, throttler.breakerParams.MaxConcurrency)
+		// when using pod direct routing.
+		capacity = rt.calculateCapacity(len(rt.podIPTrackers), ac, throttler.breakerParams.MaxConcurrency)
 	} else {
 		// Capacity is computed off of number of backends, when we are using clusterIP routing.
 		capacity = rt.calculateCapacity(backendCount, ac, throttler.breakerParams.MaxConcurrency)
@@ -280,7 +295,7 @@ func (rt *revisionThrottler) updateThrottleState(
 }
 
 // pickIndices picks the indices for the slicing.
-func pickIndices(numTrackers, selfIndex, numActivators int) (beginIndex, endIndex int) {
+func pickIndices(numTrackers, selfIndex, numActivators int) (beginIndex, endIndex, tail int) {
 	if numActivators > numTrackers {
 		// 1. We have fewer pods than than activators. Assign the pod in round robin fashion.
 		// NB: when we implement subsetting this will be less of a problem.
@@ -291,19 +306,10 @@ func pickIndices(numTrackers, selfIndex, numActivators int) (beginIndex, endInde
 	}
 	// 2. We have at least as many pods as activators. Assign equal slices
 	// to the Activators. If the numbers don't divide evenly, assign the remnants
-	// to first k Activators, where k = #trackers % #activators
+	// equally across the activators.
 	sliceSize := numTrackers / numActivators
-	remnants := numTrackers % numActivators
-	if selfIndex < remnants {
-		// 2.1. We get one more pod!
-		// The first k activators get `sliceSize+1` pods assigned.
-		beginIndex = selfIndex * (sliceSize + 1)
-		endIndex = beginIndex + sliceSize + 1
-		return
-	}
-
-	// 2.2. equally divided or smaller slice.
-	beginIndex = remnants + selfIndex*sliceSize
+	tail = numTrackers % numActivators
+	beginIndex = selfIndex * sliceSize
 	endIndex = beginIndex + sliceSize
 	return
 }
@@ -321,8 +327,17 @@ func assignSlice(trackers []*podIPTracker, selfIndex, numActivators int) []*podI
 	sort.Slice(trackers, func(i, j int) bool {
 		return trackers[i].dest < trackers[j].dest
 	})
-	bi, ei := pickIndices(lt, selfIndex, numActivators)
-	return trackers[bi:ei]
+	bi, ei, tail := pickIndices(lt, selfIndex, numActivators)
+	// Those are the ones that belong execlusively to this activator
+	ret := append(trackers[:0:0], trackers[bi:ei]...)
+	for i := len(trackers) - tail; i < len(trackers); i++ {
+		t := trackers[i]
+		// Those are going to be shared between
+		// all the activators, so the weight is |numActivators|.
+		t.weight = int32(numActivators)
+		ret = append(ret, trackers[i])
+	}
+	return ret
 }
 
 // This function will never be called in parallel but try can be called in parallel to this so we need
