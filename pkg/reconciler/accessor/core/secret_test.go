@@ -101,12 +101,6 @@ func (f *FakeAccessor) GetSecretLister() corev1listers.SecretLister {
 
 func TestReconcileSecretCreate(t *testing.T) {
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-	waitInformers := func() {}
-	defer func() {
-		cancel()
-		waitInformers()
-	}()
-
 	kubeClient := fakekubeclient.Get(ctx)
 
 	h := NewHooks()
@@ -120,6 +114,11 @@ func TestReconcileSecretCreate(t *testing.T) {
 	})
 
 	accessor, waitInformers := setup(ctx, []*corev1.Secret{}, kubeClient, t)
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
+
 	ReconcileSecret(ctx, ownerObj, desired, accessor)
 
 	if err := h.WaitForHooks(3 * time.Second); err != nil {
@@ -129,14 +128,13 @@ func TestReconcileSecretCreate(t *testing.T) {
 
 func TestReconcileSecretUpdate(t *testing.T) {
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-	waitInformers := func() {}
+
+	kubeClient := fakekubeclient.Get(ctx)
+	accessor, waitInformers := setup(ctx, []*corev1.Secret{origin}, kubeClient, t)
 	defer func() {
 		cancel()
 		waitInformers()
 	}()
-
-	kubeClient := fakekubeclient.Get(ctx)
-	accessor, waitInformers := setup(ctx, []*corev1.Secret{origin}, kubeClient, t)
 
 	h := NewHooks()
 	h.OnUpdate(&kubeClient.Fake, "secrets", func(obj runtime.Object) HookResult {
@@ -156,14 +154,13 @@ func TestReconcileSecretUpdate(t *testing.T) {
 
 func TestNotOwnedFailure(t *testing.T) {
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-	waitInformers := func() {}
+
+	kubeClient := fakekubeclient.Get(ctx)
+	accessor, waitInformers := setup(ctx, []*corev1.Secret{notOwnedSecret}, kubeClient, t)
 	defer func() {
 		cancel()
 		waitInformers()
 	}()
-
-	kubeClient := fakekubeclient.Get(ctx)
-	accessor, waitInformers := setup(ctx, []*corev1.Secret{notOwnedSecret}, kubeClient, t)
 
 	_, err := ReconcileSecret(ctx, ownerObj, desired, accessor)
 	if err == nil {

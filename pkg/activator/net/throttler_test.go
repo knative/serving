@@ -211,11 +211,6 @@ func TestThrottlerWithError(t *testing.T) {
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-			waitInformers := func() {}
-			defer func() {
-				cancel()
-				waitInformers()
-			}()
 			updateCh := make(chan revisionDestsUpdate, 2)
 
 			params := queue.BreakerParams{
@@ -225,13 +220,16 @@ func TestThrottlerWithError(t *testing.T) {
 			}
 
 			endpoints := fakeendpointsinformer.Get(ctx)
-
 			servfake := fakeservingclient.Get(ctx)
 			revisions := fakerevisioninformer.Get(ctx)
 			waitInformers, err := controller.RunInformers(ctx.Done(), endpoints.Informer(), revisions.Informer())
 			if err != nil {
 				t.Fatalf("Failed to start informers: %v", err)
 			}
+			defer func() {
+				cancel()
+				waitInformers()
+			}()
 
 			// Add the revision we're testing
 			servfake.ServingV1alpha1().Revisions(tc.revision.Namespace).Create(tc.revision)
@@ -334,11 +332,6 @@ func TestThrottlerSuccesses(t *testing.T) {
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-			waitInformers := func() {}
-			defer func() {
-				cancel()
-				waitInformers()
-			}()
 			updateCh := make(chan revisionDestsUpdate, 2)
 
 			params := queue.BreakerParams{
@@ -355,6 +348,10 @@ func TestThrottlerSuccesses(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to start informers: %v", err)
 			}
+			defer func() {
+				cancel()
+				waitInformers()
+			}()
 
 			// Add the revision were testing
 			servfake.ServingV1alpha1().Revisions(tc.revision.Namespace).Create(tc.revision)
@@ -397,11 +394,6 @@ func TestThrottlerSuccesses(t *testing.T) {
 
 func TestMultipleActivators(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-	waitInformers := func() {}
-	defer func() {
-		cancel()
-		waitInformers()
-	}()
 
 	fake := fakekubeclient.Get(ctx)
 	endpoints := fakeendpointsinformer.Get(ctx)
@@ -412,6 +404,10 @@ func TestMultipleActivators(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to start informers: %v", err)
 	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
 
 	rev := revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1)
 	// Add the revision were testing

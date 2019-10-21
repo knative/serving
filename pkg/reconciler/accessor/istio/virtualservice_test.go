@@ -92,11 +92,6 @@ func (f *FakeAccessor) GetVirtualServiceLister() istiolisters.VirtualServiceList
 func TestReconcileVirtualService_Create(t *testing.T) {
 	ctx, _ := SetupFakeContext(t)
 	ctx, cancel := context.WithCancel(ctx)
-	waitInformers := func() {}
-	defer func() {
-		cancel()
-		waitInformers()
-	}()
 
 	sharedClient := fakesharedclient.Get(ctx)
 
@@ -111,6 +106,11 @@ func TestReconcileVirtualService_Create(t *testing.T) {
 	})
 
 	accessor, waitInformers := setup(ctx, []*v1alpha3.VirtualService{}, sharedClient, t)
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
+
 	ReconcileVirtualService(ctx, ownerObj, desired, accessor)
 
 	if err := h.WaitForHooks(3 * time.Second); err != nil {
@@ -121,14 +121,13 @@ func TestReconcileVirtualService_Create(t *testing.T) {
 func TestReconcileVirtualService_Update(t *testing.T) {
 	ctx, _ := SetupFakeContext(t)
 	ctx, cancel := context.WithCancel(ctx)
-	waitInformers := func() {}
+
+	sharedClient := fakesharedclient.Get(ctx)
+	accessor, waitInformers := setup(ctx, []*v1alpha3.VirtualService{origin}, sharedClient, t)
 	defer func() {
 		cancel()
 		waitInformers()
 	}()
-
-	sharedClient := fakesharedclient.Get(ctx)
-	accessor, waitInformers := setup(ctx, []*v1alpha3.VirtualService{origin}, sharedClient, t)
 
 	h := NewHooks()
 	h.OnUpdate(&sharedClient.Fake, "virtualservices", func(obj runtime.Object) HookResult {

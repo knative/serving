@@ -633,15 +633,9 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			rt := network.RoundTripperFunc(fakeRT.RT)
 
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-			waitInformers := func() {}
-			defer func() {
-				cancel()
-				waitInformers()
-			}()
 
 			endpointsInformer := fakeendpointsinformer.Get(ctx)
 			serviceInformer := fakeserviceinformer.Get(ctx)
-
 			revisions := fakerevisioninformer.Get(ctx)
 
 			// Add the revision we're testing.
@@ -659,6 +653,10 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to start informers: %v", err)
 			}
+			defer func() {
+				cancel()
+				waitInformers()
+			}()
 
 			rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, rt, 50*time.Millisecond)
 
@@ -892,11 +890,6 @@ func TestCheckDestsSwinging(t *testing.T) {
 
 func TestRevisionDeleted(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-	waitInformers := func() {}
-	defer func() {
-		cancel()
-		waitInformers()
-	}()
 
 	svc := privateSKSService(
 		types.NamespacedName{testNamespace, testRevision},
@@ -914,6 +907,10 @@ func TestRevisionDeleted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to start informers: %v", err)
 	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
 
 	rev := revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1)
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)

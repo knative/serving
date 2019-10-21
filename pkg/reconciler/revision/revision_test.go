@@ -561,14 +561,6 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 
 			ctx, cancel := context.WithCancel(ctx)
 			grp := errgroup.Group{}
-			waitInformers := func() {}
-			defer func() {
-				cancel()
-				if err := grp.Wait(); err != nil {
-					t.Errorf("Wait() = %v", err)
-				}
-				waitInformers()
-			}()
 
 			servingClient := fakeservingclient.Get(ctx)
 
@@ -583,6 +575,14 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to start informers: %v", err)
 			}
+			defer func() {
+				cancel()
+				if err := grp.Wait(); err != nil {
+					t.Errorf("Wait() = %v", err)
+				}
+				waitInformers()
+			}()
+
 			if err := watcher.Start(ctx.Done()); err != nil {
 				t.Fatalf("Failed to start configuration manager: %v", err)
 			}
@@ -717,14 +717,6 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 
 			ctx, cancel := context.WithCancel(ctx)
 			grp := errgroup.Group{}
-			waitInformers := func() {}
-			defer func() {
-				cancel()
-				if err := grp.Wait(); err != nil {
-					t.Errorf("Wait() = %v", err)
-				}
-				waitInformers()
-			}()
 
 			kubeClient := fakekubeclient.Get(ctx)
 
@@ -744,6 +736,14 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to start informers: %v", err)
 			}
+			defer func() {
+				cancel()
+				if err := grp.Wait(); err != nil {
+					t.Errorf("Wait() = %v", err)
+				}
+				waitInformers()
+			}()
+
 			if err := watcher.Start(ctx.Done()); err != nil {
 				t.Fatalf("Failed to start configuration manager: %v", err)
 			}

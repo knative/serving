@@ -1038,14 +1038,6 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 	ctx, cancel, informers, ctrl, watcher := newTestSetup(t)
 
 	grp := errgroup.Group{}
-	waitInformers := func() {}
-	defer func() {
-		cancel()
-		if err := grp.Wait(); err != nil {
-			t.Errorf("Wait() = %v", err)
-		}
-		waitInformers()
-	}()
 
 	servingClient := fakeservingclient.Get(ctx)
 
@@ -1074,6 +1066,14 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to start informers: %v", err)
 	}
+	defer func() {
+		cancel()
+		if err := grp.Wait(); err != nil {
+			t.Errorf("Wait() = %v", err)
+		}
+		waitInformers()
+	}()
+
 	if err := watcher.Start(ctx.Done()); err != nil {
 		t.Fatalf("failed to start ingress manager: %v", err)
 	}
@@ -1131,14 +1131,6 @@ func TestGlobalResyncOnUpdateNetwork(t *testing.T) {
 	ctx, cancel, informers, ctrl, watcher := newTestSetup(t)
 
 	grp := errgroup.Group{}
-	waitInformers := func() {}
-	defer func() {
-		cancel()
-		if err := grp.Wait(); err != nil {
-			t.Errorf("Wait() = %v", err)
-		}
-		waitInformers()
-	}()
 
 	sharedClient := fakesharedclient.Get(ctx)
 
@@ -1164,6 +1156,14 @@ func TestGlobalResyncOnUpdateNetwork(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to start ingress manager: %v", err)
 	}
+	defer func() {
+		cancel()
+		if err := grp.Wait(); err != nil {
+			t.Errorf("Wait() = %v", err)
+		}
+		waitInformers()
+	}()
+
 	if err := watcher.Start(ctx.Done()); err != nil {
 		t.Fatalf("Failed to start watcher: %v", err)
 	}

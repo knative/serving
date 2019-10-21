@@ -951,14 +951,6 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			ctx, informers, ctrl, _, watcher, cf := newTestSetup(t)
 
 			grp := errgroup.Group{}
-			waitInformers := func() {}
-			defer func() {
-				cf()
-				if err := grp.Wait(); err != nil {
-					t.Errorf("Wait() = %v", err)
-				}
-				waitInformers()
-			}()
 
 			servingClient := fakeservingclient.Get(ctx)
 			h := NewHooks()
@@ -981,6 +973,13 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to start informers: %v", err)
 			}
+			defer func() {
+				cf()
+				if err := grp.Wait(); err != nil {
+					t.Errorf("Wait() = %v", err)
+				}
+				waitInformers()
+			}()
 
 			if err := watcher.Start(ctx.Done()); err != nil {
 				t.Fatalf("failed to start configuration manager: %v", err)

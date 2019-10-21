@@ -95,11 +95,6 @@ func (f *FakeAccessor) GetCertificateLister() listers.CertificateLister {
 
 func TestReconcileCertificateCreate(t *testing.T) {
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-	waitInformers := func() {}
-	defer func() {
-		cancel()
-		waitInformers()
-	}()
 
 	client := fakeclient.Get(ctx)
 
@@ -114,6 +109,11 @@ func TestReconcileCertificateCreate(t *testing.T) {
 	})
 
 	accessor, waitInformers := setup(ctx, []*v1alpha1.Certificate{}, client, t)
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
+
 	ReconcileCertificate(ctx, ownerObj, desired, accessor)
 
 	if err := h.WaitForHooks(3 * time.Second); err != nil {
@@ -123,14 +123,13 @@ func TestReconcileCertificateCreate(t *testing.T) {
 
 func TestReconcileCertificateUpdate(t *testing.T) {
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-	waitInformers := func() {}
+
+	client := fakeclient.Get(ctx)
+	accessor, waitInformers := setup(ctx, []*v1alpha1.Certificate{origin}, client, t)
 	defer func() {
 		cancel()
 		waitInformers()
 	}()
-
-	client := fakeclient.Get(ctx)
-	accessor, waitInformers := setup(ctx, []*v1alpha1.Certificate{origin}, client, t)
 
 	h := NewHooks()
 	h.OnUpdate(&client.Fake, "certificates", func(obj runtime.Object) HookResult {

@@ -52,14 +52,6 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	ctrl := NewController(ctx, configmap.NewStaticWatcher())
 
 	grp := errgroup.Group{}
-	waitInformers := func() {}
-	defer func() {
-		cancel()
-		if err := grp.Wait(); err != nil {
-			t.Fatalf("Error waiting for contoller to terminate: %v", err)
-		}
-		waitInformers()
-	}()
 
 	kubeClnt := fakekubeclient.Get(ctx)
 
@@ -84,6 +76,13 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error starting informers: %v", err)
 	}
+	defer func() {
+		cancel()
+		if err := grp.Wait(); err != nil {
+			t.Fatalf("Error waiting for contoller to terminate: %v", err)
+		}
+		waitInformers()
+	}()
 
 	grp.Go(func() error {
 		return ctrl.Run(1, ctx.Done())

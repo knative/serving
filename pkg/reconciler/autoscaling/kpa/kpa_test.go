@@ -1174,7 +1174,10 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	})
 
 	grp := errgroup.Group{}
-	waitInformers := func() {}
+	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
+		t.Fatalf("failed to start informers: %v", err)
+	}
 	defer func() {
 		cancel()
 		if err := grp.Wait(); err != nil {
@@ -1183,10 +1186,6 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 		waitInformers()
 	}()
 
-	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
-	if err != nil {
-		t.Fatalf("failed to start informers: %v", err)
-	}
 	if err := watcher.Start(ctx.Done()); err != nil {
 		t.Fatalf("failed to start configmap watcher: %v", err)
 	}
