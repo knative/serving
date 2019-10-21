@@ -27,6 +27,7 @@ import (
 	"knative.dev/pkg/test/mako"
 
 	"knative.dev/serving/test/performance"
+	"knative.dev/serving/test/performance/metrics"
 )
 
 var (
@@ -90,12 +91,8 @@ func main() {
 	targeter := vegeta.NewStaticTargeter(t.target)
 	attacker := vegeta.NewAttacker(vegeta.Timeout(30 * time.Second))
 
-	// Accumulate errors per second.  The key is the second at which the
-	// error occurred and the value is the count.  In order for this to
-	// show up properly (and work with the aggregators) we must report
-	// zero values for every second over which the benchmark runs without
-	// errors.
-	errors := make(map[int64]int64, int(duration.Seconds()))
+	// Accumulate the results.
+	ar := &metrics.AggregateResult{}
 
 	// Start the attack!
 	results := attacker.Attack(targeter, rate, *duration, "load-test")
@@ -114,30 +111,15 @@ LOOP:
 				// our loop.
 				break LOOP
 			}
-			// How much to increment the per-second error count for the time
-			// this result's request was sent.
-			var isAnError int64
-			if res.Error != "" {
-				// By reporting errors like this the error strings show up on
-				// the details page for each Mako run.
-				q.AddError(mako.XTime(res.Timestamp), res.Error)
-				isAnError = 1
-			} else {
-				// Add a sample points for the target benchmark's latency stat
-				// with the latency of the request this result is for.
-				q.AddSamplePoint(mako.XTime(res.Timestamp), map[string]float64{
-					t.stat: res.Latency.Seconds(),
-				})
-				isAnError = 0
-			}
-			errors[res.Timestamp.Unix()] += isAnError
+			// Handle the result for this request
+			metrics.HandleResult(q, *res, t.stat, ar)
 		}
 	}
 
 	// Walk over our accumulated per-second error rates and report them as
 	// sample points.  The key is seconds since the Unix epoch, and the value
 	// is the number of errors observed in that second.
-	for ts, count := range errors {
+	for ts, count := range ar.ErrorRates {
 		q.AddSamplePoint(mako.XTime(time.Unix(ts, 0)), map[string]float64{
 			t.estat: float64(count),
 		})

@@ -45,19 +45,18 @@ var (
 )
 
 func processResults(ctx context.Context, q *quickstore.Quickstore, results <-chan *vegeta.Result) {
-	// Accumulate the error and request rates along second boundaries.
-	errors := make(map[int64]int64)
-	requests := make(map[int64]int64)
+	// Accumulate the results.
+	ar := &metrics.AggregateResult{}
 
 	// When the benchmark completes, iterate over the accumulated rates
 	// and add them as sample points.
 	defer func() {
-		for t, req := range requests {
+		for t, req := range ar.RequestRates {
 			q.AddSamplePoint(mako.XTime(time.Unix(t, 0)), map[string]float64{
 				"rs": float64(req),
 			})
 		}
-		for t, err := range errors {
+		for t, err := range ar.ErrorRates {
 			q.AddSamplePoint(mako.XTime(time.Unix(t, 0)), map[string]float64{
 				"es": float64(err),
 			})
@@ -76,22 +75,8 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 			if !ok {
 				return
 			}
-			// Handle the result by reporting an error or a latency sample point.
-			var isAnError int64
-			if res.Error != "" {
-				q.AddError(mako.XTime(res.Timestamp), res.Error)
-				isAnError = 1
-			} else {
-				q.AddSamplePoint(mako.XTime(res.Timestamp), map[string]float64{
-					"l": res.Latency.Seconds(),
-				})
-				isAnError = 0
-			}
-			// Update our error and request rates.
-			// We handle errors this way to force zero values into every time for
-			// which we have data, even if there is no error.
-			errors[res.Timestamp.Unix()] += isAnError
-			requests[res.Timestamp.Unix()]++
+			// Handle the result for this request
+			metrics.HandleResult(q, *res, "l", ar)
 		case ds := <-deploymentStatus:
 			// Add a sample point for the deployment status
 			q.AddSamplePoint(mako.XTime(ds.Time), map[string]float64{
