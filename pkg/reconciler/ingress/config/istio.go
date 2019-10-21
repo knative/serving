@@ -113,7 +113,7 @@ func parseGateways(configMap *corev1.ConfigMap, prefix string) ([]Gateway, error
 			namespace = system.Namespace()
 		} else {
 			name = gatewayNameNamespace[:idx]
-			namespace = gatewayNameNamespace[idx + 1:]
+			namespace = gatewayNameNamespace[idx+1:]
 		}
 		gateways[i] = Gateway{
 			Namespace:  namespace,
