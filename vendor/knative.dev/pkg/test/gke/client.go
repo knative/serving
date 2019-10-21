@@ -27,12 +27,13 @@ import (
 
 // SDKOperations wraps GKE SDK related functions
 type SDKOperations interface {
-	CreateCluster(string, string, string, *container.CreateClusterRequest) error
-	CreateClusterAsync(string, string, string, *container.CreateClusterRequest) (*container.Operation, error)
-	DeleteCluster(string, string, string, string) error
-	DeleteClusterAsync(string, string, string, string) (*container.Operation, error)
-	GetCluster(string, string, string, string) (*container.Cluster, error)
-	GetOperation(string, string, string, string) (*container.Operation, error)
+	CreateCluster(project, region, zone string, req *container.CreateClusterRequest) error
+	CreateClusterAsync(project, region, zone string, req *container.CreateClusterRequest) (*container.Operation, error)
+	DeleteCluster(project, region, zone, clusterName string) error
+	DeleteClusterAsync(project, region, zone, clusterName string) (*container.Operation, error)
+	GetCluster(project, region, zone, clusterName string) (*container.Cluster, error)
+	GetOperation(project, region, zone, opName string) (*container.Operation, error)
+	ListClustersInProject(project string) ([]*container.Cluster, error)
 }
 
 // sdkClient Implement SDKOperations
@@ -95,8 +96,8 @@ func (gsc *sdkClient) DeleteClusterAsync(project, region, zone, clusterName stri
 	if zone != "" {
 		return gsc.Projects.Zones.Clusters.Delete(project, location, clusterName).Context(context.Background()).Do()
 	}
-	parent := fmt.Sprintf("projects/%s/locations/%s/clusters/%s", project, location, clusterName)
-	return gsc.Projects.Locations.Clusters.Delete(parent).Context(context.Background()).Do()
+	clusterFullPath := fmt.Sprintf("projects/%s/locations/%s/clusters/%s", project, location, clusterName)
+	return gsc.Projects.Locations.Clusters.Delete(clusterFullPath).Context(context.Background()).Do()
 }
 
 // GetCluster gets the GKE cluster with the given cluster name.
@@ -109,12 +110,23 @@ func (gsc *sdkClient) GetCluster(project, region, zone, clusterName string) (*co
 	return gsc.Projects.Locations.Clusters.Get(clusterFullPath).Context(context.Background()).Do()
 }
 
+// ListClustersInProject lists all the GKE clusters created in the given project.
+func (gsc *sdkClient) ListClustersInProject(project string) ([]*container.Cluster, error) {
+	var clusters []*container.Cluster
+	projectFullPath := fmt.Sprintf("projects/%s/locations/-", project)
+	resp, err := gsc.Projects.Locations.Clusters.List(projectFullPath).Do()
+	if err != nil {
+		return clusters, fmt.Errorf("failed to list clusters under project %s: %v", project, err)
+	}
+	return resp.Clusters, nil
+}
+
 // GetOperation gets the operation ref with the given operation name.
 func (gsc *sdkClient) GetOperation(project, region, zone, opName string) (*container.Operation, error) {
 	location := GetClusterLocation(region, zone)
 	if zone != "" {
 		return gsc.Service.Projects.Zones.Operations.Get(project, location, opName).Do()
 	}
-	name := fmt.Sprintf("projects/%s/locations/%s/operations/%s", project, location, opName)
-	return gsc.Service.Projects.Locations.Operations.Get(name).Do()
+	opsFullPath := fmt.Sprintf("projects/%s/locations/%s/operations/%s", project, location, opName)
+	return gsc.Service.Projects.Locations.Operations.Get(opsFullPath).Do()
 }

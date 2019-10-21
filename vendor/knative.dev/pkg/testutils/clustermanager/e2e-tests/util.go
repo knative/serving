@@ -19,7 +19,7 @@ package clustermanager
 import (
 	"fmt"
 
-	"knative.dev/pkg/testutils/common"
+	"knative.dev/pkg/testutils/clustermanager/e2e-tests/common"
 )
 
 var (

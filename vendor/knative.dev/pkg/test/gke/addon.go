@@ -25,20 +25,29 @@ import (
 
 const (
 	// Define all supported addons here
-	istio = "istio"
+	istio    = "istio"
+	hpa      = "horizontalpodautoscaling"
+	hlb      = "httploadbalancing"
+	cloudRun = "cloudrun"
 )
 
 // GetAddonsConfig gets AddonsConfig from a slice of addon names, contains the logic of
 // converting string argument to typed AddonsConfig, for example `IstioConfig`.
-// Currently supports istio
+// Currently supports Istio, HorizontalPodAutoscaling, HttpLoadBalancing and CloudRun.
 func GetAddonsConfig(addons []string) *container.AddonsConfig {
 	ac := &container.AddonsConfig{}
 	for _, name := range addons {
 		switch strings.ToLower(name) {
 		case istio:
 			ac.IstioConfig = &container.IstioConfig{Disabled: false}
+		case hpa:
+			ac.HorizontalPodAutoscaling = &container.HorizontalPodAutoscaling{Disabled: false}
+		case hlb:
+			ac.HttpLoadBalancing = &container.HttpLoadBalancing{Disabled: false}
+		case cloudRun:
+			ac.CloudRunConfig = &container.CloudRunConfig{Disabled: false}
 		default:
-			panic(fmt.Sprintf("addon type %q not supported. Has to be one of: %q", name, istio))
+			panic(fmt.Sprintf("addon type %q not supported. Has to be one of: %q", name, []string{istio, hpa, hlb, cloudRun}))
 		}
 	}
 

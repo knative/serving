@@ -46,6 +46,11 @@ aliases:
   - mdemirhan
   - yanweiguo
 
+  network-approvers:
+  - markusthoemmes
+  - tcnghia
+  - vagababov
+
   productivity-approvers:
   - adrcunha
   - chaodaiG
@@ -56,6 +61,10 @@ aliases:
   - chizhg
   - steuhs
   - yt3liu
+
+  source-approvers:
+  - n3wscott
+  - vaikas-google
 
   webhook-approvers:
   - mattmoor
