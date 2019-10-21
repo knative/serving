@@ -91,8 +91,8 @@ func main() {
 	targeter := vegeta.NewStaticTargeter(t.target)
 	attacker := vegeta.NewAttacker(vegeta.Timeout(30 * time.Second))
 
-	// Accumulate the results.
-	ar := &metrics.AggregateResult{}
+	// Create a new aggregateResult to accumulate the results.
+	ar := metrics.NewAggregateResult(int(duration.Seconds()))
 
 	// Start the attack!
 	results := attacker.Attack(targeter, rate, *duration, "load-test")

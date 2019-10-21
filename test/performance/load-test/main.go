@@ -45,8 +45,8 @@ var (
 )
 
 func processResults(ctx context.Context, q *quickstore.Quickstore, results <-chan *vegeta.Result) {
-	// Accumulate the results.
-	ar := &metrics.AggregateResult{}
+	// Create a new aggregateResult to accumulate the results.
+	ar := metrics.NewAggregateResult(0)
 
 	// When the benchmark completes, iterate over the accumulated rates
 	// and add them as sample points.
