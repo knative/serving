@@ -336,14 +336,15 @@ func assignSlice(trackers []*podIPTracker, selfIndex, numActivators int) []*podI
 		return trackers[i].dest < trackers[j].dest
 	})
 	bi, ei, tail := pickIndices(lt, selfIndex, numActivators)
-	// Those are the ones that belong execlusively to this activator
+
+	// Those are the ones that belong exclusively to this activator.
 	ret := append(trackers[:0:0], trackers[bi:ei]...)
 	for i := len(trackers) - tail; i < len(trackers); i++ {
 		t := trackers[i]
 		// Those are going to be shared between
 		// all the activators, so the weight is |numActivators|.
 		t.weight = numActivators
-		ret = append(ret, trackers[i])
+		ret = append(ret, t)
 	}
 	return ret
 }
