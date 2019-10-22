@@ -211,9 +211,7 @@ func TestThrottlerWithError(t *testing.T) {
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-			defer func() {
-				cancel()
-			}()
+			defer cancel()
 			updateCh := make(chan revisionDestsUpdate, 2)
 
 			params := queue.BreakerParams{
@@ -329,9 +327,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-			defer func() {
-				cancel()
-			}()
+			defer cancel()
 			updateCh := make(chan revisionDestsUpdate, 2)
 
 			params := queue.BreakerParams{
@@ -387,9 +383,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 
 func TestMultipleActivators(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-	defer func() {
-		cancel()
-	}()
+	defer cancel()
 
 	fake := fakekubeclient.Get(ctx)
 	endpoints := fakeendpointsinformer.Get(ctx)
