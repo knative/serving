@@ -93,15 +93,32 @@ function dump_cluster_state() {
   echo "***         E2E TEST FAILED         ***"
   echo "***    Start of information dump    ***"
   echo "***************************************"
-  echo ">>> All resources:"
-  kubectl get all --all-namespaces --show-labels -o wide
-  echo ">>> Services:"
-  kubectl get services --all-namespaces --show-labels -o wide
-  echo ">>> Events:"
-  kubectl get events --all-namespaces --show-labels -o wide
-  function_exists dump_extra_cluster_state && dump_extra_cluster_state
-  echo ">>> Full dump: ${ARTIFACTS}/k8s.dump.txt"
-  kubectl get all --all-namespaces -o yaml > ${ARTIFACTS}/k8s.dump.txt
+
+  local output="${ARTIFACTS}/k8s.dump.txt"
+  echo ">>> The dump is located at ${output}"
+
+  for crd in $(kubectl api-resources --verbs=list -o name | sort); do
+    local count="$(kubectl get $crd --all-namespaces --no-headers 2>/dev/null | wc -l)"
+    echo ">>> ${crd} (${count} objects)"
+    if [[ "${count}" > "0" ]]; then
+      echo ">>> ${crd} (${count} objects)" >> ${output}
+
+      echo ">>> Listing" >> ${output}
+      kubectl get ${crd} --all-namespaces >> ${output}
+
+      echo ">>> Details" >> ${output}
+      if [[ "${crd}" == "secrets" ]]; then
+        echo "Secrets are ignored for security reasons" >> ${output}
+      else
+        kubectl get ${crd} --all-namespaces -o yaml >> ${output}
+      fi
+    fi
+  done
+
+  if function_exists dump_extra_cluster_state; then
+    echo ">>> Extra dump" >> ${output}
+    dump_extra_cluster_state >> ${output}
+  fi
   echo "***************************************"
   echo "***         E2E TEST FAILED         ***"
   echo "***     End of information dump     ***"
