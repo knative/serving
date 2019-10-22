@@ -103,9 +103,15 @@ func parseGateways(configMap *corev1.ConfigMap, prefix string) ([]Gateway, error
 	sort.Strings(gatewayNames)
 	gateways := make([]Gateway, len(gatewayNames))
 	for i, gatewayName := range gatewayNames {
+		namespace := system.Namespace()
+		idx := strings.Index(gatewayName, ".")
+		if idx != -1 {
+			namespace = gatewayName[:idx]
+		}
+		fmt.Println("-------", namespace, "------", gatewayName[idx+1:], "\n")
 		gateways[i] = Gateway{
-			Namespace:  system.Namespace(),
-			Name:       gatewayName,
+			Namespace:  namespace,
+			Name:       gatewayName[idx+1:],
 			ServiceURL: urls[gatewayName],
 		}
 	}
