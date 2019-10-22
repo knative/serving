@@ -92,7 +92,7 @@ func DomainNameFromTemplate(ctx context.Context, r v1.ObjectMeta, name string) (
 	}
 
 	if err := templ.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("error executing the DomainTemplate: %v", err)
+		return "", fmt.Errorf("error executing the DomainTemplate: %w", err)
 	}
 	return buf.String(), nil
 }
@@ -114,7 +114,7 @@ func HostnameFromTemplate(ctx context.Context, name string, tag string) (string,
 	networkConfig := config.FromContext(ctx).Network
 	buf := bytes.Buffer{}
 	if err := networkConfig.GetTagTemplate().Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("error executing the TagTemplate: %v", err)
+		return "", fmt.Errorf("error executing the TagTemplate: %w", err)
 	}
 	return buf.String(), nil
 }

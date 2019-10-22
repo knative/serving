@@ -93,7 +93,7 @@ func NewPrometheusStatsReporter(namespace, config, revision, pod string, reporti
 	registry := prometheus.NewRegistry()
 	for _, gv := range []*prometheus.GaugeVec{requestsPerSecondGV, proxiedRequestsPerSecondGV, averageConcurrentRequestsGV, averageProxiedConcurrentRequestsGV} {
 		if err := registry.Register(gv); err != nil {
-			return nil, fmt.Errorf("register metric failed: %v", err)
+			return nil, fmt.Errorf("register metric failed: %w", err)
 		}
 	}
 

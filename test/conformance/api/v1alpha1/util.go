@@ -208,7 +208,7 @@ func validateRunLatestDataPlane(t *testing.T, clients *test.Clients, names test.
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		return fmt.Errorf("the endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, names.URL.String(), expectedText, err)
+		return fmt.Errorf("the endpoint for Route %s at %s didn't serve the expected text %q: %w", names.Route, names.URL.String(), expectedText, err)
 	}
 
 	return nil
@@ -221,13 +221,13 @@ func validateRunLatestControlPlane(t *testing.T, clients *test.Clients, names te
 	t.Log("Checking to ensure Revision is in desired state with generation: ", expectedGeneration)
 	err := v1a1test.CheckRevisionState(clients.ServingAlphaClient, names.Revision, func(r *v1alpha1.Revision) (bool, error) {
 		if ready, err := v1a1test.IsRevisionReady(r); !ready {
-			return false, fmt.Errorf("revision %s did not become ready to serve traffic: %v", names.Revision, err)
+			return false, fmt.Errorf("revision %s did not become ready to serve traffic: %w", names.Revision, err)
 		}
 		if r.Status.ImageDigest == "" {
 			return false, fmt.Errorf("imageDigest not present for revision %s", names.Revision)
 		}
 		if validDigest, err := validateImageDigest(names.Image, r.Status.ImageDigest); !validDigest {
-			return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %v", r.Status.ImageDigest, names.Image, err)
+			return false, fmt.Errorf("imageDigest %s is not valid for imageName %s: %w", r.Status.ImageDigest, names.Image, err)
 		}
 		return true, nil
 	})
@@ -236,16 +236,16 @@ func validateRunLatestControlPlane(t *testing.T, clients *test.Clients, names te
 	}
 	err = v1a1test.CheckRevisionState(clients.ServingAlphaClient, names.Revision, v1a1test.IsRevisionAtExpectedGeneration(expectedGeneration))
 	if err != nil {
-		return fmt.Errorf("revision %s did not have an expected annotation with generation %s: %v", names.Revision, expectedGeneration, err)
+		return fmt.Errorf("revision %s did not have an expected annotation with generation %s: %w", names.Revision, expectedGeneration, err)
 	}
 
 	t.Log("Checking to ensure Configuration is in desired state.")
 	err = v1a1test.CheckConfigurationState(clients.ServingAlphaClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
 		if c.Status.LatestCreatedRevisionName != names.Revision {
-			return false, fmt.Errorf("the Configuration %s was not updated indicating that the Revision %s was created: %v", names.Config, names.Revision, err)
+			return false, fmt.Errorf("the Configuration %s was not updated indicating that the Revision %s was created: %w", names.Config, names.Revision, err)
 		}
 		if c.Status.LatestReadyRevisionName != names.Revision {
-			return false, fmt.Errorf("the Configuration %s was not updated indicating that the Revision %s was ready: %v", names.Config, names.Revision, err)
+			return false, fmt.Errorf("the Configuration %s was not updated indicating that the Revision %s was ready: %w", names.Config, names.Revision, err)
 		}
 		return true, nil
 	})
@@ -256,7 +256,7 @@ func validateRunLatestControlPlane(t *testing.T, clients *test.Clients, names te
 	t.Log("Checking to ensure Route is in desired state with generation: ", expectedGeneration)
 	err = v1a1test.CheckRouteState(clients.ServingAlphaClient, names.Route, v1a1test.AllRouteTrafficAtRevision(names))
 	if err != nil {
-		return fmt.Errorf("the Route %s was not updated to route traffic to the Revision %s: %v", names.Route, names.Revision, err)
+		return fmt.Errorf("the Route %s was not updated to route traffic to the Revision %s: %w", names.Route, names.Revision, err)
 	}
 
 	return nil

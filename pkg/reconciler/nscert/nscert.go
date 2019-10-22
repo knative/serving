@@ -108,7 +108,7 @@ func (c *reconciler) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 
 	existingCerts, err := c.knCertificateLister.Certificates(ns.Name).List(labelSelector)
 	if err != nil {
-		return fmt.Errorf("failed to list certificates: %v", err)
+		return fmt.Errorf("failed to list certificates: %w", err)
 	}
 
 	dnsName, err := wildcardDomain(cfg.Network.DomainTemplate, defaultDomain, ns.Name)

@@ -88,7 +88,7 @@ func canServeRequests(t *testing.T, clients *test.Clients, route *v1beta1.Route)
 		"RouteDomain",
 	)
 	if err != nil {
-		return fmt.Errorf("route did not get assigned a domain: %v", err)
+		return fmt.Errorf("route did not get assigned a domain: %w", err)
 	}
 
 	t.Logf("Route %s can serve the expected data at %s", route.Name, url)
@@ -100,7 +100,7 @@ func canServeRequests(t *testing.T, clients *test.Clients, route *v1beta1.Route)
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		return fmt.Errorf("the endpoint for Route %s at %s didn't serve the expected text %q: %v", route.Name, url, test.HelloWorldText, err)
+		return fmt.Errorf("the endpoint for Route %s at %s didn't serve the expected text %q: %w", route.Name, url, test.HelloWorldText, err)
 	}
 
 	return nil

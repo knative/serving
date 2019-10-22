@@ -61,7 +61,7 @@ func extractData(body io.Reader) (Stat, error) {
 	var parser expfmt.TextParser
 	metricFamilies, err := parser.TextToMetricFamilies(body)
 	if err != nil {
-		return emptyStat, fmt.Errorf("reading text format failed: %v", err)
+		return emptyStat, fmt.Errorf("reading text format failed: %w", err)
 	}
 
 	stat := emptyStat
