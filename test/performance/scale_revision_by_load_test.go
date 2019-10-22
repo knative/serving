@@ -194,7 +194,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	// Add scale metrics.
 	for _, ev := range scaleEvents {
 		t.Logf("Scaled: %d -> %d in %v", ev.oldScale, ev.newScale, ev.timestamp.Sub(attackStartTime))
-		tc = append(tc, perf.CreatePerfTestCase(float32(ev.timestamp.Sub(attackStartTime)/time.Second), fmt.Sprintf("scale-from-%02d-to-%02d(seconds)", ev.oldScale, ev.newScale), t.Name()))
+		tc = append(tc, perf.CreatePerfTestCase(float32(ev.timestamp.Sub(attackStartTime).Seconds()), fmt.Sprintf("scale-from-%02d-to-%02d(seconds)", ev.oldScale, ev.newScale), t.Name()))
 	}
 
 	// Add latency metrics.

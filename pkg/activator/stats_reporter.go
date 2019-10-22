@@ -179,8 +179,7 @@ func (r *Reporter) ReportResponseTime(ns, service, config, rev string, responseC
 		return err
 	}
 
-	// convert time.Duration in nanoseconds to milliseconds
-	pkgmetrics.Record(ctx, responseTimeInMsecM.M(float64(d/time.Millisecond)))
+	pkgmetrics.Record(ctx, responseTimeInMsecM.M(float64(d.Milliseconds())))
 	return nil
 }
 
