@@ -23,17 +23,17 @@ import (
 	"knative.dev/pkg/test/mako"
 )
 
-// aggregateResult is the aggregated result of requests for better visualization.
-type aggregateResult struct {
+// AggregateResult is the aggregated result of requests for better visualization.
+type AggregateResult struct {
 	// ErrorRates is a map that saves the number of errors for each timestamp (in secs)
 	ErrorRates map[int64]int64
 	// RequestRates is a map that saves the number of requests for each timestamp (in secs)
 	RequestRates map[int64]int64
 }
 
-// NewAggregateResult returns the pointer of a new aggregateResult object.
-func NewAggregateResult(initialSize int) *aggregateResult {
-	return &aggregateResult{
+// NewAggregateResult returns the pointer of a new AggregateResult object.
+func NewAggregateResult(initialSize int) *AggregateResult {
+	return &AggregateResult{
 		ErrorRates:   make(map[int64]int64, initialSize),
 		RequestRates: make(map[int64]int64, initialSize),
 	}
@@ -42,7 +42,7 @@ func NewAggregateResult(initialSize int) *aggregateResult {
 // HandleResult will handle the attack result by:
 // 1. Adding its latency as a sample point if no error, or adding it as an error if there is
 // 2. Updating the aggregate results
-func HandleResult(q *quickstore.Quickstore, res vegeta.Result, latencyKey string, ar *aggregateResult) {
+func HandleResult(q *quickstore.Quickstore, res vegeta.Result, latencyKey string, ar *AggregateResult) {
 	// Handle the result by reporting an error or a latency sample point.
 	var isAnError int64
 	if res.Error != "" {
