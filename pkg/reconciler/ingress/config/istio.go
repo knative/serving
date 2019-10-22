@@ -1,12 +1,9 @@
 /*
 Copyright 2018 The Knative Authors
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     https://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -106,14 +103,9 @@ func parseGateways(configMap *corev1.ConfigMap, prefix string) ([]Gateway, error
 	sort.Strings(gatewayNames)
 	gateways := make([]Gateway, len(gatewayNames))
 	for i, gatewayName := range gatewayNames {
-		namespace := system.Namespace()
-		idx := strings.Index(gatewayName, ".")
-		if idx != -1 {
-			namespace = gatewayName[:idx]
-		}
 		gateways[i] = Gateway{
-			Namespace:  namespace,
-			Name:       gatewayName[idx+1:],
+			Namespace:  system.Namespace(),
+			Name:       gatewayName,
 			ServiceURL: urls[gatewayName],
 		}
 	}
