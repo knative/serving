@@ -143,10 +143,8 @@ LOOP:
 		})
 	}
 
-	// Commit this benchmark run to Mako!
-	out, err := q.Store()
-	if err != nil {
-		fatalf("q.Store error: %v: %v", out, err)
+	// Commit data to Mako and handle the result.
+	if err := mc.StoreAndHandleResult(); err != nil {
+		fatalf("Failed to store and handle benchmarking result: %v", err)
 	}
-	log.Printf("Done! Run: %s\n", out.GetRunChartLink())
 }
