@@ -91,34 +91,30 @@ type Istio struct {
 
 func parseGateways(configMap *corev1.ConfigMap, prefix string) ([]Gateway, error) {
 	urls := map[string]string{}
-	gatewayNameNamespaces := []string{}
+	gatewayNames := []string{}
 	for k, v := range configMap.Data {
 		if !strings.HasPrefix(k, prefix) {
 			continue
 		}
-		gatewayNameNamespace, serviceURL := k[len(prefix):], v
+		gatewayName, serviceURL := k[len(prefix):], v
 		if errs := validation.IsDNS1123Subdomain(serviceURL); len(errs) > 0 {
 			return nil, fmt.Errorf("invalid gateway format: %v", errs)
 		}
-		gatewayNameNamespaces = append(gatewayNameNamespaces, gatewayNameNamespace)
-		urls[gatewayNameNamespace] = serviceURL
+		gatewayNames = append(gatewayNames, gatewayName)
+		urls[gatewayName] = serviceURL
 	}
-	sort.Strings(gatewayNameNamespaces)
-	gateways := make([]Gateway, len(gatewayNameNamespaces))
-	for i, gatewayNameNamespace := range gatewayNameNamespaces {
-		var name, namespace string
-		idx := strings.Index(gatewayNameNamespace, ".")
-		if idx == -1 {
-			name = gatewayNameNamespace
-			namespace = system.Namespace()
-		} else {
-			name = gatewayNameNamespace[:idx]
-			namespace = gatewayNameNamespace[idx+1:]
+	sort.Strings(gatewayNames)
+	gateways := make([]Gateway, len(gatewayNames))
+	for i, gatewayName := range gatewayNames {
+		namespace := system.Namespace()
+		idx := strings.Index(gatewayName, ".")
+		if idx != -1 {
+			namespace = gatewayName[:idx]
 		}
 		gateways[i] = Gateway{
 			Namespace:  namespace,
-			Name:       name,
-			ServiceURL: urls[gatewayNameNamespace],
+			Name:       gatewayName[idx+1:],
+			ServiceURL: urls[gatewayName],
 		}
 	}
 	return gateways, nil
