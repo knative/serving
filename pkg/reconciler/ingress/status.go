@@ -156,7 +156,7 @@ func (m *StatusProber) IsReady(ia v1alpha1.IngressAccessor, gw map[v1alpha1.Ingr
 
 	bytes, err := resources.ComputeIngressHash(ia)
 	if err != nil {
-		return false, fmt.Errorf("failed to compute the hash of the IngressAccessor: %v", err)
+		return false, fmt.Errorf("failed to compute the hash of the IngressAccessor: %w", err)
 	}
 	hash := fmt.Sprintf("%x", bytes)
 
@@ -190,11 +190,11 @@ func (m *StatusProber) IsReady(ia v1alpha1.IngressAccessor, gw map[v1alpha1.Ingr
 	for gatewayName, hosts := range resources.HostsPerGateway(ia, gw) {
 		gateway, err := m.getGateway(gatewayName)
 		if err != nil {
-			return false, fmt.Errorf("failed to get Gateway %q: %v", gatewayName, err)
+			return false, fmt.Errorf("failed to get Gateway %q: %w", gatewayName, err)
 		}
 		targetsPerPod, err := m.listGatewayTargetsPerPods(gateway)
 		if err != nil {
-			return false, fmt.Errorf("failed to list the probing URLs of Gateway %q: %v", gatewayName, err)
+			return false, fmt.Errorf("failed to list the probing URLs of Gateway %q: %w", gatewayName, err)
 		}
 		if len(targetsPerPod) == 0 {
 			continue
@@ -386,7 +386,7 @@ func (m *StatusProber) updateStates(ingressState *ingressState, podState *podSta
 func (m *StatusProber) getGateway(name string) (*v1alpha3.Gateway, error) {
 	namespace, name, err := cache.SplitMetaNamespaceKey(name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse Gateway name %q: %v", name, err)
+		return nil, fmt.Errorf("failed to parse Gateway name %q: %w", name, err)
 	}
 	if namespace == "" {
 		return nil, fmt.Errorf("unexpected unqualified Gateway name %q", name)
@@ -401,14 +401,14 @@ func (m *StatusProber) listGatewayTargetsPerPods(gateway *v1alpha3.Gateway) (map
 	for key, value := range gateway.Spec.Selector {
 		requirement, err := labels.NewRequirement(key, selection.Equals, []string{value})
 		if err != nil {
-			return nil, fmt.Errorf("failed to create 'Equals' requirement from %q=%q: %v", key, value, err)
+			return nil, fmt.Errorf("failed to create 'Equals' requirement from %q=%q: %w", key, value, err)
 		}
 		selector = selector.Add(*requirement)
 	}
 
 	services, err := m.serviceLister.List(selector)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list Services: %v", err)
+		return nil, fmt.Errorf("failed to list Services: %w", err)
 	}
 	if len(services) == 0 {
 		m.logger.Infof("Skipping Gateway %s/%s because it has no corresponding Service", gateway.Namespace, gateway.Name)
@@ -418,7 +418,7 @@ func (m *StatusProber) listGatewayTargetsPerPods(gateway *v1alpha3.Gateway) (map
 
 	endpoints, err := m.endpointsLister.List(selector)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list Endpoints: %v", err)
+		return nil, fmt.Errorf("failed to list Endpoints: %w", err)
 	}
 
 	targetsPerPods := make(map[string][]probeTarget)
