@@ -70,8 +70,9 @@ func NewController(
 	c.scaler = newScaler(ctx, psInformerFactory, impl.EnqueueAfter)
 
 	c.Logger.Info("Setting up KPA-Class event handlers")
-	// Handle PodAutoscalers missing the class annotation for backward compatibility.
-	onlyKpaClass := reconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.KPA, false)
+	// Handle only PodAutoscalers that have KPA annotation.
+	onlyKpaClass := reconciler.AnnotationFilterFunc(
+		autoscaling.ClassAnnotationKey, autoscaling.KPA, false /*allowUnset*/)
 	paHandler := cache.FilteringResourceEventHandler{
 		FilterFunc: onlyKpaClass,
 		Handler:    controller.HandleAll(impl.Enqueue),
