@@ -158,7 +158,7 @@ func TestGatewayConfiguration(t *testing.T) {
 		},
 	}, {
 		name:    "local gateway configuration with invalid url",
-		wantErr: false,
+		wantErr: true,
 		wantIstio: (*Istio)(nil),
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -191,7 +191,7 @@ func TestGatewayConfiguration(t *testing.T) {
 		},
 	}, {
 		name:    "local gateway configuration in custom namespace with invalid url",
-		wantErr: false,
+		wantErr: true,
 		wantIstio: (*Istio)(nil),
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
