@@ -170,7 +170,7 @@ const (
 	// unknown if the revision is still deploying.
 	Deploying = "Deploying"
 
-	// ProgressDeadlineExceeded defines the reason for marking revision availablity
+	// ProgressDeadlineExceeded defines the reason for marking revision availability
 	// status as false if progress has exceeded the deadline.
 	ProgressDeadlineExceeded = "ProgressDeadlineExceeded"
 

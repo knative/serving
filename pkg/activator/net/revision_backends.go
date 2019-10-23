@@ -302,7 +302,7 @@ func (rw *revisionWatcher) run(probeFrequency time.Duration) {
 	var tickCh <-chan time.Time
 	for {
 		// If we have at least one pod and either there are pods that have not been
-		// successfuly probed or clusterIP has not been probed (no pod addressability),
+		// successfully probed or clusterIP has not been probed (no pod addressability),
 		// then we want to probe on timer.
 		rw.logger.Debugf("Dests: %+v, healthy dests: %+v, clusterIP: %v", dests, rw.healthyPods, rw.clusterIPHealthy)
 		if len(dests) > 0 && !(rw.clusterIPHealthy || dests.Equal(rw.healthyPods)) {
