@@ -62,11 +62,10 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 	)
 	pm := test.NewProberManager(t.Logf, clients, minProbes)
 
-	timeoutCh := time.After(duration)
 	width := int(math.Ceil(math.Log10(float64(scale))))
 
 	t.Log("Creating new Services")
-	wg := pool.NewWithCapacity(50 /* maximum in-flight creates */, scale /* capacity */)
+	wg := pool.NewWithCapacity(50 /* maximum in-flight creates */, scale /* capacity */, duration /* timeout for each worker */)
 	for i := 0; i < scale; i++ {
 		// https://golang.org/doc/faq#closures_and_goroutines
 		i := i
@@ -199,12 +198,6 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				t.Errorf("CheckSLO() = %v", err)
 			}
 			return
-
-		case <-timeoutCh:
-			// If we don't do this first, then we'll see tons of 503s from the ongoing probes
-			// as we tear down the things they are probing.
-			defer pm.Stop()
-			t.Fatalf("Timed out waiting for %d services to become ready", scale)
 		}
 	}
 }
