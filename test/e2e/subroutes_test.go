@@ -288,21 +288,29 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 		t.Fatalf("Failed to patch service: %s", err.Error())
 	}
 
-	// TODO: Add a better check here. ex. Wait 2s checking every 100ms to ensure it doesn't get the wrong visibility
-	time.Sleep(2 * time.Second) // TODO: Remove this after better check ^^
-	//if err = v1a1test.WaitForRouteState(clients.ServingAlphaClient, resources.Route.Name, v1a1test.IsRouteReady, "Route is ready"); err != nil {
-	//	t.Fatalf("Route did not become ready: %s", err.Error())
-	//}
+	afterCh := time.After(5 * time.Second)
 
-	// check route and all sub-routes are private
-	for _, tag := range []string{subrouteTag1, subrouteTag2} {
-		if isClusterLocal, err := trafficWithTagIsClusterLocal(resources.Route.Status.Traffic, tag); err != nil {
-			t.Fatalf(err.Error())
-		} else if !isClusterLocal {
-			t.Fatalf("Expected subroute with tag %s to be cluster local", tag)
+	// check sub-routes are private
+	if err = v1a1test.WaitForRouteState(clients.ServingAlphaClient, resources.Route.Name, func(r *v1alpha1.Route) (bool, error) {
+		for _, tag := range []string{subrouteTag1, subrouteTag2} {
+			if isClusterLocal, err := trafficWithTagIsClusterLocal(r.Status.Traffic, tag); err != nil {
+				return false, err
+			} else if !isClusterLocal {
+				return false, fmt.Errorf("Expected sub route with tag %s to be cluster local", tag)
+			}
 		}
+		select {
+		// consistently check for sub-routes to be cluster-local for 5s
+		case <-afterCh:
+			return true, nil
+		default:
+			return false, nil
+		}
+	}, "sub routes are not ready"); err != nil {
+		t.Fatalf("Expected sub routes are not cluster local: %s", err.Error())
 	}
 
+	// check route is private
 	if !isRouteClusterLocal(resources.Route.Status) {
 		t.Fatalf("Expected route to be cluster local")
 	}
