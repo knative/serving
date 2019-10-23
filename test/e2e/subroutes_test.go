@@ -198,7 +198,7 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 
 	if err = v1a1test.WaitForRouteState(clients.ServingAlphaClient, resources.Route.Name, func(r *v1alpha1.Route) (bool, error) {
 		return isRouteClusterLocal(r.Status), nil
-	}, "Route is ready"); err != nil {
+	}, "Route is cluster local"); err != nil {
 		t.Fatalf("Route did not become cluster local: %s", err.Error())
 	}
 
@@ -368,7 +368,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 	if isClusterLocal, err := trafficWithTagIsClusterLocal(publicRoute.Status.Traffic, subrouteTag1); err != nil {
 		t.Fatalf(err.Error())
 	} else if !isClusterLocal {
-		t.Fatalf("Expected subroute with tag %s to be not cluster local", subrouteTag1)
+		t.Fatalf("Expected subroute with tag %s to be cluster local", subrouteTag1)
 	}
 }
 
