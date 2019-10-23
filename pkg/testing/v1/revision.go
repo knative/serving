@@ -17,10 +17,12 @@ limitations under the License.
 package v1
 
 import (
+	"strconv"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
@@ -180,5 +182,18 @@ func WithRevisionLabel(key, value string) RevisionOption {
 			config.Labels = make(map[string]string)
 		}
 		config.Labels[key] = value
+	}
+}
+
+// WithScaleToZeroOnDeploy updates the scaleToZeroOnDeploy annotation to
+// the provided value
+func WithScaleToZeroOnDeploy(b bool) RevisionOption {
+	return func(rev *v1.Revision) {
+		ans := rev.Annotations
+		if ans == nil {
+			ans = make(map[string]string, 1)
+		}
+		ans[autoscaling.ScaleToZeroOnDeployAnnotation] = strconv.FormatBool(b)
+		rev.SetAnnotations(ans)
 	}
 }

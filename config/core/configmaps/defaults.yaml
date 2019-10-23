@@ -81,3 +81,9 @@ data:
     # disables this throttling and lets through as many requests as
     # the pod receives.
     container-concurrency: "0"
+
+    # scale-to-zero-on-deploy specifies whether we will scale a
+    # service to zero at the time of deployment.
+    # By setting this to true, services will deploy with initially
+    # zero instances created.
+    scale-to-zero-on-deploy: "false"

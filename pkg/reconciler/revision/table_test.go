@@ -18,6 +18,7 @@ package revision
 
 import (
 	"context"
+	"strconv"
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -31,8 +32,10 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
+	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	tracingconfig "knative.dev/pkg/tracing/config"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -51,6 +54,7 @@ import (
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
+	scaleToZeroKey := struct{}{}
 	table := TableTest{{
 		Name: "bad workqueue key",
 		// Make sure Reconcile handles bad keys.
@@ -545,9 +549,67 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, AllUnknownConditions, MarkDeploying("Deploying")),
 		}},
 		Key: "foo/image-pull-secrets",
+	}, {
+		Name: "scale to zero on deploy true, cluster flag true",
+		Ctx: context.WithValue(context.Background(), scaleToZeroKey, ptr.Bool(true)),
+		Objects: []runtime.Object{
+			rev("foo", "scale-to-zero-on-deploy-true-cluster-true", WithScaleToZeroOnDeploy(true)),
+			pa("foo", "scale-to-zero-on-deploy-true-cluster-true"),
+		},
+		WantCreates: []runtime.Object{
+			// Replica count should be 0
+			withReplicaCount(scaleToZeroOnDeploy(deploy(t, "foo", "scale-to-zero-on-deploy-true-cluster-true"), true), 0),
+			scaleToZeroOnDeployImage(image("foo", "scale-to-zero-on-deploy-true-cluster-true"), true),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "scale-to-zero-on-deploy-true-cluster-true", WithScaleToZeroOnDeploy(true),
+				WithLogURL, AllUnknownConditions,
+				MarkDeploying("Deploying")),
+		}},
+		Key: "foo/scale-to-zero-on-deploy-true-cluster-true",
+	}, {
+		Name: "scale to zero on deploy false, cluster flag true",
+		Ctx: context.WithValue(context.Background(), scaleToZeroKey, ptr.Bool(true)),
+		Objects: []runtime.Object{
+			rev("foo", "scale-to-zero-on-deploy-false-cluster-true", WithScaleToZeroOnDeploy(false)),
+			pa("foo", "scale-to-zero-on-deploy-false-cluster-true"),
+		},
+		WantCreates: []runtime.Object{
+			// Replica count should be 1
+			withReplicaCount(scaleToZeroOnDeploy(deploy(t, "foo", "scale-to-zero-on-deploy-false-cluster-true"), false), 1),
+			scaleToZeroOnDeployImage(image("foo", "scale-to-zero-on-deploy-false-cluster-true"), false),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "scale-to-zero-on-deploy-false-cluster-true", WithScaleToZeroOnDeploy(false),
+				WithLogURL, AllUnknownConditions,
+				MarkDeploying("Deploying")),
+		}},
+		Key: "foo/scale-to-zero-on-deploy-false-cluster-true",
+	}, {
+		Name: "scale to zero on deploy true, cluster flag false",
+		Ctx: context.WithValue(context.Background(), scaleToZeroKey, ptr.Bool(false)),
+		Objects: []runtime.Object{
+			rev("foo", "scale-to-zero-on-deploy-true-cluster-false", WithScaleToZeroOnDeploy(true)),
+			pa("foo", "scale-to-zero-on-deploy-true-cluster-false"),
+		},
+		WantCreates: []runtime.Object{
+			// Replica count should be 1
+			withReplicaCount(scaleToZeroOnDeploy(deploy(t, "foo", "scale-to-zero-on-deploy-true-cluster-false"), true), 1),
+			scaleToZeroOnDeployImage(image("foo", "scale-to-zero-on-deploy-true-cluster-false"), true),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "scale-to-zero-on-deploy-true-cluster-false", WithScaleToZeroOnDeploy(true),
+				WithLogURL, AllUnknownConditions,
+				MarkDeploying("Deploying")),
+		}},
+		Key: "foo/scale-to-zero-on-deploy-true-cluster-false",
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		testConfigs := ReconcilerTestConfig()
+		if scaleToZeroVal := ctx.Value(scaleToZeroKey); scaleToZeroVal != nil {
+			testConfigs.Autoscaler.ScaleToZeroOnDeploy = *(scaleToZeroVal.(*bool))
+		}
 		r := &Reconciler{
 			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
 			podAutoscalerLister: listers.GetPodAutoscalerLister(),
@@ -558,7 +620,7 @@ func TestReconcile(t *testing.T) {
 			resolver:            &nopResolver{},
 		}
 
-		return revisionreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetRevisionLister(), r.Recorder, r, controller.Options{ConfigStore: &testConfigStore{config: ReconcilerTestConfig()}})
+		return revisionreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetRevisionLister(), r.Recorder, r, controller.Options{ConfigStore: &testConfigStore{config: testConfigs}})
 	}))
 }
 
@@ -602,10 +664,35 @@ func deployImagePullSecrets(deploy *appsv1.Deployment, secretName string) *appsv
 	return deploy
 }
 
+func scaleToZeroOnDeploy(deploy *appsv1.Deployment, scaleToZeroOnDeploy bool) *appsv1.Deployment {
+	if deploy.ObjectMeta.Annotations == nil {
+		deploy.ObjectMeta.Annotations = map[string]string{}
+	}
+	deploy.ObjectMeta.Annotations[autoscaling.ScaleToZeroOnDeployAnnotation] = strconv.FormatBool(scaleToZeroOnDeploy)
+	if deploy.Spec.Template.ObjectMeta.Annotations == nil {
+		deploy.Spec.Template.ObjectMeta.Annotations = map[string]string{}
+	}
+	deploy.Spec.Template.ObjectMeta.Annotations[autoscaling.ScaleToZeroOnDeployAnnotation] = strconv.FormatBool(scaleToZeroOnDeploy)
+	return deploy
+}
+
+func withReplicaCount(deploy *appsv1.Deployment, numReplica int) *appsv1.Deployment {
+	deploy.Spec.Replicas = ptr.Int32(int32(numReplica))
+	return deploy
+}
+
 func imagePullSecrets(image *caching.Image, secretName string) *caching.Image {
 	image.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{
 		Name: secretName,
 	}}
+	return image
+}
+
+func scaleToZeroOnDeployImage(image *caching.Image, scaleToZeroOnDeploy bool) *caching.Image {
+	if image.ObjectMeta.Annotations == nil {
+		image.ObjectMeta.Annotations = make(map[string]string, 1)
+	}
+	image.ObjectMeta.Annotations[autoscaling.ScaleToZeroOnDeployAnnotation] = strconv.FormatBool(scaleToZeroOnDeploy)
 	return image
 }
 

@@ -312,18 +312,17 @@ func (c *Reconciler) createConfiguration(service *v1alpha1.Service) (*v1alpha1.C
 	return c.ServingClientSet.ServingV1alpha1().Configurations(service.Namespace).Create(cfg)
 }
 
-func configSemanticEquals(ctx context.Context, desiredConfig, config *v1alpha1.Configuration) (bool, error) {
+func configSemanticEquals(ctx context.Context, desiredConfig, config *v1alpha1.Configuration) bool {
 	logger := logging.FromContext(ctx)
 	specDiff, err := kmp.SafeDiff(desiredConfig.Spec, config.Spec)
 	if err != nil {
-		logger.Errorw("Error diffing config spec", zap.Error(err))
-		return false, fmt.Errorf("failed to diff Configuration: %w", err)
+		logger.Fatalf("Error diffing config spec: %v", err)
 	}
-	logger.Infof("Reconciling configuration diff (-desired, +observed):\n%s", specDiff)
+	logger.Infof("Reconciling configuration diff (-desired, +observed): %s", specDiff)
 	return equality.Semantic.DeepEqual(desiredConfig.Spec, config.Spec) &&
 		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Labels, config.ObjectMeta.Labels) &&
 		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Annotations, config.ObjectMeta.Annotations) &&
-		specDiff == "", nil
+		specDiff == ""
 }
 
 func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alpha1.Service, config *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
@@ -337,9 +336,8 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 		return nil, err
 	}
 
-	if equals, err := configSemanticEquals(ctx, desiredConfig, existing); err != nil {
-		return nil, err
-	} else if equals {
+	if configSemanticEquals(ctx, desiredConfig, existing) {
+		// No differences to reconcile.
 		return config, nil
 	}
 
@@ -361,18 +359,17 @@ func (c *Reconciler) createRoute(service *v1alpha1.Service) (*v1alpha1.Route, er
 	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Create(route)
 }
 
-func routeSemanticEquals(ctx context.Context, desiredRoute, route *v1alpha1.Route) (bool, error) {
+func routeSemanticEquals(ctx context.Context, desiredRoute, route *v1alpha1.Route) bool {
 	logger := logging.FromContext(ctx)
 	specDiff, err := kmp.SafeDiff(desiredRoute.Spec, route.Spec)
 	if err != nil {
-		logger.Errorw("Error diffing route spec", zap.Error(err))
-		return false, fmt.Errorf("failed to diff Route: %w", err)
+		logger.Fatalf("Error diffing route spec: %v", err)
 	}
-	logger.Infof("Reconciling route diff (-desired, +observed):\n%s", specDiff)
+	logger.Infof("Reconciling configuration diff (-desired, +observed): %s", specDiff)
 	return equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) &&
 		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Labels, route.ObjectMeta.Labels) &&
 		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Annotations, route.ObjectMeta.Annotations) &&
-		specDiff == "", nil
+		specDiff == ""
 }
 
 func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Service, route *v1alpha1.Route) (*v1alpha1.Route, error) {
@@ -389,9 +386,8 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 		return nil, err
 	}
 
-	if equals, err := routeSemanticEquals(ctx, desiredRoute, existing); err != nil {
-		return nil, err
-	} else if equals {
+	if routeSemanticEquals(ctx, desiredRoute, existing) {
+		// No differences to reconcile.
 		return route, nil
 	}
 

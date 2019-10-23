@@ -18,15 +18,18 @@ package v1
 
 import (
 	"context"
+	"strconv"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
 
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 )
@@ -42,6 +45,11 @@ func TestConfigurationDefaulting(t *testing.T) {
 		want: &Configuration{
 			Spec: ConfigurationSpec{
 				Template: RevisionTemplateSpec{
+					ObjectMeta: v1.ObjectMeta{
+						Annotations: map[string]string{
+							autoscaling.ScaleToZeroOnDeployAnnotation: strconv.FormatBool(config.DefaultScaleToZeroOnDeploy),
+						},
+					},
 					Spec: RevisionSpec{
 						TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 						ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
@@ -67,6 +75,11 @@ func TestConfigurationDefaulting(t *testing.T) {
 		want: &Configuration{
 			Spec: ConfigurationSpec{
 				Template: RevisionTemplateSpec{
+					ObjectMeta: v1.ObjectMeta{
+						Annotations: map[string]string{
+							autoscaling.ScaleToZeroOnDeployAnnotation: strconv.FormatBool(config.DefaultScaleToZeroOnDeploy),
+						},
+					},
 					Spec: RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
@@ -87,6 +100,11 @@ func TestConfigurationDefaulting(t *testing.T) {
 		in: &Configuration{
 			Spec: ConfigurationSpec{
 				Template: RevisionTemplateSpec{
+					ObjectMeta: v1.ObjectMeta{
+						Annotations: map[string]string{
+							autoscaling.ScaleToZeroOnDeployAnnotation: strconv.FormatBool(config.DefaultScaleToZeroOnDeploy),
+						},
+					},
 					Spec: RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
@@ -102,6 +120,11 @@ func TestConfigurationDefaulting(t *testing.T) {
 		want: &Configuration{
 			Spec: ConfigurationSpec{
 				Template: RevisionTemplateSpec{
+					ObjectMeta: v1.ObjectMeta{
+						Annotations: map[string]string{
+							autoscaling.ScaleToZeroOnDeployAnnotation: strconv.FormatBool(config.DefaultScaleToZeroOnDeploy),
+						},
+					},
 					Spec: RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{

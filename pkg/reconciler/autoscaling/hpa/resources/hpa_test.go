@@ -265,6 +265,7 @@ func withMetric(m autoscalingv2beta1.MetricSpec) hpaOption {
 
 var config = &autoscalerconfig.Config{
 	EnableScaleToZero:                  true,
+	ScaleToZeroOnDeploy:                false,
 	ContainerConcurrencyTargetFraction: 1.0,
 	ContainerConcurrencyTargetDefault:  100.0,
 	RPSTargetDefault:                   200.0,

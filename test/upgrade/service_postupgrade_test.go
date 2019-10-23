@@ -64,11 +64,26 @@ func TestBYORevisionPostUpgrade(t *testing.T) {
 	names := test.ResourceNames{
 		Service: byoServiceName,
 	}
+	updatedByoRevName := byoRevName + "-updated"
+
+	// Need to update the byo rev name because in PR #6138 a new annotation is introduced.
+	// Existing ksvc with byo revision name needs to have the byo rev name updated in order
+	// for the ksvc to be successfully updated.
+	svc, err := clients.ServingClient.Services.Get(names.Service, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get Service: %v", err)
+	}
+	if _, err := v1test.PatchService(t, clients, svc,
+		func(svc *v1.Service) {
+			svc.Spec.ConfigurationSpec.Template.Name = updatedByoRevName
+		}); err != nil {
+		t.Fatalf("Failed to update Service with new byo rev name: %v", err)
+	}
 
 	if _, err := v1test.UpdateServiceRouteSpec(t, clients, names, v1.RouteSpec{
 		Traffic: []v1.TrafficTarget{{
 			Tag:          "example-tag",
-			RevisionName: byoRevName,
+			RevisionName: byoRevName + "-updated",
 			Percent:      ptr.Int64(100),
 		}},
 	}); err != nil {

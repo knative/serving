@@ -172,6 +172,7 @@ func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
 
 var config = &autoscalerconfig.Config{
 	EnableScaleToZero:                  true,
+	ScaleToZeroOnDeploy:              true,
 	ContainerConcurrencyTargetFraction: 1.0,
 	ContainerConcurrencyTargetDefault:  100.0,
 	RPSTargetDefault:                   200.0,

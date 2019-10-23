@@ -19,6 +19,7 @@ package resources
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
@@ -257,6 +258,14 @@ func MakeDeployment(rev *v1.Revision,
 		return nil, fmt.Errorf("failed to create PodSpec: %w", err)
 	}
 
+	replicaCount := ptr.Int32(1)
+	ann, found := rev.ObjectMeta.Annotations[autoscaling.ScaleToZeroOnDeployAnnotation]
+	// The scale to zero on deploy feature flag in config-autoscaler has to be true in order for apps
+	// to initially scale to 0.
+	if found && !strings.EqualFold(ann, "false") && autoscalerConfig.ScaleToZeroOnDeploy {
+		replicaCount = ptr.Int32(0)
+	}
+
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.Deployment(rev),
@@ -269,7 +278,7 @@ func MakeDeployment(rev *v1.Revision,
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas:                ptr.Int32(1),
+			Replicas:                replicaCount,
 			Selector:                makeSelector(rev),
 			ProgressDeadlineSeconds: ptr.Int32(ProgressDeadlineSeconds),
 			Template: corev1.PodTemplateSpec{

@@ -18,14 +18,17 @@ package v1beta1
 
 import (
 	"context"
+	"strconv"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
+	apimachineryv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -43,6 +46,11 @@ func TestServiceDefaulting(t *testing.T) {
 			Spec: v1.ServiceSpec{
 				ConfigurationSpec: v1.ConfigurationSpec{
 					Template: v1.RevisionTemplateSpec{
+						ObjectMeta: apimachineryv1.ObjectMeta{
+							Annotations: map[string]string{
+								autoscaling.ScaleToZeroOnDeployAnnotation: strconv.FormatBool(config.DefaultScaleToZeroOnDeploy),
+							},
+						},
 						Spec: v1.RevisionSpec{
 							TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
 							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
@@ -63,6 +71,11 @@ func TestServiceDefaulting(t *testing.T) {
 			Spec: v1.ServiceSpec{
 				ConfigurationSpec: v1.ConfigurationSpec{
 					Template: v1.RevisionTemplateSpec{
+						ObjectMeta: apimachineryv1.ObjectMeta{
+							Annotations: map[string]string{
+								autoscaling.ScaleToZeroOnDeployAnnotation: strconv.FormatBool(config.DefaultScaleToZeroOnDeploy),
+							},
+						},
 						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
@@ -78,6 +91,11 @@ func TestServiceDefaulting(t *testing.T) {
 			Spec: v1.ServiceSpec{
 				ConfigurationSpec: v1.ConfigurationSpec{
 					Template: v1.RevisionTemplateSpec{
+						ObjectMeta: apimachineryv1.ObjectMeta{
+							Annotations: map[string]string{
+								autoscaling.ScaleToZeroOnDeployAnnotation: strconv.FormatBool(config.DefaultScaleToZeroOnDeploy),
+							},
+						},
 						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
@@ -106,6 +124,11 @@ func TestServiceDefaulting(t *testing.T) {
 			Spec: v1.ServiceSpec{
 				ConfigurationSpec: v1.ConfigurationSpec{
 					Template: v1.RevisionTemplateSpec{
+						ObjectMeta: apimachineryv1.ObjectMeta{
+							Annotations: map[string]string{
+								autoscaling.ScaleToZeroOnDeployAnnotation: strconv.FormatBool(config.DefaultScaleToZeroOnDeploy),
+							},
+						},
 						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
@@ -123,6 +146,11 @@ func TestServiceDefaulting(t *testing.T) {
 			Spec: v1.ServiceSpec{
 				ConfigurationSpec: v1.ConfigurationSpec{
 					Template: v1.RevisionTemplateSpec{
+						ObjectMeta: apimachineryv1.ObjectMeta{
+							Annotations: map[string]string{
+								autoscaling.ScaleToZeroOnDeployAnnotation: strconv.FormatBool(config.DefaultScaleToZeroOnDeploy),
+							},
+						},
 						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
@@ -151,6 +179,11 @@ func TestServiceDefaulting(t *testing.T) {
 			Spec: v1.ServiceSpec{
 				ConfigurationSpec: v1.ConfigurationSpec{
 					Template: v1.RevisionTemplateSpec{
+						ObjectMeta: apimachineryv1.ObjectMeta{
+							Annotations: map[string]string{
+								autoscaling.ScaleToZeroOnDeployAnnotation: strconv.FormatBool(config.DefaultScaleToZeroOnDeploy),
+							},
+						},
 						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
@@ -179,6 +212,11 @@ func TestServiceDefaulting(t *testing.T) {
 			Spec: v1.ServiceSpec{
 				ConfigurationSpec: v1.ConfigurationSpec{
 					Template: v1.RevisionTemplateSpec{
+						ObjectMeta: apimachineryv1.ObjectMeta{
+							Annotations: map[string]string{
+								autoscaling.ScaleToZeroOnDeployAnnotation: strconv.FormatBool(config.DefaultScaleToZeroOnDeploy),
+							},
+						},
 						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{

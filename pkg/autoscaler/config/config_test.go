@@ -29,6 +29,7 @@ import (
 var defaultConfig = Config{
 	EnableScaleToZero:                  true,
 	EnableGracefulScaledown:            false,
+	ScaleToZeroOnDeploy:                false,
 	ContainerConcurrencyTargetFraction: 0.7,
 	ContainerConcurrencyTargetDefault:  100,
 	RPSTargetDefault:                   200,
@@ -96,6 +97,7 @@ func TestNewConfig(t *testing.T) {
 		input: map[string]string{
 			"enable-scale-to-zero":                    "true",
 			"enable-graceful-scaledown":               "false",
+			"scale-to-zero-on-deploy":                 "false",
 			"max-scale-down-rate":                     "3.0",
 			"max-scale-up-rate":                       "1.01",
 			"container-concurrency-target-percentage": "0.71",
@@ -133,6 +135,21 @@ func TestNewConfig(t *testing.T) {
 		want: func(c Config) *Config {
 			c.EnableScaleToZero = false
 			c.EnableGracefulScaledown = true
+			return &c
+		}(defaultConfig),
+	}, {
+		name: "with scale to zero on deploy toggle on strange casing",
+		input: map[string]string{
+			"scale-to-zero-on-deploy": "FALSE",
+		},
+		want: &defaultConfig,
+	}, {
+		name: "with scale to zero on deploy toggle explicitly off",
+		input: map[string]string{
+			"scale-to-zero-on-deploy": "true",
+		},
+		want: func(c Config) *Config {
+			c.ScaleToZeroOnDeploy = true
 			return &c
 		}(defaultConfig),
 	}, {

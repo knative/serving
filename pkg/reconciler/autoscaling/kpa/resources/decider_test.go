@@ -263,6 +263,7 @@ func withPanicThresholdPercentageAnnotation(percentage string) deciderOption {
 
 var config = &autoscalerconfig.Config{
 	EnableScaleToZero:                  true,
+	ScaleToZeroOnDeploy:                false,
 	ContainerConcurrencyTargetFraction: 1.0,
 	ContainerConcurrencyTargetDefault:  100.0,
 	TargetBurstCapacity:                211.0,

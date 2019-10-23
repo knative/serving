@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"context"
+	"strconv"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -25,9 +26,11 @@ import (
 	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	apimachineryv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
 
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -56,6 +59,11 @@ func TestConfigurationDefaulting(t *testing.T) {
 		in: &Configuration{
 			Spec: ConfigurationSpec{
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+					ObjectMeta: apimachineryv1.ObjectMeta{
+						Annotations: map[string]string{
+							autoscaling.ScaleToZeroOnDeployAnnotation: strconv.FormatBool(config.DefaultScaleToZeroOnDeploy),
+						},
+					},
 					Spec: RevisionSpec{
 						DeprecatedContainer: &corev1.Container{},
 					},
@@ -65,6 +73,11 @@ func TestConfigurationDefaulting(t *testing.T) {
 		want: &Configuration{
 			Spec: ConfigurationSpec{
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+					ObjectMeta: apimachineryv1.ObjectMeta{
+						Annotations: map[string]string{
+							autoscaling.ScaleToZeroOnDeployAnnotation: strconv.FormatBool(config.DefaultScaleToZeroOnDeploy),
+						},
+					},
 					Spec: RevisionSpec{
 						RevisionSpec: v1.RevisionSpec{
 							TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
@@ -85,6 +98,11 @@ func TestConfigurationDefaulting(t *testing.T) {
 		in: &Configuration{
 			Spec: ConfigurationSpec{
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+					ObjectMeta: apimachineryv1.ObjectMeta{
+						Annotations: map[string]string{
+							autoscaling.ScaleToZeroOnDeployAnnotation: strconv.FormatBool(config.DefaultScaleToZeroOnDeploy),
+						},
+					},
 					Spec: RevisionSpec{
 						DeprecatedContainer: &corev1.Container{
 							Image: "busybox",
@@ -96,6 +114,11 @@ func TestConfigurationDefaulting(t *testing.T) {
 		want: &Configuration{
 			Spec: ConfigurationSpec{
 				Template: &RevisionTemplateSpec{
+					ObjectMeta: apimachineryv1.ObjectMeta{
+						Annotations: map[string]string{
+							autoscaling.ScaleToZeroOnDeployAnnotation: strconv.FormatBool(config.DefaultScaleToZeroOnDeploy),
+						},
+					},
 					Spec: RevisionSpec{
 						RevisionSpec: v1.RevisionSpec{
 							TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
@@ -118,6 +141,11 @@ func TestConfigurationDefaulting(t *testing.T) {
 		in: &Configuration{
 			Spec: ConfigurationSpec{
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+					ObjectMeta: apimachineryv1.ObjectMeta{
+						Annotations: map[string]string{
+							autoscaling.ScaleToZeroOnDeployAnnotation: strconv.FormatBool(config.DefaultScaleToZeroOnDeploy),
+						},
+					},
 					Spec: RevisionSpec{
 						RevisionSpec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
@@ -131,6 +159,11 @@ func TestConfigurationDefaulting(t *testing.T) {
 		want: &Configuration{
 			Spec: ConfigurationSpec{
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+					ObjectMeta: apimachineryv1.ObjectMeta{
+						Annotations: map[string]string{
+							autoscaling.ScaleToZeroOnDeployAnnotation: strconv.FormatBool(config.DefaultScaleToZeroOnDeploy),
+						},
+					},
 					Spec: RevisionSpec{
 						RevisionSpec: v1.RevisionSpec{
 							TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
@@ -152,6 +185,11 @@ func TestConfigurationDefaulting(t *testing.T) {
 		in: &Configuration{
 			Spec: ConfigurationSpec{
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+					ObjectMeta: apimachineryv1.ObjectMeta{
+						Annotations: map[string]string{
+							autoscaling.ScaleToZeroOnDeployAnnotation: strconv.FormatBool(config.DefaultScaleToZeroOnDeploy),
+						},
+					},
 					Spec: RevisionSpec{
 						RevisionSpec: v1.RevisionSpec{
 							ContainerConcurrency: ptr.Int64(1),
@@ -168,6 +206,11 @@ func TestConfigurationDefaulting(t *testing.T) {
 		want: &Configuration{
 			Spec: ConfigurationSpec{
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+					ObjectMeta: apimachineryv1.ObjectMeta{
+						Annotations: map[string]string{
+							autoscaling.ScaleToZeroOnDeployAnnotation: strconv.FormatBool(config.DefaultScaleToZeroOnDeploy),
+						},
+					},
 					Spec: RevisionSpec{
 						RevisionSpec: v1.RevisionSpec{
 							ContainerConcurrency: ptr.Int64(1),

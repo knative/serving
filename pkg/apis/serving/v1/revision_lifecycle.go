@@ -18,12 +18,14 @@ package v1
 
 import (
 	"fmt"
+	"strconv"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"knative.dev/pkg/apis"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
@@ -194,4 +196,11 @@ func RevisionContainerExitingMessage(message string) string {
 // cannot be pulled correctly.
 func RevisionContainerMissingMessage(image string, message string) string {
 	return fmt.Sprintf("Unable to fetch image %q: %s", image, message)
+}
+
+func (rts *RevisionTemplateSpec) WithScaleToZeroOnDeployAnno(scaleToZeroOnDeploy bool) {
+	if rts.Annotations == nil {
+		rts.Annotations = make(map[string]string, 1)
+	}
+	rts.Annotations[autoscaling.ScaleToZeroOnDeployAnnotation] = strconv.FormatBool(scaleToZeroOnDeploy)
 }

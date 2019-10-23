@@ -48,6 +48,10 @@ type Config struct {
 	// Enable connection-aware pod scaledown
 	EnableGracefulScaledown bool
 
+	// ScaleToZeroOnDeploy is the cluster wide feature flag for running readiness
+	// probe on deploy. If this is set to true, services will be scaled to 0 on deploy.
+	ScaleToZeroOnDeploy bool
+
 	// Target concurrency knobs for different container concurrency configurations.
 	ContainerConcurrencyTargetFraction float64
 	ContainerConcurrencyTargetDefault  float64
@@ -94,7 +98,12 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 			key:          "enable-graceful-scaledown",
 			field:        &lc.EnableGracefulScaledown,
 			defaultValue: false,
-		}} {
+		},
+		{
+			key:          "scale-to-zero-on-deploy",
+			field:        &lc.ScaleToZeroOnDeploy,
+			defaultValue: false,
+	}} {
 		if raw, ok := data[b.key]; !ok {
 			*b.field = b.defaultValue
 		} else {

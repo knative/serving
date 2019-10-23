@@ -27,6 +27,7 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
 	net "knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
@@ -355,4 +356,11 @@ func (rs *RevisionStatus) PropagateDeploymentStatus(original *appsv1.DeploymentS
 	case corev1.ConditionUnknown:
 		rs.MarkResourcesAvailableUnknown(cond.Reason, cond.Message)
 	}
+}
+
+func (rts *RevisionTemplateSpec) WithScaleToZeroOnDeployAnno(scaleToZeroOnDeploy bool) {
+	if rts.Annotations == nil {
+		rts.Annotations = make(map[string]string, 1)
+	}
+	rts.Annotations[autoscaling.ScaleToZeroOnDeployAnnotation] = strconv.FormatBool(scaleToZeroOnDeploy)
 }

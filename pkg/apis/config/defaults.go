@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strconv"
+	"strings"
 	"text/template"
 
 	corev1 "k8s.io/api/core/v1"
@@ -51,11 +52,33 @@ const (
 	// DefaultMaxRevisionContainerConcurrency is the maximum configurable
 	// container concurrency.
 	DefaultMaxRevisionContainerConcurrency int64 = 1000
+
+	// DefaultScaleToZeroOnDeploy will be set if ScaleToZeroOnDeploy is not specified
+	DefaultScaleToZeroOnDeploy bool = false
 )
 
 // NewDefaultsConfigFromMap creates a Defaults from the supplied Map
 func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 	nc := &Defaults{}
+
+	// Process bool fields.
+	for _, b := range []struct {
+		key          string
+		field        *bool
+		defaultValue bool
+	}{
+		{
+			key:          "scale-to-zero-on-deploy",
+			field:        &nc.ScaleToZeroOnDeploy,
+			defaultValue: DefaultScaleToZeroOnDeploy,
+		},
+	} {
+		if raw, ok := data[b.key]; !ok {
+			*b.field = b.defaultValue
+		} else {
+			*b.field = strings.EqualFold(raw, "true")
+		}
+	}
 
 	// Process int64 fields
 	for _, i64 := range []struct {
@@ -145,6 +168,8 @@ func NewDefaultsConfigFromConfigMap(config *corev1.ConfigMap) (*Defaults, error)
 
 // Defaults includes the default values to be populated by the webhook.
 type Defaults struct {
+	ScaleToZeroOnDeploy bool
+
 	RevisionTimeoutSeconds int64
 	// This is the timeout set for cluster ingress.
 	// RevisionTimeoutSeconds must be less than this value.

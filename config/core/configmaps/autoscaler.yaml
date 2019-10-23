@@ -135,3 +135,9 @@ data:
     # Once enabled, it allows the autoscaler to prioritize pods processing
     # fewer (or zero) requests for removal when scaling down.
     enable-graceful-scaledown: "false"
+
+    # Scale to zero on deploy feature flag specifies whether we will scale a
+    # service to zero at the time of deployment.
+    # By setting this to true, services will deploy with initially
+    # zero instances created.
+    scale-to-zero-on-deploy: "false"

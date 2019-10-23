@@ -162,4 +162,7 @@ const (
 	// by the autoscaler as a candidate for removal. Once the label is set to "true", it
 	// signals the QueueProxy to fail readiness on the pod
 	PreferForScaleDownLabelKey = GroupName + "/prefer-for-scale-down"
+
+	// ScaleToZeroOnDeployAnnotation
+	ScaleToZeroOnDeployAnnotation = GroupName + "/scaleToZeroOnDeploy"
 )
