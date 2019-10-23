@@ -269,7 +269,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	expectedLabels := map[string]string{
 		serving.RouteLabelKey:          route.Name,
 		serving.RouteNamespaceLabelKey: route.Namespace,
-		"route": "test-route",
+		"route":                        "test-route",
 	}
 	if diff := cmp.Diff(expectedLabels, ci.Labels); diff != "" {
 		t.Errorf("Unexpected label diff (-want +got): %v", diff)

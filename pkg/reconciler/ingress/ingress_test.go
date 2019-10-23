@@ -166,22 +166,22 @@ var (
 
 func TestReconcile(t *testing.T) {
 	table := TableTest{{
-		Name: "bad workqueue key",
-		Key:  "too/many/parts",
+		Name:                    "bad workqueue key",
+		Key:                     "too/many/parts",
 		SkipNamespaceValidation: true,
 	}, {
-		Name: "key not found",
-		Key:  "foo/not-found",
+		Name:                    "key not found",
+		Key:                     "foo/not-found",
 		SkipNamespaceValidation: true,
 	}, {
-		Name: "skip ingress not matching class key",
+		Name:                    "skip ingress not matching class key",
 		SkipNamespaceValidation: true,
 		Objects: []runtime.Object{
 			addAnnotations(ingress("no-virtualservice-yet", 1234),
 				map[string]string{networking.IngressClassAnnotationKey: "fake-controller"}),
 		},
 	}, {
-		Name: "create VirtualService matching Ingress",
+		Name:                    "create VirtualService matching Ingress",
 		SkipNamespaceValidation: true,
 		Objects: []runtime.Object{
 			ingress("no-virtualservice-yet", 1234),
@@ -234,7 +234,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "test-ns/no-virtualservice-yet",
 	}, {
-		Name: "observed generation is updated when error is encountered in reconciling, and ingress ready status is unknown",
+		Name:                    "observed generation is updated when error is encountered in reconciling, and ingress ready status is unknown",
 		SkipNamespaceValidation: true,
 		WantErr:                 true,
 		WithReactors: []clientgotesting.ReactionFunc{
@@ -305,7 +305,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "test-ns/reconcile-failed",
 	}, {
-		Name: "reconcile VirtualService to match desired one",
+		Name:                    "reconcile VirtualService to match desired one",
 		SkipNamespaceValidation: true,
 		Objects: []runtime.Object{
 			ingress("reconcile-virtualservice", 1234),
@@ -416,7 +416,7 @@ func TestReconcile(t *testing.T) {
 
 func TestReconcile_EnableAutoTLS(t *testing.T) {
 	table := TableTest{{
-		Name: "update Gateway to match newly created Ingress",
+		Name:                    "update Gateway to match newly created Ingress",
 		SkipNamespaceValidation: true,
 		Objects: []runtime.Object{
 			ingressWithTLS("reconciling-ingress", 1234, ingressTLS),
@@ -484,7 +484,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		},
 		Key: "test-ns/reconciling-ingress",
 	}, {
-		Name: "No preinstalled Gateways",
+		Name:                    "No preinstalled Gateways",
 		SkipNamespaceValidation: true,
 		Objects: []runtime.Object{
 			ingressWithTLS("reconciling-ingress", 1234, ingressTLS),
@@ -532,7 +532,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		WantErr: true,
 		Key:     "test-ns/reconciling-ingress",
 	}, {
-		Name: "delete Ingress",
+		Name:                    "delete Ingress",
 		SkipNamespaceValidation: true,
 		Objects: []runtime.Object{
 			ingressWithFinalizers("reconciling-ingress", 1234, ingressTLS, []string{ingressFinalizer}),
@@ -553,7 +553,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		},
 		Key: "test-ns/reconciling-ingress",
 	}, {
-		Name: "TLS Secret is not in the namespace of Istio gateway service",
+		Name:                    "TLS Secret is not in the namespace of Istio gateway service",
 		SkipNamespaceValidation: true,
 		Objects: []runtime.Object{
 			ingressWithTLS("reconciling-ingress", 1234, ingressTLSWithSecretNamespace("knative-serving")),
@@ -630,7 +630,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		},
 		Key: "test-ns/reconciling-ingress",
 	}, {
-		Name: "Reconcile Target secret",
+		Name:                    "Reconcile Target secret",
 		SkipNamespaceValidation: true,
 		Objects: []runtime.Object{
 			ingressWithTLS("reconciling-ingress", 1234, ingressTLSWithSecretNamespace("knative-serving")),
@@ -731,7 +731,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		},
 		Key: "test-ns/reconciling-ingress",
 	}, {
-		Name: "Reconcile with autoTLS but cluster local visibilty, mesh only",
+		Name:                    "Reconcile with autoTLS but cluster local visibilty, mesh only",
 		SkipNamespaceValidation: true,
 		Objects: []runtime.Object{
 			ingressWithTLSClusterLocal("reconciling-ingress", 1234, ingressTLS),

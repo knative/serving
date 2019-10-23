@@ -823,13 +823,13 @@ func TestPickIndices(t *testing.T) {
 
 func TestAssignSlice(t *testing.T) {
 	trackers := []*podIPTracker{
-		&podIPTracker{
+		{
 			dest: "2",
 		},
-		&podIPTracker{
+		{
 			dest: "1",
 		},
-		&podIPTracker{
+		{
 			dest: "3",
 		},
 	}

@@ -176,7 +176,7 @@ const (
 
 	// ContainerMissing defines the reason for marking container healthiness status
 	// as false if the a container image for the revision is missing.
-	ContainerMissing         = "ContainerMissing"
+	ContainerMissing = "ContainerMissing"
 )
 
 // MarkResourcesAvailableTrue marks ResourcesAvailable status on revision as True

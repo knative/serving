@@ -27,8 +27,6 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
-	"golang.org/x/sync/errgroup"
-	"k8s.io/apimachinery/pkg/watch"
 	"math/big"
 	"net"
 	"net/http"
@@ -37,6 +35,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"golang.org/x/sync/errgroup"
+	"k8s.io/apimachinery/pkg/watch"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
