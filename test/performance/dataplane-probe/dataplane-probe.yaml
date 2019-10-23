@@ -17,21 +17,6 @@ kind: ServiceAccount
 metadata:
   name: prober
 ---
-kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: prober
-rules:
-  - apiGroups: [""]
-    resources: ["nodes"]
-    verbs: ["get", "list"]
-  - apiGroups: ["apps"]
-    resources: ["deployments"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["networking.internal.knative.dev"]
-    resources: ["serverlessservices"]
-    verbs: ["get", "list", "watch"]
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -42,7 +27,7 @@ subjects:
     namespace: default
 roleRef:
   kind: ClusterRole
-  name: prober
+  name: cluster-admin
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: batch/v1beta1
