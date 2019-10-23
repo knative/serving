@@ -416,9 +416,9 @@ func (m *StatusProber) listGatewayTargetsPerPods(gateway *v1alpha3.Gateway) (map
 	}
 	service := services[0]
 
-	endpoints, err := m.endpointsLister.List(selector)
+	endpoints, err := m.endpointsLister.Endpoints(service.Namespace).Get(service.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list Endpoints: %w", err)
+		return nil, fmt.Errorf("failed to get Endpoints: %w", err)
 	}
 
 	targetsPerPods := make(map[string][]probeTarget)
@@ -441,17 +441,15 @@ func (m *StatusProber) listGatewayTargetsPerPods(gateway *v1alpha3.Gateway) (map
 			m.logger.Infof("Skipping Server %q because Service %s/%s doesn't contain a port %d", server.Port.Name, service.Namespace, service.Name, server.Port.Number)
 			continue
 		}
-		for _, eps := range endpoints {
-			for _, sub := range eps.Subsets {
-				portNumber, err := findPortNumberForName(sub, portName)
-				if err != nil {
-					m.logger.Infof("Skipping Subset %v because it doesn't contain a port %q", sub.Addresses, portName)
-					continue
-				}
+		for _, sub := range endpoints.Subsets {
+			portNumber, err := findPortNumberForName(sub, portName)
+			if err != nil {
+				m.logger.Infof("Skipping Subset %v because it doesn't contain a port %q", sub.Addresses, portName)
+				continue
+			}
 
-				for _, addr := range sub.Addresses {
-					targetsPerPods[addr.IP] = append(targetsPerPods[addr.IP], probeTarget{urlTmpl: fmt.Sprintf(urlTmpl, server.Port.Number), targetPort: strconv.Itoa(int(portNumber))})
-				}
+			for _, addr := range sub.Addresses {
+				targetsPerPods[addr.IP] = append(targetsPerPods[addr.IP], probeTarget{urlTmpl: fmt.Sprintf(urlTmpl, server.Port.Number), targetPort: strconv.Itoa(int(portNumber))})
 			}
 		}
 	}

@@ -172,12 +172,12 @@ func TestIsReadyFailureAndSuccess(t *testing.T) {
 			}},
 		},
 		endpointsLister: &fakeEndpointsLister{
-			endpoints: []*v1.Endpoints{{
+			endpoints: &v1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 					Name:      "gateway",
 				},
-			}},
+			},
 		},
 	}, {
 		name:     "no endpoints",
@@ -218,13 +218,13 @@ func TestIsReadyFailureAndSuccess(t *testing.T) {
 			}},
 		},
 		endpointsLister: &fakeEndpointsLister{
-			endpoints: []*v1.Endpoints{{
+			endpoints: &v1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 					Name:      "gateway",
 				},
 				Subsets: []v1.EndpointSubset{},
-			}},
+			},
 		},
 	}, {
 		name:     "no services",
@@ -401,7 +401,7 @@ func TestProbeLifecycle(t *testing.T) {
 			}},
 		},
 		&fakeEndpointsLister{
-			endpoints: []*v1.Endpoints{{
+			endpoints: &v1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 					Name:      "gateway",
@@ -418,7 +418,7 @@ func TestProbeLifecycle(t *testing.T) {
 						IP: hostname,
 					}},
 				}},
-			}},
+			},
 		},
 		&fakeServiceLister{
 			services: []*v1.Service{{
@@ -576,7 +576,7 @@ func TestCancellation(t *testing.T) {
 			}},
 		},
 		&fakeEndpointsLister{
-			endpoints: []*v1.Endpoints{{
+			endpoints: &v1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 					Name:      "gateway",
@@ -590,7 +590,7 @@ func TestCancellation(t *testing.T) {
 						Port: int32(port),
 					}},
 				}},
-			}},
+			},
 		},
 		&fakeServiceLister{
 			services: []*v1.Service{{
@@ -688,7 +688,7 @@ func (l *fakeGatewayLister) Gateways(namespace string) istiolisters.GatewayNames
 	}
 }
 
-func (l *fakeGatewayLister) List(selector labels.Selector) (ret []*v1alpha3.Gateway, err error) {
+func (l *fakeGatewayLister) List(selector labels.Selector) ([]*v1alpha3.Gateway, error) {
 	log.Panic("not implemented")
 	return nil, nil
 }
@@ -698,7 +698,7 @@ type fakeGatewayNamespaceLister struct {
 	fails    bool
 }
 
-func (l *fakeGatewayNamespaceLister) List(selector labels.Selector) (ret []*v1alpha3.Gateway, err error) {
+func (l *fakeGatewayNamespaceLister) List(selector labels.Selector) ([]*v1alpha3.Gateway, error) {
 	log.Panic("not implemented")
 	return nil, nil
 }
@@ -717,21 +717,24 @@ func (l *fakeGatewayNamespaceLister) Get(name string) (*v1alpha3.Gateway, error)
 }
 
 type fakeEndpointsLister struct {
-	endpoints []*v1.Endpoints
+	endpoints *v1.Endpoints
 	fails     bool
 }
 
-func (l *fakeEndpointsLister) List(selector labels.Selector) (ret []*v1.Endpoints, err error) {
-	if l.fails {
-		return nil, errors.New("failed to get Endpoints")
-	}
-	// TODO(bancel): use selector
-	return l.endpoints, nil
+func (l *fakeEndpointsLister) List(selector labels.Selector) ([]*v1.Endpoints, error) {
+	log.Panic("not implemented")
+	return nil, nil
 }
 
 func (l *fakeEndpointsLister) Endpoints(namespace string) corev1listers.EndpointsNamespaceLister {
-	log.Panic("not implemented")
-	return nil
+	return l
+}
+
+func (l *fakeEndpointsLister) Get(name string) (*v1.Endpoints, error) {
+	if l.fails {
+		return nil, errors.New("failed to get Endpoints")
+	}
+	return l.endpoints, nil
 }
 
 type fakeServiceLister struct {
@@ -739,7 +742,7 @@ type fakeServiceLister struct {
 	fails    bool
 }
 
-func (l *fakeServiceLister) List(selector labels.Selector) (ret []*v1.Service, err error) {
+func (l *fakeServiceLister) List(selector labels.Selector) ([]*v1.Service, error) {
 	if l.fails {
 		return nil, errors.New("failed to get Services")
 	}
