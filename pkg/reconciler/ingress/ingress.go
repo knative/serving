@@ -357,7 +357,7 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 
 	ready, err := r.StatusManager.IsReady(ia, gatewayNames)
 	if err != nil {
-		return fmt.Errorf("failed to probe IngressAccessor %s/%s: %v", ia.GetNamespace(), ia.GetName(), err)
+		return fmt.Errorf("failed to probe IngressAccessor %s/%s: %w", ia.GetNamespace(), ia.GetName(), err)
 	}
 	if ready {
 		lbs := getLBStatus(gatewayServiceURLFromContext(ctx, ia))

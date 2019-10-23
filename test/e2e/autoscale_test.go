@@ -106,7 +106,7 @@ func generateTraffic(
 	target, err := getVegetaTarget(
 		ctx.clients.KubeClient.Kube, ctx.resources.Route.Status.URL.URL().Hostname(), pkgTest.Flags.IngressEndpoint, test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		return fmt.Errorf("error creating vegeta target: %v", err)
+		return fmt.Errorf("error creating vegeta target: %w", err)
 	}
 
 	results := attacker.Attack(vegeta.NewStaticTargeter(target), pacer, duration, "load-test")

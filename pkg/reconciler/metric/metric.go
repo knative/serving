@@ -64,7 +64,7 @@ func (r *reconciler) Reconcile(ctx context.Context, key string) error {
 		logger.Info("Stopping to collect metrics")
 		return r.collector.Delete(namespace, name)
 	} else if err != nil {
-		return fmt.Errorf("failed to fetch metric %s: %v", key, err)
+		return fmt.Errorf("failed to fetch metric %s: %w", key, err)
 	}
 
 	// Don't mess with informer's copy.

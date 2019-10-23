@@ -79,7 +79,7 @@ func TestSingleConcurrency(t *testing.T) {
 			done := time.After(duration)
 			req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 			if err != nil {
-				return fmt.Errorf("error creating http request: %v", err)
+				return fmt.Errorf("error creating http request: %w", err)
 			}
 
 			for {
@@ -89,7 +89,7 @@ func TestSingleConcurrency(t *testing.T) {
 				default:
 					res, err := client.Do(req)
 					if err != nil {
-						return fmt.Errorf("error making request %v", err)
+						return fmt.Errorf("error making request %w", err)
 					}
 					if res.StatusCode == http.StatusInternalServerError {
 						return errors.New("detected concurrent requests")

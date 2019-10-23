@@ -53,7 +53,7 @@ func generateTraffic(t *testing.T, client *spoof.SpoofingClient, url string, con
 			done := time.After(duration)
 			req, err := http.NewRequest(http.MethodGet, url, nil)
 			if err != nil {
-				return fmt.Errorf("error creating http request: %v", err)
+				return fmt.Errorf("error creating http request: %w", err)
 			}
 			for {
 				select {
@@ -71,7 +71,7 @@ func generateTraffic(t *testing.T, client *spoof.SpoofingClient, url string, con
 	}
 
 	if err := group.Wait(); err != nil {
-		return fmt.Errorf("error making requests for scale up: %v", err)
+		return fmt.Errorf("error making requests for scale up: %w", err)
 	}
 	return nil
 }

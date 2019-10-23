@@ -98,7 +98,7 @@ func MakeVirtualServices(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.Ingr
 	// Insert probe header
 	ia = ia.DeepCopyObject().(v1alpha1.IngressAccessor)
 	if _, err := InsertProbe(ia); err != nil {
-		return nil, fmt.Errorf("failed to insert a probe into the IngressAccessor: %v", err)
+		return nil, fmt.Errorf("failed to insert a probe into the IngressAccessor: %w", err)
 	}
 
 	vss := []*v1alpha3.VirtualService{MakeMeshVirtualService(ia)}
@@ -124,7 +124,7 @@ func MakeVirtualServices(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.Ingr
 func InsertProbe(ia v1alpha1.IngressAccessor) (string, error) {
 	bytes, err := ComputeIngressHash(ia)
 	if err != nil {
-		return "", fmt.Errorf("failed to compute the hash of the IngressAccessor: %v", err)
+		return "", fmt.Errorf("failed to compute the hash of the IngressAccessor: %w", err)
 	}
 	hash := fmt.Sprintf("%x", bytes)
 
@@ -144,7 +144,7 @@ func InsertProbe(ia v1alpha1.IngressAccessor) (string, error) {
 func ComputeIngressHash(ia v1alpha1.IngressAccessor) ([16]byte, error) {
 	bytes, err := json.Marshal(ia.GetSpec())
 	if err != nil {
-		return [16]byte{}, fmt.Errorf("failed to serialize IngressAccessor: %v", err)
+		return [16]byte{}, fmt.Errorf("failed to serialize IngressAccessor: %w", err)
 	}
 	bytes = append(bytes, []byte(ia.GetNamespace())...)
 	bytes = append(bytes, []byte(ia.GetName())...)

@@ -47,7 +47,7 @@ func watchFunc(ctx context.Context, ms *MultiScaler, decider *Decider, desiredSc
 		}
 		m, err := ms.Get(ctx, decider.Namespace, decider.Name)
 		if err != nil {
-			errCh <- fmt.Errorf("Get() = %v", err)
+			errCh <- fmt.Errorf("Get() = %w", err)
 			return
 		}
 		if got, want := m.Status.DesiredScale, int32(desiredScale); got != want {

@@ -276,7 +276,7 @@ func TestIstioProbing(t *testing.T) {
 				g.Go(func() error {
 					u, err := url.Parse(fmt.Sprintf(tmpl, names.Service+"."+domain))
 					if err != nil {
-						return fmt.Errorf("failed to parse URL: %v", err)
+						return fmt.Errorf("failed to parse URL: %w", err)
 					}
 					if _, err := pkgTest.WaitForEndpointStateWithTimeout(
 						clients.KubeClient,
@@ -287,7 +287,7 @@ func TestIstioProbing(t *testing.T) {
 						test.ServingFlags.ResolvableDomain,
 						1*time.Minute,
 						transportOptions...); err != nil {
-						return fmt.Errorf("failed to probe %s: %v", u, err)
+						return fmt.Errorf("failed to probe %s: %w", u, err)
 					}
 					return nil
 				})
@@ -418,7 +418,7 @@ func setupHTTPS(t *testing.T, kubeClient *pkgTest.KubeClient, hosts []string) sp
 func generateCertificate(hosts []string) ([]byte, []byte, error) {
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to generate private key: %v", err)
+		return nil, nil, fmt.Errorf("failed to generate private key: %w", err)
 	}
 
 	notBefore := time.Now().Add(-5 * time.Minute)
@@ -427,7 +427,7 @@ func generateCertificate(hosts []string) ([]byte, []byte, error) {
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to generate serial number: %v", err)
+		return nil, nil, fmt.Errorf("failed to generate serial number: %w", err)
 	}
 
 	template := x509.Certificate{
@@ -453,17 +453,17 @@ func generateCertificate(hosts []string) ([]byte, []byte, error) {
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create the certificate: %v", err)
+		return nil, nil, fmt.Errorf("failed to create the certificate: %w", err)
 	}
 
 	var certBuf bytes.Buffer
 	if err := pem.Encode(&certBuf, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}); err != nil {
-		return nil, nil, fmt.Errorf("failed to encode the certificate: %v", err)
+		return nil, nil, fmt.Errorf("failed to encode the certificate: %w", err)
 	}
 
 	var keyBuf bytes.Buffer
 	if err := pem.Encode(&keyBuf, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)}); err != nil {
-		return nil, nil, fmt.Errorf("failed to encode the private key: %v", err)
+		return nil, nil, fmt.Errorf("failed to encode the private key: %w", err)
 	}
 
 	return certBuf.Bytes(), keyBuf.Bytes(), nil

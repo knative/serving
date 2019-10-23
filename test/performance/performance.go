@@ -102,12 +102,12 @@ func ProbeTargetTillReady(target string, duration time.Duration) error {
 	}
 	req, err := http.NewRequest(http.MethodGet, target, nil)
 	if err != nil {
-		return fmt.Errorf("target %q is invalid, cannot probe: %v", target, err)
+		return fmt.Errorf("target %q is invalid, cannot probe: %w", target, err)
 	}
 	if _, err = spoofingClient.Poll(req, func(resp *spoof.Response) (done bool, err error) {
 		return true, nil
 	}); err != nil {
-		return fmt.Errorf("failed to get target %q ready: %v", target, err)
+		return fmt.Errorf("failed to get target %q ready: %w", target, err)
 	}
 	return nil
 }
