@@ -342,7 +342,7 @@ function main() {
       --run-test)
         shift
         [[ $# -ge 1 ]] || abort "missing executable after --run-test"
-        TEST_TO_RUN=$1
+        TEST_TO_RUN="$1"
         ;;
       *) abort "error: unknown option ${parameter}" ;;
     esac
