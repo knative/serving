@@ -404,7 +404,7 @@ func TestReconcile(t *testing.T) {
 				WithCreationTimestamp(now), MarkRevisionReady),
 			rev("threerevs", "foo", 3,
 				WithRevName("threerevs-00003"),
-				WithCreationTimestamp(now), MarkRevisionFailed),
+				WithCreationTimestamp(now), MarkInactive("", "")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfg("threerevs", "foo", 3,
@@ -415,6 +415,9 @@ func TestReconcile(t *testing.T) {
 				},
 			),
 		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "LatestReadyUpdate", "LatestReadyRevisionName updated to %q", "threerevs-00002"),
+		},
 		Key: "foo/threerevs",
 	}}
 

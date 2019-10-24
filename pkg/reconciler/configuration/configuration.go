@@ -167,6 +167,9 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 	switch {
 	case rc == nil || rc.Status == corev1.ConditionUnknown:
 		logger.Infof("Revision %q of configuration is not ready", revName)
+		if err = c.findAndSetLatestReadyRevision(config); err != nil {
+			return fmt.Errorf("failed to find and set latest ready revision: %w", err)
+		}
 
 	case rc.Status == corev1.ConditionTrue:
 		logger.Infof("Revision %q of configuration is ready", revName)
@@ -191,23 +194,32 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 		config.Status.MarkLatestCreatedFailed(lcr.Name, rc.Message)
 		c.Recorder.Eventf(config, corev1.EventTypeWarning, "LatestCreatedFailed",
 			"Latest created revision %q has failed", lcr.Name)
-
+		if err = c.findAndSetLatestReadyRevision(config); err != nil {
+			return fmt.Errorf("failed to find and set latest ready revision: %w", err)
+		}
 	default:
 		return fmt.Errorf("unrecognized condition status: %v on revision %q", rc.Status, revName)
 	}
 
-	// Find the last ready revision and set LatestReadyRevisionName to it if the current
-	// revision is not ready
-	if rc == nil || rc.Status != corev1.ConditionTrue {
-		sortedRevisions, err := c.getSortedCreatedRevisions(config)
-		if err != nil {
-			return err
-		}
-		for _, rev := range sortedRevisions {
-			if rev.Status.IsReady() {
-				config.Status.SetLatestReadyRevisionName(rev.Name)
-				break
+	return nil
+}
+
+// findAndSetLatestReadyRevision finds the last ready revision and sets LatestReadyRevisionName to it
+func (c *Reconciler) findAndSetLatestReadyRevision(config *v1alpha1.Configuration) error {
+	sortedRevisions, err := c.getSortedCreatedRevisions(config)
+	if err != nil {
+		return err
+	}
+	for _, rev := range sortedRevisions {
+		if rev.Status.IsReady() {
+			// No need to update latest ready revision in this case
+			if rev.Name == config.Status.LatestReadyRevisionName {
+				return nil
 			}
+			config.Status.SetLatestReadyRevisionName(rev.Name)
+			c.Recorder.Eventf(config, corev1.EventTypeNormal, "LatestReadyUpdate",
+				"LatestReadyRevisionName updated to %q", rev.Name)
+			return nil
 		}
 	}
 	return nil
@@ -224,11 +236,14 @@ func (c *Reconciler) getSortedCreatedRevisions(config *v1alpha1.Configuration) (
 	if err != nil {
 		return nil, err
 	}
-	start := latestReadyRev.Generation
+	start := int64(0)
+	if config.Status.LatestReadyRevisionName != "" {
+		start = latestReadyRev.Generation
+	}
 	configSelector := labels.SelectorFromSet(map[string]string{
 		serving.ConfigurationLabelKey: config.Name,
 	})
-	generations := []string{}
+	var generations []string
 	for i := start + 1; i <= int64(config.Generation); i++ {
 		generations = append(generations, strconv.FormatInt(i, 10))
 	}
@@ -261,7 +276,7 @@ func (c *Reconciler) getSortedCreatedRevisions(config *v1alpha1.Configuration) (
 		}
 		return list, nil
 	}
-	return nil, fmt.Errorf("Error listing configurations: %w", err)
+	return nil, fmt.Errorf("error listing configurations: %w", err)
 }
 
 // CheckNameAvailability checks that if the named Revision specified by the Configuration
