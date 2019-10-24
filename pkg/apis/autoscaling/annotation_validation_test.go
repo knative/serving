@@ -17,6 +17,7 @@ limitations under the License.
 package autoscaling
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -159,12 +160,20 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 		annotations: map[string]string{WindowAnnotationKey: "365h"},
 		expectErr:   "expected 6s <= 365h <= 1h0m0s: " + WindowAnnotationKey,
 	}, {
-		name:        "annotation /window is invalid for hpa class",
-		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: HPA},
-		expectErr:   `invalid key name "autoscaling.knative.dev/window": ` + HPA,
+		name:        "annotation /window is invalid for class HPA and metric CPU",
+		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: HPA, MetricAnnotationKey: CPU},
+		expectErr:   fmt.Sprintf(`invalid key name "%s": %s for %s %s`, WindowAnnotationKey, HPA, MetricAnnotationKey, CPU),
 	}, {
-		name:        "annotation /window is valid for kpa class",
+		name:        "annotation /window is valid for class KPA",
 		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: KPA},
+		expectErr:   "",
+	}, {
+		name:        "annotation /window is valid for class HPA and metric RPS",
+		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: HPA, MetricAnnotationKey: RPS},
+		expectErr:   "",
+	}, {
+		name:        "annotation /window is valid for class HPA and metric Concurrency",
+		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: HPA, MetricAnnotationKey: Concurrency},
 		expectErr:   "",
 	}, {
 		name:        "annotation /window is valid for other than HPA and KPA class",
@@ -172,8 +181,8 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 		expectErr:   "",
 	}, {
 		name:        "value too short and invalid class for /window annotation",
-		annotations: map[string]string{WindowAnnotationKey: "1s", ClassAnnotationKey: HPA},
-		expectErr:   `invalid key name "autoscaling.knative.dev/window": ` + HPA,
+		annotations: map[string]string{WindowAnnotationKey: "1s", ClassAnnotationKey: HPA, MetricAnnotationKey: CPU},
+		expectErr:   fmt.Sprintf(`invalid key name "%s": %s for %s %s`, WindowAnnotationKey, HPA, MetricAnnotationKey, CPU),
 	}, {
 		name:        "value too long and valid class for /window annotation",
 		annotations: map[string]string{WindowAnnotationKey: "365h", ClassAnnotationKey: KPA},

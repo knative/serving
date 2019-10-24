@@ -88,8 +88,8 @@ func validateFloats(annotations map[string]string) *apis.FieldError {
 func validateWindows(annotations map[string]string) *apis.FieldError {
 	var errs *apis.FieldError
 	if w, ok := annotations[WindowAnnotationKey]; ok {
-		if annotations[ClassAnnotationKey] == HPA {
-			return apis.ErrInvalidKeyName(WindowAnnotationKey, annotations[ClassAnnotationKey])
+		if annotations[ClassAnnotationKey] == HPA && annotations[MetricAnnotationKey] == CPU {
+			return apis.ErrInvalidKeyName(WindowAnnotationKey, fmt.Sprintf("%s for %s %s", HPA, MetricAnnotationKey, CPU))
 		}
 		d, err := time.ParseDuration(w)
 		if err != nil {
