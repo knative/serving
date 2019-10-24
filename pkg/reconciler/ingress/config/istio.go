@@ -106,14 +106,20 @@ func parseGateways(configMap *corev1.ConfigMap, prefix string) ([]Gateway, error
 	sort.Strings(gatewayNames)
 	gateways := make([]Gateway, len(gatewayNames))
 	for i, gatewayName := range gatewayNames {
-		namespace := system.Namespace()
-		idx := strings.Index(gatewayName, ".")
-		if idx != -1 {
-			namespace = gatewayName[:idx]
-		}
+		var namespace, name string
+		parts := strings.SplitN(gatewayName, ".", 2)
+        if len(parts) == 1 {
+        	namespace = system.Namespace()
+            name      = parts[0] 
+        } else if len(parts) == 2 {
+            namespace = parts[0]
+            name      = parts[1]
+        } else {
+            return nil, fmt.Errorf("invalid gateway format: gateway name is not provided")
+        }
 		gateways[i] = Gateway{
 			Namespace:  namespace,
-			Name:       gatewayName[idx+1:],
+			Name:       name,
 			ServiceURL: urls[gatewayName],
 		}
 	}
