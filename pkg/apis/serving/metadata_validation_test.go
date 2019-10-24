@@ -312,7 +312,7 @@ func TestValidateClusterVisibilityLabel(t *testing.T) {
 
 }
 
-type WithPod struct {
+type withPod struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              corev1.PodSpec `json:"spec,omitempty"`
@@ -334,12 +334,12 @@ func TestAnnotationCreate(t *testing.T) {
 	tests := []struct {
 		name string
 		user string
-		this *WithPod
+		this *withPod
 		want map[string]string
 	}{{
 		name: "create annotation",
 		user: u1,
-		this: &WithPod{
+		this: &withPod{
 			Spec: getSpec("foo"),
 		},
 		want: map[string]string{
@@ -349,7 +349,7 @@ func TestAnnotationCreate(t *testing.T) {
 	}, {
 		name: "create annotation should override user provided annotations",
 		user: u1,
-		this: &WithPod{
+		this: &withPod{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					CreatorAnnotation: u2,
@@ -384,13 +384,13 @@ func TestAnnotationUpdate(t *testing.T) {
 	tests := []struct {
 		name string
 		user string
-		prev *WithPod
-		this *WithPod
+		prev *withPod
+		this *withPod
 		want map[string]string
 	}{{
 		name: "update annotation without spec changes",
 		user: u2,
-		this: &WithPod{
+		this: &withPod{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					CreatorAnnotation: u1,
@@ -399,7 +399,7 @@ func TestAnnotationUpdate(t *testing.T) {
 			},
 			Spec: getSpec("foo"),
 		},
-		prev: &WithPod{
+		prev: &withPod{
 			Spec: getSpec("foo"),
 		},
 		want: map[string]string{
@@ -409,7 +409,7 @@ func TestAnnotationUpdate(t *testing.T) {
 	}, {
 		name: "update annotation with spec changes",
 		user: u2,
-		this: &WithPod{
+		this: &withPod{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					CreatorAnnotation: u1,
@@ -418,7 +418,7 @@ func TestAnnotationUpdate(t *testing.T) {
 			},
 			Spec: getSpec("bar"),
 		},
-		prev: &WithPod{
+		prev: &withPod{
 			Spec: getSpec("foo"),
 		},
 		want: map[string]string{
