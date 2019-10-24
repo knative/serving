@@ -447,6 +447,11 @@ func (rbm *revisionBackendsManager) endpointsUpdated(newObj interface{}) {
 	}
 	dests := endpointsToDests(endpoints, networking.ServicePortName(rw.protocol))
 	rbm.logger.Debugf("Updating Endpoints: %q (backends: %d)", revID.String(), len(dests))
+	select {
+	case <-rbm.ctx.Done():
+		return
+	default:
+	}
 	rw.destsCh <- dests
 }
 
