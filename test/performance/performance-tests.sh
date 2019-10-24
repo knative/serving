@@ -43,7 +43,7 @@ function update_knative() {
     --patch '{"spec": {"replicas": 10}}'
 
   echo ">> Updating serving"
-  # Retry installation for at most two times as there can sometime be a race condition when applying serving CRDs
+  # Retry installation for at most three times as there can sometime be a race condition when applying serving CRDs
   local n=0
   until [ $n -ge 3 ]
   do
