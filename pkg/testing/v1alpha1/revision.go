@@ -86,14 +86,6 @@ func WithLastPinned(t time.Time) RevisionOption {
 	}
 }
 
-// WithRevStatus is a generic escape hatch for creating hard-to-craft
-// status orientations.
-func WithRevStatus(st v1alpha1.RevisionStatus) RevisionOption {
-	return func(rev *v1alpha1.Revision) {
-		rev.Status = st
-	}
-}
-
 // MarkActive calls .Status.MarkActive on the Revision.
 func MarkActive(r *v1alpha1.Revision) {
 	r.Status.MarkActiveTrue()
@@ -154,14 +146,4 @@ func MarkRevisionReady(r *v1alpha1.Revision) {
 	MarkActive(r)
 	r.Status.MarkResourcesAvailableTrue()
 	r.Status.MarkContainerHealthyTrue()
-}
-
-// WithRevisionLabel attaches a particular label to the revision.
-func WithRevisionLabel(key, value string) RevisionOption {
-	return func(config *v1alpha1.Revision) {
-		if config.Labels == nil {
-			config.Labels = make(map[string]string)
-		}
-		config.Labels[key] = value
-	}
 }
