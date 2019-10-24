@@ -17,9 +17,7 @@ limitations under the License.
 package pool
 
 import (
-	"fmt"
 	"sync"
-	"time"
 )
 
 type impl struct {
@@ -42,18 +40,15 @@ var _ Interface = (*impl)(nil)
 // defaultCapacity is the number of work items or errors that we
 // can queue up before calls to Go will block, or work will
 // block until Wait is called.
-const (
-	defaultCapacity = 50
-	defaultTimeout  = 10 * time.Minute
-)
+const defaultCapacity = 50
 
 // New creates a fresh worker pool with the specified size.
 func New(workers int) Interface {
-	return NewWithCapacity(workers, defaultCapacity, defaultTimeout)
+	return NewWithCapacity(workers, defaultCapacity)
 }
 
 // NewWithCapacity creates a fresh worker pool with the specified size.
-func NewWithCapacity(workers, capacity int, timeout time.Duration) Interface {
+func NewWithCapacity(workers, capacity int) Interface {
 	i := &impl{
 		workCh: make(chan func() error, capacity),
 	}
@@ -66,21 +61,10 @@ func NewWithCapacity(workers, capacity int, timeout time.Duration) Interface {
 		go func() {
 			for work := range i.workCh {
 				func() {
-					done := make(chan bool, 1)
 					defer i.wg.Done()
-					go func() {
-						if err := work(); err != nil {
-							i.resultOnce.Do(func() {
-								i.result = err
-							})
-						}
-						done <- true
-					}()
-					select {
-					case <-done:
-					case <-time.After(timeout):
+					if err := work(); err != nil {
 						i.resultOnce.Do(func() {
-							i.result = fmt.Errorf("Timed out waiting for %d services to become ready", capacity)
+							i.result = err
 						})
 					}
 				}()

@@ -17,6 +17,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"net/url"
@@ -65,92 +66,29 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 	width := int(math.Ceil(math.Log10(float64(scale))))
 
 	t.Log("Creating new Services")
-	wg := pool.NewWithCapacity(50 /* maximum in-flight creates */, scale /* capacity */, duration /* timeout for each worker */)
+	wg := pool.NewWithCapacity(50 /* maximum in-flight creates */, scale /* capacity */)
 	for i := 0; i < scale; i++ {
 		// https://golang.org/doc/faq#closures_and_goroutines
 		i := i
-
 		wg.Go(func() error {
 			names := test.ResourceNames{
 				Service: test.SubServiceNameForTest(t, fmt.Sprintf("%0[1]*[2]d", width, i)),
 				Image:   "helloworld",
 			}
-
-			// Start the clock for various waypoints towards Service readiness.
-			start := time.Now()
-			// Record the overall completion time regardless of success/failure.
-			defer latencies.Add("time-to-done", start)
-
-			svc, err := v1a1test.CreateLatestService(t, clients, names,
-				v1alpha1testing.WithResourceRequirements(corev1.ResourceRequirements{
-					Limits: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("10m"),
-						corev1.ResourceMemory: resource.MustParse("50Mi"),
-					},
-					Requests: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("10m"),
-						corev1.ResourceMemory: resource.MustParse("20Mi"),
-					},
-				}),
-				v1alpha1testing.WithConfigAnnotations(map[string]string{
-					"autoscaling.knative.dev/maxScale": "1",
-				}),
-				v1alpha1testing.WithReadinessProbe(&corev1.Probe{
-					Handler: corev1.Handler{
-						HTTPGet: &corev1.HTTPGetAction{
-							Path: "/",
-						},
-					},
-				}),
-				v1alpha1testing.WithRevisionTimeoutSeconds(10))
-
-			if err != nil {
-				t.Errorf("CreateLatestService() = %v", err)
-				return fmt.Errorf("CreateLatestService() failed: %w", err)
-			}
-			// Record the time it took to create the service.
-			latencies.Add("time-to-create", start)
-			names.Route = serviceresourcenames.Route(svc)
-			names.Config = serviceresourcenames.Configuration(svc)
-
 			// Send it to our cleanup logic (below)
 			cleanupCh <- names
-
-			t.Logf("Wait for %s to become ready.", names.Service)
-			var url *url.URL
-			err = v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
-				if s.Status.URL == nil {
-					return false, nil
-				}
-				url = s.Status.URL.URL()
-				return v1a1test.IsServiceReady(s)
-			}, "ServiceUpdatedWithURL")
-			if err != nil {
-				t.Errorf("WaitForServiceState(w/ Domain) = %v", err)
-				return fmt.Errorf("WaitForServiceState(w/ Domain) failed: %w", err)
+			errCh := make(chan error)
+			ctx, cancel := context.WithTimeout(context.Background(), duration)
+			defer cancel()
+			go func() {
+				errCh <- worker(t, clients, names, latencies, pm)
+			}()
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("Timed out waiting for %q to become ready", names.Service)
+			case err := <-errCh:
+				return err
 			}
-			// Record the time it took to become ready.
-			latencies.Add("time-to-ready", start)
-
-			_, err = pkgTest.WaitForEndpointState(
-				clients.KubeClient,
-				t.Logf,
-				url,
-				v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
-				"WaitForEndpointToServeText",
-				test.ServingFlags.ResolvableDomain)
-			if err != nil {
-				t.Errorf("WaitForEndpointState(expected text) = %v", err)
-				return fmt.Errorf("WaitForEndpointState(expected text) failed: %w", err)
-			}
-			// Record the time it took to get back a 200 with the expected text.
-			latencies.Add("time-to-200", start)
-
-			// Start probing the domain until the test is complete.
-			pm.Spawn(url)
-
-			t.Logf("%s is ready.", names.Service)
-			return nil
 		})
 	}
 
@@ -200,4 +138,80 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			return
 		}
 	}
+}
+
+func worker(t *testing.T, clients *test.Clients, names test.ResourceNames, latencies Latencies, pm test.ProberManager) error {
+	// Start the clock for various waypoints towards Service readiness.
+	start := time.Now()
+	// Record the overall completion time regardless of success/failure.
+	defer latencies.Add("time-to-done", start)
+
+	svc, err := v1a1test.CreateLatestService(t, clients, names,
+		v1alpha1testing.WithResourceRequirements(corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("10m"),
+				corev1.ResourceMemory: resource.MustParse("50Mi"),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("10m"),
+				corev1.ResourceMemory: resource.MustParse("20Mi"),
+			},
+		}),
+		v1alpha1testing.WithConfigAnnotations(map[string]string{
+			"autoscaling.knative.dev/maxScale": "1",
+		}),
+		v1alpha1testing.WithReadinessProbe(&corev1.Probe{
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: "/",
+				},
+			},
+		}),
+		v1alpha1testing.WithRevisionTimeoutSeconds(10))
+
+	if err != nil {
+		t.Errorf("CreateLatestService() = %v", err)
+		return fmt.Errorf("CreateLatestService() failed: %w", err)
+	}
+	// Record the time it took to create the service.
+	latencies.Add("time-to-create", start)
+	names.Route = serviceresourcenames.Route(svc)
+	names.Config = serviceresourcenames.Configuration(svc)
+
+	t.Logf("Wait for %s to become ready.", names.Service)
+	var url *url.URL
+	err = v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
+		if s.Status.URL == nil {
+			return false, nil
+		}
+		url = s.Status.URL.URL()
+		return v1a1test.IsServiceReady(s)
+	}, "ServiceUpdatedWithURL")
+	if err != nil {
+		t.Errorf("WaitForServiceState(w/ Domain) = %v", err)
+		return fmt.Errorf("WaitForServiceState(w/ Domain) failed: %w", err)
+	}
+	// Record the time it took to become ready.
+	latencies.Add("time-to-ready", start)
+
+	_, err = pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		t.Logf,
+		url,
+		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
+		"WaitForEndpointToServeText",
+		test.ServingFlags.ResolvableDomain)
+	if err != nil {
+		t.Errorf("WaitForEndpointState(expected text) = %v", err)
+		return fmt.Errorf("WaitForEndpointState(expected text) failed: %w", err)
+	}
+	// Record the time it took to get back a 200 with the expected text.
+	latencies.Add("time-to-200", start)
+
+	// Start probing the domain until the test is complete.
+	pm.Spawn(url)
+
+	t.Logf("%s is ready.", names.Service)
+
+	return nil
 }
