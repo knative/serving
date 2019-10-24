@@ -62,9 +62,11 @@ const (
 
 // Client is a wrapper that wraps all Mako related operations
 type Client struct {
-	Quickstore    *quickstore.Quickstore
-	Context       context.Context
-	ShutDownFunc  func(context.Context)
+	Quickstore   *quickstore.Quickstore
+	Context      context.Context
+	ShutDownFunc func(context.Context)
+
+	benchmarkKey  string
 	benchmarkName string
 	alerter       *alerter.Alerter
 }
@@ -72,7 +74,7 @@ type Client struct {
 // StoreAndHandleResult stores the benchmarking data and handles the result.
 func (c *Client) StoreAndHandleResult() error {
 	out, err := c.Quickstore.Store()
-	return c.alerter.HandleBenchmarkResult(c.benchmarkName, out, err)
+	return c.alerter.HandleBenchmarkResult(c.benchmarkKey, c.benchmarkName, out, err)
 }
 
 // EscapeTag replaces characters that Mako doesn't accept with ones it does.
@@ -166,6 +168,7 @@ func SetupHelper(ctx context.Context, benchmarkKey *string, benchmarkName *strin
 		Context:       ctx,
 		ShutDownFunc:  qclose,
 		alerter:       alerter,
+		benchmarkKey:  *benchmarkKey,
 		benchmarkName: *benchmarkName,
 	}
 

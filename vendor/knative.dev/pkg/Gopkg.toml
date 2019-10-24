@@ -36,6 +36,10 @@ required = [
   version = "kubernetes-1.15.3"
 
 [[override]]
+  name = "gopkg.in/yaml.v2"
+  version = "v2.2.4"
+
+[[override]]
   name = "github.com/json-iterator/go"
   # This is the commit at which k8s depends on this in 1.11
   # It seems to be broken at HEAD.
