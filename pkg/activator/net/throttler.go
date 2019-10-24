@@ -244,8 +244,13 @@ func (rt *revisionThrottler) updateCapacity(throttler *Throttler, backendCount i
 		if rt.clusterIPDest != "" {
 			return 0
 		}
-		rt.resetTrackers()
-		rt.assignedTrackers = assignSlice(rt.podIPTrackers, throttler.index(), ac)
+		// Infifnite capacity, assign all.
+		if rt.containerConcurrency == 0 {
+			rt.assignedTrackers = rt.podIPTrackers
+		} else {
+			rt.resetTrackers()
+			rt.assignedTrackers = assignSlice(rt.podIPTrackers, throttler.index(), ac)
+		}
 		rt.logger.Debugf("Trackers %d/%d  %s", throttler.index(), ac, spew.Sprint(rt.assignedTrackers))
 		return len(rt.assignedTrackers)
 	}()

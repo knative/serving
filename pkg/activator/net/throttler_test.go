@@ -158,6 +158,18 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	if got, want := rt.breaker.Capacity(), 15; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
+
+	// Inifinite capacity.
+	throttler.activatorIndex = 1
+	rt.containerConcurrency = 0
+	rt.updateCapacity(throttler, 1)
+	if got, want := rt.breaker.Capacity(), defaultMaxConcurrency; got != want {
+		t.Errorf("Capacity = %d, want: %d", got, want)
+	}
+	if got, want := len(rt.assignedTrackers), len(rt.podIPTrackers); got != want {
+		t.Errorf("Assigned tracker count = %d, want: %d, diff:\n%s", got, want,
+			cmp.Diff(rt.assignedTrackers, rt.podIPTrackers))
+	}
 }
 
 func makeTrackers(num int) []*podIPTracker {
