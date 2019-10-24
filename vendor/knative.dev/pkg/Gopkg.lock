@@ -2,13 +2,18 @@
 
 
 [[projects]]
-  digest = "1:5f43842d8fe08b43ada82d57e48a844800b4163d1150f7f451e81cb347fccb72"
+  digest = "1:a0c6f9487d58c98483e8785cc45e181c3cb7a21549f9f32c2e80fedb7141db18"
   name = "cloud.google.com/go"
   packages = [
     "compute/metadata",
     "container/apiv1",
+    "iam",
+    "internal",
+    "internal/optional",
+    "internal/trace",
     "internal/version",
     "monitoring/apiv3",
+    "storage",
     "trace/apiv2",
   ]
   pruneopts = "NUT"
@@ -709,7 +714,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:3b865f5fdc62cc6f52865a3bf29146a384fd5b2f250d8d86c0c2a41a4ffa10c4"
+  digest = "1:48871545d029f0561819b6f761e11ed3111e79f29f7f1ba36e2e428e05ceaa9d"
   name = "google.golang.org/api"
   packages = [
     "container/v1beta1",
@@ -720,6 +725,7 @@
     "internal",
     "iterator",
     "option",
+    "storage/v1",
     "support/bundler",
     "transport",
     "transport/grpc",
@@ -752,7 +758,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:0ee5f291bbeb4c9664aad14ad9a64e52cdeed406c97549beb6028adb9d7b8afc"
+  digest = "1:445a47089d0c1013621851ca7fa2992a499871e7b239fc3e904c404ab72f6a04"
   name = "google.golang.org/genproto"
   packages = [
     "googleapis/api",
@@ -763,8 +769,11 @@
     "googleapis/api/monitoredres",
     "googleapis/container/v1",
     "googleapis/devtools/cloudtrace/v2",
+    "googleapis/iam/v1",
     "googleapis/monitoring/v3",
+    "googleapis/rpc/code",
     "googleapis/rpc/status",
+    "googleapis/type/expr",
     "protobuf/field_mask",
   ]
   pruneopts = "NUT"
@@ -832,12 +841,12 @@
   version = "v0.9.1"
 
 [[projects]]
-  digest = "1:18108594151654e9e696b27b181b953f9a90b16bf14d253dd1b397b025a1487f"
+  digest = "1:accc3bfe4e404aa53ac3621470e7cf9fce1efe48f0fabcfe6d12a72579d9d91f"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "51d6538a90f86fe93ac480b35f37b2be17fef232"
-  version = "v2.2.2"
+  revision = "f221b8435cfb71e54062f6c6e99e9ade30b124d5"
+  version = "v2.2.4"
 
 [[projects]]
   digest = "1:2b55f57d7b6d9f0f23478f2432b03273073f1bf93aed18620472e7117eb4451e"
@@ -1251,14 +1260,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:8009d9ea7464198279c5c1b1a760365c1f731aa88239632c08929df5b7f323f6"
+  digest = "1:0041ff0e6be31ac2cd85ffd4cf0b6ccb576b408d4f3c1c7e48c79cbf32a1319c"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "5d51ed40c38a606beaa42197961edb6d737227fc"
+  revision = "8923e6806b082ebc75b5464ad23d9826f8eaa97b"
 
 [[projects]]
   digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"
@@ -1273,6 +1282,7 @@
   analyzer-version = 1
   input-imports = [
     "cloud.google.com/go/compute/metadata",
+    "cloud.google.com/go/storage",
     "contrib.go.opencensus.io/exporter/prometheus",
     "contrib.go.opencensus.io/exporter/stackdriver",
     "contrib.go.opencensus.io/exporter/stackdriver/monitoredresource",
@@ -1280,7 +1290,6 @@
     "github.com/davecgh/go-spew/spew",
     "github.com/evanphx/json-patch",
     "github.com/ghodss/yaml",
-    "github.com/golang/glog",
     "github.com/golang/protobuf/jsonpb",
     "github.com/golang/protobuf/proto",
     "github.com/google/go-cmp/cmp",
@@ -1320,6 +1329,8 @@
     "golang.org/x/oauth2/google",
     "golang.org/x/sync/errgroup",
     "google.golang.org/api/container/v1beta1",
+    "google.golang.org/api/iterator",
+    "google.golang.org/api/option",
     "google.golang.org/grpc",
     "gopkg.in/yaml.v2",
     "k8s.io/api/admission/v1beta1",
