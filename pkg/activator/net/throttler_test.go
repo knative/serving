@@ -211,7 +211,6 @@ func TestThrottlerWithError(t *testing.T) {
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-			defer cancel()
 			updateCh := make(chan revisionDestsUpdate, 2)
 
 			params := queue.BreakerParams{
@@ -224,7 +223,14 @@ func TestThrottlerWithError(t *testing.T) {
 
 			servfake := fakeservingclient.Get(ctx)
 			revisions := fakerevisioninformer.Get(ctx)
-			controller.StartInformers(ctx.Done(), endpoints.Informer(), revisions.Informer())
+			waitInformers, err := controller.RunInformers(ctx.Done(), endpoints.Informer(), revisions.Informer())
+			if err != nil {
+				t.Fatalf("Failed to start informers: %v", err)
+			}
+			defer func() {
+				cancel()
+				waitInformers()
+			}()
 
 			// Add the revision we're testing
 			servfake.ServingV1alpha1().Revisions(tc.revision.Namespace).Create(tc.revision)
@@ -251,8 +257,8 @@ func TestThrottlerWithError(t *testing.T) {
 				time.Sleep(200 * time.Millisecond)
 			}
 
-			tryContext, cancel := context.WithTimeout(context.TODO(), 100*time.Millisecond)
-			defer cancel()
+			tryContext, cancel2 := context.WithTimeout(context.TODO(), 100*time.Millisecond)
+			defer cancel2()
 
 			gotTries := tryThrottler(throttler, tc.trys, tryContext)
 
@@ -327,7 +333,6 @@ func TestThrottlerSuccesses(t *testing.T) {
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-			defer cancel()
 			updateCh := make(chan revisionDestsUpdate, 2)
 
 			params := queue.BreakerParams{
@@ -340,7 +345,14 @@ func TestThrottlerSuccesses(t *testing.T) {
 			servfake := fakeservingclient.Get(ctx)
 			revisions := fakerevisioninformer.Get(ctx)
 
-			controller.StartInformers(ctx.Done(), endpoints.Informer(), revisions.Informer())
+			waitInformers, err := controller.RunInformers(ctx.Done(), endpoints.Informer(), revisions.Informer())
+			if err != nil {
+				t.Fatalf("Failed to start informers: %v", err)
+			}
+			defer func() {
+				cancel()
+				waitInformers()
+			}()
 
 			// Add the revision were testing
 			servfake.ServingV1alpha1().Revisions(tc.revision.Namespace).Create(tc.revision)
@@ -365,8 +377,8 @@ func TestThrottlerSuccesses(t *testing.T) {
 			// Wait for throttler to complete processing updates and exit
 			wg.Wait()
 
-			tryContext, cancel := context.WithTimeout(context.TODO(), 100*time.Millisecond)
-			defer cancel()
+			tryContext, cancel2 := context.WithTimeout(context.TODO(), 100*time.Millisecond)
+			defer cancel2()
 
 			gotTries := tryThrottler(throttler, tc.trys, tryContext)
 			gotDests := sets.NewString()
@@ -383,14 +395,20 @@ func TestThrottlerSuccesses(t *testing.T) {
 
 func TestMultipleActivators(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-	defer cancel()
 
 	fake := fakekubeclient.Get(ctx)
 	endpoints := fakeendpointsinformer.Get(ctx)
 	servfake := fakeservingclient.Get(ctx)
 	revisions := revisioninformer.Get(ctx)
 
-	controller.StartInformers(ctx.Done(), endpoints.Informer(), revisions.Informer())
+	waitInformers, err := controller.RunInformers(ctx.Done(), endpoints.Informer(), revisions.Informer())
+	if err != nil {
+		t.Fatalf("Failed to start informers: %v", err)
+	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
 
 	rev := revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1)
 	// Add the revision were testing
