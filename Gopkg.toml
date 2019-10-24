@@ -12,6 +12,8 @@ required = [
   # TODO(#4549): Drop this when we drop our patches.
   "k8s.io/kubernetes/pkg/version",
   "knative.dev/caching/pkg/apis/caching",
+  # For cluster management in performance testing.
+  "knative.dev/pkg/testutils/clustermanager/perf-tests",
   "knative.dev/test-infra/scripts",
   "knative.dev/test-infra/tools/dep-collector",
   # For load testing.

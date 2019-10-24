@@ -25,7 +25,7 @@ import (
 	"knative.dev/test-infra/shared/common"
 )
 
-const configPath = "ci/testgrid/config.yaml"
+const configPath = "ci/prow/testgrid.yaml"
 
 // Config is entire testgrid config
 type Config struct {

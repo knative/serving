@@ -971,9 +971,10 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:9c89a3b7383528050da687b4cf2947d8cdd2d20b1bc13d833dc4ed6a402a8f1c"
+  digest = "1:dd48aadbd85921a2f5456ee9ae2b13c2723ed6fcd9b482543aa1cf6468a4cf9a"
   name = "google.golang.org/api"
   packages = [
+    "container/v1beta1",
     "gensupport",
     "googleapi",
     "googleapi/internal/uritemplates",
@@ -1760,6 +1761,7 @@
     "system/testing",
     "test",
     "test/ghutil",
+    "test/gke",
     "test/helpers",
     "test/ingress",
     "test/logging",
@@ -1780,6 +1782,8 @@
     "test/webhook-apicoverage/view",
     "test/webhook-apicoverage/webhook",
     "test/zipkin",
+    "testutils/clustermanager/perf-tests",
+    "testutils/clustermanager/perf-tests/pkg",
     "tracing",
     "tracing/config",
     "tracing/testing",
@@ -1793,7 +1797,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:420422524de777bbee5bb3392107b133fcc7d074e2c1cb56bd5c787666014d9b"
+  digest = "1:d28d79aced79fe257a5d8b9d4d7cf33a4204f0e4ba9076657cc274f61fcd9fa1"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1806,7 +1810,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "e253fe07d282bd3d80bd9dd9f439fa550fbb9365"
+  revision = "11b4f85e9c2714c45dda40abc5279b63f706f039"
 
 [[projects]]
   digest = "1:fef5992ddf85e9ccad899b11338339858936a10fbce96b9d5c43767669d95398"
@@ -2013,6 +2017,7 @@
     "knative.dev/pkg/test/webhook-apicoverage/tools",
     "knative.dev/pkg/test/webhook-apicoverage/view",
     "knative.dev/pkg/test/webhook-apicoverage/webhook",
+    "knative.dev/pkg/testutils/clustermanager/perf-tests",
     "knative.dev/pkg/tracing",
     "knative.dev/pkg/tracing/config",
     "knative.dev/pkg/tracing/testing",

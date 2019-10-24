@@ -1,5 +1,3 @@
-#!/bin/bash
-
 # Copyright 2019 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,19 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-source $(dirname ${BASH_SOURCE})/common.sh
+# Configuration file for the cluster that runs this benchmark continuously.
 
-# set up the credential for cluster operations
-setup_user
-
-# Get all clusters to update and ko apply config. Use newline to split
-header "Update all clusters"
-IFS=$'\n'
-for cluster in $(gcloud container clusters list --project="${PROJECT_NAME}" --format="csv[no-heading](name,zone)"); do
-  name=$(echo $cluster | cut -f1 -d",")
-  zone=$(echo $cluster | cut -f2 -d",")
-
-  update_cluster ${name} ${zone}
-done
-
-header "Done updating all clusters"
+GKECluster:
+  location: "us-west1"
+  nodeCount: 4
+  nodeType: "n1-standard-4"
+  addons: "HorizontalPodAutoscaling,HttpLoadBalancing"
