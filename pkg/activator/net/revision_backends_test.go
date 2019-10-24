@@ -407,19 +407,19 @@ func TestRevisionWatcher(t *testing.T) {
 				t.Errorf("revisionDests updates = %v, want: %v, diff (-want, +got):\n %s", got, want, cmp.Diff(want, got))
 			}
 
-			assertChClosed(t, destsCh)
+			assertChClosed(t, rw.done)
 		})
 	}
 }
 
-func assertChClosed(t *testing.T, ch chan sets.String) {
+func assertChClosed(t *testing.T, ch chan struct{}) {
 	defer func() {
 		if r := recover(); r == nil {
 			t.Errorf("the channel was not closed")
 		}
 	}()
 	select {
-	case ch <- nil:
+	case ch <- struct{}{}:
 		// Panics if the channel is closed
 	default:
 		// Prevents from blocking forever if the channel is not closed
@@ -719,7 +719,7 @@ func TestCheckDests(t *testing.T) {
 		updateCh:         uCh,
 		serviceLister:    si.Lister(),
 		logger:           TestLogger(t),
-		doneCh:           dCh,
+		stopCh:           dCh,
 	}
 	rw.checkDests(sets.NewString("10.1.1.5"))
 	select {
@@ -800,7 +800,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 		updateCh:        uCh,
 		serviceLister:   si.Lister(),
 		logger:          TestLogger(t),
-		doneCh:          dCh,
+		stopCh:          dCh,
 		podsAddressable: true,
 		transport:       network.RoundTripperFunc(fakeRT.RT),
 	}
