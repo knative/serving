@@ -19,8 +19,6 @@
 # should NOT run it manually.
 
 # Setup env vars to override the default settings
-export PROJECT_NAME="knative-performance"
-export SERVICE_ACCOUNT_NAME="mako-job"
 export BENCHMARK_ROOT_PATH="$GOPATH/src/knative.dev/serving/test/performance/benchmarks"
 
 source vendor/knative.dev/test-infra/scripts/performance-tests.sh
@@ -93,8 +91,8 @@ EOF
 
 function update_benchmark() {
   echo ">> Applying all the yamls for benchmark $1"
-  ko delete -f ${BENCHMARK_ROOT_PATH}/$1
-  ko apply -f ${BENCHMARK_ROOT_PATH}/$1 || abort "failed to apply benchmarks yaml $1"
+  ko delete -f ${BENCHMARK_ROOT_PATH}/$1/continuous
+  ko apply -f ${BENCHMARK_ROOT_PATH}/$1/continuous || abort "failed to apply benchmarks yaml $1"
 }
 
 main $@
