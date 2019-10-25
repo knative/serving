@@ -68,11 +68,12 @@ const (
 // revisionWatcher watches the podIPs and ClusterIP of the service for a revision. It implements the logic
 // to supply revisionDestsUpdate events on updateCh
 type revisionWatcher struct {
-	doneCh   <-chan struct{}
+	stopCh   <-chan struct{}
 	cancel   context.CancelFunc
 	rev      types.NamespacedName
 	protocol networking.ProtocolType
 	updateCh chan<- revisionDestsUpdate
+	done     chan struct{}
 
 	// Stores the list of pods that have been successfully probed.
 	healthyPods sets.String
@@ -95,11 +96,12 @@ func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol 
 	logger *zap.SugaredLogger) *revisionWatcher {
 	ctx, cancel := context.WithCancel(ctx)
 	return &revisionWatcher{
-		doneCh:          ctx.Done(),
+		stopCh:          ctx.Done(),
 		cancel:          cancel,
 		rev:             rev,
 		protocol:        protocol,
 		updateCh:        updateCh,
+		done:            make(chan struct{}),
 		healthyPods:     sets.NewString(),
 		transport:       transport,
 		destsCh:         destsCh,
@@ -218,7 +220,7 @@ func (rw *revisionWatcher) probePodIPs(dests sets.String) (sets.String, bool, er
 
 func (rw *revisionWatcher) sendUpdate(clusterIP string, dests sets.String) {
 	select {
-	case <-rw.doneCh:
+	case <-rw.stopCh:
 		return
 	default:
 		rw.updateCh <- revisionDestsUpdate{Rev: rw.rev, ClusterIPDest: clusterIP, Dests: dests}
@@ -293,7 +295,7 @@ func (rw *revisionWatcher) checkDests(dests sets.String) {
 }
 
 func (rw *revisionWatcher) run(probeFrequency time.Duration) {
-	defer close(rw.destsCh)
+	defer close(rw.done)
 
 	var dests sets.String
 	timer := time.NewTicker(probeFrequency)
@@ -314,7 +316,7 @@ func (rw *revisionWatcher) run(probeFrequency time.Duration) {
 		}
 
 		select {
-		case <-rw.doneCh:
+		case <-rw.stopCh:
 			return
 		case x := <-rw.destsCh:
 			dests = x
@@ -386,7 +388,7 @@ func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.R
 		rbm.revisionWatchersMux.Lock()
 		defer rbm.revisionWatchersMux.Unlock()
 		for _, rw := range rbm.revisionWatchers {
-			<-rw.destsCh
+			<-rw.done
 		}
 	}()
 
@@ -447,7 +449,11 @@ func (rbm *revisionBackendsManager) endpointsUpdated(newObj interface{}) {
 	}
 	dests := endpointsToDests(endpoints, networking.ServicePortName(rw.protocol))
 	rbm.logger.Debugf("Updating Endpoints: %q (backends: %d)", revID.String(), len(dests))
-	rw.destsCh <- dests
+	select {
+	case <-rbm.ctx.Done():
+		return
+	case rw.destsCh <- dests:
+	}
 }
 
 // deleteRevisionWatcher deletes the revision watcher for rev if it exists. It expects
