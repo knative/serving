@@ -41,14 +41,6 @@ required = [
   version = "v0.1.0"
 
 [[override]]
-  name = "google.golang.org/grpc"
-  version = "=v1.16"
-
-[[override]]
-  name = "google.golang.org/api"
-  revision = "874d9dc5b186e361475b082852f136f094555c30"
-
-[[override]]
   name = "go.uber.org/zap"
   revision = "67bc79d13d155c02fd008f721863ff8cc5f30659"
 
