@@ -151,7 +151,10 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 			}
 		},
 	})
-	controller.StartInformers(stopCh, endpointsInformer)
+	waitInformers, err := controller.RunInformers(stopCh, endpointsInformer)
+	if err != nil {
+		t.Fatalf("Failed to start informers: %v", err)
+	}
 
 	endpoint, err := spoof.ResolveEndpoint(clients.KubeClient.Kube, routeURL.Hostname(), test.ServingFlags.ResolvableDomain,
 		pkgTest.Flags.IngressEndpoint)
@@ -180,6 +183,7 @@ func scaleRevisionByLoad(t *testing.T, numClients int) []junit.TestCase {
 	}
 	metrics.Close()
 	close(stopCh)
+	defer waitInformers()
 
 	tc := make([]junit.TestCase, 0)
 	// Add traffic load metrics.

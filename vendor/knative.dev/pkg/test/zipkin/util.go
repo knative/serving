@@ -147,7 +147,7 @@ func JSONTrace(traceID string, expected int, timeout time.Duration) (trace []mod
 
 // TimeoutError is an error returned by JSONTrace if it times out before getting the expected number
 // of traces.
-type TimeoutError struct{
+type TimeoutError struct {
 	lastErr error
 }
 

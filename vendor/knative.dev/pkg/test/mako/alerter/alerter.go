@@ -52,18 +52,24 @@ func (alerter *Alerter) SetupSlack(userName, readTokenPath, writeTokenPath strin
 }
 
 // HandleBenchmarkResult will handle the benchmark result which returns from `q.Store()`
-func (alerter *Alerter) HandleBenchmarkResult(testName string, output qpb.QuickstoreOutput, err error) error {
+func (alerter *Alerter) HandleBenchmarkResult(
+	benchmarkKey, benchmarkName string,
+	output qpb.QuickstoreOutput, err error) error {
 	if err != nil {
 		if output.GetStatus() == qpb.QuickstoreOutput_ANALYSIS_FAIL {
 			var errs []error
-			summary := fmt.Sprintf("%s\n\nSee run chart at: %s", output.GetSummaryOutput(), output.GetRunChartLink())
+			summary := fmt.Sprintf("%s\n\nSee run chart at: %s\n\nSee aggregate chart at: %s",
+				output.GetSummaryOutput(),
+				output.GetRunChartLink(),
+				fmt.Sprintf("mako.dev/benchmark?benchmark_key=%s&tseconds=604800", benchmarkKey),
+			)
 			if alerter.githubIssueHandler != nil {
-				if err := alerter.githubIssueHandler.CreateIssueForTest(testName, summary); err != nil {
+				if err := alerter.githubIssueHandler.CreateIssueForTest(benchmarkName, summary); err != nil {
 					errs = append(errs, err)
 				}
 			}
 			if alerter.slackMessageHandler != nil {
-				if err := alerter.slackMessageHandler.SendAlert(testName, summary); err != nil {
+				if err := alerter.slackMessageHandler.SendAlert(benchmarkName, summary); err != nil {
 					errs = append(errs, err)
 				}
 			}
@@ -72,7 +78,7 @@ func (alerter *Alerter) HandleBenchmarkResult(testName string, output qpb.Quicks
 		return err
 	}
 	if alerter.githubIssueHandler != nil {
-		return alerter.githubIssueHandler.CloseIssueForTest(testName)
+		return alerter.githubIssueHandler.CloseIssueForTest(benchmarkName)
 	}
 
 	return nil

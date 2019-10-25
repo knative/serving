@@ -79,12 +79,9 @@ func UpdateExporterFromConfigMap(component string, logger *zap.SugaredLogger) fu
 // to prevent a race condition between reading the current configuration
 // and updating the current exporter.
 func UpdateExporter(ops ExporterOptions, logger *zap.SugaredLogger) error {
-	metricsMux.Lock()
-	defer metricsMux.Unlock()
-
 	newConfig, err := createMetricsConfig(ops, logger)
 	if err != nil {
-		if curMetricsExporter == nil {
+		if getCurMetricsConfig() == nil {
 			// Fail the process if there doesn't exist an exporter.
 			logger.Errorw("Failed to get a valid metrics config", zap.Error(err))
 		} else {
@@ -95,18 +92,18 @@ func UpdateExporter(ops ExporterOptions, logger *zap.SugaredLogger) error {
 
 	if isNewExporterRequired(newConfig) {
 		logger.Info("Flushing the existing exporter before setting up the new exporter.")
-		flushExporterUnlocked(curMetricsExporter)
+		FlushExporter()
 		e, err := newMetricsExporter(newConfig, logger)
 		if err != nil {
 			logger.Errorf("Failed to update a new metrics exporter based on metric config %v. error: %v", newConfig, err)
 			return err
 		}
-		existingConfig := curMetricsConfig
-		setCurMetricsExporterUnlocked(e)
+		existingConfig := getCurMetricsConfig()
+		setCurMetricsExporter(e)
 		logger.Infof("Successfully updated the metrics exporter; old config: %v; new config %v", existingConfig, newConfig)
 	}
 
-	setCurMetricsConfigUnlocked(newConfig)
+	setCurMetricsConfig(newConfig)
 	return nil
 }
 
@@ -114,18 +111,18 @@ func UpdateExporter(ops ExporterOptions, logger *zap.SugaredLogger) error {
 // or stackdriver project ID changes for stackdriver backend, we need to update the metrics exporter.
 // This function is not implicitly thread-safe.
 func isNewExporterRequired(newConfig *metricsConfig) bool {
-	cc := curMetricsConfig
+	cc := getCurMetricsConfig()
 	if cc == nil || newConfig.backendDestination != cc.backendDestination {
 		return true
 	}
 
-	return newConfig.backendDestination == Stackdriver && newConfig.stackdriverProjectID != cc.stackdriverProjectID
+	return newConfig.backendDestination == Stackdriver && newConfig.stackdriverClientConfig != cc.stackdriverClientConfig
 }
 
 // newMetricsExporter gets a metrics exporter based on the config.
 // This function is not implicitly thread-safe.
 func newMetricsExporter(config *metricsConfig, logger *zap.SugaredLogger) (view.Exporter, error) {
-	ce := curMetricsExporter
+	ce := getCurMetricsExporter()
 	// If there is a Prometheus Exporter server running, stop it.
 	resetCurPromSrv()
 
@@ -159,10 +156,6 @@ func getCurMetricsExporter() view.Exporter {
 func setCurMetricsExporter(e view.Exporter) {
 	metricsMux.Lock()
 	defer metricsMux.Unlock()
-	setCurMetricsExporterUnlocked(e)
-}
-
-func setCurMetricsExporterUnlocked(e view.Exporter) {
 	view.RegisterExporter(e)
 	curMetricsExporter = e
 }
@@ -176,10 +169,6 @@ func getCurMetricsConfig() *metricsConfig {
 func setCurMetricsConfig(c *metricsConfig) {
 	metricsMux.Lock()
 	defer metricsMux.Unlock()
-	setCurMetricsConfigUnlocked(c)
-}
-
-func setCurMetricsConfigUnlocked(c *metricsConfig) {
 	if c != nil {
 		view.SetReportingPeriod(c.reportingPeriod)
 	} else {
@@ -194,10 +183,6 @@ func setCurMetricsConfigUnlocked(c *metricsConfig) {
 // Return value indicates whether the exporter is flushable or not.
 func FlushExporter() bool {
 	e := getCurMetricsExporter()
-	return flushExporterUnlocked(e)
-}
-
-func flushExporterUnlocked(e view.Exporter) bool {
 	if e == nil {
 		return false
 	}

@@ -4,7 +4,6 @@
 
 **/zz_generated.*.go linguist-generated=true
 /client/** linguist-generated=true
-/test/** coverage-excluded=true
 /metrics/gcp_metadata.go coverage-excluded=true
 
 *.sh text eol=lf
