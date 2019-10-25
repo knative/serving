@@ -133,8 +133,8 @@ func main() {
 		SecretName:  "webhook-certs",
 
 		// Leave this resource name unprefixed for compatibility with <0.9
-		// This can be changed after 0.10, once the lifecycle of this object
-		// is not managed by OwnerReferences.
+		// TODO(mattmoor): This can be changed after 0.10, once the lifecycle of
+		// this object is not managed by OwnerReferences.
 		ResourceMutatingWebhookName:     "webhook.serving.knative.dev",
 		ResourceAdmissionControllerPath: "/",
 
