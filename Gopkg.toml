@@ -140,7 +140,10 @@ required = [
 
 [[override]]
   name = "contrib.go.opencensus.io/exporter/stackdriver"
-  version = "0.12.2"
+  # Synced from knative/pkg.
+  # The build fails against 0.12.6 and newer because
+  # stackdriver.Options.GetMonitoredResource was removed.
+  version = "<=v0.12.5"
 
 [[override]]
   name = "contrib.go.opencensus.io/exporter/prometheus"

@@ -36,10 +36,12 @@ function update_knative() {
   kubectl apply -f serving/third_party/$istio_version/istio-crds.yaml || abort "Failed to apply istio-crds"
   kubectl apply -f serving/third_party/$istio_version/istio-lean.yaml || abort "Failed to apply istio-lean"
 
-  # Overprovision the Istio gateways.
+  # Overprovision the Istio gateways and pilot.
   kubectl patch hpa -n istio-system istio-ingressgateway \
     --patch '{"spec": {"minReplicas": 10, "maxReplicas": 10}}'
   kubectl patch deploy -n istio-system cluster-local-gateway \
+    --patch '{"spec": {"replicas": 10}}'
+  kubectl patch deploy -n istio-system istio-pilot \
     --patch '{"spec": {"replicas": 10}}'
 
   echo ">> Updating serving"
