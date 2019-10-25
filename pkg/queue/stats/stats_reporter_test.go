@@ -139,6 +139,14 @@ func TestReporterReport(t *testing.T) {
 	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportResponseTime(200, 300*time.Millisecond) })
 	metricstest.CheckDistributionData(t, "request_latencies", wantTags, 3, 100, 300)
 
+	wantTags = map[string]string{
+		metricskey.LabelNamespaceName:     testNs,
+		metricskey.LabelServiceName:       testSvc,
+		metricskey.LabelConfigurationName: testConf,
+		metricskey.LabelRevisionName:      testRev,
+		"pod_name":                        testPod,
+		"container_name":                  "queue-proxy",
+	}
 	expectSuccess(t, "QueueDepth", func() error { return r.ReportQueueDepth(1) })
 	expectSuccess(t, "QueueDepth", func() error { return r.ReportQueueDepth(2) })
 	metricstest.CheckLastValueData(t, "queue_depth", wantTags, 2)

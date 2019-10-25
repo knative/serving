@@ -44,18 +44,17 @@ const (
 	// issueBodyTemplate is a template for issue body
 	issueBodyTemplate = `
 ### Auto-generated issue tracking performance regression
-* **Test name**: %s
-* **Repository name**: %s`
+* **Repository name**: %s
+* **Test name**: %s`
 
 	// issueSummaryCommentTemplate is a template for the summary of an issue
 	issueSummaryCommentTemplate = `
 A new regression for this test has been detected:
 %s`
 
-	// reopenIssueCommentTemplate is a template for the comment of an issue that is reopened
-	reopenIssueCommentTemplate = `
-New regression has been detected, reopening this issue:
-%s`
+	// reopenIssueComment is the comment of an issue when it is reopened
+	reopenIssueComment = `
+New regression has been detected, reopening this issue.`
 
 	// closeIssueComment is the comment of an issue when it is closed
 	closeIssueComment = `
@@ -101,7 +100,7 @@ func (gih *IssueHandler) CreateIssueForTest(testName, desc string) error {
 	}
 	// If the issue hasn't been created, create one
 	if issue == nil {
-		commentBody := fmt.Sprintf(issueBodyTemplate, testName, gih.config.repo)
+		commentBody := fmt.Sprintf(issueBodyTemplate, gih.config.repo, testName)
 		issue, err := gih.createNewIssue(title, commentBody)
 		if err != nil {
 			return fmt.Errorf("failed to create a new issue for test %q: %v", testName, err)
@@ -121,8 +120,7 @@ func (gih *IssueHandler) CreateIssueForTest(testName, desc string) error {
 		if err := gih.reopenIssue(issueNumber); err != nil {
 			return fmt.Errorf("failed to reopen issue %d: %v", issueNumber, err)
 		}
-		commentBody := fmt.Sprintf(reopenIssueCommentTemplate, desc)
-		if err := gih.addComment(issueNumber, commentBody); err != nil {
+		if err := gih.addComment(issueNumber, reopenIssueComment); err != nil {
 			return fmt.Errorf("failed to add comment for reopened issue %d: %v", issueNumber, err)
 		}
 	}
@@ -132,11 +130,11 @@ func (gih *IssueHandler) CreateIssueForTest(testName, desc string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get comments from issue %d: %v", issueNumber, err)
 	}
-	if len(comments) < 2 {
+	if len(comments) < 1 {
 		return fmt.Errorf("existing issue %d is malformed, cannot update", issueNumber)
 	}
 	commentBody := fmt.Sprintf(issueSummaryCommentTemplate, desc)
-	if err := gih.editComment(issueNumber, *comments[1].ID, commentBody); err != nil {
+	if err := gih.editComment(issueNumber, *comments[0].ID, commentBody); err != nil {
 		return fmt.Errorf("failed to edit the comment for issue %d: %v", issueNumber, err)
 	}
 

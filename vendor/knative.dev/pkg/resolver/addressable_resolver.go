@@ -64,14 +64,34 @@ func NewURIResolver(ctx context.Context, callback func(types.NamespacedName)) *U
 
 // URIFromDestination resolves a Destination into a URI string.
 func (r *URIResolver) URIFromDestination(dest apisv1alpha1.Destination, parent interface{}) (string, error) {
+	var deprecatedObjectReference *corev1.ObjectReference
+	if dest.DeprecatedAPIVersion == "" && dest.DeprecatedKind == "" && dest.DeprecatedName == "" && dest.DeprecatedNamespace == "" {
+		deprecatedObjectReference = nil
+	} else {
+		deprecatedObjectReference = &corev1.ObjectReference{
+			Kind:       dest.DeprecatedKind,
+			APIVersion: dest.DeprecatedAPIVersion,
+			Name:       dest.DeprecatedName,
+			Namespace:  dest.DeprecatedNamespace,
+		}
+	}
+	if dest.Ref != nil && deprecatedObjectReference != nil {
+		return "", fmt.Errorf("ref and [apiVersion, kind, name] can't be both present")
+	}
+	var ref *corev1.ObjectReference
 	if dest.Ref != nil {
-		url, err := r.URIFromObjectReference(dest.Ref, parent)
+		ref = dest.Ref
+	} else {
+		ref = deprecatedObjectReference
+	}
+	if ref != nil {
+		url, err := r.URIFromObjectReference(ref, parent)
 		if err != nil {
 			return "", err
 		}
 		if dest.URI != nil {
 			if dest.URI.URL().IsAbs() {
-				return "", fmt.Errorf("absolute URI is not allowed when Ref exists")
+				return "", fmt.Errorf("absolute URI is not allowed when Ref or [apiVersion, kind, name] exists")
 			}
 			return url.URL().ResolveReference(dest.URI.URL()).String(), nil
 		}
@@ -86,7 +106,7 @@ func (r *URIResolver) URIFromDestination(dest apisv1alpha1.Destination, parent i
 		return dest.URI.String(), nil
 	}
 
-	return "", fmt.Errorf("destination missing Ref and URI, expected at least one")
+	return "", fmt.Errorf("destination missing Ref, [apiVersion, kind, name] and URI, expected at least one")
 }
 
 // URIFromObjectReference resolves an ObjectReference to a URI string.

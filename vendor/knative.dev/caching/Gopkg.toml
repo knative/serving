@@ -46,19 +46,10 @@ required = [
   revision = "e7d98fc518a78c9f8b5ee77be7b0b317475d89e1"
 
 [[override]]
-  name = "github.com/census-instrumentation/opencensus-proto"
-  version = "0.1.0"
-
-[[override]]
   name = "contrib.go.opencensus.io/exporter/stackdriver"
-  # HEAD as of 2019-02-11
-  # Needed because this includes a fix to support Stackdriver built-in metrics
-  revision = "c06c82c832edca4eaf7b0241bd655560a1be0346"
-
-[[override]]
-  name = "contrib.go.opencensus.io/resource"
-  # Needed by the stackdriver exporter.
-  revision = "21591786a5e0c21806209b266cc6dfdfa85b3cdb"
+  # The build fails against 0.12.6 and newer because
+  # stackdriver.Options.GetMonitoredResource was removed.
+  version = "<=v0.12.5"
 
 [[override]]
   name = "go.opencensus.io"
