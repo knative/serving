@@ -110,10 +110,10 @@ func parseGateways(configMap *corev1.ConfigMap, prefix string) ([]Gateway, error
 		parts := strings.SplitN(gatewayName, ".", 2)
 		if len(parts) == 1 {
 			namespace = system.Namespace()
-			name      = parts[0]
+			name = parts[0]
 		} else {
 			namespace = parts[0]
-			name      = parts[1]
+			name = parts[1]
 		}
 		gateways[i] = Gateway{
 			Namespace:  namespace,
