@@ -19,7 +19,6 @@ metadata:
   labels:
     serving.knative.dev/release: devel
     knative.dev/crd-install: "true"
-    duck.knative.dev/addressable: "true"
 spec:
   group: serving.knative.dev
   versions:
