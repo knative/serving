@@ -37,7 +37,7 @@ func MakeWildcardCertificate(namespace *corev1.Namespace, dnsName, domain string
 		},
 		Spec: v1alpha1.CertificateSpec{
 			DNSNames:   []string{dnsName},
-			SecretName: namespace.Name,
+			SecretName: names.WildcardCertificate(dnsName),
 		},
 	}
 }
