@@ -127,16 +127,19 @@ func main() {
 	}
 
 	options := webhook.ControllerOptions{
-		ServiceName:                     "webhook",
-		DeploymentName:                  "webhook",
-		Namespace:                       system.Namespace(),
-		Port:                            8443,
-		SecretName:                      "webhook-certs",
-		ResourceMutatingWebhookName:     "resource.webhook.serving.knative.dev",
+		ServiceName: "webhook",
+		Namespace:   system.Namespace(),
+		Port:        8443,
+		SecretName:  "webhook-certs",
+
+		// Leave this resource name unprefixed for compatibility with <0.9
+		// This can be changed after 0.10, once the lifecycle of this object
+		// is not managed by OwnerReferences.
+		ResourceMutatingWebhookName:     "webhook.serving.knative.dev",
 		ResourceAdmissionControllerPath: "/",
-		ConfigValidationWebhookName:     "config.webhook.serving.knative.dev",
-		ConfigValidationControllerPath:  "/config-validation",
-		ConfigValidationNamespaceLabel:  "serving.knative.dev/release",
+
+		ConfigValidationWebhookName:    "config.webhook.serving.knative.dev",
+		ConfigValidationControllerPath: "/config-validation",
 	}
 
 	resourceHandlers := map[schema.GroupVersionKind]webhook.GenericCRD{

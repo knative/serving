@@ -32,7 +32,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 
@@ -40,6 +39,7 @@ import (
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/ptr"
 )
 
 // ResourceCallback defines a signature for resource specific (Route, Configuration, etc.)
@@ -108,7 +108,6 @@ func (ac *ResourceAdmissionController) Admit(ctx context.Context, request *admis
 func (ac *ResourceAdmissionController) Register(ctx context.Context, kubeClient kubernetes.Interface, caCert []byte) error {
 	client := kubeClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
 	logger := logging.FromContext(ctx)
-	failurePolicy := admissionregistrationv1beta1.Fail
 
 	var rules []admissionregistrationv1beta1.RuleWithOperations
 	for gvk := range ac.handlers {
@@ -139,58 +138,39 @@ func (ac *ResourceAdmissionController) Register(ctx context.Context, kubeClient 
 		return lhs.Resources[0] < rhs.Resources[0]
 	})
 
-	webhook := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: ac.options.ResourceMutatingWebhookName,
-		},
-		Webhooks: []admissionregistrationv1beta1.MutatingWebhook{{
-			Name:  ac.options.ResourceMutatingWebhookName,
-			Rules: rules,
-			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-				Service: &admissionregistrationv1beta1.ServiceReference{
-					Namespace: ac.options.Namespace,
-					Name:      ac.options.ServiceName,
-					Path:      &ac.options.ResourceAdmissionControllerPath,
-				},
-				CABundle: caCert,
-			},
-			FailurePolicy: &failurePolicy,
-		}},
+	configuredWebhook, err := client.Get(ac.options.ResourceMutatingWebhookName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("error retrieving webhook: %v", err)
 	}
 
-	// Set the owner to our deployment.
-	deployment, err := kubeClient.AppsV1().Deployments(ac.options.Namespace).Get(ac.options.DeploymentName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to fetch our deployment: %v", err)
-	}
-	deploymentRef := metav1.NewControllerRef(deployment, deploymentKind)
-	webhook.OwnerReferences = append(webhook.OwnerReferences, *deploymentRef)
+	webhook := configuredWebhook.DeepCopy()
 
-	// Try to create the webhook and if it already exists validate webhook rules.
-	_, err = client.Create(webhook)
-	if err != nil {
-		if !apierrors.IsAlreadyExists(err) {
-			return fmt.Errorf("failed to create a webhook: %v", err)
+	// Clear out any previous (bad) OwnerReferences.
+	// See: https://github.com/knative/serving/issues/5845
+	webhook.OwnerReferences = nil
+
+	for i, wh := range webhook.Webhooks {
+		if wh.Name != webhook.Name {
+			continue
 		}
-		logger.Info("Webhook already exists")
-		configuredWebhook, err := client.Get(ac.options.ResourceMutatingWebhookName, metav1.GetOptions{})
-		if err != nil {
-			return fmt.Errorf("error retrieving webhook: %v", err)
+		webhook.Webhooks[i].Rules = rules
+		webhook.Webhooks[i].ClientConfig.CABundle = caCert
+		if webhook.Webhooks[i].ClientConfig.Service == nil {
+			return fmt.Errorf("missing service reference for webhook: %s", wh.Name)
 		}
-		if ok, err := kmp.SafeEqual(configuredWebhook.Webhooks, webhook.Webhooks); err != nil {
-			return fmt.Errorf("error diffing webhooks: %v", err)
-		} else if !ok {
-			logger.Info("Updating webhook")
-			// Set the ResourceVersion as required by update.
-			webhook.ObjectMeta.ResourceVersion = configuredWebhook.ObjectMeta.ResourceVersion
-			if _, err := client.Update(webhook); err != nil {
-				return fmt.Errorf("failed to update webhook: %s", err)
-			}
-		} else {
-			logger.Info("Webhook is already valid")
+		webhook.Webhooks[i].ClientConfig.Service.Path = ptr.String(
+			ac.options.ResourceAdmissionControllerPath)
+	}
+
+	if ok, err := kmp.SafeEqual(configuredWebhook, webhook); err != nil {
+		return fmt.Errorf("error diffing webhooks: %v", err)
+	} else if !ok {
+		logger.Info("Updating webhook")
+		if _, err := client.Update(webhook); err != nil {
+			return fmt.Errorf("failed to update webhook: %v", err)
 		}
 	} else {
-		logger.Info("Created a webhook")
+		logger.Info("Webhook is valid")
 	}
 	return nil
 }

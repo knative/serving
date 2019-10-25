@@ -27,12 +27,11 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-
+	"golang.org/x/sync/errgroup"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,7 +45,6 @@ const (
 )
 
 var (
-	deploymentKind      = appsv1.SchemeGroupVersion.WithKind("Deployment")
 	errMissingNewObject = errors.New("the new object may not be nil")
 )
 
@@ -62,9 +60,6 @@ type ControllerOptions struct {
 
 	// ServiceName is the service name of the webhook.
 	ServiceName string
-
-	// DeploymentName is the service name of the webhook.
-	DeploymentName string
 
 	// SecretName is the name of k8s secret that contains the webhook
 	// server key/cert and corresponding CA cert that signed them. The
@@ -103,9 +98,6 @@ type ControllerOptions struct {
 	// Service path for ConfigValidationController webhook
 	// Default is "/config-validation" and is set by the constructor
 	ConfigValidationControllerPath string
-
-	// NamespaceLabel is the label for the Namespace we bind ConfigValidationController to
-	ConfigValidationNamespaceLabel string
 }
 
 // AdmissionController provides the interface for different admission controllers
@@ -172,32 +164,43 @@ func (ac *Webhook) Run(stop <-chan struct{}) error {
 		logger.Infof("Delaying admission webhook registration for %v", ac.Options.RegistrationDelay)
 	}
 
-	select {
-	case <-time.After(ac.Options.RegistrationDelay):
-		for _, c := range ac.admissionControllers {
-			if err := c.Register(ctx, ac.Client, caCert); err != nil {
-				logger.Errorw("failed to register webhook", zap.Error(err))
-				return err
+	eg, ctx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		select {
+		case <-time.After(ac.Options.RegistrationDelay):
+			// Wait an initial delay before registering
+		case <-stop:
+			return nil
+		}
+		// Register the webhook, and then periodically check that it is up to date.
+		for {
+			for _, c := range ac.admissionControllers {
+				if err := c.Register(ctx, ac.Client, caCert); err != nil {
+					logger.Errorw("failed to register webhook", zap.Error(err))
+					return err
+				}
+			}
+			logger.Info("Successfully registered webhook")
+			select {
+			case <-time.After(10 * time.Minute):
+			case <-stop:
+				return nil
 			}
 		}
-		logger.Info("Successfully registered webhook")
-	case <-stop:
-		return nil
-	}
-
-	serverBootstrapErrCh := make(chan struct{})
-	go func() {
+	})
+	eg.Go(func() error {
 		if err := server.ListenAndServeTLS("", ""); err != nil {
 			logger.Errorw("ListenAndServeTLS for admission webhook returned error", zap.Error(err))
-			close(serverBootstrapErrCh)
+			return err
 		}
-	}()
+		return nil
+	})
 
 	select {
 	case <-stop:
 		return server.Close()
-	case <-serverBootstrapErrCh:
-		return errors.New("webhook server bootstrap failed")
+	case <-ctx.Done():
+		return fmt.Errorf("webhook server bootstrap failed %v", err)
 	}
 }
 
