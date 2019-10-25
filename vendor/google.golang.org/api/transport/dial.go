@@ -18,9 +18,9 @@
 package transport
 
 import (
+	"context"
 	"net/http"
 
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
 	"google.golang.org/api/option"

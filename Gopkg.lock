@@ -29,15 +29,15 @@
   version = "v0.1.0"
 
 [[projects]]
-  digest = "1:83bd9ccdcc61bb43f45e4336cf9622849b5a867ef137f8b53303968202970225"
+  digest = "1:c1e8c027918e8a7cf79327f35ca2919cb997ecaa928116e3c2b470d06d0e9c12"
   name = "contrib.go.opencensus.io/exporter/stackdriver"
   packages = [
     ".",
     "monitoredresource",
   ]
   pruneopts = "NUT"
-  revision = "68e3d742b03c099c35428443886e65d9587c8d76"
-  version = "v0.12.2"
+  revision = "bf39ce456bd8c6e2e3e37ef9775ed8b10628feca"
+  version = "v0.12.5"
 
 [[projects]]
   digest = "1:7b5f423f5b0dd3dfa32a19a6183b0ab9129bff371ebf3f9efae32f87e4986d8f"
@@ -970,10 +970,10 @@
   revision = "fbec762f837dc349b73d1eaa820552e2ad177942"
 
 [[projects]]
-  branch = "master"
-  digest = "1:9c89a3b7383528050da687b4cf2947d8cdd2d20b1bc13d833dc4ed6a402a8f1c"
+  digest = "1:9b6bd736194f2098dcb562bdb2aaf64f6c3669a26da43365d4ecab0db5f3bd4b"
   name = "google.golang.org/api"
   packages = [
+    "container/v1beta1",
     "gensupport",
     "googleapi",
     "googleapi/internal/uritemplates",
@@ -989,7 +989,7 @@
     "transport/http/internal/propagation",
   ]
   pruneopts = "NUT"
-  revision = "511bab8e55decfbe784cd2d1868fa5cda62dc6c1"
+  revision = "874d9dc5b186e361475b082852f136f094555c30"
 
 [[projects]]
   digest = "1:b400989fa9ecf8f825e9092d41c9779444afeda5d5ce7f5c9d4a9ca9d05c949c"
@@ -1760,6 +1760,7 @@
     "system/testing",
     "test",
     "test/ghutil",
+    "test/gke",
     "test/helpers",
     "test/ingress",
     "test/logging",
@@ -1780,6 +1781,8 @@
     "test/webhook-apicoverage/view",
     "test/webhook-apicoverage/webhook",
     "test/zipkin",
+    "testutils/clustermanager/perf-tests",
+    "testutils/clustermanager/perf-tests/pkg",
     "tracing",
     "tracing/config",
     "tracing/testing",
@@ -1793,7 +1796,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:d28d79aced79fe257a5d8b9d4d7cf33a4204f0e4ba9076657cc274f61fcd9fa1"
+  digest = "1:5f4b9128088a9ee17e8a3cb6703fce7501526e1fe6ace34ffbfb479e3ca5db10"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1806,7 +1809,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "11b4f85e9c2714c45dda40abc5279b63f706f039"
+  revision = "385c6ecc17489d72a2e0927d4552bcdc1f0d08e0"
 
 [[projects]]
   digest = "1:fef5992ddf85e9ccad899b11338339858936a10fbce96b9d5c43767669d95398"
@@ -2013,6 +2016,7 @@
     "knative.dev/pkg/test/webhook-apicoverage/tools",
     "knative.dev/pkg/test/webhook-apicoverage/view",
     "knative.dev/pkg/test/webhook-apicoverage/webhook",
+    "knative.dev/pkg/testutils/clustermanager/perf-tests",
     "knative.dev/pkg/tracing",
     "knative.dev/pkg/tracing/config",
     "knative.dev/pkg/tracing/testing",
