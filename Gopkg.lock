@@ -29,15 +29,15 @@
   version = "v0.1.0"
 
 [[projects]]
-  digest = "1:83bd9ccdcc61bb43f45e4336cf9622849b5a867ef137f8b53303968202970225"
+  digest = "1:495a073ad61550c5a1a3688a7b509a2749e79b3302a44165762352fa281b040c"
   name = "contrib.go.opencensus.io/exporter/stackdriver"
   packages = [
     ".",
     "monitoredresource",
   ]
   pruneopts = "NUT"
-  revision = "68e3d742b03c099c35428443886e65d9587c8d76"
-  version = "v0.12.2"
+  revision = "2fdcf7b4087e713a439fe7a489b3c316deaa97f2"
+  version = "v0.12.7"
 
 [[projects]]
   digest = "1:7b5f423f5b0dd3dfa32a19a6183b0ab9129bff371ebf3f9efae32f87e4986d8f"
@@ -466,9 +466,12 @@
   version = "v1.1.1"
 
 [[projects]]
-  digest = "1:fb9f5147a9d6fc69057d05b0739bcd79562c55db143c3bdacfe1c9c6129461f6"
+  digest = "1:5cfcdb1646a889af81a01e9a83c7ccbb45e9b14c314eaf17552459d2b797e557"
   name = "github.com/googleapis/gax-go"
-  packages = ["."]
+  packages = [
+    ".",
+    "v2",
+  ]
   pruneopts = "NUT"
   revision = "b001040cd31805261cbd978842099e326dfa857b"
   version = "v2.0.2"
@@ -970,16 +973,15 @@
   revision = "fbec762f837dc349b73d1eaa820552e2ad177942"
 
 [[projects]]
-  branch = "master"
-  digest = "1:dd48aadbd85921a2f5456ee9ae2b13c2723ed6fcd9b482543aa1cf6468a4cf9a"
+  digest = "1:0e1406870044a5ffbea16e24469c773828608b40abf8b25cec7c6d109ec8c9e9"
   name = "google.golang.org/api"
   packages = [
     "container/v1beta1",
-    "gensupport",
     "googleapi",
     "googleapi/internal/uritemplates",
     "googleapi/transport",
     "internal",
+    "internal/gensupport",
     "iterator",
     "option",
     "storage/v1",
@@ -990,7 +992,8 @@
     "transport/http/internal/propagation",
   ]
   pruneopts = "NUT"
-  revision = "511bab8e55decfbe784cd2d1868fa5cda62dc6c1"
+  revision = "d7605a20bfcb4659ee2ea347b1f8f5be12b8a5b7"
+  version = "v0.11.0"
 
 [[projects]]
   digest = "1:b400989fa9ecf8f825e9092d41c9779444afeda5d5ce7f5c9d4a9ca9d05c949c"
@@ -1035,16 +1038,26 @@
   revision = "357c62f0e4bbba7e6cc403ae09edcf3e2b9028fe"
 
 [[projects]]
-  digest = "1:880e55ae18feac97650ae82ea1b8b27fae7d56f3658ada050e657d877f2f31d7"
+  digest = "1:a5d803fec25783407fff856e63c7b6fb71d94268e06eca91b514b1e3da33e342"
   name = "google.golang.org/grpc"
   packages = [
     ".",
     "balancer",
     "balancer/base",
+    "balancer/grpclb",
+    "balancer/grpclb/grpc_lb_v1",
     "balancer/roundrobin",
     "codes",
     "connectivity",
     "credentials",
+    "credentials/alts",
+    "credentials/alts/internal",
+    "credentials/alts/internal/authinfo",
+    "credentials/alts/internal/conn",
+    "credentials/alts/internal/handshaker",
+    "credentials/alts/internal/handshaker/service",
+    "credentials/alts/internal/proto/grpc_gcp",
+    "credentials/google",
     "credentials/oauth",
     "encoding",
     "encoding/proto",
