@@ -185,22 +185,10 @@ func (rt *revisionThrottler) try(ctx context.Context, function func(string) erro
 	var ret error
 
 	if err := rt.breaker.Maybe(ctx, func() {
-		// See if we can get by with only a readlock
-		dest, err := rt.checkClusterIPDest()
-		if err != nil {
-			ret = err
-			return
-		}
-
-		if dest != "" {
-			ret = function(dest)
-			return
-		}
-
-		// Try again with a write lock falling back to a podIP dest
 		dest, completionCb := rt.acquireDest()
 		if dest == "" {
-			ret = errors.New("no podIP destination found, this should never happen")
+			ret = errors.New("made it through breaker but we have no clusterIP or podIPs. This should" +
+				" never happen" + rt.revID.String())
 			return
 		}
 
