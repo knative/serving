@@ -54,7 +54,7 @@ func CheckStatsNotReported(t *testing.T, names ...string) {
 // reported are tagged with the tags in wantTags and that wantValue matches reported count.
 func CheckCountData(t *testing.T, name string, wantTags map[string]string, wantValue int64) {
 	t.Helper()
-	if row := checkExactlyOneRow(t, name, wantTags); row != nil {
+	if row := checkExactlyOneRow(t, name); row != nil {
 		checkRowTags(t, row, name, wantTags)
 
 		if s, ok := row.Data.(*view.CountData); !ok {
@@ -70,7 +70,7 @@ func CheckCountData(t *testing.T, name string, wantTags map[string]string, wantV
 // It also checks that expectedMin and expectedMax match the minimum and maximum reported values, respectively.
 func CheckDistributionData(t *testing.T, name string, wantTags map[string]string, expectedCount int64, expectedMin float64, expectedMax float64) {
 	t.Helper()
-	if row := checkExactlyOneRow(t, name, wantTags); row != nil {
+	if row := checkExactlyOneRow(t, name); row != nil {
 		checkRowTags(t, row, name, wantTags)
 
 		if s, ok := row.Data.(*view.DistributionData); !ok {
@@ -93,7 +93,7 @@ func CheckDistributionData(t *testing.T, name string, wantTags map[string]string
 // reported are tagged with the tags in wantTags and that wantValue matches reported last value.
 func CheckLastValueData(t *testing.T, name string, wantTags map[string]string, wantValue float64) {
 	t.Helper()
-	if row := checkExactlyOneRow(t, name, wantTags); row != nil {
+	if row := checkExactlyOneRow(t, name); row != nil {
 		checkRowTags(t, row, name, wantTags)
 
 		if s, ok := row.Data.(*view.LastValueData); !ok {
@@ -108,7 +108,7 @@ func CheckLastValueData(t *testing.T, name string, wantTags map[string]string, w
 // reported are tagged with the tags in wantTags and that wantValue matches the reported sum.
 func CheckSumData(t *testing.T, name string, wantTags map[string]string, wantValue float64) {
 	t.Helper()
-	if row := checkExactlyOneRow(t, name, wantTags); row != nil {
+	if row := checkExactlyOneRow(t, name); row != nil {
 		checkRowTags(t, row, name, wantTags)
 
 		if s, ok := row.Data.(*view.SumData); !ok {
@@ -134,7 +134,7 @@ func Unregister(names ...string) {
 	}
 }
 
-func checkExactlyOneRow(t *testing.T, name string, wantTags map[string]string) *view.Row {
+func checkExactlyOneRow(t *testing.T, name string) *view.Row {
 	t.Helper()
 	d, err := view.RetrieveData(name)
 	if err != nil {
@@ -150,6 +150,9 @@ func checkExactlyOneRow(t *testing.T, name string, wantTags map[string]string) *
 
 func checkRowTags(t *testing.T, row *view.Row, name string, wantTags map[string]string) {
 	t.Helper()
+	if wantlen, gotlen := len(wantTags), len(row.Tags); gotlen != wantlen {
+		t.Errorf("For metric %s: Reporter got %v tags while want %v", name, gotlen, wantlen)
+	}
 	for _, got := range row.Tags {
 		n := got.Key.Name()
 		if want, ok := wantTags[n]; !ok {

@@ -1646,7 +1646,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:7e6c1809d019ec49d8a0d68e4aaac4035390b43aa4d5788815e32d03af89e253"
+  digest = "1:34d8e074ca1f11d2a60581f8590cdb534a5e77ac206be4cbfee73d1d60501f5b"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1669,11 +1669,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "22a9e5ee163f11dad7bf4186259353557a0670a7"
+  revision = "9075f22c2a386fae8ea3ab913ddfd6423c299203"
 
 [[projects]]
   branch = "master"
-  digest = "1:81b8fd15ad0e4a40172068f2e207d21c66fdce6f0d5fb37f340def04a5069382"
+  digest = "1:70af147aaa464fa6248d55e038e1db0d7c70ff6a7a2226c33b5f0d6bf820193b"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1789,7 +1789,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "4befa47ec54be729c2ffd610513155892581b088"
+  revision = "f684a1078ac309f4b32e6240d9b622bea092296e"
 
 [[projects]]
   branch = "master"
