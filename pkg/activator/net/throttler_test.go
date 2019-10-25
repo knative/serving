@@ -147,15 +147,15 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 
 	// 3 pods, index 0.
 	rt.podIPTrackers = makeTrackers(3)
-	rt.updateCapacity(throttler, 2)
-	if got, want := rt.breaker.Capacity(), 15; got != want {
+	rt.updateCapacity(throttler, -1 /* doesn't matter here*/)
+	if got, want := rt.breaker.Capacity(), 20; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
 	// 3 pods, index 1.
 	throttler.activatorIndex = 1
-	rt.updateCapacity(throttler, 1)
-	if got, want := rt.breaker.Capacity(), 15; got != want {
+	rt.updateCapacity(throttler, -1 /* doesn't matter here*/)
+	if got, want := rt.breaker.Capacity(), 10; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
@@ -232,7 +232,6 @@ func TestThrottlerWithError(t *testing.T) {
 			}
 
 			endpoints := fakeendpointsinformer.Get(ctx)
-
 			servfake := fakeservingclient.Get(ctx)
 			revisions := fakerevisioninformer.Get(ctx)
 			waitInformers, err := controller.RunInformers(ctx.Done(), endpoints.Informer(), revisions.Informer())
@@ -629,9 +628,8 @@ func TestPickP2C(t *testing.T) {
 		l: "single",
 		tgts: []*podIPTracker{
 			{
-				dest:     "good-place",
-				requests: 1,
-				weight:   1,
+				"good-place",
+				1,
 			},
 		},
 		wantRE: "good-place",
@@ -639,14 +637,12 @@ func TestPickP2C(t *testing.T) {
 		l: "two",
 		tgts: []*podIPTracker{
 			{
-				dest:     "bad-place",
-				requests: 11,
-				weight:   1,
+				"bad-place",
+				11,
 			},
 			{
-				dest:     "good-place",
-				requests: 1,
-				weight:   1,
+				"good-place",
+				1,
 			},
 		},
 		wantRE: "good-place",
@@ -654,19 +650,16 @@ func TestPickP2C(t *testing.T) {
 		l: "three",
 		tgts: []*podIPTracker{
 			{
-				dest:     "bad",
-				requests: 7,
-				weight:   1,
+				"bad",
+				7,
 			},
 			{
-				dest:     "neutral",
-				requests: 5,
-				weight:   1,
+				"neutral",
+				5,
 			},
 			{
-				dest:     "good",
-				requests: 1,
-				weight:   1,
+				"good",
+				1,
 			},
 		},
 		wantRE: "good|neutral",
@@ -690,14 +683,12 @@ func TestPickP2C(t *testing.T) {
 	t.Run("multiple", func(t *testing.T) {
 		tgts := []*podIPTracker{
 			{
-				dest:     "bad-place",
-				requests: 3,
-				weight:   1,
+				"bad-place",
+				3,
 			},
 			{
-				dest:     "good-place",
-				requests: 1,
-				weight:   1,
+				"good-place",
+				1,
 			},
 		}
 		cbs := make([]func(), 0, 4)
@@ -726,35 +717,32 @@ func TestPickP2C(t *testing.T) {
 
 func TestPickIndices(t *testing.T) {
 	tests := []struct {
-		l                      string
-		pods                   int
-		acts                   int
-		idx                    int
-		wantB, wantE, wantTail int
+		l            string
+		pods         int
+		acts         int
+		idx          int
+		wantB, wantE int
 	}{{
-		l:        "1 pod, 1 activator",
-		pods:     1,
-		acts:     1,
-		idx:      0,
-		wantB:    0,
-		wantE:    1,
-		wantTail: 0,
+		l:     "1 pod, 1 activator",
+		pods:  1,
+		acts:  1,
+		idx:   0,
+		wantB: 0,
+		wantE: 1,
 	}, {
-		l:        "1 pod, 2 activators, this is 0",
-		pods:     1,
-		acts:     2,
-		idx:      0,
-		wantB:    0,
-		wantE:    1,
-		wantTail: 0,
+		l:     "1 pod, 2 activators, this is 0",
+		pods:  1,
+		acts:  2,
+		idx:   0,
+		wantB: 0,
+		wantE: 1,
 	}, {
-		l:        "1 pod, 2 activators, this is 1",
-		pods:     1,
-		acts:     2,
-		idx:      1,
-		wantB:    0,
-		wantE:    1,
-		wantTail: 0,
+		l:     "1 pod, 2 activators, this is 1",
+		pods:  1,
+		acts:  2,
+		idx:   1,
+		wantB: 0,
+		wantE: 1,
 	}, {
 		l:     "2 pods, 3 activators, this is 1",
 		pods:  2,
@@ -763,89 +751,70 @@ func TestPickIndices(t *testing.T) {
 		wantB: 1,
 		wantE: 2,
 	}, {
-		l:        "2 pods, 3 activators, this is 2",
-		pods:     2,
-		acts:     3,
-		idx:      2,
-		wantB:    0,
-		wantE:    1,
-		wantTail: 0,
+		l:     "2 pods, 3 activators, this is 2",
+		pods:  2,
+		acts:  3,
+		idx:   2,
+		wantB: 0,
+		wantE: 1,
 	}, {
-		l:        "3 pods, 3 activators, this is 2",
-		pods:     3,
-		acts:     3,
-		idx:      2,
-		wantB:    2,
-		wantE:    3,
-		wantTail: 0,
+		l:     "3 pods, 3 activators, this is 2",
+		pods:  3,
+		acts:  3,
+		idx:   2,
+		wantB: 2,
+		wantE: 3,
 	}, {
-		l:        "10 pods, 3 activators this is 0",
-		pods:     10,
-		acts:     3,
-		idx:      0,
-		wantB:    0,
-		wantE:    3,
-		wantTail: 1,
+		l:     "10 pods, 3 activators this is 0",
+		pods:  10,
+		acts:  3,
+		idx:   0,
+		wantB: 0,
+		wantE: 4,
 	}, {
-		l:        "10 pods, 3 activators this is 1",
-		pods:     10,
-		acts:     3,
-		idx:      1,
-		wantB:    3,
-		wantE:    6,
-		wantTail: 1,
+		l:     "10 pods, 3 activators this is 1",
+		pods:  10,
+		acts:  3,
+		idx:   1,
+		wantB: 4,
+		wantE: 7,
 	}, {
-		l:        "10 pods, 3 activators this is 2",
-		pods:     10,
-		acts:     3,
-		idx:      2,
-		wantB:    6,
-		wantE:    9,
-		wantTail: 1,
+		l:     "10 pods, 3 activators this is 2",
+		pods:  10,
+		acts:  3,
+		idx:   2,
+		wantB: 7,
+		wantE: 10,
 	}, {
-		l:        "150 pods, 5 activators this is 0",
-		pods:     150,
-		acts:     5,
-		idx:      0,
-		wantB:    0,
-		wantE:    30,
-		wantTail: 0,
+		l:     "150 pods, 5 activators this is 0",
+		pods:  150,
+		acts:  5,
+		idx:   0,
+		wantB: 0,
+		wantE: 30,
 	}, {
-		l:        "150 pods, 5 activators this is 1",
-		pods:     150,
-		acts:     5,
-		idx:      1,
-		wantB:    30,
-		wantE:    60,
-		wantTail: 0,
+		l:     "150 pods, 5 activators this is 1",
+		pods:  150,
+		acts:  5,
+		idx:   1,
+		wantB: 30,
+		wantE: 60,
 	}, {
-		l:        "150 pods, 3 activators this is 4",
-		pods:     150,
-		acts:     5,
-		idx:      4,
-		wantB:    120,
-		wantE:    150,
-		wantTail: 0,
-	}, {
-		l:        "16 pods, 7 activators, this is activator 5",
-		pods:     16,
-		acts:     7,
-		idx:      5,
-		wantB:    10,
-		wantE:    12,
-		wantTail: 2,
+		l:     "10 pods, 3 activators this is 4",
+		pods:  150,
+		acts:  5,
+		idx:   4,
+		wantB: 120,
+		wantE: 150,
 	}}
 	for _, test := range tests {
 		t.Run(test.l, func(tt *testing.T) {
-			bi, ei, tail := pickIndices(test.pods, test.idx, test.acts)
+			bi, ei := pickIndices(test.pods, test.idx, test.acts)
 			if got, want := bi, test.wantB; got != want {
 				t.Errorf("BeginIndex = %d, want: %d", got, want)
 			}
 			if got, want := ei, test.wantE; got != want {
 				t.Errorf("EndIndex = %d, want: %d", got, want)
-			}
-			if got, want := tail, test.wantTail; got != want {
-				t.Errorf("Tail = %d, want: %d", got, want)
 			}
 		})
 	}
