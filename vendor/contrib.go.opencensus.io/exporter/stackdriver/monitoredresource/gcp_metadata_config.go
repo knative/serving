@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"cloud.google.com/go/compute/metadata"
-	container "cloud.google.com/go/container/apiv1"
+	"cloud.google.com/go/container/apiv1"
 	containerpb "google.golang.org/genproto/googleapis/container/v1"
 )
 

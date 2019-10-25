@@ -20,19 +20,18 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	opencensus "go.opencensus.io"
+	"go.opencensus.io"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	"go.opencensus.io/trace"
 
-	monitoring "cloud.google.com/go/monitoring/apiv3"
+	"cloud.google.com/go/monitoring/apiv3"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"go.opencensus.io/metric/metricdata"
 	"go.opencensus.io/metric/metricexport"
@@ -41,7 +40,6 @@ import (
 	distributionpb "google.golang.org/genproto/googleapis/api/distribution"
 	labelpb "google.golang.org/genproto/googleapis/api/label"
 	"google.golang.org/genproto/googleapis/api/metric"
-	googlemetricpb "google.golang.org/genproto/googleapis/api/metric"
 	metricpb "google.golang.org/genproto/googleapis/api/metric"
 	monitoredrespb "google.golang.org/genproto/googleapis/api/monitoredres"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
@@ -61,17 +59,18 @@ var userAgent = fmt.Sprintf("opencensus-go %s; stackdriver-exporter %s", opencen
 type statsExporter struct {
 	o Options
 
-	viewDataBundler *bundler.Bundler
-	metricsBundler  *bundler.Bundler
+	viewDataBundler     *bundler.Bundler
+	protoMetricsBundler *bundler.Bundler
+	metricsBundler      *bundler.Bundler
 
 	createdViewsMu sync.Mutex
 	createdViews   map[string]*metricpb.MetricDescriptor // Views already created remotely
 
 	protoMu                sync.Mutex
-	protoMetricDescriptors map[string]bool // Saves the metric descriptors that were already created remotely
+	protoMetricDescriptors map[string]*metricpb.MetricDescriptor // Saves the metric descriptors that were already created remotely
 
 	metricMu          sync.Mutex
-	metricDescriptors map[string]bool // Saves the metric descriptors that were already created remotely
+	metricDescriptors map[string]*metricpb.MetricDescriptor // Saves the metric descriptors that were already created remotely
 
 	c             *monitoring.MetricClient
 	defaultLabels map[string]labelValue
@@ -105,28 +104,25 @@ func newStatsExporter(o Options) (*statsExporter, error) {
 		c:                      client,
 		o:                      o,
 		createdViews:           make(map[string]*metricpb.MetricDescriptor),
-		protoMetricDescriptors: make(map[string]bool),
-		metricDescriptors:      make(map[string]bool),
+		protoMetricDescriptors: make(map[string]*metricpb.MetricDescriptor),
+		metricDescriptors:      make(map[string]*metricpb.MetricDescriptor),
 	}
 
-	var defaultLablesNotSanitized map[string]labelValue
 	if o.DefaultMonitoringLabels != nil {
-		defaultLablesNotSanitized = o.DefaultMonitoringLabels.m
+		e.defaultLabels = o.DefaultMonitoringLabels.m
 	} else {
-		defaultLablesNotSanitized = map[string]labelValue{
+		e.defaultLabels = map[string]labelValue{
 			opencensusTaskKey: {val: getTaskValue(), desc: opencensusTaskDescription},
 		}
-	}
-
-	e.defaultLabels = make(map[string]labelValue)
-	// Fill in the defaults firstly, irrespective of if the labelKeys and labelValues are mismatched.
-	for key, label := range defaultLablesNotSanitized {
-		e.defaultLabels[sanitize(key)] = label
 	}
 
 	e.viewDataBundler = bundler.NewBundler((*view.Data)(nil), func(bundle interface{}) {
 		vds := bundle.([]*view.Data)
 		e.handleUpload(vds...)
+	})
+	e.protoMetricsBundler = bundler.NewBundler((*metricProtoPayload)(nil), func(bundle interface{}) {
+		payloads := bundle.([]*metricProtoPayload)
+		e.handleMetricsProtoUpload(payloads)
 	})
 	e.metricsBundler = bundler.NewBundler((*metricdata.Metric)(nil), func(bundle interface{}) {
 		metrics := bundle.([]*metricdata.Metric)
@@ -134,10 +130,12 @@ func newStatsExporter(o Options) (*statsExporter, error) {
 	})
 	if delayThreshold := e.o.BundleDelayThreshold; delayThreshold > 0 {
 		e.viewDataBundler.DelayThreshold = delayThreshold
+		e.protoMetricsBundler.DelayThreshold = delayThreshold
 		e.metricsBundler.DelayThreshold = delayThreshold
 	}
 	if countThreshold := e.o.BundleCountThreshold; countThreshold > 0 {
 		e.viewDataBundler.BundleCountThreshold = countThreshold
+		e.protoMetricsBundler.BundleCountThreshold = countThreshold
 		e.metricsBundler.BundleCountThreshold = countThreshold
 	}
 	return e, nil
@@ -145,7 +143,7 @@ func newStatsExporter(o Options) (*statsExporter, error) {
 
 func (e *statsExporter) startMetricsReader() error {
 	e.initReaderOnce.Do(func() {
-		e.ir, _ = metricexport.NewIntervalReader(metricexport.NewReader(), e)
+		e.ir, _ = metricexport.NewIntervalReader(&metricexport.Reader{}, e)
 	})
 	e.ir.ReportingInterval = e.o.ReportingInterval
 	return e.ir.Start()
@@ -158,6 +156,10 @@ func (e *statsExporter) stopMetricsReader() {
 }
 
 func (e *statsExporter) getMonitoredResource(v *view.View, tags []tag.Tag) ([]tag.Tag, *monitoredrespb.MonitoredResource) {
+	if get := e.o.GetMonitoredResource; get != nil {
+		newTags, mr := get(v, tags)
+		return newTags, convertMonitoredResourceToPB(mr)
+	}
 	resource := e.o.Resource
 	if resource == nil {
 		resource = &monitoredrespb.MonitoredResource{
@@ -208,11 +210,12 @@ func (e *statsExporter) handleUpload(vds ...*view.Data) {
 // want to lose data that hasn't yet been exported.
 func (e *statsExporter) Flush() {
 	e.viewDataBundler.Flush()
+	e.protoMetricsBundler.Flush()
 	e.metricsBundler.Flush()
 }
 
 func (e *statsExporter) uploadStats(vds []*view.Data) error {
-	ctx, cancel := newContextWithTimeout(e.o.Context, e.o.Timeout)
+	ctx, cancel := e.o.newContextWithTimeout()
 	defer cancel()
 	ctx, span := trace.StartSpan(
 		ctx,
@@ -331,6 +334,19 @@ func (e *statsExporter) viewToMetricDescriptor(ctx context.Context, v *view.View
 	return res, nil
 }
 
+func (e *statsExporter) viewToCreateMetricDescriptorRequest(ctx context.Context, v *view.View) (*monitoringpb.CreateMetricDescriptorRequest, error) {
+	inMD, err := e.viewToMetricDescriptor(ctx, v)
+	if err != nil {
+		return nil, err
+	}
+
+	cmrdesc := &monitoringpb.CreateMetricDescriptorRequest{
+		Name:             fmt.Sprintf("projects/%s", e.o.ProjectID),
+		MetricDescriptor: inMD,
+	}
+	return cmrdesc, nil
+}
+
 // createMeasure creates a MetricDescriptor for the given view data in Stackdriver Monitoring.
 // An error will be returned if there is already a metric descriptor created with the same name
 // but it has a different aggregation or keys.
@@ -381,81 +397,6 @@ func (e *statsExporter) displayName(suffix string) string {
 		displayNamePrefix = e.o.MetricPrefix
 	}
 	return path.Join(displayNamePrefix, suffix)
-}
-
-func (e *statsExporter) combineTimeSeriesToCreateTimeSeriesRequest(ts []*monitoringpb.TimeSeries) (ctsreql []*monitoringpb.CreateTimeSeriesRequest) {
-	if len(ts) == 0 {
-		return nil
-	}
-
-	// Since there are scenarios in which Metrics with the same Type
-	// can be bunched in the same TimeSeries, we have to ensure that
-	// we create a unique CreateTimeSeriesRequest with entirely unique Metrics
-	// per TimeSeries, lest we'll encounter:
-	//
-	//      err: rpc error: code = InvalidArgument desc = One or more TimeSeries could not be written:
-	//      Field timeSeries[2] had an invalid value: Duplicate TimeSeries encountered.
-	//      Only one point can be written per TimeSeries per request.: timeSeries[2]
-	//
-	// This scenario happens when we are using the OpenCensus Agent in which multiple metrics
-	// are streamed by various client applications.
-	// See https://github.com/census-ecosystem/opencensus-go-exporter-stackdriver/issues/73
-	uniqueTimeSeries := make([]*monitoringpb.TimeSeries, 0, len(ts))
-	nonUniqueTimeSeries := make([]*monitoringpb.TimeSeries, 0, len(ts))
-	seenMetrics := make(map[string]struct{})
-
-	for _, tti := range ts {
-		key := metricSignature(tti.Metric)
-		if _, alreadySeen := seenMetrics[key]; !alreadySeen {
-			uniqueTimeSeries = append(uniqueTimeSeries, tti)
-			seenMetrics[key] = struct{}{}
-		} else {
-			nonUniqueTimeSeries = append(nonUniqueTimeSeries, tti)
-		}
-	}
-
-	// UniqueTimeSeries can be bunched up together
-	// While for each nonUniqueTimeSeries, we have
-	// to make a unique CreateTimeSeriesRequest.
-	ctsreql = append(ctsreql, &monitoringpb.CreateTimeSeriesRequest{
-		Name:       fmt.Sprintf("projects/%s", e.o.ProjectID),
-		TimeSeries: uniqueTimeSeries,
-	})
-
-	// Now recursively also combine the non-unique TimeSeries
-	// that were singly added to nonUniqueTimeSeries.
-	// The reason is that we need optimal combinations
-	// for optimal combinations because:
-	// * "a/b/c"
-	// * "a/b/c"
-	// * "x/y/z"
-	// * "a/b/c"
-	// * "x/y/z"
-	// * "p/y/z"
-	// * "d/y/z"
-	//
-	// should produce:
-	//      CreateTimeSeries(uniqueTimeSeries)    :: ["a/b/c", "x/y/z", "p/y/z", "d/y/z"]
-	//      CreateTimeSeries(nonUniqueTimeSeries) :: ["a/b/c"]
-	//      CreateTimeSeries(nonUniqueTimeSeries) :: ["a/b/c", "x/y/z"]
-	nonUniqueRequests := e.combineTimeSeriesToCreateTimeSeriesRequest(nonUniqueTimeSeries)
-	ctsreql = append(ctsreql, nonUniqueRequests...)
-
-	return ctsreql
-}
-
-// metricSignature creates a unique signature consisting of a
-// metric's type and its lexicographically sorted label values
-// See https://github.com/census-ecosystem/opencensus-go-exporter-stackdriver/issues/120
-func metricSignature(metric *googlemetricpb.Metric) string {
-	labels := metric.GetLabels()
-	labelValues := make([]string, 0, len(labels))
-
-	for _, labelValue := range labels {
-		labelValues = append(labelValues, labelValue)
-	}
-	sort.Strings(labelValues)
-	return fmt.Sprintf("%s:%s", metric.GetType(), strings.Join(labelValues, ","))
 }
 
 func newPoint(v *view.View, row *view.Row, start, end time.Time) *monitoringpb.Point {

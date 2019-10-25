@@ -121,7 +121,7 @@ func (e *traceExporter) uploadSpans(spans []*tracepb.Span) {
 		Spans: spans,
 	}
 	// Create a never-sampled span to prevent traces associated with exporter.
-	ctx, cancel := newContextWithTimeout(e.o.Context, e.o.Timeout)
+	ctx, cancel := e.o.newContextWithTimeout()
 	defer cancel()
 	ctx, span := trace.StartSpan(
 		ctx,

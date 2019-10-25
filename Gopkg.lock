@@ -29,15 +29,15 @@
   version = "v0.1.0"
 
 [[projects]]
-  digest = "1:495a073ad61550c5a1a3688a7b509a2749e79b3302a44165762352fa281b040c"
+  digest = "1:c1e8c027918e8a7cf79327f35ca2919cb997ecaa928116e3c2b470d06d0e9c12"
   name = "contrib.go.opencensus.io/exporter/stackdriver"
   packages = [
     ".",
     "monitoredresource",
   ]
   pruneopts = "NUT"
-  revision = "2fdcf7b4087e713a439fe7a489b3c316deaa97f2"
-  version = "v0.12.7"
+  revision = "bf39ce456bd8c6e2e3e37ef9775ed8b10628feca"
+  version = "v0.12.5"
 
 [[projects]]
   digest = "1:7b5f423f5b0dd3dfa32a19a6183b0ab9129bff371ebf3f9efae32f87e4986d8f"
@@ -973,7 +973,8 @@
   revision = "fbec762f837dc349b73d1eaa820552e2ad177942"
 
 [[projects]]
-  digest = "1:0e1406870044a5ffbea16e24469c773828608b40abf8b25cec7c6d109ec8c9e9"
+  branch = "master"
+  digest = "1:0da29521dfee428f4dca758bfc1900218e9c725e930f4d0fa1af8d551b661078"
   name = "google.golang.org/api"
   packages = [
     "container/v1beta1",
@@ -992,8 +993,7 @@
     "transport/http/internal/propagation",
   ]
   pruneopts = "NUT"
-  revision = "d7605a20bfcb4659ee2ea347b1f8f5be12b8a5b7"
-  version = "v0.11.0"
+  revision = "d63bd5fbc004a083dc85ef622366115e8088da62"
 
 [[projects]]
   digest = "1:b400989fa9ecf8f825e9092d41c9779444afeda5d5ce7f5c9d4a9ca9d05c949c"
@@ -1038,7 +1038,7 @@
   revision = "357c62f0e4bbba7e6cc403ae09edcf3e2b9028fe"
 
 [[projects]]
-  digest = "1:a5d803fec25783407fff856e63c7b6fb71d94268e06eca91b514b1e3da33e342"
+  digest = "1:480952990437229d2348e7fd7f32897bfc2da15a769e954f307ff861040124f9"
   name = "google.golang.org/grpc"
   packages = [
     ".",
@@ -1047,6 +1047,7 @@
     "balancer/grpclb",
     "balancer/grpclb/grpc_lb_v1",
     "balancer/roundrobin",
+    "binarylog/grpc_binarylog_v1",
     "codes",
     "connectivity",
     "credentials",
@@ -1058,6 +1059,7 @@
     "credentials/alts/internal/handshaker/service",
     "credentials/alts/internal/proto/grpc_gcp",
     "credentials/google",
+    "credentials/internal",
     "credentials/oauth",
     "encoding",
     "encoding/proto",
@@ -1065,9 +1067,13 @@
     "health/grpc_health_v1",
     "internal",
     "internal/backoff",
+    "internal/balancerload",
+    "internal/binarylog",
     "internal/channelz",
     "internal/envconfig",
     "internal/grpcrand",
+    "internal/grpcsync",
+    "internal/syscall",
     "internal/transport",
     "keepalive",
     "metadata",
@@ -1076,13 +1082,14 @@
     "resolver",
     "resolver/dns",
     "resolver/passthrough",
+    "serviceconfig",
     "stats",
     "status",
     "tap",
   ]
   pruneopts = "NUT"
-  revision = "2e463a05d100327ca47ac218281906921038fd95"
-  version = "v1.16.0"
+  revision = "f6d0f9ee430895e87ef1ceb5ac8f39725bafceef"
+  version = "v1.24.0"
 
 [[projects]]
   digest = "1:2d1fbdc6777e5408cabeb02bf336305e724b925ff4546ded0fa8715a7267922a"

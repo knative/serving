@@ -21,8 +21,8 @@ directly to Stackdriver Metrics.
 
 import (
 	"context"
+	"errors"
 	"fmt"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/timestamp"
@@ -36,6 +36,11 @@ import (
 
 	"go.opencensus.io/metric/metricdata"
 	"go.opencensus.io/resource"
+)
+
+var (
+	errLableExtraction       = errors.New("error extracting labels")
+	errUnspecifiedMetricKind = errors.New("metric kind is unpsecified")
 )
 
 const (
@@ -68,7 +73,7 @@ func (se *statsExporter) handleMetricsUpload(metrics []*metricdata.Metric) {
 }
 
 func (se *statsExporter) uploadMetrics(metrics []*metricdata.Metric) error {
-	ctx, cancel := newContextWithTimeout(se.o.Context, se.o.Timeout)
+	ctx, cancel := se.o.newContextWithTimeout()
 	defer cancel()
 
 	ctx, span := trace.StartSpan(
@@ -124,13 +129,13 @@ func (se *statsExporter) uploadMetrics(metrics []*metricdata.Metric) error {
 // but it doesn't invoke any remote API.
 func (se *statsExporter) metricToMpbTs(ctx context.Context, metric *metricdata.Metric) ([]*monitoringpb.TimeSeries, error) {
 	if metric == nil {
-		return nil, errNilMetricOrMetricDescriptor
+		return nil, errNilMetric
 	}
 
 	resource := se.metricRscToMpbRsc(metric.Resource)
 
 	metricName := metric.Descriptor.Name
-	metricType := se.metricTypeFromProto(metricName)
+	metricType, _ := se.metricTypeFromProto(metricName)
 	metricLabelKeys := metric.Descriptor.LabelKeys
 	metricKind, _ := metricDescriptorTypeToMetricKind(metric)
 
@@ -176,7 +181,7 @@ func metricLabelsToTsLabels(defaults map[string]labelValue, labelKeys []metricda
 
 	// Perform this sanity check now.
 	if len(labelKeys) != len(labelValues) {
-		return labels, fmt.Errorf("length mismatch: len(labelKeys)=%d len(labelValues)=%d", len(labelKeys), len(labelValues))
+		return labels, fmt.Errorf("Length mismatch: len(labelKeys)=%d len(labelValues)=%d", len(labelKeys), len(labelValues))
 	}
 
 	for i, labelKey := range labelKeys {
@@ -205,18 +210,24 @@ func (se *statsExporter) createMetricDescriptorFromMetric(ctx context.Context, m
 		return err
 	}
 
+	var md *googlemetricpb.MetricDescriptor
 	if builtinMetric(inMD.Type) {
-		se.metricDescriptors[name] = true
+		gmrdesc := &monitoringpb.GetMetricDescriptorRequest{
+			Name: inMD.Name,
+		}
+		md, err = getMetricDescriptor(ctx, se.c, gmrdesc)
 	} else {
+
 		cmrdesc := &monitoringpb.CreateMetricDescriptorRequest{
 			Name:             fmt.Sprintf("projects/%s", se.o.ProjectID),
 			MetricDescriptor: inMD,
 		}
-		_, err = createMetricDescriptor(ctx, se.c, cmrdesc)
-		if err == nil {
-			// Now record the metric as having been created.
-			se.metricDescriptors[name] = true
-		}
+		md, err = createMetricDescriptor(ctx, se.c, cmrdesc)
+	}
+
+	if err == nil {
+		// Now record the metric as having been created.
+		se.metricDescriptors[name] = md
 	}
 
 	return err
@@ -224,10 +235,10 @@ func (se *statsExporter) createMetricDescriptorFromMetric(ctx context.Context, m
 
 func (se *statsExporter) metricToMpbMetricDescriptor(metric *metricdata.Metric) (*googlemetricpb.MetricDescriptor, error) {
 	if metric == nil {
-		return nil, errNilMetricOrMetricDescriptor
+		return nil, errNilMetric
 	}
 
-	metricType := se.metricTypeFromProto(metric.Descriptor.Name)
+	metricType, _ := se.metricTypeFromProto(metric.Descriptor.Name)
 	displayName := se.displayName(metric.Descriptor.Name)
 	metricKind, valueType := metricDescriptorTypeToMetricKind(metric)
 
@@ -455,9 +466,11 @@ func metricExemplarToPbExemplar(exemplar *metricdata.Exemplar, projectID string)
 func attachmentsToPbAttachments(attachments metricdata.Attachments, projectID string) []*any.Any {
 	var pbAttachments []*any.Any
 	for _, v := range attachments {
-		if spanCtx, succ := v.(trace.SpanContext); succ {
+		switch v.(type) {
+		case trace.SpanContext:
+			spanCtx, _ := v.(trace.SpanContext)
 			pbAttachments = append(pbAttachments, toPbSpanCtxAttachment(spanCtx, projectID))
-		} else {
+		default:
 			// Treat everything else as plain string for now.
 			// TODO(songy23): add support for dropped label attachments.
 			pbAttachments = append(pbAttachments, toPbStringAttachment(v))

@@ -22,6 +22,13 @@ import (
 	monitoredrespb "google.golang.org/genproto/googleapis/api/monitoredres"
 )
 
+type resourceMap struct {
+	// Mapping from the input resource type to the monitored resource type in Stackdriver.
+	srcType, dstType string
+	// Mapping from Stackdriver monitored resource label to an OpenCensus resource label.
+	labels map[string]string
+}
+
 // Resource labels that are generally internal to the exporter.
 // Consider exposing these labels and a type identifier in the future to allow
 // for customization.
@@ -41,7 +48,6 @@ var k8sResourceMap = map[string]string{
 	"namespace_name": resourcekeys.K8SKeyNamespaceName,
 	"pod_name":       resourcekeys.K8SKeyPodName,
 	"container_name": resourcekeys.ContainerKeyName,
-	"node_name":      resourcekeys.HostKeyName,
 }
 
 var gcpResourceMap = map[string]string{
@@ -91,9 +97,6 @@ func defaultMapResource(res *resource.Resource) *monitoredrespb.MonitoredResourc
 		match = k8sResourceMap
 	case res.Type == resourcekeys.K8SType:
 		result.Type = "k8s_pod"
-		match = k8sResourceMap
-	case res.Type == resourcekeys.HostType && res.Labels[resourcekeys.K8SKeyClusterName] != "":
-		result.Type = "k8s_node"
 		match = k8sResourceMap
 	case res.Labels[resourcekeys.CloudKeyProvider] == resourcekeys.CloudProviderGCP:
 		result.Type = "gce_instance"

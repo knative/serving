@@ -84,14 +84,9 @@ func (r *lbManualResolver) ResolveNow(o resolver.ResolveNowOption) {
 // Close is a noop for Resolver.
 func (*lbManualResolver) Close() {}
 
-// NewAddress calls cc.NewAddress.
-func (r *lbManualResolver) NewAddress(addrs []resolver.Address) {
-	r.ccr.NewAddress(addrs)
-}
-
-// NewServiceConfig calls cc.NewServiceConfig.
-func (r *lbManualResolver) NewServiceConfig(sc string) {
-	r.ccr.NewServiceConfig(sc)
+// UpdateState calls cc.UpdateState.
+func (r *lbManualResolver) UpdateState(s resolver.State) {
+	r.ccr.UpdateState(s)
 }
 
 const subConnCacheTime = time.Second * 10
@@ -178,13 +173,13 @@ func (ccc *lbCacheClientConn) RemoveSubConn(sc balancer.SubConn) {
 
 	timer := time.AfterFunc(ccc.timeout, func() {
 		ccc.mu.Lock()
+		defer ccc.mu.Unlock()
 		if entry.abortDeleting {
 			return
 		}
 		ccc.cc.RemoveSubConn(sc)
 		delete(ccc.subConnToAddr, sc)
 		delete(ccc.subConnCache, addr)
-		ccc.mu.Unlock()
 	})
 	entry.cancel = func() {
 		if !timer.Stop() {

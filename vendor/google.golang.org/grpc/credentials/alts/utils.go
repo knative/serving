@@ -19,6 +19,7 @@
 package alts
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -30,7 +31,6 @@ import (
 	"runtime"
 	"strings"
 
-	"golang.org/x/net/context"
 	"google.golang.org/grpc/peer"
 )
 
@@ -83,6 +83,9 @@ var (
 // running on GCP.
 func isRunningOnGCP() bool {
 	manufacturer, err := readManufacturer()
+	if os.IsNotExist(err) {
+		return false
+	}
 	if err != nil {
 		log.Fatalf("failure to read manufacturer information: %v", err)
 	}
