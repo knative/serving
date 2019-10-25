@@ -118,7 +118,7 @@ func (ccr *ccResolverWrapper) UpdateState(s resolver.State) {
 	ccr.curState = s
 }
 
-// NewAddress is called by the resolver implementation to send addresses to gRPC.
+// NewAddress is called by the resolver implemenetion to send addresses to gRPC.
 func (ccr *ccResolverWrapper) NewAddress(addrs []resolver.Address) {
 	if ccr.isDone() {
 		return
@@ -131,29 +131,26 @@ func (ccr *ccResolverWrapper) NewAddress(addrs []resolver.Address) {
 	ccr.cc.updateResolverState(ccr.curState)
 }
 
-// NewServiceConfig is called by the resolver implementation to send service
+// NewServiceConfig is called by the resolver implemenetion to send service
 // configs to gRPC.
 func (ccr *ccResolverWrapper) NewServiceConfig(sc string) {
 	if ccr.isDone() {
 		return
 	}
 	grpclog.Infof("ccResolverWrapper: got new service config: %v", sc)
-	c, err := parseServiceConfig(sc)
-	if err != nil {
-		return
-	}
 	if channelz.IsOn() {
-		ccr.addChannelzTraceEvent(resolver.State{Addresses: ccr.curState.Addresses, ServiceConfig: c})
+		ccr.addChannelzTraceEvent(resolver.State{Addresses: ccr.curState.Addresses, ServiceConfig: sc})
 	}
-	ccr.curState.ServiceConfig = c
+	ccr.curState.ServiceConfig = sc
 	ccr.cc.updateResolverState(ccr.curState)
 }
 
 func (ccr *ccResolverWrapper) addChannelzTraceEvent(s resolver.State) {
+	if s.ServiceConfig == ccr.curState.ServiceConfig && (len(ccr.curState.Addresses) == 0) == (len(s.Addresses) == 0) {
+		return
+	}
 	var updates []string
-	oldSC, oldOK := ccr.curState.ServiceConfig.(*ServiceConfig)
-	newSC, newOK := s.ServiceConfig.(*ServiceConfig)
-	if oldOK != newOK || (oldOK && newOK && oldSC.rawJSONString != newSC.rawJSONString) {
+	if s.ServiceConfig != ccr.curState.ServiceConfig {
 		updates = append(updates, "service config updated")
 	}
 	if len(ccr.curState.Addresses) > 0 && len(s.Addresses) == 0 {
