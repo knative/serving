@@ -59,7 +59,7 @@ const (
 	wantBody      = "♫ everything is awesome! ♫"
 	testNamespace = "real-namespace"
 	testRevName   = "real-name"
-	testTimeout   = 100 * time.Millisecond
+	testTimeout   = 250 * time.Millisecond
 )
 
 type fakeThrottler struct {
@@ -145,7 +145,7 @@ func TestActivationHandler(t *testing.T) {
 		wantBody:      context.DeadlineExceeded.Error() + "\n",
 		wantCode:      http.StatusServiceUnavailable,
 		wantErr:       nil,
-		throttler:     fakeThrottler{delay: 120 * time.Millisecond},
+		throttler:     fakeThrottler{delay: 300 * time.Millisecond},
 		reporterCalls: nil,
 	}, {
 		label:         "overflow",
@@ -205,7 +205,7 @@ func TestActivationHandler(t *testing.T) {
 			handler.ServeHTTP(resp, req.WithContext(ctx))
 
 			if resp.Code != test.wantCode {
-				t.Errorf("Unexpected response status. Want %d, got %d", test.wantCode, resp.Code)
+				t.Fatalf("Unexpected response status. Want %d, got %d", test.wantCode, resp.Code)
 			}
 
 			gotBody, err := ioutil.ReadAll(resp.Body)
