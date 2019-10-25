@@ -22,7 +22,6 @@
 package transport
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -30,6 +29,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
@@ -110,15 +110,15 @@ func (b *recvBuffer) get() <-chan recvMsg {
 	return b.c
 }
 
+//
 // recvBufferReader implements io.Reader interface to read the data from
 // recvBuffer.
 type recvBufferReader struct {
-	closeStream func(error) // Closes the client transport stream with the given error and nil trailer metadata.
-	ctx         context.Context
-	ctxDone     <-chan struct{} // cache of ctx.Done() (for performance).
-	recv        *recvBuffer
-	last        []byte // Stores the remaining data in the previous calls.
-	err         error
+	ctx     context.Context
+	ctxDone <-chan struct{} // cache of ctx.Done() (for performance).
+	recv    *recvBuffer
+	last    []byte // Stores the remaining data in the previous calls.
+	err     error
 }
 
 // Read reads the next len(p) bytes from last. If last is drained, it tries to
@@ -128,51 +128,29 @@ func (r *recvBufferReader) Read(p []byte) (n int, err error) {
 	if r.err != nil {
 		return 0, r.err
 	}
+	n, r.err = r.read(p)
+	return n, r.err
+}
+
+func (r *recvBufferReader) read(p []byte) (n int, err error) {
 	if r.last != nil && len(r.last) > 0 {
 		// Read remaining data left in last call.
 		copied := copy(p, r.last)
 		r.last = r.last[copied:]
 		return copied, nil
 	}
-	if r.closeStream != nil {
-		n, r.err = r.readClient(p)
-	} else {
-		n, r.err = r.read(p)
-	}
-	return n, r.err
-}
-
-func (r *recvBufferReader) read(p []byte) (n int, err error) {
 	select {
 	case <-r.ctxDone:
 		return 0, ContextErr(r.ctx.Err())
 	case m := <-r.recv.get():
-		return r.readAdditional(m, p)
+		r.recv.load()
+		if m.err != nil {
+			return 0, m.err
+		}
+		copied := copy(p, m.data)
+		r.last = m.data[copied:]
+		return copied, nil
 	}
-}
-
-func (r *recvBufferReader) readClient(p []byte) (n int, err error) {
-	// If the context is canceled, then closes the stream with nil metadata.
-	// closeStream writes its error parameter to r.recv as a recvMsg.
-	// r.readAdditional acts on that message and returns the necessary error.
-	select {
-	case <-r.ctxDone:
-		r.closeStream(ContextErr(r.ctx.Err()))
-		m := <-r.recv.get()
-		return r.readAdditional(m, p)
-	case m := <-r.recv.get():
-		return r.readAdditional(m, p)
-	}
-}
-
-func (r *recvBufferReader) readAdditional(m recvMsg, p []byte) (n int, err error) {
-	r.recv.load()
-	if m.err != nil {
-		return 0, m.err
-	}
-	copied := copy(p, m.data)
-	r.last = m.data[copied:]
-	return copied, nil
 }
 
 type streamState uint32
@@ -208,12 +186,8 @@ type Stream struct {
 	headerDone uint32        // set when headerChan is closed. Used to avoid closing headerChan multiple times.
 
 	// hdrMu protects header and trailer metadata on the server-side.
-	hdrMu sync.Mutex
-	// On client side, header keeps the received header metadata.
-	//
-	// On server side, header keeps the header set by SetHeader(). The complete
-	// header will merged into this after t.WriteHeader() is called.
-	header  metadata.MD
+	hdrMu   sync.Mutex
+	header  metadata.MD // the received header metadata.
 	trailer metadata.MD // the key-value map of trailer metadata.
 
 	noHeaders bool // set if the client never received headers (set only after the stream is done).
@@ -292,19 +266,10 @@ func (s *Stream) Done() <-chan struct{} {
 	return s.done
 }
 
-// Header returns the header metadata of the stream.
-//
-// On client side, it acquires the key-value pairs of header metadata once it is
-// available. It blocks until i) the metadata is ready or ii) there is no header
-// metadata or iii) the stream is canceled/expired.
-//
-// On server side, it returns the out header after t.WriteHeader is called.
+// Header acquires the key-value pairs of header metadata once it
+// is available. It blocks until i) the metadata is ready or ii) there is no
+// header metadata or iii) the stream is canceled/expired.
 func (s *Stream) Header() (metadata.MD, error) {
-	if s.headerChan == nil && s.header != nil {
-		// On server side, return the header in stream. It will be the out
-		// header after t.WriteHeader is called.
-		return s.header.Copy(), nil
-	}
 	err := s.waitOnHeader()
 	// Even if the stream is closed, header is returned if available.
 	select {
@@ -327,7 +292,8 @@ func (s *Stream) TrailersOnly() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return s.noHeaders, nil
+	// if !headerDone, some other connection error occurred.
+	return s.noHeaders && atomic.LoadUint32(&s.headerDone) == 1, nil
 }
 
 // Trailer returns the cached trailer metedata. Note that if it is not called
@@ -532,8 +498,8 @@ type TargetInfo struct {
 
 // NewClientTransport establishes the transport with the required ConnectOptions
 // and returns it to the caller.
-func NewClientTransport(connectCtx, ctx context.Context, target TargetInfo, opts ConnectOptions, onPrefaceReceipt func(), onGoAway func(GoAwayReason), onClose func()) (ClientTransport, error) {
-	return newHTTP2Client(connectCtx, ctx, target, opts, onPrefaceReceipt, onGoAway, onClose)
+func NewClientTransport(connectCtx, ctx context.Context, target TargetInfo, opts ConnectOptions, onSuccess func(), onGoAway func(GoAwayReason), onClose func()) (ClientTransport, error) {
+	return newHTTP2Client(connectCtx, ctx, target, opts, onSuccess, onGoAway, onClose)
 }
 
 // Options provides additional hints and information for message
@@ -743,15 +709,4 @@ type channelzData struct {
 	msgRecv               int64
 	lastMsgSentTime       int64
 	lastMsgRecvTime       int64
-}
-
-// ContextErr converts the error from context package into a status error.
-func ContextErr(err error) error {
-	switch err {
-	case context.DeadlineExceeded:
-		return status.Error(codes.DeadlineExceeded, err.Error())
-	case context.Canceled:
-		return status.Error(codes.Canceled, err.Error())
-	}
-	return status.Errorf(codes.Internal, "Unexpected error from context packet: %v", err)
 }

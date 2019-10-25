@@ -970,7 +970,7 @@
   revision = "fbec762f837dc349b73d1eaa820552e2ad177942"
 
 [[projects]]
-  digest = "1:48871545d029f0561819b6f761e11ed3111e79f29f7f1ba36e2e428e05ceaa9d"
+  digest = "1:9b6bd736194f2098dcb562bdb2aaf64f6c3669a26da43365d4ecab0db5f3bd4b"
   name = "google.golang.org/api"
   packages = [
     "container/v1beta1",
@@ -989,7 +989,7 @@
     "transport/http/internal/propagation",
   ]
   pruneopts = "NUT"
-  revision = "aa15faf3c8a1cffc77fc3dabe95703bb12c5f6a9"
+  revision = "874d9dc5b186e361475b082852f136f094555c30"
 
 [[projects]]
   digest = "1:b400989fa9ecf8f825e9092d41c9779444afeda5d5ce7f5c9d4a9ca9d05c949c"
@@ -1034,28 +1034,16 @@
   revision = "357c62f0e4bbba7e6cc403ae09edcf3e2b9028fe"
 
 [[projects]]
-  digest = "1:7a035113cf6e03ee4ee372d1474941eb41a29ce56f7b10c308294d0b8798eb93"
+  digest = "1:880e55ae18feac97650ae82ea1b8b27fae7d56f3658ada050e657d877f2f31d7"
   name = "google.golang.org/grpc"
   packages = [
     ".",
     "balancer",
     "balancer/base",
-    "balancer/grpclb",
-    "balancer/grpclb/grpc_lb_v1",
     "balancer/roundrobin",
-    "binarylog/grpc_binarylog_v1",
     "codes",
     "connectivity",
     "credentials",
-    "credentials/alts",
-    "credentials/alts/internal",
-    "credentials/alts/internal/authinfo",
-    "credentials/alts/internal/conn",
-    "credentials/alts/internal/handshaker",
-    "credentials/alts/internal/handshaker/service",
-    "credentials/alts/internal/proto/grpc_gcp",
-    "credentials/google",
-    "credentials/internal",
     "credentials/oauth",
     "encoding",
     "encoding/proto",
@@ -1063,12 +1051,9 @@
     "health/grpc_health_v1",
     "internal",
     "internal/backoff",
-    "internal/binarylog",
     "internal/channelz",
     "internal/envconfig",
     "internal/grpcrand",
-    "internal/grpcsync",
-    "internal/syscall",
     "internal/transport",
     "keepalive",
     "metadata",
@@ -1082,7 +1067,8 @@
     "tap",
   ]
   pruneopts = "NUT"
-  revision = "6d8271a06ccd02386a891309c97da21e8fdb910a"
+  revision = "2e463a05d100327ca47ac218281906921038fd95"
+  version = "v1.16.0"
 
 [[projects]]
   digest = "1:2d1fbdc6777e5408cabeb02bf336305e724b925ff4546ded0fa8715a7267922a"

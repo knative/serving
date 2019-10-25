@@ -1,3 +1,5 @@
+// +build go1.6,!go1.7
+
 /*
  *
  * Copyright 2018 gRPC authors.
@@ -16,20 +18,25 @@
  *
  */
 
-// Package envconfig contains grpc settings configured by environment variables.
-package envconfig
+package status
 
 import (
-	"os"
-	"strings"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc/codes"
 )
 
-const (
-	prefix   = "GRPC_GO_"
-	retryStr = prefix + "RETRY"
-)
-
-var (
-	// Retry is set if retry is explicitly enabled via "GRPC_GO_RETRY=on".
-	Retry = strings.EqualFold(os.Getenv(retryStr), "on")
-)
+// FromContextError converts a context error into a Status.  It returns a
+// Status with codes.OK if err is nil, or a Status with codes.Unknown if err is
+// non-nil and not a context error.
+func FromContextError(err error) *Status {
+	switch err {
+	case nil:
+		return New(codes.OK, "")
+	case context.DeadlineExceeded:
+		return New(codes.DeadlineExceeded, err.Error())
+	case context.Canceled:
+		return New(codes.Canceled, err.Error())
+	default:
+		return New(codes.Unknown, err.Error())
+	}
+}
