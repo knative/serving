@@ -14,7 +14,7 @@ GKE.
 Take `dataplane-probe` benchmark for example:
 
 1. Apply
-   [mako config](https://raw.githubusercontent.com/knative/serving/master/test/performance/config/config-mako.yaml)
+   [mako config](https://github.com/knative/serving/blob/master/test/performance/config/config-mako.yaml)
 
    ```shell
    kubectl apply -f test/performance/config/config-mako.yaml
@@ -27,12 +27,12 @@ Take `dataplane-probe` benchmark for example:
    ```
 
 1. Add the IAM service account
-   [here](https://github.com/knative/serving/blob/47a3a2480d58ffcc1d3fd9998849fda359ab91ff/test/performance/dataplane-probe/dev.config#L19)
+   [here](https://github.com/knative/serving/blob/d73bb8378cab8bb0c1825aa9802bea9ea2e6cb26/test/performance/benchmarks/dataplane-probe/continuous/dev.config#L20)
    (A current owner must apply this before things will work and the SA must be
    whitelisted) then run:
 
    ```shell
-   mako update_benchmark test/performance/dataplane-probe/dev.config
+   mako update_benchmark test/performance/benchmarks/dataplane-probe/continuous/dev.config
    ```
 
 1. Create a JSON key for it.
@@ -66,7 +66,7 @@ Take `dataplane-probe` benchmark for example:
 1. Apply `setup` for benchmark:
 
    ```shell
-   ko apply -f test/performance/dataplane-probe/dataplane-probe-setup.yaml
+   ko apply -f test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe-setup.yaml
    ```
 
 1. Wait for above to stabilize
@@ -81,5 +81,5 @@ Take `dataplane-probe` benchmark for example:
 1. Apply the benchmark cron:
 
    ```gcloud
-   ko apply -f test/performance/dataplane-probe/dataplane-probe.yaml
+   ko apply -f test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe.yaml
    ```
