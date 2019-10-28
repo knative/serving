@@ -31,9 +31,10 @@ function update_knative() {
   pushd .
   cd ${GOPATH}/src/knative.dev
   echo ">> Update istio"
-  # istio-pilot pod occasionally gets overloaded and dies, delete all pods from
-  # istio before reintalling it to get them freshly recreated
-  kubectl delete pods --all -n istio-system
+  # Some istio pods occasionally get overloaded and die, delete all deployments
+  # and services from istio before reintalling it, to get them freshly recreated
+  kubectl delete deployments --all -n istio-system
+  kubectl delete services --all -n istio-system
   kubectl apply -f serving/third_party/$istio_version/istio-crds.yaml || abort "Failed to apply istio-crds"
   kubectl apply -f serving/third_party/$istio_version/istio-lean.yaml || abort "Failed to apply istio-lean"
 
