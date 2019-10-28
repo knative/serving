@@ -39,7 +39,7 @@ import (
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/metrics"
+	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
@@ -47,6 +47,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/serving/pkg/autoscaler/statserver"
+	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa"
 	"knative.dev/serving/pkg/reconciler/metric"
 	"knative.dev/serving/pkg/resources"
@@ -74,7 +75,7 @@ func main() {
 	ctx := signals.NewContext()
 
 	// Report stats on Go memory usage every 30 seconds.
-	msp := metrics.NewMemStatsAll()
+	msp := pkgmetrics.NewMemStatsAll()
 	msp.Start(ctx, 30*time.Second)
 	if err := view.Register(msp.DefaultViews()...); err != nil {
 		log.Fatalf("Error exporting go memstats view: %v", err)
@@ -115,7 +116,7 @@ func main() {
 	// Watch the logging config map and dynamically update logging levels.
 	cmw.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map
-	cmw.Watch(metrics.ConfigMapName(),
+	cmw.Watch(pkgmetrics.ConfigMapName(),
 		metrics.UpdateExporterFromConfigMap(component, logger),
 		profilingHandler.UpdateFromConfigMap)
 
@@ -209,5 +210,5 @@ func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) auto
 
 func flush(logger *zap.SugaredLogger) {
 	logger.Sync()
-	metrics.FlushExporter()
+	pkgmetrics.FlushExporter()
 }

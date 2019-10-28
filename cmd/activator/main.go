@@ -43,7 +43,7 @@ import (
 	"knative.dev/pkg/injection/sharedmain"
 	pkglogging "knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
-	"knative.dev/pkg/metrics"
+	pkgmetrics "knative.dev/pkg/metrics"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/signals"
@@ -61,6 +61,7 @@ import (
 	"knative.dev/serving/pkg/goversion"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/logging"
+	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 )
@@ -125,7 +126,7 @@ func main() {
 	defer cancel()
 
 	// Report stats on Go memory usage every 30 seconds.
-	msp := metrics.NewMemStatsAll()
+	msp := pkgmetrics.NewMemStatsAll()
 	msp.Start(ctx, 30*time.Second)
 	if err := view.Register(msp.DefaultViews()...); err != nil {
 		log.Fatalf("Error exporting go memstats view: %v", err)
@@ -257,7 +258,7 @@ func main() {
 	configMapWatcher.Watch(pkglogging.ConfigMapName(), pkglogging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 
 	// Watch the observability config map
-	configMapWatcher.Watch(metrics.ConfigMapName(),
+	configMapWatcher.Watch(pkgmetrics.ConfigMapName(),
 		metrics.UpdateExporterFromConfigMap(component, logger),
 		updateRequestLogFromConfigMap(logger, reqLogHandler),
 		profilingHandler.UpdateFromConfigMap)
@@ -327,5 +328,5 @@ func flush(logger *zap.SugaredLogger) {
 	logger.Sync()
 	os.Stdout.Sync()
 	os.Stderr.Sync()
-	metrics.FlushExporter()
+	pkgmetrics.FlushExporter()
 }

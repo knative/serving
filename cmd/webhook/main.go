@@ -37,7 +37,7 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
-	"knative.dev/pkg/metrics"
+	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/version"
@@ -49,6 +49,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/gc"
+	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/network"
 
 	// config validation constructors
@@ -78,7 +79,7 @@ func main() {
 	ctx := signals.NewContext()
 
 	// Report stats on Go memory usage every 30 seconds.
-	msp := metrics.NewMemStatsAll()
+	msp := pkgmetrics.NewMemStatsAll()
 	msp.Start(ctx, 30*time.Second)
 	if err := view.Register(msp.DefaultViews()...); err != nil {
 		log.Fatalf("Error exporting go memstats view: %v", err)
@@ -115,7 +116,7 @@ func main() {
 	// Watch the observability config map and dynamically update request logs.
 	configMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map
-	configMapWatcher.Watch(metrics.ConfigMapName(),
+	configMapWatcher.Watch(pkgmetrics.ConfigMapName(),
 		metrics.UpdateExporterFromConfigMap(component, logger),
 		profilingHandler.UpdateFromConfigMap)
 
@@ -170,7 +171,7 @@ func main() {
 		network.ConfigName:               network.NewConfigFromConfigMap,
 		istioconfig.IstioConfigName:      istioconfig.NewIstioFromConfigMap,
 		deployment.ConfigName:            deployment.NewConfigFromConfigMap,
-		metrics.ConfigMapName():          metricsconfig.NewObservabilityConfigFromConfigMap,
+		pkgmetrics.ConfigMapName():       metricsconfig.NewObservabilityConfigFromConfigMap,
 		logging.ConfigMapName():          logging.NewConfigFromConfigMap,
 		domainconfig.DomainConfigName:    domainconfig.NewDomainFromConfigMap,
 		defaultconfig.DefaultsConfigName: defaultconfig.NewDefaultsConfigFromConfigMap,

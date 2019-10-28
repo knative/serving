@@ -85,7 +85,7 @@ data:
   
     # metrics.backend-destination field specifies the system metrics destination.
     # It supports either prometheus (the default) or stackdriver.
-    # Note: Using stackdriver will incur additional charges
+    # Note: Using stackdriver will incur additional charges.
     metrics.backend-destination: prometheus
 
     # metrics.request-metrics-backend-destination specifies the request metrics
@@ -93,10 +93,31 @@ data:
     # Currently supported values: prometheus, stackdriver.
     metrics.request-metrics-backend-destination: prometheus
 
-    # metrics.stackdriver-project-id field specifies the stackdriver project ID. This
-    # field is optional. When running on GCE, application default credentials will be
+    # metrics.stackdriver-project-id field specifies the stackdriver project ID.
+    # This field is optional. When running on GCE, application default credentials will be
     # used if this field is not provided.
+    #
+    # To use a Stackdriver project ID that does not match the application default credentials,
+    # add a Secret named "stackdriver-service-account-key" to the "knative-serving" namespace.
+    # The Secret should contain the key of a Google Service Account with access scope of
+    # monitoring.metricDescriptors.create permissions to the project specified by
+    # metrics.stackdriver-project-id.
+    # (See https://cloud.google.com/kubernetes-engine/docs/tutorials/authenticating-to-cloud-platform).
+    # Using a Stackdriver project ID that does not match the application default credentials
+    # only applies to system metrics (metrics.backend-destination).
     metrics.stackdriver-project-id: "<your stackdriver project id>"
+
+    # metrics.stackdriver-gcp-location specifies the GCP zone region where Stackdriver metrics will be sent.
+    # This field is optional. When running on GCE, application default credentials will be
+    # used if this field is not provided.
+    # This field only applies to system metrics (metrics.backend-destination).
+    metrics.stackdriver-gcp-location: "<a GCP zone or region>"
+
+    # metrics.stackdriver-cluster-name specifies the cluster name that will be used to label Stackdriver metrics.
+    # The name does not have to match the cluster name that is used by the underlying cluster provider.
+    # This field is optional.
+    # This field only applies to system metrics (metrics.backend-destination).
+    metrics.stackdriver-cluster-name: "<a-cluster-name>"
 
     # metrics.allow-stackdriver-custom-metrics indicates whether it is allowed to send metrics to
     # Stackdriver using "global" resource type and custom metric type if the
