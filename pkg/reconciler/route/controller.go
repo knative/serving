@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/tracker"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -122,7 +123,7 @@ func NewControllerWithClock(
 	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 		impl.GlobalResync(routeInformer.Informer())
 	})
-	configStore := config.NewStore(c.Logger.Named("config-store"), controller.GetResyncPeriod(ctx), resync)
+	configStore := config.NewStore(logging.WithLogger(ctx, c.Logger.Named("config-store")), resync)
 	configStore.WatchConfigs(cmw)
 	c.configStore = configStore
 

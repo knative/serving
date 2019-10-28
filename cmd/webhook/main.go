@@ -25,7 +25,6 @@ import (
 
 	// Injection related imports.
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/profiling"
@@ -166,7 +165,7 @@ func main() {
 		tracingconfig.ConfigName:         tracingconfig.NewTracingConfigFromConfigMap,
 		autoscaler.ConfigName:            autoscaler.NewConfigFromConfigMap,
 		certconfig.CertManagerConfigName: certconfig.NewCertManagerConfigFromConfigMap,
-		gc.ConfigName:                    gc.NewConfigFromConfigMapFunc(logger, controller.GetResyncPeriod(ctx)),
+		gc.ConfigName:                    gc.NewConfigFromConfigMapFunc(ctx),
 		network.ConfigName:               network.NewConfigFromConfigMap,
 		istioconfig.IstioConfigName:      istioconfig.NewIstioFromConfigMap,
 		deployment.ConfigName:            deployment.NewConfigFromConfigMap,
