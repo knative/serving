@@ -1087,7 +1087,7 @@ func TestImmutableServiceFields(t *testing.T) {
 		},
 		want: &apis.FieldError{
 			Message: "Saw the following changes without a name change (-old +new)",
-			Paths:   []string{"spec.runLatest.configuration.revisionTemplate"},
+			Paths:   []string{"spec.runLatest.configuration.revisionTemplate.metadata.name"},
 			Details: "{*v1alpha1.RevisionTemplateSpec}.Spec.DeprecatedContainer.Image:\n\t-: \"helloworld:bar\"\n\t+: \"helloworld:foo\"\n",
 		},
 	}}
