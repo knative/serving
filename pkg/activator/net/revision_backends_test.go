@@ -941,7 +941,7 @@ func TestRevisionDeleted(t *testing.T) {
 	}
 }
 
-func TestServiceProblem(t *testing.T) {
+func TestServiceDoesNotExist(t *testing.T) {
 	// Tests when the service is not available.
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 
@@ -990,6 +990,28 @@ func TestServiceProblem(t *testing.T) {
 		t.Errorf("Unexpected update, should have had none: %v", x)
 	case <-time.After(200 * time.Millisecond):
 	}
+}
+
+func TestServiceMoreThanOne(t *testing.T) {
+	// Tests when the service is not available.
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+
+	ei := fakeendpointsinformer.Get(ctx)
+	eps := ep(testRevision, 1234, "http", "128.0.0.1")
+	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(eps)
+	waitInformers, err := controller.RunInformers(ctx.Done(), ei.Informer())
+	if err != nil {
+		t.Fatalf("Failed to start informers: %v", err)
+	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
+
+	rev := revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	ri := fakerevisioninformer.Get(ctx)
+	ri.Informer().GetIndexer().Add(rev)
 
 	// Now let's create two!
 	for _, num := range []string{"11", "12"} {
@@ -1006,18 +1028,23 @@ func TestServiceProblem(t *testing.T) {
 	}
 
 	// Make sure fake probe failures ensue.
-	fakeRT.ProbeHostResponses = map[string][]activatortest.FakeResponse{
-		// To ensure that if we fail, when we get into the second iteration
-		// of probing if the test is not yet complete, we store 2 items here.
-		"128.0.0.1:1234": {{
-			Err: errors.New("clusterIP transport error"),
-		}, {
-			Err: errors.New("clusterIP transport error"),
-		}, {
-			Err: errors.New("clusterIP transport error"),
-		}},
+	fakeRT := activatortest.FakeRoundTripper{
+		ExpectHost: testRevision,
+		ProbeHostResponses: map[string][]activatortest.FakeResponse{
+			// To ensure that if we fail, when we get into the second iteration
+			// of probing if the test is not yet complete, we store 2 items here.
+			"128.0.0.1:1234": {{
+				Err: errors.New("clusterIP transport error"),
+			}, {
+				Err: errors.New("clusterIP transport error"),
+			}, {
+				Err: errors.New("clusterIP transport error"),
+			}},
+		},
 	}
-	eps = ep(testRevision, 1234, "http", "128.0.0.44")
+
+	rt := network.RoundTripperFunc(fakeRT.RT)
+	rbm := newRevisionBackendsManager(ctx, rt)
 	ei.Informer().GetIndexer().Add(eps)
 	select {
 	case x := <-rbm.updates():
