@@ -17,6 +17,7 @@ limitations under the License.
 package autoscaling
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -158,6 +159,38 @@ func TestValidateScaleBoundAnnotations(t *testing.T) {
 		name:        "window too long",
 		annotations: map[string]string{WindowAnnotationKey: "365h"},
 		expectErr:   "expected 6s <= 365h <= 1h0m0s: " + WindowAnnotationKey,
+	}, {
+		name:        "annotation /window is invalid for class HPA and metric CPU",
+		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: HPA, MetricAnnotationKey: CPU},
+		expectErr:   fmt.Sprintf(`invalid key name "%s": %s for %s %s`, WindowAnnotationKey, HPA, MetricAnnotationKey, CPU),
+	}, {
+		name:        "annotation /window is valid for class KPA",
+		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: KPA},
+		expectErr:   "",
+	}, {
+		name:        "annotation /window is valid for class HPA and metric RPS",
+		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: HPA, MetricAnnotationKey: RPS},
+		expectErr:   "",
+	}, {
+		name:        "annotation /window is valid for class HPA and metric Concurrency",
+		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: HPA, MetricAnnotationKey: Concurrency},
+		expectErr:   "",
+	}, {
+		name:        "annotation /window is valid for other than HPA and KPA class",
+		annotations: map[string]string{WindowAnnotationKey: "7s", ClassAnnotationKey: "test"},
+		expectErr:   "",
+	}, {
+		name:        "value too short and invalid class for /window annotation",
+		annotations: map[string]string{WindowAnnotationKey: "1s", ClassAnnotationKey: HPA, MetricAnnotationKey: CPU},
+		expectErr:   fmt.Sprintf(`invalid key name "%s": %s for %s %s`, WindowAnnotationKey, HPA, MetricAnnotationKey, CPU),
+	}, {
+		name:        "value too long and valid class for /window annotation",
+		annotations: map[string]string{WindowAnnotationKey: "365h", ClassAnnotationKey: KPA},
+		expectErr:   "expected 6s <= 365h <= 1h0m0s: " + WindowAnnotationKey,
+	}, {
+		name:        "invalid format and valid class for /window annotation",
+		annotations: map[string]string{WindowAnnotationKey: "jerry-was-a-racecar-driver", ClassAnnotationKey: KPA},
+		expectErr:   "invalid value: jerry-was-a-racecar-driver: " + WindowAnnotationKey,
 	}, {
 		name: "all together now fail",
 		annotations: map[string]string{
