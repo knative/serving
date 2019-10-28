@@ -95,7 +95,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 				if status.Name == rev.Spec.GetContainer().Name {
 					if t := status.LastTerminationState.Terminated; t != nil {
 						logger.Infof("%s marking exiting with: %d/%s", rev.Name, t.ExitCode, t.Message)
-						rev.Status.MarkContainerHealthyFalse(v1alpha1.ExitCodeReason(t.ExitCode), t.Message)
+						rev.Status.MarkContainerHealthyFalse(v1alpha1.ExitCodeReason(t.ExitCode), v1alpha1.RevisionContainerExitingMessage(t.Message))
 					} else if w := status.State.Waiting; w != nil && hasDeploymentTimedOut(deployment) {
 						logger.Infof("%s marking resources unavailable with: %s: %s", rev.Name, w.Reason, w.Message)
 						rev.Status.MarkResourcesAvailableFalse(w.Reason, w.Message)
