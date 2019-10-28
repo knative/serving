@@ -31,7 +31,6 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
-	fakeclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakecertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
@@ -96,7 +95,7 @@ func (f *FakeAccessor) GetCertificateLister() listers.CertificateLister {
 func TestReconcileCertificateCreate(t *testing.T) {
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 
-	client := fakeclient.Get(ctx)
+	client := fakeservingclient.Get(ctx)
 
 	h := NewHooks()
 	h.OnCreate(&client.Fake, "certificates", func(obj runtime.Object) HookResult {
@@ -124,7 +123,7 @@ func TestReconcileCertificateCreate(t *testing.T) {
 func TestReconcileCertificateUpdate(t *testing.T) {
 	ctx, cancel, _ := SetupFakeContextWithCancel(t)
 
-	client := fakeclient.Get(ctx)
+	client := fakeservingclient.Get(ctx)
 	accessor, waitInformers := setup(ctx, []*v1alpha1.Certificate{origin}, client, t)
 	defer func() {
 		cancel()
