@@ -31,6 +31,9 @@ function update_knative() {
   pushd .
   cd ${GOPATH}/src/knative.dev
   echo ">> Update istio"
+  # istio-pilot pod occasionally gets overloaded and dies, delete all pods from
+  # istio before reintalling it
+  kubectl delete pods --all -n istio-system
   kubectl apply -f serving/third_party/$istio_version/istio-crds.yaml || abort "Failed to apply istio-crds"
   kubectl apply -f serving/third_party/$istio_version/istio-lean.yaml || abort "Failed to apply istio-lean"
 
@@ -38,8 +41,6 @@ function update_knative() {
   kubectl patch hpa -n istio-system istio-ingressgateway \
     --patch '{"spec": {"minReplicas": 10, "maxReplicas": 10}}'
   kubectl patch deploy -n istio-system cluster-local-gateway \
-    --patch '{"spec": {"replicas": 10}}'
-  kubectl patch deploy -n istio-system istio-pilot \
     --patch '{"spec": {"replicas": 10}}'
 
   echo ">> Updating serving"
@@ -91,7 +92,7 @@ EOF
 
 function update_benchmark() {
   echo ">> Applying all the yamls for benchmark $1"
-  ko delete -f ${BENCHMARK_ROOT_PATH}/$1/continuous
+  ko delete -f ${BENCHMARK_ROOT_PATH}/$1/continuous --ignore-not-found=true
   ko apply -f ${BENCHMARK_ROOT_PATH}/$1/continuous || abort "failed to apply benchmarks yaml $1"
 }
 
