@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
@@ -68,13 +69,12 @@ func NewController(
 		&gcconfig.Config{},
 	}
 	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
-		// Triggers syncs on all revisions when configuration
-		// changes
+		// Triggers syncs on all revisions when configuration changes.
 		impl.GlobalResync(revisionInformer.Informer())
 	})
 
 	c.Logger.Info("Setting up ConfigMap receivers")
-	configStore := configns.NewStore(c.Logger.Named("config-store"), controller.GetResyncPeriod(ctx), resync)
+	configStore := configns.NewStore(logging.WithLogger(ctx, c.Logger.Named("config-store")), resync)
 	configStore.WatchConfigs(c.ConfigMapWatcher)
 	c.configStore = configStore
 
