@@ -103,7 +103,6 @@ func TestRevisionWatcher(t *testing.T) {
 		clusterIP             string
 		expectUpdates         []revisionDestsUpdate
 		probeHostResponses    map[string][]activatortest.FakeResponse
-		probeResponses        []activatortest.FakeResponse
 		initialClusterIPState bool
 		noPodAddressability   bool // This keeps the test defs shorter.
 	}{{
@@ -177,10 +176,14 @@ func TestRevisionWatcher(t *testing.T) {
 			Port: 1234,
 		},
 		clusterIP: "129.0.0.1",
-		probeResponses: []activatortest.FakeResponse{{
-			Code: http.StatusServiceUnavailable,
-			Body: queue.Name,
-		}},
+		probeHostResponses: map[string][]activatortest.FakeResponse{
+			"129.0.0.1:1234": {{
+				Code: http.StatusServiceUnavailable,
+			}},
+			"128.0.0.1:1234": {{
+				Code: http.StatusServiceUnavailable,
+			}},
+		},
 	}, {
 		name:  "single error podIP",
 		dests: []string{"128.0.0.1:1234"},
@@ -189,11 +192,14 @@ func TestRevisionWatcher(t *testing.T) {
 			Port: 1234,
 		},
 		clusterIP: "129.0.0.1",
-		probeResponses: []activatortest.FakeResponse{{
-			Err:  errors.New("Fake error"),
-			Code: http.StatusOK,
-			Body: queue.Name,
-		}},
+		probeHostResponses: map[string][]activatortest.FakeResponse{
+			"129.0.0.1:1234": {{
+				Code: http.StatusServiceUnavailable,
+			}},
+			"128.0.0.1:1234": {{
+				Err: errors.New("Fake error"),
+			}},
+		},
 	}, {
 		name:  "podIP slow ready",
 		dests: []string{"128.0.0.1:1234"},
@@ -331,7 +337,6 @@ func TestRevisionWatcher(t *testing.T) {
 			fakeRT := activatortest.FakeRoundTripper{
 				ExpectHost:         testRevision,
 				ProbeHostResponses: tc.probeHostResponses,
-				ProbeResponses:     tc.probeResponses,
 			}
 			rt := network.RoundTripperFunc(fakeRT.RT)
 
@@ -461,7 +466,6 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		endpointsArr       []*corev1.Endpoints
 		revisions          []*v1alpha1.Revision
 		services           []*corev1.Service
-		probeResponses     []activatortest.FakeResponse
 		probeHostResponses map[string][]activatortest.FakeResponse
 		expectDests        map[types.NamespacedName]revisionDestsUpdate
 		updateCnt          int
@@ -628,7 +632,6 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			fakeRT := activatortest.FakeRoundTripper{
 				ExpectHost:         testRevision,
 				ProbeHostResponses: tc.probeHostResponses,
-				ProbeResponses:     tc.probeResponses,
 			}
 			rt := network.RoundTripperFunc(fakeRT.RT)
 
