@@ -24,12 +24,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	kubelabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	kubelabels "k8s.io/apimachinery/pkg/labels"
 	"knative.dev/pkg/apis"
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
@@ -301,16 +301,21 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 		}
 	}
 
-	routeDomain := config.FromContext(ctx).Domain.LookupDomainForLabels(r.Labels)
-	labelSelector := kubelabels.SelectorFromSet(
-		kubelabels.Set{
-			networking.WildcardCertDomainLabelKey: routeDomain,
-		},
-	)
-
-	allWildcardCerts, err := c.certificateLister.Certificates(r.Namespace).List(labelSelector)
+	allKCerts, err := c.certificateLister.Certificates(r.Namespace).List(kubelabels.Everything())
 	if err != nil {
 		return nil, err
+	}
+	routeDomain := config.FromContext(ctx).Domain.LookupDomainForLabels(r.Labels)
+
+	var unmanagedKCerts, allWildcardCerts []*netv1alpha1.Certificate
+	for _, cert := range allKCerts {
+		if val := cert.GetAnnotations()[networking.CertificateClassAnnotationKey]; val != network.CertManagerCertificateClassName {
+			if v := cert.GetLabels()[networking.WildcardCertDomainLabelKey]; v == routeDomain {
+				allWildcardCerts = append(allWildcardCerts, cert)
+			} else {
+				unmanagedKCerts = append(unmanagedKCerts, cert)
+			}
+		}
 	}
 
 	desiredCerts := resources.MakeCertificates(r, domainToTagMap, certClass(ctx, r))
@@ -319,8 +324,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 		// Look for a matching wildcard cert before provisioning a new one. This saves the
 		// the time required to provision a new cert and reduces the chances of hitting the
 		// Let's Encrypt API rate limits.
-		cert := findMatchingWildcardCert(ctx, desiredCert.Spec.DNSNames, allWildcardCerts)
-
+		cert := findMatchingCert(ctx, desiredCert.Spec.DNSNames, allWildcardCerts, unmanagedKCerts)
 		if cert == nil {
 			cert, err = networkaccessor.ReconcileCertificate(ctx, r, desiredCert, c)
 			if err != nil {
@@ -332,8 +336,8 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 				return nil, err
 			}
 			dnsNames = sets.NewString(cert.Spec.DNSNames...)
+			// TODO: Old cert which is duplicated the matching certs should be removed?
 		}
-
 		// r.Status.URL is for the major domain, so only change if the cert is for
 		// the major domain
 		if dnsNames.Has(host) {
@@ -581,13 +585,31 @@ func setTargetsScheme(rs *v1alpha1.RouteStatus, dnsNames []string, scheme string
 	}
 }
 
-func findMatchingWildcardCert(ctx context.Context, domains []string, certs []*netv1alpha1.Certificate) *netv1alpha1.Certificate {
-	for _, cert := range certs {
+// findMatchingCert finds matching certs which has same wildcard domain or exactly same domain in the spec.DNSNames.
+func findMatchingCert(ctx context.Context, domains []string, wildcardCerts, unmanagedCerts []*netv1alpha1.Certificate) *netv1alpha1.Certificate {
+	for _, cert := range wildcardCerts {
 		if wildcardCertMatches(ctx, domains, cert) {
 			return cert
 		}
 	}
+	for _, cert := range unmanagedCerts {
+		if certMatches(ctx, domains, cert) {
+			return cert
+		}
+	}
 	return nil
+}
+
+func certMatches(ctx context.Context, domains []string, cert *netv1alpha1.Certificate) bool {
+	// Although this loop is O(n^2), cert.Spec.DNSNames has a few entries in general.
+	for _, dns := range cert.Spec.DNSNames {
+		for _, domain := range domains {
+			if dns == domain {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func wildcardCertMatches(ctx context.Context, domains []string, cert *netv1alpha1.Certificate) bool {

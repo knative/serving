@@ -1960,6 +1960,64 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		Key:                     "default/becomes-ready",
 		SkipNamespaceValidation: true,
 	}, {
+		Name: "check that cutom cert is used when creating a Route",
+		Objects: []runtime.Object{
+			customCert("default", "becomes-ready.default.example.com"),
+			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("mcd")),
+		},
+		WantCreates: []runtime.Object{
+			ingressWithTLS(
+				Route("default", "becomes-ready", WithConfigTarget("config"), WithHTTPSDomain,
+					WithRouteUID("12-34")),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: "config-00001",
+								Percent:      ptr.Int64(100),
+							},
+							ServiceName: "mcd",
+							Active:      true,
+						}},
+					},
+				},
+				[]netv1alpha1.IngressTLS{
+					{
+						Hosts:           []string{"becomes-ready.default.example.com"},
+						SecretName:      "default",
+						SecretNamespace: "default",
+					},
+				},
+			),
+			simpleK8sService(
+				Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
+				WithExternalName("becomes-ready.default.example.com"),
+			),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
+				WithRouteUID("12-34"),
+				// Populated by reconciliation when all traffic has been assigned.
+				WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(v1alpha1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					},
+				}), WithReadyCertificateName("becomes-ready.default.example.com"), WithHTTPSDomain),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
+		},
+		Key:                     "default/becomes-ready",
+		SkipNamespaceValidation: true,
+	}, {
 		Name: "check that Certificate and IngressTLS are correctly configured when creating a Route",
 		Objects: []runtime.Object{
 			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
@@ -2337,6 +2395,23 @@ func wildcardCert(namespace string, domain string) *netv1alpha1.Certificate {
 	}
 
 	return cert
+}
+
+func customCert(namespace, domain string) *netv1alpha1.Certificate {
+	return &netv1alpha1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      fmt.Sprintf(domain),
+			Annotations: map[string]string{
+				networking.CertificateClassAnnotationKey: "my-custom",
+			},
+		},
+		Spec: netv1alpha1.CertificateSpec{
+			DNSNames:   []string{domain},
+			SecretName: namespace,
+		},
+		Status: readyCertStatus(),
+	}
 }
 
 func TestReconcile_EnableAutoTLS_HTTPDisabled(t *testing.T) {
