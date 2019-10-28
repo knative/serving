@@ -18,6 +18,7 @@ package revision
 
 import (
 	"context"
+	"knative.dev/serving/pkg/apis/config"
 	"testing"
 	"time"
 
@@ -133,6 +134,24 @@ func getTestDeploymentConfigMap() *corev1.ConfigMap {
 	}
 }
 
+func getTestDefaultsConfig() *config.Defaults {
+	c, _ := config.NewDefaultsConfigFromConfigMap(getTestDefaultsConfigMap())
+	// ignoring error as test controller is generated
+	return c
+}
+
+func getTestDefaultsConfigMap() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      config.DefaultsConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{
+			"container-concurrency": "1",
+		},
+	}
+}
+
 func newTestController(t *testing.T) (
 	context.Context,
 	context.CancelFunc,
@@ -148,6 +167,7 @@ func newTestController(t *testing.T) (
 
 	configs := []*corev1.ConfigMap{
 		getTestDeploymentConfigMap(),
+		getTestDefaultsConfigMap(),
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),

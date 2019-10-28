@@ -308,7 +308,8 @@ func TestResolutionFailed(t *testing.T) {
 // TODO(mattmoor): add coverage of a Reconcile fixing a stale logging URL
 func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	deploymentConfig := getTestDeploymentConfig()
-	ctx, _, controller, watcher := newTestControllerWithConfig(t, deploymentConfig, &corev1.ConfigMap{
+	defaultsConfig := getTestDefaultsConfigMap()
+	ctx, _, controller, watcher := newTestControllerWithConfig(t, deploymentConfig, defaultsConfig, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      metrics.ConfigMapName(),
@@ -482,7 +483,8 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 
 func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnotationOverride string) map[string]string {
 	controllerConfig := getTestDeploymentConfig()
-	ctx, _, controller, watcher := newTestControllerWithConfig(t, controllerConfig)
+	defaultsConfig := getTestDefaultsConfigMap()
+	ctx, _, controller, watcher := newTestControllerWithConfig(t, controllerConfig, defaultsConfig)
 
 	// Resolve image references to this "digest"
 	digest := "foo@sha256:deadbeef"
@@ -557,7 +559,8 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			controllerConfig := getTestDeploymentConfig()
-			ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, controllerConfig)
+			defaultsConfig := getTestDefaultsConfigMap()
+			ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, controllerConfig, defaultsConfig)
 
 			ctx, cancel := context.WithCancel(ctx)
 			grp := errgroup.Group{}
@@ -713,7 +716,8 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			controllerConfig := getTestDeploymentConfig()
-			ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, controllerConfig)
+			defaultsConfig := getTestDefaultsConfigMap()
+			ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, controllerConfig, defaultsConfig)
 
 			ctx, cancel := context.WithCancel(ctx)
 			grp := errgroup.Group{}
