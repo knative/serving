@@ -42,6 +42,9 @@ const (
 	// ReconcileExternalGatewayKey the is the name of the configuration entry that specifies
 	// reconciling external Istio Gateways or not.
 	ReconcileExternalGatewayKey = "reconcileExternalGateway"
+
+	// defaultReconcileGateway is the default value of reconcileExternalGateway.
+	defaultReconcileGateway = false
 )
 
 func defaultGateways() []Gateway {
@@ -61,8 +64,6 @@ func defaultLocalGateways() []Gateway {
 			network.GetClusterDomainName()),
 	}}
 }
-
-var defaultReconcileGateway = false
 
 // Gateway specifies the name of the Gateway and the K8s Service backing it.
 type Gateway struct {
@@ -125,13 +126,13 @@ func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
 		gateways = defaultGateways()
 	}
 	localGateways, err := parseGateways(configMap, LocalGatewayKeyPrefix)
+	if err != nil {
+		return nil, err
+	}
 	if len(localGateways) == 0 {
 		localGateways = defaultLocalGateways()
 	}
 	localGateways = removeMeshGateway(localGateways)
-	if err != nil {
-		return nil, err
-	}
 	reconcileGateway := defaultReconcileGateway
 	if reconcileGatewayStr := configMap.Data[ReconcileExternalGatewayKey]; len(reconcileGatewayStr) != 0 {
 		if reconcileGateway, err = strconv.ParseBool(reconcileGatewayStr); err != nil {
