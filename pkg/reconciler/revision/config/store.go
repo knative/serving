@@ -18,6 +18,7 @@ package config
 
 import (
 	"context"
+	"knative.dev/serving/pkg/apis/config"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
@@ -37,6 +38,7 @@ type Config struct {
 	Observability *metrics.ObservabilityConfig
 	Logging       *logging.Config
 	Tracing       *pkgtracing.Config
+	Defaults      *config.Defaults
 }
 
 func FromContext(ctx context.Context) *Config {
@@ -64,6 +66,7 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 				pkgmetrics.ConfigMapName(): metrics.NewObservabilityConfigFromConfigMap,
 				logging.ConfigMapName():    logging.NewConfigFromConfigMap,
 				pkgtracing.ConfigName:      pkgtracing.NewTracingConfigFromConfigMap,
+				config.DefaultsConfigName:  config.NewDefaultsConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),
@@ -84,5 +87,6 @@ func (s *Store) Load() *Config {
 		Observability: s.UntypedLoad(pkgmetrics.ConfigMapName()).(*metrics.ObservabilityConfig).DeepCopy(),
 		Logging:       s.UntypedLoad((logging.ConfigMapName())).(*logging.Config).DeepCopy(),
 		Tracing:       s.UntypedLoad(pkgtracing.ConfigName).(*pkgtracing.Config).DeepCopy(),
+		Defaults:      s.UntypedLoad(config.DefaultsConfigName).(*config.Defaults).DeepCopy(),
 	}
 }

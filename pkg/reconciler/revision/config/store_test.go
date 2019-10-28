@@ -26,6 +26,7 @@ import (
 	logtesting "knative.dev/pkg/logging/testing"
 	pkgmetrics "knative.dev/pkg/metrics"
 	pkgtracing "knative.dev/pkg/tracing/config"
+	apisconfig "knative.dev/serving/pkg/apis/config"
 	deployment "knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/network"
@@ -41,12 +42,14 @@ func TestStoreLoadWithContext(t *testing.T) {
 	observabilityConfig := ConfigMapFromTestFile(t, pkgmetrics.ConfigMapName())
 	loggingConfig := ConfigMapFromTestFile(t, logging.ConfigMapName())
 	tracingConfig := ConfigMapFromTestFile(t, pkgtracing.ConfigName)
+	defaultConfig := ConfigMapFromTestFile(t, apisconfig.DefaultsConfigName)
 
 	store.OnConfigChanged(deploymentConfig)
 	store.OnConfigChanged(networkConfig)
 	store.OnConfigChanged(observabilityConfig)
 	store.OnConfigChanged(loggingConfig)
 	store.OnConfigChanged(tracingConfig)
+	store.OnConfigChanged(defaultConfig)
 
 	config := FromContext(store.ToContext(context.Background()))
 
@@ -86,6 +89,13 @@ func TestStoreLoadWithContext(t *testing.T) {
 			t.Errorf("Unexpected tracing config (-want, +got): %v", diff)
 		}
 	})
+
+	t.Run("defaults", func(t *testing.T) {
+		expected, _ := apisconfig.NewDefaultsConfigFromConfigMap(defaultConfig)
+		if diff := cmp.Diff(expected, config.Defaults); diff != "" {
+			t.Errorf("Unexpected defaults config (-want, +got): %v", diff)
+		}
+	})
 }
 
 func TestStoreImmutableConfig(t *testing.T) {
@@ -96,6 +106,7 @@ func TestStoreImmutableConfig(t *testing.T) {
 	store.OnConfigChanged(ConfigMapFromTestFile(t, pkgmetrics.ConfigMapName()))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, logging.ConfigMapName()))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, pkgtracing.ConfigName))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, apisconfig.DefaultsConfigName))
 
 	config := store.Load()
 
