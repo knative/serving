@@ -465,7 +465,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "pod-error",
-				WithLogURL, AllUnknownConditions, MarkContainerExiting(5,  v1alpha1.RevisionContainerExitingMessage("I failed man!"))),
+				WithLogURL, AllUnknownConditions, MarkContainerExiting(5, v1alpha1.RevisionContainerExitingMessage("I failed man!"))),
 		}},
 		Key: "foo/pod-error",
 	}, {
