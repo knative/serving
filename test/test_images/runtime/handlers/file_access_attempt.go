@@ -70,8 +70,11 @@ func checkReadable(path string) error {
 		return err
 	}
 	readFile, err := os.OpenFile(path, os.O_RDONLY, 0)
-	defer readFile.Close()
-	return err
+	if err != nil {
+		return err
+	}
+	readFile.Close()
+	return nil
 }
 
 // checkWritable function checks whether path file or directory is writable

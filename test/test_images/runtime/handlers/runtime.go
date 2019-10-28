@@ -60,14 +60,16 @@ func excludeFilePaths(filePaths []string, excludedPaths []string) []string {
 	var paths []string
 	for _, path := range filePaths {
 		excluded := false
-		for i := len(excludedPaths) - 1; i >= 0 && !excluded; i-- {
-			excluded = path == excludedPaths[i]
+		for _, excludedPath := range excludedPaths {
+			if path == excludedPath {
+				excluded = true
+				break
+			}
 		}
 
 		if !excluded {
 			paths = append(paths, path)
 		}
 	}
-
 	return paths
 }
