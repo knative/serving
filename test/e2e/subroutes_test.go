@@ -123,10 +123,10 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 	})
 	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, withTrafficSpec)
 	if err != nil {
-		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
+		t.Fatalf("Failed to create initial Service: %v: %w", names.Service, err)
 	}
 
-	if isClusterLocal, err := trafficWithTagIsClusterLocal(resources.Route.Status.Traffic, subrouteTag1); err != nil {
+	if isClusterLocal, err := isTrafficClusterLocal(resources.Route.Status.Traffic, subrouteTag1); err != nil {
 		t.Fatalf(err.Error())
 	} else if isClusterLocal {
 		t.Fatalf("Expected subroutes with tag %s to be not cluster local", subrouteTag1)
@@ -136,10 +136,10 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 		t.Fatalf("Expected route to be not cluster local")
 	}
 
-	serviceName := fmt.Sprintf("%s-%s", subrouteTag1, resources.Route.Name)
+	serviceName := serviceNameForRoute(subrouteTag1, resources.Route.Name)
 	svc, err := clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Get(serviceName, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to get k8s service to modify: %s", err.Error())
+		t.Fatalf("Failed to get k8s service to modify: %w", err)
 	}
 
 	svcCopy := svc.DeepCopy()
@@ -151,10 +151,10 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 	}
 
 	if _, err = clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Patch(serviceName, types.JSONPatchType, svcpatchBytes); err != nil {
-		t.Fatalf("Failed to patch service: %s", err.Error())
+		t.Fatalf("Failed to patch service: %w", err)
 	}
 
-	//	create sub-route 2 in kservice
+	//create sub-route 2 in kservice
 	ksvcCopy := resources.Service.DeepCopy()
 	ksvcCopyRouteTraffic := append(ksvcCopy.Spec.Traffic,
 		v1alpha1.TrafficTarget{
@@ -165,11 +165,11 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 		})
 
 	if _, err = v1a1test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{Traffic: ksvcCopyRouteTraffic}); err != nil {
-		t.Fatalf("Failed to patch service: %s", err.Error())
+		t.Fatalf("Failed to patch service: %w", err)
 	}
 
 	if err = v1a1test.WaitForRouteState(clients.ServingAlphaClient, resources.Route.Name, v1a1test.IsRouteReady, "Route is ready"); err != nil {
-		t.Fatalf("Route did not become ready: %s", err.Error())
+		t.Fatalf("Route did not become ready: %w", err)
 	}
 
 	r2, err := clients.ServingAlphaClient.Routes.Get(resources.Route.Name, metav1.GetOptions{})
@@ -177,19 +177,19 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	if isClusterLocal, err := trafficWithTagIsClusterLocal(r2.Status.Traffic, subrouteTag1); err != nil {
+	if isClusterLocal, err := isTrafficClusterLocal(r2.Status.Traffic, subrouteTag1); err != nil {
 		t.Fatalf(err.Error())
 	} else if !isClusterLocal {
 		t.Fatalf("Expected subroute with tag %s to be cluster local", subrouteTag1)
 	}
 
-	if isClusterLocal, err := trafficWithTagIsClusterLocal(r2.Status.Traffic, subrouteTag2); err != nil {
+	if isClusterLocal, err := isTrafficClusterLocal(r2.Status.Traffic, subrouteTag2); err != nil {
 		t.Fatalf(err.Error())
 	} else if isClusterLocal {
 		t.Fatalf("Expected subroute with tag %s to be not cluster local", subrouteTag2)
 	}
 
-	// update route to private
+	//Update route to private.
 	ksvclabelCopy := resources.Service.DeepCopy()
 	labels.SetVisibility(&ksvclabelCopy.ObjectMeta, true)
 	if _, err = v1a1test.PatchService(t, clients, resources.Service, ksvclabelCopy); err != nil {
@@ -208,7 +208,7 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 	}
 
 	for _, tag := range []string{subrouteTag1, subrouteTag2} {
-		if isClusterLocal, err := trafficWithTagIsClusterLocal(clusterLocalRoute.Status.Traffic, tag); err != nil {
+		if isClusterLocal, err := isTrafficClusterLocal(clusterLocalRoute.Status.Traffic, tag); err != nil {
 			t.Fatalf(err.Error())
 		} else if !isClusterLocal {
 			t.Fatalf("Expected subroute with tag %s to be cluster local", tag)
@@ -258,7 +258,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 	}
 
 	for _, tag := range []string{subrouteTag1, subrouteTag2} {
-		if isClusterLocal, err := trafficWithTagIsClusterLocal(resources.Route.Status.Traffic, tag); err != nil {
+		if isClusterLocal, err := isTrafficClusterLocal(resources.Route.Status.Traffic, tag); err != nil {
 			t.Fatalf(err.Error())
 		} else if !isClusterLocal {
 			t.Fatalf("Expected subroute with tag %s to be cluster local", tag)
@@ -269,8 +269,8 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 		t.Fatalf("Expected route to be cluster local")
 	}
 
-	// change subroute 1 - private
-	serviceName := fmt.Sprintf("%s-%s", subrouteTag1, resources.Route.Name)
+	//Update subroute1 to private
+	serviceName := serviceNameForRoute(subrouteTag1, resources.Route.Name)
 	svc, err := clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Get(serviceName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get k8s service to modify: %s", err.Error())
@@ -293,7 +293,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 	// check sub-routes are private
 	if err = v1a1test.WaitForRouteState(clients.ServingAlphaClient, resources.Route.Name, func(r *v1alpha1.Route) (bool, error) {
 		for _, tag := range []string{subrouteTag1, subrouteTag2} {
-			if isClusterLocal, err := trafficWithTagIsClusterLocal(r.Status.Traffic, tag); err != nil {
+			if isClusterLocal, err := isTrafficClusterLocal(r.Status.Traffic, tag); err != nil {
 				return false, err
 			} else if !isClusterLocal {
 				return false, fmt.Errorf("Expected sub route with tag %s to be cluster local", tag)
@@ -334,27 +334,25 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	// check subroute 2 - public
-	if isClusterLocal, err := trafficWithTagIsClusterLocal(publicRoute.Status.Traffic, subrouteTag2); err != nil {
+	//Check subroute 2 is public.
+	if isClusterLocal, err := isTrafficClusterLocal(publicRoute.Status.Traffic, subrouteTag2); err != nil {
 		t.Fatalf(err.Error())
 	} else if isClusterLocal {
 		t.Fatalf("Expected subroute with tag %s to be not cluster local", subrouteTag2)
 	}
 
-	// check subroute 1 - private  // expect to fail on 0.8.1 (it becomes public)
-	if isClusterLocal, err := trafficWithTagIsClusterLocal(publicRoute.Status.Traffic, subrouteTag1); err != nil {
+	//Check subroute1 is  private. This check is expected to fail on v0.8.1 and earlier as subroute1 becomes public)
+	if isClusterLocal, err := isTrafficClusterLocal(publicRoute.Status.Traffic, subrouteTag1); err != nil {
 		t.Fatalf(err.Error())
 	} else if !isClusterLocal {
 		t.Fatalf("Expected subroute with tag %s to be cluster local", subrouteTag1)
 	}
 
-	//// change subroute 1 - private
-	//// check subroute 1 - private
-	//
-	serviceName1 := fmt.Sprintf("%s-%s", subrouteTag1, resources.Route.Name)
+	//Update and check subroute 1 to private.
+	serviceName1 := serviceNameForRoute(subrouteTag1, resources.Route.Name)
 	svc1, err := clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Get(serviceName1, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to get k8s service to modify: %s", err.Error())
+		t.Fatalf("Failed to get k8s service to modify: %w", err)
 	}
 
 	svc1Copy := svc1.DeepCopy()
@@ -366,21 +364,22 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 	}
 
 	if _, err = clients.KubeClient.Kube.CoreV1().Services(test.ServingNamespace).Patch(serviceName1, types.JSONPatchType, svc1patchBytes); err != nil {
-		t.Fatalf("Failed to patch service: %s", err.Error())
+		t.Fatalf("Failed to patch service: %w", err)
 	}
 
 	if err = v1a1test.WaitForRouteState(clients.ServingAlphaClient, resources.Route.Name, v1a1test.IsRouteReady, "Route is ready"); err != nil {
-		t.Fatalf("Route did not become ready: %s", err.Error())
+		t.Fatalf("Route did not become ready: %w", err)
 	}
 
-	if isClusterLocal, err := trafficWithTagIsClusterLocal(publicRoute.Status.Traffic, subrouteTag1); err != nil {
+	if isClusterLocal, err := isTrafficClusterLocal(publicRoute.Status.Traffic, subrouteTag1); err != nil {
 		t.Fatalf(err.Error())
 	} else if !isClusterLocal {
 		t.Fatalf("Expected subroute with tag %s to be cluster local", subrouteTag1)
 	}
 }
 
-func trafficWithTagIsClusterLocal(tt []v1alpha1.TrafficTarget, tag string) (bool, error) {
+// Function check whether traffic with tag is cluster local or
+func isTrafficClusterLocal(tt []v1alpha1.TrafficTarget, tag string) (bool, error) {
 	for _, traffic := range tt {
 		if traffic.Tag == tag {
 			return strings.HasSuffix(traffic.TrafficTarget.URL.Host, network.GetClusterDomainName()), nil
@@ -391,4 +390,8 @@ func trafficWithTagIsClusterLocal(tt []v1alpha1.TrafficTarget, tag string) (bool
 
 func isRouteClusterLocal(rs v1alpha1.RouteStatus) bool {
 	return strings.HasSuffix(rs.URL.Host, network.GetClusterDomainName())
+}
+
+func serviceNameForRoute(subrouteTag, routeName string ) string{
+	return fmt.Sprintf("%s-%s", subrouteTag, routeName)
 }
