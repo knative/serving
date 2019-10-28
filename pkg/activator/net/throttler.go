@@ -147,20 +147,6 @@ func pickP2C(tgts []*podIPTracker) (string, func()) {
 	}
 }
 
-// Returns clusterIP if it is the current valid dest. If neither clusterIP or podIPs are valid
-// dests returns error.
-func (rt *revisionThrottler) checkClusterIPDest() (string, error) {
-	rt.mux.RLock()
-	defer rt.mux.RUnlock()
-
-	if rt.clusterIPDest == "" && len(rt.podIPTrackers) == 0 {
-		return "", errors.New("made it through breaker but we have no clusterIP or podIPs. This should" +
-			" never happen" + rt.revID.String())
-	}
-
-	return rt.clusterIPDest, nil
-}
-
 func noop() {}
 
 // Returns a dest after incrementing its request count and a completion callback
