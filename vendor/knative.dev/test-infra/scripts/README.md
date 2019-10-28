@@ -73,9 +73,9 @@ running the tests, and is automatically handled by the default action for
 integration tests (see above).
 
 To run a specific program as a test, use the `--run-test` flag, and provide the
-program as the argument. If arguments are required for the program, pass everything
-as a single quotes argument. For example, `./presubmit-tests.sh --run-test
-"test/my/test data"`.
+program as the argument. If arguments are required for the program, pass
+everything as a single quotes argument. For example,
+`./presubmit-tests.sh --run-test "test/my/test data"`.
 
 The script will automatically skip all presubmit tests for PRs where all changed
 files are exempt of tests (e.g., a PR changing only the `OWNERS` file).
@@ -243,23 +243,22 @@ benchmarking jobs for each repo. To use it:
    - `PROJECT_NAME`: GCP project name for keeping the clusters that run the
      benchmarks. Defaults to `knative-performance`.
    - `SERVICE_ACCOUNT_NAME`: Service account name for controlling GKE clusters
-     and interacting with [Mako](https://github.com/google/mako) server. It MUST have
-     `Kubernetes Engine Admin` and `Storage Admin` role, and be
+     and interacting with [Mako](https://github.com/google/mako) server. It MUST
+     have `Kubernetes Engine Admin` and `Storage Admin` role, and be
      [whitelisted](https://github.com/google/mako/blob/master/docs/ACCESS.md) by
      Mako admin. Defaults to `mako-job`.
 
 1. [optional] Customize root path of the benchmarks. This root folder should
-   contain and only contain all benchmarks you want to run continuously.
-   Set the following environment variable if the default value doesn't fit your
-   needs:
+   contain and only contain all benchmarks you want to run continuously. Set the
+   following environment variable if the default value doesn't fit your needs:
 
    - `BENCHMARK_ROOT_PATH`: Benchmark root path, defaults to
      `test/performance/benchmarks`. Each repo can decide which folder to put its
      benchmarks in, and override this environment variable to be the path of
      that folder.
 
-1. [optional] Write the `update_knative` function, which will update your
-   system under test (e.g. Knative Serving).
+1. [optional] Write the `update_knative` function, which will update your system
+   under test (e.g. Knative Serving).
 
 1. [optional] Write the `update_benchmark` function, which will update the
    underlying resources for the benchmark (usually Knative resources and

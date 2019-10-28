@@ -22,13 +22,13 @@
 package bundler
 
 import (
+	"context"
 	"errors"
 	"math"
 	"reflect"
 	"sync"
 	"time"
 
-	"golang.org/x/net/context"
 	"golang.org/x/sync/semaphore"
 )
 

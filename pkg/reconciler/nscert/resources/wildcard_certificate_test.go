@@ -50,7 +50,7 @@ func TestMakeWildcardCertificate(t *testing.T) {
 		},
 		Spec: v1alpha1.CertificateSpec{
 			DNSNames:   []string{dnsName},
-			SecretName: namespace.Name,
+			SecretName: names.WildcardCertificate(dnsName),
 		},
 	}
 

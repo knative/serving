@@ -103,7 +103,6 @@ func TestRevisionWatcher(t *testing.T) {
 		clusterIP             string
 		expectUpdates         []revisionDestsUpdate
 		probeHostResponses    map[string][]activatortest.FakeResponse
-		probeResponses        []activatortest.FakeResponse
 		initialClusterIPState bool
 		noPodAddressability   bool // This keeps the test defs shorter.
 	}{{
@@ -177,10 +176,14 @@ func TestRevisionWatcher(t *testing.T) {
 			Port: 1234,
 		},
 		clusterIP: "129.0.0.1",
-		probeResponses: []activatortest.FakeResponse{{
-			Code: http.StatusServiceUnavailable,
-			Body: queue.Name,
-		}},
+		probeHostResponses: map[string][]activatortest.FakeResponse{
+			"129.0.0.1:1234": {{
+				Code: http.StatusServiceUnavailable,
+			}},
+			"128.0.0.1:1234": {{
+				Code: http.StatusServiceUnavailable,
+			}},
+		},
 	}, {
 		name:  "single error podIP",
 		dests: []string{"128.0.0.1:1234"},
@@ -189,11 +192,14 @@ func TestRevisionWatcher(t *testing.T) {
 			Port: 1234,
 		},
 		clusterIP: "129.0.0.1",
-		probeResponses: []activatortest.FakeResponse{{
-			Err:  errors.New("Fake error"),
-			Code: http.StatusOK,
-			Body: queue.Name,
-		}},
+		probeHostResponses: map[string][]activatortest.FakeResponse{
+			"129.0.0.1:1234": {{
+				Code: http.StatusServiceUnavailable,
+			}},
+			"128.0.0.1:1234": {{
+				Err: errors.New("Fake error"),
+			}},
+		},
 	}, {
 		name:  "podIP slow ready",
 		dests: []string{"128.0.0.1:1234"},
@@ -331,7 +337,6 @@ func TestRevisionWatcher(t *testing.T) {
 			fakeRT := activatortest.FakeRoundTripper{
 				ExpectHost:         testRevision,
 				ProbeHostResponses: tc.probeHostResponses,
-				ProbeResponses:     tc.probeResponses,
 			}
 			rt := network.RoundTripperFunc(fakeRT.RT)
 
@@ -407,19 +412,19 @@ func TestRevisionWatcher(t *testing.T) {
 				t.Errorf("revisionDests updates = %v, want: %v, diff (-want, +got):\n %s", got, want, cmp.Diff(want, got))
 			}
 
-			assertChClosed(t, destsCh)
+			assertChClosed(t, rw.done)
 		})
 	}
 }
 
-func assertChClosed(t *testing.T, ch chan sets.String) {
+func assertChClosed(t *testing.T, ch chan struct{}) {
 	defer func() {
 		if r := recover(); r == nil {
 			t.Errorf("the channel was not closed")
 		}
 	}()
 	select {
-	case ch <- nil:
+	case ch <- struct{}{}:
 		// Panics if the channel is closed
 	default:
 		// Prevents from blocking forever if the channel is not closed
@@ -461,7 +466,6 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		endpointsArr       []*corev1.Endpoints
 		revisions          []*v1alpha1.Revision
 		services           []*corev1.Service
-		probeResponses     []activatortest.FakeResponse
 		probeHostResponses map[string][]activatortest.FakeResponse
 		expectDests        map[types.NamespacedName]revisionDestsUpdate
 		updateCnt          int
@@ -628,7 +632,6 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			fakeRT := activatortest.FakeRoundTripper{
 				ExpectHost:         testRevision,
 				ProbeHostResponses: tc.probeHostResponses,
-				ProbeResponses:     tc.probeResponses,
 			}
 			rt := network.RoundTripperFunc(fakeRT.RT)
 
@@ -719,7 +722,7 @@ func TestCheckDests(t *testing.T) {
 		updateCh:         uCh,
 		serviceLister:    si.Lister(),
 		logger:           TestLogger(t),
-		doneCh:           dCh,
+		stopCh:           dCh,
 	}
 	rw.checkDests(sets.NewString("10.1.1.5"))
 	select {
@@ -800,7 +803,7 @@ func TestCheckDestsSwinging(t *testing.T) {
 		updateCh:        uCh,
 		serviceLister:   si.Lister(),
 		logger:          TestLogger(t),
-		doneCh:          dCh,
+		stopCh:          dCh,
 		podsAddressable: true,
 		transport:       network.RoundTripperFunc(fakeRT.RT),
 	}
@@ -935,5 +938,120 @@ func TestRevisionDeleted(t *testing.T) {
 		t.Errorf("Unexpected update: %#v", r)
 	case <-time.After(time.Millisecond * 200):
 		// Wait to make sure the callbacks are executed.
+	}
+}
+
+func TestServiceDoesNotExist(t *testing.T) {
+	// Tests when the service is not available.
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+
+	ei := fakeendpointsinformer.Get(ctx)
+	eps := ep(testRevision, 1234, "http", "128.0.0.1")
+	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(eps)
+	waitInformers, err := controller.RunInformers(ctx.Done(), ei.Informer())
+	if err != nil {
+		t.Fatalf("Failed to start informers: %v", err)
+	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
+
+	rev := revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	ri := fakerevisioninformer.Get(ctx)
+	ri.Informer().GetIndexer().Add(rev)
+
+	// This will make sure we go to the cluster IP probing.
+	fakeRT := activatortest.FakeRoundTripper{
+		ExpectHost: testRevision,
+		ProbeHostResponses: map[string][]activatortest.FakeResponse{
+			// To ensure that if we fail, when we get into the second iteration
+			// of probing if the test is not yet complete, we store 2 items here.
+			"128.0.0.1:1234": {{
+				Err: errors.New("clusterIP transport error"),
+			}, {
+				Err: errors.New("clusterIP transport error"),
+			}, {
+				Err: errors.New("clusterIP transport error"),
+			}},
+		},
+	}
+	rt := network.RoundTripperFunc(fakeRT.RT)
+
+	rbm := newRevisionBackendsManager(ctx, rt)
+	// Make some movements to generate a checkDests call.
+	ei.Informer().GetIndexer().Add(eps)
+	select {
+	case x := <-rbm.updates():
+		// We can't probe endpoints (see RT above) and we can't get to probe
+		// cluster IP. But if the service is accessible then we will and probing will
+		// succeed since RT has no rules for that.
+		t.Errorf("Unexpected update, should have had none: %v", x)
+	case <-time.After(200 * time.Millisecond):
+	}
+}
+
+func TestServiceMoreThanOne(t *testing.T) {
+	// Tests when the service is not available.
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+
+	ei := fakeendpointsinformer.Get(ctx)
+	eps := ep(testRevision, 1234, "http", "128.0.0.1")
+	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(eps)
+	waitInformers, err := controller.RunInformers(ctx.Done(), ei.Informer())
+	if err != nil {
+		t.Fatalf("Failed to start informers: %v", err)
+	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
+
+	rev := revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	ri := fakerevisioninformer.Get(ctx)
+	ri.Informer().GetIndexer().Add(rev)
+
+	// Now let's create two!
+	for _, num := range []string{"11", "12"} {
+		svc := privateSKSService(
+			types.NamespacedName{testNamespace, testRevision},
+			"129.0.0."+num,
+			[]corev1.ServicePort{{Name: "http", Port: 1234}},
+		)
+		// Modify the name so both can be created.
+		svc.Name = svc.Name + num
+		fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(svc)
+		si := fakeserviceinformer.Get(ctx)
+		si.Informer().GetIndexer().Add(svc)
+	}
+
+	// Make sure fake probe failures ensue.
+	fakeRT := activatortest.FakeRoundTripper{
+		ExpectHost: testRevision,
+		ProbeHostResponses: map[string][]activatortest.FakeResponse{
+			// To ensure that if we fail, when we get into the second iteration
+			// of probing if the test is not yet complete, we store 2 items here.
+			"128.0.0.1:1234": {{
+				Err: errors.New("clusterIP transport error"),
+			}, {
+				Err: errors.New("clusterIP transport error"),
+			}, {
+				Err: errors.New("clusterIP transport error"),
+			}},
+		},
+	}
+
+	rt := network.RoundTripperFunc(fakeRT.RT)
+	rbm := newRevisionBackendsManager(ctx, rt)
+	ei.Informer().GetIndexer().Add(eps)
+	select {
+	case x := <-rbm.updates():
+		// We can't probe endpoints (see RT above) and we can't get to probe
+		// cluster IP. But if the service is accessible then we will and probing will
+		// succeed since RT has no rules for that.
+		t.Errorf("Unexpected update, should have had none: %v", x)
+	case <-time.After(200 * time.Millisecond):
 	}
 }

@@ -486,7 +486,7 @@ func TestImmutableConfigurationFields(t *testing.T) {
 		},
 		want: &apis.FieldError{
 			Message: "Saw the following changes without a name change (-old +new)",
-			Paths:   []string{"spec.template"},
+			Paths:   []string{"spec.template.metadata.name"},
 			Details: "{*v1.RevisionTemplateSpec}.Spec.PodSpec.Containers[0].Image:\n\t-: \"helloworld:bar\"\n\t+: \"helloworld:foo\"\n",
 		},
 	}}

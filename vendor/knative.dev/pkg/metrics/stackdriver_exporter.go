@@ -17,14 +17,22 @@ limitations under the License.
 package metrics
 
 import (
+	"fmt"
 	"path"
+	"sync"
 
 	"contrib.go.opencensus.io/exporter/stackdriver"
 	"contrib.go.opencensus.io/exporter/stackdriver/monitoredresource"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	"go.uber.org/zap"
+	"google.golang.org/api/option"
 	"knative.dev/pkg/metrics/metricskey"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 const (
@@ -32,28 +40,23 @@ const (
 	// defaultCustomMetricSubDomain is the default subdomain to use for unsupported metrics by monitored resource types.
 	// See: https://cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.metricDescriptors#MetricDescriptor
 	defaultCustomMetricSubDomain = "knative.dev"
+	// secretNamespaceDefault is the namespace to search for a k8s Secret to pass to Stackdriver client to authenticate with Stackdriver.
+	secretNamespaceDefault = "default"
+	// secretDataFieldKey is the name of the k8s Secret field that contains the Secret's key.
+	secretDataFieldKey = "key.json"
 )
 
 var (
-	// gcpMetadataFunc is the function used to fetch GCP metadata.
-	// In product usage, this is always set to function retrieveGCPMetadata.
-	// In unit tests this is set to a fake one to avoid calling GCP metadata
-	// service.
-	gcpMetadataFunc func() *gcpMetadata
-
-	// newStackdriverExporterFunc is the function used to create new stackdriver
-	// exporter.
-	// In product usage, this is always set to function newOpencensusSDExporter.
-	// In unit tests this is set to a fake one to avoid calling actual Google API
-	// service.
-	newStackdriverExporterFunc func(stackdriver.Options) (view.Exporter, error)
+	// kubeclient is the in-cluster Kubernetes kubeclient, which is lazy-initialized on first use.
+	kubeclient *kubernetes.Clientset
+	// initClientOnce is the lazy initializer for kubeclient.
+	initClientOnce sync.Once
+	// kubeclientInitErr capture an error during initClientOnce
+	kubeclientInitErr error
 )
 
 func init() {
-	// Set gcpMetadataFunc to call GCP metadata service.
-	gcpMetadataFunc = retrieveGCPMetadata
-
-	newStackdriverExporterFunc = newOpencensusSDExporter
+	kubeclientInitErr = nil
 }
 
 func newOpencensusSDExporter(o stackdriver.Options) (view.Exporter, error) {
@@ -63,10 +66,18 @@ func newOpencensusSDExporter(o stackdriver.Options) (view.Exporter, error) {
 // TODO should be properly refactored to be able to inject the getMonitoredResourceFunc function.
 // 	See https://github.com/knative/pkg/issues/608
 func newStackdriverExporter(config *metricsConfig, logger *zap.SugaredLogger) (view.Exporter, error) {
-	gm := gcpMetadataFunc()
+	gm := getMergedGCPMetadata(config)
 	mtf := getMetricTypeFunc(config.stackdriverMetricTypePrefix, config.stackdriverCustomMetricTypePrefix)
-	e, err := newStackdriverExporterFunc(stackdriver.Options{
-		ProjectID:               config.stackdriverProjectID,
+	co, err := getStackdriverExporterClientOptions(&config.stackdriverClientConfig)
+	if err != nil {
+		logger.Warnw("Issue configuring Stackdriver exporter client options, no additional client options will be used: ", zap.Error(err))
+	}
+	// Automatically fall back on Google application default credentials
+	e, err := newOpencensusSDExporter(stackdriver.Options{
+		ProjectID:               gm.project,
+		Location:                gm.location,
+		MonitoringClientOptions: co,
+		TraceClientOptions:      co,
 		GetMetricDisplayName:    mtf, // Use metric type for display name for custom metrics. No impact on built-in metrics.
 		GetMetricType:           mtf,
 		GetMonitoredResource:    getMonitoredResourceFunc(config.stackdriverMetricTypePrefix, gm),
@@ -78,6 +89,42 @@ func newStackdriverExporter(config *metricsConfig, logger *zap.SugaredLogger) (v
 	}
 	logger.Infof("Created Opencensus Stackdriver exporter with config %v", config)
 	return e, nil
+}
+
+// getStackdriverExporterClientOptions creates client options for the opencensus Stackdriver exporter from the given stackdriverClientConfig.
+// On error, an empty array of client options is returned.
+func getStackdriverExporterClientOptions(sdconfig *stackdriverClientConfig) ([]option.ClientOption, error) {
+	var co []option.ClientOption
+	if sdconfig.GCPSecretName != "" {
+		secret, err := getStackdriverSecret(sdconfig)
+		if err != nil {
+			return co, err
+		}
+
+		co = append(co, convertSecretToExporterOption(secret))
+	}
+
+	return co, nil
+}
+
+// getMergedGCPMetadata returns GCP metadata required to export metrics
+// to Stackdriver. Values can come from the GCE metadata server or the config.
+//  Values explicitly set in the config take the highest precedent.
+func getMergedGCPMetadata(config *metricsConfig) *gcpMetadata {
+	gm := retrieveGCPMetadata()
+	if config.stackdriverClientConfig.ProjectID != "" {
+		gm.project = config.stackdriverClientConfig.ProjectID
+	}
+
+	if config.stackdriverClientConfig.GCPLocation != "" {
+		gm.location = config.stackdriverClientConfig.GCPLocation
+	}
+
+	if config.stackdriverClientConfig.ClusterName != "" {
+		gm.cluster = config.stackdriverClientConfig.ClusterName
+	}
+
+	return gm
 }
 
 func getMonitoredResourceFunc(metricTypePrefix string, gm *gcpMetadata) func(v *view.View, tags []tag.Tag) ([]tag.Tag, monitoredresource.Interface) {
@@ -114,4 +161,50 @@ func getMetricTypeFunc(metricTypePrefix, customMetricTypePrefix string) func(vie
 		// Unsupported metric by knative_revision, use custom domain.
 		return path.Join(customMetricTypePrefix, view.Measure.Name())
 	}
+}
+
+// getStackdriverSecret returns the Kubernetes Secret specified in the given config.
+func getStackdriverSecret(sdconfig *stackdriverClientConfig) (*corev1.Secret, error) {
+	if err := ensureKubeclient(); err != nil {
+		return nil, err
+	}
+
+	ns := sdconfig.GCPSecretNamespace
+	if ns == "" {
+		ns = secretNamespaceDefault
+	}
+
+	sec, secErr := kubeclient.CoreV1().Secrets(ns).Get(sdconfig.GCPSecretName, metav1.GetOptions{})
+
+	if secErr != nil {
+		return nil, fmt.Errorf("Error getting Secret [%v] in namespace [%v]: %v", sdconfig.GCPSecretName, sdconfig.GCPSecretNamespace, secErr)
+	}
+
+	return sec, nil
+}
+
+// convertSecretToExporterOption converts a Kubernetes Secret to an OpenCensus Stackdriver Exporter Option.
+func convertSecretToExporterOption(secret *corev1.Secret) option.ClientOption {
+	return option.WithCredentialsJSON(secret.Data[secretDataFieldKey])
+}
+
+// ensureKubeclient is the lazy initializer for kubeclient.
+func ensureKubeclient() error {
+	// initClientOnce is only run once and cannot return error, so kubeclientInitErr is used to capture errors.
+	initClientOnce.Do(func() {
+		config, err := rest.InClusterConfig()
+		if err != nil {
+			kubeclientInitErr = err
+			return
+		}
+
+		cs, err := kubernetes.NewForConfig(config)
+		if err != nil {
+			kubeclientInitErr = err
+			return
+		}
+		kubeclient = cs
+	})
+
+	return kubeclientInitErr
 }

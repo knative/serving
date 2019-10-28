@@ -1,0 +1,466 @@
+# Copyright 2019 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prober
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: prober
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.internal.knative.dev"]
+    resources: ["serverlessservices"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prober
+subjects:
+  - kind: ServiceAccount
+    name: prober
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: prober
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: dataplane-probe-deployment
+spec:
+  schedule: "0,30 * * * *"
+  jobTemplate:
+    spec:
+      parallelism: 1
+      template:
+        spec:
+          serviceAccountName: prober
+          containers:
+          - name: dataplane-probe
+            image: knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
+            args: ["-target=deployment", "--duration=3m"]
+            resources:
+              requests:
+                cpu: 1000m
+                memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
+          - name: mako
+            image: gcr.io/knative-performance/mako-microservice:latest
+            env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secret/robot.json
+            volumeMounts:
+            - name: mako-secrets
+              mountPath: /var/secret
+          volumes:
+          - name: mako-secrets
+            secret:
+              secretName: mako-secrets
+          - name: config-mako
+            configMap:
+              name: config-mako
+          restartPolicy: Never
+      backoffLimit: 0
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: dataplane-probe-istio
+spec:
+  # Run every thirty minutes, offset from other jobs.
+  schedule: "3,33 * * * *"
+  # Run every 30 minutes, offset from other jobs.
+  jobTemplate:
+    spec:
+      parallelism: 1
+      template:
+        spec:
+          serviceAccountName: prober
+          containers:
+          - name: dataplane-probe
+            image: knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
+            args: ["-target=istio", "--duration=3m"]
+            resources:
+              requests:
+                cpu: 1000m
+                memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
+          - name: mako
+            image: gcr.io/knative-performance/mako-microservice:latest
+            env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secret/robot.json
+            volumeMounts:
+            - name: mako-secrets
+              mountPath: /var/secret
+          volumes:
+          - name: mako-secrets
+            secret:
+              secretName: mako-secrets
+          - name: config-mako
+            configMap:
+              name: config-mako
+          restartPolicy: Never
+      backoffLimit: 0
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: dataplane-probe-queue
+spec:
+  # Run every thirty minutes, offset from other jobs.
+  schedule: "6,36 * * * *"
+  jobTemplate:
+    spec:
+      parallelism: 1
+      template:
+        spec:
+          serviceAccountName: prober
+          containers:
+          - name: dataplane-probe
+            image: knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
+            args: ["-target=queue", "--duration=3m"]
+            resources:
+              requests:
+                cpu: 1000m
+                memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
+          - name: mako
+            image: gcr.io/knative-performance/mako-microservice:latest
+            env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secret/robot.json
+            volumeMounts:
+            - name: mako-secrets
+              mountPath: /var/secret
+          volumes:
+          - name: mako-secrets
+            secret:
+              secretName: mako-secrets
+          - name: config-mako
+            configMap:
+              name: config-mako
+          restartPolicy: Never
+      backoffLimit: 0
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: dataplane-probe-activator
+spec:
+  # Run every thirty minutes, offset from other jobs.
+  schedule: "9,39 * * * *"
+  jobTemplate:
+    spec:
+      parallelism: 1
+      template:
+        spec:
+          serviceAccountName: prober
+          containers:
+          - name: dataplane-probe
+            image: knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
+            args: ["-target=activator", "--duration=3m"]
+            resources:
+              requests:
+                cpu: 1000m
+                memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
+          - name: mako
+            image: gcr.io/knative-performance/mako-microservice:latest
+            env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secret/robot.json
+            volumeMounts:
+            - name: mako-secrets
+              mountPath: /var/secret
+          volumes:
+          - name: mako-secrets
+            secret:
+              secretName: mako-secrets
+          - name: config-mako
+            configMap:
+              name: config-mako
+          restartPolicy: Never
+      backoffLimit: 0
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: dataplane-probe-activator-with-cc
+spec:
+  # Run every thirty minutes, offset from other jobs.
+  schedule: "12,42 * * * *"
+  jobTemplate:
+    spec:
+      parallelism: 1
+      template:
+        spec:
+          serviceAccountName: prober
+          containers:
+          - name: dataplane-probe
+            image: knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
+            args: ["-target=activator-with-cc", "--duration=3m"]
+            resources:
+              requests:
+                cpu: 1000m
+                memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
+          - name: mako
+            image: gcr.io/knative-performance/mako-microservice:latest
+            env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secret/robot.json
+            volumeMounts:
+            - name: mako-secrets
+              mountPath: /var/secret
+          volumes:
+          - name: mako-secrets
+            secret:
+              secretName: mako-secrets
+          - name: config-mako
+            configMap:
+              name: config-mako
+          restartPolicy: Never
+      backoffLimit: 0
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: dataplane-probe-queue-with-cc
+spec:
+  # Run every thirty minutes, offset from other jobs.
+  schedule: "15,45 * * * *"
+  jobTemplate:
+    spec:
+      parallelism: 1
+      template:
+        spec:
+          serviceAccountName: prober
+          containers:
+          - name: dataplane-probe
+            image: knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
+            args: ["-target=queue-with-cc", "--duration=3m"]
+            resources:
+              requests:
+                cpu: 1000m
+                memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
+          - name: mako
+            image: gcr.io/knative-performance/mako-microservice:latest
+            env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secret/robot.json
+            volumeMounts:
+            - name: mako-secrets
+              mountPath: /var/secret
+          volumes:
+          - name: mako-secrets
+            secret:
+              secretName: mako-secrets
+          - name: config-mako
+            configMap:
+              name: config-mako
+          restartPolicy: Never
+      backoffLimit: 0
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: dataplane-probe-queue-with-cc-10
+spec:
+  # Run every thirty minutes, offset from other jobs.
+  schedule: "18,48 * * * *"
+  jobTemplate:
+    spec:
+      parallelism: 1
+      template:
+        spec:
+          serviceAccountName: prober
+          containers:
+          - name: dataplane-probe
+            image: knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
+            args: ["-target=queue-with-cc-10", "--duration=3m"]
+            resources:
+              requests:
+                cpu: 1000m
+                memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
+          - name: mako
+            image: gcr.io/knative-performance/mako-microservice:latest
+            env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secret/robot.json
+            volumeMounts:
+            - name: mako-secrets
+              mountPath: /var/secret
+          volumes:
+          - name: mako-secrets
+            secret:
+              secretName: mako-secrets
+          - name: config-mako
+            configMap:
+              name: config-mako
+          restartPolicy: Never
+      backoffLimit: 0
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: dataplane-probe-queue-with-cc-1
+spec:
+  # Run every thirty minutes, offset from other jobs.
+  schedule: "21,51 * * * *"
+  jobTemplate:
+    spec:
+      parallelism: 1
+      template:
+        spec:
+          serviceAccountName: prober
+          containers:
+          - name: dataplane-probe
+            image: knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
+            args: ["-target=queue-with-cc-1", "--duration=3m"]
+            resources:
+              requests:
+                cpu: 1000m
+                memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
+          - name: mako
+            image: gcr.io/knative-performance/mako-microservice:latest
+            env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secret/robot.json
+            volumeMounts:
+            - name: mako-secrets
+              mountPath: /var/secret
+          volumes:
+          - name: mako-secrets
+            secret:
+              secretName: mako-secrets
+          - name: config-mako
+            configMap:
+              name: config-mako
+          restartPolicy: Never
+      backoffLimit: 0
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: dataplane-probe-activator-with-cc-10
+spec:
+  # Run every thirty minutes, offset from other jobs.
+  schedule: "24,54 * * * *"
+  jobTemplate:
+    spec:
+      parallelism: 1
+      template:
+        spec:
+          serviceAccountName: prober
+          containers:
+          - name: dataplane-probe
+            image: knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
+            args: ["-target=activator-with-cc-10", "--duration=3m"]
+            resources:
+              requests:
+                cpu: 1000m
+                memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
+          - name: mako
+            image: gcr.io/knative-performance/mako-microservice:latest
+            env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secret/robot.json
+            volumeMounts:
+            - name: mako-secrets
+              mountPath: /var/secret
+          volumes:
+          - name: mako-secrets
+            secret:
+              secretName: mako-secrets
+          - name: config-mako
+            configMap:
+              name: config-mako
+          restartPolicy: Never
+      backoffLimit: 0
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: dataplane-probe-activator-with-cc-1
+spec:
+  # Run every thirty minutes, offset from other jobs.
+  schedule: "27,57 * * * *"
+  jobTemplate:
+    spec:
+      parallelism: 1
+      template:
+        spec:
+          serviceAccountName: prober
+          containers:
+          - name: dataplane-probe
+            image: knative.dev/serving/test/performance/benchmarks/dataplane-probe/continuous
+            args: ["-target=activator-with-cc-1", "--duration=3m"]
+            resources:
+              requests:
+                cpu: 1000m
+                memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
+          - name: mako
+            image: gcr.io/knative-performance/mako-microservice:latest
+            env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secret/robot.json
+            volumeMounts:
+            - name: mako-secrets
+              mountPath: /var/secret
+          volumes:
+          - name: mako-secrets
+            secret:
+              secretName: mako-secrets
+          - name: config-mako
+            configMap:
+              name: config-mako
+          restartPolicy: Never
+      backoffLimit: 0
