@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"knative.dev/serving/pkg/apis/config"
 	"strconv"
 	"strings"
 	"testing"
@@ -164,7 +165,7 @@ func newTestControllerWithConfig(t *testing.T, deploymentConfig *deployment.Conf
 			"panic-window":                            "10s",
 			"tick-interval":                           "2s",
 		},
-	}, getTestDeploymentConfigMap()}
+	}, getTestDeploymentConfigMap(), getTestDefaultsConfigMap()}
 
 	cms = append(cms, configs...)
 
@@ -308,8 +309,7 @@ func TestResolutionFailed(t *testing.T) {
 // TODO(mattmoor): add coverage of a Reconcile fixing a stale logging URL
 func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	deploymentConfig := getTestDeploymentConfig()
-	defaultsConfig := getTestDefaultsConfigMap()
-	ctx, _, controller, watcher := newTestControllerWithConfig(t, deploymentConfig, defaultsConfig, &corev1.ConfigMap{
+	ctx, _, controller, watcher := newTestControllerWithConfig(t, deploymentConfig, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      metrics.ConfigMapName(),
@@ -483,8 +483,7 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 
 func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnotationOverride string) map[string]string {
 	controllerConfig := getTestDeploymentConfig()
-	defaultsConfig := getTestDefaultsConfigMap()
-	ctx, _, controller, watcher := newTestControllerWithConfig(t, controllerConfig, defaultsConfig)
+	ctx, _, controller, watcher := newTestControllerWithConfig(t, controllerConfig)
 
 	// Resolve image references to this "digest"
 	digest := "foo@sha256:deadbeef"
@@ -554,13 +553,38 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 				return HookIncomplete
 			}
 		},
+	}, {
+		name: "Update ContainerConcurrency", // Should update ContainerConcurrency on revision spec
+		configMapToUpdate: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      config.DefaultsConfigName,
+			},
+			Data: map[string]string{
+				"container-concurrency": "3",
+			},
+		},
+		callback: func(t *testing.T) func(runtime.Object) HookResult {
+			return func(obj runtime.Object) HookResult {
+				revision := obj.(*v1alpha1.Revision)
+				t.Logf("Revision updated: %v", revision.Name)
+
+				expected := int64(3)
+				got := *(revision.Spec.ContainerConcurrency)
+				if got != expected {
+					return HookComplete
+				}
+
+				t.Logf("No update occurred; expected: %d got: %d", expected, got)
+				return HookIncomplete
+			}
+		},
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			controllerConfig := getTestDeploymentConfig()
-			defaultsConfig := getTestDefaultsConfigMap()
-			ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, controllerConfig, defaultsConfig)
+			ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, controllerConfig)
 
 			ctx, cancel := context.WithCancel(ctx)
 			grp := errgroup.Group{}
@@ -716,8 +740,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			controllerConfig := getTestDeploymentConfig()
-			defaultsConfig := getTestDefaultsConfigMap()
-			ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, controllerConfig, defaultsConfig)
+			ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, controllerConfig)
 
 			ctx, cancel := context.WithCancel(ctx)
 			grp := errgroup.Group{}

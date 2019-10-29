@@ -134,12 +134,6 @@ func getTestDeploymentConfigMap() *corev1.ConfigMap {
 	}
 }
 
-func getTestDefaultsConfig() *config.Defaults {
-	c, _ := config.NewDefaultsConfigFromConfigMap(getTestDefaultsConfigMap())
-	// ignoring error as test controller is generated
-	return c
-}
-
 func getTestDefaultsConfigMap() *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -147,7 +141,7 @@ func getTestDefaultsConfigMap() *corev1.ConfigMap {
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
-			"container-concurrency": "1",
+			"container-name-template": "user-container",
 		},
 	}
 }
