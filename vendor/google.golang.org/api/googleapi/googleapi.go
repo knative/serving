@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc. All rights reserved.
+// Copyright 2011 Google LLC. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -189,32 +189,6 @@ func (wrap MarshalStyle) JSONReader(v interface{}) (io.Reader, error) {
 	return buf, nil
 }
 
-// endingWithErrorReader from r until it returns an error.  If the
-// final error from r is io.EOF and e is non-nil, e is used instead.
-type endingWithErrorReader struct {
-	r io.Reader
-	e error
-}
-
-func (er endingWithErrorReader) Read(p []byte) (n int, err error) {
-	n, err = er.r.Read(p)
-	if err == io.EOF && er.e != nil {
-		err = er.e
-	}
-	return
-}
-
-// countingWriter counts the number of bytes it receives to write, but
-// discards them.
-type countingWriter struct {
-	n *int64
-}
-
-func (w countingWriter) Write(p []byte) (int, error) {
-	*w.n += int64(len(p))
-	return len(p), nil
-}
-
 // ProgressUpdater is a function that is called upon every progress update of a resumable upload.
 // This is the only part of a resumable upload (from googleapi) that is usable by the developer.
 // The remaining usable pieces of resumable uploads is exposed in each auto-generated API.
@@ -282,14 +256,22 @@ func ProcessMediaOptions(opts []MediaOption) *MediaOptions {
 // "http://www.golang.org/topics/myproject/mytopic". It strips all parent
 // references (e.g. ../..) as well as anything after the host
 // (e.g. /bar/gaz gets stripped out of foo.com/bar/gaz).
+//
+// ResolveRelative panics if either basestr or relstr is not able to be parsed.
 func ResolveRelative(basestr, relstr string) string {
-	u, _ := url.Parse(basestr)
+	u, err := url.Parse(basestr)
+	if err != nil {
+		panic(fmt.Sprintf("failed to parse %q", basestr))
+	}
 	afterColonPath := ""
 	if i := strings.IndexRune(relstr, ':'); i > 0 {
 		afterColonPath = relstr[i+1:]
 		relstr = relstr[:i]
 	}
-	rel, _ := url.Parse(relstr)
+	rel, err := url.Parse(relstr)
+	if err != nil {
+		panic(fmt.Sprintf("failed to parse %q", relstr))
+	}
 	u = u.ResolveReference(rel)
 	us := u.String()
 	if afterColonPath != "" {

@@ -466,9 +466,12 @@
   version = "v1.1.1"
 
 [[projects]]
-  digest = "1:fb9f5147a9d6fc69057d05b0739bcd79562c55db143c3bdacfe1c9c6129461f6"
+  digest = "1:5cfcdb1646a889af81a01e9a83c7ccbb45e9b14c314eaf17552459d2b797e557"
   name = "github.com/googleapis/gax-go"
-  packages = ["."]
+  packages = [
+    ".",
+    "v2",
+  ]
   pruneopts = "NUT"
   revision = "b001040cd31805261cbd978842099e326dfa857b"
   version = "v2.0.2"
@@ -970,15 +973,16 @@
   revision = "fbec762f837dc349b73d1eaa820552e2ad177942"
 
 [[projects]]
-  digest = "1:9b6bd736194f2098dcb562bdb2aaf64f6c3669a26da43365d4ecab0db5f3bd4b"
+  branch = "master"
+  digest = "1:859955cdfb85df9d3dd1758f3c36f4666e1b6d7f2c20683e66538ab921faaf09"
   name = "google.golang.org/api"
   packages = [
     "container/v1beta1",
-    "gensupport",
     "googleapi",
     "googleapi/internal/uritemplates",
     "googleapi/transport",
     "internal",
+    "internal/gensupport",
     "iterator",
     "option",
     "storage/v1",
@@ -989,7 +993,7 @@
     "transport/http/internal/propagation",
   ]
   pruneopts = "NUT"
-  revision = "874d9dc5b186e361475b082852f136f094555c30"
+  revision = "4f42dad4690a01d7f6fa461106c63889ff1be027"
 
 [[projects]]
   digest = "1:b400989fa9ecf8f825e9092d41c9779444afeda5d5ce7f5c9d4a9ca9d05c949c"
@@ -1034,16 +1038,26 @@
   revision = "357c62f0e4bbba7e6cc403ae09edcf3e2b9028fe"
 
 [[projects]]
-  digest = "1:880e55ae18feac97650ae82ea1b8b27fae7d56f3658ada050e657d877f2f31d7"
+  digest = "1:a5d803fec25783407fff856e63c7b6fb71d94268e06eca91b514b1e3da33e342"
   name = "google.golang.org/grpc"
   packages = [
     ".",
     "balancer",
     "balancer/base",
+    "balancer/grpclb",
+    "balancer/grpclb/grpc_lb_v1",
     "balancer/roundrobin",
     "codes",
     "connectivity",
     "credentials",
+    "credentials/alts",
+    "credentials/alts/internal",
+    "credentials/alts/internal/authinfo",
+    "credentials/alts/internal/conn",
+    "credentials/alts/internal/handshaker",
+    "credentials/alts/internal/handshaker/service",
+    "credentials/alts/internal/proto/grpc_gcp",
+    "credentials/google",
     "credentials/oauth",
     "encoding",
     "encoding/proto",
@@ -1646,7 +1660,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:34d8e074ca1f11d2a60581f8590cdb534a5e77ac206be4cbfee73d1d60501f5b"
+  digest = "1:12afb7bd51854c5af1b49614b0b162051ce741c5a2e82ae90baa7b95abb9681f"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1669,7 +1683,7 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "9075f22c2a386fae8ea3ab913ddfd6423c299203"
+  revision = "fd459b90e821c36e5f94371fe1442f0950121985"
 
 [[projects]]
   branch = "release-0.10"
@@ -1796,7 +1810,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:5f4b9128088a9ee17e8a3cb6703fce7501526e1fe6ace34ffbfb479e3ca5db10"
+  digest = "1:5e59c938650ff6183b80b6bfb707d77508e83def2c72e6f6a48f53f026658004"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1809,7 +1823,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "385c6ecc17489d72a2e0927d4552bcdc1f0d08e0"
+  revision = "bb87d561aa59603ec585dbf145e8d9ced5b19d59"
 
 [[projects]]
   digest = "1:fef5992ddf85e9ccad899b11338339858936a10fbce96b9d5c43767669d95398"
