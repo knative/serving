@@ -103,7 +103,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency))),
 			pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency),
-				WithMSvcStatus(testRevision+"-metrics"), WithTraffic, WithPAStatusService(testRevision)),
+				WithMSvcStatus(testRevision), WithTraffic, WithPAStatusService(testRevision)),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			metric(pa(testNamespace, testRevision,
@@ -154,7 +154,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency),
 				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet"),
-				WithMSvcStatus(testRevision+"-metrics")),
+				WithMSvcStatus(testRevision)),
 		}},
 	}, {
 		Name: "create hpa, sks and metric service when RPS used",
@@ -176,7 +176,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.RPS),
 				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet"),
-				WithMSvcStatus(testRevision+"-metrics")),
+				WithMSvcStatus(testRevision)),
 		}},
 	}, {
 		Name: "reconcile sks is still not ready",
@@ -316,7 +316,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency))),
 			pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency),
-				WithMSvcStatus(testRevision+"-metrics"), WithTraffic, WithPAStatusService(testRevision)),
+				WithMSvcStatus(testRevision), WithTraffic, WithPAStatusService(testRevision)),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			metric(pa(testNamespace, testRevision,
@@ -329,7 +329,7 @@ func TestReconcile(t *testing.T) {
 		WantErr: true,
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency),
-				WithMSvcStatus(testRevision+"-metrics"), WithTraffic, WithPAStatusService(testRevision), MarkResourceNotOwnedByPA("Metric", testRevision)),
+				WithMSvcStatus(testRevision), WithTraffic, WithPAStatusService(testRevision), MarkResourceNotOwnedByPA("Metric", testRevision)),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", `error reconciling metric: PA: test-revision does not own Metric: test-revision`),
