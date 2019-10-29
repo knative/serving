@@ -69,12 +69,12 @@ func checkReadable(path string) error {
 		_, err := ioutil.ReadDir(path)
 		return err
 	}
+
 	readFile, err := os.OpenFile(path, os.O_RDONLY, 0)
 	if err != nil {
 		return err
 	}
-	readFile.Close()
-	return nil
+	return readFile.Close()
 }
 
 // checkWritable function checks whether path file or directory is writable
