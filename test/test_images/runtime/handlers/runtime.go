@@ -20,6 +20,11 @@ import (
 	"knative.dev/serving/test/types"
 )
 
+var fileAccessExclusions = []string{
+	"/dev/tty",
+	"/dev/console",
+}
+
 func runtimeHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Retrieving Runtime Information")
 	w.Header().Set("Content-Type", "application/json")
@@ -38,14 +43,33 @@ func runtimeHandler(w http.ResponseWriter, r *http.Request) {
 	k := &types.RuntimeInfo{
 		Request: requestInfo(r),
 		Host: &types.HostInfo{EnvVars: env(),
-			Files:   fileInfo(filePaths...),
-			Cgroups: cgroups(cgroupPaths...),
-			Mounts:  mounts(),
-			Stdin:   stdin(),
-			User:    userInfo(),
-			Args:    args(),
+			Files:      fileInfo(filePaths...),
+			FileAccess: fileAccessAttempt(excludeFilePaths(filePaths, fileAccessExclusions)...),
+			Cgroups:    cgroups(cgroupPaths...),
+			Mounts:     mounts(),
+			Stdin:      stdin(),
+			User:       userInfo(),
+			Args:       args(),
 		},
 	}
 
 	writeJSON(w, k)
+}
+
+func excludeFilePaths(filePaths []string, excludedPaths []string) []string {
+	var paths []string
+	for _, path := range filePaths {
+		excluded := false
+		for _, excludedPath := range excludedPaths {
+			if path == excludedPath {
+				excluded = true
+				break
+			}
+		}
+
+		if !excluded {
+			paths = append(paths, path)
+		}
+	}
+	return paths
 }
