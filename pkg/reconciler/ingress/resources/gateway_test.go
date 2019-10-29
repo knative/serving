@@ -60,31 +60,35 @@ var selector = map[string]string{
 
 var gateway = v1alpha3.Gateway{
 	Spec: v1alpha3.GatewaySpec{
-		Servers: []v1alpha3.Server{{
-			Hosts: []string{"host1.example.com"},
-			Port: v1alpha3.Port{
-				Name:     "test-ns/ingress:0",
-				Number:   443,
-				Protocol: v1alpha3.ProtocolHTTPS,
-			},
-			TLS: &v1alpha3.TLSOptions{
-				Mode:              v1alpha3.TLSModeSimple,
-				ServerCertificate: "tls.crt",
-				PrivateKey:        "tls.key",
-			},
-		}, {
-			Hosts: []string{"host2.example.com"},
-			Port: v1alpha3.Port{
-				Name:     "test-ns/non-ingress:0",
-				Number:   443,
-				Protocol: v1alpha3.ProtocolHTTPS,
-			},
-			TLS: &v1alpha3.TLSOptions{
-				Mode:              v1alpha3.TLSModeSimple,
-				ServerCertificate: "tls.crt",
-				PrivateKey:        "tls.key",
-			},
-		}},
+		Servers: servers,
+	},
+}
+
+var servers = []v1alpha3.Server{
+	{
+		Hosts: []string{"host1.example.com"},
+		Port: v1alpha3.Port{
+			Name:     "test-ns/ingress:0",
+			Number:   443,
+			Protocol: v1alpha3.ProtocolHTTPS,
+		},
+		TLS: &v1alpha3.TLSOptions{
+			Mode:              v1alpha3.TLSModeSimple,
+			ServerCertificate: "tls.crt",
+			PrivateKey:        "tls.key",
+		},
+	}, {
+		Hosts: []string{"host2.example.com"},
+		Port: v1alpha3.Port{
+			Name:     "test-ns/non-ingress:0",
+			Number:   443,
+			Protocol: v1alpha3.ProtocolHTTPS,
+		},
+		TLS: &v1alpha3.TLSOptions{
+			Mode:              v1alpha3.TLSModeSimple,
+			ServerCertificate: "tls.crt",
+			PrivateKey:        "tls.key",
+		},
 	},
 }
 
@@ -100,6 +104,42 @@ var httpServer = v1alpha3.Server{
 var gatewayWithPlaceholderServer = v1alpha3.Gateway{
 	Spec: v1alpha3.GatewaySpec{
 		Servers: []v1alpha3.Server{placeholderServer},
+	},
+}
+
+var gatewayWithDefaultWildcardTLSServer = v1alpha3.Gateway{
+	Spec: v1alpha3.GatewaySpec{
+		Servers: []v1alpha3.Server{{
+			Hosts: []string{"*"},
+			Port: v1alpha3.Port{
+				Name:     "https",
+				Number:   443,
+				Protocol: v1alpha3.ProtocolHTTPS,
+			},
+			TLS: &v1alpha3.TLSOptions{
+				Mode: v1alpha3.TLSModePassThrough,
+			}},
+		},
+	},
+}
+
+var gatewayWithModifiedWildcardTLSServer = v1alpha3.Gateway{
+	Spec: v1alpha3.GatewaySpec{
+		Servers: []v1alpha3.Server{modifiedDefaultTLSServer},
+	},
+}
+
+var modifiedDefaultTLSServer = v1alpha3.Server{
+	Hosts: []string{"added.by.user.example.com"},
+	Port: v1alpha3.Port{
+		Name:     "https",
+		Number:   443,
+		Protocol: v1alpha3.ProtocolHTTPS,
+	},
+	TLS: &v1alpha3.TLSOptions{
+		Mode:              v1alpha3.TLSModeSimple,
+		ServerCertificate: "tls.crt",
+		PrivateKey:        "tls.key",
 	},
 }
 
@@ -461,6 +501,50 @@ func TestUpdateGateway(t *testing.T) {
 						PrivateKey:        "tls.key",
 					},
 				}},
+			},
+		},
+	}, {
+		name:            "Delete wildcard servers from gateway",
+		existingServers: []v1alpha3.Server{},
+		newServers:      servers,
+		original:        gatewayWithDefaultWildcardTLSServer,
+		// The wildcard server should be deleted.
+		expected: gateway,
+	}, {
+		name:            "Do not delete modified wildcard servers from gateway",
+		existingServers: []v1alpha3.Server{},
+		newServers: []v1alpha3.Server{{
+			Hosts: []string{"host1.example.com"},
+			Port: v1alpha3.Port{
+				Name:     "clusteringress:0",
+				Number:   443,
+				Protocol: v1alpha3.ProtocolHTTPS,
+			},
+			TLS: &v1alpha3.TLSOptions{
+				Mode:              v1alpha3.TLSModeSimple,
+				ServerCertificate: "tls.crt",
+				PrivateKey:        "tls.key",
+			},
+		}},
+		original: gatewayWithModifiedWildcardTLSServer,
+		expected: v1alpha3.Gateway{
+			Spec: v1alpha3.GatewaySpec{
+				Servers: []v1alpha3.Server{
+					{
+						Hosts: []string{"host1.example.com"},
+						Port: v1alpha3.Port{
+							Name:     "clusteringress:0",
+							Number:   443,
+							Protocol: v1alpha3.ProtocolHTTPS,
+						},
+						TLS: &v1alpha3.TLSOptions{
+							Mode:              v1alpha3.TLSModeSimple,
+							ServerCertificate: "tls.crt",
+							PrivateKey:        "tls.key",
+						},
+					},
+					modifiedDefaultTLSServer,
+				},
 			},
 		},
 	}}
