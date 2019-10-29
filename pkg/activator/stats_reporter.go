@@ -84,7 +84,7 @@ func NewStatsReporter(pod string) (*Reporter, error) {
 			Description: "Concurrent requests that are routed to Activator",
 			Measure:     requestConcurrencyM,
 			Aggregation: view.LastValue(),
-			TagKeys:     metrics.CommonRevisionKeys,
+			TagKeys:     append(metrics.CommonRevisionKeys, metrics.PodTagKey, metrics.ContainerTagKey),
 		},
 		&view.View{
 			Description: "The number of requests that are routed to Activator",
