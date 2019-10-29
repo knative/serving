@@ -35,6 +35,7 @@ INSTALL_MONITORING_YAML=""
 
 INSTALL_MONITORING=0
 
+GATEWAY_SETUP=0
 RECONCILE_GATEWAY=0
 
 # List of custom YAMLs to install, if specified (space-separated).
@@ -46,6 +47,7 @@ function parse_flags() {
     --istio-version)
       [[ $2 =~ ^[0-9]+\.[0-9]+(\.[0-9]+|\-latest)$ ]] || abort "version format must be '[0-9].[0-9].[0-9]' or '[0-9].[0-9]-latest"
       readonly ISTIO_VERSION=$2
+      GATEWAY_SETUP=1
       return 2
       ;;
     --version)
@@ -85,6 +87,7 @@ function parse_flags() {
       # currently, the value of --gloo-version is ignored
       # latest version of Gloo pinned in third_party will be installed
       readonly GLOO_VERSION=$2
+      GATEWAY_SETUP=1
       return 2
       ;;
   esac
@@ -192,6 +195,12 @@ function install_knative_serving_standard() {
   echo ">> Installing Knative serving"
   echo "Cert Manager YAML: ${INSTALL_CERT_MANAGER_YAML}"
   echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
+
+  # If no gateway was set on command line, assume Istio
+  if (( ! GATEWAY_SETUP )); then
+    echo ">> No gateway set up on command line, using Istio"
+    readonly ISTIO_VERSION="1.2-latest"
+  fi
 
   if [[ -n "${ISTIO_VERSION}" ]]; then
     install_istio
