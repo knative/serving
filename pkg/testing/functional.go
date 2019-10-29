@@ -198,7 +198,7 @@ func WithLowerScaleBound(i int) PodAutoscalerOption {
 // WithMSvcStatus sets the name of the metrics service.
 func WithMSvcStatus(s string) PodAutoscalerOption {
 	return func(pa *asv1a1.PodAutoscaler) {
-		pa.Status.MetricsServiceName = s
+		pa.Status.MetricsServiceName = kmeta.ChildName(s, "-metrics")
 	}
 }
 
