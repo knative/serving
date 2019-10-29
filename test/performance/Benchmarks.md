@@ -48,8 +48,8 @@ with the same config.
 
 ## Benchmark Symlinks
 
-Every benchmark directory under `/test/performance/benchmarks` has a `kodata` directory
-and it should have four symlinks.
+Every benchmark directory under `/test/performance/benchmarks` has a `kodata`
+directory and it should have four symlinks.
 
 1. [dev.config](https://github.com/knative/serving/blob/master/test/performance/benchmarks/dataplane-probe/continuous/kodata/dev.config)
    Points to the dev.config file in the bechmark directory.
@@ -91,14 +91,11 @@ Every benchmark will have one or more
 that defines how to run the benchmark SUT. In addition to the SUT container, we
 need to add the following:
 
-1. [Mako
-   sidecar](https://github.com/knative/serving/blob/d73bb8378cab8bb0c1825aa9802bea9ea2e6cb26/test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe.yaml#L71-L78)
+1. [Mako sidecar](https://github.com/knative/serving/blob/d73bb8378cab8bb0c1825aa9802bea9ea2e6cb26/test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe.yaml#L71-L78)
    This allows mako to capture the metrics and write to its server.
-2. [Mako Secrets
-   volume](https://github.com/knative/serving/blob/d73bb8378cab8bb0c1825aa9802bea9ea2e6cb26/test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe.yaml#L80-L82)
+2. [Mako Secrets volume](https://github.com/knative/serving/blob/d73bb8378cab8bb0c1825aa9802bea9ea2e6cb26/test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe.yaml#L80-L82)
    Robot ACL permissions to write to mako.
-3. [Config
-   Map](https://github.com/knative/serving/blob/d73bb8378cab8bb0c1825aa9802bea9ea2e6cb26/test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe.yaml#L83-L85)
+3. [Config Map](https://github.com/knative/serving/blob/d73bb8378cab8bb0c1825aa9802bea9ea2e6cb26/test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe.yaml#L83-L85)
    Config map that defines which config to use at runtime.
 
 ```yaml
@@ -135,8 +132,8 @@ metrics. To store these metrics in the test, follow these steps:
 2. Create the mako client handle. By default, the mako package adds the
    commitId, environment(dev/prod) and K8S version for each run of the SUT. If
    you want to add any additional
-   [tags](https://github.com/google/mako/blob/master/docs/TAGS.md),
-   you can define them and pass them through
+   [tags](https://github.com/google/mako/blob/master/docs/TAGS.md), you can
+   define them and pass them through
    [setup](https://github.com/knative/pkg/blob/3588ed3e5c74b25740bbc535a2a43dfac998fa8a/test/mako/sidecar.go#L178).
 
    ```go
