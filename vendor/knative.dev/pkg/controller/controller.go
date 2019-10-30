@@ -98,6 +98,17 @@ func Filter(gvk schema.GroupVersionKind) func(obj interface{}) bool {
 	}
 }
 
+// FilterWithName makes it simple to create FilterFunc's for use with
+// cache.FilteringResourceEventHandler that filter based on a name.
+func FilterWithName(name string) func(obj interface{}) bool {
+	return func(obj interface{}) bool {
+		if object, ok := obj.(metav1.Object); ok {
+			return name == object.GetName()
+		}
+		return false
+	}
+}
+
 // FilterWithNameAndNamespace makes it simple to create FilterFunc's for use with
 // cache.FilteringResourceEventHandler that filter based on a namespace and a name.
 func FilterWithNameAndNamespace(namespace, name string) func(obj interface{}) bool {

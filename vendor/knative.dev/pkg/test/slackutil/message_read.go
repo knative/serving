@@ -53,10 +53,11 @@ func NewReadClient(userName, tokenPath string) (ReadOperations, error) {
 	}, nil
 }
 
+// MessageHistory returns the list of messages sent by the user in the given
+// channel since the given startTime.
 func (c *readClient) MessageHistory(channel string, startTime time.Time) ([]string, error) {
 	u, _ := url.Parse(conversationHistoryURL)
 	q := u.Query()
-	q.Add("username", c.userName)
 	q.Add("token", c.tokenStr)
 	q.Add("channel", channel)
 	q.Add("oldest", strconv.FormatInt(startTime.Unix(), 10))
@@ -69,7 +70,8 @@ func (c *readClient) MessageHistory(channel string, startTime time.Time) ([]stri
 
 	// response code could also be 200 if channel doesn't exist, parse response body to find out
 	type m struct {
-		Text string `json:"text"`
+		Text     string `json:"text"`
+		UserName string `json:"username"`
 	}
 	var r struct {
 		OK       bool `json:"ok"`
@@ -79,9 +81,11 @@ func (c *readClient) MessageHistory(channel string, startTime time.Time) ([]stri
 		return nil, fmt.Errorf("response not ok '%s'", string(content))
 	}
 
-	res := make([]string, len(r.Messages))
-	for i, message := range r.Messages {
-		res[i] = message.Text
+	res := make([]string, 0)
+	for _, message := range r.Messages {
+		if message.UserName == c.userName {
+			res = append(res, message.Text)
+		}
 	}
 
 	return res, nil

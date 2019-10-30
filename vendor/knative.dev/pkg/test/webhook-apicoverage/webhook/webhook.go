@@ -36,7 +36,8 @@ import (
 	"k8s.io/client-go/rest"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/webhook"
+	certresources "knative.dev/pkg/webhook/certificates/resources"
+	"knative.dev/pkg/webhook/resourcesemantics"
 )
 
 var (
@@ -84,7 +85,7 @@ type APICoverageWebhook struct {
 }
 
 func (acw *APICoverageWebhook) generateServerConfig() (*tls.Config, error) {
-	serverKey, serverCert, caCert, err := webhook.CreateCerts(context.Background(), acw.ServiceName, acw.Namespace)
+	serverKey, serverCert, caCert, err := certresources.CreateCerts(context.Background(), acw.ServiceName, acw.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("Error creating webhook certificates: %v", err)
 	}
@@ -151,7 +152,7 @@ func (acw *APICoverageWebhook) registerWebhook(rules []admissionregistrationv1be
 	return nil
 }
 
-func (acw *APICoverageWebhook) getValidationRules(resources map[schema.GroupVersionKind]webhook.GenericCRD) []admissionregistrationv1beta1.RuleWithOperations {
+func (acw *APICoverageWebhook) getValidationRules(resources map[schema.GroupVersionKind]resourcesemantics.GenericCRD) []admissionregistrationv1beta1.RuleWithOperations {
 	var rules []admissionregistrationv1beta1.RuleWithOperations
 	for gvk := range resources {
 		plural := strings.ToLower(inflect.Pluralize(gvk.Kind))
@@ -172,7 +173,7 @@ func (acw *APICoverageWebhook) getValidationRules(resources map[schema.GroupVers
 }
 
 // SetupWebhook sets up the webhook with the provided http.handler, resourcegroup Map, namespace and stop channel.
-func (acw *APICoverageWebhook) SetupWebhook(handler http.Handler, resources map[schema.GroupVersionKind]webhook.GenericCRD, namespace string, stop <-chan struct{}) error {
+func (acw *APICoverageWebhook) SetupWebhook(handler http.Handler, resources map[schema.GroupVersionKind]resourcesemantics.GenericCRD, namespace string, stop <-chan struct{}) error {
 	server, err := acw.getWebhookServer(handler)
 	rules := acw.getValidationRules(resources)
 	if err != nil {

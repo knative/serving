@@ -1260,14 +1260,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:15b833e870afd578a79069324b74c9cc2ac07b5547f34d54516d90f781c37461"
+  digest = "1:5299d75a2b08a91c54ffb8b76afe21eb5f1ecf7bc4d67b859fc081f9415452bc"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "385c6ecc17489d72a2e0927d4552bcdc1f0d08e0"
+  revision = "6c8da588aaa3d2bff76a9c37fd6ac5c9a6c02c09"
 
 [[projects]]
   digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"
@@ -1337,6 +1337,7 @@
     "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/apps/v1",
     "k8s.io/api/authentication/v1",
+    "k8s.io/api/autoscaling/v2beta1",
     "k8s.io/api/batch/v1",
     "k8s.io/api/core/v1",
     "k8s.io/api/extensions/v1beta1",
@@ -1370,6 +1371,7 @@
     "k8s.io/client-go/dynamic",
     "k8s.io/client-go/dynamic/fake",
     "k8s.io/client-go/informers",
+    "k8s.io/client-go/informers/admissionregistration/v1beta1",
     "k8s.io/client-go/informers/apps/v1",
     "k8s.io/client-go/informers/autoscaling/v1",
     "k8s.io/client-go/informers/autoscaling/v2beta1",
@@ -1381,6 +1383,10 @@
     "k8s.io/client-go/kubernetes/fake",
     "k8s.io/client-go/kubernetes/scheme",
     "k8s.io/client-go/kubernetes/typed/core/v1",
+    "k8s.io/client-go/listers/admissionregistration/v1beta1",
+    "k8s.io/client-go/listers/apps/v1",
+    "k8s.io/client-go/listers/autoscaling/v2beta1",
+    "k8s.io/client-go/listers/core/v1",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/rest",
     "k8s.io/client-go/testing",

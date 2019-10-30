@@ -60,10 +60,6 @@ var (
 	admissionAllowedKey  = tag.MustNewKey("admission_allowed")
 )
 
-func init() {
-	register()
-}
-
 // StatsReporter reports webhook metrics
 type StatsReporter interface {
 	ReportRequest(request *admissionv1beta1.AdmissionRequest, response *admissionv1beta1.AdmissionResponse, d time.Duration) error
@@ -111,7 +107,7 @@ func (r *reporter) ReportRequest(req *admissionv1beta1.AdmissionRequest, resp *a
 	return nil
 }
 
-func register() {
+func RegisterMetrics() {
 	tagKeys := []tag.Key{
 		requestOperationKey,
 		kindGroupKey,

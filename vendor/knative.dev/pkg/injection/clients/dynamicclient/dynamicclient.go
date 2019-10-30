@@ -42,8 +42,8 @@ func withClient(ctx context.Context, cfg *rest.Config) context.Context {
 func Get(ctx context.Context) dynamic.Interface {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
-		logging.FromContext(ctx).Panicf(
-			"Unable to fetch %T from context.", (dynamic.Interface)(nil))
+		logging.FromContext(ctx).Panic(
+			"Unable to fetch k8s.io/client-go/dynamic.Interface from context.")
 	}
 	return untyped.(dynamic.Interface)
 }

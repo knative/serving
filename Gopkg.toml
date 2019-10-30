@@ -28,9 +28,10 @@ required = [
   name = "gopkg.in/yaml.v2"
   version = "v2.2.4"
 
+
 [[override]]
   name = "knative.dev/pkg"
-  branch = "release-0.10"
+  branch = "master"
 
 [[constraint]]
   name = "knative.dev/caching"
