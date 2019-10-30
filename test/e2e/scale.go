@@ -129,7 +129,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			var url *url.URL
 			err = v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
 				if s.Status.URL == nil {
-					return false, ctx.Err()
+					return false, nil
 				}
 				url = s.Status.URL.URL()
 				if ctx.Err() != nil {
