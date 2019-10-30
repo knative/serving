@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math"
 	"net/url"
+	"sync"
 	"testing"
 	"time"
 
@@ -49,10 +50,13 @@ type Latencies interface {
 type status struct {
 	stop bool
 
-	url *url.URL
+	mutex sync.RWMutex
+	url   *url.URL
 }
 
 func (st *status) isServiceReady(s *v1alpha1.Service) (done bool, err error) {
+	st.mutex.RLock()
+	defer st.mutex.RUnlock()
 	if st.stop {
 		return false, fmt.Errorf("interrupted")
 	}
@@ -155,6 +159,8 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 					return fmt.Errorf("WaitForServiceState(w/ Domain) failed: %w", err)
 				}
 			case <-time.After(duration):
+				st.mutex.Lock()
+				defer st.mutex.Unlock()
 				// Stop WaitForServiceState to finish Goroutine
 				st.stop = true
 				return fmt.Errorf("Timed out waiting for service ready")
@@ -180,6 +186,8 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 					return fmt.Errorf("WaitForEndpointState(expected text) failed: %w", err)
 				}
 			case <-time.After(duration):
+				st.mutex.Lock()
+				defer st.mutex.Unlock()
 				// Stop WaitForEndpointState to finish Goroutine
 				st.stop = true
 				return fmt.Errorf("Timed out waiting for endpoint ready")
