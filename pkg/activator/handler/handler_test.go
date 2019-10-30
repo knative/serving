@@ -59,21 +59,13 @@ const (
 	wantBody      = "♫ everything is awesome! ♫"
 	testNamespace = "real-namespace"
 	testRevName   = "real-name"
-	testTimeout   = 250 * time.Millisecond
 )
 
 type fakeThrottler struct {
-	err   error
-	delay time.Duration
+	err error
 }
 
 func (ft fakeThrottler) Try(ctx context.Context, _ types.NamespacedName, f func(string) error) error {
-	time.Sleep(ft.delay)
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
-	}
 	if ft.err != nil {
 		return ft.err
 	}
@@ -145,7 +137,7 @@ func TestActivationHandler(t *testing.T) {
 		wantBody:      context.DeadlineExceeded.Error() + "\n",
 		wantCode:      http.StatusServiceUnavailable,
 		wantErr:       nil,
-		throttler:     fakeThrottler{delay: 300 * time.Millisecond},
+		throttler:     fakeThrottler{err: context.DeadlineExceeded},
 		reporterCalls: nil,
 	}, {
 		label:         "overflow",
@@ -194,13 +186,9 @@ func TestActivationHandler(t *testing.T) {
 			req.Header.Set(activator.RevisionHeaderName, test.name)
 			req.Host = "test-host"
 
-			// Timeout context
-			tryContext, cancel := context.WithTimeout(ctx, testTimeout)
-			defer cancel()
-
 			// Set up config store to populate context.
 			configStore := setupConfigStore(t, logging.FromContext(ctx))
-			ctx = configStore.ToContext(tryContext)
+			ctx = configStore.ToContext(ctx)
 
 			handler.ServeHTTP(resp, req.WithContext(ctx))
 
