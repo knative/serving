@@ -29,6 +29,7 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubelabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/sets"
 	kubelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -97,19 +98,20 @@ func (c *reconciler) Reconcile(ctx context.Context, key string) error {
 func (c *reconciler) reconcile(ctx context.Context, ns *corev1.Namespace) error {
 	cfg := config.FromContext(ctx)
 
-	// Only create wildcard certs for the default domain
-	defaultDomain := cfg.Domain.LookupDomainForLabels(nil /* labels */)
-
-	labelSelector := kubelabels.SelectorFromSet(
-		kubelabels.Set{
-			networking.WildcardCertDomainLabelKey: defaultDomain,
-		},
-	)
+	labelSelector := kubelabels.NewSelector()
+	req, err := kubelabels.NewRequirement(networking.WildcardCertDomainLabelKey, selection.Exists, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create requirement: %v", err)
+	}
+	labelSelector = labelSelector.Add(*req)
 
 	existingCerts, err := c.knCertificateLister.Certificates(ns.Name).List(labelSelector)
 	if err != nil {
 		return fmt.Errorf("failed to list certificates: %w", err)
 	}
+
+	// Only create wildcard certs for the default domain
+	defaultDomain := cfg.Domain.LookupDomainForLabels(nil /* labels */)
 
 	dnsName, err := wildcardDomain(cfg.Network.DomainTemplate, defaultDomain, ns.Name)
 	if err != nil {
@@ -146,6 +148,8 @@ func (c *reconciler) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 	} else if !equality.Semantic.DeepEqual(existingCert.Spec, desiredCert.Spec) {
 		copy := existingCert.DeepCopy()
 		copy.Spec = desiredCert.Spec
+		copy.ObjectMeta.Labels[networking.WildcardCertDomainLabelKey] = desiredCert.ObjectMeta.Labels[networking.WildcardCertDomainLabelKey]
+
 		_, err := c.ServingClientSet.NetworkingV1alpha1().Certificates(copy.Namespace).Update(copy)
 		if err != nil {
 			c.Recorder.Eventf(existingCert, corev1.EventTypeWarning, "UpdateFailed",

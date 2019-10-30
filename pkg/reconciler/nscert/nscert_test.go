@@ -346,6 +346,55 @@ func TestDomainConfigDefaultDomain(t *testing.T) {
 	}
 }
 
+func TestChangeDefaultDomain(t *testing.T) {
+	netCfg := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      network.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{
+			"autoTLS": "Enabled",
+		},
+	}
+
+	ctx, cancel, controller, watcher := newTestSetup(t, netCfg)
+	defer func() {
+		cancel()
+	}()
+	reconciler := controller.Reconciler.(*reconciler)
+	ns := kubeNamespace("testns")
+	nsInformer := fakeinformerfactory.Get(ctx).Core().V1().Namespaces()
+	nsInformer.Informer().GetIndexer().Add(ns)
+	reconciler.Reconcile(context.Background(), "testns")
+
+	cert, _ := fakeservingclient.Get(ctx).NetworkingV1alpha1().Certificates(ns.Name).Get("testns.example.com", metav1.GetOptions{})
+	knCertificateInformer := fakecertinformer.Get(ctx)
+	knCertificateInformer.Informer().GetIndexer().Add(cert)
+
+	domCfg := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      routecfg.DomainConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{
+			"example.net": "",
+		},
+	}
+	watcher.OnChange(domCfg)
+	reconciler.Reconcile(context.Background(), ns.Name)
+
+	certs, _ := fakeservingclient.Get(ctx).NetworkingV1alpha1().Certificates(ns.Name).List(metav1.ListOptions{})
+	if len(certs.Items) > 1 {
+		t.Errorf("Expected 1 certificate, got %d.", len(certs.Items))
+	}
+
+	actualDomain := certs.Items[0].Spec.DNSNames[0]
+	expectedDomain := "*.testns.example.net"
+	if actualDomain != expectedDomain {
+		t.Errorf("Expected certificate to be issued for %s but it was issued for %s", expectedDomain, actualDomain)
+	}
+}
+
 func TestDomainConfigExplicitDefaultDomain(t *testing.T) {
 	domCfg := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
