@@ -123,7 +123,7 @@ func TestParallelismWithErrors(t *testing.T) {
 		// the test kernel below will deadlock because we need the
 		// pool's Wait call to drain the buffered errors before more
 		// than this can be sent.
-		work: DefaultCapacity + 10, /* size */
+		work: defaultCapacity + 10, /* size */
 	}}
 
 	for _, tc := range tests {

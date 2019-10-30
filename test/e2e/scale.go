@@ -17,6 +17,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"net/url"
@@ -26,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/pool"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
@@ -42,6 +44,12 @@ type Latencies interface {
 	// be computed with `time.Since(start)`.  We use this signature to that this
 	// function is suitable for use in a `defer`.
 	Add(name string, start time.Time)
+}
+
+func abortOnTimeout(ctx context.Context) spoof.ResponseChecker {
+	return func(resp *spoof.Response) (bool, error) {
+		return true, ctx.Err()
+	}
 }
 
 func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies Latencies) {
@@ -62,7 +70,8 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 	)
 	pm := test.NewProberManager(t.Logf, clients, minProbes)
 
-	timeoutCh := time.After(duration)
+	ctx, cancel := context.WithTimeout(context.Background(), duration)
+	defer cancel()
 	width := int(math.Ceil(math.Log10(float64(scale))))
 
 	t.Log("Creating new Services")
@@ -70,7 +79,6 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 	for i := 0; i < scale; i++ {
 		// https://golang.org/doc/faq#closures_and_goroutines
 		i := i
-
 		wg.Go(func() error {
 			names := test.ResourceNames{
 				Service: test.SubServiceNameForTest(t, fmt.Sprintf("%0[1]*[2]d", width, i)),
@@ -120,6 +128,9 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			t.Logf("Wait for %s to become ready.", names.Service)
 			var url *url.URL
 			err = v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
+				if ctx.Err() != nil {
+					return false, ctx.Err()
+				}
 				if s.Status.URL == nil {
 					return false, nil
 				}
@@ -130,6 +141,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				t.Errorf("WaitForServiceState(w/ Domain) = %v", err)
 				return fmt.Errorf("WaitForServiceState(w/ Domain) failed: %w", err)
 			}
+
 			// Record the time it took to become ready.
 			latencies.Add("time-to-ready", start)
 
@@ -137,13 +149,14 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				clients.KubeClient,
 				t.Logf,
 				url,
-				v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
+				v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText), abortOnTimeout(ctx))),
 				"WaitForEndpointToServeText",
 				test.ServingFlags.ResolvableDomain)
 			if err != nil {
 				t.Errorf("WaitForEndpointState(expected text) = %v", err)
 				return fmt.Errorf("WaitForEndpointState(expected text) failed: %w", err)
 			}
+
 			// Record the time it took to get back a 200 with the expected text.
 			latencies.Add("time-to-200", start)
 
@@ -199,12 +212,6 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				t.Errorf("CheckSLO() = %v", err)
 			}
 			return
-
-		case <-timeoutCh:
-			// If we don't do this first, then we'll see tons of 503s from the ongoing probes
-			// as we tear down the things they are probing.
-			defer pm.Stop()
-			t.Fatalf("Timed out waiting for %d services to become ready", scale)
 		}
 	}
 }

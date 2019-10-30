@@ -37,14 +37,14 @@ type impl struct {
 // impl implements Interface
 var _ Interface = (*impl)(nil)
 
-// DefaultCapacity is the number of work items or errors that we
+// defaultCapacity is the number of work items or errors that we
 // can queue up before calls to Go will block, or work will
 // block until Wait is called.
-const DefaultCapacity = 50
+const defaultCapacity = 50
 
 // New creates a fresh worker pool with the specified size.
 func New(workers int) Interface {
-	return NewWithCapacity(workers, DefaultCapacity)
+	return NewWithCapacity(workers, defaultCapacity)
 }
 
 // NewWithCapacity creates a fresh worker pool with the specified size.
