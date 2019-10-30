@@ -17,10 +17,10 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"net/url"
-	"sync"
 	"testing"
 	"time"
 
@@ -46,31 +46,10 @@ type Latencies interface {
 	Add(name string, start time.Time)
 }
 
-type status struct {
-	stop bool
-
-	mutex sync.RWMutex
-	url   *url.URL
-}
-
-func (st *status) isServiceReady(s *v1alpha1.Service) (done bool, err error) {
-	st.mutex.RLock()
-	defer st.mutex.RUnlock()
-	if st.stop {
-		return false, fmt.Errorf("interrupted")
+func abortOnTimeout(ctx context.Context) spoof.ResponseChecker {
+	return func(resp *spoof.Response) (bool, error) {
+		return true, ctx.Err()
 	}
-	if s.Status.URL == nil {
-		return false, nil
-	}
-	st.url = s.Status.URL.URL()
-	return v1a1test.IsServiceReady(s)
-}
-
-func (st *status) proceed(resp *spoof.Response) (done bool, err error) {
-	if st.stop {
-		return false, fmt.Errorf("interrupted")
-	}
-	return true, nil
 }
 
 func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies Latencies) {
@@ -91,6 +70,8 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 	)
 	pm := test.NewProberManager(t.Logf, clients, minProbes)
 
+	ctx, cancel := context.WithTimeout(context.Background(), duration)
+	defer cancel()
 	width := int(math.Ceil(math.Log10(float64(scale))))
 
 	t.Log("Creating new Services")
@@ -145,58 +126,42 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			cleanupCh <- names
 
 			t.Logf("Wait for %s to become ready.", names.Service)
-
-			errCh := make(chan error)
-			st := &status{stop: false}
-			go func() {
-				errCh <- v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, st.isServiceReady, "ServiceUpdatedWithURL")
-			}()
-			select {
-			case err = <-errCh:
-				if err != nil {
-					t.Errorf("WaitForServiceState(w/ Domain) = %v", err)
-					return fmt.Errorf("WaitForServiceState(w/ Domain) failed: %w", err)
+			var url *url.URL
+			err = v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
+				if s.Status.URL == nil {
+					return false, ctx.Err()
 				}
-			case <-time.After(duration):
-				st.mutex.Lock()
-				defer st.mutex.Unlock()
-				// Stop WaitForServiceState to finish Goroutine
-				st.stop = true
-				return fmt.Errorf("Timed out waiting for service ready")
+				url = s.Status.URL.URL()
+				if ctx.Err() != nil {
+					return false, ctx.Err()
+				}
+				return v1a1test.IsServiceReady(s)
+			}, "ServiceUpdatedWithURL")
+			if err != nil {
+				t.Errorf("WaitForServiceState(w/ Domain) = %v", err)
+				return fmt.Errorf("WaitForServiceState(w/ Domain) failed: %w", err)
 			}
 
 			// Record the time it took to become ready.
 			latencies.Add("time-to-ready", start)
 
-			go func() {
-				_, err = pkgTest.WaitForEndpointState(
-					clients.KubeClient,
-					t.Logf,
-					st.url,
-					v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText), st.proceed)),
-					"WaitForEndpointToServeText",
-					test.ServingFlags.ResolvableDomain)
-				errCh <- err
-			}()
-			select {
-			case err = <-errCh:
-				if err != nil {
-					t.Errorf("WaitForEndpointState(expected text) = %v", err)
-					return fmt.Errorf("WaitForEndpointState(expected text) failed: %w", err)
-				}
-			case <-time.After(duration):
-				st.mutex.Lock()
-				defer st.mutex.Unlock()
-				// Stop WaitForEndpointState to finish Goroutine
-				st.stop = true
-				return fmt.Errorf("Timed out waiting for endpoint ready")
+			_, err = pkgTest.WaitForEndpointState(
+				clients.KubeClient,
+				t.Logf,
+				url,
+				v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText), abortOnTimeout(ctx))),
+				"WaitForEndpointToServeText",
+				test.ServingFlags.ResolvableDomain)
+			if err != nil {
+				t.Errorf("WaitForEndpointState(expected text) = %v", err)
+				return fmt.Errorf("WaitForEndpointState(expected text) failed: %w", err)
 			}
 
 			// Record the time it took to get back a 200 with the expected text.
 			latencies.Add("time-to-200", start)
 
 			// Start probing the domain until the test is complete.
-			pm.Spawn(st.url)
+			pm.Spawn(url)
 
 			t.Logf("%s is ready.", names.Service)
 			return nil
