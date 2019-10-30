@@ -46,22 +46,25 @@ type Latencies interface {
 	Add(name string, start time.Time)
 }
 
-type interrupt struct {
+type status struct {
 	stop bool
+
+	url *url.URL
 }
 
-func (i *interrupt) isServiceReady(s *v1alpha1.Service) (done bool, err error) {
-	if i.stop {
+func (st *status) isServiceReady(s *v1alpha1.Service) (done bool, err error) {
+	if st.stop {
 		return false, fmt.Errorf("interrupted")
 	}
 	if s.Status.URL == nil {
 		return false, nil
 	}
+	st.url = s.Status.URL.URL()
 	return v1a1test.IsServiceReady(s)
 }
 
-func (i *interrupt) proceed(resp *spoof.Response) (done bool, err error) {
-	if i.stop {
+func (st *status) proceed(resp *spoof.Response) (done bool, err error) {
+	if st.stop {
 		return false, fmt.Errorf("interrupted")
 	}
 	return true, nil
@@ -141,9 +144,9 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			t.Logf("Wait for %s to become ready.", names.Service)
 
 			errCh := make(chan error)
-			s := &interrupt{stop: false}
+			st := &status{stop: false}
 			go func() {
-				errCh <- v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, s.isServiceReady, "ServiceUpdatedWithURL")
+				errCh <- v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, st.isServiceReady, "ServiceUpdatedWithURL")
 			}()
 			select {
 			case err = <-errCh:
@@ -153,21 +156,19 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				}
 			case <-time.After(duration):
 				// Stop WaitForServiceState to finish Goroutine
-				s.stop = true
+				st.stop = true
 				return fmt.Errorf("Timed out waiting for service ready")
 			}
-			url := svc.Status.URL.URL()
 
 			// Record the time it took to become ready.
 			latencies.Add("time-to-ready", start)
 
-			s = &interrupt{stop: false}
 			go func() {
 				_, err = pkgTest.WaitForEndpointState(
 					clients.KubeClient,
 					t.Logf,
-					url,
-					v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText), s.proceed)),
+					st.url,
+					v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText), st.proceed)),
 					"WaitForEndpointToServeText",
 					test.ServingFlags.ResolvableDomain)
 				errCh <- err
@@ -180,7 +181,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				}
 			case <-time.After(duration):
 				// Stop WaitForEndpointState to finish Goroutine
-				s.stop = true
+				st.stop = true
 				return fmt.Errorf("Timed out waiting for endpoint ready")
 			}
 
@@ -188,7 +189,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			latencies.Add("time-to-200", start)
 
 			// Start probing the domain until the test is complete.
-			pm.Spawn(url)
+			pm.Spawn(st.url)
 
 			t.Logf("%s is ready.", names.Service)
 			return nil
