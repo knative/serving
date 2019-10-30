@@ -128,13 +128,13 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			t.Logf("Wait for %s to become ready.", names.Service)
 			var url *url.URL
 			err = v1a1test.WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
+				if ctx.Err() != nil {
+					return false, ctx.Err()
+				}
 				if s.Status.URL == nil {
 					return false, nil
 				}
 				url = s.Status.URL.URL()
-				if ctx.Err() != nil {
-					return false, ctx.Err()
-				}
 				return v1a1test.IsServiceReady(s)
 			}, "ServiceUpdatedWithURL")
 			if err != nil {
