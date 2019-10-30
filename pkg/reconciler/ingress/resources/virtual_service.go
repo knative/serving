@@ -84,7 +84,7 @@ func MakeMeshVirtualService(ia v1alpha1.IngressAccessor) *v1alpha3.VirtualServic
 		Spec: *makeVirtualServiceSpec(ia, map[v1alpha1.IngressVisibility]sets.String{
 			v1alpha1.IngressVisibilityExternalIP:   sets.NewString("mesh"),
 			v1alpha1.IngressVisibilityClusterLocal: sets.NewString("mesh"),
-		}, keepLocalHostnames(getHosts(ia))),
+		}, expandedHosts(keepLocalHostnames(getHosts(ia)))),
 	}
 	vs.Labels = resources.FilterMap(ia.GetLabels(), func(k string) bool {
 		return k != serving.RouteLabelKey && k != serving.RouteNamespaceLabelKey

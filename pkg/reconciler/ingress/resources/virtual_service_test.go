@@ -169,8 +169,6 @@ func TestMakeMeshVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			Rules: []v1alpha1.IngressRule{{
 				Hosts: []string{
 					"test-route.test-ns.svc.cluster.local",
-					"test-route.test-ns.svc",
-					"test-route.test-ns",
 				},
 				HTTP: &v1alpha1.HTTPIngressRuleValue{
 					Paths: []v1alpha1.HTTPIngressPath{{
