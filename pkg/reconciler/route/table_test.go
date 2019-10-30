@@ -1960,7 +1960,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		Key:                     "default/becomes-ready",
 		SkipNamespaceValidation: true,
 	}, {
-		Name: "check that cutom cert is used when creating a Route",
+		Name: "check that custom cert is used when creating a Route",
 		Objects: []runtime.Object{
 			customCert("default", "becomes-ready.default.example.com"),
 			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
@@ -2401,7 +2401,7 @@ func customCert(namespace, domain string) *netv1alpha1.Certificate {
 	return &netv1alpha1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      fmt.Sprintf(domain),
+			Name:      domain,
 			Annotations: map[string]string{
 				networking.CertificateClassAnnotationKey: "my-custom",
 			},

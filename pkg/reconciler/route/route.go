@@ -321,9 +321,9 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 	desiredCerts := resources.MakeCertificates(r, domainToTagMap, certClass(ctx, r))
 	for _, desiredCert := range desiredCerts {
 		dnsNames := sets.NewString(desiredCert.Spec.DNSNames...)
-		// Look for a matching wildcard cert before provisioning a new one. This saves the
-		// the time required to provision a new cert and reduces the chances of hitting the
-		// Let's Encrypt API rate limits.
+		// Look for a matching wildcard cert or a KCert with a matching domain before
+		// provisioning a new one. This saves the the time required to provision a new
+		// cert and reduces the chances of hitting the Let's Encrypt API rate limits.
 		cert := findMatchingCert(ctx, desiredCert.Spec.DNSNames, allWildcardCerts, unmanagedKCerts)
 		if cert == nil {
 			cert, err = networkaccessor.ReconcileCertificate(ctx, r, desiredCert, c)
@@ -593,14 +593,14 @@ func findMatchingCert(ctx context.Context, domains []string, wildcardCerts, unma
 		}
 	}
 	for _, cert := range unmanagedCerts {
-		if certMatches(ctx, domains, cert) {
+		if certMatches(domains, cert) {
 			return cert
 		}
 	}
 	return nil
 }
 
-func certMatches(ctx context.Context, domains []string, cert *netv1alpha1.Certificate) bool {
+func certMatches(domains []string, cert *netv1alpha1.Certificate) bool {
 	// Although this loop is O(n^2), cert.Spec.DNSNames has a few entries in general.
 	for _, dns := range cert.Spec.DNSNames {
 		for _, domain := range domains {
