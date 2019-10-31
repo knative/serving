@@ -53,7 +53,7 @@ const (
 	// These token settings are for alerter.
 	// If we want to enable the alerter for a benchmark, we need to mount the
 	// token to the pod, with the same name and path.
-	// See https://github.com/knative/serving/blob/master/test/performance/dataplane-probe/dataplane-probe.yaml
+	// See https://github.com/knative/serving/blob/master/test/performance/benchmarks/dataplane-probe/continuous/dataplane-probe.yaml
 	tokenFolder     = "/var/secret"
 	githubToken     = "github-token"
 	slackReadToken  = "slack-read-token"

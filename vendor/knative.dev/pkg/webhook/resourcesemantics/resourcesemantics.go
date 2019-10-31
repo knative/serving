@@ -14,12 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package webhook
+package resourcesemantics
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -29,28 +30,21 @@ import (
 	"go.uber.org/zap"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
-
+	admissionlisters "k8s.io/client-go/listers/admissionregistration/v1beta1"
+	corelisters "k8s.io/client-go/listers/core/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
+	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/system"
+	"knative.dev/pkg/webhook"
+	certresources "knative.dev/pkg/webhook/certificates/resources"
 )
-
-// ResourceCallback defines a signature for resource specific (Route, Configuration, etc.)
-// handlers that can validate and mutate an object. If non-nil error is returned, object mutation
-// is denied. Mutations should be appended to the patches operations.
-type ResourceCallback func(patches *[]jsonpatch.JsonPatchOperation, old GenericCRD, new GenericCRD) error
-
-// ResourceDefaulter defines a signature for resource specific (Route, Configuration, etc.)
-// handlers that can set defaults on an object. If non-nil error is returned, object mutation
-// is denied. Mutations should be appended to the patches operations.
-type ResourceDefaulter func(patches *[]jsonpatch.JsonPatchOperation, crd GenericCRD) error
 
 // GenericCRD is the interface definition that allows us to perform the generic
 // CRD actions like deciding whether to increment generation and so forth.
@@ -60,27 +54,57 @@ type GenericCRD interface {
 	runtime.Object
 }
 
-// ResourceAdmissionController implements the AdmissionController for resources
-type ResourceAdmissionController struct {
+var errMissingNewObject = errors.New("the new object may not be nil")
+
+// reconciler implements the AdmissionController for resources
+type reconciler struct {
+	name     string
+	path     string
 	handlers map[schema.GroupVersionKind]GenericCRD
-	options  ControllerOptions
+
+	withContext func(context.Context) context.Context
+
+	client       kubernetes.Interface
+	mwhlister    admissionlisters.MutatingWebhookConfigurationLister
+	secretlister corelisters.SecretLister
 
 	disallowUnknownFields bool
+	secretName            string
 }
 
-// NewResourceAdmissionController constructs a ResourceAdmissionController
-func NewResourceAdmissionController(
-	handlers map[schema.GroupVersionKind]GenericCRD,
-	opts ControllerOptions,
-	disallowUnknownFields bool) AdmissionController {
-	return &ResourceAdmissionController{
-		handlers:              handlers,
-		options:               opts,
-		disallowUnknownFields: disallowUnknownFields,
+var _ controller.Reconciler = (*reconciler)(nil)
+var _ webhook.AdmissionController = (*reconciler)(nil)
+
+// Reconcile implements controller.Reconciler
+func (ac *reconciler) Reconcile(ctx context.Context, key string) error {
+	logger := logging.FromContext(ctx)
+
+	// Look up the webhook secret, and fetch the CA cert bundle.
+	secret, err := ac.secretlister.Secrets(system.Namespace()).Get(ac.secretName)
+	if err != nil {
+		logger.Errorf("Error fetching secret: %v", err)
+		return err
 	}
+	caCert, ok := secret.Data[certresources.CACert]
+	if !ok {
+		return fmt.Errorf("secret %q is missing %q key", ac.secretName, certresources.CACert)
+	}
+
+	// Reconcile the webhook configuration.
+	return ac.reconcileMutatingWebhook(ctx, caCert)
 }
 
-func (ac *ResourceAdmissionController) Admit(ctx context.Context, request *admissionv1beta1.AdmissionRequest) *admissionv1beta1.AdmissionResponse {
+// Path implements AdmissionController
+func (ac *reconciler) Path() string {
+	return ac.path
+}
+
+// Admit implements AdmissionController
+func (ac *reconciler) Admit(ctx context.Context, request *admissionv1beta1.AdmissionRequest) *admissionv1beta1.AdmissionResponse {
+	if ac.withContext != nil {
+		ctx = ac.withContext(ctx)
+	}
+
 	logger := logging.FromContext(ctx)
 	switch request.Operation {
 	case admissionv1beta1.Create, admissionv1beta1.Update:
@@ -91,7 +115,7 @@ func (ac *ResourceAdmissionController) Admit(ctx context.Context, request *admis
 
 	patchBytes, err := ac.mutate(ctx, request)
 	if err != nil {
-		return makeErrorStatus("mutation failed: %v", err)
+		return webhook.MakeErrorStatus("mutation failed: %v", err)
 	}
 	logger.Infof("Kind: %q PatchBytes: %v", request.Kind, string(patchBytes))
 
@@ -105,8 +129,7 @@ func (ac *ResourceAdmissionController) Admit(ctx context.Context, request *admis
 	}
 }
 
-func (ac *ResourceAdmissionController) Register(ctx context.Context, kubeClient kubernetes.Interface, caCert []byte) error {
-	client := kubeClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
+func (ac *reconciler) reconcileMutatingWebhook(ctx context.Context, caCert []byte) error {
 	logger := logging.FromContext(ctx)
 
 	var rules []admissionregistrationv1beta1.RuleWithOperations
@@ -138,7 +161,7 @@ func (ac *ResourceAdmissionController) Register(ctx context.Context, kubeClient 
 		return lhs.Resources[0] < rhs.Resources[0]
 	})
 
-	configuredWebhook, err := client.Get(ac.options.ResourceMutatingWebhookName, metav1.GetOptions{})
+	configuredWebhook, err := ac.mwhlister.Get(ac.name)
 	if err != nil {
 		return fmt.Errorf("error retrieving webhook: %v", err)
 	}
@@ -158,15 +181,15 @@ func (ac *ResourceAdmissionController) Register(ctx context.Context, kubeClient 
 		if webhook.Webhooks[i].ClientConfig.Service == nil {
 			return fmt.Errorf("missing service reference for webhook: %s", wh.Name)
 		}
-		webhook.Webhooks[i].ClientConfig.Service.Path = ptr.String(
-			ac.options.ResourceAdmissionControllerPath)
+		webhook.Webhooks[i].ClientConfig.Service.Path = ptr.String(ac.Path())
 	}
 
 	if ok, err := kmp.SafeEqual(configuredWebhook, webhook); err != nil {
 		return fmt.Errorf("error diffing webhooks: %v", err)
 	} else if !ok {
 		logger.Info("Updating webhook")
-		if _, err := client.Update(webhook); err != nil {
+		mwhclient := ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
+		if _, err := mwhclient.Update(webhook); err != nil {
 			return fmt.Errorf("failed to update webhook: %v", err)
 		}
 	} else {
@@ -175,7 +198,7 @@ func (ac *ResourceAdmissionController) Register(ctx context.Context, kubeClient 
 	return nil
 }
 
-func (ac *ResourceAdmissionController) mutate(ctx context.Context, req *admissionv1beta1.AdmissionRequest) ([]byte, error) {
+func (ac *reconciler) mutate(ctx context.Context, req *admissionv1beta1.AdmissionRequest) ([]byte, error) {
 	kind := req.Kind
 	newBytes := req.Object.Raw
 	oldBytes := req.OldObject.Raw
@@ -280,7 +303,7 @@ func (ac *ResourceAdmissionController) mutate(ctx context.Context, req *admissio
 	return json.Marshal(patches)
 }
 
-func (ac *ResourceAdmissionController) setUserInfoAnnotations(ctx context.Context, patches duck.JSONPatch, new GenericCRD, groupName string) (duck.JSONPatch, error) {
+func (ac *reconciler) setUserInfoAnnotations(ctx context.Context, patches duck.JSONPatch, new GenericCRD, groupName string) (duck.JSONPatch, error) {
 	if new == nil {
 		return patches, nil
 	}

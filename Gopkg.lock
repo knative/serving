@@ -1671,8 +1671,8 @@
   revision = "88e1e4db86d11beb16248a94b1072beac20aef4c"
 
 [[projects]]
-  branch = "release-0.10"
-  digest = "1:d91a27f79bca7f71b57bdc3581542d646c90dca75862c38d21ad7b1aca6c22aa"
+  branch = "master"
+  digest = "1:c8e0ec560560e16616821b3999e905e6b9085c832b5b57216905711e63679d19"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1711,6 +1711,8 @@
     "client/injection/informers/istio/v1alpha3/virtualservice/fake",
     "client/injection/kube/client",
     "client/injection/kube/client/fake",
+    "client/injection/kube/informers/admissionregistration/v1beta1/mutatingwebhookconfiguration",
+    "client/injection/kube/informers/admissionregistration/v1beta1/validatingwebhookconfiguration",
     "client/injection/kube/informers/apps/v1/deployment",
     "client/injection/kube/informers/apps/v1/deployment/fake",
     "client/injection/kube/informers/autoscaling/v2beta1/horizontalpodautoscaler",
@@ -1788,10 +1790,14 @@
     "tracker",
     "version",
     "webhook",
+    "webhook/certificates",
+    "webhook/certificates/resources",
+    "webhook/configmaps",
+    "webhook/resourcesemantics",
     "websocket",
   ]
   pruneopts = "T"
-  revision = "cad41c40ccb5a40de7a3b65097649703c8d96e0b"
+  revision = "d4ce00139499bd3ea11cdb18ef20a41bdb248245"
 
 [[projects]]
   branch = "master"
@@ -2022,6 +2028,9 @@
     "knative.dev/pkg/tracker",
     "knative.dev/pkg/version",
     "knative.dev/pkg/webhook",
+    "knative.dev/pkg/webhook/certificates",
+    "knative.dev/pkg/webhook/configmaps",
+    "knative.dev/pkg/webhook/resourcesemantics",
     "knative.dev/pkg/websocket",
     "knative.dev/test-infra/scripts",
     "knative.dev/test-infra/shared/junit",

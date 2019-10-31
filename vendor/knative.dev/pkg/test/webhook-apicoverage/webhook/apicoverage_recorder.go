@@ -33,7 +33,7 @@ import (
 	"knative.dev/pkg/test/webhook-apicoverage/coveragecalculator"
 	"knative.dev/pkg/test/webhook-apicoverage/resourcetree"
 	"knative.dev/pkg/test/webhook-apicoverage/view"
-	"knative.dev/pkg/webhook"
+	"knative.dev/pkg/webhook/resourcesemantics"
 )
 
 var (
@@ -67,7 +67,7 @@ type resourceChannelMsg struct {
 type APICoverageRecorder struct {
 	Logger          *zap.SugaredLogger
 	ResourceForest  resourcetree.ResourceForest
-	ResourceMap     map[schema.GroupVersionKind]webhook.GenericCRD
+	ResourceMap     map[schema.GroupVersionKind]resourcesemantics.GenericCRD
 	NodeRules       resourcetree.NodeRules
 	FieldRules      resourcetree.FieldRules
 	DisplayRules    view.DisplayRules

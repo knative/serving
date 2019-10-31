@@ -47,3 +47,12 @@ webhooks:
     matchExpressions:
     - key: serving.knative.dev/release
       operator: Exists
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: webhook-certs
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
+# The data is populated at install time.

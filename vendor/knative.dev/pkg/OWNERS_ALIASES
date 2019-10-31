@@ -3,10 +3,12 @@ aliases:
   - evankanderson
   - mattmoor
   - vaikas-google
+  - vaikas
 
   apis-approvers:
   - mattmoor
   - vaikas-google
+  - vaikas
   - n3wscott
 
   apis-istio-approvers:
@@ -15,10 +17,12 @@ aliases:
   apis-duck-approvers:
   - mattmoor
   - vaikas-google
+  - vaikas
 
   cloudevents-approvers:
   - n3wscott
   - vaikas-google
+  - vaikas
 
   configmap-approvers:
   - mattmoor
@@ -65,6 +69,7 @@ aliases:
   source-approvers:
   - n3wscott
   - vaikas-google
+  - vaikas
 
   webhook-approvers:
   - mattmoor
