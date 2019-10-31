@@ -19,45 +19,36 @@ package webhook
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
+	// Injection stuff
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	secretinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/secret"
+
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
+	"knative.dev/pkg/system"
+	certresources "knative.dev/pkg/webhook/certificates/resources"
 
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-)
-
-const (
-	secretServerKey  = "server-key.pem"
-	secretServerCert = "server-cert.pem"
-	secretCACert     = "ca-cert.pem"
+	corelisters "k8s.io/client-go/listers/core/v1"
 )
 
 var (
 	errMissingNewObject = errors.New("the new object may not be nil")
 )
 
-// ControllerOptions contains the configuration for the webhook
-type ControllerOptions struct {
-	// ResourceMutatingWebhookName is the name of the webhook we create to handle
-	// mutations before they get stored in the storage.
-	ResourceMutatingWebhookName string
-
-	// ConfigValidationWebhookName is the name of the webhook we create to handle
-	// mutations before they get stored in the storage.
-	ConfigValidationWebhookName string
-
+// Options contains the configuration for the webhook
+type Options struct {
 	// ServiceName is the service name of the webhook.
 	ServiceName string
 
@@ -67,9 +58,6 @@ type ControllerOptions struct {
 	// is provided to k8s apiserver during admission controller
 	// registration.
 	SecretName string
-
-	// Namespace is the namespace in which everything above lives.
-	Namespace string
 
 	// Port where the webhook is served. Per k8s admission
 	// registration requirements this should be 443 unless there is
@@ -82,27 +70,21 @@ type ControllerOptions struct {
 	// invokes the webhook before the HTTP server is started.
 	RegistrationDelay time.Duration
 
-	// ClientAuthType declares the policy the webhook server will follow for
-	// TLS Client Authentication.
-	// The default value is tls.NoClientCert.
-	ClientAuth tls.ClientAuthType
-
 	// StatsReporter reports metrics about the webhook.
 	// This will be automatically initialized by the constructor if left uninitialized.
 	StatsReporter StatsReporter
-
-	// Service path for ResourceAdmissionController webhook
-	// Default is "/" for backward compatibility and is set by the constructor
-	ResourceAdmissionControllerPath string
-
-	// Service path for ConfigValidationController webhook
-	// Default is "/config-validation" and is set by the constructor
-	ConfigValidationControllerPath string
 }
 
 // AdmissionController provides the interface for different admission controllers
 type AdmissionController interface {
+	// Path returns the path that this particular admission controller serves on.
+	Path() string
+
+	// Admit is the callback which is invoked when an HTTPS request comes in on Path().
 	Admit(context.Context, *admissionv1beta1.AdmissionRequest) *admissionv1beta1.AdmissionResponse
+
+	// Register is called at startup to give the AdmissionController a chance to
+	// register with the API Server.
 	Register(context.Context, kubernetes.Interface, []byte) error
 }
 
@@ -110,21 +92,25 @@ type AdmissionController interface {
 // resources and configuration.
 type Webhook struct {
 	Client               kubernetes.Interface
-	Options              ControllerOptions
+	Options              Options
 	Logger               *zap.SugaredLogger
 	admissionControllers map[string]AdmissionController
-
-	WithContext func(context.Context) context.Context
+	secretlister         corelisters.SecretLister
 }
 
 // New constructs a Webhook
 func New(
-	client kubernetes.Interface,
-	opts ControllerOptions,
-	admissionControllers map[string]AdmissionController,
-	logger *zap.SugaredLogger,
-	ctx func(context.Context) context.Context,
+	ctx context.Context,
+	admissionControllers []AdmissionController,
 ) (*Webhook, error) {
+
+	client := kubeclient.Get(ctx)
+	secretInformer := secretinformer.Get(ctx)
+	opts := GetOptions(ctx)
+	if opts == nil {
+		return nil, errors.New("context must have Options specified")
+	}
+	logger := logging.FromContext(ctx)
 
 	if opts.StatsReporter == nil {
 		reporter, err := NewStatsReporter()
@@ -134,12 +120,20 @@ func New(
 		opts.StatsReporter = reporter
 	}
 
+	acs := make(map[string]AdmissionController, len(admissionControllers))
+	for _, ac := range admissionControllers {
+		if _, ok := acs[ac.Path()]; ok {
+			return nil, fmt.Errorf("admission controller with conflicting path: %q", ac.Path())
+		}
+		acs[ac.Path()] = ac
+	}
+
 	return &Webhook{
 		Client:               client,
-		Options:              opts,
-		admissionControllers: admissionControllers,
+		Options:              *opts,
+		secretlister:         secretInformer.Lister(),
+		admissionControllers: acs,
 		Logger:               logger,
-		WithContext:          ctx,
 	}, nil
 }
 
@@ -147,16 +141,39 @@ func New(
 func (ac *Webhook) Run(stop <-chan struct{}) error {
 	logger := ac.Logger
 	ctx := logging.WithLogger(context.TODO(), logger)
-	tlsConfig, caCert, err := configureCerts(ctx, ac.Client, &ac.Options)
+
+	// TODO(mattmoor): Separate out the certificate creation process and use listers
+	// to fetch this from the secret below.
+	_, _, caCert, err := getOrGenerateKeyCertsFromSecret(ctx, ac.Client, &ac.Options)
 	if err != nil {
-		logger.Errorw("could not configure admission webhook certs", zap.Error(err))
 		return err
 	}
 
 	server := &http.Server{
-		Handler:   ac,
-		Addr:      fmt.Sprintf(":%v", ac.Options.Port),
-		TLSConfig: tlsConfig,
+		Handler: ac,
+		Addr:    fmt.Sprintf(":%v", ac.Options.Port),
+		TLSConfig: &tls.Config{
+			GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+				secret, err := ac.secretlister.Secrets(system.Namespace()).Get(ac.Options.SecretName)
+				if err != nil {
+					return nil, err
+				}
+
+				serverKey, ok := secret.Data[certresources.ServerKey]
+				if !ok {
+					return nil, errors.New("server key missing")
+				}
+				serverCert, ok := secret.Data[certresources.ServerCert]
+				if !ok {
+					return nil, errors.New("server cert missing")
+				}
+				cert, err := tls.X509KeyPair(serverCert, serverKey)
+				if err != nil {
+					return nil, err
+				}
+				return &cert, nil
+			},
+		},
 	}
 
 	logger.Info("Found certificates for webhook...")
@@ -200,7 +217,7 @@ func (ac *Webhook) Run(stop <-chan struct{}) error {
 	case <-stop:
 		return server.Close()
 	case <-ctx.Done():
-		return fmt.Errorf("webhook server bootstrap failed %v", err)
+		return fmt.Errorf("webhook server bootstrap failed %v", ctx.Err())
 	}
 }
 
@@ -234,10 +251,6 @@ func (ac *Webhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		zap.String(logkey.UserInfo, fmt.Sprint(review.Request.UserInfo)))
 	ctx := logging.WithLogger(r.Context(), logger)
 
-	if ac.WithContext != nil {
-		ctx = ac.WithContext(ctx)
-	}
-
 	if _, ok := ac.admissionControllers[r.URL.Path]; !ok {
 		http.Error(w, fmt.Sprintf("no admission controller registered for: %s", r.URL.Path), http.StatusBadRequest)
 		return
@@ -265,50 +278,17 @@ func (ac *Webhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GetAPIServerExtensionCACert gets the Kubernetes aggregate apiserver
-// client CA cert used by validator.
-//
-// NOTE: this certificate is provided kubernetes. We do not control
-// its name or location.
-func getAPIServerExtensionCACert(cl kubernetes.Interface) ([]byte, error) {
-	const name = "extension-apiserver-authentication"
-	c, err := cl.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	const caFileName = "requestheader-client-ca-file"
-	pem, ok := c.Data[caFileName]
-	if !ok {
-		return nil, fmt.Errorf("cannot find %s in ConfigMap %s: ConfigMap.Data is %#v", caFileName, name, c.Data)
-	}
-	return []byte(pem), nil
-}
-
-// MakeTLSConfig makes a TLS configuration suitable for use with the server
-func makeTLSConfig(serverCert, serverKey, caCert []byte, clientAuthType tls.ClientAuthType) (*tls.Config, error) {
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
-	cert, err := tls.X509KeyPair(serverCert, serverKey)
-	if err != nil {
-		return nil, err
-	}
-	return &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		ClientCAs:    caCertPool,
-		ClientAuth:   clientAuthType,
-	}, nil
-}
-
 func getOrGenerateKeyCertsFromSecret(ctx context.Context, client kubernetes.Interface,
-	options *ControllerOptions) (serverKey, serverCert, caCert []byte, err error) {
+	options *Options) (serverKey, serverCert, caCert []byte, err error) {
 	logger := logging.FromContext(ctx)
-	secret, err := client.CoreV1().Secrets(options.Namespace).Get(options.SecretName, metav1.GetOptions{})
+	secret, err := client.CoreV1().Secrets(system.Namespace()).Get(options.SecretName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return nil, nil, nil, err
 		}
 		logger.Info("Did not find existing secret, creating one")
-		newSecret, err := generateSecret(ctx, options)
+		newSecret, err := certresources.MakeSecret(
+			ctx, options.SecretName, system.Namespace(), options.ServiceName)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -318,7 +298,7 @@ func getOrGenerateKeyCertsFromSecret(ctx context.Context, client kubernetes.Inte
 				return nil, nil, nil, err
 			}
 			// OK, so something else might have created, try fetching it instead.
-			secret, err = client.CoreV1().Secrets(options.Namespace).Get(options.SecretName, metav1.GetOptions{})
+			secret, err = client.CoreV1().Secrets(system.Namespace()).Get(options.SecretName, metav1.GetOptions{})
 			if err != nil {
 				return nil, nil, nil, err
 			}
@@ -326,37 +306,16 @@ func getOrGenerateKeyCertsFromSecret(ctx context.Context, client kubernetes.Inte
 	}
 
 	var ok bool
-	if serverKey, ok = secret.Data[secretServerKey]; !ok {
+	if serverKey, ok = secret.Data[certresources.ServerKey]; !ok {
 		return nil, nil, nil, errors.New("server key missing")
 	}
-	if serverCert, ok = secret.Data[secretServerCert]; !ok {
+	if serverCert, ok = secret.Data[certresources.ServerCert]; !ok {
 		return nil, nil, nil, errors.New("server cert missing")
 	}
-	if caCert, ok = secret.Data[secretCACert]; !ok {
+	if caCert, ok = secret.Data[certresources.CACert]; !ok {
 		return nil, nil, nil, errors.New("ca cert missing")
 	}
 	return serverKey, serverCert, caCert, nil
-}
-
-func configureCerts(ctx context.Context, client kubernetes.Interface, options *ControllerOptions) (*tls.Config, []byte, error) {
-	var apiServerCACert []byte
-	if options.ClientAuth >= tls.VerifyClientCertIfGiven {
-		var err error
-		apiServerCACert, err = getAPIServerExtensionCACert(client)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-
-	serverKey, serverCert, caCert, err := getOrGenerateKeyCertsFromSecret(ctx, client, options)
-	if err != nil {
-		return nil, nil, err
-	}
-	tlsConfig, err := makeTLSConfig(serverCert, serverKey, apiServerCACert, options.ClientAuth)
-	if err != nil {
-		return nil, nil, err
-	}
-	return tlsConfig, caCert, nil
 }
 
 func makeErrorStatus(reason string, args ...interface{}) *admissionv1beta1.AdmissionResponse {
@@ -365,22 +324,4 @@ func makeErrorStatus(reason string, args ...interface{}) *admissionv1beta1.Admis
 		Result:  &result,
 		Allowed: false,
 	}
-}
-
-func generateSecret(ctx context.Context, options *ControllerOptions) (*corev1.Secret, error) {
-	serverKey, serverCert, caCert, err := CreateCerts(ctx, options.ServiceName, options.Namespace)
-	if err != nil {
-		return nil, err
-	}
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      options.SecretName,
-			Namespace: options.Namespace,
-		},
-		Data: map[string][]byte{
-			secretServerKey:  serverKey,
-			secretServerCert: serverCert,
-			secretCACert:     caCert,
-		},
-	}, nil
 }

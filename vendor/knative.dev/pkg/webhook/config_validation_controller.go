@@ -38,17 +38,21 @@ import (
 
 // ConfigValidationController implements the AdmissionController for ConfigMaps
 type ConfigValidationController struct {
+	// name of the ValidatingWebhookConfiguration
+	name string
+	// path that the webhook should serve on
+	path         string
 	constructors map[string]reflect.Value
-	options      ControllerOptions
 }
 
 // NewConfigValidationController constructs a ConfigValidationController
 func NewConfigValidationController(
-	constructors configmap.Constructors,
-	opts ControllerOptions) AdmissionController {
+	name, path string,
+	constructors configmap.Constructors) AdmissionController {
 	cfgValidations := &ConfigValidationController{
+		name:         name,
+		path:         path,
 		constructors: make(map[string]reflect.Value),
-		options:      opts,
 	}
 
 	for configName, constructor := range constructors {
@@ -58,6 +62,12 @@ func NewConfigValidationController(
 	return cfgValidations
 }
 
+// Path implements AdmissionController
+func (ac *ConfigValidationController) Path() string {
+	return ac.path
+}
+
+// Admit implements AdmissionController
 func (ac *ConfigValidationController) Admit(ctx context.Context, request *admissionv1beta1.AdmissionRequest) *admissionv1beta1.AdmissionResponse {
 	logger := logging.FromContext(ctx)
 	switch request.Operation {
@@ -76,6 +86,7 @@ func (ac *ConfigValidationController) Admit(ctx context.Context, request *admiss
 	}
 }
 
+// Register implements AdmissionController
 func (ac *ConfigValidationController) Register(ctx context.Context, kubeClient kubernetes.Interface, caCert []byte) error {
 	client := kubeClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
 	logger := logging.FromContext(ctx)
@@ -94,7 +105,7 @@ func (ac *ConfigValidationController) Register(ctx context.Context, kubeClient k
 		},
 	}}
 
-	configuredWebhook, err := client.Get(ac.options.ConfigValidationWebhookName, metav1.GetOptions{})
+	configuredWebhook, err := client.Get(ac.name, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("error retrieving webhook: %v", err)
 	}
@@ -114,7 +125,7 @@ func (ac *ConfigValidationController) Register(ctx context.Context, kubeClient k
 		if webhook.Webhooks[i].ClientConfig.Service == nil {
 			return fmt.Errorf("missing service reference for webhook: %s", wh.Name)
 		}
-		webhook.Webhooks[i].ClientConfig.Service.Path = ptr.String(ac.options.ConfigValidationControllerPath)
+		webhook.Webhooks[i].ClientConfig.Service.Path = ptr.String(ac.path)
 	}
 
 	if ok, err := kmp.SafeEqual(configuredWebhook, webhook); err != nil {
