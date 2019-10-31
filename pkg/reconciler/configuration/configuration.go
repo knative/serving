@@ -186,24 +186,18 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 	default:
 		return fmt.Errorf("unrecognized condition status: %v on revision %q", rc.Status, revName)
 	}
-	if rc != nil && rc.Status == corev1.ConditionTrue {
-		old, new := config.Status.LatestReadyRevisionName, lcr.Name
-		config.Status.SetLatestReadyRevisionName(lcr.Name)
-		if old != new {
-			c.Recorder.Eventf(config, corev1.EventTypeNormal, "LatestReadyUpdate",
-				"LatestReadyRevisionName updated to %q", new)
-		}
-	} else {
-		if err = c.findAndSetLatestReadyRevision(config); err != nil {
-			return fmt.Errorf("failed to find and set latest ready revision: %w", err)
-		}
+
+	lcrReady := rc != nil && rc.Status == corev1.ConditionTrue
+	if err = c.findAndSetLatestReadyRevision(config, lcrReady); err != nil {
+		return fmt.Errorf("failed to find and set latest ready revision: %w", err)
 	}
 
 	return nil
 }
 
-// findAndSetLatestReadyRevision finds the last ready revision and sets LatestReadyRevisionName to it
-func (c *Reconciler) findAndSetLatestReadyRevision(config *v1alpha1.Configuration) error {
+// findAndSetLatestReadyRevision finds the last ready revision and sets LatestReadyRevisionName to it.
+// lcrReady indicates whether the latest created revision is ready or not.
+func (c *Reconciler) findAndSetLatestReadyRevision(config *v1alpha1.Configuration, lcrReady bool) error {
 	sortedRevisions, err := c.getSortedCreatedRevisions(config)
 	if err != nil {
 		return err
@@ -211,12 +205,15 @@ func (c *Reconciler) findAndSetLatestReadyRevision(config *v1alpha1.Configuratio
 	for _, rev := range sortedRevisions {
 		if rev.Status.IsReady() {
 			// No need to update latest ready revision in this case
-			if rev.Name == config.Status.LatestReadyRevisionName {
+			if rev.Name == config.Status.LatestReadyRevisionName && !lcrReady {
 				return nil
 			}
+			old, new := config.Status.LatestReadyRevisionName, rev.Name
 			config.Status.SetLatestReadyRevisionName(rev.Name)
-			c.Recorder.Eventf(config, corev1.EventTypeNormal, "LatestReadyUpdate",
-				"LatestReadyRevisionName updated to %q", rev.Name)
+			if old != new {
+				c.Recorder.Eventf(config, corev1.EventTypeNormal, "LatestReadyUpdate",
+					"LatestReadyRevisionName updated to %q", rev.Name)
+			}
 			return nil
 		}
 	}
