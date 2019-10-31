@@ -131,22 +131,19 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 		}
 	}
 
-	// Only create metrics service and metric entity if we actually need to gather metrics.
-	if pa.Metric() == autoscaling.Concurrency || pa.Metric() == autoscaling.RPS {
-		metricSvc, err := c.ReconcileMetricsService(ctx, pa)
-		if err != nil {
-			return fmt.Errorf("error reconciling metrics service: %w", err)
-		}
-
-		if err := c.ReconcileMetric(ctx, pa, metricSvc); err != nil {
-			return fmt.Errorf("error reconciling metric: %w", err)
-		}
-	}
-
 	sks, err := c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe)
 	if err != nil {
 		return fmt.Errorf("error reconciling SKS: %w", err)
 	}
+
+	// Only create metrics service and metric entity if we actually need to gather metrics.
+	pa.Status.MetricsServiceName = sks.Status.PrivateServiceName
+	if sks.Status.PrivateServiceName != "" && pa.Metric() == autoscaling.Concurrency || pa.Metric() == autoscaling.RPS {
+		if err := c.ReconcileMetric(ctx, pa, sks.Status.PrivateServiceName); err != nil {
+			return fmt.Errorf("error reconciling metric: %w", err)
+		}
+	}
+
 	// Propagate the service name regardless of the status.
 	pa.Status.ServiceName = sks.Status.ServiceName
 	if !sks.Status.IsReady() {
