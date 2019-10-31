@@ -255,22 +255,25 @@ func (c *Reconciler) getSortedCreatedRevisions(config *v1alpha1.Configuration) (
 	}
 
 	list, err := lister.List(configSelector)
-
-	if err == nil && len(list) > 0 {
-		// Return a sorted list with Generation in descending order
-		if len(list) > 1 {
-			sort.Slice(list, func(i, j int) bool {
-				intI, errI := strconv.Atoi(list[i].Labels[serving.ConfigurationGenerationLabelKey])
-				intJ, errJ := strconv.Atoi(list[j].Labels[serving.ConfigurationGenerationLabelKey])
-				if errI != nil || errJ != nil {
-					return true
-				}
-				return intI > intJ
-			})
-		}
-		return list, nil
+	if err != nil {
+		return nil, err
 	}
-	return nil, err
+	// Return a sorted list with Generation in descending order
+	if len(list) > 1 {
+		sort.Slice(list, func(i, j int) bool {
+			// BYO name always be the first
+			if config.Spec.Template.Name == list[i].Name {
+				return true
+			}
+			intI, errI := strconv.Atoi(list[i].Labels[serving.ConfigurationGenerationLabelKey])
+			intJ, errJ := strconv.Atoi(list[j].Labels[serving.ConfigurationGenerationLabelKey])
+			if errI != nil || errJ != nil {
+				return true
+			}
+			return intI > intJ
+		})
+	}
+	return list, nil
 }
 
 // CheckNameAvailability checks that if the named Revision specified by the Configuration
