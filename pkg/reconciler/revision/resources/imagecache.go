@@ -48,7 +48,7 @@ func MakeImageCache(rev *v1alpha1.Revision) *caching.Image {
 		Spec: caching.ImageSpec{
 			Image:              image,
 			ServiceAccountName: rev.Spec.ServiceAccountName,
-			// We don't support ImagePullSecrets today.
+			ImagePullSecrets:   rev.Spec.ImagePullSecrets,
 		},
 	}
 
