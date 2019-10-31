@@ -167,38 +167,36 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 	switch {
 	case rc == nil || rc.Status == corev1.ConditionUnknown:
 		logger.Infof("Revision %q of configuration is not ready", revName)
-		if err = c.findAndSetLatestReadyRevision(config); err != nil {
-			return fmt.Errorf("failed to find and set latest ready revision: %w", err)
-		}
 
 	case rc.Status == corev1.ConditionTrue:
 		logger.Infof("Revision %q of configuration is ready", revName)
-
-		created, ready := config.Status.LatestCreatedRevisionName, config.Status.LatestReadyRevisionName
-		if ready == "" {
+		if config.Status.LatestReadyRevisionName == "" {
 			// Surface an event for the first revision becoming ready.
 			c.Recorder.Event(config, corev1.EventTypeNormal, "ConfigurationReady",
 				"Configuration becomes ready")
 		}
-		// Update the LatestReadyRevisionName and surface an event for the transition.
-		config.Status.SetLatestReadyRevisionName(lcr.Name)
-		if created != ready {
-			c.Recorder.Eventf(config, corev1.EventTypeNormal, "LatestReadyUpdate",
-				"LatestReadyRevisionName updated to %q", lcr.Name)
-		}
 
 	case rc.Status == corev1.ConditionFalse:
 		logger.Infof("Revision %q of configuration has failed", revName)
-
 		// TODO(mattmoor): Only emit the event the first time we see this.
 		config.Status.MarkLatestCreatedFailed(lcr.Name, rc.Message)
 		c.Recorder.Eventf(config, corev1.EventTypeWarning, "LatestCreatedFailed",
 			"Latest created revision %q has failed", lcr.Name)
+
+	default:
+		return fmt.Errorf("unrecognized condition status: %v on revision %q", rc.Status, revName)
+	}
+	if rc != nil && rc.Status == corev1.ConditionTrue {
+		old, new := config.Status.LatestReadyRevisionName, lcr.Name
+		config.Status.SetLatestReadyRevisionName(lcr.Name)
+		if old != new {
+			c.Recorder.Eventf(config, corev1.EventTypeNormal, "LatestReadyUpdate",
+				"LatestReadyRevisionName updated to %q", new)
+		}
+	} else {
 		if err = c.findAndSetLatestReadyRevision(config); err != nil {
 			return fmt.Errorf("failed to find and set latest ready revision: %w", err)
 		}
-	default:
-		return fmt.Errorf("unrecognized condition status: %v on revision %q", rc.Status, revName)
 	}
 
 	return nil
@@ -228,16 +226,13 @@ func (c *Reconciler) findAndSetLatestReadyRevision(config *v1alpha1.Configuratio
 // getSortedCreatedRevisions returns the list of created revisions sorted in descending
 // generation order between the generation of the latest ready revision and config's generation.
 func (c *Reconciler) getSortedCreatedRevisions(config *v1alpha1.Configuration) ([]*v1alpha1.Revision, error) {
-	if config.Status.LatestReadyRevisionName == "" {
-		return nil, nil
-	}
-	lister := c.revisionLister.Revisions(config.Namespace)
-	latestReadyRev, err := lister.Get(config.Status.LatestReadyRevisionName)
-	if err != nil {
-		return nil, err
-	}
 	start := int64(0)
+	lister := c.revisionLister.Revisions(config.Namespace)
 	if config.Status.LatestReadyRevisionName != "" {
+		latestReadyRev, err := lister.Get(config.Status.LatestReadyRevisionName)
+		if err != nil {
+			return nil, err
+		}
 		start = latestReadyRev.Generation
 	}
 	configSelector := labels.SelectorFromSet(map[string]string{
@@ -276,7 +271,7 @@ func (c *Reconciler) getSortedCreatedRevisions(config *v1alpha1.Configuration) (
 		}
 		return list, nil
 	}
-	return nil, fmt.Errorf("error listing configurations: %w", err)
+	return nil, err
 }
 
 // CheckNameAvailability checks that if the named Revision specified by the Configuration
