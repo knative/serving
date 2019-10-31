@@ -223,35 +223,34 @@ func (c *Reconciler) findAndSetLatestReadyRevision(config *v1alpha1.Configuratio
 // getSortedCreatedRevisions returns the list of created revisions sorted in descending
 // generation order between the generation of the latest ready revision and config's generation.
 func (c *Reconciler) getSortedCreatedRevisions(config *v1alpha1.Configuration) ([]*v1alpha1.Revision, error) {
-	start := int64(0)
 	lister := c.revisionLister.Revisions(config.Namespace)
+	configSelector := labels.SelectorFromSet(map[string]string{
+		serving.ConfigurationLabelKey: config.Name,
+	})
 	if config.Status.LatestReadyRevisionName != "" {
 		latestReadyRev, err := lister.Get(config.Status.LatestReadyRevisionName)
 		if err != nil {
 			return nil, err
 		}
-		start = latestReadyRev.Generation
-	}
-	configSelector := labels.SelectorFromSet(map[string]string{
-		serving.ConfigurationLabelKey: config.Name,
-	})
-	var generations []string
-	for i := start + 1; i <= int64(config.Generation); i++ {
-		generations = append(generations, strconv.FormatInt(i, 10))
+		start := latestReadyRev.Generation
+		var generations []string
+		for i := start + 1; i <= int64(config.Generation); i++ {
+			generations = append(generations, strconv.FormatInt(i, 10))
+		}
+
+		// Add an "In" filter so that the configurations we get back from List have generation
+		// in range (config's latest ready generation, config's generation]
+		generationKey := serving.ConfigurationGenerationLabelKey
+		inReq, err := labels.NewRequirement(generationKey,
+			selection.In,
+			generations,
+		)
+		if err != nil {
+			return nil, err
+		}
+		configSelector = configSelector.Add(*inReq)
 	}
 
-	// Add an "In" filter so that the configurations we get back from List have generation
-	// in range (config's latest ready generation, config's generation]
-	generationKey := serving.ConfigurationGenerationLabelKey
-	inReq, err := labels.NewRequirement(generationKey,
-		selection.In,
-		generations,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	configSelector = configSelector.Add(*inReq)
 	list, err := lister.List(configSelector)
 
 	if err == nil && len(list) > 0 {
