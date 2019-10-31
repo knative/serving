@@ -595,6 +595,16 @@ func TestMakePrivateService(t *testing.T) {
 					Port:       networking.ServiceHTTPPort,
 					TargetPort: intstr.FromInt(networking.BackendHTTPPort),
 				}, {
+					Name:       servingv1alpha1.AutoscalingQueueMetricsPortName,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       networking.AutoscalingQueueMetricsPort,
+					TargetPort: intstr.FromString(servingv1alpha1.AutoscalingQueueMetricsPortName),
+				}, {
+					Name:       servingv1alpha1.UserQueueMetricsPortName,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       networking.UserQueueMetricsPort,
+					TargetPort: intstr.FromString(servingv1alpha1.UserQueueMetricsPortName),
+				}, {
 					Name:       servingv1alpha1.QueueAdminPortName,
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.QueueAdminPort,
@@ -657,6 +667,16 @@ func TestMakePrivateService(t *testing.T) {
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.ServiceHTTPPort,
 					TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
+				}, {
+					Name:       servingv1alpha1.AutoscalingQueueMetricsPortName,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       networking.AutoscalingQueueMetricsPort,
+					TargetPort: intstr.FromString(servingv1alpha1.AutoscalingQueueMetricsPortName),
+				}, {
+					Name:       servingv1alpha1.UserQueueMetricsPortName,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       networking.UserQueueMetricsPort,
+					TargetPort: intstr.FromString(servingv1alpha1.UserQueueMetricsPortName),
 				}, {
 					Name:       servingv1alpha1.QueueAdminPortName,
 					Protocol:   corev1.ProtocolTCP,
