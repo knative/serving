@@ -335,6 +335,7 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionD
 			if !ok {
 				if rt.containerConcurrency == 0 {
 					tracker = &podIPTracker{dest: newDest, b: newInfiniteBreaker(rt.logger)}
+					tracker.b.UpdateConcurrency(1) // Unlock the pod breaker.
 				} else {
 					tracker = &podIPTracker{
 						dest: newDest,
