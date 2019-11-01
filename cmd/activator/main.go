@@ -164,7 +164,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Error loading/parsing logging configuration: ", err)
 	}
-	
+
 	logger, atomicLevel := pkglogging.NewLoggerFromConfig(loggingConfig, component)
 	logger = logger.With(zap.String(logkey.ControllerType, component),
 		zap.String(logkey.Pod, env.PodName))
