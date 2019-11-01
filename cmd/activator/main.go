@@ -142,23 +142,34 @@ func main() {
 
 	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
 
-	// Set up our logger.
-	loggingConfig, err := sharedmain.GetLoggingConfig(ctx)
-	if err != nil {
-		log.Fatal("Error loading/parsing logging configuration:", err)
-	}
 	var env config
 	if err := envconfig.Process("", &env); err != nil {
 		log.Fatalf("Failed to process env: %v", err)
 	}
 
+	kubeClient := kubeclient.Get(ctx)
+
+	// We sometimes startup faster than we can reach kube-api. Poll on failure to prevent us terminating
+	if perr := wait.PollImmediate(time.Second, 60*time.Second, func() (bool, error) {
+		if err = version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
+			log.Printf("Failed to get k8s version %v", err)
+		}
+		return err == nil, nil
+	}); perr != nil {
+		log.Fatal("Timed out attempting to get k8s version: ", err)
+	}
+
+	// Set up our logger.
+	loggingConfig, err := sharedmain.GetLoggingConfig(ctx)
+	if err != nil {
+		log.Fatal("Error loading/parsing logging configuration: ", err)
+	}
+	
 	logger, atomicLevel := pkglogging.NewLoggerFromConfig(loggingConfig, component)
 	logger = logger.With(zap.String(logkey.ControllerType, component),
 		zap.String(logkey.Pod, env.PodName))
 	ctx = pkglogging.WithLogger(ctx, logger)
 	defer flush(logger)
-
-	kubeClient := kubeclient.Get(ctx)
 
 	// Run informers instead of starting them from the factory to prevent the sync hanging because of empty handler.
 	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
@@ -166,16 +177,6 @@ func main() {
 	}
 
 	logger.Info("Starting the knative activator")
-
-	// We sometimes startup faster than we can reach kube-api. Poll on failure to prevent us terminating
-	if perr := wait.PollImmediate(time.Second, 60*time.Second, func() (bool, error) {
-		if err = version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
-			logger.Errorw("Failed to get k8s version", zap.Error(err))
-		}
-		return err == nil, nil
-	}); perr != nil {
-		logger.Fatalw("Timed out attempting to get k8s version", zap.Error(err))
-	}
 
 	reporter, err := activator.NewStatsReporter(env.PodName)
 	if err != nil {
