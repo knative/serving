@@ -221,20 +221,20 @@ func (c *Reconciler) findAndSetLatestReadyRevision(config *v1alpha1.Configuratio
 }
 
 // getSortedCreatedRevisions returns the list of created revisions sorted in descending
-// generation order between the generation of the latest ready revision and config's generation.
+// generation order between the generation of the latest ready revision and config's generation (both inclusive).
 func (c *Reconciler) getSortedCreatedRevisions(config *v1alpha1.Configuration) ([]*v1alpha1.Revision, error) {
 	lister := c.revisionLister.Revisions(config.Namespace)
 	configSelector := labels.SelectorFromSet(map[string]string{
 		serving.ConfigurationLabelKey: config.Name,
 	})
 	if config.Status.LatestReadyRevisionName != "" {
-		latestReadyRev, err := lister.Get(config.Status.LatestReadyRevisionName)
+		lrr, err := lister.Get(config.Status.LatestReadyRevisionName)
 		if err != nil {
 			return nil, err
 		}
-		start := latestReadyRev.Generation
+		start := lrr.Generation
 		var generations []string
-		for i := start + 1; i <= int64(config.Generation); i++ {
+		for i := start; i <= int64(config.Generation); i++ {
 			generations = append(generations, strconv.FormatInt(i, 10))
 		}
 
@@ -261,6 +261,9 @@ func (c *Reconciler) getSortedCreatedRevisions(config *v1alpha1.Configuration) (
 			// BYO name always be the first
 			if config.Spec.Template.Name == list[i].Name {
 				return true
+			}
+			if config.Spec.Template.Name == list[j].Name {
+				return false
 			}
 			intI, errI := strconv.Atoi(list[i].Labels[serving.ConfigurationGenerationLabelKey])
 			intJ, errJ := strconv.Atoi(list[j].Labels[serving.ConfigurationGenerationLabelKey])
