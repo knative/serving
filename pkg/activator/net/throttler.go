@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"math/rand"
 	"sort"
 	"sync"
@@ -49,9 +48,8 @@ import (
 )
 
 type podIPTracker struct {
-	dest     string
-	requests int32
-	b        breaker
+	dest string
+	b    breaker
 }
 
 type breaker interface {
@@ -85,7 +83,7 @@ type revisionThrottler struct {
 
 	// If we dont have a healthy clusterIPDest this is set to the default (""), otherwise
 	// it is the l4dest for this revision's private clusterIP
-	clusterIPDest string
+	clusterIPDest *podIPTracker
 
 	// mux guards "throttle state" which is the state we use during the request path. This
 	// is trackers, clusterIPDest
@@ -116,7 +114,15 @@ func newRevisionThrottler(revID types.NamespacedName,
 	}
 }
 
-func pickFirst(tgs []*podIPTracker) *podIPTracker {
+// pickPod picks the first tracker that has open capacity, if container concurrency
+// if limited, random pod otherwise.
+func pickPod(tgs []*podIPTracker, cc int64) *podIPTracker {
+	// Infifnite capacity, pick random. We have to do this
+	// otherwise _all_ the requests will go to the first pod
+	// since it has unlimited capacity.
+	if cc == 0 {
+		return tgs[rand.Intn(len(tgs))]
+	}
 	for _, t := range tgs {
 		if t.b.HasCapacity() {
 			return t
@@ -125,69 +131,33 @@ func pickFirst(tgs []*podIPTracker) *podIPTracker {
 	return nil
 }
 
-// pickP2C implements power of two choices algorithm for fast load balancing.
-// See here: https://www.eecs.harvard.edu/~michaelm/postscripts/mythesis.pdf.
-// The function picks a target to send request to, given list of `podIPTracker` objects, a
-// callback to release the slot is returned as well.
-func pickP2C(tgts []*podIPTracker) (string, func()) {
-	var t1, t2 *podIPTracker
-	switch len(tgts) {
-	case 0:
-		return "", nil
-	case 1:
-		t1, t2 = tgts[0], tgts[0]
-	case 2:
-		t1, t2 = tgts[0], tgts[1]
-	default:
-		i1 := rand.Intn(len(tgts))
-		t1 = tgts[i1]
-		i2 := rand.Intn(len(tgts))
-		for i1 == i2 {
-			i2 = rand.Intn(len(tgts))
-		}
-		t2 = tgts[i2]
-	}
-	// Note that this is not guaranteed to be precise, due to the case
-	// that Load here and Add below are not atomic.
-	if atomic.LoadInt32(&t1.requests) > atomic.LoadInt32(&t2.requests) {
-		t1 = t2
-	}
-	atomic.AddInt32(&t1.requests, 1)
-	return t1.dest, func() {
-		atomic.AddInt32(&t1.requests, -1)
-	}
-}
-
-func noop() {}
-
 // Returns a dest after incrementing its request count and a completion callback
 // to be called after request completion. If no dest is found it returns "", nil.
-func (rt *revisionThrottler) acquireDest() (*podIPTracker, func()) {
+func (rt *revisionThrottler) acquireDest() *podIPTracker {
 	rt.mux.RLock()
 	defer rt.mux.RUnlock()
 
-	// This is intended to be called only after performing a read lock check on clusterIPDest
-	if rt.clusterIPDest != "" {
-		return &podIPTracker{dest: rt.clusterIPDest, b: newInfiniteBreaker(rt.logger)}, noop
+	if rt.clusterIPDest != nil {
+		return rt.clusterIPDest
 	}
-	//return pickP2C(rt.assignedTrackers)
-	return pickFirst(rt.assignedTrackers), noop
+	return pickPod(rt.assignedTrackers, rt.containerConcurrency)
 }
 
 func (rt *revisionThrottler) try(ctx context.Context, function func(string) error) error {
 	var ret error
 
 	if err := rt.breaker.Maybe(ctx, func() {
-		dest, completionCb := rt.acquireDest()
-		if dest == nil {
+		tracker := rt.acquireDest()
+		if tracker == nil {
 			ret = errors.New("made it through breaker but we have no clusterIP or podIPs. This should" +
 				" never happen" + rt.revID.String())
 			return
 		}
 
-		defer completionCb()
-		if err := dest.b.Maybe(ctx, func() {
-			ret = function(dest.dest)
+		// Now use the internal breaker to actually make the request
+		// to the pod.
+		if err := tracker.b.Maybe(ctx, func() {
+			ret = function(tracker.dest)
 		}); err != nil {
 			ret = err
 		}
@@ -205,15 +175,20 @@ func (rt *revisionThrottler) calculateCapacity(size, activatorCount, maxConcurre
 		// infinite breaker will dole out as many tokens as it can.
 		targetCapacity = maxConcurrency
 	} else if targetCapacity > 0 {
-		targetCapacity = int(math.Round(float64(targetCapacity) / float64(minOneOrValue(activatorCount))))
+		targetCapacity = minOneOrValue(targetCapacity / minOneOrValue(activatorCount))
 	}
 
 	return targetCapacity
 }
 
+// This makes sure we reset the capacity to the CC, since the pod
+// might be reassiged to be exclusively used.
 func (rt *revisionThrottler) resetTrackers() {
+	if rt.containerConcurrency <= 0 {
+		return
+	}
 	for _, t := range rt.podIPTrackers {
-		// Reset to default. Note this does not affect capacity.
+		// Reset to default.
 		t.b.UpdateConcurrency(int(rt.containerConcurrency))
 	}
 }
@@ -227,7 +202,7 @@ func (rt *revisionThrottler) updateCapacity(throttler *Throttler, backendCount i
 		rt.mux.Lock()
 		defer rt.mux.Unlock()
 		// We're using cluster IP.
-		if rt.clusterIPDest != "" {
+		if rt.clusterIPDest != nil {
 			return 0
 		}
 		// Infifnite capacity, assign all.
@@ -244,11 +219,11 @@ func (rt *revisionThrottler) updateCapacity(throttler *Throttler, backendCount i
 	capacity := 0
 	if numTrackers > 0 {
 		// Capacity is computed based off number of trackers,
-		// when using pod direct routing. Since this number is how many
-		// this particular Activator gets, the number of activatos is 1.
+		// when using pod direct routing.
 		capacity = rt.calculateCapacity(len(rt.podIPTrackers), ac, throttler.breakerParams.MaxConcurrency)
 	} else {
-		// Capacity is computed off of number of backends, when we are using clusterIP routing.
+		// Capacity is computed off of number of ready backends,
+		// when we are using clusterIP routing.
 		capacity = rt.calculateCapacity(backendCount, ac, throttler.breakerParams.MaxConcurrency)
 	}
 	rt.logger.Infof("Set capacity to %d (backends: %d, index: %d/%d)",
@@ -264,8 +239,8 @@ func (rt *revisionThrottler) updateCapacity(throttler *Throttler, backendCount i
 
 func (rt *revisionThrottler) updateThrottleState(
 	throttler *Throttler, backendCount int,
-	trackers []*podIPTracker, clusterIPDest string) {
-	rt.logger.Infof("Updating Revision Throttler with: clusterIP = %q, trackers = %d, backends = %d activator pos %d/%d",
+	trackers []*podIPTracker, clusterIPDest *podIPTracker) {
+	rt.logger.Infof("Updating Revision Throttler with: clusterIP = %v, trackers = %d, backends = %d activator pos %d/%d",
 		clusterIPDest, len(trackers), backendCount, throttler.index(), throttler.activatorCount())
 
 	// Update trackers / clusterIP before capacity. Otherwise we can race updating our breaker when
@@ -276,7 +251,7 @@ func (rt *revisionThrottler) updateThrottleState(
 		defer rt.mux.Unlock()
 		rt.podIPTrackers = trackers
 		rt.clusterIPDest = clusterIPDest
-		return clusterIPDest != "" || len(trackers) > 0
+		return clusterIPDest != nil || len(trackers) > 0
 	}() {
 		// If we have an address to target, then pass through an accurate
 		// accounting of the number of backends.
@@ -326,6 +301,7 @@ func assignSlice(trackers []*podIPTracker, selfIndex, numActivators, cc int) []*
 		// But we need to update the capacity.
 		for i := len(trackers) - remnants; i < len(trackers); i++ {
 			t := trackers[i]
+			// minOnveOrValue ensures that infinity tracker will never scale to 0.
 			t.b.UpdateConcurrency(minOneOrValue(cc / numActivators))
 			x = append(x, t)
 		}
@@ -368,15 +344,20 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionD
 						}),
 					}
 				}
-				trackers = append(trackers, tracker)
 			}
+			trackers = append(trackers, tracker)
 		}
 
-		rt.updateThrottleState(throttler, len(update.Dests), trackers, "" /*clusterIP*/)
+		rt.updateThrottleState(throttler, len(update.Dests), trackers, nil /*clusterIP*/)
 		return
 	}
 
-	rt.updateThrottleState(throttler, len(update.Dests), nil /*trackers*/, update.ClusterIPDest)
+	clusterIPTracker := &podIPTracker{
+		dest: update.ClusterIPDest,
+		b:    newInfiniteBreaker(rt.logger),
+	}
+	clusterIPTracker.b.UpdateConcurrency(1) // Open this breaker.
+	rt.updateThrottleState(throttler, len(update.Dests), nil /*trackers*/, clusterIPTracker)
 }
 
 // Throttler load balances requests to revisions based on capacity. When `Run` is called it listens for

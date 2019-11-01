@@ -18,7 +18,6 @@ package net
 
 import (
 	"context"
-	"regexp"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -124,7 +123,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	// Simple case.
 	throttler.numActivators = 1
 	throttler.activatorIndex = 0
-	rt.podIPTrackers = makeTrackers(1)
+	rt.podIPTrackers = makeTrackers(1, 10)
 	rt.containerConcurrency = 10
 	rt.updateCapacity(throttler, 0 /* doesn't matter here*/)
 	if got, want := rt.breaker.Capacity(), 10; got != want {
@@ -132,7 +131,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	}
 
 	// 2 backends.
-	rt.podIPTrackers = makeTrackers(2)
+	rt.podIPTrackers = makeTrackers(2, 10)
 	rt.updateCapacity(throttler, -1 /* doesn't matter here*/)
 	if got, want := rt.breaker.Capacity(), 20; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
@@ -146,22 +145,23 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	}
 
 	// 3 pods, index 0.
-	rt.podIPTrackers = makeTrackers(3)
+	rt.podIPTrackers = makeTrackers(3, 10)
 	rt.updateCapacity(throttler, -1 /* doesn't matter here*/)
-	if got, want := rt.breaker.Capacity(), 20; got != want {
+	if got, want := rt.breaker.Capacity(), 15; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
 	// 3 pods, index 1.
 	throttler.activatorIndex = 1
 	rt.updateCapacity(throttler, -1 /* doesn't matter here*/)
-	if got, want := rt.breaker.Capacity(), 10; got != want {
+	if got, want := rt.breaker.Capacity(), 15; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
 	// Inifinite capacity.
 	throttler.activatorIndex = 1
 	rt.containerConcurrency = 0
+	rt.podIPTrackers = makeTrackers(3, 0)
 	rt.updateCapacity(throttler, 1)
 	if got, want := rt.breaker.Capacity(), defaultMaxConcurrency; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
@@ -172,10 +172,19 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	}
 }
 
-func makeTrackers(num int) []*podIPTracker {
+func makeTrackers(num, cc int) []*podIPTracker {
 	x := make([]*podIPTracker, num)
 	for i := 0; i < num; i++ {
 		x[i] = &podIPTracker{dest: strconv.Itoa(i)}
+		if cc == 0 {
+			x[i].b = newInfiniteBreaker(nil)
+		} else {
+			x[i].b = queue.NewBreaker(queue.BreakerParams{
+				QueueDepth:      1,
+				MaxConcurrency:  cc,
+				InitialCapacity: cc,
+			})
+		}
 	}
 	return x
 }
@@ -218,7 +227,7 @@ func TestThrottlerWithError(t *testing.T) {
 			{Namespace: testNamespace, Name: testRevision},
 		},
 		wantResults: []tryResult{
-			{errString: "revision.serving.knative.dev \"test-revision\" not found"},
+			{errString: `revision.serving.knative.dev "test-revision" not found`},
 		},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -243,11 +252,13 @@ func TestThrottlerWithError(t *testing.T) {
 				waitInformers()
 			}()
 
-			// Add the revision we're testing
+			// Add the revision we're testing.
 			servfake.ServingV1alpha1().Revisions(tc.revision.Namespace).Create(tc.revision)
 			revisions.Informer().GetIndexer().Add(tc.revision)
 
 			throttler := NewThrottler(ctx, params, "10.10.10.10:8012")
+			atomic.StoreInt32(&throttler.numActivators, 1)
+			atomic.StoreInt32(&throttler.activatorIndex, 0)
 			updateCh <- tc.initUpdate
 			close(updateCh)
 
@@ -268,7 +279,8 @@ func TestThrottlerWithError(t *testing.T) {
 				time.Sleep(200 * time.Millisecond)
 			}
 
-			tryContext, cancel2 := context.WithTimeout(context.TODO(), 100*time.Millisecond)
+			// Account for the timeout in `tryThrottler`.
+			tryContext, cancel2 := context.WithTimeout(context.TODO(), 20*time.Millisecond)
 			defer cancel2()
 
 			gotTries := tryThrottler(throttler, tc.trys, tryContext)
@@ -365,7 +377,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 				waitInformers()
 			}()
 
-			// Add the revision were testing
+			// Add the revision were testing.
 			servfake.ServingV1alpha1().Revisions(tc.revision.Namespace).Create(tc.revision)
 			revisions.Informer().GetIndexer().Add(tc.revision)
 
@@ -463,7 +475,7 @@ func TestMultipleActivators(t *testing.T) {
 	}
 
 	// Test with 2 activators, 3 endpoints we can send 1 request and the second times out.
-	tryContext, cancel2 := context.WithTimeout(context.TODO(), 100*time.Millisecond)
+	tryContext, cancel2 := context.WithTimeout(context.TODO(), 20*time.Millisecond)
 	defer cancel2()
 
 	results := tryThrottler(throttler, []types.NamespacedName{revID, revID}, tryContext)
@@ -485,30 +497,26 @@ func TestInfiniteBreakerCreation(t *testing.T) {
 }
 
 func tryThrottler(throttler *Throttler, trys []types.NamespacedName, ctx context.Context) []tryResult {
-	resCh := make(chan tryResult)
-	defer close(resCh)
+	ret := make([]tryResult, len(trys))
 	var tryWaitg sync.WaitGroup
 	tryWaitg.Add(len(trys))
-	for _, revID := range trys {
-		go func(revID types.NamespacedName) {
-			err := throttler.Try(ctx, revID, func(dest string) error {
-				tryWaitg.Done()
-				resCh <- tryResult{dest: dest}
+
+	for i, revID := range trys {
+		go func(i int, revID types.NamespacedName) {
+			defer tryWaitg.Done()
+			if err := throttler.Try(ctx, revID, func(dest string) error {
+				ret[i] = tryResult{dest: dest}
+				time.Sleep(time.Millisecond * 25) // Simulate processing time.
 				return nil
-			})
-			if err != nil {
-				tryWaitg.Done()
-				resCh <- tryResult{errString: err.Error()}
+			}); err != nil {
+				ret[i] = tryResult{errString: err.Error()}
 			}
-		}(revID)
+		}(i, revID)
+		// Stagger the requests, a bit, to account for imperfection.
+		time.Sleep(time.Millisecond * 3)
 	}
 
 	tryWaitg.Wait()
-
-	ret := make([]tryResult, len(trys))
-	for i := range trys {
-		ret[i] = <-resCh
-	}
 	return ret
 }
 
@@ -615,113 +623,13 @@ func TestInferIndex(t *testing.T) {
 	}
 }
 
-func TestPickP2C(t *testing.T) {
-	tests := []struct {
-		l      string
-		tgts   []*podIPTracker
-		wantRE string
-	}{{
-		l:      "empty",
-		tgts:   []*podIPTracker{},
-		wantRE: "",
-	}, {
-		l: "single",
-		tgts: []*podIPTracker{
-			{
-				"good-place",
-				1,
-			},
-		},
-		wantRE: "good-place",
-	}, {
-		l: "two",
-		tgts: []*podIPTracker{
-			{
-				"bad-place",
-				11,
-			},
-			{
-				"good-place",
-				1,
-			},
-		},
-		wantRE: "good-place",
-	}, {
-		l: "three",
-		tgts: []*podIPTracker{
-			{
-				"bad",
-				7,
-			},
-			{
-				"neutral",
-				5,
-			},
-			{
-				"good",
-				1,
-			},
-		},
-		wantRE: "good|neutral",
-	}}
-	for _, test := range tests {
-		t.Run(test.l, func(t *testing.T) {
-			// Run the same code several times to make sure the selection is stable and callback
-			// properly removes the load.
-			for i := 0; i < 5; i++ {
-				re := regexp.MustCompile(test.wantRE)
-				got, cb := pickP2C(test.tgts)
-				if !re.MatchString(got) {
-					t.Errorf("target = %s, want to match: %s", got, test.wantRE)
-				}
-				if cb != nil {
-					cb()
-				}
-			}
-		})
-	}
-	t.Run("multiple", func(t *testing.T) {
-		tgts := []*podIPTracker{
-			{
-				"bad-place",
-				3,
-			},
-			{
-				"good-place",
-				1,
-			},
-		}
-		cbs := make([]func(), 0, 4)
-		for i := 0; i < 2; i++ {
-			got, cb := pickP2C(tgts)
-			if got != "good-place" {
-				t.Fatalf("Got = %s, want: good-place", got)
-			}
-			cbs = append(cbs, cb)
-		}
-		// Now this next request can be `good` or `bad` depending on random # generator
-		got, cb := pickP2C(tgts)
-		cbs = append(cbs, cb)
-		if got == "good-place" {
-			got, cb = pickP2C(tgts)
-			cbs = append(cbs, cb)
-			if got != "bad-place" {
-				t.Errorf("Got = %s, want: bad-place", got)
-			}
-		}
-		for _, cb := range cbs {
-			cb()
-		}
-	})
-}
-
 func TestPickIndices(t *testing.T) {
 	tests := []struct {
-		l            string
-		pods         int
-		acts         int
-		idx          int
-		wantB, wantE int
+		l                   string
+		pods                int
+		acts                int
+		idx                 int
+		wantB, wantE, wantR int
 	}{{
 		l:     "1 pod, 1 activator",
 		pods:  1,
@@ -770,21 +678,24 @@ func TestPickIndices(t *testing.T) {
 		acts:  3,
 		idx:   0,
 		wantB: 0,
-		wantE: 4,
+		wantE: 3,
+		wantR: 1,
 	}, {
 		l:     "10 pods, 3 activators this is 1",
 		pods:  10,
 		acts:  3,
 		idx:   1,
-		wantB: 4,
-		wantE: 7,
+		wantB: 3,
+		wantE: 6,
+		wantR: 1,
 	}, {
 		l:     "10 pods, 3 activators this is 2",
 		pods:  10,
 		acts:  3,
 		idx:   2,
-		wantB: 7,
-		wantE: 10,
+		wantB: 6,
+		wantE: 9,
+		wantR: 1,
 	}, {
 		l:     "150 pods, 5 activators this is 0",
 		pods:  150,
@@ -800,7 +711,7 @@ func TestPickIndices(t *testing.T) {
 		wantB: 30,
 		wantE: 60,
 	}, {
-		l:     "10 pods, 3 activators this is 4",
+		l:     "150 pods, 5 activators this is 4",
 		pods:  150,
 		acts:  5,
 		idx:   4,
@@ -809,38 +720,40 @@ func TestPickIndices(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.l, func(tt *testing.T) {
-			bi, ei := pickIndices(test.pods, test.idx, test.acts)
+			bi, ei, rem := pickIndices(test.pods, test.idx, test.acts)
 			if got, want := bi, test.wantB; got != want {
 				t.Errorf("BeginIndex = %d, want: %d", got, want)
 			}
 			if got, want := ei, test.wantE; got != want {
 				t.Errorf("EndIndex = %d, want: %d", got, want)
 			}
+			if got, want := rem, test.wantR; got != want {
+				t.Errorf("Remanants = %d, want: %d", got, want)
+			}
 		})
 	}
 }
 
 func TestAssignSlice(t *testing.T) {
-	trackers := []*podIPTracker{
-		{
-			dest: "2",
-		},
-		{
-			dest: "1",
-		},
-		{
-			dest: "3",
-		},
-	}
+	trackers := []*podIPTracker{{
+		dest: "2",
+		b:    newInfiniteBreaker(nil),
+	}, {
+		dest: "1",
+		b:    newInfiniteBreaker(nil),
+	}, {
+		dest: "3",
+		b:    newInfiniteBreaker(nil),
+	}}
 	t.Run("notrackers", func(t *testing.T) {
-		got := assignSlice([]*podIPTracker{}, 0, 1)
+		got := assignSlice([]*podIPTracker{}, 0, 1, 0)
 		if !cmp.Equal(got, []*podIPTracker{}, cmpopts.IgnoreUnexported(podIPTracker{})) {
 			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
 				cmp.Diff([]*podIPTracker{}, got, cmpopts.IgnoreUnexported(podIPTracker{})))
 		}
 	})
 	t.Run("idx=-1", func(t *testing.T) {
-		got := assignSlice(trackers, -1, 1)
+		got := assignSlice(trackers, -1, 1, 0)
 		if !cmp.Equal(got, trackers, cmpopts.IgnoreUnexported(podIPTracker{})) {
 			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
 				cmp.Diff(trackers, got, cmpopts.IgnoreUnexported(podIPTracker{})))
@@ -848,14 +761,14 @@ func TestAssignSlice(t *testing.T) {
 	})
 	t.Run("idx=1", func(t *testing.T) {
 		cp := append(trackers[:0:0], trackers...)
-		got := assignSlice(cp, 1, 3)
+		got := assignSlice(cp, 1, 3, 0)
 		if !cmp.Equal(got, trackers[0:1], cmpopts.IgnoreUnexported(podIPTracker{})) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, trackers[0:1],
 				cmp.Diff(trackers[0:1], got, cmpopts.IgnoreUnexported(podIPTracker{})))
 		}
 	})
 	t.Run("len=1", func(t *testing.T) {
-		got := assignSlice(trackers[0:1], 1, 3)
+		got := assignSlice(trackers[0:1], 1, 3, 0)
 		if !cmp.Equal(got, trackers[0:1], cmpopts.IgnoreUnexported(podIPTracker{})) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, trackers[0:1],
 				cmp.Diff(trackers[0:1], got, cmpopts.IgnoreUnexported(podIPTracker{})))
