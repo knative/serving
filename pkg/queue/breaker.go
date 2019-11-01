@@ -67,6 +67,14 @@ func NewBreaker(params BreakerParams) *Breaker {
 	}
 }
 
+func (b *Breaker) HasCapacity() bool {
+	return b.sem.hasCapacity()
+}
+
+func (s *semaphore) hasCapacity() bool {
+	return len(s.queue) > 0
+}
+
 // Maybe conditionally executes thunk based on the Breaker concurrency
 // and queue parameters. If the concurrency limit and queue capacity are
 // already consumed, Maybe returns immediately without calling thunk. If
