@@ -67,6 +67,7 @@ func NewBreaker(params BreakerParams) *Breaker {
 	}
 }
 
+// Returns if the breaker can accept a request.
 func (b *Breaker) HasCapacity() bool {
 	return b.sem.hasCapacity()
 }

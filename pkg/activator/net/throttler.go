@@ -81,12 +81,12 @@ type revisionThrottler struct {
 	// This is a subset of podIPTrackers.
 	assignedTrackers []*podIPTracker
 
-	// If we dont have a healthy clusterIPDest this is set to the default (""), otherwise
-	// it is the l4dest for this revision's private clusterIP
+	// If we dont have a healthy clusterIPDest this is set to nil, otherwise
+	// it is the l4dest for this revision's private clusterIP.
 	clusterIPDest *podIPTracker
 
 	// mux guards "throttle state" which is the state we use during the request path. This
-	// is trackers, clusterIPDest
+	// is trackers, clusterIPDest.
 	mux sync.RWMutex
 
 	// used to atomically calculate and set capacity
@@ -114,8 +114,9 @@ func newRevisionThrottler(revID types.NamespacedName,
 	}
 }
 
-// pickPod picks the first tracker that has open capacity, if container concurrency
+// pickPod picks the first tracker that has open capacity if container concurrency
 // if limited, random pod otherwise.
+// TODO(vagabaov): make this locally ideal, rather than mostly ideal.
 func pickPod(tgs []*podIPTracker, cc int64) *podIPTracker {
 	// Infifnite capacity, pick random. We have to do this
 	// otherwise _all_ the requests will go to the first pod
@@ -131,8 +132,8 @@ func pickPod(tgs []*podIPTracker, cc int64) *podIPTracker {
 	return nil
 }
 
-// Returns a dest after incrementing its request count and a completion callback
-// to be called after request completion. If no dest is found it returns "", nil.
+// Returns a dest that at the moment of choosing had an open slot
+// for request.
 func (rt *revisionThrottler) acquireDest() *podIPTracker {
 	rt.mux.RLock()
 	defer rt.mux.RUnlock()
@@ -154,8 +155,6 @@ func (rt *revisionThrottler) try(ctx context.Context, function func(string) erro
 			return
 		}
 
-		// Now use the internal breaker to actually make the request
-		// to the pod.
 		if err := tracker.b.Maybe(ctx, func() {
 			ret = function(tracker.dest)
 		}); err != nil {
@@ -218,7 +217,7 @@ func (rt *revisionThrottler) updateCapacity(throttler *Throttler, backendCount i
 
 	capacity := 0
 	if numTrackers > 0 {
-		// Capacity is computed based off number of trackers,
+		// Capacity is computed based off of number of trackers,
 		// when using pod direct routing.
 		capacity = rt.calculateCapacity(len(rt.podIPTrackers), ac, throttler.breakerParams.MaxConcurrency)
 	} else {
@@ -274,6 +273,8 @@ func pickIndices(numTrackers, selfIndex, numActivators int) (beginIndex, endInde
 		return
 	}
 
+	// 2. distribute equally and share the remnants
+	// among all the activatos, but with reduced capacity, if finite.
 	sliceSize := numTrackers / numActivators
 	remnants = numTrackers % numActivators
 	beginIndex = selfIndex * sliceSize
