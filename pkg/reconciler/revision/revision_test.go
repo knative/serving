@@ -273,7 +273,7 @@ func TestResolutionFailed(t *testing.T) {
 	defer cancel()
 
 	// Unconditionally return this error during resolution.
-	innerError := errors.New("I am the expected error message, hear me ROAR!")
+	innerError := errors.New("i am the expected error message, hear me ROAR!")
 	controller.Reconciler.(*Reconciler).resolver = &errorResolver{innerError}
 
 	rev := testRevision()
