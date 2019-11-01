@@ -199,7 +199,7 @@ func TestThrottlerWithError(t *testing.T) {
 		wantResults []tryResult
 	}{{
 		name:     "second request timeout",
-		revision: revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
+		revision: revisionCC1(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		initUpdate: revisionDestsUpdate{
 			Rev:           types.NamespacedName{testNamespace, testRevision},
 			ClusterIPDest: "129.0.0.1:1234",
@@ -215,7 +215,7 @@ func TestThrottlerWithError(t *testing.T) {
 		},
 	}, {
 		name:     "remove before try",
-		revision: revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
+		revision: revisionCC1(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		initUpdate: revisionDestsUpdate{
 			Rev:   types.NamespacedName{testNamespace, testRevision},
 			Dests: sets.NewString("128.0.0.1:1234"),
@@ -301,7 +301,21 @@ func TestThrottlerSuccesses(t *testing.T) {
 		wantDests   sets.String
 	}{{
 		name:     "single healthy podIP",
-		revision: revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
+		revision: revisionCC1(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
+		initUpdates: []revisionDestsUpdate{{
+			Rev:   types.NamespacedName{testNamespace, testRevision},
+			Dests: sets.NewString("128.0.0.1:1234"),
+		}, {
+			Rev:   types.NamespacedName{testNamespace, testRevision},
+			Dests: sets.NewString("128.0.0.1:1234"),
+		}},
+		trys: []types.NamespacedName{
+			{Namespace: testNamespace, Name: testRevision},
+		},
+		wantDests: sets.NewString("128.0.0.1:1234"),
+	}, {
+		name:     "single healthy podIP, infinite cc",
+		revision: revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1, 0),
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{testNamespace, testRevision},
 			Dests: sets.NewString("128.0.0.1:1234"),
@@ -315,7 +329,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 		wantDests: sets.NewString("128.0.0.1:1234"),
 	}, {
 		name:     "single healthy clusterIP",
-		revision: revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
+		revision: revisionCC1(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{testNamespace, testRevision},
 			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
@@ -330,7 +344,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 		wantDests: sets.NewString("129.0.0.1:1234"),
 	}, {
 		name:     "spread podIP load",
-		revision: revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
+		revision: revisionCC1(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{testNamespace, testRevision},
 			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
@@ -342,7 +356,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 		wantDests: sets.NewString("128.0.0.2:1234", "128.0.0.1:1234"),
 	}, {
 		name:     "multiple ClusterIP requests",
-		revision: revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
+		revision: revisionCC1(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		initUpdates: []revisionDestsUpdate{{
 			Rev:           types.NamespacedName{testNamespace, testRevision},
 			ClusterIPDest: "129.0.0.1:1234",
@@ -433,7 +447,7 @@ func TestMultipleActivators(t *testing.T) {
 		waitInformers()
 	}()
 
-	rev := revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1)
+	rev := revisionCC1(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1)
 	// Add the revision were testing
 	servfake.ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
 	revisions.Informer().GetIndexer().Add(rev)
