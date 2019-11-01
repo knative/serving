@@ -118,7 +118,7 @@ func newRevisionThrottler(revID types.NamespacedName,
 // if limited, random pod otherwise.
 // TODO(vagabaov): make this locally ideal, rather than mostly ideal.
 func pickPod(tgs []*podIPTracker, cc int64) *podIPTracker {
-	// Infifnite capacity, pick random. We have to do this
+	// Infinite capacity, pick random. We have to do this
 	// otherwise _all_ the requests will go to the first pod
 	// since it has unlimited capacity.
 	if cc == 0 {
