@@ -261,11 +261,11 @@ func (r *fixedResolver) Resolve(_ string, _ k8schain.Options, _ sets.String) (st
 }
 
 type errorResolver struct {
-	error string
+	err error
 }
 
 func (r *errorResolver) Resolve(_ string, _ k8schain.Options, _ sets.String) (string, error) {
-	return "", errors.New(r.error)
+	return "", r.err
 }
 
 func TestResolutionFailed(t *testing.T) {
@@ -273,8 +273,8 @@ func TestResolutionFailed(t *testing.T) {
 	defer cancel()
 
 	// Unconditionally return this error during resolution.
-	errorMessage := "I am the expected error message, hear me ROAR!"
-	controller.Reconciler.(*Reconciler).resolver = &errorResolver{errorMessage}
+	innerError := errors.New("i am the expected error message, hear me ROAR!")
+	controller.Reconciler.(*Reconciler).resolver = &errorResolver{innerError}
 
 	rev := testRevision()
 	config := testConfiguration()
@@ -295,7 +295,7 @@ func TestResolutionFailed(t *testing.T) {
 			Status: corev1.ConditionFalse,
 			Reason: "ContainerMissing",
 			Message: v1alpha1.RevisionContainerMissingMessage(
-				rev.Spec.GetContainer().Image, errorMessage),
+				rev.Spec.GetContainer().Image, "failed to resolve image to digest: "+innerError.Error()),
 			LastTransitionTime: got.LastTransitionTime,
 			Severity:           apis.ConditionSeverityError,
 		}

@@ -92,7 +92,7 @@ func (r *digestResolver) Resolve(
 	registriesToSkip sets.String) (string, error) {
 	kc, err := k8schain.New(r.client, opt)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to initialize authentication: %w", err)
 	}
 
 	if _, err := name.NewDigest(image, name.WeakValidation); err == nil {
@@ -102,7 +102,7 @@ func (r *digestResolver) Resolve(
 
 	tag, err := name.NewTag(image, name.WeakValidation)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to parse image name %q into a tag: %w", image, err)
 	}
 
 	if registriesToSkip.Has(tag.Registry.RegistryStr()) {
@@ -114,7 +114,7 @@ func (r *digestResolver) Resolve(
 	}
 	desc, err := remote.Get(tag, remote.WithTransport(r.transport), remote.WithAuthFromKeychain(kc), remote.WithPlatform(platform))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to fetch image information: %w", err)
 	}
 
 	// TODO(#3997): Use remote.Get to resolve manifest lists to digests as well
@@ -123,11 +123,11 @@ func (r *digestResolver) Resolve(
 	case types.OCIImageIndex, types.DockerManifestList:
 		img, err := desc.Image()
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("failed to get image reference: %w", err)
 		}
 		dgst, err := img.Digest()
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("failed to get image digest: %w", err)
 		}
 		return fmt.Sprintf("%s@%s", tag.Repository.String(), dgst), nil
 	default:
