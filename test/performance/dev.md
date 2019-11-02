@@ -32,7 +32,7 @@ Take `dataplane-probe` benchmark for example:
    whitelisted) then run:
 
    ```shell
-   mako update_benchmark test/performance/benchmarks/dataplane-probe/continuous/dev.config
+   mako update_benchmark test/performance/benchmarks/dataplane-probe/dev.config
    ```
 
 1. Create a JSON key for it.
