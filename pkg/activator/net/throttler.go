@@ -61,6 +61,13 @@ func (p *podIPTracker) Maybe(ctx context.Context, thunk func()) error {
 	return p.b.Maybe(ctx, thunk)
 }
 
+func (p *podIPTracker) UpdateConcurrency(c int) error {
+	if p.b == nil {
+		return nil
+	}
+	return p.b.UpdateConcurrency(c)
+}
+
 func (p *podIPTracker) HasCapacity() bool {
 	if p.b == nil {
 		return true
@@ -204,7 +211,7 @@ func (rt *revisionThrottler) resetTrackers() {
 	}
 	for _, t := range rt.podIPTrackers {
 		// Reset to default.
-		t.b.UpdateConcurrency(int(rt.containerConcurrency))
+		t.UpdateConcurrency(int(rt.containerConcurrency))
 	}
 }
 
@@ -319,7 +326,7 @@ func assignSlice(trackers []*podIPTracker, selfIndex, numActivators, cc int) []*
 		for i := len(trackers) - remnants; i < len(trackers); i++ {
 			t := trackers[i]
 			// minOneOrValue ensures that infinity tracker will never scale to 0.
-			t.b.UpdateConcurrency(minOneOrValue(cc / numActivators))
+			t.UpdateConcurrency(minOneOrValue(cc / numActivators))
 			x = append(x, t)
 		}
 	}
