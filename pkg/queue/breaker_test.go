@@ -226,6 +226,17 @@ func TestSemaphoreAcquireHasCapacity(t *testing.T) {
 	}
 }
 
+func TestSemaphoreHasCapacity(t *testing.T) {
+	sem := newSemaphore(1, 1)
+	if !sem.hasCapacity() {
+		t.Error("Has no capacity")
+	}
+	sem.acquire(context.Background())
+	if sem.hasCapacity() {
+		t.Error("Has capacity")
+	}
+}
+
 func TestSemaphoreRelease(t *testing.T) {
 	sem := newSemaphore(1, 1)
 	sem.acquire(context.Background())

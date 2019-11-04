@@ -55,7 +55,11 @@ const (
 	informerRestPeriod = 500 * time.Millisecond
 )
 
-func revision(revID types.NamespacedName, protocol networking.ProtocolType) *v1alpha1.Revision {
+// revisionCC1 - creates a revision with concurrency == 1.
+func revisionCC1(revID types.NamespacedName, protocol networking.ProtocolType) *v1alpha1.Revision {
+	return revision(revID, protocol, 1)
+}
+func revision(revID types.NamespacedName, protocol networking.ProtocolType, cc int64) *v1alpha1.Revision {
 	return &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: revID.Namespace,
@@ -63,7 +67,7 @@ func revision(revID types.NamespacedName, protocol networking.ProtocolType) *v1a
 		},
 		Spec: v1alpha1.RevisionSpec{
 			RevisionSpec: v1.RevisionSpec{
-				ContainerConcurrency: ptr.Int64(1),
+				ContainerConcurrency: ptr.Int64(cc),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Ports: []corev1.ContainerPort{{
@@ -473,7 +477,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		name:         "add slow healthy",
 		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http", "128.0.0.1")},
 		revisions: []*v1alpha1.Revision{
-			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
+			revisionCC1(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
 			privateSKSService(types.NamespacedName{testNamespace, testRevision}, "129.0.0.1",
@@ -501,7 +505,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		name:         "add slow ready http2",
 		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http2", "128.0.0.1")},
 		revisions: []*v1alpha1.Revision{
-			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolH2C),
+			revisionCC1(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolH2C),
 		},
 		services: []*corev1.Service{
 			privateSKSService(types.NamespacedName{testNamespace, testRevision}, "129.0.0.1",
@@ -532,8 +536,8 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			ep("test-revision2", 1235, "http", "128.1.0.2"),
 		},
 		revisions: []*v1alpha1.Revision{
-			revision(types.NamespacedName{testNamespace, "test-revision1"}, networking.ProtocolHTTP1),
-			revision(types.NamespacedName{testNamespace, "test-revision2"}, networking.ProtocolHTTP1),
+			revisionCC1(types.NamespacedName{testNamespace, "test-revision1"}, networking.ProtocolHTTP1),
+			revisionCC1(types.NamespacedName{testNamespace, "test-revision2"}, networking.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
 			privateSKSService(types.NamespacedName{testNamespace, "test-revision1"}, "129.0.0.1",
@@ -558,7 +562,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		name:         "slow podIP",
 		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http", "128.0.0.1")},
 		revisions: []*v1alpha1.Revision{
-			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
+			revisionCC1(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
 			privateSKSService(types.NamespacedName{testNamespace, testRevision}, "129.0.0.1",
@@ -585,7 +589,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		name:         "no pod addressability",
 		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http", "128.0.0.1")},
 		revisions: []*v1alpha1.Revision{
-			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
+			revisionCC1(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
 			privateSKSService(types.NamespacedName{testNamespace, testRevision}, "129.0.0.1",
@@ -611,7 +615,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		name:         "unhealthy",
 		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http", "128.0.0.1")},
 		revisions: []*v1alpha1.Revision{
-			revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
+			revisionCC1(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
 			privateSKSService(types.NamespacedName{testNamespace, testRevision}, "129.0.0.1",
@@ -915,7 +919,7 @@ func TestRevisionDeleted(t *testing.T) {
 		waitInformers()
 	}()
 
-	rev := revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1)
+	rev := revisionCC1(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1)
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	ri := fakerevisioninformer.Get(ctx)
 	ri.Informer().GetIndexer().Add(rev)
@@ -957,7 +961,7 @@ func TestServiceDoesNotExist(t *testing.T) {
 		waitInformers()
 	}()
 
-	rev := revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1)
+	rev := revisionCC1(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1)
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	ri := fakerevisioninformer.Get(ctx)
 	ri.Informer().GetIndexer().Add(rev)
@@ -1008,7 +1012,7 @@ func TestServiceMoreThanOne(t *testing.T) {
 		waitInformers()
 	}()
 
-	rev := revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1)
+	rev := revisionCC1(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1)
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	ri := fakerevisioninformer.Get(ctx)
 	ri.Informer().GetIndexer().Add(rev)
