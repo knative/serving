@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -61,18 +61,18 @@ func (p *podTracker) Maybe(ctx context.Context, thunk func()) error {
 	return p.b.Maybe(ctx, thunk)
 }
 
-func (p *podTracker) HasCapacity() bool {
-	if p.b == nil {
-		return true
-	}
-	return p.b.HasCapacity()
-}
-
 func (p *podTracker) UpdateConcurrency(c int) error {
 	if p.b == nil {
 		return nil
 	}
 	return p.b.UpdateConcurrency(c)
+}
+
+func (p *podTracker) HasCapacity() bool {
+	if p.b == nil {
+		return true
+	}
+	return p.b.HasCapacity()
 }
 
 type breaker interface {
@@ -158,6 +158,7 @@ func pickPod(tgs []*podTracker, cc int64) *podTracker {
 // Returns a dest that at the moment of choosing had an open slot
 // for request.
 func (rt *revisionThrottler) acquireDest() *podTracker {
+	rt.mux.RLock()
 	defer rt.mux.RUnlock()
 
 	if rt.clusterIPTracker != nil {

@@ -31,7 +31,7 @@ import (
 // by a backend. An Ingress can be configured to give services externally-reachable URLs, load
 // balance traffic, offer name based virtual hosting, etc.
 //
-// This is heavily based on K8s Ingress https://godoc.org/k8s.io/api/extensions/v1beta1#Ingress
+// This is heavily based on K8s Ingress https://godoc.org/k8s.io/api/networking/v1beta1#Ingress
 // which some highlighted modifications.
 type Ingress struct {
 	metav1.TypeMeta `json:",inline"`
