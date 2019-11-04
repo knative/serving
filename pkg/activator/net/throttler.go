@@ -52,6 +52,22 @@ type podIPTracker struct {
 	b    breaker
 }
 
+func (p *podIPTracker) Maybe(ctx context.Context, thunk func()) error {
+	// Infinite per pod capacity. Just execute.
+	if p.b == nil {
+		thunk()
+		return nil
+	}
+	return p.b.Maybe(ctx, thunk)
+}
+
+func (p *podIPTracker) HasCapacity() bool {
+	if p.b == nil {
+		return true
+	}
+	return p.b.HasCapacity()
+}
+
 type breaker interface {
 	Capacity() int
 	Maybe(ctx context.Context, thunk func()) error
@@ -125,7 +141,7 @@ func pickPod(tgs []*podIPTracker, cc int64) *podIPTracker {
 		return tgs[rand.Intn(len(tgs))]
 	}
 	for _, t := range tgs {
-		if t.b.HasCapacity() {
+		if t.HasCapacity() {
 			return t
 		}
 	}
@@ -155,7 +171,7 @@ func (rt *revisionThrottler) try(ctx context.Context, function func(string) erro
 			return
 		}
 
-		if err := tracker.b.Maybe(ctx, func() {
+		if err := tracker.Maybe(ctx, func() {
 			ret = function(tracker.dest)
 		}); err != nil {
 			ret = err
@@ -334,8 +350,7 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionD
 			tracker, ok := trackersMap[newDest]
 			if !ok {
 				if rt.containerConcurrency == 0 {
-					tracker = &podIPTracker{dest: newDest, b: newInfiniteBreaker(rt.logger)}
-					tracker.b.UpdateConcurrency(1) // Unlock the pod breaker.
+					tracker = &podIPTracker{dest: newDest}
 				} else {
 					tracker = &podIPTracker{
 						dest: newDest,
@@ -354,12 +369,9 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionD
 		return
 	}
 
-	clusterIPTracker := &podIPTracker{
+	rt.updateThrottleState(throttler, len(update.Dests), nil /*trackers*/, &podIPTracker{
 		dest: update.ClusterIPDest,
-		b:    newInfiniteBreaker(rt.logger),
-	}
-	clusterIPTracker.b.UpdateConcurrency(1) // Open this breaker.
-	rt.updateThrottleState(throttler, len(update.Dests), nil /*trackers*/, clusterIPTracker)
+	})
 }
 
 // Throttler load balances requests to revisions based on capacity. When `Run` is called it listens for
