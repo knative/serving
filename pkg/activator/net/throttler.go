@@ -652,4 +652,4 @@ func (ib *infiniteBreaker) Maybe(ctx context.Context, thunk func()) error {
 	}
 }
 
-func (ib *infiniteBreaker) HasCapacity() bool { return true }
+func (ib *infiniteBreaker) HasCapacity() bool { return ib.Capacity() > 0 }
