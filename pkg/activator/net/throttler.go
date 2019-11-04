@@ -302,7 +302,7 @@ func assignSlice(trackers []*podIPTracker, selfIndex, numActivators, cc int) []*
 		// But we need to update the capacity.
 		for i := len(trackers) - remnants; i < len(trackers); i++ {
 			t := trackers[i]
-			// minOnveOrValue ensures that infinity tracker will never scale to 0.
+			// minOneOrValue ensures that infinity tracker will never scale to 0.
 			t.b.UpdateConcurrency(minOneOrValue(cc / numActivators))
 			x = append(x, t)
 		}
@@ -342,7 +342,7 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionD
 						b: queue.NewBreaker(queue.BreakerParams{
 							QueueDepth:      throttler.breakerParams.QueueDepth,
 							MaxConcurrency:  int(rt.containerConcurrency),
-							InitialCapacity: int(rt.containerConcurrency), // presume empty
+							InitialCapacity: int(rt.containerConcurrency), // Presume full unused capacity.
 						}),
 					}
 				}
