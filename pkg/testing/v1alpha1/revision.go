@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
@@ -91,6 +92,16 @@ func WithLastPinned(t time.Time) RevisionOption {
 func WithRevStatus(st v1alpha1.RevisionStatus) RevisionOption {
 	return func(rev *v1alpha1.Revision) {
 		rev.Status = st
+	}
+}
+
+// WithImagePullSecrets updates the revision spec ImagePullSecrets to
+// the provided secrets
+func WithImagePullSecrets(secretName string) RevisionOption {
+	return func(rev *v1alpha1.Revision) {
+		rev.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{
+			Name: secretName,
+		}}
 	}
 }
 

@@ -549,6 +549,23 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeWarning, "InternalError", `revision: "missing-owners" does not own Deployment: "missing-owners-deployment"`),
 		},
 		Key: "foo/missing-owners",
+	}, {
+		Name:    "image pull secrets",
+		// This test case tests that the image pull secrets from revision propagate to deployment and image
+		Objects: []runtime.Object{
+			rev("foo", "image-pull-secrets", WithImagePullSecrets("foo-secret")),
+		},
+		WantCreates: []runtime.Object{
+			pa("foo", "image-pull-secrets"),
+			deployImagePullSecrets(deploy(t, "foo", "image-pull-secrets"), "foo-secret"),
+			imagePullSecrets(image("foo", "image-pull-secrets"), "foo-secret"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "image-pull-secrets",
+				WithImagePullSecrets("foo-secret"),
+				WithLogURL, AllUnknownConditions, MarkDeploying("Deploying")),
+		}},
+		Key: "foo/image-pull-secrets",
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
@@ -597,6 +614,20 @@ func replicaFailureDeploy(deploy *appsv1.Deployment, message string) *appsv1.Dep
 func noOwner(deploy *appsv1.Deployment) *appsv1.Deployment {
 	deploy.OwnerReferences = nil
 	return deploy
+}
+
+func deployImagePullSecrets(deploy *appsv1.Deployment, secretName string) *appsv1.Deployment {
+	deploy.Spec.Template.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{
+		Name: secretName,
+	}}
+	return deploy
+}
+
+func imagePullSecrets(image *caching.Image, secretName string) *caching.Image {
+	image.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{
+		Name: secretName,
+	}}
+	return image
 }
 
 func changeContainers(deploy *appsv1.Deployment) *appsv1.Deployment {

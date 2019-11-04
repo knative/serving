@@ -160,6 +160,7 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, tracingC
 		Volumes:                       append([]corev1.Volume{varLogVolume}, rev.Spec.Volumes...),
 		ServiceAccountName:            rev.Spec.ServiceAccountName,
 		TerminationGracePeriodSeconds: rev.Spec.TimeoutSeconds,
+		ImagePullSecrets:              rev.Spec.ImagePullSecrets,
 	}
 
 	// Add the Knative internal volume only if /var/log collection is enabled
