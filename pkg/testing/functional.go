@@ -84,10 +84,17 @@ func WithTraffic(pa *asv1a1.PodAutoscaler) {
 	pa.Status.MarkActive()
 }
 
-// WithPAStatusService annotats PA Status with the provided service name.
+// WithPAStatusService annotates PA Status with the provided service name.
 func WithPAStatusService(svc string) PodAutoscalerOption {
 	return func(pa *asv1a1.PodAutoscaler) {
 		pa.Status.ServiceName = svc
+	}
+}
+
+// WithPAMetricsService annotates PA Status with the provided service name.
+func WithPAMetricsService(svc string) PodAutoscalerOption {
+	return func(pa *asv1a1.PodAutoscaler) {
+		pa.Status.MetricsServiceName = svc
 	}
 }
 

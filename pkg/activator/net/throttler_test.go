@@ -176,9 +176,7 @@ func makeTrackers(num, cc int) []*podTracker {
 	x := make([]*podTracker, num)
 	for i := 0; i < num; i++ {
 		x[i] = &podTracker{dest: strconv.Itoa(i)}
-		if cc == 0 {
-			x[i].b = newInfiniteBreaker(nil)
-		} else {
+		if cc > 0 {
 			x[i].b = queue.NewBreaker(queue.BreakerParams{
 				QueueDepth:      1,
 				MaxConcurrency:  cc,
@@ -757,13 +755,10 @@ func TestPickIndices(t *testing.T) {
 func TestAssignSlice(t *testing.T) {
 	trackers := []*podTracker{{
 		dest: "2",
-		b:    newInfiniteBreaker(nil),
 	}, {
 		dest: "1",
-		b:    newInfiniteBreaker(nil),
 	}, {
 		dest: "3",
-		b:    newInfiniteBreaker(nil),
 	}}
 	t.Run("notrackers", func(t *testing.T) {
 		got := assignSlice([]*podTracker{}, 0, 1, 0)

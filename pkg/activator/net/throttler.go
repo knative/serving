@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,8 +17,8 @@ limitations under the License.
 package net
 
 import (
-	"context"
-	"errors"
+"context"
+"errors"
 	"fmt"
 	"math/rand"
 	"sort"
@@ -59,6 +59,10 @@ func (p *podTracker) Maybe(ctx context.Context, thunk func()) error {
 		return nil
 	}
 	return p.b.Maybe(ctx, thunk)
+}
+
+func (p *podTracker) HasCapacity() bool {
+	return p.b.UpdateConcurrency(c)
 }
 
 func (p *podTracker) HasCapacity() bool {
@@ -150,8 +154,6 @@ func pickPod(tgs []*podTracker, cc int64) *podTracker {
 
 // Returns a dest that at the moment of choosing had an open slot
 // for request.
-func (rt *revisionThrottler) acquireDest() *podTracker {
-	rt.mux.RLock()
 	defer rt.mux.RUnlock()
 
 	if rt.clusterIPTracker != nil {
@@ -204,7 +206,7 @@ func (rt *revisionThrottler) resetTrackers() {
 	}
 	for _, t := range rt.podTrackers {
 		// Reset to default.
-		t.b.UpdateConcurrency(int(rt.containerConcurrency))
+		t.UpdateConcurrency(int(rt.containerConcurrency))
 	}
 }
 
@@ -319,7 +321,7 @@ func assignSlice(trackers []*podTracker, selfIndex, numActivators, cc int) []*po
 		for i := len(trackers) - remnants; i < len(trackers); i++ {
 			t := trackers[i]
 			// minOneOrValue ensures that infinity tracker will never scale to 0.
-			t.b.UpdateConcurrency(minOneOrValue(cc / numActivators))
+			t.UpdateConcurrency(minOneOrValue(cc / numActivators))
 			x = append(x, t)
 		}
 	}

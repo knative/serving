@@ -86,14 +86,16 @@ func TestControllerCanReconcile(t *testing.T) {
 }
 
 func TestReconcile(t *testing.T) {
-	const deployName = testRevision + "-deployment"
-	usualSelector := map[string]string{"a": "b"}
+	const (
+		deployName = testRevision + "-deployment"
+		privateSvc = testRevision + "-private"
+	)
 
 	table := TableTest{{
 		Name: "no op",
 		Objects: []runtime.Object{
 			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
-			pa(testNamespace, testRevision, WithHPAClass, WithTraffic, WithPAStatusService(testRevision)),
+			pa(testNamespace, testRevision, WithHPAClass, WithTraffic, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 		},
@@ -103,20 +105,17 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency))),
 			pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency),
-				WithMSvcStatus(testRevision), WithTraffic, WithPAStatusService(testRevision)),
+				WithTraffic, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			metric(pa(testNamespace, testRevision,
 				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)), testRevision+"-metrics2"),
-			metricsSvc(testNamespace, testRevision, WithSvcSelector(usualSelector),
-				SvcWithAnnotationValue(autoscaling.ClassAnnotationKey, autoscaling.HPA),
-				SvcWithAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.Concurrency)),
 		},
 		Key:         key(testNamespace, testRevision),
 		WantCreates: []runtime.Object{},
 		WantUpdates: []ktesting.UpdateActionImpl{{
 			Object: metric(pa(testNamespace, testRevision,
-				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)), testRevision+"-metrics"),
+				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)), privateSvc),
 		}},
 	}, {
 		Name: "create hpa & sks",
@@ -135,48 +134,42 @@ func TestReconcile(t *testing.T) {
 				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet")),
 		}},
 	}, {
-		Name: "create hpa, sks and metric service when Concurrency used",
+		Name: "create metric when Concurrency used",
 		Objects: []runtime.Object{
 			pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)),
 			deploy(testNamespace, testRevision),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPrivateService),
 		},
 		Key: key(testNamespace, testRevision),
 		WantCreates: []runtime.Object{
 			metric(pa(testNamespace, testRevision,
-				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)), testRevision+"-metrics"),
-			sks(testNamespace, testRevision, WithDeployRef(deployName)),
+				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)), privateSvc),
 			hpa(pa(testNamespace, testRevision,
 				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency))),
-			metricsSvc(testNamespace, testRevision, WithSvcSelector(usualSelector),
-				SvcWithAnnotationValue(autoscaling.ClassAnnotationKey, autoscaling.HPA),
-				SvcWithAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.Concurrency)),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency),
 				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet"),
-				WithMSvcStatus(testRevision)),
+				WithPAMetricsService(privateSvc)),
 		}},
 	}, {
-		Name: "create hpa, sks and metric service when RPS used",
+		Name: "create metric when RPS used",
 		Objects: []runtime.Object{
 			pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.RPS)),
 			deploy(testNamespace, testRevision),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPrivateService),
 		},
 		Key: key(testNamespace, testRevision),
 		WantCreates: []runtime.Object{
 			metric(pa(testNamespace, testRevision,
-				WithHPAClass, WithMetricAnnotation(autoscaling.RPS)), testRevision+"-metrics"),
-			sks(testNamespace, testRevision, WithDeployRef(deployName)),
+				WithHPAClass, WithMetricAnnotation(autoscaling.RPS)), privateSvc),
 			hpa(pa(testNamespace, testRevision,
 				WithHPAClass, WithMetricAnnotation(autoscaling.RPS))),
-			metricsSvc(testNamespace, testRevision, WithSvcSelector(usualSelector),
-				SvcWithAnnotationValue(autoscaling.ClassAnnotationKey, autoscaling.HPA),
-				SvcWithAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.RPS)),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.RPS),
 				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet"),
-				WithMSvcStatus(testRevision)),
+				WithPAMetricsService(privateSvc)),
 		}},
 	}, {
 		Name: "reconcile sks is still not ready",
@@ -190,7 +183,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testNamespace, testRevision, WithHPAClass, WithTraffic,
 				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet"),
-				WithPAStatusService(testRevision)),
+				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
 		}},
 		Key: key(testNamespace, testRevision),
 	}, {
@@ -203,7 +196,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testNamespace, testRevision, WithHPAClass,
-				WithTraffic, WithPAStatusService(testRevision)),
+				WithTraffic, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
 		}},
 		Key: key(testNamespace, testRevision),
 	}, {
@@ -212,11 +205,11 @@ func TestReconcile(t *testing.T) {
 			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
 			pa(testNamespace, testRevision, WithHPAClass, WithTraffic),
 			deploy(testNamespace, testRevision),
-			sks(testNamespace, testRevision, WithDeployRef("bar"),
-				WithSKSReady),
+			sks(testNamespace, testRevision, WithDeployRef("bar"), WithSKSReady),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testNamespace, testRevision, WithHPAClass, WithTraffic, WithPAStatusService(testRevision)),
+			Object: pa(testNamespace, testRevision, WithHPAClass, WithTraffic,
+				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
 		}},
 		Key: key(testNamespace, testRevision),
 		WantUpdates: []ktesting.UpdateActionImpl{{
@@ -234,7 +227,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testNamespace, testRevision, WithHPAClass,
 				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet"),
-				WithPAStatusService(testRevision)),
+				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
 		}},
 		Key: key(testNamespace, testRevision),
 		WantUpdates: []ktesting.UpdateActionImpl{{
@@ -316,20 +309,18 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency))),
 			pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency),
-				WithMSvcStatus(testRevision), WithTraffic, WithPAStatusService(testRevision)),
+				WithPAMetricsService(privateSvc), WithTraffic, WithPAStatusService(testRevision)),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			metric(pa(testNamespace, testRevision,
-				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)), testRevision+"-metrics", WithMetricOwnersRemoved),
-			metricsSvc(testNamespace, testRevision, WithSvcSelector(usualSelector),
-				SvcWithAnnotationValue(autoscaling.ClassAnnotationKey, autoscaling.HPA),
-				SvcWithAnnotationValue(autoscaling.MetricAnnotationKey, autoscaling.Concurrency)),
+				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)), privateSvc, WithMetricOwnersRemoved),
 		},
 		Key:     key(testNamespace, testRevision),
 		WantErr: true,
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency),
-				WithMSvcStatus(testRevision), WithTraffic, WithPAStatusService(testRevision), MarkResourceNotOwnedByPA("Metric", testRevision)),
+				WithPAMetricsService(privateSvc), WithTraffic, WithPAStatusService(testRevision),
+				MarkResourceNotOwnedByPA("Metric", testRevision)),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", `error reconciling metric: PA: test-revision does not own Metric: test-revision`),
@@ -352,7 +343,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testNamespace, testRevision, WithHPAClass,
-				WithTraffic, WithPAStatusService(testRevision)),
+				WithTraffic, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
 		}},
 		Key:     key(testNamespace, testRevision),
 		WantErr: true,
@@ -386,7 +377,7 @@ func TestReconcile(t *testing.T) {
 		Name: "update hpa with target usage",
 		Objects: []runtime.Object{
 			pa(testNamespace, testRevision, WithHPAClass, WithTraffic,
-				WithPAStatusService(testRevision), WithTargetAnnotation("1")),
+				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc), WithTargetAnnotation("1")),
 			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
@@ -513,15 +504,6 @@ func deploy(namespace, name string, opts ...deploymentOption) *appsv1.Deployment
 		opt(s)
 	}
 	return s
-}
-
-func metricsSvc(ns, n string, opts ...K8sServiceOption) *corev1.Service {
-	pa := pa(ns, n)
-	svc := aresources.MakeMetricsService(pa, map[string]string{})
-	for _, opt := range opts {
-		opt(svc)
-	}
-	return svc
 }
 
 type metricOption func(*asv1a1.Metric)
