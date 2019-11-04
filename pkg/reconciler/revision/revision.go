@@ -18,6 +18,7 @@ package revision
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -142,6 +143,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1alpha1.Revision
 	digest, err := c.resolver.Resolve(rev.Spec.GetContainer().Image,
 		opt, cfgs.Deployment.RegistriesSkippingTagResolving)
 	if err != nil {
+		err = fmt.Errorf("failed to resolve image to digest: %w", err)
 		rev.Status.MarkContainerHealthyFalse(v1alpha1.ContainerMissing,
 			v1alpha1.RevisionContainerMissingMessage(
 				rev.Spec.GetContainer().Image, err.Error()))
