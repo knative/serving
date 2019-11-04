@@ -176,9 +176,7 @@ func makeTrackers(num, cc int) []*podIPTracker {
 	x := make([]*podIPTracker, num)
 	for i := 0; i < num; i++ {
 		x[i] = &podIPTracker{dest: strconv.Itoa(i)}
-		if cc == 0 {
-			x[i].b = newInfiniteBreaker(nil)
-		} else {
+		if cc > 0 {
 			x[i].b = queue.NewBreaker(queue.BreakerParams{
 				QueueDepth:      1,
 				MaxConcurrency:  cc,
