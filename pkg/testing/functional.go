@@ -91,6 +91,12 @@ func WithPAStatusService(svc string) PodAutoscalerOption {
 	}
 }
 
+func WithPAMetricsService(svc string) PodAutoscalerOption {
+	return func(pa *asv1a1.PodAutoscaler) {
+		pa.Status.MetricsServiceName = svc
+	}
+}
+
 // WithBufferedTraffic updates the PA to reflect that it has received
 // and buffered traffic while it is being activated.
 func WithBufferedTraffic(reason, message string) PodAutoscalerOption {
