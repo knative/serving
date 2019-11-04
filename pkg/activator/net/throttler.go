@@ -17,8 +17,8 @@ limitations under the License.
 package net
 
 import (
-"context"
-"errors"
+	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"sort"
@@ -62,14 +62,17 @@ func (p *podTracker) Maybe(ctx context.Context, thunk func()) error {
 }
 
 func (p *podTracker) HasCapacity() bool {
-	return p.b.UpdateConcurrency(c)
-}
-
-func (p *podTracker) HasCapacity() bool {
 	if p.b == nil {
 		return true
 	}
 	return p.b.HasCapacity()
+}
+
+func (p *podTracker) UpdateConcurrency(c int) error {
+	if p.b == nil {
+		return nil
+	}
+	return p.b.UpdateConcurrency(c)
 }
 
 type breaker interface {
@@ -154,6 +157,7 @@ func pickPod(tgs []*podTracker, cc int64) *podTracker {
 
 // Returns a dest that at the moment of choosing had an open slot
 // for request.
+func (rt *revisionThrottler) acquireDest() *podTracker {
 	defer rt.mux.RUnlock()
 
 	if rt.clusterIPTracker != nil {
