@@ -757,13 +757,10 @@ func TestPickIndices(t *testing.T) {
 func TestAssignSlice(t *testing.T) {
 	trackers := []*podIPTracker{{
 		dest: "2",
-		b:    newInfiniteBreaker(nil),
 	}, {
 		dest: "1",
-		b:    newInfiniteBreaker(nil),
 	}, {
 		dest: "3",
-		b:    newInfiniteBreaker(nil),
 	}}
 	t.Run("notrackers", func(t *testing.T) {
 		got := assignSlice([]*podIPTracker{}, 0, 1, 0)
