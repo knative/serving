@@ -39,6 +39,9 @@ metadata:
   name: node-exporter
   namespace: knative-monitoring
 spec:
+  selector:
+    matchLabels:
+      app: node-exporter
   updateStrategy:
     rollingUpdate:
       maxUnavailable: 1
