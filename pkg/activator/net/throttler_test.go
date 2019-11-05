@@ -49,6 +49,12 @@ import (
 
 const defaultMaxConcurrency = 1000
 
+var defaultParams = queue.BreakerParams{
+	QueueDepth:      1,
+	MaxConcurrency:  defaultMaxConcurrency,
+	InitialCapacity: 0,
+}
+
 type tryResult struct {
 	dest      string
 	errString string
@@ -56,20 +62,15 @@ type tryResult struct {
 
 func TestThrottlerUpdateCapacity(t *testing.T) {
 	logger := TestLogger(t)
-	params := queue.BreakerParams{
-		QueueDepth:      1,
-		MaxConcurrency:  defaultMaxConcurrency,
-		InitialCapacity: 0,
-	}
 	throttler := &Throttler{
 		revisionThrottlers: make(map[types.NamespacedName]*revisionThrottler),
-		breakerParams:      params,
+		breakerParams:      defaultParams,
 		numActivators:      1,
 		logger:             logger,
 	}
 	rt := &revisionThrottler{
 		logger:               logger,
-		breaker:              queue.NewBreaker(params),
+		breaker:              queue.NewBreaker(defaultParams),
 		containerConcurrency: 10,
 	}
 
@@ -232,12 +233,6 @@ func TestThrottlerWithError(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			updateCh := make(chan revisionDestsUpdate, 2)
 
-			params := queue.BreakerParams{
-				QueueDepth:      1,
-				MaxConcurrency:  defaultMaxConcurrency,
-				InitialCapacity: 0,
-			}
-
 			endpoints := fakeendpointsinformer.Get(ctx)
 			servfake := fakeservingclient.Get(ctx)
 			revisions := fakerevisioninformer.Get(ctx)
@@ -254,7 +249,7 @@ func TestThrottlerWithError(t *testing.T) {
 			servfake.ServingV1alpha1().Revisions(tc.revision.Namespace).Create(tc.revision)
 			revisions.Informer().GetIndexer().Add(tc.revision)
 
-			throttler := NewThrottler(ctx, params, "10.10.10.10:8012")
+			throttler := NewThrottler(ctx, defaultParams, "10.10.10.10:8012")
 			atomic.StoreInt32(&throttler.numActivators, 1)
 			atomic.StoreInt32(&throttler.activatorIndex, 0)
 			updateCh <- tc.initUpdate
@@ -314,9 +309,10 @@ func TestThrottlerSuccesses(t *testing.T) {
 	}, {
 		name:     "single healthy podIP, infinite cc",
 		revision: revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1, 0),
+		// Double updates excercise additional paths.
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{testNamespace, testRevision},
-			Dests: sets.NewString("128.0.0.1:1234"),
+			Dests: sets.NewString("128.0.0.2:1234"),
 		}, {
 			Rev:   types.NamespacedName{testNamespace, testRevision},
 			Dests: sets.NewString("128.0.0.1:1234"),
@@ -344,6 +340,10 @@ func TestThrottlerSuccesses(t *testing.T) {
 		name:     "spread podIP load",
 		revision: revisionCC1(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		initUpdates: []revisionDestsUpdate{{
+			// Double update here excercises some additional paths.
+			Rev:   types.NamespacedName{testNamespace, testRevision},
+			Dests: sets.NewString("128.0.0.3:1234"),
+		}, {
 			Rev:   types.NamespacedName{testNamespace, testRevision},
 			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
 		}},
@@ -370,12 +370,6 @@ func TestThrottlerSuccesses(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			updateCh := make(chan revisionDestsUpdate, 2)
 
-			params := queue.BreakerParams{
-				QueueDepth:      1,
-				MaxConcurrency:  defaultMaxConcurrency,
-				InitialCapacity: 0,
-			}
-
 			endpoints := fakeendpointsinformer.Get(ctx)
 			servfake := fakeservingclient.Get(ctx)
 			revisions := fakerevisioninformer.Get(ctx)
@@ -393,7 +387,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			servfake.ServingV1alpha1().Revisions(tc.revision.Namespace).Create(tc.revision)
 			revisions.Informer().GetIndexer().Add(tc.revision)
 
-			throttler := NewThrottler(ctx, params, "10.10.10.10:8012")
+			throttler := NewThrottler(ctx, defaultParams, "10.10.10.10:8012")
 			atomic.StoreInt32(&throttler.numActivators, 1)
 			atomic.StoreInt32(&throttler.activatorIndex, 0)
 
@@ -428,6 +422,115 @@ func TestThrottlerSuccesses(t *testing.T) {
 	}
 }
 
+func trackerDestSet(ts []*podTracker) sets.String {
+	ret := sets.NewString()
+	for _, t := range ts {
+		ret.Insert(t.dest)
+	}
+	return ret
+}
+
+func TestPodAssignmentFinite(t *testing.T) {
+	// An e2e verification test of pod assignment and capacity
+	// computations.
+	logger := TestLogger(t)
+	revName := types.NamespacedName{testNamespace, testRevision}
+
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	defer cancel()
+
+	throttler := NewThrottler(ctx, defaultParams, "10.10.10.10:8012")
+	atomic.StoreInt32(&throttler.numActivators, 2)
+	atomic.StoreInt32(&throttler.activatorIndex, 0)
+	rt := newRevisionThrottler(revName, 42 /*cc*/, defaultParams, logger)
+	throttler.revisionThrottlers[revName] = rt
+
+	update := revisionDestsUpdate{
+		Rev:           revName,
+		ClusterIPDest: "",
+		Dests:         sets.NewString("ip3", "ip2", "ip1"),
+	}
+	// This should synchronously update throughout the system.
+	// And now we can inspect `rt`.
+	throttler.handleUpdate(update)
+	if got, want := len(rt.podTrackers), 3; got != want {
+		t.Errorf("NumTrackers = %d, want: %d", got, want)
+	}
+	if got, want := trackerDestSet(rt.assignedTrackers), sets.NewString("ip1", "ip3"); !got.Equal(want) {
+		t.Errorf("Assigned trackers = %v, want: %v, diff: %s", got, want, cmp.Diff(want, got))
+	}
+	if got, want := rt.breaker.Capacity(), 42+42/2; got != want {
+		t.Errorf("TotalCapacity = %d, want: %d", got, want)
+	}
+	if got, want := rt.assignedTrackers[0].Capacity(), 42; got != want {
+		t.Errorf("Exclusive tracker capacity: %d, want: %d", got, want)
+	}
+	if got, want := rt.assignedTrackers[1].Capacity(), 42/2; got != want {
+		t.Errorf("Shared tracker capacity: %d, want: %d", got, want)
+	}
+
+	// Now scale to zero.
+	update.Dests = nil
+	throttler.handleUpdate(update)
+	if got, want := len(rt.podTrackers), 0; got != want {
+		t.Errorf("NumTrackers = %d, want: %d", got, want)
+	}
+	if got, want := len(rt.assignedTrackers), 0; got != want {
+		t.Errorf("NumAssignedTrackers = %d, want: %d", got, want)
+	}
+	if got, want := rt.breaker.Capacity(), 0; got != want {
+		t.Errorf("TotalCapacity = %d, want: %d", got, want)
+	}
+}
+
+func TestPodAssignmentInfinite(t *testing.T) {
+	logger := TestLogger(t)
+	revName := types.NamespacedName{testNamespace, testRevision}
+
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	defer cancel()
+
+	throttler := NewThrottler(ctx, defaultParams, "10.10.10.10:8012")
+	atomic.StoreInt32(&throttler.numActivators, 2)
+	atomic.StoreInt32(&throttler.activatorIndex, 0)
+	rt := newRevisionThrottler(revName, 0 /*cc*/, defaultParams, logger)
+	throttler.revisionThrottlers[revName] = rt
+
+	update := revisionDestsUpdate{
+		Rev:           revName,
+		ClusterIPDest: "",
+		Dests:         sets.NewString("ip3", "ip2", "ip1"),
+	}
+	// This should synchronously update throughout the system.
+	// And now we can inspect `rt`.
+	throttler.handleUpdate(update)
+	if got, want := len(rt.podTrackers), 3; got != want {
+		t.Errorf("NumTrackers = %d, want: %d", got, want)
+	}
+	if got, want := len(rt.assignedTrackers), 3; got != want {
+		t.Errorf("NumAssigned trackers = %d, want: %d", got, want)
+	}
+	if got, want := rt.breaker.Capacity(), 1; got != want {
+		t.Errorf("TotalCapacity = %d, want: %d", got, want)
+	}
+	if got, want := rt.assignedTrackers[0].Capacity(), 1; got != want {
+		t.Errorf("Exclusive tracker capacity: %d, want: %d", got, want)
+	}
+
+	// Now scale to zero.
+	update.Dests = nil
+	throttler.handleUpdate(update)
+	if got, want := len(rt.podTrackers), 0; got != want {
+		t.Errorf("NumTrackers = %d, want: %d", got, want)
+	}
+	if got, want := len(rt.assignedTrackers), 0; got != want {
+		t.Errorf("NumAssignedTrackers = %d, want: %d", got, want)
+	}
+	if got, want := rt.breaker.Capacity(), 0; got != want {
+		t.Errorf("TotalCapacity = %d, want: %d", got, want)
+	}
+}
+
 func TestMultipleActivators(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 
@@ -446,7 +549,7 @@ func TestMultipleActivators(t *testing.T) {
 	}()
 
 	rev := revisionCC1(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1)
-	// Add the revision were testing
+	// Add the revision we're testing.
 	servfake.ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
 	revisions.Informer().GetIndexer().Add(rev)
 

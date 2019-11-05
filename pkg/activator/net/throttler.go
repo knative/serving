@@ -61,6 +61,13 @@ func (p *podTracker) Maybe(ctx context.Context, thunk func()) error {
 	return p.b.Maybe(ctx, thunk)
 }
 
+func (p *podTracker) Capacity() int {
+	if p.b == nil {
+		return 1
+	}
+	return p.b.Capacity()
+}
+
 func (p *podTracker) UpdateConcurrency(c int) error {
 	if p.b == nil {
 		return nil
@@ -86,7 +93,7 @@ var ErrActivatorOverload = errors.New("activator overload")
 
 type revisionThrottler struct {
 	revID                types.NamespacedName
-	containerConcurrency int64
+	containerConcurrency int
 
 	// Holds the current number of backends. This is used for when we get an activatorCount update and
 	// therefore need to recalculate capacity
@@ -119,7 +126,7 @@ type revisionThrottler struct {
 }
 
 func newRevisionThrottler(revID types.NamespacedName,
-	containerConcurrency int64,
+	containerConcurrency int,
 	breakerParams queue.BreakerParams,
 	logger *zap.SugaredLogger) *revisionThrottler {
 	logger = logger.With(zap.String(logkey.Key, revID.String()))
@@ -140,7 +147,7 @@ func newRevisionThrottler(revID types.NamespacedName,
 // pickPod picks the first tracker that has open capacity if container concurrency
 // if limited, random pod otherwise.
 // TODO(vagabaov): make this locally ideal, rather than mostly ideal.
-func pickPod(tgs []*podTracker, cc int64) *podTracker {
+func pickPod(tgs []*podTracker, cc int) *podTracker {
 	// Infinite capacity, pick random. We have to do this
 	// otherwise _all_ the requests will go to the first pod
 	// since it has unlimited capacity.
@@ -152,6 +159,7 @@ func pickPod(tgs []*podTracker, cc int64) *podTracker {
 			return t
 		}
 	}
+	// NB: as currently written this can never happen.
 	return nil
 }
 
@@ -190,7 +198,7 @@ func (rt *revisionThrottler) try(ctx context.Context, function func(string) erro
 }
 
 func (rt *revisionThrottler) calculateCapacity(size, activatorCount, maxConcurrency int) int {
-	targetCapacity := int(rt.containerConcurrency) * size
+	targetCapacity := rt.containerConcurrency * size
 
 	if size > 0 && (rt.containerConcurrency == 0 || targetCapacity > maxConcurrency) {
 		// If cc==0, we need to pick a number, but it does not matter, since
@@ -211,7 +219,7 @@ func (rt *revisionThrottler) resetTrackers() {
 	}
 	for _, t := range rt.podTrackers {
 		// Reset to default.
-		t.UpdateConcurrency(int(rt.containerConcurrency))
+		t.UpdateConcurrency(rt.containerConcurrency)
 	}
 }
 
@@ -232,7 +240,7 @@ func (rt *revisionThrottler) updateCapacity(throttler *Throttler, backendCount i
 			rt.assignedTrackers = rt.podTrackers
 		} else {
 			rt.resetTrackers()
-			rt.assignedTrackers = assignSlice(rt.podTrackers, throttler.index(), ac, int(rt.containerConcurrency))
+			rt.assignedTrackers = assignSlice(rt.podTrackers, throttler.index(), ac, rt.containerConcurrency)
 		}
 		rt.logger.Debugf("Trackers %d/%d  %v", throttler.index(), ac, rt.assignedTrackers)
 		return len(rt.assignedTrackers)
@@ -259,7 +267,7 @@ func (rt *revisionThrottler) updateCapacity(throttler *Throttler, backendCount i
 	rt.breaker.UpdateConcurrency(capacity)
 }
 
-func (rt *revisionThrottler) updateThrottleState(
+func (rt *revisionThrottler) updateThrottlerState(
 	throttler *Throttler, backendCount int,
 	trackers []*podTracker, clusterIPDest *podTracker) {
 	rt.logger.Infof("Updating Revision Throttler with: clusterIP = %v, trackers = %d, backends = %d activator pos %d/%d",
@@ -351,7 +359,7 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionD
 
 		trackers := make([]*podTracker, 0, len(update.Dests))
 
-		// Loop over dests, reuse existing tracker if we have one otherwise create
+		// Loop over dests, reuse existing tracker if we have one, otherwise create
 		// a new one.
 		for newDest := range update.Dests {
 			tracker, ok := trackersMap[newDest]
@@ -363,8 +371,8 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionD
 						dest: newDest,
 						b: queue.NewBreaker(queue.BreakerParams{
 							QueueDepth:      throttler.breakerParams.QueueDepth,
-							MaxConcurrency:  int(rt.containerConcurrency),
-							InitialCapacity: int(rt.containerConcurrency), // Presume full unused capacity.
+							MaxConcurrency:  rt.containerConcurrency,
+							InitialCapacity: rt.containerConcurrency, // Presume full unused capacity.
 						}),
 					}
 				}
@@ -372,11 +380,11 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionD
 			trackers = append(trackers, tracker)
 		}
 
-		rt.updateThrottleState(throttler, len(update.Dests), trackers, nil /*clusterIP*/)
+		rt.updateThrottlerState(throttler, len(update.Dests), trackers, nil /*clusterIP*/)
 		return
 	}
 
-	rt.updateThrottleState(throttler, len(update.Dests), nil /*trackers*/, &podTracker{
+	rt.updateThrottlerState(throttler, len(update.Dests), nil /*trackers*/, &podTracker{
 		dest: update.ClusterIPDest,
 	})
 }
@@ -474,7 +482,7 @@ func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*r
 		if err != nil {
 			return nil, err
 		}
-		revThrottler = newRevisionThrottler(revID, rev.Spec.GetContainerConcurrency(), t.breakerParams, t.logger)
+		revThrottler = newRevisionThrottler(revID, int(rev.Spec.GetContainerConcurrency()), t.breakerParams, t.logger)
 		t.revisionThrottlers[revID] = revThrottler
 	}
 	return revThrottler, nil
