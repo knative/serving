@@ -517,9 +517,8 @@ func (t *Throttler) handleUpdate(update revisionDestsUpdate) {
 		if k8serrors.IsNotFound(err) {
 			t.logger.Debugf("Revision %q is not found. Probably it was removed", update.Rev.String())
 		} else {
-			t.logger.Errorw(
-				fmt.Sprintf("Failed to get revision throttler for revision %q", update.Rev.String()),
-				zap.Error(err))
+			t.logger.With(zap.Error(err)).Errorf(
+				fmt.Sprintf("Failed to get revision throttler for revision %q", update.Rev.String()))
 		}
 	} else {
 		rt.handleUpdate(t, update)
