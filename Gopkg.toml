@@ -140,18 +140,6 @@ required = [
   revision = "357c62f0e4bbba7e6cc403ae09edcf3e2b9028fe"
 
 [[override]]
-  name = "google.golang.org/grpc"
-  # TODO(#5912): There is a latent test bug that is fixed upstream,
-  # so pin this for now.
-  revision = "2e463a05d100327ca47ac218281906921038fd95"
-
-[[override]]
-  name = "google.golang.org/api"
-  # TODO(#5912): There is a latent test bug that is fixed upstream,
-  # so pin this for now.
-  revision = "874d9dc5b186e361475b082852f136f094555c30"
-
-[[override]]
   name = "contrib.go.opencensus.io/exporter/stackdriver"
   # Synced from knative/pkg.
   # The build fails against 0.12.6 and newer because

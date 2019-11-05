@@ -17,14 +17,15 @@ import (
 	"context"
 	"io"
 	"log"
-	"net"
+	"net/http"
 
 	"google.golang.org/grpc"
 
+	"knative.dev/serving/pkg/network"
 	ping "knative.dev/serving/test/test_images/grpc-ping/proto"
 )
 
-const port = ":8080"
+const addr = ":8080"
 
 func pong(req *ping.Request) *ping.Response {
 	return &ping.Response{Msg: req.Msg}
@@ -70,19 +71,21 @@ func (s *server) PingStream(stream ping.PingService_PingStreamServer) error {
 	}
 }
 
+func httpWrapper(g *grpc.Server) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.ProtoMajor == 2 && r.Header.Get("Content-Type") == "application/grpc" {
+			g.ServeHTTP(w, r)
+		}
+	})
+}
+
 func main() {
-	log.Printf("Starting gRPC server on %s", port)
+	log.Printf("Starting server on %s", addr)
 
-	lis, err := net.Listen("tcp", port)
-	if err != nil {
-		log.Fatalf("Failed to listen: %v", err)
-	}
+	g := grpc.NewServer()
+	s := network.NewServer(addr, httpWrapper(g))
 
-	s := grpc.NewServer()
+	ping.RegisterPingServiceServer(g, &server{})
 
-	ping.RegisterPingServiceServer(s, &server{})
-
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("Failed to serve: %v", err)
-	}
+	log.Fatal(s.ListenAndServe())
 }
