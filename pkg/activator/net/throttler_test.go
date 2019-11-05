@@ -553,13 +553,7 @@ func TestMultipleActivators(t *testing.T) {
 	servfake.ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
 	revisions.Informer().GetIndexer().Add(rev)
 
-	params := queue.BreakerParams{
-		QueueDepth:      1,
-		MaxConcurrency:  defaultMaxConcurrency,
-		InitialCapacity: 0,
-	}
-
-	throttler := NewThrottler(ctx, params, "130.0.0.2:8012")
+	throttler := NewThrottler(ctx, defaultParams, "130.0.0.2:8012")
 
 	revID := types.NamespacedName{testNamespace, testRevision}
 	possibleDests := sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234")
