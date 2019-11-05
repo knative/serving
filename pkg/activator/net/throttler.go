@@ -19,7 +19,6 @@ package net
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/rand"
 	"sort"
 	"sync"
@@ -518,7 +517,7 @@ func (t *Throttler) handleUpdate(update revisionDestsUpdate) {
 			t.logger.Debugf("Revision %q is not found. Probably it was removed", update.Rev.String())
 		} else {
 			t.logger.With(zap.Error(err)).Errorf(
-				fmt.Sprintf("Failed to get revision throttler for revision %q", update.Rev.String()))
+				"Failed to get revision throttler for revision %q", update.Rev)
 		}
 	} else {
 		rt.handleUpdate(t, update)
