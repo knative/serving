@@ -16,14 +16,10 @@ aliases:
   - vagababov
 
   autoscaling-approvers:
-  - greghaynes
-  - josephburnett
   - markusthoemmes
   - mdemirhan
   - vagababov
   autoscaling-reviewers:
-  - greghaynes
-  - josephburnett
   - markusthoemmes
   - mdemirhan
   - taragu
