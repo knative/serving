@@ -19,9 +19,9 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/hkwi/h2c"
 	"google.golang.org/grpc"
 
+	"knative.dev/serving/pkg/network"
 	ping "knative.dev/serving/test/test_images/grpc-ping/proto"
 )
 
@@ -71,19 +71,21 @@ func (s *server) PingStream(stream ping.PingService_PingStreamServer) error {
 	}
 }
 
+func httpWrapper(g *grpc.Server) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.ProtoMajor == 2 && r.Header.Get("Content-Type") == "application/grpc" {
+			g.ServeHTTP(w, r)
+		}
+	})
+}
+
 func main() {
 	log.Printf("Starting server on %s", addr)
 
-	s := grpc.NewServer()
-	ping.RegisterPingServiceServer(s, &server{})
+	g := grpc.NewServer()
+	s := network.NewServer(addr, httpWrapper(g))
 
-	h := h2c.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Serve gRPC requests with the gRPC server
-		if r.ProtoMajor == 2 && r.Header.Get("Content-Type") == "application/grpc" {
-			s.ServeHTTP(w, r)
-		}
-		// Assume all other requests are health checks, return http.StatusOK
-	})}
+	ping.RegisterPingServiceServer(g, &server{})
 
-	log.Fatal(http.ListenAndServe(addr, h))
+	log.Fatal(s.ListenAndServe())
 }
