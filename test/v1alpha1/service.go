@@ -126,8 +126,33 @@ func CreateRunLatestServiceReady(t *testing.T, clients *test.Clients, names *tes
 		return nil, nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
 	}
 
+	t.Logf("Creating a new Service %s.", names.Service)
+	svc, err := CreateLatestService(t, clients, *names, fopt...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Populate Route and Configuration Objects with name
+	names.Route = serviceresourcenames.Route(svc)
+	names.Config = serviceresourcenames.Configuration(svc)
+
+	// If the Service name was not specified, populate it
+	if names.Service == "" {
+		names.Service = svc.Name
+	}
+
+	t.Logf("Waiting for Service %q to transition to Ready.", names.Service)
+	if err = WaitForServiceState(clients.ServingAlphaClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
+		return nil, nil, err
+	}
+
+	t.Log("Checking to ensure Service Status is populated for Ready service", names.Service)
+	err = validateCreatedServiceStatus(clients, names)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	var httpsTransportOption *spoof.TransportOption
-	var err error
 	if https {
 		tlsOptions := &v1alpha3.TLSOptions{
 			Mode:              v1alpha3.TLSModeSimple,
@@ -143,37 +168,12 @@ func CreateRunLatestServiceReady(t *testing.T, clients *test.Clients, names *tes
 			},
 			TLS: tlsOptions,
 		}}
-		httpsTransportOption, err = setupHTTPS(t, clients.KubeClient, names.Service, GetDomain(t, clients))
+		domainName := strings.SplitN(names.URL.Host, ".", 2)[1]
+		httpsTransportOption, err = setupHTTPS(t, clients.KubeClient, names.Service, domainName)
 		if err != nil {
 			return nil, nil, err
 		}
 		setupGateway(t, clients, servers)
-	}
-
-	t.Logf("Creating a new Service %s.", names.Service)
-	svc, err := CreateLatestService(t, clients, *names, fopt...)
-	if err != nil {
-		return nil, httpsTransportOption, err
-	}
-
-	// Populate Route and Configuration Objects with name
-	names.Route = serviceresourcenames.Route(svc)
-	names.Config = serviceresourcenames.Configuration(svc)
-
-	// If the Service name was not specified, populate it
-	if names.Service == "" {
-		names.Service = svc.Name
-	}
-
-	t.Logf("Waiting for Service %q to transition to Ready.", names.Service)
-	if err := WaitForServiceState(clients.ServingAlphaClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
-		return nil, httpsTransportOption, err
-	}
-
-	t.Log("Checking to ensure Service Status is populated for Ready service", names.Service)
-	err = validateCreatedServiceStatus(clients, names)
-	if err != nil {
-		return nil, httpsTransportOption, err
 	}
 
 	t.Log("Getting latest objects Created by Service", names.Service)
@@ -413,25 +413,6 @@ func RestoreGateway(t *testing.T, clients *test.Clients, oldGateway v1alpha3.Gat
 	if _, err := clients.SharedClient.NetworkingV1alpha3().Gateways(Namespace).Update(currGateway); err != nil {
 		t.Fatalf("Failed to restore Gateway %s/%s: %v", Namespace, GatewayName, err)
 	}
-}
-
-// GetDomain returns the domain name. If the saved domain name is null, it will create a dummy service in order to get
-// the domain name
-func GetDomain(t *testing.T, clients *test.Clients) string {
-	if domainName == nil {
-		names := test.ResourceNames{
-			Service: test.ObjectNameForTest(t),
-			Image:   "helloworld",
-		}
-		test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-		defer test.TearDown(clients, names)
-		objects, _, err := CreateRunLatestServiceReady(t, clients, &names, false /* https */)
-		if err != nil {
-			t.Fatalf("Failed to create Service %s: %v", names.Service, err)
-		}
-		domainName = &(strings.SplitN(objects.Route.Status.URL.Host, ".", 2)[1])
-	}
-	return *domainName
 }
 
 // setupGateway updates the ingress Gateway to the provided Servers and waits until all Envoy pods have been updated.
