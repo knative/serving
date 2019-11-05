@@ -17,6 +17,7 @@ limitations under the License.
 package resourcetree
 
 //test_util contains types defined and used by types and their corresponding verification methods.
+//lint:file-ignore U1000 Ignore all unused code, it's needed
 
 import (
 	"container/list"

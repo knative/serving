@@ -1672,7 +1672,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:c8e0ec560560e16616821b3999e905e6b9085c832b5b57216905711e63679d19"
+  digest = "1:b1b3870d2746e5277761a3c2811d2b486db20a09763a1d98476cf82f2afbc0fc"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1686,7 +1686,6 @@
     "apis/istio/common/v1alpha1",
     "apis/istio/v1alpha3",
     "apis/testing/v1",
-    "apis/v1alpha1",
     "changeset",
     "client/clientset/versioned",
     "client/clientset/versioned/fake",
@@ -1794,10 +1793,12 @@
     "webhook/certificates/resources",
     "webhook/configmaps",
     "webhook/resourcesemantics",
+    "webhook/resourcesemantics/defaulting",
+    "webhook/resourcesemantics/validation",
     "websocket",
   ]
   pruneopts = "T"
-  revision = "d4ce00139499bd3ea11cdb18ef20a41bdb248245"
+  revision = "4836f680bbe5dc615e9c822f21c6685d97c6d553"
 
 [[projects]]
   branch = "master"
@@ -2031,6 +2032,8 @@
     "knative.dev/pkg/webhook/certificates",
     "knative.dev/pkg/webhook/configmaps",
     "knative.dev/pkg/webhook/resourcesemantics",
+    "knative.dev/pkg/webhook/resourcesemantics/defaulting",
+    "knative.dev/pkg/webhook/resourcesemantics/validation",
     "knative.dev/pkg/websocket",
     "knative.dev/test-infra/scripts",
     "knative.dev/test-infra/shared/junit",

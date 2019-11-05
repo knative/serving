@@ -43,13 +43,14 @@ func Wait(gsc SDKOperations, project, region, zone, opName string, wait time.Dur
 	var err error
 
 	timeout := time.After(wait)
-	tick := time.Tick(500 * time.Millisecond)
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
 	for {
 		select {
 		// Got a timeout! fail with a timeout error
 		case <-timeout:
 			return errors.New("timed out waiting")
-		case <-tick:
+		case <-ticker.C:
 			// Retry 3 times in case of weird network error, or rate limiting
 			for r, w := 0, 50*time.Microsecond; r < 3; r, w = r+1, w*2 {
 				op, err = gsc.GetOperation(project, region, zone, opName)

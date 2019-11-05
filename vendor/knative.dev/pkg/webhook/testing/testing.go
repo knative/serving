@@ -28,21 +28,20 @@ import (
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/system"
+	pkgtest "knative.dev/pkg/testing"
 
 	// Makes system.Namespace work in tests.
 	_ "knative.dev/pkg/system/testing"
-
-	. "knative.dev/pkg/testing"
 )
 
 // CreateResource creates a testing.Resource with the given name in the system namespace.
-func CreateResource(name string) *Resource {
-	return &Resource{
+func CreateResource(name string) *pkgtest.Resource {
+	return &pkgtest.Resource{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      name,
 		},
-		Spec: ResourceSpec{
+		Spec: pkgtest.ResourceSpec{
 			FieldWithValidation: "magic value",
 		},
 	}

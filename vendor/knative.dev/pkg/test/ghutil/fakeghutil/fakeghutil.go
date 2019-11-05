@@ -214,8 +214,8 @@ func (fgc *FakeGithubClient) ListPullRequests(org, repo, head, base string) ([]*
 	}
 	for _, PR := range PRs {
 		// Filter with consistent logic of CreatePullRequest function below
-		if ("" == head || *PR.Head.Label == head) &&
-			("" == base || *PR.Base.Ref == base) {
+		if (head == "" || head == *PR.Head.Label) &&
+			(base == "" || base == *PR.Base.Ref) {
 			res = append(res, PR)
 		}
 	}
@@ -304,7 +304,7 @@ func (fgc *FakeGithubClient) CreatePullRequest(org, repo, head, base, title, bod
 		State:               &stateStr,
 		Number:              &PRNumber,
 	}
-	if "" != head {
+	if head != "" {
 		tokens := strings.Split(head, ":")
 		if len(tokens) != 2 {
 			return nil, fmt.Errorf("invalid head, want: 'user:ref', got: '%s'", head)
@@ -314,7 +314,7 @@ func (fgc *FakeGithubClient) CreatePullRequest(org, repo, head, base, title, bod
 			Ref:   &tokens[1],
 		}
 	}
-	if "" != base {
+	if base != "" {
 		l := fmt.Sprintf("%s:%s", repo, base)
 		PR.Base = &github.PullRequestBranch{
 			Label: &l,
@@ -349,7 +349,7 @@ func (fgc *FakeGithubClient) AddFileToCommit(org, repo, SHA, filename, patch str
 		Patch:    &patch,
 	}
 	if _, ok := fgc.CommitFiles[SHA]; !ok {
-		fgc.CommitFiles[SHA] = make([]*github.CommitFile, 0, 0)
+		fgc.CommitFiles[SHA] = make([]*github.CommitFile, 0)
 	}
 	fgc.CommitFiles[SHA] = append(fgc.CommitFiles[SHA], f)
 	return nil
@@ -366,7 +366,7 @@ func (fgc *FakeGithubClient) AddCommitToPullRequest(org, repo string, ID int, SH
 		return fmt.Errorf("Pull Request %d not exist", ID)
 	}
 	if _, ok = fgc.PRCommits[ID]; !ok {
-		fgc.PRCommits[ID] = make([]*github.RepositoryCommit, 0, 0)
+		fgc.PRCommits[ID] = make([]*github.RepositoryCommit, 0)
 	}
 	fgc.PRCommits[ID] = append(fgc.PRCommits[ID], &github.RepositoryCommit{SHA: &SHA})
 	return nil

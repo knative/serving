@@ -38,7 +38,7 @@ const (
 	fallbackLoggerName = "fallback-logger"
 )
 
-var emptyLoggerConfigError = errors.New("empty logger configuration")
+var errEmptyLoggerConfig = errors.New("empty logger configuration")
 
 // NewLogger creates a logger with the supplied configuration.
 // In addition to the logger, it returns AtomicLevel that can
@@ -105,14 +105,14 @@ func newLoggerFromConfig(configJSON string, levelOverride string, opts []zap.Opt
 		return nil, zap.AtomicLevel{}, err
 	}
 
-	logger.Info("Successfully created the logger.", zap.String(logkey.JSONConfig, configJSON))
+	logger.Info("Successfully created the logger.")
 	logger.Sugar().Infof("Logging level set to %v", loggingCfg.Level)
 	return logger, loggingCfg.Level, nil
 }
 
 func zapConfigFromJSON(configJSON string) (*zap.Config, error) {
 	if configJSON == "" {
-		return nil, emptyLoggerConfigError
+		return nil, errEmptyLoggerConfig
 	}
 
 	loggingCfg := &zap.Config{}
@@ -206,7 +206,7 @@ func UpdateLevelFromConfigMap(logger *zap.SugaredLogger, atomicLevel zap.AtomicL
 			// reset to global level
 			loggingCfg, err := zapConfigFromJSON(config.LoggingConfig)
 			switch {
-			case err == emptyLoggerConfigError:
+			case err == errEmptyLoggerConfig:
 				level = zap.NewAtomicLevel().Level()
 			case err != nil:
 				logger.With(zap.Error(err)).Errorf("Failed to parse logger configuration. "+

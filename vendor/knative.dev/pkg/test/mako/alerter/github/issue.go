@@ -177,7 +177,7 @@ func (gih *IssueHandler) CloseIssueForTest(testName string) error {
 		return nil
 	}
 	// If the issue is still active, do not close it.
-	if time.Now().Sub(issue.GetUpdatedAt()) < daysConsideredActive*24*time.Hour {
+	if time.Since(issue.GetUpdatedAt()) < daysConsideredActive*24*time.Hour {
 		return nil
 	}
 
@@ -233,7 +233,7 @@ func (gih *IssueHandler) findIssue(title string) (*github.Issue, error) {
 		if *issue.Title == title {
 			// If the issue has been closed a long time ago, ignore this issue.
 			if issue.GetState() == string(ghutil.IssueCloseState) &&
-				time.Now().Sub(*issue.UpdatedAt) > daysConsideredOld*24*time.Hour {
+				time.Since(*issue.UpdatedAt) > daysConsideredOld*24*time.Hour {
 				continue
 			}
 

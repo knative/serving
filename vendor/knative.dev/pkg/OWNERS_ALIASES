@@ -2,12 +2,10 @@ aliases:
   pkg-approvers:
   - evankanderson
   - mattmoor
-  - vaikas-google
   - vaikas
 
   apis-approvers:
   - mattmoor
-  - vaikas-google
   - vaikas
   - n3wscott
 
@@ -16,12 +14,6 @@ aliases:
 
   apis-duck-approvers:
   - mattmoor
-  - vaikas-google
-  - vaikas
-
-  cloudevents-approvers:
-  - n3wscott
-  - vaikas-google
   - vaikas
 
   configmap-approvers:
@@ -68,7 +60,6 @@ aliases:
 
   source-approvers:
   - n3wscott
-  - vaikas-google
   - vaikas
 
   webhook-approvers:

@@ -59,8 +59,8 @@ func (kt *KnativeTrigger) MonitoredResource() (resType string, labels map[string
 		metricskey.LabelLocation:      kt.Location,
 		metricskey.LabelClusterName:   kt.ClusterName,
 		metricskey.LabelNamespaceName: kt.NamespaceName,
-		metricskey.LabelName:          kt.TriggerName,
 		metricskey.LabelBrokerName:    kt.BrokerName,
+		metricskey.LabelTriggerName:   kt.TriggerName,
 	}
 	return metricskey.ResourceTypeKnativeTrigger, labels
 }
@@ -71,7 +71,7 @@ func (kb *KnativeBroker) MonitoredResource() (resType string, labels map[string]
 		metricskey.LabelLocation:      kb.Location,
 		metricskey.LabelClusterName:   kb.ClusterName,
 		metricskey.LabelNamespaceName: kb.NamespaceName,
-		metricskey.LabelName:          kb.BrokerName,
+		metricskey.LabelBrokerName:    kb.BrokerName,
 	}
 	return metricskey.ResourceTypeKnativeBroker, labels
 }
@@ -98,7 +98,7 @@ func GetKnativeBrokerMonitoredResource(
 		ClusterName: gm.cluster,
 		// The rest resource labels are from metrics labels.
 		NamespaceName: valueOrUnknown(metricskey.LabelNamespaceName, tagsMap),
-		BrokerName:    valueOrUnknown(metricskey.LabelName, tagsMap),
+		BrokerName:    valueOrUnknown(metricskey.LabelBrokerName, tagsMap),
 	}
 
 	var newTags []tag.Tag
@@ -122,8 +122,8 @@ func GetKnativeTriggerMonitoredResource(
 		ClusterName: gm.cluster,
 		// The rest resource labels are from metrics labels.
 		NamespaceName: valueOrUnknown(metricskey.LabelNamespaceName, tagsMap),
-		TriggerName:   valueOrUnknown(metricskey.LabelName, tagsMap),
 		BrokerName:    valueOrUnknown(metricskey.LabelBrokerName, tagsMap),
+		TriggerName:   valueOrUnknown(metricskey.LabelTriggerName, tagsMap),
 	}
 
 	var newTags []tag.Tag

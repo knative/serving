@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resourcesemantics
+package validation
 
 import (
 	"bytes"
@@ -26,17 +26,14 @@ import (
 	"strings"
 
 	"github.com/markbates/inflect"
-	"github.com/mattbaird/jsonpatch"
 	"go.uber.org/zap"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	admissionlisters "k8s.io/client-go/listers/admissionregistration/v1beta1"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"knative.dev/pkg/apis"
-	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
@@ -44,15 +41,8 @@ import (
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/webhook"
 	certresources "knative.dev/pkg/webhook/certificates/resources"
+	"knative.dev/pkg/webhook/resourcesemantics"
 )
-
-// GenericCRD is the interface definition that allows us to perform the generic
-// CRD actions like deciding whether to increment generation and so forth.
-type GenericCRD interface {
-	apis.Defaultable
-	apis.Validatable
-	runtime.Object
-}
 
 var errMissingNewObject = errors.New("the new object may not be nil")
 
@@ -60,12 +50,12 @@ var errMissingNewObject = errors.New("the new object may not be nil")
 type reconciler struct {
 	name     string
 	path     string
-	handlers map[schema.GroupVersionKind]GenericCRD
+	handlers map[schema.GroupVersionKind]resourcesemantics.GenericCRD
 
 	withContext func(context.Context) context.Context
 
 	client       kubernetes.Interface
-	mwhlister    admissionlisters.MutatingWebhookConfigurationLister
+	vwhlister    admissionlisters.ValidatingWebhookConfigurationLister
 	secretlister corelisters.SecretLister
 
 	disallowUnknownFields bool
@@ -82,7 +72,7 @@ func (ac *reconciler) Reconcile(ctx context.Context, key string) error {
 	// Look up the webhook secret, and fetch the CA cert bundle.
 	secret, err := ac.secretlister.Secrets(system.Namespace()).Get(ac.secretName)
 	if err != nil {
-		logger.Errorf("Error fetching secret: %v", err)
+		logger.Errorw("Error fetching secret", zap.Error(err))
 		return err
 	}
 	caCert, ok := secret.Data[certresources.CACert]
@@ -91,7 +81,7 @@ func (ac *reconciler) Reconcile(ctx context.Context, key string) error {
 	}
 
 	// Reconcile the webhook configuration.
-	return ac.reconcileMutatingWebhook(ctx, caCert)
+	return ac.reconcileValidatingWebhook(ctx, caCert)
 }
 
 // Path implements AdmissionController
@@ -113,23 +103,14 @@ func (ac *reconciler) Admit(ctx context.Context, request *admissionv1beta1.Admis
 		return &admissionv1beta1.AdmissionResponse{Allowed: true}
 	}
 
-	patchBytes, err := ac.mutate(ctx, request)
-	if err != nil {
-		return webhook.MakeErrorStatus("mutation failed: %v", err)
+	if err := ac.validate(ctx, request); err != nil {
+		return webhook.MakeErrorStatus("validation failed: %v", err)
 	}
-	logger.Infof("Kind: %q PatchBytes: %v", request.Kind, string(patchBytes))
 
-	return &admissionv1beta1.AdmissionResponse{
-		Patch:   patchBytes,
-		Allowed: true,
-		PatchType: func() *admissionv1beta1.PatchType {
-			pt := admissionv1beta1.PatchTypeJSONPatch
-			return &pt
-		}(),
-	}
+	return &admissionv1beta1.AdmissionResponse{Allowed: true}
 }
 
-func (ac *reconciler) reconcileMutatingWebhook(ctx context.Context, caCert []byte) error {
+func (ac *reconciler) reconcileValidatingWebhook(ctx context.Context, caCert []byte) error {
 	logger := logging.FromContext(ctx)
 
 	var rules []admissionregistrationv1beta1.RuleWithOperations
@@ -161,7 +142,7 @@ func (ac *reconciler) reconcileMutatingWebhook(ctx context.Context, caCert []byt
 		return lhs.Resources[0] < rhs.Resources[0]
 	})
 
-	configuredWebhook, err := ac.mwhlister.Get(ac.name)
+	configuredWebhook, err := ac.vwhlister.Get(ac.name)
 	if err != nil {
 		return fmt.Errorf("error retrieving webhook: %v", err)
 	}
@@ -188,8 +169,8 @@ func (ac *reconciler) reconcileMutatingWebhook(ctx context.Context, caCert []byt
 		return fmt.Errorf("error diffing webhooks: %v", err)
 	} else if !ok {
 		logger.Info("Updating webhook")
-		mwhclient := ac.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
-		if _, err := mwhclient.Update(webhook); err != nil {
+		vwhclient := ac.client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
+		if _, err := vwhclient.Update(webhook); err != nil {
 			return fmt.Errorf("failed to update webhook: %v", err)
 		}
 	} else {
@@ -198,7 +179,7 @@ func (ac *reconciler) reconcileMutatingWebhook(ctx context.Context, caCert []byt
 	return nil
 }
 
-func (ac *reconciler) mutate(ctx context.Context, req *admissionv1beta1.AdmissionRequest) ([]byte, error) {
+func (ac *reconciler) validate(ctx context.Context, req *admissionv1beta1.AdmissionRequest) error {
 	kind := req.Kind
 	newBytes := req.Object.Raw
 	oldBytes := req.OldObject.Raw
@@ -213,59 +194,37 @@ func (ac *reconciler) mutate(ctx context.Context, req *admissionv1beta1.Admissio
 	handler, ok := ac.handlers[gvk]
 	if !ok {
 		logger.Errorf("Unhandled kind: %v", gvk)
-		return nil, fmt.Errorf("unhandled kind: %v", gvk)
+		return fmt.Errorf("unhandled kind: %v", gvk)
 	}
 
 	// nil values denote absence of `old` (create) or `new` (delete) objects.
-	var oldObj, newObj GenericCRD
+	var oldObj, newObj resourcesemantics.GenericCRD
 
 	if len(newBytes) != 0 {
-		newObj = handler.DeepCopyObject().(GenericCRD)
+		newObj = handler.DeepCopyObject().(resourcesemantics.GenericCRD)
 		newDecoder := json.NewDecoder(bytes.NewBuffer(newBytes))
 		if ac.disallowUnknownFields {
 			newDecoder.DisallowUnknownFields()
 		}
 		if err := newDecoder.Decode(&newObj); err != nil {
-			return nil, fmt.Errorf("cannot decode incoming new object: %v", err)
+			return fmt.Errorf("cannot decode incoming new object: %v", err)
 		}
 	}
 	if len(oldBytes) != 0 {
-		oldObj = handler.DeepCopyObject().(GenericCRD)
+		oldObj = handler.DeepCopyObject().(resourcesemantics.GenericCRD)
 		oldDecoder := json.NewDecoder(bytes.NewBuffer(oldBytes))
 		if ac.disallowUnknownFields {
 			oldDecoder.DisallowUnknownFields()
 		}
 		if err := oldDecoder.Decode(&oldObj); err != nil {
-			return nil, fmt.Errorf("cannot decode incoming old object: %v", err)
+			return fmt.Errorf("cannot decode incoming old object: %v", err)
 		}
-	}
-	var patches duck.JSONPatch
-
-	var err error
-	// Skip this step if the type we're dealing with is a duck type, since it is inherently
-	// incomplete and this will patch away all of the unspecified fields.
-	if _, ok := newObj.(duck.Populatable); !ok {
-		// Add these before defaulting fields, otherwise defaulting may cause an illegal patch
-		// because it expects the round tripped through Golang fields to be present already.
-		rtp, err := roundTripPatch(newBytes, newObj)
-		if err != nil {
-			return nil, fmt.Errorf("cannot create patch for round tripped newBytes: %v", err)
-		}
-		patches = append(patches, rtp...)
 	}
 
 	// Set up the context for defaulting and validation
 	if oldObj != nil {
-		// Copy the old object and set defaults so that we don't reject our own
-		// defaulting done earlier in the webhook.
-		oldObj = oldObj.DeepCopyObject().(GenericCRD)
+		// TODO(mattmoor): Remove this after 0.11 cuts.
 		oldObj.SetDefaults(ctx)
-
-		s, ok := oldObj.(apis.HasSpec)
-		if ok {
-			SetUserInfoAnnotations(s, ctx, req.Resource.Group)
-		}
-
 		if req.SubResource == "" {
 			ctx = apis.WithinUpdate(ctx, oldObj)
 		} else {
@@ -276,105 +235,30 @@ func (ac *reconciler) mutate(ctx context.Context, req *admissionv1beta1.Admissio
 	}
 	ctx = apis.WithUserInfo(ctx, &req.UserInfo)
 
-	// Default the new object.
-	if patches, err = setDefaults(ctx, patches, newObj); err != nil {
-		logger.Errorw("Failed the resource specific defaulter", zap.Error(err))
-		// Return the error message as-is to give the defaulter callback
-		// discretion over (our portion of) the message that the user sees.
-		return nil, err
-	}
-
-	if patches, err = ac.setUserInfoAnnotations(ctx, patches, newObj, req.Resource.Group); err != nil {
-		logger.Errorw("Failed the resource user info annotator", zap.Error(err))
-		return nil, err
-	}
-
 	// None of the validators will accept a nil value for newObj.
 	if newObj == nil {
-		return nil, errMissingNewObject
+		return errMissingNewObject
 	}
+
+	// TODO(mattmoor): Remove this after 0.11 cuts.
+	newObj.SetDefaults(ctx)
+
 	if err := validate(ctx, newObj); err != nil {
 		logger.Errorw("Failed the resource specific validation", zap.Error(err))
 		// Return the error message as-is to give the validation callback
 		// discretion over (our portion of) the message that the user sees.
-		return nil, err
-	}
-
-	return json.Marshal(patches)
-}
-
-func (ac *reconciler) setUserInfoAnnotations(ctx context.Context, patches duck.JSONPatch, new GenericCRD, groupName string) (duck.JSONPatch, error) {
-	if new == nil {
-		return patches, nil
-	}
-	nh, ok := new.(apis.HasSpec)
-	if !ok {
-		return patches, nil
-	}
-
-	b, a := new.DeepCopyObject().(apis.HasSpec), nh
-
-	SetUserInfoAnnotations(nh, ctx, groupName)
-
-	patch, err := duck.CreatePatch(b, a)
-	if err != nil {
-		return nil, err
-	}
-	return append(patches, patch...), nil
-}
-
-// roundTripPatch generates the JSONPatch that corresponds to round tripping the given bytes through
-// the Golang type (JSON -> Golang type -> JSON). Because it is not always true that
-// bytes == json.Marshal(json.Unmarshal(bytes)).
-//
-// For example, if bytes did not contain a 'spec' field and the Golang type specifies its 'spec'
-// field without omitempty, then by round tripping through the Golang type, we would have added
-// `'spec': {}`.
-func roundTripPatch(bytes []byte, unmarshalled interface{}) (duck.JSONPatch, error) {
-	if unmarshalled == nil {
-		return duck.JSONPatch{}, nil
-	}
-	marshaledBytes, err := json.Marshal(unmarshalled)
-	if err != nil {
-		return nil, fmt.Errorf("cannot marshal interface: %v", err)
-	}
-	return jsonpatch.CreatePatch(bytes, marshaledBytes)
-}
-
-// validate performs validation on the provided "new" CRD.
-// For legacy purposes, this also does apis.Immutable validation,
-// which is deprecated and will be removed in a future release.
-func validate(ctx context.Context, new apis.Validatable) error {
-	if apis.IsInUpdate(ctx) {
-		old := apis.GetBaseline(ctx)
-		if immutableNew, ok := new.(apis.Immutable); ok {
-			immutableOld, ok := old.(apis.Immutable)
-			if !ok {
-				return fmt.Errorf("unexpected type mismatch %T vs. %T", old, new)
-			}
-			if err := immutableNew.CheckImmutableFields(ctx, immutableOld); err != nil {
-				return err
-			}
-		}
-	}
-
-	// Can't just `return new.Validate()` because it doesn't properly nil-check.
-	if err := new.Validate(ctx); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// setDefaults simply leverages apis.Defaultable to set defaults.
-func setDefaults(ctx context.Context, patches duck.JSONPatch, crd GenericCRD) (duck.JSONPatch, error) {
-	before, after := crd.DeepCopyObject(), crd
-	after.SetDefaults(ctx)
-
-	patch, err := duck.CreatePatch(before, after)
-	if err != nil {
-		return nil, err
+// validate performs validation on the provided "new" CRD.
+func validate(ctx context.Context, new apis.Validatable) error {
+	// Can't just `return new.Validate()` because it doesn't properly nil-check.
+	if err := new.Validate(ctx); err != nil {
+		return err
 	}
 
-	return append(patches, patch...), nil
+	return nil
 }

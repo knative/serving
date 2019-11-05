@@ -40,22 +40,63 @@ const (
 	// defaultCustomMetricSubDomain is the default subdomain to use for unsupported metrics by monitored resource types.
 	// See: https://cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.metricDescriptors#MetricDescriptor
 	defaultCustomMetricSubDomain = "knative.dev"
-	// secretNamespaceDefault is the namespace to search for a k8s Secret to pass to Stackdriver client to authenticate with Stackdriver.
-	secretNamespaceDefault = "default"
+	// StackdriverSecretNamespaceDefault is the default namespace to search for a k8s Secret to pass to Stackdriver client to authenticate with Stackdriver.
+	StackdriverSecretNamespaceDefault = "default"
+	// StackdriverSecretNameDefault is the default name of the k8s Secret to pass to Stackdriver client to authenticate with Stackdriver.
+	StackdriverSecretNameDefault = "stackdriver-service-account-key"
 	// secretDataFieldKey is the name of the k8s Secret field that contains the Secret's key.
 	secretDataFieldKey = "key.json"
 )
 
 var (
+	// gcpMetadataFunc is the function used to fetch GCP metadata.
+	// In product usage, this is always set to function retrieveGCPMetadata.
+	// In unit tests this is set to a fake one to avoid calling GCP metadata
+	// service.
+	gcpMetadataFunc func() *gcpMetadata
+
+	// newStackdriverExporterFunc is the function used to create new stackdriver
+	// exporter.
+	// In product usage, this is always set to function newOpencensusSDExporter.
+	// In unit tests this is set to a fake one to avoid calling actual Google API
+	// service.
+	newStackdriverExporterFunc func(stackdriver.Options) (view.Exporter, error)
+
 	// kubeclient is the in-cluster Kubernetes kubeclient, which is lazy-initialized on first use.
 	kubeclient *kubernetes.Clientset
 	// initClientOnce is the lazy initializer for kubeclient.
 	initClientOnce sync.Once
 	// kubeclientInitErr capture an error during initClientOnce
 	kubeclientInitErr error
+
+	// stackdriverMtx protects setting secretNamespace and secretName and useStackdriverSecretEnabled
+	stackdriverMtx sync.RWMutex
+	// secretName is the name of the k8s Secret to pass to Stackdriver client to authenticate with Stackdriver.
+	secretName = StackdriverSecretNameDefault
+	// secretNamespace is the namespace to search for a k8s Secret to pass to Stackdriver client to authenticate with Stackdriver.
+	secretNamespace = StackdriverSecretNamespaceDefault
+	// useStackdriverSecretEnabled specifies whether or not the exporter can be configured with a Secret.
+	// Consuming packages must do explicitly enable this by calling SetStackdriverSecretLocation.
+	useStackdriverSecretEnabled = false
 )
 
+// SetStackdriverSecretLocation sets the name and namespace of the Secret that can be used to authenticate with Stackdriver.
+// The Secret is only used if both:
+// 1. This function has been explicitly called to set the name and namespace
+// 2. Users set metricsConfig.stackdriverClientConfig.UseSecret to "true"
+func SetStackdriverSecretLocation(name string, namespace string) {
+	stackdriverMtx.Lock()
+	defer stackdriverMtx.Unlock()
+	secretName = name
+	secretNamespace = namespace
+	useStackdriverSecretEnabled = true
+}
+
 func init() {
+	// Set gcpMetadataFunc to call GCP metadata service.
+	gcpMetadataFunc = retrieveGCPMetadata
+	newStackdriverExporterFunc = newOpencensusSDExporter
+
 	kubeclientInitErr = nil
 }
 
@@ -73,7 +114,7 @@ func newStackdriverExporter(config *metricsConfig, logger *zap.SugaredLogger) (v
 		logger.Warnw("Issue configuring Stackdriver exporter client options, no additional client options will be used: ", zap.Error(err))
 	}
 	// Automatically fall back on Google application default credentials
-	e, err := newOpencensusSDExporter(stackdriver.Options{
+	e, err := newStackdriverExporterFunc(stackdriver.Options{
 		ProjectID:               gm.project,
 		Location:                gm.location,
 		MonitoringClientOptions: co,
@@ -93,15 +134,19 @@ func newStackdriverExporter(config *metricsConfig, logger *zap.SugaredLogger) (v
 
 // getStackdriverExporterClientOptions creates client options for the opencensus Stackdriver exporter from the given stackdriverClientConfig.
 // On error, an empty array of client options is returned.
-func getStackdriverExporterClientOptions(sdconfig *stackdriverClientConfig) ([]option.ClientOption, error) {
+func getStackdriverExporterClientOptions(sdconfig *StackdriverClientConfig) ([]option.ClientOption, error) {
 	var co []option.ClientOption
-	if sdconfig.GCPSecretName != "" {
+	if sdconfig.UseSecret && useStackdriverSecretEnabled {
 		secret, err := getStackdriverSecret(sdconfig)
 		if err != nil {
 			return co, err
 		}
 
-		co = append(co, convertSecretToExporterOption(secret))
+		if opt, err := convertSecretToExporterOption(secret); err == nil {
+			co = append(co, opt)
+		} else {
+			return co, err
+		}
 	}
 
 	return co, nil
@@ -111,7 +156,7 @@ func getStackdriverExporterClientOptions(sdconfig *stackdriverClientConfig) ([]o
 // to Stackdriver. Values can come from the GCE metadata server or the config.
 //  Values explicitly set in the config take the highest precedent.
 func getMergedGCPMetadata(config *metricsConfig) *gcpMetadata {
-	gm := retrieveGCPMetadata()
+	gm := gcpMetadataFunc()
 	if config.stackdriverClientConfig.ProjectID != "" {
 		gm.project = config.stackdriverClientConfig.ProjectID
 	}
@@ -164,28 +209,30 @@ func getMetricTypeFunc(metricTypePrefix, customMetricTypePrefix string) func(vie
 }
 
 // getStackdriverSecret returns the Kubernetes Secret specified in the given config.
-func getStackdriverSecret(sdconfig *stackdriverClientConfig) (*corev1.Secret, error) {
+// TODO(anniefu): Update exporter if Secret changes (https://github.com/knative/pkg/issues/842)
+func getStackdriverSecret(sdconfig *StackdriverClientConfig) (*corev1.Secret, error) {
 	if err := ensureKubeclient(); err != nil {
 		return nil, err
 	}
 
-	ns := sdconfig.GCPSecretNamespace
-	if ns == "" {
-		ns = secretNamespaceDefault
-	}
+	stackdriverMtx.RLock()
+	defer stackdriverMtx.RUnlock()
 
-	sec, secErr := kubeclient.CoreV1().Secrets(ns).Get(sdconfig.GCPSecretName, metav1.GetOptions{})
+	sec, secErr := kubeclient.CoreV1().Secrets(secretNamespace).Get(secretName, metav1.GetOptions{})
 
 	if secErr != nil {
-		return nil, fmt.Errorf("Error getting Secret [%v] in namespace [%v]: %v", sdconfig.GCPSecretName, sdconfig.GCPSecretNamespace, secErr)
+		return nil, fmt.Errorf("Error getting Secret [%v] in namespace [%v]: %v", secretName, secretNamespace, secErr)
 	}
 
 	return sec, nil
 }
 
 // convertSecretToExporterOption converts a Kubernetes Secret to an OpenCensus Stackdriver Exporter Option.
-func convertSecretToExporterOption(secret *corev1.Secret) option.ClientOption {
-	return option.WithCredentialsJSON(secret.Data[secretDataFieldKey])
+func convertSecretToExporterOption(secret *corev1.Secret) (option.ClientOption, error) {
+	if data, ok := secret.Data[secretDataFieldKey]; ok {
+		return option.WithCredentialsJSON(data), nil
+	}
+	return nil, fmt.Errorf("Expected Secret to store key in data field named [%v]", secretDataFieldKey)
 }
 
 // ensureKubeclient is the lazy initializer for kubeclient.
