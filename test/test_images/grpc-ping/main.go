@@ -17,14 +17,15 @@ import (
 	"context"
 	"io"
 	"log"
-	"net"
+	"net/http"
 
+	"github.com/hkwi/h2c"
 	"google.golang.org/grpc"
 
 	ping "knative.dev/serving/test/test_images/grpc-ping/proto"
 )
 
-const port = ":8080"
+const addr = ":8080"
 
 func pong(req *ping.Request) *ping.Response {
 	return &ping.Response{Msg: req.Msg}
@@ -71,18 +72,18 @@ func (s *server) PingStream(stream ping.PingService_PingStreamServer) error {
 }
 
 func main() {
-	log.Printf("Starting gRPC server on %s", port)
-
-	lis, err := net.Listen("tcp", port)
-	if err != nil {
-		log.Fatalf("Failed to listen: %v", err)
-	}
+	log.Printf("Starting server on %s", addr)
 
 	s := grpc.NewServer()
-
 	ping.RegisterPingServiceServer(s, &server{})
 
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("Failed to serve: %v", err)
-	}
+	h := h2c.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Serve gRPC requests with the gRPC server
+		if r.ProtoMajor == 2 && r.Header.Get("Content-Type") == "application/grpc" {
+			s.ServeHTTP(w, r)
+		}
+		// Assume all other requests are health checks, return http.StatusOK
+	})}
+
+	log.Fatal(http.ListenAndServe(addr, h))
 }
