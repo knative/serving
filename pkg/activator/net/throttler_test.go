@@ -311,7 +311,7 @@ func TestThrottlerWithError(t *testing.T) {
 			if tc.ctxTimeout > 0 {
 				to = tc.ctxTimeout
 			}
-			tryContext, cancel2 := context.WithTimeout(context.TODO(), to)
+			tryContext, cancel2 := context.WithTimeout(context.Background(), to)
 			defer cancel2()
 
 			gotTries := tryThrottler(throttler, tc.trys, tryContext)
@@ -445,7 +445,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			// Wait for throttler to complete processing updates and exit
 			wg.Wait()
 
-			tryContext, cancel2 := context.WithTimeout(context.TODO(), 100*time.Millisecond)
+			tryContext, cancel2 := context.WithTimeout(context.Background(), 100*time.Millisecond)
 			defer cancel2()
 
 			gotTries := tryThrottler(throttler, tc.trys, tryContext)
@@ -520,7 +520,7 @@ func TestMultipleActivators(t *testing.T) {
 	}
 
 	// Test with 2 activators, 3 endpoints we can send 1 request and the second times out.
-	tryContext, cancel2 := context.WithTimeout(context.TODO(), 20*time.Millisecond)
+	tryContext, cancel2 := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel2()
 
 	results := tryThrottler(throttler, []types.NamespacedName{revID, revID}, tryContext)
