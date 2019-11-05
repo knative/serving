@@ -106,12 +106,18 @@ function update_clusters() {
   header "Done updating all clusters"
 }
 
+# Run the perf-tests tool
+# Parameters: $1..$n - parameters passed to the tool
+function run_perf_cluster_tool() {
+  go run ${REPO_ROOT_DIR}/vendor/knative.dev/pkg/testutils/clustermanager/perf-tests $@
+}
+
 # Delete the old clusters belonged to the current repo, and recreate them with the same configuration.
 function recreate_clusters() {
   header "Recreating clusters for ${REPO_NAME}"
-  go run ${REPO_ROOT_DIR}/vendor/knative.dev/pkg/testutils/clustermanager/perf-tests \
-    --recreate \
-    --gcp-project=${PROJECT_NAME} --repository=${REPO_NAME} --benchmark-root=${BENCHMARK_ROOT_PATH}
+  run_perf_cluster_tool --recreate \
+    --gcp-project=${PROJECT_NAME} --repository=${REPO_NAME} --benchmark-root=${BENCHMARK_ROOT_PATH} \
+    || abort "failed recreating clusters for ${REPO_NAME}"
   header "Done recreating clusters"
   # Update all clusters after they are recreated
   update_clusters
@@ -121,9 +127,9 @@ function recreate_clusters() {
 # This function will be run as postsubmit jobs.
 function reconcile_benchmark_clusters() {
   header "Reconciling clusters for ${REPO_NAME}"
-  go run ${REPO_ROOT_DIR}/vendor/knative.dev/pkg/testutils/clustermanager/perf-tests \
-    --reconcile \
-    --gcp-project=${PROJECT_NAME} --repository=${REPO_NAME} --benchmark-root=${BENCHMARK_ROOT_PATH}
+  run_perf_cluster_tool --reconcile \
+    --gcp-project=${PROJECT_NAME} --repository=${REPO_NAME} --benchmark-root=${BENCHMARK_ROOT_PATH} \
+    || abort "failed reconciling clusters for ${REPO_NAME}"
   header "Done reconciling clusters"
   # For now, do nothing after reconciling the clusters, and the next update_clusters job will automatically 
   # update them. So there will be a period that the newly created clusters are being idle, and the duration
