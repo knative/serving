@@ -43,6 +43,7 @@ import (
 	"time"
 
 	"github.com/mattbaird/jsonpatch"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -305,18 +306,24 @@ func WaitForServiceLatestRevision(clients *test.Clients, names test.ResourceName
 	err := WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
 		if s.Status.LatestCreatedRevisionName != names.Revision {
 			revisionName = s.Status.LatestCreatedRevisionName
+			// We also check that the revision is pinned, meaning it's not a stale revision.
+			// Without this it might happen that the latest created revision is later overriden by a newer one
+			// and the following check for LatestReadyRevisionName would fail.
+			if revErr := CheckRevisionState(clients.ServingAlphaClient, revisionName, IsRevisionPinned); revErr != nil {
+				return false, nil
+			}
 			return true, nil
 		}
 		return false, nil
 	}, "ServiceUpdatedWithRevision")
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "LatestCreatedRevisionName not updated")
 	}
 	err = WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
 		return (s.Status.LatestReadyRevisionName == revisionName), nil
 	}, "ServiceReadyWithRevision")
 
-	return revisionName, err
+	return revisionName, errors.Wrapf(err, "LatestReadyRevisionName not updated with %s", revisionName)
 }
 
 // LatestService returns a Service object in namespace with the name names.Service
