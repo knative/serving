@@ -123,7 +123,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	// Simple case.
 	throttler.numActivators = 1
 	throttler.activatorIndex = 0
-	rt.podIPTrackers = makeTrackers(1, 10)
+	rt.podTrackers = makeTrackers(1, 10)
 	rt.containerConcurrency = 10
 	rt.updateCapacity(throttler, 0 /* doesn't matter here*/)
 	if got, want := rt.breaker.Capacity(), 10; got != want {
@@ -131,7 +131,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	}
 
 	// 2 backends.
-	rt.podIPTrackers = makeTrackers(2, 10)
+	rt.podTrackers = makeTrackers(2, 10)
 	rt.updateCapacity(throttler, -1 /* doesn't matter here*/)
 	if got, want := rt.breaker.Capacity(), 20; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
@@ -145,7 +145,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	}
 
 	// 3 pods, index 0.
-	rt.podIPTrackers = makeTrackers(3, 10)
+	rt.podTrackers = makeTrackers(3, 10)
 	rt.updateCapacity(throttler, -1 /* doesn't matter here*/)
 	if got, want := rt.breaker.Capacity(), 15; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
@@ -161,21 +161,21 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 	// Inifinite capacity.
 	throttler.activatorIndex = 1
 	rt.containerConcurrency = 0
-	rt.podIPTrackers = makeTrackers(3, 0)
+	rt.podTrackers = makeTrackers(3, 0)
 	rt.updateCapacity(throttler, 1)
 	if got, want := rt.breaker.Capacity(), defaultMaxConcurrency; got != want {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
-	if got, want := len(rt.assignedTrackers), len(rt.podIPTrackers); got != want {
+	if got, want := len(rt.assignedTrackers), len(rt.podTrackers); got != want {
 		t.Errorf("Assigned tracker count = %d, want: %d, diff:\n%s", got, want,
-			cmp.Diff(rt.assignedTrackers, rt.podIPTrackers))
+			cmp.Diff(rt.assignedTrackers, rt.podTrackers))
 	}
 }
 
-func makeTrackers(num, cc int) []*podIPTracker {
-	x := make([]*podIPTracker, num)
+func makeTrackers(num, cc int) []*podTracker {
+	x := make([]*podTracker, num)
 	for i := 0; i < num; i++ {
-		x[i] = &podIPTracker{dest: strconv.Itoa(i)}
+		x[i] = &podTracker{dest: strconv.Itoa(i)}
 		if cc > 0 {
 			x[i].b = queue.NewBreaker(queue.BreakerParams{
 				QueueDepth:      1,
@@ -753,7 +753,7 @@ func TestPickIndices(t *testing.T) {
 }
 
 func TestAssignSlice(t *testing.T) {
-	trackers := []*podIPTracker{{
+	trackers := []*podTracker{{
 		dest: "2",
 	}, {
 		dest: "1",
@@ -761,32 +761,32 @@ func TestAssignSlice(t *testing.T) {
 		dest: "3",
 	}}
 	t.Run("notrackers", func(t *testing.T) {
-		got := assignSlice([]*podIPTracker{}, 0, 1, 0)
-		if !cmp.Equal(got, []*podIPTracker{}, cmpopts.IgnoreUnexported(podIPTracker{})) {
+		got := assignSlice([]*podTracker{}, 0, 1, 0)
+		if !cmp.Equal(got, []*podTracker{}, cmpopts.IgnoreUnexported(podTracker{})) {
 			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
-				cmp.Diff([]*podIPTracker{}, got, cmpopts.IgnoreUnexported(podIPTracker{})))
+				cmp.Diff([]*podTracker{}, got, cmpopts.IgnoreUnexported(podTracker{})))
 		}
 	})
 	t.Run("idx=-1", func(t *testing.T) {
 		got := assignSlice(trackers, -1, 1, 0)
-		if !cmp.Equal(got, trackers, cmpopts.IgnoreUnexported(podIPTracker{})) {
+		if !cmp.Equal(got, trackers, cmpopts.IgnoreUnexported(podTracker{})) {
 			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
-				cmp.Diff(trackers, got, cmpopts.IgnoreUnexported(podIPTracker{})))
+				cmp.Diff(trackers, got, cmpopts.IgnoreUnexported(podTracker{})))
 		}
 	})
 	t.Run("idx=1", func(t *testing.T) {
 		cp := append(trackers[:0:0], trackers...)
 		got := assignSlice(cp, 1, 3, 0)
-		if !cmp.Equal(got, trackers[0:1], cmpopts.IgnoreUnexported(podIPTracker{})) {
+		if !cmp.Equal(got, trackers[0:1], cmpopts.IgnoreUnexported(podTracker{})) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, trackers[0:1],
-				cmp.Diff(trackers[0:1], got, cmpopts.IgnoreUnexported(podIPTracker{})))
+				cmp.Diff(trackers[0:1], got, cmpopts.IgnoreUnexported(podTracker{})))
 		}
 	})
 	t.Run("len=1", func(t *testing.T) {
 		got := assignSlice(trackers[0:1], 1, 3, 0)
-		if !cmp.Equal(got, trackers[0:1], cmpopts.IgnoreUnexported(podIPTracker{})) {
+		if !cmp.Equal(got, trackers[0:1], cmpopts.IgnoreUnexported(podTracker{})) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, trackers[0:1],
-				cmp.Diff(trackers[0:1], got, cmpopts.IgnoreUnexported(podIPTracker{})))
+				cmp.Diff(trackers[0:1], got, cmpopts.IgnoreUnexported(podTracker{})))
 		}
 	})
 }

@@ -47,12 +47,12 @@ import (
 	"knative.dev/serving/pkg/resources"
 )
 
-type podIPTracker struct {
+type podTracker struct {
 	dest string
 	b    breaker
 }
 
-func (p *podIPTracker) Maybe(ctx context.Context, thunk func()) error {
+func (p *podTracker) Maybe(ctx context.Context, thunk func()) error {
 	// Infinite per pod capacity. Just execute.
 	if p.b == nil {
 		thunk()
@@ -61,14 +61,14 @@ func (p *podIPTracker) Maybe(ctx context.Context, thunk func()) error {
 	return p.b.Maybe(ctx, thunk)
 }
 
-func (p *podIPTracker) UpdateConcurrency(c int) error {
+func (p *podTracker) UpdateConcurrency(c int) error {
 	if p.b == nil {
 		return nil
 	}
 	return p.b.UpdateConcurrency(c)
 }
 
-func (p *podIPTracker) HasCapacity() bool {
+func (p *podTracker) HasCapacity() bool {
 	if p.b == nil {
 		return true
 	}
@@ -98,15 +98,15 @@ type revisionThrottler struct {
 	breaker breaker
 
 	// This will be non empty when we're able to use pod addressing.
-	podIPTrackers []*podIPTracker
+	podTrackers []*podTracker
 
 	// Effective trackers that are assigned to this Activator.
 	// This is a subset of podIPTrackers.
-	assignedTrackers []*podIPTracker
+	assignedTrackers []*podTracker
 
-	// If we dont have a healthy clusterIPDest this is set to nil, otherwise
+	// If we dont have a healthy clusterIPTracker this is set to nil, otherwise
 	// it is the l4dest for this revision's private clusterIP.
-	clusterIPDest *podIPTracker
+	clusterIPTracker *podTracker
 
 	// mux guards "throttle state" which is the state we use during the request path. This
 	// is trackers, clusterIPDest.
@@ -140,7 +140,7 @@ func newRevisionThrottler(revID types.NamespacedName,
 // pickPod picks the first tracker that has open capacity if container concurrency
 // if limited, random pod otherwise.
 // TODO(vagabaov): make this locally ideal, rather than mostly ideal.
-func pickPod(tgs []*podIPTracker, cc int64) *podIPTracker {
+func pickPod(tgs []*podTracker, cc int64) *podTracker {
 	// Infinite capacity, pick random. We have to do this
 	// otherwise _all_ the requests will go to the first pod
 	// since it has unlimited capacity.
@@ -157,12 +157,12 @@ func pickPod(tgs []*podIPTracker, cc int64) *podIPTracker {
 
 // Returns a dest that at the moment of choosing had an open slot
 // for request.
-func (rt *revisionThrottler) acquireDest() *podIPTracker {
+func (rt *revisionThrottler) acquireDest() *podTracker {
 	rt.mux.RLock()
 	defer rt.mux.RUnlock()
 
-	if rt.clusterIPDest != nil {
-		return rt.clusterIPDest
+	if rt.clusterIPTracker != nil {
+		return rt.clusterIPTracker
 	}
 	return pickPod(rt.assignedTrackers, rt.containerConcurrency)
 }
@@ -209,7 +209,7 @@ func (rt *revisionThrottler) resetTrackers() {
 	if rt.containerConcurrency <= 0 {
 		return
 	}
-	for _, t := range rt.podIPTrackers {
+	for _, t := range rt.podTrackers {
 		// Reset to default.
 		t.UpdateConcurrency(int(rt.containerConcurrency))
 	}
@@ -224,15 +224,15 @@ func (rt *revisionThrottler) updateCapacity(throttler *Throttler, backendCount i
 		rt.mux.Lock()
 		defer rt.mux.Unlock()
 		// We're using cluster IP.
-		if rt.clusterIPDest != nil {
+		if rt.clusterIPTracker != nil {
 			return 0
 		}
 		// Infifnite capacity, assign all.
 		if rt.containerConcurrency == 0 {
-			rt.assignedTrackers = rt.podIPTrackers
+			rt.assignedTrackers = rt.podTrackers
 		} else {
 			rt.resetTrackers()
-			rt.assignedTrackers = assignSlice(rt.podIPTrackers, throttler.index(), ac, int(rt.containerConcurrency))
+			rt.assignedTrackers = assignSlice(rt.podTrackers, throttler.index(), ac, int(rt.containerConcurrency))
 		}
 		rt.logger.Debugf("Trackers %d/%d  %v", throttler.index(), ac, rt.assignedTrackers)
 		return len(rt.assignedTrackers)
@@ -242,7 +242,7 @@ func (rt *revisionThrottler) updateCapacity(throttler *Throttler, backendCount i
 	if numTrackers > 0 {
 		// Capacity is computed based off of number of trackers,
 		// when using pod direct routing.
-		capacity = rt.calculateCapacity(len(rt.podIPTrackers), ac, throttler.breakerParams.MaxConcurrency)
+		capacity = rt.calculateCapacity(len(rt.podTrackers), ac, throttler.breakerParams.MaxConcurrency)
 	} else {
 		// Capacity is computed off of number of ready backends,
 		// when we are using clusterIP routing.
@@ -261,7 +261,7 @@ func (rt *revisionThrottler) updateCapacity(throttler *Throttler, backendCount i
 
 func (rt *revisionThrottler) updateThrottleState(
 	throttler *Throttler, backendCount int,
-	trackers []*podIPTracker, clusterIPDest *podIPTracker) {
+	trackers []*podTracker, clusterIPDest *podTracker) {
 	rt.logger.Infof("Updating Revision Throttler with: clusterIP = %v, trackers = %d, backends = %d activator pos %d/%d",
 		clusterIPDest, len(trackers), backendCount, throttler.index(), throttler.activatorCount())
 
@@ -271,8 +271,8 @@ func (rt *revisionThrottler) updateThrottleState(
 	if func() bool {
 		rt.mux.Lock()
 		defer rt.mux.Unlock()
-		rt.podIPTrackers = trackers
-		rt.clusterIPDest = clusterIPDest
+		rt.podTrackers = trackers
+		rt.clusterIPTracker = clusterIPDest
 		return clusterIPDest != nil || len(trackers) > 0
 	}() {
 		// If we have an address to target, then pass through an accurate
@@ -308,7 +308,7 @@ func pickIndices(numTrackers, selfIndex, numActivators int) (beginIndex, endInde
 // assignSlice picks a subset of the individual pods to send requests to
 // for this Activator instance. This only matters in case of direct
 // to pod IP routing, and is irrelevant, when ClusterIP is used.
-func assignSlice(trackers []*podIPTracker, selfIndex, numActivators, cc int) []*podIPTracker {
+func assignSlice(trackers []*podTracker, selfIndex, numActivators, cc int) []*podTracker {
 	// When we're unassigned, doesn't matter what we return.
 	lt := len(trackers)
 	if selfIndex == -1 || lt <= 1 {
@@ -344,12 +344,12 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionD
 	// array before taking out a lock.
 	if update.ClusterIPDest == "" {
 		// Create a map for fast lookup of existing trackers.
-		trackersMap := make(map[string]*podIPTracker, len(rt.podIPTrackers))
-		for _, tracker := range rt.podIPTrackers {
+		trackersMap := make(map[string]*podTracker, len(rt.podTrackers))
+		for _, tracker := range rt.podTrackers {
 			trackersMap[tracker.dest] = tracker
 		}
 
-		trackers := make([]*podIPTracker, 0, len(update.Dests))
+		trackers := make([]*podTracker, 0, len(update.Dests))
 
 		// Loop over dests, reuse existing tracker if we have one otherwise create
 		// a new one.
@@ -357,9 +357,9 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionD
 			tracker, ok := trackersMap[newDest]
 			if !ok {
 				if rt.containerConcurrency == 0 {
-					tracker = &podIPTracker{dest: newDest}
+					tracker = &podTracker{dest: newDest}
 				} else {
-					tracker = &podIPTracker{
+					tracker = &podTracker{
 						dest: newDest,
 						b: queue.NewBreaker(queue.BreakerParams{
 							QueueDepth:      throttler.breakerParams.QueueDepth,
@@ -376,7 +376,7 @@ func (rt *revisionThrottler) handleUpdate(throttler *Throttler, update revisionD
 		return
 	}
 
-	rt.updateThrottleState(throttler, len(update.Dests), nil /*trackers*/, &podIPTracker{
+	rt.updateThrottleState(throttler, len(update.Dests), nil /*trackers*/, &podTracker{
 		dest: update.ClusterIPDest,
 	})
 }
