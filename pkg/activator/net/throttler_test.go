@@ -315,10 +315,6 @@ func TestThrottlerWithError(t *testing.T) {
 			defer cancel2()
 
 			gotTries := tryThrottler(throttler, tc.trys, tryContext)
-			// The execution of tries is really random, so we'll sort the results
-			// since we care about what happened: where a request went and how they failed
-			// rather than what happened to each individual request.
-			sortTryResults(gotTries)
 
 			if got, want := gotTries, tc.wantResults; !cmp.Equal(got, want, cmp.AllowUnexported(tryResult{})) {
 				t.Errorf("Dests = %v, want: %v, diff: %s", got, want, cmp.Diff(want, got, cmp.AllowUnexported(tryResult{})))
@@ -528,10 +524,6 @@ func TestMultipleActivators(t *testing.T) {
 	defer cancel2()
 
 	results := tryThrottler(throttler, []types.NamespacedName{revID, revID}, tryContext)
-	// The execution of tries is really random, so we'll sort the results
-	// since we care about what happened: where a request went and how they failed
-	// rather than what happened to each individual request.
-	sortTryResults(results)
 	if !possibleDests.Has(results[0].dest) {
 		t.Errorf("Request went to an unknown destination: %s, possibles: %v", results[0].dest, possibleDests)
 	}
@@ -572,6 +564,10 @@ func tryThrottler(throttler *Throttler, trys []types.NamespacedName, ctx context
 	}
 
 	tryWaitg.Wait()
+	// The execution of tries is really random, so we'll sort the results
+	// since we care about what happened: where a request went and how they failed
+	// rather than what happened to each individual request.
+	sortTryResults(ret)
 	return ret
 }
 
