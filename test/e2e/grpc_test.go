@@ -62,7 +62,7 @@ func dial(host, domain string) (*grpc.ClientConn, error) {
 			grpc.WithAuthority(domain),
 			grpc.WithInsecure(),
 			// Retrying DNS errors to avoid .xip.io issues.
-			grpc.WithDefaultCallOptions(grpc.FailFast(false)),
+			grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
 		)
 	}
 	// This is a more preferred usage of the go-grpc client.
@@ -70,7 +70,7 @@ func dial(host, domain string) (*grpc.ClientConn, error) {
 		host,
 		grpc.WithInsecure(),
 		// Retrying DNS errors to avoid .xip.io issues.
-		grpc.WithDefaultCallOptions(grpc.FailFast(false)),
+		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
 	)
 }
 
