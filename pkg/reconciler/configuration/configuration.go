@@ -204,10 +204,6 @@ func (c *Reconciler) findAndSetLatestReadyRevision(config *v1alpha1.Configuratio
 	}
 	for _, rev := range sortedRevisions {
 		if rev.Status.IsReady() {
-			// No need to update latest ready revision in this case
-			if rev.Name == config.Status.LatestReadyRevisionName && !lcrReady {
-				return nil
-			}
 			old, new := config.Status.LatestReadyRevisionName, rev.Name
 			config.Status.SetLatestReadyRevisionName(rev.Name)
 			if old != new {
