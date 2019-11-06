@@ -202,13 +202,6 @@ func WithLowerScaleBound(i int) PodAutoscalerOption {
 	return withAnnotationValue(autoscaling.MinScaleAnnotationKey, strconv.Itoa(i))
 }
 
-// WithMSvcStatus sets the name of the metrics service.
-func WithMSvcStatus(s string) PodAutoscalerOption {
-	return func(pa *asv1a1.PodAutoscaler) {
-		pa.Status.MetricsServiceName = kmeta.ChildName(s, "-metrics")
-	}
-}
-
 // K8sServiceOption enables further configuration of the Kubernetes Service.
 type K8sServiceOption func(*corev1.Service)
 
