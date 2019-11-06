@@ -48,9 +48,12 @@ aliases:
   - mdemirhan
   - tcnghia
   - vagababov
+
   networking-reviewers:
   - markusthoemmes
   - mdemirhan
+  - nak3
   - tcnghia
   - vagababov
-
+  - yanweiguo
+  - zhiminx
