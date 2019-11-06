@@ -168,8 +168,7 @@ func CreateRunLatestServiceReady(t *testing.T, clients *test.Clients, names *tes
 			},
 			TLS: tlsOptions,
 		}}
-		domainName := strings.SplitN(names.URL.Host, ".", 2)[1]
-		httpsTransportOption, err = setupHTTPS(t, clients.KubeClient, names.Service, domainName)
+		httpsTransportOption, err = setupHTTPS(t, clients.KubeClient, names.URL.Host)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -480,10 +479,9 @@ func setupGateway(t *testing.T, clients *test.Clients, servers []v1alpha3.Server
 
 // setupHTTPS creates a self-signed certificate, installs it as a Secret and returns an *http.Transport
 // trusting the certificate as a root CA.
-func setupHTTPS(t *testing.T, kubeClient *ptest.KubeClient, serviceName, domain string) (*spoof.TransportOption, error) {
+func setupHTTPS(t *testing.T, kubeClient *ptest.KubeClient, host string) (*spoof.TransportOption, error) {
 	t.Helper()
-	hosts := []string{serviceName + "." + domain}
-	cert, key, err := generateCertificate(hosts)
+	cert, key, err := generateCertificate(host)
 	if err != nil {
 		return nil, err
 	}
@@ -519,9 +517,9 @@ func setupHTTPS(t *testing.T, kubeClient *ptest.KubeClient, serviceName, domain 
 	return &transportOption, nil
 }
 
-// generateCertificate generates a self-signed certificate for the provided hosts and returns
+// generateCertificate generates a self-signed certificate for the provided host and returns
 // the PEM encoded certificate and private key.
-func generateCertificate(hosts []string) ([]byte, []byte, error) {
+func generateCertificate(host string) ([]byte, []byte, error) {
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to generate private key: %v", err)
@@ -549,12 +547,10 @@ func generateCertificate(hosts []string) ([]byte, []byte, error) {
 		BasicConstraintsValid: true,
 	}
 
-	for _, h := range hosts {
-		if ip := net.ParseIP(h); ip != nil {
-			template.IPAddresses = append(template.IPAddresses, ip)
-		} else {
-			template.DNSNames = append(template.DNSNames, h)
-		}
+	if ip := net.ParseIP(host); ip != nil {
+		template.IPAddresses = append(template.IPAddresses, ip)
+	} else {
+		template.DNSNames = append(template.DNSNames, host)
 	}
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
