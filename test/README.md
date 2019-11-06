@@ -169,6 +169,7 @@ these flags:
 - [`--tag`](#using-a-docker-tag)
 - [`--ingressendpoint`](#using-a-custom-ingress-endpoint)
 - [`--resolvabledomain`](#using-a-resolvable-domain)
+- [`--https`](#using-https)
 
 ### Overridding docker repo
 
@@ -226,3 +227,7 @@ the header.
 If you have configured your cluster to use a resolvable domain, you can use the
 `--resolvabledomain` flag to indicate that the test should make requests
 directly against `Route.Status.Domain` and does not need to spoof the `Host`.
+
+### Using https
+
+You can use the `--https` flag to have all tests run with https.

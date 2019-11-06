@@ -89,7 +89,8 @@ func TestIstioProbing(t *testing.T) {
 		}
 		test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 		defer test.TearDown(clients, names)
-		objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names)
+		objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+			false /* https TODO(taragu) turn this on after helloworld test running with https */)
 		if err != nil {
 			t.Fatalf("Failed to create Service %s: %v", names.Service, err)
 		}
@@ -264,7 +265,7 @@ func TestIstioProbing(t *testing.T) {
 			// Create the service and wait for it to be ready
 			test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 			defer test.TearDown(clients, names)
-			_, err = v1a1test.CreateRunLatestServiceReady(t, clients, &names)
+			_, _, err = v1a1test.CreateRunLatestServiceReady(t, clients, &names, false /* https */)
 			if err != nil {
 				t.Fatalf("Failed to create Service %s: %v", names.Service, err)
 			}

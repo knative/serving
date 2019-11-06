@@ -29,6 +29,8 @@ CERT_MANAGER_VERSION="0.9.1"
 ISTIO_VERSION=""
 GLOO_VERSION=""
 
+HTTPS=0
+
 # Current YAMLs used to install Knative Serving.
 INSTALL_RELEASE_YAML=""
 INSTALL_MONITORING_YAML=""
@@ -66,6 +68,10 @@ function parse_flags() {
       ;;
     --no-mesh)
       readonly MESH=0
+      return 1
+      ;;
+    --https)
+      readonly HTTPS=1
       return 1
       ;;
     --install-monitoring)
@@ -290,6 +296,14 @@ function use_resolvable_domain() {
   echo "false"
 }
 
+# Check if we should use --https.
+function use_https() {
+  if (( HTTPS )); then
+    echo "--https"
+  else
+    echo ""
+  fi
+}
 
 # Uninstalls Knative Serving from the current cluster.
 function knative_teardown() {
