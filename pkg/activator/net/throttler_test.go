@@ -18,6 +18,7 @@ package net
 
 import (
 	"context"
+	"sort"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -58,6 +59,17 @@ var defaultParams = queue.BreakerParams{
 type tryResult struct {
 	dest      string
 	errString string
+}
+
+func sortTryResults(tr []tryResult) {
+	sort.Slice(tr, func(i, j int) bool {
+		// Succeses, ordered by IP, then
+		// failures ordered by error.
+		if tr[i].dest != "" {
+			return tr[j].dest == "" || tr[i].dest < tr[j].dest
+		}
+		return tr[j].dest == "" && tr[i].errString < tr[j].errString
+	})
 }
 
 func TestThrottlerUpdateCapacity(t *testing.T) {
@@ -195,6 +207,7 @@ func TestThrottlerWithError(t *testing.T) {
 		initUpdate  revisionDestsUpdate
 		delete      *types.NamespacedName
 		trys        []types.NamespacedName
+		ctxTimeout  time.Duration
 		wantResults []tryResult
 	}{{
 		name:     "second request timeout",
@@ -210,6 +223,23 @@ func TestThrottlerWithError(t *testing.T) {
 		},
 		wantResults: []tryResult{
 			{dest: "129.0.0.1:1234"},
+			{errString: context.DeadlineExceeded.Error()},
+		},
+	}, {
+		name:     "both requests time out",
+		revision: revisionCC1(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
+		initUpdate: revisionDestsUpdate{
+			Rev:           types.NamespacedName{testNamespace, testRevision},
+			ClusterIPDest: "129.0.0.1:1234",
+			Dests:         sets.NewString("128.0.0.1:1234"),
+		},
+		trys: []types.NamespacedName{
+			{Namespace: testNamespace, Name: testRevision},
+			{Namespace: testNamespace, Name: testRevision},
+		},
+		ctxTimeout: 10 * time.Millisecond,
+		wantResults: []tryResult{
+			{errString: context.DeadlineExceeded.Error()},
 			{errString: context.DeadlineExceeded.Error()},
 		},
 	}, {
@@ -272,8 +302,11 @@ func TestThrottlerWithError(t *testing.T) {
 				time.Sleep(200 * time.Millisecond)
 			}
 
-			// Account for the timeout in `tryThrottler`.
-			tryContext, cancel2 := context.WithTimeout(context.TODO(), 20*time.Millisecond)
+			to := 20 * time.Millisecond
+			if tc.ctxTimeout > 0 {
+				to = tc.ctxTimeout
+			}
+			tryContext, cancel2 := context.WithTimeout(context.Background(), to)
 			defer cancel2()
 
 			gotTries := tryThrottler(throttler, tc.trys, tryContext)
@@ -406,7 +439,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			// Wait for throttler to complete processing updates and exit
 			wg.Wait()
 
-			tryContext, cancel2 := context.WithTimeout(context.TODO(), 100*time.Millisecond)
+			tryContext, cancel2 := context.WithTimeout(context.Background(), 100*time.Millisecond)
 			defer cancel2()
 
 			gotTries := tryThrottler(throttler, tc.trys, tryContext)
@@ -584,7 +617,7 @@ func TestMultipleActivators(t *testing.T) {
 	}
 
 	// Test with 2 activators, 3 endpoints we can send 1 request and the second times out.
-	tryContext, cancel2 := context.WithTimeout(context.TODO(), 20*time.Millisecond)
+	tryContext, cancel2 := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel2()
 
 	results := tryThrottler(throttler, []types.NamespacedName{revID, revID}, tryContext)
@@ -615,17 +648,23 @@ func tryThrottler(throttler *Throttler, trys []types.NamespacedName, ctx context
 			defer tryWaitg.Done()
 			if err := throttler.Try(ctx, revID, func(dest string) error {
 				ret[i] = tryResult{dest: dest}
-				time.Sleep(time.Millisecond * 25) // Simulate processing time.
-				return nil
+				select {
+				case <-time.After(15 * time.Millisecond): // Proxy simulation.
+				case <-ctx.Done():
+					// Timeout.
+				}
+				return ctx.Err()
 			}); err != nil {
 				ret[i] = tryResult{errString: err.Error()}
 			}
 		}(i, revID)
-		// Stagger the requests, a bit, to account for imperfection.
-		time.Sleep(time.Millisecond * 3)
 	}
 
 	tryWaitg.Wait()
+	// The execution of tries is really random, so we'll sort the results
+	// since we care about what happened: where a request went and how they failed
+	// rather than what happened to each individual request.
+	sortTryResults(ret)
 	return ret
 }
 
