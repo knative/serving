@@ -37,6 +37,7 @@ import (
 	ktesting "k8s.io/client-go/testing"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
@@ -413,6 +414,23 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create HPA: inducing failure for create horizontalpodautoscalers"),
 		},
+	}, {
+		Name: "remove metric service",
+		Objects: []runtime.Object{
+			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
+			pa(testNamespace, testRevision, WithHPAClass, WithTraffic, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
+			deploy(testNamespace, testRevision),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
+			metricService(pa(testNamespace, testRevision)),
+		},
+		WantDeletes: []ktesting.DeleteActionImpl{{
+			Name: testRevision + "-bogus",
+			ActionImpl: ktesting.ActionImpl{
+				Namespace: testNamespace,
+				Verb:      "delete",
+			},
+		}},
+		Key: key(testNamespace, testRevision),
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
@@ -514,6 +532,21 @@ func metric(pa *asv1a1.PodAutoscaler, msvcName string, opts ...metricOption) *as
 		o(m)
 	}
 	return m
+}
+
+// TODO(5900): Remove after 0.12 is cut.
+func metricService(pa *asv1a1.PodAutoscaler) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pa.Name + "-bogus",
+			Namespace: pa.Namespace,
+			Labels: map[string]string{
+				autoscaling.KPALabelKey:   pa.Name,
+				networking.ServiceTypeKey: string(networking.ServiceTypeMetrics),
+			},
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(pa)},
+		},
+	}
 }
 
 func defaultConfig() *config.Config {

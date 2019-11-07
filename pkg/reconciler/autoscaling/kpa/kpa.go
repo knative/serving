@@ -143,6 +143,11 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		return fmt.Errorf("error reconciling Metric: %w", err)
 	}
 
+	// Metrics services are no longer needed as we use the private services now.
+	if err := c.DeleteMetricsServices(ctx, pa); err != nil {
+		return err
+	}
+
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
 	want, err := c.scaler.Scale(ctx, pa, sks, decider.Status.DesiredScale)

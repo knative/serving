@@ -152,6 +152,11 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 		pa.Status.MarkActive()
 	}
 
+	// Metrics services are no longer needed as we use the private services now.
+	if err := c.DeleteMetricsServices(ctx, pa); err != nil {
+		return err
+	}
+
 	pa.Status.ObservedGeneration = pa.Generation
 	return nil
 }
