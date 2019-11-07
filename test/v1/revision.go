@@ -77,10 +77,8 @@ func IsRevisionReady(r *v1.Revision) (bool, error) {
 
 // IsRevisionPinned will check if the revision is pinned to a route.
 func IsRevisionPinned(r *v1.Revision) (bool, error) {
-	if _, ok := r.Annotations[serving.RevisionLastPinnedAnnotationKey]; !ok {
-		return false, fmt.Errorf("Revision %s not pinned", r.Name)
-	}
-	return true, nil
+	_, pinned := r.Annotations[serving.RevisionLastPinnedAnnotationKey]
+	return pinned, nil
 }
 
 // IsRevisionAtExpectedGeneration returns a function that will check if the annotations
