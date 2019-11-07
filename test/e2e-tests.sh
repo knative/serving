@@ -52,7 +52,7 @@ go_test_e2e -timeout=30m \
   ./test/conformance/... \
   ./test/e2e \
   ${parallelism} \
-  "--resolvabledomain=$(use_resolvable_domain)" || failed=1
+  "--resolvabledomain=$(use_resolvable_domain)" "$(use_https)" || failed=1
 
 # Run scale tests.
 go_test_e2e -timeout=10m \
@@ -63,7 +63,7 @@ go_test_e2e -timeout=10m \
 if [[ -n "${ISTIO_VERSION}" ]]; then
   go_test_e2e -timeout=10m \
     ./test/e2e/istio \
-    "--resolvabledomain=$(use_resolvable_domain)" || failed=1
+    "--resolvabledomain=$(use_resolvable_domain)" "$(use_https)" || failed=1
 fi
 
 # Dump cluster state in case of failure

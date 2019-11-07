@@ -67,6 +67,11 @@ func NewBreaker(params BreakerParams) *Breaker {
 	}
 }
 
+// HasCapacity returns if the breaker can accept a request.
+func (b *Breaker) HasCapacity() bool {
+	return b.sem.hasCapacity()
+}
+
 // Maybe conditionally executes thunk based on the Breaker concurrency
 // and queue parameters. If the concurrency limit and queue capacity are
 // already consumed, Maybe returns immediately without calling thunk. If
@@ -231,4 +236,9 @@ func (s *semaphore) Capacity() int {
 	defer s.mux.RUnlock()
 
 	return s.effectiveCapacity()
+}
+
+// A helper returning whether current capacity is positive.
+func (s *semaphore) hasCapacity() bool {
+	return len(s.queue) > 0
 }

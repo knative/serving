@@ -55,6 +55,7 @@ var ServingFlags = initializeServingFlags()
 // ServingEnvironmentFlags holds the e2e flags needed only by the serving repo.
 type ServingEnvironmentFlags struct {
 	ResolvableDomain bool // Resolve Route controller's `domainSuffix`
+	Https            bool // Indicates where the test service will be created with https
 }
 
 // initializeServingFlags registers flags used by e2e tests, calling flag.Parse() here would fail in
@@ -64,6 +65,8 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 
 	flag.BoolVar(&f.ResolvableDomain, "resolvabledomain", false,
 		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
+	flag.BoolVar(&f.Https, "https", false,
+		"Set this flag to true to run all tests with https.")
 
 	flag.Set("alsologtostderr", "true")
 	logging.InitializeLogger(test.Flags.LogVerbose)

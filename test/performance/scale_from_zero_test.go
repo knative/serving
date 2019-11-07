@@ -131,8 +131,10 @@ func createServices(t *testing.T, pc *Client, count int) ([]*v1a1test.ResourceOb
 		ndx := i
 		g.Go(func() error {
 			var err error
-			if objs[ndx], err = v1a1test.CreateRunLatestServiceReady(t, pc.E2EClients, testNames[ndx], sos...); err != nil {
-				return fmt.Errorf("%02d: failed to create Ready service: %w", ndx, err)
+			if objs[ndx], _, err = v1a1test.CreateRunLatestServiceReady(t, pc.E2EClients, testNames[ndx],
+				false /* https TODO(taragu) turn this on after helloworld test running with https */,
+				sos...); err != nil {
+				return fmt.Errorf("%02d: failed to create Ready service: %v", ndx, err)
 			}
 			return nil
 		})

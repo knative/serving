@@ -90,6 +90,9 @@ func TestConfigurationConversion(t *testing.T) {
 						RevisionSpec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								ServiceAccountName: "robocop",
+								ImagePullSecrets: []corev1.LocalObjectReference{{
+									Name: "foo",
+								}},
 								Containers: []corev1.Container{{
 									Image: "busybox",
 									VolumeMounts: []corev1.VolumeMount{{

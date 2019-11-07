@@ -62,7 +62,7 @@ func dial(host, domain string) (*grpc.ClientConn, error) {
 			grpc.WithAuthority(domain),
 			grpc.WithInsecure(),
 			// Retrying DNS errors to avoid .xip.io issues.
-			grpc.WithDefaultCallOptions(grpc.FailFast(false)),
+			grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
 		)
 	}
 	// This is a more preferred usage of the go-grpc client.
@@ -70,7 +70,7 @@ func dial(host, domain string) (*grpc.ClientConn, error) {
 		host,
 		grpc.WithInsecure(),
 		// Retrying DNS errors to avoid .xip.io issues.
-		grpc.WithDefaultCallOptions(grpc.FailFast(false)),
+		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
 	)
 }
 
@@ -169,7 +169,9 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, fopts...)
+	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false /* https TODO(taragu) turn this on after helloworld test running with https */,
+		fopts...)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}

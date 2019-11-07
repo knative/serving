@@ -94,7 +94,7 @@ func parseGateways(configMap *corev1.ConfigMap, prefix string) ([]Gateway, error
 	urls := map[string]string{}
 	gatewayNames := []string{}
 	for k, v := range configMap.Data {
-		if !strings.HasPrefix(k, prefix) {
+		if !strings.HasPrefix(k, prefix) || k == prefix {
 			continue
 		}
 		gatewayName, serviceURL := k[len(prefix):], v
@@ -107,9 +107,18 @@ func parseGateways(configMap *corev1.ConfigMap, prefix string) ([]Gateway, error
 	sort.Strings(gatewayNames)
 	gateways := make([]Gateway, len(gatewayNames))
 	for i, gatewayName := range gatewayNames {
+		var namespace, name string
+		parts := strings.SplitN(gatewayName, ".", 2)
+		if len(parts) == 1 {
+			namespace = system.Namespace()
+			name = parts[0]
+		} else {
+			namespace = parts[0]
+			name = parts[1]
+		}
 		gateways[i] = Gateway{
-			Namespace:  system.Namespace(),
-			Name:       gatewayName,
+			Namespace:  namespace,
+			Name:       name,
 			ServiceURL: urls[gatewayName],
 		}
 	}

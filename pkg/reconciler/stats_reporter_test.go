@@ -85,7 +85,7 @@ func getMetric(t *testing.T, metric string) *view.Row {
 }
 
 func TestWithStatsReporter(t *testing.T) {
-	if WithStatsReporter(context.TODO(), nil) == nil {
+	if WithStatsReporter(context.Background(), nil) == nil {
 		t.Errorf("stats reporter reports empty context")
 	}
 }

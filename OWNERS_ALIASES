@@ -16,14 +16,10 @@ aliases:
   - vagababov
 
   autoscaling-approvers:
-  - greghaynes
-  - josephburnett
   - markusthoemmes
   - mdemirhan
   - vagababov
   autoscaling-reviewers:
-  - greghaynes
-  - josephburnett
   - markusthoemmes
   - mdemirhan
   - taragu
@@ -52,9 +48,12 @@ aliases:
   - mdemirhan
   - tcnghia
   - vagababov
+
   networking-reviewers:
   - markusthoemmes
   - mdemirhan
+  - nak3
   - tcnghia
   - vagababov
-
+  - yanweiguo
+  - ZhiminXiang
