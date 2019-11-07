@@ -152,6 +152,11 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 		pa.Status.MarkActive()
 	}
 
+	// TODO(5900): Remove after 0.11 is cut.
+	if err := c.DeleteMetricsServices(ctx, pa); err != nil {
+		return err
+	}
+
 	pa.Status.ObservedGeneration = pa.Generation
 	return nil
 }

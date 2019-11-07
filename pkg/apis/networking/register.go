@@ -95,6 +95,7 @@ const (
 	ServiceTypePublic ServiceType = "Public"
 	// ServiceTypeMetrics is the label value for Metrics services. Such services
 	// are used for meric scraping.
+	// TODO(5900): Remove after 0.11 is cut.
 	ServiceTypeMetrics ServiceType = "Metrics"
 )
 
