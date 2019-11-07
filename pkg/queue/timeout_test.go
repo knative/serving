@@ -16,6 +16,7 @@ limitations under the License.
 package queue
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -25,7 +26,7 @@ import (
 
 func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 	const (
-		failingTimeout = 1 * time.Millisecond
+		failingTimeout = 0 * time.Millisecond
 		longTimeout    = 10 * time.Second
 	)
 
@@ -43,18 +44,6 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 		timeout: longTimeout,
 		handler: func(*sync.Mutex, chan error) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.Write([]byte("hi"))
-			})
-		},
-		wantStatus: http.StatusOK,
-		wantBody:   "hi",
-	}, {
-		name:    "write then sleep",
-		timeout: 50 * time.Millisecond,
-		handler: func(*sync.Mutex, chan error) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusOK)
-				time.Sleep(100 * time.Millisecond) // sleep longer than the timeout.
 				w.Write([]byte("hi"))
 			})
 		},
@@ -126,5 +115,25 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestTimeoutWriterAllowsForAdditionalWrites(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	handler := &timeoutWriter{
+		w: recorder,
+	}
+
+	handler.WriteHeader(200)
+	handler.TimeoutAndWriteError("error")
+	if _, err := io.WriteString(handler, "test"); err != nil {
+		t.Fatalf("handler.Write() = %v, want no error", err)
+	}
+
+	if got, want := recorder.Code, 200; got != want {
+		t.Errorf("recorder.Status = %d, want %d", got, want)
+	}
+	if got, want := recorder.Body.String(), "test"; got != want {
+		t.Errorf("recorder.Body = %s, want %s", got, want)
 	}
 }
