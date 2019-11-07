@@ -124,13 +124,13 @@ func TestTimeoutWriterAllowsForAdditionalWrites(t *testing.T) {
 		w: recorder,
 	}
 
-	handler.WriteHeader(200)
+	handler.WriteHeader(http.StatusOK)
 	handler.TimeoutAndWriteError("error")
 	if _, err := io.WriteString(handler, "test"); err != nil {
 		t.Fatalf("handler.Write() = %v, want no error", err)
 	}
 
-	if got, want := recorder.Code, 200; got != want {
+	if got, want := recorder.Code, http.StatusOK; got != want {
 		t.Errorf("recorder.Status = %d, want %d", got, want)
 	}
 	if got, want := recorder.Body.String(), "test"; got != want {
