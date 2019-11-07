@@ -386,6 +386,19 @@ func TestThrottlerSuccesses(t *testing.T) {
 		},
 		wantDests: sets.NewString("128.0.0.2:1234", "128.0.0.1:1234"),
 	}, {
+		name:     "clumping test",
+		revision: revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1, 3),
+		initUpdates: []revisionDestsUpdate{{
+			Rev:   types.NamespacedName{testNamespace, testRevision},
+			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
+		}},
+		trys: []types.NamespacedName{
+			{Namespace: testNamespace, Name: testRevision},
+			{Namespace: testNamespace, Name: testRevision},
+			{Namespace: testNamespace, Name: testRevision},
+		},
+		wantDests: sets.NewString("128.0.0.1:1234"),
+	}, {
 		name:     "multiple ClusterIP requests",
 		revision: revisionCC1(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
 		initUpdates: []revisionDestsUpdate{{
