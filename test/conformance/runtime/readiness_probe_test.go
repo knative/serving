@@ -45,15 +45,15 @@ func TestProbeRuntime(t *testing.T) {
 
 	t.Log("Creating a new Service")
 	_, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		false /* https TODO(taragu) turn this on after helloworld test running with https */,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
 		v1a1opts.WithReadinessProbe(
-		&corev1.Probe{
-			Handler: corev1.Handler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Path: "/healthz",
+			&corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/healthz",
+					},
 				},
-			},
-		}))
+			}))
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}

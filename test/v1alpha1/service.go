@@ -30,10 +30,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/watch"
-	"knative.dev/pkg/apis/istio/v1alpha3"
-	"knative.dev/pkg/test/spoof"
 	"math/big"
 	"net"
 	"net/http"
@@ -41,6 +37,11 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/watch"
+	"knative.dev/pkg/apis/istio/v1alpha3"
+	"knative.dev/pkg/test/spoof"
 
 	"github.com/mattbaird/jsonpatch"
 	corev1 "k8s.io/api/core/v1"
@@ -58,13 +59,14 @@ import (
 
 const (
 	// Namespace is the namespace of the ingress gateway
-	Namespace            = "knative-serving"
+	Namespace = "knative-serving"
 
 	// GatewayName is the name of the ingress gateway
-	GatewayName          = "knative-ingress-gateway"
+	GatewayName = "knative-ingress-gateway"
 )
+
 var (
-	domainName           *string
+	domainName *string
 )
 
 func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNames) error {

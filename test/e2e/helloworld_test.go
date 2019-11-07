@@ -52,7 +52,7 @@ func TestHelloWorld(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to get Gateway %s/%s", v1a1test.Namespace, v1a1test.GatewayName)
 		}
-		test.CleanupOnInterrupt(func () { v1a1test.RestoreGateway(t, clients, *oldGateway) })
+		test.CleanupOnInterrupt(func() { v1a1test.RestoreGateway(t, clients, *oldGateway) })
 		defer v1a1test.RestoreGateway(t, clients, *oldGateway)
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
@@ -118,7 +118,7 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 
 	t.Log("Creating a new Service")
 	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		false /* https TODO(taragu) turn this on after helloworld test running with https */,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
 		v1a1opts.WithResourceRequirements(corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceName("cpu"):    resource.MustParse("50m"),
