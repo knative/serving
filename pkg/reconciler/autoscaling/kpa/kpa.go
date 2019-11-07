@@ -143,7 +143,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		return fmt.Errorf("error reconciling Metric: %w", err)
 	}
 
-	// TODO(5900): Remove after 0.11 is cut.
+	// Metrics services are no longer needed as we use the private services now.
 	if err := c.DeleteMetricsServices(ctx, pa); err != nil {
 		return err
 	}

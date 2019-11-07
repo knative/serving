@@ -534,7 +534,7 @@ func metric(pa *asv1a1.PodAutoscaler, msvcName string, opts ...metricOption) *as
 	return m
 }
 
-// TODO(5900): Remove after 0.11 is cut.
+// TODO(5900): Remove after 0.12 is cut.
 func metricService(pa *asv1a1.PodAutoscaler) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{

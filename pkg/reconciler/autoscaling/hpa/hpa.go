@@ -152,7 +152,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 		pa.Status.MarkActive()
 	}
 
-	// TODO(5900): Remove after 0.11 is cut.
+	// Metrics services are no longer needed as we use the private services now.
 	if err := c.DeleteMetricsServices(ctx, pa); err != nil {
 		return err
 	}

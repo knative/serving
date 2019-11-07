@@ -87,7 +87,7 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, m
 }
 
 // DeleteMetricsServices removes all metrics services for the current PA.
-// TODO(5900): Remove after 0.11 is cut.
+// TODO(5900): Remove after 0.12 is cut.
 func (c *Base) DeleteMetricsServices(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
 	logger := logging.FromContext(ctx)
 

@@ -183,7 +183,7 @@ func markResourceNotOwned(rType, name string) PodAutoscalerOption {
 	}
 }
 
-// TODO(5900): Remove after 0.11 is cut.
+// TODO(5900): Remove after 0.12 is cut.
 func metricService(pa *asv1a1.PodAutoscaler) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
