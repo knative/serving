@@ -387,6 +387,38 @@ func TestReconcile(t *testing.T) {
 				WithCreationTimestamp(now), MarkRevisionReady),
 		},
 		Key: "foo/double-trouble",
+	}, {
+		Name: "three revisions with the latest revision failed, the latest ready should be updated to the last ready revision",
+		Objects: []runtime.Object{
+			cfg("threerevs", "foo", 3,
+				WithLatestCreated("threerevs-00002"),
+				WithLatestReady("threerevs-00001"), WithObservedGen, func(cfg *v1alpha1.Configuration) {
+					cfg.Spec.GetTemplate().Name = "threerevs-00003"
+				},
+			),
+			rev("threerevs", "foo", 1,
+				WithRevName("threerevs-00001"),
+				WithCreationTimestamp(now), MarkRevisionReady),
+			rev("threerevs", "foo", 2,
+				WithRevName("threerevs-00002"),
+				WithCreationTimestamp(now), MarkRevisionReady),
+			rev("threerevs", "foo", 3,
+				WithRevName("threerevs-00003"),
+				WithCreationTimestamp(now), MarkInactive("", "")),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfg("threerevs", "foo", 3,
+				WithLatestCreated("threerevs-00003"),
+				WithLatestReady("threerevs-00002"),
+				WithObservedGen, func(cfg *v1alpha1.Configuration) {
+					cfg.Spec.GetTemplate().Name = "threerevs-00003"
+				},
+			),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "LatestReadyUpdate", "LatestReadyRevisionName updated to %q", "threerevs-00002"),
+		},
+		Key: "foo/threerevs",
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
