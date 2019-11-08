@@ -49,7 +49,11 @@ function parse_flags() {
   case "$1" in
     --istio-version)
       [[ $2 =~ ^[0-9]+\.[0-9]+(\.[0-9]+|\-latest)$ ]] || abort "version format must be '[0-9].[0-9].[0-9]' or '[0-9].[0-9]-latest"
-      readonly ISTIO_VERSION=$2
+      # TOTAL HACK BELOW - DO NOT COMMIT
+      # FORCE KOURIER TO RUN INSTEAD OF ISTIO
+      # NEVER MERGE THIS PR WITH THIS IN
+      #readonly ISTIO_VERSION=$2
+      readonly KOURIER_VERSION="0.2.2"
       GATEWAY_SETUP=1
       return 2
       ;;
