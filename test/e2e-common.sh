@@ -237,6 +237,20 @@ function install_knative_serving_standard() {
   fi
   if [[ -n "${KOURIER_VERSION}" ]]; then
     install_kourier
+
+    echo ">> Making Kourier the default ingress"
+    cat <<EOF | kubectl apply --dry-run -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-network
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
+data:
+  ingress.class: "kourier.ingress.networking.knative.dev"
+  clusteringress.class: "kourier.ingress.networking.knative.dev"
+EOF
   fi
 
   echo ">> Installing Cert-Manager"
