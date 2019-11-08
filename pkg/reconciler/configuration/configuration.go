@@ -187,17 +187,14 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 		return fmt.Errorf("unrecognized condition status: %v on revision %q", rc.Status, revName)
 	}
 
-	lcrReady := rc != nil && rc.Status == corev1.ConditionTrue
-	if err = c.findAndSetLatestReadyRevision(config, lcrReady); err != nil {
+	if err = c.findAndSetLatestReadyRevision(config); err != nil {
 		return fmt.Errorf("failed to find and set latest ready revision: %w", err)
 	}
-
 	return nil
 }
 
 // findAndSetLatestReadyRevision finds the last ready revision and sets LatestReadyRevisionName to it.
-// lcrReady indicates whether the latest created revision is ready or not.
-func (c *Reconciler) findAndSetLatestReadyRevision(config *v1alpha1.Configuration, lcrReady bool) error {
+func (c *Reconciler) findAndSetLatestReadyRevision(config *v1alpha1.Configuration) error {
 	sortedRevisions, err := c.getSortedCreatedRevisions(config)
 	if err != nil {
 		return err
