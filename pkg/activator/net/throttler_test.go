@@ -302,7 +302,7 @@ func TestThrottlerWithError(t *testing.T) {
 				time.Sleep(200 * time.Millisecond)
 			}
 
-			to := 20 * time.Millisecond
+			to := 90 * time.Millisecond
 			if tc.ctxTimeout > 0 {
 				to = tc.ctxTimeout
 			}
@@ -452,7 +452,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			// Wait for throttler to complete processing updates and exit
 			wg.Wait()
 
-			tryContext, cancel2 := context.WithTimeout(context.Background(), 100*time.Millisecond)
+			tryContext, cancel2 := context.WithTimeout(context.Background(), 200*time.Millisecond)
 			defer cancel2()
 
 			gotTries := tryThrottler(throttler, tc.trys, tryContext)
@@ -630,7 +630,7 @@ func TestMultipleActivators(t *testing.T) {
 	}
 
 	// Test with 2 activators, 3 endpoints we can send 1 request and the second times out.
-	tryContext, cancel2 := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	tryContext, cancel2 := context.WithTimeout(context.Background(), 90*time.Millisecond)
 	defer cancel2()
 
 	results := tryThrottler(throttler, []types.NamespacedName{revID, revID}, tryContext)
@@ -662,7 +662,7 @@ func tryThrottler(throttler *Throttler, trys []types.NamespacedName, ctx context
 			if err := throttler.Try(ctx, revID, func(dest string) error {
 				ret[i] = tryResult{dest: dest}
 				select {
-				case <-time.After(15 * time.Millisecond): // Proxy simulation.
+				case <-time.After(60 * time.Millisecond): // Proxy simulation.
 				case <-ctx.Done():
 					// Timeout.
 				}
