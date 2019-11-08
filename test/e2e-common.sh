@@ -237,7 +237,15 @@ function install_knative_serving_standard() {
   fi
   if [[ -n "${KOURIER_VERSION}" ]]; then
     install_kourier
+  fi
 
+  echo ">> Installing Cert-Manager"
+  kubectl apply -f "${INSTALL_CERT_MANAGER_YAML}" --validate=false || return 1
+
+  echo ">> Bringing up Serving"
+  kubectl apply -f "${INSTALL_RELEASE_YAML}" || return 1
+
+  if [[ -n "${KOURIER_VERSION}" ]]; then
     echo ">> Making Kourier the default ingress"
     cat <<EOF | kubectl apply -f -
 apiVersion: v1
@@ -252,12 +260,6 @@ data:
   clusteringress.class: "kourier.ingress.networking.knative.dev"
 EOF
   fi
-
-  echo ">> Installing Cert-Manager"
-  kubectl apply -f "${INSTALL_CERT_MANAGER_YAML}" --validate=false || return 1
-
-  echo ">> Bringing up Serving"
-  kubectl apply -f "${INSTALL_RELEASE_YAML}" || return 1
 
   if (( RECONCILE_GATEWAY )); then
     echo ">> Turning on reconcileExternalGateway"
