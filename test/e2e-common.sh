@@ -239,7 +239,7 @@ function install_knative_serving_standard() {
     install_kourier
 
     echo ">> Making Kourier the default ingress"
-    cat <<EOF | kubectl apply --dry-run -f -
+    cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: ConfigMap
 metadata:
