@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -158,5 +159,7 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 	}
 
 	pa.Status.ObservedGeneration = pa.Generation
+	pa.Status.DesiredScale = ptr.Int32(hpa.Status.DesiredReplicas)
+	pa.Status.ActualScale = ptr.Int32(hpa.Status.CurrentReplicas)
 	return nil
 }
