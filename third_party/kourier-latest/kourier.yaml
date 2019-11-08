@@ -1,0 +1,258 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kourier
+  namespace: kourier-system
+spec:
+  ports:
+    - port: 80
+      protocol: TCP
+      targetPort: 8080
+  selector:
+    app: 3scale-kourier
+  type: LoadBalancer
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: 3scale-kourier-gateway
+  namespace: kourier-system
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: 3scale-kourier-gateway
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: 3scale-kourier-gateway
+    spec:
+      containers:
+        - args:
+            - -c
+            - /tmp/config/envoy-bootstrap.yaml
+          image: quay.io/3scale/kourier-gateway:v0.1.0
+          imagePullPolicy: Always
+          name: kourier-gateway
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - name: config-volume
+              mountPath: /tmp/config
+      volumes:
+        - name: config-volume
+          configMap:
+            name: kourier-bootstrap
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: 3scale-kourier-control
+  namespace: kourier-system
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: 3scale-kourier-control
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: 3scale-kourier-control
+    spec:
+      containers:
+        - image: quay.io/3scale/kourier:v0.2.2
+          imagePullPolicy: Always
+          name: kourier-control
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          env:
+            - name: CERTS_SECRET_NAMESPACE
+              value: ""
+            - name: CERTS_SECRET_NAME
+              value: ""
+            - name: KOURIER_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccountName: 3scale-kourier
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: 3scale-kourier
+  namespace: kourier-system
+rules:
+  - apiGroups: [""]
+    resources: [ "endpoints", "namespaces", "services", "secrets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.internal.knative.dev"]
+    resources: ["clusteringresses","ingresses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.internal.knative.dev"]
+    resources: ["ingresses/status","clusteringresses/status"]
+    verbs: ["update"] 
+  - apiGroups: [ "apiextensions.k8s.io" ]
+    resources: [ "customresourcedefinitions" ]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: 3scale-kourier
+  namespace: kourier-system
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: 3scale-kourier
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: 3scale-kourier
+subjects:
+  - kind: ServiceAccount
+    name: 3scale-kourier
+    namespace: kourier-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kourier
+  namespace: kourier-system
+spec:
+  ports:
+    - name: http2
+      port: 80
+      protocol: TCP
+      targetPort: 8080
+  selector:
+    app: 3scale-kourier-gateway
+  type: LoadBalancer
+status:
+  loadBalancer: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kourier-internal
+  namespace: kourier-system
+spec:
+  ports:
+    - name: http2
+      port: 80
+      protocol: TCP
+      targetPort: 8081
+  selector:
+    app: 3scale-kourier-gateway
+  type: LoadBalancer
+status:
+  loadBalancer: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kourier-external
+  namespace: kourier-system
+spec:
+  ports:
+    - name: http2
+      port: 80
+      protocol: TCP
+      targetPort: 8080
+  selector:
+    app: 3scale-kourier-gateway
+  type: LoadBalancer
+status:
+  loadBalancer: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kourier-control
+  namespace: kourier-system
+spec:
+  ports:
+    - port: 18000
+      protocol: TCP
+      targetPort: 18000
+  selector:
+    app: 3scale-kourier-control
+  type: LoadBalancer
+status:
+  loadBalancer: {}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kourier-bootstrap
+  namespace: kourier-system
+data:
+  envoy-bootstrap.yaml: |
+    admin:
+      access_log_path: /tmp/test
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 19000
+    dynamic_resources:
+      ads_config:
+        api_type: GRPC
+        grpc_services:
+          - envoy_grpc:
+              cluster_name: xds_cluster
+      cds_config:
+        ads: {}
+      lds_config:
+        ads: {}
+    node:
+      cluster: kourier-knative
+      id: 3scale-kourier-gateway
+    static_resources:
+      clusters:
+        - connect_timeout: 0.2s
+          load_assignment:
+            cluster_name: xds_cluster
+            endpoints:
+              - lb_endpoints:
+                - endpoint:
+                    address:
+                      socket_address:
+                        address: kourier-control
+                        port_value: 18000
+          http2_protocol_options: {}
+          upstream_connection_options:
+            tcp_keepalive: {}
+          lb_policy: ROUND_ROBIN
+          name: xds_cluster
+          type: STRICT_DNS
