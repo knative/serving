@@ -50,9 +50,8 @@ import (
 )
 
 const (
-	testNamespace      = "test-namespace"
-	testRevision       = "test-revision"
-	informerRestPeriod = 500 * time.Millisecond
+	testNamespace = "test-namespace"
+	testRevision  = "test-revision"
 )
 
 // revisionCC1 - creates a revision with concurrency == 1.
@@ -345,7 +344,6 @@ func TestRevisionWatcher(t *testing.T) {
 			rt := network.RoundTripperFunc(fakeRT.RT)
 
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-			defer cancel()
 
 			updateCh := make(chan revisionDestsUpdate, len(tc.expectUpdates)+1)
 			defer close(updateCh)
@@ -367,6 +365,15 @@ func TestRevisionWatcher(t *testing.T) {
 				fake.CoreV1().Services(svc.Namespace).Create(svc)
 				informer.Informer().GetIndexer().Add(svc)
 			}
+
+			waitInformers, err := controller.RunInformers(ctx.Done(), informer.Informer())
+			if err != nil {
+				t.Fatalf("Failed to start informers: %v", err)
+			}
+			defer func() {
+				cancel()
+				waitInformers()
+			}()
 
 			rw := newRevisionWatcher(
 				ctx,
@@ -464,7 +471,6 @@ func ep(revL string, port int32, portName string, ips ...string) *corev1.Endpoin
 
 func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 	// Make sure we wait out all the jitter in the system.
-	defer time.Sleep(informerRestPeriod)
 	for _, tc := range []struct {
 		name               string
 		endpointsArr       []*corev1.Endpoints
@@ -700,12 +706,7 @@ func TestCheckDests(t *testing.T) {
 	// This test covers some edge cases in `checkDests` which are next to impossible to
 	// test via tests above.
 
-	// To make sure context switch happens and informers terminate.
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-	defer func() {
-		cancel()
-		time.Sleep(informerRestPeriod)
-	}()
 
 	svc := privateSKSService(
 		types.NamespacedName{testNamespace, testRevision},
@@ -715,6 +716,15 @@ func TestCheckDests(t *testing.T) {
 	fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(svc)
 	si := fakeserviceinformer.Get(ctx)
 	si.Informer().GetIndexer().Add(svc)
+
+	waitInformers, err := controller.RunInformers(ctx.Done(), si.Informer())
+	if err != nil {
+		t.Fatalf("Failed to start informers: %v", err)
+	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
 
 	// Make it buffered,so that we can make the test linear.
 	uCh := make(chan revisionDestsUpdate, 1)
@@ -750,10 +760,6 @@ func TestCheckDestsSwinging(t *testing.T) {
 	// This test permits us to test the case when endpoints actually change
 	// underneath (e.g. pod crash/restart).
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-	defer func() {
-		cancel()
-		time.Sleep(informerRestPeriod)
-	}()
 
 	svc := privateSKSService(
 		types.NamespacedName{testNamespace, testRevision},
@@ -764,6 +770,15 @@ func TestCheckDestsSwinging(t *testing.T) {
 	fakekubeclient.Get(ctx).CoreV1().Services(testNamespace).Create(svc)
 	si := fakeserviceinformer.Get(ctx)
 	si.Informer().GetIndexer().Add(svc)
+
+	waitInformers, err := controller.RunInformers(ctx.Done(), si.Informer())
+	if err != nil {
+		t.Fatalf("Failed to start informers: %v", err)
+	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
 
 	fakeRT := activatortest.FakeRoundTripper{
 		ExpectHost: testRevision,

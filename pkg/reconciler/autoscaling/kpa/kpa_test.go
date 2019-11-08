@@ -1068,12 +1068,12 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	if decider, err := pollDeciders(fakeDeciders, testNamespace, testRevision, nil); err != nil {
 		t.Fatalf("Failed to get decider: %v", err)
 	} else if got, want := decider.Spec.TargetValue, defaultConcurrencyTarget*defaultTU; got != want {
-		t.Fatalf("TargetValue = %v, want %v", got, want)
+		t.Fatalf("TargetValue = %f, want %f", got, want)
 	}
 
-	concurrencyTargetAfterUpdate := 100.0
+	const concurrencyTargetAfterUpdate = 100.0
 	data := defaultConfigMapData()
-	data["container-concurrency-target-default"] = fmt.Sprintf("%v", concurrencyTargetAfterUpdate)
+	data["container-concurrency-target-default"] = fmt.Sprintf("%f", concurrencyTargetAfterUpdate)
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      autoscaler.ConfigName,
@@ -1089,7 +1089,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	if decider, err := pollDeciders(fakeDeciders, testNamespace, testRevision, cond); err != nil {
 		t.Fatalf("Failed to get decider: %v", err)
 	} else if got, want := decider.Spec.TargetValue, concurrencyTargetAfterUpdate*defaultTU; got != want {
-		t.Fatalf("TargetValue = %v, want %v", got, want)
+		t.Fatalf("TargetValue = %f, want %f", got, want)
 	}
 }
 
