@@ -24,6 +24,7 @@ import (
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/autoscaling/v2beta1/horizontalpodautoscaler/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
+	"knative.dev/pkg/ptr"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
@@ -35,6 +36,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ktesting "k8s.io/client-go/testing"
+
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
@@ -96,7 +98,8 @@ func TestReconcile(t *testing.T) {
 		Name: "no op",
 		Objects: []runtime.Object{
 			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
-			pa(testNamespace, testRevision, WithHPAClass, WithTraffic, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
+			pa(testNamespace, testRevision, WithHPAClass, WithTraffic, WithPAStatusService(testRevision),
+				WithPAMetricsService(privateSvc), withScales(0, 0)),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 		},
@@ -106,7 +109,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency))),
 			pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency),
-				WithTraffic, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
+				WithTraffic, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc), withScales(0, 0)),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			metric(pa(testNamespace, testRevision,
@@ -131,13 +134,14 @@ func TestReconcile(t *testing.T) {
 				WithHPAClass, WithMetricAnnotation("cpu"))),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testNamespace, testRevision, WithHPAClass,
+			Object: pa(testNamespace, testRevision, WithHPAClass, withScales(0, 0),
 				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet")),
 		}},
 	}, {
 		Name: "create metric when Concurrency used",
 		Objects: []runtime.Object{
-			pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)),
+			pa(testNamespace, testRevision, WithHPAClass,
+				WithMetricAnnotation(autoscaling.Concurrency), withScales(0, 0)),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithPrivateService),
 		},
@@ -150,7 +154,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency),
-				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet"),
+				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet"), withScales(0, 0),
 				WithPAMetricsService(privateSvc)),
 		}},
 	}, {
@@ -169,7 +173,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
 			Object: pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation(autoscaling.RPS),
-				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet"),
+				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet"), withScales(0, 0),
 				WithPAMetricsService(privateSvc)),
 		}},
 	}, {
@@ -182,7 +186,7 @@ func TestReconcile(t *testing.T) {
 				WithPrivateService),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testNamespace, testRevision, WithHPAClass, WithTraffic,
+			Object: pa(testNamespace, testRevision, WithHPAClass, WithTraffic, withScales(0, 0),
 				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet"),
 				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
 		}},
@@ -196,20 +200,20 @@ func TestReconcile(t *testing.T) {
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testNamespace, testRevision, WithHPAClass,
+			Object: pa(testNamespace, testRevision, WithHPAClass, withScales(0, 0),
 				WithTraffic, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
 		}},
 		Key: key(testNamespace, testRevision),
 	}, {
 		Name: "reconcile sks",
 		Objects: []runtime.Object{
-			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
-			pa(testNamespace, testRevision, WithHPAClass, WithTraffic),
+			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu")), withHPAScaleStatus(5, 3)),
+			pa(testNamespace, testRevision, WithHPAClass, withScales(1, 4), WithTraffic),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef("bar"), WithSKSReady),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testNamespace, testRevision, WithHPAClass, WithTraffic,
+			Object: pa(testNamespace, testRevision, WithHPAClass, WithTraffic, withScales(5, 3),
 				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
 		}},
 		Key: key(testNamespace, testRevision),
@@ -226,7 +230,7 @@ func TestReconcile(t *testing.T) {
 				WithPubService, WithPrivateService),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testNamespace, testRevision, WithHPAClass,
+			Object: pa(testNamespace, testRevision, WithHPAClass, withScales(0, 0),
 				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet"),
 				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
 		}},
@@ -238,7 +242,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "reconcile sks - update fails",
 		Objects: []runtime.Object{
-			pa(testNamespace, testRevision, WithHPAClass, WithTraffic),
+			pa(testNamespace, testRevision, WithHPAClass, WithTraffic, withScales(0, 0)),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef("bar"), WithSKSReady),
 			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
@@ -257,7 +261,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "create sks - create fails",
 		Objects: []runtime.Object{
-			pa(testNamespace, testRevision, WithHPAClass, WithTraffic),
+			pa(testNamespace, testRevision, WithHPAClass, withScales(0, 0), WithTraffic),
 			deploy(testNamespace, testRevision),
 			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
 		},
@@ -337,13 +341,13 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "update pa fails",
 		Objects: []runtime.Object{
-			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
-			pa(testNamespace, testRevision, WithHPAClass, WithPAStatusService("the-wrong-one")),
+			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu")), withHPAScaleStatus(19, 18)),
+			pa(testNamespace, testRevision, WithHPAClass, WithPAStatusService("the-wrong-one"), withScales(42, 84)),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testNamespace, testRevision, WithHPAClass,
+			Object: pa(testNamespace, testRevision, WithHPAClass, withScales(19, 18),
 				WithTraffic, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
 		}},
 		Key:     key(testNamespace, testRevision),
@@ -357,7 +361,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "update hpa fails",
 		Objects: []runtime.Object{
-			pa(testNamespace, testRevision, WithHPAClass, WithTraffic,
+			pa(testNamespace, testRevision, WithHPAClass, WithTraffic, withScales(0, 0),
 				WithPAStatusService(testRevision), WithTargetAnnotation("1")),
 			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
@@ -377,7 +381,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "update hpa with target usage",
 		Objects: []runtime.Object{
-			pa(testNamespace, testRevision, WithHPAClass, WithTraffic,
+			pa(testNamespace, testRevision, WithHPAClass, WithTraffic, withScales(0, 0),
 				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc), WithTargetAnnotation("1")),
 			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
 			deploy(testNamespace, testRevision),
@@ -396,7 +400,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "failure to create HPA",
 		Objects: []runtime.Object{
-			pa(testNamespace, testRevision, WithHPAClass),
+			pa(testNamespace, testRevision, withScales(0, 0), WithHPAClass),
 			deploy(testNamespace, testRevision),
 		},
 		Key: key(testNamespace, testRevision),
@@ -407,8 +411,9 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("create", "horizontalpodautoscalers"),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
-			Object: pa(testNamespace, testRevision, WithHPAClass, WithNoTraffic(
-				"FailedCreate", `Failed to create HorizontalPodAutoscaler "test-revision".`)),
+			Object: pa(testNamespace, testRevision, WithHPAClass, withScales(0, 0),
+				WithNoTraffic(
+					"FailedCreate", `Failed to create HorizontalPodAutoscaler "test-revision".`)),
 		}},
 		WantErr: true,
 		WantEvents: []string{
@@ -418,7 +423,8 @@ func TestReconcile(t *testing.T) {
 		Name: "remove metric service",
 		Objects: []runtime.Object{
 			hpa(pa(testNamespace, testRevision, WithHPAClass, WithMetricAnnotation("cpu"))),
-			pa(testNamespace, testRevision, WithHPAClass, WithTraffic, WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
+			pa(testNamespace, testRevision, WithHPAClass, WithTraffic,
+				withScales(0, 0), WithPAStatusService(testRevision), WithPAMetricsService(privateSvc)),
 			deploy(testNamespace, testRevision),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady),
 			metricService(pa(testNamespace, testRevision)),
@@ -489,6 +495,17 @@ type hpaOption func(*autoscalingv2beta1.HorizontalPodAutoscaler)
 
 func withHPAOwnersRemoved(hpa *autoscalingv2beta1.HorizontalPodAutoscaler) {
 	hpa.OwnerReferences = nil
+}
+
+func withScales(d, a int32) PodAutoscalerOption {
+	return func(pa *asv1a1.PodAutoscaler) {
+		pa.Status.DesiredScale, pa.Status.ActualScale = ptr.Int32(d), ptr.Int32(a)
+	}
+}
+func withHPAScaleStatus(d, a int32) hpaOption {
+	return func(hpa *autoscalingv2beta1.HorizontalPodAutoscaler) {
+		hpa.Status.DesiredReplicas, hpa.Status.CurrentReplicas = d, a
+	}
 }
 
 func hpa(pa *asv1a1.PodAutoscaler, options ...hpaOption) *autoscalingv2beta1.HorizontalPodAutoscaler {
