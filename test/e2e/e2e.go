@@ -18,6 +18,7 @@ package e2e
 
 import (
 	"fmt"
+	"knative.dev/pkg/test/logging"
 	"testing"
 	"time"
 
@@ -76,9 +77,8 @@ func autoscalerCM(clients *test.Clients) (*autoscaler.Config, error) {
 
 // WaitForScaleToZero will wait for the specified deployment to scale to 0 replicas.
 // Will wait up to 6 times the configured ScaleToZeroGracePeriod before failing.
-func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clients) error {
-	t.Helper()
-	t.Logf("Waiting for %q to scale to zero", deploymentName)
+func WaitForScaleToZero(logf logging.FormatLogger, deploymentName string, clients *test.Clients) error {
+	logf("Waiting for %q to scale to zero", deploymentName)
 
 	cfg, err := autoscalerCM(clients)
 	if err != nil {

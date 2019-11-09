@@ -220,7 +220,7 @@ func setup(t *testing.T, class, metric string, target float64, targetUtilization
 
 func assertScaleDown(ctx *testContext) {
 	deploymentName := resourcenames.Deployment(ctx.resources.Revision)
-	if err := WaitForScaleToZero(ctx.t, deploymentName, ctx.clients); err != nil {
+	if err := WaitForScaleToZero(ctx.t.Logf, deploymentName, ctx.clients); err != nil {
 		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", deploymentName, err)
 	}
 

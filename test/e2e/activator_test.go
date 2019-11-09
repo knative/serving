@@ -71,7 +71,7 @@ func TestActivatorOverload(t *testing.T) {
 	domain := resources.Route.Status.URL.Host
 
 	deploymentName := rnames.Deployment(resources.Revision)
-	if err := WaitForScaleToZero(t, deploymentName, clients); err != nil {
+	if err := WaitForScaleToZero(t.Logf, deploymentName, clients); err != nil {
 		t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", deploymentName, err)
 	}
 

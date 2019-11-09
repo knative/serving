@@ -17,10 +17,17 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/google/mako/go/quickstore"
+	"k8s.io/apimachinery/pkg/labels"
+	"knative.dev/pkg/test/mako"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/test/performance"
 	"log"
+	"sync"
 	"testing"
 	"time"
 
@@ -29,10 +36,8 @@ import (
 	"knative.dev/pkg/injection/sharedmain"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/reconciler/revision/resources/names"
 	ktest "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
-	"knative.dev/serving/test/e2e"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
@@ -40,9 +45,7 @@ import (
 )
 
 var (
-	masterURL = flag.String("master", "", "The address of the Kubernetes API server. "+
-		"Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	parallelCount   = flag.Int("parallel", 0, "The count of ksvcs we want to run scale-from-zero in parallel")
 )
 
 const (
@@ -53,8 +56,8 @@ const (
 	waitToServe              = 10 * time.Minute
 )
 
-func clientsFromFlags() (*test.Clients, error) {
-	cfg, err := sharedmain.GetConfig(*masterURL, *kubeconfig)
+func clientsFromConfig() (*test.Clients, error) {
+	cfg, err := sharedmain.GetConfig("", "")
 	if err != nil {
 		return nil, fmt.Errorf("error building kubeconfig: %v", err)
 	}
@@ -78,13 +81,9 @@ func createServices(clients *test.Clients, count int) ([]*v1a1test.ResourceObjec
 			test.TearDown(clients, *testNames[i])
 		}
 	}
-	test.CleanupOnInterrupt(cleanupNames)
 
 	objs := make([]*v1a1test.ResourceObjects, count)
 	begin := time.Now()
-	defer func() {
-		log.Printf("Total time for test: %v", time.Since(begin))
-	}()
 	sos := []ktest.ServiceOption{
 		// We set a small resource alloc so that we can pack more pods into the cluster.
 		ktest.WithResourceRequirements(corev1.ResourceRequirements{
@@ -106,7 +105,7 @@ func createServices(clients *test.Clients, count int) ([]*v1a1test.ResourceObjec
 		ndx := i
 		g.Go(func() error {
 			var err error
-			if objs[ndx], err = v1a1test.CreateRunLatestServiceReady(&testing.T{}, clients, testNames[ndx], sos...); err != nil {
+			if objs[ndx], _, err = v1a1test.CreateRunLatestServiceReady(&testing.T{}, clients, testNames[ndx], false, sos...); err != nil {
 				return fmt.Errorf("%02d: failed to create Ready service: %v", ndx, err)
 			}
 			return nil
@@ -119,40 +118,42 @@ func createServices(clients *test.Clients, count int) ([]*v1a1test.ResourceObjec
 	return objs, cleanupNames, nil
 }
 
-func parallelScaleFromZero(t *testing.T, clients *test.Clients, objs []*v1a1test.ResourceObjects, count int) ([]time.Duration, error) {
-	g := errgroup.Group{}
-	durations := make([]time.Duration, count)
+func parallelScaleFromZero(ctx context.Context, clients *test.Clients, objs []*v1a1test.ResourceObjects, count int, q *quickstore.Quickstore) {
+	var wg sync.WaitGroup
 	for i := 0; i < count; i++ {
 		ndx := i
-		g.Go(func() error {
-			dur, err := runScaleFromZero(ndx, clients, objs[ndx])
-			t.Logf("%02d: duration: %v, err: %v", ndx, dur, err)
+		wg.Add(1)
+		go func() {
+			dur, err := runScaleFromZero(ctx, clients, ndx, objs[ndx])
+			log.Printf("%02d: duration: %v, err: %v", ndx, dur, err)
 			if err == nil {
-				durations[ndx] = dur
+				q.AddSamplePoint(mako.XTime(time.Now()), map[string]float64{
+					"l": dur.Seconds(),
+				})
+			} else {
+				q.AddError(mako.XTime(time.Now()), err.Error())
 			}
-			return err
-		})
+			wg.Done()
+		}()
 	}
-	return durations, g.Wait()
+	wg.Wait()
 }
 
-func runScaleFromZero(idx int, clients *test.Clients, ro *v1a1test.ResourceObjects) (time.Duration, error) {
-	deploymentName := names.Deployment(ro.Revision)
-
-	url := ro.Route.Status.URL.URL()
+func runScaleFromZero(ctx context.Context, clients *test.Clients, idx int, ro *v1a1test.ResourceObjects) (time.Duration, error) {
 	log.Printf("%02d: waiting for deployment to scale to zero.", idx)
-	if err := e2e.WaitForScaleToZero(t, deploymentName, clients); err != nil {
+	selector := labels.SelectorFromSet(labels.Set{
+		serving.ServiceLabelKey: ro.Service.Name,
+	})
+
+	if err := performance.WaitForScaleToZero(ctx, testNamespace, selector, 2*time.Minute); err != nil {
 		m := fmt.Sprintf("%02d: failed waiting for deployment to scale to zero: %v", idx, err)
 		log.Println(m)
 		return 0, errors.New(m)
 	}
-	// Wait for scale back to 0
-	// if err := performance.WaitForScaleToZero(ctx, namespace, selector, 2*time.Minute); err != nil {
-	// 	fatalf("Failed to wait for scale-to-0: %v", err)
-	// }
 
 	start := time.Now()
 	log.Printf("%02d: waiting for endpoint to serve request", idx)
+	url := ro.Route.Status.URL.URL()
 	if _, err := pkgTest.WaitForEndpointStateWithTimeout(
 		clients.KubeClient,
 		log.Printf,
@@ -171,30 +172,39 @@ func runScaleFromZero(idx int, clients *test.Clients, ro *v1a1test.ResourceObjec
 	return time.Since(start), nil
 }
 
-func testScaleFromZero(count, numRuns int) {
-	clients, err := clientsFromFlags()
+func testScaleFromZero(clients *test.Clients, count int) {
+	parallelTag := fmt.Sprintf("parallel=%d", count)
+	mc, err := mako.Setup(context.Background(), parallelTag)
 	if err != nil {
-		log.Fatalf("Failed to setup clients: %v", err)
+		log.Fatalf("failed to setup mako: %v", err)
 	}
+	q, qclose, ctx := mc.Quickstore, mc.ShutDownFunc, mc.Context
+	defer qclose(ctx)
+	// Wrap fatalf in a helper or our sidecar will live forever.
+	fatalf := func(f string, args ...interface{}) {
+		qclose(ctx)
+		log.Fatalf(f, args...)
+	}
+
 	// Create the services once.
 	objs, cleanup, err := createServices(clients, count)
 	if err != nil {
-		log.Fatalf("Failed to create services: %v", err)
+		fatalf("Failed to create services: %v", err)
 	}
 	defer cleanup()
 
-	tName := fmt.Sprintf("TestScaleFromZero%02d", count)
-	for i := 0; i < numRuns; i++ {
-		durs, err := parallelScaleFromZero(t, pc, objs, count)
-		if err != nil {
-			log.Fatalf("Run %d: %v", i+1, err)
-		}
-		runStats[i] = getRunStats(durs)
-		log.Logf("Run %d: Average: %v", i+1, runStats[i].avg)
+	parallelScaleFromZero(ctx, clients, objs, count, q)
+	if err := mc.StoreAndHandleResult(); err != nil {
+		fatalf("Failed to store and handle benchmarking result: %v", err)
 	}
 }
 
 func main() {
 	flag.Parse()
+	clients, err := clientsFromConfig()
+	if err != nil {
+		log.Fatalf("Failed to setup clients: %v", err)
+	}
 
+	testScaleFromZero(clients, *parallelCount)
 }
