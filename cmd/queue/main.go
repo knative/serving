@@ -158,7 +158,7 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 	healthState *health.State, prober func() bool, isAggressive bool) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if network.IsKubeletProbe(r) {
-			w.WriteHeader(http.StatusOK)
+			handler.ServeHTTP(w, r)
 			return
 		}
 
