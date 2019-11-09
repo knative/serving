@@ -157,6 +157,11 @@ type config struct {
 func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.Handler,
 	healthState *health.State, prober func() bool, isAggressive bool) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if network.IsKubeletProbe(r) {
+			handler.ServeHTTP(w, r)
+			return
+		}
+
 		// TODO: Move probe part to network.NewProbeHandler if possible or another handler.
 		if ph := network.KnativeProbeHeader(r); ph != "" {
 			handleKnativeProbe(w, r, ph, healthState, prober, isAggressive)
