@@ -55,7 +55,7 @@ go_test_e2e -timeout=30m \
   "--resolvabledomain=$(use_resolvable_domain)" "$(use_https)" || failed=1
 
 # Run scale tests.
-go_test_e2e -timeout=30m \
+go_test_e2e -timeout=10m \
   ${parallelism} \
   ./test/scale || failed=1
 

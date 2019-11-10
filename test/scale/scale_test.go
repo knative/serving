@@ -42,7 +42,7 @@ const (
 	// Limit for scale in -short mode
 	shortModeMaxScale = 10
 	// Timeout for each worker task
-	workerTimeout = 25 * time.Minute
+	workerTimeout = 5 * time.Minute
 )
 
 // While redundant, we run two versions of this by default:
@@ -52,7 +52,7 @@ const (
 //   interesting burst of deployments, but low enough to complete in a reasonable window.
 func TestScaleToN(t *testing.T) {
 	// Run each of these variations.
-	tests := []int{100}
+	tests := []int{10, 100}
 
 	for _, size := range tests {
 		t.Run(fmt.Sprintf("scale-%d", size), func(t *testing.T) {
