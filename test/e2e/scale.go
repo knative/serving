@@ -52,7 +52,7 @@ func abortOnTimeout(ctx context.Context) spoof.ResponseChecker {
 	}
 }
 
-func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies Latencies) {
+func ScaleToWithin(t *testing.T, scale, maxInflight int, duration time.Duration, latencies Latencies) {
 	clients := Setup(t)
 
 	cleanupCh := make(chan test.ResourceNames, scale)
@@ -75,7 +75,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 	width := int(math.Ceil(math.Log10(float64(scale))))
 
 	t.Log("Creating new Services")
-	wg := pool.NewWithCapacity(50 /* maximum in-flight creates */, scale /* capacity */)
+	wg := pool.NewWithCapacity(maxInflight /* maximum in-flight creates */, scale /* capacity */)
 	for i := 0; i < scale; i++ {
 		// https://golang.org/doc/faq#closures_and_goroutines
 		i := i

@@ -154,7 +154,7 @@ func TestScaleToN(t *testing.T) {
 				results = append(results, l.Results(t)...)
 			}()
 
-			e2e.ScaleToWithin(t, size, 30*time.Minute, l)
+			e2e.ScaleToWithin(t, size, 50, 30*time.Minute, l)
 		})
 	}
 

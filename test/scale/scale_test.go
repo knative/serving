@@ -43,6 +43,8 @@ const (
 	shortModeMaxScale = 10
 	// Timeout for each worker task
 	workerTimeout = 5 * time.Minute
+	// The maximum number of ksvc to be created in-flight
+	maxInflight = 20
 )
 
 // While redundant, we run two versions of this by default:
@@ -59,7 +61,7 @@ func TestScaleToN(t *testing.T) {
 			if testing.Short() && size > shortModeMaxScale {
 				t.Skip("Skipping test in short mode")
 			}
-			ScaleToWithin(t, size, workerTimeout, &nopLatencies{t})
+			ScaleToWithin(t, size, maxInflight, workerTimeout, &nopLatencies{t})
 		})
 	}
 }
