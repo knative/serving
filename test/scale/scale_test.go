@@ -42,7 +42,7 @@ const (
 	// Limit for scale in -short mode
 	shortModeMaxScale = 10
 	// Timeout for each worker task
-	workerTimeout = 5 * time.Minute
+	workerTimeout = 8 * time.Minute
 )
 
 // While redundant, we run two versions of this by default:
