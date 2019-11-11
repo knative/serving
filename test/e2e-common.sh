@@ -322,7 +322,10 @@ EOF
     kubectl scale -n gloo-system deployment knative-internal-proxy --replicas=6
   elif [[ -n "${KOURIER_VERSION}" ]]; then
     # Scale replicas of the Kourier gateways to handle large qps
-    kubectl scale -n kourier-system deployment 3scale-kourier-gateway --replicas=6
+    #
+    # TODO: Bump this from 1 back to 6 once Kourier can ensure all
+    # gateways are ready
+    kubectl scale -n kourier-system deployment 3scale-kourier-gateway --replicas=1
   fi
 
   if [[ -n "${INSTALL_MONITORING_YAML}" ]]; then
