@@ -72,7 +72,6 @@ var (
 type Reconciler struct {
 	*reconciler.Base
 
-	// listers index properties about resources
 	virtualServiceLister istiolisters.VirtualServiceLister
 	gatewayLister        istiolisters.GatewayLister
 	secretLister         corev1listers.SecretLister
