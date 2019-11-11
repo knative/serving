@@ -170,8 +170,6 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		Key: "default/becomes-ready",
-		// TODO(lichuqiang): config namespace validation in resource scope.
-		SkipNamespaceValidation: true,
 	}, {
 		Name: "custom ingress route becomes ready, ingress unknown",
 		Objects: []runtime.Object{
@@ -225,8 +223,6 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		Key: "default/becomes-ready",
-		// TODO(lichuqiang): config namespace validation in resource scope.
-		SkipNamespaceValidation: true,
 	}, {
 		Name: "cluster local route becomes ready, ingress unknown",
 		Objects: []runtime.Object{
@@ -284,8 +280,6 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		Key: "default/becomes-ready",
-		// TODO(lichuqiang): config namespace validation in resource scope.
-		SkipNamespaceValidation: true,
 	}, {
 		Name: "simple route becomes ready",
 		Objects: []runtime.Object{
@@ -428,7 +422,6 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create Ingress: inducing failure for create ingresses"),
 		},
 		Key:                     "default/ingress-create-failure",
-		SkipNamespaceValidation: true,
 	}, {
 		Name: "steady state",
 		Objects: []runtime.Object{
@@ -685,7 +678,6 @@ func TestReconcile(t *testing.T) {
 					})),
 		}},
 		Key:                     "default/new-latest-ready",
-		SkipNamespaceValidation: true,
 	}, {
 		Name: "public becomes cluster local",
 		Objects: []runtime.Object{
@@ -751,7 +743,6 @@ func TestReconcile(t *testing.T) {
 				})),
 		}},
 		Key:                     "default/becomes-local",
-		SkipNamespaceValidation: true,
 	}, {
 		Name: "cluster local becomes public",
 		Objects: []runtime.Object{
@@ -814,7 +805,6 @@ func TestReconcile(t *testing.T) {
 				})),
 		}},
 		Key:                     "default/becomes-public",
-		SkipNamespaceValidation: true,
 	}, {
 		Name: "failure updating cluster ingress",
 		// Starting from the new latest ready, induce a failure updating the cluster ingress.
@@ -892,7 +882,6 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeWarning, "InternalError", "failed to update Ingress: inducing failure for update ingresses"),
 		},
 		Key:                     "default/update-ci-failure",
-		SkipNamespaceValidation: true,
 	}, {
 		Name: "reconcile service mutation",
 		Objects: []runtime.Object{
@@ -1125,7 +1114,6 @@ func TestReconcile(t *testing.T) {
 			),
 		}},
 		Key:                     "default/ingress-mutation",
-		SkipNamespaceValidation: true,
 	}, {
 		Name: "switch to a different config",
 		Objects: []runtime.Object{
@@ -1283,7 +1271,6 @@ func TestReconcile(t *testing.T) {
 					})),
 		}},
 		Key:                     "default/pinned-becomes-ready",
-		SkipNamespaceValidation: true,
 	}, {
 		Name: "traffic split becomes ready",
 		Objects: []runtime.Object{
@@ -1393,7 +1380,6 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "named-traffic-split"),
 		},
 		Key:                     "default/named-traffic-split",
-		SkipNamespaceValidation: true,
 	}, {
 		Name: "same revision targets",
 		Objects: []runtime.Object{
@@ -1566,7 +1552,6 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "same-revision-targets"),
 		},
 		Key:                     "default/same-revision-targets",
-		SkipNamespaceValidation: true,
 	}, {
 		Name: "change route configuration",
 		// Start from a steady state referencing "blue", and modify the route spec to point to "green" instead.
@@ -1639,7 +1624,6 @@ func TestReconcile(t *testing.T) {
 					}), WithRouteFinalizer),
 		}},
 		Key:                     "default/switch-configs",
-		SkipNamespaceValidation: true,
 	}, {
 		Name: "update single target to traffic split with unready revision",
 		// Start from a steady state referencing "blue", and modify the route spec to point to both
@@ -1702,7 +1686,6 @@ func TestReconcile(t *testing.T) {
 					})),
 		}},
 		Key:                     "default/split",
-		SkipNamespaceValidation: true,
 	}, {
 		Name: "Update stale lastPinned",
 		Objects: []runtime.Object{
@@ -1958,7 +1941,6 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		Key:                     "default/becomes-ready",
-		SkipNamespaceValidation: true,
 	}, {
 		Name: "check that Certificate and IngressTLS are correctly configured when creating a Route",
 		Objects: []runtime.Object{
@@ -2016,7 +1998,6 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		Key:                     "default/becomes-ready",
-		SkipNamespaceValidation: true,
 	}, {
 		Name: "check that Certificate and IngressTLS are correctly updated when updating a Route",
 		Objects: []runtime.Object{
@@ -2100,7 +2081,6 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		Key:                     "default/becomes-ready",
-		SkipNamespaceValidation: true,
 	}, {
 		Name:    "check that Route updates status and produces event log when valid name but not owned certificate",
 		WantErr: true,
@@ -2149,7 +2129,6 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			Eventf(corev1.EventTypeWarning, "InternalError", kaccessor.NewAccessorError(fmt.Errorf("owner: %s with Type %T does not own Certificate: %q", "becomes-ready", &v1alpha1.Route{}, "route-12-34"), kaccessor.NotOwnResource).Error()),
 		},
 		Key:                     "default/becomes-ready",
-		SkipNamespaceValidation: true,
 	}, {
 		Name: "check that Route is correctly updated when Certificate is not ready",
 		Objects: []runtime.Object{
@@ -2233,7 +2212,6 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		Key:                     "default/becomes-ready",
-		SkipNamespaceValidation: true,
 	}, {
 		// This test is a same with "public becomes cluster local" above, but confirm it does not create certs with autoTLS for cluster-local.
 		Name: "public becomes cluster local w/ autoTLS",
@@ -2300,7 +2278,6 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				})),
 		}},
 		Key:                     "default/becomes-local",
-		SkipNamespaceValidation: true,
 	}}
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
@@ -2423,7 +2400,6 @@ func TestReconcile_EnableAutoTLS_HTTPDisabled(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		Key:                     "default/becomes-ready",
-		SkipNamespaceValidation: true,
 	}}
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		cfg := ReconcilerTestConfig(true)

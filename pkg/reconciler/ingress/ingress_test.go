@@ -166,23 +166,20 @@ var (
 
 func TestReconcile(t *testing.T) {
 	table := TableTest{{
-		Name:                    "bad workqueue key",
-		Key:                     "too/many/parts",
-		SkipNamespaceValidation: true,
+		Name: "bad workqueue key",
+		Key:  "too/many/parts",
 	}, {
-		Name:                    "key not found",
-		Key:                     "foo/not-found",
-		SkipNamespaceValidation: true,
+		Name: "key not found",
+		Key:  "foo/not-found",
 	}, {
-		Name:                    "skip ingress not matching class key",
-		SkipNamespaceValidation: true,
+		Name: "skip ingress not matching class key",
 		Objects: []runtime.Object{
 			addAnnotations(ingress("no-virtualservice-yet", 1234),
 				map[string]string{networking.IngressClassAnnotationKey: "fake-controller"}),
 		},
 	}, {
-		Name:                    "create VirtualService matching Ingress",
-		SkipNamespaceValidation: true,
+		Name: "create VirtualService matching Ingress",
+
 		Objects: []runtime.Object{
 			ingress("no-virtualservice-yet", 1234),
 		},
@@ -234,9 +231,8 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "test-ns/no-virtualservice-yet",
 	}, {
-		Name:                    "observed generation is updated when error is encountered in reconciling, and ingress ready status is unknown",
-		SkipNamespaceValidation: true,
-		WantErr:                 true,
+		Name:    "observed generation is updated when error is encountered in reconciling, and ingress ready status is unknown",
+		WantErr: true,
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("update", "virtualservices"),
 		},
@@ -305,8 +301,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "test-ns/reconcile-failed",
 	}, {
-		Name:                    "reconcile VirtualService to match desired one",
-		SkipNamespaceValidation: true,
+		Name: "reconcile VirtualService to match desired one",
 		Objects: []runtime.Object{
 			ingress("reconcile-virtualservice", 1234),
 			&v1alpha3.VirtualService{
@@ -484,8 +479,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		},
 		Key: "test-ns/reconciling-ingress",
 	}, {
-		Name:                    "No preinstalled Gateways",
-		SkipNamespaceValidation: true,
+		Name: "No preinstalled Gateways",
 		Objects: []runtime.Object{
 			ingressWithTLS("reconciling-ingress", 1234, ingressTLS),
 			originSecret("istio-system", "secret0"),
