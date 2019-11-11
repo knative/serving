@@ -45,19 +45,21 @@ func ResolveMetricTarget(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) 
 		tu = config.ContainerConcurrencyTargetFraction
 	}
 
+	// Use the target provided via annotation, if applicable.
+	if annotationTarget, ok := pa.Target(); ok {
+		total = annotationTarget
+		if pa.Metric() == autoscaling.Concurrency && pa.Spec.ContainerConcurrency != 0 {
+			// We pick the smaller value between container concurrency and the annotationTarget
+			// to make sure the autoscaler does not aim for a higher concurrency than the application
+			// can handle per containerConcurrency.
+			total = math.Min(annotationTarget, float64(pa.Spec.ContainerConcurrency))
+		}
+	}
+
 	if v, ok := pa.TargetUtilization(); ok {
 		tu = v
 	}
 	target = math.Max(1, total*tu)
-
-	// Use the target provided via annotation, if applicable.
-	if annotationTarget, ok := pa.Target(); ok {
-		// We pick the smaller value between the calculated target and the annotationTarget
-		// to make sure the autoscaler does not aim for a higher concurrency than the application
-		// can handle per containerConcurrency.
-		target = math.Max(1, math.Min(target, annotationTarget*tu))
-		total = math.Min(annotationTarget, total)
-	}
 
 	return target, total
 }

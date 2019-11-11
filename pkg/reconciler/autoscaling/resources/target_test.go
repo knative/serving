@@ -132,6 +132,11 @@ func TestResolveMetricTarget(t *testing.T) {
 		wantTgt: 1,
 		wantTot: 1,
 	}, {
+		name:    "with target annotation greater than default (ok)",
+		pa:      pa(WithTargetAnnotation("500")),
+		wantTgt: 500,
+		wantTot: 500,
+	}, {
 		name:    "with target annotation greater than container concurrency (ignore annotation for safety)",
 		pa:      pa(WithPAContainerConcurrency(1), WithTargetAnnotation("10")),
 		wantTgt: 1,
@@ -152,10 +157,10 @@ func TestResolveMetricTarget(t *testing.T) {
 		wantTgt: 150,
 		wantTot: 200,
 	}, {
-		name:    "RPS: with target annotation greater than default (ignore annotation for safety)",
+		name:    "RPS: with target annotation greater than default",
 		pa:      pa(WithMetricAnnotation(autoscaling.RPS), WithTargetAnnotation("300")),
-		wantTgt: 140,
-		wantTot: 200,
+		wantTgt: 210,
+		wantTot: 300,
 	}}
 
 	for _, tc := range cases {
