@@ -74,6 +74,47 @@ func TestConcurrencyModelValidation(t *testing.T) {
 	}
 }
 
+func TestServingStateType(t *testing.T) {
+	tests := []struct {
+		name string
+		cm   DeprecatedRevisionServingStateType
+		want *apis.FieldError
+	}{{
+		name: "active",
+		cm:   DeprecatedRevisionServingStateActive,
+		want: nil,
+	}, {
+		name: "reserve",
+		cm:   DeprecatedRevisionServingStateReserve,
+		want: nil,
+	}, {
+		name: "retired",
+		cm:   DeprecatedRevisionServingStateRetired,
+		want: nil,
+	}, {
+		name: "empty",
+		cm:   "",
+		want: nil,
+	}, {
+		name: "bogus",
+		cm:   "bogus",
+		want: apis.ErrInvalidValue("bogus", apis.CurrentField),
+	}, {
+		name: "balderdash",
+		cm:   "balderdash",
+		want: apis.ErrInvalidValue("balderdash", apis.CurrentField),
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := test.cm.Validate(context.Background())
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+				t.Errorf("Validate (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
 func TestRevisionSpecValidation(t *testing.T) {
 	tests := []struct {
 		name string
@@ -354,6 +395,50 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			},
 		},
 		want: nil,
+	}, {
+		name: "valid name for revision template",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				// When user provides empty string in the name field it will behave like no name provided.
+				Name: "",
+			},
+			Spec: RevisionSpec{
+				DeprecatedContainer: &corev1.Container{
+					Image: "helloworld",
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "invalid name for revision template",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				// We let users bring their own revision name.
+				Name: "parent-@foo-bar",
+			},
+			Spec: RevisionSpec{
+				DeprecatedContainer: &corev1.Container{
+					Image: "helloworld",
+				},
+			},
+		},
+		want: apis.ErrInvalidValue("not a DNS 1035 label: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+			"metadata.name"),
+	}, {
+		name: "invalid generate name for revision template",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				// We let users bring their own revision generate name.
+				GenerateName: "parent-@foo-bar",
+			},
+			Spec: RevisionSpec{
+				DeprecatedContainer: &corev1.Container{
+					Image: "helloworld",
+				},
+			},
+		},
+		want: apis.ErrInvalidValue("not a DNS 1035 label prefix: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+			"metadata.generateName"),
 	}, {
 		name: "Queue sidecar resource percentage annotation more than 100",
 		rts: &RevisionTemplateSpec{

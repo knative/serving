@@ -312,7 +312,7 @@ func TestValidateClusterVisibilityLabel(t *testing.T) {
 
 }
 
-type WithPod struct {
+type withPod struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              corev1.PodSpec `json:"spec,omitempty"`
@@ -334,12 +334,12 @@ func TestAnnotationCreate(t *testing.T) {
 	tests := []struct {
 		name string
 		user string
-		this *WithPod
+		this *withPod
 		want map[string]string
 	}{{
 		name: "create annotation",
 		user: u1,
-		this: &WithPod{
+		this: &withPod{
 			Spec: getSpec("foo"),
 		},
 		want: map[string]string{
@@ -349,7 +349,7 @@ func TestAnnotationCreate(t *testing.T) {
 	}, {
 		name: "create annotation should override user provided annotations",
 		user: u1,
-		this: &WithPod{
+		this: &withPod{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					CreatorAnnotation: u2,
@@ -384,13 +384,13 @@ func TestAnnotationUpdate(t *testing.T) {
 	tests := []struct {
 		name string
 		user string
-		prev *WithPod
-		this *WithPod
+		prev *withPod
+		this *withPod
 		want map[string]string
 	}{{
 		name: "update annotation without spec changes",
 		user: u2,
-		this: &WithPod{
+		this: &withPod{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					CreatorAnnotation: u1,
@@ -399,7 +399,7 @@ func TestAnnotationUpdate(t *testing.T) {
 			},
 			Spec: getSpec("foo"),
 		},
-		prev: &WithPod{
+		prev: &withPod{
 			Spec: getSpec("foo"),
 		},
 		want: map[string]string{
@@ -409,7 +409,7 @@ func TestAnnotationUpdate(t *testing.T) {
 	}, {
 		name: "update annotation with spec changes",
 		user: u2,
-		this: &WithPod{
+		this: &withPod{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					CreatorAnnotation: u1,
@@ -418,7 +418,7 @@ func TestAnnotationUpdate(t *testing.T) {
 			},
 			Spec: getSpec("bar"),
 		},
-		prev: &WithPod{
+		prev: &withPod{
 			Spec: getSpec("foo"),
 		},
 		want: map[string]string{
@@ -437,6 +437,58 @@ func TestAnnotationUpdate(t *testing.T) {
 			SetUserInfo(ctx, test.prev.Spec, test.this.Spec, test.this)
 			if !reflect.DeepEqual(test.this.Annotations, test.want) {
 				t.Errorf("Annotations = %v, want: %v, diff (-got, +want): %s", test.this.Annotations, test.want, cmp.Diff(test.this.Annotations, test.want))
+			}
+		})
+	}
+}
+
+func TestValidateRevisionName(t *testing.T) {
+	cases := []struct {
+		name            string
+		revName         string
+		revGenerateName string
+		objectMeta      metav1.ObjectMeta
+		expectErr       error
+	}{{
+		name:            "invalid revision generateName - dots",
+		revGenerateName: "foo.bar",
+		expectErr: apis.ErrInvalidValue("not a DNS 1035 label prefix: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+			"metadata.generateName"),
+	}, {
+		name:    "invalid revision name - dots",
+		revName: "foo.bar",
+		expectErr: apis.ErrInvalidValue("not a DNS 1035 label: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+			"metadata.name"),
+	}, {
+		name: "invalid name (not prefixed)",
+		objectMeta: metav1.ObjectMeta{
+			Name: "bar",
+		},
+		revName: "foo",
+		expectErr: apis.ErrInvalidValue(`"foo" must have prefix "bar-"`,
+			"metadata.name"),
+	}, {
+		name: "invalid name (with generateName)",
+		objectMeta: metav1.ObjectMeta{
+			GenerateName: "foo-bar-",
+		},
+		revName:   "foo-bar-foo",
+		expectErr: apis.ErrDisallowedFields("metadata.name"),
+	}, {
+		name: "valid name",
+		objectMeta: metav1.ObjectMeta{
+			Name: "valid",
+		},
+		revName:   "valid-name",
+		expectErr: (*apis.FieldError)(nil),
+	}}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			ctx := context.Background()
+			ctx = apis.WithinParent(ctx, c.objectMeta)
+			if err := ValidateRevisionName(ctx, c.revName, c.revGenerateName); !reflect.DeepEqual(c.expectErr, err) {
+				t.Errorf("Expected: '%#v', Got: '%#v'", c.expectErr, err)
 			}
 		})
 	}
