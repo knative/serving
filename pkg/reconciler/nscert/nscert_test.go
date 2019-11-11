@@ -148,9 +148,8 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo",
 	}, {
-		Name:                    "certificate not created for excluded namespace",
-		Key:                     "foo",
-		SkipNamespaceValidation: true,
+		Name: "certificate not created for excluded namespace",
+		Key:  "foo",
 		Objects: []runtime.Object{
 			kubeExcludedNamespace("foo"),
 		},
