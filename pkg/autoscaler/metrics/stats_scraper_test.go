@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package autoscaler
+package metrics
 
 import (
 	"errors"
@@ -27,13 +27,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/autoscaler/fake"
 	"knative.dev/serving/pkg/resources"
-)
-
-const (
-	testRevision  = "test-revision"
-	testService   = "test-revision-metrics"
-	testNamespace = "test-namespace"
 )
 
 var (
@@ -93,8 +88,8 @@ func TestNewServiceScraperWithClientErrorCases(t *testing.T) {
 	invalidMetric := testMetric()
 	invalidMetric.Labels = map[string]string{}
 	client := newTestScrapeClient(testStats, []error{nil})
-	lister := kubeInformer.Core().V1().Endpoints().Lister()
-	counter := resources.NewScopedEndpointsCounter(lister, testNamespace, testService)
+	lister := fake.KubeInformer.Core().V1().Endpoints().Lister()
+	counter := resources.NewScopedEndpointsCounter(lister, fake.TestNamespace, fake.TestService)
 
 	testCases := []struct {
 		name        string
@@ -149,7 +144,7 @@ func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 	}
 
 	// Make an Endpoints with 3 pods.
-	endpoints(3, testService)
+	fake.Endpoints(3, fake.TestService)
 
 	// Scrape will set a timestamp bigger than this.
 	now := time.Now()
@@ -294,7 +289,7 @@ func TestScrapeReportErrorCannotFindEnoughPods(t *testing.T) {
 	}
 
 	// Make an Endpoints with 2 pods.
-	endpoints(2, testService)
+	fake.Endpoints(2, fake.TestService)
 
 	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err == nil {
@@ -314,7 +309,7 @@ func TestScrapeReportErrorIfAnyFails(t *testing.T) {
 	}
 
 	// Make an Endpoints with 2 pods.
-	endpoints(2, testService)
+	fake.Endpoints(2, fake.TestService)
 
 	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if !errors.Is(err, errTest) {
@@ -330,7 +325,7 @@ func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
 	}
 
 	// Make an Endpoints with 0 pods.
-	endpoints(0, testService)
+	fake.Endpoints(0, fake.TestService)
 
 	stat, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
@@ -343,21 +338,21 @@ func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
 
 func serviceScraperForTest(sClient scrapeClient) (*ServiceScraper, error) {
 	metric := testMetric()
-	counter := resources.NewScopedEndpointsCounter(kubeInformer.Core().V1().Endpoints().Lister(), testNamespace, testService)
+	counter := resources.NewScopedEndpointsCounter(fake.KubeInformer.Core().V1().Endpoints().Lister(), fake.TestNamespace, fake.TestService)
 	return newServiceScraperWithClient(metric, counter, sClient)
 }
 
 func testMetric() *av1alpha1.Metric {
 	return &av1alpha1.Metric{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNamespace,
-			Name:      testRevision,
+			Namespace: fake.TestNamespace,
+			Name:      fake.TestRevision,
 			Labels: map[string]string{
-				serving.RevisionLabelKey: testRevision,
+				serving.RevisionLabelKey: fake.TestRevision,
 			},
 		},
 		Spec: av1alpha1.MetricSpec{
-			ScrapeTarget: testRevision + "-zhudex",
+			ScrapeTarget: fake.TestRevision + "-zhudex",
 		},
 	}
 }

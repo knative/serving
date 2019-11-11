@@ -23,11 +23,10 @@ import (
 	"go.uber.org/zap"
 
 	"k8s.io/apimachinery/pkg/types"
-
 	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/autoscaler/metrics"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 )
@@ -42,7 +41,7 @@ type ConcurrencyReporter struct {
 	// Ticks with every stat report request
 	reportCh <-chan time.Time
 	// Stat reporting channel
-	statCh chan []autoscaler.StatMessage
+	statCh chan []metrics.StatMessage
 
 	rl servinglisters.RevisionLister
 	sr activator.StatsReporter
@@ -51,7 +50,7 @@ type ConcurrencyReporter struct {
 // NewConcurrencyReporter creates a ConcurrencyReporter which listens to incoming
 // ReqEvents on reqCh and ticks on reportCh and reports stats on statCh.
 func NewConcurrencyReporter(ctx context.Context, podName string,
-	reqCh chan ReqEvent, reportCh <-chan time.Time, statCh chan []autoscaler.StatMessage,
+	reqCh chan ReqEvent, reportCh <-chan time.Time, statCh chan []metrics.StatMessage,
 	sr activator.StatsReporter) *ConcurrencyReporter {
 	return &ConcurrencyReporter{
 		logger:   logging.FromContext(ctx),
@@ -96,9 +95,9 @@ func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
 
 				// Report the first request for a key immediately.
 				if _, ok := outstandingRequestsPerKey[event.Key]; !ok {
-					cr.statCh <- []autoscaler.StatMessage{{
+					cr.statCh <- []metrics.StatMessage{{
 						Key: event.Key,
-						Stat: autoscaler.Stat{
+						Stat: metrics.Stat{
 							// Stat time is unset by design. The receiver will set the time.
 							PodName:                   cr.podName,
 							AverageConcurrentRequests: 1,
@@ -111,14 +110,14 @@ func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
 				outstandingRequestsPerKey[event.Key]--
 			}
 		case <-cr.reportCh:
-			messages := make([]autoscaler.StatMessage, 0, len(outstandingRequestsPerKey))
+			messages := make([]metrics.StatMessage, 0, len(outstandingRequestsPerKey))
 			for key, concurrency := range outstandingRequestsPerKey {
 				if concurrency == 0 {
 					delete(outstandingRequestsPerKey, key)
 				} else {
-					messages = append(messages, autoscaler.StatMessage{
+					messages = append(messages, metrics.StatMessage{
 						Key: key,
-						Stat: autoscaler.Stat{
+						Stat: metrics.Stat{
 							// Stat time is unset by design. The receiver will set the time.
 							PodName:                   cr.podName,
 							AverageConcurrentRequests: float64(concurrency),

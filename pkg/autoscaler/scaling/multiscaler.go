@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package autoscaler
+package scaling
 
 import (
 	"context"
@@ -29,6 +29,7 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler/metrics"
 )
 
 // Decider is a resource which observes the request load of a Revision and
@@ -326,7 +327,7 @@ func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, runner *
 }
 
 // Poke checks if the autoscaler needs to be run immediately.
-func (m *MultiScaler) Poke(key types.NamespacedName, stat Stat) {
+func (m *MultiScaler) Poke(key types.NamespacedName, stat metrics.Stat) {
 	m.scalersMutex.RLock()
 	defer m.scalersMutex.RUnlock()
 

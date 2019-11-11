@@ -23,7 +23,7 @@ import (
 
 	"go.uber.org/zap"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/autoscaler/metrics"
 
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -42,7 +42,7 @@ const reconcilerName = "Metrics"
 // reconciler implements controller.Reconciler for Metric resources.
 type reconciler struct {
 	*rbase.Base
-	collector    autoscaler.Collector
+	collector    metrics.Collector
 	metricLister listers.MetricLister
 }
 

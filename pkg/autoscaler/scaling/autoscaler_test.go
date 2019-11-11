@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package autoscaler
+package scaling
 
 import (
 	"errors"
@@ -26,10 +26,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	kubeinformers "k8s.io/client-go/informers"
-	fakeK8s "k8s.io/client-go/kubernetes/fake"
 	. "knative.dev/pkg/logging/testing"
+	"knative.dev/serving/pkg/autoscaler/fake"
 	autoscalerfake "knative.dev/serving/pkg/autoscaler/fake"
+	"knative.dev/serving/pkg/autoscaler/metrics"
 )
 
 const (
@@ -37,25 +37,18 @@ const (
 	targetUtilization = 0.75
 )
 
-var (
-	kubeClient   = fakeK8s.NewSimpleClientset()
-	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
-)
-
-func TestNewErrorWhenGivenNilEndpointsCounter(t *testing.T) {
-	_, err := New(testNamespace, testRevision, &autoscalerfake.MetricClient{}, nil, &DeciderSpec{TargetValue: 10, ServiceName: testService}, &mockReporter{})
-	if err == nil {
-		t.Error("Expected error when EndpointsCounter interface is nil, but got none.")
+func TestNewErrorWhenGivenNilReadyPodCounter(t *testing.T) {
+	if _, err := New(fake.TestNamespace, fake.TestRevision, &autoscalerfake.MetricClient{}, nil, &DeciderSpec{TargetValue: 10, ServiceName: fake.TestService}, &mockReporter{}); err == nil {
+		t.Error("Expected error when ReadyPodCounter interface is nil, but got none.")
 	}
 }
 
 func TestNewErrorWhenGivenNilStatsReporter(t *testing.T) {
-	var reporter StatsReporter
+	var reporter metrics.StatsReporter
 
-	l := kubeInformer.Core().V1().Endpoints().Lister()
-	_, err := New(testNamespace, testRevision, &autoscalerfake.MetricClient{}, l,
-		&DeciderSpec{TargetValue: 10, ServiceName: testService}, reporter)
-	if err == nil {
+	l := fake.KubeInformer.Core().V1().Endpoints().Lister()
+	if _, err := New(fake.TestNamespace, fake.TestRevision, &autoscalerfake.MetricClient{}, l,
+		&DeciderSpec{TargetValue: 10, ServiceName: fake.TestService}, reporter); err == nil {
 		t.Error("Expected error when EndpointsInformer interface is nil, but got none.")
 	}
 }
@@ -80,7 +73,7 @@ func TestAutoscalerChangeOfPodCountService(t *testing.T) {
 	a := newTestAutoscaler(t, 10, 100, metrics)
 	a.expectScale(t, time.Now(), 5, expectedEBC(10, 100, 50, 1), true)
 
-	const newTS = testService + "2"
+	const newTS = fake.TestService + "2"
 	newDS := *a.deciderSpec
 	newDS.ServiceName = newTS
 	a.Update(&newDS)
@@ -112,7 +105,7 @@ func TestAutoscalerStableModeIncreaseWithRPS(t *testing.T) {
 func TestAutoscalerStableModeDecrease(t *testing.T) {
 	metrics := &autoscalerfake.MetricClient{StableConcurrency: 100.0}
 	a := newTestAutoscaler(t, 10, 98, metrics)
-	endpoints(8, testService)
+	endpoints(8, fake.TestService)
 	a.expectScale(t, time.Now(), 10, expectedEBC(10, 98, 100, 8), true)
 
 	metrics.StableConcurrency = 50
@@ -136,18 +129,18 @@ func TestAutoscalerPanicModeExponentialTrackAndStablize(t *testing.T) {
 	a := newTestAutoscaler(t, 1, 101, metrics)
 	a.expectScale(t, time.Now(), 6, expectedEBC(1, 101, 6, 1), true)
 
-	endpoints(6, testService)
+	endpoints(6, fake.TestService)
 	metrics.PanicConcurrency, metrics.StableConcurrency = 36, 36
 	a.expectScale(t, time.Now(), 36, expectedEBC(1, 101, 36, 6), true)
 
-	endpoints(36, testService)
+	endpoints(36, fake.TestService)
 	metrics.PanicConcurrency, metrics.StableConcurrency = 216, 216
 	a.expectScale(t, time.Now(), 216, expectedEBC(1, 101, 216, 36), true)
 
-	endpoints(216, testService)
+	endpoints(216, fake.TestService)
 	metrics.PanicConcurrency, metrics.StableConcurrency = 1296, 1296
 	a.expectScale(t, time.Now(), 1296, expectedEBC(1, 101, 1296, 216), true)
-	endpoints(1296, testService)
+	endpoints(1296, fake.TestService)
 	a.expectScale(t, time.Now(), 1296, expectedEBC(1, 101, 1296, 1296), true)
 }
 
@@ -167,7 +160,7 @@ func TestAutoscalerScale(t *testing.T) {
 	}, {
 		label:     "AutoscalerNoDataAtZeroNoAutoscaleWithExplicitEPs",
 		as:        newTestAutoscaler(t, 10, 100, &autoscalerfake.MetricClient{}),
-		prepFunc:  func(*Autoscaler) { endpoints(1, testService) },
+		prepFunc:  func(*Autoscaler) { endpoints(1, fake.TestService) },
 		wantScale: 0,
 		wantEBC:   expectedEBC(10, 100, 0, 1),
 	}, {
@@ -188,13 +181,13 @@ func TestAutoscalerScale(t *testing.T) {
 	}, {
 		label:     "AutoscalerStableModeNoChangeAlreadyScaled",
 		as:        newTestAutoscaler(t, 10, 100, &autoscalerfake.MetricClient{StableConcurrency: 50.0}),
-		prepFunc:  func(*Autoscaler) { endpoints(5, testService) },
+		prepFunc:  func(*Autoscaler) { endpoints(5, fake.TestService) },
 		wantScale: 5,
 		wantEBC:   expectedEBC(10, 100, 50, 5),
 	}, {
 		label:     "AutoscalerStableModeNoChangeAlreadyScaled",
 		as:        newTestAutoscaler(t, 10, 100, &autoscalerfake.MetricClient{StableConcurrency: 50.0}),
-		prepFunc:  func(*Autoscaler) { endpoints(5, testService) },
+		prepFunc:  func(*Autoscaler) { endpoints(5, fake.TestService) },
 		wantScale: 5,
 		wantEBC:   expectedEBC(10, 100, 50, 5),
 	}, {
@@ -202,7 +195,7 @@ func TestAutoscalerScale(t *testing.T) {
 		as:    newTestAutoscaler(t, 1 /* target */, 1982 /* TBC */, &autoscalerfake.MetricClient{StableConcurrency: 3}),
 		prepFunc: func(a *Autoscaler) {
 			a.deciderSpec.MaxScaleUpRate = 1.1
-			endpoints(2, testService)
+			endpoints(2, fake.TestService)
 		},
 		wantScale: 3,
 		wantEBC:   expectedEBC(1, 1982, 3, 2),
@@ -211,7 +204,7 @@ func TestAutoscalerScale(t *testing.T) {
 		as:    newTestAutoscaler(t, 10 /* target */, 1982 /* TBC */, &autoscalerfake.MetricClient{StableConcurrency: 1}),
 		prepFunc: func(a *Autoscaler) {
 			a.deciderSpec.MaxScaleDownRate = 1.1
-			endpoints(100, testService)
+			endpoints(100, fake.TestService)
 		},
 		wantScale: 90,
 		wantEBC:   expectedEBC(10, 1982, 1, 100),
@@ -225,7 +218,7 @@ func TestAutoscalerScale(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.label, func(tt *testing.T) {
 			// Reset the endpoints state to the default before every test.
-			endpoints(1, testService)
+			endpoints(1, fake.TestService)
 			if test.prepFunc != nil {
 				test.prepFunc(test.as)
 			}
@@ -238,7 +231,7 @@ func TestAutoscalerPanicThenUnPanicScaleDown(t *testing.T) {
 	metrics := &autoscalerfake.MetricClient{StableConcurrency: 100, PanicConcurrency: 100}
 	a := newTestAutoscaler(t, 10, 93, metrics)
 	a.expectScale(t, time.Now(), 10, expectedEBC(10, 93, 100, 1), true)
-	endpoints(10, testService)
+	endpoints(10, fake.TestService)
 
 	panicTime := time.Now()
 	metrics.PanicConcurrency = 1000
@@ -260,7 +253,7 @@ func TestAutoscalerRateLimitScaleUp(t *testing.T) {
 	// Need 100 pods but only scale x10
 	a.expectScale(t, time.Now(), 10, expectedEBC(10, 61, 1000, 1), true)
 
-	endpoints(10, testService)
+	endpoints(10, fake.TestService)
 	// Scale x10 again
 	a.expectScale(t, time.Now(), 100, expectedEBC(10, 61, 1000, 10), true)
 }
@@ -270,25 +263,25 @@ func TestAutoscalerRateLimitScaleDown(t *testing.T) {
 	a := newTestAutoscaler(t, 10, 61, metrics)
 
 	// Need 1 pods but can only scale down ten times, to 10.
-	endpoints(100, testService)
+	endpoints(100, fake.TestService)
 	a.expectScale(t, time.Now(), 10, expectedEBC(10, 61, 1, 100), true)
 
-	endpoints(10, testService)
+	endpoints(10, fake.TestService)
 	// Scale ÷10 again.
 	a.expectScale(t, time.Now(), 1, expectedEBC(10, 61, 1, 10), true)
 }
 
 func eraseEndpoints() {
-	ep, _ := kubeClient.CoreV1().Endpoints(testNamespace).Get(testService, metav1.GetOptions{})
-	kubeClient.CoreV1().Endpoints(testNamespace).Delete(testService, nil)
-	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Delete(ep)
+	ep, _ := fake.KubeClient.CoreV1().Endpoints(fake.TestNamespace).Get(fake.TestService, metav1.GetOptions{})
+	fake.KubeClient.CoreV1().Endpoints(fake.TestNamespace).Delete(fake.TestService, nil)
+	fake.KubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Delete(ep)
 }
 
 func TestAutoscalerUseOnePodAsMinimumIfEndpointsNotFound(t *testing.T) {
 	metrics := &autoscalerfake.MetricClient{StableConcurrency: 1000}
 	a := newTestAutoscaler(t, 10, 81, metrics)
 
-	endpoints(0, testService)
+	endpoints(0, fake.TestService)
 	// 2*10 as the rate limited if we can get the actual pods number.
 	// 1*10 as the rate limited since no read pods are there from K8S API.
 	a.expectScale(t, time.Now(), 10, expectedEBC(10, 81, 1000, 0), true)
@@ -304,7 +297,7 @@ func TestAutoscalerUpdateTarget(t *testing.T) {
 	a := newTestAutoscaler(t, 10, 77, metrics)
 	a.expectScale(t, time.Now(), 10, expectedEBC(10, 77, 100, 1), true)
 
-	endpoints(10, testService)
+	endpoints(10, fake.TestService)
 	a.Update(&DeciderSpec{
 		TargetValue:         1,
 		TotalValue:          1 / targetUtilization,
@@ -313,7 +306,7 @@ func TestAutoscalerUpdateTarget(t *testing.T) {
 		MaxScaleDownRate:    10,
 		MaxScaleUpRate:      10,
 		StableWindow:        stableWindow,
-		ServiceName:         testService,
+		ServiceName:         fake.TestService,
 	})
 	a.expectScale(t, time.Now(), 100, expectedEBC(1, 71, 100, 10), true)
 }
@@ -329,11 +322,11 @@ func (r *mockReporter) ReportTargetRequestConcurrency(v float64)                
 func (r *mockReporter) ReportPanic(v int64)                                              {}
 func (r *mockReporter) ReportExcessBurstCapacity(v float64)                              {}
 
-func newTestAutoscaler(t *testing.T, targetValue, targetBurstCapacity float64, metrics MetricClient) *Autoscaler {
+func newTestAutoscaler(t *testing.T, targetValue, targetBurstCapacity float64, metrics metrics.MetricClient) *Autoscaler {
 	return newTestAutoscalerWithScalingMetric(t, targetValue, targetBurstCapacity, metrics, "concurrency")
 }
 
-func newTestAutoscalerWithScalingMetric(t *testing.T, targetValue, targetBurstCapacity float64, metrics MetricClient, metric string) *Autoscaler {
+func newTestAutoscalerWithScalingMetric(t *testing.T, targetValue, targetBurstCapacity float64, metrics metrics.MetricClient, metric string) *Autoscaler {
 	t.Helper()
 	deciderSpec := &DeciderSpec{
 		ScalingMetric:       metric,
@@ -344,17 +337,17 @@ func newTestAutoscalerWithScalingMetric(t *testing.T, targetValue, targetBurstCa
 		MaxScaleUpRate:      10,
 		MaxScaleDownRate:    10,
 		StableWindow:        stableWindow,
-		ServiceName:         testService,
+		ServiceName:         fake.TestService,
 	}
 
-	l := kubeInformer.Core().V1().Endpoints().Lister()
+	l := fake.KubeInformer.Core().V1().Endpoints().Lister()
 	// This ensures that we have endpoints object to start the autoscaler.
-	endpoints(0, testService)
-	a, err := New(testNamespace, testRevision, metrics, l, deciderSpec, &mockReporter{})
+	endpoints(0, fake.TestService)
+	a, err := New(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, &mockReporter{})
 	if err != nil {
 		t.Fatalf("Error creating test autoscaler: %v", err)
 	}
-	endpoints(1, testService)
+	endpoints(1, fake.TestService)
 	return a
 }
 
@@ -381,15 +374,15 @@ func endpoints(count int, svc string) {
 
 	ep := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNamespace,
+			Namespace: fake.TestNamespace,
 			Name:      svc,
 		},
 		Subsets: []corev1.EndpointSubset{{
 			Addresses: epAddresses,
 		}},
 	}
-	kubeClient.CoreV1().Endpoints(testNamespace).Create(ep)
-	kubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
+	fake.KubeClient.CoreV1().Endpoints(fake.TestNamespace).Create(ep)
+	fake.KubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
 }
 
 func TestStartInPanicMode(t *testing.T) {
@@ -402,13 +395,13 @@ func TestStartInPanicMode(t *testing.T) {
 		MaxScaleUpRate:      10,
 		MaxScaleDownRate:    10,
 		StableWindow:        stableWindow,
-		ServiceName:         testService,
+		ServiceName:         fake.TestService,
 	}
 
-	l := kubeInformer.Core().V1().Endpoints().Lister()
+	l := fake.KubeInformer.Core().V1().Endpoints().Lister()
 	for i := 0; i < 2; i++ {
-		endpoints(i, testService)
-		a, err := New(testNamespace, testRevision, metrics, l, deciderSpec, &mockReporter{})
+		endpoints(i, fake.TestService)
+		a, err := New(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, &mockReporter{})
 		if err != nil {
 			t.Fatalf("Error creating test autoscaler: %v", err)
 		}
@@ -421,8 +414,8 @@ func TestStartInPanicMode(t *testing.T) {
 	}
 
 	// Now start with 2 and make sure we're in panic mode.
-	endpoints(2, testService)
-	a, err := New(testNamespace, testRevision, metrics, l, deciderSpec, &mockReporter{})
+	endpoints(2, fake.TestService)
+	a, err := New(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, &mockReporter{})
 	if err != nil {
 		t.Fatalf("Error creating test autoscaler: %v", err)
 	}
@@ -445,11 +438,11 @@ func TestNewFail(t *testing.T) {
 		MaxScaleUpRate:      10,
 		MaxScaleDownRate:    10,
 		StableWindow:        stableWindow,
-		ServiceName:         testService,
+		ServiceName:         fake.TestService,
 	}
 
-	l := kubeInformer.Core().V1().Endpoints().Lister()
-	a, err := New(testNamespace, testRevision, metrics, l, deciderSpec, &mockReporter{})
+	l := fake.KubeInformer.Core().V1().Endpoints().Lister()
+	a, err := New(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, &mockReporter{})
 	if err != nil {
 		t.Errorf("No endpoints should succeed, err = %v", err)
 	}

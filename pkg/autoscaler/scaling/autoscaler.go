@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package autoscaler
+package scaling
 
 import (
 	"context"
@@ -27,6 +27,7 @@ import (
 
 	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/autoscaler/metrics"
 	"knative.dev/serving/pkg/resources"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -38,9 +39,9 @@ import (
 type Autoscaler struct {
 	namespace    string
 	revision     string
-	metricClient MetricClient
+	metricClient metrics.MetricClient
 	lister       corev1listers.EndpointsLister
-	reporter     StatsReporter
+	reporter     metrics.StatsReporter
 
 	// State in panic mode. Carries over multiple Scale calls. Guarded
 	// by the stateMux.
@@ -58,10 +59,10 @@ type Autoscaler struct {
 func New(
 	namespace string,
 	revision string,
-	metricClient MetricClient,
+	metricClient metrics.MetricClient,
 	lister corev1listers.EndpointsLister,
 	deciderSpec *DeciderSpec,
-	reporter StatsReporter) (*Autoscaler, error) {
+	reporter metrics.StatsReporter) (*Autoscaler, error) {
 	if lister == nil {
 		return nil, errors.New("'lister' must not be nil")
 	}
@@ -155,7 +156,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	logger = logger.With(zap.String("metric", metricName))
 
 	if err != nil {
-		if err == ErrNoData {
+		if err == metrics.ErrNoData {
 			logger.Debug("No data to scale on yet")
 		} else {
 			logger.Errorw("Failed to obtain metrics", zap.Error(err))

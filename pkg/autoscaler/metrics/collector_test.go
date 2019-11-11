@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package autoscaler
+package metrics
 
 import (
 	"errors"
@@ -33,6 +33,7 @@ import (
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler/aggregation"
+	"knative.dev/serving/pkg/autoscaler/fake"
 )
 
 var (
@@ -300,14 +301,14 @@ func TestMetricCollectorError(t *testing.T) {
 		},
 		metric: &av1alpha1.Metric{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: testNamespace,
-				Name:      testRevision,
+				Namespace: fake.TestNamespace,
+				Name:      fake.TestRevision,
 				Labels: map[string]string{
-					serving.RevisionLabelKey: testRevision,
+					serving.RevisionLabelKey: fake.TestRevision,
 				},
 			},
 			Spec: av1alpha1.MetricSpec{
-				ScrapeTarget: testRevision + "-zhudex",
+				ScrapeTarget: fake.TestRevision + "-zhudex",
 			},
 		},
 		expectedMetricStatus: duckv1.Status{
@@ -327,14 +328,14 @@ func TestMetricCollectorError(t *testing.T) {
 		},
 		metric: &av1alpha1.Metric{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: testNamespace,
-				Name:      testRevision,
+				Namespace: fake.TestNamespace,
+				Name:      fake.TestRevision,
 				Labels: map[string]string{
-					serving.RevisionLabelKey: testRevision,
+					serving.RevisionLabelKey: fake.TestRevision,
 				},
 			},
 			Spec: av1alpha1.MetricSpec{
-				ScrapeTarget: testRevision + "-zhudex",
+				ScrapeTarget: fake.TestRevision + "-zhudex",
 			},
 		},
 		expectedMetricStatus: duckv1.Status{
@@ -354,14 +355,14 @@ func TestMetricCollectorError(t *testing.T) {
 		},
 		metric: &av1alpha1.Metric{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: testNamespace,
-				Name:      testRevision,
+				Namespace: fake.TestNamespace,
+				Name:      fake.TestRevision,
 				Labels: map[string]string{
-					serving.RevisionLabelKey: testRevision,
+					serving.RevisionLabelKey: fake.TestRevision,
 				},
 			},
 			Spec: av1alpha1.MetricSpec{
-				ScrapeTarget: testRevision + "-zhudex",
+				ScrapeTarget: fake.TestRevision + "-zhudex",
 			},
 		},
 		expectedMetricStatus: duckv1.Status{

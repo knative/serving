@@ -32,6 +32,7 @@ import (
 	servingv1informers "knative.dev/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
+	"knative.dev/serving/pkg/autoscaler/metrics"
 )
 
 const (
@@ -56,7 +57,7 @@ func TestStats(t *testing.T) {
 	tt := []struct {
 		name          string
 		ops           []reqOp
-		expectedStats []autoscaler.StatMessage
+		expectedStats []metrics.StatMessage
 	}{{
 		name: "Scale-from-zero sends stat",
 		ops: []reqOp{{
@@ -66,15 +67,15 @@ func TestStats(t *testing.T) {
 			op:  requestOpStart,
 			key: pod2,
 		}},
-		expectedStats: []autoscaler.StatMessage{{
+		expectedStats: []metrics.StatMessage{{
 			Key: pod1,
-			Stat: autoscaler.Stat{
+			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
 			Key: pod2,
-			Stat: autoscaler.Stat{
+			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
@@ -90,15 +91,15 @@ func TestStats(t *testing.T) {
 		}, {
 			op: requestOpTick,
 		}},
-		expectedStats: []autoscaler.StatMessage{{
+		expectedStats: []metrics.StatMessage{{
 			Key: pod1,
-			Stat: autoscaler.Stat{
+			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
 			Key: pod1,
-			Stat: autoscaler.Stat{
+			Stat: metrics.Stat{
 				AverageConcurrentRequests: 2,
 				RequestCount:              2,
 				PodName:                   "activator",
@@ -117,15 +118,15 @@ func TestStats(t *testing.T) {
 			op:  requestOpStart,
 			key: pod1,
 		}},
-		expectedStats: []autoscaler.StatMessage{{
+		expectedStats: []metrics.StatMessage{{
 			Key: pod1,
-			Stat: autoscaler.Stat{
+			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
 			Key: pod1,
-			Stat: autoscaler.Stat{
+			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
@@ -149,45 +150,45 @@ func TestStats(t *testing.T) {
 		}, {
 			op: requestOpTick,
 		}},
-		expectedStats: []autoscaler.StatMessage{{
+		expectedStats: []metrics.StatMessage{{
 			Key: pod1,
-			Stat: autoscaler.Stat{
+			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
 			Key: pod2,
-			Stat: autoscaler.Stat{
+			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
 			Key: pod1,
-			Stat: autoscaler.Stat{
+			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
 			Key: pod2,
-			Stat: autoscaler.Stat{
+			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
 			Key: pod3,
-			Stat: autoscaler.Stat{
+			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
 			Key: pod2,
-			Stat: autoscaler.Stat{
+			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              0,
 				PodName:                   "activator",
 			}}, {
 			Key: pod3,
-			Stat: autoscaler.Stat{
+			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
@@ -220,13 +221,13 @@ func TestStats(t *testing.T) {
 			}()
 
 			// Gather reported stats
-			stats := make([]autoscaler.StatMessage, 0, len(tc.expectedStats))
+			stats := make([]metrics.StatMessage, 0, len(tc.expectedStats))
 			for len(stats) < len(tc.expectedStats) {
 				stats = append(stats, <-s.statChan...)
 			}
 
 			// Check the stats we got match what we wanted
-			sorter := cmpopts.SortSlices(func(a, b autoscaler.StatMessage) bool {
+			sorter := cmpopts.SortSlices(func(a, b metrics.StatMessage) bool {
 				return a.Key.Name < b.Key.Name
 			})
 			if got, want := stats, tc.expectedStats; !cmp.Equal(got, want, sorter) {
@@ -240,7 +241,7 @@ func TestStats(t *testing.T) {
 type testStats struct {
 	reqChan      chan ReqEvent
 	reportChan   <-chan time.Time
-	statChan     chan []autoscaler.StatMessage
+	statChan     chan []metrics.StatMessage
 	reportBiChan chan time.Time
 }
 
@@ -249,7 +250,7 @@ func newTestStats(t *testing.T) (*testStats, *ConcurrencyReporter, context.Conte
 	ts := &testStats{
 		reqChan:      make(chan ReqEvent),
 		reportChan:   (<-chan time.Time)(reportBiChan),
-		statChan:     make(chan []autoscaler.StatMessage),
+		statChan:     make(chan []metrics.StatMessage),
 		reportBiChan: reportBiChan,
 	}
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)

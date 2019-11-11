@@ -17,9 +17,28 @@ limitations under the License.
 package fake
 
 import (
+	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	kubeinformers "k8s.io/client-go/informers"
+	fakeK8s "k8s.io/client-go/kubernetes/fake"
+)
+
+var (
+	// KubeClient holds instances of interfaces for making requests to kubernetes client.
+	KubeClient = fakeK8s.NewSimpleClientset()
+	// KubeInformer constructs a new instance of sharedInformerFactory for all namespaces.
+	KubeInformer = kubeinformers.NewSharedInformerFactory(KubeClient, 0)
+)
+
+const (
+	// TestRevision is the name used for revision
+	TestRevision  = "test-revision"
+	TestService   = "test-revision-metrics"
+	TestNamespace = "test-namespace"
 )
 
 // MetricClient is a fake implementation of autoscaler.MetricClient for testing.
@@ -57,4 +76,25 @@ var StaticMetricClient = MetricClient{
 	PanicConcurrency:  10.0,
 	StableRPS:         10.0,
 	PanicRPS:          10.0,
+}
+
+// Endpoints is used to create eps
+func Endpoints(count int, svc string) {
+	epAddresses := make([]corev1.EndpointAddress, count)
+	for i := 0; i < count; i++ {
+		ip := fmt.Sprintf("127.0.0.%v", i+1)
+		epAddresses[i] = corev1.EndpointAddress{IP: ip}
+	}
+
+	ep := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: TestNamespace,
+			Name:      svc,
+		},
+		Subsets: []corev1.EndpointSubset{{
+			Addresses: epAddresses,
+		}},
+	}
+	KubeClient.CoreV1().Endpoints(TestNamespace).Create(ep)
+	KubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
 }

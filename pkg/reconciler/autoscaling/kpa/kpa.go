@@ -30,7 +30,8 @@ import (
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/autoscaler/metrics"
+	"knative.dev/serving/pkg/autoscaler/scaling"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
@@ -227,7 +228,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	return computeStatus(pa, pc)
 }
 
-func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler, k8sSvc string) (*autoscaler.Decider, error) {
+func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler, k8sSvc string) (*scaling.Decider, error) {
 	desiredDecider := resources.MakeDecider(ctx, pa, config.FromContext(ctx).Autoscaler, k8sSvc)
 	decider, err := c.deciders.Get(ctx, desiredDecider.Namespace, desiredDecider.Name)
 	if errors.IsNotFound(err) {

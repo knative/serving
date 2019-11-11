@@ -24,6 +24,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"knative.dev/serving/pkg/autoscaler/metrics"
 )
 
 const (

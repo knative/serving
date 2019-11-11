@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clientgotesting "k8s.io/client-go/testing"
-	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/autoscaler/metrics"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -249,7 +249,7 @@ func (c *testCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
 	return c.createOrUpdateError
 }
 
-func (c *testCollector) Record(key types.NamespacedName, stat autoscaler.Stat) {
+func (c *testCollector) Record(key types.NamespacedName, stat metrics.Stat) {
 	c.recordCalls++
 }
 

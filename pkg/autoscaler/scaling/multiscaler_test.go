@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package autoscaler
+package scaling
 
 import (
 	"context"
@@ -31,6 +31,8 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	. "knative.dev/pkg/logging/testing"
+	"knative.dev/serving/pkg/autoscaler/fake"
+	"knative.dev/serving/pkg/autoscaler/metrics"
 )
 
 const (
@@ -363,7 +365,7 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 		t.Error("Failed to set scale for metric to 0")
 	}
 
-	testStat := Stat{
+	testStat := metrics.Stat{
 		Time:                      time.Now(),
 		PodName:                   "test-pod",
 		AverageConcurrentRequests: 1,
@@ -510,8 +512,8 @@ func (u *fakeUniScaler) Update(*DeciderSpec) error {
 func newDecider() *Decider {
 	return &Decider{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNamespace,
-			Name:      testRevision,
+			Namespace: fake.TestNamespace,
+			Name:      fake.TestRevision,
 		},
 		Spec: DeciderSpec{
 			TickInterval: tickInterval,

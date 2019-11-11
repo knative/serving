@@ -63,6 +63,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/autoscaler/scaling"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
@@ -972,7 +973,7 @@ func TestReconcile(t *testing.T) {
 			decider.Generation = 2112
 			fakeDeciders.Create(ctx, decider)
 		} else {
-			fakeDeciders.Create(ctx, d.(*autoscaler.Decider))
+			fakeDeciders.Create(ctx, d.(*scaling.Decider))
 		}
 
 		psf := podscalable.Get(ctx)
@@ -1088,7 +1089,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	})
 
 	// Wait for decider to be updated with the new values from the configMap.
-	cond := func(d *autoscaler.Decider) bool {
+	cond := func(d *scaling.Decider) bool {
 		return d.Spec.TargetValue == concurrencyTargetAfterUpdate
 	}
 	if decider, err := pollDeciders(fakeDeciders, testNamespace, testRevision, cond); err != nil {
@@ -1361,7 +1362,7 @@ func TestScaleFailure(t *testing.T) {
 	}
 }
 
-func pollDeciders(deciders *testDeciders, namespace, name string, cond func(*autoscaler.Decider) bool) (decider *autoscaler.Decider, err error) {
+func pollDeciders(deciders *testDeciders, namespace, name string, cond func(*scaling.Decider) bool) (decider *scaling.Decider, err error) {
 	wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
 		decider, err = deciders.Get(context.Background(), namespace, name)
 		if err != nil {
@@ -1389,11 +1390,11 @@ type testDeciders struct {
 	deleteCallCount    *atomic.Uint32
 	updateCallCount    *atomic.Uint32
 	deleteBeforeCreate *atomic.Bool
-	decider            *autoscaler.Decider
+	decider            *scaling.Decider
 	mutex              sync.Mutex
 }
 
-func (km *testDeciders) Get(ctx context.Context, namespace, name string) (*autoscaler.Decider, error) {
+func (km *testDeciders) Get(ctx context.Context, namespace, name string) (*scaling.Decider, error) {
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 
@@ -1403,7 +1404,7 @@ func (km *testDeciders) Get(ctx context.Context, namespace, name string) (*autos
 	return km.decider, nil
 }
 
-func (km *testDeciders) Create(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error) {
+func (km *testDeciders) Create(ctx context.Context, decider *scaling.Decider) (*scaling.Decider, error) {
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 
@@ -1424,7 +1425,7 @@ func (km *testDeciders) Delete(ctx context.Context, namespace, name string) erro
 	return nil
 }
 
-func (km *testDeciders) Update(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error) {
+func (km *testDeciders) Update(ctx context.Context, decider *scaling.Decider) (*scaling.Decider, error) {
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 
@@ -1441,11 +1442,11 @@ type failingDeciders struct {
 	deleteErr error
 }
 
-func (km *failingDeciders) Get(ctx context.Context, namespace, name string) (*autoscaler.Decider, error) {
+func (km *failingDeciders) Get(ctx context.Context, namespace, name string) (*scaling.Decider, error) {
 	return nil, km.getErr
 }
 
-func (km *failingDeciders) Create(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error) {
+func (km *failingDeciders) Create(ctx context.Context, decider *scaling.Decider) (*scaling.Decider, error) {
 	return nil, km.createErr
 }
 
@@ -1456,7 +1457,7 @@ func (km *failingDeciders) Delete(ctx context.Context, namespace, name string) e
 func (km *failingDeciders) Watch(fn func(types.NamespacedName)) {
 }
 
-func (km *failingDeciders) Update(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error) {
+func (km *failingDeciders) Update(ctx context.Context, decider *scaling.Decider) (*scaling.Decider, error) {
 	return decider, nil
 }
 
@@ -1511,8 +1512,8 @@ func withMinScale(minScale int) PodAutoscalerOption {
 	}
 }
 
-func decider(ns, name string, desiredScale, ebc int32) *autoscaler.Decider {
-	return &autoscaler.Decider{
+func decider(ns, name string, desiredScale, ebc int32) *scaling.Decider {
+	return &scaling.Decider{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: ns,
 			Name:      name,
@@ -1520,7 +1521,7 @@ func decider(ns, name string, desiredScale, ebc int32) *autoscaler.Decider {
 				autoscaling.ClassAnnotationKey: autoscaling.KPA,
 			},
 		},
-		Spec: autoscaler.DeciderSpec{
+		Spec: scaling.DeciderSpec{
 			MaxScaleUpRate:      10.0,
 			TickInterval:        2 * time.Second,
 			TargetValue:         100,
@@ -1529,7 +1530,7 @@ func decider(ns, name string, desiredScale, ebc int32) *autoscaler.Decider {
 			PanicThreshold:      200,
 			StableWindow:        60 * time.Second,
 		},
-		Status: autoscaler.DeciderStatus{
+		Status: scaling.DeciderStatus{
 			DesiredScale:        desiredScale,
 			ExcessBurstCapacity: ebc,
 		},

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package autoscaler
+package metrics
 
 import (
 	"strings"
@@ -32,8 +32,7 @@ func TestNewStatsReporterErrors(t *testing.T) {
 	}
 
 	for _, v := range invalidTagValues {
-		_, err := NewStatsReporter(v, v, v, v)
-		if err == nil {
+		if _, err := NewStatsReporter(v, v, v, v); err == nil {
 			t.Errorf("Expected err to not be nil for value %q, got nil", v)
 		}
 	}

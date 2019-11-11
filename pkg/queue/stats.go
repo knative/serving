@@ -18,6 +18,8 @@ package queue
 
 import (
 	"time"
+
+	"knative.dev/serving/pkg/autoscaler/metrics"
 )
 
 // ReqEvent represents either an incoming or closed request.

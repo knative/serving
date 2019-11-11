@@ -25,8 +25,8 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	fakeK8s "k8s.io/client-go/kubernetes/fake"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/autoscaler"
 	autoscalerfake "knative.dev/serving/pkg/autoscaler/fake"
+	"knative.dev/serving/pkg/autoscaler/scaling"
 )
 
 const (
@@ -66,12 +66,12 @@ func TestUniscalerFactoryFailures(t *testing.T) {
 	}}
 
 	uniScalerFactory := getTestUniScalerFactory()
-	decider := &autoscaler.Decider{
+	decider := &scaling.Decider{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      testRevision,
 		},
-		Spec: autoscaler.DeciderSpec{
+		Spec: scaling.DeciderSpec{
 			ServiceName: "wholesome-service",
 		},
 	}
@@ -123,7 +123,7 @@ func TestUniScalerFactoryFunc(t *testing.T) {
 	endpoints(testNamespace, "magic-services-offered")
 	uniScalerFactory := getTestUniScalerFactory()
 	for _, srv := range []string{"some", ""} {
-		decider := &autoscaler.Decider{
+		decider := &scaling.Decider{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: testNamespace,
 				Name:      testRevision,
@@ -133,7 +133,7 @@ func TestUniScalerFactoryFunc(t *testing.T) {
 					serving.ConfigurationLabelKey: "test-config",
 				},
 			},
-			Spec: autoscaler.DeciderSpec{
+			Spec: scaling.DeciderSpec{
 				ServiceName: "magic-services-offered",
 			},
 		}
@@ -144,6 +144,6 @@ func TestUniScalerFactoryFunc(t *testing.T) {
 	}
 }
 
-func getTestUniScalerFactory() func(decider *autoscaler.Decider) (autoscaler.UniScaler, error) {
+func getTestUniScalerFactory() func(decider *scaling.Decider) (scaling.UniScaler, error) {
 	return uniScalerFactoryFunc(kubeInformer.Core().V1().Endpoints(), &autoscalerfake.StaticMetricClient)
 }
