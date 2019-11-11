@@ -27,6 +27,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/test/performance"
 	"log"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -119,21 +120,30 @@ func createServices(clients *test.Clients, count int) ([]*v1a1test.ResourceObjec
 }
 
 func parallelScaleFromZero(ctx context.Context, clients *test.Clients, objs []*v1a1test.ResourceObjects, count int, q *quickstore.Quickstore) {
+	// Get the key for saving latency and error metrics in the benchmark.
+	lk := "l" + strconv.Itoa(count)
+	ek := "e" + strconv.Itoa(count)
 	var wg sync.WaitGroup
+	wg.Add(count)
 	for i := 0; i < count; i++ {
 		ndx := i
-		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			dur, err := runScaleFromZero(ctx, clients, ndx, objs[ndx])
 			log.Printf("%02d: duration: %v, err: %v", ndx, dur, err)
 			if err == nil {
 				q.AddSamplePoint(mako.XTime(time.Now()), map[string]float64{
-					"l": dur.Seconds(),
+					lk: dur.Seconds(),
 				})
 			} else {
+				// Add 1 to the error metric whenever there is an error.
+				q.AddSamplePoint(mako.XTime(time.Now()), map[string]float64{
+					ek: 1,
+				})
+				// By reporting errors like this, the error strings show up on
+				// the details page for each Mako run.
 				q.AddError(mako.XTime(time.Now()), err.Error())
 			}
-			wg.Done()
 		}()
 	}
 	wg.Wait()
