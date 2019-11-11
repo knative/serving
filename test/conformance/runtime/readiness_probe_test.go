@@ -30,40 +30,39 @@ import (
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
-// testCases for table-driven testing.
-var testCases = []struct {
-	// name of the test case, which will be inserted in names of routes, configurations, etc.
-	// Use a short name here to avoid hitting the 63-character limit in names
-	// (e.g., "service-to-service-call-svc-cluster-local-uagkdshh-frkml-service" is too long.)
-	name string
-	// handler to be used for readiness probe in user container.
-	handler corev1.Handler
-}{{
-	"httpGet",
-	corev1.Handler{
-		HTTPGet: &corev1.HTTPGetAction{
-			Path: "/healthz",
-		},
-	},
-}, {
-	"tcpSocket",
-	corev1.Handler{
-		TCPSocket: &corev1.TCPSocketAction{},
-	},
-}, {
-	"exec",
-	corev1.Handler{
-		Exec: &corev1.ExecAction{
-			Command: []string{"/ko-app/runtime", "probe"},
-		},
-	},
-}}
-
 func TestProbeRuntime(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
 	clients := test.Setup(t)
+
+	var testCases = []struct {
+		// name of the test case, which will be inserted in names of routes, configurations, etc.
+		// Use a short name here to avoid hitting the 63-character limit in names
+		// (e.g., "service-to-service-call-svc-cluster-local-uagkdshh-frkml-service" is too long.)
+		name string
+		// handler to be used for readiness probe in user container.
+		handler corev1.Handler
+	}{{
+		"httpGet",
+		corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/healthz",
+			},
+		},
+	}, {
+		"tcpSocket",
+		corev1.Handler{
+			TCPSocket: &corev1.TCPSocketAction{},
+		},
+	}, {
+		"exec",
+		corev1.Handler{
+			Exec: &corev1.ExecAction{
+				Command: []string{"/ko-app/runtime", "probe"},
+			},
+		},
+	}}
 
 	for _, tc := range testCases {
 		tc := tc
