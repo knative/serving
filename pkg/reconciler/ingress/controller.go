@@ -19,45 +19,122 @@ package ingress
 import (
 	"context"
 
+	"knative.dev/pkg/apis/istio/v1alpha3"
+	gatewayinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/gateway"
+	virtualserviceinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice"
+	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
+	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
+	secretinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/secret"
+	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
 	"knative.dev/pkg/tracker"
+	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	ingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/reconciler"
+	"knative.dev/serving/pkg/reconciler/ingress/config"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
 )
 
 const (
-	ingressesWorkQueueName = "Ingresses"
+	controllerAgentName = "ingress-controller"
 )
-
-// ReconcilerInitializer creates an Ingress Reconciler and exposes methods to perform
-// initializations.
-type ReconcilerInitializer interface {
-	controller.Reconciler
-
-	// Init initializes the reconciler.
-	Init(ctx context.Context, cmw configmap.Watcher, impl *controller.Impl)
-
-	// Sets tracker.
-	SetTracker(tracker.Interface)
-}
-
-// InitializerConstructor constructor function of ReconcilerInitializer
-type InitializerConstructor func(ctx context.Context, cmw configmap.Watcher) ReconcilerInitializer
 
 // NewController works as a constructor for Ingress Controller
 func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
-	return CreateController(ctx, cmw, ingressesWorkQueueName, newInitializer)
-}
+	virtualServiceInformer := virtualserviceinformer.Get(ctx)
+	gatewayInformer := gatewayinformer.Get(ctx)
+	secretInformer := secretinformer.Get(ctx)
+	ingressInformer := ingressinformer.Get(ctx)
 
-// CreateController creates an Ingress Controller
-func CreateController(ctx context.Context, cmw configmap.Watcher, workQueueName string,
-	initializerCtor InitializerConstructor) *controller.Impl {
+	c := &Reconciler{
+		Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
+		virtualServiceLister: virtualServiceInformer.Lister(),
+		gatewayLister:        gatewayInformer.Lister(),
+		secretLister:         secretInformer.Lister(),
+		ingressLister:        ingressInformer.Lister(),
+		finalizer:            ingressFinalizer,
+	}
+	impl := controller.NewImpl(c, c.Logger, "Ingresses")
 
-	initializer := initializerCtor(ctx, cmw)
-	impl := controller.NewImpl(initializer, logging.FromContext(ctx), workQueueName)
-	initializer.Init(ctx, cmw, impl)
+	c.Logger.Info("Setting up Ingress event handlers")
+	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
+	ingressHandler := cache.FilteringResourceEventHandler{
+		FilterFunc: myFilterFunc,
+		Handler:    controller.HandleAll(impl.Enqueue),
+	}
+	ingressInformer.Informer().AddEventHandler(ingressHandler)
+
+	virtualServiceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: myFilterFunc,
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+	})
+
+	c.Logger.Info("Setting up ConfigMap receivers")
+	configsToResync := []interface{}{
+		&config.Istio{},
+		&network.Config{},
+	}
+	resyncIngressesOnConfigChange := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
+		impl.FilteredGlobalResync(myFilterFunc, ingressInformer.Informer())
+	})
+	configStore := config.NewStore(c.Logger.Named("config-store"), resyncIngressesOnConfigChange)
+	configStore.WatchConfigs(cmw)
+	c.configStore = configStore
+
+	c.Logger.Info("Setting up statusManager")
+	endpointsInformer := endpointsinformer.Get(ctx)
+	serviceInformer := serviceinformer.Get(ctx)
+	podInformer := podinformer.Get(ctx)
+	resyncOnIngressReady := func(ia v1alpha1.IngressAccessor) {
+		impl.EnqueueKey(types.NamespacedName{Namespace: ia.GetNamespace(), Name: ia.GetName()})
+	}
+	statusProber := NewStatusProber(
+		c.Logger.Named("status-manager"),
+		gatewayInformer.Lister(),
+		endpointsInformer.Lister(),
+		serviceInformer.Lister(),
+		resyncOnIngressReady)
+	c.statusManager = statusProber
+	statusProber.Start(ctx.Done())
+
+	virtualServiceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		// Cancel probing when a VirtualService is deleted
+		DeleteFunc: func(obj interface{}) {
+			vs, ok := obj.(*v1alpha3.VirtualService)
+			if ok {
+				statusProber.CancelVirtualServiceProbing(vs)
+			}
+		},
+	})
+	podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		// Cancel probing when a Pod is deleted
+		DeleteFunc: func(obj interface{}) {
+			pod, ok := obj.(*corev1.Pod)
+			if ok {
+				statusProber.CancelPodProbing(pod)
+			}
+		},
+	})
+
+	c.Logger.Info("Setting up secret informer event handler")
+	tracker := tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
+	c.tracker = tracker
+
+	secretInformer.Informer().AddEventHandler(controller.HandleAll(
+		controller.EnsureTypeMeta(
+			tracker.OnChanged,
+			corev1.SchemeGroupVersion.WithKind("Secret"),
+		),
+	))
+
 	return impl
 }

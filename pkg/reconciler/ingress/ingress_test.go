@@ -291,8 +291,8 @@ func TestReconcile(t *testing.T) {
 							Type:     v1alpha1.IngressConditionReady,
 							Status:   corev1.ConditionUnknown,
 							Severity: apis.ConditionSeverityError,
-							Reason:   NotReconciledReason,
-							Message:  NotReconciledMessage,
+							Reason:   notReconciledReason,
+							Message:  notReconciledMessage,
 						}},
 					},
 				},
@@ -395,18 +395,16 @@ func TestReconcile(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
-			BaseIngressReconciler: &BaseIngressReconciler{
-				Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
-				VirtualServiceLister: listers.GetVirtualServiceLister(),
-				GatewayLister:        listers.GetGatewayLister(),
-				Finalizer:            ingressFinalizer,
-				ConfigStore: &testConfigStore{
-					config: ReconcilerTestConfig(),
-				},
-				StatusManager: &fakeStatusManager{
-					FakeIsReady: func(ia v1alpha1.IngressAccessor, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error) {
-						return true, nil
-					},
+			Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
+			virtualServiceLister: listers.GetVirtualServiceLister(),
+			gatewayLister:        listers.GetGatewayLister(),
+			finalizer:            ingressFinalizer,
+			configStore: &testConfigStore{
+				config: ReconcilerTestConfig(),
+			},
+			statusManager: &fakeStatusManager{
+				FakeIsReady: func(ia v1alpha1.IngressAccessor, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error) {
+					return true, nil
 				},
 			},
 			ingressLister: listers.GetIngressLister(),
@@ -515,8 +513,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 							Type:     v1alpha1.IngressConditionReady,
 							Status:   corev1.ConditionUnknown,
 							Severity: apis.ConditionSeverityError,
-							Reason:   NotReconciledReason,
-							Message:  NotReconciledMessage,
+							Reason:   notReconciledReason,
+							Message:  notReconciledMessage,
 						}},
 					},
 				},
@@ -797,33 +795,31 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		}
 
 		return &Reconciler{
-			BaseIngressReconciler: &BaseIngressReconciler{
-				Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
-				VirtualServiceLister: listers.GetVirtualServiceLister(),
-				GatewayLister:        listers.GetGatewayLister(),
-				SecretLister:         listers.GetSecretLister(),
-				Tracker:              &NullTracker{},
-				Finalizer:            ingressFinalizer,
-				// Enable reconciling gateway.
-				ConfigStore: &testConfigStore{
-					config: &config.Config{
-						Istio: &config.Istio{
-							IngressGateways: []config.Gateway{{
-								Namespace:  system.Namespace(),
-								Name:       "knative-ingress-gateway",
-								ServiceURL: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system"),
-							}},
-						},
-						Network: &network.Config{
-							AutoTLS:      true,
-							HTTPProtocol: network.HTTPDisabled,
-						},
+			Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
+			virtualServiceLister: listers.GetVirtualServiceLister(),
+			gatewayLister:        listers.GetGatewayLister(),
+			secretLister:         listers.GetSecretLister(),
+			tracker:              &NullTracker{},
+			finalizer:            ingressFinalizer,
+			// Enable reconciling gateway.
+			configStore: &testConfigStore{
+				config: &config.Config{
+					Istio: &config.Istio{
+						IngressGateways: []config.Gateway{{
+							Namespace:  system.Namespace(),
+							Name:       "knative-ingress-gateway",
+							ServiceURL: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system"),
+						}},
+					},
+					Network: &network.Config{
+						AutoTLS:      true,
+						HTTPProtocol: network.HTTPDisabled,
 					},
 				},
-				StatusManager: &fakeStatusManager{
-					FakeIsReady: func(ia v1alpha1.IngressAccessor, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error) {
-						return true, nil
-					},
+			},
+			statusManager: &fakeStatusManager{
+				FakeIsReady: func(ia v1alpha1.IngressAccessor, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error) {
+					return true, nil
 				},
 			},
 			ingressLister: listers.GetIngressLister(),
@@ -1005,7 +1001,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	configMapWatcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
 	controller := NewController(ctx, configMapWatcher)
 
-	controller.Reconciler.(*Reconciler).StatusManager = &fakeStatusManager{
+	controller.Reconciler.(*Reconciler).statusManager = &fakeStatusManager{
 		FakeIsReady: func(ia v1alpha1.IngressAccessor, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error) {
 			return true, nil
 		},
