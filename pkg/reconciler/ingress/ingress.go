@@ -68,6 +68,7 @@ var (
 	ingressFinalizer = ingressResource.String()
 )
 
+// Reconciler implements the control loop for the Ingress resources.
 type Reconciler struct {
 	*reconciler.Base
 
@@ -381,7 +382,7 @@ func (r *Reconciler) GetKubeClient() kubernetes.Interface {
 	return r.KubeClientSet
 }
 
-// GetsecretLister returns the lister for Secret.
+// GetSecretLister returns the lister for Secret.
 func (r *Reconciler) GetSecretLister() corev1listers.SecretLister {
 	return r.secretLister
 }
