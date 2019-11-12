@@ -346,7 +346,7 @@ func main() {
 	reportTicker := time.NewTicker(reportingPeriod)
 	defer reportTicker.Stop()
 
-	queue.NewStats(env.ServingPod, queue.Channels{
+	queue.NewStats(queue.Channels{
 		ReqChan:    reqChan,
 		ReportChan: reportTicker.C,
 		StatChan:   statChan,

@@ -24,18 +24,12 @@ import (
 	"knative.dev/serving/pkg/autoscaler"
 )
 
-const (
-	podName = "pod"
-)
-
 func TestNoData(t *testing.T) {
 	now := time.Now()
 	s := newTestStats(now)
 
 	got := s.report(now)
 	want := autoscaler.Stat{
-		Time:                      now,
-		PodName:                   podName,
 		AverageConcurrentRequests: 0.0,
 		RequestCount:              0,
 	}
@@ -55,8 +49,6 @@ func TestSingleRequestWholeTime(t *testing.T) {
 	got := s.report(now)
 
 	want := autoscaler.Stat{
-		Time:                      now,
-		PodName:                   podName,
 		AverageConcurrentRequests: 1.0,
 		RequestCount:              1,
 	}
@@ -76,8 +68,6 @@ func TestSingleRequestHalfTime(t *testing.T) {
 	got := s.report(now)
 
 	want := autoscaler.Stat{
-		Time:                      now,
-		PodName:                   podName,
 		AverageConcurrentRequests: 0.5,
 		RequestCount:              1,
 	}
@@ -98,8 +88,6 @@ func TestVeryShortLivedRequest(t *testing.T) {
 	got := s.report(now)
 
 	want := autoscaler.Stat{
-		Time:                      now,
-		PodName:                   podName,
 		AverageConcurrentRequests: float64(10) / float64(1000),
 		RequestCount:              1,
 	}
@@ -127,8 +115,6 @@ func TestMultipleRequestsWholeTime(t *testing.T) {
 	got := s.report(now)
 
 	want := autoscaler.Stat{
-		Time:                      now,
-		PodName:                   podName,
 		AverageConcurrentRequests: 1.0,
 		RequestCount:              3,
 	}
@@ -152,8 +138,6 @@ func TestMultipleRequestsInterleaved(t *testing.T) {
 	got := s.report(now)
 
 	want := autoscaler.Stat{
-		Time:                      now,
-		PodName:                   podName,
 		AverageConcurrentRequests: 1.5,
 		RequestCount:              2,
 	}
@@ -170,8 +154,6 @@ func TestOneRequestAcrossReportings(t *testing.T) {
 	now = now.Add(1 * time.Second)
 	got1 := s.report(now)
 	want1 := autoscaler.Stat{
-		Time:                      got1.Time,
-		PodName:                   podName,
 		AverageConcurrentRequests: 1.0,
 		RequestCount:              1,
 	}
@@ -181,8 +163,6 @@ func TestOneRequestAcrossReportings(t *testing.T) {
 	now = now.Add(500 * time.Millisecond)
 	got2 := s.report(now)
 	want2 := autoscaler.Stat{
-		Time:                      now,
-		PodName:                   podName,
 		AverageConcurrentRequests: 0.5,
 		RequestCount:              0,
 	}
@@ -202,8 +182,6 @@ func TestOneProxiedRequest(t *testing.T) {
 	now = now.Add(1 * time.Second)
 	got := s.report(now)
 	want := autoscaler.Stat{
-		Time:                             now,
-		PodName:                          podName,
 		AverageConcurrentRequests:        1.0,
 		AverageProxiedConcurrentRequests: 1.0,
 		RequestCount:                     1,
@@ -223,8 +201,6 @@ func TestOneEndedProxiedRequest(t *testing.T) {
 	now = now.Add(500 * time.Millisecond)
 	got := s.report(now)
 	want := autoscaler.Stat{
-		Time:                             now,
-		PodName:                          podName,
 		AverageConcurrentRequests:        0.5,
 		AverageProxiedConcurrentRequests: 0.5,
 		RequestCount:                     1,
@@ -245,8 +221,6 @@ func TestTwoRequestsOneProxied(t *testing.T) {
 	now = now.Add(500 * time.Millisecond)
 	got := s.report(now)
 	want := autoscaler.Stat{
-		Time:                             now,
-		PodName:                          podName,
 		AverageConcurrentRequests:        1.0,
 		AverageProxiedConcurrentRequests: 0.5,
 		RequestCount:                     2,
@@ -259,7 +233,7 @@ func TestTwoRequestsOneProxied(t *testing.T) {
 
 // Test type to hold the bi-directional time channels
 type testStats struct {
-	Stats
+	ch           Channels
 	reportBiChan chan time.Time
 }
 
@@ -270,9 +244,9 @@ func newTestStats(now time.Time) *testStats {
 		ReportChan: (<-chan time.Time)(reportBiChan),
 		StatChan:   make(chan autoscaler.Stat),
 	}
-	s := NewStats(podName, ch, now)
+	NewStats(ch, now)
 	t := &testStats{
-		Stats:        *s,
+		ch:           ch,
 		reportBiChan: reportBiChan,
 	}
 	return t
