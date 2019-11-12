@@ -43,16 +43,19 @@ header "Running tests"
 
 failed=0
 
-# Run tests serially in the mesh scenario
+# Run tests serially in the mesh and https scenarios
 parallelism=""
+use_https=""
 (( MESH )) && parallelism="-parallel 1"
+(( HTTPS )) && parallelism="-parallel 1"
+(( HTTPS )) && use_https="--https"
 
 # Run conformance and e2e tests.
 go_test_e2e -timeout=30m \
   ./test/conformance/... \
   ./test/e2e \
   ${parallelism} \
-  "--resolvabledomain=$(use_resolvable_domain)" "$(use_https)" "$(ingress_class)" || failed=1
+  "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
 # Run scale tests.
 go_test_e2e -timeout=10m \
@@ -63,7 +66,7 @@ go_test_e2e -timeout=10m \
 if [[ -n "${ISTIO_VERSION}" ]]; then
   go_test_e2e -timeout=10m \
     ./test/e2e/istio \
-    "--resolvabledomain=$(use_resolvable_domain)" "$(use_https)" || failed=1
+    "--resolvabledomain=$(use_resolvable_domain)" || failed=1
 fi
 
 # Dump cluster state in case of failure

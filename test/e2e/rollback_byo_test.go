@@ -67,7 +67,7 @@ func TestRollbackBYOName(t *testing.T) {
 
 	t.Logf("Creating a new Service with byo config name %q.", byoNameOld)
 	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		true /* https */,
 		withTrafficSpecOld, func(svc *v1alpha1.Service) {
 			svc.Spec.ConfigurationSpec.Template.ObjectMeta.Name = byoNameOld
 		})

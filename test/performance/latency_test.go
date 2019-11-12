@@ -65,7 +65,7 @@ func timeToServe(t *testing.T, img, query string, reqTimeout time.Duration) {
 
 	t.Log("Creating a new Service")
 	objs, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		false /* https TODO(taragu) turn this on after helloworld test running with https */)
+		false /* https only enabled for e2e and conformance testts */)
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}

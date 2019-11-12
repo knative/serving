@@ -189,7 +189,7 @@ func TestWebSocket(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	if _, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		false /* https TODO(taragu) turn this on after helloworld test running with https */); err != nil {
+		true /* https */); err != nil {
 		t.Fatalf("Failed to create WebSocket server: %v", err)
 	}
 
@@ -217,7 +217,7 @@ func TestWebSocketViaActivator(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		true /* https */,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 		}),
@@ -251,7 +251,7 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 	// Setup Initial Service
 	t.Log("Creating a new Service in runLatest")
 	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		false, /* https TODO(taragu) turn this on after helloworld test running with HTTPS */
+		true /* https */,
 		func(s *v1alpha1.Service) {
 			s.Spec.ConfigurationSpec.Template.Spec.Containers[0].Env = []corev1.EnvVar{{
 				Name:  "SUFFIX",
