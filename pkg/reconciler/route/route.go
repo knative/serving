@@ -240,23 +240,15 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	}
 
 	// Reconcile ingress and its children resources.
-	ingress, err := c.reconcileIngressResources(ctx, r, traffic, tls, clusterLocalServiceNames, ingressClassForRoute(ctx, r),
-		&IngressResources{
-			BaseIngressResources: BaseIngressResources{
-				servingClientSet: c.ServingClientSet,
-			},
-			ingressLister: c.ingressLister,
-		},
-	)
-
+	ingress, err := c.reconcileIngressResources(ctx, r, traffic, tls, clusterLocalServiceNames, ingressClassForRoute(ctx, r))
 	if err != nil {
 		return err
 	}
 
-	if ingress.GetObjectMeta().GetGeneration() != ingress.GetStatus().ObservedGeneration || !ingress.GetStatus().IsReady() {
+	if ingress.GetObjectMeta().GetGeneration() != ingress.Status.ObservedGeneration || !ingress.Status.IsReady() {
 		r.Status.MarkIngressNotConfigured()
 	} else {
-		r.Status.PropagateIngressStatus(*ingress.GetStatus())
+		r.Status.PropagateIngressStatus(ingress.Status)
 	}
 
 	logger.Info("Updating placeholder k8s services with ingress information")
@@ -270,14 +262,14 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 }
 
 func (c *Reconciler) reconcileIngressResources(ctx context.Context, r *v1alpha1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS,
-	clusterLocalServices sets.String, ingressClass string, ira IngressResourceAccessors) (netv1alpha1.IngressAccessor, error) {
+	clusterLocalServices sets.String, ingressClass string) (*netv1alpha1.Ingress, error) {
 
-	desired, err := ira.makeIngress(ctx, r, tc, tls, clusterLocalServices, ingressClass)
+	desired, err := resources.MakeIngress(ctx, r, tc, tls, clusterLocalServices, ingressClass)
 	if err != nil {
 		return nil, err
 	}
 
-	ingress, err := c.reconcileIngress(ctx, ira, r, desired)
+	ingress, err := c.reconcileIngress(ctx, r, desired)
 	if err != nil {
 		return nil, err
 	}

@@ -30,9 +30,9 @@ import (
 
 // GetSecrets gets the all of the secrets referenced by the given Ingress, and
 // returns a map whose key is the a secret namespace/name key and value is pointer of the secret.
-func GetSecrets(ia v1alpha1.IngressAccessor, secretLister corev1listers.SecretLister) (map[string]*corev1.Secret, error) {
+func GetSecrets(ia *v1alpha1.Ingress, secretLister corev1listers.SecretLister) (map[string]*corev1.Secret, error) {
 	secrets := map[string]*corev1.Secret{}
-	for _, tls := range ia.GetSpec().TLS {
+	for _, tls := range ia.Spec.TLS {
 		ref := secretKey(tls)
 		if _, ok := secrets[ref]; ok {
 			continue

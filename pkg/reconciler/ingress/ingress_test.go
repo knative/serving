@@ -398,7 +398,7 @@ func TestReconcile(t *testing.T) {
 				config: ReconcilerTestConfig(),
 			},
 			statusManager: &fakeStatusManager{
-				FakeIsReady: func(ia v1alpha1.IngressAccessor, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error) {
+				FakeIsReady: func(ia *v1alpha1.Ingress, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error) {
 					return true, nil
 				},
 			},
@@ -812,7 +812,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				},
 			},
 			statusManager: &fakeStatusManager{
-				FakeIsReady: func(ia v1alpha1.IngressAccessor, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error) {
+				FakeIsReady: func(ia *v1alpha1.Ingress, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error) {
 					return true, nil
 				},
 			},
@@ -996,7 +996,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	controller := NewController(ctx, configMapWatcher)
 
 	controller.Reconciler.(*Reconciler).statusManager = &fakeStatusManager{
-		FakeIsReady: func(ia v1alpha1.IngressAccessor, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error) {
+		FakeIsReady: func(ia *v1alpha1.Ingress, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error) {
 			return true, nil
 		},
 	}
@@ -1111,8 +1111,8 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 	}
 }
 
-func insertProbe(ia v1alpha1.IngressAccessor) v1alpha1.IngressAccessor {
-	ia = ia.DeepCopyObject().(v1alpha1.IngressAccessor)
+func insertProbe(ia *v1alpha1.Ingress) *v1alpha1.Ingress {
+	ia = ia.DeepCopy()
 	resources.InsertProbe(ia)
 	return ia
 }
@@ -1228,9 +1228,9 @@ func makeGatewayMap(publicGateways []string, privateGateways []string) map[v1alp
 }
 
 type fakeStatusManager struct {
-	FakeIsReady func(ia v1alpha1.IngressAccessor, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error)
+	FakeIsReady func(ia *v1alpha1.Ingress, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error)
 }
 
-func (m *fakeStatusManager) IsReady(ia v1alpha1.IngressAccessor, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error) {
+func (m *fakeStatusManager) IsReady(ia *v1alpha1.Ingress, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error) {
 	return m.FakeIsReady(ia, gw)
 }

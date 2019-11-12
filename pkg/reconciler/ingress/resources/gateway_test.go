@@ -205,7 +205,7 @@ func TestGetHTTPServer(t *testing.T) {
 func TestMakeTLSServers(t *testing.T) {
 	cases := []struct {
 		name                    string
-		ci                      v1alpha1.IngressAccessor
+		ci                      *v1alpha1.Ingress
 		gatewayServiceNamespace string
 		originSecrets           map[string]*corev1.Secret
 		expected                []v1alpha3.Server
@@ -562,7 +562,7 @@ func TestUpdateGateway(t *testing.T) {
 func TestMakeIngressGateways(t *testing.T) {
 	cases := []struct {
 		name           string
-		ia             v1alpha1.IngressAccessor
+		ia             *v1alpha1.Ingress
 		originSecrets  map[string]*corev1.Secret
 		gatewayService *corev1.Service
 		want           []*v1alpha3.Gateway

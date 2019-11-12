@@ -58,11 +58,10 @@ func (c *Reconciler) deleteIngressForRoute(route *v1alpha1.Route) error {
 		nil, metav1.ListOptions{LabelSelector: selector})
 }
 
-func (c *Reconciler) reconcileIngress(
-	ctx context.Context, ira IngressResourceAccessors, r *v1alpha1.Route, desired netv1alpha1.IngressAccessor) (netv1alpha1.IngressAccessor, error) {
-	ingress, err := ira.getIngressForRoute(r)
+func (c *Reconciler) reconcileIngress(ctx context.Context, r *v1alpha1.Route, desired *netv1alpha1.Ingress) (*netv1alpha1.Ingress, error) {
+	ingress, err := c.ingressLister.Ingresses(desired.Namespace).Get(desired.Name)
 	if apierrs.IsNotFound(err) {
-		ingress, err = ira.createIngress(desired)
+		ingress, err = c.ServingClientSet.NetworkingV1alpha1().Ingresses(desired.Namespace).Create(desired)
 		if err != nil {
 			c.Recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress: %v", err)
 			return nil, fmt.Errorf("failed to create Ingress: %w", err)
@@ -76,12 +75,12 @@ func (c *Reconciler) reconcileIngress(
 		// It is notable that one reason for differences here may be defaulting.
 		// When that is the case, the Update will end up being a nop because the
 		// webhook will bring them into alignment and no new reconciliation will occur.
-		if !equality.Semantic.DeepEqual(ingress.GetSpec(), desired.GetSpec()) {
+		if !equality.Semantic.DeepEqual(ingress.Spec, desired.Spec) {
 			// Don't modify the informers copy
-			origin := ingress.DeepCopyObject().(netv1alpha1.IngressAccessor)
-			origin.SetSpec(*desired.GetSpec())
+			origin := ingress.DeepCopy()
+			origin.Spec = desired.Spec
 
-			updated, err := ira.updateIngress(origin)
+			updated, err := c.ServingClientSet.NetworkingV1alpha1().Ingresses(origin.Namespace).Update(origin)
 			if err != nil {
 				return nil, fmt.Errorf("failed to update Ingress: %w", err)
 			}
@@ -154,7 +153,7 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 	return services, nil
 }
 
-func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1alpha1.Route, services []*corev1.Service, ingress netv1alpha1.IngressAccessor) error {
+func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1alpha1.Route, services []*corev1.Service, ingress *netv1alpha1.Ingress) error {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
 

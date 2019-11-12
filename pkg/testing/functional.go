@@ -301,13 +301,13 @@ func WithWaitingContainer(name, reason, message string) PodOption {
 	}
 }
 
-// IngressOption enables further configuration of the IngressAccessor.
-type IngressOption func(netv1alpha1.IngressAccessor)
+// IngressOption enables further configuration of the Ingress.
+type IngressOption func(*netv1alpha1.Ingress)
 
 // WithHosts sets the Hosts of the ingress rule specified index
 func WithHosts(index int, hosts ...string) IngressOption {
-	return func(ingress netv1alpha1.IngressAccessor) {
-		ingress.GetSpec().Rules[index].Hosts = hosts
+	return func(ingress *netv1alpha1.Ingress) {
+		ingress.Spec.Rules[index].Hosts = hosts
 	}
 }
 

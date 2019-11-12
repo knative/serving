@@ -51,7 +51,7 @@ var placeholderServer = v1alpha3.Server{
 }
 
 // GetServers gets the `Servers` from `Gateway` that belongs to the given Ingress.
-func GetServers(gateway *v1alpha3.Gateway, ia v1alpha1.IngressAccessor) []v1alpha3.Server {
+func GetServers(gateway *v1alpha3.Gateway, ia *v1alpha1.Ingress) []v1alpha3.Server {
 	servers := []v1alpha3.Server{}
 	for i := range gateway.Spec.Servers {
 		if belongsToIngress(&gateway.Spec.Servers[i], ia) {
@@ -71,7 +71,7 @@ func GetHTTPServer(gateway *v1alpha3.Gateway) *v1alpha3.Server {
 	return nil
 }
 
-func belongsToIngress(server *v1alpha3.Server, ia v1alpha1.IngressAccessor) bool {
+func belongsToIngress(server *v1alpha3.Server, ia *v1alpha1.Ingress) bool {
 	// The format of the portName should be "<namespace>/<ingress_name>:<number>".
 	// For example, default/routetest:0.
 	portNameSplits := strings.Split(server.Port.Name, ":")
@@ -89,8 +89,8 @@ func SortServers(servers []v1alpha3.Server) []v1alpha3.Server {
 	return servers
 }
 
-// MakeIngressGateways creates Gateways for a given IngressAccessor.
-func MakeIngressGateways(ctx context.Context, ia v1alpha1.IngressAccessor, originSecrets map[string]*corev1.Secret, svcLister corev1listers.ServiceLister) ([]*v1alpha3.Gateway, error) {
+// MakeIngressGateways creates Gateways for a given Ingress.
+func MakeIngressGateways(ctx context.Context, ia *v1alpha1.Ingress, originSecrets map[string]*corev1.Secret, svcLister corev1listers.ServiceLister) ([]*v1alpha3.Gateway, error) {
 	gatewayServices, err := getGatewayServices(ctx, svcLister)
 	if err != nil {
 		return nil, err
@@ -106,7 +106,7 @@ func MakeIngressGateways(ctx context.Context, ia v1alpha1.IngressAccessor, origi
 	return gateways, nil
 }
 
-func makeIngressGateway(ctx context.Context, ia v1alpha1.IngressAccessor, originSecrets map[string]*corev1.Secret, selector map[string]string, gatewayService *corev1.Service) (*v1alpha3.Gateway, error) {
+func makeIngressGateway(ctx context.Context, ia *v1alpha1.Ingress, originSecrets map[string]*corev1.Secret, selector map[string]string, gatewayService *corev1.Service) (*v1alpha3.Gateway, error) {
 	ns := ia.GetNamespace()
 	if len(ns) == 0 {
 		ns = system.Namespace()
@@ -116,7 +116,7 @@ func makeIngressGateway(ctx context.Context, ia v1alpha1.IngressAccessor, origin
 		return nil, err
 	}
 	hosts := sets.String{}
-	for _, rule := range ia.GetSpec().Rules {
+	for _, rule := range ia.Spec.Rules {
 		hosts.Insert(rule.Hosts...)
 	}
 	servers = append(servers, *MakeHTTPServer(config.FromContext(ctx).Network.HTTPProtocol, hosts.List()))
@@ -153,20 +153,19 @@ func getGatewayServices(ctx context.Context, svcLister corev1listers.ServiceList
 	return services, nil
 }
 
-// GatewayName create a name for the Gateway that is built based on the given IngressAccessor and bonds to the
+// GatewayName create a name for the Gateway that is built based on the given Ingress and bonds to the
 // given ingress gateway service.
 func GatewayName(accessor kmeta.Accessor, gatewaySvc *corev1.Service) string {
 	gatewayServiceKey := fmt.Sprintf("%s/%s", gatewaySvc.Namespace, gatewaySvc.Name)
 	return fmt.Sprintf("%s-%d", accessor.GetName(), adler32.Checksum([]byte(gatewayServiceKey)))
 }
 
-// MakeTLSServers creates the expected Gateway TLS `Servers` based on the given
-// IngressAccessor.
-func MakeTLSServers(ia v1alpha1.IngressAccessor, gatewayServiceNamespace string, originSecrets map[string]*corev1.Secret) ([]v1alpha3.Server, error) {
-	servers := make([]v1alpha3.Server, len(ia.GetSpec().TLS))
+// MakeTLSServers creates the expected Gateway TLS `Servers` based on the given Ingress.
+func MakeTLSServers(ia *v1alpha1.Ingress, gatewayServiceNamespace string, originSecrets map[string]*corev1.Secret) ([]v1alpha3.Server, error) {
+	servers := make([]v1alpha3.Server, len(ia.Spec.TLS))
 	// TODO(zhiminx): for the hosts that does not included in the IngressTLS but listed in the IngressRule,
 	// do we consider them as hosts for HTTP?
-	for i, tls := range ia.GetSpec().TLS {
+	for i, tls := range ia.Spec.TLS {
 		credentialName := tls.SecretName
 		// If the origin secret is not in the target namespace, then it should have been
 		// copied into the target namespace. So we use the name of the copy.
