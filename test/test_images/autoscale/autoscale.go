@@ -173,6 +173,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		go func() {
 			defer wg.Done()
 			fmt.Fprint(w, bloat(mb))
+			time.Sleep(time.Second)
 		}()
 	}
 }
