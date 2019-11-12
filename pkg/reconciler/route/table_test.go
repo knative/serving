@@ -421,7 +421,7 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress: inducing failure for create ingresses"),
 			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create Ingress: inducing failure for create ingresses"),
 		},
-		Key:                     "default/ingress-create-failure",
+		Key: "default/ingress-create-failure",
 	}, {
 		Name: "steady state",
 		Objects: []runtime.Object{
@@ -677,7 +677,7 @@ func TestReconcile(t *testing.T) {
 						},
 					})),
 		}},
-		Key:                     "default/new-latest-ready",
+		Key: "default/new-latest-ready",
 	}, {
 		Name: "public becomes cluster local",
 		Objects: []runtime.Object{
@@ -742,7 +742,7 @@ func TestReconcile(t *testing.T) {
 					},
 				})),
 		}},
-		Key:                     "default/becomes-local",
+		Key: "default/becomes-local",
 	}, {
 		Name: "cluster local becomes public",
 		Objects: []runtime.Object{
@@ -804,7 +804,7 @@ func TestReconcile(t *testing.T) {
 					},
 				})),
 		}},
-		Key:                     "default/becomes-public",
+		Key: "default/becomes-public",
 	}, {
 		Name: "failure updating cluster ingress",
 		// Starting from the new latest ready, induce a failure updating the cluster ingress.
@@ -881,7 +881,7 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "failed to update Ingress: inducing failure for update ingresses"),
 		},
-		Key:                     "default/update-ci-failure",
+		Key: "default/update-ci-failure",
 	}, {
 		Name: "reconcile service mutation",
 		Objects: []runtime.Object{
@@ -1113,7 +1113,7 @@ func TestReconcile(t *testing.T) {
 				},
 			),
 		}},
-		Key:                     "default/ingress-mutation",
+		Key: "default/ingress-mutation",
 	}, {
 		Name: "switch to a different config",
 		Objects: []runtime.Object{
@@ -1270,7 +1270,7 @@ func TestReconcile(t *testing.T) {
 						},
 					})),
 		}},
-		Key:                     "default/pinned-becomes-ready",
+		Key: "default/pinned-becomes-ready",
 	}, {
 		Name: "traffic split becomes ready",
 		Objects: []runtime.Object{
@@ -1379,7 +1379,7 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "named-traffic-split"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "named-traffic-split"),
 		},
-		Key:                     "default/named-traffic-split",
+		Key: "default/named-traffic-split",
 	}, {
 		Name: "same revision targets",
 		Objects: []runtime.Object{
@@ -1551,7 +1551,7 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "gray-same-revision-targets"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "same-revision-targets"),
 		},
-		Key:                     "default/same-revision-targets",
+		Key: "default/same-revision-targets",
 	}, {
 		Name: "change route configuration",
 		// Start from a steady state referencing "blue", and modify the route spec to point to "green" instead.
@@ -1623,7 +1623,7 @@ func TestReconcile(t *testing.T) {
 						},
 					}), WithRouteFinalizer),
 		}},
-		Key:                     "default/switch-configs",
+		Key: "default/switch-configs",
 	}, {
 		Name: "update single target to traffic split with unready revision",
 		// Start from a steady state referencing "blue", and modify the route spec to point to both
@@ -1685,7 +1685,7 @@ func TestReconcile(t *testing.T) {
 						},
 					})),
 		}},
-		Key:                     "default/split",
+		Key: "default/split",
 	}, {
 		Name: "Update stale lastPinned",
 		Objects: []runtime.Object{
@@ -1940,7 +1940,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
-		Key:                     "default/becomes-ready",
+		Key: "default/becomes-ready",
 	}, {
 		Name: "check that Certificate and IngressTLS are correctly configured when creating a Route",
 		Objects: []runtime.Object{
@@ -1997,7 +1997,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created Certificate %s/%s", "default", "route-12-34"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
-		Key:                     "default/becomes-ready",
+		Key: "default/becomes-ready",
 	}, {
 		Name: "check that Certificate and IngressTLS are correctly updated when updating a Route",
 		Objects: []runtime.Object{
@@ -2080,7 +2080,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Certificate %s/%s", "default", "route-12-34"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
-		Key:                     "default/becomes-ready",
+		Key: "default/becomes-ready",
 	}, {
 		Name:    "check that Route updates status and produces event log when valid name but not owned certificate",
 		WantErr: true,
@@ -2128,7 +2128,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
 			Eventf(corev1.EventTypeWarning, "InternalError", kaccessor.NewAccessorError(fmt.Errorf("owner: %s with Type %T does not own Certificate: %q", "becomes-ready", &v1alpha1.Route{}, "route-12-34"), kaccessor.NotOwnResource).Error()),
 		},
-		Key:                     "default/becomes-ready",
+		Key: "default/becomes-ready",
 	}, {
 		Name: "check that Route is correctly updated when Certificate is not ready",
 		Objects: []runtime.Object{
@@ -2211,7 +2211,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Certificate %s/%s", "default", "route-12-34"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
-		Key:                     "default/becomes-ready",
+		Key: "default/becomes-ready",
 	}, {
 		// This test is a same with "public becomes cluster local" above, but confirm it does not create certs with autoTLS for cluster-local.
 		Name: "public becomes cluster local w/ autoTLS",
@@ -2277,7 +2277,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 					},
 				})),
 		}},
-		Key:                     "default/becomes-local",
+		Key: "default/becomes-local",
 	}}
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
@@ -2399,7 +2399,7 @@ func TestReconcile_EnableAutoTLS_HTTPDisabled(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Spec for Certificate %s/%s", "default", "route-12-34"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
-		Key:                     "default/becomes-ready",
+		Key: "default/becomes-ready",
 	}}
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		cfg := ReconcilerTestConfig(true)

@@ -125,7 +125,7 @@ func TestServiceGenerateName(t *testing.T) {
 	// Create the service using the generate name field. If the service does not become ready this will fail.
 	t.Logf("Creating new service with generateName %s", generateName)
 	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		false /* https TODO(taragu) turn this on after helloworld test running with https */,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
 		setServiceGenerateName(generateName))
 	if err != nil {
 		t.Fatalf("Failed to create service with generateName %s: %v", generateName, err)

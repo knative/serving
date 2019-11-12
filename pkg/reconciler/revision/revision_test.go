@@ -20,11 +20,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"knative.dev/serving/pkg/apis/config"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"knative.dev/serving/pkg/apis/config"
 
 	// Inject the fakes for informers this controller relies on.
 	fakecachingclient "knative.dev/caching/pkg/client/injection/client/fake"
