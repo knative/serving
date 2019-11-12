@@ -1,0 +1,13 @@
+diff --git a/vendor/istio.io/client-go/pkg/apis/networking/v1alpha3/doc.gen.go b/vendor/istio.io/client-go/pkg/apis/networking/v1alpha3/doc.go
+similarity index 84%
+rename from vendor/istio.io/client-go/pkg/apis/networking/v1alpha3/doc.gen.go
+rename to vendor/istio.io/client-go/pkg/apis/networking/v1alpha3/doc.go
+index 4fb1dd2..ecc1ecc 100644
+--- a/vendor/istio.io/client-go/pkg/apis/networking/v1alpha3/doc.gen.go
++++ b/vendor/istio.io/client-go/pkg/apis/networking/v1alpha3/doc.go
+@@ -3,4 +3,5 @@
+ // Package has auto-generated kube type wrappers for raw types.
+ // +k8s:openapi-gen=true
+ // +k8s:deepcopy-gen=package
++// +groupName=networking.istio.io
+ package v1alpha3
