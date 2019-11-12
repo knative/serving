@@ -342,7 +342,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 	}, {
 		name:     "single healthy podIP, infinite cc",
 		revision: revision(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1, 0),
-		// Double updates excercise additional paths.
+		// Double updates exercise additional paths.
 		initUpdates: []revisionDestsUpdate{{
 			Rev:   types.NamespacedName{testNamespace, testRevision},
 			Dests: sets.NewString("128.0.0.2:1234"),
