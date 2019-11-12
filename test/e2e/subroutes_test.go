@@ -77,7 +77,7 @@ func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descript
 	})
 
 	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		false /* https TODO(taragu) turn this on after helloworld test running with https */,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
 		withInternalVisibility, withTrafficSpec)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
@@ -124,7 +124,7 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 		}},
 	})
 	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		false /* https TODO(taragu) turn this on after helloworld test running with https */,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
 		withTrafficSpec)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %w", names.Service, err)
@@ -182,13 +182,13 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 		}
 		//Check subroute2 is cluster local
 		if isClusterLocal, err := isTrafficClusterLocal(r.Status.Traffic, subrouteTag2); err != nil {
-			return false,  nil
+			return false, nil
 		} else if isClusterLocal {
 			return false, nil
 		}
 		return true, nil
 	}, "Subroutes are not in correct state"); err != nil {
-		t.Fatalf("Expected subroute1 with tag %s to be not cluster local; subroute2 with tag %s to be cluster local: %w",subrouteTag1, subrouteTag2, err)
+		t.Fatalf("Expected subroute1 with tag %s to be not cluster local; subroute2 with tag %s to be cluster local: %w", subrouteTag1, subrouteTag2, err)
 	}
 
 	//Update route to private.
@@ -255,7 +255,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 		},
 	})
 	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		false /* https TODO(taragu) turn this on after helloworld test running with https */,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
 		withTrafficSpec, withInternalVisibility)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
@@ -396,6 +396,6 @@ func isRouteClusterLocal(rs v1alpha1.RouteStatus) bool {
 	return strings.HasSuffix(rs.URL.Host, network.GetClusterDomainName())
 }
 
-func serviceNameForRoute(subrouteTag, routeName string ) string{
+func serviceNameForRoute(subrouteTag, routeName string) string {
 	return fmt.Sprintf("%s-%s", subrouteTag, routeName)
 }
