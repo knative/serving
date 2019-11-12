@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"knative.dev/serving/pkg/apis/config"
 	"strconv"
 	"strings"
 	"testing"
@@ -164,7 +165,7 @@ func newTestControllerWithConfig(t *testing.T, deploymentConfig *deployment.Conf
 			"panic-window":                            "10s",
 			"tick-interval":                           "2s",
 		},
-	}, getTestDeploymentConfigMap()}
+	}, getTestDeploymentConfigMap(), getTestDefaultsConfigMap()}
 
 	cms = append(cms, configs...)
 
@@ -549,6 +550,32 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 				}
 
 				t.Logf("No update occurred; expected: %s got: %s", expected, got)
+				return HookIncomplete
+			}
+		},
+	}, {
+		name: "Update ContainerConcurrency", // Should update ContainerConcurrency on revision spec
+		configMapToUpdate: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      config.DefaultsConfigName,
+			},
+			Data: map[string]string{
+				"container-concurrency": "3",
+			},
+		},
+		callback: func(t *testing.T) func(runtime.Object) HookResult {
+			return func(obj runtime.Object) HookResult {
+				revision := obj.(*v1alpha1.Revision)
+				t.Logf("Revision updated: %v", revision.Name)
+
+				expected := int64(3)
+				got := *(revision.Spec.ContainerConcurrency)
+				if got != expected {
+					return HookComplete
+				}
+
+				t.Logf("No update occurred; expected: %d got: %d", expected, got)
 				return HookIncomplete
 			}
 		},
