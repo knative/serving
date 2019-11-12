@@ -178,7 +178,7 @@ func setup(t *testing.T, class, metric string, target float64, targetUtilization
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		false /* https TODO(taragu) turn this on after helloworld test running with https */,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
 		append(fopts, rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.ClassAnnotationKey:             class,
 			autoscaling.MetricAnnotationKey:            metric,
