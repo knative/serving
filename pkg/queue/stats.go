@@ -53,19 +53,8 @@ type Channels struct {
 	StatChan chan autoscaler.Stat
 }
 
-// Stats is a structure for holding channels per pod.
-type Stats struct {
-	podName string
-	ch      Channels
-}
-
 // NewStats instantiates a new instance of Stats.
-func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
-	s := &Stats{
-		podName: podName,
-		ch:      channels,
-	}
-
+func NewStats(ch Channels, startedAt time.Time) {
 	go func() {
 		var (
 			requestCount       float64
@@ -94,7 +83,7 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 
 		for {
 			select {
-			case event := <-s.ch.ReqChan:
+			case event := <-ch.ReqChan:
 				updateState(event.Time)
 
 				switch event.EventType {
@@ -111,12 +100,11 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 				case ReqOut:
 					concurrency--
 				}
-			case now := <-s.ch.ReportChan:
+			case now := <-ch.ReportChan:
 				updateState(now)
 
 				stat := autoscaler.Stat{
 					Time:                             now,
-					PodName:                          s.podName,
 					AverageConcurrentRequests:        weightedAverage(timeOnConcurrency),
 					AverageProxiedConcurrentRequests: weightedAverage(timeOnProxiedConcurrency),
 					RequestCount:                     requestCount,
@@ -124,7 +112,7 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 				}
 				// Send the stat to another goroutine to transmit
 				// so we can continue bucketing stats.
-				s.ch.StatChan <- stat
+				ch.StatChan <- stat
 
 				// Reset the stat counts which have been reported.
 				timeOnConcurrency = make(map[int32]time.Duration)
@@ -134,8 +122,6 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 			}
 		}
 	}()
-
-	return s
 }
 
 func weightedAverage(times map[int32]time.Duration) float64 {
