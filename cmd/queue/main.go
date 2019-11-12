@@ -49,7 +49,6 @@ import (
 	"knative.dev/serving/pkg/activator"
 	activatorutil "knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/networking"
-	"knative.dev/serving/pkg/autoscaler"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/logging"
 	"knative.dev/serving/pkg/network"
@@ -332,25 +331,13 @@ func main() {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
 
-	statChan := make(chan autoscaler.Stat)
-	defer close(statChan)
-	go func() {
-		for s := range statChan {
-			promStatReporter.Report(s)
-		}
-	}()
-
 	reqChan := make(chan queue.ReqEvent, requestCountingQueueLength)
 	defer close(reqChan)
 
 	reportTicker := time.NewTicker(reportingPeriod)
 	defer reportTicker.Stop()
 
-	queue.NewStats(queue.Channels{
-		ReqChan:    reqChan,
-		ReportChan: reportTicker.C,
-		StatChan:   statChan,
-	}, time.Now())
+	queue.NewStats(time.Now(), reqChan, reportTicker.C, promStatReporter.Report)
 
 	// Setup probe to run for checking user-application healthiness.
 	probe := buildProbe(env.ServingReadinessProbe)

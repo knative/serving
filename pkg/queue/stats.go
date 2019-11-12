@@ -18,8 +18,6 @@ package queue
 
 import (
 	"time"
-
-	"knative.dev/serving/pkg/autoscaler"
 )
 
 // ReqEvent represents either an incoming or closed request.
@@ -42,19 +40,8 @@ const (
 	ProxiedOut
 )
 
-// Channels is a structure for holding the channels for driving Stats.
-// It's just to make the NewStats signature easier to read.
-type Channels struct {
-	// Ticks with every request arrived/completed respectively
-	ReqChan chan ReqEvent
-	// Ticks with every stat report request
-	ReportChan <-chan time.Time
-	// Stat reporting channel
-	StatChan chan autoscaler.Stat
-}
-
 // NewStats instantiates a new instance of Stats.
-func NewStats(ch Channels, startedAt time.Time) {
+func NewStats(startedAt time.Time, reqCh chan ReqEvent, reportCh <-chan time.Time, report func(float64, float64, float64, float64)) {
 	go func() {
 		var (
 			requestCount       float64
@@ -83,7 +70,7 @@ func NewStats(ch Channels, startedAt time.Time) {
 
 		for {
 			select {
-			case event := <-ch.ReqChan:
+			case event := <-reqCh:
 				updateState(event.Time)
 
 				switch event.EventType {
@@ -100,18 +87,10 @@ func NewStats(ch Channels, startedAt time.Time) {
 				case ReqOut:
 					concurrency--
 				}
-			case now := <-ch.ReportChan:
+			case now := <-reportCh:
 				updateState(now)
 
-				stat := autoscaler.Stat{
-					AverageConcurrentRequests:        weightedAverage(timeOnConcurrency),
-					AverageProxiedConcurrentRequests: weightedAverage(timeOnProxiedConcurrency),
-					RequestCount:                     requestCount,
-					ProxiedRequestCount:              proxiedCount,
-				}
-				// Send the stat to another goroutine to transmit
-				// so we can continue bucketing stats.
-				ch.StatChan <- stat
+				report(weightedAverage(timeOnConcurrency), weightedAverage(timeOnProxiedConcurrency), requestCount, proxiedCount)
 
 				// Reset the stat counts which have been reported.
 				timeOnConcurrency = make(map[int32]time.Duration)

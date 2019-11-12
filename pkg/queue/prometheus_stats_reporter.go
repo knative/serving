@@ -24,7 +24,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"knative.dev/serving/pkg/autoscaler"
 )
 
 const (
@@ -116,12 +115,12 @@ func NewPrometheusStatsReporter(namespace, config, revision, pod string, reporti
 }
 
 // Report captures request metrics.
-func (r *PrometheusStatsReporter) Report(stat autoscaler.Stat) {
+func (r *PrometheusStatsReporter) Report(acr float64, apcr float64, rc float64, prc float64) {
 	// Requests per second is a rate over time while concurrency is not.
-	r.requestsPerSecond.Set(stat.RequestCount / r.reportingPeriod.Seconds())
-	r.proxiedRequestsPerSecond.Set(stat.ProxiedRequestCount / r.reportingPeriod.Seconds())
-	r.averageConcurrentRequests.Set(stat.AverageConcurrentRequests)
-	r.averageProxiedConcurrentRequests.Set(stat.AverageProxiedConcurrentRequests)
+	r.requestsPerSecond.Set(rc / r.reportingPeriod.Seconds())
+	r.proxiedRequestsPerSecond.Set(prc / r.reportingPeriod.Seconds())
+	r.averageConcurrentRequests.Set(acr)
+	r.averageProxiedConcurrentRequests.Set(apcr)
 }
 
 // Handler returns an uninstrumented http.Handler used to serve stats registered by this
