@@ -42,7 +42,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"knative.dev/pkg/apis/istio/v1alpha3"
+	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/pkg/test/spoof"
@@ -63,17 +63,17 @@ func TestIstioProbing(t *testing.T) {
 	clients := e2e.Setup(t)
 
 	// Save the current Gateway to restore it after the test
-	oldGateway, err := clients.SharedClient.NetworkingV1alpha3().Gateways(namespace).Get(networking.KnativeIngressGateway, metav1.GetOptions{})
+	oldGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(namespace).Get(networking.KnativeIngressGateway, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Gateway %s/%s", namespace, networking.KnativeIngressGateway)
 	}
 	restore := func() {
-		curGateway, err := clients.SharedClient.NetworkingV1alpha3().Gateways(namespace).Get(networking.KnativeIngressGateway, metav1.GetOptions{})
+		curGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(namespace).Get(networking.KnativeIngressGateway, metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("Failed to get Gateway %s/%s", namespace, networking.KnativeIngressGateway)
 		}
 		curGateway.Spec.Servers = oldGateway.Spec.Servers
-		if _, err := clients.SharedClient.NetworkingV1alpha3().Gateways(namespace).Update(curGateway); err != nil {
+		if _, err := clients.IstioClient.NetworkingV1alpha3().Gateways(namespace).Update(curGateway); err != nil {
 			t.Fatalf("Failed to restore Gateway %s/%s: %v", namespace, networking.KnativeIngressGateway, err)
 		}
 	}
@@ -97,8 +97,8 @@ func TestIstioProbing(t *testing.T) {
 		domain = strings.SplitN(objects.Route.Status.URL.Host, ".", 2)[1]
 	}()
 
-	tlsOptions := &v1alpha3.TLSOptions{
-		Mode:              v1alpha3.TLSModeSimple,
+	tlsOptions := &istiov1alpha3.Server_TLSOptions{
+		Mode:              istiov1alpha3.Server_TLSOptions_SIMPLE,
 		PrivateKey:        "/etc/istio/ingressgateway-certs/tls.key",
 		ServerCertificate: "/etc/istio/ingressgateway-certs/tls.crt",
 		SubjectAltNames:   []string{},
@@ -106,144 +106,144 @@ func TestIstioProbing(t *testing.T) {
 
 	cases := []struct {
 		name    string
-		servers []v1alpha3.Server
+		servers []*istiov1alpha3.Server
 		urls    []string
 	}{{
 		name: "HTTP",
-		servers: []v1alpha3.Server{{
+		servers: []*istiov1alpha3.Server{{
 			Hosts: []string{"*"},
-			Port: v1alpha3.Port{
+			Port: &istiov1alpha3.Port{
 				Name:     "standard-http",
 				Number:   80,
-				Protocol: v1alpha3.ProtocolHTTP,
+				Protocol: "HTTP",
 			},
 		}},
 		urls: []string{"http://%s/"},
 	}, {
 		name: "HTTP2",
-		servers: []v1alpha3.Server{{
+		servers: []*istiov1alpha3.Server{{
 			Hosts: []string{"*"},
-			Port: v1alpha3.Port{
+			Port: &istiov1alpha3.Port{
 				Name:     "standard-http2",
 				Number:   80,
-				Protocol: v1alpha3.ProtocolHTTP2,
+				Protocol: "HTTP2",
 			},
 		}},
 		urls: []string{"http://%s/"},
 	}, {
 		name: "HTTP custom port",
-		servers: []v1alpha3.Server{{
+		servers: []*istiov1alpha3.Server{{
 			Hosts: []string{"*"},
-			Port: v1alpha3.Port{
+			Port: &istiov1alpha3.Port{
 				Name:     "custom-http",
 				Number:   443,
-				Protocol: v1alpha3.ProtocolHTTP,
+				Protocol: "HTTP",
 			},
 		}},
 		urls: []string{"http://%s:443/"},
 	}, {
 		name: "HTTP & HTTPS",
-		servers: []v1alpha3.Server{{
+		servers: []*istiov1alpha3.Server{{
 			Hosts: []string{"*"},
-			Port: v1alpha3.Port{
+			Port: &istiov1alpha3.Port{
 				Name:     "standard-http",
 				Number:   80,
-				Protocol: v1alpha3.ProtocolHTTP,
+				Protocol: "HTTP",
 			},
 		}, {
 			Hosts: []string{"*"},
-			Port: v1alpha3.Port{
+			Port: &istiov1alpha3.Port{
 				Name:     "standard-https",
 				Number:   443,
-				Protocol: v1alpha3.ProtocolHTTPS,
+				Protocol: "HTTPS",
 			},
-			TLS: tlsOptions,
+			Tls: tlsOptions,
 		}},
 		urls: []string{"http://%s/", "https://%s/"},
 	}, {
 		name: "HTTP redirect & HTTPS",
-		servers: []v1alpha3.Server{{
+		servers: []*istiov1alpha3.Server{{
 			Hosts: []string{"*"},
-			Port: v1alpha3.Port{
+			Port: &istiov1alpha3.Port{
 				Name:     "standard-http",
 				Number:   80,
-				Protocol: v1alpha3.ProtocolHTTP,
+				Protocol: "HTTP",
 			},
 		}, {
 			Hosts: []string{"*"},
-			Port: v1alpha3.Port{
+			Port: &istiov1alpha3.Port{
 				Name:     "standard-https",
 				Number:   443,
-				Protocol: v1alpha3.ProtocolHTTPS,
+				Protocol: "HTTPS",
 			},
-			TLS: tlsOptions,
+			Tls: tlsOptions,
 		}},
 		urls: []string{"http://%s/", "https://%s/"},
 	}, {
 		name: "HTTPS",
-		servers: []v1alpha3.Server{{
+		servers: []*istiov1alpha3.Server{{
 			Hosts: []string{"*"},
-			Port: v1alpha3.Port{
+			Port: &istiov1alpha3.Port{
 				Name:     "standard-https",
 				Number:   443,
-				Protocol: v1alpha3.ProtocolHTTPS,
+				Protocol: "HTTPS",
 			},
-			TLS: tlsOptions,
+			Tls: tlsOptions,
 		}},
 		urls: []string{"https://%s/"},
 	}, {
 		name: "HTTPS non standard port",
-		servers: []v1alpha3.Server{{
+		servers: []*istiov1alpha3.Server{{
 			Hosts: []string{"*"},
-			Port: v1alpha3.Port{
+			Port: &istiov1alpha3.Port{
 				Name:     "custom-https",
 				Number:   80,
-				Protocol: v1alpha3.ProtocolHTTPS,
+				Protocol: "HTTPS",
 			},
-			TLS: tlsOptions,
+			Tls: tlsOptions,
 		}},
 		urls: []string{"https://%s:80/"},
 	}, {
 		name: "unsupported protocol (GRPC)",
-		servers: []v1alpha3.Server{{
+		servers: []*istiov1alpha3.Server{{
 			Hosts: []string{"*"},
-			Port: v1alpha3.Port{
+			Port: &istiov1alpha3.Port{
 				Name:     "custom-grpc",
 				Number:   80,
-				Protocol: v1alpha3.ProtocolGRPC,
+				Protocol: "GRPC",
 			},
 		}},
 		// No URLs to probe, just validates the Knative Service is Ready instead of stuck in NotReady
 	}, {
 		name: "unsupported protocol (TCP)",
-		servers: []v1alpha3.Server{{
+		servers: []*istiov1alpha3.Server{{
 			Hosts: []string{"*"},
-			Port: v1alpha3.Port{
+			Port: &istiov1alpha3.Port{
 				Name:     "custom-tcp",
 				Number:   80,
-				Protocol: v1alpha3.ProtocolTCP,
+				Protocol: "TCP",
 			},
 		}},
 		// No URLs to probe, just validates the Knative Service is Ready instead of stuck in NotReady
 	}, {
 		name: "unsupported protocol (Mongo)",
-		servers: []v1alpha3.Server{{
+		servers: []*istiov1alpha3.Server{{
 			Hosts: []string{"*"},
-			Port: v1alpha3.Port{
+			Port: &istiov1alpha3.Port{
 				Name:     "custom-mongo",
 				Number:   80,
-				Protocol: v1alpha3.ProtocolMongo,
+				Protocol: "Mongo",
 			},
 		}},
 		// No URLs to probe, just validates the Knative Service is Ready instead of stuck in NotReady
 	}, {
 		name: "port not present in service",
-		servers: []v1alpha3.Server{{
+		servers: []*istiov1alpha3.Server{{
 			Hosts: []string{"*"},
-			Port: v1alpha3.Port{
+			Port: &istiov1alpha3.Port{
 				Name:     "custom-http",
 				Number:   8090,
-				Protocol: v1alpha3.ProtocolHTTP,
+				Protocol: "HTTP",
 			},
 		}},
 		// No URLs to probe, just validates the Knative Service is Ready instead of stuck in NotReady
@@ -302,9 +302,9 @@ func TestIstioProbing(t *testing.T) {
 	}
 }
 
-func hasHTTPS(servers []v1alpha3.Server) bool {
+func hasHTTPS(servers []*istiov1alpha3.Server) bool {
 	for _, server := range servers {
-		if server.Port.Protocol == v1alpha3.ProtocolHTTPS {
+		if server.Port.Protocol == "HTTPS" {
 			return true
 		}
 	}
@@ -312,9 +312,9 @@ func hasHTTPS(servers []v1alpha3.Server) bool {
 }
 
 // setupGateway updates the ingress Gateway to the provided Servers and waits until all Envoy pods have been updated.
-func setupGateway(t *testing.T, clients *test.Clients, names test.ResourceNames, domain string, servers []v1alpha3.Server) {
+func setupGateway(t *testing.T, clients *test.Clients, names test.ResourceNames, domain string, servers []*istiov1alpha3.Server) {
 	// Get the current Gateway
-	curGateway, err := clients.SharedClient.NetworkingV1alpha3().Gateways(namespace).Get(networking.KnativeIngressGateway, metav1.GetOptions{})
+	curGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(namespace).Get(networking.KnativeIngressGateway, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Gateway %s/%s: %v", namespace, networking.KnativeIngressGateway, err)
 	}
@@ -324,7 +324,7 @@ func setupGateway(t *testing.T, clients *test.Clients, names test.ResourceNames,
 	newGateway.Spec.Servers = servers
 
 	// Update the Gateway
-	gw, err := clients.SharedClient.NetworkingV1alpha3().Gateways(namespace).Update(newGateway)
+	gw, err := clients.IstioClient.NetworkingV1alpha3().Gateways(namespace).Update(newGateway)
 	if err != nil {
 		t.Fatalf("Failed to update Gateway %s/%s: %v", namespace, networking.KnativeIngressGateway, err)
 	}

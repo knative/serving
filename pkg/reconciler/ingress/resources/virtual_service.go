@@ -23,11 +23,11 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	istiov1alpha1 "knative.dev/pkg/apis/istio/common/v1alpha1"
-	"knative.dev/pkg/apis/istio/v1alpha3"
+	"github.com/gogo/protobuf/types"
+	istiov1alpha3 "istio.io/api/networking/v1alpha3"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/system"
@@ -163,9 +163,9 @@ func HostsPerGateway(ia *v1alpha1.Ingress, gateways map[v1alpha1.IngressVisibili
 	return output
 }
 
-func makeVirtualServiceSpec(ia *v1alpha1.Ingress, gateways map[v1alpha1.IngressVisibility]sets.String, hosts sets.String) *v1alpha3.VirtualServiceSpec {
+func makeVirtualServiceSpec(ia *v1alpha1.Ingress, gateways map[v1alpha1.IngressVisibility]sets.String, hosts sets.String) *istiov1alpha3.VirtualService {
 	gw := sets.String{}.Union(gateways[v1alpha1.IngressVisibilityClusterLocal]).Union(gateways[v1alpha1.IngressVisibilityExternalIP])
-	spec := v1alpha3.VirtualServiceSpec{
+	spec := istiov1alpha3.VirtualService{
 		Gateways: gw.List(),
 		Hosts:    hosts.List(),
 	}
@@ -174,26 +174,15 @@ func makeVirtualServiceSpec(ia *v1alpha1.Ingress, gateways map[v1alpha1.IngressV
 		for _, p := range rule.HTTP.Paths {
 			hosts := hosts.Intersection(sets.NewString(rule.Hosts...))
 			if hosts.Len() != 0 {
-				spec.HTTP = append(spec.HTTP, *makeVirtualServiceRoute(hosts, &p, gateways, rule.Visibility))
+				spec.Http = append(spec.Http, makeVirtualServiceRoute(hosts, &p, gateways, rule.Visibility))
 			}
 		}
 	}
 	return &spec
 }
 
-func makePortSelector(ios intstr.IntOrString) v1alpha3.PortSelector {
-	if ios.Type == intstr.Int {
-		return v1alpha3.PortSelector{
-			Number: uint32(ios.IntValue()),
-		}
-	}
-	return v1alpha3.PortSelector{
-		Name: ios.String(),
-	}
-}
-
-func makeVirtualServiceRoute(hosts sets.String, http *v1alpha1.HTTPIngressPath, gateways map[v1alpha1.IngressVisibility]sets.String, visibility v1alpha1.IngressVisibility) *v1alpha3.HTTPRoute {
-	matches := []v1alpha3.HTTPMatchRequest{}
+func makeVirtualServiceRoute(hosts sets.String, http *v1alpha1.HTTPIngressPath, gateways map[v1alpha1.IngressVisibility]sets.String, visibility v1alpha1.IngressVisibility) *istiov1alpha3.HTTPRoute {
+	matches := []*istiov1alpha3.HTTPMatchRequest{}
 	clusterDomainName := network.GetClusterDomainName()
 	for _, host := range hosts.List() {
 		g := gateways[visibility]
@@ -203,46 +192,48 @@ func makeVirtualServiceRoute(hosts sets.String, http *v1alpha1.HTTPIngressPath, 
 		}
 		matches = append(matches, makeMatch(host, http.Path, g))
 	}
-	weights := []v1alpha3.HTTPRouteDestination{}
+	weights := []*istiov1alpha3.HTTPRouteDestination{}
 	for _, split := range http.Splits {
 
-		var h *v1alpha3.Headers
+		var h *istiov1alpha3.Headers
 
 		if len(split.AppendHeaders) > 0 {
-			h = &v1alpha3.Headers{
-				Request: &v1alpha3.HeaderOperations{
+			h = &istiov1alpha3.Headers{
+				Request: &istiov1alpha3.Headers_HeaderOperations{
 					Add: split.AppendHeaders,
 				},
 			}
 		}
 
-		weights = append(weights, v1alpha3.HTTPRouteDestination{
-			Destination: v1alpha3.Destination{
+		weights = append(weights, &istiov1alpha3.HTTPRouteDestination{
+			Destination: &istiov1alpha3.Destination{
 				Host: network.GetServiceHostname(
 					split.ServiceName, split.ServiceNamespace),
-				Port: makePortSelector(split.ServicePort),
+				Port: &istiov1alpha3.PortSelector{
+					Number: uint32(split.ServicePort.IntValue()),
+				},
 			},
-			Weight:  split.Percent,
+			Weight:  int32(split.Percent),
 			Headers: h,
 		})
 	}
 
-	var h *v1alpha3.Headers
+	var h *istiov1alpha3.Headers
 	if len(http.AppendHeaders) > 0 {
-		h = &v1alpha3.Headers{
-			Request: &v1alpha3.HeaderOperations{
+		h = &istiov1alpha3.Headers{
+			Request: &istiov1alpha3.Headers_HeaderOperations{
 				Add: http.AppendHeaders,
 			},
 		}
 	}
 
-	return &v1alpha3.HTTPRoute{
+	return &istiov1alpha3.HTTPRoute{
 		Match:   matches,
 		Route:   weights,
-		Timeout: http.Timeout.Duration.String(),
-		Retries: &v1alpha3.HTTPRetry{
-			Attempts:      http.Retries.Attempts,
-			PerTryTimeout: http.Retries.PerTryTimeout.Duration.String(),
+		Timeout: types.DurationProto(http.Timeout.Duration),
+		Retries: &istiov1alpha3.HTTPRetry{
+			Attempts:      int32(http.Retries.Attempts),
+			PerTryTimeout: types.DurationProto(http.Retries.PerTryTimeout.Duration),
 		},
 		Headers:          h,
 		WebsocketUpgrade: true,
@@ -277,19 +268,19 @@ func expandedHosts(hosts sets.String) sets.String {
 	return expanded
 }
 
-func makeMatch(host string, pathRegExp string, gateways sets.String) v1alpha3.HTTPMatchRequest {
-	match := v1alpha3.HTTPMatchRequest{
+func makeMatch(host string, pathRegExp string, gateways sets.String) *istiov1alpha3.HTTPMatchRequest {
+	match := &istiov1alpha3.HTTPMatchRequest{
 		Gateways: gateways.List(),
-		Authority: &istiov1alpha1.StringMatch{
+		Authority: &istiov1alpha3.StringMatch{
 			// Do not use Regex as Istio 1.4 or later has 100 bytes limitation.
-			Prefix: hostPrefix(host),
+			MatchType: &istiov1alpha3.StringMatch_Prefix{Prefix: hostPrefix(host)},
 		},
 	}
 	// Empty pathRegExp is considered match all path. We only need to
 	// consider pathRegExp when it's non-empty.
 	if pathRegExp != "" {
-		match.URI = &istiov1alpha1.StringMatch{
-			Regex: pathRegExp,
+		match.Uri = &istiov1alpha3.StringMatch{
+			MatchType: &istiov1alpha3.StringMatch_Regex{Regex: pathRegExp},
 		}
 	}
 	return match

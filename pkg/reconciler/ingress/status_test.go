@@ -31,12 +31,13 @@ import (
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 
 	"go.uber.org/zap/zaptest"
+	istiov1alpha3 "istio.io/api/networking/v1alpha3"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	"knative.dev/pkg/apis/istio/v1alpha3"
-	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
+	istiolisters "knative.dev/pkg/client/istio/listers/networking/v1alpha3"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/ingress/resources"
 )
@@ -86,12 +87,12 @@ func TestIsReadyFailureAndSuccess(t *testing.T) {
 					Namespace: "default",
 					Name:      "gateway",
 				},
-				Spec: v1alpha3.GatewaySpec{
-					Servers: []v1alpha3.Server{{
+				Spec: istiov1alpha3.Gateway{
+					Servers: []*istiov1alpha3.Server{{
 						Hosts: []string{"*"},
-						Port: v1alpha3.Port{
+						Port: &istiov1alpha3.Port{
 							Number:   80,
-							Protocol: v1alpha3.ProtocolHTTP,
+							Protocol: "HTTP",
 						},
 					}},
 					Selector: map[string]string{
@@ -110,12 +111,12 @@ func TestIsReadyFailureAndSuccess(t *testing.T) {
 					Namespace: "default",
 					Name:      "gateway",
 				},
-				Spec: v1alpha3.GatewaySpec{
-					Servers: []v1alpha3.Server{{
+				Spec: istiov1alpha3.Gateway{
+					Servers: []*istiov1alpha3.Server{{
 						Hosts: []string{"*"},
-						Port: v1alpha3.Port{
+						Port: &istiov1alpha3.Port{
 							Number:   80,
-							Protocol: v1alpha3.ProtocolHTTP,
+							Protocol: "HTTP",
 						},
 					}},
 					Selector: map[string]string{
@@ -143,12 +144,12 @@ func TestIsReadyFailureAndSuccess(t *testing.T) {
 					Namespace: "default",
 					Name:      "gateway",
 				},
-				Spec: v1alpha3.GatewaySpec{
-					Servers: []v1alpha3.Server{{
+				Spec: istiov1alpha3.Gateway{
+					Servers: []*istiov1alpha3.Server{{
 						Hosts: []string{"*"},
-						Port: v1alpha3.Port{
+						Port: &istiov1alpha3.Port{
 							Number:   80,
-							Protocol: v1alpha3.ProtocolHTTP,
+							Protocol: "HTTP",
 						},
 					}},
 					Selector: map[string]string{
@@ -189,12 +190,12 @@ func TestIsReadyFailureAndSuccess(t *testing.T) {
 					Namespace: "default",
 					Name:      "gateway",
 				},
-				Spec: v1alpha3.GatewaySpec{
-					Servers: []v1alpha3.Server{{
+				Spec: istiov1alpha3.Gateway{
+					Servers: []*istiov1alpha3.Server{{
 						Hosts: []string{"*"},
-						Port: v1alpha3.Port{
+						Port: &istiov1alpha3.Port{
 							Number:   80,
-							Protocol: v1alpha3.ProtocolHTTP,
+							Protocol: "HTTP",
 						},
 					}},
 					Selector: map[string]string{
@@ -236,12 +237,12 @@ func TestIsReadyFailureAndSuccess(t *testing.T) {
 					Namespace: "default",
 					Name:      "gateway",
 				},
-				Spec: v1alpha3.GatewaySpec{
-					Servers: []v1alpha3.Server{{
+				Spec: istiov1alpha3.Gateway{
+					Servers: []*istiov1alpha3.Server{{
 						Hosts: []string{"*"},
-						Port: v1alpha3.Port{
+						Port: &istiov1alpha3.Port{
 							Number:   80,
-							Protocol: v1alpha3.ProtocolHTTP,
+							Protocol: "HTTP",
 						},
 					}},
 					Selector: map[string]string{
@@ -262,12 +263,12 @@ func TestIsReadyFailureAndSuccess(t *testing.T) {
 					Namespace: "default",
 					Name:      "gateway",
 				},
-				Spec: v1alpha3.GatewaySpec{
-					Servers: []v1alpha3.Server{{
+				Spec: istiov1alpha3.Gateway{
+					Servers: []*istiov1alpha3.Server{{
 						Hosts: []string{"*"},
-						Port: v1alpha3.Port{
+						Port: &istiov1alpha3.Port{
 							Number:   80,
-							Protocol: v1alpha3.ProtocolMongo,
+							Protocol: "Mongo",
 						},
 					}},
 					Selector: map[string]string{
@@ -378,20 +379,20 @@ func TestProbeLifecycle(t *testing.T) {
 					Namespace: "default",
 					Name:      "gateway",
 				},
-				Spec: v1alpha3.GatewaySpec{
-					Servers: []v1alpha3.Server{{
+				Spec: istiov1alpha3.Gateway{
+					Servers: []*istiov1alpha3.Server{{
 						Hosts: []string{"*"},
-						Port: v1alpha3.Port{
+						Port: &istiov1alpha3.Port{
 							Name:     "http",
 							Number:   80,
-							Protocol: v1alpha3.ProtocolHTTP,
+							Protocol: "HTTP",
 						},
 					}, {
 						Hosts: []string{"*"},
-						Port: v1alpha3.Port{
+						Port: &istiov1alpha3.Port{
 							Name:     "https",
 							Number:   443,
-							Protocol: v1alpha3.ProtocolHTTPS,
+							Protocol: "HTTPS",
 						},
 					}},
 					Selector: map[string]string{
@@ -561,12 +562,12 @@ func TestCancellation(t *testing.T) {
 					Namespace: "default",
 					Name:      "gateway",
 				},
-				Spec: v1alpha3.GatewaySpec{
-					Servers: []v1alpha3.Server{{
+				Spec: istiov1alpha3.Gateway{
+					Servers: []*istiov1alpha3.Server{{
 						Hosts: []string{"*"},
-						Port: v1alpha3.Port{
-							Number:   port,
-							Protocol: v1alpha3.ProtocolHTTP,
+						Port: &istiov1alpha3.Port{
+							Number:   uint32(port),
+							Protocol: "HTTP",
 						},
 					}},
 					Selector: map[string]string{
