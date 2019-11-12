@@ -104,7 +104,6 @@ func NewStats(ch Channels, startedAt time.Time) {
 				updateState(now)
 
 				stat := autoscaler.Stat{
-					Time:                             now,
 					AverageConcurrentRequests:        weightedAverage(timeOnConcurrency),
 					AverageProxiedConcurrentRequests: weightedAverage(timeOnProxiedConcurrency),
 					RequestCount:                     requestCount,
