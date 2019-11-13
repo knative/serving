@@ -89,8 +89,8 @@ data:
     metrics.backend-destination: prometheus
 
     # metrics.request-metrics-backend-destination specifies the request metrics
-    # destination. If non-empty, it enables queue proxy to send request metrics.
-    # Currently supported values: prometheus, stackdriver.
+    # destination. It enables queue proxy to send request metrics.
+    # Currently supported values: prometheus (the default), stackdriver.
     metrics.request-metrics-backend-destination: prometheus
 
     # metrics.stackdriver-project-id field specifies the stackdriver project ID. This

@@ -24,7 +24,8 @@ import (
 )
 
 const (
-	defaultLogURLTemplate = "http://localhost:8001/api/v1/namespaces/knative-monitoring/services/kibana-logging/proxy/app/kibana#/discover?_a=(query:(match:(kubernetes.labels.knative-dev%2FrevisionUID:(query:'${REVISION_UID}',type:phrase))))"
+	defaultLogURLTemplate        = "http://localhost:8001/api/v1/namespaces/knative-monitoring/services/kibana-logging/proxy/app/kibana#/discover?_a=(query:(match:(kubernetes.labels.knative-dev%2FrevisionUID:(query:'${REVISION_UID}',type:phrase))))"
+	defaultRequestMetricsBackend = "prometheus"
 )
 
 // ObservabilityConfig contains the configuration defined in the observability ConfigMap.
@@ -79,6 +80,8 @@ func NewObservabilityConfigFromConfigMap(configMap *corev1.ConfigMap) (*Observab
 
 	if mb, ok := configMap.Data["metrics.request-metrics-backend-destination"]; ok {
 		oc.RequestMetricsBackend = mb
+	} else {
+		oc.RequestMetricsBackend = defaultRequestMetricsBackend
 	}
 
 	if prof, ok := configMap.Data["profiling.enable"]; ok {
