@@ -63,7 +63,7 @@ data:
     # To determine the IP ranges of your cluster:
     #   IBM Cloud Private: cat cluster/config.yaml | grep service_cluster_ip_range
     #   IBM Cloud Kubernetes Service: "172.30.0.0/16,172.20.0.0/16,10.10.10.0/24"
-    #   Google Container Engine (GKE): gcloud container clusters describe XXXXXXX --zone=XXXXXX | grep -e clusterIpv4Cidr -e servicesIpv4Cidr
+    #   Google Container Engine (GKE): gcloud container clusters describe $CLUSTER_NAME --zone=$CLUSTER_ZONE | grep -e clusterIpv4Cidr -e servicesIpv4Cidr
     #   Azure Kubernetes Service (AKS): "10.0.0.0/16"
     #   Azure Container Service (ACS; deprecated): "10.244.0.0/16,10.240.0.0/16"
     #   Azure Container Service Engine (ACS-Engine; OSS): Configurable, but defaults to "10.0.0.0/16"
