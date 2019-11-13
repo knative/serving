@@ -23,18 +23,10 @@ import (
 	"reflect"
 
 	"knative.dev/pkg/apis/istio/v1alpha3"
-	gatewayinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/gateway"
-	virtualserviceinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice"
 	"knative.dev/pkg/logging"
-	ingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
 	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 
-	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
-	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
-	secretinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/secret"
-	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
-	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/tracker"
 
@@ -42,7 +34,6 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/ingress/config"
 	"knative.dev/serving/pkg/reconciler/ingress/resources"
@@ -64,24 +55,11 @@ import (
 )
 
 const (
-	controllerAgentName = "ingress-controller"
-
-	// NotReconciledReason specifies the reason that ingress reconciliation has failed
-	NotReconciledReason = "ReconcileIngressFailed"
-
-	// NotReconciledMessage indicates the message that ingress reconciliation has failed
-	NotReconciledMessage = "Ingress reconciliation failed"
+	notReconciledReason  = "ReconcileIngressFailed"
+	notReconciledMessage = "Ingress reconciliation failed"
 )
 
-type Reconciler struct {
-	*BaseIngressReconciler
-	ingressLister listers.IngressLister
-}
-
-// Check that our Reconciler implements controller.Reconciler
-var _ controller.Reconciler = (*Reconciler)(nil)
-
-// ingressFinalizer is the name that we put into the resource finalizer list, e.g.
+// ingressfinalizer is the name that we put into the resource finalizer list, e.g.
 //  metadata:
 //    finalizers:
 //    - ingresses.networking.internal.knative.dev
@@ -90,159 +68,34 @@ var (
 	ingressFinalizer = ingressResource.String()
 )
 
-// BaseIngressReconciler is the conmon struct for InjectReconciles
-type BaseIngressReconciler struct {
+// Reconciler implements the control loop for the Ingress resources.
+type Reconciler struct {
 	*reconciler.Base
 
-	// listers index properties about resources
-	VirtualServiceLister istiolisters.VirtualServiceLister
-	GatewayLister        istiolisters.GatewayLister
-	SecretLister         corev1listers.SecretLister
-	ConfigStore          reconciler.ConfigStore
+	virtualServiceLister istiolisters.VirtualServiceLister
+	gatewayLister        istiolisters.GatewayLister
+	secretLister         corev1listers.SecretLister
+	ingressLister        listers.IngressLister
 
-	Tracker   tracker.Interface
-	Finalizer string
+	configStore reconciler.ConfigStore
+	tracker     tracker.Interface
+	finalizer   string
 
-	StatusManager StatusManager
+	statusManager StatusManager
 }
 
 var (
-	_ coreaccessor.SecretAccessor          = (*BaseIngressReconciler)(nil)
-	_ istioaccessor.VirtualServiceAccessor = (*BaseIngressReconciler)(nil)
+	_ controller.Reconciler                = (*Reconciler)(nil)
+	_ coreaccessor.SecretAccessor          = (*Reconciler)(nil)
+	_ istioaccessor.VirtualServiceAccessor = (*Reconciler)(nil)
 )
-
-// NewBaseIngressReconciler creates a new BaseIngressReconciler
-func NewBaseIngressReconciler(ctx context.Context, agentName, finalizer string, cmw configmap.Watcher) *BaseIngressReconciler {
-	virtualServiceInformer := virtualserviceinformer.Get(ctx)
-	gatewayInformer := gatewayinformer.Get(ctx)
-	secretInformer := secretinformer.Get(ctx)
-
-	base := &BaseIngressReconciler{
-		Base:                 reconciler.NewBase(ctx, agentName, cmw),
-		VirtualServiceLister: virtualServiceInformer.Lister(),
-		GatewayLister:        gatewayInformer.Lister(),
-		SecretLister:         secretInformer.Lister(),
-		Finalizer:            finalizer,
-	}
-	return base
-}
-
-// newInitializer creates an Ingress Reconciler and returns ReconcilerInitializer
-func newInitializer(ctx context.Context, cmw configmap.Watcher) ReconcilerInitializer {
-	ingressInformer := ingressinformer.Get(ctx)
-	r := &Reconciler{
-		BaseIngressReconciler: NewBaseIngressReconciler(ctx, controllerAgentName, ingressFinalizer, cmw),
-		ingressLister:         ingressInformer.Lister(),
-	}
-	return r
-}
-
-// SetTracker assigns the Tracker field
-func (r *Reconciler) SetTracker(tracker tracker.Interface) {
-	r.Tracker = tracker
-}
-
-// Init method performs initializations to ingress reconciler
-func (r *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *controller.Impl) {
-
-	SetupSecretTracker(ctx, r, impl)
-
-	r.Logger.Info("Setting up Ingress event handlers")
-	ingressInformer := ingressinformer.Get(ctx)
-	gatewayInformer := gatewayinformer.Get(ctx)
-	endpointsInformer := endpointsinformer.Get(ctx)
-	serviceInformer := serviceinformer.Get(ctx)
-	podInformer := podinformer.Get(ctx)
-
-	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
-	ingressHandler := cache.FilteringResourceEventHandler{
-		FilterFunc: myFilterFunc,
-		Handler:    controller.HandleAll(impl.Enqueue),
-	}
-	ingressInformer.Informer().AddEventHandler(ingressHandler)
-
-	virtualServiceInformer := virtualserviceinformer.Get(ctx)
-	virtualServiceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: myFilterFunc,
-		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-	})
-
-	r.Logger.Info("Setting up ConfigMap receivers")
-	configsToResync := []interface{}{
-		&config.Istio{},
-		&network.Config{},
-	}
-	resyncIngressesOnConfigChange := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
-		impl.FilteredGlobalResync(myFilterFunc, ingressInformer.Informer())
-	})
-	configStore := config.NewStore(r.Logger.Named("config-store"), resyncIngressesOnConfigChange)
-	configStore.WatchConfigs(cmw)
-	r.ConfigStore = configStore
-
-	r.Logger.Info("Setting up StatusManager")
-	resyncOnIngressReady := func(ia v1alpha1.IngressAccessor) {
-		impl.EnqueueKey(types.NamespacedName{Namespace: ia.GetNamespace(), Name: ia.GetName()})
-	}
-	statusProber := NewStatusProber(
-		r.Logger.Named("status-manager"),
-		gatewayInformer.Lister(),
-		endpointsInformer.Lister(),
-		serviceInformer.Lister(),
-		resyncOnIngressReady)
-	r.StatusManager = statusProber
-	statusProber.Start(ctx.Done())
-
-	virtualServiceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		// Cancel probing when a VirtualService is deleted
-		DeleteFunc: func(obj interface{}) {
-			vs, ok := obj.(*v1alpha3.VirtualService)
-			if ok {
-				statusProber.CancelVirtualServiceProbing(vs)
-			}
-		},
-	})
-	podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		// Cancel probing when a Pod is deleted
-		DeleteFunc: func(obj interface{}) {
-			pod, ok := obj.(*corev1.Pod)
-			if ok {
-				statusProber.CancelPodProbing(pod)
-			}
-		},
-	})
-}
-
-// SetupSecretTracker initializes Secret Tracker
-func SetupSecretTracker(ctx context.Context, init ReconcilerInitializer, impl *controller.Impl) {
-
-	logger := logging.FromContext(ctx)
-	logger.Info("Setting up secret informer event handler")
-
-	// Create tracker
-	tracker := tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
-	init.SetTracker(tracker)
-
-	// add secret event handler
-	secretInformer := secretinformer.Get(ctx)
-	secretInformer.Informer().AddEventHandler(controller.HandleAll(
-		controller.EnsureTypeMeta(
-			tracker.OnChanged,
-			corev1.SchemeGroupVersion.WithKind("Secret"),
-		),
-	))
-}
 
 // Reconcile compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Ingress resource
 // with the current status of the resource.
 func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
-	return r.BaseIngressReconciler.ReconcileIngress(r.ConfigStore.ToContext(ctx), r, key)
-}
-
-// ReconcileIngress retrieves Ingress by key and performs reconciliation
-func (r *BaseIngressReconciler) ReconcileIngress(ctx context.Context, ra ReconcilerAccessor, key string) error {
-	// Convert the namespace/name string into a distinct namespace and name
 	logger := logging.FromContext(ctx)
+	ctx = r.configStore.ToContext(ctx)
 	ctx = controller.WithEventRecorder(ctx, r.Recorder)
 
 	ns, name, err := cache.SplitMetaNamespaceKey(key)
@@ -252,7 +105,7 @@ func (r *BaseIngressReconciler) ReconcileIngress(ctx context.Context, ra Reconci
 	}
 
 	// Get the Ingress resource with this namespace and name.
-	original, err := ra.GetIngress(ns, name)
+	original, err := r.ingressLister.Ingresses(ns).Get(name)
 	if apierrs.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
 		logger.Errorf("ingress %q in work queue no longer exists", key)
@@ -265,10 +118,10 @@ func (r *BaseIngressReconciler) ReconcileIngress(ctx context.Context, ra Reconci
 
 	// Reconcile this copy of the Ingress and then write back any status
 	// updates regardless of whether the reconciliation errored out.
-	reconcileErr := r.reconcileIngress(ctx, ra, ingress)
+	reconcileErr := r.reconcileIngress(ctx, ingress)
 	if reconcileErr != nil {
 		r.Recorder.Event(ingress, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
-		ingress.GetStatus().MarkIngressNotReady(NotReconciledReason, NotReconciledMessage)
+		ingress.GetStatus().MarkIngressNotReady(notReconciledReason, notReconciledMessage)
 	}
 	if equality.Semantic.DeepEqual(original.GetStatus(), ingress.GetStatus()) {
 		// If we didn't change anything then don't call updateStatus.
@@ -276,7 +129,7 @@ func (r *BaseIngressReconciler) ReconcileIngress(ctx context.Context, ra Reconci
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 	} else {
-		if _, err = r.updateStatus(ra, ingress); err != nil {
+		if _, err = r.updateStatus(ingress); err != nil {
 			logger.Warnw("Failed to update Ingress status", zap.Error(err))
 			r.Recorder.Eventf(ingress, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update status for Ingress %q: %v", ingress.GetName(), err)
@@ -290,10 +143,10 @@ func (r *BaseIngressReconciler) ReconcileIngress(ctx context.Context, ra Reconci
 	return reconcileErr
 }
 
-func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra ReconcilerAccessor, ia v1alpha1.IngressAccessor) error {
+func (r *Reconciler) reconcileIngress(ctx context.Context, ia v1alpha1.IngressAccessor) error {
 	logger := logging.FromContext(ctx)
 	if ia.GetDeletionTimestamp() != nil {
-		return r.reconcileDeletion(ctx, ra, ia)
+		return r.reconcileDeletion(ctx, ia)
 	}
 
 	// We may be reading a version of the object that was stored at an older version
@@ -321,11 +174,11 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 	if enableReconcileGateway(ctx) && ia.IsPublic() {
 		// Add the finalizer before adding `Servers` into Gateway so that we can be sure
 		// the `Servers` get cleaned up from Gateway.
-		if err := r.ensureFinalizer(ra, ia); err != nil {
+		if err := r.ensureFinalizer(ia); err != nil {
 			return err
 		}
 
-		originSecrets, err := resources.GetSecrets(ia, r.SecretLister)
+		originSecrets, err := resources.GetSecrets(ia, r.secretLister)
 		if err != nil {
 			return err
 		}
@@ -355,7 +208,7 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 	// Update status
 	ia.GetStatus().MarkNetworkConfigured()
 
-	ready, err := r.StatusManager.IsReady(ia, gatewayNames)
+	ready, err := r.statusManager.IsReady(ia, gatewayNames)
 	if err != nil {
 		return fmt.Errorf("failed to probe IngressAccessor %s/%s: %w", ia.GetNamespace(), ia.GetName(), err)
 	}
@@ -373,12 +226,12 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 	return nil
 }
 
-func (r *BaseIngressReconciler) reconcileCertSecrets(ctx context.Context, ia v1alpha1.IngressAccessor, desiredSecrets []*corev1.Secret) error {
+func (r *Reconciler) reconcileCertSecrets(ctx context.Context, ia v1alpha1.IngressAccessor, desiredSecrets []*corev1.Secret) error {
 	for _, certSecret := range desiredSecrets {
 		// We track the origin and desired secrets so that desired secrets could be synced accordingly when the origin TLS certificate
 		// secret is refreshed.
-		r.Tracker.Track(resources.SecretRef(certSecret.Namespace, certSecret.Name), ia)
-		r.Tracker.Track(resources.SecretRef(
+		r.tracker.Track(resources.SecretRef(certSecret.Namespace, certSecret.Name), ia)
+		r.tracker.Track(resources.SecretRef(
 			certSecret.Labels[networking.OriginSecretNamespaceLabelKey],
 			certSecret.Labels[networking.OriginSecretNameLabelKey]), ia)
 		if _, err := coreaccessor.ReconcileSecret(ctx, ia, certSecret, r); err != nil {
@@ -391,7 +244,7 @@ func (r *BaseIngressReconciler) reconcileCertSecrets(ctx context.Context, ia v1a
 	return nil
 }
 
-func (r *BaseIngressReconciler) reconcileVirtualServices(ctx context.Context, ia v1alpha1.IngressAccessor,
+func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ia v1alpha1.IngressAccessor,
 	desired []*v1alpha3.VirtualService) error {
 	// First, create all needed VirtualServices.
 	kept := sets.NewString()
@@ -405,7 +258,7 @@ func (r *BaseIngressReconciler) reconcileVirtualServices(ctx context.Context, ia
 		kept.Insert(d.Name)
 	}
 	// Now, remove the extra ones.
-	vses, err := r.VirtualServiceLister.VirtualServices(resources.VirtualServiceNamespace(ia)).List(
+	vses, err := r.virtualServiceLister.VirtualServices(resources.VirtualServiceNamespace(ia)).List(
 		labels.Set(map[string]string{
 			serving.RouteLabelKey:          ia.GetLabels()[serving.RouteLabelKey],
 			serving.RouteNamespaceLabelKey: ia.GetLabels()[serving.RouteNamespaceLabelKey]}).AsSelector())
@@ -424,12 +277,12 @@ func (r *BaseIngressReconciler) reconcileVirtualServices(ctx context.Context, ia
 	return nil
 }
 
-func (r *BaseIngressReconciler) reconcileDeletion(ctx context.Context, ra ReconcilerAccessor, ia v1alpha1.IngressAccessor) error {
+func (r *Reconciler) reconcileDeletion(ctx context.Context, ia v1alpha1.IngressAccessor) error {
 	logger := logging.FromContext(ctx)
 
-	// If our Finalizer is first, delete the `Servers` from Gateway for this Ingress,
+	// If our finalizer is first, delete the `Servers` from Gateway for this Ingress,
 	// and remove the finalizer.
-	if len(ia.GetFinalizers()) == 0 || ia.GetFinalizers()[0] != r.Finalizer {
+	if len(ia.GetFinalizers()) == 0 || ia.GetFinalizers()[0] != r.finalizer {
 		return nil
 	}
 	istiocfg := config.FromContext(ctx).Istio
@@ -442,17 +295,17 @@ func (r *BaseIngressReconciler) reconcileDeletion(ctx context.Context, ra Reconc
 		}
 	}
 
-	// Update the Ingress to remove the Finalizer.
-	logger.Info("Removing Finalizer")
+	// Update the Ingress to remove the finalizer.
+	logger.Info("Removing finalizer")
 	ia.SetFinalizers(ia.GetFinalizers()[1:])
-	_, err := ra.UpdateIngress(ia)
+	_, err := r.ServingClientSet.NetworkingV1alpha1().Ingresses(ia.GetNamespace()).Update(ia.(*v1alpha1.Ingress))
 	return err
 }
 
 // Update the Status of the Ingress.  Caller is responsible for checking
 // for semantic differences before calling.
-func (r *BaseIngressReconciler) updateStatus(ra ReconcilerAccessor, desired v1alpha1.IngressAccessor) (v1alpha1.IngressAccessor, error) {
-	ingress, err := ra.GetIngress(desired.GetNamespace(), desired.GetName())
+func (r *Reconciler) updateStatus(desired v1alpha1.IngressAccessor) (v1alpha1.IngressAccessor, error) {
+	ingress, err := r.ingressLister.Ingresses(desired.GetNamespace()).Get(desired.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -464,18 +317,18 @@ func (r *BaseIngressReconciler) updateStatus(ra ReconcilerAccessor, desired v1al
 	// Don't modify the informers copy
 	existing := ingress.DeepCopyObject().(v1alpha1.IngressAccessor)
 	existing.SetStatus(*desired.GetStatus())
-	return ra.UpdateIngressStatus(existing)
+	return r.ServingClientSet.NetworkingV1alpha1().Ingresses(existing.GetNamespace()).UpdateStatus(existing.(*v1alpha1.Ingress))
 }
 
-func (r *BaseIngressReconciler) ensureFinalizer(ra ReconcilerAccessor, ia v1alpha1.IngressAccessor) error {
+func (r *Reconciler) ensureFinalizer(ia v1alpha1.IngressAccessor) error {
 	finalizers := sets.NewString(ia.GetFinalizers()...)
-	if finalizers.Has(r.Finalizer) {
+	if finalizers.Has(r.finalizer) {
 		return nil
 	}
 
 	mergePatch := map[string]interface{}{
 		"metadata": map[string]interface{}{
-			"finalizers":      append(ia.GetFinalizers(), r.Finalizer),
+			"finalizers":      append(ia.GetFinalizers(), r.finalizer),
 			"resourceVersion": ia.GetResourceVersion(),
 		},
 	}
@@ -485,14 +338,14 @@ func (r *BaseIngressReconciler) ensureFinalizer(ra ReconcilerAccessor, ia v1alph
 		return err
 	}
 
-	_, err = ra.PatchIngress(ia.GetNamespace(), ia.GetName(), types.MergePatchType, patch)
+	_, err = r.ServingClientSet.NetworkingV1alpha1().Ingresses(ia.GetNamespace()).Patch(ia.GetName(), types.MergePatchType, patch)
 	return err
 }
 
-func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha1.IngressAccessor, gw config.Gateway, desired []v1alpha3.Server) error {
+func (r *Reconciler) reconcileGateway(ctx context.Context, ia v1alpha1.IngressAccessor, gw config.Gateway, desired []v1alpha3.Server) error {
 	// TODO(zhiminx): Need to handle the scenario when deleting Ingress. In this scenario,
 	// the Gateway servers of the Ingress need also be removed from Gateway.
-	gateway, err := r.GatewayLister.Gateways(gw.Namespace).Get(gw.Name)
+	gateway, err := r.gatewayLister.Gateways(gw.Namespace).Get(gw.Name)
 	if err != nil {
 		// Unlike VirtualService, a default gateway needs to be existent.
 		// It should be installed when installing Knative.
@@ -524,23 +377,23 @@ func (r *BaseIngressReconciler) reconcileGateway(ctx context.Context, ia v1alpha
 }
 
 // GetKubeClient returns the client to access k8s resources.
-func (r *BaseIngressReconciler) GetKubeClient() kubernetes.Interface {
+func (r *Reconciler) GetKubeClient() kubernetes.Interface {
 	return r.KubeClientSet
 }
 
 // GetSecretLister returns the lister for Secret.
-func (r *BaseIngressReconciler) GetSecretLister() corev1listers.SecretLister {
-	return r.SecretLister
+func (r *Reconciler) GetSecretLister() corev1listers.SecretLister {
+	return r.secretLister
 }
 
 // GetSharedClient returns the client to access shared resources.
-func (r *BaseIngressReconciler) GetSharedClient() sharedclientset.Interface {
+func (r *Reconciler) GetSharedClient() sharedclientset.Interface {
 	return r.SharedClientSet
 }
 
 // GetVirtualServiceLister returns the lister for VirtualService.
-func (r *BaseIngressReconciler) GetVirtualServiceLister() istiolisters.VirtualServiceLister {
-	return r.VirtualServiceLister
+func (r *Reconciler) GetVirtualServiceLister() istiolisters.VirtualServiceLister {
+	return r.virtualServiceLister
 }
 
 // qualifiedGatewayNamesFromContext get gateway names from context
