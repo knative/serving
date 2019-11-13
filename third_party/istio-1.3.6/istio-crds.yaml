@@ -652,8 +652,6 @@ data:
           served: true
           storage: true
     ---
-
-
 ---
 # Source: istio-init/templates/configmap-crd-11.yaml
 apiVersion: v1
@@ -689,8 +687,6 @@ data:
           served: true
           storage: true
     ---
-
-
 ---
 # Source: istio-init/templates/configmap-crd-12.yaml
 apiVersion: v1
@@ -724,8 +720,6 @@ data:
           served: true
           storage: true
     ---
-
-
 ---
 # Source: istio-init/templates/serviceaccount.yaml
 apiVersion: v1
@@ -736,8 +730,6 @@ metadata:
   labels:
     app: istio-init
     istio: init
-
-
 ---
 # Source: istio-init/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -751,7 +743,6 @@ rules:
 - apiGroups: ["apiextensions.k8s.io"]
   resources: ["customresourcedefinitions"]
   verbs: ["create", "get", "list", "watch", "patch"]
-
 ---
 # Source: istio-init/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -769,7 +760,6 @@ subjects:
   - kind: ServiceAccount
     name: istio-init-service-account
     namespace: istio-system
-
 ---
 # Source: istio-init/templates/job-crd-10.yaml
 apiVersion: batch/v1
@@ -798,7 +788,6 @@ spec:
         configMap:
           name: istio-crd-10
       restartPolicy: OnFailure
-
 ---
 # Source: istio-init/templates/job-crd-11.yaml
 apiVersion: batch/v1
@@ -827,7 +816,6 @@ spec:
         configMap:
           name: istio-crd-11
       restartPolicy: OnFailure
-
 ---
 # Source: istio-init/templates/job-crd-12.yaml
 apiVersion: batch/v1
@@ -856,20 +844,3 @@ spec:
           configMap:
             name: istio-crd-12
       restartPolicy: OnFailure
-
----
-# Source: istio-init/templates/configmap-crd-certmanager-10.yaml
-
-
----
-# Source: istio-init/templates/configmap-crd-certmanager-11.yaml
-
-
----
-# Source: istio-init/templates/job-crd-certmanager-10.yaml
-
-
----
-# Source: istio-init/templates/job-crd-certmanager-11.yaml
-
-

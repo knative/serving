@@ -39,6 +39,13 @@ helm template --namespace=istio-system install/kubernetes/helm/istio --values ..
   `# Removing trailing whitespaces to make automation happy` \
   | sed 's/[ \t]*$//' \
   > ../istio-lean.yaml
+
+# An even lighter template, with just pilot/gateway and small resource requests.
+# Based on install/kubernetes/helm/istio/values-istio-minimal.yaml
+helm template --namespace=istio-system install/kubernetes/helm/istio --values ../values-local.yaml \
+  `# Removing trailing whitespaces to make automation happy` \
+  | sed 's/[ \t]*$//' \
+  > ../istio-local.yaml
 )
 
 # Clean up.
@@ -49,6 +56,7 @@ rm istio-${ISTIO_VERSION}-linux.tar.gz
 patch istio-crds.yaml namespace.yaml.patch
 patch istio.yaml namespace.yaml.patch
 patch istio-lean.yaml namespace.yaml.patch
+patch istio-local.yaml namespace.yaml.patch
 
 # Increase termination drain duration seconds.
 patch -l istio.yaml drain-seconds.yaml.patch
