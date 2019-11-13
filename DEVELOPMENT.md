@@ -165,6 +165,8 @@ parameters if needed.
 kubectl apply -f ./third_party/istio-1.2-latest/istio-knative-extras.yaml
 ```
 
+> If you want to customize the `istio*.yaml` files you can refer to `third_party/istio-<VERSION>-latest/download-istio.sh` how these templates were generated.
+
 ### Deploy cert-manager
 
 1. Deploy `cert-manager` CRDs
