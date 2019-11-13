@@ -78,7 +78,7 @@ func TestObservabilityConfiguration(t *testing.T) {
 			EnableVarLogCollection: false,
 			LoggingURLTemplate:     defaultLogURLTemplate,
 			RequestLogTemplate:     "",
-			RequestMetricsBackend:  "",
+			RequestMetricsBackend:  "prometheus",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
