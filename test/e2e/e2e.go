@@ -52,6 +52,7 @@ func SetupAlternativeNamespace(t *testing.T) *test.Clients {
 
 // SetupWithNamespace creates the client objects needed in the e2e tests under the specified namespace.
 func SetupWithNamespace(t *testing.T, namespace string) *test.Clients {
+	pkgTest.SetupLoggingFlags()
 	clients, err := test.NewClients(
 		pkgTest.Flags.Kubeconfig,
 		pkgTest.Flags.Cluster,

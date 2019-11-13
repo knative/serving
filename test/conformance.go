@@ -59,6 +59,7 @@ const (
 // Setup creates client to run Knative Service requests
 func Setup(t *testing.T) *Clients {
 	t.Helper()
+	pkgTest.SetupLoggingFlags()
 	clients, err := NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, ServingNamespace)
 	if err != nil {
 		t.Fatalf("Couldn't initialize clients: %v", err)
