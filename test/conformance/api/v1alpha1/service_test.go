@@ -198,10 +198,10 @@ func TestRunLatestServiceBYOName(t *testing.T) {
 
 	// Setup initial Service
 	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		false /* https TODO(taragu) turn this on after helloworld test running with https */,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
 		func(svc *v1alpha1.Service) {
-		svc.Spec.ConfigurationSpec.GetTemplate().Name = revName
-	})
+			svc.Spec.ConfigurationSpec.GetTemplate().Name = revName
+		})
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}

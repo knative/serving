@@ -21,16 +21,17 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/google/mako/go/quickstore"
-	"k8s.io/apimachinery/pkg/labels"
-	"knative.dev/pkg/test/mako"
-	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/test/performance"
 	"log"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/google/mako/go/quickstore"
+	"k8s.io/apimachinery/pkg/labels"
+	"knative.dev/pkg/test/mako"
+	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/test/performance"
 
 	"golang.org/x/sync/errgroup"
 
@@ -46,7 +47,7 @@ import (
 )
 
 var (
-	parallelCount   = flag.Int("parallel", 0, "The count of ksvcs we want to run scale-from-zero in parallel")
+	parallelCount = flag.Int("parallel", 0, "The count of ksvcs we want to run scale-from-zero in parallel")
 )
 
 const (

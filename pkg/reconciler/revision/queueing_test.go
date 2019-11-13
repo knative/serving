@@ -18,9 +18,10 @@ package revision
 
 import (
 	"context"
-	"knative.dev/serving/pkg/apis/config"
 	"testing"
 	"time"
+
+	"knative.dev/serving/pkg/apis/config"
 
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"golang.org/x/sync/errgroup"
