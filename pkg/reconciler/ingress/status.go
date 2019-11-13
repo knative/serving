@@ -61,7 +61,7 @@ var dialContext = (&net.Dialer{}).DialContext
 // ingressState represents the probing progress at the Ingress scope
 type ingressState struct {
 	hash string
-	ia   v1alpha1.IngressAccessor
+	ia   *v1alpha1.Ingress
 
 	// pendingCount is the number of pods that haven't been successfully probed yet
 	pendingCount int32
@@ -96,7 +96,7 @@ type probeTarget struct {
 
 // StatusManager provides a way to check if a VirtualService is ready
 type StatusManager interface {
-	IsReady(ia v1alpha1.IngressAccessor, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error)
+	IsReady(ia *v1alpha1.Ingress, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error)
 }
 
 // StatusProber provides a way to check if a VirtualService is ready by probing the Envoy pods
@@ -115,7 +115,7 @@ type StatusProber struct {
 	endpointsLister corev1listers.EndpointsLister
 	serviceLister   corev1listers.ServiceLister
 
-	readyCallback func(v1alpha1.IngressAccessor)
+	readyCallback func(*v1alpha1.Ingress)
 
 	probeConcurrency int
 	stateExpiration  time.Duration
@@ -128,7 +128,7 @@ func NewStatusProber(
 	gatewayLister istiolisters.GatewayLister,
 	endpointsLister corev1listers.EndpointsLister,
 	serviceLister corev1listers.ServiceLister,
-	readyCallback func(v1alpha1.IngressAccessor)) *StatusProber {
+	readyCallback func(*v1alpha1.Ingress)) *StatusProber {
 	return &StatusProber{
 		logger:        logger,
 		ingressStates: make(map[string]*ingressState),
@@ -146,17 +146,17 @@ func NewStatusProber(
 	}
 }
 
-// IsReady checks if the provided IngressAccessor is ready, i.e. the Envoy pods serving the IngressAccessor
+// IsReady checks if the provided Ingress is ready, i.e. the Envoy pods serving the Ingress
 // have all been updated. This function is designed to be used by the Ingress controller, i.e. it
-// will be called in the order of reconciliation. This means that if IsReady is called on an IngressAccessor,
-// this IngressAccessor is the latest known version and therefore anything related to older versions can be ignored.
+// will be called in the order of reconciliation. This means that if IsReady is called on an Ingress,
+// this Ingress is the latest known version and therefore anything related to older versions can be ignored.
 // Also, it means that IsReady is not called concurrently.
-func (m *StatusProber) IsReady(ia v1alpha1.IngressAccessor, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error) {
+func (m *StatusProber) IsReady(ia *v1alpha1.Ingress, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error) {
 	ingressKey := fmt.Sprintf("%s/%s", ia.GetNamespace(), ia.GetName())
 
 	bytes, err := resources.ComputeIngressHash(ia)
 	if err != nil {
-		return false, fmt.Errorf("failed to compute the hash of the IngressAccessor: %w", err)
+		return false, fmt.Errorf("failed to compute the hash of the Ingress: %w", err)
 	}
 	hash := fmt.Sprintf("%x", bytes)
 

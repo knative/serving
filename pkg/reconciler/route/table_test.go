@@ -2482,21 +2482,21 @@ type ingressCtor func(ctx context.Context,
 	tc *traffic.Config,
 	tls []netv1alpha1.IngressTLS,
 	clusterLocalServices sets.String,
-	ingressClass string) (netv1alpha1.IngressAccessor, error)
+	ingressClass string) (*netv1alpha1.Ingress, error)
 
-func simpleIngress(r *v1alpha1.Route, tc *traffic.Config, io ...IngressOption) netv1alpha1.IngressAccessor {
+func simpleIngress(r *v1alpha1.Route, tc *traffic.Config, io ...IngressOption) *netv1alpha1.Ingress {
 	return simpleIngressWithVisibility(r, tc, sets.NewString(), io...)
 }
 
-func simpleIngressWithVisibility(r *v1alpha1.Route, tc *traffic.Config, serviceVisibility sets.String, io ...IngressOption) netv1alpha1.IngressAccessor {
+func simpleIngressWithVisibility(r *v1alpha1.Route, tc *traffic.Config, serviceVisibility sets.String, io ...IngressOption) *netv1alpha1.Ingress {
 	return baseIngressWithClass(r, tc, TestIngressClass, serviceVisibility, resources.MakeIngress, io...)
 }
 
-func ingressWithClass(r *v1alpha1.Route, tc *traffic.Config, class string, serviceVisibility sets.String, io ...IngressOption) netv1alpha1.IngressAccessor {
+func ingressWithClass(r *v1alpha1.Route, tc *traffic.Config, class string, serviceVisibility sets.String, io ...IngressOption) *netv1alpha1.Ingress {
 	return baseIngressWithClass(r, tc, class, serviceVisibility, resources.MakeIngress, io...)
 }
 
-func baseIngressWithClass(r *v1alpha1.Route, tc *traffic.Config, class string, serviceVisibility sets.String, ctor ingressCtor, io ...IngressOption) netv1alpha1.IngressAccessor {
+func baseIngressWithClass(r *v1alpha1.Route, tc *traffic.Config, class string, serviceVisibility sets.String, ctor ingressCtor, io ...IngressOption) *netv1alpha1.Ingress {
 	ingress, _ := ctor(getContext(), r, tc, nil, serviceVisibility, class)
 
 	for _, opt := range io {
@@ -2506,11 +2506,11 @@ func baseIngressWithClass(r *v1alpha1.Route, tc *traffic.Config, class string, s
 	return ingress
 }
 
-func ingressWithTLS(r *v1alpha1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS, io ...IngressOption) netv1alpha1.IngressAccessor {
+func ingressWithTLS(r *v1alpha1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS, io ...IngressOption) *netv1alpha1.Ingress {
 	return baseIngressWithTLS(r, tc, tls, resources.MakeIngress, io...)
 }
 
-func baseIngressWithTLS(r *v1alpha1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS, ctor ingressCtor, io ...IngressOption) netv1alpha1.IngressAccessor {
+func baseIngressWithTLS(r *v1alpha1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS, ctor ingressCtor, io ...IngressOption) *netv1alpha1.Ingress {
 	ingress, _ := ctor(getContext(), r, tc, tls, sets.NewString(), TestIngressClass)
 
 	for _, opt := range io {
@@ -2520,7 +2520,7 @@ func baseIngressWithTLS(r *v1alpha1.Route, tc *traffic.Config, tls []netv1alpha1
 	return ingress
 }
 
-func simpleReadyIngress(r *v1alpha1.Route, tc *traffic.Config, io ...IngressOption) netv1alpha1.IngressAccessor {
+func simpleReadyIngress(r *v1alpha1.Route, tc *traffic.Config, io ...IngressOption) *netv1alpha1.Ingress {
 	ingress := ingressWithStatus(r, tc, readyIngressStatus())
 
 	for _, opt := range io {
@@ -2549,17 +2549,17 @@ func readyIngressStatus() netv1alpha1.IngressStatus {
 	return status
 }
 
-func ingressWithStatus(r *v1alpha1.Route, tc *traffic.Config, status netv1alpha1.IngressStatus) netv1alpha1.IngressAccessor {
+func ingressWithStatus(r *v1alpha1.Route, tc *traffic.Config, status netv1alpha1.IngressStatus) *netv1alpha1.Ingress {
 	ci := simpleIngress(r, tc)
 	ci.SetName(r.Name)
-	ci.SetStatus(status)
+	ci.Status = status
 
 	return ci
 }
 
-func mutateIngress(ci netv1alpha1.IngressAccessor) netv1alpha1.IngressAccessor {
+func mutateIngress(ci *netv1alpha1.Ingress) *netv1alpha1.Ingress {
 	// Thor's Hammer
-	ci.SetSpec(netv1alpha1.IngressSpec{})
+	ci.Spec = netv1alpha1.IngressSpec{}
 	return ci
 }
 

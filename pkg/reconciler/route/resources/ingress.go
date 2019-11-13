@@ -56,7 +56,7 @@ func MakeIngress(
 	tls []v1alpha1.IngressTLS,
 	clusterLocalServices sets.String,
 	ingressClass string,
-) (v1alpha1.IngressAccessor, error) {
+) (*v1alpha1.Ingress, error) {
 	spec, err := MakeIngressSpec(ctx, r, tls, clusterLocalServices, tc.Targets)
 	if err != nil {
 		return nil, err

@@ -49,14 +49,7 @@ func TestReconcileIngressInsert(t *testing.T) {
 	r := Route("test-ns", "test-route")
 	ci := newTestIngress(t, r)
 
-	ira := &IngressResources{
-		BaseIngressResources: BaseIngressResources{
-			servingClientSet: reconciler.ServingClientSet,
-		},
-		ingressLister: reconciler.ingressLister,
-	}
-
-	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), ira, r, ci); err != nil {
+	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), r, ci); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 }
@@ -66,15 +59,9 @@ func TestReconcileIngressUpdate(t *testing.T) {
 	defer cancel()
 
 	r := Route("test-ns", "test-route")
-	ira := &IngressResources{
-		BaseIngressResources: BaseIngressResources{
-			servingClientSet: reconciler.ServingClientSet,
-		},
-		ingressLister: reconciler.ingressLister,
-	}
 
 	ci := newTestIngress(t, r)
-	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), ira, r, ci); err != nil {
+	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), r, ci); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
@@ -90,7 +77,7 @@ func TestReconcileIngressUpdate(t *testing.T) {
 			},
 		})
 	})
-	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), ira, r, ci2); err != nil {
+	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), r, ci2); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
@@ -152,7 +139,7 @@ func TestReconcileTargetRevisions(t *testing.T) {
 	}
 }
 
-func newTestIngress(t *testing.T, r *v1alpha1.Route, trafficOpts ...func(tc *traffic.Config)) netv1alpha1.IngressAccessor {
+func newTestIngress(t *testing.T, r *v1alpha1.Route, trafficOpts ...func(tc *traffic.Config)) *netv1alpha1.Ingress {
 	tc := &traffic.Config{Targets: map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
 			TrafficTarget: v1.TrafficTarget{

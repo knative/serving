@@ -86,9 +86,8 @@ func TestMakeIngress_CorrectMetadata(t *testing.T) {
 		t.Errorf("Unexpected error %v", err)
 	}
 
-	ci := ia.(*netv1alpha1.Ingress)
-	if !cmp.Equal(expected, ci.ObjectMeta) {
-		t.Errorf("Unexpected metadata (-want, +got): %s", cmp.Diff(expected, ci.ObjectMeta))
+	if !cmp.Equal(expected, ia.ObjectMeta) {
+		t.Errorf("Unexpected metadata (-want, +got): %s", cmp.Diff(expected, ia.ObjectMeta))
 	}
 }
 
@@ -102,8 +101,7 @@ func TestIngress_NoKubectlAnnotation(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
-	ci := ia.(*netv1alpha1.Ingress)
-	if v, ok := ci.Annotations[corev1.LastAppliedConfigAnnotation]; ok {
+	if v, ok := ia.Annotations[corev1.LastAppliedConfigAnnotation]; ok {
 		t.Errorf("Annotation %s = %q, want empty", corev1.LastAppliedConfigAnnotation, v)
 	}
 }

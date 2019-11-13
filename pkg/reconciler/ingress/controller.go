@@ -94,7 +94,7 @@ func NewController(
 	endpointsInformer := endpointsinformer.Get(ctx)
 	serviceInformer := serviceinformer.Get(ctx)
 	podInformer := podinformer.Get(ctx)
-	resyncOnIngressReady := func(ia v1alpha1.IngressAccessor) {
+	resyncOnIngressReady := func(ia *v1alpha1.Ingress) {
 		impl.EnqueueKey(types.NamespacedName{Namespace: ia.GetNamespace(), Name: ia.GetName()})
 	}
 	statusProber := NewStatusProber(

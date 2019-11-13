@@ -41,7 +41,7 @@ import (
 
 // VirtualServiceNamespace gives the namespace of the child
 // VirtualServices for a given Ingress.
-func VirtualServiceNamespace(ia v1alpha1.IngressAccessor) string {
+func VirtualServiceNamespace(ia *v1alpha1.Ingress) string {
 	if len(ia.GetNamespace()) == 0 {
 		return system.Namespace()
 	}
@@ -50,7 +50,7 @@ func VirtualServiceNamespace(ia v1alpha1.IngressAccessor) string {
 
 // MakeIngressVirtualService creates Istio VirtualService as network
 // programming for Istio Gateways other than 'mesh'.
-func MakeIngressVirtualService(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.IngressVisibility]sets.String) *v1alpha3.VirtualService {
+func MakeIngressVirtualService(ia *v1alpha1.Ingress, gateways map[v1alpha1.IngressVisibility]sets.String) *v1alpha3.VirtualService {
 	vs := &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            names.IngressVirtualService(ia),
@@ -73,7 +73,7 @@ func MakeIngressVirtualService(ia v1alpha1.IngressAccessor, gateways map[v1alpha
 }
 
 // MakeMeshVirtualService creates a mesh Virtual Service
-func MakeMeshVirtualService(ia v1alpha1.IngressAccessor) *v1alpha3.VirtualService {
+func MakeMeshVirtualService(ia *v1alpha1.Ingress) *v1alpha3.VirtualService {
 	vs := &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            names.MeshVirtualService(ia),
@@ -94,11 +94,11 @@ func MakeMeshVirtualService(ia v1alpha1.IngressAccessor) *v1alpha3.VirtualServic
 }
 
 // MakeVirtualServices creates a mesh virtualservice and a virtual service for each gateway
-func MakeVirtualServices(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.IngressVisibility]sets.String) ([]*v1alpha3.VirtualService, error) {
+func MakeVirtualServices(ia *v1alpha1.Ingress, gateways map[v1alpha1.IngressVisibility]sets.String) ([]*v1alpha3.VirtualService, error) {
 	// Insert probe header
-	ia = ia.DeepCopyObject().(v1alpha1.IngressAccessor)
+	ia = ia.DeepCopy()
 	if _, err := InsertProbe(ia); err != nil {
-		return nil, fmt.Errorf("failed to insert a probe into the IngressAccessor: %w", err)
+		return nil, fmt.Errorf("failed to insert a probe into the Ingress: %w", err)
 	}
 
 	vss := []*v1alpha3.VirtualService{MakeMeshVirtualService(ia)}
@@ -121,14 +121,14 @@ func MakeVirtualServices(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.Ingr
 
 // InsertProbe adds a AppendHeader rule so that any request going through a Gateway is tagged with
 // the version of the Ingress currently deployed on the Gateway.
-func InsertProbe(ia v1alpha1.IngressAccessor) (string, error) {
+func InsertProbe(ia *v1alpha1.Ingress) (string, error) {
 	bytes, err := ComputeIngressHash(ia)
 	if err != nil {
-		return "", fmt.Errorf("failed to compute the hash of the IngressAccessor: %w", err)
+		return "", fmt.Errorf("failed to compute the hash of the Ingress: %w", err)
 	}
 	hash := fmt.Sprintf("%x", bytes)
 
-	for _, rule := range ia.GetSpec().Rules {
+	for _, rule := range ia.Spec.Rules {
 		for i := range rule.HTTP.Paths {
 			if rule.HTTP.Paths[i].AppendHeaders == nil {
 				rule.HTTP.Paths[i].AppendHeaders = make(map[string]string, 1)
@@ -141,10 +141,10 @@ func InsertProbe(ia v1alpha1.IngressAccessor) (string, error) {
 }
 
 // ComputeIngressHash computes a hash of the Ingress Spec, Namespace and Name
-func ComputeIngressHash(ia v1alpha1.IngressAccessor) ([16]byte, error) {
-	bytes, err := json.Marshal(ia.GetSpec())
+func ComputeIngressHash(ia *v1alpha1.Ingress) ([16]byte, error) {
+	bytes, err := json.Marshal(ia.Spec)
 	if err != nil {
-		return [16]byte{}, fmt.Errorf("failed to serialize IngressAccessor: %w", err)
+		return [16]byte{}, fmt.Errorf("failed to serialize Ingress: %w", err)
 	}
 	bytes = append(bytes, []byte(ia.GetNamespace())...)
 	bytes = append(bytes, []byte(ia.GetName())...)
@@ -152,9 +152,9 @@ func ComputeIngressHash(ia v1alpha1.IngressAccessor) ([16]byte, error) {
 }
 
 // HostsPerGateway returns the set of hosts that each Gateway handles
-func HostsPerGateway(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.IngressVisibility]sets.String) map[string][]string {
+func HostsPerGateway(ia *v1alpha1.Ingress, gateways map[v1alpha1.IngressVisibility]sets.String) map[string][]string {
 	output := make(map[string][]string)
-	for _, rule := range ia.GetSpec().Rules {
+	for _, rule := range ia.Spec.Rules {
 		for host := range expandedHosts(sets.NewString(rule.Hosts...)) {
 			for gateway := range gateways[rule.Visibility] {
 				output[gateway] = append(output[gateway], host)
@@ -164,14 +164,14 @@ func HostsPerGateway(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.IngressV
 	return output
 }
 
-func makeVirtualServiceSpec(ia v1alpha1.IngressAccessor, gateways map[v1alpha1.IngressVisibility]sets.String, hosts sets.String) *v1alpha3.VirtualServiceSpec {
+func makeVirtualServiceSpec(ia *v1alpha1.Ingress, gateways map[v1alpha1.IngressVisibility]sets.String, hosts sets.String) *v1alpha3.VirtualServiceSpec {
 	gw := sets.String{}.Union(gateways[v1alpha1.IngressVisibilityClusterLocal]).Union(gateways[v1alpha1.IngressVisibilityExternalIP])
 	spec := v1alpha3.VirtualServiceSpec{
 		Gateways: gw.List(),
 		Hosts:    hosts.List(),
 	}
 
-	for _, rule := range ia.GetSpec().Rules {
+	for _, rule := range ia.Spec.Rules {
 		for _, p := range rule.HTTP.Paths {
 			hosts := hosts.Intersection(sets.NewString(rule.Hosts...))
 			if hosts.Len() != 0 {
@@ -318,17 +318,17 @@ func exact(regexp string) string {
 func optional(regexp string) string {
 	return "(" + regexp + ")?"
 }
-func getHosts(ia v1alpha1.IngressAccessor) sets.String {
+func getHosts(ia *v1alpha1.Ingress) sets.String {
 	hosts := sets.NewString()
-	for _, rule := range ia.GetSpec().Rules {
+	for _, rule := range ia.Spec.Rules {
 		hosts.Insert(rule.Hosts...)
 	}
 	return hosts
 }
 
-func getClusterLocalIngressRules(ci v1alpha1.IngressAccessor) []v1alpha1.IngressRule {
+func getClusterLocalIngressRules(i *v1alpha1.Ingress) []v1alpha1.IngressRule {
 	var result []v1alpha1.IngressRule
-	for _, rule := range ci.GetSpec().Rules {
+	for _, rule := range i.Spec.Rules {
 		if rule.Visibility == v1alpha1.IngressVisibilityClusterLocal {
 			result = append(result, rule)
 		}
@@ -337,9 +337,9 @@ func getClusterLocalIngressRules(ci v1alpha1.IngressAccessor) []v1alpha1.Ingress
 	return result
 }
 
-func getPublicIngressRules(ci v1alpha1.IngressAccessor) []v1alpha1.IngressRule {
+func getPublicIngressRules(i *v1alpha1.Ingress) []v1alpha1.IngressRule {
 	var result []v1alpha1.IngressRule
-	for _, rule := range ci.GetSpec().Rules {
+	for _, rule := range i.Spec.Rules {
 		if rule.Visibility == v1alpha1.IngressVisibilityExternalIP || rule.Visibility == "" {
 			result = append(result, rule)
 		}

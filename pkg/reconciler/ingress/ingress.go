@@ -114,16 +114,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return err
 	}
 	// Don't modify the informers copy
-	ingress := original.DeepCopyObject().(v1alpha1.IngressAccessor)
+	ingress := original.DeepCopy()
 
 	// Reconcile this copy of the Ingress and then write back any status
 	// updates regardless of whether the reconciliation errored out.
 	reconcileErr := r.reconcileIngress(ctx, ingress)
 	if reconcileErr != nil {
 		r.Recorder.Event(ingress, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
-		ingress.GetStatus().MarkIngressNotReady(notReconciledReason, notReconciledMessage)
+		ingress.Status.MarkIngressNotReady(notReconciledReason, notReconciledMessage)
 	}
-	if equality.Semantic.DeepEqual(original.GetStatus(), ingress.GetStatus()) {
+	if equality.Semantic.DeepEqual(original.Status, ingress.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
@@ -143,7 +143,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 	return reconcileErr
 }
 
-func (r *Reconciler) reconcileIngress(ctx context.Context, ia v1alpha1.IngressAccessor) error {
+func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress) error {
 	logger := logging.FromContext(ctx)
 	if ia.GetDeletionTimestamp() != nil {
 		return r.reconcileDeletion(ctx, ia)
@@ -155,7 +155,7 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ia v1alpha1.IngressAc
 	// assumptions about defaulting.
 	ia.SetDefaults(ctx)
 
-	ia.GetStatus().InitializeConditions()
+	ia.Status.InitializeConditions()
 	logger.Infof("Reconciling ingress: %#v", ia)
 
 	gatewayNames := qualifiedGatewayNamesFromContext(ctx)
@@ -166,7 +166,7 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ia v1alpha1.IngressAc
 
 	// First, create the VirtualServices.
 	logger.Infof("Creating/Updating VirtualServices")
-	ia.GetStatus().ObservedGeneration = ia.GetGeneration()
+	ia.Status.ObservedGeneration = ia.GetGeneration()
 	if err := r.reconcileVirtualServices(ctx, ia, vses); err != nil {
 		return err
 	}
@@ -206,19 +206,19 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ia v1alpha1.IngressAc
 	}
 
 	// Update status
-	ia.GetStatus().MarkNetworkConfigured()
+	ia.Status.MarkNetworkConfigured()
 
 	ready, err := r.statusManager.IsReady(ia, gatewayNames)
 	if err != nil {
-		return fmt.Errorf("failed to probe IngressAccessor %s/%s: %w", ia.GetNamespace(), ia.GetName(), err)
+		return fmt.Errorf("failed to probe Ingress %s/%s: %w", ia.GetNamespace(), ia.GetName(), err)
 	}
 	if ready {
 		lbs := getLBStatus(gatewayServiceURLFromContext(ctx, ia))
 		publicLbs := getLBStatus(publicGatewayServiceURLFromContext(ctx))
 		privateLbs := getLBStatus(privateGatewayServiceURLFromContext(ctx))
-		ia.GetStatus().MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
+		ia.Status.MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
 	} else {
-		ia.GetStatus().MarkLoadBalancerPending()
+		ia.Status.MarkLoadBalancerPending()
 	}
 
 	// TODO(zhiminx): Mark Route status to indicate that Gateway is configured.
@@ -226,7 +226,7 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ia v1alpha1.IngressAc
 	return nil
 }
 
-func (r *Reconciler) reconcileCertSecrets(ctx context.Context, ia v1alpha1.IngressAccessor, desiredSecrets []*corev1.Secret) error {
+func (r *Reconciler) reconcileCertSecrets(ctx context.Context, ia *v1alpha1.Ingress, desiredSecrets []*corev1.Secret) error {
 	for _, certSecret := range desiredSecrets {
 		// We track the origin and desired secrets so that desired secrets could be synced accordingly when the origin TLS certificate
 		// secret is refreshed.
@@ -236,7 +236,7 @@ func (r *Reconciler) reconcileCertSecrets(ctx context.Context, ia v1alpha1.Ingre
 			certSecret.Labels[networking.OriginSecretNameLabelKey]), ia)
 		if _, err := coreaccessor.ReconcileSecret(ctx, ia, certSecret, r); err != nil {
 			if kaccessor.IsNotOwned(err) {
-				ia.GetStatus().MarkResourceNotOwned("Secret", certSecret.Name)
+				ia.Status.MarkResourceNotOwned("Secret", certSecret.Name)
 			}
 			return err
 		}
@@ -244,14 +244,14 @@ func (r *Reconciler) reconcileCertSecrets(ctx context.Context, ia v1alpha1.Ingre
 	return nil
 }
 
-func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ia v1alpha1.IngressAccessor,
+func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ia *v1alpha1.Ingress,
 	desired []*v1alpha3.VirtualService) error {
 	// First, create all needed VirtualServices.
 	kept := sets.NewString()
 	for _, d := range desired {
 		if _, err := istioaccessor.ReconcileVirtualService(ctx, ia, d, r); err != nil {
 			if kaccessor.IsNotOwned(err) {
-				ia.GetStatus().MarkResourceNotOwned("VirtualService", d.Name)
+				ia.Status.MarkResourceNotOwned("VirtualService", d.Name)
 			}
 			return err
 		}
@@ -277,7 +277,7 @@ func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ia v1alpha1.I
 	return nil
 }
 
-func (r *Reconciler) reconcileDeletion(ctx context.Context, ia v1alpha1.IngressAccessor) error {
+func (r *Reconciler) reconcileDeletion(ctx context.Context, ia *v1alpha1.Ingress) error {
 	logger := logging.FromContext(ctx)
 
 	// If our finalizer is first, delete the `Servers` from Gateway for this Ingress,
@@ -298,29 +298,29 @@ func (r *Reconciler) reconcileDeletion(ctx context.Context, ia v1alpha1.IngressA
 	// Update the Ingress to remove the finalizer.
 	logger.Info("Removing finalizer")
 	ia.SetFinalizers(ia.GetFinalizers()[1:])
-	_, err := r.ServingClientSet.NetworkingV1alpha1().Ingresses(ia.GetNamespace()).Update(ia.(*v1alpha1.Ingress))
+	_, err := r.ServingClientSet.NetworkingV1alpha1().Ingresses(ia.GetNamespace()).Update(ia)
 	return err
 }
 
 // Update the Status of the Ingress.  Caller is responsible for checking
 // for semantic differences before calling.
-func (r *Reconciler) updateStatus(desired v1alpha1.IngressAccessor) (v1alpha1.IngressAccessor, error) {
+func (r *Reconciler) updateStatus(desired *v1alpha1.Ingress) (*v1alpha1.Ingress, error) {
 	ingress, err := r.ingressLister.Ingresses(desired.GetNamespace()).Get(desired.GetName())
 	if err != nil {
 		return nil, err
 	}
 
 	// If there's nothing to update, just return.
-	if reflect.DeepEqual(ingress.GetStatus(), desired.GetStatus()) {
+	if reflect.DeepEqual(ingress.Status, desired.Status) {
 		return ingress, nil
 	}
 	// Don't modify the informers copy
-	existing := ingress.DeepCopyObject().(v1alpha1.IngressAccessor)
-	existing.SetStatus(*desired.GetStatus())
-	return r.ServingClientSet.NetworkingV1alpha1().Ingresses(existing.GetNamespace()).UpdateStatus(existing.(*v1alpha1.Ingress))
+	existing := ingress.DeepCopy()
+	existing.Status = desired.Status
+	return r.ServingClientSet.NetworkingV1alpha1().Ingresses(existing.GetNamespace()).UpdateStatus(existing)
 }
 
-func (r *Reconciler) ensureFinalizer(ia v1alpha1.IngressAccessor) error {
+func (r *Reconciler) ensureFinalizer(ia *v1alpha1.Ingress) error {
 	finalizers := sets.NewString(ia.GetFinalizers()...)
 	if finalizers.Has(r.finalizer) {
 		return nil
@@ -342,7 +342,7 @@ func (r *Reconciler) ensureFinalizer(ia v1alpha1.IngressAccessor) error {
 	return err
 }
 
-func (r *Reconciler) reconcileGateway(ctx context.Context, ia v1alpha1.IngressAccessor, gw config.Gateway, desired []v1alpha3.Server) error {
+func (r *Reconciler) reconcileGateway(ctx context.Context, ia *v1alpha1.Ingress, gw config.Gateway, desired []v1alpha3.Server) error {
 	// TODO(zhiminx): Need to handle the scenario when deleting Ingress. In this scenario,
 	// the Gateway servers of the Ingress need also be removed from Gateway.
 	gateway, err := r.gatewayLister.Gateways(gw.Namespace).Get(gw.Name)
@@ -417,7 +417,7 @@ func qualifiedGatewayNamesFromContext(ctx context.Context) map[v1alpha1.IngressV
 // gatewayServiceURLFromContext return an address of a load-balancer
 // that the given Ingress is exposed to, or empty string if
 // none.
-func gatewayServiceURLFromContext(ctx context.Context, ia v1alpha1.IngressAccessor) string {
+func gatewayServiceURLFromContext(ctx context.Context, ia *v1alpha1.Ingress) string {
 	if ia.IsPublic() {
 		return publicGatewayServiceURLFromContext(ctx)
 	}

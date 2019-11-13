@@ -301,7 +301,7 @@ func TestIsReadyFailureAndSuccess(t *testing.T) {
 				test.gatewayLister,
 				test.endpointsLister,
 				test.serviceLister,
-				func(ia v1alpha1.IngressAccessor) {})
+				func(ia *v1alpha1.Ingress) {})
 			ok, err := prober.IsReady(ia, test.gateways)
 			if !test.succeeds && err == nil {
 				t.Errorf("expected an error, got nil")
@@ -369,7 +369,7 @@ func TestProbeLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to parse port %q: %v", url.Port(), err)
 	}
-	ready := make(chan v1alpha1.IngressAccessor)
+	ready := make(chan *v1alpha1.Ingress)
 	prober := NewStatusProber(
 		zaptest.NewLogger(t).Sugar(),
 		&fakeGatewayLister{
@@ -437,7 +437,7 @@ func TestProbeLifecycle(t *testing.T) {
 				},
 			}},
 		},
-		func(ia v1alpha1.IngressAccessor) {
+		func(ia *v1alpha1.Ingress) {
 			ready <- ia
 		})
 
@@ -552,7 +552,7 @@ func TestCancellation(t *testing.T) {
 		},
 	}
 
-	ready := make(chan v1alpha1.IngressAccessor)
+	ready := make(chan *v1alpha1.Ingress)
 	prober := NewStatusProber(
 		zaptest.NewLogger(t).Sugar(),
 		&fakeGatewayLister{
@@ -609,7 +609,7 @@ func TestCancellation(t *testing.T) {
 				},
 			}},
 		},
-		func(ia v1alpha1.IngressAccessor) {
+		func(ia *v1alpha1.Ingress) {
 			ready <- ia
 		})
 
