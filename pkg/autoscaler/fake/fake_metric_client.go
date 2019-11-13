@@ -24,20 +24,22 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	kubeinformers "k8s.io/client-go/informers"
-	fakeK8s "k8s.io/client-go/kubernetes/fake"
+	fakek8s "k8s.io/client-go/kubernetes/fake"
 )
 
 var (
 	// KubeClient holds instances of interfaces for making requests to kubernetes client.
-	KubeClient = fakeK8s.NewSimpleClientset()
+	KubeClient = fakek8s.NewSimpleClientset()
 	// KubeInformer constructs a new instance of sharedInformerFactory for all namespaces.
 	KubeInformer = kubeinformers.NewSharedInformerFactory(KubeClient, 0)
 )
 
 const (
-	// TestRevision is the name used for revision
-	TestRevision  = "test-revision"
-	TestService   = "test-revision-metrics"
+	// TestRevision is the name used for the revision.
+	TestRevision = "test-revision"
+	// TestService is the name used for the service.
+	TestService = "test-revision-metrics"
+	// TestNamespace is the name used for the namespace.
 	TestNamespace = "test-namespace"
 )
 
@@ -78,12 +80,12 @@ var StaticMetricClient = MetricClient{
 	PanicRPS:          10.0,
 }
 
-// Endpoints is used to create eps
+// Endpoints is used to create endpoints.
 func Endpoints(count int, svc string) {
 	epAddresses := make([]corev1.EndpointAddress, count)
-	for i := 0; i < count; i++ {
-		ip := fmt.Sprintf("127.0.0.%v", i+1)
-		epAddresses[i] = corev1.EndpointAddress{IP: ip}
+	for i := 1; i <= count; i++ {
+		ip := fmt.Sprintf("127.0.0.%v", i)
+		epAddresses[i-1] = corev1.EndpointAddress{IP: ip}
 	}
 
 	ep := &corev1.Endpoints{

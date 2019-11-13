@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"knative.dev/serving/pkg/autoscaler/metrics"
 
 	dto "github.com/prometheus/client_model/go"
 )

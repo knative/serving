@@ -47,7 +47,7 @@ import (
 	"knative.dev/pkg/version"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
-	autoscalerMetric "knative.dev/serving/pkg/autoscaler/metrics"
+	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	"knative.dev/serving/pkg/autoscaler/statserver"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa"
@@ -121,7 +121,7 @@ func main() {
 	ctx = logging.WithLogger(ctx, logger)
 
 	// statsCh is the main communication channel between the stats server and multiscaler.
-	statsCh := make(chan autoscalerMetric.StatMessage, statsBufferLen)
+	statsCh := make(chan asmetrics.StatMessage, statsBufferLen)
 	defer close(statsCh)
 
 	profilingHandler := profiling.NewHandler(logger, false)
@@ -136,8 +136,8 @@ func main() {
 
 	endpointsInformer := endpointsinformer.Get(ctx)
 
-	collector := autoscalerMetric.NewMetricCollector(statsScraperFactoryFunc(endpointsInformer.Lister()), logger)
-	customMetricsAdapter.WithCustomMetrics(autoscalerMetric.NewMetricProvider(collector))
+	collector := asmetrics.NewMetricCollector(statsScraperFactoryFunc(endpointsInformer.Lister()), logger)
+	customMetricsAdapter.WithCustomMetrics(asmetrics.NewMetricProvider(collector))
 
 	// Set up scalers.
 	// uniScalerFactory depends endpointsInformer to be set.
@@ -192,7 +192,7 @@ func main() {
 }
 
 func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer,
-	metricClient autoscalerMetric.MetricClient) scaling.UniScalerFactory {
+	metricClient asmetrics.MetricClient) scaling.UniScalerFactory {
 	return func(decider *scaling.Decider) (scaling.UniScaler, error) {
 		if v, ok := decider.Labels[serving.ConfigurationLabelKey]; !ok || v == "" {
 			return nil, fmt.Errorf("label %q not found or empty in Decider %s", serving.ConfigurationLabelKey, decider.Name)
@@ -205,7 +205,7 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer,
 		configName := decider.Labels[serving.ConfigurationLabelKey]
 
 		// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
-		reporter, err := autoscalerMetric.NewStatsReporter(decider.Namespace, serviceName, configName, decider.Name)
+		reporter, err := asmetrics.NewStatsReporter(decider.Namespace, serviceName, configName, decider.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -214,11 +214,11 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer,
 	}
 }
 
-func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) autoscalerMetric.StatsScraperFactory {
-	return func(metric *av1alpha1.Metric) (autoscalerMetric.StatsScraper, error) {
+func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) asmetrics.StatsScraperFactory {
+	return func(metric *av1alpha1.Metric) (asmetrics.StatsScraper, error) {
 		podCounter := resources.NewScopedEndpointsCounter(
 			endpointsLister, metric.Namespace, metric.Spec.ScrapeTarget)
-		return autoscalerMetric.NewServiceScraper(metric, podCounter)
+		return asmetrics.NewServiceScraper(metric, podCounter)
 	}
 }
 

@@ -23,7 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
-	fakeK8s "k8s.io/client-go/kubernetes/fake"
+	fakek8s "k8s.io/client-go/kubernetes/fake"
 	"knative.dev/serving/pkg/apis/serving"
 	autoscalerfake "knative.dev/serving/pkg/autoscaler/fake"
 	"knative.dev/serving/pkg/autoscaler/scaling"
@@ -35,7 +35,7 @@ const (
 )
 
 var (
-	kubeClient   = fakeK8s.NewSimpleClientset()
+	kubeClient   = fakek8s.NewSimpleClientset()
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 )
 

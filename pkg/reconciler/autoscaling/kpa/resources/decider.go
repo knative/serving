@@ -26,7 +26,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/autoscaling/resources"
 )
 
-// Deciders is an interface for notifying the presence or absence of aut`oscaling deciders.
+// Deciders is an interface for notifying the presence or absence of autoscaling deciders.
 type Deciders interface {
 	// Get accesses the Decider resource for this key, returning any errors.
 	Get(ctx context.Context, namespace, name string) (*scaling.Decider, error)

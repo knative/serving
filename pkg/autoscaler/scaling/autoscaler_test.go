@@ -18,12 +18,10 @@ package scaling
 
 import (
 	"errors"
-	"fmt"
 	"math"
 	"testing"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	. "knative.dev/pkg/logging/testing"
@@ -79,7 +77,7 @@ func TestAutoscalerChangeOfPodCountService(t *testing.T) {
 	a.Update(&newDS)
 
 	// Make two pods in the new service.
-	endpoints(2, newTS)
+	fake.Endpoints(2, newTS)
 	// This should change the EBC computation, but target scale doesn't change.
 	a.expectScale(t, time.Now(), 5, expectedEBC(10, 100, 50, 2), true)
 }
@@ -105,7 +103,7 @@ func TestAutoscalerStableModeIncreaseWithRPS(t *testing.T) {
 func TestAutoscalerStableModeDecrease(t *testing.T) {
 	metrics := &autoscalerfake.MetricClient{StableConcurrency: 100.0}
 	a := newTestAutoscaler(t, 10, 98, metrics)
-	endpoints(8, fake.TestService)
+	fake.Endpoints(8, fake.TestService)
 	a.expectScale(t, time.Now(), 10, expectedEBC(10, 98, 100, 8), true)
 
 	metrics.StableConcurrency = 50
@@ -129,18 +127,18 @@ func TestAutoscalerPanicModeExponentialTrackAndStablize(t *testing.T) {
 	a := newTestAutoscaler(t, 1, 101, metrics)
 	a.expectScale(t, time.Now(), 6, expectedEBC(1, 101, 6, 1), true)
 
-	endpoints(6, fake.TestService)
+	fake.Endpoints(6, fake.TestService)
 	metrics.PanicConcurrency, metrics.StableConcurrency = 36, 36
 	a.expectScale(t, time.Now(), 36, expectedEBC(1, 101, 36, 6), true)
 
-	endpoints(36, fake.TestService)
+	fake.Endpoints(36, fake.TestService)
 	metrics.PanicConcurrency, metrics.StableConcurrency = 216, 216
 	a.expectScale(t, time.Now(), 216, expectedEBC(1, 101, 216, 36), true)
 
-	endpoints(216, fake.TestService)
+	fake.Endpoints(216, fake.TestService)
 	metrics.PanicConcurrency, metrics.StableConcurrency = 1296, 1296
 	a.expectScale(t, time.Now(), 1296, expectedEBC(1, 101, 1296, 216), true)
-	endpoints(1296, fake.TestService)
+	fake.Endpoints(1296, fake.TestService)
 	a.expectScale(t, time.Now(), 1296, expectedEBC(1, 101, 1296, 1296), true)
 }
 
@@ -160,7 +158,7 @@ func TestAutoscalerScale(t *testing.T) {
 	}, {
 		label:     "AutoscalerNoDataAtZeroNoAutoscaleWithExplicitEPs",
 		as:        newTestAutoscaler(t, 10, 100, &autoscalerfake.MetricClient{}),
-		prepFunc:  func(*Autoscaler) { endpoints(1, fake.TestService) },
+		prepFunc:  func(*Autoscaler) { fake.Endpoints(1, fake.TestService) },
 		wantScale: 0,
 		wantEBC:   expectedEBC(10, 100, 0, 1),
 	}, {
@@ -181,13 +179,13 @@ func TestAutoscalerScale(t *testing.T) {
 	}, {
 		label:     "AutoscalerStableModeNoChangeAlreadyScaled",
 		as:        newTestAutoscaler(t, 10, 100, &autoscalerfake.MetricClient{StableConcurrency: 50.0}),
-		prepFunc:  func(*Autoscaler) { endpoints(5, fake.TestService) },
+		prepFunc:  func(*Autoscaler) { fake.Endpoints(5, fake.TestService) },
 		wantScale: 5,
 		wantEBC:   expectedEBC(10, 100, 50, 5),
 	}, {
 		label:     "AutoscalerStableModeNoChangeAlreadyScaled",
 		as:        newTestAutoscaler(t, 10, 100, &autoscalerfake.MetricClient{StableConcurrency: 50.0}),
-		prepFunc:  func(*Autoscaler) { endpoints(5, fake.TestService) },
+		prepFunc:  func(*Autoscaler) { fake.Endpoints(5, fake.TestService) },
 		wantScale: 5,
 		wantEBC:   expectedEBC(10, 100, 50, 5),
 	}, {
@@ -195,7 +193,7 @@ func TestAutoscalerScale(t *testing.T) {
 		as:    newTestAutoscaler(t, 1 /* target */, 1982 /* TBC */, &autoscalerfake.MetricClient{StableConcurrency: 3}),
 		prepFunc: func(a *Autoscaler) {
 			a.deciderSpec.MaxScaleUpRate = 1.1
-			endpoints(2, fake.TestService)
+			fake.Endpoints(2, fake.TestService)
 		},
 		wantScale: 3,
 		wantEBC:   expectedEBC(1, 1982, 3, 2),
@@ -204,7 +202,7 @@ func TestAutoscalerScale(t *testing.T) {
 		as:    newTestAutoscaler(t, 10 /* target */, 1982 /* TBC */, &autoscalerfake.MetricClient{StableConcurrency: 1}),
 		prepFunc: func(a *Autoscaler) {
 			a.deciderSpec.MaxScaleDownRate = 1.1
-			endpoints(100, fake.TestService)
+			fake.Endpoints(100, fake.TestService)
 		},
 		wantScale: 90,
 		wantEBC:   expectedEBC(10, 1982, 1, 100),
@@ -218,7 +216,7 @@ func TestAutoscalerScale(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.label, func(tt *testing.T) {
 			// Reset the endpoints state to the default before every test.
-			endpoints(1, fake.TestService)
+			fake.Endpoints(1, fake.TestService)
 			if test.prepFunc != nil {
 				test.prepFunc(test.as)
 			}
@@ -231,7 +229,7 @@ func TestAutoscalerPanicThenUnPanicScaleDown(t *testing.T) {
 	metrics := &autoscalerfake.MetricClient{StableConcurrency: 100, PanicConcurrency: 100}
 	a := newTestAutoscaler(t, 10, 93, metrics)
 	a.expectScale(t, time.Now(), 10, expectedEBC(10, 93, 100, 1), true)
-	endpoints(10, fake.TestService)
+	fake.Endpoints(10, fake.TestService)
 
 	panicTime := time.Now()
 	metrics.PanicConcurrency = 1000
@@ -253,7 +251,7 @@ func TestAutoscalerRateLimitScaleUp(t *testing.T) {
 	// Need 100 pods but only scale x10
 	a.expectScale(t, time.Now(), 10, expectedEBC(10, 61, 1000, 1), true)
 
-	endpoints(10, fake.TestService)
+	fake.Endpoints(10, fake.TestService)
 	// Scale x10 again
 	a.expectScale(t, time.Now(), 100, expectedEBC(10, 61, 1000, 10), true)
 }
@@ -263,10 +261,10 @@ func TestAutoscalerRateLimitScaleDown(t *testing.T) {
 	a := newTestAutoscaler(t, 10, 61, metrics)
 
 	// Need 1 pods but can only scale down ten times, to 10.
-	endpoints(100, fake.TestService)
+	fake.Endpoints(100, fake.TestService)
 	a.expectScale(t, time.Now(), 10, expectedEBC(10, 61, 1, 100), true)
 
-	endpoints(10, fake.TestService)
+	fake.Endpoints(10, fake.TestService)
 	// Scale ÷10 again.
 	a.expectScale(t, time.Now(), 1, expectedEBC(10, 61, 1, 10), true)
 }
@@ -281,7 +279,7 @@ func TestAutoscalerUseOnePodAsMinimumIfEndpointsNotFound(t *testing.T) {
 	metrics := &autoscalerfake.MetricClient{StableConcurrency: 1000}
 	a := newTestAutoscaler(t, 10, 81, metrics)
 
-	endpoints(0, fake.TestService)
+	fake.Endpoints(0, fake.TestService)
 	// 2*10 as the rate limited if we can get the actual pods number.
 	// 1*10 as the rate limited since no read pods are there from K8S API.
 	a.expectScale(t, time.Now(), 10, expectedEBC(10, 81, 1000, 0), true)
@@ -297,7 +295,7 @@ func TestAutoscalerUpdateTarget(t *testing.T) {
 	a := newTestAutoscaler(t, 10, 77, metrics)
 	a.expectScale(t, time.Now(), 10, expectedEBC(10, 77, 100, 1), true)
 
-	endpoints(10, fake.TestService)
+	fake.Endpoints(10, fake.TestService)
 	a.Update(&DeciderSpec{
 		TargetValue:         1,
 		TotalValue:          1 / targetUtilization,
@@ -342,12 +340,12 @@ func newTestAutoscalerWithScalingMetric(t *testing.T, targetValue, targetBurstCa
 
 	l := fake.KubeInformer.Core().V1().Endpoints().Lister()
 	// This ensures that we have endpoints object to start the autoscaler.
-	endpoints(0, fake.TestService)
+	fake.Endpoints(0, fake.TestService)
 	a, err := New(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, &mockReporter{})
 	if err != nil {
 		t.Fatalf("Error creating test autoscaler: %v", err)
 	}
-	endpoints(1, fake.TestService)
+	fake.Endpoints(1, fake.TestService)
 	return a
 }
 
@@ -365,26 +363,6 @@ func (a *Autoscaler) expectScale(t *testing.T, now time.Time, expectScale, expec
 	}
 }
 
-func endpoints(count int, svc string) {
-	epAddresses := make([]corev1.EndpointAddress, count)
-	for i := 0; i < count; i++ {
-		ip := fmt.Sprintf("127.0.0.%v", i+1)
-		epAddresses[i] = corev1.EndpointAddress{IP: ip}
-	}
-
-	ep := &corev1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: fake.TestNamespace,
-			Name:      svc,
-		},
-		Subsets: []corev1.EndpointSubset{{
-			Addresses: epAddresses,
-		}},
-	}
-	fake.KubeClient.CoreV1().Endpoints(fake.TestNamespace).Create(ep)
-	fake.KubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
-}
-
 func TestStartInPanicMode(t *testing.T) {
 	metrics := &autoscalerfake.StaticMetricClient
 	deciderSpec := &DeciderSpec{
@@ -400,7 +378,7 @@ func TestStartInPanicMode(t *testing.T) {
 
 	l := fake.KubeInformer.Core().V1().Endpoints().Lister()
 	for i := 0; i < 2; i++ {
-		endpoints(i, fake.TestService)
+		fake.Endpoints(i, fake.TestService)
 		a, err := New(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, &mockReporter{})
 		if err != nil {
 			t.Fatalf("Error creating test autoscaler: %v", err)
@@ -414,7 +392,7 @@ func TestStartInPanicMode(t *testing.T) {
 	}
 
 	// Now start with 2 and make sure we're in panic mode.
-	endpoints(2, fake.TestService)
+	fake.Endpoints(2, fake.TestService)
 	a, err := New(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, &mockReporter{})
 	if err != nil {
 		t.Fatalf("Error creating test autoscaler: %v", err)

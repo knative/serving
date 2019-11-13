@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"knative.dev/serving/pkg/autoscaler/metrics"
 )
 
 type reportedStat struct {
