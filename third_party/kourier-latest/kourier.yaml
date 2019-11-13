@@ -45,7 +45,7 @@ spec:
         - args:
             - -c
             - /tmp/config/envoy-bootstrap.yaml
-          image: quay.io/3scale/kourier-gateway:v0.1.0
+          image: quay.io/3scale/kourier-gateway:v0.1.1
           imagePullPolicy: Always
           name: kourier-gateway
           ports:
@@ -57,6 +57,11 @@ spec:
           volumeMounts:
             - name: config-volume
               mountPath: /tmp/config
+          readinessProbe:
+            exec:
+              command: ['ash','-c','curl -H "Host: internalkourier" http://localhost:8081/__internalkouriersnapshot']
+            initialDelaySeconds: 5
+            periodSeconds: 2
       volumes:
         - name: config-volume
           configMap:
@@ -90,7 +95,7 @@ spec:
         app: 3scale-kourier-control
     spec:
       containers:
-        - image: quay.io/3scale/kourier:v0.2.4
+        - image: quay.io/3scale/kourier:v0.2.5
           imagePullPolicy: Always
           name: kourier-control
           resources: {}
