@@ -18,6 +18,7 @@ package config
 
 import (
 	"context"
+
 	"knative.dev/serving/pkg/apis/config"
 
 	"knative.dev/pkg/configmap"

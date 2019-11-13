@@ -550,7 +550,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/missing-owners",
 	}, {
-		Name:    "image pull secrets",
+		Name: "image pull secrets",
 		// This test case tests that the image pull secrets from revision propagate to deployment and image
 		Objects: []runtime.Object{
 			rev("foo", "image-pull-secrets", WithImagePullSecrets("foo-secret")),
