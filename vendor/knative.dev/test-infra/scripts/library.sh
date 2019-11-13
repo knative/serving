@@ -132,30 +132,46 @@ function wait_until_object_does_not_exist() {
 # Parameters: $1 - namespace.
 function wait_until_pods_running() {
   echo -n "Waiting until all pods in namespace $1 are up"
+  local failed_pod=""
   for i in {1..150}; do  # timeout after 5 minutes
     local pods="$(kubectl get pods --no-headers -n $1 2>/dev/null)"
     # All pods must be running
-    local not_running=$(echo "${pods}" | grep -v Running | grep -v Completed | wc -l)
-    if [[ -n "${pods}" && ${not_running} -eq 0 ]]; then
+    local not_running_pods=$(echo "${pods}" | grep -v Running | grep -v Completed)
+    if [[ -n "${pods}" ]] && [[ -z "${not_running_pods}" ]]; then
+      # All Pods are running or completed. Verify the containers on each Pod.
       local all_ready=1
       while read pod ; do
         local status=(`echo -n ${pod} | cut -f2 -d' ' | tr '/' ' '`)
+        # Set this Pod as the failed_pod. If nothing is wrong with it, then after the checks, set
+        # failed_pod to the empty string.
+        failed_pod=$(echo -n "${pod}" | cut -f1 -d' ')
         # All containers must be ready
         [[ -z ${status[0]} ]] && all_ready=0 && break
         [[ -z ${status[1]} ]] && all_ready=0 && break
         [[ ${status[0]} -lt 1 ]] && all_ready=0 && break
         [[ ${status[1]} -lt 1 ]] && all_ready=0 && break
         [[ ${status[0]} -ne ${status[1]} ]] && all_ready=0 && break
+        # All the tests passed, this is not a failed pod.
+        failed_pod=""
       done <<< "$(echo "${pods}" | grep -v Completed)"
       if (( all_ready )); then
         echo -e "\nAll pods are up:\n${pods}"
         return 0
       fi
+    elif [[ -n "${not_running_pods}" ]]; then
+      # At least one Pod is not running, just save the first one's name as the failed_pod.
+      failed_pod="$(echo "${not_running_pods}" | head -n 1 | cut -f1 -d' ')"
     fi
     echo -n "."
     sleep 2
   done
   echo -e "\n\nERROR: timeout waiting for pods to come up\n${pods}"
+  if [[ -n "${failed_pod}" ]]; then
+    echo -e "\n\nFailed Pod (data in YAML format) - ${failed_pod}\n"
+    kubectl -n $1 get pods "${failed_pod}" -oyaml
+    echo -e "\n\nPod Logs\n"
+    kubectl -n $1 logs "${failed_pod}" --all-containers
+  fi
   return 1
 }
 
@@ -337,7 +353,7 @@ function create_junit_xml() {
     # Also escape `<` and `>` as here: https://github.com/golang/go/blob/50bd1c4d4eb4fac8ddeb5f063c099daccfb71b26/src/encoding/json/encode.go#L48, 
     # this is temporary solution for fixing https://github.com/knative/test-infra/issues/1204,
     # which should be obsolete once Test-infra 2.0 is in place
-    local msg="$(echo -n "$3" | sed 's/$/\&#xA;/g' | sed 's/</\\u003c/' | sed 's/>/\\u003e/' | tr -d '\n')"
+    local msg="$(echo -n "$3" | sed 's/$/\&#xA;/g' | sed 's/</\\u003c/' | sed 's/>/\\u003e/' | sed 's/&/\\u0026/' | tr -d '\n')"
     failure="<failure message=\"Failed\" type=\"\">${msg}</failure>"
   fi
   cat << EOF > "${xml}"
@@ -399,6 +415,23 @@ function start_knative_serving() {
   echo "Installing the rest of serving components from $1"
   kubectl apply -f "$1"
   wait_until_pods_running knative-serving || return 1
+}
+
+# Install Knative Monitoring in the current cluster.
+# Parameters: $1 - Knative Monitoring manifest.
+function start_knative_monitoring() {
+  header "Starting Knative Monitoring"
+  subheader "Installing Knative Monitoring"
+  # namespace istio-system needs to be created first, due to the comment
+  # mentioned in
+  # https://github.com/knative/serving/blob/4202efc0dc12052edc0630515b101cbf8068a609/config/monitoring/tracing/zipkin/100-zipkin.yaml#L21
+  kubectl create namespace istio-system 2>/dev/null
+  echo "Installing Monitoring CRDs from $1"
+  kubectl apply --selector knative.dev/crd-install=true -f "$1" || return 1
+  echo "Installing the rest of monitoring components from $1"
+  kubectl apply -f "$1" || return 1
+  wait_until_pods_running knative-monitoring || return 1
+  wait_until_pods_running istio-system || return 1
 }
 
 # Install the stable release Knative/serving in the current cluster.

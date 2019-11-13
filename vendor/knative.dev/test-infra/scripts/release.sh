@@ -212,7 +212,7 @@ function prepare_dot_release() {
     echo "Dot release will be generated for ${version_filter}"
     releases="$(echo "${releases}" | grep ^${version_filter})"
   fi
-  local last_version="$(echo "${releases}" | grep '^v[0-9]\+\.[0-9]\+\.[0-9]\+$' | sort -r | head -1)"
+  local last_version="$(echo "${releases}" | grep '^v[0-9]\+\.[0-9]\+\.[0-9]\+$' | sort -r -V | head -1)"
   [[ -n "${last_version}" ]] || abort "no previous release exist"
   local major_minor_version=""
   if [[ -z "${RELEASE_BRANCH}" ]]; then

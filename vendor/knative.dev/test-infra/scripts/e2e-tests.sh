@@ -325,6 +325,9 @@ function setup_test_cluster() {
   set -o errexit
   set -o pipefail
 
+  header "Test cluster setup"
+  kubectl get nodes
+
   header "Setting up test cluster"
 
   # Set the actual project the test cluster resides in
