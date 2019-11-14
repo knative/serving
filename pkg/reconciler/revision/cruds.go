@@ -129,10 +129,10 @@ func (c *Reconciler) createPA(ctx context.Context, rev *v1alpha1.Revision) (*av1
 func tryFetchSecret(name, ns string, optional *bool, secretLister v1.SecretLister) *apis.FieldError {
 	if optional == nil || *optional == false {
 		if _, err := secretLister.Secrets(ns).Get(name); err != nil {
-			return (&apis.FieldError{
+			return &apis.FieldError{
 				Message: err.Error(),
 				Paths:   []string{apis.CurrentField},
-			})
+			}
 		}
 	}
 	return nil
