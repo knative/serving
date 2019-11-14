@@ -25,16 +25,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	corev1informer "k8s.io/client-go/informers/core/v1"
 	kubefake "k8s.io/client-go/kubernetes/fake"
-	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/pkg/ptr"
-	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
 var (
-	containerName        = "my-container-name"
+	containerName = "my-container-name"
 
 	defaultRevision = &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
@@ -98,9 +96,9 @@ func revision(opts ...revisionOption) *v1alpha1.Revision {
 
 func TestVerifySecrets(t *testing.T) {
 	tests := []struct {
-		name string
-		rev  *v1alpha1.Revision
-		si   corev1informer.SecretInformer
+		name        string
+		rev         *v1alpha1.Revision
+		si          corev1informer.SecretInformer
 		expectedErr string
 	}{{
 		name: "secrets (from volume source) found",
@@ -175,7 +173,6 @@ secret "asdf2" not found: spec.volumes[1].volumeSource.secretName`,
 				container(revision.Spec.GetContainer(),
 					withTCPReadinessProbe(),
 				)
-				// Adding two secrets that do not exist. We should see both of them in the error
 				revision.Spec.Volumes = []corev1.Volume{{
 					Name: "asdf",
 					VolumeSource: corev1.VolumeSource{
@@ -370,8 +367,8 @@ func addSecretToInformer(fake *kubefake.Clientset, secretName string, namespace 
 	return func(si corev1informer.SecretInformer) corev1informer.SecretInformer {
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:            secretName,
-				Namespace:       namespace,
+				Name:      secretName,
+				Namespace: namespace,
 			},
 			Data: map[string][]byte{
 				"test-secret": []byte("origin"),
