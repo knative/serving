@@ -149,7 +149,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 	}
 	// We expect the response from httpproxy is equal to the response from helloworld
 	if helloworldResponse != strings.TrimSpace(string(response.Body)) {
-		t.Fatalf("The httpproxy response '%s' is not equal to helloworld response '%s'.", string(response.Body), helloworldResponse)
+		t.Fatalf("The httpproxy response = %q, want: %q.", string(response.Body), helloworldResponse)
 	}
 
 	// As a final check (since we know they are both up), check that if we can access the helloworld app externally.

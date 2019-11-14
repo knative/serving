@@ -310,7 +310,7 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float64, d
 				if err != nil {
 					return err
 				}
-				mes := fmt.Sprintf("revision '%s' #replicas: %v, want at least: %v", ctx.resources.Revision.Name, got, minPods)
+				mes := fmt.Sprintf("revision %q #replicas: %v, want at least: %v", ctx.resources.Revision.Name, got, minPods)
 				ctx.t.Log(mes)
 				if got < minPods {
 					return errors.New(mes)
