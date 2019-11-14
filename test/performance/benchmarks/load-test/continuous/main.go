@@ -27,11 +27,11 @@ import (
 	"github.com/google/mako/go/quickstore"
 	vegeta "github.com/tsenart/vegeta/lib"
 	"k8s.io/apimachinery/pkg/labels"
+
 	"knative.dev/pkg/signals"
+	"knative.dev/pkg/test/mako"
 	pkgpacers "knative.dev/pkg/test/vegeta/pacers"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-
-	"knative.dev/pkg/test/mako"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/test/performance"
 	"knative.dev/serving/test/performance/metrics"
@@ -64,7 +64,7 @@ func processResults(ctx context.Context, q *quickstore.Quickstore, results <-cha
 	}()
 
 	ctx, cancel := context.WithCancel(ctx)
-	deploymentStatus := metrics.FetchDeploymentStatus(ctx, namespace, selector, time.Second)
+	deploymentStatus := metrics.FetchDeploymentsStatus(ctx, namespace, selector, time.Second)
 	sksMode := metrics.FetchSKSMode(ctx, namespace, selector, time.Second)
 	defer cancel()
 

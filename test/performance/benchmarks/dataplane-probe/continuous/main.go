@@ -23,9 +23,10 @@ import (
 	"time"
 
 	vegeta "github.com/tsenart/vegeta/lib"
-	"knative.dev/pkg/signals"
-	"knative.dev/pkg/test/mako"
 
+	"knative.dev/pkg/signals"
+	"knative.dev/pkg/system"
+	"knative.dev/pkg/test/mako"
 	"knative.dev/serving/test/performance"
 	"knative.dev/serving/test/performance/metrics"
 )
@@ -96,7 +97,7 @@ func main() {
 
 	// Start the attack!
 	results := attacker.Attack(targeter, rate, *duration, "load-test")
-
+	deploymentStatus := metrics.FetchDeploymentStatus(ctx, system.Namespace(), "activator", time.Second)
 LOOP:
 	for {
 		select {
@@ -105,6 +106,11 @@ LOOP:
 			// clean thing up.
 			break LOOP
 
+		case ds := <-deploymentStatus:
+			// Report number of ready activators.
+			q.AddSamplePoint(mako.XTime(ds.Time), map[string]float64{
+				"ap": float64(ds.ReadyReplicas),
+			})
 		case res, ok := <-results:
 			if !ok {
 				// Once we have read all of the request results, break out of
