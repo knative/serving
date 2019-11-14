@@ -16,8 +16,6 @@ spec:
   selector:
     app: 3scale-kourier
   type: LoadBalancer
-status:
-  loadBalancer: {}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -95,7 +93,7 @@ spec:
         app: 3scale-kourier-control
     spec:
       containers:
-        - image: quay.io/3scale/kourier:v0.2.5
+        - image: quay.io/3scale/kourier:v0.2.6
           imagePullPolicy: Always
           name: kourier-control
           resources: {}
@@ -169,8 +167,6 @@ spec:
   selector:
     app: 3scale-kourier-gateway
   type: LoadBalancer
-status:
-  loadBalancer: {}
 ---
 apiVersion: v1
 kind: Service
@@ -186,8 +182,6 @@ spec:
   selector:
     app: 3scale-kourier-gateway
   type: LoadBalancer
-status:
-  loadBalancer: {}
 ---
 apiVersion: v1
 kind: Service
@@ -203,8 +197,6 @@ spec:
   selector:
     app: 3scale-kourier-gateway
   type: LoadBalancer
-status:
-  loadBalancer: {}
 ---
 apiVersion: v1
 kind: Service
@@ -219,8 +211,6 @@ spec:
   selector:
     app: 3scale-kourier-control
   type: LoadBalancer
-status:
-  loadBalancer: {}
 ---
 apiVersion: v1
 kind: ConfigMap

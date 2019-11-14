@@ -53,7 +53,7 @@ function parse_flags() {
       # FORCE KOURIER TO RUN INSTEAD OF ISTIO
       # NEVER MERGE THIS PR WITH THIS IN
       #readonly ISTIO_VERSION=$2
-      readonly KOURIER_VERSION="0.2.2"
+      readonly KOURIER_VERSION="0.2.6"
       GATEWAY_SETUP=1
       return 2
       ;;
