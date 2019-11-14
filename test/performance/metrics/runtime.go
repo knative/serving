@@ -21,7 +21,9 @@ import (
 	"log"
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
+
 	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
@@ -39,18 +41,41 @@ type DeploymentStatus struct {
 	Time time.Time
 }
 
-// FetchDeploymentStatus creates a channel that can return the up-to-date DeploymentStatus periodically.
-func FetchDeploymentStatus(
+// FetchDeploymentsStatus creates a channel that can return the up-to-date DeploymentStatus periodically,
+// selected via a label selector (can be more than one deployment).
+func FetchDeploymentsStatus(
 	ctx context.Context, namespace string, selector labels.Selector,
 	duration time.Duration,
 ) <-chan DeploymentStatus {
 	dl := deploymentinformer.Get(ctx).Lister()
+	return fetchStatusInternal(ctx, duration, func() ([]*appsv1.Deployment, error) {
+		return dl.Deployments(namespace).List(selector)
+	})
+}
+
+// FetchDeploymentStatus creates a channel that can return the up-to-date DeploymentStatus periodically,
+// selected via deployment name (at most one deployment).
+func FetchDeploymentStatus(
+	ctx context.Context, namespace, name string, duration time.Duration,
+) <-chan DeploymentStatus {
+	dl := deploymentinformer.Get(ctx).Lister()
+	return fetchStatusInternal(ctx, duration, func() ([]*appsv1.Deployment, error) {
+		d, err := dl.Deployments(namespace).Get(name)
+		if err != nil {
+			return []*appsv1.Deployment{}, err
+		}
+		return []*appsv1.Deployment{d}, nil
+	})
+}
+
+func fetchStatusInternal(ctx context.Context, duration time.Duration,
+	f func() ([]*appsv1.Deployment, error)) <-chan DeploymentStatus {
 	ch := make(chan DeploymentStatus)
 	startTick(duration, ctx.Done(), func(t time.Time) error {
 		// Overlay the desired and ready pod counts.
-		deployments, err := dl.Deployments(namespace).List(selector)
+		deployments, err := f()
 		if err != nil {
-			log.Printf("Error listing deployments: %v", err)
+			log.Printf("Error getting deployment(s): %v", err)
 			return err
 		}
 
@@ -64,7 +89,6 @@ func FetchDeploymentStatus(
 		}
 		return nil
 	})
-
 	return ch
 }
 
