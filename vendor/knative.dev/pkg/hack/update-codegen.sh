@@ -20,9 +20,9 @@ set -o pipefail
 
 source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/library.sh
 
-CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
+CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 $(dirname $0)/../vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
 
-go install ./vendor/k8s.io/code-generator/cmd/deepcopy-gen
+go install $(dirname $0)/../vendor/k8s.io/code-generator/cmd/deepcopy-gen
 
 # generate the code with:
 # --output-base    because this script should also be able to run inside the vendor dir of
@@ -64,7 +64,7 @@ ${CODEGEN_PKG}/generate-groups.sh "deepcopy" \
 
 # Depends on generate-groups.sh to install bin/deepcopy-gen
 ${GOPATH}/bin/deepcopy-gen --input-dirs \
-  knative.dev/pkg/apis,knative.dev/pkg/apis/v1alpha1,knative.dev/pkg/logging,knative.dev/pkg/testing \
+  knative.dev/pkg/apis,knative.dev/pkg/tracker,knative.dev/pkg/logging,knative.dev/pkg/metrics,knative.dev/pkg/testing \
   -O zz_generated.deepcopy \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 

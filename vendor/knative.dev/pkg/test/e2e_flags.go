@@ -25,11 +25,27 @@ import (
 	"os"
 	"os/user"
 	"path"
+	"sync"
+
+	"k8s.io/klog"
+	"knative.dev/pkg/test/logging"
 )
 
-// Flags holds the command line flags or defaults for settings in the user's environment.
-// See EnvironmentFlags for a list of supported fields.
-var Flags = initializeFlags()
+const (
+	// e2eMetricExporter is the name for the metrics exporter logger
+	e2eMetricExporter = "e2e-metrics"
+
+	// The recommended default log level https://github.com/kubernetes/community/blob/master/contributors/devel/sig-instrumentation/logging.md
+	klogDefaultLogLevel = "2"
+)
+
+var (
+	flagsSetupOnce = &sync.Once{}
+
+	// Flags holds the command line flags or defaults for settings in the user's environment.
+	// See EnvironmentFlags for a list of supported fields.
+	Flags = initializeFlags()
+)
 
 // EnvironmentFlags define the flags that are needed to run the e2e tests.
 type EnvironmentFlags struct {
@@ -73,7 +89,40 @@ func initializeFlags() *EnvironmentFlags {
 
 	flag.StringVar(&f.Tag, "tag", "latest", "Provide the version tag for the test images.")
 
+	klog.InitFlags(nil)
+	flag.Set("v", klogDefaultLogLevel)
+	flag.Set("alsologtostderr", "true")
+
 	return &f
+}
+
+func printFlags() {
+	fmt.Print("Test Flags: {")
+	flag.CommandLine.VisitAll(func(f *flag.Flag) {
+		fmt.Printf("'%s': '%s', ", f.Name, f.Value.String())
+	})
+	fmt.Println("}")
+}
+
+// SetupLoggingFlags initializes the logging libraries at runtime
+func SetupLoggingFlags() {
+	flagsSetupOnce.Do(func() {
+		if Flags.LogVerbose {
+			// If klog verbosity is not set to a non-default value (via "-args -v=X"),
+			if flag.CommandLine.Lookup("v").Value.String() == klogDefaultLogLevel {
+				// set up verbosity for klog so round_trippers.go prints:
+				//   URL, request headers, response headers, and partial response body
+				// See levels in vendor/k8s.io/client-go/transport/round_trippers.go:DebugWrappers for other options
+				flag.Set("v", "8")
+			}
+			printFlags()
+		}
+		logging.InitializeLogger(Flags.LogVerbose)
+
+		if Flags.EmitMetrics {
+			logging.InitializeMetricExporter(e2eMetricExporter)
+		}
+	})
 }
 
 // ImagePath is a helper function to prefix image name with repo and suffix with tag

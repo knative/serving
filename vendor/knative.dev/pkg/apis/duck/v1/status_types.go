@@ -36,7 +36,6 @@ var _ duck.Implementable = (*Conditions)(nil)
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +k8s:openapi-gen=true
 
 // KResource is a skeleton type wrapping Conditions in the manner we expect
 // resource writers defining compatible resources to embed it.  We will

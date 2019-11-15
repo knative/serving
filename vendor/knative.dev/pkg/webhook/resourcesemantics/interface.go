@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,9 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package cloudevents implements utilities for handling CloudEvents.
-// For information on the spec, see
-// https://github.com/cloudevents/spec/blob/v0.1/http-transport-binding.md
-// and
-// https://github.com/cloudevents/spec/blob/v0.1/spec.md
-package cloudevents
+package resourcesemantics
+
+import (
+	"k8s.io/apimachinery/pkg/runtime"
+	"knative.dev/pkg/apis"
+)
+
+// GenericCRD is the interface definition that allows us to perform the generic
+// CRD actions like deciding whether to increment generation and so forth.
+type GenericCRD interface {
+	apis.Defaultable
+	apis.Validatable
+	runtime.Object
+}

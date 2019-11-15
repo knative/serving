@@ -20,7 +20,6 @@ import (
 	"sync"
 
 	corev1 "k8s.io/api/core/v1"
-
 	"knative.dev/pkg/tracker"
 )
 
@@ -32,7 +31,7 @@ type NullTracker = FakeTracker
 // FakeTracker implements Tracker.
 type FakeTracker struct {
 	sync.Mutex
-	references []corev1.ObjectReference
+	references []tracker.Reference
 }
 
 var _ tracker.Interface = (*FakeTracker)(nil)
@@ -40,8 +39,18 @@ var _ tracker.Interface = (*FakeTracker)(nil)
 // OnChanged implements OnChanged.
 func (*FakeTracker) OnChanged(interface{}) {}
 
-// Track implements Track.
+// Track implements tracker.Interface.
 func (n *FakeTracker) Track(ref corev1.ObjectReference, obj interface{}) error {
+	return n.TrackReference(tracker.Reference{
+		APIVersion: ref.APIVersion,
+		Kind:       ref.Kind,
+		Namespace:  ref.Namespace,
+		Name:       ref.Name,
+	}, obj)
+}
+
+// TrackReference implements tracker.Interface.
+func (n *FakeTracker) TrackReference(ref tracker.Reference, obj interface{}) error {
 	n.Lock()
 	defer n.Unlock()
 
@@ -50,7 +59,7 @@ func (n *FakeTracker) Track(ref corev1.ObjectReference, obj interface{}) error {
 }
 
 // References returns the list of objects being tracked
-func (n *FakeTracker) References() []corev1.ObjectReference {
+func (n *FakeTracker) References() []tracker.Reference {
 	n.Lock()
 	defer n.Unlock()
 

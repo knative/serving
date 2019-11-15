@@ -14,14 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resourcesemantics
+package validation
 
 import (
 	"context"
 
 	// Injection stuff
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	mwhinformer "knative.dev/pkg/client/injection/kube/informers/admissionregistration/v1beta1/mutatingwebhookconfiguration"
+	vwhinformer "knative.dev/pkg/client/injection/kube/informers/admissionregistration/v1beta1/validatingwebhookconfiguration"
 	secretinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/secret"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -30,19 +30,20 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/webhook"
+	"knative.dev/pkg/webhook/resourcesemantics"
 )
 
 // NewAdmissionController constructs a reconciler
 func NewAdmissionController(
 	ctx context.Context,
 	name, path string,
-	handlers map[schema.GroupVersionKind]GenericCRD,
+	handlers map[schema.GroupVersionKind]resourcesemantics.GenericCRD,
 	wc func(context.Context) context.Context,
 	disallowUnknownFields bool,
 ) *controller.Impl {
 
 	client := kubeclient.Get(ctx)
-	mwhInformer := mwhinformer.Get(ctx)
+	vwhInformer := vwhinformer.Get(ctx)
 	secretInformer := secretinformer.Get(ctx)
 	options := webhook.GetOptions(ctx)
 
@@ -56,18 +57,18 @@ func NewAdmissionController(
 		secretName:            options.SecretName,
 
 		client:       client,
-		mwhlister:    mwhInformer.Lister(),
+		vwhlister:    vwhInformer.Lister(),
 		secretlister: secretInformer.Lister(),
 	}
 
 	logger := logging.FromContext(ctx)
 	c := controller.NewImpl(wh, logger, "ConfigMapWebhook")
 
-	// Reconcile when the named MutatingWebhookConfiguration changes.
-	mwhInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+	// Reconcile when the named ValidatingWebhookConfiguration changes.
+	vwhInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.FilterWithName(name),
 		// It doesn't matter what we enqueue because we will always Reconcile
-		// the named MWH resource.
+		// the named VWH resource.
 		Handler: controller.HandleAll(c.Enqueue),
 	})
 
@@ -75,7 +76,7 @@ func NewAdmissionController(
 	secretInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: controller.FilterWithNameAndNamespace(system.Namespace(), wh.secretName),
 		// It doesn't matter what we enqueue because we will always Reconcile
-		// the named MWH resource.
+		// the named VWH resource.
 		Handler: controller.HandleAll(c.Enqueue),
 	})
 

@@ -234,7 +234,7 @@ func (gc *GKECluster) Acquire() error {
 			if i != len(regions)-1 {
 				errMsg = fmt.Sprintf("%sRetry another region %q for cluster creation", errMsg, regions[i+1])
 			}
-			log.Printf(errMsg)
+			log.Print(errMsg)
 		} else {
 			log.Print("Cluster creation completed")
 			gc.Cluster = cluster

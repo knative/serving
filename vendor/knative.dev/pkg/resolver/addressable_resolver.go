@@ -28,7 +28,6 @@ import (
 	"knative.dev/pkg/apis"
 	pkgapisduck "knative.dev/pkg/apis/duck"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
-	apisv1alpha1 "knative.dev/pkg/apis/v1alpha1"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/tracker"
@@ -63,7 +62,7 @@ func NewURIResolver(ctx context.Context, callback func(types.NamespacedName)) *U
 }
 
 // URIFromDestination resolves a Destination into a URI string.
-func (r *URIResolver) URIFromDestination(dest apisv1alpha1.Destination, parent interface{}) (string, error) {
+func (r *URIResolver) URIFromDestination(dest duckv1beta1.Destination, parent interface{}) (string, error) {
 	var deprecatedObjectReference *corev1.ObjectReference
 	if dest.DeprecatedAPIVersion == "" && dest.DeprecatedKind == "" && dest.DeprecatedName == "" && dest.DeprecatedNamespace == "" {
 		deprecatedObjectReference = nil

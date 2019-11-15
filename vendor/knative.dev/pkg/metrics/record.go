@@ -18,52 +18,18 @@ package metrics
 
 import (
 	"context"
-	"path"
 
 	"go.opencensus.io/stats"
-	"knative.dev/pkg/metrics/metricskey"
 )
 
 // TODO should be properly refactored and pieces should move to eventing and serving, as appropriate.
 // 	See https://github.com/knative/pkg/issues/608
 
-// Record decides whether to record one measurement via OpenCensus based on the
-// following conditions:
-//   1) No package level metrics config. In this case it just proxies to OpenCensus
-//      based on the assumption that users expect the metrics to be recorded when
-//      they call this function. Users must ensure metrics config are set before
-//      using this function to get expected behavior.
-//   2) The backend is not Stackdriver.
-//   3) The backend is Stackdriver and it is allowed to use custom metrics.
-//   4) The backend is Stackdriver and the metric is one of the built-in metrics: "knative_revision", "knative_broker",
-//      "knative_trigger", "knative_source".
+// Record stores the given Measurement from `ms` in the current metrics backend.
 func Record(ctx context.Context, ms stats.Measurement, ros ...stats.Options) {
 	mc := getCurMetricsConfig()
 
-	ros = append(ros, stats.WithMeasurements(ms))
-
-	// Condition 1)
-	if mc == nil {
-		stats.RecordWithOptions(ctx, ros...)
-		return
-	}
-
-	// Condition 2) and 3)
-	if !mc.isStackdriverBackend || mc.allowStackdriverCustomMetrics {
-		stats.RecordWithOptions(ctx, ros...)
-		return
-	}
-
-	// Condition 4)
-	metricType := path.Join(mc.stackdriverMetricTypePrefix, ms.Measure().Name())
-	isServingBuiltIn := metricskey.KnativeRevisionMetrics.Has(metricType)
-	isEventingBuiltIn := metricskey.KnativeTriggerMetrics.Has(metricType) ||
-		metricskey.KnativeBrokerMetrics.Has(metricType) ||
-		metricskey.KnativeSourceMetrics.Has(metricType)
-
-	if isServingBuiltIn || isEventingBuiltIn {
-		stats.RecordWithOptions(ctx, ros...)
-	}
+	mc.Record(ctx, ms, ros...)
 }
 
 // Buckets125 generates an array of buckets with approximate powers-of-two

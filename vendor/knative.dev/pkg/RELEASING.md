@@ -88,3 +88,13 @@ their own release branches, so to update the `knative/pkg` dependency we run:
 dep ensure -update knative.dev/pkg
 ./hack/update-deps.sh
 ```
+
+## Revert to Master
+
+Post release, reverse the process. `Gopkg.toml` should look like:
+
+```toml
+[[override]]
+  name = "knative.dev/pkg"
+  branch = "master"
+```

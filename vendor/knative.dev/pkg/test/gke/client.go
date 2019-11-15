@@ -20,9 +20,9 @@ import (
 	"fmt"
 
 	container "google.golang.org/api/container/v1beta1"
+	option "google.golang.org/api/option"
 
 	"golang.org/x/net/context"
-	"golang.org/x/oauth2/google"
 )
 
 // SDKOperations wraps GKE SDK related functions
@@ -42,14 +42,8 @@ type sdkClient struct {
 }
 
 // NewSDKClient returns an SDKClient that implements SDKOperations
-func NewSDKClient() (SDKOperations, error) {
-	ctx := context.Background()
-	c, err := google.DefaultClient(ctx, container.CloudPlatformScope)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Google client: '%v'", err)
-	}
-
-	containerService, err := container.New(c)
+func NewSDKClient(opts ...option.ClientOption) (SDKOperations, error) {
+	containerService, err := container.NewService(context.Background(), opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create container service: '%v'", err)
 	}

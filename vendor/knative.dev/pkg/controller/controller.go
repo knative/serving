@@ -186,6 +186,14 @@ func (c *Impl) Enqueue(obj interface{}) {
 	c.EnqueueKey(types.NamespacedName{Namespace: object.GetNamespace(), Name: object.GetName()})
 }
 
+// EnqueueSentinel returns a Enqueue method which will always enqueue a
+// predefined key instead of the object key.
+func (c *Impl) EnqueueSentinel(k types.NamespacedName) func(interface{}) {
+	return func(interface{}) {
+		c.EnqueueKey(k)
+	}
+}
+
 // EnqueueControllerOf takes a resource, identifies its controller resource,
 // converts it into a namespace/name string, and passes that to EnqueueKey.
 func (c *Impl) EnqueueControllerOf(obj interface{}) {

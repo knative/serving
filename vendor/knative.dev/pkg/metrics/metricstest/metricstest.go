@@ -143,6 +143,7 @@ func checkExactlyOneRow(t *testing.T, name string) *view.Row {
 	}
 	if len(d) != 1 {
 		t.Errorf("For metric %s: Reporter.Report() len(d)=%v, want 1", name, len(d))
+		return nil
 	}
 
 	return d[0]

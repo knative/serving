@@ -17,6 +17,7 @@ limitations under the License.
 package metrics
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,12 +27,13 @@ import (
 	"strings"
 	"time"
 
+	"go.opencensus.io/stats"
 	"go.uber.org/zap"
+	"knative.dev/pkg/metrics/metricskey"
 )
 
 const (
-	DomainEnv        = "METRICS_DOMAIN"
-	ConfigMapNameEnv = "CONFIG_OBSERVABILITY_NAME"
+	DomainEnv = "METRICS_DOMAIN"
 )
 
 // metricsBackend specifies the backend to use for metrics
@@ -46,11 +48,10 @@ const (
 	ReportingPeriodKey                  = "metrics.reporting-period-seconds"
 	StackdriverCustomMetricSubDomainKey = "metrics.stackdriver-custom-metrics-subdomain"
 	// Stackdriver client configuration keys
-	stackdriverProjectIDKey          = "metrics.stackdriver-project-id"
-	stackdriverGCPLocationKey        = "metrics.stackdriver-gcp-location"
-	stackdriverClusterNameKey        = "metrics.stackdriver-cluster-name"
-	stackdriverGCPSecretNameKey      = "metrics.stackdriver-gcp-secret-name"
-	stackdriverGCPSecretNamespaceKey = "metrics.stackdriver-gcp-secret-namespace"
+	StackdriverProjectIDKey   = "metrics.stackdriver-project-id"
+	StackdriverGCPLocationKey = "metrics.stackdriver-gcp-location"
+	StackdriverClusterNameKey = "metrics.stackdriver-cluster-name"
+	StackdriverUseSecretKey   = "metrics.stackdriver-use-secret"
 
 	// Stackdriver is used for Stackdriver backend
 	Stackdriver metricsBackend = "stackdriver"
@@ -75,22 +76,16 @@ type metricsConfig struct {
 	// If duration is less than or equal to zero, it enables the default behavior.
 	reportingPeriod time.Duration
 
+	// recorder provides a hook for performing custom transformations before
+	// writing the metrics to the stats.RecordWithOptions interface.
+	recorder func(context.Context, stats.Measurement, ...stats.Options) error
+
 	// ---- Prometheus specific below ----
 	// prometheusPort is the port where metrics are exposed in Prometheus
 	// format. It defaults to 9090.
 	prometheusPort int
 
 	// ---- Stackdriver specific below ----
-	// allowStackdriverCustomMetrics indicates whether it is allowed to send metrics to
-	// Stackdriver using "global" resource type and custom metric type if the
-	// metrics are not supported by the registered monitored resource types. Setting this
-	// flag to "true" could cause extra Stackdriver charge.
-	// If backendDestination is not Stackdriver, this is ignored.
-	allowStackdriverCustomMetrics bool
-	// stackdriverCustomMetricsSubDomain is the subdomain to use when sending custom metrics to StackDriver.
-	// If not specified, the default is `knative.dev`.
-	// If backendDestination is not Stackdriver, this is ignored.
-	stackdriverCustomMetricsSubDomain string
 	// True if backendDestination equals to "stackdriver". Store this in a variable
 	// to reduce string comparison operations.
 	isStackdriverBackend bool
@@ -103,11 +98,11 @@ type metricsConfig struct {
 	// Store this in a variable to reduce string join operations.
 	stackdriverCustomMetricTypePrefix string
 	// stackdriverClientConfig is the metadata to configure the metrics exporter's Stackdriver client.
-	stackdriverClientConfig stackdriverClientConfig
+	stackdriverClientConfig StackdriverClientConfig
 }
 
-// stackdriverClientConfig encapsulates the metadata required to configure a Stackdriver client.
-type stackdriverClientConfig struct {
+// StackdriverClientConfig encapsulates the metadata required to configure a Stackdriver client.
+type StackdriverClientConfig struct {
 	// ProjectID is the stackdriver project ID to which data is uploaded.
 	// This is not necessarily the GCP project ID where the Kubernetes cluster is hosted.
 	// Required when the Kubernetes cluster is not hosted on GCE.
@@ -119,25 +114,31 @@ type stackdriverClientConfig struct {
 	// ClusterName is the cluster name with which the data will be associated in Stackdriver.
 	// Required when the Kubernetes cluster is not hosted on GCE.
 	ClusterName string
-	// GCPSecretName is the optional GCP service account key which will be used to
-	// authenticate with Stackdriver. If not provided, Google Application Default Credentials
+	// UseSecret is whether the credentials stored in a Kubernetes Secret should be used to
+	// authenticate with Stackdriver. The Secret name and namespace can be specified by calling
+	// metrics.SetStackdriverSecretLocation.
+	// If UseSecret is false, Google Application Default Credentials
 	// will be used (https://cloud.google.com/docs/authentication/production).
-	GCPSecretName string
-	// GCPSecretNamespace is the Kubernetes namespace where GCPSecretName is located.
-	// The Kubernetes ServiceAccount used by the pod that is exporting data to
-	// Stackdriver should have access to Secrets in this namespace.
-	GCPSecretNamespace string
+	UseSecret bool
 }
 
-// newStackdriverClientConfigFromMap creates a stackdriverClientConfig from the given map
-func newStackdriverClientConfigFromMap(config map[string]string) *stackdriverClientConfig {
-	return &stackdriverClientConfig{
-		ProjectID:          config[stackdriverProjectIDKey],
-		GCPLocation:        config[stackdriverGCPLocationKey],
-		ClusterName:        config[stackdriverClusterNameKey],
-		GCPSecretName:      config[stackdriverGCPSecretNameKey],
-		GCPSecretNamespace: config[stackdriverGCPSecretNamespaceKey],
+// NewStackdriverClientConfigFromMap creates a stackdriverClientConfig from the given map
+func NewStackdriverClientConfigFromMap(config map[string]string) *StackdriverClientConfig {
+	return &StackdriverClientConfig{
+		ProjectID:   config[StackdriverProjectIDKey],
+		GCPLocation: config[StackdriverGCPLocationKey],
+		ClusterName: config[StackdriverClusterNameKey],
+		UseSecret:   strings.EqualFold(config[StackdriverUseSecretKey], "true"),
 	}
+}
+
+// Record applies the `ros` Options to `ms` and then records the resulting
+// measurements in the metricsConfig's designated backend.
+func (mc *metricsConfig) Record(ctx context.Context, ms stats.Measurement, ros ...stats.Options) error {
+	if mc == nil || mc.recorder == nil {
+		return stats.RecordWithOptions(ctx, append(ros, stats.WithMeasurements(ms))...)
+	}
+	return mc.recorder(ctx, ms, ros...)
 }
 
 func createMetricsConfig(ops ExporterOptions, logger *zap.SugaredLogger) (*metricsConfig, error) {
@@ -190,22 +191,37 @@ func createMetricsConfig(ops ExporterOptions, logger *zap.SugaredLogger) (*metri
 	// use the application default credentials. If that is not available, Opencensus would fail to create the
 	// metrics exporter.
 	if mc.backendDestination == Stackdriver {
-		scc := newStackdriverClientConfigFromMap(m)
+		scc := NewStackdriverClientConfigFromMap(m)
 		mc.stackdriverClientConfig = *scc
 		mc.isStackdriverBackend = true
+		var allowCustomMetrics bool
+		var err error
 		mc.stackdriverMetricTypePrefix = path.Join(mc.domain, mc.component)
 
-		mc.stackdriverCustomMetricsSubDomain = defaultCustomMetricSubDomain
-		if sdcmd, ok := m[StackdriverCustomMetricSubDomainKey]; ok && sdcmd != "" {
-			mc.stackdriverCustomMetricsSubDomain = sdcmd
+		customMetricsSubDomain := m[StackdriverCustomMetricSubDomainKey]
+		if customMetricsSubDomain == "" {
+			customMetricsSubDomain = defaultCustomMetricSubDomain
 		}
-		mc.stackdriverCustomMetricTypePrefix = path.Join(customMetricTypePrefix, mc.stackdriverCustomMetricsSubDomain, mc.component)
-		if ascmStr, ok := m[AllowStackdriverCustomMetricsKey]; ok && ascmStr != "" {
-			ascmBool, err := strconv.ParseBool(ascmStr)
+		mc.stackdriverCustomMetricTypePrefix = path.Join(customMetricTypePrefix, customMetricsSubDomain, mc.component)
+		if ascmStr := m[AllowStackdriverCustomMetricsKey]; ascmStr != "" {
+			allowCustomMetrics, err = strconv.ParseBool(ascmStr)
 			if err != nil {
 				return nil, fmt.Errorf("invalid %s value %q", AllowStackdriverCustomMetricsKey, ascmStr)
 			}
-			mc.allowStackdriverCustomMetrics = ascmBool
+		}
+
+		if !allowCustomMetrics {
+			servingOrEventing := metricskey.KnativeRevisionMetrics.Union(
+				metricskey.KnativeTriggerMetrics)
+			mc.recorder = func(ctx context.Context, ms stats.Measurement, ros ...stats.Options) error {
+				metricType := path.Join(mc.stackdriverMetricTypePrefix, ms.Measure().Name())
+
+				if servingOrEventing.Has(metricType) {
+					return stats.RecordWithOptions(ctx, append(ros, stats.WithMeasurements(ms))...)
+				}
+				// Otherwise, skip (because it won't be accepted)
+				return nil
+			}
 		}
 	}
 
@@ -229,15 +245,6 @@ func createMetricsConfig(ops ExporterOptions, logger *zap.SugaredLogger) (*metri
 	}
 
 	return &mc, nil
-}
-
-// ConfigMapName gets the name of the metrics ConfigMap
-func ConfigMapName() string {
-	cm := os.Getenv(ConfigMapNameEnv)
-	if cm == "" {
-		return "config-observability"
-	}
-	return cm
 }
 
 // Domain holds the metrics domain to use for surfacing metrics.
