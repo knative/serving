@@ -881,7 +881,7 @@ func patchAddFinalizerAction(ingressName, finalizer string) clientgotesting.Patc
 	action := clientgotesting.PatchActionImpl{
 		Name: ingressName,
 	}
-	patch := fmt.Sprintf(`{"metadata":{"finalizers":["%s"],"resourceVersion":"v1"}}`, finalizer)
+	patch := fmt.Sprintf(`{"metadata":{"finalizers":[%q],"resourceVersion":"v1"}}`, finalizer)
 	action.Patch = []byte(patch)
 	return action
 }

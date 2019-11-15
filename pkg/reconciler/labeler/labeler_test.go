@@ -260,7 +260,7 @@ func patchRemoveLabel(namespace, name, key, version string) clientgotesting.Patc
 	action.Name = name
 	action.Namespace = namespace
 
-	patch := fmt.Sprintf(`{"metadata":{"labels":{"%s":null},"resourceVersion":"%s"}}`, key, version)
+	patch := fmt.Sprintf(`{"metadata":{"labels":{%q:null},"resourceVersion":%q}}`, key, version)
 
 	action.Patch = []byte(patch)
 	return action
@@ -271,7 +271,7 @@ func patchAddLabel(namespace, name, key, value, version string) clientgotesting.
 	action.Name = name
 	action.Namespace = namespace
 
-	patch := fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"},"resourceVersion":"%s"}}`, key, value, version)
+	patch := fmt.Sprintf(`{"metadata":{"labels":{%q:%q},"resourceVersion":%q}}`, key, value, version)
 
 	action.Patch = []byte(patch)
 	return action

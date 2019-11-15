@@ -242,7 +242,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	req.Header.Set(activator.RevisionHeaderNamespace, testNamespace)
 	req.Header.Set(activator.RevisionHeaderName, testRevName)
 
-	// set up config store to populate context
+	// Set up config store to populate context.
 	configStore := setupConfigStore(t, logging.FromContext(ctx))
 	ctx = configStore.ToContext(req.Context())
 	handler.ServeHTTP(writer, req.WithContext(ctx))
@@ -250,9 +250,9 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	select {
 	case httpReq := <-interceptCh:
 		if got := httpReq.Header.Get(network.ProxyHeaderName); got != activator.Name {
-			t.Errorf("Header '%s' does not have the expected value. Want = '%s', got = '%s'.", network.ProxyHeaderName, activator.Name, got)
+			t.Errorf("Header %q = %q, want:  %q", network.ProxyHeaderName, got, activator.Name)
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(1 * time.Second):
 		t.Fatal("Timed out waiting for a request to be intercepted")
 	}
 }
