@@ -29,15 +29,14 @@
   version = "v0.1.0"
 
 [[projects]]
-  digest = "1:c1e8c027918e8a7cf79327f35ca2919cb997ecaa928116e3c2b470d06d0e9c12"
+  digest = "1:c3fd5ddaad733530174bba5dd787d98a45d181851a95a0b7362be7bce7144f56"
   name = "contrib.go.opencensus.io/exporter/stackdriver"
   packages = [
     ".",
     "monitoredresource",
   ]
   pruneopts = "NUT"
-  revision = "bf39ce456bd8c6e2e3e37ef9775ed8b10628feca"
-  version = "v0.12.5"
+  revision = "59d068f8d8ff5b653916aa30cdc4e13c7f15d56e"
 
 [[projects]]
   digest = "1:7b5f423f5b0dd3dfa32a19a6183b0ab9129bff371ebf3f9efae32f87e4986d8f"
@@ -1693,8 +1692,7 @@
   revision = "88e1e4db86d11beb16248a94b1072beac20aef4c"
 
 [[projects]]
-  branch = "master"
-  digest = "1:b1b3870d2746e5277761a3c2811d2b486db20a09763a1d98476cf82f2afbc0fc"
+  digest = "1:3d40f7bd911648df55d64ea2523fad86391a436d40643447c5f33c3f3d0462e2"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1820,7 +1818,8 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "4836f680bbe5dc615e9c822f21c6685d97c6d553"
+  revision = "b8e05702724b27cdcab1df28adabbac50b61dbcf"
+  source = "github.com/yanweiguo/pkg"
 
 [[projects]]
   branch = "master"
