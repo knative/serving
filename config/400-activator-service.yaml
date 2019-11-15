@@ -32,7 +32,7 @@ spec:
     protocol: TCP
     port: 81
     targetPort: 8013
-  - name: metrics
+  - name: http-metrics
     protocol: TCP
     port: 9090
     targetPort: 9090
