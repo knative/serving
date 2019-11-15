@@ -72,6 +72,13 @@ func sortTryResults(tr []tryResult) {
 	})
 }
 
+func newTestThrottler(ctx context.Context, numA int32) *Throttler {
+	throttler := NewThrottler(ctx, defaultParams, "10.10.10.10:8012")
+	atomic.StoreInt32(&throttler.numActivators, numA)
+	atomic.StoreInt32(&throttler.activatorIndex, 0)
+	return throttler
+}
+
 func TestThrottlerUpdateCapacity(t *testing.T) {
 	logger := TestLogger(t)
 	throttler := &Throttler{
@@ -279,9 +286,7 @@ func TestThrottlerWithError(t *testing.T) {
 			servfake.ServingV1alpha1().Revisions(tc.revision.Namespace).Create(tc.revision)
 			revisions.Informer().GetIndexer().Add(tc.revision)
 
-			throttler := NewThrottler(ctx, defaultParams, "10.10.10.10:8012")
-			atomic.StoreInt32(&throttler.numActivators, 1)
-			atomic.StoreInt32(&throttler.activatorIndex, 0)
+			throttler := newTestThrottler(ctx, 1)
 			updateCh <- tc.initUpdate
 			close(updateCh)
 
@@ -433,10 +438,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			servfake.ServingV1alpha1().Revisions(tc.revision.Namespace).Create(tc.revision)
 			revisions.Informer().GetIndexer().Add(tc.revision)
 
-			throttler := NewThrottler(ctx, defaultParams, "10.10.10.10:8012")
-			atomic.StoreInt32(&throttler.numActivators, 1)
-			atomic.StoreInt32(&throttler.activatorIndex, 0)
-
+			throttler := newTestThrottler(ctx, 1)
 			for _, update := range tc.initUpdates {
 				updateCh <- update
 			}
@@ -485,9 +487,7 @@ func TestPodAssignmentFinite(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 
-	throttler := NewThrottler(ctx, defaultParams, "10.10.10.10:8012")
-	atomic.StoreInt32(&throttler.numActivators, 2)
-	atomic.StoreInt32(&throttler.activatorIndex, 0)
+	throttler := newTestThrottler(ctx, 2)
 	rt := newRevisionThrottler(revName, 42 /*cc*/, defaultParams, logger)
 	throttler.revisionThrottlers[revName] = rt
 
@@ -536,9 +536,7 @@ func TestPodAssignmentInfinite(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 
-	throttler := NewThrottler(ctx, defaultParams, "10.10.10.10:8012")
-	atomic.StoreInt32(&throttler.numActivators, 2)
-	atomic.StoreInt32(&throttler.activatorIndex, 0)
+	throttler := newTestThrottler(ctx, 2)
 	rt := newRevisionThrottler(revName, 0 /*cc*/, defaultParams, logger)
 	throttler.revisionThrottlers[revName] = rt
 
