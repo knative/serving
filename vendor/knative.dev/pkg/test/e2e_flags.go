@@ -27,6 +27,7 @@ import (
 	"path"
 	"sync"
 
+	_ "github.com/golang/glog" // Needed if glog and klog are to coexist
 	"k8s.io/klog"
 	"knative.dev/pkg/test/logging"
 )
@@ -41,7 +42,7 @@ const (
 
 var (
 	flagsSetupOnce = &sync.Once{}
-
+	klogFlags      = flag.NewFlagSet("klog", flag.ExitOnError)
 	// Flags holds the command line flags or defaults for settings in the user's environment.
 	// See EnvironmentFlags for a list of supported fields.
 	Flags = initializeFlags()
@@ -89,7 +90,7 @@ func initializeFlags() *EnvironmentFlags {
 
 	flag.StringVar(&f.Tag, "tag", "latest", "Provide the version tag for the test images.")
 
-	klog.InitFlags(nil)
+	klog.InitFlags(klogFlags)
 	flag.Set("v", klogDefaultLogLevel)
 	flag.Set("alsologtostderr", "true")
 
@@ -107,13 +108,22 @@ func printFlags() {
 // SetupLoggingFlags initializes the logging libraries at runtime
 func SetupLoggingFlags() {
 	flagsSetupOnce.Do(func() {
+		// Sync the glog flags to klog
+		flag.CommandLine.VisitAll(func(f1 *flag.Flag) {
+			f2 := klogFlags.Lookup(f1.Name)
+			if f2 != nil {
+				value := f1.Value.String()
+				f2.Value.Set(value)
+			}
+		})
 		if Flags.LogVerbose {
 			// If klog verbosity is not set to a non-default value (via "-args -v=X"),
 			if flag.CommandLine.Lookup("v").Value.String() == klogDefaultLogLevel {
 				// set up verbosity for klog so round_trippers.go prints:
 				//   URL, request headers, response headers, and partial response body
 				// See levels in vendor/k8s.io/client-go/transport/round_trippers.go:DebugWrappers for other options
-				flag.Set("v", "8")
+				klogFlags.Set("v", "8")
+				flag.Set("v", "8") // This is for glog, since glog=>klog sync is one-time
 			}
 			printFlags()
 		}
