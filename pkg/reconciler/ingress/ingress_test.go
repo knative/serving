@@ -279,7 +279,7 @@ func TestReconcile(t *testing.T) {
 					Status: duckv1.Status{
 						Conditions: duckv1.Conditions{{
 							Type:     v1alpha1.IngressConditionLoadBalancerReady,
-							Reason:   v1alpha1.VirtualServiceNotReconciledReason,
+							Reason:   v1alpha1.VirtualServiceNotReconciled,
 							Severity: apis.ConditionSeverityError,
 							Message:  "failed to update VirtualService: inducing failure for update virtualservices",
 							Status:   corev1.ConditionFalse,

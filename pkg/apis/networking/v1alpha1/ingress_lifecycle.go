@@ -29,7 +29,9 @@ var ingressCondSet = apis.NewLivingConditionSet(
 	IngressConditionLoadBalancerReady,
 )
 
-var VirtualServiceNotReconciledReason = "ReconcileVirtualServiceFailed"
+// VirtualServiceNotReconciled is used for the reason of MarkLoadBalancerFailed
+// when VirtualService is failed to be reconciled.
+var VirtualServiceNotReconciled = "ReconcileVirtualServiceFailed"
 
 // GetGroupVersionKind returns SchemeGroupVersion of an Ingress
 func (i *Ingress) GetGroupVersionKind() schema.GroupVersionKind {
