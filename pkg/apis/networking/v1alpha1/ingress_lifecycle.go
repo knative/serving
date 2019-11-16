@@ -29,6 +29,8 @@ var ingressCondSet = apis.NewLivingConditionSet(
 	IngressConditionLoadBalancerReady,
 )
 
+var VirtualServiceNotReconciledReason = "ReconcileVirtualServiceFailed"
+
 // GetGroupVersionKind returns SchemeGroupVersion of an Ingress
 func (i *Ingress) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Ingress")
@@ -73,9 +75,14 @@ func (is *IngressStatus) MarkLoadBalancerReady(lbs []LoadBalancerIngressStatus, 
 
 // MarkLoadBalancerPending marks the "IngressConditionLoadBalancerReady" condition to unknown to
 // reflect that the load balancer is not ready yet.
-func (is *IngressStatus) MarkLoadBalancerPending() {
+func (is *IngressStatus) MarkLoadBalancerNotReady() {
 	ingressCondSet.Manage(is).MarkUnknown(IngressConditionLoadBalancerReady, "Uninitialized",
 		"Waiting for VirtualService to be ready")
+}
+
+// MarkLoadBalancerFailed marks the "IngressConditionLoadBalancerReady" condition to false.
+func (is *IngressStatus) MarkLoadBalancerFailed(reason, message string) {
+	ingressCondSet.Manage(is).MarkFalse(IngressConditionLoadBalancerReady, reason, message)
 }
 
 // MarkIngressNotReady marks the "IngressConditionReady" condition to unknown.

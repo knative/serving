@@ -168,6 +168,7 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress)
 	logger.Infof("Creating/Updating VirtualServices")
 	ia.Status.ObservedGeneration = ia.GetGeneration()
 	if err := r.reconcileVirtualServices(ctx, ia, vses); err != nil {
+		ia.Status.MarkLoadBalancerFailed(v1alpha1.VirtualServiceNotReconciledReason, err.Error())
 		return err
 	}
 
@@ -218,7 +219,7 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress)
 		privateLbs := getLBStatus(privateGatewayServiceURLFromContext(ctx))
 		ia.Status.MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
 	} else {
-		ia.Status.MarkLoadBalancerPending()
+		ia.Status.MarkLoadBalancerNotReady()
 	}
 
 	// TODO(zhiminx): Mark Route status to indicate that Gateway is configured.
