@@ -92,8 +92,14 @@ EOF
 }
 
 function update_benchmark() {
-  echo ">> Applying all the yamls for benchmark $1"
+  echo ">> Deleting all the yamls for benchmark $1"
   ko delete -f ${BENCHMARK_ROOT_PATH}/$1/continuous --ignore-not-found=true
+  echo ">> Deleting all Knative serving resources"
+  kubectl delete route --all
+  kubectl delete configuration --all
+  kubectl delete ksvc --all
+
+  echo ">> Applying all the yamls for benchmark $1"
   ko apply -f ${BENCHMARK_ROOT_PATH}/$1/continuous || abort "failed to apply benchmarks yaml $1"
 }
 
