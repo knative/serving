@@ -31,6 +31,7 @@ function knative_setup() {
   # Build serving, create $SERVING_YAML
   build_knative_from_source
   start_knative_serving "${SERVING_YAML}"
+  start_knative_monitoring "${MONITORING_YAML}"
 }
 
 # Script entry point.
@@ -41,9 +42,13 @@ initialize $@
 subheader "Uninstalling Knative Serving"
 kubectl delete --ignore-not-found=true -f ${SERVING_YAML} || fail_test
 wait_until_object_does_not_exist namespaces knative-serving || fail_test
+kubectl delete --ignore-not-found=true -f ${MONITORING_YAML} || fail_test
+wait_until_object_does_not_exist namespaces knative-monitoring || fail_test
 
 subheader "Reinstalling Knative Serving"
 start_knative_serving "${SERVING_YAML}" || fail_test
+subheader "Reinstalling Knative Monitoring"
+start_knative_monitoring "${MONITORING_YAML}" || fail_test
 
 # Run smoke test
 subheader "Running smoke test"
