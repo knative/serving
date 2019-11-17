@@ -55,7 +55,7 @@ const (
 	serviceName              = "perftest-scalefromzero"
 	helloWorldExpectedOutput = "Hello World!"
 	helloWorldImage          = "helloworld"
-	waitToServe              = 1 * time.Minute
+	waitToServe              = 2 * time.Minute
 )
 
 func clientsFromConfig() (*test.Clients, error) {
