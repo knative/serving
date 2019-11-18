@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/apis/networking"
 )
 
 const (
@@ -33,15 +34,15 @@ const (
 	// customizations for istio related features.
 	IstioConfigName = "config-istio"
 
-	// GatewayKeyPrefix is the prefix of all keys to configure Istio gateways for public Ingresses.
-	GatewayKeyPrefix = "gateway."
+	// gatewayKeyPrefix is the prefix of all keys to configure Istio gateways for public Ingresses.
+	gatewayKeyPrefix = "gateway."
 
-	// LocalGatewayKeyPrefix is the prefix of all keys to configure Istio gateways for public & private Ingresses.
-	LocalGatewayKeyPrefix = "local-gateway."
+	// localGatewayKeyPrefix is the prefix of all keys to configure Istio gateways for public & private Ingresses.
+	localGatewayKeyPrefix = "local-gateway."
 
-	// ReconcileExternalGatewayKey the is the name of the configuration entry that specifies
+	// reconcileExternalGatewayKey the is the name of the configuration entry that specifies
 	// reconciling external Istio Gateways or not.
-	ReconcileExternalGatewayKey = "reconcileExternalGateway"
+	reconcileExternalGatewayKey = "reconcileExternalGateway"
 
 	// defaultReconcileGateway is the default value of reconcileExternalGateway.
 	defaultReconcileGateway = false
@@ -50,7 +51,7 @@ const (
 func defaultGateways() []Gateway {
 	return []Gateway{{
 		Namespace: system.Namespace(),
-		Name:      "knative-ingress-gateway",
+		Name:      networking.KnativeIngressGateway,
 		ServiceURL: fmt.Sprintf("istio-ingressgateway.istio-system.svc.%s",
 			network.GetClusterDomainName()),
 	}}
@@ -59,8 +60,8 @@ func defaultGateways() []Gateway {
 func defaultLocalGateways() []Gateway {
 	return []Gateway{{
 		Namespace: system.Namespace(),
-		Name:      "cluster-local-gateway",
-		ServiceURL: fmt.Sprintf("cluster-local-gateway.istio-system.svc.%s",
+		Name:      networking.ClusterLocalGateway,
+		ServiceURL: fmt.Sprintf(networking.ClusterLocalGateway+".istio-system.svc.%s",
 			network.GetClusterDomainName()),
 	}}
 }
@@ -127,14 +128,14 @@ func parseGateways(configMap *corev1.ConfigMap, prefix string) ([]Gateway, error
 
 // NewIstioFromConfigMap creates an Istio config from the supplied ConfigMap
 func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
-	gateways, err := parseGateways(configMap, GatewayKeyPrefix)
+	gateways, err := parseGateways(configMap, gatewayKeyPrefix)
 	if err != nil {
 		return nil, err
 	}
 	if len(gateways) == 0 {
 		gateways = defaultGateways()
 	}
-	localGateways, err := parseGateways(configMap, LocalGatewayKeyPrefix)
+	localGateways, err := parseGateways(configMap, localGatewayKeyPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +144,7 @@ func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
 	}
 	localGateways = removeMeshGateway(localGateways)
 	reconcileGateway := defaultReconcileGateway
-	if reconcileGatewayStr := configMap.Data[ReconcileExternalGatewayKey]; len(reconcileGatewayStr) != 0 {
+	if reconcileGatewayStr := configMap.Data[reconcileExternalGatewayKey]; len(reconcileGatewayStr) != 0 {
 		if reconcileGateway, err = strconv.ParseBool(reconcileGatewayStr); err != nil {
 			return nil, err
 		}
