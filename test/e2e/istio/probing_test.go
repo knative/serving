@@ -46,6 +46,7 @@ import (
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/pkg/test/spoof"
+	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
 	v1a1test "knative.dev/serving/test/v1alpha1"
@@ -53,7 +54,6 @@ import (
 
 var (
 	namespace = "knative-serving"
-	name      = "knative-ingress-gateway"
 )
 
 func TestIstioProbing(t *testing.T) {
@@ -63,18 +63,18 @@ func TestIstioProbing(t *testing.T) {
 	clients := e2e.Setup(t)
 
 	// Save the current Gateway to restore it after the test
-	oldGateway, err := clients.SharedClient.NetworkingV1alpha3().Gateways(namespace).Get(name, metav1.GetOptions{})
+	oldGateway, err := clients.SharedClient.NetworkingV1alpha3().Gateways(namespace).Get(networking.KnativeIngressGateway, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to get Gateway %s/%s", namespace, name)
+		t.Fatalf("Failed to get Gateway %s/%s", namespace, networking.KnativeIngressGateway)
 	}
 	restore := func() {
-		curGateway, err := clients.SharedClient.NetworkingV1alpha3().Gateways(namespace).Get(name, metav1.GetOptions{})
+		curGateway, err := clients.SharedClient.NetworkingV1alpha3().Gateways(namespace).Get(networking.KnativeIngressGateway, metav1.GetOptions{})
 		if err != nil {
-			t.Fatalf("Failed to get Gateway %s/%s", namespace, name)
+			t.Fatalf("Failed to get Gateway %s/%s", namespace, networking.KnativeIngressGateway)
 		}
 		curGateway.Spec.Servers = oldGateway.Spec.Servers
 		if _, err := clients.SharedClient.NetworkingV1alpha3().Gateways(namespace).Update(curGateway); err != nil {
-			t.Fatalf("Failed to restore Gateway %s/%s: %v", namespace, name, err)
+			t.Fatalf("Failed to restore Gateway %s/%s: %v", namespace, networking.KnativeIngressGateway, err)
 		}
 	}
 	test.CleanupOnInterrupt(restore)
@@ -313,9 +313,9 @@ func hasHTTPS(servers []v1alpha3.Server) bool {
 // setupGateway updates the ingress Gateway to the provided Servers and waits until all Envoy pods have been updated.
 func setupGateway(t *testing.T, clients *test.Clients, names test.ResourceNames, domain string, servers []v1alpha3.Server) {
 	// Get the current Gateway
-	curGateway, err := clients.SharedClient.NetworkingV1alpha3().Gateways(namespace).Get(name, metav1.GetOptions{})
+	curGateway, err := clients.SharedClient.NetworkingV1alpha3().Gateways(namespace).Get(networking.KnativeIngressGateway, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to get Gateway %s/%s: %v", namespace, name, err)
+		t.Fatalf("Failed to get Gateway %s/%s: %v", namespace, networking.KnativeIngressGateway, err)
 	}
 
 	// Update its Spec
@@ -325,7 +325,7 @@ func setupGateway(t *testing.T, clients *test.Clients, names test.ResourceNames,
 	// Update the Gateway
 	gw, err := clients.SharedClient.NetworkingV1alpha3().Gateways(namespace).Update(newGateway)
 	if err != nil {
-		t.Fatalf("Failed to update Gateway %s/%s: %v", namespace, name, err)
+		t.Fatalf("Failed to update Gateway %s/%s: %v", namespace, networking.KnativeIngressGateway, err)
 	}
 
 	var selectors []string
