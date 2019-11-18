@@ -426,9 +426,7 @@ function start_knative_monitoring() {
   # mentioned in
   # https://github.com/knative/serving/blob/4202efc0dc12052edc0630515b101cbf8068a609/config/monitoring/tracing/zipkin/100-zipkin.yaml#L21
   kubectl create namespace istio-system 2>/dev/null
-  echo "Installing Monitoring CRDs from $1"
-  kubectl apply --selector knative.dev/crd-install=true -f "$1" || return 1
-  echo "Installing the rest of monitoring components from $1"
+  echo "Installing Monitoring from $1"
   kubectl apply -f "$1" || return 1
   wait_until_pods_running knative-monitoring || return 1
   wait_until_pods_running istio-system || return 1
