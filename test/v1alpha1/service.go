@@ -54,6 +54,7 @@ import (
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 
 	ptest "knative.dev/pkg/test"
+	"knative.dev/serving/pkg/apis/networking"
 	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 )
@@ -63,7 +64,7 @@ const (
 	Namespace = "knative-serving"
 
 	// GatewayName is the name of the ingress gateway
-	GatewayName = "knative-ingress-gateway"
+	GatewayName = networking.KnativeIngressGateway
 )
 
 func validateCreatedServiceStatus(clients *test.Clients, names *test.ResourceNames) error {

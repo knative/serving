@@ -685,7 +685,7 @@ func TestMakeIngressGateways(t *testing.T) {
 		ctx = config.ToContext(context.Background(), &config.Config{
 			Istio: &config.Istio{
 				IngressGateways: []config.Gateway{{
-					Name:       "knative-ingress-gateway",
+					Name:       networking.KnativeIngressGateway,
 					ServiceURL: fmt.Sprintf("%s.%s.svc.cluster.local", c.gatewayService.Name, c.gatewayService.Namespace),
 				}},
 			},
