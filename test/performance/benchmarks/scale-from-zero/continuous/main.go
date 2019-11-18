@@ -55,7 +55,7 @@ const (
 	serviceName              = "perftest-scalefromzero"
 	helloWorldExpectedOutput = "Hello World!"
 	helloWorldImage          = "helloworld"
-	waitToServe              = 10 * time.Minute
+	waitToServe              = 2 * time.Minute
 )
 
 func clientsFromConfig() (*test.Clients, error) {
@@ -191,14 +191,15 @@ func testScaleFromZero(clients *test.Clients, count int) {
 	}
 	q, qclose, ctx := mc.Quickstore, mc.ShutDownFunc, mc.Context
 	defer qclose(ctx)
-	// Wrap fatalf in a helper or our sidecar will live forever.
-	fatalf := func(f string, args ...interface{}) {
-		qclose(ctx)
-		log.Fatalf(f, args...)
-	}
 
 	// Create the services once.
 	objs, cleanup, err := createServices(clients, count)
+	// Wrap fatalf in a helper or our sidecar will live forever, also wrap cleanup.
+	fatalf := func(f string, args ...interface{}) {
+		cleanup()
+		qclose(ctx)
+		log.Fatalf(f, args...)
+	}
 	if err != nil {
 		fatalf("Failed to create services: %v", err)
 	}
