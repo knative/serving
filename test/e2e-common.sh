@@ -123,6 +123,13 @@ function build_knative_from_source() {
   echo "${LOG_OUTPUT}"
   echo -e "Generated manifests:\n${ENV_OUTPUT}"
   eval "${ENV_OUTPUT}"
+
+  # ONLY FOR TESTS, DO NOT MERGE
+  echo "################"
+  ls -al ${YAML_LIST}
+  echo ${SERVING_YAML}
+  echo ${MONITORING_YAML}
+  cat ${MONITORING_YAML}
 }
 
 # Installs Knative Serving in the current cluster, and waits for it to be ready.
