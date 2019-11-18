@@ -63,6 +63,54 @@ func TestBreakerInvalidConstructor(t *testing.T) {
 	}
 }
 
+func TestBreakerReserveOverload(t *testing.T) {
+	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1}
+	b := NewBreaker(params) // Breaker capacity = 2
+	cb1, err := b.Reserve(context.Background())
+	if err != nil {
+		t.Fatalf("Reserve1 = %v, want success", err)
+	}
+	_, err = b.Reserve(context.Background())
+	if err == nil {
+		t.Fatal("Reserve2 was an unexpected success.")
+	}
+	// Release a slot.
+	cb1()
+	// And reserve it again.
+	cb2, err := b.Reserve(context.Background())
+	if err != nil {
+		t.Fatalf("Reserve2 = %v, want success", err)
+	}
+	cb2()
+}
+
+func TestBreakerOverloadMixed(t *testing.T) {
+	// This tests when reservation and maybe are intermised.
+	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1}
+	b := NewBreaker(params) // Breaker capacity = 2
+	reqs := newRequestor(b)
+
+	// Bring breaker to capacity.
+	reqs.request()
+	// This happens in go-routine, so spin.
+	for len(b.sem.queue) > 0 {
+		time.Sleep(time.Millisecond * 2)
+	}
+	_, err := b.Reserve(context.Background())
+	if err == nil {
+		t.Fatal("Reserve was an unexpected success.")
+	}
+	// Open a slot.
+	reqs.processSuccessfully(t)
+	// Now reservation should work.
+	cb, err := b.Reserve(context.Background())
+	if err != nil {
+		t.Fatalf("Reserve = %v, want success", err)
+	}
+	// Process the reservation.
+	cb()
+}
+
 func TestBreakerOverload(t *testing.T) {
 	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1}
 	b := NewBreaker(params) // Breaker capacity = 2
@@ -197,6 +245,13 @@ func TestSemaphoreAcquireHasNoCapacity(t *testing.T) {
 		t.Error("Token was acquired but shouldn't have been")
 	case <-time.After(semNoChangeTimeout):
 		// Test succeeds, semaphore didn't change in configured time.
+	}
+}
+
+func TestSemaphoreAcquireNonBlockingHasNoCapacity(t *testing.T) {
+	sem := newSemaphore(1, 0)
+	if err := sem.acquireNonBlocking(context.Background()); err == nil {
+		t.Error("Should have failed immediately")
 	}
 }
 
