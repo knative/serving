@@ -75,7 +75,7 @@ func (is *IngressStatus) MarkLoadBalancerReady(lbs []LoadBalancerIngressStatus, 
 	ingressCondSet.Manage(is).MarkTrue(IngressConditionLoadBalancerReady)
 }
 
-// MarkLoadBalancerPending marks the "IngressConditionLoadBalancerReady" condition to unknown to
+// MarkLoadBalancerNotReady marks the "IngressConditionLoadBalancerReady" condition to unknown to
 // reflect that the load balancer is not ready yet.
 func (is *IngressStatus) MarkLoadBalancerNotReady() {
 	ingressCondSet.Manage(is).MarkUnknown(IngressConditionLoadBalancerReady, "Uninitialized",
