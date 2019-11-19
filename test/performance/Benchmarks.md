@@ -158,8 +158,7 @@ For testing existing benchmarks, use
 
 ## Admins
 
-We currently have three admins for benchmarking with mako.
+We currently have two admins for benchmarking with mako.
 
-1. `[mattmoor](https://github.com/mattmoor)`
-2. `[vagababov](https://github.com/vagababov)`
-3. `[chizhg](https://github.com/chizhg)`
+1. `[vagababov](https://github.com/vagababov)`
+2. `[chizhg](https://github.com/chizhg)`

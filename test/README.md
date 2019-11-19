@@ -60,14 +60,11 @@ go test -v -tags=e2e -count=1 ./test/e2e
 
 ## Running performance tests
 
-To run [the performance tests](./performance), you need to have a running
-environment that meets
-[the test environment requirements](#environment-requirements), and you need to
-specify the build tag `performance`.
+Each performance test case in Knative serving is a benchmark, to run these benchmarks,
+please follow [dev.md](https://github.com/knative/serving/blob/master/test/performance/dev.md).
 
-```bash
-go test -v -tags=performance -count=1 ./test/performance
-```
+> As of now, only Googlers can run these benchmarks due to one issue of [Mako](https://github.com/google/mako) -
+> the benchmarking tool we use. Details can be found in the [issue report](https://github.com/google/mako/issues/2).
 
 ### Running a single test case
 
