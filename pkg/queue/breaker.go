@@ -75,22 +75,22 @@ func (b *Breaker) HasCapacity() bool {
 // Reserve reserves an execution slot in the breaker, to permit
 // richer semantics in the caller.
 // The caller on success must execute the callback when done with work.
-func (b *Breaker) Reserve(ctx context.Context) (func(), error) {
+func (b *Breaker) Reserve(ctx context.Context) (func(), bool) {
 	select {
 	default:
 		// Pending request queue is full.  Report failure.
-		return nil, ErrRequestQueueFull
+		return nil, false
 	case b.pendingRequests <- struct{}{}:
 		// Pending request has capacity, reserve a slot, if there's one
 		// available.
-		if err := b.sem.acquireNonBlocking(ctx); err != nil {
+		if !b.sem.tryAcquire(ctx) {
 			<-b.pendingRequests
-			return nil, err
+			return nil, false
 		}
 		return func() {
 			b.sem.release()
 			<-b.pendingRequests
-		}, nil
+		}, true
 	}
 }
 
@@ -166,14 +166,14 @@ type semaphore struct {
 	mux      sync.RWMutex
 }
 
-// acquireNonBlocking receives the token from the semaphore if there's one
+// tryAcquire receives the token from the semaphore if there's one
 // otherwise an error is returned.
-func (s *semaphore) acquireNonBlocking(ctx context.Context) error {
+func (s *semaphore) tryAcquire(ctx context.Context) bool {
 	select {
 	case <-s.queue:
-		return nil
+		return true
 	default:
-		return ErrRequestQueueFull
+		return false
 	}
 }
 

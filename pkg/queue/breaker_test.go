@@ -66,20 +66,20 @@ func TestBreakerInvalidConstructor(t *testing.T) {
 func TestBreakerReserveOverload(t *testing.T) {
 	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1}
 	b := NewBreaker(params) // Breaker capacity = 2
-	cb1, err := b.Reserve(context.Background())
-	if err != nil {
-		t.Fatalf("Reserve1 = %v, want success", err)
+	cb1, rr := b.Reserve(context.Background())
+	if !rr {
+		t.Fatal("Reserve1 failed")
 	}
-	_, err = b.Reserve(context.Background())
-	if err == nil {
+	_, rr = b.Reserve(context.Background())
+	if rr {
 		t.Fatal("Reserve2 was an unexpected success.")
 	}
 	// Release a slot.
 	cb1()
 	// And reserve it again.
-	cb2, err := b.Reserve(context.Background())
-	if err != nil {
-		t.Fatalf("Reserve2 = %v, want success", err)
+	cb2, rr := b.Reserve(context.Background())
+	if !rr {
+		t.Fatal("Reserve2 failed")
 	}
 	cb2()
 }
@@ -96,16 +96,16 @@ func TestBreakerOverloadMixed(t *testing.T) {
 	for len(b.sem.queue) > 0 {
 		time.Sleep(time.Millisecond * 2)
 	}
-	_, err := b.Reserve(context.Background())
-	if err == nil {
+	_, rr := b.Reserve(context.Background())
+	if rr {
 		t.Fatal("Reserve was an unexpected success.")
 	}
 	// Open a slot.
 	reqs.processSuccessfully(t)
 	// Now reservation should work.
-	cb, err := b.Reserve(context.Background())
-	if err != nil {
-		t.Fatalf("Reserve = %v, want success", err)
+	cb, rr := b.Reserve(context.Background())
+	if !rr {
+		t.Fatal("Reserve unexpectedly failed")
 	}
 	// Process the reservation.
 	cb()
@@ -250,7 +250,7 @@ func TestSemaphoreAcquireHasNoCapacity(t *testing.T) {
 
 func TestSemaphoreAcquireNonBlockingHasNoCapacity(t *testing.T) {
 	sem := newSemaphore(1, 0)
-	if err := sem.acquireNonBlocking(context.Background()); err == nil {
+	if sem.tryAcquire(context.Background()) {
 		t.Error("Should have failed immediately")
 	}
 }
