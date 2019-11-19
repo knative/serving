@@ -213,15 +213,15 @@ func runScaleFromZero(ctx context.Context, clients *test.Clients, idx int, ro *v
 			m := fmt.Sprintf("%02d: the endpoint for Route %q at %q didn't serve the expected text %q: %v", idx, ro.Route.Name, url, helloWorldExpectedOutput, err)
 			log.Println(m)
 			errch <- errors.New(m)
-		} else {
-			sdch <- struct{}{}
+			return
 		}
+
+		sdch <- struct{}{}
 	}()
 
-	// Get the duration to serve and the duration that deployment spec is changed.
-	var sd, dd time.Duration
 	start := time.Now()
-LOOP:
+	// Get the duration that takes to change deployment spec.
+	var dd time.Duration
 	for {
 		select {
 		case event := <-ddch:
@@ -232,15 +232,11 @@ LOOP:
 				}
 			}
 		case <-sdch:
-			sd = time.Since(start)
-			break LOOP
+			return time.Since(start), dd, nil
 		case err := <- errch:
 			return 0, 0, err
 		}
 	}
-
-	log.Printf("%02d: request completed", idx)
-	return sd, dd, nil
 }
 
 func testScaleFromZero(clients *test.Clients, count int) {
