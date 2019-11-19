@@ -27,7 +27,7 @@ import (
 
 const (
 	letterBytes    = "abcdefghijklmnopqrstuvwxyz"
-	randSuffixLen  = 8
+	randSuffixLen  = 4
 	sep            = '-'
 	testNamePrefix = "Test"
 )
@@ -68,21 +68,35 @@ func AppendRandomString(prefix string) string {
 
 // MakeK8sNamePrefix converts each chunk of non-alphanumeric character into a single dash
 // and also convert camelcase tokens into dash-delimited lowercase tokens.
-func MakeK8sNamePrefix(s string) string {
-	var sb strings.Builder
-	newToken := false
-	for _, c := range s {
-		if !(unicode.IsLetter(c) || unicode.IsNumber(c)) {
-			newToken = true
-			continue
+func MakeK8sNamePrefix(fullTestName string) string {
+	testNames := strings.Split(fullTestName, "/")
+	ret := ""
+	for _, s := range testNames {
+		var sb strings.Builder
+		newToken := false
+		for _, c := range s {
+			if !(unicode.IsLetter(c) || unicode.IsNumber(c)) {
+				newToken = true
+				continue
+			}
+			if sb.Len() > 0 && (newToken || unicode.IsUpper(c)) {
+				sb.WriteRune(sep)
+			}
+			sb.WriteRune(unicode.ToLower(c))
+			newToken = false
 		}
-		if sb.Len() > 0 && (newToken || unicode.IsUpper(c)) {
-			sb.WriteRune(sep)
+		// Shorten each blocks to 15 bytes. For example, when test name is `ServiceToServiceCallViaActivator/both-enabled` then,
+		// generate "service-to-serv-both-enabled" by service-to-serv(15) + both-enabled(12).
+		ss := sb.String()
+		if len(ss) > 15 {
+			ss = ss[:15]
 		}
-		sb.WriteRune(unicode.ToLower(c))
-		newToken = false
+		if ret != "" {
+			ret += string(sep)
+		}
+		ret += ss
 	}
-	return sb.String()
+	return ret
 }
 
 // GetBaseFuncName returns the baseFuncName parsed from the fullFuncName.
