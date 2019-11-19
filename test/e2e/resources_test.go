@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1
+package e2e
 
 import (
 	"fmt"
@@ -26,6 +26,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/klog"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/test"
@@ -74,8 +75,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 	}
 
 	sendPostRequest := func(resolvableDomain bool, url *url.URL) (*spoof.Response, error) {
-		t.Logf("Request %s", url)
-		client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), resolvableDomain)
+		client, err := pkgTest.NewSpoofingClient(clients.KubeClient, klog.V(4).Infof, url.Hostname(), resolvableDomain)
 		if err != nil {
 			return nil, err
 		}
@@ -87,31 +87,39 @@ func TestCustomResourcesLimits(t *testing.T) {
 		return client.Do(req)
 	}
 
-	pokeCowForMB := func(mb int) error {
+	bloatAndCheck := func(mb int, wantSuccess bool) {
+		expect := "failure"
+		if wantSuccess {
+			expect = "success"
+		}
+		klog.V(2).Infof("Bloating by %d MB and expecting %s.\n", mb, expect)
 		u, _ := url.Parse(endpoint.String())
 		q := u.Query()
 		q.Set("bloat", fmt.Sprintf("%d", mb))
 		u.RawQuery = q.Encode()
 		response, err := sendPostRequest(test.ServingFlags.ResolvableDomain, u)
 		if err != nil {
-			return err
+			klog.V(5).Infof("Received error '%+v' from sendPostRequest (may be expected)\n", err)
+			if wantSuccess {
+				t.Fatalf("Didn't get a response from bloating RAM with %d MBs", mb)
+			}
+		} else if response.StatusCode == http.StatusOK {
+			if !wantSuccess {
+				t.Fatalf("We shouldn't have got a response from bloating RAM with %d MBs", mb)
+			}
+		} else if response.StatusCode == http.StatusBadRequest {
+			t.Error("Test Issue: Received BadRequest from test app, which probably means the test & test image are not cooperating with each other.")
+		} else {
+			// Accept all other StatusCode as failure; different systems could return 404, 502, etc on failure
+			klog.V(5).Infof("Received http code '%d' from sendPostRequest; interpreting as failure of bloat\n", response.StatusCode)
+			if wantSuccess {
+				t.Fatalf("Didn't get a good response from bloating RAM with %d MBs", mb)
+			}
 		}
-		if response.StatusCode != http.StatusOK {
-			return fmt.Errorf("StatusCode = %d, want %d", response.StatusCode, http.StatusOK)
-		}
-		return nil
 	}
 
-	t.Log("Querying the application to see if the memory limits are enforced.")
-	if err := pokeCowForMB(100); err != nil {
-		t.Fatalf("Didn't get a response from bloating cow with %d MBs of Memory: %v", 100, err)
-	}
-
-	if err := pokeCowForMB(200); err != nil {
-		t.Fatalf("Didn't get a response from bloating cow with %d MBs of Memory: %v", 200, err)
-	}
-
-	if err := pokeCowForMB(500); err == nil {
-		t.Fatalf("We shouldn't have got a response from bloating cow with %d MBs of Memory: %v", 500, err)
-	}
+	klog.V(0).Infoln("Querying the application to see if the memory limits are enforced.")
+	bloatAndCheck(100, true)
+	bloatAndCheck(200, true)
+	bloatAndCheck(500, false)
 }
