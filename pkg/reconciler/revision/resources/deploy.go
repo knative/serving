@@ -178,7 +178,6 @@ func getUserPort(rev *v1alpha1.Revision) int32 {
 		return ports[0].ContainerPort
 	}
 
-	//TODO(#2258): Use container EXPOSE metadata from image before falling back to default value
 
 	return v1alpha1.DefaultUserPort
 }
@@ -206,11 +205,6 @@ func MakeDeployment(rev *v1alpha1.Revision,
 		return k == serving.RevisionLastPinnedAnnotationKey
 	})
 
-	// TODO(nghia): Remove the need for this
-	// Only force-set the inject annotation if the revision does not state otherwise.
-	if _, ok := podTemplateAnnotations[sidecarIstioInjectAnnotation]; !ok {
-		podTemplateAnnotations[sidecarIstioInjectAnnotation] = "true"
-	}
 	// TODO(mattmoor): Once we have a mechanism for decorating arbitrary deployments (and opting
 	// out via annotation) we should explicitly disable that here to avoid redundant Image
 	// resources.
@@ -228,6 +222,7 @@ func MakeDeployment(rev *v1alpha1.Revision,
 			podTemplateAnnotations[IstioOutboundIPRangeAnnotation] = networkConfig.IstioOutboundIPRanges
 		}
 	}
+
 	podSpec, err := makePodSpec(rev, loggingConfig, tracingConfig, observabilityConfig, autoscalerConfig, deploymentConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create PodSpec")
