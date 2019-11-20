@@ -21,6 +21,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	v1 "k8s.io/api/apps/v1"
 	"log"
 	"strconv"
 	"sync"
@@ -29,6 +30,7 @@ import (
 
 	"github.com/google/mako/go/quickstore"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/watch"
 	"knative.dev/pkg/test/mako"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/test/performance"
@@ -44,6 +46,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -120,9 +123,33 @@ func createServices(clients *test.Clients, count int) ([]*v1a1test.ResourceObjec
 	return objs, cleanupNames, nil
 }
 
-func parallelScaleFromZero(ctx context.Context, clients *test.Clients, objs []*v1a1test.ResourceObjects, count int, q *quickstore.Quickstore) {
+func waitForScaleToZero(ctx context.Context, objs []*v1a1test.ResourceObjects) error {
+	g := errgroup.Group{}
+	for i := 0; i < len(objs); i++ {
+		idx := i
+		ro := objs[i]
+		g.Go(func() error {
+			log.Printf("%02d: waiting for deployment to scale to zero", idx)
+			selector := labels.SelectorFromSet(labels.Set{
+				serving.ServiceLabelKey: ro.Service.Name,
+			})
+
+			if err := performance.WaitForScaleToZero(ctx, testNamespace, selector, 2*time.Minute); err != nil {
+				m := fmt.Sprintf("%02d: failed waiting for deployment to scale to zero: %v", idx, err)
+				log.Println(m)
+				return errors.New(m)
+			}
+			return nil
+		})
+	}
+	return g.Wait()
+}
+
+func parallelScaleFromZero(ctx context.Context, clients *test.Clients, objs []*v1a1test.ResourceObjects, q *quickstore.Quickstore) {
+	count := len(objs)
 	// Get the key for saving latency and error metrics in the benchmark.
 	lk := "l" + strconv.Itoa(count)
+	dlk := "dl" + strconv.Itoa(count)
 	ek := "e" + strconv.Itoa(count)
 	var wg sync.WaitGroup
 	wg.Add(count)
@@ -130,11 +157,13 @@ func parallelScaleFromZero(ctx context.Context, clients *test.Clients, objs []*v
 		ndx := i
 		go func() {
 			defer wg.Done()
-			dur, err := runScaleFromZero(ctx, clients, ndx, objs[ndx])
-			log.Printf("%02d: duration: %v, err: %v", ndx, dur, err)
+			sdur, ddur, err := runScaleFromZero(ctx, clients, ndx, objs[ndx])
 			if err == nil {
 				q.AddSamplePoint(mako.XTime(time.Now()), map[string]float64{
-					lk: dur.Seconds(),
+					lk: sdur.Seconds(),
+				})
+				q.AddSamplePoint(mako.XTime(time.Now()), map[string]float64{
+					dlk: ddur.Seconds(),
 				})
 			} else {
 				// Add 1 to the error metric whenever there is an error.
@@ -150,37 +179,64 @@ func parallelScaleFromZero(ctx context.Context, clients *test.Clients, objs []*v
 	wg.Wait()
 }
 
-func runScaleFromZero(ctx context.Context, clients *test.Clients, idx int, ro *v1a1test.ResourceObjects) (time.Duration, error) {
-	log.Printf("%02d: waiting for deployment to scale to zero.", idx)
+func runScaleFromZero(ctx context.Context, clients *test.Clients, idx int, ro *v1a1test.ResourceObjects) (
+	time.Duration, time.Duration, error) {
 	selector := labels.SelectorFromSet(labels.Set{
 		serving.ServiceLabelKey: ro.Service.Name,
 	})
 
-	if err := performance.WaitForScaleToZero(ctx, testNamespace, selector, 2*time.Minute); err != nil {
-		m := fmt.Sprintf("%02d: failed waiting for deployment to scale to zero: %v", idx, err)
+	watcher, err := clients.KubeClient.Kube.AppsV1().Deployments(testNamespace).Watch(
+		metav1.ListOptions{LabelSelector:selector.String()})
+	if err != nil {
+		m := fmt.Sprintf("%02d: unable to watch the deployment for the service: %v", idx, err)
 		log.Println(m)
-		return 0, errors.New(m)
+		return 0, 0, errors.New(m)
 	}
+	defer watcher.Stop()
+
+	ddch := watcher.ResultChan()
+	sdch := make(chan struct{})
+	errch := make(chan error)
+
+	go func() {
+		log.Printf("%02d: waiting for endpoint to serve request", idx)
+		url := ro.Route.Status.URL.URL()
+		_, err := pkgTest.WaitForEndpointStateWithTimeout(
+			clients.KubeClient,
+			log.Printf,
+			url,
+			pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput)),
+			"HelloWorldServesText",
+			test.ServingFlags.ResolvableDomain, waitToServe,
+		)
+		if err != nil {
+			m := fmt.Sprintf("%02d: the endpoint for Route %q at %q didn't serve the expected text %q: %v", idx, ro.Route.Name, url, helloWorldExpectedOutput, err)
+			log.Println(m)
+			errch <- errors.New(m)
+			return
+		}
+
+		sdch <- struct{}{}
+	}()
 
 	start := time.Now()
-	log.Printf("%02d: waiting for endpoint to serve request", idx)
-	url := ro.Route.Status.URL.URL()
-	if _, err := pkgTest.WaitForEndpointStateWithTimeout(
-		clients.KubeClient,
-		log.Printf,
-		url,
-		pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(helloWorldExpectedOutput)),
-		"HelloWorldServesText",
-		test.ServingFlags.ResolvableDomain, waitToServe,
-	); err != nil {
-		m := fmt.Sprintf("%02d: the endpoint for Route %q at %q didn't serve the expected text %q: %v", idx, ro.Route.Name, url, helloWorldExpectedOutput, err)
-		log.Println(m)
-		return 0, errors.New(m)
+	// Get the duration that takes to change deployment spec.
+	var dd time.Duration
+	for {
+		select {
+		case event := <-ddch:
+			if event.Type == watch.Modified {
+				dm := event.Object.(*v1.Deployment)
+				if *dm.Spec.Replicas != 0 && dd == 0 {
+					dd = time.Since(start)
+				}
+			}
+		case <-sdch:
+			return time.Since(start), dd, nil
+		case err := <- errch:
+			return 0, 0, err
+		}
 	}
-
-	log.Printf("%02d: request completed", idx)
-
-	return time.Since(start), nil
 }
 
 func testScaleFromZero(clients *test.Clients, count int) {
@@ -205,7 +261,12 @@ func testScaleFromZero(clients *test.Clients, count int) {
 	}
 	defer cleanup()
 
-	parallelScaleFromZero(ctx, clients, objs, count, q)
+	// Wait all services scaling to zero.
+	if err := waitForScaleToZero(ctx, objs); err != nil {
+		fatalf("Failed to wait for all services to scale to zero: %v", err)
+	}
+
+	parallelScaleFromZero(ctx, clients, objs, q)
 	if err := mc.StoreAndHandleResult(); err != nil {
 		fatalf("Failed to store and handle benchmarking result: %v", err)
 	}
