@@ -18,8 +18,7 @@ package readiness
 
 import (
 	"encoding/json"
-
-	"github.com/pkg/errors"
+	"errors"
 
 	corev1 "k8s.io/api/core/v1"
 )

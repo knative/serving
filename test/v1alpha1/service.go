@@ -44,7 +44,6 @@ import (
 	"knative.dev/pkg/test/spoof"
 
 	"github.com/mattbaird/jsonpatch"
-	perrors "github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -316,13 +315,13 @@ func WaitForServiceLatestRevision(clients *test.Clients, names test.ResourceName
 		return false, nil
 	}, "ServiceUpdatedWithRevision")
 	if err != nil {
-		return "", perrors.Wrapf(err, "LatestCreatedRevisionName not updated")
+		return "", fmt.Errorf("LatestCreatedRevisionName not updated: %w", err)
 	}
 	err = WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
 		return (s.Status.LatestReadyRevisionName == revisionName), nil
 	}, "ServiceReadyWithRevision")
 
-	return revisionName, perrors.Wrapf(err, "LatestReadyRevisionName not updated with %s", revisionName)
+	return revisionName, fmt.Errorf("LatestReadyRevisionName not updated with %s: %w", revisionName, err)
 }
 
 // LatestService returns a Service object in namespace with the name names.Service

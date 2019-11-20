@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	"github.com/mattbaird/jsonpatch"
-	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -185,13 +184,13 @@ func WaitForServiceLatestRevision(clients *test.Clients, names test.ResourceName
 		return false, nil
 	}, "ServiceUpdatedWithRevision")
 	if err != nil {
-		return "", errors.Wrapf(err, "LatestCreatedRevisionName not updated")
+		return "", fmt.Errorf("LatestCreatedRevisionName not updated: %w", err)
 	}
 	err = WaitForServiceState(clients.ServingBetaClient, names.Service, func(s *v1beta1.Service) (bool, error) {
 		return (s.Status.LatestReadyRevisionName == revisionName), nil
 	}, "ServiceReadyWithRevision")
 
-	return revisionName, errors.Wrapf(err, "LatestReadyRevisionName not updated with %s", revisionName)
+	return revisionName, fmt.Errorf("LatestReadyRevisionName not updated with %s: %w", revisionName, err)
 }
 
 // Service returns a Service object in namespace with the name names.Service
