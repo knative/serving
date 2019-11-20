@@ -38,16 +38,16 @@ const (
 )
 
 // watchFunc generates a function to assert the changes happening in the multiscaler.
-func watchFunc(ctx context.Context, ms *MultiScaler, decider *Decider, desiredScale int, errCh chan error) func(key string) {
-	metricKey := fmt.Sprintf("%s/%s", decider.Namespace, decider.Name)
-	return func(key string) {
+func watchFunc(ctx context.Context, ms *MultiScaler, decider *Decider, desiredScale int, errCh chan error) func(key types.NamespacedName) {
+	metricKey := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
+	return func(key types.NamespacedName) {
 		if key != metricKey {
 			errCh <- fmt.Errorf("Watch() = %v, wanted %v", key, metricKey)
 			return
 		}
 		m, err := ms.Get(ctx, decider.Namespace, decider.Name)
 		if err != nil {
-			errCh <- fmt.Errorf("Get() = %v", err)
+			errCh <- fmt.Errorf("Get() = %w", err)
 			return
 		}
 		if got, want := m.Status.DesiredScale, int32(desiredScale); got != want {
@@ -84,9 +84,8 @@ func verifyNoTick(errCh chan error) error {
 
 func TestMultiScalerScaling(t *testing.T) {
 	ctx := context.Background()
-	ms, stopCh, statCh, uniScaler := createMultiScaler(t)
+	ms, stopCh, uniScaler := createMultiScaler(t)
 	defer close(stopCh)
-	defer close(statCh)
 
 	decider := newDecider()
 	uniScaler.setScaleResult(1, 1, true)
@@ -128,9 +127,8 @@ func TestMultiScalerScaling(t *testing.T) {
 
 func TestMultiScalerOnlyCapacityChange(t *testing.T) {
 	ctx := context.Background()
-	ms, stopCh, statCh, uniScaler := createMultiScaler(t)
+	ms, stopCh, uniScaler := createMultiScaler(t)
 	defer close(stopCh)
-	defer close(statCh)
 
 	decider := newDecider()
 	uniScaler.setScaleResult(1, 1, true)
@@ -169,9 +167,8 @@ func TestMultiScalerOnlyCapacityChange(t *testing.T) {
 
 func TestMultiScalerTickUpdate(t *testing.T) {
 	ctx := context.Background()
-	ms, stopCh, statCh, uniScaler := createMultiScaler(t)
+	ms, stopCh, uniScaler := createMultiScaler(t)
 	defer close(stopCh)
-	defer close(statCh)
 
 	decider := newDecider()
 	decider.Spec.TickInterval = 10 * time.Second
@@ -213,9 +210,8 @@ func TestMultiScalerTickUpdate(t *testing.T) {
 
 func TestMultiScalerScaleToZero(t *testing.T) {
 	ctx := context.Background()
-	ms, stopCh, statCh, uniScaler := createMultiScaler(t)
+	ms, stopCh, uniScaler := createMultiScaler(t)
 	defer close(stopCh)
-	defer close(statCh)
 
 	decider := newDecider()
 	uniScaler.setScaleResult(0, 1, true)
@@ -252,9 +248,8 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 
 func TestMultiScalerScaleFromZero(t *testing.T) {
 	ctx := context.Background()
-	ms, stopCh, statCh, uniScaler := createMultiScaler(t)
+	ms, stopCh, uniScaler := createMultiScaler(t)
 	defer close(stopCh)
-	defer close(statCh)
 
 	decider := newDecider()
 	decider.Spec.TickInterval = 60 * time.Second
@@ -274,14 +269,13 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 		t.Error("Failed to set scale for metric to 0")
 	}
 
-	now := time.Now()
 	testStat := Stat{
-		Time:                      &now,
+		Time:                      time.Now(),
 		PodName:                   "test-pod",
 		AverageConcurrentRequests: 1,
 		RequestCount:              1,
 	}
-	ms.Poke(testPAKey, testStat)
+	ms.Poke(metricKey, testStat)
 
 	// Verify that we see a "tick"
 	if err := verifyTick(errCh); err != nil {
@@ -291,9 +285,8 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 
 func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	ctx := context.Background()
-	ms, stopCh, statCh, uniScaler := createMultiScaler(t)
+	ms, stopCh, uniScaler := createMultiScaler(t)
 	defer close(stopCh)
-	defer close(statCh)
 
 	decider := newDecider()
 
@@ -306,7 +299,7 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	}
 
 	errCh := make(chan error)
-	ms.Watch(func(key string) {
+	ms.Watch(func(key types.NamespacedName) {
 		// Let the main process know when this is called.
 		errCh <- nil
 	})
@@ -334,9 +327,8 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 
 func TestMultiScalerUpdate(t *testing.T) {
 	ctx := context.Background()
-	ms, stopCh, statCh, uniScaler := createMultiScaler(t)
+	ms, stopCh, uniScaler := createMultiScaler(t)
 	defer close(stopCh)
-	defer close(statCh)
 
 	decider := newDecider()
 	decider.Spec.TargetValue = 1.0
@@ -369,15 +361,14 @@ func TestMultiScalerUpdate(t *testing.T) {
 	}
 }
 
-func createMultiScaler(t *testing.T) (*MultiScaler, chan<- struct{}, chan *StatMessage, *fakeUniScaler) {
+func createMultiScaler(t *testing.T) (*MultiScaler, chan<- struct{}, *fakeUniScaler) {
 	logger := TestLogger(t)
 	uniscaler := &fakeUniScaler{}
 
 	stopChan := make(chan struct{})
-	statChan := make(chan *StatMessage)
 	ms := NewMultiScaler(stopChan, uniscaler.fakeUniScalerFactory, logger)
 
-	return ms, stopChan, statChan, uniscaler
+	return ms, stopChan, uniscaler
 }
 
 type fakeUniScaler struct {
@@ -414,7 +405,7 @@ func (u *fakeUniScaler) setScaleResult(replicas, surplus int32, scaled bool) {
 	u.scaled = scaled
 }
 
-func (u *fakeUniScaler) Update(DeciderSpec) error {
+func (u *fakeUniScaler) Update(*DeciderSpec) error {
 	return nil
 }
 

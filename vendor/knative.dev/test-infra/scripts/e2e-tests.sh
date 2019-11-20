@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2019 The Knative Authors
 #
@@ -93,13 +93,32 @@ function dump_cluster_state() {
   echo "***         E2E TEST FAILED         ***"
   echo "***    Start of information dump    ***"
   echo "***************************************"
-  echo ">>> All resources:"
-  kubectl get all --all-namespaces
-  echo ">>> Services:"
-  kubectl get services --all-namespaces
-  echo ">>> Events:"
-  kubectl get events --all-namespaces
-  function_exists dump_extra_cluster_state && dump_extra_cluster_state
+
+  local output="${ARTIFACTS}/k8s.dump.txt"
+  echo ">>> The dump is located at ${output}"
+
+  for crd in $(kubectl api-resources --verbs=list -o name | sort); do
+    local count="$(kubectl get $crd --all-namespaces --no-headers 2>/dev/null | wc -l)"
+    echo ">>> ${crd} (${count} objects)"
+    if [[ "${count}" > "0" ]]; then
+      echo ">>> ${crd} (${count} objects)" >> ${output}
+
+      echo ">>> Listing" >> ${output}
+      kubectl get ${crd} --all-namespaces >> ${output}
+
+      echo ">>> Details" >> ${output}
+      if [[ "${crd}" == "secrets" ]]; then
+        echo "Secrets are ignored for security reasons" >> ${output}
+      else
+        kubectl get ${crd} --all-namespaces -o yaml >> ${output}
+      fi
+    fi
+  done
+
+  if function_exists dump_extra_cluster_state; then
+    echo ">>> Extra dump" >> ${output}
+    dump_extra_cluster_state >> ${output}
+  fi
   echo "***************************************"
   echo "***         E2E TEST FAILED         ***"
   echo "***     End of information dump     ***"
@@ -226,7 +245,7 @@ function create_test_cluster() {
   local test_wrapper="${kubedir}/e2e-test.sh"
   mkdir ${kubedir}/cluster
   ln -s "$(which kubectl)" ${kubedir}/cluster/kubectl.sh
-  echo "#!/bin/bash" > ${test_wrapper}
+  echo "#!/usr/bin/env bash" > ${test_wrapper}
   echo "cd $(pwd) && set -x" >> ${test_wrapper}
   echo "${E2E_SCRIPT} ${test_cmd_args}" >> ${test_wrapper}
   chmod +x ${test_wrapper}
@@ -291,7 +310,8 @@ function create_test_cluster_with_retries() {
       # - latest GKE not available in this region/zone yet (https://github.com/knative/test-infra/issues/694)
       [[ -z "$(grep -Fo 'does not have enough resources available to fulfill' ${cluster_creation_log})" \
           && -z "$(grep -Fo 'ResponseError: code=400, message=No valid versions with the prefix' ${cluster_creation_log})" \
-          && -z "$(grep -Po 'ResponseError: code=400, message=Master version "[0-9a-z\-\.]+" is unsupported' ${cluster_creation_log})" ]] \
+          && -z "$(grep -Po 'ResponseError: code=400, message=Master version "[0-9a-z\-\.]+" is unsupported' ${cluster_creation_log})"  \
+          && -z "$(grep -Po 'only \d+ nodes out of \d+ have registered; this is likely due to Nodes failing to start correctly' ${cluster_creation_log})" ]] \
           && return 1
     done
   done
@@ -304,6 +324,9 @@ function setup_test_cluster() {
   # Fail fast during setup.
   set -o errexit
   set -o pipefail
+
+  header "Test cluster setup"
+  kubectl get nodes
 
   header "Setting up test cluster"
 
@@ -323,10 +346,9 @@ function setup_test_cluster() {
     abort "kubeconfig context set to ${k8s_cluster}, which is forbidden"
 
   # If cluster admin role isn't set, this is a brand new cluster
-  # Setup the admin role and also KO_DOCKER_REPO
-  if [[ -z "$(kubectl get clusterrolebinding cluster-admin-binding 2> /dev/null)" ]]; then
+  # Setup the admin role and also KO_DOCKER_REPO if it is a GKE cluster
+  if [[ -z "$(kubectl get clusterrolebinding cluster-admin-binding 2> /dev/null)" && "${k8s_cluster}" =~ ^gke_.* ]]; then
     acquire_cluster_admin_role ${k8s_user} ${E2E_CLUSTER_NAME} ${E2E_CLUSTER_REGION} ${E2E_CLUSTER_ZONE}
-    kubectl config set-context ${k8s_cluster} --namespace=default
     # Incorporate an element of randomness to ensure that each run properly publishes images.
     export KO_DOCKER_REPO=gcr.io/${E2E_PROJECT_ID}/${E2E_BASE_NAME}-e2e-img/${RANDOM}
   fi
@@ -335,9 +357,12 @@ function setup_test_cluster() {
   is_protected_gcr ${KO_DOCKER_REPO} && \
     abort "\$KO_DOCKER_REPO set to ${KO_DOCKER_REPO}, which is forbidden"
 
-  echo "- Project is ${E2E_PROJECT_ID}"
+  # Use default namespace for all subsequent kubectl commands in this context
+  kubectl config set-context ${k8s_cluster} --namespace=default
+
+  echo "- gcloud project is ${E2E_PROJECT_ID}"
+  echo "- gcloud user is ${k8s_user}"
   echo "- Cluster is ${k8s_cluster}"
-  echo "- User is ${k8s_user}"
   echo "- Docker is ${KO_DOCKER_REPO}"
 
   export KO_DATA_PATH="${REPO_ROOT_DIR}/.git"

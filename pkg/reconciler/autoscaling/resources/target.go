@@ -19,6 +19,7 @@ package resources
 import (
 	"math"
 
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler"
 )
@@ -28,30 +29,37 @@ import (
 // `target` is the target value of scaling metric that we autoscaler will aim for;
 // `total` is the maximum possible value of scaling metric that is permitted on the pod.
 func ResolveMetricTarget(pa *v1alpha1.PodAutoscaler, config *autoscaler.Config) (target float64, total float64) {
-	// TODO(yanweiguo): currently concurrency is the only supported metric so
-	// we takes all concurrency knobs directly. Once we support other metric,
-	// for example requests per second, we need to calculate the target values
-	// based on which metric is used for autoscaling.
-	total = float64(pa.Spec.ContainerConcurrency)
-	// If containerConcurrency is 0 we'll always target the default.
-	if total == 0 {
-		total = config.ContainerConcurrencyTargetDefault
+	var tu float64
+
+	switch pa.Metric() {
+	case autoscaling.RPS:
+		total = config.RPSTargetDefault
+		tu = config.TargetUtilization
+	default:
+		// Concurrency is used by default
+		total = float64(pa.Spec.ContainerConcurrency)
+		// If containerConcurrency is 0 we'll always target the default.
+		if total == 0 {
+			total = config.ContainerConcurrencyTargetDefault
+		}
+		tu = config.ContainerConcurrencyTargetFraction
 	}
 
-	tu := config.ContainerConcurrencyTargetFraction
+	// Use the target provided via annotation, if applicable.
+	if annotationTarget, ok := pa.Target(); ok {
+		total = annotationTarget
+		if pa.Metric() == autoscaling.Concurrency && pa.Spec.ContainerConcurrency != 0 {
+			// We pick the smaller value between container concurrency and the annotationTarget
+			// to make sure the autoscaler does not aim for a higher concurrency than the application
+			// can handle per containerConcurrency.
+			total = math.Min(annotationTarget, float64(pa.Spec.ContainerConcurrency))
+		}
+	}
+
 	if v, ok := pa.TargetUtilization(); ok {
 		tu = v
 	}
 	target = math.Max(1, total*tu)
-
-	// Use the target provided via annotation, if applicable.
-	if annotationTarget, ok := pa.Target(); ok {
-		// We pick the smaller value between the calculated target and the annotationTarget
-		// to make sure the autoscaler does not aim for a higher concurrency than the application
-		// can handle per containerConcurrency.
-		target = math.Max(1, math.Min(target, annotationTarget*tu))
-		total = math.Min(annotationTarget, total)
-	}
 
 	return target, total
 }

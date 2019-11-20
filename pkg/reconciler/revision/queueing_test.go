@@ -21,10 +21,9 @@ import (
 	"testing"
 	"time"
 
+	"knative.dev/serving/pkg/apis/config"
+
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
-	openzipkin "github.com/openzipkin/zipkin-go"
-	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
-	reporterrecorder "github.com/openzipkin/zipkin-go/reporter/recorder"
 	"golang.org/x/sync/errgroup"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -32,16 +31,17 @@ import (
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
+	"knative.dev/pkg/tracing"
+	tracingconfig "knative.dev/pkg/tracing/config"
+	tracetesting "knative.dev/pkg/tracing/testing"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/autoscaler"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/tracing"
-	tracingconfig "knative.dev/serving/pkg/tracing/config"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -80,7 +80,7 @@ func testRevision() *v1alpha1.Revision {
 			UID: "test-rev-uid",
 		},
 		Spec: v1alpha1.RevisionSpec{
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					// corev1.Container has a lot of setting.  We try to pass many
 					// of them here to verify that we pass through the settings to
@@ -93,9 +93,6 @@ func testRevision() *v1alpha1.Revision {
 						Env: []corev1.EnvVar{{
 							Name:  "EDITOR",
 							Value: "emacs",
-						}, {
-							Name:  "TRACING_CONFIG_ENABLE",
-							Value: "false",
 						}},
 						LivenessProbe: &corev1.Probe{
 							TimeoutSeconds: 42,
@@ -138,13 +135,26 @@ func getTestDeploymentConfigMap() *corev1.ConfigMap {
 	}
 }
 
+func getTestDefaultsConfigMap() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      config.DefaultsConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{
+			"container-name-template": "user-container",
+		},
+	}
+}
+
 func newTestController(t *testing.T) (
 	context.Context,
+	context.CancelFunc,
 	[]controller.Informer,
 	*controller.Impl,
 	*configmap.ManualWatcher) {
 
-	ctx, informers := SetupFakeContext(t)
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 	configMapWatcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
 	controller := NewController(ctx, configMapWatcher)
 
@@ -152,6 +162,7 @@ func newTestController(t *testing.T) (
 
 	configs := []*corev1.ConfigMap{
 		getTestDeploymentConfigMap(),
+		getTestDefaultsConfigMap(),
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
@@ -187,7 +198,7 @@ func newTestController(t *testing.T) (
 				Name:      autoscaler.ConfigName,
 			},
 			Data: map[string]string{
-				"max-scale-up-rate":                       "1.0",
+				"max-scale-up-rate":                       "2.0",
 				"container-concurrency-target-percentage": "0.5",
 				"container-concurrency-target-default":    "10.0",
 				"stable-window":                           "5m",
@@ -200,36 +211,26 @@ func newTestController(t *testing.T) (
 		configMapWatcher.OnChange(configMap)
 	}
 
-	return ctx, informers, controller, configMapWatcher
+	return ctx, cancel, informers, controller, configMapWatcher
 }
 
 func TestNewRevisionCallsSyncHandler(t *testing.T) {
-	ctx, informers, ctrl, _ := newTestController(t)
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel, informers, ctrl, _ := newTestController(t)
 	// Create tracer with reporter recorder
-	reporter := reporterrecorder.NewReporter()
+	reporter, co := tracetesting.FakeZipkinExporter()
 	defer reporter.Close()
-	endpoint, _ := openzipkin.NewEndpoint("test", "localhost:1234")
-	oct := tracing.NewOpenCensusTracer(tracing.WithZipkinExporter(func(cfg *tracingconfig.Config) (zipkinreporter.Reporter, error) {
-		return reporter, nil
-	}, endpoint))
+	oct := tracing.NewOpenCensusTracer(co)
 	defer oct.Finish()
 
 	cfg := tracingconfig.Config{
-		Enable: true,
-		Debug:  true,
+		Backend: tracingconfig.Zipkin,
+		Debug:   true,
 	}
 	if err := oct.ApplyConfig(&cfg); err != nil {
 		t.Errorf("Failed to apply tracer config: %v", err)
 	}
 
 	eg := errgroup.Group{}
-	defer func() {
-		cancel()
-		if err := eg.Wait(); err != nil {
-			t.Fatalf("Error running controller: %v", err)
-		}
-	}()
 
 	rev := testRevision()
 	servingClient := fakeservingclient.Get(ctx)
@@ -243,9 +244,17 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 		return HookComplete
 	})
 
-	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
+	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
 		t.Fatalf("Error starting informers: %v", err)
 	}
+	defer func() {
+		cancel()
+		if err := eg.Wait(); err != nil {
+			t.Fatalf("Error running controller: %v", err)
+		}
+		waitInformers()
+	}()
 
 	eg.Go(func() error {
 		return ctrl.Run(2, ctx.Done())

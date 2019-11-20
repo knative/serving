@@ -23,12 +23,14 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+
 	testing2 "knative.dev/pkg/logging/testing"
+	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/client/clientset/versioned/fake"
-	servinginformers "knative.dev/serving/pkg/client/informers/externalversions"
+	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 	pkghttp "knative.dev/serving/pkg/http"
 
@@ -48,7 +50,7 @@ func TestUpdateRequestLogFromConfigMap(t *testing.T) {
 	})
 	buf := bytes.NewBufferString("")
 	handler, err := pkghttp.NewRequestLogHandler(baseHandler, buf, "",
-		requestLogTemplateInputGetter(getRevisionLister(true)))
+		requestLogTemplateInputGetter(revisionLister(t, true)), false /*enableProbeRequestLog*/)
 	if err != nil {
 		t.Fatalf("want: no error, got: %v", err)
 	}
@@ -122,7 +124,7 @@ func TestRequestLogTemplateInputGetter(t *testing.T) {
 		want     pkghttp.RequestLogRevision
 	}{{
 		name:   "success",
-		getter: requestLogTemplateInputGetter(getRevisionLister(true)),
+		getter: requestLogTemplateInputGetter(revisionLister(t, true)),
 		request: &http.Request{Header: map[string][]string{
 			activator.RevisionHeaderName:      {testRevisionName},
 			activator.RevisionHeaderNamespace: {testNamespaceName},
@@ -136,7 +138,7 @@ func TestRequestLogTemplateInputGetter(t *testing.T) {
 		},
 	}, {
 		name:   "revision not found",
-		getter: requestLogTemplateInputGetter(getRevisionLister(true)),
+		getter: requestLogTemplateInputGetter(revisionLister(t, true)),
 		request: &http.Request{Header: map[string][]string{
 			activator.RevisionHeaderName:      {"foo"},
 			activator.RevisionHeaderNamespace: {"bar"},
@@ -148,7 +150,7 @@ func TestRequestLogTemplateInputGetter(t *testing.T) {
 		},
 	}, {
 		name:   "labels not found",
-		getter: requestLogTemplateInputGetter(getRevisionLister(false)),
+		getter: requestLogTemplateInputGetter(revisionLister(t, false)),
 		request: &http.Request{Header: map[string][]string{
 			activator.RevisionHeaderName:      {testRevisionName},
 			activator.RevisionHeaderNamespace: {testNamespaceName},
@@ -176,7 +178,7 @@ func TestRequestLogTemplateInputGetter(t *testing.T) {
 	}
 }
 
-func getRevisionLister(addLabels bool) servinglisters.RevisionLister {
+func revisionLister(t *testing.T, addLabels bool) servinglisters.RevisionLister {
 	rev := &v1alpha1.Revision{}
 	rev.Name = testRevisionName
 	rev.Namespace = testNamespaceName
@@ -187,10 +189,9 @@ func getRevisionLister(addLabels bool) servinglisters.RevisionLister {
 		}
 	}
 
-	fake := fake.NewSimpleClientset(rev)
-	informer := servinginformers.NewSharedInformerFactory(fake, 0)
-	revisions := informer.Serving().V1alpha1().Revisions()
-	revisions.Informer().GetIndexer().Add(rev)
-
-	return revisions.Lister()
+	ctx, _ := rtesting.SetupFakeContext(t)
+	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespaceName).Create(rev)
+	ri := fakerevisioninformer.Get(ctx)
+	ri.Informer().GetIndexer().Add(rev)
+	return ri.Lister()
 }

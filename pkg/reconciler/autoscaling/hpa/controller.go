@@ -19,8 +19,8 @@ package hpa
 import (
 	"context"
 
-	hpainformer "knative.dev/pkg/injection/informers/kubeinformers/autoscalingv2beta1/hpa"
-	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
+	hpainformer "knative.dev/pkg/client/injection/kube/informers/autoscaling/v2beta1/horizontalpodautoscaler"
+	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
 	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
@@ -93,7 +93,7 @@ func NewController(
 		&autoscaler.Config{},
 	}
 	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
-		controller.SendGlobalUpdates(paInformer.Informer(), paHandler)
+		impl.FilteredGlobalResync(onlyHpaClass, paInformer.Informer())
 	})
 	configStore := config.NewStore(c.Logger.Named("config-store"), resync)
 	configStore.WatchConfigs(cmw)

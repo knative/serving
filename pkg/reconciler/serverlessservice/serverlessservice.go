@@ -20,11 +20,12 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strconv"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -32,11 +33,11 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
-	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
@@ -67,20 +68,20 @@ var _ controller.Reconciler = (*reconciler)(nil)
 // converge the two. It then updates the Status block of the Revision resource
 // with the current status of the resource.
 func (r *reconciler) Reconcile(ctx context.Context, key string) error {
-	// Convert the namespace/name string into a distinct namespace and name
 	logger := logging.FromContext(ctx)
+
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		logger.Errorf("Invalid resource key: %s", key)
+		logger.Errorw("Invalid resource key", zap.Error(err))
 		return nil
 	}
 
-	logger.Debugf("Reconciling SKS resource: %s", key)
+	logger.Debug("Reconciling SKS resource")
 	// Get the current SKS resource.
 	original, err := r.sksLister.ServerlessServices(namespace).Get(name)
 	if apierrs.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
-		logger.Errorf("SKS resource %q in work queue no longer exists", key)
+		logger.Errorf("SKS resource in work queue no longer exists")
 		return nil
 	} else if err != nil {
 		return err
@@ -93,7 +94,7 @@ func (r *reconciler) Reconcile(ctx context.Context, key string) error {
 		r.Recorder.Eventf(sks, corev1.EventTypeWarning, "UpdateFailed", "InternalError: %v", reconcileErr.Error())
 	}
 	if !equality.Semantic.DeepEqual(sks.Status, original.Status) {
-		if _, err := r.updateStatus(sks); err != nil {
+		if _, err := r.updateStatus(sks, logger); err != nil {
 			r.Recorder.Eventf(sks, corev1.EventTypeWarning, "UpdateFailed", "Failed to update status: %v", err)
 			return err
 		}
@@ -118,7 +119,7 @@ func (r *reconciler) reconcile(ctx context.Context, sks *netv1alpha1.ServerlessS
 		r.reconcilePublicEndpoints,
 	} {
 		if err := fn(ctx, sks); err != nil {
-			logger.Debugw(fmt.Sprintf("%d: reconcile failed", i), zap.Error(err))
+			logger.Debugw(strconv.Itoa(i)+": reconcile failed", zap.Error(err))
 			return err
 		}
 	}
@@ -126,7 +127,7 @@ func (r *reconciler) reconcile(ctx context.Context, sks *netv1alpha1.ServerlessS
 	return nil
 }
 
-func (r *reconciler) updateStatus(sks *netv1alpha1.ServerlessService) (*netv1alpha1.ServerlessService, error) {
+func (r *reconciler) updateStatus(sks *netv1alpha1.ServerlessService, logger *zap.SugaredLogger) (*netv1alpha1.ServerlessService, error) {
 	original, err := r.sksLister.ServerlessServices(sks.Namespace).Get(sks.Name)
 	if err != nil {
 		return nil, err
@@ -134,7 +135,7 @@ func (r *reconciler) updateStatus(sks *netv1alpha1.ServerlessService) (*netv1alp
 	if reflect.DeepEqual(original.Status, sks.Status) {
 		return original, nil
 	}
-	r.Logger.Debugf("StatusDiff: %s", cmp.Diff(original.Status, sks.Status))
+	logger.Debugf("StatusDiff: %s", cmp.Diff(original.Status, sks.Status))
 	original = original.DeepCopy()
 	original.Status = sks.Status
 	return r.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).UpdateStatus(original)
@@ -152,13 +153,11 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 		srv = resources.MakePublicService(sks)
 		_, err := r.KubeClientSet.CoreV1().Services(sks.Namespace).Create(srv)
 		if err != nil {
-			logger.Errorw(fmt.Sprint("Error creating K8s Service:", sn), zap.Error(err))
-			return err
+			return fmt.Errorf("failed to create public K8s Service: %w", err)
 		}
 		logger.Info("Created public K8s service: ", sn)
 	} else if err != nil {
-		logger.Errorw(fmt.Sprint("Error getting K8s Service:", sn), zap.Error(err))
-		return err
+		return fmt.Errorf("failed to get public K8s Service: %w", err)
 	} else if !metav1.IsControlledBy(srv, sks) {
 		sks.Status.MarkEndpointsNotOwned("Service", sn)
 		return fmt.Errorf("SKS: %s does not own Service: %s", sks.Name, sn)
@@ -171,8 +170,7 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 		if !equality.Semantic.DeepEqual(want.Spec, srv.Spec) {
 			logger.Info("Public K8s Service changed; reconciling: ", sn, cmp.Diff(want.Spec, srv.Spec))
 			if _, err = r.KubeClientSet.CoreV1().Services(sks.Namespace).Update(want); err != nil {
-				logger.Errorw(fmt.Sprint("Error updating public K8s Service:", sn), zap.Error(err))
-				return err
+				return fmt.Errorf("failed to update public K8s Service: %w", err)
 			}
 		}
 	}
@@ -188,18 +186,16 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 		srcEps                *corev1.Endpoints
 		foundServingEndpoints bool
 	)
-	activatorEps, err := r.endpointsLister.Endpoints(system.Namespace()).Get(activator.K8sServiceName)
+	activatorEps, err := r.endpointsLister.Endpoints(system.Namespace()).Get(networking.ActivatorServiceName)
 	if err != nil {
-		logger.Errorw("Error obtaining activator service endpoints", zap.Error(err))
-		return err
+		return fmt.Errorf("failed to get activator service endpoints: %w", err)
 	}
-	logger.Debugf("Activator endpoints: %s", spew.Sprint(activatorEps))
+	logger.Debug("Activator endpoints: ", spew.Sprint(activatorEps))
 
 	psn := sks.Status.PrivateServiceName
 	pvtEps, err := r.endpointsLister.Endpoints(sks.Namespace).Get(psn)
 	if err != nil {
-		logger.Errorw(fmt.Sprintf("Error obtaining private service endpoints: %s", psn), zap.Error(err))
-		return err
+		return fmt.Errorf("failed to get private K8s Service endpoints: %w", err)
 	}
 	// We still might be "ready" even if in proxy mode,
 	// if proxy mode is by means of burst capacity handling.
@@ -226,7 +222,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 		logger.Debugf("Private endpoints: %s", spew.Sprint(pvtEps))
 		// Serving but no ready endpoints.
 		if pvtReady == 0 {
-			logger.Infof("%s is in mode Serve but has no endpoints, using Activator endpoints for now", psn)
+			logger.Info(psn + " is in mode Serve but has no endpoints, using Activator endpoints for now")
 			srcEps = activatorEps
 		} else {
 			// Serving & have endpoints ready.
@@ -240,29 +236,26 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 	eps, err := r.endpointsLister.Endpoints(sks.Namespace).Get(sn)
 
 	if apierrs.IsNotFound(err) {
-		logger.Infof("K8s endpoints %s does not exist; creating.", sn)
+		logger.Infof("Public endpoints %s does not exist; creating.", sn)
 		sks.Status.MarkEndpointsNotReady("CreatingPublicEndpoints")
-		eps, err = r.KubeClientSet.CoreV1().Endpoints(sks.Namespace).Create(resources.MakePublicEndpoints(sks, srcEps))
-		if err != nil {
-			logger.Errorw(fmt.Sprint("Error creating K8s Endpoints:", sn), zap.Error(err))
-			return err
+		if _, err = r.KubeClientSet.CoreV1().Endpoints(sks.Namespace).Create(resources.MakePublicEndpoints(sks, srcEps)); err != nil {
+			return fmt.Errorf("failed to create public K8s Endpoints: %w", err)
 		}
 		logger.Info("Created K8s Endpoints: ", sn)
 	} else if err != nil {
-		logger.Errorw(fmt.Sprint("Error getting K8s Endpoints:", sn), zap.Error(err))
-		return err
+		return fmt.Errorf("failed to get public K8s Endpoints: %w", err)
 	} else if !metav1.IsControlledBy(eps, sks) {
 		sks.Status.MarkEndpointsNotOwned("Endpoints", sn)
 		return fmt.Errorf("SKS: %s does not own Endpoints: %s", sks.Name, sn)
-	}
-	want := eps.DeepCopy()
-	want.Subsets = srcEps.Subsets
-
-	if !equality.Semantic.DeepEqual(want.Subsets, eps.Subsets) {
-		logger.Info("Public K8s Endpoints changed; reconciling: ", sn)
-		if _, err = r.KubeClientSet.CoreV1().Endpoints(sks.Namespace).Update(want); err != nil {
-			logger.Errorw(fmt.Sprint("Error updating public K8s Endpoints:", sn), zap.Error(err))
-			return err
+	} else {
+		wantSubsets := resources.FilterSubsetPorts(sks, srcEps.Subsets)
+		if !equality.Semantic.DeepEqual(wantSubsets, eps.Subsets) {
+			want := eps.DeepCopy()
+			want.Subsets = wantSubsets
+			logger.Info("Public K8s Endpoints changed; reconciling: ", sn)
+			if _, err = r.KubeClientSet.CoreV1().Endpoints(sks.Namespace).Update(want); err != nil {
+				return fmt.Errorf("failed to update public K8s Endpoints: %w", err)
+			}
 		}
 	}
 	if foundServingEndpoints {
@@ -284,6 +277,8 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 }
 
 func (r *reconciler) privateService(sks *netv1alpha1.ServerlessService) (*corev1.Service, error) {
+	// The code below is for backwards compatibility, when we had
+	// GenerateName for the private services.
 	svcs, err := r.serviceLister.Services(sks.Namespace).List(labels.SelectorFromSet(map[string]string{
 		networking.SKSLabelKey:    sks.Name,
 		networking.ServiceTypeKey: string(networking.ServiceTypePrivate),
@@ -318,23 +313,21 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 
 	selector, err := r.getSelector(sks)
 	if err != nil {
-		return errors.Wrap(err, "error retrieving deployment selector spec")
+		return fmt.Errorf("error retrieving deployment selector spec: %w", err)
 	}
 
 	svc, err := r.privateService(sks)
 	if apierrs.IsNotFound(err) {
-		logger.Infof("SKS %s has no private service; creating.", sks.Name)
+		logger.Info("SKS has no private service; creating.")
 		sks.Status.MarkEndpointsNotReady("CreatingPrivateService")
 		svc = resources.MakePrivateService(sks, selector)
 		svc, err = r.KubeClientSet.CoreV1().Services(sks.Namespace).Create(svc)
 		if err != nil {
-			logger.Errorw("Error creating private K8s Service", zap.Error(err))
-			return err
+			return fmt.Errorf("failed to create private K8s Service: %w", err)
 		}
 		logger.Info("Created private K8s service: ", svc.Name)
 	} else if err != nil {
-		logger.Errorw("Error getting K8s Service", zap.Error(err))
-		return err
+		return fmt.Errorf("failed to get private K8s Service: %w", err)
 	} else if !metav1.IsControlledBy(svc, sks) {
 		sks.Status.MarkEndpointsNotOwned("Service", svc.Name)
 		return fmt.Errorf("SKS: %s does not own Service: %s", sks.Name, svc.Name)
@@ -349,14 +342,13 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 			sks.Status.MarkEndpointsNotReady("UpdatingPrivateService")
 			logger.Infof("Private K8s Service changed %s; reconciling: ", svc.Name)
 			if _, err = r.KubeClientSet.CoreV1().Services(sks.Namespace).Update(want); err != nil {
-				logger.Errorw(fmt.Sprint("Error updating private K8s Service:", svc.Name), zap.Error(err))
-				return err
+				return fmt.Errorf("failed to update private K8s Service: %w", err)
 			}
 		}
 	}
 
 	sks.Status.PrivateServiceName = svc.Name
-	logger.Debug("Done reconciling private K8s service", svc.Name)
+	logger.Debug("Done reconciling private K8s service: ", svc.Name)
 	return nil
 }
 

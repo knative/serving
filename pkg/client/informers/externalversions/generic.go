@@ -25,6 +25,7 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 	v1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	networkingv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	v1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
 )
@@ -64,12 +65,20 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		// Group=networking.internal.knative.dev, Version=v1alpha1
 	case networkingv1alpha1.SchemeGroupVersion.WithResource("certificates"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha1().Certificates().Informer()}, nil
-	case networkingv1alpha1.SchemeGroupVersion.WithResource("clusteringresses"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha1().ClusterIngresses().Informer()}, nil
 	case networkingv1alpha1.SchemeGroupVersion.WithResource("ingresses"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha1().Ingresses().Informer()}, nil
 	case networkingv1alpha1.SchemeGroupVersion.WithResource("serverlessservices"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Networking().V1alpha1().ServerlessServices().Informer()}, nil
+
+		// Group=serving.knative.dev, Version=v1
+	case v1.SchemeGroupVersion.WithResource("configurations"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1().Configurations().Informer()}, nil
+	case v1.SchemeGroupVersion.WithResource("revisions"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1().Revisions().Informer()}, nil
+	case v1.SchemeGroupVersion.WithResource("routes"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1().Routes().Informer()}, nil
+	case v1.SchemeGroupVersion.WithResource("services"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1().Services().Informer()}, nil
 
 		// Group=serving.knative.dev, Version=v1alpha1
 	case servingv1alpha1.SchemeGroupVersion.WithResource("configurations"):

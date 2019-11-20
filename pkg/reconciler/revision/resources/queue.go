@@ -21,30 +21,30 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
+	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
+	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/readiness"
-	tracingconfig "knative.dev/serving/pkg/tracing/config"
 )
 
 const (
 	localAddress             = "127.0.0.1"
 	requestQueueHTTPPortName = "queue-port"
+	profilingPortName        = "profiling-port"
 )
 
 var (
@@ -67,6 +67,11 @@ var (
 		Name:          v1alpha1.UserQueueMetricsPortName,
 		ContainerPort: int32(networking.UserQueueMetricsPort),
 	}}
+
+	profilingPort = corev1.ContainerPort{
+		Name:          profilingPortName,
+		ContainerPort: int32(profiling.ProfilingPort),
+	}
 
 	queueSecurityContext = &corev1.SecurityContext{
 		AllowPrivilegeEscalation: ptr.Bool(false),
@@ -182,7 +187,7 @@ func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
 
 // makeQueueContainer creates the container spec for the queue sidecar.
 func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, observabilityConfig *metrics.ObservabilityConfig,
-	autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) (*corev1.Container, error) {
+	deploymentConfig *deployment.Config) (*corev1.Container, error) {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
@@ -201,14 +206,17 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 		ts = *rev.Spec.TimeoutSeconds
 	}
 
+	ports := queueNonServingPorts
+	if observabilityConfig.EnableProfiling {
+		ports = append(ports, profilingPort)
+	}
 	// We need to configure only one serving port for the Queue proxy, since
 	// we know the protocol that is being used by this application.
-	ports := queueNonServingPorts
+	servingPort := queueHTTPPort
 	if rev.GetProtocol() == networking.ProtocolH2C {
-		ports = append(ports, queueHTTP2Port)
-	} else {
-		ports = append(ports, queueHTTPPort)
+		servingPort = queueHTTP2Port
 	}
+	ports = append(ports, servingPort)
 
 	var volumeMounts []corev1.VolumeMount
 	if observabilityConfig.EnableVarLogCollection {
@@ -221,7 +229,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 
 	probeJSON, err := readiness.EncodeProbe(rp)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to serialize readiness probe")
+		return nil, fmt.Errorf("failed to serialize readiness probe: %w", err)
 	}
 
 	return &corev1.Container{
@@ -246,10 +254,10 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 			Value: rev.Name,
 		}, {
 			Name:  "QUEUE_SERVING_PORT",
-			Value: strconv.Itoa(int(ports[len(ports)-1].ContainerPort)),
+			Value: strconv.Itoa(int(servingPort.ContainerPort)),
 		}, {
 			Name:  "CONTAINER_CONCURRENCY",
-			Value: strconv.Itoa(int(rev.Spec.ContainerConcurrency)),
+			Value: strconv.Itoa(int(rev.Spec.GetContainerConcurrency())),
 		}, {
 			Name:  "REVISION_TIMEOUT_SECONDS",
 			Value: strconv.Itoa(int(ts)),
@@ -280,11 +288,14 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 			Name:  "SERVING_REQUEST_METRICS_BACKEND",
 			Value: observabilityConfig.RequestMetricsBackend,
 		}, {
-			Name:  "TRACING_CONFIG_ENABLE",
-			Value: strconv.FormatBool(tracingConfig.Enable),
+			Name:  "TRACING_CONFIG_BACKEND",
+			Value: string(tracingConfig.Backend),
 		}, {
 			Name:  "TRACING_CONFIG_ZIPKIN_ENDPOINT",
 			Value: tracingConfig.ZipkinEndpoint,
+		}, {
+			Name:  "TRACING_CONFIG_STACKDRIVER_PROJECT_ID",
+			Value: tracingConfig.StackdriverProjectID,
 		}, {
 			Name:  "TRACING_CONFIG_DEBUG",
 			Value: strconv.FormatBool(tracingConfig.Debug),
@@ -315,9 +326,16 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 		}, {
 			Name:  "SERVING_READINESS_PROBE",
 			Value: probeJSON,
+		}, {
+			Name:  "ENABLE_PROFILING",
+			Value: strconv.FormatBool(observabilityConfig.EnableProfiling),
+		}, {
+			Name:  "SERVING_ENABLE_PROBE_REQUEST_LOG",
+			Value: strconv.FormatBool(observabilityConfig.EnableProbeRequestLog),
 		}},
 	}, nil
 }
+
 func applyReadinessProbeDefaults(p *corev1.Probe, port int32) {
 	switch {
 	case p == nil:

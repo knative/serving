@@ -28,6 +28,7 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
+	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
 var (
@@ -360,7 +361,7 @@ func TestMakeEndpoints(t *testing.T) {
 			},
 		},
 	}, {
-		name: "some endpoints",
+		name: "some endpoints, many ports",
 		sks: &v1alpha1.ServerlessService{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "melon",
@@ -391,7 +392,15 @@ func TestMakeEndpoints(t *testing.T) {
 				}},
 				Ports: []corev1.EndpointPort{{
 					Name:     "http",
+					Port:     8022,
+					Protocol: "TCP",
+				}, {
+					Name:     "http",
 					Port:     8012,
+					Protocol: "TCP",
+				}, {
+					Name:     "https",
+					Port:     8043,
 					Protocol: "TCP",
 				}},
 			}},
@@ -445,6 +454,88 @@ func TestMakeEndpoints(t *testing.T) {
 	}
 }
 
+func TestFilterSubsetPorts(t *testing.T) {
+	tests := []struct {
+		name    string
+		port    int32
+		subsets []corev1.EndpointSubset
+		want    []corev1.EndpointSubset
+	}{{
+		name: "nil",
+		port: 1982,
+	}, {
+		name: "one port",
+		port: 1984,
+		subsets: []corev1.EndpointSubset{{
+			Ports: []corev1.EndpointPort{{
+				Name:     "http",
+				Port:     1984,
+				Protocol: "TCP",
+			}},
+		}},
+		want: []corev1.EndpointSubset{{
+			Ports: []corev1.EndpointPort{{
+				Name:     "http",
+				Port:     1984,
+				Protocol: "TCP",
+			}},
+		}},
+	}, {
+		name: "two  ports, keep first",
+		port: 1988,
+		subsets: []corev1.EndpointSubset{{
+			Ports: []corev1.EndpointPort{{
+				Name:     "http",
+				Port:     1988,
+				Protocol: "TCP",
+			}, {
+				Name:     "http",
+				Port:     1983,
+				Protocol: "TCP",
+			}},
+		}},
+		want: []corev1.EndpointSubset{{
+			Ports: []corev1.EndpointPort{{
+				Name:     "http",
+				Port:     1988,
+				Protocol: "TCP",
+			}},
+		}},
+	}, {
+		name: "three ports, keep middle",
+		port: 2006,
+		subsets: []corev1.EndpointSubset{{
+			Ports: []corev1.EndpointPort{{
+				Name:     "http",
+				Port:     2009,
+				Protocol: "TCP",
+			}, {
+				Name:     "http",
+				Port:     2006,
+				Protocol: "TCP",
+			}, {
+				Name:     "http",
+				Port:     2019,
+				Protocol: "TCP",
+			}},
+		}},
+		want: []corev1.EndpointSubset{{
+			Ports: []corev1.EndpointPort{{
+				Name:     "http",
+				Port:     2006,
+				Protocol: "TCP",
+			}},
+		}},
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got, want := filterSubsetPorts(test.port, test.subsets), test.want; !cmp.Equal(got, want) {
+				t.Errorf("Got = %v, want: %v, diff:\n%s", got, want, cmp.Diff(want, got))
+			}
+		})
+	}
+}
+
 func TestMakePrivateService(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -475,8 +566,8 @@ func TestMakePrivateService(t *testing.T) {
 		},
 		want: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace:    "melon",
-				GenerateName: "collie-",
+				Namespace: "melon",
+				Name:      "collie-private",
 				Labels: map[string]string{
 					// Those should be propagated.
 					serving.RevisionLabelKey:  "collie",
@@ -503,15 +594,30 @@ func TestMakePrivateService(t *testing.T) {
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.ServiceHTTPPort,
 					TargetPort: intstr.FromInt(networking.BackendHTTPPort),
+				}, {
+					Name:       servingv1alpha1.AutoscalingQueueMetricsPortName,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       networking.AutoscalingQueueMetricsPort,
+					TargetPort: intstr.FromString(servingv1alpha1.AutoscalingQueueMetricsPortName),
+				}, {
+					Name:       servingv1alpha1.UserQueueMetricsPortName,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       networking.UserQueueMetricsPort,
+					TargetPort: intstr.FromString(servingv1alpha1.UserQueueMetricsPortName),
+				}, {
+					Name:       servingv1alpha1.QueueAdminPortName,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       networking.QueueAdminPort,
+					TargetPort: intstr.FromInt(networking.QueueAdminPort),
 				}},
 			},
 		},
 	}, {
-		name: "HTTP2",
+		name: "HTTP2 and long",
 		sks: &v1alpha1.ServerlessService{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "siamese",
-				Name:      "dream",
+				Name:      "dream-tonight-cherub-rock-mayonaise-hummer-disarm-rocket-soma-quiet",
 				UID:       "1988",
 				// Those labels are propagated from the Revision->PA.
 				Labels: map[string]string{
@@ -531,13 +637,13 @@ func TestMakePrivateService(t *testing.T) {
 		},
 		want: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace:    "siamese",
-				GenerateName: "dream-",
+				Namespace: "siamese",
+				Name:      "dream-tonight-cherub-ro9598b55360c44122a4442ce54caa8619-private",
 				Labels: map[string]string{
 					// Those should be propagated.
 					serving.RevisionLabelKey:  "dream",
 					serving.RevisionUID:       "1988",
-					networking.SKSLabelKey:    "dream",
+					networking.SKSLabelKey:    "dream-tonight-cherub-rock-mayonaise-hummer-disarm-rocket-soma-quiet",
 					networking.ServiceTypeKey: "Private",
 				},
 				Annotations: map[string]string{
@@ -546,7 +652,7 @@ func TestMakePrivateService(t *testing.T) {
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
 					Kind:               "ServerlessService",
-					Name:               "dream",
+					Name:               "dream-tonight-cherub-rock-mayonaise-hummer-disarm-rocket-soma-quiet",
 					UID:                "1988",
 					Controller:         ptr.Bool(true),
 					BlockOwnerDeletion: ptr.Bool(true),
@@ -561,6 +667,21 @@ func TestMakePrivateService(t *testing.T) {
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.ServiceHTTPPort,
 					TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
+				}, {
+					Name:       servingv1alpha1.AutoscalingQueueMetricsPortName,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       networking.AutoscalingQueueMetricsPort,
+					TargetPort: intstr.FromString(servingv1alpha1.AutoscalingQueueMetricsPortName),
+				}, {
+					Name:       servingv1alpha1.UserQueueMetricsPortName,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       networking.UserQueueMetricsPort,
+					TargetPort: intstr.FromString(servingv1alpha1.UserQueueMetricsPortName),
+				}, {
+					Name:       servingv1alpha1.QueueAdminPortName,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       networking.QueueAdminPort,
+					TargetPort: intstr.FromInt(networking.QueueAdminPort),
 				}},
 			},
 		},

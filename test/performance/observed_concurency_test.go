@@ -27,7 +27,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -54,7 +53,7 @@ func generateTraffic(t *testing.T, client *spoof.SpoofingClient, url string, con
 			done := time.After(duration)
 			req, err := http.NewRequest(http.MethodGet, url, nil)
 			if err != nil {
-				return fmt.Errorf("error creating http request: %v", err)
+				return fmt.Errorf("error creating http request: %w", err)
 			}
 			for {
 				select {
@@ -72,7 +71,7 @@ func generateTraffic(t *testing.T, client *spoof.SpoofingClient, url string, con
 	}
 
 	if err := group.Wait(); err != nil {
-		return fmt.Errorf("error making requests for scale up: %v", err)
+		return fmt.Errorf("error making requests for scale up: %w", err)
 	}
 	return nil
 }
@@ -95,12 +94,12 @@ func parseResponse(body string) (*event, *event, error) {
 
 	start, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to parse start timestamp, body %q", body)
+		return nil, nil, fmt.Errorf("failed to parse start timestamp, body %q: %w", body, err)
 	}
 
 	end, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to parse end timestamp, body %q", body)
+		return nil, nil, fmt.Errorf("failed to parse end timestamp, body %q: %w", body, err)
 	}
 
 	startEvent := &event{1, time.Unix(0, int64(start))}
@@ -153,7 +152,8 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 	test.CleanupOnInterrupt(func() { TearDown(perfClients, names, t.Logf) })
 
 	t.Log("Creating a new Service")
-	objs, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+	objs, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
 		v1a1opts.WithResourceRequirements(corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("10m"),
@@ -217,7 +217,7 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 			t.Logf("Never scaled to %d", i)
 		} else {
 			t.Logf("Took %v to scale to %d", toConcurrency, i)
-			tc = append(tc, perf.CreatePerfTestCase(float32(toConcurrency/time.Millisecond), fmt.Sprintf("to%d(ms)", i), t.Name()))
+			tc = append(tc, perf.CreatePerfTestCase(float32(toConcurrency.Milliseconds()), fmt.Sprintf("to%d(ms)", i), t.Name()))
 		}
 	}
 	tc = append(tc, perf.CreatePerfTestCase(float32(failedRequests), "failed requests", t.Name()))

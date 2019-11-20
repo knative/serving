@@ -21,16 +21,18 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	corev1 "k8s.io/api/core/v1"
+
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/reconciler/service/resources/names"
 )
 
 func makeRoute(service *v1alpha1.Service) (*v1alpha1.Route, error) {
 	// We do this prior to reconciliation, so test with it enabled.
-	service.SetDefaults(v1beta1.WithUpgradeViaDefaulting(context.Background()))
+	service.SetDefaults(v1.WithUpgradeViaDefaulting(context.Background()))
 	return MakeRoute(service)
 }
 
@@ -39,7 +41,7 @@ func TestRouteRunLatest(t *testing.T) {
 	testConfigName := names.Configuration(s)
 	r, err := makeRoute(s)
 	if err != nil {
-		t.Errorf("UnExpected error: %v", err)
+		t.Fatalf("Unexpected error: %v", err)
 	}
 	if got, want := r.Name, testServiceName; got != want {
 		t.Errorf("Expected %q for service name got %q", want, got)
@@ -51,7 +53,7 @@ func TestRouteRunLatest(t *testing.T) {
 		t.Fatalf("Expected %d traffic targets got %d", want, got)
 	}
 	wantT := []v1alpha1.TrafficTarget{{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			Percent:           ptr.Int64(100),
 			ConfigurationName: testConfigName,
 			LatestRevision:    ptr.Bool(true),
@@ -94,7 +96,7 @@ func TestRoutePinned(t *testing.T) {
 		t.Fatalf("Expected %d traffic targets, got %d", want, got)
 	}
 	wantT := []v1alpha1.TrafficTarget{{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			Percent:        ptr.Int64(100),
 			RevisionName:   testRevisionName,
 			LatestRevision: ptr.Bool(false),
@@ -129,14 +131,14 @@ func TestRouteReleaseSingleRevision(t *testing.T) {
 		t.Errorf("Expected %q for service namespace got %q", want, got)
 	}
 	wantT := []v1alpha1.TrafficTarget{{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			Tag:            v1alpha1.CurrentTrafficTarget,
 			Percent:        ptr.Int64(100),
 			RevisionName:   testRevisionName,
 			LatestRevision: ptr.Bool(false),
 		},
 	}, {
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			Tag:               v1alpha1.LatestTrafficTarget,
 			ConfigurationName: testConfigName,
 			LatestRevision:    ptr.Bool(true),
@@ -174,21 +176,21 @@ func TestRouteLatestRevisionSplit(t *testing.T) {
 		t.Errorf("Expected %q for service namespace got %q", want, got)
 	}
 	wantT := []v1alpha1.TrafficTarget{{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			Tag:               v1alpha1.CurrentTrafficTarget,
 			Percent:           ptr.Int64(currentPercent),
 			ConfigurationName: testConfigName,
 			LatestRevision:    ptr.Bool(true),
 		},
 	}, {
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			Tag:            v1alpha1.CandidateTrafficTarget,
 			Percent:        ptr.Int64(rolloutPercent),
 			RevisionName:   "juicy-revision",
 			LatestRevision: ptr.Bool(false),
 		},
 	}, {
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			Tag:               v1alpha1.LatestTrafficTarget,
 			ConfigurationName: testConfigName,
 			LatestRevision:    ptr.Bool(true),
@@ -226,21 +228,21 @@ func TestRouteLatestRevisionSplitCandidate(t *testing.T) {
 		t.Errorf("Expected %q for service namespace got %q", want, got)
 	}
 	wantT := []v1alpha1.TrafficTarget{{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			Tag:            v1alpha1.CurrentTrafficTarget,
 			Percent:        ptr.Int64(currentPercent),
 			RevisionName:   "squishy-revision",
 			LatestRevision: ptr.Bool(false),
 		},
 	}, {
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			Tag:               v1alpha1.CandidateTrafficTarget,
 			Percent:           ptr.Int64(rolloutPercent),
 			ConfigurationName: testConfigName,
 			LatestRevision:    ptr.Bool(true),
 		},
 	}, {
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			Tag:               v1alpha1.LatestTrafficTarget,
 			ConfigurationName: testConfigName,
 			LatestRevision:    ptr.Bool(true),
@@ -276,14 +278,14 @@ func TestRouteLatestRevisionNoSplit(t *testing.T) {
 	}
 	// Should have 2 named traffic targets (current, latest)
 	wantT := []v1alpha1.TrafficTarget{{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			Tag:               v1alpha1.CurrentTrafficTarget,
 			Percent:           ptr.Int64(100),
 			ConfigurationName: testConfigName,
 			LatestRevision:    ptr.Bool(true),
 		},
 	}, {
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			Tag:               v1alpha1.LatestTrafficTarget,
 			ConfigurationName: testConfigName,
 			LatestRevision:    ptr.Bool(true),
@@ -322,21 +324,21 @@ func TestRouteReleaseTwoRevisions(t *testing.T) {
 	}
 	// Should have 3 named traffic targets (current, candidate, latest)
 	wantT := []v1alpha1.TrafficTarget{{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			Tag:            v1alpha1.CurrentTrafficTarget,
 			Percent:        ptr.Int64(currentPercent),
 			RevisionName:   testRevisionName,
 			LatestRevision: ptr.Bool(false),
 		},
 	}, {
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			Tag:            v1alpha1.CandidateTrafficTarget,
 			Percent:        ptr.Int64(100 - currentPercent),
 			RevisionName:   testCandidateRevisionName,
 			LatestRevision: ptr.Bool(false),
 		},
 	}, {
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			Tag:               v1alpha1.LatestTrafficTarget,
 			ConfigurationName: testConfigName,
 			LatestRevision:    ptr.Bool(true),
@@ -360,7 +362,7 @@ func TestInlineRouteSpec(t *testing.T) {
 	testConfigName := names.Configuration(s)
 	r, err := makeRoute(s)
 	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
+		t.Fatalf("Unexpected error: %v", err)
 	}
 	if got, want := r.Name, testServiceName; got != want {
 		t.Errorf("Expected %q for service name got %q", want, got)
@@ -372,7 +374,7 @@ func TestInlineRouteSpec(t *testing.T) {
 		t.Fatalf("Expected %d traffic targets got %d", want, got)
 	}
 	wantT := []v1alpha1.TrafficTarget{{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			Percent:           ptr.Int64(100),
 			ConfigurationName: testConfigName,
 			LatestRevision:    ptr.Bool(true),
@@ -388,5 +390,16 @@ func TestInlineRouteSpec(t *testing.T) {
 	}
 	if got, want := r.Labels[serving.ServiceLabelKey], testServiceName; got != want {
 		t.Errorf("expected %q labels got %q", want, got)
+	}
+}
+
+func TestRouteHasNoKubectlAnnotation(t *testing.T) {
+	s := createServiceWithKubectlAnnotation()
+	r, err := makeRoute(s)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if v, ok := r.Annotations[corev1.LastAppliedConfigAnnotation]; ok {
+		t.Errorf("Annotation %s = %q, want empty", corev1.LastAppliedConfigAnnotation, v)
 	}
 }

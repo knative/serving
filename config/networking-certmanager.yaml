@@ -31,6 +31,7 @@ spec:
         sidecar.istio.io/inject: "false"
       labels:
         app: networking-certmanager
+        serving.knative.dev/release: devel
     spec:
       serviceAccountName: controller
       containers:
@@ -48,6 +49,8 @@ spec:
         ports:
         - name: metrics
           containerPort: 9090
+        - name: profiling
+          containerPort: 8008
         env:
         - name: SYSTEM_NAMESPACE
           valueFrom:

@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"os"
 	"reflect"
-	"strings"
 
 	"go.uber.org/zap"
 	"k8s.io/api/admission/v1beta1"
@@ -34,7 +33,7 @@ import (
 	"knative.dev/pkg/test/webhook-apicoverage/coveragecalculator"
 	"knative.dev/pkg/test/webhook-apicoverage/resourcetree"
 	"knative.dev/pkg/test/webhook-apicoverage/view"
-	"knative.dev/pkg/webhook"
+	"knative.dev/pkg/webhook/resourcesemantics"
 )
 
 var (
@@ -51,6 +50,10 @@ const (
 	// TotalCoverageEndPoint is the endpoint for Total Coverage API
 	TotalCoverageEndPoint = "/totalcoverage"
 
+	// ResourcePercentageCoverageEndPoint is the end point for Resource Percentage
+	// coverages API
+	ResourcePercentageCoverageEndPoint = "/resourcepercentagecoverage"
+
 	// resourceChannelQueueSize size of the queue maintained for resource channel.
 	resourceChannelQueueSize = 10
 )
@@ -64,7 +67,7 @@ type resourceChannelMsg struct {
 type APICoverageRecorder struct {
 	Logger          *zap.SugaredLogger
 	ResourceForest  resourcetree.ResourceForest
-	ResourceMap     map[schema.GroupVersionKind]webhook.GenericCRD
+	ResourceMap     map[schema.GroupVersionKind]resourcesemantics.GenericCRD
 	NodeRules       resourcetree.NodeRules
 	FieldRules      resourcetree.FieldRules
 	DisplayRules    view.DisplayRules
@@ -162,17 +165,19 @@ func (a *APICoverageRecorder) GetResourceCoverage(w http.ResponseWriter, r *http
 	var ignoredFields coveragecalculator.IgnoredFields
 	ignoredFieldsFilePath := os.Getenv("KO_DATA_PATH") + "/ignoredfields.yaml"
 	if err := ignoredFields.ReadFromFile(ignoredFieldsFilePath); err != nil {
-		fmt.Fprintf(w, "Error reading file: %s", ignoredFieldsFilePath)
+		a.Logger.Errorf("Error reading file %s: %v", ignoredFieldsFilePath, err)
 	}
 
 	tree := a.ResourceForest.TopLevelTrees[resource]
 	typeCoverage := tree.BuildCoverageData(a.NodeRules, a.FieldRules, ignoredFields)
 	coverageValues := coveragecalculator.CalculateTypeCoverage(typeCoverage)
+	coverageValues.CalculatePercentageValue()
 
-	var buffer strings.Builder
-	buffer.WriteString(view.GetHTMLDisplay(typeCoverage, a.DisplayRules))
-	buffer.WriteString(view.GetHTMLCoverageValuesDisplay(coverageValues))
-	fmt.Fprint(w, buffer.String())
+	if htmlData, err := view.GetHTMLDisplay(typeCoverage, coverageValues); err != nil {
+		fmt.Fprintf(w, "Error generating html file %v", err)
+	} else {
+		fmt.Fprint(w, htmlData)
+	}
 }
 
 // GetTotalCoverage goes over all the resources setup for the apicoverage tool and returns total coverage values.
@@ -184,7 +189,7 @@ func (a *APICoverageRecorder) GetTotalCoverage(w http.ResponseWriter, r *http.Re
 
 	ignoredFieldsFilePath := os.Getenv("KO_DATA_PATH") + "/ignoredfields.yaml"
 	if err = ignoredFields.ReadFromFile(ignoredFieldsFilePath); err != nil {
-		fmt.Fprintf(w, "error reading file: %s error: %v", ignoredFieldsFilePath, err)
+		a.Logger.Errorf("Error reading file %s: %v", ignoredFieldsFilePath, err)
 	}
 
 	totalCoverage := coveragecalculator.CoverageValues{}
@@ -197,12 +202,62 @@ func (a *APICoverageRecorder) GetTotalCoverage(w http.ResponseWriter, r *http.Re
 		totalCoverage.IgnoredFields += coverageValues.IgnoredFields
 	}
 
+	totalCoverage.CalculatePercentageValue()
 	var body []byte
 	if body, err = json.Marshal(totalCoverage); err != nil {
 		fmt.Fprintf(w, "error marshalling total coverage response: %v", err)
+		return
 	}
 
 	if _, err = w.Write(body); err != nil {
 		fmt.Fprintf(w, "error writing total coverage response: %v", err)
+	}
+}
+
+// GetResourceCoveragePercentags goes over all the resources setup for the
+// apicoverage tool and returns percentage coverage for each resource.
+func (a *APICoverageRecorder) GetResourceCoveragePercentages(
+	w http.ResponseWriter, r *http.Request) {
+	var (
+		ignoredFields coveragecalculator.IgnoredFields
+		err           error
+	)
+
+	ignoredFieldsFilePath :=
+		os.Getenv("KO_DATA_PATH") + "/ignoredfields.yaml"
+	if err = ignoredFields.ReadFromFile(ignoredFieldsFilePath); err != nil {
+		a.Logger.Errorf("Error reading file %s: %v",
+			ignoredFieldsFilePath, err)
+	}
+
+	totalCoverage := coveragecalculator.CoverageValues{}
+	percentCoverages := make(map[string]float64)
+	for resource := range a.ResourceMap {
+		tree := a.ResourceForest.TopLevelTrees[resource.Kind]
+		typeCoverage := tree.BuildCoverageData(a.NodeRules, a.FieldRules,
+			ignoredFields)
+		coverageValues := coveragecalculator.CalculateTypeCoverage(typeCoverage)
+		coverageValues.CalculatePercentageValue()
+		percentCoverages[resource.Kind] = coverageValues.PercentCoverage
+		totalCoverage.TotalFields += coverageValues.TotalFields
+		totalCoverage.CoveredFields += coverageValues.CoveredFields
+		totalCoverage.IgnoredFields += coverageValues.IgnoredFields
+	}
+	totalCoverage.CalculatePercentageValue()
+	percentCoverages["Overall"] = totalCoverage.PercentCoverage
+
+	var body []byte
+	if body, err = json.Marshal(
+		coveragecalculator.CoveragePercentages{
+			ResourceCoverages: percentCoverages,
+		}); err != nil {
+		fmt.Fprintf(w, "error marshalling percentage coverage response: %v",
+			err)
+		return
+	}
+
+	if _, err = w.Write(body); err != nil {
+		fmt.Fprintf(w, "error writing percentage coverage response: %v",
+			err)
 	}
 }

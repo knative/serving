@@ -26,11 +26,11 @@ spec:
     port: 8080
     protocol: TCP
     targetPort: 8080
-  - name: metrics
+  - name: http-metrics
     port: 9090
     protocol: TCP
     targetPort: 9090
-  - name: custom-metrics
+  - name: https-custom-metrics
     port: 443
     protocol: TCP
     targetPort: 8443

@@ -16,26 +16,30 @@ limitations under the License.
 package handler
 
 import (
+	"context"
 	"net/http"
 	"time"
 
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/types"
 
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/network"
 )
 
 // NewMetricHandler creates a handler collects and reports request metrics
-func NewMetricHandler(rl servinglisters.RevisionLister, r activator.StatsReporter, l *zap.SugaredLogger, next http.Handler) *MetricHandler {
+func NewMetricHandler(ctx context.Context, r activator.StatsReporter, next http.Handler) *MetricHandler {
 	handler := &MetricHandler{
 		nextHandler:    next,
-		revisionLister: rl,
+		revisionLister: revisioninformer.Get(ctx).Lister(),
 		reporter:       r,
-		logger:         l,
+		logger:         logging.FromContext(ctx),
 	}
 
 	return handler
@@ -51,8 +55,8 @@ type MetricHandler struct {
 
 func (h *MetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
-	// Filter out probe and healthy requests
-	if network.IsKubeletProbe(r) || r.Header.Get(network.ProbeHeaderName) != "" {
+	// Filter out probe and health check requests.
+	if network.IsProbe(r) {
 		h.nextHandler.ServeHTTP(w, r)
 		return
 	}
@@ -60,7 +64,7 @@ func (h *MetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	namespace := r.Header.Get(activator.RevisionHeaderNamespace)
 	name := r.Header.Get(activator.RevisionHeaderName)
 
-	revID := activator.RevisionID{Namespace: namespace, Name: name}
+	revID := types.NamespacedName{Namespace: namespace, Name: name}
 	logger := h.logger.With(zap.String(logkey.Key, revID.String()))
 
 	revision, err := h.revisionLister.Revisions(namespace).Get(name)

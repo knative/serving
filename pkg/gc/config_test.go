@@ -28,8 +28,6 @@ import (
 )
 
 func TestOurConfig(t *testing.T) {
-	defer logtesting.ClearAll()
-
 	actual, example := ConfigMapsFromTestFile(t, "config-gc")
 	for _, tt := range []struct {
 		name string
@@ -115,7 +113,7 @@ func TestOurConfig(t *testing.T) {
 		},
 	}} {
 		t.Run(tt.name, func(t *testing.T) {
-			testConfig, err := NewConfigFromConfigMapFunc(logtesting.TestLogger(t), 10*time.Hour)(tt.data)
+			testConfig, err := NewConfigFromConfigMapFunc(logtesting.TestContextWithLogger(t))(tt.data)
 			if tt.fail != (err != nil) {
 				t.Errorf("Unexpected error value: %v", err)
 			}

@@ -25,12 +25,17 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"go.uber.org/zap"
+
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
+
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/logging/logkey"
 	_ "knative.dev/pkg/system/testing" // Setup system.Namespace()
 )
 
@@ -74,7 +79,7 @@ type TableRow struct {
 	// WantEvents holds the ordered list of events we expect during reconciliation.
 	WantEvents []string
 
-	// WantServiceReadyStats holds the ServiceReady stats we exepect during reconciliation.
+	// WantServiceReadyStats holds the ServiceReady stats we expect during reconciliation.
 	WantServiceReadyStats map[string]int
 
 	// WithReactors is a set of functions that are installed as Reactors for the execution
@@ -84,6 +89,9 @@ type TableRow struct {
 	// For cluster-scoped resources like ClusterIngress, it does not have to be
 	// in the same namespace with its child resources.
 	SkipNamespaceValidation bool
+
+	// PostConditions allows custom assertions to be made after reconciliation
+	PostConditions []func(*testing.T, *TableRow)
 }
 
 func objKey(o runtime.Object) string {
@@ -107,6 +115,12 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 	ctx := r.Ctx
 	if ctx == nil {
 		ctx = context.Background()
+	} else {
+		// If we have logger setup on the context, decorate it with the key, so that the logs
+		// look like in prod.
+		l := logging.FromContext(ctx)
+		l = l.With(zap.String(logkey.Key, r.Key))
+		ctx = logging.WithLogger(ctx, l)
 	}
 
 	// Run the Reconcile we're testing.
@@ -122,7 +136,7 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 	}
 
 	// Previous state is used to diff resource expected state for update requests that were missed.
-	objPrevState := map[string]runtime.Object{}
+	objPrevState := make(map[string]runtime.Object, len(r.Objects))
 	for _, o := range r.Objects {
 		objPrevState[objKey(o)] = o
 	}
@@ -320,6 +334,10 @@ func (r *TableRow) Test(t *testing.T, factory Factory) {
 	if diff := cmp.Diff(r.WantServiceReadyStats, gotStats); diff != "" {
 		t.Errorf("Unexpected service ready stats (-want, +got): %s", diff)
 	}
+
+	for _, verify := range r.PostConditions {
+		verify(t, r)
+	}
 }
 
 func filterUpdatesWithSubresource(
@@ -341,7 +359,7 @@ func (tt TableTest) Test(t *testing.T, factory Factory) {
 	t.Helper()
 	for _, test := range tt {
 		// Record the original objects in table.
-		originObjects := []runtime.Object{}
+		originObjects := make([]runtime.Object, 0, len(test.Objects))
 		for _, obj := range test.Objects {
 			originObjects = append(originObjects, obj.DeepCopyObject())
 		}

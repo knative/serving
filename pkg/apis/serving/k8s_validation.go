@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
+	"knative.dev/pkg/profiling"
 	"knative.dev/serving/pkg/apis/networking"
 )
 
@@ -418,7 +419,8 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 		userPort.ContainerPort == networking.BackendHTTP2Port ||
 		userPort.ContainerPort == networking.QueueAdminPort ||
 		userPort.ContainerPort == networking.AutoscalingQueueMetricsPort ||
-		userPort.ContainerPort == networking.UserQueueMetricsPort {
+		userPort.ContainerPort == networking.UserQueueMetricsPort ||
+		userPort.ContainerPort == profiling.ProfilingPort {
 		errs = errs.Also(apis.ErrInvalidValue(userPort.ContainerPort, "containerPort"))
 	}
 
@@ -449,6 +451,10 @@ func validateReadinessProbe(p *corev1.Probe) *apis.FieldError {
 		errs = errs.Also(apis.ErrOutOfBoundsValue(p.PeriodSeconds, 0, math.MaxInt32, "periodSeconds"))
 	}
 
+	if p.InitialDelaySeconds < 0 {
+		errs = errs.Also(apis.ErrOutOfBoundsValue(p.InitialDelaySeconds, 0, math.MaxInt32, "initialDelaySeconds"))
+	}
+
 	if p.SuccessThreshold < 1 {
 		errs = errs.Also(apis.ErrOutOfBoundsValue(p.SuccessThreshold, 1, math.MaxInt32, "successThreshold"))
 	}
@@ -456,11 +462,17 @@ func validateReadinessProbe(p *corev1.Probe) *apis.FieldError {
 	// PeriodSeconds == 0 indicates Knative's special probe with aggressive retries
 	if p.PeriodSeconds == 0 {
 		if p.FailureThreshold != 0 {
-			errs = errs.Also(apis.ErrDisallowedFields("failureThreshold"))
+			errs = errs.Also(&apis.FieldError{
+				Message: "failureThreshold is disallowed when periodSeconds is zero",
+				Paths:   []string{"failureThreshold"},
+			})
 		}
 
 		if p.TimeoutSeconds != 0 {
-			errs = errs.Also(apis.ErrDisallowedFields("timeoutSeconds"))
+			errs = errs.Also(&apis.FieldError{
+				Message: "timeoutSeconds is disallowed when periodSeconds is zero",
+				Paths:   []string{"timeoutSeconds"},
+			})
 		}
 	} else {
 		if p.TimeoutSeconds < 1 {
@@ -500,7 +512,7 @@ func validateProbe(p *corev1.Probe) *apis.FieldError {
 	}
 
 	if len(handlers) == 0 {
-		errs = errs.Also(apis.ErrMissingField("handler"))
+		errs = errs.Also(apis.ErrMissingOneOf("httpGet", "tcpSocket", "exec"))
 	} else if len(handlers) > 1 {
 		errs = errs.Also(apis.ErrMultipleOneOf(handlers...))
 	}

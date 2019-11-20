@@ -143,11 +143,6 @@ func (l *Listers) GetHorizontalPodAutoscalerLister() autoscalingv2beta1listers.H
 	return autoscalingv2beta1listers.NewHorizontalPodAutoscalerLister(l.IndexerFor(&autoscalingv2beta1.HorizontalPodAutoscaler{}))
 }
 
-// GetClusterIngressLister get lister for ClusterIngress resource.
-func (l *Listers) GetClusterIngressLister() networkinglisters.ClusterIngressLister {
-	return networkinglisters.NewClusterIngressLister(l.IndexerFor(&networking.ClusterIngress{}))
-}
-
 // GetIngressLister get lister for Ingress resource.
 func (l *Listers) GetIngressLister() networkinglisters.IngressLister {
 	return networkinglisters.NewIngressLister(l.IndexerFor(&networking.Ingress{}))
@@ -199,4 +194,9 @@ func (l *Listers) GetSecretLister() corev1listers.SecretLister {
 
 func (l *Listers) GetConfigMapLister() corev1listers.ConfigMapLister {
 	return corev1listers.NewConfigMapLister(l.IndexerFor(&corev1.ConfigMap{}))
+}
+
+// GetNamespaceLister gets lister for Namespace resource.
+func (l *Listers) GetNamespaceLister() corev1listers.NamespaceLister {
+	return corev1listers.NewNamespaceLister(l.IndexerFor(&corev1.Namespace{}))
 }

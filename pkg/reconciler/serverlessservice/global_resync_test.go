@@ -17,20 +17,17 @@ limitations under the License.
 package serverlessservice
 
 import (
-	"context"
 	"testing"
 	"time"
 
 	"golang.org/x/sync/errgroup"
 
-	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
-	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
-	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
-	"knative.dev/serving/pkg/activator"
+	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
+	"knative.dev/serving/pkg/apis/networking"
+	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -47,22 +44,14 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 		sks1 = "test-sks-1"
 		sks2 = "test-sks-2"
 	)
-	defer logtesting.ClearAll()
-	ctx, informers := SetupFakeContext(t)
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 	// Replace the fake dynamic client with one containing our objects.
 	ctx, _ = fakedynamicclient.With(ctx, runtime.NewScheme(),
 		ToUnstructured(t, NewScheme(), []runtime.Object{deploy(ns1, sks1), deploy(ns2, sks2)})...,
 	)
 	ctrl := NewController(ctx, configmap.NewStaticWatcher())
 
-	ctx, cancel := context.WithCancel(ctx)
 	grp := errgroup.Group{}
-	defer func() {
-		cancel()
-		if err := grp.Wait(); err != nil {
-			t.Fatalf("Error waiting for contoller to terminate: %v", err)
-		}
-	}()
 
 	kubeClnt := fakekubeclient.Get(ctx)
 
@@ -83,9 +72,17 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 		t.Fatalf("Error creating private endpoints: %v", err)
 	}
 
-	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
+	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
 		t.Fatalf("Error starting informers: %v", err)
 	}
+	defer func() {
+		cancel()
+		if err := grp.Wait(); err != nil {
+			t.Fatalf("Error waiting for contoller to terminate: %v", err)
+		}
+		waitInformers()
+	}()
 
 	grp.Go(func() error {
 		return ctrl.Run(1, ctx.Done())
@@ -113,9 +110,9 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	})
 
 	// Inactive, will reconcile.
-	sksObj1 := SKS(ns1, sks1, WithPrivateService(sks1+"-global"), WithPubService, WithDeployRef(sks1), WithProxyMode)
+	sksObj1 := SKS(ns1, sks1, WithPrivateService, WithPubService, WithDeployRef(sks1), WithProxyMode)
 	// Active, should not visibly reconcile.
-	sksObj2 := SKS(ns2, sks2, WithPrivateService(sks2+"-resync"), WithPubService, WithDeployRef(sks2), markHappy)
+	sksObj2 := SKS(ns2, sks2, WithPrivateService, WithPubService, WithDeployRef(sks2), markHappy)
 
 	if _, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(ns1).Create(sksObj1); err != nil {
 		t.Fatalf("Error creating SKS1: %v", err)
@@ -137,7 +134,7 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 			t.Logf("Registering expected hook update for endpoints %s", eps.Name)
 			return HookComplete
 		}
-		if eps.Name == activator.K8sServiceName {
+		if eps.Name == networking.ActivatorServiceName {
 			// Expected, but not the one we're waiting for.
 			t.Log("Registering activator endpoint update")
 		} else {

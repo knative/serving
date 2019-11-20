@@ -33,8 +33,8 @@ import (
 
 	cachingclient "knative.dev/caching/pkg/client/injection/client"
 	sharedclient "knative.dev/pkg/client/injection/client"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection/clients/dynamicclient"
-	"knative.dev/pkg/injection/clients/kubeclient"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 
 	cachingclientset "knative.dev/caching/pkg/client/clientset/versioned"
@@ -153,7 +153,7 @@ func NewBase(ctx context.Context, controllerAgentName string, cmw configmap.Watc
 func (b *Base) MarkNeedsUpgrade(gvr schema.GroupVersionResource, namespace, name string) error {
 	// Add the annotation serving.knative.dev/forceUpgrade=true to trigger webhook-based defaulting.
 	_, err := b.DynamicClientSet.Resource(gvr).Namespace(namespace).Patch(name, types.JSONPatchType,
-		[]byte(ForceUpgradePatch), metav1.UpdateOptions{})
+		[]byte(ForceUpgradePatch), metav1.PatchOptions{})
 	return err
 }
 

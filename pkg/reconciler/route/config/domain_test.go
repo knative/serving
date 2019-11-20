@@ -23,8 +23,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	. "knative.dev/pkg/configmap/testing"
+	"knative.dev/pkg/network"
 	"knative.dev/pkg/system"
-	"knative.dev/serving/pkg/network"
 
 	_ "knative.dev/pkg/system/testing"
 )

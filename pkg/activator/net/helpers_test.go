@@ -14,13 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package activator
+package net
 
 import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/serving/pkg/apis/networking"
 )
 
@@ -91,10 +92,10 @@ func TestEndpointsToDests(t *testing.T) {
 			if tc.protocol == "" {
 				tc.protocol = networking.ProtocolHTTP1
 			}
-			dests := EndpointsToDests(&tc.endpoints, networking.ServicePortName(tc.protocol))
+			dests := endpointsToDests(&tc.endpoints, networking.ServicePortName(tc.protocol))
 
-			if diff := cmp.Diff(tc.expectDests, dests); diff != "" {
-				t.Errorf("Got unexpected dests (-want, +got): %v", diff)
+			if got, want := dests, sets.NewString(tc.expectDests...); !got.Equal(want) {
+				t.Errorf("Got unexpected dests (-want, +got): %s", cmp.Diff(want, got))
 			}
 		})
 
@@ -134,7 +135,7 @@ func TestGetServicePort(t *testing.T) {
 				},
 			}
 
-			port, ok := GetServicePort(tc.protocol, &svc)
+			port, ok := getServicePort(tc.protocol, &svc)
 			if ok != tc.expectOK {
 				t.Errorf("Wanted ok %v, got %v", tc.expectOK, ok)
 			}

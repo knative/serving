@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/reconciler/certificate/config"
 )
 
@@ -31,6 +32,13 @@ var cert = &v1alpha1.Certificate{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "test-cert",
 		Namespace: "test-ns",
+		Labels: map[string]string{
+			serving.RouteLabelKey: "test-route",
+		},
+		Annotations: map[string]string{
+			serving.CreatorAnnotation: "someone",
+			serving.UpdaterAnnotation: "someone",
+		},
 	},
 	Spec: v1alpha1.CertificateSpec{
 		DNSNames:   []string{"host1.example.com", "host2.example.com"},
@@ -48,6 +56,7 @@ var cmConfig = &config.CertManagerConfig{
 		Kind: "ClusterIssuer",
 		Name: "Letsencrypt-issuer",
 	},
+	IssuerKind: "acme",
 }
 
 func TestMakeCertManagerCertificate(t *testing.T) {
@@ -56,6 +65,13 @@ func TestMakeCertManagerCertificate(t *testing.T) {
 			Name:            "test-cert",
 			Namespace:       "test-ns",
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(cert)},
+			Labels: map[string]string{
+				serving.RouteLabelKey: "test-route",
+			},
+			Annotations: map[string]string{
+				serving.CreatorAnnotation: "someone",
+				serving.UpdaterAnnotation: "someone",
+			},
 		},
 		Spec: certmanagerv1alpha1.CertificateSpec{
 			SecretName: "secret0",

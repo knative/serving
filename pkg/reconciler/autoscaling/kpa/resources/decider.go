@@ -19,6 +19,7 @@ package resources
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/serving/pkg/reconciler/autoscaling/resources"
@@ -36,7 +37,7 @@ type Deciders interface {
 	Delete(ctx context.Context, namespace, name string) error
 
 	// Watch registers a function to call when Decider change.
-	Watch(watcher func(string))
+	Watch(watcher func(types.NamespacedName))
 
 	// Update update the Decider resource, return the new Decider or any errors.
 	Update(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error)
@@ -63,6 +64,8 @@ func MakeDecider(ctx context.Context, pa *v1alpha1.PodAutoscaler, config *autosc
 		Spec: autoscaler.DeciderSpec{
 			TickInterval:        config.TickInterval,
 			MaxScaleUpRate:      config.MaxScaleUpRate,
+			MaxScaleDownRate:    config.MaxScaleDownRate,
+			ScalingMetric:       pa.Metric(),
 			TargetValue:         target,
 			TotalValue:          total,
 			TargetBurstCapacity: tbc,

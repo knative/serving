@@ -19,9 +19,9 @@ package v1alpha1
 import (
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 // RevisionOption enables further configuration of a Revision.
@@ -55,14 +55,14 @@ func WithServiceName(sn string) RevisionOption {
 // MarkResourceNotOwned calls the function of the same name on the Revision's status.
 func MarkResourceNotOwned(kind, name string) RevisionOption {
 	return func(rev *v1alpha1.Revision) {
-		rev.Status.MarkResourceNotOwned(kind, name)
+		rev.Status.MarkResourcesAvailableFalse(v1alpha1.NotOwned, v1alpha1.ResourceNotOwnedMessage(kind, name))
 	}
 }
 
 // WithRevContainerConcurrency sets the given Revision's concurrency.
-func WithRevContainerConcurrency(cc v1beta1.RevisionContainerConcurrencyType) RevisionOption {
+func WithRevContainerConcurrency(cc int64) RevisionOption {
 	return func(rev *v1alpha1.Revision) {
-		rev.Spec.ContainerConcurrency = cc
+		rev.Spec.ContainerConcurrency = &cc
 	}
 }
 
@@ -95,29 +95,40 @@ func WithRevStatus(st v1alpha1.RevisionStatus) RevisionOption {
 	}
 }
 
+// WithImagePullSecrets updates the revision spec ImagePullSecrets to
+// the provided secrets
+func WithImagePullSecrets(secretName string) RevisionOption {
+	return func(rev *v1alpha1.Revision) {
+		rev.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{
+			Name: secretName,
+		}}
+	}
+}
+
 // MarkActive calls .Status.MarkActive on the Revision.
 func MarkActive(r *v1alpha1.Revision) {
-	r.Status.MarkActive()
+	r.Status.MarkActiveTrue()
 }
 
 // MarkInactive calls .Status.MarkInactive on the Revision.
 func MarkInactive(reason, message string) RevisionOption {
 	return func(r *v1alpha1.Revision) {
-		r.Status.MarkInactive(reason, message)
+		r.Status.MarkActiveFalse(reason, message)
 	}
 }
 
 // MarkActivating calls .Status.MarkActivating on the Revision.
 func MarkActivating(reason, message string) RevisionOption {
 	return func(r *v1alpha1.Revision) {
-		r.Status.MarkActivating(reason, message)
+		r.Status.MarkActiveUnknown(reason, message)
 	}
 }
 
 // MarkDeploying calls .Status.MarkDeploying on the Revision.
 func MarkDeploying(reason string) RevisionOption {
 	return func(r *v1alpha1.Revision) {
-		r.Status.MarkDeploying(reason)
+		r.Status.MarkResourcesAvailableUnknown(reason, "")
+		r.Status.MarkContainerHealthyUnknown(reason, "")
 	}
 }
 
@@ -125,26 +136,26 @@ func MarkDeploying(reason string) RevisionOption {
 // with the message we expect the Revision Reconciler to pass.
 func MarkProgressDeadlineExceeded(message string) RevisionOption {
 	return func(r *v1alpha1.Revision) {
-		r.Status.MarkProgressDeadlineExceeded(message)
+		r.Status.MarkResourcesAvailableFalse(v1alpha1.ProgressDeadlineExceeded, message)
 	}
 }
 
 // MarkContainerMissing calls .Status.MarkContainerMissing on the Revision.
 func MarkContainerMissing(rev *v1alpha1.Revision) {
-	rev.Status.MarkContainerMissing("It's the end of the world as we know it")
+	rev.Status.MarkContainerHealthyFalse(v1alpha1.ContainerMissing, "It's the end of the world as we know it")
 }
 
 // MarkContainerExiting calls .Status.MarkContainerExiting on the Revision.
 func MarkContainerExiting(exitCode int32, message string) RevisionOption {
 	return func(r *v1alpha1.Revision) {
-		r.Status.MarkContainerExiting(exitCode, message)
+		r.Status.MarkContainerHealthyFalse(v1alpha1.ExitCodeReason(exitCode), message)
 	}
 }
 
 // MarkResourcesUnavailable calls .Status.MarkResourcesUnavailable on the Revision.
 func MarkResourcesUnavailable(reason, message string) RevisionOption {
 	return func(r *v1alpha1.Revision) {
-		r.Status.MarkResourcesUnavailable(reason, message)
+		r.Status.MarkResourcesAvailableFalse(reason, message)
 	}
 }
 
@@ -152,8 +163,8 @@ func MarkResourcesUnavailable(reason, message string) RevisionOption {
 func MarkRevisionReady(r *v1alpha1.Revision) {
 	WithInitRevConditions(r)
 	MarkActive(r)
-	r.Status.MarkResourcesAvailable()
-	r.Status.MarkContainerHealthy()
+	r.Status.MarkResourcesAvailableTrue()
+	r.Status.MarkContainerHealthyTrue()
 }
 
 // WithRevisionLabel attaches a particular label to the revision.

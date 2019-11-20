@@ -31,7 +31,6 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 )
 
@@ -83,9 +82,9 @@ func MakeK8sPlaceholderService(ctx context.Context, route *v1alpha1.Route, targe
 }
 
 // MakeK8sService creates a Service that redirect to the loadbalancer specified
-// in ClusterIngress status. It's owned by the provided v1alpha1.Route.
+// in Ingress status. It's owned by the provided v1alpha1.Route.
 // The purpose of this service is to provide a domain name for Istio routing.
-func MakeK8sService(ctx context.Context, route *v1alpha1.Route, targetName string, ingress netv1alpha1.IngressAccessor, isPrivate bool) (*corev1.Service, error) {
+func MakeK8sService(ctx context.Context, route *v1alpha1.Route, targetName string, ingress *netv1alpha1.Ingress, isPrivate bool) (*corev1.Service, error) {
 	svcSpec, err := makeServiceSpec(ingress, isPrivate)
 	if err != nil {
 		return nil, err
@@ -109,10 +108,6 @@ func makeK8sService(ctx context.Context, route *v1alpha1.Route, targetName strin
 		serving.RouteLabelKey: route.Name,
 	}
 
-	if visibility, ok := route.Labels[config.VisibilityLabelKey]; ok {
-		svcLabels[config.VisibilityLabelKey] = visibility
-	}
-
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      hostname,
@@ -126,12 +121,15 @@ func makeK8sService(ctx context.Context, route *v1alpha1.Route, targetName strin
 	}, nil
 }
 
-func makeServiceSpec(ingress netv1alpha1.IngressAccessor, isPrivate bool) (*corev1.ServiceSpec, error) {
-	ingressStatus := ingress.GetStatus()
+func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool) (*corev1.ServiceSpec, error) {
+	ingressStatus := ingress.Status
 
 	var lbStatus *netv1alpha1.LoadBalancerStatus
 
-	if isPrivate {
+	if isPrivate || ingressStatus.PrivateLoadBalancer != nil {
+		// Always use private load balancer if it exists,
+		// because k8s service is only useful for inter-cluster communication.
+		// External communication will be handle via ingress gateway, which won't be affected by what is configured here.
 		lbStatus = ingressStatus.PrivateLoadBalancer
 	} else {
 		lbStatus = ingressStatus.PublicLoadBalancer
@@ -142,7 +140,7 @@ func makeServiceSpec(ingress netv1alpha1.IngressAccessor, isPrivate bool) (*core
 	}
 	if len(lbStatus.Ingress) > 1 {
 		// Return error as we only support one LoadBalancer currently.
-		return nil, fmt.Errorf("more than one ingress are specified in status(LoadBalancer) of %s %s", GetIngressTypeName(ingress), ingress.GetName())
+		return nil, fmt.Errorf("more than one ingress are specified in status(LoadBalancer) of Ingress %s", ingress.GetName())
 	}
 	balancer := lbStatus.Ingress[0]
 
@@ -162,7 +160,7 @@ func makeServiceSpec(ingress netv1alpha1.IngressAccessor, isPrivate bool) (*core
 			ExternalName: balancer.Domain,
 		}, nil
 	case balancer.MeshOnly:
-		// The ClusterIngress is loadbalanced through a Service mesh.
+		// The Ingress is loadbalanced through a Service mesh.
 		// We won't have a specific LB endpoint to route traffic to,
 		// but we still need to create a ClusterIP service to make
 		// sure the domain name is available for access within the

@@ -20,6 +20,7 @@ import (
 	"context"
 	"sort"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -46,37 +47,6 @@ func MakeIngressTLS(cert *v1alpha1.Certificate, hostNames []string) v1alpha1.Ing
 	}
 }
 
-// MakeClusterIngress creates ClusterIngress to set up routing rules. Such ClusterIngress specifies
-// which Hosts that it applies to, as well as the routing rules.
-func MakeClusterIngress(
-	ctx context.Context,
-	r *servingv1alpha1.Route,
-	tc *traffic.Config,
-	tls []v1alpha1.IngressTLS,
-	clusterLocalServices sets.String,
-	ingressClass string,
-) (v1alpha1.IngressAccessor, error) {
-	spec, err := MakeIngressSpec(ctx, r, tls, clusterLocalServices, tc.Targets)
-	if err != nil {
-		return nil, err
-	}
-	return &v1alpha1.ClusterIngress{
-		ObjectMeta: metav1.ObjectMeta{
-			// As ClusterIngress resource is cluster-scoped,
-			// here we use GenerateName to avoid conflict.
-			Name: names.ClusterIngress(r),
-			Labels: map[string]string{
-				serving.RouteLabelKey:          r.Name,
-				serving.RouteNamespaceLabelKey: r.Namespace,
-			},
-			Annotations: resources.UnionMaps(map[string]string{
-				networking.IngressClassAnnotationKey: ingressClass,
-			}, r.ObjectMeta.Annotations),
-		},
-		Spec: spec,
-	}, nil
-}
-
 // MakeIngress creates Ingress to set up routing rules. Such Ingress specifies
 // which Hosts that it applies to, as well as the routing rules.
 func MakeIngress(
@@ -86,7 +56,7 @@ func MakeIngress(
 	tls []v1alpha1.IngressTLS,
 	clusterLocalServices sets.String,
 	ingressClass string,
-) (v1alpha1.IngressAccessor, error) {
+) (*v1alpha1.Ingress, error) {
 	spec, err := MakeIngressSpec(ctx, r, tls, clusterLocalServices, tc.Targets)
 	if err != nil {
 		return nil, err
@@ -95,13 +65,15 @@ func MakeIngress(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.Ingress(r),
 			Namespace: r.Namespace,
-			Labels: map[string]string{
+			Labels: resources.UnionMaps(r.ObjectMeta.Labels, map[string]string{
 				serving.RouteLabelKey:          r.Name,
 				serving.RouteNamespaceLabelKey: r.Namespace,
-			},
-			Annotations: resources.UnionMaps(map[string]string{
+			}),
+			Annotations: resources.FilterMap(resources.UnionMaps(map[string]string{
 				networking.IngressClassAnnotationKey: ingressClass,
-			}, r.ObjectMeta.Annotations),
+			}, r.GetAnnotations()), func(key string) bool {
+				return key == corev1.LastAppliedConfigAnnotation
+			}),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(r)},
 		},
 		Spec: spec,
@@ -228,14 +200,5 @@ func makeIngressRule(domains []string, ns string, isClusterLocal bool, targets t
 				// TODO(lichuqiang): #2201, plumbing to config timeout and retries.
 			}},
 		},
-	}
-}
-
-// GetIngressTypeName returns ingress type name: ClusterIngress or Ingress
-func GetIngressTypeName(ingress v1alpha1.IngressAccessor) string {
-	if ingress.GetNamespace() == "" {
-		return "ClusterIngress"
-	} else {
-		return "Ingress"
 	}
 }

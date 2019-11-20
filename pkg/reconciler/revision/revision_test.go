@@ -25,14 +25,16 @@ import (
 	"testing"
 	"time"
 
+	"knative.dev/serving/pkg/apis/config"
+
 	// Inject the fakes for informers this controller relies on.
 	fakecachingclient "knative.dev/caching/pkg/client/injection/client/fake"
 	fakeimageinformer "knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image/fake"
-	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
-	fakedeploymentinformer "knative.dev/pkg/injection/informers/kubeinformers/appsv1/deployment/fake"
-	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/configmap/fake"
-	fakeendpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints/fake"
-	_ "knative.dev/pkg/injection/informers/kubeinformers/corev1/service/fake"
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
+	fakedeploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap/fake"
+	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
@@ -52,10 +54,10 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
-	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics"
 	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/pkg/system"
+	tracingconfig "knative.dev/pkg/tracing/config"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -64,7 +66,6 @@ import (
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
-	tracingconfig "knative.dev/serving/pkg/tracing/config"
 
 	. "knative.dev/pkg/reconciler/testing"
 )
@@ -158,14 +159,14 @@ func newTestControllerWithConfig(t *testing.T, deploymentConfig *deployment.Conf
 			Name:      autoscaler.ConfigName,
 		},
 		Data: map[string]string{
-			"max-scale-up-rate":                       "1.0",
+			"max-scale-up-rate":                       "11.0",
 			"container-concurrency-target-percentage": "0.5",
 			"container-concurrency-target-default":    "10.0",
 			"stable-window":                           "5m",
 			"panic-window":                            "10s",
 			"tick-interval":                           "2s",
 		},
-	}, getTestDeploymentConfigMap()}
+	}, getTestDeploymentConfigMap(), getTestDefaultsConfigMap()}
 
 	cms = append(cms, configs...)
 
@@ -262,19 +263,20 @@ func (r *fixedResolver) Resolve(_ string, _ k8schain.Options, _ sets.String) (st
 }
 
 type errorResolver struct {
-	error string
+	err error
 }
 
 func (r *errorResolver) Resolve(_ string, _ k8schain.Options, _ sets.String) (string, error) {
-	return "", errors.New(r.error)
+	return "", r.err
 }
 
 func TestResolutionFailed(t *testing.T) {
-	ctx, _, controller, _ := newTestController(t)
+	ctx, cancel, _, controller, _ := newTestController(t)
+	defer cancel()
 
 	// Unconditionally return this error during resolution.
-	errorMessage := "I am the expected error message, hear me ROAR!"
-	controller.Reconciler.(*Reconciler).resolver = &errorResolver{errorMessage}
+	innerError := errors.New("i am the expected error message, hear me ROAR!")
+	controller.Reconciler.(*Reconciler).resolver = &errorResolver{innerError}
 
 	rev := testRevision()
 	config := testConfiguration()
@@ -295,7 +297,7 @@ func TestResolutionFailed(t *testing.T) {
 			Status: corev1.ConditionFalse,
 			Reason: "ContainerMissing",
 			Message: v1alpha1.RevisionContainerMissingMessage(
-				rev.Spec.GetContainer().Image, errorMessage),
+				rev.Spec.GetContainer().Image, "failed to resolve image to digest: "+innerError.Error()),
 			LastTransitionTime: got.LastTransitionTime,
 			Severity:           apis.ConditionSeverityError,
 		}
@@ -350,7 +352,8 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 
 // TODO(mattmoor): Remove when we have coverage of EnqueueEndpointsRevision
 func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
-	ctx, _, controller, _ := newTestController(t)
+	ctx, cancel, _, controller, _ := newTestController(t)
+	defer cancel()
 	rev := testRevision()
 
 	fakeRecorder := controller.Reconciler.(*Reconciler).Base.Recorder.(*record.FakeRecorder)
@@ -414,7 +417,8 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 }
 
 func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
-	ctx, _, controller, watcher := newTestController(t)
+	ctx, cancel, _, controller, watcher := newTestController(t)
+	defer cancel()
 
 	rev := testRevision()
 	config := testConfiguration()
@@ -517,7 +521,6 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 }
 
 func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
-	defer logtesting.ClearAll()
 	// Test that changes to the ConfigMap result in the desired changes on an existing
 	// revision.
 	tests := []struct {
@@ -551,6 +554,32 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 				return HookIncomplete
 			}
 		},
+	}, {
+		name: "Update ContainerConcurrency", // Should update ContainerConcurrency on revision spec
+		configMapToUpdate: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      config.DefaultsConfigName,
+			},
+			Data: map[string]string{
+				"container-concurrency": "3",
+			},
+		},
+		callback: func(t *testing.T) func(runtime.Object) HookResult {
+			return func(obj runtime.Object) HookResult {
+				revision := obj.(*v1alpha1.Revision)
+				t.Logf("Revision updated: %v", revision.Name)
+
+				expected := int64(3)
+				got := *(revision.Spec.ContainerConcurrency)
+				if got != expected {
+					return HookComplete
+				}
+
+				t.Logf("No update occurred; expected: %d got: %d", expected, got)
+				return HookIncomplete
+			}
+		},
 	}}
 
 	for _, test := range tests {
@@ -560,12 +589,6 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 
 			ctx, cancel := context.WithCancel(ctx)
 			grp := errgroup.Group{}
-			defer func() {
-				cancel()
-				if err := grp.Wait(); err != nil {
-					t.Errorf("Wait() = %v", err)
-				}
-			}()
 
 			servingClient := fakeservingclient.Get(ctx)
 
@@ -576,9 +599,18 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 
 			h.OnUpdate(&servingClient.Fake, "revisions", test.callback(t))
 
-			if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
+			waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+			if err != nil {
 				t.Fatalf("Failed to start informers: %v", err)
 			}
+			defer func() {
+				cancel()
+				if err := grp.Wait(); err != nil {
+					t.Errorf("Wait() = %v", err)
+				}
+				waitInformers()
+			}()
+
 			if err := watcher.Start(ctx.Done()); err != nil {
 				t.Fatalf("Failed to start configuration manager: %v", err)
 			}
@@ -597,7 +629,6 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 }
 
 func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
-	defer logtesting.ClearAll()
 	// Test that changes to the ConfigMap result in the desired changes on an existing
 	// deployment.
 	tests := []struct {
@@ -714,12 +745,6 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 
 			ctx, cancel := context.WithCancel(ctx)
 			grp := errgroup.Group{}
-			defer func() {
-				cancel()
-				if err := grp.Wait(); err != nil {
-					t.Errorf("Wait() = %v", err)
-				}
-			}()
 
 			kubeClient := fakekubeclient.Get(ctx)
 
@@ -735,9 +760,18 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 				return HookComplete
 			})
 
-			if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
+			waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+			if err != nil {
 				t.Fatalf("Failed to start informers: %v", err)
 			}
+			defer func() {
+				cancel()
+				if err := grp.Wait(); err != nil {
+					t.Errorf("Wait() = %v", err)
+				}
+				waitInformers()
+			}()
+
 			if err := watcher.Start(ctx.Done()); err != nil {
 				t.Fatalf("Failed to start configuration manager: %v", err)
 			}

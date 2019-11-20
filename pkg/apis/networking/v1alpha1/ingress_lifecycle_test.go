@@ -19,9 +19,11 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	corev1 "k8s.io/api/core/v1"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1alpha1"
-	apitest "knative.dev/pkg/apis/testing"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
+	apitestv1 "knative.dev/pkg/apis/testing/v1"
 )
 
 func TestIngressDuckTypes(t *testing.T) {
@@ -30,7 +32,7 @@ func TestIngressDuckTypes(t *testing.T) {
 		t    duck.Implementable
 	}{{
 		name: "conditions",
-		t:    &duckv1beta1.Conditions{},
+		t:    &duckv1.Conditions{},
 	}}
 
 	for _, test := range tests {
@@ -73,17 +75,17 @@ func TestIngressTypicalFlow(t *testing.T) {
 	r := &IngressStatus{}
 	r.InitializeConditions()
 
-	apitest.CheckConditionOngoing(r.duck(), IngressConditionReady, t)
+	apitestv1.CheckConditionOngoing(r.duck(), IngressConditionReady, t)
 
 	// Then network is configured.
 	r.MarkNetworkConfigured()
-	apitest.CheckConditionSucceeded(r.duck(), IngressConditionNetworkConfigured, t)
-	apitest.CheckConditionOngoing(r.duck(), IngressConditionReady, t)
+	apitestv1.CheckConditionSucceeded(r.duck(), IngressConditionNetworkConfigured, t)
+	apitestv1.CheckConditionOngoing(r.duck(), IngressConditionReady, t)
 
 	// Then ingress is pending.
 	r.MarkLoadBalancerPending()
-	apitest.CheckConditionOngoing(r.duck(), IngressConditionLoadBalancerReady, t)
-	apitest.CheckConditionOngoing(r.duck(), IngressConditionReady, t)
+	apitestv1.CheckConditionOngoing(r.duck(), IngressConditionLoadBalancerReady, t)
+	apitestv1.CheckConditionOngoing(r.duck(), IngressConditionReady, t)
 
 	// Then ingress has address.
 	r.MarkLoadBalancerReady(
@@ -91,13 +93,55 @@ func TestIngressTypicalFlow(t *testing.T) {
 		[]LoadBalancerIngressStatus{{DomainInternal: "gateway.default.svc"}},
 		[]LoadBalancerIngressStatus{{DomainInternal: "private.gateway.default.svc"}},
 	)
-	apitest.CheckConditionSucceeded(r.duck(), IngressConditionLoadBalancerReady, t)
-	apitest.CheckConditionSucceeded(r.duck(), IngressConditionReady, t)
+	apitestv1.CheckConditionSucceeded(r.duck(), IngressConditionLoadBalancerReady, t)
+	apitestv1.CheckConditionSucceeded(r.duck(), IngressConditionReady, t)
 	if !r.IsReady() {
 		t.Fatal("IsReady()=false, wanted true")
 	}
 
 	// Mark not owned.
 	r.MarkResourceNotOwned("i own", "you")
-	apitest.CheckConditionFailed(r.duck(), IngressConditionReady, t)
+	apitestv1.CheckConditionFailed(r.duck(), IngressConditionReady, t)
+
+	// Mark network configured, and check that ingress is ready again
+	r.MarkNetworkConfigured()
+	apitestv1.CheckConditionSucceeded(r.duck(), IngressConditionReady, t)
+	if !r.IsReady() {
+		t.Fatal("IsReady()=false, wanted true")
+	}
+
+	// Mark ingress not ready
+	r.MarkIngressNotReady("", "")
+	apitestv1.CheckConditionOngoing(r.duck(), IngressConditionReady, t)
+}
+
+func TestIngressGetCondition(t *testing.T) {
+	ingressStatus := &IngressStatus{}
+	ingressStatus.InitializeConditions()
+	tests := []struct {
+		name     string
+		condType apis.ConditionType
+		expect   *apis.Condition
+	}{{
+		name:     "random condition",
+		condType: apis.ConditionType("random"),
+		expect:   nil,
+	}, {
+		name:     "ready condition",
+		condType: apis.ConditionReady,
+		expect: &apis.Condition{
+			Status: corev1.ConditionUnknown,
+		},
+	}, {
+		name:     "succeeded condition",
+		condType: apis.ConditionSucceeded,
+		expect:   nil,
+	}}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got, want := ingressStatus.GetCondition(tc.condType), tc.expect; got != nil && got.Status != want.Status {
+				t.Errorf("got: %v, want: %v", got, want)
+			}
+		})
+	}
 }

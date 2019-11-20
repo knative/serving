@@ -26,8 +26,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
@@ -53,7 +53,8 @@ func TestRunLatestService(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	// Setup initial Service
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names)
+	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false /* https TODO(taragu) turn this on after helloworld test running with https */)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
@@ -77,7 +78,7 @@ func TestRunLatestService(t *testing.T) {
 	}
 
 	// We start a background prober to test if Route is always healthy even during Route update.
-	prober := test.RunRouteProber(t.Logf, clients, names.Domain)
+	prober := test.RunRouteProber(t.Logf, clients, names.URL)
 	defer test.AssertProberDefault(t, prober)
 
 	// Update Container Image
@@ -196,9 +197,11 @@ func TestRunLatestServiceBYOName(t *testing.T) {
 	revName := names.Service + "-byoname"
 
 	// Setup initial Service
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, func(svc *v1alpha1.Service) {
-		svc.Spec.ConfigurationSpec.GetTemplate().Name = revName
-	})
+	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		func(svc *v1alpha1.Service) {
+			svc.Spec.ConfigurationSpec.GetTemplate().Name = revName
+		})
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
@@ -225,7 +228,7 @@ func TestRunLatestServiceBYOName(t *testing.T) {
 	}
 
 	// We start a background prober to test if Route is always healthy even during Route update.
-	prober := test.RunRouteProber(t.Logf, clients, names.Domain)
+	prober := test.RunRouteProber(t.Logf, clients, names.URL)
 	defer test.AssertProberDefault(t, prober)
 
 	// Update Container Image
@@ -265,7 +268,8 @@ func TestReleaseService(t *testing.T) {
 	)
 
 	// Setup initial Service
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names)
+	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false /* https TODO(taragu) turn this on after helloworld test running with https */)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
@@ -283,13 +287,13 @@ func TestReleaseService(t *testing.T) {
 	t.Log("1. Updating Service to ReleaseType using lastCreatedRevision")
 	objects.Service, err = v1a1test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{
 		Traffic: []v1alpha1.TrafficTarget{{
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:          "current",
 				RevisionName: firstRevision,
 				Percent:      ptr.Int64(100),
 			},
 		}, {
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:     "latest",
 				Percent: nil,
 			},
@@ -301,7 +305,7 @@ func TestReleaseService(t *testing.T) {
 
 	desiredTrafficShape := map[string]v1alpha1.TrafficTarget{
 		"current": {
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:            "current",
 				RevisionName:   objects.Config.Status.LatestReadyRevisionName,
 				Percent:        ptr.Int64(100),
@@ -309,7 +313,7 @@ func TestReleaseService(t *testing.T) {
 			},
 		},
 		"latest": {
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:            "latest",
 				RevisionName:   objects.Config.Status.LatestReadyRevisionName,
 				LatestRevision: ptr.Bool(true),
@@ -323,7 +327,7 @@ func TestReleaseService(t *testing.T) {
 
 	t.Log("Service traffic should go to the first revision and be available on two names traffic targets: 'current' and 'latest'")
 	if err := validateDomains(t, clients,
-		names.Domain,
+		names.URL,
 		[]string{expectedFirstRev},
 		[]string{"latest", "current"},
 		[]string{expectedFirstRev, expectedFirstRev}); err != nil {
@@ -344,7 +348,7 @@ func TestReleaseService(t *testing.T) {
 
 	// Also verify traffic is in the correct shape.
 	desiredTrafficShape["latest"] = v1alpha1.TrafficTarget{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			Tag:            "latest",
 			RevisionName:   secondRevision,
 			LatestRevision: ptr.Bool(true),
@@ -357,7 +361,7 @@ func TestReleaseService(t *testing.T) {
 
 	t.Log("Since the Service is using release the Route will not be updated, but new revision will be available at 'latest'")
 	if err := validateDomains(t, clients,
-		names.Domain,
+		names.URL,
 		[]string{expectedFirstRev},
 		[]string{"latest", "current"},
 		[]string{expectedSecondRev, expectedFirstRev}); err != nil {
@@ -368,19 +372,19 @@ func TestReleaseService(t *testing.T) {
 	t.Log("3. Updating Service to split traffic between two revisions using Release mode")
 	objects.Service, err = v1a1test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{
 		Traffic: []v1alpha1.TrafficTarget{{
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:          "current",
 				RevisionName: firstRevision,
 				Percent:      ptr.Int64(50),
 			},
 		}, {
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:          "candidate",
 				RevisionName: secondRevision,
 				Percent:      ptr.Int64(50),
 			},
 		}, {
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:     "latest",
 				Percent: nil,
 			},
@@ -392,7 +396,7 @@ func TestReleaseService(t *testing.T) {
 
 	desiredTrafficShape = map[string]v1alpha1.TrafficTarget{
 		"current": {
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:            "current",
 				RevisionName:   firstRevision,
 				Percent:        ptr.Int64(50),
@@ -400,7 +404,7 @@ func TestReleaseService(t *testing.T) {
 			},
 		},
 		"candidate": {
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:            "candidate",
 				RevisionName:   secondRevision,
 				Percent:        ptr.Int64(50),
@@ -408,7 +412,7 @@ func TestReleaseService(t *testing.T) {
 			},
 		},
 		"latest": {
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:            "latest",
 				RevisionName:   secondRevision,
 				LatestRevision: ptr.Bool(true),
@@ -422,7 +426,7 @@ func TestReleaseService(t *testing.T) {
 
 	t.Log("Traffic should be split between the two revisions and available on three named traffic targets, 'current', 'candidate', and 'latest'")
 	if err := validateDomains(t, clients,
-		names.Domain,
+		names.URL,
 		[]string{expectedFirstRev, expectedSecondRev},
 		[]string{"candidate", "latest", "current"},
 		[]string{expectedSecondRev, expectedSecondRev, expectedFirstRev}); err != nil {
@@ -441,7 +445,7 @@ func TestReleaseService(t *testing.T) {
 	thirdRevision := names.Revision
 
 	desiredTrafficShape["latest"] = v1alpha1.TrafficTarget{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			Tag:            "latest",
 			RevisionName:   thirdRevision,
 			LatestRevision: ptr.Bool(true),
@@ -454,7 +458,7 @@ func TestReleaseService(t *testing.T) {
 
 	t.Log("Traffic should remain between the two images, and the new revision should be available on the named traffic target 'latest'")
 	if err := validateDomains(t, clients,
-		names.Domain,
+		names.URL,
 		[]string{expectedFirstRev, expectedSecondRev},
 		[]string{"latest", "candidate", "current"},
 		[]string{expectedThirdRev, expectedSecondRev, expectedFirstRev}); err != nil {
@@ -466,18 +470,18 @@ func TestReleaseService(t *testing.T) {
 
 	objects.Service, err = v1a1test.UpdateServiceRouteSpec(t, clients, names, v1alpha1.RouteSpec{
 		Traffic: []v1alpha1.TrafficTarget{{
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:          "current",
 				RevisionName: firstRevision,
 				Percent:      ptr.Int64(50),
 			},
 		}, {
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:     "candidate",
 				Percent: ptr.Int64(50),
 			},
 		}, {
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Tag:     "latest",
 				Percent: nil,
 			},
@@ -494,7 +498,7 @@ func TestReleaseService(t *testing.T) {
 
 	// `candidate` now points to the latest.
 	desiredTrafficShape["candidate"] = v1alpha1.TrafficTarget{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			Tag:            "candidate",
 			RevisionName:   thirdRevision,
 			Percent:        ptr.Int64(50),
@@ -507,7 +511,7 @@ func TestReleaseService(t *testing.T) {
 	}
 
 	if err := validateDomains(t, clients,
-		names.Domain,
+		names.URL,
 		[]string{expectedFirstRev, expectedThirdRev},
 		[]string{"latest", "candidate", "current"},
 		[]string{expectedThirdRev, expectedThirdRev, expectedFirstRev}); err != nil {
@@ -529,7 +533,8 @@ func TestAnnotationPropagation(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	// Setup initial Service
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names)
+	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false /* https TODO(taragu) turn this on after helloworld test running with https */)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}

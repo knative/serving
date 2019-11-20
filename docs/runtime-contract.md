@@ -91,8 +91,9 @@ In a highly-shared environment, containers might experience the following:
 
 ### Lifecycle
 
-- The container MAY be killed when the container is inactive. Serverless
-  computation relies on inbound requests to determine container activeness. The
+- The container MAY be killed when the container is inactive. Containers MUST be
+  considered "active" while they are handling at least one request, but other
+  conditions MAY also be used to determine that a container is active. The
   container is sent a `SIGTERM` signal when it is killed via the
   [OCI specification's `kill`](https://github.com/opencontainers/runtime-spec/blob/master/runtime.md#kill)
   command to allow for a graceful shutdown of existing resources and
@@ -173,9 +174,7 @@ autoscaled container is available to serve that request.
 
 ### Inbound network connectivity
 
-Inbound network connectivity is assumed to use HTTP/1.1 compatible transport, to
-enable the runtime environment to determine whether a container is "busy" or not
-for purposes of scaling CPU and removing idle containers.
+Inbound network connectivity is assumed to use HTTP/1.1 compatible transport.
 
 #### Protocols and Ports
 

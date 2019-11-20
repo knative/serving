@@ -2,11 +2,11 @@ aliases:
   pkg-approvers:
   - evankanderson
   - mattmoor
-  - vaikas-google
+  - vaikas
 
   apis-approvers:
   - mattmoor
-  - vaikas-google
+  - vaikas
   - n3wscott
 
   apis-istio-approvers:
@@ -14,24 +14,24 @@ aliases:
 
   apis-duck-approvers:
   - mattmoor
-  - vaikas-google
-
-  cloudevents-approvers:
-  - n3wscott
-  - vaikas-google
+  - vaikas
 
   configmap-approvers:
   - mattmoor
   - mdemirhan
+  - dprotaso
 
   controller-approvers:
-  - mattmoor
+  - dgerd
   - grantr
+  - mattmoor
   - tcnghia
+  - vagababov
 
   kmeta-approvers:
   - mattmoor
-  - jonjohnsonjr
+  - dgerd
+  - vagababov
 
   logging-approvers:
   - mdemirhan
@@ -42,19 +42,25 @@ aliases:
   - mdemirhan
   - yanweiguo
 
+  network-approvers:
+  - markusthoemmes
+  - tcnghia
+  - vagababov
+
   productivity-approvers:
   - adrcunha
   - chaodaiG
-  - srinivashegde86
   productivity-reviewers:
   - adrcunha
   - chaodaiG
   - coryrc
-  - dushyanthsc
-  - Fredy-Z
-  - srinivashegde86
+  - chizhg
   - steuhs
   - yt3liu
+
+  source-approvers:
+  - n3wscott
+  - vaikas
 
   webhook-approvers:
   - mattmoor

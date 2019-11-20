@@ -46,24 +46,42 @@ func TestHelloWorld(t *testing.T) {
 		Image:   "helloworld",
 	}
 
+	if test.ServingFlags.Https {
+		// Save the current Gateway to restore it after the test
+		oldGateway, err := clients.SharedClient.NetworkingV1alpha3().Gateways(v1a1test.Namespace).Get(v1a1test.GatewayName, metav1.GetOptions{})
+		if err != nil {
+			t.Fatalf("Failed to get Gateway %s/%s", v1a1test.Namespace, v1a1test.GatewayName)
+		}
+		test.CleanupOnInterrupt(func() { v1a1test.RestoreGateway(t, clients, *oldGateway) })
+		defer v1a1test.RestoreGateway(t, clients, *oldGateway)
+	}
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Service")
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names)
+	resources, httpsTransportOption, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, test.ServingFlags.Https)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
-	domain := resources.Route.Status.URL.Host
 
-	if _, err = pkgTest.WaitForEndpointState(
+	url := resources.Route.Status.URL.URL()
+	var opt interface{}
+	if test.ServingFlags.Https {
+		url.Scheme = "https"
+		if httpsTransportOption == nil {
+			t.Fatalf("Https transport option is nil")
+		}
+		opt = *httpsTransportOption
+	}
+	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain,
+		url,
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"HelloWorldServesText",
-		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, test.HelloWorldText, err)
+		test.ServingFlags.ResolvableDomain,
+		opt); err != nil {
+		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.HelloWorldText, err)
 	}
 
 	revision := resources.Revision
@@ -99,7 +117,8 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Service")
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
 		v1a1opts.WithResourceRequirements(corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceName("cpu"):    resource.MustParse("50m"),
@@ -115,16 +134,16 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
-	domain := resources.Route.Status.URL.Host
+	url := resources.Route.Status.URL.URL()
 
 	if _, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain,
+		url,
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"HelloWorldServesText",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, test.HelloWorldText, err)
+		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, url, test.HelloWorldText, err)
 	}
 
 	revision := resources.Revision

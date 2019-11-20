@@ -19,8 +19,8 @@ package kpa
 import (
 	"context"
 
-	endpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints"
-	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
+	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
+	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
 	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
@@ -70,8 +70,9 @@ func NewController(
 	c.scaler = newScaler(ctx, psInformerFactory, impl.EnqueueAfter)
 
 	c.Logger.Info("Setting up KPA-Class event handlers")
-	// Handle PodAutoscalers missing the class annotation for backward compatibility.
-	onlyKpaClass := reconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.KPA, false)
+	// Handle only PodAutoscalers that have KPA annotation.
+	onlyKpaClass := reconciler.AnnotationFilterFunc(
+		autoscaling.ClassAnnotationKey, autoscaling.KPA, false /*allowUnset*/)
 	paHandler := cache.FilteringResourceEventHandler{
 		FilterFunc: onlyKpaClass,
 		Handler:    controller.HandleAll(impl.Enqueue),
@@ -106,7 +107,7 @@ func NewController(
 		&autoscaler.Config{},
 	}
 	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
-		controller.SendGlobalUpdates(paInformer.Informer(), paHandler)
+		impl.FilteredGlobalResync(onlyKpaClass, paInformer.Informer())
 	})
 	configStore := config.NewStore(c.Logger.Named("config-store"), resync)
 	configStore.WatchConfigs(cmw)

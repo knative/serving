@@ -63,6 +63,54 @@ func TestBreakerInvalidConstructor(t *testing.T) {
 	}
 }
 
+func TestBreakerReserveOverload(t *testing.T) {
+	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1}
+	b := NewBreaker(params) // Breaker capacity = 2
+	cb1, rr := b.Reserve(context.Background())
+	if !rr {
+		t.Fatal("Reserve1 failed")
+	}
+	_, rr = b.Reserve(context.Background())
+	if rr {
+		t.Fatal("Reserve2 was an unexpected success.")
+	}
+	// Release a slot.
+	cb1()
+	// And reserve it again.
+	cb2, rr := b.Reserve(context.Background())
+	if !rr {
+		t.Fatal("Reserve2 failed")
+	}
+	cb2()
+}
+
+func TestBreakerOverloadMixed(t *testing.T) {
+	// This tests when reservation and maybe are intermised.
+	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1}
+	b := NewBreaker(params) // Breaker capacity = 2
+	reqs := newRequestor(b)
+
+	// Bring breaker to capacity.
+	reqs.request()
+	// This happens in go-routine, so spin.
+	for len(b.sem.queue) > 0 {
+		time.Sleep(time.Millisecond * 2)
+	}
+	_, rr := b.Reserve(context.Background())
+	if rr {
+		t.Fatal("Reserve was an unexpected success.")
+	}
+	// Open a slot.
+	reqs.processSuccessfully(t)
+	// Now reservation should work.
+	cb, rr := b.Reserve(context.Background())
+	if !rr {
+		t.Fatal("Reserve unexpectedly failed")
+	}
+	// Process the reservation.
+	cb()
+}
+
 func TestBreakerOverload(t *testing.T) {
 	params := BreakerParams{QueueDepth: 1, MaxConcurrency: 1, InitialCapacity: 1}
 	b := NewBreaker(params) // Breaker capacity = 2
@@ -200,6 +248,13 @@ func TestSemaphoreAcquireHasNoCapacity(t *testing.T) {
 	}
 }
 
+func TestSemaphoreAcquireNonBlockingHasNoCapacity(t *testing.T) {
+	sem := newSemaphore(1, 0)
+	if sem.tryAcquire(context.Background()) {
+		t.Error("Should have failed immediately")
+	}
+}
+
 // Test empty semaphore, add capacity, token can be acquired
 func TestSemaphoreAcquireHasCapacity(t *testing.T) {
 	gotChan := make(chan struct{}, 1)
@@ -223,6 +278,17 @@ func TestSemaphoreAcquireHasCapacity(t *testing.T) {
 		t.Errorf("Got more acquires than wanted, want = %d, got at least %d", want, want+1)
 	case <-time.After(semNoChangeTimeout):
 		// No change happened, success.
+	}
+}
+
+func TestSemaphoreHasCapacity(t *testing.T) {
+	sem := newSemaphore(1, 1)
+	if !sem.hasCapacity() {
+		t.Error("Has no capacity")
+	}
+	sem.acquire(context.Background())
+	if sem.hasCapacity() {
+		t.Error("Has capacity")
 	}
 }
 
@@ -371,10 +437,10 @@ func (r *requestor) request() {
 // or block until processSuccessfully is called.
 func (r *requestor) requestWithContext(ctx context.Context) {
 	go func() {
-		ok := r.breaker.Maybe(ctx, func() {
+		err := r.breaker.Maybe(ctx, func() {
 			<-r.barrierCh
 		})
-		r.acceptedCh <- ok
+		r.acceptedCh <- err == nil
 	}()
 }
 

@@ -20,14 +20,16 @@ import (
 	"context"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 func makeConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
 	// We do this prior to reconciliation, so test with it enabled.
-	service.SetDefaults(v1beta1.WithUpgradeViaDefaulting(context.Background()))
+	service.SetDefaults(v1.WithUpgradeViaDefaulting(context.Background()))
 	return MakeConfiguration(service)
 }
 
@@ -125,5 +127,16 @@ func TestInlineConfigurationSpec(t *testing.T) {
 	}
 	if got, want := c.Labels[serving.ServiceLabelKey], testServiceName; got != want {
 		t.Errorf("expected %q labels got %q", want, got)
+	}
+}
+
+func TestConfigurationHasNoKubectlAnnotation(t *testing.T) {
+	s := createServiceWithKubectlAnnotation()
+	c, err := makeConfiguration(s)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if v, ok := c.Annotations[corev1.LastAppliedConfigAnnotation]; ok {
+		t.Errorf("Annotation %s = %q, want empty", corev1.LastAppliedConfigAnnotation, v)
 	}
 }

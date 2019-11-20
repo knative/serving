@@ -9,8 +9,8 @@ Configurations, and Services:
 
 - **Configuration**, which acts as a stream of environments for Revisions.
 
-- **Service** acts as a top-level container for managing the set of Routes and
-  Configurations which implement a network service.
+- **Service** acts as a top-level container for managing a Route and
+  Configuration which implement a network service.
 
 ![Object model](images/object_model.png)
 
@@ -54,9 +54,9 @@ A **Service** encapsulates a **Route** and **Configuration** which together
 provide a software component. Service exists to provide a singular abstraction
 which can be access controlled, reasoned about, and which encapsulates software
 lifecycle decisions such as rollout policy and team resource ownership. Service
-acts only as an orchestrator of the underlying Routes and Configurations (much
-as a kubernetes Deployment orchestrates ReplicaSets), and its usage is optional
-but recommended.
+acts only as an orchestrator of the underlying Route and Configuration (much as
+a kubernetes Deployment orchestrates ReplicaSets). Its usage is optional but
+recommended.
 
 The Service's controller will track the statuses of its owned Configuration and
 Route, reflecting their statuses and conditions as its own.
@@ -67,10 +67,8 @@ as the Service's RoutesReady condition.
 
 ## Orchestration
 
-The system will be configured to disallow users from creating
-([NYI](https://github.com/knative/serving/issues/664)) or changing Revisions.
-Instead, Revisions are created indirectly when a Configuration is created or
-updated. This provides:
+Revisions are created indirectly when a Configuration is created or updated.
+This provides:
 
 - a single referenceable resource for the route to perform automated rollouts
 - a single resource that can be watched to see a history of all the revisions
@@ -80,9 +78,7 @@ updated. This provides:
   optimistic concurrency errors
 - the ability to rollback to a known good configuration
 
-In the conventional single live revision scenario, a service creates both a
-route and a configuration with the same name as the service. Update operations
-on the service enable scenarios such as:
+Update operations on the service enable scenarios such as:
 
 - _"Push image, keep config":_ Specifying a new revision with updated image,
   inheriting configuration such as env vars from the configuration.
@@ -91,6 +87,3 @@ on the service enable scenarios such as:
   configuration and image.
 - _"Execute a controlled rollout"_: Updating the service's traffic spec allows
   testing of revisions before making them live, and controlled rollouts.
-
-The [sample API usage](normative_examples.md) section illustrates conventional
-usage of the API.

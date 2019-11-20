@@ -29,6 +29,7 @@ import (
 	"knative.dev/pkg/ptr"
 
 	"knative.dev/serving/pkg/apis/config"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 var (
@@ -46,7 +47,7 @@ var (
 )
 
 func TestRevisionDefaulting(t *testing.T) {
-	defer logtesting.ClearAll()
+	logger := logtesting.TestLogger(t)
 	tests := []struct {
 		name string
 		in   *Revision
@@ -55,12 +56,15 @@ func TestRevisionDefaulting(t *testing.T) {
 	}{{
 		name: "empty",
 		in:   &Revision{},
-		want: &Revision{Spec: RevisionSpec{TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds)}},
+		want: &Revision{Spec: v1.RevisionSpec{
+			TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+			ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+		}},
 	}, {
 		name: "with context",
-		in:   &Revision{Spec: RevisionSpec{PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}}}},
+		in:   &Revision{Spec: v1.RevisionSpec{PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}}}},
 		wc: func(ctx context.Context) context.Context {
-			s := config.NewStore(logtesting.TestLogger(t))
+			s := config.NewStore(logger)
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
@@ -73,8 +77,8 @@ func TestRevisionDefaulting(t *testing.T) {
 			return s.ToContext(ctx)
 		},
 		want: &Revision{
-			Spec: RevisionSpec{
-				ContainerConcurrency: 0,
+			Spec: v1.RevisionSpec{
+				ContainerConcurrency: ptr.Int64(0),
 				TimeoutSeconds:       ptr.Int64(123),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
@@ -88,7 +92,7 @@ func TestRevisionDefaulting(t *testing.T) {
 	}, {
 		name: "readonly volumes",
 		in: &Revision{
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "foo",
@@ -97,12 +101,12 @@ func TestRevisionDefaulting(t *testing.T) {
 						}},
 					}},
 				},
-				ContainerConcurrency: 1,
+				ContainerConcurrency: ptr.Int64(1),
 				TimeoutSeconds:       ptr.Int64(99),
 			},
 		},
 		want: &Revision{
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:  config.DefaultUserContainerName,
@@ -115,15 +119,44 @@ func TestRevisionDefaulting(t *testing.T) {
 						ReadinessProbe: defaultProbe,
 					}},
 				},
-				ContainerConcurrency: 1,
+				ContainerConcurrency: ptr.Int64(1),
 				TimeoutSeconds:       ptr.Int64(99),
+			},
+		},
+	}, {
+		name: "timeout sets to default when 0 is specified",
+		in:   &Revision{Spec: v1.RevisionSpec{PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}}, TimeoutSeconds: ptr.Int64(0)}},
+		wc: func(ctx context.Context) context.Context {
+			s := config.NewStore(logger)
+			s.OnConfigChanged(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: config.DefaultsConfigName,
+				},
+				Data: map[string]string{
+					"revision-timeout-seconds": "456",
+				},
+			})
+
+			return s.ToContext(ctx)
+		},
+		want: &Revision{
+			Spec: v1.RevisionSpec{
+				ContainerConcurrency: ptr.Int64(0),
+				TimeoutSeconds:       ptr.Int64(456),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:           config.DefaultUserContainerName,
+						Resources:      defaultResources,
+						ReadinessProbe: defaultProbe,
+					}},
+				},
 			},
 		},
 	}, {
 		name: "no overwrite",
 		in: &Revision{
-			Spec: RevisionSpec{
-				ContainerConcurrency: 1,
+			Spec: v1.RevisionSpec{
+				ContainerConcurrency: ptr.Int64(1),
 				TimeoutSeconds:       ptr.Int64(99),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
@@ -140,8 +173,8 @@ func TestRevisionDefaulting(t *testing.T) {
 			},
 		},
 		want: &Revision{
-			Spec: RevisionSpec{
-				ContainerConcurrency: 1,
+			Spec: v1.RevisionSpec{
+				ContainerConcurrency: ptr.Int64(1),
 				TimeoutSeconds:       ptr.Int64(99),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
@@ -162,7 +195,7 @@ func TestRevisionDefaulting(t *testing.T) {
 	}, {
 		name: "no overwrite exec",
 		in: &Revision{
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						ReadinessProbe: &corev1.Probe{
@@ -177,8 +210,9 @@ func TestRevisionDefaulting(t *testing.T) {
 			},
 		},
 		want: &Revision{
-			Spec: RevisionSpec{
-				TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+			Spec: v1.RevisionSpec{
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:      config.DefaultUserContainerName,
@@ -198,13 +232,14 @@ func TestRevisionDefaulting(t *testing.T) {
 	}, {
 		name: "partially initialized",
 		in: &Revision{
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}},
 			},
 		},
 		want: &Revision{
-			Spec: RevisionSpec{
-				TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+			Spec: v1.RevisionSpec{
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:           config.DefaultUserContainerName,
@@ -217,7 +252,7 @@ func TestRevisionDefaulting(t *testing.T) {
 	}, {
 		name: "multiple containers",
 		in: &Revision{
-			Spec: RevisionSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name: "busybox",
@@ -228,8 +263,9 @@ func TestRevisionDefaulting(t *testing.T) {
 			},
 		},
 		want: &Revision{
-			Spec: RevisionSpec{
-				TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+			Spec: v1.RevisionSpec{
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:           "busybox",

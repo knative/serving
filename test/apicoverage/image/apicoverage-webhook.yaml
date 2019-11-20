@@ -25,7 +25,7 @@ spec:
   - name: webhook
     protocol: TCP
     port: 443
-    targetPort: 443
+    targetPort: 8443
   selector:
     name: apicoverage-webhook
 ---

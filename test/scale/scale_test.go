@@ -38,8 +38,12 @@ func (nl *nopLatencies) Add(metric string, start time.Time) {
 	nl.t.Logf("%q took %v", metric, duration)
 }
 
-// Limit for scale in -short mode
-const shortModeMaxScale = 10
+const (
+	// Limit for scale in -short mode
+	shortModeMaxScale = 10
+	// Timeout for each worker task
+	workerTimeout = 5 * time.Minute
+)
 
 // While redundant, we run two versions of this by default:
 // 1. TestScaleToN/size-10: a developer smoke test that's useful when changing this to assess whether
@@ -48,23 +52,14 @@ const shortModeMaxScale = 10
 //   interesting burst of deployments, but low enough to complete in a reasonable window.
 func TestScaleToN(t *testing.T) {
 	// Run each of these variations.
-	tests := []struct {
-		size    int
-		timeout time.Duration
-	}{{
-		size:    10,
-		timeout: 60 * time.Second,
-	}, {
-		size:    100,
-		timeout: 10 * time.Minute,
-	}}
+	tests := []int{10, 100}
 
-	for _, test := range tests {
-		t.Run(fmt.Sprintf("scale-%d", test.size), func(t *testing.T) {
-			if testing.Short() && test.size > shortModeMaxScale {
+	for _, size := range tests {
+		t.Run(fmt.Sprintf("scale-%d", size), func(t *testing.T) {
+			if testing.Short() && size > shortModeMaxScale {
 				t.Skip("Skipping test in short mode")
 			}
-			ScaleToWithin(t, test.size, test.timeout, &nopLatencies{t})
+			ScaleToWithin(t, size, workerTimeout, &nopLatencies{t})
 		})
 	}
 }

@@ -54,6 +54,13 @@ func TestGetMetricByName(t *testing.T) {
 		},
 		want: 11,
 	}, {
+		name: "all good (RPS)",
+		args: args{
+			name: types.NamespacedName{Namespace: existingNamespace, Name: "test"},
+			info: rpsMetricInfo,
+		},
+		want: 14,
+	}, {
 		name: "requesting unsupported metric",
 		args: args{
 			name: types.NamespacedName{Namespace: existingNamespace, Name: "test"},
@@ -74,8 +81,8 @@ func TestGetMetricByName(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := NewMetricProvider(staticConcurrency(10.3))
-			got, err := p.GetMetricByName(tt.args.name, tt.args.info)
+			p := NewMetricProvider(staticMetrics(10.3, 14))
+			got, err := p.GetMetricByName(tt.args.name, tt.args.info, labels.Everything())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetMetricByName() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -92,27 +99,40 @@ func TestGetMetricByName(t *testing.T) {
 }
 
 func TestGetMetricBySelector(t *testing.T) {
-	provider := NewMetricProvider(staticConcurrency(10.0))
-	_, got := provider.GetMetricBySelector("foo", labels.NewSelector(), concurrencyMetricInfo)
+	provider := NewMetricProvider(staticMetrics(10.0, 14))
+	_, got := provider.GetMetricBySelector("foo", labels.NewSelector(), concurrencyMetricInfo, labels.Everything())
+	if got != errNotImplemented {
+		t.Errorf("GetMetricBySelector() = %v, want %v", got, errNotImplemented)
+	}
+
+	_, got = provider.GetMetricBySelector("foo", labels.NewSelector(), rpsMetricInfo, labels.Everything())
 	if got != errNotImplemented {
 		t.Errorf("GetMetricBySelector() = %v, want %v", got, errNotImplemented)
 	}
 }
 
 func TestListAllMetrics(t *testing.T) {
-	provider := NewMetricProvider(staticConcurrency(10.0))
-	got := provider.ListAllMetrics()[0]
+	provider := NewMetricProvider(staticMetrics(10.0, 14))
+	gotConcurrency := provider.ListAllMetrics()[0]
 
-	if equal, err := kmp.SafeEqual(got, concurrencyMetricInfo); err != nil {
+	if equal, err := kmp.SafeEqual(gotConcurrency, concurrencyMetricInfo); err != nil {
 		t.Errorf("Got error comparing output, err = %v", err)
 	} else if !equal {
-		t.Errorf("ListAllMetrics() = %v, want %v", got, concurrencyMetricInfo)
+		t.Errorf("ListAllMetrics() = %v, want %v", gotConcurrency, concurrencyMetricInfo)
+	}
+
+	gotRPS := provider.ListAllMetrics()[1]
+	if equal, err := kmp.SafeEqual(gotRPS, rpsMetricInfo); err != nil {
+		t.Errorf("Got error comparing output, err = %v", err)
+	} else if !equal {
+		t.Errorf("ListAllMetrics() = %v, want %v", gotRPS, rpsMetricInfo)
 	}
 }
 
-func staticConcurrency(concurrency float64) MetricClient {
+func staticMetrics(concurrency, rps float64) MetricClient {
 	return &fake.MetricClient{
 		StableConcurrency: concurrency,
+		StableRPS:         rps,
 		ErrF: func(key types.NamespacedName, now time.Time) error {
 			if key.Namespace != existingNamespace {
 				return errors.New("doesn't exist")

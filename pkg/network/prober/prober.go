@@ -18,14 +18,16 @@ package prober
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/pkg/logging"
 )
 
 // Preparer is a way for the caller to modify the HTTP request before it goes out.
@@ -53,7 +55,32 @@ func WithHost(host string) Preparer {
 // ExpectsBody validates that the body of the probe response matches the provided string.
 func ExpectsBody(body string) Verifier {
 	return func(r *http.Response, b []byte) (bool, error) {
-		return string(b) == body, nil
+		if string(b) == body {
+			return true, nil
+		}
+		return false, fmt.Errorf("unexpected body: want %q, got %q", body, string(b))
+	}
+}
+
+// ExpectsHeader validates that the given header of the probe response matches the provided string.
+func ExpectsHeader(name, value string) Verifier {
+	return func(r *http.Response, _ []byte) (bool, error) {
+		if r.Header.Get(name) == value {
+			return true, nil
+		}
+		return false, fmt.Errorf("unexpected header %q: want %q, got %q", name, value, r.Header.Get(name))
+	}
+}
+
+// ExpectsStatusCodes validates that the given status code of the probe response matches the provided int.
+func ExpectsStatusCodes(statusCodes []int) Verifier {
+	return func(r *http.Response, _ []byte) (bool, error) {
+		for _, v := range statusCodes {
+			if r.StatusCode == v {
+				return true, nil
+			}
+		}
+		return false, fmt.Errorf("unexpected status code: want %v, got %v", statusCodes, r.StatusCode)
 	}
 }
 
@@ -62,7 +89,7 @@ func ExpectsBody(body string) Verifier {
 func Do(ctx context.Context, transport http.RoundTripper, target string, ops ...interface{}) (bool, error) {
 	req, err := http.NewRequest(http.MethodGet, target, nil)
 	if err != nil {
-		return false, errors.Wrapf(err, "%s is not a valid URL", target)
+		return false, fmt.Errorf("%s is not a valid URL: %w", target, err)
 	}
 	for _, op := range ops {
 		if po, ok := op.(Preparer); ok {
@@ -73,23 +100,22 @@ func Do(ctx context.Context, transport http.RoundTripper, target string, ops ...
 	req = req.WithContext(ctx)
 	resp, err := transport.RoundTrip(req)
 	if err != nil {
-		return false, errors.Wrapf(err, "error roundtripping %s", target)
+		return false, fmt.Errorf("error roundtripping %s: %w", target, err)
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return false, errors.Wrap(err, "error reading body")
+		return false, fmt.Errorf("error reading body: %w", err)
 	}
 
 	for _, op := range ops {
 		if vo, ok := op.(Verifier); ok {
-			ok, err := vo(resp, body)
-			if err != nil || !ok {
+			if ok, err := vo(resp, body); err != nil || !ok {
 				return false, err
 			}
 		}
 	}
-	return resp.StatusCode == http.StatusOK, nil
+	return true, nil
 }
 
 // Done is a callback that is executed when the async probe has finished.
@@ -142,6 +168,7 @@ func (m *Manager) Offer(ctx context.Context, target string, arg interface{}, per
 
 // doAsync starts a go routine that probes the target with given period.
 func (m *Manager) doAsync(ctx context.Context, target string, arg interface{}, period, timeout time.Duration, ops ...interface{}) {
+	logger := logging.FromContext(ctx)
 	go func() {
 		defer func() {
 			m.mu.Lock()
@@ -150,13 +177,16 @@ func (m *Manager) doAsync(ctx context.Context, target string, arg interface{}, p
 		}()
 		var (
 			result bool
-			err    error
+			inErr  error
 		)
-
-		err = wait.PollImmediate(period, timeout, func() (bool, error) {
-			result, err = Do(ctx, m.transport, target, ops...)
-			return result, err
+		err := wait.PollImmediate(period, timeout, func() (bool, error) {
+			result, inErr = Do(ctx, m.transport, target, ops...)
+			// Do not return error, which is from verifierError, as retry is expected until timeout.
+			return result, nil
 		})
+		if inErr != nil {
+			logger.Errorw("Unable to read sockstat", zap.Error(inErr))
+		}
 		m.cb(arg, result, err)
 	}()
 }

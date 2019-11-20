@@ -26,15 +26,16 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 
 	"knative.dev/pkg/apis"
 )
 
 func TestServiceValidation(t *testing.T) {
-	goodConfigSpec := ConfigurationSpec{
-		Template: RevisionTemplateSpec{
-			Spec: RevisionSpec{
+	goodConfigSpec := v1.ConfigurationSpec{
+		Template: v1.RevisionTemplateSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "busybox",
@@ -43,8 +44,8 @@ func TestServiceValidation(t *testing.T) {
 			},
 		},
 	}
-	goodRouteSpec := RouteSpec{
-		Traffic: []TrafficTarget{{
+	goodRouteSpec := v1.RouteSpec{
+		Traffic: []v1.TrafficTarget{{
 			LatestRevision: ptr.Bool(true),
 			Percent:        ptr.Int64(100),
 		}},
@@ -60,10 +61,10 @@ func TestServiceValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: ServiceSpec{
+			Spec: v1.ServiceSpec{
 				ConfigurationSpec: goodConfigSpec,
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
 						Percent:        ptr.Int64(100),
 					}},
@@ -80,7 +81,7 @@ func TestServiceValidation(t *testing.T) {
 					routeconfig.VisibilityLabelKey: "cluster-local",
 				},
 			},
-			Spec: ServiceSpec{
+			Spec: v1.ServiceSpec{
 				ConfigurationSpec: goodConfigSpec,
 				RouteSpec:         goodRouteSpec,
 			},
@@ -95,7 +96,7 @@ func TestServiceValidation(t *testing.T) {
 					"serving.knative.dev/name": "some-value",
 				},
 			},
-			Spec: ServiceSpec{
+			Spec: v1.ServiceSpec{
 				ConfigurationSpec: goodConfigSpec,
 				RouteSpec:         goodRouteSpec,
 			},
@@ -110,7 +111,7 @@ func TestServiceValidation(t *testing.T) {
 					"serving.name": "some-name",
 				},
 			},
-			Spec: ServiceSpec{
+			Spec: v1.ServiceSpec{
 				ConfigurationSpec: goodConfigSpec,
 				RouteSpec:         goodRouteSpec,
 			},
@@ -125,7 +126,7 @@ func TestServiceValidation(t *testing.T) {
 					routeconfig.VisibilityLabelKey: "bad-label",
 				},
 			},
-			Spec: ServiceSpec{
+			Spec: v1.ServiceSpec{
 				ConfigurationSpec: goodConfigSpec,
 				RouteSpec:         goodRouteSpec,
 			},
@@ -137,10 +138,10 @@ func TestServiceValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: ServiceSpec{
+			Spec: v1.ServiceSpec{
 				ConfigurationSpec: goodConfigSpec,
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						Tag:            "current",
 						LatestRevision: ptr.Bool(false),
 						RevisionName:   "valid-00001",
@@ -165,10 +166,10 @@ func TestServiceValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: ServiceSpec{
+			Spec: v1.ServiceSpec{
 				ConfigurationSpec: goodConfigSpec,
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						ConfigurationName: "valid",
 						LatestRevision:    ptr.Bool(true),
 						Percent:           ptr.Int64(100),
@@ -183,10 +184,10 @@ func TestServiceValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: ServiceSpec{
+			Spec: v1.ServiceSpec{
 				ConfigurationSpec: goodConfigSpec,
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						RevisionName:   "valid",
 						LatestRevision: ptr.Bool(true),
 						Percent:        ptr.Int64(100),
@@ -194,28 +195,28 @@ func TestServiceValidation(t *testing.T) {
 				},
 			},
 		},
-		want: apis.ErrInvalidValue(true, "spec.traffic[0].latestRevision"),
+		want: apis.ErrGeneric(`may not set revisionName "valid" when latestRevision is true`, "spec.traffic[0].latestRevision"),
 	}, {
 		name: "invalid container concurrency",
 		r: &Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "busybox",
 								}},
 							},
-							ContainerConcurrency: -10,
+							ContainerConcurrency: ptr.Int64(-10),
 						},
 					},
 				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
 						Percent:        ptr.Int64(100),
 					}},
@@ -223,7 +224,7 @@ func TestServiceValidation(t *testing.T) {
 			},
 		},
 		want: apis.ErrOutOfBoundsValue(
-			-10, 0, RevisionContainerConcurrencyMax,
+			-10, 0, config.DefaultMaxRevisionContainerConcurrency,
 			"spec.template.spec.containerConcurrency"),
 	}}
 
@@ -253,10 +254,10 @@ func TestImmutableServiceFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "no-byo-name",
 			},
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:foo",
@@ -265,8 +266,8 @@ func TestImmutableServiceFields(t *testing.T) {
 						},
 					},
 				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
 						Percent:        ptr.Int64(100),
 					}},
@@ -277,10 +278,10 @@ func TestImmutableServiceFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "no-byo-name",
 			},
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:bar",
@@ -289,8 +290,8 @@ func TestImmutableServiceFields(t *testing.T) {
 						},
 					},
 				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
 						Percent:        ptr.Int64(100),
 					}},
@@ -304,13 +305,13 @@ func TestImmutableServiceFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 			},
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "byo-name-foo",
 						},
-						Spec: RevisionSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:foo",
@@ -319,8 +320,8 @@ func TestImmutableServiceFields(t *testing.T) {
 						},
 					},
 				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						RevisionName: "byo-name-foo", // Used it!
 						Percent:      ptr.Int64(100),
 					}},
@@ -331,13 +332,13 @@ func TestImmutableServiceFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 			},
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "byo-name-bar",
 						},
-						Spec: RevisionSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:bar",
@@ -346,8 +347,8 @@ func TestImmutableServiceFields(t *testing.T) {
 						},
 					},
 				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						RevisionName: "byo-name-bar", // Used it!
 						Percent:      ptr.Int64(100),
 					}},
@@ -361,13 +362,13 @@ func TestImmutableServiceFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 			},
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "byo-name-foo",
 						},
-						Spec: RevisionSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:foo",
@@ -376,8 +377,8 @@ func TestImmutableServiceFields(t *testing.T) {
 						},
 					},
 				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						RevisionName: "byo-name-bar", // Leave old.
 						Percent:      ptr.Int64(100),
 					}},
@@ -388,13 +389,13 @@ func TestImmutableServiceFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 			},
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "byo-name-bar",
 						},
-						Spec: RevisionSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:bar",
@@ -403,8 +404,8 @@ func TestImmutableServiceFields(t *testing.T) {
 						},
 					},
 				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						RevisionName: "byo-name-bar", // Used it!
 						Percent:      ptr.Int64(100),
 					}},
@@ -418,13 +419,13 @@ func TestImmutableServiceFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 			},
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "byo-name-foo",
 						},
-						Spec: RevisionSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:foo",
@@ -433,8 +434,8 @@ func TestImmutableServiceFields(t *testing.T) {
 						},
 					},
 				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
 						Percent:        ptr.Int64(100),
 					}},
@@ -445,13 +446,13 @@ func TestImmutableServiceFields(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 			},
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "byo-name-foo",
 						},
-						Spec: RevisionSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:bar",
@@ -460,8 +461,8 @@ func TestImmutableServiceFields(t *testing.T) {
 						},
 					},
 				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
 						Percent:        ptr.Int64(100),
 					}},
@@ -470,8 +471,8 @@ func TestImmutableServiceFields(t *testing.T) {
 		},
 		want: &apis.FieldError{
 			Message: "Saw the following changes without a name change (-old +new)",
-			Paths:   []string{"spec.template"},
-			Details: "{*v1beta1.RevisionTemplateSpec}.Spec.PodSpec.Containers[0].Image:\n\t-: \"helloworld:bar\"\n\t+: \"helloworld:foo\"\n",
+			Paths:   []string{"spec.template.metadata.name"},
+			Details: "{*v1.RevisionTemplateSpec}.Spec.PodSpec.Containers[0].Image:\n\t-: \"helloworld:bar\"\n\t+: \"helloworld:foo\"\n",
 		},
 	}}
 
@@ -500,10 +501,10 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:foo",
@@ -513,8 +514,8 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 						},
 					},
 				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
 						Percent:        ptr.Int64(100),
 					}},
@@ -529,10 +530,10 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:foo",
@@ -542,8 +543,8 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 						},
 					},
 				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
 						Percent:        ptr.Int64(100),
 					}},
@@ -558,10 +559,10 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:foo",
@@ -571,16 +572,16 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 						},
 					},
 				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
 						Percent:        ptr.Int64(100),
 					}},
 				},
 			},
-			Status: ServiceStatus{
-				RouteStatusFields: RouteStatusFields{
-					Traffic: []TrafficTarget{{
+			Status: v1.ServiceStatus{
+				RouteStatusFields: v1.RouteStatusFields{
+					Traffic: []v1.TrafficTarget{{
 						Tag:          "bar",
 						RevisionName: "foo",
 						Percent:      ptr.Int64(50), URL: &apis.URL{
@@ -602,10 +603,10 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:foo",
@@ -615,8 +616,8 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 						},
 					},
 				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
 						Percent:        ptr.Int64(100),
 					}},
@@ -631,10 +632,10 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 			},
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "helloworld:foo",
@@ -644,8 +645,8 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 						},
 					},
 				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						LatestRevision: ptr.Bool(true),
 						Percent:        ptr.Int64(100),
 					}},
@@ -663,19 +664,18 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 			ctx := context.Background()
 			ctx = apis.WithinUpdate(ctx, test.service)
 			ctx = apis.WithinSubResourceUpdate(ctx, test.service, test.subresource)
-			got := test.service.Validate(ctx)
-			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), test.service.Validate(ctx).Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})
 	}
 }
 
-func getServiceSpec(image string) ServiceSpec {
-	return ServiceSpec{
-		ConfigurationSpec: ConfigurationSpec{
-			Template: RevisionTemplateSpec{
-				Spec: RevisionSpec{
+func getServiceSpec(image string) v1.ServiceSpec {
+	return v1.ServiceSpec{
+		ConfigurationSpec: v1.ConfigurationSpec{
+			Template: v1.RevisionTemplateSpec{
+				Spec: v1.RevisionSpec{
 					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
 							Image: image,
@@ -685,8 +685,8 @@ func getServiceSpec(image string) ServiceSpec {
 				},
 			},
 		},
-		RouteSpec: RouteSpec{
-			Traffic: []TrafficTarget{{
+		RouteSpec: v1.RouteSpec{
+			Traffic: []v1.TrafficTarget{{
 				LatestRevision: ptr.Bool(true),
 				Percent:        ptr.Int64(100),
 			}},
@@ -780,8 +780,7 @@ func TestServiceAnnotationUpdate(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			ctx = apis.WithinUpdate(ctx, test.prev)
-			got := test.this.Validate(ctx)
-			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+			if diff := cmp.Diff(test.want.Error(), test.this.Validate(ctx).Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
 			}
 		})

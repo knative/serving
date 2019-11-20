@@ -26,7 +26,7 @@ Start by creating [a GitHub account](https://github.com/join), then setup
 You must install these tools:
 
 1. [`go`](https://golang.org/doc/install): The language `Knative Serving` is
-   built in (1.12rc1 or later)
+   built in (1.13 or later)
 1. [`git`](https://help.github.com/articles/set-up-git/): For source control
 1. [`dep`](https://github.com/golang/dep): For managing external Go
    dependencies.
@@ -149,14 +149,14 @@ kubectl apply -f ./third_party/istio-1.2-latest/istio-crds.yaml
 while [[ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
   echo "Waiting on Istio CRDs"; sleep 1
 done
-kubectl apply -f ./third_party/istio-1.2-latest/istio.yaml
+kubectl apply -f ./third_party/istio-1.2-latest/istio-lean.yaml
 ```
 
 Follow the
 [instructions](https://www.knative.dev/docs/serving/gke-assigning-static-ip-address/)
 if you need to set up static IP for Ingresses in the cluster.
 
-If you want to adopt preinstalled istio, please check whether
+If you want to adopt preinstalled Istio, please check whether
 cluster-local-gateway is deployed in namespace istio-system or not. If it's not
 installed, please install it with following commands. You could also adjust
 parameters if needed.
@@ -165,12 +165,16 @@ parameters if needed.
 kubectl apply -f ./third_party/istio-1.2-latest/istio-knative-extras.yaml
 ```
 
+> If you want to customize the `istio*.yaml` files you can refer to
+> `third_party/istio-<VERSION>-latest/download-istio.sh` how these templates
+> were generated.
+
 ### Deploy cert-manager
 
 1. Deploy `cert-manager` CRDs
 
    ```shell
-   kubectl apply -f ./third_party/cert-manager-0.6.1/cert-manager-crds.yaml
+   kubectl apply -f ./third_party/cert-manager-0.9.1/cert-manager-crds.yaml
    while [[ $(kubectl get crd certificates.certmanager.k8s.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
      echo "Waiting on Cert-Manager CRDs"; sleep 1
    done
@@ -183,7 +187,7 @@ kubectl apply -f ./third_party/istio-1.2-latest/istio-knative-extras.yaml
 
    ```shell
    # For kubernetes version 1.13 or above, --validate=false is not needed.
-   kubectl apply -f ./third_party/cert-manager-0.6.1/cert-manager.yaml --validate=false
+   kubectl apply -f ./third_party/cert-manager-0.9.1/cert-manager.yaml --validate=false
    ```
 
 ### Deploy Knative Serving
@@ -211,7 +215,7 @@ metadata:
 
 data:
   istio.sidecar.includeOutboundIPRanges: "172.30.0.0/16,172.20.0.0/16,10.10.10.0/24"
-  clusteringress.class: "istio.ingress.networking.knative.dev"
+  ingress.class: "istio.ingress.networking.knative.dev"
 ```
 
 You should keep the default value for "istio.sidecar.includeOutboundIPRanges",
@@ -220,10 +224,7 @@ when you use Minikube or Docker Desktop as the Kubernetes environment.
 Next, run:
 
 ```shell
-# There are some issues with multi-versioned CRDs before Kubernetes 1.14, so
-# depending on how you plan to use knative you may need to switch this to
-# v1alpha1, see also: https://github.com/knative/serving/issues/4533
-ko apply -f config/ -f config/v1beta1
+ko apply -f config/
 
 # Optional steps
 
@@ -324,8 +325,8 @@ ko delete --ignore-not-found=true \
   -f config/ \
   -f ./third_party/istio-1.2-latest/istio.yaml \
   -f ./third_party/istio-1.2-latest/istio-crds.yaml \
-  -f ./third_party/cert-manager-0.6.1/cert-manager-crds.yaml \
-  -f ./third_party/cert-manager-0.6.1/cert-manager.yaml
+  -f ./third_party/cert-manager-0.9.1/cert-manager-crds.yaml \
+  -f ./third_party/cert-manager-0.9.1/cert-manager.yaml
 ```
 
 ## Telemetry

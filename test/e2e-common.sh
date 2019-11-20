@@ -25,10 +25,11 @@ E2E_CLUSTER_MACHINE=${E2E_CLUSTER_MACHINE:-n1-standard-8}
 # This script provides helper methods to perform cluster actions.
 source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/e2e-tests.sh
 
-# Default Istio configuration to install: 1.2-latest, no mesh, cert manager 0.6.1.
-ISTIO_VERSION="1.2-latest"
-ISTIO_MESH=0
-CERT_MANAGER_VERSION="0.6.1"
+CERT_MANAGER_VERSION="0.9.1"
+ISTIO_VERSION=""
+GLOO_VERSION=""
+
+HTTPS=0
 
 # Current YAMLs used to install Knative Serving.
 INSTALL_RELEASE_YAML=""
@@ -36,8 +37,7 @@ INSTALL_MONITORING_YAML=""
 
 INSTALL_MONITORING=0
 
-INSTALL_BETA=1
-
+GATEWAY_SETUP=0
 RECONCILE_GATEWAY=0
 
 # List of custom YAMLs to install, if specified (space-separated).
@@ -49,6 +49,7 @@ function parse_flags() {
     --istio-version)
       [[ $2 =~ ^[0-9]+\.[0-9]+(\.[0-9]+|\-latest)$ ]] || abort "version format must be '[0-9].[0-9].[0-9]' or '[0-9].[0-9]-latest"
       readonly ISTIO_VERSION=$2
+      GATEWAY_SETUP=1
       return 2
       ;;
     --version)
@@ -62,23 +63,19 @@ function parse_flags() {
       return 2
       ;;
     --mesh)
-      readonly ISTIO_MESH=1
+      readonly MESH=1
       return 1
       ;;
     --no-mesh)
-      readonly ISTIO_MESH=0
+      readonly MESH=0
+      return 1
+      ;;
+    --https)
+      readonly HTTPS=1
       return 1
       ;;
     --install-monitoring)
       readonly INSTALL_MONITORING=1
-      return 1
-      ;;
-    --install-alpha)
-      readonly INSTALL_BETA=0
-      return 1
-      ;;
-    --install-beta)
-      readonly INSTALL_BETA=1
       return 1
       ;;
     --reconcile-gateway)
@@ -96,6 +93,7 @@ function parse_flags() {
       # currently, the value of --gloo-version is ignored
       # latest version of Gloo pinned in third_party will be installed
       readonly GLOO_VERSION=$2
+      GATEWAY_SETUP=1
       return 2
       ;;
   esac
@@ -109,8 +107,8 @@ function parse_flags() {
 function build_knative_from_source() {
   local YAML_LIST="$(mktemp)"
 
-  # set ko flags to omit istio resources from generated YAMLs
-  if [[ -n "${GLOO_VERSION}" ]]; then
+  # Set ko flags to omit istio resources from generated YAMLs
+  if [[ -z "${ISTIO_VERSION}" ]]; then
     KO_FLAGS="${KO_FLAGS} --selector=networking.knative.dev/ingress-provider!=istio"
   fi
 
@@ -138,7 +136,6 @@ function install_knative_serving() {
     return
   fi
   echo ">> Installing Knative serving from custom YAMLs"
-  kubectl label namespace default istio-injection=enabled
   echo "Custom YAML files: ${INSTALL_CUSTOM_YAMLS}"
   for yaml in ${INSTALL_CUSTOM_YAMLS}; do
     echo "Installing '${yaml}'"
@@ -149,7 +146,7 @@ function install_knative_serving() {
 function install_istio() {
   local istio_base="./third_party/istio-${ISTIO_VERSION}"
   INSTALL_ISTIO_CRD_YAML="${istio_base}/istio-crds.yaml"
-  (( ISTIO_MESH )) && INSTALL_ISTIO_YAML="${istio_base}/istio.yaml" || INSTALL_ISTIO_YAML="${istio_base}/istio-lean.yaml"
+  (( MESH )) && INSTALL_ISTIO_YAML="${istio_base}/istio.yaml" || INSTALL_ISTIO_YAML="${istio_base}/istio-lean.yaml"
 
   echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
   echo "Istio YAML: ${INSTALL_ISTIO_YAML}"
@@ -187,19 +184,11 @@ function install_knative_serving_standard() {
   if [[ -z "$1" ]]; then
     # install_knative_serving_standard was called with no arg.
     build_knative_from_source
-    if (( INSTALL_BETA )); then
-      INSTALL_RELEASE_YAML="${SERVING_BETA_YAML}"
-    else
-      INSTALL_RELEASE_YAML="${SERVING_ALPHA_YAML}"
-    fi
+    INSTALL_RELEASE_YAML="${SERVING_YAML}"
 
     # install serving core if installing for Gloo
     if [[ -n "${GLOO_VERSION}" ]]; then
-      if (( INSTALL_BETA )); then
-        INSTALL_RELEASE_YAML="${SERVING_CORE_BETA_YAML}"
-      else
-        INSTALL_RELEASE_YAML="${SERVING_CORE_YAML}"
-      fi
+      INSTALL_RELEASE_YAML="${SERVING_CORE_YAML}"
     fi
 
     if (( INSTALL_MONITORING )); then
@@ -213,11 +202,16 @@ function install_knative_serving_standard() {
   echo "Cert Manager YAML: ${INSTALL_CERT_MANAGER_YAML}"
   echo "Knative YAML: ${INSTALL_RELEASE_YAML}"
 
-  if [[ -z "${GLOO_VERSION}" ]]; then
-    # install istio as the default knative ingress
+  # If no gateway was set on command line, assume Istio
+  if (( ! GATEWAY_SETUP )); then
+    echo ">> No gateway set up on command line, using Istio"
+    readonly ISTIO_VERSION="1.2-latest"
+  fi
+
+  if [[ -n "${ISTIO_VERSION}" ]]; then
     install_istio
-  else
-    # install gloo if $GLOO_VERSION is provided
+  fi
+  if [[ -n "${GLOO_VERSION}" ]]; then
     install_gloo
   fi
 
@@ -229,18 +223,37 @@ function install_knative_serving_standard() {
 
   if (( RECONCILE_GATEWAY )); then
     echo ">> Turning on reconcileExternalGateway"
-    kubectl get cm config-istio -n knative-serving -o yaml | \
-      sed 's/  reconcileExternalGateway: "false"/reconcileExternalGateway: "true"/g' |\
-      kubectl replace -f -
+    cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-istio
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
+    networking.knative.dev/ingress-provider: istio
+data:
+  reconcileExternalGateway: "true"
+EOF
   fi
 
-  echo ">> Adding more activator pods."
-  # This command would fail if the HPA already exist, like during upgrade test.
-  # Therefore we don't exit on failure, and don't log an error message.
-  kubectl autoscale deploy --min=2 --max=2 -n knative-serving activator 2>/dev/null
+  echo ">> Turning on profiling.enable"
+  cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-observability
+  namespace: knative-serving
+data:
+  profiling.enable: "true"
+EOF
+
+  echo ">> Patching activator hpa"
+  # We set min replicas to 2 for testing multiple activator pods.
+  kubectl -n knative-serving patch hpa activator --patch '{"spec":{"minReplicas":2}}' || return 1
 
   # post-install steps for istio
-  if [[ -z "${GLOO_VERSION}" ]]; then
+  if [[ -n "${ISTIO_VERSION}" ]]; then
     # Due to the lack of Status in Istio, we have to ignore failures in initial requests.
     #
     # However, since network configurations may reach different ingress pods at slightly
@@ -257,12 +270,8 @@ function install_knative_serving_standard() {
     # There are reports of Envoy failing (503) when istio-pilot is overloaded.
     # We generously add more pilot instances here to verify if we can reduce flakes.
     if kubectl get hpa -n istio-system istio-pilot 2>/dev/null; then
-      # If HPA exists, update it.  Since patching will return non-zero if no change
-      # is made, we don't return on failure here.
       kubectl patch hpa -n istio-system istio-pilot \
-        --patch '{"spec": {"minReplicas": 3, "maxReplicas": 10, "targetCPUUtilizationPercentage": 60}}' \
-        `# Ignore error messages to avoid causing red herrings in the tests` \
-        2>/dev/null
+        --patch '{"spec": {"minReplicas": 3, "maxReplicas": 10, "targetCPUUtilizationPercentage": 60}}' || return 1
     else
       # Some versions of Istio don't provide an HPA for pilot.
       kubectl autoscale -n istio-system deploy istio-pilot --min=3 --max=10 --cpu-percent=60 || return 1
@@ -287,6 +296,14 @@ function use_resolvable_domain() {
   echo "false"
 }
 
+# Check if we should use --https.
+function use_https() {
+  if (( HTTPS )); then
+    echo "--https"
+  else
+    echo ""
+  fi
+}
 
 # Uninstalls Knative Serving from the current cluster.
 function knative_teardown() {
@@ -322,20 +339,34 @@ function knative_teardown() {
 function test_setup() {
   echo ">> Setting up logging..."
 
-  # Install kail.
-  bash <( curl -sfL https://raw.githubusercontent.com/boz/kail/master/godownloader.sh) -b "$GOPATH/bin"
+  # Install kail if needed.
+  if ! which kail > /dev/null; then
+    bash <( curl -sfL https://raw.githubusercontent.com/boz/kail/master/godownloader.sh) -b "$GOPATH/bin"
+  fi
 
   # Capture all logs.
   kail > ${ARTIFACTS}/k8s.log.txt &
+  local kail_pid=$!
+  # Clean up kail so it doesn't interfere with job shutting down
+  trap "kill $kail_pid || true" EXIT
 
   echo ">> Creating test resources (test/config/)"
   ko apply ${KO_FLAGS} -f test/config/ || return 1
+  if (( MESH )); then
+    if [[ ${ISTIO_VERSION} =~ 1.3.* ]]; then
+      # TODO: Enable mTLS with Istio 1.3 once https://github.com/knative/serving/issues/5725 is identified.
+      continue
+    else
+      ko apply ${KO_FLAGS} -f test/config/mtls/ || return 1
+    fi
+  fi
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
   wait_until_pods_running knative-serving || return 1
-  if [[ -z "${GLOO_VERSION}" ]]; then
+  if [[ -n "${ISTIO_VERSION}" ]]; then
     wait_until_pods_running istio-system || return 1
     wait_until_service_has_external_ip istio-system istio-ingressgateway
-  else
+  fi
+  if [[ -n "${GLOO_VERSION}" ]]; then
     # we must set these override values to allow the test spoofing client to work with Gloo
     # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
     export GATEWAY_OVERRIDE=knative-external-proxy
@@ -352,6 +383,7 @@ function test_setup() {
 function test_teardown() {
   echo ">> Removing test resources (test/config/)"
   ko delete --ignore-not-found=true --now -f test/config/
+  (( MESH )) && ko delete --ignore-not-found=true --now -f test/config/mtls/
   echo ">> Ensuring test namespaces are clean"
   kubectl delete all --all --ignore-not-found --now --timeout 60s -n serving-tests
   kubectl delete --ignore-not-found --now --timeout 60s namespace serving-tests

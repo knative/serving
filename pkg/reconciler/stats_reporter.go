@@ -44,24 +44,20 @@ var (
 		"Number of services that became ready",
 		stats.UnitDimensionless)
 
-	reconcilerTagKey tag.Key
-	keyTagKey        tag.Key
-)
-
-func init() {
-	var err error
 	// Create the tag keys that will be used to add tags to our measurements.
 	// Tag keys must conform to the restrictions described in
 	// go.opencensus.io/tag/validate.go. Currently those restrictions are:
 	// - length between 1 and 255 inclusive
 	// - characters are printable US-ASCII
-	reconcilerTagKey = mustNewTagKey("reconciler")
-	keyTagKey = mustNewTagKey("key")
+	reconcilerTagKey = tag.MustNewKey("reconciler")
+	keyTagKey        = tag.MustNewKey("key")
+)
 
+func init() {
 	// Create views to see our measurements. This can return an error if
 	// a previously-registered view has the same name with a different value.
 	// View name defaults to the measure name if unspecified.
-	err = view.Register(
+	if err := view.Register(
 		&view.View{
 			Description: serviceReadyCountStat.Description(),
 			Measure:     serviceReadyCountStat,
@@ -74,8 +70,7 @@ func init() {
 			Aggregation: view.LastValue(),
 			TagKeys:     []tag.Key{reconcilerTagKey, keyTagKey},
 		},
-	)
-	if err != nil {
+	); err != nil {
 		panic(err)
 	}
 }
@@ -123,7 +118,6 @@ func NewStatsReporter(reconciler string) (StatsReporter, error) {
 // ReportServiceReady reports the time it took a service to become Ready
 func (r *reporter) ReportServiceReady(namespace, service string, d time.Duration) error {
 	key := fmt.Sprintf("%s/%s", namespace, service)
-	v := int64(d / time.Millisecond)
 	ctx, err := tag.New(
 		r.ctx,
 		tag.Insert(keyTagKey, key))
@@ -132,14 +126,6 @@ func (r *reporter) ReportServiceReady(namespace, service string, d time.Duration
 	}
 
 	metrics.Record(ctx, serviceReadyCountStat.M(1))
-	metrics.Record(ctx, serviceReadyLatencyStat.M(v))
+	metrics.Record(ctx, serviceReadyLatencyStat.M(d.Milliseconds()))
 	return nil
-}
-
-func mustNewTagKey(s string) tag.Key {
-	tagKey, err := tag.NewKey(s)
-	if err != nil {
-		panic(err)
-	}
-	return tagKey
 }

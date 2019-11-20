@@ -17,17 +17,32 @@ limitations under the License.
 package main
 
 import (
-	"fmt"
+	"flag"
 	"log"
 	"os"
 	"path"
 	"strings"
 
+	"knative.dev/pkg/test/webhook-apicoverage/coveragecalculator"
+	"knative.dev/pkg/test/webhook-apicoverage/tools"
 	"knative.dev/serving/test/apicoverage/image/common"
 	"knative.dev/serving/test/apicoverage/image/rules"
 	"knative.dev/test-infra/shared/prow"
-	"knative.dev/test-infra/tools/webhook-apicoverage/tools"
 )
+
+var buildFailed = flag.Bool("build_failed", false,
+	"Flag indicating if the apicoverage build failed.")
+
+// Helper method to produce failed coverage results.
+func getFailedResourceCoverages() *coveragecalculator.CoveragePercentages {
+	percentCoverages := make(map[string]float64)
+	for resourceKind := range common.ResourceMap {
+		percentCoverages[resourceKind.Kind] = 0.0
+	}
+	percentCoverages["Overall"] = 0.0
+	return &coveragecalculator.CoveragePercentages{
+		ResourceCoverages: percentCoverages}
+}
 
 func main() {
 	var (
@@ -36,6 +51,7 @@ func main() {
 		err            error
 	)
 
+	flag.Parse()
 	// Ensure artifactsDir exist, in case not invoked from this script
 	artifactsDir := prow.GetLocalArtifactsDir()
 	if _, err := os.Stat(artifactsDir); os.IsNotExist(err) {
@@ -43,23 +59,50 @@ func main() {
 			log.Fatalf("Failed to create directory: %v", err)
 		}
 	}
+	tools.CleanupJunitFiles(artifactsDir)
+
+	if *buildFailed {
+		if err := tools.WriteResourcePercentages(path.Join(
+			artifactsDir, "junit_bazel.xml"),
+			getFailedResourceCoverages()); err != nil {
+			log.Fatalf("Failed writing resource coverage percentages: %v",
+				err)
+		}
+		return
+	}
 
 	if kubeConfigPath, err = tools.GetDefaultKubePath(); err != nil {
 		log.Fatalf("Error retrieving kubeConfig path: %v", err)
 	}
 
-	if serviceIP, err = tools.GetWebhookServiceIP(kubeConfigPath, "", common.WebhookNamespace, common.CommonComponentName); err != nil {
+	if serviceIP, err = tools.GetWebhookServiceIP(kubeConfigPath, "",
+		common.WebhookNamespace, common.CommonComponentName); err != nil {
 		log.Fatalf("Error retrieving Service IP: %v", err)
 	}
 
 	for resource := range common.ResourceMap {
-		err = tools.GetAndWriteResourceCoverage(serviceIP, resource.Kind, path.Join(artifactsDir, strings.ToLower(resource.Kind)+".html"), rules.GetDisplayRules())
+		err = tools.GetAndWriteResourceCoverage(serviceIP, resource.Kind,
+			path.Join(artifactsDir, strings.ToLower(resource.Kind)+".html"),
+			rules.GetDisplayRules())
 		if err != nil {
-			log.Println(fmt.Sprintf("resource coverage for resource: %s failed. %v ", resource.Kind, err))
+			log.Printf("Failed retrieving resource coverage for"+
+				" resource %s: %v ", resource.Kind, err)
 		}
 	}
 
-	if err := tools.GetAndWriteTotalCoverage(serviceIP, path.Join(artifactsDir, "totalcoverage.html")); err != nil {
+	if err := tools.GetAndWriteTotalCoverage(serviceIP, path.Join(artifactsDir,
+		"totalcoverage.html")); err != nil {
 		log.Fatalf("total coverage retrieval failed: %v", err)
+	}
+
+	if coverage, err := tools.GetResourcePercentages(serviceIP); err != nil {
+		log.Fatalf("Failed retrieving resource coverage percentages: %v",
+			err)
+	} else {
+		if err = tools.WriteResourcePercentages(path.Join(
+			artifactsDir, "junit_bazel.xml"), coverage); err != nil {
+			log.Fatalf("Failed writing resource coverage percentages: %v",
+				err)
+		}
 	}
 }

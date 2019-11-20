@@ -42,13 +42,34 @@ func MakePA(rev *v1alpha1.Revision) *av1alpha1.PodAutoscaler {
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: av1alpha1.PodAutoscalerSpec{
-			ContainerConcurrency: rev.Spec.ContainerConcurrency,
+			ContainerConcurrency: rev.Spec.GetContainerConcurrency(),
 			ScaleTargetRef: corev1.ObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
 				Name:       names.Deployment(rev),
 			},
 			ProtocolType: rev.GetProtocol(),
+			Reachability: func() av1alpha1.ReachabilityType {
+				// If the Revision has failed to become Ready, then mark the PodAutoscaler as unreachable.
+				if cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady); cond != nil && cond.Status == corev1.ConditionFalse {
+					// As a sanity check, also make sure that we don't do this when a
+					// newly failing revision is marked reachable by outside forces.
+					if !rev.IsReachable() {
+						return av1alpha1.ReachabilityUnreachable
+					}
+				}
+
+				// We don't know the reachability if the revision has just been created
+				// or it is activating.
+				if cond := rev.Status.GetCondition(v1alpha1.RevisionConditionActive); cond != nil && cond.Status == corev1.ConditionUnknown {
+					return av1alpha1.ReachabilityUnknown
+				}
+
+				if rev.IsReachable() {
+					return av1alpha1.ReachabilityReachable
+				}
+				return av1alpha1.ReachabilityUnreachable
+			}(),
 		},
 	}
 }

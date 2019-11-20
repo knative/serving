@@ -2,7 +2,6 @@ aliases:
   serving-api-approvers:
   - dgerd
   - dprotaso
-  - grantr
   - markusthoemmes
   - mattmoor
   - tcnghia
@@ -17,16 +16,13 @@ aliases:
   - vagababov
 
   autoscaling-approvers:
-  - greghaynes
-  - josephburnett
   - markusthoemmes
   - mdemirhan
   - vagababov
   autoscaling-reviewers:
-  - greghaynes
-  - josephburnett
   - markusthoemmes
   - mdemirhan
+  - taragu
   - vagababov
 
   monitoring-approvers:
@@ -39,14 +35,11 @@ aliases:
   productivity-approvers:
   - adrcunha
   - chaodaiG
-  - srinivashegde86
   productivity-reviewers:
   - adrcunha
   - chaodaiG
   - coryrc
-  - dushyanthsc
-  - Fredy-Z
-  - srinivashegde86
+  - chizhg
   - steuhs
   - yt3liu
 
@@ -55,9 +48,12 @@ aliases:
   - mdemirhan
   - tcnghia
   - vagababov
+
   networking-reviewers:
   - markusthoemmes
   - mdemirhan
+  - nak3
   - tcnghia
   - vagababov
-
+  - yanweiguo
+  - ZhiminXiang

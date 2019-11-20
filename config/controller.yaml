@@ -50,6 +50,8 @@ spec:
         ports:
         - name: metrics
           containerPort: 9090
+        - name: profiling
+          containerPort: 8008
         env:
         - name: SYSTEM_NAMESPACE
           valueFrom:
@@ -59,7 +61,9 @@ spec:
           value: config-logging
         - name: CONFIG_OBSERVABILITY_NAME
           value: config-observability
+        # Used for Stackdriver only.
+        # knative.dev/internal/serving is the one for revision metrics.
         - name: METRICS_DOMAIN
-          value: knative.dev/serving
+          value: knative.dev/internal/serving
         securityContext:
           allowPrivilegeEscalation: false

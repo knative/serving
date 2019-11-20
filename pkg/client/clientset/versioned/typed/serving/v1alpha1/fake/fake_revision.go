@@ -131,7 +131,7 @@ func (c *FakeRevisions) DeleteCollection(options *v1.DeleteOptions, listOptions 
 // Patch applies the patch and returns the patched revision.
 func (c *FakeRevisions) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.Revision, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(revisionsResource, c.ns, name, data, subresources...), &v1alpha1.Revision{})
+		Invokes(testing.NewPatchSubresourceAction(revisionsResource, c.ns, name, pt, data, subresources...), &v1alpha1.Revision{})
 
 	if obj == nil {
 		return nil, err

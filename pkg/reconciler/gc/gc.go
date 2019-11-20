@@ -18,7 +18,6 @@ package gc
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"time"
 
@@ -56,15 +55,14 @@ var _ controller.Reconciler = (*reconciler)(nil)
 // converge the two. It then updates the Status block of the Garbage Collection
 // resource with the current status of the resource.
 func (c *reconciler) Reconcile(ctx context.Context, key string) error {
-	// Convert the namespace/name string into a distinct namespace and name.
+	logger := logging.FromContext(ctx)
+	ctx = c.configStore.ToContext(ctx)
+
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		c.Logger.Errorf("invalid resource key %q: %v", key, err)
+		logger.Errorw("Invalid resource key", zap.Error(err))
 		return nil
 	}
-	logger := logging.FromContext(ctx)
-
-	ctx = c.configStore.ToContext(ctx)
 
 	// Get the Configuration resource with this namespace/name.
 	config, err := c.configurationLister.Configurations(namespace).Get(name)
@@ -108,7 +106,7 @@ func (c *reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 		if isRevisionStale(ctx, rev, config) {
 			err := c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
 			if err != nil {
-				logger.Errorw(fmt.Sprintf("Failed to delete stale revision %q", rev.Name), zap.Error(err))
+				logger.With(zap.Error(err)).Errorf("Failed to delete stale revision %q", rev.Name)
 				continue
 			}
 		}

@@ -23,15 +23,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/gorilla/websocket"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	ingress "knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
-	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
@@ -76,7 +72,7 @@ func connect(t *testing.T, ingressIP string, domain string) (*websocket.Conn, er
 
 func validateWebSocketConnection(t *testing.T, clients *test.Clients, names test.ResourceNames) error {
 	var err error
-	gatewayIP := &pkgTest.Flags.IngressEndpoint
+	gatewayIP := pkgTest.Flags.IngressEndpoint
 	if pkgTest.Flags.IngressEndpoint == "" {
 		if gatewayIP, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube); err != nil {
 			return err
@@ -84,7 +80,7 @@ func validateWebSocketConnection(t *testing.T, clients *test.Clients, names test
 	}
 
 	// Establish the websocket connection.
-	conn, err := connect(t, *gatewayIP, names.Domain)
+	conn, err := connect(t, gatewayIP, names.URL.Hostname())
 	if err != nil {
 		return err
 	}
@@ -128,7 +124,8 @@ func TestWebSocket(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names); err != nil {
+	if _, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false /* https TODO(taragu) turn this on after helloworld test running with https */); err != nil {
 		t.Fatalf("Failed to create WebSocket server: %v", err)
 	}
 
@@ -156,7 +153,8 @@ func TestWebSocketViaActivator(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 		}),
@@ -165,23 +163,9 @@ func TestWebSocketViaActivator(t *testing.T) {
 		t.Fatalf("Failed to create WebSocket server: %v", err)
 	}
 
-	aeps, err := clients.KubeClient.Kube.CoreV1().Endpoints(
-		system.Namespace()).Get(activator.K8sServiceName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Error getting activator endpoints: %v", err)
-	}
-	t.Logf("Activator endpoints: %v", aeps)
-
-	// Wait for the endpoints to equalize.
-	if err := wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
-		svcEps, err := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
-			resources.Revision.Status.ServiceName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		return cmp.Equal(svcEps.Subsets, aeps.Subsets), nil
-	}); err != nil {
-		t.Fatalf("Initial state never achieved: %v", err)
+	// Wait for the activator endpoints to equalize.
+	if err := waitForActivatorEndpoints(resources, clients); err != nil {
+		t.Fatalf("Never got Activator endpoints in the service: %v", err)
 	}
 	if err := validateWebSocketConnection(t, clients, names); err != nil {
 		t.Error(err)

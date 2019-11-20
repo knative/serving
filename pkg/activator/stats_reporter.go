@@ -25,8 +25,9 @@ import (
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
-	"knative.dev/pkg/metrics"
+	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/metrics/metricskey"
+	"knative.dev/serving/pkg/metrics"
 )
 
 var (
@@ -51,88 +52,59 @@ var (
 // StatsReporter defines the interface for sending activator metrics
 type StatsReporter interface {
 	ReportRequestConcurrency(ns, service, config, rev string, v int64) error
-	ReportRequestCount(ns, service, config, rev string, responseCode, numTries int, v int64) error
+	ReportRequestCount(ns, service, config, rev string, responseCode, numTries int) error
 	ReportResponseTime(ns, service, config, rev string, responseCode int, d time.Duration) error
 }
 
 // Reporter holds cached metric objects to report autoscaler metrics
 type Reporter struct {
-	initialized          bool
-	namespaceTagKey      tag.Key
-	serviceTagKey        tag.Key
-	configTagKey         tag.Key
-	revisionTagKey       tag.Key
-	responseCodeKey      tag.Key
-	responseCodeClassKey tag.Key
-	numTriesKey          tag.Key
+	initialized bool
+	ctx         context.Context
 }
 
 // NewStatsReporter creates a reporter that collects and reports activator metrics
-func NewStatsReporter() (*Reporter, error) {
-	var r = &Reporter{}
+func NewStatsReporter(pod string) (*Reporter, error) {
+	ctx, err := tag.New(
+		context.Background(),
+		tag.Insert(metrics.PodTagKey, pod),
+		tag.Insert(metrics.ContainerTagKey, Name),
+	)
+	if err != nil {
+		return nil, err
+	}
 
-	// Create the tag keys that will be used to add tags to our measurements.
-	nsTag, err := tag.NewKey(metricskey.LabelNamespaceName)
-	if err != nil {
-		return nil, err
+	var r = &Reporter{
+		initialized: true,
+		ctx:         ctx,
 	}
-	r.namespaceTagKey = nsTag
-	serviceTag, err := tag.NewKey(metricskey.LabelServiceName)
-	if err != nil {
-		return nil, err
-	}
-	r.serviceTagKey = serviceTag
-	configTag, err := tag.NewKey(metricskey.LabelConfigurationName)
-	if err != nil {
-		return nil, err
-	}
-	r.configTagKey = configTag
-	revTag, err := tag.NewKey(metricskey.LabelRevisionName)
-	if err != nil {
-		return nil, err
-	}
-	r.revisionTagKey = revTag
-	responseCodeTag, err := tag.NewKey("response_code")
-	if err != nil {
-		return nil, err
-	}
-	r.responseCodeKey = responseCodeTag
-	responseCodeClassTag, err := tag.NewKey("response_code_class")
-	if err != nil {
-		return nil, err
-	}
-	r.responseCodeClassKey = responseCodeClassTag
-	numTriesTag, err := tag.NewKey("num_tries")
-	if err != nil {
-		return nil, err
-	}
-	r.numTriesKey = numTriesTag
+
 	// Create view to see our measurements.
 	err = view.Register(
 		&view.View{
 			Description: "Concurrent requests that are routed to Activator",
 			Measure:     requestConcurrencyM,
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{r.namespaceTagKey, r.serviceTagKey, r.configTagKey, r.revisionTagKey},
+			TagKeys:     append(metrics.CommonRevisionKeys, metrics.PodTagKey, metrics.ContainerTagKey),
 		},
 		&view.View{
 			Description: "The number of requests that are routed to Activator",
 			Measure:     requestCountM,
-			Aggregation: view.Sum(),
-			TagKeys:     []tag.Key{r.namespaceTagKey, r.serviceTagKey, r.configTagKey, r.revisionTagKey, r.responseCodeKey, r.responseCodeClassKey, r.numTriesKey},
+			Aggregation: view.Count(),
+			TagKeys: append(metrics.CommonRevisionKeys, metrics.PodTagKey, metrics.ContainerTagKey,
+				metrics.ResponseCodeKey, metrics.ResponseCodeClassKey, metrics.NumTriesKey),
 		},
 		&view.View{
 			Description: "The response time in millisecond",
 			Measure:     responseTimeInMsecM,
 			Aggregation: defaultLatencyDistribution,
-			TagKeys:     []tag.Key{r.namespaceTagKey, r.serviceTagKey, r.configTagKey, r.revisionTagKey, r.responseCodeClassKey, r.responseCodeKey},
+			TagKeys: append(metrics.CommonRevisionKeys, metrics.PodTagKey, metrics.ContainerTagKey,
+				metrics.ResponseCodeKey, metrics.ResponseCodeClassKey),
 		},
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	r.initialized = true
 	return r, nil
 }
 
@@ -151,40 +123,40 @@ func (r *Reporter) ReportRequestConcurrency(ns, service, config, rev string, v i
 
 	// Note that service names can be an empty string, so it needs a special treatment.
 	ctx, err := tag.New(
-		context.Background(),
-		tag.Insert(r.namespaceTagKey, ns),
-		tag.Insert(r.serviceTagKey, valueOrUnknown(service)),
-		tag.Insert(r.configTagKey, config),
-		tag.Insert(r.revisionTagKey, rev))
+		r.ctx,
+		tag.Insert(metrics.NamespaceTagKey, ns),
+		tag.Insert(metrics.ServiceTagKey, valueOrUnknown(service)),
+		tag.Insert(metrics.ConfigTagKey, config),
+		tag.Insert(metrics.RevisionTagKey, rev))
 	if err != nil {
 		return err
 	}
 
-	metrics.Record(ctx, requestConcurrencyM.M(v))
+	pkgmetrics.Record(ctx, requestConcurrencyM.M(v))
 	return nil
 }
 
-// ReportRequestCount captures request count metric with value v.
-func (r *Reporter) ReportRequestCount(ns, service, config, rev string, responseCode, numTries int, v int64) error {
+// ReportRequestCount captures request count.
+func (r *Reporter) ReportRequestCount(ns, service, config, rev string, responseCode, numTries int) error {
 	if !r.initialized {
 		return errors.New("StatsReporter is not initialized yet")
 	}
 
 	// Note that service names can be an empty string, so it needs a special treatment.
 	ctx, err := tag.New(
-		context.Background(),
-		tag.Insert(r.namespaceTagKey, ns),
-		tag.Insert(r.serviceTagKey, valueOrUnknown(service)),
-		tag.Insert(r.configTagKey, config),
-		tag.Insert(r.revisionTagKey, rev),
-		tag.Insert(r.responseCodeKey, strconv.Itoa(responseCode)),
-		tag.Insert(r.responseCodeClassKey, responseCodeClass(responseCode)),
-		tag.Insert(r.numTriesKey, strconv.Itoa(numTries)))
+		r.ctx,
+		tag.Insert(metrics.NamespaceTagKey, ns),
+		tag.Insert(metrics.ServiceTagKey, valueOrUnknown(service)),
+		tag.Insert(metrics.ConfigTagKey, config),
+		tag.Insert(metrics.RevisionTagKey, rev),
+		tag.Insert(metrics.ResponseCodeKey, strconv.Itoa(responseCode)),
+		tag.Insert(metrics.ResponseCodeClassKey, responseCodeClass(responseCode)),
+		tag.Insert(metrics.NumTriesKey, strconv.Itoa(numTries)))
 	if err != nil {
 		return err
 	}
 
-	metrics.Record(ctx, requestCountM.M(v))
+	pkgmetrics.Record(ctx, requestCountM.M(1))
 	return nil
 }
 
@@ -196,19 +168,18 @@ func (r *Reporter) ReportResponseTime(ns, service, config, rev string, responseC
 
 	// Note that service names can be an empty string, so it needs a special treatment.
 	ctx, err := tag.New(
-		context.Background(),
-		tag.Insert(r.namespaceTagKey, ns),
-		tag.Insert(r.serviceTagKey, valueOrUnknown(service)),
-		tag.Insert(r.configTagKey, config),
-		tag.Insert(r.revisionTagKey, rev),
-		tag.Insert(r.responseCodeKey, strconv.Itoa(responseCode)),
-		tag.Insert(r.responseCodeClassKey, responseCodeClass(responseCode)))
+		r.ctx,
+		tag.Insert(metrics.NamespaceTagKey, ns),
+		tag.Insert(metrics.ServiceTagKey, valueOrUnknown(service)),
+		tag.Insert(metrics.ConfigTagKey, config),
+		tag.Insert(metrics.RevisionTagKey, rev),
+		tag.Insert(metrics.ResponseCodeKey, strconv.Itoa(responseCode)),
+		tag.Insert(metrics.ResponseCodeClassKey, responseCodeClass(responseCode)))
 	if err != nil {
 		return err
 	}
 
-	// convert time.Duration in nanoseconds to milliseconds
-	metrics.Record(ctx, responseTimeInMsecM.M(float64(d/time.Millisecond)))
+	pkgmetrics.Record(ctx, responseTimeInMsecM.M(float64(d.Milliseconds())))
 	return nil
 }
 

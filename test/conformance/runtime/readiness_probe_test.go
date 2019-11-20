@@ -23,8 +23,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/test/logstream"
+	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	v1a1opts "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
+	"knative.dev/serving/test/e2e"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
@@ -44,15 +46,22 @@ func TestProbeRuntime(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Service")
-	_, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, v1a1opts.WithReadinessProbe(
-		&corev1.Probe{
-			Handler: corev1.Handler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Path: "/healthz",
+	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		v1a1opts.WithReadinessProbe(
+			&corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/healthz",
+					},
 				},
-			},
-		}))
+			}))
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
+	}
+
+	// Check if scaling down works even if access from liveness probe exists.
+	if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
+		t.Fatalf("Could not scale to zero: %v", err)
 	}
 }

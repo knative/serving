@@ -19,9 +19,8 @@ package route
 import (
 	"context"
 
-	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
+	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	certificateinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate"
-	clusteringressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress"
 	ingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
@@ -30,9 +29,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/tracker"
-	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler"
@@ -62,22 +61,20 @@ func NewControllerWithClock(
 	routeInformer := routeinformer.Get(ctx)
 	configInformer := configurationinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
-	clusterIngressInformer := clusteringressinformer.Get(ctx)
 	ingressInformer := ingressinformer.Get(ctx)
 	certificateInformer := certificateinformer.Get(ctx)
 
 	// No need to lock domainConfigMutex yet since the informers that can modify
 	// domainConfig haven't started yet.
 	c := &Reconciler{
-		Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
-		routeLister:          routeInformer.Lister(),
-		configurationLister:  configInformer.Lister(),
-		revisionLister:       revisionInformer.Lister(),
-		serviceLister:        serviceInformer.Lister(),
-		clusterIngressLister: clusterIngressInformer.Lister(),
-		ingressLister:        ingressInformer.Lister(),
-		certificateLister:    certificateInformer.Lister(),
-		clock:                clock,
+		Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
+		routeLister:         routeInformer.Lister(),
+		configurationLister: configInformer.Lister(),
+		revisionLister:      revisionInformer.Lister(),
+		serviceLister:       serviceInformer.Lister(),
+		ingressLister:       ingressInformer.Lister(),
+		certificateLister:   certificateInformer.Lister(),
+		clock:               clock,
 	}
 	impl := controller.NewImpl(c, c.Logger, "Routes")
 
@@ -88,10 +85,6 @@ func NewControllerWithClock(
 		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Route")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
-
-	clusterIngressInformer.Informer().AddEventHandler(controller.HandleAll(
-		impl.EnqueueLabelOfNamespaceScopedResource(
-			serving.RouteNamespaceLabelKey, serving.RouteLabelKey)))
 
 	ingressInformer.Informer().AddEventHandler(controller.HandleAll(impl.EnqueueControllerOf))
 
@@ -130,7 +123,7 @@ func NewControllerWithClock(
 	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 		impl.GlobalResync(routeInformer.Informer())
 	})
-	configStore := config.NewStore(c.Logger.Named("config-store"), controller.GetResyncPeriod(ctx), resync)
+	configStore := config.NewStore(logging.WithLogger(ctx, c.Logger.Named("config-store")), resync)
 	configStore.WatchConfigs(cmw)
 	c.configStore = configStore
 

@@ -39,10 +39,10 @@ const (
 // jobNameTestgridURLMap contains harded coded mapping of job name: Testgrid tab URL relative to base URL
 var jobNameTestgridURLMap = map[string]string{
 	"ci-knative-serving-continuous":        "serving#continuous",
-	"ci-knative-serving-istio-1.1-mesh":    "serving#istio-1.1-mesh",
-	"ci-knative-serving-istio-1.1-no-mesh": "serving#istio-1.1-no-mesh",
 	"ci-knative-serving-istio-1.2-mesh":    "serving#istio-1.2-mesh",
 	"ci-knative-serving-istio-1.2-no-mesh": "serving#istio-1.2-no-mesh",
+	"ci-knative-serving-istio-1.3-mesh":    "serving#istio-1.3-mesh",
+	"ci-knative-serving-istio-1.3-no-mesh": "serving#istio-1.3-no-mesh",
 	"ci-knative-serving-gloo-0.17.1":       "serving#gloo-0.17.1",
 }
 
@@ -65,7 +65,7 @@ func CreateXMLOutput(tc []junit.TestCase, testName string) error {
 
 	// ensure artifactsDir exist, in case not invoked from this script
 	artifactsDir := prow.GetLocalArtifactsDir()
-	if err := common.CreateDir(artifactsDir); nil != err {
+	if err := common.CreateDir(artifactsDir); err != nil {
 		return err
 	}
 	op, err := ts.ToBytes("", "  ")

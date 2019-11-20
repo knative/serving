@@ -69,8 +69,16 @@ func testFiles(t *testing.T, clients *test.Clients, paths map[string]types.FileI
 
 		if file.Perm != "" {
 			if err := verifyPermissionsString(riFile.Perm, file.Perm); err != nil {
-				return fmt.Errorf("%s has invalid permissions string %s: %v", path, riFile.Perm, err)
+				return fmt.Errorf("%s has invalid permissions string %s: %w", path, riFile.Perm, err)
 			}
+		}
+
+		riFileAccess, ok := ri.Host.FileAccess[path]
+		if ok && riFileAccess.ReadErr != "" {
+			return fmt.Errorf("Want no read errors for file %s, got error: %s", path, riFileAccess.ReadErr)
+		}
+		if ok && riFileAccess.WriteErr != "" {
+			return fmt.Errorf("Want no write errors for file %s, got error: %s", path, riFileAccess.WriteErr)
 		}
 	}
 	return nil

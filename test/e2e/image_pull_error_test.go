@@ -64,7 +64,7 @@ func TestImagePullError(t *testing.T) {
 				}
 			}
 			t.Logf("Reason: %s ; Message: %s ; Status: %s", cond.Reason, cond.Message, cond.Status)
-			return true, fmt.Errorf("the service %s was not marked with expected error condition, but with (Reason=\"%s\", Message=\"%s\", Status=\"%s\")",
+			return true, fmt.Errorf("the service %s was not marked with expected error condition, but with (Reason=%q, Message=%q, Status=%q)",
 				names.Service, cond.Reason, cond.Message, cond.Status)
 		}
 		return false, nil

@@ -25,7 +25,7 @@ import (
 	"knative.dev/test-infra/shared/common"
 )
 
-const configPath = "ci/testgrid/config.yaml"
+const configPath = "ci/prow/testgrid.yaml"
 
 // Config is entire testgrid config
 type Config struct {
@@ -47,7 +47,7 @@ type Tab struct {
 // NewConfig loads from default config
 func NewConfig() (*Config, error) {
 	root, err := common.GetRootDir()
-	if nil != err {
+	if err != nil {
 		return nil, err
 	}
 	return NewConfigFromFile(path.Join(root, configPath))
@@ -57,10 +57,10 @@ func NewConfig() (*Config, error) {
 func NewConfigFromFile(fp string) (*Config, error) {
 	ac := &Config{}
 	contents, err := ioutil.ReadFile(fp)
-	if nil == err {
+	if err == nil {
 		err = yaml.Unmarshal(contents, ac)
 	}
-	if nil != err {
+	if err != nil {
 		return nil, err
 	}
 	return ac, err

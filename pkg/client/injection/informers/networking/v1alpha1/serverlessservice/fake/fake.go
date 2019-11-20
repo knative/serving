@@ -23,7 +23,7 @@ import (
 
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
-	fake "knative.dev/serving/pkg/client/injection/informers/networking/factory/fake"
+	fake "knative.dev/serving/pkg/client/injection/informers/factory/fake"
 	serverlessservice "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 )
 

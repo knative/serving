@@ -41,8 +41,12 @@ data:
 
     # Default Knative Gateway after v0.3. It points to the Istio
     # standard istio-ingressgateway, instead of a custom one that we
-    # used pre-0.3.
-    gateway.knative-ingress-gateway: "istio-ingressgateway.istio-system.svc.cluster.local"
+    # used pre-0.3. The configuration format should be `gateway.
+    # {{gateway_namespace}}.{{gateway_name}}: "{{ingress_name}}.
+    # {{ingress_namespace}}.svc.cluster.local"`. The {{gateway_namespace}}
+    # is optional; when it is omitted, the system will search for
+    # the gateway in the serving system namespace `knative-serving`
+    gateway.knative-serving.knative-ingress-gateway: "istio-ingressgateway.istio-system.svc.cluster.local"
 
     # A cluster local gateway to allow pods outside of the mesh to access
     # Services and Routes not exposing through an ingress.  If the users
@@ -52,7 +56,13 @@ data:
     # sidecar injection (like Knative's istio-lean.yaml).  Since every pod
     # is outside of the service mesh in that case, a cluster-local  service
     # will need to be exposed to a cluster-local gateway to be accessible.
-    local-gateway.cluster-local-gateway: "cluster-local-gateway.istio-system.svc.cluster.local"
+    # The configuration format should be `local-gateway.{{local_gateway_namespace}}.
+    # {{local_gateway_name}}: "{{cluster_local_gateway_name}}.
+    # {{cluster_local_gateway_namespace}}.svc.cluster.local"`. The
+    # {{local_gateway_namespace}} is optional; when it is omitted, the system
+    # will search for the local gateway in the serving system namespace
+    # `knative-serving`
+    local-gateway.knative-serving.cluster-local-gateway: "cluster-local-gateway.istio-system.svc.cluster.local"
 
     # To use only Istio service mesh and no cluster-local-gateway, replace
     # all local-gateway.* entries the following entry.

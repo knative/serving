@@ -16,14 +16,23 @@ package test
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
+	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/signals"
 )
 
-// HelloVolumePath is the path to the test volume.
-const HelloVolumePath = "/hello/world"
+const (
+	// PollInterval is how frequently e2e tests will poll for updates.
+	PollInterval = 1 * time.Second
+	// PollTimeout is how long e2e tests will wait for resource updates when polling.
+	PollTimeout = 10 * time.Minute
+
+	// HelloVolumePath is the path to the test volume.
+	HelloVolumePath = "/hello/world"
+)
 
 // util.go provides shared utilities methods across knative serving test
 
@@ -42,4 +51,15 @@ func ListenAndServeGracefullyWithHandler(addr string, handler http.Handler) {
 
 	<-signals.SetupSignalHandler()
 	server.Shutdown(context.Background())
+}
+
+// TODO(dangerd): Remove this and use duck.CreateBytePatch after release-0.9
+// CreateBytePatch is a helper function that creates the same content as
+// CreatePatch, but returns in []byte format instead of JSONPatch.
+func CreateBytePatch(before, after interface{}) ([]byte, error) {
+	patch, err := duck.CreatePatch(before, after)
+	if err != nil {
+		return nil, err
+	}
+	return patch.MarshalJSON()
 }

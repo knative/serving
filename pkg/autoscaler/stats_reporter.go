@@ -20,8 +20,9 @@ import (
 	"context"
 	"errors"
 
-	"knative.dev/pkg/metrics"
+	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/metrics/metricskey"
+	"knative.dev/serving/pkg/metrics"
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
@@ -57,14 +58,22 @@ var (
 		"target_concurrency_per_pod",
 		"The desired number of concurrent requests for each pod",
 		stats.UnitDimensionless)
+	stableRPSM = stats.Float64(
+		"stable_requests_per_second",
+		"Average requests-per-second per observed pod over the stable window",
+		stats.UnitDimensionless)
+	panicRPSM = stats.Float64(
+		"panic_requests_per_second",
+		"Average requests-per-second per observed pod over the panic window",
+		stats.UnitDimensionless)
+	targetRPSM = stats.Float64(
+		"target_requests_per_second",
+		"The desired requests-per-second for each pod",
+		stats.UnitDimensionless)
 	panicM = stats.Int64(
 		"panic_mode",
 		"1 if autoscaler is in panic mode, 0 otherwise",
 		stats.UnitDimensionless)
-	namespaceTagKey tag.Key
-	configTagKey    tag.Key
-	revisionTagKey  tag.Key
-	serviceTagKey   tag.Key
 )
 
 func init() {
@@ -72,83 +81,77 @@ func init() {
 }
 
 func register() {
-	var err error
-	// Create the tag keys that will be used to add tags to our measurements.
-	// Tag keys must conform to the restrictions described in
-	// go.opencensus.io/tag/validate.go. Currently those restrictions are:
-	// - length between 1 and 255 inclusive
-	// - characters are printable US-ASCII
-	namespaceTagKey, err = tag.NewKey(metricskey.LabelNamespaceName)
-	if err != nil {
-		panic(err)
-	}
-	serviceTagKey, err = tag.NewKey(metricskey.LabelServiceName)
-	if err != nil {
-		panic(err)
-	}
-	configTagKey, err = tag.NewKey(metricskey.LabelConfigurationName)
-	if err != nil {
-		panic(err)
-	}
-	revisionTagKey, err = tag.NewKey(metricskey.LabelRevisionName)
-	if err != nil {
-		panic(err)
-	}
-
 	// Create views to see our measurements. This can return an error if
 	// a previously-registered view has the same name with a different value.
 	// View name defaults to the measure name if unspecified.
-	err = view.Register(
+	if err := view.Register(
 		&view.View{
 			Description: "Number of pods autoscaler wants to allocate",
 			Measure:     desiredPodCountM,
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
+			TagKeys:     metrics.CommonRevisionKeys,
 		},
 		&view.View{
 			Description: "Number of pods autoscaler requested from Kubernetes",
 			Measure:     requestedPodCountM,
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
+			TagKeys:     metrics.CommonRevisionKeys,
 		},
 		&view.View{
 			Description: "Number of pods that are allocated currently",
 			Measure:     actualPodCountM,
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
+			TagKeys:     metrics.CommonRevisionKeys,
 		},
 		&view.View{
 			Description: "Average of requests count over the stable window",
 			Measure:     stableRequestConcurrencyM,
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
+			TagKeys:     metrics.CommonRevisionKeys,
 		},
 		&view.View{
 			Description: "Current excess burst capacity over average request count over the stable window",
 			Measure:     excessBurstCapacityM,
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
+			TagKeys:     metrics.CommonRevisionKeys,
 		},
 		&view.View{
 			Description: "Average of requests count over the panic window",
 			Measure:     panicRequestConcurrencyM,
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
+			TagKeys:     metrics.CommonRevisionKeys,
 		},
 		&view.View{
 			Description: "The desired number of concurrent requests for each pod",
 			Measure:     targetRequestConcurrencyM,
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
+			TagKeys:     metrics.CommonRevisionKeys,
 		},
 		&view.View{
 			Description: "1 if autoscaler is in panic mode, 0 otherwise",
 			Measure:     panicM,
 			Aggregation: view.LastValue(),
-			TagKeys:     []tag.Key{namespaceTagKey, serviceTagKey, configTagKey, revisionTagKey},
+			TagKeys:     metrics.CommonRevisionKeys,
 		},
-	)
-	if err != nil {
+		&view.View{
+			Description: "Average requests-per-second over the stable window",
+			Measure:     stableRPSM,
+			Aggregation: view.LastValue(),
+			TagKeys:     metrics.CommonRevisionKeys,
+		},
+		&view.View{
+			Description: "Average requests-per-second over the panic window",
+			Measure:     panicRPSM,
+			Aggregation: view.LastValue(),
+			TagKeys:     metrics.CommonRevisionKeys,
+		},
+		&view.View{
+			Description: "The desired requests-per-second for each pod",
+			Measure:     targetRPSM,
+			Aggregation: view.LastValue(),
+			TagKeys:     metrics.CommonRevisionKeys,
+		},
+	); err != nil {
 		panic(err)
 	}
 }
@@ -161,6 +164,9 @@ type StatsReporter interface {
 	ReportStableRequestConcurrency(v float64) error
 	ReportPanicRequestConcurrency(v float64) error
 	ReportTargetRequestConcurrency(v float64) error
+	ReportStableRPS(v float64) error
+	ReportPanicRPS(v float64) error
+	ReportTargetRPS(v float64) error
 	ReportExcessBurstCapacity(v float64) error
 	ReportPanic(v int64) error
 }
@@ -179,7 +185,7 @@ func valueOrUnknown(v string) string {
 }
 
 // NewStatsReporter creates a reporter that collects and reports autoscaler metrics
-func NewStatsReporter(podNamespace string, service string, config string, revision string) (*Reporter, error) {
+func NewStatsReporter(ns, service, config, revision string) (*Reporter, error) {
 	r := &Reporter{}
 
 	// Our tags are static. So, we can get away with creating a single context
@@ -187,10 +193,10 @@ func NewStatsReporter(podNamespace string, service string, config string, revisi
 	// can be an empty string, so it needs a special treatment.
 	ctx, err := tag.New(
 		context.Background(),
-		tag.Insert(namespaceTagKey, podNamespace),
-		tag.Insert(serviceTagKey, valueOrUnknown(service)),
-		tag.Insert(configTagKey, config),
-		tag.Insert(revisionTagKey, revision))
+		tag.Insert(metrics.NamespaceTagKey, ns),
+		tag.Insert(metrics.ServiceTagKey, valueOrUnknown(service)),
+		tag.Insert(metrics.ConfigTagKey, config),
+		tag.Insert(metrics.RevisionTagKey, revision))
 	if err != nil {
 		return nil, err
 	}
@@ -235,6 +241,22 @@ func (r *Reporter) ReportTargetRequestConcurrency(v float64) error {
 	return r.report(targetRequestConcurrencyM.M(v))
 }
 
+// ReportStableRPS captures value v for stable RPS measure.
+func (r *Reporter) ReportStableRPS(v float64) error {
+	return r.report(stableRPSM.M(v))
+}
+
+// ReportPanicRPS captures value v for panic RPS measure.
+func (r *Reporter) ReportPanicRPS(v float64) error {
+	return r.report(panicRPSM.M(v))
+}
+
+// ReportTargetRPS captures value v for target requests-per-second measure.
+func (r *Reporter) ReportTargetRPS(v float64) error {
+	return r.report(targetRPSM.M(v))
+
+}
+
 // ReportPanic captures value v for panic mode measure.
 func (r *Reporter) ReportPanic(v int64) error {
 	return r.report(panicM.M(v))
@@ -245,6 +267,6 @@ func (r *Reporter) report(m stats.Measurement) error {
 		return errors.New("StatsReporter is not initialized yet")
 	}
 
-	metrics.Record(r.ctx, m)
+	pkgmetrics.Record(r.ctx, m)
 	return nil
 }

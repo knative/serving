@@ -17,7 +17,6 @@ limitations under the License.
 package route
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -28,35 +27,32 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
 
 	. "knative.dev/pkg/reconciler/testing"
+	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
 
 func TestNewRouteCallsSyncHandler(t *testing.T) {
-	defer logtesting.ClearAll()
-	ctx, informers := SetupFakeContext(t)
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	// A route targeting the revision
-	route := getTestRouteWithTrafficTargets(
-		[]v1alpha1.TrafficTarget{{
-			TrafficTarget: v1beta1.TrafficTarget{
-				RevisionName: "test-rev",
-				Percent:      ptr.Int64(100),
-			},
-		}},
-	)
+	route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
+			RevisionName: "test-rev",
+			Percent:      ptr.Int64(100),
+		},
+	}))
 
 	// Create fake clients
 	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
@@ -96,18 +92,19 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		return HookComplete
 	})
 
-	ctx, cancel := context.WithCancel(ctx)
 	eg := errgroup.Group{}
+
+	waitInformers, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
+		t.Fatalf("Failed to start informers: %v", err)
+	}
 	defer func() {
 		cancel()
 		if err := eg.Wait(); err != nil {
 			t.Fatalf("Error running controller: %v", err)
 		}
+		waitInformers()
 	}()
-
-	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-		t.Fatalf("failed to start cluster ingress manager: %v", err)
-	}
 
 	// Run the controller.
 	eg.Go(func() error {

@@ -12,6 +12,8 @@ required = [
   # TODO(#4549): Drop this when we drop our patches.
   "k8s.io/kubernetes/pkg/version",
   "knative.dev/caching/pkg/apis/caching",
+  # For cluster management in performance testing.
+  "knative.dev/pkg/testutils/clustermanager/perf-tests",
   "knative.dev/test-infra/scripts",
   "knative.dev/test-infra/tools/dep-collector",
   # For load testing.
@@ -24,7 +26,8 @@ required = [
 
 [[override]]
   name = "gopkg.in/yaml.v2"
-  version = "v2.2.1"
+  version = "v2.2.4"
+
 
 [[override]]
   name = "knative.dev/pkg"
@@ -35,33 +38,59 @@ required = [
   branch = "master"
 
 [[override]]
+  name = "github.com/google/mako"
+  version = "v0.1.0"
+
+[[override]]
   name = "go.uber.org/zap"
   revision = "67bc79d13d155c02fd008f721863ff8cc5f30659"
 
 [[constraint]]
   name = "github.com/google/go-containerregistry"
-  # HEAD as of 2019-06-19
-  revision = "abf9ef06abd9f532944e28e8942644ea4b710a40"
+  # HEAD as of 2019-09-10
+  revision = "b02d448a3705facf11018efff34f1d2830be5724"
 
 [[constraint]]
   name = "github.com/jetstack/cert-manager"
-  revision = "45fbfcd16cdd6a6a73c79f26d67ce72a2886c746"
+  version = "v0.9.1"
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.12.9"
+  version = "kubernetes-1.15.3"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.12.9"
+  version = "kubernetes-1.15.3"
 
 [[override]]
   name = "k8s.io/code-generator"
-  version = "kubernetes-1.12.9"
+  version = "kubernetes-1.15.3"
+
+[[override]]
+  name = "k8s.io/apiextensions-apiserver"
+  version = "kubernetes-1.15.3"
 
 [[override]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.12.9"
+  version = "kubernetes-1.15.3"
+
+[[override]]
+  name = "k8s.io/apiserver"
+  version = "kubernetes-1.15.3"
+
+[[override]]
+  name = "k8s.io/metrics"
+  version = "kubernetes-1.15.3"
+
+[[override]]
+  name = "k8s.io/kube-openapi"
+  # This is the version at which k8s.io/apiserver depends on this at its 1.15.3 tag.
+  revision = "b3a7cee44a305be0a69e1b9ac03018307287e1b0"
+
+[[override]]
+  name = "sigs.k8s.io/structured-merge-diff"
+  # This is the version at which k8s.io/apiserver depends on this at its 1.15.3 tag.
+  revision = "e85c7b244fd2cc57bb829d73a061f93a441e63ce"
 
 [[override]]
   name = "github.com/rogpeppe/go-internal"
@@ -74,15 +103,7 @@ required = [
 # Added for the custom-metrics-apiserver specifically
 [[override]]
   name = "github.com/kubernetes-incubator/custom-metrics-apiserver"
-  revision = "b7016fc85e1c960758aef23e1d456a66997d1e26"
-
-[[override]]
-  name = "k8s.io/apiserver"
-  version = "kubernetes-1.12.9"
-
-[[override]]
-  name = "k8s.io/metrics"
-  version = "kubernetes-1.12.9"
+  revision = "3d9be26a50eb64531fc40eb31a5f3e6720956dc6"
 
 [[override]]
   name = "bitbucket.org/ww/goautoneg"
@@ -120,7 +141,10 @@ required = [
 
 [[override]]
   name = "contrib.go.opencensus.io/exporter/stackdriver"
-  version = "0.12.2"
+  # Synced from knative/pkg.
+  # The build fails against 0.12.6 and newer because
+  # stackdriver.Options.GetMonitoredResource was removed.
+  version = "<=v0.12.5"
 
 [[override]]
   name = "contrib.go.opencensus.io/exporter/prometheus"
@@ -141,4 +165,3 @@ required = [
 [[override]]
   name="github.com/golang/protobuf"
   version = "1.3.2"
-

@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sort"
+	"strconv"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -27,10 +29,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
@@ -54,19 +58,19 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 // converge the two. It then updates the Status block of the Configuration
 // resource with the current status of the resource.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
-	// Convert the namespace/name string into a distinct namespace and name.
+	logger := logging.FromContext(ctx)
+
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		c.Logger.Errorf("invalid resource key: %s", key)
+		logger.Errorw("Invalid resource key", zap.Error(err))
 		return nil
 	}
-	logger := logging.FromContext(ctx)
 
 	// Get the Configuration resource with this namespace/name.
 	original, err := c.configurationLister.Configurations(namespace).Get(name)
 	if errors.IsNotFound(err) {
 		// The resource no longer exists, in which case we stop processing.
-		logger.Errorf("configuration %q in work queue no longer exists", key)
+		logger.Error("Configuration in work queue no longer exists")
 		return nil
 	} else if err != nil {
 		return err
@@ -85,8 +89,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// to status with this stale state.
 	} else if _, err = c.updateStatus(config); err != nil {
 		logger.Warnw("Failed to update configuration status", zap.Error(err))
-		c.Recorder.Eventf(config, corev1.EventTypeWarning, "UpdateFailed",
-			"Failed to update status for Configuration %q: %v", config.Name, err)
+		c.Recorder.Eventf(config, corev1.EventTypeWarning, "UpdateFailed", "Failed to update status: %v", err)
 		return err
 	}
 	if reconcileErr != nil {
@@ -116,7 +119,7 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 	// and may not have had all of the assumed defaults specified.  This won't result
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
-	config.SetDefaults(v1beta1.WithUpgradeViaDefaulting(ctx))
+	config.SetDefaults(v1.WithUpgradeViaDefaulting(ctx))
 	config.Status.InitializeConditions()
 
 	if err := config.ConvertUp(ctx, &v1beta1.Configuration{}); err != nil {
@@ -126,21 +129,22 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 		return err
 	}
 
+	// Bump observed generation to denote that we have processed this
+	// generation regardless of success or failure.
+	config.Status.ObservedGeneration = config.Generation
+
 	// First, fetch the revision that should exist for the current generation.
 	lcr, err := c.latestCreatedRevision(config)
 	if errors.IsNotFound(err) {
 		lcr, err = c.createRevision(ctx, config)
 		if err != nil {
-			errMsg := fmt.Sprintf("Failed to create Revision for Configuration %q: %v", config.Name, err)
-
-			logger.Error(errMsg)
-			c.Recorder.Event(config, corev1.EventTypeWarning, "CreationFailed", errMsg)
+			c.Recorder.Eventf(config, corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision: %v", err)
 
 			// Mark the Configuration as not-Ready since creating
 			// its latest revision failed.
 			config.Status.MarkRevisionCreationFailed(err.Error())
 
-			return err
+			return fmt.Errorf("failed to create Revision: %w", err)
 		}
 	} else if errors.IsAlreadyExists(err) {
 		// If we get an already-exists error from latestCreatedRevision it means
@@ -149,54 +153,120 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 		config.Status.MarkRevisionCreationFailed(err.Error())
 		return nil
 	} else if err != nil {
-		logger.Errorf("Failed to reconcile Configuration %q - failed to get Revision: %v", config.Name, err)
-		return err
+		return fmt.Errorf("failed to get Revision: %w", err)
 	}
 
 	revName := lcr.Name
 
 	// Second, set this to be the latest revision that we have created.
 	config.Status.SetLatestCreatedRevisionName(revName)
-	config.Status.ObservedGeneration = config.Generation
 
 	// Last, determine whether we should set LatestReadyRevisionName to our
 	// LatestCreatedRevision based on its readiness.
 	rc := lcr.Status.GetCondition(v1alpha1.RevisionConditionReady)
 	switch {
 	case rc == nil || rc.Status == corev1.ConditionUnknown:
-		logger.Infof("Revision %q of configuration %q is not ready", revName, config.Name)
+		logger.Infof("Revision %q of configuration is not ready", revName)
 
 	case rc.Status == corev1.ConditionTrue:
-		logger.Infof("Revision %q of configuration %q is ready", revName, config.Name)
-
-		created, ready := config.Status.LatestCreatedRevisionName, config.Status.LatestReadyRevisionName
-		if ready == "" {
+		logger.Infof("Revision %q of configuration is ready", revName)
+		if config.Status.LatestReadyRevisionName == "" {
 			// Surface an event for the first revision becoming ready.
 			c.Recorder.Event(config, corev1.EventTypeNormal, "ConfigurationReady",
 				"Configuration becomes ready")
 		}
-		// Update the LatestReadyRevisionName and surface an event for the transition.
-		config.Status.SetLatestReadyRevisionName(lcr.Name)
-		if created != ready {
-			c.Recorder.Eventf(config, corev1.EventTypeNormal, "LatestReadyUpdate",
-				"LatestReadyRevisionName updated to %q", lcr.Name)
-		}
 
 	case rc.Status == corev1.ConditionFalse:
-		logger.Infof("Revision %q of configuration %q has failed", revName, config.Name)
-
+		logger.Infof("Revision %q of configuration has failed", revName)
 		// TODO(mattmoor): Only emit the event the first time we see this.
 		config.Status.MarkLatestCreatedFailed(lcr.Name, rc.Message)
 		c.Recorder.Eventf(config, corev1.EventTypeWarning, "LatestCreatedFailed",
 			"Latest created revision %q has failed", lcr.Name)
 
 	default:
-		err := fmt.Errorf("unrecognized condition status: %v on revision %q", rc.Status, revName)
-		logger.Errorf("Error reconciling Configuration %q: %v", config.Name, err)
-		return err
+		return fmt.Errorf("unrecognized condition status: %v on revision %q", rc.Status, revName)
 	}
 
+	if err = c.findAndSetLatestReadyRevision(config); err != nil {
+		return fmt.Errorf("failed to find and set latest ready revision: %w", err)
+	}
 	return nil
+}
+
+// findAndSetLatestReadyRevision finds the last ready revision and sets LatestReadyRevisionName to it.
+func (c *Reconciler) findAndSetLatestReadyRevision(config *v1alpha1.Configuration) error {
+	sortedRevisions, err := c.getSortedCreatedRevisions(config)
+	if err != nil {
+		return err
+	}
+	for _, rev := range sortedRevisions {
+		if rev.Status.IsReady() {
+			old, new := config.Status.LatestReadyRevisionName, rev.Name
+			config.Status.SetLatestReadyRevisionName(rev.Name)
+			if old != new {
+				c.Recorder.Eventf(config, corev1.EventTypeNormal, "LatestReadyUpdate",
+					"LatestReadyRevisionName updated to %q", rev.Name)
+			}
+			return nil
+		}
+	}
+	return nil
+}
+
+// getSortedCreatedRevisions returns the list of created revisions sorted in descending
+// generation order between the generation of the latest ready revision and config's generation (both inclusive).
+func (c *Reconciler) getSortedCreatedRevisions(config *v1alpha1.Configuration) ([]*v1alpha1.Revision, error) {
+	lister := c.revisionLister.Revisions(config.Namespace)
+	configSelector := labels.SelectorFromSet(map[string]string{
+		serving.ConfigurationLabelKey: config.Name,
+	})
+	if config.Status.LatestReadyRevisionName != "" {
+		lrr, err := lister.Get(config.Status.LatestReadyRevisionName)
+		if err != nil {
+			return nil, err
+		}
+		start := lrr.Generation
+		var generations []string
+		for i := start; i <= int64(config.Generation); i++ {
+			generations = append(generations, strconv.FormatInt(i, 10))
+		}
+
+		// Add an "In" filter so that the configurations we get back from List have generation
+		// in range (config's latest ready generation, config's generation]
+		generationKey := serving.ConfigurationGenerationLabelKey
+		inReq, err := labels.NewRequirement(generationKey,
+			selection.In,
+			generations,
+		)
+		if err != nil {
+			return nil, err
+		}
+		configSelector = configSelector.Add(*inReq)
+	}
+
+	list, err := lister.List(configSelector)
+	if err != nil {
+		return nil, err
+	}
+	// Return a sorted list with Generation in descending order
+	if len(list) > 1 {
+		sort.Slice(list, func(i, j int) bool {
+			// BYO name always be the first
+			if config.Spec.Template.Name == list[i].Name {
+				return true
+			}
+			if config.Spec.Template.Name == list[j].Name {
+				return false
+			}
+			intI, errI := strconv.Atoi(list[i].Labels[serving.ConfigurationGenerationLabelKey])
+			intJ, errJ := strconv.Atoi(list[j].Labels[serving.ConfigurationGenerationLabelKey])
+			if errI != nil || errJ != nil {
+				return true
+			}
+			return intI > intJ
+		})
+	}
+	return list, nil
 }
 
 // CheckNameAvailability checks that if the named Revision specified by the Configuration
@@ -266,7 +336,7 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Config
 		return nil, err
 	}
 	c.Recorder.Eventf(config, corev1.EventTypeNormal, "Created", "Created Revision %q", created.Name)
-	logger.Infof("Created Revision: %+v", created)
+	logger.Infof("Created Revision: %#v", created)
 
 	return created, nil
 }

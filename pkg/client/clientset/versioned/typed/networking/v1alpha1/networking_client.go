@@ -19,7 +19,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	rest "k8s.io/client-go/rest"
 	v1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/client/clientset/versioned/scheme"
@@ -28,7 +27,6 @@ import (
 type NetworkingV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	CertificatesGetter
-	ClusterIngressesGetter
 	IngressesGetter
 	ServerlessServicesGetter
 }
@@ -40,10 +38,6 @@ type NetworkingV1alpha1Client struct {
 
 func (c *NetworkingV1alpha1Client) Certificates(namespace string) CertificateInterface {
 	return newCertificates(c, namespace)
-}
-
-func (c *NetworkingV1alpha1Client) ClusterIngresses() ClusterIngressInterface {
-	return newClusterIngresses(c)
 }
 
 func (c *NetworkingV1alpha1Client) Ingresses(namespace string) IngressInterface {
@@ -86,7 +80,7 @@ func setConfigDefaults(config *rest.Config) error {
 	gv := v1alpha1.SchemeGroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
+	config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
 
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()

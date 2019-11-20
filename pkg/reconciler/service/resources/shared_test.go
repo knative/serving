@@ -25,8 +25,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/ptr"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 
 	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
@@ -82,7 +82,7 @@ func createServiceInline() *v1alpha1.Service {
 		WithInlineConfigSpec(createConfiguration(testContainerNameInline)),
 		WithInlineRouteSpec(v1alpha1.RouteSpec{
 			Traffic: []v1alpha1.TrafficTarget{{
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					Percent: ptr.Int64(100),
 				},
 			}},
@@ -115,4 +115,12 @@ func createServiceWithRelease(numRevision int, rolloutPercent int) *v1alpha1.Ser
 	return Service(testServiceName, testServiceNamespace,
 		WithReleaseRolloutAndPercentageConfigSpec(rolloutPercent, createConfiguration(testContainerNameRelease), revisions...),
 		WithServiceLabel(testLabelKey, testLabelValueRelease))
+}
+
+func createServiceWithKubectlAnnotation() *v1alpha1.Service {
+	return Service(testServiceName, testServiceNamespace,
+		WithRunLatestConfigSpec(createConfiguration(testContainerNameRunLatest)),
+		WithServiceAnnotations(map[string]string{
+			corev1.LastAppliedConfigAnnotation: testAnnotationValue,
+		}))
 }

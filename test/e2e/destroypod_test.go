@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"testing"
 	"time"
 
@@ -44,7 +45,7 @@ import (
 const (
 	timeoutExpectedOutput  = "Slept for 0 milliseconds"
 	revisionTimeoutSeconds = 45
-	timeoutRequestDuration = 43 * time.Second
+	timeoutRequestDuration = 35 * time.Second
 )
 
 func TestDestroyPodInflight(t *testing.T) {
@@ -80,7 +81,7 @@ func TestDestroyPodInflight(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error fetching Route %s: %v", names.Route, err)
 	}
-	domain := route.Status.URL.Host
+	routeURL := route.Status.URL.URL()
 
 	err = v1a1test.WaitForConfigurationState(clients.ServingAlphaClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
 		if c.Status.LatestCreatedRevisionName != names.Revision {
@@ -93,25 +94,27 @@ func TestDestroyPodInflight(t *testing.T) {
 		t.Fatalf("Error obtaining Revision's name %v", err)
 	}
 
-	_, err = pkgTest.WaitForEndpointState(
+	if _, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain,
+		routeURL,
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(timeoutExpectedOutput))),
 		"TimeoutAppServesText",
-		test.ServingFlags.ResolvableDomain)
-	if err != nil {
-		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, domain, test.HelloWorldText, err)
+		test.ServingFlags.ResolvableDomain); err != nil {
+		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, routeURL, timeoutExpectedOutput, err)
 	}
 
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, routeURL.Hostname(), test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("Error creating spoofing client: %v", err)
 	}
 
 	// The timeout app sleeps for the time passed via the timeout query parameter in milliseconds
-	timeoutRequestDurationInMillis := timeoutRequestDuration / time.Millisecond
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s/?timeout=%d", domain, timeoutRequestDurationInMillis), nil)
+	u, _ := url.Parse(routeURL.String())
+	q := u.Query()
+	q.Set("timeout", fmt.Sprintf("%d", timeoutRequestDuration.Milliseconds()))
+	u.RawQuery = q.Encode()
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
 		t.Fatalf("Error creating http request: %v", err)
 	}
@@ -128,7 +131,7 @@ func TestDestroyPodInflight(t *testing.T) {
 		if res.StatusCode != http.StatusOK {
 			return fmt.Errorf("Expected response to have status 200, had %d", res.StatusCode)
 		}
-		expectedBody := fmt.Sprintf("Slept for %d milliseconds", timeoutRequestDurationInMillis)
+		expectedBody := fmt.Sprintf("Slept for %d milliseconds", timeoutRequestDuration.Milliseconds())
 		gotBody := string(res.Body)
 		if gotBody != expectedBody {
 			return fmt.Errorf("Unexpected body, expected: %q got: %q", expectedBody, gotBody)
@@ -169,7 +172,9 @@ func TestDestroyPodTimely(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
+	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
 	}
@@ -210,5 +215,88 @@ func TestDestroyPodTimely(t *testing.T) {
 	timeToDelete := time.Since(start)
 	if timeToDelete > revisionTimeout-30*time.Second {
 		t.Errorf("Time to delete pods = %v, want < %v", timeToDelete, revisionTimeout)
+	}
+}
+
+func TestDestroyPodWithRequests(t *testing.T) {
+	cancel := logstream.Start(t)
+	defer cancel()
+
+	clients := Setup(t)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   "autoscale",
+	}
+	defer test.TearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+
+	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
+	if err != nil {
+		t.Fatalf("Failed to create a service: %v", err)
+	}
+	routeURL := objects.Route.Status.URL.URL()
+
+	if _, err = pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		t.Logf,
+		routeURL,
+		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		"RouteServes",
+		test.ServingFlags.ResolvableDomain); err != nil {
+		t.Fatalf("The endpoint for Route %s at %s didn't serve correctly: %v", names.Route, routeURL, err)
+	}
+
+	pods, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).List(metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", serving.RevisionLabelKey, objects.Revision.Name),
+	})
+	if err != nil || len(pods.Items) != 1 {
+		t.Fatalf("Number of pods is not 1 or an error: %v", err)
+	}
+
+	// The request will sleep for more than 15 seconds.
+	// NOTE: it needs to be less than TERMINATION_DRAIN_DURATION_SECONDS.
+	u, _ := url.Parse(routeURL.String())
+	q := u.Query()
+	q.Set("sleep", "15001")
+	u.RawQuery = q.Encode()
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	if err != nil {
+		t.Fatalf("Error creating HTTP request: %v", err)
+	}
+	httpClient, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, u.Hostname(), test.ServingFlags.ResolvableDomain)
+	if err != nil {
+		t.Fatalf("Error creating spoofing client: %v", err)
+	}
+
+	// Start several requests staggered with 1s delay.
+	var eg errgroup.Group
+	for i := 1; i < 7; i++ {
+		i := i
+		t.Logf("Starting request %d at %v", i, time.Now())
+		eg.Go(func() error {
+			res, err := httpClient.Do(req)
+			t.Logf("Request %d done at %v", i, time.Now())
+			if err != nil {
+				return err
+			}
+			if res.StatusCode != http.StatusOK {
+				return fmt.Errorf("request status = %v, want StatusOK", res.StatusCode)
+			}
+			return nil
+		})
+		time.Sleep(time.Second)
+	}
+
+	// And immeditately kill the pod.
+	podToDelete := pods.Items[0].Name
+	t.Logf("Deleting pod %q", podToDelete)
+	clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).Delete(podToDelete, &metav1.DeleteOptions{})
+
+	// Make sure all the requests succeed.
+	if err := eg.Wait(); err != nil {
+		t.Errorf("Not all requests finished with success, eg: %v", err)
 	}
 }

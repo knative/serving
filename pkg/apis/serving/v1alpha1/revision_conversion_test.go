@@ -25,8 +25,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/ptr"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
@@ -56,7 +57,7 @@ func TestRevisionConversion(t *testing.T) {
 				Generation: 1,
 			},
 			Spec: RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					PodSpec: corev1.PodSpec{
 						ServiceAccountName: "robocop",
 						Containers: []corev1.Container{{
@@ -77,13 +78,13 @@ func TestRevisionConversion(t *testing.T) {
 						}},
 					},
 					TimeoutSeconds:       ptr.Int64(18),
-					ContainerConcurrency: 53,
+					ContainerConcurrency: ptr.Int64(53),
 				},
 			},
 			Status: RevisionStatus{
-				Status: duckv1beta1.Status{
+				Status: duckv1.Status{
 					ObservedGeneration: 1,
-					Conditions: duckv1beta1.Conditions{{
+					Conditions: duckv1.Conditions{{
 						Type:   "Ready",
 						Status: "True",
 					}},
@@ -107,7 +108,7 @@ func TestRevisionConversion(t *testing.T) {
 					Kind:       "Build",
 					Name:       "foo",
 				},
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					PodSpec: corev1.PodSpec{
 						ServiceAccountName: "robocop",
 						Containers: []corev1.Container{{
@@ -128,13 +129,13 @@ func TestRevisionConversion(t *testing.T) {
 						}},
 					},
 					TimeoutSeconds:       ptr.Int64(18),
-					ContainerConcurrency: 53,
+					ContainerConcurrency: ptr.Int64(53),
 				},
 			},
 			Status: RevisionStatus{
-				Status: duckv1beta1.Status{
+				Status: duckv1.Status{
 					ObservedGeneration: 1,
-					Conditions: duckv1beta1.Conditions{{
+					Conditions: duckv1.Conditions{{
 						Type:   "Ready",
 						Status: "True",
 					}},
@@ -218,7 +219,7 @@ func TestRevisionConversionError(t *testing.T) {
 				Generation: 1,
 			},
 			Spec: RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					PodSpec: corev1.PodSpec{
 						ServiceAccountName: "robocop",
 						Containers: []corev1.Container{{
@@ -228,13 +229,13 @@ func TestRevisionConversionError(t *testing.T) {
 						}},
 					},
 					TimeoutSeconds:       ptr.Int64(18),
-					ContainerConcurrency: 53,
+					ContainerConcurrency: ptr.Int64(53),
 				},
 			},
 			Status: RevisionStatus{
-				Status: duckv1beta1.Status{
+				Status: duckv1.Status{
 					ObservedGeneration: 1,
-					Conditions: duckv1beta1.Conditions{{
+					Conditions: duckv1.Conditions{{
 						Type:   "Ready",
 						Status: "True",
 					}},
@@ -253,19 +254,19 @@ func TestRevisionConversionError(t *testing.T) {
 				Generation: 1,
 			},
 			Spec: RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					PodSpec: corev1.PodSpec{
 						ServiceAccountName: "robocop",
 						Containers:         []corev1.Container{},
 					},
 					TimeoutSeconds:       ptr.Int64(18),
-					ContainerConcurrency: 53,
+					ContainerConcurrency: ptr.Int64(53),
 				},
 			},
 			Status: RevisionStatus{
-				Status: duckv1beta1.Status{
+				Status: duckv1.Status{
 					ObservedGeneration: 1,
-					Conditions: duckv1beta1.Conditions{{
+					Conditions: duckv1.Conditions{{
 						Type:   "Ready",
 						Status: "True",
 					}},

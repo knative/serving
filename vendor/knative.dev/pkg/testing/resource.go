@@ -38,7 +38,6 @@ type Resource struct {
 // Check that Resource may be validated and defaulted.
 var _ apis.Validatable = (*Resource)(nil)
 var _ apis.Defaultable = (*Resource)(nil)
-var _ apis.Immutable = (*Resource)(nil)
 var _ apis.Listable = (*Resource)(nil)
 
 // ResourceSpec represents test resource spec.
@@ -105,12 +104,7 @@ func (cs *ResourceSpec) Validate(ctx context.Context) *apis.FieldError {
 	return nil
 }
 
-func (current *Resource) CheckImmutableFields(ctx context.Context, og apis.Immutable) *apis.FieldError {
-	original, ok := og.(*Resource)
-	if !ok {
-		return &apis.FieldError{Message: "The provided original was not a Resource"}
-	}
-
+func (current *Resource) CheckImmutableFields(ctx context.Context, original *Resource) *apis.FieldError {
 	if original.Spec.FieldThatsImmutable != current.Spec.FieldThatsImmutable {
 		return &apis.FieldError{
 			Message: "Immutable field changed",

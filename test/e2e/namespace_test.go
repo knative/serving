@@ -29,19 +29,18 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func checkResponse(t *testing.T, clients *test.Clients, names test.ResourceNames, expectedText string) error {
 	_, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		names.Domain,
+		names.URL,
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		return fmt.Errorf("the endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, names.Domain, expectedText, err)
+		return fmt.Errorf("the endpoint for Route %s at %s didn't serve the expected text %q: %w", names.Route, names.URL.String(), expectedText, err)
 	}
 
 	return nil
@@ -63,7 +62,8 @@ func TestMultipleNamespace(t *testing.T) {
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(defaultClients, defaultResources) })
 	defer test.TearDown(defaultClients, defaultResources)
-	if _, err := v1a1test.CreateRunLatestServiceReady(t, defaultClients, &defaultResources); err != nil {
+	if _, _, err := v1a1test.CreateRunLatestServiceReady(t, defaultClients, &defaultResources,
+		false /* https TODO(taragu) turn this on after helloworld test running with https */); err != nil {
 		t.Fatalf("Failed to create Service %v in namespace %v: %v", defaultResources.Service, test.ServingNamespace, err)
 	}
 
@@ -73,7 +73,8 @@ func TestMultipleNamespace(t *testing.T) {
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(altClients, altResources) })
 	defer test.TearDown(altClients, altResources)
-	if _, err := v1a1test.CreateRunLatestServiceReady(t, altClients, &altResources); err != nil {
+	if _, _, err := v1a1test.CreateRunLatestServiceReady(t, altClients, &altResources,
+		false /* https TODO(taragu) turn this on after helloworld test running with https */); err != nil {
 		t.Fatalf("Failed to create Service %v in namespace %v: %v", altResources.Service, test.AlternativeServingNamespace, err)
 	}
 
@@ -116,7 +117,7 @@ func TestConflictingRouteService(t *testing.T) {
 	altClients := SetupAlternativeNamespace(t)
 	altClients.KubeClient.Kube.CoreV1().Services(test.AlternativeServingNamespace).Create(svc)
 	cleanup := func() {
-		altClients.KubeClient.Kube.CoreV1().Services(test.AlternativeServingNamespace).Delete(svc.Name, &v1.DeleteOptions{})
+		altClients.KubeClient.Kube.CoreV1().Services(test.AlternativeServingNamespace).Delete(svc.Name, &metav1.DeleteOptions{})
 	}
 	test.CleanupOnInterrupt(cleanup)
 	defer cleanup()
@@ -125,7 +126,8 @@ func TestConflictingRouteService(t *testing.T) {
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
-	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names); err != nil {
+	if _, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false /* https TODO(taragu) turn this on after helloworld test running with https */); err != nil {
 		t.Errorf("Failed to create Service %v in namespace %v: %v", names.Service, test.ServingNamespace, err)
 	}
 }

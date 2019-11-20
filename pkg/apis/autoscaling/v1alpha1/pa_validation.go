@@ -18,58 +18,25 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"knative.dev/pkg/apis"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
 func (pa *PodAutoscaler) Validate(ctx context.Context) *apis.FieldError {
 	errs := serving.ValidateObjectMetadata(pa.GetObjectMeta()).ViaField("metadata")
-	errs = errs.Also(pa.validateMetric())
 	return errs.Also(pa.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 }
 
 // Validate validates PodAutoscaler Spec.
-func (rs *PodAutoscalerSpec) Validate(ctx context.Context) *apis.FieldError {
-	if equality.Semantic.DeepEqual(rs, &PodAutoscalerSpec{}) {
+func (pa *PodAutoscalerSpec) Validate(ctx context.Context) *apis.FieldError {
+	if equality.Semantic.DeepEqual(pa, &PodAutoscalerSpec{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
-	errs := serving.ValidateNamespacedObjectReference(&rs.ScaleTargetRef).ViaField("scaleTargetRef")
-	errs = errs.Also(rs.ContainerConcurrency.Validate(ctx).
-		ViaField("containerConcurrency"))
-	return errs.Also(validateSKSFields(ctx, rs))
+	return serving.ValidateNamespacedObjectReference(&pa.ScaleTargetRef).ViaField("scaleTargetRef").Also(serving.ValidateContainerConcurrency(&pa.ContainerConcurrency).ViaField("containerConcurrency")).Also(validateSKSFields(ctx, pa))
 }
 
 func validateSKSFields(ctx context.Context, rs *PodAutoscalerSpec) (errs *apis.FieldError) {
 	return errs.Also(rs.ProtocolType.Validate(ctx)).ViaField("protocolType")
-}
-
-func (pa *PodAutoscaler) validateMetric() *apis.FieldError {
-	if metric, ok := pa.Annotations[autoscaling.MetricAnnotationKey]; ok {
-		switch pa.Class() {
-		case autoscaling.KPA:
-			switch metric {
-			case autoscaling.Concurrency:
-				return nil
-			}
-		case autoscaling.HPA:
-			switch metric {
-			case autoscaling.CPU, autoscaling.Concurrency:
-				return nil
-			}
-			// TODO: implement OPS autoscaling.
-		default:
-			// Leave other classes of PodAutoscaler alone.
-			return nil
-		}
-		return &apis.FieldError{
-			Message: fmt.Sprintf("Unsupported metric %q for PodAutoscaler class %q",
-				metric, pa.Class()),
-			Paths: []string{"annotations[autoscaling.knative.dev/metric]"},
-		}
-	}
-	return nil
 }

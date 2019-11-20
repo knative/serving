@@ -60,14 +60,13 @@ go test -v -tags=e2e -count=1 ./test/e2e
 
 ## Running performance tests
 
-To run [the performance tests](./performance), you need to have a running
-environment that meets
-[the test environment requirements](#environment-requirements), and you need to
-specify the build tag `performance`.
+Each performance test case in Knative serving is a benchmark, to run these
+benchmarks, please follow
+[dev.md](https://github.com/knative/serving/blob/master/test/performance/dev.md).
 
-```bash
-go test -v -tags=performance -count=1 ./test/performance
-```
+> As of now, only Googlers can run these benchmarks due to one issue of
+> [Mako](https://github.com/google/mako) - the benchmarking tool we use. Details
+> can be found in the [issue report](https://github.com/google/mako/issues/2).
 
 ### Running a single test case
 
@@ -169,6 +168,7 @@ these flags:
 - [`--tag`](#using-a-docker-tag)
 - [`--ingressendpoint`](#using-a-custom-ingress-endpoint)
 - [`--resolvabledomain`](#using-a-resolvable-domain)
+- [`--https`](#using-https)
 
 ### Overridding docker repo
 
@@ -226,3 +226,7 @@ the header.
 If you have configured your cluster to use a resolvable domain, you can use the
 `--resolvabledomain` flag to indicate that the test should make requests
 directly against `Route.Status.Domain` and does not need to spoof the `Host`.
+
+### Using https
+
+You can use the `--https` flag to have all tests run with https.

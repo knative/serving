@@ -72,10 +72,10 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 	}
 	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 	if err != nil {
-		return fmt.Errorf("error constructing probe request %v", err)
+		return fmt.Errorf("error constructing probe request %w", err)
 	}
 
-	req.Header.Add("User-Agent", network.KubeProbeUAPrefix+config.KubeMajor+"/"+config.KubeMinor)
+	req.Header.Add(network.UserAgentKey, network.KubeProbeUAPrefix+config.KubeMajor+"/"+config.KubeMinor)
 
 	for _, header := range config.HTTPHeaders {
 		req.Header.Add(header.Name, header.Value)
@@ -85,6 +85,7 @@ func HTTPProbe(config HTTPProbeConfigOptions) error {
 	if err != nil {
 		return err
 	}
+	defer res.Body.Close()
 
 	if !IsHTTPProbeReady(res) {
 		return fmt.Errorf("HTTP probe did not respond Ready, got status code: %d", res.StatusCode)

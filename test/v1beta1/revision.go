@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/test/logging"
@@ -30,15 +29,15 @@ import (
 )
 
 // WaitForRevisionState polls the status of the Revision called name
-// from client every `interval` until `inState` returns `true` indicating it
-// is done, returns an error or timeout. desc will be used to name the metric
+// from client every `PollInterval` until `inState` returns `true` indicating it
+// is done, returns an error or PollTimeout. desc will be used to name the metric
 // that is emitted to track how long it took for name to get into the state checked by inState.
 func WaitForRevisionState(client *test.ServingBetaClients, name string, inState func(r *v1beta1.Revision) (bool, error), desc string) error {
 	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForRevision/%s/%s", name, desc))
 	defer span.End()
 
 	var lastState *v1beta1.Revision
-	waitErr := wait.PollImmediate(interval, timeout, func() (bool, error) {
+	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		var err error
 		lastState, err = client.Revisions.Get(name, metav1.GetOptions{})
 		if err != nil {
@@ -48,7 +47,7 @@ func WaitForRevisionState(client *test.ServingBetaClients, name string, inState 
 	})
 
 	if waitErr != nil {
-		return errors.Wrapf(waitErr, "revision %q is not in desired state, got: %+v", name, lastState)
+		return fmt.Errorf("revision %q is not in desired state, got: %+v: %w", name, lastState, waitErr)
 	}
 	return nil
 }
@@ -74,6 +73,12 @@ func CheckRevisionState(client *test.ServingBetaClients, name string, inState fu
 // or being ready. It will also return false if the type of the condition is unexpected.
 func IsRevisionReady(r *v1beta1.Revision) (bool, error) {
 	return r.Generation == r.Status.ObservedGeneration && r.Status.IsReady(), nil
+}
+
+// IsRevisionPinned will check if the revision is pinned to a route.
+func IsRevisionPinned(r *v1beta1.Revision) (bool, error) {
+	_, pinned := r.Annotations[serving.RevisionLastPinnedAnnotationKey]
+	return pinned, nil
 }
 
 // IsRevisionAtExpectedGeneration returns a function that will check if the annotations

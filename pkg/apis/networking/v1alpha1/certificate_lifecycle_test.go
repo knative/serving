@@ -20,9 +20,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
-	apitest "knative.dev/pkg/apis/testing"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
+	apitestv1 "knative.dev/pkg/apis/testing/v1"
 )
 
 func TestCertificateDuckTypes(t *testing.T) {
@@ -31,7 +32,7 @@ func TestCertificateDuckTypes(t *testing.T) {
 		t    duck.Implementable
 	}{{
 		name: "conditions",
-		t:    &duckv1beta1.Conditions{},
+		t:    &duckv1.Conditions{},
 	}}
 
 	for _, test := range tests {
@@ -55,7 +56,7 @@ func TestCertificateGetGroupVersionKind(t *testing.T) {
 func TestMarkReady(t *testing.T) {
 	c := &CertificateStatus{}
 	c.InitializeConditions()
-	apitest.CheckConditionOngoing(c.duck(), CertificateConditionReady, t)
+	apitestv1.CheckConditionOngoing(c.duck(), CertificateConditionReady, t)
 
 	c.MarkReady()
 	if !c.IsReady() {
@@ -63,20 +64,75 @@ func TestMarkReady(t *testing.T) {
 	}
 }
 
-func TestMarkUnknown(t *testing.T) {
-	c := &CertificateStatus{}
-	c.InitializeConditions()
-	apitest.CheckCondition(c.duck(), CertificateConditionReady, corev1.ConditionUnknown)
-
-	c.MarkUnknown("unknow", "unknown")
-	apitest.CheckCondition(c.duck(), CertificateConditionReady, corev1.ConditionUnknown)
-}
-
 func TestMarkNotReady(t *testing.T) {
 	c := &CertificateStatus{}
 	c.InitializeConditions()
-	apitest.CheckCondition(c.duck(), CertificateConditionReady, corev1.ConditionUnknown)
+	apitestv1.CheckCondition(c.duck(), CertificateConditionReady, corev1.ConditionUnknown)
 
-	c.MarkNotReady("not ready", "not ready")
-	apitest.CheckConditionFailed(c.duck(), CertificateConditionReady, t)
+	c.MarkNotReady("unknow", "unknown")
+	apitestv1.CheckCondition(c.duck(), CertificateConditionReady, corev1.ConditionUnknown)
+}
+
+func TestMarkFailed(t *testing.T) {
+	c := &CertificateStatus{}
+	c.InitializeConditions()
+	apitestv1.CheckCondition(c.duck(), CertificateConditionReady, corev1.ConditionUnknown)
+
+	c.MarkFailed("failed", "failed")
+	apitestv1.CheckConditionFailed(c.duck(), CertificateConditionReady, t)
+}
+
+func TestMarkResourceNotOwned(t *testing.T) {
+	c := &CertificateStatus{}
+	c.InitializeConditions()
+	c.MarkResourceNotOwned("doesn't", "own")
+	apitestv1.CheckConditionFailed(c.duck(), CertificateConditionReady, t)
+}
+
+func TestGetCondition(t *testing.T) {
+	c := &CertificateStatus{}
+	c.InitializeConditions()
+	tests := []struct {
+		name     string
+		condType apis.ConditionType
+		expect   *apis.Condition
+		reason   string
+		message  string
+	}{{
+		name:     "random condition",
+		condType: apis.ConditionType("random"),
+		expect:   nil,
+	}, {
+		name:     "ready condition for failed reason",
+		condType: apis.ConditionReady,
+		reason:   "failed",
+		message:  "failed",
+		expect: &apis.Condition{
+			Status: corev1.ConditionFalse,
+		},
+	}, {
+		name:     "ready condition for unknown reason",
+		condType: apis.ConditionReady,
+		reason:   "unknown",
+		message:  "unknown",
+		expect: &apis.Condition{
+			Status: corev1.ConditionUnknown,
+		},
+	}, {
+		name:     "succeeded condition",
+		condType: apis.ConditionSucceeded,
+		expect:   nil,
+	}}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.reason == "unknown" {
+				c.MarkNotReady(tc.reason, tc.message)
+			} else {
+				c.MarkFailed(tc.reason, tc.message)
+			}
+			if got, want := c.GetCondition(tc.condType), tc.expect; got != nil && got.Status != want.Status {
+				t.Errorf("got: %v, want: %v", got, want)
+			}
+		})
+	}
 }

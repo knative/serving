@@ -24,6 +24,7 @@ import (
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/autoscaling/v1alpha1"
 	networkingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/networking/v1alpha1"
+	servingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
 	servingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	servingv1beta1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1beta1"
 )
@@ -31,15 +32,10 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	AutoscalingV1alpha1() autoscalingv1alpha1.AutoscalingV1alpha1Interface
-	// Deprecated: please explicitly pick a version if possible.
-	Autoscaling() autoscalingv1alpha1.AutoscalingV1alpha1Interface
 	NetworkingV1alpha1() networkingv1alpha1.NetworkingV1alpha1Interface
-	// Deprecated: please explicitly pick a version if possible.
-	Networking() networkingv1alpha1.NetworkingV1alpha1Interface
 	ServingV1alpha1() servingv1alpha1.ServingV1alpha1Interface
 	ServingV1beta1() servingv1beta1.ServingV1beta1Interface
-	// Deprecated: please explicitly pick a version if possible.
-	Serving() servingv1beta1.ServingV1beta1Interface
+	ServingV1() servingv1.ServingV1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
@@ -50,6 +46,7 @@ type Clientset struct {
 	networkingV1alpha1  *networkingv1alpha1.NetworkingV1alpha1Client
 	servingV1alpha1     *servingv1alpha1.ServingV1alpha1Client
 	servingV1beta1      *servingv1beta1.ServingV1beta1Client
+	servingV1           *servingv1.ServingV1Client
 }
 
 // AutoscalingV1alpha1 retrieves the AutoscalingV1alpha1Client
@@ -57,20 +54,8 @@ func (c *Clientset) AutoscalingV1alpha1() autoscalingv1alpha1.AutoscalingV1alpha
 	return c.autoscalingV1alpha1
 }
 
-// Deprecated: Autoscaling retrieves the default version of AutoscalingClient.
-// Please explicitly pick a version.
-func (c *Clientset) Autoscaling() autoscalingv1alpha1.AutoscalingV1alpha1Interface {
-	return c.autoscalingV1alpha1
-}
-
 // NetworkingV1alpha1 retrieves the NetworkingV1alpha1Client
 func (c *Clientset) NetworkingV1alpha1() networkingv1alpha1.NetworkingV1alpha1Interface {
-	return c.networkingV1alpha1
-}
-
-// Deprecated: Networking retrieves the default version of NetworkingClient.
-// Please explicitly pick a version.
-func (c *Clientset) Networking() networkingv1alpha1.NetworkingV1alpha1Interface {
 	return c.networkingV1alpha1
 }
 
@@ -84,10 +69,9 @@ func (c *Clientset) ServingV1beta1() servingv1beta1.ServingV1beta1Interface {
 	return c.servingV1beta1
 }
 
-// Deprecated: Serving retrieves the default version of ServingClient.
-// Please explicitly pick a version.
-func (c *Clientset) Serving() servingv1beta1.ServingV1beta1Interface {
-	return c.servingV1beta1
+// ServingV1 retrieves the ServingV1Client
+func (c *Clientset) ServingV1() servingv1.ServingV1Interface {
+	return c.servingV1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -122,6 +106,10 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
+	cs.servingV1, err = servingv1.NewForConfig(&configShallowCopy)
+	if err != nil {
+		return nil, err
+	}
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfig(&configShallowCopy)
 	if err != nil {
@@ -138,6 +126,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 	cs.networkingV1alpha1 = networkingv1alpha1.NewForConfigOrDie(c)
 	cs.servingV1alpha1 = servingv1alpha1.NewForConfigOrDie(c)
 	cs.servingV1beta1 = servingv1beta1.NewForConfigOrDie(c)
+	cs.servingV1 = servingv1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -150,6 +139,7 @@ func New(c rest.Interface) *Clientset {
 	cs.networkingV1alpha1 = networkingv1alpha1.New(c)
 	cs.servingV1alpha1 = servingv1alpha1.New(c)
 	cs.servingV1beta1 = servingv1beta1.New(c)
+	cs.servingV1 = servingv1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

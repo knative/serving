@@ -23,8 +23,9 @@ import (
 
 	fakecachingclient "knative.dev/caching/pkg/client/injection/client/fake"
 	fakesharedclient "knative.dev/pkg/client/injection/client/fake"
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
-	fakekubeclient "knative.dev/pkg/injection/clients/kubeclient/fake"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	fakecertmanagerclient "knative.dev/serving/pkg/client/certmanager/injection/client/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 
@@ -36,10 +37,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
 
-	. "knative.dev/pkg/reconciler/testing"
+	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/reconciler"
 )
 
@@ -53,8 +55,9 @@ const (
 type Ctor func(context.Context, *Listers, configmap.Watcher) controller.Reconciler
 
 // MakeFactory creates a reconciler factory with fake clients and controller created by `ctor`.
-func MakeFactory(ctor Ctor) Factory {
-	return func(t *testing.T, r *TableRow) (controller.Reconciler, ActionRecorderList, EventList, *FakeStatsReporter) {
+func MakeFactory(ctor Ctor) rtesting.Factory {
+	return func(t *testing.T, r *rtesting.TableRow) (
+		controller.Reconciler, rtesting.ActionRecorderList, rtesting.EventList, *rtesting.FakeStatsReporter) {
 		ls := NewListers(r.Objects)
 
 		ctx := r.Ctx
@@ -71,6 +74,7 @@ func MakeFactory(ctor Ctor) Factory {
 			ls.NewScheme(), ToUnstructured(t, ls.NewScheme(), r.Objects)...)
 		ctx, cachingClient := fakecachingclient.With(ctx, ls.GetCachingObjects()...)
 		ctx, certManagerClient := fakecertmanagerclient.With(ctx, ls.GetCMCertificateObjects()...)
+		ctx = context.WithValue(ctx, TrackerKey, &rtesting.FakeTracker{})
 
 		// The dynamic client's support for patching is BS.  Implement it
 		// here via PrependReactor (this can be overridden below by the
@@ -82,7 +86,7 @@ func MakeFactory(ctor Ctor) Factory {
 
 		eventRecorder := record.NewFakeRecorder(maxEventBufferSize)
 		ctx = controller.WithEventRecorder(ctx, eventRecorder)
-		statsReporter := &FakeStatsReporter{}
+		statsReporter := &rtesting.FakeStatsReporter{}
 		ctx = reconciler.WithStatsReporter(ctx, statsReporter)
 
 		// This is needed for the tests that use generated names and
@@ -94,12 +98,14 @@ func MakeFactory(ctor Ctor) Factory {
 				return false, nil, nil
 			},
 		)
-		PrependGenerateNameReactor(&client.Fake)
-		PrependGenerateNameReactor(&kubeClient.Fake)
-		PrependGenerateNameReactor(&dynamicClient.Fake)
+		// This is needed by the Configuration controller tests, which
+		// use GenerateName to produce Revisions.
+		rtesting.PrependGenerateNameReactor(&client.Fake)
 
 		// Set up our Controller from the fakes.
 		c := ctor(ctx, &ls, configmap.NewStaticWatcher())
+		// Update the context with the stuff we decorated it with.
+		r.Ctx = ctx
 
 		for _, reactor := range r.WithReactors {
 			kubeClient.PrependReactor("*", "*", reactor)
@@ -113,15 +119,15 @@ func MakeFactory(ctor Ctor) Factory {
 		// Validate all Create operations through the serving client.
 		client.PrependReactor("create", "*", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 			// TODO(n3wscott): context.Background is the best we can do at the moment, but it should be set-able.
-			return ValidateCreates(context.Background(), action)
+			return rtesting.ValidateCreates(context.Background(), action)
 		})
 		client.PrependReactor("update", "*", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 			// TODO(n3wscott): context.Background is the best we can do at the moment, but it should be set-able.
-			return ValidateUpdates(context.Background(), action)
+			return rtesting.ValidateUpdates(context.Background(), action)
 		})
 
-		actionRecorderList := ActionRecorderList{sharedClient, dynamicClient, client, kubeClient, cachingClient, certManagerClient}
-		eventList := EventList{Recorder: eventRecorder}
+		actionRecorderList := rtesting.ActionRecorderList{sharedClient, dynamicClient, client, kubeClient, cachingClient, certManagerClient}
+		eventList := rtesting.EventList{Recorder: eventRecorder}
 
 		return c, actionRecorderList, eventList, statsReporter
 	}
@@ -158,4 +164,43 @@ func ToUnstructured(t *testing.T, sch *runtime.Scheme, objs []runtime.Object) (u
 		us = append(us, u)
 	}
 	return
+}
+
+type key struct{}
+
+// TrackerKey is used to looking a FakeTracker in a context.Context
+var TrackerKey key = struct{}{}
+
+// AssertTrackingConfig will ensure the provided Configuration is being tracked
+func AssertTrackingConfig(namespace, name string) func(*testing.T, *rtesting.TableRow) {
+	gvk := v1alpha1.SchemeGroupVersion.WithKind("Configuration")
+	return AssertTrackingObject(gvk, namespace, name)
+}
+
+// AssertTrackingRevision will ensure the provided Revision is being tracked
+func AssertTrackingRevision(namespace, name string) func(*testing.T, *rtesting.TableRow) {
+	gvk := v1alpha1.SchemeGroupVersion.WithKind("Revision")
+	return AssertTrackingObject(gvk, namespace, name)
+}
+
+// AssertTrackingObject will ensure the following objects are being tracked
+func AssertTrackingObject(gvk schema.GroupVersionKind, namespace, name string) func(*testing.T, *rtesting.TableRow) {
+	apiVersion, kind := gvk.ToAPIVersionAndKind()
+
+	return func(t *testing.T, r *rtesting.TableRow) {
+		tracker := r.Ctx.Value(TrackerKey).(*rtesting.FakeTracker)
+		refs := tracker.References()
+
+		for _, ref := range refs {
+			if ref.APIVersion == apiVersion &&
+				ref.Name == name &&
+				ref.Namespace == namespace &&
+				ref.Kind == kind {
+				return
+			}
+		}
+
+		t.Errorf("Object was not tracked - %s, Name=%s, Namespace=%s", gvk.String(), name, namespace)
+	}
+
 }

@@ -18,8 +18,6 @@ package queue
 
 import (
 	"time"
-
-	"knative.dev/serving/pkg/autoscaler"
 )
 
 // ReqEvent represents either an incoming or closed request.
@@ -42,30 +40,8 @@ const (
 	ProxiedOut
 )
 
-// Channels is a structure for holding the channels for driving Stats.
-// It's just to make the NewStats signature easier to read.
-type Channels struct {
-	// Ticks with every request arrived/completed respectively
-	ReqChan chan ReqEvent
-	// Ticks with every stat report request
-	ReportChan <-chan time.Time
-	// Stat reporting channel
-	StatChan chan *autoscaler.Stat
-}
-
-// Stats is a structure for holding channels per pod.
-type Stats struct {
-	podName string
-	ch      Channels
-}
-
 // NewStats instantiates a new instance of Stats.
-func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
-	s := &Stats{
-		podName: podName,
-		ch:      channels,
-	}
-
+func NewStats(startedAt time.Time, reqCh chan ReqEvent, reportCh <-chan time.Time, report func(float64, float64, float64, float64)) {
 	go func() {
 		var (
 			requestCount       float64
@@ -94,7 +70,7 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 
 		for {
 			select {
-			case event := <-s.ch.ReqChan:
+			case event := <-reqCh:
 				updateState(event.Time)
 
 				switch event.EventType {
@@ -111,20 +87,10 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 				case ReqOut:
 					concurrency--
 				}
-			case now := <-s.ch.ReportChan:
+			case now := <-reportCh:
 				updateState(now)
 
-				stat := &autoscaler.Stat{
-					Time:                             &now,
-					PodName:                          s.podName,
-					AverageConcurrentRequests:        weightedAverage(timeOnConcurrency),
-					AverageProxiedConcurrentRequests: weightedAverage(timeOnProxiedConcurrency),
-					RequestCount:                     requestCount,
-					ProxiedRequestCount:              proxiedCount,
-				}
-				// Send the stat to another goroutine to transmit
-				// so we can continue bucketing stats.
-				s.ch.StatChan <- stat
+				report(weightedAverage(timeOnConcurrency), weightedAverage(timeOnProxiedConcurrency), requestCount, proxiedCount)
 
 				// Reset the stat counts which have been reported.
 				timeOnConcurrency = make(map[int32]time.Duration)
@@ -134,8 +100,6 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 			}
 		}
 	}()
-
-	return s
 }
 
 func weightedAverage(times map[int32]time.Duration) float64 {

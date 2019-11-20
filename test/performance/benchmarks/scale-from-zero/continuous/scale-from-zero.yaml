@@ -1,0 +1,172 @@
+# Copyright 2019 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: scale-from-zero
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: scale-from-zero
+subjects:
+  - kind: ServiceAccount
+    name: scale-from-zero
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: scale-from-zero-1
+spec:
+  schedule: "0,20,40 * * * *"
+  jobTemplate:
+    spec:
+      parallelism: 1
+      template:
+        spec:
+          serviceAccountName: scale-from-zero
+          containers:
+            - name: scale-from-zero
+              image: knative.dev/serving/test/performance/benchmarks/scale-from-zero/continuous
+              args:
+                - "-parallel=1"
+              env:
+                - name:  KO_DOCKER_REPO
+                  value: gcr.io/knative-performance
+              resources:
+                requests:
+                  cpu: 1000m
+                  memory: 3Gi
+              volumeMounts:
+                - name: config-mako
+                  mountPath: /etc/config-mako
+                - name: mako-secrets
+                  mountPath: /var/secret
+            - name: mako
+              image: gcr.io/knative-performance/mako-microservice:latest
+              env:
+                - name: GOOGLE_APPLICATION_CREDENTIALS
+                  value: /var/secret/robot.json
+              volumeMounts:
+                - name: mako-secrets
+                  mountPath: /var/secret
+          volumes:
+            - name: mako-secrets
+              secret:
+                secretName: mako-secrets
+            - name: config-mako
+              configMap:
+                name: config-mako
+          restartPolicy: Never
+      backoffLimit: 0
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: scale-from-zero-5
+spec:
+  schedule: "6,26,46 * * * *"
+  jobTemplate:
+    spec:
+      parallelism: 1
+      template:
+        spec:
+          serviceAccountName: scale-from-zero
+          containers:
+            - name: scale-from-zero
+              image: knative.dev/serving/test/performance/benchmarks/scale-from-zero/continuous
+              args:
+                - "-parallel=5"
+              env:
+                - name:  KO_DOCKER_REPO
+                  value: gcr.io/knative-performance
+              resources:
+                requests:
+                  cpu: 1000m
+                  memory: 3Gi
+              volumeMounts:
+                - name: config-mako
+                  mountPath: /etc/config-mako
+                - name: mako-secrets
+                  mountPath: /var/secret
+            - name: mako
+              image: gcr.io/knative-performance/mako-microservice:latest
+              env:
+                - name: GOOGLE_APPLICATION_CREDENTIALS
+                  value: /var/secret/robot.json
+              volumeMounts:
+                - name: mako-secrets
+                  mountPath: /var/secret
+          volumes:
+            - name: mako-secrets
+              secret:
+                secretName: mako-secrets
+            - name: config-mako
+              configMap:
+                name: config-mako
+          restartPolicy: Never
+      backoffLimit: 0
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: scale-from-zero-25
+spec:
+  schedule: "12,32,52 * * * *"
+  jobTemplate:
+    spec:
+      parallelism: 1
+      template:
+        spec:
+          serviceAccountName: scale-from-zero
+          containers:
+            - name: scale-from-zero
+              image: knative.dev/serving/test/performance/benchmarks/scale-from-zero/continuous
+              args:
+                - "-parallel=25"
+              env:
+                - name:  KO_DOCKER_REPO
+                  value: gcr.io/knative-performance
+              resources:
+                requests:
+                  cpu: 1000m
+                  memory: 3Gi
+              volumeMounts:
+                - name: config-mako
+                  mountPath: /etc/config-mako
+                - name: mako-secrets
+                  mountPath: /var/secret
+            - name: mako
+              image: gcr.io/knative-performance/mako-microservice:latest
+              env:
+                - name: GOOGLE_APPLICATION_CREDENTIALS
+                  value: /var/secret/robot.json
+              volumeMounts:
+                - name: mako-secrets
+                  mountPath: /var/secret
+          volumes:
+            - name: mako-secrets
+              secret:
+                secretName: mako-secrets
+            - name: config-mako
+              configMap:
+                name: config-mako
+          restartPolicy: Never
+      backoffLimit: 0

@@ -49,20 +49,22 @@ func TestEgressTraffic(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	service, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, v1a1opts.WithEnv(envVars...))
+	service, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		v1a1opts.WithEnv(envVars...))
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
 	}
 	if service.Route.Status.URL == nil {
 		t.Fatalf("Can't get internal request domain: service.Route.Status.URL is nil")
 	}
-	t.Log(service.Route.Status.URL.Host)
+	t.Log(service.Route.Status.URL.String())
 
-	domain := service.Route.Status.URL.Host
+	url := service.Route.Status.URL.URL()
 	if _, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain,
+		url,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"HTTPProxy",
 		test.ServingFlags.ResolvableDomain); err != nil {

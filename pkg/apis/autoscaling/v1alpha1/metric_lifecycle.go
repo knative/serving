@@ -18,9 +18,56 @@ package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
+)
+
+const (
+	// MetricConditionReady is set when the Metric's latest
+	// underlying revision has reported readiness.
+	MetricConditionReady = apis.ConditionReady
+)
+
+var condSet = apis.NewLivingConditionSet(
+	MetricConditionReady,
 )
 
 // GetGroupVersionKind implements OwnerRefable.
 func (m *Metric) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Metric")
+}
+
+// GetCondition gets the condition `t`.
+func (ms *MetricStatus) GetCondition(t apis.ConditionType) *apis.Condition {
+	return condSet.Manage(ms).GetCondition(t)
+}
+
+// InitializeConditions initializes the conditions of the Metric.
+func (ms *MetricStatus) InitializeConditions() {
+	condSet.Manage(ms).InitializeConditions()
+}
+
+// MarkMetricReady marks the metric status as ready
+func (ms *MetricStatus) MarkMetricReady() {
+	condSet.Manage(ms).MarkTrue(MetricConditionReady)
+}
+
+// MarkMetricNotReady marks the metric status as ready == Unknown
+func (ms *MetricStatus) MarkMetricNotReady(reason, message string) {
+	condSet.Manage(ms).MarkUnknown(MetricConditionReady, reason, message)
+}
+
+// MarkMetricFailed marks the metric status as failed
+func (ms *MetricStatus) MarkMetricFailed(reason, message string) {
+	condSet.Manage(ms).MarkFalse(MetricConditionReady, reason, message)
+}
+
+// IsReady looks at the conditions and if the condition MetricConditionReady
+// is true
+func (ms *MetricStatus) IsReady() bool {
+	return condSet.Manage(ms.duck()).IsHappy()
+}
+
+func (ms *MetricStatus) duck() *duckv1.Status {
+	return (*duckv1.Status)(&ms.Status)
 }

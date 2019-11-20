@@ -19,18 +19,20 @@ import (
 	"testing"
 
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"knative.dev/serving/pkg/apis/autoscaling"
 )
 
 func TestRegisterHelpers(t *testing.T) {
-	if got, want := Kind("PodAutoscaler"), "PodAutoscaler.autoscaling.internal.knative.dev"; got.String() != want {
+	if got, want := Kind("PodAutoscaler"), "PodAutoscaler."+autoscaling.InternalGroupName; got.String() != want {
 		t.Errorf("Kind(PodAutoscaler) = %v, want %v", got.String(), want)
 	}
 
-	if got, want := Resource("PodAutoscaler"), "PodAutoscaler.autoscaling.internal.knative.dev"; got.String() != want {
+	if got, want := Resource("PodAutoscaler"), "PodAutoscaler."+autoscaling.InternalGroupName; got.String() != want {
 		t.Errorf("Resource(PodAutoscaler) = %v, want %v", got.String(), want)
 	}
 
-	if got, want := SchemeGroupVersion.String(), "autoscaling.internal.knative.dev/v1alpha1"; got != want {
+	if got, want := SchemeGroupVersion.String(), autoscaling.InternalGroupName+"/v1alpha1"; got != want {
 		t.Errorf("SchemeGroupVersion() = %v, want %v", got, want)
 	}
 

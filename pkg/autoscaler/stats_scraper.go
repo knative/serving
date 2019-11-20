@@ -22,10 +22,9 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/sync/errgroup"
-	"k8s.io/apimachinery/pkg/types"
-
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
+
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
@@ -48,17 +47,27 @@ const (
 	scraperMaxRetries = 10
 )
 
+var (
+	// ErrFailedGetEndpoints specifies the error returned by scraper when it fails to
+	// get endpoints.
+	ErrFailedGetEndpoints = errors.New("failed to get endpoints")
+
+	// ErrDidNotReceiveStat specifies the error returned by scraper when it does not receive
+	// stat from an unscraped pod
+	ErrDidNotReceiveStat = errors.New("did not receive stat from an unscraped pod")
+)
+
 // StatsScraper defines the interface for collecting Revision metrics
 type StatsScraper interface {
 	// Scrape scrapes the Revision queue metric endpoint.
-	Scrape() (*StatMessage, error)
+	Scrape() (Stat, error)
 }
 
 // scrapeClient defines the interface for collecting Revision metrics for a given
 // URL. Internal used only.
 type scrapeClient interface {
 	// Scrape scrapes the given URL.
-	Scrape(url string) (*Stat, error)
+	Scrape(url string) (Stat, error)
 }
 
 // cacheDisabledClient is a http client with cache disabled. It is shared by
@@ -76,11 +85,9 @@ var cacheDisabledClient = &http.Client{
 // https://kubernetes.io/docs/concepts/services-networking/network-policies/
 // for details.
 type ServiceScraper struct {
-	sClient   scrapeClient
-	counter   resources.ReadyPodCounter
-	namespace string
-	metricKey types.NamespacedName
-	url       string
+	sClient scrapeClient
+	counter resources.ReadyPodCounter
+	url     string
 }
 
 // NewServiceScraper creates a new StatsScraper for the Revision which
@@ -112,11 +119,9 @@ func newServiceScraperWithClient(
 	}
 
 	return &ServiceScraper{
-		sClient:   sClient,
-		counter:   counter,
-		url:       urlFromTarget(metric.Spec.ScrapeTarget, metric.ObjectMeta.Namespace),
-		metricKey: types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name},
-		namespace: metric.Namespace,
+		sClient: sClient,
+		counter: counter,
+		url:     urlFromTarget(metric.Spec.ScrapeTarget, metric.ObjectMeta.Namespace),
 	}, nil
 }
 
@@ -128,18 +133,18 @@ func urlFromTarget(t, ns string) string {
 
 // Scrape calls the destination service then sends it
 // to the given stats channel.
-func (s *ServiceScraper) Scrape() (*StatMessage, error) {
+func (s *ServiceScraper) Scrape() (Stat, error) {
 	readyPodsCount, err := s.counter.ReadyCount()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get endpoints")
+		return emptyStat, ErrFailedGetEndpoints
 	}
 
 	if readyPodsCount == 0 {
-		return nil, nil
+		return emptyStat, nil
 	}
 
 	sampleSize := populationMeanSampleSize(readyPodsCount)
-	statCh := make(chan *Stat, sampleSize)
+	statCh := make(chan Stat, sampleSize)
 	scrapedPods := &sync.Map{}
 
 	grp := errgroup.Group{}
@@ -162,7 +167,7 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 
 	// Return the inner error, if any.
 	if err := grp.Wait(); err != nil {
-		return nil, errors.Wrapf(err, "unsuccessful scrape, sampleSize=%d", sampleSize)
+		return emptyStat, fmt.Errorf("unsuccessful scrape, sampleSize=%d: %w", sampleSize, err)
 	}
 	close(statCh)
 
@@ -187,7 +192,6 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 	avgProxiedConcurrency = avgProxiedConcurrency / successCount
 	reqCount = reqCount / successCount
 	proxiedReqCount = proxiedReqCount / successCount
-	now := time.Now()
 
 	// Assumption: A particular pod can stand for other pods, i.e. other pods
 	// have similar concurrency and QPS.
@@ -196,31 +200,26 @@ func (s *ServiceScraper) Scrape() (*StatMessage, error) {
 	// customer pods per scraping. The pod name is set to a unique value, i.e.
 	// scraperPodName so in autoscaler all stats are either from activator or
 	// scraper.
-	extrapolatedStat := Stat{
-		Time:                             &now,
+	return Stat{
+		Time:                             time.Now(),
 		PodName:                          scraperPodName,
 		AverageConcurrentRequests:        avgConcurrency * frpc,
 		AverageProxiedConcurrentRequests: avgProxiedConcurrency * frpc,
 		RequestCount:                     reqCount * frpc,
 		ProxiedRequestCount:              proxiedReqCount * frpc,
-	}
-
-	return &StatMessage{
-		Stat: extrapolatedStat,
-		Key:  s.metricKey,
 	}, nil
 }
 
 // tryScrape runs a single scrape and checks if this pod wasn't already scraped
 // against the given already scraped pods.
-func (s *ServiceScraper) tryScrape(scrapedPods *sync.Map) (*Stat, error) {
+func (s *ServiceScraper) tryScrape(scrapedPods *sync.Map) (Stat, error) {
 	stat, err := s.sClient.Scrape(s.url)
 	if err != nil {
-		return nil, err
+		return emptyStat, err
 	}
 
 	if _, exists := scrapedPods.LoadOrStore(stat.PodName, struct{}{}); exists {
-		return nil, errors.New("did not receive stat from an unscraped pod")
+		return emptyStat, ErrDidNotReceiveStat
 	}
 
 	return stat, nil

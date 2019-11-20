@@ -14,28 +14,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package activator
+package net
 
 import (
 	"net"
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"knative.dev/serving/pkg/apis/networking"
 )
 
-// EndpointsToDests takes an endpoints object and a port name and returns a list
+// endpointsToDests takes an endpoints object and a port name and returns a list
 // of l4 dests in the endpoints object which have that port
-func EndpointsToDests(endpoints *corev1.Endpoints, portName string) []string {
-	ret := []string{}
+func endpointsToDests(endpoints *corev1.Endpoints, portName string) sets.String {
+	ret := sets.NewString()
 
 	for _, es := range endpoints.Subsets {
 		for _, port := range es.Ports {
 			if port.Name == portName {
 				portStr := strconv.Itoa(int(port.Port))
 				for _, addr := range es.Addresses {
-					// Prefer IP as we can avoid a DNS lookup this way
-					ret = append(ret, net.JoinHostPort(addr.IP, portStr))
+					// Prefer IP as we can avoid a DNS lookup this way.
+					ret.Insert(net.JoinHostPort(addr.IP, portStr))
 				}
 			}
 		}
@@ -44,16 +46,13 @@ func EndpointsToDests(endpoints *corev1.Endpoints, portName string) []string {
 	return ret
 }
 
-// GetServicePort takes a service and a protocol and returns the port number of
+// getServicePort takes a service and a protocol and returns the port number of
 // the port named for that protocol. If the port is not found then ok is false.
-func GetServicePort(protocol networking.ProtocolType, svc *corev1.Service) (port int, ok bool) {
-	port = 0
-	ok = false
+func getServicePort(protocol networking.ProtocolType, svc *corev1.Service) (port int, ok bool) {
 	wantName := networking.ServicePortName(protocol)
 	for _, p := range svc.Spec.Ports {
 		if p.Name == wantName {
-			port = int(p.Port)
-			ok = true
+			port, ok = int(p.Port), true
 			return
 		}
 	}

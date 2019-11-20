@@ -21,10 +21,10 @@ import (
 	"net/http"
 
 	imageinformer "knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image"
-	"knative.dev/pkg/injection/clients/kubeclient"
-	deploymentinformer "knative.dev/pkg/injection/informers/kubeinformers/appsv1/deployment"
-	configmapinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/configmap"
-	serviceinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/service"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
+	configmapinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap"
+	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 
@@ -32,6 +32,7 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	apisconfig "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/metrics"
@@ -106,6 +107,7 @@ func NewController(
 		&network.Config{},
 		&metrics.ObservabilityConfig{},
 		&deployment.Config{},
+		&apisconfig.Defaults{},
 	}
 
 	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {

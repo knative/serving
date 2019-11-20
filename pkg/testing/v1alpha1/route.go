@@ -17,19 +17,20 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"fmt"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 )
 
@@ -50,26 +51,15 @@ func WithRouteUID(uid types.UID) RouteOption {
 	}
 }
 
-// WithRouteDeletionTimestamp will set the DeletionTimestamp on the Route.
-func WithRouteDeletionTimestamp(r *v1alpha1.Route) {
-	t := metav1.NewTime(time.Unix(1e9, 0))
-	r.ObjectMeta.SetDeletionTimestamp(&t)
-}
-
 // WithRouteFinalizer adds the Route finalizer to the Route.
 func WithRouteFinalizer(r *v1alpha1.Route) {
 	r.ObjectMeta.Finalizers = append(r.ObjectMeta.Finalizers, "routes.serving.knative.dev")
 }
 
-// WithAnotherRouteFinalizer adds a non-Route finalizer to the Route.
-func WithAnotherRouteFinalizer(r *v1alpha1.Route) {
-	r.ObjectMeta.Finalizers = append(r.ObjectMeta.Finalizers, "another.serving.knative.dev")
-}
-
 // WithConfigTarget sets the Route's traffic block to point at a particular Configuration.
 func WithConfigTarget(config string) RouteOption {
 	return WithSpecTraffic(v1alpha1.TrafficTarget{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			ConfigurationName: config,
 			Percent:           ptr.Int64(100),
 		},
@@ -79,7 +69,7 @@ func WithConfigTarget(config string) RouteOption {
 // WithRevTarget sets the Route's traffic block to point at a particular Revision.
 func WithRevTarget(revision string) RouteOption {
 	return WithSpecTraffic(v1alpha1.TrafficTarget{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			RevisionName: revision,
 			Percent:      ptr.Int64(100),
 		},
@@ -161,16 +151,28 @@ func MarkCertificateNotReady(r *v1alpha1.Route) {
 	r.Status.MarkCertificateNotReady(routenames.Certificate(r))
 }
 
+// MarkCertificateNotOwned calls the method of the same name on .Status
+func MarkCertificateNotOwned(r *v1alpha1.Route) {
+	r.Status.MarkCertificateNotOwned(routenames.Certificate(r))
+}
+
 // MarkCertificateReady calls the method of the same name on .Status
 func MarkCertificateReady(r *v1alpha1.Route) {
 	r.Status.MarkCertificateReady(routenames.Certificate(r))
 }
 
-// MarkIngressReady propagates a Ready=True ClusterIngress status to the Route.
+// WithReadyCertificateName marks the certificate specified by name as ready.
+func WithReadyCertificateName(name string) func(*v1alpha1.Route) {
+	return func(r *v1alpha1.Route) {
+		r.Status.MarkCertificateReady(name)
+	}
+}
+
+// MarkIngressReady propagates a Ready=True Ingress status to the Route.
 func MarkIngressReady(r *v1alpha1.Route) {
 	r.Status.PropagateIngressStatus(netv1alpha1.IngressStatus{
-		Status: duckv1beta1.Status{
-			Conditions: duckv1beta1.Conditions{{
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
 				Type:   "Ready",
 				Status: "True",
 			}},
@@ -205,12 +207,12 @@ func MarkConfigurationFailed(name string) RouteOption {
 }
 
 // WithRouteLabel sets the specified label on the Route.
-func WithRouteLabel(key, value string) RouteOption {
+func WithRouteLabel(labels map[string]string) RouteOption {
 	return func(r *v1alpha1.Route) {
 		if r.Labels == nil {
 			r.Labels = make(map[string]string)
 		}
-		r.Labels[key] = value
+		r.Labels = labels
 	}
 }
 
@@ -222,4 +224,29 @@ func WithIngressClass(ingressClass string) RouteOption {
 		}
 		r.Annotations[networking.IngressClassAnnotationKey] = ingressClass
 	}
+}
+
+// WithRouteAnnotation sets the specified annotation on the Route.
+func WithRouteAnnotation(annotation map[string]string) RouteOption {
+	return func(r *v1alpha1.Route) {
+		if r.Annotations == nil {
+			r.Annotations = make(map[string]string)
+		}
+		r.Annotations = annotation
+	}
+}
+
+// Route creates a route with RouteOptions
+func Route(namespace, name string, ro ...RouteOption) *v1alpha1.Route {
+	r := &v1alpha1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+	}
+	for _, opt := range ro {
+		opt(r)
+	}
+	r.SetDefaults(context.Background())
+	return r
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package upgrade
 
 import (
+	"net/url"
 	"testing"
 
 	// Mysteriously required to support GCP auth (required by k8s libs).
@@ -37,17 +38,17 @@ const (
 )
 
 // Shamelessly cribbed from conformance/service_test.
-func assertServiceResourcesUpdated(t *testing.T, clients *test.Clients, names test.ResourceNames, routeDomain, expectedText string) {
+func assertServiceResourcesUpdated(t *testing.T, clients *test.Clients, names test.ResourceNames, url *url.URL, expectedText string) {
 	t.Helper()
 	// TODO(#1178): Remove "Wait" from all checks below this point.
 	_, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		routeDomain,
+		url,
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.EventuallyMatchesBody(expectedText))),
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", names.Route, routeDomain, expectedText, err)
+		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, url, expectedText, err)
 	}
 }

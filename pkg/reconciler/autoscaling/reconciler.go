@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"reflect"
 
-	perrors "github.com/pkg/errors"
-
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -35,9 +33,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/resources"
 	anames "knative.dev/serving/pkg/reconciler/autoscaling/resources/names"
-	resourceutil "knative.dev/serving/pkg/resources"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -63,15 +59,15 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, m
 	sksName := anames.SKS(pa.Name)
 	sks, err := c.SKSLister.ServerlessServices(pa.Namespace).Get(sksName)
 	if errors.IsNotFound(err) {
-		logger.Infof("SKS %s/%s does not exist; creating.", pa.Namespace, sksName)
+		logger.Info("SKS does not exist; creating.")
 		sks = resources.MakeSKS(pa, mode)
 		_, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(sks)
 		if err != nil {
-			return nil, perrors.Wrapf(err, "error creating SKS %s", sksName)
+			return nil, fmt.Errorf("error creating SKS %s: %w", sksName, err)
 		}
-		logger.Info("Created SKS:", sksName)
+		logger.Info("Created SKS")
 	} else if err != nil {
-		return nil, perrors.Wrapf(err, "error getting SKS %s", sksName)
+		return nil, fmt.Errorf("error getting SKS %s: %w", sksName, err)
 	} else if !metav1.IsControlledBy(sks, pa) {
 		pa.Status.MarkResourceNotOwned("ServerlessService", sksName)
 		return nil, fmt.Errorf("PA: %s does not own SKS: %s", pa.Name, sksName)
@@ -82,7 +78,7 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, m
 			want.Spec = tmpl.Spec
 			logger.Infof("SKS %s changed; reconciling, want mode: %v", sksName, want.Spec.Mode)
 			if sks, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(want); err != nil {
-				return nil, perrors.Wrapf(err, "error updating SKS %s", sksName)
+				return nil, fmt.Errorf("error updating SKS %s: %w", sksName, err)
 			}
 		}
 	}
@@ -90,75 +86,28 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, m
 	return sks, nil
 }
 
-func (c *Base) metricService(pa *pav1alpha1.PodAutoscaler) (*corev1.Service, error) {
+// DeleteMetricsServices removes all metrics services for the current PA.
+// TODO(5900): Remove after 0.12 is cut.
+func (c *Base) DeleteMetricsServices(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
+	logger := logging.FromContext(ctx)
+
 	svcs, err := c.ServiceLister.Services(pa.Namespace).List(labels.SelectorFromSet(map[string]string{
 		autoscaling.KPALabelKey:   pa.Name,
 		networking.ServiceTypeKey: string(networking.ServiceTypeMetrics),
 	}))
 	if err != nil {
-		return nil, err
+		return err
 	}
-	var ret *corev1.Service
 	for _, s := range svcs {
-		// TODO(vagababov): determine if this is better to be in the ownership check.
-		// Found a match or we had nothing set up, then pick any of them, to reduce churn.
-		if s.Name == pa.Status.MetricsServiceName {
-			ret = s
-			continue
-		}
-		// If it's not the metrics service recorded in status,
-		// but we control it then it is a duplicate and should be deleted.
 		if metav1.IsControlledBy(s, pa) {
-			c.KubeClientSet.CoreV1().Services(pa.Namespace).Delete(s.Name, &metav1.DeleteOptions{})
-		}
-	}
-	if ret == nil {
-		return nil, errors.NewNotFound(corev1.Resource("Services"), pa.Name)
-	}
-	return ret, nil
-}
-
-// ReconcileMetricsService reconciles a metrics service for the given PodAutoscaler.
-func (c *Base) ReconcileMetricsService(ctx context.Context, pa *pav1alpha1.PodAutoscaler) (string, error) {
-	logger := logging.FromContext(ctx)
-
-	scale, err := resourceutil.GetScaleResource(pa.Namespace, pa.Spec.ScaleTargetRef, c.PSInformerFactory)
-	if err != nil {
-		return "", perrors.Wrap(err, "error retrieving scale")
-	}
-	selector := scale.Spec.Selector.MatchLabels
-	logger.Debugf("PA's %s selector: %v", pa.Name, selector)
-
-	svc, err := c.metricService(pa)
-	if errors.IsNotFound(err) {
-		logger.Infof("Metrics K8s service for PA %s/%s does not exist; creating.", pa.Namespace, pa.Name)
-		svc = resources.MakeMetricsService(pa, selector)
-		svc, err = c.KubeClientSet.CoreV1().Services(pa.Namespace).Create(svc)
-		if err != nil {
-			return "", perrors.Wrapf(err, "error creating metrics K8s service for %s/%s", pa.Namespace, pa.Name)
-		}
-		logger.Info("Created K8s service:", svc.Name)
-	} else if err != nil {
-		return "", perrors.Wrap(err, "error getting metrics K8s service")
-	} else if !metav1.IsControlledBy(svc, pa) {
-		pa.Status.MarkResourceNotOwned("Service", svc.Name)
-		return "", fmt.Errorf("PA: %s does not own Service: %s", pa.Name, svc.Name)
-	} else {
-		tmpl := resources.MakeMetricsService(pa, selector)
-		want := svc.DeepCopy()
-		want.Spec.Ports = tmpl.Spec.Ports
-		want.Spec.Selector = tmpl.Spec.Selector
-
-		if !equality.Semantic.DeepEqual(want.Spec, svc.Spec) {
-			logger.Info("Metrics K8s Service changed; reconciling:", svc.Name)
-			if _, err = c.KubeClientSet.CoreV1().Services(pa.Namespace).Update(want); err != nil {
-				return "", perrors.Wrapf(err, "error updating K8s Service %s", svc.Name)
+			logger.Infof("Removing redundant metric service %s", s.Name)
+			if err := c.KubeClientSet.CoreV1().Services(
+				s.Namespace).Delete(s.Name, &metav1.DeleteOptions{}); err != nil {
+				return err
 			}
 		}
 	}
-	pa.Status.MetricsServiceName = svc.Name
-	logger.Debug("Done reconciling metrics K8s service: ", svc.Name)
-	return svc.Name, nil
+	return nil
 }
 
 // ReconcileMetric reconciles a metric instance out of the given PodAutoscaler to control metric collection.
@@ -168,18 +117,19 @@ func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	if errors.IsNotFound(err) {
 		_, err = c.ServingClientSet.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Create(desiredMetric)
 		if err != nil {
-			return perrors.Wrap(err, "error creating metric")
+			return fmt.Errorf("error creating metric: %w", err)
 		}
 	} else if err != nil {
-		return perrors.Wrap(err, "error fetching metric")
+		return fmt.Errorf("error fetching metric: %w", err)
+	} else if !metav1.IsControlledBy(metric, pa) {
+		pa.Status.MarkResourceNotOwned("Metric", desiredMetric.Name)
+		return fmt.Errorf("PA: %s does not own Metric: %s", pa.Name, desiredMetric.Name)
 	} else {
-		// Ignore status when reconciling
-		desiredMetric.Status = metric.Status
-		if !equality.Semantic.DeepEqual(desiredMetric, metric) {
+		if !equality.Semantic.DeepEqual(desiredMetric.Spec, metric.Spec) {
 			want := metric.DeepCopy()
 			want.Spec = desiredMetric.Spec
 			if _, err = c.ServingClientSet.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Update(want); err != nil {
-				return perrors.Wrap(err, "error updating metric")
+				return fmt.Errorf("error updating metric: %w", err)
 			}
 		}
 	}

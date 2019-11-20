@@ -34,7 +34,7 @@ import (
 	net "knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestConcurrencyModelValidation(t *testing.T) {
@@ -49,6 +49,47 @@ func TestConcurrencyModelValidation(t *testing.T) {
 	}, {
 		name: "multi",
 		cm:   DeprecatedRevisionRequestConcurrencyModelMulti,
+		want: nil,
+	}, {
+		name: "empty",
+		cm:   "",
+		want: nil,
+	}, {
+		name: "bogus",
+		cm:   "bogus",
+		want: apis.ErrInvalidValue("bogus", apis.CurrentField),
+	}, {
+		name: "balderdash",
+		cm:   "balderdash",
+		want: apis.ErrInvalidValue("balderdash", apis.CurrentField),
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := test.cm.Validate(context.Background())
+			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
+				t.Errorf("Validate (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
+func TestServingStateType(t *testing.T) {
+	tests := []struct {
+		name string
+		cm   DeprecatedRevisionServingStateType
+		want *apis.FieldError
+	}{{
+		name: "active",
+		cm:   DeprecatedRevisionServingStateActive,
+		want: nil,
+	}, {
+		name: "reserve",
+		cm:   DeprecatedRevisionServingStateReserve,
+		want: nil,
+	}, {
+		name: "retired",
+		cm:   DeprecatedRevisionServingStateRetired,
 		want: nil,
 	}, {
 		name: "empty",
@@ -105,7 +146,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 	}, {
 		name: "missing container",
 		rs: &RevisionSpec{
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Volumes: []corev1.Volume{{
 						Name: "the-name",
@@ -120,6 +161,34 @@ func TestRevisionSpecValidation(t *testing.T) {
 		},
 		want: apis.ErrMissingOneOf("container", "containers"),
 	}, {
+		name: "more container",
+		rs: &RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+			},
+			DeprecatedContainer: &corev1.Container{
+				Name: "deprecatedContainer",
+			},
+		},
+		want: apis.ErrMultipleOneOf("container", "containers"),
+	}, {
+		name: "with ContainerConcurrency",
+		rs: &RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "helloworld",
+					}},
+				},
+				ContainerConcurrency: ptr.Int64(10),
+			},
+		},
+		want: nil,
+	}, {
 		name: "with volume (ok)",
 		rs: &RevisionSpec{
 			DeprecatedContainer: &corev1.Container{
@@ -130,7 +199,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 					ReadOnly:  true,
 				}},
 			},
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Volumes: []corev1.Volume{{
 						Name: "the-name",
@@ -155,7 +224,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 					ReadOnly:  true,
 				}},
 			},
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Volumes: []corev1.Volume{{
 						Name: "the-name",
@@ -211,7 +280,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 			DeprecatedContainer: &corev1.Container{
 				Image: "helloworld",
 			},
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				TimeoutSeconds: ptr.Int64(6000),
 			},
 		},
@@ -224,7 +293,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 			DeprecatedContainer: &corev1.Container{
 				Image: "helloworld",
 			},
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				TimeoutSeconds: ptr.Int64(100),
 			},
 		},
@@ -247,7 +316,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 			DeprecatedContainer: &corev1.Container{
 				Image: "helloworld",
 			},
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				TimeoutSeconds: ptr.Int64(0),
 			},
 		},
@@ -258,7 +327,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 			DeprecatedContainer: &corev1.Container{
 				Image: "helloworld",
 			},
-			RevisionSpec: v1beta1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
 				TimeoutSeconds: ptr.Int64(-30),
 			},
 		},
@@ -326,6 +395,50 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			},
 		},
 		want: nil,
+	}, {
+		name: "valid name for revision template",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				// When user provides empty string in the name field it will behave like no name provided.
+				Name: "",
+			},
+			Spec: RevisionSpec{
+				DeprecatedContainer: &corev1.Container{
+					Image: "helloworld",
+				},
+			},
+		},
+		want: nil,
+	}, {
+		name: "invalid name for revision template",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				// We let users bring their own revision name.
+				Name: "parent-@foo-bar",
+			},
+			Spec: RevisionSpec{
+				DeprecatedContainer: &corev1.Container{
+					Image: "helloworld",
+				},
+			},
+		},
+		want: apis.ErrInvalidValue("not a DNS 1035 label: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+			"metadata.name"),
+	}, {
+		name: "invalid generate name for revision template",
+		rts: &RevisionTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				// We let users bring their own revision generate name.
+				GenerateName: "parent-@foo-bar",
+			},
+			Spec: RevisionSpec{
+				DeprecatedContainer: &corev1.Container{
+					Image: "helloworld",
+				},
+			},
+		},
+		want: apis.ErrInvalidValue("not a DNS 1035 label prefix: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+			"metadata.generateName"),
 	}, {
 		name: "Queue sidecar resource percentage annotation more than 100",
 		rts: &RevisionTemplateSpec{
@@ -529,7 +642,7 @@ func TestImmutableFields(t *testing.T) {
 				DeprecatedContainer: &corev1.Container{
 					Image: "helloworld",
 				},
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					TimeoutSeconds: ptr.Int64(100),
 				},
 			},
@@ -542,7 +655,7 @@ func TestImmutableFields(t *testing.T) {
 				DeprecatedContainer: &corev1.Container{
 					Image: "helloworld",
 				},
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					TimeoutSeconds: ptr.Int64(100),
 				},
 			},
@@ -672,8 +785,10 @@ func TestImmutableFields(t *testing.T) {
 				DeprecatedContainer: &corev1.Container{
 					Image: "helloworld",
 				},
-				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 100,
+				RevisionSpec: v1.RevisionSpec{
+					PodSpec: corev1.PodSpec{
+						ServiceAccountName: "foobar",
+					},
 				},
 			},
 		},
@@ -690,9 +805,9 @@ func TestImmutableFields(t *testing.T) {
 		want: &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
-			Details: `{v1alpha1.RevisionSpec}.RevisionSpec.ContainerConcurrency:
-	-: "0"
-	+: "100"
+			Details: `{v1alpha1.RevisionSpec}.RevisionSpec.PodSpec.ServiceAccountName:
+	-: ""
+	+: "foobar"
 `,
 		},
 	}, {
@@ -705,8 +820,10 @@ func TestImmutableFields(t *testing.T) {
 				DeprecatedContainer: &corev1.Container{
 					Image: "helloworld",
 				},
-				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 100,
+				RevisionSpec: v1.RevisionSpec{
+					PodSpec: corev1.PodSpec{
+						ServiceAccountName: "foobar",
+					},
 				},
 			},
 		},
@@ -718,17 +835,14 @@ func TestImmutableFields(t *testing.T) {
 				DeprecatedContainer: &corev1.Container{
 					Image: "busybox",
 				},
-				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 1,
-				},
 			},
 		},
 		want: &apis.FieldError{
 			Message: "Immutable fields changed (-old +new)",
 			Paths:   []string{"spec"},
-			Details: `{v1alpha1.RevisionSpec}.RevisionSpec.ContainerConcurrency:
-	-: "1"
-	+: "100"
+			Details: `{v1alpha1.RevisionSpec}.RevisionSpec.PodSpec.ServiceAccountName:
+	-: ""
+	+: "foobar"
 {v1alpha1.RevisionSpec}.DeprecatedContainer.Image:
 	-: "busybox"
 	+: "helloworld"

@@ -63,7 +63,7 @@ data:
     # To determine the IP ranges of your cluster:
     #   IBM Cloud Private: cat cluster/config.yaml | grep service_cluster_ip_range
     #   IBM Cloud Kubernetes Service: "172.30.0.0/16,172.20.0.0/16,10.10.10.0/24"
-    #   Google Container Engine (GKE): gcloud container clusters describe XXXXXXX --zone=XXXXXX | grep -e clusterIpv4Cidr -e servicesIpv4Cidr
+    #   Google Container Engine (GKE): gcloud container clusters describe $CLUSTER_NAME --zone=$CLUSTER_ZONE | grep -e clusterIpv4Cidr -e servicesIpv4Cidr
     #   Azure Kubernetes Service (AKS): "10.0.0.0/16"
     #   Azure Container Service (ACS; deprecated): "10.244.0.0/16,10.240.0.0/16"
     #   Azure Container Service Engine (ACS-Engine; OSS): Configurable, but defaults to "10.0.0.0/16"
@@ -74,16 +74,19 @@ data:
     #
     istio.sidecar.includeOutboundIPRanges: "*"
 
-    # clusteringress.class specifies the default cluster ingress class
+    # clusteringress.class has been deprecated.   Please use ingress.class instead.
+    clusteringress.class: "istio.ingress.networking.knative.dev"
+
+    # ingress.class specifies the default ingress class
     # to use when not dictated by Route annotation.
     #
     # If not specified, will use the Istio ingress.
     #
-    # Note that changing the ClusterIngress class of an existing Route
+    # Note that changing the Ingress class of an existing Route
     # will result in undefined behavior.  Therefore it is best to only
     # update this value during the setup of Knative, to avoid getting
     # undefined behavior.
-    clusteringress.class: "istio.ingress.networking.knative.dev"
+    ingress.class: "istio.ingress.networking.knative.dev"
 
     # certificate.class specifies the default Certificate class
     # to use when not dictated by Route annotation.

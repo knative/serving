@@ -21,11 +21,16 @@ package test
 import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	sharedclientset "knative.dev/pkg/client/clientset/versioned"
 	"knative.dev/pkg/test"
 	"knative.dev/serving/pkg/client/clientset/versioned"
+	networkingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/networking/v1alpha1"
+	servingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
 	servingv1alpha1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	servingv1beta1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1beta1"
 )
@@ -35,7 +40,10 @@ type Clients struct {
 	KubeClient         *test.KubeClient
 	ServingAlphaClient *ServingAlphaClients
 	ServingBetaClient  *ServingBetaClients
+	ServingClient      *ServingClients
+	NetworkingClient   *NetworkingClients
 	Dynamic            dynamic.Interface
+	SharedClient       sharedclientset.Interface
 }
 
 // ServingAlphaClients holds instances of interfaces for making requests to knative serving clients
@@ -54,11 +62,24 @@ type ServingBetaClients struct {
 	Services  servingv1beta1.ServiceInterface
 }
 
+// ServingClients holds instances of interfaces for making requests to knative serving clients
+type ServingClients struct {
+	Routes    servingv1.RouteInterface
+	Configs   servingv1.ConfigurationInterface
+	Revisions servingv1.RevisionInterface
+	Services  servingv1.ServiceInterface
+}
+
+// NetworkingClients holds instances of interfaces for making requests to Knative
+// networking clients.
+type NetworkingClients struct {
+	ServerlessServices networkingv1alpha1.ServerlessServiceInterface
+}
+
 // NewClients instantiates and returns several clientsets required for making request to the
 // Knative Serving cluster specified by the combination of clusterName and configPath. Clients can
 // make requests within namespace.
 func NewClients(configPath string, clusterName string, namespace string) (*Clients, error) {
-	clients := &Clients{}
 	cfg, err := buildClientConfig(configPath, clusterName)
 	if err != nil {
 		return nil, err
@@ -68,10 +89,18 @@ func NewClients(configPath string, clusterName string, namespace string) (*Clien
 	cfg.QPS = 100
 	cfg.Burst = 200
 
-	clients.KubeClient, err = test.NewKubeClient(configPath, clusterName)
+	return NewClientsFromConfig(cfg, namespace)
+}
+
+// NewClientsFromConfig instantiates and returns several clientsets required for making request to the
+// Knative Serving cluster specified by the rest Config. Clients can make requests within namespace.
+func NewClientsFromConfig(cfg *rest.Config, namespace string) (*Clients, error) {
+	clients := &Clients{}
+	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
+	clients.KubeClient = &test.KubeClient{Kube: kubeClient}
 
 	clients.ServingAlphaClient, err = newServingAlphaClients(cfg, namespace)
 	if err != nil {
@@ -83,7 +112,22 @@ func NewClients(configPath string, clusterName string, namespace string) (*Clien
 		return nil, err
 	}
 
+	clients.ServingClient, err = newServingClients(cfg, namespace)
+	if err != nil {
+		return nil, err
+	}
+
 	clients.Dynamic, err = dynamic.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	clients.SharedClient, err = sharedclientset.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	clients.NetworkingClient, err = newNetworkingClients(cfg, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +135,19 @@ func NewClients(configPath string, clusterName string, namespace string) (*Clien
 	return clients, nil
 }
 
-// NewServingAlphaClients instantiates and returns the serving clientset required to make requests to the
+// newNetworkingClients instantiates and returns the networking clientset required to make requests
+// to Networking resources on the Knative service cluster
+func newNetworkingClients(cfg *rest.Config, namespace string) (*NetworkingClients, error) {
+	cs, err := versioned.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &NetworkingClients{
+		ServerlessServices: cs.NetworkingV1alpha1().ServerlessServices(namespace),
+	}, nil
+}
+
+// newServingAlphaClients instantiates and returns the serving clientset required to make requests to the
 // knative serving cluster.
 func newServingAlphaClients(cfg *rest.Config, namespace string) (*ServingAlphaClients, error) {
 	cs, err := versioned.NewForConfig(cfg)
@@ -107,7 +163,7 @@ func newServingAlphaClients(cfg *rest.Config, namespace string) (*ServingAlphaCl
 	}, nil
 }
 
-// NewServingBetaClients instantiates and returns the serving clientset required to make requests to the
+// newServingBetaClients instantiates and returns the serving clientset required to make requests to the
 // knative serving cluster.
 func newServingBetaClients(cfg *rest.Config, namespace string) (*ServingBetaClients, error) {
 	cs, err := versioned.NewForConfig(cfg)
@@ -120,6 +176,22 @@ func newServingBetaClients(cfg *rest.Config, namespace string) (*ServingBetaClie
 		Revisions: cs.ServingV1beta1().Revisions(namespace),
 		Routes:    cs.ServingV1beta1().Routes(namespace),
 		Services:  cs.ServingV1beta1().Services(namespace),
+	}, nil
+}
+
+// newServingClients instantiates and returns the serving clientset required to make requests to the
+// knative serving cluster.
+func newServingClients(cfg *rest.Config, namespace string) (*ServingClients, error) {
+	cs, err := versioned.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ServingClients{
+		Configs:   cs.ServingV1().Configurations(namespace),
+		Revisions: cs.ServingV1().Revisions(namespace),
+		Routes:    cs.ServingV1().Routes(namespace),
+		Services:  cs.ServingV1().Services(namespace),
 	}, nil
 }
 

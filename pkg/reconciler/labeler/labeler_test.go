@@ -33,10 +33,9 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
-	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/reconciler"
 
 	. "knative.dev/pkg/reconciler/testing"
@@ -198,7 +197,6 @@ func TestReconcile(t *testing.T) {
 		Key: "default/delete-label-failure",
 	}}
 
-	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &Reconciler{
 			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
@@ -209,23 +207,13 @@ func TestReconcile(t *testing.T) {
 	}))
 }
 
-func routeWithTraffic(namespace, name string, traffic ...v1alpha1.TrafficTarget) *v1alpha1.Route {
-	return &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-		},
-		Status: v1alpha1.RouteStatus{
-			RouteStatusFields: v1alpha1.RouteStatusFields{
-				Traffic: traffic,
-			},
-		},
-	}
+func routeWithTraffic(namespace, name string, traffic v1alpha1.TrafficTarget) *v1alpha1.Route {
+	return Route(namespace, name, WithStatusTraffic(traffic))
 }
 
 func simpleRunLatest(namespace, name, config string) *v1alpha1.Route {
 	return routeWithTraffic(namespace, name, v1alpha1.TrafficTarget{
-		TrafficTarget: v1beta1.TrafficTarget{
+		TrafficTarget: v1.TrafficTarget{
 			RevisionName: config + "-dbnfd",
 			Percent:      ptr.Int64(100),
 		},
@@ -272,7 +260,7 @@ func patchRemoveLabel(namespace, name, key, version string) clientgotesting.Patc
 	action.Name = name
 	action.Namespace = namespace
 
-	patch := fmt.Sprintf(`{"metadata":{"labels":{"%s":null},"resourceVersion":"%s"}}`, key, version)
+	patch := fmt.Sprintf(`{"metadata":{"labels":{%q:null},"resourceVersion":%q}}`, key, version)
 
 	action.Patch = []byte(patch)
 	return action
@@ -283,17 +271,16 @@ func patchAddLabel(namespace, name, key, value, version string) clientgotesting.
 	action.Name = name
 	action.Namespace = namespace
 
-	patch := fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"},"resourceVersion":"%s"}}`, key, value, version)
+	patch := fmt.Sprintf(`{"metadata":{"labels":{%q:%q},"resourceVersion":%q}}`, key, value, version)
 
 	action.Patch = []byte(patch)
 	return action
 }
 
 func TestNew(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
 
-	c := NewRouteToConfigurationController(ctx, configmap.NewStaticWatcher())
+	c := NewController(ctx, configmap.NewStaticWatcher())
 
 	if c == nil {
 		t.Fatal("Expected NewController to return a non-nil value")

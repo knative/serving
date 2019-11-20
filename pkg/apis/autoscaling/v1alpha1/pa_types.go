@@ -20,10 +20,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
 	net "knative.dev/serving/pkg/apis/networking"
-	servingv1beta1 "knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 // +genclient
@@ -57,6 +56,22 @@ var (
 	_ kmeta.OwnerRefable = (*PodAutoscaler)(nil)
 )
 
+// ReachabilityType is the enumeration type for the different states of reachability
+// to the `ScaleTarget` of a `PodAutoscaler`
+type ReachabilityType string
+
+const (
+	// ReachabilityUnknown means the reachability of the `ScaleTarget` is unknown.
+	// Used when the reachability cannot be determined, eg. during activation.
+	ReachabilityUnknown ReachabilityType = ""
+
+	// ReachabilityReachable means the `ScaleTarget` is reachable, ie. it has an active route.
+	ReachabilityReachable ReachabilityType = "Reachable"
+
+	// ReachabilityReachable means the `ScaleTarget` is not reachable, ie. it does not have an active route.
+	ReachabilityUnreachable ReachabilityType = "Unreachable"
+)
+
 // PodAutoscalerSpec holds the desired state of the PodAutoscaler (from the client).
 type PodAutoscalerSpec struct {
 	// DeprecatedGeneration was used prior in Kubernetes versions <1.11
@@ -74,18 +89,19 @@ type PodAutoscalerSpec struct {
 	// in-flight (concurrent) requests per container of the Revision.
 	// Defaults to `0` which means unlimited concurrency.
 	// +optional
-	ContainerConcurrency servingv1beta1.RevisionContainerConcurrencyType `json:"containerConcurrency,omitempty"`
+	ContainerConcurrency int64 `json:"containerConcurrency,omitempty"`
 
 	// ScaleTargetRef defines the /scale-able resource that this PodAutoscaler
 	// is responsible for quickly right-sizing.
 	ScaleTargetRef corev1.ObjectReference `json:"scaleTargetRef"`
 
-	// DeprecatedServiceName holds the name of a core Kubernetes Service resource that
-	// load balances over the pods referenced by the ScaleTargetRef.
-	DeprecatedServiceName string `json:"serviceName"`
+	// Reachable specifies whether or not the `ScaleTargetRef` can be reached (ie. has a route).
+	// Defaults to `ReachabilityUnknown`
+	// +optional
+	Reachability ReachabilityType `json:"reachability,omitempty"`
 
 	// The application-layer protocol. Matches `ProtocolType` inferred from the revision spec.
-	ProtocolType net.ProtocolType
+	ProtocolType net.ProtocolType `json:"protocolType"`
 }
 
 const (
@@ -98,7 +114,7 @@ const (
 
 // PodAutoscalerStatus communicates the observed state of the PodAutoscaler (from the controller).
 type PodAutoscalerStatus struct {
-	duckv1beta1.Status
+	duckv1.Status `json:",inline"`
 
 	// ServiceName is the K8s Service name that serves the revision, scaled by this PA.
 	// The service is created and owned by the ServerlessService object owned by this PA.
@@ -107,6 +123,12 @@ type PodAutoscalerStatus struct {
 	// MetricsServiceName is the K8s Service name that provides revision metrics.
 	// The service is managed by the PA object.
 	MetricsServiceName string `json:"metricsServiceName"`
+
+	// DesiredScale shows the current desired number of replicas for the revision.
+	DesiredScale *int32 `json:"desiredScale,omitempty"`
+
+	// ActualScale shows the actual number of replicas for the revision.
+	ActualScale *int32 `json:"actualScale,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

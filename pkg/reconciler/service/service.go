@@ -24,14 +24,17 @@ import (
 
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/zap"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
+
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
@@ -64,19 +67,19 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 // converge the two. It then updates the Status block of the Service resource
 // with the current status of the resource.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
-	// Convert the namespace/name string into a distinct namespace and name
+	logger := logging.FromContext(ctx)
+
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		c.Logger.Errorf("invalid resource key: %s", key)
+		logger.Errorw("Invalid resource key", zap.Error(err))
 		return nil
 	}
-	logger := logging.FromContext(ctx)
 
 	// Get the Service resource with this namespace/name
 	original, err := c.serviceLister.Services(namespace).Get(name)
 	if apierrs.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
-		logger.Errorf("service %q in work queue no longer exists", key)
+		logger.Error("Service in work queue no longer exists")
 		return nil
 	} else if err != nil {
 		return err
@@ -98,7 +101,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 
-	} else if _, uErr := c.updateStatus(service); uErr != nil {
+	} else if _, uErr := c.updateStatus(service, logger); uErr != nil {
 		logger.Warnw("Failed to update service status", zap.Error(uErr))
 		c.Recorder.Eventf(service, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for Service %q: %v", service.Name, uErr)
@@ -131,7 +134,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	// and may not have had all of the assumed defaults specified.  This won't result
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
-	service.SetDefaults(v1beta1.WithUpgradeViaDefaulting(ctx))
+	service.SetDefaults(v1.WithUpgradeViaDefaulting(ctx))
 	service.Status.InitializeConditions()
 
 	if err := service.ConvertUp(ctx, &v1beta1.Service{}); err != nil {
@@ -151,6 +154,12 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 		// The Configuration hasn't yet reconciled our latest changes to
 		// its desired state, so its conditions are outdated.
 		service.Status.MarkConfigurationNotReconciled()
+
+		// If BYO-Revision name is used we must serialize reconciling the Configuration
+		// and Route. Wait for observed generation to match before continuing.
+		if config.Spec.GetTemplate().Name != "" {
+			return nil
+		}
 	} else {
 		// Update our Status based on the state of our underlying Configuration.
 		service.Status.PropagateConfigurationStatus(&config.Status)
@@ -194,25 +203,18 @@ func (c *Reconciler) config(ctx context.Context, logger *zap.SugaredLogger, serv
 	if apierrs.IsNotFound(err) {
 		config, err = c.createConfiguration(service)
 		if err != nil {
-			logger.Errorf("Failed to create Configuration %q: %v", configName, err)
 			c.Recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Configuration %q: %v", configName, err)
-			return nil, err
+			return nil, fmt.Errorf("failed to create Configuration: %w", err)
 		}
 		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Created", "Created Configuration %q", configName)
 	} else if err != nil {
-		logger.Errorw(
-			fmt.Sprintf("Failed to reconcile Service: %q failed to Get Configuration: %q", service.Name, configName),
-			zap.Error(err))
-		return nil, err
+		return nil, fmt.Errorf("failed to get Configuration: %w", err)
 	} else if !metav1.IsControlledBy(config, service) {
 		// Surface an error in the service's status,and return an error.
 		service.Status.MarkConfigurationNotOwned(configName)
 		return nil, fmt.Errorf("service: %q does not own configuration: %q", service.Name, configName)
 	} else if config, err = c.reconcileConfiguration(ctx, service, config); err != nil {
-		logger.Errorw(
-			fmt.Sprintf("Failed to reconcile Service: %q failed to reconcile Configuration: %q",
-				service.Name, configName), zap.Error(err))
-		return nil, err
+		return nil, fmt.Errorf("failed to reconcile Configuration: %w", err)
 	}
 	return config, nil
 }
@@ -223,21 +225,18 @@ func (c *Reconciler) route(ctx context.Context, logger *zap.SugaredLogger, servi
 	if apierrs.IsNotFound(err) {
 		route, err = c.createRoute(service)
 		if err != nil {
-			logger.Errorf("Failed to create Route %q: %v", routeName, err)
 			c.Recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Route %q: %v", routeName, err)
-			return nil, err
+			return nil, fmt.Errorf("failed to create Route: %w", err)
 		}
 		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Created", "Created Route %q", routeName)
 	} else if err != nil {
-		logger.Errorf("Failed to reconcile Service: %q failed to Get Route: %q", service.Name, routeName)
-		return nil, err
+		return nil, fmt.Errorf("failed to get Route: %w", err)
 	} else if !metav1.IsControlledBy(route, service) {
 		// Surface an error in the service's status, and return an error.
 		service.Status.MarkRouteNotOwned(routeName)
 		return nil, fmt.Errorf("service: %q does not own route: %q", service.Name, routeName)
 	} else if route, err = c.reconcileRoute(ctx, service, route); err != nil {
-		logger.Errorf("Failed to reconcile Service: %q failed to reconcile Route: %q", service.Name, routeName)
-		return nil, err
+		return nil, fmt.Errorf("failed to reconcile Route: %w", err)
 	}
 	return route, nil
 }
@@ -269,12 +268,12 @@ func (c *Reconciler) checkRoutesNotReady(config *v1alpha1.Configuration, logger 
 		// comparing them.
 		"DeprecatedName")
 	if diff, err := kmp.SafeDiff(got, want, ignoreFields); err != nil || diff != "" {
-		logger.Errorf("Route %q is not yet what we want: %s", service.Name, diff)
+		logger.Errorf("Route %s is not yet what we want: %s", route.Name, diff)
 		service.Status.MarkRouteNotYetReady()
 	}
 }
 
-func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service, error) {
+func (c *Reconciler) updateStatus(desired *v1alpha1.Service, logger *zap.SugaredLogger) (*v1alpha1.Service, error) {
 	service, err := c.serviceLister.Services(desired.Namespace).Get(desired.Name)
 	if err != nil {
 		return nil, err
@@ -291,7 +290,7 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Service) (*v1alpha1.Service,
 	svc, err := c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).UpdateStatus(existing)
 	if err == nil && becomesReady {
 		duration := time.Since(svc.ObjectMeta.CreationTimestamp.Time)
-		c.Logger.Infof("Service %q became ready after %v", service.Name, duration)
+		logger.Infof("Service became ready after %v", duration)
 		c.StatsReporter.ReportServiceReady(service.Namespace, service.Name, duration)
 	}
 
@@ -325,7 +324,7 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 	}
 	diff, err := kmp.SafeDiff(desiredConfig.Spec, config.Spec)
 	if err != nil {
-		return nil, fmt.Errorf("failed to diff Configuration: %v", err)
+		return nil, fmt.Errorf("failed to diff Configuration: %w", err)
 	}
 	logger.Infof("Reconciling configuration diff (-desired, +observed): %s", diff)
 
@@ -371,7 +370,7 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 	}
 	diff, err := kmp.SafeDiff(desiredRoute.Spec, route.Spec)
 	if err != nil {
-		return nil, fmt.Errorf("failed to diff Route: %v", err)
+		return nil, fmt.Errorf("failed to diff Route: %w", err)
 	}
 	logger.Infof("Reconciling route diff (-desired, +observed): %s", diff)
 

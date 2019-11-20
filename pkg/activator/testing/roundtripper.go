@@ -123,6 +123,12 @@ func (rt *FakeRoundTripper) RT(req *http.Request) (*http.Response, error) {
 				Body: "probe sent to a wrong system",
 			})
 		}
+		if req.Header.Get(network.UserAgentKey) != network.ActivatorUserAgent {
+			return response(&FakeResponse{
+				Code: http.StatusBadRequest,
+				Body: "probe set with a wrong User-Agent value",
+			})
+		}
 		return response(resp)
 	}
 	resp := rt.RequestResponse
@@ -134,7 +140,7 @@ func (rt *FakeRoundTripper) RT(req *http.Request) (*http.Response, error) {
 		return nil, resp.Err
 	}
 
-	// verify that the request has the required rewritten host header.
+	// Verify that the request has the required rewritten host header.
 	if got, want := req.Host, ""; got != want {
 		return nil, fmt.Errorf("the req.Host has not been cleared out, was: %q", got)
 	}

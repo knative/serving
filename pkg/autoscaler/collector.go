@@ -18,14 +18,15 @@ package autoscaler
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/serving/pkg/autoscaler/aggregation"
-
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/pkg/logging/logkey"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler/aggregation"
 )
 
 const (
@@ -51,7 +52,7 @@ type StatsScraperFactory func(*av1alpha1.Metric) (StatsScraper, error)
 // Stat defines a single measurement at a point in time
 type Stat struct {
 	// The time the data point was received by autoscaler.
-	Time *time.Time
+	Time time.Time
 
 	// The unique identity of this pod.  Used to count how many pods
 	// are contributing to the metrics.
@@ -63,12 +64,14 @@ type Stat struct {
 	// Part of AverageConcurrentRequests, for requests going through a proxy.
 	AverageProxiedConcurrentRequests float64
 
-	// Number of requests received since last Stat (approximately QPS).
+	// Number of requests received since last Stat (approximately requests per second).
 	RequestCount float64
 
 	// Part of RequestCount, for requests going through a proxy.
 	ProxiedRequestCount float64
 }
+
+var emptyStat = Stat{}
 
 // StatMessage wraps a Stat with identifying information so it can be routed
 // to the correct receiver.
@@ -94,9 +97,9 @@ type MetricClient interface {
 	// for the given replica as of the given time.
 	StableAndPanicConcurrency(key types.NamespacedName, now time.Time) (float64, float64, error)
 
-	// StableAndPanicOPS returns both the stable and the panic OPS
+	// StableAndPanicRPS returns both the stable and the panic RPS
 	// for the given replica as of the given time.
-	StableAndPanicOPS(key types.NamespacedName, now time.Time) (float64, float64, error)
+	StableAndPanicRPS(key types.NamespacedName, now time.Time) (float64, float64, error)
 }
 
 // MetricCollector manages collection of metrics for many entities.
@@ -132,7 +135,6 @@ func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
 		return err
 	}
 	key := types.NamespacedName{Namespace: metric.Namespace, Name: metric.Name}
-	c.logger.Info("Starting collection for ", key.String())
 
 	c.collectionsMutex.RLock()
 	collection, exists := c.collections[key]
@@ -161,8 +163,6 @@ func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
 func (c *MetricCollector) Delete(namespace, name string) error {
 	c.collectionsMutex.Lock()
 	defer c.collectionsMutex.Unlock()
-
-	c.logger.Infof("Stopping metric collection of %s/%s", namespace, name)
 
 	key := types.NamespacedName{Namespace: namespace, Name: name}
 	if collection, ok := c.collections[key]; ok {
@@ -196,9 +196,9 @@ func (c *MetricCollector) StableAndPanicConcurrency(key types.NamespacedName, no
 	return collection.stableAndPanicConcurrency(now)
 }
 
-// StableAndPanicOPS returns both the stable and the panic OPS.
+// StableAndPanicRPS returns both the stable and the panic RPS.
 // It may truncate metric buckets as a side-effect.
-func (c *MetricCollector) StableAndPanicOPS(key types.NamespacedName, now time.Time) (float64, float64, error) {
+func (c *MetricCollector) StableAndPanicRPS(key types.NamespacedName, now time.Time) (float64, float64, error) {
 	c.collectionsMutex.RLock()
 	defer c.collectionsMutex.RUnlock()
 
@@ -207,7 +207,7 @@ func (c *MetricCollector) StableAndPanicOPS(key types.NamespacedName, now time.T
 		return 0, 0, ErrNotScraping
 	}
 
-	return collection.stableAndPanicOPS(now)
+	return collection.StableAndPanicRPS(now)
 }
 
 // collection represents the collection of metrics for one specific entity.
@@ -218,7 +218,7 @@ type collection struct {
 	scraperMutex       sync.RWMutex
 	scraper            StatsScraper
 	concurrencyBuckets *aggregation.TimedFloat64Buckets
-	opsBuckets         *aggregation.TimedFloat64Buckets
+	rpsBuckets         *aggregation.TimedFloat64Buckets
 
 	grp    sync.WaitGroup
 	stopCh chan struct{}
@@ -242,11 +242,14 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, logger *zap.S
 	c := &collection{
 		metric:             metric,
 		concurrencyBuckets: aggregation.NewTimedFloat64Buckets(BucketSize),
-		opsBuckets:         aggregation.NewTimedFloat64Buckets(BucketSize),
+		rpsBuckets:         aggregation.NewTimedFloat64Buckets(BucketSize),
 		scraper:            scraper,
 
 		stopCh: make(chan struct{}),
 	}
+
+	logger = logger.Named("collector").With(
+		zap.String(logkey.Key, fmt.Sprintf("%s/%s", metric.Namespace, metric.Name)))
 
 	c.grp.Add(1)
 	go func() {
@@ -259,12 +262,22 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, logger *zap.S
 				scrapeTicker.Stop()
 				return
 			case <-scrapeTicker.C:
-				message, err := c.getScraper().Scrape()
+				stat, err := c.getScraper().Scrape()
 				if err != nil {
+					copy := metric.DeepCopy()
+					switch {
+					case err == ErrFailedGetEndpoints:
+						copy.Status.MarkMetricNotReady("NoEndpoints", ErrFailedGetEndpoints.Error())
+					case err == ErrDidNotReceiveStat:
+						copy.Status.MarkMetricFailed("DidNotReceiveStat", ErrDidNotReceiveStat.Error())
+					default:
+						copy.Status.MarkMetricNotReady("CreateOrUpdateFailed", "Collector has failed.")
+					}
 					logger.Errorw("Failed to scrape metrics", zap.Error(err))
+					c.updateMetric(copy)
 				}
-				if message != nil {
-					c.record(message.Stat)
+				if stat != emptyStat {
+					c.record(stat)
 				}
 			}
 		}
@@ -295,13 +308,13 @@ func (c *collection) record(stat Stat) {
 
 	// Proxied requests have been counted at the activator. Subtract
 	// them to avoid double counting.
-	c.concurrencyBuckets.Record(*stat.Time, stat.PodName, stat.AverageConcurrentRequests-stat.AverageProxiedConcurrentRequests)
-	c.opsBuckets.Record(*stat.Time, stat.PodName, stat.RequestCount-stat.ProxiedRequestCount)
+	c.concurrencyBuckets.Record(stat.Time, stat.PodName, stat.AverageConcurrentRequests-stat.AverageProxiedConcurrentRequests)
+	c.rpsBuckets.Record(stat.Time, stat.PodName, stat.RequestCount-stat.ProxiedRequestCount)
 
 	// Delete outdated stats taking stat.Time as current time.
 	now := stat.Time
 	c.concurrencyBuckets.RemoveOlderThan(now.Add(-spec.StableWindow))
-	c.opsBuckets.RemoveOlderThan(now.Add(-spec.StableWindow))
+	c.rpsBuckets.RemoveOlderThan(now.Add(-spec.StableWindow))
 }
 
 // stableAndPanicConcurrency calculates both stable and panic concurrency based on the
@@ -310,10 +323,10 @@ func (c *collection) stableAndPanicConcurrency(now time.Time) (float64, float64,
 	return c.stableAndPanicStats(now, c.concurrencyBuckets)
 }
 
-// stableAndPanicConcurrency calculates both stable and panic OPS based on the
+// StableAndPanicRPS calculates both stable and panic RPS based on the
 // current stats.
-func (c *collection) stableAndPanicOPS(now time.Time) (float64, float64, error) {
-	return c.stableAndPanicStats(now, c.opsBuckets)
+func (c *collection) StableAndPanicRPS(now time.Time) (float64, float64, error) {
+	return c.stableAndPanicStats(now, c.rpsBuckets)
 }
 
 // stableAndPanicStats calculates both stable and panic concurrency based on the

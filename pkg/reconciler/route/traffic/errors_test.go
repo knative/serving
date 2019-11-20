@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
 
 func TestIsFailure_Missing(t *testing.T) {
@@ -34,7 +35,7 @@ func TestIsFailure_Missing(t *testing.T) {
 
 func TestMarkBadTrafficTarget_Missing(t *testing.T) {
 	err := errMissingRevision("missing-rev")
-	r := testRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
+	r := testRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{}))
 
 	err.MarkBadTrafficTarget(&r.Status)
 	for _, condType := range []apis.ConditionType{
@@ -66,7 +67,7 @@ func TestIsFailure_NotYetReady(t *testing.T) {
 
 func TestMarkBadTrafficTarget_NotYetReady(t *testing.T) {
 	err := errUnreadyConfiguration(unreadyConfig)
-	r := testRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
+	r := testRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{}))
 
 	err.MarkBadTrafficTarget(&r.Status)
 	for _, condType := range []apis.ConditionType{
@@ -98,7 +99,7 @@ func TestIsFailure_ConfigFailedToBeReady(t *testing.T) {
 
 func TestMarkBadTrafficTarget_ConfigFailedToBeReady(t *testing.T) {
 	err := errUnreadyConfiguration(failedConfig)
-	r := testRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
+	r := testRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{}))
 
 	err.MarkBadTrafficTarget(&r.Status)
 	for _, condType := range []apis.ConditionType{
@@ -122,7 +123,7 @@ func TestMarkBadTrafficTarget_ConfigFailedToBeReady(t *testing.T) {
 
 func TestMarkBadTrafficTarget_RevisionFailedToBeReady(t *testing.T) {
 	err := errUnreadyRevision(failedRev)
-	r := testRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
+	r := testRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{}))
 
 	err.MarkBadTrafficTarget(&r.Status)
 	for _, condType := range []apis.ConditionType{
@@ -154,7 +155,7 @@ func TestIsFailure_RevFailedToBeReady(t *testing.T) {
 
 func TestMarkBadTrafficTarget_RevisionNotYetReady(t *testing.T) {
 	err := errUnreadyRevision(unreadyRev)
-	r := testRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})
+	r := testRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{}))
 
 	err.MarkBadTrafficTarget(&r.Status)
 	for _, condType := range []apis.ConditionType{

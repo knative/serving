@@ -26,6 +26,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	pkgnet "knative.dev/pkg/network"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
@@ -91,7 +92,7 @@ func DomainNameFromTemplate(ctx context.Context, r v1.ObjectMeta, name string) (
 	}
 
 	if err := templ.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("error executing the DomainTemplate: %v", err)
+		return "", fmt.Errorf("error executing the DomainTemplate: %w", err)
 	}
 	return buf.String(), nil
 }
@@ -113,7 +114,7 @@ func HostnameFromTemplate(ctx context.Context, name string, tag string) (string,
 	networkConfig := config.FromContext(ctx).Network
 	buf := bytes.Buffer{}
 	if err := networkConfig.GetTagTemplate().Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("error executing the TagTemplate: %v", err)
+		return "", fmt.Errorf("error executing the TagTemplate: %w", err)
 	}
 	return buf.String(), nil
 }
@@ -128,5 +129,5 @@ func URL(scheme, fqdn string) *apis.URL {
 
 // IsClusterLocal checks if a domain is only visible with cluster.
 func IsClusterLocal(domain string) bool {
-	return strings.HasSuffix(domain, network.GetClusterDomainName())
+	return strings.HasSuffix(domain, pkgnet.GetClusterDomainName())
 }

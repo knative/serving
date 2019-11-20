@@ -18,9 +18,13 @@ package v1beta1
 import (
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/pkg/ptr"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestRevisionDuckTypes(t *testing.T) {
@@ -29,7 +33,7 @@ func TestRevisionDuckTypes(t *testing.T) {
 		t    duck.Implementable
 	}{{
 		name: "conditions",
-		t:    &duckv1beta1.Conditions{},
+		t:    &duckv1.Conditions{},
 	}}
 
 	for _, test := range tests {
@@ -51,5 +55,131 @@ func TestRevisionGetGroupVersionKind(t *testing.T) {
 	}
 	if got := r.GetGroupVersionKind(); got != want {
 		t.Errorf("got: %v, want: %v", got, want)
+	}
+}
+
+func TestIsReady(t *testing.T) {
+	cases := []struct {
+		name    string
+		status  v1.RevisionStatus
+		isReady bool
+	}{{
+		name:    "empty status should not be ready",
+		status:  v1.RevisionStatus{},
+		isReady: false,
+	}, {
+		name: "Different condition type should not be ready",
+		status: v1.RevisionStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   apis.ConditionSucceeded,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		isReady: false,
+	}, {
+		name: "False condition status should not be ready",
+		status: v1.RevisionStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   RevisionConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
+		},
+		isReady: false,
+	}, {
+		name: "Unknown condition status should not be ready",
+		status: v1.RevisionStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   RevisionConditionReady,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
+		},
+		isReady: false,
+	}, {
+		name: "Missing condition status should not be ready",
+		status: v1.RevisionStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type: RevisionConditionReady,
+				}},
+			},
+		},
+		isReady: false,
+	}, {
+		name: "True condition status should be ready",
+		status: v1.RevisionStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   RevisionConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		isReady: true,
+	}, {
+		name: "Multiple conditions with ready status should be ready",
+		status: v1.RevisionStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   apis.ConditionSucceeded,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   RevisionConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		isReady: true,
+	}, {
+		name: "Multiple conditions with ready status false should not be ready",
+		status: v1.RevisionStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   apis.ConditionSucceeded,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   RevisionConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
+		},
+		isReady: false,
+	}}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if want, got := tc.isReady, tc.status.IsReady(); want != got {
+				t.Errorf("got: %v want: %v", got, want)
+			}
+		})
+	}
+}
+
+func TestGetContainerConcurrency(t *testing.T) {
+	cases := []struct {
+		name   string
+		status v1.RevisionSpec
+		want   int64
+	}{{
+		name:   "empty revisionSpec should return default value",
+		status: v1.RevisionSpec{},
+		want:   0,
+	}, {
+		name: "get containerConcurrency by passing value",
+		status: v1.RevisionSpec{
+			ContainerConcurrency: ptr.Int64(10),
+		},
+		want: 10,
+	}}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if want, got := tc.want, tc.status.GetContainerConcurrency(); want != got {
+				t.Errorf("got: %v want: %v", got, want)
+			}
+		})
 	}
 }

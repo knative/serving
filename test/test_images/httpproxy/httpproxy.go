@@ -29,7 +29,8 @@ import (
 )
 
 const (
-	targetHostEnv = "TARGET_HOST"
+	targetHostEnv  = "TARGET_HOST"
+	gatewayHostEnv = "GATEWAY_HOST"
 )
 
 var (
@@ -57,7 +58,12 @@ func initialHTTPProxy(proxyURL string) *httputil.ReverseProxy {
 	if err != nil {
 		log.Fatalf("Failed to parse url %v", proxyURL)
 	}
-	return httputil.NewSingleHostReverseProxy(target)
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
+		log.Printf("error reverse proxying request: %v", err)
+		http.Error(w, err.Error(), http.StatusBadGateway)
+	}
+	return proxy
 }
 
 func main() {
@@ -65,7 +71,16 @@ func main() {
 	log.Print("HTTP Proxy app started.")
 
 	targetHost := getTargetHostEnv()
+
+	// Gateway is an optional value. It is used only when resolvable domain is not set
+	// for external access test, as xip.io is flaky.
+	// ref: https://github.com/knative/serving/issues/5389
+	gateway := os.Getenv(gatewayHostEnv)
+	if gateway != "" {
+		targetHost = gateway
+	}
 	targetURL := fmt.Sprintf("http://%s", targetHost)
+	log.Print("target is " + targetURL)
 	httpProxy = initialHTTPProxy(targetURL)
 
 	test.ListenAndServeGracefully(":8080", handler)

@@ -26,11 +26,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
 	"knative.dev/pkg/system"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakeconfigurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
 	"knative.dev/serving/pkg/gc"
 
 	. "knative.dev/pkg/reconciler/testing"
@@ -50,7 +50,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 		Spec: v1alpha1.ConfigurationSpec{
 			Template: &v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
-					RevisionSpec: v1beta1.RevisionSpec{
+					RevisionSpec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							ServiceAccountName: "test-account",
 							// corev1.Container has a lot of setting.  We try to pass many
@@ -84,7 +84,15 @@ func getTestConfiguration() *v1alpha1.Configuration {
 }
 
 func TestNewConfigurationCallsSyncHandler(t *testing.T) {
-	ctx, informers := SetupFakeContext(t)
+	ctx, cancel, _ := SetupFakeContextWithCancel(t)
+	eg := errgroup.Group{}
+	defer func() {
+		cancel()
+		if err := eg.Wait(); err != nil {
+			t.Fatalf("Error running controller: %v", err)
+		}
+	}()
+
 	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      gc.ConfigName,
@@ -95,41 +103,28 @@ func TestNewConfigurationCallsSyncHandler(t *testing.T) {
 
 	ctrl := NewController(ctx, configMapWatcher)
 
-	ctx, cancel := context.WithCancel(ctx)
-	eg := errgroup.Group{}
-	defer func() {
-		cancel()
-		if err := eg.Wait(); err != nil {
-			t.Fatalf("Error running controller: %v", err)
-		}
-	}()
-
 	servingClient := fakeservingclient.Get(ctx)
 
 	h := NewHooks()
 
-	// Check for revision created as a signal that syncHandler ran
+	// Check for revision created as a signal that syncHandler ran.
 	h.OnCreate(&servingClient.Fake, "revisions", func(obj runtime.Object) HookResult {
 		rev := obj.(*v1alpha1.Revision)
-		t.Logf("revision created: %q", rev.Name)
+		t.Logf("Revision created: %q", rev.Name)
 
 		return HookComplete
 	})
-
-	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-		t.Fatalf("failed to start cluster ingress manager: %v", err)
-	}
 
 	eg.Go(func() error {
 		return ctrl.Run(2, ctx.Done())
 	})
 
 	config := getTestConfiguration()
-	if _, err := servingClient.ServingV1alpha1().Configurations(config.Namespace).Create(config); err != nil {
-		t.Fatalf("Unexpected error creating configuration: %v", err)
-	}
+	configI := fakeconfigurationinformer.Get(ctx)
+	configI.Informer().GetIndexer().Add(config)
+	ctrl.Enqueue(config)
 
-	if err := h.WaitForHooks(time.Second * 3); err != nil {
+	if err := h.WaitForHooks(5 * time.Second); err != nil {
 		t.Error(err)
 	}
 }

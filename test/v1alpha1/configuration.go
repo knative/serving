@@ -22,31 +22,23 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/test/logging"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 
 	ptest "knative.dev/pkg/test"
-	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
 	v1alpha1testing "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 )
 
-const (
-	interval = 1 * time.Second
-	timeout  = 10 * time.Minute
-)
-
 // CreateConfiguration create a configuration resource in namespace with the name names.Config
 // that uses the image specified by names.Image.
-func CreateConfiguration(t *testing.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ConfigOption) (*v1alpha1.Configuration, error) {
+func CreateConfiguration(t *testing.T, clients *test.Clients, names test.ResourceNames, fopt ...v1alpha1testing.ConfigOption) (*v1alpha1.Configuration, error) {
 	config := Configuration(names, fopt...)
 	LogResourceObject(t, ResourceObjects{Config: config})
 	return clients.ServingAlphaClient.Configs.Create(config)
@@ -56,7 +48,7 @@ func CreateConfiguration(t *testing.T, clients *test.Clients, names test.Resourc
 func PatchConfigImage(clients *test.Clients, cfg *v1alpha1.Configuration, imagePath string) (*v1alpha1.Configuration, error) {
 	newCfg := cfg.DeepCopy()
 	newCfg.Spec.GetTemplate().Spec.GetContainer().Image = imagePath
-	patchBytes, err := createPatch(cfg, newCfg)
+	patchBytes, err := test.CreateBytePatch(cfg, newCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +83,7 @@ func ConfigurationSpec(imagePath string) *v1alpha1.ConfigurationSpec {
 	return &v1alpha1.ConfigurationSpec{
 		Template: &v1alpha1.RevisionTemplateSpec{
 			Spec: v1alpha1.RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
 					PodSpec: corev1.PodSpec{
 						Containers: []corev1.Container{{
 							Image: imagePath,
@@ -112,7 +104,7 @@ func LegacyConfigurationSpec(imagePath string) *v1alpha1.ConfigurationSpec {
 				DeprecatedContainer: &corev1.Container{
 					Image: imagePath,
 				},
-				RevisionSpec: v1beta1.RevisionSpec{},
+				RevisionSpec: v1.RevisionSpec{},
 			},
 		},
 	}
@@ -136,15 +128,15 @@ func Configuration(names test.ResourceNames, fopt ...v1alpha1testing.ConfigOptio
 }
 
 // WaitForConfigurationState polls the status of the Configuration called name
-// from client every interval until inState returns `true` indicating it
-// is done, returns an error or timeout. desc will be used to name the metric
+// from client every PollInterval until inState returns `true` indicating it
+// is done, returns an error or PollTimeout. desc will be used to name the metric
 // that is emitted to track how long it took for name to get into the state checked by inState.
 func WaitForConfigurationState(client *test.ServingAlphaClients, name string, inState func(c *v1alpha1.Configuration) (bool, error), desc string) error {
 	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForConfigurationState/%s/%s", name, desc))
 	defer span.End()
 
 	var lastState *v1alpha1.Configuration
-	waitErr := wait.PollImmediate(interval, timeout, func() (bool, error) {
+	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		var err error
 		lastState, err = client.Configs.Get(name, metav1.GetOptions{})
 		if err != nil {
@@ -154,7 +146,7 @@ func WaitForConfigurationState(client *test.ServingAlphaClients, name string, in
 	})
 
 	if waitErr != nil {
-		return errors.Wrapf(waitErr, "configuration %q is not in desired state, got: %+v", name, lastState)
+		return fmt.Errorf("configuration %q is not in desired state, got: %+v: %w", name, lastState, waitErr)
 	}
 	return nil
 }
@@ -178,14 +170,4 @@ func CheckConfigurationState(client *test.ServingAlphaClients, name string, inSt
 // ConfigurationHasCreatedRevision returns whether the Configuration has created a Revision.
 func ConfigurationHasCreatedRevision(c *v1alpha1.Configuration) (bool, error) {
 	return c.Status.LatestCreatedRevisionName != "", nil
-}
-
-// IsConfigRevisionCreationFailed will check the status conditions of the
-// configuration and return true if the configuration's revision failed to
-// create.
-func IsConfigRevisionCreationFailed(c *v1alpha1.Configuration) (bool, error) {
-	if cond := c.Status.GetCondition(v1alpha1.ConfigurationConditionReady); cond != nil {
-		return cond.Status == corev1.ConditionFalse && cond.Reason == "RevisionFailed", nil
-	}
-	return false, nil
 }

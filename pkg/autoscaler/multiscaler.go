@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/logging/logkey"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 )
 
@@ -41,14 +42,17 @@ type Decider struct {
 
 // DeciderSpec is the parameters in which the Revision should scaled.
 type DeciderSpec struct {
-	TickInterval   time.Duration
-	MaxScaleUpRate float64
+	TickInterval     time.Duration
+	MaxScaleUpRate   float64
+	MaxScaleDownRate float64
+	// The metric used for scaling, i.e. concurrency, rps.
+	ScalingMetric string
 	// The value of scaling metric per pod that we target to maintain.
 	// TargetValue <= TotalValue.
 	TargetValue float64
 	// The total value of scaling metric that a pod can maintain.
 	TotalValue float64
-	// The burst capacity that user wants to maintain without queing at the POD level.
+	// The burst capacity that user wants to maintain without queuing at the POD level.
 	// Note, that queueing still might happen due to the non-ideal load balancing.
 	TargetBurstCapacity float64
 	PanicThreshold      float64
@@ -80,7 +84,7 @@ type UniScaler interface {
 	Scale(context.Context, time.Time) (int32, int32, bool)
 
 	// Update reconfigures the UniScaler according to the DeciderSpec.
-	Update(DeciderSpec) error
+	Update(*DeciderSpec) error
 }
 
 // UniScalerFactory creates a UniScaler for a given PA using the given dynamic configuration.
@@ -92,12 +96,12 @@ type scalerRunner struct {
 	stopCh chan struct{}
 	pokeCh chan struct{}
 
-	// mux guards access to metric
+	// mux guards access to decider.
 	mux     sync.RWMutex
-	decider Decider
+	decider *Decider
 }
 
-func (sr *scalerRunner) getLatestScale() int32 {
+func (sr *scalerRunner) latestScale() int32 {
 	sr.mux.RLock()
 	defer sr.mux.RUnlock()
 	return sr.decider.Status.DesiredScale
@@ -134,7 +138,7 @@ type MultiScaler struct {
 
 	logger *zap.SugaredLogger
 
-	watcher      func(string)
+	watcher      func(types.NamespacedName)
 	watcherMutex sync.RWMutex
 }
 
@@ -163,14 +167,16 @@ func (m *MultiScaler) Get(ctx context.Context, namespace, name string) (*Decider
 	}
 	scaler.mux.RLock()
 	defer scaler.mux.RUnlock()
-	return (&scaler.decider).DeepCopy(), nil
+	return scaler.decider, nil
 }
 
 // Create instantiates the desired Decider.
 func (m *MultiScaler) Create(ctx context.Context, decider *Decider) (*Decider, error) {
+	key := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
+	logger := m.logger.With(zap.String(logkey.Key, key.String()))
+	ctx = logging.WithLogger(ctx, logger)
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
-	key := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
 	scaler, exists := m.scalers[key]
 	if !exists {
 		var err error
@@ -182,20 +188,24 @@ func (m *MultiScaler) Create(ctx context.Context, decider *Decider) (*Decider, e
 	}
 	scaler.mux.RLock()
 	defer scaler.mux.RUnlock()
-	return (&scaler.decider).DeepCopy(), nil
+	// scaler.decider is already a copy of the original, so just return it.
+	return scaler.decider, nil
 }
 
 // Update applied the desired DeciderSpec to a currently running Decider.
 func (m *MultiScaler) Update(ctx context.Context, decider *Decider) (*Decider, error) {
 	key := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
+	logger := m.logger.With(zap.String(logkey.Key, key.String()))
+	ctx = logging.WithLogger(ctx, logger)
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
 	if scaler, exists := m.scalers[key]; exists {
 		scaler.mux.Lock()
 		defer scaler.mux.Unlock()
 		oldDeciderSpec := scaler.decider.Spec
-		scaler.decider = *decider
-		scaler.scaler.Update(decider.Spec)
+		// Make sure we store the copy.
+		scaler.decider = decider.DeepCopy()
+		scaler.scaler.Update(&decider.Spec)
 		if oldDeciderSpec.TickInterval != decider.Spec.TickInterval {
 			m.updateRunner(ctx, scaler)
 		}
@@ -218,7 +228,7 @@ func (m *MultiScaler) Delete(ctx context.Context, namespace, name string) error 
 }
 
 // Watch registers a singleton function to call when DeciderStatus is updated.
-func (m *MultiScaler) Watch(fn func(string)) {
+func (m *MultiScaler) Watch(fn func(types.NamespacedName)) {
 	m.watcherMutex.Lock()
 	defer m.watcherMutex.Unlock()
 
@@ -229,7 +239,7 @@ func (m *MultiScaler) Watch(fn func(string)) {
 }
 
 // Inform sends an update to the registered watcher function, if it is set.
-func (m *MultiScaler) Inform(event string) bool {
+func (m *MultiScaler) Inform(event types.NamespacedName) bool {
 	m.watcherMutex.RLock()
 	defer m.watcherMutex.RUnlock()
 
@@ -266,7 +276,8 @@ func (m *MultiScaler) runScalerTicker(ctx context.Context, runner *scalerRunner)
 }
 
 func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scalerRunner, error) {
-	scaler, err := m.uniScalerFactory(decider)
+	d := decider.DeepCopy()
+	scaler, err := m.uniScalerFactory(d)
 	if err != nil {
 		return nil, err
 	}
@@ -274,7 +285,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 	runner := &scalerRunner{
 		scaler:  scaler,
 		stopCh:  make(chan struct{}),
-		decider: *decider,
+		decider: d,
 		pokeCh:  make(chan struct{}),
 	}
 	runner.decider.Status.DesiredScale = -1
@@ -298,7 +309,7 @@ func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, runner *
 	}
 
 	if runner.updateLatestScale(desiredScale, excessBC) {
-		m.Inform(metricKey.String())
+		m.Inform(metricKey)
 	}
 }
 
@@ -312,7 +323,7 @@ func (m *MultiScaler) Poke(key types.NamespacedName, stat Stat) {
 		return
 	}
 
-	if scaler.getLatestScale() == 0 && stat.AverageConcurrentRequests != 0 {
+	if scaler.latestScale() == 0 && stat.AverageConcurrentRequests != 0 {
 		scaler.pokeCh <- struct{}{}
 	}
 }

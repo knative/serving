@@ -28,6 +28,7 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestServiceDefaulting(t *testing.T) {
@@ -39,16 +40,17 @@ func TestServiceDefaulting(t *testing.T) {
 		name: "empty",
 		in:   &Service{},
 		want: &Service{
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
-							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
+							TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 						},
 					},
 				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
 					}},
@@ -58,10 +60,10 @@ func TestServiceDefaulting(t *testing.T) {
 	}, {
 		name: "run latest",
 		in: &Service{
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "busybox",
@@ -73,10 +75,10 @@ func TestServiceDefaulting(t *testing.T) {
 			},
 		},
 		want: &Service{
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Name:           config.DefaultUserContainerName,
@@ -85,12 +87,13 @@ func TestServiceDefaulting(t *testing.T) {
 									ReadinessProbe: defaultProbe,
 								}},
 							},
-							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 						},
 					},
 				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
 					}},
@@ -100,26 +103,27 @@ func TestServiceDefaulting(t *testing.T) {
 	}, {
 		name: "run latest with some default overrides",
 		in: &Service{
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "busybox",
 								}},
 							},
-							TimeoutSeconds: ptr.Int64(60),
+							TimeoutSeconds:       ptr.Int64(60),
+							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 						},
 					},
 				},
 			},
 		},
 		want: &Service{
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Name:           config.DefaultUserContainerName,
@@ -128,12 +132,13 @@ func TestServiceDefaulting(t *testing.T) {
 									ReadinessProbe: defaultProbe,
 								}},
 							},
-							TimeoutSeconds: ptr.Int64(60),
+							TimeoutSeconds:       ptr.Int64(60),
+							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 						},
 					},
 				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
 					}},
@@ -143,10 +148,10 @@ func TestServiceDefaulting(t *testing.T) {
 	}, {
 		name: "byo traffic block",
 		in: &Service{
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Image: "busybox",
@@ -155,8 +160,8 @@ func TestServiceDefaulting(t *testing.T) {
 						},
 					},
 				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						Tag:          "current",
 						RevisionName: "foo",
 						Percent:      ptr.Int64(90),
@@ -171,10 +176,10 @@ func TestServiceDefaulting(t *testing.T) {
 			},
 		},
 		want: &Service{
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Name:           config.DefaultUserContainerName,
@@ -183,12 +188,13 @@ func TestServiceDefaulting(t *testing.T) {
 									ReadinessProbe: defaultProbe,
 								}},
 							},
-							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 						},
 					},
 				},
-				RouteSpec: RouteSpec{
-					Traffic: []TrafficTarget{{
+				RouteSpec: v1.RouteSpec{
+					Traffic: []v1.TrafficTarget{{
 						Tag:            "current",
 						RevisionName:   "foo",
 						Percent:        ptr.Int64(90),
@@ -273,22 +279,22 @@ func TestAnnotateUserInfo(t *testing.T) {
 		name: "update-diff-old-object",
 		user: u2,
 		this: &Service{
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
-							ContainerConcurrency: 1,
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
+							ContainerConcurrency: ptr.Int64(1),
 						},
 					},
 				},
 			},
 		},
 		prev: &Service{
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
-							ContainerConcurrency: 2,
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
+							ContainerConcurrency: ptr.Int64(2),
 						},
 					},
 				},
@@ -301,22 +307,22 @@ func TestAnnotateUserInfo(t *testing.T) {
 		name: "update-diff-new-object",
 		user: u3,
 		this: withUserAnns(u1, u2, &Service{
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
-							ContainerConcurrency: 1,
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
+							ContainerConcurrency: ptr.Int64(1),
 						},
 					},
 				},
 			},
 		}),
 		prev: withUserAnns(u1, u2, &Service{
-			Spec: ServiceSpec{
-				ConfigurationSpec: ConfigurationSpec{
-					Template: RevisionTemplateSpec{
-						Spec: RevisionSpec{
-							ContainerConcurrency: 2,
+			Spec: v1.ServiceSpec{
+				ConfigurationSpec: v1.ConfigurationSpec{
+					Template: v1.RevisionTemplateSpec{
+						Spec: v1.RevisionSpec{
+							ContainerConcurrency: ptr.Int64(2),
 						},
 					},
 				},
@@ -329,9 +335,7 @@ func TestAnnotateUserInfo(t *testing.T) {
 	}}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			ctx := apis.WithUserInfo(context.Background(), &authv1.UserInfo{
 				Username: test.user,
 			})

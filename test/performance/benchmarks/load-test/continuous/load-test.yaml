@@ -1,0 +1,178 @@
+# Copyright 2019 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: loader
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: load-testing
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.internal.knative.dev"]
+    resources: ["serverlessservices"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: load-testing-loader
+subjects:
+  - kind: ServiceAccount
+    name: loader
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: load-testing
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: load-test-zero
+spec:
+  schedule: "0,30 * * * *"
+  jobTemplate:
+    spec:
+      parallelism: 1
+      template:
+        spec:
+          serviceAccountName: loader
+          containers:
+          - name: load-test
+            image: knative.dev/serving/test/performance/benchmarks/load-test/continuous
+            args:
+            - "-flavor=zero"
+            resources:
+              requests:
+                cpu: 1000m
+                memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
+            - name: mako-secrets
+              mountPath: /var/secret
+          - name: mako
+            image: gcr.io/knative-performance/mako-microservice:latest
+            env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secret/robot.json
+            volumeMounts:
+            - name: mako-secrets
+              mountPath: /var/secret
+          volumes:
+          - name: mako-secrets
+            secret:
+              secretName: mako-secrets
+          - name: config-mako
+            configMap:
+              name: config-mako
+          restartPolicy: Never
+      backoffLimit: 0
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: load-test-always
+spec:
+  schedule: "10,40 * * * *"
+  jobTemplate:
+    spec:
+      parallelism: 1
+      template:
+        spec:
+          serviceAccountName: loader
+          containers:
+          - name: load-test
+            image: knative.dev/serving/test/performance/benchmarks/load-test/continuous
+            args:
+            - "-flavor=always"
+            resources:
+              requests:
+                cpu: 1000m
+                memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
+            - name: mako-secrets
+              mountPath: /var/secret
+          - name: mako
+            image: gcr.io/knative-performance/mako-microservice:latest
+            env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secret/robot.json
+            volumeMounts:
+            - name: mako-secrets
+              mountPath: /var/secret
+          volumes:
+          - name: mako-secrets
+            secret:
+              secretName: mako-secrets
+          - name: config-mako
+            configMap:
+              name: config-mako
+          restartPolicy: Never
+      backoffLimit: 0
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: load-test-200
+spec:
+  schedule: "20,50 * * * *"
+  jobTemplate:
+    spec:
+      parallelism: 1
+      template:
+        spec:
+          serviceAccountName: loader
+          containers:
+          - name: load-test
+            image: knative.dev/serving/test/performance/benchmarks/load-test/continuous
+            args:
+            - "-flavor=200"
+            resources:
+              requests:
+                cpu: 1000m
+                memory: 3Gi
+            volumeMounts:
+            - name: config-mako
+              mountPath: /etc/config-mako
+            - name: mako-secrets
+              mountPath: /var/secret
+          - name: mako
+            image: gcr.io/knative-performance/mako-microservice:latest
+            env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secret/robot.json
+            volumeMounts:
+            - name: mako-secrets
+              mountPath: /var/secret
+          volumes:
+          - name: mako-secrets
+            secret:
+              secretName: mako-secrets
+          - name: config-mako
+            configMap:
+              name: config-mako
+          restartPolicy: Never
+      backoffLimit: 0

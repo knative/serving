@@ -19,6 +19,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"path"
 	"path/filepath"
 	"testing"
 
@@ -89,7 +90,9 @@ func TestConfigMapVolume(t *testing.T) {
 	})
 
 	// Setup initial Service
-	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, withVolume, withOptionalBadVolume); err != nil {
+	if _, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		withVolume, withOptionalBadVolume); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
@@ -161,7 +164,9 @@ func TestProjectedConfigMapVolume(t *testing.T) {
 	})
 
 	// Setup initial Service
-	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, withVolume); err != nil {
+	if _, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		withVolume); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
@@ -227,7 +232,9 @@ func TestSecretVolume(t *testing.T) {
 	})
 
 	// Setup initial Service
-	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, withVolume, withOptionalBadVolume); err != nil {
+	if _, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		withVolume, withOptionalBadVolume); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
@@ -297,7 +304,9 @@ func TestProjectedSecretVolume(t *testing.T) {
 	}
 
 	// Setup initial Service
-	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, withVolume, withSubpath); err != nil {
+	if _, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		withVolume, withSubpath); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
@@ -394,7 +403,9 @@ func TestProjectedComplex(t *testing.T) {
 	})
 
 	// Setup initial Service
-	if _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, withVolume); err != nil {
+	if _, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		withVolume); err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}
 
@@ -411,7 +422,7 @@ func TestProjectedComplex(t *testing.T) {
 
 	// Verify that we get multiple files mounted in, in this case from the
 	// second source, which was partially shadowed in our check above.
-	names.Domain = names.Domain + "/another"
+	names.URL.Path = path.Join(names.URL.Path, "another")
 	if err = validateRunLatestDataPlane(t, clients, names, text2); err != nil {
 		t.Error(err)
 	}

@@ -19,6 +19,7 @@ package resources
 import (
 	"testing"
 
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler"
 
@@ -64,6 +65,7 @@ func TestResolveMetricTarget(t *testing.T) {
 			return &c
 		},
 		wantTgt: 9,
+		wantTot: 12,
 	}, {
 		name: "with container concurrency 10 and TU=80%",
 		pa:   pa(WithPAContainerConcurrency(10)),
@@ -72,6 +74,7 @@ func TestResolveMetricTarget(t *testing.T) {
 			return &c
 		},
 		wantTgt: 8,
+		wantTot: 10,
 	}, {
 		name: "with container concurrency 1 and TU=80%",
 		pa:   pa(WithPAContainerConcurrency(1)),
@@ -80,10 +83,12 @@ func TestResolveMetricTarget(t *testing.T) {
 			return &c
 		},
 		wantTgt: 1, // Not permitting less than 1.
+		wantTot: 1,
 	}, {
 		name:    "with container concurrency 1",
 		pa:      pa(WithPAContainerConcurrency(1)),
 		wantTgt: 1,
+		wantTot: 1,
 	}, {
 		name: "with container concurrency 10 and TU=80%",
 		pa:   pa(WithPAContainerConcurrency(10)),
@@ -97,10 +102,12 @@ func TestResolveMetricTarget(t *testing.T) {
 		name:    "with container concurrency 10",
 		pa:      pa(WithPAContainerConcurrency(10)),
 		wantTgt: 10,
+		wantTot: 10,
 	}, {
 		name:    "with target annotation 1",
 		pa:      pa(WithTargetAnnotation("1")),
 		wantTgt: 1,
+		wantTot: 1,
 	}, {
 		name: "with target annotation 1 and TU=75%",
 		pa:   pa(WithTargetAnnotation("1")),
@@ -125,10 +132,35 @@ func TestResolveMetricTarget(t *testing.T) {
 		wantTgt: 1,
 		wantTot: 1,
 	}, {
+		name:    "with target annotation greater than default (ok)",
+		pa:      pa(WithTargetAnnotation("500")),
+		wantTgt: 500,
+		wantTot: 500,
+	}, {
 		name:    "with target annotation greater than container concurrency (ignore annotation for safety)",
 		pa:      pa(WithPAContainerConcurrency(1), WithTargetAnnotation("10")),
 		wantTgt: 1,
 		wantTot: 1,
+	}, {
+		name:    "RPS: defaults",
+		pa:      pa(WithMetricAnnotation(autoscaling.RPS), WithPAContainerConcurrency(1)),
+		wantTgt: 140,
+		wantTot: 200,
+	}, {
+		name:    "RPS: with target annotation 1",
+		pa:      pa(WithMetricAnnotation(autoscaling.RPS), WithTargetAnnotation("1")),
+		wantTgt: 1,
+		wantTot: 1,
+	}, {
+		name:    "RPS: with TU annotation 75%",
+		pa:      pa(WithMetricAnnotation(autoscaling.RPS), WithTUAnnotation("75")),
+		wantTgt: 150,
+		wantTot: 200,
+	}, {
+		name:    "RPS: with target annotation greater than default",
+		pa:      pa(WithMetricAnnotation(autoscaling.RPS), WithTargetAnnotation("300")),
+		wantTgt: 210,
+		wantTot: 300,
 	}}
 
 	for _, tc := range cases {
@@ -137,8 +169,10 @@ func TestResolveMetricTarget(t *testing.T) {
 			if tc.cfgOpt != nil {
 				cfg = tc.cfgOpt(*cfg)
 			}
-			if gotTgt, _ := ResolveMetricTarget(tc.pa, cfg); gotTgt != tc.wantTgt {
-				t.Errorf("ResolveMetricTarget(%v, %v) = %v, want %v", tc.pa, config, gotTgt, tc.wantTgt)
+			gotTgt, gotTot := ResolveMetricTarget(tc.pa, cfg)
+			if gotTgt != tc.wantTgt || gotTot != tc.wantTot {
+				t.Errorf("ResolveMetricTarget(%v, %v) = (%v, %v), want (%v, %v)",
+					tc.pa, config, gotTgt, gotTot, tc.wantTgt, tc.wantTot)
 			}
 		})
 	}

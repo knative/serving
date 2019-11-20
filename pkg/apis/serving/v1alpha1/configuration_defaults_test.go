@@ -22,12 +22,15 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
 
 	"knative.dev/serving/pkg/apis/config"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 var (
@@ -63,8 +66,9 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
-							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+						RevisionSpec: v1.RevisionSpec{
+							TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 						},
 						DeprecatedContainer: &corev1.Container{
 							Name:           config.DefaultUserContainerName,
@@ -77,7 +81,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 		},
 	}, {
 		name: "lemonade",
-		wc:   v1beta1.WithUpgradeViaDefaulting,
+		wc:   v1.WithUpgradeViaDefaulting,
 		in: &Configuration{
 			Spec: ConfigurationSpec{
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
@@ -93,8 +97,9 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				Template: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
-							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+						RevisionSpec: v1.RevisionSpec{
+							TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Name:           config.DefaultUserContainerName,
@@ -114,7 +119,7 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
+						RevisionSpec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{}},
 							},
@@ -127,8 +132,9 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
-							TimeoutSeconds: ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+						RevisionSpec: v1.RevisionSpec{
+							TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+							ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
 							PodSpec: corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Name:           config.DefaultUserContainerName,
@@ -147,8 +153,8 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
-							ContainerConcurrency: 1,
+						RevisionSpec: v1.RevisionSpec{
+							ContainerConcurrency: ptr.Int64(1),
 							TimeoutSeconds:       ptr.Int64(99),
 						},
 						DeprecatedContainer: &corev1.Container{
@@ -163,8 +169,8 @@ func TestConfigurationDefaulting(t *testing.T) {
 			Spec: ConfigurationSpec{
 				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
 					Spec: RevisionSpec{
-						RevisionSpec: v1beta1.RevisionSpec{
-							ContainerConcurrency: 1,
+						RevisionSpec: v1.RevisionSpec{
+							ContainerConcurrency: ptr.Int64(1),
 							TimeoutSeconds:       ptr.Int64(99),
 						},
 						DeprecatedContainer: &corev1.Container{
@@ -188,6 +194,125 @@ func TestConfigurationDefaulting(t *testing.T) {
 			got.SetDefaults(ctx)
 			if diff := cmp.Diff(test.want, got, ignoreUnexportedResources); diff != "" {
 				t.Errorf("SetDefaults (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
+func TestConfigurationUserInfo(t *testing.T) {
+	const (
+		u1 = "oveja@knative.dev"
+		u2 = "cabra@knative.dev"
+		u3 = "vaca@knative.dev"
+	)
+	withUserAnns := func(u1, u2 string, s *Configuration) *Configuration {
+		a := s.GetAnnotations()
+		if a == nil {
+			a = map[string]string{}
+			s.SetAnnotations(a)
+		}
+		a[serving.CreatorAnnotation] = u1
+		a[serving.UpdaterAnnotation] = u2
+		return s
+	}
+	tests := []struct {
+		name     string
+		user     string
+		this     *Configuration
+		prev     *Configuration
+		wantAnns map[string]string
+	}{{
+		name: "create-new",
+		user: u1,
+		this: &Configuration{},
+		prev: nil,
+		wantAnns: map[string]string{
+			serving.CreatorAnnotation: u1,
+			serving.UpdaterAnnotation: u1,
+		},
+	}, {
+		// Old objects don't have the annotation, and unless there's a change in
+		// data they won't get it.
+		name:     "update-no-diff-old-object",
+		user:     u1,
+		this:     &Configuration{},
+		prev:     &Configuration{},
+		wantAnns: map[string]string{},
+	}, {
+		name: "update-no-diff-new-object",
+		user: u2,
+		this: withUserAnns(u1, u1, &Configuration{}),
+		prev: withUserAnns(u1, u1, &Configuration{}),
+		wantAnns: map[string]string{
+			serving.CreatorAnnotation: u1,
+			serving.UpdaterAnnotation: u1,
+		},
+	}, {
+		name: "update-diff-old-object",
+		user: u2,
+		this: &Configuration{
+			Spec: ConfigurationSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{},
+			},
+		},
+		prev: &Configuration{
+			Spec: ConfigurationSpec{
+				Template: &RevisionTemplateSpec{},
+			},
+		},
+		wantAnns: map[string]string{
+			serving.UpdaterAnnotation: u2,
+		},
+	}, {
+		name: "update-diff-new-object",
+		user: u3,
+		this: withUserAnns(u1, u2, &Configuration{
+			Spec: ConfigurationSpec{
+				DeprecatedRevisionTemplate: &RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						RevisionSpec: v1.RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Image: "busybox",
+								}},
+							},
+						},
+					},
+				},
+			},
+		}),
+		prev: withUserAnns(u1, u2, &Configuration{
+			Spec: ConfigurationSpec{
+				Template: &RevisionTemplateSpec{
+					Spec: RevisionSpec{
+						RevisionSpec: v1.RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Image: "helloworld",
+								}},
+							},
+						},
+					},
+				},
+			},
+		}),
+		wantAnns: map[string]string{
+			serving.CreatorAnnotation: u1,
+			serving.UpdaterAnnotation: u3,
+		},
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := apis.WithUserInfo(context.Background(), &authv1.UserInfo{
+				Username: test.user,
+			})
+			if test.prev != nil {
+				ctx = apis.WithinUpdate(ctx, test.prev)
+				test.prev.SetDefaults(ctx)
+			}
+			test.this.SetDefaults(ctx)
+			if got, want := test.this.GetAnnotations(), test.wantAnns; !cmp.Equal(got, want) {
+				t.Errorf("Annotations = %v, want: %v, diff (-got, +want): %s", got, want, cmp.Diff(got, want))
 			}
 		})
 	}

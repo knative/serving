@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"knative.dev/serving/pkg/autoscaler"
 
 	dto "github.com/prometheus/client_model/go"
 )
@@ -94,45 +93,68 @@ func TestNewPrometheusStatsReporter_negative(t *testing.T) {
 func TestReporterReport(t *testing.T) {
 	t.Helper()
 	tests := []struct {
-		name                              string
-		reportingPeriod                   time.Duration
-		autoscalerStat                    *autoscaler.Stat
-		expectedReqCount                  float64
-		expectedAverageConcurrentRequests float64
-		expectedProxiedRequestCount       float64
-		expectedProxiedConcurrency        float64
+		name            string
+		reportingPeriod time.Duration
+
+		concurrency        float64
+		proxiedConcurrency float64
+		reqCount           float64
+		proxiedReqCount    float64
+
+		expectedReqCount            float64
+		expectedProxiedRequestCount float64
+		expectedConcurrency         float64
+		expectedProxiedConcurrency  float64
 	}{{
-		name:                              "no proxy requests",
-		reportingPeriod:                   1 * time.Second,
-		autoscalerStat:                    &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3},
-		expectedReqCount:                  39,
-		expectedAverageConcurrentRequests: 3,
-		expectedProxiedRequestCount:       0,
-		expectedProxiedConcurrency:        0,
+		name:            "no proxy requests",
+		reportingPeriod: 1 * time.Second,
+
+		reqCount:    39,
+		concurrency: 3,
+
+		expectedReqCount:            39,
+		expectedConcurrency:         3,
+		expectedProxiedRequestCount: 0,
+		expectedProxiedConcurrency:  0,
 	}, {
-		name:                              "reportingPeriod=10s",
-		reportingPeriod:                   10 * time.Second,
-		autoscalerStat:                    &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3, ProxiedRequestCount: 15, AverageProxiedConcurrentRequests: 2},
-		expectedReqCount:                  3.9,
-		expectedAverageConcurrentRequests: 3,
-		expectedProxiedRequestCount:       1.5,
-		expectedProxiedConcurrency:        2,
+		name:            "reportingPeriod=10s",
+		reportingPeriod: 10 * time.Second,
+
+		reqCount:           39,
+		concurrency:        3,
+		proxiedReqCount:    15,
+		proxiedConcurrency: 2,
+
+		expectedReqCount:            3.9,
+		expectedConcurrency:         3,
+		expectedProxiedRequestCount: 1.5,
+		expectedProxiedConcurrency:  2,
 	}, {
-		name:                              "reportingPeriod=2s",
-		reportingPeriod:                   2 * time.Second,
-		autoscalerStat:                    &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3, ProxiedRequestCount: 15, AverageProxiedConcurrentRequests: 2},
-		expectedReqCount:                  19.5,
-		expectedAverageConcurrentRequests: 3,
-		expectedProxiedRequestCount:       7.5,
-		expectedProxiedConcurrency:        2,
+		name:            "reportingPeriod=2s",
+		reportingPeriod: 2 * time.Second,
+
+		reqCount:           39,
+		concurrency:        3,
+		proxiedReqCount:    15,
+		proxiedConcurrency: 2,
+
+		expectedReqCount:            19.5,
+		expectedConcurrency:         3,
+		expectedProxiedRequestCount: 7.5,
+		expectedProxiedConcurrency:  2,
 	}, {
-		name:                              "reportingPeriod=1s",
-		reportingPeriod:                   1 * time.Second,
-		autoscalerStat:                    &autoscaler.Stat{RequestCount: 39, AverageConcurrentRequests: 3, ProxiedRequestCount: 15, AverageProxiedConcurrentRequests: 2},
-		expectedReqCount:                  39,
-		expectedAverageConcurrentRequests: 3,
-		expectedProxiedRequestCount:       15,
-		expectedProxiedConcurrency:        2,
+		name:            "reportingPeriod=1s",
+		reportingPeriod: 1 * time.Second,
+
+		reqCount:           39,
+		concurrency:        3,
+		proxiedReqCount:    15,
+		proxiedConcurrency: 2,
+
+		expectedReqCount:            39,
+		expectedConcurrency:         3,
+		expectedProxiedRequestCount: 15,
+		expectedProxiedConcurrency:  2,
 	},
 	}
 
@@ -142,15 +164,10 @@ func TestReporterReport(t *testing.T) {
 			if err != nil {
 				t.Errorf("Something went wrong with creating a reporter, '%v'.", err)
 			}
-			if !reporter.initialized {
-				t.Error("Reporter should be initialized")
-			}
-			if err := reporter.Report(test.autoscalerStat); err != nil {
-				t.Error(err)
-			}
-			checkData(t, operationsPerSecondGV, test.expectedReqCount)
-			checkData(t, averageConcurrentRequestsGV, test.expectedAverageConcurrentRequests)
-			checkData(t, proxiedOperationsPerSecondGV, test.expectedProxiedRequestCount)
+			reporter.Report(test.concurrency, test.proxiedConcurrency, test.reqCount, test.proxiedReqCount)
+			checkData(t, requestsPerSecondGV, test.expectedReqCount)
+			checkData(t, averageConcurrentRequestsGV, test.expectedConcurrency)
+			checkData(t, proxiedRequestsPerSecondGV, test.expectedProxiedRequestCount)
 			checkData(t, averageProxiedConcurrentRequestsGV, test.expectedProxiedConcurrency)
 		})
 	}

@@ -62,6 +62,9 @@ func TestReporterReport(t *testing.T) {
 	expectSuccess(t, "ReportStableRequestConcurrency", func() error { return r.ReportStableRequestConcurrency(2) })
 	expectSuccess(t, "ReportPanicRequestConcurrency", func() error { return r.ReportPanicRequestConcurrency(3) })
 	expectSuccess(t, "ReportTargetRequestConcurrency", func() error { return r.ReportTargetRequestConcurrency(0.9) })
+	expectSuccess(t, "ReportStableRPS", func() error { return r.ReportStableRPS(5) })
+	expectSuccess(t, "ReportPanicRPS", func() error { return r.ReportPanicRPS(6) })
+	expectSuccess(t, "ReportTargetRPS", func() error { return r.ReportTargetRPS(7) })
 	expectSuccess(t, "ReportExcessBurstCapacity", func() error { return r.ReportExcessBurstCapacity(19.84) })
 	metricstest.CheckLastValueData(t, "desired_pods", wantTags, 10)
 	metricstest.CheckLastValueData(t, "requested_pods", wantTags, 7)
@@ -71,6 +74,9 @@ func TestReporterReport(t *testing.T) {
 	metricstest.CheckLastValueData(t, "excess_burst_capacity", wantTags, 19.84)
 	metricstest.CheckLastValueData(t, "panic_request_concurrency", wantTags, 3)
 	metricstest.CheckLastValueData(t, "target_concurrency_per_pod", wantTags, 0.9)
+	metricstest.CheckLastValueData(t, "stable_requests_per_second", wantTags, 5)
+	metricstest.CheckLastValueData(t, "panic_requests_per_second", wantTags, 6)
+	metricstest.CheckLastValueData(t, "target_requests_per_second", wantTags, 7)
 
 	// All the stats are gauges - record multiple entries for one stat - last one should stick
 	expectSuccess(t, "ReportDesiredPodCount", func() error { return r.ReportDesiredPodCount(1) })
@@ -129,6 +135,9 @@ func resetMetrics() {
 		panicRequestConcurrencyM.Name(),
 		excessBurstCapacityM.Name(),
 		targetRequestConcurrencyM.Name(),
-		panicM.Name())
+		panicM.Name(),
+		stableRPSM.Name(),
+		panicRPSM.Name(),
+		targetRPSM.Name())
 	register()
 }

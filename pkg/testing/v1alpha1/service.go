@@ -24,11 +24,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/ptr"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 	servicenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	"knative.dev/serving/pkg/resources"
@@ -93,7 +94,7 @@ func WithInlineRollout(s *v1alpha1.Service) {
 		ConfigurationSpec: v1alpha1.ConfigurationSpec{
 			Template: &v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
-					RevisionSpec: v1beta1.RevisionSpec{
+					RevisionSpec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "busybox",
@@ -106,8 +107,40 @@ func WithInlineRollout(s *v1alpha1.Service) {
 		},
 		RouteSpec: v1alpha1.RouteSpec{
 			Traffic: []v1alpha1.TrafficTarget{{
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					Percent: ptr.Int64(100),
+				},
+			}},
+		},
+	}
+}
+
+// WithInlineNamedRevision configures the Service to use BYO Revision in the
+// template spec and reference that same revision name in the route spec.
+func WithInlineNamedRevision(s *v1alpha1.Service) {
+	s.Spec = v1alpha1.ServiceSpec{
+		ConfigurationSpec: v1alpha1.ConfigurationSpec{
+			Template: &v1alpha1.RevisionTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: s.Name + "-byo",
+				},
+				Spec: v1alpha1.RevisionSpec{
+					RevisionSpec: v1.RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "busybox",
+							}},
+						},
+						TimeoutSeconds: ptr.Int64(60),
+					},
+				},
+			},
+		},
+		RouteSpec: v1alpha1.RouteSpec{
+			Traffic: []v1alpha1.TrafficTarget{{
+				TrafficTarget: v1.TrafficTarget{
+					RevisionName: s.Name + "-byo",
+					Percent:      ptr.Int64(100),
 				},
 			}},
 		},
@@ -123,21 +156,21 @@ func WithRunLatestRollout(s *v1alpha1.Service) {
 	}
 }
 
-// WithInlineConfigSpec confgures the Service to use the given config spec
+// WithInlineConfigSpec configures the Service to use the given config spec
 func WithInlineConfigSpec(config v1alpha1.ConfigurationSpec) ServiceOption {
 	return func(svc *v1alpha1.Service) {
 		svc.Spec.ConfigurationSpec = config
 	}
 }
 
-// WithInlineRouteSpec confgures the Service to use the given route spec
+// WithInlineRouteSpec configures the Service to use the given route spec
 func WithInlineRouteSpec(config v1alpha1.RouteSpec) ServiceOption {
 	return func(svc *v1alpha1.Service) {
 		svc.Spec.RouteSpec = config
 	}
 }
 
-// WithRunLatestConfigSpec confgures the Service to use a "runLatest" configuration
+// WithRunLatestConfigSpec configures the Service to use a "runLatest" configuration
 func WithRunLatestConfigSpec(config v1alpha1.ConfigurationSpec) ServiceOption {
 	return func(svc *v1alpha1.Service) {
 		svc.Spec = v1alpha1.ServiceSpec{
@@ -231,10 +264,10 @@ func WithContainerConcurrency(cc int) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		if s.Spec.DeprecatedRunLatest != nil {
 			s.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.ContainerConcurrency =
-				v1beta1.RevisionContainerConcurrencyType(cc)
+				ptr.Int64(int64(cc))
 		} else {
 			s.Spec.ConfigurationSpec.Template.Spec.ContainerConcurrency =
-				v1beta1.RevisionContainerConcurrencyType(cc)
+				ptr.Int64(int64(cc))
 		}
 	}
 }
@@ -318,19 +351,6 @@ func WithReleaseRolloutAndPercentageConfigSpec(percentage int, config v1alpha1.C
 	}
 }
 
-// WithReleaseRolloutConfigSpec configures the Service to use a "release" rollout,
-// which spans the provided revisions.
-func WithReleaseRolloutConfigSpec(config v1alpha1.ConfigurationSpec, names ...string) ServiceOption {
-	return func(s *v1alpha1.Service) {
-		s.Spec = v1alpha1.ServiceSpec{
-			DeprecatedRelease: &v1alpha1.ReleaseType{
-				Revisions:     names,
-				Configuration: config,
-			},
-		}
-	}
-}
-
 // WithReleaseRollout configures the Service to use a "release" rollout,
 // which spans the provided revisions.
 func WithReleaseRollout(names ...string) ServiceOption {
@@ -352,8 +372,8 @@ func WithInitSvcConditions(s *v1alpha1.Service) {
 // WithReadyRoute reflects the Route's readiness in the Service resource.
 func WithReadyRoute(s *v1alpha1.Service) {
 	s.Status.PropagateRouteStatus(&v1alpha1.RouteStatus{
-		Status: duckv1beta1.Status{
-			Conditions: duckv1beta1.Conditions{{
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
 				Type:   "Ready",
 				Status: "True",
 			}},
@@ -397,8 +417,8 @@ func WithSvcStatusTraffic(targets ...v1alpha1.TrafficTarget) ServiceOption {
 func WithFailedRoute(reason, message string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Status.PropagateRouteStatus(&v1alpha1.RouteStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
 					Type:    "Ready",
 					Status:  "False",
 					Reason:  reason,
@@ -409,14 +429,20 @@ func WithFailedRoute(reason, message string) ServiceOption {
 	}
 }
 
+// WithOutOfDateConfig reflects the Configuration's readiness in the Service
+// resource.
+func WithOutOfDateConfig(s *v1alpha1.Service) {
+	s.Status.MarkConfigurationNotReconciled()
+}
+
 // WithReadyConfig reflects the Configuration's readiness in the Service
 // resource.  This must coincide with the setting of Latest{Created,Ready}
 // to the provided revision name.
 func WithReadyConfig(name string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Status.PropagateConfigurationStatus(&v1alpha1.ConfigurationStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
 					Type:   "Ready",
 					Status: "True",
 				}},
@@ -434,8 +460,8 @@ func WithReadyConfig(name string) ServiceOption {
 func WithFailedConfig(name, reason, message string) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		s.Status.PropagateConfigurationStatus(&v1alpha1.ConfigurationStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
 					Type:   "Ready",
 					Status: "False",
 					Reason: reason,

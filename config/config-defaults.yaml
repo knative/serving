@@ -74,3 +74,10 @@ data:
     # enclosing Service or Configuration, so values such as
     # {{.Name}} are also valid.
     container-name-template: "user-container"
+
+    # container-concurrency specifies the maximum number
+    # of requests the Container can handle at once, and requests
+    # above this threshold are queued.  Setting a value of zero
+    # disables this throttling and lets through as many requests as
+    # the pod receives.
+    container-concurrency: "0"

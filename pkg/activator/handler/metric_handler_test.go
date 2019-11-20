@@ -25,7 +25,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
-	. "knative.dev/pkg/logging/testing"
+	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/network"
 )
@@ -41,6 +41,8 @@ func TestRequestMetricHandler(t *testing.T) {
 		baseHandler   http.HandlerFunc
 		reporterCalls []reporterCall
 		newHeader     map[string]string
+		wantCode      int
+		wantPanic     bool
 	}{
 		{
 			label: "kube probe request",
@@ -48,6 +50,7 @@ func TestRequestMetricHandler(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			}),
 			newHeader: map[string]string{"User-Agent": network.KubeProbeUAPrefix},
+			wantCode:  http.StatusOK,
 		},
 		{
 			label: "network probe response",
@@ -55,6 +58,7 @@ func TestRequestMetricHandler(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			}),
 			newHeader: map[string]string{network.ProbeHeaderName: "test-service"},
+			wantCode:  http.StatusOK,
 		},
 		{
 			label: "normal response",
@@ -69,11 +73,12 @@ func TestRequestMetricHandler(t *testing.T) {
 				Config:     "config-real-name",
 				StatusCode: http.StatusOK,
 			}},
+			wantCode: http.StatusOK,
 		},
 		{
 			label: "panic response",
 			baseHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusOK)
+				w.WriteHeader(http.StatusBadRequest)
 				panic(errors.New("handler error"))
 			}),
 			reporterCalls: []reporterCall{{
@@ -84,18 +89,20 @@ func TestRequestMetricHandler(t *testing.T) {
 				Config:     "config-real-name",
 				StatusCode: http.StatusInternalServerError,
 			}},
+			wantCode:  http.StatusBadRequest,
+			wantPanic: true,
 		},
 	}
 
-	reporter := &fakeReporter{}
-
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
+			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer func() {
-				recover()
+				cancel()
 			}()
-			handler := NewMetricHandler(revisionLister(revision(testNamespace, testRevName)), reporter,
-				TestLogger(t), test.baseHandler)
+			reporter := &fakeReporter{}
+			revisionInformer(ctx, revision(testNamespace, testRevName))
+			handler := NewMetricHandler(ctx, reporter, test.baseHandler)
 
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", bytes.NewBufferString(""))
@@ -107,11 +114,21 @@ func TestRequestMetricHandler(t *testing.T) {
 				}
 			}
 
-			handler.ServeHTTP(resp, req)
+			defer func() {
+				err := recover()
+				if test.wantPanic && err == nil {
+					t.Error("Want ServeHTTP to panic, got nothing.")
+				}
 
-			if diff := cmp.Diff(test.reporterCalls, reporter.calls, ignoreDurationOption); diff != "" {
-				t.Errorf("Reporting calls are different (-want, +got) = %v", diff)
-			}
+				if resp.Code != test.wantCode {
+					t.Errorf("Response Status = %d,  want: %d", resp.Code, test.wantCode)
+				}
+				if got, want := reporter.calls, test.reporterCalls; !cmp.Equal(got, want, ignoreDurationOption) {
+					t.Errorf("Reporting calls are different (-want, +got) = %s", cmp.Diff(want, got, ignoreDurationOption))
+				}
+			}()
+
+			handler.ServeHTTP(resp, req)
 		})
 	}
 

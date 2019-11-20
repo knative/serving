@@ -21,17 +21,15 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/test/logging"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 
-	// 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	// 	"knative.dev/pkg/ptr"
 	ptest "knative.dev/pkg/test"
 	rtesting "knative.dev/serving/pkg/testing/v1beta1"
 	"knative.dev/serving/test"
@@ -53,7 +51,7 @@ func PatchConfig(t *testing.T, clients *test.Clients, svc *v1beta1.Configuration
 		opt(newSvc)
 	}
 	LogResourceObject(t, ResourceObjects{Config: newSvc})
-	patchBytes, err := createPatch(svc, newSvc)
+	patchBytes, err := test.CreateBytePatch(svc, newSvc)
 	if err != nil {
 		return nil, err
 	}
@@ -84,10 +82,10 @@ func WaitForConfigLatestRevision(clients *test.Clients, names test.ResourceNames
 
 // ConfigurationSpec returns the spec of a configuration to be used throughout different
 // CRD helpers.
-func ConfigurationSpec(imagePath string) *v1beta1.ConfigurationSpec {
-	return &v1beta1.ConfigurationSpec{
-		Template: v1beta1.RevisionTemplateSpec{
-			Spec: v1beta1.RevisionSpec{
+func ConfigurationSpec(imagePath string) *v1.ConfigurationSpec {
+	return &v1.ConfigurationSpec{
+		Template: v1.RevisionTemplateSpec{
+			Spec: v1.RevisionSpec{
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: imagePath,
@@ -116,15 +114,15 @@ func Configuration(names test.ResourceNames, fopt ...rtesting.ConfigOption) *v1b
 }
 
 // WaitForConfigurationState polls the status of the Configuration called name
-// from client every interval until inState returns `true` indicating it
-// is done, returns an error or timeout. desc will be used to name the metric
+// from client every PollInterval until inState returns `true` indicating it
+// is done, returns an error or PollTimeout. desc will be used to name the metric
 // that is emitted to track how long it took for name to get into the state checked by inState.
 func WaitForConfigurationState(client *test.ServingBetaClients, name string, inState func(c *v1beta1.Configuration) (bool, error), desc string) error {
 	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForConfigurationState/%s/%s", name, desc))
 	defer span.End()
 
 	var lastState *v1beta1.Configuration
-	waitErr := wait.PollImmediate(interval, timeout, func() (bool, error) {
+	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		var err error
 		lastState, err = client.Configs.Get(name, metav1.GetOptions{})
 		if err != nil {
@@ -134,7 +132,7 @@ func WaitForConfigurationState(client *test.ServingBetaClients, name string, inS
 	})
 
 	if waitErr != nil {
-		return errors.Wrapf(waitErr, "configuration %q is not in desired state, got: %+v", name, lastState)
+		return fmt.Errorf("configuration %q is not in desired state, got: %+v: %w", name, lastState, waitErr)
 	}
 	return nil
 }

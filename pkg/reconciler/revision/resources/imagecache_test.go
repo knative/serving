@@ -26,8 +26,8 @@ import (
 	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
 func TestMakeImageCache(t *testing.T) {
@@ -48,8 +48,8 @@ func TestMakeImageCache(t *testing.T) {
 				UID: "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 1,
+				RevisionSpec: v1.RevisionSpec{
+					ContainerConcurrency: ptr.Int64(1),
 				},
 				DeprecatedContainer: &corev1.Container{
 					Image: "busybox",
@@ -93,8 +93,8 @@ func TestMakeImageCache(t *testing.T) {
 				UID:       "1234",
 			},
 			Spec: v1alpha1.RevisionSpec{
-				RevisionSpec: v1beta1.RevisionSpec{
-					ContainerConcurrency: 1,
+				RevisionSpec: v1.RevisionSpec{
+					ContainerConcurrency: ptr.Int64(1),
 					PodSpec: corev1.PodSpec{
 						ServiceAccountName: "privilegeless",
 					},

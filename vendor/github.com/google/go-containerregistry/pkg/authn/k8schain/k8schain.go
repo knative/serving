@@ -130,14 +130,11 @@ func NewNoClient() (authn.Keychain, error) {
 	return New(nil, Options{})
 }
 
-type lazyProvider struct {
-	provider credentialprovider.LazyAuthConfiguration
-	repo     string
-}
+type lazyProvider credentialprovider.LazyAuthConfiguration
 
 // Authorization implements Authenticator.
 func (lp lazyProvider) Authorization() (string, error) {
-	authConfig := credentialprovider.LazyProvide(credentialprovider.LazyAuthConfiguration(lp.provider), lp.repo)
+	authConfig := credentialprovider.LazyProvide(credentialprovider.LazyAuthConfiguration(lp))
 	if authConfig.Auth != "" {
 		return "Basic " + authConfig.Auth, nil
 	}
@@ -156,16 +153,20 @@ type keychain struct {
 }
 
 // Resolve implements authn.Keychain
-func (kc *keychain) Resolve(reg name.Registry) (authn.Authenticator, error) {
-	// TODO(mattmoor): Lookup expects an image reference and we only have a registry,
-	// find something better than this.
-	creds, found := kc.keyring.Lookup(reg.String() + "/foo/bar")
+func (kc *keychain) Resolve(target authn.Resource) (authn.Authenticator, error) {
+	var (
+		creds []credentialprovider.LazyAuthConfiguration
+		found bool
+	)
+	if repo, ok := target.(name.Repository); ok {
+		creds, found = kc.keyring.Lookup(repo.String())
+	} else {
+		// Lookup expects an image reference and we only have a registry.
+		creds, found = kc.keyring.Lookup(target.RegistryStr() + "/foo/bar")
+	}
 	if !found || len(creds) < 1 {
 		return authn.Anonymous, nil
 	}
 	// TODO(mattmoor): How to support multiple credentials?
-	return lazyProvider{
-		provider: creds[0],
-		repo:     reg.String(),
-	}, nil
+	return lazyProvider(creds[0]), nil
 }

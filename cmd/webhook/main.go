@@ -18,122 +18,153 @@ package main
 
 import (
 	"context"
-	"flag"
-	"log"
 
-	// Injection related imports.
-	"knative.dev/pkg/injection"
-	"knative.dev/pkg/injection/clients/kubeclient"
-	"knative.dev/pkg/injection/sharedmain"
-
-	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/signals"
-	"knative.dev/pkg/system"
-	"knative.dev/pkg/version"
 	"knative.dev/pkg/webhook"
+	"knative.dev/pkg/webhook/certificates"
+	"knative.dev/pkg/webhook/configmaps"
+	"knative.dev/pkg/webhook/resourcesemantics"
+	"knative.dev/pkg/webhook/resourcesemantics/defaulting"
+	"knative.dev/pkg/webhook/resourcesemantics/validation"
+
+	// resource validation types
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	apiconfig "knative.dev/serving/pkg/apis/config"
 	net "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
+
+	// config validation constructors
+	tracingconfig "knative.dev/pkg/tracing/config"
+	defaultconfig "knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/deployment"
+	"knative.dev/serving/pkg/gc"
+	metricsconfig "knative.dev/serving/pkg/metrics"
+	"knative.dev/serving/pkg/network"
+	certconfig "knative.dev/serving/pkg/reconciler/certificate/config"
+	istioconfig "knative.dev/serving/pkg/reconciler/ingress/config"
+	domainconfig "knative.dev/serving/pkg/reconciler/route/config"
 )
 
-const (
-	component = "webhook"
-)
+var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
+	v1alpha1.SchemeGroupVersion.WithKind("Revision"):      &v1alpha1.Revision{},
+	v1alpha1.SchemeGroupVersion.WithKind("Configuration"): &v1alpha1.Configuration{},
+	v1alpha1.SchemeGroupVersion.WithKind("Route"):         &v1alpha1.Route{},
+	v1alpha1.SchemeGroupVersion.WithKind("Service"):       &v1alpha1.Service{},
+	v1beta1.SchemeGroupVersion.WithKind("Revision"):       &v1beta1.Revision{},
+	v1beta1.SchemeGroupVersion.WithKind("Configuration"):  &v1beta1.Configuration{},
+	v1beta1.SchemeGroupVersion.WithKind("Route"):          &v1beta1.Route{},
+	v1beta1.SchemeGroupVersion.WithKind("Service"):        &v1beta1.Service{},
+	v1.SchemeGroupVersion.WithKind("Revision"):            &v1.Revision{},
+	v1.SchemeGroupVersion.WithKind("Configuration"):       &v1.Configuration{},
+	v1.SchemeGroupVersion.WithKind("Route"):               &v1.Route{},
+	v1.SchemeGroupVersion.WithKind("Service"):             &v1.Service{},
 
-var (
-	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-)
+	autoscalingv1alpha1.SchemeGroupVersion.WithKind("PodAutoscaler"): &autoscalingv1alpha1.PodAutoscaler{},
+	autoscalingv1alpha1.SchemeGroupVersion.WithKind("Metric"):        &autoscalingv1alpha1.Metric{},
+
+	net.SchemeGroupVersion.WithKind("Certificate"):       &net.Certificate{},
+	net.SchemeGroupVersion.WithKind("Ingress"):           &net.Ingress{},
+	net.SchemeGroupVersion.WithKind("ServerlessService"): &net.ServerlessService{},
+}
+
+func NewDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+	// Decorate contexts with the current state of the config.
+	store := defaultconfig.NewStore(logging.FromContext(ctx).Named("config-store"))
+	store.WatchConfigs(cmw)
+
+	return defaulting.NewAdmissionController(ctx,
+
+		// Name of the resource webhook.
+		"webhook.serving.knative.dev",
+
+		// The path on which to serve the webhook.
+		// TODO(mattmoor): This can be changed after 0.11 once
+		// we have release reconciliation-based webhooks.
+		"/",
+
+		// The resources to validate and default.
+		types,
+
+		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
+		func(ctx context.Context) context.Context {
+			return v1.WithUpgradeViaDefaulting(store.ToContext(ctx))
+		},
+
+		// Whether to disallow unknown fields.
+		true,
+	)
+}
+
+func NewValidationAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+	return validation.NewAdmissionController(ctx,
+
+		// Name of the resource webhook.
+		"validation.webhook.serving.knative.dev",
+
+		// The path on which to serve the webhook.
+		// TODO(mattmoor): This can be changed after 0.11 once
+		// we have release reconciliation-based webhooks.
+		"/",
+
+		// The resources to validate and default.
+		types,
+
+		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
+		func(ctx context.Context) context.Context {
+			return ctx
+		},
+
+		// Whether to disallow unknown fields.
+		true,
+	)
+}
+
+func NewConfigValidationController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+	return configmaps.NewAdmissionController(ctx,
+
+		// Name of the configmap webhook.
+		"config.webhook.serving.knative.dev",
+
+		// The path on which to serve the webhook.
+		"/config-validation",
+
+		// The configmaps to validate.
+		configmap.Constructors{
+			tracingconfig.ConfigName:         tracingconfig.NewTracingConfigFromConfigMap,
+			autoscaler.ConfigName:            autoscaler.NewConfigFromConfigMap,
+			certconfig.CertManagerConfigName: certconfig.NewCertManagerConfigFromConfigMap,
+			gc.ConfigName:                    gc.NewConfigFromConfigMapFunc(ctx),
+			network.ConfigName:               network.NewConfigFromConfigMap,
+			istioconfig.IstioConfigName:      istioconfig.NewIstioFromConfigMap,
+			deployment.ConfigName:            deployment.NewConfigFromConfigMap,
+			metrics.ConfigMapName():          metricsconfig.NewObservabilityConfigFromConfigMap,
+			logging.ConfigMapName():          logging.NewConfigFromConfigMap,
+			domainconfig.DomainConfigName:    domainconfig.NewDomainFromConfigMap,
+			defaultconfig.DefaultsConfigName: defaultconfig.NewDefaultsConfigFromConfigMap,
+		},
+	)
+}
 
 func main() {
-	flag.Parse()
+	// Set up a signal context with our webhook options
+	ctx := webhook.WithOptions(signals.NewContext(), webhook.Options{
+		ServiceName: "webhook",
+		Port:        8443,
+		SecretName:  "webhook-certs",
+	})
 
-	// Set up signals so we handle the first shutdown signal gracefully.
-	ctx := signals.NewContext()
-
-	cfg, err := sharedmain.GetConfig(*masterURL, *kubeconfig)
-	if err != nil {
-		log.Fatal("Failed to get cluster config:", err)
-	}
-
-	log.Printf("Registering %d clients", len(injection.Default.GetClients()))
-	log.Printf("Registering %d informer factories", len(injection.Default.GetInformerFactories()))
-	log.Printf("Registering %d informers", len(injection.Default.GetInformers()))
-
-	ctx, _ = injection.Default.SetupInformers(ctx, cfg)
-	kubeClient := kubeclient.Get(ctx)
-
-	config, err := sharedmain.GetLoggingConfig(ctx)
-	if err != nil {
-		log.Fatal("Error loading/parsing logging configuration:", err)
-	}
-	logger, atomicLevel := logging.NewLoggerFromConfig(config, component)
-	defer logger.Sync()
-	logger = logger.With(zap.String(logkey.ControllerType, component))
-
-	if err := version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
-		logger.Fatalw("Version check failed", err)
-	}
-
-	// Watch the logging config map and dynamically update logging levels.
-	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
-	// Watch the observability config map and dynamically update metrics exporter.
-	configMapWatcher.Watch(metrics.ConfigMapName(), metrics.UpdateExporterFromConfigMap(component, logger))
-	// Watch the observability config map and dynamically update request logs.
-	configMapWatcher.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
-
-	store := apiconfig.NewStore(logger.Named("config-store"))
-	store.WatchConfigs(configMapWatcher)
-
-	if err = configMapWatcher.Start(ctx.Done()); err != nil {
-		logger.Fatalw("Failed to start the ConfigMap watcher", zap.Error(err))
-	}
-
-	options := webhook.ControllerOptions{
-		ServiceName:    "webhook",
-		DeploymentName: "webhook",
-		Namespace:      system.Namespace(),
-		Port:           8443,
-		SecretName:     "webhook-certs",
-		WebhookName:    "webhook.serving.knative.dev",
-	}
-
-	handlers := map[schema.GroupVersionKind]webhook.GenericCRD{
-		v1alpha1.SchemeGroupVersion.WithKind("Revision"):                 &v1alpha1.Revision{},
-		v1alpha1.SchemeGroupVersion.WithKind("Configuration"):            &v1alpha1.Configuration{},
-		v1alpha1.SchemeGroupVersion.WithKind("Route"):                    &v1alpha1.Route{},
-		v1alpha1.SchemeGroupVersion.WithKind("Service"):                  &v1alpha1.Service{},
-		v1beta1.SchemeGroupVersion.WithKind("Revision"):                  &v1beta1.Revision{},
-		v1beta1.SchemeGroupVersion.WithKind("Configuration"):             &v1beta1.Configuration{},
-		v1beta1.SchemeGroupVersion.WithKind("Route"):                     &v1beta1.Route{},
-		v1beta1.SchemeGroupVersion.WithKind("Service"):                   &v1beta1.Service{},
-		autoscalingv1alpha1.SchemeGroupVersion.WithKind("PodAutoscaler"): &autoscalingv1alpha1.PodAutoscaler{},
-		autoscalingv1alpha1.SchemeGroupVersion.WithKind("Metric"):        &autoscalingv1alpha1.Metric{},
-		net.SchemeGroupVersion.WithKind("Certificate"):                   &net.Certificate{},
-		net.SchemeGroupVersion.WithKind("ClusterIngress"):                &net.ClusterIngress{},
-		net.SchemeGroupVersion.WithKind("Ingress"):                       &net.Ingress{},
-		net.SchemeGroupVersion.WithKind("ServerlessService"):             &net.ServerlessService{},
-	}
-
-	// Decorate contexts with the current state of the config.
-	ctxFunc := func(ctx context.Context) context.Context {
-		return v1beta1.WithUpgradeViaDefaulting(store.ToContext(ctx))
-	}
-
-	controller, err := webhook.NewAdmissionController(kubeClient, options, handlers, logger, ctxFunc, true)
-
-	if err != nil {
-		logger.Fatalw("Failed to create admission controller", zap.Error(err))
-	}
-
-	if err = controller.Run(ctx.Done()); err != nil {
-		logger.Fatalw("Failed to start the admission controller", zap.Error(err))
-	}
+	sharedmain.MainWithContext(ctx, "webhook",
+		certificates.NewController,
+		NewDefaultingAdmissionController,
+		NewValidationAdmissionController,
+		NewConfigValidationController,
+	)
 }

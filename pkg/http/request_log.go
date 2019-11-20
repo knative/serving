@@ -32,12 +32,13 @@ import (
 // RequestLogHandler implements an http.Handler that writes request logs
 // and calls the next handler.
 type RequestLogHandler struct {
-	handler     http.Handler
-	inputGetter RequestLogTemplateInputGetter
-	writer      io.Writer
-	templateMux sync.RWMutex
-	templateStr string
-	template    *template.Template
+	handler               http.Handler
+	inputGetter           RequestLogTemplateInputGetter
+	writer                io.Writer
+	templateMux           sync.RWMutex
+	templateStr           string
+	template              *template.Template
+	enableProbeRequestLog bool
 }
 
 // RequestLogRevision provides revision related static information
@@ -83,11 +84,12 @@ func RequestLogTemplateInputGetterFromRevision(rev *RequestLogRevision) RequestL
 
 // NewRequestLogHandler creates an http.Handler that logs request logs to an io.Writer.
 func NewRequestLogHandler(h http.Handler, w io.Writer, templateStr string,
-	inputGetter RequestLogTemplateInputGetter) (*RequestLogHandler, error) {
+	inputGetter RequestLogTemplateInputGetter, enableProbeRequestLog bool) (*RequestLogHandler, error) {
 	reqHandler := &RequestLogHandler{
-		handler:     h,
-		writer:      w,
-		inputGetter: inputGetter,
+		handler:               h,
+		writer:                w,
+		inputGetter:           inputGetter,
+		enableProbeRequestLog: enableProbeRequestLog,
 	}
 	if err := reqHandler.SetTemplate(templateStr); err != nil {
 		return nil, err
@@ -138,10 +140,8 @@ func (h *RequestLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
 
 	defer func() {
-		// Filter probe requests for request logs.
-		// TODO(yanweiguo): Add probe request logs with a way to distinguish external
-		// requests and probe requests.
-		if network.IsProbe(r) {
+		// Filter probe requests for request logs if disabled.
+		if network.IsProbe(r) && !h.enableProbeRequestLog {
 			return
 		}
 

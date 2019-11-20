@@ -14,12 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package statserver_test
+package statserver
 
 import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"runtime"
@@ -29,37 +30,37 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"knative.dev/serving/pkg/autoscaler"
-	stats "knative.dev/serving/pkg/autoscaler/statserver"
 
 	"k8s.io/apimachinery/pkg/types"
 )
 
 func TestServerLifecycle(t *testing.T) {
-	statsCh := make(chan *autoscaler.StatMessage)
-	server := stats.NewTestServer(statsCh)
+	statsCh := make(chan autoscaler.StatMessage)
+	server := newTestServer(statsCh)
 
 	eg := errgroup.Group{}
 	eg.Go(func() error {
-		return server.ListenAndServe()
+		return server.listenAndServe()
 	})
 
-	server.ListenAddr()
+	server.listenAddr()
 	server.Shutdown(time.Second)
 
 	if err := eg.Wait(); err != nil {
-		t.Error("ListenAndServe failed.", err)
+		t.Error("listenAndServe failed.", err)
 	}
 }
 
 func TestProbe(t *testing.T) {
-	statsCh := make(chan *autoscaler.StatMessage)
-	server := stats.NewTestServer(statsCh)
+	statsCh := make(chan autoscaler.StatMessage)
+	server := newTestServer(statsCh)
 
 	defer server.Shutdown(0)
-	go server.ListenAndServe()
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/healthz", server.ListenAddr()), nil)
+	go server.listenAndServe()
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/healthz", server.listenAddr()), nil)
 	if err != nil {
 		t.Fatal("Error creating request:", err)
 	}
@@ -76,30 +77,30 @@ func TestProbe(t *testing.T) {
 }
 
 func TestStatsReceived(t *testing.T) {
-	statsCh := make(chan *autoscaler.StatMessage)
-	server := stats.NewTestServer(statsCh)
+	statsCh := make(chan autoscaler.StatMessage)
+	server := newTestServer(statsCh)
 
 	defer server.Shutdown(0)
-	go server.ListenAndServe()
+	go server.listenAndServe()
 
-	statSink := dialOk(server.ListenAddr(), t)
+	statSink := dialOK(server.listenAddr(), t)
 
-	assertReceivedOk(newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, t)
-	assertReceivedOk(newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision2"}, "activator2", 2.2, 30), statSink, statsCh, t)
+	assertReceivedOK(newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, t)
+	assertReceivedOK(newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision2"}, "activator2", 2.2, 30), statSink, statsCh, t)
 
 	closeSink(statSink, t)
 }
 
 func TestServerShutdown(t *testing.T) {
-	statsCh := make(chan *autoscaler.StatMessage)
-	server := stats.NewTestServer(statsCh)
+	statsCh := make(chan autoscaler.StatMessage)
+	server := newTestServer(statsCh)
 
-	go server.ListenAndServe()
+	go server.listenAndServe()
 
-	listenAddr := server.ListenAddr()
-	statSink := dialOk(listenAddr, t)
+	listenAddr := server.listenAddr()
+	statSink := dialOK(listenAddr, t)
 
-	assertReceivedOk(newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, t)
+	assertReceivedOK(newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, t)
 
 	server.Shutdown(time.Second)
 	// We own the channel.
@@ -136,17 +137,17 @@ func TestServerShutdown(t *testing.T) {
 }
 
 func TestServerDoesNotLeakGoroutines(t *testing.T) {
-	statsCh := make(chan *autoscaler.StatMessage)
-	server := stats.NewTestServer(statsCh)
+	statsCh := make(chan autoscaler.StatMessage)
+	server := newTestServer(statsCh)
 
-	go server.ListenAndServe()
+	go server.listenAndServe()
 
 	originalGoroutines := runtime.NumGoroutine()
 
-	listenAddr := server.ListenAddr()
-	statSink := dialOk(listenAddr, t)
+	listenAddr := server.listenAddr()
+	statSink := dialOK(listenAddr, t)
 
-	assertReceivedOk(newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, t)
+	assertReceivedOK(newStatMessage(types.NamespacedName{Namespace: "test-namespace", Name: "test-revision"}, "activator1", 2.1, 51), statSink, statsCh, t)
 
 	closeSink(statSink, t)
 
@@ -165,8 +166,8 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 	server.Shutdown(time.Second)
 }
 
-func newStatMessage(revKey types.NamespacedName, podName string, averageConcurrentRequests float64, requestCount float64) *autoscaler.StatMessage {
-	return &autoscaler.StatMessage{
+func newStatMessage(revKey types.NamespacedName, podName string, averageConcurrentRequests float64, requestCount float64) autoscaler.StatMessage {
+	return autoscaler.StatMessage{
 		Key: revKey,
 		Stat: autoscaler.Stat{
 			PodName:                   podName,
@@ -176,13 +177,13 @@ func newStatMessage(revKey types.NamespacedName, podName string, averageConcurre
 	}
 }
 
-func assertReceivedOk(sm *autoscaler.StatMessage, statSink *websocket.Conn, statsCh <-chan *autoscaler.StatMessage, t *testing.T) bool {
+func assertReceivedOK(sm autoscaler.StatMessage, statSink *websocket.Conn, statsCh <-chan autoscaler.StatMessage, t *testing.T) bool {
 	send(statSink, sm, t)
 	recv, ok := <-statsCh
 	if !ok {
 		t.Fatalf("statistic not received")
 	}
-	if recv.Stat.Time == nil {
+	if recv.Stat.Time == (time.Time{}) {
 		t.Fatalf("Stat time is nil")
 	}
 	ignoreTimeField := cmpopts.IgnoreFields(autoscaler.StatMessage{}, "Stat.Time")
@@ -192,7 +193,7 @@ func assertReceivedOk(sm *autoscaler.StatMessage, statSink *websocket.Conn, stat
 	return true
 }
 
-func dialOk(serverURL string, t *testing.T) *websocket.Conn {
+func dialOK(serverURL string, t *testing.T) *websocket.Conn {
 	statSink, err := dial(serverURL, t)
 	if err != nil {
 		t.Fatal("Dial failed:", err)
@@ -214,7 +215,7 @@ func dial(serverURL string, t *testing.T) (*websocket.Conn, error) {
 	return statSink, err
 }
 
-func send(statSink *websocket.Conn, sm *autoscaler.StatMessage, t *testing.T) {
+func send(statSink *websocket.Conn, sm autoscaler.StatMessage, t *testing.T) {
 	var b bytes.Buffer
 	enc := gob.NewEncoder(&b)
 
@@ -230,4 +231,41 @@ func closeSink(statSink *websocket.Conn, t *testing.T) {
 	if err := statSink.Close(); err != nil {
 		t.Fatal("Failed to close", err)
 	}
+}
+
+const testAddress = "127.0.0.1:0"
+
+type testServer struct {
+	*Server
+	listenAddrCh chan string
+}
+
+func newTestServer(statsCh chan<- autoscaler.StatMessage) *testServer {
+	return &testServer{
+		Server:       New(testAddress, statsCh, zap.NewNop().Sugar()),
+		listenAddrCh: make(chan string, 1),
+	}
+}
+
+// listenAddr returns the address on which the server is listening. Blocks until listenAndServe is called.
+func (s *testServer) listenAddr() string {
+	return <-s.listenAddrCh
+}
+
+func (s *testServer) listenAndServe() error {
+	listener, err := s.listen()
+	if err != nil {
+		return err
+	}
+	return s.serve(&testListener{listener, s.listenAddrCh})
+}
+
+type testListener struct {
+	net.Listener
+	listenAddr chan string
+}
+
+func (t *testListener) Accept() (net.Conn, error) {
+	t.listenAddr <- "http://" + t.Listener.Addr().String()
+	return t.Listener.Accept()
 }

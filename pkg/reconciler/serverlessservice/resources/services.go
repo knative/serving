@@ -20,6 +20,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/resources"
 
 	corev1 "k8s.io/api/core/v1"
@@ -76,13 +77,37 @@ func MakePublicEndpoints(sks *v1alpha1.ServerlessService, src *corev1.Endpoints)
 			Annotations:     resources.CopyMap(sks.GetAnnotations()),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(sks)},
 		},
-		Subsets: func() (ret []corev1.EndpointSubset) {
-			for _, r := range src.Subsets {
-				ret = append(ret, *r.DeepCopy())
-			}
-			return
-		}(),
+		Subsets: FilterSubsetPorts(sks, src.Subsets),
 	}
+}
+
+// FilterSubsetPorts makes a copy of the ep.Subsets, filtering out ports
+// that are not serving (e.g. 8012 for HTTP).
+func FilterSubsetPorts(sks *v1alpha1.ServerlessService, subsets []corev1.EndpointSubset) []corev1.EndpointSubset {
+	targetPort := targetPort(sks).IntVal
+	return filterSubsetPorts(targetPort, subsets)
+}
+
+// filterSubsetPorts internal implementation that takes in port.
+// Those are not arbitrary endpoints, but the endpoints we construct ourselves,
+// thus we know that at least one of the ports will always match.
+func filterSubsetPorts(targetPort int32, subsets []corev1.EndpointSubset) []corev1.EndpointSubset {
+	if len(subsets) == 0 {
+		return nil
+	}
+	ret := make([]corev1.EndpointSubset, len(subsets))
+	for i, sss := range subsets {
+		sst := sss.DeepCopy()
+		// Find the port we care about and remove all others.
+		for j, p := range sst.Ports {
+			if p.Port == targetPort {
+				sst.Ports = sst.Ports[j : j+1]
+				break
+			}
+		}
+		ret[i] = *sst
+	}
+	return ret
 }
 
 // MakePrivateService constructs a K8s service, that is backed by the pod selector
@@ -90,8 +115,8 @@ func MakePublicEndpoints(sks *v1alpha1.ServerlessService, src *corev1.Endpoints)
 func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: sks.Name + "-",
-			Namespace:    sks.Namespace,
+			Name:      kmeta.ChildName(sks.Name, "-private"),
+			Namespace: sks.Namespace,
 			Labels: resources.UnionMaps(sks.GetLabels(), map[string]string{
 				// Add our own special key.
 				networking.SKSLabelKey:    sks.Name,
@@ -108,6 +133,28 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 				// This one is matching the public one, since this is the
 				// port queue-proxy listens on.
 				TargetPort: targetPort(sks),
+			}, {
+				Name:       servingv1alpha1.AutoscalingQueueMetricsPortName,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       networking.AutoscalingQueueMetricsPort,
+				TargetPort: intstr.FromString(servingv1alpha1.AutoscalingQueueMetricsPortName),
+			}, {
+				Name:       servingv1alpha1.UserQueueMetricsPortName,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       networking.UserQueueMetricsPort,
+				TargetPort: intstr.FromString(servingv1alpha1.UserQueueMetricsPortName),
+			}, {
+				// When run with the Istio mesh, Envoy blocks traffic to any ports not
+				// recognized, and has special treatment for probes, but not PreStop hooks.
+				// That results in the PreStop hook /wait-for-drain in queue-proxy not
+				// reachable, thus triggering SIGTERM immediately during shutdown and
+				// causing requests to be dropped.
+				//
+				// So we expose this port here to work around this Istio bug.
+				Name:       servingv1alpha1.QueueAdminPortName,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       networking.QueueAdminPort,
+				TargetPort: intstr.FromInt(networking.QueueAdminPort),
 			}},
 			Selector: selector,
 		},

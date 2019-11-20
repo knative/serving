@@ -17,23 +17,30 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
+	basecmd "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/cmd"
 	"github.com/spf13/pflag"
+	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-
+	corev1informers "k8s.io/client-go/informers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/rest"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
-	"knative.dev/pkg/injection/clients/kubeclient"
-	endpointsinformer "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints"
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
+	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
@@ -43,11 +50,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa"
 	"knative.dev/serving/pkg/reconciler/metric"
 	"knative.dev/serving/pkg/resources"
-
-	basecmd "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/cmd"
-	corev1informers "k8s.io/client-go/informers/core/v1"
-	corev1listers "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/rest"
 )
 
 const (
@@ -70,6 +72,13 @@ func main() {
 
 	// Set up signals so we handle the first shutdown signal gracefully.
 	ctx := signals.NewContext()
+
+	// Report stats on Go memory usage every 30 seconds.
+	msp := metrics.NewMemStatsAll()
+	msp.Start(ctx, 30*time.Second)
+	if err := view.Register(msp.DefaultViews()...); err != nil {
+		log.Fatalf("Error exporting go memstats view: %v", err)
+	}
 
 	cfg, err := sharedmain.GetConfig(*masterURL, *kubeconfig)
 	if err != nil {
@@ -97,14 +106,18 @@ func main() {
 	ctx = logging.WithLogger(ctx, logger)
 
 	// statsCh is the main communication channel between the stats server and multiscaler.
-	statsCh := make(chan *autoscaler.StatMessage, statsBufferLen)
+	statsCh := make(chan autoscaler.StatMessage, statsBufferLen)
 	defer close(statsCh)
+
+	profilingHandler := profiling.NewHandler(logger, false)
 
 	cmw := configmap.NewInformedWatcher(kubeclient.Get(ctx), system.Namespace())
 	// Watch the logging config map and dynamically update logging levels.
 	cmw.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
-	// Watch the observability config map and dynamically update metrics exporter.
-	cmw.Watch(metrics.ConfigMapName(), metrics.UpdateExporterFromConfigMap(component, logger))
+	// Watch the observability config map
+	cmw.Watch(metrics.ConfigMapName(),
+		metrics.UpdateExporterFromConfigMap(component, logger),
+		profilingHandler.UpdateFromConfigMap)
 
 	endpointsInformer := endpointsinformer.Get(ctx)
 
@@ -130,7 +143,7 @@ func main() {
 
 	// Start all of the informers and wait for them to sync.
 	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-		logger.Fatalw("Failed to start informers", err)
+		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
 	go controller.StartAll(ctx.Done(), controllers...)
@@ -142,23 +155,29 @@ func main() {
 		}
 	}()
 
+	profilingServer := profiling.NewServer(profilingHandler)
+
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		return customMetricsAdapter.Run(ctx.Done())
 	})
 	eg.Go(statsServer.ListenAndServe)
+	eg.Go(profilingServer.ListenAndServe)
 
 	// This will block until either a signal arrives or one of the grouped functions
 	// returns an error.
 	<-egCtx.Done()
 
 	statsServer.Shutdown(5 * time.Second)
-	if err := eg.Wait(); err != nil {
-		logger.Errorw("Error while shutting down", zap.Error(err))
+	profilingServer.Shutdown(context.Background())
+	// Don't forward ErrServerClosed as that indicates we're already shutting down.
+	if err := eg.Wait(); err != nil && err != http.ErrServerClosed {
+		logger.Errorw("Error while running server", zap.Error(err))
 	}
 }
 
-func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer, metricClient autoscaler.MetricClient) func(decider *autoscaler.Decider) (autoscaler.UniScaler, error) {
+func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer,
+	metricClient autoscaler.MetricClient) autoscaler.UniScalerFactory {
 	return func(decider *autoscaler.Decider) (autoscaler.UniScaler, error) {
 		if v, ok := decider.Labels[serving.ConfigurationLabelKey]; !ok || v == "" {
 			return nil, fmt.Errorf("label %q not found or empty in Decider %s", serving.ConfigurationLabelKey, decider.Name)
@@ -176,14 +195,14 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer, m
 			return nil, err
 		}
 
-		podCounter := resources.NewScopedEndpointsCounter(endpointsInformer.Lister(), decider.Namespace, decider.Spec.ServiceName)
-		return autoscaler.New(decider.Namespace, decider.Name, metricClient, podCounter, decider.Spec, reporter)
+		return autoscaler.New(decider.Namespace, decider.Name, metricClient, endpointsInformer.Lister(), &decider.Spec, reporter)
 	}
 }
 
-func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) func(metric *av1alpha1.Metric) (autoscaler.StatsScraper, error) {
+func statsScraperFactoryFunc(endpointsLister corev1listers.EndpointsLister) autoscaler.StatsScraperFactory {
 	return func(metric *av1alpha1.Metric) (autoscaler.StatsScraper, error) {
-		podCounter := resources.NewScopedEndpointsCounter(endpointsLister, metric.Namespace, metric.Spec.ScrapeTarget)
+		podCounter := resources.NewScopedEndpointsCounter(
+			endpointsLister, metric.Namespace, metric.Spec.ScrapeTarget)
 		return autoscaler.NewServiceScraper(metric, podCounter)
 	}
 }

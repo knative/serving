@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,7 +32,6 @@ import (
 	fakesharedclient "knative.dev/pkg/client/injection/client/fake"
 	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
 	"knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 
 	. "knative.dev/pkg/reconciler/testing"
@@ -92,16 +90,8 @@ func (f *FakeAccessor) GetVirtualServiceLister() istiolisters.VirtualServiceList
 }
 
 func TestReconcileVirtualService_Create(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
 	ctx, cancel := context.WithCancel(ctx)
-	grp := errgroup.Group{}
-	defer func() {
-		cancel()
-		if err := grp.Wait(); err != nil {
-			t.Errorf("Wait() = %v", err)
-		}
-	}()
 
 	sharedClient := fakesharedclient.Get(ctx)
 
@@ -115,7 +105,12 @@ func TestReconcileVirtualService_Create(t *testing.T) {
 		return HookComplete
 	})
 
-	accessor := setup(ctx, []*v1alpha3.VirtualService{}, sharedClient, t)
+	accessor, waitInformers := setup(ctx, []*v1alpha3.VirtualService{}, sharedClient, t)
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
+
 	ReconcileVirtualService(ctx, ownerObj, desired, accessor)
 
 	if err := h.WaitForHooks(3 * time.Second); err != nil {
@@ -124,19 +119,15 @@ func TestReconcileVirtualService_Create(t *testing.T) {
 }
 
 func TestReconcileVirtualService_Update(t *testing.T) {
-	defer logtesting.ClearAll()
 	ctx, _ := SetupFakeContext(t)
 	ctx, cancel := context.WithCancel(ctx)
-	grp := errgroup.Group{}
-	defer func() {
-		cancel()
-		if err := grp.Wait(); err != nil {
-			t.Errorf("Wait() = %v", err)
-		}
-	}()
 
 	sharedClient := fakesharedclient.Get(ctx)
-	accessor := setup(ctx, []*v1alpha3.VirtualService{origin}, sharedClient, t)
+	accessor, waitInformers := setup(ctx, []*v1alpha3.VirtualService{origin}, sharedClient, t)
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
 
 	h := NewHooks()
 	h.OnUpdate(&sharedClient.Fake, "virtualservices", func(obj runtime.Object) HookResult {
@@ -155,7 +146,7 @@ func TestReconcileVirtualService_Update(t *testing.T) {
 }
 
 func setup(ctx context.Context, vses []*v1alpha3.VirtualService,
-	sharedClient sharedclientset.Interface, t *testing.T) *FakeAccessor {
+	sharedClient sharedclientset.Interface, t *testing.T) (*FakeAccessor, func()) {
 
 	fake := sharedfake.NewSimpleClientset()
 	informer := informers.NewSharedInformerFactory(fake, 0)
@@ -166,12 +157,13 @@ func setup(ctx context.Context, vses []*v1alpha3.VirtualService,
 		vsInformer.Informer().GetIndexer().Add(vs)
 	}
 
-	if err := controller.StartInformers(ctx.Done(), vsInformer.Informer()); err != nil {
+	waitInformers, err := controller.RunInformers(ctx.Done(), vsInformer.Informer())
+	if err != nil {
 		t.Fatalf("failed to start virtualservice informer: %v", err)
 	}
 
 	return &FakeAccessor{
 		client:   sharedClient,
 		vsLister: vsInformer.Lister(),
-	}
+	}, waitInformers
 }

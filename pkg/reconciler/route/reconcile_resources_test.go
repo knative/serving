@@ -29,84 +29,59 @@ import (
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	fakecertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
-	fakeciinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/clusteringress/fake"
+	fakeciinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
 	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 
 	. "knative.dev/pkg/logging/testing"
+	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
 
-func TestReconcileClusterIngress_Insert(t *testing.T) {
-	ctx, _, reconciler, _ := newTestReconciler(t)
+func TestReconcileIngressInsert(t *testing.T) {
+	_, _, reconciler, _, cancel := newTestReconciler(t)
+	defer cancel()
 
-	r := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-route",
-			Namespace: "test-ns",
-		},
-	}
-	ci := newTestClusterIngress(t, r)
+	r := Route("test-ns", "test-route")
+	ci := newTestIngress(t, r)
 
-	ira := &ClusterIngressResources{
-		BaseIngressResources: BaseIngressResources{
-			servingClientSet: reconciler.ServingClientSet,
-		},
-		clusterIngressLister: reconciler.clusterIngressLister,
-	}
-
-	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), ira, r, ci, true /* optional*/); err != nil {
+	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), r, ci); err != nil {
 		t.Errorf("Unexpected error: %v", err)
-	}
-	created := getRouteClusterIngressFromClient(ctx, t, r)
-	if created != nil {
-		t.Errorf("Unexpected ClusterIngress creation")
 	}
 }
 
-func TestReconcileClusterIngress_Update(t *testing.T) {
-	ctx, _, reconciler, _ := newTestReconciler(t)
+func TestReconcileIngressUpdate(t *testing.T) {
+	ctx, _, reconciler, _, cancel := newTestReconciler(t)
+	defer cancel()
 
-	r := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-route",
-			Namespace: "test-ns",
-		},
-	}
+	r := Route("test-ns", "test-route")
 
-	ira := &ClusterIngressResources{
-		BaseIngressResources: BaseIngressResources{
-			servingClientSet: reconciler.ServingClientSet,
-		},
-		clusterIngressLister: reconciler.clusterIngressLister,
-	}
-
-	ci := newTestClusterIngress(t, r)
-	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), ira, r, ci, false /*optional*/); err != nil {
+	ci := newTestIngress(t, r)
+	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), r, ci); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	updated := getRouteClusterIngressFromClient(ctx, t, r)
+	updated := getRouteIngressFromClient(ctx, t, r)
 	fakeciinformer.Get(ctx).Informer().GetIndexer().Add(updated)
 
-	ci2 := newTestClusterIngress(t, r, func(tc *traffic.Config) {
+	ci2 := newTestIngress(t, r, func(tc *traffic.Config) {
 		tc.Targets[traffic.DefaultTarget][0].TrafficTarget.Percent = ptr.Int64(50)
 		tc.Targets[traffic.DefaultTarget] = append(tc.Targets[traffic.DefaultTarget], traffic.RevisionTarget{
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				Percent:      ptr.Int64(50),
 				RevisionName: "revision2",
 			},
 		})
 	})
-	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), ira, r, ci2, true /*optional*/); err != nil {
+	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), r, ci2); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	updated = getRouteClusterIngressFromClient(ctx, t, r)
+	updated = getRouteIngressFromClient(ctx, t, r)
 	if diff := cmp.Diff(ci2, updated); diff != "" {
 		t.Errorf("Unexpected diff (-want +got): %v", diff)
 	}
@@ -116,18 +91,10 @@ func TestReconcileClusterIngress_Update(t *testing.T) {
 }
 
 func TestReconcileTargetRevisions(t *testing.T) {
-	_, _, reconciler, _ := newTestReconciler(t)
+	_, _, reconciler, _, cancel := newTestReconciler(t)
+	defer cancel()
 
-	r := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-route",
-			Namespace: "test-ns",
-			Labels: map[string]string{
-				"route": "test-route",
-			},
-		},
-	}
-
+	r := Route("test-ns", "test-route", WithRouteLabel(map[string]string{"route": "test-route"}))
 	cases := []struct {
 		name      string
 		tc        traffic.Config
@@ -136,7 +103,7 @@ func TestReconcileTargetRevisions(t *testing.T) {
 		name: "Valid target revision",
 		tc: traffic.Config{Targets: map[string]traffic.RevisionTargets{
 			traffic.DefaultTarget: {{
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					RevisionName: "revision",
 					Percent:      ptr.Int64(100),
 				},
@@ -146,7 +113,7 @@ func TestReconcileTargetRevisions(t *testing.T) {
 		name: "invalid target revision",
 		tc: traffic.Config{Targets: map[string]traffic.RevisionTargets{
 			traffic.DefaultTarget: {{
-				TrafficTarget: v1beta1.TrafficTarget{
+				TrafficTarget: v1.TrafficTarget{
 					RevisionName: "inal-revision",
 					Percent:      ptr.Int64(100),
 				},
@@ -164,7 +131,7 @@ func TestReconcileTargetRevisions(t *testing.T) {
 			})
 			err := reconciler.reconcileTargetRevisions(ctx, &tc.tc, r)
 			if err != tc.expectErr {
-				t.Fatalf("Expected err %v got %v", tc.expectErr, err)
+				t.Fatalf("Got error = %v, want: %v", err, tc.expectErr)
 			}
 		})
 
@@ -172,10 +139,10 @@ func TestReconcileTargetRevisions(t *testing.T) {
 	}
 }
 
-func newTestClusterIngress(t *testing.T, r *v1alpha1.Route, trafficOpts ...func(tc *traffic.Config)) netv1alpha1.IngressAccessor {
+func newTestIngress(t *testing.T, r *v1alpha1.Route, trafficOpts ...func(tc *traffic.Config)) *netv1alpha1.Ingress {
 	tc := &traffic.Config{Targets: map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
-			TrafficTarget: v1beta1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
 				RevisionName: "revision",
 				Percent:      ptr.Int64(100),
 			},
@@ -195,41 +162,33 @@ func newTestClusterIngress(t *testing.T, r *v1alpha1.Route, trafficOpts ...func(
 			ServerCertificate: "tls.crt",
 		},
 	}
-	ingress, err := resources.MakeClusterIngress(getContext(), r, tc, tls, sets.NewString(), "foo-ingress")
+	ingress, err := resources.MakeIngress(getContext(), r, tc, tls, sets.NewString(), "foo-ingress")
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}
 	return ingress
 }
 
-func TestReconcileCertificates_Insert(t *testing.T) {
-	ctx, _, reconciler, _ := newTestReconciler(t)
+func TestReconcileCertificatesInsert(t *testing.T) {
+	ctx, _, reconciler, _, cancel := newTestReconciler(t)
+	defer cancel()
 
-	r := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-route",
-			Namespace: "test-ns",
-		},
-	}
+	r := Route("test-ns", "test-route")
 	certificate := newCerts([]string{"*.default.example.com"}, r)
 	if _, err := reconciler.reconcileCertificate(TestContextWithLogger(t), r, certificate); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 	created := getCertificateFromClient(t, ctx, certificate)
 	if diff := cmp.Diff(certificate, created); diff != "" {
-		t.Errorf("Unexpected diff (-want +got): %v", diff)
+		t.Errorf("Unexpected diff (-want +got): %s", diff)
 	}
 }
 
-func TestReconcileCertificate_Update(t *testing.T) {
-	ctx, _, reconciler, _ := newTestReconciler(t)
+func TestReconcileCertificateUpdate(t *testing.T) {
+	ctx, _, reconciler, _, cancel := newTestReconciler(t)
+	defer cancel()
 
-	r := &v1alpha1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-route",
-			Namespace: "test-ns",
-		},
-	}
+	r := Route("test-ns", "test-route")
 	certificate := newCerts([]string{"old.example.com"}, r)
 	if _, err := reconciler.reconcileCertificate(TestContextWithLogger(t), r, certificate); err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -245,7 +204,7 @@ func TestReconcileCertificate_Update(t *testing.T) {
 
 	updated := getCertificateFromClient(t, ctx, newCertificate)
 	if diff := cmp.Diff(newCertificate, updated); diff != "" {
-		t.Errorf("Unexpected diff (-want +got): %v", diff)
+		t.Errorf("Unexpected diff (-want +got): %s", diff)
 	}
 	if diff := cmp.Diff(certificate, updated); diff == "" {
 		t.Error("Expected difference, but found none")
@@ -267,7 +226,6 @@ func newCerts(dnsNames []string, r *v1alpha1.Route) *netv1alpha1.Certificate {
 }
 
 func getContext() context.Context {
-	ctx := context.Background()
 	cfg := ReconcilerTestConfig(false)
-	return config.ToContext(ctx, cfg)
+	return config.ToContext(context.Background(), cfg)
 }

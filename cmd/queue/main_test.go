@@ -31,16 +31,15 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	openzipkin "github.com/openzipkin/zipkin-go"
-	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
-	reporterrecorder "github.com/openzipkin/zipkin-go/reporter/recorder"
 	"go.opencensus.io/plugin/ochttp"
 	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/tracing"
+	tracingconfig "knative.dev/pkg/tracing/config"
+	tracetesting "knative.dev/pkg/tracing/testing"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
-	"knative.dev/serving/pkg/tracing"
-	tracingconfig "knative.dev/serving/pkg/tracing/config"
+	"knative.dev/serving/pkg/queue/health"
 )
 
 const wantHost = "a-better-host.com"
@@ -76,7 +75,7 @@ func TestHandlerReqEvent(t *testing.T) {
 	params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	breaker := queue.NewBreaker(params)
 	reqChan := make(chan queue.ReqEvent, 10)
-	h := handler(reqChan, breaker, proxy, func() bool { return true })
+	h := handler(reqChan, breaker, proxy, nil, func() bool { return true }, true /* isAggresive*/)
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -126,17 +125,18 @@ func TestProbeHandler(t *testing.T) {
 		name:          "false probe function",
 		prober:        func() bool { return false },
 		wantCode:      http.StatusServiceUnavailable,
-		wantBody:      "container not ready",
+		wantBody:      "queue not ready",
 		requestHeader: queue.Name,
 	}}
 
+	healthState := &health.State{}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			writer := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 			req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 
-			h := handler(nil, nil, nil, tc.prober)
+			h := handler(nil, nil, nil, healthState, tc.prober, true /* isAggresive*/)
 			h(writer, req)
 
 			if got, want := writer.Code, tc.wantCode; got != want {
@@ -176,6 +176,16 @@ func TestCreateVarLogLink(t *testing.T) {
 	}
 }
 
+func TestProbeQueueInvalidPort(t *testing.T) {
+	const port = 0 // invalid port
+
+	if err := probeQueueHealthPath(port, 1); err == nil {
+		t.Error("Expected error, got nil")
+	} else if diff := cmp.Diff(err.Error(), "port must be a positive value, got 0"); diff != "" {
+		t.Errorf("Unexpected not ready message: %s", diff)
+	}
+}
+
 func TestProbeQueueConnectionFailure(t *testing.T) {
 	port := 12345 // some random port (that's not listening)
 
@@ -186,10 +196,10 @@ func TestProbeQueueConnectionFailure(t *testing.T) {
 
 func TestProbeQueueNotReady(t *testing.T) {
 	queueProbed := ptr.Int32(0)
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := newProbeTestServer(func(w http.ResponseWriter) {
 		atomic.AddInt32(queueProbed, 1)
 		w.WriteHeader(http.StatusBadRequest)
-	}))
+	})
 
 	defer ts.Close()
 
@@ -216,10 +226,10 @@ func TestProbeQueueNotReady(t *testing.T) {
 
 func TestProbeQueueReady(t *testing.T) {
 	queueProbed := ptr.Int32(0)
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := newProbeTestServer(func(w http.ResponseWriter) {
 		atomic.AddInt32(queueProbed, 1)
 		w.WriteHeader(http.StatusOK)
-	}))
+	})
 
 	defer ts.Close()
 
@@ -244,11 +254,11 @@ func TestProbeQueueReady(t *testing.T) {
 
 func TestProbeQueueTimeout(t *testing.T) {
 	queueProbed := ptr.Int32(0)
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := newProbeTestServer(func(w http.ResponseWriter) {
 		atomic.AddInt32(queueProbed, 1)
 		time.Sleep(2 * time.Second)
 		w.WriteHeader(http.StatusOK)
-	}))
+	})
 
 	defer ts.Close()
 
@@ -276,13 +286,13 @@ func TestProbeQueueTimeout(t *testing.T) {
 
 func TestProbeQueueDelayedReady(t *testing.T) {
 	count := ptr.Int32(0)
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := newProbeTestServer(func(w http.ResponseWriter) {
 		if atomic.AddInt32(count, 1) < 9 {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-	}))
+	})
 
 	defer ts.Close()
 
@@ -361,20 +371,21 @@ func TestQueueTraceSpans(t *testing.T) {
 		enableTrace:   false,
 	}}
 
+	healthState := &health.State{}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create tracer with reporter recorder
-			reporter := reporterrecorder.NewReporter()
+			reporter, co := tracetesting.FakeZipkinExporter()
 			defer reporter.Close()
-			endpoint, _ := openzipkin.NewEndpoint("test", "localhost:1234")
-			oct := tracing.NewOpenCensusTracer(tracing.WithZipkinExporter(func(cfg *tracingconfig.Config) (zipkinreporter.Reporter, error) {
-				return reporter, nil
-			}, endpoint))
+			oct := tracing.NewOpenCensusTracer(co)
 			defer oct.Finish()
 
 			cfg := tracingconfig.Config{
-				Enable: tc.enableTrace,
-				Debug:  true,
+				Backend: tracingconfig.Zipkin,
+				Debug:   true,
+			}
+			if !tc.enableTrace {
+				cfg.Backend = tracingconfig.None
 			}
 			if err := oct.ApplyConfig(&cfg); err != nil {
 				t.Errorf("Failed to apply tracer config: %v", err)
@@ -399,10 +410,10 @@ func TestQueueTraceSpans(t *testing.T) {
 					Base: network.AutoTransport,
 				}
 
-				h := handler(reqChan, breaker, proxy, func() bool { return false })
+				h := handler(reqChan, breaker, proxy, healthState, func() bool { return false }, true /* isAggresive*/)
 				h(writer, req)
 			} else {
-				h := handler(nil, nil, nil, tc.prober)
+				h := handler(nil, nil, nil, healthState, tc.prober, true /* isAggresive*/)
 				req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 				h(writer, req)
 			}
@@ -420,11 +431,21 @@ func TestQueueTraceSpans(t *testing.T) {
 					t.Errorf("Got span %d named %q, expected %q", i, gotSpans[i].Name, spanName)
 				}
 				if tc.probeWillFail {
-					if gotSpans[i].Annotations[0].Value != "error" {
+					if len(gotSpans[i].Annotations) == 0 {
+						t.Error("Expected error as value for failed span Annotation, got empty Annotation")
+					} else if gotSpans[i].Annotations[0].Value != "error" {
 						t.Errorf("Expected error as value for failed span Annotation, got %q", gotSpans[i].Annotations[0].Value)
 					}
 				}
 			}
 		})
 	}
+}
+
+func newProbeTestServer(f func(w http.ResponseWriter)) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get(network.UserAgentKey) == network.QueueProxyUserAgent {
+			f(w)
+		}
+	}))
 }

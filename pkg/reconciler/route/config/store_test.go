@@ -30,8 +30,8 @@ import (
 )
 
 func TestStoreLoadWithContext(t *testing.T) {
-	defer logtesting.ClearAll()
-	store := NewStore(logtesting.TestLogger(t), 10*time.Hour)
+	ctx := logtesting.TestContextWithLogger(t)
+	store := NewStore(ctx)
 
 	domainConfig := ConfigMapFromTestFile(t, DomainConfigName)
 	gcConfig := ConfigMapFromTestFile(t, gc.ConfigName)
@@ -51,7 +51,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 	})
 
 	t.Run("gc", func(t *testing.T) {
-		expected, err := gc.NewConfigFromConfigMapFunc(logtesting.TestLogger(t), 10*time.Hour)(gcConfig)
+		expected, err := gc.NewConfigFromConfigMapFunc(ctx)(gcConfig)
 		if err != nil {
 			t.Errorf("Parsing configmap: %v", err)
 		}
@@ -62,7 +62,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 
 	t.Run("gc invalid timeout", func(t *testing.T) {
 		gcConfig.Data["stale-revision-timeout"] = "1h"
-		expected, err := gc.NewConfigFromConfigMapFunc(logtesting.TestLogger(t), 10*time.Hour)(gcConfig)
+		expected, err := gc.NewConfigFromConfigMapFunc(ctx)(gcConfig)
 
 		if err != nil {
 			t.Errorf("Got error parsing gc config with invalid timeout: %v", err)
@@ -75,8 +75,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 }
 
 func TestStoreImmutableConfig(t *testing.T) {
-	defer logtesting.ClearAll()
-	store := NewStore(logtesting.TestLogger(t), 10*time.Hour)
+	store := NewStore(logtesting.TestContextWithLogger(t))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, DomainConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, network.ConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, gc.ConfigName))

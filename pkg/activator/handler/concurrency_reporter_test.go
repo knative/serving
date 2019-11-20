@@ -17,14 +17,16 @@ limitations under the License.
 package handler
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+
 	"k8s.io/apimachinery/pkg/types"
-	. "knative.dev/pkg/logging/testing"
-	"knative.dev/pkg/system"
+
+	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/autoscaler"
 )
 
@@ -40,14 +42,6 @@ var (
 	pod3 = types.NamespacedName{Namespace: "test", Name: "pod3"}
 )
 
-type fakeClock struct {
-	Time time.Time
-}
-
-func (c fakeClock) Now() time.Time {
-	return c.Time
-}
-
 type reqOp struct {
 	op   string
 	key  types.NamespacedName
@@ -58,7 +52,7 @@ func TestStats(t *testing.T) {
 	tt := []struct {
 		name          string
 		ops           []reqOp
-		expectedStats []*autoscaler.StatMessage
+		expectedStats []autoscaler.StatMessage
 	}{{
 		name: "Scale-from-zero sends stat",
 		ops: []reqOp{{
@@ -68,7 +62,7 @@ func TestStats(t *testing.T) {
 			op:  requestOpStart,
 			key: pod2,
 		}},
-		expectedStats: []*autoscaler.StatMessage{{
+		expectedStats: []autoscaler.StatMessage{{
 			Key: pod1,
 			Stat: autoscaler.Stat{
 				AverageConcurrentRequests: 1,
@@ -92,7 +86,7 @@ func TestStats(t *testing.T) {
 		}, {
 			op: requestOpTick,
 		}},
-		expectedStats: []*autoscaler.StatMessage{{
+		expectedStats: []autoscaler.StatMessage{{
 			Key: pod1,
 			Stat: autoscaler.Stat{
 				AverageConcurrentRequests: 1,
@@ -119,7 +113,7 @@ func TestStats(t *testing.T) {
 			op:  requestOpStart,
 			key: pod1,
 		}},
-		expectedStats: []*autoscaler.StatMessage{{
+		expectedStats: []autoscaler.StatMessage{{
 			Key: pod1,
 			Stat: autoscaler.Stat{
 				AverageConcurrentRequests: 1,
@@ -151,7 +145,7 @@ func TestStats(t *testing.T) {
 		}, {
 			op: requestOpTick,
 		}},
-		expectedStats: []*autoscaler.StatMessage{{
+		expectedStats: []autoscaler.StatMessage{{
 			Key: pod1,
 			Stat: autoscaler.Stat{
 				AverageConcurrentRequests: 1,
@@ -199,39 +193,40 @@ func TestStats(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			defer ClearAll()
-			stopCh := make(chan struct{})
-			defer close(stopCh)
-			s, cr := newTestStats(t, fakeClock{})
+			s, cr, ctx, cancel := newTestStats(t)
+			defer func() {
+				cancel()
+			}()
 			go func() {
-				cr.Run(stopCh)
+				cr.Run(ctx.Done())
 			}()
 
-			// Apply request operations
-			for _, op := range tc.ops {
-				switch op.op {
-				case requestOpStart:
-					s.reqChan <- ReqEvent{Key: op.key, EventType: ReqIn}
-				case requestOpEnd:
-					s.reqChan <- ReqEvent{Key: op.key, EventType: ReqOut}
-				case requestOpTick:
-					s.reportBiChan <- op.time
+			go func() {
+				// Apply request operations
+				for _, op := range tc.ops {
+					switch op.op {
+					case requestOpStart:
+						s.reqChan <- ReqEvent{Key: op.key, EventType: ReqIn}
+					case requestOpEnd:
+						s.reqChan <- ReqEvent{Key: op.key, EventType: ReqOut}
+					case requestOpTick:
+						s.reportBiChan <- op.time
+					}
 				}
-			}
+			}()
 
 			// Gather reported stats
-			stats := make([]*autoscaler.StatMessage, 0, len(tc.expectedStats))
-			for i := 0; i < len(tc.expectedStats); i++ {
-				sm := <-s.statChan
-				stats = append(stats, sm)
+			stats := make([]autoscaler.StatMessage, 0, len(tc.expectedStats))
+			for len(stats) < len(tc.expectedStats) {
+				stats = append(stats, <-s.statChan...)
 			}
 
 			// Check the stats we got match what we wanted
-			sorter := cmpopts.SortSlices(func(a, b *autoscaler.StatMessage) bool {
+			sorter := cmpopts.SortSlices(func(a, b autoscaler.StatMessage) bool {
 				return a.Key.Name < b.Key.Name
 			})
-			if diff := cmp.Diff(tc.expectedStats, stats, sorter); diff != "" {
-				t.Errorf("Unexpected stats (-want +got): %v", diff)
+			if got, want := stats, tc.expectedStats; !cmp.Equal(got, want, sorter) {
+				t.Errorf("Unexpected stats (-want +got): %s", cmp.Diff(want, got, sorter))
 			}
 		})
 	}
@@ -241,18 +236,22 @@ func TestStats(t *testing.T) {
 type testStats struct {
 	reqChan      chan ReqEvent
 	reportChan   <-chan time.Time
-	statChan     chan *autoscaler.StatMessage
+	statChan     chan []autoscaler.StatMessage
 	reportBiChan chan time.Time
 }
 
-func newTestStats(t *testing.T, clock system.Clock) (*testStats, *ConcurrencyReporter) {
+func newTestStats(t *testing.T) (*testStats, *ConcurrencyReporter, context.Context, context.CancelFunc) {
 	reportBiChan := make(chan time.Time)
 	ts := &testStats{
 		reqChan:      make(chan ReqEvent),
 		reportChan:   (<-chan time.Time)(reportBiChan),
-		statChan:     make(chan *autoscaler.StatMessage, 20),
+		statChan:     make(chan []autoscaler.StatMessage),
 		reportBiChan: reportBiChan,
 	}
-	cr := NewConcurrencyReporterWithClock(TestLogger(t), "activator", ts.reqChan, ts.reportChan, ts.statChan, revisionLister(revision(testNamespace, testRevName)), &fakeReporter{}, clock)
-	return ts, cr
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	revisionInformer(ctx, revision(testNamespace, testRevName))
+
+	cr := NewConcurrencyReporter(ctx, "activator",
+		ts.reqChan, ts.reportChan, ts.statChan, &fakeReporter{})
+	return ts, cr, ctx, cancel
 }

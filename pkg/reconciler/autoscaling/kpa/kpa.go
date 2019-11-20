@@ -20,11 +20,11 @@ import (
 	"context"
 	"fmt"
 
-	perrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/ptr"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -38,7 +38,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/runtime"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
@@ -57,13 +56,14 @@ var _ controller.Reconciler = (*Reconciler)(nil)
 
 // Reconcile right sizes PA ScaleTargetRefs based on the state of decisions in Deciders.
 func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		runtime.HandleError(fmt.Errorf("invalid resource key %s: %v", key, err))
-		return nil
-	}
 	logger := logging.FromContext(ctx)
 	ctx = c.ConfigStore.ToContext(ctx)
+
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		logger.Errorw("Invalid resource key", zap.Error(err))
+		return nil
+	}
 
 	logger.Debug("Reconcile kpa-class PodAutoscaler")
 
@@ -117,23 +117,6 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	pa.Status.InitializeConditions()
 	logger.Debug("PA exists")
 
-	metricSvc, err := c.ReconcileMetricsService(ctx, pa)
-	if err != nil {
-		return perrors.Wrap(err, "error reconciling metrics service")
-	}
-
-	// Since metricSvc is what is being scraped for metrics
-	// it should be the correct representation of the pods in the deployment
-	// for autoscaling decisions.
-	decider, err := c.reconcileDecider(ctx, pa, metricSvc)
-	if err != nil {
-		return perrors.Wrap(err, "error reconciling decider")
-	}
-
-	if err := c.ReconcileMetric(ctx, pa, metricSvc); err != nil {
-		return perrors.Wrap(err, "error reconciling metric")
-	}
-
 	// We need the SKS object in order to optimize scale to zero
 	// performance. It is OK if SKS is nil at this point.
 	sksName := anames.SKS(pa.Name)
@@ -142,25 +125,53 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		logger.Warnw("Error retrieving SKS for Scaler", zap.Error(err))
 	}
 
+	// Having an SKS and its PrivateServiceName is a prerequisite for all upcoming steps.
+	if sks == nil || (sks != nil && sks.Status.PrivateServiceName == "") {
+		if _, err = c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe); err != nil {
+			return fmt.Errorf("error reconciling SKS: %w", err)
+		}
+		return computeStatus(pa, scaleUnknown, 0)
+	}
+
+	pa.Status.MetricsServiceName = sks.Status.PrivateServiceName
+	decider, err := c.reconcileDecider(ctx, pa, pa.Status.MetricsServiceName)
+	if err != nil {
+		return fmt.Errorf("error reconciling Decider: %w", err)
+	}
+
+	if err := c.ReconcileMetric(ctx, pa, pa.Status.MetricsServiceName); err != nil {
+		return fmt.Errorf("error reconciling Metric: %w", err)
+	}
+
+	// Metrics services are no longer needed as we use the private services now.
+	if err := c.DeleteMetricsServices(ctx, pa); err != nil {
+		return err
+	}
+
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
 	want, err := c.scaler.Scale(ctx, pa, sks, decider.Status.DesiredScale)
 	if err != nil {
-		return perrors.Wrap(err, "error scaling target")
+		return fmt.Errorf("error scaling target: %w", err)
 	}
 
 	mode := nv1alpha1.SKSOperationModeServe
-	// We put activator in the serving path in two cases:
-	// 1. The revision is scaled to 0.
+	// We put activator in the serving path in the following cases:
+	// 1. The revision is scaled to 0:
+	//   a. want == 0
+	//   b. want == -1 && PA is inactive (Autoscaler has no previous knowledge of
+	//			this revision, e.g. after a restart) but PA status is inactive (it was
+	//			already scaled to 0).
 	// 2. The excess burst capacity is negative.
-	if want == 0 || decider.Status.ExcessBurstCapacity < 0 {
-		logger.Debugf("SKS %s is in proxy mode: want = %d, ebc = %d", pa.Name, want, decider.Status.ExcessBurstCapacity)
+	if want == 0 || decider.Status.ExcessBurstCapacity < 0 || want == -1 && pa.Status.IsInactive() {
+		logger.Infof("SKS should be in proxy mode: want = %d, ebc = %d, PA Inactive? = %v",
+			want, decider.Status.ExcessBurstCapacity, pa.Status.IsInactive())
 		mode = nv1alpha1.SKSOperationModeProxy
 	}
 
 	sks, err = c.ReconcileSKS(ctx, pa, mode)
 	if err != nil {
-		return perrors.Wrap(err, "error reconciling SKS")
+		return fmt.Errorf("error reconciling SKS: %w", err)
 	}
 
 	// Compare the desired and observed resources to determine our situation.
@@ -170,24 +181,16 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 
 	// Propagate service name.
 	pa.Status.ServiceName = sks.Status.ServiceName
+	// Currently, SKS.IsReady==True when revision has >0 ready pods.
 	if sks.Status.IsReady() {
 		podCounter := resourceutil.NewScopedEndpointsCounter(c.endpointsLister, pa.Namespace, sks.Status.PrivateServiceName)
 		got, err = podCounter.ReadyCount()
 		if err != nil {
-			return perrors.Wrapf(err, "error checking endpoints %s", sks.Status.PrivateServiceName)
+			return fmt.Errorf("error checking endpoints %s: %w", sks.Status.PrivateServiceName, err)
 		}
 	}
-	logger.Infof("PA scale got=%v, want=%v", got, want)
-
-	err = reportMetrics(pa, want, got)
-	if err != nil {
-		return perrors.Wrap(err, "error reporting metrics")
-	}
-
-	computeActiveCondition(pa, want, got)
-
-	pa.Status.ObservedGeneration = pa.Generation
-	return nil
+	logger.Infof("PA scale got=%d, want=%d, ebc=%d", got, want, decider.Status.ExcessBurstCapacity)
+	return computeStatus(pa, want, got)
 }
 
 func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler, k8sSvc string) (*autoscaler.Decider, error) {
@@ -196,10 +199,10 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAut
 	if errors.IsNotFound(err) {
 		decider, err = c.deciders.Create(ctx, desiredDecider)
 		if err != nil {
-			return nil, perrors.Wrap(err, "error creating decider")
+			return nil, fmt.Errorf("error creating Decider: %w", err)
 		}
 	} else if err != nil {
-		return nil, perrors.Wrap(err, "error fetching decider")
+		return nil, fmt.Errorf("error fetching Decider: %w", err)
 	}
 
 	// Ignore status when reconciling
@@ -207,11 +210,24 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAut
 	if !equality.Semantic.DeepEqual(desiredDecider, decider) {
 		decider, err = c.deciders.Update(ctx, desiredDecider)
 		if err != nil {
-			return nil, perrors.Wrap(err, "error updating decider")
+			return nil, fmt.Errorf("error updating decider: %w", err)
 		}
 	}
 
 	return decider, nil
+}
+
+func computeStatus(pa *pav1alpha1.PodAutoscaler, want int32, got int) error {
+	pa.Status.DesiredScale, pa.Status.ActualScale = &want, ptr.Int32(int32(got))
+
+	if err := reportMetrics(pa, want, got); err != nil {
+		return fmt.Errorf("error reporting metrics: %w", err)
+	}
+
+	computeActiveCondition(pa, want, got)
+
+	pa.Status.ObservedGeneration = pa.Generation
+	return nil
 }
 
 func reportMetrics(pa *pav1alpha1.PodAutoscaler, want int32, got int) error {

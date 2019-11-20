@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/serving/pkg/apis/autoscaling"
 )
 
@@ -76,10 +76,15 @@ func (pa *PodAutoscaler) annotationFloat64(key string) (float64, bool) {
 
 // ScaleBounds returns scale bounds annotations values as a tuple:
 // `(min, max int32)`. The value of 0 for any of min or max means the bound is
-// not set
+// not set.
+// Note: min will be ignored if the PA is not reachable
 func (pa *PodAutoscaler) ScaleBounds() (min, max int32) {
-	return pa.annotationInt32(autoscaling.MinScaleAnnotationKey),
-		pa.annotationInt32(autoscaling.MaxScaleAnnotationKey)
+	if pa.Spec.Reachability != ReachabilityUnreachable {
+		min = pa.annotationInt32(autoscaling.MinScaleAnnotationKey)
+	}
+	max = pa.annotationInt32(autoscaling.MaxScaleAnnotationKey)
+
+	return
 }
 
 // Target returns the target annotation value or false if not present, or invalid.
@@ -185,32 +190,48 @@ func (pas *PodAutoscalerStatus) MarkResourceFailedCreation(kind, name string) {
 
 // CanScaleToZero checks whether the pod autoscaler has been in an inactive state
 // for at least the specified grace period.
-func (pas *PodAutoscalerStatus) CanScaleToZero(gracePeriod time.Duration) bool {
-	return pas.inStatusFor(corev1.ConditionFalse, gracePeriod) > 0
+func (pas *PodAutoscalerStatus) CanScaleToZero(now time.Time, gracePeriod time.Duration) bool {
+	return pas.inStatusFor(corev1.ConditionFalse, now, gracePeriod) > 0
 }
 
 // ActiveFor returns the time PA spent being active.
-func (pas *PodAutoscalerStatus) ActiveFor() time.Duration {
-	return pas.inStatusFor(corev1.ConditionTrue, 0)
+func (pas *PodAutoscalerStatus) ActiveFor(now time.Time) time.Duration {
+	return pas.inStatusFor(corev1.ConditionTrue, now, 0)
 }
 
 // CanFailActivation checks whether the pod autoscaler has been activating
 // for at least the specified idle period.
-func (pas *PodAutoscalerStatus) CanFailActivation(idlePeriod time.Duration) bool {
-	return pas.inStatusFor(corev1.ConditionUnknown, idlePeriod) > 0
+func (pas *PodAutoscalerStatus) CanFailActivation(now time.Time, idlePeriod time.Duration) bool {
+	return pas.inStatusFor(corev1.ConditionUnknown, now, idlePeriod) > 0
 }
 
 // inStatusFor returns positive duration if the PodAutoscalerStatus's Active condition has stayed in
 // the specified status for at least the specified duration. Otherwise it returns negative duration,
 // including when the status is undetermined (Active condition is not found.)
-func (pas *PodAutoscalerStatus) inStatusFor(status corev1.ConditionStatus, dur time.Duration) time.Duration {
+func (pas *PodAutoscalerStatus) inStatusFor(status corev1.ConditionStatus, now time.Time, dur time.Duration) time.Duration {
 	cond := pas.GetCondition(PodAutoscalerConditionActive)
 	if cond == nil || cond.Status != status {
 		return -1
 	}
-	return time.Since(cond.LastTransitionTime.Inner.Add(dur))
+	return now.Sub(cond.LastTransitionTime.Inner.Add(dur))
 }
 
-func (pas *PodAutoscalerStatus) duck() *duckv1beta1.Status {
-	return (*duckv1beta1.Status)(&pas.Status)
+func (pas *PodAutoscalerStatus) duck() *duckv1.Status {
+	return (*duckv1.Status)(&pas.Status)
+}
+
+// GetDesiredScale returns the desired scale if ever set, or -1.
+func (pas *PodAutoscalerStatus) GetDesiredScale() int32 {
+	if pas.DesiredScale != nil {
+		return *pas.DesiredScale
+	}
+	return -1
+}
+
+// GetActualScale returns the desired scale if ever set, or -1.
+func (pas *PodAutoscalerStatus) GetActualScale() int32 {
+	if pas.ActualScale != nil {
+		return *pas.ActualScale
+	}
+	return -1
 }

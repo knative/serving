@@ -38,6 +38,11 @@ var (
 		Namespaced:    true,
 		Metric:        autoscaling.Concurrency,
 	}
+	rpsMetricInfo = provider.CustomMetricInfo{
+		GroupResource: v1alpha1.Resource("revisions"),
+		Namespaced:    true,
+		Metric:        autoscaling.RPS,
+	}
 
 	errMetricNotSupported = errors.New("metric not supported")
 	errNotImplemented     = errors.New("not implemented")
@@ -58,33 +63,37 @@ func NewMetricProvider(metricClient MetricClient) *MetricProvider {
 }
 
 // GetMetricByName implements the interface.
-func (p *MetricProvider) GetMetricByName(name types.NamespacedName, info provider.CustomMetricInfo) (*cmetrics.MetricValue, error) {
-	if !cmp.Equal(info, concurrencyMetricInfo) {
+func (p *MetricProvider) GetMetricByName(name types.NamespacedName, info provider.CustomMetricInfo,
+	metricSelector labels.Selector) (*cmetrics.MetricValue, error) {
+	now := time.Now()
+	var data float64
+	var err error
+	if cmp.Equal(info, concurrencyMetricInfo) {
+		data, _, err = p.metricClient.StableAndPanicConcurrency(name, now)
+	} else if cmp.Equal(info, rpsMetricInfo) {
+		data, _, err = p.metricClient.StableAndPanicRPS(name, now)
+	} else {
 		return nil, errMetricNotSupported
 	}
-
-	now := time.Now()
-	concurrency, _, err := p.metricClient.StableAndPanicConcurrency(name, now)
 	if err != nil {
 		return nil, err
 	}
-	value := *resource.NewQuantity(int64(math.Ceil(concurrency)), resource.DecimalSI)
 
 	return &cmetrics.MetricValue{
 		Metric: cmetrics.MetricIdentifier{
 			Name: info.Metric,
 		},
 		Timestamp: metav1.Time{Time: now},
-		Value:     value,
+		Value:     *resource.NewQuantity(int64(math.Ceil(data)), resource.DecimalSI),
 	}, nil
 }
 
 // GetMetricBySelector implements the interface.
-func (p *MetricProvider) GetMetricBySelector(namespace string, selector labels.Selector, info provider.CustomMetricInfo) (*cmetrics.MetricValueList, error) {
+func (p *MetricProvider) GetMetricBySelector(string, labels.Selector, provider.CustomMetricInfo, labels.Selector) (*cmetrics.MetricValueList, error) {
 	return nil, errNotImplemented
 }
 
 // ListAllMetrics implements the interface.
 func (p *MetricProvider) ListAllMetrics() []provider.CustomMetricInfo {
-	return []provider.CustomMetricInfo{concurrencyMetricInfo}
+	return []provider.CustomMetricInfo{concurrencyMetricInfo, rpsMetricInfo}
 }

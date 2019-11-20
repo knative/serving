@@ -20,7 +20,6 @@ package v1alpha1
 
 import (
 	v1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
-	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	rest "k8s.io/client-go/rest"
 	"knative.dev/serving/pkg/client/certmanager/clientset/versioned/scheme"
 )
@@ -28,6 +27,7 @@ import (
 type CertmanagerV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	CertificatesGetter
+	CertificateRequestsGetter
 	ChallengesGetter
 	ClusterIssuersGetter
 	IssuersGetter
@@ -41,6 +41,10 @@ type CertmanagerV1alpha1Client struct {
 
 func (c *CertmanagerV1alpha1Client) Certificates(namespace string) CertificateInterface {
 	return newCertificates(c, namespace)
+}
+
+func (c *CertmanagerV1alpha1Client) CertificateRequests(namespace string) CertificateRequestInterface {
+	return newCertificateRequests(c, namespace)
 }
 
 func (c *CertmanagerV1alpha1Client) Challenges(namespace string) ChallengeInterface {
@@ -91,7 +95,7 @@ func setConfigDefaults(config *rest.Config) error {
 	gv := v1alpha1.SchemeGroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
+	config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
 
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()

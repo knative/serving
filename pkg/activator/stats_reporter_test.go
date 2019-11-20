@@ -36,12 +36,12 @@ func unregister() {
 func TestActivatorReporter(t *testing.T) {
 	r := &Reporter{}
 
-	if err := r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", http.StatusOK, 1, 1); err == nil {
+	if err := r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", http.StatusOK, 1); err == nil {
 		t.Error("Reporter expected an error for Report call before init. Got success.")
 	}
 
 	var err error
-	if r, err = NewStatsReporter(); err != nil {
+	if r, err = NewStatsReporter("testpod"); err != nil {
 		t.Fatalf("Failed to create a new reporter: %v", err)
 	}
 	// Without this `go test ... -count=X`, where X > 1, fails, since
@@ -54,6 +54,8 @@ func TestActivatorReporter(t *testing.T) {
 		metricskey.LabelServiceName:       "testsvc",
 		metricskey.LabelConfigurationName: "testconfig",
 		metricskey.LabelRevisionName:      "testrev",
+		"pod_name":                        "testpod",
+		"container_name":                  "activator",
 	}
 	expectSuccess(t, func() error {
 		return r.ReportRequestConcurrency("testns", "testsvc", "testconfig", "testrev", 100)
@@ -70,17 +72,19 @@ func TestActivatorReporter(t *testing.T) {
 		metricskey.LabelServiceName:       "testsvc",
 		metricskey.LabelConfigurationName: "testconfig",
 		metricskey.LabelRevisionName:      "testrev",
+		"pod_name":                        "testpod",
+		"container_name":                  "activator",
 		"response_code":                   "200",
 		"response_code_class":             "2xx",
 		"num_tries":                       "6",
 	}
 	expectSuccess(t, func() error {
-		return r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", http.StatusOK, 6, 1)
+		return r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", http.StatusOK, 6)
 	})
 	expectSuccess(t, func() error {
-		return r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", http.StatusOK, 6, 3)
+		return r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", http.StatusOK, 6)
 	})
-	metricstest.CheckSumData(t, "request_count", wantTags2, 4)
+	metricstest.CheckCountData(t, "request_count", wantTags2, 2)
 
 	// test ReportResponseTime
 	wantTags3 := map[string]string{
@@ -88,6 +92,8 @@ func TestActivatorReporter(t *testing.T) {
 		metricskey.LabelServiceName:       "testsvc",
 		metricskey.LabelConfigurationName: "testconfig",
 		metricskey.LabelRevisionName:      "testrev",
+		"pod_name":                        "testpod",
+		"container_name":                  "activator",
 		"response_code":                   "200",
 		"response_code_class":             "2xx",
 	}
@@ -101,7 +107,7 @@ func TestActivatorReporter(t *testing.T) {
 }
 
 func TestActivatorReporterEmptyServiceName(t *testing.T) {
-	r, err := NewStatsReporter()
+	r, err := NewStatsReporter("testpod")
 	defer unregister()
 
 	if err != nil {
@@ -114,6 +120,8 @@ func TestActivatorReporterEmptyServiceName(t *testing.T) {
 		metricskey.LabelServiceName:       metricskey.ValueUnknown,
 		metricskey.LabelConfigurationName: "testconfig",
 		metricskey.LabelRevisionName:      "testrev",
+		"pod_name":                        "testpod",
+		"container_name":                  "activator",
 	}
 	expectSuccess(t, func() error {
 		return r.ReportRequestConcurrency("testns", "" /*service=*/, "testconfig", "testrev", 100)
@@ -126,14 +134,16 @@ func TestActivatorReporterEmptyServiceName(t *testing.T) {
 		metricskey.LabelServiceName:       metricskey.ValueUnknown,
 		metricskey.LabelConfigurationName: "testconfig",
 		metricskey.LabelRevisionName:      "testrev",
+		"pod_name":                        "testpod",
+		"container_name":                  "activator",
 		"response_code":                   "200",
 		"response_code_class":             "2xx",
 		"num_tries":                       "6",
 	}
 	expectSuccess(t, func() error {
-		return r.ReportRequestCount("testns", "" /*service=*/, "testconfig", "testrev", 200, 6, 10)
+		return r.ReportRequestCount("testns", "" /*service=*/, "testconfig", "testrev", 200, 6)
 	})
-	metricstest.CheckSumData(t, "request_count", wantTags2, 10)
+	metricstest.CheckCountData(t, "request_count", wantTags2, 1)
 
 	// test ReportResponseTime
 	wantTags3 := map[string]string{
@@ -141,6 +151,8 @@ func TestActivatorReporterEmptyServiceName(t *testing.T) {
 		metricskey.LabelServiceName:       metricskey.ValueUnknown,
 		metricskey.LabelConfigurationName: "testconfig",
 		metricskey.LabelRevisionName:      "testrev",
+		"pod_name":                        "testpod",
+		"container_name":                  "activator",
 		"response_code":                   "200",
 		"response_code_class":             "2xx",
 	}

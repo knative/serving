@@ -19,9 +19,12 @@ limitations under the License.
 package spoof
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -66,7 +69,10 @@ type Interface interface {
 }
 
 // https://medium.com/stupid-gopher-tricks/ensuring-go-interface-satisfaction-at-compile-time-1ed158e8fa17
-var _ Interface = (*SpoofingClient)(nil)
+var (
+	_           Interface = (*SpoofingClient)(nil)
+	dialContext           = (&net.Dialer{}).DialContext
+)
 
 // ResponseChecker is used to determine when SpoofinClient.Poll is done polling.
 // This allows you to predicate wait.PollImmediate on the request's http.Response.
@@ -81,73 +87,81 @@ type SpoofingClient struct {
 	Client          *http.Client
 	RequestInterval time.Duration
 	RequestTimeout  time.Duration
-
-	endpoint string
-	domain   string
-
-	logf logging.FormatLogger
+	Logf            logging.FormatLogger
 }
 
-// New returns a SpoofingClient that rewrites requests if the target domain is not `resolveable`.
+// TransportOption allows callers to customize the http.Transport used by a SpoofingClient
+type TransportOption func(transport *http.Transport) *http.Transport
+
+// New returns a SpoofingClient that rewrites requests if the target domain is not `resolvable`.
 // It does this by looking up the ingress at construction time, so reusing a client will not
 // follow the ingress if it moves (or if there are multiple ingresses).
 //
 // If that's a problem, see test/request.go#WaitForEndpointState for oneshot spoofing.
-func New(kubeClientset *kubernetes.Clientset, logf logging.FormatLogger, domain string, resolvable bool, endpointOverride string) (*SpoofingClient, error) {
+func New(
+	kubeClientset *kubernetes.Clientset,
+	logf logging.FormatLogger,
+	domain string,
+	resolvable bool,
+	endpointOverride string,
+	opts ...TransportOption) (*SpoofingClient, error) {
+	endpoint, err := ResolveEndpoint(kubeClientset, domain, resolvable, endpointOverride)
+	if err != nil {
+		return nil, fmt.Errorf("failed get the cluster endpoint: %v", err)
+	}
+
+	// Spoof the hostname at the resolver level
+	logf("Spoofing %s -> %s", domain, endpoint)
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (conn net.Conn, e error) {
+			spoofed := addr
+			if i := strings.LastIndex(addr, ":"); i != -1 && domain == addr[:i] {
+				// The original hostname:port is spoofed by replacing the hostname by the value
+				// returned by ResolveEndpoint.
+				spoofed = endpoint + ":" + addr[i+1:]
+			}
+			return dialContext(ctx, network, spoofed)
+		},
+	}
+
+	for _, opt := range opts {
+		transport = opt(transport)
+	}
+
+	// Enable Zipkin tracing
+	roundTripper := &ochttp.Transport{
+		Base:        transport,
+		Propagation: &b3.HTTPFormat{},
+	}
+
 	sc := SpoofingClient{
-		Client:          &http.Client{Transport: &ochttp.Transport{Propagation: &b3.HTTPFormat{}}}, // Using ochttp Transport required for zipkin-tracing
+		Client:          &http.Client{Transport: roundTripper},
 		RequestInterval: requestInterval,
 		RequestTimeout:  RequestTimeout,
-		logf:            logf,
+		Logf:            logf,
 	}
-
-	var err error
-	if sc.endpoint, err = ResolveEndpoint(kubeClientset, domain, resolvable, endpointOverride); err != nil {
-		return nil, err
-	}
-
-	if !resolvable {
-		sc.domain = domain
-	}
-
 	return &sc, nil
 }
 
 // ResolveEndpoint resolves the endpoint address considering whether the domain is resolvable and taking into
 // account whether the user overrode the endpoint address externally
 func ResolveEndpoint(kubeClientset *kubernetes.Clientset, domain string, resolvable bool, endpointOverride string) (string, error) {
-	// If the domain is resolvable, we can use it directly when we make requests.
-	endpoint := domain
-	if !resolvable {
-		e := &endpointOverride
-		if endpointOverride == "" {
-			var err error
-			// If the domain that the Route controller is configured to assign to Route.Status.Domain
-			// (the domainSuffix) is not resolvable, we need to retrieve the endpoint and spoof
-			// the Host in our requests.
-			if e, err = ingress.GetIngressEndpoint(kubeClientset); err != nil {
-				return "", err
-			}
-		}
-		endpoint = *e
+	// If the domain is resolvable, it can be used directly
+	if resolvable {
+		return domain, nil
 	}
-	return endpoint, nil
+	// If an override is provided, use it
+	if endpointOverride != "" {
+		return endpointOverride, nil
+	}
+	// Otherwise, use the actual cluster endpoint
+	return ingress.GetIngressEndpoint(kubeClientset)
 }
 
 // Do dispatches to the underlying http.Client.Do, spoofing domains as needed
 // and transforming the http.Response into a spoof.Response.
 // Each response is augmented with "ZipkinTraceID" header that identifies the zipkin trace corresponding to the request.
 func (sc *SpoofingClient) Do(req *http.Request) (*Response, error) {
-	// Controls the Host header, for spoofing.
-	if sc.domain != "" {
-		req.Host = sc.domain
-	}
-
-	// Controls the actual resolution.
-	if sc.endpoint != "" {
-		req.URL.Host = sc.endpoint
-	}
-
 	// Starting span to capture zipkin trace.
 	traceContext, span := trace.StartSpan(req.Context(), "SpoofingClient-Trace")
 	defer span.End()
@@ -200,18 +214,21 @@ func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker) (*Res
 		resp, err = sc.Do(req)
 		if err != nil {
 			if isTCPTimeout(err) {
-				sc.logf("Retrying %s for TCP timeout %v", req.URL.String(), err)
+				sc.Logf("Retrying %s for TCP timeout: %v", req.URL, err)
 				return false, nil
 			}
 			// Retrying on DNS error, since we may be using xip.io or nip.io in tests.
 			if isDNSError(err) {
-				sc.logf("Retrying %s for DNS error %v", req.URL.String(), err)
+				sc.Logf("Retrying %s for DNS error: %v", req.URL, err)
 				return false, nil
 			}
 			// Repeat the poll on `connection refused` errors, which are usually transient Istio errors.
-			if isTCPConnectRefuse(err) {
-				sc.logf("Retrying %s for connection refused %v", req.URL.String(), err)
+			if isConnectionRefused(err) {
+				sc.Logf("Retrying %s for connection refused: %v", req.URL, err)
 				return false, nil
+			}
+			if isConnectionReset(err) {
+				sc.Logf("Retrying %s for connection reset: %v", req.URL, err)
 			}
 			return true, err
 		}
@@ -237,15 +254,14 @@ func (sc *SpoofingClient) logZipkinTrace(spoofResp *Response) {
 	}
 
 	traceID := spoofResp.Header.Get(zipkin.ZipkinTraceIDHeader)
-	sc.logf("Logging Zipkin Trace for: %s", traceID)
+	sc.Logf("Logging Zipkin Trace for: %s", traceID)
 
-	// Sleep to ensure all traces are correctly pushed on the backend.
-	time.Sleep(5 * time.Second)
-
-	json, err := zipkin.JSONTrace(traceID)
+	json, err := zipkin.JSONTrace(traceID /* We don't know the expected number of spans */, -1, 5*time.Second)
 	if err != nil {
-		sc.logf("Error getting zipkin trace: %v", err)
+		if _, ok := err.(*zipkin.TimeoutError); !ok {
+			sc.Logf("Error getting zipkin trace: %v", err)
+		}
 	}
 
-	sc.logf("%s", json)
+	sc.Logf("%s", json)
 }

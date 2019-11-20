@@ -32,11 +32,17 @@ const (
 	testSvc     = "helloworld-go-service"
 	testConf    = "helloworld-go"
 	testRev     = "helloworld-go-00001"
+	testPod     = "helloworld-go-00001-abcd"
 	countName   = "request_count"
+	qdepthName  = "queue_depth"
 	latencyName = "request_latencies"
 )
 
 var (
+	queueSizeMetric = stats.Int64(
+		qdepthName,
+		"Queue size",
+		stats.UnitDimensionless)
 	countMetric = stats.Int64(
 		countName,
 		"The number of requests that are routed to queue-proxy",
@@ -47,7 +53,7 @@ var (
 		stats.UnitMilliseconds)
 )
 
-func TestNewStatsReporter_negative(t *testing.T) {
+func TestNewStatsReporterNegative(t *testing.T) {
 	tests := []struct {
 		name      string
 		errorMsg  string
@@ -80,20 +86,27 @@ func TestNewStatsReporter_negative(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if _, err := NewStatsReporter(test.namespace, testSvc, test.config, test.revision, countMetric, latencyMetric); err.Error() != test.result.Error() {
+			if _, err := NewStatsReporter(test.namespace, testSvc, test.config, test.revision, testPod,
+				countMetric, latencyMetric, queueSizeMetric); err.Error() != test.result.Error() {
 				t.Errorf("%+v, got: '%+v'", test.errorMsg, err)
 			}
 		})
 	}
 }
 
-func TestReporter_Report(t *testing.T) {
+func TestReporterReport(t *testing.T) {
 	r := &Reporter{}
-	if err := r.ReportRequestCount(200, 10); err == nil {
+	if err := r.ReportRequestCount(200); err == nil {
+		t.Error("Reporter.ReportRequestCount() expected an error for Report call before init. Got success.")
+	}
+	if err := r.ReportQueueDepth(200); err == nil {
+		t.Error("Reporter.ReportQueueDepth() expected an error for Report call before init. Got success.")
+	}
+	if err := r.ReportResponseTime(200, time.Second); err == nil {
 		t.Error("Reporter.ReportRequestCount() expected an error for Report call before init. Got success.")
 	}
 
-	r, err := NewStatsReporter(testNs, testSvc, testConf, testRev, countMetric, latencyMetric)
+	r, err := NewStatsReporter(testNs, testSvc, testConf, testRev, testPod, countMetric, latencyMetric, queueSizeMetric)
 	if err != nil {
 		t.Fatalf("Unexpected error from NewStatsReporter() = %v", err)
 	}
@@ -102,18 +115,20 @@ func TestReporter_Report(t *testing.T) {
 		metricskey.LabelServiceName:       testSvc,
 		metricskey.LabelConfigurationName: testConf,
 		metricskey.LabelRevisionName:      testRev,
+		"pod_name":                        testPod,
+		"container_name":                  "queue-proxy",
 		"response_code":                   "200",
 		"response_code_class":             "2xx",
 	}
 
 	// Send statistics only once and observe the results
-	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200, 1) })
-	metricstest.CheckSumData(t, "request_count", wantTags, 1)
+	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200) })
+	metricstest.CheckCountData(t, "request_count", wantTags, 1)
 
 	// The stats are cumulative - record multiple entries, should get sum
-	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200, 2) })
-	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200, 3) })
-	metricstest.CheckSumData(t, "request_count", wantTags, 6)
+	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200) })
+	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200) })
+	metricstest.CheckCountData(t, "request_count", wantTags, 3)
 
 	// Send statistics only once and observe the results
 	expectSuccess(t, "ReportResponseTime", func() error { return r.ReportResponseTime(200, 100*time.Millisecond) })
@@ -124,10 +139,22 @@ func TestReporter_Report(t *testing.T) {
 	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportResponseTime(200, 300*time.Millisecond) })
 	metricstest.CheckDistributionData(t, "request_latencies", wantTags, 3, 100, 300)
 
+	wantTags = map[string]string{
+		metricskey.LabelNamespaceName:     testNs,
+		metricskey.LabelServiceName:       testSvc,
+		metricskey.LabelConfigurationName: testConf,
+		metricskey.LabelRevisionName:      testRev,
+		"pod_name":                        testPod,
+		"container_name":                  "queue-proxy",
+	}
+	expectSuccess(t, "QueueDepth", func() error { return r.ReportQueueDepth(1) })
+	expectSuccess(t, "QueueDepth", func() error { return r.ReportQueueDepth(2) })
+	metricstest.CheckLastValueData(t, "queue_depth", wantTags, 2)
+
 	unregisterViews(r)
 
 	// Test reporter with empty service name
-	r, err = NewStatsReporter(testNs, "" /*service name*/, testConf, testRev, countMetric, latencyMetric)
+	r, err = NewStatsReporter(testNs, "" /*service name*/, testConf, testRev, testPod, countMetric, latencyMetric, queueSizeMetric)
 	if err != nil {
 		t.Fatalf("Unexpected error from NewStatsReporter() = %v", err)
 	}
@@ -136,13 +163,15 @@ func TestReporter_Report(t *testing.T) {
 		metricskey.LabelServiceName:       "unknown",
 		metricskey.LabelConfigurationName: testConf,
 		metricskey.LabelRevisionName:      testRev,
+		"pod_name":                        testPod,
+		"container_name":                  "queue-proxy",
 		"response_code":                   "200",
 		"response_code_class":             "2xx",
 	}
 
 	// Send statistics only once and observe the results
-	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200, 1) })
-	metricstest.CheckSumData(t, "request_count", wantTags, 1)
+	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200) })
+	metricstest.CheckCountData(t, "request_count", wantTags, 1)
 
 	unregisterViews(r)
 }
@@ -158,7 +187,7 @@ func unregisterViews(r *Reporter) error {
 	if !r.initialized {
 		return errors.New("reporter is not initialized")
 	}
-	metricstest.Unregister(countName, latencyName)
+	metricstest.Unregister(countName, latencyName, qdepthName)
 	r.initialized = false
 	return nil
 }

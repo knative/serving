@@ -43,33 +43,31 @@ header "Running tests"
 
 failed=0
 
-# Patch tests to run serially in the mesh scenario
-(( ISTIO_MESH )) && find . -iname '*_test.go' | xargs sed -i -e '/^.*\.Parallel()/d'
+# Run tests serially in the mesh scenario
+parallelism=""
+(( MESH )) && parallelism="-parallel 1"
 
 # Run conformance and e2e tests.
-if (( INSTALL_BETA )); then
-  # When beta is installed, include our beta tests.
-  go_test_e2e -timeout=30m \
-    ./test/conformance/api/v1alpha1 \
-    ./test/conformance/api/v1beta1 \
-    ./test/conformance/runtime \
-    ./test/e2e \
-    "--resolvabledomain=$(use_resolvable_domain)" || failed=1
-else
-  go_test_e2e -timeout=30m \
-    ./test/conformance/api/v1alpha1 \
-    ./test/conformance/runtime \
-    ./test/e2e \
-    "--resolvabledomain=$(use_resolvable_domain)" || failed=1
-fi
-
-# Dump cluster state after e2e tests to prevent logs being truncated.
-(( failed )) && dump_cluster_state
+go_test_e2e -timeout=30m \
+  ./test/conformance/... \
+  ./test/e2e \
+  ${parallelism} \
+  "--resolvabledomain=$(use_resolvable_domain)" "$(use_https)" || failed=1
 
 # Run scale tests.
-go_test_e2e -timeout=10m ./test/scale || failed=1
+go_test_e2e -timeout=10m \
+  ${parallelism} \
+  ./test/scale || failed=1
 
-# Require that both set of tests succeeded.
+# Istio E2E tests mutate the cluster and must be ran separately
+if [[ -n "${ISTIO_VERSION}" ]]; then
+  go_test_e2e -timeout=10m \
+    ./test/e2e/istio \
+    "--resolvabledomain=$(use_resolvable_domain)" "$(use_https)" || failed=1
+fi
+
+# Dump cluster state in case of failure
+(( failed )) && dump_cluster_state
 (( failed )) && fail_test
 
 success

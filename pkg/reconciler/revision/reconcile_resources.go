@@ -28,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
-	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
@@ -42,26 +41,24 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	deployment, err := c.deploymentLister.Deployments(ns).Get(deploymentName)
 	if apierrs.IsNotFound(err) {
 		// Deployment does not exist. Create it.
-		rev.Status.MarkDeploying("Deploying")
+		rev.Status.MarkResourcesAvailableUnknown(v1alpha1.Deploying, "")
+		rev.Status.MarkContainerHealthyUnknown(v1alpha1.Deploying, "")
 		deployment, err = c.createDeployment(ctx, rev)
 		if err != nil {
-			logger.Errorf("Error creating deployment %q: %v", deploymentName, err)
-			return err
+			return fmt.Errorf("failed to create deployment %q: %w", deploymentName, err)
 		}
 		logger.Infof("Created deployment %q", deploymentName)
 	} else if err != nil {
-		logger.Errorf("Error reconciling deployment %q: %v", deploymentName, err)
-		return err
+		return fmt.Errorf("failed to get deployment %q: %w", deploymentName, err)
 	} else if !metav1.IsControlledBy(deployment, rev) {
 		// Surface an error in the revision's status, and return an error.
-		rev.Status.MarkResourceNotOwned("Deployment", deploymentName)
+		rev.Status.MarkResourcesAvailableFalse(v1alpha1.NotOwned, v1alpha1.ResourceNotOwnedMessage("Deployment", deploymentName))
 		return fmt.Errorf("revision: %q does not own Deployment: %q", rev.Name, deploymentName)
 	} else {
 		// The deployment exists, but make sure that it has the shape that we expect.
 		deployment, err = c.checkAndUpdateDeployment(ctx, rev, deployment)
 		if err != nil {
-			logger.Errorf("Error updating deployment %q: %v", deploymentName, err)
-			return err
+			return fmt.Errorf("failed to update deployment %q: %w", deploymentName, err)
 		}
 
 		// Now that we have a Deployment, determine whether there is any relevant
@@ -80,7 +77,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	if *deployment.Spec.Replicas > 0 && deployment.Status.AvailableReplicas == 0 {
 		pods, err := c.KubeClientSet.CoreV1().Pods(ns).List(metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(deployment.Spec.Selector)})
 		if err != nil {
-			logger.Errorf("Error getting pods: %v", err)
+			logger.Errorw("Error getting pods", zap.Error(err))
 		} else if len(pods.Items) > 0 {
 			// Arbitrarily grab the very first pod, as they all should be crashing
 			pod := pods.Items[0]
@@ -89,7 +86,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 			// If pod cannot be scheduled then we expect the container status to be empty.
 			for _, cond := range pod.Status.Conditions {
 				if cond.Type == corev1.PodScheduled && cond.Status == corev1.ConditionFalse {
-					rev.Status.MarkResourcesUnavailable(cond.Reason, cond.Message)
+					rev.Status.MarkResourcesAvailableFalse(cond.Reason, cond.Message)
 					break
 				}
 			}
@@ -98,10 +95,10 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 				if status.Name == rev.Spec.GetContainer().Name {
 					if t := status.LastTerminationState.Terminated; t != nil {
 						logger.Infof("%s marking exiting with: %d/%s", rev.Name, t.ExitCode, t.Message)
-						rev.Status.MarkContainerExiting(t.ExitCode, t.Message)
+						rev.Status.MarkContainerHealthyFalse(v1alpha1.ExitCodeReason(t.ExitCode), v1alpha1.RevisionContainerExitingMessage(t.Message))
 					} else if w := status.State.Waiting; w != nil && hasDeploymentTimedOut(deployment) {
 						logger.Infof("%s marking resources unavailable with: %s: %s", rev.Name, w.Reason, w.Message)
-						rev.Status.MarkResourcesUnavailable(w.Reason, w.Message)
+						rev.Status.MarkResourcesAvailableFalse(w.Reason, w.Message)
 					}
 					break
 				}
@@ -117,17 +114,15 @@ func (c *Reconciler) reconcileImageCache(ctx context.Context, rev *v1alpha1.Revi
 
 	ns := rev.Namespace
 	imageName := resourcenames.ImageCache(rev)
-	_, getImageCacheErr := c.imageLister.Images(ns).Get(imageName)
-	if apierrs.IsNotFound(getImageCacheErr) {
+	_, err := c.imageLister.Images(ns).Get(imageName)
+	if apierrs.IsNotFound(err) {
 		_, err := c.createImageCache(ctx, rev)
 		if err != nil {
-			logger.Errorf("Error creating image cache %q: %v", imageName, err)
-			return err
+			return fmt.Errorf("failed to create image cache %q: %w", imageName, err)
 		}
 		logger.Infof("Created image cache %q", imageName)
-	} else if getImageCacheErr != nil {
-		logger.Errorf("Error reconciling image cache %q: %v", imageName, getImageCacheErr)
-		return getImageCacheErr
+	} else if err != nil {
+		return fmt.Errorf("failed to get image cache %q: %w", imageName, err)
 	}
 
 	return nil
@@ -137,23 +132,21 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1alpha1.Revision) er
 	ns := rev.Namespace
 	paName := resourcenames.PA(rev)
 	logger := logging.FromContext(ctx)
-	logger.Info("Reconciling PA:", paName)
+	logger.Info("Reconciling PA: ", paName)
 
 	pa, err := c.podAutoscalerLister.PodAutoscalers(ns).Get(paName)
 	if apierrs.IsNotFound(err) {
 		// PA does not exist. Create it.
 		pa, err = c.createPA(ctx, rev)
 		if err != nil {
-			logger.Errorf("Error creating PA %s: %v", paName, err)
-			return err
+			return fmt.Errorf("failed to create PA %q: %w", paName, err)
 		}
-		logger.Info("Created PA:", paName)
+		logger.Info("Created PA: ", paName)
 	} else if err != nil {
-		logger.Errorf("Error reconciling pa %s: %v", paName, err)
-		return err
+		return fmt.Errorf("failed to get PA %q: %w", paName, err)
 	} else if !metav1.IsControlledBy(pa, rev) {
 		// Surface an error in the revision's status, and return an error.
-		rev.Status.MarkResourceNotOwned("PodAutoscaler", paName)
+		rev.Status.MarkResourcesAvailableFalse(v1alpha1.NotOwned, v1alpha1.ResourceNotOwnedMessage("PodAutoscaler", paName))
 		return fmt.Errorf("revision: %q does not own PodAutoscaler: %q", rev.Name, paName)
 	}
 
@@ -166,31 +159,11 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1alpha1.Revision) er
 		want := pa.DeepCopy()
 		want.Spec = tmpl.Spec
 		if pa, err = c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(pa.Namespace).Update(want); err != nil {
-			return err
+			return fmt.Errorf("failed to update PA %q: %w", paName, err)
 		}
 	}
 
-	// Propagate the service name from the PA.
-	rev.Status.ServiceName = pa.Status.ServiceName
-
-	// Reflect the PA status in our own.
-	cond := pa.Status.GetCondition(av1alpha1.PodAutoscalerConditionReady)
-	switch {
-	case cond == nil:
-		rev.Status.MarkActivating("Deploying", "")
-		// If not ready => SKS did not report a service name, we can reliably use.
-	case cond.Status == corev1.ConditionUnknown:
-		rev.Status.MarkActivating(cond.Reason, cond.Message)
-	case cond.Status == corev1.ConditionFalse:
-		rev.Status.MarkInactive(cond.Reason, cond.Message)
-	case cond.Status == corev1.ConditionTrue:
-		rev.Status.MarkActive()
-
-		// Precondition for PA being active is SKS being active and
-		// that entices that |service.endpoints| > 0.
-		rev.Status.MarkResourcesAvailable()
-		rev.Status.MarkContainerHealthy()
-	}
+	rev.Status.PropagateAutoscalerStatus(&pa.Status)
 	return nil
 }
 

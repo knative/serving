@@ -84,11 +84,11 @@ func (i CustomMetricInfo) Normalized(mapper apimeta.RESTMapper) (normalizedInfo 
 type CustomMetricsProvider interface {
 	// GetMetricByName fetches a particular metric for a particular object.
 	// The namespace will be empty if the metric is root-scoped.
-	GetMetricByName(name types.NamespacedName, info CustomMetricInfo) (*custom_metrics.MetricValue, error)
+	GetMetricByName(name types.NamespacedName, info CustomMetricInfo, metricSelector labels.Selector) (*custom_metrics.MetricValue, error)
 
 	// GetMetricBySelector fetches a particular metric for a set of objects matching
 	// the given label selector.  The namespace will be empty if the metric is root-scoped.
-	GetMetricBySelector(namespace string, selector labels.Selector, info CustomMetricInfo) (*custom_metrics.MetricValueList, error)
+	GetMetricBySelector(namespace string, selector labels.Selector, info CustomMetricInfo, metricSelector labels.Selector) (*custom_metrics.MetricValueList, error)
 
 	// ListAllMetrics provides a list of all available metrics at
 	// the current time.  Note that this is not allowed to return
@@ -98,7 +98,7 @@ type CustomMetricsProvider interface {
 }
 
 // ExternalMetricsProvider is a source of external metrics.
-// Metric is normally idendified by a name and a set of labels/tags. It is up to a specific
+// Metric is normally identified by a name and a set of labels/tags. It is up to a specific
 // implementation how to translate metricSelector to a filter for metric values.
 // Namespace can be used by the implemetation for metric identification, access control or ignored.
 type ExternalMetricsProvider interface {

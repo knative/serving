@@ -27,14 +27,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgotesting "k8s.io/client-go/testing"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 	. "knative.dev/pkg/reconciler/testing"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 	gcconfig "knative.dev/serving/pkg/gc"
@@ -46,7 +45,7 @@ import (
 )
 
 var revisionSpec = v1alpha1.RevisionSpec{
-	RevisionSpec: v1beta1.RevisionSpec{
+	RevisionSpec: v1.RevisionSpec{
 		PodSpec: corev1.PodSpec{
 			Containers: []corev1.Container{{
 				Image: "busybox",
@@ -181,7 +180,6 @@ func TestGCReconcile(t *testing.T) {
 		Key: "foo/keep-all",
 	}}
 
-	defer logtesting.ClearAll()
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &reconciler{
 			Base:                pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
@@ -226,8 +224,8 @@ func TestIsRevisionStale(t *testing.T) {
 				CreationTimestamp: metav1.NewTime(staleTime),
 			},
 			Status: v1alpha1.RevisionStatus{
-				Status: duckv1beta1.Status{
-					Conditions: duckv1beta1.Conditions{{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{{
 						Type:   v1alpha1.RevisionConditionReady,
 						Status: "True",
 					}},
@@ -243,8 +241,8 @@ func TestIsRevisionStale(t *testing.T) {
 				CreationTimestamp: metav1.NewTime(staleTime),
 			},
 			Status: v1alpha1.RevisionStatus{
-				Status: duckv1beta1.Status{
-					Conditions: duckv1beta1.Conditions{{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{{
 						Type:   v1alpha1.RevisionConditionReady,
 						Status: "Unknown",
 					}},
@@ -343,7 +341,7 @@ func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1alpha1
 
 func rev(name, namespace string, generation int64, ro ...RevisionOption) *v1alpha1.Revision {
 	r := resources.MakeRevision(cfg(name, namespace, generation))
-	r.SetDefaults(v1beta1.WithUpgradeViaDefaulting(context.Background()))
+	r.SetDefaults(v1.WithUpgradeViaDefaulting(context.Background()))
 	for _, opt := range ro {
 		opt(r)
 	}

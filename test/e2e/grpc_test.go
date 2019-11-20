@@ -20,22 +20,16 @@ package e2e
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
-	ingress "knative.dev/pkg/test/ingress"
+	"knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
-	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
@@ -68,7 +62,7 @@ func dial(host, domain string) (*grpc.ClientConn, error) {
 			grpc.WithAuthority(domain),
 			grpc.WithInsecure(),
 			// Retrying DNS errors to avoid .xip.io issues.
-			grpc.WithDefaultCallOptions(grpc.FailFast(false)),
+			grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
 		)
 	}
 	// This is a more preferred usage of the go-grpc client.
@@ -76,7 +70,7 @@ func dial(host, domain string) (*grpc.ClientConn, error) {
 		host,
 		grpc.WithInsecure(),
 		// Retrying DNS errors to avoid .xip.io issues.
-		grpc.WithDefaultCallOptions(grpc.FailFast(false)),
+		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
 	)
 }
 
@@ -175,25 +169,27 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, fopts...)
+	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		fopts...)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
-	domain := resources.Route.Status.URL.Host
+	url := resources.Route.Status.URL.URL()
 
 	if _, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain,
+		url,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"gRPCPingReadyToServe",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("The endpoint for Route %s at domain %s didn't return success: %v", names.Route, domain, err)
+		t.Fatalf("The endpoint for Route %s at %s didn't return success: %v", names.Route, url, err)
 	}
 
-	host := &domain
+	host := url.Host
 	if !test.ServingFlags.ResolvableDomain {
-		host = &pkgTest.Flags.IngressEndpoint
+		host = pkgTest.Flags.IngressEndpoint
 		if pkgTest.Flags.IngressEndpoint == "" {
 			host, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube)
 			if err != nil {
@@ -202,7 +198,7 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 		}
 	}
 
-	f(t, resources, clients, *host, domain)
+	f(t, resources, clients, host, url.Hostname())
 }
 
 func TestGRPCUnaryPing(t *testing.T) {
@@ -213,29 +209,11 @@ func TestGRPCStreamingPing(t *testing.T) {
 	testGRPC(t, streamTest)
 }
 
-func waitForActivatorEPS(resources *v1a1test.ResourceObjects, clients *test.Clients) error {
-	aeps, err := clients.KubeClient.Kube.CoreV1().Endpoints(
-		system.Namespace()).Get(activator.K8sServiceName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("error getting activator endpoints: %v", err)
-	}
-
-	// Wait for the endpoints to equalize.
-	return wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
-		svcEps, err := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
-			resources.Revision.Status.ServiceName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		return cmp.Equal(svcEps.Subsets, aeps.Subsets), nil
-	})
-}
-
 func TestGRPCUnaryPingViaActivator(t *testing.T) {
 	testGRPC(t,
 		func(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.Clients, host, domain string) {
-			if err := waitForActivatorEPS(resources, clients); err != nil {
-				t.Fatal("Never got Activator endpoints in the service")
+			if err := waitForActivatorEndpoints(resources, clients); err != nil {
+				t.Fatalf("Never got Activator endpoints in the service: %v", err)
 			}
 			unaryTest(t, resources, clients, host, domain)
 		},
@@ -248,8 +226,8 @@ func TestGRPCUnaryPingViaActivator(t *testing.T) {
 func TestGRPCStreamingPingViaActivator(t *testing.T) {
 	testGRPC(t,
 		func(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.Clients, host, domain string) {
-			if err := waitForActivatorEPS(resources, clients); err != nil {
-				t.Fatal("Never got Activator endpoints in the service")
+			if err := waitForActivatorEndpoints(resources, clients); err != nil {
+				t.Fatalf("Never got Activator endpoints in the service: %v", err)
 			}
 			streamTest(t, resources, clients, host, domain)
 		},

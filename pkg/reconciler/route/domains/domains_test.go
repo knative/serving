@@ -43,8 +43,8 @@ func testConfig() *config.Config {
 			},
 		},
 		Network: &network.Config{
-			DefaultClusterIngressClass: "ingress-class-foo",
-			DomainTemplate:             network.DefaultDomainTemplate,
+			DefaultIngressClass: "ingress-class-foo",
+			DomainTemplate:      network.DefaultDomainTemplate,
 		},
 		GC: &gc.Config{
 			StaleRevisionLastpinnedDebounce: time.Duration(1 * time.Minute),

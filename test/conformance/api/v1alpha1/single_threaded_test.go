@@ -45,26 +45,28 @@ func TestSingleConcurrency(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, v1a1opts.WithContainerConcurrency(1))
+	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		v1a1opts.WithContainerConcurrency(1))
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
-	domain := objects.Service.Status.URL.Host
+	url := objects.Service.Status.URL.URL()
 
 	// Ready does not actually mean Ready for a Route just yet.
 	// See https://knative.dev/serving/issues/1582
-	t.Logf("Probing domain %s", domain)
+	t.Logf("Probing %s", url)
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		domain,
+		url,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("Error probing domain %s: %v", domain, err)
+		t.Fatalf("Error probing %s: %v", url, err)
 	}
 
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, url.Hostname(), test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("Error creating spoofing client: %v", err)
 	}
@@ -76,9 +78,9 @@ func TestSingleConcurrency(t *testing.T) {
 	for i := 0; i < concurrency; i++ {
 		group.Go(func() error {
 			done := time.After(duration)
-			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", domain), nil)
+			req, err := http.NewRequest(http.MethodGet, url.String(), nil)
 			if err != nil {
-				return fmt.Errorf("error creating http request: %v", err)
+				return fmt.Errorf("error creating http request: %w", err)
 			}
 
 			for {
@@ -88,7 +90,7 @@ func TestSingleConcurrency(t *testing.T) {
 				default:
 					res, err := client.Do(req)
 					if err != nil {
-						return fmt.Errorf("error making request %v", err)
+						return fmt.Errorf("error making request %w", err)
 					}
 					if res.StatusCode == http.StatusInternalServerError {
 						return errors.New("detected concurrent requests")

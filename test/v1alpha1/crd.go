@@ -16,19 +16,11 @@ limitations under the License.
 
 package v1alpha1
 
-// crd contains functions that construct boilerplate CRD definitions.
-
 import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-)
-
-const (
-	// Default for user containers in e2e tests. This value is lower than the general
-	// Knative's default so as to run more effectively in CI with limited resources.
-	defaultRequestCPU = "100m"
 )
 
 // ResourceObjects holds types of the resource objects.

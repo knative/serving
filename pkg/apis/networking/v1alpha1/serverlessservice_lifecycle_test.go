@@ -21,8 +21,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"knative.dev/pkg/apis/duck"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
-	apitest "knative.dev/pkg/apis/testing"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
+	apitestv1 "knative.dev/pkg/apis/testing/v1"
 )
 
 func TestServerlessServiceDuckTypes(t *testing.T) {
@@ -31,7 +31,7 @@ func TestServerlessServiceDuckTypes(t *testing.T) {
 		t    duck.Implementable
 	}{{
 		name: "conditions",
-		t:    &duckv1beta1.Conditions{},
+		t:    &duckv1.Conditions{},
 	}}
 
 	for _, test := range tests {
@@ -56,41 +56,41 @@ func TestSSTypicalFlow(t *testing.T) {
 	r := &ServerlessServiceStatus{}
 	r.InitializeConditions()
 
-	apitest.CheckConditionOngoing(r.duck(), ServerlessServiceConditionReady, t)
+	apitestv1.CheckConditionOngoing(r.duck(), ServerlessServiceConditionReady, t)
 
 	r.MarkEndpointsReady()
-	apitest.CheckConditionSucceeded(r.duck(), ServerlessServiceConditionEndspointsPopulated, t)
-	apitest.CheckConditionSucceeded(r.duck(), ServerlessServiceConditionReady, t)
+	apitestv1.CheckConditionSucceeded(r.duck(), ServerlessServiceConditionEndspointsPopulated, t)
+	apitestv1.CheckConditionSucceeded(r.duck(), ServerlessServiceConditionReady, t)
 
 	// Verify that activator endpoints status is informational and does not
 	// affect readiness.
 	r.MarkActivatorEndpointsPopulated()
-	apitest.CheckConditionSucceeded(r.duck(), ServerlessServiceConditionReady, t)
+	apitestv1.CheckConditionSucceeded(r.duck(), ServerlessServiceConditionReady, t)
 	r.MarkActivatorEndpointsRemoved()
-	apitest.CheckConditionSucceeded(r.duck(), ServerlessServiceConditionReady, t)
+	apitestv1.CheckConditionSucceeded(r.duck(), ServerlessServiceConditionReady, t)
 
 	// Or another way to check the same condition.
 	if !r.IsReady() {
 		t.Error("IsReady=false, want: true")
 	}
 	r.MarkEndpointsNotReady("random")
-	apitest.CheckConditionOngoing(r.duck(), ServerlessServiceConditionReady, t)
+	apitestv1.CheckConditionOngoing(r.duck(), ServerlessServiceConditionReady, t)
 
 	// Verify that activator endpoints status is informational and does not
 	// affect readiness.
 	r.MarkActivatorEndpointsPopulated()
-	apitest.CheckConditionOngoing(r.duck(), ServerlessServiceConditionReady, t)
+	apitestv1.CheckConditionOngoing(r.duck(), ServerlessServiceConditionReady, t)
 	r.MarkActivatorEndpointsRemoved()
-	apitest.CheckConditionOngoing(r.duck(), ServerlessServiceConditionReady, t)
+	apitestv1.CheckConditionOngoing(r.duck(), ServerlessServiceConditionReady, t)
 
 	r.MarkEndpointsNotOwned("service", "jukebox")
-	apitest.CheckConditionFailed(r.duck(), ServerlessServiceConditionReady, t)
+	apitestv1.CheckConditionFailed(r.duck(), ServerlessServiceConditionReady, t)
 
 	// Verify that activator endpoints status is informational and does not
 	// affect readiness.
 	r.MarkActivatorEndpointsPopulated()
-	apitest.CheckConditionFailed(r.duck(), ServerlessServiceConditionReady, t)
-	apitest.CheckConditionSucceeded(r.duck(), ActivatorEndpointsPopulated, t)
+	apitestv1.CheckConditionFailed(r.duck(), ServerlessServiceConditionReady, t)
+	apitestv1.CheckConditionSucceeded(r.duck(), ActivatorEndpointsPopulated, t)
 
 	time.Sleep(time.Millisecond * 1)
 	if got, want := r.ProxyFor(), time.Duration(0); got == want {
@@ -98,8 +98,8 @@ func TestSSTypicalFlow(t *testing.T) {
 	}
 
 	r.MarkActivatorEndpointsRemoved()
-	apitest.CheckConditionFailed(r.duck(), ServerlessServiceConditionReady, t)
-	apitest.CheckConditionFailed(r.duck(), ActivatorEndpointsPopulated, t)
+	apitestv1.CheckConditionFailed(r.duck(), ServerlessServiceConditionReady, t)
+	apitestv1.CheckConditionFailed(r.duck(), ActivatorEndpointsPopulated, t)
 
 	if got, want := r.ProxyFor(), time.Duration(0); got != want {
 		t.Errorf("ProxyFor = %v, want: %v", got, want)
