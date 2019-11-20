@@ -36,8 +36,10 @@ func (r *Route) Validate(ctx context.Context) *apis.FieldError {
 
 	if apis.IsInUpdate(ctx) {
 		original := apis.GetBaseline(ctx).(*Route)
-		errs = errs.Also(apis.ValidateCreatorAndModifier(original.Spec, r.Spec, original.GetAnnotations(),
-			r.GetAnnotations(), serving.GroupName).ViaField("metadata.annotations"))
+		if r.OwnerReferences == nil {
+			errs = errs.Also(apis.ValidateCreatorAndModifier(original.Spec, r.Spec, original.GetAnnotations(),
+				r.GetAnnotations(), serving.GroupName).ViaField("metadata.annotations"))
+		}
 	}
 	return errs
 }
