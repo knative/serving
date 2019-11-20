@@ -301,7 +301,7 @@ func PatchServiceTemplateMetadata(t *testing.T, clients *test.Clients, svc *v1al
 // before returning the name of the revision.
 func WaitForServiceLatestRevision(clients *test.Clients, names test.ResourceNames) (string, error) {
 	var revisionName string
-	err := WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
+	if err := WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
 		if s.Status.LatestCreatedRevisionName != names.Revision {
 			revisionName = s.Status.LatestCreatedRevisionName
 			// We also check that the revision is pinned, meaning it's not a stale revision.
@@ -313,15 +313,16 @@ func WaitForServiceLatestRevision(clients *test.Clients, names test.ResourceName
 			return true, nil
 		}
 		return false, nil
-	}, "ServiceUpdatedWithRevision")
-	if err != nil {
+	}, "ServiceUpdatedWithRevision"); err != nil {
 		return "", fmt.Errorf("LatestCreatedRevisionName not updated: %w", err)
 	}
-	err = WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
+	if err := WaitForServiceState(clients.ServingAlphaClient, names.Service, func(s *v1alpha1.Service) (bool, error) {
 		return (s.Status.LatestReadyRevisionName == revisionName), nil
-	}, "ServiceReadyWithRevision")
+	}, "ServiceReadyWithRevision"); err != nil {
+		return "", fmt.Errorf("LatestReadyRevisionName not updated with %s: %w", revisionName, err)
+	}
 
-	return revisionName, fmt.Errorf("LatestReadyRevisionName not updated with %s: %w", revisionName, err)
+	return revisionName, nil
 }
 
 // LatestService returns a Service object in namespace with the name names.Service
