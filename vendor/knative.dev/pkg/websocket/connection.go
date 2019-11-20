@@ -106,10 +106,11 @@ func NewDurableSendingConnection(target string, logger *zap.SugaredLogger) *Mana
 // go func() {for range messageChan {}}
 func NewDurableConnection(target string, messageChan chan []byte, logger *zap.SugaredLogger) *ManagedConnection {
 	websocketConnectionFactory := func() (rawConnection, error) {
-		dialer := &websocket.Dialer{
-			HandshakeTimeout: 3 * time.Second,
-		}
+		dialer := websocket.DefaultDialer
 		conn, _, err := dialer.Dial(target, nil)
+		if err != nil {
+			logger.Errorw("Websocket connection could not be established", zap.Error(err))
+		}
 		return conn, err
 	}
 
