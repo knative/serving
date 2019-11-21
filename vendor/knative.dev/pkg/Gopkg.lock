@@ -356,6 +356,14 @@
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
 
 [[projects]]
+  branch = "master"
+  digest = "1:cf68a79fd02ab0f6942b9567d03d054b6568212fcc22de2a4afdefd096923749"
+  name = "github.com/kballard/go-shellquote"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "95032a82bc518f77982ea72343cc1ade730072f0"
+
+[[projects]]
   digest = "1:58999a98719fddbac6303cb17e8d85b945f60b72f48e3a2df6b950b97fa926f1"
   name = "github.com/konsorten/go-windows-terminal-sequences"
   packages = ["."]
@@ -1302,6 +1310,7 @@
     "github.com/google/mako/spec/proto/mako_go_proto",
     "github.com/google/uuid",
     "github.com/gorilla/websocket",
+    "github.com/kballard/go-shellquote",
     "github.com/markbates/inflect",
     "github.com/mattbaird/jsonpatch",
     "github.com/openzipkin/zipkin-go",
