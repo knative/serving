@@ -900,6 +900,10 @@ func TestPickIndices(t *testing.T) {
 }
 
 func TestAssignSlice(t *testing.T) {
+	opts := []cmp.Option{
+		cmpopts.IgnoreUnexported(queue.Breaker{}),
+		cmp.AllowUnexported(podTracker{}),
+	}
 	trackers := []*podTracker{{
 		dest: "2",
 	}, {
@@ -909,31 +913,76 @@ func TestAssignSlice(t *testing.T) {
 	}}
 	t.Run("notrackers", func(t *testing.T) {
 		got := assignSlice([]*podTracker{}, 0, 1, 0)
-		if !cmp.Equal(got, []*podTracker{}, cmpopts.IgnoreUnexported(podTracker{})) {
+		if !cmp.Equal(got, []*podTracker{}, opts...) {
 			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
-				cmp.Diff([]*podTracker{}, got, cmpopts.IgnoreUnexported(podTracker{})))
+				cmp.Diff([]*podTracker{}, got, opts...))
 		}
 	})
 	t.Run("idx=-1", func(t *testing.T) {
 		got := assignSlice(trackers, -1, 1, 0)
-		if !cmp.Equal(got, trackers, cmpopts.IgnoreUnexported(podTracker{})) {
+		if !cmp.Equal(got, trackers, opts...) {
 			t.Errorf("Got=%v, want: %v, diff: %s", got, trackers,
-				cmp.Diff(trackers, got, cmpopts.IgnoreUnexported(podTracker{})))
+				cmp.Diff(trackers, got, opts...))
 		}
 	})
 	t.Run("idx=1", func(t *testing.T) {
 		cp := append(trackers[:0:0], trackers...)
 		got := assignSlice(cp, 1, 3, 0)
-		if !cmp.Equal(got, trackers[0:1], cmpopts.IgnoreUnexported(podTracker{})) {
+		if !cmp.Equal(got, trackers[0:1], opts...) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, trackers[0:1],
-				cmp.Diff(trackers[0:1], got, cmpopts.IgnoreUnexported(podTracker{})))
+				cmp.Diff(trackers[0:1], got, opts...))
 		}
 	})
 	t.Run("len=1", func(t *testing.T) {
 		got := assignSlice(trackers[0:1], 1, 3, 0)
-		if !cmp.Equal(got, trackers[0:1], cmpopts.IgnoreUnexported(podTracker{})) {
+		if !cmp.Equal(got, trackers[0:1], opts...) {
 			t.Errorf("Got=%v, want: %v; diff: %s", got, trackers[0:1],
-				cmp.Diff(trackers[0:1], got, cmpopts.IgnoreUnexported(podTracker{})))
+				cmp.Diff(trackers[0:1], got, opts...))
+		}
+	})
+
+	t.Run("idx=1, cc=5", func(t *testing.T) {
+		trackers := []*podTracker{{
+			dest: "2",
+			b:    queue.NewBreaker(defaultParams),
+		}, {
+			dest: "1",
+			b:    queue.NewBreaker(defaultParams),
+		}, {
+			dest: "3",
+			b:    queue.NewBreaker(defaultParams),
+		}}
+		cp := append(trackers[:0:0], trackers...)
+		got := assignSlice(cp, 1, 2, 5)
+		want := append(trackers[0:1], trackers[2:]...)
+		if !cmp.Equal(got, want, opts...) {
+			t.Errorf("Got=%v, want: %v; diff: %s", got, want,
+				cmp.Diff(trackers[0:1], got, opts...))
+		}
+		if got, want := got[1].b.Capacity(), 5/2+1; got != want {
+			t.Errorf("Capacity for the tail pod = %d, want: %d", got, want)
+		}
+	})
+	t.Run("idx=1, cc=6", func(t *testing.T) {
+		trackers := []*podTracker{{
+			dest: "2",
+			b:    queue.NewBreaker(defaultParams),
+		}, {
+			dest: "1",
+			b:    queue.NewBreaker(defaultParams),
+		}, {
+			dest: "3",
+			b:    queue.NewBreaker(defaultParams),
+		}}
+		cp := append(trackers[:0:0], trackers...)
+		got := assignSlice(cp, 1, 2, 6)
+		want := append(trackers[0:1], trackers[2:]...)
+		if !cmp.Equal(got, want, opts...) {
+			t.Errorf("Got=%v, want: %v; diff: %s", got, want,
+				cmp.Diff(trackers[0:1], got, opts...))
+		}
+		if got, want := got[1].b.Capacity(), 3; got != want {
+			t.Errorf("Capacity for the tail pod = %d, want: %d", got, want)
 		}
 	})
 }

@@ -19,6 +19,7 @@ package net
 import (
 	"context"
 	"errors"
+	"math"
 	"math/rand"
 	"sort"
 	"sync"
@@ -328,12 +329,19 @@ func assignSlice(trackers []*podTracker, selfIndex, numActivators, cc int) []*po
 	bi, ei, remnants := pickIndices(lt, selfIndex, numActivators)
 	x := append(trackers[:0:0], trackers[bi:ei]...)
 	if remnants > 0 {
+		tail := trackers[len(trackers)-remnants:]
+		// We shuffle the tail, to ensure that pods in the tail get better
+		// load distribution, since we sort the pods above, this puts more requests
+		// on the very first tail pod, than on the others.
+		rand.Shuffle(remnants, func(i, j int) {
+			tail[i], tail[j] = tail[j], tail[i]
+		})
+		// We need minOneOrValue in order for cc==0 to work.
+		dcc := minOneOrValue(int(math.Ceil(float64(cc) / float64(numActivators))))
 		// This is basically: x = append(x, trackers[len(trackers)-remnants:]...)
 		// But we need to update the capacity.
-		for i := len(trackers) - remnants; i < len(trackers); i++ {
-			t := trackers[i]
-			// minOneOrValue ensures that infinity tracker will never scale to 0.
-			t.UpdateConcurrency(minOneOrValue(cc / numActivators))
+		for _, t := range tail {
+			t.UpdateConcurrency(dcc)
 			x = append(x, t)
 		}
 	}
