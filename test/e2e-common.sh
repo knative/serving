@@ -69,7 +69,7 @@ function parse_flags() {
       return 1
       ;;
     --no-mesh)
-      # TODO: Enable mesh for test as issues/6058 only happens on Mesh env. 
+      # TODO: Enable mesh for test as issues/6058 only happens on Mesh env.
       readonly MESH=1
       return 1
       ;;
