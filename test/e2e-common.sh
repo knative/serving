@@ -248,6 +248,9 @@ data:
   profiling.enable: "true"
 EOF
 
+  echo "######### TEST #########"
+  kubectl get all -n knative-serving
+
   echo ">> Patching activator hpa"
   # We set min replicas to 2 for testing multiple activator pods.
   kubectl -n knative-serving patch hpa activator --patch '{"spec":{"minReplicas":2}}' || return 1
