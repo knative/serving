@@ -225,7 +225,7 @@ func TestMakeMeshVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 	expected := []v1alpha3.HTTPRoute{{
 		Match: []v1alpha3.HTTPMatchRequest{{
 			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns(\.svc(\.cluster\.local)?)?(?::\d{1,5})?$`},
+			Authority: &istiov1alpha1.StringMatch{Prefix: `test-route.test-ns.svc.cluster.local`},
 			Gateways:  []string{"mesh"},
 		}},
 		Route: []v1alpha3.HTTPRouteDestination{{
@@ -351,11 +351,11 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 	expected := []v1alpha3.HTTPRoute{{
 		Match: []v1alpha3.HTTPMatchRequest{{
 			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Regex: `^domain\.com(?::\d{1,5})?$`},
+			Authority: &istiov1alpha1.StringMatch{Prefix: `domain.com`},
 			Gateways:  []string{"gateway.public"},
 		}, {
 			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns(\.svc(\.cluster\.local)?)?(?::\d{1,5})?$`},
+			Authority: &istiov1alpha1.StringMatch{Prefix: `test-route.test-ns.svc.cluster.local`},
 			Gateways:  []string{"gateway.private"},
 		}},
 		Route: []v1alpha3.HTTPRouteDestination{{
@@ -388,7 +388,7 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 	}, {
 		Match: []v1alpha3.HTTPMatchRequest{{
 			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Regex: `^v1\.domain\.com(?::\d{1,5})?$`},
+			Authority: &istiov1alpha1.StringMatch{Prefix: `v1.domain.com`},
 			Gateways:  []string{},
 		}},
 		Route: []v1alpha3.HTTPRouteDestination{{
@@ -441,10 +441,10 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 	expected := v1alpha3.HTTPRoute{
 		Match: []v1alpha3.HTTPMatchRequest{{
 			Gateways:  []string{"gateway-1"},
-			Authority: &istiov1alpha1.StringMatch{Regex: `^a\.com(?::\d{1,5})?$`},
+			Authority: &istiov1alpha1.StringMatch{Prefix: `a.com`},
 		}, {
 			Gateways:  []string{"gateway-1"},
-			Authority: &istiov1alpha1.StringMatch{Regex: `^b\.org(?::\d{1,5})?$`},
+			Authority: &istiov1alpha1.StringMatch{Prefix: `b.org`},
 		}},
 		Route: []v1alpha3.HTTPRouteDestination{{
 			Destination: v1alpha3.Destination{
@@ -493,7 +493,7 @@ func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 	expected := v1alpha3.HTTPRoute{
 		Match: []v1alpha3.HTTPMatchRequest{{
 			Gateways:  []string{"knative-testing/gateway-1"},
-			Authority: &istiov1alpha1.StringMatch{Regex: `^test\.org(?::\d{1,5})?$`},
+			Authority: &istiov1alpha1.StringMatch{Prefix: `test.org`},
 		}},
 		Route: []v1alpha3.HTTPRouteDestination{{
 			Destination: v1alpha3.Destination{

@@ -282,7 +282,7 @@ func makeMatch(host string, pathRegExp string, gateways sets.String) v1alpha3.HT
 	match := v1alpha3.HTTPMatchRequest{
 		Gateways: gateways.List(),
 		Authority: &istiov1alpha1.StringMatch{
-			Regex: hostRegExp(host),
+			Prefix: host,
 		},
 	}
 	// Empty pathRegExp is considered match all path. We only need to
