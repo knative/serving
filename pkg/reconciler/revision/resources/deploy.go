@@ -178,7 +178,6 @@ func getUserPort(rev *v1alpha1.Revision) int32 {
 		return ports[0].ContainerPort
 	}
 
-
 	return v1alpha1.DefaultUserPort
 }
 
