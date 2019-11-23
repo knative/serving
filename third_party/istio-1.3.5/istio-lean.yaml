@@ -19,7 +19,7 @@ metadata:
     app: istio
     chart: istio
     heritage: Tiller
-    release: release-name
+    release: RELEASE-NAME
 data:
   mesh: |-
     # Set the following variable to true to disable policy checks by the Mixer.
@@ -157,7 +157,7 @@ metadata:
     app: cluster-local-gateway
     chart: gateways
     heritage: Tiller
-    release: release-name
+    release: RELEASE-NAME
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -168,7 +168,7 @@ metadata:
     app: istio-ingressgateway
     chart: gateways
     heritage: Tiller
-    release: release-name
+    release: RELEASE-NAME
 ---
 
 
@@ -183,7 +183,7 @@ metadata:
     app: pilot
     chart: pilot
     heritage: Tiller
-    release: release-name
+    release: RELEASE-NAME
 
 ---
 # Source: istio/templates/serviceaccount.yaml
@@ -203,7 +203,7 @@ metadata:
     app: pilot
     chart: pilot
     heritage: Tiller
-    release: release-name
+    release: RELEASE-NAME
 rules:
 - apiGroups: ["config.istio.io"]
   resources: ["*"]
@@ -254,7 +254,7 @@ metadata:
     app: pilot
     chart: pilot
     heritage: Tiller
-    release: release-name
+    release: RELEASE-NAME
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -271,7 +271,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-multi
   labels:
-    chart: istio-1.3.3
+    chart: istio-1.3.5
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -324,13 +324,13 @@ metadata:
   labels:
     chart: gateways
     heritage: Tiller
-    release: release-name
+    release: RELEASE-NAME
     app: cluster-local-gateway
     istio: cluster-local-gateway
 spec:
   type: ClusterIP
   selector:
-    release: release-name
+    release: RELEASE-NAME
     app: cluster-local-gateway
     istio: cluster-local-gateway
   ports:
@@ -353,13 +353,13 @@ metadata:
   labels:
     chart: gateways
     heritage: Tiller
-    release: release-name
+    release: RELEASE-NAME
     app: istio-ingressgateway
     istio: ingressgateway
 spec:
   type: LoadBalancer
   selector:
-    release: release-name
+    release: RELEASE-NAME
     app: istio-ingressgateway
     istio: ingressgateway
   ports:
@@ -385,7 +385,7 @@ metadata:
     app: pilot
     chart: pilot
     heritage: Tiller
-    release: release-name
+    release: RELEASE-NAME
     istio: pilot
 spec:
   ports:
@@ -411,7 +411,7 @@ metadata:
   labels:
     chart: gateways
     heritage: Tiller
-    release: release-name
+    release: RELEASE-NAME
     app: cluster-local-gateway
     istio: cluster-local-gateway
 spec:
@@ -429,7 +429,7 @@ spec:
       labels:
         chart: gateways
         heritage: Tiller
-        release: release-name
+        release: RELEASE-NAME
         app: cluster-local-gateway
         istio: cluster-local-gateway
       annotations:
@@ -438,7 +438,7 @@ spec:
       serviceAccountName: cluster-local-gateway-service-account
       containers:
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.3.3"
+          image: "docker.io/istio/proxyv2:1.3.5"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 15020
@@ -596,7 +596,7 @@ metadata:
   labels:
     chart: gateways
     heritage: Tiller
-    release: release-name
+    release: RELEASE-NAME
     app: istio-ingressgateway
     istio: ingressgateway
 spec:
@@ -613,7 +613,7 @@ spec:
       labels:
         chart: gateways
         heritage: Tiller
-        release: release-name
+        release: RELEASE-NAME
         app: istio-ingressgateway
         istio: ingressgateway
       annotations:
@@ -622,7 +622,7 @@ spec:
       serviceAccountName: istio-ingressgateway-service-account
       containers:
         - name: ingress-sds
-          image: "docker.io/istio/node-agent-k8s:1.3.3"
+          image: "docker.io/istio/node-agent-k8s:1.3.5"
           imagePullPolicy: IfNotPresent
           resources:
             limits:
@@ -646,7 +646,7 @@ spec:
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.3.3"
+          image: "docker.io/istio/proxyv2:1.3.5"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 15020
@@ -820,7 +820,7 @@ metadata:
     app: pilot
     chart: pilot
     heritage: Tiller
-    release: release-name
+    release: RELEASE-NAME
     istio: pilot
   annotations:
     checksum/config-volume: f8da08b6b8c170dde721efd680270b2901e750d4aa186ebb6c22bef5b78a43f9
@@ -838,7 +838,7 @@ spec:
         app: pilot
         chart: pilot
         heritage: Tiller
-        release: release-name
+        release: RELEASE-NAME
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
@@ -846,7 +846,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
         - name: discovery
-          image: "docker.io/istio/pilot:1.3.3"
+          image: "docker.io/istio/pilot:1.3.5"
           imagePullPolicy: IfNotPresent
           args:
           - "discovery"
@@ -954,7 +954,7 @@ metadata:
   labels:
     chart: gateways
     heritage: Tiller
-    release: release-name
+    release: RELEASE-NAME
     app: istio-ingressgateway
     istio: ingressgateway
 spec:
@@ -983,7 +983,7 @@ metadata:
     app: pilot
     chart: pilot
     heritage: Tiller
-    release: release-name
+    release: RELEASE-NAME
 spec:
   maxReplicas: 5
   minReplicas: 1
