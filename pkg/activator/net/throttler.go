@@ -52,15 +52,6 @@ type podTracker struct {
 	b    breaker
 }
 
-func (p *podTracker) Maybe(ctx context.Context, thunk func()) error {
-	// Infinite per pod capacity. Just execute.
-	if p.b == nil {
-		thunk()
-		return nil
-	}
-	return p.b.Maybe(ctx, thunk)
-}
-
 func (p *podTracker) Capacity() int {
 	if p.b == nil {
 		return 1
@@ -75,18 +66,18 @@ func (p *podTracker) UpdateConcurrency(c int) error {
 	return p.b.UpdateConcurrency(c)
 }
 
-func (p *podTracker) HasCapacity() bool {
+func (p *podTracker) Reserve(ctx context.Context) (func(), bool) {
 	if p.b == nil {
-		return true
+		return noop, true
 	}
-	return p.b.HasCapacity()
+	return p.b.Reserve(ctx)
 }
 
 type breaker interface {
 	Capacity() int
 	Maybe(ctx context.Context, thunk func()) error
 	UpdateConcurrency(int) error
-	HasCapacity() bool
+	Reserve(ctx context.Context) (func(), bool)
 }
 
 var ErrActivatorOverload = errors.New("activator overload")
@@ -144,53 +135,51 @@ func newRevisionThrottler(revID types.NamespacedName,
 	}
 }
 
+func noop() {}
+
 // pickPod picks the first tracker that has open capacity if container concurrency
 // if limited, random pod otherwise.
-// TODO(vagabaov): make this locally ideal, rather than mostly ideal.
-func pickPod(tgs []*podTracker, cc int) *podTracker {
+func pickPod(ctx context.Context, tgs []*podTracker, cc int) (func(), *podTracker) {
 	// Infinite capacity, pick random. We have to do this
 	// otherwise _all_ the requests will go to the first pod
 	// since it has unlimited capacity.
 	if cc == 0 {
-		return tgs[rand.Intn(len(tgs))]
+		return noop, tgs[rand.Intn(len(tgs))]
 	}
 	for _, t := range tgs {
-		if t.HasCapacity() {
-			return t
+		if cb, ok := t.Reserve(ctx); ok {
+			return cb, t
 		}
 	}
 	// NB: as currently written this can never happen.
-	return nil
+	return nil, nil
 }
 
 // Returns a dest that at the moment of choosing had an open slot
 // for request.
-func (rt *revisionThrottler) acquireDest() *podTracker {
+func (rt *revisionThrottler) acquireDest(ctx context.Context) (func(), *podTracker) {
 	rt.mux.RLock()
 	defer rt.mux.RUnlock()
 
 	if rt.clusterIPTracker != nil {
-		return rt.clusterIPTracker
+		return noop, rt.clusterIPTracker
 	}
-	return pickPod(rt.assignedTrackers, rt.containerConcurrency)
+	return pickPod(ctx, rt.assignedTrackers, rt.containerConcurrency)
 }
 
 func (rt *revisionThrottler) try(ctx context.Context, function func(string) error) error {
 	var ret error
 
 	if err := rt.breaker.Maybe(ctx, func() {
-		tracker := rt.acquireDest()
+		cb, tracker := rt.acquireDest(ctx)
 		if tracker == nil {
 			ret = errors.New("made it through breaker but we have no clusterIP or podIPs. This should" +
 				" never happen" + rt.revID.String())
 			return
 		}
-
-		if err := tracker.Maybe(ctx, func() {
-			ret = function(tracker.dest)
-		}); err != nil {
-			ret = err
-		}
+		defer cb()
+		// We already reserved a guaranteed spot. So just execute the passed functor.
+		ret = function(tracker.dest)
 	}); err != nil {
 		return err
 	}
@@ -685,4 +674,5 @@ func (ib *infiniteBreaker) Maybe(ctx context.Context, thunk func()) error {
 	}
 }
 
-func (ib *infiniteBreaker) HasCapacity() bool { return ib.Capacity() > 0 }
+func (ib *infiniteBreaker) HasCapacity() bool                      { return ib.Capacity() > 0 }
+func (ib *infiniteBreaker) Reserve(context.Context) (func(), bool) { return noop, true }

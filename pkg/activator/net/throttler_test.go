@@ -18,6 +18,7 @@ package net
 
 import (
 	"context"
+	"math"
 	"sort"
 	"strconv"
 	"sync"
@@ -487,31 +488,34 @@ func TestPodAssignmentFinite(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 
-	throttler := newTestThrottler(ctx, 2)
+	throttler := newTestThrottler(ctx, 4 /*num activators*/)
 	rt := newRevisionThrottler(revName, 42 /*cc*/, defaultParams, logger)
 	throttler.revisionThrottlers[revName] = rt
 
 	update := revisionDestsUpdate{
 		Rev:           revName,
 		ClusterIPDest: "",
-		Dests:         sets.NewString("ip3", "ip2", "ip1"),
+		Dests:         sets.NewString("ip4", "ip3", "ip5", "ip2", "ip1", "ip0"),
 	}
 	// This should synchronously update throughout the system.
 	// And now we can inspect `rt`.
 	throttler.handleUpdate(update)
-	if got, want := len(rt.podTrackers), 3; got != want {
+	if got, want := len(rt.podTrackers), len(update.Dests); got != want {
 		t.Errorf("NumTrackers = %d, want: %d", got, want)
 	}
-	if got, want := trackerDestSet(rt.assignedTrackers), sets.NewString("ip1", "ip3"); !got.Equal(want) {
+	if got, want := trackerDestSet(rt.assignedTrackers), sets.NewString("ip0", "ip4", "ip5"); !got.Equal(want) {
 		t.Errorf("Assigned trackers = %v, want: %v, diff: %s", got, want, cmp.Diff(want, got))
 	}
-	if got, want := rt.breaker.Capacity(), 42+42/2; got != want {
+	if got, want := rt.breaker.Capacity(), 6*42/4; got != want {
 		t.Errorf("TotalCapacity = %d, want: %d", got, want)
 	}
 	if got, want := rt.assignedTrackers[0].Capacity(), 42; got != want {
 		t.Errorf("Exclusive tracker capacity: %d, want: %d", got, want)
 	}
-	if got, want := rt.assignedTrackers[1].Capacity(), 42/2; got != want {
+	if got, want := rt.assignedTrackers[1].Capacity(), int(math.Ceil(42./4.)); got != want {
+		t.Errorf("Shared tracker capacity: %d, want: %d", got, want)
+	}
+	if got, want := rt.assignedTrackers[2].Capacity(), int(math.Ceil(42./4.)); got != want {
 		t.Errorf("Shared tracker capacity: %d, want: %d", got, want)
 	}
 
@@ -688,6 +692,9 @@ func TestInfiniteBreaker(t *testing.T) {
 	// Verify initial condition.
 	if got, want := b.Capacity(), 0; got != want {
 		t.Errorf("Cap=%d, want: %d", got, want)
+	}
+	if _, ok := b.Reserve(context.Background()); ok != true {
+		t.Error("Reserve failed, must always succeed")
 	}
 	if got, want := b.HasCapacity(), false; got != want {
 		t.Errorf("HasCapacity = %v, want: %v", got, want)
