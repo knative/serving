@@ -796,6 +796,60 @@ func TestConfigurationAnnotationUpdate(t *testing.T) {
 			Spec: getConfigurationSpec("helloworld:foo"),
 		},
 		want: nil,
+	}, {
+		name: "no validation for lastModifier annotation even after update as configuration owned by service",
+		this: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u3,
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "v1beta1",
+					Kind:       serving.GroupName,
+				}},
+			},
+			Spec: getConfigurationSpec("helloworld:foo"),
+		},
+		prev: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getConfigurationSpec("helloworld:foo"),
+		},
+		want: nil,
+	}, {
+		name: "no validation for creator annotation even after update as configuration owned by service",
+		this: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u3,
+					serving.UpdaterAnnotation: u1,
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "v1beta1",
+					Kind:       serving.GroupName,
+				}},
+			},
+			Spec: getConfigurationSpec("helloworld:foo"),
+		},
+		prev: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getConfigurationSpec("helloworld:foo"),
+		},
+		want: nil,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
