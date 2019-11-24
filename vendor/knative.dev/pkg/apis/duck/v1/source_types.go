@@ -30,7 +30,7 @@ import (
 // Source is an Implementable "duck type".
 var _ duck.Implementable = (*Source)(nil)
 
-// +genclient
+// +genduck
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Source is the minimum resource shape to adhere to the Source Specification.

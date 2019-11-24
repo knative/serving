@@ -25,11 +25,12 @@ import (
 	"knative.dev/pkg/apis/duck"
 )
 
+// +genduck
+
 // PodSpecable is implemented by types containing a PodTemplateSpec
 // in the manner of ReplicaSet, Deployment, DaemonSet, StatefulSet.
 type PodSpecable corev1.PodTemplateSpec
 
-// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // WithPod is the shell that demonstrates how PodSpecable types wrap

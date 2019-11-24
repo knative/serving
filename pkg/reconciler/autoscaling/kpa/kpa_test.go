@@ -33,6 +33,8 @@ import (
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	"knative.dev/pkg/kmeta"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
+	_ "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
 	fakemetricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	fakesksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
@@ -953,6 +955,8 @@ func TestReconcile(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		ctx = podscalable.WithDuck(ctx)
+
 		fakeDeciders := newTestDeciders()
 		// TODO(vagababov): see if we can get rid of the static piece of configuration and
 		// constant namespace and revision names.
@@ -968,8 +972,8 @@ func TestReconcile(t *testing.T) {
 			fakeDeciders.Create(ctx, d.(*autoscaler.Decider))
 		}
 
-		psFactory := presources.NewPodScalableInformerFactory(ctx)
-		scaler := newScaler(ctx, psFactory, func(interface{}, time.Duration) {})
+		psf := podscalable.Get(ctx)
+		scaler := newScaler(ctx, psf, func(interface{}, time.Duration) {})
 		scaler.activatorProbe = func(*asv1a1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
 		return &Reconciler{
 			Base: &areconciler.Base{
@@ -979,7 +983,7 @@ func TestReconcile(t *testing.T) {
 				ServiceLister:     listers.GetK8sServiceLister(),
 				MetricLister:      listers.GetMetricLister(),
 				ConfigStore:       &testConfigStore{config: defaultConfig()},
-				PSInformerFactory: psFactory,
+				PSInformerFactory: psf,
 			},
 			endpointsLister: listers.GetEndpointsLister(),
 			deciders:        fakeDeciders,

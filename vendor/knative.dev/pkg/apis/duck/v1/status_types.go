@@ -28,13 +28,14 @@ import (
 	"knative.dev/pkg/apis/duck"
 )
 
+// +genduck
+
 // Conditions is a simple wrapper around apis.Conditions to implement duck.Implementable.
 type Conditions apis.Conditions
 
 // Conditions is an Implementable "duck type".
 var _ duck.Implementable = (*Conditions)(nil)
 
-// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // KResource is a skeleton type wrapping Conditions in the manner we expect
