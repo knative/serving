@@ -225,7 +225,7 @@ func TestMakeMeshVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 	expected := []v1alpha3.HTTPRoute{{
 		Match: []v1alpha3.HTTPMatchRequest{{
 			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Prefix: `test-route.test-ns.svc.cluster.local`},
+			Authority: &istiov1alpha1.StringMatch{Prefix: `test-route.test-ns`},
 			Gateways:  []string{"mesh"},
 		}},
 		Route: []v1alpha3.HTTPRouteDestination{{
@@ -355,7 +355,7 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			Gateways:  []string{"gateway.public"},
 		}, {
 			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Prefix: `test-route.test-ns.svc.cluster.local`},
+			Authority: &istiov1alpha1.StringMatch{Prefix: `test-route.test-ns`},
 			Gateways:  []string{"gateway.private"},
 		}},
 		Route: []v1alpha3.HTTPRouteDestination{{

@@ -282,7 +282,7 @@ func makeMatch(host string, pathRegExp string, gateways sets.String) v1alpha3.HT
 		Gateways: gateways.List(),
 		Authority: &istiov1alpha1.StringMatch{
 			// Do not use Regex as Istio 1.4 or later has 100 bytes limitation.
-			Prefix: host,
+			Prefix: hostPrefix(host),
 		},
 	}
 	// Empty pathRegExp is considered match all path. We only need to
@@ -293,6 +293,16 @@ func makeMatch(host string, pathRegExp string, gateways sets.String) v1alpha3.HT
 		}
 	}
 	return match
+}
+
+// hostPrefix returns an host to match either host or host:<any port>.
+// For clusterLocalHost, it trims .svc.<local domain> from the host to match short host.
+func hostPrefix(host string) string {
+	localDomainSuffix := ".svc." + network.GetClusterDomainName()
+	if !strings.HasSuffix(host, localDomainSuffix) {
+		return host
+	}
+	return strings.TrimSuffix(host, localDomainSuffix)
 }
 
 func getHosts(ia *v1alpha1.Ingress) sets.String {
