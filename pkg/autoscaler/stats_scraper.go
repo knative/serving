@@ -17,12 +17,12 @@ limitations under the License.
 package autoscaler
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"

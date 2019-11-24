@@ -1886,7 +1886,6 @@
     "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/cmd",
     "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/provider",
     "github.com/mattbaird/jsonpatch",
-    "github.com/pkg/errors",
     "github.com/prometheus/client_golang/prometheus",
     "github.com/prometheus/client_golang/prometheus/promhttp",
     "github.com/prometheus/client_model/go",
