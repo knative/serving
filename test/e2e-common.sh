@@ -352,14 +352,6 @@ function test_setup() {
 
   echo ">> Creating test resources (test/config/)"
   ko apply ${KO_FLAGS} -f test/config/ || return 1
-  if (( MESH )); then
-    if [[ ${ISTIO_VERSION} =~ 1.3.* ]]; then
-      # TODO: Enable mTLS with Istio 1.3 once https://github.com/knative/serving/issues/5725 is identified.
-      continue
-    else
-      ko apply ${KO_FLAGS} -f test/config/mtls/ || return 1
-    fi
-  fi
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
   wait_until_pods_running knative-serving || return 1
   if [[ -n "${ISTIO_VERSION}" ]]; then
