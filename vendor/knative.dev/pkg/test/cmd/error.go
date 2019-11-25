@@ -14,28 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// error.go helps with error handling
+package cmd
 
-package helpers
+// CommandLineError is a custom error we use for errors got from running commands
+type CommandLineError struct {
+	Command     string
+	ErrorCode   int
+	ErrorOutput []byte
+}
 
-import (
-	"errors"
-	"strings"
-)
-
-// CombineErrors combines slice of errors and return a single error
-func CombineErrors(errs []error) error {
-	if len(errs) == 0 {
-		return nil
-	}
-	msgs := make([]string, 0)
-	for _, err := range errs {
-		if err != nil {
-			msgs = append(msgs, err.Error())
-		}
-	}
-	if len(msgs) == 0 {
-		return nil
-	}
-	return errors.New(strings.Join(msgs, "\n"))
+func (c CommandLineError) Error() string {
+	return string(c.ErrorOutput)
 }
