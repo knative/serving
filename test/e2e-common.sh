@@ -205,7 +205,7 @@ function install_knative_serving_standard() {
   # If no gateway was set on command line, assume Istio
   if (( ! GATEWAY_SETUP )); then
     echo ">> No gateway set up on command line, using Istio"
-    readonly ISTIO_VERSION="1.2-latest"
+    readonly ISTIO_VERSION="1.4-latest"
   fi
 
   if [[ -n "${ISTIO_VERSION}" ]]; then
