@@ -59,6 +59,7 @@ type Client struct {
 
 // Setup creates all the clients that we need to interact with in our tests
 func Setup(t *testing.T, monitoring ...int) (*Client, error) {
+	pkgTest.SetupLoggingFlags()
 	clients, err := test.NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, test.ServingNamespace)
 	if err != nil {
 		return nil, err
