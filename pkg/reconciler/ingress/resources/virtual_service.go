@@ -20,7 +20,6 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -282,7 +281,8 @@ func makeMatch(host string, pathRegExp string, gateways sets.String) v1alpha3.HT
 	match := v1alpha3.HTTPMatchRequest{
 		Gateways: gateways.List(),
 		Authority: &istiov1alpha1.StringMatch{
-			Regex: hostRegExp(host),
+			// Do not use Regex as Istio 1.4 or later has 100 bytes limitation.
+			Prefix: hostPrefix(host),
 		},
 	}
 	// Empty pathRegExp is considered match all path. We only need to
@@ -295,29 +295,16 @@ func makeMatch(host string, pathRegExp string, gateways sets.String) v1alpha3.HT
 	return match
 }
 
-// Should only match 1..65535, but for simplicity it matches 0-99999.
-const portMatch = `(?::\d{1,5})?`
-
-// hostRegExp returns an ECMAScript regular expression to match either host or host:<any port>
-// for clusterLocalHost, we will also match the prefixes.
-func hostRegExp(host string) string {
+// hostPrefix returns an host to match either host or host:<any port>.
+// For clusterLocalHost, it trims .svc.<local domain> from the host to match short host.
+func hostPrefix(host string) string {
 	localDomainSuffix := ".svc." + network.GetClusterDomainName()
 	if !strings.HasSuffix(host, localDomainSuffix) {
-		return exact(regexp.QuoteMeta(host) + portMatch)
+		return host
 	}
-	prefix := regexp.QuoteMeta(strings.TrimSuffix(host, localDomainSuffix))
-	clusterSuffix := regexp.QuoteMeta("." + network.GetClusterDomainName())
-	svcSuffix := regexp.QuoteMeta(".svc")
-	return exact(prefix + optional(svcSuffix+optional(clusterSuffix)) + portMatch)
+	return strings.TrimSuffix(host, localDomainSuffix)
 }
 
-func exact(regexp string) string {
-	return "^" + regexp + "$"
-}
-
-func optional(regexp string) string {
-	return "(" + regexp + ")?"
-}
 func getHosts(ia *v1alpha1.Ingress) sets.String {
 	hosts := sets.NewString()
 	for _, rule := range ia.Spec.Rules {
