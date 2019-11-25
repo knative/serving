@@ -79,16 +79,25 @@ func (cs *ConfigurationStatus) InitializeConditions() {
 func (cs *ConfigurationStatus) SetLatestCreatedRevisionName(name string) {
 	cs.LatestCreatedRevisionName = name
 	if cs.LatestReadyRevisionName != name {
-		confCondSet.Manage(cs).MarkUnknown(
-			ConfigurationConditionReady,
-			"",
-			"")
+		cs.MarkConfigurationUnknown()
 	}
 }
 
 func (cs *ConfigurationStatus) SetLatestReadyRevisionName(name string) {
 	cs.LatestReadyRevisionName = name
+}
+
+// MarkConfigurationReady sets the Ready state of a configuration to True
+func (cs *ConfigurationStatus) MarkConfigurationReady() {
 	confCondSet.Manage(cs).MarkTrue(ConfigurationConditionReady)
+}
+
+// MarkConfigurationUnknown sets the Ready state of a configuration to Unknown
+func (cs *ConfigurationStatus) MarkConfigurationUnknown() {
+	confCondSet.Manage(cs).MarkUnknown(
+		ConfigurationConditionReady,
+		"",
+		"")
 }
 
 func (cs *ConfigurationStatus) MarkLatestCreatedFailed(name, message string) {

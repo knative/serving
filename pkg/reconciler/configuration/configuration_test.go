@@ -234,7 +234,8 @@ func TestReconcile(t *testing.T) {
 				// When we see the LatestCreatedRevision become Ready, then we
 				// update the latest ready revision.
 				WithLatestReady("matching-revision-done-00001"),
-				WithLatestCreated("matching-revision-done-00001")),
+				WithLatestCreated("matching-revision-done-00001"),
+				WithConfigurationReady()),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "ConfigurationReady", "Configuration becomes ready"),
@@ -246,7 +247,8 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile revision matching generation (ready: true, idempotent)",
 		Objects: []runtime.Object{
 			cfg("matching-revision-done-idempotent", "foo", 5566,
-				WithObservedGen, WithLatestCreated("matching-revision"), WithLatestReady("matching-revision")),
+				WithObservedGen, WithLatestCreated("matching-revision"), WithLatestReady("matching-revision"),
+				WithConfigurationReady()),
 			rev("matching-revision-done-idempotent", "foo", 5566,
 				WithCreationTimestamp(now), MarkRevisionReady, WithRevName("matching-revision")),
 		},
@@ -358,6 +360,7 @@ func TestReconcile(t *testing.T) {
 			Object: cfg("revision-recovers", "foo", 1337,
 				WithLatestCreated("revision-recovers-00001"),
 				WithLatestReady("revision-recovers-00001"),
+				WithConfigurationReady(),
 				WithObservedGen,
 				// When a LatestReadyRevision recovers from failure,
 				// then we should go back to Ready.
@@ -374,10 +377,10 @@ func TestReconcile(t *testing.T) {
 			// when no fix is present
 			cfg("double-trouble", "foo", 1,
 				WithLatestCreated("double-trouble-00001"),
-				WithLatestReady("double-trouble-00001"), WithObservedGen),
+				WithLatestReady("double-trouble-00001"), WithConfigurationReady(), WithObservedGen),
 			cfg("first-trouble", "foo", 1,
 				WithLatestCreated("first-trouble-00001"),
-				WithLatestReady("first-trouble-00001"), WithObservedGen),
+				WithLatestReady("first-trouble-00001"), WithConfigurationReady(), WithObservedGen),
 
 			rev("first-trouble", "foo", 1,
 				WithRevName("first-trouble-00001"),
@@ -410,6 +413,7 @@ func TestReconcile(t *testing.T) {
 			Object: cfg("threerevs", "foo", 3,
 				WithLatestCreated("threerevs-00003"),
 				WithLatestReady("threerevs-00002"),
+				WithConfigurationUnknown(),
 				WithObservedGen, func(cfg *v1alpha1.Configuration) {
 					cfg.Spec.GetTemplate().Name = "threerevs-00003"
 				},
@@ -419,6 +423,39 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "LatestReadyUpdate", "LatestReadyRevisionName updated to %q", "threerevs-00002"),
 		},
 		Key: "foo/threerevs",
+	}, {
+		Name: "revision not ready, the latest ready should be updated, but the configuration should still be ready==Unknown",
+		Objects: []runtime.Object{
+			cfg("revnotready", "foo", 3,
+				WithLatestCreated("revnotready-00002"),
+				WithLatestReady("revnotready-00001"), WithObservedGen, func(cfg *v1alpha1.Configuration) {
+					cfg.Spec.GetTemplate().Name = "revnotready-00003"
+				},
+			),
+			rev("revnotready", "foo", 1,
+				WithRevName("revnotready-00001"),
+				WithCreationTimestamp(now), MarkRevisionReady),
+			rev("revnotready", "foo", 2,
+				WithRevName("revnotready-00002"),
+				WithCreationTimestamp(now), MarkRevisionReady),
+			rev("revnotready", "foo", 3,
+				WithRevName("revnotready-00003"),
+				WithCreationTimestamp(now)),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfg("revnotready", "foo", 3,
+				WithLatestCreated("revnotready-00003"),
+				WithLatestReady("revnotready-00002"),
+				WithConfigurationUnknown(),
+				WithObservedGen, func(cfg *v1alpha1.Configuration) {
+					cfg.Spec.GetTemplate().Name = "revnotready-00003"
+				},
+			),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "LatestReadyUpdate", "LatestReadyRevisionName updated to %q", "revnotready-00002"),
+		},
+		Key: "foo/revnotready",
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {

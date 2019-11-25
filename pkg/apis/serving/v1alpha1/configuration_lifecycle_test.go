@@ -224,6 +224,7 @@ func TestTypicalFlow(t *testing.T) {
 	apitestv1.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
 	r.SetLatestReadyRevisionName("foo")
+	r.MarkConfigurationReady()
 	apitestv1.CheckConditionSucceeded(r.duck(), ConfigurationConditionReady, t)
 
 	// Verify a second call to SetLatestCreatedRevisionName doesn't change the status from Ready
@@ -235,6 +236,7 @@ func TestTypicalFlow(t *testing.T) {
 	apitestv1.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
 	r.SetLatestReadyRevisionName("bar")
+	r.MarkConfigurationReady()
 	apitestv1.CheckConditionSucceeded(r.duck(), ConfigurationConditionReady, t)
 
 	r.MarkResourceNotConvertible(ConvertErrorf("build", "something something not allowed.").(*CannotConvertError))
@@ -272,6 +274,7 @@ func TestFailingFirstRevisionWithRecovery(t *testing.T) {
 
 	// When the new revision becomes ready, then Ready becomes true as well.
 	r.SetLatestReadyRevisionName("bar")
+	r.MarkConfigurationReady()
 	apitestv1.CheckConditionSucceeded(r.duck(), ConfigurationConditionReady, t)
 }
 
@@ -284,6 +287,7 @@ func TestFailingSecondRevision(t *testing.T) {
 	apitestv1.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
 	r.SetLatestReadyRevisionName("foo")
+	r.MarkConfigurationReady()
 	apitestv1.CheckConditionSucceeded(r.duck(), ConfigurationConditionReady, t)
 
 	r.SetLatestCreatedRevisionName("bar")
@@ -307,6 +311,7 @@ func TestLatestRevisionDeletedThenFixed(t *testing.T) {
 	apitestv1.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
 	r.SetLatestReadyRevisionName("foo")
+	r.MarkConfigurationReady()
 	apitestv1.CheckConditionSucceeded(r.duck(), ConfigurationConditionReady, t)
 
 	// When the latest revision is deleted, the Configuration became Failed.
@@ -322,6 +327,7 @@ func TestLatestRevisionDeletedThenFixed(t *testing.T) {
 	apitestv1.CheckConditionOngoing(r.duck(), ConfigurationConditionReady, t)
 
 	r.SetLatestReadyRevisionName("bar")
+	r.MarkConfigurationReady()
 	apitestv1.CheckConditionSucceeded(r.duck(), ConfigurationConditionReady, t)
 }
 
