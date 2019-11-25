@@ -19,6 +19,7 @@ limitations under the License.
 package e2e
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -27,7 +28,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
 	vegeta "github.com/tsenart/vegeta/lib"
 	"golang.org/x/sync/errgroup"
 	"knative.dev/pkg/system"

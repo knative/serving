@@ -21,12 +21,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	v1 "k8s.io/api/apps/v1"
 	"log"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
+
+	v1 "k8s.io/api/apps/v1"
 
 	"github.com/google/mako/go/quickstore"
 	"k8s.io/apimachinery/pkg/labels"
@@ -186,7 +187,7 @@ func runScaleFromZero(ctx context.Context, clients *test.Clients, idx int, ro *v
 	})
 
 	watcher, err := clients.KubeClient.Kube.AppsV1().Deployments(testNamespace).Watch(
-		metav1.ListOptions{LabelSelector:selector.String()})
+		metav1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
 		m := fmt.Sprintf("%02d: unable to watch the deployment for the service: %v", idx, err)
 		log.Println(m)
@@ -233,7 +234,7 @@ func runScaleFromZero(ctx context.Context, clients *test.Clients, idx int, ro *v
 			}
 		case <-sdch:
 			return time.Since(start), dd, nil
-		case err := <- errch:
+		case err := <-errch:
 			return 0, 0, err
 		}
 	}
