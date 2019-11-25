@@ -32,7 +32,7 @@ import (
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/tracker"
 
-	"knative.dev/pkg/injection/clients/dynamicclient"
+	"knative.dev/pkg/client/injection/ducks/duck/v1beta1/addressable"
 )
 
 // URIResolver resolves Destinations and ObjectReferences into a URI.
@@ -48,12 +48,7 @@ func NewURIResolver(ctx context.Context, callback func(types.NamespacedName)) *U
 	ret.tracker = tracker.New(callback, controller.GetTrackerLease(ctx))
 	ret.informerFactory = &pkgapisduck.CachedInformerFactory{
 		Delegate: &pkgapisduck.EnqueueInformerFactory{
-			Delegate: &pkgapisduck.TypedInformerFactory{
-				Client:       dynamicclient.Get(ctx),
-				Type:         &duckv1beta1.AddressableType{},
-				ResyncPeriod: controller.GetResyncPeriod(ctx),
-				StopChannel:  ctx.Done(),
-			},
+			Delegate:     addressable.Get(ctx),
 			EventHandler: controller.HandleAll(ret.tracker.OnChanged),
 		},
 	}

@@ -17,30 +17,15 @@ limitations under the License.
 package resources
 
 import (
-	"context"
 	"fmt"
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/injection/clients/dynamicclient"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
-
-// NewPodScalableInformerFactory produces an informer factory for PodScalable resources.
-func NewPodScalableInformerFactory(ctx context.Context) duck.InformerFactory {
-	return &duck.CachedInformerFactory{
-		Delegate: &duck.TypedInformerFactory{
-			Client:       dynamicclient.Get(ctx),
-			Type:         &pav1alpha1.PodScalable{},
-			ResyncPeriod: controller.GetResyncPeriod(ctx),
-			StopChannel:  ctx.Done(),
-		},
-	}
-}
 
 // ScaleResourceArguments returns GroupResource and the resource name.
 func ScaleResourceArguments(ref corev1.ObjectReference) (*schema.GroupVersionResource, string, error) {

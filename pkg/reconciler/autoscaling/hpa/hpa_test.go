@@ -26,6 +26,8 @@ import (
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	"knative.dev/pkg/ptr"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
+	_ "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
@@ -51,7 +53,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/hpa/resources"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
-	presources "knative.dev/serving/pkg/resources"
 
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
@@ -440,7 +441,7 @@ func TestReconcile(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		psFactory := presources.NewPodScalableInformerFactory(ctx)
+		ctx = podscalable.WithDuck(ctx)
 
 		return &Reconciler{
 			Base: &areconciler.Base{
@@ -450,7 +451,7 @@ func TestReconcile(t *testing.T) {
 				MetricLister:      listers.GetMetricLister(),
 				ConfigStore:       &testConfigStore{config: defaultConfig()},
 				ServiceLister:     listers.GetK8sServiceLister(),
-				PSInformerFactory: psFactory,
+				PSInformerFactory: podscalable.Get(ctx),
 			},
 			hpaLister: listers.GetHorizontalPodAutoscalerLister(),
 		}

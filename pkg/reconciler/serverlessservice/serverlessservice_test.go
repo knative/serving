@@ -25,6 +25,8 @@ import (
 	// Inject the fakes for informers this reconciler depends on.
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
+	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
+	_ "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 
 	"knative.dev/pkg/configmap"
@@ -35,7 +37,6 @@ import (
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	rpkg "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources"
-	presources "knative.dev/serving/pkg/resources"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -653,12 +654,14 @@ func TestReconcile(t *testing.T) {
 		}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		ctx = podscalable.WithDuck(ctx)
+
 		return &reconciler{
 			Base:              rpkg.NewBase(ctx, controllerAgentName, cmw),
 			sksLister:         listers.GetServerlessServiceLister(),
 			serviceLister:     listers.GetK8sServiceLister(),
 			endpointsLister:   listers.GetEndpointsLister(),
-			psInformerFactory: presources.NewPodScalableInformerFactory(ctx),
+			psInformerFactory: podscalable.Get(ctx),
 		}
 	}))
 }
