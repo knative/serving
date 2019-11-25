@@ -152,7 +152,7 @@ func pickPod(ctx context.Context, tgs []*podTracker, cc int) (func(), *podTracke
 		}
 	}
 	// NB: as currently written this can never happen.
-	return nil, nil
+	return noop, nil
 }
 
 // Returns a dest that at the moment of choosing had an open slot
