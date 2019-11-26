@@ -41,7 +41,7 @@ func TestAverage(t *testing.T) {
 			average := Average{}
 			for _, value := range tt.values {
 				bucket := float64Bucket{}
-				bucket.Record("pod", value)
+				bucket.record("pod", value)
 				average.Accumulate(time.Now(), bucket)
 			}
 
@@ -92,7 +92,7 @@ func TestYoungerThan(t *testing.T) {
 			})
 			for _, t := range tt.times {
 				bucket := float64Bucket{}
-				bucket.Record("pod", 1.0)
+				bucket.record("pod", 1.0)
 				acc(t, bucket)
 			}
 

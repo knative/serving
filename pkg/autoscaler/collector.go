@@ -338,8 +338,10 @@ func (c *collection) stableAndPanicStats(now time.Time, buckets *aggregation.Tim
 		return 0, 0, ErrNoData
 	}
 
-	panicAverage := aggregation.Average{}
-	stableAverage := aggregation.Average{}
+	var (
+		panicAverage  aggregation.Average
+		stableAverage aggregation.Average
+	)
 	buckets.ForEachBucket(
 		aggregation.YoungerThan(now.Add(-spec.PanicWindow), panicAverage.Accumulate),
 		aggregation.YoungerThan(now.Add(-spec.StableWindow), stableAverage.Accumulate),
