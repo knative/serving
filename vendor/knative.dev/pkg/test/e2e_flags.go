@@ -20,12 +20,14 @@ limitations under the License.
 package test
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"os"
 	"os/user"
 	"path"
 	"sync"
+	"text/template"
 
 	_ "github.com/golang/glog" // Needed if glog and klog are to coexist
 	"k8s.io/klog"
@@ -56,6 +58,7 @@ type EnvironmentFlags struct {
 	IngressEndpoint string // Host to use for ingress endpoint
 	LogVerbose      bool   // Enable verbose logging
 	EmitMetrics     bool   // Emit metrics
+	ImageTemplate   string // Template to build the image reference (defaults to {{.Repository}}/{{.Name}}:{{.Tag}})
 	DockerRepo      string // Docker repo (defaults to $KO_DOCKER_REPO)
 	Tag             string // Tag for test images
 }
@@ -83,6 +86,9 @@ func initializeFlags() *EnvironmentFlags {
 
 	flag.BoolVar(&f.EmitMetrics, "emitmetrics", false,
 		"Set this flag to true if you would like tests to emit metrics, e.g. latency of resources being realized in the system.")
+
+	flag.StringVar(&f.ImageTemplate, "imagetemplate", "{{.Repository}}/{{.Name}}:{{.Tag}}",
+		"Provide a template to generate the reference to an image from the test. Defaults to `{{.Repository}}/{{.Name}}:{{.Tag}}`.")
 
 	defaultRepo := os.Getenv("KO_DOCKER_REPO")
 	flag.StringVar(&f.DockerRepo, "dockerrepo", defaultRepo,
@@ -135,7 +141,24 @@ func SetupLoggingFlags() {
 	})
 }
 
-// ImagePath is a helper function to prefix image name with repo and suffix with tag
+// ImagePath is a helper function to transform an image name into an image reference that can be pulled.
 func ImagePath(name string) string {
-	return fmt.Sprintf("%s/%s:%s", Flags.DockerRepo, name, Flags.Tag)
+	tpl, err := template.New("image").Parse(Flags.ImageTemplate)
+	if err != nil {
+		panic("could not parse image template: " + err.Error())
+	}
+
+	var buf bytes.Buffer
+	if err := tpl.Execute(&buf, struct {
+		Repository string
+		Name       string
+		Tag        string
+	}{
+		Repository: Flags.DockerRepo,
+		Name:       name,
+		Tag:        Flags.Tag,
+	}); err != nil {
+		panic("could not apply the image template: " + err.Error())
+	}
+	return buf.String()
 }
