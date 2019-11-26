@@ -139,15 +139,19 @@
   version = "v1.7.0"
 
 [[projects]]
-  digest = "1:a1b2a5e38f79688ee8250942d5fa960525fceb1024c855c7bc76fa77b0f3cca2"
+  digest = "1:b38ab1b8cf42d089d9f31d4918c57c2dd47d42f3e7fc50e12142140228cf81a9"
   name = "github.com/gogo/protobuf"
   packages = [
+    "gogoproto",
+    "jsonpb",
     "proto",
+    "protoc-gen-gogo/descriptor",
     "sortkeys",
+    "types",
   ]
   pruneopts = "NUT"
-  revision = "ba06b47c162d49f2af050fb4c75bcbc86a159d5c"
-  version = "v1.2.1"
+  revision = "5628607bb4c51c3157aacc3a50f0ab707582b805"
+  version = "v1.3.1"
 
 [[projects]]
   branch = "master"
@@ -857,6 +861,30 @@
   version = "v2.2.4"
 
 [[projects]]
+  digest = "1:9579dd8b1ccd8cf54ed576af68438b69588cc136eac90b10aa7c8d1a1c8334ff"
+  name = "istio.io/api"
+  packages = ["networking/v1alpha3"]
+  pruneopts = "NUT"
+  revision = "35e06ef8d83858a2ccabd7a0d57128879b40a586"
+  version = "1.4.0-beta.5"
+
+[[projects]]
+  digest = "1:a4549838d0466ee623b1aee6220d14978e5ddbd7a65bbf40185b63b26c645fbf"
+  name = "istio.io/client-go"
+  packages = ["pkg/apis/networking/v1alpha3"]
+  pruneopts = "NUT"
+  revision = "9bd0ba57c3d24745eac756d3df8411d969f94d34"
+  version = "1.4.0-beta.5"
+
+[[projects]]
+  digest = "1:9c9f11af1b1f2ae03d897ba5de27103ec1c9c43605663ccdef67831d6a462a30"
+  name = "istio.io/gogo-genproto"
+  packages = ["googleapis/google/api"]
+  pruneopts = "NUT"
+  revision = "f7d19ec0141d49ac9efc83b5e61fa81ba103b445"
+  version = "1.4.0-beta.5"
+
+[[projects]]
   digest = "1:2b55f57d7b6d9f0f23478f2432b03273073f1bf93aed18620472e7117eb4451e"
   name = "k8s.io/api"
   packages = [
@@ -1298,6 +1326,7 @@
     "github.com/davecgh/go-spew/spew",
     "github.com/evanphx/json-patch",
     "github.com/ghodss/yaml",
+    "github.com/gogo/protobuf/proto",
     "github.com/golang/glog",
     "github.com/golang/protobuf/jsonpb",
     "github.com/golang/protobuf/proto",
@@ -1342,6 +1371,8 @@
     "google.golang.org/api/option",
     "google.golang.org/grpc",
     "gopkg.in/yaml.v2",
+    "istio.io/api/networking/v1alpha3",
+    "istio.io/client-go/pkg/apis/networking/v1alpha3",
     "k8s.io/api/admission/v1beta1",
     "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/apps/v1",

@@ -28,3 +28,9 @@ dep ensure
 
 rm -rf $(find vendor/ -name 'OWNERS')
 rm -rf $(find vendor/ -name '*_test.go')
+
+# HACK HACK HACK
+# Currently istio.io/client-go apis are missing groupName comment tags and that
+# breaks our (and theirs for that matter) generated fake client sets.
+# TODO(skaslev): Remove after istio/tools#549 and istio/client-go#22 get merged.
+git apply ${REPO_ROOT_DIR}/hack/istio-client-missing-group-name.patch

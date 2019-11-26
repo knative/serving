@@ -22,11 +22,12 @@ import (
 	"fmt"
 	"reflect"
 
-	"knative.dev/pkg/apis/istio/v1alpha3"
+	istiov1alpha3 "istio.io/api/networking/v1alpha3"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"knative.dev/pkg/logging"
 	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 
-	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
+	istiolisters "knative.dev/pkg/client/istio/listers/networking/v1alpha3"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/tracker"
 
@@ -48,7 +49,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	sharedclientset "knative.dev/pkg/client/clientset/versioned"
+	istioclientset "knative.dev/pkg/client/istio/clientset/versioned"
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 	coreaccessor "knative.dev/serving/pkg/reconciler/accessor/core"
 	istioaccessor "knative.dev/serving/pkg/reconciler/accessor/istio"
@@ -271,7 +272,7 @@ func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ia *v1alpha1.
 		if kept.Has(n) {
 			continue
 		}
-		if err = r.SharedClientSet.NetworkingV1alpha3().VirtualServices(ns).Delete(n, &metav1.DeleteOptions{}); err != nil {
+		if err = r.IstioClientSet.NetworkingV1alpha3().VirtualServices(ns).Delete(n, &metav1.DeleteOptions{}); err != nil {
 			return fmt.Errorf("failed to delete VirtualService: %w", err)
 		}
 	}
@@ -290,7 +291,7 @@ func (r *Reconciler) reconcileDeletion(ctx context.Context, ia *v1alpha1.Ingress
 	logger.Infof("Cleaning up Gateway Servers for Ingress %s", ia.GetName())
 	for _, gws := range [][]config.Gateway{istiocfg.IngressGateways, istiocfg.LocalGateways} {
 		for _, gw := range gws {
-			if err := r.reconcileGateway(ctx, ia, gw, []v1alpha3.Server{}); err != nil {
+			if err := r.reconcileGateway(ctx, ia, gw, []*istiov1alpha3.Server{}); err != nil {
 				return err
 			}
 		}
@@ -343,7 +344,7 @@ func (r *Reconciler) ensureFinalizer(ia *v1alpha1.Ingress) error {
 	return err
 }
 
-func (r *Reconciler) reconcileGateway(ctx context.Context, ia *v1alpha1.Ingress, gw config.Gateway, desired []v1alpha3.Server) error {
+func (r *Reconciler) reconcileGateway(ctx context.Context, ia *v1alpha1.Ingress, gw config.Gateway, desired []*istiov1alpha3.Server) error {
 	// TODO(zhiminx): Need to handle the scenario when deleting Ingress. In this scenario,
 	// the Gateway servers of the Ingress need also be removed from Gateway.
 	gateway, err := r.gatewayLister.Gateways(gw.Namespace).Get(gw.Name)
@@ -356,12 +357,12 @@ func (r *Reconciler) reconcileGateway(ctx context.Context, ia *v1alpha1.Ingress,
 	existing := resources.GetServers(gateway, ia)
 	existingHTTPServer := resources.GetHTTPServer(gateway)
 	if existingHTTPServer != nil {
-		existing = append(existing, *existingHTTPServer)
+		existing = append(existing, existingHTTPServer)
 	}
 
 	desiredHTTPServer := resources.MakeHTTPServer(config.FromContext(ctx).Network.HTTPProtocol, []string{"*"})
 	if desiredHTTPServer != nil {
-		desired = append(desired, *desiredHTTPServer)
+		desired = append(desired, desiredHTTPServer)
 	}
 
 	if equality.Semantic.DeepEqual(existing, desired) {
@@ -370,7 +371,7 @@ func (r *Reconciler) reconcileGateway(ctx context.Context, ia *v1alpha1.Ingress,
 
 	copy := gateway.DeepCopy()
 	copy = resources.UpdateGateway(copy, desired, existing)
-	if _, err := r.SharedClientSet.NetworkingV1alpha3().Gateways(copy.Namespace).Update(copy); err != nil {
+	if _, err := r.IstioClientSet.NetworkingV1alpha3().Gateways(copy.Namespace).Update(copy); err != nil {
 		return fmt.Errorf("failed to update Gateway: %w", err)
 	}
 	r.Recorder.Eventf(ia, corev1.EventTypeNormal, "Updated", "Updated Gateway %s/%s", gateway.Namespace, gateway.Name)
@@ -387,9 +388,9 @@ func (r *Reconciler) GetSecretLister() corev1listers.SecretLister {
 	return r.secretLister
 }
 
-// GetSharedClient returns the client to access shared resources.
-func (r *Reconciler) GetSharedClient() sharedclientset.Interface {
-	return r.SharedClientSet
+// GetIstioClient returns the client to access Istio resources.
+func (r *Reconciler) GetIstioClient() istioclientset.Interface {
+	return r.IstioClientSet
 }
 
 // GetVirtualServiceLister returns the lister for VirtualService.

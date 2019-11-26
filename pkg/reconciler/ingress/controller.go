@@ -19,13 +19,13 @@ package ingress
 import (
 	"context"
 
-	"knative.dev/pkg/apis/istio/v1alpha3"
-	gatewayinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/gateway"
-	virtualserviceinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice"
+	v1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	secretinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/secret"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
+	gatewayinformer "knative.dev/pkg/client/istio/injection/informers/networking/v1alpha3/gateway"
+	virtualserviceinformer "knative.dev/pkg/client/istio/injection/informers/networking/v1alpha3/virtualservice"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/tracker"

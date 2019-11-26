@@ -38,9 +38,10 @@ import (
 	"testing"
 	"time"
 
+	istiov1alpha3 "istio.io/api/networking/v1alpha3"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/watch"
-	"knative.dev/pkg/apis/istio/v1alpha3"
 	"knative.dev/pkg/test/spoof"
 
 	"github.com/mattbaird/jsonpatch"
@@ -153,19 +154,19 @@ func CreateRunLatestServiceReady(t *testing.T, clients *test.Clients, names *tes
 
 	var httpsTransportOption *spoof.TransportOption
 	if https {
-		tlsOptions := &v1alpha3.TLSOptions{
-			Mode:              v1alpha3.TLSModeSimple,
+		tlsOptions := &istiov1alpha3.Server_TLSOptions{
+			Mode:              istiov1alpha3.Server_TLSOptions_SIMPLE,
 			PrivateKey:        "/etc/istio/ingressgateway-certs/tls.key",
 			ServerCertificate: "/etc/istio/ingressgateway-certs/tls.crt",
 		}
-		servers := []v1alpha3.Server{{
+		servers := []*istiov1alpha3.Server{{
 			Hosts: []string{"*"},
-			Port: v1alpha3.Port{
+			Port: &istiov1alpha3.Port{
 				Name:     "standard-https",
 				Number:   443,
-				Protocol: v1alpha3.ProtocolHTTPS,
+				Protocol: "HTTPS",
 			},
-			TLS: tlsOptions,
+			Tls: tlsOptions,
 		}}
 		httpsTransportOption, err = setupHTTPS(t, clients.KubeClient, names.URL.Host)
 		if err != nil {
@@ -406,7 +407,7 @@ func IsServiceRoutesNotReady(s *v1alpha1.Service) (bool, error) {
 
 // RestoreGateway updates the gateway object to the oldGateway
 func RestoreGateway(t *testing.T, clients *test.Clients, oldGateway v1alpha3.Gateway) {
-	currGateway, err := clients.SharedClient.NetworkingV1alpha3().Gateways(Namespace).Get(GatewayName, metav1.GetOptions{})
+	currGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(Namespace).Get(GatewayName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Gateway %s/%s", Namespace, GatewayName)
 	}
@@ -415,15 +416,15 @@ func RestoreGateway(t *testing.T, clients *test.Clients, oldGateway v1alpha3.Gat
 		return
 	}
 	currGateway.Spec.Servers = oldGateway.Spec.Servers
-	if _, err := clients.SharedClient.NetworkingV1alpha3().Gateways(Namespace).Update(currGateway); err != nil {
+	if _, err := clients.IstioClient.NetworkingV1alpha3().Gateways(Namespace).Update(currGateway); err != nil {
 		t.Fatalf("Failed to restore Gateway %s/%s: %v", Namespace, GatewayName, err)
 	}
 }
 
 // setupGateway updates the ingress Gateway to the provided Servers and waits until all Envoy pods have been updated.
-func setupGateway(t *testing.T, clients *test.Clients, servers []v1alpha3.Server) {
+func setupGateway(t *testing.T, clients *test.Clients, servers []*istiov1alpha3.Server) {
 	// Get the current Gateway
-	curGateway, err := clients.SharedClient.NetworkingV1alpha3().Gateways(Namespace).Get(GatewayName, metav1.GetOptions{})
+	curGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(Namespace).Get(GatewayName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Gateway %s/%s: %v", Namespace, GatewayName, err)
 	}
@@ -433,7 +434,7 @@ func setupGateway(t *testing.T, clients *test.Clients, servers []v1alpha3.Server
 	newGateway.Spec.Servers = servers
 
 	// Update the Gateway
-	gw, err := clients.SharedClient.NetworkingV1alpha3().Gateways(Namespace).Update(newGateway)
+	gw, err := clients.IstioClient.NetworkingV1alpha3().Gateways(Namespace).Update(newGateway)
 	if err != nil {
 		t.Fatalf("Failed to update Gateway %s/%s: %v", Namespace, GatewayName, err)
 	}
