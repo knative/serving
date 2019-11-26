@@ -79,7 +79,7 @@ func TestTimedFloat64Buckets(t *testing.T) {
 
 			got := make(map[time.Time]float64)
 			for time, bucket := range buckets.buckets {
-				got[time] = bucket.Sum()
+				got[time] = bucket.sum()
 			}
 
 			if !cmp.Equal(tt.want, got) {
@@ -243,11 +243,11 @@ func TestFloat64Bucket(t *testing.T) {
 			bucket := float64Bucket{}
 			for name, values := range tt.stats {
 				for _, value := range values {
-					bucket.Record(name, value)
+					bucket.record(name, value)
 				}
 			}
 
-			if got := bucket.Sum(); got != tt.want {
+			if got := bucket.sum(); got != tt.want {
 				t.Errorf("Average() = %v, want %v", got, tt.want)
 			}
 		})

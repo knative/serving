@@ -64,7 +64,7 @@ func NewConcurrencyReporter(ctx context.Context, podName string,
 	}
 }
 
-func (cr *ConcurrencyReporter) reportToMetricsBackend(key types.NamespacedName, concurrency int32) {
+func (cr *ConcurrencyReporter) reportToMetricsBackend(key types.NamespacedName, concurrency int64) {
 	ns := key.Namespace
 	revName := key.Name
 	revision, err := cr.rl.Revisions(ns).Get(revName)
@@ -74,16 +74,16 @@ func (cr *ConcurrencyReporter) reportToMetricsBackend(key types.NamespacedName, 
 	}
 	configurationName := revision.Labels[serving.ConfigurationLabelKey]
 	serviceName := revision.Labels[serving.ServiceLabelKey]
-	cr.sr.ReportRequestConcurrency(ns, serviceName, configurationName, revName, int64(concurrency))
+	cr.sr.ReportRequestConcurrency(ns, serviceName, configurationName, revName, concurrency)
 }
 
 // Run runs until stopCh is closed and processes events on all incoming channels
 func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
 	// Contains the number of in-flight requests per-key
-	outstandingRequestsPerKey := make(map[types.NamespacedName]int32)
+	outstandingRequestsPerKey := make(map[types.NamespacedName]int64)
 	// Contains the number of incoming requests in the current
 	// reporting period, per key.
-	incomingRequestsPerKey := make(map[types.NamespacedName]int32)
+	incomingRequestsPerKey := make(map[types.NamespacedName]int64)
 
 	for {
 		select {
@@ -128,7 +128,7 @@ func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
 			}
 			cr.statCh <- messages
 
-			incomingRequestsPerKey = make(map[types.NamespacedName]int32)
+			incomingRequestsPerKey = make(map[types.NamespacedName]int64)
 		case <-stopCh:
 			return
 		}
