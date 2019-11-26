@@ -38,9 +38,15 @@ LATEST_SERVING_RELEASE_VERSION=$(git describe --match "v[0-9]*" --abbrev=0)
 function install_latest_release() {
   header "Installing Knative latest public release"
   local url="https://github.com/knative/serving/releases/download/${LATEST_SERVING_RELEASE_VERSION}"
-  # TODO: should this test install istio and build at all, or only serving?
+  local yaml="serving.yaml"
+
+  # install serving core if installing for Gloo or Kourier
+  if [[ -n "${GLOO_VERSION}" || -n "${KOURIER_VERSION}" ]]; then
+    yaml="serving-core.yaml"
+  fi
+
   install_knative_serving \
-    "${url}/serving.yaml" \
+    "${url}/${yaml}" \
     || fail_test "Knative latest release installation failed"
   wait_until_pods_running knative-serving
 }

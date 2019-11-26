@@ -28,6 +28,7 @@ source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/e2e-tests.sh
 CERT_MANAGER_VERSION="0.9.1"
 ISTIO_VERSION=""
 GLOO_VERSION=""
+KOURIER_VERSION=""
 
 HTTPS=0
 
@@ -93,6 +94,13 @@ function parse_flags() {
       # currently, the value of --gloo-version is ignored
       # latest version of Gloo pinned in third_party will be installed
       readonly GLOO_VERSION=$2
+      GATEWAY_SETUP=1
+      return 2
+      ;;
+    --kourier-version)
+      # currently, the value of --kourier-version is ignored
+      # latest version of Kourier pinned in third_party will be installed
+      readonly KOURIER_VERSION=$2
       GATEWAY_SETUP=1
       return 2
       ;;
@@ -174,6 +182,15 @@ function install_gloo() {
   kubectl apply -f ${INSTALL_GLOO_YAML} || return 1
 }
 
+function install_kourier() {
+  local kourier_base="./third_party/kourier-latest"
+  INSTALL_KOURIER_YAML="${kourier_base}/kourier.yaml"
+  echo "Kourier YAML: ${INSTALL_KOURIER_YAML}"
+  echo ">> Bringing up Kourier"
+
+  kubectl apply -f ${INSTALL_KOURIER_YAML} || return 1
+}
+
 # Installs Knative Serving in the current cluster, and waits for it to be ready.
 # If no parameters are passed, installs the current source-based build.
 # Parameters: $1 - Knative Serving YAML file
@@ -186,8 +203,8 @@ function install_knative_serving_standard() {
     build_knative_from_source
     INSTALL_RELEASE_YAML="${SERVING_YAML}"
 
-    # install serving core if installing for Gloo
-    if [[ -n "${GLOO_VERSION}" ]]; then
+    # install serving core if installing for Gloo or Kourier
+    if [[ -n "${GLOO_VERSION}" || -n "${KOURIER_VERSION}" ]]; then
       INSTALL_RELEASE_YAML="${SERVING_CORE_YAML}"
     fi
 
@@ -214,12 +231,31 @@ function install_knative_serving_standard() {
   if [[ -n "${GLOO_VERSION}" ]]; then
     install_gloo
   fi
+  if [[ -n "${KOURIER_VERSION}" ]]; then
+    install_kourier
+  fi
 
   echo ">> Installing Cert-Manager"
   kubectl apply -f "${INSTALL_CERT_MANAGER_YAML}" --validate=false || return 1
 
   echo ">> Bringing up Serving"
   kubectl apply -f "${INSTALL_RELEASE_YAML}" || return 1
+
+  if [[ -n "${KOURIER_VERSION}" ]]; then
+    echo ">> Making Kourier the default ingress"
+    cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-network
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
+data:
+  ingress.class: "kourier.ingress.networking.knative.dev"
+  clusteringress.class: "kourier.ingress.networking.knative.dev"
+EOF
+  fi
 
   if (( RECONCILE_GATEWAY )); then
     echo ">> Turning on reconcileExternalGateway"
@@ -276,10 +312,13 @@ EOF
       # Some versions of Istio don't provide an HPA for pilot.
       kubectl autoscale -n istio-system deploy istio-pilot --min=3 --max=10 --cpu-percent=60 || return 1
     fi
-  else
+  elif [[ -n "${GLOO_VERSION}" ]]; then
     # Scale replicas of the Gloo proxies to handle large qps
     kubectl scale -n gloo-system deployment knative-external-proxy --replicas=6
     kubectl scale -n gloo-system deployment knative-internal-proxy --replicas=6
+  elif [[ -n "${KOURIER_VERSION}" ]]; then
+    # Scale replicas of the Kourier gateways to handle large qps
+    kubectl scale -n kourier-system deployment 3scale-kourier-gateway --replicas=6
   fi
 
   if [[ -n "${INSTALL_MONITORING_YAML}" ]]; then
@@ -365,6 +404,14 @@ function test_setup() {
     export GATEWAY_NAMESPACE_OVERRIDE=gloo-system
     wait_until_pods_running gloo-system || return 1
     wait_until_service_has_external_ip gloo-system knative-external-proxy
+  fi
+  if [[ -n "${KOURIER_VERSION}" ]]; then
+    # we must set these override values to allow the test spoofing client to work with Kourier
+    # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
+    export GATEWAY_OVERRIDE=kourier-external
+    export GATEWAY_NAMESPACE_OVERRIDE=kourier-system
+    wait_until_pods_running kourier-system || return 1
+    wait_until_service_has_external_ip kourier-system kourier-external
   fi
   if [[ -n "${INSTALL_MONITORING_YAML}" ]]; then
     wait_until_pods_running knative-monitoring || return 1
