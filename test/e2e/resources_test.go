@@ -101,11 +101,11 @@ func TestCustomResourcesLimits(t *testing.T) {
 		if err != nil {
 			klog.V(5).Infof("Received error '%+v' from sendPostRequest (may be expected)\n", err)
 			if wantSuccess {
-				t.Fatalf("Didn't get a response from bloating RAM with %d MBs", mb)
+				t.Errorf("Didn't get a response from bloating RAM with %d MBs", mb)
 			}
 		} else if response.StatusCode == http.StatusOK {
 			if !wantSuccess {
-				t.Fatalf("We shouldn't have got a response from bloating RAM with %d MBs", mb)
+				t.Errorf("We shouldn't have got a response from bloating RAM with %d MBs", mb)
 			}
 		} else if response.StatusCode == http.StatusBadRequest {
 			t.Error("Test Issue: Received BadRequest from test app, which probably means the test & test image are not cooperating with each other.")
@@ -113,7 +113,7 @@ func TestCustomResourcesLimits(t *testing.T) {
 			// Accept all other StatusCode as failure; different systems could return 404, 502, etc on failure
 			klog.V(5).Infof("Received http code '%d' from sendPostRequest; interpreting as failure of bloat\n", response.StatusCode)
 			if wantSuccess {
-				t.Fatalf("Didn't get a good response from bloating RAM with %d MBs", mb)
+				t.Errorf("Didn't get a good response from bloating RAM with %d MBs", mb)
 			}
 		}
 	}
