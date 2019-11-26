@@ -327,6 +327,9 @@ func validateReleaseServiceShape(objs *v1test.ResourceObjects) error {
 }
 
 func validateImageDigest(imageName string, imageDigest string) (bool, error) {
-	imageDigestRegex := fmt.Sprintf("%s/%s@sha256:[0-9a-f]{64}", pkgTest.Flags.DockerRepo, imageName)
+	fullName := pkgTest.ImagePath(imageName)
+	// Remove the tag portion from the fullName to be able to append the sha instead.
+	repository := strings.Split(fullName, ":")[0]
+	imageDigestRegex := repository + "@sha256:[0-9a-f]{64}"
 	return regexp.MatchString(imageDigestRegex, imageDigest)
 }
