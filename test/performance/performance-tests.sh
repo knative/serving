@@ -24,7 +24,7 @@ export BENCHMARK_ROOT_PATH="$GOPATH/src/knative.dev/serving/test/performance/ben
 source vendor/knative.dev/test-infra/scripts/performance-tests.sh
 
 function update_knative() {
-  local istio_version="istio-1.2-latest"
+  local istio_version="istio-1.4-latest"
   # Mako needs to escape '.' in tags. Use '_' instead.
   local istio_version_escaped=${istio_version//./_}
 
