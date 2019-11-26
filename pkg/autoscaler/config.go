@@ -213,9 +213,15 @@ func validate(lc *Config) (*Config, error) {
 	if lc.StableWindow < autoscaling.WindowMin {
 		return nil, fmt.Errorf("stable-window = %v, must be at least %v", lc.StableWindow, BucketSize)
 	}
+	if lc.StableWindow.Round(time.Second) != lc.StableWindow {
+		return nil, fmt.Errorf("stable-window = %v, must be specified with at most second precision", lc.StableWindow)
+	}
 
 	if lc.PanicWindow < BucketSize || lc.PanicWindow > lc.StableWindow {
 		return nil, fmt.Errorf("panic-window = %v, must be in [%v, %v] interval", lc.PanicWindow, BucketSize, lc.StableWindow)
+	}
+	if lc.PanicWindow.Round(time.Second) != lc.PanicWindow {
+		return nil, fmt.Errorf("panic-window = %v, must be specified with at most second precision", lc.PanicWindow)
 	}
 
 	effPW := time.Duration(lc.PanicWindowPercentage / 100 * float64(lc.StableWindow))

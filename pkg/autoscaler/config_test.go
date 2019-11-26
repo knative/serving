@@ -214,6 +214,12 @@ func TestNewConfig(t *testing.T) {
 		},
 		wantErr: true,
 	}, {
+		name: "stable not seconds",
+		input: map[string]string{
+			"stable-window": "61984ms",
+		},
+		wantErr: true,
+	}, {
 		name: "panic window too small",
 		input: map[string]string{
 			"panic-window": "500ms",
@@ -224,6 +230,12 @@ func TestNewConfig(t *testing.T) {
 		input: map[string]string{
 			"stable-window": "12s",
 			"panic-window":  "13s",
+		},
+		wantErr: true,
+	}, {
+		name: "panic not seconds",
+		input: map[string]string{
+			"panic-window": "4321ms",
 		},
 		wantErr: true,
 	}, {
@@ -263,6 +275,7 @@ func TestNewConfig(t *testing.T) {
 			got, err := NewConfigFromConfigMap(&corev1.ConfigMap{
 				Data: test.input,
 			})
+			t.Logf("Error = %v", err)
 			if (err != nil) != test.wantErr {
 				t.Errorf("NewConfig() = %v, want %v", err, test.wantErr)
 			}
