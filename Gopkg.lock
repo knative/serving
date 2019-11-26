@@ -1667,7 +1667,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:deee74b71a8c22d4f9354db957cd23237a082b2701c7ffe2084ceadf2f6a2def"
+  digest = "1:275ef266c295398a10fe238bf3903a7a0f496b1117d1ffd41e6ad161b1c46670"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1690,11 +1690,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "067b78720a901439c0640c556328f18be985fc38"
+  revision = "14ff67345c4328a2e1e4341b07c6dd6c4003263b"
 
 [[projects]]
   branch = "master"
-  digest = "1:19e1361ee0bb4c48287a04c5f0d4c01bbc365532da6cd9da9152be28405d9ce9"
+  digest = "1:4835d8c504bc12fd7e44d97f9e6ab5e84e0384be0ffba1f264efc61043c733c5"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1820,7 +1820,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "43ca049cdbdad4892b0c926e7c6536d064efde72"
+  revision = "6305a6322febad96fdb4f0d879d0e2b34c8a79b1"
 
 [[projects]]
   branch = "master"
@@ -1837,7 +1837,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "fad831028edbe066665977ea7bf366c3d5c0a2d1"
+  revision = "4aaba3b76d04d8bbb0b3289ec05df0ee6051fa52"
 
 [[projects]]
   digest = "1:fef5992ddf85e9ccad899b11338339858936a10fbce96b9d5c43767669d95398"
@@ -1958,7 +1958,6 @@
     "k8s.io/code-generator/cmd/defaulter-gen",
     "k8s.io/code-generator/cmd/informer-gen",
     "k8s.io/code-generator/cmd/lister-gen",
-    "k8s.io/klog",
     "k8s.io/kubernetes/pkg/version",
     "k8s.io/metrics/pkg/apis/custom_metrics",
     "knative.dev/caching/pkg/apis/caching",
