@@ -1694,7 +1694,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:19e1361ee0bb4c48287a04c5f0d4c01bbc365532da6cd9da9152be28405d9ce9"
+  digest = "1:cdd6264086a9b4e1f2840d46761be97942f03bc23ca8a4be52c7027165097d86"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1820,7 +1820,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "43ca049cdbdad4892b0c926e7c6536d064efde72"
+  revision = "47b250654ae75a92989576f005b7dc5f673d1c75"
 
 [[projects]]
   branch = "master"
@@ -1958,7 +1958,6 @@
     "k8s.io/code-generator/cmd/defaulter-gen",
     "k8s.io/code-generator/cmd/informer-gen",
     "k8s.io/code-generator/cmd/lister-gen",
-    "k8s.io/klog",
     "k8s.io/kubernetes/pkg/version",
     "k8s.io/metrics/pkg/apis/custom_metrics",
     "knative.dev/caching/pkg/apis/caching",
