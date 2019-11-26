@@ -278,14 +278,17 @@ func TestReconcile(t *testing.T) {
 				v1alpha1.IngressStatus{
 					Status: duckv1.Status{
 						Conditions: duckv1.Conditions{{
-							Type:   v1alpha1.IngressConditionLoadBalancerReady,
-							Status: corev1.ConditionTrue,
+							Type:     v1alpha1.IngressConditionLoadBalancerReady,
+							Reason:   v1alpha1.VirtualServiceNotReconciled,
+							Severity: apis.ConditionSeverityError,
+							Message:  "failed to update VirtualService: inducing failure for update virtualservices",
+							Status:   corev1.ConditionFalse,
 						}, {
 							Type:   v1alpha1.IngressConditionNetworkConfigured,
 							Status: corev1.ConditionTrue,
 						}, {
 							Type:     v1alpha1.IngressConditionReady,
-							Status:   corev1.ConditionUnknown,
+							Status:   corev1.ConditionFalse,
 							Severity: apis.ConditionSeverityError,
 							Reason:   notReconciledReason,
 							Message:  notReconciledMessage,
