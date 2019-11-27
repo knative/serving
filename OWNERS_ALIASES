@@ -9,11 +9,21 @@ aliases:
   serving-api-reviewers:
   - dgerd
   - dprotaso
-  - jonjohnsonjr
   - markusthoemmes
   - mattmoor
   - tcnghia
   - vagababov
+
+  # WG leads + TOC.
+  serving-wg-leads:
+  - dgerd
+  - evankanderson
+  - markusthoemmes
+  - mattmoor
+  - tcnghia
+  - vagababov
+  - vaikas
+
 
   autoscaling-approvers:
   - markusthoemmes
@@ -24,6 +34,7 @@ aliases:
   - mdemirhan
   - taragu
   - vagababov
+  - yanweiguo
 
   monitoring-approvers:
   - mdemirhan
@@ -48,7 +59,6 @@ aliases:
   - mdemirhan
   - tcnghia
   - vagababov
-
   networking-reviewers:
   - markusthoemmes
   - mdemirhan
