@@ -36,7 +36,6 @@ var defaultConfig = Config{
 	MaxScaleUpRate:                     1000,
 	MaxScaleDownRate:                   2,
 	StableWindow:                       time.Minute,
-	PanicWindow:                        6 * time.Second,
 	ScaleToZeroGracePeriod:             30 * time.Second,
 	TickInterval:                       2 * time.Second,
 	PanicWindowPercentage:              10.0,
@@ -61,7 +60,6 @@ func TestNewConfig(t *testing.T) {
 			"container-concurrency-target-default":    "10.0",
 			"target-burst-capacity":                   "0",
 			"stable-window":                           "5m",
-			"panic-window":                            "10s",
 			"tick-interval":                           "2s",
 			"panic-window-percentage":                 "10",
 			"panic-threshold-percentage":              "200",
@@ -72,7 +70,6 @@ func TestNewConfig(t *testing.T) {
 			c.MaxScaleUpRate = 1.001
 			c.TargetBurstCapacity = 0
 			c.StableWindow = 5 * time.Minute
-			c.PanicWindow = 10 * time.Second
 			return &c
 		}(defaultConfig),
 	}, {
@@ -104,7 +101,6 @@ func TestNewConfig(t *testing.T) {
 			"requests-per-second-target-default":      "10.11",
 			"target-burst-capacity":                   "12345",
 			"stable-window":                           "5m",
-			"panic-window":                            "11s",
 			"tick-interval":                           "2s",
 			"panic-window-percentage":                 "10",
 			"panic-threshold-percentage":              "200",
@@ -117,7 +113,6 @@ func TestNewConfig(t *testing.T) {
 			c.MaxScaleDownRate = 3
 			c.MaxScaleUpRate = 1.01
 			c.StableWindow = 5 * time.Minute
-			c.PanicWindow = 11 * time.Second
 			return &c
 		}(defaultConfig),
 	}, {
@@ -217,25 +212,6 @@ func TestNewConfig(t *testing.T) {
 		name: "stable not seconds",
 		input: map[string]string{
 			"stable-window": "61984ms",
-		},
-		wantErr: true,
-	}, {
-		name: "panic window too small",
-		input: map[string]string{
-			"panic-window": "500ms",
-		},
-		wantErr: true,
-	}, {
-		name: "panic window too big",
-		input: map[string]string{
-			"stable-window": "12s",
-			"panic-window":  "13s",
-		},
-		wantErr: true,
-	}, {
-		name: "panic not seconds",
-		input: map[string]string{
-			"panic-window": "4321ms",
 		},
 		wantErr: true,
 	}, {

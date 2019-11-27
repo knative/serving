@@ -64,6 +64,14 @@ func TestMakeMetric(t *testing.T) {
 			withScrapeTarget("dansen"),
 			withStableWindow(time.Minute), withPanicWindow(30*time.Second),
 			withPanicWindowPercentageAnnotation("50")),
+	}, {
+		name: "with panic window percentage+rounding",
+		pa:   pa(WithPanicWindowPercentageAnnotation("51")),
+		msn:  "dansen",
+		want: metric(
+			withScrapeTarget("dansen"),
+			withStableWindow(time.Minute), withPanicWindow(31*time.Second),
+			withPanicWindowPercentageAnnotation("51")),
 	}}
 
 	for _, tc := range cases {
@@ -171,7 +179,6 @@ var config = &autoscaler.Config{
 	MaxScaleUpRate:                     10.0,
 	StableWindow:                       60 * time.Second,
 	PanicThresholdPercentage:           200,
-	PanicWindow:                        6 * time.Second,
 	PanicWindowPercentage:              10,
 	TickInterval:                       2 * time.Second,
 	ScaleToZeroGracePeriod:             30 * time.Second,
