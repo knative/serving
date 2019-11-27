@@ -187,14 +187,14 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 		return fmt.Errorf("unrecognized condition status: %v on revision %q", rc.Status, revName)
 	}
 
-	if err = c.findAndSetLatestReadyRevision(config, rc != nil && rc.Status == corev1.ConditionTrue); err != nil {
+	if err = c.findAndSetLatestReadyRevision(config); err != nil {
 		return fmt.Errorf("failed to find and set latest ready revision: %w", err)
 	}
 	return nil
 }
 
 // findAndSetLatestReadyRevision finds the last ready revision and sets LatestReadyRevisionName to it.
-func (c *Reconciler) findAndSetLatestReadyRevision(config *v1alpha1.Configuration, lcrReady bool) error {
+func (c *Reconciler) findAndSetLatestReadyRevision(config *v1alpha1.Configuration) error {
 	sortedRevisions, err := c.getSortedCreatedRevisions(config)
 	if err != nil {
 		return err
@@ -203,10 +203,6 @@ func (c *Reconciler) findAndSetLatestReadyRevision(config *v1alpha1.Configuratio
 		if rev.Status.IsReady() {
 			old, new := config.Status.LatestReadyRevisionName, rev.Name
 			config.Status.SetLatestReadyRevisionName(rev.Name)
-			// Only mark config ready if latest created revision is ready
-			if lcrReady {
-				config.Status.MarkConfigurationReady()
-			}
 			if old != new {
 				c.Recorder.Eventf(config, corev1.EventTypeNormal, "LatestReadyUpdate",
 					"LatestReadyRevisionName updated to %q", rev.Name)

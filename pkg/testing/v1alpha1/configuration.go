@@ -82,20 +82,6 @@ func WithLatestReady(name string) ConfigOption {
 	}
 }
 
-// WithConfigurationReady sets the ConfigurationConditionReady condition to True
-func WithConfigurationReady() ConfigOption {
-	return func(cfg *v1alpha1.Configuration) {
-		cfg.Status.MarkConfigurationReady()
-	}
-}
-
-// WithConfigurationUnknown sets the ConfigurationConditionReady condition to Unknown
-func WithConfigurationUnknown() ConfigOption {
-	return func(cfg *v1alpha1.Configuration) {
-		cfg.Status.MarkConfigurationUnknown()
-	}
-}
-
 // MarkRevisionCreationFailed calls .Status.MarkRevisionCreationFailed.
 func MarkRevisionCreationFailed(msg string) ConfigOption {
 	return func(cfg *v1alpha1.Configuration) {
