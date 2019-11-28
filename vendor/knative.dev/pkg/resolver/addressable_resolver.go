@@ -89,7 +89,7 @@ func (r *URIResolver) URIFromDestination(dest duckv1beta1.Destination, parent in
 			if dest.URI.URL().IsAbs() {
 				return "", errors.New("absolute URI is not allowed when Ref or [apiVersion, kind, name] exists")
 			}
-			return url.URL().ResolveReference(dest.URI.URL()).String(), nil
+			return url.ResolveReference(dest.URI).String(), nil
 		}
 		return url.URL().String(), nil
 	}
@@ -97,7 +97,7 @@ func (r *URIResolver) URIFromDestination(dest duckv1beta1.Destination, parent in
 	if dest.URI != nil {
 		// IsAbs check whether the URL has a non-empty scheme. Besides the non non-empty scheme, we also require dest.URI has a non-empty host
 		if !dest.URI.URL().IsAbs() || dest.URI.Host == "" {
-			return "", fmt.Errorf("URI is not absolute(both scheme and host should be non-empty): %v", dest.URI.String())
+			return "", fmt.Errorf("URI is not absolute(both scheme and host should be non-empty): %q", dest.URI.String())
 		}
 		return dest.URI.String(), nil
 	}
@@ -105,31 +105,31 @@ func (r *URIResolver) URIFromDestination(dest duckv1beta1.Destination, parent in
 	return "", errors.New("destination missing Ref, [apiVersion, kind, name] and URI, expected at least one")
 }
 
-// URIFromDestinationV1 resolves a v1.Destination into a URI string.
-func (r *URIResolver) URIFromDestinationV1(dest duckv1.Destination, parent interface{}) (string, error) {
+// URIFromDestinationV1 resolves a v1.Destination into a URL.
+func (r *URIResolver) URIFromDestinationV1(dest duckv1.Destination, parent interface{}) (*apis.URL, error) {
 	if dest.Ref != nil {
 		url, err := r.URIFromObjectReference(dest.Ref, parent)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		if dest.URI != nil {
 			if dest.URI.URL().IsAbs() {
-				return "", errors.New("absolute URI is not allowed when Ref or [apiVersion, kind, name] exists")
+				return nil, errors.New("absolute URI is not allowed when Ref or [apiVersion, kind, name] exists")
 			}
-			return url.URL().ResolveReference(dest.URI.URL()).String(), nil
+			return url.ResolveReference(dest.URI), nil
 		}
-		return url.URL().String(), nil
+		return url, nil
 	}
 
 	if dest.URI != nil {
 		// IsAbs check whether the URL has a non-empty scheme. Besides the non non-empty scheme, we also require dest.URI has a non-empty host
 		if !dest.URI.URL().IsAbs() || dest.URI.Host == "" {
-			return "", fmt.Errorf("URI is not absolute(both scheme and host should be non-empty): %v", dest.URI.String())
+			return nil, fmt.Errorf("URI is not absolute(both scheme and host should be non-empty): %q", dest.URI.String())
 		}
-		return dest.URI.String(), nil
+		return dest.URI, nil
 	}
 
-	return "", errors.New("destination missing Ref and URI, expected at least one")
+	return nil, errors.New("destination missing Ref and URI, expected at least one")
 }
 
 // URIFromObjectReference resolves an ObjectReference to a URI string.
