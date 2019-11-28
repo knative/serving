@@ -35,7 +35,7 @@ const (
 	scrapeTickInterval = time.Second
 
 	// BucketSize is the size of the buckets of stats we create.
-	BucketSize = 1 * time.Second
+	BucketSize = scrapeTickInterval
 )
 
 var (
