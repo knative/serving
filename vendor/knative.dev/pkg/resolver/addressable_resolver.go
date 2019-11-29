@@ -61,9 +61,7 @@ func NewURIResolver(ctx context.Context, callback func(types.NamespacedName)) *U
 // URIFromDestination resolves a v1beta1.Destination into a URI string.
 func (r *URIResolver) URIFromDestination(dest duckv1beta1.Destination, parent interface{}) (string, error) {
 	var deprecatedObjectReference *corev1.ObjectReference
-	if dest.DeprecatedAPIVersion == "" && dest.DeprecatedKind == "" && dest.DeprecatedName == "" && dest.DeprecatedNamespace == "" {
-		deprecatedObjectReference = nil
-	} else {
+	if !(dest.DeprecatedAPIVersion == "" && dest.DeprecatedKind == "" && dest.DeprecatedName == "" && dest.DeprecatedNamespace == "") {
 		deprecatedObjectReference = &corev1.ObjectReference{
 			Kind:       dest.DeprecatedKind,
 			APIVersion: dest.DeprecatedAPIVersion,
@@ -97,7 +95,7 @@ func (r *URIResolver) URIFromDestination(dest duckv1beta1.Destination, parent in
 	if dest.URI != nil {
 		// IsAbs check whether the URL has a non-empty scheme. Besides the non non-empty scheme, we also require dest.URI has a non-empty host
 		if !dest.URI.URL().IsAbs() || dest.URI.Host == "" {
-			return "", fmt.Errorf("URI is not absolute(both scheme and host should be non-empty): %q", dest.URI.String())
+			return "", fmt.Errorf("URI is not absolute (both scheme and host should be non-empty): %q", dest.URI.String())
 		}
 		return dest.URI.String(), nil
 	}
@@ -167,7 +165,7 @@ func (r *URIResolver) URIFromObjectReference(ref *corev1.ObjectReference, parent
 
 	addressable, ok := obj.(*duckv1.AddressableType)
 	if !ok {
-		return nil, fmt.Errorf("%+v is not an AddressableType", ref)
+		return nil, fmt.Errorf("%+v (%T) is not an AddressableType", ref, ref)
 	}
 	if addressable.Status.Address == nil {
 		return nil, fmt.Errorf("address not set for %+v", ref)
