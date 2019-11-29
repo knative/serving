@@ -20,6 +20,7 @@ metadata:
     serving.knative.dev/release: devel
     knative.dev/crd-install: "true"
     duck.knative.dev/addressable: "true"
+    duck.knative.dev/podspecable: "true"
 spec:
   group: serving.knative.dev
   versions:
