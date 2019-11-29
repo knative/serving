@@ -68,13 +68,24 @@ func TestActivatorOverload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to create resources: %v", err)
 	}
-	domain := resources.Route.Status.URL.Host
+
+	// Make sure the service responds correctly before scaling to 0.
+	if _, err := pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		t.Logf,
+		resources.Route.Status.URL.URL(),
+		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		"WaitForSuccessfulResponse",
+		test.ServingFlags.ResolvableDomain); err != nil {
+		t.Fatalf("Error probing %s: %v", resources.Route.Status.URL.URL(), err)
+	}
 
 	deploymentName := rnames.Deployment(resources.Revision)
 	if err := WaitForScaleToZero(t, deploymentName, clients); err != nil {
 		t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", deploymentName, err)
 	}
 
+	domain := resources.Route.Status.URL.Host
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("Error creating the Spoofing client: %v", err)
