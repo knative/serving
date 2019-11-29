@@ -218,8 +218,7 @@ func TestNewConfig(t *testing.T) {
 		name: "panic window percentage too small",
 		input: map[string]string{
 			"stable-window":           "12s",
-			"panic-window":            "5s",
-			"panic-window-percentage": "10", // 1.2s < BucketSize
+			"panic-window-percentage": "5", // 0.6s < BucketSize
 		},
 		wantErr: true,
 	}, {
