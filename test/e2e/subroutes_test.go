@@ -23,8 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/network"
@@ -389,7 +387,7 @@ func isTrafficClusterLocal(tt []v1alpha1.TrafficTarget, tag string) (bool, error
 			return strings.HasSuffix(traffic.TrafficTarget.URL.Host, network.GetClusterDomainName()), nil
 		}
 	}
-	return false, errors.Errorf("Unable to find traffic target with tag %s", tag)
+	return false, fmt.Errorf("Unable to find traffic target with tag %s", tag)
 }
 
 func isRouteClusterLocal(rs v1alpha1.RouteStatus) bool {

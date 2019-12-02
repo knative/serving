@@ -83,9 +83,13 @@ func TestIngressTypicalFlow(t *testing.T) {
 	apitestv1.CheckConditionOngoing(r.duck(), IngressConditionReady, t)
 
 	// Then ingress is pending.
-	r.MarkLoadBalancerPending()
+	r.MarkLoadBalancerNotReady()
 	apitestv1.CheckConditionOngoing(r.duck(), IngressConditionLoadBalancerReady, t)
 	apitestv1.CheckConditionOngoing(r.duck(), IngressConditionReady, t)
+
+	r.MarkLoadBalancerFailed("some reason", "some message")
+	apitestv1.CheckConditionFailed(r.duck(), IngressConditionLoadBalancerReady, t)
+	apitestv1.CheckConditionFailed(r.duck(), IngressConditionLoadBalancerReady, t)
 
 	// Then ingress has address.
 	r.MarkLoadBalancerReady(

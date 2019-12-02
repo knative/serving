@@ -24,6 +24,8 @@ import (
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	"knative.dev/serving/pkg/apis/serving"
 
+	podscalable "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
+
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -91,7 +93,7 @@ func TestGetScaleResource(t *testing.T) {
 
 	deployment := newDeployment(t, fakedynamicclient.Get(ctx), "testdeployment", 5)
 
-	psInformerFactory := NewPodScalableInformerFactory(ctx)
+	psInformerFactory := podscalable.Get(ctx)
 	objectRef := corev1.ObjectReference{
 		Name:       deployment.Name,
 		Kind:       "deployment",

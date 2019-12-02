@@ -213,9 +213,7 @@ var (
 						serving.RevisionUID:      "1234",
 						AppLabelKey:              "bar",
 					},
-					Annotations: map[string]string{
-						sidecarIstioInjectAnnotation: "true",
-					},
+					Annotations: map[string]string{},
 				},
 				// Spec: filled in by makePodSpec
 			},

@@ -19,6 +19,7 @@ limitations under the License.
 package e2e
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -27,7 +28,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
 	vegeta "github.com/tsenart/vegeta/lib"
 	"golang.org/x/sync/errgroup"
 	"knative.dev/pkg/system"
@@ -56,6 +56,7 @@ const (
 	containerConcurrency = 6.0
 	targetUtilization    = 0.7
 	successRateSLO       = 0.999
+	autoscaleSleep       = 500
 )
 
 type testContext struct {
@@ -72,7 +73,7 @@ func getVegetaTarget(kubeClientset *kubernetes.Clientset, domain, endpointOverri
 	if resolvable {
 		return vegeta.Target{
 			Method: http.MethodGet,
-			URL:    fmt.Sprintf("http://%s?sleep=100", domain),
+			URL:    fmt.Sprintf("http://%s?sleep=%d", domain, autoscaleSleep),
 		}, nil
 	}
 
@@ -91,7 +92,7 @@ func getVegetaTarget(kubeClientset *kubernetes.Clientset, domain, endpointOverri
 	h.Set("Host", domain)
 	return vegeta.Target{
 		Method: http.MethodGet,
-		URL:    fmt.Sprintf("http://%s?sleep=100", endpoint),
+		URL:    fmt.Sprintf("http://%s?sleep=%d", endpoint, autoscaleSleep),
 		Header: h,
 	}, nil
 }

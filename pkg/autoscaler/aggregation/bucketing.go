@@ -49,7 +49,7 @@ func (t *TimedFloat64Buckets) Record(time time.Time, name string, value float64)
 		bucket = float64Bucket{}
 		t.buckets[bucketKey] = bucket
 	}
-	bucket.Record(name, value)
+	bucket.record(name, value)
 }
 
 // IsEmpty returns whether or not there are no values currently stored.
@@ -94,9 +94,9 @@ type float64Value struct {
 	count float64
 }
 
-// Record adds a value to the bucket. Buckets with the same given name
+// record adds a value to the bucket. Buckets with the same given name
 // will be collapsed.
-func (b float64Bucket) Record(name string, value float64) {
+func (b float64Bucket) record(name string, value float64) {
 	current := b[name]
 	b[name] = float64Value{
 		sum:   current.sum + value,
@@ -104,9 +104,9 @@ func (b float64Bucket) Record(name string, value float64) {
 	}
 }
 
-// Sum calculates the sum over the bucket. Values of the same name in
+// sum calculates the sum over the bucket. Values of the same name in
 // the same bucket will be averaged between themselves first.
-func (b float64Bucket) Sum() float64 {
+func (b float64Bucket) sum() float64 {
 	var total float64
 	for _, value := range b {
 		total += value.sum / value.count

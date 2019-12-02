@@ -84,6 +84,7 @@ data:
 
     # When operating in a stable mode, the autoscaler operates on the
     # average concurrency over the stable window.
+    # Stable window must be in whole seconds.
     stable-window: "60s"
 
     # When observed average concurrency during the panic window reaches
@@ -91,13 +92,9 @@ data:
     # enters panic mode. When operating in panic mode, the autoscaler
     # scales on the average concurrency over the panic window which is
     # panic-window-percentage of the stable-window.
+    # When computing the panic window it will be rounded to the closest
+    # whole second.
     panic-window-percentage: "10.0"
-
-    # Absolute panic window duration.
-    # Deprecated in favor of panic-window-percentage.
-    # Existing revisions will continue to scale based on panic-window
-    # but new revisions will default to panic-window-percentage.
-    panic-window: "6s"
 
     # The percentage of the container concurrency target at which to
     # enter panic mode when reached within the panic window.

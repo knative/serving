@@ -13,6 +13,9 @@ required = [
   "knative.dev/test-infra/scripts",
   "knative.dev/test-infra/tools/dep-collector",
   "github.com/pkg/errors",
+  "github.com/gogo/protobuf/proto",
+  "istio.io/api/networking/v1alpha3",
+  "istio.io/client-go/pkg/apis/networking/v1alpha3",
 ]
 
 [[constraint]]
@@ -34,6 +37,18 @@ required = [
 [[constraint]]
   name = "k8s.io/code-generator"
   version = "kubernetes-1.15.3"
+
+[[constraint]]
+  name = "github.com/gogo/protobuf"
+  version = "v1.3.1"
+
+[[constraint]]
+  name = "istio.io/api"
+  version = "1.4.0-beta.4"
+
+[[constraint]]
+  name = "istio.io/client-go"
+  version = "1.4.0-beta.2"
 
 [[override]]
   name = "gopkg.in/yaml.v2"

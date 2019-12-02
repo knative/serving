@@ -24,7 +24,7 @@ export BENCHMARK_ROOT_PATH="$GOPATH/src/knative.dev/serving/test/performance/ben
 source vendor/knative.dev/test-infra/scripts/performance-tests.sh
 
 function update_knative() {
-  local istio_version="istio-1.2-latest"
+  local istio_version="istio-1.4-latest"
   # Mako needs to escape '.' in tags. Use '_' instead.
   local istio_version_escaped=${istio_version//./_}
 
@@ -92,8 +92,12 @@ EOF
 }
 
 function update_benchmark() {
-  echo ">> Applying all the yamls for benchmark $1"
+  echo ">> Deleting all the yamls for benchmark $1"
   ko delete -f ${BENCHMARK_ROOT_PATH}/$1/continuous --ignore-not-found=true
+  echo ">> Deleting all Knative serving services"
+  kubectl delete ksvc --all
+
+  echo ">> Applying all the yamls for benchmark $1"
   ko apply -f ${BENCHMARK_ROOT_PATH}/$1/continuous || abort "failed to apply benchmarks yaml $1"
 }
 

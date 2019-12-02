@@ -35,7 +35,7 @@ const (
 	scrapeTickInterval = time.Second
 
 	// BucketSize is the size of the buckets of stats we create.
-	BucketSize = 2 * time.Second
+	BucketSize = scrapeTickInterval
 )
 
 var (
@@ -338,8 +338,10 @@ func (c *collection) stableAndPanicStats(now time.Time, buckets *aggregation.Tim
 		return 0, 0, ErrNoData
 	}
 
-	panicAverage := aggregation.Average{}
-	stableAverage := aggregation.Average{}
+	var (
+		panicAverage  aggregation.Average
+		stableAverage aggregation.Average
+	)
 	buckets.ForEachBucket(
 		aggregation.YoungerThan(now.Add(-spec.PanicWindow), panicAverage.Accumulate),
 		aggregation.YoungerThan(now.Add(-spec.StableWindow), stableAverage.Accumulate),

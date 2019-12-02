@@ -22,6 +22,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis"
 )
 
@@ -47,6 +48,11 @@ type ResourceSpec struct {
 	FieldWithValidation            string `json:"fieldWithValidation,omitempty"`
 	FieldThatsImmutable            string `json:"fieldThatsImmutable,omitempty"`
 	FieldThatsImmutableWithDefault string `json:"fieldThatsImmutableWithDefault,omitempty"`
+}
+
+// GetGroupVersionKind returns the GroupVersionKind.
+func (r *Resource) GetGroupVersionKind() schema.GroupVersionKind {
+	return SchemeGroupVersion.WithKind("Resource")
 }
 
 // GetUntypedSpec returns the spec of the resource.

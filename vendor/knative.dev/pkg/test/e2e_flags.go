@@ -20,13 +20,16 @@ limitations under the License.
 package test
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"os"
 	"os/user"
 	"path"
 	"sync"
+	"text/template"
 
+	_ "github.com/golang/glog" // Needed if glog and klog are to coexist
 	"k8s.io/klog"
 	"knative.dev/pkg/test/logging"
 )
@@ -41,7 +44,7 @@ const (
 
 var (
 	flagsSetupOnce = &sync.Once{}
-
+	klogFlags      = flag.NewFlagSet("klog", flag.ExitOnError)
 	// Flags holds the command line flags or defaults for settings in the user's environment.
 	// See EnvironmentFlags for a list of supported fields.
 	Flags = initializeFlags()
@@ -55,6 +58,7 @@ type EnvironmentFlags struct {
 	IngressEndpoint string // Host to use for ingress endpoint
 	LogVerbose      bool   // Enable verbose logging
 	EmitMetrics     bool   // Emit metrics
+	ImageTemplate   string // Template to build the image reference (defaults to {{.Repository}}/{{.Name}}:{{.Tag}})
 	DockerRepo      string // Docker repo (defaults to $KO_DOCKER_REPO)
 	Tag             string // Tag for test images
 }
@@ -83,13 +87,16 @@ func initializeFlags() *EnvironmentFlags {
 	flag.BoolVar(&f.EmitMetrics, "emitmetrics", false,
 		"Set this flag to true if you would like tests to emit metrics, e.g. latency of resources being realized in the system.")
 
+	flag.StringVar(&f.ImageTemplate, "imagetemplate", "{{.Repository}}/{{.Name}}:{{.Tag}}",
+		"Provide a template to generate the reference to an image from the test. Defaults to `{{.Repository}}/{{.Name}}:{{.Tag}}`.")
+
 	defaultRepo := os.Getenv("KO_DOCKER_REPO")
 	flag.StringVar(&f.DockerRepo, "dockerrepo", defaultRepo,
 		"Provide the uri of the docker repo you have uploaded the test image to using `uploadtestimage.sh`. Defaults to $KO_DOCKER_REPO")
 
 	flag.StringVar(&f.Tag, "tag", "latest", "Provide the version tag for the test images.")
 
-	klog.InitFlags(nil)
+	klog.InitFlags(klogFlags)
 	flag.Set("v", klogDefaultLogLevel)
 	flag.Set("alsologtostderr", "true")
 
@@ -107,13 +114,22 @@ func printFlags() {
 // SetupLoggingFlags initializes the logging libraries at runtime
 func SetupLoggingFlags() {
 	flagsSetupOnce.Do(func() {
+		// Sync the glog flags to klog
+		flag.CommandLine.VisitAll(func(f1 *flag.Flag) {
+			f2 := klogFlags.Lookup(f1.Name)
+			if f2 != nil {
+				value := f1.Value.String()
+				f2.Value.Set(value)
+			}
+		})
 		if Flags.LogVerbose {
 			// If klog verbosity is not set to a non-default value (via "-args -v=X"),
 			if flag.CommandLine.Lookup("v").Value.String() == klogDefaultLogLevel {
 				// set up verbosity for klog so round_trippers.go prints:
 				//   URL, request headers, response headers, and partial response body
 				// See levels in vendor/k8s.io/client-go/transport/round_trippers.go:DebugWrappers for other options
-				flag.Set("v", "8")
+				klogFlags.Set("v", "8")
+				flag.Set("v", "8") // This is for glog, since glog=>klog sync is one-time
 			}
 			printFlags()
 		}
@@ -125,7 +141,24 @@ func SetupLoggingFlags() {
 	})
 }
 
-// ImagePath is a helper function to prefix image name with repo and suffix with tag
+// ImagePath is a helper function to transform an image name into an image reference that can be pulled.
 func ImagePath(name string) string {
-	return fmt.Sprintf("%s/%s:%s", Flags.DockerRepo, name, Flags.Tag)
+	tpl, err := template.New("image").Parse(Flags.ImageTemplate)
+	if err != nil {
+		panic("could not parse image template: " + err.Error())
+	}
+
+	var buf bytes.Buffer
+	if err := tpl.Execute(&buf, struct {
+		Repository string
+		Name       string
+		Tag        string
+	}{
+		Repository: Flags.DockerRepo,
+		Name:       name,
+		Tag:        Flags.Tag,
+	}); err != nil {
+		panic("could not apply the image template: " + err.Error())
+	}
+	return buf.String()
 }

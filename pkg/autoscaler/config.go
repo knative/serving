@@ -60,9 +60,7 @@ type Config struct {
 	StableWindow             time.Duration
 	PanicWindowPercentage    float64
 	PanicThresholdPercentage float64
-	// Deprecated in favor of PanicWindowPercentage.
-	PanicWindow  time.Duration
-	TickInterval time.Duration
+	TickInterval             time.Duration
 
 	ScaleToZeroGracePeriod time.Duration
 }
@@ -157,10 +155,6 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		field:        &lc.StableWindow,
 		defaultValue: 60 * time.Second,
 	}, {
-		key:          "panic-window",
-		field:        &lc.PanicWindow,
-		defaultValue: 6 * time.Second,
-	}, {
 		key:          "scale-to-zero-grace-period",
 		field:        &lc.ScaleToZeroGracePeriod,
 		defaultValue: 30 * time.Second,
@@ -213,9 +207,8 @@ func validate(lc *Config) (*Config, error) {
 	if lc.StableWindow < autoscaling.WindowMin {
 		return nil, fmt.Errorf("stable-window = %v, must be at least %v", lc.StableWindow, BucketSize)
 	}
-
-	if lc.PanicWindow < BucketSize || lc.PanicWindow > lc.StableWindow {
-		return nil, fmt.Errorf("panic-window = %v, must be in [%v, %v] interval", lc.PanicWindow, BucketSize, lc.StableWindow)
+	if lc.StableWindow.Round(time.Second) != lc.StableWindow {
+		return nil, fmt.Errorf("stable-window = %v, must be specified with at most second precision", lc.StableWindow)
 	}
 
 	effPW := time.Duration(lc.PanicWindowPercentage / 100 * float64(lc.StableWindow))

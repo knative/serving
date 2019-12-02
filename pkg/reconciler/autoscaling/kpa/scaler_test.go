@@ -29,6 +29,7 @@ import (
 	// These are the fake informers we want setup.
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	podscalable "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
@@ -44,7 +45,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	revisionresources "knative.dev/serving/pkg/reconciler/revision/resources"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
-	presources "knative.dev/serving/pkg/resources"
 
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -333,7 +333,7 @@ func TestScaler(t *testing.T) {
 			revision := newRevision(t, fakeservingclient.Get(ctx), test.minScale, test.maxScale)
 			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
 			cbCount := 0
-			revisionScaler := newScaler(ctx, presources.NewPodScalableInformerFactory(ctx), func(interface{}, time.Duration) {
+			revisionScaler := newScaler(ctx, podscalable.Get(ctx), func(interface{}, time.Duration) {
 				cbCount++
 			})
 			if test.proberfunc != nil {
@@ -444,7 +444,7 @@ func TestDisableScaleToZero(t *testing.T) {
 			deployment := newDeployment(t, dynamicClient, names.Deployment(revision), test.startReplicas)
 			revisionScaler := &scaler{
 				dynamicClient:     fakedynamicclient.Get(ctx),
-				psInformerFactory: presources.NewPodScalableInformerFactory(ctx),
+				psInformerFactory: podscalable.Get(ctx),
 			}
 			pa := newKPA(t, fakeservingclient.Get(ctx), revision)
 			paMarkActive(pa, time.Now())

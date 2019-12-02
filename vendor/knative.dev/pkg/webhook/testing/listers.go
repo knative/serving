@@ -17,6 +17,7 @@ limitations under the License.
 package testing
 
 import (
+	istiov1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
@@ -28,16 +29,17 @@ import (
 	autoscalingv2beta1listers "k8s.io/client-go/listers/autoscaling/v2beta1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	istiov1alpha3 "knative.dev/pkg/apis/istio/v1alpha3"
-	fakesharedclientset "knative.dev/pkg/client/clientset/versioned/fake"
-	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
+	fakeistioclientset "knative.dev/pkg/client/istio/clientset/versioned/fake"
+	istiolisters "knative.dev/pkg/client/istio/listers/networking/v1alpha3"
 	"knative.dev/pkg/reconciler/testing"
+	pkgtesting "knative.dev/pkg/testing"
 )
 
 var clientSetSchemes = []func(*runtime.Scheme) error{
 	fakekubeclientset.AddToScheme,
-	fakesharedclientset.AddToScheme,
+	fakeistioclientset.AddToScheme,
 	autoscalingv2beta1.AddToScheme,
+	pkgtesting.AddToScheme,
 }
 
 // Listers is used to synthesize informer-style Listers from fixed lists of resources in tests.
@@ -83,9 +85,14 @@ func (l *Listers) GetKubeObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakekubeclientset.AddToScheme)
 }
 
-// GetSharedObjects filters the Listers initial list of objects to types defined in knative/pkg
-func (l *Listers) GetSharedObjects() []runtime.Object {
-	return l.sorter.ObjectsForSchemeFunc(fakesharedclientset.AddToScheme)
+// GetIstioObjects filters the Listers initial list of objects to types defined in knative/pkg
+func (l *Listers) GetIstioObjects() []runtime.Object {
+	return l.sorter.ObjectsForSchemeFunc(fakeistioclientset.AddToScheme)
+}
+
+// GetTestObjects filters the Lister's initial list of objects to types defined in knative/pkg/testing
+func (l *Listers) GetTestObjects() []runtime.Object {
+	return l.sorter.ObjectsForSchemeFunc(pkgtesting.AddToScheme)
 }
 
 // GetHorizontalPodAutoscalerLister gets lister for HorizontalPodAutoscaler resources.

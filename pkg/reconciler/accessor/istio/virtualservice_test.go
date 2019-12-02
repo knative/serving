@@ -22,15 +22,16 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	istiov1alpha3 "istio.io/api/networking/v1alpha3"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"knative.dev/pkg/apis/istio/v1alpha3"
-	sharedclientset "knative.dev/pkg/client/clientset/versioned"
-	sharedfake "knative.dev/pkg/client/clientset/versioned/fake"
-	informers "knative.dev/pkg/client/informers/externalversions"
-	fakesharedclient "knative.dev/pkg/client/injection/client/fake"
-	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
+	istioclientset "knative.dev/pkg/client/istio/clientset/versioned"
+	istiofake "knative.dev/pkg/client/istio/clientset/versioned/fake"
+	istioinformers "knative.dev/pkg/client/istio/informers/externalversions"
+	fakeistioclient "knative.dev/pkg/client/istio/injection/client/fake"
+	istiolisters "knative.dev/pkg/client/istio/listers/networking/v1alpha3"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
 
@@ -59,7 +60,7 @@ var (
 			Namespace:       "default",
 			OwnerReferences: []metav1.OwnerReference{ownerRef},
 		},
-		Spec: v1alpha3.VirtualServiceSpec{
+		Spec: istiov1alpha3.VirtualService{
 			Hosts: []string{"origin.example.com"},
 		},
 	}
@@ -70,18 +71,18 @@ var (
 			Namespace:       "default",
 			OwnerReferences: []metav1.OwnerReference{ownerRef},
 		},
-		Spec: v1alpha3.VirtualServiceSpec{
+		Spec: istiov1alpha3.VirtualService{
 			Hosts: []string{"desired.example.com"},
 		},
 	}
 )
 
 type FakeAccessor struct {
-	client   sharedclientset.Interface
+	client   istioclientset.Interface
 	vsLister istiolisters.VirtualServiceLister
 }
 
-func (f *FakeAccessor) GetSharedClient() sharedclientset.Interface {
+func (f *FakeAccessor) GetIstioClient() istioclientset.Interface {
 	return f.client
 }
 
@@ -93,10 +94,10 @@ func TestReconcileVirtualService_Create(t *testing.T) {
 	ctx, _ := SetupFakeContext(t)
 	ctx, cancel := context.WithCancel(ctx)
 
-	sharedClient := fakesharedclient.Get(ctx)
+	istioClient := fakeistioclient.Get(ctx)
 
 	h := NewHooks()
-	h.OnCreate(&sharedClient.Fake, "virtualservices", func(obj runtime.Object) HookResult {
+	h.OnCreate(&istioClient.Fake, "virtualservices", func(obj runtime.Object) HookResult {
 		got := obj.(*v1alpha3.VirtualService)
 		if diff := cmp.Diff(got, desired); diff != "" {
 			t.Logf("Unexpected VirtualService (-want, +got): %v", diff)
@@ -105,7 +106,7 @@ func TestReconcileVirtualService_Create(t *testing.T) {
 		return HookComplete
 	})
 
-	accessor, waitInformers := setup(ctx, []*v1alpha3.VirtualService{}, sharedClient, t)
+	accessor, waitInformers := setup(ctx, []*v1alpha3.VirtualService{}, istioClient, t)
 	defer func() {
 		cancel()
 		waitInformers()
@@ -122,15 +123,15 @@ func TestReconcileVirtualService_Update(t *testing.T) {
 	ctx, _ := SetupFakeContext(t)
 	ctx, cancel := context.WithCancel(ctx)
 
-	sharedClient := fakesharedclient.Get(ctx)
-	accessor, waitInformers := setup(ctx, []*v1alpha3.VirtualService{origin}, sharedClient, t)
+	istioClient := fakeistioclient.Get(ctx)
+	accessor, waitInformers := setup(ctx, []*v1alpha3.VirtualService{origin}, istioClient, t)
 	defer func() {
 		cancel()
 		waitInformers()
 	}()
 
 	h := NewHooks()
-	h.OnUpdate(&sharedClient.Fake, "virtualservices", func(obj runtime.Object) HookResult {
+	h.OnUpdate(&istioClient.Fake, "virtualservices", func(obj runtime.Object) HookResult {
 		got := obj.(*v1alpha3.VirtualService)
 		if diff := cmp.Diff(got, desired); diff != "" {
 			t.Logf("Unexpected VirtualService (-want, +got): %v", diff)
@@ -146,10 +147,10 @@ func TestReconcileVirtualService_Update(t *testing.T) {
 }
 
 func setup(ctx context.Context, vses []*v1alpha3.VirtualService,
-	sharedClient sharedclientset.Interface, t *testing.T) (*FakeAccessor, func()) {
+	istioClient istioclientset.Interface, t *testing.T) (*FakeAccessor, func()) {
 
-	fake := sharedfake.NewSimpleClientset()
-	informer := informers.NewSharedInformerFactory(fake, 0)
+	fake := istiofake.NewSimpleClientset()
+	informer := istioinformers.NewSharedInformerFactory(fake, 0)
 	vsInformer := informer.Networking().V1alpha3().VirtualServices()
 
 	for _, vs := range vses {
@@ -163,7 +164,7 @@ func setup(ctx context.Context, vses []*v1alpha3.VirtualService,
 	}
 
 	return &FakeAccessor{
-		client:   sharedClient,
+		client:   istioClient,
 		vsLister: vsInformer.Lister(),
 	}, waitInformers
 }

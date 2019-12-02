@@ -22,10 +22,10 @@ import (
 	"math"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 	"testing"
 
+	"github.com/google/go-containerregistry/pkg/name"
 	"golang.org/x/sync/errgroup"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/spoof"
@@ -327,6 +327,15 @@ func validateReleaseServiceShape(objs *v1a1test.ResourceObjects) error {
 }
 
 func validateImageDigest(imageName string, imageDigest string) (bool, error) {
-	imageDigestRegex := fmt.Sprintf("%s/%s@sha256:[0-9a-f]{64}", pkgTest.Flags.DockerRepo, imageName)
-	return regexp.MatchString(imageDigestRegex, imageDigest)
+	ref, err := name.ParseReference(pkgTest.ImagePath(imageName))
+	if err != nil {
+		return false, err
+	}
+
+	digest, err := name.NewDigest(imageDigest)
+	if err != nil {
+		return false, err
+	}
+
+	return ref.Context().String() == digest.Context().String(), nil
 }

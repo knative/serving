@@ -28,15 +28,23 @@ go install $(dirname $0)/../vendor/k8s.io/code-generator/cmd/deepcopy-gen
 # --output-base    because this script should also be able to run inside the vendor dir of
 #                  k8s.io/kubernetes. The output-base is needed for the generators to output into the vendor dir
 #                  instead of the $GOPATH directly. For normal projects this can be dropped.
-${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
-  knative.dev/pkg/client knative.dev/pkg/apis \
-  "istio:v1alpha3 istio/authentication:v1alpha1" \
-  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 
 # Knative Injection
 ${REPO_ROOT_DIR}/hack/generate-knative.sh "injection" \
   knative.dev/pkg/client knative.dev/pkg/apis \
-  "istio:v1alpha3 istio/authentication:v1alpha1" \
+  "duck:v1alpha1,v1beta1,v1" \
+  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
+
+# Generate our own client for istio (otherwise injection won't work)
+${CODEGEN_PKG}/generate-groups.sh "client,informer,lister" \
+  knative.dev/pkg/client/istio istio.io/client-go/pkg/apis \
+  "networking:v1alpha3" \
+  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
+
+# Knative Injection (for istio)
+${REPO_ROOT_DIR}/hack/generate-knative.sh "injection" \
+  knative.dev/pkg/client/istio istio.io/client-go/pkg/apis \
+  "networking:v1alpha3" \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 
 OUTPUT_PKG="knative.dev/pkg/client/injection/kube" \

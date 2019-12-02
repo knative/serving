@@ -39,8 +39,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	"knative.dev/pkg/apis/istio/v1alpha3"
-	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	istiolisters "knative.dev/pkg/client/istio/listers/networking/v1alpha3"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/network/prober"
@@ -425,11 +425,11 @@ func (m *StatusProber) listGatewayTargetsPerPods(gateway *v1alpha3.Gateway) (map
 	for _, server := range gateway.Spec.Servers {
 		var urlTmpl string
 		switch server.Port.Protocol {
-		case v1alpha3.ProtocolHTTP, v1alpha3.ProtocolHTTP2:
-			if server.TLS == nil || !server.TLS.HTTPSRedirect {
+		case "HTTP", "HTTP2":
+			if server.Tls == nil || !server.Tls.HttpsRedirect {
 				urlTmpl = "http://%%s:%d/"
 			}
-		case v1alpha3.ProtocolHTTPS:
+		case "HTTPS":
 			urlTmpl = "https://%%s:%d/"
 		default:
 			m.logger.Infof("Skipping Server %q because protocol %q is not supported", server.Port.Name, server.Port.Protocol)

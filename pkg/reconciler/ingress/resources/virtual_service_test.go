@@ -20,12 +20,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
+	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
-	istiov1alpha1 "knative.dev/pkg/apis/istio/common/v1alpha1"
-	"knative.dev/pkg/apis/istio/v1alpha3"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
@@ -222,42 +222,46 @@ func TestMakeMeshVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			}},
 		},
 	}
-	expected := []v1alpha3.HTTPRoute{{
-		Match: []v1alpha3.HTTPMatchRequest{{
-			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns(\.svc(\.cluster\.local)?)?(?::\d{1,5})?$`},
-			Gateways:  []string{"mesh"},
+	expected := []*istiov1alpha3.HTTPRoute{{
+		Match: []*istiov1alpha3.HTTPMatchRequest{{
+			Uri: &istiov1alpha3.StringMatch{
+				MatchType: &istiov1alpha3.StringMatch_Regex{Regex: "^/pets/(.*?)?"},
+			},
+			Authority: &istiov1alpha3.StringMatch{
+				MatchType: &istiov1alpha3.StringMatch_Prefix{Prefix: `test-route.test-ns`},
+			},
+			Gateways: []string{"mesh"},
 		}},
-		Route: []v1alpha3.HTTPRouteDestination{{
-			Destination: v1alpha3.Destination{
+		Route: []*istiov1alpha3.HTTPRouteDestination{{
+			Destination: &istiov1alpha3.Destination{
 				Host: "v2-service.test-ns.svc.cluster.local",
-				Port: v1alpha3.PortSelector{Number: 80},
+				Port: &istiov1alpha3.PortSelector{Number: 80},
 			},
 			Weight: 100,
-			Headers: &v1alpha3.Headers{
-				Request: &v1alpha3.HeaderOperations{
+			Headers: &istiov1alpha3.Headers{
+				Request: &istiov1alpha3.Headers_HeaderOperations{
 					Add: map[string]string{
 						"ugh": "blah",
 					},
 				},
 			},
 		}},
-		Headers: &v1alpha3.Headers{
-			Request: &v1alpha3.HeaderOperations{
+		Headers: &istiov1alpha3.Headers{
+			Request: &istiov1alpha3.Headers_HeaderOperations{
 				Add: map[string]string{
 					"foo": "bar",
 				},
 			},
 		},
-		Timeout: defaultMaxRevisionTimeout.String(),
-		Retries: &v1alpha3.HTTPRetry{
-			Attempts:      networking.DefaultRetryCount,
-			PerTryTimeout: defaultMaxRevisionTimeout.String(),
+		Timeout: types.DurationProto(defaultMaxRevisionTimeout),
+		Retries: &istiov1alpha3.HTTPRetry{
+			Attempts:      int32(networking.DefaultRetryCount),
+			PerTryTimeout: types.DurationProto(defaultMaxRevisionTimeout),
 		},
 		WebsocketUpgrade: true,
 	}}
 
-	routes := MakeMeshVirtualService(ci).Spec.HTTP
+	routes := MakeMeshVirtualService(ci).Spec.Http
 	if diff := cmp.Diff(expected, routes); diff != "" {
 		t.Errorf("Unexpected routes (-want +got): %v", diff)
 	}
@@ -348,72 +352,84 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		},
 	}
 
-	expected := []v1alpha3.HTTPRoute{{
-		Match: []v1alpha3.HTTPMatchRequest{{
-			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Regex: `^domain\.com(?::\d{1,5})?$`},
-			Gateways:  []string{"gateway.public"},
+	expected := []*istiov1alpha3.HTTPRoute{{
+		Match: []*istiov1alpha3.HTTPMatchRequest{{
+			Uri: &istiov1alpha3.StringMatch{
+				MatchType: &istiov1alpha3.StringMatch_Regex{Regex: "^/pets/(.*?)?"},
+			},
+			Authority: &istiov1alpha3.StringMatch{
+				MatchType: &istiov1alpha3.StringMatch_Prefix{Prefix: `domain.com`},
+			},
+			Gateways: []string{"gateway.public"},
 		}, {
-			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Regex: `^test-route\.test-ns(\.svc(\.cluster\.local)?)?(?::\d{1,5})?$`},
-			Gateways:  []string{"gateway.private"},
+			Uri: &istiov1alpha3.StringMatch{
+				MatchType: &istiov1alpha3.StringMatch_Regex{Regex: "^/pets/(.*?)?"},
+			},
+			Authority: &istiov1alpha3.StringMatch{
+				MatchType: &istiov1alpha3.StringMatch_Prefix{Prefix: `test-route.test-ns`},
+			},
+			Gateways: []string{"gateway.private"},
 		}},
-		Route: []v1alpha3.HTTPRouteDestination{{
-			Destination: v1alpha3.Destination{
+		Route: []*istiov1alpha3.HTTPRouteDestination{{
+			Destination: &istiov1alpha3.Destination{
 				Host: "v2-service.test-ns.svc.cluster.local",
-				Port: v1alpha3.PortSelector{Number: 80},
+				Port: &istiov1alpha3.PortSelector{Number: 80},
 			},
 			Weight: 100,
-			Headers: &v1alpha3.Headers{
-				Request: &v1alpha3.HeaderOperations{
+			Headers: &istiov1alpha3.Headers{
+				Request: &istiov1alpha3.Headers_HeaderOperations{
 					Add: map[string]string{
 						"ugh": "blah",
 					},
 				},
 			},
 		}},
-		Headers: &v1alpha3.Headers{
-			Request: &v1alpha3.HeaderOperations{
+		Headers: &istiov1alpha3.Headers{
+			Request: &istiov1alpha3.Headers_HeaderOperations{
 				Add: map[string]string{
 					"foo": "bar",
 				},
 			},
 		},
-		Timeout: defaultMaxRevisionTimeout.String(),
-		Retries: &v1alpha3.HTTPRetry{
-			Attempts:      networking.DefaultRetryCount,
-			PerTryTimeout: defaultMaxRevisionTimeout.String(),
+		Timeout: types.DurationProto(defaultMaxRevisionTimeout),
+		Retries: &istiov1alpha3.HTTPRetry{
+			Attempts:      int32(networking.DefaultRetryCount),
+			PerTryTimeout: types.DurationProto(defaultMaxRevisionTimeout),
 		},
 		WebsocketUpgrade: true,
 	}, {
-		Match: []v1alpha3.HTTPMatchRequest{{
-			URI:       &istiov1alpha1.StringMatch{Regex: "^/pets/(.*?)?"},
-			Authority: &istiov1alpha1.StringMatch{Regex: `^v1\.domain\.com(?::\d{1,5})?$`},
-			Gateways:  []string{},
+		Match: []*istiov1alpha3.HTTPMatchRequest{{
+			Uri: &istiov1alpha3.StringMatch{
+				MatchType: &istiov1alpha3.StringMatch_Regex{Regex: "^/pets/(.*?)?"},
+			},
+			Authority: &istiov1alpha3.StringMatch{
+				MatchType: &istiov1alpha3.StringMatch_Prefix{Prefix: `v1.domain.com`},
+			},
+			Gateways: []string{},
 		}},
-		Route: []v1alpha3.HTTPRouteDestination{{
-			Destination: v1alpha3.Destination{
+		Route: []*istiov1alpha3.HTTPRouteDestination{{
+			Destination: &istiov1alpha3.Destination{
 				Host: "v1-service.test-ns.svc.cluster.local",
-				Port: v1alpha3.PortSelector{Number: 80},
+				Port: &istiov1alpha3.PortSelector{Number: 80},
 			},
 			Weight: 100,
 		}},
-		Headers: &v1alpha3.Headers{
-			Request: &v1alpha3.HeaderOperations{
+		Headers: &istiov1alpha3.Headers{
+			Request: &istiov1alpha3.Headers_HeaderOperations{
 				Add: map[string]string{
 					"foo": "baz",
 				},
 			},
 		},
-		Timeout: defaultMaxRevisionTimeout.String(),
-		Retries: &v1alpha3.HTTPRetry{
-			Attempts:      networking.DefaultRetryCount,
-			PerTryTimeout: defaultMaxRevisionTimeout.String(),
+		Timeout: types.DurationProto(defaultMaxRevisionTimeout),
+		Retries: &istiov1alpha3.HTTPRetry{
+			Attempts:      int32(networking.DefaultRetryCount),
+			PerTryTimeout: types.DurationProto(defaultMaxRevisionTimeout),
 		},
 		WebsocketUpgrade: true,
 	}}
 
-	routes := MakeIngressVirtualService(ci, makeGatewayMap([]string{"gateway.public"}, []string{"gateway.private"})).Spec.HTTP
+	routes := MakeIngressVirtualService(ci, makeGatewayMap([]string{"gateway.public"}, []string{"gateway.private"})).Spec.Http
 	if diff := cmp.Diff(expected, routes); diff != "" {
 		t.Errorf("Unexpected routes (-want +got): %v", diff)
 	}
@@ -438,29 +454,33 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 		},
 	}
 	route := makeVirtualServiceRoute(sets.NewString("a.com", "b.org"), ingressPath, makeGatewayMap([]string{"gateway-1"}, nil), v1alpha1.IngressVisibilityExternalIP)
-	expected := v1alpha3.HTTPRoute{
-		Match: []v1alpha3.HTTPMatchRequest{{
-			Gateways:  []string{"gateway-1"},
-			Authority: &istiov1alpha1.StringMatch{Regex: `^a\.com(?::\d{1,5})?$`},
+	expected := &istiov1alpha3.HTTPRoute{
+		Match: []*istiov1alpha3.HTTPMatchRequest{{
+			Gateways: []string{"gateway-1"},
+			Authority: &istiov1alpha3.StringMatch{
+				MatchType: &istiov1alpha3.StringMatch_Prefix{Prefix: `a.com`},
+			},
 		}, {
-			Gateways:  []string{"gateway-1"},
-			Authority: &istiov1alpha1.StringMatch{Regex: `^b\.org(?::\d{1,5})?$`},
+			Gateways: []string{"gateway-1"},
+			Authority: &istiov1alpha3.StringMatch{
+				MatchType: &istiov1alpha3.StringMatch_Prefix{Prefix: `b.org`},
+			},
 		}},
-		Route: []v1alpha3.HTTPRouteDestination{{
-			Destination: v1alpha3.Destination{
+		Route: []*istiov1alpha3.HTTPRouteDestination{{
+			Destination: &istiov1alpha3.Destination{
 				Host: "revision-service.test-ns.svc.cluster.local",
-				Port: v1alpha3.PortSelector{Number: 80},
+				Port: &istiov1alpha3.PortSelector{Number: 80},
 			},
 			Weight: 100,
 		}},
-		Timeout: defaultMaxRevisionTimeout.String(),
-		Retries: &v1alpha3.HTTPRetry{
-			Attempts:      networking.DefaultRetryCount,
-			PerTryTimeout: defaultMaxRevisionTimeout.String(),
+		Timeout: types.DurationProto(defaultMaxRevisionTimeout),
+		Retries: &istiov1alpha3.HTTPRetry{
+			Attempts:      int32(networking.DefaultRetryCount),
+			PerTryTimeout: types.DurationProto(defaultMaxRevisionTimeout),
 		},
 		WebsocketUpgrade: true,
 	}
-	if diff := cmp.Diff(&expected, route); diff != "" {
+	if diff := cmp.Diff(expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)
 	}
 }
@@ -479,7 +499,7 @@ func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 			IngressBackend: v1alpha1.IngressBackend{
 				ServiceNamespace: "test-ns",
 				ServiceName:      "new-revision-service",
-				ServicePort:      intstr.FromString("test-port"),
+				ServicePort:      intstr.FromInt(81),
 			},
 			Percent: 10,
 		}},
@@ -490,32 +510,34 @@ func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 		},
 	}
 	route := makeVirtualServiceRoute(sets.NewString("test.org"), ingressPath, makeGatewayMap([]string{"knative-testing/gateway-1"}, nil), v1alpha1.IngressVisibilityExternalIP)
-	expected := v1alpha3.HTTPRoute{
-		Match: []v1alpha3.HTTPMatchRequest{{
-			Gateways:  []string{"knative-testing/gateway-1"},
-			Authority: &istiov1alpha1.StringMatch{Regex: `^test\.org(?::\d{1,5})?$`},
+	expected := &istiov1alpha3.HTTPRoute{
+		Match: []*istiov1alpha3.HTTPMatchRequest{{
+			Gateways: []string{"knative-testing/gateway-1"},
+			Authority: &istiov1alpha3.StringMatch{
+				MatchType: &istiov1alpha3.StringMatch_Prefix{Prefix: `test.org`},
+			},
 		}},
-		Route: []v1alpha3.HTTPRouteDestination{{
-			Destination: v1alpha3.Destination{
+		Route: []*istiov1alpha3.HTTPRouteDestination{{
+			Destination: &istiov1alpha3.Destination{
 				Host: "revision-service.test-ns.svc.cluster.local",
-				Port: v1alpha3.PortSelector{Number: 80},
+				Port: &istiov1alpha3.PortSelector{Number: 80},
 			},
 			Weight: 90,
 		}, {
-			Destination: v1alpha3.Destination{
+			Destination: &istiov1alpha3.Destination{
 				Host: "new-revision-service.test-ns.svc.cluster.local",
-				Port: v1alpha3.PortSelector{Name: "test-port"},
+				Port: &istiov1alpha3.PortSelector{Number: 81},
 			},
 			Weight: 10,
 		}},
-		Timeout: defaultMaxRevisionTimeout.String(),
-		Retries: &v1alpha3.HTTPRetry{
-			Attempts:      networking.DefaultRetryCount,
-			PerTryTimeout: defaultMaxRevisionTimeout.String(),
+		Timeout: types.DurationProto(defaultMaxRevisionTimeout),
+		Retries: &istiov1alpha3.HTTPRetry{
+			Attempts:      int32(networking.DefaultRetryCount),
+			PerTryTimeout: types.DurationProto(defaultMaxRevisionTimeout),
 		},
 		WebsocketUpgrade: true,
 	}
-	if diff := cmp.Diff(&expected, route); diff != "" {
+	if diff := cmp.Diff(expected, route); diff != "" {
 		t.Errorf("Unexpected route  (-want +got): %v", diff)
 	}
 }

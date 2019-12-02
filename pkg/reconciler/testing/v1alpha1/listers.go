@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
+	istiov1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -30,9 +31,8 @@ import (
 	cachingv1alpha1 "knative.dev/caching/pkg/apis/caching/v1alpha1"
 	fakecachingclientset "knative.dev/caching/pkg/client/clientset/versioned/fake"
 	cachinglisters "knative.dev/caching/pkg/client/listers/caching/v1alpha1"
-	istiov1alpha3 "knative.dev/pkg/apis/istio/v1alpha3"
-	fakesharedclientset "knative.dev/pkg/client/clientset/versioned/fake"
-	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
+	fakeistioclientset "knative.dev/pkg/client/istio/clientset/versioned/fake"
+	istiolisters "knative.dev/pkg/client/istio/listers/networking/v1alpha3"
 	"knative.dev/pkg/reconciler/testing"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	networking "knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -46,7 +46,7 @@ import (
 
 var clientSetSchemes = []func(*runtime.Scheme) error{
 	fakekubeclientset.AddToScheme,
-	fakesharedclientset.AddToScheme,
+	fakeistioclientset.AddToScheme,
 	fakeservingclientset.AddToScheme,
 	fakecachingclientset.AddToScheme,
 	certmanagerv1alpha1.AddToScheme,
@@ -99,8 +99,8 @@ func (l *Listers) GetServingObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakeservingclientset.AddToScheme)
 }
 
-func (l *Listers) GetSharedObjects() []runtime.Object {
-	return l.sorter.ObjectsForSchemeFunc(fakesharedclientset.AddToScheme)
+func (l *Listers) GetIstioObjects() []runtime.Object {
+	return l.sorter.ObjectsForSchemeFunc(fakeistioclientset.AddToScheme)
 }
 
 // GetCMCertificateObjects gets a list of Cert-Manager Certificate objects.
