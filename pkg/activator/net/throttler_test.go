@@ -208,105 +208,102 @@ func makeTrackers(num, cc int) []*podTracker {
 	return x
 }
 
-func TestThrottlerWithError(t *testing.T) {
-	for _, tc := range []struct {
-		name        string
-		revision    *v1alpha1.Revision
-		initUpdate  revisionDestsUpdate
-		delete      *types.NamespacedName
-		trys        []types.NamespacedName
-		ctxTimeout  time.Duration
-		wantResults []tryResult
-	}{{
-		name:     "second request timeout",
-		revision: revisionCC1(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
-		initUpdate: revisionDestsUpdate{
-			Rev:           types.NamespacedName{testNamespace, testRevision},
-			ClusterIPDest: "129.0.0.1:1234",
-			Dests:         sets.NewString("128.0.0.1:1234"),
-		},
-		trys: []types.NamespacedName{
-			{Namespace: testNamespace, Name: testRevision},
-			{Namespace: testNamespace, Name: testRevision},
-		},
-		wantResults: []tryResult{
-			{dest: "129.0.0.1:1234"},
-			{errString: context.DeadlineExceeded.Error()},
-		},
-	}, {
-		name:     "both requests time out",
-		revision: revisionCC1(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
-		initUpdate: revisionDestsUpdate{
-			Rev:           types.NamespacedName{testNamespace, testRevision},
-			ClusterIPDest: "129.0.0.1:1234",
-			Dests:         sets.NewString("128.0.0.1:1234"),
-		},
-		trys: []types.NamespacedName{
-			{Namespace: testNamespace, Name: testRevision},
-			{Namespace: testNamespace, Name: testRevision},
-		},
-		ctxTimeout: 10 * time.Millisecond,
-		wantResults: []tryResult{
-			{errString: context.DeadlineExceeded.Error()},
-			{errString: context.DeadlineExceeded.Error()},
-		},
-	}, {
-		name:     "remove before try",
-		revision: revisionCC1(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
-		initUpdate: revisionDestsUpdate{
-			Rev:   types.NamespacedName{testNamespace, testRevision},
-			Dests: sets.NewString("128.0.0.1:1234"),
-		},
-		delete: &types.NamespacedName{
-			testNamespace, testRevision,
-		},
-		trys: []types.NamespacedName{
-			{Namespace: testNamespace, Name: testRevision},
-		},
-		wantResults: []tryResult{
-			{errString: `revision.serving.knative.dev "test-revision" not found`},
-		},
-	}} {
-		t.Run(tc.name, func(t *testing.T) {
-			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-			servfake := fakeservingclient.Get(ctx)
-			revisions := fakerevisioninformer.Get(ctx)
-			waitInformers, err := controller.RunInformers(ctx.Done(), revisions.Informer())
-			if err != nil {
-				t.Fatalf("Failed to start informers: %v", err)
-			}
-			defer func() {
-				cancel()
-				waitInformers()
-			}()
+func TestThrottlerErrorNoRevision(t *testing.T) {
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	servfake := fakeservingclient.Get(ctx)
+	revisions := fakerevisioninformer.Get(ctx)
+	waitInformers, err := controller.RunInformers(ctx.Done(), revisions.Informer())
+	if err != nil {
+		t.Fatalf("Failed to start informers: %v", err)
+	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
 
-			// Add the revision we're testing.
-			servfake.ServingV1alpha1().Revisions(tc.revision.Namespace).Create(tc.revision)
-			revisions.Informer().GetIndexer().Add(tc.revision)
+	// Add the revision we're testing.
+	revID := types.NamespacedName{testNamespace, testRevision}
+	revision := revisionCC1(revID, networking.ProtocolHTTP1)
+	servfake.ServingV1alpha1().Revisions(revision.Namespace).Create(revision)
+	revisions.Informer().GetIndexer().Add(revision)
 
-			throttler := newTestThrottler(ctx, 1)
-			throttler.handleUpdate(tc.initUpdate)
+	throttler := newTestThrottler(ctx, 1)
+	throttler.handleUpdate(revisionDestsUpdate{
+		Rev:   revID,
+		Dests: sets.NewString("128.0.0.1:1234"),
+	})
 
-			// Make sure our informer event has fired.
-			if tc.delete != nil {
-				servfake.ServingV1alpha1().Revisions(tc.delete.Namespace).Delete(tc.delete.Name, nil)
-				revisions.Informer().GetIndexer().Delete(tc.delete)
-				time.Sleep(200 * time.Millisecond)
-			}
+	// Make sure it now works.
+	if err := throttler.Try(context.Background(), revID, func(_ string) error { return nil }); err != nil {
+		t.Fatalf("Try() = %v, want no error", err)
+	}
 
-			to := 90 * time.Millisecond
-			if tc.ctxTimeout > 0 {
-				to = tc.ctxTimeout
-			}
-			tryContext, cancel2 := context.WithTimeout(context.Background(), to)
-			defer cancel2()
+	servfake.ServingV1alpha1().Revisions(revision.Namespace).Delete(revision.Name, nil)
+	revisions.Informer().GetIndexer().Delete(revID)
 
-			gotTries := tryThrottler(throttler, tc.trys, tryContext)
+	// Eventually it should now fail.
+	var lastError error
+	wait.PollInfinite(10*time.Millisecond, func() (bool, error) {
+		lastError = throttler.Try(context.Background(), revID, func(_ string) error { return nil })
+		return lastError != nil, nil
+	})
+	if lastError == nil || lastError.Error() != `revision.serving.knative.dev "test-revision" not found` {
+		t.Fatalf("Try() = %v, wanted a not found error", lastError)
+	}
+}
 
-			if got, want := gotTries, tc.wantResults; !cmp.Equal(got, want, cmp.AllowUnexported(tryResult{})) {
-				t.Errorf("Dests = %v, want: %v, diff: %s", got, want, cmp.Diff(want, got, cmp.AllowUnexported(tryResult{})))
-			}
-		})
+func TestThrottlerErrorOneTimesOut(t *testing.T) {
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	servfake := fakeservingclient.Get(ctx)
+	revisions := fakerevisioninformer.Get(ctx)
+	waitInformers, err := controller.RunInformers(ctx.Done(), revisions.Informer())
+	if err != nil {
+		t.Fatalf("Failed to start informers: %v", err)
+	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
+
+	// Add the revision we're testing.
+	revID := types.NamespacedName{testNamespace, testRevision}
+	revision := revisionCC1(revID, networking.ProtocolHTTP1)
+	servfake.ServingV1alpha1().Revisions(revision.Namespace).Create(revision)
+	revisions.Informer().GetIndexer().Add(revision)
+
+	throttler := newTestThrottler(ctx, 1)
+	throttler.handleUpdate(revisionDestsUpdate{
+		Rev:           revID,
+		ClusterIPDest: "129.0.0.1:1234",
+		Dests:         sets.NewString("128.0.0.1:1234"),
+	})
+
+	// Send 2 requests, one should time out.
+	resultChan := make(chan error)
+	var mux sync.Mutex
+
+	// Lock the mutex so all requests are blocked in the Try function.
+	mux.Lock()
+	for i := 0; i < 2; i++ {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+			defer cancel()
+			resultChan <- throttler.Try(ctx, revID, func(_ string) error {
+				mux.Lock()
+				return nil
+			})
+		}()
+	}
+
+	// The first result will be a timeout because of the locking logic.
+	if err := <-resultChan; err != context.DeadlineExceeded {
+		t.Fatalf("err = %v, want %v", err, context.DeadlineExceeded)
+	}
+
+	// Allow the successful request to pass through.
+	mux.Unlock()
+	if err := <-resultChan; err != nil {
+		t.Fatalf("err = %v, want no error", err)
 	}
 }
 
