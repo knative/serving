@@ -269,12 +269,9 @@ func TestThrottlerWithError(t *testing.T) {
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-			updateCh := make(chan revisionDestsUpdate, 2)
-
-			endpoints := fakeendpointsinformer.Get(ctx)
 			servfake := fakeservingclient.Get(ctx)
 			revisions := fakerevisioninformer.Get(ctx)
-			waitInformers, err := controller.RunInformers(ctx.Done(), endpoints.Informer(), revisions.Informer())
+			waitInformers, err := controller.RunInformers(ctx.Done(), revisions.Informer())
 			if err != nil {
 				t.Fatalf("Failed to start informers: %v", err)
 			}
@@ -288,18 +285,7 @@ func TestThrottlerWithError(t *testing.T) {
 			revisions.Informer().GetIndexer().Add(tc.revision)
 
 			throttler := newTestThrottler(ctx, 1)
-			updateCh <- tc.initUpdate
-			close(updateCh)
-
-			var wg sync.WaitGroup
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				throttler.run(updateCh)
-			}()
-
-			// Wait for throttler to complete processing updates and exit
-			wg.Wait()
+			throttler.handleUpdate(tc.initUpdate)
 
 			// Make sure our informer event has fired.
 			if tc.delete != nil {
@@ -420,13 +406,10 @@ func TestThrottlerSuccesses(t *testing.T) {
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-			updateCh := make(chan revisionDestsUpdate, 2)
-
-			endpoints := fakeendpointsinformer.Get(ctx)
 			servfake := fakeservingclient.Get(ctx)
 			revisions := fakerevisioninformer.Get(ctx)
 
-			waitInformers, err := controller.RunInformers(ctx.Done(), endpoints.Informer(), revisions.Informer())
+			waitInformers, err := controller.RunInformers(ctx.Done(), revisions.Informer())
 			if err != nil {
 				t.Fatalf("Failed to start informers: %v", err)
 			}
@@ -441,19 +424,8 @@ func TestThrottlerSuccesses(t *testing.T) {
 
 			throttler := newTestThrottler(ctx, 1)
 			for _, update := range tc.initUpdates {
-				updateCh <- update
+				throttler.handleUpdate(update)
 			}
-			close(updateCh)
-
-			var wg sync.WaitGroup
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				throttler.run(updateCh)
-			}()
-
-			// Wait for throttler to complete processing updates and exit
-			wg.Wait()
 
 			tryContext, cancel2 := context.WithTimeout(context.Background(), 200*time.Millisecond)
 			defer cancel2()
@@ -605,13 +577,10 @@ func TestMultipleActivators(t *testing.T) {
 
 	revID := types.NamespacedName{testNamespace, testRevision}
 	possibleDests := sets.NewString("128.0.0.1:1234", "128.0.0.2:1234", "128.0.0.23:1234")
-	updateCh := make(chan revisionDestsUpdate, 1)
-	updateCh <- revisionDestsUpdate{
+	throttler.handleUpdate(revisionDestsUpdate{
 		Rev:   revID,
 		Dests: possibleDests,
-	}
-	close(updateCh)
-	throttler.run(updateCh)
+	})
 
 	// Add activator endpoint with 2 activators.
 	activatorEp := &corev1.Endpoints{
