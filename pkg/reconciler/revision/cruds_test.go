@@ -22,7 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
+	k8sinformers "k8s.io/client-go/informers"
 	corev1informer "k8s.io/client-go/informers/core/v1"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	"knative.dev/pkg/ptr"
@@ -33,33 +33,7 @@ import (
 
 var (
 	containerName = "my-container-name"
-
-	defaultRevision = &v1alpha1.Revision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "foo",
-			Name:      "bar",
-			UID:       "1234",
-			Labels: map[string]string{
-				serving.ConfigurationLabelKey: "cfg",
-				serving.ServiceLabelKey:       "svc",
-				serving.RouteLabelKey:         "im-a-route",
-			},
-		},
-		Spec: v1alpha1.RevisionSpec{
-			DeprecatedContainer: &corev1.Container{
-				Name:  containerName,
-				Image: "busybox",
-			},
-			RevisionSpec: v1.RevisionSpec{
-				TimeoutSeconds: ptr.Int64(45),
-			},
-		},
-	}
 )
-
-func refInt64(num int64) *int64 {
-	return &num
-}
 
 type containerOption func(*corev1.Container)
 type revisionOption func(*v1alpha1.Revision)
@@ -71,27 +45,35 @@ func container(container *corev1.Container, opts ...containerOption) corev1.Cont
 	return *container
 }
 
-func withReadinessProbe(handler corev1.Handler) containerOption {
-	return func(container *corev1.Container) {
-		container.ReadinessProbe = &corev1.Probe{Handler: handler}
-	}
-}
-
-func withTCPReadinessProbe() containerOption {
-	return withReadinessProbe(corev1.Handler{
-		TCPSocket: &corev1.TCPSocketAction{
-			Host: "127.0.0.1",
-			Port: intstr.FromInt(v1alpha1.DefaultUserPort),
-		},
-	})
-}
-
 func revision(opts ...revisionOption) *v1alpha1.Revision {
-	revision := defaultRevision.DeepCopy()
-	for _, option := range opts {
-		option(revision)
+	defaultRevision := &v1alpha1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "foo",
+			Name:      "bar",
+			UID:       "1234",
+			Labels: map[string]string{
+				serving.ConfigurationLabelKey: "cfg",
+				serving.ServiceLabelKey:       "svc",
+				serving.RouteLabelKey:         "im-a-route",
+			},
+		},
+		Spec: v1alpha1.RevisionSpec{
+			RevisionSpec: v1.RevisionSpec{
+				TimeoutSeconds: ptr.Int64(45),
+				PodSpec: corev1.PodSpec{
+					InitContainers: nil,
+					Containers: []corev1.Container{{
+						Name:  "containerName",
+						Image: "busybox",
+					}},
+				},
+			},
+		},
 	}
-	return revision
+	for _, option := range opts {
+		option(defaultRevision)
+	}
+	return defaultRevision
 }
 
 func TestVerifySecrets(t *testing.T) {
@@ -109,7 +91,7 @@ func TestVerifySecrets(t *testing.T) {
 					MountPath: "/asdf1",
 				}}
 				container(revision.Spec.GetContainer(),
-					withTCPReadinessProbe(),
+					//withTCPReadinessProbe(),
 				)
 				revision.Spec.Volumes = []corev1.Volume{{
 					Name: "asdf1",
@@ -138,7 +120,7 @@ func TestVerifySecrets(t *testing.T) {
 					MountPath: "/asdf2",
 				}}
 				container(revision.Spec.GetContainer(),
-					withTCPReadinessProbe(),
+					//withTCPReadinessProbe(),
 				)
 				// Adding two secrets that do not exist. We should see both of them in the error
 				revision.Spec.Volumes = []corev1.Volume{{
@@ -171,7 +153,7 @@ secret "asdf2" not found: spec.volumes[1].volumeSource.secretName`,
 					MountPath: "/asdf",
 				}}
 				container(revision.Spec.GetContainer(),
-					withTCPReadinessProbe(),
+					//withTCPReadinessProbe(),
 				)
 				revision.Spec.Volumes = []corev1.Volume{{
 					Name: "asdf",
@@ -195,7 +177,7 @@ secret "asdf2" not found: spec.volumes[1].volumeSource.secretName`,
 					MountPath: "/asdf1",
 				}}
 				container(revision.Spec.GetContainer(),
-					withTCPReadinessProbe(),
+					//withTCPReadinessProbe(),
 				)
 				revision.Spec.Volumes = []corev1.Volume{{
 					Name: "asdf1",
@@ -224,7 +206,7 @@ secret "asdf2" not found: spec.volumes[1].volumeSource.secretName`,
 					MountPath: "/asdf1",
 				}}
 				container(revision.Spec.GetContainer(),
-					withTCPReadinessProbe(),
+					//withTCPReadinessProbe(),
 				)
 				revision.Spec.Volumes = []corev1.Volume{{
 					Name: "asdf1",
@@ -261,7 +243,7 @@ secret "asdf2" not found: spec.volumes[0].volumeSource.projected.sources[1].secr
 					MountPath: "/asdf1",
 				}}
 				container(revision.Spec.GetContainer(),
-					withTCPReadinessProbe(),
+					//withTCPReadinessProbe(),
 				)
 				revision.Spec.Volumes = []corev1.Volume{{
 					Name: "asdf1",
@@ -296,7 +278,7 @@ secret "asdf2" not found: spec.volumes[0].volumeSource.projected.sources[1].secr
 					}},
 				}}
 				container(revision.Spec.GetContainer(),
-					withTCPReadinessProbe(),
+					//withTCPReadinessProbe(),
 				)
 				revision.ObjectMeta.Labels = map[string]string{}
 			},
@@ -322,7 +304,7 @@ secret "asdf2" not found: spec.volumes[0].volumeSource.projected.sources[1].secr
 					}},
 				}}
 				container(revision.Spec.GetContainer(),
-					withTCPReadinessProbe(),
+					//withTCPReadinessProbe(),
 				)
 				revision.ObjectMeta.Labels = map[string]string{}
 			},
@@ -345,7 +327,7 @@ secret "asdf2" not found: spec.containers[0].envFrom[1].secretRef`,
 					}},
 				}}
 				container(revision.Spec.GetContainer(),
-					withTCPReadinessProbe(),
+					//withTCPReadinessProbe(),
 				)
 				revision.ObjectMeta.Labels = map[string]string{}
 			},
@@ -378,4 +360,10 @@ func addSecretToInformer(fake *kubefake.Clientset, secretName string, namespace 
 		si.Informer().GetIndexer().Add(secret)
 		return si
 	}
+}
+
+func getSecretInformer() corev1informer.SecretInformer {
+	fake := kubefake.NewSimpleClientset()
+	informer := k8sinformers.NewSharedInformerFactory(fake, 0)
+	return informer.Core().V1().Secrets()
 }

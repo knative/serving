@@ -164,14 +164,12 @@ func verifySecrets(rev *v1alpha1.Revision, secretLister v1.SecretLister) *apis.F
 
 	// Check secrets in container envfrom
 	for i, container := range rev.Spec.Containers {
-		if len(container.EnvFrom) != 0 {
-			for j, env := range container.EnvFrom {
-				if secret := env.SecretRef; secret != nil {
-					if err := tryFetchSecret(secret.Name, rev.Namespace, secret.Optional, secretLister); err != nil {
-						apiErrs = apiErrs.Also(err.
-							ViaField("secretRef").ViaFieldIndex("envFrom", j).
-							ViaFieldIndex("containers", i).ViaField("spec"))
-					}
+		for j, env := range container.EnvFrom {
+			if secret := env.SecretRef; secret != nil {
+				if err := tryFetchSecret(secret.Name, rev.Namespace, secret.Optional, secretLister); err != nil {
+					apiErrs = apiErrs.Also(err.
+						ViaField("secretRef").ViaFieldIndex("envFrom", j).
+						ViaFieldIndex("containers", i).ViaField("spec"))
 				}
 			}
 		}

@@ -176,7 +176,7 @@ var (
 
 	defaultPodSpec = &corev1.PodSpec{
 		Volumes:                       []corev1.Volume{varLogVolume},
-		TerminationGracePeriodSeconds: refInt64(45),
+		TerminationGracePeriodSeconds: ptr.Int64(45),
 	}
 
 	defaultDeployment = &appsv1.Deployment{
