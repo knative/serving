@@ -246,7 +246,7 @@ func main() {
 
 	// Set up our health check based on the health of stat sink and environmental factors.
 	hc := newHealthCheck(sigCtx, logger, statSink)
-	ah = &activatorhandler.HealthHandler{HealthCheck: hc, NextHandler: ah}
+	ah = &activatorhandler.HealthHandler{HealthCheck: hc, NextHandler: ah, Logger: logger}
 
 	ah = network.NewProbeHandler(ah)
 
@@ -314,7 +314,7 @@ func newHealthCheck(sigCtx context.Context, logger *zap.SugaredLogger, statSink 
 		// When we get SIGTERM (sigCtx done), let readiness probes start failing.
 		case <-sigCtx.Done():
 			once.Do(func() {
-				logger.Info("signal context canceled")
+				logger.Info("Signal context canceled")
 			})
 			return errors.New("received SIGTERM from kubelet")
 		default:

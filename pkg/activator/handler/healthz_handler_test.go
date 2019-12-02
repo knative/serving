@@ -17,9 +17,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	ktesting "knative.dev/pkg/logging/testing"
 )
 
 func TestHealthHandler(t *testing.T) {
+	logger := ktesting.TestLogger(t)
 	examples := []struct {
 		name           string
 		headers        http.Header
@@ -52,7 +55,7 @@ func TestHealthHandler(t *testing.T) {
 				wasPassed = true
 				w.WriteHeader(http.StatusOK)
 			})
-			handler := HealthHandler{HealthCheck: e.check, NextHandler: baseHandler}
+			handler := HealthHandler{HealthCheck: e.check, NextHandler: baseHandler, Logger: logger}
 
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
