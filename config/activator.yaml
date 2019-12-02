@@ -83,7 +83,7 @@ spec:
         env:
           # Run Activator with GC collection when newly generated memory is 500%.
           - name: GOGC
-            value: 500
+            value: "500"
           - name: POD_NAME
             valueFrom:
               fieldRef:
