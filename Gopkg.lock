@@ -1693,7 +1693,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:4e0f31138ef3d52cc28c266525bd170c7269cafe0ba9f593ddfbfab05f0fef82"
+  digest = "1:c22cfd55b8805150006a80974fc900c3d468865087459babb13b4332cba21d88"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1716,11 +1716,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "4f108c76775571efa3963bf3478a0febbe7b57e1"
+  revision = "cf0d28345fdbf81da59d255545efe355e432ee57"
 
 [[projects]]
   branch = "master"
-  digest = "1:bfb453e78558b31d99d1335840a7d92328fc85fe35c58d4c5179caddb28f7416"
+  digest = "1:34e554f20eb006126d25432770ceb39b1d21940e38fd3a1e443b04e1dc8ea52d"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1836,7 +1836,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "c259ed6f2e751582d4586c2d3a4e1cb98e526068"
+  revision = "3444316bdeef6a0533db7cabcc1a5152b8b7311d"
 
 [[projects]]
   branch = "master"
@@ -1853,7 +1853,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "9363d2f4cafd2ad3c1bfc925f447c91a1776be00"
+  revision = "98a7b3bbed2dda25a17c14d1d59d24dab3b15e41"
 
 [[projects]]
   digest = "1:fef5992ddf85e9ccad899b11338339858936a10fbce96b9d5c43767669d95398"

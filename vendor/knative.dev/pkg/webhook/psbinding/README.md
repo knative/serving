@@ -1,28 +1,48 @@
 # "Pod Spec"-able Bindings
 
-The `psbinding` package provides facilities to make authoring [Bindings](https://docs.google.com/document/d/1t5WVrj2KQZ2u5s0LvIUtfHnSonBv5Vcv8Gl2k5NXrCQ/edit) whose subjects adhere to [`duckv1.PodSpecable`](https://github.com/knative/pkg/blob/master/apis/duck/v1/podspec_types.go#L32) easier.  The Bindings doc mentions two key elements of the controller architecture:
+The `psbinding` package provides facilities to make authoring
+[Bindings](https://docs.google.com/document/d/1t5WVrj2KQZ2u5s0LvIUtfHnSonBv5Vcv8Gl2k5NXrCQ/edit)
+whose subjects adhere to
+[`duckv1.PodSpecable`](https://github.com/knative/pkg/blob/master/apis/duck/v1/podspec_types.go#L32)
+easier. The Bindings doc mentions two key elements of the controller
+architecture:
+
 1. The standard controller,
 1. The mutating webhook (or "admission controller")
 
-This package provides facilities for bootstrapping both of these elements.  To leverage the `psbinding` package, folks should adjust their Binding types to implement `psbinding.Bindable`, which contains a variety of methods that will look familiar to Knative controller authors with two new key methods: `Do` and `Undo` (aka the "mutation" methods).
+This package provides facilities for bootstrapping both of these elements. To
+leverage the `psbinding` package, folks should adjust their Binding types to
+implement `psbinding.Bindable`, which contains a variety of methods that will
+look familiar to Knative controller authors with two new key methods: `Do` and
+`Undo` (aka the "mutation" methods).
 
-The mutation methods on the Binding take in `(context.Context, *duckv1.WithPod)`, and are expected to alter the `*duckv1.WithPod` appropriately to achieve the semantics of the Binding.  So for example, if the Binding's runtime contract is the inclusion of a new environment variable `FOO` with some value extracted from the Binding's `spec` then in `Do()` the `duckv1.WithPod` would be altered so that each of the `containers:` contains:
+The mutation methods on the Binding take in
+`(context.Context, *duckv1.WithPod)`, and are expected to alter the
+`*duckv1.WithPod` appropriately to achieve the semantics of the Binding. So for
+example, if the Binding's runtime contract is the inclusion of a new environment
+variable `FOO` with some value extracted from the Binding's `spec` then in
+`Do()` the `duckv1.WithPod` would be altered so that each of the `containers:`
+contains:
 
 ```yaml
 env:
-- name: "FOO"
-  value: "<from Binding spec>"
+  - name: "FOO"
+    value: "<from Binding spec>"
 ```
 
-... and `Undo()` would remove these variables.  `Do` is invoked for active Bindings, and `Undo` is invoked when they are being deleted, but their subjects remain.
+... and `Undo()` would remove these variables. `Do` is invoked for active
+Bindings, and `Undo` is invoked when they are being deleted, but their subjects
+remain.
 
-
-We will walk through a simple example Binding whose runtime contract is to mount secrets for talking to Github under `/var/bindings/github`.
-[See also](https://github.com/mattmoor/bindings#githubbinding) on which this is based.
+We will walk through a simple example Binding whose runtime contract is to mount
+secrets for talking to Github under `/var/bindings/github`.
+[See also](https://github.com/mattmoor/bindings#githubbinding) on which this is
+based.
 
 ### `Do` and `Undo`
 
-The `Undo` method itself is simply: remove the named secret volume and any mounts of it:
+The `Undo` method itself is simply: remove the named secret volume and any
+mounts of it:
 
 ```go
 func (fb *GithubBinding) Undo(ctx context.Context, ps *duckv1.WithPod) {
@@ -56,7 +76,8 @@ func (fb *GithubBinding) Undo(ctx context.Context, ps *duckv1.WithPod) {
 }
 ```
 
-The `Do` method is the dual of this: ensure that the volume exists, and all containers have it mounted.
+The `Do` method is the dual of this: ensure that the volume exists, and all
+containers have it mounted.
 
 ```go
 func (fb *GithubBinding) Do(ctx context.Context, ps *duckv1.WithPod) {
@@ -91,11 +112,14 @@ func (fb *GithubBinding) Do(ctx context.Context, ps *duckv1.WithPod) {
 }
 ```
 
-> Note: if additional context is needed to perform the mutation, then it may be attached-to / extracted-from the supplied `context.Context`.
+> Note: if additional context is needed to perform the mutation, then it may be
+> attached-to / extracted-from the supplied `context.Context`.
 
 ### The standard controller
 
-For simple Bindings (such as our `GithubBinding`), we should be able to implement our `*controller.Impl` by directly leveraging `*psbinding.BaseReconciler` to fully implement reconciliation.
+For simple Bindings (such as our `GithubBinding`), we should be able to
+implement our `*controller.Impl` by directly leveraging
+`*psbinding.BaseReconciler` to fully implement reconciliation.
 
 ```go
 // NewController returns a new GithubBinding reconciler.
@@ -142,7 +166,10 @@ func NewController(
 }
 ```
 
-> Note: if customized reconciliation logic is needed (e.g. synthesizing additional resources), then the `psbinding.BaseReconciler` may be embedded and a custom `Reconcile()` defined, which can still take advantage of the shared `Finalizer` handling, `Status` manipulation or `Subject`-reconciliation.
+> Note: if customized reconciliation logic is needed (e.g. synthesizing
+> additional resources), then the `psbinding.BaseReconciler` may be embedded and
+> a custom `Reconcile()` defined, which can still take advantage of the shared
+> `Finalizer` handling, `Status` manipulation or `Subject`-reconciliation.
 
 ### The mutating webhook
 
@@ -192,7 +219,8 @@ func ListAll(ctx context.Context, handler cache.ResourceEventHandler) psbinding.
 
 ### Putting it together
 
-With the above defined, then in our webhook's `main.go` we invoke `sharedmain.MainWithContext` passing the additional controller constructors:
+With the above defined, then in our webhook's `main.go` we invoke
+`sharedmain.MainWithContext` passing the additional controller constructors:
 
 ```go
 	sharedmain.MainWithContext(ctx, "webhook",
