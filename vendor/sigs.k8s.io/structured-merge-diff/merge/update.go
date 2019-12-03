@@ -41,7 +41,7 @@ func (s *Updater) update(oldObject, newObject typed.TypedValue, version fieldpat
 		newObject typed.TypedValue
 	}
 	versions := map[fieldpath.APIVersion]Versioned{
-		version: Versioned{
+		version: {
 			oldObject: oldObject,
 			newObject: newObject,
 		},
@@ -248,7 +248,6 @@ func (s *Updater) addBackOwnedItems(merged, pruned typed.TypedValue, managedFiel
 	}
 	return pruned, nil
 }
-
 
 // addBackDanglingItems makes sure that the only items removed by prune are items that were
 // previously owned by the currently applying manager. This will add back unowned items and items

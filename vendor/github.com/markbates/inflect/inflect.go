@@ -492,7 +492,7 @@ func (rs *Ruleset) Titleize(word string) string {
 		if len(word) > 1 || index == len(words)-1 || len(acronymWords) > 1 {
 			acronym := strings.Join(acronymWords, "")
 			if !rs.isAcronym(acronym) {
-				acronymWords = acronymWords[:len(acronymWords)]
+				acronymWords = acronymWords[:]
 				continue
 			}
 
