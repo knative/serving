@@ -185,6 +185,9 @@ func setup(t *testing.T, class, metric string, target float64, targetUtilization
 			autoscaling.MetricAnnotationKey:            metric,
 			autoscaling.TargetAnnotationKey:            strconv.FormatFloat(target, 'f', -1, 64),
 			autoscaling.TargetUtilizationPercentageKey: strconv.FormatFloat(targetUtilization*100, 'f', -1, 64),
+			// We run the test for 60s, so make window a bit shorter,
+			// so that we're operating in sustained mode and the pod actions stopped happening.
+			autoscaling.WindowAnnotationKey: "50s",
 		}), rtesting.WithResourceRequirements(corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
 				corev1.ResourceMemory: resource.MustParse("512Mi"),
