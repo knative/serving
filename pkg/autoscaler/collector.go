@@ -333,19 +333,16 @@ func (c *collection) StableAndPanicRPS(now time.Time) (float64, float64, error) 
 // given stats buckets.
 func (c *collection) stableAndPanicStats(now time.Time, buckets *aggregation.TimedFloat64Buckets) (float64, float64, error) {
 	spec := c.currentMetric().Spec
-
-	if buckets.IsEmpty() {
-		return 0, 0, ErrNoData
-	}
-
 	var (
 		panicAverage  aggregation.Average
 		stableAverage aggregation.Average
 	)
-	buckets.ForEachBucket(
+	if !buckets.ForEachBucket(
 		aggregation.YoungerThan(now.Add(-spec.PanicWindow), panicAverage.Accumulate),
 		aggregation.YoungerThan(now.Add(-spec.StableWindow), stableAverage.Accumulate),
-	)
+	) {
+		return 0, 0, ErrNoData
+	}
 
 	return stableAverage.Value(), panicAverage.Value(), nil
 }
