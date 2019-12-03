@@ -156,8 +156,10 @@ function default_build_test_runner() {
   markdown_build_tests || failed=1
   # For documentation PRs, just check the md files
   (( IS_DOCUMENTATION_PR )) && return ${failed}
+  # Don't merge these two lines, or return code will always be 0.
+  local go_pkg_dirs
+  go_pkg_dirs="$(go list ./...)" || return 1
   # Skip build test if there is no go code
-  local go_pkg_dirs="$(go list ./...)"
   [[ -z "${go_pkg_dirs}" ]] && return ${failed}
   # Ensure all the code builds
   subheader "Checking that go code builds"

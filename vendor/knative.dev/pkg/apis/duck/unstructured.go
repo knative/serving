@@ -20,15 +20,7 @@ import (
 	"encoding/json"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"knative.dev/pkg/kmeta"
 )
-
-// OneOfOurs is the union of our Accessor interface and the OwnerRefable interface
-// that is implemented by our resources that implement the kmeta.Accessor.
-type OneOfOurs interface {
-	kmeta.Accessor
-	kmeta.OwnerRefable
-}
 
 // ToUnstructured takes an instance of a OneOfOurs compatible type and
 // converts it to unstructured.Unstructured.  We take OneOfOurs in place
