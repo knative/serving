@@ -202,7 +202,6 @@ func metricService(pa *asv1a1.PodAutoscaler) *corev1.Service {
 
 func TestReconcile(t *testing.T) {
 	const (
-		key          = testNamespace + "/" + testRevision
 		deployName   = testRevision + "-deployment"
 		privateSvc   = testRevision + "-private"
 		defaultScale = 11
@@ -1225,10 +1224,16 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestControllerCreateError(t *testing.T) {
-	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-	defer cancel()
+	ctx, cancel, infs := SetupFakeContextWithCancel(t)
+	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
+	if err != nil {
+		t.Fatalf("Error starting up informers: %v", err)
+	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
 
-	key := testNamespace + "/" + testRevision
 	want := apierrors.NewBadRequest("asdf")
 
 	ctl := NewController(ctx, newConfigWatcher(),
@@ -1255,10 +1260,16 @@ func TestControllerCreateError(t *testing.T) {
 }
 
 func TestControllerUpdateError(t *testing.T) {
-	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-	defer cancel()
+	ctx, cancel, infs := SetupFakeContextWithCancel(t)
+	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
+	if err != nil {
+		t.Fatalf("Error starting up informers: %v", err)
+	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
 
-	key := testNamespace + "/" + testRevision
 	want := apierrors.NewBadRequest("asdf")
 
 	ctl := NewController(ctx, newConfigWatcher(),
@@ -1285,9 +1296,16 @@ func TestControllerUpdateError(t *testing.T) {
 }
 
 func TestControllerGetError(t *testing.T) {
-	ctx, _ := SetupFakeContext(t)
+	ctx, cancel, infs := SetupFakeContextWithCancel(t)
+	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
+	if err != nil {
+		t.Fatalf("Error starting up informers: %v", err)
+	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
 
-	key := testNamespace + "/" + testRevision
 	want := apierrors.NewBadRequest("asdf")
 
 	ctl := NewController(ctx, newConfigWatcher(),
@@ -1313,7 +1331,15 @@ func TestControllerGetError(t *testing.T) {
 }
 
 func TestScaleFailure(t *testing.T) {
-	ctx, _ := SetupFakeContext(t)
+	ctx, cancel, infs := SetupFakeContextWithCancel(t)
+	waitInformers, err := controller.RunInformers(ctx.Done(), infs...)
+	if err != nil {
+		t.Fatalf("Error starting up informers: %v", err)
+	}
+	defer func() {
+		cancel()
+		waitInformers()
+	}()
 
 	ctl := NewController(ctx, newConfigWatcher(), newTestDeciders())
 

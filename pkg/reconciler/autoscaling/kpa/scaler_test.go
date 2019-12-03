@@ -62,6 +62,7 @@ import (
 const (
 	testNamespace = "test-namespace"
 	testRevision  = "test-revision"
+	key           = testNamespace + "/" + testRevision
 )
 
 func TestScaler(t *testing.T) {
