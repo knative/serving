@@ -16,6 +16,7 @@ package handler
 import (
 	"net/http"
 
+	"go.uber.org/zap"
 	"knative.dev/serving/pkg/network"
 )
 
@@ -23,11 +24,13 @@ import (
 type HealthHandler struct {
 	HealthCheck func() error
 	NextHandler http.Handler
+	Logger      *zap.SugaredLogger
 }
 
 func (h *HealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if network.IsKubeletProbe(r) {
 		if err := h.HealthCheck(); err != nil {
+			h.Logger.Warnf("Healthcheck failed: %v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		} else {
 			w.WriteHeader(http.StatusOK)

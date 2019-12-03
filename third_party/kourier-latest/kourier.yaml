@@ -10,11 +10,12 @@ metadata:
   namespace: kourier-system
 spec:
   ports:
-    - port: 80
+    - name: http
+      port: 80
       protocol: TCP
       targetPort: 8080
   selector:
-    app: 3scale-kourier
+    app: 3scale-kourier-gateway
   type: LoadBalancer
 ---
 apiVersion: apps/v1
@@ -43,7 +44,7 @@ spec:
         - args:
             - -c
             - /tmp/config/envoy-bootstrap.yaml
-          image: quay.io/3scale/kourier-gateway:v0.1.1
+          image: quay.io/3scale/kourier-gateway:v0.1.2
           imagePullPolicy: Always
           name: kourier-gateway
           ports:
@@ -57,7 +58,7 @@ spec:
               mountPath: /tmp/config
           readinessProbe:
             exec:
-              command: ['ash','-c','curl -H "Host: internalkourier" http://localhost:8081/__internalkouriersnapshot']
+              command: ['ash','-c','(printf "GET /__internalkouriersnapshot HTTP/1.1\r\nHost: internalkourier\r\n\r\n"; sleep 1) | nc -n localhost 8081 | grep "HTTP/1.1 200 OK"']
             initialDelaySeconds: 5
             periodSeconds: 2
       volumes:
@@ -93,7 +94,7 @@ spec:
         app: 3scale-kourier-control
     spec:
       containers:
-        - image: quay.io/3scale/kourier:v0.2.6
+        - image: quay.io/3scale/kourier:v0.3.1
           imagePullPolicy: Always
           name: kourier-control
           resources: {}
@@ -104,7 +105,7 @@ spec:
               value: ""
             - name: CERTS_SECRET_NAME
               value: ""
-            - name: KOURIER_NAMESPACE
+            - name: SYSTEM_NAMESPACE
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
@@ -122,7 +123,7 @@ metadata:
   namespace: kourier-system
 rules:
   - apiGroups: [""]
-    resources: ["pods", "endpoints", "namespaces", "services", "secrets"]
+    resources: ["pods", "endpoints", "namespaces", "services", "secrets", "configmaps"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["networking.internal.knative.dev"]
     resources: ["clusteringresses","ingresses"]
@@ -152,21 +153,6 @@ subjects:
   - kind: ServiceAccount
     name: 3scale-kourier
     namespace: kourier-system
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: kourier
-  namespace: kourier-system
-spec:
-  ports:
-    - name: http2
-      port: 80
-      protocol: TCP
-      targetPort: 8080
-  selector:
-    app: 3scale-kourier-gateway
-  type: LoadBalancer
 ---
 apiVersion: v1
 kind: Service

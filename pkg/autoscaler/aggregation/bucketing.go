@@ -52,24 +52,27 @@ func (t *TimedFloat64Buckets) Record(time time.Time, name string, value float64)
 	bucket.record(name, value)
 }
 
-// IsEmpty returns whether or not there are no values currently stored.
-func (t *TimedFloat64Buckets) IsEmpty() bool {
-	t.bucketsMutex.RLock()
-	defer t.bucketsMutex.RUnlock()
-
+// isEmpty returns whether or not there are no values currently stored.
+// isEmpty requires t.bucketMux to be held.
+func (t *TimedFloat64Buckets) isEmpty() bool {
 	return len(t.buckets) == 0
 }
 
 // ForEachBucket calls the given Accumulator function for each bucket.
-func (t *TimedFloat64Buckets) ForEachBucket(accs ...Accumulator) {
+// Returns true if any data was recorded.
+func (t *TimedFloat64Buckets) ForEachBucket(accs ...Accumulator) bool {
 	t.bucketsMutex.RLock()
 	defer t.bucketsMutex.RUnlock()
+	if t.isEmpty() {
+		return false
+	}
 
 	for bucketTime, bucket := range t.buckets {
 		for _, acc := range accs {
 			acc(bucketTime, bucket)
 		}
 	}
+	return true
 }
 
 // RemoveOlderThan removes buckets older than the given time from the state.
