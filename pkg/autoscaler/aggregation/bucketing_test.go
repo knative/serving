@@ -85,19 +85,22 @@ func TestTimedFloat64Buckets(t *testing.T) {
 			if !cmp.Equal(tt.want, got) {
 				t.Errorf("Unexpected values (-want +got): %v", cmp.Diff(tt.want, got))
 			}
-			if len(tt.want) == 0 && !buckets.IsEmpty() {
+			if len(tt.want) == 0 && !buckets.isEmpty() {
 				t.Error("IsEmpty() = false, want true")
 			}
 		})
 	}
 }
 
-func TestTimedFloat64Buckets_ForEachBucket(t *testing.T) {
-	pod := "pod"
-	granularity := 1 * time.Second
+func TestTimedFloat64BucketsForEachBucket(t *testing.T) {
+	const pod = "pod"
+	granularity := time.Second
 	trunc1 := time.Now().Truncate(granularity)
 	buckets := NewTimedFloat64Buckets(granularity)
 
+	if buckets.ForEachBucket(func(time time.Time, bucket float64Bucket) {}) {
+		t.Fatalf("ForEachBucket unexpectedly returned non-empty result")
+	}
 	buckets.Record(trunc1, pod, 10.0)
 	buckets.Record(trunc1.Add(1*time.Second), pod, 10.0)
 	buckets.Record(trunc1.Add(2*time.Second), pod, 5.0)
@@ -105,14 +108,16 @@ func TestTimedFloat64Buckets_ForEachBucket(t *testing.T) {
 
 	acc1 := 0
 	acc2 := 0
-	buckets.ForEachBucket(
+	if !buckets.ForEachBucket(
 		func(time time.Time, bucket float64Bucket) {
 			acc1++
 		},
 		func(time time.Time, bucket float64Bucket) {
 			acc2++
 		},
-	)
+	) {
+		t.Fatal("ForEachBucket unexpectedly returned empty result")
+	}
 
 	want := 4
 	if acc1 != want {
@@ -123,7 +128,7 @@ func TestTimedFloat64Buckets_ForEachBucket(t *testing.T) {
 	}
 }
 
-func TestTimedFloat64Buckets_RemoveOlderThan(t *testing.T) {
+func TestTimedFloat64BucketsRemoveOlderThan(t *testing.T) {
 	pod := "pod"
 	zero := time.Now()
 	trunc1 := zero.Truncate(1 * time.Second)
