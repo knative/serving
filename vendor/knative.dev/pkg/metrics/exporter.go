@@ -33,6 +33,11 @@ type flushable interface {
 	Flush()
 }
 
+type stoppable interface {
+	// StopMetricsExporter stops the exporter
+	StopMetricsExporter()
+}
+
 // ExporterOptions contains options for configuring the exporter.
 type ExporterOptions struct {
 	// Domain is the metrics domain. e.g. "knative.dev". Must be present.
@@ -126,11 +131,12 @@ func newMetricsExporter(config *metricsConfig, logger *zap.SugaredLogger) (view.
 	// If there is a Prometheus Exporter server running, stop it.
 	resetCurPromSrv()
 
-	if ce != nil {
-		// UnregisterExporter is idempotent and it can be called multiple times for the same exporter
-		// without side effects.
-		view.UnregisterExporter(ce)
+	// TODO(https://github.com/knative/pkg/issues/866): Move Stackdriver and Promethus
+	// operations before stopping to an interface.
+	if se, ok := ce.(stoppable); ok {
+		se.StopMetricsExporter()
 	}
+
 	var err error
 	var e view.Exporter
 	switch config.backendDestination {
@@ -156,7 +162,6 @@ func getCurMetricsExporter() view.Exporter {
 func setCurMetricsExporter(e view.Exporter) {
 	metricsMux.Lock()
 	defer metricsMux.Unlock()
-	view.RegisterExporter(e)
 	curMetricsExporter = e
 }
 
