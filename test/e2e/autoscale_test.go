@@ -28,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	vegeta "github.com/tsenart/vegeta/lib"
 	"golang.org/x/sync/errgroup"
 	"knative.dev/pkg/system"
@@ -139,7 +140,7 @@ func generateTraffic(
 			totalRequests++
 			if res.Code != http.StatusOK {
 				ctx.t.Logf("Status = %d, want: 200", res.Code)
-				ctx.t.Logf("Response: %v", res)
+				ctx.t.Log("Response:\n" + spew.Sprint(res))
 				continue
 			}
 			successfulRequests++
@@ -180,22 +181,24 @@ func setup(t *testing.T, class, metric string, target float64, targetUtilization
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
 		false, /* https TODO(taragu) turn this on after helloworld test running with https */
-		append(fopts, rtesting.WithConfigAnnotations(map[string]string{
-			autoscaling.ClassAnnotationKey:             class,
-			autoscaling.MetricAnnotationKey:            metric,
-			autoscaling.TargetAnnotationKey:            strconv.FormatFloat(target, 'f', -1, 64),
-			autoscaling.TargetUtilizationPercentageKey: strconv.FormatFloat(targetUtilization*100, 'f', -1, 64),
-			// We run the test for 60s, so make window a bit shorter,
-			// so that we're operating in sustained mode and the pod actions stopped happening.
-			autoscaling.WindowAnnotationKey: "50s",
-		}), rtesting.WithResourceRequirements(corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("512Mi"),
-			},
-			Requests: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("300Mi"),
-			},
-		}))...)
+		append([]rtesting.ServiceOption{
+			rtesting.WithConfigAnnotations(map[string]string{
+				autoscaling.ClassAnnotationKey:             class,
+				autoscaling.MetricAnnotationKey:            metric,
+				autoscaling.TargetAnnotationKey:            strconv.FormatFloat(target, 'f', -1, 64),
+				autoscaling.TargetUtilizationPercentageKey: strconv.FormatFloat(targetUtilization*100, 'f', -1, 64),
+				// We run the test for 60s, so make window a bit shorter,
+				// so that we're operating in sustained mode and the pod actions stopped happening.
+				autoscaling.WindowAnnotationKey: "50s",
+			}), rtesting.WithResourceRequirements(corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("512Mi"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("300Mi"),
+				},
+			}),
+		}, fopts...)...)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
