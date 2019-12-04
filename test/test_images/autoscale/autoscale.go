@@ -36,7 +36,6 @@ func init() {
 
 // Only primes less than or equal to N will be generated
 func primes(N int) []int {
-
 	var x, y, n int
 	nsqrt := math.Sqrt(float64(N))
 
