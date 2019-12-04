@@ -29,6 +29,18 @@ kind: Namespace
 metadata:
   name: kourier-system
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-logging
+  namespace: kourier-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-observability
+  namespace: kourier-system
+---
 EOF
 
 cat ${KOURIER_YAML} \
