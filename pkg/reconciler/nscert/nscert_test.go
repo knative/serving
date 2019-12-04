@@ -60,8 +60,18 @@ var (
 func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	context.Context, context.CancelFunc,
 	*controller.Impl, *configmap.ManualWatcher) {
+	t.Helper()
 
-	ctx, cancel, _ := SetupFakeContextWithCancel(t)
+	ctx, ccl, ifs := SetupFakeContextWithCancel(t)
+	wf, err := controller.RunInformers(ctx.Done(), ifs...)
+	if err != nil {
+		t.Fatalf("Error starting informers: %v", err)
+	}
+	cancel := func() {
+		ccl()
+		wf()
+	}
+
 	configMapWatcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
 
 	controller := NewController(ctx, configMapWatcher)
