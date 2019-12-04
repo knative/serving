@@ -143,7 +143,7 @@ func (r *Reporter) ReportRequestCount(responseCode int) error {
 	return nil
 }
 
-// ReportQueueDepth captures response time requests
+// ReportQueueDepth captures queue depth metric.
 func (r *Reporter) ReportQueueDepth(d int) error {
 	if !r.initialized {
 		return errors.New("StatsReporter is not initialized yet")
