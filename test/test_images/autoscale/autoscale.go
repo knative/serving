@@ -36,7 +36,6 @@ func init() {
 
 // Only primes less than or equal to N will be generated
 func primes(N int) []int {
-
 	var x, y, n int
 	nsqrt := math.Sqrt(float64(N))
 
@@ -97,17 +96,29 @@ func prime(max int) string {
 	return fmt.Sprintf("The largest prime less than %d is %d.\n", max, p[len(p)-1])
 }
 
-func sleep(ms int) string {
+func sleep(d time.Duration) string {
 	start := time.Now()
-	time.Sleep(time.Duration(ms) * time.Millisecond)
+	time.Sleep(d)
 	return fmt.Sprintf("Slept for %v.\n", time.Since(start))
 }
 
-func randSleep(randSleepTimeMean, randSleepTimeStdDev int) string {
+func randSleep(randSleepTimeMean time.Duration, randSleepTimeStdDev int) string {
 	start := time.Now()
-	randRes := rand.NormFloat64()*float64(randSleepTimeMean) + float64(randSleepTimeStdDev)
-	time.Sleep(time.Duration(randRes) * time.Millisecond)
+	randRes := time.Duration(rand.NormFloat64()*float64(randSleepTimeStdDev))*time.Millisecond + randSleepTimeMean
+	time.Sleep(randRes)
 	return fmt.Sprintf("Randomly slept for %v.\n", time.Since(start))
+}
+
+func parseDurationParam(r *http.Request, param string) (time.Duration, bool, error) {
+	value := r.URL.Query().Get(param)
+	if value == "" {
+		return 0, false, nil
+	}
+	d, err := time.ParseDuration(value)
+	if err != nil {
+		return 0, false, err
+	}
+	return d, true, nil
 }
 
 func parseIntParam(r *http.Request, param string) (int, bool, error) {
@@ -124,10 +135,23 @@ func parseIntParam(r *http.Request, param string) (int, bool, error) {
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	// Validate inputs.
-	ms, hasMs, err := parseIntParam(r, "sleep")
+	var ms time.Duration
+	msv, hasMs, err := parseIntParam(r, "sleep")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		// If it is a numeric error and it's parsing error, then
+		// try to parse it as a duration
+		if nerr, ok := err.(*strconv.NumError); ok && nerr.Err == strconv.ErrSyntax {
+			ms, hasMs, err = parseDurationParam(r, "sleep")
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+		} else {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	} else {
+		ms = time.Duration(msv) * time.Millisecond
 	}
 	mssd, hasMssd, err := parseIntParam(r, "sleep-stddev")
 	if err != nil {
