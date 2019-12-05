@@ -47,8 +47,9 @@ func TestRunLatestServicePostUpgradeFromScaleToZero(t *testing.T) {
 func TestBYORevisionPostUpgrade(t *testing.T) {
 	t.Parallel()
 	clients := e2e.Setup(t)
-	var names test.ResourceNames
-	names.Service = byoServiceName
+	names := test.ResourceNames{
+		Service: byoServiceName,
+	}
 
 	if _, err := v1test.UpdateServiceRouteSpec(t, clients, names, v1.RouteSpec{
 		Traffic: []v1.TrafficTarget{{
@@ -64,8 +65,9 @@ func TestBYORevisionPostUpgrade(t *testing.T) {
 func updateService(serviceName string, t *testing.T) {
 	t.Helper()
 	clients := e2e.Setup(t)
-	var names test.ResourceNames
-	names.Service = serviceName
+	names := test.ResourceNames{
+		Service: serviceName,
+	}
 
 	t.Logf("Getting service %q", names.Service)
 	svc, err := clients.ServingAlphaClient.Services.Get(names.Service, metav1.GetOptions{})
