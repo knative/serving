@@ -22,10 +22,13 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/ptr"
 	ptest "knative.dev/pkg/test"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
+	v1test "knative.dev/serving/test/v1"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
@@ -37,6 +40,25 @@ func TestRunLatestServicePostUpgrade(t *testing.T) {
 func TestRunLatestServicePostUpgradeFromScaleToZero(t *testing.T) {
 	t.Parallel()
 	updateService(scaleToZeroServiceName, t)
+}
+
+// TestBYORevisionPostUpgrade attempts to update the RouteSpec of a Service using BYO Revision name. This
+// test is meant to catch new defaults that break the immutability of BYO Revision name.
+func TestBYORevisionPostUpgrade(t *testing.T) {
+	t.Parallel()
+	clients := e2e.Setup(t)
+	var names test.ResourceNames
+	names.Service = byoServiceName
+
+	if _, err := v1test.UpdateServiceRouteSpec(t, clients, names, v1.RouteSpec{
+		Traffic: []v1.TrafficTarget{{
+			Tag:          "example-tag",
+			RevisionName: byoRevName,
+			Percent:      ptr.Int64(100),
+		}},
+	}); err != nil {
+		t.Fatalf("Failed to update Service: %v", err)
+	}
 }
 
 func updateService(serviceName string, t *testing.T) {
