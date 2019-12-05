@@ -101,7 +101,6 @@ func TestIstioProbing(t *testing.T) {
 		Mode:              istiov1alpha3.Server_TLSOptions_SIMPLE,
 		PrivateKey:        "/etc/istio/ingressgateway-certs/tls.key",
 		ServerCertificate: "/etc/istio/ingressgateway-certs/tls.crt",
-		SubjectAltNames:   []string{},
 	}
 
 	cases := []struct {
