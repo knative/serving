@@ -4,6 +4,18 @@ metadata:
   name: kourier-system
 ---
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-logging
+  namespace: kourier-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-observability
+  namespace: kourier-system
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: kourier
@@ -94,7 +106,7 @@ spec:
         app: 3scale-kourier-control
     spec:
       containers:
-        - image: quay.io/3scale/kourier:v0.3.1
+        - image: quay.io/3scale/kourier:v0.3.3
           imagePullPolicy: Always
           name: kourier-control
           resources: {}
