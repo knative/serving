@@ -9,7 +9,8 @@ The service applies different modes of resource consumption based on
 query parameters.
 
 - `sleep=X` -- number of milliseconds to sleep (e.g.
-  `curl http://${URL}/?sleep=200`)
+  `curl http://${URL}/?sleep=200`), alternatively duration can be specified
+  as `time.Duration`, e.g. `sleep=13s`.
 - `sleep-stddev=X` -- valid only if `sleep` is provided, sleeps for a random
    period of time according to a normal distribution centered around `sleep`
    with stddev equal to this value.
