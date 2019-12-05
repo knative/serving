@@ -121,6 +121,9 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 	// assumptions about defaulting.
 	config.SetDefaults(v1.WithUpgradeViaDefaulting(ctx))
 	config.Status.InitializeConditions()
+	// Bump observed generation to denote that we have processed this
+	// generation regardless of success or failure.
+	config.Status.ObservedGeneration = config.Generation
 
 	if err := config.ConvertUp(ctx, &v1beta1.Configuration{}); err != nil {
 		if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
@@ -128,10 +131,6 @@ func (c *Reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 		}
 		return err
 	}
-
-	// Bump observed generation to denote that we have processed this
-	// generation regardless of success or failure.
-	config.Status.ObservedGeneration = config.Generation
 
 	// First, fetch the revision that should exist for the current generation.
 	lcr, err := c.latestCreatedRevision(config)

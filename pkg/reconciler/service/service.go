@@ -136,6 +136,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	// assumptions about defaulting.
 	service.SetDefaults(v1.WithUpgradeViaDefaulting(ctx))
 	service.Status.InitializeConditions()
+	service.Status.ObservedGeneration = service.Generation
 
 	if err := service.ConvertUp(ctx, &v1beta1.Service{}); err != nil {
 		if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
@@ -192,7 +193,6 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	}
 
 	c.checkRoutesNotReady(config, logger, route, service)
-	service.Status.ObservedGeneration = service.Generation
 
 	return nil
 }

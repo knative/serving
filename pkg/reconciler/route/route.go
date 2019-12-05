@@ -184,6 +184,7 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	// assumptions about defaulting.
 	r.SetDefaults(v1.WithUpgradeViaDefaulting(ctx))
 	r.Status.InitializeConditions()
+	r.Status.ObservedGeneration = r.Generation
 
 	if err := r.ConvertUp(ctx, &v1beta1.Route{}); err != nil {
 		return err
@@ -204,10 +205,6 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	traffic, err := c.configureTraffic(ctx, r, serviceNames.desiredClusterLocalServiceNames)
 	if traffic == nil || err != nil {
 		// Traffic targets aren't ready, no need to configure child resources.
-		// Need to update ObservedGeneration, otherwise Route's Ready state won't
-		// be propagated to Service and the Service's RoutesReady will stay in
-		// 'Unknown'.
-		r.Status.ObservedGeneration = r.Generation
 		return err
 	}
 
@@ -256,7 +253,6 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 		return err
 	}
 
-	r.Status.ObservedGeneration = r.Generation
 	logger.Info("Route successfully synced")
 	return nil
 }

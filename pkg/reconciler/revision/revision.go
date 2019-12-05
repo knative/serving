@@ -171,6 +171,7 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 	rev.SetDefaults(v1.WithUpgradeViaDefaulting(ctx))
 
 	rev.Status.InitializeConditions()
+	rev.Status.ObservedGeneration = rev.Generation
 	c.updateRevisionLoggingURL(ctx, rev)
 
 	if err := rev.ConvertUp(ctx, &v1beta1.Revision{}); err != nil {
@@ -210,7 +211,6 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 			"Revision becomes ready upon all resources being ready")
 	}
 
-	rev.Status.ObservedGeneration = rev.Generation
 	return nil
 }
 
