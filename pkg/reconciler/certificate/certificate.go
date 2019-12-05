@@ -174,7 +174,7 @@ func (c *Reconciler) reconcileCMCertificate(ctx context.Context, knCert *v1alpha
 }
 
 func (c *Reconciler) updateStatus(desired *v1alpha1.Certificate) (*v1alpha1.Certificate, error) {
-	cert, err := c.knCertificateLister.Certificates(desired.Namespace).Get(desired.Name)
+	cert, err := c.ServingClientSet.NetworkingV1alpha1().Certificates(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

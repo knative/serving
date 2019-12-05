@@ -274,7 +274,7 @@ func (c *Reconciler) checkRoutesNotReady(config *v1alpha1.Configuration, logger 
 }
 
 func (c *Reconciler) updateStatus(desired *v1alpha1.Service, logger *zap.SugaredLogger) (*v1alpha1.Service, error) {
-	service, err := c.serviceLister.Services(desired.Namespace).Get(desired.Name)
+	service, err := c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

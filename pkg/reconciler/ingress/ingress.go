@@ -307,7 +307,7 @@ func (r *Reconciler) reconcileDeletion(ctx context.Context, ia *v1alpha1.Ingress
 // Update the Status of the Ingress.  Caller is responsible for checking
 // for semantic differences before calling.
 func (r *Reconciler) updateStatus(desired *v1alpha1.Ingress) (*v1alpha1.Ingress, error) {
-	ingress, err := r.ingressLister.Ingresses(desired.GetNamespace()).Get(desired.GetName())
+	ingress, err := r.ServingClientSet.NetworkingV1alpha1().Ingresses(desired.GetNamespace()).Get(desired.GetName(), metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

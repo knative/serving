@@ -32,6 +32,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -103,7 +104,7 @@ func (r *reconciler) reconcileCollection(ctx context.Context, metric *v1alpha1.M
 }
 
 func (r *reconciler) updateStatus(m *v1alpha1.Metric) error {
-	ex, err := r.metricLister.Metrics(m.Namespace).Get(m.Name)
+	ex, err := r.ServingClientSet.AutoscalingV1alpha1().Metrics(m.Namespace).Get(m.Name, metav1.GetOptions{})
 	if err != nil {
 		// If something deleted metric while we were reconciling ¯\(°_o)/¯.
 		return err

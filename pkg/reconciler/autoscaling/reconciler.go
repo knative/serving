@@ -139,7 +139,7 @@ func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 
 // UpdateStatus updates the status of the given PodAutoscaler.
 func (c *Base) UpdateStatus(desired *pav1alpha1.PodAutoscaler) (*pav1alpha1.PodAutoscaler, error) {
-	pa, err := c.PALister.PodAutoscalers(desired.Namespace).Get(desired.Name)
+	pa, err := c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

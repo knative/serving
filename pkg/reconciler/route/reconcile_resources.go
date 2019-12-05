@@ -190,7 +190,7 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1alp
 // Update the Status of the route.  Caller is responsible for checking
 // for semantic differences before calling.
 func (c *Reconciler) updateStatus(desired *v1alpha1.Route) (*v1alpha1.Route, error) {
-	route, err := c.routeLister.Routes(desired.Namespace).Get(desired.Name)
+	route, err := c.ServingClientSet.ServingV1alpha1().Routes(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

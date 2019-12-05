@@ -128,7 +128,7 @@ func (r *reconciler) reconcile(ctx context.Context, sks *netv1alpha1.ServerlessS
 }
 
 func (r *reconciler) updateStatus(sks *netv1alpha1.ServerlessService, logger *zap.SugaredLogger) (*netv1alpha1.ServerlessService, error) {
-	original, err := r.sksLister.ServerlessServices(sks.Namespace).Get(sks.Name)
+	original, err := r.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Get(sks.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

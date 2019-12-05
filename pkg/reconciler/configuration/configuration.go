@@ -342,7 +342,7 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Config
 }
 
 func (c *Reconciler) updateStatus(desired *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
-	config, err := c.configurationLister.Configurations(desired.Namespace).Get(desired.Name)
+	config, err := c.ServingClientSet.ServingV1alpha1().Configurations(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
