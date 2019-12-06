@@ -24,7 +24,7 @@ import (
 )
 
 func TestTimedFloat64Buckets(t *testing.T) {
-	pod := "pod"
+	const pod = "pod"
 	trunc1 := time.Now().Truncate(1 * time.Second)
 	trunc5 := time.Now().Truncate(5 * time.Second)
 
@@ -40,7 +40,7 @@ func TestTimedFloat64Buckets(t *testing.T) {
 		want        map[time.Time]float64
 	}{{
 		name:        "granularity = 1s",
-		granularity: 1 * time.Second,
+		granularity: time.Second,
 		stats: []args{
 			{trunc1, pod, 1.0},
 			{trunc1.Add(100 * time.Millisecond), pod, 1.0}, // same bucket
@@ -65,9 +65,10 @@ func TestTimedFloat64Buckets(t *testing.T) {
 			trunc5.Add(5 * time.Second): 1.0,
 		},
 	}, {
-		name:  "empty",
-		stats: []args{},
-		want:  map[time.Time]float64{},
+		name:        "empty",
+		granularity: time.Second,
+		stats:       []args{},
+		want:        map[time.Time]float64{},
 	}}
 
 	for _, tt := range tests {
@@ -88,6 +89,29 @@ func TestTimedFloat64Buckets(t *testing.T) {
 			if len(tt.want) == 0 && !buckets.isEmpty() {
 				t.Error("IsEmpty() = false, want true")
 			}
+
+			// New implementation test.
+			buckets2 := NewTimedFloat64Buckets2(2*time.Minute, tt.granularity)
+			for _, stat := range tt.stats {
+				buckets2.Record(stat.time, stat.name, stat.value)
+			}
+
+			got = make(map[time.Time]float64)
+			// Less time in future than our window is (2mins above), but more than any of the tests report.
+			buckets2.ForEachBucket(trunc1.Add(time.Minute), func(t time.Time, b float64Bucket) {
+				// Since we're storing 0s when there's no data, we need to exclude those
+				// for this test.
+				if s := b.sum(); s > 0 {
+					got[t] = b.sum()
+				}
+			})
+
+			if !cmp.Equal(tt.want, got) {
+				t.Errorf("Unexpected values (-want +got): %v", cmp.Diff(tt.want, got))
+			}
+			if len(tt.want) == 0 && !buckets.isEmpty() {
+				t.Error("IsEmpty() = false, want true")
+			}
 		})
 	}
 }
@@ -97,22 +121,33 @@ func TestTimedFloat64BucketsForEachBucket(t *testing.T) {
 	granularity := time.Second
 	trunc1 := time.Now().Truncate(granularity)
 	buckets := NewTimedFloat64Buckets(granularity)
+	buckets2 := NewTimedFloat64Buckets2(2*time.Minute, granularity)
 
-	if buckets.ForEachBucket(func(time time.Time, bucket float64Bucket) {}) {
+	if buckets.ForEachBucket(trunc1, func(time time.Time, bucket float64Bucket) {}) {
 		t.Fatalf("ForEachBucket unexpectedly returned non-empty result")
 	}
+	// Since we recorded 0 data, even in this implementation no iteration must occur.
+	if buckets2.ForEachBucket(trunc1, func(time time.Time, bucket float64Bucket) {}) {
+		t.Fatalf("ForEachBucket unexpectedly returned non-empty result")
+	}
+
 	buckets.Record(trunc1, pod, 10.0)
 	buckets.Record(trunc1.Add(1*time.Second), pod, 10.0)
 	buckets.Record(trunc1.Add(2*time.Second), pod, 5.0)
 	buckets.Record(trunc1.Add(3*time.Second), pod, 5.0)
 
+	buckets2.Record(trunc1, pod, 10.0)
+	buckets2.Record(trunc1.Add(1*time.Second), pod, 10.0)
+	buckets2.Record(trunc1.Add(2*time.Second), pod, 5.0)
+	buckets2.Record(trunc1.Add(3*time.Second), pod, 5.0)
+
 	acc1 := 0
 	acc2 := 0
-	if !buckets.ForEachBucket(
-		func(time time.Time, bucket float64Bucket) {
+	if !buckets.ForEachBucket(trunc1,
+		func(time.Time, float64Bucket) {
 			acc1++
 		},
-		func(time time.Time, bucket float64Bucket) {
+		func(time.Time, float64Bucket) {
 			acc2++
 		},
 	) {
@@ -120,6 +155,32 @@ func TestTimedFloat64BucketsForEachBucket(t *testing.T) {
 	}
 
 	want := 4
+	if acc1 != want {
+		t.Errorf("acc1 = %v, want %v", acc1, want)
+	}
+	if acc2 != want {
+		t.Errorf("acc2 = %v, want %v", acc1, want)
+	}
+
+	// Now verify second impl
+	acc1 = 0
+	acc2 = 0
+	if !buckets2.ForEachBucket(trunc1.Add(4*time.Second),
+		func(_ time.Time, b float64Bucket) {
+			// We need to exclude the 0s for this test.
+			if b.sum() > 0 {
+				acc1++
+			}
+		},
+		func(_ time.Time, b float64Bucket) {
+			if b.sum() > 0 {
+				acc2++
+			}
+		},
+	) {
+		t.Fatal("ForEachBucket unexpectedly returned empty result")
+	}
+
 	if acc1 != want {
 		t.Errorf("acc1 = %v, want %v", acc1, want)
 	}
