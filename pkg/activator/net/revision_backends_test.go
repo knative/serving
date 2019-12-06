@@ -58,6 +58,7 @@ const (
 func revisionCC1(revID types.NamespacedName, protocol networking.ProtocolType) *v1alpha1.Revision {
 	return revision(revID, protocol, 1)
 }
+
 func revision(revID types.NamespacedName, protocol networking.ProtocolType, cc int64) *v1alpha1.Revision {
 	return &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
@@ -93,6 +94,22 @@ func privateSKSService(revID types.NamespacedName, clusterIP string, ports []cor
 			ClusterIP: clusterIP,
 			Ports:     ports,
 		},
+	}
+}
+
+func waitForRevisionBackedMananger(t *testing.T, rbm *revisionBackendsManager) {
+	timeout := time.After(200 * time.Millisecond)
+	for {
+		select {
+		// rbm.updates() gets closed after all revisionWatchers have finished
+		case _, ok := <-rbm.updates():
+			if !ok {
+				return
+			}
+		case <-timeout:
+			t.Error("Timed out waiting for revisionBackendManager to finish")
+			return
+		}
 	}
 }
 
@@ -413,6 +430,7 @@ func TestRevisionWatcher(t *testing.T) {
 			cancel()
 
 			wg.Wait()
+			assertChClosed(t, rw.done)
 
 			// Autofill out Rev in expectUpdates
 			for i := range tc.expectUpdates {
@@ -422,8 +440,6 @@ func TestRevisionWatcher(t *testing.T) {
 			if got, want := updates, tc.expectUpdates; !cmp.Equal(got, want, cmpopts.EquateEmpty()) {
 				t.Errorf("revisionDests updates = %v, want: %v, diff (-want, +got):\n %s", got, want, cmp.Diff(want, got))
 			}
-
-			assertChClosed(t, rw.done)
 		})
 	}
 }
@@ -698,6 +714,9 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			if got, want := revDests, tc.expectDests; !cmp.Equal(got, want) {
 				t.Errorf("RevisionDests = %v, want: %v, diff(-want,+got):%s\n", got, want, cmp.Diff(want, got))
 			}
+
+			cancel()
+			waitForRevisionBackedMananger(t, rbm)
 		})
 	}
 }
@@ -958,6 +977,9 @@ func TestRevisionDeleted(t *testing.T) {
 	case <-time.After(time.Millisecond * 200):
 		// Wait to make sure the callbacks are executed.
 	}
+
+	cancel()
+	waitForRevisionBackedMananger(t, rbm)
 }
 
 func TestServiceDoesNotExist(t *testing.T) {
@@ -1009,6 +1031,9 @@ func TestServiceDoesNotExist(t *testing.T) {
 		t.Errorf("Unexpected update, should have had none: %v", x)
 	case <-time.After(200 * time.Millisecond):
 	}
+
+	cancel()
+	waitForRevisionBackedMananger(t, rbm)
 }
 
 func TestServiceMoreThanOne(t *testing.T) {
@@ -1073,4 +1098,7 @@ func TestServiceMoreThanOne(t *testing.T) {
 		t.Errorf("Unexpected update, should have had none: %v", x)
 	case <-time.After(200 * time.Millisecond):
 	}
+
+	cancel()
+	waitForRevisionBackedMananger(t, rbm)
 }
