@@ -21,6 +21,7 @@ import (
 
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
+	serviceentryinformer "knative.dev/pkg/client/istio/injection/informers/networking/v1alpha3/serviceentry"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 	pkgreconciler "knative.dev/serving/pkg/reconciler"
@@ -46,13 +47,15 @@ func NewController(
 	serviceInformer := serviceinformer.Get(ctx)
 	endpointsInformer := endpointsinformer.Get(ctx)
 	sksInformer := sksinformer.Get(ctx)
+	serviceEntryInformer := serviceentryinformer.Get(ctx)
 
 	c := &reconciler{
-		Base:              pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
-		endpointsLister:   endpointsInformer.Lister(),
-		serviceLister:     serviceInformer.Lister(),
-		sksLister:         sksInformer.Lister(),
-		psInformerFactory: podscalable.Get(ctx),
+		Base:               pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
+		endpointsLister:    endpointsInformer.Lister(),
+		serviceLister:      serviceInformer.Lister(),
+		sksLister:          sksInformer.Lister(),
+		serviceEntryLister: serviceEntryInformer.Lister(),
+		psInformerFactory:  podscalable.Get(ctx),
 	}
 	impl := controller.NewImpl(c, c.Logger, reconcilerName)
 
@@ -88,5 +91,10 @@ func NewController(
 		Handler: controller.HandleAll(grCb),
 	})
 
+	// Watch all the serviceentries that we have attached our label to.
+	serviceEntryInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: pkgreconciler.LabelExistsFilterFunc(networking.SKSLabelKey),
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+	})
 	return impl
 }

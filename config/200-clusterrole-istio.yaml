@@ -23,5 +23,5 @@ metadata:
     networking.knative.dev/ingress-provider: istio
 rules:
   - apiGroups: ["networking.istio.io"]
-    resources: ["virtualservices", "gateways"]
+    resources: ["virtualservices", "gateways", "serviceentries"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]

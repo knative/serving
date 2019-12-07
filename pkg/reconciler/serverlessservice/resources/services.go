@@ -26,6 +26,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	istiov1alpha3 "istio.io/api/networking/v1alpha3"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 )
 
 // targetPort chooses the target (pod) port for the public and private service.
@@ -79,6 +82,50 @@ func MakePublicEndpoints(sks *v1alpha1.ServerlessService, src *corev1.Endpoints)
 		},
 		Subsets: FilterSubsetPorts(sks, src.Subsets),
 	}
+}
+
+// MakeServiceEntry constructs a Istio ServiceEntry that is to create inbound listeners in advance.
+// ServiceEntry itself is not used as an access point.
+func MakeServiceEntry(sks *v1alpha1.ServerlessService, src *corev1.Endpoints) *v1alpha3.ServiceEntry {
+	return &v1alpha3.ServiceEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      sks.Name,
+			Namespace: sks.Namespace,
+			Labels: resources.UnionMaps(sks.GetLabels(), map[string]string{
+				networking.SKSLabelKey:    sks.Name,
+				networking.ServiceTypeKey: string(networking.ServiceTypePublic),
+			}),
+			Annotations:     resources.CopyMap(sks.GetAnnotations()),
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(sks)},
+		},
+		Spec: istiov1alpha3.ServiceEntry{
+			Hosts:    []string{"placeholder" + "." + sks.Name + "." + sks.Namespace + ".svc"}, // This host name must be unique in the cluster.
+			Location: istiov1alpha3.ServiceEntry_MESH_INTERNAL,
+			Ports: []*istiov1alpha3.Port{{
+				Number:   80, // This port is not used.
+				Protocol: "http",
+				Name:     "http1",
+			}},
+			Resolution: istiov1alpha3.ServiceEntry_STATIC,
+			Endpoints:  FilterEndpoints(src),
+		},
+	}
+}
+
+// FilterEndpoints makes serviceentry endpoint from K8S Endpoint.
+func FilterEndpoints(endpoints *corev1.Endpoints) []*istiov1alpha3.ServiceEntry_Endpoint {
+	var seep []*istiov1alpha3.ServiceEntry_Endpoint
+	for _, subsets := range endpoints.Subsets {
+		for _, address := range subsets.Addresses {
+			seep = append(seep,
+				&istiov1alpha3.ServiceEntry_Endpoint{
+					Address: address.IP,
+					Ports:   map[string]uint32{"http1": networking.BackendHTTPPort},
+				},
+			)
+		}
+	}
+	return seep
 }
 
 // FilterSubsetPorts makes a copy of the ep.Subsets, filtering out ports
