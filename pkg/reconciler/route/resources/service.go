@@ -183,7 +183,11 @@ func makeServiceSpec(ingress netv1alpha1.IngressAccessor, isPrivate bool) (*core
 func GetDesiredServiceNames(ctx context.Context, route *v1alpha1.Route) (sets.String, error) {
 	traffic := route.Spec.Traffic
 
-	names := sets.String{}
+	// We always want create the route with the service name.
+	// If the traffic stanza only contains revision targets, then
+	// this will not be added below, and as a consequence we'll create
+	// a public route to it.
+	names := sets.NewString(route.Name)
 
 	for _, t := range traffic {
 		serviceName, err := domains.HostnameFromTemplate(ctx, route.Name, t.Tag)
