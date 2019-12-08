@@ -207,7 +207,7 @@ func (r *reconciler) reconcileServiceEntry(ctx context.Context, sks *netv1alpha1
 	} else if err != nil {
 		return fmt.Errorf("failed to get public K8s Endpoints: %w", err)
 	} else if !metav1.IsControlledBy(se, sks) {
-		// TOOD: implment MarkXXXNotOwned.
+		// TODO: implment MarkXXXNotOwned.
 		//sks.Status.MarkEndpointsNotOwned("ServiceEntry", se)
 		return fmt.Errorf("SKS: %s does not own ServiceEntry: %s", sks.Name, se.Name)
 	} else {
@@ -221,6 +221,7 @@ func (r *reconciler) reconcileServiceEntry(ctx context.Context, sks *netv1alpha1
 			}
 		}
 	}
+	sks.Status.MarkServiceEntriesPopulated()
 	return nil
 }
 

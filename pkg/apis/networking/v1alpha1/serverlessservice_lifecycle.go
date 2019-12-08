@@ -28,6 +28,7 @@ import (
 
 var serverlessServiceCondSet = apis.NewLivingConditionSet(
 	ServerlessServiceConditionEndspointsPopulated,
+	ServiceEntriesPopulated,
 )
 
 // GetGroupVersionKind returns the GVK for the ServerlessService.
@@ -84,6 +85,17 @@ func (sss *ServerlessServiceStatus) MarkEndpointsNotReady(reason string) {
 	serverlessServiceCondSet.Manage(sss).MarkUnknown(
 		ServerlessServiceConditionEndspointsPopulated, reason,
 		"K8s Service is not ready")
+}
+
+// MarkServiceEntriesReady is
+func (sss *ServerlessServiceStatus) MarkServiceEntriesPopulated() {
+	serverlessServiceCondSet.Manage(sss).SetCondition(apis.Condition{
+		Type:     ServiceEntriesPopulated,
+		Status:   corev1.ConditionTrue,
+		Severity: apis.ConditionSeverityInfo,
+		Reason:   "ServiceEntriesPopulated",
+		Message:  "Service Entry is ready",
+	})
 }
 
 // IsReady returns true if ServerlessService is ready.
