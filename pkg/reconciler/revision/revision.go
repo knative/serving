@@ -233,16 +233,30 @@ func (c *Reconciler) updateRevisionLoggingURL(
 }
 
 func (c *Reconciler) updateStatus(desired *v1alpha1.Revision) (*v1alpha1.Revision, error) {
-	rev, err := c.ServingClientSet.ServingV1alpha1().Revisions(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
+	var err error
+	for i := 0; i < 4; i++ {
+		// The first iteration tries to use the informer's state.
+		var existing *v1alpha1.Revision
+		if i == 0 {
+			existing, err = c.revisionLister.Revisions(desired.Namespace).Get(desired.Name)
+			existing = existing.DeepCopy()
+		} else {
+			existing, err = c.ServingClientSet.ServingV1alpha1().Revisions(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		// If there's nothing to update, just return.
+		if reflect.DeepEqual(existing.Status, desired.Status) {
+			return existing, nil
+		}
+
+		existing.Status = desired.Status
+		existing, err = c.ServingClientSet.ServingV1alpha1().Revisions(desired.Namespace).UpdateStatus(existing)
+		if !apierrs.IsConflict(err) {
+			return existing, err
+		}
 	}
-	// If there's nothing to update, just return.
-	if reflect.DeepEqual(rev.Status, desired.Status) {
-		return rev, nil
-	}
-	// Don't modify the informers copy
-	existing := rev.DeepCopy()
-	existing.Status = desired.Status
-	return c.ServingClientSet.ServingV1alpha1().Revisions(desired.Namespace).UpdateStatus(existing)
+	return nil, err
 }

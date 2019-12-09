@@ -187,21 +187,33 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1alp
 	return eg.Wait()
 }
 
-// Update the Status of the route.  Caller is responsible for checking
-// for semantic differences before calling.
 func (c *Reconciler) updateStatus(desired *v1alpha1.Route) (*v1alpha1.Route, error) {
-	route, err := c.ServingClientSet.ServingV1alpha1().Routes(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
+	var err error
+	for i := 0; i < 4; i++ {
+		// The first iteration tries to use the informer's state.
+		var existing *v1alpha1.Route
+		if i == 0 {
+			existing, err = c.routeLister.Routes(desired.Namespace).Get(desired.Name)
+			existing = existing.DeepCopy()
+		} else {
+			existing, err = c.ServingClientSet.ServingV1alpha1().Routes(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		// If there's nothing to update, just return.
+		if reflect.DeepEqual(existing.Status, desired.Status) {
+			return existing, nil
+		}
+
+		existing.Status = desired.Status
+		existing, err = c.ServingClientSet.ServingV1alpha1().Routes(desired.Namespace).UpdateStatus(existing)
+		if !apierrs.IsConflict(err) {
+			return existing, err
+		}
 	}
-	// If there's nothing to update, just return.
-	if reflect.DeepEqual(route.Status, desired.Status) {
-		return route, nil
-	}
-	// Don't modify the informers copy
-	existing := route.DeepCopy()
-	existing.Status = desired.Status
-	return c.ServingClientSet.ServingV1alpha1().Routes(desired.Namespace).UpdateStatus(existing)
+	return nil, err
 }
 
 // Update the lastPinned annotation on revisions we target so they don't get GC'd.

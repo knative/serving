@@ -174,17 +174,30 @@ func (c *Reconciler) reconcileCMCertificate(ctx context.Context, knCert *v1alpha
 }
 
 func (c *Reconciler) updateStatus(desired *v1alpha1.Certificate) (*v1alpha1.Certificate, error) {
-	cert, err := c.ServingClientSet.NetworkingV1alpha1().Certificates(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	// If there's nothing to update, just return.
-	if reflect.DeepEqual(cert.Status, desired.Status) {
-		return cert, nil
-	}
-	// Don't modify the informers copy
-	existing := cert.DeepCopy()
-	existing.Status = desired.Status
+	var err error
+	for i := 0; i < 4; i++ {
+		// The first iteration tries to use the informer's state.
+		var existing *v1alpha1.Certificate
+		if i == 0 {
+			existing, err = c.knCertificateLister.Certificates(desired.Namespace).Get(desired.Name)
+			existing = existing.DeepCopy()
+		} else {
+			existing, err = c.ServingClientSet.NetworkingV1alpha1().Certificates(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
+		}
+		if err != nil {
+			return nil, err
+		}
 
-	return c.ServingClientSet.NetworkingV1alpha1().Certificates(existing.Namespace).UpdateStatus(existing)
+		// If there's nothing to update, just return.
+		if reflect.DeepEqual(existing.Status, desired.Status) {
+			return existing, nil
+		}
+
+		existing.Status = desired.Status
+		existing, err = c.ServingClientSet.NetworkingV1alpha1().Certificates(existing.Namespace).UpdateStatus(existing)
+		if !apierrs.IsConflict(err) {
+			return existing, err
+		}
+	}
+	return nil, err
 }

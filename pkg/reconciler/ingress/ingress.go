@@ -307,19 +307,32 @@ func (r *Reconciler) reconcileDeletion(ctx context.Context, ia *v1alpha1.Ingress
 // Update the Status of the Ingress.  Caller is responsible for checking
 // for semantic differences before calling.
 func (r *Reconciler) updateStatus(desired *v1alpha1.Ingress) (*v1alpha1.Ingress, error) {
-	ingress, err := r.ServingClientSet.NetworkingV1alpha1().Ingresses(desired.GetNamespace()).Get(desired.GetName(), metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
+	var err error
+	for i := 0; i < 4; i++ {
+		// The first iteration tries to use the informer's state.
+		var existing *v1alpha1.Ingress
+		if i == 0 {
+			existing, err = r.ingressLister.Ingresses(desired.Namespace).Get(desired.Name)
+			existing = existing.DeepCopy()
+		} else {
+			existing, err = r.ServingClientSet.NetworkingV1alpha1().Ingresses(desired.GetNamespace()).Get(desired.GetName(), metav1.GetOptions{})
+		}
+		if err != nil {
+			return nil, err
+		}
 
-	// If there's nothing to update, just return.
-	if reflect.DeepEqual(ingress.Status, desired.Status) {
-		return ingress, nil
+		// If there's nothing to update, just return.
+		if reflect.DeepEqual(existing.Status, desired.Status) {
+			return existing, nil
+		}
+
+		existing.Status = desired.Status
+		existing, err = r.ServingClientSet.NetworkingV1alpha1().Ingresses(existing.GetNamespace()).UpdateStatus(existing)
+		if !apierrs.IsConflict(err) {
+			return existing, err
+		}
 	}
-	// Don't modify the informers copy
-	existing := ingress.DeepCopy()
-	existing.Status = desired.Status
-	return r.ServingClientSet.NetworkingV1alpha1().Ingresses(existing.GetNamespace()).UpdateStatus(existing)
+	return nil, err
 }
 
 func (r *Reconciler) ensureFinalizer(ia *v1alpha1.Ingress) error {

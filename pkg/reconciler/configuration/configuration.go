@@ -342,16 +342,30 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Config
 }
 
 func (c *Reconciler) updateStatus(desired *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
-	config, err := c.ServingClientSet.ServingV1alpha1().Configurations(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
+	var err error
+	for i := 0; i < 4; i++ {
+		// The first iteration tries to use the informer's state.
+		var existing *v1alpha1.Configuration
+		if i == 0 {
+			existing, err = c.configurationLister.Configurations(desired.Namespace).Get(desired.Name)
+			existing = existing.DeepCopy()
+		} else {
+			existing, err = c.ServingClientSet.ServingV1alpha1().Configurations(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		// If there's nothing to update, just return.
+		if reflect.DeepEqual(existing.Status, desired.Status) {
+			return existing, nil
+		}
+
+		existing.Status = desired.Status
+		existing, err = c.ServingClientSet.ServingV1alpha1().Configurations(desired.Namespace).UpdateStatus(existing)
+		if !errors.IsConflict(err) {
+			return existing, err
+		}
 	}
-	// If there's nothing to update, just return.
-	if reflect.DeepEqual(config.Status, desired.Status) {
-		return config, nil
-	}
-	// Don't modify the informers copy
-	existing := config.DeepCopy()
-	existing.Status = desired.Status
-	return c.ServingClientSet.ServingV1alpha1().Configurations(desired.Namespace).UpdateStatus(existing)
+	return nil, err
 }
