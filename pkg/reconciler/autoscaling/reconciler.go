@@ -139,13 +139,13 @@ func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 
 // UpdateStatus updates the status of the given PodAutoscaler.
 func (c *Base) UpdateStatus(desired *pav1alpha1.PodAutoscaler) error {
-	return reconciler.RetryUpdateConflicts(func(i int) error {
+	return reconciler.RetryUpdateConflicts(func(attempts int) error {
 		var (
 			existing *pav1alpha1.PodAutoscaler
 			err      error
 		)
 		// The first iteration tries to use the informer's state.
-		if i == 0 {
+		if attempts == 0 {
 			existing, err = c.PALister.PodAutoscalers(desired.Namespace).Get(desired.Name)
 			existing = existing.DeepCopy()
 		} else {

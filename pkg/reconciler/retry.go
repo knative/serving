@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2019 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,8 +22,8 @@ import apierrs "k8s.io/apimachinery/pkg/api/errors"
 // This can be used to retry status updates without constantly reenqueuing keys.
 func RetryUpdateConflicts(updater func(int) error) error {
 	var err error
-	for i := 0; i < 4; i++ {
-		err = updater(i)
+	for attempts := 0; attempts < 4; attempts++ {
+		err = updater(attempts)
 		if err == nil || !apierrs.IsConflict(err) {
 			return err
 		}

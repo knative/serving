@@ -174,13 +174,13 @@ func (c *Reconciler) reconcileCMCertificate(ctx context.Context, knCert *v1alpha
 }
 
 func (c *Reconciler) updateStatus(desired *v1alpha1.Certificate) error {
-	return reconciler.RetryUpdateConflicts(func(i int) error {
+	return reconciler.RetryUpdateConflicts(func(attempts int) error {
 		var (
 			existing *v1alpha1.Certificate
 			err      error
 		)
 		// The first iteration tries to use the informer's state.
-		if i == 0 {
+		if attempts == 0 {
 			existing, err = c.knCertificateLister.Certificates(desired.Namespace).Get(desired.Name)
 			existing = existing.DeepCopy()
 		} else {

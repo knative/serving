@@ -342,13 +342,13 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Config
 }
 
 func (c *Reconciler) updateStatus(desired *v1alpha1.Configuration) error {
-	return reconciler.RetryUpdateConflicts(func(i int) error {
+	return reconciler.RetryUpdateConflicts(func(attempts int) error {
 		var (
 			existing *v1alpha1.Configuration
 			err      error
 		)
 		// The first iteration tries to use the informer's state.
-		if i == 0 {
+		if attempts == 0 {
 			existing, err = c.configurationLister.Configurations(desired.Namespace).Get(desired.Name)
 			existing = existing.DeepCopy()
 		} else {

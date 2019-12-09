@@ -105,13 +105,13 @@ func (r *reconciler) reconcileCollection(ctx context.Context, metric *v1alpha1.M
 }
 
 func (r *reconciler) updateStatus(desired *v1alpha1.Metric) error {
-	return rbase.RetryUpdateConflicts(func(i int) error {
+	return rbase.RetryUpdateConflicts(func(attempts int) error {
 		var (
 			existing *v1alpha1.Metric
 			err      error
 		)
 		// The first iteration tries to use the informer's state.
-		if i == 0 {
+		if attempts == 0 {
 			existing, err = r.metricLister.Metrics(desired.Namespace).Get(desired.Name)
 			existing = existing.DeepCopy()
 		} else {
