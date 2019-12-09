@@ -35,6 +35,8 @@ const (
 	// multiple "go test" invocations.
 	serviceName            = "pizzaplanet-upgrade-service"
 	scaleToZeroServiceName = "scale-to-zero-upgrade-service"
+	byoServiceName         = "byo-revision-name-upgrade-test"
+	byoRevName             = byoServiceName + "-" + "rev1"
 )
 
 // Shamelessly cribbed from conformance/service_test.

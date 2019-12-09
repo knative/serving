@@ -24,15 +24,14 @@
   version = "v0.1.0"
 
 [[projects]]
-  digest = "1:c1e8c027918e8a7cf79327f35ca2919cb997ecaa928116e3c2b470d06d0e9c12"
+  digest = "1:c3fd5ddaad733530174bba5dd787d98a45d181851a95a0b7362be7bce7144f56"
   name = "contrib.go.opencensus.io/exporter/stackdriver"
   packages = [
     ".",
     "monitoredresource",
   ]
   pruneopts = "NUT"
-  revision = "bf39ce456bd8c6e2e3e37ef9775ed8b10628feca"
-  version = "v0.12.5"
+  revision = "59d068f8d8ff5b653916aa30cdc4e13c7f15d56e"
 
 [[projects]]
   digest = "1:fb85fce01f5a35c570e02749234c1cfe4bb8d31570cbe6b62d7beb27710c5954"
@@ -147,11 +146,10 @@
   version = "v1.3.2"
 
 [[projects]]
-  digest = "1:010d46ea3c1e730897e53058d1013a963f3f987675dda87df64f891b945281db"
+  digest = "1:bf40199583e5143d1472fc34d10d6f4b69d97572142acf343b3e43136da40823"
   name = "github.com/google/go-cmp"
   packages = [
     "cmp",
-    "cmp/cmpopts",
     "cmp/internal/diff",
     "cmp/internal/flags",
     "cmp/internal/function",
@@ -933,7 +931,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:09a00f21eaeeae387d973fd3f82cf06a8627f88566b4e6811ba97003dd207eac"
+  digest = "1:bba09479e5ea003f3d14749f6e0105b6b7b6c696dc1ef76707fd138610890d63"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -952,18 +950,18 @@
     "metrics/metricskey",
   ]
   pruneopts = "T"
-  revision = "944655d6cc17ceb861b0764046c56a465fe5bb75"
+  revision = "eec28e7bbdc9ffe4fbdc3584daa5a102d08f5cbb"
 
 [[projects]]
   branch = "master"
-  digest = "1:85fe0cadd6ab83f3d7f948c60b6d422dc9cd16664246249968dab5d828ae8dfd"
+  digest = "1:6e839a9b4183b0fbf0df609fe9a6d226c941fa9221052ba0075b25cb353588a5"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "2c4cd9df33c648a86d95bdd4119386cba04cde56"
+  revision = "98a7b3bbed2dda25a17c14d1d59d24dab3b15e41"
 
 [[projects]]
   digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"

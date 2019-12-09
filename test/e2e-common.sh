@@ -391,6 +391,10 @@ function test_setup() {
 
   echo ">> Creating test resources (test/config/)"
   ko apply ${KO_FLAGS} -f test/config/ || return 1
+  if (( MESH )); then
+    kubectl label namespace serving-tests istio-injection=enabled
+    kubectl label namespace serving-tests-alt istio-injection=enabled
+  fi
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1
   wait_until_pods_running knative-serving || return 1
   if [[ -n "${ISTIO_VERSION}" ]]; then

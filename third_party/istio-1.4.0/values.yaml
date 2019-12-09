@@ -3,12 +3,12 @@ global:
     # Enable proxy to write access log to /dev/stdout.
     accessLogFile: "/dev/stdout"
     accessLogEncoding: 'JSON'
-    autoInject: disabled
+    autoInject: enabled
   disablePolicyChecks: true
 
 sidecarInjectorWebhook:
   enabled: true
-  enableNamespacesByDefault: true
+  enableNamespacesByDefault: false
 
 gateways:
   istio-ingressgateway:

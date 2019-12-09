@@ -32,7 +32,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -397,14 +396,7 @@ func (m *StatusProber) getGateway(name string) (*v1alpha3.Gateway, error) {
 // listGatewayPodsURLs returns a map where the keys are the Gateway Pod IPs and the values are the corresponding
 // URL templates and the Gateway Pod Port to be probed.
 func (m *StatusProber) listGatewayTargetsPerPods(gateway *v1alpha3.Gateway) (map[string][]probeTarget, error) {
-	selector := labels.NewSelector()
-	for key, value := range gateway.Spec.Selector {
-		requirement, err := labels.NewRequirement(key, selection.Equals, []string{value})
-		if err != nil {
-			return nil, fmt.Errorf("failed to create 'Equals' requirement from %q=%q: %w", key, value, err)
-		}
-		selector = selector.Add(*requirement)
-	}
+	selector := labels.SelectorFromSet(gateway.Spec.Selector)
 
 	services, err := m.serviceLister.List(selector)
 	if err != nil {

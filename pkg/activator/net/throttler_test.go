@@ -18,8 +18,8 @@ package net
 
 import (
 	"context"
+	"errors"
 	"math"
-	"sort"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -58,19 +58,8 @@ var defaultParams = queue.BreakerParams{
 }
 
 type tryResult struct {
-	dest      string
-	errString string
-}
-
-func sortTryResults(tr []tryResult) {
-	sort.Slice(tr, func(i, j int) bool {
-		// Succeses, ordered by IP, then
-		// failures ordered by error.
-		if tr[i].dest != "" {
-			return tr[j].dest == "" || tr[i].dest < tr[j].dest
-		}
-		return tr[j].dest == "" && tr[i].errString < tr[j].errString
-	})
+	dest string
+	err  error
 }
 
 func newTestThrottler(ctx context.Context, numA int32) *Throttler {
@@ -234,8 +223,14 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 	})
 
 	// Make sure it now works.
-	if err := throttler.Try(context.Background(), revID, func(_ string) error { return nil }); err != nil {
+	if err := throttler.Try(context.Background(), revID, func(string) error { return nil }); err != nil {
 		t.Fatalf("Try() = %v, want no error", err)
+	}
+
+	// Make sure errors are propagated correctly.
+	innerError := errors.New("inner")
+	if err := throttler.Try(context.Background(), revID, func(string) error { return innerError }); err != innerError {
+		t.Fatalf("Try() = %v, want %v", err, innerError)
 	}
 
 	servfake.ServingV1alpha1().Revisions(revision.Namespace).Delete(revision.Name, nil)
@@ -244,7 +239,7 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 	// Eventually it should now fail.
 	var lastError error
 	wait.PollInfinite(10*time.Millisecond, func() (bool, error) {
-		lastError = throttler.Try(context.Background(), revID, func(_ string) error { return nil })
+		lastError = throttler.Try(context.Background(), revID, func(string) error { return nil })
 		return lastError != nil, nil
 	})
 	if lastError == nil || lastError.Error() != `revision.serving.knative.dev "test-revision" not found` {
@@ -279,30 +274,24 @@ func TestThrottlerErrorOneTimesOut(t *testing.T) {
 	})
 
 	// Send 2 requests, one should time out.
-	resultChan := make(chan error)
 	var mux sync.Mutex
+	mux.Lock() // Lock the mutex so all requests are blocked in the Try function.
 
-	// Lock the mutex so all requests are blocked in the Try function.
-	mux.Lock()
-	for i := 0; i < 2; i++ {
-		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-			defer cancel()
-			resultChan <- throttler.Try(ctx, revID, func(_ string) error {
-				mux.Lock()
-				return nil
-			})
-		}()
-	}
+	reqCtx, cancel2 := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel2()
+	resultChan := tryThrottler(throttler, reqCtx, 2 /*requests*/, func(string) error {
+		mux.Lock()
+		return nil
+	})
 
 	// The first result will be a timeout because of the locking logic.
-	if err := <-resultChan; err != context.DeadlineExceeded {
+	if result := <-resultChan; result.err != context.DeadlineExceeded {
 		t.Fatalf("err = %v, want %v", err, context.DeadlineExceeded)
 	}
 
 	// Allow the successful request to pass through.
 	mux.Unlock()
-	if err := <-resultChan; err != nil {
+	if result := <-resultChan; result.err != nil {
 		t.Fatalf("err = %v, want no error", err)
 	}
 }
@@ -312,7 +301,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 		name        string
 		revision    *v1alpha1.Revision
 		initUpdates []revisionDestsUpdate
-		trys        []types.NamespacedName
+		requests    int
 		wantDests   sets.String
 	}{{
 		name:     "single healthy podIP",
@@ -324,9 +313,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			Rev:   types.NamespacedName{testNamespace, testRevision},
 			Dests: sets.NewString("128.0.0.1:1234"),
 		}},
-		trys: []types.NamespacedName{
-			{Namespace: testNamespace, Name: testRevision},
-		},
+		requests:  1,
 		wantDests: sets.NewString("128.0.0.1:1234"),
 	}, {
 		name:     "single healthy podIP, infinite cc",
@@ -339,9 +326,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			Rev:   types.NamespacedName{testNamespace, testRevision},
 			Dests: sets.NewString("128.0.0.1:1234"),
 		}},
-		trys: []types.NamespacedName{
-			{Namespace: testNamespace, Name: testRevision},
-		},
+		requests:  1,
 		wantDests: sets.NewString("128.0.0.1:1234"),
 	}, {
 		name:     "single healthy clusterIP",
@@ -354,9 +339,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			ClusterIPDest: "129.0.0.1:1234",
 			Dests:         sets.NewString("128.0.0.1:1234"),
 		}},
-		trys: []types.NamespacedName{
-			{Namespace: testNamespace, Name: testRevision},
-		},
+		requests:  1,
 		wantDests: sets.NewString("129.0.0.1:1234"),
 	}, {
 		name:     "spread podIP load",
@@ -369,10 +352,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			Rev:   types.NamespacedName{testNamespace, testRevision},
 			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
 		}},
-		trys: []types.NamespacedName{
-			{Namespace: testNamespace, Name: testRevision},
-			{Namespace: testNamespace, Name: testRevision},
-		},
+		requests:  2,
 		wantDests: sets.NewString("128.0.0.2:1234", "128.0.0.1:1234"),
 	}, {
 		name:     "clumping test",
@@ -381,11 +361,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			Rev:   types.NamespacedName{testNamespace, testRevision},
 			Dests: sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
 		}},
-		trys: []types.NamespacedName{
-			{Namespace: testNamespace, Name: testRevision},
-			{Namespace: testNamespace, Name: testRevision},
-			{Namespace: testNamespace, Name: testRevision},
-		},
+		requests:  3,
 		wantDests: sets.NewString("128.0.0.1:1234"),
 	}, {
 		name:     "multiple ClusterIP requests",
@@ -395,10 +371,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			ClusterIPDest: "129.0.0.1:1234",
 			Dests:         sets.NewString("128.0.0.1:1234", "128.0.0.2:1234"),
 		}},
-		trys: []types.NamespacedName{
-			{Namespace: testNamespace, Name: testRevision},
-			{Namespace: testNamespace, Name: testRevision},
-		},
+		requests:  2,
 		wantDests: sets.NewString("129.0.0.1:1234"),
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -424,13 +397,18 @@ func TestThrottlerSuccesses(t *testing.T) {
 				throttler.handleUpdate(update)
 			}
 
-			tryContext, cancel2 := context.WithTimeout(context.Background(), 200*time.Millisecond)
+			tryContext, cancel2 := context.WithTimeout(context.Background(), 1*time.Second)
 			defer cancel2()
 
-			gotTries := tryThrottler(throttler, tc.trys, tryContext)
+			results := tryThrottler(throttler, tryContext, tc.requests, func(string) error {
+				// Simulate proxying.
+				time.Sleep(50 * time.Millisecond)
+				return nil
+			})
 			gotDests := sets.NewString()
-			for _, tr := range gotTries {
-				gotDests.Insert(tr.dest)
+			for i := 0; i < tc.requests; i++ {
+				result := <-results
+				gotDests.Insert(result.dest)
 			}
 
 			if got, want := gotDests, tc.wantDests; !got.Equal(want) {
@@ -598,15 +576,25 @@ func TestMultipleActivators(t *testing.T) {
 	}
 
 	// Test with 2 activators, 3 endpoints we can send 1 request and the second times out.
-	tryContext, cancel2 := context.WithTimeout(context.Background(), 90*time.Millisecond)
-	defer cancel2()
+	var mux sync.Mutex
+	mux.Lock() // Lock the mutex so all requests are blocked in the Try function.
 
-	results := tryThrottler(throttler, []types.NamespacedName{revID, revID}, tryContext)
-	if !possibleDests.Has(results[0].dest) {
-		t.Errorf("Request went to an unknown destination: %s, possibles: %v", results[0].dest, possibleDests)
+	reqCtx, cancel2 := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel2()
+	resultChan := tryThrottler(throttler, reqCtx, 2 /*requests*/, func(string) error {
+		mux.Lock()
+		return nil
+	})
+
+	// The first result will be a timeout because of the locking logic.
+	if result := <-resultChan; result.err != context.DeadlineExceeded {
+		t.Fatalf("err = %v, want %v", err, context.DeadlineExceeded)
 	}
-	if got, want := results[1].errString, context.DeadlineExceeded.Error(); got != want {
-		t.Errorf("Error = %s, want: %s", got, want)
+
+	// Allow the successful request to pass through.
+	mux.Unlock()
+	if result := <-resultChan; !possibleDests.Has(result.dest) {
+		t.Fatalf("Request went to an unknown destination: %s, possibles: %v", result.dest, possibleDests)
 	}
 }
 
@@ -619,34 +607,23 @@ func TestInfiniteBreakerCreation(t *testing.T) {
 	}
 }
 
-func tryThrottler(throttler *Throttler, trys []types.NamespacedName, ctx context.Context) []tryResult {
-	ret := make([]tryResult, len(trys))
-	var tryWaitg sync.WaitGroup
-	tryWaitg.Add(len(trys))
+func tryThrottler(throttler *Throttler, ctx context.Context, requests int, try func(string) error) chan tryResult {
+	resultChan := make(chan tryResult)
 
-	for i, revID := range trys {
-		go func(i int, revID types.NamespacedName) {
-			defer tryWaitg.Done()
-			if err := throttler.Try(ctx, revID, func(dest string) error {
-				ret[i] = tryResult{dest: dest}
-				select {
-				case <-time.After(60 * time.Millisecond): // Proxy simulation.
-				case <-ctx.Done():
-					// Timeout.
-				}
-				return ctx.Err()
+	for i := 0; i < requests; i++ {
+		go func() {
+			var result tryResult
+			if err := throttler.Try(ctx, types.NamespacedName{Namespace: testNamespace, Name: testRevision}, func(dest string) error {
+				result = tryResult{dest: dest}
+				return try(dest)
 			}); err != nil {
-				ret[i] = tryResult{errString: err.Error()}
+				result = tryResult{err: err}
 			}
-		}(i, revID)
+			resultChan <- result
+		}()
 	}
 
-	tryWaitg.Wait()
-	// The execution of tries is really random, so we'll sort the results
-	// since we care about what happened: where a request went and how they failed
-	// rather than what happened to each individual request.
-	sortTryResults(ret)
-	return ret
+	return resultChan
 }
 
 func TestInfiniteBreaker(t *testing.T) {

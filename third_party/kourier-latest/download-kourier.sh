@@ -17,7 +17,7 @@
 set -ex
 
 # Download Kourier
-KOURIER_VERSION=0.3.1
+KOURIER_VERSION=0.3.3
 KOURIER_YAML=kourier-knative.yaml
 DOWNLOAD_URL=https://raw.githubusercontent.com/3scale/kourier/v${KOURIER_VERSION}/deploy/${KOURIER_YAML}
 
@@ -28,6 +28,18 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: kourier-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-logging
+  namespace: kourier-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-observability
+  namespace: kourier-system
 ---
 EOF
 

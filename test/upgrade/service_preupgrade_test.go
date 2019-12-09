@@ -22,10 +22,12 @@ import (
 	"testing"
 
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/serving/v1"
 	revisionresourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
+	v1test "knative.dev/serving/test/v1"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
@@ -70,5 +72,24 @@ func TestRunLatestServicePreUpgradeAndScaleToZero(t *testing.T) {
 
 	if err := e2e.WaitForScaleToZero(t, revisionresourcenames.Deployment(resources.Revision), clients); err != nil {
 		t.Fatalf("Could not scale to zero: %v", err)
+	}
+}
+
+// TestBYORevisionUpgrade creates a Service that uses the BYO Revision name functionality. This test
+// is meant to catch new defaults that break bring your own revision name immutability.
+func TestBYORevisionPreUpgrade(t *testing.T) {
+	t.Parallel()
+	clients := e2e.Setup(t)
+	names := test.ResourceNames{
+		Service: byoServiceName,
+		Image:   test.PizzaPlanet1,
+	}
+
+	_, err := v1test.CreateServiceReady(t, clients, &names,
+		func(svc *v1.Service) {
+			svc.Spec.ConfigurationSpec.Template.Name = byoRevName
+		})
+	if err != nil {
+		t.Fatalf("Failed to create Service: %v", err)
 	}
 }
