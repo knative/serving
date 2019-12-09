@@ -18,6 +18,7 @@ package net
 
 import (
 	"context"
+	"errors"
 	"math"
 	"strconv"
 	"sync"
@@ -222,8 +223,14 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 	})
 
 	// Make sure it now works.
-	if err := throttler.Try(context.Background(), revID, func(_ string) error { return nil }); err != nil {
+	if err := throttler.Try(context.Background(), revID, func(string) error { return nil }); err != nil {
 		t.Fatalf("Try() = %v, want no error", err)
+	}
+
+	// Make sure errors are propagated correctly.
+	innerError := errors.New("inner")
+	if err := throttler.Try(context.Background(), revID, func(string) error { return innerError }); err != innerError {
+		t.Fatalf("Try() = %v, want %v", err, innerError)
 	}
 
 	servfake.ServingV1alpha1().Revisions(revision.Namespace).Delete(revision.Name, nil)
@@ -232,7 +239,7 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 	// Eventually it should now fail.
 	var lastError error
 	wait.PollInfinite(10*time.Millisecond, func() (bool, error) {
-		lastError = throttler.Try(context.Background(), revID, func(_ string) error { return nil })
+		lastError = throttler.Try(context.Background(), revID, func(string) error { return nil })
 		return lastError != nil, nil
 	})
 	if lastError == nil || lastError.Error() != `revision.serving.knative.dev "test-revision" not found` {
