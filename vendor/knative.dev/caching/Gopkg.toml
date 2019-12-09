@@ -46,12 +46,6 @@ required = [
   revision = "e7d98fc518a78c9f8b5ee77be7b0b317475d89e1"
 
 [[override]]
-  name = "contrib.go.opencensus.io/exporter/stackdriver"
-  # The build fails against 0.12.6 and newer because
-  # stackdriver.Options.GetMonitoredResource was removed.
-  version = "<=v0.12.5"
-
-[[override]]
   name = "go.opencensus.io"
   # Needed because this includes the appropriate version of metricsdata
   version = "v0.22.0"
