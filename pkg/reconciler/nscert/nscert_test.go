@@ -209,9 +209,7 @@ func TestUpdateDomainTemplate(t *testing.T) {
 		},
 	}
 	ctx, cancel, controller, watcher := newTestSetup(t, netCfg)
-	defer func() {
-		cancel()
-	}()
+	defer cancel()
 	reconciler := controller.Reconciler.(*reconciler)
 
 	sorter := cmpopts.SortSlices(func(a, b string) bool {
@@ -331,9 +329,7 @@ func TestDomainConfigDefaultDomain(t *testing.T) {
 		},
 	}
 	ctx, cancel, controller, _ := newTestSetup(t, domCfg, netCfg)
-	defer func() {
-		cancel()
-	}()
+	defer cancel()
 	reconciler := controller.Reconciler.(*reconciler)
 
 	ns := kubeNamespace("testns")
@@ -424,9 +420,7 @@ func TestDomainConfigExplicitDefaultDomain(t *testing.T) {
 		},
 	}
 	ctx, cancel, controller, _ := newTestSetup(t, domCfg, netCfg)
-	defer func() {
-		cancel()
-	}()
+	defer cancel()
 	reconciler := controller.Reconciler.(*reconciler)
 	namespace := kubeNamespace("testns")
 	nsInformer := fakeinformerfactory.Get(ctx).Core().V1().Namespaces()
