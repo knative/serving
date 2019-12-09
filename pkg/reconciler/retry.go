@@ -16,17 +16,17 @@ limitations under the License.
 
 package reconciler
 
-import apierrs "k8s.io/apimachinery/pkg/api/errors"
+import (
+	"k8s.io/client-go/util/retry"
+)
 
 // RetryUpdateConflicts retries the inner function if it returns conflict errors.
 // This can be used to retry status updates without constantly reenqueuing keys.
 func RetryUpdateConflicts(updater func(int) error) error {
-	var err error
-	for attempts := 0; attempts < 4; attempts++ {
-		err = updater(attempts)
-		if err == nil || !apierrs.IsConflict(err) {
-			return err
-		}
-	}
-	return err
+	attempts := 0
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err := updater(attempts)
+		attempts++
+		return err
+	})
 }

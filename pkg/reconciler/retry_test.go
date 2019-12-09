@@ -45,10 +45,10 @@ func TestRetryUpdateConflicts(t *testing.T) {
 		want:         errAny,
 		wantAttempts: 1,
 	}, {
-		name:         "retry up to 4 times on conflicts",
-		returns:      []error{errConflict, errConflict, errConflict, errConflict, errConflict},
+		name:         "retry up to 5 times on conflicts",
+		returns:      []error{errConflict, errConflict, errConflict, errConflict, errConflict, errConflict},
 		want:         errConflict,
-		wantAttempts: 4,
+		wantAttempts: 5,
 	}, {
 		name:         "eventually succeed",
 		returns:      []error{errConflict, errConflict, nil},
