@@ -22,6 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	k8sinformers "k8s.io/client-go/informers"
 	corev1informer "k8s.io/client-go/informers/core/v1"
 	kubefake "k8s.io/client-go/kubernetes/fake"
@@ -64,7 +65,7 @@ func TestVerifySecrets(t *testing.T) {
 				},
 			},
 		},
-		si: addSecretToInformer(kubefake.NewSimpleClientset(), "asdf1", "foo")(getSecretInformer()),
+		si: getSecretInformer(secret("foo", "asdf1")),
 	}, {
 		name: "secrets (from volume source) not found",
 		rev: &v1alpha1.Revision{
@@ -167,7 +168,7 @@ secret "asdf2" not found: spec.volumes[1].volumeSource.secretName`,
 				},
 			},
 		},
-		si: addSecretToInformer(kubefake.NewSimpleClientset(), "asdf1", "foo")(getSecretInformer()),
+		si: getSecretInformer(secret("foo", "asdf1")),
 	}, {
 		name: "secrets (from volume source projected) not found",
 		rev: &v1alpha1.Revision{
@@ -270,7 +271,7 @@ secret "asdf2" not found: spec.volumes[0].volumeSource.projected.sources[1].secr
 				},
 			},
 		},
-		si: addSecretToInformer(kubefake.NewSimpleClientset(), "asdf1", "foo")(getSecretInformer()),
+		si: getSecretInformer(secret("foo", "asdf1")),
 	}, {
 		name: "secrets (from EnvFrom) not found",
 		rev: &v1alpha1.Revision{
@@ -340,25 +341,24 @@ secret "asdf2" not found: spec.containers[0].envFrom[1].secretRef`,
 	}
 }
 
-func addSecretToInformer(fake *kubefake.Clientset, secretName string, namespace string) func(si corev1informer.SecretInformer) corev1informer.SecretInformer {
-	return func(si corev1informer.SecretInformer) corev1informer.SecretInformer {
-		secret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      secretName,
-				Namespace: namespace,
-			},
-			Data: map[string][]byte{
-				"test-secret": []byte("origin"),
-			},
-		}
-		fake.CoreV1().Secrets(secret.Namespace).Create(secret)
-		si.Informer().GetIndexer().Add(secret)
-		return si
+func secret(namespace, name string) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			"test-secret": []byte("origin"),
+		},
 	}
 }
 
-func getSecretInformer() corev1informer.SecretInformer {
-	fake := kubefake.NewSimpleClientset()
+func getSecretInformer(objs ...runtime.Object) corev1informer.SecretInformer {
+	fake := kubefake.NewSimpleClientset(objs...)
 	informer := k8sinformers.NewSharedInformerFactory(fake, 0)
-	return informer.Core().V1().Secrets()
+	si := informer.Core().V1().Secrets()
+	for _, obj := range objs {
+		si.Informer().GetIndexer().Add(obj)
+	}
+	return si
 }
