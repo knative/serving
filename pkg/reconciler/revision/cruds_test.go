@@ -65,7 +65,7 @@ func TestVerifySecrets(t *testing.T) {
 				},
 			},
 		},
-		si: getSecretInformer(secret("foo", "asdf1")),
+		si: secretInformer(secret("foo", "asdf1")),
 	}, {
 		name: "secrets (from volume source) not found",
 		rev: &v1alpha1.Revision{
@@ -101,7 +101,7 @@ func TestVerifySecrets(t *testing.T) {
 				},
 			},
 		},
-		si: getSecretInformer(),
+		si: secretInformer(),
 		expectedErr: `secret "asdf1" not found: spec.volumes[0].volumeSource.secretName
 secret "asdf2" not found: spec.volumes[1].volumeSource.secretName`,
 	}, {
@@ -133,7 +133,7 @@ secret "asdf2" not found: spec.volumes[1].volumeSource.secretName`,
 				},
 			},
 		},
-		si: getSecretInformer(),
+		si: secretInformer(),
 	}, {
 		name: "secrets (from volume source projected) found",
 		rev: &v1alpha1.Revision{
@@ -168,7 +168,7 @@ secret "asdf2" not found: spec.volumes[1].volumeSource.secretName`,
 				},
 			},
 		},
-		si: getSecretInformer(secret("foo", "asdf1")),
+		si: secretInformer(secret("foo", "asdf1")),
 	}, {
 		name: "secrets (from volume source projected) not found",
 		rev: &v1alpha1.Revision{
@@ -209,7 +209,7 @@ secret "asdf2" not found: spec.volumes[1].volumeSource.secretName`,
 				},
 			},
 		},
-		si: getSecretInformer(),
+		si: secretInformer(),
 		expectedErr: `secret "asdf1" not found: spec.volumes[0].volumeSource.projected.sources[0].secret
 secret "asdf2" not found: spec.volumes[0].volumeSource.projected.sources[1].secret`,
 	}, {
@@ -247,7 +247,7 @@ secret "asdf2" not found: spec.volumes[0].volumeSource.projected.sources[1].secr
 				},
 			},
 		},
-		si: getSecretInformer(),
+		si: secretInformer(),
 	}, {
 		name: "secrets (from EnvFrom) found",
 		rev: &v1alpha1.Revision{
@@ -271,7 +271,7 @@ secret "asdf2" not found: spec.volumes[0].volumeSource.projected.sources[1].secr
 				},
 			},
 		},
-		si: getSecretInformer(secret("foo", "asdf1")),
+		si: secretInformer(secret("foo", "asdf1")),
 	}, {
 		name: "secrets (from EnvFrom) not found",
 		rev: &v1alpha1.Revision{
@@ -301,7 +301,7 @@ secret "asdf2" not found: spec.volumes[0].volumeSource.projected.sources[1].secr
 				},
 			},
 		},
-		si: getSecretInformer(),
+		si: secretInformer(),
 		expectedErr: `secret "asdf1" not found: spec.containers[0].envFrom[0].secretRef
 secret "asdf2" not found: spec.containers[0].envFrom[1].secretRef`,
 	}, {
@@ -328,7 +328,7 @@ secret "asdf2" not found: spec.containers[0].envFrom[1].secretRef`,
 				},
 			},
 		},
-		si: getSecretInformer(),
+		si: secretInformer(),
 	}}
 
 	for _, test := range tests {
@@ -353,7 +353,7 @@ func secret(namespace, name string) *corev1.Secret {
 	}
 }
 
-func getSecretInformer(objs ...runtime.Object) corev1informer.SecretInformer {
+func secretInformer(objs ...runtime.Object) corev1informer.SecretInformer {
 	fake := kubefake.NewSimpleClientset(objs...)
 	informer := k8sinformers.NewSharedInformerFactory(fake, 0)
 	si := informer.Core().V1().Secrets()
