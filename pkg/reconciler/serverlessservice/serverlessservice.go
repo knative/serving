@@ -193,14 +193,23 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 
 func (r *reconciler) reconcileServiceEntry(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
 	logger := logging.FromContext(ctx)
-	sn := sks.Name
-	eps, err := r.endpointsLister.Endpoints(sks.Namespace).Get(sn)
+
+	activatorEps, err := r.endpointsLister.Endpoints(system.Namespace()).Get(networking.ActivatorServiceName)
+	if err != nil {
+		return fmt.Errorf("failed to get activator service endpoints: %w", err)
+	}
+	logger.Debug("Activator endpoints: ", spew.Sprint(activatorEps))
+
+	psn := sks.Status.PrivateServiceName
+	pvtEps, err := r.endpointsLister.Endpoints(sks.Namespace).Get(psn)
 	if err != nil {
 		return fmt.Errorf("failed to get private K8s Service endpoints: %w", err)
 	}
+
+	sn := sks.Name
 	se, err := r.serviceEntryLister.ServiceEntries(sks.Namespace).Get(sn)
 	if apierrs.IsNotFound(err) {
-		if _, err = r.IstioClientSet.NetworkingV1alpha3().ServiceEntries(sks.Namespace).Create(resources.MakeServiceEntry(sks, eps)); err != nil {
+		if _, err = r.IstioClientSet.NetworkingV1alpha3().ServiceEntries(sks.Namespace).Create(resources.MakeServiceEntry(sks, activatorEps, pvtEps)); err != nil {
 			return fmt.Errorf("failed to create ServiceEntry: %w", err)
 		}
 		logger.Info("Created ServiceEntry: ", sn)
@@ -211,7 +220,7 @@ func (r *reconciler) reconcileServiceEntry(ctx context.Context, sks *netv1alpha1
 		//sks.Status.MarkEndpointsNotOwned("ServiceEntry", se)
 		return fmt.Errorf("SKS: %s does not own ServiceEntry: %s", sks.Name, se.Name)
 	} else {
-		tmpl := resources.MakeServiceEntry(sks, eps)
+		tmpl := resources.MakeServiceEntry(sks, activatorEps, pvtEps)
 		want := se.DeepCopy()
 		want.Spec.Endpoints = tmpl.Spec.Endpoints
 		if !equality.Semantic.DeepEqual(want.Spec, se.Spec) {
@@ -221,7 +230,11 @@ func (r *reconciler) reconcileServiceEntry(ctx context.Context, sks *netv1alpha1
 			}
 		}
 	}
-	sks.Status.MarkServiceEntriesPopulated()
+	if len(pvtEps.Subsets) == 0 || len(pvtEps.Subsets[0].Addresses) == 0 {
+		sks.Status.MarkServiceEntriesNotReady()
+	} else {
+		sks.Status.MarkServiceEntriesPopulated()
+	}
 	return nil
 }
 
