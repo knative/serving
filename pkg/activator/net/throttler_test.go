@@ -272,7 +272,7 @@ func TestThrottlerErrorOneTimesOut(t *testing.T) {
 
 	reqCtx, cancel2 := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel2()
-	resultChan := tryThrottler(throttler, reqCtx, 2, func(_ string) error {
+	resultChan := tryThrottler(throttler, reqCtx, 2 /*requests*/, func(string) error {
 		mux.Lock()
 		return nil
 	})
@@ -393,7 +393,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			tryContext, cancel2 := context.WithTimeout(context.Background(), 1*time.Second)
 			defer cancel2()
 
-			results := tryThrottler(throttler, tryContext, tc.requests, func(_ string) error {
+			results := tryThrottler(throttler, tryContext, tc.requests, func(string) error {
 				// Simulate proxying.
 				time.Sleep(50 * time.Millisecond)
 				return nil
@@ -574,7 +574,7 @@ func TestMultipleActivators(t *testing.T) {
 
 	reqCtx, cancel2 := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel2()
-	resultChan := tryThrottler(throttler, reqCtx, 2, func(_ string) error {
+	resultChan := tryThrottler(throttler, reqCtx, 2 /*requests*/, func(string) error {
 		mux.Lock()
 		return nil
 	})
