@@ -138,11 +138,13 @@ func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 }
 
 // UpdateStatus updates the status of the given PodAutoscaler.
-func (c *Base) UpdateStatus(desired *pav1alpha1.PodAutoscaler) (*pav1alpha1.PodAutoscaler, error) {
-	var err error
-	for i := 0; i < 4; i++ {
+func (c *Base) UpdateStatus(desired *pav1alpha1.PodAutoscaler) error {
+	return reconciler.RetryUpdateConflicts(func(i int) error {
+		var (
+			existing *pav1alpha1.PodAutoscaler
+			err      error
+		)
 		// The first iteration tries to use the informer's state.
-		var existing *pav1alpha1.PodAutoscaler
 		if i == 0 {
 			existing, err = c.PALister.PodAutoscalers(desired.Namespace).Get(desired.Name)
 			existing = existing.DeepCopy()
@@ -150,19 +152,16 @@ func (c *Base) UpdateStatus(desired *pav1alpha1.PodAutoscaler) (*pav1alpha1.PodA
 			existing, err = c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
 		}
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		// If there's nothing to update, just return.
 		if reflect.DeepEqual(existing.Status, desired.Status) {
-			return existing, nil
+			return nil
 		}
 
 		existing.Status = desired.Status
-		existing, err = c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(existing.Namespace).UpdateStatus(existing)
-		if !errors.IsConflict(err) {
-			return existing, err
-		}
-	}
-	return nil, err
+		_, err = c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(existing.Namespace).UpdateStatus(existing)
+		return err
+	})
 }

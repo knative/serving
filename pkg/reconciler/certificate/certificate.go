@@ -100,7 +100,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if _, err := c.updateStatus(knCert); err != nil {
+	} else if err := c.updateStatus(knCert); err != nil {
 		logger.Warnw("Failed to update certificate status", zap.Error(err))
 		c.Recorder.Eventf(knCert, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for Certificate %s: %v", key, err)
@@ -173,11 +173,13 @@ func (c *Reconciler) reconcileCMCertificate(ctx context.Context, knCert *v1alpha
 	return cmCert, nil
 }
 
-func (c *Reconciler) updateStatus(desired *v1alpha1.Certificate) (*v1alpha1.Certificate, error) {
-	var err error
-	for i := 0; i < 4; i++ {
+func (c *Reconciler) updateStatus(desired *v1alpha1.Certificate) error {
+	return reconciler.RetryUpdateConflicts(func(i int) error {
+		var (
+			existing *v1alpha1.Certificate
+			err      error
+		)
 		// The first iteration tries to use the informer's state.
-		var existing *v1alpha1.Certificate
 		if i == 0 {
 			existing, err = c.knCertificateLister.Certificates(desired.Namespace).Get(desired.Name)
 			existing = existing.DeepCopy()
@@ -185,19 +187,16 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Certificate) (*v1alpha1.Cert
 			existing, err = c.ServingClientSet.NetworkingV1alpha1().Certificates(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
 		}
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		// If there's nothing to update, just return.
 		if reflect.DeepEqual(existing.Status, desired.Status) {
-			return existing, nil
+			return nil
 		}
 
 		existing.Status = desired.Status
-		existing, err = c.ServingClientSet.NetworkingV1alpha1().Certificates(existing.Namespace).UpdateStatus(existing)
-		if !apierrs.IsConflict(err) {
-			return existing, err
-		}
-	}
-	return nil, err
+		_, err = c.ServingClientSet.NetworkingV1alpha1().Certificates(existing.Namespace).UpdateStatus(existing)
+		return err
+	})
 }

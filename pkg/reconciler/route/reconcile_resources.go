@@ -36,6 +36,7 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
@@ -187,11 +188,13 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1alp
 	return eg.Wait()
 }
 
-func (c *Reconciler) updateStatus(desired *v1alpha1.Route) (*v1alpha1.Route, error) {
-	var err error
-	for i := 0; i < 4; i++ {
+func (c *Reconciler) updateStatus(desired *v1alpha1.Route) error {
+	return reconciler.RetryUpdateConflicts(func(i int) error {
+		var (
+			existing *v1alpha1.Route
+			err      error
+		)
 		// The first iteration tries to use the informer's state.
-		var existing *v1alpha1.Route
 		if i == 0 {
 			existing, err = c.routeLister.Routes(desired.Namespace).Get(desired.Name)
 			existing = existing.DeepCopy()
@@ -199,21 +202,18 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Route) (*v1alpha1.Route, err
 			existing, err = c.ServingClientSet.ServingV1alpha1().Routes(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
 		}
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		// If there's nothing to update, just return.
 		if reflect.DeepEqual(existing.Status, desired.Status) {
-			return existing, nil
+			return nil
 		}
 
 		existing.Status = desired.Status
-		existing, err = c.ServingClientSet.ServingV1alpha1().Routes(desired.Namespace).UpdateStatus(existing)
-		if !apierrs.IsConflict(err) {
-			return existing, err
-		}
-	}
-	return nil, err
+		_, err = c.ServingClientSet.ServingV1alpha1().Routes(desired.Namespace).UpdateStatus(existing)
+		return err
+	})
 }
 
 // Update the lastPinned annotation on revisions we target so they don't get GC'd.

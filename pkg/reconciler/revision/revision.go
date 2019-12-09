@@ -105,7 +105,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if _, err = c.updateStatus(rev); err != nil {
+	} else if err = c.updateStatus(rev); err != nil {
 		logger.Warnw("Failed to update revision status", zap.Error(err))
 		c.Recorder.Eventf(rev, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for Revision %q: %v", rev.Name, err)
@@ -232,11 +232,13 @@ func (c *Reconciler) updateRevisionLoggingURL(
 		"${REVISION_UID}", uid, -1)
 }
 
-func (c *Reconciler) updateStatus(desired *v1alpha1.Revision) (*v1alpha1.Revision, error) {
-	var err error
-	for i := 0; i < 4; i++ {
+func (c *Reconciler) updateStatus(desired *v1alpha1.Revision) error {
+	return reconciler.RetryUpdateConflicts(func(i int) error {
+		var (
+			existing *v1alpha1.Revision
+			err      error
+		)
 		// The first iteration tries to use the informer's state.
-		var existing *v1alpha1.Revision
 		if i == 0 {
 			existing, err = c.revisionLister.Revisions(desired.Namespace).Get(desired.Name)
 			existing = existing.DeepCopy()
@@ -244,19 +246,16 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Revision) (*v1alpha1.Revisio
 			existing, err = c.ServingClientSet.ServingV1alpha1().Revisions(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
 		}
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		// If there's nothing to update, just return.
 		if reflect.DeepEqual(existing.Status, desired.Status) {
-			return existing, nil
+			return nil
 		}
 
 		existing.Status = desired.Status
-		existing, err = c.ServingClientSet.ServingV1alpha1().Revisions(desired.Namespace).UpdateStatus(existing)
-		if !apierrs.IsConflict(err) {
-			return existing, err
-		}
-	}
-	return nil, err
+		_, err = c.ServingClientSet.ServingV1alpha1().Revisions(desired.Namespace).UpdateStatus(existing)
+		return err
+	})
 }

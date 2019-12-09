@@ -101,7 +101,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 
-	} else if _, uErr := c.updateStatus(service, logger); uErr != nil {
+	} else if uErr := c.updateStatus(service, logger); uErr != nil {
 		logger.Warnw("Failed to update service status", zap.Error(uErr))
 		c.Recorder.Eventf(service, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for Service %q: %v", service.Name, uErr)
@@ -273,11 +273,13 @@ func (c *Reconciler) checkRoutesNotReady(config *v1alpha1.Configuration, logger 
 	}
 }
 
-func (c *Reconciler) updateStatus(desired *v1alpha1.Service, logger *zap.SugaredLogger) (*v1alpha1.Service, error) {
-	var err error
-	for i := 0; i < 4; i++ {
+func (c *Reconciler) updateStatus(desired *v1alpha1.Service, logger *zap.SugaredLogger) error {
+	return reconciler.RetryUpdateConflicts(func(i int) error {
+		var (
+			existing *v1alpha1.Service
+			err      error
+		)
 		// The first iteration tries to use the informer's state.
-		var existing *v1alpha1.Service
 		if i == 0 {
 			existing, err = c.serviceLister.Services(desired.Namespace).Get(desired.Name)
 			existing = existing.DeepCopy()
@@ -285,27 +287,24 @@ func (c *Reconciler) updateStatus(desired *v1alpha1.Service, logger *zap.Sugared
 			existing, err = c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
 		}
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		// If there's nothing to update, just return.
 		if reflect.DeepEqual(existing.Status, desired.Status) {
-			return existing, nil
+			return nil
 		}
 
 		becomesReady := desired.Status.IsReady() && !existing.Status.IsReady()
 		existing.Status = desired.Status
-		existing, err = c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).UpdateStatus(existing)
+		_, err = c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).UpdateStatus(existing)
 		if err == nil && becomesReady {
 			duration := time.Since(existing.ObjectMeta.CreationTimestamp.Time)
 			logger.Infof("Service became ready after %v", duration)
 			c.StatsReporter.ReportServiceReady(existing.Namespace, existing.Name, duration)
 		}
-		if !apierrs.IsConflict(err) {
-			return existing, err
-		}
-	}
-	return nil, err
+		return err
+	})
 }
 
 func (c *Reconciler) createConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
