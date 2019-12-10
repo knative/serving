@@ -42,8 +42,21 @@ const (
 
 // connect attempts to establish WebSocket connection with the Service.
 // It will retry until reaching `connectTimeout` duration.
-func connect(t *testing.T, ingressIP string, domain string) (*websocket.Conn, error) {
-	u := url.URL{Scheme: "ws", Host: ingressIP, Path: "/"}
+func connect(t *testing.T, clients *test.Clients, domain string) (*websocket.Conn, error) {
+	var (
+		err     error
+		address string
+	)
+
+	if test.ServingFlags.ResolvableDomain {
+		address = domain
+	} else if pkgTest.Flags.IngressEndpoint != "" {
+		address = pkgTest.Flags.IngressEndpoint
+	} else if address, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube); err != nil {
+		return nil, err
+	}
+
+	u := url.URL{Scheme: "ws", Host: address, Path: "/"}
 	var conn *websocket.Conn
 	waitErr := wait.PollImmediate(connectRetryInterval, connectTimeout, func() (bool, error) {
 		t.Logf("Connecting using websocket: url=%s, host=%s", u.String(), domain)
@@ -72,15 +85,9 @@ func connect(t *testing.T, ingressIP string, domain string) (*websocket.Conn, er
 
 func validateWebSocketConnection(t *testing.T, clients *test.Clients, names test.ResourceNames) error {
 	var err error
-	gatewayIP := pkgTest.Flags.IngressEndpoint
-	if pkgTest.Flags.IngressEndpoint == "" {
-		if gatewayIP, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube); err != nil {
-			return err
-		}
-	}
 
 	// Establish the websocket connection.
-	conn, err := connect(t, gatewayIP, names.URL.Hostname())
+	conn, err := connect(t, clients, names.URL.Hostname())
 	if err != nil {
 		return err
 	}
