@@ -122,7 +122,7 @@ data:
     # when constructing the DNS name for "tags" within the traffic blocks
     # of Routes and Configuration.  This is used in conjunction with the
     # domainTemplate above to determine the full URL for the tag.
-    tagTemplate: "{{.Name}}-{{.Tag}}"
+    tagTemplate: "{{.Tag}}-{{.Name}}"
 
     # Controls whether TLS certificates are automatically provisioned and
     # installed in the Knative ingress to terminate external TLS connection.
