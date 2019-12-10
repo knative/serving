@@ -23,8 +23,9 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+const pod = "pod"
+
 func TestTimedFloat64Buckets(t *testing.T) {
-	const pod = "pod"
 	trunc1 := time.Now().Truncate(1 * time.Second)
 	trunc5 := time.Now().Truncate(5 * time.Second)
 
@@ -117,7 +118,6 @@ func TestTimedFloat64Buckets(t *testing.T) {
 }
 
 func TestTimedFloat64BucketsForEachBucket(t *testing.T) {
-	const pod = "pod"
 	granularity := time.Second
 	trunc1 := time.Now().Truncate(granularity)
 	buckets := NewTimedFloat64Buckets(granularity)
@@ -317,5 +317,74 @@ func TestFloat64Bucket(t *testing.T) {
 				t.Errorf("Average() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestTimedFloat64BucketsWindowUpdate(t *testing.T) {
+	granularity := time.Second
+	trunc1 := time.Now().Truncate(granularity)
+	buckets := NewTimedFloat64Buckets2(5*time.Second, granularity)
+
+	// Fill the whole bucketing list with rollover.
+	buckets.Record(trunc1, pod, 1)
+	buckets.Record(trunc1.Add(1*time.Second), pod, 2)
+	buckets.Record(trunc1.Add(2*time.Second), pod, 3)
+	buckets.Record(trunc1.Add(3*time.Second), pod, 4)
+	buckets.Record(trunc1.Add(4*time.Second), pod, 5)
+	buckets.Record(trunc1.Add(5*time.Second), pod, 6)
+	sum := 0.
+	buckets.ForEachBucket(trunc1.Add(5*time.Second), func(t time.Time, b float64Bucket) {
+		sum += b.sum()
+	})
+	if got, want := sum, float64(2+3+4+5+6); got != want {
+		t.Fatalf("Initial data set Sum = %v, want: %v", got, want)
+	}
+
+	// Increase window.
+	buckets.ResizeWindow(10 * time.Second)
+	if got, want := len(buckets.buckets), 10; got != want {
+		t.Fatalf("Resized bucket count = %d, want: %d", got, want)
+	}
+	if got, want := buckets.window, 10*time.Second; got != want {
+		t.Fatalf("Resized bucket windos = %v, want: %v", got, want)
+	}
+
+	// Verify values were properly copied.
+	sum = 0.
+	buckets.ForEachBucket(trunc1.Add(5*time.Second), func(t time.Time, b float64Bucket) {
+		sum += b.sum()
+	})
+	if got, want := sum, float64(2+3+4+5+6); got != want {
+		t.Fatalf("After first resize data set Sum = %v, want: %v", got, want)
+	}
+	// Add one more. Make sure all the data is preserved, since window is longer.
+	buckets.Record(trunc1.Add(6*time.Second), pod, 7)
+	sum = 0.
+	buckets.ForEachBucket(trunc1.Add(6*time.Second), func(t time.Time, b float64Bucket) {
+		sum += b.sum()
+	})
+	if got, want := sum, float64(2+3+4+5+6+7); got != want {
+		t.Fatalf("Updated data set Sum = %v, want: %v", got, want)
+	}
+
+	// Now let's reduce window size.
+	buckets.ResizeWindow(4 * time.Second)
+	if got, want := len(buckets.buckets), 4; got != want {
+		t.Fatalf("Resized bucket count = %d, want: %d", got, want)
+	}
+	// Just last 4 buckets should have remained.
+	sum = 0.
+	buckets.ForEachBucket(trunc1.Add(6*time.Second), func(t time.Time, b float64Bucket) {
+		sum += b.sum()
+	})
+	if got, want := sum, float64(4+5+6+7); got != want {
+		t.Fatalf("Updated data set Sum = %v, want: %v", got, want)
+	}
+
+	// Verify idempotence.
+	ob := &buckets.buckets
+	buckets.ResizeWindow(4 * time.Second)
+	if ob != &buckets.buckets {
+		t.Error("The buckets have changed, though window didn't")
 	}
 }

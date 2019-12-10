@@ -99,3 +99,40 @@ func (t *TimedFloat64Buckets2) ForEachBucket(now time.Time, accs ...Accumulator)
 func (t *TimedFloat64Buckets2) RemoveOlderThan(time.Time) {
 	// RemoveOlderThan is a noop here.
 }
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func (t *TimedFloat64Buckets2) ResizeWindow(w time.Duration) {
+	// Same window size, bail out.
+	if func() bool {
+		t.bucketsMutex.RLock()
+		defer t.bucketsMutex.RUnlock()
+		return w == t.window
+	}() {
+		return
+	}
+	nb := int(w / t.granularity)
+	newb := make([]float64Bucket, nb)
+
+	// We need write lock here.
+	// So that we can copy the existing buckets into the new array.
+	t.bucketsMutex.Lock()
+	defer t.bucketsMutex.Unlock()
+	// If the window is shrinking, then we need to copy only
+	// `nb` buckets.
+	onb := len(t.buckets)
+	tIdx := int(t.lastWrite.Unix())
+	for i := 0; i < min(nb, onb); i++ {
+		oi := tIdx % onb
+		ni := tIdx % nb
+		newb[ni] = t.buckets[oi]
+		tIdx -= int(t.granularity.Seconds())
+	}
+	t.window = w
+	t.buckets = newb
+}
