@@ -124,7 +124,7 @@ func CreateServiceReady(t pkgTest.T, clients *test.Clients, names *test.Resource
 	t.Log("Getting latest objects Created by Service")
 	resources, err := GetResourceObjects(clients, *names)
 	if err == nil {
-		t.Log("Successfully created Service", names.Service)
+		t.Log("Successfully created Service", "name", names.Service)
 	}
 	return resources, err
 }
@@ -254,4 +254,24 @@ func IsServiceReady(s *v1.Service) (bool, error) {
 // not ready.
 func IsServiceNotReady(s *v1.Service) (bool, error) {
 	return s.Generation == s.Status.ObservedGeneration && !s.Status.IsReady(), nil
+}
+
+// CreateBasicServiceTest combines several steps common to many tests:
+// test.Setup, define ResourceNames with auto-named Service + given image, arrange cleanup,
+//  and CreateServiceReady.
+// Accepts multiple test.ServiceOption which get given to CreateServiceReady
+func CreateBasicServiceTest(t *logging.TLogger, imageName string, options ...rtesting.ServiceOption) (*test.Clients, *test.ResourceNames, *ResourceObjects, func(), error) {
+	t.Parallel()
+	clients := test.Setup(t)
+
+	names := &test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   imageName,
+	}
+
+	cleanup := func() { test.TearDown(clients, *names) }
+	test.CleanupOnInterrupt(cleanup)
+
+	objects, err := CreateServiceReady(t, clients, names, options...)
+	return clients, names, objects, cleanup, err
 }

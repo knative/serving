@@ -1,7 +1,7 @@
 // +build e2e
 
 /*
-Copyright 2019 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,12 +16,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1
+package e2e
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/serving/test"
@@ -29,26 +31,27 @@ import (
 	v1 "knative.dev/serving/test/v1"
 )
 
-// TestMustErrorContainerError is to validate the error condition defined at
-// https://github.com/knative/serving/blob/master/docs/spec/errors.md
-// for the container image missing scenario.
 func TestMustErrorOnContainerError(legacy *testing.T) {
 	t, cancel := logging.NewTLogger(legacy)
 	defer cancel()
 
+	manifestUnknown := string(transport.ManifestUnknownErrorCode)
+
 	scenarios.ContainerError(t,
 		func(ts *logging.TLogger, cond *apis.Condition) (bool, error) {
-			// API Spec does not have constraints on the Message content
-			if cond.Message != "" {
+			// API Spec does not have constraints on the Message,
+			// but we want to confirm it failed for the correct reason
+			if strings.Contains(cond.Message, manifestUnknown) {
 				return true, nil
 			}
 			ts.Fatal("The configuration was not marked with expected error condition",
-				"wantMessage", "!\"\"", "wantStatus", "False")
+				"wantMessage", manifestUnknown, "wantStatus", "False")
 			return true, errors.New("Shouldn't get here")
 		},
 		func(ts *logging.TLogger, cond *apis.Condition) (bool, error) {
-			// API Spec does not have constraints on the Message content
-			if cond.Reason == v1.ContainerMissing && cond.Message != "" {
+			// API Spec does not have constraints on the Message,
+			// but we want to confirm it failed for the correct reason
+			if cond.Reason == v1.ContainerMissing && strings.Contains(cond.Message, manifestUnknown) {
 				return true, nil
 			}
 			ts.Fatal("The revision was not marked with expected error condition",
@@ -57,29 +60,28 @@ func TestMustErrorOnContainerError(legacy *testing.T) {
 		})
 }
 
-// TestMustErrorContainerExiting is to validate the error condition defined at
-// https://github.com/knative/serving/blob/master/docs/spec/errors.md
-// for the container crashing scenario.
 func TestMustErrorOnContainerExiting(legacy *testing.T) {
 	t, cancel := logging.NewTLogger(legacy)
 	defer cancel()
 	scenarios.ContainerExiting(t,
 		func(ts *logging.TLogger, cond *apis.Condition) (bool, error) {
-			// API Spec does not have constraints on the Message content
-			if cond.Message != "" {
+			// API Spec does not have constraints on the Message,
+			// but we want to confirm it failed for the correct reason
+			if strings.Contains(cond.Message, test.ErrorLog) {
 				return true, nil
 			}
 			ts.Fatal("The configuration was not marked with expected error condition.",
-				"wantMessage", "!\"\"", "wantStatus", "False")
+				"wantMessage", test.ErrorLog, "wantStatus", "False")
 			return true, errors.New("Shouldn't get here")
 		},
 		func(ts *logging.TLogger, cond *apis.Condition) (bool, error) {
-			// API Spec does not have constraints on the Message content
-			if cond.Reason == test.ExitCodeReason && cond.Message != "" {
+			// API Spec does not have constraints on the Message,
+			// but we want to confirm it failed for the correct reason
+			if cond.Reason == test.ExitCodeReason && strings.Contains(cond.Message, test.ErrorLog) {
 				return true, nil
 			}
 			ts.Fatal("The revision was not marked with expected error condition.",
-				"wantReason", test.ExitCodeReason, "wantMessage", "!\"\"")
+				"wantReason", test.ExitCodeReason, "wantMessage", test.ErrorLog)
 			return true, errors.New("Shouldn't get here")
 		})
 }

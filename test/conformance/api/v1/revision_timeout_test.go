@@ -41,7 +41,7 @@ import (
 
 // createService creates a service in namespace with the name names.Service
 // that uses the image specified by names.Image
-func createService(t *testing.T, clients *test.Clients, names test.ResourceNames, revisionTimeoutSeconds int64) (*v1.Service, error) {
+func createService(t pkgTest.T, clients *test.Clients, names test.ResourceNames, revisionTimeoutSeconds int64) (*v1.Service, error) {
 	service := v1test.Service(names, WithRevisionTimeoutSeconds(revisionTimeoutSeconds))
 	v1test.LogResourceObject(t, v1test.ResourceObjects{Service: service})
 	return clients.ServingClient.Services.Create(service)
@@ -62,7 +62,7 @@ func updateServiceWithTimeout(clients *test.Clients, names test.ResourceNames, r
 }
 
 // sendRequests send a request to "endpoint", returns error if unexpected response code, nil otherwise.
-func sendRequest(t *testing.T, kubeClient *pkgTest.KubeClient, endpoint *url.URL,
+func sendRequest(t pkgTest.TLegacy, kubeClient *pkgTest.KubeClient, endpoint *url.URL,
 	initialSleep, sleep time.Duration, expectedResponseCode int) error {
 	client, err := pkgTest.NewSpoofingClient(kubeClient, t.Logf, endpoint.Hostname(), test.ServingFlags.ResolvableDomain)
 	if err != nil {

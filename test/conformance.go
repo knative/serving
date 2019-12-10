@@ -45,6 +45,11 @@ const (
 	PizzaPlanetText2 = "Re-energize yourself with a slice of pepperoni!"
 	HelloWorldText   = "Hello World! How about some tasty noodles?"
 
+	// The Failing image will always exit with an exit code of 5
+	ExitCodeReason = "ExitCode5"
+	// ... and will print "Crashed..." before it exits
+	ErrorLog = "Crashed..."
+
 	ConcurrentRequests = 50
 	// We expect to see 100% of requests succeed for traffic sent directly to revisions.
 	// This might be a bad assumption.
