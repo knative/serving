@@ -100,7 +100,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if err := c.updateStatus(knCert); err != nil {
+	} else if err := c.updateStatus(original, knCert); err != nil {
 		logger.Warnw("Failed to update certificate status", zap.Error(err))
 		c.Recorder.Eventf(knCert, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for Certificate %s: %v", key, err)
@@ -173,18 +173,15 @@ func (c *Reconciler) reconcileCMCertificate(ctx context.Context, knCert *v1alpha
 	return cmCert, nil
 }
 
-func (c *Reconciler) updateStatus(desired *v1alpha1.Certificate) error {
+func (c *Reconciler) updateStatus(existing *v1alpha1.Certificate, desired *v1alpha1.Certificate) error {
+	existing = existing.DeepCopy()
 	return reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
-		var existing *v1alpha1.Certificate
-		// The first iteration tries to use the informer's state.
-		if attempts == 0 {
-			existing, err = c.knCertificateLister.Certificates(desired.Namespace).Get(desired.Name)
-			existing = existing.DeepCopy()
-		} else {
+		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
+		if attempts > 0 {
 			existing, err = c.ServingClientSet.NetworkingV1alpha1().Certificates(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
-		}
-		if err != nil {
-			return err
+			if err != nil {
+				return err
+			}
 		}
 
 		// If there's nothing to update, just return.

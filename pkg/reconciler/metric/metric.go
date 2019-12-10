@@ -83,7 +83,7 @@ func (r *reconciler) Reconcile(ctx context.Context, key string) error {
 
 	if !equality.Semantic.DeepEqual(original.Status, metric.Status) {
 		// Change of status, need to update the object.
-		if uErr := r.updateStatus(metric); uErr != nil {
+		if uErr := r.updateStatus(original, metric); uErr != nil {
 			logger.Warnw("Failed to update metric status", zap.Error(uErr))
 			r.Recorder.Eventf(metric, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update metric status: %v", uErr)
@@ -104,18 +104,15 @@ func (r *reconciler) reconcileCollection(ctx context.Context, metric *v1alpha1.M
 	return nil
 }
 
-func (r *reconciler) updateStatus(desired *v1alpha1.Metric) error {
+func (r *reconciler) updateStatus(existing *v1alpha1.Metric, desired *v1alpha1.Metric) error {
+	existing = existing.DeepCopy()
 	return rbase.RetryUpdateConflicts(func(attempts int) (err error) {
-		var existing *v1alpha1.Metric
-		// The first iteration tries to use the informer's state.
-		if attempts == 0 {
-			existing, err = r.metricLister.Metrics(desired.Namespace).Get(desired.Name)
-			existing = existing.DeepCopy()
-		} else {
+		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
+		if attempts > 0 {
 			existing, err = r.ServingClientSet.AutoscalingV1alpha1().Metrics(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
-		}
-		if err != nil {
-			return err
+			if err != nil {
+				return err
+			}
 		}
 
 		// If there's nothing to update, just return.

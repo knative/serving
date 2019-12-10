@@ -87,7 +87,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if err = c.updateStatus(config); err != nil {
+	} else if err = c.updateStatus(original, config); err != nil {
 		logger.Warnw("Failed to update configuration status", zap.Error(err))
 		c.Recorder.Eventf(config, corev1.EventTypeWarning, "UpdateFailed", "Failed to update status: %v", err)
 		return err
@@ -341,18 +341,15 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Config
 	return created, nil
 }
 
-func (c *Reconciler) updateStatus(desired *v1alpha1.Configuration) error {
+func (c *Reconciler) updateStatus(existing *v1alpha1.Configuration, desired *v1alpha1.Configuration) error {
+	existing = existing.DeepCopy()
 	return reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
-		var existing *v1alpha1.Configuration
-		// The first iteration tries to use the informer's state.
-		if attempts == 0 {
-			existing, err = c.configurationLister.Configurations(desired.Namespace).Get(desired.Name)
-			existing = existing.DeepCopy()
-		} else {
+		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
+		if attempts > 0 {
 			existing, err = c.ServingClientSet.ServingV1alpha1().Configurations(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
-		}
-		if err != nil {
-			return err
+			if err != nil {
+				return err
+			}
 		}
 
 		// If there's nothing to update, just return.

@@ -101,7 +101,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 
-	} else if uErr := c.updateStatus(service, logger); uErr != nil {
+	} else if uErr := c.updateStatus(original, service, logger); uErr != nil {
 		logger.Warnw("Failed to update service status", zap.Error(uErr))
 		c.Recorder.Eventf(service, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for Service %q: %v", service.Name, uErr)
@@ -273,18 +273,15 @@ func (c *Reconciler) checkRoutesNotReady(config *v1alpha1.Configuration, logger 
 	}
 }
 
-func (c *Reconciler) updateStatus(desired *v1alpha1.Service, logger *zap.SugaredLogger) error {
+func (c *Reconciler) updateStatus(existing *v1alpha1.Service, desired *v1alpha1.Service, logger *zap.SugaredLogger) error {
+	existing = existing.DeepCopy()
 	return reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
-		var existing *v1alpha1.Service
-		// The first iteration tries to use the informer's state.
-		if attempts == 0 {
-			existing, err = c.serviceLister.Services(desired.Namespace).Get(desired.Name)
-			existing = existing.DeepCopy()
-		} else {
+		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
+		if attempts > 0 {
 			existing, err = c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
-		}
-		if err != nil {
-			return err
+			if err != nil {
+				return err
+			}
 		}
 
 		// If there's nothing to update, just return.

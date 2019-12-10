@@ -94,7 +94,7 @@ func (r *reconciler) Reconcile(ctx context.Context, key string) error {
 		r.Recorder.Eventf(sks, corev1.EventTypeWarning, "UpdateFailed", "InternalError: %v", reconcileErr.Error())
 	}
 	if !equality.Semantic.DeepEqual(sks.Status, original.Status) {
-		if err := r.updateStatus(sks); err != nil {
+		if err := r.updateStatus(original, sks); err != nil {
 			r.Recorder.Eventf(sks, corev1.EventTypeWarning, "UpdateFailed", "Failed to update status: %v", err)
 			return err
 		}
@@ -127,18 +127,15 @@ func (r *reconciler) reconcile(ctx context.Context, sks *netv1alpha1.ServerlessS
 	return nil
 }
 
-func (r *reconciler) updateStatus(desired *netv1alpha1.ServerlessService) error {
+func (r *reconciler) updateStatus(existing *netv1alpha1.ServerlessService, desired *netv1alpha1.ServerlessService) error {
+	existing = existing.DeepCopy()
 	return rbase.RetryUpdateConflicts(func(attempts int) (err error) {
-		var existing *netv1alpha1.ServerlessService
-		// The first iteration tries to use the informer's state.
-		if attempts == 0 {
-			existing, err = r.sksLister.ServerlessServices(desired.Namespace).Get(desired.Name)
-			existing = existing.DeepCopy()
-		} else {
+		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
+		if attempts > 0 {
 			existing, err = r.ServingClientSet.NetworkingV1alpha1().ServerlessServices(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
-		}
-		if err != nil {
-			return err
+			if err != nil {
+				return err
+			}
 		}
 
 		// If there's nothing to update, just return.

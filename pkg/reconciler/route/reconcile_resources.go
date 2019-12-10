@@ -188,18 +188,15 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1alp
 	return eg.Wait()
 }
 
-func (c *Reconciler) updateStatus(desired *v1alpha1.Route) error {
+func (c *Reconciler) updateStatus(existing *v1alpha1.Route, desired *v1alpha1.Route) error {
+	existing = existing.DeepCopy()
 	return reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
-		var existing *v1alpha1.Route
-		// The first iteration tries to use the informer's state.
-		if attempts == 0 {
-			existing, err = c.routeLister.Routes(desired.Namespace).Get(desired.Name)
-			existing = existing.DeepCopy()
-		} else {
+		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
+		if attempts > 0 {
 			existing, err = c.ServingClientSet.ServingV1alpha1().Routes(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
-		}
-		if err != nil {
-			return err
+			if err != nil {
+				return err
+			}
 		}
 
 		// If there's nothing to update, just return.

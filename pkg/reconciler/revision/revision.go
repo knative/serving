@@ -105,7 +105,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if err = c.updateStatus(rev); err != nil {
+	} else if err = c.updateStatus(original, rev); err != nil {
 		logger.Warnw("Failed to update revision status", zap.Error(err))
 		c.Recorder.Eventf(rev, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for Revision %q: %v", rev.Name, err)
@@ -232,18 +232,15 @@ func (c *Reconciler) updateRevisionLoggingURL(
 		"${REVISION_UID}", uid, -1)
 }
 
-func (c *Reconciler) updateStatus(desired *v1alpha1.Revision) error {
+func (c *Reconciler) updateStatus(existing *v1alpha1.Revision, desired *v1alpha1.Revision) error {
+	existing = existing.DeepCopy()
 	return reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
-		var existing *v1alpha1.Revision
-		// The first iteration tries to use the informer's state.
-		if attempts == 0 {
-			existing, err = c.revisionLister.Revisions(desired.Namespace).Get(desired.Name)
-			existing = existing.DeepCopy()
-		} else {
+		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
+		if attempts > 0 {
 			existing, err = c.ServingClientSet.ServingV1alpha1().Revisions(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
-		}
-		if err != nil {
-			return err
+			if err != nil {
+				return err
+			}
 		}
 
 		// If there's nothing to update, just return.
