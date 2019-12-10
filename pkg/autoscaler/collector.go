@@ -294,6 +294,7 @@ func (c *collection) updateMetric(metric *av1alpha1.Metric) {
 	defer c.metricMutex.Unlock()
 
 	c.metric = metric
+	c.concurrencyBuckets2.ResizeWindow(metric.Spec.StableWindow)
 }
 
 // currentMetric safely returns the current metric stored in the collection.
@@ -323,10 +324,10 @@ func (c *collection) record(stat Stat) {
 // stableAndPanicConcurrency calculates both stable and panic concurrency based on the
 // current stats.
 func (c *collection) stableAndPanicConcurrency(now time.Time) (float64, float64, error) {
-	o1, o2, err := c.stableAndPanicStats(now, c.concurrencyBuckets)
-	n1, n2, _ := c.stableAndPanicStats(now, c.concurrencyBuckets2)
+	o1, o2, _ := c.stableAndPanicStats(now, c.concurrencyBuckets)
+	n1, n2, err := c.stableAndPanicStats(now, c.concurrencyBuckets2)
 	fmt.Printf("### OLD: %f/%f NEW: %f/%f\n", o1, o2, n1, n2)
-	return o1, o2, err
+	return n1, n2, err
 }
 
 // StableAndPanicRPS calculates both stable and panic RPS based on the
