@@ -44,11 +44,12 @@ func (c *FakeBoskosClient) GetResources() []*boskoscommon.Resource {
 }
 
 // AcquireGKEProject fakes to be no op
-func (c *FakeBoskosClient) AcquireGKEProject(host *string) (*boskoscommon.Resource, error) {
+func (c *FakeBoskosClient) AcquireGKEProject(host *string, resType string) (*boskoscommon.Resource, error) {
 	for _, res := range c.resources {
 		if res.State == boskoscommon.Free {
 			res.State = boskoscommon.Busy
 			res.Owner = c.getOwner(host)
+			res.Type = resType
 			return res, nil
 		}
 	}

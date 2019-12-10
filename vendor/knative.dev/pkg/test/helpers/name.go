@@ -20,9 +20,10 @@ import (
 	"log"
 	"math/rand"
 	"strings"
-	"testing"
 	"time"
 	"unicode"
+
+	"knative.dev/pkg/test"
 )
 
 const (
@@ -42,12 +43,12 @@ func init() {
 }
 
 // ObjectPrefixForTest returns the name prefix for this test's random names.
-func ObjectPrefixForTest(t *testing.T) string {
+func ObjectPrefixForTest(t test.T) string {
 	return MakeK8sNamePrefix(strings.TrimPrefix(t.Name(), testNamePrefix))
 }
 
 // ObjectNameForTest generates a random object name based on the test name.
-func ObjectNameForTest(t *testing.T) string {
+func ObjectNameForTest(t test.T) string {
 	return AppendRandomString(ObjectPrefixForTest(t))
 }
 

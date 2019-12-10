@@ -30,7 +30,8 @@ required = [
 
 [[override]]
   name = "knative.dev/pkg"
-  branch = "release-0.11"
+  branch = "testingTcompat"
+  source = "github.com/coryrc/pkg"
 
 [[constraint]]
   name = "knative.dev/caching"

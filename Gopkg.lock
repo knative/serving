@@ -1718,8 +1718,8 @@
   revision = "f9189ebff3f00aa8fbed4ead604da0d7ef84cf94"
 
 [[projects]]
-  branch = "release-0.11"
-  digest = "1:21f168f0b1eed03be1e28d463b35f23683697554be0e473f498318c9984efcc4"
+  branch = "testingTcompat"
+  digest = "1:90b9dc2cdb89b050a711095d2e4dcbd0c19a49be769d9712c30302804377cb05"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1835,7 +1835,8 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "94a34e416c4486376a21d934f4bfebd730c82c12"
+  revision = "1fd66cf4d592b83ce03593b729a425dcef548313"
+  source = "github.com/coryrc/pkg"
 
 [[projects]]
   branch = "master"

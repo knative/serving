@@ -14,15 +14,5 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package logstream
-
-import "knative.dev/pkg/test"
-
-type null struct{}
-
-var _ streamer = (*null)(nil)
-
-// Start implements streamer
-func (*null) Start(t test.TLegacy) Canceler {
-	return func() {}
-}
+// Package prober contains functionality for implementing probing in knative serving.
+package prober
