@@ -274,11 +274,8 @@ func (c *Reconciler) checkRoutesNotReady(config *v1alpha1.Configuration, logger 
 }
 
 func (c *Reconciler) updateStatus(desired *v1alpha1.Service, logger *zap.SugaredLogger) error {
-	return reconciler.RetryUpdateConflicts(func(attempts int) error {
-		var (
-			existing *v1alpha1.Service
-			err      error
-		)
+	return reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
+		var existing *v1alpha1.Service
 		// The first iteration tries to use the informer's state.
 		if attempts == 0 {
 			existing, err = c.serviceLister.Services(desired.Namespace).Get(desired.Name)

@@ -105,11 +105,8 @@ func (r *reconciler) reconcileCollection(ctx context.Context, metric *v1alpha1.M
 }
 
 func (r *reconciler) updateStatus(desired *v1alpha1.Metric) error {
-	return rbase.RetryUpdateConflicts(func(attempts int) error {
-		var (
-			existing *v1alpha1.Metric
-			err      error
-		)
+	return rbase.RetryUpdateConflicts(func(attempts int) (err error) {
+		var existing *v1alpha1.Metric
 		// The first iteration tries to use the informer's state.
 		if attempts == 0 {
 			existing, err = r.metricLister.Metrics(desired.Namespace).Get(desired.Name)

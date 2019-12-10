@@ -342,11 +342,8 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Config
 }
 
 func (c *Reconciler) updateStatus(desired *v1alpha1.Configuration) error {
-	return reconciler.RetryUpdateConflicts(func(attempts int) error {
-		var (
-			existing *v1alpha1.Configuration
-			err      error
-		)
+	return reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
+		var existing *v1alpha1.Configuration
 		// The first iteration tries to use the informer's state.
 		if attempts == 0 {
 			existing, err = c.configurationLister.Configurations(desired.Namespace).Get(desired.Name)

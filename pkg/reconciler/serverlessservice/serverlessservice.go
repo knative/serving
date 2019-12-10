@@ -128,11 +128,8 @@ func (r *reconciler) reconcile(ctx context.Context, sks *netv1alpha1.ServerlessS
 }
 
 func (r *reconciler) updateStatus(desired *netv1alpha1.ServerlessService) error {
-	return rbase.RetryUpdateConflicts(func(attempts int) error {
-		var (
-			existing *netv1alpha1.ServerlessService
-			err      error
-		)
+	return rbase.RetryUpdateConflicts(func(attempts int) (err error) {
+		var existing *netv1alpha1.ServerlessService
 		// The first iteration tries to use the informer's state.
 		if attempts == 0 {
 			existing, err = r.sksLister.ServerlessServices(desired.Namespace).Get(desired.Name)
