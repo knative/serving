@@ -56,7 +56,7 @@ spec:
         - args:
             - -c
             - /tmp/config/envoy-bootstrap.yaml
-          image: quay.io/3scale/kourier-gateway:v0.1.2
+          image: quay.io/3scale/kourier-gateway:v0.1.3
           imagePullPolicy: Always
           name: kourier-gateway
           ports:
@@ -106,7 +106,7 @@ spec:
         app: 3scale-kourier-control
     spec:
       containers:
-        - image: quay.io/3scale/kourier:v0.3.3
+        - image: quay.io/3scale/kourier:v0.3.4
           imagePullPolicy: Always
           name: kourier-control
           resources: {}
