@@ -35,9 +35,6 @@ import (
 )
 
 const (
-	// e2eMetricExporter is the name for the metrics exporter logger
-	e2eMetricExporter = "e2e-metrics"
-
 	// The recommended default log level https://github.com/kubernetes/community/blob/master/contributors/devel/sig-instrumentation/logging.md
 	klogDefaultLogLevel = "2"
 )
@@ -57,7 +54,6 @@ type EnvironmentFlags struct {
 	Namespace       string // K8s namespace (blank by default, to be overwritten by test suite)
 	IngressEndpoint string // Host to use for ingress endpoint
 	LogVerbose      bool   // Enable verbose logging
-	EmitMetrics     bool   // Emit metrics
 	ImageTemplate   string // Template to build the image reference (defaults to {{.Repository}}/{{.Name}}:{{.Tag}})
 	DockerRepo      string // Docker repo (defaults to $KO_DOCKER_REPO)
 	Tag             string // Tag for test images
@@ -83,9 +79,6 @@ func initializeFlags() *EnvironmentFlags {
 
 	flag.BoolVar(&f.LogVerbose, "logverbose", false,
 		"Set this flag to true if you would like to see verbose logging.")
-
-	flag.BoolVar(&f.EmitMetrics, "emitmetrics", false,
-		"Set this flag to true if you would like tests to emit metrics, e.g. latency of resources being realized in the system.")
 
 	flag.StringVar(&f.ImageTemplate, "imagetemplate", "{{.Repository}}/{{.Name}}:{{.Tag}}",
 		"Provide a template to generate the reference to an image from the test. Defaults to `{{.Repository}}/{{.Name}}:{{.Tag}}`.")
@@ -134,10 +127,6 @@ func SetupLoggingFlags() {
 			printFlags()
 		}
 		logging.InitializeLogger(Flags.LogVerbose)
-
-		if Flags.EmitMetrics {
-			logging.InitializeMetricExporter(e2eMetricExporter)
-		}
 	})
 }
 

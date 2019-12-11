@@ -38,7 +38,7 @@ var (
 )
 
 type Operation interface {
-	AcquireGKEProject(*string) (*boskoscommon.Resource, error)
+	AcquireGKEProject(*string, string) (*boskoscommon.Resource, error)
 	ReleaseGKEProject(*string, string) error
 }
 
@@ -57,15 +57,15 @@ func newClient(host *string) *boskosclient.Client {
 // AcquireGKEProject acquires GKE Boskos Project with "free" state, and not
 // owned by anyone, sets its state to "busy" and assign it an owner of *host,
 // which by default is env var `JOB_NAME`.
-func (c *Client) AcquireGKEProject(host *string) (*boskoscommon.Resource, error) {
+func (c *Client) AcquireGKEProject(host *string, resType string) (*boskoscommon.Resource, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultWaitDuration)
 	defer cancel()
-	p, err := newClient(host).AcquireWait(ctx, GKEProjectResource, boskoscommon.Free, boskoscommon.Busy)
+	p, err := newClient(host).AcquireWait(ctx, resType, boskoscommon.Free, boskoscommon.Busy)
 	if err != nil {
 		return nil, fmt.Errorf("boskos failed to acquire GKE project: %v", err)
 	}
 	if p == nil {
-		return nil, fmt.Errorf("boskos does not have a free %s at the moment", GKEProjectResource)
+		return nil, fmt.Errorf("boskos does not have a free %s at the moment", resType)
 	}
 	return p, nil
 }
