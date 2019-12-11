@@ -79,7 +79,7 @@ func TestTimedFloat64Buckets(t *testing.T) {
 
 			got := make(map[time.Time]float64)
 			for time, bucket := range buckets.buckets {
-				got[time] = bucket.sum()
+				got[time] = bucket.avg()
 			}
 
 			if !cmp.Equal(tt.want, got) {
@@ -98,7 +98,7 @@ func TestTimedFloat64BucketsForEachBucket(t *testing.T) {
 	trunc1 := time.Now().Truncate(granularity)
 	buckets := NewTimedFloat64Buckets(granularity)
 
-	if buckets.ForEachBucket(func(time time.Time, bucket float64Bucket) {}) {
+	if buckets.ForEachBucket(func(time time.Time, bucket *float64Value) {}) {
 		t.Fatalf("ForEachBucket unexpectedly returned non-empty result")
 	}
 	buckets.Record(trunc1, pod, 10.0)
@@ -109,10 +109,10 @@ func TestTimedFloat64BucketsForEachBucket(t *testing.T) {
 	acc1 := 0
 	acc2 := 0
 	if !buckets.ForEachBucket(
-		func(time time.Time, bucket float64Bucket) {
+		func(time time.Time, bucket *float64Value) {
 			acc1++
 		},
-		func(time time.Time, bucket float64Bucket) {
+		func(time time.Time, bucket *float64Value) {
 			acc2++
 		},
 	) {
@@ -206,54 +206,6 @@ func TestTimedFloat64BucketsRemoveOlderThan(t *testing.T) {
 				if !got[want] {
 					t.Errorf("Expected buckets to contain %v, buckets: %v", want, got)
 				}
-			}
-		})
-	}
-}
-
-func TestFloat64Bucket(t *testing.T) {
-	tests := []struct {
-		name  string
-		stats map[string][]float64
-		want  float64
-	}{{
-		name: "sum of value",
-		stats: map[string][]float64{
-			"test1": {1.0},
-			"test2": {2.0},
-			"test3": {3.0},
-		},
-		want: 6.0,
-	}, {
-		name: "average same first",
-		stats: map[string][]float64{
-			"test1": {1.0, 8.0},      // average = 4.5
-			"test2": {1.0, 3.0, 5.0}, // average = 3
-		},
-		want: 7.5,
-	}, {
-		name:  "no values",
-		stats: map[string][]float64{},
-		want:  0.0,
-	}, {
-		name: "only zeroes",
-		stats: map[string][]float64{
-			"test1": {0.0, 0.0},
-			"test2": {0.0},
-		},
-		want: 0.0,
-	}}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			bucket := float64Bucket{}
-			for name, values := range tt.stats {
-				for _, value := range values {
-					bucket.record(name, value)
-				}
-			}
-
-			if got := bucket.sum(); got != tt.want {
-				t.Errorf("Average() = %v, want %v", got, tt.want)
 			}
 		})
 	}

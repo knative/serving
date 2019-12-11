@@ -24,7 +24,7 @@ import (
 // TimedFloat64Buckets keeps buckets that have been collected at a certain time.
 type TimedFloat64Buckets struct {
 	bucketsMutex sync.RWMutex
-	buckets      map[time.Time]float64Bucket
+	buckets      map[time.Time]*float64Value
 
 	granularity time.Duration
 }
@@ -33,7 +33,7 @@ type TimedFloat64Buckets struct {
 // granularity.
 func NewTimedFloat64Buckets(granularity time.Duration) *TimedFloat64Buckets {
 	return &TimedFloat64Buckets{
-		buckets:     make(map[time.Time]float64Bucket),
+		buckets:     make(map[time.Time]*float64Value),
 		granularity: granularity,
 	}
 }
@@ -46,10 +46,10 @@ func (t *TimedFloat64Buckets) Record(time time.Time, name string, value float64)
 	bucketKey := time.Truncate(t.granularity)
 	bucket, ok := t.buckets[bucketKey]
 	if !ok {
-		bucket = float64Bucket{}
+		bucket = &float64Value{}
 		t.buckets[bucketKey] = bucket
 	}
-	bucket.record(name, value)
+	bucket.record(value)
 }
 
 // isEmpty returns whether or not there are no values currently stored.
@@ -87,9 +87,6 @@ func (t *TimedFloat64Buckets) RemoveOlderThan(time time.Time) {
 	}
 }
 
-// float64Bucket keeps all the stats that fall into a defined bucket.
-type float64Bucket map[string]float64Value
-
 // float64Value is a single value for a Float64Bucket. It maintains a summed
 // up value and a count to ultimately calculate an average.
 type float64Value struct {
@@ -97,22 +94,13 @@ type float64Value struct {
 	count float64
 }
 
-// record adds a value to the bucket. Buckets with the same given name
-// will be collapsed.
-func (b float64Bucket) record(name string, value float64) {
-	current := b[name]
-	b[name] = float64Value{
-		sum:   current.sum + value,
-		count: current.count + 1.0,
+func (b *float64Value) avg() float64 {
+	if b.count == 0 {
+		return 0
 	}
+	return b.sum / b.count
 }
-
-// sum calculates the sum over the bucket. Values of the same name in
-// the same bucket will be averaged between themselves first.
-func (b float64Bucket) sum() float64 {
-	var total float64
-	for _, value := range b {
-		total += value.sum / value.count
-	}
-	return total
+func (b *float64Value) record(v float64) {
+	b.sum += v
+	b.count++
 }

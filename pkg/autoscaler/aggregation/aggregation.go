@@ -19,12 +19,12 @@ package aggregation
 import "time"
 
 // Accumulator is a function accumulating buckets and their time.
-type Accumulator func(time time.Time, bucket float64Bucket)
+type Accumulator func(time time.Time, bucket *float64Value)
 
 // YoungerThan only applies the accumulator to buckets that are younger than the given
 // time.
 func YoungerThan(oldest time.Time, acc Accumulator) Accumulator {
-	return func(time time.Time, bucket float64Bucket) {
+	return func(time time.Time, bucket *float64Value) {
 		if !time.Before(oldest) {
 			acc(time, bucket)
 		}
@@ -38,8 +38,8 @@ type Average struct {
 }
 
 // Accumulate accumulates the values needed to compute an average.
-func (a *Average) Accumulate(_ time.Time, bucket float64Bucket) {
-	a.sum += bucket.sum()
+func (a *Average) Accumulate(_ time.Time, bucket *float64Value) {
+	a.sum += bucket.avg()
 	a.count++
 }
 

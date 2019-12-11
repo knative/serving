@@ -39,11 +39,11 @@ func TestAverage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			average := Average{}
+			bucket := &float64Value{}
 			for _, value := range tt.values {
-				bucket := float64Bucket{}
-				bucket.record("pod", value)
-				average.Accumulate(time.Now(), bucket)
+				bucket.record(value)
 			}
+			average.Accumulate(time.Now(), bucket)
 
 			if got := average.Value(); got != tt.want {
 				t.Errorf("Value() = %v, want %v", got, tt.want)
@@ -87,12 +87,12 @@ func TestYoungerThan(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := make(map[time.Time]bool)
-			acc := YoungerThan(tt.oldest, func(time time.Time, bucket float64Bucket) {
+			acc := YoungerThan(tt.oldest, func(time time.Time, bucket *float64Value) {
 				got[time] = true
 			})
 			for _, t := range tt.times {
-				bucket := float64Bucket{}
-				bucket.record("pod", 1.0)
+				bucket := &float64Value{}
+				bucket.record(1.0)
 				acc(t, bucket)
 			}
 
