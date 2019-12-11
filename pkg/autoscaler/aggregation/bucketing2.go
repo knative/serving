@@ -17,6 +17,7 @@ limitations under the License.
 package aggregation
 
 import (
+	"math"
 	"sync"
 	"time"
 )
@@ -34,9 +35,9 @@ type TimedFloat64Buckets2 struct {
 // NewTimedFloat64Buckets2 generates a new TimedFloat64Buckets2 with the given
 // granularity.
 func NewTimedFloat64Buckets2(window, granularity time.Duration) *TimedFloat64Buckets2 {
-	// Number of buckets is window divided by granurality.
+	// Number of buckets is `window` divided by `granularity`, rounded up.
 	// e.g. 60s / 2s = 30.
-	nb := int(window / granularity)
+	nb := int(math.Ceil(float64(window) / float64(granularity)))
 	return &TimedFloat64Buckets2{
 		buckets:     make([]float64Bucket, nb),
 		granularity: granularity,
@@ -116,7 +117,7 @@ func (t *TimedFloat64Buckets2) ResizeWindow(w time.Duration) {
 	}() {
 		return
 	}
-	nb := int(w / t.granularity)
+	nb := int(math.Ceil(float64(w) / float64(t.granularity)))
 	newb := make([]float64Bucket, nb)
 
 	// We need write lock here.

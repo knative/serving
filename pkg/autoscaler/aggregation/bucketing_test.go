@@ -17,6 +17,7 @@ limitations under the License.
 package aggregation
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -114,6 +115,49 @@ func TestTimedFloat64Buckets(t *testing.T) {
 				t.Error("IsEmpty() = false, want true")
 			}
 		})
+	}
+}
+
+func TestTimedFloat64BucketsManyPods(t *testing.T) {
+	granularity := time.Second
+	trunc1 := time.Now().Truncate(granularity)
+	buckets := NewTimedFloat64Buckets(granularity)
+	buckets2 := NewTimedFloat64Buckets2(time.Minute, granularity)
+	buckets3 := NewTimedFloat64Buckets(granularity)
+	for p := 0; p < 5; p++ {
+		trunc1 = trunc1.Add(granularity)
+		for t := 0; t < 5; t++ {
+			buckets.Record(trunc1, pod+strconv.Itoa(p), float64(p+t))
+			buckets2.Record(trunc1, pod+strconv.Itoa(p), float64(p+t))
+			// Report same values but for one pod.
+			buckets3.Record(trunc1, pod, float64(p+t))
+		}
+	}
+	// So the buckets are:
+	// [0, 1, 2, 3, 4] = 10
+	// [1, 2, 3, 4, 5] = 15
+	// ...						 = 20, 25
+	// [4, 5, 6, 7, 8]  = 30
+	//                  = 100 /5 = 20
+	sum1, sum2, sum3 := 0., 0., 0.
+	buckets.ForEachBucket(trunc1, func(_ time.Time, b float64Bucket) {
+		sum1 += b.sum()
+	})
+	buckets2.ForEachBucket(trunc1, func(_ time.Time, b float64Bucket) {
+		sum2 += b.sum()
+	})
+	buckets3.ForEachBucket(trunc1, func(_ time.Time, b float64Bucket) {
+		sum3 += b.sum()
+	})
+	if got, want := sum1, 20.; got != want {
+		t.Errorf("Sum1 = %f, want: %f", got, want)
+	}
+
+	if got, want := sum2, 20.; got != want {
+		t.Errorf("Sum2 = %f, want: %f", got, want)
+	}
+	if got, want := sum3, 20.; got != want {
+		t.Errorf("Sum3 = %f, want: %f", got, want)
 	}
 }
 
@@ -343,6 +387,82 @@ func TestTimedFloat64BucketsWindowUpdate(t *testing.T) {
 	// Increase window.
 	buckets.ResizeWindow(10 * time.Second)
 	if got, want := len(buckets.buckets), 10; got != want {
+		t.Fatalf("Resized bucket count = %d, want: %d", got, want)
+	}
+	if got, want := buckets.window, 10*time.Second; got != want {
+		t.Fatalf("Resized bucket windos = %v, want: %v", got, want)
+	}
+
+	// Verify values were properly copied.
+	sum = 0.
+	buckets.ForEachBucket(trunc1.Add(5*time.Second), func(t time.Time, b float64Bucket) {
+		sum += b.sum()
+	})
+	if got, want := sum, float64(2+3+4+5+6); got != want {
+		t.Fatalf("After first resize data set Sum = %v, want: %v", got, want)
+	}
+	// Add one more. Make sure all the data is preserved, since window is longer.
+	buckets.Record(trunc1.Add(6*time.Second), pod, 7)
+	sum = 0.
+	buckets.ForEachBucket(trunc1.Add(6*time.Second), func(t time.Time, b float64Bucket) {
+		sum += b.sum()
+	})
+	if got, want := sum, float64(2+3+4+5+6+7); got != want {
+		t.Fatalf("Updated data set Sum = %v, want: %v", got, want)
+	}
+
+	// Now let's reduce window size.
+	buckets.ResizeWindow(4 * time.Second)
+	if got, want := len(buckets.buckets), 4; got != want {
+		t.Fatalf("Resized bucket count = %d, want: %d", got, want)
+	}
+	// Just last 4 buckets should have remained.
+	sum = 0.
+	buckets.ForEachBucket(trunc1.Add(6*time.Second), func(t time.Time, b float64Bucket) {
+		sum += b.sum()
+	})
+	if got, want := sum, float64(4+5+6+7); got != want {
+		t.Fatalf("Updated data set Sum = %v, want: %v", got, want)
+	}
+
+	// Verify idempotence.
+	ob := &buckets.buckets
+	buckets.ResizeWindow(4 * time.Second)
+	if ob != &buckets.buckets {
+		t.Error("The buckets have changed, though window didn't")
+	}
+}
+
+func TestTimedFloat64BucketsWindowUpdate3sGranularity(t *testing.T) {
+	granularity := 3 * time.Second
+	trunc1 := time.Now().Truncate(granularity)
+
+	// So two buckets here (ceil(5/3)=ceil(1.6666666)=2).
+	buckets := NewTimedFloat64Buckets2(5*time.Second, granularity)
+	if got, want := len(buckets.buckets), 2; got != want {
+		t.Fatalf("Initial bucket count = %d, want: %d", got, want)
+	}
+
+	// Fill the whole bucketing list.
+	buckets.Record(trunc1, pod, 1)
+	buckets.Record(trunc1.Add(1*time.Second), pod, 2)
+	buckets.Record(trunc1.Add(2*time.Second), pod, 3)
+	buckets.Record(trunc1.Add(3*time.Second), pod, 4)
+	buckets.Record(trunc1.Add(4*time.Second), pod, 5)
+	buckets.Record(trunc1.Add(5*time.Second), pod, 6)
+	buckets.Record(trunc1.Add(6*time.Second), pod, 6)
+	sum := 0.
+	buckets.ForEachBucket(trunc1.Add(6*time.Second), func(t time.Time, b float64Bucket) {
+		sum += b.sum()
+	})
+	// Note the per bucket averaging.
+	if got, want := sum, (4.+5.+6.)/3.+6; got != want {
+		t.Fatalf("Initial data set Sum = %v, want: %v", got, want)
+	}
+
+	// Increase window.
+	buckets.ResizeWindow(10 * time.Second)
+	if got, want := len(buckets.buckets), 4; got != want {
 		t.Fatalf("Resized bucket count = %d, want: %d", got, want)
 	}
 	if got, want := buckets.window, 10*time.Second; got != want {

@@ -60,7 +60,7 @@ func (t *TimedFloat64Buckets) isEmpty() bool {
 
 // ForEachBucket calls the given Accumulator function for each bucket.
 // Returns true if any data was recorded.
-func (t *TimedFloat64Buckets) ForEachBucket(now time.Time, accs ...Accumulator) bool {
+func (t *TimedFloat64Buckets) ForEachBucket(_ time.Time, accs ...Accumulator) bool {
 	t.bucketsMutex.RLock()
 	defer t.bucketsMutex.RUnlock()
 	if t.isEmpty() {

@@ -326,7 +326,7 @@ func (c *collection) record(stat Stat) {
 func (c *collection) stableAndPanicConcurrency(now time.Time) (float64, float64, error) {
 	o1, o2, _ := c.stableAndPanicStats(now, c.concurrencyBuckets)
 	n1, n2, err := c.stableAndPanicStats(now, c.concurrencyBuckets2)
-	fmt.Printf("### OLD: %f/%f NEW: %f/%f\n", o1, o2, n1, n2)
+	fmt.Printf("### %v %s: OLD: %f/%f NEW: %f/%f\n", now, c.metric.Name, o1, o2, n1, n2)
 	return n1, n2, err
 }
 
