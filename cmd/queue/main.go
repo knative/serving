@@ -37,11 +37,14 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
+
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+
 	pkglogging "knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/metrics"
+	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/tracing"
@@ -440,7 +443,7 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, req
 
 	httpProxy := httputil.NewSingleHostReverseProxy(target)
 	httpProxy.Transport = buildTransport(env, logger)
-	httpProxy.ErrorHandler = network.ErrorHandler(logger)
+	httpProxy.ErrorHandler = pkgnet.ErrorHandler(logger)
 
 	httpProxy.FlushInterval = -1
 	activatorutil.SetupHeaderPruning(httpProxy)
@@ -468,12 +471,12 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, req
 	composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
 	composedHandler = network.NewProbeHandler(composedHandler)
 
-	return network.NewServer(":"+strconv.Itoa(env.QueueServingPort), composedHandler)
+	return pkgnet.NewServer(":"+strconv.Itoa(env.QueueServingPort), composedHandler)
 }
 
 func buildTransport(env config, logger *zap.SugaredLogger) http.RoundTripper {
 	if env.TracingConfigBackend == tracingconfig.None {
-		return network.AutoTransport
+		return pkgnet.AutoTransport
 	}
 
 	oct := tracing.NewOpenCensusTracer(tracing.WithExporter(env.ServingPod, logger))
@@ -486,7 +489,7 @@ func buildTransport(env config, logger *zap.SugaredLogger) http.RoundTripper {
 	})
 
 	return &ochttp.Transport{
-		Base: network.AutoTransport,
+		Base: pkgnet.AutoTransport,
 	}
 }
 
