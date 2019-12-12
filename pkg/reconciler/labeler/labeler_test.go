@@ -62,8 +62,8 @@ func TestReconcile(t *testing.T) {
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddLabel("default", rev("default", "the-config").Name,
-				"serving.knative.dev/route", "first-reconcile", "v1"),
-			patchAddLabel("default", "the-config", "serving.knative.dev/route", "first-reconcile", "v1"),
+				"serving.knative.dev/route", "first-reconcile"),
+			patchAddLabel("default", "the-config", "serving.knative.dev/route", "first-reconcile"),
 		},
 		Key: "default/first-reconcile",
 	}, {
@@ -90,7 +90,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddLabel("default", rev("default", "the-config").Name,
-				"serving.knative.dev/route", "add-label-failure", "v1"),
+				"serving.knative.dev/route", "add-label-failure"),
 		},
 		Key: "default/add-label-failure",
 	}, {
@@ -107,7 +107,7 @@ func TestReconcile(t *testing.T) {
 				WithRevisionLabel("serving.knative.dev/route", "add-label-failure")),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchAddLabel("default", "the-config", "serving.knative.dev/route", "add-label-failure", "v1"),
+			patchAddLabel("default", "the-config", "serving.knative.dev/route", "add-label-failure"),
 		},
 		Key: "default/add-label-failure",
 	}, {
@@ -134,11 +134,11 @@ func TestReconcile(t *testing.T) {
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchRemoveLabel("default", rev("default", "old-config").Name,
-				"serving.knative.dev/route", "v1"),
+				"serving.knative.dev/route"),
 			patchAddLabel("default", rev("default", "new-config").Name,
-				"serving.knative.dev/route", "config-change", "v1"),
-			patchRemoveLabel("default", "old-config", "serving.knative.dev/route", "v1"),
-			patchAddLabel("default", "new-config", "serving.knative.dev/route", "config-change", "v1"),
+				"serving.knative.dev/route", "config-change"),
+			patchRemoveLabel("default", "old-config", "serving.knative.dev/route"),
+			patchAddLabel("default", "new-config", "serving.knative.dev/route", "config-change"),
 		},
 		Key: "default/config-change",
 	}, {
@@ -148,7 +148,7 @@ func TestReconcile(t *testing.T) {
 				WithConfigLabel("serving.knative.dev/route", "delete-route")),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchRemoveLabel("default", "the-config", "serving.knative.dev/route", "v1"),
+			patchRemoveLabel("default", "the-config", "serving.knative.dev/route"),
 		},
 		Key: "default/delete-route",
 	}, {
@@ -169,7 +169,7 @@ func TestReconcile(t *testing.T) {
 			rev("default", "old-config"),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			patchRemoveLabel("default", "old-config", "serving.knative.dev/route", "v1"),
+			patchRemoveLabel("default", "old-config", "serving.knative.dev/route"),
 		},
 		Key: "default/delete-label-failure",
 	}, {
@@ -192,7 +192,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchRemoveLabel("default", rev("default", "old-config").Name,
-				"serving.knative.dev/route", "v1"),
+				"serving.knative.dev/route"),
 		},
 		Key: "default/delete-label-failure",
 	}}
@@ -255,23 +255,23 @@ func rev(namespace, name string, opts ...RevisionOption) *v1alpha1.Revision {
 	return rev
 }
 
-func patchRemoveLabel(namespace, name, key, version string) clientgotesting.PatchActionImpl {
+func patchRemoveLabel(namespace, name, key string) clientgotesting.PatchActionImpl {
 	action := clientgotesting.PatchActionImpl{}
 	action.Name = name
 	action.Namespace = namespace
 
-	patch := fmt.Sprintf(`{"metadata":{"labels":{%q:null},"resourceVersion":%q}}`, key, version)
+	patch := fmt.Sprintf(`{"metadata":{"labels":{%q:null}}}`, key)
 
 	action.Patch = []byte(patch)
 	return action
 }
 
-func patchAddLabel(namespace, name, key, value, version string) clientgotesting.PatchActionImpl {
+func patchAddLabel(namespace, name, key, value string) clientgotesting.PatchActionImpl {
 	action := clientgotesting.PatchActionImpl{}
 	action.Name = name
 	action.Namespace = namespace
 
-	patch := fmt.Sprintf(`{"metadata":{"labels":{%q:%q},"resourceVersion":%q}}`, key, value, version)
+	patch := fmt.Sprintf(`{"metadata":{"labels":{%q:%q}}}`, key, value)
 
 	action.Patch = []byte(patch)
 	return action
