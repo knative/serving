@@ -24,7 +24,14 @@ import (
 // TimedFloat64Buckets keeps buckets that have been collected at a certain time.
 type TimedFloat64Buckets struct {
 	bucketsMutex sync.RWMutex
-	buckets      map[time.Time]float64Bucket
+	// Metrics received in a certain timeframe are all summed up.
+	// This assumes that we don't take multiple readings of
+	// the same metric in the same bucket (per second currently).
+	// The only case where this might happen currently is when activator scales
+	// a revision from 0. The metrics for that bucket might be off
+	// by exactly "1" as that poke always reports a concurrency of 1.
+	// Since we're windowing metrics anyway, that slight skew is acceptable.
+	buckets map[time.Time]float64
 
 	granularity time.Duration
 }
@@ -33,7 +40,7 @@ type TimedFloat64Buckets struct {
 // granularity.
 func NewTimedFloat64Buckets(granularity time.Duration) *TimedFloat64Buckets {
 	return &TimedFloat64Buckets{
-		buckets:     make(map[time.Time]float64Bucket),
+		buckets:     make(map[time.Time]float64),
 		granularity: granularity,
 	}
 }
@@ -44,12 +51,7 @@ func (t *TimedFloat64Buckets) Record(time time.Time, name string, value float64)
 	defer t.bucketsMutex.Unlock()
 
 	bucketKey := time.Truncate(t.granularity)
-	bucket, ok := t.buckets[bucketKey]
-	if !ok {
-		bucket = float64Bucket{}
-		t.buckets[bucketKey] = bucket
-	}
-	bucket.record(name, value)
+	t.buckets[bucketKey] += value
 }
 
 // isEmpty returns whether or not there are no values currently stored.
@@ -85,34 +87,4 @@ func (t *TimedFloat64Buckets) RemoveOlderThan(time time.Time) {
 			delete(t.buckets, bucketTime)
 		}
 	}
-}
-
-// float64Bucket keeps all the stats that fall into a defined bucket.
-type float64Bucket map[string]float64Value
-
-// float64Value is a single value for a Float64Bucket. It maintains a summed
-// up value and a count to ultimately calculate an average.
-type float64Value struct {
-	sum   float64
-	count float64
-}
-
-// record adds a value to the bucket. Buckets with the same given name
-// will be collapsed.
-func (b float64Bucket) record(name string, value float64) {
-	current := b[name]
-	b[name] = float64Value{
-		sum:   current.sum + value,
-		count: current.count + 1.0,
-	}
-}
-
-// sum calculates the sum over the bucket. Values of the same name in
-// the same bucket will be averaged between themselves first.
-func (b float64Bucket) sum() float64 {
-	var total float64
-	for _, value := range b {
-		total += value.sum / value.count
-	}
-	return total
 }

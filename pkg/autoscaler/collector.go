@@ -35,6 +35,8 @@ const (
 	scrapeTickInterval = time.Second
 
 	// BucketSize is the size of the buckets of stats we create.
+	// NB: if this is more than 1s, we need to average values in the
+	// metrics buckets.
 	BucketSize = scrapeTickInterval
 )
 
