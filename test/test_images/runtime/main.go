@@ -14,6 +14,7 @@ limitations under the License.
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
 	"os"
@@ -23,12 +24,22 @@ import (
 )
 
 func main() {
-
 	// We expect PORT to be defined in a Knative environment
 	// and don't want to mask this failure in a test image.
 	port, isSet := os.LookupEnv("PORT")
 	if !isSet {
 		log.Fatal("Environment variable PORT is not set.")
+	}
+
+	// This is an option for exec readiness probe test.
+	flag.Parse()
+	args := flag.Args()
+	if len(args) > 0 && args[0] == "probe" {
+		url := "http://localhost:" + port
+		if _, err := http.Get(url); err != nil {
+			log.Fatalf("Failed to probe %v", err)
+		}
+		return
 	}
 
 	mux := http.NewServeMux()
