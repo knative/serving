@@ -26,6 +26,7 @@ import (
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"knative.dev/pkg/logging"
 	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
+	"knative.dev/serving/pkg/network/status"
 
 	istiolisters "knative.dev/pkg/client/istio/listers/networking/v1alpha3"
 	"knative.dev/pkg/controller"
@@ -82,7 +83,7 @@ type Reconciler struct {
 	tracker     tracker.Interface
 	finalizer   string
 
-	statusManager StatusManager
+	statusManager status.Manager
 }
 
 var (

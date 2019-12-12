@@ -18,14 +18,19 @@ package ingress
 
 import (
 	"context"
+	"fmt"
+	"net/url"
 
+	"go.uber.org/zap"
 	v1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	secretinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/secret"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	gatewayinformer "knative.dev/pkg/client/istio/injection/informers/networking/v1alpha3/gateway"
 	virtualserviceinformer "knative.dev/pkg/client/istio/injection/informers/networking/v1alpha3/virtualservice"
+	istiolisters "knative.dev/pkg/client/istio/listers/networking/v1alpha3"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/tracker"
@@ -33,10 +38,12 @@ import (
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	ingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
 	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/network/status"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/ingress/config"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 )
@@ -97,11 +104,10 @@ func NewController(
 	resyncOnIngressReady := func(ia *v1alpha1.Ingress) {
 		impl.EnqueueKey(types.NamespacedName{Namespace: ia.GetNamespace(), Name: ia.GetName()})
 	}
-	statusProber := NewStatusProber(
+
+	statusProber := status.NewProber(
 		c.Logger.Named("status-manager"),
-		gatewayInformer.Lister(),
-		endpointsInformer.Lister(),
-		serviceInformer.Lister(),
+		keyLookup(c.Logger, gatewayInformer.Lister(), serviceInformer.Lister(), endpointsInformer.Lister()),
 		resyncOnIngressReady)
 	c.statusManager = statusProber
 	statusProber.Start(ctx.Done())
@@ -111,7 +117,8 @@ func NewController(
 		DeleteFunc: func(obj interface{}) {
 			vs, ok := obj.(*v1alpha3.VirtualService)
 			if ok {
-				statusProber.CancelVirtualServiceProbing(vs)
+				key := fmt.Sprintf("%s/%s", vs.GetNamespace(), vs.GetName())
+				statusProber.CancelKeyProbing(key)
 			}
 		},
 	})
@@ -137,4 +144,61 @@ func NewController(
 	))
 
 	return impl
+}
+
+func keyLookup(logger *zap.SugaredLogger,
+	gatewayLister istiolisters.GatewayLister,
+	serviceLister corev1listers.ServiceLister,
+	endpointsLister corev1listers.EndpointsLister,
+) status.KeyLookup {
+	return func(key string) (*url.URL, *corev1.Service, *corev1.Endpoints, error) {
+		namespace, name, err := cache.SplitMetaNamespaceKey(key)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to parse Gateway name %q: %w", key, err)
+		}
+		if namespace == "" {
+			return nil, nil, nil, fmt.Errorf("unexpected unqualified Gateway name %q", key)
+		}
+		gateway, err := gatewayLister.Gateways(namespace).Get(name)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to list Gateway: %w", err)
+		}
+		selector := labels.SelectorFromSet(gateway.Spec.Selector)
+		services, err := serviceLister.List(selector)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to list Services: %w", err)
+		}
+		if len(services) == 0 {
+			logger.Infof("Skipping Gateway %s/%s because it has no corresponding Service",
+				gateway.Namespace, gateway.Name)
+			return nil, nil, nil, nil
+		}
+		service := services[0]
+
+		endpoints, err := endpointsLister.Endpoints(service.Namespace).Get(service.Name)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to get Endpoints: %w", err)
+		}
+		for _, server := range gateway.Spec.Servers {
+			switch server.Port.Protocol {
+			case "HTTP", "HTTP2":
+				if server.Tls == nil || !server.Tls.HttpsRedirect {
+					return &url.URL{
+						Scheme: "http",
+						Host:   fmt.Sprintf("%%s:%d", server.Port.Number),
+					}, service, endpoints, nil
+				}
+			case "HTTPS":
+				return &url.URL{
+					Scheme: "https",
+					Host:   fmt.Sprintf("%%s:%d", server.Port.Number),
+				}, service, endpoints, nil
+			default:
+				logger.Infof("Skipping Server %q because protocol %q is not supported",
+					server.Port.Name, server.Port.Protocol)
+				continue
+			}
+		}
+		return nil, nil, nil, fmt.Errorf("Gateway %q had no acceptable Servers to probe.", key)
+	}
 }

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ingress
+package status
 
 import (
 	"context"
@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"reflect"
 	"strconv"
 	"sync"
@@ -31,15 +32,10 @@ import (
 	"go.uber.org/zap"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	corev1listers "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
-	istiolisters "knative.dev/pkg/client/istio/listers/networking/v1alpha3"
 	"knative.dev/pkg/network/prober"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/network"
@@ -93,10 +89,14 @@ type probeTarget struct {
 	targetPort string
 }
 
-// StatusManager provides a way to check if a VirtualService is ready
-type StatusManager interface {
+// Manager provides a way to check if a VirtualService is ready
+type Manager interface {
 	IsReady(ia *v1alpha1.Ingress, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error)
 }
+
+// KeyLookup is the type of a callback for fetching a URL template for the key, the service definition,
+// and the set of endpoints to feed through it to establish readiness.
+type KeyLookup func(string) (*url.URL, *corev1.Service, *corev1.Endpoints, error)
 
 // StatusProber provides a way to check if a VirtualService is ready by probing the Envoy pods
 // handling that VirtualService.
@@ -110,10 +110,7 @@ type StatusProber struct {
 
 	workQueue workqueue.RateLimitingInterface
 
-	gatewayLister   istiolisters.GatewayLister
-	endpointsLister corev1listers.EndpointsLister
-	serviceLister   corev1listers.ServiceLister
-
+	lookup        KeyLookup
 	readyCallback func(*v1alpha1.Ingress)
 
 	probeConcurrency int
@@ -121,12 +118,10 @@ type StatusProber struct {
 	cleanupPeriod    time.Duration
 }
 
-// NewStatusProber creates a new instance of StatusProber
-func NewStatusProber(
+// NewProber creates a new instance of StatusProber
+func NewProber(
 	logger *zap.SugaredLogger,
-	gatewayLister istiolisters.GatewayLister,
-	endpointsLister corev1listers.EndpointsLister,
-	serviceLister corev1listers.ServiceLister,
+	lookup KeyLookup,
 	readyCallback func(*v1alpha1.Ingress)) *StatusProber {
 	return &StatusProber{
 		logger:        logger,
@@ -135,9 +130,7 @@ func NewStatusProber(
 		workQueue: workqueue.NewNamedRateLimitingQueue(
 			workqueue.DefaultControllerRateLimiter(),
 			"ProbingQueue"),
-		gatewayLister:    gatewayLister,
-		endpointsLister:  endpointsLister,
-		serviceLister:    serviceLister,
+		lookup:           lookup,
 		readyCallback:    readyCallback,
 		probeConcurrency: probeConcurrency,
 		stateExpiration:  stateExpiration,
@@ -187,11 +180,7 @@ func (m *StatusProber) IsReady(ia *v1alpha1.Ingress, gw map[v1alpha1.IngressVisi
 
 	var workItems []*workItem
 	for gatewayName, hosts := range ingress.HostsPerVisibility(ia, gw) {
-		gateway, err := m.getGateway(gatewayName)
-		if err != nil {
-			return false, fmt.Errorf("failed to get Gateway %q: %w", gatewayName, err)
-		}
-		targetsPerPod, err := m.listGatewayTargetsPerPods(gateway)
+		targetsPerPod, err := m.listPodsPerKey(gatewayName)
 		if err != nil {
 			return false, fmt.Errorf("failed to list the probing URLs of Gateway %q: %w", gatewayName, err)
 		}
@@ -260,7 +249,7 @@ func (m *StatusProber) IsReady(ia *v1alpha1.Ingress, gw map[v1alpha1.IngressVisi
 	return len(workItems) == 0, nil
 }
 
-// Start starts the StatusManager background operations
+// Start starts the Manager background operations
 func (m *StatusProber) Start(done <-chan struct{}) {
 	// Start the worker goroutines
 	for i := 0; i < m.probeConcurrency; i++ {
@@ -280,10 +269,8 @@ func (m *StatusProber) Start(done <-chan struct{}) {
 	}()
 }
 
-// CancelVirtualServiceProbing cancels probing of the provided VirtualService.
-func (m *StatusProber) CancelVirtualServiceProbing(vs *v1alpha3.VirtualService) {
-	key := fmt.Sprintf("%s/%s", vs.Namespace, vs.Name)
-
+// CancelKeyProbing cancels probing of the provided key.
+func (m *StatusProber) CancelKeyProbing(key string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if state, ok := m.ingressStates[key]; ok {
@@ -326,9 +313,11 @@ func (m *StatusProber) processWorkItem() bool {
 	// Crash if the item is not of the expected type
 	item, ok := obj.(*workItem)
 	if !ok {
-		m.logger.Fatalf("Unexpected work item type: want: %s, got: %s\n", reflect.TypeOf(&workItem{}).Name(), reflect.TypeOf(obj).Name())
+		m.logger.Fatalf("Unexpected work item type: want: %s, got: %s\n",
+			reflect.TypeOf(&workItem{}).Name(), reflect.TypeOf(obj).Name())
 	}
-	m.logger.Infof("Processing probe for %s, IP: %s:%s (depth: %d)", item.url, item.podIP, item.podPort, m.workQueue.Len())
+	m.logger.Infof("Processing probe for %s, IP: %s:%s (depth: %d)",
+		item.url, item.podIP, item.podPort, m.workQueue.Len())
 
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
@@ -382,67 +371,41 @@ func (m *StatusProber) updateStates(ingressState *ingressState, podState *podSta
 	}
 }
 
-func (m *StatusProber) getGateway(name string) (*v1alpha3.Gateway, error) {
-	namespace, name, err := cache.SplitMetaNamespaceKey(name)
+// listPodsPerKey returns a map where the keys are the Pod IPs and the values are the corresponding
+// URL templates and the Pod Port to be probed.
+func (m *StatusProber) listPodsPerKey(key string) (map[string][]probeTarget, error) {
+	tmpl, service, endpoints, err := m.lookup(key)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse Gateway name %q: %w", name, err)
-	}
-	if namespace == "" {
-		return nil, fmt.Errorf("unexpected unqualified Gateway name %q", name)
-	}
-	return m.gatewayLister.Gateways(namespace).Get(name)
-}
-
-// listGatewayPodsURLs returns a map where the keys are the Gateway Pod IPs and the values are the corresponding
-// URL templates and the Gateway Pod Port to be probed.
-func (m *StatusProber) listGatewayTargetsPerPods(gateway *v1alpha3.Gateway) (map[string][]probeTarget, error) {
-	selector := labels.SelectorFromSet(gateway.Spec.Selector)
-
-	services, err := m.serviceLister.List(selector)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list Services: %w", err)
-	}
-	if len(services) == 0 {
-		m.logger.Infof("Skipping Gateway %s/%s because it has no corresponding Service", gateway.Namespace, gateway.Name)
-		return nil, nil
-	}
-	service := services[0]
-
-	endpoints, err := m.endpointsLister.Endpoints(service.Namespace).Get(service.Name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get Endpoints: %w", err)
+		return nil, fmt.Errorf("failed to get Service: %w", err)
 	}
 
 	targetsPerPods := make(map[string][]probeTarget)
-	for _, server := range gateway.Spec.Servers {
-		var urlTmpl string
-		switch server.Port.Protocol {
-		case "HTTP", "HTTP2":
-			if server.Tls == nil || !server.Tls.HttpsRedirect {
-				urlTmpl = "http://%%s:%d/"
-			}
-		case "HTTPS":
-			urlTmpl = "https://%%s:%d/"
-		default:
-			m.logger.Infof("Skipping Server %q because protocol %q is not supported", server.Port.Name, server.Port.Protocol)
-			continue
-		}
+	pn, err := strconv.Atoi(tmpl.Port())
+	if err != nil {
+		m.logger.Infof("Invalid port from URL template: %v", err)
+		return targetsPerPods, nil // This was the previous behavior
+	}
+	portName, err := findNameForPortNumber(service, int32(pn))
+	if err != nil {
+		m.logger.Infof("Invalid port from URL template: %v", err)
+		return targetsPerPods, nil // This was the previous behavior
+	}
 
-		portName, err := findNameForPortNumber(service, int32(server.Port.Number))
+	for _, sub := range endpoints.Subsets {
+		portNumber, err := findPortNumberForName(sub, portName)
 		if err != nil {
-			m.logger.Infof("Skipping Server %q because Service %s/%s doesn't contain a port %d", server.Port.Name, service.Namespace, service.Name, server.Port.Number)
+			m.logger.Infof("Skipping Subset %v because it doesn't contain a port %q",
+				sub.Addresses, portName)
 			continue
 		}
-		for _, sub := range endpoints.Subsets {
-			portNumber, err := findPortNumberForName(sub, portName)
-			if err != nil {
-				m.logger.Infof("Skipping Subset %v because it doesn't contain a port %q", sub.Addresses, portName)
-				continue
-			}
 
-			for _, addr := range sub.Addresses {
-				targetsPerPods[addr.IP] = append(targetsPerPods[addr.IP], probeTarget{urlTmpl: fmt.Sprintf(urlTmpl, server.Port.Number), targetPort: strconv.Itoa(int(portNumber))})
-			}
+		for _, addr := range sub.Addresses {
+			targetsPerPods[addr.IP] = append(targetsPerPods[addr.IP], probeTarget{
+				// We can't juse use url.URL{}.String() because of a bad interaction with
+				// the embedded format string in the result we want.
+				urlTmpl:    fmt.Sprintf("%s://%%s:%d%s", tmpl.Scheme, pn, tmpl.Path),
+				targetPort: strconv.Itoa(int(portNumber)),
+			})
 		}
 	}
 	return targetsPerPods, nil
