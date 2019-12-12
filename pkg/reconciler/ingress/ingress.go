@@ -109,7 +109,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 	original, err := r.ingressLister.Ingresses(ns).Get(name)
 	if apierrs.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
-		logger.Errorf("ingress %q in work queue no longer exists", key)
+		logger.Info("Ingress in work queue no longer exists")
 		return nil
 	} else if err != nil {
 		return err

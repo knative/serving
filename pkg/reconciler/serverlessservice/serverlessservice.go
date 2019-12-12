@@ -81,7 +81,7 @@ func (r *reconciler) Reconcile(ctx context.Context, key string) error {
 	original, err := r.sksLister.ServerlessServices(namespace).Get(name)
 	if apierrs.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
-		logger.Errorf("SKS resource in work queue no longer exists")
+		logger.Info("SKS resource in work queue no longer exists")
 		return nil
 	} else if err != nil {
 		return err
