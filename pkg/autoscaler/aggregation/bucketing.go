@@ -24,7 +24,14 @@ import (
 // TimedFloat64Buckets keeps buckets that have been collected at a certain time.
 type TimedFloat64Buckets struct {
 	bucketsMutex sync.RWMutex
-	buckets      map[time.Time]float64
+	// Metrics received in a certain timeframe are all summed up.
+	// This assumes that we don't take multiple readings of
+	// the same metric in the same bucket (per second currently).
+	// The only case where this might happen currently is when activator scales
+	// a revision from 0. The metrics for that bucket might be off
+	// by exactly "1" as that poke always reports a concurrency of 1.
+	// Since we're windowing metrics anyway, that slight skew is acceptable.
+	buckets map[time.Time]float64
 
 	granularity time.Duration
 }
