@@ -24,7 +24,7 @@ import (
 // TimedFloat64Buckets keeps buckets that have been collected at a certain time.
 type TimedFloat64Buckets struct {
 	bucketsMutex sync.RWMutex
-	buckets      map[time.Time]*float64Value
+	buckets      map[time.Time]float64
 
 	granularity time.Duration
 }
@@ -33,7 +33,7 @@ type TimedFloat64Buckets struct {
 // granularity.
 func NewTimedFloat64Buckets(granularity time.Duration) *TimedFloat64Buckets {
 	return &TimedFloat64Buckets{
-		buckets:     make(map[time.Time]*float64Value),
+		buckets:     make(map[time.Time]float64),
 		granularity: granularity,
 	}
 }
@@ -44,12 +44,7 @@ func (t *TimedFloat64Buckets) Record(time time.Time, name string, value float64)
 	defer t.bucketsMutex.Unlock()
 
 	bucketKey := time.Truncate(t.granularity)
-	bucket, ok := t.buckets[bucketKey]
-	if !ok {
-		bucket = &float64Value{}
-		t.buckets[bucketKey] = bucket
-	}
-	bucket.record(value)
+	t.buckets[bucketKey] += value
 }
 
 // isEmpty returns whether or not there are no values currently stored.
@@ -85,22 +80,4 @@ func (t *TimedFloat64Buckets) RemoveOlderThan(time time.Time) {
 			delete(t.buckets, bucketTime)
 		}
 	}
-}
-
-// float64Value is a single value for a Float64Bucket. It maintains a summed
-// up value and a count to ultimately calculate an average.
-type float64Value struct {
-	sum   float64
-	count float64
-}
-
-func (b *float64Value) avg() float64 {
-	if b.count == 0 {
-		return 0
-	}
-	return b.sum / b.count
-}
-func (b *float64Value) record(v float64) {
-	b.sum += v
-	b.count++
 }

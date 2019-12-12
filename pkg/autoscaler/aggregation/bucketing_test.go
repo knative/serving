@@ -48,7 +48,7 @@ func TestTimedFloat64Buckets(t *testing.T) {
 			{trunc1.Add(3 * time.Second), pod, 1.0},        // nextnextnext bucket
 		},
 		want: map[time.Time]float64{
-			trunc1:                      1.0,
+			trunc1:                      2.0,
 			trunc1.Add(1 * time.Second): 1.0,
 			trunc1.Add(3 * time.Second): 1.0,
 		},
@@ -61,7 +61,7 @@ func TestTimedFloat64Buckets(t *testing.T) {
 			{trunc5.Add(6 * time.Second), pod, 1.0}, // next bucket
 		},
 		want: map[time.Time]float64{
-			trunc5:                      1.0,
+			trunc5:                      2.0,
 			trunc5.Add(5 * time.Second): 1.0,
 		},
 	}, {
@@ -79,7 +79,7 @@ func TestTimedFloat64Buckets(t *testing.T) {
 
 			got := make(map[time.Time]float64)
 			for time, bucket := range buckets.buckets {
-				got[time] = bucket.avg()
+				got[time] = bucket
 			}
 
 			if !cmp.Equal(tt.want, got) {
@@ -98,7 +98,7 @@ func TestTimedFloat64BucketsForEachBucket(t *testing.T) {
 	trunc1 := time.Now().Truncate(granularity)
 	buckets := NewTimedFloat64Buckets(granularity)
 
-	if buckets.ForEachBucket(func(time time.Time, bucket *float64Value) {}) {
+	if buckets.ForEachBucket(func(time time.Time, bucket float64) {}) {
 		t.Fatalf("ForEachBucket unexpectedly returned non-empty result")
 	}
 	buckets.Record(trunc1, pod, 10.0)
@@ -109,10 +109,10 @@ func TestTimedFloat64BucketsForEachBucket(t *testing.T) {
 	acc1 := 0
 	acc2 := 0
 	if !buckets.ForEachBucket(
-		func(time time.Time, bucket *float64Value) {
+		func(time.Time, float64) {
 			acc1++
 		},
-		func(time time.Time, bucket *float64Value) {
+		func(time.Time, float64) {
 			acc2++
 		},
 	) {
