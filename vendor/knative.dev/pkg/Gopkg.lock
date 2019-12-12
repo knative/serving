@@ -618,13 +618,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:5578b99717f08e6480d7e0480f758749c12f9cc5da19a33a863dc7307fd699fb"
+  digest = "1:ab30187b3fce52d6bdedddd463ac788423992846b617ddda81d4fd1e04c3d342"
   name = "golang.org/x/net"
   packages = [
     "context",
     "context/ctxhttp",
     "http/httpguts",
     "http2",
+    "http2/h2c",
     "http2/hpack",
     "idna",
     "internal/timeseries",
@@ -1295,14 +1296,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:6e839a9b4183b0fbf0df609fe9a6d226c941fa9221052ba0075b25cb353588a5"
+  digest = "1:c20a6bc69c6e4299afa4e4cb6016451fc751c5bb14025a271f3436f212ae73f7"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "9363d2f4cafd2ad3c1bfc925f447c91a1776be00"
+  revision = "32d84d399e44c68470d2703a6de633ab0a826d49"
 
 [[projects]]
   digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"
@@ -1364,6 +1365,8 @@
     "go.uber.org/zap/zapcore",
     "go.uber.org/zap/zaptest",
     "golang.org/x/net/context",
+    "golang.org/x/net/http2",
+    "golang.org/x/net/http2/h2c",
     "golang.org/x/oauth2",
     "golang.org/x/sync/errgroup",
     "google.golang.org/api/container/v1beta1",

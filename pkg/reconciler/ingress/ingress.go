@@ -109,7 +109,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 	original, err := r.ingressLister.Ingresses(ns).Get(name)
 	if apierrs.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
-		logger.Errorf("ingress %q in work queue no longer exists", key)
+		logger.Info("Ingress in work queue no longer exists")
 		return nil
 	} else if err != nil {
 		return err
@@ -130,7 +130,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 	} else {
-		if _, err = r.updateStatus(ingress); err != nil {
+		if err = r.updateStatus(original, ingress); err != nil {
 			logger.Warnw("Failed to update Ingress status", zap.Error(err))
 			r.Recorder.Eventf(ingress, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update status for Ingress %q: %v", ingress.GetName(), err)
@@ -306,20 +306,26 @@ func (r *Reconciler) reconcileDeletion(ctx context.Context, ia *v1alpha1.Ingress
 
 // Update the Status of the Ingress.  Caller is responsible for checking
 // for semantic differences before calling.
-func (r *Reconciler) updateStatus(desired *v1alpha1.Ingress) (*v1alpha1.Ingress, error) {
-	ingress, err := r.ingressLister.Ingresses(desired.GetNamespace()).Get(desired.GetName())
-	if err != nil {
-		return nil, err
-	}
+func (r *Reconciler) updateStatus(existing *v1alpha1.Ingress, desired *v1alpha1.Ingress) error {
+	existing = existing.DeepCopy()
+	return reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
+		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
+		if attempts > 0 {
+			existing, err = r.ServingClientSet.NetworkingV1alpha1().Ingresses(desired.GetNamespace()).Get(desired.GetName(), metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+		}
 
-	// If there's nothing to update, just return.
-	if reflect.DeepEqual(ingress.Status, desired.Status) {
-		return ingress, nil
-	}
-	// Don't modify the informers copy
-	existing := ingress.DeepCopy()
-	existing.Status = desired.Status
-	return r.ServingClientSet.NetworkingV1alpha1().Ingresses(existing.GetNamespace()).UpdateStatus(existing)
+		// If there's nothing to update, just return.
+		if reflect.DeepEqual(existing.Status, desired.Status) {
+			return nil
+		}
+
+		existing.Status = desired.Status
+		_, err = r.ServingClientSet.NetworkingV1alpha1().Ingresses(existing.GetNamespace()).UpdateStatus(existing)
+		return err
+	})
 }
 
 func (r *Reconciler) ensureFinalizer(ia *v1alpha1.Ingress) error {

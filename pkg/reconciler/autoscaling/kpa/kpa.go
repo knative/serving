@@ -69,7 +69,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	original, err := c.PALister.PodAutoscalers(namespace).Get(name)
 	if errors.IsNotFound(err) {
-		logger.Debug("PA no longer exists")
+		logger.Info("PA in work queue no longer exists")
 		if err := c.deciders.Delete(ctx, namespace, name); err != nil {
 			return err
 		}
@@ -89,7 +89,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if _, err = c.UpdateStatus(pa); err != nil {
+	} else if err = c.UpdateStatus(original, pa); err != nil {
 		logger.Warnw("Failed to update pa status", zap.Error(err))
 		c.Recorder.Eventf(pa, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for PA %q: %v", pa.Name, err)

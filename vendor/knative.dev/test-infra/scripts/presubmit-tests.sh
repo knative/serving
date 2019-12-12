@@ -269,7 +269,6 @@ function run_integration_tests() {
 function default_integration_test_runner() {
   local options=""
   local failed=0
-  (( EMIT_METRICS )) && options="--emit-metrics"
   for e2e_test in $(find test/ -name e2e-*tests.sh); do
     echo "Running integration test ${e2e_test}"
     if ! ${e2e_test} ${options}; then
@@ -283,7 +282,6 @@ function default_integration_test_runner() {
 RUN_BUILD_TESTS=0
 RUN_UNIT_TESTS=0
 RUN_INTEGRATION_TESTS=0
-EMIT_METRICS=0
 
 # Process flags and run tests accordingly.
 function main() {
@@ -335,7 +333,6 @@ function main() {
       --build-tests) RUN_BUILD_TESTS=1 ;;
       --unit-tests) RUN_UNIT_TESTS=1 ;;
       --integration-tests) RUN_INTEGRATION_TESTS=1 ;;
-      --emit-metrics) EMIT_METRICS=1 ;;
       --all-tests)
         RUN_BUILD_TESTS=1
         RUN_UNIT_TESTS=1
@@ -354,7 +351,6 @@ function main() {
   readonly RUN_BUILD_TESTS
   readonly RUN_UNIT_TESTS
   readonly RUN_INTEGRATION_TESTS
-  readonly EMIT_METRICS
   readonly TEST_TO_RUN
 
   cd ${REPO_ROOT_DIR}

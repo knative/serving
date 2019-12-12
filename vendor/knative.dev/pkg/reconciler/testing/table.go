@@ -96,6 +96,11 @@ type TableRow struct {
 	// Reconciler holds the controller.Reconciler that was used to evaluate this row.
 	// It is populated here to make it accessible to PostConditions.
 	Reconciler controller.Reconciler
+
+	// OtherTestData is arbitrary data needed for the test. It is not used directly by the table
+	// testing framework. Instead it is used in the test method. E.g. setting up the responses for a
+	// mock client can go in here.
+	OtherTestData map[string]interface{}
 }
 
 func objKey(o runtime.Object) string {

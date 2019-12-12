@@ -19,6 +19,7 @@ package metric
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"go.uber.org/zap"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
@@ -32,6 +33,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -81,7 +83,7 @@ func (r *reconciler) Reconcile(ctx context.Context, key string) error {
 
 	if !equality.Semantic.DeepEqual(original.Status, metric.Status) {
 		// Change of status, need to update the object.
-		if uErr := r.updateStatus(metric); uErr != nil {
+		if uErr := r.updateStatus(original, metric); uErr != nil {
 			logger.Warnw("Failed to update metric status", zap.Error(uErr))
 			r.Recorder.Eventf(metric, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update metric status: %v", uErr)
@@ -102,18 +104,24 @@ func (r *reconciler) reconcileCollection(ctx context.Context, metric *v1alpha1.M
 	return nil
 }
 
-func (r *reconciler) updateStatus(m *v1alpha1.Metric) error {
-	ex, err := r.metricLister.Metrics(m.Namespace).Get(m.Name)
-	if err != nil {
-		// If something deleted metric while we were reconciling ¯\(°_o)/¯.
+func (r *reconciler) updateStatus(existing *v1alpha1.Metric, desired *v1alpha1.Metric) error {
+	existing = existing.DeepCopy()
+	return rbase.RetryUpdateConflicts(func(attempts int) (err error) {
+		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
+		if attempts > 0 {
+			existing, err = r.ServingClientSet.AutoscalingV1alpha1().Metrics(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+		}
+
+		// If there's nothing to update, just return.
+		if reflect.DeepEqual(existing.Status, desired.Status) {
+			return nil
+		}
+
+		existing.Status = desired.Status
+		_, err = r.ServingClientSet.AutoscalingV1alpha1().Metrics(existing.Namespace).UpdateStatus(existing)
 		return err
-	}
-	if equality.Semantic.DeepEqual(ex.Status, m.Status) {
-		// no-op
-		return nil
-	}
-	ex = ex.DeepCopy()
-	ex.Status = m.Status
-	_, err = r.ServingClientSet.AutoscalingV1alpha1().Metrics(ex.Namespace).UpdateStatus(ex)
-	return err
+	})
 }

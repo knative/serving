@@ -22,11 +22,9 @@ metadata:
     release: RELEASE-NAME
 data:
   mesh: |-
-    # Set the following variable to true to disable policy checks by Mixer.
-    # Note that metrics will still be reported to Mixer.
+    # Set the following variable to true to disable policy checks by the Mixer.
+    # Note that metrics will still be reported to the Mixer.
     disablePolicyChecks: true
-
-    disableMixerHttpReports: false
     # reportBatchMaxEntries is the number of requests that are batched before telemetry data is sent to the mixer server
     reportBatchMaxEntries: 100
     # reportBatchMaxTime is the max waiting time before the telemetry data of a request is sent to the mixer server
@@ -77,19 +75,6 @@ data:
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
     trustDomain: ""
 
-    #  The trust domain aliases represent the aliases of trust_domain.
-    #  For example, if we have
-    #  trustDomain: td1
-    #  trustDomainAliases: [“td2”, "td3"]
-    #  Any service with the identity "td1/ns/foo/sa/a-service-account", "td2/ns/foo/sa/a-service-account",
-    #  or "td3/ns/foo/sa/a-service-account" will be treated the same in the Istio mesh.
-    trustDomainAliases:
-
-    # If true, automatically configure client side mTLS settings to match the corresponding service's
-    # server side mTLS authentication policy, when destination rule for that service does not specify
-    # TLS settings.
-    enableAutoMtls: false
-
     # Set the default behavior of the sidecar for handling outbound traffic from the application:
     # ALLOW_ANY - outbound traffic to unknown destinations will be allowed, in case there are no
     #   services or ServiceEntries for the destination port
@@ -102,10 +87,6 @@ data:
     # The namespace to treat as the administrative root namespace for istio
     # configuration.
     rootNamespace: istio-system
-
-    # Configures DNS certificates provisioned through Chiron linked into Pilot.
-    certificates:
-      []
 
     defaultConfig:
       #
@@ -230,9 +211,6 @@ rules:
 - apiGroups: ["rbac.istio.io"]
   resources: ["*"]
   verbs: ["get", "watch", "list"]
-- apiGroups: ["security.istio.io"]
-  resources: ["*"]
-  verbs: ["get", "watch", "list"]
 - apiGroups: ["networking.istio.io"]
   resources: ["*"]
   verbs: ["*"]
@@ -251,15 +229,6 @@ rules:
 - apiGroups: [""]
   resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
   verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["create", "get", "watch", "list", "update", "delete"]
-- apiGroups: ["certificates.k8s.io"]
-  resources:
-    - "certificatesigningrequests"
-    - "certificatesigningrequests/approval"
-    - "certificatesigningrequests/status"
-  verbs: ["update", "create", "get", "delete"]
 
 ---
 # Source: istio/templates/clusterrole.yaml
@@ -302,7 +271,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-multi
   labels:
-    chart: istio-1.4.0
+    chart: istio-1.3.6
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -440,12 +409,11 @@ metadata:
   name: cluster-local-gateway
   namespace: istio-system
   labels:
-    app: cluster-local-gateway
     chart: gateways
     heritage: Tiller
-    istio: cluster-local-gateway
     release: RELEASE-NAME
-
+    app: cluster-local-gateway
+    istio: cluster-local-gateway
 spec:
   replicas: 2
   selector:
@@ -459,19 +427,18 @@ spec:
   template:
     metadata:
       labels:
-        app: cluster-local-gateway
         chart: gateways
         heritage: Tiller
-        istio: cluster-local-gateway
         release: RELEASE-NAME
-
+        app: cluster-local-gateway
+        istio: cluster-local-gateway
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: cluster-local-gateway-service-account
       containers:
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.4.0"
+          image: "docker.io/istio/proxyv2:1.3.6"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 15020
@@ -558,18 +525,12 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
-          - name: ISTIO_METAJSON_LABELS
-            value: |
-              {"app":"cluster-local-gateway","chart":"gateways","heritage":"Tiller","istio":"cluster-local-gateway","release":"RELEASE-NAME"}
-          - name: ISTIO_META_CLUSTER_ID
-            value: "Kubernetes"
           - name: SDS_ENABLED
             value: "false"
           - name: ISTIO_META_WORKLOAD_NAME
             value: cluster-local-gateway
           - name: ISTIO_META_OWNER
             value: kubernetes://api/apps/v1/namespaces/istio-system/deployments/cluster-local-gateway
-
           volumeMounts:
           - name: istio-certs
             mountPath: /etc/certs
@@ -633,12 +594,11 @@ metadata:
   name: istio-ingressgateway
   namespace: istio-system
   labels:
-    app: istio-ingressgateway
     chart: gateways
     heritage: Tiller
-    istio: ingressgateway
     release: RELEASE-NAME
-
+    app: istio-ingressgateway
+    istio: ingressgateway
 spec:
   selector:
     matchLabels:
@@ -651,19 +611,18 @@ spec:
   template:
     metadata:
       labels:
-        app: istio-ingressgateway
         chart: gateways
         heritage: Tiller
-        istio: ingressgateway
         release: RELEASE-NAME
-
+        app: istio-ingressgateway
+        istio: ingressgateway
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: istio-ingressgateway-service-account
       containers:
         - name: ingress-sds
-          image: "docker.io/istio/node-agent-k8s:1.4.0"
+          image: "docker.io/istio/node-agent-k8s:1.3.6"
           imagePullPolicy: IfNotPresent
           resources:
             limits:
@@ -687,7 +646,7 @@ spec:
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.4.0"
+          image: "docker.io/istio/proxyv2:1.3.6"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 15020
@@ -777,11 +736,6 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
-          - name: ISTIO_METAJSON_LABELS
-            value: |
-              {"app":"istio-ingressgateway","chart":"gateways","heritage":"Tiller","istio":"ingressgateway","release":"RELEASE-NAME"}
-          - name: ISTIO_META_CLUSTER_ID
-            value: "Kubernetes"
           - name: SDS_ENABLED
             value: "false"
           - name: ISTIO_META_WORKLOAD_NAME
@@ -792,8 +746,6 @@ spec:
             value: "true"
           - name: ISTIO_META_ROUTER_MODE
             value: sni-dnat
-
-
           volumeMounts:
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
@@ -870,6 +822,8 @@ metadata:
     heritage: Tiller
     release: RELEASE-NAME
     istio: pilot
+  annotations:
+    checksum/config-volume: f8da08b6b8c170dde721efd680270b2901e750d4aa186ebb6c22bef5b78a43f9
 spec:
   strategy:
     rollingUpdate:
@@ -892,7 +846,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
         - name: discovery
-          image: "docker.io/istio/pilot:1.4.0"
+          image: "docker.io/istio/pilot:1.3.6"
           imagePullPolicy: IfNotPresent
           args:
           - "discovery"
@@ -913,7 +867,7 @@ spec:
               path: /ready
               port: 8080
             initialDelaySeconds: 5
-            periodSeconds: 5
+            periodSeconds: 30
             timeoutSeconds: 5
           env:
           - name: POD_NAME
@@ -926,6 +880,8 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
+          - name: GODEBUG
+            value: "gctrace=1"
           - name: PILOT_PUSH_THROTTLE
             value: "100"
           - name: PILOT_TRACE_SAMPLING
@@ -1081,10 +1037,6 @@ spec:
 
 ---
 # Source: istio/charts/mixer/templates/serviceaccount.yaml
-
-
----
-# Source: istio/charts/pilot/templates/configmap.yaml
 
 
 ---

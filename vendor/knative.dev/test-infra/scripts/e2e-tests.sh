@@ -81,7 +81,6 @@ function teardown_test_resources() {
 function go_test_e2e() {
   local test_options=""
   local go_options=""
-  (( EMIT_METRICS )) && test_options="-emitmetrics"
   [[ ! " $@" == *" -tags="* ]] && go_options="-tags=e2e"
   report_go_test -v -race -count=1 ${go_options} $@ ${test_options}
 }
@@ -228,7 +227,6 @@ function create_test_cluster() {
   echo "Test script is ${E2E_SCRIPT}"
   # Set arguments for this script again
   local test_cmd_args="--run-tests"
-  (( EMIT_METRICS )) && test_cmd_args+=" --emit-metrics"
   (( SKIP_KNATIVE_SETUP )) && test_cmd_args+=" --skip-knative-setup"
   [[ -n "${GCP_PROJECT}" ]] && test_cmd_args+=" --gcp-project ${GCP_PROJECT}"
   [[ -n "${E2E_SCRIPT_CUSTOM_FLAGS[@]}" ]] && test_cmd_args+=" ${E2E_SCRIPT_CUSTOM_FLAGS[@]}"
@@ -419,7 +417,6 @@ function fail_test() {
 }
 
 RUN_TESTS=0
-EMIT_METRICS=0
 SKIP_KNATIVE_SETUP=0
 SKIP_ISTIO_ADDON=0
 GCP_PROJECT=""
@@ -455,7 +452,6 @@ function initialize() {
     # Try parsing flag as a standard one.
     case ${parameter} in
       --run-tests) RUN_TESTS=1 ;;
-      --emit-metrics) EMIT_METRICS=1 ;;
       --skip-knative-setup) SKIP_KNATIVE_SETUP=1 ;;
       --skip-istio-addon) SKIP_ISTIO_ADDON=1 ;;
       *)
@@ -486,7 +482,6 @@ function initialize() {
   (( SKIP_ISTIO_ADDON )) || GKE_ADDONS="--addons=Istio"
 
   readonly RUN_TESTS
-  readonly EMIT_METRICS
   readonly GCP_PROJECT
   readonly IS_BOSKOS
   readonly EXTRA_CLUSTER_CREATION_FLAGS

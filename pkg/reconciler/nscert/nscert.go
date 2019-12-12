@@ -77,7 +77,7 @@ func (c *reconciler) Reconcile(ctx context.Context, key string) error {
 
 	namespace, err := c.nsLister.Get(ns)
 	if apierrs.IsNotFound(err) {
-		logger.Errorf("Namespace %s in work queue no longer exists %s", key, err)
+		logger.Info("Namespace in work queue no longer exists")
 		return nil
 	} else if err != nil {
 		return err

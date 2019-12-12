@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+    https://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,17 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package actions
+package reconciler
 
 import (
-	"knative.dev/pkg/testutils/clustermanager/prow-cluster-operation/options"
+	"k8s.io/client-go/util/retry"
 )
 
-// Get gets a GKE cluster
-func Get(o *options.RequestWrapper) error {
-	o.Prep()
-	o.Request.SkipCreation = true
-	// Reuse `Create` for getting operation, so that we can reuse the same logic
-	// such as protected project/cluster etc.
-	return Create(o)
+// RetryUpdateConflicts retries the inner function if it returns conflict errors.
+// This can be used to retry status updates without constantly reenqueuing keys.
+func RetryUpdateConflicts(updater func(int) error) error {
+	attempts := 0
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err := updater(attempts)
+		attempts++
+		return err
+	})
 }

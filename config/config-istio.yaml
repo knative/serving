@@ -65,7 +65,7 @@ data:
     local-gateway.knative-serving.cluster-local-gateway: "cluster-local-gateway.istio-system.svc.cluster.local"
 
     # To use only Istio service mesh and no cluster-local-gateway, replace
-    # all local-gateway.* entries the following entry.
+    # all local-gateway.* entries by the following entry.
     local-gateway.mesh: "mesh"
 
     # Feature flag to enable reconciling external Istio Gateways.

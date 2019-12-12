@@ -14,17 +14,5 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package actions
-
-import (
-	"knative.dev/pkg/testutils/clustermanager/prow-cluster-operation/options"
-)
-
-// Get gets a GKE cluster
-func Get(o *options.RequestWrapper) error {
-	o.Prep()
-	o.Request.SkipCreation = true
-	// Reuse `Create` for getting operation, so that we can reuse the same logic
-	// such as protected project/cluster etc.
-	return Create(o)
-}
+// Package prober contains functionality for implementing probing in knative serving.
+package prober

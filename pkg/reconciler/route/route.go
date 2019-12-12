@@ -104,7 +104,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	original, err := c.routeLister.Routes(namespace).Get(name)
 	if apierrs.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
-		logger.Error("Route in work queue no longer exists")
+		logger.Info("Route in work queue no longer exists")
 		return nil
 	} else if err != nil {
 		return err
@@ -120,7 +120,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if _, err = c.updateStatus(route); err != nil {
+	} else if err = c.updateStatus(original, route); err != nil {
 		logger.Warnw("Failed to update route status", zap.Error(err))
 		c.Recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for Route %q: %v", route.Name, err)

@@ -29,14 +29,15 @@ import (
 )
 
 const (
-	DefaultGKEMinNodes = 1
-	DefaultGKEMaxNodes = 3
-	DefaultGKENodeType = "n1-standard-4"
-	DefaultGKERegion   = "us-central1"
-	DefaultGKEZone     = ""
-	regionEnv          = "E2E_CLUSTER_REGION"
-	backupRegionEnv    = "E2E_CLUSTER_BACKUP_REGIONS"
-	defaultGKEVersion  = "latest"
+	DefaultGKEMinNodes  = 1
+	DefaultGKEMaxNodes  = 3
+	DefaultGKENodeType  = "n1-standard-4"
+	DefaultGKERegion    = "us-central1"
+	DefaultGKEZone      = ""
+	regionEnv           = "E2E_CLUSTER_REGION"
+	backupRegionEnv     = "E2E_CLUSTER_BACKUP_REGIONS"
+	defaultGKEVersion   = "latest"
+	DefaultResourceType = boskos.GKEProjectResource
 
 	ClusterRunning = "RUNNING"
 )
@@ -66,6 +67,9 @@ type GKERequest struct {
 	// NeedsCleanup: enforce clean up if given this option, used when running
 	// locally
 	NeedsCleanup bool
+
+	// ResourceType: the boskos resource type to acquire to hold the cluster in create
+	ResourceType string
 }
 
 // GKECluster implements ClusterOperations
@@ -123,6 +127,10 @@ func (gs *GKEClient) Setup(r GKERequest) ClusterOperations {
 		r.BackupRegions = make([]string, 0)
 	}
 
+	if r.ResourceType == "" {
+		r.ResourceType = DefaultResourceType
+	}
+
 	gc.Request = &r
 
 	client, err := gke.NewSDKClient()
@@ -168,7 +176,7 @@ func (gc *GKECluster) Acquire() error {
 	// Get project name from boskos if running in Prow, otherwise it should fail
 	// since we don't know which project to use
 	if common.IsProw() {
-		project, err := gc.boskosOps.AcquireGKEProject(nil)
+		project, err := gc.boskosOps.AcquireGKEProject(nil, gc.Request.ResourceType)
 		if err != nil {
 			return fmt.Errorf("failed acquiring boskos project: '%v'", err)
 		}
