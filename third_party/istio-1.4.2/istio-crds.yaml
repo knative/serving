@@ -21,7 +21,6 @@ data:
     metadata:
       annotations:
         "helm.sh/resource-policy": keep
-      creationTimestamp: null
       labels:
         app: mixer
         chart: istio
@@ -90,12 +89,6 @@ data:
       - name: v1alpha2
         served: true
         storage: true
-    status:
-      acceptedNames:
-        kind: ""
-        plural: ""
-      conditions: []
-      storedVersions: []
 
     ---
     apiVersion: apiextensions.k8s.io/v1beta1
@@ -103,7 +96,6 @@ data:
     metadata:
       annotations:
         "helm.sh/resource-policy": keep
-      creationTimestamp: null
       labels:
         app: istio-pilot
         heritage: Tiller
@@ -182,12 +174,6 @@ data:
       - name: v1alpha1
         served: true
         storage: true
-    status:
-      acceptedNames:
-        kind: ""
-        plural: ""
-      conditions: []
-      storedVersions: []
 
     ---
     apiVersion: apiextensions.k8s.io/v1beta1
@@ -195,7 +181,6 @@ data:
     metadata:
       annotations:
         "helm.sh/resource-policy": keep
-      creationTimestamp: null
       labels:
         app: istio-pilot
         chart: istio
@@ -956,12 +941,6 @@ data:
       - name: v1alpha3
         served: true
         storage: true
-    status:
-      acceptedNames:
-        kind: ""
-        plural: ""
-      conditions: []
-      storedVersions: []
 
     ---
     apiVersion: apiextensions.k8s.io/v1beta1
@@ -969,7 +948,6 @@ data:
     metadata:
       annotations:
         "helm.sh/resource-policy": keep
-      creationTimestamp: null
       labels:
         app: istio-pilot
         chart: istio
@@ -1257,12 +1235,6 @@ data:
       - name: v1alpha3
         served: true
         storage: true
-    status:
-      acceptedNames:
-        kind: ""
-        plural: ""
-      conditions: []
-      storedVersions: []
 
     ---
     apiVersion: apiextensions.k8s.io/v1beta1
@@ -1270,7 +1242,6 @@ data:
     metadata:
       annotations:
         "helm.sh/resource-policy": keep
-      creationTimestamp: null
       labels:
         app: istio-pilot
         chart: istio
@@ -1411,12 +1382,6 @@ data:
       - name: v1alpha3
         served: true
         storage: true
-    status:
-      acceptedNames:
-        kind: ""
-        plural: ""
-      conditions: []
-      storedVersions: []
 
     ---
     apiVersion: apiextensions.k8s.io/v1beta1
@@ -1424,7 +1389,6 @@ data:
     metadata:
       annotations:
         "helm.sh/resource-policy": keep
-      creationTimestamp: null
       labels:
         app: istio-mixer
         chart: istio
@@ -1510,12 +1474,6 @@ data:
       - name: v1alpha2
         served: true
         storage: true
-    status:
-      acceptedNames:
-        kind: ""
-        plural: ""
-      conditions: []
-      storedVersions: []
 
     ---
     apiVersion: apiextensions.k8s.io/v1beta1
@@ -1523,7 +1481,6 @@ data:
     metadata:
       annotations:
         "helm.sh/resource-policy": keep
-      creationTimestamp: null
       labels:
         app: istio-mixer
         chart: istio
@@ -1727,12 +1684,6 @@ data:
       - name: v1alpha2
         served: true
         storage: true
-    status:
-      acceptedNames:
-        kind: ""
-        plural: ""
-      conditions: []
-      storedVersions: []
 
     ---
     apiVersion: apiextensions.k8s.io/v1beta1
@@ -1740,7 +1691,6 @@ data:
     metadata:
       annotations:
         "helm.sh/resource-policy": keep
-      creationTimestamp: null
       labels:
         app: istio-citadel
         chart: istio
@@ -2464,12 +2414,6 @@ data:
       - name: v1alpha1
         served: true
         storage: true
-    status:
-      acceptedNames:
-        kind: ""
-        plural: ""
-      conditions: []
-      storedVersions: []
 
     ---
     apiVersion: apiextensions.k8s.io/v1beta1
@@ -2477,7 +2421,6 @@ data:
     metadata:
       annotations:
         "helm.sh/resource-policy": keep
-      creationTimestamp: null
       labels:
         app: istio-citadel
         chart: istio
@@ -3200,12 +3143,6 @@ data:
       - name: v1alpha1
         served: true
         storage: true
-    status:
-      acceptedNames:
-        kind: ""
-        plural: ""
-      conditions: []
-      storedVersions: []
 
     ---
     apiVersion: apiextensions.k8s.io/v1beta1
@@ -3213,7 +3150,6 @@ data:
     metadata:
       annotations:
         "helm.sh/resource-policy": keep
-      creationTimestamp: null
       labels:
         app: istio-mixer
         chart: istio
@@ -3286,12 +3222,6 @@ data:
       - name: v1alpha2
         served: true
         storage: true
-    status:
-      acceptedNames:
-        kind: ""
-        plural: ""
-      conditions: []
-      storedVersions: []
 
     ---
     apiVersion: apiextensions.k8s.io/v1beta1
@@ -3299,7 +3229,6 @@ data:
     metadata:
       annotations:
         "helm.sh/resource-policy": keep
-      creationTimestamp: null
       labels:
         app: istio-mixer
         chart: istio
@@ -3376,12 +3305,6 @@ data:
       - name: v1alpha2
         served: true
         storage: true
-    status:
-      acceptedNames:
-        kind: ""
-        plural: ""
-      conditions: []
-      storedVersions: []
 
     ---
     apiVersion: apiextensions.k8s.io/v1beta1
@@ -3389,7 +3312,6 @@ data:
     metadata:
       annotations:
         "helm.sh/resource-policy": keep
-      creationTimestamp: null
       labels:
         app: mixer
         chart: istio
@@ -3470,12 +3392,6 @@ data:
       - name: v1alpha1
         served: true
         storage: true
-    status:
-      acceptedNames:
-        kind: ""
-        plural: ""
-      conditions: []
-      storedVersions: []
 
     ---
     apiVersion: apiextensions.k8s.io/v1beta1
@@ -3483,7 +3399,6 @@ data:
     metadata:
       annotations:
         "helm.sh/resource-policy": keep
-      creationTimestamp: null
       labels:
         app: mixer
         chart: istio
@@ -3631,12 +3546,6 @@ data:
       - name: v1alpha2
         served: true
         storage: true
-    status:
-      acceptedNames:
-        kind: ""
-        plural: ""
-      conditions: []
-      storedVersions: []
 
     ---
     apiVersion: apiextensions.k8s.io/v1beta1
@@ -3644,7 +3553,6 @@ data:
     metadata:
       annotations:
         "helm.sh/resource-policy": keep
-      creationTimestamp: null
       labels:
         app: istio-pilot
         chart: istio
@@ -3781,12 +3689,6 @@ data:
       - name: v1alpha3
         served: true
         storage: true
-    status:
-      acceptedNames:
-        kind: ""
-        plural: ""
-      conditions: []
-      storedVersions: []
 
     ---
     apiVersion: apiextensions.k8s.io/v1beta1
@@ -3794,7 +3696,6 @@ data:
     metadata:
       annotations:
         "helm.sh/resource-policy": keep
-      creationTimestamp: null
       labels:
         app: mixer
         chart: istio
@@ -3987,12 +3888,6 @@ data:
       - name: v1alpha1
         served: true
         storage: true
-    status:
-      acceptedNames:
-        kind: ""
-        plural: ""
-      conditions: []
-      storedVersions: []
 
     ---
     apiVersion: apiextensions.k8s.io/v1beta1
@@ -4000,7 +3895,6 @@ data:
     metadata:
       annotations:
         "helm.sh/resource-policy": keep
-      creationTimestamp: null
       labels:
         app: mixer
         chart: istio
@@ -4104,12 +3998,6 @@ data:
       - name: v1alpha1
         served: true
         storage: true
-    status:
-      acceptedNames:
-        kind: ""
-        plural: ""
-      conditions: []
-      storedVersions: []
 
     ---
     apiVersion: apiextensions.k8s.io/v1beta1
@@ -4117,7 +4005,6 @@ data:
     metadata:
       annotations:
         "helm.sh/resource-policy": keep
-      creationTimestamp: null
       labels:
         app: istio-pilot
         chart: istio
@@ -4820,12 +4707,7 @@ data:
       - name: v1alpha3
         served: true
         storage: true
-    status:
-      acceptedNames:
-        kind: ""
-        plural: ""
-      conditions: []
-      storedVersions: []
+
     ---
     kind: CustomResourceDefinition
     apiVersion: apiextensions.k8s.io/v1beta1
@@ -4856,6 +4738,7 @@ data:
         - name: v1alpha2
           served: true
           storage: true
+
     ---
     kind: CustomResourceDefinition
     apiVersion: apiextensions.k8s.io/v1beta1
@@ -4886,6 +4769,7 @@ data:
         - name: v1alpha2
           served: true
           storage: true
+
     ---
     kind: CustomResourceDefinition
     apiVersion: apiextensions.k8s.io/v1beta1
@@ -4916,6 +4800,7 @@ data:
         - name: v1alpha2
           served: true
           storage: true
+
     ---
     kind: CustomResourceDefinition
     apiVersion: apiextensions.k8s.io/v1beta1
@@ -4946,6 +4831,7 @@ data:
         - name: v1alpha2
           served: true
           storage: true
+
     ---
 
 
@@ -4963,7 +4849,6 @@ data:
     metadata:
       annotations:
         "helm.sh/resource-policy": keep
-      creationTimestamp: null
       labels:
         app: istio-pilot
         chart: istio
@@ -5079,12 +4964,7 @@ data:
       - name: v1alpha3
         served: true
         storage: true
-    status:
-      acceptedNames:
-        kind: ""
-        plural: ""
-      conditions: []
-      storedVersions: []
+
     ---
 
 
@@ -5100,7 +4980,6 @@ data:
     apiVersion: apiextensions.k8s.io/v1beta1
     kind: CustomResourceDefinition
     metadata:
-      creationTimestamp: null
       labels:
         app: istio-pilot
         heritage: Tiller
@@ -5231,12 +5110,7 @@ data:
       - name: v1beta1
         served: true
         storage: true
-    status:
-      acceptedNames:
-        kind: ""
-        plural: ""
-      conditions: []
-      storedVersions: []
+
     ---
 
 
@@ -5290,7 +5164,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   namespace: istio-system
-  name: istio-init-crd-10-1.4.0
+  name: istio-init-crd-10-1.4.2
 spec:
   template:
     metadata:
@@ -5300,7 +5174,7 @@ spec:
       serviceAccountName: istio-init-service-account
       containers:
       - name: istio-init-crd-10
-        image: "docker.io/istio/kubectl:1.4.0"
+        image: "docker.io/istio/kubectl:1.4.2"
         imagePullPolicy: IfNotPresent
         resources:
           limits:
@@ -5327,7 +5201,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   namespace: istio-system
-  name: istio-init-crd-11-1.4.0
+  name: istio-init-crd-11-1.4.2
 spec:
   template:
     metadata:
@@ -5337,7 +5211,7 @@ spec:
       serviceAccountName: istio-init-service-account
       containers:
       - name: istio-init-crd-11
-        image: "docker.io/istio/kubectl:1.4.0"
+        image: "docker.io/istio/kubectl:1.4.2"
         imagePullPolicy: IfNotPresent
         resources:
           limits:
@@ -5364,7 +5238,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   namespace: istio-system
-  name: istio-init-crd-14-1.4.0
+  name: istio-init-crd-14-1.4.2
 spec:
   template:
     metadata:
@@ -5374,7 +5248,7 @@ spec:
       serviceAccountName: istio-init-service-account
       containers:
       - name: istio-init-crd-14
-        image: "docker.io/istio/kubectl:1.4.0"
+        image: "docker.io/istio/kubectl:1.4.2"
         imagePullPolicy: IfNotPresent
         resources:
           limits:
