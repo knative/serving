@@ -30,6 +30,7 @@ import (
 	"go.opencensus.io/plugin/ochttp"
 	"go.uber.org/zap"
 	"knative.dev/pkg/controller"
+	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/tracing"
@@ -168,7 +169,7 @@ func TestActivationHandler(t *testing.T) {
 					Body: test.wantBody,
 				},
 			}
-			rt := network.RoundTripperFunc(fakeRt.RT)
+			rt := pkgnet.RoundTripperFunc(fakeRt.RT)
 
 			reporter := &fakeReporter{}
 
@@ -224,7 +225,7 @@ func TestActivationHandler(t *testing.T) {
 
 func TestActivationHandlerProxyHeader(t *testing.T) {
 	interceptCh := make(chan *http.Request, 1)
-	rt := network.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+	rt := pkgnet.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
 		interceptCh <- r
 		fake := httptest.NewRecorder()
 		return fake.Result(), nil
@@ -282,7 +283,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 					Body: wantBody,
 				},
 			}
-			rt := network.RoundTripperFunc(fakeRt.RT)
+			rt := pkgnet.RoundTripperFunc(fakeRt.RT)
 
 			// Create tracer with reporter recorder
 			reporter, co := tracetesting.FakeZipkinExporter()

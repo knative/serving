@@ -29,6 +29,7 @@ import (
 
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
+	pkgnet "knative.dev/pkg/network"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
@@ -68,7 +69,7 @@ const defaulTimeout = 2 * time.Minute
 func New(ctx context.Context, t Throttler, sr activator.StatsReporter) http.Handler {
 	return &activationHandler{
 		logger:         logging.FromContext(ctx),
-		transport:      network.AutoTransport,
+		transport:      pkgnet.AutoTransport,
 		reporter:       sr,
 		throttler:      t,
 		revisionLister: revisioninformer.Get(ctx).Lister(),
@@ -145,7 +146,7 @@ func (a *activationHandler) proxyRequest(logger *zap.SugaredLogger, w http.Respo
 		}
 	}
 	proxy.FlushInterval = -1
-	proxy.ErrorHandler = network.ErrorHandler(logger)
+	proxy.ErrorHandler = pkgnet.ErrorHandler(logger)
 
 	r.Header.Set(network.ProxyHeaderName, activator.Name)
 

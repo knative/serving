@@ -27,12 +27,12 @@ import (
 	"knative.dev/pkg/logging"
 
 	pkgnet "knative.dev/pkg/network"
+	"knative.dev/pkg/network/prober"
 	"knative.dev/serving/pkg/activator"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/network/prober"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
 	rresources "knative.dev/serving/pkg/reconciler/revision/resources"
@@ -91,7 +91,7 @@ type scaler struct {
 // newScaler creates a scaler.
 func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, enqueueCB func(interface{}, time.Duration)) *scaler {
 	logger := logging.FromContext(ctx)
-	transport := network.NewProberTransport()
+	transport := pkgnet.NewProberTransport()
 	ks := &scaler{
 		// Wrap it in a cache, so that we don't stamp out a new
 		// informer/lister each time.

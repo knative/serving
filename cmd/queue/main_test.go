@@ -32,6 +32,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"go.opencensus.io/plugin/ochttp"
+	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/tracing"
 	tracingconfig "knative.dev/pkg/tracing/config"
@@ -407,7 +408,7 @@ func TestQueueTraceSpans(t *testing.T) {
 				reqChan := make(chan queue.ReqEvent, 10)
 
 				proxy.Transport = &ochttp.Transport{
-					Base: network.AutoTransport,
+					Base: pkgnet.AutoTransport,
 				}
 
 				h := handler(reqChan, breaker, proxy, healthState, func() bool { return false }, true /* isAggresive*/)
