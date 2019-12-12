@@ -33,6 +33,7 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -152,6 +153,16 @@ func CreateRunLatestServiceReady(t *testing.T, clients *test.Clients, names *tes
 		return nil, nil, err
 	}
 
+	// TODO(k4leung4): Move this into pkg/test/ingress.
+	ingressName := "istio-ingressgateway"
+	if gatewayOverride := os.Getenv("GATEWAY_OVERRIDE"); gatewayOverride != "" {
+		ingressName = gatewayOverride
+	}
+	ingressNamespace := "istio-system"
+	if gatewayNsOverride := os.Getenv("GATEWAY_NAMESPACE_OVERRIDE"); gatewayNsOverride != "" {
+		ingressNamespace = gatewayNsOverride
+	}
+
 	var httpsTransportOption *spoof.TransportOption
 	if https {
 		tlsOptions := &istiov1alpha3.Server_TLSOptions{
@@ -168,11 +179,11 @@ func CreateRunLatestServiceReady(t *testing.T, clients *test.Clients, names *tes
 			},
 			Tls: tlsOptions,
 		}}
-		httpsTransportOption, err = setupHTTPS(t, clients.KubeClient, names.URL.Host)
+		httpsTransportOption, err = setupHTTPS(t, ingressNamespace, ingressName, clients.KubeClient, names.URL.Host)
 		if err != nil {
 			return nil, nil, err
 		}
-		setupGateway(t, clients, servers)
+		setupGateway(t, ingressNamespace, clients, servers)
 	}
 
 	t.Log("Getting latest objects Created by Service", names.Service)
@@ -422,7 +433,7 @@ func RestoreGateway(t *testing.T, clients *test.Clients, oldGateway v1alpha3.Gat
 }
 
 // setupGateway updates the ingress Gateway to the provided Servers and waits until all Envoy pods have been updated.
-func setupGateway(t *testing.T, clients *test.Clients, servers []*istiov1alpha3.Server) {
+func setupGateway(t *testing.T, ingressNamespace string, clients *test.Clients, servers []*istiov1alpha3.Server) {
 	// Get the current Gateway
 	curGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(Namespace).Get(GatewayName, metav1.GetOptions{})
 	if err != nil {
@@ -446,7 +457,7 @@ func setupGateway(t *testing.T, clients *test.Clients, servers []*istiov1alpha3.
 	selector := strings.Join(selectors, ",")
 
 	// Restart the Gateway pods: this is needed because Istio without SDS won't refresh the cert when the secret is updated
-	pods, err := clients.KubeClient.Kube.CoreV1().Pods("istio-system").List(metav1.ListOptions{LabelSelector: selector})
+	pods, err := clients.KubeClient.Kube.CoreV1().Pods(ingressNamespace).List(metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		t.Fatalf("Failed to list Gateway pods: %v", err)
 	}
@@ -455,7 +466,7 @@ func setupGateway(t *testing.T, clients *test.Clients, servers []*istiov1alpha3.
 
 	var wg sync.WaitGroup
 	wg.Add(len(pods.Items))
-	wtch, err := clients.KubeClient.Kube.CoreV1().Pods("istio-system").Watch(metav1.ListOptions{LabelSelector: selector})
+	wtch, err := clients.KubeClient.Kube.CoreV1().Pods(ingressNamespace).Watch(metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		t.Fatalf("Failed to watch Gateway pods: %v", err)
 	}
@@ -475,7 +486,7 @@ func setupGateway(t *testing.T, clients *test.Clients, servers []*istiov1alpha3.
 		}
 	}()
 
-	err = clients.KubeClient.Kube.CoreV1().Pods("istio-system").DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: selector})
+	err = clients.KubeClient.Kube.CoreV1().Pods(ingressNamespace).DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		t.Fatalf("Failed to delete Gateway pods: %v", err)
 	}
@@ -486,7 +497,7 @@ func setupGateway(t *testing.T, clients *test.Clients, servers []*istiov1alpha3.
 
 // setupHTTPS creates a self-signed certificate, installs it as a Secret and returns an *http.Transport
 // trusting the certificate as a root CA.
-func setupHTTPS(t *testing.T, kubeClient *ptest.KubeClient, host string) (*spoof.TransportOption, error) {
+func setupHTTPS(t *testing.T, ingressNamespace, ingressName string, kubeClient *ptest.KubeClient, host string) (*spoof.TransportOption, error) {
 	t.Helper()
 	cert, key, err := generateCertificate(host)
 	if err != nil {
@@ -502,11 +513,12 @@ func setupHTTPS(t *testing.T, kubeClient *ptest.KubeClient, host string) (*spoof
 		return nil, errors.New("failed to add the certificate to the root CA")
 	}
 
-	kubeClient.Kube.CoreV1().Secrets("istio-system").Delete("istio-ingressgateway-certs", &metav1.DeleteOptions{})
-	_, err = kubeClient.Kube.CoreV1().Secrets("istio-system").Create(&corev1.Secret{
+	certName := ingressName + "-certs"
+	kubeClient.Kube.CoreV1().Secrets(ingressNamespace).Delete(certName, &metav1.DeleteOptions{})
+	_, err = kubeClient.Kube.CoreV1().Secrets(ingressNamespace).Create(&corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "istio-system",
-			Name:      "istio-ingressgateway-certs",
+			Namespace: ingressNamespace,
+			Name:      certName,
 		},
 		Type: corev1.SecretTypeTLS,
 		Data: map[string][]byte{
