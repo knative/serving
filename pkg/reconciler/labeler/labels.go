@@ -162,7 +162,6 @@ func setRouteLabel(acc accessor, elt kmeta.Accessor, routeName *string) error {
 			"labels": map[string]interface{}{
 				serving.RouteLabelKey: routeName,
 			},
-			"resourceVersion": elt.GetResourceVersion(),
 		},
 	}
 
