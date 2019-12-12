@@ -88,7 +88,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	original, err := c.revisionLister.Revisions(namespace).Get(name)
 	// The resource may no longer exist, in which case we stop processing.
 	if apierrs.IsNotFound(err) {
-		logger.Errorf("revision %q in work queue no longer exists", key)
+		logger.Info("Revision in work queue no longer exists")
 		return nil
 	} else if err != nil {
 		return err

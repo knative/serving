@@ -79,7 +79,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	original, err := c.serviceLister.Services(namespace).Get(name)
 	if apierrs.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
-		logger.Error("Service in work queue no longer exists")
+		logger.Info("Service in work queue no longer exists")
 		return nil
 	} else if err != nil {
 		return err

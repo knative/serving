@@ -78,7 +78,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	original, err := c.knCertificateLister.Certificates(namespace).Get(name)
 	if apierrs.IsNotFound(err) {
-		logger.Errorf("Knative Certificate %s in work queue no longer exists", key)
+		logger.Info("Knative Certificate in work queue no longer exists")
 		return nil
 	} else if err != nil {
 		return err

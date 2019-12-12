@@ -70,7 +70,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 	original, err := c.configurationLister.Configurations(namespace).Get(name)
 	if errors.IsNotFound(err) {
 		// The resource no longer exists, in which case we stop processing.
-		logger.Error("Configuration in work queue no longer exists")
+		logger.Info("Configuration in work queue no longer exists")
 		return nil
 	} else if err != nil {
 		return err
