@@ -43,7 +43,7 @@ import (
 	"knative.dev/pkg/network/prober"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/reconciler/ingress/resources"
+	"knative.dev/serving/pkg/network/ingress"
 )
 
 const (
@@ -153,7 +153,7 @@ func NewStatusProber(
 func (m *StatusProber) IsReady(ia *v1alpha1.Ingress, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error) {
 	ingressKey := fmt.Sprintf("%s/%s", ia.GetNamespace(), ia.GetName())
 
-	bytes, err := resources.ComputeIngressHash(ia)
+	bytes, err := ingress.ComputeHash(ia)
 	if err != nil {
 		return false, fmt.Errorf("failed to compute the hash of the Ingress: %w", err)
 	}
@@ -186,7 +186,7 @@ func (m *StatusProber) IsReady(ia *v1alpha1.Ingress, gw map[v1alpha1.IngressVisi
 	}
 
 	var workItems []*workItem
-	for gatewayName, hosts := range resources.HostsPerGateway(ia, gw) {
+	for gatewayName, hosts := range ingress.HostsPerVisibility(ia, gw) {
 		gateway, err := m.getGateway(gatewayName)
 		if err != nil {
 			return false, fmt.Errorf("failed to get Gateway %q: %w", gatewayName, err)
@@ -232,7 +232,7 @@ func (m *StatusProber) IsReady(ia *v1alpha1.Ingress, gw map[v1alpha1.IngressVisi
 				}
 			}(ip)
 
-			for _, host := range hosts {
+			for _, host := range hosts.List() {
 				for _, target := range targets {
 					workItem := &workItem{
 						ingressState: ingressState,
