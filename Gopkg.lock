@@ -1117,20 +1117,20 @@
   version = "v2.2.4"
 
 [[projects]]
-  digest = "1:aef7a0736d863680268ce11cbf2a8d580f0d88d8bbba016859acc2af3dc53c95"
+  digest = "1:9579dd8b1ccd8cf54ed576af68438b69588cc136eac90b10aa7c8d1a1c8334ff"
   name = "istio.io/api"
   packages = ["networking/v1alpha3"]
   pruneopts = "NUT"
-  revision = "2629c6ac1513852f77379a9fb514a69ed9d22996"
-  version = "1.4.0-beta.4"
+  revision = "e1a1952e5b81ed914b06c1814fd3a0c92c750e37"
+  version = "1.4.1"
 
 [[projects]]
-  digest = "1:fee82a174b082c99bebdd7b620429a656d8803821cac7af6533b9c1482c0de16"
+  digest = "1:57e8c0255e33ab72e09219665d5ed7733a694e0092ab4a69b97100aa27bcbbb4"
   name = "istio.io/client-go"
   packages = ["pkg/apis/networking/v1alpha3"]
   pruneopts = "NUT"
-  revision = "8ddf0ba25ae5fdfdef891cbca5e67bf6d9921559"
-  version = "1.4.0-beta.4"
+  revision = "26c62a04cdbc1fb52dd71a9194b0d49ce297e836"
+  version = "1.4.1"
 
 [[projects]]
   digest = "1:9c9f11af1b1f2ae03d897ba5de27103ec1c9c43605663ccdef67831d6a462a30"
