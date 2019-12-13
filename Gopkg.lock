@@ -1692,7 +1692,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:fc7b515ee18a5cdb8dbca9d664f593a796fc1f62c15a493808f303192adada97"
+  digest = "1:0564dc5110e73623b9e7e9252b6a7196de21b8036ee698a4f38415e7c16d91d6"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1715,11 +1715,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "efe31127a812420eed46520c84fd4aa5167e64cc"
+  revision = "62f685b3a0639ac58f03e533a971019be1c6774f"
 
 [[projects]]
   branch = "master"
-  digest = "1:fd0a9998fe007e1d20ea859e93590525147081a9acb498a4445065d514e1fcef"
+  digest = "1:88d6902d81d05b65381231b5b9682afc7fd420a4dc1f196d91fd6e94a7e87d66"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1789,6 +1789,7 @@
     "metrics/metricstest",
     "metrics/testing",
     "network",
+    "network/prober",
     "profiling",
     "ptr",
     "reconciler/testing",
@@ -1835,7 +1836,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "bebd5557feae665ccf77bb1d8fee2758aa658264"
+  revision = "a55e24e80c91c3187189641c6ad1651283d05db5"
 
 [[projects]]
   branch = "master"
@@ -1852,7 +1853,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "32d84d399e44c68470d2703a6de633ab0a826d49"
+  revision = "71df8cbc28daf5dcf8c9b1ff2dfebdc553dc4bee"
 
 [[projects]]
   digest = "1:fef5992ddf85e9ccad899b11338339858936a10fbce96b9d5c43767669d95398"
@@ -1971,6 +1972,7 @@
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/record",
     "k8s.io/client-go/util/flowcontrol",
+    "k8s.io/client-go/util/retry",
     "k8s.io/client-go/util/workqueue",
     "k8s.io/code-generator/cmd/client-gen",
     "k8s.io/code-generator/cmd/deepcopy-gen",
@@ -2041,6 +2043,7 @@
     "knative.dev/pkg/metrics/metricstest",
     "knative.dev/pkg/metrics/testing",
     "knative.dev/pkg/network",
+    "knative.dev/pkg/network/prober",
     "knative.dev/pkg/profiling",
     "knative.dev/pkg/ptr",
     "knative.dev/pkg/reconciler/testing",
