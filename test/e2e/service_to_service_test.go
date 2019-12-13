@@ -25,7 +25,7 @@ import (
 	"testing"
 
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/ingress"
+	ingress "knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -220,7 +220,11 @@ func TestServiceToServiceCall(t *testing.T) {
 
 	// helloworld app and its route are ready. Running the test cases now.
 	for _, tc := range testCases {
-		helloworldURL := resources.Route.Status.URL.URL()
+		helloworldURL := &url.URL{
+			Scheme: resources.Route.Status.URL.Scheme,
+			Host:   strings.TrimSuffix(resources.Route.Status.URL.Host, tc.suffix),
+			Path:   resources.Route.Status.URL.Path,
+		}
 		t.Run(tc.name, func(t *testing.T) {
 			cancel := logstream.Start(t)
 			defer cancel()
