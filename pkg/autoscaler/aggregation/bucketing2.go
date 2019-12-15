@@ -20,6 +20,8 @@ import (
 	"math"
 	"sync"
 	"time"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
 // TimedFloat64Buckets2 keeps buckets that have been collected at a certain time.
@@ -30,6 +32,10 @@ type TimedFloat64Buckets2 struct {
 
 	granularity time.Duration
 	window      time.Duration
+}
+
+func (t *TimedFloat64Buckets2) String() string {
+	return spew.Sdump(t.buckets)
 }
 
 // NewTimedFloat64Buckets2 generates a new TimedFloat64Buckets2 with the given
