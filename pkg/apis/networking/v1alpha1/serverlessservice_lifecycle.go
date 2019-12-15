@@ -58,6 +58,13 @@ func (sss *ServerlessServiceStatus) MarkEndpointsNotOwned(kind, name string) {
 		"Resource %s of type %s is not owned by SKS", name, kind)
 }
 
+// MarkServiceEntriesNotOwned marks that we don't own ServiceEntries.
+func (sss *ServerlessServiceStatus) MarkServiceEntriesNotOwned(kind, name string) {
+	serverlessServiceCondSet.Manage(sss).MarkFalse(
+		ServiceEntriesPopulated, "NotOwned",
+		"Resource %s of type %s is not owned by SKS", name, kind)
+}
+
 // MarkActivatorEndpointsPopulated is setting the ActivatorEndpointsPopulated to True.
 func (sss *ServerlessServiceStatus) MarkActivatorEndpointsPopulated() {
 	serverlessServiceCondSet.Manage(sss).SetCondition(apis.Condition{

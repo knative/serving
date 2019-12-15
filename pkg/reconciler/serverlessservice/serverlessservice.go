@@ -36,6 +36,7 @@ import (
 	istiolisters "knative.dev/pkg/client/istio/listers/networking/v1alpha3"
 
 	"knative.dev/pkg/apis/duck"
+	istioclientset "knative.dev/pkg/client/istio/clientset/versioned"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
@@ -43,6 +44,8 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 	rbase "knative.dev/serving/pkg/reconciler"
+	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
+	istioaccessor "knative.dev/serving/pkg/reconciler/accessor/istio"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources"
 	presources "knative.dev/serving/pkg/resources"
 )
@@ -58,20 +61,34 @@ type reconciler struct {
 	serviceLister   corev1listers.ServiceLister
 	endpointsLister corev1listers.EndpointsLister
 
-	serviceEntryLister istiolisters.ServiceEntryLister
+	serviceentryLister istiolisters.ServiceEntryLister
 
 	// Used to get PodScalables from object references.
 	psInformerFactory duck.InformerFactory
 }
 
-// Check that our Reconciler implements controller.Reconciler
-var _ controller.Reconciler = (*reconciler)(nil)
+var (
+	// Check that our Reconciler implements controller.Reconciler
+	_ controller.Reconciler              = (*reconciler)(nil)
+	_ istioaccessor.ServiceEntryAccessor = (*reconciler)(nil)
+)
+
+// GetIstioClient returns the client to access Istio resources.
+func (r *reconciler) GetIstioClient() istioclientset.Interface {
+	return r.IstioClientSet
+}
+
+// GetServiceEntryLister returns the lister for ServiceEntry.
+func (r *reconciler) GetServiceEntryLister() istiolisters.ServiceEntryLister {
+	return r.serviceentryLister
+}
 
 // Reconcile compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Revision resource
 // with the current status of the resource.
 func (r *reconciler) Reconcile(ctx context.Context, key string) error {
 	logger := logging.FromContext(ctx)
+	ctx = controller.WithEventRecorder(ctx, r.Recorder)
 
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -128,6 +145,33 @@ func (r *reconciler) reconcile(ctx context.Context, sks *netv1alpha1.ServerlessS
 		}
 	}
 	sks.Status.ObservedGeneration = sks.Generation
+	return nil
+}
+
+func (r *reconciler) reconcileServiceEntry(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
+	logger := logging.FromContext(ctx)
+
+	activatorEps, err := r.endpointsLister.Endpoints(system.Namespace()).Get(networking.ActivatorServiceName)
+	if err != nil {
+		return fmt.Errorf("failed to get activator service endpoints: %w", err)
+	}
+	logger.Debug("Activator endpoints: ", spew.Sprint(activatorEps))
+
+	psn := sks.Status.PrivateServiceName
+	pvtEps, err := r.endpointsLister.Endpoints(sks.Namespace).Get(psn)
+	if err != nil {
+		return fmt.Errorf("failed to get private K8s Service endpoints: %w", err)
+	}
+
+	desired := resources.MakeServiceEntry(sks, activatorEps, pvtEps)
+	if _, err := istioaccessor.ReconcileServiceEntry(ctx, sks, desired, r); err != nil {
+		if kaccessor.IsNotOwned(err) {
+			sks.Status.MarkServiceEntriesNotOwned("ServiceEntry", desired.Name)
+		}
+		sks.Status.MarkServiceEntriesNotReady()
+		return err
+	}
+	sks.Status.MarkServiceEntriesPopulated()
 	return nil
 }
 
@@ -188,53 +232,6 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 	}
 	sks.Status.ServiceName = sn
 	logger.Debug("Done reconciling public K8s service: ", sn)
-	return nil
-}
-
-func (r *reconciler) reconcileServiceEntry(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
-	logger := logging.FromContext(ctx)
-
-	activatorEps, err := r.endpointsLister.Endpoints(system.Namespace()).Get(networking.ActivatorServiceName)
-	if err != nil {
-		return fmt.Errorf("failed to get activator service endpoints: %w", err)
-	}
-	logger.Debug("Activator endpoints: ", spew.Sprint(activatorEps))
-
-	psn := sks.Status.PrivateServiceName
-	pvtEps, err := r.endpointsLister.Endpoints(sks.Namespace).Get(psn)
-	if err != nil {
-		return fmt.Errorf("failed to get private K8s Service endpoints: %w", err)
-	}
-
-	sn := sks.Name
-	se, err := r.serviceEntryLister.ServiceEntries(sks.Namespace).Get(sn)
-	if apierrs.IsNotFound(err) {
-		if _, err = r.IstioClientSet.NetworkingV1alpha3().ServiceEntries(sks.Namespace).Create(resources.MakeServiceEntry(sks, activatorEps, pvtEps)); err != nil {
-			return fmt.Errorf("failed to create ServiceEntry: %w", err)
-		}
-		logger.Info("Created ServiceEntry: ", sn)
-	} else if err != nil {
-		return fmt.Errorf("failed to get public K8s Endpoints: %w", err)
-	} else if !metav1.IsControlledBy(se, sks) {
-		// TODO: implment MarkXXXNotOwned.
-		//sks.Status.MarkEndpointsNotOwned("ServiceEntry", se)
-		return fmt.Errorf("SKS: %s does not own ServiceEntry: %s", sks.Name, se.Name)
-	} else {
-		tmpl := resources.MakeServiceEntry(sks, activatorEps, pvtEps)
-		want := se.DeepCopy()
-		want.Spec.Endpoints = tmpl.Spec.Endpoints
-		if !equality.Semantic.DeepEqual(want.Spec, se.Spec) {
-			logger.Info("ServiceEntry changed; reconciling: ", sn, cmp.Diff(want.Spec, se.Spec))
-			if _, err = r.IstioClientSet.NetworkingV1alpha3().ServiceEntries(sks.Namespace).Update(want); err != nil {
-				return fmt.Errorf("failed to update public K8s Service: %w", err)
-			}
-		}
-	}
-	if len(pvtEps.Subsets) == 0 || len(pvtEps.Subsets[0].Addresses) == 0 {
-		sks.Status.MarkServiceEntriesNotReady()
-	} else {
-		sks.Status.MarkServiceEntriesPopulated()
-	}
 	return nil
 }
 

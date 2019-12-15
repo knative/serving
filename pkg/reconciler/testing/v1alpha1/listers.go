@@ -162,6 +162,10 @@ func (l *Listers) GetGatewayLister() istiolisters.GatewayLister {
 	return istiolisters.NewGatewayLister(l.IndexerFor(&istiov1alpha3.Gateway{}))
 }
 
+func (l *Listers) GetServiceEntryLister() istiolisters.ServiceEntryLister {
+	return istiolisters.NewServiceEntryLister(l.IndexerFor(&istiov1alpha3.ServiceEntry{}))
+}
+
 // GetKnCertificateLister gets lister for Knative Certificate resource.
 func (l *Listers) GetKnCertificateLister() networkinglisters.CertificateLister {
 	return networkinglisters.NewCertificateLister(l.IndexerFor(&networking.Certificate{}))

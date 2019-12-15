@@ -54,7 +54,7 @@ func NewController(
 		endpointsLister:    endpointsInformer.Lister(),
 		serviceLister:      serviceInformer.Lister(),
 		sksLister:          sksInformer.Lister(),
-		serviceEntryLister: serviceEntryInformer.Lister(),
+		serviceentryLister: serviceEntryInformer.Lister(),
 		psInformerFactory:  podscalable.Get(ctx),
 	}
 	impl := controller.NewImpl(c, c.Logger, reconcilerName)

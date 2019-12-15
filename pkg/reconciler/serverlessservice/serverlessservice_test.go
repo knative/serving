@@ -29,6 +29,8 @@ import (
 	_ "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 
+	_ "knative.dev/pkg/client/istio/injection/informers/networking/v1alpha3/serviceentry/fake"
+
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
@@ -657,11 +659,12 @@ func TestReconcile(t *testing.T) {
 		ctx = podscalable.WithDuck(ctx)
 
 		return &reconciler{
-			Base:              rpkg.NewBase(ctx, controllerAgentName, cmw),
-			sksLister:         listers.GetServerlessServiceLister(),
-			serviceLister:     listers.GetK8sServiceLister(),
-			endpointsLister:   listers.GetEndpointsLister(),
-			psInformerFactory: podscalable.Get(ctx),
+			Base:               rpkg.NewBase(ctx, controllerAgentName, cmw),
+			sksLister:          listers.GetServerlessServiceLister(),
+			serviceLister:      listers.GetK8sServiceLister(),
+			endpointsLister:    listers.GetEndpointsLister(),
+			serviceentryLister: listers.GetServiceEntryLister(),
+			psInformerFactory:  podscalable.Get(ctx),
 		}
 	}))
 }
