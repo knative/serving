@@ -99,9 +99,15 @@ func TestMultiScalerScaling(t *testing.T) {
 	errCh := make(chan error)
 	ms.Watch(watchFunc(ctx, ms, decider, 1, errCh))
 
-	_, err = ms.Create(ctx, decider)
+	d, err := ms.Create(ctx, decider)
 	if err != nil {
 		t.Fatalf("Create() = %v", err)
+	}
+	if got, want := d.Status.DesiredScale, int32(-1); got != want {
+		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
+	}
+	if got, want := d.Status.ExcessBurstCapacity, int32(0); got != want {
+		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
 	}
 
 	// Verify that we see a "tick"
@@ -122,6 +128,26 @@ func TestMultiScalerScaling(t *testing.T) {
 	// Verify that we stop seeing "ticks"
 	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestMultiscalerCreateTBCMinus1(t *testing.T) {
+	ctx := context.Background()
+	ms, stopCh, _ := createMultiScaler(t)
+	defer close(stopCh)
+
+	decider := newDecider()
+	decider.Spec.TargetBurstCapacity = -1
+
+	d, err := ms.Create(ctx, decider)
+	if err != nil {
+		t.Fatalf("Create() = %v", err)
+	}
+	if got, want := d.Status.DesiredScale, int32(-1); got != want {
+		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
+	}
+	if got, want := d.Status.ExcessBurstCapacity, int32(-1); got != want {
+		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
 	}
 }
 

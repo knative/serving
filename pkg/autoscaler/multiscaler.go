@@ -289,6 +289,13 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 		pokeCh:  make(chan struct{}),
 	}
 	runner.decider.Status.DesiredScale = -1
+	runner.decider.Status.ExcessBurstCapacity = func() int32 {
+		// If user asked for -1 TBC, make sure it is set that way even at creation.
+		if runner.decider.Spec.TargetBurstCapacity == -1 {
+			return -1
+		}
+		return 0
+	}()
 
 	m.runScalerTicker(ctx, runner)
 	return runner, nil
