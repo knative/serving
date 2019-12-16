@@ -38,7 +38,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	istiolisters "knative.dev/pkg/client/istio/listers/networking/v1alpha3"
+	istiolisters "knative.dev/serving/pkg/client/istio/listers/networking/v1alpha3"
 	"knative.dev/serving/pkg/network"
 )
 

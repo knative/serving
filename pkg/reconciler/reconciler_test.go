@@ -22,9 +22,9 @@ import (
 
 	_ "knative.dev/caching/pkg/client/injection/client/fake"
 	_ "knative.dev/pkg/client/injection/kube/client/fake"
-	_ "knative.dev/pkg/client/istio/injection/client/fake"
 	_ "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	_ "knative.dev/serving/pkg/client/injection/client/fake"
+	_ "knative.dev/serving/pkg/client/istio/injection/client/fake"
 
 	"k8s.io/client-go/rest"
 	"knative.dev/pkg/configmap"
