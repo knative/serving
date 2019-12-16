@@ -67,8 +67,7 @@ func ServiceWithoutNamespace(name string, so ...ServiceOption) *v1alpha1.Service
 
 // DefaultService creates a service with ServiceOptions and with default values set
 func DefaultService(name, namespace string, so ...ServiceOption) *v1alpha1.Service {
-	s := Service(name, namespace, so...)
-	s.SetDefaults(context.Background())
+	s := Service(name, namespace, append(so,WithServiceDefaults)...)
 	return s
 }
 
