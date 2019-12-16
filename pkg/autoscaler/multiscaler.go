@@ -155,7 +155,7 @@ func NewMultiScaler(
 	}
 }
 
-// Get return the current Decider.
+// Get returns the copy of the current Decider.
 func (m *MultiScaler) Get(ctx context.Context, namespace, name string) (*Decider, error) {
 	key := types.NamespacedName{Namespace: namespace, Name: name}
 	m.scalersMutex.RLock()
@@ -167,7 +167,7 @@ func (m *MultiScaler) Get(ctx context.Context, namespace, name string) (*Decider
 	}
 	scaler.mux.RLock()
 	defer scaler.mux.RUnlock()
-	return scaler.decider, nil
+	return scaler.decider.DeepCopy(), nil
 }
 
 // Create instantiates the desired Decider.
@@ -288,7 +288,16 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 		decider: d,
 		pokeCh:  make(chan struct{}),
 	}
-	runner.decider.Status.DesiredScale = -1
+	d.Status.DesiredScale = -1
+	switch tbc := d.Spec.TargetBurstCapacity; tbc {
+	case -1, 0:
+		d.Status.ExcessBurstCapacity = int32(tbc)
+	default:
+		// If TBC > Target * InitialScale (currently 1), then we know initial
+		// scale won't be enough to cover TBC and we'll be behind activator.
+		// TODO(autoscale-wg): fix this when we switch to non "1" initial scale.
+		d.Status.ExcessBurstCapacity = int32(1*d.Spec.TotalValue - tbc)
+	}
 
 	m.runScalerTicker(ctx, runner)
 	return runner, nil
