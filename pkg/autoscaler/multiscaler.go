@@ -155,7 +155,7 @@ func NewMultiScaler(
 	}
 }
 
-// Get return the current Decider.
+// Get returns the copy of the current Decider.
 func (m *MultiScaler) Get(ctx context.Context, namespace, name string) (*Decider, error) {
 	key := types.NamespacedName{Namespace: namespace, Name: name}
 	m.scalersMutex.RLock()
@@ -167,7 +167,7 @@ func (m *MultiScaler) Get(ctx context.Context, namespace, name string) (*Decider
 	}
 	scaler.mux.RLock()
 	defer scaler.mux.RUnlock()
-	return scaler.decider, nil
+	return scaler.decider.DeepCopy(), nil
 }
 
 // Create instantiates the desired Decider.

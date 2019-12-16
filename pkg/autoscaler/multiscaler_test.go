@@ -99,9 +99,13 @@ func TestMultiScalerScaling(t *testing.T) {
 	errCh := make(chan error)
 	ms.Watch(watchFunc(ctx, ms, decider, 1, errCh))
 
-	d, err := ms.Create(ctx, decider)
+	_, err = ms.Create(ctx, decider)
 	if err != nil {
 		t.Fatalf("Create() = %v", err)
+	}
+	d, err := ms.Get(ctx, decider.Namespace, decider.Name)
+	if err != nil {
+		t.Fatalf("Get() = %v", err)
 	}
 	if got, want := d.Status.DesiredScale, int32(-1); got != want {
 		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
@@ -140,9 +144,13 @@ func TestMultiscalerCreateTBC42(t *testing.T) {
 	decider.Spec.TargetBurstCapacity = 42
 	decider.Spec.TargetValue = 25
 
-	d, err := ms.Create(ctx, decider)
+	_, err := ms.Create(ctx, decider)
 	if err != nil {
 		t.Fatalf("Create() = %v", err)
+	}
+	d, err := ms.Get(ctx, decider.Namespace, decider.Name)
+	if err != nil {
+		t.Fatalf("Get() = %v", err)
 	}
 	if got, want := d.Status.DesiredScale, int32(-1); got != want {
 		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
@@ -159,9 +167,13 @@ func TestMultiscalerCreateTBCMinus1(t *testing.T) {
 	decider := newDecider()
 	decider.Spec.TargetBurstCapacity = -1
 
-	d, err := ms.Create(ctx, decider)
+	_, err := ms.Create(ctx, decider)
 	if err != nil {
 		t.Fatalf("Create() = %v", err)
+	}
+	d, err := ms.Get(ctx, decider.Namespace, decider.Name)
+	if err != nil {
+		t.Fatalf("Get() = %v", err)
 	}
 	if got, want := d.Status.DesiredScale, int32(-1); got != want {
 		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
