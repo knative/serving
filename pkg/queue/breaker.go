@@ -67,11 +67,6 @@ func NewBreaker(params BreakerParams) *Breaker {
 	}
 }
 
-// HasCapacity returns if the breaker can accept a request.
-func (b *Breaker) HasCapacity() bool {
-	return b.sem.hasCapacity()
-}
-
 // Reserve reserves an execution slot in the breaker, to permit
 // richer semantics in the caller.
 // The caller on success must execute the callback when done with work.
@@ -269,9 +264,4 @@ func (s *semaphore) Capacity() int {
 	defer s.mux.RUnlock()
 
 	return s.effectiveCapacity()
-}
-
-// A helper returning whether current capacity is positive.
-func (s *semaphore) hasCapacity() bool {
-	return len(s.queue) > 0
 }
