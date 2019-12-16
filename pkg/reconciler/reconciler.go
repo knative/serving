@@ -33,18 +33,18 @@ import (
 
 	cachingclient "knative.dev/caching/pkg/client/injection/client"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
-	istioclient "knative.dev/pkg/client/istio/injection/client"
 	"knative.dev/pkg/injection/clients/dynamicclient"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
+	istioclient "knative.dev/serving/pkg/client/istio/injection/client"
 
 	cachingclientset "knative.dev/caching/pkg/client/clientset/versioned"
-	istioclientset "knative.dev/pkg/client/istio/clientset/versioned"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	servingScheme "knative.dev/serving/pkg/client/clientset/versioned/scheme"
+	istioclientset "knative.dev/serving/pkg/client/istio/clientset/versioned"
 )
 
 const (

@@ -23,8 +23,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"knative.dev/pkg/network"
+	"knative.dev/pkg/network/prober"
 	_ "knative.dev/pkg/system/testing"
-	"knative.dev/serving/pkg/network/prober"
 )
 
 func TestProbeHandlerSuccessfulProbe(t *testing.T) {
@@ -87,7 +88,7 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got, err := prober.Do(context.Background(), AutoTransport, ts.URL, c.options...)
+			got, err := prober.Do(context.Background(), network.AutoTransport, ts.URL, c.options...)
 			if err != nil && !c.expErr {
 				t.Errorf("prober.Do() = %v, no error expected", err)
 			}

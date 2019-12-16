@@ -38,7 +38,7 @@ const (
 )
 
 var (
-	// See https://knative.dev/serving/pull/1124#issuecomment-397120430
+	// See https://github.com/knative/serving/pull/1124#issuecomment-397120430
 	// for how CPU and memory values were calculated.
 	queueContainerCPU = resource.MustParse("25m")
 )

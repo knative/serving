@@ -9,9 +9,6 @@ aliases:
   - vaikas
   - n3wscott
 
-  apis-istio-approvers:
-  - tcnghia
-
   apis-duck-approvers:
   - mattmoor
   - vaikas

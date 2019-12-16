@@ -69,8 +69,6 @@ type AdmissionController interface {
 	Path() string
 
 	// Admit is the callback which is invoked when an HTTPS request comes in on Path().
-	// TODO(mattmoor): This will need to be different for Conversion webhooks, which is something
-	// to start thinking about.
 	Admit(context.Context, *admissionv1beta1.AdmissionRequest) *admissionv1beta1.AdmissionResponse
 }
 
@@ -80,7 +78,7 @@ type Webhook struct {
 	Client               kubernetes.Interface
 	Options              Options
 	Logger               *zap.SugaredLogger
-	admissionControllers map[string][]AdmissionController
+	admissionControllers map[string]AdmissionController
 	secretlister         corelisters.SecretLister
 }
 
@@ -114,9 +112,12 @@ func New(
 	}
 
 	// Build up a map of paths to admission controllers for routing handlers.
-	acs := map[string][]AdmissionController{}
+	acs := make(map[string]AdmissionController, len(admissionControllers))
 	for _, ac := range admissionControllers {
-		acs[ac.Path()] = append(acs[ac.Path()], ac)
+		if _, ok := acs[ac.Path()]; ok {
+			return nil, fmt.Errorf("duplicate webhook for path: %v", ac.Path())
+		}
+		acs[ac.Path()] = ac
 	}
 
 	return &Webhook{
@@ -164,7 +165,7 @@ func (ac *Webhook) Run(stop <-chan struct{}) error {
 
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		if err := server.ListenAndServeTLS("", ""); err != nil {
+		if err := server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
 			logger.Errorw("ListenAndServeTLS for admission webhook returned error", zap.Error(err))
 			return err
 		}
@@ -173,7 +174,10 @@ func (ac *Webhook) Run(stop <-chan struct{}) error {
 
 	select {
 	case <-stop:
-		return server.Close()
+		if err := server.Close(); err != nil {
+			return err
+		}
+		return eg.Wait()
 	case <-ctx.Done():
 		return fmt.Errorf("webhook server bootstrap failed %v", ctx.Err())
 	}
@@ -209,31 +213,21 @@ func (ac *Webhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		zap.String(logkey.UserInfo, fmt.Sprint(review.Request.UserInfo)))
 	ctx := logging.WithLogger(r.Context(), logger)
 
-	cs, ok := ac.admissionControllers[r.URL.Path]
+	c, ok := ac.admissionControllers[r.URL.Path]
 	if !ok {
 		http.Error(w, fmt.Sprintf("no admission controller registered for: %s", r.URL.Path), http.StatusBadRequest)
 		return
 	}
 
-	// TODO(mattmoor): Remove support for multiple AdmissionControllers at
-	// the same path after 0.11 cuts.
-	// We only TEMPORARILY support multiple AdmissionControllers at the same path because of
-	// the issue described here: https://github.com/knative/serving/pull/5947
-	// So we only support a single AdmissionController per path returning Patches.
 	var response admissionv1beta1.AdmissionReview
-	for _, c := range cs {
-		reviewResponse := c.Admit(ctx, review.Request)
-		logger.Infof("AdmissionReview for %#v: %s/%s response=%#v",
-			review.Request.Kind, review.Request.Namespace, review.Request.Name, reviewResponse)
+	reviewResponse := c.Admit(ctx, review.Request)
+	logger.Infof("AdmissionReview for %#v: %s/%s response=%#v",
+		review.Request.Kind, review.Request.Namespace, review.Request.Name, reviewResponse)
 
-		if !reviewResponse.Allowed {
-			response.Response = reviewResponse
-			break
-		}
-
-		if reviewResponse.PatchType != nil || response.Response == nil {
-			response.Response = reviewResponse
-		}
+	if !reviewResponse.Allowed {
+		response.Response = reviewResponse
+	} else if reviewResponse.PatchType != nil || response.Response == nil {
+		response.Response = reviewResponse
 	}
 	response.Response.UID = review.Request.UID
 

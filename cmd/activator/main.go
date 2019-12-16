@@ -29,15 +29,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kelseyhightower/envconfig"
+	"go.opencensus.io/stats/view"
+	"go.uber.org/zap"
+
 	// Injection related imports.
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 
-	"github.com/kelseyhightower/envconfig"
-	"go.opencensus.io/stats/view"
-	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
+
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection/sharedmain"
@@ -268,8 +270,8 @@ func main() {
 	}
 
 	servers := map[string]*http.Server{
-		"http1":   network.NewServer(":"+strconv.Itoa(networking.BackendHTTPPort), ah),
-		"h2c":     network.NewServer(":"+strconv.Itoa(networking.BackendHTTP2Port), ah),
+		"http1":   pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTPPort), ah),
+		"h2c":     pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTP2Port), ah),
 		"profile": profiling.NewServer(profilingHandler),
 	}
 

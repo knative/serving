@@ -157,7 +157,7 @@ var ingressSpec = v1alpha1.IngressSpec{
 	}},
 }
 
-var ingress = v1alpha1.Ingress{
+var ingressResource = v1alpha1.Ingress{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "ingress",
 		Namespace: "test-ns",
@@ -166,7 +166,7 @@ var ingress = v1alpha1.Ingress{
 }
 
 func TestGetServers(t *testing.T) {
-	servers := GetServers(&gateway, &ingress)
+	servers := GetServers(&gateway, &ingressResource)
 	expected := []*istiov1alpha3.Server{{
 		Hosts: []string{"host1.example.com"},
 		Port: &istiov1alpha3.Port{
@@ -213,7 +213,7 @@ func TestMakeTLSServers(t *testing.T) {
 		wantErr                 bool
 	}{{
 		name: "secret namespace is the different from the gateway service namespace",
-		ci:   &ingress,
+		ci:   &ingressResource,
 		// gateway service namespace is "istio-system", while the secret namespace is system.Namespace()("knative-testing").
 		gatewayServiceNamespace: "istio-system",
 		originSecrets:           originSecrets,
@@ -228,12 +228,12 @@ func TestMakeTLSServers(t *testing.T) {
 				Mode:              istiov1alpha3.Server_TLSOptions_SIMPLE,
 				ServerCertificate: "tls.crt",
 				PrivateKey:        "tls.key",
-				CredentialName:    targetSecret(&secret, &ingress),
+				CredentialName:    targetSecret(&secret, &ingressResource),
 			},
 		}},
 	}, {
 		name: "secret namespace is the same as the gateway service namespace",
-		ci:   &ingress,
+		ci:   &ingressResource,
 		// gateway service namespace and the secret namespace are both in system.Namespace().
 		gatewayServiceNamespace: system.Namespace(),
 		originSecrets:           originSecrets,
@@ -253,7 +253,7 @@ func TestMakeTLSServers(t *testing.T) {
 		}},
 	}, {
 		name:                    "port name is created with ingress namespace-name",
-		ci:                      &ingress,
+		ci:                      &ingressResource,
 		gatewayServiceNamespace: system.Namespace(),
 		originSecrets:           originSecrets,
 		expected: []*istiov1alpha3.Server{{
@@ -273,7 +273,7 @@ func TestMakeTLSServers(t *testing.T) {
 		}},
 	}, {
 		name:                    "error to make servers because of incorrect originSecrets",
-		ci:                      &ingress,
+		ci:                      &ingressResource,
 		gatewayServiceNamespace: "istio-system",
 		originSecrets:           map[string]*corev1.Secret{},
 		wantErr:                 true,
@@ -570,7 +570,7 @@ func TestMakeIngressGateways(t *testing.T) {
 		wantErr        bool
 	}{{
 		name:          "happy path: secret namespace is the different from the gateway service namespace",
-		ia:            &ingress,
+		ia:            &ingressResource,
 		originSecrets: originSecrets,
 		gatewayService: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -585,7 +585,7 @@ func TestMakeIngressGateways(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:            fmt.Sprintf("ingress-%d", adler32.Checksum([]byte("istio-system/istio-ingressgateway"))),
 				Namespace:       "test-ns",
-				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(&ingress)},
+				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(&ingressResource)},
 				Labels: map[string]string{
 					networking.IngressLabelKey: "ingress",
 				},
@@ -603,7 +603,7 @@ func TestMakeIngressGateways(t *testing.T) {
 						Mode:              istiov1alpha3.Server_TLSOptions_SIMPLE,
 						ServerCertificate: "tls.crt",
 						PrivateKey:        "tls.key",
-						CredentialName:    targetSecret(&secret, &ingress),
+						CredentialName:    targetSecret(&secret, &ingressResource),
 					},
 				}, {
 					Hosts: []string{"host1.example.com"},
@@ -617,7 +617,7 @@ func TestMakeIngressGateways(t *testing.T) {
 		}},
 	}, {
 		name:          "happy path: secret namespace is the same as the gateway service namespace",
-		ia:            &ingress,
+		ia:            &ingressResource,
 		originSecrets: originSecrets,
 		// The namespace of gateway service is the same as the secrets.
 		gatewayService: &corev1.Service{
@@ -633,7 +633,7 @@ func TestMakeIngressGateways(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:            fmt.Sprintf("ingress-%d", adler32.Checksum([]byte(system.Namespace()+"/istio-ingressgateway"))),
 				Namespace:       "test-ns",
-				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(&ingress)},
+				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(&ingressResource)},
 				Labels: map[string]string{
 					networking.IngressLabelKey: "ingress",
 				},
@@ -665,7 +665,7 @@ func TestMakeIngressGateways(t *testing.T) {
 		}},
 	}, {
 		name:          "error to make gateway because of incorrect originSecrets",
-		ia:            &ingress,
+		ia:            &ingressResource,
 		originSecrets: map[string]*corev1.Secret{},
 		gatewayService: &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{

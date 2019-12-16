@@ -29,6 +29,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/network/ingress"
 
 	"go.uber.org/zap/zaptest"
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
@@ -37,9 +38,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	istiolisters "knative.dev/pkg/client/istio/listers/networking/v1alpha3"
+	istiolisters "knative.dev/serving/pkg/client/istio/listers/networking/v1alpha3"
 	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/reconciler/ingress/resources"
 )
 
 var (
@@ -319,7 +319,7 @@ func TestProbeLifecycle(t *testing.T) {
 	}
 
 	ia := iaTemplate.DeepCopy()
-	hash, err := resources.InsertProbe(ia)
+	hash, err := ingress.InsertProbe(ia)
 	if err != nil {
 		t.Fatalf("failed to insert probe: %v", err)
 	}

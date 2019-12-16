@@ -53,7 +53,7 @@ func TestSingleConcurrency(t *testing.T) {
 	url := objects.Service.Status.URL.URL()
 
 	// Ready does not actually mean Ready for a Route just yet.
-	// See https://knative.dev/serving/issues/1582
+	// See https://github.com/knative/serving/issues/1582
 	t.Logf("Probing %s", url)
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,

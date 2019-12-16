@@ -26,7 +26,7 @@ import (
 // unlikely to change from version to version.
 
 // ProtocolType is an enumeration of the supported application-layer protocols
-// See also: https://knative.dev/serving/blob/master/docs/runtime-contract.md#protocols-and-ports
+// See also: https://github.com/knative/serving/blob/master/docs/runtime-contract.md#protocols-and-ports
 type ProtocolType string
 
 const (

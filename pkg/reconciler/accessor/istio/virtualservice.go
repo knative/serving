@@ -25,10 +25,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	istioclientset "knative.dev/pkg/client/istio/clientset/versioned"
-	istiolisters "knative.dev/pkg/client/istio/listers/networking/v1alpha3"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
+	istioclientset "knative.dev/serving/pkg/client/istio/clientset/versioned"
+	istiolisters "knative.dev/serving/pkg/client/istio/listers/networking/v1alpha3"
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 )
 

@@ -103,6 +103,16 @@ func TestMultiScalerScaling(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create() = %v", err)
 	}
+	d, err := ms.Get(ctx, decider.Namespace, decider.Name)
+	if err != nil {
+		t.Fatalf("Get() = %v", err)
+	}
+	if got, want := d.Status.DesiredScale, int32(-1); got != want {
+		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
+	}
+	if got, want := d.Status.ExcessBurstCapacity, int32(0); got != want {
+		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
+	}
 
 	// Verify that we see a "tick"
 	if err := verifyTick(errCh); err != nil {
@@ -122,6 +132,54 @@ func TestMultiScalerScaling(t *testing.T) {
 	// Verify that we stop seeing "ticks"
 	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestMultiscalerCreateTBC42(t *testing.T) {
+	ctx := context.Background()
+	ms, stopCh, _ := createMultiScaler(t)
+	defer close(stopCh)
+
+	decider := newDecider()
+	decider.Spec.TargetBurstCapacity = 42
+	decider.Spec.TotalValue = 25
+
+	_, err := ms.Create(ctx, decider)
+	if err != nil {
+		t.Fatalf("Create() = %v", err)
+	}
+	d, err := ms.Get(ctx, decider.Namespace, decider.Name)
+	if err != nil {
+		t.Fatalf("Get() = %v", err)
+	}
+	if got, want := d.Status.DesiredScale, int32(-1); got != want {
+		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
+	}
+	if got, want := d.Status.ExcessBurstCapacity, int32(25-42); got != want {
+		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
+	}
+}
+func TestMultiscalerCreateTBCMinus1(t *testing.T) {
+	ctx := context.Background()
+	ms, stopCh, _ := createMultiScaler(t)
+	defer close(stopCh)
+
+	decider := newDecider()
+	decider.Spec.TargetBurstCapacity = -1
+
+	_, err := ms.Create(ctx, decider)
+	if err != nil {
+		t.Fatalf("Create() = %v", err)
+	}
+	d, err := ms.Get(ctx, decider.Namespace, decider.Name)
+	if err != nil {
+		t.Fatalf("Get() = %v", err)
+	}
+	if got, want := d.Status.DesiredScale, int32(-1); got != want {
+		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
+	}
+	if got, want := d.Status.ExcessBurstCapacity, int32(-1); got != want {
+		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
 	}
 }
 

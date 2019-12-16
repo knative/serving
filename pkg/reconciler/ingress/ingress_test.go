@@ -28,11 +28,12 @@ import (
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
-	fakeistioclient "knative.dev/pkg/client/istio/injection/client/fake"
-	_ "knative.dev/pkg/client/istio/injection/informers/networking/v1alpha3/gateway/fake"
-	_ "knative.dev/pkg/client/istio/injection/informers/networking/v1alpha3/virtualservice/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
+	fakeistioclient "knative.dev/serving/pkg/client/istio/injection/client/fake"
+	_ "knative.dev/serving/pkg/client/istio/injection/informers/networking/v1alpha3/gateway/fake"
+	_ "knative.dev/serving/pkg/client/istio/injection/informers/networking/v1alpha3/virtualservice/fake"
+	"knative.dev/serving/pkg/network/ingress"
 
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
@@ -176,18 +177,18 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "skip ingress not matching class key",
 		Objects: []runtime.Object{
-			addAnnotations(ingress("no-virtualservice-yet", 1234),
+			addAnnotations(ing("no-virtualservice-yet", 1234),
 				map[string]string{networking.IngressClassAnnotationKey: "fake-controller"}),
 		},
 	}, {
 		Name: "create VirtualService matching Ingress",
 
 		Objects: []runtime.Object{
-			ingress("no-virtualservice-yet", 1234),
+			ing("no-virtualservice-yet", 1234),
 		},
 		WantCreates: []runtime.Object{
-			resources.MakeMeshVirtualService(insertProbe(ingress("no-virtualservice-yet", 1234))),
-			resources.MakeIngressVirtualService(insertProbe(ingress("no-virtualservice-yet", 1234)),
+			resources.MakeMeshVirtualService(insertProbe(ing("no-virtualservice-yet", 1234))),
+			resources.MakeIngressVirtualService(insertProbe(ing("no-virtualservice-yet", 1234)),
 				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/" + networking.KnativeIngressGateway}, nil)),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -263,16 +264,16 @@ func TestReconcile(t *testing.T) {
 						serving.RouteLabelKey:          "test-route",
 						serving.RouteNamespaceLabelKey: "test-ns",
 					},
-					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ingress("reconcile-failed", 1234))},
+					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ing("reconcile-failed", 1234))},
 				},
 				Spec: istiov1alpha3.VirtualService{},
 			},
 		},
 		WantCreates: []runtime.Object{
-			resources.MakeMeshVirtualService(insertProbe(ingress("reconcile-failed", 1234))),
+			resources.MakeMeshVirtualService(insertProbe(ing("reconcile-failed", 1234))),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: resources.MakeIngressVirtualService(insertProbe(ingress("reconcile-failed", 1234)),
+			Object: resources.MakeIngressVirtualService(insertProbe(ing("reconcile-failed", 1234)),
 				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/" + networking.KnativeIngressGateway}, nil)),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -308,7 +309,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "reconcile VirtualService to match desired one",
 		Objects: []runtime.Object{
-			ingress("reconcile-virtualservice", 1234),
+			ing("reconcile-virtualservice", 1234),
 			&v1alpha3.VirtualService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "reconcile-virtualservice",
@@ -317,7 +318,7 @@ func TestReconcile(t *testing.T) {
 						serving.RouteLabelKey:          "test-route",
 						serving.RouteNamespaceLabelKey: "test-ns",
 					},
-					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ingress("reconcile-virtualservice", 1234))},
+					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ing("reconcile-virtualservice", 1234))},
 				},
 				Spec: istiov1alpha3.VirtualService{},
 			},
@@ -329,17 +330,17 @@ func TestReconcile(t *testing.T) {
 						serving.RouteLabelKey:          "test-route",
 						serving.RouteNamespaceLabelKey: "test-ns",
 					},
-					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ingress("reconcile-virtualservice", 1234))},
+					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ing("reconcile-virtualservice", 1234))},
 				},
 				Spec: istiov1alpha3.VirtualService{},
 			},
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: resources.MakeIngressVirtualService(insertProbe(ingress("reconcile-virtualservice", 1234)),
+			Object: resources.MakeIngressVirtualService(insertProbe(ing("reconcile-virtualservice", 1234)),
 				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/" + networking.KnativeIngressGateway}, nil)),
 		}},
 		WantCreates: []runtime.Object{
-			resources.MakeMeshVirtualService(insertProbe(ingress("reconcile-virtualservice", 1234))),
+			resources.MakeMeshVirtualService(insertProbe(ing("reconcile-virtualservice", 1234))),
 		},
 		WantDeletes: []clientgotesting.DeleteActionImpl{{
 			ActionImpl: clientgotesting.ActionImpl{
@@ -787,7 +788,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		// As we use a customized resource name for Gateway CRD (i.e. `gateways`), not the one
 		// originally generated by kubernetes code generator (i.e. `gatewaies`), we have to
 		// explicitly create gateways when setting up the test per suggestion
-		// https://knative.dev/serving/blob/a6852fc3b6cdce72b99c5d578dd64f2e03dabb8b/vendor/k8s.io/client-go/testing/fixture.go#L292
+		// https://github.com/knative/serving/blob/a6852fc3b6cdce72b99c5d578dd64f2e03dabb8b/vendor/k8s.io/client-go/testing/fixture.go#L292
 		gateways := getGatewaysFromObjects(listers.GetIstioObjects())
 		for _, gateway := range gateways {
 			fakeistioclient.Get(ctx).NetworkingV1alpha3().Gateways(gateway.Namespace).Create(gateway)
@@ -860,7 +861,7 @@ func secret(namespace, name string, labels map[string]string) *corev1.Secret {
 			Name:            name,
 			Namespace:       namespace,
 			Labels:          labels,
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ingress("reconciling-ingress", 1234))},
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ing("reconciling-ingress", 1234))},
 		},
 		Data: map[string][]byte{
 			"test-secret": []byte("abcd"),
@@ -951,7 +952,7 @@ func ingressWithStatus(name string, generation int64, status v1alpha1.IngressSta
 	}
 }
 
-func ingress(name string, generation int64) *v1alpha1.Ingress {
+func ing(name string, generation int64) *v1alpha1.Ingress {
 	return ingressWithStatus(name, generation, v1alpha1.IngressStatus{})
 }
 
@@ -1123,7 +1124,7 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 
 func insertProbe(ia *v1alpha1.Ingress) *v1alpha1.Ingress {
 	ia = ia.DeepCopy()
-	resources.InsertProbe(ia)
+	ingress.InsertProbe(ia)
 	return ia
 }
 

@@ -1030,7 +1030,7 @@ func (m *ConnectionPoolSettings) GetHttp() *ConnectionPoolSettings_HTTPSettings 
 
 // Settings common to both HTTP and TCP upstream connections.
 type ConnectionPoolSettings_TCPSettings struct {
-	// Maximum number of HTTP1 /TCP connections to a destination host. Default 1024.
+	// Maximum number of HTTP1 /TCP connections to a destination host. Default 2^32-1.
 	MaxConnections int32 `protobuf:"varint,1,opt,name=max_connections,json=maxConnections,proto3" json:"max_connections,omitempty"`
 	// TCP connection timeout.
 	ConnectTimeout *types.Duration `protobuf:"bytes,2,opt,name=connect_timeout,json=connectTimeout,proto3" json:"connect_timeout,omitempty"`
@@ -1174,16 +1174,16 @@ func (m *ConnectionPoolSettings_TCPSettings_TcpKeepalive) GetInterval() *types.D
 
 // Settings applicable to HTTP1.1/HTTP2/GRPC connections.
 type ConnectionPoolSettings_HTTPSettings struct {
-	// Maximum number of pending HTTP requests to a destination. Default 1024.
+	// Maximum number of pending HTTP requests to a destination. Default 2^32-1.
 	Http1MaxPendingRequests int32 `protobuf:"varint,1,opt,name=http1_max_pending_requests,json=http1MaxPendingRequests,proto3" json:"http1_max_pending_requests,omitempty"`
-	// Maximum number of requests to a backend. Default 1024.
+	// Maximum number of requests to a backend. Default 2^32-1.
 	Http2MaxRequests int32 `protobuf:"varint,2,opt,name=http2_max_requests,json=http2MaxRequests,proto3" json:"http2_max_requests,omitempty"`
 	// Maximum number of requests per connection to a backend. Setting this
 	// parameter to 1 disables keep alive. Default 0, meaning "unlimited",
 	// up to 2^29.
 	MaxRequestsPerConnection int32 `protobuf:"varint,3,opt,name=max_requests_per_connection,json=maxRequestsPerConnection,proto3" json:"max_requests_per_connection,omitempty"`
 	// Maximum number of retries that can be outstanding to all hosts in a
-	// cluster at a given time. Defaults to 1024.
+	// cluster at a given time. Defaults to 2^32-1.
 	MaxRetries int32 `protobuf:"varint,4,opt,name=max_retries,json=maxRetries,proto3" json:"max_retries,omitempty"`
 	// The idle timeout for upstream connection pool connections. The idle timeout is defined as the period in which there are no active requests.
 	// If not set, there is no idle timeout. When the idle timeout is reached the connection will be closed.

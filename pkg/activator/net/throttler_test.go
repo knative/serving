@@ -639,9 +639,6 @@ func TestInfiniteBreaker(t *testing.T) {
 	if _, ok := b.Reserve(context.Background()); ok != true {
 		t.Error("Reserve failed, must always succeed")
 	}
-	if got, want := b.HasCapacity(), false; got != want {
-		t.Errorf("HasCapacity = %v, want: %v", got, want)
-	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -652,9 +649,6 @@ func TestInfiniteBreaker(t *testing.T) {
 	b.UpdateConcurrency(1)
 	if got, want := b.Capacity(), 1; got != want {
 		t.Errorf("Cap=%d, want: %d", got, want)
-	}
-	if got, want := b.HasCapacity(), true; got != want {
-		t.Errorf("HasCapacity = %v, want: %v", got, want)
 	}
 
 	// Verify we call the thunk when we have achieved capacity.

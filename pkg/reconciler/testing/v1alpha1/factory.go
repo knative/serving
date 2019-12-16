@@ -23,11 +23,11 @@ import (
 
 	fakecachingclient "knative.dev/caching/pkg/client/injection/client/fake"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
-	fakeistioclient "knative.dev/pkg/client/istio/injection/client/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	fakecertmanagerclient "knative.dev/serving/pkg/client/certmanager/injection/client/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakeistioclient "knative.dev/serving/pkg/client/istio/injection/client/fake"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"

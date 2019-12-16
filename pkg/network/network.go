@@ -26,7 +26,6 @@ import (
 	"net/url"
 	"strings"
 	"text/template"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -96,19 +95,6 @@ const (
 	// Istio with mTLS rewrites probes, but their probes pass a different
 	// user-agent.  So we augment the probes with this header.
 	KubeletProbeHeaderName = "K-Kubelet-Probe"
-
-	// DefaultConnTimeout specifies a short default connection timeout
-	// to avoid hitting the issue fixed in
-	// https://github.com/kubernetes/kubernetes/pull/72534 but only
-	// avalailable after Kubernetes 1.14.
-	//
-	// Our connections are usually between pods in the same cluster
-	// like activator <-> queue-proxy, or even between containers
-	// within the same pod queue-proxy <-> user-container, so a
-	// smaller connect timeout would be justifiable.
-	//
-	// We should consider exposing this as a configuration.
-	DefaultConnTimeout = 200 * time.Millisecond
 
 	// DefaultDomainTemplate is the default golang template to use when
 	// constructing the Knative Route's Domain(host)

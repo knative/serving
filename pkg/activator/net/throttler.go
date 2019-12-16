@@ -36,12 +36,12 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
+	"knative.dev/pkg/network"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/resources"
@@ -674,5 +674,4 @@ func (ib *infiniteBreaker) Maybe(ctx context.Context, thunk func()) error {
 	}
 }
 
-func (ib *infiniteBreaker) HasCapacity() bool                      { return ib.Capacity() > 0 }
 func (ib *infiniteBreaker) Reserve(context.Context) (func(), bool) { return noop, true }

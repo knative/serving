@@ -1117,20 +1117,20 @@
   version = "v2.2.4"
 
 [[projects]]
-  digest = "1:aef7a0736d863680268ce11cbf2a8d580f0d88d8bbba016859acc2af3dc53c95"
+  digest = "1:9579dd8b1ccd8cf54ed576af68438b69588cc136eac90b10aa7c8d1a1c8334ff"
   name = "istio.io/api"
   packages = ["networking/v1alpha3"]
   pruneopts = "NUT"
-  revision = "2629c6ac1513852f77379a9fb514a69ed9d22996"
-  version = "1.4.0-beta.4"
+  revision = "e1a1952e5b81ed914b06c1814fd3a0c92c750e37"
+  version = "1.4.1"
 
 [[projects]]
-  digest = "1:fee82a174b082c99bebdd7b620429a656d8803821cac7af6533b9c1482c0de16"
+  digest = "1:57e8c0255e33ab72e09219665d5ed7733a694e0092ab4a69b97100aa27bcbbb4"
   name = "istio.io/client-go"
   packages = ["pkg/apis/networking/v1alpha3"]
   pruneopts = "NUT"
-  revision = "8ddf0ba25ae5fdfdef891cbca5e67bf6d9921559"
-  version = "1.4.0-beta.4"
+  revision = "26c62a04cdbc1fb52dd71a9194b0d49ce297e836"
+  version = "1.4.1"
 
 [[projects]]
   digest = "1:9c9f11af1b1f2ae03d897ba5de27103ec1c9c43605663ccdef67831d6a462a30"
@@ -1692,7 +1692,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:fc7b515ee18a5cdb8dbca9d664f593a796fc1f62c15a493808f303192adada97"
+  digest = "1:c2391fcb4f9652da30fd038a6d66da32d67dc371ffa297663da3e774809a0903"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1715,11 +1715,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "efe31127a812420eed46520c84fd4aa5167e64cc"
+  revision = "a0fe32a10e4139f0f758f6f2d2e1acf9f40c89b5"
 
 [[projects]]
   branch = "master"
-  digest = "1:fd0a9998fe007e1d20ea859e93590525147081a9acb498a4445065d514e1fcef"
+  digest = "1:dcbc166f09bb3890df7a3fc5eb5181d8e6153d817884359c6787343046d140fb"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1751,24 +1751,6 @@
     "client/injection/kube/informers/core/v1/service/fake",
     "client/injection/kube/informers/factory",
     "client/injection/kube/informers/factory/fake",
-    "client/istio/clientset/versioned",
-    "client/istio/clientset/versioned/fake",
-    "client/istio/clientset/versioned/scheme",
-    "client/istio/clientset/versioned/typed/networking/v1alpha3",
-    "client/istio/clientset/versioned/typed/networking/v1alpha3/fake",
-    "client/istio/informers/externalversions",
-    "client/istio/informers/externalversions/internalinterfaces",
-    "client/istio/informers/externalversions/networking",
-    "client/istio/informers/externalversions/networking/v1alpha3",
-    "client/istio/injection/client",
-    "client/istio/injection/client/fake",
-    "client/istio/injection/informers/factory",
-    "client/istio/injection/informers/factory/fake",
-    "client/istio/injection/informers/networking/v1alpha3/gateway",
-    "client/istio/injection/informers/networking/v1alpha3/gateway/fake",
-    "client/istio/injection/informers/networking/v1alpha3/virtualservice",
-    "client/istio/injection/informers/networking/v1alpha3/virtualservice/fake",
-    "client/istio/listers/networking/v1alpha3",
     "codegen/cmd/injection-gen",
     "codegen/cmd/injection-gen/args",
     "codegen/cmd/injection-gen/generators",
@@ -1789,6 +1771,7 @@
     "metrics/metricstest",
     "metrics/testing",
     "network",
+    "network/prober",
     "profiling",
     "ptr",
     "reconciler/testing",
@@ -1835,7 +1818,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "bebd5557feae665ccf77bb1d8fee2758aa658264"
+  revision = "9d8b936ca0621af5762916bc899d4973363a2dc4"
 
 [[projects]]
   branch = "master"
@@ -1852,7 +1835,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "32d84d399e44c68470d2703a6de633ab0a826d49"
+  revision = "71df8cbc28daf5dcf8c9b1ff2dfebdc553dc4bee"
 
 [[projects]]
   digest = "1:fef5992ddf85e9ccad899b11338339858936a10fbce96b9d5c43767669d95398"
@@ -1971,6 +1954,7 @@
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/record",
     "k8s.io/client-go/util/flowcontrol",
+    "k8s.io/client-go/util/retry",
     "k8s.io/client-go/util/workqueue",
     "k8s.io/code-generator/cmd/client-gen",
     "k8s.io/code-generator/cmd/deepcopy-gen",
@@ -2013,16 +1997,6 @@
     "knative.dev/pkg/client/injection/kube/informers/core/v1/service",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake",
     "knative.dev/pkg/client/injection/kube/informers/factory",
-    "knative.dev/pkg/client/istio/clientset/versioned",
-    "knative.dev/pkg/client/istio/clientset/versioned/fake",
-    "knative.dev/pkg/client/istio/informers/externalversions",
-    "knative.dev/pkg/client/istio/injection/client",
-    "knative.dev/pkg/client/istio/injection/client/fake",
-    "knative.dev/pkg/client/istio/injection/informers/networking/v1alpha3/gateway",
-    "knative.dev/pkg/client/istio/injection/informers/networking/v1alpha3/gateway/fake",
-    "knative.dev/pkg/client/istio/injection/informers/networking/v1alpha3/virtualservice",
-    "knative.dev/pkg/client/istio/injection/informers/networking/v1alpha3/virtualservice/fake",
-    "knative.dev/pkg/client/istio/listers/networking/v1alpha3",
     "knative.dev/pkg/codegen/cmd/injection-gen",
     "knative.dev/pkg/configmap",
     "knative.dev/pkg/configmap/testing",
@@ -2041,6 +2015,7 @@
     "knative.dev/pkg/metrics/metricstest",
     "knative.dev/pkg/metrics/testing",
     "knative.dev/pkg/network",
+    "knative.dev/pkg/network/prober",
     "knative.dev/pkg/profiling",
     "knative.dev/pkg/ptr",
     "knative.dev/pkg/reconciler/testing",

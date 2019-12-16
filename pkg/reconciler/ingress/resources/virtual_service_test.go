@@ -559,59 +559,6 @@ func TestGetHosts_Duplicate(t *testing.T) {
 	}
 }
 
-func TestGetExpandedHosts(t *testing.T) {
-	for _, test := range []struct {
-		name  string
-		hosts sets.String
-		want  sets.String
-	}{{
-		name: "cluster local service in non-default namespace",
-		hosts: sets.NewString(
-			"service.namespace.svc.cluster.local",
-		),
-		want: sets.NewString(
-			"service.namespace",
-			"service.namespace.svc",
-			"service.namespace.svc.cluster.local",
-		),
-	}, {
-		name: "example.com service",
-		hosts: sets.NewString(
-			"foo.bar.example.com",
-		),
-		want: sets.NewString(
-			"foo.bar.example.com",
-		),
-	}, {
-		name: "default.example.com service",
-		hosts: sets.NewString(
-			"foo.default.example.com",
-		),
-		want: sets.NewString(
-			"foo.default.example.com",
-		),
-	}, {
-		name: "mix",
-		hosts: sets.NewString(
-			"foo.default.example.com",
-			"foo.default.svc.cluster.local",
-		),
-		want: sets.NewString(
-			"foo.default",
-			"foo.default.example.com",
-			"foo.default.svc",
-			"foo.default.svc.cluster.local",
-		),
-	}} {
-		t.Run(test.name, func(t *testing.T) {
-			got := expandedHosts(test.hosts)
-			if diff := cmp.Diff(got, test.want); diff != "" {
-				t.Errorf("Unexpected (-want +got): %v", diff)
-			}
-		})
-	}
-}
-
 func makeGatewayMap(publicGateways []string, privateGateways []string) map[v1alpha1.IngressVisibility]sets.String {
 	return map[v1alpha1.IngressVisibility]sets.String{
 		v1alpha1.IngressVisibilityExternalIP:   sets.NewString(publicGateways...),
