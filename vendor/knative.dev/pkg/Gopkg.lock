@@ -865,16 +865,16 @@
   name = "istio.io/api"
   packages = ["networking/v1alpha3"]
   pruneopts = "NUT"
-  revision = "35e06ef8d83858a2ccabd7a0d57128879b40a586"
-  version = "1.4.0-beta.5"
+  revision = "e1a1952e5b81ed914b06c1814fd3a0c92c750e37"
+  version = "1.4.1"
 
 [[projects]]
-  digest = "1:a4549838d0466ee623b1aee6220d14978e5ddbd7a65bbf40185b63b26c645fbf"
+  digest = "1:57e8c0255e33ab72e09219665d5ed7733a694e0092ab4a69b97100aa27bcbbb4"
   name = "istio.io/client-go"
   packages = ["pkg/apis/networking/v1alpha3"]
   pruneopts = "NUT"
-  revision = "9bd0ba57c3d24745eac756d3df8411d969f94d34"
-  version = "1.4.0-beta.5"
+  revision = "26c62a04cdbc1fb52dd71a9194b0d49ce297e836"
+  version = "1.4.1"
 
 [[projects]]
   digest = "1:9c9f11af1b1f2ae03d897ba5de27103ec1c9c43605663ccdef67831d6a462a30"

@@ -44,11 +44,11 @@ required = [
 
 [[constraint]]
   name = "istio.io/api"
-  version = "1.4.0-beta.4"
+  version = "1.4.1"
 
 [[constraint]]
   name = "istio.io/client-go"
-  version = "1.4.0-beta.2"
+  version = "1.4.1"
 
 [[override]]
   name = "gopkg.in/yaml.v2"

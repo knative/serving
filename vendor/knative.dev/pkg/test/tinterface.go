@@ -14,15 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package logstream
+// Defines an interface of commonality between testing.T and logging.TLogger
+// Allows most library functions to be shared
+// Simplifies coexistance with TLogger
 
-import "knative.dev/pkg/test"
+package test
 
-type null struct{}
+type T interface {
+	Name() string
+	Helper()
+	SkipNow()
+	Log(args ...interface{})
+	Error(args ...interface{})
+}
 
-var _ streamer = (*null)(nil)
-
-// Start implements streamer
-func (*null) Start(t test.TLegacy) Canceler {
-	return func() {}
+type TLegacy interface {
+	T
+	Logf(fmt string, args ...interface{}) // It gets passed to things in logstream
+	Fatal(args ...interface{})
 }
