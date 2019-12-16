@@ -131,6 +131,26 @@ func TestMultiScalerScaling(t *testing.T) {
 	}
 }
 
+func TestMultiscalerCreateTBC42(t *testing.T) {
+	ctx := context.Background()
+	ms, stopCh, _ := createMultiScaler(t)
+	defer close(stopCh)
+
+	decider := newDecider()
+	decider.Spec.TargetBurstCapacity = 42
+	decider.Spec.TargetValue = 25
+
+	d, err := ms.Create(ctx, decider)
+	if err != nil {
+		t.Fatalf("Create() = %v", err)
+	}
+	if got, want := d.Status.DesiredScale, int32(-1); got != want {
+		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
+	}
+	if got, want := d.Status.ExcessBurstCapacity, int32(25-42); got != want {
+		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
+	}
+}
 func TestMultiscalerCreateTBCMinus1(t *testing.T) {
 	ctx := context.Background()
 	ms, stopCh, _ := createMultiScaler(t)
