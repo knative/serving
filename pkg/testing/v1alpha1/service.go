@@ -49,7 +49,6 @@ func Service(name, namespace string, so ...ServiceOption) *v1alpha1.Service {
 	for _, opt := range so {
 		opt(s)
 	}
-	s.SetDefaults(context.Background())
 	return s
 }
 
@@ -63,8 +62,17 @@ func ServiceWithoutNamespace(name string, so ...ServiceOption) *v1alpha1.Service
 	for _, opt := range so {
 		opt(s)
 	}
-	s.SetDefaults(context.Background())
 	return s
+}
+
+// DefaultService creates a service with ServiceOptions and with default values set
+func DefaultService(name, namespace string, so ...ServiceOption) *v1alpha1.Service {
+	return Service(name, namespace, append(so,WithServiceDefaults)...)
+}
+
+// WithServiceDefaults will set the default values on the service.
+func WithServiceDefaults(svc *v1alpha1.Service) {
+	svc.SetDefaults(context.Background())
 }
 
 // WithServiceDeletionTimestamp will set the DeletionTimestamp on the Service.

@@ -41,7 +41,6 @@ func Service(name, namespace string, so ...ServiceOption) *v1beta1.Service {
 	for _, opt := range so {
 		opt(s)
 	}
-	s.SetDefaults(context.Background())
 	return s
 }
 
@@ -55,8 +54,12 @@ func ServiceWithoutNamespace(name string, so ...ServiceOption) *v1beta1.Service 
 	for _, opt := range so {
 		opt(s)
 	}
-	s.SetDefaults(context.Background())
 	return s
+}
+
+// WithServiceDefaults will set the default values on the service.
+func WithServiceDefaults(svc *v1beta1.Service) {
+	svc.SetDefaults(context.Background())
 }
 
 // WithInlineConfigSpec confgures the Service to use the given config spec
