@@ -20,6 +20,7 @@ import (
 	"context"
 
 	v1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	secretinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/secret"
@@ -111,7 +112,16 @@ func NewController(
 		DeleteFunc: func(obj interface{}) {
 			vs, ok := obj.(*v1alpha3.VirtualService)
 			if ok {
-				statusProber.CancelVirtualServiceProbing(vs)
+				// The VirtualService controlling the Gateways always has the same name with the parent Ingress.
+				// We use that knowledge here to cancel the probing when VirtualService is deleted.
+				if owner := metav1.GetControllerOf(vs); owner != nil && owner.Name == vs.Name {
+					statusProber.CancelIngressProbing(&v1alpha1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: vs.Namespace,
+							Name:      vs.Name,
+						},
+					})
+				}
 			}
 		},
 	})
