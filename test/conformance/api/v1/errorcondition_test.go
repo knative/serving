@@ -40,7 +40,7 @@ const (
 )
 
 // TestContainerErrorMsg is to validate the error condition defined at
-// https://knative.dev/serving/blob/master/docs/spec/errors.md
+// https://github.com/knative/serving/blob/master/docs/spec/errors.md
 // for the container image missing scenario.
 func TestContainerErrorMsg(t *testing.T) {
 	t.Parallel()
@@ -124,7 +124,7 @@ func TestContainerErrorMsg(t *testing.T) {
 }
 
 // TestContainerExitingMsg is to validate the error condition defined at
-// https://knative.dev/serving/blob/master/docs/spec/errors.md
+// https://github.com/knative/serving/blob/master/docs/spec/errors.md
 // for the container crashing scenario.
 func TestContainerExitingMsg(t *testing.T) {
 	t.Parallel()
