@@ -440,7 +440,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 		want: apis.ErrInvalidValue("not a DNS 1035 label prefix: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
 			"metadata.generateName"),
 	}, {
-		name: "Queue sidecar resource percentage annotation more than 100",
+		name: "Queue sidecar resource percentage annotation greater than 100",
 		rts: &RevisionTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
@@ -454,7 +454,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			},
 		},
 		want: (&apis.FieldError{
-			Message: "expected 0.1 <= 200 <= 100",
+			Message: "expected 0.001 <= 200 <= 100",
 			Paths:   []string{serving.QueueSideCarResourcePercentageAnnotation},
 		}).ViaField("metadata.annotations"),
 	}, {

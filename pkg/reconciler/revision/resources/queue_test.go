@@ -19,6 +19,7 @@ package resources
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"testing"
@@ -26,10 +27,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/zap/zapcore"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
 	_ "knative.dev/pkg/metrics/testing"
@@ -434,6 +437,61 @@ func TestMakeQueueContainer(t *testing.T) {
 			sortEnv(test.want.Env)
 			if diff := cmp.Diff(test.want, got, cmpopts.IgnoreUnexported(resource.Quantity{})); diff != "" {
 				t.Errorf("makeQueueContainer (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
+func TestFractionFromPercentage(t *testing.T) {
+	const key = "let-it-be"
+	tests := []struct {
+		n         string
+		m         map[string]string
+		want      float64
+		wantValid bool
+	}{{
+		n:         "empty map",
+		m:         map[string]string{},
+		want:      0,
+		wantValid: false,
+	}, {
+		n: "no matching key map",
+		m: map[string]string{
+			"abbeyRoad": "1969",
+		},
+		want:      0,
+		wantValid: false,
+	}, {
+		n: "not a number",
+		m: map[string]string{
+			key: "2b",
+		},
+		want:      0,
+		wantValid: false,
+	}, {
+		n: "ok",
+		m: map[string]string{
+			key: "42.12",
+		},
+		want:      0.4212,
+		wantValid: true,
+	}, {
+		n: "want-already-fraction",
+		m: map[string]string{
+			key: ".1982",
+		},
+		want:      0.1982,
+		wantValid: true,
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.n, func(t *testing.T) {
+			got, valid := fractionFromPercentage(tc.m, key)
+			if got, want := valid, tc.wantValid; got != want {
+				t.Fatalf("fractionFromPercentage valid? = %v, wantError?: %v", got, want)
+			}
+			if math.Abs(got-tc.want) > 0.001 {
+				t.Errorf("fractionFromPercentage = %f, want: %f", got, tc.want)
 			}
 		})
 	}

@@ -866,7 +866,7 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 			},
 		},
 		want: (&apis.FieldError{
-			Message: "expected 0.1 <= 200 <= 100",
+			Message: "expected 0.001 <= 200 <= 100",
 			Paths:   []string{serving.QueueSideCarResourcePercentageAnnotation},
 		}).ViaField("metadata.annotations"),
 	}, {
