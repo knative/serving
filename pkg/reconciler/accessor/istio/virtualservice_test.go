@@ -27,13 +27,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	istioclientset "knative.dev/pkg/client/istio/clientset/versioned"
-	istiofake "knative.dev/pkg/client/istio/clientset/versioned/fake"
-	istioinformers "knative.dev/pkg/client/istio/informers/externalversions"
-	fakeistioclient "knative.dev/pkg/client/istio/injection/client/fake"
-	istiolisters "knative.dev/pkg/client/istio/listers/networking/v1alpha3"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
+	istioclientset "knative.dev/serving/pkg/client/istio/clientset/versioned"
+	istiofake "knative.dev/serving/pkg/client/istio/clientset/versioned/fake"
+	istioinformers "knative.dev/serving/pkg/client/istio/informers/externalversions"
+	fakeistioclient "knative.dev/serving/pkg/client/istio/injection/client/fake"
+	istiolisters "knative.dev/serving/pkg/client/istio/listers/networking/v1alpha3"
 
 	. "knative.dev/pkg/reconciler/testing"
 )

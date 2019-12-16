@@ -39,9 +39,9 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
-	istiolisters "knative.dev/pkg/client/istio/listers/networking/v1alpha3"
 	"knative.dev/pkg/network/prober"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	istiolisters "knative.dev/serving/pkg/client/istio/listers/networking/v1alpha3"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/network/ingress"
 )

@@ -27,9 +27,9 @@ import (
 	"knative.dev/pkg/logging"
 	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 
-	istiolisters "knative.dev/pkg/client/istio/listers/networking/v1alpha3"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/tracker"
+	istiolisters "knative.dev/serving/pkg/client/istio/listers/networking/v1alpha3"
 
 	"go.uber.org/zap"
 	"knative.dev/serving/pkg/apis/networking"
@@ -49,7 +49,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	istioclientset "knative.dev/pkg/client/istio/clientset/versioned"
+	istioclientset "knative.dev/serving/pkg/client/istio/clientset/versioned"
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 	coreaccessor "knative.dev/serving/pkg/reconciler/accessor/core"
 	istioaccessor "knative.dev/serving/pkg/reconciler/accessor/istio"
