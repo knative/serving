@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"testing"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -50,18 +49,18 @@ var _ streamer = (*kubelogs)(nil)
 // timeFormat defines a simple timestamp with millisecond granularity
 const timeFormat = "15:04:05.000"
 
-func (k *kubelogs) init(t *testing.T) {
+func (k *kubelogs) init(t test.TLegacy) {
 	k.keys = make(map[string]logger)
 
 	kc, err := test.NewKubeClient(test.Flags.Kubeconfig, test.Flags.Cluster)
 	if err != nil {
-		t.Errorf("Error loading client config: %v", err)
+		t.Error("Error loading client config", "error", err)
 	}
 
 	// List the pods in the given namespace.
 	pl, err := kc.Kube.CoreV1().Pods(k.namespace).List(metav1.ListOptions{})
 	if err != nil {
-		t.Errorf("Error listing pods: %v", err)
+		t.Error("Error listing pods", "error", err)
 	}
 
 	eg := errgroup.Group{}
@@ -160,7 +159,7 @@ func (k *kubelogs) handleLine(l string) {
 }
 
 // Start implements streamer
-func (k *kubelogs) Start(t *testing.T) Canceler {
+func (k *kubelogs) Start(t test.TLegacy) Canceler {
 	k.once.Do(func() { k.init(t) })
 
 	name := helpers.ObjectPrefixForTest(t)
@@ -177,7 +176,7 @@ func (k *kubelogs) Start(t *testing.T) Canceler {
 		delete(k.keys, name)
 
 		if k.err != nil {
-			t.Errorf("error during logstream: %v", k.err)
+			t.Error("error during logstream", "error", k.err)
 		}
 	}
 }

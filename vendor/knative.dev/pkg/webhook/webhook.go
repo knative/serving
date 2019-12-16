@@ -165,7 +165,7 @@ func (ac *Webhook) Run(stop <-chan struct{}) error {
 
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		if err := server.ListenAndServeTLS("", ""); err != nil {
+		if err := server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
 			logger.Errorw("ListenAndServeTLS for admission webhook returned error", zap.Error(err))
 			return err
 		}
@@ -174,7 +174,10 @@ func (ac *Webhook) Run(stop <-chan struct{}) error {
 
 	select {
 	case <-stop:
-		return server.Close()
+		if err := server.Close(); err != nil {
+			return err
+		}
+		return eg.Wait()
 	case <-ctx.Done():
 		return fmt.Errorf("webhook server bootstrap failed %v", ctx.Err())
 	}
