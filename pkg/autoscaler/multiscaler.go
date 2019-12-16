@@ -289,14 +289,14 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 		pokeCh:  make(chan struct{}),
 	}
 	d.Status.DesiredScale = -1
-	switch x := d.Spec.TargetBurstCapacity; x {
+	switch tbc := d.Spec.TargetBurstCapacity; tbc {
 	case -1, 0:
-		d.Status.ExcessBurstCapacity = int32(x)
+		d.Status.ExcessBurstCapacity = int32(tbc)
 	default:
 		// If TBC > Target * InitialScale (currently 1), then we know initial
 		// scale won't be enough to cover TBC and we'll be behind activator.
 		// TODO(autoscale-wg): fix this when we switch to non "1" initial scale.
-		d.Status.ExcessBurstCapacity = int32(1*d.Spec.TargetValue - x)
+		d.Status.ExcessBurstCapacity = int32(1*d.Spec.TargetValue - tbc)
 	}
 
 	m.runScalerTicker(ctx, runner)
