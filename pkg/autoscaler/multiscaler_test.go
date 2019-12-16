@@ -142,7 +142,7 @@ func TestMultiscalerCreateTBC42(t *testing.T) {
 
 	decider := newDecider()
 	decider.Spec.TargetBurstCapacity = 42
-	decider.Spec.TargetValue = 25
+	decider.Spec.TotalValue = 25
 
 	_, err := ms.Create(ctx, decider)
 	if err != nil {

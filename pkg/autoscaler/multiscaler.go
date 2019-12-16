@@ -296,7 +296,7 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 		// If TBC > Target * InitialScale (currently 1), then we know initial
 		// scale won't be enough to cover TBC and we'll be behind activator.
 		// TODO(autoscale-wg): fix this when we switch to non "1" initial scale.
-		d.Status.ExcessBurstCapacity = int32(1*d.Spec.TargetValue - tbc)
+		d.Status.ExcessBurstCapacity = int32(1*d.Spec.TotalValue - tbc)
 	}
 
 	m.runScalerTicker(ctx, runner)
