@@ -24,6 +24,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	istiov1alpha3 "istio.io/api/networking/v1alpha3"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -34,6 +36,58 @@ import (
 var (
 	goodPod = "good-pod"
 	badPod  = "bad-pod"
+)
+
+var (
+	prvEps = &corev1.Endpoints{
+		Subsets: []corev1.EndpointSubset{{
+			Addresses: []corev1.EndpointAddress{{
+				IP:       "192.168.1.2",
+				NodeName: &goodPod,
+			}},
+			Ports: []corev1.EndpointPort{{
+				Name:     "http-queueadm",
+				Port:     8022,
+				Protocol: "TCP",
+			}, {
+				Name:     "http",
+				Port:     8012,
+				Protocol: "TCP",
+			}, {
+				Name:     "http-usermetric",
+				Port:     9091,
+				Protocol: "TCP",
+			}, {
+				Name:     "queue-metrics",
+				Port:     9090,
+				Protocol: "TCP",
+			}},
+		}},
+	}
+	actEps = &corev1.Endpoints{
+		Subsets: []corev1.EndpointSubset{{
+			Addresses: []corev1.EndpointAddress{{
+				IP:       "192.168.1.1",
+				NodeName: &goodPod,
+			}, {
+				IP:       "10.5.6.21",
+				NodeName: &badPod,
+			}},
+			Ports: []corev1.EndpointPort{{
+				Name:     "http",
+				Port:     8012,
+				Protocol: "TCP",
+			}, {
+				Name:     "http-metrics",
+				Port:     9090,
+				Protocol: "TCP",
+			}, {
+				Name:     "http2",
+				Port:     8013,
+				Protocol: "TCP",
+			}},
+		}},
+	}
 )
 
 // TODO(vagababov): Add templating here to get rid of the boilerplate.
@@ -692,6 +746,84 @@ func TestMakePrivateService(t *testing.T) {
 			got := MakePrivateService(test.sks, test.selector)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("Private K8s Service mismatch (-want, +got) = %v", diff)
+			}
+		})
+	}
+}
+
+func TestMakeServiceEntry(t *testing.T) {
+	tests := []struct {
+		name   string
+		sks    *v1alpha1.ServerlessService
+		actEps *corev1.Endpoints
+		prvEps *corev1.Endpoints
+		want   *v1alpha3.ServiceEntry
+	}{{
+		name: "HTTP - serve",
+		sks: &v1alpha1.ServerlessService{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "melon",
+				Name:      "collie",
+				UID:       "1982",
+				// Those labels are propagated from the Revision->PA.
+				Labels: map[string]string{
+					serving.RevisionLabelKey: "collie",
+					serving.RevisionUID:      "1982",
+				},
+			},
+			Spec: v1alpha1.ServerlessServiceSpec{
+				ProtocolType: networking.ProtocolHTTP1,
+				Mode:         v1alpha1.SKSOperationModeServe,
+			},
+		},
+		actEps: actEps,
+		prvEps: prvEps,
+		want: &v1alpha3.ServiceEntry{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "melon",
+				Name:      "collie",
+				Labels: map[string]string{
+					// Those should be propagated.
+					serving.RevisionLabelKey:  "collie",
+					serving.RevisionUID:       "1982",
+					networking.SKSLabelKey:    "collie",
+					networking.ServiceTypeKey: "Public",
+				},
+				Annotations: map[string]string{},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					Kind:               "ServerlessService",
+					Name:               "collie",
+					UID:                "1982",
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
+				}},
+			},
+			Spec: istiov1alpha3.ServiceEntry{
+				Hosts:    []string{"placeholder.collie.melon.svc"}, // This host name must be unique in the cluster.
+				Location: istiov1alpha3.ServiceEntry_MESH_INTERNAL,
+				Ports: []*istiov1alpha3.Port{
+					{
+						Number:   80, // This port is not used.
+						Protocol: "http",
+						Name:     "http1",
+					},
+					{
+						Number:   81, // This port is not used.
+						Protocol: "grpc",
+						Name:     "http2",
+					},
+				},
+				Resolution: istiov1alpha3.ServiceEntry_STATIC,
+				Endpoints:  makeEntryPoints(actEps, prvEps),
+			},
+		},
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := MakeServiceEntry(test.sks, test.actEps, test.prvEps)
+			if diff := cmp.Diff(test.want, got); diff != "" {
+				t.Errorf("ServiceEntry mismatch (-want, +got) = %v", diff)
 			}
 		})
 	}
