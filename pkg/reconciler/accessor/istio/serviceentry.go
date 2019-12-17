@@ -23,11 +23,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	istioclientset "knative.dev/pkg/client/istio/clientset/versioned"
-	istiolisters "knative.dev/pkg/client/istio/listers/networking/v1alpha3"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
+	istioclientset "knative.dev/serving/pkg/client/istio/clientset/versioned"
+	istiolisters "knative.dev/serving/pkg/client/istio/listers/networking/v1alpha3"
 )
 
 // ServiceEntryAccessor is an interface for accessing ServiceEntry.

@@ -21,9 +21,9 @@ import (
 
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
-	serviceentryinformer "knative.dev/pkg/client/istio/injection/informers/networking/v1alpha3/serviceentry"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
+	serviceentryinformer "knative.dev/serving/pkg/client/istio/injection/informers/networking/v1alpha3/serviceentry"
 	pkgreconciler "knative.dev/serving/pkg/reconciler"
 
 	"k8s.io/client-go/tools/cache"
