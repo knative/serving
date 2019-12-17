@@ -138,15 +138,11 @@
   version = "v1.7.0"
 
 [[projects]]
-  digest = "1:b38ab1b8cf42d089d9f31d4918c57c2dd47d42f3e7fc50e12142140228cf81a9"
+  digest = "1:2b0e6c0bea11257c646616ebd6a62be0ef2b6a0fd8210ac3caeaf57ee136123b"
   name = "github.com/gogo/protobuf"
   packages = [
-    "gogoproto",
-    "jsonpb",
     "proto",
-    "protoc-gen-gogo/descriptor",
     "sortkeys",
-    "types",
   ]
   pruneopts = "NUT"
   revision = "5628607bb4c51c3157aacc3a50f0ab707582b805"
@@ -861,30 +857,6 @@
   version = "v2.2.4"
 
 [[projects]]
-  digest = "1:9579dd8b1ccd8cf54ed576af68438b69588cc136eac90b10aa7c8d1a1c8334ff"
-  name = "istio.io/api"
-  packages = ["networking/v1alpha3"]
-  pruneopts = "NUT"
-  revision = "e1a1952e5b81ed914b06c1814fd3a0c92c750e37"
-  version = "1.4.1"
-
-[[projects]]
-  digest = "1:57e8c0255e33ab72e09219665d5ed7733a694e0092ab4a69b97100aa27bcbbb4"
-  name = "istio.io/client-go"
-  packages = ["pkg/apis/networking/v1alpha3"]
-  pruneopts = "NUT"
-  revision = "26c62a04cdbc1fb52dd71a9194b0d49ce297e836"
-  version = "1.4.1"
-
-[[projects]]
-  digest = "1:9c9f11af1b1f2ae03d897ba5de27103ec1c9c43605663ccdef67831d6a462a30"
-  name = "istio.io/gogo-genproto"
-  packages = ["googleapis/google/api"]
-  pruneopts = "NUT"
-  revision = "f7d19ec0141d49ac9efc83b5e61fa81ba103b445"
-  version = "1.4.0-beta.5"
-
-[[projects]]
   digest = "1:2b55f57d7b6d9f0f23478f2432b03273073f1bf93aed18620472e7117eb4451e"
   name = "k8s.io/api"
   packages = [
@@ -1374,8 +1346,6 @@
     "google.golang.org/api/option",
     "google.golang.org/grpc",
     "gopkg.in/yaml.v2",
-    "istio.io/api/networking/v1alpha3",
-    "istio.io/client-go/pkg/apis/networking/v1alpha3",
     "k8s.io/api/admission/v1beta1",
     "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/apps/v1",
@@ -1409,8 +1379,6 @@
     "k8s.io/apimachinery/pkg/util/wait",
     "k8s.io/apimachinery/pkg/version",
     "k8s.io/apimachinery/pkg/watch",
-    "k8s.io/client-go/discovery",
-    "k8s.io/client-go/discovery/fake",
     "k8s.io/client-go/dynamic",
     "k8s.io/client-go/dynamic/fake",
     "k8s.io/client-go/informers",
@@ -1437,7 +1405,6 @@
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/metrics",
     "k8s.io/client-go/tools/record",
-    "k8s.io/client-go/util/flowcontrol",
     "k8s.io/client-go/util/workqueue",
     "k8s.io/code-generator/cmd/client-gen",
     "k8s.io/code-generator/cmd/client-gen/generators/util",
