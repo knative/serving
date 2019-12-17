@@ -657,7 +657,7 @@ data:
           },
           "yaxes": [
             {
-              "format": "s",
+              "format": "ms",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -790,7 +790,7 @@ data:
           },
           "yaxes": [
             {
-              "format": "s",
+              "format": "ms",
               "label": null,
               "logBase": 1,
               "max": null,
