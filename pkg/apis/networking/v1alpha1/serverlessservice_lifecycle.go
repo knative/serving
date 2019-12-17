@@ -51,17 +51,10 @@ func (sss *ServerlessServiceStatus) MarkEndpointsReady() {
 	serverlessServiceCondSet.Manage(sss).MarkTrue(ServerlessServiceConditionEndspointsPopulated)
 }
 
-// MarkEndpointsNotOwned marks that we don't own K8s service.
-func (sss *ServerlessServiceStatus) MarkEndpointsNotOwned(kind, name string) {
+// MarkResourceNotOwned marks that we don't own K8s service.
+func (sss *ServerlessServiceStatus) MarkResourceNotOwned(kind, name string) {
 	serverlessServiceCondSet.Manage(sss).MarkFalse(
 		ServerlessServiceConditionEndspointsPopulated, "NotOwned",
-		"Resource %s of type %s is not owned by SKS", name, kind)
-}
-
-// MarkServiceEntriesNotOwned marks that we don't own ServiceEntries.
-func (sss *ServerlessServiceStatus) MarkServiceEntriesNotOwned(kind, name string) {
-	serverlessServiceCondSet.Manage(sss).MarkFalse(
-		ServiceEntriesPopulated, "NotOwned",
 		"Resource %s of type %s is not owned by SKS", name, kind)
 }
 
@@ -95,7 +88,7 @@ func (sss *ServerlessServiceStatus) MarkEndpointsNotReady(reason string) {
 }
 
 // MarkServiceEntriesReady marks the ServerlessServiceStatus service entries populated condition to Ready.
-func (sss *ServerlessServiceStatus) MarkServiceEntriesPopulated() {
+func (sss *ServerlessServiceStatus) MarkServiceEntriesReady() {
 	serverlessServiceCondSet.Manage(sss).SetCondition(apis.Condition{
 		Type:     ServiceEntriesPopulated,
 		Status:   corev1.ConditionTrue,

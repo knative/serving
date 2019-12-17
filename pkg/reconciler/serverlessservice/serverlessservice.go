@@ -166,12 +166,12 @@ func (r *reconciler) reconcileServiceEntry(ctx context.Context, sks *netv1alpha1
 	desired := resources.MakeServiceEntry(sks, activatorEps, pvtEps)
 	if _, err := istioaccessor.ReconcileServiceEntry(ctx, sks, desired, r); err != nil {
 		if kaccessor.IsNotOwned(err) {
-			sks.Status.MarkServiceEntriesNotOwned("ServiceEntry", desired.Name)
+			sks.Status.MarkResourceNotOwned("ServiceEntry", desired.Name)
 		}
 		sks.Status.MarkServiceEntriesNotReady()
 		return err
 	}
-	sks.Status.MarkServiceEntriesPopulated()
+	sks.Status.MarkServiceEntriesReady()
 	return nil
 }
 
@@ -215,7 +215,7 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 	} else if err != nil {
 		return fmt.Errorf("failed to get public K8s Service: %w", err)
 	} else if !metav1.IsControlledBy(srv, sks) {
-		sks.Status.MarkEndpointsNotOwned("Service", sn)
+		sks.Status.MarkResourceNotOwned("Service", sn)
 		return fmt.Errorf("SKS: %s does not own Service: %s", sks.Name, sn)
 	} else {
 		tmpl := resources.MakePublicService(sks)
@@ -301,7 +301,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 	} else if err != nil {
 		return fmt.Errorf("failed to get public K8s Endpoints: %w", err)
 	} else if !metav1.IsControlledBy(eps, sks) {
-		sks.Status.MarkEndpointsNotOwned("Endpoints", sn)
+		sks.Status.MarkResourceNotOwned("Endpoints", sn)
 		return fmt.Errorf("SKS: %s does not own Endpoints: %s", sks.Name, sn)
 	} else {
 		wantSubsets := resources.FilterSubsetPorts(sks, srcEps.Subsets)
@@ -385,7 +385,7 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 	} else if err != nil {
 		return fmt.Errorf("failed to get private K8s Service: %w", err)
 	} else if !metav1.IsControlledBy(svc, sks) {
-		sks.Status.MarkEndpointsNotOwned("Service", svc.Name)
+		sks.Status.MarkResourceNotOwned("Service", svc.Name)
 		return fmt.Errorf("SKS: %s does not own Service: %s", sks.Name, svc.Name)
 	} else {
 		tmpl := resources.MakePrivateService(sks, selector)

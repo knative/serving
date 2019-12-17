@@ -697,7 +697,7 @@ func markHappy(sks *nv1a1.ServerlessService) {
 
 func markUnowned(k, n string) SKSOption {
 	return func(sks *nv1a1.ServerlessService) {
-		sks.Status.MarkEndpointsNotOwned(k, n)
+		sks.Status.MarkResourceNotOwned(k, n)
 	}
 }
 
