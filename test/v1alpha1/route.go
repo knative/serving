@@ -21,12 +21,12 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
-	"testing"
 
 	"github.com/davecgh/go-spew/spew"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/ptr"
+	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/spoof"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -37,7 +37,7 @@ import (
 )
 
 // CreateRoute creates a route in the given namespace using the route name in names
-func CreateRoute(t *testing.T, clients *test.Clients, names test.ResourceNames, fopt ...v1alpha1testing.RouteOption) (*v1alpha1.Route, error) {
+func CreateRoute(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...v1alpha1testing.RouteOption) (*v1alpha1.Route, error) {
 	fopt = append(fopt, v1alpha1testing.WithSpecTraffic(v1alpha1.TrafficTarget{
 		TrafficTarget: v1.TrafficTarget{
 			Tag:               names.TrafficTarget,

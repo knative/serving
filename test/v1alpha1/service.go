@@ -35,7 +35,6 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"testing"
 	"time"
 
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
@@ -53,7 +52,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 
-	ptest "knative.dev/pkg/test"
+	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/networking"
 	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
@@ -121,12 +120,12 @@ func GetResourceObjects(clients *test.Clients, names test.ResourceNames) (*Resou
 // Names is updated with the Route and Configuration created by the Service and ResourceObjects is returned with the Service, Route, and Configuration objects.
 // If this function is called with https == true, the gateway MUST be restored afterwards.
 // Returns error if the service does not come up correctly.
-func CreateRunLatestServiceReady(t *testing.T, clients *test.Clients, names *test.ResourceNames, https bool, fopt ...rtesting.ServiceOption) (*ResourceObjects, *spoof.TransportOption, error) {
+func CreateRunLatestServiceReady(t pkgTest.TLegacy, clients *test.Clients, names *test.ResourceNames, https bool, fopt ...rtesting.ServiceOption) (*ResourceObjects, *spoof.TransportOption, error) {
 	if names.Image == "" {
 		return nil, nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
 	}
 
-	t.Logf("Creating a new Service %s.", names.Service)
+	t.Log("Creating a new Service.", "service", names.Service)
 	svc, err := CreateLatestService(t, clients, *names, fopt...)
 	if err != nil {
 		return nil, nil, err
@@ -141,12 +140,12 @@ func CreateRunLatestServiceReady(t *testing.T, clients *test.Clients, names *tes
 		names.Service = svc.Name
 	}
 
-	t.Logf("Waiting for Service %q to transition to Ready.", names.Service)
+	t.Log("Waiting for Service to transition to Ready.", "service", names.Service)
 	if err = WaitForServiceState(clients.ServingAlphaClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
 		return nil, nil, err
 	}
 
-	t.Log("Checking to ensure Service Status is populated for Ready service", names.Service)
+	t.Log("Checking to ensure Service Status is populated for Ready service")
 	err = validateCreatedServiceStatus(clients, names)
 	if err != nil {
 		return nil, nil, err
@@ -175,7 +174,7 @@ func CreateRunLatestServiceReady(t *testing.T, clients *test.Clients, names *tes
 		setupGateway(t, clients, servers)
 	}
 
-	t.Log("Getting latest objects Created by Service", names.Service)
+	t.Log("Getting latest objects Created by Service")
 	resources, err := GetResourceObjects(clients, *names)
 	if err == nil {
 		t.Log("Successfully created Service", names.Service)
@@ -186,12 +185,12 @@ func CreateRunLatestServiceReady(t *testing.T, clients *test.Clients, names *tes
 // CreateRunLatestServiceLegacyReady creates a new Service in state 'Ready'. This function expects Service and Image name passed in through 'names'.
 // Names is updated with the Route and Configuration created by the Service and ResourceObjects is returned with the Service, Route, and Configuration objects.
 // Returns error if the service does not come up correctly.
-func CreateRunLatestServiceLegacyReady(t *testing.T, clients *test.Clients, names *test.ResourceNames, fopt ...rtesting.ServiceOption) (*ResourceObjects, error) {
+func CreateRunLatestServiceLegacyReady(t pkgTest.T, clients *test.Clients, names *test.ResourceNames, fopt ...rtesting.ServiceOption) (*ResourceObjects, error) {
 	if names.Image == "" {
 		return nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
 	}
 
-	t.Logf("Creating a new Service %s.", names.Service)
+	t.Log("Creating a new Service.", "service", names.Service)
 	svc, err := CreateLatestServiceLegacy(t, clients, *names, fopt...)
 	if err != nil {
 		return nil, err
@@ -206,7 +205,7 @@ func CreateRunLatestServiceLegacyReady(t *testing.T, clients *test.Clients, name
 		names.Service = svc.Name
 	}
 
-	t.Logf("Waiting for Service %q to transition to Ready.", names.Service)
+	t.Log("Waiting for Service to transition to Ready.", "service", names.Service)
 	if err := WaitForServiceState(clients.ServingAlphaClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
 		return nil, err
 	}
@@ -226,7 +225,7 @@ func CreateRunLatestServiceLegacyReady(t *testing.T, clients *test.Clients, name
 }
 
 // CreateLatestService creates a service in namespace with the name names.Service and names.Image
-func CreateLatestService(t *testing.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (*v1alpha1.Service, error) {
+func CreateLatestService(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (*v1alpha1.Service, error) {
 	service := LatestService(names, fopt...)
 	LogResourceObject(t, ResourceObjects{Service: service})
 	svc, err := clients.ServingAlphaClient.Services.Create(service)
@@ -234,7 +233,7 @@ func CreateLatestService(t *testing.T, clients *test.Clients, names test.Resourc
 }
 
 // CreateLatestServiceLegacy creates a service in namespace with the name names.Service and names.Image
-func CreateLatestServiceLegacy(t *testing.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (*v1alpha1.Service, error) {
+func CreateLatestServiceLegacy(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (*v1alpha1.Service, error) {
 	service := LatestServiceLegacy(names, fopt...)
 	LogResourceObject(t, ResourceObjects{Service: service})
 	svc, err := clients.ServingAlphaClient.Services.Create(service)
@@ -242,7 +241,7 @@ func CreateLatestServiceLegacy(t *testing.T, clients *test.Clients, names test.R
 }
 
 // PatchServiceImage patches the existing service passed in with a new imagePath. Returns the latest service object
-func PatchServiceImage(t *testing.T, clients *test.Clients, svc *v1alpha1.Service, imagePath string) (*v1alpha1.Service, error) {
+func PatchServiceImage(t pkgTest.T, clients *test.Clients, svc *v1alpha1.Service, imagePath string) (*v1alpha1.Service, error) {
 	newSvc := svc.DeepCopy()
 	if svc.Spec.DeprecatedRunLatest != nil {
 		newSvc.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.GetContainer().Image = imagePath
@@ -262,7 +261,7 @@ func PatchServiceImage(t *testing.T, clients *test.Clients, svc *v1alpha1.Servic
 }
 
 // PatchService creates and applies a patch from the diff between curSvc and desiredSvc. Returns the latest service object.
-func PatchService(t *testing.T, clients *test.Clients, curSvc *v1alpha1.Service, desiredSvc *v1alpha1.Service) (*v1alpha1.Service, error) {
+func PatchService(t pkgTest.T, clients *test.Clients, curSvc *v1alpha1.Service, desiredSvc *v1alpha1.Service) (*v1alpha1.Service, error) {
 	LogResourceObject(t, ResourceObjects{Service: desiredSvc})
 	patchBytes, err := test.CreateBytePatch(curSvc, desiredSvc)
 	if err != nil {
@@ -272,7 +271,7 @@ func PatchService(t *testing.T, clients *test.Clients, curSvc *v1alpha1.Service,
 }
 
 // UpdateServiceRouteSpec updates a service to use the route name in names.
-func UpdateServiceRouteSpec(t *testing.T, clients *test.Clients, names test.ResourceNames, rs v1alpha1.RouteSpec) (*v1alpha1.Service, error) {
+func UpdateServiceRouteSpec(t pkgTest.T, clients *test.Clients, names test.ResourceNames, rs v1alpha1.RouteSpec) (*v1alpha1.Service, error) {
 	patches := []jsonpatch.JsonPatchOperation{{
 		Operation: "replace",
 		Path:      "/spec/traffic",
@@ -286,7 +285,7 @@ func UpdateServiceRouteSpec(t *testing.T, clients *test.Clients, names test.Reso
 }
 
 // PatchServiceTemplateMetadata patches an existing service by adding metadata to the service's RevisionTemplateSpec.
-func PatchServiceTemplateMetadata(t *testing.T, clients *test.Clients, svc *v1alpha1.Service, metadata metav1.ObjectMeta) (*v1alpha1.Service, error) {
+func PatchServiceTemplateMetadata(t pkgTest.T, clients *test.Clients, svc *v1alpha1.Service, metadata metav1.ObjectMeta) (*v1alpha1.Service, error) {
 	newSvc := svc.DeepCopy()
 	newSvc.Spec.ConfigurationSpec.Template.ObjectMeta = metadata
 	LogResourceObject(t, ResourceObjects{Service: newSvc})
@@ -330,7 +329,7 @@ func WaitForServiceLatestRevision(clients *test.Clients, names test.ResourceName
 // that uses the image specified by names.Image.
 func LatestService(names test.ResourceNames, fopt ...rtesting.ServiceOption) *v1alpha1.Service {
 	a := append([]rtesting.ServiceOption{
-		rtesting.WithInlineConfigSpec(*ConfigurationSpec(ptest.ImagePath(names.Image))),
+		rtesting.WithInlineConfigSpec(*ConfigurationSpec(pkgTest.ImagePath(names.Image))),
 	}, fopt...)
 	return rtesting.ServiceWithoutNamespace(names.Service, a...)
 }
@@ -339,7 +338,7 @@ func LatestService(names test.ResourceNames, fopt ...rtesting.ServiceOption) *v1
 // that uses the image specified by names.Image.
 func LatestServiceLegacy(names test.ResourceNames, fopt ...rtesting.ServiceOption) *v1alpha1.Service {
 	a := append([]rtesting.ServiceOption{
-		rtesting.WithRunLatestConfigSpec(*LegacyConfigurationSpec(ptest.ImagePath(names.Image))),
+		rtesting.WithRunLatestConfigSpec(*LegacyConfigurationSpec(pkgTest.ImagePath(names.Image))),
 	}, fopt...)
 	svc := rtesting.ServiceWithoutNamespace(names.Service, a...)
 	// Clear the name, which is put there by defaulting.
@@ -406,10 +405,10 @@ func IsServiceRoutesNotReady(s *v1alpha1.Service) (bool, error) {
 }
 
 // RestoreGateway updates the gateway object to the oldGateway
-func RestoreGateway(t *testing.T, clients *test.Clients, oldGateway v1alpha3.Gateway) {
+func RestoreGateway(t pkgTest.TLegacy, clients *test.Clients, oldGateway v1alpha3.Gateway) {
 	currGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(Namespace).Get(GatewayName, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to get Gateway %s/%s", Namespace, GatewayName)
+		t.Fatal(fmt.Sprintf("Failed to get Gateway %s/%s", Namespace, GatewayName))
 	}
 	if equality.Semantic.DeepEqual(*currGateway, oldGateway) {
 		t.Log("Gateway not restored because it's still the same")
@@ -417,16 +416,16 @@ func RestoreGateway(t *testing.T, clients *test.Clients, oldGateway v1alpha3.Gat
 	}
 	currGateway.Spec.Servers = oldGateway.Spec.Servers
 	if _, err := clients.IstioClient.NetworkingV1alpha3().Gateways(Namespace).Update(currGateway); err != nil {
-		t.Fatalf("Failed to restore Gateway %s/%s: %v", Namespace, GatewayName, err)
+		t.Fatal(fmt.Sprintf("Failed to restore Gateway %s/%s: %v", Namespace, GatewayName, err))
 	}
 }
 
 // setupGateway updates the ingress Gateway to the provided Servers and waits until all Envoy pods have been updated.
-func setupGateway(t *testing.T, clients *test.Clients, servers []*istiov1alpha3.Server) {
+func setupGateway(t pkgTest.TLegacy, clients *test.Clients, servers []*istiov1alpha3.Server) {
 	// Get the current Gateway
 	curGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(Namespace).Get(GatewayName, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to get Gateway %s/%s: %v", Namespace, GatewayName, err)
+		t.Fatal(fmt.Sprintf("Failed to get Gateway %s/%s: %v", Namespace, GatewayName, err))
 	}
 
 	// Update its Spec
@@ -436,7 +435,7 @@ func setupGateway(t *testing.T, clients *test.Clients, servers []*istiov1alpha3.
 	// Update the Gateway
 	gw, err := clients.IstioClient.NetworkingV1alpha3().Gateways(Namespace).Update(newGateway)
 	if err != nil {
-		t.Fatalf("Failed to update Gateway %s/%s: %v", Namespace, GatewayName, err)
+		t.Fatal(fmt.Sprintf("Failed to update Gateway %s/%s: %v", Namespace, GatewayName, err))
 	}
 
 	var selectors []string
@@ -448,7 +447,7 @@ func setupGateway(t *testing.T, clients *test.Clients, servers []*istiov1alpha3.
 	// Restart the Gateway pods: this is needed because Istio without SDS won't refresh the cert when the secret is updated
 	pods, err := clients.KubeClient.Kube.CoreV1().Pods("istio-system").List(metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
-		t.Fatalf("Failed to list Gateway pods: %v", err)
+		t.Fatal("Failed to list Gateway pods", "error", err.Error())
 	}
 
 	// TODO(bancel): there is a race condition here if a pod listed in the call above is deleted before calling watch below
@@ -457,7 +456,7 @@ func setupGateway(t *testing.T, clients *test.Clients, servers []*istiov1alpha3.
 	wg.Add(len(pods.Items))
 	wtch, err := clients.KubeClient.Kube.CoreV1().Pods("istio-system").Watch(metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
-		t.Fatalf("Failed to watch Gateway pods: %v", err)
+		t.Fatal("Failed to watch Gateway pods", "error", err.Error())
 	}
 	defer wtch.Stop()
 
@@ -477,7 +476,7 @@ func setupGateway(t *testing.T, clients *test.Clients, servers []*istiov1alpha3.
 
 	err = clients.KubeClient.Kube.CoreV1().Pods("istio-system").DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
-		t.Fatalf("Failed to delete Gateway pods: %v", err)
+		t.Fatal("Failed to delete Gateway pods", "error", err.Error())
 	}
 
 	wg.Wait()
@@ -486,7 +485,7 @@ func setupGateway(t *testing.T, clients *test.Clients, servers []*istiov1alpha3.
 
 // setupHTTPS creates a self-signed certificate, installs it as a Secret and returns an *http.Transport
 // trusting the certificate as a root CA.
-func setupHTTPS(t *testing.T, kubeClient *ptest.KubeClient, host string) (*spoof.TransportOption, error) {
+func setupHTTPS(t pkgTest.T, kubeClient *pkgTest.KubeClient, host string) (*spoof.TransportOption, error) {
 	t.Helper()
 	cert, key, err := generateCertificate(host)
 	if err != nil {

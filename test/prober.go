@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
-	"testing"
 
 	"golang.org/x/sync/errgroup"
 	pkgTest "knative.dev/pkg/test"
@@ -254,14 +253,14 @@ func RunRouteProber(logf logging.FormatLogger, clients *Clients, url *url.URL) P
 // AssertProberDefault is a helper for stopping the Prober and checking its SLI
 // against the default SLO, which requires perfect responses.
 // This takes `testing.T` so that it may be used in `defer`.
-func AssertProberDefault(t *testing.T, p Prober) {
+func AssertProberDefault(t pkgTest.T, p Prober) {
 	t.Helper()
 	if err := p.Stop(); err != nil {
-		t.Errorf("Stop() = %v", err)
+		t.Error("Stop()", "error", err.Error())
 	}
 	// Default to 100% correct (typically used in conjunction with the low probe count above)
 	if err := CheckSLO(1.0, t.Name(), p); err != nil {
-		t.Errorf("CheckSLO() = %v", err)
+		t.Error("CheckSLO()", "error", err.Error())
 	}
 }
 

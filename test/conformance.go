@@ -17,8 +17,6 @@ limitations under the License.
 package test
 
 import (
-	"testing"
-
 	pkgTest "knative.dev/pkg/test"
 
 	// Mysteriously required to support GCP auth (required by k8s libs). Apparently just importing it is enough. @_@ side effects @_@. https://github.com/kubernetes/client-go/issues/242
@@ -57,12 +55,11 @@ const (
 )
 
 // Setup creates client to run Knative Service requests
-func Setup(t *testing.T) *Clients {
+func Setup(t pkgTest.TLegacy) *Clients {
 	t.Helper()
-	pkgTest.SetupLoggingFlags()
 	clients, err := NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, ServingNamespace)
 	if err != nil {
-		t.Fatalf("Couldn't initialize clients: %v", err)
+		t.Fatal("Couldn't initialize clients", "error", err.Error())
 	}
 	return clients
 }

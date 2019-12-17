@@ -17,8 +17,8 @@ limitations under the License.
 package upgrade
 
 import (
+	"fmt"
 	"net/url"
-	"testing"
 
 	// Mysteriously required to support GCP auth (required by k8s libs).
 	// Apparently just importing it is enough. @_@ side effects @_@.
@@ -40,7 +40,7 @@ const (
 )
 
 // Shamelessly cribbed from conformance/service_test.
-func assertServiceResourcesUpdated(t *testing.T, clients *test.Clients, names test.ResourceNames, url *url.URL, expectedText string) {
+func assertServiceResourcesUpdated(t pkgTest.TLegacy, clients *test.Clients, names test.ResourceNames, url *url.URL, expectedText string) {
 	t.Helper()
 	// TODO(#1178): Remove "Wait" from all checks below this point.
 	_, err := pkgTest.WaitForEndpointState(
@@ -51,6 +51,6 @@ func assertServiceResourcesUpdated(t *testing.T, clients *test.Clients, names te
 		"WaitForEndpointToServeText",
 		test.ServingFlags.ResolvableDomain)
 	if err != nil {
-		t.Fatalf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, url, expectedText, err)
+		t.Fatal(fmt.Sprintf("The endpoint for Route %s at %s didn't serve the expected text %q: %v", names.Route, url, expectedText, err))
 	}
 }
