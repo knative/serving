@@ -9,4 +9,4 @@ spec:
       containers:
       - image: knative.dev/serving/test/test_images/runtime
         securityContext:
-          runAsUser: 2020
+          runAsUser: 65532
