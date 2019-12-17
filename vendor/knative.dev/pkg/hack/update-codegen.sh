@@ -35,18 +35,6 @@ ${REPO_ROOT_DIR}/hack/generate-knative.sh "injection" \
   "duck:v1alpha1,v1beta1,v1" \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 
-# Generate our own client for istio (otherwise injection won't work)
-${CODEGEN_PKG}/generate-groups.sh "client,informer,lister" \
-  knative.dev/pkg/client/istio istio.io/client-go/pkg/apis \
-  "networking:v1alpha3" \
-  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
-
-# Knative Injection (for istio)
-${REPO_ROOT_DIR}/hack/generate-knative.sh "injection" \
-  knative.dev/pkg/client/istio istio.io/client-go/pkg/apis \
-  "networking:v1alpha3" \
-  --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
-
 OUTPUT_PKG="knative.dev/pkg/client/injection/kube" \
 VERSIONED_CLIENTSET_PKG="k8s.io/client-go/kubernetes" \
 EXTERNAL_INFORMER_PKG="k8s.io/client-go/informers" \
