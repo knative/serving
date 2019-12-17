@@ -167,10 +167,10 @@ data:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: istio-ingressgateway-service-account
+  name: cluster-local-gateway-service-account
   namespace: istio-system
   labels:
-    app: istio-ingressgateway
+    app: cluster-local-gateway
     chart: gateways
     heritage: Helm
     release: RELEASE-NAME
@@ -179,10 +179,10 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: cluster-local-gateway-service-account
+  name: istio-ingressgateway-service-account
   namespace: istio-system
   labels:
-    app: cluster-local-gateway
+    app: istio-ingressgateway
     chart: gateways
     heritage: Helm
     release: RELEASE-NAME
@@ -425,7 +425,7 @@ metadata:
     istio: cluster-local-gateway
     release: RELEASE-NAME
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: cluster-local-gateway
@@ -493,8 +493,8 @@ spec:
             timeoutSeconds: 1
           resources:
             requests:
-              cpu: 1000m
-              memory: 1024Mi
+              cpu: 100m
+              memory: 128Mi
           env:
           - name: NODE_NAME
             valueFrom:
@@ -616,6 +616,7 @@ metadata:
     istio: ingressgateway
     release: RELEASE-NAME
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: istio-ingressgateway
@@ -709,8 +710,8 @@ spec:
               cpu: 2000m
               memory: 1024Mi
             requests:
-              cpu: 1000m
-              memory: 1024Mi
+              cpu: 100m
+              memory: 128Mi
           env:
           - name: NODE_NAME
             valueFrom:
@@ -842,6 +843,7 @@ metadata:
     release: RELEASE-NAME
     istio: pilot
 spec:
+  replicas: 1
   strategy:
     rollingUpdate:
       maxSurge: 100%
@@ -907,8 +909,8 @@ spec:
             value: "false"
           resources:
             requests:
-              cpu: 1000m
-              memory: 1024Mi
+              cpu: 100m
+              memory: 128Mi
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -956,52 +958,3 @@ spec:
                 operator: In
                 values:
                 - "s390x"
----
-# Source: istio/charts/gateways/templates/autoscale.yaml
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
-metadata:
-  name: istio-ingressgateway
-  namespace: istio-system
-  labels:
-    chart: gateways
-    heritage: Helm
-    release: RELEASE-NAME
-    app: istio-ingressgateway
-    istio: ingressgateway
-spec:
-  maxReplicas: 5
-  minReplicas: 2
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: istio-ingressgateway
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        targetAverageUtilization: 80
----
-# Source: istio/charts/pilot/templates/autoscale.yaml
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
-metadata:
-  name: istio-pilot
-  namespace: istio-system
-  labels:
-    app: pilot
-    chart: pilot
-    heritage: Helm
-    release: RELEASE-NAME
-spec:
-  maxReplicas: 5
-  minReplicas: 1
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: istio-pilot
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      targetAverageUtilization: 80

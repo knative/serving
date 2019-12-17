@@ -4833,8 +4833,6 @@ data:
           storage: true
 
     ---
-
-
 ---
 # Source: istio-init/templates/configmap-crd-11.yaml
 apiVersion: v1
@@ -4966,8 +4964,6 @@ data:
         storage: true
 
     ---
-
-
 ---
 # Source: istio-init/templates/configmap-crd-14.yaml
 apiVersion: v1
@@ -5112,8 +5108,6 @@ data:
         storage: true
 
     ---
-
-
 ---
 # Source: istio-init/templates/serviceaccount.yaml
 apiVersion: v1
@@ -5124,8 +5118,6 @@ metadata:
   labels:
     app: istio-init
     istio: init
-
-
 ---
 # Source: istio-init/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -5139,7 +5131,6 @@ rules:
 - apiGroups: ["apiextensions.k8s.io"]
   resources: ["customresourcedefinitions"]
   verbs: ["create", "get", "list", "watch", "patch"]
-
 ---
 # Source: istio-init/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -5157,7 +5148,6 @@ subjects:
   - kind: ServiceAccount
     name: istio-init-service-account
     namespace: istio-system
-
 ---
 # Source: istio-init/templates/job-crd-10.yaml
 apiVersion: batch/v1
@@ -5183,7 +5173,6 @@ spec:
           requests:
             cpu: 10m
             memory: 50Mi
-
         volumeMounts:
         - name: crd-10
           mountPath: /etc/istio/crd-10
@@ -5194,7 +5183,6 @@ spec:
         configMap:
           name: istio-crd-10
       restartPolicy: OnFailure
-
 ---
 # Source: istio-init/templates/job-crd-11.yaml
 apiVersion: batch/v1
@@ -5220,7 +5208,6 @@ spec:
           requests:
             cpu: 10m
             memory: 50Mi
-
         volumeMounts:
         - name: crd-11
           mountPath: /etc/istio/crd-11
@@ -5231,7 +5218,6 @@ spec:
         configMap:
           name: istio-crd-11
       restartPolicy: OnFailure
-
 ---
 # Source: istio-init/templates/job-crd-14.yaml
 apiVersion: batch/v1
@@ -5257,7 +5243,6 @@ spec:
           requests:
             cpu: 10m
             memory: 50Mi
-
         volumeMounts:
           - name: crd-14
             mountPath: /etc/istio/crd-14
@@ -5268,20 +5253,3 @@ spec:
           configMap:
             name: istio-crd-14
       restartPolicy: OnFailure
-
----
-# Source: istio-init/templates/configmap-crd-certmanager-10.yaml
-
-
----
-# Source: istio-init/templates/configmap-crd-certmanager-11.yaml
-
-
----
-# Source: istio-init/templates/job-crd-certmanager-10.yaml
-
-
----
-# Source: istio-init/templates/job-crd-certmanager-11.yaml
-
-
