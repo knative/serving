@@ -18,7 +18,9 @@ package runtime
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
+	"os"
 	"testing"
 
 	pkgTest "knative.dev/pkg/test"
@@ -93,4 +95,10 @@ func splitOpts(opts ...interface{}) ([]v1alpha1testing.ServiceOption, []interfac
 
 	}
 	return serviceOpts, reqOpts, nil
+}
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	pkgTest.SetupLoggingFlags()
+	os.Exit(m.Run())
 }
