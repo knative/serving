@@ -119,13 +119,11 @@ var _ MetricClient = (*MetricCollector)(nil)
 
 // NewMetricCollector creates a new metric collector.
 func NewMetricCollector(statsScraperFactory StatsScraperFactory, logger *zap.SugaredLogger) *MetricCollector {
-	collector := &MetricCollector{
+	return &MetricCollector{
 		logger:              logger,
 		collections:         make(map[types.NamespacedName]*collection),
 		statsScraperFactory: statsScraperFactory,
 	}
-
-	return collector
 }
 
 // CreateOrUpdate either creates a collection for the given metric or update it, should
@@ -326,10 +324,7 @@ func (c *collection) record(stat Stat) {
 // stableAndPanicConcurrency calculates both stable and panic concurrency based on the
 // current stats.
 func (c *collection) stableAndPanicConcurrency(now time.Time) (float64, float64, error) {
-	o1, o2, _ := c.stableAndPanicStats(now, c.concurrencyBuckets)
-	n1, n2, err := c.stableAndPanicStats(now, c.concurrencyBuckets2)
-	fmt.Printf("### %v %s: OLD: %f/%f NEW: %f/%f\n%s\n", now, c.metric.Name, o1, o2, n1, n2, c.concurrencyBuckets2.String())
-	return n1, n2, err
+	return c.stableAndPanicStats(now, c.concurrencyBuckets2)
 }
 
 // StableAndPanicRPS calculates both stable and panic RPS based on the

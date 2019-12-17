@@ -118,8 +118,8 @@ func TestMetricCollectorScraper(t *testing.T) {
 
 	now := time.Now()
 	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
-	wantConcurrency := 10.0
-	wantRPS := 20.0
+	const wantConcurrency = 10.0
+	const wantRPS = 20.0
 	stat := Stat{
 		Time:                      now,
 		PodName:                   "testPod",
@@ -138,10 +138,10 @@ func TestMetricCollectorScraper(t *testing.T) {
 
 	// stable concurrency and RPS should eventually be equal to the stat.
 	var gotConcurrency, gotRPS float64
-	wait.PollImmediate(30*time.Millisecond, 2*time.Second, func() (bool, error) {
+	wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
 		gotConcurrency, _, _ = coll.StableAndPanicConcurrency(metricKey, now)
-		// 	gotRPS, _, _ = coll.StableAndPanicRPS(metricKey, now)
-		return gotConcurrency == wantConcurrency, nil //&& gotRPS == wantRPS, nil
+		gotRPS, _, _ = coll.StableAndPanicRPS(metricKey, now)
+		return gotConcurrency == wantConcurrency && gotRPS == wantRPS, nil
 	})
 	if gotConcurrency != wantConcurrency {
 		t.Errorf("StableAndPanicConcurrency() = %v, want %v", gotConcurrency, wantConcurrency)
