@@ -168,10 +168,8 @@ func (r *reconciler) reconcileServiceEntry(ctx context.Context, sks *netv1alpha1
 		if kaccessor.IsNotOwned(err) {
 			sks.Status.MarkResourceNotOwned("ServiceEntry", desired.Name)
 		}
-		sks.Status.MarkServiceEntriesNotReady()
 		return err
 	}
-	sks.Status.MarkServiceEntriesReady()
 	return nil
 }
 

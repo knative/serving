@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	isitonv1a3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
@@ -239,6 +240,9 @@ func WithK8sSvcOwnersRemoved(svc *corev1.Service) {
 
 // EndpointsOption enables further configuration of the Kubernetes Endpoints.
 type EndpointsOption func(*corev1.Endpoints)
+
+// ServiceEntriesOption enables further configuration of the Kubernetes ServiceEntries.
+type ServiceEntriesOption func(*isitonv1a3.ServiceEntry)
 
 // WithSubsets adds subsets to the body of a Revision, enabling us to refer readiness.
 func WithSubsets(ep *corev1.Endpoints) {

@@ -59,9 +59,7 @@ func TestSSTypicalFlow(t *testing.T) {
 	apitestv1.CheckConditionOngoing(r.duck(), ServerlessServiceConditionReady, t)
 
 	r.MarkEndpointsReady()
-	r.MarkServiceEntriesReady()
 	apitestv1.CheckConditionSucceeded(r.duck(), ServerlessServiceConditionEndspointsPopulated, t)
-	apitestv1.CheckConditionSucceeded(r.duck(), ServiceEntriesPopulated, t)
 	apitestv1.CheckConditionSucceeded(r.duck(), ServerlessServiceConditionReady, t)
 
 	// Verify that activator endpoints status is informational and does not

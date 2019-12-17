@@ -132,6 +132,4 @@ const (
 	// revision is active (no pods yet created) or even when it has healthy pods
 	// (e.g. due to target burst capacity settings).
 	ActivatorEndpointsPopulated apis.ConditionType = "ActivatorEndpointsPopulated"
-
-	ServiceEntriesPopulated apis.ConditionType = "ServiceEntriesPopulated"
 )

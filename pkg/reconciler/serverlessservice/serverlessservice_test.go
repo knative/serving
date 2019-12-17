@@ -40,6 +40,7 @@ import (
 	rpkg "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources"
 
+	istionv1a3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,6 +48,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
+	//	"knative.dev/pkg/kmeta"
 
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
@@ -82,6 +84,10 @@ func TestReconcile(t *testing.T) {
 			endpointspub("steady", "state", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 			endpointspriv("steady", "state", WithSubsets),
 			activatorEndpoints(WithSubsets),
+			serviceentry("steady", "state",
+				activatorEndpoints(WithSubsets),
+				endpointspriv("steady", "state", WithSubsets),
+			),
 		},
 	}, {
 		// This is the case for once we are scaled to zero.
@@ -96,6 +102,10 @@ func TestReconcile(t *testing.T) {
 			endpointspub("steady", "to-proxy", withOtherSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 			endpointspriv("steady", "to-proxy"),
 			activatorEndpoints(WithSubsets),
+			serviceentry("steady", "to-proxy",
+				activatorEndpoints(WithSubsets),
+				endpointspriv("steady", "to-proxy"),
+			),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: SKS("steady", "to-proxy", WithDeployRef("bar"), markNoEndpoints,
@@ -121,6 +131,10 @@ func TestReconcile(t *testing.T) {
 			endpointspub("steady", "to-proxy", withOtherSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 			endpointspriv("steady", "to-proxy", WithSubsets),
 			activatorEndpoints(WithSubsets),
+			serviceentry("steady", "to-proxy",
+				activatorEndpoints(WithSubsets),
+				endpointspriv("steady", "to-proxy", WithSubsets),
+			),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: endpointspub("steady", "to-proxy", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
@@ -140,6 +154,10 @@ func TestReconcile(t *testing.T) {
 			endpointspub("many", "privates", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 			endpointspriv("many", "privates", WithSubsets),
 			activatorEndpoints(WithSubsets),
+			serviceentry("many", "privates",
+				activatorEndpoints(WithSubsets),
+				endpointspriv("many", "privates", WithSubsets),
+			),
 		},
 		WantDeletes: []clientgotesting.DeleteActionImpl{{
 			ActionImpl: clientgotesting.ActionImpl{
@@ -165,6 +183,10 @@ func TestReconcile(t *testing.T) {
 			endpointspub("public", "svc-change", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 			endpointspriv("public", "svc-change", WithSubsets),
 			activatorEndpoints(WithSubsets),
+			serviceentry("public", "svc-change",
+				activatorEndpoints(WithSubsets),
+				endpointspriv("public", "svc-change", WithSubsets),
+			),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svcpub("public", "svc-change"),
@@ -181,6 +203,10 @@ func TestReconcile(t *testing.T) {
 			endpointspub("private", "svc-change", withOtherSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 			endpointspriv("private", "svc-change", WithSubsets),
 			activatorEndpoints(WithSubsets),
+			serviceentry("private", "svc-change",
+				activatorEndpoints(WithSubsets),
+				endpointspriv("private", "svc-change", WithSubsets),
+			),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: svcpriv("private", "svc-change"),
@@ -194,6 +220,10 @@ func TestReconcile(t *testing.T) {
 			SKS("on", "cde", WithDeployRef("blah"), markNoEndpoints),
 			deploy("on", "blah-another"),
 			endpointspriv("on", "cde", WithSubsets),
+			serviceentry("on", "cde",
+				activatorEndpoints(), // This cannot be nil.
+				endpointspriv("on", "cde", WithSubsets),
+			),
 		},
 		WantErr: true,
 		WantEvents: []string{
@@ -208,6 +238,10 @@ func TestReconcile(t *testing.T) {
 			// This "has" to pre-exist, otherwise I can't populate it with subsets.
 			endpointspriv("on", "cde", WithSubsets),
 			activatorEndpoints(WithSubsets),
+			serviceentry("on", "cde",
+				activatorEndpoints(WithSubsets),
+				endpointspriv("on", "cde", WithSubsets),
+			),
 		},
 		WantCreates: []runtime.Object{
 			svcpriv("on", "cde"),
@@ -233,6 +267,10 @@ func TestReconcile(t *testing.T) {
 			endpointspub("update-eps", "failA"),
 			endpointspriv("update-eps", "failA", WithSubsets),
 			activatorEndpoints(WithSubsets),
+			serviceentry("update-eps", "failA",
+				activatorEndpoints(WithSubsets),
+				endpointspriv("update-eps", "failA", WithSubsets),
+			),
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("update", "endpoints"),
@@ -254,6 +292,10 @@ func TestReconcile(t *testing.T) {
 			svcpriv("svc", "fail2"),
 			endpointspriv("svc", "fail2"),
 			activatorEndpoints(WithSubsets),
+			serviceentry("svc", "fail2",
+				activatorEndpoints(WithSubsets),
+				endpointspriv("svc", "fail2"),
+			),
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "services"),
@@ -280,6 +322,10 @@ func TestReconcile(t *testing.T) {
 			svcpriv("eps", "fail3"),
 			endpointspriv("eps", "fail3", WithSubsets),
 			activatorEndpoints(withOtherSubsets),
+			serviceentry("eps", "fail3",
+				activatorEndpoints(withOtherSubsets),
+				endpointspriv("eps", "fail3", WithSubsets),
+			),
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "endpoints"),
@@ -305,6 +351,10 @@ func TestReconcile(t *testing.T) {
 			deploy("on", "blah"),
 			endpointspriv("on", "cneps"),
 			activatorEndpoints(WithSubsets),
+			serviceentry("on", "cneps",
+				activatorEndpoints(WithSubsets),
+				endpointspriv("on", "cneps"),
+			),
 		},
 		WantCreates: []runtime.Object{
 			svcpriv("on", "cneps"),
@@ -326,6 +376,10 @@ func TestReconcile(t *testing.T) {
 			deploy("on", "blah"),
 			endpointspriv("on", "cnaeps2", WithSubsets),
 			endpointspub("on", "cnaeps2", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
+			serviceentry("on", "cnaeps2",
+				activatorEndpoints(), // This cannot be nil.
+				endpointspriv("on", "cnaeps2", WithSubsets),
+			),
 		},
 		WantErr: true,
 		WantCreates: []runtime.Object{
@@ -350,6 +404,10 @@ func TestReconcile(t *testing.T) {
 			deploy("on", "blah"),
 			endpointspub("on", "cnaeps3", WithSubsets),
 			activatorEndpoints(WithSubsets),
+			serviceentry("on", "cnaeps3",
+				activatorEndpoints(WithSubsets),
+				endpointspriv("on", "cnaeps3"), // This cannot be nil.
+			),
 		},
 		WantErr: true,
 		WantCreates: []runtime.Object{
@@ -375,6 +433,10 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("on", "cnaeps", WithSubsets),
 			endpointspub("on", "cnaeps", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 			activatorEndpoints(),
+			serviceentry("on", "cnaeps",
+				activatorEndpoints(),
+				endpointspriv("on", "cnaeps", WithSubsets),
+			),
 		},
 		WantCreates: []runtime.Object{
 			svcpriv("on", "cnaeps"),
@@ -395,6 +457,10 @@ func TestReconcile(t *testing.T) {
 			deploy("on", "blah"),
 			endpointspriv("on", "cnaeps"), // This should be ignored.
 			activatorEndpoints(),
+			serviceentry("on", "cnaeps",
+				activatorEndpoints(),
+				endpointspriv("on", "cnaeps"),
+			),
 		},
 		WantCreates: []runtime.Object{
 			svcpriv("on", "cnaeps"),
@@ -417,6 +483,10 @@ func TestReconcile(t *testing.T) {
 			deploy("svc", "blah"),
 			endpointspriv("svc", "fail"),
 			activatorEndpoints(WithSubsets),
+			serviceentry("svc", "fail",
+				activatorEndpoints(WithSubsets),
+				endpointspriv("svc", "fail"),
+			),
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("create", "services"),
@@ -445,6 +515,10 @@ func TestReconcile(t *testing.T) {
 			endpointspub("update-sks", "fail4", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 			endpointspriv("update-sks", "fail4", WithSubsets),
 			activatorEndpoints(WithSubsets),
+			serviceentry("update-sks", "fail4",
+				activatorEndpoints(WithSubsets),
+				endpointspriv("update-sks", "fail4", WithSubsets),
+			),
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("update", "serverlessservices"),
@@ -470,6 +544,10 @@ func TestReconcile(t *testing.T) {
 			endpointspub("ronin-priv-service", "fail5", WithSubsets),
 			endpointspriv("ronin-priv-service", "fail5", WithSubsets),
 			activatorEndpoints(WithSubsets),
+			serviceentry("ronin-priv-service", "fail5",
+				activatorEndpoints(WithSubsets),
+				endpointspriv("ronin-priv-service", "fail5", WithSubsets),
+			),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: SKS("ronin-priv-service", "fail5", WithPubService, WithPrivateService,
@@ -492,6 +570,10 @@ func TestReconcile(t *testing.T) {
 			endpointspub("ronin-pub-service", "fail6", WithSubsets),
 			endpointspriv("ronin-pub-service", "fail6", WithSubsets),
 			activatorEndpoints(WithSubsets),
+			serviceentry("ronin-pub-service", "fail6",
+				activatorEndpoints(WithSubsets),
+				endpointspriv("ronin-pub-service", "fail6", WithSubsets),
+			),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: SKS("ronin-pub-service", "fail6", WithPubService, WithPrivateService,
@@ -514,6 +596,10 @@ func TestReconcile(t *testing.T) {
 			endpointspub("ronin-pub-eps", "fail7", WithSubsets, WithEndpointsOwnersRemoved),
 			endpointspriv("ronin-pub-eps", "fail7", WithSubsets),
 			activatorEndpoints(WithSubsets),
+			serviceentry("ronin-pub-eps", "fail7",
+				activatorEndpoints(WithSubsets),
+				endpointspriv("ronin-pub-eps", "fail7", WithSubsets),
+			),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: SKS("ronin-pub-eps", "fail7", WithPubService, WithPrivateService,
@@ -536,6 +622,10 @@ func TestReconcile(t *testing.T) {
 			endpointspub("update-svc", "fail9"),
 			endpointspriv("update-svc", "fail9"),
 			activatorEndpoints(WithSubsets),
+			serviceentry("update-svc", "fail9",
+				activatorEndpoints(WithSubsets),
+				endpointspriv("update-svc", "fail9"),
+			),
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("update", "services"),
@@ -565,6 +655,10 @@ func TestReconcile(t *testing.T) {
 				endpointspub("update-svc", "fail8", WithSubsets),
 				endpointspriv("update-svc", "fail8", WithSubsets),
 				activatorEndpoints(WithSubsets),
+				serviceentry("pod", "change",
+					activatorEndpoints(WithSubsets),
+					endpointspriv("update-svc", "fail8", WithSubsets),
+				),
 			},
 			WithReactors: []clientgotesting.ReactionFunc{
 				InduceFailure("update", "services"),
@@ -587,6 +681,10 @@ func TestReconcile(t *testing.T) {
 				endpointspub("pod", "change", WithSubsets),
 				endpointspriv("pod", "change", withOtherSubsets),
 				activatorEndpoints(WithSubsets),
+				serviceentry("pod", "change",
+					activatorEndpoints(WithSubsets),
+					endpointspriv("pod", "change", withOtherSubsets),
+				),
 			},
 			WantUpdates: []clientgotesting.UpdateActionImpl{{
 				Object: endpointspub("pod", "change", withOtherSubsets, withFilteredPorts(networking.BackendHTTPPort)),
@@ -603,6 +701,10 @@ func TestReconcile(t *testing.T) {
 				endpointspub("pod", "change", WithSubsets),
 				endpointspriv("pod", "change"),
 				activatorEndpoints(withOtherSubsets),
+				serviceentry("pod", "change",
+					activatorEndpoints(withOtherSubsets),
+					endpointspriv("pod", "change"),
+				),
 			},
 			WantUpdates: []clientgotesting.UpdateActionImpl{{
 				Object: endpointspub("pod", "change", withOtherSubsets, withFilteredPorts(networking.BackendHTTP2Port)),
@@ -619,6 +721,10 @@ func TestReconcile(t *testing.T) {
 				endpointspub("pod", "change", withOtherSubsets),
 				endpointspriv("pod", "change", WithSubsets),
 				activatorEndpoints(withOtherSubsets),
+				serviceentry("pod", "change",
+					activatorEndpoints(withOtherSubsets),
+					endpointspriv("pod", "change", WithSubsets),
+				),
 			},
 			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 				Object: SKS("pod", "change",
@@ -642,6 +748,10 @@ func TestReconcile(t *testing.T) {
 				endpointspub("pod", "change", WithSubsets), // We had endpoints...
 				endpointspriv("pod", "change"),             // but now we don't.
 				activatorEndpoints(withOtherSubsets),
+				serviceentry("pod", "change",
+					activatorEndpoints(withOtherSubsets),
+					endpointspriv("pod", "change"),
+				),
 			},
 			WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 				Object: SKS("pod", "change", withHTTP2Protocol,
@@ -826,6 +936,15 @@ func endpointspub(namespace, name string, eo ...EndpointsOption) *corev1.Endpoin
 		opt(ep)
 	}
 	return ep
+}
+
+func serviceentry(namespace, name string, actEp, prvEp *corev1.Endpoints, seo ...ServiceEntriesOption) *istionv1a3.ServiceEntry {
+	sks := SKS(namespace, name)
+	se := resources.MakeServiceEntry(sks, actEp, prvEp)
+	for _, opt := range seo {
+		opt(se)
+	}
+	return se
 }
 
 func withTimeSelector(svc *corev1.Service) {
