@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
-	fakeistioclient "knative.dev/pkg/client/istio/injection/client/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 
 	"knative.dev/pkg/configmap"
@@ -62,7 +61,6 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 		ctx = logging.WithLogger(ctx, logger)
 
 		ctx, kubeClient := fakekubeclient.With(ctx, ls.GetKubeObjects()...)
-		ctx, istioClient := fakeistioclient.With(ctx, ls.GetIstioObjects()...)
 		ctx, dynamicClient := fakedynamicclient.With(ctx,
 			ls.NewScheme(), ToUnstructured(t, ls.NewScheme(), r.Objects)...)
 
@@ -95,11 +93,10 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 
 		for _, reactor := range r.WithReactors {
 			kubeClient.PrependReactor("*", "*", reactor)
-			istioClient.PrependReactor("*", "*", reactor)
 			dynamicClient.PrependReactor("*", "*", reactor)
 		}
 
-		actionRecorderList := rtesting.ActionRecorderList{istioClient, dynamicClient, kubeClient}
+		actionRecorderList := rtesting.ActionRecorderList{dynamicClient, kubeClient}
 		eventList := rtesting.EventList{Recorder: eventRecorder}
 
 		return c, actionRecorderList, eventList, statsReporter
