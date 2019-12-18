@@ -217,8 +217,8 @@ type collection struct {
 
 	scraperMutex       sync.RWMutex
 	scraper            StatsScraper
-	concurrencyBuckets *aggregation.TimedFloat64Buckets2
-	rpsBuckets         *aggregation.TimedFloat64Buckets2
+	concurrencyBuckets *aggregation.TimedFloat64Buckets
+	rpsBuckets         *aggregation.TimedFloat64Buckets
 
 	grp    sync.WaitGroup
 	stopCh chan struct{}
@@ -241,8 +241,8 @@ func (c *collection) getScraper() StatsScraper {
 func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, logger *zap.SugaredLogger) *collection {
 	c := &collection{
 		metric:             metric,
-		concurrencyBuckets: aggregation.NewTimedFloat64Buckets2(metric.Spec.StableWindow, BucketSize),
-		rpsBuckets:         aggregation.NewTimedFloat64Buckets2(metric.Spec.StableWindow, BucketSize),
+		concurrencyBuckets: aggregation.NewTimedFloat64Buckets(metric.Spec.StableWindow, BucketSize),
+		rpsBuckets:         aggregation.NewTimedFloat64Buckets(metric.Spec.StableWindow, BucketSize),
 		scraper:            scraper,
 
 		stopCh: make(chan struct{}),

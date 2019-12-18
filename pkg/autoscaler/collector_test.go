@@ -377,8 +377,8 @@ func TestMetricCollectorAggregate(t *testing.T) {
 	m.Spec.PanicWindow = 2 * time.Second
 	c := &collection{
 		metric:             defaultMetric,
-		concurrencyBuckets: aggregation.NewTimedFloat64Buckets2(m.Spec.StableWindow, BucketSize),
-		rpsBuckets:         aggregation.NewTimedFloat64Buckets2(m.Spec.StableWindow, BucketSize),
+		concurrencyBuckets: aggregation.NewTimedFloat64Buckets(m.Spec.StableWindow, BucketSize),
+		rpsBuckets:         aggregation.NewTimedFloat64Buckets(m.Spec.StableWindow, BucketSize),
 	}
 	now := time.Now()
 	for i := 0; i < 10; i++ {
