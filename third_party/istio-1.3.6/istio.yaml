@@ -619,10 +619,6 @@ data:
         - "{{ formatDuration .ProxyConfig.ParentShutdownDuration }}"
         - --discoveryAddress
         - "{{ annotation .ObjectMeta `sidecar.istio.io/discoveryAddress` .ProxyConfig.DiscoveryAddress }}"
-        # PATCH #2: Increase termination drain duration.
-        - name: TERMINATION_DRAIN_DURATION_SECONDS
-          value: "20"
-        # PATCH #2 ends.
       {{- if eq .Values.global.proxy.tracer "lightstep" }}
         - --lightstepAddress
         - "{{ .ProxyConfig.GetTracing.GetLightstep.GetAddress }}"
@@ -768,6 +764,10 @@ data:
         - name: ISTIO_META_MESH_ID
           value: "{{ .Values.global.trustDomain }}"
         {{- end }}
+        # PATCH #2: Increase termination drain duration.
+        - name: TERMINATION_DRAIN_DURATION_SECONDS
+          value: "20"
+        # PATCH #2 ends.
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
         readinessProbe:
