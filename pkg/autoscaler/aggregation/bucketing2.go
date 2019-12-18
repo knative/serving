@@ -56,6 +56,8 @@ func NewTimedFloat64Buckets2(window, granularity time.Duration) *TimedFloat64Buc
 // bucketMutex needs to be held.
 func (t *TimedFloat64Buckets2) timeToIndex(tm time.Time) int {
 	// I don't think this run in 2038 :-)
+	// NB: we need to divide by granularity, since it's a compressing mapping
+	// to buckets.
 	return int(tm.Unix()) / int(t.granularity.Seconds())
 }
 
@@ -72,9 +74,7 @@ func (t *TimedFloat64Buckets2) Record(now time.Time, name string, value float64)
 	t.bucketsMutex.Lock()
 	defer t.bucketsMutex.Unlock()
 
-	// NB: we need to divide by granularity, since it's a compressing mapping
-	// to buckets.
-	bucketIdx := t.timeToIndex(now) % len(t.buckets)
+	bIdx := t.timeToIndex(now) % len(t.buckets)
 
 	if t.lastWrite != bucketTime {
 		// This should not really happen, but is here for correctness.
@@ -82,11 +82,11 @@ func (t *TimedFloat64Buckets2) Record(now time.Time, name string, value float64)
 			t.reset()
 		}
 		// Reset the value.
-		t.buckets[bucketIdx] = 0
+		t.buckets[bIdx] = 0
 		// Update the last write time.
 		t.lastWrite = bucketTime
 	}
-	t.buckets[bucketIdx] += value
+	t.buckets[bIdx] += value
 }
 
 // ForEachBucket calls the given Accumulator function for each bucket.
@@ -106,9 +106,9 @@ func (t *TimedFloat64Buckets2) ForEachBucket(now time.Time, accs ...Accumulator)
 	bucketTime := t.lastWrite // Always aligned with granularity.
 	si := t.timeToIndex(bucketTime)
 	for i := 0; i < numBuckets; i++ {
-		tix := si % len(t.buckets)
+		tIdx := si % len(t.buckets)
 		for _, acc := range accs {
-			acc(bucketTime, t.buckets[tix])
+			acc(bucketTime, t.buckets[tIdx])
 		}
 		si--
 		bucketTime = bucketTime.Add(-t.granularity)
