@@ -87,6 +87,12 @@ func MakePublicEndpoints(sks *v1alpha1.ServerlessService, src *corev1.Endpoints)
 // MakeServiceEntry constructs a Istio ServiceEntry that is to create inbound listeners in advance.
 // ServiceEntry itself is not used as an access point.
 func MakeServiceEntry(sks *v1alpha1.ServerlessService, activatorEps, pvtEps *corev1.Endpoints) *v1alpha3.ServiceEntry {
+	protocol := "http"
+	port := networking.BackendHTTPPort
+	if isHTTP2(sks) {
+		protocol = "http2"
+		port = networking.BackendHTTP2Port
+	}
 	return &v1alpha3.ServiceEntry{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sks.Name,
@@ -104,34 +110,33 @@ func MakeServiceEntry(sks *v1alpha1.ServerlessService, activatorEps, pvtEps *cor
 			Ports: []*istiov1alpha3.Port{
 				{
 					Number:   80, // This port is not used.
-					Protocol: "http",
+					Protocol: protocol,
 					Name:     "http1",
-				},
-				{
-					Number:   81, // This port is not used.
-					Protocol: "grpc",
-					Name:     "http2",
 				},
 			},
 			Resolution: istiov1alpha3.ServiceEntry_STATIC,
-			Endpoints:  makeEntryPoints(activatorEps, pvtEps),
+			Endpoints:  makeEntryPoints(activatorEps, pvtEps, uint32(port)),
 		},
 	}
 }
 
+// isHTTP2 chooses determins the port is HTTP or HTTP2 from sks.
+func isHTTP2(sks *v1alpha1.ServerlessService) bool {
+	if sks.Spec.ProtocolType == networking.ProtocolH2C {
+		return true
+	}
+	return false
+}
+
 // makeEntryPoints makes Istio ServiceEntry endpoints from K8S Endpoint.
-func makeEntryPoints(activatorEps, pvtEps *corev1.Endpoints) []*istiov1alpha3.ServiceEntry_Endpoint {
+func makeEntryPoints(activatorEps, pvtEps *corev1.Endpoints, port uint32) []*istiov1alpha3.ServiceEntry_Endpoint {
 	var seep []*istiov1alpha3.ServiceEntry_Endpoint
 	for _, subsets := range activatorEps.Subsets {
 		for _, address := range subsets.Addresses {
 			seep = append(seep,
 				&istiov1alpha3.ServiceEntry_Endpoint{
 					Address: address.IP,
-					Ports:   map[string]uint32{"http1": networking.BackendHTTPPort},
-				},
-				&istiov1alpha3.ServiceEntry_Endpoint{
-					Address: address.IP,
-					Ports:   map[string]uint32{"http2": networking.BackendHTTP2Port},
+					Ports:   map[string]uint32{"http1": port},
 				},
 			)
 		}
@@ -141,11 +146,7 @@ func makeEntryPoints(activatorEps, pvtEps *corev1.Endpoints) []*istiov1alpha3.Se
 			seep = append(seep,
 				&istiov1alpha3.ServiceEntry_Endpoint{
 					Address: address.IP,
-					Ports:   map[string]uint32{"http1": networking.BackendHTTPPort},
-				},
-				&istiov1alpha3.ServiceEntry_Endpoint{
-					Address: address.IP,
-					Ports:   map[string]uint32{"http2": networking.BackendHTTP2Port},
+					Ports:   map[string]uint32{"http1": port},
 				},
 			)
 		}
