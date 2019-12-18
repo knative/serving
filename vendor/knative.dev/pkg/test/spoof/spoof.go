@@ -27,7 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/test/ingress"
@@ -241,7 +240,7 @@ func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker) (*Res
 	}
 
 	if err != nil {
-		return resp, errors.Wrapf(err, "response: %s did not pass checks", resp)
+		return resp, fmt.Errorf("response: %s did not pass checks: %w", resp, err)
 	}
 	return resp, nil
 }

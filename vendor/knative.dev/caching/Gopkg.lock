@@ -931,7 +931,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:dcbc166f09bb3890df7a3fc5eb5181d8e6153d817884359c6787343046d140fb"
+  digest = "1:f0466ac8909dad0b72cfd8ebd048d6005585df65cbdca891f61fde2844456fc0"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -950,7 +950,7 @@
     "metrics/metricskey",
   ]
   pruneopts = "T"
-  revision = "9d8b936ca0621af5762916bc899d4973363a2dc4"
+  revision = "b26ddf762bc9232b297f77f9766e248dfb186aac"
 
 [[projects]]
   branch = "master"

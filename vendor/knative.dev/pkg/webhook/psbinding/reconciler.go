@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
@@ -322,7 +321,7 @@ func (r *BaseReconciler) ReconcileSubject(ctx context.Context, fb Bindable, muta
 			_, err = r.DynamicClient.Resource(gvr).Namespace(ps.Namespace).Patch(
 				ps.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 			if err != nil {
-				return errors.Wrap(err, "failed binding subject "+ps.Name)
+				return fmt.Errorf("failed binding subject %s: %w", ps.Name, err)
 			}
 			return nil
 		})

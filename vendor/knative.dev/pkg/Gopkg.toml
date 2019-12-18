@@ -12,7 +12,6 @@ required = [
   "github.com/evanphx/json-patch",
   "knative.dev/test-infra/scripts",
   "knative.dev/test-infra/tools/dep-collector",
-  "github.com/pkg/errors",
   "github.com/gogo/protobuf/proto",
 ]
 
