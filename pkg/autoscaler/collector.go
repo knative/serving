@@ -215,11 +215,10 @@ type collection struct {
 	metricMutex sync.RWMutex
 	metric      *av1alpha1.Metric
 
-	scraperMutex        sync.RWMutex
-	scraper             StatsScraper
-	concurrencyBuckets  *aggregation.TimedFloat64Buckets
-	concurrencyBuckets2 *aggregation.TimedFloat64Buckets2
-	rpsBuckets          *aggregation.TimedFloat64Buckets
+	scraperMutex       sync.RWMutex
+	scraper            StatsScraper
+	concurrencyBuckets *aggregation.TimedFloat64Buckets2
+	rpsBuckets         *aggregation.TimedFloat64Buckets2
 
 	grp    sync.WaitGroup
 	stopCh chan struct{}
@@ -241,11 +240,10 @@ func (c *collection) getScraper() StatsScraper {
 // collect stats every scrapeTickInterval.
 func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, logger *zap.SugaredLogger) *collection {
 	c := &collection{
-		metric:              metric,
-		concurrencyBuckets:  aggregation.NewTimedFloat64Buckets(BucketSize),
-		concurrencyBuckets2: aggregation.NewTimedFloat64Buckets2(metric.Spec.StableWindow, BucketSize),
-		rpsBuckets:          aggregation.NewTimedFloat64Buckets(BucketSize),
-		scraper:             scraper,
+		metric:             metric,
+		concurrencyBuckets: aggregation.NewTimedFloat64Buckets2(metric.Spec.StableWindow, BucketSize),
+		rpsBuckets:         aggregation.NewTimedFloat64Buckets2(metric.Spec.StableWindow, BucketSize),
+		scraper:            scraper,
 
 		stopCh: make(chan struct{}),
 	}
@@ -294,7 +292,8 @@ func (c *collection) updateMetric(metric *av1alpha1.Metric) {
 	defer c.metricMutex.Unlock()
 
 	c.metric = metric
-	c.concurrencyBuckets2.ResizeWindow(metric.Spec.StableWindow)
+	c.concurrencyBuckets.ResizeWindow(metric.Spec.StableWindow)
+	c.rpsBuckets.ResizeWindow(metric.Spec.StableWindow)
 }
 
 // currentMetric safely returns the current metric stored in the collection.
@@ -312,7 +311,6 @@ func (c *collection) record(stat Stat) {
 	// Proxied requests have been counted at the activator. Subtract
 	// them to avoid double counting.
 	c.concurrencyBuckets.Record(stat.Time, stat.PodName, stat.AverageConcurrentRequests-stat.AverageProxiedConcurrentRequests)
-	c.concurrencyBuckets2.Record(stat.Time, stat.PodName, stat.AverageConcurrentRequests-stat.AverageProxiedConcurrentRequests)
 	c.rpsBuckets.Record(stat.Time, stat.PodName, stat.RequestCount-stat.ProxiedRequestCount)
 
 	// Delete outdated stats taking stat.Time as current time.
@@ -324,7 +322,7 @@ func (c *collection) record(stat Stat) {
 // stableAndPanicConcurrency calculates both stable and panic concurrency based on the
 // current stats.
 func (c *collection) stableAndPanicConcurrency(now time.Time) (float64, float64, error) {
-	return c.stableAndPanicStats(now, c.concurrencyBuckets2)
+	return c.stableAndPanicStats(now, c.concurrencyBuckets)
 }
 
 // StableAndPanicRPS calculates both stable and panic RPS based on the

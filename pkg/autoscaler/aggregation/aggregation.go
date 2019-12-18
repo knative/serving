@@ -16,7 +16,9 @@ limitations under the License.
 
 package aggregation
 
-import "time"
+import (
+	"time"
+)
 
 // Accumulator is a function accumulating buckets and their time.
 type Accumulator func(time time.Time, bucket float64)

@@ -58,6 +58,12 @@ func (t *TimedFloat64Buckets2) timeToIndex(tm time.Time) int {
 	return int(tm.Unix()) / int(t.granularity.Seconds())
 }
 
+func (t *TimedFloat64Buckets2) reset() {
+	for i := range t.buckets {
+		t.buckets[i] = 0
+	}
+}
+
 // Record adds a value with an associated time to the correct bucket.
 func (t *TimedFloat64Buckets2) Record(now time.Time, name string, value float64) {
 	bucketTime := now.Truncate(t.granularity)
@@ -71,6 +77,10 @@ func (t *TimedFloat64Buckets2) Record(now time.Time, name string, value float64)
 	bucketIdx := t.timeToIndex(now) % len(t.buckets)
 
 	if t.lastWrite != bucketTime {
+		// This should not really happen, but is here for correctness.
+		if bucketTime.Sub(t.lastWrite) > t.window {
+			t.reset()
+		}
 		// Reset the value.
 		t.buckets[bucketIdx] = 0
 		// Update the last write time.
@@ -82,14 +92,12 @@ func (t *TimedFloat64Buckets2) Record(now time.Time, name string, value float64)
 // isEmpty returns whether or not there are no values currently stored.
 // isEmpty requires t.bucketMux to be held and now truncated to the granularity.
 func (t *TimedFloat64Buckets2) isEmpty(now time.Time) bool {
-	// TODO(vagababov): what if now < lastWrite?
 	return now.Sub(t.lastWrite) >= t.window
 }
 
 // ForEachBucket calls the given Accumulator function for each bucket.
 // Returns true if any data was recorded.
 func (t *TimedFloat64Buckets2) ForEachBucket(now time.Time, accs ...Accumulator) bool {
-	// TODO(vagababov): consider now < lastWrite.
 	now = now.Truncate(t.granularity)
 	t.bucketsMutex.RLock()
 	defer t.bucketsMutex.RUnlock()
