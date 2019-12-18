@@ -56,8 +56,9 @@ func MakeIngress(
 	tls []v1alpha1.IngressTLS,
 	clusterLocalServices sets.String,
 	ingressClass string,
+	acmeChallenges ...v1alpha1.HTTP01Challenge,
 ) (*v1alpha1.Ingress, error) {
-	spec, err := MakeIngressSpec(ctx, r, tls, clusterLocalServices, tc.Targets)
+	spec, err := MakeIngressSpec(ctx, r, tls, clusterLocalServices, tc.Targets, acmeChallenges...)
 	if err != nil {
 		return nil, err
 	}
@@ -87,6 +88,7 @@ func MakeIngressSpec(
 	tls []v1alpha1.IngressTLS,
 	clusterLocalServices sets.String,
 	targets map[string]traffic.RevisionTargets,
+	acmeChallenges ...v1alpha1.HTTP01Challenge,
 ) (v1alpha1.IngressSpec, error) {
 	// Domain should have been specified in route status
 	// before calling this func.
@@ -96,9 +98,10 @@ func MakeIngressSpec(
 	}
 	// Sort the names to give things a deterministic ordering.
 	sort.Strings(names)
-
 	// The routes are matching rule based on domain name to traffic split targets.
 	rules := make([]v1alpha1.IngressRule, 0, len(names))
+	challengeHosts := getChallengeHosts(acmeChallenges)
+
 	for _, name := range names {
 		serviceDomain, err := domains.HostnameFromTemplate(ctx, r.Name, name)
 		if err != nil {
@@ -112,8 +115,10 @@ func MakeIngressSpec(
 			return v1alpha1.IngressSpec{}, err
 		}
 
-		rules = append(rules, *makeIngressRule(
-			routeDomains, r.Namespace, isClusterLocal, targets[name]))
+		rule := *makeIngressRule(routeDomains, r.Namespace, isClusterLocal, targets[name])
+		rule.HTTP.Paths = append(makeACMEIngressPaths(challengeHosts, routeDomains), rule.HTTP.Paths...)
+
+		rules = append(rules, rule)
 	}
 
 	defaultDomain, err := domains.HostnameFromTemplate(ctx, r.Name, "")
@@ -131,6 +136,16 @@ func MakeIngressSpec(
 		Visibility: visibility,
 		TLS:        tls,
 	}, nil
+}
+
+func getChallengeHosts(challenges []v1alpha1.HTTP01Challenge) map[string]v1alpha1.HTTP01Challenge {
+	c := make(map[string]v1alpha1.HTTP01Challenge, len(challenges))
+
+	for _, challenge := range challenges {
+		c[challenge.URL.Host] = challenge
+	}
+
+	return c
 }
 
 func routeDomains(ctx context.Context, targetName string, r *servingv1alpha1.Route, isClusterLocal bool) ([]string, error) {
@@ -160,6 +175,29 @@ func routeDomains(ctx context.Context, targetName string, r *servingv1alpha1.Rou
 	}
 
 	return ruleDomains, nil
+}
+
+func makeACMEIngressPaths(challenges map[string]v1alpha1.HTTP01Challenge, domains []string) []v1alpha1.HTTPIngressPath {
+	paths := make([]v1alpha1.HTTPIngressPath, 0, len(challenges))
+	for _, domain := range domains {
+		challenge, ok := challenges[domain]
+		if !ok {
+			continue
+		}
+
+		paths = append(paths, v1alpha1.HTTPIngressPath{
+			Splits: []v1alpha1.IngressBackendSplit{{
+				IngressBackend: v1alpha1.IngressBackend{
+					ServiceNamespace: challenge.ServiceNamespace,
+					ServiceName:      challenge.ServiceName,
+					ServicePort:      challenge.ServicePort,
+				},
+				Percent: 100,
+			}},
+			Path: challenge.URL.Path,
+		})
+	}
+	return paths
 }
 
 func makeIngressRule(domains []string, ns string, isClusterLocal bool, targets traffic.RevisionTargets) *v1alpha1.IngressRule {

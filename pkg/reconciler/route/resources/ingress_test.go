@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/google/go-cmp/cmp"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -782,6 +783,88 @@ func TestMakeIngressTLS(t *testing.T) {
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("Unexpected IngressTLS (-want, +got): %v", diff)
 	}
+}
+
+func TestMakeClusterIngress_ACMEChallenges(t *testing.T) {
+	targets := map[string]traffic.RevisionTargets{
+		traffic.DefaultTarget: {{
+			TrafficTarget: v1.TrafficTarget{
+				ConfigurationName: "config",
+				RevisionName:      "v2",
+				Percent:           ptr.Int64(100),
+			},
+			ServiceName: "gilberto",
+			Active:      true,
+		}},
+	}
+
+	r := &v1alpha1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-route",
+			Namespace: "test-ns",
+		},
+		Status: v1alpha1.RouteStatus{
+			RouteStatusFields: v1alpha1.RouteStatusFields{
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   "domain.com",
+				},
+			},
+		},
+	}
+
+	acmeChallenge := netv1alpha1.HTTP01Challenge{
+		ServiceNamespace: "test-ns",
+		ServiceName:      "cm-solver",
+		ServicePort:      intstr.FromInt(8090),
+		URL: &apis.URL{
+			Scheme: "http",
+			Path:   "/.well-known/acme-challenge/challenge-token",
+			Host:   "test-route.test-ns.example.com",
+		},
+	}
+
+	expected := []netv1alpha1.IngressRule{{
+		Hosts: []string{
+			"test-route.test-ns.svc.cluster.local",
+			"test-route.test-ns.example.com",
+		},
+		Visibility: netv1alpha1.IngressVisibilityExternalIP,
+		HTTP: &netv1alpha1.HTTPIngressRuleValue{
+			Paths: []netv1alpha1.HTTPIngressPath{{
+				Path: "/.well-known/acme-challenge/challenge-token",
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: "test-ns",
+						ServiceName:      "cm-solver",
+						ServicePort:      intstr.FromInt(8090),
+					},
+					Percent: 100,
+				}},
+			}, {
+				Splits: []netv1alpha1.IngressBackendSplit{{
+					IngressBackend: netv1alpha1.IngressBackend{
+						ServiceNamespace: "test-ns",
+						ServiceName:      "gilberto",
+						ServicePort:      intstr.FromInt(80),
+					},
+					Percent: 100,
+					AppendHeaders: map[string]string{
+						"Knative-Serving-Revision":  "v2",
+						"Knative-Serving-Namespace": "test-ns",
+					},
+				}},
+			}}}}}
+
+	ci, err := MakeIngressSpec(getContext(), r, nil, getServiceVisibility(), targets, acmeChallenge)
+	if err != nil {
+		t.Errorf("Unexpected error %v", err)
+	}
+
+	if !cmp.Equal(expected, ci.Rules) {
+		t.Errorf("Unexpected rules (-want, +got): %s", cmp.Diff(expected, ci.Rules))
+	}
+
 }
 
 func getContext() context.Context {

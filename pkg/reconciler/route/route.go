@@ -18,6 +18,7 @@ package route
 
 import (
 	"context"
+	"sort"
 	"strings"
 
 	"go.uber.org/zap"
@@ -234,13 +235,14 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 	}
 
 	clusterLocalServiceNames := serviceNames.clusterLocal()
-	tls, err := c.tls(ctx, r.Status.URL.Host, r, traffic, clusterLocalServiceNames)
+	tls, acmeChallenges, err := c.tls(ctx, r.Status.URL.Host, r, traffic, clusterLocalServiceNames)
 	if err != nil {
 		return err
 	}
 
 	// Reconcile ingress and its children resources.
-	ingress, err := c.reconcileIngressResources(ctx, r, traffic, tls, clusterLocalServiceNames, ingressClassForRoute(ctx, r))
+	ingress, err := c.reconcileIngressResources(ctx, r, traffic, tls, clusterLocalServiceNames, ingressClassForRoute(ctx, r), acmeChallenges...)
+
 	if err != nil {
 		return err
 	}
@@ -262,9 +264,9 @@ func (c *Reconciler) reconcile(ctx context.Context, r *v1alpha1.Route) error {
 }
 
 func (c *Reconciler) reconcileIngressResources(ctx context.Context, r *v1alpha1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS,
-	clusterLocalServices sets.String, ingressClass string) (*netv1alpha1.Ingress, error) {
+	clusterLocalServices sets.String, ingressClass string, acmeChallenges ...netv1alpha1.HTTP01Challenge) (*netv1alpha1.Ingress, error) {
 
-	desired, err := resources.MakeIngress(ctx, r, tc, tls, clusterLocalServices, ingressClass)
+	desired, err := resources.MakeIngress(ctx, r, tc, tls, clusterLocalServices, ingressClass, acmeChallenges...)
 	if err != nil {
 		return nil, err
 	}
@@ -277,14 +279,14 @@ func (c *Reconciler) reconcileIngressResources(ctx context.Context, r *v1alpha1.
 	return ingress, nil
 }
 
-func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, traffic *traffic.Config, clusterLocalServiceNames sets.String) ([]netv1alpha1.IngressTLS, error) {
+func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, traffic *traffic.Config, clusterLocalServiceNames sets.String) ([]netv1alpha1.IngressTLS, []netv1alpha1.HTTP01Challenge, error) {
 	tls := []netv1alpha1.IngressTLS{}
 	if !config.FromContext(ctx).Network.AutoTLS {
-		return tls, nil
+		return tls, nil, nil
 	}
 	domainToTagMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets), clusterLocalServiceNames)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	for domain := range domainToTagMap {
@@ -302,9 +304,10 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 
 	allWildcardCerts, err := c.certificateLister.Certificates(r.Namespace).List(labelSelector)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
+	acmeChallenges := []netv1alpha1.HTTP01Challenge{}
 	desiredCerts := resources.MakeCertificates(r, domainToTagMap, certClass(ctx, r))
 	for _, desiredCert := range desiredCerts {
 		dnsNames := sets.NewString(desiredCert.Spec.DNSNames...)
@@ -321,7 +324,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 				} else {
 					r.Status.MarkCertificateProvisionFailed(desiredCert.Name)
 				}
-				return nil, err
+				return nil, nil, err
 			}
 			dnsNames = sets.NewString(cert.Spec.DNSNames...)
 		}
@@ -337,6 +340,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 		if cert.Status.IsReady() {
 			r.Status.MarkCertificateReady(cert.Name)
 		} else {
+			acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
 			r.Status.MarkCertificateNotReady(cert.Name)
 			// When httpProtocol is enabled, downward http scheme.
 			if config.FromContext(ctx).Network.HTTPProtocol == network.HTTPEnabled {
@@ -351,7 +355,10 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 		}
 		tls = append(tls, resources.MakeIngressTLS(cert, dnsNames.List()))
 	}
-	return tls, nil
+	sort.Slice(acmeChallenges, func(i, j int) bool {
+		return acmeChallenges[i].URL.String() < acmeChallenges[j].URL.String()
+	})
+	return tls, acmeChallenges, nil
 }
 
 func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1alpha1.Route) error {

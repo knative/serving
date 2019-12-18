@@ -172,6 +172,11 @@ func (l *Listers) GetCMCertificateLister() certmanagerlisters.CertificateLister 
 	return certmanagerlisters.NewCertificateLister(l.IndexerFor(&certmanagerv1alpha1.Certificate{}))
 }
 
+// GetCMChallengeLister gets lister for Cert Manager Challenge resource.
+func (l *Listers) GetCMChallengeLister() certmanagerlisters.ChallengeLister {
+	return certmanagerlisters.NewChallengeLister(l.IndexerFor(&certmanagerv1alpha1.Challenge{}))
+}
+
 func (l *Listers) GetImageLister() cachinglisters.ImageLister {
 	return cachinglisters.NewImageLister(l.IndexerFor(&cachingv1alpha1.Image{}))
 }
