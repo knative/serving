@@ -652,10 +652,6 @@ data:
         - proxy
         - sidecar
         - --domain
-        # PATCH #2: Increase termination drain duration.
-        - name: TERMINATION_DRAIN_DURATION_SECONDS
-          value: "20"
-        # PATCH #2 ends.
         - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
         - --configPath
         - "{{ .ProxyConfig.ConfigPath }}"
@@ -822,6 +818,10 @@ data:
         - name: ISTIO_META_MESH_ID
           value: "{{ .Values.global.trustDomain }}"
         {{- end }}
+        # PATCH #2: Increase termination drain duration.
+        - name: TERMINATION_DRAIN_DURATION_SECONDS
+          value: "20"
+        # PATCH #2 ends.
         {{- if eq .Values.global.proxy.tracer "stackdriver" }}
         - name: STACKDRIVER_TRACING_ENABLED
           value: "true"

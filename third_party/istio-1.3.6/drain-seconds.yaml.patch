@@ -1,4 +1,4 @@
-621a622,625
+766a767,770
 >         # PATCH #2: Increase termination drain duration.
 >         - name: TERMINATION_DRAIN_DURATION_SECONDS
 >           value: "20"
