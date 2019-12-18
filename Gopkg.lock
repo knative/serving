@@ -677,14 +677,6 @@
   version = "v1.2"
 
 [[projects]]
-  digest = "1:5cf3f025cbee5951a4ee961de067c8a89fc95a5adabead774f82822efabab121"
-  name = "github.com/pkg/errors"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
-  version = "v0.8.0"
-
-[[projects]]
   digest = "1:e411054f54a332ecadd5fe5a4a68d092f36583e554037587da86da298cffc72d"
   name = "github.com/prometheus/client_golang"
   packages = [
@@ -1692,7 +1684,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:705eb428394d342a968fc1c168dd2d11bc9bfe96d3cdb34108670b128c7af7c6"
+  digest = "1:476110349bf10e67ed46a6e08bf1200cf3e96325447a1e315ea12c949b2ec30e"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1715,11 +1707,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "fd1e5fef1ce230addd280957cde2bfb6c10e9d56"
+  revision = "8777758dcc6609cd56ecacaf686fb0553f157bce"
 
 [[projects]]
   branch = "master"
-  digest = "1:f0466ac8909dad0b72cfd8ebd048d6005585df65cbdca891f61fde2844456fc0"
+  digest = "1:2a1f47dba842efe06d9fa10c0323f7b8f39a6b6e86e944a40668679f102f413e"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1818,7 +1810,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "b26ddf762bc9232b297f77f9766e248dfb186aac"
+  revision = "0094d3a89242cddcd8532df4632fb619b2d7da09"
 
 [[projects]]
   branch = "master"
@@ -1835,7 +1827,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "71df8cbc28daf5dcf8c9b1ff2dfebdc553dc4bee"
+  revision = "9ea943f31f1b149ab3f853f228e6fb7e59ba9a59"
 
 [[projects]]
   digest = "1:fef5992ddf85e9ccad899b11338339858936a10fbce96b9d5c43767669d95398"
