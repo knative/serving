@@ -55,6 +55,7 @@ func NewTimedFloat64Buckets2(window, granularity time.Duration) *TimedFloat64Buc
 // operations to find the index in the bucket list.
 // bucketMutex needs to be held.
 func (t *TimedFloat64Buckets2) timeToIndex(tm time.Time) int {
+	// I don't think this run in 2038 :-)
 	return int(tm.Unix()) / int(t.granularity.Seconds())
 }
 
@@ -71,7 +72,6 @@ func (t *TimedFloat64Buckets2) Record(now time.Time, name string, value float64)
 	t.bucketsMutex.Lock()
 	defer t.bucketsMutex.Unlock()
 
-	// I don't think this run in 2038 :-)
 	// NB: we need to divide by granularity, since it's a compressing mapping
 	// to buckets.
 	bucketIdx := t.timeToIndex(now) % len(t.buckets)
@@ -89,12 +89,6 @@ func (t *TimedFloat64Buckets2) Record(now time.Time, name string, value float64)
 	t.buckets[bucketIdx] += value
 }
 
-// isEmpty returns whether or not there are no values currently stored.
-// isEmpty requires t.bucketMux to be held and now truncated to the granularity.
-func (t *TimedFloat64Buckets2) isEmpty(now time.Time) bool {
-	return now.Sub(t.lastWrite) >= t.window
-}
-
 // ForEachBucket calls the given Accumulator function for each bucket.
 // Returns true if any data was recorded.
 func (t *TimedFloat64Buckets2) ForEachBucket(now time.Time, accs ...Accumulator) bool {
@@ -102,22 +96,22 @@ func (t *TimedFloat64Buckets2) ForEachBucket(now time.Time, accs ...Accumulator)
 	t.bucketsMutex.RLock()
 	defer t.bucketsMutex.RUnlock()
 
-	if t.isEmpty(now) {
+	if now.Sub(t.lastWrite) >= t.window {
 		return false
 	}
 
 	// So number of buckets we can process is len(buckets)-(now-lastWrite)/granularity.
 	// Since isEmpty returned false, we know this is at least 1 bucket.
-	nb := len(t.buckets) - int(now.Sub(t.lastWrite)/t.granularity)
-	tb := t.lastWrite // Always aligned with granularity.
-	si := t.timeToIndex(tb)
-	for i := 0; i < nb; i++ {
+	numBuckets := len(t.buckets) - int(now.Sub(t.lastWrite)/t.granularity)
+	bucketTime := t.lastWrite // Always aligned with granularity.
+	si := t.timeToIndex(bucketTime)
+	for i := 0; i < numBuckets; i++ {
 		tix := si % len(t.buckets)
 		for _, acc := range accs {
-			acc(tb, t.buckets[tix])
+			acc(bucketTime, t.buckets[tix])
 		}
 		si--
-		tb = tb.Add(-t.granularity)
+		bucketTime = bucketTime.Add(-t.granularity)
 	}
 
 	return true
@@ -139,15 +133,16 @@ func min(a, b int) int {
 // and is not supposed to be executed very often.
 func (t *TimedFloat64Buckets2) ResizeWindow(w time.Duration) {
 	// Same window size, bail out.
-	if func() bool {
+	sameWindow := func() bool {
 		t.bucketsMutex.RLock()
 		defer t.bucketsMutex.RUnlock()
 		return w == t.window
-	}() {
+	}()
+	if sameWindow {
 		return
 	}
-	nb := int(math.Ceil(float64(w) / float64(t.granularity)))
-	newb := make([]float64, nb)
+	numBuckets := int(math.Ceil(float64(w) / float64(t.granularity)))
+	newBuckets := make([]float64, numBuckets)
 
 	// We need write lock here.
 	// So that we can copy the existing buckets into the new array.
@@ -155,14 +150,14 @@ func (t *TimedFloat64Buckets2) ResizeWindow(w time.Duration) {
 	defer t.bucketsMutex.Unlock()
 	// If the window is shrinking, then we need to copy only
 	// `nb` buckets.
-	onb := len(t.buckets)
+	oldNumBuckets := len(t.buckets)
 	tIdx := t.timeToIndex(t.lastWrite)
-	for i := 0; i < min(nb, onb); i++ {
-		oi := tIdx % onb
-		ni := tIdx % nb
-		newb[ni] = t.buckets[oi]
+	for i := 0; i < min(numBuckets, oldNumBuckets); i++ {
+		oi := tIdx % oldNumBuckets
+		ni := tIdx % numBuckets
+		newBuckets[ni] = t.buckets[oi]
 		tIdx--
 	}
 	t.window = w
-	t.buckets = newb
+	t.buckets = newBuckets
 }
