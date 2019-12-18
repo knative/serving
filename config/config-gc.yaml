@@ -38,7 +38,7 @@ data:
     # to actually change the configuration.
 
     # Delay after revision creation before considering it for GC
-    stale-revision-create-delay: "24h"
+    stale-revision-create-delay: "48h"
 
     # Duration since a route has pointed at the revision before it
     # should be GC'd.
@@ -48,7 +48,7 @@ data:
 
     # Minimum number of generations of revisions to keep before considering
     # them for GC
-    stale-revision-minimum-generations: "1"
+    stale-revision-minimum-generations: "20"
 
     # To avoid constant updates, we allow an existing annotation to be stale by this
     # amount before we update the timestamp.
