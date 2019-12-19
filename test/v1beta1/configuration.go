@@ -152,17 +152,8 @@ func CheckConfigurationState(client *test.ServingBetaClients, name string, inSta
 	return nil
 }
 
-// // ConfigurationHasCreatedRevision returns whether the Configuration has created a Revision.
-// func ConfigurationHasCreatedRevision(c *v1beta1.Configuration) (bool, error) {
-// 	return c.Status.LatestCreatedRevisionName != "", nil
-// }
-
-// // IsConfigRevisionCreationFailed will check the status conditions of the
-// // configuration and return true if the configuration's revision failed to
-// // create.
-// func IsConfigRevisionCreationFailed(c *v1beta1.Configuration) (bool, error) {
-// 	if cond := c.Status.GetCondition(v1beta1.ConfigurationConditionReady); cond != nil {
-// 		return cond.Status == corev1.ConditionFalse && cond.Reason == "RevisionFailed", nil
-// 	}
-// 	return false, nil
-// }
+// IsConfigurationReady will check the status conditions of the config and return true if the config is
+// ready. This means it has at least created one revision and that has become ready.
+func IsConfigurationReady(c *v1beta1.Configuration) (bool, error) {
+	return c.Generation == c.Status.ObservedGeneration && c.Status.IsReady(), nil
+}

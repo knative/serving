@@ -45,14 +45,13 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 		t.Fatalf("Failed to create configuration %s", names.Config)
 	}
 
-	t.Log("The Configuration will be updated with the name of the Revision once it is created")
-	var err error
-	names.Revision, err = waitForConfigurationLatestCreatedRevision(clients, names)
-	if err != nil {
-		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
+	// Wait for the configuration to actually be ready to not race in the updates below.
+	if err := v1b1test.WaitForConfigurationState(clients.ServingBetaClient, names.Config, v1b1test.IsConfigurationReady, "ConfigurationIsReady"); err != nil {
+		t.Fatalf("Configuration %s did not become ready: %v", names.Config, err)
 	}
 
 	cfg := fetchConfiguration(names.Config, clients, t)
+	names.Revision = cfg.Status.LatestReadyRevisionName
 
 	t.Logf("Updating labels of Configuration %s", names.Config)
 	newLabels := map[string]string{
@@ -67,7 +66,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 			cfg.Labels[k] = v
 		}
 	}
-	cfg, err = clients.ServingBetaClient.Configs.Update(cfg)
+	cfg, err := clients.ServingBetaClient.Configs.Update(cfg)
 	if err != nil {
 		t.Fatalf("Failed to update labels for Configuration %s: %v", names.Config, err)
 	}
@@ -138,18 +137,6 @@ func fetchConfiguration(name string, clients *test.Clients, t *testing.T) *v1bet
 		t.Fatalf("Failed to get configuration %s: %v", name, err)
 	}
 	return cfg
-}
-
-func waitForConfigurationLatestCreatedRevision(clients *test.Clients, names test.ResourceNames) (string, error) {
-	var revisionName string
-	err := v1b1test.WaitForConfigurationState(clients.ServingBetaClient, names.Config, func(c *v1beta1.Configuration) (bool, error) {
-		if c.Status.LatestCreatedRevisionName != names.Revision {
-			revisionName = c.Status.LatestCreatedRevisionName
-			return true, nil
-		}
-		return false, nil
-	}, "ConfigurationUpdatedWithRevision")
-	return revisionName, err
 }
 
 func waitForConfigurationLabelsUpdate(clients *test.Clients, names test.ResourceNames, labels map[string]string) error {
