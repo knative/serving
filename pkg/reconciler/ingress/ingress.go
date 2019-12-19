@@ -56,8 +56,9 @@ import (
 )
 
 const (
-	notReconciledReason  = "ReconcileIngressFailed"
-	notReconciledMessage = "Ingress reconciliation failed"
+	virtualServiceNotReconciled = "ReconcileVirtualServiceFailed"
+	notReconciledReason         = "ReconcileIngressFailed"
+	notReconciledMessage        = "Ingress reconciliation failed"
 )
 
 // ingressfinalizer is the name that we put into the resource finalizer list, e.g.
@@ -169,7 +170,7 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress)
 	logger.Infof("Creating/Updating VirtualServices")
 	ia.Status.ObservedGeneration = ia.GetGeneration()
 	if err := r.reconcileVirtualServices(ctx, ia, vses); err != nil {
-		ia.Status.MarkLoadBalancerFailed(v1alpha1.VirtualServiceNotReconciled, err.Error())
+		ia.Status.MarkLoadBalancerFailed(virtualServiceNotReconciled, err.Error())
 		return err
 	}
 
