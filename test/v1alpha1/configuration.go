@@ -170,3 +170,9 @@ func CheckConfigurationState(client *test.ServingAlphaClients, name string, inSt
 func ConfigurationHasCreatedRevision(c *v1alpha1.Configuration) (bool, error) {
 	return c.Status.LatestCreatedRevisionName != "", nil
 }
+
+// IsConfigurationReady will check the status conditions of the config and return true if the config is
+// ready. This means it has at least created one revision and that has become ready.
+func IsConfigurationReady(c *v1alpha1.Configuration) (bool, error) {
+	return c.Generation == c.Status.ObservedGeneration && c.Status.IsReady(), nil
+}
