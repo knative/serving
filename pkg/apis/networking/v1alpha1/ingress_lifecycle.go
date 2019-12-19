@@ -29,10 +29,6 @@ var ingressCondSet = apis.NewLivingConditionSet(
 	IngressConditionLoadBalancerReady,
 )
 
-// VirtualServiceNotReconciled is used for the reason of MarkLoadBalancerFailed
-// when VirtualService is failed to be reconciled.
-var VirtualServiceNotReconciled = "ReconcileVirtualServiceFailed"
-
 // GetGroupVersionKind returns SchemeGroupVersion of an Ingress
 func (i *Ingress) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Ingress")
@@ -79,7 +75,7 @@ func (is *IngressStatus) MarkLoadBalancerReady(lbs []LoadBalancerIngressStatus, 
 // reflect that the load balancer is not ready yet.
 func (is *IngressStatus) MarkLoadBalancerNotReady() {
 	ingressCondSet.Manage(is).MarkUnknown(IngressConditionLoadBalancerReady, "Uninitialized",
-		"Waiting for VirtualService to be ready")
+		"Waiting for load balancer to be ready")
 }
 
 // MarkLoadBalancerFailed marks the "IngressConditionLoadBalancerReady" condition to false.
