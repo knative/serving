@@ -24,7 +24,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/websocket"
 	"golang.org/x/sync/errgroup"
 
@@ -133,7 +132,8 @@ func webSocketResponseFreqs(t *testing.T, clients *test.Clients, url string, num
 	resps := map[string]int{}
 	for i := 0; i < numReqs; i++ {
 		g.Go(func() error {
-			// Establish the websocket connection.
+			// Establish the websocket connection. Since they are persistent
+			// we can't reuse.
 			conn, err := connect(t, clients, url)
 			if err != nil {
 				return err
@@ -147,13 +147,13 @@ func webSocketResponseFreqs(t *testing.T, clients *test.Clients, url string, num
 			}
 			t.Log("Message sent.")
 
-			// Read back the echoed message and compared with sent.
-			if _, recv, err := conn.ReadMessage(); err != nil {
+			// Read back the echoed message and put it into the channel.
+			_, recv, err := conn.ReadMessage()
+			if err != nil {
 				return err
-			} else {
-				t.Logf("Received message %q from echo server.", string(recv))
-				respCh <- string(recv)
 			}
+			t.Logf("Received message %q from echo server.", string(recv))
+			respCh <- string(recv)
 			return nil
 		})
 	}
@@ -338,7 +338,6 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 		tolerance = 5
 	)
 	resps, err := webSocketResponseFreqs(t, clients, tealURL, numReqs)
-	t.Logf("Response map: %s\n%v", spew.Sdump(resps), err)
 	if len(resps) != 2 {
 		t.Errorf("Number of responses: %d, want: 2", len(resps))
 	}
