@@ -39,7 +39,7 @@ func (t *TimedFloat64Buckets) String() string {
 	return spew.Sdump(t.buckets)
 }
 
-// NewTimedFloat64Buckets generates a new TimedFloat64Buckets2 with the given
+// NewTimedFloat64Buckets generates a new TimedFloat64Buckets with the given
 // granularity.
 func NewTimedFloat64Buckets(window, granularity time.Duration) *TimedFloat64Buckets {
 	// Number of buckets is `window` divided by `granularity`, rounded up.
@@ -80,10 +80,14 @@ func (t *TimedFloat64Buckets) Record(now time.Time, name string, value float64) 
 	if t.lastWrite != bucketTime {
 		// This should not really happen, but is here for correctness.
 		if bucketTime.Sub(t.lastWrite) > t.window {
-			t.reset()
+			// Reset all the buckets.
+			for i := range t.buckets {
+				t.buckets[i] = 0
+			}
+		} else {
+			// Reset just that index.
+			t.buckets[bIdx] = 0
 		}
-		// Reset the value.
-		t.buckets[bIdx] = 0
 		// Update the last write time.
 		t.lastWrite = bucketTime
 	}
@@ -102,7 +106,7 @@ func (t *TimedFloat64Buckets) ForEachBucket(now time.Time, accs ...Accumulator) 
 	}
 
 	// So number of buckets we can process is len(buckets)-(now-lastWrite)/granularity.
-	// Since isEmpty returned false, we know this is at least 1 bucket.
+	// Since empty check above failed, we know this is at least 1 bucket.
 	numBuckets := len(t.buckets) - int(now.Sub(t.lastWrite)/t.granularity)
 	bucketTime := t.lastWrite // Always aligned with granularity.
 	si := t.timeToIndex(bucketTime)
@@ -150,7 +154,7 @@ func (t *TimedFloat64Buckets) ResizeWindow(w time.Duration) {
 	t.bucketsMutex.Lock()
 	defer t.bucketsMutex.Unlock()
 	// If the window is shrinking, then we need to copy only
-	// `nb` buckets.
+	// `newBuckets` buckets.
 	oldNumBuckets := len(t.buckets)
 	tIdx := t.timeToIndex(t.lastWrite)
 	for i := 0; i < min(numBuckets, oldNumBuckets); i++ {

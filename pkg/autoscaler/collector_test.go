@@ -228,16 +228,19 @@ func TestMetricCollectorRecord(t *testing.T) {
 		t.Fatalf("StableAndPanicConcurrency: %v", err)
 	}
 	// Scale to the window sizes.
-	wantS := want / 60
-	wantP := want / 6
-	if math.Abs(stable-wantS) > 0.0001 || math.Abs(panic-wantP) > 0.0001 {
+	const (
+		wantS     = want / 60
+		wantP     = want / 6
+		tolerance = 0.0001
+	)
+	if math.Abs(stable-wantS) > tolerance || math.Abs(panic-wantP) > tolerance {
 		t.Errorf("StableAndPanicConcurrency() = %v, %v; want %v, %v, nil", stable, panic, want, want)
 	}
 	stable, panic, err = coll.StableAndPanicRPS(metricKey, now)
 	if err != nil {
 		t.Fatalf("StableAndPanicRPS: %v", err)
 	}
-	if math.Abs(stable-wantS) > 0.0001 || math.Abs(panic-wantP) > 0.0001 {
+	if math.Abs(stable-wantS) > tolerance || math.Abs(panic-wantP) > tolerance {
 		t.Errorf("StableAndPanicRPS() = %v, %v; want %v, %v", stable, panic, want, want)
 	}
 }

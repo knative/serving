@@ -111,7 +111,7 @@ func TestTimedFloat64BucketsManyReps(t *testing.T) {
 	// So the buckets are:
 	// [0, 1, 2, 3, 4] = 10
 	// [1, 2, 3, 4, 5] = 15
-	// ...						 = 20, 25
+	// ...						 = ...
 	// [4, 5, 6, 7, 8]  = 30
 	//                  = 100
 	const want = 100.
