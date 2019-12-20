@@ -263,26 +263,30 @@ func (m *Prober) Start(done <-chan struct{}) {
 }
 
 // CancelIngressProbing cancels probing of the provided Ingress
-func (m *Prober) CancelIngressProbing(ing *v1alpha1.Ingress) {
-	key := ingressKey(ing)
+func (m *Prober) CancelIngressProbing(obj interface{}) {
+	if ing, ok := obj.(*v1alpha1.Ingress); ok {
+		key := ingressKey(ing)
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if state, ok := m.ingressStates[key]; ok {
-		state.cancel()
-		delete(m.ingressStates, key)
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		if state, ok := m.ingressStates[key]; ok {
+			state.cancel()
+			delete(m.ingressStates, key)
+		}
 	}
 }
 
 // CancelPodProbing cancels probing of the provided Pod IP.
 //
 // TODO(#6269): make this cancelation based on Pod x port instead of just Pod.
-func (m *Prober) CancelPodProbing(pod *corev1.Pod) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+func (m *Prober) CancelPodProbing(obj interface{}) {
+	if pod, ok := obj.(*corev1.Pod); ok {
+		m.mu.Lock()
+		defer m.mu.Unlock()
 
-	if state, ok := m.podStates[pod.Status.PodIP]; ok {
-		state.cancel()
+		if state, ok := m.podStates[pod.Status.PodIP]; ok {
+			state.cancel()
+		}
 	}
 }
 
