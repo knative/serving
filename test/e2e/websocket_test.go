@@ -94,7 +94,7 @@ func connect(t *testing.T, clients *test.Clients, domain string) (*websocket.Con
 
 const message = "Hello, websocket"
 
-func validateWebSocketConnection(t *testing.T, clients *test.Clients, names test.ResourceNames, prefix bool) error {
+func validateWebSocketConnection(t *testing.T, clients *test.Clients, names test.ResourceNames) error {
 	t.Helper()
 	// Establish the websocket connection.
 	conn, err := connect(t, clients, names.URL.Hostname())
@@ -114,8 +114,7 @@ func validateWebSocketConnection(t *testing.T, clients *test.Clients, names test
 	_, recv, err := conn.ReadMessage()
 	if err != nil {
 		return err
-	} else if message == string(recv) && !prefix || prefix && strings.HasPrefix(string(recv), message) {
-
+	} else if strings.HasPrefix(string(recv), message) {
 		t.Logf("Received message %q from echo server.", recv)
 		return nil
 	}
@@ -195,7 +194,7 @@ func TestWebSocket(t *testing.T) {
 	}
 
 	// Validate the websocket connection.
-	if err := validateWebSocketConnection(t, clients, names, false /*prefix*/); err != nil {
+	if err := validateWebSocketConnection(t, clients, names); err != nil {
 		t.Error(err)
 	}
 }
@@ -231,7 +230,7 @@ func TestWebSocketViaActivator(t *testing.T) {
 	if err := waitForActivatorEndpoints(resources, clients); err != nil {
 		t.Fatalf("Never got Activator endpoints in the service: %v", err)
 	}
-	if err := validateWebSocketConnection(t, clients, names, false /*prefix*/); err != nil {
+	if err := validateWebSocketConnection(t, clients, names); err != nil {
 		t.Error(err)
 	}
 }
@@ -328,7 +327,7 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 
 	// But since Istio network programming takes some time to take effect
 	// and it doesn't have a Status, we'll probe `green` until it's ready first.
-	if err := validateWebSocketConnection(t, clients, green, true /*prefix*/); err != nil {
+	if err := validateWebSocketConnection(t, clients, green); err != nil {
 		t.Fatalf("Error initializing WS connection: %v", err)
 	}
 
