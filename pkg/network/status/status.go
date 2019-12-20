@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ingress
+package status
 
 import (
 	"context"
@@ -23,7 +23,6 @@ import (
 	"net"
 	"net/http"
 	"reflect"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -31,17 +30,12 @@ import (
 	"go.uber.org/zap"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	corev1listers "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"knative.dev/pkg/network/prober"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
-	istiolisters "knative.dev/serving/pkg/client/istio/listers/networking/v1alpha3"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/network/ingress"
 )
@@ -85,22 +79,21 @@ type workItem struct {
 	podPort      string
 }
 
-// probeTargets represents the target to probe.
-type probeTarget struct {
-	// urlTmpl is an url template to probe.
-	urlTmpl string
-	// targetPort is a port of Gateway pod.
-	targetPort string
+// ProbeTargetLister lists all the targets that requires probing.
+type ProbeTargetLister interface {
+
+	// ListProbeTargets returns the target to be probed as a map from podIP -> port -> urls.
+	ListProbeTargets(ctx context.Context, ingress *v1alpha1.Ingress) (map[string]map[string]sets.String, error)
 }
 
-// StatusManager provides a way to check if a VirtualService is ready
-type StatusManager interface {
-	IsReady(ia *v1alpha1.Ingress, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error)
+// Manager provides a way to check if an Ingress is ready
+type Manager interface {
+	IsReady(ctx context.Context, ia *v1alpha1.Ingress) (bool, error)
 }
 
-// StatusProber provides a way to check if a VirtualService is ready by probing the Envoy pods
+// Prober provides a way to check if a VirtualService is ready by probing the Envoy pods
 // handling that VirtualService.
-type StatusProber struct {
+type Prober struct {
 	logger *zap.SugaredLogger
 
 	// mu guards ingressStates and podStates
@@ -110,9 +103,7 @@ type StatusProber struct {
 
 	workQueue workqueue.RateLimitingInterface
 
-	gatewayLister   istiolisters.GatewayLister
-	endpointsLister corev1listers.EndpointsLister
-	serviceLister   corev1listers.ServiceLister
+	targetLister ProbeTargetLister
 
 	readyCallback func(*v1alpha1.Ingress)
 
@@ -121,23 +112,19 @@ type StatusProber struct {
 	cleanupPeriod    time.Duration
 }
 
-// NewStatusProber creates a new instance of StatusProber
-func NewStatusProber(
+// NewProber creates a new instance of Prober
+func NewProber(
 	logger *zap.SugaredLogger,
-	gatewayLister istiolisters.GatewayLister,
-	endpointsLister corev1listers.EndpointsLister,
-	serviceLister corev1listers.ServiceLister,
-	readyCallback func(*v1alpha1.Ingress)) *StatusProber {
-	return &StatusProber{
+	targetLister ProbeTargetLister,
+	readyCallback func(*v1alpha1.Ingress)) *Prober {
+	return &Prober{
 		logger:        logger,
 		ingressStates: make(map[string]*ingressState),
 		podStates:     make(map[string]*podState),
 		workQueue: workqueue.NewNamedRateLimitingQueue(
 			workqueue.DefaultControllerRateLimiter(),
 			"ProbingQueue"),
-		gatewayLister:    gatewayLister,
-		endpointsLister:  endpointsLister,
-		serviceLister:    serviceLister,
+		targetLister:     targetLister,
 		readyCallback:    readyCallback,
 		probeConcurrency: probeConcurrency,
 		stateExpiration:  stateExpiration,
@@ -145,13 +132,17 @@ func NewStatusProber(
 	}
 }
 
+func ingressKey(ing *v1alpha1.Ingress) string {
+	return fmt.Sprintf("%s/%s", ing.GetNamespace(), ing.GetName())
+}
+
 // IsReady checks if the provided Ingress is ready, i.e. the Envoy pods serving the Ingress
 // have all been updated. This function is designed to be used by the Ingress controller, i.e. it
 // will be called in the order of reconciliation. This means that if IsReady is called on an Ingress,
 // this Ingress is the latest known version and therefore anything related to older versions can be ignored.
 // Also, it means that IsReady is not called concurrently.
-func (m *StatusProber) IsReady(ia *v1alpha1.Ingress, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error) {
-	ingressKey := fmt.Sprintf("%s/%s", ia.GetNamespace(), ia.GetName())
+func (m *Prober) IsReady(ctx context.Context, ia *v1alpha1.Ingress) (bool, error) {
+	ingressKey := ingressKey(ia)
 
 	bytes, err := ingress.ComputeHash(ia)
 	if err != nil {
@@ -186,68 +177,59 @@ func (m *StatusProber) IsReady(ia *v1alpha1.Ingress, gw map[v1alpha1.IngressVisi
 	}
 
 	var workItems []*workItem
-	for gatewayName, hosts := range ingress.HostsPerVisibility(ia, gw) {
-		gateway, err := m.getGateway(gatewayName)
-		if err != nil {
-			return false, fmt.Errorf("failed to get Gateway %q: %w", gatewayName, err)
-		}
-		targetsPerPod, err := m.listGatewayTargetsPerPods(gateway)
-		if err != nil {
-			return false, fmt.Errorf("failed to list the probing URLs of Gateway %q: %w", gatewayName, err)
-		}
-		if len(targetsPerPod) == 0 {
-			continue
-		}
 
-		for ip, targets := range targetsPerPod {
-			// Each Pod backing a Gateway is probed using the different hosts, protocol and ports until
-			// one of the probing calls succeeds. Then, the Pod is considered ready and all pending work items
-			// scheduled for that pod are cancelled.
-			ctx, cancel := context.WithCancel(ingCtx)
-			podState := &podState{
-				successCount: 0,
-				context:      ctx,
-				cancel:       cancel,
-			}
-
-			// Save the podState to be able to cancel it in case of Pod deletion
-			func() {
-				m.mu.Lock()
-				defer m.mu.Unlock()
-				m.podStates[ip] = podState
-			}()
-
-			// Update states and cleanup m.podStates when probing is done or cancelled
-			go func(ip string) {
-				<-podState.context.Done()
-				m.updateStates(ingressState, podState)
-
-				m.mu.Lock()
-				defer m.mu.Unlock()
-				// It is critical to check that the current podState is also the one stored in the map
-				// before deleting it because it could have been replaced if a new version of the ingress
-				// has started being probed.
-				if state, ok := m.podStates[ip]; ok && state == podState {
-					delete(m.podStates, ip)
-				}
-			}(ip)
-
-			for _, host := range hosts.List() {
-				for _, target := range targets {
-					workItem := &workItem{
-						ingressState: ingressState,
-						podState:     podState,
-						url:          fmt.Sprintf(target.urlTmpl, host),
-						podIP:        ip,
-						podPort:      target.targetPort,
-					}
-					workItems = append(workItems, workItem)
-				}
-			}
-		}
-		ingressState.pendingCount += int32(len(targetsPerPod))
+	allProbeTargets, err := m.targetLister.ListProbeTargets(ctx, ia)
+	if err != nil {
+		return false, err
 	}
 
+	for ip, targets := range allProbeTargets {
+		// Each Pod is probed using the different hosts, protocol and ports until
+		// one of the probing calls succeeds. Then, the Pod is considered ready and all pending work items
+		// scheduled for that pod are cancelled.
+		ctx, cancel := context.WithCancel(ingCtx)
+		podState := &podState{
+			successCount: 0,
+			context:      ctx,
+			cancel:       cancel,
+		}
+
+		// Save the podState to be able to cancel it in case of Pod deletion
+		func() {
+			m.mu.Lock()
+			defer m.mu.Unlock()
+			m.podStates[ip] = podState
+		}()
+
+		// Update states and cleanup m.podStates when probing is done or cancelled
+		go func(ip string) {
+			<-podState.context.Done()
+			m.updateStates(ingressState, podState)
+
+			m.mu.Lock()
+			defer m.mu.Unlock()
+			// It is critical to check that the current podState is also the one stored in the map
+			// before deleting it because it could have been replaced if a new version of the ingress
+			// has started being probed.
+			if state, ok := m.podStates[ip]; ok && state == podState {
+				delete(m.podStates, ip)
+			}
+		}(ip)
+
+		for port, urls := range targets {
+			for _, url := range urls.List() {
+				workItem := &workItem{
+					ingressState: ingressState,
+					podState:     podState,
+					url:          url,
+					podIP:        ip,
+					podPort:      port,
+				}
+				workItems = append(workItems, workItem)
+			}
+		}
+		ingressState.pendingCount++
+	}
 	func() {
 		m.mu.Lock()
 		defer m.mu.Unlock()
@@ -260,8 +242,8 @@ func (m *StatusProber) IsReady(ia *v1alpha1.Ingress, gw map[v1alpha1.IngressVisi
 	return len(workItems) == 0, nil
 }
 
-// Start starts the StatusManager background operations
-func (m *StatusProber) Start(done <-chan struct{}) {
+// Start starts the Manager background operations
+func (m *Prober) Start(done <-chan struct{}) {
 	// Start the worker goroutines
 	for i := 0; i < m.probeConcurrency; i++ {
 		go func() {
@@ -280,29 +262,37 @@ func (m *StatusProber) Start(done <-chan struct{}) {
 	}()
 }
 
-// CancelVirtualServiceProbing cancels probing of the provided VirtualService.
-func (m *StatusProber) CancelVirtualServiceProbing(vs *v1alpha3.VirtualService) {
-	key := fmt.Sprintf("%s/%s", vs.Namespace, vs.Name)
+// CancelIngressProbing cancels probing of the provided Ingress
+// TODO(#6270): Use cache.DeletedFinalStateUnknown.
+func (m *Prober) CancelIngressProbing(obj interface{}) {
+	if ing, ok := obj.(*v1alpha1.Ingress); ok {
+		key := ingressKey(ing)
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if state, ok := m.ingressStates[key]; ok {
-		state.cancel()
-		delete(m.ingressStates, key)
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		if state, ok := m.ingressStates[key]; ok {
+			state.cancel()
+			delete(m.ingressStates, key)
+		}
 	}
 }
 
 // CancelPodProbing cancels probing of the provided Pod IP.
-func (m *StatusProber) CancelPodProbing(pod *corev1.Pod) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if state, ok := m.podStates[pod.Status.PodIP]; ok {
-		state.cancel()
+//
+// TODO(#6269): make this cancelation based on Pod x port instead of just Pod.
+func (m *Prober) CancelPodProbing(obj interface{}) {
+	if pod, ok := obj.(*corev1.Pod); ok {
+		m.mu.Lock()
+		defer m.mu.Unlock()
+
+		if state, ok := m.podStates[pod.Status.PodIP]; ok {
+			state.cancel()
+		}
 	}
 }
 
 // expireOldStates removes the states that haven't been accessed in a while.
-func (m *StatusProber) expireOldStates() {
+func (m *Prober) expireOldStates() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for key, state := range m.ingressStates {
@@ -315,7 +305,7 @@ func (m *StatusProber) expireOldStates() {
 
 // processWorkItem processes a single work item from workQueue.
 // It returns false when there is no more items to process, true otherwise.
-func (m *StatusProber) processWorkItem() bool {
+func (m *Prober) processWorkItem() bool {
 	obj, shutdown := m.workQueue.Get()
 	if shutdown {
 		return false
@@ -370,7 +360,7 @@ func (m *StatusProber) processWorkItem() bool {
 	return true
 }
 
-func (m *StatusProber) updateStates(ingressState *ingressState, podState *podState) {
+func (m *Prober) updateStates(ingressState *ingressState, podState *podState) {
 	if atomic.AddInt32(&podState.successCount, 1) == 1 {
 		// This is the first successful probe call for the pod, cancel all other work items for this pod
 		podState.cancel()
@@ -380,90 +370,4 @@ func (m *StatusProber) updateStates(ingressState *ingressState, podState *podSta
 			m.readyCallback(ingressState.ia)
 		}
 	}
-}
-
-func (m *StatusProber) getGateway(name string) (*v1alpha3.Gateway, error) {
-	namespace, name, err := cache.SplitMetaNamespaceKey(name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse Gateway name %q: %w", name, err)
-	}
-	if namespace == "" {
-		return nil, fmt.Errorf("unexpected unqualified Gateway name %q", name)
-	}
-	return m.gatewayLister.Gateways(namespace).Get(name)
-}
-
-// listGatewayPodsURLs returns a map where the keys are the Gateway Pod IPs and the values are the corresponding
-// URL templates and the Gateway Pod Port to be probed.
-func (m *StatusProber) listGatewayTargetsPerPods(gateway *v1alpha3.Gateway) (map[string][]probeTarget, error) {
-	selector := labels.SelectorFromSet(gateway.Spec.Selector)
-
-	services, err := m.serviceLister.List(selector)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list Services: %w", err)
-	}
-	if len(services) == 0 {
-		m.logger.Infof("Skipping Gateway %s/%s because it has no corresponding Service", gateway.Namespace, gateway.Name)
-		return nil, nil
-	}
-	service := services[0]
-
-	endpoints, err := m.endpointsLister.Endpoints(service.Namespace).Get(service.Name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get Endpoints: %w", err)
-	}
-
-	targetsPerPods := make(map[string][]probeTarget)
-	for _, server := range gateway.Spec.Servers {
-		var urlTmpl string
-		switch server.Port.Protocol {
-		case "HTTP", "HTTP2":
-			if server.Tls == nil || !server.Tls.HttpsRedirect {
-				urlTmpl = "http://%%s:%d/"
-			}
-		case "HTTPS":
-			urlTmpl = "https://%%s:%d/"
-		default:
-			m.logger.Infof("Skipping Server %q because protocol %q is not supported", server.Port.Name, server.Port.Protocol)
-			continue
-		}
-
-		portName, err := findNameForPortNumber(service, int32(server.Port.Number))
-		if err != nil {
-			m.logger.Infof("Skipping Server %q because Service %s/%s doesn't contain a port %d", server.Port.Name, service.Namespace, service.Name, server.Port.Number)
-			continue
-		}
-		for _, sub := range endpoints.Subsets {
-			portNumber, err := findPortNumberForName(sub, portName)
-			if err != nil {
-				m.logger.Infof("Skipping Subset %v because it doesn't contain a port %q", sub.Addresses, portName)
-				continue
-			}
-
-			for _, addr := range sub.Addresses {
-				targetsPerPods[addr.IP] = append(targetsPerPods[addr.IP], probeTarget{urlTmpl: fmt.Sprintf(urlTmpl, server.Port.Number), targetPort: strconv.Itoa(int(portNumber))})
-			}
-		}
-	}
-	return targetsPerPods, nil
-}
-
-// findNameForPortNumber finds the name for a given port as defined by a Service.
-func findNameForPortNumber(svc *corev1.Service, portNumber int32) (string, error) {
-	for _, port := range svc.Spec.Ports {
-		if port.Port == portNumber {
-			return port.Name, nil
-		}
-	}
-	return "", fmt.Errorf("no port with number %d found", portNumber)
-}
-
-// findPortNumberForName resolves a given name to a portNumber as defined by an EndpointSubset.
-func findPortNumberForName(sub corev1.EndpointSubset, portName string) (int32, error) {
-	for _, subPort := range sub.Ports {
-		if subPort.Name == portName {
-			return subPort.Port, nil
-		}
-	}
-	return 0, fmt.Errorf("no port for name %q found", portName)
 }

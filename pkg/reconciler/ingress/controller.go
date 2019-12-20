@@ -19,7 +19,6 @@ package ingress
 import (
 	"context"
 
-	v1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	secretinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/secret"
@@ -33,6 +32,7 @@ import (
 	gatewayinformer "knative.dev/serving/pkg/client/istio/injection/informers/networking/v1alpha3/gateway"
 	virtualserviceinformer "knative.dev/serving/pkg/client/istio/injection/informers/networking/v1alpha3/virtualservice"
 	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/network/status"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/ingress/config"
 
@@ -97,32 +97,24 @@ func NewController(
 	resyncOnIngressReady := func(ia *v1alpha1.Ingress) {
 		impl.EnqueueKey(types.NamespacedName{Namespace: ia.GetNamespace(), Name: ia.GetName()})
 	}
-	statusProber := NewStatusProber(
+	statusProber := status.NewProber(
 		c.Logger.Named("status-manager"),
-		gatewayInformer.Lister(),
-		endpointsInformer.Lister(),
-		serviceInformer.Lister(),
+		NewProbeTargetLister(
+			c.Logger.Named("probe-lister"),
+			gatewayInformer.Lister(),
+			endpointsInformer.Lister(),
+			serviceInformer.Lister()),
 		resyncOnIngressReady)
 	c.statusManager = statusProber
 	statusProber.Start(ctx.Done())
 
-	virtualServiceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	ingressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		// Cancel probing when a VirtualService is deleted
-		DeleteFunc: func(obj interface{}) {
-			vs, ok := obj.(*v1alpha3.VirtualService)
-			if ok {
-				statusProber.CancelVirtualServiceProbing(vs)
-			}
-		},
+		DeleteFunc: statusProber.CancelIngressProbing,
 	})
 	podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		// Cancel probing when a Pod is deleted
-		DeleteFunc: func(obj interface{}) {
-			pod, ok := obj.(*corev1.Pod)
-			if ok {
-				statusProber.CancelPodProbing(pod)
-			}
-		},
+		DeleteFunc: statusProber.CancelPodProbing,
 	})
 
 	c.Logger.Info("Setting up secret informer event handler")

@@ -35,6 +35,7 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/network/status"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/ingress/config"
 	"knative.dev/serving/pkg/reconciler/ingress/resources"
@@ -83,7 +84,7 @@ type Reconciler struct {
 	tracker     tracker.Interface
 	finalizer   string
 
-	statusManager StatusManager
+	statusManager status.Manager
 }
 
 var (
@@ -211,7 +212,7 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress)
 	// Update status
 	ia.Status.MarkNetworkConfigured()
 
-	ready, err := r.statusManager.IsReady(ia, gatewayNames)
+	ready, err := r.statusManager.IsReady(ctx, ia)
 	if err != nil {
 		return fmt.Errorf("failed to probe Ingress %s/%s: %w", ia.GetNamespace(), ia.GetName(), err)
 	}
