@@ -21,6 +21,8 @@ package test
 
 import (
 	"flag"
+
+	"knative.dev/serving/pkg/network"
 )
 
 const (
@@ -48,8 +50,9 @@ var ServingFlags = initializeServingFlags()
 
 // ServingEnvironmentFlags holds the e2e flags needed only by the serving repo.
 type ServingEnvironmentFlags struct {
-	ResolvableDomain bool // Resolve Route controller's `domainSuffix`
-	Https            bool // Indicates where the test service will be created with https
+	ResolvableDomain bool   // Resolve Route controller's `domainSuffix`
+	Https            bool   // Indicates where the test service will be created with https
+	IngressClass     string // Indicates the class of Ingress provider to test.
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {
@@ -60,6 +63,9 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 		"Set this flag to true if you have configured the `domainSuffix` on your Route controller to a domain that will resolve to your test cluster.")
 	flag.BoolVar(&f.Https, "https", false,
 		"Set this flag to true to run all tests with https.")
+
+	flag.StringVar(&f.IngressClass, "ingressClass", network.IstioIngressClassName,
+		"Set this flag to the ingress class to test against.")
 
 	return &f
 }

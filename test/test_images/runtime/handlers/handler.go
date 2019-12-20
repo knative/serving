@@ -25,7 +25,8 @@ import (
 
 // InitHandlers initializes all handlers.
 func InitHandlers(mux *http.ServeMux) {
-	mux.HandleFunc("/", withHeaders(withRequestLog(runtimeHandler)))
+	h := network.NewProbeHandler(withHeaders(withRequestLog(runtimeHandler)))
+	mux.HandleFunc("/", h.ServeHTTP)
 	mux.HandleFunc("/healthz", withRequestLog(withKubeletProbeHeaderCheck))
 }
 

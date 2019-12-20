@@ -74,6 +74,7 @@ type ServingClients struct {
 // networking clients.
 type NetworkingClients struct {
 	ServerlessServices networkingv1alpha1.ServerlessServiceInterface
+	Ingresses          networkingv1alpha1.IngressInterface
 }
 
 // NewClients instantiates and returns several clientsets required for making request to the
@@ -144,6 +145,7 @@ func newNetworkingClients(cfg *rest.Config, namespace string) (*NetworkingClient
 	}
 	return &NetworkingClients{
 		ServerlessServices: cs.NetworkingV1alpha1().ServerlessServices(namespace),
+		Ingresses:          cs.NetworkingV1alpha1().Ingresses(namespace),
 	}, nil
 }
 
