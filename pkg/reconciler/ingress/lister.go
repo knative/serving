@@ -34,23 +34,17 @@ import (
 	"knative.dev/serving/pkg/network/status"
 )
 
-// NewStatusProber creates a new instance of status.Prober
-func NewStatusProber(
+func NewProbeTargetLister(
 	logger *zap.SugaredLogger,
 	gatewayLister istiolisters.GatewayLister,
 	endpointsLister corev1listers.EndpointsLister,
-	serviceLister corev1listers.ServiceLister,
-	readyCallback func(*v1alpha1.Ingress)) *status.Prober {
-	return status.NewProber(
-		logger,
-		&gatewayPodTargetLister{
-			logger:          logger,
-			gatewayLister:   gatewayLister,
-			endpointsLister: endpointsLister,
-			serviceLister:   serviceLister,
-		},
-		readyCallback,
-	)
+	serviceLister corev1listers.ServiceLister) status.ProbeTargetLister {
+	return &gatewayPodTargetLister{
+		logger:          logger,
+		gatewayLister:   gatewayLister,
+		endpointsLister: endpointsLister,
+		serviceLister:   serviceLister,
+	}
 }
 
 type gatewayPodTargetLister struct {
