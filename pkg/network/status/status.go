@@ -263,6 +263,7 @@ func (m *Prober) Start(done <-chan struct{}) {
 }
 
 // CancelIngressProbing cancels probing of the provided Ingress
+// TODO(#6270): Use cache.DeletedFinalStateUnknown.
 func (m *Prober) CancelIngressProbing(obj interface{}) {
 	if ing, ok := obj.(*v1alpha1.Ingress); ok {
 		key := ingressKey(ing)
