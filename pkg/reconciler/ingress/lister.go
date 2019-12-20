@@ -155,13 +155,13 @@ func (l *gatewayPodTargetLister) listGatewayTargetsPerPods(gateway *v1alpha3.Gat
 			continue
 		}
 
-		portName, err := network.FindNameForPortNumber(service, int32(server.Port.Number))
+		portName, err := network.NameForPortNumber(service, int32(server.Port.Number))
 		if err != nil {
 			l.logger.Infof("Skipping Server %q because Service %s/%s doesn't contain a port %d", server.Port.Name, service.Namespace, service.Name, server.Port.Number)
 			continue
 		}
 		for _, sub := range endpoints.Subsets {
-			portNumber, err := network.FindPortNumberForName(sub, portName)
+			portNumber, err := network.PortNumberForName(sub, portName)
 			if err != nil {
 				l.logger.Infof("Skipping Subset %v because it doesn't contain a port %q", sub.Addresses, portName)
 				continue
