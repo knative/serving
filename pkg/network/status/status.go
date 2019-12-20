@@ -86,14 +86,14 @@ type ProbeTargetLister interface {
 	ListProbeTargets(ctx context.Context, ingress *v1alpha1.Ingress) (map[string]map[string]sets.String, error)
 }
 
-// StatusManager provides a way to check if an Ingress is ready
-type StatusManager interface {
+// Manager provides a way to check if an Ingress is ready
+type Manager interface {
 	IsReady(ctx context.Context, ia *v1alpha1.Ingress) (bool, error)
 }
 
-// StatusProber provides a way to check if a VirtualService is ready by probing the Envoy pods
+// Prober provides a way to check if a VirtualService is ready by probing the Envoy pods
 // handling that VirtualService.
-type StatusProber struct {
+type Prober struct {
 	logger *zap.SugaredLogger
 
 	// mu guards ingressStates and podStates
@@ -112,12 +112,12 @@ type StatusProber struct {
 	cleanupPeriod    time.Duration
 }
 
-// NewStatusProber creates a new instance of StatusProber
-func NewStatusProber(
+// NewProber creates a new instance of Prober
+func NewProber(
 	logger *zap.SugaredLogger,
 	targetLister ProbeTargetLister,
-	readyCallback func(*v1alpha1.Ingress)) *StatusProber {
-	return &StatusProber{
+	readyCallback func(*v1alpha1.Ingress)) *Prober {
+	return &Prober{
 		logger:        logger,
 		ingressStates: make(map[string]*ingressState),
 		podStates:     make(map[string]*podState),
@@ -141,7 +141,7 @@ func ingressKey(ing *v1alpha1.Ingress) string {
 // will be called in the order of reconciliation. This means that if IsReady is called on an Ingress,
 // this Ingress is the latest known version and therefore anything related to older versions can be ignored.
 // Also, it means that IsReady is not called concurrently.
-func (m *StatusProber) IsReady(ctx context.Context, ia *v1alpha1.Ingress) (bool, error) {
+func (m *Prober) IsReady(ctx context.Context, ia *v1alpha1.Ingress) (bool, error) {
 	ingressKey := ingressKey(ia)
 
 	bytes, err := ingress.ComputeHash(ia)
@@ -242,8 +242,8 @@ func (m *StatusProber) IsReady(ctx context.Context, ia *v1alpha1.Ingress) (bool,
 	return len(workItems) == 0, nil
 }
 
-// Start starts the StatusManager background operations
-func (m *StatusProber) Start(done <-chan struct{}) {
+// Start starts the Manager background operations
+func (m *Prober) Start(done <-chan struct{}) {
 	// Start the worker goroutines
 	for i := 0; i < m.probeConcurrency; i++ {
 		go func() {
@@ -263,7 +263,7 @@ func (m *StatusProber) Start(done <-chan struct{}) {
 }
 
 // CancelIngressProbing cancels probing of the provided Ingress
-func (m *StatusProber) CancelIngressProbing(ing *v1alpha1.Ingress) {
+func (m *Prober) CancelIngressProbing(ing *v1alpha1.Ingress) {
 	key := ingressKey(ing)
 
 	m.mu.Lock()
@@ -275,7 +275,7 @@ func (m *StatusProber) CancelIngressProbing(ing *v1alpha1.Ingress) {
 }
 
 // CancelPodProbing cancels probing of the provided Pod IP.
-func (m *StatusProber) CancelPodProbing(pod *corev1.Pod) {
+func (m *Prober) CancelPodProbing(pod *corev1.Pod) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -285,7 +285,7 @@ func (m *StatusProber) CancelPodProbing(pod *corev1.Pod) {
 }
 
 // expireOldStates removes the states that haven't been accessed in a while.
-func (m *StatusProber) expireOldStates() {
+func (m *Prober) expireOldStates() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for key, state := range m.ingressStates {
@@ -298,7 +298,7 @@ func (m *StatusProber) expireOldStates() {
 
 // processWorkItem processes a single work item from workQueue.
 // It returns false when there is no more items to process, true otherwise.
-func (m *StatusProber) processWorkItem() bool {
+func (m *Prober) processWorkItem() bool {
 	obj, shutdown := m.workQueue.Get()
 	if shutdown {
 		return false
@@ -353,7 +353,7 @@ func (m *StatusProber) processWorkItem() bool {
 	return true
 }
 
-func (m *StatusProber) updateStates(ingressState *ingressState, podState *podState) {
+func (m *Prober) updateStates(ingressState *ingressState, podState *podState) {
 	if atomic.AddInt32(&podState.successCount, 1) == 1 {
 		// This is the first successful probe call for the pod, cancel all other work items for this pod
 		podState.cancel()

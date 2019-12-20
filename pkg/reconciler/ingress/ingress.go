@@ -83,7 +83,7 @@ type Reconciler struct {
 	tracker     tracker.Interface
 	finalizer   string
 
-	statusManager status.StatusManager
+	statusManager status.Manager
 }
 
 var (

@@ -109,7 +109,7 @@ func TestProbeLifecycle(t *testing.T) {
 	}
 
 	ready := make(chan *v1alpha1.Ingress)
-	prober := NewStatusProber(
+	prober := NewProber(
 		zaptest.NewLogger(t).Sugar(),
 		&fakeProbeTargetLister{
 			map[string]map[string]sets.String{
@@ -232,7 +232,7 @@ func TestCancellation(t *testing.T) {
 	}
 
 	ready := make(chan *v1alpha1.Ingress)
-	prober := NewStatusProber(
+	prober := NewProber(
 		zaptest.NewLogger(t).Sugar(),
 		&fakeProbeTargetLister{
 			map[string]map[string]sets.String{
