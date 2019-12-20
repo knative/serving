@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -74,16 +75,23 @@ type podState struct {
 type workItem struct {
 	ingressState *ingressState
 	podState     *podState
-	url          string
+	url          url.URL
 	podIP        string
 	podPort      string
+}
+
+// ProbeTarget contains the URLs to probes for a set of Pod IPs serving out of the same port.
+type ProbeTarget struct {
+	PodIPs sets.String
+	Port   string
+	URLs   []url.URL
 }
 
 // ProbeTargetLister lists all the targets that requires probing.
 type ProbeTargetLister interface {
 
 	// ListProbeTargets returns the target to be probed as a map from podIP -> port -> urls.
-	ListProbeTargets(ctx context.Context, ingress *v1alpha1.Ingress) (map[string]map[string]sets.String, error)
+	ListProbeTargets(ctx context.Context, ingress *v1alpha1.Ingress) ([]ProbeTarget, error)
 }
 
 // Manager provides a way to check if an Ingress is ready
@@ -183,53 +191,55 @@ func (m *Prober) IsReady(ctx context.Context, ia *v1alpha1.Ingress) (bool, error
 		return false, err
 	}
 
-	for ip, targets := range allProbeTargets {
-		// Each Pod is probed using the different hosts, protocol and ports until
-		// one of the probing calls succeeds. Then, the Pod is considered ready and all pending work items
-		// scheduled for that pod are cancelled.
-		ctx, cancel := context.WithCancel(ingCtx)
-		podState := &podState{
-			successCount: 0,
-			context:      ctx,
-			cancel:       cancel,
-		}
-
-		// Save the podState to be able to cancel it in case of Pod deletion
-		func() {
-			m.mu.Lock()
-			defer m.mu.Unlock()
-			m.podStates[ip] = podState
-		}()
-
-		// Update states and cleanup m.podStates when probing is done or cancelled
-		go func(ip string) {
-			<-podState.context.Done()
-			m.updateStates(ingressState, podState)
-
-			m.mu.Lock()
-			defer m.mu.Unlock()
-			// It is critical to check that the current podState is also the one stored in the map
-			// before deleting it because it could have been replaced if a new version of the ingress
-			// has started being probed.
-			if state, ok := m.podStates[ip]; ok && state == podState {
-				delete(m.podStates, ip)
+	allPodIPs := sets.NewString()
+	for _, target := range allProbeTargets {
+		for ip := range target.PodIPs {
+			allPodIPs.Insert(ip)
+			// Each Pod is probed using the different hosts, protocol and ports until
+			// one of the probing calls succeeds. Then, the Pod is considered ready and all pending work items
+			// scheduled for that pod are cancelled.
+			ctx, cancel := context.WithCancel(ingCtx)
+			podState := &podState{
+				successCount: 0,
+				context:      ctx,
+				cancel:       cancel,
 			}
-		}(ip)
 
-		for port, urls := range targets {
-			for _, url := range urls.List() {
+			// Save the podState to be able to cancel it in case of Pod deletion
+			func() {
+				m.mu.Lock()
+				defer m.mu.Unlock()
+				m.podStates[ip] = podState
+			}()
+
+			// Update states and cleanup m.podStates when probing is done or cancelled
+			go func(ip string) {
+				<-podState.context.Done()
+				m.updateStates(ingressState, podState)
+
+				m.mu.Lock()
+				defer m.mu.Unlock()
+				// It is critical to check that the current podState is also the one stored in the map
+				// before deleting it because it could have been replaced if a new version of the ingress
+				// has started being probed.
+				if state, ok := m.podStates[ip]; ok && state == podState {
+					delete(m.podStates, ip)
+				}
+			}(ip)
+
+			for _, url := range target.URLs {
 				workItem := &workItem{
 					ingressState: ingressState,
 					podState:     podState,
 					url:          url,
 					podIP:        ip,
-					podPort:      port,
+					podPort:      target.Port,
 				}
 				workItems = append(workItems, workItem)
 			}
 		}
-		ingressState.pendingCount++
 	}
+	ingressState.pendingCount += int32(allPodIPs.Len())
 	func() {
 		m.mu.Lock()
 		defer m.mu.Unlock()
@@ -337,7 +347,7 @@ func (m *Prober) processWorkItem() bool {
 	ok, err := prober.Do(
 		item.podState.context,
 		transport,
-		item.url,
+		item.url.String(),
 		prober.WithHeader(network.ProbeHeaderName, network.ProbeHeaderValue),
 		prober.ExpectsStatusCodes([]int{http.StatusOK}),
 		prober.ExpectsHeader(network.HashHeaderName, item.ingressState.hash))

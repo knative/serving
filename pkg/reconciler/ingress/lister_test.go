@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -27,6 +28,7 @@ import (
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	v1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/network/status"
 	"knative.dev/serving/pkg/reconciler/ingress/config"
 
 	"go.uber.org/zap/zaptest"
@@ -48,7 +50,7 @@ func TestListProbeTargets(t *testing.T) {
 		endpointsLister corev1listers.EndpointsLister
 		serviceLister   corev1listers.ServiceLister
 		errMessage      string
-		results         map[string]map[string]sets.String
+		results         []status.ProbeTarget
 	}{{
 		name: "unqualified gateway",
 		ingressGateways: []config.Gateway{{
@@ -496,11 +498,11 @@ func TestListProbeTargets(t *testing.T) {
 				}},
 			},
 		},
-		results: map[string]map[string]sets.String{
-			"1.1.1.1": map[string]sets.String{
-				"80": sets.NewString("http://foo.bar.com:80/"),
-			},
-		},
+		results: []status.ProbeTarget{{
+			PodIPs: sets.NewString("1.1.1.1"),
+			Port:   "80",
+			URLs:   []url.URL{{Scheme: "http", Host: "foo.bar.com:80"}},
+		}},
 	}, {
 		name: "one gateway, https redirect",
 		ingressGateways: []config.Gateway{{
@@ -592,7 +594,7 @@ func TestListProbeTargets(t *testing.T) {
 				}},
 			},
 		},
-		results: map[string]map[string]sets.String{},
+		results: []status.ProbeTarget{},
 	}, {
 		name: "unsupported protocols",
 		ingressGateways: []config.Gateway{{
@@ -674,7 +676,7 @@ func TestListProbeTargets(t *testing.T) {
 				}},
 			},
 		},
-		results: map[string]map[string]sets.String{},
+		results: []status.ProbeTarget{},
 	}, {
 		name: "subsets with no ports",
 		ingressGateways: []config.Gateway{{
@@ -753,7 +755,7 @@ func TestListProbeTargets(t *testing.T) {
 				}},
 			},
 		},
-		results: map[string]map[string]sets.String{},
+		results: []status.ProbeTarget{},
 	}, {
 		name: "two gateways",
 		ingressGateways: []config.Gateway{{
@@ -892,17 +894,15 @@ func TestListProbeTargets(t *testing.T) {
 				}},
 			},
 		},
-		results: map[string]map[string]sets.String{
-			"1.1.1.1": map[string]sets.String{
-				"80": sets.NewString("http://foo.bar.com:80/"),
-			},
-			"2.2.2.2": map[string]sets.String{
-				"90": sets.NewString("http://foo.bar.com:90/"),
-			},
-			"2.2.2.3": map[string]sets.String{
-				"90": sets.NewString("http://foo.bar.com:90/"),
-			},
-		},
+		results: []status.ProbeTarget{{
+			PodIPs: sets.NewString("1.1.1.1"),
+			Port:   "80",
+			URLs:   []url.URL{{Scheme: "http", Host: "foo.bar.com:80"}},
+		}, {
+			PodIPs: sets.NewString("2.2.2.2", "2.2.2.3"),
+			Port:   "90",
+			URLs:   []url.URL{{Scheme: "http", Host: "foo.bar.com:90"}},
+		}},
 	}, {
 		name: "local gateways",
 		localGateways: []config.Gateway{{
@@ -1045,18 +1045,14 @@ func TestListProbeTargets(t *testing.T) {
 				}},
 			},
 		},
-		results: map[string]map[string]sets.String{
-			"2.2.2.2": map[string]sets.String{
-				"80": sets.NewString("http://foo.bar.svc.cluster.local:80/",
-					"http://foo.bar.svc:80/",
-					"http://foo.bar:80/"),
-			},
-			"2.2.2.3": map[string]sets.String{
-				"80": sets.NewString("http://foo.bar.svc.cluster.local:80/",
-					"http://foo.bar.svc:80/",
-					"http://foo.bar:80/"),
-			},
-		},
+		results: []status.ProbeTarget{{
+			PodIPs: sets.NewString("2.2.2.2", "2.2.2.3"),
+			Port:   "80",
+			URLs: []url.URL{
+				{Scheme: "http", Host: "foo.bar:80"},
+				{Scheme: "http", Host: "foo.bar.svc:80"},
+				{Scheme: "http", Host: "foo.bar.svc.cluster.local:80"}},
+		}},
 	}}
 
 	for _, test := range tests {
