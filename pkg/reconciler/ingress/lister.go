@@ -138,11 +138,11 @@ func (l *gatewayPodTargetLister) listGatewayTargetsPerPods(gateway *v1alpha3.Gat
 		var urlTmpl string
 		switch server.Port.Protocol {
 		case "HTTP", "HTTP2":
-			if server.Tls == nil || !server.Tls.HttpsRedirect {
-				urlTmpl = "http://%%s:%d/"
-			} else {
+			if server.Tls != nil && server.Tls.HttpsRedirect {
+				// ignoring HTTPS redirects.
 				continue
 			}
+			urlTmpl = "http://%%s:%d/"
 		case "HTTPS":
 			urlTmpl = "https://%%s:%d/"
 		default:
@@ -161,9 +161,10 @@ func (l *gatewayPodTargetLister) listGatewayTargetsPerPods(gateway *v1alpha3.Gat
 				l.logger.Infof("Skipping Subset %v because it doesn't contain a port %q", sub.Addresses, portName)
 				continue
 			}
-
+			portNumberStr := strconv.Itoa(int(portNumber))
+			url := fmt.Sprintf(urlTmpl, server.Port.Number)
 			for _, addr := range sub.Addresses {
-				targetsPerPods[addr.IP] = append(targetsPerPods[addr.IP], probeTarget{urlTmpl: fmt.Sprintf(urlTmpl, server.Port.Number), targetPort: strconv.Itoa(int(portNumber))})
+				targetsPerPods[addr.IP] = append(targetsPerPods[addr.IP], probeTarget{urlTmpl: url, targetPort: portNumberStr})
 			}
 		}
 	}
