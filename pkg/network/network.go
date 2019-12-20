@@ -384,3 +384,23 @@ func RewriteHostOut(r *http.Request) {
 		r.Header.Del(OriginalHostHeader)
 	}
 }
+
+// FindNameForPortNumber finds the name for a given port as defined by a Service.
+func FindNameForPortNumber(svc *corev1.Service, portNumber int32) (string, error) {
+	for _, port := range svc.Spec.Ports {
+		if port.Port == portNumber {
+			return port.Name, nil
+		}
+	}
+	return "", fmt.Errorf("no port with number %d found", portNumber)
+}
+
+// FindPortNumberForName resolves a given name to a portNumber as defined by an EndpointSubset.
+func FindPortNumberForName(sub corev1.EndpointSubset, portName string) (int32, error) {
+	for _, subPort := range sub.Ports {
+		if subPort.Name == portName {
+			return subPort.Port, nil
+		}
+	}
+	return 0, fmt.Errorf("no port for name %q found", portName)
+}

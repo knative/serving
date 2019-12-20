@@ -202,7 +202,7 @@ func (m *Prober) IsReady(ctx context.Context, ia *v1alpha1.Ingress) (bool, error
 		}()
 
 		// Update states and cleanup m.podStates when probing is done or cancelled
-		go func(ip stringe) {
+		go func(ip string) {
 			<-podState.context.Done()
 			m.updateStates(ingressState, podState)
 

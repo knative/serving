@@ -23,13 +23,13 @@ import (
 
 	"go.uber.org/zap"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	istiolisters "knative.dev/serving/pkg/client/istio/listers/networking/v1alpha3"
+	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/network/ingress"
 	"knative.dev/serving/pkg/network/status"
 )
@@ -155,13 +155,13 @@ func (l *gatewayPodTargetLister) listGatewayTargetsPerPods(gateway *v1alpha3.Gat
 			continue
 		}
 
-		portName, err := findNameForPortNumber(service, int32(server.Port.Number))
+		portName, err := network.FindNameForPortNumber(service, int32(server.Port.Number))
 		if err != nil {
 			l.logger.Infof("Skipping Server %q because Service %s/%s doesn't contain a port %d", server.Port.Name, service.Namespace, service.Name, server.Port.Number)
 			continue
 		}
 		for _, sub := range endpoints.Subsets {
-			portNumber, err := findPortNumberForName(sub, portName)
+			portNumber, err := network.FindPortNumberForName(sub, portName)
 			if err != nil {
 				l.logger.Infof("Skipping Subset %v because it doesn't contain a port %q", sub.Addresses, portName)
 				continue
@@ -173,24 +173,4 @@ func (l *gatewayPodTargetLister) listGatewayTargetsPerPods(gateway *v1alpha3.Gat
 		}
 	}
 	return targetsPerPods, nil
-}
-
-// findNameForPortNumber finds the name for a given port as defined by a Service.
-func findNameForPortNumber(svc *corev1.Service, portNumber int32) (string, error) {
-	for _, port := range svc.Spec.Ports {
-		if port.Port == portNumber {
-			return port.Name, nil
-		}
-	}
-	return "", fmt.Errorf("no port with number %d found", portNumber)
-}
-
-// findPortNumberForName resolves a given name to a portNumber as defined by an EndpointSubset.
-func findPortNumberForName(sub corev1.EndpointSubset, portName string) (int32, error) {
-	for _, subPort := range sub.Ports {
-		if subPort.Name == portName {
-			return subPort.Port, nil
-		}
-	}
-	return 0, fmt.Errorf("no port for name %q found", portName)
 }
