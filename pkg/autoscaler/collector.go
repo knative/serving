@@ -119,13 +119,11 @@ var _ MetricClient = (*MetricCollector)(nil)
 
 // NewMetricCollector creates a new metric collector.
 func NewMetricCollector(statsScraperFactory StatsScraperFactory, logger *zap.SugaredLogger) *MetricCollector {
-	collector := &MetricCollector{
+	return &MetricCollector{
 		logger:              logger,
 		collections:         make(map[types.NamespacedName]*collection),
 		statsScraperFactory: statsScraperFactory,
 	}
-
-	return collector
 }
 
 // CreateOrUpdate either creates a collection for the given metric or update it, should
@@ -243,8 +241,8 @@ func (c *collection) getScraper() StatsScraper {
 func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, logger *zap.SugaredLogger) *collection {
 	c := &collection{
 		metric:             metric,
-		concurrencyBuckets: aggregation.NewTimedFloat64Buckets(BucketSize),
-		rpsBuckets:         aggregation.NewTimedFloat64Buckets(BucketSize),
+		concurrencyBuckets: aggregation.NewTimedFloat64Buckets(metric.Spec.StableWindow, BucketSize),
+		rpsBuckets:         aggregation.NewTimedFloat64Buckets(metric.Spec.StableWindow, BucketSize),
 		scraper:            scraper,
 
 		stopCh: make(chan struct{}),
@@ -294,6 +292,8 @@ func (c *collection) updateMetric(metric *av1alpha1.Metric) {
 	defer c.metricMutex.Unlock()
 
 	c.metric = metric
+	c.concurrencyBuckets.ResizeWindow(metric.Spec.StableWindow)
+	c.rpsBuckets.ResizeWindow(metric.Spec.StableWindow)
 }
 
 // currentMetric safely returns the current metric stored in the collection.
@@ -331,15 +331,19 @@ func (c *collection) StableAndPanicRPS(now time.Time) (float64, float64, error) 
 	return c.stableAndPanicStats(now, c.rpsBuckets)
 }
 
+type buckets interface {
+	ForEachBucket(time.Time, ...aggregation.Accumulator) bool
+}
+
 // stableAndPanicStats calculates both stable and panic concurrency based on the
 // given stats buckets.
-func (c *collection) stableAndPanicStats(now time.Time, buckets *aggregation.TimedFloat64Buckets) (float64, float64, error) {
+func (c *collection) stableAndPanicStats(now time.Time, buckets buckets) (float64, float64, error) {
 	spec := c.currentMetric().Spec
 	var (
 		panicAverage  aggregation.Average
 		stableAverage aggregation.Average
 	)
-	if !buckets.ForEachBucket(
+	if !buckets.ForEachBucket(now,
 		aggregation.YoungerThan(now.Add(-spec.PanicWindow), panicAverage.Accumulate),
 		aggregation.YoungerThan(now.Add(-spec.StableWindow), stableAverage.Accumulate),
 	) {

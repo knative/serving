@@ -18,6 +18,7 @@ package autoscaler
 
 import (
 	"errors"
+	"math"
 	"testing"
 	"time"
 
@@ -31,6 +32,7 @@ import (
 	. "knative.dev/pkg/logging/testing"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/autoscaler/aggregation"
 )
 
 var (
@@ -117,13 +119,17 @@ func TestMetricCollectorScraper(t *testing.T) {
 
 	now := time.Now()
 	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
-	wantConcurrency := 10.0
-	wantRPS := 20.0
+	const (
+		reportConcurrency = 10.0
+		reportRPS         = 20.0
+		wantConcurrency   = 3 * 10. / 60 // In 3 seconds we'll scrape 3 times, window is 60s.
+		wantRPS           = 3 * 20. / 60
+	)
 	stat := Stat{
 		Time:                      now,
 		PodName:                   "testPod",
-		AverageConcurrentRequests: wantConcurrency,
-		RequestCount:              wantRPS,
+		AverageConcurrentRequests: reportConcurrency,
+		RequestCount:              reportRPS,
 	}
 	scraper := &testScraper{
 		s: func() (Stat, error) {
@@ -135,9 +141,9 @@ func TestMetricCollectorScraper(t *testing.T) {
 	coll := NewMetricCollector(factory, logger)
 	coll.CreateOrUpdate(defaultMetric)
 
-	// stable concurrency and RPS should eventually be equal to the stat.
+	// Poll until we get the expected values.
 	var gotConcurrency, gotRPS float64
-	wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
+	wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
 		gotConcurrency, _, _ = coll.StableAndPanicConcurrency(metricKey, now)
 		gotRPS, _, _ = coll.StableAndPanicRPS(metricKey, now)
 		return gotConcurrency == wantConcurrency && gotRPS == wantRPS, nil
@@ -153,12 +159,12 @@ func TestMetricCollectorScraper(t *testing.T) {
 	wait.PollImmediate(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		gotConcurrency, _, _ = coll.StableAndPanicConcurrency(metricKey, now.Add(stableWindow).Add(-5*time.Second))
 		gotRPS, _, _ = coll.StableAndPanicRPS(metricKey, now.Add(stableWindow).Add(-5*time.Second))
-		return gotConcurrency == wantConcurrency && gotRPS == wantRPS, nil
+		return gotConcurrency == reportConcurrency && gotRPS == reportRPS, nil
 	})
-	if gotConcurrency != wantConcurrency {
+	if gotConcurrency != reportConcurrency {
 		t.Errorf("StableAndPanicConcurrency() = %v, want %v", gotConcurrency, wantConcurrency)
 	}
-	if gotRPS != wantRPS {
+	if gotRPS != reportRPS {
 		t.Errorf("StableAndPanicRPS() = %v, want %v", gotRPS, wantRPS)
 	}
 
@@ -180,7 +186,7 @@ func TestMetricCollectorRecord(t *testing.T) {
 	now := time.Now()
 	oldTime := now.Add(-70 * time.Second)
 	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
-	want := 10.0
+	const want = 10.0
 	outdatedStat := Stat{
 		Time:                      oldTime,
 		PodName:                   "testPod",
@@ -217,11 +223,25 @@ func TestMetricCollectorRecord(t *testing.T) {
 	// After this the concurrencies are calculated correctly.
 	coll.Record(metricKey, outdatedStat)
 	coll.Record(metricKey, stat)
-	if stable, panic, err := coll.StableAndPanicConcurrency(metricKey, now); stable != panic || stable != want || err != nil {
-		t.Errorf("StableAndPanicConcurrency() = %v, %v, %v; want %v, %v, nil", stable, panic, err, want, want)
+	stable, panic, err := coll.StableAndPanicConcurrency(metricKey, now)
+	if err != nil {
+		t.Fatalf("StableAndPanicConcurrency: %v", err)
 	}
-	if stable, panic, err := coll.StableAndPanicRPS(metricKey, now); stable != panic || stable != want || err != nil {
-		t.Errorf("StableAndPanicRPS() = %v, %v, %v; want %v, %v, nil", stable, panic, err, want, want)
+	// Scale to the window sizes.
+	const (
+		wantS     = want / 60
+		wantP     = want / 6
+		tolerance = 0.0001
+	)
+	if math.Abs(stable-wantS) > tolerance || math.Abs(panic-wantP) > tolerance {
+		t.Errorf("StableAndPanicConcurrency() = %v, %v; want %v, %v, nil", stable, panic, want, want)
+	}
+	stable, panic, err = coll.StableAndPanicRPS(metricKey, now)
+	if err != nil {
+		t.Fatalf("StableAndPanicRPS: %v", err)
+	}
+	if math.Abs(stable-wantS) > tolerance || math.Abs(panic-wantP) > tolerance {
+		t.Errorf("StableAndPanicRPS() = %v, %v; want %v, %v", stable, panic, want, want)
 	}
 }
 
@@ -352,4 +372,35 @@ type testScraper struct {
 
 func (s *testScraper) Scrape() (Stat, error) {
 	return s.s()
+}
+
+func TestMetricCollectorAggregate(t *testing.T) {
+	m := defaultMetric
+	m.Spec.StableWindow = 6 * time.Second
+	m.Spec.PanicWindow = 2 * time.Second
+	c := &collection{
+		metric:             defaultMetric,
+		concurrencyBuckets: aggregation.NewTimedFloat64Buckets(m.Spec.StableWindow, BucketSize),
+		rpsBuckets:         aggregation.NewTimedFloat64Buckets(m.Spec.StableWindow, BucketSize),
+	}
+	now := time.Now()
+	for i := 0; i < 10; i++ {
+		stat := Stat{
+			Time:                      now.Add(time.Duration(i) * time.Second),
+			PodName:                   "testPod",
+			AverageConcurrentRequests: float64(i + 5),
+			RequestCount:              float64(i + 5),
+		}
+		c.record(stat)
+	}
+	st, pan, err := c.stableAndPanicConcurrency(now.Add(time.Duration(9) * time.Second))
+	if err != nil {
+		t.Fatalf("Error computing concurrency: %v", err)
+	}
+	if got, want := st, 11.5; got != want {
+		t.Errorf("Stable Concurrency = %f, want: %f", got, want)
+	}
+	if got, want := pan, 13.5; got != want {
+		t.Errorf("Stable Concurrency = %f, want: %f", got, want)
+	}
 }
