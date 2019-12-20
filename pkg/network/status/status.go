@@ -202,7 +202,7 @@ func (m *Prober) IsReady(ctx context.Context, ia *v1alpha1.Ingress) (bool, error
 		}()
 
 		// Update states and cleanup m.podStates when probing is done or cancelled
-		go func(ip string) {
+		go func(ip stringe) {
 			<-podState.context.Done()
 			m.updateStates(ingressState, podState)
 
@@ -275,6 +275,8 @@ func (m *Prober) CancelIngressProbing(ing *v1alpha1.Ingress) {
 }
 
 // CancelPodProbing cancels probing of the provided Pod IP.
+//
+// TODO(#6269): make this cancelation based on Pod x port instead of just Pod.
 func (m *Prober) CancelPodProbing(pod *corev1.Pod) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
