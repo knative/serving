@@ -111,11 +111,9 @@ func TestProbeLifecycle(t *testing.T) {
 	ready := make(chan *v1alpha1.Ingress)
 	prober := NewProber(
 		zaptest.NewLogger(t).Sugar(),
-		&fakeProbeTargetLister{
-			map[string]map[string]sets.String{
-				hostname: map[string]sets.String{
-					strconv.Itoa(port): sets.NewString("http://foo.bar.com:80"),
-				},
+		fakeProbeTargetLister{
+			hostname: map[string]sets.String{
+				strconv.Itoa(port): sets.NewString("http://foo.bar.com:80"),
 			},
 		},
 		func(ia *v1alpha1.Ingress) {
@@ -234,11 +232,9 @@ func TestCancellation(t *testing.T) {
 	ready := make(chan *v1alpha1.Ingress)
 	prober := NewProber(
 		zaptest.NewLogger(t).Sugar(),
-		&fakeProbeTargetLister{
-			map[string]map[string]sets.String{
-				hostname: map[string]sets.String{
-					strconv.Itoa(port): sets.NewString("http://foo.bar.com:80"),
-				},
+		fakeProbeTargetLister{
+			hostname: map[string]sets.String{
+				strconv.Itoa(port): sets.NewString("http://foo.bar.com:80"),
 			},
 		},
 		func(ia *v1alpha1.Ingress) {
@@ -299,13 +295,11 @@ func TestCancellation(t *testing.T) {
 	}
 }
 
-type fakeProbeTargetLister struct {
-	probeTargets map[string]map[string]sets.String
-}
+type fakeProbeTargetLister map[string]map[string]sets.String
 
-func (l *fakeProbeTargetLister) ListProbeTargets(ctx context.Context, ing *v1alpha1.Ingress) (map[string]map[string]sets.String, error) {
+func (l fakeProbeTargetLister) ListProbeTargets(ctx context.Context, ing *v1alpha1.Ingress) (map[string]map[string]sets.String, error) {
 	targets := map[string]map[string]sets.String{}
-	for ip, m := range l.probeTargets {
+	for ip, m := range l {
 		targets[ip] = map[string]sets.String{}
 		for port := range m {
 			targets[ip][port] = sets.NewString("http://" + ing.Spec.Rules[0].Hosts[0])

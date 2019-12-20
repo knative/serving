@@ -85,6 +85,7 @@ func (l *gatewayPodTargetLister) ListProbeTargets(ctx context.Context, ing *v1al
 			if _, existed := results[ip]; !existed {
 				results[ip] = map[string]sets.String{}
 			}
+			// Use sorted host for consistent ordering.
 			for _, host := range hosts.List() {
 				for _, target := range targets {
 					url := fmt.Sprintf(target.urlTmpl, host)
