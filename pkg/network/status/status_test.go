@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	neturl "net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -98,7 +99,7 @@ func TestProbeLifecycle(t *testing.T) {
 
 	ts := httptest.NewServer(finalHandler)
 	defer ts.Close()
-	url, err := url.Parse(ts.URL)
+	url, err := neturl.Parse(ts.URL)
 	if err != nil {
 		t.Fatalf("failed to parse URL %q: %v", ts.URL, err)
 	}
@@ -111,11 +112,11 @@ func TestProbeLifecycle(t *testing.T) {
 	ready := make(chan *v1alpha1.Ingress)
 	prober := NewProber(
 		zaptest.NewLogger(t).Sugar(),
-		fakeProbeTargetLister{
-			hostname: map[string]sets.String{
-				strconv.Itoa(port): sets.NewString("http://foo.bar.com:80"),
-			},
-		},
+		fakeProbeTargetLister{{
+			PodIPs: sets.NewString(hostname),
+			Port:   strconv.Itoa(port),
+			URLs:   []neturl.URL{*url},
+		}},
 		func(ia *v1alpha1.Ingress) {
 			ready <- ia
 		})
@@ -232,11 +233,11 @@ func TestCancellation(t *testing.T) {
 	ready := make(chan *v1alpha1.Ingress)
 	prober := NewProber(
 		zaptest.NewLogger(t).Sugar(),
-		fakeProbeTargetLister{
-			hostname: map[string]sets.String{
-				strconv.Itoa(port): sets.NewString("http://foo.bar.com:80"),
-			},
-		},
+		fakeProbeTargetLister{{
+			PodIPs: sets.NewString(hostname),
+			Port:   strconv.Itoa(port),
+			URLs:   []neturl.URL{*url},
+		}},
 		func(ia *v1alpha1.Ingress) {
 			ready <- ia
 		})
@@ -295,15 +296,21 @@ func TestCancellation(t *testing.T) {
 	}
 }
 
-type fakeProbeTargetLister map[string]map[string]sets.String
+type fakeProbeTargetLister []ProbeTarget
 
-func (l fakeProbeTargetLister) ListProbeTargets(ctx context.Context, ing *v1alpha1.Ingress) (map[string]map[string]sets.String, error) {
-	targets := map[string]map[string]sets.String{}
-	for ip, m := range l {
-		targets[ip] = map[string]sets.String{}
-		for port := range m {
-			targets[ip][port] = sets.NewString("http://" + ing.Spec.Rules[0].Hosts[0])
+func (l fakeProbeTargetLister) ListProbeTargets(ctx context.Context, ing *v1alpha1.Ingress) ([]ProbeTarget, error) {
+	targets := []ProbeTarget{}
+	for _, target := range l {
+		newTarget := ProbeTarget{
+			PodIPs: target.PodIPs,
+			Port:   target.Port,
 		}
+		for _, url := range target.URLs {
+			newURL := url
+			newURL.Host = ing.Spec.Rules[0].Hosts[0]
+			newTarget.URLs = append(newTarget.URLs, newURL)
+		}
+		targets = append(targets, newTarget)
 	}
 	return targets, nil
 }
