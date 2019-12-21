@@ -91,7 +91,7 @@ func (l *gatewayPodTargetLister) ListProbeTargets(ctx context.Context, ing *v1al
 			// Use sorted host for consistent ordering.
 			for _, host := range hosts.List() {
 				newURL := target.URLs[0]
-				newURL.Host = fmt.Sprintf("%s:%s", host, target.Port)
+				newURL.Host = host + ":" + target.Port
 				qualifiedTarget.URLs = append(qualifiedTarget.URLs, newURL)
 			}
 			results = append(results, qualifiedTarget)
