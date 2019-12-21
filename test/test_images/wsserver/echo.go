@@ -19,12 +19,24 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/websocket"
 	"knative.dev/serving/test"
 )
 
 var addr = flag.String("addr", "localhost:8080", "http service address")
+
+const suffixMessageEnv = "SUFFIX"
+
+// Gets the message suffix from envvar. Empty by default.
+func messageSuffix() string {
+	value := os.Getenv(suffixMessageEnv)
+	if value == "" {
+		return ""
+	}
+	return value
+}
 
 var upgrader = websocket.Upgrader{
 	// Allow any origin, since we are spoofing requests anyway.
@@ -53,6 +65,11 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
+		if suffix := messageSuffix(); suffix != "" {
+			respMes := string(message) + " " + suffix
+			message = []byte(respMes)
+		}
+
 		log.Printf("Successfully received: %q", message)
 		if err = conn.WriteMessage(messageType, message); err != nil {
 			log.Println("Failed to write message:", err)
