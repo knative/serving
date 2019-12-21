@@ -341,8 +341,15 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 }
 
 func TestCreateRouteWithMultipleTargets(t *testing.T) {
-	ctx, _, reconciler, _, cf := newTestReconciler(t)
-	defer cf()
+	ctx, informers, reconciler, _, cf := newTestReconciler(t)
+	wicb, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
+		t.Fatalf("Error starting informers: %v", err)
+	}
+	defer func() {
+		cf()
+		wicb()
+	}()
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
