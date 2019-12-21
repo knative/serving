@@ -21,6 +21,7 @@ import (
 	"errors"
 	"log"
 	"net/url"
+	"sort"
 	"strings"
 	"testing"
 
@@ -1077,9 +1078,13 @@ func TestListProbeTargets(t *testing.T) {
 			} else if !strings.Contains(err.Error(), test.errMessage) {
 				t.Errorf("expected error message %q but saw %v", test.errMessage, err)
 			}
-			if 0 != len(test.results)+len(results) { // consider nil map == empty map
+			if len(test.results)+len(results) > 0 { // consider nil map == empty map
+				// Sort by port number
+				sort.Slice(results, func(i, j int) bool {
+					return results[i].Port < results[j].Port
+				})
 				if diff := cmp.Diff(test.results, results); diff != "" {
-					t.Errorf("Unexpected probe targets (-want +got): %v", diff)
+					t.Errorf("Unexpected probe targets (-want +got): %s", diff)
 				}
 			}
 		})
