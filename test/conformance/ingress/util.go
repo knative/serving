@@ -19,9 +19,9 @@ package ingress
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/rand"
 	"net"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -38,6 +38,7 @@ import (
 // which the service is listening, and a "cancel" function to clean up the
 // created resources.
 func CreateService(t *testing.T, clients *test.Clients, portName string) (string, int, context.CancelFunc) {
+	t.Helper()
 	name := test.ObjectNameForTest(t)
 
 	// Avoid zero, but pick a low port number.
@@ -45,7 +46,7 @@ func CreateService(t *testing.T, clients *test.Clients, portName string) (string
 	t.Logf("Using port %d", port)
 
 	// Pick a high port number.
-	containerPort := int32(8000 + rand.Intn(100))
+	containerPort := 8000 + rand.Intn(100)
 	t.Logf("Using containerPort %d", containerPort)
 
 	pod := &corev1.Pod{
@@ -62,12 +63,12 @@ func CreateService(t *testing.T, clients *test.Clients, portName string) (string
 				Image: pkgTest.ImagePath("runtime"),
 				Ports: []corev1.ContainerPort{{
 					Name:          portName,
-					ContainerPort: containerPort,
+					ContainerPort: int32(containerPort),
 				}},
 				// This is needed by the runtime image we are using.
 				Env: []corev1.EnvVar{{
 					Name:  "PORT",
-					Value: fmt.Sprintf("%d", containerPort),
+					Value: strconv.Itoa(containerPort),
 				}},
 			}},
 		},
@@ -128,6 +129,7 @@ func CreateService(t *testing.T, clients *test.Clients, portName string) (string
 //		},
 //	}
 func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Clients) func(context.Context, string, string) (net.Conn, error) {
+	t.Helper()
 	if ing.Status.PublicLoadBalancer == nil || len(ing.Status.PublicLoadBalancer.Ingress) < 1 {
 		t.Fatal("Ingress does not have a public load balancer assigned.")
 	}
@@ -139,7 +141,7 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 	// We expect an ingress LB with the form foo.bar.svc.cluster.local (though
 	// we aren't strictly sensitive to the suffix, this is just illustrative.
 	internalDomain := ing.Status.PublicLoadBalancer.Ingress[0].DomainInternal
-	parts := strings.Split(internalDomain, ".")
+	parts := strings.SplitN(internalDomain, ".", 3)
 	if len(parts) < 3 {
 		t.Fatalf("Too few parts in internal domain: %s", internalDomain)
 	}
@@ -161,10 +163,10 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 		}
 		if ingress.IP != "" {
 			return net.Dial("tcp", ingress.IP+":"+port)
-		} else if ingress.Hostname != "" {
-			return net.Dial("tcp", ingress.Hostname+":"+port)
-		} else {
-			return nil, errors.New("Service ingress does not contain dialing information.")
 		}
+		if ingress.Hostname != "" {
+			return net.Dial("tcp", ingress.Hostname+":"+port)
+		}
+		return nil, errors.New("Service ingress does not contain dialing information.")
 	}
 }
