@@ -18,6 +18,7 @@ package network
 
 import (
 	"bytes"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -743,5 +744,97 @@ func TestRewriteHost(t *testing.T) {
 
 	if got, want := r.Header.Get(OriginalHostHeader), ""; got != want {
 		t.Errorf("r.Header[%s] = %q	, want: %q", OriginalHostHeader, got, want)
+	}
+}
+
+func TestNameForPortNumber(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		svc        *corev1.Service
+		portNumber int32
+		portName   string
+		err        error
+	}{{
+		name: "http to 80",
+		svc: &corev1.Service{
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{{
+					Port: 80,
+					Name: "http",
+				}, {
+					Port: 443,
+					Name: "https",
+				}},
+			},
+		},
+		portName:   "http",
+		portNumber: 80,
+		err:        nil,
+	}, {
+		name: "no port",
+		svc: &corev1.Service{
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{{
+					Port: 443,
+					Name: "https",
+				}},
+			},
+		},
+		portNumber: 80,
+		err:        errors.New("no port with number 80 found"),
+	}} {
+		t.Run(tc.name, func(t *testing.T) {
+			portName, err := NameForPortNumber(tc.svc, tc.portNumber)
+			if (tc.err == nil) != (err == nil) {
+				t.Errorf("want err %v, got %v", tc.err, err)
+			}
+			if tc.err == nil && portName != tc.portName {
+				t.Errorf("want portName %s, got %s", tc.portName, portName)
+			}
+		})
+	}
+}
+
+func TestPortNumberForName(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		subset     *corev1.EndpointSubset
+		portNumber int32
+		portName   string
+		err        error
+	}{{
+		name: "http to 80",
+		subset: &corev1.EndpointSubset{
+			Ports: []corev1.EndpointPort{{
+				Port: 8080,
+				Name: "http",
+			}, {
+				Port: 8443,
+				Name: "https",
+			}},
+		},
+		portName:   "http",
+		portNumber: 8080,
+		err:        nil,
+	}, {
+		name: "no port",
+		subset: &corev1.EndpointSubset{
+			Ports: []corev1.EndpointPort{{
+				Port: 8443,
+				Name: "https",
+			}},
+		},
+		portName: "http",
+		err:      errors.New("no port with number 80 found"),
+	}} {
+		t.Run(tc.name, func(t *testing.T) {
+			portNumber, err := PortNumberForName(tc.subset, tc.portName)
+			if (tc.err == nil) != (err == nil) {
+				t.Errorf("want err %v, got %v", tc.err, err)
+			}
+			if tc.err == nil && portNumber != tc.portNumber {
+				t.Errorf("want portNumber %d, got %d", tc.portNumber, portNumber)
+			}
+		})
 	}
 }

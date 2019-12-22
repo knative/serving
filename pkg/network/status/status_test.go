@@ -18,6 +18,7 @@ package status
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -39,7 +40,7 @@ import (
 )
 
 var (
-	iaTemplate = &v1alpha1.Ingress{
+	ingTemplate = &v1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
 			Name:      "whatever",
@@ -57,8 +58,8 @@ var (
 )
 
 func TestProbeLifecycle(t *testing.T) {
-	ia := iaTemplate.DeepCopy()
-	hash, err := ingress.InsertProbe(ia)
+	ing := ingTemplate.DeepCopy()
+	hash, err := ingress.InsertProbe(ing)
 	if err != nil {
 		t.Fatalf("failed to insert probe: %v", err)
 	}
@@ -117,8 +118,8 @@ func TestProbeLifecycle(t *testing.T) {
 			Port:   strconv.Itoa(port),
 			URLs:   []neturl.URL{*url},
 		}},
-		func(ia *v1alpha1.Ingress) {
-			ready <- ia
+		func(ing *v1alpha1.Ingress) {
+			ready <- ing
 		})
 
 	prober.stateExpiration = 2 * time.Second
@@ -129,7 +130,7 @@ func TestProbeLifecycle(t *testing.T) {
 	prober.Start(done)
 
 	// The first call to IsReady must succeed and return false
-	ok, err := prober.IsReady(context.Background(), ia)
+	ok, err := prober.IsReady(context.Background(), ing)
 	if err != nil {
 		t.Fatalf("IsReady failed: %v", err)
 	}
@@ -152,7 +153,7 @@ func TestProbeLifecycle(t *testing.T) {
 
 	// The subsequent calls to IsReady must succeed and return true
 	for i := 0; i < 5; i++ {
-		if ok, err = prober.IsReady(context.Background(), ia); err != nil {
+		if ok, err = prober.IsReady(context.Background(), ing); err != nil {
 			t.Fatalf("IsReady failed: %v", err)
 		} else if !ok {
 			t.Fatalf("IsReady returned %v, want: %v", ok, false)
@@ -174,7 +175,7 @@ func TestProbeLifecycle(t *testing.T) {
 	}
 
 	// The state has expired and been removed
-	ok, err = prober.IsReady(context.Background(), ia)
+	ok, err = prober.IsReady(context.Background(), ing)
 	if err != nil {
 		t.Fatalf("IsReady failed: %v", err)
 	}
@@ -197,8 +198,28 @@ func TestProbeLifecycle(t *testing.T) {
 	}
 }
 
-func TestCancellation(t *testing.T) {
-	ia := iaTemplate.DeepCopy()
+func TestProbeListerFail(t *testing.T) {
+	ing := ingTemplate.DeepCopy()
+	ready := make(chan *v1alpha1.Ingress)
+	prober := NewProber(
+		zaptest.NewLogger(t).Sugar(),
+		fakeProbeTargetLister{}, // a ProbeTargetLister that always errors
+		func(ing *v1alpha1.Ingress) {
+			ready <- ing
+		})
+
+	// If we can't list, this  must fail and return false
+	ok, err := prober.IsReady(context.Background(), ing)
+	if err == nil {
+		t.Fatalf("Expect error, saw none")
+	}
+	if ok {
+		t.Fatalf("IsReady returned %v, want: %v", ok, false)
+	}
+}
+
+func TestCancelPodProbing(t *testing.T) {
+	ing := ingTemplate.DeepCopy()
 	// Handler keeping track of received requests and mimicking an Ingress not ready
 	requests := make(chan *http.Request, 100)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -238,15 +259,15 @@ func TestCancellation(t *testing.T) {
 			Port:   strconv.Itoa(port),
 			URLs:   []neturl.URL{*url},
 		}},
-		func(ia *v1alpha1.Ingress) {
-			ready <- ia
+		func(ing *v1alpha1.Ingress) {
+			ready <- ing
 		})
 
 	done := make(chan struct{})
 	defer close(done)
 	prober.Start(done)
 
-	ok, err := prober.IsReady(context.Background(), ia)
+	ok, err := prober.IsReady(context.Background(), ing)
 	if err != nil {
 		t.Fatalf("IsReady failed: %v", err)
 	}
@@ -258,8 +279,8 @@ func TestCancellation(t *testing.T) {
 	<-requests
 
 	// Create a new version of the Ingress
-	ia = ia.DeepCopy()
-	ia.Spec.Rules[0].Hosts[0] = "blabla.net"
+	ing = ing.DeepCopy()
+	ing.Spec.Rules[0].Hosts[0] = "blabla.net"
 
 	// Check that probing is unsuccessful
 	select {
@@ -268,7 +289,7 @@ func TestCancellation(t *testing.T) {
 	default:
 	}
 
-	ok, err = prober.IsReady(context.Background(), ia)
+	ok, err = prober.IsReady(context.Background(), ing)
 	if err != nil {
 		t.Fatalf("IsReady failed: %v", err)
 	}
@@ -296,9 +317,102 @@ func TestCancellation(t *testing.T) {
 	}
 }
 
+func TestCancelIngresProbing(t *testing.T) {
+	ing := ingTemplate.DeepCopy()
+	// Handler keeping track of received requests and mimicking an Ingress not ready
+	requests := make(chan *http.Request, 100)
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests <- r
+		w.WriteHeader(404)
+	})
+
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+	url, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatalf("failed to parse URL %q: %v", ts.URL, err)
+	}
+	hostname := url.Hostname()
+	if err != nil {
+		t.Fatalf("failed to parse port %q: %v", url.Port(), err)
+	}
+	port, err := strconv.Atoi(url.Port())
+	if err != nil {
+		t.Fatalf("failed to parse port %q: %v", url.Port(), err)
+	}
+
+	ready := make(chan *v1alpha1.Ingress)
+	prober := NewProber(
+		zaptest.NewLogger(t).Sugar(),
+		fakeProbeTargetLister{{
+			PodIPs: sets.NewString(hostname),
+			Port:   strconv.Itoa(port),
+			URLs:   []neturl.URL{*url},
+		}},
+		func(ing *v1alpha1.Ingress) {
+			ready <- ing
+		})
+
+	done := make(chan struct{})
+	defer close(done)
+	prober.Start(done)
+
+	ok, err := prober.IsReady(context.Background(), ing)
+	if err != nil {
+		t.Fatalf("IsReady failed: %v", err)
+	}
+	if ok {
+		t.Fatalf("IsReady returned %v, want: %v", ok, false)
+	}
+
+	// Wait for the first probe request
+	<-requests
+
+	// Create a new version of the Ingress
+	ing = ing.DeepCopy()
+	ing.Spec.Rules[0].Hosts[0] = "blabla.net"
+
+	// Check that probing is unsuccessful
+	select {
+	case <-ready:
+		t.Fatal("Probing succeeded while it should not have succeeded")
+	default:
+	}
+
+	ok, err = prober.IsReady(context.Background(), ing)
+	if err != nil {
+		t.Fatalf("IsReady failed: %v", err)
+	}
+	if ok {
+		t.Fatalf("IsReady returned %v, want: %v", ok, false)
+	}
+
+	// Drain requests for the old version
+	for req := range requests {
+		log.Printf("req.Host: %s", req.Host)
+		if strings.HasPrefix(req.Host, "blabla.net") {
+			break
+		}
+	}
+
+	// Cancel Ingress probing
+	prober.CancelIngressProbing(ing)
+
+	// Check that the requests were for the new version
+	close(requests)
+	for req := range requests {
+		if !strings.HasPrefix(req.Host, "blabla.net") {
+			t.Fatalf("Unexpected Host: want: %s, got: %s", "blabla.net", req.Host)
+		}
+	}
+}
+
 type fakeProbeTargetLister []ProbeTarget
 
 func (l fakeProbeTargetLister) ListProbeTargets(ctx context.Context, ing *v1alpha1.Ingress) ([]ProbeTarget, error) {
+	if len(l) == 0 {
+		return nil, errors.New("not found")
+	}
 	targets := []ProbeTarget{}
 	for _, target := range l {
 		newTarget := ProbeTarget{
