@@ -798,13 +798,13 @@ func TestNameForPortNumber(t *testing.T) {
 func TestPortNumberForName(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
-		subset     *corev1.EndpointSubset
+		subset     corev1.EndpointSubset
 		portNumber int32
 		portName   string
 		err        error
 	}{{
 		name: "http to 80",
-		subset: &corev1.EndpointSubset{
+		subset: corev1.EndpointSubset{
 			Ports: []corev1.EndpointPort{{
 				Port: 8080,
 				Name: "http",
@@ -818,7 +818,7 @@ func TestPortNumberForName(t *testing.T) {
 		err:        nil,
 	}, {
 		name: "no port",
-		subset: &corev1.EndpointSubset{
+		subset: corev1.EndpointSubset{
 			Ports: []corev1.EndpointPort{{
 				Port: 8443,
 				Name: "https",

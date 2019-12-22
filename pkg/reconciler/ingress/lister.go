@@ -149,7 +149,7 @@ func (l *gatewayPodTargetLister) listGatewayTargets(gateway *v1alpha3.Gateway) (
 			// We can't simply translate from the Service.Spec because Service.Spec.Target.Port
 			// could be either a name or a number.  In the Endpoints spec, all ports are provided
 			// as numbers.
-			portNumber, err := network.PortNumberForName(&sub, portName)
+			portNumber, err := network.PortNumberForName(sub, portName)
 			if err != nil {
 				l.logger.Infof("Skipping Subset %v because it doesn't contain a port name %q", sub.Addresses, portName)
 				continue

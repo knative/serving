@@ -203,7 +203,7 @@ func TestProbeListerFail(t *testing.T) {
 	ready := make(chan *v1alpha1.Ingress)
 	prober := NewProber(
 		zaptest.NewLogger(t).Sugar(),
-		fakeProbeTargetLister{}, // a ProbeTargetLister that always errors
+		notFoundLister{},
 		func(ing *v1alpha1.Ingress) {
 			ready <- ing
 		})
@@ -410,9 +410,6 @@ func TestCancelIngresProbing(t *testing.T) {
 type fakeProbeTargetLister []ProbeTarget
 
 func (l fakeProbeTargetLister) ListProbeTargets(ctx context.Context, ing *v1alpha1.Ingress) ([]ProbeTarget, error) {
-	if len(l) == 0 {
-		return nil, errors.New("not found")
-	}
 	targets := []ProbeTarget{}
 	for _, target := range l {
 		newTarget := ProbeTarget{
@@ -427,4 +424,10 @@ func (l fakeProbeTargetLister) ListProbeTargets(ctx context.Context, ing *v1alph
 		targets = append(targets, newTarget)
 	}
 	return targets, nil
+}
+
+type notFoundLister struct{}
+
+func (l notFoundLister) ListProbeTargets(ctx context.Context, ing *v1alpha1.Ingress) ([]ProbeTarget, error) {
+	return nil, errors.New("not found")
 }

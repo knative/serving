@@ -396,7 +396,7 @@ func NameForPortNumber(svc *corev1.Service, portNumber int32) (string, error) {
 }
 
 // PortNumberForName resolves a given name to a portNumber as defined by an EndpointSubset.
-func PortNumberForName(sub *corev1.EndpointSubset, portName string) (int32, error) {
+func PortNumberForName(sub corev1.EndpointSubset, portName string) (int32, error) {
 	for _, subPort := range sub.Ports {
 		if subPort.Name == portName {
 			return subPort.Port, nil
