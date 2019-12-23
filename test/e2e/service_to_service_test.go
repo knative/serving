@@ -274,19 +274,12 @@ func TestServiceToServiceCallViaActivator(t *testing.T) {
 	defer cancel()
 
 	clients := Setup(t)
-	// altClients creates resources in serving-tests-alt, where istio mtls is not enabled.
-	altClients := SetupAlternativeNamespace(t)
 
 	for _, tc := range testInjection {
 		t.Run(tc.name, func(t *testing.T) {
 			cancel := logstream.Start(t)
 			defer cancel()
-			if !tc.injectA || !tc.injectB {
-				// When injection is false, we need to use a namespace which is disabled on mtls.
-				testSvcToSvcCallViaActivator(t, altClients, tc.injectA, tc.injectB)
-			} else {
-				testSvcToSvcCallViaActivator(t, clients, tc.injectA, tc.injectB)
-			}
+			testSvcToSvcCallViaActivator(t, clients, tc.injectA, tc.injectB)
 		})
 	}
 }
@@ -299,8 +292,7 @@ func TestCallToPublicService(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	// This client creates resources in serving-tests-alt, where istio mtls is not enabled.
-	clients := SetupAlternativeNamespace(t)
+	clients := Setup(t)
 
 	t.Log("Creating a Service for the helloworld test app.")
 	names := test.ResourceNames{

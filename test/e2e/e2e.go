@@ -107,7 +107,7 @@ func waitForActivatorEndpoints(resources *v1a1test.ResourceObjects, clients *tes
 		if err != nil {
 			return false, nil
 		}
-		svcEps, err := clients.KubeClient.Kube.CoreV1().Endpoints(resources.Revision.ObjectMeta.Namespace).Get(
+		svcEps, err := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
 			resources.Revision.Status.ServiceName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
