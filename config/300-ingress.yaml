@@ -33,7 +33,7 @@ spec:
     - knative-internal
     - networking
     shortNames:
-    - ing
+    - kingress
   scope: Namespaced
   subresources:
     status: {}
