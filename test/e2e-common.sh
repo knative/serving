@@ -29,6 +29,7 @@ CERT_MANAGER_VERSION="0.9.1"
 ISTIO_VERSION=""
 GLOO_VERSION=""
 KOURIER_VERSION=""
+INGRESS_CLASS=""
 
 HTTPS=0
 
@@ -51,6 +52,7 @@ function parse_flags() {
       [[ $2 =~ ^[0-9]+\.[0-9]+(\.[0-9]+|\-latest)$ ]] || abort "version format must be '[0-9].[0-9].[0-9]' or '[0-9].[0-9]-latest"
       readonly ISTIO_VERSION=$2
       GATEWAY_SETUP=1
+      readonly INGRESS_CLASS="istio.ingress.networking.knative.dev"
       return 2
       ;;
     --version)
@@ -95,6 +97,7 @@ function parse_flags() {
       # latest version of Gloo pinned in third_party will be installed
       readonly GLOO_VERSION=$2
       GATEWAY_SETUP=1
+      readonly INGRESS_CLASS="gloo.ingress.networking.knative.dev"
       return 2
       ;;
     --kourier-version)
@@ -102,6 +105,7 @@ function parse_flags() {
       # latest version of Kourier pinned in third_party will be installed
       readonly KOURIER_VERSION=$2
       GATEWAY_SETUP=1
+      readonly INGRESS_CLASS="kourier.ingress.networking.knative.dev"
       return 2
       ;;
   esac
@@ -341,6 +345,15 @@ function use_https() {
     echo "--https"
   else
     echo ""
+  fi
+}
+
+# Check if we should specify --ingressClass
+function ingress_class() {
+  if [[ -z "${INGRESS_CLASS}" ]]; then
+    echo ""
+  else
+    echo "--ingressClass=${INGRESS_CLASS}"
   fi
 }
 
