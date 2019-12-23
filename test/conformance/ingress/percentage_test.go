@@ -21,6 +21,7 @@ package ingress
 import (
 	"encoding/json"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"testing"
 
@@ -90,9 +91,12 @@ func TestPercentage(t *testing.T) {
 
 	// Create a large enough population of requests that we can reasonably assess how
 	// well the Ingress respected the percentage split.
-	seen := make(map[string]int, len(backends))
-	const totalRequests = 1000
-	for i := 0; i < totalRequests; i++ {
+	seen := make(map[string]float64, len(backends))
+	const totalRequests = 1000.0
+	// The increment to make for each request, so that the values of seen reflect the
+	// percentage of the total number of requests we are making.
+	const increment = 100.0 / totalRequests
+	for i := 0.0; i < totalRequests; i++ {
 		// Make a request and check the response.
 		resp, err := client.Get("http://" + name + ".example.com")
 		if err != nil {
@@ -109,19 +113,18 @@ func TestPercentage(t *testing.T) {
 		if err := json.Unmarshal(b, ri); err != nil {
 			t.Fatalf("Unable to parse runtime image's response payload: %v", err)
 		}
-		// Increment the bucket for the seen header.
-		seen[ri.Request.Headers.Get(headerName)]++
+		seen[ri.Request.Headers.Get(headerName)] += increment
 	}
 
-	const margin = 3.0 // Allow the Ingress to be within 3% of the configured value.
+	const margin = 5.0 // Allow the Ingress to be within 5% of the configured value.
 	for name, want := range weights {
-		got := (float64(seen[name]) * 100.0) / float64(totalRequests)
+		got := seen[name]
 		switch {
 		case want == 0.0 && got > 0.0:
 			// For 0% targets, we have tighter requirements.
-			t.Errorf("target %q received traffic, wanted none (0%% target).", name)
-		case want-margin > got || got > want+margin:
-			t.Errorf("target %q received %f%%, wanted %f +/- %f", name, got, want, margin)
+			t.Errorf("Target %q received traffic, wanted none (0%% target).", name)
+		case math.Abs(got-want) > margin:
+			t.Errorf("Target %q received %f%%, wanted %f +/- %f", name, got, want, margin)
 		}
 	}
 }

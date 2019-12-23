@@ -90,7 +90,6 @@ func CreateService(t *testing.T, clients *test.Clients, portName string) (string
 	if err != nil {
 		t.Fatalf("Error creating Pod: %v", err)
 	}
-	test.CleanupOnInterrupt(func() { clients.KubeClient.Kube.CoreV1().Pods(pod.Namespace).Delete(pod.Name, &metav1.DeleteOptions{}) })
 	cancel := func() {
 		err := clients.KubeClient.Kube.CoreV1().Pods(pod.Namespace).Delete(pod.Name, &metav1.DeleteOptions{})
 		if err != nil {
@@ -126,9 +125,6 @@ func CreateService(t *testing.T, clients *test.Clients, portName string) (string
 		cancel()
 		t.Fatalf("Error creating Service: %v", err)
 	}
-	test.CleanupOnInterrupt(func() {
-		clients.KubeClient.Kube.CoreV1().Services(svc.Namespace).Delete(svc.Name, &metav1.DeleteOptions{})
-	})
 
 	// Wait for the Pod to show up in the Endpoints resource.
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
@@ -173,11 +169,11 @@ func CreateIngress(t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpe
 		},
 		Spec: spec,
 	}
+	test.CleanupOnInterrupt(func() { clients.NetworkingClient.Ingresses.Delete(ing.Name, &metav1.DeleteOptions{}) })
 	ing, err := clients.NetworkingClient.Ingresses.Create(ing)
 	if err != nil {
 		t.Fatalf("Error creating Ingress: %v", err)
 	}
-	test.CleanupOnInterrupt(func() { clients.NetworkingClient.Ingresses.Delete(ing.Name, &metav1.DeleteOptions{}) })
 
 	return name, func() {
 		err := clients.NetworkingClient.Ingresses.Delete(ing.Name, &metav1.DeleteOptions{})
