@@ -132,7 +132,7 @@ func TestProbeLifecycle(t *testing.T) {
 	// The first call to IsReady must succeed and return false
 	ok, err := prober.IsReady(context.Background(), ing)
 	if err != nil {
-		t.Fatalf("IsReady failed: %v", err)
+		t.Fatalf("IsReady returned unexpected error: %v", err)
 	}
 	if ok {
 		t.Fatalf("IsReady returned %v, want: %v", ok, false)
@@ -154,7 +154,7 @@ func TestProbeLifecycle(t *testing.T) {
 	// The subsequent calls to IsReady must succeed and return true
 	for i := 0; i < 5; i++ {
 		if ok, err = prober.IsReady(context.Background(), ing); err != nil {
-			t.Fatalf("IsReady failed: %v", err)
+			t.Fatalf("IsReady returned unexpected error: %v", err)
 		} else if !ok {
 			t.Fatalf("IsReady returned %v, want: %v", ok, false)
 		}
@@ -177,7 +177,7 @@ func TestProbeLifecycle(t *testing.T) {
 	// The state has expired and been removed
 	ok, err = prober.IsReady(context.Background(), ing)
 	if err != nil {
-		t.Fatalf("IsReady failed: %v", err)
+		t.Fatalf("IsReady returned unexpected error: %v", err)
 	}
 	if ok {
 		t.Fatalf("IsReady returned %v, want: %v", ok, false)
@@ -211,7 +211,7 @@ func TestProbeListerFail(t *testing.T) {
 	// If we can't list, this  must fail and return false
 	ok, err := prober.IsReady(context.Background(), ing)
 	if err == nil {
-		t.Fatalf("Expect error, saw none")
+		t.Fatal("IsReady returned unexpected success")
 	}
 	if ok {
 		t.Fatalf("IsReady returned %v, want: %v", ok, false)
@@ -269,7 +269,7 @@ func TestCancelPodProbing(t *testing.T) {
 
 	ok, err := prober.IsReady(context.Background(), ing)
 	if err != nil {
-		t.Fatalf("IsReady failed: %v", err)
+		t.Fatalf("IsReady returned unexpected error: %v", err)
 	}
 	if ok {
 		t.Fatalf("IsReady returned %v, want: %v", ok, false)
@@ -291,7 +291,7 @@ func TestCancelPodProbing(t *testing.T) {
 
 	ok, err = prober.IsReady(context.Background(), ing)
 	if err != nil {
-		t.Fatalf("IsReady failed: %v", err)
+		t.Fatalf("IsReady returned unexpected error: %v", err)
 	}
 	if ok {
 		t.Fatalf("IsReady returned %v, want: %v", ok, false)
@@ -359,7 +359,7 @@ func TestCancelIngresProbing(t *testing.T) {
 
 	ok, err := prober.IsReady(context.Background(), ing)
 	if err != nil {
-		t.Fatalf("IsReady failed: %v", err)
+		t.Fatalf("IsReady returned unexpected error: %v", err)
 	}
 	if ok {
 		t.Fatalf("IsReady returned %v, want: %v", ok, false)
@@ -381,7 +381,7 @@ func TestCancelIngresProbing(t *testing.T) {
 
 	ok, err = prober.IsReady(context.Background(), ing)
 	if err != nil {
-		t.Fatalf("IsReady failed: %v", err)
+		t.Fatalf("IsReady returned unexpected error: %v", err)
 	}
 	if ok {
 		t.Fatalf("IsReady returned %v, want: %v", ok, false)
