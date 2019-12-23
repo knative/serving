@@ -71,6 +71,10 @@ func MakeIngressVirtualService(ia *v1alpha1.Ingress, gateways map[v1alpha1.Ingre
 
 // MakeMeshVirtualService creates a mesh Virtual Service
 func MakeMeshVirtualService(ia *v1alpha1.Ingress) *v1alpha3.VirtualService {
+	hosts := ingress.ExpandedHosts(keepLocalHostnames(getHosts(ia)))
+	if len(hosts) == 0 {
+		return nil
+	}
 	vs := &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            names.MeshVirtualService(ia),
@@ -81,7 +85,7 @@ func MakeMeshVirtualService(ia *v1alpha1.Ingress) *v1alpha3.VirtualService {
 		Spec: *makeVirtualServiceSpec(ia, map[v1alpha1.IngressVisibility]sets.String{
 			v1alpha1.IngressVisibilityExternalIP:   sets.NewString("mesh"),
 			v1alpha1.IngressVisibilityClusterLocal: sets.NewString("mesh"),
-		}, ingress.ExpandedHosts(keepLocalHostnames(getHosts(ia)))),
+		}, hosts),
 	}
 	vs.Labels = resources.FilterMap(ia.GetLabels(), func(k string) bool {
 		return k != serving.RouteLabelKey && k != serving.RouteNamespaceLabelKey
@@ -97,9 +101,10 @@ func MakeVirtualServices(ia *v1alpha1.Ingress, gateways map[v1alpha1.IngressVisi
 	if _, err := ingress.InsertProbe(ia); err != nil {
 		return nil, fmt.Errorf("failed to insert a probe into the Ingress: %w", err)
 	}
-
-	vss := []*v1alpha3.VirtualService{MakeMeshVirtualService(ia)}
-
+	vss := []*v1alpha3.VirtualService{}
+	if meshVs := MakeMeshVirtualService(ia); meshVs != nil {
+		vss = append(vss, meshVs)
+	}
 	requiredGatewayCount := 0
 	if len(getPublicIngressRules(ia)) > 0 {
 		requiredGatewayCount += gateways[v1alpha1.IngressVisibilityExternalIP].Len()
