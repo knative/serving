@@ -17,6 +17,7 @@ limitations under the License.
 package pool
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"sync/atomic"
@@ -192,5 +193,47 @@ func TestParallelismWithErrors(t *testing.T) {
 				t.Errorf("max active = %v, wanted %v", got, want)
 			}
 		})
+	}
+}
+
+func TestWithContextWaitCancels(t *testing.T) {
+	pool, ctx := NewWithContext(context.Background(), 1 /*1 thread*/, 10 /*capacity*/)
+	for i := 0; i < 10; i++ {
+		pool.Go(func() error {
+			time.Sleep(10 * time.Millisecond)
+			return nil
+		})
+	}
+	if err := pool.Wait(); err != nil {
+		t.Fatalf("pool.Wait = %v", err)
+	}
+	select {
+	case <-ctx.Done():
+	default:
+		t.Error("ctx is not canceled")
+	}
+}
+
+func TestErrorCancelsContext(t *testing.T) {
+	want := errors.New("i failed, sorry")
+	pool, ctx := NewWithContext(context.Background(), 1 /*1 thread*/, 10 /*capacity*/)
+	pool.Go(func() error {
+		return want
+	})
+	// Those don't matter, but generate load.
+	for i := 0; i < 10; i++ {
+		pool.Go(func() error {
+			time.Sleep(100 * time.Millisecond)
+			return nil
+		})
+	}
+	// This should be triggered basically immediately.
+	select {
+	case <-ctx.Done():
+	case <-time.After(100 * time.Millisecond):
+		t.Error("ctx is not canceled due to the first error")
+	}
+	if err := pool.Wait(); err == nil {
+		t.Fatal("pool.Wait() didn't return an error")
 	}
 }
