@@ -28,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/wait"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/test"
@@ -70,9 +71,18 @@ func CreateService(t *testing.T, clients *test.Clients, portName string) (string
 					Name:  "PORT",
 					Value: strconv.Itoa(containerPort),
 				}},
+				ReadinessProbe: &corev1.Probe{
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/healthz",
+							Port: intstr.FromInt(containerPort),
+						},
+					},
+				},
 			}},
 		},
 	}
+	test.CleanupOnInterrupt(func() { clients.KubeClient.Kube.CoreV1().Pods(pod.Namespace).Delete(pod.Name, &metav1.DeleteOptions{}) })
 	pod, err := clients.KubeClient.Kube.CoreV1().Pods(pod.Namespace).Create(pod)
 	if err != nil {
 		t.Fatalf("Error creating Pod: %v", err)
@@ -104,16 +114,32 @@ func CreateService(t *testing.T, clients *test.Clients, portName string) (string
 			},
 		},
 	}
+	test.CleanupOnInterrupt(func() {
+		clients.KubeClient.Kube.CoreV1().Services(svc.Namespace).Delete(svc.Name, &metav1.DeleteOptions{})
+	})
 	svc, err = clients.KubeClient.Kube.CoreV1().Services(svc.Namespace).Create(svc)
 	if err != nil {
 		cancel()
 		t.Fatalf("Error creating Service: %v", err)
 	}
 
+	// Wait for the Pod to show up in the Endpoints resource.
+	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
+		ep, err := clients.KubeClient.Kube.CoreV1().Endpoints(svc.Namespace).Get(svc.Name, metav1.GetOptions{})
+		if err != nil {
+			return true, err
+		}
+		return len(ep.Subsets) == 1, nil
+	})
+	if waitErr != nil {
+		cancel()
+		t.Fatalf("Error waiting for Endpoints to contain a Pod IP: %v", err)
+	}
+
 	return name, port, func() {
 		err := clients.KubeClient.Kube.CoreV1().Services(svc.Namespace).Delete(svc.Name, &metav1.DeleteOptions{})
 		if err != nil {
-			t.Errorf("Error cleaning up Service %s", pod.Name)
+			t.Errorf("Error cleaning up Service %s", svc.Name)
 		}
 		cancel()
 	}
