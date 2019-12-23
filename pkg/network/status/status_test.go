@@ -202,6 +202,7 @@ func TestProbeLifecycle(t *testing.T) {
 func TestProbeListerFail(t *testing.T) {
 	ing := ingTemplate.DeepCopy()
 	ready := make(chan *v1alpha1.Ingress)
+	defer close(ready)
 	prober := NewProber(
 		zaptest.NewLogger(t).Sugar(),
 		notFoundLister{},
