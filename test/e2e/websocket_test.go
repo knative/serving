@@ -333,8 +333,9 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 
 	// The actual test.
 	const (
-		numReqs   = 200
-		tolerance = 5
+		numReqs = 200
+		// Quite high, but makes sure we didn't get a one-off successful response from either target.
+		tolerance = 25
 	)
 	resps, err := webSocketResponseFreqs(t, clients, tealURL, numReqs)
 	if len(resps) != 2 {
