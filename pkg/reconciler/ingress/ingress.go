@@ -253,8 +253,6 @@ func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ia *v1alpha1.
 	// First, create all needed VirtualServices.
 	kept := sets.NewString()
 	for _, d := range desired {
-		json, _ := json.MarshalIndent(d, "", "  ")
-		fmt.Println(string(json))
 		if _, err := istioaccessor.ReconcileVirtualService(ctx, ia, d, r); err != nil {
 			if kaccessor.IsNotOwned(err) {
 				ia.Status.MarkResourceNotOwned("VirtualService", d.Name)
