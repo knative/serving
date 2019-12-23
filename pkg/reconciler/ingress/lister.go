@@ -57,14 +57,6 @@ type gatewayPodTargetLister struct {
 	serviceLister   corev1listers.ServiceLister
 }
 
-// probeTargets represents the target to probe.
-type probeTarget struct {
-	// urlTmpl is an url template to probe.
-	urlTmpl string
-	// targetPort is a port of Gateway pod.
-	targetPort string
-}
-
 func (l *gatewayPodTargetLister) ListProbeTargets(ctx context.Context, ing *v1alpha1.Ingress) ([]status.ProbeTarget, error) {
 	results := []status.ProbeTarget{}
 
@@ -153,9 +145,13 @@ func (l *gatewayPodTargetLister) listGatewayTargets(gateway *v1alpha3.Gateway) (
 			continue
 		}
 		for _, sub := range endpoints.Subsets {
+			// The translation from server.Port.Number -> portName -> portNumber is intentional.
+			// We can't simply translate from the Service.Spec because Service.Spec.Target.Port
+			// could be either a name or a number.  In the Endpoints spec, all ports are provided
+			// as numbers.
 			portNumber, err := network.PortNumberForName(sub, portName)
 			if err != nil {
-				l.logger.Infof("Skipping Subset %v because it doesn't contain a port %q", sub.Addresses, portName)
+				l.logger.Infof("Skipping Subset %v because it doesn't contain a port name %q", sub.Addresses, portName)
 				continue
 			}
 			target := status.ProbeTarget{

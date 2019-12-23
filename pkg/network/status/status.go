@@ -55,7 +55,7 @@ var dialContext = (&net.Dialer{}).DialContext
 // ingressState represents the probing progress at the Ingress scope
 type ingressState struct {
 	hash string
-	ia   *v1alpha1.Ingress
+	ing  *v1alpha1.Ingress
 
 	// pendingCount is the number of pods that haven't been successfully probed yet
 	pendingCount int32
@@ -96,7 +96,7 @@ type ProbeTargetLister interface {
 
 // Manager provides a way to check if an Ingress is ready
 type Manager interface {
-	IsReady(ctx context.Context, ia *v1alpha1.Ingress) (bool, error)
+	IsReady(ctx context.Context, ing *v1alpha1.Ingress) (bool, error)
 }
 
 // Prober provides a way to check if a VirtualService is ready by probing the Envoy pods
@@ -149,10 +149,10 @@ func ingressKey(ing *v1alpha1.Ingress) string {
 // will be called in the order of reconciliation. This means that if IsReady is called on an Ingress,
 // this Ingress is the latest known version and therefore anything related to older versions can be ignored.
 // Also, it means that IsReady is not called concurrently.
-func (m *Prober) IsReady(ctx context.Context, ia *v1alpha1.Ingress) (bool, error) {
-	ingressKey := ingressKey(ia)
+func (m *Prober) IsReady(ctx context.Context, ing *v1alpha1.Ingress) (bool, error) {
+	ingressKey := ingressKey(ing)
 
-	bytes, err := ingress.ComputeHash(ia)
+	bytes, err := ingress.ComputeHash(ing)
 	if err != nil {
 		return false, fmt.Errorf("failed to compute the hash of the Ingress: %w", err)
 	}
@@ -179,14 +179,14 @@ func (m *Prober) IsReady(ctx context.Context, ia *v1alpha1.Ingress) (bool, error
 	ingCtx, cancel := context.WithCancel(context.Background())
 	ingressState := &ingressState{
 		hash:         hash,
-		ia:           ia,
+		ing:          ing,
 		lastAccessed: time.Now(),
 		cancel:       cancel,
 	}
 
 	var workItems []*workItem
 
-	allProbeTargets, err := m.targetLister.ListProbeTargets(ctx, ia)
+	allProbeTargets, err := m.targetLister.ListProbeTargets(ctx, ing)
 	if err != nil {
 		return false, err
 	}
@@ -377,7 +377,7 @@ func (m *Prober) updateStates(ingressState *ingressState, podState *podState) {
 
 		// This is the last pod being successfully probed, the Ingress is ready
 		if atomic.AddInt32(&ingressState.pendingCount, -1) == 0 {
-			m.readyCallback(ingressState.ia)
+			m.readyCallback(ingressState.ing)
 		}
 	}
 }
