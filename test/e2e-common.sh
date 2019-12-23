@@ -393,7 +393,7 @@ function test_setup() {
   ko apply ${KO_FLAGS} -f test/config/ || return 1
   if (( MESH )); then
     kubectl label namespace serving-tests istio-injection=enabled
-    kubectl label namespace serving-tests-alt istio-injection=disabled
+    kubectl label namespace serving-tests-alt istio-injection=enabled
     ko apply ${KO_FLAGS} -f test/config/mtls/ || return 1
   fi
   ${REPO_ROOT_DIR}/test/upload-test-images.sh || return 1

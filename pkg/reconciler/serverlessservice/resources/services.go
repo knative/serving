@@ -120,7 +120,7 @@ func MakeServiceEntry(sks *v1alpha1.ServerlessService, activatorEps, pvtEps *cor
 	}
 }
 
-// isHTTP2 chooses determins the port is HTTP or HTTP2 from sks.
+// isHTTP2 chooses determines the port is HTTP or HTTP2 from sks.
 func isHTTP2(sks *v1alpha1.ServerlessService) bool {
 	if sks.Spec.ProtocolType == networking.ProtocolH2C {
 		return true

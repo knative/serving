@@ -765,7 +765,6 @@ func TestMakeServiceEntry(t *testing.T) {
 				Namespace: "melon",
 				Name:      "collie",
 				UID:       "1982",
-				// Those labels are propagated from the Revision->PA.
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "collie",
 					serving.RevisionUID:      "1982",
@@ -783,7 +782,6 @@ func TestMakeServiceEntry(t *testing.T) {
 				Namespace: "melon",
 				Name:      "collie",
 				Labels: map[string]string{
-					// Those should be propagated.
 					serving.RevisionLabelKey:  "collie",
 					serving.RevisionUID:       "1982",
 					networking.SKSLabelKey:    "collie",
@@ -800,22 +798,17 @@ func TestMakeServiceEntry(t *testing.T) {
 				}},
 			},
 			Spec: istiov1alpha3.ServiceEntry{
-				Hosts:    []string{"placeholder.collie.melon.svc"}, // This host name must be unique in the cluster.
+				Hosts:    []string{"placeholder.collie.melon.svc"},
 				Location: istiov1alpha3.ServiceEntry_MESH_INTERNAL,
 				Ports: []*istiov1alpha3.Port{
 					{
-						Number:   80, // This port is not used.
+						Number:   80,
 						Protocol: "http",
 						Name:     "http1",
 					},
-					{
-						Number:   81, // This port is not used.
-						Protocol: "grpc",
-						Name:     "http2",
-					},
 				},
 				Resolution: istiov1alpha3.ServiceEntry_STATIC,
-				Endpoints:  makeEntryPoints(actEps, prvEps),
+				Endpoints:  makeEntryPoints(actEps, prvEps, uint32(networking.BackendHTTPPort)),
 			},
 		},
 	}}

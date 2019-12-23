@@ -28,8 +28,7 @@ import (
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 	_ "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
-
-	_ "knative.dev/pkg/client/istio/injection/informers/networking/v1alpha3/serviceentry/fake"
+	_ "knative.dev/serving/pkg/client/istio/injection/informers/networking/v1alpha3/serviceentry/fake"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -48,7 +47,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgotesting "k8s.io/client-go/testing"
-	//	"knative.dev/pkg/kmeta"
 
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
@@ -85,6 +83,7 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("steady", "state", WithSubsets),
 			activatorEndpoints(WithSubsets),
 			serviceentry("steady", "state",
+				SKS("steady", "state", markHappy, WithPubService, WithPrivateService, WithDeployRef("bar")),
 				activatorEndpoints(WithSubsets),
 				endpointspriv("steady", "state", WithSubsets),
 			),
@@ -103,6 +102,8 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("steady", "to-proxy"),
 			activatorEndpoints(WithSubsets),
 			serviceentry("steady", "to-proxy",
+				SKS("steady", "to-proxy", markHappy, WithPubService, WithPrivateService,
+					WithDeployRef("bar"), withProxyMode),
 				activatorEndpoints(WithSubsets),
 				endpointspriv("steady", "to-proxy"),
 			),
@@ -132,6 +133,8 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("steady", "to-proxy", WithSubsets),
 			activatorEndpoints(WithSubsets),
 			serviceentry("steady", "to-proxy",
+				SKS("steady", "to-proxy", markHappy, WithPubService, WithPrivateService,
+					WithDeployRef("bar"), withProxyMode),
 				activatorEndpoints(WithSubsets),
 				endpointspriv("steady", "to-proxy", WithSubsets),
 			),
@@ -155,6 +158,8 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("many", "privates", WithSubsets),
 			activatorEndpoints(WithSubsets),
 			serviceentry("many", "privates",
+				SKS("many", "privates", markHappy, WithPubService, WithPrivateService,
+					WithDeployRef("bar")),
 				activatorEndpoints(WithSubsets),
 				endpointspriv("many", "privates", WithSubsets),
 			),
@@ -184,6 +189,8 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("public", "svc-change", WithSubsets),
 			activatorEndpoints(WithSubsets),
 			serviceentry("public", "svc-change",
+				SKS("public", "svc-change", WithPubService, WithSKSReady,
+					WithPrivateService, WithDeployRef("bar")),
 				activatorEndpoints(WithSubsets),
 				endpointspriv("public", "svc-change", WithSubsets),
 			),
@@ -204,6 +211,8 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("private", "svc-change", WithSubsets),
 			activatorEndpoints(WithSubsets),
 			serviceentry("private", "svc-change",
+				SKS("private", "svc-change", markHappy, WithPubService,
+					WithPrivateService, WithDeployRef("baz")),
 				activatorEndpoints(WithSubsets),
 				endpointspriv("private", "svc-change", WithSubsets),
 			),
@@ -221,6 +230,7 @@ func TestReconcile(t *testing.T) {
 			deploy("on", "blah-another"),
 			endpointspriv("on", "cde", WithSubsets),
 			serviceentry("on", "cde",
+				SKS("on", "cde", WithDeployRef("blah"), markNoEndpoints),
 				activatorEndpoints(), // This cannot be nil.
 				endpointspriv("on", "cde", WithSubsets),
 			),
@@ -239,6 +249,7 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("on", "cde", WithSubsets),
 			activatorEndpoints(WithSubsets),
 			serviceentry("on", "cde",
+				SKS("on", "cde", WithDeployRef("blah")),
 				activatorEndpoints(WithSubsets),
 				endpointspriv("on", "cde", WithSubsets),
 			),
@@ -268,6 +279,7 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("update-eps", "failA", WithSubsets),
 			activatorEndpoints(WithSubsets),
 			serviceentry("update-eps", "failA",
+				SKS("update-eps", "failA", WithPubService, WithPrivateService, WithDeployRef("blah"), markNoEndpoints),
 				activatorEndpoints(WithSubsets),
 				endpointspriv("update-eps", "failA", WithSubsets),
 			),
@@ -293,6 +305,7 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("svc", "fail2"),
 			activatorEndpoints(WithSubsets),
 			serviceentry("svc", "fail2",
+				SKS("svc", "fail2", WithDeployRef("blah")),
 				activatorEndpoints(WithSubsets),
 				endpointspriv("svc", "fail2"),
 			),
@@ -323,6 +336,7 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("eps", "fail3", WithSubsets),
 			activatorEndpoints(withOtherSubsets),
 			serviceentry("eps", "fail3",
+				SKS("eps", "fail3", WithDeployRef("blah")),
 				activatorEndpoints(withOtherSubsets),
 				endpointspriv("eps", "fail3", WithSubsets),
 			),
@@ -352,6 +366,7 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("on", "cneps"),
 			activatorEndpoints(WithSubsets),
 			serviceentry("on", "cneps",
+				SKS("on", "cneps", WithDeployRef("blah"), WithPrivateService),
 				activatorEndpoints(WithSubsets),
 				endpointspriv("on", "cneps"),
 			),
@@ -377,6 +392,7 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("on", "cnaeps2", WithSubsets),
 			endpointspub("on", "cnaeps2", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 			serviceentry("on", "cnaeps2",
+				SKS("on", "cnaeps2", WithDeployRef("blah")),
 				activatorEndpoints(), // This cannot be nil.
 				endpointspriv("on", "cnaeps2", WithSubsets),
 			),
@@ -405,6 +421,7 @@ func TestReconcile(t *testing.T) {
 			endpointspub("on", "cnaeps3", WithSubsets),
 			activatorEndpoints(WithSubsets),
 			serviceentry("on", "cnaeps3",
+				SKS("on", "cnaeps3", WithDeployRef("blah")),
 				activatorEndpoints(WithSubsets),
 				endpointspriv("on", "cnaeps3"), // This cannot be nil.
 			),
@@ -434,6 +451,7 @@ func TestReconcile(t *testing.T) {
 			endpointspub("on", "cnaeps", WithSubsets, withFilteredPorts(networking.BackendHTTPPort)),
 			activatorEndpoints(),
 			serviceentry("on", "cnaeps",
+				SKS("on", "cnaeps", WithDeployRef("blah")),
 				activatorEndpoints(),
 				endpointspriv("on", "cnaeps", WithSubsets),
 			),
@@ -458,6 +476,7 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("on", "cnaeps"), // This should be ignored.
 			activatorEndpoints(),
 			serviceentry("on", "cnaeps",
+				SKS("on", "cnaeps", WithDeployRef("blah"), withProxyMode),
 				activatorEndpoints(),
 				endpointspriv("on", "cnaeps"),
 			),
@@ -484,6 +503,7 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("svc", "fail"),
 			activatorEndpoints(WithSubsets),
 			serviceentry("svc", "fail",
+				SKS("svc", "fail", WithDeployRef("blah")),
 				activatorEndpoints(WithSubsets),
 				endpointspriv("svc", "fail"),
 			),
@@ -516,6 +536,8 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("update-sks", "fail4", WithSubsets),
 			activatorEndpoints(WithSubsets),
 			serviceentry("update-sks", "fail4",
+				SKS("update-sks", "fail4", WithPubService, WithPrivateService,
+					WithDeployRef("blah")),
 				activatorEndpoints(WithSubsets),
 				endpointspriv("update-sks", "fail4", WithSubsets),
 			),
@@ -545,6 +567,8 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("ronin-priv-service", "fail5", WithSubsets),
 			activatorEndpoints(WithSubsets),
 			serviceentry("ronin-priv-service", "fail5",
+				SKS("ronin-priv-service", "fail5", WithPubService, WithPrivateService,
+					WithDeployRef("blah"), markHappy),
 				activatorEndpoints(WithSubsets),
 				endpointspriv("ronin-priv-service", "fail5", WithSubsets),
 			),
@@ -571,6 +595,8 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("ronin-pub-service", "fail6", WithSubsets),
 			activatorEndpoints(WithSubsets),
 			serviceentry("ronin-pub-service", "fail6",
+				SKS("ronin-pub-service", "fail6", WithPubService, WithPrivateService,
+					WithDeployRef("blah")),
 				activatorEndpoints(WithSubsets),
 				endpointspriv("ronin-pub-service", "fail6", WithSubsets),
 			),
@@ -597,6 +623,8 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("ronin-pub-eps", "fail7", WithSubsets),
 			activatorEndpoints(WithSubsets),
 			serviceentry("ronin-pub-eps", "fail7",
+				SKS("ronin-pub-eps", "fail7", WithPubService, WithPrivateService,
+					WithDeployRef("blah")),
 				activatorEndpoints(WithSubsets),
 				endpointspriv("ronin-pub-eps", "fail7", WithSubsets),
 			),
@@ -623,6 +651,8 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("update-svc", "fail9"),
 			activatorEndpoints(WithSubsets),
 			serviceentry("update-svc", "fail9",
+				SKS("update-svc", "fail9", WithPubService, WithPrivateService,
+					WithDeployRef("blah")),
 				activatorEndpoints(WithSubsets),
 				endpointspriv("update-svc", "fail9"),
 			),
@@ -656,6 +686,7 @@ func TestReconcile(t *testing.T) {
 				endpointspriv("update-svc", "fail8", WithSubsets),
 				activatorEndpoints(WithSubsets),
 				serviceentry("pod", "change",
+					SKS("update-svc", "fail8", WithPubService, WithDeployRef("blah"), markHappy, WithPrivateService),
 					activatorEndpoints(WithSubsets),
 					endpointspriv("update-svc", "fail8", WithSubsets),
 				),
@@ -682,6 +713,8 @@ func TestReconcile(t *testing.T) {
 				endpointspriv("pod", "change", withOtherSubsets),
 				activatorEndpoints(WithSubsets),
 				serviceentry("pod", "change",
+					SKS("pod", "change", markHappy, WithPubService, WithPrivateService,
+						WithDeployRef("blah")),
 					activatorEndpoints(WithSubsets),
 					endpointspriv("pod", "change", withOtherSubsets),
 				),
@@ -702,6 +735,8 @@ func TestReconcile(t *testing.T) {
 				endpointspriv("pod", "change"),
 				activatorEndpoints(withOtherSubsets),
 				serviceentry("pod", "change",
+					SKS("pod", "change", markNoEndpoints, WithPubService, withHTTP2Protocol,
+						WithPrivateService, WithDeployRef("blah")),
 					activatorEndpoints(withOtherSubsets),
 					endpointspriv("pod", "change"),
 				),
@@ -722,6 +757,8 @@ func TestReconcile(t *testing.T) {
 				endpointspriv("pod", "change", WithSubsets),
 				activatorEndpoints(withOtherSubsets),
 				serviceentry("pod", "change",
+					SKS("pod", "change", markNoEndpoints, WithPubService,
+						WithPrivateService, WithDeployRef("blah")),
 					activatorEndpoints(withOtherSubsets),
 					endpointspriv("pod", "change", WithSubsets),
 				),
@@ -749,6 +786,8 @@ func TestReconcile(t *testing.T) {
 				endpointspriv("pod", "change"),             // but now we don't.
 				activatorEndpoints(withOtherSubsets),
 				serviceentry("pod", "change",
+					SKS("pod", "change", WithSKSReady, WithPubService, withHTTP2Protocol,
+						WithPrivateService, WithDeployRef("blah")),
 					activatorEndpoints(withOtherSubsets),
 					endpointspriv("pod", "change"),
 				),
@@ -938,8 +977,7 @@ func endpointspub(namespace, name string, eo ...EndpointsOption) *corev1.Endpoin
 	return ep
 }
 
-func serviceentry(namespace, name string, actEp, prvEp *corev1.Endpoints, seo ...ServiceEntriesOption) *istionv1a3.ServiceEntry {
-	sks := SKS(namespace, name)
+func serviceentry(namespace, name string, sks *nv1a1.ServerlessService, actEp, prvEp *corev1.Endpoints, seo ...ServiceEntriesOption) *istionv1a3.ServiceEntry {
 	se := resources.MakeServiceEntry(sks, actEp, prvEp)
 	for _, opt := range seo {
 		opt(se)
