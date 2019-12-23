@@ -61,7 +61,7 @@ func TestProbeLifecycle(t *testing.T) {
 	ing := ingTemplate.DeepCopy()
 	hash, err := ingress.InsertProbe(ing)
 	if err != nil {
-		t.Fatalf("failed to insert probe: %v", err)
+		t.Fatalf("Failed to insert probe: %v", err)
 	}
 
 	// Simulate that the latest configuration is not applied yet by returning a different
@@ -89,7 +89,7 @@ func TestProbeLifecycle(t *testing.T) {
 	probeRequests := make(chan *http.Request)
 	finalHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasPrefix(r.Host, "foo.bar.com") {
-			w.WriteHeader(404)
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
@@ -102,12 +102,12 @@ func TestProbeLifecycle(t *testing.T) {
 	defer ts.Close()
 	url, err := neturl.Parse(ts.URL)
 	if err != nil {
-		t.Fatalf("failed to parse URL %q: %v", ts.URL, err)
+		t.Fatalf("Failed to parse URL %q: %v", ts.URL, err)
 	}
 	hostname := url.Hostname()
 	port, err := strconv.Atoi(url.Port())
 	if err != nil {
-		t.Fatalf("failed to parse port %q: %v", url.Port(), err)
+		t.Fatalf("Failed to parse port %q: %v", url.Port(), err)
 	}
 
 	ready := make(chan *v1alpha1.Ingress)
@@ -132,7 +132,7 @@ func TestProbeLifecycle(t *testing.T) {
 	// The first call to IsReady must succeed and return false
 	ok, err := prober.IsReady(context.Background(), ing)
 	if err != nil {
-		t.Fatalf("IsReady returned unexpected error: %v", err)
+		t.Fatalf("IsReady failed: %v", err)
 	}
 	if ok {
 		t.Fatalf("IsReady returned %v, want: %v", ok, false)
@@ -154,8 +154,9 @@ func TestProbeLifecycle(t *testing.T) {
 	// The subsequent calls to IsReady must succeed and return true
 	for i := 0; i < 5; i++ {
 		if ok, err = prober.IsReady(context.Background(), ing); err != nil {
-			t.Fatalf("IsReady returned unexpected error: %v", err)
-		} else if !ok {
+			t.Fatalf("IsReady failed: %v", err)
+		}
+		if !ok {
 			t.Fatalf("IsReady returned %v, want: %v", ok, false)
 		}
 
@@ -177,7 +178,7 @@ func TestProbeLifecycle(t *testing.T) {
 	// The state has expired and been removed
 	ok, err = prober.IsReady(context.Background(), ing)
 	if err != nil {
-		t.Fatalf("IsReady returned unexpected error: %v", err)
+		t.Fatalf("IsReady failed: %v", err)
 	}
 	if ok {
 		t.Fatalf("IsReady returned %v, want: %v", ok, false)
@@ -224,22 +225,22 @@ func TestCancelPodProbing(t *testing.T) {
 	requests := make(chan *http.Request, 100)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests <- r
-		w.WriteHeader(404)
+		w.WriteHeader(http.StatusNotFound)
 	})
 
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
 	url, err := url.Parse(ts.URL)
 	if err != nil {
-		t.Fatalf("failed to parse URL %q: %v", ts.URL, err)
+		t.Fatalf("Failed to parse URL %q: %v", ts.URL, err)
 	}
 	hostname := url.Hostname()
 	if err != nil {
-		t.Fatalf("failed to parse port %q: %v", url.Port(), err)
+		t.Fatalf("Failed to parse port %q: %v", url.Port(), err)
 	}
 	port, err := strconv.Atoi(url.Port())
 	if err != nil {
-		t.Fatalf("failed to parse port %q: %v", url.Port(), err)
+		t.Fatalf("Failed to parse port %q: %v", url.Port(), err)
 	}
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -269,7 +270,7 @@ func TestCancelPodProbing(t *testing.T) {
 
 	ok, err := prober.IsReady(context.Background(), ing)
 	if err != nil {
-		t.Fatalf("IsReady returned unexpected error: %v", err)
+		t.Fatalf("IsReady failed: %v", err)
 	}
 	if ok {
 		t.Fatalf("IsReady returned %v, want: %v", ok, false)
@@ -291,7 +292,7 @@ func TestCancelPodProbing(t *testing.T) {
 
 	ok, err = prober.IsReady(context.Background(), ing)
 	if err != nil {
-		t.Fatalf("IsReady returned unexpected error: %v", err)
+		t.Fatalf("IsReady failed: %v", err)
 	}
 	if ok {
 		t.Fatalf("IsReady returned %v, want: %v", ok, false)
@@ -323,22 +324,22 @@ func TestCancelIngresProbing(t *testing.T) {
 	requests := make(chan *http.Request, 100)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests <- r
-		w.WriteHeader(404)
+		w.WriteHeader(http.StatusNotFound)
 	})
 
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
 	url, err := url.Parse(ts.URL)
 	if err != nil {
-		t.Fatalf("failed to parse URL %q: %v", ts.URL, err)
+		t.Fatalf("Failed to parse URL %q: %v", ts.URL, err)
 	}
 	hostname := url.Hostname()
 	if err != nil {
-		t.Fatalf("failed to parse port %q: %v", url.Port(), err)
+		t.Fatalf("Failed to parse port %q: %v", url.Port(), err)
 	}
 	port, err := strconv.Atoi(url.Port())
 	if err != nil {
-		t.Fatalf("failed to parse port %q: %v", url.Port(), err)
+		t.Fatalf("Failed to parse port %q: %v", url.Port(), err)
 	}
 
 	ready := make(chan *v1alpha1.Ingress)
@@ -359,7 +360,7 @@ func TestCancelIngresProbing(t *testing.T) {
 
 	ok, err := prober.IsReady(context.Background(), ing)
 	if err != nil {
-		t.Fatalf("IsReady returned unexpected error: %v", err)
+		t.Fatalf("IsReady failed: %v", err)
 	}
 	if ok {
 		t.Fatalf("IsReady returned %v, want: %v", ok, false)
@@ -381,7 +382,7 @@ func TestCancelIngresProbing(t *testing.T) {
 
 	ok, err = prober.IsReady(context.Background(), ing)
 	if err != nil {
-		t.Fatalf("IsReady returned unexpected error: %v", err)
+		t.Fatalf("IsReady failed: %v", err)
 	}
 	if ok {
 		t.Fatalf("IsReady returned %v, want: %v", ok, false)

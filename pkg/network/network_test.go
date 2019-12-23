@@ -743,7 +743,7 @@ func TestRewriteHost(t *testing.T) {
 	}
 
 	if got, want := r.Header.Get(OriginalHostHeader), ""; got != want {
-		t.Errorf("r.Header[%s] = %q	, want: %q", OriginalHostHeader, got, want)
+		t.Errorf("r.Header[%s] = %q, want: %q", OriginalHostHeader, got, want)
 	}
 }
 
