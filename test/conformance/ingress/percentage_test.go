@@ -92,10 +92,16 @@ func TestPercentage(t *testing.T) {
 	// Create a large enough population of requests that we can reasonably assess how
 	// well the Ingress respected the percentage split.
 	seen := make(map[string]float64, len(backends))
-	const totalRequests = 1000.0
-	// The increment to make for each request, so that the values of seen reflect the
-	// percentage of the total number of requests we are making.
-	const increment = 100.0 / totalRequests
+
+	const (
+		// The total number of requests to make (as a float to avoid conversions in later computations).
+		totalRequests = 1000.0
+		// The increment to make for each request, so that the values of seen reflect the
+		// percentage of the total number of requests we are making.
+		increment = 100.0 / totalRequests
+		// Allow the Ingress to be within 5% of the configured value.
+		margin = 5.0
+	)
 	for i := 0.0; i < totalRequests; i++ {
 		// Make a request and check the response.
 		resp, err := client.Get("http://" + name + ".example.com")
@@ -116,7 +122,6 @@ func TestPercentage(t *testing.T) {
 		seen[ri.Request.Headers.Get(headerName)] += increment
 	}
 
-	const margin = 5.0 // Allow the Ingress to be within 5% of the configured value.
 	for name, want := range weights {
 		got := seen[name]
 		switch {
