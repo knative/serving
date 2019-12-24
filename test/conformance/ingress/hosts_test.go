@@ -33,7 +33,7 @@ func TestMultipleHosts(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
-	name, port, cancel := CreateService(t, clients, networking.ServicePortNameHTTP1)
+	name, port, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
 	defer cancel()
 
 	// TODO(mattmoor): Once .svc.cluster.local stops being a special case
