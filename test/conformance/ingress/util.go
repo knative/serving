@@ -129,7 +129,12 @@ func CreateService(t *testing.T, clients *test.Clients, portName string) (string
 		if err != nil {
 			return true, err
 		}
-		return len(ep.Subsets) == 1, nil
+		for _, subset := range ep.Subsets {
+			if len(subset.Addresses) == 0 {
+				return false, nil
+			}
+		}
+		return len(ep.Subsets) > 0, nil
 	})
 	if waitErr != nil {
 		cancel()
