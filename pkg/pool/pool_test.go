@@ -233,7 +233,7 @@ func TestErrorCancelsContext(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 		t.Error("ctx is not canceled due to the first error")
 	}
-	if err := pool.Wait(); err == nil {
-		t.Fatal("pool.Wait() didn't return an error")
+	if err := pool.Wait(); err != want {
+		t.Fatalf("pool.Wait() = %v, want: %v", err, want)
 	}
 }

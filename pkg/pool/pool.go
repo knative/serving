@@ -95,22 +95,7 @@ func (i *impl) exec(w func() error) {
 
 // NewWithCapacity creates a fresh worker pool with the specified size.
 func NewWithCapacity(workers, capacity int) Interface {
-	i := &impl{
-		workCh: make(chan func() error, capacity),
-	}
-
-	// Start a go routine for each worker, which:
-	// 1. reads off of the work channel,
-	// 2. (optionally) sets error variable
-	// 3. marks work as done in our sync.WaitGroup.
-	for idx := 0; idx < workers; idx++ {
-		go func() {
-			for work := range i.workCh {
-				i.exec(work)
-			}
-		}()
-	}
-
+	i, _ := NewWithContext(context.Background(), workers, capacity)
 	return i
 }
 
