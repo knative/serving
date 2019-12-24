@@ -47,12 +47,12 @@ func CreateService(t *testing.T, clients *test.Clients, portName string) (string
 	name := test.ObjectNameForTest(t)
 
 	// Avoid zero, but pick a low port number.
-	port := 3 + rand.Intn(97)
-	t.Logf("Using port %d", port)
+	port := 50 + rand.Intn(50)
+	t.Logf("[%s] Using port %d", name, port)
 
 	// Pick a high port number.
 	containerPort := 8000 + rand.Intn(100)
-	t.Logf("Using containerPort %d", containerPort)
+	t.Logf("[%s] Using containerPort %d", name, containerPort)
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
