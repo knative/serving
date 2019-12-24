@@ -42,7 +42,7 @@ func TestUpdate(t *testing.T) {
 
 	// Create a simple Ingress over the Service.
 	hostname := test.ObjectNameForTest(t)
-	name, client, cancel := CreateIngressReady(t, clients, v1alpha1.IngressSpec{
+	ing, client, cancel := CreateIngressReady(t, clients, v1alpha1.IngressSpec{
 		Rules: []v1alpha1.IngressRule{{
 			Hosts:      []string{hostname + ".example.com"},
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
@@ -81,7 +81,7 @@ func TestUpdate(t *testing.T) {
 		t.Logf("Rolling out %q", nextName)
 
 		// Update the Ingress, and wait for it to report ready.
-		UpdateIngressReady(t, clients, name, v1alpha1.IngressSpec{
+		UpdateIngressReady(t, clients, ing.Name, v1alpha1.IngressSpec{
 			Rules: []v1alpha1.IngressRule{{
 				Hosts:      []string{hostname + ".example.com"},
 				Visibility: v1alpha1.IngressVisibilityExternalIP,
