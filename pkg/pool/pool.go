@@ -17,6 +17,7 @@ limitations under the License.
 package pool
 
 import (
+	"context"
 	"sync"
 )
 
@@ -27,6 +28,8 @@ type impl struct {
 	// Ensure that we Wait exactly once and memoize
 	// the result.
 	waitOnce sync.Once
+
+	cancel context.CancelFunc
 
 	// We're only interested in the first result so
 	// only set it once.
@@ -47,9 +50,12 @@ func New(workers int) Interface {
 	return NewWithCapacity(workers, defaultCapacity)
 }
 
-// NewWithCapacity creates a fresh worker pool with the specified size.
-func NewWithCapacity(workers, capacity int) Interface {
+// NewWithContext creates a pool that is driven by a cancelable context.
+// Just like errgroup.Group on first error the context will be canceled as well.
+func NewWithContext(ctx context.Context, workers, capacity int) (Interface, context.Context) {
+	ctx, cancel := context.WithCancel(ctx)
 	i := &impl{
+		cancel: cancel,
 		workCh: make(chan func() error, capacity),
 	}
 
@@ -59,19 +65,37 @@ func NewWithCapacity(workers, capacity int) Interface {
 	// 3. marks work as done in our sync.WaitGroup.
 	for idx := 0; idx < workers; idx++ {
 		go func() {
-			for work := range i.workCh {
-				func() {
-					defer i.wg.Done()
-					if err := work(); err != nil {
-						i.resultOnce.Do(func() {
-							i.result = err
-						})
+			for {
+				select {
+				case <-ctx.Done():
+					break
+				case work, ok := <-i.workCh:
+					if !ok {
+						break
 					}
-				}()
+					i.exec(work)
+				}
 			}
 		}()
 	}
+	return i, ctx
+}
 
+func (i *impl) exec(w func() error) {
+	defer i.wg.Done()
+	if err := w(); err != nil {
+		i.resultOnce.Do(func() {
+			if i.cancel != nil {
+				i.cancel()
+			}
+			i.result = err
+		})
+	}
+}
+
+// NewWithCapacity creates a fresh worker pool with the specified size.
+func NewWithCapacity(workers, capacity int) Interface {
+	i, _ := NewWithContext(context.Background(), workers, capacity)
 	return i
 }
 
@@ -88,6 +112,10 @@ func (i *impl) Wait() error {
 	i.waitOnce.Do(func() {
 		// Wait for queued work to complete.
 		i.wg.Wait()
+		// Notify the context, that it's done now.
+		if i.cancel != nil {
+			i.cancel()
+		}
 
 		// Now we know there are definitely no new items arriving.
 		close(i.workCh)
