@@ -58,6 +58,9 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 				},
 			},
 			Spec: v1alpha1.IngressSpec{Rules: []v1alpha1.IngressRule{{
+				Hosts: []string{
+					"test-route.test-ns.svc.cluster.local",
+				},
 				Visibility: v1alpha1.IngressVisibilityExternalIP,
 				HTTP:       &v1alpha1.HTTPIngressRuleValue{},
 			}}},
@@ -78,6 +81,34 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 			},
 		}},
 	}, {
+		name:     "ingress only",
+		gateways: makeGatewayMap([]string{"gateway"}, []string{"private-gateway"}),
+		ci: &v1alpha1.Ingress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-ingress",
+				Namespace: system.Namespace(),
+				Labels: map[string]string{
+					serving.RouteLabelKey:          "test-route",
+					serving.RouteNamespaceLabelKey: "test-ns",
+				},
+			},
+			Spec: v1alpha1.IngressSpec{Rules: []v1alpha1.IngressRule{{
+				Hosts: []string{
+					"test-route.test-ns.example.com",
+				},
+				Visibility: v1alpha1.IngressVisibilityExternalIP,
+				HTTP:       &v1alpha1.HTTPIngressRuleValue{},
+			}}},
+		},
+		expected: []metav1.ObjectMeta{{
+			Name:      "test-ingress",
+			Namespace: system.Namespace(),
+			Labels: map[string]string{
+				serving.RouteLabelKey:          "test-route",
+				serving.RouteNamespaceLabelKey: "test-ns",
+			},
+		}},
+	}, {
 		name:     "mesh only",
 		gateways: nil,
 		ci: &v1alpha1.Ingress{
@@ -89,7 +120,13 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 					serving.RouteNamespaceLabelKey: "test-ns",
 				},
 			},
-			Spec: v1alpha1.IngressSpec{},
+			Spec: v1alpha1.IngressSpec{Rules: []v1alpha1.IngressRule{{
+				Hosts: []string{
+					"test-route.test-ns.svc.cluster.local",
+				},
+				Visibility: v1alpha1.IngressVisibilityExternalIP,
+				HTTP:       &v1alpha1.HTTPIngressRuleValue{},
+			}}},
 		},
 		expected: []metav1.ObjectMeta{{
 			Name:      "test-ingress-mesh",
@@ -111,7 +148,13 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 					serving.RouteNamespaceLabelKey: "test-ns",
 				},
 			},
-			Spec: v1alpha1.IngressSpec{},
+			Spec: v1alpha1.IngressSpec{Rules: []v1alpha1.IngressRule{{
+				Hosts: []string{
+					"test-route.test-ns.svc.cluster.local",
+				},
+				Visibility: v1alpha1.IngressVisibilityExternalIP,
+				HTTP:       &v1alpha1.HTTPIngressRuleValue{},
+			}}},
 		},
 		expected: []metav1.ObjectMeta{{
 			Name:      "test-ingress-mesh",
@@ -150,7 +193,14 @@ func TestMakeMeshVirtualServiceSpec_CorrectGateways(t *testing.T) {
 				serving.RouteNamespaceLabelKey: "test-ns",
 			},
 		},
-		Spec: v1alpha1.IngressSpec{},
+		Spec: v1alpha1.IngressSpec{
+			Rules: []v1alpha1.IngressRule{{
+				Hosts: []string{
+					"test-route.test-ns.svc.cluster.local",
+				},
+				Visibility: v1alpha1.IngressVisibilityExternalIP,
+				HTTP:       &v1alpha1.HTTPIngressRuleValue{},
+			}}},
 	}
 	expected := []string{"mesh"}
 	gateways := MakeMeshVirtualService(ci).Spec.Gateways
