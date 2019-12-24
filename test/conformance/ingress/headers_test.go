@@ -40,7 +40,6 @@ func TestPreSplitSetHeaders(t *testing.T) {
 
 	name, port, cancel := CreateService(t, clients, networking.ServicePortNameHTTP1)
 	defer cancel()
-	test.CleanupOnInterrupt(cancel)
 
 	const headerName = "Foo-Bar-Baz"
 
@@ -71,7 +70,7 @@ func TestPreSplitSetHeaders(t *testing.T) {
 		// Make a request and check the response.
 		resp, err := client.Get("http://" + name + ".example.com")
 		if err != nil {
-			t.Fatalf("Error creating Ingress: %v", err)
+			t.Fatalf("Error making GET request: %v", err)
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
@@ -79,14 +78,13 @@ func TestPreSplitSetHeaders(t *testing.T) {
 		}
 
 		b, err := ioutil.ReadAll(resp.Body)
-		k := &types.RuntimeInfo{}
-		if err := json.Unmarshal(b, k); err != nil {
+		ri := &types.RuntimeInfo{}
+		if err := json.Unmarshal(b, ri); err != nil {
 			t.Fatalf("Unable to parse runtime image's response payload: %v", err)
 		}
 
-		got, want := k.Request.Headers.Get(headerName), name
-		if got != want {
-			t.Errorf("Headers[%q] = %s, wanted %s", headerName, got, want)
+		if got, want := ri.Request.Headers.Get(headerName), name; got != want {
+			t.Errorf("Headers[%q] = %q, wanted %q", headerName, got, want)
 		}
 	})
 
@@ -105,7 +103,7 @@ func TestPreSplitSetHeaders(t *testing.T) {
 		// Make a request and check the response.
 		resp, err := client.Do(req)
 		if err != nil {
-			t.Fatalf("Error creating Ingress: %v", err)
+			t.Fatalf("Error making GET request: %v", err)
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
@@ -113,14 +111,13 @@ func TestPreSplitSetHeaders(t *testing.T) {
 		}
 
 		b, err := ioutil.ReadAll(resp.Body)
-		k := &types.RuntimeInfo{}
-		if err := json.Unmarshal(b, k); err != nil {
+		ri := &types.RuntimeInfo{}
+		if err := json.Unmarshal(b, ri); err != nil {
 			t.Fatalf("Unable to parse runtime image's response payload: %v", err)
 		}
 
-		got, want := k.Request.Headers.Get(headerName), name
-		if got != want {
-			t.Errorf("Headers[%q] = %s, wanted %s", headerName, got, want)
+		if got, want := ri.Request.Headers.Get(headerName), name; got != want {
+			t.Errorf("Headers[%q] = %q, wanted %q", headerName, got, want)
 		}
 	})
 }
@@ -137,7 +134,6 @@ func TestPostSplitSetHeaders(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		name, port, cancel := CreateService(t, clients, networking.ServicePortNameHTTP1)
 		defer cancel()
-		test.CleanupOnInterrupt(cancel)
 		backends = append(backends, v1alpha1.IngressBackendSplit{
 			IngressBackend: v1alpha1.IngressBackend{
 				ServiceName:      name,
@@ -178,7 +174,7 @@ func TestPostSplitSetHeaders(t *testing.T) {
 			// Make a request and check the response.
 			resp, err := client.Get("http://" + name + ".example.com")
 			if err != nil {
-				t.Fatalf("Error creating Ingress: %v", err)
+				t.Fatalf("Error making GET request: %v", err)
 			}
 			defer resp.Body.Close()
 			if resp.StatusCode != http.StatusOK {
@@ -187,14 +183,14 @@ func TestPostSplitSetHeaders(t *testing.T) {
 			}
 
 			b, err := ioutil.ReadAll(resp.Body)
-			k := &types.RuntimeInfo{}
-			if err := json.Unmarshal(b, k); err != nil {
+			ri := &types.RuntimeInfo{}
+			if err := json.Unmarshal(b, ri); err != nil {
 				t.Fatalf("Unable to parse runtime image's response payload: %v", err)
 			}
-			seen.Insert(k.Request.Headers.Get(headerName))
+			seen.Insert(ri.Request.Headers.Get(headerName))
 		}
 		// Check what we saw.
-		if !cmp.Equal(names.List(), seen.List()) {
+		if !cmp.Equal(names, seen) {
 			t.Errorf("(over 100 requests) Header[%q] (-want, +got) = %s",
 				headerName, cmp.Diff(names, seen))
 		}
@@ -220,7 +216,7 @@ func TestPostSplitSetHeaders(t *testing.T) {
 			// Make a request and check the response.
 			resp, err := client.Do(req)
 			if err != nil {
-				t.Fatalf("Error creating Ingress: %v", err)
+				t.Fatalf("Error making GET request: %v", err)
 			}
 			defer resp.Body.Close()
 			if resp.StatusCode != http.StatusOK {
@@ -229,14 +225,14 @@ func TestPostSplitSetHeaders(t *testing.T) {
 			}
 
 			b, err := ioutil.ReadAll(resp.Body)
-			k := &types.RuntimeInfo{}
-			if err := json.Unmarshal(b, k); err != nil {
+			ri := &types.RuntimeInfo{}
+			if err := json.Unmarshal(b, ri); err != nil {
 				t.Fatalf("Unable to parse runtime image's response payload: %v", err)
 			}
-			seen.Insert(k.Request.Headers.Get(headerName))
+			seen.Insert(ri.Request.Headers.Get(headerName))
 		}
 		// Check what we saw.
-		if !cmp.Equal(names.List(), seen.List()) {
+		if !cmp.Equal(names, seen) {
 			t.Errorf("(over 100 requests) Header[%q] (-want, +got) = %s",
 				headerName, cmp.Diff(names, seen))
 		}
