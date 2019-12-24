@@ -61,6 +61,10 @@ func CreateService(t *testing.T, clients *test.Clients, portName string) (string
 			Labels: map[string]string{
 				"test-pod": name,
 			},
+			Annotations: map[string]string{
+				// This annotation is for probe with mTLS enabled.
+				"sidecar.istio.io/rewriteAppHTTPProbers": "true",
+			},
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{{
