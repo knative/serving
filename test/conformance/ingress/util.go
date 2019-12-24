@@ -21,17 +21,21 @@ import (
 	"errors"
 	"math/rand"
 	"net"
+	"net/http"
 	"strconv"
 	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	pkgTest "knative.dev/pkg/test"
+	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/test"
+	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
 // CreateService creates a Kubernetes service that will respond to the protocol
@@ -126,7 +130,9 @@ func CreateService(t *testing.T, clients *test.Clients, portName string) (string
 	// Wait for the Pod to show up in the Endpoints resource.
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		ep, err := clients.KubeClient.Kube.CoreV1().Endpoints(svc.Namespace).Get(svc.Name, metav1.GetOptions{})
-		if err != nil {
+		if apierrs.IsNotFound(err) {
+			return false, nil
+		} else if err != nil {
 			return true, err
 		}
 		for _, subset := range ep.Subsets {
@@ -138,7 +144,7 @@ func CreateService(t *testing.T, clients *test.Clients, portName string) (string
 	})
 	if waitErr != nil {
 		cancel()
-		t.Fatalf("Error waiting for Endpoints to contain a Pod IP: %v", err)
+		t.Fatalf("Error waiting for Endpoints to contain a Pod IP: %v", waitErr)
 	}
 
 	return name, port, func() {
@@ -148,6 +154,58 @@ func CreateService(t *testing.T, clients *test.Clients, portName string) (string
 		}
 		cancel()
 	}
+}
+
+// CreateIngress creates a Knative Ingress resource
+func CreateIngress(t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpec) (string, context.CancelFunc) {
+	t.Helper()
+	name := test.ObjectNameForTest(t)
+
+	// Create a simple Ingress over the Service.
+	ing := &v1alpha1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: test.ServingNamespace,
+			Annotations: map[string]string{
+				networking.IngressClassAnnotationKey: test.ServingFlags.IngressClass,
+			},
+		},
+		Spec: spec,
+	}
+	test.CleanupOnInterrupt(func() { clients.NetworkingClient.Ingresses.Delete(ing.Name, &metav1.DeleteOptions{}) })
+	ing, err := clients.NetworkingClient.Ingresses.Create(ing)
+	if err != nil {
+		t.Fatalf("Error creating Ingress: %v", err)
+	}
+
+	return name, func() {
+		err := clients.NetworkingClient.Ingresses.Delete(ing.Name, &metav1.DeleteOptions{})
+		if err != nil {
+			t.Errorf("Error cleaning up Ingress %s", ing.Name)
+		}
+	}
+}
+
+func CreateIngressReady(t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpec) (string, *http.Client, context.CancelFunc) {
+	t.Helper()
+	name, cancel := CreateIngress(t, clients, spec)
+
+	if err := v1a1test.WaitForIngressState(clients.NetworkingClient, name, v1a1test.IsIngressReady, t.Name()); err != nil {
+		cancel()
+		t.Fatalf("Error waiting for ingress state: %v", err)
+	}
+	ing, err := clients.NetworkingClient.Ingresses.Get(name, metav1.GetOptions{})
+	if err != nil {
+		cancel()
+		t.Fatalf("Error getting Ingress: %v", err)
+	}
+
+	// Create a client with a dialer based on the Ingress' public load balancer.
+	return name, &http.Client{
+		Transport: &http.Transport{
+			DialContext: CreateDialContext(t, ing, clients),
+		},
+	}, cancel
 }
 
 // CreateDialContext looks up the endpoint information to create a "dialer" for
