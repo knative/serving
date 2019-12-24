@@ -40,8 +40,10 @@ func TestTimeout(t *testing.T) {
 
 	// The timeout, and an epsilon value to use as jitter for testing requests
 	// either hit or miss the timeout (without getting so close that we flake).
-	timeout := 1 * time.Second
-	epsilon := 100 * time.Millisecond
+	const (
+		timeout = 1 * time.Second
+		epsilon = 100 * time.Millisecond
+	)
 
 	// Create a simple Ingress over the Service.
 	_, client, cancel := CreateIngressReady(t, clients, v1alpha1.IngressSpec{
@@ -94,13 +96,15 @@ func TestTimeout(t *testing.T) {
 }
 
 func checkTimeout(t *testing.T, client *http.Client, name string, code int, initial time.Duration, timeout time.Duration) {
+	t.Helper()
+
 	resp, err := client.Get(fmt.Sprintf("http://%s.example.com?initialTimeout=%d&timeout=%d",
 		name, initial.Milliseconds(), timeout.Milliseconds()))
 	if err != nil {
-		t.Fatalf("Error creating Ingress: %v", err)
+		t.Fatalf("Error making GET request: %v", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != code {
-		t.Errorf("unexpected status code: %d, wanted %d", resp.StatusCode, code)
+		t.Errorf("Unexpected status code: %d, wanted %d", resp.StatusCode, code)
 	}
 }
