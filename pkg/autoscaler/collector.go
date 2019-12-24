@@ -46,6 +46,8 @@ var (
 
 	// ErrNotScraping denotes that the collector is not collecting metrics for the given resource.
 	ErrNotScraping = errors.New("the requested resource is not being scraped")
+
+	tickProvider = time.NewTicker
 )
 
 // StatsScraperFactory creates a StatsScraper for a given Metric.
@@ -109,6 +111,7 @@ type MetricCollector struct {
 	logger *zap.SugaredLogger
 
 	statsScraperFactory StatsScraperFactory
+	tickProvider        func(time.Duration) *time.Ticker
 
 	collections      map[types.NamespacedName]*collection
 	collectionsMutex sync.RWMutex
@@ -123,6 +126,7 @@ func NewMetricCollector(statsScraperFactory StatsScraperFactory, logger *zap.Sug
 		logger:              logger,
 		collections:         make(map[types.NamespacedName]*collection),
 		statsScraperFactory: statsScraperFactory,
+		tickProvider:        time.NewTicker,
 	}
 }
 
@@ -155,7 +159,7 @@ func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
 		return nil
 	}
 
-	c.collections[key] = newCollection(metric, scraper, c.logger)
+	c.collections[key] = newCollection(metric, scraper, c.tickProvider, c.logger)
 	return nil
 }
 
@@ -238,7 +242,7 @@ func (c *collection) getScraper() StatsScraper {
 
 // newCollection creates a new collection, which uses the given scraper to
 // collect stats every scrapeTickInterval.
-func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, logger *zap.SugaredLogger) *collection {
+func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory func(time.Duration) *time.Ticker, logger *zap.SugaredLogger) *collection {
 	c := &collection{
 		metric:             metric,
 		concurrencyBuckets: aggregation.NewTimedFloat64Buckets(metric.Spec.StableWindow, BucketSize),
@@ -255,7 +259,7 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, logger *zap.S
 	go func() {
 		defer c.grp.Done()
 
-		scrapeTicker := time.NewTicker(scrapeTickInterval)
+		scrapeTicker := tickFactory(scrapeTickInterval)
 		for {
 			select {
 			case <-c.stopCh:
