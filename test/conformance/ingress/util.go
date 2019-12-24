@@ -27,6 +27,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -129,7 +130,9 @@ func CreateService(t *testing.T, clients *test.Clients, portName string) (string
 	// Wait for the Pod to show up in the Endpoints resource.
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		ep, err := clients.KubeClient.Kube.CoreV1().Endpoints(svc.Namespace).Get(svc.Name, metav1.GetOptions{})
-		if err != nil {
+		if apierrs.IsNotFound(err) {
+			return false, nil
+		} else if err != nil {
 			return true, err
 		}
 		for _, subset := range ep.Subsets {
@@ -141,7 +144,7 @@ func CreateService(t *testing.T, clients *test.Clients, portName string) (string
 	})
 	if waitErr != nil {
 		cancel()
-		t.Fatalf("Error waiting for Endpoints to contain a Pod IP: %v", err)
+		t.Fatalf("Error waiting for Endpoints to contain a Pod IP: %v", waitErr)
 	}
 
 	return name, port, func() {
