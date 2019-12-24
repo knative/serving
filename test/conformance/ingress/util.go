@@ -38,11 +38,11 @@ import (
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
-// CreateService creates a Kubernetes service that will respond to the protocol
+// CreateRuntimeService creates a Kubernetes service that will respond to the protocol
 // specified with the given portName.  It returns the service name, the port on
 // which the service is listening, and a "cancel" function to clean up the
 // created resources.
-func CreateService(t *testing.T, clients *test.Clients, portName string) (string, int, context.CancelFunc) {
+func CreateRuntimeService(t *testing.T, clients *test.Clients, portName string) (string, int, context.CancelFunc) {
 	t.Helper()
 	name := test.ObjectNameForTest(t)
 
@@ -86,17 +86,6 @@ func CreateService(t *testing.T, clients *test.Clients, portName string) (string
 			}},
 		},
 	}
-	test.CleanupOnInterrupt(func() { clients.KubeClient.Kube.CoreV1().Pods(pod.Namespace).Delete(pod.Name, &metav1.DeleteOptions{}) })
-	pod, err := clients.KubeClient.Kube.CoreV1().Pods(pod.Namespace).Create(pod)
-	if err != nil {
-		t.Fatalf("Error creating Pod: %v", err)
-	}
-	cancel := func() {
-		err := clients.KubeClient.Kube.CoreV1().Pods(pod.Namespace).Delete(pod.Name, &metav1.DeleteOptions{})
-		if err != nil {
-			t.Errorf("Error cleaning up Pod %s", pod.Name)
-		}
-	}
 
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -118,6 +107,99 @@ func CreateService(t *testing.T, clients *test.Clients, portName string) (string
 			},
 		},
 	}
+
+	return name, port, createPodAndService(t, clients, pod, svc)
+}
+
+// CreateTimeoutService creates a Kubernetes service that will respond to the protocol
+// specified with the given portName.  It returns the service name, the port on
+// which the service is listening, and a "cancel" function to clean up the
+// created resources.
+func CreateTimeoutService(t *testing.T, clients *test.Clients) (string, int, context.CancelFunc) {
+	t.Helper()
+	name := test.ObjectNameForTest(t)
+
+	// Avoid zero, but pick a low port number.
+	port := 50 + rand.Intn(50)
+	t.Logf("[%s] Using port %d", name, port)
+
+	// Pick a high port number.
+	containerPort := 8000 + rand.Intn(100)
+	t.Logf("[%s] Using containerPort %d", name, containerPort)
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: test.ServingNamespace,
+			Labels: map[string]string{
+				"test-pod": name,
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:  "foo",
+				Image: pkgTest.ImagePath("timeout"),
+				Ports: []corev1.ContainerPort{{
+					Name:          networking.ServicePortNameHTTP1,
+					ContainerPort: int32(containerPort),
+				}},
+				// This is needed by the timeout image we are using.
+				Env: []corev1.EnvVar{{
+					Name:  "PORT",
+					Value: strconv.Itoa(containerPort),
+				}},
+				ReadinessProbe: &corev1.Probe{
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Port: intstr.FromInt(containerPort),
+						},
+					},
+				},
+			}},
+		},
+	}
+
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: test.ServingNamespace,
+			Labels: map[string]string{
+				"test-pod": name,
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: "ClusterIP",
+			Ports: []corev1.ServicePort{{
+				Name:       networking.ServicePortNameHTTP1,
+				Port:       int32(port),
+				TargetPort: intstr.FromInt(int(containerPort)),
+			}},
+			Selector: map[string]string{
+				"test-pod": name,
+			},
+		},
+	}
+
+	return name, port, createPodAndService(t, clients, pod, svc)
+}
+
+// createPodAndService is a helper for creating the pod and service resources, setting
+// up their context.CancelFunc, and waiting for it to become ready.
+func createPodAndService(t *testing.T, clients *test.Clients, pod *corev1.Pod, svc *corev1.Service) context.CancelFunc {
+	t.Helper()
+
+	test.CleanupOnInterrupt(func() { clients.KubeClient.Kube.CoreV1().Pods(pod.Namespace).Delete(pod.Name, &metav1.DeleteOptions{}) })
+	pod, err := clients.KubeClient.Kube.CoreV1().Pods(pod.Namespace).Create(pod)
+	if err != nil {
+		t.Fatalf("Error creating Pod: %v", err)
+	}
+	cancel := func() {
+		err := clients.KubeClient.Kube.CoreV1().Pods(pod.Namespace).Delete(pod.Name, &metav1.DeleteOptions{})
+		if err != nil {
+			t.Errorf("Error cleaning up Pod %s", pod.Name)
+		}
+	}
+
 	test.CleanupOnInterrupt(func() {
 		clients.KubeClient.Kube.CoreV1().Services(svc.Namespace).Delete(svc.Name, &metav1.DeleteOptions{})
 	})
@@ -147,7 +229,7 @@ func CreateService(t *testing.T, clients *test.Clients, portName string) (string
 		t.Fatalf("Error waiting for Endpoints to contain a Pod IP: %v", waitErr)
 	}
 
-	return name, port, func() {
+	return func() {
 		err := clients.KubeClient.Kube.CoreV1().Services(svc.Namespace).Delete(svc.Name, &metav1.DeleteOptions{})
 		if err != nil {
 			t.Errorf("Error cleaning up Service %s", svc.Name)

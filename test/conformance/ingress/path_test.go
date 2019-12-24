@@ -37,18 +37,18 @@ func TestPath(t *testing.T) {
 	clients := test.Setup(t)
 
 	// For /foo
-	fooName, fooPort, cancel := CreateService(t, clients, networking.ServicePortNameHTTP1)
+	fooName, fooPort, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
 	defer cancel()
 
 	// For /bar
-	barName, barPort, cancel := CreateService(t, clients, networking.ServicePortNameHTTP1)
+	barName, barPort, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
 	defer cancel()
 
 	// For /baz
-	bazName, bazPort, cancel := CreateService(t, clients, networking.ServicePortNameHTTP1)
+	bazName, bazPort, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
 	defer cancel()
 
-	name, port, cancel := CreateService(t, clients, networking.ServicePortNameHTTP1)
+	name, port, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
 	defer cancel()
 
 	// Use a post-split injected header to establish which split we are sending traffic to.
