@@ -294,6 +294,30 @@ func CreateIngressReady(t *testing.T, clients *test.Clients, spec v1alpha1.Ingre
 	}, cancel
 }
 
+// UpdateIngress updates a Knative Ingress resource
+func UpdateIngress(t *testing.T, clients *test.Clients, name string, spec v1alpha1.IngressSpec) {
+	t.Helper()
+
+	ing, err := clients.NetworkingClient.Ingresses.Get(name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Error getting Ingress: %v", err)
+	}
+
+	ing.Spec = spec
+	if _, err := clients.NetworkingClient.Ingresses.Update(ing); err != nil {
+		t.Fatalf("Error creating Ingress: %v", err)
+	}
+}
+
+func UpdateIngressReady(t *testing.T, clients *test.Clients, name string, spec v1alpha1.IngressSpec) {
+	t.Helper()
+	UpdateIngress(t, clients, name, spec)
+
+	if err := v1a1test.WaitForIngressState(clients.NetworkingClient, name, v1a1test.IsIngressReady, t.Name()); err != nil {
+		t.Fatalf("Error waiting for ingress state: %v", err)
+	}
+}
+
 // CreateDialContext looks up the endpoint information to create a "dialer" for
 // the provided Ingress' public ingress loas balancer.  It can be used to
 // contact external-visibility services with an HTTP client via:
