@@ -305,7 +305,7 @@ func UpdateIngress(t *testing.T, clients *test.Clients, name string, spec v1alph
 
 	ing.Spec = spec
 	if _, err := clients.NetworkingClient.Ingresses.Update(ing); err != nil {
-		t.Fatalf("Error creating Ingress: %v", err)
+		t.Fatalf("Error updating Ingress: %v", err)
 	}
 }
 

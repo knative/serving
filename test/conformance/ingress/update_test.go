@@ -163,7 +163,7 @@ func checkOK(t *testing.T, url string, client *http.Client) context.CancelFunc {
 				// Make a request and check the response.
 				resp, err := client.Get(url)
 				if err != nil {
-					t.Fatalf("Error creating Ingress: %v", err)
+					t.Fatalf("Error making GET request: %v", err)
 				}
 				defer resp.Body.Close()
 
