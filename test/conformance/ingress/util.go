@@ -322,7 +322,7 @@ func createPodAndService(t *testing.T, clients *test.Clients, pod *corev1.Pod, s
 	return func() {
 		err := clients.KubeClient.Kube.CoreV1().Services(svc.Namespace).Delete(svc.Name, &metav1.DeleteOptions{})
 		if err != nil {
-			t.Errorf("Error cleaning up Service %s", svc.Name)
+			t.Errorf("Error cleaning up Service %s: %v", svc.Name, err)
 		}
 		cancel()
 	}
@@ -353,7 +353,7 @@ func CreateIngress(t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpe
 	return ing, func() {
 		err := clients.NetworkingClient.Ingresses.Delete(ing.Name, &metav1.DeleteOptions{})
 		if err != nil {
-			t.Errorf("Error cleaning up Ingress %s", ing.Name)
+			t.Errorf("Error cleaning up Ingress %s: %v", ing.Name, err)
 		}
 	}
 }
@@ -507,7 +507,7 @@ func CreateTLSSecret(t *testing.T, clients *test.Clients, hosts []string) (strin
 	return name, func() {
 		err := clients.KubeClient.Kube.CoreV1().Secrets(secret.Namespace).Delete(secret.Name, &metav1.DeleteOptions{})
 		if err != nil {
-			t.Errorf("Error cleaning up Secret %s", secret.Name)
+			t.Errorf("Error cleaning up Secret %s: %v", secret.Name, err)
 		}
 	}
 }
