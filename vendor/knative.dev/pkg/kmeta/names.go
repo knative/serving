@@ -54,7 +54,7 @@ func ChildName(parent, suffix string) string {
 			if d := longest - len(ret); d > 0 {
 				ret += suffix[:d]
 			}
-			// If due to trumming above we're terminating the string with a `-`,
+			// If due to trimming above we're terminating the string with a `-`,
 			// remove it.
 			return strings.TrimRight(ret, "-")
 		}

@@ -61,15 +61,15 @@ type Request struct {
 // DeepCopy will make a deepcopy of the request struct.
 func (r *Request) DeepCopy() *Request {
 	return &Request{
-		Project:     r.Project,
-		GKEVersion:  r.GKEVersion,
-		ClusterName: r.ClusterName,
-		MinNodes:    r.MinNodes,
-		MaxNodes:    r.MaxNodes,
-		NodeType:    r.NodeType,
-		Region:      r.Region,
-		Zone:        r.Zone,
-		Addons:      r.Addons,
+		Project:                r.Project,
+		GKEVersion:             r.GKEVersion,
+		ClusterName:            r.ClusterName,
+		MinNodes:               r.MinNodes,
+		MaxNodes:               r.MaxNodes,
+		NodeType:               r.NodeType,
+		Region:                 r.Region,
+		Zone:                   r.Zone,
+		Addons:                 r.Addons,
 		EnableWorkloadIdentity: r.EnableWorkloadIdentity,
 	}
 }
