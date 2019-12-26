@@ -812,7 +812,6 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 						}},
 					},
 					Network: &network.Config{
-						AutoTLS:      true,
 						HTTPProtocol: network.HTTPDisabled,
 					},
 				},
