@@ -19,8 +19,6 @@ limitations under the License.
 package ingress
 
 import (
-	"encoding/json"
-	"io/ioutil"
 	"net/http"
 	"testing"
 
@@ -30,7 +28,6 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/test"
-	"knative.dev/serving/test/types"
 )
 
 // TestPreSplitSetHeaders verifies that an Ingress that specified AppendHeaders pre-split has the appropriate header(s) set.
@@ -67,20 +64,9 @@ func TestPreSplitSetHeaders(t *testing.T) {
 	defer cancel()
 
 	t.Run("Check without passing header", func(t *testing.T) {
-		// Make a request and check the response.
-		resp, err := client.Get("http://" + name + ".example.com")
-		if err != nil {
-			t.Fatalf("Error making GET request: %v", err)
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			t.Fatalf("Got non-OK status: %d", resp.StatusCode)
-		}
-
-		b, err := ioutil.ReadAll(resp.Body)
-		ri := &types.RuntimeInfo{}
-		if err := json.Unmarshal(b, ri); err != nil {
-			t.Fatalf("Unable to parse runtime image's response payload: %v", err)
+		ri := RuntimeRequest(t, client, "http://"+name+".example.com")
+		if ri == nil {
+			return
 		}
 
 		if got, want := ri.Request.Headers.Get(headerName), name; got != want {
@@ -91,29 +77,13 @@ func TestPreSplitSetHeaders(t *testing.T) {
 	t.Run("Check with passing header", func(t *testing.T) {
 		t.Skip("https://github.com/knative/serving/issues/6303")
 
-		req, err := http.NewRequest(http.MethodGet, "http://"+name+".example.com", nil)
-		if err != nil {
-			t.Fatalf("Error creating Request: %v", err)
-		}
-
-		// Specify a value for the header to verify that implementations
-		// use set vs. append semantics.
-		req.Header.Set(headerName, "bogus")
-
-		// Make a request and check the response.
-		resp, err := client.Do(req)
-		if err != nil {
-			t.Fatalf("Error making GET request: %v", err)
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			t.Fatalf("Got non-OK status: %d", resp.StatusCode)
-		}
-
-		b, err := ioutil.ReadAll(resp.Body)
-		ri := &types.RuntimeInfo{}
-		if err := json.Unmarshal(b, ri); err != nil {
-			t.Fatalf("Unable to parse runtime image's response payload: %v", err)
+		ri := RuntimeRequest(t, client, "http://"+name+".example.com", func(req *http.Request) {
+			// Specify a value for the header to verify that implementations
+			// use set vs. append semantics.
+			req.Header.Set(headerName, "bogus")
+		})
+		if ri == nil {
+			return
 		}
 
 		if got, want := ri.Request.Headers.Get(headerName), name; got != want {
@@ -171,21 +141,9 @@ func TestPostSplitSetHeaders(t *testing.T) {
 		// particular test.
 		seen := sets.NewString()
 		for i := 0; i < 100; i++ {
-			// Make a request and check the response.
-			resp, err := client.Get("http://" + name + ".example.com")
-			if err != nil {
-				t.Fatalf("Error making GET request: %v", err)
-			}
-			defer resp.Body.Close()
-			if resp.StatusCode != http.StatusOK {
-				t.Errorf("Got non-OK status: %d", resp.StatusCode)
-				continue
-			}
-
-			b, err := ioutil.ReadAll(resp.Body)
-			ri := &types.RuntimeInfo{}
-			if err := json.Unmarshal(b, ri); err != nil {
-				t.Fatalf("Unable to parse runtime image's response payload: %v", err)
+			ri := RuntimeRequest(t, client, "http://"+name+".example.com")
+			if ri == nil {
+				return
 			}
 			seen.Insert(ri.Request.Headers.Get(headerName))
 		}
@@ -204,30 +162,13 @@ func TestPostSplitSetHeaders(t *testing.T) {
 		// particular test.
 		seen := sets.NewString()
 		for i := 0; i < 100; i++ {
-			req, err := http.NewRequest(http.MethodGet, "http://"+name+".example.com", nil)
-			if err != nil {
-				t.Fatalf("Error creating Request: %v", err)
-			}
-
-			// Specify a value for the header to verify that implementations
-			// use set vs. append semantics.
-			req.Header.Set(headerName, "bogus")
-
-			// Make a request and check the response.
-			resp, err := client.Do(req)
-			if err != nil {
-				t.Fatalf("Error making GET request: %v", err)
-			}
-			defer resp.Body.Close()
-			if resp.StatusCode != http.StatusOK {
-				t.Errorf("Got non-OK status: %d", resp.StatusCode)
-				continue
-			}
-
-			b, err := ioutil.ReadAll(resp.Body)
-			ri := &types.RuntimeInfo{}
-			if err := json.Unmarshal(b, ri); err != nil {
-				t.Fatalf("Unable to parse runtime image's response payload: %v", err)
+			ri := RuntimeRequest(t, client, "http://"+name+".example.com", func(req *http.Request) {
+				// Specify a value for the header to verify that implementations
+				// use set vs. append semantics.
+				req.Header.Set(headerName, "bogus")
+			})
+			if ri == nil {
+				return
 			}
 			seen.Insert(ri.Request.Headers.Get(headerName))
 		}
