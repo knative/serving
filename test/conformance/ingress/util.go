@@ -24,6 +24,7 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"strconv"
 	"strings"
 	"testing"
@@ -345,11 +346,22 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 	}
 }
 
-func RuntimeRequest(t *testing.T, client *http.Client, url string) *types.RuntimeInfo {
+type RequestOption func(*http.Request)
+
+func RuntimeRequest(t *testing.T, client *http.Client, url string, opts ...RequestOption) *types.RuntimeInfo {
 	t.Helper()
 
-	// Make a request and check the response.
-	resp, err := client.Get(url)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		t.Errorf("Error creating Request: %v", err)
+		return nil
+	}
+
+	for _, opt := range opts {
+		opt(req)
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		t.Errorf("Error making GET request: %v", err)
 		return nil
@@ -362,6 +374,11 @@ func RuntimeRequest(t *testing.T, client *http.Client, url string) *types.Runtim
 	}
 
 	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Errorf("Unable to read response body: %v", err)
+		DumpResponse(t, resp)
+		return nil
+	}
 	ri := &types.RuntimeInfo{}
 	if err := json.Unmarshal(b, ri); err != nil {
 		t.Errorf("Unable to parse runtime image's response payload: %v", err)
@@ -373,8 +390,9 @@ func RuntimeRequest(t *testing.T, client *http.Client, url string) *types.Runtim
 func DumpResponse(t *testing.T, resp *http.Response) {
 	t.Helper()
 
-	t.Logf("%s %d %s", resp.Proto, resp.StatusCode, resp.Status)
-	for key, value := range resp.Header {
-		t.Logf("%s: %v", key, value)
+	b, err := httputil.DumpResponse(resp, true)
+	if err != nil {
+		t.Errorf("Error dumping response: %v", err)
 	}
+	t.Log(string(b))
 }
