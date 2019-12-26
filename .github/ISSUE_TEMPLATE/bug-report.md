@@ -7,10 +7,10 @@ assignees: ''
 
 ---
 <!-- If you need to report a security issue with Knative, send an email to knative-security@googlegroups.com. -->
+
+<!--
 ## In what area(s)?
-
-<!-- Remove the '> ' to select -->
-
+Remove the '> ' to select
 > /area API
 > /area autoscale
 > /area build
@@ -18,21 +18,20 @@ assignees: ''
 > /area networking
 > /area test-and-release
 
-<!--
 Other classifications:
 > /kind good-first-issue
 > /kind process
 > /kind spec
-> /kind proposal
 -->
 
 ## What version of Knative?
 
 <!-- Delete all but your choice -->
 
-> 0.2.x
-> 0.3.x
-> Output of git describe --dirty
+> 0.9.x
+> 0.10.x
+> 0.11.x
+> Output of `git describe --dirty`
 
 ## Expected Behavior
 
