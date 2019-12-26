@@ -101,7 +101,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	}
 
 	var eg errgroup.Group
-	eg.Go(func() error { return controller.Run(2, ctx.Done()) })
+	eg.Go(func() error { return controller.Run(1, ctx.Done()) })
 	return ctx, func() {
 		cancel()
 		eg.Wait()

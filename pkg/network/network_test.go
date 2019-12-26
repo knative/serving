@@ -21,6 +21,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"text/template"
 
@@ -46,7 +47,8 @@ func TestOurConfig(t *testing.T) {
 }
 
 func TestConfiguration(t *testing.T) {
-	nonDefaultDomainTemplate := "{{.Namespace}}.{{.Name}}.{{.Domain}}"
+	const nonDefaultDomainTemplate = "{{.Namespace}}.{{.Name}}.{{.Domain}}"
+	ignoreDT := cmpopts.IgnoreFields(Config{}, "DomainTemplate")
 
 	networkConfigTests := []struct {
 		name       string
@@ -530,8 +532,6 @@ func TestConfiguration(t *testing.T) {
 				t.Errorf("DomainTemplate(data) = %s, wanted %s", got, want)
 			}
 
-			ignoreDT := cmpopts.IgnoreFields(Config{}, "DomainTemplate")
-
 			if diff := cmp.Diff(actualConfig, tt.wantConfig, ignoreDT); diff != "" {
 				t.Fatalf("want %v, but got %v",
 					tt.wantConfig, actualConfig)
@@ -755,7 +755,7 @@ func TestNameForPortNumber(t *testing.T) {
 		portName   string
 		err        error
 	}{{
-		name: "http to 80",
+		name: "HTTP to 80",
 		svc: &corev1.Service{
 			Spec: corev1.ServiceSpec{
 				Ports: []corev1.ServicePort{{
@@ -769,7 +769,6 @@ func TestNameForPortNumber(t *testing.T) {
 		},
 		portName:   "http",
 		portNumber: 80,
-		err:        nil,
 	}, {
 		name: "no port",
 		svc: &corev1.Service{
@@ -785,11 +784,11 @@ func TestNameForPortNumber(t *testing.T) {
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			portName, err := NameForPortNumber(tc.svc, tc.portNumber)
-			if (tc.err == nil) != (err == nil) {
-				t.Errorf("want err %v, got %v", tc.err, err)
+			if !reflect.DeepEqual(err, tc.err) { // cmp Doesn't work well here due to private fields.
+				t.Errorf("Err = %v, want: %v", err, tc.err)
 			}
 			if tc.err == nil && portName != tc.portName {
-				t.Errorf("want portName %s, got %s", tc.portName, portName)
+				t.Errorf("PortName = %s, want: %s", portName, tc.portName)
 			}
 		})
 	}
@@ -803,7 +802,7 @@ func TestPortNumberForName(t *testing.T) {
 		portName   string
 		err        error
 	}{{
-		name: "http to 80",
+		name: "HTTP to 80",
 		subset: corev1.EndpointSubset{
 			Ports: []corev1.EndpointPort{{
 				Port: 8080,
@@ -815,7 +814,6 @@ func TestPortNumberForName(t *testing.T) {
 		},
 		portName:   "http",
 		portNumber: 8080,
-		err:        nil,
 	}, {
 		name: "no port",
 		subset: corev1.EndpointSubset{
@@ -825,15 +823,15 @@ func TestPortNumberForName(t *testing.T) {
 			}},
 		},
 		portName: "http",
-		err:      errors.New("no port with number 80 found"),
+		err:      errors.New(`no port for name "http" found`),
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			portNumber, err := PortNumberForName(tc.subset, tc.portName)
-			if (tc.err == nil) != (err == nil) {
-				t.Errorf("want err %v, got %v", tc.err, err)
+			if !reflect.DeepEqual(err, tc.err) { // cmp Doesn't work well here due to private fields.
+				t.Errorf("Err = %v, want: %v", err, tc.err)
 			}
 			if tc.err == nil && portNumber != tc.portNumber {
-				t.Errorf("want portNumber %d, got %d", tc.portNumber, portNumber)
+				t.Errorf("PortNumber = %d, want: %d", portNumber, tc.portNumber)
 			}
 		})
 	}
