@@ -20,8 +20,6 @@ package ingress
 
 import (
 	"context"
-	"encoding/json"
-	"io/ioutil"
 	"net/http"
 	"testing"
 	"time"
@@ -30,7 +28,6 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/test"
-	"knative.dev/serving/test/types"
 )
 
 // Header to disambiguate what version we're talking to.
@@ -41,7 +38,7 @@ func TestUpdate(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
-	firstName, firstPort, firstCancel := CreateService(t, clients, networking.ServicePortNameHTTP1)
+	firstName, firstPort, firstCancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
 
 	// Create a simple Ingress over the Service.
 	hostname := test.ObjectNameForTest(t)
@@ -79,7 +76,7 @@ func TestUpdate(t *testing.T) {
 		firstCancel()
 	}
 	for i := 0; i < 2; i++ {
-		nextName, nextPort, nextCancel := CreateService(t, clients, networking.ServicePortNameHTTP1)
+		nextName, nextPort, nextCancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
 
 		t.Logf("Rolling out %q", nextName)
 
@@ -109,24 +106,11 @@ func TestUpdate(t *testing.T) {
 
 		// Check that it serves the right message as soon as we get "Ready",
 		// but before we stop probing.
-		resp, err := client.Get("http://" + hostname + ".example.com")
-		if err != nil {
-			t.Fatalf("Error making GET request: %v", err)
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			t.Errorf("Got non-OK status: %d", resp.StatusCode)
-		}
-		b, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			t.Errorf("Unable to read response body: %v", err)
-		}
-		ri := &types.RuntimeInfo{}
-		if err := json.Unmarshal(b, ri); err != nil {
-			t.Fatalf("Unable to parse runtime image's response payload: %v", err)
-		}
-		if got := ri.Request.Headers.Get(updateHeaderName); got != nextName {
-			t.Errorf("Header[%q] = %q, wanted %q", updateHeaderName, got, nextName)
+		ri := RuntimeRequest(t, client, "http://"+hostname+".example.com")
+		if ri != nil {
+			if got := ri.Request.Headers.Get(updateHeaderName); got != nextName {
+				t.Errorf("Header[%q] = %q, wanted %q", updateHeaderName, got, nextName)
+			}
 		}
 
 		// Once we've rolled out, cancel the previous version.
@@ -160,25 +144,8 @@ func checkOK(t *testing.T, url string, client *http.Client) context.CancelFunc {
 			}
 			// Scope the defer below to avoid leaking until the test completes.
 			func() {
-				// Make a request and check the response.
-				resp, err := client.Get(url)
-				if err != nil {
-					t.Fatalf("Error making GET request: %v", err)
-				}
-				defer resp.Body.Close()
-
-				if resp.StatusCode != http.StatusOK {
-					t.Errorf("Got non-OK status: %d", resp.StatusCode)
-				} else {
-					b, err := ioutil.ReadAll(resp.Body)
-					if err != nil {
-						t.Errorf("Unable to read response body: %v", err)
-					}
-					ri := &types.RuntimeInfo{}
-					if err := json.Unmarshal(b, ri); err != nil {
-						t.Fatalf("Unable to parse runtime image's response payload: %v", err)
-					}
-
+				ri := RuntimeRequest(t, client, url)
+				if ri != nil {
 					// Use the updateHeaderName as a debug marker to identify which version
 					// (of programming) is responding.
 					t.Logf("[%s] Got OK status!", ri.Request.Headers.Get(updateHeaderName))
