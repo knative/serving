@@ -469,7 +469,7 @@ func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus 
 
 func (r *Reconciler) shouldReconcileTLS(ia *v1alpha1.Ingress) bool {
 	// For the case which the finalizer was added to an Ingress, we should recocnile TLS.
-	// This is because IngressTLS could be added before and then deleted. We
+	// This is because IngressTLS could be added before and then deleted later. We
 	// need to make sure deleting IngressTLS also cleans up the TLS of the Gateway.
 	return (len(ia.GetFinalizers()) != 0 && ia.GetFinalizers()[0] != r.finalizer) ||
 		(ia.IsPublic() && len(ia.Spec.TLS) > 0)
