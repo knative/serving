@@ -8,7 +8,7 @@ assignees: ''
 ---
 <!-- If you need to report a security issue with Knative, send an email to knative-security@googlegroups.com. -->
 
-<!-- 
+<!--
 ## In what area(s)?
 Remove the '> ' to select
 > /area API
