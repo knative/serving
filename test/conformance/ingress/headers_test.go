@@ -38,7 +38,7 @@ func TestPreSplitSetHeaders(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
-	name, port, cancel := CreateService(t, clients, networking.ServicePortNameHTTP1)
+	name, port, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
 	defer cancel()
 
 	const headerName = "Foo-Bar-Baz"
@@ -132,7 +132,7 @@ func TestPostSplitSetHeaders(t *testing.T) {
 	backends := make([]v1alpha1.IngressBackendSplit, 0, 10)
 	names := sets.NewString()
 	for i := 0; i < 10; i++ {
-		name, port, cancel := CreateService(t, clients, networking.ServicePortNameHTTP1)
+		name, port, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
 		defer cancel()
 		backends = append(backends, v1alpha1.IngressBackendSplit{
 			IngressBackend: v1alpha1.IngressBackend{
