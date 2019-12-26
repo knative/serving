@@ -19,7 +19,6 @@ limitations under the License.
 package ingress
 
 import (
-	"net/http"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -66,14 +65,6 @@ func TestMultipleHosts(t *testing.T) {
 	defer cancel()
 
 	for _, host := range hosts {
-		// Make a request and check the response.
-		resp, err := client.Get("http://" + host)
-		if err != nil {
-			t.Fatalf("Error creating Ingress: %v", err)
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			t.Errorf("Got non-OK status: %d", resp.StatusCode)
-		}
+		RuntimeRequest(t, client, "http://"+host)
 	}
 }

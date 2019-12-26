@@ -18,7 +18,9 @@ package ingress
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"math/rand"
 	"net"
 	"net/http"
@@ -35,6 +37,7 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/test"
+	"knative.dev/serving/test/types"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
@@ -339,5 +342,39 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 			return net.Dial("tcp", ingress.Hostname+":"+port)
 		}
 		return nil, errors.New("Service ingress does not contain dialing information.")
+	}
+}
+
+func RuntimeRequest(t *testing.T, client *http.Client, url string) *types.RuntimeInfo {
+	t.Helper()
+
+	// Make a request and check the response.
+	resp, err := client.Get(url)
+	if err != nil {
+		t.Errorf("Error making GET request: %v", err)
+		return nil
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Got non-OK status: %d", resp.StatusCode)
+		DumpResponse(t, resp)
+		return nil
+	}
+
+	b, err := ioutil.ReadAll(resp.Body)
+	ri := &types.RuntimeInfo{}
+	if err := json.Unmarshal(b, ri); err != nil {
+		t.Errorf("Unable to parse runtime image's response payload: %v", err)
+		return nil
+	}
+	return ri
+}
+
+func DumpResponse(t *testing.T, resp *http.Response) {
+	t.Helper()
+
+	t.Logf("%s %d %s", resp.Proto, resp.StatusCode, resp.Status)
+	for key, value := range resp.Header {
+		t.Logf("%s: %v", key, value)
 	}
 }

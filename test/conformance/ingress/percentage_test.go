@@ -19,17 +19,13 @@ limitations under the License.
 package ingress
 
 import (
-	"encoding/json"
-	"io/ioutil"
 	"math"
-	"net/http"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/test"
-	"knative.dev/serving/test/types"
 )
 
 // TestPercentage verifies that an Ingress splitting over multiple backends respects
@@ -103,21 +99,9 @@ func TestPercentage(t *testing.T) {
 		margin = 5.0
 	)
 	for i := 0.0; i < totalRequests; i++ {
-		// Make a request and check the response.
-		resp, err := client.Get("http://" + name + ".example.com")
-		if err != nil {
-			t.Fatalf("Error making GET request: %v", err)
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			t.Errorf("Got non-OK status: %d", resp.StatusCode)
+		ri := RuntimeRequest(t, client, "http://"+name+".example.com")
+		if ri == nil {
 			continue
-		}
-
-		b, err := ioutil.ReadAll(resp.Body)
-		ri := &types.RuntimeInfo{}
-		if err := json.Unmarshal(b, ri); err != nil {
-			t.Fatalf("Unable to parse runtime image's response payload: %v", err)
 		}
 		seen[ri.Request.Headers.Get(headerName)] += increment
 	}
