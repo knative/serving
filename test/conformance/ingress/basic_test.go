@@ -19,7 +19,6 @@ limitations under the License.
 package ingress
 
 import (
-	"net/http"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -56,13 +55,5 @@ func TestBasics(t *testing.T) {
 	})
 	defer cancel()
 
-	// Make a request and check the response.
-	resp, err := client.Get("http://" + name + ".example.com")
-	if err != nil {
-		t.Fatalf("Error creating Ingress: %v", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("Got non-OK status: %d", resp.StatusCode)
-	}
+	RuntimeRequest(t, client, "http://"+name+".example.com")
 }

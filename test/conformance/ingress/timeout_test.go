@@ -106,5 +106,6 @@ func checkTimeout(t *testing.T, client *http.Client, name string, code int, init
 	defer resp.Body.Close()
 	if resp.StatusCode != code {
 		t.Errorf("Unexpected status code: %d, wanted %d", resp.StatusCode, code)
+		DumpResponse(t, resp)
 	}
 }

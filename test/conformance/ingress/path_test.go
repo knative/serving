@@ -19,16 +19,12 @@ limitations under the License.
 package ingress
 
 import (
-	"encoding/json"
-	"io/ioutil"
-	"net/http"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/test"
-	"knative.dev/serving/test/types"
 )
 
 // TestPath verifies that an Ingress properly dispatches to backends based on the path of the URL.
@@ -134,20 +130,9 @@ func TestPath(t *testing.T) {
 
 	for path, want := range tests {
 		t.Run(path, func(t *testing.T) {
-			// Make a request and check the response.
-			resp, err := client.Get("http://" + name + ".example.com" + path)
-			if err != nil {
-				t.Fatalf("Error creating Ingress: %v", err)
-			}
-			defer resp.Body.Close()
-			if resp.StatusCode != http.StatusOK {
-				t.Errorf("Got non-OK status: %d", resp.StatusCode)
-			}
-
-			b, err := ioutil.ReadAll(resp.Body)
-			ri := &types.RuntimeInfo{}
-			if err := json.Unmarshal(b, ri); err != nil {
-				t.Fatalf("Unable to parse runtime image's response payload: %v", err)
+			ri := RuntimeRequest(t, client, "http://"+name+".example.com"+path)
+			if ri == nil {
+				return
 			}
 
 			got := ri.Request.Headers.Get(headerName)
