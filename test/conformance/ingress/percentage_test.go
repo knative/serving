@@ -48,7 +48,7 @@ func TestPercentage(t *testing.T) {
 	// give the last route the remainder.
 	percent, total := 1, 0
 	for i := 0; i < 10; i++ {
-		name, port, cancel := CreateService(t, clients, networking.ServicePortNameHTTP1)
+		name, port, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
 		defer cancel()
 		backends = append(backends, v1alpha1.IngressBackendSplit{
 			IngressBackend: v1alpha1.IngressBackend{

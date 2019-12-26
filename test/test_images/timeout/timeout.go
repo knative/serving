@@ -19,9 +19,11 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
+	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/test"
 )
 
@@ -48,5 +50,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	test.ListenAndServeGracefully(":8080", handler)
+	h := network.NewProbeHandler(http.HandlerFunc(handler))
+	test.ListenAndServeGracefully(":"+os.Getenv("PORT"), h.ServeHTTP)
 }

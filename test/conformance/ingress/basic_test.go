@@ -33,7 +33,7 @@ func TestBasics(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
-	name, port, cancel := CreateService(t, clients, networking.ServicePortNameHTTP1)
+	name, port, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
 	defer cancel()
 
 	// Create a simple Ingress over the Service.
