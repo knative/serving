@@ -18,14 +18,11 @@ package v1alpha1
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"math"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
-	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"golang.org/x/sync/errgroup"
@@ -339,10 +336,4 @@ func validateImageDigest(imageName string, imageDigest string) (bool, error) {
 	}
 
 	return ref.Context().String() == digest.Context().String(), nil
-}
-
-func TestMain(m *testing.M) {
-	flag.Parse()
-	pkgTest.SetupLoggingFlags()
-	os.Exit(m.Run())
 }
