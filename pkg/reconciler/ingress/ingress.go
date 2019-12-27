@@ -34,6 +34,7 @@ import (
 	"go.uber.org/zap"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/network/status"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/ingress/config"
@@ -263,13 +264,18 @@ func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ia *v1alpha1.
 
 	// Now, remove the extra ones.
 	vses, err := r.virtualServiceLister.VirtualServices(resources.VirtualServiceNamespace(ia)).List(
-		labels.Set(map[string]string{networking.IngressLabelKey: ia.Name}).AsSelector())
+		labels.Set(map[string]string{
+			serving.RouteLabelKey:          ia.GetLabels()[serving.RouteLabelKey],
+			serving.RouteNamespaceLabelKey: ia.GetLabels()[serving.RouteNamespaceLabelKey]}).AsSelector())
 	if err != nil {
 		return fmt.Errorf("failed to get VirtualServices: %w", err)
 	}
 	for _, vs := range vses {
 		n, ns := vs.Name, vs.Namespace
 		if kept.Has(n) {
+			continue
+		}
+		if !metav1.IsControlledBy(vs, ia) {
 			continue
 		}
 		if err = r.IstioClientSet.NetworkingV1alpha3().VirtualServices(ns).Delete(n, &metav1.DeleteOptions{}); err != nil {
@@ -467,4 +473,5 @@ func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus 
 
 func enableReconcileGateway(ctx context.Context) bool {
 	return config.FromContext(ctx).Network.AutoTLS || config.FromContext(ctx).Istio.ReconcileExternalGateway
+
 }
