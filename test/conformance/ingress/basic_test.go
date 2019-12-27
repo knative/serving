@@ -57,3 +57,43 @@ func TestBasics(t *testing.T) {
 
 	RuntimeRequest(t, client, "http://"+name+".example.com")
 }
+
+// TestBasicsHttp2 verifies that the same no-frills Ingress over a Service with http/2 configured
+// will see a ProtoMajor of 2.
+func TestBasicsHttp2(t *testing.T) {
+	t.Parallel()
+	clients := test.Setup(t)
+
+	name, port, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameH2C)
+	defer cancel()
+
+	// Create a simple Ingress over the Service.
+	_, client, cancel := CreateIngressReady(t, clients, v1alpha1.IngressSpec{
+		Rules: []v1alpha1.IngressRule{{
+			Hosts:      []string{name + ".example.com"},
+			Visibility: v1alpha1.IngressVisibilityExternalIP,
+			HTTP: &v1alpha1.HTTPIngressRuleValue{
+				Paths: []v1alpha1.HTTPIngressPath{{
+					Splits: []v1alpha1.IngressBackendSplit{{
+						IngressBackend: v1alpha1.IngressBackend{
+							ServiceName:      name,
+							ServiceNamespace: test.ServingNamespace,
+							ServicePort:      intstr.FromInt(port),
+						},
+					}},
+				}},
+			},
+		}},
+	})
+	defer cancel()
+
+	ri := RuntimeRequest(t, client, "http://"+name+".example.com")
+	if ri == nil {
+		return
+	}
+
+	want, got := 2, ri.Request.ProtoMajor
+	if want != got {
+		t.Errorf("ProtoMajor = %d, wanted %d", got, want)
+	}
+}
