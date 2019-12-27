@@ -40,7 +40,6 @@ INSTALL_MONITORING_YAML=""
 INSTALL_MONITORING=0
 
 GATEWAY_SETUP=0
-RECONCILE_GATEWAY=0
 
 # List of custom YAMLs to install, if specified (space-separated).
 INSTALL_CUSTOM_YAMLS=""
@@ -79,10 +78,6 @@ function parse_flags() {
       ;;
     --install-monitoring)
       readonly INSTALL_MONITORING=1
-      return 1
-      ;;
-    --reconcile-gateway)
-      readonly RECONCILE_GATEWAY=1
       return 1
       ;;
     --custom-yamls)
@@ -260,23 +255,6 @@ data:
   clusteringress.class: "kourier.ingress.networking.knative.dev"
 EOF
   fi
-
-  if (( RECONCILE_GATEWAY )); then
-    echo ">> Turning on reconcileExternalGateway"
-    cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: config-istio
-  namespace: knative-serving
-  labels:
-    serving.knative.dev/release: devel
-    networking.knative.dev/ingress-provider: istio
-data:
-  reconcileExternalGateway: "true"
-EOF
-  fi
-
   echo ">> Turning on profiling.enable"
   cat <<EOF | kubectl apply -f -
 apiVersion: v1
