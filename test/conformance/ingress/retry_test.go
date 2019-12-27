@@ -122,9 +122,9 @@ func TestRetry(t *testing.T) {
 				}
 				defer resp.Body.Close()
 				if want, got := current, resp.StatusCode; got != want {
-					t.Errorf("unexpected status: %d, wanted %d", got, want)
+					t.Errorf("Status = %d, wanted %d", got, want)
+					DumpResponse(t, resp)
 				}
-				DumpResponse(t, resp)
 				// Swap things.
 				current, next = next, current
 			}

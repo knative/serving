@@ -43,10 +43,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	// Increment the request count per non-probe request.
 	val := atomic.AddUint64(&count, 1)
 
-	switch val % period {
-	case 0:
-		w.WriteHeader(http.StatusOK)
-	default:
+	if val%period > 0 {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 	w.Write([]byte(fmt.Sprintf("count = %d", val)))
