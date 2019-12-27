@@ -261,7 +261,6 @@ func TestReconcile(t *testing.T) {
 					Name:      "reconcile-failed",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						networking.IngressLabelKey:     "reconcile-failed",
 						serving.RouteLabelKey:          "test-route",
 						serving.RouteNamespaceLabelKey: "test-ns",
 					},
@@ -316,7 +315,6 @@ func TestReconcile(t *testing.T) {
 					Name:      "reconcile-virtualservice",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						networking.IngressLabelKey:     "reconcile-virtualservice",
 						serving.RouteLabelKey:          "test-route",
 						serving.RouteNamespaceLabelKey: "test-ns",
 					},
@@ -329,7 +327,6 @@ func TestReconcile(t *testing.T) {
 					Name:      "reconcile-virtualservice-extra",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						networking.IngressLabelKey:     "reconcile-virtualservice",
 						serving.RouteLabelKey:          "test-route",
 						serving.RouteNamespaceLabelKey: "test-ns",
 					},
