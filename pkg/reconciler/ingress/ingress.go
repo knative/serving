@@ -170,7 +170,6 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress)
 	// First, create the VirtualServices.
 	logger.Infof("Creating/Updating VirtualServices")
 	ia.Status.ObservedGeneration = ia.GetGeneration()
-	fmt.Printf("-----vses: %v\n", vses)
 	if err := r.reconcileVirtualServices(ctx, ia, vses); err != nil {
 		ia.Status.MarkLoadBalancerFailed(virtualServiceNotReconciled, err.Error())
 		return err
