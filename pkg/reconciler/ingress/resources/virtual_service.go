@@ -29,6 +29,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/network/ingress"
@@ -59,13 +60,10 @@ func MakeIngressVirtualService(ia *v1alpha1.Ingress, gateways map[v1alpha1.Ingre
 	}
 
 	// Populate the Ingress labels.
-	if vs.Labels == nil {
-		vs.Labels = make(map[string]string)
-	}
-
-	ingressLabels := ia.GetLabels()
-	vs.Labels[serving.RouteLabelKey] = ingressLabels[serving.RouteLabelKey]
-	vs.Labels[serving.RouteNamespaceLabelKey] = ingressLabels[serving.RouteNamespaceLabelKey]
+	vs.Labels = resources.FilterMap(ia.GetLabels(), func(k string) bool {
+		return k != serving.RouteLabelKey && k != serving.RouteNamespaceLabelKey
+	})
+	vs.Labels[networking.IngressLabelKey] = ia.Name
 	return vs
 }
 
@@ -87,10 +85,11 @@ func MakeMeshVirtualService(ia *v1alpha1.Ingress) *v1alpha3.VirtualService {
 			v1alpha1.IngressVisibilityClusterLocal: sets.NewString("mesh"),
 		}, hosts),
 	}
+	// Populate the Ingress labels.
 	vs.Labels = resources.FilterMap(ia.GetLabels(), func(k string) bool {
 		return k != serving.RouteLabelKey && k != serving.RouteNamespaceLabelKey
 	})
-
+	vs.Labels[networking.IngressLabelKey] = ia.Name
 	return vs
 }
 
