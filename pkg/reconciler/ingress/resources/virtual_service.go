@@ -36,7 +36,13 @@ import (
 	"knative.dev/serving/pkg/resources"
 )
 
-var retriableConditions = strings.Join([]string{"5xx", "connect-failure", "refused-stream", "cancelled", "resource-exhausted", "retriable-status-codes"}, ",")
+var retriableConditions = strings.Join([]string{
+	"5xx",
+	"connect-failure",
+	"refused-stream",
+	"cancelled",
+	"resource-exhausted",
+	"retriable-status-codes"}, ",")
 
 // VirtualServiceNamespace gives the namespace of the child
 // VirtualServices for a given Ingress.
