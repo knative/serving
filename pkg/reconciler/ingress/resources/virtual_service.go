@@ -158,7 +158,7 @@ func makeVirtualServiceRoute(hosts sets.String, http *v1alpha1.HTTPIngressPath, 
 		if len(split.AppendHeaders) > 0 {
 			h = &istiov1alpha3.Headers{
 				Request: &istiov1alpha3.Headers_HeaderOperations{
-					Add: split.AppendHeaders,
+					Set: split.AppendHeaders,
 				},
 			}
 		}
@@ -180,7 +180,7 @@ func makeVirtualServiceRoute(hosts sets.String, http *v1alpha1.HTTPIngressPath, 
 	if len(http.AppendHeaders) > 0 {
 		h = &istiov1alpha3.Headers{
 			Request: &istiov1alpha3.Headers_HeaderOperations{
-				Add: http.AppendHeaders,
+				Set: http.AppendHeaders,
 			},
 		}
 	}

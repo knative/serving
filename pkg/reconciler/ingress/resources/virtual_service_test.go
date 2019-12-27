@@ -290,7 +290,7 @@ func TestMakeMeshVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			Weight: 100,
 			Headers: &istiov1alpha3.Headers{
 				Request: &istiov1alpha3.Headers_HeaderOperations{
-					Add: map[string]string{
+					Set: map[string]string{
 						"ugh": "blah",
 					},
 				},
@@ -298,7 +298,7 @@ func TestMakeMeshVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		}},
 		Headers: &istiov1alpha3.Headers{
 			Request: &istiov1alpha3.Headers_HeaderOperations{
-				Add: map[string]string{
+				Set: map[string]string{
 					"foo": "bar",
 				},
 			},
@@ -428,7 +428,7 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 			Weight: 100,
 			Headers: &istiov1alpha3.Headers{
 				Request: &istiov1alpha3.Headers_HeaderOperations{
-					Add: map[string]string{
+					Set: map[string]string{
 						"ugh": "blah",
 					},
 				},
@@ -436,7 +436,7 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		}},
 		Headers: &istiov1alpha3.Headers{
 			Request: &istiov1alpha3.Headers_HeaderOperations{
-				Add: map[string]string{
+				Set: map[string]string{
 					"foo": "bar",
 				},
 			},
@@ -466,7 +466,7 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		}},
 		Headers: &istiov1alpha3.Headers{
 			Request: &istiov1alpha3.Headers_HeaderOperations{
-				Add: map[string]string{
+				Set: map[string]string{
 					"foo": "baz",
 				},
 			},
