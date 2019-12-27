@@ -205,7 +205,7 @@ function install_kourier() {
 }
 
 function install_ambassador() {
-  AMBASSADOR_MANIFESTS_PATH="./third_party/ambassador-0.86.1/"
+  AMBASSADOR_MANIFESTS_PATH="./third_party/ambassador-latest/"
   echo "Ambassador YAML: ${AMBASSADOR_MANIFESTS_PATH}"
 
   echo ">> Creating namespace 'ambassador'"
