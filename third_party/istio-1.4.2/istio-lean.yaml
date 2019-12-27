@@ -167,10 +167,10 @@ data:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: istio-ingressgateway-service-account
+  name: cluster-local-gateway-service-account
   namespace: istio-system
   labels:
-    app: istio-ingressgateway
+    app: cluster-local-gateway
     chart: gateways
     heritage: Helm
     release: RELEASE-NAME
@@ -179,10 +179,10 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: cluster-local-gateway-service-account
+  name: istio-ingressgateway-service-account
   namespace: istio-system
   labels:
-    app: cluster-local-gateway
+    app: istio-ingressgateway
     chart: gateways
     heritage: Helm
     release: RELEASE-NAME
@@ -331,36 +331,6 @@ subjects:
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-ingressgateway
-  namespace: istio-system
-  annotations:
-  labels:
-    chart: gateways
-    heritage: Helm
-    release: RELEASE-NAME
-    app: istio-ingressgateway
-    istio: ingressgateway
-spec:
-  type: LoadBalancer
-  selector:
-    release: RELEASE-NAME
-    app: istio-ingressgateway
-    istio: ingressgateway
-  ports:
-    -
-      name: status-port
-      port: 15020
-    -
-      name: http2
-      port: 80
-    -
-      name: https
-      port: 443
----
-# Source: istio/charts/gateways/templates/service.yaml
-apiVersion: v1
-kind: Service
-metadata:
   name: cluster-local-gateway
   namespace: istio-system
   annotations:
@@ -376,6 +346,36 @@ spec:
     release: RELEASE-NAME
     app: cluster-local-gateway
     istio: cluster-local-gateway
+  ports:
+    -
+      name: status-port
+      port: 15020
+    -
+      name: http2
+      port: 80
+    -
+      name: https
+      port: 443
+---
+# Source: istio/charts/gateways/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingressgateway
+  namespace: istio-system
+  annotations:
+  labels:
+    chart: gateways
+    heritage: Helm
+    release: RELEASE-NAME
+    app: istio-ingressgateway
+    istio: ingressgateway
+spec:
+  type: LoadBalancer
+  selector:
+    release: RELEASE-NAME
+    app: istio-ingressgateway
+    istio: ingressgateway
   ports:
     -
       name: status-port
