@@ -146,51 +146,51 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 	return reconcileErr
 }
 
-func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress) error {
+func (r *Reconciler) reconcileIngress(ctx context.Context, ing *v1alpha1.Ingress) error {
 	logger := logging.FromContext(ctx)
-	if ia.GetDeletionTimestamp() != nil {
-		return r.reconcileDeletion(ctx, ia)
+	if ing.GetDeletionTimestamp() != nil {
+		return r.reconcileDeletion(ctx, ing)
 	}
 
 	// We may be reading a version of the object that was stored at an older version
 	// and may not have had all of the assumed defaults specified.  This won't result
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
-	ia.SetDefaults(ctx)
+	ing.SetDefaults(ctx)
 
-	ia.Status.InitializeConditions()
-	logger.Infof("Reconciling ingress: %#v", ia)
+	ing.Status.InitializeConditions()
+	logger.Infof("Reconciling ingress: %#v", ing)
 
 	gatewayNames := qualifiedGatewayNamesFromContext(ctx)
-	vses, err := resources.MakeVirtualServices(ia, gatewayNames)
+	vses, err := resources.MakeVirtualServices(ing, gatewayNames)
 	if err != nil {
 		return err
 	}
 
 	// First, create the VirtualServices.
 	logger.Infof("Creating/Updating VirtualServices")
-	ia.Status.ObservedGeneration = ia.GetGeneration()
-	if err := r.reconcileVirtualServices(ctx, ia, vses); err != nil {
-		ia.Status.MarkLoadBalancerFailed(virtualServiceNotReconciled, err.Error())
+	ing.Status.ObservedGeneration = ing.GetGeneration()
+	if err := r.reconcileVirtualServices(ctx, ing, vses); err != nil {
+		ing.Status.MarkLoadBalancerFailed(virtualServiceNotReconciled, err.Error())
 		return err
 	}
 
-	if enableReconcileGateway(ctx) && ia.IsPublic() {
+	if enableReconcileGateway(ctx) && ing.IsPublic() {
 		// Add the finalizer before adding `Servers` into Gateway so that we can be sure
 		// the `Servers` get cleaned up from Gateway.
-		if err := r.ensureFinalizer(ia); err != nil {
+		if err := r.ensureFinalizer(ing); err != nil {
 			return err
 		}
 
-		originSecrets, err := resources.GetSecrets(ia, r.secretLister)
+		originSecrets, err := resources.GetSecrets(ing, r.secretLister)
 		if err != nil {
 			return err
 		}
-		targetSecrets, err := resources.MakeSecrets(ctx, originSecrets, ia)
+		targetSecrets, err := resources.MakeSecrets(ctx, originSecrets, ing)
 		if err != nil {
 			return err
 		}
-		if err := r.reconcileCertSecrets(ctx, ia, targetSecrets); err != nil {
+		if err := r.reconcileCertSecrets(ctx, ing, targetSecrets); err != nil {
 			return err
 		}
 
@@ -199,30 +199,30 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress)
 			if err != nil {
 				return err
 			}
-			desired, err := resources.MakeTLSServers(ia, ns, originSecrets)
+			desired, err := resources.MakeTLSServers(ing, ns, originSecrets)
 			if err != nil {
 				return err
 			}
-			if err := r.reconcileGateway(ctx, ia, gw, desired); err != nil {
+			if err := r.reconcileGateway(ctx, ing, gw, desired); err != nil {
 				return err
 			}
 		}
 	}
 
 	// Update status
-	ia.Status.MarkNetworkConfigured()
+	ing.Status.MarkNetworkConfigured()
 
-	ready, err := r.statusManager.IsReady(ctx, ia)
+	ready, err := r.statusManager.IsReady(ctx, ing)
 	if err != nil {
-		return fmt.Errorf("failed to probe Ingress %s/%s: %w", ia.GetNamespace(), ia.GetName(), err)
+		return fmt.Errorf("failed to probe Ingress %s/%s: %w", ing.GetNamespace(), ing.GetName(), err)
 	}
 	if ready {
-		lbs := getLBStatus(gatewayServiceURLFromContext(ctx, ia))
+		lbs := getLBStatus(gatewayServiceURLFromContext(ctx, ing))
 		publicLbs := getLBStatus(publicGatewayServiceURLFromContext(ctx))
 		privateLbs := getLBStatus(privateGatewayServiceURLFromContext(ctx))
-		ia.Status.MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
+		ing.Status.MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
 	} else {
-		ia.Status.MarkLoadBalancerNotReady()
+		ing.Status.MarkLoadBalancerNotReady()
 	}
 
 	// TODO(zhiminx): Mark Route status to indicate that Gateway is configured.
@@ -230,17 +230,17 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress)
 	return nil
 }
 
-func (r *Reconciler) reconcileCertSecrets(ctx context.Context, ia *v1alpha1.Ingress, desiredSecrets []*corev1.Secret) error {
+func (r *Reconciler) reconcileCertSecrets(ctx context.Context, ing *v1alpha1.Ingress, desiredSecrets []*corev1.Secret) error {
 	for _, certSecret := range desiredSecrets {
 		// We track the origin and desired secrets so that desired secrets could be synced accordingly when the origin TLS certificate
 		// secret is refreshed.
-		r.tracker.Track(resources.SecretRef(certSecret.Namespace, certSecret.Name), ia)
+		r.tracker.Track(resources.SecretRef(certSecret.Namespace, certSecret.Name), ing)
 		r.tracker.Track(resources.SecretRef(
 			certSecret.Labels[networking.OriginSecretNamespaceLabelKey],
-			certSecret.Labels[networking.OriginSecretNameLabelKey]), ia)
-		if _, err := coreaccessor.ReconcileSecret(ctx, ia, certSecret, r); err != nil {
+			certSecret.Labels[networking.OriginSecretNameLabelKey]), ing)
+		if _, err := coreaccessor.ReconcileSecret(ctx, ing, certSecret, r); err != nil {
 			if kaccessor.IsNotOwned(err) {
-				ia.Status.MarkResourceNotOwned("Secret", certSecret.Name)
+				ing.Status.MarkResourceNotOwned("Secret", certSecret.Name)
 			}
 			return err
 		}
@@ -248,14 +248,14 @@ func (r *Reconciler) reconcileCertSecrets(ctx context.Context, ia *v1alpha1.Ingr
 	return nil
 }
 
-func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ia *v1alpha1.Ingress,
+func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ing *v1alpha1.Ingress,
 	desired []*v1alpha3.VirtualService) error {
 	// First, create all needed VirtualServices.
 	kept := sets.NewString()
 	for _, d := range desired {
-		if _, err := istioaccessor.ReconcileVirtualService(ctx, ia, d, r); err != nil {
+		if _, err := istioaccessor.ReconcileVirtualService(ctx, ing, d, r); err != nil {
 			if kaccessor.IsNotOwned(err) {
-				ia.Status.MarkResourceNotOwned("VirtualService", d.Name)
+				ing.Status.MarkResourceNotOwned("VirtualService", d.Name)
 			}
 			return err
 		}
@@ -263,10 +263,10 @@ func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ia *v1alpha1.
 	}
 
 	// Now, remove the extra ones.
-	vses, err := r.virtualServiceLister.VirtualServices(resources.VirtualServiceNamespace(ia)).List(
+	vses, err := r.virtualServiceLister.VirtualServices(resources.VirtualServiceNamespace(ing)).List(
 		labels.Set(map[string]string{
-			serving.RouteLabelKey:          ia.GetLabels()[serving.RouteLabelKey],
-			serving.RouteNamespaceLabelKey: ia.GetLabels()[serving.RouteNamespaceLabelKey]}).AsSelector())
+			serving.RouteLabelKey:          ing.GetLabels()[serving.RouteLabelKey],
+			serving.RouteNamespaceLabelKey: ing.GetLabels()[serving.RouteNamespaceLabelKey]}).AsSelector())
 	if err != nil {
 		return fmt.Errorf("failed to get VirtualServices: %w", err)
 	}
@@ -275,7 +275,7 @@ func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ia *v1alpha1.
 		if kept.Has(n) {
 			continue
 		}
-		if !metav1.IsControlledBy(vs, ia) {
+		if !metav1.IsControlledBy(vs, ing) {
 			// We shouldn't remove resources not controlled by us.
 			continue
 		}
@@ -286,19 +286,19 @@ func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ia *v1alpha1.
 	return nil
 }
 
-func (r *Reconciler) reconcileDeletion(ctx context.Context, ia *v1alpha1.Ingress) error {
+func (r *Reconciler) reconcileDeletion(ctx context.Context, ing *v1alpha1.Ingress) error {
 	logger := logging.FromContext(ctx)
 
 	// If our finalizer is first, delete the `Servers` from Gateway for this Ingress,
 	// and remove the finalizer.
-	if len(ia.GetFinalizers()) == 0 || ia.GetFinalizers()[0] != r.finalizer {
+	if len(ing.GetFinalizers()) == 0 || ing.GetFinalizers()[0] != r.finalizer {
 		return nil
 	}
 	istiocfg := config.FromContext(ctx).Istio
-	logger.Infof("Cleaning up Gateway Servers for Ingress %s", ia.GetName())
+	logger.Infof("Cleaning up Gateway Servers for Ingress %s", ing.GetName())
 	for _, gws := range [][]config.Gateway{istiocfg.IngressGateways, istiocfg.LocalGateways} {
 		for _, gw := range gws {
-			if err := r.reconcileGateway(ctx, ia, gw, []*istiov1alpha3.Server{}); err != nil {
+			if err := r.reconcileGateway(ctx, ing, gw, []*istiov1alpha3.Server{}); err != nil {
 				return err
 			}
 		}
@@ -306,8 +306,8 @@ func (r *Reconciler) reconcileDeletion(ctx context.Context, ia *v1alpha1.Ingress
 
 	// Update the Ingress to remove the finalizer.
 	logger.Info("Removing finalizer")
-	ia.SetFinalizers(ia.GetFinalizers()[1:])
-	_, err := r.ServingClientSet.NetworkingV1alpha1().Ingresses(ia.GetNamespace()).Update(ia)
+	ing.SetFinalizers(ing.GetFinalizers()[1:])
+	_, err := r.ServingClientSet.NetworkingV1alpha1().Ingresses(ing.GetNamespace()).Update(ing)
 	return err
 }
 
@@ -335,16 +335,16 @@ func (r *Reconciler) updateStatus(existing *v1alpha1.Ingress, desired *v1alpha1.
 	})
 }
 
-func (r *Reconciler) ensureFinalizer(ia *v1alpha1.Ingress) error {
-	finalizers := sets.NewString(ia.GetFinalizers()...)
+func (r *Reconciler) ensureFinalizer(ing *v1alpha1.Ingress) error {
+	finalizers := sets.NewString(ing.GetFinalizers()...)
 	if finalizers.Has(r.finalizer) {
 		return nil
 	}
 
 	mergePatch := map[string]interface{}{
 		"metadata": map[string]interface{}{
-			"finalizers":      append(ia.GetFinalizers(), r.finalizer),
-			"resourceVersion": ia.GetResourceVersion(),
+			"finalizers":      append(ing.GetFinalizers(), r.finalizer),
+			"resourceVersion": ing.GetResourceVersion(),
 		},
 	}
 
@@ -353,11 +353,11 @@ func (r *Reconciler) ensureFinalizer(ia *v1alpha1.Ingress) error {
 		return err
 	}
 
-	_, err = r.ServingClientSet.NetworkingV1alpha1().Ingresses(ia.GetNamespace()).Patch(ia.GetName(), types.MergePatchType, patch)
+	_, err = r.ServingClientSet.NetworkingV1alpha1().Ingresses(ing.GetNamespace()).Patch(ing.GetName(), types.MergePatchType, patch)
 	return err
 }
 
-func (r *Reconciler) reconcileGateway(ctx context.Context, ia *v1alpha1.Ingress, gw config.Gateway, desired []*istiov1alpha3.Server) error {
+func (r *Reconciler) reconcileGateway(ctx context.Context, ing *v1alpha1.Ingress, gw config.Gateway, desired []*istiov1alpha3.Server) error {
 	// TODO(zhiminx): Need to handle the scenario when deleting Ingress. In this scenario,
 	// the Gateway servers of the Ingress need also be removed from Gateway.
 	gateway, err := r.gatewayLister.Gateways(gw.Namespace).Get(gw.Name)
@@ -367,7 +367,7 @@ func (r *Reconciler) reconcileGateway(ctx context.Context, ia *v1alpha1.Ingress,
 		return fmt.Errorf("failed to get Gateway: %w", err)
 	}
 
-	existing := resources.GetServers(gateway, ia)
+	existing := resources.GetServers(gateway, ing)
 	existingHTTPServer := resources.GetHTTPServer(gateway)
 	if existingHTTPServer != nil {
 		existing = append(existing, existingHTTPServer)
@@ -387,7 +387,7 @@ func (r *Reconciler) reconcileGateway(ctx context.Context, ia *v1alpha1.Ingress,
 	if _, err := r.IstioClientSet.NetworkingV1alpha3().Gateways(copy.Namespace).Update(copy); err != nil {
 		return fmt.Errorf("failed to update Gateway: %w", err)
 	}
-	r.Recorder.Eventf(ia, corev1.EventTypeNormal, "Updated", "Updated Gateway %s/%s", gateway.Namespace, gateway.Name)
+	r.Recorder.Eventf(ing, corev1.EventTypeNormal, "Updated", "Updated Gateway %s/%s", gateway.Namespace, gateway.Name)
 	return nil
 }
 
@@ -432,8 +432,8 @@ func qualifiedGatewayNamesFromContext(ctx context.Context) map[v1alpha1.IngressV
 // gatewayServiceURLFromContext return an address of a load-balancer
 // that the given Ingress is exposed to, or empty string if
 // none.
-func gatewayServiceURLFromContext(ctx context.Context, ia *v1alpha1.Ingress) string {
-	if ia.IsPublic() {
+func gatewayServiceURLFromContext(ctx context.Context, ing *v1alpha1.Ingress) string {
+	if ing.IsPublic() {
 		return publicGatewayServiceURLFromContext(ctx)
 	}
 

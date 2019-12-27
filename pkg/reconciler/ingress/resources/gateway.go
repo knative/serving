@@ -52,10 +52,10 @@ var placeholderServer = istiov1alpha3.Server{
 }
 
 // GetServers gets the `Servers` from `Gateway` that belongs to the given Ingress.
-func GetServers(gateway *v1alpha3.Gateway, ia *v1alpha1.Ingress) []*istiov1alpha3.Server {
+func GetServers(gateway *v1alpha3.Gateway, ing *v1alpha1.Ingress) []*istiov1alpha3.Server {
 	servers := []*istiov1alpha3.Server{}
 	for i := range gateway.Spec.Servers {
-		if belongsToIngress(gateway.Spec.Servers[i], ia) {
+		if belongsToIngress(gateway.Spec.Servers[i], ing) {
 			servers = append(servers, gateway.Spec.Servers[i])
 		}
 	}
@@ -72,14 +72,14 @@ func GetHTTPServer(gateway *v1alpha3.Gateway) *istiov1alpha3.Server {
 	return nil
 }
 
-func belongsToIngress(server *istiov1alpha3.Server, ia *v1alpha1.Ingress) bool {
+func belongsToIngress(server *istiov1alpha3.Server, ing *v1alpha1.Ingress) bool {
 	// The format of the portName should be "<namespace>/<ingress_name>:<number>".
 	// For example, default/routetest:0.
 	portNameSplits := strings.Split(server.Port.Name, ":")
 	if len(portNameSplits) != 2 {
 		return false
 	}
-	return portNameSplits[0] == ia.GetNamespace()+"/"+ia.GetName()
+	return portNameSplits[0] == ing.GetNamespace()+"/"+ing.GetName()
 }
 
 // SortServers sorts `Server` according to its port name.
@@ -91,14 +91,14 @@ func SortServers(servers []*istiov1alpha3.Server) []*istiov1alpha3.Server {
 }
 
 // MakeIngressGateways creates Gateways for a given Ingress.
-func MakeIngressGateways(ctx context.Context, ia *v1alpha1.Ingress, originSecrets map[string]*corev1.Secret, svcLister corev1listers.ServiceLister) ([]*v1alpha3.Gateway, error) {
+func MakeIngressGateways(ctx context.Context, ing *v1alpha1.Ingress, originSecrets map[string]*corev1.Secret, svcLister corev1listers.ServiceLister) ([]*v1alpha3.Gateway, error) {
 	gatewayServices, err := getGatewayServices(ctx, svcLister)
 	if err != nil {
 		return nil, err
 	}
 	gateways := make([]*v1alpha3.Gateway, len(gatewayServices))
 	for i, gatewayService := range gatewayServices {
-		gateway, err := makeIngressGateway(ctx, ia, originSecrets, gatewayService.Spec.Selector, gatewayService)
+		gateway, err := makeIngressGateway(ctx, ing, originSecrets, gatewayService.Spec.Selector, gatewayService)
 		if err != nil {
 			return nil, err
 		}
@@ -107,28 +107,28 @@ func MakeIngressGateways(ctx context.Context, ia *v1alpha1.Ingress, originSecret
 	return gateways, nil
 }
 
-func makeIngressGateway(ctx context.Context, ia *v1alpha1.Ingress, originSecrets map[string]*corev1.Secret, selector map[string]string, gatewayService *corev1.Service) (*v1alpha3.Gateway, error) {
-	ns := ia.GetNamespace()
+func makeIngressGateway(ctx context.Context, ing *v1alpha1.Ingress, originSecrets map[string]*corev1.Secret, selector map[string]string, gatewayService *corev1.Service) (*v1alpha3.Gateway, error) {
+	ns := ing.GetNamespace()
 	if len(ns) == 0 {
 		ns = system.Namespace()
 	}
-	servers, err := MakeTLSServers(ia, gatewayService.Namespace, originSecrets)
+	servers, err := MakeTLSServers(ing, gatewayService.Namespace, originSecrets)
 	if err != nil {
 		return nil, err
 	}
 	hosts := sets.String{}
-	for _, rule := range ia.Spec.Rules {
+	for _, rule := range ing.Spec.Rules {
 		hosts.Insert(rule.Hosts...)
 	}
 	servers = append(servers, MakeHTTPServer(config.FromContext(ctx).Network.HTTPProtocol, hosts.List()))
 	return &v1alpha3.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            GatewayName(ia, gatewayService),
+			Name:            GatewayName(ing, gatewayService),
 			Namespace:       ns,
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ia)},
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ing)},
 			Labels: map[string]string{
 				// We need this label to find out all of Gateways of a given Ingress.
-				networking.IngressLabelKey: ia.GetName(),
+				networking.IngressLabelKey: ing.GetName(),
 			},
 		},
 		Spec: istiov1alpha3.Gateway{
@@ -162,11 +162,11 @@ func GatewayName(accessor kmeta.Accessor, gatewaySvc *corev1.Service) string {
 }
 
 // MakeTLSServers creates the expected Gateway TLS `Servers` based on the given Ingress.
-func MakeTLSServers(ia *v1alpha1.Ingress, gatewayServiceNamespace string, originSecrets map[string]*corev1.Secret) ([]*istiov1alpha3.Server, error) {
-	servers := make([]*istiov1alpha3.Server, len(ia.Spec.TLS))
+func MakeTLSServers(ing *v1alpha1.Ingress, gatewayServiceNamespace string, originSecrets map[string]*corev1.Secret) ([]*istiov1alpha3.Server, error) {
+	servers := make([]*istiov1alpha3.Server, len(ing.Spec.TLS))
 	// TODO(zhiminx): for the hosts that does not included in the IngressTLS but listed in the IngressRule,
 	// do we consider them as hosts for HTTP?
-	for i, tls := range ia.Spec.TLS {
+	for i, tls := range ing.Spec.TLS {
 		credentialName := tls.SecretName
 		// If the origin secret is not in the target namespace, then it should have been
 		// copied into the target namespace. So we use the name of the copy.
@@ -175,10 +175,10 @@ func MakeTLSServers(ia *v1alpha1.Ingress, gatewayServiceNamespace string, origin
 			if !ok {
 				return nil, fmt.Errorf("unable to get the original secret %s/%s", tls.SecretNamespace, tls.SecretName)
 			}
-			credentialName = targetSecret(originSecret, ia)
+			credentialName = targetSecret(originSecret, ing)
 		}
 
-		port := ia.GetNamespace() + "/" + ia.GetName()
+		port := ing.GetNamespace() + "/" + ing.GetName()
 
 		servers[i] = &istiov1alpha3.Server{
 			Hosts: tls.Hosts,
