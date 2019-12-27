@@ -153,9 +153,17 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		ms = time.Duration(msv) * time.Millisecond
 	}
+	if ms < 0 {
+		http.Error(w, "Negative query params are not supported", http.StatusBadRequest)
+		return
+	}
 	mssd, hasMssd, err := parseIntParam(r, "sleep-stddev")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if mssd < 0 {
+		http.Error(w, "Negative query params are not supported", http.StatusBadRequest)
 		return
 	}
 	max, hasMax, err := parseIntParam(r, "prime")
@@ -163,9 +171,17 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	if max < 0 {
+		http.Error(w, "Negative query params are not supported", http.StatusBadRequest)
+		return
+	}
 	mb, hasMb, err := parseIntParam(r, "bloat")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if mb < 0 {
+		http.Error(w, "Negative durations are not supported", http.StatusBadRequest)
 		return
 	}
 	// Consume time, cpu and memory in parallel.
