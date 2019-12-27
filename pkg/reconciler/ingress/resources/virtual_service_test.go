@@ -23,6 +23,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -44,7 +45,7 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 		name     string
 		gateways map[v1alpha1.IngressVisibility]sets.String
 		ci       *v1alpha1.Ingress
-		expected []metav1.ObjectMeta
+		expected map[string]*v1alpha3.VirtualService
 	}{{
 		name:     "mesh and ingress",
 		gateways: makeGatewayMap([]string{"gateway"}, []string{"private-gateway"}),
@@ -65,21 +66,28 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 				HTTP:       &v1alpha1.HTTPIngressRuleValue{},
 			}}},
 		},
-		expected: []metav1.ObjectMeta{{
-			Name:      "test-ingress-mesh",
-			Namespace: system.Namespace(),
-			Labels: map[string]string{
-				serving.RouteLabelKey:          "test-route",
-				serving.RouteNamespaceLabelKey: "test-ns",
+		expected: map[string]*v1alpha3.VirtualService{
+			"test-ingress-mesh": {
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-ingress-mesh",
+					Namespace: system.Namespace(),
+					Labels: map[string]string{
+						serving.RouteLabelKey:          "test-route",
+						serving.RouteNamespaceLabelKey: "test-ns",
+					},
+				},
 			},
-		}, {
-			Name:      "test-ingress",
-			Namespace: system.Namespace(),
-			Labels: map[string]string{
-				serving.RouteLabelKey:          "test-route",
-				serving.RouteNamespaceLabelKey: "test-ns",
+			"test-ingress": {
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-ingress",
+					Namespace: system.Namespace(),
+					Labels: map[string]string{
+						serving.RouteLabelKey:          "test-route",
+						serving.RouteNamespaceLabelKey: "test-ns",
+					},
+				},
 			},
-		}},
+		},
 	}, {
 		name:     "ingress only",
 		gateways: makeGatewayMap([]string{"gateway"}, []string{"private-gateway"}),
@@ -100,14 +108,19 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 				HTTP:       &v1alpha1.HTTPIngressRuleValue{},
 			}}},
 		},
-		expected: []metav1.ObjectMeta{{
-			Name:      "test-ingress",
-			Namespace: system.Namespace(),
-			Labels: map[string]string{
-				serving.RouteLabelKey:          "test-route",
-				serving.RouteNamespaceLabelKey: "test-ns",
+		expected: map[string]*v1alpha3.VirtualService{
+			"test-ingress": {
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-ingress",
+					Namespace: system.Namespace(),
+					Labels: map[string]string{
+						serving.RouteLabelKey:          "test-route",
+						serving.RouteNamespaceLabelKey: "test-ns",
+					},
+				},
 			},
-		}},
+			"test-ingress-mesh": nil,
+		},
 	}, {
 		name:     "mesh only",
 		gateways: nil,
@@ -128,14 +141,19 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 				HTTP:       &v1alpha1.HTTPIngressRuleValue{},
 			}}},
 		},
-		expected: []metav1.ObjectMeta{{
-			Name:      "test-ingress-mesh",
-			Namespace: system.Namespace(),
-			Labels: map[string]string{
-				serving.RouteLabelKey:          "test-route",
-				serving.RouteNamespaceLabelKey: "test-ns",
+		expected: map[string]*v1alpha3.VirtualService{
+			"test-ingress-mesh": {
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-ingress-mesh",
+					Namespace: system.Namespace(),
+					Labels: map[string]string{
+						serving.RouteLabelKey:          "test-route",
+						serving.RouteNamespaceLabelKey: "test-ns",
+					},
+				},
 			},
-		}},
+			"test-ingress": nil,
+		},
 	}, {
 		name:     "mesh only with namespace",
 		gateways: nil,
@@ -156,14 +174,19 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 				HTTP:       &v1alpha1.HTTPIngressRuleValue{},
 			}}},
 		},
-		expected: []metav1.ObjectMeta{{
-			Name:      "test-ingress-mesh",
-			Namespace: "test-ns",
-			Labels: map[string]string{
-				serving.RouteLabelKey:          "test-route",
-				serving.RouteNamespaceLabelKey: "test-ns",
+		expected: map[string]*v1alpha3.VirtualService{
+			"test-ingress-mesh": {
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-ingress-mesh",
+					Namespace: "test-ns",
+					Labels: map[string]string{
+						serving.RouteLabelKey:          "test-route",
+						serving.RouteNamespaceLabelKey: "test-ns",
+					},
+				},
 			},
-		}},
+			"test-ingress": nil,
+		},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
 			vss, err := MakeVirtualServices(tc.ci, tc.gateways)
@@ -173,9 +196,19 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 			if len(vss) != len(tc.expected) {
 				t.Fatalf("Expected %d VirtualService, saw %d", len(tc.expected), len(vss))
 			}
-			for i := range tc.expected {
-				tc.expected[i].OwnerReferences = []metav1.OwnerReference{*kmeta.NewControllerRef(tc.ci)}
-				if diff := cmp.Diff(tc.expected[i], vss[i].ObjectMeta); diff != "" {
+			for name, vs := range tc.expected {
+				if vs == nil {
+					if vss[name] != nil {
+						t.Errorf("Unexpected VirtualService %#v", vss[name])
+					}
+					continue
+				}
+				if vss[name] == nil {
+					t.Errorf("Missing expected VirtualService for %q", name)
+					continue
+				}
+				vs.OwnerReferences = []metav1.OwnerReference{*kmeta.NewControllerRef(tc.ci)}
+				if diff := cmp.Diff(vs.ObjectMeta, vss[name].ObjectMeta); diff != "" {
 					t.Errorf("Unexpected metadata (-want +got): %v", diff)
 				}
 			}
@@ -327,7 +360,13 @@ func TestMakeIngressVirtualServiceSpec_CorrectGateways(t *testing.T) {
 				serving.RouteNamespaceLabelKey: "test-ns",
 			},
 		},
-		Spec: v1alpha1.IngressSpec{},
+		Spec: v1alpha1.IngressSpec{Rules: []v1alpha1.IngressRule{{
+			Hosts: []string{
+				"test-route.test-ns.example.com",
+			},
+			Visibility: v1alpha1.IngressVisibilityExternalIP,
+			HTTP:       &v1alpha1.HTTPIngressRuleValue{},
+		}}},
 	}
 	expected := []string{"knative-testing/gateway-one", "knative-testing/gateway-two"}
 	gateways := MakeIngressVirtualService(ci, makeGatewayMap([]string{"knative-testing/gateway-one", "knative-testing/gateway-two"}, nil)).Spec.Gateways

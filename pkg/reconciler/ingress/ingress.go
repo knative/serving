@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
 
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -34,7 +35,6 @@ import (
 	"go.uber.org/zap"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/network/status"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/ingress/config"
@@ -44,7 +44,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
@@ -249,38 +248,40 @@ func (r *Reconciler) reconcileCertSecrets(ctx context.Context, ia *v1alpha1.Ingr
 }
 
 func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ia *v1alpha1.Ingress,
-	desired []*v1alpha3.VirtualService) error {
+	vss map[string]*v1alpha3.VirtualService) error {
+	// Sort VirtualService names for a consistent processing order.
+	names := []string{}
+	for name := range vss {
+		names = append(names, name)
+	}
+	sort.Strings(names)
 	// First, create all needed VirtualServices.
-	kept := sets.NewString()
-	for _, d := range desired {
-		if _, err := istioaccessor.ReconcileVirtualService(ctx, ia, d, r); err != nil {
+	for _, name := range names {
+		vs := vss[name]
+		if vs == nil {
+			// Ignore deletions for this loop.
+			continue
+		}
+		if _, err := istioaccessor.ReconcileVirtualService(ctx, ia, vs, r); err != nil {
 			if kaccessor.IsNotOwned(err) {
-				ia.Status.MarkResourceNotOwned("VirtualService", d.Name)
+				ia.Status.MarkResourceNotOwned("VirtualService", vs.Name)
 			}
 			return err
 		}
-		kept.Insert(d.Name)
 	}
 
 	// Now, remove the extra ones.
-	vses, err := r.virtualServiceLister.VirtualServices(resources.VirtualServiceNamespace(ia)).List(
-		labels.Set(map[string]string{
-			serving.RouteLabelKey:          ia.GetLabels()[serving.RouteLabelKey],
-			serving.RouteNamespaceLabelKey: ia.GetLabels()[serving.RouteNamespaceLabelKey]}).AsSelector())
-	if err != nil {
-		return fmt.Errorf("failed to get VirtualServices: %w", err)
-	}
-	for _, vs := range vses {
-		n, ns := vs.Name, vs.Namespace
-		if kept.Has(n) {
+	for _, name := range names {
+		vs := vss[name]
+		if vs != nil {
+			// Ignore desired VirtualService.
 			continue
 		}
-		if !metav1.IsControlledBy(vs, ia) {
-			// We shouldn't remove resources not controlled by us.
-			continue
-		}
-		if err = r.IstioClientSet.NetworkingV1alpha3().VirtualServices(ns).Delete(n, &metav1.DeleteOptions{}); err != nil {
-			return fmt.Errorf("failed to delete VirtualService: %w", err)
+		ns := ia.Namespace
+		if err := r.IstioClientSet.NetworkingV1alpha3().VirtualServices(ns).Delete(name, &metav1.DeleteOptions{}); err != nil {
+			if !apierrs.IsNotFound(err) {
+				return fmt.Errorf("failed to delete VirtualService: %w", err)
+			}
 		}
 	}
 	return nil

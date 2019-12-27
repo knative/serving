@@ -48,6 +48,16 @@ func VirtualServiceNamespace(ia *v1alpha1.Ingress) string {
 // MakeIngressVirtualService creates Istio VirtualService as network
 // programming for Istio Gateways other than 'mesh'.
 func MakeIngressVirtualService(ia *v1alpha1.Ingress, gateways map[v1alpha1.IngressVisibility]sets.String) *v1alpha3.VirtualService {
+	requiredGatewayCount := 0
+	if len(getPublicIngressRules(ia)) > 0 {
+		requiredGatewayCount += gateways[v1alpha1.IngressVisibilityExternalIP].Len()
+	}
+	if len(getClusterLocalIngressRules(ia)) > 0 {
+		requiredGatewayCount += gateways[v1alpha1.IngressVisibilityClusterLocal].Len()
+	}
+	if requiredGatewayCount == 0 {
+		return nil
+	}
 	vs := &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            names.IngressVirtualService(ia),
@@ -94,31 +104,19 @@ func MakeMeshVirtualService(ia *v1alpha1.Ingress) *v1alpha3.VirtualService {
 	return vs
 }
 
-// MakeVirtualServices creates a mesh virtualservice and a virtual service for each gateway
-func MakeVirtualServices(ia *v1alpha1.Ingress, gateways map[v1alpha1.IngressVisibility]sets.String) ([]*v1alpha3.VirtualService, error) {
+// MakeVirtualServices creates a mesh virtualservice and a virtual service for each gateway.
+// In the returned map, nil values signify that we don't need a VirtualService for that name,
+// and if a VirtualService exists with that name, it should be removed.
+func MakeVirtualServices(ia *v1alpha1.Ingress, gateways map[v1alpha1.IngressVisibility]sets.String) (map[string]*v1alpha3.VirtualService, error) {
 	// Insert probe header
 	ia = ia.DeepCopy()
 	if _, err := ingress.InsertProbe(ia); err != nil {
 		return nil, fmt.Errorf("failed to insert a probe into the Ingress: %w", err)
 	}
-	vss := []*v1alpha3.VirtualService{}
-	if meshVs := MakeMeshVirtualService(ia); meshVs != nil {
-		vss = append(vss, meshVs)
-	}
-	requiredGatewayCount := 0
-	if len(getPublicIngressRules(ia)) > 0 {
-		requiredGatewayCount += gateways[v1alpha1.IngressVisibilityExternalIP].Len()
-	}
-
-	if len(getClusterLocalIngressRules(ia)) > 0 {
-		requiredGatewayCount += gateways[v1alpha1.IngressVisibilityClusterLocal].Len()
-	}
-
-	if requiredGatewayCount > 0 {
-		vss = append(vss, MakeIngressVirtualService(ia, gateways))
-	}
-
-	return vss, nil
+	return map[string]*v1alpha3.VirtualService{
+		names.MeshVirtualService(ia):    MakeMeshVirtualService(ia),
+		names.IngressVirtualService(ia): MakeIngressVirtualService(ia, gateways),
+	}, nil
 }
 
 func makeVirtualServiceSpec(ia *v1alpha1.Ingress, gateways map[v1alpha1.IngressVisibility]sets.String, hosts sets.String) *istiov1alpha3.VirtualService {
