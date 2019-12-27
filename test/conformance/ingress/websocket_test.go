@@ -80,20 +80,7 @@ func TestWebsocket(t *testing.T) {
 	defer conn.Close()
 
 	for i := 0; i < 100; i++ {
-		message := fmt.Sprintf("ping - %d", rand.Intn(1000))
-		if err := conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
-			t.Fatalf("WriteMessage() = %v", err)
-		}
-
-		// Read back the echoed message and compared with sent.
-		_, recv, err := conn.ReadMessage()
-		if err != nil {
-			t.Fatalf("ReadMessage() = %v", err)
-		}
-
-		if got, want := string(recv), message+" "+suffix; got != want {
-			t.Errorf("ReadMessage() = %s, wanted %s", got, want)
-		}
+		checkWebsocketRoundTrip(t, conn, suffix)
 	}
 }
 
@@ -158,42 +145,54 @@ func TestWebsocketSplit(t *testing.T) {
 		}
 		defer conn.Close()
 
-		// Establish the suffix that corresponds to this socket.
-		message := fmt.Sprintf("ping - %d", rand.Intn(1000))
-		if err := conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
-			t.Fatalf("WriteMessage() = %v", err)
-		}
-		_, recv, err := conn.ReadMessage()
-		if err != nil {
-			t.Fatalf("ReadMessage() = %v", err)
-		}
-		gotMsg := string(recv)
-		if !strings.HasPrefix(gotMsg, message) {
-			t.Errorf("ReadMessage() = %s, wanted %s prefix", got, message)
+		suffix := findWebsocketSuffix(t, conn)
+		if suffix == "" {
 			continue
 		}
-		suffix := strings.TrimSpace(strings.TrimPrefix(gotMsg, message))
 		got.Insert(suffix)
 
 		for j := 0; j < 10; j++ {
-			message := fmt.Sprintf("ping - %d", rand.Intn(1000))
-			if err := conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
-				t.Fatalf("WriteMessage() = %v", err)
-			}
-
-			// Read back the echoed message and compared with sent.
-			_, recv, err := conn.ReadMessage()
-			if err != nil {
-				t.Fatalf("ReadMessage() = %v", err)
-			}
-
-			if got, want := string(recv), message+" "+suffix; got != want {
-				t.Errorf("ReadMessage() = %s, wanted %s", got, want)
-			}
+			checkWebsocketRoundTrip(t, conn, suffix)
 		}
 	}
 
 	if !cmp.Equal(want, got) {
 		t.Errorf("(-want, +got) = %s", cmp.Diff(want, got))
+	}
+}
+
+func findWebsocketSuffix(t *testing.T, conn *websocket.Conn) string {
+	// Establish the suffix that corresponds to this socket.
+	message := fmt.Sprintf("ping - %d", rand.Intn(1000))
+	if err := conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
+		t.Errorf("WriteMessage() = %v", err)
+		return ""
+	}
+
+	_, recv, err := conn.ReadMessage()
+	if err != nil {
+		t.Errorf("ReadMessage() = %v", err)
+		return ""
+	}
+	gotMsg := string(recv)
+	if !strings.HasPrefix(gotMsg, message) {
+		t.Errorf("ReadMessage() = %s, wanted %s prefix", gotMsg, message)
+		return ""
+	}
+	return strings.TrimSpace(strings.TrimPrefix(gotMsg, message))
+}
+
+func checkWebsocketRoundTrip(t *testing.T, conn *websocket.Conn, suffix string) {
+	message := fmt.Sprintf("ping - %d", rand.Intn(1000))
+	if err := conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
+		t.Errorf("WriteMessage() = %v", err)
+		return
+	}
+
+	// Read back the echoed message and compared with sent.
+	if _, recv, err := conn.ReadMessage(); err != nil {
+		t.Errorf("ReadMessage() = %v", err)
+	} else if got, want := string(recv), message+" "+suffix; got != want {
+		t.Errorf("ReadMessage() = %s, wanted %s", got, want)
 	}
 }

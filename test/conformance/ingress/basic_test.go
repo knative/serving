@@ -58,9 +58,9 @@ func TestBasics(t *testing.T) {
 	RuntimeRequest(t, client, "http://"+name+".example.com")
 }
 
-// TestBasicsHttp2 verifies that the same no-frills Ingress over a Service with http/2 configured
+// TestBasicsHTTP2 verifies that the same no-frills Ingress over a Service with http/2 configured
 // will see a ProtoMajor of 2.
-func TestBasicsHttp2(t *testing.T) {
+func TestBasicsHTTP2(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
@@ -92,8 +92,7 @@ func TestBasicsHttp2(t *testing.T) {
 		return
 	}
 
-	want, got := 2, ri.Request.ProtoMajor
-	if want != got {
+	if want, got := 2, ri.Request.ProtoMajor; want != got {
 		t.Errorf("ProtoMajor = %d, wanted %d", got, want)
 	}
 }

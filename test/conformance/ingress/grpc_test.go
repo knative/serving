@@ -89,20 +89,7 @@ func TestGRPC(t *testing.T) {
 	}
 
 	for i := 0; i < 100; i++ {
-		message := fmt.Sprintf("ping - %d", rand.Intn(1000))
-		err = stream.Send(&ping.Request{Msg: message})
-		if err != nil {
-			t.Fatalf("Error sending request: %v", err)
-		}
-
-		resp, err := stream.Recv()
-		if err != nil {
-			t.Fatalf("Error receiving response: %v", err)
-		}
-
-		if got, want := resp.Msg, message+suffix; got != want {
-			t.Errorf("ReadMessage() = %s, wanted %s", got, want)
-		}
+		checkGRPCRoundTrip(t, stream, suffix)
 	}
 }
 
@@ -172,46 +159,58 @@ func TestGRPCSplit(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		stream, err := pc.PingStream(ctx)
 		if err != nil {
-			t.Fatalf("PingStream() = %v", err)
-		}
-
-		message := fmt.Sprintf("ping - %d", rand.Intn(1000))
-		err = stream.Send(&ping.Request{Msg: message})
-		if err != nil {
-			t.Fatalf("Error sending request: %v", err)
-		}
-
-		resp, err := stream.Recv()
-		if err != nil {
-			t.Fatalf("Error receiving response: %v", err)
-		}
-		gotMsg := resp.Msg
-		if !strings.HasPrefix(gotMsg, message) {
-			t.Errorf("Recv() = %s, wanted %s prefix", got, message)
+			t.Errorf("PingStream() = %v", err)
 			continue
 		}
-		suffix := strings.TrimSpace(strings.TrimPrefix(gotMsg, message))
+
+		suffix := findGRPCSuffix(t, stream)
+		if suffix == "" {
+			continue
+		}
 		got.Insert(suffix)
 
 		for j := 0; j < 10; j++ {
-			message := fmt.Sprintf("ping - %d", rand.Intn(1000))
-			err = stream.Send(&ping.Request{Msg: message})
-			if err != nil {
-				t.Fatalf("Error sending request: %v", err)
-			}
-
-			resp, err := stream.Recv()
-			if err != nil {
-				t.Fatalf("Error receiving response: %v", err)
-			}
-
-			if got, want := resp.Msg, message+suffix; got != want {
-				t.Errorf("ReadMessage() = %s, wanted %s", got, want)
-			}
+			checkGRPCRoundTrip(t, stream, suffix)
 		}
 	}
 
 	if !cmp.Equal(want, got) {
 		t.Errorf("(-want, +got) = %s", cmp.Diff(want, got))
+	}
+}
+
+func findGRPCSuffix(t *testing.T, stream ping.PingService_PingStreamClient) string {
+	// Establish the suffix that corresponds to this stream.
+	message := fmt.Sprintf("ping - %d", rand.Intn(1000))
+	if err := stream.Send(&ping.Request{Msg: message}); err != nil {
+		t.Errorf("Error sending request: %v", err)
+		return ""
+	}
+
+	resp, err := stream.Recv()
+	if err != nil {
+		t.Errorf("Error receiving response: %v", err)
+		return ""
+	}
+	gotMsg := resp.Msg
+	if !strings.HasPrefix(gotMsg, message) {
+		t.Errorf("Recv() = %s, wanted %s prefix", gotMsg, message)
+		return ""
+	}
+	return strings.TrimSpace(strings.TrimPrefix(gotMsg, message))
+}
+
+func checkGRPCRoundTrip(t *testing.T, stream ping.PingService_PingStreamClient, suffix string) {
+	message := fmt.Sprintf("ping - %d", rand.Intn(1000))
+	if err := stream.Send(&ping.Request{Msg: message}); err != nil {
+		t.Errorf("Error sending request: %v", err)
+		return
+	}
+
+	// Read back the echoed message and compared with sent.
+	if resp, err := stream.Recv(); err != nil {
+		t.Errorf("Error receiving response: %v", err)
+	} else if got, want := resp.Msg, message+suffix; got != want {
+		t.Errorf("Recv() = %s, wanted %s", got, want)
 	}
 }
