@@ -19,7 +19,6 @@ package status
 import (
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -135,7 +134,7 @@ func TestProbeLifecycle(t *testing.T) {
 		t.Fatalf("IsReady failed: %v", err)
 	}
 	if ok {
-		t.Fatalf("IsReady returned %v, want: %v", ok, false)
+		t.Fatal("IsReady() returned true")
 	}
 
 	const expHostHeader = "foo.bar.com"
@@ -157,9 +156,8 @@ func TestProbeLifecycle(t *testing.T) {
 			t.Fatalf("IsReady failed: %v", err)
 		}
 		if !ok {
-			t.Fatalf("IsReady returned %v, want: %v", ok, false)
+			t.Fatal("IsReady() returned false")
 		}
-
 		time.Sleep(prober.cleanupPeriod)
 	}
 
@@ -169,10 +167,10 @@ func TestProbeLifecycle(t *testing.T) {
 		break
 	// Validate that no probe requests were issued (cached)
 	case <-probeRequests:
-		t.Fatal("an unexpected probe request was received")
+		t.Fatal("An unexpected probe request was received")
 	// Validate that no requests went through the probe handler
 	case <-dummyRequests:
-		t.Fatal("an unexpected request went through the probe handler")
+		t.Fatal("An unexpected request went through the probe handler")
 	}
 
 	// The state has expired and been removed
@@ -181,7 +179,7 @@ func TestProbeLifecycle(t *testing.T) {
 		t.Fatalf("IsReady failed: %v", err)
 	}
 	if ok {
-		t.Fatalf("IsReady returned %v, want: %v", ok, false)
+		t.Fatal("IsReady() returned true")
 	}
 
 	// Wait for the first request (success) to be executed
@@ -193,7 +191,7 @@ func TestProbeLifecycle(t *testing.T) {
 	select {
 	// Validate that no requests went through the probe handler
 	case <-dummyRequests:
-		t.Fatal("an unexpected request went through the probe handler")
+		t.Fatal("An unexpected request went through the probe handler")
 	default:
 		break
 	}
@@ -216,7 +214,7 @@ func TestProbeListerFail(t *testing.T) {
 		t.Fatal("IsReady returned unexpected success")
 	}
 	if ok {
-		t.Fatalf("IsReady returned %v, want: %v", ok, false)
+		t.Fatal("IsReady() returned true")
 	}
 }
 
@@ -236,9 +234,6 @@ func TestCancelPodProbing(t *testing.T) {
 		t.Fatalf("Failed to parse URL %q: %v", ts.URL, err)
 	}
 	hostname := url.Hostname()
-	if err != nil {
-		t.Fatalf("Failed to parse port %q: %v", url.Port(), err)
-	}
 	port, err := strconv.Atoi(url.Port())
 	if err != nil {
 		t.Fatalf("Failed to parse port %q: %v", url.Port(), err)
@@ -274,15 +269,16 @@ func TestCancelPodProbing(t *testing.T) {
 		t.Fatalf("IsReady failed: %v", err)
 	}
 	if ok {
-		t.Fatalf("IsReady returned %v, want: %v", ok, false)
+		t.Fatal("IsReady() returned true")
 	}
 
 	// Wait for the first probe request
 	<-requests
 
 	// Create a new version of the Ingress
+	const domain = "blabla.net"
 	ing = ing.DeepCopy()
-	ing.Spec.Rules[0].Hosts[0] = "blabla.net"
+	ing.Spec.Rules[0].Hosts[0] = domain
 
 	// Check that probing is unsuccessful
 	select {
@@ -296,13 +292,13 @@ func TestCancelPodProbing(t *testing.T) {
 		t.Fatalf("IsReady failed: %v", err)
 	}
 	if ok {
-		t.Fatalf("IsReady returned %v, want: %v", ok, false)
+		t.Fatal("IsReady() returned true")
 	}
 
 	// Drain requests for the old version
 	for req := range requests {
-		log.Printf("req.Host: %s", req.Host)
-		if strings.HasPrefix(req.Host, "blabla.net") {
+		t.Logf("req.Host: %s", req.Host)
+		if strings.HasPrefix(req.Host, domain) {
 			break
 		}
 	}
@@ -313,8 +309,8 @@ func TestCancelPodProbing(t *testing.T) {
 	// Check that the requests were for the new version
 	close(requests)
 	for req := range requests {
-		if !strings.HasPrefix(req.Host, "blabla.net") {
-			t.Fatalf("Unexpected Host: want: %s, got: %s", "blabla.net", req.Host)
+		if !strings.HasPrefix(req.Host, domain) {
+			t.Fatalf("Host = %s, want: %s", req.Host, domain)
 		}
 	}
 }
@@ -335,9 +331,6 @@ func TestCancelIngresProbing(t *testing.T) {
 		t.Fatalf("Failed to parse URL %q: %v", ts.URL, err)
 	}
 	hostname := url.Hostname()
-	if err != nil {
-		t.Fatalf("Failed to parse port %q: %v", url.Port(), err)
-	}
 	port, err := strconv.Atoi(url.Port())
 	if err != nil {
 		t.Fatalf("Failed to parse port %q: %v", url.Port(), err)
@@ -364,15 +357,17 @@ func TestCancelIngresProbing(t *testing.T) {
 		t.Fatalf("IsReady failed: %v", err)
 	}
 	if ok {
-		t.Fatalf("IsReady returned %v, want: %v", ok, false)
+		t.Fatal("IsReady() returned true")
 	}
 
 	// Wait for the first probe request
 	<-requests
 
+	const domain = "blabla.net"
+
 	// Create a new version of the Ingress
 	ing = ing.DeepCopy()
-	ing.Spec.Rules[0].Hosts[0] = "blabla.net"
+	ing.Spec.Rules[0].Hosts[0] = domain
 
 	// Check that probing is unsuccessful
 	select {
@@ -386,25 +381,25 @@ func TestCancelIngresProbing(t *testing.T) {
 		t.Fatalf("IsReady failed: %v", err)
 	}
 	if ok {
-		t.Fatalf("IsReady returned %v, want: %v", ok, false)
+		t.Fatal("IsReady() returned true")
 	}
 
-	// Drain requests for the old version
+	// Drain requests for the old version.
 	for req := range requests {
-		log.Printf("req.Host: %s", req.Host)
-		if strings.HasPrefix(req.Host, "blabla.net") {
+		t.Logf("req.Host: %s", req.Host)
+		if strings.HasPrefix(req.Host, domain) {
 			break
 		}
 	}
 
-	// Cancel Ingress probing
+	// Cancel Ingress probing.
 	prober.CancelIngressProbing(ing)
 
-	// Check that the requests were for the new version
+	// Check that the requests were for the new version.
 	close(requests)
 	for req := range requests {
-		if !strings.HasPrefix(req.Host, "blabla.net") {
-			t.Fatalf("Unexpected Host: want: %s, got: %s", "blabla.net", req.Host)
+		if !strings.HasPrefix(req.Host, domain) {
+			t.Fatalf("Host = %s, want: %s", req.Host, domain)
 		}
 	}
 }
