@@ -115,11 +115,9 @@ var (
 	}}
 
 	ingressTLS = []v1alpha1.IngressTLS{{
-		Hosts:             []string{"host-tls.example.com"},
-		SecretName:        "secret0",
-		SecretNamespace:   "istio-system",
-		ServerCertificate: "tls.crt",
-		PrivateKey:        "tls.key",
+		Hosts:           []string{"host-tls.example.com"},
+		SecretName:      "secret0",
+		SecretNamespace: "istio-system",
 	}}
 
 	// The gateway server according to ingressTLS.

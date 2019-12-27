@@ -725,14 +725,10 @@ func TestMakeIngress_WithTLS(t *testing.T) {
 	targets := map[string]traffic.RevisionTargets{}
 	ingressClass := "foo-ingress"
 	r := Route(ns, "test-route", WithRouteUID("1234-5678"), WithURL)
-	tls := []netv1alpha1.IngressTLS{
-		{
-			Hosts:             []string{"*.default.domain.com"},
-			PrivateKey:        "tls.key",
-			SecretName:        "secret",
-			ServerCertificate: "tls.crt",
-		},
-	}
+	tls := []netv1alpha1.IngressTLS{{
+		Hosts:      []string{"*.default.domain.com"},
+		SecretName: "secret",
+	}}
 	expected := &netv1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",

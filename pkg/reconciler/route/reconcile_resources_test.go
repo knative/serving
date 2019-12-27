@@ -153,15 +153,11 @@ func newTestIngress(t *testing.T, r *v1alpha1.Route, trafficOpts ...func(tc *tra
 		opt(tc)
 	}
 
-	tls := []netv1alpha1.IngressTLS{
-		{
-			Hosts:             []string{"test-route.test-ns.example.com"},
-			PrivateKey:        "tls.key",
-			SecretName:        "test-secret",
-			SecretNamespace:   "test-ns",
-			ServerCertificate: "tls.crt",
-		},
-	}
+	tls := []netv1alpha1.IngressTLS{{
+		Hosts:           []string{"test-route.test-ns.example.com"},
+		SecretName:      "test-secret",
+		SecretNamespace: "test-ns",
+	}}
 	ingress, err := resources.MakeIngress(getContext(), r, tc, tls, sets.NewString(), "foo-ingress")
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
