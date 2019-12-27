@@ -175,7 +175,7 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress)
 		return err
 	}
 
-	if enableReconcileGateway(ctx) && ia.IsPublic() {
+	if r.shouldReconcileTLS(ia) {
 		// Add the finalizer before adding `Servers` into Gateway so that we can be sure
 		// the `Servers` get cleaned up from Gateway.
 		if err := r.ensureFinalizer(ia); err != nil {
@@ -472,7 +472,12 @@ func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus 
 	}
 }
 
-func enableReconcileGateway(ctx context.Context) bool {
-	return config.FromContext(ctx).Network.AutoTLS || config.FromContext(ctx).Istio.ReconcileExternalGateway
+func (r *Reconciler) shouldReconcileTLS(ia *v1alpha1.Ingress) bool {
+	// We should keep reconciling the Ingress whose TLS has been reconciled before
+	// to make sure deleting IngressTLS will clean up the TLS server in the Gateway.
+	return (ia.IsPublic() && len(ia.Spec.TLS) > 0) || r.wasTLSReconciled(ia)
+}
 
+func (r *Reconciler) wasTLSReconciled(ia *v1alpha1.Ingress) bool {
+	return len(ia.GetFinalizers()) != 0 && ia.GetFinalizers()[0] == r.finalizer
 }

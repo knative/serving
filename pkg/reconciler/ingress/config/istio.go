@@ -19,7 +19,6 @@ package config
 import (
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -39,13 +38,6 @@ const (
 
 	// localGatewayKeyPrefix is the prefix of all keys to configure Istio gateways for public & private Ingresses.
 	localGatewayKeyPrefix = "local-gateway."
-
-	// reconcileExternalGatewayKey the is the name of the configuration entry that specifies
-	// reconciling external Istio Gateways or not.
-	reconcileExternalGatewayKey = "reconcileExternalGateway"
-
-	// defaultReconcileGateway is the default value of reconcileExternalGateway.
-	defaultReconcileGateway = false
 )
 
 func defaultGateways() []Gateway {
@@ -86,9 +78,6 @@ type Istio struct {
 
 	// LocalGateway specifies the gateway urls for public & private Ingress.
 	LocalGateways []Gateway
-
-	// ReconcileExternalGateway specifies if external Istio Gateways will be reconciled or not.
-	ReconcileExternalGateway bool
 }
 
 func parseGateways(configMap *corev1.ConfigMap, prefix string) ([]Gateway, error) {
@@ -143,16 +132,9 @@ func NewIstioFromConfigMap(configMap *corev1.ConfigMap) (*Istio, error) {
 		localGateways = defaultLocalGateways()
 	}
 	localGateways = removeMeshGateway(localGateways)
-	reconcileGateway := defaultReconcileGateway
-	if reconcileGatewayStr := configMap.Data[reconcileExternalGatewayKey]; len(reconcileGatewayStr) != 0 {
-		if reconcileGateway, err = strconv.ParseBool(reconcileGatewayStr); err != nil {
-			return nil, err
-		}
-	}
 	return &Istio{
-		IngressGateways:          gateways,
-		LocalGateways:            localGateways,
-		ReconcileExternalGateway: reconcileGateway,
+		IngressGateways: gateways,
+		LocalGateways:   localGateways,
 	}, nil
 }
 
