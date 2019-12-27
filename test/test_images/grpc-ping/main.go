@@ -18,17 +18,17 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 
 	"google.golang.org/grpc"
 
 	"knative.dev/pkg/network"
+	servingnetwork "knative.dev/serving/pkg/network"
 	ping "knative.dev/serving/test/test_images/grpc-ping/proto"
 )
 
-const addr = ":8080"
-
 func pong(req *ping.Request) *ping.Response {
-	return &ping.Response{Msg: req.Msg}
+	return &ping.Response{Msg: req.Msg + os.Getenv("SUFFIX")}
 }
 
 type server struct{}
@@ -46,12 +46,10 @@ func (s *server) PingStream(stream ping.PingService_PingStreamServer) error {
 	log.Printf("Starting stream")
 	for {
 		req, err := stream.Recv()
-
 		if err == io.EOF {
 			log.Printf("Ending stream")
 			return nil
 		}
-
 		if err != nil {
 			log.Printf("Failed to receive ping: %v", err)
 			return err
@@ -63,7 +61,6 @@ func (s *server) PingStream(stream ping.PingService_PingStreamServer) error {
 
 		log.Printf("Sending pong: %v", resp.Msg)
 		err = stream.Send(resp)
-
 		if err != nil {
 			log.Printf("Failed to send pong: %v", err)
 			return err
@@ -72,18 +69,20 @@ func (s *server) PingStream(stream ping.PingService_PingStreamServer) error {
 }
 
 func httpWrapper(g *grpc.Server) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.ProtoMajor == 2 && r.Header.Get("Content-Type") == "application/grpc" {
-			g.ServeHTTP(w, r)
-		}
-	})
+	return servingnetwork.NewProbeHandler(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.ProtoMajor == 2 && r.Header.Get("Content-Type") == "application/grpc" {
+				g.ServeHTTP(w, r)
+			}
+		}),
+	)
 }
 
 func main() {
-	log.Printf("Starting server on %s", addr)
+	log.Printf("Starting server on %s", os.Getenv("PORT"))
 
 	g := grpc.NewServer()
-	s := network.NewServer(addr, httpWrapper(g))
+	s := network.NewServer(":"+os.Getenv("PORT"), httpWrapper(g))
 
 	ping.RegisterPingServiceServer(g, &server{})
 
