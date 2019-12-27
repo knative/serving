@@ -36,6 +36,8 @@ import (
 	"knative.dev/serving/pkg/resources"
 )
 
+var retriableConditions = strings.Join([]string{"5xx", "connect-failure", "refused-stream", "cancelled", "resource-exhausted", "retriable-status-codes"}, ",")
+
 // VirtualServiceNamespace gives the namespace of the child
 // VirtualServices for a given Ingress.
 func VirtualServiceNamespace(ia *v1alpha1.Ingress) string {
@@ -191,7 +193,7 @@ func makeVirtualServiceRoute(hosts sets.String, http *v1alpha1.HTTPIngressPath, 
 		Timeout: types.DurationProto(http.Timeout.Duration),
 		Retries: &istiov1alpha3.HTTPRetry{
 			// TODO(https://github.com/knative/serving/issues/6367): Allow customization of this.
-			RetryOn:       strings.Join([]string{"5xx", "connect-failure", "refused-stream", "cancelled", "resource-exhausted", "retriable-status-codes"}, ","),
+			RetryOn:       retriableConditions,
 			Attempts:      int32(http.Retries.Attempts),
 			PerTryTimeout: types.DurationProto(http.Retries.PerTryTimeout.Duration),
 		},
