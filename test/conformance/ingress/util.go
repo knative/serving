@@ -187,6 +187,80 @@ func CreateTimeoutService(t *testing.T, clients *test.Clients) (string, int, con
 	return name, port, createPodAndService(t, clients, pod, svc)
 }
 
+// CreateWebsocketService creates a Kubernetes service that will upgrade the connection
+// to use websockets and echo back the received messages with the provided suffix.
+func CreateWebsocketService(t *testing.T, clients *test.Clients, suffix string) (string, int, context.CancelFunc) {
+	t.Helper()
+	name := test.ObjectNameForTest(t)
+
+	// Avoid zero, but pick a low port number.
+	port := 50 + rand.Intn(50)
+	t.Logf("[%s] Using port %d", name, port)
+
+	// Pick a high port number.
+	containerPort := 8000 + rand.Intn(100)
+	t.Logf("[%s] Using containerPort %d", name, containerPort)
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: test.ServingNamespace,
+			Labels: map[string]string{
+				"test-pod": name,
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:  "foo",
+				Image: pkgTest.ImagePath("wsserver"),
+				Ports: []corev1.ContainerPort{{
+					Name:          networking.ServicePortNameHTTP1,
+					ContainerPort: int32(containerPort),
+				}},
+				// This is needed by the runtime image we are using.
+				Env: []corev1.EnvVar{{
+					Name:  "PORT",
+					Value: strconv.Itoa(containerPort),
+				}, {
+					Name:  "SUFFIX",
+					Value: suffix,
+				}},
+				ReadinessProbe: &corev1.Probe{
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Path: "/",
+							Port: intstr.FromInt(containerPort),
+						},
+					},
+				},
+			}},
+		},
+	}
+
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: test.ServingNamespace,
+			Labels: map[string]string{
+				"test-pod": name,
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: "ClusterIP",
+			Ports: []corev1.ServicePort{{
+				Name:       networking.ServicePortNameHTTP1,
+				Port:       int32(port),
+				TargetPort: intstr.FromInt(int(containerPort)),
+			}},
+			Selector: map[string]string{
+				"test-pod": name,
+			},
+		},
+	}
+
+	return name, port, createPodAndService(t, clients, pod, svc)
+}
+
 // createPodAndService is a helper for creating the pod and service resources, setting
 // up their context.CancelFunc, and waiting for it to become ready.
 func createPodAndService(t *testing.T, clients *test.Clients, pod *corev1.Pod, svc *corev1.Service) context.CancelFunc {
@@ -272,7 +346,7 @@ func CreateIngress(t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpe
 	}
 }
 
-func CreateIngressReady(t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpec) (string, *http.Client, context.CancelFunc) {
+func CreateIngressReadyDialContext(t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpec) (string, func(context.Context, string, string) (net.Conn, error), context.CancelFunc) {
 	t.Helper()
 	name, cancel := CreateIngress(t, clients, spec)
 
@@ -286,10 +360,18 @@ func CreateIngressReady(t *testing.T, clients *test.Clients, spec v1alpha1.Ingre
 		t.Fatalf("Error getting Ingress: %v", err)
 	}
 
+	// Create a dialer based on the Ingress' public load balancer.
+	return name, CreateDialContext(t, ing, clients), cancel
+}
+
+func CreateIngressReady(t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpec) (string, *http.Client, context.CancelFunc) {
+	t.Helper()
+
 	// Create a client with a dialer based on the Ingress' public load balancer.
+	name, dialer, cancel := CreateIngressReadyDialContext(t, clients, spec)
 	return name, &http.Client{
 		Transport: &http.Transport{
-			DialContext: CreateDialContext(t, ing, clients),
+			DialContext: dialer,
 		},
 	}, cancel
 }
