@@ -40,7 +40,7 @@ func (w *ManualWatcher) Watch(name string, o ...Observer) {
 	defer w.m.Unlock()
 
 	if w.observers == nil {
-		w.observers = make(map[string][]Observer, 1)
+		w.observers = make(map[string][]Observer, len(o))
 	}
 	w.observers[name] = append(w.observers[name], o...)
 }
