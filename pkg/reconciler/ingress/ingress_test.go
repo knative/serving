@@ -549,10 +549,9 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		WantCreates: []runtime.Object{
 			// The creation of gateways are triggered when setting up the test.
 			gateway(networking.KnativeIngressGateway, system.Namespace(), []*istiov1alpha3.Server{irrelevantServer, ingressTLSServer}),
-
-			resources.MakeMeshVirtualService(insertProbe(ingressWithFinalizers("reconciling-ingress", 1234, []v1alpha1.IngressTLS{}, []string{ingressFinalizer}, nil))),
 			resources.MakeIngressVirtualService(insertProbe(ingressWithFinalizers("reconciling-ingress", 1234, []v1alpha1.IngressTLS{}, []string{ingressFinalizer}, nil)),
 				makeGatewayMap([]string{"knative-testing/" + networking.KnativeIngressGateway}, nil)),
+			resources.MakeMeshVirtualService(insertProbe(ingressWithFinalizers("reconciling-ingress", 1234, []v1alpha1.IngressTLS{}, []string{ingressFinalizer}, nil))),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			// IngressTLS related TLS servers should be removed from Gateway.
@@ -596,8 +595,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconciling-ingress-mesh"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconciling-ingress"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconciling-ingress-mesh"),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Gateway %s/%s", system.Namespace(), networking.KnativeIngressGateway),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for Ingress %q", "reconciling-ingress"),
 		},
