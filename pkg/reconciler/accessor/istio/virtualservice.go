@@ -74,6 +74,8 @@ func ReconcileVirtualService(ctx context.Context, owner kmeta.Accessor, desired 
 		// Don't modify the informers copy
 		existing := vs.DeepCopy()
 		existing.Spec = desired.Spec
+		existing.Labels = desired.Labels
+		existing.Annotations = desired.Annotations
 		vs, err = vsAccessor.GetIstioClient().NetworkingV1alpha3().VirtualServices(ns).Update(existing)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update VirtualService: %w", err)
