@@ -189,8 +189,8 @@ func MakeTLSServers(ia *v1alpha1.Ingress, gatewayServiceNamespace string, origin
 			},
 			Tls: &istiov1alpha3.Server_TLSOptions{
 				Mode:              istiov1alpha3.Server_TLSOptions_SIMPLE,
-				ServerCertificate: tls.ServerCertificate,
-				PrivateKey:        tls.PrivateKey,
+				ServerCertificate: corev1.TLSCertKey,
+				PrivateKey:        corev1.TLSPrivateKeyKey,
 				CredentialName:    credentialName,
 			},
 		}

@@ -54,53 +54,6 @@ func TestIngressDefaulting(t *testing.T) {
 			},
 		},
 	}, {
-		name: "tls-defaulting",
-		in: &Ingress{
-			Spec: IngressSpec{
-				TLS: []IngressTLS{{
-					SecretNamespace: "secret-space",
-					SecretName:      "secret-name",
-				}},
-			},
-		},
-		want: &Ingress{
-			Spec: IngressSpec{
-				TLS: []IngressTLS{{
-					SecretNamespace: "secret-space",
-					SecretName:      "secret-name",
-					// Default secret keys are filled in.
-					ServerCertificate: "tls.crt",
-					PrivateKey:        "tls.key",
-				}},
-				Visibility: IngressVisibilityExternalIP,
-			},
-		},
-	}, {
-		name: "tls-not-defaulting",
-		in: &Ingress{
-			Spec: IngressSpec{
-				TLS: []IngressTLS{{
-					SecretNamespace:   "secret-space",
-					SecretName:        "secret-name",
-					ServerCertificate: "custom.tls.cert",
-					PrivateKey:        "custom.tls.key",
-				}},
-				Visibility: IngressVisibilityExternalIP,
-			},
-		},
-		want: &Ingress{
-			Spec: IngressSpec{
-				TLS: []IngressTLS{{
-					SecretNamespace: "secret-space",
-					SecretName:      "secret-name",
-					// Default secret keys are kept intact.
-					ServerCertificate: "custom.tls.cert",
-					PrivateKey:        "custom.tls.key",
-				}},
-				Visibility: IngressVisibilityExternalIP,
-			},
-		},
-	}, {
 		name: "split-timeout-retry-defaulting",
 		in: &Ingress{
 			Spec: IngressSpec{
