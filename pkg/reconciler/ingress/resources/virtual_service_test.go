@@ -69,7 +69,6 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 			Name:      "test-ingress-mesh",
 			Namespace: system.Namespace(),
 			Labels: map[string]string{
-				networking.IngressLabelKey:     "test-ingress",
 				serving.RouteLabelKey:          "test-route",
 				serving.RouteNamespaceLabelKey: "test-ns",
 			},
@@ -77,7 +76,6 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 			Name:      "test-ingress",
 			Namespace: system.Namespace(),
 			Labels: map[string]string{
-				networking.IngressLabelKey:     "test-ingress",
 				serving.RouteLabelKey:          "test-route",
 				serving.RouteNamespaceLabelKey: "test-ns",
 			},
@@ -106,7 +104,6 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 			Name:      "test-ingress",
 			Namespace: system.Namespace(),
 			Labels: map[string]string{
-				networking.IngressLabelKey:     "test-ingress",
 				serving.RouteLabelKey:          "test-route",
 				serving.RouteNamespaceLabelKey: "test-ns",
 			},
@@ -135,7 +132,6 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 			Name:      "test-ingress-mesh",
 			Namespace: system.Namespace(),
 			Labels: map[string]string{
-				networking.IngressLabelKey:     "test-ingress",
 				serving.RouteLabelKey:          "test-route",
 				serving.RouteNamespaceLabelKey: "test-ns",
 			},
@@ -164,7 +160,6 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 			Name:      "test-ingress-mesh",
 			Namespace: "test-ns",
 			Labels: map[string]string{
-				networking.IngressLabelKey:     "test-ingress",
 				serving.RouteLabelKey:          "test-route",
 				serving.RouteNamespaceLabelKey: "test-ns",
 			},

@@ -276,6 +276,7 @@ func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ia *v1alpha1.
 			continue
 		}
 		if !metav1.IsControlledBy(vs, ia) {
+			// We shouldn't remove resources not controlled by us.
 			continue
 		}
 		if err = r.IstioClientSet.NetworkingV1alpha3().VirtualServices(ns).Delete(n, &metav1.DeleteOptions{}); err != nil {
