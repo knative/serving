@@ -75,7 +75,7 @@ func TestUpdate(t *testing.T) {
 		t.Logf("Tearing down %q", firstName)
 		firstCancel()
 	}
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 10; i++ {
 		nextName, nextPort, nextCancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
 
 		t.Logf("Rolling out %q", nextName)
