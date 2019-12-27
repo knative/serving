@@ -170,6 +170,7 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress)
 	// First, create the VirtualServices.
 	logger.Infof("Creating/Updating VirtualServices")
 	ia.Status.ObservedGeneration = ia.GetGeneration()
+	fmt.Printf("-----vses: %v\n", vses)
 	if err := r.reconcileVirtualServices(ctx, ia, vses); err != nil {
 		ia.Status.MarkLoadBalancerFailed(virtualServiceNotReconciled, err.Error())
 		return err
@@ -468,9 +469,11 @@ func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus 
 }
 
 func (r *Reconciler) shouldReconcileTLS(ia *v1alpha1.Ingress) bool {
-	// For the case which the finalizer was added to an Ingress, we should recocnile TLS.
-	// This is because IngressTLS could be added before and then deleted later. We
-	// need to make sure deleting IngressTLS also cleans up the TLS of the Gateway.
-	return (len(ia.GetFinalizers()) != 0 && ia.GetFinalizers()[0] != r.finalizer) ||
-		(ia.IsPublic() && len(ia.Spec.TLS) > 0)
+	// We should keep reconciling the Ingress whose TLS has been reconciled before
+	// to make sure deleting IngressTLS will clean up the TLS server in the Gateway.
+	return (ia.IsPublic() && len(ia.Spec.TLS) > 0) || r.wasTLSReconciled(ia)
+}
+
+func (r *Reconciler) wasTLSReconciled(ia *v1alpha1.Ingress) bool {
+	return len(ia.GetFinalizers()) != 0 && ia.GetFinalizers()[0] == r.finalizer
 }
