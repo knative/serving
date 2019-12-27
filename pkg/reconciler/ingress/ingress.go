@@ -261,6 +261,7 @@ func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ia *v1alpha1.
 		}
 		kept.Insert(d.Name)
 	}
+
 	// Now, remove the extra ones.
 	vses, err := r.virtualServiceLister.VirtualServices(resources.VirtualServiceNamespace(ia)).List(
 		labels.Set(map[string]string{
@@ -272,6 +273,10 @@ func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ia *v1alpha1.
 	for _, vs := range vses {
 		n, ns := vs.Name, vs.Namespace
 		if kept.Has(n) {
+			continue
+		}
+		if !metav1.IsControlledBy(vs, ia) {
+			// We shouldn't remove resources not controlled by us.
 			continue
 		}
 		if err = r.IstioClientSet.NetworkingV1alpha3().VirtualServices(ns).Delete(n, &metav1.DeleteOptions{}); err != nil {
@@ -469,4 +474,5 @@ func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus 
 
 func enableReconcileGateway(ctx context.Context) bool {
 	return config.FromContext(ctx).Network.AutoTLS || config.FromContext(ctx).Istio.ReconcileExternalGateway
+
 }
