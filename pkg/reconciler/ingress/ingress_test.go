@@ -407,7 +407,7 @@ func TestReconcile(t *testing.T) {
 				config: ReconcilerTestConfig(),
 			},
 			statusManager: &fakeStatusManager{
-				FakeIsReady: func(ctx context.Context, ia *v1alpha1.Ingress) (bool, error) {
+				FakeIsReady: func(ctx context.Context, ing *v1alpha1.Ingress) (bool, error) {
 					return true, nil
 				},
 			},
@@ -883,7 +883,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				},
 			},
 			statusManager: &fakeStatusManager{
-				FakeIsReady: func(ctx context.Context, ia *v1alpha1.Ingress) (bool, error) {
+				FakeIsReady: func(ctx context.Context, ing *v1alpha1.Ingress) (bool, error) {
 					return true, nil
 				},
 			},
@@ -1080,7 +1080,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	controller := NewController(ctx, configMapWatcher)
 
 	controller.Reconciler.(*Reconciler).statusManager = &fakeStatusManager{
-		FakeIsReady: func(ctx context.Context, ia *v1alpha1.Ingress) (bool, error) {
+		FakeIsReady: func(ctx context.Context, ing *v1alpha1.Ingress) (bool, error) {
 			return true, nil
 		},
 	}
@@ -1195,10 +1195,10 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 	}
 }
 
-func insertProbe(ia *v1alpha1.Ingress) *v1alpha1.Ingress {
-	ia = ia.DeepCopy()
-	ingress.InsertProbe(ia)
-	return ia
+func insertProbe(ing *v1alpha1.Ingress) *v1alpha1.Ingress {
+	ing = ing.DeepCopy()
+	ingress.InsertProbe(ing)
+	return ing
 }
 
 func TestGlobalResyncOnUpdateNetwork(t *testing.T) {
@@ -1312,9 +1312,9 @@ func makeGatewayMap(publicGateways []string, privateGateways []string) map[v1alp
 }
 
 type fakeStatusManager struct {
-	FakeIsReady func(ctx context.Context, ia *v1alpha1.Ingress) (bool, error)
+	FakeIsReady func(ctx context.Context, ing *v1alpha1.Ingress) (bool, error)
 }
 
-func (m *fakeStatusManager) IsReady(ctx context.Context, ia *v1alpha1.Ingress) (bool, error) {
-	return m.FakeIsReady(ctx, ia)
+func (m *fakeStatusManager) IsReady(ctx context.Context, ing *v1alpha1.Ingress) (bool, error) {
+	return m.FakeIsReady(ctx, ing)
 }

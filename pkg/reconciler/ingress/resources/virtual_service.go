@@ -37,97 +37,105 @@ import (
 	"knative.dev/serving/pkg/resources"
 )
 
+var retriableConditions = strings.Join([]string{
+	"5xx",
+	"connect-failure",
+	"refused-stream",
+	"cancelled",
+	"resource-exhausted",
+	"retriable-status-codes"}, ",")
+
 // VirtualServiceNamespace gives the namespace of the child
 // VirtualServices for a given Ingress.
-func VirtualServiceNamespace(ia *v1alpha1.Ingress) string {
-	if len(ia.GetNamespace()) == 0 {
+func VirtualServiceNamespace(ing *v1alpha1.Ingress) string {
+	if len(ing.GetNamespace()) == 0 {
 		return system.Namespace()
 	}
-	return ia.GetNamespace()
+	return ing.GetNamespace()
 }
 
 // MakeIngressVirtualService creates Istio VirtualService as network
 // programming for Istio Gateways other than 'mesh'.
-func MakeIngressVirtualService(ia *v1alpha1.Ingress, gateways map[v1alpha1.IngressVisibility]sets.String) *v1alpha3.VirtualService {
+func MakeIngressVirtualService(ing *v1alpha1.Ingress, gateways map[v1alpha1.IngressVisibility]sets.String) *v1alpha3.VirtualService {
 	vs := &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            names.IngressVirtualService(ia),
-			Namespace:       VirtualServiceNamespace(ia),
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ia)},
-			Annotations:     ia.GetAnnotations(),
+			Name:            names.IngressVirtualService(ing),
+			Namespace:       VirtualServiceNamespace(ing),
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ing)},
+			Annotations:     ing.GetAnnotations(),
 		},
-		Spec: *makeVirtualServiceSpec(ia, gateways, ingress.ExpandedHosts(getHosts(ia))),
+		Spec: *makeVirtualServiceSpec(ing, gateways, ingress.ExpandedHosts(getHosts(ing))),
 	}
 
 	// Populate the Ingress labels.
-	vs.Labels = resources.FilterMap(ia.GetLabels(), func(k string) bool {
+	vs.Labels = resources.FilterMap(ing.GetLabels(), func(k string) bool {
 		return k != serving.RouteLabelKey && k != serving.RouteNamespaceLabelKey
 	})
-	vs.Labels[networking.IngressLabelKey] = ia.Name
+	vs.Labels[networking.IngressLabelKey] = ing.Name
 	return vs
 }
 
 // MakeMeshVirtualService creates a mesh Virtual Service
-func MakeMeshVirtualService(ia *v1alpha1.Ingress) *v1alpha3.VirtualService {
-	hosts := ingress.ExpandedHosts(keepLocalHostnames(getHosts(ia)))
+func MakeMeshVirtualService(ing *v1alpha1.Ingress) *v1alpha3.VirtualService {
+	hosts := ingress.ExpandedHosts(keepLocalHostnames(getHosts(ing)))
 	if len(hosts) == 0 {
 		return nil
 	}
 	vs := &v1alpha3.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            names.MeshVirtualService(ia),
-			Namespace:       VirtualServiceNamespace(ia),
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ia)},
-			Annotations:     ia.GetAnnotations(),
+			Name:            names.MeshVirtualService(ing),
+			Namespace:       VirtualServiceNamespace(ing),
+			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ing)},
+			Annotations:     ing.GetAnnotations(),
 		},
-		Spec: *makeVirtualServiceSpec(ia, map[v1alpha1.IngressVisibility]sets.String{
+		Spec: *makeVirtualServiceSpec(ing, map[v1alpha1.IngressVisibility]sets.String{
 			v1alpha1.IngressVisibilityExternalIP:   sets.NewString("mesh"),
 			v1alpha1.IngressVisibilityClusterLocal: sets.NewString("mesh"),
 		}, hosts),
 	}
 	// Populate the Ingress labels.
-	vs.Labels = resources.FilterMap(ia.GetLabels(), func(k string) bool {
+	vs.Labels = resources.FilterMap(ing.GetLabels(), func(k string) bool {
 		return k != serving.RouteLabelKey && k != serving.RouteNamespaceLabelKey
 	})
-	vs.Labels[networking.IngressLabelKey] = ia.Name
+	vs.Labels[networking.IngressLabelKey] = ing.Name
 	return vs
 }
 
 // MakeVirtualServices creates a mesh virtualservice and a virtual service for each gateway
-func MakeVirtualServices(ia *v1alpha1.Ingress, gateways map[v1alpha1.IngressVisibility]sets.String) ([]*v1alpha3.VirtualService, error) {
+func MakeVirtualServices(ing *v1alpha1.Ingress, gateways map[v1alpha1.IngressVisibility]sets.String) ([]*v1alpha3.VirtualService, error) {
 	// Insert probe header
-	ia = ia.DeepCopy()
-	if _, err := ingress.InsertProbe(ia); err != nil {
+	ing = ing.DeepCopy()
+	if _, err := ingress.InsertProbe(ing); err != nil {
 		return nil, fmt.Errorf("failed to insert a probe into the Ingress: %w", err)
 	}
 	vss := []*v1alpha3.VirtualService{}
-	if meshVs := MakeMeshVirtualService(ia); meshVs != nil {
+	if meshVs := MakeMeshVirtualService(ing); meshVs != nil {
 		vss = append(vss, meshVs)
 	}
 	requiredGatewayCount := 0
-	if len(getPublicIngressRules(ia)) > 0 {
+	if len(getPublicIngressRules(ing)) > 0 {
 		requiredGatewayCount += gateways[v1alpha1.IngressVisibilityExternalIP].Len()
 	}
 
-	if len(getClusterLocalIngressRules(ia)) > 0 {
+	if len(getClusterLocalIngressRules(ing)) > 0 {
 		requiredGatewayCount += gateways[v1alpha1.IngressVisibilityClusterLocal].Len()
 	}
 
 	if requiredGatewayCount > 0 {
-		vss = append(vss, MakeIngressVirtualService(ia, gateways))
+		vss = append(vss, MakeIngressVirtualService(ing, gateways))
 	}
 
 	return vss, nil
 }
 
-func makeVirtualServiceSpec(ia *v1alpha1.Ingress, gateways map[v1alpha1.IngressVisibility]sets.String, hosts sets.String) *istiov1alpha3.VirtualService {
+func makeVirtualServiceSpec(ing *v1alpha1.Ingress, gateways map[v1alpha1.IngressVisibility]sets.String, hosts sets.String) *istiov1alpha3.VirtualService {
 	gw := sets.String{}.Union(gateways[v1alpha1.IngressVisibilityClusterLocal]).Union(gateways[v1alpha1.IngressVisibilityExternalIP])
 	spec := istiov1alpha3.VirtualService{
 		Gateways: gw.List(),
 		Hosts:    hosts.List(),
 	}
 
-	for _, rule := range ia.Spec.Rules {
+	for _, rule := range ing.Spec.Rules {
 		for _, p := range rule.HTTP.Paths {
 			hosts := hosts.Intersection(sets.NewString(rule.Hosts...))
 			if hosts.Len() != 0 {
@@ -189,6 +197,8 @@ func makeVirtualServiceRoute(hosts sets.String, http *v1alpha1.HTTPIngressPath, 
 		Route:   weights,
 		Timeout: types.DurationProto(http.Timeout.Duration),
 		Retries: &istiov1alpha3.HTTPRetry{
+			// TODO(https://github.com/knative/serving/issues/6367): Allow customization of this.
+			RetryOn:       retriableConditions,
 			Attempts:      int32(http.Retries.Attempts),
 			PerTryTimeout: types.DurationProto(http.Retries.PerTryTimeout.Duration),
 		},
@@ -236,9 +246,9 @@ func hostPrefix(host string) string {
 	return strings.TrimSuffix(host, localDomainSuffix)
 }
 
-func getHosts(ia *v1alpha1.Ingress) sets.String {
+func getHosts(ing *v1alpha1.Ingress) sets.String {
 	hosts := sets.NewString()
-	for _, rule := range ia.Spec.Rules {
+	for _, rule := range ing.Spec.Rules {
 		hosts.Insert(rule.Hosts...)
 	}
 	return hosts
