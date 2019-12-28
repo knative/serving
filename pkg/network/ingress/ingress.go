@@ -29,26 +29,26 @@ import (
 )
 
 // ComputeHash computes a hash of the Ingress Spec, Namespace and Name
-func ComputeHash(ia *v1alpha1.Ingress) ([16]byte, error) {
-	bytes, err := json.Marshal(ia.Spec)
+func ComputeHash(ing *v1alpha1.Ingress) ([16]byte, error) {
+	bytes, err := json.Marshal(ing.Spec)
 	if err != nil {
 		return [16]byte{}, fmt.Errorf("failed to serialize Ingress: %w", err)
 	}
-	bytes = append(bytes, []byte(ia.GetNamespace())...)
-	bytes = append(bytes, []byte(ia.GetName())...)
+	bytes = append(bytes, []byte(ing.GetNamespace())...)
+	bytes = append(bytes, []byte(ing.GetName())...)
 	return md5.Sum(bytes), nil
 }
 
 // InsertProbe adds a AppendHeader rule so that any request going through a Gateway is tagged with
 // the version of the Ingress currently deployed on the Gateway.
-func InsertProbe(ia *v1alpha1.Ingress) (string, error) {
-	bytes, err := ComputeHash(ia)
+func InsertProbe(ing *v1alpha1.Ingress) (string, error) {
+	bytes, err := ComputeHash(ing)
 	if err != nil {
 		return "", fmt.Errorf("failed to compute the hash of the Ingress: %w", err)
 	}
 	hash := fmt.Sprintf("%x", bytes)
 
-	for _, rule := range ia.Spec.Rules {
+	for _, rule := range ing.Spec.Rules {
 		if rule.HTTP == nil {
 			return "", fmt.Errorf("rule is missing HTTP block: %+v", rule)
 		}
@@ -65,9 +65,9 @@ func InsertProbe(ia *v1alpha1.Ingress) (string, error) {
 
 // HostsPerVisibility takes an Ingress and a map from visibility levels to a set of string keys,
 // it then returns a map from that key space to the hosts under that visibility.
-func HostsPerVisibility(ia *v1alpha1.Ingress, visibilityToKey map[v1alpha1.IngressVisibility]sets.String) map[string]sets.String {
+func HostsPerVisibility(ing *v1alpha1.Ingress, visibilityToKey map[v1alpha1.IngressVisibility]sets.String) map[string]sets.String {
 	output := make(map[string]sets.String)
-	for _, rule := range ia.Spec.Rules {
+	for _, rule := range ing.Spec.Rules {
 		for host := range ExpandedHosts(sets.NewString(rule.Hosts...)) {
 			for key := range visibilityToKey[rule.Visibility] {
 				if _, ok := output[key]; !ok {
