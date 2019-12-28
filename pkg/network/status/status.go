@@ -193,7 +193,8 @@ func (m *Prober) IsReady(ctx context.Context, ing *v1alpha1.Ingress) (bool, erro
 
 	allPodIPs := sets.NewString()
 	for _, target := range allProbeTargets {
-		for ip := range target.PodIPs {
+		// Iterate through sorted Pod IPs, for a consistent order.
+		for _, ip := range target.PodIPs.List() {
 			allPodIPs.Insert(ip)
 			// Each Pod is probed using the different hosts, protocol and ports until
 			// one of the probing calls succeeds. Then, the Pod is considered ready and all pending work items
