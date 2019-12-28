@@ -215,6 +215,88 @@ func TestMakeMeshVirtualServiceSpec_CorrectGateways(t *testing.T) {
 	}
 }
 
+func TestMakeMeshVirtualServiceSpec_CorrectRetries(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		ci       *v1alpha1.Ingress
+		expected *istiov1alpha3.HTTPRetry
+	}{{
+		name: "default retries",
+		ci: &v1alpha1.Ingress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-ingress",
+				Namespace: system.Namespace(),
+				Labels: map[string]string{
+					serving.RouteLabelKey:          "test-route",
+					serving.RouteNamespaceLabelKey: "test-ns",
+				},
+			},
+			Spec: v1alpha1.IngressSpec{
+				Rules: []v1alpha1.IngressRule{{
+					Hosts: []string{
+						"test-route.test-ns.svc.cluster.local",
+					},
+					Visibility: v1alpha1.IngressVisibilityExternalIP,
+					HTTP: &v1alpha1.HTTPIngressRuleValue{
+						Paths: []v1alpha1.HTTPIngressPath{{
+							Timeout: &metav1.Duration{Duration: defaultMaxRevisionTimeout},
+							Retries: &v1alpha1.HTTPRetry{
+								PerTryTimeout: &metav1.Duration{Duration: defaultMaxRevisionTimeout},
+								Attempts:      networking.DefaultRetryCount,
+							},
+						}},
+					},
+				}}},
+		},
+		expected: &istiov1alpha3.HTTPRetry{
+			RetryOn:       retriableConditions,
+			Attempts:      int32(networking.DefaultRetryCount),
+			PerTryTimeout: types.DurationProto(defaultMaxRevisionTimeout),
+		},
+	}, {
+		name: "disabling retries",
+		ci: &v1alpha1.Ingress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-ingress",
+				Namespace: system.Namespace(),
+				Labels: map[string]string{
+					serving.RouteLabelKey:          "test-route",
+					serving.RouteNamespaceLabelKey: "test-ns",
+				},
+			},
+			Spec: v1alpha1.IngressSpec{
+				Rules: []v1alpha1.IngressRule{{
+					Hosts: []string{
+						"test-route.test-ns.svc.cluster.local",
+					},
+					Visibility: v1alpha1.IngressVisibilityExternalIP,
+					HTTP: &v1alpha1.HTTPIngressRuleValue{
+						Paths: []v1alpha1.HTTPIngressPath{{
+							Timeout: &metav1.Duration{Duration: defaultMaxRevisionTimeout},
+							Retries: &v1alpha1.HTTPRetry{
+								PerTryTimeout: &metav1.Duration{Duration: defaultMaxRevisionTimeout},
+								Attempts:      0,
+							},
+						}},
+					},
+				}}},
+		},
+		expected: &istiov1alpha3.HTTPRetry{
+			RetryOn:       "",
+			Attempts:      int32(0),
+			PerTryTimeout: nil,
+		},
+	}} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, h := range MakeMeshVirtualService(tc.ci).Spec.Http {
+				if diff := cmp.Diff(tc.expected, h.Retries); diff != "" {
+					t.Errorf("Unexpected retries (-want +got): %v", diff)
+				}
+			}
+		})
+	}
+}
+
 func TestMakeMeshVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 	ci := &v1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
