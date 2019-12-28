@@ -75,8 +75,6 @@ func TestPreSplitSetHeaders(t *testing.T) {
 	})
 
 	t.Run("Check with passing header", func(t *testing.T) {
-		t.Skip("https://github.com/knative/serving/issues/6303")
-
 		ri := RuntimeRequest(t, client, "http://"+name+".example.com", func(req *http.Request) {
 			// Specify a value for the header to verify that implementations
 			// use set vs. append semantics.
@@ -155,8 +153,6 @@ func TestPostSplitSetHeaders(t *testing.T) {
 	})
 
 	t.Run("Check with passing header", func(t *testing.T) {
-		t.Skip("https://github.com/knative/serving/issues/6303")
-
 		// Make enough requests that the likelihood of us seeing each variation is high,
 		// but don't check the distribution of requests, as that isn't the point of this
 		// particular test.
