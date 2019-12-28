@@ -38,6 +38,12 @@ type VirtualServiceAccessor interface {
 	GetVirtualServiceLister() istiolisters.VirtualServiceLister
 }
 
+func hasDesiredDiff(current, desired *v1alpha3.VirtualService) bool {
+	return !equality.Semantic.DeepEqual(current.Spec, desired.Spec) ||
+		!equality.Semantic.DeepEqual(current.Labels, desired.Labels) ||
+		!equality.Semantic.DeepEqual(current.Annotations, desired.Annotations)
+}
+
 // ReconcileVirtualService reconciles VirtiualService to the desired status.
 func ReconcileVirtualService(ctx context.Context, owner kmeta.Accessor, desired *v1alpha3.VirtualService,
 	vsAccessor VirtualServiceAccessor) (*v1alpha3.VirtualService, error) {
@@ -64,10 +70,12 @@ func ReconcileVirtualService(ctx context.Context, owner kmeta.Accessor, desired 
 		return nil, kaccessor.NewAccessorError(
 			fmt.Errorf("owner: %s with Type %T does not own VirtualService: %q", owner.GetName(), owner, name),
 			kaccessor.NotOwnResource)
-	} else if !equality.Semantic.DeepEqual(vs.Spec, desired.Spec) {
+	} else if hasDesiredDiff(vs, desired) {
 		// Don't modify the informers copy
 		existing := vs.DeepCopy()
 		existing.Spec = desired.Spec
+		existing.Labels = desired.Labels
+		existing.Annotations = desired.Annotations
 		vs, err = vsAccessor.GetIstioClient().NetworkingV1alpha3().VirtualServices(ns).Update(existing)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update VirtualService: %w", err)
