@@ -17,10 +17,19 @@ limitations under the License.
 package ingress
 
 import (
+	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	cryptorand "crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"io/ioutil"
+	"math/big"
 	"math/rand"
 	"net"
 	"net/http"
@@ -28,6 +37,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -41,6 +51,8 @@ import (
 	"knative.dev/serving/test/types"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
+
+var rootCAs = x509.NewCertPool()
 
 // CreateRuntimeService creates a Kubernetes service that will respond to the protocol
 // specified with the given portName.  It returns the service name, the port on
@@ -457,14 +469,14 @@ func createPodAndService(t *testing.T, clients *test.Clients, pod *corev1.Pod, s
 	return func() {
 		err := clients.KubeClient.Kube.CoreV1().Services(svc.Namespace).Delete(svc.Name, &metav1.DeleteOptions{})
 		if err != nil {
-			t.Errorf("Error cleaning up Service %s", svc.Name)
+			t.Errorf("Error cleaning up Service %s: %v", svc.Name, err)
 		}
 		cancel()
 	}
 }
 
 // CreateIngress creates a Knative Ingress resource
-func CreateIngress(t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpec) (string, context.CancelFunc) {
+func CreateIngress(t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpec) (*v1alpha1.Ingress, context.CancelFunc) {
 	t.Helper()
 	name := test.ObjectNameForTest(t)
 
@@ -485,40 +497,51 @@ func CreateIngress(t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpe
 		t.Fatalf("Error creating Ingress: %v", err)
 	}
 
-	return name, func() {
+	return ing, func() {
 		err := clients.NetworkingClient.Ingresses.Delete(ing.Name, &metav1.DeleteOptions{})
 		if err != nil {
-			t.Errorf("Error cleaning up Ingress %s", ing.Name)
+			t.Errorf("Error cleaning up Ingress %s: %v", ing.Name, err)
 		}
 	}
 }
 
-func CreateIngressReadyDialContext(t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpec) (string, func(context.Context, string, string) (net.Conn, error), context.CancelFunc) {
+func CreateIngressReadyDialContext(t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpec) (*v1alpha1.Ingress, func(context.Context, string, string) (net.Conn, error), context.CancelFunc) {
 	t.Helper()
-	name, cancel := CreateIngress(t, clients, spec)
+	ing, cancel := CreateIngress(t, clients, spec)
 
-	if err := v1a1test.WaitForIngressState(clients.NetworkingClient, name, v1a1test.IsIngressReady, t.Name()); err != nil {
+	if err := v1a1test.WaitForIngressState(clients.NetworkingClient, ing.Name, v1a1test.IsIngressReady, t.Name()); err != nil {
 		cancel()
 		t.Fatalf("Error waiting for ingress state: %v", err)
 	}
-	ing, err := clients.NetworkingClient.Ingresses.Get(name, metav1.GetOptions{})
+	ing, err := clients.NetworkingClient.Ingresses.Get(ing.Name, metav1.GetOptions{})
 	if err != nil {
 		cancel()
 		t.Fatalf("Error getting Ingress: %v", err)
 	}
 
 	// Create a dialer based on the Ingress' public load balancer.
-	return name, CreateDialContext(t, ing, clients), cancel
+	return ing, CreateDialContext(t, ing, clients), cancel
 }
 
-func CreateIngressReady(t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpec) (string, *http.Client, context.CancelFunc) {
+func CreateIngressReady(t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpec) (*v1alpha1.Ingress, *http.Client, context.CancelFunc) {
 	t.Helper()
 
 	// Create a client with a dialer based on the Ingress' public load balancer.
-	name, dialer, cancel := CreateIngressReadyDialContext(t, clients, spec)
-	return name, &http.Client{
+	ing, dialer, cancel := CreateIngressReadyDialContext(t, clients, spec)
+
+	// TODO(mattmoor): How to get ing?
+	var tlsConfig *tls.Config
+	if len(ing.Spec.TLS) > 0 {
+		// CAs are added to this as TLS secrets are created.
+		tlsConfig = &tls.Config{
+			RootCAs: rootCAs,
+		}
+	}
+
+	return ing, &http.Client{
 		Transport: &http.Transport{
-			DialContext: dialer,
+			DialContext:     dialer,
+			TLSClientConfig: tlsConfig,
 		},
 	}, cancel
 }
@@ -544,6 +567,95 @@ func UpdateIngressReady(t *testing.T, clients *test.Clients, name string, spec v
 
 	if err := v1a1test.WaitForIngressState(clients.NetworkingClient, name, v1a1test.IsIngressReady, t.Name()); err != nil {
 		t.Fatalf("Error waiting for ingress state: %v", err)
+	}
+}
+
+// This is based on https://golang.org/src/crypto/tls/generate_cert.go
+func CreateTLSSecret(t *testing.T, clients *test.Clients, hosts []string) (string, context.CancelFunc) {
+	t.Helper()
+
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
+	if err != nil {
+		t.Fatalf("ecdsa.GenerateKey() = %v", err)
+	}
+
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, err := cryptorand.Int(cryptorand.Reader, serialNumberLimit)
+	if err != nil {
+		t.Fatalf("Failed to generate serial number: %v", err)
+	}
+
+	template := x509.Certificate{
+		SerialNumber: serialNumber,
+		Subject: pkix.Name{
+			Organization: []string{"Knative Ingress Conformance Testing"},
+		},
+
+		// Only let it live briefly.
+		NotBefore: time.Now(),
+		NotAfter:  time.Now().Add(5 * time.Minute),
+
+		IsCA:                  true,
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+
+		DNSNames: hosts,
+	}
+
+	derBytes, err := x509.CreateCertificate(cryptorand.Reader, &template, &template, &priv.PublicKey, priv)
+	if err != nil {
+		t.Fatalf("x509.CreateCertificate() = %v", err)
+	}
+
+	cert, err := x509.ParseCertificate(derBytes)
+	if err != nil {
+		t.Fatalf("ParseCertificate() = %v", err)
+	}
+	// Ideally we'd undo this in "cancel", but there doesn't
+	// seem to be a mechanism to remove things from a pool.
+	rootCAs.AddCert(cert)
+
+	certPEM := &bytes.Buffer{}
+	if err := pem.Encode(certPEM, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}); err != nil {
+		t.Fatalf("Failed to write data to cert.pem: %s", err)
+	}
+
+	privBytes, err := x509.MarshalPKCS8PrivateKey(priv)
+	if err != nil {
+		t.Fatalf("Unable to marshal private key: %v", err)
+	}
+	privPEM := &bytes.Buffer{}
+	if err := pem.Encode(privPEM, &pem.Block{Type: "PRIVATE KEY", Bytes: privBytes}); err != nil {
+		t.Fatalf("Failed to write data to key.pem: %s", err)
+	}
+
+	name := test.ObjectNameForTest(t)
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: test.ServingNamespace,
+			Labels: map[string]string{
+				"test-secret": name,
+			},
+		},
+		Type: corev1.SecretTypeTLS,
+		StringData: map[string]string{
+			corev1.TLSCertKey:       certPEM.String(),
+			corev1.TLSPrivateKeyKey: privPEM.String(),
+		},
+	}
+	test.CleanupOnInterrupt(func() {
+		clients.KubeClient.Kube.CoreV1().Secrets(secret.Namespace).Delete(secret.Name, &metav1.DeleteOptions{})
+	})
+	if _, err := clients.KubeClient.Kube.CoreV1().Secrets(secret.Namespace).Create(secret); err != nil {
+		t.Fatalf("Error creating Secret: %v", err)
+	}
+	return name, func() {
+		err := clients.KubeClient.Kube.CoreV1().Secrets(secret.Namespace).Delete(secret.Name, &metav1.DeleteOptions{})
+		if err != nil {
+			t.Errorf("Error cleaning up Secret %s: %v", secret.Name, err)
+		}
 	}
 }
 
