@@ -305,6 +305,7 @@ func TestMakeMeshVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		},
 		Timeout: types.DurationProto(defaultMaxRevisionTimeout),
 		Retries: &istiov1alpha3.HTTPRetry{
+			RetryOn:       retriableConditions,
 			Attempts:      int32(networking.DefaultRetryCount),
 			PerTryTimeout: types.DurationProto(defaultMaxRevisionTimeout),
 		},
@@ -443,6 +444,7 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		},
 		Timeout: types.DurationProto(defaultMaxRevisionTimeout),
 		Retries: &istiov1alpha3.HTTPRetry{
+			RetryOn:       retriableConditions,
 			Attempts:      int32(networking.DefaultRetryCount),
 			PerTryTimeout: types.DurationProto(defaultMaxRevisionTimeout),
 		},
@@ -473,6 +475,7 @@ func TestMakeIngressVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		},
 		Timeout: types.DurationProto(defaultMaxRevisionTimeout),
 		Retries: &istiov1alpha3.HTTPRetry{
+			RetryOn:       retriableConditions,
 			Attempts:      int32(networking.DefaultRetryCount),
 			PerTryTimeout: types.DurationProto(defaultMaxRevisionTimeout),
 		},
@@ -525,6 +528,7 @@ func TestMakeVirtualServiceRoute_Vanilla(t *testing.T) {
 		}},
 		Timeout: types.DurationProto(defaultMaxRevisionTimeout),
 		Retries: &istiov1alpha3.HTTPRetry{
+			RetryOn:       retriableConditions,
 			Attempts:      int32(networking.DefaultRetryCount),
 			PerTryTimeout: types.DurationProto(defaultMaxRevisionTimeout),
 		},
@@ -582,6 +586,7 @@ func TestMakeVirtualServiceRoute_TwoTargets(t *testing.T) {
 		}},
 		Timeout: types.DurationProto(defaultMaxRevisionTimeout),
 		Retries: &istiov1alpha3.HTTPRetry{
+			RetryOn:       retriableConditions,
 			Attempts:      int32(networking.DefaultRetryCount),
 			PerTryTimeout: types.DurationProto(defaultMaxRevisionTimeout),
 		},
