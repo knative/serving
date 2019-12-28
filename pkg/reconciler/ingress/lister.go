@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/url"
 	neturl "net/url"
+	"sort"
 	"strconv"
 
 	"go.uber.org/zap"
@@ -59,10 +60,14 @@ type gatewayPodTargetLister struct {
 
 func (l *gatewayPodTargetLister) ListProbeTargets(ctx context.Context, ing *v1alpha1.Ingress) ([]status.ProbeTarget, error) {
 	results := []status.ProbeTarget{}
-
-	qualifiedGatewayNames := qualifiedGatewayNamesFromContext(ctx)
-	gatewayHosts := ingress.HostsPerVisibility(ing, qualifiedGatewayNames)
-	for gatewayName, hosts := range gatewayHosts {
+	gatewayHosts := ingress.HostsPerVisibility(ing, qualifiedGatewayNamesFromContext(ctx))
+	gatewayNames := []string{}
+	for gatewayName := range gatewayHosts {
+		gatewayNames = append(gatewayNames, gatewayName)
+	}
+	// Sort the gateway names for a consistent ordering.
+	sort.Strings(gatewayNames)
+	for _, gatewayName := range gatewayNames {
 		gateway, err := l.getGateway(gatewayName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get Gateway %q: %w", gatewayName, err)
@@ -81,7 +86,7 @@ func (l *gatewayPodTargetLister) ListProbeTargets(ctx context.Context, ing *v1al
 				URLs:   []neturl.URL{},
 			}
 			// Use sorted host for consistent ordering.
-			for _, host := range hosts.List() {
+			for _, host := range gatewayHosts[gatewayName].List() {
 				newURL := target.URLs[0]
 				newURL.Host = host + ":" + target.Port
 				qualifiedTarget.URLs = append(qualifiedTarget.URLs, newURL)
