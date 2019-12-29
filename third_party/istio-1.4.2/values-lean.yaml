@@ -90,7 +90,7 @@ pilot:
       memory: 1024Mi
 
 galley:
-  enabled: false
+  enabled: true
 
 security:
-  enabled: false
+  enabled: true
