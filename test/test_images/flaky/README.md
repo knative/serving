@@ -1,7 +1,8 @@
 # Flaky test image
 
-The image contains a simple Go webserver, `main.go`, that will only succeed every Nth request.
-The value of N is specified in the PERIOD environment variable.
+The image contains a simple Go webserver, `main.go`, that will only succeed
+every Nth request. The value of N is specified in the PERIOD environment
+variable.
 
 ## Trying out
 
