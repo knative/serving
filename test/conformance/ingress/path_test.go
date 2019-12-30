@@ -19,9 +19,11 @@ limitations under the License.
 package ingress
 
 import (
+	"math"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/test"
@@ -140,5 +142,95 @@ func TestPath(t *testing.T) {
 				t.Errorf("Header[%q] = %q, wanted %q", headerName, got, want)
 			}
 		})
+	}
+}
+
+func TestPathAndPercentageSplit(t *testing.T) {
+	t.Parallel()
+	clients := test.Setup(t)
+
+	fooName, fooPort, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
+	defer cancel()
+
+	barName, barPort, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
+	defer cancel()
+
+	name, port, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
+	defer cancel()
+
+	// Use a post-split injected header to establish which split we are sending traffic to.
+	const headerName = "Which-Backend"
+
+	_, client, cancel := CreateIngressReady(t, clients, v1alpha1.IngressSpec{
+		Rules: []v1alpha1.IngressRule{{
+			Hosts:      []string{name + ".example.com"},
+			Visibility: v1alpha1.IngressVisibilityExternalIP,
+			HTTP: &v1alpha1.HTTPIngressRuleValue{
+				Paths: []v1alpha1.HTTPIngressPath{{
+					Path: "/foo",
+					Splits: []v1alpha1.IngressBackendSplit{{
+						IngressBackend: v1alpha1.IngressBackend{
+							ServiceName:      fooName,
+							ServiceNamespace: test.ServingNamespace,
+							ServicePort:      intstr.FromInt(fooPort),
+						},
+						AppendHeaders: map[string]string{
+							headerName: fooName,
+						},
+						Percent: 50,
+					}, {
+						IngressBackend: v1alpha1.IngressBackend{
+							ServiceName:      barName,
+							ServiceNamespace: test.ServingNamespace,
+							ServicePort:      intstr.FromInt(barPort),
+						},
+						AppendHeaders: map[string]string{
+							headerName: barName,
+						},
+						Percent: 50,
+					}},
+				}, {
+					Splits: []v1alpha1.IngressBackendSplit{{
+						IngressBackend: v1alpha1.IngressBackend{
+							ServiceName:      name,
+							ServiceNamespace: test.ServingNamespace,
+							ServicePort:      intstr.FromInt(port),
+						},
+						// Append different headers to each split, which lets us identify
+						// which backend we hit.
+						AppendHeaders: map[string]string{
+							headerName: name,
+						},
+						Percent: 100,
+					}},
+				}},
+			},
+		}},
+	})
+	defer cancel()
+
+	const (
+		total     = 100
+		totalHalf = total / 2
+		tolerance = total * 0.15
+	)
+	got := make(map[string]float64, 2)
+	wantKeys := sets.NewString(fooName, barName)
+	for i := 0; i < total; i++ {
+		ri := RuntimeRequest(t, client, "http://"+name+".example.com/foo")
+		if ri == nil {
+			return
+		}
+
+		gotH := ri.Request.Headers.Get(headerName)
+		got[gotH]++
+	}
+	for k, v := range got {
+		if !wantKeys.Has(k) {
+			t.Errorf("%s is not in the expected header say %v", k, wantKeys)
+		}
+		if math.Abs(v-totalHalf) > tolerance {
+			t.Errorf("Header %s got: %v times, want in [%v, %v] range", k, v, totalHalf-tolerance, totalHalf+tolerance)
+		}
 	}
 }
