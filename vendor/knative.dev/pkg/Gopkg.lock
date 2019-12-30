@@ -1243,15 +1243,17 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:df1c1cf6d2c9ca0781705ef095cb15e06f777cddb493775aad41b72f79867d7a"
+  digest = "1:85d1708cf70b4fa56e184b16a5af5350945f3239978529719f4a53cbcd67ca2a"
   name = "k8s.io/test-infra"
   packages = [
     "boskos/client",
     "boskos/common",
     "boskos/storage",
+    "prow/config/secret",
+    "prow/logrusutil",
   ]
   pruneopts = "NUT"
-  revision = "356470ae778d26af50f27ff8673434bf5cf73c07"
+  revision = "70b0b49fe2476f06f97272e77f47ba432cb54244"
 
 [[projects]]
   branch = "master"
