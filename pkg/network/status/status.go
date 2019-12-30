@@ -248,7 +248,8 @@ func (m *Prober) IsReady(ctx context.Context, ing *v1alpha1.Ingress) (bool, erro
 	}()
 	for _, workItem := range workItems {
 		m.workQueue.AddRateLimited(workItem)
-		m.logger.Infof("Queuing probe for %s, IP: %s:%s (depth: %d)", workItem.url, workItem.podIP, workItem.podPort, m.workQueue.Len())
+		m.logger.Infof("Queuing probe for %s, IP: %s:%s (depth: %d)",
+			workItem.url.String(), workItem.podIP, workItem.podPort, m.workQueue.Len())
 	}
 	return len(workItems) == 0, nil
 }
@@ -327,9 +328,11 @@ func (m *Prober) processWorkItem() bool {
 	// Crash if the item is not of the expected type
 	item, ok := obj.(*workItem)
 	if !ok {
-		m.logger.Fatalf("Unexpected work item type: want: %s, got: %s\n", reflect.TypeOf(&workItem{}).Name(), reflect.TypeOf(obj).Name())
+		m.logger.Fatalf("Unexpected work item type: want: %s, got: %s\n",
+			reflect.TypeOf(&workItem{}).Name(), reflect.TypeOf(obj).Name())
 	}
-	m.logger.Infof("Processing probe for %s, IP: %s:%s (depth: %d)", item.url, item.podIP, item.podPort, m.workQueue.Len())
+	m.logger.Infof("Processing probe for %s, IP: %s:%s (depth: %d)",
+		item.url.String(), item.podIP, item.podPort, m.workQueue.Len())
 
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
@@ -364,7 +367,8 @@ func (m *Prober) processWorkItem() bool {
 	if err != nil || !ok {
 		// In case of error, enqueue for retry
 		m.workQueue.AddRateLimited(obj)
-		m.logger.Errorf("Probing of %s failed, IP: %s:%s, ready: %t, error: %v (depth: %d)", item.url, item.podIP, item.podPort, ok, err, m.workQueue.Len())
+		m.logger.Errorf("Probing of %s failed, IP: %s:%s, ready: %t, error: %v (depth: %d)",
+			item.url.String(), item.podIP, item.podPort, ok, err, m.workQueue.Len())
 	} else {
 		m.updateStates(item.ingressState, item.podState)
 	}
