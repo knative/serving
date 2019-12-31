@@ -205,7 +205,7 @@ func validate(lc *Config) (*Config, error) {
 
 	// We can't permit stable window be less than our aggregation window for correctness.
 	if lc.StableWindow < autoscaling.WindowMin {
-		return nil, fmt.Errorf("stable-window = %v, must be at least %v", lc.StableWindow, BucketSize)
+		return nil, fmt.Errorf("stable-window = %v, must be at least %v", lc.StableWindow, autoscaling.WindowMin)
 	}
 	if lc.StableWindow.Round(time.Second) != lc.StableWindow {
 		return nil, fmt.Errorf("stable-window = %v, must be specified with at most second precision", lc.StableWindow)
