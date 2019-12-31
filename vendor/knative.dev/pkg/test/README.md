@@ -121,6 +121,10 @@ Tests importing [`knative.dev/pkg/test`](#test-library) recognize these flags:
 - [`--cluster`](#specifying-cluster)
 - [`--namespace`](#specifying-namespace)
 - [`--logverbose`](#output-verbose-logs)
+- [`--ingressendpoint`](#specifying-ingress-endpoint)
+- [`--dockerrepo`](#specifying-docker-repo)
+- [`--tag`](#specifying-tag)
+- [`--imagetemplate`](#specifying-image-template)
 
 ### Specifying kubeconfig
 
@@ -176,6 +180,34 @@ The `--logverbose` argument lets you see verbose test logs and k8s logs.
 
 ```bash
 go test ./test --logverbose
+```
+
+### Specifying docker repo
+
+The `--dockerrepo` argument lets you specify a uri of the docker repo where you
+have uploaded the test image to using `uploadtestimage.sh`. Defaults to
+`$KO_DOCKER_REPO`
+
+```bash
+go test ./test --dockerrepo myspecialdockerrepo
+```
+
+### Specifying tag
+
+The `--tag` argument lets you specify the version tag for the test images.
+
+```bash
+go test ./test --tag v1.0
+```
+
+### Specifying image template
+
+The `--imagetemplate` argument lets you specify a template to generate the
+reference to an image from the test. Defaults to
+`{{.Repository}}/{{.Name}}:{{.Tag}}`
+
+```bash
+go test ./test --imagetemplate {{.Repository}}/{{.Name}}:{{.Tag}}
 ```
 
 ---
