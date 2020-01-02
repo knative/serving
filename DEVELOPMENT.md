@@ -149,7 +149,7 @@ kubectl apply -f ./third_party/istio-1.3-latest/istio-crds.yaml
 while [[ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
   echo "Waiting on Istio CRDs"; sleep 1
 done
-kubectl apply -f ./third_party/istio-1.3-latest/istio-local.yaml
+kubectl apply -f ./third_party/istio-1.3-latest/istio-minimal.yaml
 ```
 
 Follow the
@@ -323,7 +323,7 @@ You can delete all of the service components with:
 ko delete --ignore-not-found=true \
   -f config/monitoring/100-namespace.yaml \
   -f config/ \
-  -f ./third_party/istio-1.3-latest/istio-local.yaml \
+  -f ./third_party/istio-1.3-latest/istio-minimal.yaml \
   -f ./third_party/istio-1.3-latest/istio-crds.yaml \
   -f ./third_party/cert-manager-0.9.1/cert-manager-crds.yaml \
   -f ./third_party/cert-manager-0.9.1/cert-manager.yaml

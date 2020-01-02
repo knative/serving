@@ -53,7 +53,7 @@ data:
     # do have a service mesh setup, this isn't required and can be removed.
     #
     # An example use case is when users want to use Istio without any
-    # sidecar injection (like Knative's istio-lean.yaml).  Since every pod
+    # sidecar injection (like Knative's istio-ci-no-mesh.yaml).  Since every pod
     # is outside of the service mesh in that case, a cluster-local  service
     # will need to be exposed to a cluster-local gateway to be accessible.
     # The configuration format should be `local-gateway.{{local_gateway_namespace}}.
