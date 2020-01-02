@@ -29,6 +29,7 @@ import (
 
 // TestIngressTLS verifies that the Ingress properly handles the TLS field.
 func TestIngressTLS(t *testing.T) {
+	t.Skip("https://github.com/knative/serving/issues/6401")
 	t.Parallel()
 	clients := test.Setup(t)
 

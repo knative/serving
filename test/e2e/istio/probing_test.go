@@ -57,6 +57,7 @@ var (
 )
 
 func TestIstioProbing(t *testing.T) {
+	t.Skip("https://github.com/knative/serving/issues/6400")
 	cancel := logstream.Start(t)
 	defer cancel()
 
