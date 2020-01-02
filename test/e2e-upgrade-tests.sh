@@ -41,7 +41,7 @@ function install_latest_release() {
   local yaml="serving.yaml"
 
   # install serving core if installing for Gloo or Kourier
-  if [[ -n "${GLOO_VERSION}" || -n "${KOURIER_VERSION}" ]]; then
+  if [[ -n "${GLOO_VERSION}" || -n "${KOURIER_VERSION}" || -n "${AMBASSADOR_VERSION}" ]]; then
     yaml="serving-core.yaml"
   fi
 
