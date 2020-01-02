@@ -71,14 +71,56 @@ func TestUpdate(t *testing.T) {
 	// Give the prober a chance to get started.
 	time.Sleep(1 * time.Second)
 
+	// First test with only sentinel changes.
+	for i := 0; i < 10; i++ {
+		sentinel := test.ObjectNameForTest(t)
+
+		t.Logf("Rolling out %q w/ %q", firstName, sentinel)
+
+		// Update the Ingress, and wait for it to report ready.
+		UpdateIngressReady(t, clients, ing.Name, v1alpha1.IngressSpec{
+			Rules: []v1alpha1.IngressRule{{
+				Hosts:      []string{hostname + ".example.com"},
+				Visibility: v1alpha1.IngressVisibilityExternalIP,
+				HTTP: &v1alpha1.HTTPIngressRuleValue{
+					Paths: []v1alpha1.HTTPIngressPath{{
+						Splits: []v1alpha1.IngressBackendSplit{{
+							IngressBackend: v1alpha1.IngressBackend{
+								ServiceName:      firstName,
+								ServiceNamespace: test.ServingNamespace,
+								ServicePort:      intstr.FromInt(firstPort),
+							},
+							// Append different headers to each split, which lets us identify
+							// which backend we hit.
+							AppendHeaders: map[string]string{
+								updateHeaderName: sentinel,
+							},
+						}},
+					}},
+				},
+			}},
+		})
+
+		// Check that it serves the right message as soon as we get "Ready",
+		// but before we stop probing.
+		ri := RuntimeRequest(t, client, "http://"+hostname+".example.com")
+		if ri != nil {
+			if got := ri.Request.Headers.Get(updateHeaderName); got != sentinel {
+				t.Errorf("Header[%q] = %q, wanted %q", updateHeaderName, got, sentinel)
+			}
+		}
+	}
+
+	// Next test with varying sentinels AND fresh services each time.
 	previousVersionCancel := func() {
 		t.Logf("Tearing down %q", firstName)
 		firstCancel()
 	}
 	for i := 0; i < 10; i++ {
+		sentinel := test.ObjectNameForTest(t)
 		nextName, nextPort, nextCancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
 
-		t.Logf("Rolling out %q", nextName)
+		t.Logf("Rolling out %q w/ %q", nextName, sentinel)
 
 		// Update the Ingress, and wait for it to report ready.
 		UpdateIngressReady(t, clients, ing.Name, v1alpha1.IngressSpec{
@@ -96,7 +138,7 @@ func TestUpdate(t *testing.T) {
 							// Append different headers to each split, which lets us identify
 							// which backend we hit.
 							AppendHeaders: map[string]string{
-								updateHeaderName: nextName,
+								updateHeaderName: sentinel,
 							},
 						}},
 					}},
@@ -108,8 +150,8 @@ func TestUpdate(t *testing.T) {
 		// but before we stop probing.
 		ri := RuntimeRequest(t, client, "http://"+hostname+".example.com")
 		if ri != nil {
-			if got := ri.Request.Headers.Get(updateHeaderName); got != nextName {
-				t.Errorf("Header[%q] = %q, wanted %q", updateHeaderName, got, nextName)
+			if got := ri.Request.Headers.Get(updateHeaderName); got != sentinel {
+				t.Errorf("Header[%q] = %q, wanted %q", updateHeaderName, got, sentinel)
 			}
 		}
 
