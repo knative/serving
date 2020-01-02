@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	neturl "net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -99,15 +98,15 @@ func TestProbeLifecycle(t *testing.T) {
 
 	ts := httptest.NewServer(finalHandler)
 	defer ts.Close()
-	url, err := neturl.Parse(ts.URL)
+	tsURL, err := url.Parse(ts.URL)
 	if err != nil {
 		t.Fatalf("Failed to parse URL %q: %v", ts.URL, err)
 	}
-	hostname := url.Hostname()
-	port, err := strconv.Atoi(url.Port())
+	port, err := strconv.Atoi(tsURL.Port())
 	if err != nil {
-		t.Fatalf("Failed to parse port %q: %v", url.Port(), err)
+		t.Fatalf("Failed to parse port %q: %v", tsURL.Port(), err)
 	}
+	hostname := tsURL.Hostname()
 
 	ready := make(chan *v1alpha1.Ingress)
 	prober := NewProber(
@@ -115,7 +114,7 @@ func TestProbeLifecycle(t *testing.T) {
 		fakeProbeTargetLister{{
 			PodIPs: sets.NewString(hostname),
 			Port:   strconv.Itoa(port),
-			URLs:   []neturl.URL{*url},
+			URLs:   []*url.URL{tsURL},
 		}},
 		func(ing *v1alpha1.Ingress) {
 			ready <- ing
@@ -229,22 +228,22 @@ func TestCancelPodProbing(t *testing.T) {
 
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
-	url, err := url.Parse(ts.URL)
+	tsURL, err := url.Parse(ts.URL)
 	if err != nil {
 		t.Fatalf("Failed to parse URL %q: %v", ts.URL, err)
 	}
-	hostname := url.Hostname()
-	port, err := strconv.Atoi(url.Port())
+	port, err := strconv.Atoi(tsURL.Port())
 	if err != nil {
-		t.Fatalf("Failed to parse port %q: %v", url.Port(), err)
+		t.Fatalf("Failed to parse port %q: %v", tsURL.Port(), err)
 	}
+	hostname := tsURL.Hostname()
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
 			Name:      "gateway",
 		},
 		Status: v1.PodStatus{
-			PodIP: strings.Split(url.Host, ":")[0],
+			PodIP: strings.Split(tsURL.Host, ":")[0],
 		},
 	}
 
@@ -254,7 +253,7 @@ func TestCancelPodProbing(t *testing.T) {
 		fakeProbeTargetLister{{
 			PodIPs: sets.NewString(hostname),
 			Port:   strconv.Itoa(port),
-			URLs:   []neturl.URL{*url},
+			URLs:   []*url.URL{tsURL},
 		}},
 		func(ing *v1alpha1.Ingress) {
 			ready <- ing
@@ -326,15 +325,15 @@ func TestCancelIngresProbing(t *testing.T) {
 
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
-	url, err := url.Parse(ts.URL)
+	tsURL, err := url.Parse(ts.URL)
 	if err != nil {
 		t.Fatalf("Failed to parse URL %q: %v", ts.URL, err)
 	}
-	hostname := url.Hostname()
-	port, err := strconv.Atoi(url.Port())
+	port, err := strconv.Atoi(tsURL.Port())
 	if err != nil {
-		t.Fatalf("Failed to parse port %q: %v", url.Port(), err)
+		t.Fatalf("Failed to parse port %q: %v", tsURL.Port(), err)
 	}
+	hostname := tsURL.Hostname()
 
 	ready := make(chan *v1alpha1.Ingress)
 	prober := NewProber(
@@ -342,7 +341,7 @@ func TestCancelIngresProbing(t *testing.T) {
 		fakeProbeTargetLister{{
 			PodIPs: sets.NewString(hostname),
 			Port:   strconv.Itoa(port),
-			URLs:   []neturl.URL{*url},
+			URLs:   []*url.URL{tsURL},
 		}},
 		func(ing *v1alpha1.Ingress) {
 			ready <- ing

@@ -75,7 +75,7 @@ type podState struct {
 type workItem struct {
 	ingressState *ingressState
 	podState     *podState
-	url          url.URL
+	url          *url.URL
 	podIP        string
 	podPort      string
 }
@@ -84,7 +84,7 @@ type workItem struct {
 type ProbeTarget struct {
 	PodIPs sets.String
 	Port   string
-	URLs   []url.URL
+	URLs   []*url.URL
 }
 
 // ProbeTargetLister lists all the targets that requires probing.
@@ -249,7 +249,7 @@ func (m *Prober) IsReady(ctx context.Context, ing *v1alpha1.Ingress) (bool, erro
 	for _, workItem := range workItems {
 		m.workQueue.AddRateLimited(workItem)
 		m.logger.Infof("Queuing probe for %s, IP: %s:%s (depth: %d)",
-			workItem.url.String(), workItem.podIP, workItem.podPort, m.workQueue.Len())
+			workItem.url, workItem.podIP, workItem.podPort, m.workQueue.Len())
 	}
 	return len(workItems) == 0, nil
 }
@@ -332,7 +332,7 @@ func (m *Prober) processWorkItem() bool {
 			reflect.TypeOf(&workItem{}).Name(), reflect.TypeOf(obj).Name())
 	}
 	m.logger.Infof("Processing probe for %s, IP: %s:%s (depth: %d)",
-		item.url.String(), item.podIP, item.podPort, m.workQueue.Len())
+		item.url, item.podIP, item.podPort, m.workQueue.Len())
 
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
@@ -368,7 +368,7 @@ func (m *Prober) processWorkItem() bool {
 		// In case of error, enqueue for retry
 		m.workQueue.AddRateLimited(obj)
 		m.logger.Errorf("Probing of %s failed, IP: %s:%s, ready: %t, error: %v (depth: %d)",
-			item.url.String(), item.podIP, item.podPort, ok, err, m.workQueue.Len())
+			item.url, item.podIP, item.podPort, ok, err, m.workQueue.Len())
 	} else {
 		m.updateStates(item.ingressState, item.podState)
 	}
