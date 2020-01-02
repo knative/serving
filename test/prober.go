@@ -108,18 +108,35 @@ func (p *prober) handleResponse(response *spoof.Response) (bool, error) {
 		return p.stopped, nil
 	}
 
-	p.requests++
+	p.logRequestNoLock()
 	if response.StatusCode != http.StatusOK {
 		p.logf("%q status = %d, want: %d", p.url, response.StatusCode, http.StatusOK)
 		p.logf("response: %s", response)
 		p.failures++
 	}
-	if p.requests == p.minimumProbes {
-		close(p.minDoneCh)
-	}
 
 	// Returning (false, nil) causes SpoofingClient.Poll to retry.
 	return false, nil
+}
+
+func (p *prober) handleErrorRetry(err error) (bool, error) {
+	p.m.Lock()
+	defer p.m.Unlock()
+
+	p.logRequestNoLock()
+	p.failures++
+
+	// Returning true causes SpoofingClient.Poll to retry.
+	return true, fmt.Errorf("Retry on all error: %v", err)
+}
+
+// logRequestNoLock should always be called after obtaining p.m.Lock(),
+// thus it doesn't try to get the lock here again.
+func (p *prober) logRequestNoLock() {
+	p.requests++
+	if p.requests == p.minimumProbes {
+		close(p.minDoneCh)
+	}
 }
 
 // ProberManager is the interface for spawning probers, and checking their results.
@@ -184,7 +201,7 @@ func (m *manager) Spawn(url *url.URL) Prober {
 
 		// We keep polling the domain and accumulate success rates
 		// to ultimately establish the SLI and compare to the SLO.
-		_, err = client.Poll(req, p.handleResponse)
+		_, err = client.Poll(req, p.handleResponse, p.handleErrorRetry)
 		if err != nil {
 			// SLO violations are not reflected as errors. They are
 			// captured and calculated internally.
