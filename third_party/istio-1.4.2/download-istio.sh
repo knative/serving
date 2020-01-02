@@ -45,21 +45,21 @@ helm template --namespace=istio-system install/kubernetes/helm/istio --values ..
 helm template --namespace=istio-system install/kubernetes/helm/istio --values ../values.yaml \
   `# Removing trailing whitespaces to make automation happy` \
   | sed 's/[ \t]*$//' \
-  > ../istio.yaml
+  > ../istio-ci-mesh.yaml
 
 # A lighter template, with just pilot/gateway.
 # Based on install/kubernetes/helm/istio/values-istio-minimal.yaml
 helm template --namespace=istio-system install/kubernetes/helm/istio --values ../values-lean.yaml \
   `# Removing trailing whitespaces to make automation happy` \
   | sed 's/[ \t]*$//' \
-  > ../istio-lean.yaml
+  > ../istio-ci-no-mesh.yaml
 
 # An even lighter template, with just pilot/gateway and small resource requests.
 # Based on install/kubernetes/helm/istio/values-istio-minimal.yaml
 helm template --namespace=istio-system install/kubernetes/helm/istio --values ../values-local.yaml \
   `# Removing trailing whitespaces to make automation happy` \
   | sed 's/[ \t]*$//' \
-  > ../istio-local.yaml
+  > ../istio-minimal.yaml
 )
 
 # Clean up.
@@ -68,9 +68,9 @@ rm istio-${ISTIO_VERSION}-linux.tar.gz
 
 # Add in the `istio-system` namespace to reduce number of commands.
 patch istio-crds.yaml namespace.yaml.patch
-patch istio.yaml namespace.yaml.patch
-patch istio-lean.yaml namespace.yaml.patch
-patch istio-local.yaml namespace.yaml.patch
+patch istio-ci-mesh.yaml namespace.yaml.patch
+patch istio-ci-no-mesh.yaml namespace.yaml.patch
+patch istio-minimal.yaml namespace.yaml.patch
 
 # Increase termination drain duration seconds.
-patch -l istio.yaml drain-seconds.yaml.patch
+patch -l istio-ci-mesh.yaml drain-seconds.yaml.patch

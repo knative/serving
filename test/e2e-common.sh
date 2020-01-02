@@ -153,7 +153,7 @@ function install_knative_serving() {
 function install_istio() {
   local istio_base="./third_party/istio-${ISTIO_VERSION}"
   INSTALL_ISTIO_CRD_YAML="${istio_base}/istio-crds.yaml"
-  (( MESH )) && INSTALL_ISTIO_YAML="${istio_base}/istio.yaml" || INSTALL_ISTIO_YAML="${istio_base}/istio-lean.yaml"
+  (( MESH )) && INSTALL_ISTIO_YAML="${istio_base}/istio-ci-mesh.yaml" || INSTALL_ISTIO_YAML="${istio_base}/istio-ci-no-mesh.yaml"
 
   echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
   echo "Istio YAML: ${INSTALL_ISTIO_YAML}"

@@ -36,7 +36,7 @@ function update_knative() {
   kubectl delete deployments --all -n istio-system
   kubectl delete services --all -n istio-system
   kubectl apply -f serving/third_party/$istio_version/istio-crds.yaml || abort "Failed to apply istio-crds"
-  kubectl apply -f serving/third_party/$istio_version/istio-lean.yaml || abort "Failed to apply istio-lean"
+  kubectl apply -f serving/third_party/$istio_version/istio-ci-no-mesh.yaml || abort "Failed to apply istio-ci-no-mesh"
 
   # Overprovision the Istio gateways and pilot.
   kubectl patch hpa -n istio-system istio-ingressgateway \
