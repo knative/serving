@@ -205,20 +205,20 @@ function install_kourier() {
 }
 
 function install_ambassador() {
-  AMBASSADOR_MANIFESTS_PATH="./third_party/ambassador-latest/"
+  local AMBASSADOR_MANIFESTS_PATH="./third_party/ambassador-latest/"
   echo "Ambassador YAML: ${AMBASSADOR_MANIFESTS_PATH}"
 
   echo ">> Creating namespace 'ambassador'"
-  kubectl create namespace ambassador
+  kubectl create namespace ambassador || return 1
 
   echo ">> Installing Ambassador"
   kubectl apply -n ambassador -f ${AMBASSADOR_MANIFESTS_PATH} || return 1
 
   echo ">> Fixing Ambassador's permissions"
-  kubectl patch clusterrolebinding ambassador -p '{"subjects":[{"kind": "ServiceAccount", "name": "ambassador", "namespace": "ambassador"}]}'
+  kubectl patch clusterrolebinding ambassador -p '{"subjects":[{"kind": "ServiceAccount", "name": "ambassador", "namespace": "ambassador"}]}' || return 1
 
   echo ">> Enabling Knative support in Ambassador"
-  kubectl set env --namespace ambassador deployments/ambassador AMBASSADOR_KNATIVE_SUPPORT=true
+  kubectl set env --namespace ambassador deployments/ambassador AMBASSADOR_KNATIVE_SUPPORT=true || return 1
 }
 
 # Installs Knative Serving in the current cluster, and waits for it to be ready.
@@ -285,8 +285,8 @@ metadata:
   labels:
     serving.knative.dev/release: devel
 data:
-  ingress.class: "kourier.ingress.networking.knative.dev"
-  clusteringress.class: "kourier.ingress.networking.knative.dev"
+  ingress.class: ${INGRESS_CLASS}
+  clusteringress.class: ${INGRESS_CLASS}
 EOF
   fi
 
@@ -301,8 +301,8 @@ metadata:
   labels:
     serving.knative.dev/release: devel
 data:
-  ingress.class: "ambassador.ingress.networking.knative.dev"
-  clusteringress.class: "ambassador.ingress.networking.knative.dev"
+  ingress.class: ${INGRESS_CLASS}
+  clusteringress.class: ${INGRESS_CLASS}
 EOF
   fi
 
