@@ -22,6 +22,9 @@ metadata:
     serving.knative.dev/controller: "true"
     networking.knative.dev/certificate-provider: cert-manager
 rules:
-  - apiGroups: ["certmanager.k8s.io"]
-    resources: ["certificates", "challenges"]
+  - apiGroups: ["cert-manager.io"]
+    resources: ["certificates", "clusterissuers"]
+    verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
+  - apiGroups: ["acme.cert-manager.io"]
+    resources: ["challenges"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]

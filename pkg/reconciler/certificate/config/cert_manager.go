@@ -46,7 +46,7 @@ func NewCertManagerConfigFromConfigMap(configMap *corev1.ConfigMap) (*CertManage
 	// TODO: validation check.
 
 	config := &CertManagerConfig{
-		IssuerRef: &certmanagerv1alpha1.ObjectReference{},
+		IssuerRef: &cmeta.ObjectReference{},
 	}
 
 	if v, ok := configMap.Data[issuerRefKey]; ok {

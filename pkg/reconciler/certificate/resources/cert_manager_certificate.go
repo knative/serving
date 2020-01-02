@@ -25,7 +25,7 @@ import (
 )
 
 // MakeCertManagerCertificate creates a Cert-Manager `Certificate` for requesting a SSL certificate.
-func MakeCertManagerCertificate(cmConfig *config.CertManagerConfig, knCert *v1alpha1.Certificate) *certmanagerv1alpha1.Certificate {
+func MakeCertManagerCertificate(cmConfig *config.CertManagerConfig, knCert *v1alpha1.Certificate) *cmv1alpha2.Certificate {
 	cert := &cmv1alpha2.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            knCert.Name,
