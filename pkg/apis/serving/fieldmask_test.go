@@ -80,6 +80,9 @@ func TestVolumeSourceMask(t *testing.T) {
 func TestPodSpecMask(t *testing.T) {
 	want := &corev1.PodSpec{
 		ServiceAccountName: "default",
+		NodeSelector: map[string]string{
+			"test-selector-key": "test-selector-value",
+		},
 		ImagePullSecrets: []corev1.LocalObjectReference{{
 			Name: "foo",
 		}},
@@ -97,6 +100,9 @@ func TestPodSpecMask(t *testing.T) {
 	}
 	in := &corev1.PodSpec{
 		ServiceAccountName: "default",
+		NodeSelector: map[string]string{
+			"test-selector-key": "test-selector-value",
+		},
 		ImagePullSecrets: []corev1.LocalObjectReference{{
 			Name: "foo",
 		}},

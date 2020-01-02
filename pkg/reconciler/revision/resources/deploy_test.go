@@ -372,6 +372,22 @@ func withContainerConcurrency(cc int64) revisionOption {
 	}
 }
 
+func withNodeSelector(nodeSelectorKey, nodeSelectorValue string) podSpecOption {
+	return func(ps *corev1.PodSpec) {
+		ps.NodeSelector = map[string]string{
+			nodeSelectorKey: nodeSelectorValue,
+		}
+	}
+}
+
+func withRevisionNodeSelector(nodeSelectorKey, nodeSelectorValue string) revisionOption {
+	return func(rev *v1alpha1.Revision) {
+		rev.Spec.NodeSelector = map[string]string{
+			nodeSelectorKey: nodeSelectorValue,
+		}
+	}
+}
+
 func withoutLabels(revision *v1alpha1.Revision) {
 	revision.ObjectMeta.Labels = map[string]string{}
 }
@@ -702,6 +718,26 @@ func TestMakePodSpec(t *testing.T) {
 			func(podSpec *corev1.PodSpec) {
 				podSpec.Volumes = append(podSpec.Volumes, internalVolume)
 			},
+		),
+	}, {
+		name: "with NodeSelector",
+		rev: revision(
+			withRevisionNodeSelector("test-selector-key", "test-selector-value"),
+			func(revision *v1alpha1.Revision) {
+				container(revision.Spec.GetContainer(),
+					withTCPReadinessProbe(),
+				)
+			}),
+		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
+		oc: &metrics.ObservabilityConfig{},
+		cc: &deployment.Config{},
+		want: podSpec(
+			[]corev1.Container{
+				userContainer(),
+				queueContainer(),
+			},
+			withNodeSelector("test-selector-key", "test-selector-value"),
 		),
 	}, {
 		name: "complex pod spec",

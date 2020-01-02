@@ -62,6 +62,7 @@ func (source *RevisionSpec) ConvertUp(ctx context.Context, sink *v1.RevisionSpec
 			Containers:         []corev1.Container{*source.DeprecatedContainer},
 			Volumes:            source.Volumes,
 			ImagePullSecrets:   source.ImagePullSecrets,
+			NodeSelector:       source.NodeSelector,
 		}
 	case len(source.Containers) == 1:
 		sink.PodSpec = source.PodSpec

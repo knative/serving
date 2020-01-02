@@ -89,6 +89,9 @@ func TestConfigurationConversion(t *testing.T) {
 					Spec: RevisionSpec{
 						RevisionSpec: v1.RevisionSpec{
 							PodSpec: corev1.PodSpec{
+								NodeSelector: map[string]string{
+									"test-selector-key": "test-selector-value",
+								},
 								ServiceAccountName: "robocop",
 								ImagePullSecrets: []corev1.LocalObjectReference{{
 									Name: "foo",

@@ -90,7 +90,6 @@
     - TerminationGracePeriodSeconds
     - ActiveDeadlineSeconds
     - DNSPolicy
-    - NodeSelector
     - AutomountServiceAccountToken
     - NodeName
     - HostNetwork

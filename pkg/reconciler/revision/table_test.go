@@ -566,6 +566,23 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, AllUnknownConditions, MarkDeploying("Deploying")),
 		}},
 		Key: "foo/image-pull-secrets",
+	}, {
+		Name: "node-selector",
+		// This test case tests that the image pull secrets from revision propagate to deployment and image
+		Objects: []runtime.Object{
+			rev("foo", "node-name", WithNodeSelector("selector-key", "selector-value")),
+		},
+		WantCreates: []runtime.Object{
+			pa("foo", "node-name"),
+			deployNodeSelector(deploy(t, "foo", "node-name"), "selector-key", "selector-value"),
+			image("foo", "node-name"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "node-name",
+				WithNodeSelector("selector-key", "selector-value"),
+				WithLogURL, AllUnknownConditions, MarkDeploying("Deploying")),
+		}},
+		Key: "foo/node-name",
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
@@ -620,6 +637,13 @@ func deployImagePullSecrets(deploy *appsv1.Deployment, secretName string) *appsv
 	deploy.Spec.Template.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{
 		Name: secretName,
 	}}
+	return deploy
+}
+
+func deployNodeSelector(deploy *appsv1.Deployment, nodeSelectorKey, nodeSelectorValue string) *appsv1.Deployment {
+	deploy.Spec.Template.Spec.NodeSelector = map[string]string{
+		nodeSelectorKey: nodeSelectorValue,
+	}
 	return deploy
 }
 

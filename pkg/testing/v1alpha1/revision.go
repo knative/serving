@@ -105,6 +105,16 @@ func WithImagePullSecrets(secretName string) RevisionOption {
 	}
 }
 
+// WithNodeSelector updates the revision spec NodeSelector to
+// the provided key and value
+func WithNodeSelector(nodeSelectorKey, nodeSelectorValue string) RevisionOption {
+	return func(rev *v1alpha1.Revision) {
+		rev.Spec.NodeSelector = map[string]string{
+			nodeSelectorKey: nodeSelectorValue,
+		}
+	}
+}
+
 // MarkActive calls .Status.MarkActive on the Revision.
 func MarkActive(r *v1alpha1.Revision) {
 	r.Status.MarkActiveTrue()
