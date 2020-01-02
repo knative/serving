@@ -51,7 +51,7 @@ required = [
 
 [[constraint]]
   name = "github.com/jetstack/cert-manager"
-  version = "v0.9.1"
+  version = "v0.12.0"
 
 [[constraint]]
   name = "github.com/gogo/protobuf"
@@ -75,7 +75,7 @@ required = [
 
 [[override]]
   name = "k8s.io/code-generator"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.4"
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"

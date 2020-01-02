@@ -17,19 +17,15 @@ limitations under the License.
 package config
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/ghodss/yaml"
 
-	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
+	cmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	corev1 "k8s.io/api/core/v1"
 )
 
 const (
-	solverConfigKey = "solverConfig"
-	issuerRefKey    = "issuerRef"
-	issuerKindKey   = "issuerKind"
+	issuerRefKey  = "issuerRef"
+	issuerKindKey = "issuerKind"
 
 	// CertManagerConfigName is the name of the configmap containing all
 	// configuration related to Cert-Manager.
@@ -41,9 +37,7 @@ const (
 // CertManagerConfig contains Cert-Manager related configuration defined in the
 // `config-certmanager` config map.
 type CertManagerConfig struct {
-	SolverConfig *certmanagerv1alpha1.SolverConfig
-	IssuerRef    *certmanagerv1alpha1.ObjectReference
-	IssuerKind   string
+	IssuerRef *cmeta.ObjectReference
 }
 
 // NewCertManagerConfigFromConfigMap creates an CertManagerConfig from the supplied ConfigMap
@@ -52,29 +46,12 @@ func NewCertManagerConfigFromConfigMap(configMap *corev1.ConfigMap) (*CertManage
 	// TODO: validation check.
 
 	config := &CertManagerConfig{
-		SolverConfig: &certmanagerv1alpha1.SolverConfig{},
-		IssuerRef:    &certmanagerv1alpha1.ObjectReference{},
-		IssuerKind:   defaultIssuerKind,
-	}
-
-	if v, ok := configMap.Data[solverConfigKey]; ok {
-		if err := yaml.Unmarshal([]byte(v), config.SolverConfig); err != nil {
-			return nil, err
-		}
+		IssuerRef: &certmanagerv1alpha1.ObjectReference{},
 	}
 
 	if v, ok := configMap.Data[issuerRefKey]; ok {
 		if err := yaml.Unmarshal([]byte(v), config.IssuerRef); err != nil {
 			return nil, err
-		}
-	}
-
-	if v, ok := configMap.Data[issuerKindKey]; ok {
-		config.IssuerKind = strings.ToLower(v)
-		switch config.IssuerKind {
-		case "acme", "ca":
-		default:
-			return nil, fmt.Errorf("IssuerKind %q is not supported", config.IssuerKind)
 		}
 	}
 	return config, nil

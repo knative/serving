@@ -23,7 +23,7 @@ import (
 	"reflect"
 	"strconv"
 
-	cmv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
+	cmv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha2"
 	"go.uber.org/zap"
 
 	corev1 "k8s.io/api/core/v1"
