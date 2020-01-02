@@ -90,8 +90,6 @@ func TestUpdate(t *testing.T) {
 								ServiceNamespace: test.ServingNamespace,
 								ServicePort:      intstr.FromInt(firstPort),
 							},
-							// Append different headers to each split, which lets us identify
-							// which backend we hit.
 							AppendHeaders: map[string]string{
 								updateHeaderName: sentinel,
 							},
@@ -135,8 +133,6 @@ func TestUpdate(t *testing.T) {
 								ServiceNamespace: test.ServingNamespace,
 								ServicePort:      intstr.FromInt(nextPort),
 							},
-							// Append different headers to each split, which lets us identify
-							// which backend we hit.
 							AppendHeaders: map[string]string{
 								updateHeaderName: sentinel,
 							},
