@@ -1562,7 +1562,7 @@
   version = "kubernetes-1.15.3"
 
 [[projects]]
-  digest = "0:"
+  digest = "1:a6aa236db5d07dff9ea1160ef316b17e131d2b1b2ad7d177431206bf389d241e"
   name = "k8s.io/code-generator"
   packages = [
     "cmd/client-gen",
