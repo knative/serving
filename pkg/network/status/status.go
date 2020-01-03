@@ -50,6 +50,7 @@ const (
 	cleanupPeriod = 1 * time.Minute
 )
 
+// TODO(https://github.com/knative/serving/issues/6407):  Default timeouts may lead to hanging probes.
 var dialContext = (&net.Dialer{}).DialContext
 
 // ingressState represents the probing progress at the Ingress scope
@@ -184,73 +185,69 @@ func (m *Prober) IsReady(ctx context.Context, ing *v1alpha1.Ingress) (bool, erro
 		cancel:       cancel,
 	}
 
-	var workItems []*workItem
+	workItems := make(map[string][]*workItem)
 
 	allProbeTargets, err := m.targetLister.ListProbeTargets(ctx, ing)
 	if err != nil {
 		return false, err
 	}
 
-	allPodIPs := sets.NewString()
+	// First, group the targets by IPs.
 	for _, target := range allProbeTargets {
-		// Iterate through sorted Pod IPs, for a consistent order.
-		for _, ip := range target.PodIPs.List() {
-			allPodIPs.Insert(ip)
-			// Each Pod is probed using the different hosts, protocol and ports until
-			// one of the probing calls succeeds. Then, the Pod is considered ready and all pending work items
-			// scheduled for that pod are cancelled.
-			ctx, cancel := context.WithCancel(ingCtx)
-			podState := &podState{
-				successCount: 0,
-				context:      ctx,
-				cancel:       cancel,
-			}
-
-			// Save the podState to be able to cancel it in case of Pod deletion
-			func() {
-				m.mu.Lock()
-				defer m.mu.Unlock()
-				m.podStates[ip] = podState
-			}()
-
-			// Update states and cleanup m.podStates when probing is done or cancelled
-			go func(ip string) {
-				<-podState.context.Done()
-				m.updateStates(ingressState, podState)
-
-				m.mu.Lock()
-				defer m.mu.Unlock()
-				// It is critical to check that the current podState is also the one stored in the map
-				// before deleting it because it could have been replaced if a new version of the ingress
-				// has started being probed.
-				if state, ok := m.podStates[ip]; ok && state == podState {
-					delete(m.podStates, ip)
-				}
-			}(ip)
-
+		for ip := range target.PodIPs {
 			for _, url := range target.URLs {
-				workItem := &workItem{
+				workItems[ip] = append(workItems[ip], &workItem{
 					ingressState: ingressState,
-					podState:     podState,
 					url:          url,
 					podIP:        ip,
 					podPort:      target.Port,
-				}
-				workItems = append(workItems, workItem)
+				})
 			}
 		}
 	}
-	ingressState.pendingCount += int32(allPodIPs.Len())
+	for ip, ipWorkItems := range workItems {
+		ctx, cancel := context.WithCancel(ingCtx)
+		podState := &podState{
+			successCount: 0,
+			context:      ctx,
+			cancel:       cancel,
+		}
+
+		// Save the podState to be able to cancel it in case of Pod deletion
+		func() {
+			m.mu.Lock()
+			defer m.mu.Unlock()
+			m.podStates[ip] = podState
+		}()
+
+		// Update states and cleanup m.podStates when probing is done or cancelled
+		go func(ip string) {
+			<-podState.context.Done()
+			m.updateStates(ingressState, podState)
+
+			m.mu.Lock()
+			defer m.mu.Unlock()
+			// It is critical to check that the current podState is also the one stored in the map
+			// before deleting it because it could have been replaced if a new version of the ingress
+			// has started being probed.
+			if state, ok := m.podStates[ip]; ok && state == podState {
+				delete(m.podStates, ip)
+			}
+		}(ip)
+
+		for _, wi := range ipWorkItems {
+			wi.podState = podState
+			m.workQueue.AddRateLimited(wi)
+			m.logger.Infof("Queuing probe for %s, IP: %s:%s (depth: %d)",
+				wi.url, wi.podIP, wi.podPort, m.workQueue.Len())
+		}
+	}
+	ingressState.pendingCount += int32(len(workItems))
 	func() {
 		m.mu.Lock()
 		defer m.mu.Unlock()
 		m.ingressStates[ingressKey] = ingressState
 	}()
-	for _, workItem := range workItems {
-		m.workQueue.AddRateLimited(workItem)
-		m.logger.Infof("Queuing probe for %s, IP: %s:%s (depth: %d)",
-			workItem.url, workItem.podIP, workItem.podPort, m.workQueue.Len())
-	}
 	return len(workItems) == 0, nil
 }
 
