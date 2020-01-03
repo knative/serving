@@ -49,11 +49,3 @@ data:
     issuerRef: |
       kind: ClusterIssuer
       name: letsencrypt-issuer
-
-    # solverConfig defines the configuration for the ACME certificate provider.
-    # The solverConfig should be either dns01 or http01.
-    # Please refer `SolverConfig` in https://github.com/jetstack/cert-manager/blob/master/pkg/apis/certmanager/v1alpha1/types_certificate.go
-    # for more details about ACME configuration.
-    solverConfig: |
-      dns01:
-        provider: cloud-dns-provider

@@ -24,14 +24,11 @@ import (
 )
 
 const (
-	issuerRefKey  = "issuerRef"
-	issuerKindKey = "issuerKind"
+	issuerRefKey = "issuerRef"
 
 	// CertManagerConfigName is the name of the configmap containing all
 	// configuration related to Cert-Manager.
 	CertManagerConfigName = "config-certmanager"
-
-	defaultIssuerKind = "acme"
 )
 
 // CertManagerConfig contains Cert-Manager related configuration defined in the

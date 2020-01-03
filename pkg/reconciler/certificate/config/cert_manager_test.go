@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha2"
+	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	. "knative.dev/pkg/configmap/testing"
@@ -59,32 +59,13 @@ func TestIssuerRef(t *testing.T) {
 			},
 		},
 	}, {
-		name:       "invalid IssuerKind",
-		wantErr:    true,
-		wantConfig: (*CertManagerConfig)(nil),
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      CertManagerConfigName,
-			},
-			Data: map[string]string{
-				issuerKindKey: "unsupported",
-			},
-		},
-	}, {
 		name:    "valid IssuerRef",
 		wantErr: false,
 		wantConfig: &CertManagerConfig{
-			SolverConfig: &certmanagerv1alpha1.SolverConfig{
-				DNS01: &certmanagerv1alpha1.DNS01SolverConfig{
-					Provider: "cloud-dns-provider",
-				},
-			},
-			IssuerRef: &certmanagerv1alpha1.ObjectReference{
+			IssuerRef: &cmmeta.ObjectReference{
 				Name: "letsencrypt-issuer",
 				Kind: "ClusterIssuer",
 			},
-			IssuerKind: "acme",
 		},
 		config: &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -92,97 +73,12 @@ func TestIssuerRef(t *testing.T) {
 				Name:      CertManagerConfigName,
 			},
 			Data: map[string]string{
-				issuerRefKey:    "kind: ClusterIssuer\nname: letsencrypt-issuer",
-				issuerKindKey:   "acme",
-				solverConfigKey: "dns01:\n  provider: cloud-dns-provider",
+				issuerRefKey: "kind: ClusterIssuer\nname: letsencrypt-issuer",
 			},
 		},
 	}}
 
 	for _, tt := range isserRefCases {
-		t.Run(tt.name, func(t *testing.T) {
-			actualConfig, err := NewCertManagerConfigFromConfigMap(tt.config)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("Test: %q; NewCertManagerConfigFromConfigMap() error = %v, WantErr %v", tt.name, err, tt.wantErr)
-			}
-			if diff := cmp.Diff(actualConfig, tt.wantConfig); diff != "" {
-				t.Fatalf("Want %v, but got %v", tt.wantConfig, actualConfig)
-			}
-		})
-	}
-}
-
-func TestSolverConfig(t *testing.T) {
-	solverConfigCases := []struct {
-		name       string
-		wantErr    bool
-		wantConfig *CertManagerConfig
-		config     *corev1.ConfigMap
-	}{{
-		name:    "invalid format",
-		wantErr: true,
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      CertManagerConfigName,
-			},
-			Data: map[string]string{
-				solverConfigKey: "wrong format",
-			},
-		},
-	}, {
-		name:    "valid SolverConfig DNS01",
-		wantErr: false,
-		wantConfig: &CertManagerConfig{
-			SolverConfig: &certmanagerv1alpha1.SolverConfig{
-				DNS01: &certmanagerv1alpha1.DNS01SolverConfig{
-					Provider: "cloud-dns-provider",
-				},
-			},
-			IssuerRef: &certmanagerv1alpha1.ObjectReference{
-				Name: "letencrypt-issuer",
-				Kind: "ClusterIssuer",
-			},
-			IssuerKind: "acme",
-		},
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      CertManagerConfigName,
-			},
-			Data: map[string]string{
-				solverConfigKey: "dns01:\n  provider: cloud-dns-provider",
-				issuerRefKey:    "kind: ClusterIssuer\nname: letencrypt-issuer",
-			},
-		},
-	}, {
-		name:    "valid SolverConfig HTTP01",
-		wantErr: false,
-		wantConfig: &CertManagerConfig{
-			SolverConfig: &certmanagerv1alpha1.SolverConfig{
-				HTTP01: &certmanagerv1alpha1.HTTP01SolverConfig{
-					Ingress: "test-ingress",
-				},
-			},
-			IssuerRef: &certmanagerv1alpha1.ObjectReference{
-				Name: "letencrypt-issuer",
-				Kind: "ClusterIssuer",
-			},
-			IssuerKind: "acme",
-		},
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      CertManagerConfigName,
-			},
-			Data: map[string]string{
-				solverConfigKey: "http01:\n  ingress: test-ingress",
-				issuerRefKey:    "kind: ClusterIssuer\nname: letencrypt-issuer",
-			},
-		},
-	}}
-
-	for _, tt := range solverConfigCases {
 		t.Run(tt.name, func(t *testing.T) {
 			actualConfig, err := NewCertManagerConfigFromConfigMap(tt.config)
 			if (err != nil) != tt.wantErr {

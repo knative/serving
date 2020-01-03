@@ -148,10 +148,14 @@ func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate
 	switch {
 	case cmCertReadyCondition == nil:
 		knCert.Status.MarkNotReady(noCMConditionReason, noCMConditionMessage)
-		c.setHTTP01Challenges(knCert, cmCert)
+		if err := c.setHTTP01Challenges(knCert, cmCert); err != nil {
+			return err
+		}
 	case cmCertReadyCondition.Status == cmmeta.ConditionUnknown:
 		knCert.Status.MarkNotReady(cmCertReadyCondition.Reason, cmCertReadyCondition.Message)
-		c.setHTTP01Challenges(knCert, cmCert)
+		if err := c.setHTTP01Challenges(knCert, cmCert); err != nil {
+			return err
+		}
 	case cmCertReadyCondition.Status == cmmeta.ConditionTrue:
 		knCert.Status.MarkReady()
 		knCert.Status.HTTP01Challenges = []v1alpha1.HTTP01Challenge{}
@@ -272,7 +276,9 @@ func (c *Reconciler) isHTTPChallenge(cmCert *cmv1alpha2.Certificate) (bool, erro
 	if issuer, err := c.cmIssuerLister.Get(cmCert.Spec.IssuerRef.Name); err != nil {
 		return false, err
 	} else {
-		return issuer.Spec.ACME.Solvers[0].HTTP01 != nil, nil
+		return issuer.Spec.ACME != nil &&
+			len(issuer.Spec.ACME.Solvers) > 0 &&
+			issuer.Spec.ACME.Solvers[0].HTTP01 != nil, nil
 	}
 }
 
