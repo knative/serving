@@ -721,16 +721,15 @@
   revision = "8b927904ee0dec805c89aaf9172f4459296ed6e8"
 
 [[projects]]
-  branch = "master"
-  digest = "1:48871545d029f0561819b6f761e11ed3111e79f29f7f1ba36e2e428e05ceaa9d"
+  digest = "1:081608ceb454c46b54d24b7561e5744088f3ff69478b23f50277ec83bd8636b0"
   name = "google.golang.org/api"
   packages = [
     "container/v1beta1",
-    "gensupport",
     "googleapi",
-    "googleapi/internal/uritemplates",
     "googleapi/transport",
     "internal",
+    "internal/gensupport",
+    "internal/third_party/uritemplates",
     "iterator",
     "option",
     "storage/v1",
@@ -741,7 +740,8 @@
     "transport/http/internal/propagation",
   ]
   pruneopts = "NUT"
-  revision = "aa15faf3c8a1cffc77fc3dabe95703bb12c5f6a9"
+  revision = "aa5d4e47691e7ae1aebb5221ff8e4beea23fad72"
+  version = "v0.15.0"
 
 [[projects]]
   digest = "1:a955e7c44c2be14b61aa2ddda744edfdfbc6817e993703a16e303c277ba84449"
@@ -1243,15 +1243,17 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:df1c1cf6d2c9ca0781705ef095cb15e06f777cddb493775aad41b72f79867d7a"
+  digest = "1:85d1708cf70b4fa56e184b16a5af5350945f3239978529719f4a53cbcd67ca2a"
   name = "k8s.io/test-infra"
   packages = [
     "boskos/client",
     "boskos/common",
     "boskos/storage",
+    "prow/config/secret",
+    "prow/logrusutil",
   ]
   pruneopts = "NUT"
-  revision = "356470ae778d26af50f27ff8673434bf5cf73c07"
+  revision = "70b0b49fe2476f06f97272e77f47ba432cb54244"
 
 [[projects]]
   branch = "master"

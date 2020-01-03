@@ -32,6 +32,11 @@ type Request struct {
 	// GKEVersion: GKE version of the cluster, default to be latest if not provided
 	GKEVersion string
 
+	// ReleaseChannel: GKE release channel. Only one of GKEVersion or ReleaseChannel can be
+	// specified at a time.
+	// https://cloud.google.com/kubernetes-engine/docs/concepts/release-channels
+	ReleaseChannel string
+
 	// ClusterName: name of the cluster
 	ClusterName string
 
@@ -63,6 +68,7 @@ func (r *Request) DeepCopy() *Request {
 	return &Request{
 		Project:                r.Project,
 		GKEVersion:             r.GKEVersion,
+		ReleaseChannel:         r.ReleaseChannel,
 		ClusterName:            r.ClusterName,
 		MinNodes:               r.MinNodes,
 		MaxNodes:               r.MaxNodes,
@@ -91,9 +97,8 @@ func NewCreateClusterRequest(request *Request) (*container.CreateClusterRequest,
 	if request.EnableWorkloadIdentity && request.Project == "" {
 		return nil, errors.New("project cannot be empty if you want Workload Identity")
 	}
-
-	if request.GKEVersion == "" {
-		request.GKEVersion = defaultGKEVersion
+	if request.GKEVersion != "" && request.ReleaseChannel != "" {
+		return nil, errors.New("can only specify one of GKE version or release channel (not both)")
 	}
 
 	ccr := &container.CreateClusterRequest{
@@ -113,9 +118,6 @@ func NewCreateClusterRequest(request *Request) (*container.CreateClusterRequest,
 				},
 			},
 			Name: request.ClusterName,
-			// The default cluster version is not latest, has to explicitly
-			// set it as "latest"
-			InitialClusterVersion: request.GKEVersion,
 			// Installing addons after cluster creation takes at least 5
 			// minutes, so install addons as part of cluster creation, which
 			// doesn't seem to add much time on top of cluster creation
@@ -134,6 +136,17 @@ func NewCreateClusterRequest(request *Request) (*container.CreateClusterRequest,
 		ccr.Cluster.WorkloadIdentityConfig = &container.WorkloadIdentityConfig{
 			IdentityNamespace: request.Project + ".svc.id.goog",
 		}
+	}
+
+	// Manage the GKE cluster version. Only one of initial cluster version or release channel can be specified.
+	if request.ReleaseChannel != "" {
+		ccr.Cluster.ReleaseChannel = &container.ReleaseChannel{Channel: request.ReleaseChannel}
+	} else if request.GKEVersion != "" {
+		ccr.Cluster.InitialClusterVersion = request.GKEVersion
+	} else {
+		// The default cluster version is not latest, has to explicitly
+		// set it as "latest"
+		ccr.Cluster.InitialClusterVersion = defaultGKEVersion
 	}
 	return ccr, nil
 }

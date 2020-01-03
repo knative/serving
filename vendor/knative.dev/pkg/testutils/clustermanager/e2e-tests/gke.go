@@ -135,11 +135,16 @@ func (gs *GKEClient) Setup(r GKERequest) ClusterOperations {
 
 	client, err := gke.NewSDKClient()
 	if err != nil {
-		log.Fatalf("failed to create GKE SDK client: '%v'", err)
+		log.Fatalf("Failed to create GKE SDK client: '%v'", err)
 	}
 	gc.operations = client
 
-	gc.boskosOps = &boskos.Client{}
+	gc.boskosOps, err = boskos.NewClient("", /* boskos owner */
+		"", /* boskos user */
+		"" /* boskos password file */)
+	if err != nil {
+		log.Fatalf("Failed to create boskos client: '%v", err)
+	}
 
 	return gc
 }
@@ -176,7 +181,7 @@ func (gc *GKECluster) Acquire() error {
 	// Get project name from boskos if running in Prow, otherwise it should fail
 	// since we don't know which project to use
 	if common.IsProw() {
-		project, err := gc.boskosOps.AcquireGKEProject(nil, gc.Request.ResourceType)
+		project, err := gc.boskosOps.AcquireGKEProject(gc.Request.ResourceType)
 		if err != nil {
 			return fmt.Errorf("failed acquiring boskos project: '%v'", err)
 		}
@@ -264,7 +269,7 @@ func (gc *GKECluster) Delete() error {
 	// clusters deleting
 	if common.IsProw() {
 		log.Printf("Releasing Boskos resource: '%v'", gc.Project)
-		return gc.boskosOps.ReleaseGKEProject(nil, gc.Project)
+		return gc.boskosOps.ReleaseGKEProject(gc.Project)
 	}
 
 	// NeedsCleanup is only true if running locally and cluster created by the

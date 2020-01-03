@@ -184,8 +184,9 @@ go test ./test --logverbose
 
 ### Specifying docker repo
 
-The `--dockerrepo` argument lets you specify a uri of the docker repo where you have
-uploaded the test image to using `uploadtestimage.sh`. Defaults to `$KO_DOCKER_REPO`
+The `--dockerrepo` argument lets you specify a uri of the docker repo where you
+have uploaded the test image to using `uploadtestimage.sh`. Defaults to
+`$KO_DOCKER_REPO`
 
 ```bash
 go test ./test --dockerrepo myspecialdockerrepo
@@ -194,6 +195,7 @@ go test ./test --dockerrepo myspecialdockerrepo
 ### Specifying tag
 
 The `--tag` argument lets you specify the version tag for the test images.
+
 ```bash
 go test ./test --tag v1.0
 ```
@@ -201,7 +203,9 @@ go test ./test --tag v1.0
 ### Specifying image template
 
 The `--imagetemplate` argument lets you specify a template to generate the
-reference to an image from the test. Defaults to `{{.Repository}}/{{.Name}}:{{.Tag}}`
+reference to an image from the test. Defaults to
+`{{.Repository}}/{{.Name}}:{{.Tag}}`
+
 ```bash
 go test ./test --imagetemplate {{.Repository}}/{{.Name}}:{{.Tag}}
 ```
