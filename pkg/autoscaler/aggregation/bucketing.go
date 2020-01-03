@@ -75,7 +75,7 @@ func (t *TimedFloat64Buckets) Record(now time.Time, name string, value float64) 
 	t.bucketsMutex.Lock()
 	defer t.bucketsMutex.Unlock()
 
-	bIdx := t.timeToIndex(now) % len(t.buckets)
+	writeIdx := t.timeToIndex(now)
 
 	if t.lastWrite != bucketTime {
 		// This should not really happen, but is here for correctness.
@@ -85,13 +85,19 @@ func (t *TimedFloat64Buckets) Record(now time.Time, name string, value float64) 
 				t.buckets[i] = 0
 			}
 		} else {
-			// Reset just that index.
-			t.buckets[bIdx] = 0
+			// In theory we might lose buckets between stats gathering.
+			// Thus we need to clean not only the current index, but also
+			// all the ondes from the last write. This is slower than the loop above
+			// due to possible wrap-around, so they are not merged together.
+			oldIdx := t.timeToIndex(t.lastWrite)
+			for i := oldIdx + 1; i <= writeIdx; i++ {
+				t.buckets[i%len(t.buckets)] = 0
+			}
 		}
 		// Update the last write time.
 		t.lastWrite = bucketTime
 	}
-	t.buckets[bIdx] += value
+	t.buckets[writeIdx%len(t.buckets)] += value
 }
 
 // ForEachBucket calls the given Accumulator function for each bucket.
