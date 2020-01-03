@@ -50,7 +50,7 @@ const (
 	cleanupPeriod = 1 * time.Minute
 )
 
-// TODO(issue):  Default timeouts may lead to hanging probes.
+// TODO(https://github.com/knative/serving/issues/6407):  Default timeouts may lead to hanging probes.
 var dialContext = (&net.Dialer{}).DialContext
 
 // ingressState represents the probing progress at the Ingress scope
