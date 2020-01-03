@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	basecmd "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/cmd"
@@ -53,10 +54,11 @@ import (
 )
 
 const (
-	statsServerAddr = ":8080"
-	statsBufferLen  = 1000
-	component       = "autoscaler"
-	controllerNum   = 2
+	customMetricsPort = "8443"
+	statsServerAddr   = ":8080"
+	statsBufferLen    = 1000
+	component         = "autoscaler"
+	controllerNum     = 2
 )
 
 var (
@@ -67,7 +69,10 @@ var (
 func main() {
 	// Initialize early to get access to flags and merge them with the autoscaler flags.
 	customMetricsAdapter := &basecmd.AdapterBase{}
-	customMetricsAdapter.Flags().AddGoFlagSet(flag.CommandLine)
+	flags := customMetricsAdapter.Flags()
+	flags.AddGoFlagSet(flag.CommandLine)
+	flags.Set("secure-port", customMetricsPort)
+	flags.Set("cert-dir", os.TempDir())
 	pflag.Parse()
 
 	// Set up signals so we handle the first shutdown signal gracefully.

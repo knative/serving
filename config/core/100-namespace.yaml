@@ -13,27 +13,9 @@
 # limitations under the License.
 
 apiVersion: v1
-kind: Service
+kind: Namespace
 metadata:
-  name: activator-service
-  namespace: knative-serving
+  name: knative-serving
   labels:
-    app: activator
+    istio-injection: enabled
     serving.knative.dev/release: devel
-spec:
-  selector:
-    app: activator
-  ports:
-  - name: http
-    protocol: TCP
-    port: 80
-    targetPort: 8012
-  - name: http2
-    protocol: TCP
-    port: 81
-    targetPort: 8013
-  - name: http-metrics
-    protocol: TCP
-    port: 9090
-    targetPort: 9090
-  type: ClusterIP

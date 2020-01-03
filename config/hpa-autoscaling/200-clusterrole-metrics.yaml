@@ -1,4 +1,4 @@
-# Copyright 2018 The Knative Authors
+# Copyright 2019 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,27 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Service
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
 metadata:
+  name: custom-metrics-server-resources
   labels:
-    app: autoscaler
     serving.knative.dev/release: devel
-  name: autoscaler
-  namespace: knative-serving
-spec:
-  ports:
-  - name: http
-    port: 8080
-    protocol: TCP
-    targetPort: 8080
-  - name: http-metrics
-    port: 9090
-    protocol: TCP
-    targetPort: 9090
-  - name: https-custom-metrics
-    port: 443
-    protocol: TCP
-    targetPort: 8443
-  selector:
-    app: autoscaler
+    autoscaling.knative.dev/metric-provider: custom-metrics
+rules:
+  - apiGroups: ["custom.metrics.k8s.io"]
+    resources: ["*"]
+    verbs: ["*"]
