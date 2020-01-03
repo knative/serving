@@ -26,8 +26,6 @@ spec:
       app: controller
   template:
     metadata:
-      annotations:
-        sidecar.istio.io/inject: "false"
       labels:
         app: controller
         serving.knative.dev/release: devel

@@ -27,8 +27,6 @@ spec:
       app: networking-certmanager
   template:
     metadata:
-      annotations:
-        sidecar.istio.io/inject: "false"
       labels:
         app: networking-certmanager
         serving.knative.dev/release: devel

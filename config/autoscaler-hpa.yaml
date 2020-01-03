@@ -27,8 +27,6 @@ spec:
       app: autoscaler-hpa
   template:
     metadata:
-      annotations:
-        sidecar.istio.io/inject: "false"
       labels:
         app: autoscaler-hpa
         serving.knative.dev/release: devel

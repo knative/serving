@@ -28,6 +28,7 @@ spec:
   template:
     metadata:
       annotations:
+        # This must be outside of the mesh to probe the gateways.
         sidecar.istio.io/inject: "false"
       labels:
         app: networking-istio

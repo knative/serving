@@ -30,6 +30,10 @@ spec:
     port: 9090
     protocol: TCP
     targetPort: 9090
+  - name: http-profiling
+    port: 8008
+    protocol: TCP
+    targetPort: 8008
   - name: https-custom-metrics
     port: 443
     protocol: TCP
