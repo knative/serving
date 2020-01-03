@@ -55,7 +55,7 @@ const (
 	noCMConditionMessage = "The ready condition of Cert Manager Certifiate does not exist."
 	notReconciledReason  = "ReconcileFailed"
 	notReconciledMessage = "Cert-Manager certificate has not yet been reconciled."
-	httpDomainLabel      = "certmanager.k8s.io/acme-http-domain"
+	httpDomainLabel      = "acme.cert-manager.io/http-domain"
 	httpChallengePath    = "/.well-known/acme-challenge"
 )
 
@@ -144,27 +144,21 @@ func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate
 	knCert.Status.NotAfter = cmCert.Status.NotAfter
 	// Propagate cert-manager Certificate status to Knative Certificate.
 	cmCertReadyCondition := resources.GetReadyCondition(cmCert)
+	logger.Infof("cm cert condition %v.", cmCertReadyCondition)
 	switch {
 	case cmCertReadyCondition == nil:
 		knCert.Status.MarkNotReady(noCMConditionReason, noCMConditionMessage)
+		c.setHTTP01Challenges(knCert, cmCert)
 	case cmCertReadyCondition.Status == cmmeta.ConditionUnknown:
 		knCert.Status.MarkNotReady(cmCertReadyCondition.Reason, cmCertReadyCondition.Message)
+		c.setHTTP01Challenges(knCert, cmCert)
 	case cmCertReadyCondition.Status == cmmeta.ConditionTrue:
 		knCert.Status.MarkReady()
 		knCert.Status.HTTP01Challenges = []v1alpha1.HTTP01Challenge{}
 	case cmCertReadyCondition.Status == cmmeta.ConditionFalse:
 		knCert.Status.MarkFailed(cmCertReadyCondition.Reason, cmCertReadyCondition.Message)
+		knCert.Status.HTTP01Challenges = []v1alpha1.HTTP01Challenge{}
 	}
-
-	if isHTTP, err := c.isHTTPChallenge(cmCert); err != nil {
-		return err
-	} else if isHTTP {
-		err := c.setHTTP01Challenges(knCert, cmCert.Spec.DNSNames)
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -222,9 +216,14 @@ func (c *Reconciler) updateStatus(existing *v1alpha1.Certificate, desired *v1alp
 	})
 }
 
-func (c *Reconciler) setHTTP01Challenges(knCert *v1alpha1.Certificate, http01Domains []string) error {
-	challenges := make([]v1alpha1.HTTP01Challenge, 0, len(http01Domains))
-	for _, dnsName := range http01Domains {
+func (c *Reconciler) setHTTP01Challenges(knCert *v1alpha1.Certificate, cmCert *cmv1alpha2.Certificate) error {
+	if isHTTP, err := c.isHTTPChallenge(cmCert); err != nil {
+		return err
+	} else if !isHTTP {
+		return nil
+	}
+	challenges := make([]v1alpha1.HTTP01Challenge, 0, len(cmCert.Spec.DNSNames))
+	for _, dnsName := range cmCert.Spec.DNSNames {
 		// This selector comes from https://github.com/jetstack/cert-manager/blob/1b9b83a4b80068207b0a8070dadb0e760f5095f6/pkg/issuer/acme/http/pod.go#L34
 		selector := labels.NewSelector()
 		value := strconv.FormatUint(uint64(adler32.Checksum([]byte(dnsName))), 10)
