@@ -47,6 +47,8 @@ You must install these tools:
    mentioned in the sections below.
    - [Google Container Registry quickstart](https://cloud.google.com/container-registry/docs/pushing-and-pulling)
    - [Docker Hub quickstart](https://docs.docker.com/docker-hub/)
+   - If developing locally with Docker or Minikube, you can use the `-L` flag to
+     `ko` to build and push locally (in this case, authentication is not needed)
 
 **Note**: You'll need to be authenticated with your `KO_DOCKER_REPO` before
 pushing images. Run `gcloud auth configure-docker` if you are using Google
@@ -113,24 +115,11 @@ can easily [clean your cluster up](#clean-up) and try again.
 
 ### Setup cluster admin
 
-Your user must be a cluster admin to perform the setup needed for Knative.
-
-The value you use depends on
-[your cluster setup](https://www.knative.dev/docs/install/): when using Minikube
-or Kubernetes on Docker Desktop, the user is your local user; when using GKE,
-the user is your GCP user.
-
-```shell
-# For GCP
-kubectl create clusterrolebinding cluster-admin-binding \
-  --clusterrole=cluster-admin \
-  --user=$(gcloud config get-value core/account)
-
-# For minikube or Kubernetes on Docker Desktop
-kubectl create clusterrolebinding cluster-admin-binding \
-  --clusterrole=cluster-admin \
-  --user=$USER
-```
+Your user must be a cluster admin to perform the setup needed for Knative. This
+should be the case by default if you've provisioned your own Kubernetes cluster.
+In particular, you'll need to be able to create Kubernetes cluster-scoped
+Namespace, CustomResourceDefinition, ClusterRole, and ClusterRoleBinding
+objects.
 
 ### Resource allocation for Kubernetes
 
@@ -193,33 +182,11 @@ kubectl apply -f ./third_party/istio-1.3-latest/istio-knative-extras.yaml
 ### Deploy Knative Serving
 
 This step includes building Knative Serving, creating and pushing developer
-images and deploying them to your Kubernetes cluster.
-
-First, edit [config-network.yaml](config/config-network.yaml) as instructed
-within the file. If this file is edited and deployed after Knative Serving
-installation, the changes in it will be effective only for newly created
-revisions. Alternatively, if you are developing on GKE, you can skip the editing
-and use the patching tool in `hack/dev-patch-config-gke.sh` after deploying
-knative.
-
-Edited `config-network.yaml` example:
-
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: config-network
-  namespace: knative-serving
-  labels:
-    serving.knative.dev/release: devel
-
-data:
-  istio.sidecar.includeOutboundIPRanges: "172.30.0.0/16,172.20.0.0/16,10.10.10.0/24"
-  ingress.class: "istio.ingress.networking.knative.dev"
-```
-
-You should keep the default value for "istio.sidecar.includeOutboundIPRanges",
-when you use Minikube or Docker Desktop as the Kubernetes environment.
+images and deploying them to your Kubernetes cluster. If you're developing
+locally (for example, using
+[Docker-on-Mac](https://knative.dev/docs/install/knative-with-docker-for-mac/)),
+add the `-L` flag to avoid needing to push your images to an off-machine
+registry.
 
 Next, run:
 
