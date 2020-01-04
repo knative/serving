@@ -62,12 +62,6 @@ func (t *TimedFloat64Buckets) timeToIndex(tm time.Time) int {
 	return int(tm.Unix()) / int(t.granularity.Seconds())
 }
 
-func (t *TimedFloat64Buckets) reset() {
-	for i := range t.buckets {
-		t.buckets[i] = 0
-	}
-}
-
 // Record adds a value with an associated time to the correct bucket.
 func (t *TimedFloat64Buckets) Record(now time.Time, name string, value float64) {
 	bucketTime := now.Truncate(t.granularity)
