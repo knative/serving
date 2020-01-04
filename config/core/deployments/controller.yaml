@@ -20,12 +20,13 @@ metadata:
   labels:
     serving.knative.dev/release: devel
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: controller
   template:
     metadata:
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
       labels:
         app: controller
         serving.knative.dev/release: devel
@@ -36,20 +37,15 @@ spec:
         # This is the Go import path for the binary that is containerized
         # and substituted here.
         image: knative.dev/serving/cmd/controller
+
         resources:
-          # Request 2x what we saw running e2e
           requests:
             cpu: 100m
             memory: 100Mi
-          # Limit to 10x the request (20x the observed peak during e2e)
           limits:
             cpu: 1000m
             memory: 1000Mi
-        ports:
-        - name: metrics
-          containerPort: 9090
-        - name: profiling
-          containerPort: 8008
+
         env:
         - name: SYSTEM_NAMESPACE
           valueFrom:
@@ -59,9 +55,37 @@ spec:
           value: config-logging
         - name: CONFIG_OBSERVABILITY_NAME
           value: config-observability
-        # Used for Stackdriver only.
-        # knative.dev/internal/serving is the one for revision metrics.
+
+        # TODO(https://github.com/knative/pkg/pull/953): Remove stackdriver specific config
         - name: METRICS_DOMAIN
           value: knative.dev/internal/serving
+
         securityContext:
           allowPrivilegeEscalation: false
+
+        ports:
+        - name: metrics
+          containerPort: 9090
+        - name: profiling
+          containerPort: 8008
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: controller
+    serving.knative.dev/release: devel
+  name: controller
+  namespace: knative-serving
+spec:
+  ports:
+  # Define metrics and profiling for them to be accessible within service meshes.
+  - name: http-metrics
+    port: 9090
+    targetPort: 9090
+  - name: http-profiling
+    port: 8008
+    targetPort: 8008
+  selector:
+    app: controller

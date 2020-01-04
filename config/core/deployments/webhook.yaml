@@ -20,7 +20,6 @@ metadata:
   labels:
     serving.knative.dev/release: devel
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: webhook
@@ -40,20 +39,15 @@ spec:
         # This is the Go import path for the binary that is containerized
         # and substituted here.
         image: knative.dev/serving/cmd/webhook
-        ports:
-        - name: metrics
-          containerPort: 9090
-        - name: profiling
-          containerPort: 8008
+
         resources:
-          # Request 2x what we saw running e2e
           requests:
             cpu: 20m
             memory: 20Mi
-          # Limit to 10x the request (20x the observed peak during e2e)
           limits:
             cpu: 200m
             memory: 200Mi
+
         env:
         - name: SYSTEM_NAMESPACE
           valueFrom:
@@ -63,7 +57,40 @@ spec:
           value: config-logging
         - name: CONFIG_OBSERVABILITY_NAME
           value: config-observability
+
+        # TODO(https://github.com/knative/pkg/pull/953): Remove stackdriver specific config
         - name: METRICS_DOMAIN
           value: knative.dev/serving
+
         securityContext:
           allowPrivilegeEscalation: false
+
+        ports:
+        - name: metrics
+          containerPort: 9090
+        - name: profiling
+          containerPort: 8008
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    role: webhook
+    serving.knative.dev/release: devel
+  name: webhook
+  namespace: knative-serving
+spec:
+  ports:
+  # Define metrics and profiling for them to be accessible within service meshes.
+  - name: http-metrics
+    port: 9090
+    targetPort: 9090
+  - name: http-profiling
+    port: 8008
+    targetPort: 8008
+  - name: https-webhook
+    port: 443
+    targetPort: 8443
+  selector:
+    role: webhook

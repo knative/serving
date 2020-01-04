@@ -34,73 +34,100 @@ spec:
         serving.knative.dev/release: devel
     spec:
       serviceAccountName: controller
-      # We want to give Activator quite some to exit, to process the existing requests
-      # which might be quite long running, i.e. streaming.
-      terminationGracePeriodSeconds: 300
       containers:
       - name: activator
         # This is the Go import path for the binary that is containerized
         # and substituted here.
         image: knative.dev/serving/cmd/activator
-        ports:
-        - name: http1
-          containerPort: 8012
-        - name: h2c
-          containerPort: 8013
-        - name: metrics
-          containerPort: 9090
-        - name: profiling
-          containerPort: 8008
-        readinessProbe:
-          httpGet:
-            # The path does not matter, we look for the kubelet user-agent
-            # (or our header below)
-            path: /healthz
-            port: 8012
-            httpHeaders:
-            # Istio with mTLS strips the Kubelet user-agent, so pass a header too.
-            - name: k-kubelet-probe
-              value: "activator"
-        livenessProbe:
-          httpGet:
-            # The path does not matter, we look for kubelet probe headers.
-            path: /healthz
-            port: 8012
-            httpHeaders:
-            # Istio with mTLS strips the Kubelet user-agent, so pass a header too.
-            - name: k-kubelet-probe
-              value: "activator"
+
+        # The numbers are based on performance test results from
+        # https://github.com/knative/serving/issues/1625#issuecomment-511930023
         resources:
-          # The numbers are based on performance test results from
-          # https://github.com/knative/serving/issues/1625#issuecomment-511930023
           requests:
             cpu: 300m
             memory: 60Mi
           limits:
             cpu: 1000m
             memory: 600Mi
+
         env:
-          # Run Activator with GC collection when newly generated memory is 500%.
-          - name: GOGC
-            value: "500"
-          - name: POD_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.name
-          - name: POD_IP
-            valueFrom:
-              fieldRef:
-                fieldPath: status.podIP
-          - name: SYSTEM_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
-          - name: CONFIG_LOGGING_NAME
-            value: config-logging
-          - name: CONFIG_OBSERVABILITY_NAME
-            value: config-observability
-          # Used for Stackdriver only.
-          - name: METRICS_DOMAIN
-            value: knative.dev/internal/serving
+        # Run Activator with GC collection when newly generated memory is 500%.
+        - name: GOGC
+          value: "500"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: SYSTEM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: CONFIG_LOGGING_NAME
+          value: config-logging
+        - name: CONFIG_OBSERVABILITY_NAME
+          value: config-observability
+        # TODO(https://github.com/knative/pkg/pull/953): Remove stackdriver specific config
+        - name: METRICS_DOMAIN
+          value: knative.dev/internal/serving
+
         securityContext:
           allowPrivilegeEscalation: false
+
+        ports:
+        - name: metrics
+          containerPort: 9090
+        - name: profiling
+          containerPort: 8008
+        - name: http1
+          containerPort: 8012
+        - name: h2c
+          containerPort: 8013
+
+        readinessProbe: &probe
+          httpGet:
+            port: 8012
+            httpHeaders:
+            - name: k-kubelet-probe
+              value: "activator"
+        livenessProbe: *probe
+
+      # The activator (often) sits on the dataplane, and may proxy long (e.g.
+      # streaming, websockets) requests.  We give a long grace period for the
+      # activator to "lame duck" and drain outstanding requests before we
+      # forcibly terminate the pod (and outstanding connections).  This value
+      # should be at least as large as the upper bound on the Revision's
+      # timeoutSeconds property to avoid servicing events disrupting
+      # connections.
+      terminationGracePeriodSeconds: 300
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: activator-service
+  namespace: knative-serving
+  labels:
+    app: activator
+    serving.knative.dev/release: devel
+spec:
+  selector:
+    app: activator
+  ports:
+  # Define metrics and profiling for them to be accessible within service meshes.
+  - name: http-metrics
+    port: 9090
+    targetPort: 9090
+  - name: http-profiling
+    port: 8008
+    targetPort: 8008
+  - name: http
+    port: 80
+    targetPort: 8012
+  - name: http2
+    port: 81
+    targetPort: 8013
+  type: ClusterIP

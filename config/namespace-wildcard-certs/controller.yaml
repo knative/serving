@@ -21,14 +21,16 @@ metadata:
     serving.knative.dev/release: devel
     networking.knative.dev/wildcard-certificate-provider: nscert
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: networking-ns-cert
   template:
     metadata:
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
       labels:
         app: networking-ns-cert
+        serving.knative.dev/release: devel
     spec:
       serviceAccountName: controller
       containers:
@@ -36,18 +38,15 @@ spec:
         # This is the Go import path for the binary that is containerized
         # and substituted here.
         image: knative.dev/serving/cmd/networking/nscert
+
         resources:
           requests:
-            cpu: 100m
-            memory: 100Mi
+            cpu: 30m
+            memory: 40Mi
           limits:
-            cpu: 1000m
-            memory: 1000Mi
-        ports:
-        - name: metrics
-          containerPort: 9090
-        - name: profiling
-          containerPort: 8008
+            cpu: 300m
+            memory: 400Mi
+
         env:
         - name: SYSTEM_NAMESPACE
           valueFrom:
@@ -57,7 +56,38 @@ spec:
           value: config-logging
         - name: CONFIG_OBSERVABILITY_NAME
           value: config-observability
+
+        # TODO(https://github.com/knative/pkg/pull/953): Remove stackdriver specific config
         - name: METRICS_DOMAIN
           value: knative.dev/serving
+
         securityContext:
           allowPrivilegeEscalation: false
+
+        ports:
+        - name: metrics
+          containerPort: 9090
+        - name: profiling
+          containerPort: 8008
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: networking-ns-cert
+    serving.knative.dev/release: devel
+    networking.knative.dev/wildcard-certificate-provider: nscert
+  name: networking-ns-cert
+  namespace: knative-serving
+spec:
+  ports:
+  # Define metrics and profiling for them to be accessible within service meshes.
+  - name: http-metrics
+    port: 9090
+    targetPort: 9090
+  - name: http-profiling
+    port: 8008
+    targetPort: 8008
+  selector:
+    app: networking-ns-cert
