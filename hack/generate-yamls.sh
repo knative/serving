@@ -50,6 +50,7 @@ rm -fr ${YAML_OUTPUT_DIR}/*.yaml
 # Generated Knative component YAML files
 readonly SERVING_YAML=${YAML_OUTPUT_DIR}/serving.yaml
 readonly SERVING_CORE_YAML=${YAML_OUTPUT_DIR}/serving-core.yaml
+readonly SERVING_HPA_YAML=${YAML_OUTPUT_DIR}/serving-hpa.yaml
 readonly SERVING_CRD_YAML=${YAML_OUTPUT_DIR}/serving-crds.yaml
 readonly SERVING_CERT_MANAGER_YAML=${YAML_OUTPUT_DIR}/serving-cert-manager.yaml
 readonly SERVING_ISTIO_YAML=${YAML_OUTPUT_DIR}/serving-istio.yaml
@@ -80,18 +81,26 @@ export KO_DOCKER_REPO
 cd "${YAML_REPO_ROOT}"
 
 echo "Building Knative Serving"
-ko resolve ${KO_YAML_FLAGS} -f config/ --selector networking.knative.dev/certificate-provider!=cert-manager,networking.knative.dev/wildcard-certificate-provider!=nscert,networking.knative.dev/ingress-provider!=istio | "${LABEL_YAML_CMD[@]}" > "${SERVING_CORE_YAML}"
+ko resolve ${KO_YAML_FLAGS} -R -f config/300-imagecache.yaml -f config/core/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_CORE_YAML}"
+
 # These don't have images, but ko will concatenate them for us.
-ko resolve ${KO_YAML_FLAGS} -f config/ --selector knative.dev/crd-install=true | "${LABEL_YAML_CMD[@]}" > "${SERVING_CRD_YAML}"
+ko resolve ${KO_YAML_FLAGS} -f config/core/resources/ -f config/300-imagecache.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_CRD_YAML}"
+
+# Create hpa-class autoscaling related yaml
+ko resolve ${KO_YAML_FLAGS} -f config/hpa-autoscaling/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_HPA_YAML}"
+
 # Create cert-manager related yaml
-ko resolve ${KO_YAML_FLAGS} -f config/ --selector networking.knative.dev/certificate-provider=cert-manager | "${LABEL_YAML_CMD[@]}" > "${SERVING_CERT_MANAGER_YAML}"
+ko resolve ${KO_YAML_FLAGS} -f config/cert-manager/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_CERT_MANAGER_YAML}"
+
 # Create Istio related yaml
-ko resolve ${KO_YAML_FLAGS} -f config/ --selector networking.knative.dev/ingress-provider=istio | "${LABEL_YAML_CMD[@]}" > "${SERVING_ISTIO_YAML}"
+ko resolve ${KO_YAML_FLAGS} -f config/istio-ingress/ | "${LABEL_YAML_CMD[@]}" > "${SERVING_ISTIO_YAML}"
+
 # Create nscert related yaml
-ko resolve ${KO_YAML_FLAGS} -f config/ --selector  networking.knative.dev/wildcard-certificate-provider=nscert | "${LABEL_YAML_CMD[@]}" > "${SERVING_NSCERT_YAML}"
+ko resolve ${KO_YAML_FLAGS} -f config/namespace-wildcard-certs | "${LABEL_YAML_CMD[@]}" > "${SERVING_NSCERT_YAML}"
 
 # Create serving.yaml with all of the default components
 cat "${SERVING_CORE_YAML}" > "${SERVING_YAML}"
+cat "${SERVING_HPA_YAML}" >> "${SERVING_YAML}"
 cat "${SERVING_ISTIO_YAML}" >> "${SERVING_YAML}"
 
 echo "Building Monitoring & Logging"
@@ -132,6 +141,7 @@ echo "All manifests generated"
 cat << EOF > ${YAML_LIST_FILE}
 ${SERVING_YAML}
 ${SERVING_CORE_YAML}
+${SERVING_HPA_YAML}
 ${SERVING_CRD_YAML}
 ${SERVING_CERT_MANAGER_YAML}
 ${SERVING_ISTIO_YAML}

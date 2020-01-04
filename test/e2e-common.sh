@@ -267,10 +267,11 @@ function install_knative_serving_standard() {
 
   echo ">> Installing Knative serving"
   if [[ -z "$1" ]]; then
-    # TODO(mattmoor): Add HPA class autoscaling here too, when we split things.
-    echo "Knative YAML: ${SERVING_CORE_YAML}"
-    kubectl apply -f "${SERVING_CORE_YAML}" || return 1
-    UNINSTALL_LIST+=( "${SERVING_CORE_YAML}" )
+    echo "Knative YAML: ${SERVING_CORE_YAML} and ${SERVING_HPA_YAML}"
+    kubectl apply \
+	    -f "${SERVING_CORE_YAML}" \
+	    -f "${SERVING_HPA_YAML}" || return 1
+    UNINSTALL_LIST+=( "${SERVING_CORE_YAML}" "${SERVING_HPA_YAML}" )
 
     if (( INSTALL_MONITORING )); then
 	echo ">> Installing Monitoring"
