@@ -269,9 +269,8 @@ function install_knative_serving_standard() {
   echo ">> Bringing up Serving"
   kubectl apply -f "${INSTALL_RELEASE_YAML}" || return 1
 
-  if [[ -n "${KOURIER_VERSION}" ]]; then
-    echo ">> Making Kourier the default ingress"
-    cat <<EOF | kubectl apply -f -
+  echo ">> Configuring the default Ingress: ${INGRESS_CLASS}"
+  cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -281,25 +280,8 @@ metadata:
     serving.knative.dev/release: devel
 data:
   ingress.class: ${INGRESS_CLASS}
-  clusteringress.class: ${INGRESS_CLASS}
 EOF
-  fi
 
-  if [[ -n "${AMBASSADOR_VERSION}" ]]; then
-    echo ">> Making Ambassador the default ingress"
-    cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: config-network
-  namespace: knative-serving
-  labels:
-    serving.knative.dev/release: devel
-data:
-  ingress.class: ${INGRESS_CLASS}
-  clusteringress.class: ${INGRESS_CLASS}
-EOF
-  fi
   echo ">> Turning on profiling.enable"
   cat <<EOF | kubectl apply -f -
 apiVersion: v1
