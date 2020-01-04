@@ -28,7 +28,9 @@ type bufferPool struct {
 	pool *sync.Pool
 }
 
-// NewBufferPool creates a new BytePool.
+// NewBufferPool creates a new BytePool. This is only safe to use in the context
+// of a httputil.ReverseProxy, as the buffers returned via Put are not cleaned
+// explicitly.
 func NewBufferPool() httputil.BufferPool {
 	return &bufferPool{
 		pool: &sync.Pool{},
