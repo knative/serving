@@ -1,4 +1,4 @@
-# Copyright 2018 The Knative Authors
+# Copyright 2020 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,23 +16,20 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    role: webhook
+    app: autoscaler-hpa
     serving.knative.dev/release: devel
-  name: webhook
+    autoscaling.knative.dev/autoscaler-provider: hpa
+  name: autoscaler-hpa
   namespace: knative-serving
 spec:
   ports:
-    - name: https-webhook
-      port: 443
-      targetPort: 8443
-    # These exist because if they aren't here Envoy fails to come up.
-    - name: http-profiling
-      port: 8008
-      protocol: TCP
-      targetPort: 8008
-    - name: http-metrics
-      port: 9090
-      protocol: TCP
-      targetPort: 9090
+  - name: http-metrics
+    port: 9090
+    protocol: TCP
+    targetPort: 9090
+  - name: http-profiling
+    port: 8008
+    protocol: TCP
+    targetPort: 8008
   selector:
-    role: webhook
+    app: autoscaler-hpa

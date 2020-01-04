@@ -74,9 +74,6 @@ data:
     #
     istio.sidecar.includeOutboundIPRanges: "*"
 
-    # clusteringress.class has been deprecated.   Please use ingress.class instead.
-    clusteringress.class: "istio.ingress.networking.knative.dev"
-
     # ingress.class specifies the default ingress class
     # to use when not dictated by Route annotation.
     #
