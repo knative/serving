@@ -156,9 +156,9 @@ function install_istio() {
   local istio_base="./third_party/istio-${ISTIO_VERSION}"
   INSTALL_ISTIO_CRD_YAML="${istio_base}/istio-crds.yaml"
   if (( MESH )); then
-      INSTALL_ISTIO_YAML="${istio_base}/istio-ci-mesh.yaml"
+    INSTALL_ISTIO_YAML="${istio_base}/istio-ci-mesh.yaml"
   else
-      INSTALL_ISTIO_YAML="${istio_base}/istio-ci-no-mesh.yaml"
+    INSTALL_ISTIO_YAML="${istio_base}/istio-ci-no-mesh.yaml"
   fi
 
   echo "Istio CRD YAML: ${INSTALL_ISTIO_CRD_YAML}"
@@ -178,22 +178,22 @@ function install_istio() {
   # There are reports of Envoy failing (503) when istio-pilot is overloaded.
   # We generously add more pilot instances here to reduce flakes.
   if kubectl get hpa -n istio-system istio-pilot 2>/dev/null; then
-      kubectl patch hpa -n istio-system istio-pilot \
-              --patch '{"spec": {"minReplicas": 3, "maxReplicas": 10, "targetCPUUtilizationPercentage": 60}}' || return 1
+    kubectl patch hpa -n istio-system istio-pilot \
+            --patch '{"spec": {"minReplicas": 3, "maxReplicas": 10, "targetCPUUtilizationPercentage": 60}}' || return 1
   else
-      # Some versions of Istio don't provide an HPA for pilot.
-      kubectl autoscale -n istio-system deploy istio-pilot --min=3 --max=10 --cpu-percent=60 || return 1
+    # Some versions of Istio don't provide an HPA for pilot.
+    kubectl autoscale -n istio-system deploy istio-pilot --min=3 --max=10 --cpu-percent=60 || return 1
   fi
 
   # If the yaml for the Istio Ingress controller is passed, then install it.
   if [[ -n "$1" ]]; then
-      echo ">> Installing Istio Ingress"
-      echo "Istio Ingress YAML: ${1}"
-      # We apply a filter here because when we're installing from a pre-built
-      # bundle then the whole bundle it passed here.  We use ko because it has
-      # better filtering support for CRDs.
-      ko apply -f "${1}" --selector=networking.knative.dev/ingress-provider=istio || return 1
-      UNINSTALL_LIST+=( "${1}" )
+    echo ">> Installing Istio Ingress"
+    echo "Istio Ingress YAML: ${1}"
+    # We apply a filter here because when we're installing from a pre-built
+    # bundle then the whole bundle it passed here.  We use ko because it has
+    # better filtering support for CRDs.
+    ko apply -f "${1}" --selector=networking.knative.dev/ingress-provider=istio || return 1
+    UNINSTALL_LIST+=( "${1}" )
   fi
 }
 
@@ -257,7 +257,7 @@ function install_knative_serving_standard() {
 
   # If we need to build from source, then kick that off first.
   if [[ -z "$1" ]]; then
-      build_knative_from_source
+    build_knative_from_source
   fi
 
   echo ">> Installing Cert-Manager"
@@ -279,30 +279,30 @@ function install_knative_serving_standard() {
 	UNINSTALL_LIST+=( "${MONITORING_YAML}" )
     fi
   else
-      echo "Knative YAML: ${1}"
-      # If we are installing from provided yaml, then only install non-istio bits here,
-      # and if we choose to install istio below, then pass the whole file as the rest.
-      # We use ko because it has better filtering support for CRDs.
-      ko apply -f "${1}" --selector=networking.knative.dev/ingress-provider!=istio || return 1
-      UNINSTALL_LIST+=( "${1}" )
-      SERVING_ISTIO_YAML="${1}"
+    echo "Knative YAML: ${1}"
+    # If we are installing from provided yaml, then only install non-istio bits here,
+    # and if we choose to install istio below, then pass the whole file as the rest.
+    # We use ko because it has better filtering support for CRDs.
+    ko apply -f "${1}" --selector=networking.knative.dev/ingress-provider!=istio || return 1
+    UNINSTALL_LIST+=( "${1}" )
+    SERVING_ISTIO_YAML="${1}"
 
-      if (( INSTALL_MONITORING )); then
-	  echo ">> Installing Monitoring"
-	  echo "Knative Monitoring YAML: ${2}"
-	  kubectl apply -f "${2}" || return 1
-	  UNINSTALL_LIST+=( "${2}" )
-      fi
+    if (( INSTALL_MONITORING )); then
+      echo ">> Installing Monitoring"
+      echo "Knative Monitoring YAML: ${2}"
+      kubectl apply -f "${2}" || return 1
+      UNINSTALL_LIST+=( "${2}" )
+    fi
   fi
 
   if [[ -n "${GLOO_VERSION}" ]]; then
-      install_gloo
+    install_gloo
   elif [[ -n "${KOURIER_VERSION}" ]]; then
-      install_kourier
+    install_kourier
   elif [[ -n "${AMBASSADOR_VERSION}" ]]; then
-      install_ambassador
+    install_ambassador
   else
-      install_istio "${SERVING_ISTIO_YAML}"
+    install_istio "${SERVING_ISTIO_YAML}"
   fi
 
   echo ">> Configuring the default Ingress: ${INGRESS_CLASS}"
@@ -361,6 +361,10 @@ function ingress_class() {
 
 # Uninstalls Knative Serving from the current cluster.
 function knative_teardown() {
+  if [[ -z "${INSTALL_CUSTOM_YAMLS}" && -z "${UNINSTALL_LIST[@]}" ]]; then
+    echo "install_knative_serving() was not called, nothing to uninstall"
+    return 0
+  fi
   if [[ -n "${INSTALL_CUSTOM_YAMLS}" ]]; then
     echo ">> Uninstalling Knative serving from custom YAMLs"
     for yaml in ${INSTALL_CUSTOM_YAMLS}; do
@@ -371,7 +375,7 @@ function knative_teardown() {
     echo ">> Uninstalling Knative serving"
     for i in ${!UNINSTALL_LIST[@]}; do
 	# We uninstall elements in the reverse of the order they were installed.
-	YAML="${UNINSTALL_LIST[$(( ${#array[@]} - $i ))]}"
+	local YAML="${UNINSTALL_LIST[$(( ${#array[@]} - $i ))]}"
 	echo ">> Bringing down YAML: ${YAML}"
 	kubectl delete --ignore-not-found=true -f "${YAML}" || return 1
     done
@@ -453,7 +457,7 @@ function test_teardown() {
   echo ">> Removing test resources (test/config/)"
   ko delete --ignore-not-found=true --now -f test/config/
   if (( MESH )); then
-      ko delete --ignore-not-found=true --now -f test/config/mtls/
+    ko delete --ignore-not-found=true --now -f test/config/mtls/
   fi
   echo ">> Ensuring test namespaces are clean"
   kubectl delete all --all --ignore-not-found --now --timeout 60s -n serving-tests
