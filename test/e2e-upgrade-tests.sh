@@ -45,9 +45,12 @@ function install_latest_release() {
     yaml="serving-core.yaml"
   fi
 
-  install_knative_serving \
-    "${url}/${yaml}" \
-    || fail_test "Knative latest release installation failed"
+  local RELEASE_YAML="$(mktemp)"
+  wget "${url}/${yaml}" -O "${RELEASE_YAML}" \
+      || fail_test "Unable to download latest Knative release."
+
+  install_knative_serving "${RELEASE_YAML}" \
+      || fail_test "Knative latest release installation failed"
   wait_until_pods_running knative-serving
 }
 
