@@ -17,7 +17,6 @@ limitations under the License.
 package aggregation
 
 import (
-	"strconv"
 	"testing"
 	"time"
 
@@ -81,7 +80,7 @@ func TestTimedFloat64BucketsSimple(t *testing.T) {
 			// New implementation test.
 			buckets := NewTimedFloat64Buckets(2*time.Minute, tt.granularity)
 			for _, stat := range tt.stats {
-				buckets.Record(stat.time, stat.name, stat.value)
+				buckets.Record(stat.time, stat.value)
 			}
 
 			got := make(map[time.Time]float64)
@@ -107,7 +106,7 @@ func TestTimedFloat64BucketsManyReps(t *testing.T) {
 	for p := 0; p < 5; p++ {
 		trunc1 = trunc1.Add(granularity)
 		for t := 0; t < 5; t++ {
-			buckets.Record(trunc1, pod+strconv.Itoa(p), float64(p+t))
+			buckets.Record(trunc1, float64(p+t))
 		}
 	}
 	// So the buckets are:
@@ -138,7 +137,7 @@ func TestTimedFloat64BucketsWindowTotal(t *testing.T) {
 	buckets := NewTimedFloat64Buckets(5*time.Second, granularity)
 
 	for i := 0; i < 5; i++ {
-		buckets.Record(now.Add(time.Duration(i)*time.Second), pod, float64(i+1))
+		buckets.Record(now.Add(time.Duration(i)*time.Second), float64(i+1))
 	}
 
 	if got, want := buckets.WindowTotal(now.Add(4*time.Second)), 15.; got != want {
@@ -159,7 +158,7 @@ func TestTimedFloat64BucketsWindowTotal(t *testing.T) {
 	}
 
 	// Check write with holes.
-	buckets.Record(now.Add(6*time.Second), pod, 91)
+	buckets.Record(now.Add(6*time.Second), 91)
 	if got, want := buckets.WindowTotal(now.Add(6*time.Second)), 15.-1-2+91; got != want {
 		t.Errorf("WindowTotal = %v, want: %v", got, want)
 	}
@@ -171,7 +170,7 @@ func TestTimedFloat64BucketsHoles(t *testing.T) {
 	buckets := NewTimedFloat64Buckets(5*time.Second, granularity)
 
 	for i := time.Duration(0); i < 5; i++ {
-		buckets.Record(now.Add(i*time.Second), pod, float64(i+1))
+		buckets.Record(now.Add(i*time.Second), float64(i+1))
 	}
 
 	sum := 0.
@@ -191,7 +190,7 @@ func TestTimedFloat64BucketsHoles(t *testing.T) {
 	}
 	// Now write at 9th second. Which means that seconds
 	// 5[0], 6[1], 7[2] become 0.
-	buckets.Record(now.Add(8*time.Second), pod, 2.)
+	buckets.Record(now.Add(8*time.Second), 2.)
 	// So now we have [3] = 2, [4] = 5 and sum should be 7.
 	sum = 0.
 
@@ -216,10 +215,10 @@ func TestTimedFloat64BucketsForEachBucket(t *testing.T) {
 		t.Fatalf("ForEachBucket unexpectedly returned non-empty result")
 	}
 
-	buckets.Record(now, pod, 10.0)
-	buckets.Record(now.Add(1*time.Second), pod, 10.0)
-	buckets.Record(now.Add(2*time.Second), pod, 5.0)
-	buckets.Record(now.Add(3*time.Second), pod, 5.0)
+	buckets.Record(now, 10.0)
+	buckets.Record(now.Add(1*time.Second), 10.0)
+	buckets.Record(now.Add(2*time.Second), 5.0)
+	buckets.Record(now.Add(3*time.Second), 5.0)
 
 	acc1 := 0
 	acc2 := 0
@@ -246,12 +245,12 @@ func TestTimedFloat64BucketsWindowUpdate(t *testing.T) {
 	buckets := NewTimedFloat64Buckets(5*time.Second, granularity)
 
 	// Fill the whole bucketing list with rollover.
-	buckets.Record(now, pod, 1)
-	buckets.Record(now.Add(1*time.Second), pod, 2)
-	buckets.Record(now.Add(2*time.Second), pod, 3)
-	buckets.Record(now.Add(3*time.Second), pod, 4)
-	buckets.Record(now.Add(4*time.Second), pod, 5)
-	buckets.Record(now.Add(5*time.Second), pod, 6)
+	buckets.Record(now, 1)
+	buckets.Record(now.Add(1*time.Second), 2)
+	buckets.Record(now.Add(2*time.Second), 3)
+	buckets.Record(now.Add(3*time.Second), 4)
+	buckets.Record(now.Add(4*time.Second), 5)
+	buckets.Record(now.Add(5*time.Second), 6)
 	sum := 0.
 	buckets.ForEachBucket(now.Add(5*time.Second), func(t time.Time, b float64) {
 		sum += b
@@ -278,7 +277,7 @@ func TestTimedFloat64BucketsWindowUpdate(t *testing.T) {
 		t.Fatalf("After first resize data set Sum = %v, want: %v", got, want)
 	}
 	// Add one more. Make sure all the data is preserved, since window is longer.
-	buckets.Record(now.Add(6*time.Second), pod, 7)
+	buckets.Record(now.Add(6*time.Second), 7)
 	sum = 0.
 	buckets.ForEachBucket(now.Add(6*time.Second), func(t time.Time, b float64) {
 		sum += b
@@ -320,13 +319,13 @@ func TestTimedFloat64BucketsWindowUpdate3sGranularity(t *testing.T) {
 	}
 
 	// Fill the whole bucketing list.
-	buckets.Record(trunc1, pod, 10)
-	buckets.Record(trunc1.Add(1*time.Second), pod, 2)
-	buckets.Record(trunc1.Add(2*time.Second), pod, 3)
-	buckets.Record(trunc1.Add(3*time.Second), pod, 4)
-	buckets.Record(trunc1.Add(4*time.Second), pod, 5)
-	buckets.Record(trunc1.Add(5*time.Second), pod, 6)
-	buckets.Record(trunc1.Add(6*time.Second), pod, 7) // This overrides the initial 15 (10+2+3)
+	buckets.Record(trunc1, 10)
+	buckets.Record(trunc1.Add(1*time.Second), 2)
+	buckets.Record(trunc1.Add(2*time.Second), 3)
+	buckets.Record(trunc1.Add(3*time.Second), 4)
+	buckets.Record(trunc1.Add(4*time.Second), 5)
+	buckets.Record(trunc1.Add(5*time.Second), 6)
+	buckets.Record(trunc1.Add(6*time.Second), 7) // This overrides the initial 15 (10+2+3)
 	sum := 0.
 	buckets.ForEachBucket(trunc1.Add(6*time.Second), func(t time.Time, b float64) {
 		sum += b
@@ -355,7 +354,7 @@ func TestTimedFloat64BucketsWindowUpdate3sGranularity(t *testing.T) {
 	}
 
 	// Add one more. Make sure all the data is preserved, since window is longer.
-	buckets.Record(trunc1.Add(9*time.Second+300*time.Millisecond), pod, 42)
+	buckets.Record(trunc1.Add(9*time.Second+300*time.Millisecond), 42)
 	sum = 0
 	buckets.ForEachBucket(trunc1.Add(9*time.Second), func(t time.Time, b float64) {
 		sum += b
