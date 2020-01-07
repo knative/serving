@@ -18,13 +18,17 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
+	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -32,7 +36,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
-	cicfg "knative.dev/serving/pkg/reconciler/ingress/config"
+	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/client/clientset/versioned"
+	"knative.dev/serving/pkg/network"
 	routecfg "knative.dev/serving/pkg/reconciler/route/config"
 )
 
@@ -50,81 +57,104 @@ const (
 	appName     = "default-domain"
 )
 
-func kubeClientFromFlags() (*kubernetes.Clientset, error) {
+func clientsFromFlags() (*kubernetes.Clientset, *versioned.Clientset, error) {
 	cfg, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
 	if err != nil {
-		return nil, fmt.Errorf("error building kubeconfig: %w", err)
+		return nil, nil, fmt.Errorf("error building kubeconfig: %w", err)
 	}
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("error building kube clientset: %w", err)
+		return nil, nil, fmt.Errorf("error building kube clientset: %w", err)
 	}
-	return kubeClient, nil
+	client, err := versioned.NewForConfig(cfg)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error building serving clientset: %w", err)
+	}
+	return kubeClient, client, nil
 }
 
 func lookupConfigMap(kubeClient *kubernetes.Clientset, name string) (*corev1.ConfigMap, error) {
 	return kubeClient.CoreV1().ConfigMaps(system.Namespace()).Get(name, metav1.GetOptions{})
 }
 
-func lookupIngressGateway(kubeClient *kubernetes.Clientset) (*corev1.Service, error) {
-	// Fetch and parse the Istio-ClusterIngress ConfigMap from the system namespace.
-	istioCM, err := lookupConfigMap(kubeClient, cicfg.IstioConfigName)
+func findGatewayAddress(kubeclient *kubernetes.Clientset, client *versioned.Clientset) (*corev1.LoadBalancerIngress, error) {
+	netCM, err := lookupConfigMap(kubeclient, network.ConfigName)
 	if err != nil {
 		return nil, err
 	}
-	istioConfig, err := cicfg.NewIstioFromConfigMap(istioCM)
+	netCfg, err := network.NewConfigFromConfigMap(netCM)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing ConfigMap: %w", err)
-	}
-	// Parse the service name to determine which Kubernetes Service resource to fetch.
-	serviceURL := istioConfig.IngressGateways[0].ServiceURL
-	// serviceURL should be of the form serviceName.namespace.<domain>, for example
-	// serviceName.namespace.svc.cluster.local.
-	parts := strings.SplitN(serviceURL, ".", 3)
-	if len(parts) != 3 {
-		return nil, fmt.Errorf("unexpected service URL form: %s", serviceURL)
+		return nil, err
 	}
 
-	// Use the first two name parts to lookup the Kubernetes Service resource.
-	name, ns := parts[0], parts[1]
-	return kubeClient.CoreV1().Services(ns).Get(name, metav1.GetOptions{})
-}
-
-func lookupIngressGatewayAddress(kubeClient *kubernetes.Clientset) (*corev1.LoadBalancerIngress, error) {
-	svc, err := lookupIngressGateway(kubeClient)
-	if err != nil {
-		return nil, fmt.Errorf("error looking up IngressGateway: %w", err)
-	}
-	// Walk the list of Ingress entries in the Service's LoadBalancer status.
-	// If one of IP address is found, return it.  Otherwise, keep one with
-	// a hostname assigned, if any.
-	var hostname *corev1.LoadBalancerIngress
-	for i, ing := range svc.Status.LoadBalancer.Ingress {
-		if ing.IP != "" {
-			return &svc.Status.LoadBalancer.Ingress[i], nil
-		}
-		if ing.Hostname != "" {
-			hostname = &svc.Status.LoadBalancer.Ingress[i]
-		}
-	}
-	if hostname != nil {
-		return hostname, nil
-	}
-	return nil, fmt.Errorf("service %s/%s does not have an assigned external address",
-		svc.Namespace, svc.Name)
-}
-
-func waitForIngressGatewayAddress(kubeclient *kubernetes.Clientset) (addr *corev1.LoadBalancerIngress, waitErr error) {
-	logger := logging.FromContext(context.Background()).Named(appName)
-	waitErr = wait.PollImmediate(pollInterval, waitTimeout, func() (done bool, err error) {
-		addr, err = lookupIngressGatewayAddress(kubeclient)
-		if err == nil {
-			return true, nil
-		}
-		logger.Infof("Failed lookup IngressGateway, retrying: %v", err)
-		return false, nil
+	// Create a KIngress that points at that Service
+	ing, err := client.NetworkingV1alpha1().Ingresses(system.Namespace()).Create(&v1alpha1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "default-domain-",
+			Namespace:    system.Namespace(),
+			Annotations: map[string]string{
+				networking.IngressClassAnnotationKey: netCfg.DefaultIngressClass,
+			},
+		},
+		Spec: v1alpha1.IngressSpec{
+			Rules: []v1alpha1.IngressRule{{
+				Hosts:      []string{os.Getenv("POD_NAME") + ".default-domain.invalid"},
+				Visibility: v1alpha1.IngressVisibilityExternalIP,
+				HTTP: &v1alpha1.HTTPIngressRuleValue{
+					Paths: []v1alpha1.HTTPIngressPath{{
+						Splits: []v1alpha1.IngressBackendSplit{{
+							IngressBackend: v1alpha1.IngressBackend{
+								ServiceName:      "default-domain-service",
+								ServiceNamespace: system.Namespace(),
+								ServicePort:      intstr.FromInt(80),
+							},
+						}},
+					}},
+				},
+			}},
+		},
 	})
-	return addr, waitErr
+	if err != nil {
+		return nil, err
+	}
+	defer client.NetworkingV1alpha1().Ingresses(system.Namespace()).Delete(ing.Name, &metav1.DeleteOptions{})
+
+	// Wait for the Ingress to be Ready.
+	if err := wait.PollImmediate(pollInterval, waitTimeout, func() (done bool, err error) {
+		ing, err = client.NetworkingV1alpha1().Ingresses(system.Namespace()).Get(
+			ing.Name, metav1.GetOptions{})
+		if err != nil {
+			return true, err
+		}
+		return ing.Status.IsReady(), nil
+	}); err != nil {
+		return nil, err
+	}
+	if len(ing.Status.PublicLoadBalancer.Ingress) == 0 {
+		return nil, errors.New("ingress has no public load balancers in status")
+	}
+
+	// We expect an ingress LB with the form foo.bar.svc.cluster.local (though
+	// we aren't strictly sensitive to the suffix, this is just illustrative).
+	internalDomain := ing.Status.PublicLoadBalancer.Ingress[0].DomainInternal
+	parts := strings.SplitN(internalDomain, ".", 3)
+	if len(parts) < 3 {
+		return nil, fmt.Errorf("ingress public load balancer had unexpected shape: %q", internalDomain)
+	}
+	name, namespace := parts[0], parts[1]
+
+	// Wait for the Ingress Service to have an external IP.
+	var svc *corev1.Service
+	if err := wait.PollImmediate(pollInterval, waitTimeout, func() (done bool, err error) {
+		svc, err = kubeclient.CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
+		if err != nil {
+			return true, err
+		}
+		return len(svc.Status.LoadBalancer.Ingress) != 0, nil
+	}); err != nil {
+		return nil, err
+	}
+	return &svc.Status.LoadBalancer.Ingress[0], nil
 }
 
 func main() {
@@ -132,7 +162,7 @@ func main() {
 	logger := logging.FromContext(context.Background()).Named(appName)
 	defer logger.Sync()
 
-	kubeClient, err := kubeClientFromFlags()
+	kubeClient, client, err := clientsFromFlags()
 	if err != nil {
 		logger.Fatalw("Error building kube clientset", zap.Error(err))
 	}
@@ -153,13 +183,20 @@ func main() {
 		return
 	}
 
-	// Look up the address for IngressGateway.
-	address, err := waitForIngressGatewayAddress(kubeClient)
+	// Start an HTTP Server
+	h := network.NewProbeHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	server := http.Server{Addr: ":8080", Handler: h}
+	go server.ListenAndServe()
+
+	// Determine the address of the gateway service.
+	address, err := findGatewayAddress(kubeClient, client)
 	if err != nil {
-		logger.Fatalw("Error waiting for IngressGateway address", zap.Error(err))
+		logger.Fatalw("Error finding gateway address", zap.Error(err))
 	}
 	if address.IP == "" {
-		logger.Info("IngressGateway has domain instead of IP address -- leaving default domain config intact")
+		logger.Info("Gateway has a domain instead of IP address -- leaving default domain config intact")
 		return
 	}
 
@@ -175,4 +212,5 @@ func main() {
 	}
 
 	logger.Infof("Updated default domain to: %s", domain)
+	server.Shutdown(context.Background())
 }

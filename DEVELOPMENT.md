@@ -237,7 +237,7 @@ export K8S_CLUSTER_REGION="my-cluster-region"
 ./hack/dev-patch-config-gke.sh my-k8s-cluster-name
 
 # Run post-install job to setup nice XIP.IO domain name.  This only works
-# if your Kubernetes LoadBalancer has an IP address.
+# if your Kubernetes LoadBalancer has an IPv4 address.
 ko delete -f config/post-install --ignore-not-found
 ko apply -f config/post-install
 ```
