@@ -69,10 +69,11 @@ const defaulTimeout = 2 * time.Minute
 
 // New constructs a new http.Handler that deals with revision activation.
 func New(ctx context.Context, t Throttler, sr activator.StatsReporter) http.Handler {
+	defaultTransport := pkgnet.AutoTransport
 	return &activationHandler{
 		logger:           logging.FromContext(ctx),
-		transport:        pkgnet.AutoTransport,
-		tracingTransport: &ochttp.Transport{Base: pkgnet.AutoTransport},
+		transport:        defaultTransport,
+		tracingTransport: &ochttp.Transport{Base: defaultTransport},
 		reporter:         sr,
 		throttler:        t,
 		bufferPool:       network.NewBufferPool(),
