@@ -114,7 +114,7 @@ type Prober struct {
 	// mu guards ingressStates and podContexts
 	mu            sync.Mutex
 	ingressStates map[string]*ingressState
-	podContexts   map[string]*cancelContext
+	podContexts   map[string]cancelContext
 
 	workQueue workqueue.RateLimitingInterface
 
@@ -135,7 +135,7 @@ func NewProber(
 	return &Prober{
 		logger:        logger,
 		ingressStates: make(map[string]*ingressState),
-		podContexts:   make(map[string]*cancelContext),
+		podContexts:   make(map[string]cancelContext),
 		workQueue: workqueue.NewNamedRateLimitingQueue(
 			workqueue.DefaultControllerRateLimiter(),
 			"ProbingQueue"),
@@ -218,7 +218,7 @@ func (m *Prober) IsReady(ctx context.Context, ing *v1alpha1.Ingress) (bool, erro
 			cancelCtx, ok := m.podContexts[ip]
 			if !ok {
 				ctx, cancel := context.WithCancel(context.Background())
-				cancelCtx = &cancelContext{
+				cancelCtx = cancelContext{
 					context: ctx,
 					cancel:  cancel,
 				}
