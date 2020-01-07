@@ -28,7 +28,9 @@ import (
 type TimedFloat64Buckets struct {
 	bucketsMutex sync.RWMutex
 	buckets      []float64
-	lastWrite    time.Time
+	// The total sum of all valid buckets within the window.
+	windowTotal float64
+	lastWrite   time.Time
 
 	granularity time.Duration
 	window      time.Duration
@@ -49,6 +51,31 @@ func NewTimedFloat64Buckets(window, granularity time.Duration) *TimedFloat64Buck
 		buckets:     make([]float64, nb),
 		granularity: granularity,
 		window:      window,
+	}
+}
+
+// WindowTotal returns the sum of all valid buckets.
+func (t *TimedFloat64Buckets) WindowTotal(now time.Time) float64 {
+	now = now.Truncate(t.granularity)
+	t.bucketsMutex.RLock()
+	defer t.bucketsMutex.RUnlock()
+	switch d := now.Sub(t.lastWrite); {
+	case d <= 0:
+		// If LastWrite equal or greater than Now
+		// return the current WindowTotal.
+		return t.windowTotal
+	case d < t.window:
+		// If we haven't received metrics for some time, which is less than
+		// the window -- remove the outdated items.
+		stIdx := t.timeToIndex(t.lastWrite)
+		eIdx := t.timeToIndex(now)
+		ret := t.windowTotal
+		for i := stIdx + 1; i <= eIdx; i++ {
+			ret -= t.buckets[i%len(t.buckets)]
+		}
+		return ret
+	default: // Nothing for more than a window time, just 0.
+		return 0.
 	}
 }
 
@@ -78,6 +105,7 @@ func (t *TimedFloat64Buckets) Record(now time.Time, value float64) {
 			for i := range t.buckets {
 				t.buckets[i] = 0
 			}
+			t.windowTotal = 0
 		} else {
 			// In theory we might lose buckets between stats gathering.
 			// Thus we need to clean not only the current index, but also
@@ -85,13 +113,16 @@ func (t *TimedFloat64Buckets) Record(now time.Time, value float64) {
 			// due to possible wrap-around, so they are not merged together.
 			oldIdx := t.timeToIndex(t.lastWrite)
 			for i := oldIdx + 1; i <= writeIdx; i++ {
-				t.buckets[i%len(t.buckets)] = 0
+				idx := i % len(t.buckets)
+				t.windowTotal -= t.buckets[idx]
+				t.buckets[idx] = 0
 			}
 		}
 		// Update the last write time.
 		t.lastWrite = bucketTime
 	}
 	t.buckets[writeIdx%len(t.buckets)] += value
+	t.windowTotal += value
 }
 
 // ForEachBucket calls the given Accumulator function for each bucket.

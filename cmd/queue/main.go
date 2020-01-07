@@ -444,7 +444,7 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, req
 	httpProxy := httputil.NewSingleHostReverseProxy(target)
 	httpProxy.Transport = buildTransport(env, logger)
 	httpProxy.ErrorHandler = pkgnet.ErrorHandler(logger)
-
+	httpProxy.BufferPool = network.NewBufferPool()
 	httpProxy.FlushInterval = -1
 	activatorutil.SetupHeaderPruning(httpProxy)
 

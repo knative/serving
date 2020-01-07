@@ -160,15 +160,17 @@ New test images should be placed in `./test/test_images`.
 These flags are useful for running against an existing cluster, making use of
 your existing [environment setup](../DEVELOPMENT.md#setup-your-environment).
 
-Tests importing [`github.com/knative/serving/test`](#test-library) recognize
-these flags:
+Tests importing [`knative.dev/serving/test`](#test-library) recognize these
+flags:
 
 - [All flags added by `knative/pkg/test`](https://github.com/knative/pkg/tree/master/test#flags)
-- [`--dockerrepo`](#overriding-docker-repo)
-- [`--tag`](#using-a-docker-tag)
-- [`--ingressendpoint`](#using-a-custom-ingress-endpoint)
+  such as:
+  - [`--dockerrepo`](#overriding-docker-repo)
+  - [`--tag`](#using-a-docker-tag)
+  - [`--ingressendpoint`](#using-a-custom-ingress-endpoint)
 - [`--resolvabledomain`](#using-a-resolvable-domain)
 - [`--https`](#using-https)
+- [`--ingressClass`](#using-ingress-class)
 
 ### Overridding docker repo
 
@@ -230,3 +232,8 @@ directly against `Route.Status.Domain` and does not need to spoof the `Host`.
 ### Using https
 
 You can use the `--https` flag to have all tests run with https.
+
+### Using ingress class
+
+The `--ingressClass` argument lets you specify the ingress class. The default
+value is `istio.ingress.networking.knative.dev`.

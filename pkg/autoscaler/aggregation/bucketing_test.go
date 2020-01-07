@@ -132,6 +132,39 @@ func TestTimedFloat64BucketsManyReps(t *testing.T) {
 	}
 }
 
+func TestTimedFloat64BucketsWindowTotal(t *testing.T) {
+	now := time.Now()
+	buckets := NewTimedFloat64Buckets(5*time.Second, granularity)
+
+	for i := 0; i < 5; i++ {
+		buckets.Record(now.Add(time.Duration(i)*time.Second), pod, float64(i+1))
+	}
+
+	if got, want := buckets.WindowTotal(now.Add(4*time.Second)), 15.; got != want {
+		t.Errorf("WindowTotal = %v, want: %v", got, want)
+	}
+	// Check when `now` lags behind.
+	if got, want := buckets.WindowTotal(now.Add(3600*time.Millisecond)), 15.; got != want {
+		t.Errorf("WindowTotal = %v, want: %v", got, want)
+	}
+
+	// Check with short hole.
+	if got, want := buckets.WindowTotal(now.Add(6*time.Second)), 15.-1-2; got != want {
+		t.Errorf("WindowTotal = %v, want: %v", got, want)
+	}
+	// Check with a long hole.
+	if got, want := buckets.WindowTotal(now.Add(10*time.Second)), 0.; got != want {
+		t.Errorf("WindowTotal = %v, want: %v", got, want)
+	}
+
+	// Check write with holes.
+	buckets.Record(now.Add(6*time.Second), pod, 91)
+	if got, want := buckets.WindowTotal(now.Add(6*time.Second)), 15.-1-2+91; got != want {
+		t.Errorf("WindowTotal = %v, want: %v", got, want)
+	}
+
+}
+
 func TestTimedFloat64BucketsHoles(t *testing.T) {
 	now := time.Now()
 	buckets := NewTimedFloat64Buckets(5*time.Second, granularity)
@@ -151,6 +184,9 @@ func TestTimedFloat64BucketsHoles(t *testing.T) {
 	}
 	if got, want := sum, 15.; got != want {
 		t.Errorf("Sum = %v, want: %v", got, want)
+	}
+	if got, want := buckets.WindowTotal(now.Add(4*time.Second)), 15.; got != want {
+		t.Errorf("WindowTotal = %v, want: %v", got, want)
 	}
 	// Now write at 9th second. Which means that seconds
 	// 5[0], 6[1], 7[2] become 0.
