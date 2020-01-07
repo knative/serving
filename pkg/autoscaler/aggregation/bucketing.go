@@ -63,7 +63,7 @@ func (t *TimedFloat64Buckets) timeToIndex(tm time.Time) int {
 }
 
 // Record adds a value with an associated time to the correct bucket.
-func (t *TimedFloat64Buckets) Record(now time.Time, name string, value float64) {
+func (t *TimedFloat64Buckets) Record(now time.Time, value float64) {
 	bucketTime := now.Truncate(t.granularity)
 
 	t.bucketsMutex.Lock()
@@ -120,11 +120,6 @@ func (t *TimedFloat64Buckets) ForEachBucket(now time.Time, accs ...Accumulator) 
 	}
 
 	return true
-}
-
-// RemoveOlderThan removes buckets older than the given time from the state.
-func (t *TimedFloat64Buckets) RemoveOlderThan(time.Time) {
-	// RemoveOlderThan is a noop here.
 }
 
 func min(a, b int) int {
