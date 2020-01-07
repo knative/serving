@@ -49,20 +49,21 @@ See [`knative/pkg/test`](https://github.com/knative/pkg/tree/master/test) to:
 These flags are useful for running against an existing cluster, making use of
 your existing [environment setup](../DEVELOPMENT.md#setup-your-environment).
 
-By importing `knative.dev/pkg/test` you get access to a global
-variable called `test.Flags` which holds the values of
+By importing `knative.dev/pkg/test` you get access to a global variable called
+`test.Flags` which holds the values of
 [the command line flags](./README.md#flags).
 
 ```go
 imagePath := strings.Join([]string{test.Flags.DockerRepo, image}, "/"))
 ```
 
-_See [e2e_flags.go](https://github.com/knative/pkg/blob/master/test/e2e_flags.go)._
+_See
+[e2e_flags.go](https://github.com/knative/pkg/blob/master/test/e2e_flags.go)._
 
 ### Get access to client objects
 
-To initialize client objects that you can use
-the command line flags that describe the environment:
+To initialize client objects that you can use the command line flags that
+describe the environment:
 
 ```go
 import (
@@ -101,6 +102,7 @@ _, err = clients.ServingClient.Routes.Create(v1test.Route(
 		Config: configName,
 	}))
 ```
+
 _v1test is alias for package `knative.dev/serving/pkg/testing/v1`_
 
 And you can use the client to clean up `Route` and `Configuration` resources
@@ -139,7 +141,8 @@ if err != nil {
 }
 ```
 
-This function makes use of [the environment flag `resolvableDomain`](README.md#using-a-resolvable-domain)
+This function makes use of
+[the environment flag `resolvableDomain`](README.md#using-a-resolvable-domain)
 to determine if the ingress should be used or the domain should be used
 directly.
 
@@ -194,7 +197,8 @@ err := v1alpha1testing.WaitForConfigurationState(clients.ServingClient, configNa
 }, "ConfigurationUpdatedWithRevision")
 ```
 
-_v1alpha1testing is alias for package `knative.dev/serving/pkg/testing/v1alpha1`_
+_v1alpha1testing is alias for package
+`knative.dev/serving/pkg/testing/v1alpha1`_
 
 We also have `Check*` variants of many of these methods with identical
 signatures, same example:
@@ -210,23 +214,26 @@ err := v1alpha1testing.CheckConfigurationState(clients.ServingClient, configName
 })
 ```
 
-_v1alpha1testing is alias for package `knative.dev/serving/pkg/testing/v1alpha1`_
+_v1alpha1testing is alias for package
+`knative.dev/serving/pkg/testing/v1alpha1`_
 
-_For knative crd state, for example `Config`. You can see the code in [configuration.go](./v1alpha1/configuration.go).
-For kubernetes objects see
+_For knative crd state, for example `Config`. You can see the code in
+[configuration.go](./v1alpha1/configuration.go). For kubernetes objects see
 [kube_checks.go](https://github.com/knative/pkg/blob/master/test/kube_checks.go)._
 
 ### Verify resource state transitions
 
 To use the [check functions](#check-knative-serving-resources) you must provide
 a function to check the state. Some of the expected transition states (as
-defined in [the Knative Serving spec](https://github.com/knative/docs/blob/master/docs/serving/spec/knative-api-specification-1.0.md))
-, for example `v1alpha1/Revision` state, are expressed in
-function in [revision.go](./v1alpha1/revision.go).
+defined in
+[the Knative Serving spec](https://github.com/knative/docs/blob/master/docs/serving/spec/knative-api-specification-1.0.md))
+, for example `v1alpha1/Revision` state, are expressed in function in
+[revision.go](./v1alpha1/revision.go).
 
 For example when a `Revision` has been created, the system will start the
 resources required to actually serve it, and then the `Revision` object will be
-updated to indicate it is ready. This can be polled with `v1alpha1testing.IsRevisionReady`:
+updated to indicate it is ready. This can be polled with
+`v1alpha1testing.IsRevisionReady`:
 
 ```go
 err := v1alpha1testing.WaitForRevisionState(clients.ServingAlphaClient, revName, v1alpha1testing.IsRevisionReady, "RevisionIsReady")
@@ -234,7 +241,9 @@ if err != nil {
 	t.Fatalf("The Revision %q did not become ready: %v", revName, err)
 }
 ```
-_v1alpha1testing is alias for package `knative.dev/serving/pkg/testing/v1alpha1`_
+
+_v1alpha1testing is alias for package
+`knative.dev/serving/pkg/testing/v1alpha1`_
 
 Once the `Revision` is created, all traffic for a `Route` should be routed to
 it. This can be polled with `v1alpha1testing.AllRouteTrafficAtRevision`:
@@ -270,6 +279,7 @@ func TestSomeAwesomeFeature(t *testing.T) {
 	// more testing
 }
 ```
+
 _test is package `knative.dev/serving/test`_
 
 Please expand these functions as more use cases are tested.
