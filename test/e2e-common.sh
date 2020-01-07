@@ -397,11 +397,6 @@ function test_setup() {
   # Clean up kail so it doesn't interfere with job shutting down
   trap "kill $kail_pid || true" EXIT
 
-  # Omit istio-specific setup logic when we aren't using istio.
-  if [[ -z "${ISTIO_VERSION}" ]]; then
-    KO_FLAGS="${KO_FLAGS} --selector=networking.knative.dev/ingress-provider!=istio"
-  fi
-
   echo ">> Creating test resources (test/config/)"
   ko apply ${KO_FLAGS} -f test/config/ || return 1
   if (( MESH )); then
