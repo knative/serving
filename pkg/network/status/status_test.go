@@ -413,9 +413,9 @@ func (l fakeProbeTargetLister) ListProbeTargets(ctx context.Context, ing *v1alph
 			Port:   target.Port,
 		}
 		for _, url := range target.URLs {
-			newURL := url
+			newURL := *url
 			newURL.Host = ing.Spec.Rules[0].Hosts[0]
-			newTarget.URLs = append(newTarget.URLs, newURL)
+			newTarget.URLs = append(newTarget.URLs, &newURL)
 		}
 		targets = append(targets, newTarget)
 	}
