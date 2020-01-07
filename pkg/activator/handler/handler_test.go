@@ -20,9 +20,9 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -452,8 +452,6 @@ func errMsg(msg string) string {
 }
 
 func BenchmarkHandler(b *testing.B) {
-	const numReqs = 2 << 16
-	numReps := [3]int{42, 420, 1982}
 	// Use fake Roundtripper, the buffer is used in the proxy
 	// to copy the response only.
 	fakeRT := activatortest.FakeRoundTripper{
@@ -476,26 +474,35 @@ func BenchmarkHandler(b *testing.B) {
 	configStore := setupConfigStore(&testing.T{}, logger)
 	ctx = configStore.ToContext(ctx)
 
-	for _, reps := range numReps {
-		respBody := strings.Repeat("Timmy Tucker was a friend of mine!", reps)
+	// bodyLength is in kilobytes.
+	for _, bodyLength := range [5]int{2, 16, 32, 64, 128} {
+		respBody := randomString(1024 * bodyLength)
 		fakeRT.RequestResponse.Body = respBody
-		for i := 2; i <= numReqs; i *= i {
-			b.Run(fmt.Sprintf("%06d-reqs-%07d-resp-len", i, len(respBody)), func(b *testing.B) {
-				for j := 0; j < i; j++ {
-					req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-					req.Header.Set(activator.RevisionHeaderNamespace, testNamespace)
-					req.Header.Set(activator.RevisionHeaderName, testRevName)
-					req.Host = "test-host"
-					resp := httptest.NewRecorder()
-					handler.ServeHTTP(resp, req.WithContext(ctx))
-					if resp.Code != http.StatusOK {
-						b.Fatalf("RountripFailed responsecode = %d, want: StatusOK", resp.Code)
-					}
-					if got, want := resp.Body.Len(), len(respBody); got != want {
-						b.Fatalf("|body| = %d, want = %d", got, want)
-					}
+		b.Run(fmt.Sprintf("%03dk-resp-len", bodyLength), func(b *testing.B) {
+			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+			req.Header.Set(activator.RevisionHeaderNamespace, testNamespace)
+			req.Header.Set(activator.RevisionHeaderName, testRevName)
+			req.Host = "test-host"
+			for j := 0; j < b.N; j++ {
+				resp := httptest.NewRecorder()
+				handler.ServeHTTP(resp, req.WithContext(ctx))
+				if resp.Code != http.StatusOK {
+					b.Fatalf("resp.Code = %d, want: StatusOK(200)", resp.Code)
 				}
-			})
-		}
+				if got, want := resp.Body.Len(), len(respBody); got != want {
+					b.Fatalf("|body| = %d, want = %d", got, want)
+				}
+			}
+		})
 	}
+}
+
+func randomString(n int) string {
+	var letter = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letter[rand.Intn(len(letter))]
+	}
+	return string(b)
 }
