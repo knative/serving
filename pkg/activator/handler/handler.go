@@ -54,10 +54,11 @@ type Throttler interface {
 // activationHandler will wait for an active endpoint for a revision
 // to be available before proxing the request
 type activationHandler struct {
-	logger    *zap.SugaredLogger
-	transport http.RoundTripper
-	reporter  activator.StatsReporter
-	throttler Throttler
+	logger     *zap.SugaredLogger
+	transport  http.RoundTripper
+	reporter   activator.StatsReporter
+	throttler  Throttler
+	bufferPool httputil.BufferPool
 
 	revisionLister servinglisters.RevisionLister
 }
@@ -72,6 +73,7 @@ func New(ctx context.Context, t Throttler, sr activator.StatsReporter) http.Hand
 		transport:      pkgnet.AutoTransport,
 		reporter:       sr,
 		throttler:      t,
+		bufferPool:     network.NewBufferPool(),
 		revisionLister: revisioninformer.Get(ctx).Lister(),
 	}
 }
@@ -137,6 +139,7 @@ func (a *activationHandler) proxyRequest(logger *zap.SugaredLogger, w http.Respo
 
 	// Setup the reverse proxy.
 	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.BufferPool = a.bufferPool
 	proxy.Transport = a.transport
 	if config := activatorconfig.FromContext(r.Context()); config.Tracing.Backend != tracingconfig.None {
 		// When we collect metrics, we're wrapping the RoundTripper
