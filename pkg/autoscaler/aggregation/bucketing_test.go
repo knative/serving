@@ -137,7 +137,7 @@ func TestTimedFloat64BucketsWindowTotal(t *testing.T) {
 	buckets := NewTimedFloat64Buckets(5*time.Second, granularity)
 
 	for i := 0; i < 5; i++ {
-		buckets.Record(now.Add(time.Duration(i)*time.Second), pod, float64(i+1))
+		buckets.Record(now.Add(time.Duration(i)*time.Second), float64(i+1))
 	}
 
 	if got, want := buckets.WindowTotal(now.Add(4*time.Second)), 15.; got != want {
@@ -158,7 +158,7 @@ func TestTimedFloat64BucketsWindowTotal(t *testing.T) {
 	}
 
 	// Check write with holes.
-	buckets.Record(now.Add(6*time.Second), pod, 91)
+	buckets.Record(now.Add(6*time.Second), 91)
 	if got, want := buckets.WindowTotal(now.Add(6*time.Second)), 15.-1-2+91; got != want {
 		t.Errorf("WindowTotal = %v, want: %v", got, want)
 	}
