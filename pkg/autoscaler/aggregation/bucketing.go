@@ -28,7 +28,7 @@ import (
 type TimedFloat64Buckets struct {
 	bucketsMutex sync.RWMutex
 	buckets      []float64
-	// The total sum of valid buckets within the window.
+	// The total sum of all valid buckets within the window.
 	windowTotal float64
 	lastWrite   time.Time
 

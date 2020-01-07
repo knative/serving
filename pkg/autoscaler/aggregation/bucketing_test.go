@@ -137,8 +137,8 @@ func TestTimedFloat64BucketsWindowTotal(t *testing.T) {
 	now := time.Now()
 	buckets := NewTimedFloat64Buckets(5*time.Second, granularity)
 
-	for i := time.Duration(0); i < 5; i++ {
-		buckets.Record(now.Add(i*time.Second), pod, float64(i+1))
+	for i := 0; i < 5; i++ {
+		buckets.Record(now.Add(time.Duration(i)*time.Second), pod, float64(i+1))
 	}
 
 	if got, want := buckets.WindowTotal(now.Add(4*time.Second)), 15.; got != want {
