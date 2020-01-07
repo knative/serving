@@ -179,7 +179,6 @@ spec:
       targetPort: 8081
   selector:
     app: 3scale-kourier-gateway
-  type: LoadBalancer
 ---
 apiVersion: v1
 kind: Service
@@ -208,7 +207,6 @@ spec:
       targetPort: 18000
   selector:
     app: 3scale-kourier-control
-  type: LoadBalancer
 ---
 apiVersion: v1
 kind: ConfigMap
