@@ -46,8 +46,6 @@ EOF
 cat ${KOURIER_YAML} \
   `# Install Kourier into the kourier-system namespace` \
   | sed 's/namespace: knative-serving/namespace: kourier-system/' \
-  `# Expose Kourier services with LoadBalancer IPs instead of ClusterIP` \
-  | sed 's/ClusterIP/LoadBalancer/' \
   >> kourier.yaml
 
 # Clean up.

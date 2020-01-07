@@ -179,6 +179,7 @@ spec:
       targetPort: 8081
   selector:
     app: 3scale-kourier-gateway
+  type: ClusterIP
 ---
 apiVersion: v1
 kind: Service
@@ -193,7 +194,7 @@ spec:
       targetPort: 8080
   selector:
     app: 3scale-kourier-gateway
-  type: LoadBalancer
+  type: ClusterIP
 ---
 apiVersion: v1
 kind: Service
@@ -207,6 +208,7 @@ spec:
       targetPort: 18000
   selector:
     app: 3scale-kourier-control
+  type: ClusterIP
 ---
 apiVersion: v1
 kind: ConfigMap
