@@ -1,0 +1,104 @@
+# Copyright 2018 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Based on https://github.com/census-instrumentation/opencensus-service/raw/master/example/k8s.yaml
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opencensus-agent-config
+  namespace: knative-monitoring
+  labels:
+    serving.knative.dev/release: devel
+data:
+  opencensus-agent-config: |
+    receivers:
+      opencensus:
+        address: ":55678"
+    #   jaeger: {}
+    #   zipkin: {}
+    exporters: {}
+    # stackdriver:
+    #   project: "my-gcp-project"  # Optional, defaults to node project
+    #   metric_prefix: "your-metric-prefix"
+    #   enable_metrics: true
+    #   enable_tracing: true
+    # prometheus:
+    #   namespace: "namespace"
+    #   address: ":8888"
+---
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: opencensus-agent
+  namespace: knative-monitoring
+  labels:
+    serving.knative.dev/release: devel
+spec:
+  template:
+    metadata:
+      labels:
+        component: opencensus-agent
+        serving.knative.dev/release: devel
+    spec:
+      containers:
+        - command:
+            - "/ocagent_linux"
+            - "--config=/conf/opencensus-agent-config.yaml"
+          image: omnition/opencensus-agent:0.1.6
+          name: opencensus-agent
+          resources:
+            limits:
+              cpu: 500m
+              memory: 500Mi
+            requests:
+              cpu: 100m
+              memory: 100Mi
+          ports:
+            - containerPort: 55678
+              name: collect
+            - containerPort: 55679
+              name: zpages
+            # For Prometheus scrapes
+            - containerPort: 8888
+              name: prometheus
+          volumeMounts:
+            - name: opencensus-agent-config-vol
+              mountPath: /conf
+      volumes:
+        - configMap:
+            name: opencensus-agent-config
+            items:
+              - key: opencensus-agent-config
+                path: opencensus-agent-config.yaml
+          name: opencensus-agent-config-vol
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: opencensus
+  namespace: knative-monitoring # TODO(evankanderson): Choose a shorter name?
+  labels:
+    serving.knative.dev/release: devel
+spec:
+  ports:
+    - name: opencensus
+      port: 55678
+      protocol: TCP
+      targetPort: 55678
+  selector:
+    component: opencensus-agent
+  # This is alpha in Kubernetes 1.17, but would allow local routing of requests:
+  # https://kubernetes.io/docs/concepts/services-networking/service-topology/
+  # topologyKeys: ["host", "zone"]
