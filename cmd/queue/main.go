@@ -81,7 +81,6 @@ const (
 	queueDepthN            = "queue_depth"
 
 	healthURLTemplate = "http://127.0.0.1:%d"
-	tcpProbeTimeout   = 100 * time.Millisecond
 	// The 25 millisecond retry interval is an unscientific compromise between wanting to get
 	// started as early as possible while still wanting to give the container some breathing
 	// room to get up and running.
