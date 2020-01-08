@@ -191,12 +191,11 @@ func (m *Prober) IsReady(ctx context.Context, ing *v1alpha1.Ingress) (bool, erro
 		cancel:       cancel,
 	}
 
+	// Get the probe targets and group them by IP
 	targets, err := m.targetLister.ListProbeTargets(ctx, ing)
 	if err != nil {
 		return false, err
 	}
-
-	// First, group the targets by IPs.
 	workItems := make(map[string][]*workItem)
 	for _, target := range targets {
 		for ip := range target.PodIPs {
@@ -210,6 +209,9 @@ func (m *Prober) IsReady(ctx context.Context, ing *v1alpha1.Ingress) (bool, erro
 			}
 		}
 	}
+
+	ingressState.pendingCount = int32(len(workItems))
+
 	for ip, ipWorkItems := range workItems {
 		// Get or create the context for that IP
 		ipCtx := func() context.Context {
@@ -260,7 +262,7 @@ func (m *Prober) IsReady(ctx context.Context, ing *v1alpha1.Ingress) (bool, erro
 				wi.url, wi.podIP, wi.podPort, m.workQueue.Len())
 		}
 	}
-	ingressState.pendingCount += int32(len(workItems))
+
 	func() {
 		m.mu.Lock()
 		defer m.mu.Unlock()
