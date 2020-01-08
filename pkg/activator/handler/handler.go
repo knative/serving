@@ -54,11 +54,12 @@ type Throttler interface {
 // activationHandler will wait for an active endpoint for a revision
 // to be available before proxing the request
 type activationHandler struct {
-	logger     *zap.SugaredLogger
-	transport  http.RoundTripper
-	reporter   activator.StatsReporter
-	throttler  Throttler
-	bufferPool httputil.BufferPool
+	logger           *zap.SugaredLogger
+	transport        http.RoundTripper
+	tracingTransport http.RoundTripper
+	reporter         activator.StatsReporter
+	throttler        Throttler
+	bufferPool       httputil.BufferPool
 
 	revisionLister servinglisters.RevisionLister
 }
@@ -68,13 +69,15 @@ const defaulTimeout = 2 * time.Minute
 
 // New constructs a new http.Handler that deals with revision activation.
 func New(ctx context.Context, t Throttler, sr activator.StatsReporter) http.Handler {
+	defaultTransport := pkgnet.AutoTransport
 	return &activationHandler{
-		logger:         logging.FromContext(ctx),
-		transport:      pkgnet.AutoTransport,
-		reporter:       sr,
-		throttler:      t,
-		bufferPool:     network.NewBufferPool(),
-		revisionLister: revisioninformer.Get(ctx).Lister(),
+		logger:           logging.FromContext(ctx),
+		transport:        defaultTransport,
+		tracingTransport: &ochttp.Transport{Base: defaultTransport},
+		reporter:         sr,
+		throttler:        t,
+		bufferPool:       network.NewBufferPool(),
+		revisionLister:   revisioninformer.Get(ctx).Lister(),
 	}
 }
 
@@ -142,11 +145,7 @@ func (a *activationHandler) proxyRequest(logger *zap.SugaredLogger, w http.Respo
 	proxy.BufferPool = a.bufferPool
 	proxy.Transport = a.transport
 	if config := activatorconfig.FromContext(r.Context()); config.Tracing.Backend != tracingconfig.None {
-		// When we collect metrics, we're wrapping the RoundTripper
-		// the proxy would use inside an annotating transport.
-		proxy.Transport = &ochttp.Transport{
-			Base: a.transport,
-		}
+		proxy.Transport = a.tracingTransport
 	}
 	proxy.FlushInterval = -1
 	proxy.ErrorHandler = pkgnet.ErrorHandler(logger)
