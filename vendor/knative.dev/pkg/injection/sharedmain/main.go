@@ -106,7 +106,7 @@ func MainWithContext(ctx context.Context, component string, ctors ...injection.C
 
 	cfg, err := GetConfig(*masterURL, *kubeconfig)
 	if err != nil {
-		log.Fatal("Error building kubeconfig", err)
+		log.Fatalf("Error building kubeconfig: %v", err)
 	}
 	MainWithConfig(ctx, component, cfg, ctors...)
 }
@@ -134,7 +134,7 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 	// Set up our logger.
 	loggingConfig, err := GetLoggingConfig(ctx)
 	if err != nil {
-		log.Fatal("Error reading/parsing logging configuration:", err)
+		log.Fatalf("Error reading/parsing logging configuration: %v", err)
 	}
 	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, component)
 	defer flush(logger)
@@ -168,7 +168,7 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 		metav1.GetOptions{}); err == nil {
 		cmw.Watch(logging.ConfigMapName(), logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	} else if !apierrors.IsNotFound(err) {
-		logger.Fatalw("Error reading ConfigMap: "+logging.ConfigMapName(), zap.Error(err))
+		logger.With(zap.Error(err)).Fatalf("Error reading ConfigMap %q", logging.ConfigMapName())
 	}
 
 	// Watch the observability config map
@@ -178,17 +178,17 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 			metrics.UpdateExporterFromConfigMap(component, logger),
 			profilingHandler.UpdateFromConfigMap)
 	} else if !apierrors.IsNotFound(err) {
-		logger.Fatalw("Error reading ConfigMap: "+metrics.ConfigMapName(), zap.Error(err))
+		logger.With(zap.Error(err)).Fatalf("Error reading ConfigMap %q", metrics.ConfigMapName())
 	}
 
 	if err := cmw.Start(ctx.Done()); err != nil {
-		logger.Fatalw("failed to start configuration manager", zap.Error(err))
+		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
 	}
 
 	// Start all of the informers and wait for them to sync.
 	logger.Info("Starting informers.")
 	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-		logger.Fatalw("Failed to start informers", err)
+		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
 	// Start all of the controllers.

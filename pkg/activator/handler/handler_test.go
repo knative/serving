@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -160,7 +161,7 @@ func TestActivationHandler(t *testing.T) {
 					Body: test.probeResp[i],
 				}
 			}
-			fakeRt := activatortest.FakeRoundTripper{
+			fakeRT := activatortest.FakeRoundTripper{
 				ExpectHost:     "test-host",
 				ProbeResponses: probeResponses,
 				RequestResponse: &activatortest.FakeResponse{
@@ -169,7 +170,7 @@ func TestActivationHandler(t *testing.T) {
 					Body: test.wantBody,
 				},
 			}
-			rt := pkgnet.RoundTripperFunc(fakeRt.RT)
+			rt := pkgnet.RoundTripperFunc(fakeRT.RT)
 
 			reporter := &fakeReporter{}
 
@@ -276,14 +277,14 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup transport
-			fakeRt := activatortest.FakeRoundTripper{
+			fakeRT := activatortest.FakeRoundTripper{
 				RequestResponse: &activatortest.FakeResponse{
 					Err:  nil,
 					Code: http.StatusOK,
 					Body: wantBody,
 				},
 			}
-			rt := pkgnet.RoundTripperFunc(fakeRt.RT)
+			rt := pkgnet.RoundTripperFunc(fakeRT.RT)
 
 			// Create tracer with reporter recorder
 			reporter, co := tracetesting.FakeZipkinExporter()
@@ -448,4 +449,60 @@ func setupConfigStore(t *testing.T, logger *zap.SugaredLogger) *activatorconfig.
 
 func errMsg(msg string) string {
 	return fmt.Sprintf("Error getting active endpoint: %v\n", msg)
+}
+
+func BenchmarkHandler(b *testing.B) {
+	// Use fake Roundtripper, the buffer is used in the proxy
+	// to copy the response only.
+	fakeRT := activatortest.FakeRoundTripper{
+		RequestResponse: &activatortest.FakeResponse{
+			Code: http.StatusOK,
+		},
+	}
+	rt := pkgnet.RoundTripperFunc(fakeRT.RT)
+
+	reporter := &fakeReporter{}
+
+	t := &testing.T{}
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	defer cancel()
+	logger := logging.FromContext(ctx)
+	revisionInformer(ctx, revision(testNamespace, testRevName))
+	handler := (New(ctx, fakeThrottler{}, reporter)).(*activationHandler)
+
+	handler.transport = rt
+	configStore := setupConfigStore(&testing.T{}, logger)
+	ctx = configStore.ToContext(ctx)
+
+	// bodyLength is in kilobytes.
+	for _, bodyLength := range [5]int{2, 16, 32, 64, 128} {
+		respBody := randomString(1024 * bodyLength)
+		fakeRT.RequestResponse.Body = respBody
+		b.Run(fmt.Sprintf("%03dk-resp-len", bodyLength), func(b *testing.B) {
+			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+			req.Header.Set(activator.RevisionHeaderNamespace, testNamespace)
+			req.Header.Set(activator.RevisionHeaderName, testRevName)
+			req.Host = "test-host"
+			for j := 0; j < b.N; j++ {
+				resp := httptest.NewRecorder()
+				handler.ServeHTTP(resp, req.WithContext(ctx))
+				if resp.Code != http.StatusOK {
+					b.Fatalf("resp.Code = %d, want: StatusOK(200)", resp.Code)
+				}
+				if got, want := resp.Body.Len(), len(respBody); got != want {
+					b.Fatalf("|body| = %d, want = %d", got, want)
+				}
+			}
+		})
+	}
+}
+
+func randomString(n int) string {
+	var letter = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letter[rand.Intn(len(letter))]
+	}
+	return string(b)
 }

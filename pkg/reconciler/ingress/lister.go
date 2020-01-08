@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	neturl "net/url"
 	"sort"
 	"strconv"
 
@@ -83,13 +82,13 @@ func (l *gatewayPodTargetLister) ListProbeTargets(ctx context.Context, ing *v1al
 			qualifiedTarget := status.ProbeTarget{
 				PodIPs: target.PodIPs,
 				Port:   target.Port,
-				URLs:   []neturl.URL{},
+				URLs:   make([]*url.URL, len(gatewayHosts[gatewayName])),
 			}
-			// Use sorted host for consistent ordering.
-			for _, host := range gatewayHosts[gatewayName].List() {
-				newURL := target.URLs[0]
+			// Use sorted hosts list for consistent ordering.
+			for i, host := range gatewayHosts[gatewayName].List() {
+				newURL := *target.URLs[0]
 				newURL.Host = host + ":" + target.Port
-				qualifiedTarget.URLs = append(qualifiedTarget.URLs, newURL)
+				qualifiedTarget.URLs[i] = &newURL
 			}
 			results = append(results, qualifiedTarget)
 		}
@@ -129,16 +128,16 @@ func (l *gatewayPodTargetLister) listGatewayTargets(gateway *v1alpha3.Gateway) (
 
 	targets := []status.ProbeTarget{}
 	for _, server := range gateway.Spec.Servers {
-		url := url.URL{}
+		tURL := &url.URL{}
 		switch server.Port.Protocol {
 		case "HTTP", "HTTP2":
 			if server.Tls != nil && server.Tls.HttpsRedirect {
 				// ignoring HTTPS redirects.
 				continue
 			}
-			url.Scheme = "http"
+			tURL.Scheme = "http"
 		case "HTTPS":
-			url.Scheme = "https"
+			tURL.Scheme = "https"
 		default:
 			l.logger.Infof("Skipping Server %q because protocol %q is not supported", server.Port.Name, server.Port.Protocol)
 			continue
@@ -162,7 +161,7 @@ func (l *gatewayPodTargetLister) listGatewayTargets(gateway *v1alpha3.Gateway) (
 			target := status.ProbeTarget{
 				PodIPs: sets.NewString(),
 				Port:   strconv.Itoa(int(portNumber)),
-				URLs:   []neturl.URL{url},
+				URLs:   []*url.URL{tURL},
 			}
 			for _, addr := range sub.Addresses {
 				target.PodIPs.Insert(addr.IP)

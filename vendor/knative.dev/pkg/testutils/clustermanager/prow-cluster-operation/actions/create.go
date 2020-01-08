@@ -84,15 +84,15 @@ func writeMetaData(cluster *container.Cluster, project string) {
 	log.Println("Done writing metadata")
 }
 
-// Create creates a GKE cluster and configures gcloud  after successful GKE create request
-func Create(o *options.RequestWrapper) error {
+// Create creates a GKE cluster and configures gcloud after successful GKE create request
+func Create(o *options.RequestWrapper) (*clm.GKECluster, error) {
 	o.Prep()
 
 	gkeClient := clm.GKEClient{}
 	clusterOps := gkeClient.Setup(o.Request)
 	gkeOps := clusterOps.(*clm.GKECluster)
 	if err := gkeOps.Acquire(); err != nil || gkeOps.Cluster == nil {
-		return fmt.Errorf("failed acquiring GKE cluster: '%v'", err)
+		return nil, fmt.Errorf("failed acquiring GKE cluster: '%v'", err)
 	}
 
 	// At this point we should have a cluster ready to run test. Need to save
@@ -104,11 +104,11 @@ func Create(o *options.RequestWrapper) error {
 	// TODO(chaodaiG): this probably should also be part of clustermanager lib
 	if out, err := common.StandardExec("gcloud", "beta", "container", "clusters", "get-credentials",
 		gkeOps.Cluster.Name, "--region", gkeOps.Cluster.Location, "--project", gkeOps.Project); err != nil {
-		return fmt.Errorf("failed connecting to cluster: %q, '%v'", out, err)
+		return nil, fmt.Errorf("failed connecting to cluster: %q, '%v'", out, err)
 	}
 	if out, err := common.StandardExec("gcloud", "config", "set", "project", gkeOps.Project); err != nil {
-		return fmt.Errorf("failed setting gcloud: %q, '%v'", out, err)
+		return nil, fmt.Errorf("failed setting gcloud: %q, '%v'", out, err)
 	}
 
-	return nil
+	return gkeOps, nil
 }

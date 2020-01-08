@@ -212,7 +212,7 @@ func createMetricsConfig(ops ExporterOptions, logger *zap.SugaredLogger) (*metri
 
 		if !allowCustomMetrics {
 			servingOrEventing := metricskey.KnativeRevisionMetrics.Union(
-				metricskey.KnativeTriggerMetrics)
+				metricskey.KnativeTriggerMetrics).Union(metricskey.KnativeBrokerMetrics)
 			mc.recorder = func(ctx context.Context, ms stats.Measurement, ros ...stats.Options) error {
 				metricType := path.Join(mc.stackdriverMetricTypePrefix, ms.Measure().Name())
 

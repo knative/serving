@@ -109,7 +109,7 @@ func CreateServiceReady(t pkgTest.T, clients *test.Clients, names *test.Resource
 		names.Service = svc.Name
 	}
 
-	t.Log("Waiting for Service %q to transition to Ready.", "service", names.Service)
+	t.Log("Waiting for Service to transition to Ready.", "service", names.Service)
 	if err := WaitForServiceState(clients.ServingClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
 		return nil, err
 	}

@@ -310,17 +310,10 @@ func (c *collection) currentMetric() *av1alpha1.Metric {
 
 // record adds a stat to the current collection.
 func (c *collection) record(stat Stat) {
-	spec := c.currentMetric().Spec
-
 	// Proxied requests have been counted at the activator. Subtract
 	// them to avoid double counting.
-	c.concurrencyBuckets.Record(stat.Time, stat.PodName, stat.AverageConcurrentRequests-stat.AverageProxiedConcurrentRequests)
-	c.rpsBuckets.Record(stat.Time, stat.PodName, stat.RequestCount-stat.ProxiedRequestCount)
-
-	// Delete outdated stats taking stat.Time as current time.
-	now := stat.Time
-	c.concurrencyBuckets.RemoveOlderThan(now.Add(-spec.StableWindow))
-	c.rpsBuckets.RemoveOlderThan(now.Add(-spec.StableWindow))
+	c.concurrencyBuckets.Record(stat.Time, stat.AverageConcurrentRequests-stat.AverageProxiedConcurrentRequests)
+	c.rpsBuckets.Record(stat.Time, stat.RequestCount-stat.ProxiedRequestCount)
 }
 
 // stableAndPanicConcurrency calculates both stable and panic concurrency based on the

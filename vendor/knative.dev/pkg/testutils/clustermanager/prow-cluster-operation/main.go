@@ -45,11 +45,11 @@ func main() {
 	}
 	switch {
 	case create:
-		err = actions.Create(o)
+		_, err = actions.Create(o)
 	case delete:
 		err = actions.Delete(o)
 	case get:
-		err = actions.Get(o)
+		_, err = actions.Get(o)
 	default:
 		err = errors.New("Must pass one of --create, --delete, --get")
 	}

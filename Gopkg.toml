@@ -67,11 +67,11 @@ required = [
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.4"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.4"
 
 [[override]]
   name = "k8s.io/code-generator"
@@ -79,29 +79,29 @@ required = [
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.4"
 
 [[override]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.4"
 
 [[override]]
   name = "k8s.io/apiserver"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.4"
 
 [[override]]
   name = "k8s.io/metrics"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.4"
 
 [[override]]
   name = "k8s.io/kube-openapi"
-  # This is the version at which k8s.io/apiserver depends on this at its 1.15.3 tag.
-  revision = "b3a7cee44a305be0a69e1b9ac03018307287e1b0"
+  # This is the version at which k8s.io/apiserver depends on this at its 1.16.4 tag.
+  revision = "743ec37842bffe49dd4221d9026f30fb1d5adbc4"
 
 [[override]]
   name = "sigs.k8s.io/structured-merge-diff"
-  # This is the version at which k8s.io/apiserver depends on this at its 1.15.3 tag.
-  revision = "e85c7b244fd2cc57bb829d73a061f93a441e63ce"
+  # This is the version at which k8s.io/apiserver depends on this at its 1.16.4 tag.
+  version = "1.0.1"
 
 [[override]]
   name = "github.com/rogpeppe/go-internal"

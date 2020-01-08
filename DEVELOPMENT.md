@@ -149,7 +149,7 @@ kubectl apply -f ./third_party/istio-1.3-latest/istio-crds.yaml
 while [[ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
   echo "Waiting on Istio CRDs"; sleep 1
 done
-kubectl apply -f ./third_party/istio-1.3-latest/istio-local.yaml
+kubectl apply -f ./third_party/istio-1.3-latest/istio-minimal.yaml
 ```
 
 Follow the
@@ -237,7 +237,7 @@ export K8S_CLUSTER_REGION="my-cluster-region"
 ./hack/dev-patch-config-gke.sh my-k8s-cluster-name
 
 # Run post-install job to setup nice XIP.IO domain name.  This only works
-# if your Kubernetes LoadBalancer has an IP address.
+# if your Kubernetes LoadBalancer has an IPv4 address.
 ko delete -f config/post-install --ignore-not-found
 ko apply -f config/post-install
 ```
@@ -323,7 +323,7 @@ You can delete all of the service components with:
 ko delete --ignore-not-found=true \
   -f config/monitoring/100-namespace.yaml \
   -f config/ \
-  -f ./third_party/istio-1.3-latest/istio-local.yaml \
+  -f ./third_party/istio-1.3-latest/istio-minimal.yaml \
   -f ./third_party/istio-1.3-latest/istio-crds.yaml \
   -f ./third_party/cert-manager-0.9.1/cert-manager-crds.yaml \
   -f ./third_party/cert-manager-0.9.1/cert-manager.yaml
