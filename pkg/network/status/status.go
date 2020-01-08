@@ -97,7 +97,7 @@ type ProbeTarget struct {
 
 // ProbeTargetLister lists all the targets that requires probing.
 type ProbeTargetLister interface {
-	// ListProbeTargets returns the target to be probed as a map from podIP -> port -> urls.
+	// ListProbeTargets returns a list of targets to be probed.
 	ListProbeTargets(ctx context.Context, ingress *v1alpha1.Ingress) ([]ProbeTarget, error)
 }
 
