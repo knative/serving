@@ -185,6 +185,7 @@ func TestDestroyPodTimely(t *testing.T) {
 	if err != nil || len(pods.Items) == 0 {
 		t.Fatalf("No pods or error: %v", err)
 	}
+	t.Logf("Saw %d pods", len(pods.Items))
 
 	podToDelete := pods.Items[0].Name
 	t.Logf("Deleting pod %q", podToDelete)
@@ -252,9 +253,10 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	pods, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).List(metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", serving.RevisionLabelKey, objects.Revision.Name),
 	})
-	if err != nil || len(pods.Items) != 1 {
-		t.Fatalf("Number of pods is not 1 or an error: %v", err)
+	if err != nil || len(pods.Items) == 0 {
+		t.Fatalf("No pods or error: %v", err)
 	}
+	t.Logf("Saw %d pods", len(pods.Items))
 
 	// The request will sleep for more than 15 seconds.
 	// NOTE: it needs to be less than TERMINATION_DRAIN_DURATION_SECONDS.
