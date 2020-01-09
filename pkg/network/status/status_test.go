@@ -124,8 +124,11 @@ func TestProbeLifecycle(t *testing.T) {
 	prober.cleanupPeriod = 500 * time.Millisecond
 
 	done := make(chan struct{})
-	defer close(done)
-	prober.Start(done)
+	cancelled := prober.Start(done)
+	defer func() {
+		close(done)
+		<-cancelled
+	}()
 
 	// The first call to IsReady must succeed and return false
 	ok, err := prober.IsReady(context.Background(), ing)
@@ -218,11 +221,18 @@ func TestProbeListerFail(t *testing.T) {
 }
 
 func TestCancelPodProbing(t *testing.T) {
-	ing := ingTemplate.DeepCopy()
+	type timedRequest struct {
+		*http.Request
+		Time time.Time
+	}
+
 	// Handler keeping track of received requests and mimicking an Ingress not ready
-	requests := make(chan *http.Request, 100)
+	requests := make(chan *timedRequest, 100)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requests <- r
+		requests <- &timedRequest{
+			Time:    time.Now(),
+			Request: r,
+		}
 		w.WriteHeader(http.StatusNotFound)
 	})
 
@@ -260,9 +270,13 @@ func TestCancelPodProbing(t *testing.T) {
 		})
 
 	done := make(chan struct{})
-	defer close(done)
-	prober.Start(done)
+	cancelled := prober.Start(done)
+	defer func() {
+		close(done)
+		<-cancelled
+	}()
 
+	ing := ingTemplate.DeepCopy()
 	ok, err := prober.IsReady(context.Background(), ing)
 	if err != nil {
 		t.Fatalf("IsReady failed: %v", err)
@@ -320,12 +334,19 @@ func TestCancelPodProbing(t *testing.T) {
 
 	// Cancel Pod probing
 	prober.CancelPodProbing(pod)
+	cancelTime := time.Now()
 
-	// Check that the requests were for the new version or the other Ingress
-	close(requests)
-	for req := range requests {
-		if !strings.HasPrefix(req.Host, otherDomain) && !strings.HasPrefix(req.Host, parallelDomain) {
-			t.Fatalf("Host = %s, want: %s or %s", req.Host, otherDomain, parallelDomain)
+	// Check that there are no requests for the old Ingress and the requests predate cancellation
+	for {
+		if req, ok := <-requests; ok {
+			if !strings.HasPrefix(req.Host, otherDomain) &&
+				!strings.HasPrefix(req.Host, parallelDomain) {
+				t.Fatalf("Host = %s, want: %s or %s", req.Host, otherDomain, parallelDomain)
+			} else if req.Time.Sub(cancelTime) > 0 {
+				t.Fatal("Request was made after cancellation")
+			}
+		} else {
+			break
 		}
 	}
 }
@@ -387,8 +408,11 @@ func TestPartialPodCancellation(t *testing.T) {
 		})
 
 	done := make(chan struct{})
-	defer close(done)
-	prober.Start(done)
+	cancelled := prober.Start(done)
+	defer func() {
+		close(done)
+		<-cancelled
+	}()
 
 	ok, err := prober.IsReady(context.Background(), ing)
 	if err != nil {
@@ -454,8 +478,11 @@ func TestCancelIngressProbing(t *testing.T) {
 		})
 
 	done := make(chan struct{})
-	defer close(done)
-	prober.Start(done)
+	cancelled := prober.Start(done)
+	defer func() {
+		close(done)
+		<-cancelled
+	}()
 
 	ok, err := prober.IsReady(context.Background(), ing)
 	if err != nil {
