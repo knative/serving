@@ -48,10 +48,11 @@ const (
 	stateExpiration = 5 * time.Minute
 	// cleanupPeriod defines how often states are cleaned up
 	cleanupPeriod = 1 * time.Minute
+	//probeTimeout defines the maximum amount of time a request will wait
+	probeTimeout = 1 * time.Second
 )
 
-// TODO(https://github.com/knative/serving/issues/6407):  Default timeouts may lead to hanging probes.
-var dialContext = (&net.Dialer{}).DialContext
+var dialContext = (&net.Dialer{Timeout: probeTimeout}).DialContext
 
 // ingressState represents the probing state of an Ingress
 type ingressState struct {
