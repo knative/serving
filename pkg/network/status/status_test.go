@@ -338,15 +338,16 @@ func TestCancelPodProbing(t *testing.T) {
 
 	// Check that there are no requests for the old Ingress and the requests predate cancellation
 	for {
-		if req, ok := <-requests; ok {
+		select {
+		case req := <-requests:
 			if !strings.HasPrefix(req.Host, otherDomain) &&
 				!strings.HasPrefix(req.Host, parallelDomain) {
 				t.Fatalf("Host = %s, want: %s or %s", req.Host, otherDomain, parallelDomain)
 			} else if req.Time.Sub(cancelTime) > 0 {
 				t.Fatal("Request was made after cancellation")
 			}
-		} else {
-			break
+		default:
+			return
 		}
 	}
 }
