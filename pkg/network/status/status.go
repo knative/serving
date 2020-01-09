@@ -277,17 +277,17 @@ func (m *Prober) Start(done <-chan struct{}) chan struct{} {
 	for i := 0; i < m.probeConcurrency; i++ {
 		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			for m.processWorkItem() {
 			}
-			wg.Done()
 		}()
 	}
 
 	// Cleanup the states periodically
 	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		wait.Until(m.expireOldStates, m.cleanupPeriod, done)
-		wg.Done()
 	}()
 
 	// Stop processing the queue when cancelled
