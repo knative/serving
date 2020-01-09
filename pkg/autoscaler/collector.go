@@ -328,26 +328,18 @@ func (c *collection) StableAndPanicRPS(now time.Time) (float64, float64, error) 
 	return c.stableAndPanicStats(now, c.rpsBuckets)
 }
 
-type buckets interface {
-	ForEachBucket(time.Time, ...aggregation.Accumulator) bool
-}
-
 // stableAndPanicStats calculates both stable and panic concurrency based on the
 // given stats buckets.
-func (c *collection) stableAndPanicStats(now time.Time, buckets buckets) (float64, float64, error) {
+func (c *collection) stableAndPanicStats(now time.Time, buckets *aggregation.TimedFloat64Buckets) (float64, float64, error) {
 	spec := c.currentMetric().Spec
-	var (
-		panicAverage  aggregation.Average
-		stableAverage aggregation.Average
-	)
+	var panicAverage aggregation.Average
+
 	if !buckets.ForEachBucket(now,
-		aggregation.YoungerThan(now.Add(-spec.PanicWindow), panicAverage.Accumulate),
-		aggregation.YoungerThan(now.Add(-spec.StableWindow), stableAverage.Accumulate),
-	) {
+		aggregation.YoungerThan(now.Add(-spec.PanicWindow), panicAverage.Accumulate)) {
 		return 0, 0, ErrNoData
 	}
 
-	return stableAverage.Value(), panicAverage.Value(), nil
+	return buckets.WindowAverage(now), panicAverage.Value(), nil
 }
 
 // close stops collecting metrics, stops the scraper.
