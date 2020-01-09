@@ -940,7 +940,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:fc3b67f0e6eb15b4137fe05cd4e9c9541fb743cab8f0ecc2ded1026c78d743ae"
+  digest = "1:453e21d9c4385548ef0829f4509961f2d6b19b573fd830a5739a7fea8a8d6290"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -959,7 +959,7 @@
     "metrics/metricskey",
   ]
   pruneopts = "T"
-  revision = "a43659c656a7ddc2a04e74b7e5b8ca3a5d4a04ed"
+  revision = "298f22bea61fb6a0e8d55546563908e4787f9ac2"
 
 [[projects]]
   branch = "master"
@@ -970,7 +970,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "67effe44de5d3500046a77220f90cba376b2c104"
+  revision = "ce144eee3f441f9810581755d291ecbc4765a06e"
 
 [[projects]]
   digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"

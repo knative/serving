@@ -21,7 +21,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"strconv"
-	"sync"
+	"sync/atomic"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -39,10 +39,9 @@ const (
 // Handler holds the main HTTP handler and a flag indicating
 // whether the handler is active
 type Handler struct {
-	enabled    bool
-	enabledMux sync.Mutex
-	handler    http.Handler
-	log        *zap.SugaredLogger
+	enabled int32
+	handler http.Handler
+	log     *zap.SugaredLogger
 }
 
 // NewHandler create a new ProfilingHandler which serves runtime profiling data
@@ -58,18 +57,15 @@ func NewHandler(logger *zap.SugaredLogger, enableProfiling bool) *Handler {
 	mux.HandleFunc(pprofPrefix+"trace", pprof.Trace)
 
 	logger.Infof("Profiling enabled: %t", enableProfiling)
-
 	return &Handler{
-		enabled: enableProfiling,
+		enabled: boolToInt32(enableProfiling),
 		handler: mux,
 		log:     logger,
 	}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.enabledMux.Lock()
-	defer h.enabledMux.Unlock()
-	if h.enabled {
+	if atomic.LoadInt32(&h.enabled) == 1 {
 		h.handler.ServeHTTP(w, r)
 	} else {
 		http.NotFoundHandler().ServeHTTP(w, r)
@@ -96,11 +92,11 @@ func (h *Handler) UpdateFromConfigMap(configMap *corev1.ConfigMap) {
 		h.log.Errorw("Failed to update the profiling flag", zap.Error(err))
 		return
 	}
-	h.enabledMux.Lock()
-	defer h.enabledMux.Unlock()
-	if h.enabled != enabled {
-		h.enabled = enabled
-		h.log.Infof("Profiling enabled: %t", h.enabled)
+
+	new := boolToInt32(enabled)
+	old := atomic.SwapInt32(&h.enabled, new)
+	if old != new {
+		h.log.Infof("Profiling enabled: %t", enabled)
 	}
 }
 
@@ -110,4 +106,11 @@ func NewServer(handler http.Handler) *http.Server {
 		Addr:    ":" + strconv.Itoa(ProfilingPort),
 		Handler: handler,
 	}
+}
+
+func boolToInt32(b bool) int32 {
+	if b {
+		return 1
+	}
+	return 0
 }
