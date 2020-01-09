@@ -271,23 +271,39 @@ func (m *Prober) IsReady(ctx context.Context, ing *v1alpha1.Ingress) (bool, erro
 }
 
 // Start starts the Manager background operations
-func (m *Prober) Start(done <-chan struct{}) {
+func (m *Prober) Start(done <-chan struct{}) chan struct{} {
+	var wg sync.WaitGroup
+
 	// Start the worker goroutines
 	for i := 0; i < m.probeConcurrency; i++ {
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			for m.processWorkItem() {
 			}
 		}()
 	}
 
 	// Cleanup the states periodically
-	go wait.Until(m.expireOldStates, m.cleanupPeriod, done)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		wait.Until(m.expireOldStates, m.cleanupPeriod, done)
+	}()
 
 	// Stop processing the queue when cancelled
 	go func() {
 		<-done
 		m.workQueue.ShutDown()
 	}()
+
+	// Return a channel closed when all work is done
+	ch := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+	return ch
 }
 
 // CancelIngressProbing cancels probing of the provided Ingress
