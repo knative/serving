@@ -80,7 +80,7 @@ func TestNewServiceScraperWithClientErrorCases(t *testing.T) {
 		name        string
 		metric      *av1alpha1.Metric
 		client      scrapeClient
-		counter     resources.ReadyPodCounter
+		counter     resources.EndpointsCounter
 		expectedErr string
 	}{{
 		name:        "Empty Decider",

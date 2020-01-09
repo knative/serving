@@ -29,6 +29,7 @@ import (
 	// These are the fake informers we want setup.
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	"knative.dev/pkg/kmeta"
@@ -985,6 +986,7 @@ func TestReconcile(t *testing.T) {
 				PSInformerFactory: psf,
 			},
 			endpointsLister: listers.GetEndpointsLister(),
+			podsLister:      listers.GetPodsLister(),
 			deciders:        fakeDeciders,
 			scaler:          scaler,
 		}

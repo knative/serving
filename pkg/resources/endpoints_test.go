@@ -42,27 +42,32 @@ func TestScopedEndpointsCounter(t *testing.T) {
 	addressCounter := NewScopedEndpointsCounter(endpointsClient.Lister(), testNamespace, testService)
 
 	tests := []struct {
-		name      string
-		endpoints *corev1.Endpoints
-		want      int
-		wantErr   bool
+		name         string
+		endpoints    *corev1.Endpoints
+		wantReady    int
+		wantNotReady int
+		wantErr      bool
 	}{{
-		name:      "no endpoints at all",
-		endpoints: nil,
-		want:      0,
-		wantErr:   true,
+		name:         "no endpoints at all",
+		endpoints:    nil,
+		wantReady:    0,
+		wantNotReady: 0,
+		wantErr:      true,
 	}, {
-		name:      "no ready addresses",
-		endpoints: endpoints(0),
-		want:      0,
+		name:         "no ready/not-ready addresses",
+		endpoints:    endpoints(0, 0),
+		wantReady:    0,
+		wantNotReady: 0,
 	}, {
-		name:      "one ready address",
-		endpoints: endpoints(1),
-		want:      1,
+		name:         "one ready/two not-ready addresses",
+		endpoints:    endpoints(1, 2),
+		wantReady:    1,
+		wantNotReady: 2,
 	}, {
-		name:      "ten ready addresses",
-		endpoints: endpoints(10),
-		want:      10,
+		name:         "ten ready/twenty not-ready addresses",
+		endpoints:    endpoints(10, 20),
+		wantReady:    10,
+		wantNotReady: 20,
 	}}
 
 	for _, test := range tests {
@@ -71,8 +76,16 @@ func TestScopedEndpointsCounter(t *testing.T) {
 				createEndpoints(test.endpoints)
 			}
 			got, err := addressCounter.ReadyCount()
-			if got != test.want {
-				t.Errorf("ReadyCount() = %d, want: %d", got, test.want)
+			if got != test.wantReady {
+				t.Errorf("ReadyCount() = %d, wantReady: %d", got, test.wantReady)
+			}
+			if got, want := (err != nil), test.wantErr; got != want {
+				t.Errorf("WantErr = %v, want: %v, err: %v", got, want, err)
+			}
+
+			got, err = addressCounter.NotReadyCount()
+			if got != test.wantNotReady {
+				t.Errorf("NotReadyCount() = %d, wantNotReady: %d", got, test.wantNotReady)
 			}
 			if got, want := (err != nil), test.wantErr; got != want {
 				t.Errorf("WantErr = %v, want: %v, err: %v", got, want, err)
@@ -83,45 +96,60 @@ func TestScopedEndpointsCounter(t *testing.T) {
 
 func TestReadyAddressCount(t *testing.T) {
 	tests := []struct {
-		name      string
-		endpoints *corev1.Endpoints
-		want      int
+		name         string
+		endpoints    *corev1.Endpoints
+		wantReady    int
+		wantNotReady int
 	}{{
-		name:      "no ready addresses",
-		endpoints: endpoints(0),
-		want:      0,
+		name:         "no ready/not-ready addresses",
+		endpoints:    endpoints(0, 0),
+		wantReady:    0,
+		wantNotReady: 0,
 	}, {
-		name:      "one ready address",
-		endpoints: endpoints(1),
-		want:      1,
+		name:         "one ready/two not-ready addresses",
+		endpoints:    endpoints(1, 2),
+		wantReady:    1,
+		wantNotReady: 2,
 	}, {
-		name:      "ten ready addresses",
-		endpoints: endpoints(10),
-		want:      10,
+		name:         "ten ready/twenty not-ready addresses",
+		endpoints:    endpoints(10, 20),
+		wantReady:    10,
+		wantNotReady: 20,
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := ReadyAddressCount(test.endpoints); got != test.want {
-				t.Errorf("ReadyAddressCount() = %d, want: %d", got, test.want)
+			if got := ReadyAddressCount(test.endpoints); got != test.wantReady {
+				t.Errorf("ReadyAddressCount() = %d, want: %d", got, test.wantReady)
+			}
+			if got := NotReadyAddressCount(test.endpoints); got != test.wantNotReady {
+				t.Errorf("NotReadyAddressCount() = %d, want: %d", got, test.wantNotReady)
 			}
 		})
 	}
 }
 
-func endpoints(ipCount int) *corev1.Endpoints {
+func endpoints(readyIPCount, notReadyIPCount int) *corev1.Endpoints {
 	ep := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      testService,
 		},
 	}
-	addresses := make([]corev1.EndpointAddress, ipCount)
-	for i := 0; i < ipCount; i++ {
-		addresses[i] = corev1.EndpointAddress{IP: fmt.Sprintf("127.0.0.%v", i+1)}
+	addresses := make([]corev1.EndpointAddress, readyIPCount)
+	notReadyAddresses := make([]corev1.EndpointAddress, notReadyIPCount)
+
+	for i := 0; i < readyIPCount; i++ {
+		addresses[i] = corev1.EndpointAddress{IP: fmt.Sprintf("127.0.0.%v", i*3+1)}
 	}
+
+	for i := 0; i < notReadyIPCount; i++ {
+		notReadyAddresses[i] = corev1.EndpointAddress{IP: fmt.Sprintf("127.0.0.%v", i*3+2)}
+	}
+
 	ep.Subsets = []corev1.EndpointSubset{{
-		Addresses: addresses,
+		Addresses:         addresses,
+		NotReadyAddresses: notReadyAddresses,
 	}}
 	return ep
 }

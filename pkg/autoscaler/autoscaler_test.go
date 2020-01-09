@@ -42,10 +42,10 @@ var (
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 )
 
-func TestNewErrorWhenGivenNilReadyPodCounter(t *testing.T) {
+func TestNewErrorWhenGivenNilEndpointsCounter(t *testing.T) {
 	_, err := New(testNamespace, testRevision, &autoscalerfake.MetricClient{}, nil, &DeciderSpec{TargetValue: 10, ServiceName: testService}, &mockReporter{})
 	if err == nil {
-		t.Error("Expected error when ReadyPodCounter interface is nil, but got none.")
+		t.Error("Expected error when EndpointsCounter interface is nil, but got none.")
 	}
 }
 
@@ -332,6 +332,21 @@ func (r *mockReporter) ReportRequestedPodCount(v int64) error {
 
 // ReportActualPodCount of a mockReporter does nothing and return nil for error.
 func (r *mockReporter) ReportActualPodCount(v int64) error {
+	return nil
+}
+
+// ReportNotReadyPodCount of a mockReporter does nothing and return nil for error.
+func (r *mockReporter) ReportNotReadyPodCount(v int64) error {
+	return nil
+}
+
+// ReportPendingPodCount of a mockReporter does nothing and return nil for error.
+func (r *mockReporter) ReportPendingPodCount(v int64) error {
+	return nil
+}
+
+// ReportTerminatingPodCount of a mockReporter does nothing and return nil for error.
+func (r *mockReporter) ReportTerminatingPodCount(v int64) error {
 	return nil
 }
 
