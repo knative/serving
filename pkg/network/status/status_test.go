@@ -313,7 +313,7 @@ func TestCancelPodProbing(t *testing.T) {
 	// Drain requests for the old version
 	for req := range requests {
 		t.Logf("req.Host: %s", req.Host)
-		if strings.HasPrefix(req.Host, otherDomain)  {
+		if strings.HasPrefix(req.Host, otherDomain) {
 			break
 		}
 	}
@@ -357,14 +357,14 @@ func TestPartialPodCancellation(t *testing.T) {
 
 	// pods[0] will be probed successfully, pods[1] will never be probed successfully
 	pods := []*v1.Pod{{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "default",
-				Name:      "pod0",
-			},
-			Status: v1.PodStatus{
-				PodIP: strings.Split(tsURL.Host, ":")[0],
-			},
-		}, {
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "pod0",
+		},
+		Status: v1.PodStatus{
+			PodIP: strings.Split(tsURL.Host, ":")[0],
+		},
+	}, {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
 			Name:      "pod1",
