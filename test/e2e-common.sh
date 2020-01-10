@@ -30,6 +30,7 @@ ISTIO_VERSION=""
 GLOO_VERSION=""
 KOURIER_VERSION=""
 AMBASSADOR_VERSION=""
+CONTOUR_VERSION=""
 INGRESS_CLASS=""
 
 HTTPS=0
@@ -102,6 +103,13 @@ function parse_flags() {
       # latest version of Ambassador pinned in third_party will be installed
       readonly AMBASSADOR_VERSION=$2
       readonly INGRESS_CLASS="ambassador.ingress.networking.knative.dev"
+      return 2
+      ;;
+    --contour-version)
+      # currently, the value of --contour-version is ignored
+      # latest version of Contour pinned in third_party will be installed
+      readonly CONTOUR_VERSION=$2
+      readonly INGRESS_CLASS="contour.ingress.networking.knative.dev"
       return 2
       ;;
   esac
@@ -198,8 +206,7 @@ function install_istio() {
 }
 
 function install_gloo() {
-  local gloo_base="./third_party/gloo-latest"
-  INSTALL_GLOO_YAML="${gloo_base}/gloo.yaml"
+  local INSTALL_GLOO_YAML="./third_party/gloo-latest/gloo.yaml"
   echo "Gloo YAML: ${INSTALL_GLOO_YAML}"
   echo ">> Bringing up Gloo"
 
@@ -213,8 +220,7 @@ function install_gloo() {
 }
 
 function install_kourier() {
-  local kourier_base="./third_party/kourier-latest"
-  INSTALL_KOURIER_YAML="${kourier_base}/kourier.yaml"
+  local INSTALL_KOURIER_YAML="./third_party/kourier-latest/kourier.yaml"
   echo "Kourier YAML: ${INSTALL_KOURIER_YAML}"
   echo ">> Bringing up Kourier"
 
@@ -246,6 +252,15 @@ function install_ambassador() {
   echo ">> Patching Ambassador"
   # Scale replicas of the Ambassador gateway to handle large qps
   kubectl scale -n ambassador deployment ambassador --replicas=6
+}
+
+function install_contour() {
+  local INSTALL_CONTOUR_YAML="./third_party/contour-latest/contour.yaml"
+  echo "Contour YAML: ${INSTALL_CONTOUR_YAML}"
+  echo ">> Bringing up Contour"
+
+  kubectl apply -f ${INSTALL_CONTOUR_YAML} || return 1
+  UNINSTALL_LIST+=( "${INSTALL_CONTOUR_YAML}" )
 }
 
 # Installs Knative Serving in the current cluster, and waits for it to be ready.
@@ -302,6 +317,8 @@ function install_knative_serving_standard() {
     install_kourier
   elif [[ -n "${AMBASSADOR_VERSION}" ]]; then
     install_ambassador
+  elif [[ -n "${CONTOUR_VERSION}" ]]; then
+    install_contour
   else
     install_istio "${SERVING_ISTIO_YAML}"
   fi
@@ -440,6 +457,14 @@ function test_setup() {
     export GATEWAY_NAMESPACE_OVERRIDE=ambassador
     wait_until_pods_running ambassador || return 1
     wait_until_service_has_external_ip ambassador ambassador
+  fi
+  if [[ -n "${CONTOUR_VERSION}" ]]; then
+    # we must set these override values to allow the test spoofing client to work with Contour
+    # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
+    export GATEWAY_OVERRIDE=ennvoy-external
+    export GATEWAY_NAMESPACE_OVERRIDE=projectcontour
+    wait_until_pods_running projectcontour || return 1
+    wait_until_service_has_external_ip projectcontour envoy-external
   fi
 
   if (( INSTALL_MONITORING )); then

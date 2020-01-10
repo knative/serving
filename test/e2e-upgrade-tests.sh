@@ -38,11 +38,11 @@ LATEST_SERVING_RELEASE_VERSION=$(git describe --match "v[0-9]*" --abbrev=0)
 function install_latest_release() {
   header "Installing Knative latest public release"
   local url="https://github.com/knative/serving/releases/download/${LATEST_SERVING_RELEASE_VERSION}"
-  local yaml="serving.yaml"
+  local yaml="serving-core.yaml"
 
-  # install serving core if installing for Gloo or Kourier
-  if [[ -n "${GLOO_VERSION}" || -n "${KOURIER_VERSION}" || -n "${AMBASSADOR_VERSION}" ]]; then
-    yaml="serving-core.yaml"
+  # serving.yaml contains the Istio integration, which we don't need for other ingress controllers.
+  if [[ -n "${ISTIO_VERSION}" ]]; then
+    yaml="serving.yaml"
   fi
 
   local RELEASE_YAML="$(mktemp)"
