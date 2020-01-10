@@ -206,8 +206,7 @@ function install_istio() {
 }
 
 function install_gloo() {
-  local gloo_base="./third_party/gloo-latest"
-  INSTALL_GLOO_YAML="${gloo_base}/gloo.yaml"
+  local INSTALL_GLOO_YAML="./third_party/gloo-latest/gloo.yaml"
   echo "Gloo YAML: ${INSTALL_GLOO_YAML}"
   echo ">> Bringing up Gloo"
 
@@ -221,8 +220,7 @@ function install_gloo() {
 }
 
 function install_kourier() {
-  local kourier_base="./third_party/kourier-latest"
-  INSTALL_KOURIER_YAML="${kourier_base}/kourier.yaml"
+  local INSTALL_KOURIER_YAML="./third_party/kourier-latest/kourier.yaml"
   echo "Kourier YAML: ${INSTALL_KOURIER_YAML}"
   echo ">> Bringing up Kourier"
 
@@ -257,8 +255,7 @@ function install_ambassador() {
 }
 
 function install_contour() {
-  local contour_base="./third_party/contour-latest"
-  INSTALL_CONTOUR_YAML="${contour_base}/contour.yaml"
+  local INSTALL_CONTOUR_YAML="./third_party/contour-latest/contour.yaml"
   echo "Contour YAML: ${INSTALL_CONTOUR_YAML}"
   echo ">> Bringing up Contour"
 
