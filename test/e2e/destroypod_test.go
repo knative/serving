@@ -129,12 +129,12 @@ func TestDestroyPodInflight(t *testing.T) {
 		}
 
 		if res.StatusCode != http.StatusOK {
-			return fmt.Errorf("Expected response to have status 200, had %d", res.StatusCode)
+			return fmt.Errorf("expected response to have status 200, had %d", res.StatusCode)
 		}
 		expectedBody := fmt.Sprintf("Slept for %d milliseconds", timeoutRequestDuration.Milliseconds())
 		gotBody := string(res.Body)
 		if gotBody != expectedBody {
-			return fmt.Errorf("Unexpected body, expected: %q got: %q", expectedBody, gotBody)
+			return fmt.Errorf("unexpected body, expected: %q got: %q", expectedBody, gotBody)
 		}
 		return nil
 	})
@@ -256,7 +256,7 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	if err != nil || len(pods.Items) == 0 {
 		t.Fatalf("No pods or error: %v", err)
 	}
-	t.Logf("Saw %d pods", len(pods.Items))
+	t.Logf("Saw %d pods. Pods: %s", len(pods.Items), spew.Sdump(pods))
 
 	// The request will sleep for more than 15 seconds.
 	// NOTE: it needs to be less than TERMINATION_DRAIN_DURATION_SECONDS.
