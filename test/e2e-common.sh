@@ -270,28 +270,20 @@ function install_contour() {
 function install_knative_serving_standard() {
   readonly INSTALL_CERT_MANAGER_YAML="./third_party/cert-manager-${CERT_MANAGER_VERSION}/cert-manager.yaml"
 
-  echo ">> Installing Knative namespace and CRD"
+  echo ">> Creating knative-serving namespace if it does not exist"
+  kubectl get ns knative-serving || kubectl create namespace knative-serving
+
+  echo ">> Installing Knative CRD"
   if [[ -z "$1" ]]; then
     # If we need to build from source, then kick that off first.
     build_knative_from_source
 
-    echo "Namespace YAML: ${SERVING_NAMESPACE_YAML}"
     echo "CRD YAML: ${SERVING_CRD_YAML}"
-    kubectl apply \
-	    -f "${SERVING_NAMESPACE_YAML}" \
-	    -f "${SERVING_CRD_YAML}" || return 1
-    UNINSTALL_LIST+=( "${SERVING_NAMESPACE_YAML}" "${SERVING_CRD_YAML}" )
+    kubectl apply -f "${SERVING_CRD_YAML}" || return 1
+    UNINSTALL_LIST+=( "${SERVING_CRD_YAML}" )
   else
     echo "Knative YAML: ${1}"
     ko apply -f "${1}" --selector=knative.dev/crd-install=true || return 1
-    cat <<EOF | kubectl apply -f -
-    apiVersion: v1
-    kind: Namespace
-    metadata:
-      name: knative-serving
-      labels:
-        istio-injection: enabled
-EOF
     UNINSTALL_LIST+=( "${1}" )
     SERVING_ISTIO_YAML="${1}"
   fi
@@ -303,6 +295,8 @@ EOF
     install_kourier
   elif [[ -n "${AMBASSADOR_VERSION}" ]]; then
     install_ambassador
+  elif [[ -n "${CONTOUR_VERSION}" ]]; then
+    install_contour
   else
     install_istio "${SERVING_ISTIO_YAML}"
   fi
@@ -340,18 +334,6 @@ EOF
       kubectl apply -f "${2}" || return 1
       UNINSTALL_LIST+=( "${2}" )
     fi
-  fi
-
-  if [[ -n "${GLOO_VERSION}" ]]; then
-    install_gloo
-  elif [[ -n "${KOURIER_VERSION}" ]]; then
-    install_kourier
-  elif [[ -n "${AMBASSADOR_VERSION}" ]]; then
-    install_ambassador
-  elif [[ -n "${CONTOUR_VERSION}" ]]; then
-    install_contour
-  else
-    install_istio "${SERVING_ISTIO_YAML}"
   fi
 
   echo ">> Configuring the default Ingress: ${INGRESS_CLASS}"

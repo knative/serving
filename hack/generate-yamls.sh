@@ -55,7 +55,6 @@ readonly SERVING_CRD_YAML=${YAML_OUTPUT_DIR}/serving-crds.yaml
 readonly SERVING_CERT_MANAGER_YAML=${YAML_OUTPUT_DIR}/serving-cert-manager.yaml
 readonly SERVING_ISTIO_YAML=${YAML_OUTPUT_DIR}/serving-istio.yaml
 readonly SERVING_NSCERT_YAML=${YAML_OUTPUT_DIR}/serving-nscert.yaml
-readonly SERVING_NAMESPACE_YAML=${YAML_OUTPUT_DIR}/serving-namespace.yaml
 
 readonly MONITORING_YAML=${YAML_OUTPUT_DIR}/monitoring.yaml
 readonly MONITORING_METRIC_PROMETHEUS_YAML=${YAML_OUTPUT_DIR}/monitoring-metrics-prometheus.yaml
@@ -98,9 +97,6 @@ ko resolve ${KO_YAML_FLAGS} -f config/istio-ingress/ | "${LABEL_YAML_CMD[@]}" > 
 
 # Create nscert related yaml
 ko resolve ${KO_YAML_FLAGS} -f config/namespace-wildcard-certs | "${LABEL_YAML_CMD[@]}" > "${SERVING_NSCERT_YAML}"
-
-# Create namespace yaml
-ko resolve ${KO_YAML_FLAGS} -f config/core/100-namespace.yaml | "${LABEL_YAML_CMD[@]}" > "${SERVING_NAMESPACE_YAML}"
 
 # Create serving.yaml with all of the default components
 cat "${SERVING_CORE_YAML}" > "${SERVING_YAML}"
@@ -150,7 +146,6 @@ ${SERVING_CRD_YAML}
 ${SERVING_CERT_MANAGER_YAML}
 ${SERVING_ISTIO_YAML}
 ${SERVING_NSCERT_YAML}
-${SERVING_NAMESPACE_YAML}
 ${MONITORING_YAML}
 ${MONITORING_METRIC_PROMETHEUS_YAML}
 ${MONITORING_TRACE_ZIPKIN_YAML}
