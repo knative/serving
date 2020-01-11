@@ -1435,7 +1435,7 @@ spec:
           value: config-observability
         - name: METRICS_DOMAIN
           value: knative.dev/samples
-        image: docker.io/mattmoor/controller@sha256:e439355fcfc34712178a7d1ce0c9747c19db505c4629902265be6a87a2e60853
+        image: docker.io/mattmoor/controller@sha256:6f17bfaafbbd65605a13ddf43d0ad9d62b838d4c3400ffd8af5238e24f2590a7
         name: controller
         ports:
         - containerPort: 9090
