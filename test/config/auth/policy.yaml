@@ -1,15 +1,15 @@
 apiVersion: authentication.istio.io/v1alpha1
 kind: Policy
 metadata:
-  name: default
-  namespace: serving-tests-sidecar-enabled
+  name: default
+  namespace: serving-tests-sidecar-enabled
 spec:
-  origins:
-  - jwt:
-      issuer: testing@secure.istio.io
-      jwksUri: https://raw.githubusercontent.com/istio/istio/release-1.4/security/tools/jwt/samples/jwks.json
-      triggerRules:
-      - excludedPaths:
-        - prefix: /metrics
-        - prefix: /_internal/knative/activator/probe
-  principalBinding: USE_ORIGIN
+  origins:
+  - jwt:
+      issuer: testing@secure.istio.io
+      jwksUri: https://raw.githubusercontent.com/istio/istio/release-1.4/security/tools/jwt/samples/jwks.json
+      triggerRules:
+      - excludedPaths:
+        - prefix: /metrics
+        - prefix: /_internal/knative/activator/probe
+  principalBinding: USE_ORIGIN
