@@ -25,7 +25,7 @@ E2E_CLUSTER_MACHINE=${E2E_CLUSTER_MACHINE:-n1-standard-8}
 # This script provides helper methods to perform cluster actions.
 source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/e2e-tests.sh
 
-CERT_MANAGER_VERSION="0.9.1"
+CERT_MANAGER_VERSION="0.12.0"
 ISTIO_VERSION=""
 GLOO_VERSION=""
 KOURIER_VERSION=""
@@ -313,6 +313,11 @@ function install_knative_serving_standard() {
 	    -f "${SERVING_CORE_YAML}" \
 	    -f "${SERVING_HPA_YAML}" || return 1
     UNINSTALL_LIST+=( "${SERVING_CORE_YAML}" "${SERVING_HPA_YAML}" )
+
+    echo "Knative TLS YAML: ${SERVING_CERT_MANAGER_YAML} and ${SERVING_NSCERT_YAML}"
+    kubectl apply \
+      -f "${SERVING_CERT_MANAGER_YAML}" \
+      -f "${SERVING_NSCERT_YAML}" || return 1
 
     if (( INSTALL_MONITORING )); then
 	echo ">> Installing Monitoring"
