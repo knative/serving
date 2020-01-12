@@ -541,15 +541,19 @@
   revision = "bf2b5ad3c0a925c44a0d2842c5d8182113cd248e"
 
 [[projects]]
-  digest = "1:aafa4e5c2d58591c3f33bc886cdbef4e40101391ee31157e8ee20510ffcefd42"
+  digest = "1:1e59759b895f57302df03c5632dc6bbedcdf6782a2b6259246ff653dd214ac45"
   name = "github.com/jetstack/cert-manager"
   packages = [
+    "pkg/apis/acme",
+    "pkg/apis/acme/v1alpha2",
     "pkg/apis/certmanager",
-    "pkg/apis/certmanager/v1alpha1",
+    "pkg/apis/certmanager/v1alpha2",
+    "pkg/apis/meta",
+    "pkg/apis/meta/v1",
   ]
   pruneopts = "NUT"
-  revision = "95e8b7de3982455dc9b7cff38f39b98a7390f6e7"
-  version = "v0.9.1"
+  revision = ""
+  version = "v0.12.0"
 
 [[projects]]
   digest = "1:1f2aebae7e7c856562355ec0198d8ca2fa222fb05e5b1b66632a1fce39631885"
@@ -1910,7 +1914,9 @@
     "github.com/google/mako/go/quickstore",
     "github.com/google/mako/spec/proto/mako_go_proto",
     "github.com/gorilla/websocket",
-    "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1",
+    "github.com/jetstack/cert-manager/pkg/apis/acme/v1alpha2",
+    "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha2",
+    "github.com/jetstack/cert-manager/pkg/apis/meta/v1",
     "github.com/kelseyhightower/envconfig",
     "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/cmd",
     "github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/provider",
