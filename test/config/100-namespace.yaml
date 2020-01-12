@@ -27,4 +27,4 @@ kind: Namespace
 metadata:
   name: serving-tests-sidecar-enabled
   labels:
-    istio-injection: enabled    
+    istio-injection: enabled  

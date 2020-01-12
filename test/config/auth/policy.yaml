@@ -13,3 +13,4 @@ spec:
         - prefix: /metrics
         - prefix: /_internal/knative/activator/probe
   principalBinding: USE_ORIGIN
+  
