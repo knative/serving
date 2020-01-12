@@ -1746,8 +1746,8 @@
   revision = "2937c5b31f29b58025b919cac76d57ce9b4b2509"
 
 [[projects]]
-  branch = "master"
-  digest = "1:9ef7bffae626f41005f2a2514ade223263b3ba2566baabd257b924bdf5dbb428"
+  branch = "webhook-refactor"
+  digest = "1:4a109844ef84880a8fdcb81f3fbe8320cd2eea4ccfdd5f7bda6d71a191b716dd"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1846,7 +1846,8 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "79d67498c2c48baf2b8cd114f23cef3f55f91262"
+  revision = "5ba74d51b67e13791756c651cbf28e46b73e78c0"
+  source = "github.com/dprotaso/pkg"
 
 [[projects]]
   branch = "master"

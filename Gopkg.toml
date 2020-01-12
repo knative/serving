@@ -30,7 +30,8 @@ required = [
 
 [[override]]
   name = "knative.dev/pkg"
-  branch = "master"
+  branch = "webhook-refactor"
+  source = "github.com/dprotaso/pkg"
 
 [[constraint]]
   name = "knative.dev/caching"
