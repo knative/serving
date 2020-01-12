@@ -50,6 +50,11 @@ func SetupAlternativeNamespace(t *testing.T) *test.Clients {
 	return SetupWithNamespace(t, test.AlternativeServingNamespace)
 }
 
+//set up sidecar enabled ns
+func SetupSideCarEnabledNamespace(t *testing.T) *test.Clients {
+	return SetupWithNamespace(t, test.SideCarServingNamespace)
+}
+
 // SetupWithNamespace creates the client objects needed in the e2e tests under the specified namespace.
 func SetupWithNamespace(t *testing.T, namespace string) *test.Clients {
 	pkgTest.SetupLoggingFlags()
