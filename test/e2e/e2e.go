@@ -52,7 +52,7 @@ func SetupAlternativeNamespace(t *testing.T) *test.Clients {
 
 //set up sidecar enabled ns
 func SetupServingNamespaceforSecurityTesting(t *testing.T) *test.Clients {
-	return SetupWithNamespace(t, test.SideCarServingNamespace)
+	return SetupWithNamespace(t, test.ServingNamespaceforSecurityTesting)
 }
 
 // SetupWithNamespace creates the client objects needed in the e2e tests under the specified namespace.
