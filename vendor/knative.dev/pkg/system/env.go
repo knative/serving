@@ -22,11 +22,12 @@ import (
 )
 
 const (
-	NamespaceEnvKey = "SYSTEM_NAMESPACE"
+	NamespaceEnvKey     = "SYSTEM_NAMESPACE"
+	ResourceLabelEnvKey = "SYSTEM_RESOURCE_LABEL"
 )
 
-// Namespace holds the K8s namespace where our serving system
-// components run.
+// Namespace returns the name of the K8s namespace where our system components
+// run.
 func Namespace() string {
 	if ns := os.Getenv(NamespaceEnvKey); ns != "" {
 		return ns
@@ -49,4 +50,10 @@ following import:
 import (
 	_ "knative.dev/pkg/system/testing"
 )`, NamespaceEnvKey, NamespaceEnvKey))
+}
+
+// ResourceLabel returns the label key identifying K8s objects our system
+// components source their configuration from.
+func ResourceLabel() string {
+	return os.Getenv(ResourceLabelEnvKey)
 }
