@@ -17,40 +17,40 @@ limitations under the License.
 package gke
 
 import (
-    "fmt"
-    "regexp"
+	"fmt"
+	"regexp"
 )
 
 const (
-    testEnv = "test"
-    stagingEnv = "staging"
-    staging2Env = "staging2"
-    prodEnv = "prod"
+	testEnv     = "test"
+	stagingEnv  = "staging"
+	staging2Env = "staging2"
+	prodEnv     = "prod"
 
-    testEndpoint = "https://test-container.sandbox.googleapis.com/"
-    stagingEndpoint = "https://staging-container.sandbox.googleapis.com/"
-    staging2Endpoint = "https://staging2-container.sandbox.googleapis.com/"
-    prodEndpoint = "https://container.googleapis.com/"
+	testEndpoint     = "https://test-container.sandbox.googleapis.com/"
+	stagingEndpoint  = "https://staging-container.sandbox.googleapis.com/"
+	staging2Endpoint = "https://staging2-container.sandbox.googleapis.com/"
+	prodEndpoint     = "https://container.googleapis.com/"
 )
 
 var urlRe = regexp.MustCompile(`https://.*/`)
 
 // ServiceEndpoint returns the container service endpoint for the given environment.
 func ServiceEndpoint(environment string) (string, error) {
-    var endpoint string
-    switch env := environment; {
-    case env == testEnv:
-        endpoint = testEndpoint
-    case env == stagingEnv:
-        endpoint = stagingEndpoint
-    case env == staging2Env:
-        endpoint = staging2Endpoint
-    case env == prodEnv:
-        endpoint = prodEndpoint
-    case urlRe.MatchString(env):
-        endpoint = env
-    default:
-        return "", fmt.Errorf("the environment '%s' is invalid, must be one of 'test', 'staging', 'staging2', 'prod', or a custom https:// URL", environment)
-    }
-    return endpoint, nil
+	var endpoint string
+	switch env := environment; {
+	case env == testEnv:
+		endpoint = testEndpoint
+	case env == stagingEnv:
+		endpoint = stagingEndpoint
+	case env == staging2Env:
+		endpoint = staging2Endpoint
+	case env == prodEnv:
+		endpoint = prodEndpoint
+	case urlRe.MatchString(env):
+		endpoint = env
+	default:
+		return "", fmt.Errorf("the environment '%s' is invalid, must be one of 'test', 'staging', 'staging2', 'prod', or a custom https:// URL", environment)
+	}
+	return endpoint, nil
 }
