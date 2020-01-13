@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	rtesting "knative.dev/pkg/reconciler/testing"
-	"knative.dev/serving/pkg/network"
 )
 
 var ignoreDurationOption = cmpopts.IgnoreFields(reporterCall{}, "Duration")
@@ -45,22 +44,6 @@ func TestRequestMetricHandler(t *testing.T) {
 		wantCode      int
 		wantPanic     bool
 	}{
-		{
-			label: "kube probe request",
-			baseHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusOK)
-			}),
-			newHeader: map[string]string{"User-Agent": network.KubeProbeUAPrefix},
-			wantCode:  http.StatusOK,
-		},
-		{
-			label: "network probe response",
-			baseHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusOK)
-			}),
-			newHeader: map[string]string{network.ProbeHeaderName: "test-service"},
-			wantCode:  http.StatusOK,
-		},
 		{
 			label: "normal response",
 			baseHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

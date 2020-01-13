@@ -23,7 +23,6 @@ import (
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
 	pkghttp "knative.dev/serving/pkg/http"
-	"knative.dev/serving/pkg/network"
 )
 
 // NewMetricHandler creates a handler collects and reports request metrics
@@ -43,12 +42,6 @@ type MetricHandler struct {
 }
 
 func (h *MetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Filter out probe and health check requests.
-	if network.IsProbe(r) {
-		h.nextHandler.ServeHTTP(w, r)
-		return
-	}
-
 	revID := revIDFrom(r.Context())
 	revision := revisionFrom(r.Context())
 	configurationName := revision.Labels[serving.ConfigurationLabelKey]
