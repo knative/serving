@@ -22,6 +22,8 @@ import (
 	"strings"
 	"sync"
 
+	"google.golang.org/api/option"
+
 	"knative.dev/pkg/test/gke"
 	"knative.dev/pkg/test/helpers"
 
@@ -44,8 +46,13 @@ type gkeClient struct {
 }
 
 // NewClient will create a new gkeClient.
-func NewClient() (*gkeClient, error) {
-	operations, err := gke.NewSDKClient()
+func NewClient(environment string) (*gkeClient, error) {
+	endpoint, err := gke.ServiceEndpoint(environment)
+	if err != nil {
+		return nil, err
+	}
+	endpointOption := option.WithEndpoint(endpoint)
+	operations, err := gke.NewSDKClient(endpointOption)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up GKE client: %v", err)
 	}
