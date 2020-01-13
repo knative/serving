@@ -65,16 +65,8 @@ func NewWithContext(ctx context.Context, workers, capacity int) (Interface, cont
 	// 3. marks work as done in our sync.WaitGroup.
 	for idx := 0; idx < workers; idx++ {
 		go func() {
-			for {
-				select {
-				case <-ctx.Done():
-					break
-				case work, ok := <-i.workCh:
-					if !ok {
-						break
-					}
-					i.exec(work)
-				}
+			for work := range i.workCh {
+				i.exec(work)
 			}
 		}()
 	}
