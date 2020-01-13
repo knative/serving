@@ -40,6 +40,9 @@ type Config struct {
 	// Feature flags.
 	EnableScaleToZero bool
 
+	// Enable connection-aware pod scaledown
+	EnableGracefulScaledown bool
+
 	// Target concurrency knobs for different container concurrency configurations.
 	ContainerConcurrencyTargetFraction float64
 	ContainerConcurrencyTargetDefault  float64
@@ -76,11 +79,17 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		key          string
 		field        *bool
 		defaultValue bool
-	}{{
-		key:          "enable-scale-to-zero",
-		field:        &lc.EnableScaleToZero,
-		defaultValue: true,
-	}} {
+	}{
+		{
+			key:          "enable-scale-to-zero",
+			field:        &lc.EnableScaleToZero,
+			defaultValue: true,
+		},
+		{
+			key:          "enable-graceful-scaledown",
+			field:        &lc.EnableGracefulScaledown,
+			defaultValue: false,
+		}} {
 		if raw, ok := data[b.key]; !ok {
 			*b.field = b.defaultValue
 		} else {

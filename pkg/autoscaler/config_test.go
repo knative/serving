@@ -28,6 +28,7 @@ import (
 
 var defaultConfig = Config{
 	EnableScaleToZero:                  true,
+	EnableGracefulScaledown:            false,
 	ContainerConcurrencyTargetFraction: 0.7,
 	ContainerConcurrencyTargetDefault:  100,
 	RPSTargetDefault:                   200,
@@ -91,9 +92,10 @@ func TestNewConfig(t *testing.T) {
 			return &c
 		}(defaultConfig),
 	}, {
-		name: "with toggles on",
+		name: "with default toggles set",
 		input: map[string]string{
 			"enable-scale-to-zero":                    "true",
+			"enable-graceful-scaledown":               "false",
 			"max-scale-down-rate":                     "3.0",
 			"max-scale-up-rate":                       "1.01",
 			"container-concurrency-target-percentage": "0.71",
@@ -118,16 +120,19 @@ func TestNewConfig(t *testing.T) {
 	}, {
 		name: "with toggles on strange casing",
 		input: map[string]string{
-			"enable-scale-to-zero": "TRUE",
+			"enable-scale-to-zero":      "TRUE",
+			"enable-graceful-scaledown": "FALSE",
 		},
 		want: &defaultConfig,
 	}, {
-		name: "with toggles explicitly off",
+		name: "with toggles explicitly flipped",
 		input: map[string]string{
-			"enable-scale-to-zero": "false",
+			"enable-scale-to-zero":      "false",
+			"enable-graceful-scaledown": "true",
 		},
 		want: func(c Config) *Config {
 			c.EnableScaleToZero = false
+			c.EnableGracefulScaledown = true
 			return &c
 		}(defaultConfig),
 	}, {

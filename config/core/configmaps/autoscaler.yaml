@@ -130,3 +130,8 @@ data:
     # Scale to zero grace period is the time an inactive revision is left
     # running before it is scaled to zero (min: 30s).
     scale-to-zero-grace-period: "30s"
+
+    # Enable graceful scaledown feature flag.
+    # Once enabled, it allows the autoscaler to prioritize pods processing
+    # fewer (or zero) requests for removal when scaling down.
+    enable-graceful-scaledown: "false"
