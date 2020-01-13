@@ -40,7 +40,7 @@ func TestProbeWhitelist(t *testing.T) {
 	cancel := logstream.Start(t)
 	defer cancel()
 
-	clients := SetupSideCarEnabledNamespace(t)
+	clients := SetupServingNamespaceforSecurityTesting(t)
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
