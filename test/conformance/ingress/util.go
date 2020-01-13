@@ -575,6 +575,7 @@ func CreateTLSSecret(t *testing.T, clients *test.Clients, hosts []string) (strin
 	return CreateTLSSecretWithCertPool(t, clients, hosts, test.ServingNamespace, rootCAs)
 }
 
+// CreateTLSSecretWithCertPool creates TLS certificate with given CertPool.
 func CreateTLSSecretWithCertPool(t *testing.T, clients *test.Clients, hosts []string, ns string, cas *x509.CertPool) (string, context.CancelFunc) {
 	t.Helper()
 
