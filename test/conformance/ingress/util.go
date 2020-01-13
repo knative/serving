@@ -707,7 +707,7 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 		if ingress.Hostname != "" {
 			return net.Dial("tcp", ingress.Hostname+":"+port)
 		}
-		return nil, errors.New("Service ingress does not contain dialing information.")
+		return nil, errors.New("service ingress does not contain dialing information")
 	}
 }
 
