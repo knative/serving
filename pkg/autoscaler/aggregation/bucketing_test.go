@@ -244,21 +244,27 @@ func TestTimedFloat64BucketsForEachBucket(t *testing.T) {
 }
 
 func TestTimedFloat64BucketsWindowUpdate(t *testing.T) {
-	now := time.Now()
+	startTime := time.Now()
 	buckets := NewTimedFloat64Buckets(5*time.Second, granularity)
 
 	// Fill the whole bucketing list with rollover.
-	buckets.Record(now, 1)
-	buckets.Record(now.Add(1*time.Second), 2)
-	buckets.Record(now.Add(2*time.Second), 3)
-	buckets.Record(now.Add(3*time.Second), 4)
-	buckets.Record(now.Add(4*time.Second), 5)
-	buckets.Record(now.Add(5*time.Second), 6)
+	buckets.Record(startTime, 1)
+	buckets.Record(startTime.Add(1*time.Second), 2)
+	buckets.Record(startTime.Add(2*time.Second), 3)
+	buckets.Record(startTime.Add(3*time.Second), 4)
+	buckets.Record(startTime.Add(4*time.Second), 5)
+	buckets.Record(startTime.Add(5*time.Second), 6)
+	now := startTime.Add(5 * time.Second)
+
 	sum := 0.
-	buckets.ForEachBucket(now.Add(5*time.Second), func(t time.Time, b float64) {
+	buckets.ForEachBucket(now, func(t time.Time, b float64) {
 		sum += b
 	})
-	if got, want := sum, float64(2+3+4+5+6); got != want {
+	const wantInitial = 2. + 3 + 4 + 5 + 6
+	if got, want := sum, wantInitial; got != want {
+		t.Fatalf("Initial data set Sum = %v, want: %v", got, want)
+	}
+	if got, want := buckets.WindowAverage(now), wantInitial/5; got != want {
 		t.Fatalf("Initial data set Sum = %v, want: %v", got, want)
 	}
 
@@ -273,20 +279,30 @@ func TestTimedFloat64BucketsWindowUpdate(t *testing.T) {
 
 	// Verify values were properly copied.
 	sum = 0.
-	buckets.ForEachBucket(now.Add(5*time.Second), func(t time.Time, b float64) {
+	buckets.ForEachBucket(now, func(t time.Time, b float64) {
 		sum += b
 	})
 	if got, want := sum, float64(2+3+4+5+6); got != want {
 		t.Fatalf("After first resize data set Sum = %v, want: %v", got, want)
 	}
+	// Note the average changes, since we're averaging over bigger window now.
+	if got, want := buckets.WindowAverage(now), wantInitial/10; got != want {
+		t.Fatalf("Initial data set Sum = %v, want: %v", got, want)
+	}
+
 	// Add one more. Make sure all the data is preserved, since window is longer.
-	buckets.Record(now.Add(6*time.Second), 7)
+	now = now.Add(time.Second)
+	buckets.Record(now, 7)
+	const wantWithUpdate = wantInitial + 7
 	sum = 0.
-	buckets.ForEachBucket(now.Add(6*time.Second), func(t time.Time, b float64) {
+	buckets.ForEachBucket(now, func(t time.Time, b float64) {
 		sum += b
 	})
-	if got, want := sum, float64(2+3+4+5+6+7); got != want {
+	if got, want := sum, wantWithUpdate; got != want {
 		t.Fatalf("Updated data set Sum = %v, want: %v", got, want)
+	}
+	if got, want := buckets.WindowAverage(now), wantWithUpdate/10; got != want {
+		t.Fatalf("Initial data set Sum = %v, want: %v", got, want)
 	}
 
 	// Now let's reduce window size.
@@ -294,13 +310,17 @@ func TestTimedFloat64BucketsWindowUpdate(t *testing.T) {
 	if got, want := len(buckets.buckets), 4; got != want {
 		t.Fatalf("Resized bucket count = %d, want: %d", got, want)
 	}
-	// Just last 4 buckets should have remained.
+	// Just last 4 buckets should have remained (so 2 oldest are expunged).
+	const wantWithShrink = wantWithUpdate - 2 - 3
 	sum = 0.
-	buckets.ForEachBucket(now.Add(6*time.Second), func(t time.Time, b float64) {
+	buckets.ForEachBucket(now, func(t time.Time, b float64) {
 		sum += b
 	})
-	if got, want := sum, float64(4+5+6+7); got != want {
+	if got, want := sum, wantWithShrink; got != want {
 		t.Fatalf("Updated data set Sum = %v, want: %v", got, want)
+	}
+	if got, want := buckets.WindowAverage(now), wantWithShrink/4; got != want {
+		t.Fatalf("Initial data set Sum = %v, want: %v", got, want)
 	}
 
 	// Verify idempotence.
