@@ -68,10 +68,10 @@ func NewWithContext(ctx context.Context, workers, capacity int) (Interface, cont
 			for {
 				select {
 				case <-ctx.Done():
-					break
+					return
 				case work, ok := <-i.workCh:
 					if !ok {
-						break
+						return
 					}
 					i.exec(work)
 				}
