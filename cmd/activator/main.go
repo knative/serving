@@ -254,6 +254,7 @@ func main() {
 
 	// NOTE: MetricHandler is being used as the outermost handler for the purpose of measuring the request latency.
 	ah = activatorhandler.NewMetricHandler(ctx, reporter, ah)
+	ah = activatorhandler.NewContextHandler(ctx, ah)
 
 	profilingHandler := profiling.NewHandler(logger, false)
 	// Watch the logging config map and dynamically update logging levels.
