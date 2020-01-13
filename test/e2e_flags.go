@@ -33,7 +33,7 @@ const (
 	// namespace tests in.
 	AlternativeServingNamespace = "serving-tests-alt"
 
-	// side car injected ns
+	// ServingNamespaceforSecurityTesting is the namespace for security tests.
 	ServingNamespaceforSecurityTesting = "serving-tests-security"
 	// Environment propagation conformance test objects
 

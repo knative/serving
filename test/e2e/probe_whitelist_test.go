@@ -31,9 +31,8 @@ import (
 //the service when istio end user auth policy is
 //applied on the service.
 //This test needs istio side car injected and
-//istio policy check enabled. If both are not
-//enabled the test will pass
-//policy is present test/config/auth/policy.yaml
+//istio policy check enabled.
+//policy is present test/config/security/policy.yaml
 //apply policy before running this test
 func TestProbeWhitelist(t *testing.T) {
 	t.Parallel()
