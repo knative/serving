@@ -17,6 +17,8 @@ limitations under the License.
 package aggregation
 
 import (
+	"fmt"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -387,5 +389,44 @@ func TestTimedFloat64BucketsWindowUpdate3sGranularity(t *testing.T) {
 	buckets.ResizeWindow(4 * time.Second)
 	if ob != &buckets.buckets {
 		t.Error("The buckets have changed, though window didn't")
+	}
+}
+
+func BenchmarkWindowAverage(b *testing.B) {
+	// Window lengths in secs.
+	for _, wl := range []int{30, 60, 120, 240, 600} {
+		b.Run(fmt.Sprintf("%v-win-len", wl), func(b *testing.B) {
+			tn := time.Now().Truncate(time.Second) // To simplify everything.
+			buckets := NewTimedFloat64Buckets(time.Duration(wl)*time.Second,
+				time.Second /*granularity*/)
+			// Populate with some random data.
+			for i := 0; i < wl; i++ {
+				buckets.Record(tn.Add(time.Duration(i)*time.Second), rand.Float64()*100)
+			}
+			for i := 0; i < b.N; i++ {
+				buckets.WindowAverage(tn.Add(time.Duration(wl) * time.Second))
+			}
+		})
+	}
+}
+
+func BenchmarkWindowForEach(b *testing.B) {
+	// Window lengths in secs.
+	for _, wl := range []int{30, 60, 120, 240, 600} {
+		b.Run(fmt.Sprintf("%v-win-len", wl), func(b *testing.B) {
+			tn := time.Now().Truncate(time.Second) // To simplify everything.
+			buckets := NewTimedFloat64Buckets(time.Duration(wl)*time.Second,
+				time.Second /*granularity*/)
+			// Populate with some random data.
+			for i := 0; i < wl; i++ {
+				buckets.Record(tn.Add(time.Duration(i)*time.Second), rand.Float64()*100)
+			}
+			for i := 0; i < b.N; i++ {
+				var avg Average
+				win := tn.Add(time.Duration(wl) * time.Second)
+				buckets.ForEachBucket(win,
+					YoungerThan(tn, avg.Accumulate))
+			}
+		})
 	}
 }
