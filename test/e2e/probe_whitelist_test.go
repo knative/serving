@@ -74,8 +74,7 @@ func TestProbeWhitelist(t *testing.T) {
 		test.ServingFlags.ResolvableDomain,
 		opt); err != nil {
 		// check if side car is injected before reporting error
-		_, err = getContainer(clients.KubeClient, resources.Service.Name, "istio-proxy", resources.Service.Namespace)
-		if err != nil {
+		if _, err := getContainer(clients.KubeClient, resources.Service.Name, "istio-proxy", resources.Service.Namespace); err != nil {
 			t.Log("side car not enabled, skipping test")
 			return
 		}
