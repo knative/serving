@@ -433,7 +433,8 @@ function test_setup() {
   if (( MESH )); then
     kubectl label namespace serving-tests istio-injection=enabled
     kubectl label namespace serving-tests-alt istio-injection=enabled
-    ko apply ${KO_FLAGS} -f test/config/mtls/ || return 1
+    kubectl label namespace serving-tests-sidecar-enabled istio-injection=enabled
+    ko apply ${KO_FLAGS} -f test/config/security/ || return 1
   fi
 
   echo ">> Uploading test images..."

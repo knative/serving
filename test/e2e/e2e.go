@@ -51,7 +51,7 @@ func SetupAlternativeNamespace(t *testing.T) *test.Clients {
 }
 
 //set up sidecar enabled ns
-func SetupSideCarEnabledNamespace(t *testing.T) *test.Clients {
+func SetupServingNamespaceforSecurityTesting(t *testing.T) *test.Clients {
 	return SetupWithNamespace(t, test.SideCarServingNamespace)
 }
 

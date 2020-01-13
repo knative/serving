@@ -34,7 +34,7 @@ const (
 	AlternativeServingNamespace = "serving-tests-alt"
 
 	// side car injected ns
-	SideCarServingNamespace = "serving-tests-sidecar-enabled"
+	ServingNamespaceforSecurityTesting = "serving-tests-security"
 	// Environment propagation conformance test objects
 
 	// ConformanceConfigMap is the name of the configmap to propagate env variables from
