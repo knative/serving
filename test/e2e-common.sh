@@ -500,7 +500,7 @@ function test_teardown() {
   kubectl delete all --all --ignore-not-found --now --timeout 60s -n serving-tests-alt
   kubectl delete --ignore-not-found --now --timeout 60s namespace serving-tests-alt
   kubectl delete all --all --ignore-not-found --now --timeout 60s -n serving-tests-security
-  kubectl delete --ignore-not-found --now --timeout 60s namespace serving-tests-security  
+  kubectl delete --ignore-not-found --now --timeout 60s namespace serving-tests-security
 }
 
 # Dump more information when test fails.
