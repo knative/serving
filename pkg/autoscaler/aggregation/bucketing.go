@@ -174,6 +174,7 @@ func (t *TimedFloat64Buckets) ResizeWindow(w time.Duration) {
 	}
 	numBuckets := int(math.Ceil(float64(w) / float64(t.granularity)))
 	newBuckets := make([]float64, numBuckets)
+	newTotal := 0.
 
 	// We need write lock here.
 	// So that we can copy the existing buckets into the new array.
@@ -187,8 +188,13 @@ func (t *TimedFloat64Buckets) ResizeWindow(w time.Duration) {
 		oi := tIdx % oldNumBuckets
 		ni := tIdx % numBuckets
 		newBuckets[ni] = t.buckets[oi]
+		// In case we're shringking, make sure the total
+		// window sum will match. This is no-op in case if
+		// window is getting bigger.
+		newTotal += t.buckets[oi]
 		tIdx--
 	}
 	t.window = w
 	t.buckets = newBuckets
+	t.windowTotal = newTotal
 }
