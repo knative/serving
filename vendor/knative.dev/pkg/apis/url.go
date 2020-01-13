@@ -20,6 +20,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+
+	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 // URL is an alias of url.URL.
@@ -125,4 +127,14 @@ func (u *URL) ResolveReference(ref *URL) *URL {
 	// Turn new back to apis.URL
 	ret := URL(*newU)
 	return &ret
+}
+
+func init() {
+	equality.Semantic.AddFunc(
+		// url.URL has an unexported type (UserInfo) which causes semantic
+		// equality to panic unless we add a custom equality function
+		func(a, b URL) bool {
+			return a.String() == b.String()
+		},
+	)
 }
