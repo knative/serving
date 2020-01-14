@@ -228,7 +228,7 @@ func TestMakeMeshVirtualServiceSpec_CorrectGateways(t *testing.T) {
 	}
 }
 
-func TestMakeMeshVirtualServiceSpec_CorrectHosts(t *testing.T) {
+func TestMakeMeshVirtualServiceSpecCorrectHosts(t *testing.T) {
 	for _, tc := range []struct {
 		name          string
 		gateways      map[v1alpha1.IngressVisibility]sets.String
