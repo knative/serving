@@ -458,7 +458,6 @@ func BenchmarkHandler(b *testing.B) {
 	revisionInformer(ctx, revision(testNamespace, testRevName))
 
 	configStore := setupConfigStore(&testing.T{}, logging.FromContext(ctx))
-	ctx = configStore.ToContext(ctx)
 
 	// bodyLength is in kilobytes.
 	for _, bodyLength := range [5]int{2, 16, 32, 64, 128} {
@@ -479,12 +478,14 @@ func BenchmarkHandler(b *testing.B) {
 			req.Host = "test-host"
 			req.Header.Set(activator.RevisionHeaderNamespace, testNamespace)
 			req.Header.Set(activator.RevisionHeaderName, testRevName)
-			return req
+
+			reqCtx := configStore.ToContext(context.Background())
+			return req.WithContext(reqCtx)
 		}
 
 		test := func(req *http.Request, b *testing.B) {
 			resp := httptest.NewRecorder()
-			handler.ServeHTTP(resp, req.WithContext(ctx))
+			handler.ServeHTTP(resp, req)
 			if resp.Code != http.StatusOK {
 				b.Fatalf("resp.Code = %d, want: StatusOK(200)", resp.Code)
 			}
