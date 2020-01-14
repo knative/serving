@@ -330,12 +330,12 @@ func (c *collection) currentMetric() *av1alpha1.Metric {
 func (c *collection) record(stat Stat) {
 	// Proxied requests have been counted at the activator. Subtract
 	// them to avoid double counting.
-	c.concurrencyBuckets.Record(stat.Time,
-		stat.AverageConcurrentRequests-stat.AverageProxiedConcurrentRequests)
-	c.concurrencyPanicBuckets.Record(stat.Time,
-		stat.AverageConcurrentRequests-stat.AverageProxiedConcurrentRequests)
-	c.rpsBuckets.Record(stat.Time, stat.RequestCount-stat.ProxiedRequestCount)
-	c.rpsPanicBuckets.Record(stat.Time, stat.RequestCount-stat.ProxiedRequestCount)
+	concurr := stat.AverageConcurrentRequests - stat.AverageProxiedConcurrentRequests
+	c.concurrencyBuckets.Record(stat.Time, concurr)
+	c.concurrencyPanicBuckets.Record(stat.Time, concurr)
+	rps := stat.RequestCount - stat.ProxiedRequestCount
+	c.rpsBuckets.Record(stat.Time, rps)
+	c.rpsPanicBuckets.Record(stat.Time, rps)
 }
 
 // stableAndPanicConcurrency calculates both stable and panic concurrency based on the
