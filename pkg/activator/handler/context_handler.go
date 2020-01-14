@@ -38,13 +38,11 @@ type revIDKey struct{}
 // NewContextHandler creates a handler that extracts the necessary context from the request
 // and makes it available on the request's context.
 func NewContextHandler(ctx context.Context, next http.Handler) http.Handler {
-	handler := &contextHandler{
+	return &contextHandler{
 		nextHandler:    next,
 		revisionLister: revisioninformer.Get(ctx).Lister(),
 		logger:         logging.FromContext(ctx),
 	}
-
-	return handler
 }
 
 // contextHandler enriches the request's context with structured data.
