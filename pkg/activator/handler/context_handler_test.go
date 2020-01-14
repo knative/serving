@@ -78,7 +78,7 @@ func TestContextHandlerError(t *testing.T) {
 	}
 
 	if got, want := resp.Body.String(), errMsg(`revision.serving.knative.dev "fooname" not found`); got != want {
-		t.Errorf("Body = %s, want %s", got, want)
+		t.Errorf("Body = %q, want %q", got, want)
 	}
 }
 
