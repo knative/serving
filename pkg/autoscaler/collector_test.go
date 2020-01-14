@@ -163,14 +163,17 @@ func TestMetricCollectorScraper(t *testing.T) {
 	mtp.ch <- now
 	var gotRPS, gotConcurrency, panicRPS, panicConcurrency float64
 	// Poll to see that the async loop completed.
-	wait.PollImmediate(10*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
+	wait.PollImmediate(50*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
 		gotConcurrency, _, _ = coll.StableAndPanicConcurrency(metricKey, now)
 		gotRPS, _, _ = coll.StableAndPanicRPS(metricKey, now)
 		return gotConcurrency == wantConcurrency && gotRPS == wantRPS, nil
 	})
 
 	gotConcurrency, panicConcurrency, _ = coll.StableAndPanicConcurrency(metricKey, now)
-	gotRPS, panicRPS, _ = coll.StableAndPanicRPS(metricKey, now)
+	gotRPS, panicRPS, err := coll.StableAndPanicRPS(metricKey, now)
+	if err != nil {
+		t.Errorf("StableAndPanicRPS = %v", err)
+	}
 	if panicConcurrency != wantPConcurrency {
 		t.Errorf("PanicConcurrency() = %v, want %v", panicConcurrency, wantPConcurrency)
 	}
@@ -189,7 +192,7 @@ func TestMetricCollectorScraper(t *testing.T) {
 	mtp.ch <- now
 
 	// Wait for async loop to finish.
-	wait.PollImmediate(10*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
+	wait.PollImmediate(50*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
 		gotConcurrency, _, _ = coll.StableAndPanicConcurrency(metricKey, now.Add(stableWindow).Add(-5*time.Second))
 		gotRPS, _, _ = coll.StableAndPanicRPS(metricKey, now.Add(stableWindow).Add(-5*time.Second))
 		return gotConcurrency == reportConcurrency && gotRPS == reportRPS, nil
@@ -203,7 +206,7 @@ func TestMetricCollectorScraper(t *testing.T) {
 
 	// Deleting the metric should cause a calculation error.
 	coll.Delete(defaultNamespace, defaultName)
-	_, _, err := coll.StableAndPanicConcurrency(metricKey, now)
+	_, _, err = coll.StableAndPanicConcurrency(metricKey, now)
 	if err != ErrNotScraping {
 		t.Errorf("StableAndPanicConcurrency() = %v, want %v", err, ErrNotScraping)
 	}
@@ -412,9 +415,11 @@ func TestMetricCollectorAggregate(t *testing.T) {
 	m.Spec.StableWindow = 6 * time.Second
 	m.Spec.PanicWindow = 2 * time.Second
 	c := &collection{
-		metric:             &m,
-		concurrencyBuckets: aggregation.NewTimedFloat64Buckets(m.Spec.StableWindow, BucketSize),
-		rpsBuckets:         aggregation.NewTimedFloat64Buckets(m.Spec.StableWindow, BucketSize),
+		metric:                  &m,
+		concurrencyBuckets:      aggregation.NewTimedFloat64Buckets(m.Spec.StableWindow, BucketSize),
+		concurrencyPanicBuckets: aggregation.NewTimedFloat64Buckets(m.Spec.PanicWindow, BucketSize),
+		rpsBuckets:              aggregation.NewTimedFloat64Buckets(m.Spec.StableWindow, BucketSize),
+		rpsPanicBuckets:         aggregation.NewTimedFloat64Buckets(m.Spec.PanicWindow, BucketSize),
 	}
 	now := time.Now()
 	for i := 0; i < 10; i++ {
@@ -426,9 +431,9 @@ func TestMetricCollectorAggregate(t *testing.T) {
 		}
 		c.record(stat)
 	}
-	st, pan, err := c.stableAndPanicConcurrency(now.Add(time.Duration(9) * time.Second))
-	if err != nil {
-		t.Fatalf("Error computing concurrency: %v", err)
+	st, pan, noData := c.stableAndPanicConcurrency(now.Add(time.Duration(9) * time.Second))
+	if noData {
+		t.Fatal("Unexpected NoData error")
 	}
 	if got, want := st, 11.5; got != want {
 		t.Errorf("Stable Concurrency = %f, want: %f", got, want)

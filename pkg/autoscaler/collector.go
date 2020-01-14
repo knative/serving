@@ -197,7 +197,11 @@ func (c *MetricCollector) StableAndPanicConcurrency(key types.NamespacedName, no
 		return 0, 0, ErrNotScraping
 	}
 
-	return collection.stableAndPanicConcurrency(now)
+	s, p, noData := collection.stableAndPanicConcurrency(now)
+	if noData {
+		return 0, 0, ErrNoData
+	}
+	return s, p, nil
 }
 
 // StableAndPanicRPS returns both the stable and the panic RPS.
@@ -211,7 +215,11 @@ func (c *MetricCollector) StableAndPanicRPS(key types.NamespacedName, now time.T
 		return 0, 0, ErrNotScraping
 	}
 
-	return collection.StableAndPanicRPS(now)
+	s, p, noData := collection.stableAndPanicRPS(now)
+	if noData {
+		return 0, 0, ErrNoData
+	}
+	return s, p, nil
 }
 
 // collection represents the collection of metrics for one specific entity.
@@ -219,10 +227,12 @@ type collection struct {
 	metricMutex sync.RWMutex
 	metric      *av1alpha1.Metric
 
-	scraperMutex       sync.RWMutex
-	scraper            StatsScraper
-	concurrencyBuckets *aggregation.TimedFloat64Buckets
-	rpsBuckets         *aggregation.TimedFloat64Buckets
+	scraperMutex            sync.RWMutex
+	scraper                 StatsScraper
+	concurrencyBuckets      *aggregation.TimedFloat64Buckets
+	concurrencyPanicBuckets *aggregation.TimedFloat64Buckets
+	rpsBuckets              *aggregation.TimedFloat64Buckets
+	rpsPanicBuckets         *aggregation.TimedFloat64Buckets
 
 	grp    sync.WaitGroup
 	stopCh chan struct{}
@@ -244,10 +254,16 @@ func (c *collection) getScraper() StatsScraper {
 // collect stats every scrapeTickInterval.
 func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory func(time.Duration) *time.Ticker, logger *zap.SugaredLogger) *collection {
 	c := &collection{
-		metric:             metric,
-		concurrencyBuckets: aggregation.NewTimedFloat64Buckets(metric.Spec.StableWindow, BucketSize),
-		rpsBuckets:         aggregation.NewTimedFloat64Buckets(metric.Spec.StableWindow, BucketSize),
-		scraper:            scraper,
+		metric: metric,
+		concurrencyBuckets: aggregation.NewTimedFloat64Buckets(
+			metric.Spec.StableWindow, BucketSize),
+		concurrencyPanicBuckets: aggregation.NewTimedFloat64Buckets(
+			metric.Spec.PanicWindow, BucketSize),
+		rpsBuckets: aggregation.NewTimedFloat64Buckets(
+			metric.Spec.StableWindow, BucketSize),
+		rpsPanicBuckets: aggregation.NewTimedFloat64Buckets(
+			metric.Spec.PanicWindow, BucketSize),
+		scraper: scraper,
 
 		stopCh: make(chan struct{}),
 	}
@@ -297,7 +313,9 @@ func (c *collection) updateMetric(metric *av1alpha1.Metric) {
 
 	c.metric = metric
 	c.concurrencyBuckets.ResizeWindow(metric.Spec.StableWindow)
+	c.concurrencyPanicBuckets.ResizeWindow(metric.Spec.PanicWindow)
 	c.rpsBuckets.ResizeWindow(metric.Spec.StableWindow)
+	c.rpsPanicBuckets.ResizeWindow(metric.Spec.PanicWindow)
 }
 
 // currentMetric safely returns the current metric stored in the collection.
@@ -312,34 +330,27 @@ func (c *collection) currentMetric() *av1alpha1.Metric {
 func (c *collection) record(stat Stat) {
 	// Proxied requests have been counted at the activator. Subtract
 	// them to avoid double counting.
-	c.concurrencyBuckets.Record(stat.Time, stat.AverageConcurrentRequests-stat.AverageProxiedConcurrentRequests)
+	c.concurrencyBuckets.Record(stat.Time,
+		stat.AverageConcurrentRequests-stat.AverageProxiedConcurrentRequests)
+	c.concurrencyPanicBuckets.Record(stat.Time,
+		stat.AverageConcurrentRequests-stat.AverageProxiedConcurrentRequests)
 	c.rpsBuckets.Record(stat.Time, stat.RequestCount-stat.ProxiedRequestCount)
+	c.rpsPanicBuckets.Record(stat.Time, stat.RequestCount-stat.ProxiedRequestCount)
 }
 
 // stableAndPanicConcurrency calculates both stable and panic concurrency based on the
 // current stats.
-func (c *collection) stableAndPanicConcurrency(now time.Time) (float64, float64, error) {
-	return c.stableAndPanicStats(now, c.concurrencyBuckets)
+func (c *collection) stableAndPanicConcurrency(now time.Time) (float64, float64, bool) {
+	return c.concurrencyBuckets.WindowAverage(now),
+		c.concurrencyPanicBuckets.WindowAverage(now),
+		c.concurrencyBuckets.IsEmpty(now)
 }
 
-// StableAndPanicRPS calculates both stable and panic RPS based on the
+// stableAndPanicRPS calculates both stable and panic RPS based on the
 // current stats.
-func (c *collection) StableAndPanicRPS(now time.Time) (float64, float64, error) {
-	return c.stableAndPanicStats(now, c.rpsBuckets)
-}
-
-// stableAndPanicStats calculates both stable and panic concurrency based on the
-// given stats buckets.
-func (c *collection) stableAndPanicStats(now time.Time, buckets *aggregation.TimedFloat64Buckets) (float64, float64, error) {
-	spec := c.currentMetric().Spec
-	var panicAverage aggregation.Average
-
-	if !buckets.ForEachBucket(now,
-		aggregation.YoungerThan(now.Add(-spec.PanicWindow), panicAverage.Accumulate)) {
-		return 0, 0, ErrNoData
-	}
-
-	return buckets.WindowAverage(now), panicAverage.Value(), nil
+func (c *collection) stableAndPanicRPS(now time.Time) (float64, float64, bool) {
+	return c.rpsBuckets.WindowAverage(now), c.rpsPanicBuckets.WindowAverage(now),
+		c.rpsBuckets.IsEmpty(now)
 }
 
 // close stops collecting metrics, stops the scraper.
