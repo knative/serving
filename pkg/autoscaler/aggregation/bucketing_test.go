@@ -81,6 +81,9 @@ func TestTimedFloat64BucketsSimple(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// New implementation test.
 			buckets := NewTimedFloat64Buckets(2*time.Minute, tt.granularity)
+			if !buckets.IsEmpty(trunc1) {
+				t.Error("Unexpected non empty result")
+			}
 			for _, stat := range tt.stats {
 				buckets.Record(stat.time, stat.value)
 			}

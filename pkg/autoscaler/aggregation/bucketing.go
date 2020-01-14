@@ -54,6 +54,14 @@ func NewTimedFloat64Buckets(window, granularity time.Duration) *TimedFloat64Buck
 	}
 }
 
+// IsEmpty returns if no data has been recorded for the `window` period.
+func (t *TimedFloat64Buckets) IsEmpty(now time.Time) bool {
+	now = now.Truncate(t.granularity)
+	t.bucketsMutex.RLock()
+	defer t.bucketsMutex.RUnlock()
+	return now.Sub(t.lastWrite) > t.window
+}
+
 // WindowAverage returns the average bucket value over the window.
 func (t *TimedFloat64Buckets) WindowAverage(now time.Time) float64 {
 	now = now.Truncate(t.granularity)
