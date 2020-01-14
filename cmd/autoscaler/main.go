@@ -98,15 +98,6 @@ func main() {
 
 	ctx, informers := injection.Default.SetupInformers(ctx, cfg)
 
-	// Set up our logger.
-	loggingConfig, err := sharedmain.GetLoggingConfig(ctx)
-	if err != nil {
-		log.Fatal("Error loading/parsing logging configuration:", err)
-	}
-	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, component)
-	defer flush(logger)
-	ctx = logging.WithLogger(ctx, logger)
-
 	kubeClient := kubeclient.Get(ctx)
 
 	// We sometimes startup faster than we can reach kube-api. Poll on failure to prevent us terminating
@@ -118,6 +109,15 @@ func main() {
 	}); perr != nil {
 		log.Fatal("Timed out attempting to get k8s version: ", err)
 	}
+
+	// Set up our logger.
+	loggingConfig, err := sharedmain.GetLoggingConfig(ctx)
+	if err != nil {
+		log.Fatal("Error loading/parsing logging configuration:", err)
+	}
+	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, component)
+	defer flush(logger)
+	ctx = logging.WithLogger(ctx, logger)
 
 	// statsCh is the main communication channel between the stats server and multiscaler.
 	statsCh := make(chan autoscaler.StatMessage, statsBufferLen)
