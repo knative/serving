@@ -22,22 +22,11 @@ metadata:
   namespace: kourier-system
 spec:
   ports:
-    - name: http2
+    - name: http
       port: 80
       protocol: TCP
       targetPort: 8080
-  selector:
-    app: 3scale-kourier-gateway
-  type: LoadBalancer
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: kourier-tls
-  namespace: kourier-system
-spec:
-  ports:
-    - name: http2
+    - name: https
       port: 443
       protocol: TCP
       targetPort: 8443
@@ -75,7 +64,11 @@ spec:
           imagePullPolicy: Always
           name: kourier-gateway
           ports:
-            - containerPort: 8080
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: https
+              containerPort: 8443
               protocol: TCP
           resources: {}
           terminationMessagePath: /dev/termination-log
@@ -126,7 +119,7 @@ spec:
         app: 3scale-kourier-control
     spec:
       containers:
-        - image: quay.io/3scale/kourier:v0.3.5
+        - image: quay.io/3scale/kourier:v0.3.6
           imagePullPolicy: Always
           name: kourier-control
           resources: {}
