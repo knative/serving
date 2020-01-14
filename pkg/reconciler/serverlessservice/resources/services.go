@@ -56,6 +56,21 @@ func MakePublicService(sks *v1alpha1.ServerlessService) *corev1.Service {
 				Protocol:   corev1.ProtocolTCP,
 				Port:       int32(networking.ServicePort(sks.Spec.ProtocolType)),
 				TargetPort: targetPort(sks),
+			}, {
+				Name:       networking.ServicePortName(sks.Spec.ProtocolType) + "-proxy",
+				Protocol:   corev1.ProtocolTCP,
+				Port:       9999,
+				TargetPort: targetPort(sks),
+			}, {
+				Name:       servingv1.AutoscalingQueueMetricsPortName,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       networking.AutoscalingQueueMetricsPort,
+				TargetPort: intstr.FromInt(networking.AutoscalingQueueMetricsPort),
+			}, {
+				Name:       servingv1.UserQueueMetricsPortName,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       networking.UserQueueMetricsPort,
+				TargetPort: intstr.FromInt(networking.UserQueueMetricsPort),
 			}},
 		},
 	}
@@ -63,7 +78,42 @@ func MakePublicService(sks *v1alpha1.ServerlessService) *corev1.Service {
 
 // MakePublicEndpoints constructs a K8s Endpoints that is not backed a selector
 // and will be manually reconciled by the SKS controller.
-func MakePublicEndpoints(sks *v1alpha1.ServerlessService, src *corev1.Endpoints) *corev1.Endpoints {
+func MakePublicEndpoints(sks *v1alpha1.ServerlessService, activatorEps *corev1.Endpoints, appEpas []corev1.EndpointAddress) *corev1.Endpoints {
+	servePort := corev1.EndpointPort{
+		Name: networking.ServicePortName(sks.Spec.ProtocolType),
+		Port: targetPort(sks).IntVal,
+	}
+	proxyPort := corev1.EndpointPort{
+		Name: networking.ServicePortName(sks.Spec.ProtocolType) + "-proxy",
+		Port: targetPort(sks).IntVal,
+	}
+	asMetricsPort := corev1.EndpointPort{
+		Name: servingv1.AutoscalingQueueMetricsPortName,
+		Port: networking.AutoscalingQueueMetricsPort,
+	}
+	userMetricsPort := corev1.EndpointPort{
+		Name: servingv1.UserQueueMetricsPortName,
+		Port: networking.UserQueueMetricsPort,
+	}
+
+	activatorPorts := []corev1.EndpointPort{servePort}
+	appPorts := []corev1.EndpointPort{proxyPort, asMetricsPort, userMetricsPort}
+	if sks.Spec.Mode == v1alpha1.SKSOperationModeServe && len(appEpas) > 0 {
+		activatorPorts = []corev1.EndpointPort{}
+		appPorts = append(appPorts, servePort)
+	}
+
+	subsets := []corev1.EndpointSubset{{
+		Addresses: activatorEps.Subsets[0].Addresses,
+		Ports:     activatorPorts,
+	}}
+	if len(appEpas) > 0 {
+		subsets = append(subsets, corev1.EndpointSubset{
+			Addresses: appEpas,
+			Ports:     appPorts,
+		})
+	}
+
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sks.Name, // Name of Endpoints must match that of Service.
@@ -76,7 +126,7 @@ func MakePublicEndpoints(sks *v1alpha1.ServerlessService, src *corev1.Endpoints)
 			Annotations:     kmeta.CopyMap(sks.GetAnnotations()),
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(sks)},
 		},
-		Subsets: FilterSubsetPorts(sks, src.Subsets),
+		Subsets: subsets,
 	}
 }
 
@@ -125,6 +175,7 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(sks)},
 		},
 		Spec: corev1.ServiceSpec{
+			ClusterIP: "None",
 			Ports: []corev1.ServicePort{{
 				Name:     networking.ServicePortName(sks.Spec.ProtocolType),
 				Protocol: corev1.ProtocolTCP,

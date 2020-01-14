@@ -74,7 +74,7 @@ func endpointsToDests(endpoints *corev1.Endpoints, portName string) (sets.String
 // getServicePort takes a service and a protocol and returns the port number of
 // the port named for that protocol. If the port is not found then ok is false.
 func getServicePort(protocol networking.ProtocolType, svc *corev1.Service) (port int, ok bool) {
-	wantName := networking.ServicePortName(protocol)
+	wantName := networking.ServicePortName(protocol) + "-proxy"
 	for _, p := range svc.Spec.Ports {
 		if p.Name == wantName {
 			port, ok = int(p.Port), true

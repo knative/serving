@@ -40,6 +40,7 @@ import (
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources"
 	presources "knative.dev/serving/pkg/resources"
 )
@@ -51,6 +52,7 @@ type reconciler struct {
 	// listers index properties about resources
 	serviceLister   corev1listers.ServiceLister
 	endpointsLister corev1listers.EndpointsLister
+	podLister       corev1listers.PodLister
 
 	// Used to get PodScalables from object references.
 	psInformerFactory duck.InformerFactory
@@ -73,7 +75,7 @@ func (r *reconciler) ReconcileKind(ctx context.Context, sks *netv1alpha1.Serverl
 	sks.Status.InitializeConditions()
 
 	for i, fn := range []func(context.Context, *netv1alpha1.ServerlessService) error{
-		r.reconcilePrivateService, // First make sure our data source is setup.
+		r.reconcilePrivateService, // This should be moved to an istio specific reconciler.
 		r.reconcilePublicService,
 		r.reconcilePublicEndpoints,
 	} {
@@ -120,6 +122,7 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 		}
 	}
 	sks.Status.ServiceName = sn
+	sks.Status.PrivateServiceName = sn
 	logger.Debug("Done reconciling public K8s service: ", sn)
 	return nil
 }
@@ -127,54 +130,38 @@ func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha
 func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
 	logger := logging.FromContext(ctx)
 
-	var (
-		srcEps                *corev1.Endpoints
-		foundServingEndpoints bool
-	)
 	activatorEps, err := r.endpointsLister.Endpoints(system.Namespace()).Get(networking.ActivatorServiceName)
 	if err != nil {
 		return fmt.Errorf("failed to get activator service endpoints: %w", err)
 	}
 	logger.Debug("Activator endpoints: ", spew.Sprint(activatorEps))
 
-	psn := sks.Status.PrivateServiceName
-	pvtEps, err := r.endpointsLister.Endpoints(sks.Namespace).Get(psn)
+	pods, err := r.podLister.Pods(sks.Namespace).List(labels.SelectorFromSet(map[string]string{
+		serving.RevisionLabelKey: sks.Name,
+	}))
 	if err != nil {
-		return fmt.Errorf("failed to get private K8s Service endpoints: %w", err)
+		return fmt.Errorf("unable to fetch pods: %w", err)
 	}
-	// We still might be "ready" even if in proxy mode,
-	// if proxy mode is by means of burst capacity handling.
-	pvtReady := presources.ReadyAddressCount(pvtEps)
-	if pvtReady > 0 {
-		foundServingEndpoints = true
+	readyEpas := make([]corev1.EndpointAddress, 0, len(pods))
+	for _, pod := range pods {
+		if isPodReady(pod) {
+			epa := corev1.EndpointAddress{
+				IP:       pod.Status.PodIP,
+				NodeName: &pod.Spec.NodeName,
+				TargetRef: &corev1.ObjectReference{
+					Kind:            "Pod",
+					Namespace:       pod.ObjectMeta.Namespace,
+					Name:            pod.ObjectMeta.Name,
+					UID:             pod.ObjectMeta.UID,
+					ResourceVersion: pod.ObjectMeta.ResourceVersion,
+				}}
+			readyEpas = append(readyEpas, epa)
+		}
 	}
 
-	// The logic below is as follows:
-	// if mode == serve:
-	//   if len(private_service_endpoints) > 0:
-	//     srcEps = private_service_endpoints
-	//   else:
-	//     srcEps = activator_endpoints
-	// else:
-	//    srcEps = activator_endpoints
-	// The reason for this is, we don't want to leave the public service endpoints empty,
-	// since those endpoints are the ones programmed into the VirtualService.
-	//
-	switch sks.Spec.Mode {
-	case netv1alpha1.SKSOperationModeServe:
-		// We should have successfully reconciled the private service if we're here
-		// which means that we'd have the name assigned in Status.
-		logger.Debugf("Private endpoints: %s", spew.Sprint(pvtEps))
-		// Serving but no ready endpoints.
-		if pvtReady == 0 {
-			logger.Info(psn + " is in mode Serve but has no endpoints, using Activator endpoints for now")
-			srcEps = activatorEps
-		} else {
-			// Serving & have endpoints ready.
-			srcEps = pvtEps
-		}
-	case netv1alpha1.SKSOperationModeProxy:
-		srcEps = activatorEps
+	var foundServingEndpoints bool
+	if len(readyEpas) > 0 {
+		foundServingEndpoints = true
 	}
 
 	sn := sks.Name
@@ -183,7 +170,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 	if apierrs.IsNotFound(err) {
 		logger.Infof("Public endpoints %s does not exist; creating.", sn)
 		sks.Status.MarkEndpointsNotReady("CreatingPublicEndpoints")
-		if _, err = r.kubeclient.CoreV1().Endpoints(sks.Namespace).Create(resources.MakePublicEndpoints(sks, srcEps)); err != nil {
+		if _, err = r.kubeclient.CoreV1().Endpoints(sks.Namespace).Create(resources.MakePublicEndpoints(sks, activatorEps, readyEpas)); err != nil {
 			return fmt.Errorf("failed to create public K8s Endpoints: %w", err)
 		}
 		logger.Info("Created K8s Endpoints: ", sn)
@@ -193,7 +180,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 		sks.Status.MarkEndpointsNotOwned("Endpoints", sn)
 		return fmt.Errorf("SKS: %s does not own Endpoints: %s", sks.Name, sn)
 	} else {
-		wantSubsets := resources.FilterSubsetPorts(sks, srcEps.Subsets)
+		wantSubsets := resources.MakePublicEndpoints(sks, activatorEps, readyEpas).Subsets
 		if !equality.Semantic.DeepEqual(wantSubsets, eps.Subsets) {
 			want := eps.DeepCopy()
 			want.Subsets = wantSubsets
@@ -221,10 +208,22 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 	return nil
 }
 
+func isPodReady(pod *corev1.Pod) bool {
+	if pod.DeletionTimestamp != nil || pod.Status.PodIP == "" {
+		return false
+	}
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
+}
+
 func (r *reconciler) privateService(sks *netv1alpha1.ServerlessService) (*corev1.Service, error) {
 	// The code below is for backwards compatibility, when we had
 	// GenerateName for the private services.
-	svcs, err := r.serviceLister.Services(sks.Namespace).List(labels.SelectorFromSet(labels.Set{
+	svcs, err := r.serviceLister.Services(sks.Namespace).List(labels.SelectorFromSet(map[string]string{
 		networking.SKSLabelKey:    sks.Name,
 		networking.ServiceTypeKey: string(networking.ServiceTypePrivate),
 	}))
@@ -292,7 +291,6 @@ func (r *reconciler) reconcilePrivateService(ctx context.Context, sks *netv1alph
 		}
 	}
 
-	sks.Status.PrivateServiceName = svc.Name
 	logger.Debug("Done reconciling private K8s service: ", svc.Name)
 	return nil
 }

@@ -121,7 +121,7 @@ func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol 
 func (rw *revisionWatcher) getK8sPrivateService() (*corev1.Service, error) {
 	selector := labels.SelectorFromSet(labels.Set{
 		serving.RevisionLabelKey:  rw.rev.Name,
-		networking.ServiceTypeKey: string(networking.ServiceTypePrivate),
+		networking.ServiceTypeKey: string(networking.ServiceTypePublic),
 	})
 	svcList, err := rw.serviceLister.Services(rw.rev.Namespace).List(selector)
 	if err != nil {
@@ -154,7 +154,7 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (bool, error)
 }
 
 func (rw *revisionWatcher) getDest() (string, error) {
-	svc, err := rw.getK8sPrivateService()
+	svc, err := rw.serviceLister.Services(rw.rev.Namespace).Get(rw.rev.Name)
 	if err != nil {
 		return "", err
 	}
@@ -375,9 +375,7 @@ func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.R
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: reconciler.ChainFilterFuncs(
 			reconciler.LabelExistsFilterFunc(serving.RevisionUID),
-			// We are only interested in the private services, since that is
-			// what is populated by the actual revision backends.
-			reconciler.LabelFilterFunc(networking.ServiceTypeKey, string(networking.ServiceTypePrivate), false),
+			reconciler.LabelFilterFunc(networking.ServiceTypeKey, string(networking.ServiceTypePublic), false),
 		),
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    rbm.endpointsUpdated,
@@ -458,7 +456,7 @@ func (rbm *revisionBackendsManager) endpointsUpdated(newObj interface{}) {
 		logger.With(zap.Error(err)).Error("Failed to get revision watcher")
 		return
 	}
-	ready, notReady := endpointsToDests(endpoints, networking.ServicePortName(rw.protocol))
+	ready, notReady := endpointsToDests(endpoints, networking.ServicePortName(rw.protocol)+"-proxy")
 	logger.Debugf("Updating Endpoints: ready backends: %d, not-ready backends: %d", len(ready), len(notReady))
 	select {
 	case <-rbm.ctx.Done():

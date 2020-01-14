@@ -17,6 +17,8 @@ limitations under the License.
 package resources
 
 import (
+	"strings"
+
 	corev1 "k8s.io/api/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -26,6 +28,19 @@ func ReadyAddressCount(endpoints *corev1.Endpoints) int {
 	var ready int
 	for _, subset := range endpoints.Subsets {
 		ready += len(subset.Addresses)
+	}
+	return ready
+}
+
+func ReadyAddressCountApplication(endpoints *corev1.Endpoints) int {
+	var ready int
+	for _, subset := range endpoints.Subsets {
+		for _, port := range subset.Ports {
+			// hackedyhack
+			if strings.HasSuffix(port.Name, "-proxy") {
+				ready += len(subset.Addresses)
+			}
+		}
 	}
 	return ready
 }
@@ -63,7 +78,7 @@ func (eac *scopedEndpointCounter) ReadyCount() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return ReadyAddressCount(endpoints), nil
+	return ReadyAddressCountApplication(endpoints), nil
 }
 
 func (eac *scopedEndpointCounter) NotReadyCount() (int, error) {

@@ -21,6 +21,7 @@ import (
 
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
+	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
@@ -28,12 +29,15 @@ import (
 	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 	sksreconciler "knative.dev/serving/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
 	servingreconciler "knative.dev/serving/pkg/reconciler"
 )
 
@@ -51,12 +55,14 @@ func NewController(
 	serviceInformer := serviceinformer.Get(ctx)
 	endpointsInformer := endpointsinformer.Get(ctx)
 	sksInformer := sksinformer.Get(ctx)
+	podInformer := podinformer.Get(ctx)
 
 	c := &reconciler{
 		kubeclient: kubeclient.Get(ctx),
 
 		endpointsLister:   endpointsInformer.Lister(),
 		serviceLister:     serviceInformer.Lister(),
+		podLister:         podInformer.Lister(),
 		psInformerFactory: podscalable.Get(ctx),
 	}
 	impl := sksreconciler.NewImpl(ctx, c)
@@ -93,5 +99,32 @@ func NewController(
 		Handler: controller.HandleAll(grCb),
 	})
 
+	podInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: pkgreconciler.LabelExistsFilterFunc(serving.RevisionLabelKey),
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				pod := obj.(*corev1.Pod)
+				if isPodReady(pod) {
+					impl.EnqueueKey(podKey(pod))
+				}
+			},
+			UpdateFunc: func(old, new interface{}) {
+				oldPod := old.(*corev1.Pod)
+				newPod := new.(*corev1.Pod)
+				if isPodReady(oldPod) != isPodReady(newPod) {
+					impl.EnqueueKey(podKey(newPod))
+				}
+			},
+			DeleteFunc: func(obj interface{}) {
+				pod := obj.(*corev1.Pod)
+				impl.EnqueueKey(podKey(pod))
+			},
+		},
+	})
+
 	return impl
+}
+
+func podKey(pod *corev1.Pod) types.NamespacedName {
+	return types.NamespacedName{Namespace: pod.Namespace, Name: pod.Labels[serving.RevisionLabelKey]}
 }
