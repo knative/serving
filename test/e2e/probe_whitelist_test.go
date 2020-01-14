@@ -44,7 +44,7 @@ func TestProbeWhitelist(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloworld-edca531b677458dd5cb687926757a480",
+		Image:   "helloworld",
 	}
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
