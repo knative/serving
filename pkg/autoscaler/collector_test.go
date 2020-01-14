@@ -163,7 +163,7 @@ func TestMetricCollectorScraper(t *testing.T) {
 	mtp.ch <- now
 	var gotRPS, gotConcurrency, panicRPS, panicConcurrency float64
 	// Poll to see that the async loop completed.
-	wait.PollImmediate(50*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
+	wait.PollImmediate(10*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
 		gotConcurrency, _, _ = coll.StableAndPanicConcurrency(metricKey, now)
 		gotRPS, _, _ = coll.StableAndPanicRPS(metricKey, now)
 		return gotConcurrency == wantConcurrency && gotRPS == wantRPS, nil
@@ -192,7 +192,7 @@ func TestMetricCollectorScraper(t *testing.T) {
 	mtp.ch <- now
 
 	// Wait for async loop to finish.
-	wait.PollImmediate(50*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
+	wait.PollImmediate(10*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
 		gotConcurrency, _, _ = coll.StableAndPanicConcurrency(metricKey, now.Add(stableWindow).Add(-5*time.Second))
 		gotRPS, _, _ = coll.StableAndPanicRPS(metricKey, now.Add(stableWindow).Add(-5*time.Second))
 		return gotConcurrency == reportConcurrency && gotRPS == reportRPS, nil
