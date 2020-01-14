@@ -338,6 +338,9 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 		tolerance = 25
 	)
 	resps, err := webSocketResponseFreqs(t, clients, tealURL, numReqs)
+	if err != nil {
+		t.Errorf("Failed to send and receive websocket messages: %v", err)
+	}
 	if len(resps) != 2 {
 		t.Errorf("Number of responses: %d, want: 2", len(resps))
 	}
