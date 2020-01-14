@@ -29,6 +29,7 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"k8s.io/apimachinery/pkg/util/wait"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
@@ -43,6 +44,7 @@ import (
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/system"
+	"knative.dev/pkg/version"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler"
@@ -104,6 +106,18 @@ func main() {
 	logger, atomicLevel := logging.NewLoggerFromConfig(loggingConfig, component)
 	defer flush(logger)
 	ctx = logging.WithLogger(ctx, logger)
+
+	kubeClient := kubeclient.Get(ctx)
+
+	// We sometimes startup faster than we can reach kube-api. Poll on failure to prevent us terminating
+	if perr := wait.PollImmediate(time.Second, 60*time.Second, func() (bool, error) {
+		if err = version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
+			log.Printf("Failed to get k8s version %v", err)
+		}
+		return err == nil, nil
+	}); perr != nil {
+		log.Fatal("Timed out attempting to get k8s version: ", err)
+	}
 
 	// statsCh is the main communication channel between the stats server and multiscaler.
 	statsCh := make(chan autoscaler.StatMessage, statsBufferLen)
