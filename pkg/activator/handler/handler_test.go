@@ -16,6 +16,7 @@ limitations under the License.
 package handler
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -452,47 +453,61 @@ func errMsg(msg string) string {
 }
 
 func BenchmarkHandler(b *testing.B) {
-	// Use fake Roundtripper, the buffer is used in the proxy
-	// to copy the response only.
-	fakeRT := activatortest.FakeRoundTripper{
-		RequestResponse: &activatortest.FakeResponse{
-			Code: http.StatusOK,
-		},
-	}
-	rt := pkgnet.RoundTripperFunc(fakeRT.RT)
-
-	reporter := &fakeReporter{}
-
-	t := &testing.T{}
-	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(&testing.T{})
 	defer cancel()
-	logger := logging.FromContext(ctx)
 	revisionInformer(ctx, revision(testNamespace, testRevName))
-	handler := (New(ctx, fakeThrottler{}, reporter)).(*activationHandler)
 
-	handler.transport = rt
-	configStore := setupConfigStore(&testing.T{}, logger)
-	ctx = configStore.ToContext(ctx)
+	configStore := setupConfigStore(&testing.T{}, logging.FromContext(ctx))
 
 	// bodyLength is in kilobytes.
 	for _, bodyLength := range [5]int{2, 16, 32, 64, 128} {
-		respBody := randomString(1024 * bodyLength)
-		fakeRT.RequestResponse.Body = respBody
-		b.Run(fmt.Sprintf("%03dk-resp-len", bodyLength), func(b *testing.B) {
+		body := []byte(randomString(1024 * bodyLength))
+
+		rt := pkgnet.RoundTripperFunc(func(*http.Request) (*http.Response, error) {
+			return &http.Response{
+				Body:       ioutil.NopCloser(bytes.NewReader(body)),
+				StatusCode: http.StatusOK,
+			}, nil
+		})
+
+		handler := (New(ctx, fakeThrottler{}, &fakeReporter{})).(*activationHandler)
+		handler.transport = rt
+
+		request := func() *http.Request {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+			req.Host = "test-host"
 			req.Header.Set(activator.RevisionHeaderNamespace, testNamespace)
 			req.Header.Set(activator.RevisionHeaderName, testRevName)
-			req.Host = "test-host"
-			for j := 0; j < b.N; j++ {
-				resp := httptest.NewRecorder()
-				handler.ServeHTTP(resp, req.WithContext(ctx))
-				if resp.Code != http.StatusOK {
-					b.Fatalf("resp.Code = %d, want: StatusOK(200)", resp.Code)
-				}
-				if got, want := resp.Body.Len(), len(respBody); got != want {
-					b.Fatalf("|body| = %d, want = %d", got, want)
-				}
+
+			reqCtx := configStore.ToContext(context.Background())
+			return req.WithContext(reqCtx)
+		}
+
+		test := func(req *http.Request, b *testing.B) {
+			resp := httptest.NewRecorder()
+			handler.ServeHTTP(resp, req)
+			if resp.Code != http.StatusOK {
+				b.Fatalf("resp.Code = %d, want: StatusOK(200)", resp.Code)
 			}
+			if got, want := resp.Body.Len(), len(body); got != want {
+				b.Fatalf("|body| = %d, want = %d", got, want)
+			}
+		}
+
+		b.Run(fmt.Sprintf("%03dk-resp-len-sequential", bodyLength), func(b *testing.B) {
+			req := request()
+			for j := 0; j < b.N; j++ {
+				test(req, b)
+			}
+		})
+
+		b.Run(fmt.Sprintf("%03dk-resp-len-parallel", bodyLength), func(b *testing.B) {
+			b.RunParallel(func(pb *testing.PB) {
+				req := request()
+				for pb.Next() {
+					test(req, b)
+				}
+			})
 		})
 	}
 }
