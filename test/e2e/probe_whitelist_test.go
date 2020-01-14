@@ -19,6 +19,7 @@ limitations under the License.
 package e2e
 
 import (
+	"net/http"
 	"testing"
 
 	pkgTest "knative.dev/pkg/test"
@@ -43,7 +44,7 @@ func TestProbeWhitelist(t *testing.T) {
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
-		Image:   "helloworld",
+		Image:   "helloworld-edca531b677458dd5cb687926757a480",
 	}
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
@@ -68,15 +69,15 @@ func TestProbeWhitelist(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		url,
-		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.MatchesBody(test.UnauthorizedText))),
+		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsOneOfStatusCodes(http.StatusUnauthorized))),
 		"HelloWorldServesAuthFailed",
 		test.ServingFlags.ResolvableDomain,
 		opt); err != nil {
 		// check if side car is injected before reporting error
 		if _, err := getContainer(clients.KubeClient, resources.Service.Name, "istio-proxy", resources.Service.Namespace); err != nil {
 			t.Log("side car not enabled, skipping test")
-			return
+			t.Skip()
 		}
-		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.UnauthorizedText, err)
+		t.Fatalf("The endpoint %s for Route %s didn't serve the expected status %q: %v", url, names.Route, http.StatusUnauthorized, err)
 	}
 }

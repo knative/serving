@@ -44,7 +44,6 @@ const (
 	PizzaPlanetText1 = "What a spaceport!"
 	PizzaPlanetText2 = "Re-energize yourself with a slice of pepperoni!"
 	HelloWorldText   = "Hello World! How about some tasty noodles?"
-	UnauthorizedText = "Origin authentication failed."
 
 	ConcurrentRequests = 50
 	// We expect to see 100% of requests succeed for traffic sent directly to revisions.
