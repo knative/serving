@@ -30,9 +30,7 @@ import (
 
 func TestContextHandler(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-	defer func() {
-		cancel()
-	}()
+	defer cancel()
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevName}
 	revision := revision(revID.Namespace, revID.Name)
 	revisionInformer(ctx, revision)
@@ -45,8 +43,6 @@ func TestContextHandler(t *testing.T) {
 		if got := revIDFrom(r.Context()); got != revID {
 			t.Errorf("revIDFrom() = %v, want %v", got, revID)
 		}
-
-		w.WriteHeader(http.StatusOK)
 	})
 
 	handler := NewContextHandler(ctx, baseHandler)
@@ -63,16 +59,12 @@ func TestContextHandler(t *testing.T) {
 
 func TestContextHandlerError(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-	defer func() {
-		cancel()
-	}()
+	defer cancel()
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevName}
 	revision := revision(revID.Namespace, revID.Name)
 	revisionInformer(ctx, revision)
 
-	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
+	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 
 	handler := NewContextHandler(ctx, baseHandler)
 	resp := httptest.NewRecorder()
