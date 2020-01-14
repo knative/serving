@@ -37,8 +37,8 @@ type revIDKey struct{}
 
 // NewContextHandler creates a handler that extracts the necessary context from the request
 // and makes it available on the request's context.
-func NewContextHandler(ctx context.Context, next http.Handler) *ContextHandler {
-	handler := &ContextHandler{
+func NewContextHandler(ctx context.Context, next http.Handler) http.Handler {
+	handler := &contextHandler{
 		nextHandler:    next,
 		revisionLister: revisioninformer.Get(ctx).Lister(),
 		logger:         logging.FromContext(ctx),
@@ -47,14 +47,14 @@ func NewContextHandler(ctx context.Context, next http.Handler) *ContextHandler {
 	return handler
 }
 
-// ContextHandler enriches the request's context with structured data.
-type ContextHandler struct {
+// contextHandler enriches the request's context with structured data.
+type contextHandler struct {
 	revisionLister servinglisters.RevisionLister
 	logger         *zap.SugaredLogger
 	nextHandler    http.Handler
 }
 
-func (h *ContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *contextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	namespace := r.Header.Get(activator.RevisionHeaderNamespace)
 	name := r.Header.Get(activator.RevisionHeaderName)
 	revID := types.NamespacedName{Namespace: namespace, Name: name}
