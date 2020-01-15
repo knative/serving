@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -435,12 +436,12 @@ func BenchmarkHandler(b *testing.B) {
 		}
 
 		test := func(req *http.Request, b *testing.B) {
-			resp := httptest.NewRecorder()
+			resp := &responseRecorder{}
 			handler.ServeHTTP(resp, req)
-			if resp.Code != http.StatusOK {
-				b.Fatalf("resp.Code = %d, want: StatusOK(200)", resp.Code)
+			if resp.code != http.StatusOK {
+				b.Fatalf("resp.Code = %d, want: StatusOK(200)", resp.code)
 			}
-			if got, want := resp.Body.Len(), len(body); got != want {
+			if got, want := resp.size, int32(len(body)); got != want {
 				b.Fatalf("|body| = %d, want = %d", got, want)
 			}
 		}
@@ -471,4 +472,26 @@ func randomString(n int) string {
 		b[i] = letter[rand.Intn(len(letter))]
 	}
 	return string(b)
+}
+
+// responseRecorder is an implementation of http.ResponseWriter and http.Flusher
+// that captures the response code and size.
+type responseRecorder struct {
+	code int
+	size int32
+}
+
+func (rr *responseRecorder) Flush() {}
+
+func (rr *responseRecorder) Header() http.Header {
+	return http.Header{}
+}
+
+func (rr *responseRecorder) Write(p []byte) (int, error) {
+	atomic.AddInt32(&rr.size, int32(len(p)))
+	return ioutil.Discard.Write(p)
+}
+
+func (rr *responseRecorder) WriteHeader(code int) {
+	rr.code = code
 }
