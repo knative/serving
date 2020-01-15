@@ -75,8 +75,7 @@ func TestProbeWhitelist(t *testing.T) {
 		opt); err != nil {
 		// check if side car is injected before reporting error
 		if _, err := getContainer(clients.KubeClient, resources.Service.Name, "istio-proxy", resources.Service.Namespace); err != nil {
-			t.Log("side car not enabled, skipping test")
-			t.Skip()
+			t.Skip("side car not enabled, skipping test")
 		}
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected status %q: %v", url, names.Route, http.StatusUnauthorized, err)
 	}
