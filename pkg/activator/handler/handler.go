@@ -74,22 +74,26 @@ func New(ctx context.Context, t Throttler, sr activator.StatsReporter) http.Hand
 func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	revID := revIDFrom(r.Context())
 	logger := logging.FromContext(r.Context())
+	tracingEnabled := activatorconfig.FromContext(r.Context()).Tracing.Backend != tracingconfig.None
 
-	tryContext, trySpan := trace.StartSpan(r.Context(), "throttler_try")
+	tryContext, trySpan := r.Context(), (*trace.Span)(nil)
+	if tracingEnabled {
+		tryContext, trySpan = trace.StartSpan(r.Context(), "throttler_try")
+	}
 	tryContext, cancel := context.WithTimeout(tryContext, defaulTimeout)
 	defer cancel()
 
 	err := a.throttler.Try(tryContext, revID, func(dest string) error {
 		trySpan.End()
 
-		var httpStatus int
-		target := url.URL{
+		proxyCtx, proxySpan := r.Context(), (*trace.Span)(nil)
+		if tracingEnabled {
+			proxyCtx, proxySpan = trace.StartSpan(r.Context(), "proxy")
+		}
+		httpStatus := a.proxyRequest(logger, w, r.WithContext(proxyCtx), &url.URL{
 			Scheme: "http",
 			Host:   dest,
-		}
-
-		proxyCtx, proxySpan := trace.StartSpan(r.Context(), "proxy")
-		httpStatus = a.proxyRequest(logger, w, r.WithContext(proxyCtx), &target)
+		}, tracingEnabled)
 		proxySpan.End()
 
 		revision := revisionFrom(r.Context())
@@ -103,9 +107,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		// Set error on our capacity waiting span and end it
-		trySpan.Annotate([]trace.Attribute{
-			trace.StringAttribute("activator.throttler.error", err.Error()),
-		}, "ThrottlerTry")
+		trySpan.Annotate([]trace.Attribute{trace.StringAttribute("activator.throttler.error", err.Error())}, "ThrottlerTry")
 		trySpan.End()
 
 		logger.Errorw("Throttler try error", zap.Error(err))
@@ -119,14 +121,14 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *activationHandler) proxyRequest(logger *zap.SugaredLogger, w http.ResponseWriter, r *http.Request, target *url.URL) int {
+func (a *activationHandler) proxyRequest(logger *zap.SugaredLogger, w http.ResponseWriter, r *http.Request, target *url.URL, tracingEnabled bool) int {
 	network.RewriteHostIn(r)
 
 	// Setup the reverse proxy.
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.BufferPool = a.bufferPool
 	proxy.Transport = a.transport
-	if config := activatorconfig.FromContext(r.Context()); config.Tracing.Backend != tracingconfig.None {
+	if tracingEnabled {
 		proxy.Transport = a.tracingTransport
 	}
 	proxy.FlushInterval = -1
