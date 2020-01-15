@@ -428,7 +428,7 @@ func TestListProbeTargets(t *testing.T) {
 						Hosts: []string{"*"},
 						Port: &istiov1alpha3.Port{
 							Name:     "http",
-							Number:   80,
+							Number:   8080,
 							Protocol: "HTTP",
 						},
 					}, {
@@ -454,10 +454,10 @@ func TestListProbeTargets(t *testing.T) {
 				Subsets: []v1.EndpointSubset{{
 					Ports: []v1.EndpointPort{{
 						Name: "bogus",
-						Port: 8080,
+						Port: 8081,
 					}, {
 						Name: "real",
-						Port: 80,
+						Port: 8080,
 					}},
 					Addresses: []v1.EndpointAddress{{
 						IP: "1.1.1.1",
@@ -477,10 +477,10 @@ func TestListProbeTargets(t *testing.T) {
 				Spec: v1.ServiceSpec{
 					Ports: []v1.ServicePort{{
 						Name: "bogus",
-						Port: 8080,
+						Port: 8081,
 					}, {
 						Name: "real",
-						Port: 80,
+						Port: 8080,
 					}},
 				},
 			}},
@@ -501,9 +501,9 @@ func TestListProbeTargets(t *testing.T) {
 		},
 		results: []status.ProbeTarget{{
 			PodIPs:  sets.NewString("1.1.1.1"),
-			PodPort: "80",
-			Port:    "80",
-			URLs:    []*url.URL{{Scheme: "http", Host: "foo.bar.com:80"}},
+			PodPort: "8080",
+			Port:    "8080",
+			URLs:    []*url.URL{{Scheme: "http", Host: "foo.bar.com:8080"}},
 		}},
 	}, {
 		name: "Different port between endpoint and gateway service",
