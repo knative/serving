@@ -178,6 +178,17 @@ func TestDestroyPodTimely(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
 	}
+	routeURL := objects.Route.Status.URL.URL()
+
+	if _, err = pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		t.Logf,
+		routeURL,
+		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		"RouteServes",
+		test.ServingFlags.ResolvableDomain); err != nil {
+		t.Fatalf("The endpoint for Route %s at %s didn't serve correctly: %v", names.Route, routeURL, err)
+	}
 
 	pods, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).List(metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", serving.RevisionLabelKey, objects.Revision.Name),
