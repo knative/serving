@@ -506,7 +506,7 @@ func TestListProbeTargets(t *testing.T) {
 			URLs:    []*url.URL{{Scheme: "http", Host: "foo.bar.com:80"}},
 		}},
 	}, {
-		name: "Different port between ednpoint and gateway service",
+		name: "Different port between endpoint and gateway service",
 		ingressGateways: []config.Gateway{{
 			Name:      "gateway",
 			Namespace: "default",
