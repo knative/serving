@@ -112,9 +112,9 @@ func TestProbeLifecycle(t *testing.T) {
 	prober := NewProber(
 		zaptest.NewLogger(t).Sugar(),
 		fakeProbeTargetLister{{
-			PodIPs: sets.NewString(hostname),
-			Port:   strconv.Itoa(port),
-			URLs:   []*url.URL{tsURL},
+			PodIPs:  sets.NewString(hostname),
+			PodPort: strconv.Itoa(port),
+			URLs:    []*url.URL{tsURL},
 		}},
 		func(ing *v1alpha1.Ingress) {
 			ready <- ing
@@ -261,9 +261,9 @@ func TestCancelPodProbing(t *testing.T) {
 	prober := NewProber(
 		zaptest.NewLogger(t).Sugar(),
 		fakeProbeTargetLister{{
-			PodIPs: sets.NewString(hostname),
-			Port:   strconv.Itoa(port),
-			URLs:   []*url.URL{tsURL},
+			PodIPs:  sets.NewString(hostname),
+			PodPort: strconv.Itoa(port),
+			URLs:    []*url.URL{tsURL},
 		}},
 		func(ing *v1alpha1.Ingress) {
 			ready <- ing
@@ -400,9 +400,9 @@ func TestPartialPodCancellation(t *testing.T) {
 	prober := NewProber(
 		zaptest.NewLogger(t).Sugar(),
 		fakeProbeTargetLister{{
-			PodIPs: sets.NewString(pods[0].Status.PodIP, pods[1].Status.PodIP),
-			Port:   strconv.Itoa(port),
-			URLs:   []*url.URL{tsURL},
+			PodIPs:  sets.NewString(pods[0].Status.PodIP, pods[1].Status.PodIP),
+			PodPort: strconv.Itoa(port),
+			URLs:    []*url.URL{tsURL},
 		}},
 		func(ing *v1alpha1.Ingress) {
 			ready <- ing
@@ -470,9 +470,9 @@ func TestCancelIngressProbing(t *testing.T) {
 	prober := NewProber(
 		zaptest.NewLogger(t).Sugar(),
 		fakeProbeTargetLister{{
-			PodIPs: sets.NewString(hostname),
-			Port:   strconv.Itoa(port),
-			URLs:   []*url.URL{tsURL},
+			PodIPs:  sets.NewString(hostname),
+			PodPort: strconv.Itoa(port),
+			URLs:    []*url.URL{tsURL},
 		}},
 		func(ing *v1alpha1.Ingress) {
 			ready <- ing
@@ -543,8 +543,9 @@ func (l fakeProbeTargetLister) ListProbeTargets(ctx context.Context, ing *v1alph
 	targets := []ProbeTarget{}
 	for _, target := range l {
 		newTarget := ProbeTarget{
-			PodIPs: target.PodIPs,
-			Port:   target.Port,
+			PodIPs:  target.PodIPs,
+			PodPort: target.PodPort,
+			Port:    target.Port,
 		}
 		for _, url := range target.URLs {
 			newURL := *url
