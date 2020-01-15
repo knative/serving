@@ -242,18 +242,20 @@ func main() {
 		logger.Fatalw("Unable to create request log handler", zap.Error(err))
 	}
 	ah = reqLogHandler
+
+	// NOTE: MetricHandler is being used as the outermost handler of the meaty bits. We're not interested in measuring
+	// the healthchecks or probes.
+	ah = activatorhandler.NewMetricHandler(ctx, reporter, ah)
+	ah = activatorhandler.NewContextHandler(ctx, ah)
+
+	// Network probe handlers.
 	ah = &activatorhandler.ProbeHandler{NextHandler: ah}
-
-	sigCtx, sigCancel := context.WithCancel(context.Background())
-
-	// Set up our health check based on the health of stat sink and environmental factors.
-	hc := newHealthCheck(sigCtx, logger, statSink)
-	ah = &activatorhandler.HealthHandler{HealthCheck: hc, NextHandler: ah, Logger: logger}
-
 	ah = network.NewProbeHandler(ah)
 
-	// NOTE: MetricHandler is being used as the outermost handler for the purpose of measuring the request latency.
-	ah = activatorhandler.NewMetricHandler(ctx, reporter, ah)
+	// Set up our health check based on the health of stat sink and environmental factors.
+	sigCtx, sigCancel := context.WithCancel(context.Background())
+	hc := newHealthCheck(sigCtx, logger, statSink)
+	ah = &activatorhandler.HealthHandler{HealthCheck: hc, NextHandler: ah, Logger: logger}
 
 	profilingHandler := profiling.NewHandler(logger, false)
 	// Watch the logging config map and dynamically update logging levels.

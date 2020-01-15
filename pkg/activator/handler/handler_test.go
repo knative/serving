@@ -31,7 +31,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"go.opencensus.io/plugin/ochttp"
 	"go.uber.org/zap"
-	"knative.dev/pkg/controller"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	rtesting "knative.dev/pkg/reconciler/testing"
@@ -45,9 +44,6 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	servingv1informers "knative.dev/serving/pkg/client/informers/externalversions/serving/v1alpha1"
-	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 	"knative.dev/serving/pkg/network"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -77,8 +73,6 @@ func (ft fakeThrottler) Try(ctx context.Context, _ types.NamespacedName, f func(
 
 func TestActivationHandler(t *testing.T) {
 	tests := []struct {
-		label         string
-		namespace     string
 		name          string
 		wantBody      string
 		wantCode      int
@@ -89,9 +83,7 @@ func TestActivationHandler(t *testing.T) {
 		throttler     Throttler
 		reporterCalls []reporterCall
 	}{{
-		label:     "active endpoint",
-		namespace: testNamespace,
-		name:      testRevName,
+		name:      "active endpoint",
 		wantBody:  wantBody,
 		wantCode:  http.StatusOK,
 		wantErr:   nil,
@@ -107,18 +99,7 @@ func TestActivationHandler(t *testing.T) {
 			Value:      1,
 		}},
 	}, {
-		label:         "unknown revision",
-		namespace:     "fake-namespace",
-		name:          "fake-name",
-		wantBody:      errMsg(`revision.serving.knative.dev "fake-name" not found`),
-		wantCode:      http.StatusNotFound,
-		wantErr:       nil,
-		throttler:     fakeThrottler{},
-		reporterCalls: nil,
-	}, {
-		label:     "request error",
-		namespace: testNamespace,
-		name:      testRevName,
+		name:      "request error",
 		wantBody:  "request error\n",
 		wantCode:  http.StatusBadGateway,
 		wantErr:   errors.New("request error"),
@@ -134,18 +115,14 @@ func TestActivationHandler(t *testing.T) {
 			Value:      1,
 		}},
 	}, {
-		label:         "throttler timeout",
-		namespace:     testNamespace,
-		name:          testRevName,
+		name:          "throttler timeout",
 		wantBody:      context.DeadlineExceeded.Error() + "\n",
 		wantCode:      http.StatusServiceUnavailable,
 		wantErr:       nil,
 		throttler:     fakeThrottler{err: context.DeadlineExceeded},
 		reporterCalls: nil,
 	}, {
-		label:         "overflow",
-		namespace:     testNamespace,
-		name:          testRevName,
+		name:          "overflow",
 		wantBody:      "activator overload\n",
 		wantCode:      http.StatusServiceUnavailable,
 		wantErr:       nil,
@@ -153,7 +130,7 @@ func TestActivationHandler(t *testing.T) {
 		reporterCalls: nil,
 	}}
 	for _, test := range tests {
-		t.Run(test.label, func(t *testing.T) {
+		t.Run(test.name, func(t *testing.T) {
 			probeResponses := make([]activatortest.FakeResponse, len(test.probeResp))
 			for i := 0; i < len(test.probeResp); i++ {
 				probeResponses[i] = activatortest.FakeResponse{
@@ -177,7 +154,6 @@ func TestActivationHandler(t *testing.T) {
 
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer cancel()
-			revisionInformer(ctx, revision(testNamespace, testRevName))
 			handler := (New(ctx, test.throttler, reporter)).(*activationHandler)
 
 			// Setup transports.
@@ -185,13 +161,13 @@ func TestActivationHandler(t *testing.T) {
 
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
-			req.Header.Set(activator.RevisionHeaderNamespace, test.namespace)
-			req.Header.Set(activator.RevisionHeaderName, test.name)
 			req.Host = "test-host"
 
 			// Set up config store to populate context.
 			configStore := setupConfigStore(t, logging.FromContext(ctx))
 			ctx = configStore.ToContext(ctx)
+			ctx = withRevision(ctx, revision(testNamespace, testRevName))
+			ctx = withRevID(ctx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
 
 			handler.ServeHTTP(resp, req.WithContext(ctx))
 
@@ -235,19 +211,18 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
-	revisionInformer(ctx, revision(testNamespace, testRevName))
 
 	handler := (New(ctx, fakeThrottler{}, &fakeReporter{})).(*activationHandler)
 	handler.transport = rt
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
-	req.Header.Set(activator.RevisionHeaderNamespace, testNamespace)
-	req.Header.Set(activator.RevisionHeaderName, testRevName)
 
 	// Set up config store to populate context.
 	configStore := setupConfigStore(t, logging.FromContext(ctx))
 	ctx = configStore.ToContext(req.Context())
+	ctx = withRevision(ctx, revision(testNamespace, testRevName))
+	ctx = withRevID(ctx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
 	handler.ServeHTTP(writer, req.WithContext(ctx))
 
 	select {
@@ -300,16 +275,10 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 			}
 
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-			revisions := revisionInformer(ctx, revision(testNamespace, testRevName))
-			waitInformers, err := controller.RunInformers(ctx.Done(), revisions.Informer())
-			if err != nil {
-				t.Fatalf("Failed to start informers: %v", err)
-			}
 			defer func() {
 				cancel()
 				reporter.Close()
 				oct.Finish()
-				waitInformers()
 			}()
 
 			handler := (New(ctx, fakeThrottler{}, &fakeReporter{})).(*activationHandler)
@@ -339,9 +308,9 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 func sendRequest(namespace, revName string, handler *activationHandler, store *activatorconfig.Store) *httptest.ResponseRecorder {
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
-	req.Header.Set(activator.RevisionHeaderNamespace, namespace)
-	req.Header.Set(activator.RevisionHeaderName, revName)
 	ctx := store.ToContext(req.Context())
+	ctx = withRevision(ctx, revision(namespace, revName))
+	ctx = withRevID(ctx, types.NamespacedName{Namespace: namespace, Name: revName})
 	handler.ServeHTTP(resp, req.WithContext(ctx))
 	return resp
 }
@@ -429,18 +398,6 @@ func revision(namespace, name string) *v1alpha1.Revision {
 	}
 }
 
-func revisionInformer(ctx context.Context, revs ...*v1alpha1.Revision) servingv1informers.RevisionInformer {
-	fake := fakeservingclient.Get(ctx)
-	revisions := fakerevisioninformer.Get(ctx)
-
-	for _, rev := range revs {
-		fake.ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
-		revisions.Informer().GetIndexer().Add(rev)
-	}
-
-	return revisions
-}
-
 func setupConfigStore(t *testing.T, logger *zap.SugaredLogger) *activatorconfig.Store {
 	configStore := activatorconfig.NewStore(logger)
 	tracingConfig := ConfigMapFromTestFile(t, tracingconfig.ConfigName)
@@ -448,15 +405,9 @@ func setupConfigStore(t *testing.T, logger *zap.SugaredLogger) *activatorconfig.
 	return configStore
 }
 
-func errMsg(msg string) string {
-	return fmt.Sprintf("Error getting active endpoint: %v\n", msg)
-}
-
 func BenchmarkHandler(b *testing.B) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(&testing.T{})
 	defer cancel()
-	revisionInformer(ctx, revision(testNamespace, testRevName))
-
 	configStore := setupConfigStore(&testing.T{}, logging.FromContext(ctx))
 
 	// bodyLength is in kilobytes.
@@ -476,10 +427,10 @@ func BenchmarkHandler(b *testing.B) {
 		request := func() *http.Request {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 			req.Host = "test-host"
-			req.Header.Set(activator.RevisionHeaderNamespace, testNamespace)
-			req.Header.Set(activator.RevisionHeaderName, testRevName)
 
 			reqCtx := configStore.ToContext(context.Background())
+			reqCtx = withRevision(reqCtx, revision(testNamespace, testRevName))
+			reqCtx = withRevID(reqCtx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
 			return req.WithContext(reqCtx)
 		}
 

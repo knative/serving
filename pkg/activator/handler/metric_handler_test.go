@@ -17,6 +17,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -24,10 +25,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"k8s.io/apimachinery/pkg/types"
 
 	rtesting "knative.dev/pkg/reconciler/testing"
-	"knative.dev/serving/pkg/activator"
-	"knative.dev/serving/pkg/network"
 )
 
 var ignoreDurationOption = cmpopts.IgnoreFields(reporterCall{}, "Duration")
@@ -44,22 +44,6 @@ func TestRequestMetricHandler(t *testing.T) {
 		wantCode      int
 		wantPanic     bool
 	}{
-		{
-			label: "kube probe request",
-			baseHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusOK)
-			}),
-			newHeader: map[string]string{"User-Agent": network.KubeProbeUAPrefix},
-			wantCode:  http.StatusOK,
-		},
-		{
-			label: "network probe response",
-			baseHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusOK)
-			}),
-			newHeader: map[string]string{network.ProbeHeaderName: "test-service"},
-			wantCode:  http.StatusOK,
-		},
 		{
 			label: "normal response",
 			baseHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -101,13 +85,10 @@ func TestRequestMetricHandler(t *testing.T) {
 				cancel()
 			}()
 			reporter := &fakeReporter{}
-			revisionInformer(ctx, revision(testNamespace, testRevName))
 			handler := NewMetricHandler(ctx, reporter, test.baseHandler)
 
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", bytes.NewBufferString(""))
-			req.Header.Add(activator.RevisionHeaderNamespace, testNamespace)
-			req.Header.Add(activator.RevisionHeaderName, testRevName)
 			if test.newHeader != nil && len(test.newHeader) != 0 {
 				for k, v := range test.newHeader {
 					req.Header.Add(k, v)
@@ -128,7 +109,9 @@ func TestRequestMetricHandler(t *testing.T) {
 				}
 			}()
 
-			handler.ServeHTTP(resp, req)
+			reqCtx := withRevision(context.Background(), revision(testNamespace, testRevName))
+			reqCtx = withRevID(reqCtx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
+			handler.ServeHTTP(resp, req.WithContext(reqCtx))
 		})
 	}
 

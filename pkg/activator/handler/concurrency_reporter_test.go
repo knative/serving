@@ -27,7 +27,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	rtesting "knative.dev/pkg/reconciler/testing"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler"
+	servingv1informers "knative.dev/serving/pkg/client/informers/externalversions/serving/v1alpha1"
+	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 )
 
 const (
@@ -254,4 +258,16 @@ func newTestStats(t *testing.T) (*testStats, *ConcurrencyReporter, context.Conte
 	cr := NewConcurrencyReporter(ctx, "activator",
 		ts.reqChan, ts.reportChan, ts.statChan, &fakeReporter{})
 	return ts, cr, ctx, cancel
+}
+
+func revisionInformer(ctx context.Context, revs ...*v1alpha1.Revision) servingv1informers.RevisionInformer {
+	fake := fakeservingclient.Get(ctx)
+	revisions := fakerevisioninformer.Get(ctx)
+
+	for _, rev := range revs {
+		fake.ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
+		revisions.Informer().GetIndexer().Add(rev)
+	}
+
+	return revisions
 }

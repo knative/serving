@@ -17,7 +17,6 @@ package handler
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -28,7 +27,6 @@ import (
 	"go.uber.org/zap"
 
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/logging/logkey"
 	pkgnet "knative.dev/pkg/network"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/activator"
@@ -36,13 +34,10 @@ import (
 	activatornet "knative.dev/serving/pkg/activator/net"
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/serving"
-	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
-	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -54,14 +49,11 @@ type Throttler interface {
 // activationHandler will wait for an active endpoint for a revision
 // to be available before proxing the request
 type activationHandler struct {
-	logger           *zap.SugaredLogger
 	transport        http.RoundTripper
 	tracingTransport http.RoundTripper
 	reporter         activator.StatsReporter
 	throttler        Throttler
 	bufferPool       httputil.BufferPool
-
-	revisionLister servinglisters.RevisionLister
 }
 
 // The default time we'll try to probe the revision for activation.
@@ -71,34 +63,23 @@ const defaulTimeout = 2 * time.Minute
 func New(ctx context.Context, t Throttler, sr activator.StatsReporter) http.Handler {
 	defaultTransport := pkgnet.AutoTransport
 	return &activationHandler{
-		logger:           logging.FromContext(ctx),
 		transport:        defaultTransport,
 		tracingTransport: &ochttp.Transport{Base: defaultTransport},
 		reporter:         sr,
 		throttler:        t,
 		bufferPool:       network.NewBufferPool(),
-		revisionLister:   revisioninformer.Get(ctx).Lister(),
 	}
 }
 
 func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	namespace := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderNamespace)
-	name := pkghttp.LastHeaderValue(r.Header, activator.RevisionHeaderName)
-	revID := types.NamespacedName{Namespace: namespace, Name: name}
-	logger := a.logger.With(zap.String(logkey.Key, revID.String()))
-
-	revision, err := a.revisionLister.Revisions(namespace).Get(name)
-	if err != nil {
-		logger.Errorw("Error while getting revision", zap.Error(err))
-		sendError(err, w)
-		return
-	}
+	revID := revIDFrom(r.Context())
+	logger := logging.FromContext(r.Context())
 
 	tryContext, trySpan := trace.StartSpan(r.Context(), "throttler_try")
 	tryContext, cancel := context.WithTimeout(tryContext, defaulTimeout)
 	defer cancel()
 
-	err = a.throttler.Try(tryContext, revID, func(dest string) error {
+	err := a.throttler.Try(tryContext, revID, func(dest string) error {
 		trySpan.End()
 
 		var httpStatus int
@@ -111,11 +92,12 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		httpStatus = a.proxyRequest(logger, w, r.WithContext(proxyCtx), &target)
 		proxySpan.End()
 
+		revision := revisionFrom(r.Context())
 		configurationName := revision.Labels[serving.ConfigurationLabelKey]
 		serviceName := revision.Labels[serving.ServiceLabelKey]
 		// Do not report response time here. It is reported in pkg/activator/metric_handler.go to
 		// sum up all time spent on multiple handlers.
-		a.reporter.ReportRequestCount(namespace, serviceName, configurationName, name, httpStatus, 1)
+		a.reporter.ReportRequestCount(revID.Namespace, serviceName, configurationName, revID.Name, httpStatus, 1)
 
 		return nil
 	})
@@ -157,13 +139,4 @@ func (a *activationHandler) proxyRequest(logger *zap.SugaredLogger, w http.Respo
 	recorder := pkghttp.NewResponseRecorder(w, http.StatusOK)
 	proxy.ServeHTTP(recorder, r)
 	return recorder.ResponseCode
-}
-
-func sendError(err error, w http.ResponseWriter) {
-	msg := fmt.Sprintf("Error getting active endpoint: %v", err)
-	if k8serrors.IsNotFound(err) {
-		http.Error(w, msg, http.StatusNotFound)
-		return
-	}
-	http.Error(w, msg, http.StatusInternalServerError)
 }
