@@ -91,9 +91,10 @@ type workItem struct {
 
 // ProbeTarget contains the URLs to probes for a set of Pod IPs serving out of the same port.
 type ProbeTarget struct {
-	PodIPs sets.String
-	Port   string
-	URLs   []*url.URL
+	PodIPs  sets.String
+	PodPort string
+	Port    string
+	URLs    []*url.URL
 }
 
 // ProbeTargetLister lists all the targets that requires probing.
@@ -205,7 +206,7 @@ func (m *Prober) IsReady(ctx context.Context, ing *v1alpha1.Ingress) (bool, erro
 					ingressState: ingressState,
 					url:          url,
 					podIP:        ip,
-					podPort:      target.Port,
+					podPort:      target.PodPort,
 				})
 			}
 		}
