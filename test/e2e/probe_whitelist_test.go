@@ -22,11 +22,11 @@ import (
 	"net/http"
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 //This test checks if the activator can probe
@@ -56,7 +56,7 @@ func TestProbeWhitelist(t *testing.T) {
 		}
 		test.CleanupOnInterrupt(func() { v1a1test.RestoreGateway(t, clients, *oldGateway) })
 		defer v1a1test.RestoreGateway(t, clients, *oldGateway)
-	}	
+	}
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
