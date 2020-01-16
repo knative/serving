@@ -18,6 +18,8 @@ package http
 
 import (
 	"bytes"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -242,4 +244,38 @@ func TestSetTemplate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func BenchmarkRequestLogHandlerNoTemplate(b *testing.B) {
+	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler, err := NewRequestLogHandler(baseHandler, ioutil.Discard, "", defaultInputGetter, false)
+	if err != nil {
+		b.Fatalf("Failed to create handler: %v", err)
+	}
+	request := func() *http.Request {
+		return httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+	}
+
+	resp := httptest.NewRecorder()
+	test := func(req *http.Request, b *testing.B) {
+		handler.ServeHTTP(resp, req)
+	}
+
+	b.Run(fmt.Sprintf("sequential"), func(b *testing.B) {
+		req := request()
+		for j := 0; j < b.N; j++ {
+			test(req, b)
+		}
+	})
+
+	b.Run(fmt.Sprintf("parallel"), func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			req := request()
+			for pb.Next() {
+				test(req, b)
+			}
+		})
+	})
 }
