@@ -60,15 +60,11 @@ import (
 	activatornet "knative.dev/serving/pkg/activator/net"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/autoscaler"
-	"knative.dev/serving/pkg/goversion"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/logging"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 )
-
-// Fail if using unsupported go version.
-var _ = goversion.IsSupported()
 
 const (
 	component = "activator"
