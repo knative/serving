@@ -59,6 +59,10 @@ go_test_e2e -timeout=10m \
   ${parallelism} \
   ./test/scale || failed=1
 
+# Auto TLS E2E tests mutate the cluster and must be ran separately
+go_test_e2e -timeout=10m \
+  ./test/e2e/autotls || failed=1
+
 # Istio E2E tests mutate the cluster and must be ran separately
 if [[ -n "${ISTIO_VERSION}" ]]; then
   go_test_e2e -timeout=10m \

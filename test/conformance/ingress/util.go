@@ -572,6 +572,11 @@ func UpdateIngressReady(t *testing.T, clients *test.Clients, name string, spec v
 
 // This is based on https://golang.org/src/crypto/tls/generate_cert.go
 func CreateTLSSecret(t *testing.T, clients *test.Clients, hosts []string) (string, context.CancelFunc) {
+	return CreateTLSSecretWithCertPool(t, clients, hosts, test.ServingNamespace, rootCAs)
+}
+
+// CreateTLSSecretWithCertPool creates TLS certificate with given CertPool.
+func CreateTLSSecretWithCertPool(t *testing.T, clients *test.Clients, hosts []string, ns string, cas *x509.CertPool) (string, context.CancelFunc) {
 	t.Helper()
 
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
@@ -614,7 +619,7 @@ func CreateTLSSecret(t *testing.T, clients *test.Clients, hosts []string) (strin
 	}
 	// Ideally we'd undo this in "cancel", but there doesn't
 	// seem to be a mechanism to remove things from a pool.
-	rootCAs.AddCert(cert)
+	cas.AddCert(cert)
 
 	certPEM := &bytes.Buffer{}
 	if err := pem.Encode(certPEM, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}); err != nil {
@@ -634,7 +639,7 @@ func CreateTLSSecret(t *testing.T, clients *test.Clients, hosts []string) (strin
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: test.ServingNamespace,
+			Namespace: ns,
 			Labels: map[string]string{
 				"test-secret": name,
 			},
@@ -679,7 +684,7 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 	// keep our simple tests simple, thus the [0]s...
 
 	// We expect an ingress LB with the form foo.bar.svc.cluster.local (though
-	// we aren't strictly sensitive to the suffix, this is just illustrative).
+	// we aren't strictly sensitive to the suffix, this is just illustrative.
 	internalDomain := ing.Status.PublicLoadBalancer.Ingress[0].DomainInternal
 	parts := strings.SplitN(internalDomain, ".", 3)
 	if len(parts) < 3 {
