@@ -32,6 +32,10 @@ const (
 	config    = "helloworld-go"
 	revision  = "helloworld-go-00001"
 	pod       = "helloworld-go-00001-deployment-8ff587cc9-7g9gc"
+
+	// Except for uptime everything else is integers, so this precision is
+	// good enough for the tests.
+	precision = 0.1
 )
 
 func TestNewPrometheusStatsReporter_negative(t *testing.T) {
@@ -175,10 +179,6 @@ func TestReporterReport(t *testing.T) {
 		})
 	}
 }
-
-// Except for uptime everything else is integers, so this precision is
-// good enough for the tests.
-const precision = 0.1
 
 func checkData(t *testing.T, gv *prometheus.GaugeVec, want float64) {
 	t.Helper()
