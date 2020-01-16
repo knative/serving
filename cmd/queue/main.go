@@ -206,7 +206,7 @@ func knativeProbeHandler(healthState *health.State, prober func() bool, isAggres
 			return
 		}
 
-		probeSpan := (*trace.Span)(nil)
+		var probeSpan *trace.Span
 		if tracingEnabled {
 			_, probeSpan = trace.StartSpan(r.Context(), "probe")
 			defer probeSpan.End()
