@@ -93,6 +93,15 @@ var (
 		// TODO(mattmoor): Consider also having a GVR-based one, e.g.
 		//    foobindings.blah.knative.dev/exclude: "true"
 	}
+	InclusionSelector = metav1.LabelSelector{
+		MatchExpressions: []metav1.LabelSelectorRequirement{{
+			Key:      duck.BindingIncludeLabel,
+			Operator: metav1.LabelSelectorOpIn,
+			Values:   []string{"true"},
+		}},
+		// TODO(mattmoor): Consider also having a GVR-based one, e.g.
+		//    foobindings.blah.knative.dev/include: "true"
+	}
 )
 
 // Reconcile implements controller.Reconciler
@@ -297,14 +306,20 @@ func (ac *Reconciler) reconcileMutatingWebhook(ctx context.Context, caCert []byt
 	// This is only supported by 1.15+ clusters.
 	matchPolicy := admissionregistrationv1beta1.Equivalent
 
+	// See if the opt-out behaviour has been specified and specify the Inclusion Selector.
+	selector := ExclusionSelector
+	if HasOptOutSelector(ctx) {
+		selector = InclusionSelector
+	}
+
 	for i, wh := range webhook.Webhooks {
 		if wh.Name != webhook.Name {
 			continue
 		}
 		webhook.Webhooks[i].MatchPolicy = &matchPolicy
 		webhook.Webhooks[i].Rules = rules
-		webhook.Webhooks[i].NamespaceSelector = &ExclusionSelector
-		webhook.Webhooks[i].ObjectSelector = &ExclusionSelector // 1.15+ only
+		webhook.Webhooks[i].NamespaceSelector = &selector
+		webhook.Webhooks[i].ObjectSelector = &selector // 1.15+ only
 		webhook.Webhooks[i].ClientConfig.CABundle = caCert
 		if webhook.Webhooks[i].ClientConfig.Service == nil {
 			return fmt.Errorf("missing service reference for webhook: %s", wh.Name)

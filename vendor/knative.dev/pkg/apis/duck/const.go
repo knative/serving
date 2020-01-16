@@ -20,6 +20,14 @@ const (
 	// BindingExcludeLabel is a label that is placed on namespaces and
 	// resources to exclude them from consideration when binding things.
 	// It is critical that bindings dealing with Deployments label their
-	// controller Deployment (or enclosing namespace).
+	// controller Deployment (or enclosing namespace). If you do not
+	// specify this label, they are considered for binding (i.e. you opt-in
+	// to getting everything considered for bindings). This is the default.
 	BindingExcludeLabel = "bindings.knative.dev/exclude"
+
+	// BindingIncludeLabel is a label that is placed on namespaces and
+	// resources to include them in consideration when binding things.
+	// This means that you have to explicitly label the namespaces/resources
+	// for consideration for bindings.
+	BindingIncludeLabel = "bindings.knative.dev/include"
 )

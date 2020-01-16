@@ -1,0 +1,137 @@
+# Copyright 2018 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-autoscaler
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
+
+data:
+  _example: |
+    ################################
+    #                              #
+    #    EXAMPLE CONFIGURATION     #
+    #                              #
+    ################################
+
+    # This block is not actually functional configuration,
+    # but serves to illustrate the available configuration
+    # options and document them in a way that is accessible
+    # to users that `kubectl edit` this config map.
+    #
+    # These sample configuration options may be copied out of
+    # this example block and unindented to be in the data block
+    # to actually change the configuration.
+
+    # The Revision ContainerConcurrency field specifies the maximum number
+    # of requests the Container can handle at once. Container concurrency
+    # target percentage is how much of that maximum to use in a stable
+    # state. E.g. if a Revision specifies ContainerConcurrency of 10, then
+    # the Autoscaler will try to maintain 7 concurrent connections per pod
+    # on average.
+    # Note: this limit will be applied to container concurrency set at every
+    # level (ConfigMap, Revision Spec or Annotation).
+    # For legacy and backwards compatibility reasons, this value also accepts
+    # fractional values in (0, 1] interval (i.e. 0.7 ⇒ 70%).
+    # Thus minimal percentage value must be greater than 1.0, or it will be
+    # treated as a fraction.
+    container-concurrency-target-percentage: "70"
+
+    # The container concurrency target default is what the Autoscaler will
+    # try to maintain when concurrency is used as the scaling metric for a
+    # Revision and the Revision specifies unlimited concurrency.
+    # Even when specifying unlimited concurrency, the autoscaler will
+    # horizontally scale the application based on this target concurrency.
+    # NOTE: Only one metric can be used for autoscaling a Revision.
+    container-concurrency-target-default: "100"
+
+    # The requests per second (RPS) target default is what the Autoscaler will
+    # try to maintain when RPS is used as the scaling metric for a Revision and
+    # the Revision specifies unlimited RPS. Even when specifying unlimited RPS,
+    # the autoscaler will horizontally scale the application based on this
+    # target RPS.
+    # Must be greater than 1.0.
+    # NOTE: Only one metric can be used for autoscaling a Revision.
+    requests-per-second-target-default: "200"
+
+    # The target burst capacity specifies the size of burst in concurrent
+    # requests that the system operator expects the system will receive.
+    # Autoscaler will try to protect the system from queueing by introducing
+    # Activator in the request path if the current spare capacity of the
+    # service is less than this setting.
+    # If this setting is 0, then Activator will be in the request path only
+    # when the revision is scaled to 0.
+    # If this setting is > 0 and container-concurrency-target-percentage is
+    # 100% or 1.0, then activator will always be in the request path.
+    # -1 denotes unlimited target-burst-capacity and activator will always
+    # be in the request path.
+    # Other negative values are invalid.
+    target-burst-capacity: "200"
+
+    # When operating in a stable mode, the autoscaler operates on the
+    # average concurrency over the stable window.
+    # Stable window must be in whole seconds.
+    stable-window: "60s"
+
+    # When observed average concurrency during the panic window reaches
+    # panic-threshold-percentage the target concurrency, the autoscaler
+    # enters panic mode. When operating in panic mode, the autoscaler
+    # scales on the average concurrency over the panic window which is
+    # panic-window-percentage of the stable-window.
+    # When computing the panic window it will be rounded to the closest
+    # whole second.
+    panic-window-percentage: "10.0"
+
+    # The percentage of the container concurrency target at which to
+    # enter panic mode when reached within the panic window.
+    panic-threshold-percentage: "200.0"
+
+    # Max scale up rate limits the rate at which the autoscaler will
+    # increase pod count. It is the maximum ratio of desired pods versus
+    # observed pods.
+    # Cannot less or equal to 1.
+    # I.e with value of 2.0 the number of pods can at most go N to 2N
+    # over single Autoscaler period (see tick-interval), but at least N to
+    # N+1, if Autoscaler needs to scale up.
+    max-scale-up-rate: "1000.0"
+
+    # Max scale down rate limits the rate at which the autoscaler will
+    # decrease pod count. It is the maximum ratio of observed pods versus
+    # desired pods.
+    # Cannot less or equal to 1.
+    # I.e. with value of 2.0 the number of pods can at most go N to N/2
+    # over single Autoscaler evaluation period (see tick-interval), but at
+    # least N to N-1, if Autoscaler needs to scale down.
+    # Not yet used // TODO(vagababov) remove once other parts are ready.
+    max-scale-down-rate: "2.0"
+
+    # Scale to zero feature flag
+    enable-scale-to-zero: "true"
+
+    # Tick interval is the time between autoscaling calculations.
+    tick-interval: "2s"
+
+    # Dynamic parameters (take effect when config map is updated):
+
+    # Scale to zero grace period is the time an inactive revision is left
+    # running before it is scaled to zero (min: 30s).
+    scale-to-zero-grace-period: "30s"
+
+    # Enable graceful scaledown feature flag.
+    # Once enabled, it allows the autoscaler to prioritize pods processing
+    # fewer (or zero) requests for removal when scaling down.
+    enable-graceful-scaledown: "false"

@@ -1,0 +1,83 @@
+# Copyright 2019 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-defaults
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
+
+data:
+  _example: |
+    ################################
+    #                              #
+    #    EXAMPLE CONFIGURATION     #
+    #                              #
+    ################################
+
+    # This block is not actually functional configuration,
+    # but serves to illustrate the available configuration
+    # options and document them in a way that is accessible
+    # to users that `kubectl edit` this config map.
+    #
+    # These sample configuration options may be copied out of
+    # this example block and unindented to be in the data block
+    # to actually change the configuration.
+
+    # revision-timeout-seconds contains the default number of
+    # seconds to use for the revision's per-request timeout, if
+    # none is specified.
+    revision-timeout-seconds: "300"  # 5 minutes
+
+    # max-revision-timeout-seconds contains the maximum number of
+    # seconds that can be used for revision-timeout-seconds.
+    # This value must be greater than or equal to revision-timeout-seconds.
+    # If omitted, the system default is used (600 seconds).
+    max-revision-timeout-seconds: "600"  # 10 minutes
+
+    # revision-cpu-request contains the cpu allocation to assign
+    # to revisions by default.  If omitted, no value is specified
+    # and the system default is used.
+    revision-cpu-request: "400m"  # 0.4 of a CPU (aka 400 milli-CPU)
+
+    # revision-memory-request contains the memory allocation to assign
+    # to revisions by default.  If omitted, no value is specified
+    # and the system default is used.
+    revision-memory-request: "100M"  # 100 megabytes of memory
+
+    # revision-cpu-limit contains the cpu allocation to limit
+    # revisions to by default.  If omitted, no value is specified
+    # and the system default is used.
+    revision-cpu-limit: "1000m"  # 1 CPU (aka 1000 milli-CPU)
+
+    # revision-memory-limit contains the memory allocation to limit
+    # revisions to by default.  If omitted, no value is specified
+    # and the system default is used.
+    revision-memory-limit: "200M"  # 200 megabytes of memory
+
+    # container-name-template contains a template for the default
+    # container name, if none is specified.  This field supports
+    # Go templating and is supplied with the ObjectMeta of the
+    # enclosing Service or Configuration, so values such as
+    # {{.Name}} are also valid.
+    container-name-template: "user-container"
+
+    # container-concurrency specifies the maximum number
+    # of requests the Container can handle at once, and requests
+    # above this threshold are queued.  Setting a value of zero
+    # disables this throttling and lets through as many requests as
+    # the pod receives.
+    container-concurrency: "0"

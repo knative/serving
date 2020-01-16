@@ -52,6 +52,14 @@ func WithHost(host string) Preparer {
 	}
 }
 
+// WithPath sets the path in the probe request.
+func WithPath(path string) Preparer {
+	return func(r *http.Request) *http.Request {
+		r.URL.Path = path
+		return r
+	}
+}
+
 // ExpectsBody validates that the body of the probe response matches the provided string.
 func ExpectsBody(body string) Verifier {
 	return func(r *http.Response, b []byte) (bool, error) {

@@ -679,7 +679,7 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 	// keep our simple tests simple, thus the [0]s...
 
 	// We expect an ingress LB with the form foo.bar.svc.cluster.local (though
-	// we aren't strictly sensitive to the suffix, this is just illustrative.
+	// we aren't strictly sensitive to the suffix, this is just illustrative).
 	internalDomain := ing.Status.PublicLoadBalancer.Ingress[0].DomainInternal
 	parts := strings.SplitN(internalDomain, ".", 3)
 	if len(parts) < 3 {
@@ -707,7 +707,7 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 		if ingress.Hostname != "" {
 			return net.Dial("tcp", ingress.Hostname+":"+port)
 		}
-		return nil, errors.New("Service ingress does not contain dialing information.")
+		return nil, errors.New("service ingress does not contain dialing information")
 	}
 }
 

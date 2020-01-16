@@ -28,7 +28,9 @@ import (
 type TimedFloat64Buckets struct {
 	bucketsMutex sync.RWMutex
 	buckets      []float64
-	lastWrite    time.Time
+	// The total sum of all valid buckets within the window.
+	windowTotal float64
+	lastWrite   time.Time
 
 	granularity time.Duration
 	window      time.Duration
@@ -52,6 +54,39 @@ func NewTimedFloat64Buckets(window, granularity time.Duration) *TimedFloat64Buck
 	}
 }
 
+// IsEmpty returns if no data has been recorded for the `window` period.
+func (t *TimedFloat64Buckets) IsEmpty(now time.Time) bool {
+	now = now.Truncate(t.granularity)
+	t.bucketsMutex.RLock()
+	defer t.bucketsMutex.RUnlock()
+	return now.Sub(t.lastWrite) > t.window
+}
+
+// WindowAverage returns the average bucket value over the window.
+func (t *TimedFloat64Buckets) WindowAverage(now time.Time) float64 {
+	now = now.Truncate(t.granularity)
+	t.bucketsMutex.RLock()
+	defer t.bucketsMutex.RUnlock()
+	switch d := now.Sub(t.lastWrite); {
+	case d <= 0:
+		// If LastWrite equal or greater than Now
+		// return the current WindowTotal.
+		return t.windowTotal / float64(len(t.buckets))
+	case d < t.window:
+		// If we haven't received metrics for some time, which is less than
+		// the window -- remove the outdated items.
+		stIdx := t.timeToIndex(t.lastWrite)
+		eIdx := t.timeToIndex(now)
+		ret := t.windowTotal
+		for i := stIdx + 1; i <= eIdx; i++ {
+			ret -= t.buckets[i%len(t.buckets)]
+		}
+		return ret / float64(len(t.buckets)-(eIdx-stIdx))
+	default: // Nothing for more than a window time, just 0.
+		return 0.
+	}
+}
+
 // timeToIndex converts time to an integer that can be used for modulo
 // operations to find the index in the bucket list.
 // bucketMutex needs to be held.
@@ -62,14 +97,8 @@ func (t *TimedFloat64Buckets) timeToIndex(tm time.Time) int {
 	return int(tm.Unix()) / int(t.granularity.Seconds())
 }
 
-func (t *TimedFloat64Buckets) reset() {
-	for i := range t.buckets {
-		t.buckets[i] = 0
-	}
-}
-
 // Record adds a value with an associated time to the correct bucket.
-func (t *TimedFloat64Buckets) Record(now time.Time, name string, value float64) {
+func (t *TimedFloat64Buckets) Record(now time.Time, value float64) {
 	bucketTime := now.Truncate(t.granularity)
 
 	t.bucketsMutex.Lock()
@@ -84,6 +113,7 @@ func (t *TimedFloat64Buckets) Record(now time.Time, name string, value float64) 
 			for i := range t.buckets {
 				t.buckets[i] = 0
 			}
+			t.windowTotal = 0
 		} else {
 			// In theory we might lose buckets between stats gathering.
 			// Thus we need to clean not only the current index, but also
@@ -91,13 +121,16 @@ func (t *TimedFloat64Buckets) Record(now time.Time, name string, value float64) 
 			// due to possible wrap-around, so they are not merged together.
 			oldIdx := t.timeToIndex(t.lastWrite)
 			for i := oldIdx + 1; i <= writeIdx; i++ {
-				t.buckets[i%len(t.buckets)] = 0
+				idx := i % len(t.buckets)
+				t.windowTotal -= t.buckets[idx]
+				t.buckets[idx] = 0
 			}
 		}
 		// Update the last write time.
 		t.lastWrite = bucketTime
 	}
 	t.buckets[writeIdx%len(t.buckets)] += value
+	t.windowTotal += value
 }
 
 // ForEachBucket calls the given Accumulator function for each bucket.
@@ -128,11 +161,6 @@ func (t *TimedFloat64Buckets) ForEachBucket(now time.Time, accs ...Accumulator) 
 	return true
 }
 
-// RemoveOlderThan removes buckets older than the given time from the state.
-func (t *TimedFloat64Buckets) RemoveOlderThan(time.Time) {
-	// RemoveOlderThan is a noop here.
-}
-
 func min(a, b int) int {
 	if a < b {
 		return a
@@ -154,6 +182,7 @@ func (t *TimedFloat64Buckets) ResizeWindow(w time.Duration) {
 	}
 	numBuckets := int(math.Ceil(float64(w) / float64(t.granularity)))
 	newBuckets := make([]float64, numBuckets)
+	newTotal := 0.
 
 	// We need write lock here.
 	// So that we can copy the existing buckets into the new array.
@@ -167,8 +196,13 @@ func (t *TimedFloat64Buckets) ResizeWindow(w time.Duration) {
 		oi := tIdx % oldNumBuckets
 		ni := tIdx % numBuckets
 		newBuckets[ni] = t.buckets[oi]
+		// In case we're shringking, make sure the total
+		// window sum will match. This is no-op in case if
+		// window is getting bigger.
+		newTotal += t.buckets[oi]
 		tIdx--
 	}
 	t.window = w
 	t.buckets = newBuckets
+	t.windowTotal = newTotal
 }

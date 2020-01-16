@@ -17,7 +17,7 @@ limitations under the License.
 package resources
 
 import (
-	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
+	cmv1alpha2 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -25,8 +25,8 @@ import (
 )
 
 // MakeCertManagerCertificate creates a Cert-Manager `Certificate` for requesting a SSL certificate.
-func MakeCertManagerCertificate(cmConfig *config.CertManagerConfig, knCert *v1alpha1.Certificate) *certmanagerv1alpha1.Certificate {
-	cert := &certmanagerv1alpha1.Certificate{
+func MakeCertManagerCertificate(cmConfig *config.CertManagerConfig, knCert *v1alpha1.Certificate) *cmv1alpha2.Certificate {
+	cert := &cmv1alpha2.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            knCert.Name,
 			Namespace:       knCert.Namespace,
@@ -34,31 +34,19 @@ func MakeCertManagerCertificate(cmConfig *config.CertManagerConfig, knCert *v1al
 			Annotations:     knCert.GetAnnotations(),
 			Labels:          knCert.GetLabels(),
 		},
-		Spec: certmanagerv1alpha1.CertificateSpec{
+		Spec: cmv1alpha2.CertificateSpec{
 			SecretName: knCert.Spec.SecretName,
 			DNSNames:   knCert.Spec.DNSNames,
 			IssuerRef:  *cmConfig.IssuerRef,
 		},
 	}
-
-	switch cmConfig.IssuerKind {
-	case "acme":
-		cert.Spec.ACME = &certmanagerv1alpha1.ACMECertificateConfig{
-			Config: []certmanagerv1alpha1.DomainSolverConfig{{
-				Domains:      knCert.Spec.DNSNames,
-				SolverConfig: *cmConfig.SolverConfig,
-			}},
-		}
-	case "ca":
-		// ca does not need any specific config.
-	}
 	return cert
 }
 
 // GetReadyCondition gets the ready condition of a Cert-Manager `Certificate`.
-func GetReadyCondition(cmCert *certmanagerv1alpha1.Certificate) *certmanagerv1alpha1.CertificateCondition {
+func GetReadyCondition(cmCert *cmv1alpha2.Certificate) *cmv1alpha2.CertificateCondition {
 	for _, cond := range cmCert.Status.Conditions {
-		if cond.Type == certmanagerv1alpha1.CertificateConditionReady {
+		if cond.Type == cmv1alpha2.CertificateConditionReady {
 			return &cond
 		}
 	}

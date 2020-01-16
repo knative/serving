@@ -14,13 +14,13 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/serving/pkg/activator"
 )
 
 func TestRequestEventHandler(t *testing.T) {
@@ -36,10 +36,8 @@ func TestRequestEventHandler(t *testing.T) {
 
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", bytes.NewBufferString(""))
-	req.Header.Add(activator.RevisionHeaderNamespace, namespace)
-	req.Header.Add(activator.RevisionHeaderName, revision)
-
-	handler.ServeHTTP(resp, req)
+	ctx := withRevID(context.Background(), types.NamespacedName{Namespace: namespace, Name: revision})
+	handler.ServeHTTP(resp, req.WithContext(ctx))
 
 	in := <-handler.ReqChan
 	wantIn := ReqEvent{

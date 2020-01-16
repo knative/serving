@@ -30,10 +30,12 @@ var (
 	gcpProjectName      string
 	repoName            string
 	benchmarkRootFolder string
+	gkeEnvironment      string
 )
 
 func main() {
 	flag.StringVar(&gcpProjectName, "gcp-project", "", "name of the GCP project for cluster operations")
+	flag.StringVar(&gkeEnvironment, "gke-environment", "prod", "Container API endpoint to use, one of 'test', 'staging', 'staging2', 'prod', or a custom https:// URL. Default to be prod.")
 	flag.StringVar(&repoName, "repository", "", "name of the repository")
 	flag.StringVar(&benchmarkRootFolder, "benchmark-root", "", "root folder of the benchmarks")
 	flag.BoolVar(&isRecreate, "recreate", false, "is recreate operation or not")
@@ -44,7 +46,7 @@ func main() {
 		log.Fatal("Only one operation can be specified, either recreate or reconcile")
 	}
 
-	client, err := testPkg.NewClient()
+	client, err := testPkg.NewClient(gkeEnvironment)
 	if err != nil {
 		log.Fatalf("Failed setting up GKE client, cannot proceed: %v", err)
 	}
