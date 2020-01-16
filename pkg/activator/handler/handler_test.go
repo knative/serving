@@ -32,6 +32,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"go.opencensus.io/plugin/ochttp"
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	rtesting "knative.dev/pkg/reconciler/testing"
@@ -267,11 +268,21 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 			reporter, co := tracetesting.FakeZipkinExporter()
 			oct := tracing.NewOpenCensusTracer(co)
 
-			cfg := tracingconfig.Config{
-				Backend: tc.traceBackend,
-				Debug:   true,
+			cm := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "config-tracing",
+				},
+				Data: map[string]string{
+					"zipkin-endpoint": "localhost:1234",
+					"backend":         string(tc.traceBackend),
+					"debug":           "true",
+				},
 			}
-			if err := oct.ApplyConfig(&cfg); err != nil {
+			cfg, err := tracingconfig.NewTracingConfigFromConfigMap(cm)
+			if err != nil {
+				t.Fatalf("Failed to generate config: %v", err)
+			}
+			if err := oct.ApplyConfig(cfg); err != nil {
 				t.Errorf("Failed to apply tracer config: %v", err)
 			}
 
@@ -283,12 +294,13 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 			}()
 
 			handler := (New(ctx, fakeThrottler{}, &fakeReporter{})).(*activationHandler)
-			handler.transport = &ochttp.Transport{
-				Base: rt,
-			}
+			handler.transport = rt
+			handler.tracingTransport = &ochttp.Transport{Base: rt}
 
 			// Set up config store to populate context.
 			configStore := setupConfigStore(t, logging.FromContext(ctx))
+			// Update the store with our "new" config explicitly.
+			configStore.OnConfigChanged(cm)
 			sendRequest(testNamespace, testRevName, handler, configStore)
 
 			gotSpans := reporter.Flush()
