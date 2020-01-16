@@ -330,7 +330,9 @@ func main() {
 	}
 
 	// Setup reporters and processes to handle stat reporting.
-	promStatReporter, err := queue.NewPrometheusStatsReporter(env.ServingNamespace, env.ServingConfiguration, env.ServingRevision, env.ServingPod, reportingPeriod)
+	promStatReporter, err := queue.NewPrometheusStatsReporter(
+		env.ServingNamespace, env.ServingConfiguration, env.ServingRevision,
+		env.ServingPod, reportingPeriod)
 	if err != nil {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
