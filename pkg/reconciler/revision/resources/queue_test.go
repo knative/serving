@@ -41,6 +41,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/network"
@@ -82,6 +83,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc   *logging.Config
 		tc   *tracingconfig.Config
 		oc   *metrics.ObservabilityConfig
+		ac   *autoscaler.Config
 		cc   *deployment.Config
 		want *corev1.Container
 	}{{
@@ -102,6 +104,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -141,6 +144,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscaler.Config{},
 		cc: &deployment.Config{
 			QueueSidecarImage: "alpine",
 		},
@@ -179,6 +183,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscaler.Config{},
 		cc: &deployment.Config{
 			QueueSidecarImage: "alpine",
 		},
@@ -219,6 +224,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -258,6 +264,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -293,6 +300,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -327,6 +335,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			RequestLogTemplate:    "test template",
 			EnableProbeRequestLog: true,
 		},
+		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -362,6 +371,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		oc: &metrics.ObservabilityConfig{
 			RequestMetricsBackend: "prometheus",
 		},
+		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -394,6 +404,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{EnableProfiling: true},
+		ac: &autoscaler.Config{},
 		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -420,7 +431,7 @@ func TestMakeQueueContainer(t *testing.T) {
 					}},
 				}
 			}
-			got, err := makeQueueContainer(test.rev, test.lc, test.tc, test.oc, test.cc)
+			got, err := makeQueueContainer(test.rev, test.lc, test.tc, test.oc, test.ac, test.cc)
 
 			if err != nil {
 				t.Fatal("makeQueueContainer returned error")
@@ -446,6 +457,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		lc   *logging.Config
 		tc   *tracingconfig.Config
 		oc   *metrics.ObservabilityConfig
+		ac   *autoscaler.Config
 		cc   *deployment.Config
 		want *corev1.Container
 	}{{
@@ -484,6 +496,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscaler.Config{},
 		cc: &deployment.Config{
 			QueueSidecarImage: "alpine",
 		},
@@ -543,6 +556,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscaler.Config{},
 		cc: &deployment.Config{
 			QueueSidecarImage: "alpine",
 		},
@@ -599,6 +613,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscaler.Config{},
 		cc: &deployment.Config{
 			QueueSidecarImage: "alpine",
 		},
@@ -653,6 +668,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscaler.Config{},
 		cc: &deployment.Config{
 			QueueSidecarImage: "alpine",
 		},
@@ -678,7 +694,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := makeQueueContainer(test.rev, test.lc, test.tc, test.oc, test.cc)
+			got, err := makeQueueContainer(test.rev, test.lc, test.tc, test.oc, test.ac, test.cc)
 			if err != nil {
 				t.Fatal("makeQueueContainer returned error")
 			}
@@ -761,6 +777,7 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 	lc := &logging.Config{}
 	tc := &tracingconfig.Config{}
 	oc := &metrics.ObservabilityConfig{}
+	ac := &autoscaler.Config{}
 	cc := &deployment.Config{}
 	want := &corev1.Container{
 		// These are effectively constant
@@ -783,7 +800,7 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 		SecurityContext: queueSecurityContext,
 	}
 
-	got, err := makeQueueContainer(rev, lc, tc, oc, cc)
+	got, err := makeQueueContainer(rev, lc, tc, oc, ac, cc)
 	if err != nil {
 		t.Fatal("makeQueueContainer returned error")
 	}
@@ -854,6 +871,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 	lc := &logging.Config{}
 	tc := &tracingconfig.Config{}
 	oc := &metrics.ObservabilityConfig{}
+	ac := &autoscaler.Config{}
 	cc := &deployment.Config{}
 	want := &corev1.Container{
 		// These are effectively constant
@@ -877,7 +895,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 		SecurityContext: queueSecurityContext,
 	}
 
-	got, err := makeQueueContainer(rev, lc, tc, oc, cc)
+	got, err := makeQueueContainer(rev, lc, tc, oc, ac, cc)
 	if err != nil {
 		t.Fatal("makeQueueContainer returned error")
 	}
@@ -1058,6 +1076,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 			lc := &logging.Config{}
 			tc := &tracingconfig.Config{}
 			oc := &metrics.ObservabilityConfig{}
+			ac := &autoscaler.Config{}
 			cc := &deployment.Config{}
 			testRev := &v1alpha1.Revision{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1076,7 +1095,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 				Value: string(wantProbeJSON),
 			})
 
-			got, err := makeQueueContainer(testRev, lc, tc, oc, cc)
+			got, err := makeQueueContainer(testRev, lc, tc, oc, ac, cc)
 			if err != nil {
 				t.Fatal("makeQueueContainer returned error")
 			}
@@ -1122,7 +1141,8 @@ func probeJSON(container *corev1.Container) string {
 		return fmt.Sprintf(testProbeJSONTemplate, v1alpha1.DefaultUserPort)
 	}
 
-	if ports := container.Ports; len(ports) > 0 && ports[0].ContainerPort != 0 {
+	ports := container.Ports
+	if len(ports) > 0 && ports[0].ContainerPort != 0 {
 		return fmt.Sprintf(testProbeJSONTemplate, ports[0].ContainerPort)
 	}
 	return fmt.Sprintf(testProbeJSONTemplate, v1alpha1.DefaultUserPort)
