@@ -1132,6 +1132,7 @@ var defaultEnv = map[string]string{
 	"ENABLE_VAR_LOG_COLLECTION":             "false",
 	"VAR_LOG_VOLUME_NAME":                   varLogVolumeName,
 	"INTERNAL_VOLUME_PATH":                  internalVolumePath,
+	"DOWNWARD_API_LABELS_PATH":              fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath),
 	"ENABLE_PROFILING":                      "false",
 	"SERVING_ENABLE_PROBE_REQUEST_LOG":      "false",
 }
@@ -1141,8 +1142,7 @@ func probeJSON(container *corev1.Container) string {
 		return fmt.Sprintf(testProbeJSONTemplate, v1alpha1.DefaultUserPort)
 	}
 
-	ports := container.Ports
-	if len(ports) > 0 && ports[0].ContainerPort != 0 {
+	if ports := container.Ports; len(ports) > 0 && ports[0].ContainerPort != 0 {
 		return fmt.Sprintf(testProbeJSONTemplate, ports[0].ContainerPort)
 	}
 	return fmt.Sprintf(testProbeJSONTemplate, v1alpha1.DefaultUserPort)

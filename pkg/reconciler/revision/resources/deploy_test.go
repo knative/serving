@@ -164,6 +164,9 @@ var (
 			Name:  "INTERNAL_VOLUME_PATH",
 			Value: internalVolumePath,
 		}, {
+			Name:  "DOWNWARD_API_LABELS_PATH",
+			Value: fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath),
+		}, {
 			Name:  "SERVING_READINESS_PROBE",
 			Value: fmt.Sprintf(`{"tcpSocket":{"port":%d,"host":"127.0.0.1"}}`, v1alpha1.DefaultUserPort),
 		}, {
@@ -287,6 +290,12 @@ func withEnvVar(name, value string) containerOption {
 func withInternalVolumeMount() containerOption {
 	return func(container *corev1.Container) {
 		container.VolumeMounts = append(container.VolumeMounts, internalVolumeMount)
+	}
+}
+
+func withPodLabelsVolumeMount() containerOption {
+	return func(container *corev1.Container) {
+		container.VolumeMounts = append(container.VolumeMounts, labelVolumeMount)
 	}
 }
 
@@ -714,6 +723,32 @@ func TestMakePodSpec(t *testing.T) {
 			},
 			func(podSpec *corev1.PodSpec) {
 				podSpec.Volumes = append(podSpec.Volumes, internalVolume)
+			},
+		),
+	}, {
+		name: "with graceful scaledown enabled",
+		rev: revision(func(revision *v1alpha1.Revision) {
+			container(revision.Spec.GetContainer(),
+				withTCPReadinessProbe(),
+			)
+		}),
+		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
+		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscaler.Config{
+			EnableGracefulScaledown: true,
+		},
+		cc: &deployment.Config{},
+		want: podSpec(
+			[]corev1.Container{
+				userContainer(),
+				queueContainer(
+					withEnvVar("DOWNWARD_API_LABELS_PATH", fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath)),
+					withPodLabelsVolumeMount(),
+				),
+			},
+			func(podSpec *corev1.PodSpec) {
+				podSpec.Volumes = append(podSpec.Volumes, labelVolume)
 			},
 		),
 	}, {

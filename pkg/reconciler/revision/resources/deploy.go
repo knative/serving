@@ -24,6 +24,7 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
 	tracingconfig "knative.dev/pkg/tracing/config"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -46,6 +47,10 @@ const (
 	varLogVolumePath   = "/var/log"
 	internalVolumeName = "knative-internal"
 	internalVolumePath = "/var/knative-internal"
+	podInfoVolumeName  = "podinfo"
+	podInfoVolumePath  = "/etc/podinfo"
+	metadataLabelsRef  = "metadata.labels"
+	metadataLabelsPath = "labels"
 )
 
 var (
@@ -59,6 +64,27 @@ var (
 	varLogVolumeMount = corev1.VolumeMount{
 		Name:      varLogVolumeName,
 		MountPath: varLogVolumePath,
+	}
+
+	labelVolume = corev1.Volume{
+		Name: podInfoVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			DownwardAPI: &corev1.DownwardAPIVolumeSource{
+				Items: []corev1.DownwardAPIVolumeFile{
+					corev1.DownwardAPIVolumeFile{
+						Path: metadataLabelsPath,
+						FieldRef: &corev1.ObjectFieldSelector{
+							FieldPath: fmt.Sprintf("%s['%s']", metadataLabelsRef, autoscaling.PreferForScaleDownLabelKey),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	labelVolumeMount = corev1.VolumeMount{
+		Name:      podInfoVolumeName,
+		MountPath: podInfoVolumePath,
 	}
 
 	internalVolume = corev1.Volume{
@@ -167,6 +193,10 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, tracingC
 	// Add the Knative internal volume only if /var/log collection is enabled
 	if observabilityConfig.EnableVarLogCollection {
 		podSpec.Volumes = append(podSpec.Volumes, internalVolume)
+	}
+
+	if autoscalerConfig.EnableGracefulScaledown {
+		podSpec.Volumes = append(podSpec.Volumes, labelVolume)
 	}
 
 	return podSpec, nil

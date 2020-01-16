@@ -224,6 +224,10 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 		volumeMounts = append(volumeMounts, internalVolumeMount)
 	}
 
+	if autoscalerConfig.EnableGracefulScaledown {
+		volumeMounts = append(volumeMounts, labelVolumeMount)
+	}
+
 	rp := rev.Spec.GetContainer().ReadinessProbe.DeepCopy()
 
 	applyReadinessProbeDefaults(rp, userPort)
@@ -324,6 +328,9 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 		}, {
 			Name:  "INTERNAL_VOLUME_PATH",
 			Value: internalVolumePath,
+		}, {
+			Name:  "DOWNWARD_API_LABELS_PATH",
+			Value: fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath),
 		}, {
 			Name:  "SERVING_READINESS_PROBE",
 			Value: probeJSON,
