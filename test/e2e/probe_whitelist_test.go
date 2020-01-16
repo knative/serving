@@ -26,6 +26,7 @@ import (
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 //This test checks if the activator can probe
@@ -33,7 +34,7 @@ import (
 //applied on the service.
 //This test needs istio side car injected and
 //istio policy check enabled.
-//policy is present test/config/security/policy.yaml
+//policy is present in test/config/security/policy.yaml
 //apply policy before running this test
 func TestProbeWhitelist(t *testing.T) {
 	t.Parallel()
@@ -46,6 +47,16 @@ func TestProbeWhitelist(t *testing.T) {
 		Service: test.ObjectNameForTest(t),
 		Image:   "helloworld",
 	}
+
+	if test.ServingFlags.Https {
+		// Save the current Gateway to restore it after the test
+		oldGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(v1a1test.Namespace).Get(v1a1test.GatewayName, metav1.GetOptions{})
+		if err != nil {
+			t.Fatalf("Failed to get Gateway %s/%s", v1a1test.Namespace, v1a1test.GatewayName)
+		}
+		test.CleanupOnInterrupt(func() { v1a1test.RestoreGateway(t, clients, *oldGateway) })
+		defer v1a1test.RestoreGateway(t, clients, *oldGateway)
+	}	
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
