@@ -25,12 +25,16 @@ import (
 	"net/http/httputil"
 	"net/url"
 
+	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/test"
 )
 
 const (
 	targetHostEnv  = "TARGET_HOST"
 	gatewayHostEnv = "GATEWAY_HOST"
+	portEnv        = "PORT" // Allow port to be customized / randomly assigned by tests
+
+	defaultPort = "8080"
 )
 
 var (
@@ -43,6 +47,14 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	// We need to manually reset it.
 	r.Host = getTargetHostEnv()
 	httpProxy.ServeHTTP(w, r)
+}
+
+func getPort() string {
+	value := os.Getenv(portEnv)
+	if value == "" {
+		return defaultPort
+	}
+	return value
 }
 
 func getTargetHostEnv() string {
@@ -71,6 +83,7 @@ func main() {
 	log.Print("HTTP Proxy app started.")
 
 	targetHost := getTargetHostEnv()
+	port := getPort()
 
 	// Gateway is an optional value. It is used only when resolvable domain is not set
 	// for external access test, as xip.io is flaky.
@@ -83,5 +96,9 @@ func main() {
 	log.Print("target is " + targetURL)
 	httpProxy = initialHTTPProxy(targetURL)
 
-	test.ListenAndServeGracefully(":8080", handler)
+	address := fmt.Sprintf(":%s", port)
+	log.Printf("Listening on address: %s", address)
+	// Handle forwarding requests which uses "K-Network-Hash" header.
+	probeHandler := network.NewProbeHandler(http.HandlerFunc(handler)).ServeHTTP
+	test.ListenAndServeGracefully(address, probeHandler)
 }
