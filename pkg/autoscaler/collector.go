@@ -46,8 +46,6 @@ var (
 
 	// ErrNotScraping denotes that the collector is not collecting metrics for the given resource.
 	ErrNotScraping = errors.New("the requested resource is not being scraped")
-
-	tickProvider = time.NewTicker
 )
 
 // StatsScraperFactory creates a StatsScraper for a given Metric.
