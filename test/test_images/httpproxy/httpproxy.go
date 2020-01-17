@@ -32,7 +32,7 @@ import (
 const (
 	targetHostEnv  = "TARGET_HOST"
 	gatewayHostEnv = "GATEWAY_HOST"
-	portEnv        = "PORT"
+	portEnv        = "PORT" // Allow port to be customized / randomly assigned by tests
 
 	defaultPort = "8080"
 )
@@ -98,5 +98,7 @@ func main() {
 
 	address := fmt.Sprintf(":%s", port)
 	log.Printf("Listening on address: %s", address)
-	test.ListenAndServeGracefully(address, network.NewProbeHandler(http.HandlerFunc(handler)).ServeHTTP)
+	// Handle forwarding requests which uses "K-Network-Hash" header.
+	probeHandler := network.NewProbeHandler(http.HandlerFunc(handler)).ServeHTTP
+	test.ListenAndServeGracefully(address, probeHandler)
 }
