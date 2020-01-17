@@ -18,6 +18,8 @@ package http
 
 import (
 	"bytes"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -36,13 +38,12 @@ var (
 		PodIP:         "ip",
 	}
 	defaultInputGetter = RequestLogTemplateInputGetterFromRevision(defaultRevInfo)
+	baseHandler        = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 )
 
 func TestRequestLogHandler(t *testing.T) {
-	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-
 	tests := []struct {
 		name                  string
 		url                   string
@@ -154,9 +155,6 @@ func TestPanickingHandler(t *testing.T) {
 }
 
 func TestFailedTemplateExecution(t *testing.T) {
-	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
 	buf := bytes.NewBufferString("")
 	handler, err := NewRequestLogHandler(
 		baseHandler, buf, "{{.Request.Something}}", defaultInputGetter, false)
@@ -175,10 +173,6 @@ func TestFailedTemplateExecution(t *testing.T) {
 }
 
 func TestSetTemplate(t *testing.T) {
-	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-
 	url, body := "http://example.com/testpage", "test"
 	tests := []struct {
 		name     string
@@ -242,4 +236,54 @@ func TestSetTemplate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func BenchmarkRequestLogHandlerNoTemplate(b *testing.B) {
+	handler, err := NewRequestLogHandler(baseHandler, ioutil.Discard, "", defaultInputGetter, false)
+	if err != nil {
+		b.Fatalf("Failed to create handler: %v", err)
+	}
+	resp := httptest.NewRecorder()
+
+	b.Run(fmt.Sprint("sequential"), func(b *testing.B) {
+		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+		for j := 0; j < b.N; j++ {
+			handler.ServeHTTP(resp, req)
+		}
+	})
+
+	b.Run(fmt.Sprint("parallel"), func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+			for pb.Next() {
+				handler.ServeHTTP(resp, req)
+			}
+		})
+	})
+}
+
+func BenchmarkRequestLogHandlerDefaultTemplate(b *testing.B) {
+	// Taken from config-observability.yaml
+	tpl := `{"httpRequest": {"requestMethod": "{{.Request.Method}}", "requestUrl": "{{js .Request.RequestURI}}", "requestSize": "{{.Request.ContentLength}}", "status": {{.Response.Code}}, "responseSize": "{{.Response.Size}}", "userAgent": "{{js .Request.UserAgent}}", "remoteIp": "{{js .Request.RemoteAddr}}", "serverIp": "{{.Revision.PodIP}}", "referer": "{{js .Request.Referer}}", "latency": "{{.Response.Latency}}s", "protocol": "{{.Request.Proto}}"}, "traceId": "{{index .Request.Header "X-B3-Traceid"}}"}`
+	handler, err := NewRequestLogHandler(baseHandler, ioutil.Discard, tpl, defaultInputGetter, false)
+	if err != nil {
+		b.Fatalf("Failed to create handler: %v", err)
+	}
+	resp := httptest.NewRecorder()
+
+	b.Run(fmt.Sprint("sequential"), func(b *testing.B) {
+		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+		for j := 0; j < b.N; j++ {
+			handler.ServeHTTP(resp, req)
+		}
+	})
+
+	b.Run(fmt.Sprint("parallel"), func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+			for pb.Next() {
+				handler.ServeHTTP(resp, req)
+			}
+		})
+	})
 }
