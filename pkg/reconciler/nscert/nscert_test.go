@@ -99,6 +99,9 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	for _, cfg := range cms {
 		configMapWatcher.OnChange(cfg)
 	}
+	if err := configMapWatcher.Start(ctx.Done()); err != nil {
+		t.Fatalf("failed to start config manager: %v", err)
+	}
 
 	var eg errgroup.Group
 	eg.Go(func() error { return controller.Run(1, ctx.Done()) })
@@ -363,9 +366,7 @@ func TestChangeDefaultDomain(t *testing.T) {
 	}
 
 	ctx, cancel, controller, watcher := newTestSetup(t, netCfg)
-	defer func() {
-		cancel()
-	}()
+	defer cancel()
 	reconciler := controller.Reconciler.(*reconciler)
 	ns := kubeNamespace("testns")
 	nsInformer := fakeinformerfactory.Get(ctx).Core().V1().Namespaces()
