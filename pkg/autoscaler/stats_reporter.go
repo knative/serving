@@ -193,10 +193,10 @@ func NewStatsReporter(ns, service, config, revision string) (*Reporter, error) {
 	// can be an empty string, so it needs a special treatment.
 	ctx, err := tag.New(
 		context.Background(),
-		tag.Insert(metrics.NamespaceTagKey, ns),
-		tag.Insert(metrics.ServiceTagKey, valueOrUnknown(service)),
-		tag.Insert(metrics.ConfigTagKey, config),
-		tag.Insert(metrics.RevisionTagKey, revision))
+		tag.Upsert(metrics.NamespaceTagKey, ns),
+		tag.Upsert(metrics.ServiceTagKey, valueOrUnknown(service)),
+		tag.Upsert(metrics.ConfigTagKey, config),
+		tag.Upsert(metrics.RevisionTagKey, revision))
 	if err != nil {
 		return nil, err
 	}
