@@ -66,8 +66,8 @@ type Reporter struct {
 func NewStatsReporter(pod string) (*Reporter, error) {
 	ctx, err := tag.New(
 		context.Background(),
-		tag.Insert(metrics.PodTagKey, pod),
-		tag.Insert(metrics.ContainerTagKey, Name),
+		tag.Upsert(metrics.PodTagKey, pod),
+		tag.Upsert(metrics.ContainerTagKey, Name),
 	)
 	if err != nil {
 		return nil, err
@@ -124,10 +124,10 @@ func (r *Reporter) ReportRequestConcurrency(ns, service, config, rev string, v i
 	// Note that service names can be an empty string, so it needs a special treatment.
 	ctx, err := tag.New(
 		r.ctx,
-		tag.Insert(metrics.NamespaceTagKey, ns),
-		tag.Insert(metrics.ServiceTagKey, valueOrUnknown(service)),
-		tag.Insert(metrics.ConfigTagKey, config),
-		tag.Insert(metrics.RevisionTagKey, rev))
+		tag.Upsert(metrics.NamespaceTagKey, ns),
+		tag.Upsert(metrics.ServiceTagKey, valueOrUnknown(service)),
+		tag.Upsert(metrics.ConfigTagKey, config),
+		tag.Upsert(metrics.RevisionTagKey, rev))
 	if err != nil {
 		return err
 	}
@@ -145,13 +145,13 @@ func (r *Reporter) ReportRequestCount(ns, service, config, rev string, responseC
 	// Note that service names can be an empty string, so it needs a special treatment.
 	ctx, err := tag.New(
 		r.ctx,
-		tag.Insert(metrics.NamespaceTagKey, ns),
-		tag.Insert(metrics.ServiceTagKey, valueOrUnknown(service)),
-		tag.Insert(metrics.ConfigTagKey, config),
-		tag.Insert(metrics.RevisionTagKey, rev),
-		tag.Insert(metrics.ResponseCodeKey, strconv.Itoa(responseCode)),
-		tag.Insert(metrics.ResponseCodeClassKey, responseCodeClass(responseCode)),
-		tag.Insert(metrics.NumTriesKey, strconv.Itoa(numTries)))
+		tag.Upsert(metrics.NamespaceTagKey, ns),
+		tag.Upsert(metrics.ServiceTagKey, valueOrUnknown(service)),
+		tag.Upsert(metrics.ConfigTagKey, config),
+		tag.Upsert(metrics.RevisionTagKey, rev),
+		tag.Upsert(metrics.ResponseCodeKey, strconv.Itoa(responseCode)),
+		tag.Upsert(metrics.ResponseCodeClassKey, responseCodeClass(responseCode)),
+		tag.Upsert(metrics.NumTriesKey, strconv.Itoa(numTries)))
 	if err != nil {
 		return err
 	}
@@ -169,12 +169,12 @@ func (r *Reporter) ReportResponseTime(ns, service, config, rev string, responseC
 	// Note that service names can be an empty string, so it needs a special treatment.
 	ctx, err := tag.New(
 		r.ctx,
-		tag.Insert(metrics.NamespaceTagKey, ns),
-		tag.Insert(metrics.ServiceTagKey, valueOrUnknown(service)),
-		tag.Insert(metrics.ConfigTagKey, config),
-		tag.Insert(metrics.RevisionTagKey, rev),
-		tag.Insert(metrics.ResponseCodeKey, strconv.Itoa(responseCode)),
-		tag.Insert(metrics.ResponseCodeClassKey, responseCodeClass(responseCode)))
+		tag.Upsert(metrics.NamespaceTagKey, ns),
+		tag.Upsert(metrics.ServiceTagKey, valueOrUnknown(service)),
+		tag.Upsert(metrics.ConfigTagKey, config),
+		tag.Upsert(metrics.RevisionTagKey, rev),
+		tag.Upsert(metrics.ResponseCodeKey, strconv.Itoa(responseCode)),
+		tag.Upsert(metrics.ResponseCodeClassKey, responseCodeClass(responseCode)))
 	if err != nil {
 		return err
 	}
