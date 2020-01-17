@@ -243,27 +243,20 @@ func BenchmarkRequestLogHandlerNoTemplate(b *testing.B) {
 	if err != nil {
 		b.Fatalf("Failed to create handler: %v", err)
 	}
-	request := func() *http.Request {
-		return httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-	}
-
 	resp := httptest.NewRecorder()
-	test := func(req *http.Request, b *testing.B) {
-		handler.ServeHTTP(resp, req)
-	}
 
-	b.Run(fmt.Sprintf("sequential"), func(b *testing.B) {
-		req := request()
+	b.Run(fmt.Sprint("sequential"), func(b *testing.B) {
+		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 		for j := 0; j < b.N; j++ {
-			test(req, b)
+			handler.ServeHTTP(resp, req)
 		}
 	})
 
-	b.Run(fmt.Sprintf("parallel"), func(b *testing.B) {
+	b.Run(fmt.Sprint("parallel"), func(b *testing.B) {
 		b.RunParallel(func(pb *testing.PB) {
-			req := request()
+			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 			for pb.Next() {
-				test(req, b)
+				handler.ServeHTTP(resp, req)
 			}
 		})
 	})
@@ -276,27 +269,20 @@ func BenchmarkRequestLogHandlerDefaultTemplate(b *testing.B) {
 	if err != nil {
 		b.Fatalf("Failed to create handler: %v", err)
 	}
-	request := func() *http.Request {
-		return httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-	}
-
 	resp := httptest.NewRecorder()
-	test := func(req *http.Request, b *testing.B) {
-		handler.ServeHTTP(resp, req)
-	}
 
-	b.Run(fmt.Sprintf("sequential"), func(b *testing.B) {
-		req := request()
+	b.Run(fmt.Sprint("sequential"), func(b *testing.B) {
+		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 		for j := 0; j < b.N; j++ {
-			test(req, b)
+			handler.ServeHTTP(resp, req)
 		}
 	})
 
-	b.Run(fmt.Sprintf("parallel"), func(b *testing.B) {
+	b.Run(fmt.Sprint("parallel"), func(b *testing.B) {
 		b.RunParallel(func(pb *testing.PB) {
-			req := request()
+			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 			for pb.Next() {
-				test(req, b)
+				handler.ServeHTTP(resp, req)
 			}
 		})
 	})
