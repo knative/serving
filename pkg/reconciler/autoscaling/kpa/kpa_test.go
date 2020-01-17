@@ -1055,13 +1055,14 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
 	kpa := revisionresources.MakePA(rev)
-	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
-
 	sks := aresources.MakeSKS(kpa, nv1a1.SKSOperationModeServe)
 	sks.Status.PrivateServiceName = "bogus"
+
 	fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
 	fakesksinformer.Get(ctx).Informer().GetIndexer().Add(sks)
+
+	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	// Wait for decider to be created.
 	if decider, err := pollDeciders(fakeDeciders, testNamespace, testRevision, nil); err != nil {
