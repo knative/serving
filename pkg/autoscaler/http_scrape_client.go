@@ -84,6 +84,17 @@ func extractData(body io.Reader) (Stat, error) {
 			}
 		}
 	}
+	// Transitional metrics, which older pods won't report.
+	for m, pv := range map[string]*float64{
+		"process_uptime": &stat.ProcessUptime, // Can be removed after 0.15 cuts.
+	} {
+		pm := prometheusMetric(metricFamilies, m)
+		// Ifgnore if not found.
+		if pm == nil {
+			continue
+		}
+		*pv = *pm.Gauge.Value
+	}
 	return stat, nil
 }
 
