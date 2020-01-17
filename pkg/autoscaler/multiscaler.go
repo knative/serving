@@ -260,7 +260,7 @@ func (m *MultiScaler) updateRunner(ctx context.Context, runner *scalerRunner) {
 
 func (m *MultiScaler) runScalerTicker(ctx context.Context, runner *scalerRunner) {
 	metricKey := types.NamespacedName{Namespace: runner.decider.Namespace, Name: runner.decider.Name}
-	ticker := tickProvider(runner.decider.Spec.TickInterval)
+	ticker := m.tickProvider(runner.decider.Spec.TickInterval)
 	go func() {
 		defer ticker.Stop()
 		for {
