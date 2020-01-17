@@ -111,7 +111,7 @@ func TestHTTPScrapeClientScrapeHappyCase(t *testing.T) {
 	}
 }
 
-func TestHTTPScrapeClientScrapeHappyCaseiWithOptionals(t *testing.T) {
+func TestHTTPScrapeClientScrapeHappyCaseWithOptionals(t *testing.T) {
 	hClient := newTestHTTPClient(getHTTPResponse(http.StatusOK, testOptionalContext), nil)
 	sClient, err := newHTTPScrapeClient(hClient)
 	if err != nil {

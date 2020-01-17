@@ -89,7 +89,7 @@ func extractData(body io.Reader) (Stat, error) {
 		"process_uptime": &stat.ProcessUptime, // Can be removed after 0.15 cuts.
 	} {
 		pm := prometheusMetric(metricFamilies, m)
-		// Ifgnore if not found.
+		// Ignore if not found.
 		if pm == nil {
 			continue
 		}
