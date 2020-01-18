@@ -71,6 +71,9 @@ type Stat struct {
 
 	// Part of RequestCount, for requests going through a proxy.
 	ProxiedRequestCount float64
+
+	// Process uptime in seconds.
+	ProcessUptime float64
 }
 
 var emptyStat = Stat{}
