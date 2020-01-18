@@ -21,16 +21,23 @@ metadata:
     knative.dev/crd-install: "true"
 spec:
   group: serving.knative.dev
+  preserveUnknownFields: false
+  validation:
+    openAPIV3Schema:
+      type: object
+      # this is a work around so we don't need to flush out the
+      # schema for each version at this time
+      x-kubernetes-preserve-unknown-fields: true
   versions:
   - name: v1alpha1
     served: true
-    storage: true
+    storage: false
   - name: v1beta1
     served: true
     storage: false
   - name: v1
     served: true
-    storage: false
+    storage: true
   names:
     kind: Revision
     plural: revisions
@@ -44,6 +51,12 @@ spec:
   scope: Namespaced
   subresources:
     status: {}
+  conversion:
+    strategy: Webhook
+    webhookClientConfig:
+      service:
+        name: webhook
+        namespace: knative-serving
   additionalPrinterColumns:
   - name: Config Name
     type: string
