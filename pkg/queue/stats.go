@@ -46,22 +46,21 @@ func NewStats(startedAt time.Time, reqCh chan ReqEvent, reportCh <-chan time.Tim
 		var (
 			requestCount       float64
 			proxiedCount       float64
-			concurrency        int32
-			proxiedConcurrency int32
+			concurrency        int
+			proxiedConcurrency int
 		)
 
 		lastChange := startedAt
-		timeOnConcurrency := make(map[int32]time.Duration)
-		timeOnProxiedConcurrency := make(map[int32]time.Duration)
+		timeOnConcurrency := make(map[int]time.Duration)
+		timeOnProxiedConcurrency := make(map[int]time.Duration)
 
 		// Updates the lastChanged/timeOnConcurrency state
-		// Note: Due to nature of the channels used below, the ReportChan
+		// Note: due to nature of the channels used below, the ReportChan
 		// can race the ReqChan, thus an event can arrive that has a lower
 		// timestamp than `lastChange`. This is ignored, since it only makes
 		// for very slight differences.
-		updateState := func(time time.Time) {
-			if time.After(lastChange) {
-				durationSinceChange := time.Sub(lastChange)
+		updateState := func(concurrency int, time time.Time) {
+			if durationSinceChange := time.Sub(lastChange); durationSinceChange > 0 {
 				timeOnConcurrency[concurrency] += durationSinceChange
 				timeOnProxiedConcurrency[proxiedConcurrency] += durationSinceChange
 				lastChange = time
@@ -71,7 +70,7 @@ func NewStats(startedAt time.Time, reqCh chan ReqEvent, reportCh <-chan time.Tim
 		for {
 			select {
 			case event := <-reqCh:
-				updateState(event.Time)
+				updateState(concurrency, event.Time)
 
 				switch event.EventType {
 				case ProxiedIn:
@@ -88,13 +87,13 @@ func NewStats(startedAt time.Time, reqCh chan ReqEvent, reportCh <-chan time.Tim
 					concurrency--
 				}
 			case now := <-reportCh:
-				updateState(now)
+				updateState(concurrency, now)
 
 				report(weightedAverage(timeOnConcurrency), weightedAverage(timeOnProxiedConcurrency), requestCount, proxiedCount)
 
 				// Reset the stat counts which have been reported.
-				timeOnConcurrency = make(map[int32]time.Duration)
-				timeOnProxiedConcurrency = make(map[int32]time.Duration)
+				timeOnConcurrency = map[int]time.Duration{}
+				timeOnProxiedConcurrency = map[int]time.Duration{}
 				requestCount = 0
 				proxiedCount = 0
 			}
@@ -102,18 +101,19 @@ func NewStats(startedAt time.Time, reqCh chan ReqEvent, reportCh <-chan time.Tim
 	}()
 }
 
-func weightedAverage(times map[int32]time.Duration) float64 {
+func weightedAverage(times map[int]time.Duration) float64 {
+	// The sum of times cannot be 0, since `updateState` above only
+	// pemits positive durations.
+	if len(times) == 0 {
+		return 0
+	}
 	var totalTimeUsed time.Duration
 	for _, val := range times {
 		totalTimeUsed += val
 	}
-	avg := 0.0
-	if totalTimeUsed > 0 {
-		sum := 0.0
-		for c, val := range times {
-			sum += float64(c) * val.Seconds()
-		}
-		avg = sum / totalTimeUsed.Seconds()
+	sum := 0.0
+	for c, val := range times {
+		sum += float64(c) * val.Seconds()
 	}
-	return avg
+	return sum / totalTimeUsed.Seconds()
 }
