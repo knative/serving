@@ -454,17 +454,20 @@ func BenchmarkWindowForEach(b *testing.B) {
 	}
 }
 
-func TestRoundTo3Digits(t *testing.T) {
-	if got, want := roundTo3Digits(3.6e-17), 0.; got != want {
+func TestRoundToNDigits(t *testing.T) {
+	if got, want := roundToNDigits(6, 3.6e-17), 0.; got != want {
 		t.Errorf("Rounding = %v, want: %v", got, want)
 	}
-	if got, want := roundTo3Digits(0.0004), 0.; got != want {
+	if got, want := roundToNDigits(3, 0.0004), 0.; got != want {
 		t.Errorf("Rounding = %v, want: %v", got, want)
 	}
-	if got, want := roundTo3Digits(1.2345), 1.234; got != want {
+	if got, want := roundToNDigits(3, 1.2345), 1.234; got != want {
 		t.Errorf("Rounding = %v, want: %v", got, want)
 	}
-	if got, want := roundTo3Digits(12345), 12345.; got != want {
+	if got, want := roundToNDigits(4, 1.2345), 1.2345; got != want {
+		t.Errorf("Rounding = %v, want: %v", got, want)
+	}
+	if got, want := roundToNDigits(6, 12345), 12345.; got != want {
 		t.Errorf("Rounding = %v, want: %v", got, want)
 	}
 
