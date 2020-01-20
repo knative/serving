@@ -506,6 +506,8 @@ func CreateGRPCService(t *testing.T, clients *test.Clients, suffix string) (stri
 
 // createService is a helper for creating the service resource.
 func createService(t *testing.T, clients *test.Clients, svc *corev1.Service) context.CancelFunc {
+	t.Helper()
+
 	test.CleanupOnInterrupt(func() {
 		clients.KubeClient.Kube.CoreV1().Services(svc.Namespace).Delete(svc.Name, &metav1.DeleteOptions{})
 	})
