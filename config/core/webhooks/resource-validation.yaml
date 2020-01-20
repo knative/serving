@@ -26,4 +26,5 @@ webhooks:
       name: webhook
       namespace: knative-serving
   failurePolicy: Fail
+  sideEffects: None
   name: validation.webhook.serving.knative.dev

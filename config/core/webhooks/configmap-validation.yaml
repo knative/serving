@@ -26,6 +26,7 @@ webhooks:
       name: webhook
       namespace: knative-serving
   failurePolicy: Fail
+  sideEffects: None
   name: config.webhook.serving.knative.dev
   namespaceSelector:
     matchExpressions:
