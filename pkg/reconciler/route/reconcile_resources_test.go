@@ -266,17 +266,25 @@ func TestReconcileIngressClassAnnotation(t *testing.T) {
 
 	r := Route("test-ns", "test-route")
 	ci := newTestIngress(t, r)
-
-	// Add ingress.class annotation.
-	ci.ObjectMeta.Annotations[networking.IngressClassAnnotationKey] = expClass
-
 	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), r, ci); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
+
 	updated := getRouteIngressFromClient(ctx, t, r)
-	updatedClass, _ := updated.ObjectMeta.Annotations[networking.IngressClassAnnotationKey]
-	if diff := cmp.Diff(expClass, updatedClass); diff != "" {
-		t.Errorf("Unexpected diff (-want +got): %v", diff)
+	fakeciinformer.Get(ctx).Informer().GetIndexer().Add(updated)
+
+	ci2 := newTestIngress(t, r)
+	// Add ingress.class annotation.
+	ci2.ObjectMeta.Annotations[networking.IngressClassAnnotationKey] = expClass
+
+	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), r, ci2); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	updated = getRouteIngressFromClient(ctx, t, r)
+	updatedClass := updated.ObjectMeta.Annotations[networking.IngressClassAnnotationKey]
+	if expClass != updatedClass {
+		t.Errorf("Unexpected annotation got %q want %q", expClass, updatedClass)
 	}
 }
 
