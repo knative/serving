@@ -141,7 +141,7 @@ func (t *TimedFloat64Buckets) Record(now time.Time, value float64) {
 
 // ForEachBucket calls the given Accumulator function for each bucket.
 // Returns true if any data was recorded.
-func (t *TimedFloat64Buckets) ForEachBucket(now time.Time, accs ...Accumulator) bool {
+func (t *TimedFloat64Buckets) ForEachBucket(now time.Time, accs ...func(time time.Time, bucket float64)) bool {
 	now = now.Truncate(t.granularity)
 	t.bucketsMutex.RLock()
 	defer t.bucketsMutex.RUnlock()
