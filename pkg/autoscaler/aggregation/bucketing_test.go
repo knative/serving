@@ -454,7 +454,7 @@ func BenchmarkWindowForEach(b *testing.B) {
 	}
 }
 
-func TestRoundTo3Digits(t *testing.T) {
+func TestRoundToNDigits(t *testing.T) {
 	if got, want := roundToNDigits(6, 3.6e-17), 0.; got != want {
 		t.Errorf("Rounding = %v, want: %v", got, want)
 	}
