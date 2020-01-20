@@ -157,8 +157,9 @@ Follow the
 if you need to set up static IP for Ingresses in the cluster.
 
 If you want to adopt preinstalled Istio, please check whether
-cluster-local-gateway is deployed in namespace istio-system or not. If it's not
-installed, please install it with following commands. You could also adjust
+the `cluster-local-gateway` Service is deployed in namespace `istio-system` or not
+(you can check by running `kubectl get service cluster-local-gateway -n istio-system`). If it's not
+installed, please install it with following command. You could also adjust
 parameters if needed.
 
 ```shell
