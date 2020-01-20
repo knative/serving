@@ -458,6 +458,9 @@ func TestRoundTo3Digits(t *testing.T) {
 	if got, want := roundTo3Digits(3.6e-17), 0.; got != want {
 		t.Errorf("Rounding = %v, want: %v", got, want)
 	}
+	if got, want := roundTo3Digits(0.0004), 0.; got != want {
+		t.Errorf("Rounding = %v, want: %v", got, want)
+	}
 	if got, want := roundTo3Digits(1.2345), 1.234; got != want {
 		t.Errorf("Rounding = %v, want: %v", got, want)
 	}

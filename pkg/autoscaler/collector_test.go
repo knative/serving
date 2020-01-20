@@ -245,6 +245,10 @@ func TestMetricCollectorRecord(t *testing.T) {
 	factory := scraperFactory(scraper, nil)
 
 	coll := NewMetricCollector(factory, logger)
+	mtp := &manualTickProvider{
+		ch: make(chan time.Time),
+	}
+	coll.tickProvider = mtp.NewTicker // This will ensure time based scraping won't interfere.
 
 	// Freshly created collection does not contain any metrics and should return an error.
 	coll.CreateOrUpdate(&defaultMetric)
@@ -267,17 +271,17 @@ func TestMetricCollectorRecord(t *testing.T) {
 	const (
 		wantS     = want / 60
 		wantP     = want / 6
-		tolerance = 0.0001
+		tolerance = 0.001
 	)
 	if math.Abs(stable-wantS) > tolerance || math.Abs(panic-wantP) > tolerance {
-		t.Errorf("StableAndPanicConcurrency() = %v, %v; want %v, %v, nil", stable, panic, want, want)
+		t.Errorf("StableAndPanicConcurrency() = %v, %v; want %v, %v, nil", stable, panic, wantS, wantP)
 	}
 	stable, panic, err = coll.StableAndPanicRPS(metricKey, now)
 	if err != nil {
 		t.Fatalf("StableAndPanicRPS: %v", err)
 	}
 	if math.Abs(stable-wantS) > tolerance || math.Abs(panic-wantP) > tolerance {
-		t.Errorf("StableAndPanicRPS() = %v, %v; want %v, %v", stable, panic, want, want)
+		t.Errorf("StableAndPanicRPS() = %v, %v; want %v, %v", stable, panic, wantS, wantP)
 	}
 }
 
