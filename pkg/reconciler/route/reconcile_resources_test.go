@@ -131,6 +131,9 @@ func TestReconcileTargetValidRevision(t *testing.T) {
 
 	// Verify last pinned annotation is updated correctly
 	newRev, err := fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(r.Namespace).Get(rev.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Error getting revision: %v", err)
+	}
 	afterTimestamp, err := getLastPinnedTimestamp(t, newRev)
 	if err != nil {
 		t.Fatalf("Error getting last pinned timestamps: %v", err)
