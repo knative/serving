@@ -62,6 +62,10 @@ func (t *TimedFloat64Buckets) IsEmpty(now time.Time) bool {
 	return now.Sub(t.lastWrite) > t.window
 }
 
+func roundTo3Digits(f float64) float64 {
+	return math.Floor(f*1000) / 1000
+}
+
 // WindowAverage returns the average bucket value over the window.
 func (t *TimedFloat64Buckets) WindowAverage(now time.Time) float64 {
 	now = now.Truncate(t.granularity)
@@ -71,7 +75,7 @@ func (t *TimedFloat64Buckets) WindowAverage(now time.Time) float64 {
 	case d <= 0:
 		// If LastWrite equal or greater than Now
 		// return the current WindowTotal.
-		return t.windowTotal / float64(len(t.buckets))
+		return roundTo3Digits(t.windowTotal / float64(len(t.buckets)))
 	case d < t.window:
 		// If we haven't received metrics for some time, which is less than
 		// the window -- remove the outdated items.
@@ -81,7 +85,7 @@ func (t *TimedFloat64Buckets) WindowAverage(now time.Time) float64 {
 		for i := stIdx + 1; i <= eIdx; i++ {
 			ret -= t.buckets[i%len(t.buckets)]
 		}
-		return ret / float64(len(t.buckets)-(eIdx-stIdx))
+		return roundTo3Digits(ret / float64(len(t.buckets)-(eIdx-stIdx)))
 	default: // Nothing for more than a window time, just 0.
 		return 0.
 	}
