@@ -28,12 +28,17 @@ import (
 type TimedFloat64Buckets struct {
 	bucketsMutex sync.RWMutex
 	buckets      []float64
-	// The total sum of all valid buckets within the window.
-	windowTotal float64
-	lastWrite   time.Time
 
+	lastWrite   time.Time
 	granularity time.Duration
 	window      time.Duration
+
+	// The total sum of all valid buckets within the window.
+	windowTotal float64
+	// The total sum of all valid buckets ceiled to the whole for stable 0 comparison.
+	// This value will only be 0 if **all** values within the window have been 0.0,
+	// regardless of their floating point precision.
+	windowTotalWhole float64
 }
 
 // Implements stringer interface.
@@ -62,10 +67,6 @@ func (t *TimedFloat64Buckets) IsEmpty(now time.Time) bool {
 	return now.Sub(t.lastWrite) > t.window
 }
 
-func roundTo3Digits(f float64) float64 {
-	return math.Floor(f*1000) / 1000
-}
-
 // WindowAverage returns the average bucket value over the window.
 func (t *TimedFloat64Buckets) WindowAverage(now time.Time) float64 {
 	now = now.Truncate(t.granularity)
@@ -75,17 +76,27 @@ func (t *TimedFloat64Buckets) WindowAverage(now time.Time) float64 {
 	case d <= 0:
 		// If LastWrite equal or greater than Now
 		// return the current WindowTotal.
-		return roundTo3Digits(t.windowTotal / float64(len(t.buckets)))
+		if t.windowTotalWhole == 0 {
+			return 0
+		}
+		return t.windowTotal / float64(len(t.buckets))
 	case d < t.window:
 		// If we haven't received metrics for some time, which is less than
 		// the window -- remove the outdated items.
 		stIdx := t.timeToIndex(t.lastWrite)
 		eIdx := t.timeToIndex(now)
 		ret := t.windowTotal
+		retWhole := t.windowTotalWhole
 		for i := stIdx + 1; i <= eIdx; i++ {
-			ret -= t.buckets[i%len(t.buckets)]
+			value := t.buckets[i%len(t.buckets)]
+			ret -= value
+			retWhole -= math.Ceil(value)
 		}
-		return roundTo3Digits(ret / float64(len(t.buckets)-(eIdx-stIdx)))
+
+		if retWhole == 0 {
+			return 0
+		}
+		return ret / float64(len(t.buckets)-(eIdx-stIdx))
 	default: // Nothing for more than a window time, just 0.
 		return 0.
 	}
@@ -118,6 +129,7 @@ func (t *TimedFloat64Buckets) Record(now time.Time, value float64) {
 				t.buckets[i] = 0
 			}
 			t.windowTotal = 0
+			t.windowTotalWhole = 0
 		} else {
 			// In theory we might lose buckets between stats gathering.
 			// Thus we need to clean not only the current index, but also
@@ -126,7 +138,9 @@ func (t *TimedFloat64Buckets) Record(now time.Time, value float64) {
 			oldIdx := t.timeToIndex(t.lastWrite)
 			for i := oldIdx + 1; i <= writeIdx; i++ {
 				idx := i % len(t.buckets)
-				t.windowTotal -= t.buckets[idx]
+				oldValue := t.buckets[idx]
+				t.windowTotal -= oldValue
+				t.windowTotalWhole -= math.Ceil(oldValue)
 				t.buckets[idx] = 0
 			}
 		}
@@ -135,6 +149,7 @@ func (t *TimedFloat64Buckets) Record(now time.Time, value float64) {
 	}
 	t.buckets[writeIdx%len(t.buckets)] += value
 	t.windowTotal += value
+	t.windowTotalWhole += math.Ceil(value)
 }
 
 // ForEachBucket calls the given Accumulator function for each bucket.
@@ -187,6 +202,7 @@ func (t *TimedFloat64Buckets) ResizeWindow(w time.Duration) {
 	numBuckets := int(math.Ceil(float64(w) / float64(t.granularity)))
 	newBuckets := make([]float64, numBuckets)
 	newTotal := 0.
+	newTotalWhole := 0.
 
 	// We need write lock here.
 	// So that we can copy the existing buckets into the new array.
@@ -203,10 +219,13 @@ func (t *TimedFloat64Buckets) ResizeWindow(w time.Duration) {
 		// In case we're shringking, make sure the total
 		// window sum will match. This is no-op in case if
 		// window is getting bigger.
-		newTotal += t.buckets[oi]
+		value := t.buckets[oi]
+		newTotal += value
+		newTotalWhole += math.Ceil(value)
 		tIdx--
 	}
 	t.window = w
 	t.buckets = newBuckets
 	t.windowTotal = newTotal
+	t.windowTotalWhole = newTotalWhole
 }

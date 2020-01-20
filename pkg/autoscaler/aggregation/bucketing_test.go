@@ -168,7 +168,6 @@ func TestTimedFloat64BucketsWindowAverage(t *testing.T) {
 	if got, want := buckets.WindowAverage(now.Add(6*time.Second)), (15.-1-2+91)/5; got != want {
 		t.Errorf("WindowAverage = %v, want: %v", got, want)
 	}
-
 }
 
 func TestTimedFloat64BucketsHoles(t *testing.T) {
@@ -209,6 +208,26 @@ func TestTimedFloat64BucketsHoles(t *testing.T) {
 	}
 	if got, want := sum, 7.; got != want {
 		t.Errorf("Sum = %v, want: %v", got, want)
+	}
+}
+
+func TestTimedFloat64BucketsVerySmall(t *testing.T) {
+	trunc1 := time.Now().Truncate(granularity)
+	buckets := NewTimedFloat64Buckets(time.Minute, granularity)
+	buckets.Record(trunc1, 0.0001) //represents a request that took 100 microseconds
+
+	for i := 0; i < 60; i++ {
+		buckets.Record(trunc1.Add(time.Duration(i)*time.Second), 0)
+	}
+
+	avg := buckets.WindowAverage(trunc1)
+	if avg == 0 {
+		t.Errorf("WindowAverage = 0, wanted a non-zero value")
+	}
+
+	avg = buckets.WindowAverage(trunc1.Add(time.Minute))
+	if avg != 0 {
+		t.Errorf("WindowAverage = %v, want 0", avg)
 	}
 }
 
@@ -452,20 +471,4 @@ func BenchmarkWindowForEach(b *testing.B) {
 			}
 		})
 	}
-}
-
-func TestRoundTo3Digits(t *testing.T) {
-	if got, want := roundTo3Digits(3.6e-17), 0.; got != want {
-		t.Errorf("Rounding = %v, want: %v", got, want)
-	}
-	if got, want := roundTo3Digits(0.0004), 0.; got != want {
-		t.Errorf("Rounding = %v, want: %v", got, want)
-	}
-	if got, want := roundTo3Digits(1.2345), 1.234; got != want {
-		t.Errorf("Rounding = %v, want: %v", got, want)
-	}
-	if got, want := roundTo3Digits(12345), 12345.; got != want {
-		t.Errorf("Rounding = %v, want: %v", got, want)
-	}
-
 }
