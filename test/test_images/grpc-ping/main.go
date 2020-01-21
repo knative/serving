@@ -19,6 +19,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -35,7 +36,7 @@ type server struct{}
 
 func (s *server) Ping(ctx context.Context, req *ping.Request) (*ping.Response, error) {
 	log.Printf("Received ping: %v", req.Msg)
-
+	time.Sleep(1 * time.Second)
 	resp := pong(req)
 
 	log.Printf("Sending pong: %v", resp.Msg)
