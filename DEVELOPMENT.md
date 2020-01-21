@@ -196,46 +196,12 @@ kubectl apply -f ./third_party/istio-1.3-latest/istio-knative-extras.yaml
 This step includes building Knative Serving, creating and pushing developer
 images and deploying them to your Kubernetes cluster.
 
-First, edit [config-network.yaml](config/config-network.yaml) as instructed
-within the file. If this file is edited and deployed after Knative Serving
-installation, the changes in it will be effective only for newly created
-revisions. Alternatively, if you are developing on GKE, you can skip the editing
-and use the patching tool in `hack/dev-patch-config-gke.sh` after deploying
-knative.
-
-Edited `config-network.yaml` example:
-
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: config-network
-  namespace: knative-serving
-  labels:
-    serving.knative.dev/release: devel
-
-data:
-  istio.sidecar.includeOutboundIPRanges: "172.30.0.0/16,172.20.0.0/16,10.10.10.0/24"
-  ingress.class: "istio.ingress.networking.knative.dev"
-```
-
-You should keep the default value for "istio.sidecar.includeOutboundIPRanges",
-when you use Minikube or Docker Desktop as the Kubernetes environment.
-
-Next, run:
+Run:
 
 ```shell
 ko apply -f config/
 
 # Optional steps
-
-# Configure outbound network for GKE.
-export PROJECT_ID="my-gcp-project-id"
-# Set K8S_CLUSTER_ZONE if using a zonal cluster
-export K8S_CLUSTER_ZONE="my-cluster-zone"
-# Set K8S_CLUSTER_REGION if using a regional cluster
-export K8S_CLUSTER_REGION="my-cluster-region"
-./hack/dev-patch-config-gke.sh my-k8s-cluster-name
 
 # Run post-install job to setup nice XIP.IO domain name.  This only works
 # if your Kubernetes LoadBalancer has an IPv4 address.
