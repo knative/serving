@@ -46,7 +46,6 @@ import (
 	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/gc"
-	metricsconfig "knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/network"
 	certconfig "knative.dev/serving/pkg/reconciler/certificate/config"
 	istioconfig "knative.dev/serving/pkg/reconciler/ingress/config"
@@ -141,7 +140,7 @@ func NewConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 			network.ConfigName:               network.NewConfigFromConfigMap,
 			istioconfig.IstioConfigName:      istioconfig.NewIstioFromConfigMap,
 			deployment.ConfigName:            deployment.NewConfigFromConfigMap,
-			metrics.ConfigMapName():          metricsconfig.NewObservabilityConfigFromConfigMap,
+			metrics.ConfigMapName():          metrics.NewObservabilityConfigFromConfigMap,
 			logging.ConfigMapName():          logging.NewConfigFromConfigMap,
 			domainconfig.DomainConfigName:    domainconfig.NewDomainFromConfigMap,
 			defaultconfig.DefaultsConfigName: defaultconfig.NewDefaultsConfigFromConfigMap,
