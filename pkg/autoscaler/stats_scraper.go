@@ -86,13 +86,13 @@ var cacheDisabledClient = &http.Client{
 // for details.
 type ServiceScraper struct {
 	sClient scrapeClient
-	counter resources.ReadyPodCounter
+	counter resources.EndpointsCounter
 	url     string
 }
 
 // NewServiceScraper creates a new StatsScraper for the Revision which
 // the given Metric is responsible for.
-func NewServiceScraper(metric *av1alpha1.Metric, counter resources.ReadyPodCounter) (*ServiceScraper, error) {
+func NewServiceScraper(metric *av1alpha1.Metric, counter resources.EndpointsCounter) (*ServiceScraper, error) {
 	sClient, err := newHTTPScrapeClient(cacheDisabledClient)
 	if err != nil {
 		return nil, err
@@ -102,7 +102,7 @@ func NewServiceScraper(metric *av1alpha1.Metric, counter resources.ReadyPodCount
 
 func newServiceScraperWithClient(
 	metric *av1alpha1.Metric,
-	counter resources.ReadyPodCounter,
+	counter resources.EndpointsCounter,
 	sClient scrapeClient) (*ServiceScraper, error) {
 	if metric == nil {
 		return nil, errors.New("metric must not be nil")

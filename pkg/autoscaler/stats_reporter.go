@@ -42,6 +42,18 @@ var (
 		"actual_pods",
 		"Number of pods that are allocated currently",
 		stats.UnitDimensionless)
+	notReadyPodCountM = stats.Int64(
+		"not_ready_pods",
+		"Number of pods that are not ready currently",
+		stats.UnitDimensionless)
+	pendingPodCountM = stats.Int64(
+		"pending_pods",
+		"Number of pods that are pending currently",
+		stats.UnitDimensionless)
+	terminatingPodCountM = stats.Int64(
+		"terminating_pods",
+		"Number of pods that are terminating currently",
+		stats.UnitDimensionless)
 	excessBurstCapacityM = stats.Float64(
 		"excess_burst_capacity",
 		"Excess burst capacity overserved over the stable window",
@@ -104,6 +116,24 @@ func register() {
 			TagKeys:     metrics.CommonRevisionKeys,
 		},
 		&view.View{
+			Description: "Number of pods that are not ready currently",
+			Measure:     notReadyPodCountM,
+			Aggregation: view.LastValue(),
+			TagKeys:     metrics.CommonRevisionKeys,
+		},
+		&view.View{
+			Description: "Number of pods that are pending currently",
+			Measure:     pendingPodCountM,
+			Aggregation: view.LastValue(),
+			TagKeys:     metrics.CommonRevisionKeys,
+		},
+		&view.View{
+			Description: "Number of pods that are terminating currently",
+			Measure:     terminatingPodCountM,
+			Aggregation: view.LastValue(),
+			TagKeys:     metrics.CommonRevisionKeys,
+		},
+		&view.View{
 			Description: "Average of requests count over the stable window",
 			Measure:     stableRequestConcurrencyM,
 			Aggregation: view.LastValue(),
@@ -161,6 +191,9 @@ type StatsReporter interface {
 	ReportDesiredPodCount(v int64) error
 	ReportRequestedPodCount(v int64) error
 	ReportActualPodCount(v int64) error
+	ReportNotReadyPodCount(v int64) error
+	ReportTerminatingPodCount(v int64) error
+	ReportPendingPodCount(v int64) error
 	ReportStableRequestConcurrency(v float64) error
 	ReportPanicRequestConcurrency(v float64) error
 	ReportTargetRequestConcurrency(v float64) error
@@ -219,6 +252,21 @@ func (r *Reporter) ReportRequestedPodCount(v int64) error {
 // ReportActualPodCount captures value v for actual pod count measure.
 func (r *Reporter) ReportActualPodCount(v int64) error {
 	return r.report(actualPodCountM.M(v))
+}
+
+// ReportNotReadyPodCount captures value v for not ready pod count measure.
+func (r *Reporter) ReportNotReadyPodCount(v int64) error {
+	return r.report(notReadyPodCountM.M(v))
+}
+
+// ReportPendingPodCount captures value v for pending pod count measure.
+func (r *Reporter) ReportPendingPodCount(v int64) error {
+	return r.report(pendingPodCountM.M(v))
+}
+
+// ReportTerminatingPodCount captures value v for terminating pod count measure.
+func (r *Reporter) ReportTerminatingPodCount(v int64) error {
+	return r.report(terminatingPodCountM.M(v))
 }
 
 // ReportExcessBurstCapacity captures value v for excess target burst capacity.

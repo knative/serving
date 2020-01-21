@@ -23,23 +23,33 @@ import (
 
 // ReadyAddressCount returns the total number of addresses ready for the given endpoint.
 func ReadyAddressCount(endpoints *corev1.Endpoints) int {
-	var total int
+	var ready int
 	for _, subset := range endpoints.Subsets {
-		total += len(subset.Addresses)
+		ready += len(subset.Addresses)
 	}
-	return total
+	return ready
 }
 
-// ReadyPodCounter provides a count of currently ready pods. This
+// NotReadyAddressCount returns the total number of addresses ready for the given endpoint.
+func NotReadyAddressCount(endpoints *corev1.Endpoints) int {
+	var notReady int
+	for _, subset := range endpoints.Subsets {
+		notReady += len(subset.NotReadyAddresses)
+	}
+	return notReady
+}
+
+// EndpointsCounter provides a count of currently ready and notReady pods. This
 // information is used by UniScaler implementations to make scaling
 // decisions. The interface prevents the UniScaler from needing to
 // know how counts are performed.
 // The int return value represents the number of pods that are ready
 // to handle incoming requests.
-// The error value is returned if the ReadyPodCounter is unable to
+// The error value is returned if the EndpointsCounter is unable to
 // calculate a value.
-type ReadyPodCounter interface {
+type EndpointsCounter interface {
 	ReadyCount() (int, error)
+	NotReadyCount() (int, error)
 }
 
 type scopedEndpointCounter struct {
@@ -56,13 +66,21 @@ func (eac *scopedEndpointCounter) ReadyCount() (int, error) {
 	return ReadyAddressCount(endpoints), nil
 }
 
-// NewScopedEndpointsCounter creates a ReadyPodCounter that uses
+func (eac *scopedEndpointCounter) NotReadyCount() (int, error) {
+	endpoints, err := eac.endpointsLister.Endpoints(eac.namespace).Get(eac.serviceName)
+	if err != nil {
+		return 0, err
+	}
+	return NotReadyAddressCount(endpoints), nil
+}
+
+// NewScopedEndpointsCounter creates a EndpointsCounter that uses
 // a count of endpoints for a namespace/serviceName as the value
 // of ready pods. The values returned by ReadyCount() will vary
 // over time.
 // lister is used to retrieve endpoints for counting with the
 // scope of namespace/serviceName.
-func NewScopedEndpointsCounter(lister corev1listers.EndpointsLister, namespace, serviceName string) ReadyPodCounter {
+func NewScopedEndpointsCounter(lister corev1listers.EndpointsLister, namespace, serviceName string) EndpointsCounter {
 	return &scopedEndpointCounter{
 		endpointsLister: lister,
 		namespace:       namespace,

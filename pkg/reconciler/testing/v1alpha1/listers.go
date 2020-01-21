@@ -201,6 +201,11 @@ func (l *Listers) GetEndpointsLister() corev1listers.EndpointsLister {
 	return corev1listers.NewEndpointsLister(l.IndexerFor(&corev1.Endpoints{}))
 }
 
+// GetPodsLister gets lister for pods.
+func (l *Listers) GetPodsLister() corev1listers.PodLister {
+	return corev1listers.NewPodLister(l.IndexerFor(&corev1.Pod{}))
+}
+
 func (l *Listers) GetSecretLister() corev1listers.SecretLister {
 	return corev1listers.NewSecretLister(l.IndexerFor(&corev1.Secret{}))
 }

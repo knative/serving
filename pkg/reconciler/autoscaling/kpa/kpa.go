@@ -42,11 +42,21 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+// podCounts keep record of the number of pods
+// for each revision
+type podCounts struct {
+	ready       int
+	notReady    int
+	pending     int
+	terminating int
+}
+
 // Reconciler tracks PAs and right sizes the ScaleTargetRef based on the
 // information from Deciders.
 type Reconciler struct {
 	*areconciler.Base
 	endpointsLister corev1listers.EndpointsLister
+	podsLister      corev1listers.PodLister
 	deciders        resources.Deciders
 	scaler          *scaler
 }
@@ -130,7 +140,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		if _, err = c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe); err != nil {
 			return fmt.Errorf("error reconciling SKS: %w", err)
 		}
-		return computeStatus(pa, scaleUnknown, 0)
+		return computeStatus(pa, scaleUnknown, podCounts{})
 	}
 
 	pa.Status.MetricsServiceName = sks.Status.PrivateServiceName
@@ -177,20 +187,40 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	// Compare the desired and observed resources to determine our situation.
 	// We fetch private endpoints here, since for scaling we're interested in the actual
 	// state of the deployment.
-	got := 0
+	ready, notReady := 0, 0
 
 	// Propagate service name.
 	pa.Status.ServiceName = sks.Status.ServiceName
 	// Currently, SKS.IsReady==True when revision has >0 ready pods.
 	if sks.Status.IsReady() {
-		podCounter := resourceutil.NewScopedEndpointsCounter(c.endpointsLister, pa.Namespace, sks.Status.PrivateServiceName)
-		got, err = podCounter.ReadyCount()
+		podEndpointCounter := resourceutil.NewScopedEndpointsCounter(c.endpointsLister, pa.Namespace, sks.Status.PrivateServiceName)
+		ready, err = podEndpointCounter.ReadyCount()
+		if err != nil {
+			return fmt.Errorf("error checking endpoints %s: %w", sks.Status.PrivateServiceName, err)
+		}
+
+		notReady, err = podEndpointCounter.NotReadyCount()
 		if err != nil {
 			return fmt.Errorf("error checking endpoints %s: %w", sks.Status.PrivateServiceName, err)
 		}
 	}
-	logger.Infof("PA scale got=%d, want=%d, ebc=%d", got, want, decider.Status.ExcessBurstCapacity)
-	return computeStatus(pa, want, got)
+
+	podCounter := resourceutil.NewNotRunningPodsCounter(c.podsLister, pa.Namespace, pa.Labels[serving.RevisionLabelKey])
+	pending, terminating, err := podCounter.PendingTerminatingCount()
+	if err != nil {
+		return fmt.Errorf("error checking pods for revision %s: %w", pa.Labels[serving.RevisionLabelKey], err)
+	}
+
+	logger.Infof("PA scale got=%d, want=%d, ebc=%d", ready, want, decider.Status.ExcessBurstCapacity)
+
+	pc := podCounts{
+		ready:       ready,
+		notReady:    notReady,
+		pending:     pending,
+		terminating: terminating,
+	}
+	logger.Infof("Observed pod counts=%#v", pc)
+	return computeStatus(pa, want, pc)
 }
 
 func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler, k8sSvc string) (*autoscaler.Decider, error) {
@@ -217,20 +247,20 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAut
 	return decider, nil
 }
 
-func computeStatus(pa *pav1alpha1.PodAutoscaler, want int32, got int) error {
-	pa.Status.DesiredScale, pa.Status.ActualScale = &want, ptr.Int32(int32(got))
+func computeStatus(pa *pav1alpha1.PodAutoscaler, want int32, pc podCounts) error {
+	pa.Status.DesiredScale, pa.Status.ActualScale = &want, ptr.Int32(int32(pc.ready))
 
-	if err := reportMetrics(pa, want, got); err != nil {
+	if err := reportMetrics(pa, want, pc); err != nil {
 		return fmt.Errorf("error reporting metrics: %w", err)
 	}
 
-	computeActiveCondition(pa, want, got)
+	computeActiveCondition(pa, want, pc.ready)
 
 	pa.Status.ObservedGeneration = pa.Generation
 	return nil
 }
 
-func reportMetrics(pa *pav1alpha1.PodAutoscaler, want int32, got int) error {
+func reportMetrics(pa *pav1alpha1.PodAutoscaler, want int32, pc podCounts) error {
 	var serviceLabel string
 	var configLabel string
 	if pa.Labels != nil {
@@ -242,7 +272,10 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, want int32, got int) error {
 		return err
 	}
 
-	reporter.ReportActualPodCount(int64(got))
+	reporter.ReportActualPodCount(int64(pc.ready))
+	reporter.ReportNotReadyPodCount(int64(pc.notReady))
+	reporter.ReportPendingPodCount(int64(pc.pending))
+	reporter.ReportTerminatingPodCount(int64(pc.terminating))
 	// Negative "want" values represent an empty metrics pipeline and thus no specific request is being made.
 	if want >= 0 {
 		reporter.ReportRequestedPodCount(int64(want))
