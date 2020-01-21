@@ -35,6 +35,7 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/network/status"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/ingress/config"
@@ -253,6 +254,11 @@ func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ing *v1alpha1
 	// First, create all needed VirtualServices.
 	kept := sets.NewString()
 	for _, d := range desired {
+		if d.GetAnnotations()[networking.IngressClassAnnotationKey] != network.IstioIngressClassName {
+			// We do not create resources that do not have istio ingress class annotation.
+			// As a result, obsoleted resources will be cleaned up.
+			continue
+		}
 		if _, err := istioaccessor.ReconcileVirtualService(ctx, ing, d, r); err != nil {
 			if kaccessor.IsNotOwned(err) {
 				ing.Status.MarkResourceNotOwned("VirtualService", d.Name)
