@@ -468,6 +468,35 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "LatestReadyUpdate", "LatestReadyRevisionName updated to %q", "revnotready-00002"),
 		},
 		Key: "foo/revnotready",
+	}, {
+		Name: "current LRR doesn't exist, LCR is ready",
+		Objects: []runtime.Object{
+			cfg("lrrnotexist", "foo", 2,
+				WithLatestCreated("lrrnotexist-00002"),
+				WithLatestReady("lrrnotexist-00001"), WithObservedGen, func(cfg *v1alpha1.Configuration) {
+					cfg.Spec.GetTemplate().Name = "lrrnotexist-00002"
+				},
+			),
+			rev("lrrnotexist", "foo", 1,
+				WithRevName("lrrnotexist-00000"),
+				WithCreationTimestamp(now), MarkRevisionReady),
+			rev("lrrnotexist", "foo", 2,
+				WithRevName("lrrnotexist-00002"),
+				WithCreationTimestamp(now), MarkRevisionReady),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfg("lrrnotexist", "foo", 2,
+				WithLatestCreated("lrrnotexist-00002"),
+				WithLatestReady("lrrnotexist-00002"),
+				WithObservedGen, func(cfg *v1alpha1.Configuration) {
+					cfg.Spec.GetTemplate().Name = "lrrnotexist-00002"
+				},
+			),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "LatestReadyUpdate", "LatestReadyRevisionName updated to %q", "lrrnotexist-00002"),
+		},
+		Key: "foo/lrrnotexist",
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {

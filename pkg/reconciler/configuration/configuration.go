@@ -127,7 +127,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration
 
 // findAndSetLatestReadyRevision finds the last ready revision and sets LatestReadyRevisionName to it.
 func (c *Reconciler) findAndSetLatestReadyRevision(ctx context.Context, config *v1.Configuration) error {
-	sortedRevisions, err := c.getSortedCreatedRevisions(config)
+	sortedRevisions, err := c.getSortedCreatedRevisions(ctx, config)
 	if err != nil {
 		return err
 	}
@@ -148,33 +148,36 @@ func (c *Reconciler) findAndSetLatestReadyRevision(ctx context.Context, config *
 
 // getSortedCreatedRevisions returns the list of created revisions sorted in descending
 // generation order between the generation of the latest ready revision and config's generation (both inclusive).
-func (c *Reconciler) getSortedCreatedRevisions(config *v1.Configuration) ([]*v1.Revision, error) {
+func (c *Reconciler) getSortedCreatedRevisions(ctx context.Context, config *v1.Configuration) ([]*v1.Revision, error) {
+	logger := logging.FromContext(ctx)
 	lister := c.revisionLister.Revisions(config.Namespace)
 	configSelector := labels.SelectorFromSet(labels.Set{
 		serving.ConfigurationLabelKey: config.Name,
 	})
 	if config.Status.LatestReadyRevisionName != "" {
 		lrr, err := lister.Get(config.Status.LatestReadyRevisionName)
+		// Record the error and continue because we still want to set the LRR to the correct revision
 		if err != nil {
-			return nil, err
-		}
-		start := lrr.Generation
-		var generations []string
-		for i := start; i <= int64(config.Generation); i++ {
-			generations = append(generations, strconv.FormatInt(i, 10))
-		}
+			logger.Errorf("Error getting latest ready revision %q: %v", config.Status.LatestReadyRevisionName, err)
+		} else {
+			start := lrr.Generation
+			var generations []string
+			for i := start; i <= int64(config.Generation); i++ {
+				generations = append(generations, strconv.FormatInt(i, 10))
+			}
 
-		// Add an "In" filter so that the configurations we get back from List have generation
-		// in range (config's latest ready generation, config's generation]
-		generationKey := serving.ConfigurationGenerationLabelKey
-		inReq, err := labels.NewRequirement(generationKey,
-			selection.In,
-			generations,
-		)
-		if err != nil {
-			return nil, err
+			// Add an "In" filter so that the configurations we get back from List have generation
+			// in range (config's latest ready generation, config's generation]
+			generationKey := serving.ConfigurationGenerationLabelKey
+			inReq, err := labels.NewRequirement(generationKey,
+				selection.In,
+				generations,
+			)
+			if err != nil {
+				return nil, err
+			}
+			configSelector = configSelector.Add(*inReq)
 		}
-		configSelector = configSelector.Add(*inReq)
 	}
 
 	list, err := lister.List(configSelector)
