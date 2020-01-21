@@ -1776,8 +1776,8 @@
   revision = "67bca2c83dfa6f2ff5e60672d531fed47604eb11"
 
 [[projects]]
-  branch = "release-0.12"
-  digest = "1:048b68ed41f274d9f9c663076f987bb4be938273ba13bc68088910ad634a354b"
+  branch = "master"
+  digest = "1:342e150dd5c3ce921be78ce3e8cbfb03aaf01b07a26258f39dc9e90caf277a2b"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1876,7 +1876,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "b8dc5fbc6d2f4717a69d15382921a51f93ab4cbb"
+  revision = "96d3b8c24c34ea7a8d9da9e7dbb65610aa9ac7b0"
 
 [[projects]]
   branch = "master"
@@ -2057,7 +2057,6 @@
     "knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/service",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake",
-    "knative.dev/pkg/client/injection/kube/informers/factory",
     "knative.dev/pkg/codegen/cmd/injection-gen",
     "knative.dev/pkg/configmap",
     "knative.dev/pkg/configmap/testing",
