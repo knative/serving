@@ -29,6 +29,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -257,6 +258,36 @@ func TestReconcileCertificateUpdate(t *testing.T) {
 	}
 	if diff := cmp.Diff(certificate, updated); diff == "" {
 		t.Error("Expected difference, but found none")
+	}
+}
+
+func TestReconcileIngressClassAnnotation(t *testing.T) {
+	ctx, _, reconciler, _, cancel := newTestReconciler(t)
+	defer cancel()
+
+	const expClass = "foo.ingress.networking.knative.dev"
+
+	r := Route("test-ns", "test-route")
+	ci := newTestIngress(t, r)
+	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), r, ci); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	updated := getRouteIngressFromClient(ctx, t, r)
+	fakeciinformer.Get(ctx).Informer().GetIndexer().Add(updated)
+
+	ci2 := newTestIngress(t, r)
+	// Add ingress.class annotation.
+	ci2.ObjectMeta.Annotations[networking.IngressClassAnnotationKey] = expClass
+
+	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), r, ci2); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	updated = getRouteIngressFromClient(ctx, t, r)
+	updatedClass := updated.ObjectMeta.Annotations[networking.IngressClassAnnotationKey]
+	if expClass != updatedClass {
+		t.Errorf("Unexpected annotation got %q want %q", expClass, updatedClass)
 	}
 }
 
