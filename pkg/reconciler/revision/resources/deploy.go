@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/apis/networking"

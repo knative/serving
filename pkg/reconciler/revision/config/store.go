@@ -22,8 +22,8 @@ import (
 	"knative.dev/serving/pkg/apis/config"
 
 	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/metrics"
 	pkgmetrics "knative.dev/pkg/metrics"
 	pkgtracing "knative.dev/pkg/tracing/config"
 	deployment "knative.dev/serving/pkg/deployment"
