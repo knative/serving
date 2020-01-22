@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/pkg/apis/duck"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -143,7 +144,7 @@ func PatchService(t pkgTest.T, clients *test.Clients, svc *v1beta1.Service, fopt
 		opt(newSvc)
 	}
 	LogResourceObject(t, ResourceObjects{Service: newSvc})
-	patchBytes, err := test.CreateBytePatch(svc, newSvc)
+	patchBytes, err := duck.CreateBytePatch(svc, newSvc)
 	if err != nil {
 		return nil, err
 	}
