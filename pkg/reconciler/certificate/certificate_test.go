@@ -346,7 +346,7 @@ func TestReconcile_HTTP01Challenges(t *testing.T) {
 		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Cert-Manager Certificate %s/%s", "foo", "knCert"),
-			Eventf(corev1.EventTypeWarning, "InternalError", "no challenge solver service for domain %s", correctDNSNames[0]),
+			Eventf(corev1.EventTypeWarning, "InternalError", "no challenge solver service for domain %s; selector=acme.cert-manager.io/http-domain=1930889501", correctDNSNames[0]),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: knCertWithStatus("knCert", "foo",
