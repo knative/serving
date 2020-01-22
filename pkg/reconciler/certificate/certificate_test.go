@@ -455,7 +455,7 @@ func TestReconcile_HTTP01Challenges(t *testing.T) {
 							Type:     v1alpha1.CertificateConditionReady,
 							Status:   corev1.ConditionUnknown,
 							Severity: apis.ConditionSeverityError,
-							Reason:   inProgressReason,
+							Reason:   "InProgress",
 						}},
 					},
 				}),
