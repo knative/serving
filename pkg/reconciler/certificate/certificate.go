@@ -22,6 +22,7 @@ import (
 	"hash/adler32"
 	"reflect"
 	"strconv"
+	"strings"
 
 	cmv1alpha2 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha2"
 	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
@@ -57,6 +58,7 @@ const (
 	notReconciledMessage = "Cert-Manager certificate has not yet been reconciled."
 	httpDomainLabel      = "acme.cert-manager.io/http-domain"
 	httpChallengePath    = "/.well-known/acme-challenge"
+	inProgressReason     = "InProgress"
 )
 
 // Reconciler implements controller.Reconciler for Certificate resources.
@@ -145,6 +147,7 @@ func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate
 	// Propagate cert-manager Certificate status to Knative Certificate.
 	cmCertReadyCondition := resources.GetReadyCondition(cmCert)
 	logger.Infof("cm cert condition %v.", cmCertReadyCondition)
+
 	switch {
 	case cmCertReadyCondition == nil:
 		knCert.Status.MarkNotReady(noCMConditionReason, noCMConditionMessage)
@@ -160,8 +163,15 @@ func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate
 		knCert.Status.MarkReady()
 		knCert.Status.HTTP01Challenges = []v1alpha1.HTTP01Challenge{}
 	case cmCertReadyCondition.Status == cmmeta.ConditionFalse:
-		knCert.Status.MarkFailed(cmCertReadyCondition.Reason, cmCertReadyCondition.Message)
-		knCert.Status.HTTP01Challenges = []v1alpha1.HTTP01Challenge{}
+		if strings.EqualFold(cmCertReadyCondition.Reason, inProgressReason) {
+			knCert.Status.MarkNotReady(cmCertReadyCondition.Reason, cmCertReadyCondition.Message)
+			if err := c.setHTTP01Challenges(knCert, cmCert); err != nil {
+				return err
+			}
+		} else {
+			knCert.Status.MarkFailed(cmCertReadyCondition.Reason, cmCertReadyCondition.Message)
+			knCert.Status.HTTP01Challenges = []v1alpha1.HTTP01Challenge{}
+		}
 	}
 	return nil
 }

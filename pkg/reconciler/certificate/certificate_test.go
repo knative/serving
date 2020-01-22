@@ -215,7 +215,9 @@ func TestReconcile(t *testing.T) {
 		Name: "set Knative Certificate ready status with CM Certificate ready status",
 		Objects: []runtime.Object{
 			knCert("knCert", "foo"),
-			cmCertWithStatus("knCert", "foo", correctDNSNames, cmmeta.ConditionTrue),
+			cmCertWithStatus("knCert", "foo", correctDNSNames, cmv1alpha2.CertificateCondition{
+				Type:   cmv1alpha2.CertificateConditionReady,
+				Status: cmmeta.ConditionTrue}),
 			nonHTTP01Issuer,
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -237,7 +239,9 @@ func TestReconcile(t *testing.T) {
 		Name: "set Knative Certificate unknown status with CM Certificate unknown status",
 		Objects: []runtime.Object{
 			knCert("knCert", "foo"),
-			cmCertWithStatus("knCert", "foo", correctDNSNames, cmmeta.ConditionUnknown),
+			cmCertWithStatus("knCert", "foo", correctDNSNames, cmv1alpha2.CertificateCondition{
+				Type:   cmv1alpha2.CertificateConditionReady,
+				Status: cmmeta.ConditionUnknown}),
 			nonHTTP01Issuer,
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -259,7 +263,9 @@ func TestReconcile(t *testing.T) {
 		Name: "set Knative Certificate not ready status with CM Certificate not ready status",
 		Objects: []runtime.Object{
 			knCert("knCert", "foo"),
-			cmCertWithStatus("knCert", "foo", correctDNSNames, cmmeta.ConditionFalse),
+			cmCertWithStatus("knCert", "foo", correctDNSNames, cmv1alpha2.CertificateCondition{
+				Type:   cmv1alpha2.CertificateConditionReady,
+				Status: cmmeta.ConditionFalse}),
 			nonHTTP01Issuer,
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -407,6 +413,53 @@ func TestReconcile_HTTP01Challenges(t *testing.T) {
 					},
 				}),
 		}},
+	}, {
+		Name: "set Status.HTTP01Challenges on Knative certificate when status failed with InProgress",
+		Key:  "foo/knCert",
+		Objects: []runtime.Object{
+			cmSolverService(correctDNSNames[0], "foo"),
+			cmSolverService(correctDNSNames[1], "foo"),
+			cmChallenge(correctDNSNames[0], "foo"),
+			cmChallenge(correctDNSNames[1], "foo"),
+			cmCertWithStatus("knCert", "foo", correctDNSNames, cmv1alpha2.CertificateCondition{
+				Type:   cmv1alpha2.CertificateConditionReady,
+				Status: cmmeta.ConditionFalse,
+				Reason: "InProgress"}),
+			knCert("knCert", "foo"),
+			http01Issuer,
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: knCertWithStatus("knCert", "foo",
+				&v1alpha1.CertificateStatus{
+					NotAfter: notAfter,
+					HTTP01Challenges: []v1alpha1.HTTP01Challenge{{
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   correctDNSNames[0],
+							Path:   "/.well-known/acme-challenge/cm-challenge-token",
+						},
+						ServiceName:      "cm-solver-" + correctDNSNames[0],
+						ServiceNamespace: "foo",
+					}, {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   correctDNSNames[1],
+							Path:   "/.well-known/acme-challenge/cm-challenge-token",
+						},
+						ServiceName:      "cm-solver-" + correctDNSNames[1],
+						ServiceNamespace: "foo",
+					}},
+					Status: duckv1.Status{
+						ObservedGeneration: generation,
+						Conditions: duckv1.Conditions{{
+							Type:     v1alpha1.CertificateConditionReady,
+							Status:   corev1.ConditionUnknown,
+							Severity: apis.ConditionSeverityError,
+							Reason:   inProgressReason,
+						}},
+					},
+				}),
+		}},
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
@@ -476,12 +529,9 @@ func cmCert(name, namespace string, dnsNames []string) *cmv1alpha2.Certificate {
 	return cert
 }
 
-func cmCertWithStatus(name, namespace string, dnsNames []string, status cmmeta.ConditionStatus) *cmv1alpha2.Certificate {
+func cmCertWithStatus(name, namespace string, dnsNames []string, condition cmv1alpha2.CertificateCondition) *cmv1alpha2.Certificate {
 	cert := cmCert(name, namespace, dnsNames)
-	cert.Status.Conditions = []cmv1alpha2.CertificateCondition{{
-		Type:   cmv1alpha2.CertificateConditionReady,
-		Status: status,
-	}}
+	cert.Status.Conditions = []cmv1alpha2.CertificateCondition{condition}
 	cert.Status.NotAfter = notAfter
 	return cert
 }
