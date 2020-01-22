@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -57,6 +56,8 @@ const (
 
 	// IstioOutboundIPRangesKey is the name of the configuration entry
 	// that specifies Istio outbound ip ranges.
+	//
+	// OBSOLETE: This will be completely removed once v1.4 is released.
 	IstioOutboundIPRangesKey = "istio.sidecar.includeOutboundIPRanges"
 
 	// DeprecatedDefaultIngressClassKey  Please use DefaultIngressClassKey instead.
@@ -153,10 +154,6 @@ type TagTemplateValues struct {
 // Config contains the networking configuration defined in the
 // network config map.
 type Config struct {
-	// IstioOutboundIPRange specifies the IP ranges to intercept
-	// by Istio sidecar.
-	IstioOutboundIPRanges string
-
 	// DefaultIngressClass specifies the default Ingress class.
 	DefaultIngressClass string
 
@@ -194,41 +191,12 @@ const (
 	HTTPRedirected HTTPProtocol = "redirected"
 )
 
-func validateAndNormalizeOutboundIPRanges(s string) (string, error) {
-	s = strings.TrimSpace(s)
-
-	// * is a valid value
-	if s == "*" {
-		return s, nil
-	}
-
-	cidrs := strings.Split(s, ",")
-	var normalized []string
-	for _, cidr := range cidrs {
-		cidr = strings.TrimSpace(cidr)
-		if len(cidr) == 0 {
-			continue
-		}
-		if _, _, err := net.ParseCIDR(cidr); err != nil {
-			return "", err
-		}
-
-		normalized = append(normalized, cidr)
-	}
-
-	return strings.Join(normalized, ","), nil
-}
-
 // NewConfigFromConfigMap creates a Config from the supplied ConfigMap
 func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 	nc := &Config{}
-	if ipr, ok := configMap.Data[IstioOutboundIPRangesKey]; !ok {
-		// It is OK for this to be absent, we will elide the annotation.
-		nc.IstioOutboundIPRanges = "*"
-	} else if normalizedIpr, err := validateAndNormalizeOutboundIPRanges(ipr); err != nil {
-		return nil, err
-	} else {
-		nc.IstioOutboundIPRanges = normalizedIpr
+	if _, ok := configMap.Data[IstioOutboundIPRangesKey]; ok {
+		// Until next version is released, the validatoin error is enabled to notify users who configure some value.
+		return nil, fmt.Errorf("%q is obsolete as outbound network access is enabled by default now. Remove it from config-network.", IstioOutboundIPRangesKey)
 	}
 
 	nc.DefaultIngressClass = IstioIngressClassName

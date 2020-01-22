@@ -41,7 +41,6 @@ import (
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 
@@ -742,7 +741,6 @@ var _ pkgreconciler.ConfigStore = (*testConfigStore)(nil)
 func ReconcilerTestConfig() *config.Config {
 	return &config.Config{
 		Deployment: getTestDeploymentConfig(),
-		Network:    &network.Config{IstioOutboundIPRanges: "*"},
 		Observability: &metrics.ObservabilityConfig{
 			LoggingURLTemplate: "http://logger.io/${REVISION_UID}",
 		},
