@@ -16,24 +16,17 @@ limitations under the License.
 package e2e
 
 import (
-	"bytes"
 	"fmt"
-	"net/http"
-	"net/url"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/gorilla/websocket"
 	"golang.org/x/sync/errgroup"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	"knative.dev/pkg/ptr"
-	pkgTest "knative.dev/pkg/test"
-	ingress "knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -44,53 +37,8 @@ import (
 )
 
 const (
-	connectRetryInterval  = 1 * time.Second
-	connectTimeout        = 1 * time.Minute
 	wsServerTestImageName = "wsserver"
 )
-
-// connect attempts to establish WebSocket connection with the Service.
-// It will retry until reaching `connectTimeout` duration.
-func connect(t *testing.T, clients *test.Clients, domain string) (*websocket.Conn, error) {
-	var (
-		err     error
-		address string
-	)
-
-	if test.ServingFlags.ResolvableDomain {
-		address = domain
-	} else if pkgTest.Flags.IngressEndpoint != "" {
-		address = pkgTest.Flags.IngressEndpoint
-	} else if address, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube); err != nil {
-		return nil, err
-	}
-
-	u := url.URL{Scheme: "ws", Host: address, Path: "/"}
-	var conn *websocket.Conn
-	waitErr := wait.PollImmediate(connectRetryInterval, connectTimeout, func() (bool, error) {
-		t.Logf("Connecting using websocket: url=%s, host=%s", u.String(), domain)
-		c, resp, err := websocket.DefaultDialer.Dial(u.String(), http.Header{"Host": {domain}})
-		if err == nil {
-			t.Log("WebSocket connection established.")
-			conn = c
-			return true, nil
-		}
-		if resp == nil {
-			// We don't have an HTTP response, probably TCP errors.
-			t.Logf("Connection failed: %v", err)
-			return false, nil
-		}
-		body := &bytes.Buffer{}
-		defer resp.Body.Close()
-		if _, readErr := body.ReadFrom(resp.Body); readErr != nil {
-			t.Logf("Connection failed: %v. Failed to read HTTP response: %v", err, readErr)
-			return false, nil
-		}
-		t.Logf("HTTP connection failed: %v. Response=%+v. ResponseBody=%q", err, resp, body.String())
-		return false, nil
-	})
-	return conn, waitErr
-}
 
 const message = "Hello, websocket"
 
