@@ -18,6 +18,7 @@ package network
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -27,6 +28,7 @@ import (
 	"text/template"
 
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/pkg/logging"
 )
 
 const (
@@ -195,8 +197,9 @@ const (
 func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 	nc := &Config{}
 	if _, ok := configMap.Data[IstioOutboundIPRangesKey]; ok {
-		// Until next version is released, the validatoin error is enabled to notify users who configure some value.
-		return nil, fmt.Errorf("%q is obsolete as outbound network access is enabled by default now. Remove it from config-network", IstioOutboundIPRangesKey)
+		// Until the next version is released, the validation check is enabled to notify users who configure some value.
+		logger := logging.FromContext(context.Background()).Named(configMap.Name)
+		logger.Warnf("%q is obsolete as outbound network access is enabled by default now. Remove it from config-network", IstioOutboundIPRangesKey)
 	}
 
 	nc.DefaultIngressClass = IstioIngressClassName

@@ -72,30 +72,6 @@ func TestConfiguration(t *testing.T) {
 			},
 		},
 	}, {
-		name:    "network configuration with obsoleted config",
-		wantErr: true,
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				IstioOutboundIPRangesKey: "10.10.10.10/33",
-			},
-		},
-	}, {
-		name:    "network configuration with obsoleted config using empty value",
-		wantErr: true,
-		config: &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.Namespace(),
-				Name:      ConfigName,
-			},
-			Data: map[string]string{
-				IstioOutboundIPRangesKey: "",
-			},
-		},
-	}, {
 		name:    "network configuration with non-Istio ingress type",
 		wantErr: false,
 		wantConfig: &Config{
