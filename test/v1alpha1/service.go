@@ -41,6 +41,7 @@ import (
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/watch"
+	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/test/spoof"
 
 	"github.com/mattbaird/jsonpatch"
@@ -253,7 +254,7 @@ func PatchServiceImage(t pkgTest.T, clients *test.Clients, svc *v1alpha1.Service
 		newSvc.Spec.ConfigurationSpec.GetTemplate().Spec.GetContainer().Image = imagePath
 	}
 	LogResourceObject(t, ResourceObjects{Service: newSvc})
-	patchBytes, err := test.CreateBytePatch(svc, newSvc)
+	patchBytes, err := duck.CreateBytePatch(svc, newSvc)
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +264,7 @@ func PatchServiceImage(t pkgTest.T, clients *test.Clients, svc *v1alpha1.Service
 // PatchService creates and applies a patch from the diff between curSvc and desiredSvc. Returns the latest service object.
 func PatchService(t pkgTest.T, clients *test.Clients, curSvc *v1alpha1.Service, desiredSvc *v1alpha1.Service) (*v1alpha1.Service, error) {
 	LogResourceObject(t, ResourceObjects{Service: desiredSvc})
-	patchBytes, err := test.CreateBytePatch(curSvc, desiredSvc)
+	patchBytes, err := duck.CreateBytePatch(curSvc, desiredSvc)
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +290,7 @@ func PatchServiceTemplateMetadata(t pkgTest.T, clients *test.Clients, svc *v1alp
 	newSvc := svc.DeepCopy()
 	newSvc.Spec.ConfigurationSpec.Template.ObjectMeta = metadata
 	LogResourceObject(t, ResourceObjects{Service: newSvc})
-	patchBytes, err := test.CreateBytePatch(svc, newSvc)
+	patchBytes, err := duck.CreateBytePatch(svc, newSvc)
 	if err != nil {
 		return nil, err
 	}

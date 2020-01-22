@@ -20,7 +20,6 @@ import (
 
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
-	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/signals"
 )
 
@@ -51,15 +50,4 @@ func ListenAndServeGracefullyWithHandler(addr string, handler http.Handler) {
 
 	<-signals.SetupSignalHandler()
 	server.Shutdown(context.Background())
-}
-
-// TODO(dangerd): Remove this and use duck.CreateBytePatch after release-0.9
-// CreateBytePatch is a helper function that creates the same content as
-// CreatePatch, but returns in []byte format instead of JSONPatch.
-func CreateBytePatch(before, after interface{}) ([]byte, error) {
-	patch, err := duck.CreatePatch(before, after)
-	if err != nil {
-		return nil, err
-	}
-	return patch.MarshalJSON()
 }

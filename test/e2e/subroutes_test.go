@@ -25,6 +25,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/test/logstream"
@@ -148,7 +149,7 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 	svcCopy := svc.DeepCopy()
 	labels.SetVisibility(&svcCopy.ObjectMeta, true)
 
-	svcpatchBytes, err := test.CreateBytePatch(svc, svcCopy)
+	svcpatchBytes, err := duck.CreateBytePatch(svc, svcCopy)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -281,7 +282,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 	svcCopy := svc.DeepCopy()
 	labels.SetVisibility(&svcCopy.ObjectMeta, true)
 
-	svcpatchBytes, err := test.CreateBytePatch(svc, svcCopy)
+	svcpatchBytes, err := duck.CreateBytePatch(svc, svcCopy)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -360,7 +361,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 	svc1Copy := svc1.DeepCopy()
 	labels.SetVisibility(&svcCopy.ObjectMeta, true)
 
-	svc1patchBytes, err := test.CreateBytePatch(svc1, svc1Copy)
+	svc1patchBytes, err := duck.CreateBytePatch(svc1, svc1Copy)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
