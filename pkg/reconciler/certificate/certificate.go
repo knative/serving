@@ -165,12 +165,11 @@ func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate
 	case cmCertReadyCondition.Status == cmmeta.ConditionFalse:
 		if strings.EqualFold(cmCertReadyCondition.Reason, inProgressReason) {
 			knCert.Status.MarkNotReady(cmCertReadyCondition.Reason, cmCertReadyCondition.Message)
-			if err := c.setHTTP01Challenges(knCert, cmCert); err != nil {
-				return err
-			}
 		} else {
 			knCert.Status.MarkFailed(cmCertReadyCondition.Reason, cmCertReadyCondition.Message)
-			knCert.Status.HTTP01Challenges = []v1alpha1.HTTP01Challenge{}
+		}
+		if err := c.setHTTP01Challenges(knCert, cmCert); err != nil {
+			return err
 		}
 	}
 	return nil
