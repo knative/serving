@@ -95,6 +95,10 @@ func (testCase *TestCase) AddProperty(name, val string) {
 
 // AddTestCase adds a testcase to the testsuite
 func (ts *TestSuite) AddTestCase(tc TestCase) {
+	ts.Tests++
+	if tc.GetTestStatus() == Failed {
+		ts.Failures++
+	}
 	ts.TestCases = append(ts.TestCases, tc)
 }
 
