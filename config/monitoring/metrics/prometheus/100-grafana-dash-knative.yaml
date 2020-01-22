@@ -811,7 +811,7 @@ data:
       "refresh": "5s",
       "schemaVersion": 16,
       "style": "dark",
-      "tags": [],
+      "tags": ["Knative"],
       "templating": {
         "list": [
           {
@@ -1095,7 +1095,7 @@ data:
       "refresh": "5s",
       "schemaVersion": 16,
       "style": "dark",
-      "tags": [],
+      "tags": ["Knative"],
       "templating": {
         "list": [
           {
