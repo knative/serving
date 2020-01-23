@@ -331,22 +331,7 @@ func (r *mockReporter) ReportRequestedPodCount(v int64) error {
 }
 
 // ReportActualPodCount of a mockReporter does nothing and return nil for error.
-func (r *mockReporter) ReportActualPodCount(v int64) error {
-	return nil
-}
-
-// ReportNotReadyPodCount of a mockReporter does nothing and return nil for error.
-func (r *mockReporter) ReportNotReadyPodCount(v int64) error {
-	return nil
-}
-
-// ReportPendingPodCount of a mockReporter does nothing and return nil for error.
-func (r *mockReporter) ReportPendingPodCount(v int64) error {
-	return nil
-}
-
-// ReportTerminatingPodCount of a mockReporter does nothing and return nil for error.
-func (r *mockReporter) ReportTerminatingPodCount(v int64) error {
+func (r *mockReporter) ReportActualPodCount(ready, notReady, terminating, pending int64) error {
 	return nil
 }
 

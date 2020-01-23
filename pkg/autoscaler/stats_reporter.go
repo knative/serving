@@ -190,10 +190,7 @@ func register() {
 type StatsReporter interface {
 	ReportDesiredPodCount(v int64) error
 	ReportRequestedPodCount(v int64) error
-	ReportActualPodCount(v int64) error
-	ReportNotReadyPodCount(v int64) error
-	ReportTerminatingPodCount(v int64) error
-	ReportPendingPodCount(v int64) error
+	ReportActualPodCount(ready, notReady, terminating, pending int64) error
 	ReportStableRequestConcurrency(v float64) error
 	ReportPanicRequestConcurrency(v float64) error
 	ReportTargetRequestConcurrency(v float64) error
@@ -249,24 +246,19 @@ func (r *Reporter) ReportRequestedPodCount(v int64) error {
 	return r.report(requestedPodCountM.M(v))
 }
 
-// ReportActualPodCount captures value v for actual pod count measure.
-func (r *Reporter) ReportActualPodCount(v int64) error {
-	return r.report(actualPodCountM.M(v))
-}
-
-// ReportNotReadyPodCount captures value v for not ready pod count measure.
-func (r *Reporter) ReportNotReadyPodCount(v int64) error {
-	return r.report(notReadyPodCountM.M(v))
-}
-
-// ReportPendingPodCount captures value v for pending pod count measure.
-func (r *Reporter) ReportPendingPodCount(v int64) error {
-	return r.report(pendingPodCountM.M(v))
-}
-
-// ReportTerminatingPodCount captures value v for terminating pod count measure.
-func (r *Reporter) ReportTerminatingPodCount(v int64) error {
-	return r.report(terminatingPodCountM.M(v))
+// ReportActualPodCount captures values for ready, not ready, terminating, and pending pod count measure.
+func (r *Reporter) ReportActualPodCount(ready, notReady, terminating, pending int64) error {
+	var err error
+	if err = r.report(actualPodCountM.M(ready)); err != nil {
+		return err
+	}
+	if err = r.report(notReadyPodCountM.M(notReady)); err != nil {
+		return err
+	}
+	if err = r.report(terminatingPodCountM.M(terminating)); err != nil {
+		return err
+	}
+	return r.report(pendingPodCountM.M(pending))
 }
 
 // ReportExcessBurstCapacity captures value v for excess target burst capacity.
