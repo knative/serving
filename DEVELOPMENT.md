@@ -188,7 +188,7 @@ kubectl apply -f ./third_party/istio-1.3-latest/istio-knative-extras.yaml
    services, you need to install the full cert-manager.
 
    ```shell
-   kubectl apply -f ./third_party/cert-manager-0.12.0/cert-manager.yaml 
+   kubectl apply -f ./third_party/cert-manager-0.12.0/cert-manager.yaml
    ```
 
 ### Deploy Knative Serving
