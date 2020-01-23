@@ -28,6 +28,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -54,6 +55,19 @@ import (
 )
 
 var rootCAs = x509.NewCertPool()
+
+// uaRoundTripper wraps the given http.RoundTripper and
+// sets a custom UserAgent.
+type uaRoundTripper struct {
+	http.RoundTripper
+	ua string
+}
+
+// RoundTrip implements http.RoundTripper.
+func (ua *uaRoundTripper) RoundTrip(rq *http.Request) (*http.Response, error) {
+	rq.Header.Set("User-Agent", ua.ua)
+	return ua.RoundTripper.RoundTrip(rq)
+}
 
 // CreateRuntimeService creates a Kubernetes service that will respond to the protocol
 // specified with the given portName.  It returns the service name, the port on
@@ -644,9 +658,12 @@ func CreateIngressReady(t *testing.T, clients *test.Clients, spec v1alpha1.Ingre
 	}
 
 	return ing, &http.Client{
-		Transport: &http.Transport{
-			DialContext:     dialer,
-			TLSClientConfig: tlsConfig,
+		Transport: &uaRoundTripper{
+			RoundTripper: &http.Transport{
+				DialContext:     dialer,
+				TLSClientConfig: tlsConfig,
+			},
+			ua: fmt.Sprintf("knative.dev/%s/%s", t.Name(), ing.Name),
 		},
 	}, cancel
 }
