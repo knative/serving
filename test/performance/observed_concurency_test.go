@@ -165,20 +165,20 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
 
-	baseUrl := objs.Route.Status.URL.URL()
+	baseURL := objs.Route.Status.URL.URL()
 
 	// See https://github.com/knative/serving/issues/5573 for why we need this
 	if _, err = pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
-		baseUrl,
+		baseURL,
 		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"ObservedConcurrency",
 		test.ServingFlags.ResolvableDomain); err != nil {
-		t.Fatalf("Error probing %s: %v", baseUrl, err)
+		t.Fatalf("Error probing %s: %v", baseURL, err)
 	}
 
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, baseUrl.Hostname(), test.ServingFlags.ResolvableDomain)
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, baseURL.Hostname(), test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("Error creating spoofing client: %v", err)
 	}
@@ -193,7 +193,7 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 
 	t.Logf("Running %d concurrent requests for %v", concurrency, duration)
 
-	url := fmt.Sprintf("http://%s/?timeout=1000", baseUrl.Hostname())
+	url := fmt.Sprintf("http://%s/?timeout=1000", baseURL.Hostname())
 	eg.Go(func() error {
 		return generateTraffic(t, client, url, concurrency, duration, responseChannel)
 	})
