@@ -255,7 +255,7 @@ func computeStatus(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 		return fmt.Errorf("error reporting metrics: %w", err)
 	}
 
-	computeActiveCondition(pa, pc.want, pc.ready)
+	computeActiveCondition(pa, pc)
 
 	pa.Status.ObservedGeneration = pa.Generation
 	return nil
@@ -297,11 +297,11 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 //    | -1   | >= min | inactive   | inactive   |
 //    | -1   | >= min | activating | active     |
 //    | -1   | >= min | active     | active     |
-func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want, got int) {
+func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, pc podCounts) {
 	minReady := activeThreshold(pa)
 
 	switch {
-	case want == 0:
+	case pc.want == 0:
 		if pa.Status.IsActivating() {
 			// We only ever scale to zero while activating if we fail to activate within the progress deadline.
 			pa.Status.MarkInactive("TimedOut", "The target could not be activated.")
@@ -309,14 +309,14 @@ func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want, got int) {
 			pa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
 		}
 
-	case got < minReady:
-		if want > 0 || !pa.Status.IsInactive() {
+	case pc.ready < minReady:
+		if pc.want > 0 || !pa.Status.IsInactive() {
 			pa.Status.MarkActivating(
 				"Queued", "Requests to the target are being buffered as resources are provisioned.")
 		}
 
-	case got >= minReady:
-		if want > 0 || !pa.Status.IsInactive() {
+	case pc.ready >= minReady:
+		if pc.want > 0 || !pa.Status.IsInactive() {
 			// SKS should already be active.
 			pa.Status.MarkActive()
 		}
