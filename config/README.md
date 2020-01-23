@@ -20,9 +20,8 @@ The files in this directory are organized as follows:
 
 The Core is complex enough that it further breaks down as follows:
 
-- `rbac/`: The service accounts, [cluster] roles, and [cluster] role bindings
-  needed for the core controllers to function, or to plug knative/serving into
-  standard Kubernetes RBAC constructs.
+- `roles/`: The [cluster] roles needed for the core controllers to function,
+  or to plug knative/serving into standard Kubernetes RBAC constructs.
 - `configmaps/`: The configmaps that are used to configure the core components.
 - `resources/`: The serving resource definitions.
 - `webhooks/`: The serving {mutating, validating} admission webhook
