@@ -155,7 +155,7 @@ func GetTotalCoverage(webhookIP string) (*coveragecalculator.CoverageValues, err
 
 	resp, err := client.Get(fmt.Sprintf(WebhookTotalCoverageEndPoint, webhookIP))
 	if err != nil {
-		return nil, fmt.Errorf("encountered error making total coverage request")
+		return nil, fmt.Errorf("encountered error making total coverage request: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("invalid HTTP Status received for total coverage request. Status: %d", resp.StatusCode)
@@ -163,7 +163,7 @@ func GetTotalCoverage(webhookIP string) (*coveragecalculator.CoverageValues, err
 
 	var body []byte
 	if body, err = ioutil.ReadAll(resp.Body); err != nil {
-		return nil, fmt.Errorf("error reading total coverage response: %v", err)
+		return nil, fmt.Errorf("error reading total coverage response: %w", err)
 	}
 
 	var coverage coveragecalculator.CoverageValues
