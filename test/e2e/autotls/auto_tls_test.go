@@ -1,5 +1,3 @@
-// +build e2e
-
 /*
 Copyright 2020 The Knative Authors
 
@@ -25,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -100,6 +99,54 @@ func TestPerKsvcCert_localCA(t *testing.T) {
 	// curl HTTPS
 	httpsClient := createHTTPSClient(t, tlsClients, objects, rootCAs)
 	testingress.RuntimeRequest(t, httpsClient, "https://"+objects.Service.Status.URL.Host)
+}
+
+func TestPerKsvcCert_HTTP01(t *testing.T) {
+	tlsClients := initializeClients(t)
+	disableNamespaceCert(t, tlsClients)
+
+	cancel := turnOnAutoTLS(t, tlsClients)
+	defer cancel()
+
+	// Create Knative Service
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   "runtime",
+	}
+	test.CleanupOnInterrupt(func() { test.TearDown(tlsClients.clients, names) })
+	objects, err := v1test.CreateServiceReady(t, tlsClients.clients, &names)
+	if err != nil {
+		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
+	}
+
+	// check Kcert path
+
+	// Check ingress path
+
+	// wait for certificate to be ready
+	waitForCertificateReady(t, tlsClients, routenames.Certificate(objects.Route))
+
+	// curl HTTPS
+	rootCAs := createRootCAs(t, tlsClients, objects)
+	httpsClient := createHTTPSClient(t, tlsClients, objects, rootCAs)
+	testingress.RuntimeRequest(t, httpsClient, "https://"+objects.Service.Status.URL.Host)
+}
+
+func createRootCAs(t *testing.T, tlsClients *autoTLSClients, objects *v1test.ResourceObjects) *x509.CertPool {
+	secret, err := tlsClients.clients.KubeClient.Kube.CoreV1().Secrets(objects.Route.Namespace).Get(
+		routenames.Certificate(objects.Route), metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get Secret %s: %v", routenames.Certificate(objects.Route), err)
+	}
+
+	rootCAs, _ := x509.SystemCertPool()
+	if rootCAs == nil {
+		rootCAs = x509.NewCertPool()
+	}
+	if ok := rootCAs.AppendCertsFromPEM(secret.Data[corev1.TLSCertKey]); !ok {
+		t.Fatalf("Failed to add the certificate to the root CA")
+	}
+	return rootCAs
 }
 
 func createHTTPSClient(t *testing.T, tlsClients *autoTLSClients, objects *v1test.ResourceObjects, rootCAs *x509.CertPool) *http.Client {
