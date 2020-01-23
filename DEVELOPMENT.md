@@ -176,7 +176,7 @@ kubectl apply -f ./third_party/istio-1.3-latest/istio-knative-extras.yaml
 1. Deploy `cert-manager` CRDs
 
    ```shell
-   kubectl apply -f ./third_party/cert-manager-0.9.1/cert-manager-crds.yaml
+   kubectl apply -f ./third_party/cert-manager-0.12.0/cert-manager-crds.yaml
    while [[ $(kubectl get crd certificates.certmanager.k8s.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
      echo "Waiting on Cert-Manager CRDs"; sleep 1
    done
@@ -188,8 +188,7 @@ kubectl apply -f ./third_party/istio-1.3-latest/istio-knative-extras.yaml
    services, you need to install the full cert-manager.
 
    ```shell
-   # For kubernetes version 1.13 or above, --validate=false is not needed.
-   kubectl apply -f ./third_party/cert-manager-0.9.1/cert-manager.yaml --validate=false
+   kubectl apply -f ./third_party/cert-manager-0.12.0/cert-manager.yaml 
    ```
 
 ### Deploy Knative Serving
