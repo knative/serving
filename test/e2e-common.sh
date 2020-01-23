@@ -465,10 +465,10 @@ function test_setup() {
   if [[ -n "${KOURIER_VERSION}" ]]; then
     # we must set these override values to allow the test spoofing client to work with Kourier
     # see https://github.com/knative/pkg/blob/release-0.7/test/ingress/ingress.go#L37
-    export GATEWAY_OVERRIDE=kourier-external
+    export GATEWAY_OVERRIDE=kourier
     export GATEWAY_NAMESPACE_OVERRIDE=kourier-system
     wait_until_pods_running kourier-system || return 1
-    wait_until_service_has_external_ip kourier-system kourier-external
+    wait_until_service_has_external_ip kourier-system kourier
   fi
   if [[ -n "${AMBASSADOR_VERSION}" ]]; then
     # we must set these override values to allow the test spoofing client to work with Ambassador
