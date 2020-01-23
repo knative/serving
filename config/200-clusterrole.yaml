@@ -1,1 +1,1 @@
-core/rbac/200-clusterrole.yaml
+core/roles/clusterrole.yaml

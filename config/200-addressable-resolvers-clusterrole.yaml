@@ -1,1 +1,1 @@
-core/rbac/200-addressable-resolvers-clusterrole.yaml
+core/roles/addressable-resolvers-clusterrole.yaml
