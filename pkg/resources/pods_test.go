@@ -17,7 +17,7 @@ limitations under the License.
 package resources
 
 import (
-	"fmt"
+	"strconv"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -88,51 +88,35 @@ func TestScopedPodsCounter(t *testing.T) {
 	}
 }
 
+func pod(name string, phase corev1.PodPhase) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: testNamespace,
+			Labels:    map[string]string{serving.RevisionLabelKey: testService},
+		},
+		Status: corev1.PodStatus{
+			Phase: phase,
+		},
+	}
+}
+
 func pods(running, pending, terminating int) []*corev1.Pod {
 	pods := make([]*corev1.Pod, 0, running+pending+terminating)
 
 	for i := 0; i < running; i++ {
-		p := &corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("running-pod-%d", i),
-				Namespace: testNamespace,
-				Labels:    map[string]string{serving.RevisionLabelKey: testService},
-			},
-			Status: corev1.PodStatus{
-				Phase: corev1.PodRunning,
-			},
-		}
-		pods = append(pods, p)
+		pods = append(pods, pod("running-pod-"+strconv.Itoa(i), corev1.PodRunning))
 	}
 
+	now := metav1.Now()
 	for i := 0; i < terminating; i++ {
-		now := metav1.Now()
-		p := &corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:              fmt.Sprintf("terminating-pod-%d", i),
-				Namespace:         testNamespace,
-				DeletionTimestamp: &now,
-				Labels:            map[string]string{serving.RevisionLabelKey: testService},
-			},
-			Status: corev1.PodStatus{
-				Phase: corev1.PodRunning,
-			},
-		}
+		p := pod("terminating-pod-"+strconv.Itoa(i), corev1.PodRunning)
+		p.DeletionTimestamp = &now
 		pods = append(pods, p)
 	}
 
 	for i := 0; i < pending; i++ {
-		p := &corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("pending-pod-%d", i),
-				Namespace: testNamespace,
-				Labels:    map[string]string{serving.RevisionLabelKey: testService},
-			},
-			Status: corev1.PodStatus{
-				Phase: corev1.PodPending,
-			},
-		}
-		pods = append(pods, p)
+		pods = append(pods, pod("pending-pod-"+strconv.Itoa(i), corev1.PodPending))
 	}
 
 	return pods
