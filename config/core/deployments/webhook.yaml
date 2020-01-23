@@ -70,6 +70,8 @@ spec:
           containerPort: 9090
         - name: profiling
           containerPort: 8008
+        - name: https-webhook
+          containerPort: 8443
 
 ---
 apiVersion: v1
