@@ -37,3 +37,29 @@ func TestServingRoundTripTypesToJSON(t *testing.T) {
 	)
 	roundtrip.ExternalTypesViaJSON(t, scheme, fuzzerFuncs)
 }
+
+func TestServingRoundTripTypesToBetaHub(t *testing.T) {
+	scheme := runtime.NewScheme()
+
+	sb := runtime.SchemeBuilder{
+		AddToScheme,
+		v1.AddToScheme,
+	}
+
+	utilruntime.Must(sb.AddToScheme(scheme))
+
+	hubs := runtime.NewScheme()
+	hubs.AddKnownTypes(SchemeGroupVersion,
+		&Route{},
+		&Revision{},
+		&Configuration{},
+		&Service{},
+	)
+
+	fuzzerFuncs := fuzzer.MergeFuzzerFuncs(
+		pkgfuzzer.Funcs,
+		v1.FuzzerFuncs,
+	)
+
+	roundtrip.ExternalTypesViaHub(t, scheme, hubs, fuzzerFuncs)
+}
