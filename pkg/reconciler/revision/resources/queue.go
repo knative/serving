@@ -56,11 +56,15 @@ var (
 		Name:          requestQueueHTTPPortName,
 		ContainerPort: int32(networking.BackendHTTP2Port),
 	}
+
+	// When run with the Istio mesh, Envoy blocks traffic to any ports not
+	// recognized, and has special treatment for probes, but not PreStop hooks.
+	// That results in the PreStop hook /wait-for-drain in queue-proxy not
+	// reachable, thus triggering SIGTERM immediately during shutdown and
+	// causing requests to be dropped.
+	//
+	// So we DON'T expose this port here to work around this Istio bug.
 	queueNonServingPorts = []corev1.ContainerPort{{
-		// Provides health checks and lifecycle hooks.
-		Name:          v1alpha1.QueueAdminPortName,
-		ContainerPort: int32(networking.QueueAdminPort),
-	}, {
 		Name:          v1alpha1.AutoscalingQueueMetricsPortName,
 		ContainerPort: int32(networking.AutoscalingQueueMetricsPort),
 	}, {
