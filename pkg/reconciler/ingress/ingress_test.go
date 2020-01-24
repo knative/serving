@@ -268,7 +268,6 @@ func TestReconcile(t *testing.T) {
 					Namespace: "test-ns",
 					Labels: map[string]string{
 						networking.IngressLabelKey:     "reconcile-failed",
-						serving.RouteLabelKey:          "test-route",
 						serving.RouteNamespaceLabelKey: "test-ns",
 					},
 					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ing("reconcile-failed", 1234))},
@@ -323,7 +322,6 @@ func TestReconcile(t *testing.T) {
 					Namespace: "test-ns",
 					Labels: map[string]string{
 						networking.IngressLabelKey:     "reconcile-virtualservice",
-						serving.RouteLabelKey:          "test-route",
 						serving.RouteNamespaceLabelKey: "test-ns",
 					},
 					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ing("reconcile-virtualservice", 1234))},
@@ -336,7 +334,6 @@ func TestReconcile(t *testing.T) {
 					Namespace: "test-ns",
 					Labels: map[string]string{
 						networking.IngressLabelKey:     "reconcile-virtualservice",
-						serving.RouteLabelKey:          "test-route",
 						serving.RouteNamespaceLabelKey: "test-ns",
 					},
 					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(ing("reconcile-virtualservice", 1234))},
@@ -429,7 +426,6 @@ func TestReconcile(t *testing.T) {
 					Namespace: "test-ns",
 					Labels: map[string]string{
 						networking.IngressLabelKey:     "reconcile-virtualservice",
-						serving.RouteLabelKey:          "test-route",
 						serving.RouteNamespaceLabelKey: "test-ns",
 					},
 					Annotations:     map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName},
@@ -443,7 +439,6 @@ func TestReconcile(t *testing.T) {
 					Namespace: "test-ns",
 					Labels: map[string]string{
 						networking.IngressLabelKey:     "reconcile-virtualservice",
-						serving.RouteLabelKey:          "test-route",
 						serving.RouteNamespaceLabelKey: "test-ns",
 					},
 					Annotations:     map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName},

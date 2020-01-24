@@ -270,10 +270,9 @@ func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ing *v1alpha1
 	}
 
 	// Now, remove the extra ones.
-	// TODO(https://github.com/knative/serving/issues/6363):  Switch to use networking.IngressLabelKey instead.
 	vses, err := r.virtualServiceLister.VirtualServices(resources.VirtualServiceNamespace(ing)).List(
 		labels.Set(map[string]string{
-			serving.RouteLabelKey:          ing.GetLabels()[serving.RouteLabelKey],
+			networking.IngressLabelKey:     ing.GetName(),
 			serving.RouteNamespaceLabelKey: ing.GetLabels()[serving.RouteNamespaceLabelKey]}).AsSelector())
 	if err != nil {
 		return fmt.Errorf("failed to get VirtualServices: %w", err)
