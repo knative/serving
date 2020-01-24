@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 
 	"knative.dev/pkg/apis"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -34,14 +33,8 @@ func (source *Configuration) ConvertUp(ctx context.Context, obj apis.Convertible
 			return err
 		}
 		return source.Status.ConvertUp(ctx, &sink.Status)
-	case *v1.Configuration:
-		sink.ObjectMeta = source.ObjectMeta
-		if err := source.Spec.ConvertUp(ctx, &sink.Spec); err != nil {
-			return err
-		}
-		return source.Status.ConvertUp(ctx, &sink.Status)
 	default:
-		return fmt.Errorf("unknown version, got: %T", sink)
+		return apis.ConvertUpViaProxy(ctx, source, &v1beta1.Configuration{}, sink)
 	}
 }
 
@@ -64,8 +57,7 @@ func (source *ConfigurationSpec) ConvertUp(ctx context.Context, sink *v1.Configu
 
 // ConvertUp helps implement apis.Convertible
 func (source *ConfigurationStatus) ConvertUp(ctx context.Context, sink *v1.ConfigurationStatus) error {
-	source.Status.ConvertTo(ctx, &sink.Status)
-
+	source.Status.ConvertTo(ctx, &sink.Status, v1.IsConfigurationCondition)
 	return source.ConfigurationStatusFields.ConvertUp(ctx, &sink.ConfigurationStatusFields)
 }
 
@@ -85,14 +77,8 @@ func (sink *Configuration) ConvertDown(ctx context.Context, obj apis.Convertible
 			return err
 		}
 		return sink.Status.ConvertDown(ctx, source.Status)
-	case *v1.Configuration:
-		sink.ObjectMeta = source.ObjectMeta
-		if err := sink.Spec.ConvertDown(ctx, source.Spec); err != nil {
-			return err
-		}
-		return sink.Status.ConvertDown(ctx, source.Status)
 	default:
-		return fmt.Errorf("unknown version, got: %T", source)
+		return apis.ConvertDownViaProxy(ctx, source, &v1beta1.Configuration{}, sink)
 	}
 }
 
@@ -104,7 +90,7 @@ func (sink *ConfigurationSpec) ConvertDown(ctx context.Context, source v1.Config
 
 // ConvertDown helps implement apis.Convertible
 func (sink *ConfigurationStatus) ConvertDown(ctx context.Context, source v1.ConfigurationStatus) error {
-	source.Status.ConvertTo(ctx, &sink.Status)
+	source.Status.ConvertTo(ctx, &sink.Status, v1.IsConfigurationCondition)
 
 	return sink.ConfigurationStatusFields.ConvertDown(ctx, source.ConfigurationStatusFields)
 }
