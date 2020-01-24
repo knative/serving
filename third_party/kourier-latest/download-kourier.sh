@@ -17,7 +17,7 @@
 set -ex
 
 # Download Kourier
-KOURIER_VERSION=0.3.7
+KOURIER_VERSION=0.3.8
 KOURIER_YAML=kourier-knative.yaml
 DOWNLOAD_URL=https://raw.githubusercontent.com/3scale/kourier/v${KOURIER_VERSION}/deploy/${KOURIER_YAML}
 
