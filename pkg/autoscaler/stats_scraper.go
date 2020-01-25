@@ -45,9 +45,18 @@ const (
 	// to retry if a Scrape returns an error or if the Scrape goes to a pod we already
 	// scraped.
 	scraperMaxRetries = 10
+
+	// If the sample size is smaller than this, then we don't consider age.
+	minSampleSizeToConsiderAge = 4
 )
 
 var (
+	// Pod older than 1 minute is considered old enough for its
+	// stat to be included in the sample immediately.
+	// This number is arbitrary decided to be equal to the default
+	// stable window.
+	youngPodCutOffSecs = time.Minute.Seconds()
+
 	// ErrFailedGetEndpoints specifies the error returned by scraper when it fails to
 	// get endpoints.
 	ErrFailedGetEndpoints = errors.New("failed to get endpoints")
@@ -146,12 +155,13 @@ func (s *ServiceScraper) Scrape() (Stat, error) {
 	sampleSize := populationMeanSampleSize(readyPodsCount)
 	statCh := make(chan Stat, sampleSize)
 	scrapedPods := &sync.Map{}
+	youngPods := &sync.Map{}
 
 	grp := errgroup.Group{}
 	for i := 0; i < sampleSize; i++ {
 		grp.Go(func() error {
 			for tries := 1; ; tries++ {
-				stat, err := s.tryScrape(scrapedPods)
+				stat, err := s.tryScrape(scrapedPods, youngPods, sampleSize)
 				if err == nil {
 					statCh <- stat
 					return nil
@@ -176,11 +186,10 @@ func (s *ServiceScraper) Scrape() (Stat, error) {
 		avgProxiedConcurrency float64
 		reqCount              float64
 		proxiedReqCount       float64
-		successCount          float64
 	)
 
+	successCount := float64(len(statCh))
 	for stat := range statCh {
-		successCount++
 		avgConcurrency += stat.AverageConcurrentRequests
 		avgProxiedConcurrency += stat.AverageProxiedConcurrentRequests
 		reqCount += stat.RequestCount
@@ -210,12 +219,23 @@ func (s *ServiceScraper) Scrape() (Stat, error) {
 	}, nil
 }
 
-// tryScrape runs a single scrape and checks if this pod wasn't already scraped
-// against the given already scraped pods.
-func (s *ServiceScraper) tryScrape(scrapedPods *sync.Map) (Stat, error) {
+// tryScrape runs a single scrape and checks if this pod is young enough or
+// this pod wasn't already scraped against the given already scraped pods.
+func (s *ServiceScraper) tryScrape(scrapedPods, youngPods *sync.Map, sampleSize int) (Stat, error) {
 	stat, err := s.sClient.Scrape(s.url)
 	if err != nil {
 		return emptyStat, err
+	}
+
+	// Check the pod life span, if we have enough pod diversity.
+	// TODO(vagababov): remove `ProcessUptime > 0` check in 0.14.
+	if sampleSize >= minSampleSizeToConsiderAge && stat.ProcessUptime > 0 && stat.ProcessUptime < youngPodCutOffSecs {
+		// If the pod has already been returned once, then permit it. Since
+		// in theory _all_ our aods could be young pods.
+		if _, ok := youngPods.LoadOrStore(stat.PodName, struct{}{}); !ok {
+			return emptyStat, ErrDidNotReceiveStat
+		}
+		// Othwerwise, fall through to the other check.
 	}
 
 	if _, exists := scrapedPods.LoadOrStore(stat.PodName, struct{}{}); exists {
