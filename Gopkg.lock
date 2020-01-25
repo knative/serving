@@ -566,7 +566,7 @@
   revision = "bf2b5ad3c0a925c44a0d2842c5d8182113cd248e"
 
 [[projects]]
-  digest = "1:1e59759b895f57302df03c5632dc6bbedcdf6782a2b6259246ff653dd214ac45"
+  digest = "0:"
   name = "github.com/jetstack/cert-manager"
   packages = [
     "pkg/apis/acme",
@@ -1009,10 +1009,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:316acdd3d33465ea10eb1a5a10d4de4918f0a2373f87233d6dee80e8aba14c91"
+  digest = "1:d2e36d62407a0c1c5a47b2db12b26b1d2f90ea4e960e37d6d10f924865ab0f88"
   name = "google.golang.org/api"
   packages = [
     "container/v1beta1",
+    "dns/v1",
     "googleapi",
     "googleapi/transport",
     "internal",
@@ -1966,7 +1967,10 @@
     "golang.org/x/net/context",
     "golang.org/x/net/http2",
     "golang.org/x/net/http2/h2c",
+    "golang.org/x/oauth2",
+    "golang.org/x/oauth2/google",
     "golang.org/x/sync/errgroup",
+    "google.golang.org/api/dns/v1",
     "google.golang.org/grpc",
     "istio.io/api/networking/v1alpha3",
     "istio.io/client-go/pkg/apis/networking/v1alpha3",
@@ -2057,7 +2061,6 @@
     "knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/service",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake",
-    "knative.dev/pkg/client/injection/kube/informers/factory",
     "knative.dev/pkg/codegen/cmd/injection-gen",
     "knative.dev/pkg/configmap",
     "knative.dev/pkg/configmap/testing",

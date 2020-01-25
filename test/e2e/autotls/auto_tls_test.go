@@ -21,6 +21,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"testing"
 	"time"
@@ -51,7 +52,8 @@ import (
 )
 
 const (
-	systemNamespace = "knative-serving"
+	systemNamespace   = "knative-serving"
+	dnsRecordDeadline = 600 // 10 min
 )
 
 var (
@@ -121,6 +123,7 @@ func TestPerKsvcCert_localCA(t *testing.T) {
 }
 
 func TestPerKsvcCert_HTTP01(t *testing.T) {
+	t.Skip("Test environment is not ready. Can only be ran locally.")
 	tlsClients := initializeClients(t)
 	disableNamespaceCert(t, tlsClients)
 
@@ -133,7 +136,7 @@ func TestPerKsvcCert_HTTP01(t *testing.T) {
 
 	// Create Knative Service
 	names := test.ResourceNames{
-		Service: test.ObjectNameForTest(t),
+		Service: fmt.Sprintf("t%d", time.Now().Unix()),
 		Image:   "runtime",
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(tlsClients.clients, names) })
@@ -141,9 +144,10 @@ func TestPerKsvcCert_HTTP01(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
-	setupDNSRecord(t, cfg, tlsClients)
+	cancel := setupDNSRecord(t, env, tlsClients, objects.Route.Status.URL.Host)
+	defer cancel()
 
-	cancel := turnOnAutoTLS(t, tlsClients)
+	cancel = turnOnAutoTLS(t, tlsClients)
 	defer cancel()
 
 	// check Kcert path
@@ -321,23 +325,23 @@ func waitForCertificateReady(t *testing.T, tlsClients *autoTLSClients, certName 
 	}
 }
 
-func setupDNSRecord(t *testing.T, cfg config, tlsClients *autoTLSClients) context.CancelFunc {
+func setupDNSRecord(t *testing.T, cfg config, tlsClients *autoTLSClients, domain string) context.CancelFunc {
 	ip, err := ingress.GetIngressEndpoint(tlsClients.clients.KubeClient.Kube)
 	if err != nil {
 		t.Fatalf("Failed to get Gateway IP address %v.", err)
 	}
 	dnsRecord := &dnsRecord{
-		domain: ,
+		domain: domain,
 		ip:     ip,
 	}
 	if err := createDNSRecord(cfg, dnsRecord); err != nil {
 		t.Fatalf("Failed to create DNS record: %v", err)
 	}
-	if  err := waitForDNSRecordVisibleLocally(dns); err != nil {
-		deleteDNSR(t,cfg,dnsRecord)
+	if err := waitForDNSRecordVisibleLocally(dnsRecord); err != nil {
+		deleteDNSRecord(t, cfg, dnsRecord)
 		t.Fatalf("Failed to wait for DNS record to be visible: %v", err)
 	}
-	t.Logf("DNS record %v was set up.", dns)
+	t.Logf("DNS record %v was set up.", dnsRecord)
 	return func() {
 		deleteDNSRecord(t, cfg, dnsRecord)
 	}
@@ -356,29 +360,6 @@ func waitForDNSRecordVisibleLocally(record *dnsRecord) error {
 		}
 		return false, nil
 	})
-}
-
-func createDNSRecord(cfg config, dnsRecord *dnsRecord) error {
-	record := makeRecordSet(cfg, dnsRecord)
-	svc, err := getCloudDNSSvc(cfg.CloudDnsServiceAccountKeyFile)
-	if err != nil {
-		return err
-	}
-	// Look for existing records.
-	if list, err := svc.ResourceRecordSets.List(
-		cfg.CloudDnsProject, cfg.DnsZone).Name(record.Name).Type("A").Do(); err != nil {
-		return err
-	} else if len(list.Rrsets) > 0 {
-		return fmt.Errorf("record for domain %s already exists", record.Name)
-	}
-
-	addition := &dns.Change{
-		Additions: []*dns.ResourceRecordSet{record},
-	}
-	if err := changeDNSRecord(cfg, addition, svc); err != nil {
-		return err
-	}
-	return nil
 }
 
 func createDNSRecord(cfg config, dnsRecord *dnsRecord) error {
@@ -428,6 +409,22 @@ func makeRecordSet(cfg config, record *dnsRecord) *dns.ResourceRecordSet {
 		Ttl:     int64(10),
 		Type:    "A",
 	}
+}
+
+func changeDNSRecord(cfg config, change *dns.Change, svc *dns.Service) error {
+	chg, err := svc.Changes.Create(cfg.CloudDnsProject, cfg.DnsZone, change).Do()
+	if err != nil {
+		return err
+	}
+	// wait for change to be acknowledged
+	for chg.Status == "pending" {
+		time.Sleep(time.Second)
+		chg, err = svc.Changes.Get(cfg.CloudDnsProject, cfg.DnsZone, chg.Id).Do()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // reference: https://github.com/jetstack/cert-manager/blob/master/pkg/issuer/acme/dns/clouddns/clouddns.go
