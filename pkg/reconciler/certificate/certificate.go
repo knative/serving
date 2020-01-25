@@ -23,6 +23,8 @@ import (
 	"reflect"
 	"strconv"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	cmv1alpha2 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha2"
 	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	"go.uber.org/zap"
@@ -58,6 +60,10 @@ const (
 	httpDomainLabel      = "acme.cert-manager.io/http-domain"
 	httpChallengePath    = "/.well-known/acme-challenge"
 )
+
+// It comes from cert-manager status:
+// https://github.com/jetstack/cert-manager/blob/b7e83b53820e712e7cf6b8dce3e5a050f249da79/pkg/controller/certificates/sync.go#L130
+var notReadyReasons = sets.NewString("InProgress", "Pending", "TemporaryCertificate")
 
 // Reconciler implements controller.Reconciler for Certificate resources.
 type Reconciler struct {
@@ -145,23 +151,24 @@ func (c *Reconciler) reconcile(ctx context.Context, knCert *v1alpha1.Certificate
 	// Propagate cert-manager Certificate status to Knative Certificate.
 	cmCertReadyCondition := resources.GetReadyCondition(cmCert)
 	logger.Infof("cm cert condition %v.", cmCertReadyCondition)
+
 	switch {
 	case cmCertReadyCondition == nil:
 		knCert.Status.MarkNotReady(noCMConditionReason, noCMConditionMessage)
-		if err := c.setHTTP01Challenges(knCert, cmCert); err != nil {
-			return err
-		}
+		return c.setHTTP01Challenges(knCert, cmCert)
 	case cmCertReadyCondition.Status == cmmeta.ConditionUnknown:
 		knCert.Status.MarkNotReady(cmCertReadyCondition.Reason, cmCertReadyCondition.Message)
-		if err := c.setHTTP01Challenges(knCert, cmCert); err != nil {
-			return err
-		}
+		return c.setHTTP01Challenges(knCert, cmCert)
 	case cmCertReadyCondition.Status == cmmeta.ConditionTrue:
 		knCert.Status.MarkReady()
 		knCert.Status.HTTP01Challenges = []v1alpha1.HTTP01Challenge{}
 	case cmCertReadyCondition.Status == cmmeta.ConditionFalse:
-		knCert.Status.MarkFailed(cmCertReadyCondition.Reason, cmCertReadyCondition.Message)
-		knCert.Status.HTTP01Challenges = []v1alpha1.HTTP01Challenge{}
+		if notReadyReasons.Has(cmCertReadyCondition.Reason) {
+			knCert.Status.MarkNotReady(cmCertReadyCondition.Reason, cmCertReadyCondition.Message)
+		} else {
+			knCert.Status.MarkFailed(cmCertReadyCondition.Reason, cmCertReadyCondition.Message)
+		}
+		return c.setHTTP01Challenges(knCert, cmCert)
 	}
 	return nil
 }
