@@ -35,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"knative.dev/pkg/system"
 	pkgtest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/ingress"
 	"knative.dev/serving/pkg/apis/networking"
@@ -55,7 +56,6 @@ import (
 )
 
 const (
-	systemNamespace   = "knative-serving"
 	dnsRecordDeadline = 600 // 10 min
 )
 
@@ -140,7 +140,6 @@ func TestPerKsvcCert_HTTP01(t *testing.T) {
 	if err := envconfig.Process("", &env); err != nil {
 		t.Fatalf("Failed to process environment variable: %v.", err)
 	}
-	t.Logf("Environment variables are %v.", env)
 
 	// Create Knative Service
 	names := test.ResourceNames{
@@ -261,7 +260,7 @@ func updateConfigCertManangerCM(t *testing.T, tlsClients *autoTLSClients, cluste
 		t.Fatalf("Failed to convert IssuerRef %v to bytes: %v", issuerRef, err)
 	}
 
-	certManagerCM, err := tlsClients.clients.KubeClient.Kube.CoreV1().ConfigMaps(systemNamespace).Get("config-certmanager", metav1.GetOptions{})
+	certManagerCM, err := tlsClients.clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get("config-certmanager", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get config-certmanager ConfigMap: %v", err)
 	}
@@ -278,7 +277,7 @@ func updateConfigCertManangerCM(t *testing.T, tlsClients *autoTLSClients, cluste
 }
 
 func cleanUpConfigCertManagerCM(t *testing.T, tlsClients *autoTLSClients) {
-	certManagerCM, err := tlsClients.clients.KubeClient.Kube.CoreV1().ConfigMaps(systemNamespace).Get("config-certmanager", metav1.GetOptions{})
+	certManagerCM, err := tlsClients.clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get("config-certmanager", metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Failed to get config-certmanager ConfigMap: %v", err)
 		return
@@ -290,7 +289,7 @@ func cleanUpConfigCertManagerCM(t *testing.T, tlsClients *autoTLSClients) {
 }
 
 func turnOnAutoTLS(t *testing.T, tlsClients *autoTLSClients) context.CancelFunc {
-	configNetworkCM, err := tlsClients.clients.KubeClient.Kube.CoreV1().ConfigMaps(systemNamespace).Get("config-network", metav1.GetOptions{})
+	configNetworkCM, err := tlsClients.clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get("config-network", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get config-network ConfigMap: %v", err)
 	}
@@ -298,7 +297,7 @@ func turnOnAutoTLS(t *testing.T, tlsClients *autoTLSClients) context.CancelFunc 
 	test.CleanupOnInterrupt(func() {
 		turnOffAutoTLS(t, tlsClients)
 	})
-	if _, err := tlsClients.clients.KubeClient.Kube.CoreV1().ConfigMaps(systemNamespace).Update(configNetworkCM); err != nil {
+	if _, err := tlsClients.clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Update(configNetworkCM); err != nil {
 		t.Fatalf("Failed to update config-network ConfigMap: %v", err)
 	}
 	return func() {
@@ -307,7 +306,7 @@ func turnOnAutoTLS(t *testing.T, tlsClients *autoTLSClients) context.CancelFunc 
 }
 
 func turnOffAutoTLS(t *testing.T, tlsClients *autoTLSClients) {
-	configNetworkCM, err := tlsClients.clients.KubeClient.Kube.CoreV1().ConfigMaps(systemNamespace).Get("config-network", metav1.GetOptions{})
+	configNetworkCM, err := tlsClients.clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get("config-network", metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Failed to get config-network ConfigMap: %v", err)
 		return
@@ -394,10 +393,7 @@ func setupDNSRecord(t *testing.T, cfg config, tlsClients *autoTLSClients, domain
 
 func waitForDNSRecordVisibleLocally(record *dnsRecord) error {
 	return wait.PollImmediate(10*time.Second, dnsRecordDeadline*time.Second, func() (bool, error) {
-		ips, err := net.LookupHost(record.domain)
-		if err != nil {
-			return false, nil
-		}
+		ips, _ := net.LookupHost(record.domain)
 		for _, ip := range ips {
 			if ip == record.ip {
 				return true, nil
@@ -424,10 +420,7 @@ func createDNSRecord(cfg config, dnsRecord *dnsRecord) error {
 	addition := &dns.Change{
 		Additions: []*dns.ResourceRecordSet{record},
 	}
-	if err := changeDNSRecord(cfg, addition, svc); err != nil {
-		return err
-	}
-	return nil
+	return changeDNSRecord(cfg, addition, svc)
 }
 
 func deleteDNSRecord(t *testing.T, cfg config, dnsRecord *dnsRecord) {
@@ -451,8 +444,9 @@ func makeRecordSet(cfg config, record *dnsRecord) *dns.ResourceRecordSet {
 	return &dns.ResourceRecordSet{
 		Name:    dnsName,
 		Rrdatas: []string{record.ip},
-		Ttl:     int64(10),
-		Type:    "A",
+		// Setting TTL of DNS record to 5 second to make DNS become effective more quickly.
+		Ttl:  int64(5),
+		Type: "A",
 	}
 }
 
