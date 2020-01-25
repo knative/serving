@@ -25,6 +25,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -95,8 +96,7 @@ func unaryTest(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.
 	if err != nil {
 		t.Fatalf("Couldn't send request: %v", err)
 	}
-
-	if got.Msg != want.Msg {
+	if !strings.HasPrefix(got.Msg, want.Msg) {
 		t.Errorf("Response = %q, want = %q", got.Msg, want.Msg)
 	}
 }
@@ -115,11 +115,13 @@ func autoscaleTest(t *testing.T, resources *v1a1test.ResourceObjects, clients *t
 	assertGRPCAutoscaleUpToNumPods(ctx, 1, 3, 60*time.Second, host, domain)
 	assertScaleDown(ctx)
 	assertGRPCAutoscaleUpToNumPods(ctx, 0, 3, 60*time.Second, host, domain)
-
 }
 
-func generateGRPCTraffic(t *testing.T, targetConcurrency int, host, domain string) error {
+func generateGRPCTraffic(t *testing.T, targetConcurrency int, host, domain string) (sync.Map, error) {
+	t.Helper()
 	var grp errgroup.Group
+	uniqueHost := sync.Map{}
+
 	for i := 0; i < targetConcurrency; i++ {
 		i := i
 		grp.Go(func() error {
@@ -137,13 +139,20 @@ func generateGRPCTraffic(t *testing.T, targetConcurrency int, host, domain strin
 				return fmt.Errorf("Could not send request: %v", err)
 			}
 
-			if got.Msg != want.Msg {
+			if !strings.HasPrefix(got.Msg, want.Msg) {
 				return fmt.Errorf("Response = %q, want = %q", got.Msg, want.Msg)
 			}
+
+			host := strings.TrimPrefix(got.Msg, want.Msg)
+			uniqueHost.Store(host, struct{}{})
 			return nil
 		})
 	}
-	return grp.Wait()
+
+	if err := grp.Wait(); err != nil {
+		return uniqueHost, err
+	}
+	return uniqueHost, nil
 }
 
 func assertGRPCAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float64, duration time.Duration, host, domain string) {
@@ -157,21 +166,33 @@ func assertGRPCAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float6
 	maxPods := math.Ceil(targetPods/ctx.targetUtilization) + 1
 
 	stopChan := make(chan struct{})
-
 	var grp errgroup.Group
+
 	grp.Go(func() error {
-		return generateGRPCTraffic(ctx.t, 50, host, domain)
+		uniqueHost, err := generateGRPCTraffic(ctx.t, 50, host, domain)
+		if err != nil {
+			return err
+		}
+		knownHosts := make(map[interface{}]interface{})
+
+		uniqueHost.Range(func(k, v interface{}) bool {
+			knownHosts[k] = v
+			return true
+		})
+
+		if len(knownHosts) <= 1 {
+				return fmt.Errorf("Expected at least 2 different hosts but got %#v", knownHosts)
+		}
+		return nil
 	})
 
 	grp.Go(func() error {
-		// Short-circuit traffic generation once we exit from the check logic.
 		defer close(stopChan)
 		return checkPodScale(ctx, targetPods, minPods, maxPods, duration)
 	})
 
 	if err := grp.Wait(); err != nil {
-		ctx.t.Error(err)
-		ctx.t.Fatalf("Error : %v", err)
+		ctx.t.Errorf("Error : %v", err)
 	}
 }
 

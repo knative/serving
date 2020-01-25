@@ -32,12 +32,20 @@ func pong(req *ping.Request) *ping.Response {
 	return &ping.Response{Msg: req.Msg + os.Getenv("SUFFIX")}
 }
 
+func pongHostname(req *ping.Request) *ping.Response {
+	host, err := os.Hostname()
+	if err != nil {
+		log.Println("os.Hostname() returning an error:", err)
+	}
+	return &ping.Response{Msg: req.Msg + host}
+}
+
 type server struct{}
 
 func (s *server) Ping(ctx context.Context, req *ping.Request) (*ping.Response, error) {
 	log.Printf("Received ping: %v", req.Msg)
 	time.Sleep(1 * time.Second)
-	resp := pong(req)
+	resp := pongHostname(req)
 
 	log.Printf("Sending pong: %v", resp.Msg)
 	return resp, nil
