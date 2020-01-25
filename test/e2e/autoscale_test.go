@@ -301,6 +301,54 @@ func numberOfReadyPods(ctx *testContext) (float64, error) {
 	return float64(resources.ReadyAddressCount(eps)), nil
 }
 
+func checkPodScale(ctx *testContext, targetPods, minPods, maxPods float64, duration time.Duration) error {
+	// Short-circuit traffic generation once we exit from the check logic.
+	done := time.After(duration)
+	timer := time.Tick(2 * time.Second)
+
+	for {
+		select {
+		case <-timer:
+			// Each 2 second, check that the number of pods is at least `minPods`. `minPods` is increasing
+			// to verify that the number of pods doesn't go down while we are scaling up.
+			got, err := numberOfReadyPods(ctx)
+			if err != nil {
+				return err
+			}
+			mes := fmt.Sprintf("revision %q #replicas: %v, want at least: %v", ctx.resources.Revision.Name, got, minPods)
+			ctx.t.Log(mes)
+			if got < minPods {
+				return errors.New(mes)
+			}
+			// A quick test succeeds when the number of pods scales up to `targetPods`
+			// (and, for sanity check, no more than `maxPods`).
+			if got >= targetPods && got <= maxPods {
+				ctx.t.Logf("Got %v replicas, reached target of %v, exiting early", got, targetPods)
+				return nil
+			}
+			if minPods < targetPods-1 {
+				// Increase `minPods`, but leave room to reduce flakiness.
+				minPods = math.Min(got, targetPods) - 1
+			}
+
+		case <-done:
+			// The test duration is over. Do a last check to verify that the number of pods is at `targetPods`
+			// (with a little room for de-flakiness).
+			got, err := numberOfReadyPods(ctx)
+			if err != nil {
+				return err
+			}
+			mes := fmt.Sprintf("got %v replicas, expected between [%v, %v] replicas for revision %s",
+				got, targetPods-1, maxPods, ctx.resources.Revision.Name)
+			ctx.t.Log(mes)
+			if got < targetPods-1 || got > maxPods {
+				return errors.New(mes)
+			}
+			return nil
+		}
+	}
+}
+
 func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float64, duration time.Duration, quick bool) {
 	ctx.t.Helper()
 	// There are two test modes: quick, and not quick.
@@ -326,53 +374,8 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float64, d
 	})
 
 	grp.Go(func() error {
-		// Short-circuit traffic generation once we exit from the check logic.
 		defer close(stopChan)
-
-		done := time.After(duration)
-		timer := time.Tick(2 * time.Second)
-		for {
-			select {
-			case <-timer:
-				// Each 2 second, check that the number of pods is at least `minPods`. `minPods` is increasing
-				// to verify that the number of pods doesn't go down while we are scaling up.
-				got, err := numberOfReadyPods(ctx)
-				if err != nil {
-					return err
-				}
-				mes := fmt.Sprintf("revision %q #replicas: %v, want at least: %v", ctx.resources.Revision.Name, got, minPods)
-				ctx.t.Log(mes)
-				if got < minPods {
-					return errors.New(mes)
-				}
-				if quick {
-					// A quick test succeeds when the number of pods scales up to `targetPods`
-					// (and, for sanity check, no more than `maxPods`).
-					if got >= targetPods && got <= maxPods {
-						ctx.t.Logf("Got %v replicas, reached target of %v, exiting early", got, targetPods)
-						return nil
-					}
-				}
-				if minPods < targetPods-1 {
-					// Increase `minPods`, but leave room to reduce flakiness.
-					minPods = math.Min(got, targetPods) - 1
-				}
-			case <-done:
-				// The test duration is over. Do a last check to verify that the number of pods is at `targetPods`
-				// (with a little room for de-flakiness).
-				got, err := numberOfReadyPods(ctx)
-				if err != nil {
-					return err
-				}
-				mes := fmt.Sprintf("got %v replicas, expected between [%v, %v] replicas for revision %s",
-					got, targetPods-1, maxPods, ctx.resources.Revision.Name)
-				ctx.t.Log(mes)
-				if got < targetPods-1 || got > maxPods {
-					return errors.New(mes)
-				}
-				return nil
-			}
-		}
+		return checkPodScale(ctx, targetPods, minPods, maxPods, duration)
 	})
 
 	if err := grp.Wait(); err != nil {
