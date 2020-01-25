@@ -1,3 +1,5 @@
+// +build e2e
+
 /*
 Copyright 2020 The Knative Authors
 
@@ -79,7 +81,7 @@ type config struct {
 	DnsZone                       string `split_words:"true" required:"false"`
 	CloudDnsServiceAccountKeyFile string `split_words:"true" required:"false"`
 	CloudDnsProject               string `split_words:"true" required:"false"`
-	setUpDNS                      string `split_words:"true" required:"false"`
+	SetUpDNS                      string `split_words:"true" required:"false"`
 }
 
 type autoTLSClients struct {
@@ -150,7 +152,7 @@ func TestPerKsvcCert_HTTP01(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
-	if env.setUpDNS == "true" {
+	if env.SetUpDNS == "true" {
 		cancel := setupDNSRecord(t, env, tlsClients, objects.Route.Status.URL.Host)
 		defer cancel()
 	}
