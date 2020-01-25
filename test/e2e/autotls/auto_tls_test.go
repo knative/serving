@@ -36,6 +36,7 @@ import (
 	pkgtest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/ingress"
 	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	cmclientset "knative.dev/serving/pkg/client/certmanager/clientset/versioned"
 	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/test"
@@ -75,9 +76,10 @@ type dnsRecord struct {
 }
 
 type config struct {
-	DnsZone                       string `split_words:"true" required:"true"`
-	CloudDnsServiceAccountKeyFile string `split_words:"true" required:"true"`
-	CloudDnsProject               string `split_words:"true" required:"true"`
+	DnsZone                       string `split_words:"true" required:"false"`
+	CloudDnsServiceAccountKeyFile string `split_words:"true" required:"false"`
+	CloudDnsProject               string `split_words:"true" required:"false"`
+	setUpDNS                      string `split_words:"true" required:"false"`
 }
 
 type autoTLSClients struct {
@@ -122,6 +124,10 @@ func TestPerKsvcCert_localCA(t *testing.T) {
 	testingress.RuntimeRequest(t, httpsClient, "https://"+objects.Service.Status.URL.Host)
 }
 
+// To run this test locally, you need:
+// 1. Configure config-domain ConfigMap under knative-serivng namespace to use your custom domain.
+// 2. In your DNS server, map your custom domain (e.g. *.example.com) to the IP of ingress, and
+// make sure it is effective.
 func TestPerKsvcCert_HTTP01(t *testing.T) {
 	t.Skip("Test environment is not ready. Can only be ran locally.")
 	tlsClients := initializeClients(t)
@@ -144,15 +150,16 @@ func TestPerKsvcCert_HTTP01(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
-	cancel := setupDNSRecord(t, env, tlsClients, objects.Route.Status.URL.Host)
+	if env.setUpDNS == "true" {
+		cancel := setupDNSRecord(t, env, tlsClients, objects.Route.Status.URL.Host)
+		defer cancel()
+	}
+
+	cancel := turnOnAutoTLS(t, tlsClients)
 	defer cancel()
 
-	cancel = turnOnAutoTLS(t, tlsClients)
-	defer cancel()
-
-	// check Kcert path
-
-	// Check ingress path
+	// wait for http01 challenge path to be populated.
+	waitForHTTP01ChallengePath(t, tlsClients, objects)
 
 	// wait for certificate to be ready
 	waitForCertificateReady(t, tlsClients, routenames.Certificate(objects.Route))
@@ -309,20 +316,56 @@ func turnOffAutoTLS(t *testing.T, tlsClients *autoTLSClients) {
 	}
 }
 
+func waitForHTTP01ChallengePath(t *testing.T, tlsClients *autoTLSClients, objects *v1test.ResourceObjects) {
+	certName := routenames.Certificate(objects.Route)
+	if err := wait.Poll(5*time.Second, 60*time.Second, func() (bool, error) {
+		cert, err := tlsClients.clients.NetworkingClient.Certificates.Get(certName, metav1.GetOptions{})
+		cert, ready, err := getCertificate(t, tlsClients, certName)
+		if !ready {
+			return ready, err
+		}
+		if len(cert.Status.HTTP01Challenges) == 0 {
+			return false, nil
+		}
+		ingress, err := tlsClients.clients.NetworkingClient.Ingresses.Get(objects.Route.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		for _, rule := range ingress.Spec.Rules {
+			for _, path := range rule.HTTP.Paths {
+				if path.Path == cert.Status.HTTP01Challenges[0].URL.Path {
+					return true, nil
+				}
+			}
+		}
+		return false, nil
+	}); err != nil {
+		t.Fatalf("HTTP01 challenge path is not populated in Ingress: %v", err)
+	}
+}
+
 func waitForCertificateReady(t *testing.T, tlsClients *autoTLSClients, certName string) {
 	if err := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
-		cert, err := tlsClients.clients.NetworkingClient.Certificates.Get(certName, metav1.GetOptions{})
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				t.Logf("Certificate %s has not been created: %v", certName, err)
-				return false, nil
-			}
-			return false, err
+		cert, ready, err := getCertificate(t, tlsClients, certName)
+		if !ready {
+			return ready, err
 		}
 		return cert.Status.IsReady(), nil
 	}); err != nil {
 		t.Fatalf("Certificate %s is not ready: %v", certName, err)
 	}
+}
+
+func getCertificate(t *testing.T, tlsClients *autoTLSClients, certName string) (*v1alpha1.Certificate, bool, error) {
+	cert, err := tlsClients.clients.NetworkingClient.Certificates.Get(certName, metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			t.Logf("Certificate %s has not been created: %v", certName, err)
+			return nil, false, nil
+		}
+		return nil, false, err
+	}
+	return cert, true, nil
 }
 
 func setupDNSRecord(t *testing.T, cfg config, tlsClients *autoTLSClients, domain string) context.CancelFunc {
