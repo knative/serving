@@ -68,16 +68,17 @@ func TestPerKsvcCert_localCA(t *testing.T) {
 	waitForCertificateReady(t, clients, routenames.Certificate(objects.Route))
 
 	// curl HTTPS
-	rootCAs := createRootCAs(t, clients, objects)
+	secretName := routenames.Certificate(objects.Route)
+	rootCAs := createRootCAs(t, clients, objects.Route.Namespace, secretName)
 	httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
 	testingress.RuntimeRequest(t, httpsClient, "https://"+objects.Service.Status.URL.Host)
 }
 
-func createRootCAs(t *testing.T, clients *test.Clients, objects *v1test.ResourceObjects) *x509.CertPool {
-	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(objects.Route.Namespace).Get(
-		routenames.Certificate(objects.Route), metav1.GetOptions{})
+func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *x509.CertPool {
+	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(ns).Get(
+		secretName, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to get Secret %s: %v", routenames.Certificate(objects.Route), err)
+		t.Fatalf("Failed to get Secret %s: %v", secretName, err)
 	}
 
 	rootCAs, _ := x509.SystemCertPool()
