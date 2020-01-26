@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 	"text/template"
 
 	"go.uber.org/zap"
@@ -83,7 +84,7 @@ func (c *reconciler) Reconcile(ctx context.Context, key string) error {
 		return err
 	}
 
-	if _, ok := namespace.Labels[networking.DisableWildcardCertLabelKey]; ok {
+	if l, ok := namespace.Labels[networking.DisableWildcardCertLabelKey]; ok && strings.EqualFold(l, "true") {
 		logger.Infof("Skipping wildcard certificate creation for excluded namespace %s", namespace.Name)
 		return nil
 	}
