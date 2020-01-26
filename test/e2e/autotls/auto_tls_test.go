@@ -1,5 +1,3 @@
-// +build e2e
-
 /*
 Copyright 2020 The Knative Authors
 
@@ -28,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"knative.dev/serving/pkg/apis/networking"
@@ -48,7 +47,7 @@ const (
 // kubectl apply -f test/config/autotls/certmanager/selfsigned/
 func TestPerKsvcCert_localCA(t *testing.T) {
 	clients := e2e.Setup(t)
-	disableNamespaceCert(t, clients)
+	disableNamespaceCertWithWhiteList(t, clients, sets.String{})
 
 	// Create Knative Service
 	names := test.ResourceNames{
@@ -70,6 +69,35 @@ func TestPerKsvcCert_localCA(t *testing.T) {
 	// curl HTTPS
 	secretName := routenames.Certificate(objects.Route)
 	rootCAs := createRootCAs(t, clients, objects.Route.Namespace, secretName)
+	httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
+	testingress.RuntimeRequest(t, httpsClient, "https://"+objects.Service.Status.URL.Host)
+}
+
+func TestPerNamespaceCert_localCA(t *testing.T) {
+	clients := e2e.Setup(t)
+	// TODO
+	disableNamespaceCertWithWhiteList(t, clients, sets.NewString("serving-tests"))
+
+	cancel := turnOnAutoTLS(t, clients)
+	defer cancel()
+
+	// wait for certificate to be ready
+	// TODO
+	waitForCertificateReady(t, clients, "serving-tests.zhiminx.info")
+
+	// Create Knative Service
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   "runtime",
+	}
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	objects, err := v1test.CreateServiceReady(t, clients, &names)
+	if err != nil {
+		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
+	}
+
+	// curl HTTPS
+	rootCAs := createRootCAs(t, clients, "serving-tests", "serving-tests.zhiminx.info")
 	httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
 	testingress.RuntimeRequest(t, httpsClient, "https://"+objects.Service.Status.URL.Host)
 }
@@ -107,7 +135,7 @@ func createHTTPSClient(t *testing.T, clients *test.Clients, objects *v1test.Reso
 		}}
 }
 
-func disableNamespaceCert(t *testing.T, clients *test.Clients) {
+func disableNamespaceCertWithWhiteList(t *testing.T, clients *test.Clients, whiteLists sets.String) {
 	namespaces, err := clients.KubeClient.Kube.CoreV1().Namespaces().List(metav1.ListOptions{})
 	if err != nil {
 		t.Fatalf("Failed to list namespaces: %v", err)
@@ -116,7 +144,11 @@ func disableNamespaceCert(t *testing.T, clients *test.Clients) {
 		if ns.Labels == nil {
 			ns.Labels = map[string]string{}
 		}
-		ns.Labels[networking.DisableWildcardCertLabelKey] = "true"
+		if whiteLists.Has(ns.Name) {
+			delete(ns.Labels, networking.DisableWildcardCertLabelKey)
+		} else {
+			ns.Labels[networking.DisableWildcardCertLabelKey] = "true"
+		}
 		if _, err := clients.KubeClient.Kube.CoreV1().Namespaces().Update(&ns); err != nil {
 			t.Errorf("Fail to disable namespace cert: %v", err)
 		}
