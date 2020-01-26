@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
 
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -277,6 +278,12 @@ func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ing *v1alpha1
 	if err != nil {
 		return fmt.Errorf("failed to get VirtualServices: %w", err)
 	}
+
+	// Sort the virtual services by their name to get a stable deletion order.
+	sort.Slice(vses, func(i, j int) bool {
+		return vses[i].Name < vses[j].Name
+	})
+
 	for _, vs := range vses {
 		n, ns := vs.Name, vs.Namespace
 		if kept.Has(n) {
