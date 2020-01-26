@@ -1,3 +1,5 @@
+// +build e2e
+
 /*
 Copyright 2020 The Knative Authors
 
@@ -20,6 +22,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -75,15 +78,10 @@ func TestPerKsvcCert_localCA(t *testing.T) {
 
 func TestPerNamespaceCert_localCA(t *testing.T) {
 	clients := e2e.Setup(t)
-	// TODO
-	disableNamespaceCertWithWhiteList(t, clients, sets.NewString("serving-tests"))
+	disableNamespaceCertWithWhiteList(t, clients, sets.NewString(test.ServingNamespace))
 
 	cancel := turnOnAutoTLS(t, clients)
 	defer cancel()
-
-	// wait for certificate to be ready
-	// TODO
-	waitForCertificateReady(t, clients, "serving-tests.zhiminx.info")
 
 	// Create Knative Service
 	names := test.ResourceNames{
@@ -96,8 +94,16 @@ func TestPerNamespaceCert_localCA(t *testing.T) {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
+	// wait for certificate to be ready
+	splits := strings.SplitN(objects.Route.Status.URL.Host, ".", 2)
+	if len(splits) != 2 {
+		t.Fatalf("The format of Route host is incorrect: %s", objects.Route.Status.URL.Host)
+	}
+	certName := splits[1]
+	waitForCertificateReady(t, clients, certName)
+
 	// curl HTTPS
-	rootCAs := createRootCAs(t, clients, "serving-tests", "serving-tests.zhiminx.info")
+	rootCAs := createRootCAs(t, clients, test.ServingNamespace, certName)
 	httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
 	testingress.RuntimeRequest(t, httpsClient, "https://"+objects.Service.Status.URL.Host)
 }
