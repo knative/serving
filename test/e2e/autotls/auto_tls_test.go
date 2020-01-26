@@ -1,5 +1,3 @@
-// +build e2e
-
 /*
 Copyright 2020 The Knative Authors
 
@@ -83,6 +81,9 @@ func TestPerNamespaceCert_localCA(t *testing.T) {
 	cancel := turnOnAutoTLS(t, clients)
 	defer cancel()
 
+	// wait for certificate to be ready
+	certName := waitForNamespaceCertReady(t, clients)
+
 	// Create Knative Service
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
@@ -93,14 +94,6 @@ func TestPerNamespaceCert_localCA(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
-
-	// wait for certificate to be ready
-	splits := strings.SplitN(objects.Route.Status.URL.Host, ".", 2)
-	if len(splits) != 2 {
-		t.Fatalf("The format of Route host is incorrect: %s", objects.Route.Status.URL.Host)
-	}
-	certName := splits[1]
-	waitForCertificateReady(t, clients, certName)
 
 	// curl HTTPS
 	rootCAs := createRootCAs(t, clients, test.ServingNamespace, certName)
@@ -191,7 +184,7 @@ func turnOffAutoTLS(t *testing.T, clients *test.Clients) {
 }
 
 func waitForCertificateReady(t *testing.T, clients *test.Clients, certName string) {
-	if err := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
+	if err := wait.Poll(10*time.Second, 120*time.Second, func() (bool, error) {
 		cert, err := clients.NetworkingClient.Certificates.Get(certName, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -204,4 +197,25 @@ func waitForCertificateReady(t *testing.T, clients *test.Clients, certName strin
 	}); err != nil {
 		t.Fatalf("Certificate %s is not ready: %v", certName, err)
 	}
+}
+
+func waitForNamespaceCertReady(t *testing.T, clients *test.Clients) string {
+	var certName string
+	if err := wait.Poll(10*time.Second, 120*time.Second, func() (bool, error) {
+		certs, err := clients.NetworkingClient.Certificates.List(metav1.ListOptions{})
+		if err != nil {
+			return false, err
+		}
+		for _, cert := range certs.Items {
+			if strings.Contains(cert.Name, test.ServingNamespace) {
+				certName = cert.Name
+				return cert.Status.IsReady(), nil
+			}
+		}
+		// Namespace certificate has not been created.
+		return false, nil
+	}); err != nil {
+		t.Fatalf("Namespace Certificate is not ready: %v", err)
+	}
+	return certName
 }
