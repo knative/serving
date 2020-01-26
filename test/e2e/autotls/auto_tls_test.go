@@ -60,6 +60,10 @@ var (
 	}
 )
 
+// To run this test locally with cert-manager, you need to
+// 1. install cert-manager from third_party/.
+// 2. Run below command to do the configuration:
+// kubectl apply -f test/config/autotls/certmanager/selfsigned/
 func TestPerKsvcCert_localCA(t *testing.T) {
 	clients := e2e.Setup(t)
 	disableNamespaceCert(t, clients)
