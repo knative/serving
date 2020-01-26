@@ -449,11 +449,11 @@ func (rbm *revisionBackendsManager) endpointsUpdated(newObj interface{}) {
 
 	rw, err := rbm.getOrCreateRevisionWatcher(revID)
 	if err != nil {
-		logger.With(zap.Error(err)).Errorf("Failed to get revision watcher for revision %q", revID.String())
+		logger.With(zap.Error(err)).Error("Failed to get revision watcher")
 		return
 	}
 	dests := endpointsToDests(endpoints, networking.ServicePortName(rw.protocol))
-	logger.Debugf("Updating Endpoints: %q (backends: %d)", revID.String(), len(dests))
+	logger.Debugf("Updating Endpoints: backends: %d", len(dests))
 	select {
 	case <-rbm.ctx.Done():
 		return
