@@ -36,28 +36,10 @@ import (
 	testingress "knative.dev/serving/test/conformance/ingress"
 	"knative.dev/serving/test/e2e"
 	v1test "knative.dev/serving/test/v1"
-
-	"github.com/ghodss/yaml"
-	cmv1alpha2 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha2"
-	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 )
 
 const (
-	systemNamespace         = "knative-serving"
-	selfSignedClusterIssuer = "self-signed-issuer"
-)
-
-var (
-	caClusterIssuer = &cmv1alpha2.ClusterIssuer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "ca-issuer",
-		},
-		Spec: cmv1alpha2.IssuerSpec{
-			IssuerConfig: cmv1alpha2.IssuerConfig{
-				CA: &cmv1alpha2.CAIssuer{},
-			},
-		},
-	}
+	systemNamespace = "knative-serving"
 )
 
 // To run this test locally with cert-manager, you need to
@@ -79,10 +61,7 @@ func TestPerKsvcCert_localCA(t *testing.T) {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	cancel := updateConfigCertManangerCM(t, clients, selfSignedClusterIssuer)
-	defer cancel()
-
-	cancel = turnOnAutoTLS(t, clients)
+	cancel := turnOnAutoTLS(t, clients)
 	defer cancel()
 
 	// wait for certificate to be ready
@@ -140,44 +119,6 @@ func disableNamespaceCert(t *testing.T, clients *test.Clients) {
 		if _, err := clients.KubeClient.Kube.CoreV1().Namespaces().Update(&ns); err != nil {
 			t.Errorf("Fail to disable namespace cert: %v", err)
 		}
-	}
-}
-
-func updateConfigCertManangerCM(t *testing.T, clients *test.Clients, clusterIsserName string) context.CancelFunc {
-	issuerRef := &cmmeta.ObjectReference{
-		Name: clusterIsserName,
-		Kind: "ClusterIssuer",
-	}
-	issuerRefBytes, err := yaml.Marshal(issuerRef)
-	if err != nil {
-		t.Fatalf("Failed to convert IssuerRef %v to bytes: %v", issuerRef, err)
-	}
-
-	certManagerCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(systemNamespace).Get("config-certmanager", metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Failed to get config-certmanager ConfigMap: %v", err)
-	}
-	certManagerCM.Data["issuerRef"] = string(issuerRefBytes)
-	test.CleanupOnInterrupt(func() {
-		cleanUpConfigCertManagerCM(t, clients)
-	})
-	if _, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(certManagerCM.Namespace).Update(certManagerCM); err != nil {
-		t.Fatalf("Failed to update the config-certmanager ConfigMap: %v", err)
-	}
-	return func() {
-		cleanUpConfigCertManagerCM(t, clients)
-	}
-}
-
-func cleanUpConfigCertManagerCM(t *testing.T, clients *test.Clients) {
-	certManagerCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(systemNamespace).Get("config-certmanager", metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("Failed to get config-certmanager ConfigMap: %v", err)
-		return
-	}
-	delete(certManagerCM.Data, "issuerRef")
-	if _, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(certManagerCM.Namespace).Update(certManagerCM); err != nil {
-		t.Errorf("Failed to clean up config-certmanager ConfigMap: %v", err)
 	}
 }
 
