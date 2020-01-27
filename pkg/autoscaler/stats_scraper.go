@@ -222,15 +222,13 @@ func (s *ServiceScraper) Scrape() (Stat, error) {
 		reqCount += stat.RequestCount
 		proxiedReqCount += stat.ProxiedRequestCount
 	}
-	if oldCnt < sampleSize {
-		for i := oldCnt; i < sampleSize; i++ {
-			// This will always succeed, see reasoning above.
-			stat := <-youngStatCh
-			avgConcurrency += stat.AverageConcurrentRequests
-			avgProxiedConcurrency += stat.AverageProxiedConcurrentRequests
-			reqCount += stat.RequestCount
-			proxiedReqCount += stat.ProxiedRequestCount
-		}
+	for i := oldCnt; i < sampleSize; i++ {
+		// This will always succeed, see reasoning above.
+		stat := <-youngStatCh
+		avgConcurrency += stat.AverageConcurrentRequests
+		avgProxiedConcurrency += stat.AverageProxiedConcurrentRequests
+		reqCount += stat.RequestCount
+		proxiedReqCount += stat.ProxiedRequestCount
 	}
 
 	count := float64(sampleSize)
