@@ -177,7 +177,7 @@ kubectl apply -f ./third_party/istio-1.3-latest/istio-knative-extras.yaml
 
    ```shell
    kubectl apply -f ./third_party/cert-manager-0.12.0/cert-manager-crds.yaml
-   while [[ $(kubectl get crd certificates.certmanager.k8s.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
+   while [[ $(kubectl get crd certificates.cert-manager.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
      echo "Waiting on Cert-Manager CRDs"; sleep 1
    done
    ```
