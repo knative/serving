@@ -43,14 +43,13 @@ const (
 )
 
 // To run this test locally with cert-manager, you need to
-// 1. install cert-manager from third_party/.
-// 2. Run below command to do the configuration:
+// 1. Install cert-manager from `third_party/` directory.
+// 2. Run the command below to do the configuration:
 // kubectl apply -f test/config/autotls/certmanager/selfsigned/
 func TestPerKsvcCert_localCA(t *testing.T) {
 	clients := e2e.Setup(t)
 	disableNamespaceCert(t, clients)
 
-	// Create Knative Service
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   "runtime",
@@ -86,7 +85,7 @@ func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *
 		rootCAs = x509.NewCertPool()
 	}
 	if ok := rootCAs.AppendCertsFromPEM(secret.Data[corev1.TLSCertKey]); !ok {
-		t.Fatalf("Failed to add the certificate to the root CA")
+		t.Fatal("Failed to add the certificate to the root CA")
 	}
 	return rootCAs
 }

@@ -63,7 +63,7 @@ go_test_e2e -timeout=10m \
 kubectl apply -f ./test/config/autotls/certmanager/selfsigned/
 go_test_e2e -timeout=10m \
   ./test/e2e/autotls || failed=1
-kubectl delete -f ./test/config/autotls/certmanager/selfsigned/
+trap "kubectl delete -f ./test/config/autotls/certmanager/selfsigned/" EXIT SIGKILL SIGTERM SIGQUIT
 
 # Istio E2E tests mutate the cluster and must be ran separately
 if [[ -n "${ISTIO_VERSION}" ]]; then
