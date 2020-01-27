@@ -420,6 +420,20 @@ function knative_teardown() {
   fi
 }
 
+# Add function call to trap
+# Parameters: $1 - Function to call
+#             $2...$n - Signals for trap
+function add_trap() {
+  local cmd=$1
+  shift
+  for trap_signal in $@; do
+    local current_trap="$(trap -p $trap_signal | cut -d\' -f2)"
+    local new_cmd="($cmd)"
+    [[ -n "${current_trap}" ]] && new_cmd="${current_trap};${new_cmd}"
+    trap -- "${new_cmd}" $trap_signal
+  done
+}
+
 # Create test resources and images
 function test_setup() {
   echo ">> Setting up logging..."
@@ -433,7 +447,7 @@ function test_setup() {
   kail > ${ARTIFACTS}/k8s.log.txt &
   local kail_pid=$!
   # Clean up kail so it doesn't interfere with job shutting down
-  trap "kill $kail_pid || true" EXIT
+  add_trap "kill $kail_pid || true" EXIT
 
   echo ">> Creating test resources (test/config/)"
   ko apply ${KO_FLAGS} -f test/config/ || return 1
