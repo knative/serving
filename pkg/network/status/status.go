@@ -388,6 +388,7 @@ func (m *Prober) processWorkItem() bool {
 		item.context,
 		transport,
 		item.url.String(),
+		prober.WithHeader(network.UserAgentKey, network.IngressReadinessUserAgent),
 		prober.WithHeader(network.ProbeHeaderName, network.ProbeHeaderValue),
 		prober.ExpectsStatusCodes([]int{http.StatusOK}),
 		prober.ExpectsHeader(network.HashHeaderName, item.ingressState.hash))
