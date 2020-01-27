@@ -45,9 +45,6 @@ const (
 	// to retry if a Scrape returns an error or if the Scrape goes to a pod we already
 	// scraped.
 	scraperMaxRetries = 10
-
-	// If the sample size is smaller than this, then we don't consider age.
-	minSampleSizeToConsiderAge = 4
 )
 
 var (
@@ -161,7 +158,7 @@ func (s *ServiceScraper) Scrape() (Stat, error) {
 	for i := 0; i < sampleSize; i++ {
 		grp.Go(func() error {
 			for tries := 1; ; tries++ {
-				stat, err := s.tryScrape(scrapedPods, sampleSize)
+				stat, err := s.tryScrape(scrapedPods)
 				if err == nil {
 					if stat.ProcessUptime >= youngPodCutOffSecs {
 						// We run |sampleSize| go routies and each of them terminates
@@ -185,7 +182,7 @@ func (s *ServiceScraper) Scrape() (Stat, error) {
 				// Return the error if we exhausted our retries and
 				// we had an error returned (we can end up here if
 				// all the pods were young, which is not an error condition).
-				if err != nil && tries == scraperMaxRetries {
+				if err != nil && tries >= scraperMaxRetries {
 					return err
 				}
 			}
@@ -262,9 +259,9 @@ func (s *ServiceScraper) Scrape() (Stat, error) {
 	}, nil
 }
 
-// tryScrape runs a single scrape and checks if this pod is old enough or
-// this pod wasn't already scraped against the given already scraped pods.
-func (s *ServiceScraper) tryScrape(scrapedPods *sync.Map, sampleSize int) (Stat, error) {
+// tryScrape runs a single scrape and returns stat if this is a pod that has not been
+// seen before. An error otherwise or if scraping failed.
+func (s *ServiceScraper) tryScrape(scrapedPods *sync.Map) (Stat, error) {
 	stat, err := s.sClient.Scrape(s.url)
 	if err != nil {
 		return emptyStat, err
