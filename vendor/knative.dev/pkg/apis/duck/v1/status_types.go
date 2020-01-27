@@ -108,12 +108,12 @@ func (source *Status) ConvertTo(ctx context.Context, sink *Status, predicates ..
 
 	conditions := make(apis.Conditions, 0, len(source.Conditions))
 	for _, c := range source.Conditions {
-		switch c.Type {
+
 		// Copy over the "happy" condition, which is the only condition that
 		// we can reliably transfer.
-		case apis.ConditionReady, apis.ConditionSucceeded:
+		if c.Type == apis.ConditionReady || c.Type == apis.ConditionSucceeded {
 			conditions = append(conditions, c)
-			break
+			continue
 		}
 
 		for _, predicate := range predicates {
