@@ -1398,6 +1398,66 @@ func TestReconcile(t *testing.T) {
 		WantServiceReadyStats: map[string]int{
 			"foo/new-owner": 1,
 		},
+	}, {
+		// Config should not be updated because no new changes besides new default
+		Name: "service is has new defaults after upgrade; config should not be updated",
+		Objects: []runtime.Object{
+			DefaultService("release-no-change-config", "foo", WithInitSvcConditions, WithInlineRollout),
+			config("release-no-change-config", "foo", WithRunLatestRollout,
+				func(configuration *v1alpha1.Configuration) {
+					// The ContainerConcurrency is not set here, but it is set on the default service.
+					// The reconciler should ignore this difference because after setting on default on the
+					// config will cause ContainerConcurrency here set to the default value (same as in service),
+					// and therefore would be no diff.
+					configuration.Spec.Template.Spec.ContainerConcurrency = nil
+				},
+			),
+			route("release-no-change-config", "foo", WithRunLatestRollout),
+		},
+		Key: "foo/release-no-change-config",
+	}, {
+		// Route should not be updated because no new changes besides new default
+		Name: "service is has new defaults after upgrade; route should not be updated",
+		Objects: []runtime.Object{
+			DefaultService("release-no-change-route", "foo", WithInitSvcConditions, WithInlineRollout,
+				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
+						Percent:      ptr.Int64(100),
+						ConfigurationName: "release-no-change-route",
+						LatestRevision: ptr.Bool(true),
+					},
+				}),
+				WithRouteStatus(v1alpha1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
+						Percent:      ptr.Int64(100),
+						ConfigurationName: "release-no-change-route",
+						LatestRevision: ptr.Bool(true),
+					},
+				}),
+			),
+			config("release-no-change-route", "foo", WithRunLatestRollout),
+			route("release-no-change-route", "foo", WithRunLatestRollout,
+				func(ro *v1alpha1.Route) {
+					ro.Spec.Traffic = []v1alpha1.TrafficTarget{{
+						TrafficTarget: v1.TrafficTarget{
+							// The LatestRevision is not set here, but it is set on the service status traffic.
+							// The reconciler should ignore this difference because after setting on default on the
+							// route will cause LatestRevision here set to true, and therefore would be no diff.
+							Percent:      ptr.Int64(100),
+							ConfigurationName: "release-no-change-route",
+						},
+					}}
+					ro.Status.RouteStatusFields.Traffic = []v1alpha1.TrafficTarget{{
+						TrafficTarget: v1.TrafficTarget{
+							Percent:      ptr.Int64(100),
+							ConfigurationName: "release-no-change-route",
+							LatestRevision: ptr.Bool(true),
+						},
+					}}
+				},
+			),
+		},
+		Key: "foo/release-no-change-route",
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
