@@ -177,12 +177,10 @@ func (s *ServiceScraper) Scrape() (Stat, error) {
 							return nil
 						}
 					}
-				}
-
-				// Return the error if we exhausted our retries and
-				// we had an error returned (we can end up here if
-				// all the pods were young, which is not an error condition).
-				if err != nil && tries >= scraperMaxRetries {
+				} else if tries >= scraperMaxRetries {
+					// Return the error if we exhausted our retries and
+					// we had an error returned (we can end up here if
+					// all the pods were young, which is not an error condition).
 					return err
 				}
 			}
