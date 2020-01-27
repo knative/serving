@@ -176,7 +176,7 @@ func (s *ServiceScraper) Scrape() (Stat, error) {
 						// fill up the channel.
 						case youngStatCh <- stat:
 						default:
-							// If so, just return, try again.
+							// If so, just return.
 							return nil
 						}
 					}
