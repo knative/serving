@@ -761,14 +761,6 @@
   revision = "282c8707aa210456a825798969cc27edda34992a"
 
 [[projects]]
-  digest = "1:7008ec21a0ce773bd21deefdb7d17fab8cb9f1ae0bc44026cdd2b658ab1582ca"
-  name = "github.com/rogpeppe/go-internal"
-  packages = ["semver"]
-  pruneopts = "NUT"
-  revision = "438578804ca6f31be148c27683afc419ce47c06e"
-  version = "v1.3.0"
-
-[[projects]]
   digest = "1:d917313f309bda80d27274d53985bc65651f81a5b66b820749ac7f8ef061fd04"
   name = "github.com/sergi/go-diff"
   packages = ["diffmatchpatch"]
@@ -1781,7 +1773,11 @@
 
 [[projects]]
   branch = "master"
+<<<<<<< HEAD
   digest = "1:210e1a3d4560f96d277b5cb5d4c265da86e8cd799b43b632cd0f45601b405000"
+=======
+  digest = "1:5acceb9ddfc654a91e633bb00531fc719fcaedda25d621162385ba5c2badc849"
+>>>>>>> update deps
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1838,6 +1834,7 @@
     "network/prober",
     "profiling",
     "ptr",
+    "reconciler",
     "reconciler/testing",
     "signals",
     "system",
@@ -2088,6 +2085,7 @@
     "knative.dev/pkg/network/prober",
     "knative.dev/pkg/profiling",
     "knative.dev/pkg/ptr",
+    "knative.dev/pkg/reconciler",
     "knative.dev/pkg/reconciler/testing",
     "knative.dev/pkg/signals",
     "knative.dev/pkg/system",
