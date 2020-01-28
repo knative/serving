@@ -126,7 +126,7 @@ func TestPerKsvcCert_HTTP01(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
-	if env.SetUpDNS == "true" {
+	if env.SetUpDns == "true" {
 		cancel := setupDNSRecord(t, env, clients, objects.Route.Status.URL.Host)
 		defer cancel()
 	}
