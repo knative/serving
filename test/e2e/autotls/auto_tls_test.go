@@ -40,24 +40,21 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-const (
-	systemNamespace = "knative-serving"
-)
-
 // To run this test locally with cert-manager, you need to
-// 1. install cert-manager from third_party/.
-// 2. Run below command to do the configuration:
+// 1. Install cert-manager from `third_party/` directory.
+// 2. Run the command below to do the configuration:
 // kubectl apply -f test/config/autotls/certmanager/selfsigned/
 func TestPerKsvcCert_localCA(t *testing.T) {
 	clients := e2e.Setup(t)
 	disableNamespaceCertWithWhiteList(t, clients, sets.String{})
 
-	// Create Knative Service
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   "runtime",
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
+
 	objects, err := v1test.CreateServiceReady(t, clients, &names)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
@@ -76,9 +73,14 @@ func TestPerKsvcCert_localCA(t *testing.T) {
 	testingress.RuntimeRequest(t, httpsClient, "https://"+objects.Service.Status.URL.Host)
 }
 
+// To run this test locally with cert-manager, you need to
+// 1. Install cert-manager from `third_party/` directory.
+// 2. Run the command below to do the configuration:
+// kubectl apply -f test/config/autotls/certmanager/selfsigned/
 func TestPerNamespaceCert_localCA(t *testing.T) {
 	clients := e2e.Setup(t)
 	disableNamespaceCertWithWhiteList(t, clients, sets.NewString(test.ServingNamespace))
+	defer disableNamespaceCertWithWhiteList(t, clients, sets.String{})
 
 	cancel := turnOnAutoTLS(t, clients)
 	defer cancel()
@@ -86,15 +88,16 @@ func TestPerNamespaceCert_localCA(t *testing.T) {
 	// wait for certificate to be ready
 	certName := waitForNamespaceCertReady(t, clients)
 
-	// Create Knative Service
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
 		Image:   "runtime",
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
+
 	objects, err := v1test.CreateServiceReady(t, clients, &names)
 	if err != nil {
-		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
+		t.Fatalf("Failed to create initial Service: %s: %v", names.Service, err)
 	}
 
 	// curl HTTPS
@@ -114,8 +117,8 @@ func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *
 	if rootCAs == nil {
 		rootCAs = x509.NewCertPool()
 	}
-	if ok := rootCAs.AppendCertsFromPEM(secret.Data[corev1.TLSCertKey]); !ok {
-		t.Fatalf("Failed to add the certificate to the root CA")
+	if !rootCAs.AppendCertsFromPEM(secret.Data[corev1.TLSCertKey]) {
+		t.Fatal("Failed to add the certificate to the root CA")
 	}
 	return rootCAs
 }
@@ -186,7 +189,7 @@ func turnOffAutoTLS(t *testing.T, clients *test.Clients) {
 }
 
 func waitForCertificateReady(t *testing.T, clients *test.Clients, certName string) {
-	if err := wait.Poll(10*time.Second, 120*time.Second, func() (bool, error) {
+	if err := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
 		cert, err := clients.NetworkingClient.Certificates.Get(certName, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -203,7 +206,7 @@ func waitForCertificateReady(t *testing.T, clients *test.Clients, certName strin
 
 func waitForNamespaceCertReady(t *testing.T, clients *test.Clients) string {
 	var certName string
-	if err := wait.Poll(10*time.Second, 120*time.Second, func() (bool, error) {
+	if err := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
 		certs, err := clients.NetworkingClient.Certificates.List(metav1.ListOptions{})
 		if err != nil {
 			return false, err
