@@ -65,8 +65,9 @@ var (
 
 // StatsScraper defines the interface for collecting Revision metrics
 type StatsScraper interface {
-	// Scrape scrapes the Revision queue metric endpoint.
-	Scrape() (Stat, error)
+	// Scrape scrapes the Revision queue metric endpoint. The duration is used
+	// to cutoff young pods, whose stats might skew lower.
+	Scrape(time.Duration) (Stat, error)
 }
 
 // scrapeClient defines the interface for collecting Revision metrics for a given
@@ -139,7 +140,7 @@ func urlFromTarget(t, ns string) string {
 
 // Scrape calls the destination service then sends it
 // to the given stats channel.
-func (s *ServiceScraper) Scrape() (Stat, error) {
+func (s *ServiceScraper) Scrape(window time.Duration) (Stat, error) {
 	readyPodsCount, err := s.counter.ReadyCount()
 	if err != nil {
 		return emptyStat, ErrFailedGetEndpoints
@@ -155,6 +156,7 @@ func (s *ServiceScraper) Scrape() (Stat, error) {
 	scrapedPods := &sync.Map{}
 
 	grp := errgroup.Group{}
+	youngPodCutOffSecs := window.Seconds()
 	for i := 0; i < sampleSize; i++ {
 		grp.Go(func() error {
 			for tries := 1; ; tries++ {

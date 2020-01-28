@@ -153,7 +153,7 @@ func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 
 	// Scrape will set a timestamp bigger than this.
 	now := time.Now()
-	got, err := scraper.Scrape()
+	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
 		t.Fatalf("Unexpected error from scraper.Scrape(): %v", err)
 	}
@@ -184,6 +184,8 @@ func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 	}
 }
 
+var youngPodCutOffDuration = defaultMetric.Spec.StableWindow
+
 func TestScrapeAllPodsYoungPods(t *testing.T) {
 	const numP = 6
 	// All the pods will have life span of less than  `youngPodCutoffSecs`.
@@ -202,7 +204,7 @@ func TestScrapeAllPodsYoungPods(t *testing.T) {
 
 	// Scrape will set a timestamp bigger than this.
 	now := time.Now()
-	got, err := scraper.Scrape()
+	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
 		t.Fatalf("Unexpected error from scraper.Scrape(): %v", err)
 	}
@@ -222,7 +224,7 @@ func TestScrapeAllPodsYoungPods(t *testing.T) {
 func TestScrapeAllPodsOldPods(t *testing.T) {
 	const numP = 6
 	// All pods are at least cutoff time old, so first 5 stats will be picked.
-	testStats := testStatsWithTime(numP, youngPodCutOffSecs /*youngest*/)
+	testStats := testStatsWithTime(numP, youngPodCutOffDuration.Seconds() /*youngest*/)
 
 	client := newTestScrapeClient(testStats, []error{nil})
 	scraper, err := serviceScraperForTest(client)
@@ -234,7 +236,7 @@ func TestScrapeAllPodsOldPods(t *testing.T) {
 
 	// Scrape will set a timestamp bigger than this.
 	now := time.Now()
-	got, err := scraper.Scrape()
+	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
 		t.Fatalf("Unexpected error from scraper.Scrape(): %v", err)
 	}
@@ -255,7 +257,7 @@ func TestScrapeSomePodsOldPods(t *testing.T) {
 	const numP = 11
 	// All pods starting with pod-3 qualify.
 	// So pods 3-10 qualify (for 11 total sample is 7).
-	testStats := testStatsWithTime(numP, 30 /*youngest*/)
+	testStats := testStatsWithTime(numP, youngPodCutOffDuration.Seconds()/2 /*youngest*/)
 
 	client := newTestScrapeClient(testStats, []error{nil})
 	scraper, err := serviceScraperForTest(client)
@@ -267,7 +269,7 @@ func TestScrapeSomePodsOldPods(t *testing.T) {
 
 	// Scrape will set a timestamp bigger than this.
 	now := time.Now()
-	got, err := scraper.Scrape()
+	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
 		t.Fatalf("Unexpected error from scraper.Scrape(): %v", err)
 	}
@@ -294,7 +296,7 @@ func TestScrapeReportErrorCannotFindEnoughPods(t *testing.T) {
 	// Make an Endpoints with 2 pods.
 	endpoints(2, testService)
 
-	_, err = scraper.Scrape()
+	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err == nil {
 		t.Errorf("scrape.Scrape() = nil, expected an error")
 	}
@@ -314,7 +316,7 @@ func TestScrapeReportErrorIfAnyFails(t *testing.T) {
 	// Make an Endpoints with 2 pods.
 	endpoints(2, testService)
 
-	_, err = scraper.Scrape()
+	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if !errors.Is(err, errTest) {
 		t.Errorf("scraper.Scrape() = %v, want %v wrapped", err, errTest)
 	}
@@ -330,7 +332,7 @@ func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
 	// Make an Endpoints with 0 pods.
 	endpoints(0, testService)
 
-	stat, err := scraper.Scrape()
+	stat, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
 		t.Fatalf("scraper.Scrape() returned error: %v", err)
 	}
