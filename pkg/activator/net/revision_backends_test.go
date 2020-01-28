@@ -581,33 +581,6 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 		},
 		updateCnt: 2,
 	}, {
-		name:         "slow podIP",
-		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http", "128.0.0.1")},
-		revisions: []*v1alpha1.Revision{
-			revisionCC1(types.NamespacedName{testNamespace, testRevision}, networking.ProtocolHTTP1),
-		},
-		services: []*corev1.Service{
-			privateSKSService(types.NamespacedName{testNamespace, testRevision}, "129.0.0.1",
-				[]corev1.ServicePort{{Name: "http", Port: 1234}}),
-		},
-		probeHostResponses: map[string][]activatortest.FakeResponse{
-			"129.0.0.1:1234": {{
-				Err: errors.New("clusterIP transport error"),
-			}},
-			"128.0.0.1:1234": {{
-				Code: http.StatusServiceUnavailable,
-			}, {
-				Code: http.StatusOK,
-				Body: queue.Name,
-			}},
-		},
-		expectDests: map[types.NamespacedName]revisionDestsUpdate{
-			{Namespace: testNamespace, Name: testRevision}: {
-				Dests: sets.NewString("128.0.0.1:1234"),
-			},
-		},
-		updateCnt: 1,
-	}, {
 		name:         "no pod addressability",
 		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http", "128.0.0.1")},
 		revisions: []*v1alpha1.Revision{
