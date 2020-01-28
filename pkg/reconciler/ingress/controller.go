@@ -109,7 +109,7 @@ func NewController(
 	statusProber.Start(ctx.Done())
 
 	ingressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		// Cancel probing when a VirtualService is deleted
+		// Cancel probing when a Ingress is deleted
 		DeleteFunc: statusProber.CancelIngressProbing,
 	})
 	podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
