@@ -38,7 +38,6 @@ import (
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/test/ingress"
 	"knative.dev/serving/pkg/apis/networking"
-	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/test"
 	testingress "knative.dev/serving/test/conformance/ingress"
@@ -230,9 +229,12 @@ func waitForHTTP01ChallengePath(t *testing.T, clients *test.Clients, objects *v1
 	certName := routenames.Certificate(objects.Route)
 	if err := wait.Poll(5*time.Second, 60*time.Second, func() (bool, error) {
 		cert, err := clients.NetworkingClient.Certificates.Get(certName, metav1.GetOptions{})
-		cert, ready, err := getCertificate(t, clients, certName)
-		if !ready {
-			return ready, err
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				t.Logf("Certificate %s has not been created: %v", certName, err)
+				return false, nil
+			}
+			return false, err
 		}
 		if len(cert.Status.HTTP01Challenges) == 0 {
 			return false, nil
@@ -256,26 +258,18 @@ func waitForHTTP01ChallengePath(t *testing.T, clients *test.Clients, objects *v1
 
 func waitForCertificateReady(t *testing.T, clients *test.Clients, certName string) {
 	if err := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
-		cert, ready, err := getCertificate(t, clients, certName)
-		if !ready {
-			return ready, err
+		cert, err := clients.NetworkingClient.Certificates.Get(certName, metav1.GetOptions{})
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				t.Logf("Certificate %s has not been created: %v", certName, err)
+				return false, nil
+			}
+			return false, err
 		}
 		return cert.Status.IsReady(), nil
 	}); err != nil {
 		t.Fatalf("Certificate %s is not ready: %v", certName, err)
 	}
-}
-
-func getCertificate(t *testing.T, clients *test.Clients, certName string) (*v1alpha1.Certificate, bool, error) {
-	cert, err := clients.NetworkingClient.Certificates.Get(certName, metav1.GetOptions{})
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			t.Logf("Certificate %s has not been created: %v", certName, err)
-			return nil, false, nil
-		}
-		return nil, false, err
-	}
-	return cert, true, nil
 }
 
 func setupDNSRecord(t *testing.T, cfg config, clients *test.Clients, domain string) context.CancelFunc {
