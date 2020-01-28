@@ -75,7 +75,7 @@ kubectl delete -f ./test/config/autotls/certmanager/selfsigned/
 
 kubectl apply -f ./test/config/autotls/certmanager/http01/
 add_trap "kubectl delete -f ./test/config/autotls/certmanager/http01/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
-setup_http01_env()
+setup_http01_env
 go_test_e2e -timeout=10m \
   ./test/e2e/autotls/http01 || failed=1
 kubectl delete -f ./test/config/autotls/certmanager/http01/
