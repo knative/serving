@@ -1,3 +1,5 @@
+// +build e2e
+
 /*
 Copyright 2020 The Knative Authors
 
@@ -65,7 +67,6 @@ type config struct {
 // 3. Run the command below to do the configuration:
 // kubectl apply -f test/config/autotls/certmanager/http01/
 func TestPerKsvcCert_HTTP01(t *testing.T) {
-	t.Skip("Test environment is not ready. Can only be ran locally.")
 	clients := e2e.Setup(t)
 	autotls.DisableNamespaceCert(t, clients)
 
