@@ -151,6 +151,8 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 	//			gets marked inactive, and
 	//   c) the PA has been backed by the Activator for at least the grace period
 	//      of time.
+	//  Alternatively, if (a) and the revision did not succeed to activate in
+	//  `activationTimeout` time -- also scale it to 0.
 	config := config.FromContext(ctx).Autoscaler
 	if !config.EnableScaleToZero {
 		return 1, true
