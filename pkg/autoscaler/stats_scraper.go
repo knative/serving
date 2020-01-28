@@ -48,12 +48,6 @@ const (
 )
 
 var (
-	// Pod older than 1 minute is considered old enough for its
-	// stat to be included in the sample immediately.
-	// This number is arbitrary decided to be equal to the default
-	// stable window.
-	youngPodCutOffSecs = time.Minute.Seconds()
-
 	// ErrFailedGetEndpoints specifies the error returned by scraper when it fails to
 	// get endpoints.
 	ErrFailedGetEndpoints = errors.New("failed to get endpoints")
@@ -186,8 +180,6 @@ func (s *ServiceScraper) Scrape(window time.Duration) (Stat, error) {
 					return err
 				}
 			}
-			// Being here means we have effectively seen only young pods.
-			return nil
 		})
 	}
 	// Now at this point we have two possibilities.
