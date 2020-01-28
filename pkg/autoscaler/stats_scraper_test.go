@@ -187,7 +187,7 @@ func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 var youngPodCutOffDuration = defaultMetric.Spec.StableWindow
 
 func TestScrapeAllPodsYoungPods(t *testing.T) {
-	const numP = 6
+	const numP = 4
 	// All the pods will have life span of less than  `youngPodCutoffSecs`.
 	// Also number of pods is greater than minSampleSizeToConsiderAge, so
 	// every pod will be scraped twice, before its stat will be considered
@@ -215,8 +215,8 @@ func TestScrapeAllPodsYoungPods(t *testing.T) {
 	if got.PodName != scraperPodName {
 		t.Errorf("stat.PodName=%v, want %v", got.PodName, scraperPodName)
 	}
-	// (2+4+6+8+10) / 5.0 * 6 = 36
-	if got, want := got.AverageConcurrentRequests, 36.0; got != want {
+	// (2+4+6+8) / 4.0 * 4 = 20
+	if got, want := got.AverageConcurrentRequests, 20.0; got != want {
 		t.Errorf("stat.AverageConcurrentRequests=%v, want %v", got, want)
 	}
 }
