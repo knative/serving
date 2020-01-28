@@ -62,6 +62,7 @@ func TestPerKsvcCert_localCA(t *testing.T) {
 	}
 
 	cancel := turnOnAutoTLS(t, clients)
+	test.CleanupOnInterrupt(cancel)
 	defer cancel()
 
 	// wait for certificate to be ready
@@ -84,10 +85,14 @@ func TestPerNamespaceCert_localCA(t *testing.T) {
 	defer disableNamespaceCertWithWhiteList(t, clients, sets.String{})
 
 	cancel := turnOnAutoTLS(t, clients)
+	test.CleanupOnInterrupt(cancel)
 	defer cancel()
 
 	// wait for certificate to be ready
-	certName := waitForNamespaceCertReady(t, clients)
+	certName, err := waitForNamespaceCertReady(clients)
+	if err != nil {
+		t.Fatalf("Namespace Cert failed to become ready: %v", err)
+	}
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
@@ -208,9 +213,9 @@ func waitForCertificateReady(t *testing.T, clients *test.Clients, certName strin
 	}
 }
 
-func waitForNamespaceCertReady(t *testing.T, clients *test.Clients) string {
+func waitForNamespaceCertReady(clients *test.Clients) (string, error) {
 	var certName string
-	if err := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
+	err := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
 		certs, err := clients.NetworkingClient.Certificates.List(metav1.ListOptions{})
 		if err != nil {
 			return false, err
@@ -223,8 +228,6 @@ func waitForNamespaceCertReady(t *testing.T, clients *test.Clients) string {
 		}
 		// Namespace certificate has not been created.
 		return false, nil
-	}); err != nil {
-		t.Fatalf("Namespace Certificate is not ready: %v", err)
-	}
-	return certName
+	})
+	return certName, err
 }
