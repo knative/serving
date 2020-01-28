@@ -62,7 +62,7 @@ type config struct {
 	DnsZone                       string `split_words:"true" required:"false"`
 	CloudDnsServiceAccountKeyFile string `split_words:"true" required:"false"`
 	CloudDnsProject               string `split_words:"true" required:"false"`
-	SetUpDNS                      string `split_words:"true" required:"false"`
+	SetUpDns                      string `split_words:"true" required:"false"`
 }
 
 // To run this test locally with cert-manager, you need to
