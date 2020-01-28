@@ -21,6 +21,7 @@ package slackutil
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"io/ioutil"
 	"net/url"
 	"strconv"
@@ -84,7 +85,9 @@ func (c *readClient) MessageHistory(channel string, startTime time.Time) ([]stri
 	res := make([]string, 0)
 	for _, message := range r.Messages {
 		if message.UserName == c.userName {
-			res = append(res, message.Text)
+			// the message text queried from Slack will be escaped,
+			// so we unescape it to restore to the original text
+			res = append(res, html.UnescapeString(message.Text))
 		}
 	}
 
