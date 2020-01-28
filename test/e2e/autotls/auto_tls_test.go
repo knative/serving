@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking"
 	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/test"
@@ -113,8 +114,11 @@ func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *
 		t.Fatalf("Failed to get Secret %s: %v", secretName, err)
 	}
 
-	rootCAs, _ := x509.SystemCertPool()
-	if rootCAs == nil {
+	rootCAs, err := x509.SystemCertPool()
+	if rootCAs == nil || err != nil {
+		if err != nil {
+			t.Logf("Failed to load cert poll from system: %v. Will create a new cert pool.", err)
+		}
 		rootCAs = x509.NewCertPool()
 	}
 	if !rootCAs.AppendCertsFromPEM(secret.Data[corev1.TLSCertKey]) {
@@ -160,7 +164,7 @@ func disableNamespaceCertWithWhiteList(t *testing.T, clients *test.Clients, whit
 }
 
 func turnOnAutoTLS(t *testing.T, clients *test.Clients) context.CancelFunc {
-	configNetworkCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(systemNamespace).Get("config-network", metav1.GetOptions{})
+	configNetworkCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get("config-network", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get config-network ConfigMap: %v", err)
 	}
@@ -168,7 +172,7 @@ func turnOnAutoTLS(t *testing.T, clients *test.Clients) context.CancelFunc {
 	test.CleanupOnInterrupt(func() {
 		turnOffAutoTLS(t, clients)
 	})
-	if _, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(systemNamespace).Update(configNetworkCM); err != nil {
+	if _, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Update(configNetworkCM); err != nil {
 		t.Fatalf("Failed to update config-network ConfigMap: %v", err)
 	}
 	return func() {
@@ -177,7 +181,7 @@ func turnOnAutoTLS(t *testing.T, clients *test.Clients) context.CancelFunc {
 }
 
 func turnOffAutoTLS(t *testing.T, clients *test.Clients) {
-	configNetworkCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(systemNamespace).Get("config-network", metav1.GetOptions{})
+	configNetworkCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get("config-network", metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Failed to get config-network ConfigMap: %v", err)
 		return
