@@ -43,8 +43,9 @@ import (
 )
 
 var (
-	containerName        = "my-container-name"
-	defaultUserContainer = &corev1.Container{
+	containerName                = "my-container-name"
+	sidecarIstioInjectAnnotation = "sidecar.istio.io/inject"
+	defaultUserContainer         = &corev1.Container{
 		Name:                     containerName,
 		Image:                    "busybox",
 		Ports:                    buildContainerPorts(v1alpha1.DefaultUserPort),

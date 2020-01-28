@@ -25,8 +25,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/networking"
 )
+
+var defaultMaxRevisionTimeout = time.Duration(config.DefaultMaxRevisionTimeoutSeconds) * time.Second
 
 func TestIngressDefaulting(t *testing.T) {
 	tests := []struct {
