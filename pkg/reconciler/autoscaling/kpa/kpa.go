@@ -42,9 +42,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// podCounts keep record of the number of pods
-// for each revision
+// podCounts keeps record of various numbers of pods
+// for each revision.
 type podCounts struct {
+	want        int
 	ready       int
 	notReady    int
 	pending     int
@@ -140,7 +141,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		if _, err = c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe); err != nil {
 			return fmt.Errorf("error reconciling SKS: %w", err)
 		}
-		return computeStatus(pa, scaleUnknown, podCounts{})
+		return computeStatus(pa, podCounts{want: scaleUnknown})
 	}
 
 	pa.Status.MetricsServiceName = sks.Status.PrivateServiceName
@@ -214,13 +215,14 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	logger.Infof("PA scale got=%d, want=%d, ebc=%d", ready, want, decider.Status.ExcessBurstCapacity)
 
 	pc := podCounts{
+		want:        int(want),
 		ready:       ready,
 		notReady:    notReady,
 		pending:     pending,
 		terminating: terminating,
 	}
 	logger.Infof("Observed pod counts=%#v", pc)
-	return computeStatus(pa, want, pc)
+	return computeStatus(pa, pc)
 }
 
 func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler, k8sSvc string) (*autoscaler.Decider, error) {
@@ -243,24 +245,23 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAut
 			return nil, fmt.Errorf("error updating decider: %w", err)
 		}
 	}
-
 	return decider, nil
 }
 
-func computeStatus(pa *pav1alpha1.PodAutoscaler, want int32, pc podCounts) error {
-	pa.Status.DesiredScale, pa.Status.ActualScale = &want, ptr.Int32(int32(pc.ready))
+func computeStatus(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
+	pa.Status.DesiredScale, pa.Status.ActualScale = ptr.Int32(int32(pc.want)), ptr.Int32(int32(pc.ready))
 
-	if err := reportMetrics(pa, want, pc); err != nil {
+	if err := reportMetrics(pa, pc); err != nil {
 		return fmt.Errorf("error reporting metrics: %w", err)
 	}
 
-	computeActiveCondition(pa, want, pc.ready)
+	computeActiveCondition(pa, pc)
 
 	pa.Status.ObservedGeneration = pa.Generation
 	return nil
 }
 
-func reportMetrics(pa *pav1alpha1.PodAutoscaler, want int32, pc podCounts) error {
+func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 	var serviceLabel string
 	var configLabel string
 	if pa.Labels != nil {
@@ -277,8 +278,8 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, want int32, pc podCounts) error
 	reporter.ReportPendingPodCount(int64(pc.pending))
 	reporter.ReportTerminatingPodCount(int64(pc.terminating))
 	// Negative "want" values represent an empty metrics pipeline and thus no specific request is being made.
-	if want >= 0 {
-		reporter.ReportRequestedPodCount(int64(want))
+	if pc.want >= 0 {
+		reporter.ReportRequestedPodCount(int64(pc.want))
 	}
 	return nil
 }
@@ -296,11 +297,11 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, want int32, pc podCounts) error
 //    | -1   | >= min | inactive   | inactive   |
 //    | -1   | >= min | activating | active     |
 //    | -1   | >= min | active     | active     |
-func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want int32, got int) {
+func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, pc podCounts) {
 	minReady := activeThreshold(pa)
 
 	switch {
-	case want == 0:
+	case pc.want == 0:
 		if pa.Status.IsActivating() {
 			// We only ever scale to zero while activating if we fail to activate within the progress deadline.
 			pa.Status.MarkInactive("TimedOut", "The target could not be activated.")
@@ -308,14 +309,14 @@ func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, want int32, got int) {
 			pa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
 		}
 
-	case got < minReady:
-		if want > 0 || !pa.Status.IsInactive() {
+	case pc.ready < minReady:
+		if pc.want > 0 || !pa.Status.IsInactive() {
 			pa.Status.MarkActivating(
 				"Queued", "Requests to the target are being buffered as resources are provisioned.")
 		}
 
-	case got >= minReady:
-		if want > 0 || !pa.Status.IsInactive() {
+	case pc.ready >= minReady:
+		if pc.want > 0 || !pa.Status.IsInactive() {
 			// SKS should already be active.
 			pa.Status.MarkActive()
 		}

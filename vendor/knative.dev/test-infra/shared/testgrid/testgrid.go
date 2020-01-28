@@ -46,6 +46,7 @@ var jobNameTestgridURLMap = map[string]string{
 	"ci-knative-serving-gloo-0.17.1":       "serving#gloo-0.17.1",
 	"ci-knative-serving-kourier-stable":    "serving#kourier-stable",
 	"ci-knative-serving-contour-latest":    "serving#contour-latest",
+	"ci-knative-serving-ambassador-latest": "serving#ambassador-latest",
 }
 
 // GetTestgridTabURL gets Testgrid URL for giving job and filters for Testgrid
