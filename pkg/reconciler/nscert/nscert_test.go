@@ -33,6 +33,7 @@ import (
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 	. "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking"
@@ -294,38 +295,6 @@ func TestUpdateDomainTemplate(t *testing.T) {
 	}
 }
 
-func TestDomainConfigDefaultDomain(t *testing.T) {
-	domCfg := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      routecfg.DomainConfigName,
-			Namespace: system.Namespace(),
-		},
-		Data: map[string]string{
-			"other.com": "selector:\n app: dev",
-		},
-	}
-	netCfg := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      network.ConfigName,
-			Namespace: system.Namespace(),
-		},
-		Data: map[string]string{
-			"autoTLS": "Enabled",
-		},
-	}
-	ctx, cancel, certEvents, _ := newTestSetup(t, domCfg, netCfg)
-	defer cancel()
-
-	namespace := kubeNamespace("testns")
-	fakekubeclient.Get(ctx).CoreV1().Namespaces().Create(namespace)
-	fakensinformer.Get(ctx).Informer().GetIndexer().Add(namespace)
-
-	cert := <-certEvents
-	if got, want := cert.Spec.DNSNames[0], "*.testns.example.com"; got != want {
-		t.Errorf("DNSName[0] = %s, want %s", got, want)
-	}
-}
-
 func TestChangeDefaultDomain(t *testing.T) {
 	netCfg := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -375,35 +344,84 @@ func TestChangeDefaultDomain(t *testing.T) {
 	}
 }
 
-func TestDomainConfigExplicitDefaultDomain(t *testing.T) {
-	domCfg := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      routecfg.DomainConfigName,
-			Namespace: system.Namespace(),
+func TestDomainConfigDomain(t *testing.T) {
+	const ns = "testns"
+
+	tests := []struct {
+		name         string
+		domainCfg    map[string]string
+		wantCertName string
+		wantDNSName  string
+	}{{
+		name: "default domain",
+		domainCfg: map[string]string{
+			"other.com": "selector:\n app: dev",
 		},
-		Data: map[string]string{
+		wantCertName: "testns.example.com",
+		wantDNSName:  "*.testns.example.com",
+	}, {
+		name: "default domain",
+		domainCfg: map[string]string{
 			"default.com": "",
 		},
-	}
-	netCfg := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      network.ConfigName,
-			Namespace: system.Namespace(),
-		},
-		Data: map[string]string{
-			"autoTLS": "Enabled",
-		},
-	}
-	ctx, cancel, certEvents, _ := newTestSetup(t, domCfg, netCfg)
-	defer cancel()
+		wantCertName: "testns.default.com",
+		wantDNSName:  "*.testns.default.com",
+	}}
 
-	namespace := kubeNamespace("testns")
-	fakekubeclient.Get(ctx).CoreV1().Namespaces().Create(namespace)
-	fakensinformer.Get(ctx).Informer().GetIndexer().Add(namespace)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			domCfg := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      routecfg.DomainConfigName,
+					Namespace: system.Namespace(),
+				},
+				Data: test.domainCfg,
+			}
+			netCfg := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      network.ConfigName,
+					Namespace: system.Namespace(),
+				},
+				Data: map[string]string{
+					"autoTLS": "Enabled",
+				},
+			}
 
-	cert := <-certEvents
-	if got, want := cert.Spec.DNSNames[0], "*.testns.default.com"; got != want {
-		t.Errorf("DNSName[0] = %s, want %s", got, want)
+			ctx, ccl, ifs := SetupFakeContextWithCancel(t)
+			wf, err := controller.RunInformers(ctx.Done(), ifs...)
+			if err != nil {
+				t.Fatalf("Error starting informers: %v", err)
+			}
+			defer func() {
+				ccl()
+				wf()
+			}()
+
+			cmw := configmap.NewStaticWatcher(domCfg, netCfg)
+			configStore := config.NewStore(logging.FromContext(ctx).Named("config-store"))
+			configStore.WatchConfigs(cmw)
+
+			r := &reconciler{
+				Base:                pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
+				configStore:         configStore,
+				nsLister:            fakensinformer.Get(ctx).Lister(),
+				knCertificateLister: fakecertinformer.Get(ctx).Lister(),
+			}
+
+			namespace := kubeNamespace(ns)
+			fakekubeclient.Get(ctx).CoreV1().Namespaces().Create(namespace)
+			fakensinformer.Get(ctx).Informer().GetIndexer().Add(namespace)
+
+			r.Reconcile(ctx, ns)
+
+			cert, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().Certificates(ns).Get(test.wantCertName, metav1.GetOptions{})
+			if err != nil {
+				t.Fatalf("Could not get certificate: %v", err)
+			}
+			if got, want := cert.Spec.DNSNames[0], test.wantDNSName; got != want {
+				t.Errorf("DNSName[0] = %s, want %s", got, want)
+			}
+		})
 	}
 }
 

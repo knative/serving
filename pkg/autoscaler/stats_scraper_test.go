@@ -18,6 +18,7 @@ package autoscaler
 
 import (
 	"errors"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -36,28 +37,47 @@ const (
 )
 
 var (
-	testStats = []Stat{
-		{
-			PodName:                          "pod-1",
-			AverageConcurrentRequests:        3.0,
-			AverageProxiedConcurrentRequests: 2.0,
-			RequestCount:                     5,
-			ProxiedRequestCount:              4,
-		}, {
-			PodName:                          "pod-2",
-			AverageConcurrentRequests:        5.0,
-			AverageProxiedConcurrentRequests: 4.0,
-			RequestCount:                     7,
-			ProxiedRequestCount:              6,
-		}, {
-			PodName:                          "pod-3",
-			AverageConcurrentRequests:        3.0,
-			AverageProxiedConcurrentRequests: 2.0,
-			RequestCount:                     5,
-			ProxiedRequestCount:              4,
-		},
-	}
+	testStats = []Stat{{
+		PodName:                          "pod-1",
+		AverageConcurrentRequests:        3.0,
+		AverageProxiedConcurrentRequests: 2.0,
+		RequestCount:                     5,
+		ProxiedRequestCount:              4,
+	}, {
+		PodName:                          "pod-2",
+		AverageConcurrentRequests:        5.0,
+		AverageProxiedConcurrentRequests: 4.0,
+		RequestCount:                     7,
+		ProxiedRequestCount:              6,
+	}, {
+		PodName:                          "pod-3",
+		AverageConcurrentRequests:        3.0,
+		AverageProxiedConcurrentRequests: 2.0,
+		RequestCount:                     5,
+		ProxiedRequestCount:              4,
+	}}
 )
+
+// testStatsWithTime will generate n Stats, each stat having
+// pod start time spaced 10s in the past more than the previous one.
+// Each pod will return `(i+1)*2`, as it's `AverageConcurrentRequests`.
+func testStatsWithTime(n int, youngestSecs float64) []Stat {
+	ret := make([]Stat, 0, n)
+	tmpl := Stat{
+		AverageProxiedConcurrentRequests: 3.0,
+		RequestCount:                     2,
+		ProxiedRequestCount:              4,
+	}
+	for i := 0; i < n; i++ {
+		s := tmpl
+		s.PodName = "pod-" + strconv.Itoa(i)
+		s.AverageConcurrentRequests = float64((i + 1) * 2)
+		s.ProcessUptime = float64(i*10) + youngestSecs
+		ret = append(ret, s)
+	}
+
+	return ret
+}
 
 func TestNewServiceScraperWithClientHappyCase(t *testing.T) {
 	client := newTestScrapeClient(testStats, []error{nil})
@@ -133,9 +153,9 @@ func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 
 	// Scrape will set a timestamp bigger than this.
 	now := time.Now()
-	got, err := scraper.Scrape()
+	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
-		t.Fatalf("unexpected error from scraper.Scrape(): %v", err)
+		t.Fatalf("Unexpected error from scraper.Scrape(): %v", err)
 	}
 
 	if got.Time.Before(now) {
@@ -164,6 +184,108 @@ func TestScrapeReportStatWhenAllCallsSucceed(t *testing.T) {
 	}
 }
 
+var youngPodCutOffDuration = defaultMetric.Spec.StableWindow
+
+func TestScrapeAllPodsYoungPods(t *testing.T) {
+	const numP = 6
+	// All the pods will have life span of less than  `youngPodCutoffSecs`.
+	// Also number of pods is greater than minSampleSizeToConsiderAge, so
+	// every pod will be scraped twice, before its stat will be considered
+	// acceptable.
+	testStats := testStatsWithTime(numP, 0. /*youngest*/)
+
+	client := newTestScrapeClient(testStats, []error{nil})
+	scraper, err := serviceScraperForTest(client)
+	if err != nil {
+		t.Fatalf("serviceScraperForTest=%v, want no error", err)
+	}
+
+	endpoints(numP, testService)
+
+	// Scrape will set a timestamp bigger than this.
+	now := time.Now()
+	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
+	if err != nil {
+		t.Fatalf("Unexpected error from scraper.Scrape(): %v", err)
+	}
+
+	if got.Time.Before(now) {
+		t.Errorf("stat.Time=%v, want bigger than %v", got.Time, now)
+	}
+	if got.PodName != scraperPodName {
+		t.Errorf("stat.PodName=%v, want %v", got.PodName, scraperPodName)
+	}
+	// (2+4+6+8+10) / 5.0 * 6 = 36
+	if got, want := got.AverageConcurrentRequests, 36.0; got != want {
+		t.Errorf("stat.AverageConcurrentRequests=%v, want %v", got, want)
+	}
+}
+
+func TestScrapeAllPodsOldPods(t *testing.T) {
+	const numP = 6
+	// All pods are at least cutoff time old, so first 5 stats will be picked.
+	testStats := testStatsWithTime(numP, youngPodCutOffDuration.Seconds() /*youngest*/)
+
+	client := newTestScrapeClient(testStats, []error{nil})
+	scraper, err := serviceScraperForTest(client)
+	if err != nil {
+		t.Fatalf("serviceScraperForTest=%v, want no error", err)
+	}
+
+	endpoints(numP, testService)
+
+	// Scrape will set a timestamp bigger than this.
+	now := time.Now()
+	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
+	if err != nil {
+		t.Fatalf("Unexpected error from scraper.Scrape(): %v", err)
+	}
+
+	if got.Time.Before(now) {
+		t.Errorf("stat.Time=%v, want bigger than %v", got.Time, now)
+	}
+	if got.PodName != scraperPodName {
+		t.Errorf("stat.PodName=%v, want %v", got.PodName, scraperPodName)
+	}
+	// (2+4+6+8+10) / 5.0 * 6 = 36
+	if got, want := got.AverageConcurrentRequests, 36.0; got != want {
+		t.Errorf("stat.AverageConcurrentRequests=%v, want %v", got, want)
+	}
+}
+
+func TestScrapeSomePodsOldPods(t *testing.T) {
+	const numP = 11
+	// All pods starting with pod-3 qualify.
+	// So pods 3-10 qualify (for 11 total sample is 7).
+	testStats := testStatsWithTime(numP, youngPodCutOffDuration.Seconds()/2 /*youngest*/)
+
+	client := newTestScrapeClient(testStats, []error{nil})
+	scraper, err := serviceScraperForTest(client)
+	if err != nil {
+		t.Fatalf("serviceScraperForTest=%v, want no error", err)
+	}
+
+	endpoints(numP, testService)
+
+	// Scrape will set a timestamp bigger than this.
+	now := time.Now()
+	got, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
+	if err != nil {
+		t.Fatalf("Unexpected error from scraper.Scrape(): %v", err)
+	}
+
+	if got.Time.Before(now) {
+		t.Errorf("stat.Time=%v, want bigger than %v", got.Time, now)
+	}
+	if got.PodName != scraperPodName {
+		t.Errorf("stat.PodName=%v, want %v", got.PodName, scraperPodName)
+	}
+	// (8+10+12+14+16+18+20)=98; 98/7*11 = 154
+	if got, want := got.AverageConcurrentRequests, 154.0; got != want {
+		t.Errorf("stat.AverageConcurrentRequests=%v, want %v", got, want)
+	}
+}
+
 func TestScrapeReportErrorCannotFindEnoughPods(t *testing.T) {
 	client := newTestScrapeClient(testStats[2:], []error{nil})
 	scraper, err := serviceScraperForTest(client)
@@ -174,7 +296,7 @@ func TestScrapeReportErrorCannotFindEnoughPods(t *testing.T) {
 	// Make an Endpoints with 2 pods.
 	endpoints(2, testService)
 
-	_, err = scraper.Scrape()
+	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err == nil {
 		t.Errorf("scrape.Scrape() = nil, expected an error")
 	}
@@ -194,7 +316,7 @@ func TestScrapeReportErrorIfAnyFails(t *testing.T) {
 	// Make an Endpoints with 2 pods.
 	endpoints(2, testService)
 
-	_, err = scraper.Scrape()
+	_, err = scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if !errors.Is(err, errTest) {
 		t.Errorf("scraper.Scrape() = %v, want %v wrapped", err, errTest)
 	}
@@ -210,7 +332,7 @@ func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
 	// Make an Endpoints with 0 pods.
 	endpoints(0, testService)
 
-	stat, err := scraper.Scrape()
+	stat, err := scraper.Scrape(defaultMetric.Spec.StableWindow)
 	if err != nil {
 		t.Fatalf("scraper.Scrape() returned error: %v", err)
 	}

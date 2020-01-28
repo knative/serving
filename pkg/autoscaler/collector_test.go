@@ -410,7 +410,7 @@ type testScraper struct {
 	url string
 }
 
-func (s *testScraper) Scrape() (Stat, error) {
+func (s *testScraper) Scrape(time.Duration) (Stat, error) {
 	return s.s()
 }
 
