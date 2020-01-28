@@ -33,6 +33,13 @@ function knative_setup() {
   install_knative_serving
 }
 
+function setup_http01_env() {
+  export DNS_ZONE="external-dns"
+  export CLOUD_DNS_PROJECT="zhiminx-prod-test"
+  export SET_UP_DNS="true"
+  export CLOUD_DNS_SERVICE_ACCOUNT_KEY_FILE="/etc/test-account/service-account.json"
+}
+
 # Script entry point.
 
 # Skip installing istio as an add-on
@@ -48,23 +55,30 @@ parallelism=""
 (( MESH )) && parallelism="-parallel 1"
 
 # Run conformance and e2e tests.
-go_test_e2e -timeout=30m \
-  ./test/conformance/... \
-  ./test/e2e \
-  ${parallelism} \
-  "--resolvabledomain=$(use_resolvable_domain)" "$(use_https)" "$(ingress_class)" || failed=1
+#go_test_e2e -timeout=30m \
+#  ./test/conformance/... \
+#  ./test/e2e \
+#  ${parallelism} \
+#  "--resolvabledomain=$(use_resolvable_domain)" "$(use_https)" "$(ingress_class)" || failed=1
 
 # Run scale tests.
-go_test_e2e -timeout=10m \
-  ${parallelism} \
-  ./test/scale || failed=1
+#go_test_e2e -timeout=10m \
+#  ${parallelism} \
+#  ./test/scale || failed=1
 
 # Auto TLS E2E tests mutate the cluster and must be ran separately
 kubectl apply -f ./test/config/autotls/certmanager/selfsigned/
 add_trap "kubectl delete -f ./test/config/autotls/certmanager/selfsigned/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
 go_test_e2e -timeout=10m \
-  ./test/e2e/autotls || failed=1
+  ./test/e2e/autotls/nonhttp01 || failed=1
 kubectl delete -f ./test/config/autotls/certmanager/selfsigned/
+
+kubectl apply -f ./test/config/autotls/certmanager/http01/
+add_trap "kubectl delete -f ./test/config/autotls/certmanager/http01/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+setup_http01_env()
+go_test_e2e -timeout=10m \
+  ./test/e2e/autotls/http01 || failed=1
+kubectl delete -f ./test/config/autotls/certmanager/http01/
 
 # Istio E2E tests mutate the cluster and must be ran separately
 if [[ -n "${ISTIO_VERSION}" ]]; then
