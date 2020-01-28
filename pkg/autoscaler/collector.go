@@ -283,7 +283,7 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory f
 				scrapeTicker.Stop()
 				return
 			case <-scrapeTicker.C:
-				stat, err := c.getScraper().Scrape()
+				stat, err := c.getScraper().Scrape(c.currentMetric().Spec.StableWindow)
 				if err != nil {
 					copy := metric.DeepCopy()
 					switch {
