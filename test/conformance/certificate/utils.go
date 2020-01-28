@@ -19,7 +19,6 @@ package certificate
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -33,7 +32,8 @@ import (
 	"knative.dev/serving/test"
 )
 
-func createCertificate(t *testing.T, clients *test.Clients, dnsNames []string) (*v1alpha1.Certificate, context.CancelFunc) {
+// CreateCertificate creates a Certificate with the given DNS names
+func CreateCertificate(t *testing.T, clients *test.Clients, dnsNames []string) (*v1alpha1.Certificate, context.CancelFunc) {
 	t.Helper()
 	name := test.ObjectNameForTest(t)
 
@@ -74,31 +74,8 @@ func createCertificate(t *testing.T, clients *test.Clients, dnsNames []string) (
 	}
 }
 
-// WaitForCertificateState polls the status of the Certificate called name from client
-// every PollInterval until inState returns `true` indicating it is done, returns an
-// error or PollTimeout. desc will be used to name the metric that is emitted to
-// track how long it took for name to get into the state checked by inState.
-func waitForCertificateState(client *test.NetworkingClients, name string, inState func(r *v1alpha1.Certificate) (bool, error), desc string) error {
-	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForCertificateState/%s/%s", name, desc))
-	defer span.End()
-
-	var lastState *v1alpha1.Certificate
-	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		var err error
-		lastState, err = client.Certificates.Get(name, metav1.GetOptions{})
-		if err != nil {
-			return true, err
-		}
-		return inState(lastState)
-	})
-
-	if waitErr != nil {
-		return fmt.Errorf("certificate %q is not in desired state, got: %+v: %w", name, lastState, waitErr)
-	}
-	return nil
-}
-
-func waitForSecret(client *test.Clients, name string, desc string) error {
+// WaitForSecret polls the status of the named Secret until it exists or the timeout is exceeded
+func WaitForSecret(client *test.Clients, name string, desc string) error {
 	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("waitForSecret/%s/%s", name, desc))
 	defer span.End()
 
@@ -118,8 +95,28 @@ func waitForSecret(client *test.Clients, name string, desc string) error {
 	return nil
 }
 
-func certHasHTTP01Challenges(cert *v1alpha1.Certificate) (bool, error) {
-	return len(cert.Status.HTTP01Challenges) == len(cert.Spec.DNSNames), nil
+// WaitForCertificateState polls the status of the Certificate called name from client
+// every PollInterval until inState returns `true` indicating it is done, returns an
+// error or PollTimeout. desc will be used to name the metric that is emitted to
+// track how long it took for name to get into the state checked by inState.
+func WaitForCertificateState(client *test.NetworkingClients, name string, inState func(r *v1alpha1.Certificate) (bool, error), desc string) error {
+	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForCertificateState/%s/%s", name, desc))
+	defer span.End()
+
+	var lastState *v1alpha1.Certificate
+	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
+		var err error
+		lastState, err = client.Certificates.Get(name, metav1.GetOptions{})
+		if err != nil {
+			return true, err
+		}
+		return inState(lastState)
+	})
+
+	if waitErr != nil {
+		return fmt.Errorf("certificate %q is not in desired state, got: %+v: %w", name, lastState, waitErr)
+	}
+	return nil
 }
 
 func getCertClass(t *testing.T, client *test.Clients) string {
@@ -131,7 +128,11 @@ func getCertClass(t *testing.T, client *test.Clients) string {
 	return configNetworkCM.Data["certificate.class"]
 }
 
-func verifyChallenges(t *testing.T, cert *v1alpha1.Certificate) {
+// VerifyChallenges verifies that the given certificate has the correct number
+// of HTTP01challenges and they contain valid data.
+func VerifyChallenges(t *testing.T, cert *v1alpha1.Certificate) {
+	t.Helper()
+
 	certDomains := sets.NewString(cert.Spec.DNSNames...)
 
 	for _, challenge := range cert.Status.HTTP01Challenges {
@@ -140,7 +141,7 @@ func verifyChallenges(t *testing.T, cert *v1alpha1.Certificate) {
 		}
 
 		if !certDomains.Has(challenge.URL.Host) {
-			t.Errorf("HTTP01 Challenge host %s is not one of: %s", challenge.URL.Host, strings.Join(cert.Spec.DNSNames, ","))
+			t.Errorf("HTTP01 Challenge host %s is not one of: %v", challenge.URL.Host, cert.Spec.DNSNames)
 		}
 	}
 }

@@ -16,28 +16,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package certificate
+package http01
 
 import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/test"
+	utils "knative.dev/serving/test/conformance/certificate"
 )
 
-// TestSecret verifies that a certificate creates a secret
-func TestSecret(t *testing.T) {
-	clients := test.Setup(t)
-	certName := test.ObjectNameForTest(t) + ".example.com"
-
-	cert, cancel := createCertificate(t, clients, []string{certName})
-	defer cancel()
-
-	waitForSecret(clients, cert.Spec.SecretName, t.Name())
-}
-
-// TestHttp01Challenge verifies that HTTP challenges are created for a certificate
-func TestHttp01Challenge(t *testing.T) {
+// TestHTTP01Challenge verifies that HTTP challenges are created for a certificate
+func TestHTTP01Challenge(t *testing.T) {
 	subDomain := test.ObjectNameForTest(t)
 	clients := test.Setup(t)
 
@@ -47,16 +38,23 @@ func TestHttp01Challenge(t *testing.T) {
 	}
 
 	for _, domains := range certDomains {
-		cert, cancel := createCertificate(t, clients, domains)
+		cert, cancel := utils.CreateCertificate(t, clients, domains)
 		defer cancel()
 
-		waitForCertificateState(clients.NetworkingClient, cert.Name, certHasHTTP01Challenges, t.Name())
-		cert, err := clients.NetworkingClient.Certificates.Get(cert.Name, metav1.GetOptions{})
+		err := utils.WaitForCertificateState(clients.NetworkingClient, cert.Name,
+			func(c *v1alpha1.Certificate) (bool, error) {
+				return len(c.Status.HTTP01Challenges) == len(c.Spec.DNSNames), nil
+			},
+			t.Name())
+		if err != nil {
+			t.Fatalf("Failed to wait for HTTP01 challenges: %w", err)
+		}
 
+		cert, err = clients.NetworkingClient.Certificates.Get(cert.Name, metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("Failed to fetch certificate: %v", err)
 		}
 
-		verifyChallenges(t, cert)
+		utils.VerifyChallenges(t, cert)
 	}
 }
