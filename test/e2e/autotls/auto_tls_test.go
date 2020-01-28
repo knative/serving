@@ -55,6 +55,8 @@ func TestPerKsvcCert_localCA(t *testing.T) {
 		Image:   "runtime",
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
+
 	objects, err := v1test.CreateServiceReady(t, clients, &names)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
@@ -84,7 +86,7 @@ func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *
 	if rootCAs == nil {
 		rootCAs = x509.NewCertPool()
 	}
-	if ok := rootCAs.AppendCertsFromPEM(secret.Data[corev1.TLSCertKey]); !ok {
+	if !rootCAs.AppendCertsFromPEM(secret.Data[corev1.TLSCertKey]) {
 		t.Fatal("Failed to add the certificate to the root CA")
 	}
 	return rootCAs
