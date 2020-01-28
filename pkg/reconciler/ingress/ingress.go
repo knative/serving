@@ -29,6 +29,7 @@ import (
 	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 
 	"knative.dev/pkg/controller"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/tracker"
 	istiolisters "knative.dev/serving/pkg/client/istio/listers/networking/v1alpha3"
 
@@ -329,7 +330,7 @@ func (r *Reconciler) reconcileDeletion(ctx context.Context, ing *v1alpha1.Ingres
 // for semantic differences before calling.
 func (r *Reconciler) updateStatus(existing *v1alpha1.Ingress, desired *v1alpha1.Ingress) error {
 	existing = existing.DeepCopy()
-	return reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
+	return pkgreconciler.RetryUpdateConflicts(func(attempts int) (err error) {
 		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
 		if attempts > 0 {
 			existing, err = r.ServingClientSet.NetworkingV1alpha1().Ingresses(desired.GetNamespace()).Get(desired.GetName(), metav1.GetOptions{})

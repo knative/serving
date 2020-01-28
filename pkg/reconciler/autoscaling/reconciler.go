@@ -23,6 +23,7 @@ import (
 
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/logging"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
@@ -140,7 +141,7 @@ func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 // UpdateStatus updates the status of the given PodAutoscaler.
 func (c *Base) UpdateStatus(existing *pav1alpha1.PodAutoscaler, desired *pav1alpha1.PodAutoscaler) error {
 	existing = existing.DeepCopy()
-	return reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
+	return pkgreconciler.RetryUpdateConflicts(func(attempts int) (err error) {
 		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
 		if attempts > 0 {
 			existing, err = c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(desired.Namespace).Get(desired.Name, metav1.GetOptions{})

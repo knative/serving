@@ -41,6 +41,7 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/tracker"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	certmanagerclientset "knative.dev/serving/pkg/client/certmanager/clientset/versioned"
@@ -207,7 +208,7 @@ func (c *Reconciler) reconcileCMCertificate(ctx context.Context, knCert *v1alpha
 
 func (c *Reconciler) updateStatus(existing *v1alpha1.Certificate, desired *v1alpha1.Certificate) error {
 	existing = existing.DeepCopy()
-	return reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
+	return pkgreconciler.RetryUpdateConflicts(func(attempts int) (err error) {
 		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
 		if attempts > 0 {
 			existing, err = c.ServingClientSet.NetworkingV1alpha1().Certificates(desired.Namespace).Get(desired.Name, metav1.GetOptions{})

@@ -259,6 +259,7 @@ func TestReconcile(t *testing.T) {
 	zeroEndpoints := makeSKSPrivateEndpoints(0, testNamespace, testRevision)
 
 	deciderKey := struct{}{}
+	attempts := 0
 
 	// Note: due to how KPA reconciler works we are dependent on the
 	// two constant objects above, which means, that all tests must share
@@ -286,7 +287,7 @@ func TestReconcile(t *testing.T) {
 			defaultDeployment, defaultEndpoints,
 		},
 	}, {
-		Name: "no endpoints",
+		Name: "no endpoints, with retry",
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithPAMetricsService(privateSvc), WithPAStatusService(testRevision),
@@ -295,7 +296,19 @@ func TestReconcile(t *testing.T) {
 			metric(testNamespace, testRevision),
 			defaultDeployment,
 		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
+				if attempts != 0 || !action.Matches("update", "podautoscalers") {
+					return false, nil, nil
+				}
+				attempts++
+				return true, nil, apierrors.NewConflict(v1alpha1.Resource("foo"), "bar", errors.New("foo"))
+			},
+		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markUnknown, WithPAMetricsService(privateSvc), withScales(1, defaultScale),
+				WithPAStatusService(testRevision)),
+		}, {
 			Object: kpa(testNamespace, testRevision, markUnknown, WithPAMetricsService(privateSvc), withScales(1, defaultScale),
 				WithPAStatusService(testRevision)),
 		}},

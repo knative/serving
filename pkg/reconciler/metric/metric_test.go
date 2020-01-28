@@ -23,6 +23,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -33,6 +34,7 @@ import (
 	"knative.dev/pkg/controller"
 	. "knative.dev/pkg/reconciler/testing"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
 	rpkg "knative.dev/serving/pkg/reconciler"
 	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
@@ -49,6 +51,7 @@ func TestNewController(t *testing.T) {
 }
 
 func TestReconcile(t *testing.T) {
+	attempts := 0
 	table := TableTest{{
 		Name: "bad workqueue key, Part I",
 		Key:  "too/many/parts",
@@ -62,6 +65,30 @@ func TestReconcile(t *testing.T) {
 			metric("status", "update"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: metric("status", "update", ready),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated",
+				"Successfully updated metric status status/update"),
+		},
+	}, {
+		Name: "update status with retry",
+		Key:  "status/update",
+		Objects: []runtime.Object{
+			metric("status", "update"),
+		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
+				if attempts != 0 || !action.Matches("update", "metrics") {
+					return false, nil, nil
+				}
+				attempts++
+				return true, nil, apierrs.NewConflict(v1alpha1.Resource("foo"), "bar", errors.New("foo"))
+			},
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: metric("status", "update", ready),
+		}, {
 			Object: metric("status", "update", ready),
 		}},
 		WantEvents: []string{

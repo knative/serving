@@ -18,6 +18,7 @@ package configuration
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -26,6 +27,7 @@ import (
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
@@ -56,6 +58,7 @@ var revisionSpec = v1alpha1.RevisionSpec{
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
+	attempts := 0
 	now := time.Now()
 
 	table := TableTest{{
@@ -72,14 +75,28 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/delete-pending",
 	}, {
-		Name: "create revision matching generation",
+		Name: "create revision matching generation, with retry",
 		Objects: []runtime.Object{
 			cfg("no-revisions-yet", "foo", 1234),
+		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
+				if attempts != 0 || !action.Matches("update", "configurations") {
+					return false, nil, nil
+				}
+				attempts++
+				return true, nil, apierrs.NewConflict(v1alpha1.Resource("foo"), "bar", errors.New("foo"))
+			},
 		},
 		WantCreates: []runtime.Object{
 			rev("no-revisions-yet", "foo", 1234),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfg("no-revisions-yet", "foo", 1234,
+				// The following properties are set when we first reconcile a
+				// Configuration and a Revision is created.
+				WithLatestCreated("no-revisions-yet-00001"), WithObservedGen),
+		}, {
 			Object: cfg("no-revisions-yet", "foo", 1234,
 				// The following properties are set when we first reconcile a
 				// Configuration and a Revision is created.
