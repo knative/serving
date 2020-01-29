@@ -27,7 +27,6 @@ import (
 
 const (
 	granularity = time.Second
-	pod         = "pod"
 )
 
 func TestTimedFloat64BucketsSimple(t *testing.T) {
@@ -36,7 +35,6 @@ func TestTimedFloat64BucketsSimple(t *testing.T) {
 
 	type args struct {
 		time  time.Time
-		name  string
 		value float64
 	}
 	tests := []struct {
@@ -48,10 +46,10 @@ func TestTimedFloat64BucketsSimple(t *testing.T) {
 		name:        "granularity = 1s",
 		granularity: time.Second,
 		stats: []args{
-			{trunc1, pod, 1.0}, // activator scale from 0.
-			{trunc1.Add(100 * time.Millisecond), pod, 10.0}, // from scraping pod/sent by activator.
-			{trunc1.Add(1 * time.Second), pod, 1.0},         // next bucket
-			{trunc1.Add(3 * time.Second), pod, 1.0},         // nextnextnext bucket
+			{trunc1, 1.0}, // activator scale from 0.
+			{trunc1.Add(100 * time.Millisecond), 10.0}, // from scraping pod/sent by activator.
+			{trunc1.Add(1 * time.Second), 1.0},         // next bucket
+			{trunc1.Add(3 * time.Second), 1.0},         // nextnextnext bucket
 		},
 		want: map[time.Time]float64{
 			trunc1:                      11.0,
@@ -62,9 +60,9 @@ func TestTimedFloat64BucketsSimple(t *testing.T) {
 		name:        "granularity = 5s",
 		granularity: 5 * time.Second,
 		stats: []args{
-			{trunc5, pod, 1.0},
-			{trunc5.Add(3 * time.Second), pod, 11.0}, // same bucket
-			{trunc5.Add(6 * time.Second), pod, 1.0},  // next bucket
+			{trunc5, 1.0},
+			{trunc5.Add(3 * time.Second), 11.0}, // same bucket
+			{trunc5.Add(6 * time.Second), 1.0},  // next bucket
 		},
 		want: map[time.Time]float64{
 			trunc5:                      12.0,
