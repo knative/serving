@@ -120,9 +120,6 @@ func TestProbeLifecycle(t *testing.T) {
 			ready <- ing
 		})
 
-	prober.stateExpiration = 2 * time.Second
-	prober.cleanupPeriod = 500 * time.Millisecond
-
 	done := make(chan struct{})
 	cancelled := prober.Start(done)
 	defer func() {
@@ -160,22 +157,22 @@ func TestProbeLifecycle(t *testing.T) {
 		if !ok {
 			t.Fatal("IsReady() returned false")
 		}
-		time.Sleep(prober.cleanupPeriod)
 	}
 
+	// Cancel Ingress probing -> deletes the cached state
+	prober.CancelIngressProbing(ing)
+
 	select {
-	// Wait for the cleanup to happen
-	case <-time.After(prober.stateExpiration + prober.cleanupPeriod):
-		break
 	// Validate that no probe requests were issued (cached)
 	case <-probeRequests:
 		t.Fatal("An unexpected probe request was received")
 	// Validate that no requests went through the probe handler
 	case <-dummyRequests:
 		t.Fatal("An unexpected request went through the probe handler")
+	default:
 	}
 
-	// The state has expired and been removed
+	// The state has been removed and IsReady must return False
 	ok, err = prober.IsReady(context.Background(), ing)
 	if err != nil {
 		t.Fatalf("IsReady failed: %v", err)
