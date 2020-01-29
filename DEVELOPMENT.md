@@ -49,7 +49,7 @@ You must install these tools:
    - [Docker Hub quickstart](https://docs.docker.com/docker-hub/)
    - If developing locally with Docker or Minikube, you can set
      `KO_DOCKER_REPO=ko.local` (preferred) or use the `-L` flag to `ko` to build
-     and push locally (in this case, authentication is not needed).]
+     and push locally (in this case, authentication is not needed).
 
 **Note**: You'll need to be authenticated with your `KO_DOCKER_REPO` before
 pushing images. Run `gcloud auth configure-docker` if you are using Google
