@@ -34,10 +34,11 @@ function knative_setup() {
 }
 
 function setup_http01_env() {
-  export DNS_ZONE="external-dns"
-  export CLOUD_DNS_PROJECT="zhiminx-prod-test"
+  export DNS_ZONE="knative-e2e"
+  export CLOUD_DNS_PROJECT="knative-e2e-dns"
   export SET_UP_DNS="true"
   export CLOUD_DNS_SERVICE_ACCOUNT_KEY_FILE="/etc/test-account/service-account.json"
+  export AUTO_TLS_DOMAIN="zhiminx.kn-e2e.dev"
 }
 
 # Script entry point.

@@ -35,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"knative.dev/pkg/system"
 	"knative.dev/pkg/test/ingress"
 	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/test"
@@ -54,6 +55,7 @@ type dnsRecord struct {
 }
 
 type config struct {
+	AutoTlsDomain                 string `split_words:"true" required:"false"`
 	DnsZone                       string `split_words:"true" required:"false"`
 	CloudDnsServiceAccountKeyFile string `split_words:"true" required:"false"`
 	CloudDnsProject               string `split_words:"true" required:"false"`
@@ -74,6 +76,11 @@ func TestPerKsvcCert_HTTP01(t *testing.T) {
 	var env config
 	if err := envconfig.Process("", &env); err != nil {
 		t.Fatalf("Failed to process environment variable: %v.", err)
+	}
+	if len(env.AutoTlsDomain) != 0 {
+		cancel := configureCustomDomain(t, env, clients)
+		defer cancel()
+		test.CleanupOnInterrupt(cancel)
 	}
 
 	names := test.ResourceNames{
@@ -158,6 +165,23 @@ func setupDNSRecord(t *testing.T, cfg config, clients *test.Clients, domain stri
 	t.Logf("DNS record %v was set up.", dnsRecord)
 	return func() {
 		deleteDNSRecord(t, cfg, dnsRecord)
+	}
+}
+
+func configureCustomDomain(t *testing.T, cfg config, clients *test.Clients) context.CancelFunc {
+	cm, err := clients.KubeClient.GetConfigMap(system.Namespace()).Get("config-domain", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get config-domain ConfigMap: %v", err)
+	}
+	newCm := cm.DeepCopy()
+	newCm.Data = map[string]string{
+		cfg.AutoTlsDomain: "",
+	}
+	if _, err := clients.KubeClient.GetConfigMap(system.Namespace()).Update(newCm); err != nil {
+		t.Fatalf("Failed to update config-domain ConfigMap: %v", err)
+	}
+	return func() {
+		clients.KubeClient.GetConfigMap(system.Namespace()).Update(cm)
 	}
 }
 
