@@ -18,9 +18,13 @@ package certificate
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
+	"reflect"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -74,23 +78,42 @@ func CreateCertificate(t *testing.T, clients *test.Clients, dnsNames []string) (
 	}
 }
 
-// WaitForSecret polls the status of the named Secret until it exists or the timeout is exceeded
-func WaitForSecret(client *test.Clients, name string, desc string) error {
-	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("waitForSecret/%s/%s", name, desc))
+// WaitForCertificateSecret polls the status of the Secret for the provided Certificate
+// until it exists or the timeout is exceeded. It then validates its contents
+func WaitForCertificateSecret(client *test.Clients, cert *v1alpha1.Certificate, desc string) error {
+	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForCertificateSecret/%s/%s", cert.Spec.SecretName, desc))
 	defer span.End()
 
 	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
-		_, err := client.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Get(name, metav1.GetOptions{})
+		secret, err := client.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Get(cert.Spec.SecretName, metav1.GetOptions{})
 
 		if apierrs.IsNotFound(err) {
 			return false, nil
+		} else if err != nil {
+			return true, err
 		}
 
-		return true, err
+		block, _ := pem.Decode(secret.Data[corev1.TLSCertKey])
+		if block == nil {
+			return true, fmt.Errorf("Failed to decode PEM data")
+		}
+
+		certData, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return true, fmt.Errorf("Failed to parse certificate: %w", err)
+		}
+
+		got := certData.DNSNames
+		want := cert.Spec.DNSNames
+		if !reflect.DeepEqual(want, got) {
+			return true, fmt.Errorf("Incorrect DNSNames in secret. Want %v, got %v", want, got)
+		}
+
+		return true, nil
 	})
 
 	if waitErr != nil {
-		return fmt.Errorf("secret %q not found: %w", name, waitErr)
+		return fmt.Errorf("secret %q not found: %w", cert.Spec.SecretName, waitErr)
 	}
 	return nil
 }
@@ -130,7 +153,7 @@ func getCertClass(t *testing.T, client *test.Clients) string {
 
 // VerifyChallenges verifies that the given certificate has the correct number
 // of HTTP01challenges and they contain valid data.
-func VerifyChallenges(t *testing.T, cert *v1alpha1.Certificate) {
+func VerifyChallenges(t *testing.T, client *test.Clients, cert *v1alpha1.Certificate) {
 	t.Helper()
 
 	certDomains := sets.NewString(cert.Spec.DNSNames...)
@@ -143,5 +166,10 @@ func VerifyChallenges(t *testing.T, cert *v1alpha1.Certificate) {
 		if !certDomains.Has(challenge.URL.Host) {
 			t.Errorf("HTTP01 Challenge host %s is not one of: %v", challenge.URL.Host, cert.Spec.DNSNames)
 		}
+		_, err := client.KubeClient.Kube.CoreV1().Services(challenge.ServiceNamespace).Get(challenge.ServiceName, metav1.GetOptions{})
+		if apierrs.IsNotFound(err) {
+			t.Errorf("Failed to find solver service for challenge: %w", err)
+		}
 	}
+
 }

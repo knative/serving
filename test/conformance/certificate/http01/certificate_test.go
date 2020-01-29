@@ -55,6 +55,6 @@ func TestHTTP01Challenge(t *testing.T) {
 			t.Fatalf("Failed to fetch certificate: %v", err)
 		}
 
-		utils.VerifyChallenges(t, cert)
+		utils.VerifyChallenges(t, clients, cert)
 	}
 }

@@ -33,7 +33,7 @@ func TestSecret(t *testing.T) {
 	cert, cancel := utils.CreateCertificate(t, clients, []string{certName})
 	defer cancel()
 
-	err := utils.WaitForSecret(clients, cert.Name, t.Name())
+	err := utils.WaitForCertificateSecret(clients, cert, t.Name())
 	if err != nil {
 		t.Fatalf("Failed to wait for secret: %w", err)
 	}
