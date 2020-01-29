@@ -176,7 +176,7 @@ var (
 )
 
 func TestReconcile(t *testing.T) {
-	attempts := 0
+	retryAttempted := make(map[string]bool)
 	table := TableTest{{
 		Name: "bad workqueue key",
 		Key:  "too/many/parts",
@@ -191,16 +191,15 @@ func TestReconcile(t *testing.T) {
 		},
 	}, {
 		Name: "create VirtualService matching Ingress, with retry",
-
 		Objects: []runtime.Object{
 			ing("no-virtualservice-yet", 1234),
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
 			func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
-				if attempts != 0 || !action.Matches("update", "ingresses") {
+				if retryAttempted["create VirtualService matching Ingress, with retry"] || !action.Matches("update", "ingresses") {
 					return false, nil, nil
 				}
-				attempts++
+				retryAttempted["create VirtualService matching Ingress, with retry"] = true
 				return true, nil, apierrs.NewConflict(v1alpha1.Resource("foo"), "bar", errors.New("foo"))
 			},
 		},

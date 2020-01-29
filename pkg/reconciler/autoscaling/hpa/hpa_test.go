@@ -93,7 +93,7 @@ func TestControllerCanReconcile(t *testing.T) {
 }
 
 func TestReconcile(t *testing.T) {
-	attempts := 0
+	retryAttempted := make(map[string]bool)
 	const (
 		deployName = testRevision + "-deployment"
 		privateSvc = testRevision + "-private"
@@ -135,10 +135,10 @@ func TestReconcile(t *testing.T) {
 		Key: key(testNamespace, testRevision),
 		WithReactors: []ktesting.ReactionFunc{
 			func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
-				if attempts != 0 || !action.Matches("update", "podautoscalers") {
+				if retryAttempted["create hpa & sks, with retry"] || !action.Matches("update", "podautoscalers") {
 					return false, nil, nil
 				}
-				attempts++
+				retryAttempted["create hpa & sks, with retry"] = true
 				return true, nil, apierrs.NewConflict(v1alpha1.Resource("foo"), "bar", errors.New("foo"))
 			},
 		},

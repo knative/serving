@@ -63,7 +63,7 @@ func TestNewController(t *testing.T) {
 }
 
 func TestReconcile(t *testing.T) {
-	attempts := 0
+	retryAttempted := make(map[string]bool)
 	table := TableTest{{
 		Name: "bad workqueue key, Part I",
 		Key:  "too/many/parts",
@@ -102,10 +102,10 @@ func TestReconcile(t *testing.T) {
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
 			func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
-				if attempts != 0 || !action.Matches("update", "serverlessservices") {
+				if retryAttempted["steady switch to proxy mode, with retry"] || !action.Matches("update", "serverlessservices") {
 					return false, nil, nil
 				}
-				attempts++
+				retryAttempted["steady switch to proxy mode, with retry"] = true
 				return true, nil, apierrs.NewConflict(v1alpha1.Resource("foo"), "bar", errors.New("foo"))
 			},
 		},
