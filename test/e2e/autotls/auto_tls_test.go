@@ -71,6 +71,14 @@ func TestPerKsvcCert_localCA(t *testing.T) {
 	// curl HTTPS
 	secretName := routenames.Certificate(objects.Route)
 	rootCAs := createRootCAs(t, clients, objects.Route.Namespace, secretName)
+
+	// The TLS info is added to the ingress after the service is created, that's
+	// why we need to wait again
+	err = v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceReady, "ServiceIsReady")
+	if err != nil {
+		t.Fatalf("Service %s did not become ready: %v", names.Service, err)
+	}
+
 	httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
 	testingress.RuntimeRequest(t, httpsClient, "https://"+objects.Service.Status.URL.Host)
 }
