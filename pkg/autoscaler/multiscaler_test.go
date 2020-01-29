@@ -381,6 +381,10 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ms, uniScaler := createMultiScaler(ctx, TestLogger(t))
+	mtp := &manualTickProvider{
+		ch: make(chan time.Time, 1),
+	}
+	ms.tickProvider = mtp.NewTicker
 
 	decider := newDecider()
 
@@ -404,6 +408,7 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	}
 
 	// Verify that we get no "ticks", because the desired scale is negative
+	mtp.ch <- time.Now()
 	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}
@@ -414,6 +419,7 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	}
 
 	// Verify that we stop seeing "ticks"
+	mtp.ch <- time.Now()
 	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}
