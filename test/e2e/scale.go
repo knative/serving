@@ -62,7 +62,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 	// 90 = 18/20, so allow two failures with the minimum number of probes, but expect
 	// us to have 2.5 9s overall.
 	//
-	// TODO(#2850): After moving to Istio 1.1 we need to revisit these SLOs.
+	// TODO(#3210): After moving to Istio 1.1 we need to revisit these SLOs.
 	const (
 		localSLO  = 0.90
 		globalSLO = 0.995
