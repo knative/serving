@@ -140,7 +140,7 @@ func generateGRPCTraffic(t *testing.T, targetConcurrency int, host, domain strin
 			}
 
 			if !strings.HasPrefix(got.Msg, want.Msg) {
-				return fmt.Errorf("Response = %q, want = %q", got.Msg, want.Msg)
+				return fmt.Errorf("Response = %q, want prefix = %q", got.Msg, want.Msg)
 			}
 
 			host := strings.TrimPrefix(got.Msg, want.Msg)
@@ -179,10 +179,11 @@ func assertGRPCAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float6
 			knownHosts[k] = v
 			return true
 		})
-
-		if len(knownHosts) <= 1 {
-				return fmt.Errorf("Expected at least 2 different hosts but got %#v", knownHosts)
-		}
+		// This assertion checks whether responses are coming from multiple hosts
+		// https://github.com/knative/serving/issues/6681
+		// if len(knownHosts) <= 1 {
+		// 		return fmt.Errorf("Expected at least 2 different hosts but got %#v", knownHosts)
+		// }
 		return nil
 	})
 
