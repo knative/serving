@@ -265,10 +265,16 @@ func TestReconcileIngressClassAnnotation(t *testing.T) {
 	ctx, _, reconciler, _, cancel := newTestReconciler(t)
 	defer cancel()
 
-	const expClass = "foo.ingress.networking.knative.dev"
+	const (
+		expClass = "foo.ingress.networking.knative.dev"
+		// These annotation defined by users should not be updated.
+		orgAnnoKey = "mykey"
+		orgAnnoVal = "myval"
+	)
 
 	r := Route("test-ns", "test-route")
 	ci := newTestIngress(t, r)
+	ci.ObjectMeta.Annotations[orgAnnoKey] = orgAnnoVal
 	if _, err := reconciler.reconcileIngress(TestContextWithLogger(t), r, ci); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -288,6 +294,10 @@ func TestReconcileIngressClassAnnotation(t *testing.T) {
 	updatedClass := updated.ObjectMeta.Annotations[networking.IngressClassAnnotationKey]
 	if expClass != updatedClass {
 		t.Errorf("Unexpected annotation got %q want %q", expClass, updatedClass)
+	}
+	preservedAnno := updated.ObjectMeta.Annotations[orgAnnoKey]
+	if preservedAnno != orgAnnoVal {
+		t.Errorf("Unexpected annotation got %q want %q", preservedAnno, orgAnnoVal)
 	}
 }
 

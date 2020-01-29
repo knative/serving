@@ -58,6 +58,8 @@ var (
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            "vs",
 			Namespace:       "default",
+			Annotations:     map[string]string{"foo": "bar"},
+			Labels:          map[string]string{"baz": "qux"},
 			OwnerReferences: []metav1.OwnerReference{ownerRef},
 		},
 		Spec: istiov1alpha3.VirtualService{
@@ -69,6 +71,8 @@ var (
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            "vs",
 			Namespace:       "default",
+			Annotations:     map[string]string{"foo": "bar"},
+			Labels:          map[string]string{"baz": "qux"},
 			OwnerReferences: []metav1.OwnerReference{ownerRef},
 		},
 		Spec: istiov1alpha3.VirtualService{

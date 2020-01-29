@@ -40,6 +40,8 @@ import (
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
+
+	presources "knative.dev/serving/pkg/resources"
 )
 
 func routeOwnerLabelSelector(route *v1alpha1.Route) labels.Selector {
@@ -82,7 +84,7 @@ func (c *Reconciler) reconcileIngress(ctx context.Context, r *v1alpha1.Route, de
 			// Don't modify the informers copy
 			origin := ingress.DeepCopy()
 			origin.Spec = desired.Spec
-			origin.Annotations = desired.Annotations
+			origin.Annotations = presources.UnionMaps(origin.Annotations, desired.Annotations)
 			updated, err := c.ServingClientSet.NetworkingV1alpha1().Ingresses(origin.Namespace).Update(origin)
 			if err != nil {
 				return nil, fmt.Errorf("failed to update Ingress: %w", err)

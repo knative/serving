@@ -30,6 +30,7 @@ import (
 	istioclientset "knative.dev/serving/pkg/client/istio/clientset/versioned"
 	istiolisters "knative.dev/serving/pkg/client/istio/listers/networking/v1alpha3"
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
+	"knative.dev/serving/pkg/resources"
 )
 
 // VirtualServiceAccessor is an interface for accessing VirtualService.
@@ -74,8 +75,8 @@ func ReconcileVirtualService(ctx context.Context, owner kmeta.Accessor, desired 
 		// Don't modify the informers copy
 		existing := vs.DeepCopy()
 		existing.Spec = desired.Spec
-		existing.Labels = desired.Labels
-		existing.Annotations = desired.Annotations
+		existing.Labels = resources.UnionMaps(vs.Labels, desired.Labels)
+		existing.Annotations = resources.UnionMaps(vs.Annotations, desired.Annotations)
 		vs, err = vsAccessor.GetIstioClient().NetworkingV1alpha3().VirtualServices(ns).Update(existing)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update VirtualService: %w", err)
