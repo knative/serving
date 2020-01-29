@@ -28,6 +28,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -43,6 +44,7 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/networking"
@@ -53,6 +55,19 @@ import (
 )
 
 var rootCAs = x509.NewCertPool()
+
+// uaRoundTripper wraps the given http.RoundTripper and
+// sets a custom UserAgent.
+type uaRoundTripper struct {
+	http.RoundTripper
+	ua string
+}
+
+// RoundTrip implements http.RoundTripper.
+func (ua *uaRoundTripper) RoundTrip(rq *http.Request) (*http.Response, error) {
+	rq.Header.Set("User-Agent", ua.ua)
+	return ua.RoundTripper.RoundTrip(rq)
+}
 
 // CreateRuntimeService creates a Kubernetes service that will respond to the protocol
 // specified with the given portName.  It returns the service name, the port on
@@ -125,6 +140,89 @@ func CreateRuntimeService(t *testing.T, clients *test.Clients, portName string) 
 	}
 
 	return name, port, createPodAndService(t, clients, pod, svc)
+}
+
+// CreateProxyService creates a Kubernetes service that will forward requests to
+// the specified target.  It returns the service name, the port on which the service
+// is listening, and a "cancel" function to clean up the created resources.
+func CreateProxyService(t *testing.T, clients *test.Clients, target string, gatewayDomain string) (string, int, context.CancelFunc) {
+	t.Helper()
+	name := test.ObjectNameForTest(t)
+
+	// Avoid zero, but pick a low port number.
+	port := 50 + rand.Intn(50)
+	t.Logf("[%s] Using port %d", name, port)
+
+	// Pick a high port number.
+	containerPort := 8000 + rand.Intn(100)
+	t.Logf("[%s] Using containerPort %d", name, containerPort)
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: test.ServingNamespace,
+			Labels: map[string]string{
+				"test-pod": name,
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:  "foo",
+				Image: pkgTest.ImagePath("httpproxy"),
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: int32(containerPort),
+				}},
+				Env: []corev1.EnvVar{{
+					Name:  "TARGET_HOST",
+					Value: target,
+				}, {
+					Name:  "PORT",
+					Value: strconv.Itoa(containerPort),
+				}},
+			}},
+		},
+	}
+
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: test.ServingNamespace,
+			Labels: map[string]string{
+				"test-pod": name,
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: "ClusterIP",
+			Ports: []corev1.ServicePort{{
+				Port:       int32(port),
+				TargetPort: intstr.FromInt(int(containerPort)),
+			}},
+			Selector: map[string]string{
+				"test-pod": name,
+			},
+		},
+	}
+	proxyServiceCancel := createPodAndService(t, clients, pod, svc)
+
+	targetName := strings.Split(target, ".")
+	externalNameSvc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      targetName[0],
+			Namespace: targetName[1],
+		},
+		Spec: corev1.ServiceSpec{
+			Type:            corev1.ServiceTypeExternalName,
+			ExternalName:    gatewayDomain,
+			SessionAffinity: corev1.ServiceAffinityNone,
+		},
+	}
+
+	externalNameServiceCancel := createService(t, clients, externalNameSvc)
+
+	return name, port, func() {
+		externalNameServiceCancel()
+		proxyServiceCancel()
+	}
 }
 
 // CreateTimeoutService creates a Kubernetes service that will respond to the protocol
@@ -420,6 +518,26 @@ func CreateGRPCService(t *testing.T, clients *test.Clients, suffix string) (stri
 	return name, port, createPodAndService(t, clients, pod, svc)
 }
 
+// createService is a helper for creating the service resource.
+func createService(t *testing.T, clients *test.Clients, svc *corev1.Service) context.CancelFunc {
+	t.Helper()
+
+	test.CleanupOnInterrupt(func() {
+		clients.KubeClient.Kube.CoreV1().Services(svc.Namespace).Delete(svc.Name, &metav1.DeleteOptions{})
+	})
+	svc, err := clients.KubeClient.Kube.CoreV1().Services(svc.Namespace).Create(svc)
+	if err != nil {
+		t.Fatalf("Error creating Service: %v", err)
+	}
+
+	return func() {
+		err := clients.KubeClient.Kube.CoreV1().Services(svc.Namespace).Delete(svc.Name, &metav1.DeleteOptions{})
+		if err != nil {
+			t.Errorf("Error cleaning up Service %s: %v", svc.Name, err)
+		}
+	}
+}
+
 // createPodAndService is a helper for creating the pod and service resources, setting
 // up their context.CancelFunc, and waiting for it to become ready.
 func createPodAndService(t *testing.T, clients *test.Clients, pod *corev1.Pod, svc *corev1.Service) context.CancelFunc {
@@ -478,6 +596,7 @@ func createPodAndService(t *testing.T, clients *test.Clients, pod *corev1.Pod, s
 // CreateIngress creates a Knative Ingress resource
 func CreateIngress(t *testing.T, clients *test.Clients, spec v1alpha1.IngressSpec) (*v1alpha1.Ingress, context.CancelFunc) {
 	t.Helper()
+
 	name := test.ObjectNameForTest(t)
 
 	// Create a simple Ingress over the Service.
@@ -539,9 +658,12 @@ func CreateIngressReady(t *testing.T, clients *test.Clients, spec v1alpha1.Ingre
 	}
 
 	return ing, &http.Client{
-		Transport: &http.Transport{
-			DialContext:     dialer,
-			TLSClientConfig: tlsConfig,
+		Transport: &uaRoundTripper{
+			RoundTripper: &http.Transport{
+				DialContext:     dialer,
+				TLSClientConfig: tlsConfig,
+			},
+			ua: fmt.Sprintf("knative.dev/%s/%s", t.Name(), ing.Name),
 		},
 	}, cancel
 }
@@ -572,6 +694,11 @@ func UpdateIngressReady(t *testing.T, clients *test.Clients, name string, spec v
 
 // This is based on https://golang.org/src/crypto/tls/generate_cert.go
 func CreateTLSSecret(t *testing.T, clients *test.Clients, hosts []string) (string, context.CancelFunc) {
+	return CreateTLSSecretWithCertPool(t, clients, hosts, test.ServingNamespace, rootCAs)
+}
+
+// CreateTLSSecretWithCertPool creates TLS certificate with given CertPool.
+func CreateTLSSecretWithCertPool(t *testing.T, clients *test.Clients, hosts []string, ns string, cas *x509.CertPool) (string, context.CancelFunc) {
 	t.Helper()
 
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
@@ -614,7 +741,7 @@ func CreateTLSSecret(t *testing.T, clients *test.Clients, hosts []string) (strin
 	}
 	// Ideally we'd undo this in "cancel", but there doesn't
 	// seem to be a mechanism to remove things from a pool.
-	rootCAs.AddCert(cert)
+	cas.AddCert(cert)
 
 	certPEM := &bytes.Buffer{}
 	if err := pem.Encode(certPEM, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}); err != nil {
@@ -634,7 +761,7 @@ func CreateTLSSecret(t *testing.T, clients *test.Clients, hosts []string) (strin
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: test.ServingNamespace,
+			Namespace: ns,
 			Labels: map[string]string{
 				"test-secret": name,
 			},
@@ -707,13 +834,17 @@ func CreateDialContext(t *testing.T, ing *v1alpha1.Ingress, clients *test.Client
 		if ingress.Hostname != "" {
 			return net.Dial("tcp", ingress.Hostname+":"+port)
 		}
-		return nil, errors.New("Service ingress does not contain dialing information.")
+		return nil, errors.New("service ingress does not contain dialing information")
 	}
 }
 
 type RequestOption func(*http.Request)
 
 func RuntimeRequest(t *testing.T, client *http.Client, url string, opts ...RequestOption) *types.RuntimeInfo {
+	return RuntimeRequestWithStatus(t, client, url, sets.NewInt(http.StatusOK), opts...)
+}
+
+func RuntimeRequestWithStatus(t *testing.T, client *http.Client, url string, expectedStatus sets.Int, opts ...RequestOption) *types.RuntimeInfo {
 	t.Helper()
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
@@ -732,24 +863,26 @@ func RuntimeRequest(t *testing.T, client *http.Client, url string, opts ...Reque
 		return nil
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("Got non-OK status: %d", resp.StatusCode)
+	if !expectedStatus.Has(resp.StatusCode) {
+		t.Errorf("Got unexpected status: %d, expected %v", resp.StatusCode, expectedStatus)
 		DumpResponse(t, resp)
 		return nil
 	}
-
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		t.Errorf("Unable to read response body: %v", err)
-		DumpResponse(t, resp)
-		return nil
+	if resp.StatusCode == http.StatusOK {
+		b, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			t.Errorf("Unable to read response body: %v", err)
+			DumpResponse(t, resp)
+			return nil
+		}
+		ri := &types.RuntimeInfo{}
+		if err := json.Unmarshal(b, ri); err != nil {
+			t.Errorf("Unable to parse runtime image's response payload: %v", err)
+			return nil
+		}
+		return ri
 	}
-	ri := &types.RuntimeInfo{}
-	if err := json.Unmarshal(b, ri); err != nil {
-		t.Errorf("Unable to parse runtime image's response payload: %v", err)
-		return nil
-	}
-	return ri
+	return nil
 }
 
 func DumpResponse(t *testing.T, resp *http.Response) {

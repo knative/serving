@@ -40,6 +40,7 @@ import (
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/network/prober"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
@@ -61,8 +62,9 @@ type revisionDestsUpdate struct {
 }
 
 const (
-	probeTimeout   time.Duration = 300 * time.Millisecond
-	probeFrequency time.Duration = 200 * time.Millisecond
+	probeTimeout          time.Duration = 300 * time.Millisecond
+	defaultProbeFrequency time.Duration = 200 * time.Millisecond
+	probePath                           = "/_internal/knative/activator/probe"
 )
 
 // revisionWatcher watches the podIPs and ClusterIP of the service for a revision. It implements the logic
@@ -107,7 +109,7 @@ func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol 
 		destsCh:         destsCh,
 		serviceLister:   serviceLister,
 		podsAddressable: true, // By default we presume we can talk to pods directly.
-		logger:          logger,
+		logger:          logger.With(zap.String(logkey.Key, rev.String())),
 	}
 }
 
@@ -135,6 +137,7 @@ func (rw *revisionWatcher) probe(ctx context.Context, dest string) (bool, error)
 	httpDest := url.URL{
 		Scheme: "http",
 		Host:   dest,
+		Path:   probePath,
 	}
 	// NOTE: changes below may require changes to testing/roundtripper.go to make unit tests passing.
 	return prober.Do(ctx, rw.transport, httpDest.String(),
@@ -346,7 +349,7 @@ type revisionBackendsManager struct {
 // NewRevisionBackendsManager returns a new RevisionBackendsManager with default
 // probe time out.
 func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper) *revisionBackendsManager {
-	return newRevisionBackendsManagerWithProbeFrequency(ctx, tr, probeFrequency)
+	return newRevisionBackendsManagerWithProbeFrequency(ctx, tr, defaultProbeFrequency)
 }
 
 // newRevisionBackendsManagerWithProbeFrequency creates a fully spec'd RevisionBackendsManager.
@@ -360,7 +363,7 @@ func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.R
 		updateCh:         make(chan revisionDestsUpdate),
 		transport:        tr,
 		logger:           logging.FromContext(ctx),
-		probeFrequency:   probeFrequency,
+		probeFrequency:   probeFreq,
 	}
 	endpointsInformer := endpointsinformer.Get(ctx)
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
@@ -438,17 +441,19 @@ func (rbm *revisionBackendsManager) endpointsUpdated(newObj interface{}) {
 		return
 	default:
 	}
-	rbm.logger.Debugf("Endpoints updated: %#v", newObj)
 	endpoints := newObj.(*corev1.Endpoints)
-	revID := types.NamespacedName{endpoints.Namespace, endpoints.Labels[serving.RevisionLabelKey]}
+	revID := types.NamespacedName{Namespace: endpoints.Namespace, Name: endpoints.Labels[serving.RevisionLabelKey]}
+	logger := rbm.logger.With(zap.String(logkey.Key, revID.String()))
+
+	logger.Debugf("Endpoints updated: %#v", newObj)
 
 	rw, err := rbm.getOrCreateRevisionWatcher(revID)
 	if err != nil {
-		rbm.logger.With(zap.Error(err)).Errorf("Failed to get revision watcher for revision %q", revID.String())
+		logger.With(zap.Error(err)).Error("Failed to get revision watcher")
 		return
 	}
 	dests := endpointsToDests(endpoints, networking.ServicePortName(rw.protocol))
-	rbm.logger.Debugf("Updating Endpoints: %q (backends: %d)", revID.String(), len(dests))
+	logger.Debugf("Updating Endpoints: backends: %d", len(dests))
 	select {
 	case <-rbm.ctx.Done():
 		return
@@ -473,9 +478,10 @@ func (rbm *revisionBackendsManager) endpointsDeleted(obj interface{}) {
 	default:
 	}
 	ep := obj.(*corev1.Endpoints)
-	revID := types.NamespacedName{ep.Namespace, ep.Labels[serving.RevisionLabelKey]}
+	revID := types.NamespacedName{Namespace: ep.Namespace, Name: ep.Labels[serving.RevisionLabelKey]}
+	logger := rbm.logger.With(zap.String(logkey.Key, revID.String()))
 
-	rbm.logger.Debugf("Deleting endpoint %q", revID.String())
+	logger.Debug("Deleting endpoint")
 	rbm.revisionWatchersMux.Lock()
 	defer rbm.revisionWatchersMux.Unlock()
 	rbm.deleteRevisionWatcher(revID)

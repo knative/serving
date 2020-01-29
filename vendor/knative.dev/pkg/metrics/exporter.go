@@ -14,6 +14,7 @@ limitations under the License.
 package metrics
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -79,6 +80,31 @@ func UpdateExporterFromConfigMap(component string, logger *zap.SugaredLogger) fu
 	}
 }
 
+// UpdateExporterFromConfigMapWithOpts returns a helper func that can be used to update the exporter
+// when a config map is updated.
+// opts.Component must be present.
+// opts.ConfigMap must not be present as the value from the ConfigMap will be used instead.
+func UpdateExporterFromConfigMapWithOpts(opts ExporterOptions, logger *zap.SugaredLogger) (func(configMap *corev1.ConfigMap), error) {
+	if opts.Component == "" {
+		return nil, errors.New("UpdateExporterFromConfigMapWithDefaults must provide Component")
+	}
+	if opts.ConfigMap != nil {
+		return nil, errors.New("UpdateExporterFromConfigMapWithDefaults doesn't allow defaulting ConfigMap")
+	}
+	domain := opts.Domain
+	if domain == "" {
+		domain = Domain()
+	}
+	return func(configMap *corev1.ConfigMap) {
+		UpdateExporter(ExporterOptions{
+			Domain:         domain,
+			Component:      opts.Component,
+			ConfigMap:      configMap.Data,
+			PrometheusPort: opts.PrometheusPort,
+		}, logger)
+	}, nil
+}
+
 // UpdateExporter updates the exporter based on the given ExporterOptions.
 // This is a thread-safe function. The entire series of operations is locked
 // to prevent a race condition between reading the current configuration
@@ -121,6 +147,12 @@ func isNewExporterRequired(newConfig *metricsConfig) bool {
 		return true
 	}
 
+	// If the OpenCensus address has changed, restart the exporter.
+	// TODO(evankanderson): Should we just always restart the opencensus agent?
+	if newConfig.backendDestination == OpenCensus {
+		return newConfig.collectorAddress != cc.collectorAddress || newConfig.requireSecure != cc.requireSecure
+	}
+
 	return newConfig.backendDestination == Stackdriver && newConfig.stackdriverClientConfig != cc.stackdriverClientConfig
 }
 
@@ -140,6 +172,8 @@ func newMetricsExporter(config *metricsConfig, logger *zap.SugaredLogger) (view.
 	var err error
 	var e view.Exporter
 	switch config.backendDestination {
+	case OpenCensus:
+		e, err = newOpenCensusExporter(config, logger)
 	case Stackdriver:
 		e, err = newStackdriverExporter(config, logger)
 	case Prometheus:

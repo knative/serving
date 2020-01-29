@@ -31,7 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/logging"
-	pkgmetrics "knative.dev/pkg/metrics"
+	"knative.dev/pkg/metrics"
 	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
@@ -42,7 +42,6 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/resources"
 )
@@ -1107,7 +1106,7 @@ var defaultEnv = map[string]string{
 	"SERVING_REQUEST_METRICS_BACKEND":       "",
 	"USER_PORT":                             strconv.Itoa(v1alpha1.DefaultUserPort),
 	"SYSTEM_NAMESPACE":                      system.Namespace(),
-	"METRICS_DOMAIN":                        pkgmetrics.Domain(),
+	"METRICS_DOMAIN":                        metrics.Domain(),
 	"QUEUE_SERVING_PORT":                    "8012",
 	"USER_CONTAINER_NAME":                   containerName,
 	"ENABLE_VAR_LOG_COLLECTION":             "false",

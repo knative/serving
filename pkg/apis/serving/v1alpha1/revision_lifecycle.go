@@ -53,10 +53,6 @@ const (
 	// UserQueueMetricsPortName specifies the port name to use for metrics
 	// emitted by queue-proxy for end user.
 	UserQueueMetricsPortName = "http-usermetric"
-
-	// ServiceQueueMetricsPortName is the name of the port that serves metrics
-	// on the Kubernetes service.
-	ServiceQueueMetricsPortName = "http-metrics"
 )
 
 var revCondSet = apis.NewLivingConditionSet(

@@ -18,7 +18,7 @@ At present, these downstream repositories include:
 1. knative/eventing
 1. knative/eventing-contrib
 1. knative/sample-controller
-1. google/knative-gcp
+1. knative/sample-source
 
 > The automation that auto-bumps these lives
 > [here](https://github.com/mattmoor/knobots/tree/knative/cmd/periodic/kodata).

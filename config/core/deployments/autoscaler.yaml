@@ -1,0 +1,113 @@
+# Copyright 2018 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autoscaler
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: autoscaler
+  template:
+    metadata:
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+      labels:
+        app: autoscaler
+        serving.knative.dev/release: devel
+    spec:
+      serviceAccountName: controller
+      containers:
+      - name: autoscaler
+        # This is the Go import path for the binary that is containerized
+        # and substituted here.
+        image: knative.dev/serving/cmd/autoscaler
+
+        resources:
+          requests:
+            cpu: 30m
+            memory: 40Mi
+          limits:
+            cpu: 300m
+            memory: 400Mi
+
+        env:
+        - name: SYSTEM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: CONFIG_LOGGING_NAME
+          value: config-logging
+        - name: CONFIG_OBSERVABILITY_NAME
+          value: config-observability
+        # TODO(https://github.com/knative/pkg/pull/953): Remove stackdriver specific config
+        - name: METRICS_DOMAIN
+          value: knative.dev/serving
+
+        securityContext:
+          allowPrivilegeEscalation: false
+
+        ports:
+        - name: metrics
+          containerPort: 9090
+        - name: profiling
+          containerPort: 8008
+        - name: websocket
+          containerPort: 8080
+        - name: custom-metrics
+          containerPort: 8443
+
+        readinessProbe: &probe
+          httpGet:
+            port: 8080
+            httpHeaders:
+            - name: k-kubelet-probe
+              value: "autoscaler"
+        livenessProbe: *probe
+
+        args:
+        - "--secure-port=8443"
+        - "--cert-dir=/tmp"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: autoscaler
+    serving.knative.dev/release: devel
+  name: autoscaler
+  namespace: knative-serving
+spec:
+  ports:
+  # Define metrics and profiling for them to be accessible within service meshes.
+  - name: http-metrics
+    port: 9090
+    targetPort: 9090
+  - name: http-profiling
+    port: 8008
+    targetPort: 8008
+  - name: http
+    port: 8080
+    targetPort: 8080
+  - name: https-custom-metrics
+    port: 443
+    targetPort: 8443
+  selector:
+    app: autoscaler

@@ -101,7 +101,7 @@ func (c *reconciler) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 	labelSelector := kubelabels.NewSelector()
 	req, err := kubelabels.NewRequirement(networking.WildcardCertDomainLabelKey, selection.Exists, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create requirement: %v", err)
+		return fmt.Errorf("failed to create requirement: %w", err)
 	}
 	labelSelector = labelSelector.Add(*req)
 
@@ -150,8 +150,7 @@ func (c *reconciler) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 		copy.Spec = desiredCert.Spec
 		copy.ObjectMeta.Labels[networking.WildcardCertDomainLabelKey] = desiredCert.ObjectMeta.Labels[networking.WildcardCertDomainLabelKey]
 
-		_, err := c.ServingClientSet.NetworkingV1alpha1().Certificates(copy.Namespace).Update(copy)
-		if err != nil {
+		if _, err := c.ServingClientSet.NetworkingV1alpha1().Certificates(copy.Namespace).Update(copy); err != nil {
 			c.Recorder.Eventf(existingCert, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update Knative Certificate %s/%s: %v", existingCert.Namespace, existingCert.Name, err)
 			return fmt.Errorf("failed to update namespace certificate: %w", err)

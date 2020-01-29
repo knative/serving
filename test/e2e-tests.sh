@@ -59,6 +59,13 @@ go_test_e2e -timeout=10m \
   ${parallelism} \
   ./test/scale || failed=1
 
+# Auto TLS E2E tests mutate the cluster and must be ran separately
+kubectl apply -f ./test/config/autotls/certmanager/selfsigned/
+add_trap "kubectl delete -f ./test/config/autotls/certmanager/selfsigned/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+go_test_e2e -timeout=10m \
+  ./test/e2e/autotls || failed=1
+kubectl delete -f ./test/config/autotls/certmanager/selfsigned/
+
 # Istio E2E tests mutate the cluster and must be ran separately
 if [[ -n "${ISTIO_VERSION}" ]]; then
   go_test_e2e -timeout=10m \

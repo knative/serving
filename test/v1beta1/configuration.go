@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/test/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
@@ -50,7 +51,7 @@ func PatchConfig(t pkgTest.T, clients *test.Clients, svc *v1beta1.Configuration,
 		opt(newSvc)
 	}
 	LogResourceObject(t, ResourceObjects{Config: newSvc})
-	patchBytes, err := test.CreateBytePatch(svc, newSvc)
+	patchBytes, err := duck.CreateBytePatch(svc, newSvc)
 	if err != nil {
 		return nil, err
 	}

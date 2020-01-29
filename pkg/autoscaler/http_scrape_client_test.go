@@ -46,6 +46,13 @@ queue_average_proxied_concurrent_requests{destination_namespace="test-namespace"
 queue_proxied_operations_per_second{destination_namespace="test-namespace",destination_revision="test-revision",destination_pod="test-revision-1234"} 4
 `
 	testFullContext = testAverageConcurrencyContext + testQPSContext + testAverageProxiedConcurrenyContext + testProxiedQPSContext
+
+	testUptimeContext = `# HELP process_uptime The number of seconds that the process has been up
+# TYPE process_uptime gauge
+process_uptime{destination_configuration="s1",destination_namespace="default",destination_pod="s1-tdgpn-deployment-86f6459cf8-mc9mw",destination_revision="s1-tdgpn"} 2937.12
+`
+
+	testOptionalContext = testFullContext + testUptimeContext
 )
 
 func TestNewHTTPScrapeClient_ErrorCases(t *testing.T) {
@@ -73,7 +80,7 @@ func TestNewHTTPScrapeClient_ErrorCases(t *testing.T) {
 	}
 }
 
-func TestHTTPScrapeClient_Scrape_HappyCase(t *testing.T) {
+func TestHTTPScrapeClientScrapeHappyCase(t *testing.T) {
 	hClient := newTestHTTPClient(getHTTPResponse(http.StatusOK, testFullContext), nil)
 	sClient, err := newHTTPScrapeClient(hClient)
 	if err != nil {
@@ -98,6 +105,40 @@ func TestHTTPScrapeClient_Scrape_HappyCase(t *testing.T) {
 	}
 	if stat.PodName != "test-revision-1234" {
 		t.Errorf("stat.PodName = %s, want test-revision-1234", stat.PodName)
+	}
+	if stat.ProcessUptime != 0 {
+		t.Errorf("default/missing stat.ProcessUptime = %v, want: 0", stat.ProcessUptime)
+	}
+}
+
+func TestHTTPScrapeClientScrapeHappyCaseWithOptionals(t *testing.T) {
+	hClient := newTestHTTPClient(getHTTPResponse(http.StatusOK, testOptionalContext), nil)
+	sClient, err := newHTTPScrapeClient(hClient)
+	if err != nil {
+		t.Fatalf("newHTTPScrapeClient = %v, want no error", err)
+	}
+
+	stat, err := sClient.Scrape(testURL)
+	if err != nil {
+		t.Errorf("scrapeViaURL = %v, want no error", err)
+	}
+	if stat.AverageConcurrentRequests != 3.0 {
+		t.Errorf("stat.AverageConcurrentRequests = %v, want 3.0", stat.AverageConcurrentRequests)
+	}
+	if stat.RequestCount != 5 {
+		t.Errorf("stat.RequestCount = %v, want 5", stat.RequestCount)
+	}
+	if stat.AverageProxiedConcurrentRequests != 2.0 {
+		t.Errorf("stat.AverageProxiedConcurrency = %v, want 2.0", stat.AverageProxiedConcurrentRequests)
+	}
+	if stat.ProxiedRequestCount != 4 {
+		t.Errorf("stat.ProxiedCount = %v, want 4", stat.ProxiedRequestCount)
+	}
+	if stat.PodName != "test-revision-1234" {
+		t.Errorf("stat.PodName = %s, want test-revision-1234", stat.PodName)
+	}
+	if got, want := stat.ProcessUptime, 2937.12; got != want {
+		t.Errorf("stat.ProcessUptime = %v, want: %v", got, want)
 	}
 }
 

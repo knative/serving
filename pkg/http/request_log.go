@@ -22,9 +22,10 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"sync"
+	"sync/atomic"
 	"text/template"
 	"time"
+	"unsafe"
 
 	"knative.dev/serving/pkg/network"
 )
@@ -32,12 +33,12 @@ import (
 // RequestLogHandler implements an http.Handler that writes request logs
 // and calls the next handler.
 type RequestLogHandler struct {
-	handler               http.Handler
-	inputGetter           RequestLogTemplateInputGetter
-	writer                io.Writer
-	templateMux           sync.RWMutex
-	templateStr           string
-	template              *template.Template
+	handler     http.Handler
+	inputGetter RequestLogTemplateInputGetter
+	writer      io.Writer
+	// Uses an unsafe.Pointer combined with atomic operations to get the least
+	// contention possible.
+	template              unsafe.Pointer
 	enableProbeRequestLog bool
 }
 
@@ -116,17 +117,12 @@ func (h *RequestLogHandler) SetTemplate(templateStr string) error {
 		}
 	}
 
-	h.templateMux.Lock()
-	defer h.templateMux.Unlock()
-	h.templateStr = templateStr
-	h.template = t
+	atomic.StorePointer(&h.template, unsafe.Pointer(t))
 	return nil
 }
 
 func (h *RequestLogHandler) getTemplate() *template.Template {
-	h.templateMux.RLock()
-	defer h.templateMux.RUnlock()
-	return h.template
+	return (*template.Template)(atomic.LoadPointer(&h.template))
 }
 
 func (h *RequestLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

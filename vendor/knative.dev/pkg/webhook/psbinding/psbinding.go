@@ -28,8 +28,6 @@ import (
 	"github.com/markbates/inflect"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
-	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -92,6 +90,15 @@ var (
 		}},
 		// TODO(mattmoor): Consider also having a GVR-based one, e.g.
 		//    foobindings.blah.knative.dev/exclude: "true"
+	}
+	InclusionSelector = metav1.LabelSelector{
+		MatchExpressions: []metav1.LabelSelectorRequirement{{
+			Key:      duck.BindingIncludeLabel,
+			Operator: metav1.LabelSelectorOpIn,
+			Values:   []string{"true"},
+		}},
+		// TODO(mattmoor): Consider also having a GVR-based one, e.g.
+		//    foobindings.blah.knative.dev/include: "true"
 	}
 )
 
@@ -197,13 +204,7 @@ func (ac *Reconciler) Admit(ctx context.Context, request *admissionv1beta1.Admis
 
 func (ac *Reconciler) reconcileMutatingWebhook(ctx context.Context, caCert []byte) error {
 	// Build a deduplicated list of all of the GVKs we see.
-	// We seed the Kubernetes built-ins.
-	gks := map[schema.GroupKind]sets.String{
-		appsv1.SchemeGroupVersion.WithKind("Deployment").GroupKind():  sets.NewString("v1"),
-		appsv1.SchemeGroupVersion.WithKind("StatefulSet").GroupKind(): sets.NewString("v1"),
-		appsv1.SchemeGroupVersion.WithKind("DaemonSet").GroupKind():   sets.NewString("v1"),
-		batchv1.SchemeGroupVersion.WithKind("Job").GroupKind():        sets.NewString("v1"),
-	}
+	gks := map[schema.GroupKind]sets.String{}
 
 	// When reconciling the webhook, enumerate all of the bindings, so that
 	// we can index them to efficiently respond to webhook requests.
@@ -297,14 +298,20 @@ func (ac *Reconciler) reconcileMutatingWebhook(ctx context.Context, caCert []byt
 	// This is only supported by 1.15+ clusters.
 	matchPolicy := admissionregistrationv1beta1.Equivalent
 
+	// See if the opt-out behaviour has been specified and specify the Inclusion Selector.
+	selector := ExclusionSelector
+	if HasOptOutSelector(ctx) {
+		selector = InclusionSelector
+	}
+
 	for i, wh := range webhook.Webhooks {
 		if wh.Name != webhook.Name {
 			continue
 		}
 		webhook.Webhooks[i].MatchPolicy = &matchPolicy
 		webhook.Webhooks[i].Rules = rules
-		webhook.Webhooks[i].NamespaceSelector = &ExclusionSelector
-		webhook.Webhooks[i].ObjectSelector = &ExclusionSelector // 1.15+ only
+		webhook.Webhooks[i].NamespaceSelector = &selector
+		webhook.Webhooks[i].ObjectSelector = &selector // 1.15+ only
 		webhook.Webhooks[i].ClientConfig.CABundle = caCert
 		if webhook.Webhooks[i].ClientConfig.Service == nil {
 			return fmt.Errorf("missing service reference for webhook: %s", wh.Name)

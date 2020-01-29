@@ -28,7 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/logging"
-	pkgmetrics "knative.dev/pkg/metrics"
+	"knative.dev/pkg/metrics"
 	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
@@ -39,13 +39,13 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/network"
 )
 
 var (
-	containerName        = "my-container-name"
-	defaultUserContainer = &corev1.Container{
+	containerName                = "my-container-name"
+	sidecarIstioInjectAnnotation = "sidecar.istio.io/inject"
+	defaultUserContainer         = &corev1.Container{
 		Name:                     containerName,
 		Image:                    "busybox",
 		Ports:                    buildContainerPorts(v1alpha1.DefaultUserPort),
@@ -149,7 +149,7 @@ var (
 			Value: system.Namespace(),
 		}, {
 			Name:  "METRICS_DOMAIN",
-			Value: pkgmetrics.Domain(),
+			Value: metrics.Domain(),
 		}, {
 			Name:  "USER_CONTAINER_NAME",
 			Value: containerName,

@@ -17,6 +17,7 @@ limitations under the License.
 package queue
 
 import (
+	"math"
 	"testing"
 	"time"
 
@@ -214,6 +215,67 @@ func TestOneEndedProxiedRequest(t *testing.T) {
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("Unexpected stat (-want +got): %v", diff)
+	}
+}
+
+func approxNeq(a, b float64) bool {
+	return math.Abs(a-b) > 0.0001
+}
+
+func TestWeightedAverage(t *testing.T) {
+	// Tests that weightedAverage works correctly, also helps the
+	// function reader to understand what inputs will result in what
+	// outputs.
+
+	// Impulse function yields: 1.
+	in := map[int]time.Duration{
+		1: time.Microsecond,
+	}
+	if got, want := weightedAverage(in), 1.; approxNeq(got, want) {
+		t.Errorf("weightedAverage = %v, want: %v", got, want)
+	}
+
+	// Step function
+	// Since the times are the same, we'll return:
+	// 200*(1+2+3+4+5)/(1000) = 15/5 = 3.
+	in = map[int]time.Duration{
+		1: 200 * time.Millisecond,
+		2: 200 * time.Millisecond,
+		3: 200 * time.Millisecond,
+		4: 200 * time.Millisecond,
+		5: 200 * time.Millisecond,
+	}
+	if got, want := weightedAverage(in), 3.; approxNeq(got, want) {
+		t.Errorf("weightedAverage = %v, want: %v", got, want)
+	}
+
+	// Weights matter.
+	in = map[int]time.Duration{
+		1: 800 * time.Millisecond,
+		5: 200 * time.Millisecond,
+	}
+	// (1*800+5*200)/1000 = 1800/1000 = 1.8
+	if got, want := weightedAverage(in), 1.8; approxNeq(got, want) {
+		t.Errorf("weightedAverage = %v, want: %v", got, want)
+	}
+
+	// Caret.
+	in = map[int]time.Duration{
+		1: 100 * time.Millisecond,
+		2: 200 * time.Millisecond,
+		3: 300 * time.Millisecond,
+		4: 200 * time.Millisecond,
+		5: 100 * time.Millisecond,
+	}
+	// (100+400+900+800+500)/900 = 3
+	if got, want := weightedAverage(in), 3.; approxNeq(got, want) {
+		t.Errorf("weightedAverage = %v, want: %v", got, want)
+	}
+
+	// Empty.
+	in = map[int]time.Duration{}
+	if got, want := weightedAverage(in), 0.; approxNeq(got, want) {
+		t.Errorf("weightedAverage = %v, want: %v", got, want)
 	}
 }
 

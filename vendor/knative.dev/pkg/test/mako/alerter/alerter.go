@@ -61,7 +61,7 @@ func (alerter *Alerter) HandleBenchmarkResult(
 			summary := fmt.Sprintf("%s\n\nSee run chart at: %s\n\nSee aggregate chart at: %s",
 				output.GetSummaryOutput(),
 				output.GetRunChartLink(),
-				fmt.Sprintf("mako.dev/benchmark?benchmark_key=%s&tseconds=604800", benchmarkKey),
+				"https://mako.dev/benchmark?tseconds=604800&benchmark_key="+benchmarkKey,
 			)
 			if alerter.githubIssueHandler != nil {
 				if err := alerter.githubIssueHandler.CreateIssueForTest(benchmarkName, summary); err != nil {

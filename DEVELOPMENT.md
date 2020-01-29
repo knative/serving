@@ -146,9 +146,11 @@ Follow the
 [instructions](https://www.knative.dev/docs/serving/gke-assigning-static-ip-address/)
 if you need to set up static IP for Ingresses in the cluster.
 
-If you want to adopt preinstalled Istio, please check whether
-cluster-local-gateway is deployed in namespace istio-system or not. If it's not
-installed, please install it with following commands. You could also adjust
+If you want to adopt preinstalled Istio, please check whether the
+`cluster-local-gateway` Service is deployed in namespace `istio-system` or not
+(you can check by running
+`kubectl get service cluster-local-gateway -n istio-system`). If it's not
+installed, please install it with following command. You could also adjust
 parameters if needed.
 
 ```shell
@@ -164,8 +166,8 @@ kubectl apply -f ./third_party/istio-1.3-latest/istio-knative-extras.yaml
 1. Deploy `cert-manager` CRDs
 
    ```shell
-   kubectl apply -f ./third_party/cert-manager-0.9.1/cert-manager-crds.yaml
-   while [[ $(kubectl get crd certificates.certmanager.k8s.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
+   kubectl apply -f ./third_party/cert-manager-0.12.0/cert-manager-crds.yaml
+   while [[ $(kubectl get crd certificates.cert-manager.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]]; do
      echo "Waiting on Cert-Manager CRDs"; sleep 1
    done
    ```
@@ -176,8 +178,7 @@ kubectl apply -f ./third_party/istio-1.3-latest/istio-knative-extras.yaml
    services, you need to install the full cert-manager.
 
    ```shell
-   # For kubernetes version 1.13 or above, --validate=false is not needed.
-   kubectl apply -f ./third_party/cert-manager-0.9.1/cert-manager.yaml --validate=false
+   kubectl apply -f ./third_party/cert-manager-0.12.0/cert-manager.yaml
    ```
 
 ### Deploy Knative Serving
@@ -189,23 +190,15 @@ locally (for example, using
 set `KO_DOCKER_REPO=ko.local` to avoid needing to push your images to an
 off-machine registry.
 
-Next, run:
+Run:
 
 ```shell
 ko apply -f config/
 
 # Optional steps
 
-# Configure outbound network for GKE.
-export PROJECT_ID="my-gcp-project-id"
-# Set K8S_CLUSTER_ZONE if using a zonal cluster
-export K8S_CLUSTER_ZONE="my-cluster-zone"
-# Set K8S_CLUSTER_REGION if using a regional cluster
-export K8S_CLUSTER_REGION="my-cluster-region"
-./hack/dev-patch-config-gke.sh my-k8s-cluster-name
-
 # Run post-install job to setup nice XIP.IO domain name.  This only works
-# if your Kubernetes LoadBalancer has an IP address.
+# if your Kubernetes LoadBalancer has an IPv4 address.
 ko delete -f config/post-install --ignore-not-found
 ko apply -f config/post-install
 ```
@@ -293,8 +286,8 @@ ko delete --ignore-not-found=true \
   -f config/ \
   -f ./third_party/istio-1.3-latest/istio-minimal.yaml \
   -f ./third_party/istio-1.3-latest/istio-crds.yaml \
-  -f ./third_party/cert-manager-0.9.1/cert-manager-crds.yaml \
-  -f ./third_party/cert-manager-0.9.1/cert-manager.yaml
+  -f ./third_party/cert-manager-0.12.0/cert-manager-crds.yaml \
+  -f ./third_party/cert-manager-0.12.0/cert-manager.yaml
 ```
 
 ## Telemetry

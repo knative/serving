@@ -76,7 +76,7 @@ func TestHandlerReqEvent(t *testing.T) {
 	params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	breaker := queue.NewBreaker(params)
 	reqChan := make(chan queue.ReqEvent, 10)
-	h := handler(reqChan, breaker, proxy, nil, func() bool { return true }, true /* isAggresive*/)
+	h := proxyHandler(reqChan, breaker, true /*tracingEnabled*/, proxy)
 
 	writer := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
@@ -137,7 +137,7 @@ func TestProbeHandler(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 			req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 
-			h := handler(nil, nil, nil, healthState, tc.prober, true /* isAggresive*/)
+			h := knativeProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil)
 			h(writer, req)
 
 			if got, want := writer.Code, tc.wantCode; got != want {
@@ -411,10 +411,10 @@ func TestQueueTraceSpans(t *testing.T) {
 					Base: pkgnet.AutoTransport,
 				}
 
-				h := handler(reqChan, breaker, proxy, healthState, func() bool { return false }, true /* isAggresive*/)
+				h := proxyHandler(reqChan, breaker, true /*tracingEnabled*/, proxy)
 				h(writer, req)
 			} else {
-				h := handler(nil, nil, nil, healthState, tc.prober, true /* isAggresive*/)
+				h := knativeProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil)
 				req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 				h(writer, req)
 			}

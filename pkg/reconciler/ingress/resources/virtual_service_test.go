@@ -37,6 +37,19 @@ import (
 
 var (
 	defaultMaxRevisionTimeout = time.Duration(apiconfig.DefaultMaxRevisionTimeoutSeconds) * time.Second
+	defaultGateways           = makeGatewayMap([]string{"gateway"}, []string{"private-gateway"})
+	defaultIngress            = v1alpha1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-ingress",
+			Namespace: system.Namespace(),
+		},
+		Spec: v1alpha1.IngressSpec{Rules: []v1alpha1.IngressRule{{
+			Hosts: []string{
+				"test-route.test-ns.svc.cluster.local",
+			},
+			HTTP: &v1alpha1.HTTPIngressRuleValue{},
+		}}},
+	}
 )
 
 func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
@@ -209,10 +222,41 @@ func TestMakeMeshVirtualServiceSpec_CorrectGateways(t *testing.T) {
 			}}},
 	}
 	expected := []string{"mesh"}
-	gateways := MakeMeshVirtualService(ci).Spec.Gateways
+	gateways := MakeMeshVirtualService(ci, defaultGateways).Spec.Gateways
 	if diff := cmp.Diff(expected, gateways); diff != "" {
 		t.Errorf("Unexpected gateways (-want +got): %v", diff)
 	}
+}
+
+func TestMakeMeshVirtualServiceSpecCorrectHosts(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		gateways      map[v1alpha1.IngressVisibility]sets.String
+		expectedHosts sets.String
+	}{{
+		name: "with cluster local gateway: expanding hosts",
+		gateways: map[v1alpha1.IngressVisibility]sets.String{
+			v1alpha1.IngressVisibilityClusterLocal: sets.NewString("cluster-local"),
+		},
+		expectedHosts: sets.NewString(
+			"test-route.test-ns.svc.cluster.local",
+			"test-route.test-ns.svc",
+			"test-route.test-ns",
+		),
+	}, {
+		name:          "with mesh: no exapnding hosts",
+		gateways:      map[v1alpha1.IngressVisibility]sets.String{},
+		expectedHosts: sets.NewString("test-route.test-ns.svc.cluster.local"),
+	}} {
+		t.Run(tc.name, func(t *testing.T) {
+			vs := MakeMeshVirtualService(&defaultIngress, tc.gateways)
+			vsHosts := sets.NewString(vs.Spec.Hosts...)
+			if !vsHosts.Equal(tc.expectedHosts) {
+				t.Errorf("Unexpected hosts want %v; got %v", tc.expectedHosts, vsHosts)
+			}
+		})
+	}
+
 }
 
 func TestMakeMeshVirtualServiceSpec_CorrectRetries(t *testing.T) {
@@ -288,7 +332,7 @@ func TestMakeMeshVirtualServiceSpec_CorrectRetries(t *testing.T) {
 		},
 	}} {
 		t.Run(tc.name, func(t *testing.T) {
-			for _, h := range MakeMeshVirtualService(tc.ci).Spec.Http {
+			for _, h := range MakeMeshVirtualService(tc.ci, defaultGateways).Spec.Http {
 				if diff := cmp.Diff(tc.expected, h.Retries); diff != "" {
 					t.Errorf("Unexpected retries (-want +got): %v", diff)
 				}
@@ -400,7 +444,7 @@ func TestMakeMeshVirtualServiceSpec_CorrectRoutes(t *testing.T) {
 		WebsocketUpgrade: true,
 	}}
 
-	routes := MakeMeshVirtualService(ci).Spec.Http
+	routes := MakeMeshVirtualService(ci, defaultGateways).Spec.Http
 	if diff := cmp.Diff(expected, routes); diff != "" {
 		t.Errorf("Unexpected routes (-want +got): %v", diff)
 	}

@@ -51,7 +51,7 @@ type Autoscaler struct {
 	// specMux guards the current DeciderSpec and the PodCounter.
 	specMux     sync.RWMutex
 	deciderSpec *DeciderSpec
-	podCounter  resources.ReadyPodCounter
+	podCounter  resources.EndpointsCounter
 }
 
 // New creates a new instance of autoscaler
@@ -178,8 +178,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 
 	dspc := math.Ceil(observedStableValue / spec.TargetValue)
 	dppc := math.Ceil(observedPanicValue / spec.TargetValue)
-	logger.Debugf("DesiredStablePodCount = %0.3f, DesiredPanicPodCount = %0.3f, MaxScaleUp = %0.3f, MaxScaleDown = %0.3f",
-		dspc, dppc, maxScaleUp, maxScaleDown)
+	logger.Debugf("DesiredStablePodCount = %0.3f, DesiredPanicPodCount = %0.3f, ReadyEndpointCount = %d, MaxScaleUp = %0.3f, MaxScaleDown = %0.3f",
+		dspc, dppc, originalReadyPodsCount, maxScaleUp, maxScaleDown)
 
 	// We want to keep desired pod count in the  [maxScaleDown, maxScaleUp] range.
 	desiredStablePodCount := int32(math.Min(math.Max(dspc, maxScaleDown), maxScaleUp))
@@ -246,7 +246,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	return desiredPodCount, excessBC, true
 }
 
-func (a *Autoscaler) currentSpecAndPC() (*DeciderSpec, resources.ReadyPodCounter) {
+func (a *Autoscaler) currentSpecAndPC() (*DeciderSpec, resources.EndpointsCounter) {
 	a.specMux.RLock()
 	defer a.specMux.RUnlock()
 	return a.deciderSpec, a.podCounter

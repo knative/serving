@@ -488,11 +488,13 @@ func (t *Throttler) getOrCreateRevisionThrottler(revID types.NamespacedName) (*r
 // rather than erroring with revision not found until a networking probe succeeds
 func (t *Throttler) revisionUpdated(obj interface{}) {
 	rev := obj.(*v1alpha1.Revision)
-	revID := types.NamespacedName{rev.Namespace, rev.Name}
-	t.logger.Debugf("Revision update %q", revID.String())
+	revID := types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name}
+	logger := t.logger.With(zap.String(logkey.Key, revID.String()))
+
+	logger.Debug("Revision update")
 
 	if _, err := t.getOrCreateRevisionThrottler(revID); err != nil {
-		t.logger.Errorw("Failed to get revision throttler for revision "+revID.String(), zap.Error(err))
+		logger.Errorw("Failed to get revision throttler for revision "+revID.String(), zap.Error(err))
 	}
 }
 
@@ -500,8 +502,10 @@ func (t *Throttler) revisionUpdated(obj interface{}) {
 // memory growth
 func (t *Throttler) revisionDeleted(obj interface{}) {
 	rev := obj.(*v1alpha1.Revision)
-	revID := types.NamespacedName{rev.Namespace, rev.Name}
-	t.logger.Debugf("Revision delete %q", revID.String())
+	revID := types.NamespacedName{Namespace: rev.Namespace, Name: rev.Name}
+	logger := t.logger.With(zap.String(logkey.Key, revID.String()))
+
+	logger.Debug("Revision delete")
 
 	t.revisionThrottlersMutex.Lock()
 	defer t.revisionThrottlersMutex.Unlock()
@@ -510,11 +514,11 @@ func (t *Throttler) revisionDeleted(obj interface{}) {
 
 func (t *Throttler) handleUpdate(update revisionDestsUpdate) {
 	if rt, err := t.getOrCreateRevisionThrottler(update.Rev); err != nil {
+		logger := t.logger.With(zap.String(logkey.Key, update.Rev.String()))
 		if k8serrors.IsNotFound(err) {
-			t.logger.Debugf("Revision %q is not found. Probably it was removed", update.Rev.String())
+			logger.Debug("Revision not found. It was probably removed")
 		} else {
-			t.logger.With(zap.Error(err)).Errorf(
-				"Failed to get revision throttler for revision %q", update.Rev)
+			logger.With(zap.Error(err)).Error("Failed to get revision throttler")
 		}
 	} else {
 		rt.handleUpdate(t, update)

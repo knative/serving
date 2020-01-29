@@ -67,6 +67,7 @@ func TestUpdate(t *testing.T) {
 	defer cancel()
 
 	proberCancel := checkOK(t, "http://"+hostname+".example.com", client)
+	defer proberCancel()
 
 	// Give the prober a chance to get started.
 	time.Sleep(1 * time.Second)
@@ -160,8 +161,6 @@ func TestUpdate(t *testing.T) {
 		}
 	}
 
-	// Stop the prober.
-	proberCancel()
 	// Then cleanup the final version.
 	previousVersionCancel()
 }

@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -35,7 +34,7 @@ func (source *Route) ConvertUp(ctx context.Context, obj apis.Convertible) error 
 		source.Status.ConvertUp(apis.WithinStatus(ctx), &sink.Status)
 		return source.Spec.ConvertUp(apis.WithinSpec(ctx), &sink.Spec)
 	default:
-		return fmt.Errorf("unknown version, got: %T", sink)
+		return apis.ConvertUpViaProxy(ctx, source, &v1beta1.Route{}, sink)
 	}
 }
 
@@ -66,8 +65,7 @@ func (source *TrafficTarget) ConvertUp(ctx context.Context, sink *v1.TrafficTarg
 
 // ConvertUp helps implement apis.Convertible
 func (source *RouteStatus) ConvertUp(ctx context.Context, sink *v1.RouteStatus) {
-	source.Status.ConvertTo(ctx, &sink.Status)
-
+	source.ConvertTo(ctx, &sink.Status, v1.IsRouteCondition)
 	source.RouteStatusFields.ConvertUp(ctx, &sink.RouteStatusFields)
 }
 
@@ -99,7 +97,7 @@ func (sink *Route) ConvertDown(ctx context.Context, obj apis.Convertible) error 
 		sink.Status.ConvertDown(ctx, source.Status)
 		return nil
 	default:
-		return fmt.Errorf("unknown version, got: %T", source)
+		return apis.ConvertDownViaProxy(ctx, source, &v1beta1.Route{}, sink)
 	}
 }
 
@@ -118,8 +116,7 @@ func (sink *TrafficTarget) ConvertDown(ctx context.Context, source v1.TrafficTar
 
 // ConvertDown helps implement apis.Convertible
 func (sink *RouteStatus) ConvertDown(ctx context.Context, source v1.RouteStatus) {
-	source.Status.ConvertTo(ctx, &sink.Status)
-
+	source.ConvertTo(ctx, &sink.Status, v1.IsRouteCondition)
 	sink.RouteStatusFields.ConvertDown(ctx, source.RouteStatusFields)
 }
 

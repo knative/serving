@@ -17,14 +17,18 @@ limitations under the License.
 package aggregation
 
 import (
-	"strconv"
+	"fmt"
+	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 )
 
-const pod = "pod"
+const (
+	granularity = time.Second
+	pod         = "pod"
+)
 
 func TestTimedFloat64BucketsSimple(t *testing.T) {
 	trunc1 := time.Now().Truncate(1 * time.Second)
@@ -77,8 +81,11 @@ func TestTimedFloat64BucketsSimple(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// New implementation test.
 			buckets := NewTimedFloat64Buckets(2*time.Minute, tt.granularity)
+			if !buckets.IsEmpty(trunc1) {
+				t.Error("Unexpected non empty result")
+			}
 			for _, stat := range tt.stats {
-				buckets.Record(stat.time, stat.name, stat.value)
+				buckets.Record(stat.time, stat.value)
 			}
 
 			got := make(map[time.Time]float64)
@@ -99,13 +106,12 @@ func TestTimedFloat64BucketsSimple(t *testing.T) {
 }
 
 func TestTimedFloat64BucketsManyReps(t *testing.T) {
-	granularity := time.Second
 	trunc1 := time.Now().Truncate(granularity)
 	buckets := NewTimedFloat64Buckets(time.Minute, granularity)
 	for p := 0; p < 5; p++ {
 		trunc1 = trunc1.Add(granularity)
 		for t := 0; t < 5; t++ {
-			buckets.Record(trunc1, pod+strconv.Itoa(p), float64(p+t))
+			buckets.Record(trunc1, float64(p+t))
 		}
 	}
 	// So the buckets are:
@@ -131,25 +137,99 @@ func TestTimedFloat64BucketsManyReps(t *testing.T) {
 	}
 }
 
+func TestTimedFloat64BucketsWindowAverage(t *testing.T) {
+	now := time.Now()
+	buckets := NewTimedFloat64Buckets(5*time.Second, granularity)
+
+	for i := 0; i < 5; i++ {
+		buckets.Record(now.Add(time.Duration(i)*time.Second), float64(i+1))
+	}
+
+	if got, want := buckets.WindowAverage(now.Add(4*time.Second)), 15./5; got != want {
+		t.Errorf("WindowAverage = %v, want: %v", got, want)
+	}
+	// Check when `now` lags behind.
+	if got, want := buckets.WindowAverage(now.Add(3600*time.Millisecond)), 15./5; got != want {
+		t.Errorf("WindowAverage = %v, want: %v", got, want)
+	}
+
+	// Check with short hole.
+	if got, want := buckets.WindowAverage(now.Add(6*time.Second)), (15.-1-2)/(5-2); got != want {
+		t.Errorf("WindowAverage = %v, want: %v", got, want)
+	}
+
+	// Check with a long hole.
+	if got, want := buckets.WindowAverage(now.Add(10*time.Second)), 0.; got != want {
+		t.Errorf("WindowAverage = %v, want: %v", got, want)
+	}
+
+	// Check write with holes.
+	buckets.Record(now.Add(6*time.Second), 91)
+	if got, want := buckets.WindowAverage(now.Add(6*time.Second)), (15.-1-2+91)/5; got != want {
+		t.Errorf("WindowAverage = %v, want: %v", got, want)
+	}
+
+}
+
+func TestTimedFloat64BucketsHoles(t *testing.T) {
+	now := time.Now()
+	buckets := NewTimedFloat64Buckets(5*time.Second, granularity)
+
+	for i := time.Duration(0); i < 5; i++ {
+		buckets.Record(now.Add(i*time.Second), float64(i+1))
+	}
+
+	sum := 0.
+
+	if !buckets.ForEachBucket(now.Add(4*time.Second),
+		func(_ time.Time, b float64) {
+			sum += b
+		},
+	) {
+		t.Fatal("ForEachBucket unexpectedly returned empty result")
+	}
+	if got, want := sum, 15.; got != want {
+		t.Errorf("Sum = %v, want: %v", got, want)
+	}
+	if got, want := buckets.WindowAverage(now.Add(4*time.Second)), 15./5; got != want {
+		t.Errorf("WindowAverage = %v, want: %v", got, want)
+	}
+	// Now write at 9th second. Which means that seconds
+	// 5[0], 6[1], 7[2] become 0.
+	buckets.Record(now.Add(8*time.Second), 2.)
+	// So now we have [3] = 2, [4] = 5 and sum should be 7.
+	sum = 0.
+
+	if !buckets.ForEachBucket(now.Add(8*time.Second),
+		func(_ time.Time, b float64) {
+			sum += b
+		},
+	) {
+		t.Fatal("ForEachBucket unexpectedly returned empty result")
+	}
+	if got, want := sum, 7.; got != want {
+		t.Errorf("Sum = %v, want: %v", got, want)
+	}
+}
+
 func TestTimedFloat64BucketsForEachBucket(t *testing.T) {
-	granularity := time.Second
-	trunc1 := time.Now().Truncate(granularity)
+	now := time.Now()
 	buckets := NewTimedFloat64Buckets(2*time.Minute, granularity)
 
 	// Since we recorded 0 data, even in this implementation no iteration must occur.
-	if buckets.ForEachBucket(trunc1, func(time time.Time, bucket float64) {}) {
+	if buckets.ForEachBucket(now, func(time time.Time, bucket float64) {}) {
 		t.Fatalf("ForEachBucket unexpectedly returned non-empty result")
 	}
 
-	buckets.Record(trunc1, pod, 10.0)
-	buckets.Record(trunc1.Add(1*time.Second), pod, 10.0)
-	buckets.Record(trunc1.Add(2*time.Second), pod, 5.0)
-	buckets.Record(trunc1.Add(3*time.Second), pod, 5.0)
+	buckets.Record(now, 10.0)
+	buckets.Record(now.Add(1*time.Second), 10.0)
+	buckets.Record(now.Add(2*time.Second), 5.0)
+	buckets.Record(now.Add(3*time.Second), 5.0)
 
 	acc1 := 0
 	acc2 := 0
 
-	if !buckets.ForEachBucket(trunc1.Add(4*time.Second),
+	if !buckets.ForEachBucket(now.Add(4*time.Second),
 		func(_ time.Time, b float64) {
 			// We need to exclude the 0s for this test.
 			if b > 0 {
@@ -167,22 +247,27 @@ func TestTimedFloat64BucketsForEachBucket(t *testing.T) {
 }
 
 func TestTimedFloat64BucketsWindowUpdate(t *testing.T) {
-	granularity := time.Second
-	trunc1 := time.Now().Truncate(granularity)
+	startTime := time.Now()
 	buckets := NewTimedFloat64Buckets(5*time.Second, granularity)
 
 	// Fill the whole bucketing list with rollover.
-	buckets.Record(trunc1, pod, 1)
-	buckets.Record(trunc1.Add(1*time.Second), pod, 2)
-	buckets.Record(trunc1.Add(2*time.Second), pod, 3)
-	buckets.Record(trunc1.Add(3*time.Second), pod, 4)
-	buckets.Record(trunc1.Add(4*time.Second), pod, 5)
-	buckets.Record(trunc1.Add(5*time.Second), pod, 6)
+	buckets.Record(startTime, 1)
+	buckets.Record(startTime.Add(1*time.Second), 2)
+	buckets.Record(startTime.Add(2*time.Second), 3)
+	buckets.Record(startTime.Add(3*time.Second), 4)
+	buckets.Record(startTime.Add(4*time.Second), 5)
+	buckets.Record(startTime.Add(5*time.Second), 6)
+	now := startTime.Add(5 * time.Second)
+
 	sum := 0.
-	buckets.ForEachBucket(trunc1.Add(5*time.Second), func(t time.Time, b float64) {
+	buckets.ForEachBucket(now, func(t time.Time, b float64) {
 		sum += b
 	})
-	if got, want := sum, float64(2+3+4+5+6); got != want {
+	const wantInitial = 2. + 3 + 4 + 5 + 6
+	if got, want := sum, wantInitial; got != want {
+		t.Fatalf("Initial data set Sum = %v, want: %v", got, want)
+	}
+	if got, want := buckets.WindowAverage(now), wantInitial/5; got != want {
 		t.Fatalf("Initial data set Sum = %v, want: %v", got, want)
 	}
 
@@ -197,20 +282,30 @@ func TestTimedFloat64BucketsWindowUpdate(t *testing.T) {
 
 	// Verify values were properly copied.
 	sum = 0.
-	buckets.ForEachBucket(trunc1.Add(5*time.Second), func(t time.Time, b float64) {
+	buckets.ForEachBucket(now, func(t time.Time, b float64) {
 		sum += b
 	})
 	if got, want := sum, float64(2+3+4+5+6); got != want {
 		t.Fatalf("After first resize data set Sum = %v, want: %v", got, want)
 	}
+	// Note the average changes, since we're averaging over bigger window now.
+	if got, want := buckets.WindowAverage(now), wantInitial/10; got != want {
+		t.Fatalf("Initial data set Sum = %v, want: %v", got, want)
+	}
+
 	// Add one more. Make sure all the data is preserved, since window is longer.
-	buckets.Record(trunc1.Add(6*time.Second), pod, 7)
+	now = now.Add(time.Second)
+	buckets.Record(now, 7)
+	const wantWithUpdate = wantInitial + 7
 	sum = 0.
-	buckets.ForEachBucket(trunc1.Add(6*time.Second), func(t time.Time, b float64) {
+	buckets.ForEachBucket(now, func(t time.Time, b float64) {
 		sum += b
 	})
-	if got, want := sum, float64(2+3+4+5+6+7); got != want {
+	if got, want := sum, wantWithUpdate; got != want {
 		t.Fatalf("Updated data set Sum = %v, want: %v", got, want)
+	}
+	if got, want := buckets.WindowAverage(now), wantWithUpdate/10; got != want {
+		t.Fatalf("Initial data set Sum = %v, want: %v", got, want)
 	}
 
 	// Now let's reduce window size.
@@ -218,13 +313,17 @@ func TestTimedFloat64BucketsWindowUpdate(t *testing.T) {
 	if got, want := len(buckets.buckets), 4; got != want {
 		t.Fatalf("Resized bucket count = %d, want: %d", got, want)
 	}
-	// Just last 4 buckets should have remained.
+	// Just last 4 buckets should have remained (so 2 oldest are expunged).
+	const wantWithShrink = wantWithUpdate - 2 - 3
 	sum = 0.
-	buckets.ForEachBucket(trunc1.Add(6*time.Second), func(t time.Time, b float64) {
+	buckets.ForEachBucket(now, func(t time.Time, b float64) {
 		sum += b
 	})
-	if got, want := sum, float64(4+5+6+7); got != want {
+	if got, want := sum, wantWithShrink; got != want {
 		t.Fatalf("Updated data set Sum = %v, want: %v", got, want)
+	}
+	if got, want := buckets.WindowAverage(now), wantWithShrink/4; got != want {
+		t.Fatalf("Initial data set Sum = %v, want: %v", got, want)
 	}
 
 	// Verify idempotence.
@@ -246,13 +345,13 @@ func TestTimedFloat64BucketsWindowUpdate3sGranularity(t *testing.T) {
 	}
 
 	// Fill the whole bucketing list.
-	buckets.Record(trunc1, pod, 10)
-	buckets.Record(trunc1.Add(1*time.Second), pod, 2)
-	buckets.Record(trunc1.Add(2*time.Second), pod, 3)
-	buckets.Record(trunc1.Add(3*time.Second), pod, 4)
-	buckets.Record(trunc1.Add(4*time.Second), pod, 5)
-	buckets.Record(trunc1.Add(5*time.Second), pod, 6)
-	buckets.Record(trunc1.Add(6*time.Second), pod, 7) // This overrides the initial 15 (10+2+3)
+	buckets.Record(trunc1, 10)
+	buckets.Record(trunc1.Add(1*time.Second), 2)
+	buckets.Record(trunc1.Add(2*time.Second), 3)
+	buckets.Record(trunc1.Add(3*time.Second), 4)
+	buckets.Record(trunc1.Add(4*time.Second), 5)
+	buckets.Record(trunc1.Add(5*time.Second), 6)
+	buckets.Record(trunc1.Add(6*time.Second), 7) // This overrides the initial 15 (10+2+3)
 	sum := 0.
 	buckets.ForEachBucket(trunc1.Add(6*time.Second), func(t time.Time, b float64) {
 		sum += b
@@ -281,7 +380,7 @@ func TestTimedFloat64BucketsWindowUpdate3sGranularity(t *testing.T) {
 	}
 
 	// Add one more. Make sure all the data is preserved, since window is longer.
-	buckets.Record(trunc1.Add(9*time.Second+300*time.Millisecond), pod, 42)
+	buckets.Record(trunc1.Add(9*time.Second+300*time.Millisecond), 42)
 	sum = 0
 	buckets.ForEachBucket(trunc1.Add(9*time.Second), func(t time.Time, b float64) {
 		sum += b
@@ -314,4 +413,41 @@ func TestTimedFloat64BucketsWindowUpdate3sGranularity(t *testing.T) {
 	if ob != &buckets.buckets {
 		t.Error("The buckets have changed, though window didn't")
 	}
+}
+
+func BenchmarkWindowAverage(b *testing.B) {
+	// Window lengths in secs.
+	for _, wl := range []int{30, 60, 120, 240, 600} {
+		b.Run(fmt.Sprintf("%v-win-len", wl), func(b *testing.B) {
+			tn := time.Now().Truncate(time.Second) // To simplify everything.
+			buckets := NewTimedFloat64Buckets(time.Duration(wl)*time.Second,
+				time.Second /*granularity*/)
+			// Populate with some random data.
+			for i := 0; i < wl; i++ {
+				buckets.Record(tn.Add(time.Duration(i)*time.Second), rand.Float64()*100)
+			}
+			for i := 0; i < b.N; i++ {
+				buckets.WindowAverage(tn.Add(time.Duration(wl) * time.Second))
+			}
+		})
+	}
+}
+
+func TestRoundToNDigits(t *testing.T) {
+	if got, want := roundToNDigits(6, 3.6e-17), 0.; got != want {
+		t.Errorf("Rounding = %v, want: %v", got, want)
+	}
+	if got, want := roundToNDigits(3, 0.0004), 0.; got != want {
+		t.Errorf("Rounding = %v, want: %v", got, want)
+	}
+	if got, want := roundToNDigits(3, 1.2345), 1.234; got != want {
+		t.Errorf("Rounding = %v, want: %v", got, want)
+	}
+	if got, want := roundToNDigits(4, 1.2345), 1.2345; got != want {
+		t.Errorf("Rounding = %v, want: %v", got, want)
+	}
+	if got, want := roundToNDigits(6, 12345), 12345.; got != want {
+		t.Errorf("Rounding = %v, want: %v", got, want)
+	}
+
 }

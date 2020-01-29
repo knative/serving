@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import (
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 	versioned "knative.dev/serving/pkg/client/certmanager/clientset/versioned"
+	acme "knative.dev/serving/pkg/client/certmanager/informers/externalversions/acme"
 	certmanager "knative.dev/serving/pkg/client/certmanager/informers/externalversions/certmanager"
 	internalinterfaces "knative.dev/serving/pkg/client/certmanager/informers/externalversions/internalinterfaces"
 )
@@ -172,7 +173,12 @@ type SharedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
+	Acme() acme.Interface
 	Certmanager() certmanager.Interface
+}
+
+func (f *sharedInformerFactory) Acme() acme.Interface {
+	return acme.New(f, f.namespace, f.tweakListOptions)
 }
 
 func (f *sharedInformerFactory) Certmanager() certmanager.Interface {

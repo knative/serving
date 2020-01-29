@@ -16,24 +16,31 @@ required = [
 ]
 
 [[constraint]]
+  # We can drop this constraint when we switch to a
+  # k8s version that merges this bump
+  # https://github.com/kubernetes/kubernetes/pull/87431
+  name = "github.com/google/gofuzz"
+  version = "v1.1.0"
+
+[[constraint]]
   name = "k8s.io/api"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.4"
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.4"
 
 [[constraint]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.4"
 
 [[constraint]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.4"
 
 [[constraint]]
   name = "k8s.io/code-generator"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.4"
 
 [[constraint]]
   name = "github.com/gogo/protobuf"

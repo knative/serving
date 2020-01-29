@@ -147,8 +147,12 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 
 	// We should only scale to zero when three of the following conditions are true:
 	//   a) enable-scale-to-zero from configmap is true
-	//   b) The PA has been active for at least the stable window, after which it gets marked inactive
-	//   c) The PA has been inactive for at least the grace period
+	//   b) The PA has been active for at least the stable window, after which it
+	//			gets marked inactive, and
+	//   c) the PA has been backed by the Activator for at least the grace period
+	//      of time.
+	//  Alternatively, if (a) and the revision did not succeed to activate in
+	//  `activationTimeout` time -- also scale it to 0.
 	config := config.FromContext(ctx).Autoscaler
 	if !config.EnableScaleToZero {
 		return 1, true
@@ -160,14 +164,13 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 		// If we are stuck activating for longer than our progress deadline, presume we cannot succeed and scale to 0.
 		if pa.Status.CanFailActivation(now, activationTimeout) {
 			logger.Infof("Activation has timed out after %v.", activationTimeout)
-			return 0, true
+			return desiredScale, true
 		}
 		ks.enqueueCB(pa, activationTimeout)
 		return scaleUnknown, false
 	} else if pa.Status.IsReady() { // Active=True
 		// Don't scale-to-zero if the PA is active
-
-		// Do not scale to 0, but return desiredScale of 0 to mark PA inactive.
+		// but return `(0, false)` to mark PA inactive, instead.
 		sw := aresources.StableWindow(pa, config)
 		af := pa.Status.ActiveFor(now)
 		if af >= sw {
@@ -181,10 +184,11 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 		ks.enqueueCB(pa, sw-af)
 		desiredScale = 1
 	} else { // Active=False
+		// Probe synchronously, to see if Activator is already in the path.
 		r, err := ks.activatorProbe(pa, ks.transport)
 		logger.Infof("Probing activator = %v, err = %v", r, err)
 		if r {
-			// This enforces that the revision has been backed by the activator for at least
+			// This enforces that the revision has been backed by the Activator for at least
 			// ScaleToZeroGracePeriod time.
 			// Note: SKS will always be present when scaling to zero, so nil checks are just
 			// defensive programming.
@@ -225,33 +229,33 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 }
 
 func (ks *scaler) applyScale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, desiredScale int32,
-	ps *pav1alpha1.PodScalable) (int32, error) {
+	ps *pav1alpha1.PodScalable) error {
 	logger := logging.FromContext(ctx)
 
 	gvr, name, err := resources.ScaleResourceArguments(pa.Spec.ScaleTargetRef)
 	if err != nil {
-		return desiredScale, err
+		return err
 	}
 
 	psNew := ps.DeepCopy()
 	psNew.Spec.Replicas = &desiredScale
 	patch, err := duck.CreatePatch(ps, psNew)
 	if err != nil {
-		return desiredScale, err
+		return err
 	}
 	patchBytes, err := patch.MarshalJSON()
 	if err != nil {
-		return desiredScale, err
+		return err
 	}
 
 	_, err = ks.dynamicClient.Resource(*gvr).Namespace(pa.Namespace).Patch(ps.Name, types.JSONPatchType,
 		patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		return desiredScale, fmt.Errorf("failed to apply scale to scale target %s: %w", name, err)
+		return fmt.Errorf("failed to apply scale to scale target %s: %w", name, err)
 	}
 
 	logger.Debug("Successfully scaled.")
-	return desiredScale, nil
+	return nil
 }
 
 // Scale attempts to scale the given PA's target reference to the desired scale.
@@ -288,5 +292,5 @@ func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *
 	}
 
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
-	return ks.applyScale(ctx, pa, desiredScale, ps)
+	return desiredScale, ks.applyScale(ctx, pa, desiredScale, ps)
 }

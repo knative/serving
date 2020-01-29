@@ -76,8 +76,13 @@ func MakeIngressVirtualService(ing *v1alpha1.Ingress, gateways map[v1alpha1.Ingr
 }
 
 // MakeMeshVirtualService creates a mesh Virtual Service
-func MakeMeshVirtualService(ing *v1alpha1.Ingress) *v1alpha3.VirtualService {
-	hosts := ingress.ExpandedHosts(keepLocalHostnames(getHosts(ing)))
+func MakeMeshVirtualService(ing *v1alpha1.Ingress, gateways map[v1alpha1.IngressVisibility]sets.String) *v1alpha3.VirtualService {
+	hosts := keepLocalHostnames(getHosts(ing))
+	// If cluster local gateway is configured, we need to expand hosts because of
+	// https://github.com/knative/serving/issues/6488#issuecomment-573513768.
+	if len(gateways[v1alpha1.IngressVisibilityClusterLocal]) != 0 {
+		hosts = ingress.ExpandedHosts(hosts)
+	}
 	if len(hosts) == 0 {
 		return nil
 	}
@@ -109,7 +114,7 @@ func MakeVirtualServices(ing *v1alpha1.Ingress, gateways map[v1alpha1.IngressVis
 		return nil, fmt.Errorf("failed to insert a probe into the Ingress: %w", err)
 	}
 	vss := []*v1alpha3.VirtualService{}
-	if meshVs := MakeMeshVirtualService(ing); meshVs != nil {
+	if meshVs := MakeMeshVirtualService(ing, gateways); meshVs != nil {
 		vss = append(vss, meshVs)
 	}
 	requiredGatewayCount := 0

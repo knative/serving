@@ -170,7 +170,10 @@ func TestMetricCollectorScraper(t *testing.T) {
 	})
 
 	gotConcurrency, panicConcurrency, _ = coll.StableAndPanicConcurrency(metricKey, now)
-	gotRPS, panicRPS, _ = coll.StableAndPanicRPS(metricKey, now)
+	gotRPS, panicRPS, err := coll.StableAndPanicRPS(metricKey, now)
+	if err != nil {
+		t.Errorf("StableAndPanicRPS = %v", err)
+	}
 	if panicConcurrency != wantPConcurrency {
 		t.Errorf("PanicConcurrency() = %v, want %v", panicConcurrency, wantPConcurrency)
 	}
@@ -203,7 +206,7 @@ func TestMetricCollectorScraper(t *testing.T) {
 
 	// Deleting the metric should cause a calculation error.
 	coll.Delete(defaultNamespace, defaultName)
-	_, _, err := coll.StableAndPanicConcurrency(metricKey, now)
+	_, _, err = coll.StableAndPanicConcurrency(metricKey, now)
 	if err != ErrNotScraping {
 		t.Errorf("StableAndPanicConcurrency() = %v, want %v", err, ErrNotScraping)
 	}
@@ -242,6 +245,10 @@ func TestMetricCollectorRecord(t *testing.T) {
 	factory := scraperFactory(scraper, nil)
 
 	coll := NewMetricCollector(factory, logger)
+	mtp := &manualTickProvider{
+		ch: make(chan time.Time),
+	}
+	coll.tickProvider = mtp.NewTicker // This will ensure time based scraping won't interfere.
 
 	// Freshly created collection does not contain any metrics and should return an error.
 	coll.CreateOrUpdate(&defaultMetric)
@@ -264,17 +271,17 @@ func TestMetricCollectorRecord(t *testing.T) {
 	const (
 		wantS     = want / 60
 		wantP     = want / 6
-		tolerance = 0.0001
+		tolerance = 0.001
 	)
 	if math.Abs(stable-wantS) > tolerance || math.Abs(panic-wantP) > tolerance {
-		t.Errorf("StableAndPanicConcurrency() = %v, %v; want %v, %v, nil", stable, panic, want, want)
+		t.Errorf("StableAndPanicConcurrency() = %v, %v; want %v, %v, nil", stable, panic, wantS, wantP)
 	}
 	stable, panic, err = coll.StableAndPanicRPS(metricKey, now)
 	if err != nil {
 		t.Fatalf("StableAndPanicRPS: %v", err)
 	}
 	if math.Abs(stable-wantS) > tolerance || math.Abs(panic-wantP) > tolerance {
-		t.Errorf("StableAndPanicRPS() = %v, %v; want %v, %v", stable, panic, want, want)
+		t.Errorf("StableAndPanicRPS() = %v, %v; want %v, %v", stable, panic, wantS, wantP)
 	}
 }
 
@@ -403,7 +410,7 @@ type testScraper struct {
 	url string
 }
 
-func (s *testScraper) Scrape() (Stat, error) {
+func (s *testScraper) Scrape(time.Duration) (Stat, error) {
 	return s.s()
 }
 
@@ -412,9 +419,11 @@ func TestMetricCollectorAggregate(t *testing.T) {
 	m.Spec.StableWindow = 6 * time.Second
 	m.Spec.PanicWindow = 2 * time.Second
 	c := &collection{
-		metric:             &m,
-		concurrencyBuckets: aggregation.NewTimedFloat64Buckets(m.Spec.StableWindow, BucketSize),
-		rpsBuckets:         aggregation.NewTimedFloat64Buckets(m.Spec.StableWindow, BucketSize),
+		metric:                  &m,
+		concurrencyBuckets:      aggregation.NewTimedFloat64Buckets(m.Spec.StableWindow, BucketSize),
+		concurrencyPanicBuckets: aggregation.NewTimedFloat64Buckets(m.Spec.PanicWindow, BucketSize),
+		rpsBuckets:              aggregation.NewTimedFloat64Buckets(m.Spec.StableWindow, BucketSize),
+		rpsPanicBuckets:         aggregation.NewTimedFloat64Buckets(m.Spec.PanicWindow, BucketSize),
 	}
 	now := time.Now()
 	for i := 0; i < 10; i++ {
@@ -426,9 +435,9 @@ func TestMetricCollectorAggregate(t *testing.T) {
 		}
 		c.record(stat)
 	}
-	st, pan, err := c.stableAndPanicConcurrency(now.Add(time.Duration(9) * time.Second))
-	if err != nil {
-		t.Fatalf("Error computing concurrency: %v", err)
+	st, pan, noData := c.stableAndPanicConcurrency(now.Add(time.Duration(9) * time.Second))
+	if noData {
+		t.Fatal("Unexpected NoData error")
 	}
 	if got, want := st, 11.5; got != want {
 		t.Errorf("Stable Concurrency = %f, want: %f", got, want)

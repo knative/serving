@@ -1,0 +1,35 @@
+# Copyright 2019 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# A cluster local gateway to allow pods outside of the mesh to access
+# Services and Routes not exposing through an ingress.  If the users
+# do have a service mesh setup, this isn't required.
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: cluster-local-gateway
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
+    networking.knative.dev/ingress-provider: istio
+spec:
+  selector:
+    istio: cluster-local-gateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"

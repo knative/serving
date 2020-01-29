@@ -44,6 +44,10 @@ kubectl delete --ignore-not-found=true -f ${SERVING_YAML} || fail_test
 wait_until_object_does_not_exist namespaces knative-serving || fail_test
 kubectl delete --ignore-not-found=true -f ${MONITORING_YAML} || fail_test
 wait_until_object_does_not_exist namespaces knative-monitoring || fail_test
+# Specially wait for zipkin to be deleted, as we have them installed in istio-system namespace, see
+# https://github.com/knative/serving/blob/4202efc0dc12052edc0630515b101cbf8068a609/config/monitoring/tracing/zipkin/100-zipkin.yaml#L19
+wait_until_object_does_not_exist service zipkin istio-system
+wait_until_object_does_not_exist deployment zipkin istio-system
 
 subheader "Reinstalling Knative Serving"
 start_knative_serving "${SERVING_YAML}" || fail_test

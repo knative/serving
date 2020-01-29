@@ -127,7 +127,7 @@ func (p *prober) handleErrorRetry(err error) (bool, error) {
 	p.failures++
 
 	// Returning true causes SpoofingClient.Poll to retry.
-	return true, fmt.Errorf("Retry on all error: %v", err)
+	return true, fmt.Errorf("retry on all errors: %v", err)
 }
 
 // logRequestNoLock should always be called after obtaining p.m.Lock(),

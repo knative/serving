@@ -81,7 +81,6 @@ const (
 	queueDepthN            = "queue_depth"
 
 	healthURLTemplate = "http://127.0.0.1:%d"
-	tcpProbeTimeout   = 100 * time.Millisecond
 	// The 25 millisecond retry interval is an unscientific compromise between wanting to get
 	// started as early as possible while still wanting to give the container some breathing
 	// room to get up and running.
@@ -156,22 +155,18 @@ type config struct {
 }
 
 // Make handler a closure for testing.
-func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.Handler,
-	healthState *health.State, prober func() bool, isAggressive bool) func(http.ResponseWriter, *http.Request) {
+func proxyHandler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, tracingEnabled bool, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if network.IsKubeletProbe(r) {
-			handler.ServeHTTP(w, r)
+			next.ServeHTTP(w, r)
 			return
 		}
 
-		// TODO: Move probe part to network.NewProbeHandler if possible or another handler.
-		if ph := network.KnativeProbeHeader(r); ph != "" {
-			handleKnativeProbe(w, r, ph, healthState, prober, isAggressive)
-			return
+		if tracingEnabled {
+			proxyCtx, proxySpan := trace.StartSpan(r.Context(), "proxy")
+			r = r.WithContext(proxyCtx)
+			defer proxySpan.End()
 		}
-
-		proxyCtx, proxySpan := trace.StartSpan(r.Context(), "proxy")
-		defer proxySpan.End()
 
 		// Metrics for autoscaling.
 		in, out := queue.ReqIn, queue.ReqOut
@@ -187,7 +182,7 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 		// Enforce queuing and concurrency limits.
 		if breaker != nil {
 			if err := breaker.Maybe(r.Context(), func() {
-				handler.ServeHTTP(w, r.WithContext(proxyCtx))
+				next.ServeHTTP(w, r)
 			}); err != nil {
 				switch err {
 				case context.DeadlineExceeded, queue.ErrRequestQueueFull:
@@ -197,37 +192,49 @@ func handler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, handler http.H
 				}
 			}
 		} else {
-			handler.ServeHTTP(w, r.WithContext(proxyCtx))
+			next.ServeHTTP(w, r)
 		}
 	}
 }
 
-func handleKnativeProbe(w http.ResponseWriter, r *http.Request, ph string, healthState *health.State, prober func() bool, isAggressive bool) {
-	_, probeSpan := trace.StartSpan(r.Context(), "probe")
-	defer probeSpan.End()
+func knativeProbeHandler(healthState *health.State, prober func() bool, isAggressive bool, tracingEnabled bool, next http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ph := network.KnativeProbeHeader(r)
 
-	if ph != queue.Name {
-		http.Error(w, fmt.Sprintf(badProbeTemplate, ph), http.StatusBadRequest)
-		probeSpan.Annotate([]trace.Attribute{
-			trace.StringAttribute("queueproxy.probe.error", fmt.Sprintf(badProbeTemplate, ph))}, "error")
-		return
-	}
-
-	if prober == nil {
-		http.Error(w, "no probe", http.StatusInternalServerError)
-		probeSpan.Annotate([]trace.Attribute{
-			trace.StringAttribute("queueproxy.probe.error", "no probe")}, "error")
-		return
-	}
-
-	healthState.HandleHealthProbe(func() bool {
-		if !prober() {
-			probeSpan.Annotate([]trace.Attribute{
-				trace.StringAttribute("queueproxy.probe.error", "container not ready")}, "error")
-			return false
+		if ph == "" {
+			next.ServeHTTP(w, r)
+			return
 		}
-		return true
-	}, isAggressive, w)
+
+		var probeSpan *trace.Span
+		if tracingEnabled {
+			_, probeSpan = trace.StartSpan(r.Context(), "probe")
+			defer probeSpan.End()
+		}
+
+		if ph != queue.Name {
+			http.Error(w, fmt.Sprintf(badProbeTemplate, ph), http.StatusBadRequest)
+			probeSpan.Annotate([]trace.Attribute{
+				trace.StringAttribute("queueproxy.probe.error", fmt.Sprintf(badProbeTemplate, ph))}, "error")
+			return
+		}
+
+		if prober == nil {
+			http.Error(w, "no probe", http.StatusInternalServerError)
+			probeSpan.Annotate([]trace.Attribute{
+				trace.StringAttribute("queueproxy.probe.error", "no probe")}, "error")
+			return
+		}
+
+		healthState.HandleHealthProbe(func() bool {
+			if !prober() {
+				probeSpan.Annotate([]trace.Attribute{
+					trace.StringAttribute("queueproxy.probe.error", "container not ready")}, "error")
+				return false
+			}
+			return true
+		}, isAggressive, w)
+	}
 }
 
 func probeQueueHealthPath(port int, timeoutSeconds int) error {
@@ -329,7 +336,9 @@ func main() {
 	}
 
 	// Setup reporters and processes to handle stat reporting.
-	promStatReporter, err := queue.NewPrometheusStatsReporter(env.ServingNamespace, env.ServingConfiguration, env.ServingRevision, env.ServingPod, reportingPeriod)
+	promStatReporter, err := queue.NewPrometheusStatsReporter(
+		env.ServingNamespace, env.ServingConfiguration, env.ServingRevision,
+		env.ServingPod, reportingPeriod)
 	if err != nil {
 		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
@@ -444,12 +453,13 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, req
 	httpProxy := httputil.NewSingleHostReverseProxy(target)
 	httpProxy.Transport = buildTransport(env, logger)
 	httpProxy.ErrorHandler = pkgnet.ErrorHandler(logger)
-
+	httpProxy.BufferPool = network.NewBufferPool()
 	httpProxy.FlushInterval = -1
 	activatorutil.SetupHeaderPruning(httpProxy)
 
 	breaker := buildBreaker(env)
 	metricsSupported := supportsMetrics(env, logger)
+	tracingEnabled := env.TracingConfigBackend != tracingconfig.None
 
 	// Create queue handler chain.
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
@@ -458,7 +468,7 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, req
 		composedHandler = pushRequestMetricHandler(httpProxy, appRequestCountM, appResponseTimeInMsecM,
 			queueDepthM, breaker, env)
 	}
-	composedHandler = http.HandlerFunc(handler(reqChan, breaker, composedHandler, healthState, rp.ProbeContainer, rp.IsAggressive()))
+	composedHandler = proxyHandler(reqChan, breaker, tracingEnabled, composedHandler)
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
 	composedHandler = queue.TimeToFirstByteTimeoutHandler(composedHandler,
 		time.Duration(env.RevisionTimeoutSeconds)*time.Second, "request timeout")
@@ -469,6 +479,8 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, req
 			nil /*queueDepthM*/, nil /*breaker*/, env)
 	}
 	composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
+
+	composedHandler = knativeProbeHandler(healthState, rp.ProbeContainer, rp.IsAggressive(), tracingEnabled, composedHandler)
 	composedHandler = network.NewProbeHandler(composedHandler)
 
 	return pkgnet.NewServer(":"+strconv.Itoa(env.QueueServingPort), composedHandler)

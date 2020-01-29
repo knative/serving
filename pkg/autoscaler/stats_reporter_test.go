@@ -58,6 +58,9 @@ func TestReporterReport(t *testing.T) {
 	expectSuccess(t, "ReportDesiredPodCount", func() error { return r.ReportDesiredPodCount(10) })
 	expectSuccess(t, "ReportRequestedPodCount", func() error { return r.ReportRequestedPodCount(7) })
 	expectSuccess(t, "ReportActualPodCount", func() error { return r.ReportActualPodCount(5) })
+	expectSuccess(t, "ReportNotReadyPodCount", func() error { return r.ReportNotReadyPodCount(9) })
+	expectSuccess(t, "ReportPendingPodCount", func() error { return r.ReportPendingPodCount(6) })
+	expectSuccess(t, "ReportTerminatingPodCount", func() error { return r.ReportTerminatingPodCount(8) })
 	expectSuccess(t, "ReportPanic", func() error { return r.ReportPanic(0) })
 	expectSuccess(t, "ReportStableRequestConcurrency", func() error { return r.ReportStableRequestConcurrency(2) })
 	expectSuccess(t, "ReportPanicRequestConcurrency", func() error { return r.ReportPanicRequestConcurrency(3) })
@@ -69,6 +72,9 @@ func TestReporterReport(t *testing.T) {
 	metricstest.CheckLastValueData(t, "desired_pods", wantTags, 10)
 	metricstest.CheckLastValueData(t, "requested_pods", wantTags, 7)
 	metricstest.CheckLastValueData(t, "actual_pods", wantTags, 5)
+	metricstest.CheckLastValueData(t, "not_ready_pods", wantTags, 9)
+	metricstest.CheckLastValueData(t, "pending_pods", wantTags, 6)
+	metricstest.CheckLastValueData(t, "terminating_pods", wantTags, 8)
 	metricstest.CheckLastValueData(t, "panic_mode", wantTags, 0)
 	metricstest.CheckLastValueData(t, "stable_request_concurrency", wantTags, 2)
 	metricstest.CheckLastValueData(t, "excess_burst_capacity", wantTags, 19.84)
@@ -93,6 +99,21 @@ func TestReporterReport(t *testing.T) {
 	expectSuccess(t, "ReportActualPodCount", func() error { return r.ReportActualPodCount(8) })
 	expectSuccess(t, "ReportActualPodCount", func() error { return r.ReportActualPodCount(9) })
 	metricstest.CheckLastValueData(t, "actual_pods", wantTags, 9)
+
+	expectSuccess(t, "ReportNotReadyPodCount", func() error { return r.ReportNotReadyPodCount(6) })
+	expectSuccess(t, "ReportNotReadyPodCount", func() error { return r.ReportNotReadyPodCount(5) })
+	expectSuccess(t, "ReportNotReadyPodCount", func() error { return r.ReportNotReadyPodCount(4) })
+	metricstest.CheckLastValueData(t, "not_ready_pods", wantTags, 4)
+
+	expectSuccess(t, "ReportPendingPodCount", func() error { return r.ReportPendingPodCount(3) })
+	expectSuccess(t, "ReportPendingPodCount", func() error { return r.ReportPendingPodCount(2) })
+	expectSuccess(t, "ReportPendingPodCount", func() error { return r.ReportPendingPodCount(1) })
+	metricstest.CheckLastValueData(t, "pending_pods", wantTags, 1)
+
+	expectSuccess(t, "ReportTerminatingPodCount", func() error { return r.ReportTerminatingPodCount(5) })
+	expectSuccess(t, "ReportTerminatingPodCount", func() error { return r.ReportTerminatingPodCount(3) })
+	expectSuccess(t, "ReportTerminatingPodCount", func() error { return r.ReportTerminatingPodCount(8) })
+	metricstest.CheckLastValueData(t, "terminating_pods", wantTags, 8)
 
 	expectSuccess(t, "ReportPanic", func() error { return r.ReportPanic(1) })
 	expectSuccess(t, "ReportPanic", func() error { return r.ReportPanic(0) })
@@ -131,6 +152,9 @@ func resetMetrics() {
 		desiredPodCountM.Name(),
 		requestedPodCountM.Name(),
 		actualPodCountM.Name(),
+		notReadyPodCountM.Name(),
+		pendingPodCountM.Name(),
+		terminatingPodCountM.Name(),
 		stableRequestConcurrencyM.Name(),
 		panicRequestConcurrencyM.Name(),
 		excessBurstCapacityM.Name(),

@@ -29,6 +29,7 @@ import (
 	// These are the fake informers we want setup.
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	"knative.dev/pkg/kmeta"
@@ -985,6 +986,7 @@ func TestReconcile(t *testing.T) {
 				PSInformerFactory: psf,
 			},
 			endpointsLister: listers.GetEndpointsLister(),
+			podsLister:      listers.GetPodsLister(),
 			deciders:        fakeDeciders,
 			scaler:          scaler,
 		}
@@ -1055,13 +1057,14 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
 	kpa := revisionresources.MakePA(rev)
-	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
-
 	sks := aresources.MakeSKS(kpa, nv1a1.SKSOperationModeServe)
 	sks.Status.PrivateServiceName = "bogus"
+
 	fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
 	fakesksinformer.Get(ctx).Informer().GetIndexer().Add(sks)
+
+	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
+	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	// Wait for decider to be created.
 	if decider, err := pollDeciders(fakeDeciders, testNamespace, testRevision, nil); err != nil {

@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
 
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -35,6 +36,7 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/network/status"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/ingress/config"
@@ -253,6 +255,11 @@ func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ing *v1alpha1
 	// First, create all needed VirtualServices.
 	kept := sets.NewString()
 	for _, d := range desired {
+		if d.GetAnnotations()[networking.IngressClassAnnotationKey] != network.IstioIngressClassName {
+			// We do not create resources that do not have istio ingress class annotation.
+			// As a result, obsoleted resources will be cleaned up.
+			continue
+		}
 		if _, err := istioaccessor.ReconcileVirtualService(ctx, ing, d, r); err != nil {
 			if kaccessor.IsNotOwned(err) {
 				ing.Status.MarkResourceNotOwned("VirtualService", d.Name)
@@ -271,6 +278,12 @@ func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ing *v1alpha1
 	if err != nil {
 		return fmt.Errorf("failed to get VirtualServices: %w", err)
 	}
+
+	// Sort the virtual services by their name to get a stable deletion order.
+	sort.Slice(vses, func(i, j int) bool {
+		return vses[i].Name < vses[j].Name
+	})
+
 	for _, vs := range vses {
 		n, ns := vs.Name, vs.Namespace
 		if kept.Has(n) {
@@ -473,12 +486,12 @@ func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus 
 	}
 }
 
-func (r *Reconciler) shouldReconcileTLS(ia *v1alpha1.Ingress) bool {
+func (r *Reconciler) shouldReconcileTLS(ing *v1alpha1.Ingress) bool {
 	// We should keep reconciling the Ingress whose TLS has been reconciled before
 	// to make sure deleting IngressTLS will clean up the TLS server in the Gateway.
-	return (ia.IsPublic() && len(ia.Spec.TLS) > 0) || r.wasTLSReconciled(ia)
+	return (ing.IsPublic() && len(ing.Spec.TLS) > 0) || r.wasTLSReconciled(ing)
 }
 
-func (r *Reconciler) wasTLSReconciled(ia *v1alpha1.Ingress) bool {
-	return len(ia.GetFinalizers()) != 0 && ia.GetFinalizers()[0] == r.finalizer
+func (r *Reconciler) wasTLSReconciled(ing *v1alpha1.Ingress) bool {
+	return len(ing.GetFinalizers()) != 0 && ing.GetFinalizers()[0] == r.finalizer
 }

@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"knative.dev/pkg/apis/duck"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -109,7 +110,7 @@ func CreateServiceReady(t pkgTest.T, clients *test.Clients, names *test.Resource
 		names.Service = svc.Name
 	}
 
-	t.Log("Waiting for Service %q to transition to Ready.", "service", names.Service)
+	t.Log("Waiting for Service to transition to Ready.", "service", names.Service)
 	if err := WaitForServiceState(clients.ServingClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
 		return nil, err
 	}
@@ -144,7 +145,7 @@ func PatchService(t pkgTest.T, clients *test.Clients, svc *v1.Service, fopt ...r
 		opt(newSvc)
 	}
 	LogResourceObject(t, ResourceObjects{Service: newSvc})
-	patchBytes, err := test.CreateBytePatch(svc, newSvc)
+	patchBytes, err := duck.CreateBytePatch(svc, newSvc)
 	if err != nil {
 		return nil, err
 	}

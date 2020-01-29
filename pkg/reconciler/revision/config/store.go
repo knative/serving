@@ -23,10 +23,10 @@ import (
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/metrics"
 	pkgmetrics "knative.dev/pkg/metrics"
 	pkgtracing "knative.dev/pkg/tracing/config"
 	deployment "knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/network"
 )
 
