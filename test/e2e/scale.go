@@ -59,13 +59,11 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 	defer close(cleanupCh)
 
 	// These are the local (per-probe) and global (all probes) targets for the scale test.
-	// 90 = 18/20, so allow two failures with the minimum number of probes, but expect
-	// us to have 2.5 9s overall.
-	//
-	// TODO(#3210): After moving to Istio 1.1 we need to revisit these SLOs.
+	// 90 = 19/20, so allow one failure within the minimum number of probes, but expect
+	// us to have 3 9s overall.
 	const (
-		localSLO  = 0.90
-		globalSLO = 0.995
+		localSLO  = 0.95
+		globalSLO = 0.999
 		minProbes = 20
 	)
 	pm := test.NewProberManager(t.Logf, clients, minProbes)
@@ -93,11 +91,11 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			svc, err := v1a1test.CreateLatestService(t, clients, names,
 				v1alpha1testing.WithResourceRequirements(corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("10m"),
+						corev1.ResourceCPU:    resource.MustParse("50m"),
 						corev1.ResourceMemory: resource.MustParse("50Mi"),
 					},
 					Requests: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("10m"),
+						corev1.ResourceCPU:    resource.MustParse("30m"),
 						corev1.ResourceMemory: resource.MustParse("20Mi"),
 					},
 				}),
