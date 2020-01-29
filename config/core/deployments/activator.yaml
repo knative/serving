@@ -20,7 +20,7 @@ metadata:
   labels:
     serving.knative.dev/release: devel
 spec:
-  replicas: 0
+  replicas: 1
   selector:
     matchLabels:
       app: activator

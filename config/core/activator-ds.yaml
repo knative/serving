@@ -23,7 +23,7 @@ spec:
   updateStrategy:
     type: RollingUpdate
     rollingUpdate:
-      maxUnavailable: 10%
+      maxUnavailable: 50%
   selector:
     matchLabels:
       app: activator
@@ -44,10 +44,10 @@ spec:
 
         resources:
           requests:
-            cpu: 100m
+            cpu: 300m
             memory: 60Mi
           limits:
-            cpu: 300m
+            cpu: 500m
             memory: 200Mi
         env:
         # Run Activator with GC collection when newly generated memory is 500%.
