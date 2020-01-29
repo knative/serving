@@ -102,14 +102,6 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:45c41cd27a8d986998680bfc86da0bbff5fa4f90d0f446c00636c8b099028ffe"
-  name = "github.com/blang/semver"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "ba2c2ddd89069b46a7011d4106f6868f17ee1705"
-  version = "v3.6.1"
-
-[[projects]]
   digest = "1:fdb4ed936abeecb46a8c27dcac83f75c05c87a46d9ec7711411eb785c213fa02"
   name = "github.com/census-instrumentation/opencensus-proto"
   packages = [
@@ -1351,7 +1343,6 @@
     "contrib.go.opencensus.io/exporter/stackdriver",
     "contrib.go.opencensus.io/exporter/stackdriver/monitoredresource",
     "contrib.go.opencensus.io/exporter/zipkin",
-    "github.com/blang/semver",
     "github.com/davecgh/go-spew/spew",
     "github.com/evanphx/json-patch",
     "github.com/ghodss/yaml",
@@ -1380,6 +1371,7 @@
     "github.com/prometheus/client_golang/api",
     "github.com/prometheus/client_golang/api/prometheus/v1",
     "github.com/prometheus/common/model",
+    "github.com/rogpeppe/go-internal/semver",
     "github.com/spf13/pflag",
     "github.com/tsenart/vegeta/lib",
     "go.opencensus.io/metric/metricdata",
@@ -1439,7 +1431,6 @@
     "k8s.io/apimachinery/pkg/util/wait",
     "k8s.io/apimachinery/pkg/version",
     "k8s.io/apimachinery/pkg/watch",
-    "k8s.io/client-go/discovery",
     "k8s.io/client-go/dynamic",
     "k8s.io/client-go/dynamic/fake",
     "k8s.io/client-go/informers",
