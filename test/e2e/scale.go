@@ -90,16 +90,14 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 			// Record the overall completion time regardless of success/failure.
 			defer latencies.Add("time-to-done", start)
 
-			fmt.Printf("#### 1 %s\n", names.Service)
-
 			svc, err := v1a1test.CreateLatestService(t, clients, names,
 				v1alpha1testing.WithResourceRequirements(corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("10m"),
+						corev1.ResourceCPU:    resource.MustParse("45m"),
 						corev1.ResourceMemory: resource.MustParse("50Mi"),
 					},
 					Requests: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("10m"),
+						corev1.ResourceCPU:    resource.MustParse("30m"),
 						corev1.ResourceMemory: resource.MustParse("20Mi"),
 					},
 				}),
@@ -114,7 +112,6 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 					},
 				}),
 				v1alpha1testing.WithRevisionTimeoutSeconds(10))
-			fmt.Printf("#### 2 %s --> %+V\n", names.Service, err)
 			if err != nil {
 				t.Errorf("CreateLatestService() = %v", err)
 				return fmt.Errorf("CreateLatestService() failed: %w", err)
@@ -141,7 +138,6 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				return v1a1test.IsServiceReady(s)
 			}, "ServiceUpdatedWithURL")
 
-			fmt.Printf("#### 3 %s ==> %+v\n", names.Service, err)
 			if err != nil {
 				t.Errorf("WaitForServiceState(w/ Domain) = %v", err)
 				return fmt.Errorf("WaitForServiceState(w/ Domain) failed: %w", err)
@@ -157,7 +153,6 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText), abortOnTimeout(ctx))),
 				"WaitForEndpointToServeText",
 				test.ServingFlags.ResolvableDomain)
-			fmt.Printf("#### 4 %s ==> %+v\n", names.Service, err)
 			if err != nil {
 				t.Errorf("WaitForEndpointState(expected text) = %v", err)
 				return fmt.Errorf("WaitForEndpointState(expected text) failed: %w", err)
