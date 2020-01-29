@@ -22,14 +22,17 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking"
 	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/test"
@@ -38,17 +41,13 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-const (
-	systemNamespace = "knative-serving"
-)
-
 // To run this test locally with cert-manager, you need to
 // 1. Install cert-manager from `third_party/` directory.
 // 2. Run the command below to do the configuration:
 // kubectl apply -f test/config/autotls/certmanager/selfsigned/
 func TestPerKsvcCert_localCA(t *testing.T) {
 	clients := e2e.Setup(t)
-	disableNamespaceCert(t, clients)
+	disableNamespaceCertWithWhiteList(t, clients, sets.String{})
 
 	names := test.ResourceNames{
 		Service: test.ObjectNameForTest(t),
@@ -63,6 +62,7 @@ func TestPerKsvcCert_localCA(t *testing.T) {
 	}
 
 	cancel := turnOnAutoTLS(t, clients)
+	test.CleanupOnInterrupt(cancel)
 	defer cancel()
 
 	// wait for certificate to be ready
@@ -83,6 +83,43 @@ func TestPerKsvcCert_localCA(t *testing.T) {
 	testingress.RuntimeRequest(t, httpsClient, "https://"+objects.Service.Status.URL.Host)
 }
 
+// To run this test locally with cert-manager, you need to
+// 1. Install cert-manager from `third_party/` directory.
+// 2. Run the command below to do the configuration:
+// kubectl apply -f test/config/autotls/certmanager/selfsigned/
+func TestPerNamespaceCert_localCA(t *testing.T) {
+	clients := e2e.Setup(t)
+	disableNamespaceCertWithWhiteList(t, clients, sets.NewString(test.ServingNamespace))
+	defer disableNamespaceCertWithWhiteList(t, clients, sets.String{})
+
+	cancel := turnOnAutoTLS(t, clients)
+	test.CleanupOnInterrupt(cancel)
+	defer cancel()
+
+	// wait for certificate to be ready
+	certName, err := waitForNamespaceCertReady(clients)
+	if err != nil {
+		t.Fatalf("Namespace Cert failed to become ready: %v", err)
+	}
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   "runtime",
+	}
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
+
+	objects, err := v1test.CreateServiceReady(t, clients, &names)
+	if err != nil {
+		t.Fatalf("Failed to create initial Service: %s: %v", names.Service, err)
+	}
+
+	// curl HTTPS
+	rootCAs := createRootCAs(t, clients, test.ServingNamespace, certName)
+	httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
+	testingress.RuntimeRequest(t, httpsClient, "https://"+objects.Service.Status.URL.Host)
+}
+
 func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *x509.CertPool {
 	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(ns).Get(
 		secretName, metav1.GetOptions{})
@@ -90,8 +127,11 @@ func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *
 		t.Fatalf("Failed to get Secret %s: %v", secretName, err)
 	}
 
-	rootCAs, _ := x509.SystemCertPool()
-	if rootCAs == nil {
+	rootCAs, err := x509.SystemCertPool()
+	if rootCAs == nil || err != nil {
+		if err != nil {
+			t.Logf("Failed to load cert poll from system: %v. Will create a new cert pool.", err)
+		}
 		rootCAs = x509.NewCertPool()
 	}
 	if !rootCAs.AppendCertsFromPEM(secret.Data[corev1.TLSCertKey]) {
@@ -116,7 +156,7 @@ func createHTTPSClient(t *testing.T, clients *test.Clients, objects *v1test.Reso
 		}}
 }
 
-func disableNamespaceCert(t *testing.T, clients *test.Clients) {
+func disableNamespaceCertWithWhiteList(t *testing.T, clients *test.Clients, whiteLists sets.String) {
 	namespaces, err := clients.KubeClient.Kube.CoreV1().Namespaces().List(metav1.ListOptions{})
 	if err != nil {
 		t.Fatalf("Failed to list namespaces: %v", err)
@@ -125,7 +165,11 @@ func disableNamespaceCert(t *testing.T, clients *test.Clients) {
 		if ns.Labels == nil {
 			ns.Labels = map[string]string{}
 		}
-		ns.Labels[networking.DisableWildcardCertLabelKey] = "true"
+		if whiteLists.Has(ns.Name) {
+			delete(ns.Labels, networking.DisableWildcardCertLabelKey)
+		} else {
+			ns.Labels[networking.DisableWildcardCertLabelKey] = "true"
+		}
 		if _, err := clients.KubeClient.Kube.CoreV1().Namespaces().Update(&ns); err != nil {
 			t.Errorf("Fail to disable namespace cert: %v", err)
 		}
@@ -133,7 +177,7 @@ func disableNamespaceCert(t *testing.T, clients *test.Clients) {
 }
 
 func turnOnAutoTLS(t *testing.T, clients *test.Clients) context.CancelFunc {
-	configNetworkCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(systemNamespace).Get("config-network", metav1.GetOptions{})
+	configNetworkCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get("config-network", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get config-network ConfigMap: %v", err)
 	}
@@ -141,7 +185,7 @@ func turnOnAutoTLS(t *testing.T, clients *test.Clients) context.CancelFunc {
 	test.CleanupOnInterrupt(func() {
 		turnOffAutoTLS(t, clients)
 	})
-	if _, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(systemNamespace).Update(configNetworkCM); err != nil {
+	if _, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Update(configNetworkCM); err != nil {
 		t.Fatalf("Failed to update config-network ConfigMap: %v", err)
 	}
 	return func() {
@@ -150,7 +194,7 @@ func turnOnAutoTLS(t *testing.T, clients *test.Clients) context.CancelFunc {
 }
 
 func turnOffAutoTLS(t *testing.T, clients *test.Clients) {
-	configNetworkCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(systemNamespace).Get("config-network", metav1.GetOptions{})
+	configNetworkCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get("config-network", metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Failed to get config-network ConfigMap: %v", err)
 		return
@@ -175,4 +219,23 @@ func waitForCertificateReady(t *testing.T, clients *test.Clients, certName strin
 	}); err != nil {
 		t.Fatalf("Certificate %s is not ready: %v", certName, err)
 	}
+}
+
+func waitForNamespaceCertReady(clients *test.Clients) (string, error) {
+	var certName string
+	err := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
+		certs, err := clients.NetworkingClient.Certificates.List(metav1.ListOptions{})
+		if err != nil {
+			return false, err
+		}
+		for _, cert := range certs.Items {
+			if strings.Contains(cert.Name, test.ServingNamespace) {
+				certName = cert.Name
+				return cert.Status.IsReady(), nil
+			}
+		}
+		// Namespace certificate has not been created.
+		return false, nil
+	})
+	return certName, err
 }
