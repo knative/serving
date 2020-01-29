@@ -16,6 +16,13 @@ required = [
 ]
 
 [[constraint]]
+  # We can drop this constraint when we switch to a
+  # k8s version that merges this bump
+  # https://github.com/kubernetes/kubernetes/pull/87431
+  name = "github.com/google/gofuzz"
+  version = "v1.1.0"
+
+[[constraint]]
   name = "k8s.io/api"
   version = "kubernetes-1.16.4"
 

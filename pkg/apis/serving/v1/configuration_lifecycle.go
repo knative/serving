@@ -33,3 +33,8 @@ func (r *Configuration) GetGroupVersionKind() schema.GroupVersionKind {
 func (cs *ConfigurationStatus) IsReady() bool {
 	return configurationCondSet.Manage(cs).IsHappy()
 }
+
+// InitializeConditions sets the initial values to the conditions.
+func (cs *ConfigurationStatus) InitializeConditions() {
+	configurationCondSet.Manage(cs).InitializeConditions()
+}

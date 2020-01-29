@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
@@ -35,14 +34,8 @@ func (source *Service) ConvertUp(ctx context.Context, obj apis.Convertible) erro
 			return err
 		}
 		return source.Status.ConvertUp(ctx, &sink.Status)
-	case *v1.Service:
-		sink.ObjectMeta = source.ObjectMeta
-		if err := source.Spec.ConvertUp(ctx, &sink.Spec); err != nil {
-			return err
-		}
-		return source.Status.ConvertUp(ctx, &sink.Status)
 	default:
-		return fmt.Errorf("unknown version, got: %T", sink)
+		return apis.ConvertUpViaProxy(ctx, source, &v1beta1.Service{}, sink)
 	}
 }
 
@@ -116,8 +109,7 @@ func (source *ServiceSpec) ConvertUp(ctx context.Context, sink *v1.ServiceSpec) 
 
 // ConvertUp helps implement apis.Convertible
 func (source *ServiceStatus) ConvertUp(ctx context.Context, sink *v1.ServiceStatus) error {
-	source.Status.ConvertTo(ctx, &sink.Status)
-
+	source.ConvertTo(ctx, &sink.Status, v1.IsServiceCondition)
 	source.RouteStatusFields.ConvertUp(ctx, &sink.RouteStatusFields)
 	return source.ConfigurationStatusFields.ConvertUp(ctx, &sink.ConfigurationStatusFields)
 }
@@ -131,14 +123,8 @@ func (sink *Service) ConvertDown(ctx context.Context, obj apis.Convertible) erro
 			return err
 		}
 		return sink.Status.ConvertDown(ctx, source.Status)
-	case *v1.Service:
-		sink.ObjectMeta = source.ObjectMeta
-		if err := sink.Spec.ConvertDown(ctx, source.Spec); err != nil {
-			return err
-		}
-		return sink.Status.ConvertDown(ctx, source.Status)
 	default:
-		return fmt.Errorf("unknown version, got: %T", source)
+		return apis.ConvertDownViaProxy(ctx, source, &v1beta1.Service{}, sink)
 	}
 }
 
@@ -150,8 +136,7 @@ func (sink *ServiceSpec) ConvertDown(ctx context.Context, source v1.ServiceSpec)
 
 // ConvertDown helps implement apis.Convertible
 func (sink *ServiceStatus) ConvertDown(ctx context.Context, source v1.ServiceStatus) error {
-	source.Status.ConvertTo(ctx, &sink.Status)
-
+	source.ConvertTo(ctx, &sink.Status, v1.IsServiceCondition)
 	sink.RouteStatusFields.ConvertDown(ctx, source.RouteStatusFields)
 	return sink.ConfigurationStatusFields.ConvertDown(ctx, source.ConfigurationStatusFields)
 }

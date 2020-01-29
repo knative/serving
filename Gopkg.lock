@@ -440,12 +440,12 @@
   version = "v1.0.0"
 
 [[projects]]
-  branch = "master"
-  digest = "1:52c5834e2bebac9030c97cc0798ac11c3aa8a39f098aeb419f142533da6cd3cc"
+  digest = "1:3ec6c8e4b700377066dbb5ab3155c55f97109ab6147fee9423a68506d79bbafa"
   name = "github.com/google/gofuzz"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "24818f796faf91cd76ec7bddd72458fbced7a6c1"
+  revision = "db92cf7ae75e4a7a28abc005addab2b394362888"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
@@ -1236,15 +1236,19 @@
   version = "kubernetes-1.16.4"
 
 [[projects]]
-  digest = "1:bfbb9cb6545607642906234410d39b7bae81812f360d7649d16bebdacaede4cf"
+  digest = "1:59f4aa38cf262dcef38856ac6f10dd3178a6f3615b6c5c0276f45a1a5e61cfcd"
   name = "k8s.io/apimachinery"
   packages = [
+    "pkg/api/apitesting",
+    "pkg/api/apitesting/fuzzer",
+    "pkg/api/apitesting/roundtrip",
     "pkg/api/equality",
     "pkg/api/errors",
     "pkg/api/meta",
     "pkg/api/resource",
     "pkg/api/validation",
     "pkg/api/validation/path",
+    "pkg/apis/meta/fuzzer",
     "pkg/apis/meta/internalversion",
     "pkg/apis/meta/v1",
     "pkg/apis/meta/v1/unstructured",
@@ -1777,7 +1781,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:3d714b9e9535b4c878a16fff8c2ba5195df8c94d554a1bcff2e9f804350f4a5a"
+  digest = "1:210e1a3d4560f96d277b5cb5d4c265da86e8cd799b43b632cd0f45601b405000"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1785,6 +1789,8 @@
     "apis/duck/v1",
     "apis/duck/v1alpha1",
     "apis/duck/v1beta1",
+    "apis/testing/fuzzer",
+    "apis/testing/roundtrip",
     "apis/testing/v1",
     "changeset",
     "client/injection/kube/client",
@@ -1876,7 +1882,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "b51ee347cbd2c26c1af45177d427ffb62b008b39"
+  revision = "4b31f15f21bfc63df42f6a9e67584a7c0a0b8e53"
 
 [[projects]]
   branch = "master"
@@ -1936,6 +1942,7 @@
     "github.com/google/go-containerregistry/pkg/v1/remote",
     "github.com/google/go-containerregistry/pkg/v1/remote/transport",
     "github.com/google/go-containerregistry/pkg/v1/types",
+    "github.com/google/gofuzz",
     "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto",
     "github.com/google/mako/go/quickstore",
     "github.com/google/mako/spec/proto/mako_go_proto",
@@ -1974,6 +1981,7 @@
     "k8s.io/api/authentication/v1",
     "k8s.io/api/autoscaling/v2beta1",
     "k8s.io/api/core/v1",
+    "k8s.io/apimachinery/pkg/api/apitesting/fuzzer",
     "k8s.io/apimachinery/pkg/api/equality",
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/api/meta",
@@ -2038,6 +2046,8 @@
     "knative.dev/pkg/apis/duck/v1",
     "knative.dev/pkg/apis/duck/v1alpha1",
     "knative.dev/pkg/apis/duck/v1beta1",
+    "knative.dev/pkg/apis/testing/fuzzer",
+    "knative.dev/pkg/apis/testing/roundtrip",
     "knative.dev/pkg/apis/testing/v1",
     "knative.dev/pkg/client/injection/kube/client",
     "knative.dev/pkg/client/injection/kube/client/fake",

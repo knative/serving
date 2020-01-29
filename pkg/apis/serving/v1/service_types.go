@@ -87,7 +87,27 @@ const (
 	// ServiceConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
 	ServiceConditionReady = apis.ConditionReady
+
+	// ServiceConditionRoutesReady is set when the service's underlying
+	// routes have reported readiness.
+	ServiceConditionRoutesReady apis.ConditionType = "RoutesReady"
+
+	// ServiceConditionConfigurationsReady is set when the service's underlying
+	// configurations have reported readiness.
+	ServiceConditionConfigurationsReady apis.ConditionType = "ConfigurationsReady"
 )
+
+// IsServiceCondition returns true if the ConditionType is a service condition type
+func IsServiceCondition(t apis.ConditionType) bool {
+	switch t {
+	case
+		ServiceConditionReady,
+		ServiceConditionRoutesReady,
+		ServiceConditionConfigurationsReady:
+		return true
+	}
+	return false
+}
 
 // ServiceStatus represents the Status stanza of the Service resource.
 type ServiceStatus struct {
