@@ -69,7 +69,7 @@ type config struct {
 // 1. Install cert-manager from `third_party/` directory.
 // 2. Run the command below to do the configuration:
 // kubectl apply -f test/config/autotls/certmanager/selfsigned/
-func TestPerKsvcCert_localCA(t *testing.T) {
+func TestPerKsvcCertLocalCA(t *testing.T) {
 	clients := e2e.Setup(t)
 	disableNamespaceCert(t, clients)
 
@@ -104,7 +104,7 @@ func TestPerKsvcCert_localCA(t *testing.T) {
 // make sure it is effective.
 // 3. Run the command below to do the configuration:
 // kubectl apply -f test/config/autotls/certmanager/http01/
-func TestPerKsvcCert_HTTP01(t *testing.T) {
+func TestPerKsvcCertHTTP01(t *testing.T) {
 	t.Skip("Test environment is not ready. Can only be ran locally.")
 	clients := e2e.Setup(t)
 	disableNamespaceCert(t, clients)
