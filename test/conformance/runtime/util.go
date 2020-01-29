@@ -55,7 +55,7 @@ func fetchRuntimeInfo(
 	})
 
 	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, names,
-		true /* https */,
+		false /* https */,
 		serviceOpts...)
 	if err != nil {
 		return nil, nil, err

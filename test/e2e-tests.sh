@@ -47,8 +47,11 @@ failed=0
 parallelism=""
 use_https=""
 (( MESH )) && parallelism="-parallel 1"
-(( HTTPS )) && parallelism="-parallel 1"
-(( HTTPS )) && use_https="--https"
+
+if (( HTTP )); then
+  parallelism="-parallel 1"
+  use_https="--https"
+fi
 
 # Run conformance and e2e tests.
 go_test_e2e -timeout=30m \

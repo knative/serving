@@ -78,7 +78,7 @@ func TestProbeRuntime(t *testing.T) {
 
 			t.Log("Creating a new Service")
 			resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-				true /* https */,
+				test.ServingFlags.Https,
 				v1a1opts.WithReadinessProbe(
 					&corev1.Probe{
 						Handler: tc.handler,

@@ -118,7 +118,7 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 
 	t.Log("Creating a new Service")
 	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		test.ServingFlags.Https,
 		v1a1opts.WithResourceRequirements(corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceName("cpu"):    resource.MustParse("50m"),
