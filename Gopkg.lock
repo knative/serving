@@ -1773,11 +1773,7 @@
 
 [[projects]]
   branch = "master"
-<<<<<<< HEAD
   digest = "1:210e1a3d4560f96d277b5cb5d4c265da86e8cd799b43b632cd0f45601b405000"
-=======
-  digest = "1:5acceb9ddfc654a91e633bb00531fc719fcaedda25d621162385ba5c2badc849"
->>>>>>> update deps
   name = "knative.dev/pkg"
   packages = [
     "apis",
