@@ -59,7 +59,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 	defer close(cleanupCh)
 
 	// These are the local (per-probe) and global (all probes) targets for the scale test.
-	// 90 = 19/20, so allow one failure within the minimum number of probes, but expect
+	// 95 = 19/20, so allow one failure within the minimum number of probes, but expect
 	// us to have 3 9s overall.
 	const (
 		localSLO  = 0.95
