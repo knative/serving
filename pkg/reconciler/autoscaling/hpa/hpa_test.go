@@ -135,7 +135,7 @@ func TestReconcile(t *testing.T) {
 		Key: key(testNamespace, testRevision),
 		WithReactors: []ktesting.ReactionFunc{
 			func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
-				if retryAttempted || !action.Matches("update", "podautoscalers") {
+				if retryAttempted || !action.Matches("update", "podautoscalers") || action.GetSubresource() != "status" {
 					return false, nil, nil
 				}
 				retryAttempted = true
