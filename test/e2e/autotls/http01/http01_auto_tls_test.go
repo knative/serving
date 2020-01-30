@@ -54,11 +54,11 @@ type dnsRecord struct {
 }
 
 type config struct {
-	AutoTlsDomain                 string `split_words:"true" required:"false"`
-	DnsZone                       string `split_words:"true" required:"false"`
-	CloudDnsServiceAccountKeyFile string `split_words:"true" required:"false"`
-	CloudDnsProject               string `split_words:"true" required:"false"`
-	SetUpDns                      string `split_words:"true" required:"false"`
+	AutoTLSDomain                 string `envconfig:"auto_tls_domain" required:"false"`
+	DNSZone                       string `envconfig:"dns_zone" required:"false"`
+	CloudDNSServiceAccountKeyFile string `envconfig:"cloud_dns_service_account_key_file" required:"false"`
+	CloudDNSProject               string `envconfig:"cloud_dns_project" required:"false"`
+	SetUpDNS                      string `envconfig:"set_up_dns" required:"false"`
 }
 
 // To run this test locally, you need:
@@ -76,7 +76,7 @@ func TestPerKsvcCertHTTP01(t *testing.T) {
 	if err := envconfig.Process("", &env); err != nil {
 		t.Fatalf("Failed to process environment variable: %v.", err)
 	}
-	if len(env.AutoTlsDomain) != 0 {
+	if len(env.AutoTLSDomain) != 0 {
 		cancel := configureCustomDomain(t, env, clients)
 		defer cancel()
 		test.CleanupOnInterrupt(cancel)
@@ -93,7 +93,7 @@ func TestPerKsvcCertHTTP01(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
-	if env.SetUpDns == "true" {
+	if env.SetUpDNS == "true" {
 		cancel := setupDNSRecord(t, env, clients, objects.Route.Status.URL.Host)
 		defer cancel()
 	}
@@ -181,7 +181,7 @@ func configureCustomDomain(t *testing.T, cfg config, clients *test.Clients) cont
 	}
 	newCm := cm.DeepCopy()
 	newCm.Data = map[string]string{
-		cfg.AutoTlsDomain: "",
+		cfg.AutoTLSDomain: "",
 	}
 	if _, err := clients.KubeClient.GetConfigMap(system.Namespace()).Update(newCm); err != nil {
 		t.Fatalf("Failed to update config-domain ConfigMap: %v", err)
@@ -205,13 +205,13 @@ func waitForDNSRecordVisibleLocally(record *dnsRecord) error {
 
 func createDNSRecord(cfg config, dnsRecord *dnsRecord) error {
 	record := makeRecordSet(cfg, dnsRecord)
-	svc, err := getCloudDNSSvc(cfg.CloudDnsServiceAccountKeyFile)
+	svc, err := getCloudDNSSvc(cfg.CloudDNSServiceAccountKeyFile)
 	if err != nil {
 		return err
 	}
 	// Look for existing records.
 	if list, err := svc.ResourceRecordSets.List(
-		cfg.CloudDnsProject, cfg.DnsZone).Name(record.Name).Type("A").Do(); err != nil {
+		cfg.CloudDNSProject, cfg.DNSZone).Name(record.Name).Type("A").Do(); err != nil {
 		return err
 	} else if len(list.Rrsets) > 0 {
 		return fmt.Errorf("record for domain %s already exists", record.Name)
@@ -225,7 +225,7 @@ func createDNSRecord(cfg config, dnsRecord *dnsRecord) error {
 
 func deleteDNSRecord(t *testing.T, cfg config, dnsRecord *dnsRecord) {
 	rec := makeRecordSet(cfg, dnsRecord)
-	svc, err := getCloudDNSSvc(cfg.CloudDnsServiceAccountKeyFile)
+	svc, err := getCloudDNSSvc(cfg.CloudDNSServiceAccountKeyFile)
 	if err != nil {
 		t.Errorf("Failed to get Cloud DNS service. %v", err)
 		return
@@ -251,14 +251,14 @@ func makeRecordSet(cfg config, record *dnsRecord) *dns.ResourceRecordSet {
 }
 
 func changeDNSRecord(cfg config, change *dns.Change, svc *dns.Service) error {
-	chg, err := svc.Changes.Create(cfg.CloudDnsProject, cfg.DnsZone, change).Do()
+	chg, err := svc.Changes.Create(cfg.CloudDNSProject, cfg.DNSZone, change).Do()
 	if err != nil {
 		return err
 	}
 	// wait for change to be acknowledged
 	for chg.Status == "pending" {
 		time.Sleep(time.Second)
-		chg, err = svc.Changes.Get(cfg.CloudDnsProject, cfg.DnsZone, chg.Id).Do()
+		chg, err = svc.Changes.Get(cfg.CloudDNSProject, cfg.DNSZone, chg.Id).Do()
 		if err != nil {
 			return err
 		}
