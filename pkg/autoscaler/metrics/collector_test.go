@@ -115,21 +115,11 @@ func TestMetricCollectorCRUD(t *testing.T) {
 	})
 }
 
-type manualTickProvider struct {
-	ch chan time.Time
-}
-
-func (mtp *manualTickProvider) NewTicker(time.Duration) *time.Ticker {
-	return &time.Ticker{
-		C: mtp.ch,
-	}
-}
-
 func TestMetricCollectorScraper(t *testing.T) {
 	logger := TestLogger(t)
 
-	mtp := &manualTickProvider{
-		ch: make(chan time.Time),
+	mtp := &fake.ManualTickProvider{
+		Channel: make(chan time.Time),
 	}
 	now := time.Now()
 	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
@@ -159,9 +149,9 @@ func TestMetricCollectorScraper(t *testing.T) {
 	coll.CreateOrUpdate(&defaultMetric)
 
 	// Tick three times.  Time doesn't matter since we use the time on the Stat.
-	mtp.ch <- now
-	mtp.ch <- now
-	mtp.ch <- now
+	mtp.Channel <- now
+	mtp.Channel <- now
+	mtp.Channel <- now
 	var gotRPS, gotConcurrency, panicRPS, panicConcurrency float64
 	// Poll to see that the async loop completed.
 	wait.PollImmediate(10*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
@@ -189,13 +179,13 @@ func TestMetricCollectorScraper(t *testing.T) {
 	}
 
 	// Now let's report 2 more values (for a total of 5).
-	mtp.ch <- now
-	mtp.ch <- now
+	mtp.Channel <- now
+	mtp.Channel <- now
 
 	// Wait for async loop to finish.
 	wait.PollImmediate(10*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
-		gotConcurrency, _, _ = coll.StableAndPanicConcurrency(metricKey, now.Add(stableWindow).Add(-5*time.Second))
-		gotRPS, _, _ = coll.StableAndPanicRPS(metricKey, now.Add(stableWindow).Add(-5*time.Second))
+		gotConcurrency, _, _ = coll.StableAndPanicConcurrency(metricKey, now.Add(defaultMetric.Spec.StableWindow).Add(-5*time.Second))
+		gotRPS, _, _ = coll.StableAndPanicRPS(metricKey, now.Add(defaultMetric.Spec.StableWindow).Add(-5*time.Second))
 		return gotConcurrency == reportConcurrency && gotRPS == reportRPS, nil
 	})
 	if gotConcurrency != reportConcurrency {
@@ -246,8 +236,8 @@ func TestMetricCollectorRecord(t *testing.T) {
 	factory := scraperFactory(scraper, nil)
 
 	coll := NewMetricCollector(factory, logger)
-	mtp := &manualTickProvider{
-		ch: make(chan time.Time),
+	mtp := &fake.ManualTickProvider{
+		Channel: make(chan time.Time),
 	}
 	coll.tickProvider = mtp.NewTicker // This will ensure time based scraping won't interfere.
 

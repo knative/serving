@@ -52,6 +52,19 @@ type MetricClient struct {
 	ErrF              func(key types.NamespacedName, now time.Time) error
 }
 
+// A ManualTickProvider holds a channel that delivers `ticks' of a clock at intervals.
+type ManualTickProvider struct {
+	Channel chan time.Time
+}
+
+// NewTicker returns a Ticker containing a channel that will send the
+// time with a period specified by the duration argument.
+func (mtp *ManualTickProvider) NewTicker(time.Duration) *time.Ticker {
+	return &time.Ticker{
+		C: mtp.Channel,
+	}
+}
+
 // StableAndPanicConcurrency returns stable/panic concurrency stored in the object
 // and the result of Errf as the error.
 func (t *MetricClient) StableAndPanicConcurrency(key types.NamespacedName, now time.Time) (float64, float64, error) {

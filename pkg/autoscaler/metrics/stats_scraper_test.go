@@ -195,7 +195,7 @@ func TestScrapeAllPodsYoungPods(t *testing.T) {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	}
 
-	endpoints(numP, testService)
+	fake.Endpoints(numP, fake.TestService)
 
 	// Scrape will set a timestamp bigger than this.
 	now := time.Now()
@@ -227,7 +227,7 @@ func TestScrapeAllPodsOldPods(t *testing.T) {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	}
 
-	endpoints(numP, testService)
+	fake.Endpoints(numP, fake.TestService)
 
 	// Scrape will set a timestamp bigger than this.
 	now := time.Now()
@@ -260,7 +260,7 @@ func TestScrapeSomePodsOldPods(t *testing.T) {
 		t.Fatalf("serviceScraperForTest=%v, want no error", err)
 	}
 
-	endpoints(numP, testService)
+	fake.Endpoints(numP, fake.TestService)
 
 	// Scrape will set a timestamp bigger than this.
 	now := time.Now()

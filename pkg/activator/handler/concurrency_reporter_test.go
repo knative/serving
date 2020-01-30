@@ -28,11 +28,10 @@ import (
 
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/autoscaler/metrics"
 	servingv1informers "knative.dev/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
-	"knative.dev/serving/pkg/autoscaler/metrics"
 )
 
 const (
