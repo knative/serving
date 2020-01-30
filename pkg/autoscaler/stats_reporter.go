@@ -18,8 +18,6 @@ package autoscaler
 
 import (
 	"context"
-	"errors"
-
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/serving/pkg/metrics"
@@ -188,23 +186,22 @@ func register() {
 
 // StatsReporter defines the interface for sending autoscaler metrics
 type StatsReporter interface {
-	ReportDesiredPodCount(v int64) error
-	ReportRequestedPodCount(v int64) error
-	ReportActualPodCount(ready, notReady, terminating, pending int64) error
-	ReportStableRequestConcurrency(v float64) error
-	ReportPanicRequestConcurrency(v float64) error
-	ReportTargetRequestConcurrency(v float64) error
-	ReportStableRPS(v float64) error
-	ReportPanicRPS(v float64) error
-	ReportTargetRPS(v float64) error
-	ReportExcessBurstCapacity(v float64) error
-	ReportPanic(v int64) error
+	ReportDesiredPodCount(v int64)
+	ReportRequestedPodCount(v int64)
+	ReportActualPodCount(ready, notReady, terminating, pending int64)
+	ReportStableRequestConcurrency(v float64)
+	ReportPanicRequestConcurrency(v float64)
+	ReportTargetRequestConcurrency(v float64)
+	ReportStableRPS(v float64)
+	ReportPanicRPS(v float64)
+	ReportTargetRPS(v float64)
+	ReportExcessBurstCapacity(v float64)
+	ReportPanic(v int64)
 }
 
 // Reporter holds cached metric objects to report autoscaler metrics
 type Reporter struct {
-	ctx         context.Context
-	initialized bool
+	ctx context.Context
 }
 
 func valueOrUnknown(v string) string {
@@ -232,81 +229,68 @@ func NewStatsReporter(ns, service, config, revision string) (*Reporter, error) {
 	}
 
 	r.ctx = ctx
-	r.initialized = true
 	return r, nil
 }
 
 // ReportDesiredPodCount captures value v for desired pod count measure.
-func (r *Reporter) ReportDesiredPodCount(v int64) error {
-	return r.report(desiredPodCountM.M(v))
+func (r *Reporter) ReportDesiredPodCount(v int64) {
+	r.report(desiredPodCountM.M(v))
 }
 
 // ReportRequestedPodCount captures value v for requested pod count measure.
-func (r *Reporter) ReportRequestedPodCount(v int64) error {
-	return r.report(requestedPodCountM.M(v))
+func (r *Reporter) ReportRequestedPodCount(v int64) {
+	r.report(requestedPodCountM.M(v))
 }
 
 // ReportActualPodCount captures values for ready, not ready, terminating, and pending pod count measure.
-func (r *Reporter) ReportActualPodCount(ready, notReady, terminating, pending int64) error {
-	var err error
-	if err = r.report(actualPodCountM.M(ready)); err != nil {
-		return err
-	}
-	if err = r.report(notReadyPodCountM.M(notReady)); err != nil {
-		return err
-	}
-	if err = r.report(terminatingPodCountM.M(terminating)); err != nil {
-		return err
-	}
-	return r.report(pendingPodCountM.M(pending))
+func (r *Reporter) ReportActualPodCount(ready, notReady, terminating, pending int64) {
+	r.report(actualPodCountM.M(ready))
+	r.report(notReadyPodCountM.M(notReady))
+	r.report(terminatingPodCountM.M(terminating))
+	r.report(pendingPodCountM.M(pending))
 }
 
 // ReportExcessBurstCapacity captures value v for excess target burst capacity.
-func (r *Reporter) ReportExcessBurstCapacity(v float64) error {
-	return r.report(excessBurstCapacityM.M(v))
+func (r *Reporter) ReportExcessBurstCapacity(v float64) {
+	r.report(excessBurstCapacityM.M(v))
 }
 
 // ReportStableRequestConcurrency captures value v for stable request concurrency measure.
-func (r *Reporter) ReportStableRequestConcurrency(v float64) error {
-	return r.report(stableRequestConcurrencyM.M(v))
+func (r *Reporter) ReportStableRequestConcurrency(v float64) {
+	r.report(stableRequestConcurrencyM.M(v))
 }
 
 // ReportPanicRequestConcurrency captures value v for panic request concurrency measure.
-func (r *Reporter) ReportPanicRequestConcurrency(v float64) error {
-	return r.report(panicRequestConcurrencyM.M(v))
+func (r *Reporter) ReportPanicRequestConcurrency(v float64) {
+	r.report(panicRequestConcurrencyM.M(v))
 }
 
 // ReportTargetRequestConcurrency captures value v for target request concurrency measure.
-func (r *Reporter) ReportTargetRequestConcurrency(v float64) error {
-	return r.report(targetRequestConcurrencyM.M(v))
+func (r *Reporter) ReportTargetRequestConcurrency(v float64) {
+	r.report(targetRequestConcurrencyM.M(v))
 }
 
 // ReportStableRPS captures value v for stable RPS measure.
-func (r *Reporter) ReportStableRPS(v float64) error {
-	return r.report(stableRPSM.M(v))
+func (r *Reporter) ReportStableRPS(v float64) {
+	r.report(stableRPSM.M(v))
 }
 
 // ReportPanicRPS captures value v for panic RPS measure.
-func (r *Reporter) ReportPanicRPS(v float64) error {
-	return r.report(panicRPSM.M(v))
+func (r *Reporter) ReportPanicRPS(v float64) {
+	r.report(panicRPSM.M(v))
 }
 
 // ReportTargetRPS captures value v for target requests-per-second measure.
-func (r *Reporter) ReportTargetRPS(v float64) error {
-	return r.report(targetRPSM.M(v))
+func (r *Reporter) ReportTargetRPS(v float64) {
+	r.report(targetRPSM.M(v))
 
 }
 
 // ReportPanic captures value v for panic mode measure.
-func (r *Reporter) ReportPanic(v int64) error {
-	return r.report(panicM.M(v))
+func (r *Reporter) ReportPanic(v int64) {
+	r.report(panicM.M(v))
 }
 
-func (r *Reporter) report(m stats.Measurement) error {
-	if !r.initialized {
-		return errors.New("StatsReporter is not initialized yet")
-	}
-
+func (r *Reporter) report(m stats.Measurement) {
 	pkgmetrics.Record(r.ctx, m)
-	return nil
 }
