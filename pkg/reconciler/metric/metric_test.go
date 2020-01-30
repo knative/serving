@@ -25,10 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	clientgotesting "k8s.io/client-go/testing"
-	"knative.dev/serving/pkg/autoscaler"
-
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	. "knative.dev/pkg/reconciler/testing"
@@ -244,16 +241,16 @@ type testCollector struct {
 	deleteError error
 }
 
-func (c *testCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
+func (c *testCollector) CreateOrUpdate() error {
 	c.createOrUpdateCalls++
 	return c.createOrUpdateError
 }
 
-func (c *testCollector) Record(key types.NamespacedName, stat autoscaler.Stat) {
+func (c *testCollector) Record() {
 	c.recordCalls++
 }
 
-func (c *testCollector) Delete(namespace, name string) error {
+func (c *testCollector) Delete() error {
 	c.deleteCalls++
 	return c.deleteError
 }
