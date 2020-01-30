@@ -51,7 +51,7 @@ func TestNewController(t *testing.T) {
 }
 
 func TestReconcile(t *testing.T) {
-	retryAttempted := make(map[string]bool)
+	retryAttempted := false
 	table := TableTest{{
 		Name: "bad workqueue key, Part I",
 		Key:  "too/many/parts",
@@ -79,10 +79,10 @@ func TestReconcile(t *testing.T) {
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
 			func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
-				if retryAttempted["update status with retry"] || !action.Matches("update", "metrics") {
+				if retryAttempted || !action.Matches("update", "metrics") {
 					return false, nil, nil
 				}
-				retryAttempted["update status with retry"] = true
+				retryAttempted = true
 				return true, nil, apierrs.NewConflict(v1alpha1.Resource("foo"), "bar", errors.New("foo"))
 			},
 		},
@@ -150,6 +150,7 @@ func TestReconcile(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		retryAttempted = false
 		col := &testCollector{}
 		if c := ctx.Value(collectorKey{}); c != nil {
 			col = c.(*testCollector)

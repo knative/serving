@@ -93,7 +93,7 @@ func TestControllerCanReconcile(t *testing.T) {
 }
 
 func TestReconcile(t *testing.T) {
-	retryAttempted := make(map[string]bool)
+	retryAttempted := false
 	const (
 		deployName = testRevision + "-deployment"
 		privateSvc = testRevision + "-private"
@@ -135,10 +135,10 @@ func TestReconcile(t *testing.T) {
 		Key: key(testNamespace, testRevision),
 		WithReactors: []ktesting.ReactionFunc{
 			func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
-				if retryAttempted["create hpa & sks, with retry"] || !action.Matches("update", "podautoscalers") {
+				if retryAttempted || !action.Matches("update", "podautoscalers") {
 					return false, nil, nil
 				}
-				retryAttempted["create hpa & sks, with retry"] = true
+				retryAttempted = true
 				return true, nil, apierrs.NewConflict(v1alpha1.Resource("foo"), "bar", errors.New("foo"))
 			},
 		},
@@ -457,6 +457,7 @@ func TestReconcile(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		retryAttempted = false
 		ctx = podscalable.WithDuck(ctx)
 
 		return &Reconciler{

@@ -58,7 +58,7 @@ var revisionSpec = v1alpha1.RevisionSpec{
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
-	retryAttempted := make(map[string]bool)
+	retryAttempted := false
 	now := time.Now()
 
 	table := TableTest{{
@@ -81,10 +81,10 @@ func TestReconcile(t *testing.T) {
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
 			func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
-				if retryAttempted["create revision matching generation, with retry"] || !action.Matches("update", "configurations") {
+				if retryAttempted || !action.Matches("update", "configurations") {
 					return false, nil, nil
 				}
-				retryAttempted["create revision matching generation, with retry"] = true
+				retryAttempted = true
 				return true, nil, apierrs.NewConflict(v1alpha1.Resource("foo"), "bar", errors.New("foo"))
 			},
 		},
@@ -472,6 +472,7 @@ func TestReconcile(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		retryAttempted = false
 		return &Reconciler{
 			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
 			configurationLister: listers.GetConfigurationLister(),

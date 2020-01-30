@@ -259,7 +259,7 @@ func TestReconcile(t *testing.T) {
 	zeroEndpoints := makeSKSPrivateEndpoints(0, testNamespace, testRevision)
 
 	deciderKey := struct{}{}
-	retryAttempted := make(map[string]bool)
+	retryAttempted := false
 
 	// Note: due to how KPA reconciler works we are dependent on the
 	// two constant objects above, which means, that all tests must share
@@ -298,10 +298,10 @@ func TestReconcile(t *testing.T) {
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
 			func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
-				if retryAttempted["no endpoints, with retry"] || !action.Matches("update", "podautoscalers") {
+				if retryAttempted || !action.Matches("update", "podautoscalers") {
 					return false, nil, nil
 				}
-				retryAttempted["no endpoints, with retry"] = true
+				retryAttempted = true
 				return true, nil, apierrors.NewConflict(v1alpha1.Resource("foo"), "bar", errors.New("foo"))
 			},
 		},
@@ -968,6 +968,7 @@ func TestReconcile(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		retryAttempted = false
 		ctx = podscalable.WithDuck(ctx)
 
 		fakeDeciders := newTestDeciders()
