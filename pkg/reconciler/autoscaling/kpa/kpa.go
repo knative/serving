@@ -273,10 +273,7 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 		return err
 	}
 
-	reporter.ReportActualPodCount(int64(pc.ready))
-	reporter.ReportNotReadyPodCount(int64(pc.notReady))
-	reporter.ReportPendingPodCount(int64(pc.pending))
-	reporter.ReportTerminatingPodCount(int64(pc.terminating))
+	reporter.ReportActualPodCount(int64(pc.ready), int64(pc.notReady), int64(pc.pending), int64(pc.terminating))
 	// Negative "want" values represent an empty metrics pipeline and thus no specific request is being made.
 	if pc.want >= 0 {
 		reporter.ReportRequestedPodCount(int64(pc.want))

@@ -42,9 +42,6 @@ func TestNewStatsReporterErrors(t *testing.T) {
 func TestReporterReport(t *testing.T) {
 	resetMetrics()
 	r := &Reporter{}
-	if err := r.ReportDesiredPodCount(10); err == nil {
-		t.Error("Reporter.ReportDesiredPodCount() expected an error for Report call before init. Got success.")
-	}
 
 	r, _ = NewStatsReporter("testns", "testsvc", "testconfig", "testrev")
 	wantTags := map[string]string{
@@ -55,20 +52,17 @@ func TestReporterReport(t *testing.T) {
 	}
 
 	// Send statistics only once and observe the results
-	expectSuccess(t, "ReportDesiredPodCount", func() error { return r.ReportDesiredPodCount(10) })
-	expectSuccess(t, "ReportRequestedPodCount", func() error { return r.ReportRequestedPodCount(7) })
-	expectSuccess(t, "ReportActualPodCount", func() error { return r.ReportActualPodCount(5) })
-	expectSuccess(t, "ReportNotReadyPodCount", func() error { return r.ReportNotReadyPodCount(9) })
-	expectSuccess(t, "ReportPendingPodCount", func() error { return r.ReportPendingPodCount(6) })
-	expectSuccess(t, "ReportTerminatingPodCount", func() error { return r.ReportTerminatingPodCount(8) })
-	expectSuccess(t, "ReportPanic", func() error { return r.ReportPanic(0) })
-	expectSuccess(t, "ReportStableRequestConcurrency", func() error { return r.ReportStableRequestConcurrency(2) })
-	expectSuccess(t, "ReportPanicRequestConcurrency", func() error { return r.ReportPanicRequestConcurrency(3) })
-	expectSuccess(t, "ReportTargetRequestConcurrency", func() error { return r.ReportTargetRequestConcurrency(0.9) })
-	expectSuccess(t, "ReportStableRPS", func() error { return r.ReportStableRPS(5) })
-	expectSuccess(t, "ReportPanicRPS", func() error { return r.ReportPanicRPS(6) })
-	expectSuccess(t, "ReportTargetRPS", func() error { return r.ReportTargetRPS(7) })
-	expectSuccess(t, "ReportExcessBurstCapacity", func() error { return r.ReportExcessBurstCapacity(19.84) })
+	r.ReportDesiredPodCount(10)
+	r.ReportRequestedPodCount(7)
+	r.ReportActualPodCount(5 /* ready */, 9 /* notReady */, 8 /* terminating */, 6 /* pending */)
+	r.ReportPanic(0)
+	r.ReportStableRequestConcurrency(2)
+	r.ReportPanicRequestConcurrency(3)
+	r.ReportTargetRequestConcurrency(0.9)
+	r.ReportStableRPS(5)
+	r.ReportPanicRPS(6)
+	r.ReportTargetRPS(7)
+	r.ReportExcessBurstCapacity(19.84)
 	metricstest.CheckLastValueData(t, "desired_pods", wantTags, 10)
 	metricstest.CheckLastValueData(t, "requested_pods", wantTags, 7)
 	metricstest.CheckLastValueData(t, "actual_pods", wantTags, 5)
@@ -85,42 +79,42 @@ func TestReporterReport(t *testing.T) {
 	metricstest.CheckLastValueData(t, "target_requests_per_second", wantTags, 7)
 
 	// All the stats are gauges - record multiple entries for one stat - last one should stick
-	expectSuccess(t, "ReportDesiredPodCount", func() error { return r.ReportDesiredPodCount(1) })
-	expectSuccess(t, "ReportDesiredPodCount", func() error { return r.ReportDesiredPodCount(2) })
-	expectSuccess(t, "ReportDesiredPodCount", func() error { return r.ReportDesiredPodCount(3) })
+	r.ReportDesiredPodCount(1)
+	r.ReportDesiredPodCount(2)
+	r.ReportDesiredPodCount(3)
 	metricstest.CheckLastValueData(t, "desired_pods", wantTags, 3)
 
-	expectSuccess(t, "ReportRequestedPodCount", func() error { return r.ReportRequestedPodCount(4) })
-	expectSuccess(t, "ReportRequestedPodCount", func() error { return r.ReportRequestedPodCount(5) })
-	expectSuccess(t, "ReportRequestedPodCount", func() error { return r.ReportRequestedPodCount(6) })
+	r.ReportRequestedPodCount(4)
+	r.ReportRequestedPodCount(5)
+	r.ReportRequestedPodCount(6)
 	metricstest.CheckLastValueData(t, "requested_pods", wantTags, 6)
 
-	expectSuccess(t, "ReportActualPodCount", func() error { return r.ReportActualPodCount(7) })
-	expectSuccess(t, "ReportActualPodCount", func() error { return r.ReportActualPodCount(8) })
-	expectSuccess(t, "ReportActualPodCount", func() error { return r.ReportActualPodCount(9) })
+	r.ReportActualPodCount(7 /* ready */, 0 /* notReady */, 0 /* terminating */, 0 /* pending */)
+	r.ReportActualPodCount(8 /* ready */, 0 /* notReady */, 0 /* terminating */, 0 /* pending */)
+	r.ReportActualPodCount(9 /* ready */, 0 /* notReady */, 0 /* terminating */, 0 /* pending */)
 	metricstest.CheckLastValueData(t, "actual_pods", wantTags, 9)
 
-	expectSuccess(t, "ReportNotReadyPodCount", func() error { return r.ReportNotReadyPodCount(6) })
-	expectSuccess(t, "ReportNotReadyPodCount", func() error { return r.ReportNotReadyPodCount(5) })
-	expectSuccess(t, "ReportNotReadyPodCount", func() error { return r.ReportNotReadyPodCount(4) })
+	r.ReportActualPodCount(0 /* ready */, 6 /* notReady */, 0 /* terminating */, 0 /* pending */)
+	r.ReportActualPodCount(0 /* ready */, 5 /* notReady */, 0 /* terminating */, 0 /* pending */)
+	r.ReportActualPodCount(0 /* ready */, 4 /* notReady */, 0 /* terminating */, 0 /* pending */)
 	metricstest.CheckLastValueData(t, "not_ready_pods", wantTags, 4)
 
-	expectSuccess(t, "ReportPendingPodCount", func() error { return r.ReportPendingPodCount(3) })
-	expectSuccess(t, "ReportPendingPodCount", func() error { return r.ReportPendingPodCount(2) })
-	expectSuccess(t, "ReportPendingPodCount", func() error { return r.ReportPendingPodCount(1) })
+	r.ReportActualPodCount(0 /* ready */, 0 /* notReady */, 0 /* terminating */, 3 /* pending */)
+	r.ReportActualPodCount(0 /* ready */, 0 /* notReady */, 0 /* terminating */, 2 /* pending */)
+	r.ReportActualPodCount(0 /* ready */, 0 /* notReady */, 0 /* terminating */, 1 /* pending */)
 	metricstest.CheckLastValueData(t, "pending_pods", wantTags, 1)
 
-	expectSuccess(t, "ReportTerminatingPodCount", func() error { return r.ReportTerminatingPodCount(5) })
-	expectSuccess(t, "ReportTerminatingPodCount", func() error { return r.ReportTerminatingPodCount(3) })
-	expectSuccess(t, "ReportTerminatingPodCount", func() error { return r.ReportTerminatingPodCount(8) })
+	r.ReportActualPodCount(0 /* ready */, 0 /* notReady */, 5 /* terminating */, 0 /* pending */)
+	r.ReportActualPodCount(0 /* ready */, 0 /* notReady */, 3 /* terminating */, 0 /* pending */)
+	r.ReportActualPodCount(0 /* ready */, 0 /* notReady */, 8 /* terminating */, 0 /* pending */)
 	metricstest.CheckLastValueData(t, "terminating_pods", wantTags, 8)
 
-	expectSuccess(t, "ReportPanic", func() error { return r.ReportPanic(1) })
-	expectSuccess(t, "ReportPanic", func() error { return r.ReportPanic(0) })
-	expectSuccess(t, "ReportPanic", func() error { return r.ReportPanic(1) })
+	r.ReportPanic(1)
+	r.ReportPanic(0)
+	r.ReportPanic(1)
 	metricstest.CheckLastValueData(t, "panic_mode", wantTags, 1)
 
-	expectSuccess(t, "ReportPanic", func() error { return r.ReportPanic(0) })
+	r.ReportPanic(0)
 	metricstest.CheckLastValueData(t, "panic_mode", wantTags, 0)
 }
 
@@ -134,14 +128,8 @@ func TestReporterEmptyServiceName(t *testing.T) {
 		metricskey.LabelConfigurationName: "testconfig",
 		metricskey.LabelRevisionName:      "testrev",
 	}
-	expectSuccess(t, "ReportDesiredPodCount", func() error { return r.ReportDesiredPodCount(10) })
+	r.ReportDesiredPodCount(10)
 	metricstest.CheckLastValueData(t, "desired_pods", wantTags, 10)
-}
-
-func expectSuccess(t *testing.T, funcName string, f func() error) {
-	if err := f(); err != nil {
-		t.Errorf("Reporter.%v() expected success but got error %v", funcName, err)
-	}
 }
 
 // Resets global state from the opencensus package
