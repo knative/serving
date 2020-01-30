@@ -76,7 +76,7 @@ func WaitForCertificateSecret(client *test.Clients, cert *v1alpha1.Certificate, 
 	span := logging.GetEmitableSpan(context.Background(), fmt.Sprintf("WaitForCertificateSecret/%s/%s", cert.Spec.SecretName, desc))
 	defer span.End()
 
-	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
+	return wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		secret, err := client.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Get(cert.Spec.SecretName, metav1.GetOptions{})
 
 		if apierrs.IsNotFound(err) {
@@ -101,11 +101,6 @@ func WaitForCertificateSecret(client *test.Clients, cert *v1alpha1.Certificate, 
 
 		return true, nil
 	})
-
-	if waitErr != nil {
-		return fmt.Errorf("secret %q not found: %w", cert.Spec.SecretName, waitErr)
-	}
-	return nil
 }
 
 // WaitForCertificateState polls the status of the Certificate called name from client
@@ -117,17 +112,14 @@ func WaitForCertificateState(client *test.NetworkingClients, name string, inStat
 	defer span.End()
 
 	var lastState *v1alpha1.Certificate
-	if waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
+	return wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		var err error
 		lastState, err = client.Certificates.Get(name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
 		}
 		return inState(lastState)
-	}); waitErr != nil {
-		return fmt.Errorf("certificate %q is not in desired state, got: %+v: %w", name, lastState, waitErr)
-	}
-	return nil
+	})
 }
 
 // VerifyChallenges verifies that the given certificate has the correct number
