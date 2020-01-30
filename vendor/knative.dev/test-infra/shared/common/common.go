@@ -19,8 +19,9 @@ package common
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
+
+	"knative.dev/pkg/test/cmd"
 )
 
 const allUsersFullPermission = 0777
@@ -44,12 +45,8 @@ func CreateDirWithFileMode(dirPath string, perm os.FileMode) error {
 
 // GetRootDir gets directory of git root
 func GetRootDir() (string, error) {
-	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
-	output, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(output)), nil
+	stdout, err := cmd.RunCommand("git rev-parse --show-toplevel")
+	return strings.TrimSpace(string(stdout)), err
 }
 
 // CDToRootDir change directory to git root dir
