@@ -192,7 +192,7 @@ func configureCustomDomain(t *testing.T, cfg config, clients *test.Clients) cont
 }
 
 func waitForDNSRecordVisibleLocally(record *dnsRecord) error {
-	return wait.PollImmediate(10*time.Second, dnsRecordDeadline*time.Second, func() (bool, error) {
+	return wait.PollImmediate(10*time.Second, dnsRecordDeadlineSec*time.Second, func() (bool, error) {
 		ips, _ := net.LookupHost(record.domain)
 		for _, ip := range ips {
 			if ip == record.ip {
