@@ -47,6 +47,9 @@ You must install these tools:
    mentioned in the sections below.
    - [Google Container Registry quickstart](https://cloud.google.com/container-registry/docs/pushing-and-pulling)
    - [Docker Hub quickstart](https://docs.docker.com/docker-hub/)
+   - If developing locally with Docker or Minikube, you can set
+     `KO_DOCKER_REPO=ko.local` (preferred) or use the `-L` flag to `ko` to build
+     and push locally (in this case, authentication is not needed).
 
 **Note**: You'll need to be authenticated with your `KO_DOCKER_REPO` before
 pushing images. Run `gcloud auth configure-docker` if you are using Google
@@ -113,24 +116,11 @@ can easily [clean your cluster up](#clean-up) and try again.
 
 ### Setup cluster admin
 
-Your user must be a cluster admin to perform the setup needed for Knative.
-
-The value you use depends on
-[your cluster setup](https://www.knative.dev/docs/install/): when using Minikube
-or Kubernetes on Docker Desktop, the user is your local user; when using GKE,
-the user is your GCP user.
-
-```shell
-# For GCP
-kubectl create clusterrolebinding cluster-admin-binding \
-  --clusterrole=cluster-admin \
-  --user=$(gcloud config get-value core/account)
-
-# For minikube or Kubernetes on Docker Desktop
-kubectl create clusterrolebinding cluster-admin-binding \
-  --clusterrole=cluster-admin \
-  --user=$USER
-```
+Your user must be a cluster admin to perform the setup needed for Knative. This
+should be the case by default if you've provisioned your own Kubernetes cluster.
+In particular, you'll need to be able to create Kubernetes cluster-scoped
+Namespace, CustomResourceDefinition, ClusterRole, and ClusterRoleBinding
+objects.
 
 ### Resource allocation for Kubernetes
 
@@ -194,7 +184,11 @@ kubectl apply -f ./third_party/istio-1.3-latest/istio-knative-extras.yaml
 ### Deploy Knative Serving
 
 This step includes building Knative Serving, creating and pushing developer
-images and deploying them to your Kubernetes cluster.
+images and deploying them to your Kubernetes cluster. If you're developing
+locally (for example, using
+[Docker-on-Mac](https://knative.dev/docs/install/knative-with-docker-for-mac/)),
+set `KO_DOCKER_REPO=ko.local` to avoid needing to push your images to an
+off-machine registry.
 
 Run:
 
