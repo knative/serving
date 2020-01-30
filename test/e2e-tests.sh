@@ -67,17 +67,17 @@ go_test_e2e -timeout=10m \
 kubectl delete -f ./test/config/autotls/certmanager/selfsigned/
 
 # Certificate conformance tests must be run separately
-kubectl apply -f ./test/config/autotls/certmanager/selfsigned/ -f ./test/config/autotls/certmanager/config-network.yaml
-add_trap "kubectl delete -f ./test/config/autotls/certmanager/selfsigned/ -f ./test/config/autotls/certmanager/config-network.yaml --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+kubectl apply -f ./test/config/autotls/certmanager/selfsigned/
+add_trap "kubectl delete -f ./test/config/autotls/certmanager/selfsigned/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
 go_test_e2e -timeout=10m \
-  ./test/conformance/certificate/nonhttp01 || failed=1
-kubectl delete -f ./test/config/autotls/certmanager/selfsigned/ -f ./test/config/autotls/certmanager/config-network.yaml
+  ./test/conformance/certificate/nonhttp01 "$(certificate_class)" || failed=1
+kubectl delete -f ./test/config/autotls/certmanager/selfsigned/
 
-kubectl apply -f ./test/config/autotls/certmanager/http01/ -f ./test/config/autotls/certmanager/config-network.yaml
-add_trap "kubectl delete -f ./test/config/autotls/certmanager/http01/ -f ./test/config/autotls/certmanager/config-network.yaml --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+kubectl apply -f ./test/config/autotls/certmanager/http01/
+add_trap "kubectl delete -f ./test/config/autotls/certmanager/http01/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
 go_test_e2e -timeout=10m \
-  ./test/conformance/certificate/http01 || failed=1
-kubectl delete -f ./test/config/autotls/certmanager/http01/ -f ./test/config/autotls/certmanager/config-network.yaml
+  ./test/conformance/certificate/http01 "$(certificate_class)" || failed=1
+kubectl delete -f ./test/config/autotls/certmanager/http01/
 
 # Istio E2E tests mutate the cluster and must be ran separately
 if [[ -n "${ISTIO_VERSION}" ]]; then

@@ -30,7 +30,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"knative.dev/pkg/system"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -42,17 +41,12 @@ func CreateCertificate(t *testing.T, clients *test.Clients, dnsNames []string) (
 	t.Helper()
 
 	name := test.ObjectNameForTest(t)
-	certClass, err := getCertClass(clients)
-	if err != nil {
-		t.Fatalf("failed to get config-network ConfigMap: %v", err)
-	}
-
 	cert := &v1alpha1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: test.ServingNamespace,
 			Annotations: map[string]string{
-				networking.CertificateClassAnnotationKey: certClass,
+				networking.CertificateClassAnnotationKey: test.ServingFlags.CertificateClass,
 			},
 		},
 		Spec: v1alpha1.CertificateSpec{
@@ -68,9 +62,9 @@ func CreateCertificate(t *testing.T, clients *test.Clients, dnsNames []string) (
 
 	test.CleanupOnInterrupt(cleanup)
 
-	cert, err = clients.NetworkingClient.Certificates.Create(cert)
+	cert, err := clients.NetworkingClient.Certificates.Create(cert)
 	if err != nil {
-		t.Fatalf("error creating Certificate: %v", err)
+		t.Fatalf("Error creating Certificate: %v", err)
 	}
 
 	return cert, cleanup
@@ -123,27 +117,17 @@ func WaitForCertificateState(client *test.NetworkingClients, name string, inStat
 	defer span.End()
 
 	var lastState *v1alpha1.Certificate
-	waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
+	if waitErr := wait.PollImmediate(test.PollInterval, test.PollTimeout, func() (bool, error) {
 		var err error
 		lastState, err = client.Certificates.Get(name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
 		}
 		return inState(lastState)
-	})
-
-	if waitErr != nil {
+	}); waitErr != nil {
 		return fmt.Errorf("certificate %q is not in desired state, got: %+v: %w", name, lastState, waitErr)
 	}
 	return nil
-}
-
-func getCertClass(client *test.Clients) (string, error) {
-	configNetworkCM, err := client.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get("config-network", metav1.GetOptions{})
-	if err != nil {
-		return "", err
-	}
-	return configNetworkCM.Data["certificate.class"], nil
 }
 
 // VerifyChallenges verifies that the given certificate has the correct number
@@ -166,5 +150,4 @@ func VerifyChallenges(t *testing.T, client *test.Clients, cert *v1alpha1.Certifi
 			t.Errorf("failed to find solver service for challenge: %v", err)
 		}
 	}
-
 }

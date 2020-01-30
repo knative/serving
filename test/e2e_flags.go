@@ -55,6 +55,7 @@ type ServingEnvironmentFlags struct {
 	ResolvableDomain bool   // Resolve Route controller's `domainSuffix`
 	Https            bool   // Indicates where the test service will be created with https
 	IngressClass     string // Indicates the class of Ingress provider to test.
+	CertificateClass string // Indicates the class of Certificate provider to test.
 }
 
 func initializeServingFlags() *ServingEnvironmentFlags {
@@ -68,6 +69,8 @@ func initializeServingFlags() *ServingEnvironmentFlags {
 
 	flag.StringVar(&f.IngressClass, "ingressClass", network.IstioIngressClassName,
 		"Set this flag to the ingress class to test against.")
+	flag.StringVar(&f.CertificateClass, "certificateClass", network.CertManagerCertificateClassName,
+		"Set this flag to the certificate class to test against.")
 
 	return &f
 }
