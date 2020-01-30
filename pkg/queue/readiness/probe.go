@@ -75,7 +75,7 @@ func (p *Probe) ProbeContainer() bool {
 
 	if err != nil {
 		// Using Fprintf for a concise error message in the event log.
-		fmt.Fprint(os.Stderr, err.Error())
+		fmt.Fprintln(os.Stderr, err.Error())
 		return false
 	}
 	return true
@@ -85,14 +85,15 @@ func (p *Probe) doProbe(probe func(time.Duration) error) error {
 	if p.IsAggressive() {
 		return wait.PollImmediate(retryInterval, PollTimeout, func() (bool, error) {
 			if tcpErr := probe(aggressiveProbeTimeout); tcpErr != nil {
-				// reset count of consecutive successes to zero
+				fmt.Fprintln(os.Stderr, "aggressive probe error: ", tcpErr)
+				// Reset count of consecutive successes to zero.
 				p.count = 0
 				return false, nil
 			}
 
 			p.count++
 
-			// return success if count of consecutive successes is equal to or greater
+			// Return success if count of consecutive successes is equal to or greater
 			// than the probe's SuccessThreshold.
 			return p.Count() >= p.SuccessThreshold, nil
 		})

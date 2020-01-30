@@ -22,7 +22,10 @@ import (
 	"knative.dev/pkg/apis"
 )
 
-var routeCondSet = apis.NewLivingConditionSet()
+var routeCondSet = apis.NewLivingConditionSet(
+	RouteConditionAllTrafficAssigned,
+	RouteConditionIngressReady,
+)
 
 // GetGroupVersionKind returns the GroupVersionKind.
 func (r *Route) GetGroupVersionKind() schema.GroupVersionKind {
@@ -32,4 +35,9 @@ func (r *Route) GetGroupVersionKind() schema.GroupVersionKind {
 // IsReady returns if the route is ready to serve the requested configuration.
 func (rs *RouteStatus) IsReady() bool {
 	return routeCondSet.Manage(rs).IsHappy()
+}
+
+// InitializeConditions sets the initial values to the conditions.
+func (rs *RouteStatus) InitializeConditions() {
+	routeCondSet.Manage(rs).InitializeConditions()
 }

@@ -597,14 +597,19 @@ function get_canonical_path() {
   echo "$(cd ${path%/*} && echo $PWD/${path##*/})"
 }
 
-# Returns whether the current branch is a release branch.
-function is_release_branch() {
+# Returns the current branch.
+function current_branch() {
   local branch_name=""
   # Get the branch name from Prow's env var, see https://github.com/kubernetes/test-infra/blob/master/prow/jobs.md.
   # Otherwise, try getting the current branch from git.
   (( IS_PROW )) && branch_name="${PULL_BASE_REF:-}"
   [[ -z "${branch_name}" ]] && branch_name="$(git rev-parse --abbrev-ref HEAD)"
-  [[ ${branch_name} =~ ^release-[0-9\.]+$ ]]
+  echo "${branch_name}"
+}
+
+# Returns whether the current branch is a release branch.
+function is_release_branch() {
+  [[ $(current_branch) =~ ^release-[0-9\.]+$ ]]
 }
 
 # Returns the URL to the latest manifest for the given Knative project.
@@ -615,19 +620,23 @@ function get_latest_knative_yaml_source() {
   local yaml_name="$2"
   # If it's a release branch, the yaml source URL should point to a specific version.
   if is_release_branch; then
-    # Get the latest tag name for the current branch, which is likely formatted as v0.5.0
-    local tag_name="$(git describe --tags --abbrev=0)"
-    # The given repo might not have this tag, so we need to find its latest release manifest with the same major&minor version.
-    local major_minor="$(echo ${tag_name} | cut -d. -f1-2)"
-    local yaml_source_path="$(gsutil ls gs://knative-releases/${repo_name}/previous/${major_minor}.*/${yaml_name}.yaml \
+    # Extract the release major&minor version from the branch name.
+    local branch_name="$(current_branch)"
+    local major_minor="${branch_name##release-}"
+    # Find the latest release manifest with the same major&minor version.
+    local yaml_source_path="$(
+      gsutil ls gs://knative-releases/${repo_name}/previous/v${major_minor}.*/${yaml_name}.yaml 2> /dev/null \
       | sort \
       | tail -n 1 \
       | cut -b6-)"
-    echo "https://storage.googleapis.com/${yaml_source_path}"
-  # If it's not a release branch, the yaml source URL should be nightly build.
-  else
-    echo "https://storage.googleapis.com/knative-nightly/${repo_name}/latest/${yaml_name}.yaml"
+    # The version does exist, return it.
+    if [[ -n "${yaml_source_path}" ]]; then
+      echo "https://storage.googleapis.com/${yaml_source_path}"
+      return
+    fi
+    # Otherwise, fall back to nightly.
   fi
+  echo "https://storage.googleapis.com/knative-nightly/${repo_name}/latest/${yaml_name}.yaml"
 }
 
 # Initializations that depend on previous functions.

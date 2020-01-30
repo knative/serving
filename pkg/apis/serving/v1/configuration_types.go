@@ -69,6 +69,10 @@ const (
 	ConfigurationConditionReady = apis.ConditionReady
 )
 
+func IsConfigurationCondition(t apis.ConditionType) bool {
+	return t == ConfigurationConditionReady
+}
+
 // ConfigurationStatusFields holds the fields of Configuration's status that
 // are not generally shared.  This is defined separately and inlined so that
 // other types can readily consume these fields via duck typing.
