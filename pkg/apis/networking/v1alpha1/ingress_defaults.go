@@ -27,10 +27,6 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 )
 
-var (
-	defaultMaxRevisionTimeout = time.Duration(config.DefaultMaxRevisionTimeoutSeconds) * time.Second
-)
-
 // SetDefaults populates default values in Ingress
 func (i *Ingress) SetDefaults(ctx context.Context) {
 	i.Spec.SetDefaults(apis.WithinSpec(ctx))

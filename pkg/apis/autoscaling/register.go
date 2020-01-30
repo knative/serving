@@ -22,7 +22,7 @@ const (
 	// The internal autoscaling group name. This is used for CRDs.
 	InternalGroupName = "autoscaling.internal.knative.dev"
 
-	// The publuc autoscaling group name. This is used for annotations, labels, etc.
+	// The public autoscaling group name. This is used for annotations, labels, etc.
 	GroupName = "autoscaling.knative.dev"
 
 	// ClassAnnotationKey is the annotation for the explicit class of autoscaler
@@ -77,7 +77,7 @@ const (
 	// count every 2 seconds (tick-interval in config-autoscaler) so
 	// the closer the window gets to that value, the more likely data
 	// points will be missed entirely by the panic window which is
-	// smaller than the stable window. Anything less than 6 second
+	// smaller than the stable window. Anything less than 6 seconds
 	// isn't going to work well.
 	WindowMin = 6 * time.Second
 	// WindowMax is the maximum permitted stable autoscaling window.
@@ -109,7 +109,7 @@ const (
 	//   autoscaling.knative.dev/panicThresholdPercentage: "150.0"
 	// Only the kpa.autoscaling.knative.dev class autoscaler supports
 	// the panicWindowPercentage annotation.
-	// Panic window is specified as a percentag to maintain the
+	// Panic window is specified as a percentage to maintain the
 	// autoscaler's algorithm behavior when only the stable window is
 	// specified. The panic window will change along with the stable
 	// window at the default percentage.

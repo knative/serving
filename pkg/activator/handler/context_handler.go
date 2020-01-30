@@ -67,8 +67,8 @@ func (h *contextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	ctx = logging.WithLogger(ctx, logger)
-	ctx = context.WithValue(ctx, revisionKey{}, revision)
-	ctx = context.WithValue(ctx, revIDKey{}, revID)
+	ctx = withRevision(ctx, revision)
+	ctx = withRevID(ctx, revID)
 
 	h.nextHandler.ServeHTTP(w, r.WithContext(ctx))
 }

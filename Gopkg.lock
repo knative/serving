@@ -440,12 +440,12 @@
   version = "v1.0.0"
 
 [[projects]]
-  branch = "master"
-  digest = "1:52c5834e2bebac9030c97cc0798ac11c3aa8a39f098aeb419f142533da6cd3cc"
+  digest = "1:3ec6c8e4b700377066dbb5ab3155c55f97109ab6147fee9423a68506d79bbafa"
   name = "github.com/google/gofuzz"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "24818f796faf91cd76ec7bddd72458fbced7a6c1"
+  revision = "db92cf7ae75e4a7a28abc005addab2b394362888"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
@@ -759,14 +759,6 @@
   ]
   pruneopts = "NUT"
   revision = "282c8707aa210456a825798969cc27edda34992a"
-
-[[projects]]
-  digest = "1:7008ec21a0ce773bd21deefdb7d17fab8cb9f1ae0bc44026cdd2b658ab1582ca"
-  name = "github.com/rogpeppe/go-internal"
-  packages = ["semver"]
-  pruneopts = "NUT"
-  revision = "438578804ca6f31be148c27683afc419ce47c06e"
-  version = "v1.3.0"
 
 [[projects]]
   digest = "1:d917313f309bda80d27274d53985bc65651f81a5b66b820749ac7f8ef061fd04"
@@ -1237,15 +1229,19 @@
   version = "kubernetes-1.16.4"
 
 [[projects]]
-  digest = "1:bfbb9cb6545607642906234410d39b7bae81812f360d7649d16bebdacaede4cf"
+  digest = "1:59f4aa38cf262dcef38856ac6f10dd3178a6f3615b6c5c0276f45a1a5e61cfcd"
   name = "k8s.io/apimachinery"
   packages = [
+    "pkg/api/apitesting",
+    "pkg/api/apitesting/fuzzer",
+    "pkg/api/apitesting/roundtrip",
     "pkg/api/equality",
     "pkg/api/errors",
     "pkg/api/meta",
     "pkg/api/resource",
     "pkg/api/validation",
     "pkg/api/validation/path",
+    "pkg/apis/meta/fuzzer",
     "pkg/apis/meta/internalversion",
     "pkg/apis/meta/v1",
     "pkg/apis/meta/v1/unstructured",
@@ -1751,7 +1747,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:08d84938670ddb375fb98bbcb8d56828e021f35dcb14527c6ace7fc39ce98ab2"
+  digest = "1:63e8aa8bc31a14a2bb8c8d9a6124d42f817be063c3cf13ee1659b4128717e6c2"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1774,11 +1770,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "e111e2aca4132089fbf44ce25af8023998c366e3"
+  revision = "bb5b5155f3b20c9c0294a71733be93e5a1d10e31"
 
 [[projects]]
   branch = "master"
-  digest = "1:92b7055a014502a4b66d16ddc846de570f2d42ebdf9e6dfdc1b6eb2efc573294"
+  digest = "1:5acceb9ddfc654a91e633bb00531fc719fcaedda25d621162385ba5c2badc849"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1786,6 +1782,8 @@
     "apis/duck/v1",
     "apis/duck/v1alpha1",
     "apis/duck/v1beta1",
+    "apis/testing/fuzzer",
+    "apis/testing/roundtrip",
     "apis/testing/v1",
     "changeset",
     "client/injection/kube/client",
@@ -1877,11 +1875,11 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "5ff923b836abcbeb6ac3ff2784db0d5b5786ade2"
+  revision = "2fbb9db15cbb7971ad2b1f4266a437f5dcc33a51"
 
 [[projects]]
   branch = "master"
-  digest = "1:155470789c1f224feb858121048be85a9f059f0e84516c4319be5fd4ea0dc9c8"
+  digest = "1:9cc4d1bfe8b976c101bb9d8571f6427e282533dd93f7c09b4ca7ada15886488e"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1894,7 +1892,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "b0c4c4e1691282f24ccb3b5b0399952bf086edfc"
+  revision = "5779f9c9458d0a85f734c0cad43c1510aa00b498"
 
 [[projects]]
   digest = "1:92b88da51692abe195601cb17d35bbb9b6bc2011237a2f234fedba7411ed8122"
@@ -1937,6 +1935,7 @@
     "github.com/google/go-containerregistry/pkg/v1/remote",
     "github.com/google/go-containerregistry/pkg/v1/remote/transport",
     "github.com/google/go-containerregistry/pkg/v1/types",
+    "github.com/google/gofuzz",
     "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto",
     "github.com/google/mako/go/quickstore",
     "github.com/google/mako/spec/proto/mako_go_proto",
@@ -1978,6 +1977,7 @@
     "k8s.io/api/authentication/v1",
     "k8s.io/api/autoscaling/v2beta1",
     "k8s.io/api/core/v1",
+    "k8s.io/apimachinery/pkg/api/apitesting/fuzzer",
     "k8s.io/apimachinery/pkg/api/equality",
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/api/meta",
@@ -2042,6 +2042,8 @@
     "knative.dev/pkg/apis/duck/v1",
     "knative.dev/pkg/apis/duck/v1alpha1",
     "knative.dev/pkg/apis/duck/v1beta1",
+    "knative.dev/pkg/apis/testing/fuzzer",
+    "knative.dev/pkg/apis/testing/roundtrip",
     "knative.dev/pkg/apis/testing/v1",
     "knative.dev/pkg/client/injection/kube/client",
     "knative.dev/pkg/client/injection/kube/client/fake",
