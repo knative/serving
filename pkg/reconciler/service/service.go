@@ -314,7 +314,7 @@ func configSemanticEquals(ctx context.Context, desiredConfig, config *v1alpha1.C
 	logger := logging.FromContext(ctx)
 	specDiff, err := kmp.SafeDiff(desiredConfig.Spec, config.Spec)
 	if err != nil {
-		logger.Fatalf("Error diffing config spec: %v", err)
+		logger.Error("Error diffing config spec", zap.Error(err))
 		return false, fmt.Errorf("failed to diff Configuration: %w", err)
 	}
 	logger.Infof("Reconciling configuration diff (-desired, +observed): %s", specDiff)
@@ -365,7 +365,7 @@ func routeSemanticEquals(ctx context.Context, desiredRoute, route *v1alpha1.Rout
 	logger := logging.FromContext(ctx)
 	specDiff, err := kmp.SafeDiff(desiredRoute.Spec, route.Spec)
 	if err != nil {
-		logger.Fatalf("Error diffing route spec: %v", err)
+		logger.Errorw("Error diffing route spec", zap.Error(err))
 		return false, fmt.Errorf("failed to diff Route: %w", err)
 	}
 	logger.Infof("Reconciling route diff (-desired, +observed): %s", specDiff)
