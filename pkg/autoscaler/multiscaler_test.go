@@ -119,9 +119,8 @@ func TestMultiScalerScaling(t *testing.T) {
 		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
 	}
 
-	mtp.ch <- time.Now()
-
 	// Verify that we see a "tick"
+	mtp.ch <- time.Now()
 	if err := verifyTick(errCh); err != nil {
 		t.Fatal(err)
 	}
@@ -140,6 +139,7 @@ func TestMultiScalerScaling(t *testing.T) {
 
 	// Verify that subsequent "ticks" don't trigger a callback, since
 	// the desired scale has not changed.
+	mtp.ch <- time.Now()
 	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}
@@ -149,6 +149,7 @@ func TestMultiScalerScaling(t *testing.T) {
 	}
 
 	// Verify that we stop seeing "ticks"
+	mtp.ch <- time.Now()
 	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}
@@ -206,6 +207,10 @@ func TestMultiScalerOnlyCapacityChange(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ms, uniScaler := createMultiScaler(ctx, TestLogger(t))
+	mtp := &manualTickProvider{
+		ch: make(chan time.Time, 1),
+	}
+	ms.tickProvider = mtp.NewTicker
 
 	decider := newDecider()
 	uniScaler.setScaleResult(1, 1, true)
@@ -219,6 +224,7 @@ func TestMultiScalerOnlyCapacityChange(t *testing.T) {
 	}
 
 	// Verify that we see a "tick".
+	mtp.ch <- time.Now()
 	if err := verifyTick(errCh); err != nil {
 		t.Fatal(err)
 	}
@@ -226,8 +232,8 @@ func TestMultiScalerOnlyCapacityChange(t *testing.T) {
 	// Change the sign of the excess capacity.
 	uniScaler.setScaleResult(1, -1, true)
 
-	// Verify that subsequent "ticks" don't trigger a callback, since
-	// the desired scale has not changed.
+	// Verify that the update is observed.
+	mtp.ch <- time.Now()
 	if err := verifyTick(errCh); err != nil {
 		t.Fatal(err)
 	}
@@ -237,6 +243,7 @@ func TestMultiScalerOnlyCapacityChange(t *testing.T) {
 	}
 
 	// Verify that we stop seeing "ticks".
+	mtp.ch <- time.Now()
 	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}
@@ -289,6 +296,10 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ms, uniScaler := createMultiScaler(ctx, TestLogger(t))
+	mtp := &manualTickProvider{
+		ch: make(chan time.Time, 1),
+	}
+	ms.tickProvider = mtp.NewTicker
 
 	decider := newDecider()
 	uniScaler.setScaleResult(0, 1, true)
@@ -308,6 +319,7 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 	}
 
 	// Verify that we see a "tick"
+	mtp.ch <- time.Now()
 	if err := verifyTick(errCh); err != nil {
 		t.Fatal(err)
 	}
@@ -318,6 +330,7 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 	}
 
 	// Verify that we stop seeing "ticks"
+	mtp.ch <- time.Now()
 	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}
@@ -327,6 +340,10 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ms, uniScaler := createMultiScaler(ctx, TestLogger(t))
+	mtp := &manualTickProvider{
+		ch: make(chan time.Time, 1),
+	}
+	ms.tickProvider = mtp.NewTicker
 
 	decider := newDecider()
 	decider.Spec.TickInterval = 60 * time.Second
@@ -354,7 +371,7 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 	}
 	ms.Poke(metricKey, testStat)
 
-	// Verify that we see a "tick"
+	// Verify that we see a "tick", even without ticking the channel
 	if err := verifyTick(errCh); err != nil {
 		t.Fatal(err)
 	}
@@ -364,6 +381,10 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ms, uniScaler := createMultiScaler(ctx, TestLogger(t))
+	mtp := &manualTickProvider{
+		ch: make(chan time.Time, 1),
+	}
+	ms.tickProvider = mtp.NewTicker
 
 	decider := newDecider()
 
@@ -387,6 +408,7 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	}
 
 	// Verify that we get no "ticks", because the desired scale is negative
+	mtp.ch <- time.Now()
 	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}
@@ -397,6 +419,7 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	}
 
 	// Verify that we stop seeing "ticks"
+	mtp.ch <- time.Now()
 	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}

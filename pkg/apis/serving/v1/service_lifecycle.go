@@ -22,7 +22,10 @@ import (
 	"knative.dev/pkg/apis"
 )
 
-var serviceCondSet = apis.NewLivingConditionSet()
+var serviceCondSet = apis.NewLivingConditionSet(
+	ServiceConditionConfigurationsReady,
+	ServiceConditionRoutesReady,
+)
 
 // GetGroupVersionKind returns the GroupVersionKind.
 func (s *Service) GetGroupVersionKind() schema.GroupVersionKind {
@@ -32,4 +35,9 @@ func (s *Service) GetGroupVersionKind() schema.GroupVersionKind {
 // IsReady returns if the service is ready to serve the requested configuration.
 func (ss *ServiceStatus) IsReady() bool {
 	return serviceCondSet.Manage(ss).IsHappy()
+}
+
+// InitializeConditions sets the initial values to the conditions.
+func (ss *ServiceStatus) InitializeConditions() {
+	serviceCondSet.Manage(ss).InitializeConditions()
 }

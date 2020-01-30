@@ -243,9 +243,6 @@ func (gc *gkeClient) createClusterWithRetries(gcpProject, name string, config Cl
 		MaxNodes:    config.NodeCount,
 		NodeType:    config.NodeType,
 		Addons:      addons,
-		// Enable Workload Identity for performance tests because we need to use a Kubernetes service account to act
-		// as a Google cloud service account, which is then used for authentication to the metrics data storage system.
-		EnableWorkloadIdentity: true,
 	}
 	creq, err := gke.NewCreateClusterRequest(req)
 	if err != nil {

@@ -28,7 +28,10 @@ const (
 	DefaultUserPort = 8080
 )
 
-var revisionCondSet = apis.NewLivingConditionSet()
+var revisionCondSet = apis.NewLivingConditionSet(
+	RevisionConditionResourcesAvailable,
+	RevisionConditionContainerHealthy,
+)
 
 // GetGroupVersionKind returns the GroupVersionKind.
 func (r *Revision) GetGroupVersionKind() schema.GroupVersionKind {
@@ -52,4 +55,9 @@ func (rs *RevisionSpec) GetContainerConcurrency() int64 {
 		return config.DefaultContainerConcurrency
 	}
 	return *rs.ContainerConcurrency
+}
+
+// InitializeConditions sets the initial values to the conditions.
+func (rs *RevisionStatus) InitializeConditions() {
+	revisionCondSet.Manage(rs).InitializeConditions()
 }

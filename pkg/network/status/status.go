@@ -32,7 +32,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
 
 	"knative.dev/pkg/network/prober"
@@ -44,10 +43,6 @@ import (
 const (
 	// probeConcurrency defines how many probing calls can be issued simultaneously
 	probeConcurrency = 15
-	// stateExpiration defines how long after being last accessed a state expires
-	stateExpiration = 5 * time.Minute
-	// cleanupPeriod defines how often states are cleaned up
-	cleanupPeriod = 1 * time.Minute
 	//probeTimeout defines the maximum amount of time a request will wait
 	probeTimeout = 1 * time.Second
 )
@@ -125,8 +120,6 @@ type Prober struct {
 	readyCallback func(*v1alpha1.Ingress)
 
 	probeConcurrency int
-	stateExpiration  time.Duration
-	cleanupPeriod    time.Duration
 }
 
 // NewProber creates a new instance of Prober
@@ -144,8 +137,6 @@ func NewProber(
 		targetLister:     targetLister,
 		readyCallback:    readyCallback,
 		probeConcurrency: probeConcurrency,
-		stateExpiration:  stateExpiration,
-		cleanupPeriod:    cleanupPeriod,
 	}
 }
 
@@ -287,13 +278,6 @@ func (m *Prober) Start(done <-chan struct{}) chan struct{} {
 		}()
 	}
 
-	// Cleanup the states periodically
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		wait.Until(m.expireOldStates, m.cleanupPeriod, done)
-	}()
-
 	// Stop processing the queue when cancelled
 	go func() {
 		<-done
@@ -335,18 +319,6 @@ func (m *Prober) CancelPodProbing(obj interface{}) {
 		if ctx, ok := m.podContexts[pod.Status.PodIP]; ok {
 			ctx.cancel()
 			delete(m.podContexts, pod.Status.PodIP)
-		}
-	}
-}
-
-// expireOldStates removes the states that haven't been accessed in a while.
-func (m *Prober) expireOldStates() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	for key, state := range m.ingressStates {
-		if time.Since(state.lastAccessed) > m.stateExpiration {
-			state.cancel()
-			delete(m.ingressStates, key)
 		}
 	}
 }

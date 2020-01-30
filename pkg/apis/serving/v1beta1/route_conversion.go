@@ -18,17 +18,33 @@ package v1beta1
 
 import (
 	"context"
-	"fmt"
 
 	"knative.dev/pkg/apis"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 // ConvertUp implements apis.Convertible
-func (source *Route) ConvertUp(ctx context.Context, sink apis.Convertible) error {
-	return fmt.Errorf("v1beta1 is the highest known version, got: %T", sink)
+func (source *Route) ConvertUp(ctx context.Context, obj apis.Convertible) error {
+	switch sink := obj.(type) {
+	case *v1.Route:
+		sink.ObjectMeta = source.ObjectMeta
+		sink.Spec = source.Spec
+		sink.Status = source.Status
+		return nil
+	default:
+		return apis.ConvertUpViaProxy(ctx, source, &v1.Route{}, sink)
+	}
 }
 
 // ConvertDown implements apis.Convertible
-func (sink *Route) ConvertDown(ctx context.Context, source apis.Convertible) error {
-	return fmt.Errorf("v1beta1 is the highest known version, got: %T", source)
+func (sink *Route) ConvertDown(ctx context.Context, obj apis.Convertible) error {
+	switch source := obj.(type) {
+	case *v1.Route:
+		sink.ObjectMeta = source.ObjectMeta
+		sink.Spec = source.Spec
+		sink.Status = source.Status
+		return nil
+	default:
+		return apis.ConvertDownViaProxy(ctx, source, &v1.Route{}, sink)
+	}
 }

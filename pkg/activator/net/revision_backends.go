@@ -62,9 +62,9 @@ type revisionDestsUpdate struct {
 }
 
 const (
-	probeTimeout   time.Duration = 300 * time.Millisecond
-	probeFrequency time.Duration = 200 * time.Millisecond
-	probePath                    = "/_internal/knative/activator/probe"
+	probeTimeout          time.Duration = 300 * time.Millisecond
+	defaultProbeFrequency time.Duration = 200 * time.Millisecond
+	probePath                           = "/_internal/knative/activator/probe"
 )
 
 // revisionWatcher watches the podIPs and ClusterIP of the service for a revision. It implements the logic
@@ -251,7 +251,7 @@ func (rw *revisionWatcher) checkDests(dests sets.String) {
 		// precise load balancing in the throttler.
 		hs, noop, err := rw.probePodIPs(dests)
 		if err != nil {
-			rw.logger.Errorw("Failed probing", zap.Error(err))
+			rw.logger.With(zap.Error(err)).Warnf("Failed probing: %+v", dests)
 			// We dont want to return here as an error still affects health states.
 		}
 
@@ -349,7 +349,7 @@ type revisionBackendsManager struct {
 // NewRevisionBackendsManager returns a new RevisionBackendsManager with default
 // probe time out.
 func newRevisionBackendsManager(ctx context.Context, tr http.RoundTripper) *revisionBackendsManager {
-	return newRevisionBackendsManagerWithProbeFrequency(ctx, tr, probeFrequency)
+	return newRevisionBackendsManagerWithProbeFrequency(ctx, tr, defaultProbeFrequency)
 }
 
 // newRevisionBackendsManagerWithProbeFrequency creates a fully spec'd RevisionBackendsManager.
@@ -363,7 +363,7 @@ func newRevisionBackendsManagerWithProbeFrequency(ctx context.Context, tr http.R
 		updateCh:         make(chan revisionDestsUpdate),
 		transport:        tr,
 		logger:           logging.FromContext(ctx),
-		probeFrequency:   probeFrequency,
+		probeFrequency:   probeFreq,
 	}
 	endpointsInformer := endpointsinformer.Get(ctx)
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{

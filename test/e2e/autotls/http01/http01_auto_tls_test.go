@@ -1,5 +1,3 @@
-// +build e2e
-
 /*
 Copyright 2020 The Knative Authors
 
@@ -33,6 +31,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"knative.dev/pkg/system"
@@ -45,9 +44,7 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-const (
-	dnsRecordDeadline = 600 // 10 min
-)
+const dnsRecordDeadlineSec = 600 // 10 min
 
 type dnsRecord struct {
 	ip     string
@@ -68,9 +65,9 @@ type config struct {
 // make sure it is effective.
 // 3. Run the command below to do the configuration:
 // kubectl apply -f test/config/autotls/certmanager/http01/
-func TestPerKsvcCert_HTTP01(t *testing.T) {
+func TestPerKsvcCertHTTP01(t *testing.T) {
 	clients := e2e.Setup(t)
-	autotls.DisableNamespaceCert(t, clients)
+	autotls.DisableNamespaceCertWithWhiteList(t, clients, sets.String{})
 
 	// Set up Test environment variable.
 	var env config
@@ -108,6 +105,13 @@ func TestPerKsvcCert_HTTP01(t *testing.T) {
 
 	// wait for certificate to be ready
 	autotls.WaitForCertificateReady(t, clients, routenames.Certificate(objects.Route))
+
+	// The TLS info is added to the ingress after the service is created, that's
+	// why we need to wait again
+	err = v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceReady, "ServiceIsReady")
+	if err != nil {
+		t.Fatalf("Service %s did not become ready: %v", names.Service, err)
+	}
 
 	// curl HTTPS
 	rootCAs := autotls.CreateRootCAs(t, clients, objects.Route.Namespace, routenames.Certificate(objects.Route))

@@ -102,6 +102,14 @@
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:45c41cd27a8d986998680bfc86da0bbff5fa4f90d0f446c00636c8b099028ffe"
+  name = "github.com/blang/semver"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "ba2c2ddd89069b46a7011d4106f6868f17ee1705"
+  version = "v3.6.1"
+
+[[projects]]
   digest = "1:fdb4ed936abeecb46a8c27dcac83f75c05c87a46d9ec7711411eb785c213fa02"
   name = "github.com/census-instrumentation/opencensus-proto"
   packages = [
@@ -226,12 +234,12 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:52c5834e2bebac9030c97cc0798ac11c3aa8a39f098aeb419f142533da6cd3cc"
+  digest = "1:3ec6c8e4b700377066dbb5ab3155c55f97109ab6147fee9423a68506d79bbafa"
   name = "github.com/google/gofuzz"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "f140a6486e521aad38f5917de355cbf147cc0496"
-  version = "v1.0.0"
+  revision = "db92cf7ae75e4a7a28abc005addab2b394362888"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
@@ -956,14 +964,18 @@
   version = "kubernetes-1.16.4"
 
 [[projects]]
-  digest = "1:e00f750d45d512f0e7bf9c2c566e3cb13233b0c035a2b89d8c096dfc98e2e1c7"
+  digest = "1:1aaf879947e3abf264929bb0220acced357f85da5ac0f58b10f0f8a5719a41ef"
   name = "k8s.io/apimachinery"
   packages = [
+    "pkg/api/apitesting",
+    "pkg/api/apitesting/fuzzer",
+    "pkg/api/apitesting/roundtrip",
     "pkg/api/equality",
     "pkg/api/errors",
     "pkg/api/meta",
     "pkg/api/resource",
     "pkg/api/validation",
+    "pkg/apis/meta/fuzzer",
     "pkg/apis/meta/internalversion",
     "pkg/apis/meta/v1",
     "pkg/apis/meta/v1/unstructured",
@@ -1339,6 +1351,7 @@
     "contrib.go.opencensus.io/exporter/stackdriver",
     "contrib.go.opencensus.io/exporter/stackdriver/monitoredresource",
     "contrib.go.opencensus.io/exporter/zipkin",
+    "github.com/blang/semver",
     "github.com/davecgh/go-spew/spew",
     "github.com/evanphx/json-patch",
     "github.com/ghodss/yaml",
@@ -1349,6 +1362,7 @@
     "github.com/google/go-cmp/cmp",
     "github.com/google/go-cmp/cmp/cmpopts",
     "github.com/google/go-github/github",
+    "github.com/google/gofuzz",
     "github.com/google/mako/clients/proto/analyzers/threshold_analyzer_go_proto",
     "github.com/google/mako/go/quickstore",
     "github.com/google/mako/proto/quickstore/quickstore_go_proto",
@@ -1366,7 +1380,6 @@
     "github.com/prometheus/client_golang/api",
     "github.com/prometheus/client_golang/api/prometheus/v1",
     "github.com/prometheus/common/model",
-    "github.com/rogpeppe/go-internal/semver",
     "github.com/spf13/pflag",
     "github.com/tsenart/vegeta/lib",
     "go.opencensus.io/metric/metricdata",
@@ -1393,6 +1406,7 @@
     "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/apps/v1",
     "k8s.io/api/authentication/v1",
+    "k8s.io/api/autoscaling/v1",
     "k8s.io/api/autoscaling/v2beta1",
     "k8s.io/api/batch/v1",
     "k8s.io/api/core/v1",
@@ -1402,11 +1416,14 @@
     "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake",
     "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions",
     "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1beta1",
+    "k8s.io/apimachinery/pkg/api/apitesting/fuzzer",
+    "k8s.io/apimachinery/pkg/api/apitesting/roundtrip",
     "k8s.io/apimachinery/pkg/api/equality",
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/api/meta",
     "k8s.io/apimachinery/pkg/api/resource",
     "k8s.io/apimachinery/pkg/api/validation",
+    "k8s.io/apimachinery/pkg/apis/meta/fuzzer",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
     "k8s.io/apimachinery/pkg/labels",
@@ -1422,6 +1439,7 @@
     "k8s.io/apimachinery/pkg/util/wait",
     "k8s.io/apimachinery/pkg/version",
     "k8s.io/apimachinery/pkg/watch",
+    "k8s.io/client-go/discovery",
     "k8s.io/client-go/dynamic",
     "k8s.io/client-go/dynamic/fake",
     "k8s.io/client-go/informers",
@@ -1449,6 +1467,7 @@
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/metrics",
     "k8s.io/client-go/tools/record",
+    "k8s.io/client-go/util/retry",
     "k8s.io/client-go/util/workqueue",
     "k8s.io/code-generator/cmd/client-gen",
     "k8s.io/code-generator/cmd/client-gen/generators/util",

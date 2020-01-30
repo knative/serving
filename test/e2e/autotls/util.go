@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"knative.dev/pkg/system"
@@ -21,6 +22,7 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
+// CreateRootCAs creates a CertPool from certificate Secret.
 func CreateRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *x509.CertPool {
 	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(ns).Get(
 		secretName, metav1.GetOptions{})
@@ -28,8 +30,11 @@ func CreateRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *
 		t.Fatalf("Failed to get Secret %s: %v", secretName, err)
 	}
 
-	rootCAs, _ := x509.SystemCertPool()
-	if rootCAs == nil {
+	rootCAs, err := x509.SystemCertPool()
+	if rootCAs == nil || err != nil {
+		if err != nil {
+			t.Logf("Failed to load cert poll from system: %v. Will create a new cert pool.", err)
+		}
 		rootCAs = x509.NewCertPool()
 	}
 	if !rootCAs.AppendCertsFromPEM(secret.Data[corev1.TLSCertKey]) {
@@ -38,6 +43,7 @@ func CreateRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *
 	return rootCAs
 }
 
+// CreateHTTPSClient creates a HTTPS clients for a given resource.
 func CreateHTTPSClient(t *testing.T, clients *test.Clients, objects *v1test.ResourceObjects, rootCAs *x509.CertPool) *http.Client {
 	ing, err := clients.NetworkingClient.Ingresses.Get(routenames.Ingress(objects.Route), metav1.GetOptions{})
 	if err != nil {
@@ -54,7 +60,8 @@ func CreateHTTPSClient(t *testing.T, clients *test.Clients, objects *v1test.Reso
 		}}
 }
 
-func DisableNamespaceCert(t *testing.T, clients *test.Clients) {
+// DisableNamespaceCertWithWhiteList disables namespace certs except the whitelisted namespace.
+func DisableNamespaceCertWithWhiteList(t *testing.T, clients *test.Clients, whiteLists sets.String) {
 	namespaces, err := clients.KubeClient.Kube.CoreV1().Namespaces().List(metav1.ListOptions{})
 	if err != nil {
 		t.Fatalf("Failed to list namespaces: %v", err)
@@ -63,13 +70,18 @@ func DisableNamespaceCert(t *testing.T, clients *test.Clients) {
 		if ns.Labels == nil {
 			ns.Labels = map[string]string{}
 		}
-		ns.Labels[networking.DisableWildcardCertLabelKey] = "true"
+		if whiteLists.Has(ns.Name) {
+			delete(ns.Labels, networking.DisableWildcardCertLabelKey)
+		} else {
+			ns.Labels[networking.DisableWildcardCertLabelKey] = "true"
+		}
 		if _, err := clients.KubeClient.Kube.CoreV1().Namespaces().Update(&ns); err != nil {
 			t.Errorf("Fail to disable namespace cert: %v", err)
 		}
 	}
 }
 
+// TurnOnAutoTLS turns on Auto TLS feature.
 func TurnOnAutoTLS(t *testing.T, clients *test.Clients) context.CancelFunc {
 	configNetworkCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get("config-network", metav1.GetOptions{})
 	if err != nil {
@@ -99,6 +111,7 @@ func turnOffAutoTLS(t *testing.T, clients *test.Clients) {
 	}
 }
 
+// WaitForCertificateReady waits for Certificate to become ready.
 func WaitForCertificateReady(t *testing.T, clients *test.Clients, certName string) {
 	if err := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
 		cert, err := clients.NetworkingClient.Certificates.Get(certName, metav1.GetOptions{})
