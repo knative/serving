@@ -28,7 +28,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	vegeta "github.com/tsenart/vegeta/lib"
 	"golang.org/x/sync/errgroup"
 	"knative.dev/pkg/system"
@@ -140,7 +139,7 @@ func generateTraffic(
 			totalRequests++
 			if res.Code != http.StatusOK {
 				ctx.t.Logf("Status = %d, want: 200", res.Code)
-				ctx.t.Log("Response:\n" + spew.Sprint(res))
+				ctx.t.Logf("URL: %s Duration: %v Body:\n%s", res.URL, res.Latency, string(res.Body))
 				continue
 			}
 			successfulRequests++

@@ -32,6 +32,7 @@ KOURIER_VERSION=""
 AMBASSADOR_VERSION=""
 CONTOUR_VERSION=""
 INGRESS_CLASS=""
+CERTIFICATE_CLASS=""
 
 HTTPS=0
 MESH=0
@@ -59,6 +60,7 @@ function parse_flags() {
     --cert-manager-version)
       [[ $2 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || abort "version format must be '[0-9].[0-9].[0-9]'"
       readonly CERT_MANAGER_VERSION=$2
+      readonly CERTIFICATE_CLASS="cert-manager.certificate.networking.internal.knative.dev"
       return 2
       ;;
     --mesh)
@@ -390,6 +392,15 @@ function ingress_class() {
     echo ""
   else
     echo "--ingressClass=${INGRESS_CLASS}"
+  fi
+}
+
+# Check if we should specify --certificateClass
+function certificate_class() {
+  if [[ -z "${CERTIFICATE_CLASS}" ]]; then
+    echo ""
+  else
+    echo "--certificateClass=${CERTIFICATE_CLASS}"
   fi
 }
 

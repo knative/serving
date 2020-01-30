@@ -102,3 +102,8 @@ func updateService(serviceName string, t *testing.T) {
 	}
 	assertServiceResourcesUpdated(t, clients, names, routeURL, test.PizzaPlanetText2)
 }
+
+func TestCreateNewServicePostUpgrade(t *testing.T) {
+	t.Parallel()
+	createNewService(postUpgradeServiceName, t)
+}

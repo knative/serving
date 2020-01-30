@@ -57,10 +57,23 @@ parallelism=""
 
 # Run conformance and e2e tests.
 go_test_e2e -timeout=30m \
-  ./test/conformance/... \
+  $(go list ./test/conformance/... | grep -v certificate) \
   ./test/e2e \
   ${parallelism} \
   "--resolvabledomain=$(use_resolvable_domain)" "$(use_https)" "$(ingress_class)" || failed=1
+
+# Certificate conformance tests must be run separately
+kubectl apply -f ./test/config/autotls/certmanager/selfsigned/
+add_trap "kubectl delete -f ./test/config/autotls/certmanager/selfsigned/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+go_test_e2e -timeout=10m \
+  ./test/conformance/certificate/nonhttp01 "$(certificate_class)" || failed=1
+kubectl delete -f ./test/config/autotls/certmanager/selfsigned/
+
+kubectl apply -f ./test/config/autotls/certmanager/http01/
+add_trap "kubectl delete -f ./test/config/autotls/certmanager/http01/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+go_test_e2e -timeout=10m \
+  ./test/conformance/certificate/http01 "$(certificate_class)" || failed=1
+kubectl delete -f ./test/config/autotls/certmanager/http01/
 
 # Run scale tests.
 go_test_e2e -timeout=10m \
@@ -79,7 +92,6 @@ add_trap "kubectl delete -f ./test/config/autotls/certmanager/http01/ --ignore-n
 setup_http01_env
 go_test_e2e -timeout=10m \
   ./test/e2e/autotls/http01 || failed=1
-kubectl delete -f ./test/config/autotls/certmanager/http01/
 
 # Istio E2E tests mutate the cluster and must be ran separately
 if [[ -n "${ISTIO_VERSION}" ]]; then
