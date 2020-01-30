@@ -603,6 +603,14 @@
   revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
 
 [[projects]]
+  branch = "master"
+  digest = "1:cf68a79fd02ab0f6942b9567d03d054b6568212fcc22de2a4afdefd096923749"
+  name = "github.com/kballard/go-shellquote"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "95032a82bc518f77982ea72343cc1ade730072f0"
+
+[[projects]]
   digest = "1:08c58ac78a8c1f61e9a96350066d30fe194b8779799bd932a79932a5166a173f"
   name = "github.com/kelseyhightower/envconfig"
   packages = ["."]
@@ -1746,7 +1754,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:63e8aa8bc31a14a2bb8c8d9a6124d42f817be063c3cf13ee1659b4128717e6c2"
+  digest = "1:57c9639e7f0008f42ef82872af0ba44440c5748ab9749d75c00a0b90932e62f7"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1769,11 +1777,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "bb5b5155f3b20c9c0294a71733be93e5a1d10e31"
+  revision = "80ba6bd58f54733bb0bb4a0fc7fb3b5d562b3d2d"
 
 [[projects]]
   branch = "master"
-  digest = "1:5acceb9ddfc654a91e633bb00531fc719fcaedda25d621162385ba5c2badc849"
+  digest = "1:120a79e601bf2ec3496b4ce628d06ae32ab34ce198f3c7ab2f791c6e44f7e2d1"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1835,6 +1843,7 @@
     "system",
     "system/testing",
     "test",
+    "test/cmd",
     "test/ghutil",
     "test/gke",
     "test/helpers",
@@ -1874,11 +1883,11 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "2fbb9db15cbb7971ad2b1f4266a437f5dcc33a51"
+  revision = "dd62a102dde95f26991c2797603194e4e7831f48"
 
 [[projects]]
   branch = "master"
-  digest = "1:9cc4d1bfe8b976c101bb9d8571f6427e282533dd93f7c09b4ca7ada15886488e"
+  digest = "1:2d5db378cc378c943cb9177fc2bc7f27c29f7573a49514576c19496d4a72610e"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1891,7 +1900,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "5779f9c9458d0a85f734c0cad43c1510aa00b498"
+  revision = "ee08b33b3cf07d7cae113e0b66cd7bbcc8c6ca43"
 
 [[projects]]
   digest = "1:92b88da51692abe195601cb17d35bbb9b6bc2011237a2f234fedba7411ed8122"
