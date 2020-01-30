@@ -251,7 +251,7 @@ func (rw *revisionWatcher) checkDests(dests sets.String) {
 		// precise load balancing in the throttler.
 		hs, noop, err := rw.probePodIPs(dests)
 		if err != nil {
-			rw.logger.Errorw("Failed probing", zap.Error(err))
+			rw.logger.With(zap.Error(err)).Warnf("Failed probing: %+v", dests)
 			// We dont want to return here as an error still affects health states.
 		}
 

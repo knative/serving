@@ -110,11 +110,11 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 					},
 				}),
 				v1alpha1testing.WithRevisionTimeoutSeconds(10))
-
 			if err != nil {
 				t.Errorf("CreateLatestService() = %v", err)
 				return fmt.Errorf("CreateLatestService() failed: %w", err)
 			}
+
 			// Record the time it took to create the service.
 			latencies.Add("time-to-create", start)
 			names.Route = serviceresourcenames.Route(svc)
@@ -135,6 +135,7 @@ func ScaleToWithin(t *testing.T, scale int, duration time.Duration, latencies La
 				url = s.Status.URL.URL()
 				return v1a1test.IsServiceReady(s)
 			}, "ServiceUpdatedWithURL")
+
 			if err != nil {
 				t.Errorf("WaitForServiceState(w/ Domain) = %v", err)
 				return fmt.Errorf("WaitForServiceState(w/ Domain) failed: %w", err)

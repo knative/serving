@@ -366,10 +366,6 @@ metadata:
 data:
   profiling.enable: "true"
 EOF
-
-  echo ">> Patching activator HPA"
-  # We set min replicas to 2 for testing multiple activator pods.
-  kubectl -n knative-serving patch hpa activator --patch '{"spec":{"minReplicas":2}}' || return 1
 }
 
 # Check if we should use --resolvabledomain.  In case the ingress only has
