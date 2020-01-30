@@ -20,10 +20,11 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
-	"reflect"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,14 +40,19 @@ import (
 // CreateCertificate creates a Certificate with the given DNS names
 func CreateCertificate(t *testing.T, clients *test.Clients, dnsNames []string) (*v1alpha1.Certificate, context.CancelFunc) {
 	t.Helper()
+
 	name := test.ObjectNameForTest(t)
+	certClass, err := getCertClass(clients)
+	if err != nil {
+		t.Fatalf("failed to get config-network ConfigMap: %v", err)
+	}
 
 	cert := &v1alpha1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: test.ServingNamespace,
 			Annotations: map[string]string{
-				networking.CertificateClassAnnotationKey: getCertClass(t, clients),
+				networking.CertificateClassAnnotationKey: certClass,
 			},
 		},
 		Spec: v1alpha1.CertificateSpec{
@@ -55,27 +61,19 @@ func CreateCertificate(t *testing.T, clients *test.Clients, dnsNames []string) (
 		},
 	}
 
-	test.CleanupOnInterrupt(func() {
+	cleanup := func() {
 		clients.NetworkingClient.Certificates.Delete(cert.Name, &metav1.DeleteOptions{})
 		clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(cert.Spec.SecretName, &metav1.DeleteOptions{})
-	})
-	cert, err := clients.NetworkingClient.Certificates.Create(cert)
+	}
+
+	test.CleanupOnInterrupt(cleanup)
+
+	cert, err = clients.NetworkingClient.Certificates.Create(cert)
 	if err != nil {
-		t.Fatalf("Error creating Certificate: %v", err)
+		t.Fatalf("error creating Certificate: %v", err)
 	}
 
-	return cert, func() {
-		err := clients.NetworkingClient.Certificates.Delete(cert.Name, &metav1.DeleteOptions{})
-		if err != nil {
-			t.Errorf("Error cleaning up Certificate %s: %v", cert.Name, err)
-		}
-		secretName := cert.Spec.SecretName
-		err = clients.KubeClient.Kube.CoreV1().Secrets(test.ServingNamespace).Delete(secretName, &metav1.DeleteOptions{})
-		if err != nil {
-			t.Errorf("Error cleaning up Secret %s for Certificate %s: %v", secretName, cert.Name, err)
-		}
-
-	}
+	return cert, cleanup
 }
 
 // WaitForCertificateSecret polls the status of the Secret for the provided Certificate
@@ -90,23 +88,21 @@ func WaitForCertificateSecret(client *test.Clients, cert *v1alpha1.Certificate, 
 		if apierrs.IsNotFound(err) {
 			return false, nil
 		} else if err != nil {
-			return true, err
+			return true, fmt.Errorf("failed to get secret: %w", err)
 		}
 
 		block, _ := pem.Decode(secret.Data[corev1.TLSCertKey])
 		if block == nil {
-			return true, fmt.Errorf("Failed to decode PEM data")
+			return true, errors.New("failed to decode PEM data")
 		}
 
 		certData, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
-			return true, fmt.Errorf("Failed to parse certificate: %w", err)
+			return true, fmt.Errorf("failed to parse certificate: %w", err)
 		}
 
-		got := certData.DNSNames
-		want := cert.Spec.DNSNames
-		if !reflect.DeepEqual(want, got) {
-			return true, fmt.Errorf("Incorrect DNSNames in secret. Want %v, got %v", want, got)
+		if got, want := certData.DNSNames, cert.Spec.DNSNames; !cmp.Equal(got, want) {
+			return true, fmt.Errorf("incorrect DNSNames in secret. Got %v, want %v", got, want)
 		}
 
 		return true, nil
@@ -142,13 +138,12 @@ func WaitForCertificateState(client *test.NetworkingClients, name string, inStat
 	return nil
 }
 
-func getCertClass(t *testing.T, client *test.Clients) string {
+func getCertClass(client *test.Clients) (string, error) {
 	configNetworkCM, err := client.KubeClient.Kube.CoreV1().ConfigMaps(system.Namespace()).Get("config-network", metav1.GetOptions{})
 	if err != nil {
-		t.Errorf("Failed to get config-network ConfigMap: %v", err)
-		return ""
+		return "", err
 	}
-	return configNetworkCM.Data["certificate.class"]
+	return configNetworkCM.Data["certificate.class"], nil
 }
 
 // VerifyChallenges verifies that the given certificate has the correct number
@@ -168,7 +163,7 @@ func VerifyChallenges(t *testing.T, client *test.Clients, cert *v1alpha1.Certifi
 		}
 		_, err := client.KubeClient.Kube.CoreV1().Services(challenge.ServiceNamespace).Get(challenge.ServiceName, metav1.GetOptions{})
 		if apierrs.IsNotFound(err) {
-			t.Errorf("Failed to find solver service for challenge: %w", err)
+			t.Errorf("failed to find solver service for challenge: %v", err)
 		}
 	}
 
