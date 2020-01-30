@@ -210,7 +210,11 @@ func preferPodForScaledown(logger *zap.SugaredLogger, downwardAPILabelsPath stri
 
 	content, err := ioutil.ReadFile(downwardAPILabelsPath)
 	if err != nil {
-		logger.Errorf("Failed reading the labels file %v", err)
+		logger.Warnf("Failed reading the labels file %v", err)
+		return false
+	}
+
+	if string(content) == "" {
 		return false
 	}
 
@@ -246,10 +250,10 @@ func knativeProbeHandler(healthState *health.State, prober func() bool, isAggres
 		}
 
 		if preferPodForScaledown(logger, env.DownwardAPILabelsPath) {
-			//deliberately failing the readiness probe when pod is labelled for scale down
+			//Deliberately failing the readiness probe when pod is labelled for scale down
 			http.Error(w, failingHealthcheck, http.StatusBadRequest)
 			probeSpan.Annotate([]trace.Attribute{
-				trace.StringAttribute("queueproxy.probe.error", "failing health check")}, "error")
+				trace.StringAttribute("queueproxy.probe.error", "intentionally failing health check")}, "error")
 			return
 		}
 
