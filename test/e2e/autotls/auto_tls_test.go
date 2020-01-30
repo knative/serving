@@ -49,9 +49,7 @@ import (
 	"google.golang.org/api/dns/v1"
 )
 
-const (
-	dnsRecordDeadline = 600 // 10 min
-)
+const dnsRecordDeadline = 600 // 10 min
 
 type dnsRecord struct {
 	ip     string
