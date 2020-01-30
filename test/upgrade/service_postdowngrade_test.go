@@ -70,3 +70,8 @@ func TestRunLatestServicePostDowngrade(t *testing.T) {
 	}
 	assertServiceResourcesUpdated(t, clients, names, url.URL(), "What a spaceport!")
 }
+
+func TestCreateNewServicePostDowngrade(t *testing.T) {
+	t.Parallel()
+	createNewService(postDowngradeServiceName, t)
+}
