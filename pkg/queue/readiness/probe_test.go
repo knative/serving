@@ -51,7 +51,7 @@ func TestNewProbe(t *testing.T) {
 		t.Errorf("NewProbe (-want, +got) = %v", diff)
 	}
 
-	if c := p.Count(); c != 0 {
+	if c := p.count; c != 0 {
 		t.Errorf("Expected Probe.Count == 0, got: %d", c)
 	}
 }
@@ -424,6 +424,7 @@ func TestKnHTTPTimeoutFailure(t *testing.T) {
 			},
 		},
 	})
+	pb.pollTimeout = time.Second
 
 	if pb.ProbeContainer() {
 		t.Error("Probe succeeded. Expected failure due to timeout.")
@@ -482,6 +483,7 @@ func TestKnTCPProbeFailure(t *testing.T) {
 			},
 		},
 	})
+	pb.pollTimeout = time.Second
 
 	if pb.ProbeContainer() {
 		t.Error("Got probe success. Wanted failure.")
@@ -513,8 +515,8 @@ func TestKnTCPProbeSuccessWithThreshold(t *testing.T) {
 		t.Error("Got probe error. Wanted success.")
 	}
 
-	if pb.Count() < 3 {
-		t.Errorf("Expected count to be 3, go %d", pb.Count())
+	if got := pb.count; got < 3 {
+		t.Errorf("Count = %d, want: 3", got)
 	}
 }
 
@@ -540,7 +542,7 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 	})
 
 	connCount := 0
-	desiredConnCount := 4 // 1 conn from 1st server, 3 from 2nd server
+	const desiredConnCount = 4 // 1 conn from 1st server, 3 from 2nd server
 
 	errChan := make(chan bool, 1)
 	go func() {
@@ -577,7 +579,7 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 	if probeErr := <-errChan; !probeErr {
 		t.Error("Wanted ProbeContainer() successed but got error")
 	}
-	if pb.Count() < successThreshold {
-		t.Errorf("Expected count to be %d but got %d", successThreshold, pb.Count())
+	if got := pb.count; got < successThreshold {
+		t.Errorf("Count = %d, want: %d", got, successThreshold)
 	}
 }

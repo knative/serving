@@ -37,13 +37,15 @@ const (
 // Probe wraps a corev1.Probe along with a count of consecutive, successful probes
 type Probe struct {
 	*corev1.Probe
-	count int32
+	count       int32
+	pollTimeout time.Duration // To make tests not run for 10 seconds.
 }
 
 // NewProbe returns a pointer a new Probe
 func NewProbe(v1p *corev1.Probe) *Probe {
 	return &Probe{
-		Probe: v1p,
+		Probe:       v1p,
+		pollTimeout: PollTimeout,
 	}
 }
 
@@ -83,9 +85,9 @@ func (p *Probe) ProbeContainer() bool {
 
 func (p *Probe) doProbe(probe func(time.Duration) error) error {
 	if p.IsAggressive() {
-		return wait.PollImmediate(retryInterval, PollTimeout, func() (bool, error) {
-			if tcpErr := probe(aggressiveProbeTimeout); tcpErr != nil {
-				fmt.Fprintln(os.Stderr, "aggressive probe error: ", tcpErr)
+		return wait.PollImmediate(retryInterval, p.pollTimeout, func() (bool, error) {
+			if err := probe(aggressiveProbeTimeout); err != nil {
+				fmt.Fprintln(os.Stderr, "aggressive probe error: ", err)
 				// Reset count of consecutive successes to zero.
 				p.count = 0
 				return false, nil
@@ -95,7 +97,7 @@ func (p *Probe) doProbe(probe func(time.Duration) error) error {
 
 			// Return success if count of consecutive successes is equal to or greater
 			// than the probe's SuccessThreshold.
-			return p.Count() >= p.SuccessThreshold, nil
+			return p.count >= p.SuccessThreshold, nil
 		})
 	}
 
@@ -128,9 +130,4 @@ func (p *Probe) httpProbe() error {
 		config.Timeout = to
 		return health.HTTPProbe(config)
 	})
-}
-
-// Count function fetches current probe count
-func (p *Probe) Count() int32 {
-	return p.count
 }
