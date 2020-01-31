@@ -20,7 +20,7 @@
 # with the job config.
 E2E_MIN_CLUSTER_NODES=${E2E_MIN_CLUSTER_NODES:-4}
 E2E_MAX_CLUSTER_NODES=${E2E_MAX_CLUSTER_NODES:-4}
-E2E_CLUSTER_MACHINE=${E2E_CLUSTER_MACHINE:-n1-standard-8}
+E2E_CLUSTER_MACHINE=${E2E_CLUSTER_MACHINE:-e2-standard-8}
 
 # This script provides helper methods to perform cluster actions.
 source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/e2e-tests.sh
