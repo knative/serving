@@ -31,7 +31,7 @@ import (
 const (
 	DefaultGKEMinNodes  = 1
 	DefaultGKEMaxNodes  = 3
-	DefaultGKENodeType  = "n1-standard-4"
+	DefaultGKENodeType  = "e2-standard-4"
 	DefaultGKERegion    = "us-central1"
 	DefaultGKEZone      = ""
 	regionEnv           = "E2E_CLUSTER_REGION"

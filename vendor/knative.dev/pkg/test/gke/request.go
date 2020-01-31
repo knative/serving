@@ -46,7 +46,7 @@ type Request struct {
 	// MaxNodes: the maximum number of nodes of the cluster
 	MaxNodes int64
 
-	// NodeType: node type of the cluster, e.g. n1-standard-4, n1-standard-8
+	// NodeType: node type of the cluster, e.g. e2-standard-4, e2-standard-8
 	NodeType string
 
 	// Region: region of the cluster, e.g. us-west1, us-central1
