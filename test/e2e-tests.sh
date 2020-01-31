@@ -38,7 +38,7 @@ function setup_http01_env() {
   export CLOUD_DNS_PROJECT="knative-e2e-dns"
   export SET_UP_DNS="true"
   export CLOUD_DNS_SERVICE_ACCOUNT_KEY_FILE="/etc/test-account/service-account.json"
-  export AUTO_TLS_DOMAIN="${PROJECT_ID}.kn-e2e.dev"
+  export AUTO_TLS_DOMAIN="${E2E_PROJECT_ID}.kn-e2e.dev"
 }
 
 # Script entry point.
