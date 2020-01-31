@@ -203,22 +203,23 @@ func proxyHandler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, tracingEn
 }
 
 func preferPodForScaledown(logger *zap.SugaredLogger, downwardAPILabelsPath string) bool {
-	// short circuit a rejection when no label path is set
-	if downwardAPILabelsPath == "" {
+	// Short circuit a rejection when no label path file is mounted
+	if _, err := os.Stat(downwardAPILabelsPath); os.IsNotExist(err) {
 		return false
 	}
 
-	content, err := ioutil.ReadFile(downwardAPILabelsPath)
+	contentBytes, err := ioutil.ReadFile(downwardAPILabelsPath)
 	if err != nil {
 		logger.Warnf("Failed reading the labels file %v", err)
 		return false
 	}
 
-	if string(content) == "" {
+	content := string(contentBytes)
+	if content == "" {
 		return false
 	}
 
-	scaleDown, err := strconv.ParseBool(string(content))
+	scaleDown, err := strconv.ParseBool(content)
 	if err != nil {
 		logger.Errorf("Failed parsing the label value %v", err)
 		return false
