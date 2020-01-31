@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -157,7 +158,7 @@ func TestHTTPScrapeClient_Scrape_ErrorCases(t *testing.T) {
 		name:         "Error got when sending request",
 		responseCode: http.StatusOK,
 		responseErr:  errors.New("upstream closed"),
-		expectedErr:  fmt.Sprintf("Get %s: upstream closed", testURL),
+		expectedErr:  "upstream closed",
 	}, {
 		name:            "Bad response context format",
 		responseCode:    http.StatusOK,
@@ -193,8 +194,8 @@ func TestHTTPScrapeClient_Scrape_ErrorCases(t *testing.T) {
 				t.Errorf("newHTTPScrapeClient=%v, want no error", err)
 			}
 			if _, err := sClient.Scrape(testURL); err != nil {
-				if err.Error() != test.expectedErr {
-					t.Errorf("Got error message: %q, want: %q", err.Error(), test.expectedErr)
+				if !strings.Contains(err.Error(), test.expectedErr) {
+					t.Errorf("Got error message: %q, want to contain: %q", err.Error(), test.expectedErr)
 				}
 			} else {
 				t.Errorf("Expected error from newServiceScraperWithClient, got nil")
