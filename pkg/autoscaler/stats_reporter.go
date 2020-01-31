@@ -18,6 +18,7 @@ package autoscaler
 
 import (
 	"context"
+
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/serving/pkg/metrics"
@@ -234,63 +235,59 @@ func NewStatsReporter(ns, service, config, revision string) (*Reporter, error) {
 
 // ReportDesiredPodCount captures value v for desired pod count measure.
 func (r *Reporter) ReportDesiredPodCount(v int64) {
-	r.report(desiredPodCountM.M(v))
+	pkgmetrics.Record(r.ctx, desiredPodCountM.M(v))
 }
 
 // ReportRequestedPodCount captures value v for requested pod count measure.
 func (r *Reporter) ReportRequestedPodCount(v int64) {
-	r.report(requestedPodCountM.M(v))
+	pkgmetrics.Record(r.ctx, requestedPodCountM.M(v))
 }
 
 // ReportActualPodCount captures values for ready, not ready, terminating, and pending pod count measure.
 func (r *Reporter) ReportActualPodCount(ready, notReady, terminating, pending int64) {
-	r.report(actualPodCountM.M(ready))
-	r.report(notReadyPodCountM.M(notReady))
-	r.report(terminatingPodCountM.M(terminating))
-	r.report(pendingPodCountM.M(pending))
+	pkgmetrics.Record(r.ctx, actualPodCountM.M(ready))
+	pkgmetrics.Record(r.ctx, notReadyPodCountM.M(notReady))
+	pkgmetrics.Record(r.ctx, terminatingPodCountM.M(terminating))
+	pkgmetrics.Record(r.ctx, pendingPodCountM.M(pending))
 }
 
 // ReportExcessBurstCapacity captures value v for excess target burst capacity.
 func (r *Reporter) ReportExcessBurstCapacity(v float64) {
-	r.report(excessBurstCapacityM.M(v))
+	pkgmetrics.Record(r.ctx, excessBurstCapacityM.M(v))
 }
 
 // ReportStableRequestConcurrency captures value v for stable request concurrency measure.
 func (r *Reporter) ReportStableRequestConcurrency(v float64) {
-	r.report(stableRequestConcurrencyM.M(v))
+	pkgmetrics.Record(r.ctx, stableRequestConcurrencyM.M(v))
 }
 
 // ReportPanicRequestConcurrency captures value v for panic request concurrency measure.
 func (r *Reporter) ReportPanicRequestConcurrency(v float64) {
-	r.report(panicRequestConcurrencyM.M(v))
+	pkgmetrics.Record(r.ctx, panicRequestConcurrencyM.M(v))
 }
 
 // ReportTargetRequestConcurrency captures value v for target request concurrency measure.
 func (r *Reporter) ReportTargetRequestConcurrency(v float64) {
-	r.report(targetRequestConcurrencyM.M(v))
+	pkgmetrics.Record(r.ctx, targetRequestConcurrencyM.M(v))
 }
 
 // ReportStableRPS captures value v for stable RPS measure.
 func (r *Reporter) ReportStableRPS(v float64) {
-	r.report(stableRPSM.M(v))
+	pkgmetrics.Record(r.ctx, stableRPSM.M(v))
 }
 
 // ReportPanicRPS captures value v for panic RPS measure.
 func (r *Reporter) ReportPanicRPS(v float64) {
-	r.report(panicRPSM.M(v))
+	pkgmetrics.Record(r.ctx, panicRPSM.M(v))
 }
 
 // ReportTargetRPS captures value v for target requests-per-second measure.
 func (r *Reporter) ReportTargetRPS(v float64) {
-	r.report(targetRPSM.M(v))
+	pkgmetrics.Record(r.ctx, targetRPSM.M(v))
 
 }
 
 // ReportPanic captures value v for panic mode measure.
 func (r *Reporter) ReportPanic(v int64) {
-	r.report(panicM.M(v))
-}
-
-func (r *Reporter) report(m stats.Measurement) {
-	pkgmetrics.Record(r.ctx, m)
+	pkgmetrics.Record(r.ctx, panicM.M(v))
 }
