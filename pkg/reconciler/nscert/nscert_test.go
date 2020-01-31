@@ -171,7 +171,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo",
 	}, {
-		Name:                    "create Knative certificate for namespace with explicitily enabled",
+		Name:                    "create Knative certificate for namespace with explicitly enabled",
 		SkipNamespaceValidation: true,
 		Objects: []runtime.Object{
 			kubeNamespaceWithDisableLabelValue("foo", "false"),
