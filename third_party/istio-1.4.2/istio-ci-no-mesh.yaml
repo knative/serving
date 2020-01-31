@@ -379,10 +379,10 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: istio-ingressgateway-service-account
+  name: cluster-local-gateway-service-account
   namespace: istio-system
   labels:
-    app: istio-ingressgateway
+    app: cluster-local-gateway
     chart: gateways
     heritage: Helm
     release: RELEASE-NAME
@@ -391,10 +391,10 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: cluster-local-gateway-service-account
+  name: istio-ingressgateway-service-account
   namespace: istio-system
   labels:
-    app: cluster-local-gateway
+    app: istio-ingressgateway
     chart: gateways
     heritage: Helm
     release: RELEASE-NAME

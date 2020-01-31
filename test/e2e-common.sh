@@ -35,7 +35,7 @@ INGRESS_CLASS=""
 CERTIFICATE_CLASS=""
 
 HTTPS=0
-MESH=0
+MESH=1
 INSTALL_MONITORING=0
 
 # List of custom YAMLs to install, if specified (space-separated).
@@ -68,7 +68,7 @@ function parse_flags() {
       return 1
       ;;
     --no-mesh)
-      readonly MESH=0
+      readonly MESH=1
       return 1
       ;;
     --https)
