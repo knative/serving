@@ -35,7 +35,7 @@ const (
 	// These default settings will be used for configuring the cluster, if not specified in cluster.yaml.
 	defaultLocation  = "us-central1"
 	defaultNodeCount = 1
-	defaultNodeType  = "n1-standard-4"
+	defaultNodeType  = "e2-standard-4"
 	defaultAddons    = ""
 )
 

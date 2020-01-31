@@ -458,7 +458,7 @@ function start_knative_eventing() {
 # Install the stable release Knative/eventing in the current cluster.
 # Parameters: $1 - Knative Eventing version number, e.g. 0.6.0.
 function start_release_knative_eventing() {
-  start_knative_eventing "https://storage.googleapis.com/knative-releases/eventing/previous/v$1/release.yaml"
+  start_knative_eventing "https://storage.googleapis.com/knative-releases/eventing/previous/v$1/eventing.yaml"
 }
 
 # Install the latest stable Knative Eventing in the current cluster.

@@ -12,7 +12,7 @@ This tool can be invoked from command line with following parameters:
 
 - `--min-nodes`: minumum number of nodes, default 1
 - `--max-nodes`: maximum number of nodes, default 3
-- `--node-type`: GCE node type, default "n1-standard-4"
+- `--node-type`: GCE node type, default "e2-standard-4"
 - `--region`: GKE region, default "us-central1"
 - `--zone`: GKE zone, default empty
 - `--project`: GCP project, default empty
