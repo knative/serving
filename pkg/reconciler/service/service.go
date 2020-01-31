@@ -314,7 +314,7 @@ func configSemanticEquals(ctx context.Context, desiredConfig, config *v1alpha1.C
 	logger := logging.FromContext(ctx)
 	specDiff, err := kmp.SafeDiff(desiredConfig.Spec, config.Spec)
 	if err != nil {
-		logger.Error("Error diffing config spec", zap.Error(err))
+		logger.Errorw("Error diffing config spec", zap.Error(err))
 		return false, fmt.Errorf("failed to diff Configuration: %w", err)
 	}
 	logger.Infof("Reconciling configuration diff (-desired, +observed): %s", specDiff)
