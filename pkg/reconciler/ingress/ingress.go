@@ -35,7 +35,6 @@ import (
 	"go.uber.org/zap"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/network/status"
 	"knative.dev/serving/pkg/reconciler"
@@ -270,10 +269,9 @@ func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ing *v1alpha1
 	}
 
 	// Now, remove the extra ones.
-	vses, err := r.virtualServiceLister.VirtualServices(resources.VirtualServiceNamespace(ing)).List(
+	vses, err := r.virtualServiceLister.VirtualServices(ing.GetNamespace()).List(
 		labels.Set(map[string]string{
-			networking.IngressLabelKey:     ing.GetName(),
-			serving.RouteNamespaceLabelKey: ing.GetLabels()[serving.RouteNamespaceLabelKey]}).AsSelector())
+			networking.IngressLabelKey: ing.GetName()}).AsSelector())
 	if err != nil {
 		return fmt.Errorf("failed to get VirtualServices: %w", err)
 	}
