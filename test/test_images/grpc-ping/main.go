@@ -19,6 +19,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"google.golang.org/grpc"
@@ -28,24 +29,20 @@ import (
 	ping "knative.dev/serving/test/test_images/grpc-ping/proto"
 )
 
+var delay int64
+
 func pong(req *ping.Request) *ping.Response {
 	return &ping.Response{Msg: req.Msg + os.Getenv("SUFFIX")}
-}
-
-func pongHostname(req *ping.Request) *ping.Response {
-	host, err := os.Hostname()
-	if err != nil {
-		log.Println("os.Hostname() returning an error:", err)
-	}
-	return &ping.Response{Msg: req.Msg + host}
 }
 
 type server struct{}
 
 func (s *server) Ping(ctx context.Context, req *ping.Request) (*ping.Response, error) {
 	log.Printf("Received ping: %v", req.Msg)
-	time.Sleep(1 * time.Second)
-	resp := pongHostname(req)
+
+	time.Sleep(time.Duration(delay) * time.Second)
+
+	resp := pong(req)
 
 	log.Printf("Sending pong: %v", resp.Msg)
 	return resp, nil
@@ -89,6 +86,9 @@ func httpWrapper(g *grpc.Server) http.Handler {
 
 func main() {
 	log.Printf("Starting server on %s", os.Getenv("PORT"))
+
+	delay, _ = strconv.ParseInt(os.Getenv("DELAY"), 10, 64)
+	log.Printf("Using DELAY of %d s", delay)
 
 	g := grpc.NewServer()
 	s := network.NewServer(":"+os.Getenv("PORT"), httpWrapper(g))

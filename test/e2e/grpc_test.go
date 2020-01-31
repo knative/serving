@@ -25,12 +25,12 @@ import (
 	"math"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	corev1 "k8s.io/api/core/v1"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
@@ -112,22 +112,20 @@ func autoscaleTest(t *testing.T, resources *v1a1test.ResourceObjects, clients *t
 		names:             names,
 		targetUtilization: targetUtilization,
 	}
-	assertGRPCAutoscaleUpToNumPods(ctx, 1, 3, 60*time.Second, host, domain)
+	assertGRPCAutoscaleUpToNumPods(ctx, 1, 2, 60*time.Second, host, domain)
 	assertScaleDown(ctx)
-	assertGRPCAutoscaleUpToNumPods(ctx, 0, 3, 60*time.Second, host, domain)
+	assertGRPCAutoscaleUpToNumPods(ctx, 0, 2, 60*time.Second, host, domain)
 }
 
-func generateGRPCTraffic(t *testing.T, targetConcurrency int, host, domain string) (sync.Map, error) {
-	t.Helper()
+func generateGRPCTraffic(targetConcurrency int, host, domain string) error {
 	var grp errgroup.Group
-	uniqueHost := sync.Map{}
 
 	for i := 0; i < targetConcurrency; i++ {
 		i := i
 		grp.Go(func() error {
 			conn, err := dial(host, domain)
 			if err != nil {
-				t.Fatalf("fail to dial: %v", err)
+				return err
 			}
 			defer conn.Close()
 
@@ -139,20 +137,17 @@ func generateGRPCTraffic(t *testing.T, targetConcurrency int, host, domain strin
 				return fmt.Errorf("Could not send request: %v", err)
 			}
 
-			if !strings.HasPrefix(got.Msg, want.Msg) {
-				return fmt.Errorf("Response = %q, want prefix = %q", got.Msg, want.Msg)
+			if got.Msg != want.Msg {
+				return fmt.Errorf("Response = %q, want = %q", got.Msg, want.Msg)
 			}
-
-			host := strings.TrimPrefix(got.Msg, want.Msg)
-			uniqueHost.Store(host, struct{}{})
 			return nil
 		})
 	}
 
 	if err := grp.Wait(); err != nil {
-		return uniqueHost, err
+		return fmt.Errorf("Error processing requests %v", err)
 	}
-	return uniqueHost, nil
+	return nil
 }
 
 func assertGRPCAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float64, duration time.Duration, host, domain string) {
@@ -169,22 +164,7 @@ func assertGRPCAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float6
 	var grp errgroup.Group
 
 	grp.Go(func() error {
-		uniqueHost, err := generateGRPCTraffic(ctx.t, 50, host, domain)
-		if err != nil {
-			return err
-		}
-		knownHosts := make(map[interface{}]interface{})
-
-		uniqueHost.Range(func(k, v interface{}) bool {
-			knownHosts[k] = v
-			return true
-		})
-		// This assertion checks whether responses are coming from multiple hosts
-		// https://github.com/knative/serving/issues/6681
-		// if len(knownHosts) <= 1 {
-		// 		return fmt.Errorf("Expected at least 2 different hosts but got %#v", knownHosts)
-		// }
-		return nil
+		return generateGRPCTraffic(5, host, domain)
 	})
 
 	grp.Go(func() error {
@@ -343,8 +323,13 @@ func TestGRPCAutoscaleUpDownUp(t *testing.T) {
 		},
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetUtilizationPercentageKey: strconv.FormatFloat(targetUtilization*100, 'f', -1, 64),
-			autoscaling.TargetAnnotationKey:            strconv.FormatFloat(containerConcurrency, 'f', -1, 64),
-			autoscaling.WindowAnnotationKey:            "20s",
+			autoscaling.TargetAnnotationKey:            strconv.FormatFloat(1, 'f', -1, 64),
+			autoscaling.TargetBurstCapacityKey:         strconv.FormatFloat(-1, 'f', -1, 64),
+			autoscaling.WindowAnnotationKey:            "10s",
+		}),
+		rtesting.WithEnv(corev1.EnvVar{
+			Name:  "DELAY",
+			Value: "5",
 		}),
 	)
 }
