@@ -486,7 +486,12 @@ func (c *Reconciler) getServiceNames(ctx context.Context, route *v1alpha1.Route)
 	if err != nil {
 		return nil, err
 	}
-	if labels.IsObjectLocalVisibility(route.ObjectMeta) {
+
+	host, err := domains.DomainNameFromTemplate(ctx, route.ObjectMeta, route.Name)
+	if err != nil {
+		return nil, err
+	}
+	if labels.IsObjectLocalVisibility(route.ObjectMeta) || domains.IsClusterLocal(host) {
 		return &serviceNames{
 			existingPublicServiceNames:       existingPublicServiceNames,
 			existingClusterLocalServiceNames: existingClusterLocalServiceNames,

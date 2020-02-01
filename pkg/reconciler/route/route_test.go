@@ -827,11 +827,14 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 	expectations := []struct {
 		apply                func()
 		expectedDomainSuffix string
+		expectedVisibility   netv1alpha1.IngressVisibility
 	}{{
 		expectedDomainSuffix: prodDomainSuffix,
 		apply:                func() {},
+		expectedVisibility:   netv1alpha1.IngressVisibilityExternalIP,
 	}, {
 		expectedDomainSuffix: "mytestdomain.com",
+		expectedVisibility:   netv1alpha1.IngressVisibilityExternalIP,
 		apply: func() {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -847,6 +850,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 		},
 	}, {
 		expectedDomainSuffix: "newdefault.net",
+		expectedVisibility:   netv1alpha1.IngressVisibilityExternalIP,
 		apply: func() {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -862,9 +866,27 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			route.Labels = make(map[string]string)
 		},
 	}, {
+		expectedDomainSuffix: "svc.cluster.local",
+		expectedVisibility:   netv1alpha1.IngressVisibilityClusterLocal,
+		apply: func() {
+			domainConfig := corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      config.DomainConfigName,
+					Namespace: system.Namespace(),
+				},
+				Data: map[string]string{
+					defaultDomainSuffix: "",
+					"svc.cluster.local": "selector:\n  app: prod",
+				},
+			}
+			watcher.OnChange(&domainConfig)
+			route.Labels = map[string]string{"app": "prod"}
+		},
+	}, {
 		// When no domain with an open selector is specified, we fallback
 		// on the default of example.com.
 		expectedDomainSuffix: config.DefaultDomain,
+		expectedVisibility:   netv1alpha1.IngressVisibilityExternalIP,
 		apply: func() {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -892,6 +914,10 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, expectation.expectedDomainSuffix)
 			if route.Status.URL.Host != expectedDomain {
 				t.Errorf("Expected domain %q but saw %q", expectedDomain, route.Status.URL.Host)
+			}
+			ci := getRouteIngressFromClient(ctx, t, route)
+			if ci.Spec.Visibility != expectation.expectedVisibility {
+				t.Errorf("Expected visibility %q but saw %q", expectation.expectedVisibility, ci.Spec.Visibility)
 			}
 		})
 	}
