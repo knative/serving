@@ -40,7 +40,7 @@ type server struct{}
 func (s *server) Ping(ctx context.Context, req *ping.Request) (*ping.Response, error) {
 	log.Printf("Received ping: %v", req.Msg)
 
-	time.Sleep(time.Duration(delay) * time.Second)
+	time.Sleep(time.Duration(delay) * time.Millisecond)
 
 	resp := pong(req)
 
@@ -88,7 +88,7 @@ func main() {
 	log.Printf("Starting server on %s", os.Getenv("PORT"))
 
 	delay, _ = strconv.ParseInt(os.Getenv("DELAY"), 10, 64)
-	log.Printf("Using DELAY of %d s", delay)
+	log.Printf("Using DELAY of %d ms", delay)
 
 	g := grpc.NewServer()
 	s := network.NewServer(":"+os.Getenv("PORT"), httpWrapper(g))

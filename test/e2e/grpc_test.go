@@ -41,6 +41,10 @@ import (
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
+const (
+	grpcContainerConcurrency = 1.0
+)
+
 type grpcTest func(*testing.T, *v1a1test.ResourceObjects, *test.Clients, test.ResourceNames, string, string)
 
 // hasPort checks if a URL contains a port number
@@ -81,24 +85,8 @@ func dial(host, domain string) (*grpc.ClientConn, error) {
 func unaryTest(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
 	t.Helper()
 	t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
-	conn, err := dial(host, domain)
-	if err != nil {
-		t.Fatalf("fail to dial: %v", err)
-	}
-	defer conn.Close()
-
-	pc := ping.NewPingServiceClient(conn)
-	t.Log("Testing unary Ping")
-
-	want := &ping.Request{Msg: "Hello!"}
-
-	got, err := pc.Ping(context.Background(), want)
-	if err != nil {
-		t.Fatalf("Couldn't send request: %v", err)
-	}
-	if !strings.HasPrefix(got.Msg, want.Msg) {
-		t.Errorf("Response = %q, want = %q", got.Msg, want.Msg)
-	}
+	msg := "Hello!"
+	pingGRPC(host, domain, msg)
 }
 
 func autoscaleTest(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
@@ -117,35 +105,49 @@ func autoscaleTest(t *testing.T, resources *v1a1test.ResourceObjects, clients *t
 	assertGRPCAutoscaleUpToNumPods(ctx, 0, 2, 60*time.Second, host, domain)
 }
 
-func generateGRPCTraffic(targetConcurrency int, host, domain string) error {
+func generateGRPCTraffic(concurrentRequests int, host, domain string, stopChan chan struct{}) error {
 	var grp errgroup.Group
 
-	for i := 0; i < targetConcurrency; i++ {
+	for i := 0; i < concurrentRequests; i++ {
 		i := i
 		grp.Go(func() error {
-			conn, err := dial(host, domain)
-			if err != nil {
-				return err
-			}
-			defer conn.Close()
-
-			pc := ping.NewPingServiceClient(conn)
-			want := &ping.Request{Msg: fmt.Sprintf("Hello! :%d", i)}
-
-			got, err := pc.Ping(context.Background(), want)
-			if err != nil {
-				return fmt.Errorf("Could not send request: %v", err)
-			}
-
-			if got.Msg != want.Msg {
-				return fmt.Errorf("Response = %q, want = %q", got.Msg, want.Msg)
+			for j := 0; ; j++ {
+				select {
+				case <-stopChan:
+					return nil
+				default:
+					msg := fmt.Sprintf("Hello! stream:%d request: %d", i, j)
+					if err := pingGRPC(host, domain, msg); err != nil {
+						return err
+					}
+				}
 			}
 			return nil
 		})
 	}
-
 	if err := grp.Wait(); err != nil {
 		return fmt.Errorf("Error processing requests %v", err)
+	}
+	return nil
+}
+
+func pingGRPC(host, domain, message string) error {
+	conn, err := dial(host, domain)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	pc := ping.NewPingServiceClient(conn)
+	want := &ping.Request{Msg: message}
+
+	got, err := pc.Ping(context.Background(), want)
+	if err != nil {
+		return fmt.Errorf("Could not send request: %v", err)
+	}
+
+	if got.Msg != want.Msg {
+		return fmt.Errorf("Response = %q, want = %q", got.Msg, want.Msg)
 	}
 	return nil
 }
@@ -164,7 +166,7 @@ func assertGRPCAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float6
 	var grp errgroup.Group
 
 	grp.Go(func() error {
-		return generateGRPCTraffic(5, host, domain)
+		return generateGRPCTraffic(int(targetPods*grpcContainerConcurrency), host, domain, stopChan)
 	})
 
 	grp.Go(func() error {
@@ -323,13 +325,13 @@ func TestGRPCAutoscaleUpDownUp(t *testing.T) {
 		},
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetUtilizationPercentageKey: strconv.FormatFloat(targetUtilization*100, 'f', -1, 64),
-			autoscaling.TargetAnnotationKey:            strconv.FormatFloat(1, 'f', -1, 64),
+			autoscaling.TargetAnnotationKey:            strconv.FormatFloat(grpcContainerConcurrency, 'f', -1, 64),
 			autoscaling.TargetBurstCapacityKey:         strconv.FormatFloat(-1, 'f', -1, 64),
 			autoscaling.WindowAnnotationKey:            "10s",
 		}),
 		rtesting.WithEnv(corev1.EnvVar{
 			Name:  "DELAY",
-			Value: "5",
+			Value: "500",
 		}),
 	)
 }
