@@ -190,12 +190,8 @@ type StatsReporter interface {
 	ReportDesiredPodCount(v int64)
 	ReportRequestedPodCount(v int64)
 	ReportActualPodCount(ready, notReady, terminating, pending int64)
-	ReportStableRequestConcurrency(v float64)
-	ReportPanicRequestConcurrency(v float64)
-	ReportTargetRequestConcurrency(v float64)
-	ReportStableRPS(v float64)
-	ReportPanicRPS(v float64)
-	ReportTargetRPS(v float64)
+	ReportRequestConcurrency(stable, panic, target float64)
+	ReportRPS(stable, panic, target float64)
 	ReportExcessBurstCapacity(v float64)
 	ReportPanic(v int64)
 }
@@ -245,10 +241,8 @@ func (r *Reporter) ReportRequestedPodCount(v int64) {
 
 // ReportActualPodCount captures values for ready, not ready, terminating, and pending pod count measure.
 func (r *Reporter) ReportActualPodCount(ready, notReady, terminating, pending int64) {
-	pkgmetrics.Record(r.ctx, actualPodCountM.M(ready))
-	pkgmetrics.Record(r.ctx, notReadyPodCountM.M(notReady))
-	pkgmetrics.Record(r.ctx, terminatingPodCountM.M(terminating))
-	pkgmetrics.Record(r.ctx, pendingPodCountM.M(pending))
+	pkgmetrics.RecordBatch(r.ctx, actualPodCountM.M(ready), notReadyPodCountM.M(notReady),
+		terminatingPodCountM.M(terminating), pendingPodCountM.M(pending))
 }
 
 // ReportExcessBurstCapacity captures value v for excess target burst capacity.
@@ -257,34 +251,15 @@ func (r *Reporter) ReportExcessBurstCapacity(v float64) {
 }
 
 // ReportStableRequestConcurrency captures value v for stable request concurrency measure.
-func (r *Reporter) ReportStableRequestConcurrency(v float64) {
-	pkgmetrics.Record(r.ctx, stableRequestConcurrencyM.M(v))
-}
-
-// ReportPanicRequestConcurrency captures value v for panic request concurrency measure.
-func (r *Reporter) ReportPanicRequestConcurrency(v float64) {
-	pkgmetrics.Record(r.ctx, panicRequestConcurrencyM.M(v))
-}
-
-// ReportTargetRequestConcurrency captures value v for target request concurrency measure.
-func (r *Reporter) ReportTargetRequestConcurrency(v float64) {
-	pkgmetrics.Record(r.ctx, targetRequestConcurrencyM.M(v))
+func (r *Reporter) ReportRequestConcurrency(stable, panic, target float64) {
+	pkgmetrics.RecordBatch(r.ctx, stableRequestConcurrencyM.M(stable),
+		panicRequestConcurrencyM.M(panic), targetRequestConcurrencyM.M(target))
 }
 
 // ReportStableRPS captures value v for stable RPS measure.
-func (r *Reporter) ReportStableRPS(v float64) {
-	pkgmetrics.Record(r.ctx, stableRPSM.M(v))
-}
-
-// ReportPanicRPS captures value v for panic RPS measure.
-func (r *Reporter) ReportPanicRPS(v float64) {
-	pkgmetrics.Record(r.ctx, panicRPSM.M(v))
-}
-
-// ReportTargetRPS captures value v for target requests-per-second measure.
-func (r *Reporter) ReportTargetRPS(v float64) {
-	pkgmetrics.Record(r.ctx, targetRPSM.M(v))
-
+func (r *Reporter) ReportRPS(stable, panic, target float64) {
+	pkgmetrics.RecordBatch(r.ctx, stableRPSM.M(stable), panicRPSM.M(panic),
+		targetRPSM.M(target))
 }
 
 // ReportPanic captures value v for panic mode measure.

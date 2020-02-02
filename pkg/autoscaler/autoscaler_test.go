@@ -320,38 +320,14 @@ func TestAutoscalerUpdateTarget(t *testing.T) {
 
 type mockReporter struct{}
 
-// ReportDesiredPodCount of a mockReporter does nothing.
-func (r *mockReporter) ReportDesiredPodCount(v int64) {}
-
-// ReportRequestedPodCount of a mockReporter does nothing.
-func (r *mockReporter) ReportRequestedPodCount(v int64) {}
-
-// ReportActualPodCount of a mockReporter does nothing.
+func (r *mockReporter) ReportDesiredPodCount(v int64)                                    {}
+func (r *mockReporter) ReportRequestedPodCount(v int64)                                  {}
 func (r *mockReporter) ReportActualPodCount(ready, notReady, terminating, pending int64) {}
-
-// ReportStableRequestConcurrency of a mockReporter does nothing.
-func (r *mockReporter) ReportStableRequestConcurrency(v float64) {}
-
-// ReportPanicRequestConcurrency of a mockReporter does nothing.
-func (r *mockReporter) ReportPanicRequestConcurrency(v float64) {}
-
-// ReportStableRPS of a mockReporter does nothing.
-func (r *mockReporter) ReportStableRPS(v float64) {}
-
-// ReportPanicRPS of a mockReporter does nothing.
-func (r *mockReporter) ReportPanicRPS(v float64) {}
-
-// ReportTargetRPS of a mockReporter does nothing.
-func (r *mockReporter) ReportTargetRPS(v float64) {}
-
-// ReportTargetRequestConcurrency of a mockReporter does nothing.
-func (r *mockReporter) ReportTargetRequestConcurrency(v float64) {}
-
-// ReportPanic of a mockReporter does nothing.
-func (r *mockReporter) ReportPanic(v int64) {}
-
-// ReportExcessBurstCapacity of a mockReporter does nothing.
-func (r *mockReporter) ReportExcessBurstCapacity(v float64) {}
+func (r *mockReporter) ReportRequestConcurrency(s, p, t float64)                         {}
+func (r *mockReporter) ReportRPS(s, p, t float64)                                        {}
+func (r *mockReporter) ReportTargetRequestConcurrency(v float64)                         {}
+func (r *mockReporter) ReportPanic(v int64)                                              {}
+func (r *mockReporter) ReportExcessBurstCapacity(v float64)                              {}
 
 func newTestAutoscaler(t *testing.T, targetValue, targetBurstCapacity float64, metrics MetricClient) *Autoscaler {
 	return newTestAutoscalerWithScalingMetric(t, targetValue, targetBurstCapacity, metrics, "concurrency")
