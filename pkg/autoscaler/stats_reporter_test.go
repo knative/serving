@@ -41,9 +41,11 @@ func TestNewStatsReporterErrors(t *testing.T) {
 
 func TestReporterReport(t *testing.T) {
 	resetMetrics()
-	r := &Reporter{}
 
-	r, _ = NewStatsReporter("testns", "testsvc", "testconfig", "testrev")
+	r, err := NewStatsReporter("testns", "testsvc", "testconfig", "testrev")
+	if err != nil {
+		t.Fatalf("Failed to create a new reporter: %v", err)
+	}
 	wantTags := map[string]string{
 		metricskey.LabelNamespaceName:     "testns",
 		metricskey.LabelServiceName:       "testsvc",
@@ -117,7 +119,10 @@ func TestReporterReport(t *testing.T) {
 func TestReporterEmptyServiceName(t *testing.T) {
 	resetMetrics()
 	// Metrics reported to an empty service name will be recorded with service "unknown" (metricskey.ValueUnknown).
-	r, _ := NewStatsReporter("testns", "" /*service=*/, "testconfig", "testrev")
+	r, err := NewStatsReporter("testns", "" /*service=*/, "testconfig", "testrev")
+	if err != nil {
+		t.Fatalf("Failed to create a new reporter: %v", err)
+	}
 	wantTags := map[string]string{
 		metricskey.LabelNamespaceName:     "testns",
 		metricskey.LabelServiceName:       metricskey.ValueUnknown,

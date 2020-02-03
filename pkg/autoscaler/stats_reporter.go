@@ -196,8 +196,8 @@ type StatsReporter interface {
 	ReportPanic(v int64)
 }
 
-// Reporter holds cached metric objects to report autoscaler metrics
-type Reporter struct {
+// reporter holds cached metric objects to report autoscaler metrics
+type reporter struct {
 	ctx context.Context
 }
 
@@ -209,9 +209,7 @@ func valueOrUnknown(v string) string {
 }
 
 // NewStatsReporter creates a reporter that collects and reports autoscaler metrics
-func NewStatsReporter(ns, service, config, revision string) (*Reporter, error) {
-	r := &Reporter{}
-
+func NewStatsReporter(ns, service, config, revision string) (StatsReporter, error) {
 	// Our tags are static. So, we can get away with creating a single context
 	// and reuse it for reporting all of our metrics. Note that service names
 	// can be an empty string, so it needs a special treatment.
@@ -225,44 +223,43 @@ func NewStatsReporter(ns, service, config, revision string) (*Reporter, error) {
 		return nil, err
 	}
 
-	r.ctx = ctx
-	return r, nil
+	return &reporter{ctx: ctx}, nil
 }
 
 // ReportDesiredPodCount captures value v for desired pod count measure.
-func (r *Reporter) ReportDesiredPodCount(v int64) {
+func (r *reporter) ReportDesiredPodCount(v int64) {
 	pkgmetrics.Record(r.ctx, desiredPodCountM.M(v))
 }
 
 // ReportRequestedPodCount captures value v for requested pod count measure.
-func (r *Reporter) ReportRequestedPodCount(v int64) {
+func (r *reporter) ReportRequestedPodCount(v int64) {
 	pkgmetrics.Record(r.ctx, requestedPodCountM.M(v))
 }
 
 // ReportActualPodCount captures values for ready, not ready, terminating, and pending pod count measure.
-func (r *Reporter) ReportActualPodCount(ready, notReady, terminating, pending int64) {
+func (r *reporter) ReportActualPodCount(ready, notReady, terminating, pending int64) {
 	pkgmetrics.RecordBatch(r.ctx, actualPodCountM.M(ready), notReadyPodCountM.M(notReady),
 		terminatingPodCountM.M(terminating), pendingPodCountM.M(pending))
 }
 
 // ReportExcessBurstCapacity captures value v for excess target burst capacity.
-func (r *Reporter) ReportExcessBurstCapacity(v float64) {
+func (r *reporter) ReportExcessBurstCapacity(v float64) {
 	pkgmetrics.Record(r.ctx, excessBurstCapacityM.M(v))
 }
 
 // ReportStableRequestConcurrency captures value v for stable request concurrency measure.
-func (r *Reporter) ReportRequestConcurrency(stable, panic, target float64) {
+func (r *reporter) ReportRequestConcurrency(stable, panic, target float64) {
 	pkgmetrics.RecordBatch(r.ctx, stableRequestConcurrencyM.M(stable),
 		panicRequestConcurrencyM.M(panic), targetRequestConcurrencyM.M(target))
 }
 
 // ReportStableRPS captures value v for stable RPS measure.
-func (r *Reporter) ReportRPS(stable, panic, target float64) {
+func (r *reporter) ReportRPS(stable, panic, target float64) {
 	pkgmetrics.RecordBatch(r.ctx, stableRPSM.M(stable), panicRPSM.M(panic),
 		targetRPSM.M(target))
 }
 
 // ReportPanic captures value v for panic mode measure.
-func (r *Reporter) ReportPanic(v int64) {
+func (r *reporter) ReportPanic(v int64) {
 	pkgmetrics.Record(r.ctx, panicM.M(v))
 }
