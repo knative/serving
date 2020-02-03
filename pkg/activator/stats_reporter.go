@@ -18,7 +18,6 @@ package activator
 
 import (
 	"context"
-	"errors"
 	"strconv"
 	"time"
 
@@ -56,14 +55,13 @@ type StatsReporter interface {
 	ReportResponseTime(ns, service, config, rev string, responseCode int, d time.Duration) error
 }
 
-// Reporter holds cached metric objects to report autoscaler metrics
-type Reporter struct {
-	initialized bool
-	ctx         context.Context
+// reporter holds cached metric objects to report autoscaler metrics
+type reporter struct {
+	ctx context.Context
 }
 
 // NewStatsReporter creates a reporter that collects and reports activator metrics
-func NewStatsReporter(pod string) (*Reporter, error) {
+func NewStatsReporter(pod string) (StatsReporter, error) {
 	ctx, err := tag.New(
 		context.Background(),
 		tag.Upsert(metrics.PodTagKey, pod),
@@ -73,13 +71,8 @@ func NewStatsReporter(pod string) (*Reporter, error) {
 		return nil, err
 	}
 
-	var r = &Reporter{
-		initialized: true,
-		ctx:         ctx,
-	}
-
 	// Create view to see our measurements.
-	err = view.Register(
+	if err := view.Register(
 		&view.View{
 			Description: "Concurrent requests that are routed to Activator",
 			Measure:     requestConcurrencyM,
@@ -100,12 +93,11 @@ func NewStatsReporter(pod string) (*Reporter, error) {
 			TagKeys: append(metrics.CommonRevisionKeys, metrics.PodTagKey, metrics.ContainerTagKey,
 				metrics.ResponseCodeKey, metrics.ResponseCodeClassKey),
 		},
-	)
-	if err != nil {
+	); err != nil {
 		return nil, err
 	}
 
-	return r, nil
+	return &reporter{ctx: ctx}, nil
 }
 
 func valueOrUnknown(v string) string {
@@ -116,11 +108,7 @@ func valueOrUnknown(v string) string {
 }
 
 // ReportRequestConcurrency captures request concurrency metric with value v.
-func (r *Reporter) ReportRequestConcurrency(ns, service, config, rev string, v int64) error {
-	if !r.initialized {
-		return errors.New("StatsReporter is not initialized yet")
-	}
-
+func (r *reporter) ReportRequestConcurrency(ns, service, config, rev string, v int64) error {
 	// Note that service names can be an empty string, so it needs a special treatment.
 	ctx, err := tag.New(
 		r.ctx,
@@ -137,11 +125,7 @@ func (r *Reporter) ReportRequestConcurrency(ns, service, config, rev string, v i
 }
 
 // ReportRequestCount captures request count.
-func (r *Reporter) ReportRequestCount(ns, service, config, rev string, responseCode, numTries int) error {
-	if !r.initialized {
-		return errors.New("StatsReporter is not initialized yet")
-	}
-
+func (r *reporter) ReportRequestCount(ns, service, config, rev string, responseCode, numTries int) error {
 	// Note that service names can be an empty string, so it needs a special treatment.
 	ctx, err := tag.New(
 		r.ctx,
@@ -161,11 +145,7 @@ func (r *Reporter) ReportRequestCount(ns, service, config, rev string, responseC
 }
 
 // ReportResponseTime captures response time requests
-func (r *Reporter) ReportResponseTime(ns, service, config, rev string, responseCode int, d time.Duration) error {
-	if !r.initialized {
-		return errors.New("StatsReporter is not initialized yet")
-	}
-
+func (r *reporter) ReportResponseTime(ns, service, config, rev string, responseCode int, d time.Duration) error {
 	// Note that service names can be an empty string, so it needs a special treatment.
 	ctx, err := tag.New(
 		r.ctx,
