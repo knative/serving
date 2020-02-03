@@ -422,6 +422,10 @@ func BenchmarkHandler(b *testing.B) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(&testing.T{})
 	defer cancel()
 	configStore := setupConfigStore(&testing.T{}, logging.FromContext(ctx))
+	reporter, err := activator.NewStatsReporter("test_pod")
+	if err != nil {
+		b.Fatalf("Failed to create a reporter: %v", err)
+	}
 
 	// bodyLength is in kilobytes.
 	for _, bodyLength := range [5]int{2, 16, 32, 64, 128} {
@@ -434,7 +438,7 @@ func BenchmarkHandler(b *testing.B) {
 			}, nil
 		})
 
-		handler := (New(ctx, fakeThrottler{}, &fakeReporter{})).(*activationHandler)
+		handler := (New(ctx, fakeThrottler{}, reporter)).(*activationHandler)
 		handler.transport = rt
 
 		request := func() *http.Request {
