@@ -28,8 +28,9 @@ import (
 
 // endpointsToDests takes an endpoints object and a port name and returns a list
 // of l4 dests in the endpoints object which have that port
-func endpointsToDests(endpoints *corev1.Endpoints, portName string) sets.String {
-	ret := sets.NewString()
+func endpointsToDests(endpoints *corev1.Endpoints, portName string) (sets.String, sets.String) {
+	ready := sets.NewString()
+	notReady := sets.NewString()
 
 	for _, es := range endpoints.Subsets {
 		for _, port := range es.Ports {
@@ -37,13 +38,17 @@ func endpointsToDests(endpoints *corev1.Endpoints, portName string) sets.String 
 				portStr := strconv.Itoa(int(port.Port))
 				for _, addr := range es.Addresses {
 					// Prefer IP as we can avoid a DNS lookup this way.
-					ret.Insert(net.JoinHostPort(addr.IP, portStr))
+					ready.Insert(net.JoinHostPort(addr.IP, portStr))
+				}
+				for _, addr := range es.NotReadyAddresses {
+					// Prefer IP as we can avoid a DNS lookup this way.
+					notReady.Insert(net.JoinHostPort(addr.IP, portStr))
 				}
 			}
 		}
 	}
 
-	return ret
+	return ready, notReady
 }
 
 // getServicePort takes a service and a protocol and returns the port number of
