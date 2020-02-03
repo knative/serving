@@ -144,15 +144,11 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	switch spec.ScalingMetric {
 	case autoscaling.RPS:
 		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicRPS(metricKey, now)
-		a.reporter.ReportStableRPS(observedStableValue)
-		a.reporter.ReportPanicRPS(observedPanicValue)
-		a.reporter.ReportTargetRPS(spec.TargetValue)
+		a.reporter.ReportRPS(observedStableValue, observedPanicValue, spec.TargetValue)
 	default:
 		metricName = autoscaling.Concurrency // concurrency is used by default
 		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicConcurrency(metricKey, now)
-		a.reporter.ReportStableRequestConcurrency(observedStableValue)
-		a.reporter.ReportPanicRequestConcurrency(observedPanicValue)
-		a.reporter.ReportTargetRequestConcurrency(spec.TargetValue)
+		a.reporter.ReportRequestConcurrency(observedStableValue, observedPanicValue, spec.TargetValue)
 	}
 
 	// Put the scaling metric to logs.

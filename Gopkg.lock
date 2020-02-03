@@ -566,7 +566,7 @@
   revision = "bf2b5ad3c0a925c44a0d2842c5d8182113cd248e"
 
 [[projects]]
-  digest = "1:1e59759b895f57302df03c5632dc6bbedcdf6782a2b6259246ff653dd214ac45"
+  digest = "0:"
   name = "github.com/jetstack/cert-manager"
   packages = [
     "pkg/apis/acme",
@@ -1781,7 +1781,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:eb75525bd4eb16133b648d1bbaa90e5eae2c10b42c97ae46b730c923ab799911"
+  digest = "1:20eecfc89b0c23e2a12cdecfcf470c9673b2c293056e078fadd0e2a139b80b33"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1883,7 +1883,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "446f2e9f2cabb9a8249fad2cb19d92a0f918fae0"
+  revision = "92c9752a4c44fabaa385a59a0f9c2ea245aa0f16"
 
 [[projects]]
   branch = "master"
