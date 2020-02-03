@@ -41,9 +41,8 @@ type StatsReporter interface {
 	ReportQueueDepth(depth int) error
 }
 
-// Reporter holds cached metric objects to report queue proxy metrics.
-type Reporter struct {
-	initialized     bool
+// reporter holds cached metric objects to report queue proxy metrics.
+type reporter struct {
 	ctx             context.Context
 	countMetric     *stats.Int64Measure
 	latencyMetric   *stats.Float64Measure
@@ -52,7 +51,7 @@ type Reporter struct {
 
 // NewStatsReporter creates a reporter that collects and reports queue proxy metrics.
 func NewStatsReporter(ns, service, config, rev, pod string, countMetric *stats.Int64Measure,
-	latencyMetric *stats.Float64Measure, queueSizeMetric *stats.Int64Measure) (*Reporter, error) {
+	latencyMetric *stats.Float64Measure, queueSizeMetric *stats.Int64Measure) (StatsReporter, error) {
 	if ns == "" {
 		return nil, errors.New("namespace must not be empty")
 	}
@@ -108,8 +107,7 @@ func NewStatsReporter(ns, service, config, rev, pod string, countMetric *stats.I
 		return nil, err
 	}
 
-	return &Reporter{
-		initialized:     true,
+	return &reporter{
 		ctx:             ctx,
 		countMetric:     countMetric,
 		latencyMetric:   latencyMetric,
@@ -125,11 +123,7 @@ func valueOrUnknown(v string) string {
 }
 
 // ReportRequestCount captures request count metric.
-func (r *Reporter) ReportRequestCount(responseCode int) error {
-	if !r.initialized {
-		return errors.New("StatsReporter is not initialized yet")
-	}
-
+func (r *reporter) ReportRequestCount(responseCode int) error {
 	// Note that service names can be an empty string, so it needs a special treatment.
 	ctx, err := tag.New(
 		r.ctx,
@@ -144,21 +138,13 @@ func (r *Reporter) ReportRequestCount(responseCode int) error {
 }
 
 // ReportQueueDepth captures queue depth metric.
-func (r *Reporter) ReportQueueDepth(d int) error {
-	if !r.initialized {
-		return errors.New("StatsReporter is not initialized yet")
-	}
-
+func (r *reporter) ReportQueueDepth(d int) error {
 	pkgmetrics.Record(r.ctx, r.queueSizeMetric.M(int64(d)))
 	return nil
 }
 
 // ReportResponseTime captures response time requests
-func (r *Reporter) ReportResponseTime(responseCode int, d time.Duration) error {
-	if !r.initialized {
-		return errors.New("StatsReporter is not initialized yet")
-	}
-
+func (r *reporter) ReportResponseTime(responseCode int, d time.Duration) error {
 	// Note that service names can be an empty string, so it needs a special treatment.
 	ctx, err := tag.New(
 		r.ctx,

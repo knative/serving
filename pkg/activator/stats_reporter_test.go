@@ -34,14 +34,8 @@ func unregister() {
 }
 
 func TestActivatorReporter(t *testing.T) {
-	r := &Reporter{}
-
-	if err := r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", http.StatusOK, 1); err == nil {
-		t.Error("Reporter expected an error for Report call before init. Got success.")
-	}
-
-	var err error
-	if r, err = NewStatsReporter("testpod"); err != nil {
+	r, err := NewStatsReporter("testpod")
+	if err != nil {
 		t.Fatalf("Failed to create a new reporter: %v", err)
 	}
 	// Without this `go test ... -count=X`, where X > 1, fails, since
