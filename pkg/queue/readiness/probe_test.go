@@ -630,6 +630,3 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 		t.Errorf("Count = %d, want: %d", got, successThreshold)
 	}
 }
-
-func TestGateValue(t *testing.T) {
-}

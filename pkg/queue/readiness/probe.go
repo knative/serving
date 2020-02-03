@@ -87,33 +87,26 @@ func (p *Probe) IsAggressive() bool {
 
 // ProbeContainer executes the defined Probe against the user-container
 func (p *Probe) ProbeContainer() bool {
-	// https://en.wikipedia.org/wiki/Double-checked_locking is implemented below.
-	p.mu.RLock()
-	// If gateValue exists (i.e. right now something is probing, attach to that probe).
-	if gv := p.gv; gv != nil {
-		p.mu.RUnlock()
-		return gv.read()
-	}
+	gv, writer := func() (*gateValue, bool) {
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		// If gateValue exists (i.e. right now something is probing, attach to that probe).
+		if p.gv != nil {
+			return p.gv, false
+		}
+		p.gv = newGV()
+		return p.gv, true
+	}()
 
-	// Nothing is probing right now. Create our gateValue.
-	p.mu.RUnlock()
-	p.mu.Lock()
-	// But something else raced us? Use it.
-	if gv := p.gv; gv != nil {
-		p.mu.Unlock()
-		return gv.read()
+	if writer {
+		res := p.probeContainerImpl()
+		gv.write(res)
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		p.gv = nil
+		return res
 	}
-	// OK, we won the race.
-	p.gv = newGV()
-	p.mu.Unlock()
-	res := p.probeContainerImpl()
-	p.gv.write(res) // Notify all the others.
-
-	// Retire the gateValue.
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.gv = nil
-	return res
+	return gv.read()
 }
 
 func (p *Probe) probeContainerImpl() bool {
