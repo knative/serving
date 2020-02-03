@@ -283,7 +283,7 @@ func (rw *revisionWatcher) checkDests(dests dests) {
 
 	// If cluster IP is healthy and we haven't scaled down, short circuit.
 	if rw.clusterIPHealthy {
-		rw.logger.Debugf("ClusterIP %s already probed (backends: %d)", dest, len(dests.ready))
+		rw.logger.Debugf("ClusterIP %s already probed (ready backends: %d)", dest, len(dests.ready))
 		rw.sendUpdate(dest, dests.ready)
 		return
 	}
@@ -295,7 +295,7 @@ func (rw *revisionWatcher) checkDests(dests dests) {
 		// We can reach here only iff pods are not successfully individually probed
 		// but ClusterIP conversely has been successfully probed.
 		rw.podsAddressable = false
-		rw.logger.Debugf("ClusterIP is successfully probed: %s (backends: %d)", dest, len(dests.ready))
+		rw.logger.Debugf("ClusterIP is successfully probed: %s (ready backends: %d)", dest, len(dests.ready))
 		rw.clusterIPHealthy = true
 		rw.healthyPods = nil
 		rw.sendUpdate(dest, dests.ready)
