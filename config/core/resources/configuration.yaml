@@ -28,6 +28,8 @@ spec:
       type: object
       # this is a work around so we don't need to flush out the
       # schema for each version at this time
+      #
+      # see issue: https://github.com/knative/serving/issues/912
       x-kubernetes-preserve-unknown-fields: true
   versions:
   - name: v1alpha1
