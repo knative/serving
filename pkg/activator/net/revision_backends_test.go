@@ -784,7 +784,7 @@ func TestCheckDests(t *testing.T) {
 		logger:           TestLogger(t),
 		stopCh:           dCh,
 	}
-	rw.checkDests(dests{ready: sets.NewString("10.1.1.5")})
+	rw.checkDests(dests{ready: sets.NewString("10.1.1.5"), notReady: sets.NewString("10.1.1.6")})
 	select {
 	case <-uCh:
 		// Success.
@@ -793,7 +793,7 @@ func TestCheckDests(t *testing.T) {
 	}
 
 	close(dCh)
-	rw.checkDests(dests{ready: sets.NewString("10.1.1.5")})
+	rw.checkDests(dests{ready: sets.NewString("10.1.1.5"), notReady: sets.NewString("10.1.1.6")})
 	select {
 	case <-uCh:
 		t.Error("Expected no update but got one")
@@ -854,6 +854,12 @@ func TestCheckDestsSwinging(t *testing.T) {
 				Body: queue.Name,
 			}},
 			"10.0.0.3:1234": {{
+				Code: http.StatusOK,
+				Body: queue.Name,
+			}},
+			"10.0.0.4:1234": {{
+				Err: errors.New("podIP transport error"),
+			}, {
 				Code: http.StatusOK,
 				Body: queue.Name,
 			}},
@@ -929,6 +935,27 @@ func TestCheckDestsSwinging(t *testing.T) {
 		t.Errorf("Expected no update, but got %#v", got)
 	default:
 		// Success.
+	}
+
+	// Add a notReady pod, but it's not ready. No update should be sent.
+	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"), notReady: sets.NewString("10.0.0.4:1234")})
+	select {
+	case got := <-uCh:
+		t.Errorf("Expected no update, but got %#v", got)
+	default:
+		// Success.
+	}
+
+	// The notReady pod is now ready!
+	rw.checkDests(dests{ready: sets.NewString("10.0.0.1:1234", "10.0.0.2:1234"), notReady: sets.NewString("10.0.0.4:1234")})
+	select {
+	case got := <-uCh:
+		want.Dests = sets.NewString("10.0.0.1:1234", "10.0.0.2:1234", "10.0.0.4:1234")
+		if !cmp.Equal(got, want) {
+			t.Errorf("Update = %#v, want: %#v, diff: %s", got, want, cmp.Diff(want, got))
+		}
+	default:
+		t.Error("Expected update but it never went out.")
 	}
 
 	// Swing to a different pods.
