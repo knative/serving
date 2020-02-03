@@ -95,17 +95,6 @@ func TestNewStatsReporterNegative(t *testing.T) {
 }
 
 func TestReporterReport(t *testing.T) {
-	r := &Reporter{}
-	if err := r.ReportRequestCount(200); err == nil {
-		t.Error("Reporter.ReportRequestCount() expected an error for Report call before init. Got success.")
-	}
-	if err := r.ReportQueueDepth(200); err == nil {
-		t.Error("Reporter.ReportQueueDepth() expected an error for Report call before init. Got success.")
-	}
-	if err := r.ReportResponseTime(200, time.Second); err == nil {
-		t.Error("Reporter.ReportRequestCount() expected an error for Report call before init. Got success.")
-	}
-
 	r, err := NewStatsReporter(testNs, testSvc, testConf, testRev, testPod, countMetric, latencyMetric, queueSizeMetric)
 	if err != nil {
 		t.Fatalf("Unexpected error from NewStatsReporter() = %v", err)
@@ -151,7 +140,7 @@ func TestReporterReport(t *testing.T) {
 	expectSuccess(t, "QueueDepth", func() error { return r.ReportQueueDepth(2) })
 	metricstest.CheckLastValueData(t, "queue_depth", wantTags, 2)
 
-	unregisterViews(r)
+	metricstest.Unregister(countName, latencyName, qdepthName)
 
 	// Test reporter with empty service name
 	r, err = NewStatsReporter(testNs, "" /*service name*/, testConf, testRev, testPod, countMetric, latencyMetric, queueSizeMetric)
@@ -173,21 +162,11 @@ func TestReporterReport(t *testing.T) {
 	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200) })
 	metricstest.CheckCountData(t, "request_count", wantTags, 1)
 
-	unregisterViews(r)
+	metricstest.Unregister(countName, latencyName, qdepthName)
 }
 
 func expectSuccess(t *testing.T, funcName string, f func() error) {
 	if err := f(); err != nil {
 		t.Errorf("Reporter.%v() expected success but got error %v", funcName, err)
 	}
-}
-
-// unregisterViews unregisters the views registered in NewStatsReporter.
-func unregisterViews(r *Reporter) error {
-	if !r.initialized {
-		return errors.New("reporter is not initialized")
-	}
-	metricstest.Unregister(countName, latencyName, qdepthName)
-	r.initialized = false
-	return nil
 }
