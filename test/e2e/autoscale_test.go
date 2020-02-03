@@ -317,6 +317,7 @@ func checkPodScale(ctx *testContext, targetPods, minPods, maxPods float64, durat
 			}
 			mes := fmt.Sprintf("revision %q #replicas: %v, want at least: %v", ctx.resources.Revision.Name, got, minPods)
 			ctx.t.Log(mes)
+			// verify that the number of pods doesn't go down while we are scaling up.
 			if got < minPods {
 				return errors.New(mes)
 			}

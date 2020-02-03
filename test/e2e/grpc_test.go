@@ -41,9 +41,7 @@ import (
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
-const (
-	grpcContainerConcurrency = 1.0
-)
+const grpcContainerConcurrency = 1.0
 
 type grpcTest func(*testing.T, *v1a1test.ResourceObjects, *test.Clients, test.ResourceNames, string, string)
 
@@ -85,9 +83,9 @@ func dial(host, domain string) (*grpc.ClientConn, error) {
 func unaryTest(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
 	t.Helper()
 	t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
-	msg := "Hello!"
+	const msg = "Hello!"
 	if err := pingGRPC(host, domain, msg); err != nil {
-		t.Fatalf("Error %#v", err)
+		t.Fatalf("gRPC ping = %v", err)
 	}
 }
 
@@ -128,7 +126,7 @@ func generateGRPCTraffic(concurrentRequests int, host, domain string, stopChan c
 		})
 	}
 	if err := grp.Wait(); err != nil {
-		return fmt.Errorf("Error processing requests %v", err)
+		return fmt.Errorf("error processing requests %v", err)
 	}
 	return nil
 }
@@ -145,11 +143,11 @@ func pingGRPC(host, domain, message string) error {
 
 	got, err := pc.Ping(context.Background(), want)
 	if err != nil {
-		return fmt.Errorf("Could not send request: %v", err)
+		return fmt.Errorf("could not send request: %v", err)
 	}
 
 	if got.Msg != want.Msg {
-		return fmt.Errorf("Response = %q, want = %q", got.Msg, want.Msg)
+		return fmt.Errorf("response = %q, want = %q", got.Msg, want.Msg)
 	}
 	return nil
 }
