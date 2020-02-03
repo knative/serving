@@ -50,25 +50,27 @@ type Probe struct {
 
 // gateValue is a write-once boolean impl.
 type gateValue struct {
-	mu     sync.RWMutex
-	result bool
+	broadcast chan struct{}
+	result    bool
 }
 
 // newGV returns a gateValue which is ready to write.
 func newGV() *gateValue {
-	gv := &gateValue{}
-	gv.mu.Lock()
-	return gv
+	return &gateValue{
+		broadcast: make(chan struct{}),
+	}
 }
 
+// only `writer` must call `write` to set the value.
+// `write` will panic if called more than once.
 func (gv *gateValue) write(val bool) {
 	gv.result = val
-	gv.mu.Unlock()
+	close(gv.broadcast)
 }
 
+// `read` can be called multiple times.
 func (gv *gateValue) read() bool {
-	gv.mu.RLock()
-	defer gv.mu.RUnlock()
+	<-gv.broadcast
 	return gv.result
 }
 
