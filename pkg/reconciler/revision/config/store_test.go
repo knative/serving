@@ -28,6 +28,7 @@ import (
 	pkgmetrics "knative.dev/pkg/metrics"
 	pkgtracing "knative.dev/pkg/tracing/config"
 	apisconfig "knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/autoscaler"
 	deployment "knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
 
@@ -43,6 +44,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 	loggingConfig := ConfigMapFromTestFile(t, logging.ConfigMapName())
 	tracingConfig := ConfigMapFromTestFile(t, pkgtracing.ConfigName)
 	defaultConfig := ConfigMapFromTestFile(t, apisconfig.DefaultsConfigName)
+	autoscalerConfig := ConfigMapFromTestFile(t, autoscaler.ConfigName)
 
 	store.OnConfigChanged(deploymentConfig)
 	store.OnConfigChanged(networkConfig)
@@ -50,6 +52,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 	store.OnConfigChanged(loggingConfig)
 	store.OnConfigChanged(tracingConfig)
 	store.OnConfigChanged(defaultConfig)
+	store.OnConfigChanged(autoscalerConfig)
 
 	config := FromContext(store.ToContext(context.Background()))
 
@@ -96,6 +99,13 @@ func TestStoreLoadWithContext(t *testing.T) {
 			t.Errorf("Unexpected defaults config (-want, +got): %v", diff)
 		}
 	})
+
+	t.Run("autoscaler", func(t *testing.T) {
+		expected, _ := autoscaler.NewConfigFromConfigMap(autoscalerConfig)
+		if diff := cmp.Diff(expected, config.Autoscaler); diff != "" {
+			t.Errorf("Unexpected autoscaler config (-want, +got): %v", diff)
+		}
+	})
 }
 
 func TestStoreImmutableConfig(t *testing.T) {
@@ -107,6 +117,7 @@ func TestStoreImmutableConfig(t *testing.T) {
 	store.OnConfigChanged(ConfigMapFromTestFile(t, logging.ConfigMapName()))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, pkgtracing.ConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, apisconfig.DefaultsConfigName))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, autoscaler.ConfigName))
 
 	config := store.Load()
 
@@ -115,6 +126,8 @@ func TestStoreImmutableConfig(t *testing.T) {
 	config.Logging.LoggingConfig = "mutated"
 	ccMutated := int64(4)
 	config.Defaults.ContainerConcurrency = ccMutated
+	scaleupMutated := float64(4)
+	config.Autoscaler.MaxScaleUpRate = scaleupMutated
 
 	newConfig := store.Load()
 
@@ -129,5 +142,8 @@ func TestStoreImmutableConfig(t *testing.T) {
 	}
 	if newConfig.Defaults.ContainerConcurrency == ccMutated {
 		t.Error("Defaults config is not immutable")
+	}
+	if newConfig.Autoscaler.MaxScaleUpRate == scaleupMutated {
+		t.Error("Autoscaler config is not immutable")
 	}
 }

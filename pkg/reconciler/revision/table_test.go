@@ -42,6 +42,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 
 	. "knative.dev/pkg/reconciler/testing"
+	"knative.dev/serving/pkg/autoscaler"
 	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
 	. "knative.dev/serving/pkg/testing"
 	. "knative.dev/serving/pkg/testing/v1alpha1"
@@ -700,7 +701,7 @@ func deploy(t *testing.T, namespace, name string, opts ...interface{}) *appsv1.D
 	// before calling MakeDeployment within Reconcile.
 	rev.SetDefaults(context.Background())
 	deployment, err := resources.MakeDeployment(rev, cfg.Logging, cfg.Tracing, cfg.Network,
-		cfg.Observability, cfg.Deployment,
+		cfg.Observability, cfg.Autoscaler, cfg.Deployment,
 	)
 
 	if err != nil {
@@ -763,7 +764,8 @@ func ReconcilerTestConfig() *config.Config {
 		Observability: &metrics.ObservabilityConfig{
 			LoggingURLTemplate: "http://logger.io/${REVISION_UID}",
 		},
-		Logging: &logging.Config{},
-		Tracing: &tracingconfig.Config{},
+		Logging:    &logging.Config{},
+		Tracing:    &tracingconfig.Config{},
+		Autoscaler: &autoscaler.Config{},
 	}
 }
