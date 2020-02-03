@@ -46,6 +46,10 @@ func (h *MetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	revision := revisionFrom(r.Context())
 	configurationName := revision.Labels[serving.ConfigurationLabelKey]
 	serviceName := revision.Labels[serving.ServiceLabelKey]
+
+	// It's safe to ignore this error as the RevisionStatsReporter is nil-pointer safe. Calls will be noops.
+	reporter, _ := h.reporter.GetRevisionStatsReporter(revID.Namespace, serviceName, configurationName, revID.Name)
+
 	start := time.Now()
 
 	rr := pkghttp.NewResponseRecorder(w, http.StatusOK)
@@ -53,11 +57,21 @@ func (h *MetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		err := recover()
 		latency := time.Since(start)
 		if err != nil {
-			h.reporter.ReportResponseTime(revID.Namespace, serviceName, configurationName, revID.Name, http.StatusInternalServerError, latency)
+			reporter.ReportResponseTime(http.StatusInternalServerError, latency)
 			panic(err)
 		}
-		h.reporter.ReportResponseTime(revID.Namespace, serviceName, configurationName, revID.Name, rr.ResponseCode, latency)
+		reporter.ReportResponseTime(rr.ResponseCode, latency)
 	}()
 
-	h.nextHandler.ServeHTTP(rr, r)
+	h.nextHandler.ServeHTTP(rr, r.WithContext(withReporter(r.Context(), reporter)))
+}
+
+type reporterKey struct{}
+
+func withReporter(ctx context.Context, r activator.RevisionStatsReporter) context.Context {
+	return context.WithValue(ctx, reporterKey{}, r)
+}
+
+func reporterFrom(ctx context.Context) activator.RevisionStatsReporter {
+	return ctx.Value(reporterKey{}).(activator.RevisionStatsReporter)
 }

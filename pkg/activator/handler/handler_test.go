@@ -152,11 +152,9 @@ func TestActivationHandler(t *testing.T) {
 			}
 			rt := pkgnet.RoundTripperFunc(fakeRT.RT)
 
-			reporter := &fakeReporter{}
-
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer cancel()
-			handler := (New(ctx, test.throttler, reporter)).(*activationHandler)
+			handler := (New(ctx, test.throttler)).(*activationHandler)
 
 			// Setup transports.
 			handler.transport = rt
@@ -170,6 +168,14 @@ func TestActivationHandler(t *testing.T) {
 			ctx = configStore.ToContext(ctx)
 			ctx = withRevision(ctx, revision(testNamespace, testRevName))
 			ctx = withRevID(ctx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
+
+			// Add a reporter to the context
+			reporter := &fakeReporter{}
+			rr, err := reporter.GetRevisionStatsReporter(testNamespace, "service-real-name", "config-real-name", testRevName)
+			if err != nil {
+				t.Fatalf("Failed to create revision reporter: %v", err)
+			}
+			ctx = withReporter(ctx, rr)
 
 			handler.ServeHTTP(resp, req.WithContext(ctx))
 
@@ -214,7 +220,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 
-	handler := (New(ctx, fakeThrottler{}, &fakeReporter{})).(*activationHandler)
+	handler := (New(ctx, fakeThrottler{})).(*activationHandler)
 	handler.transport = rt
 
 	writer := httptest.NewRecorder()
@@ -225,6 +231,8 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	ctx = configStore.ToContext(req.Context())
 	ctx = withRevision(ctx, revision(testNamespace, testRevName))
 	ctx = withRevID(ctx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
+	ctx = withReporter(ctx, &fakeReporter{})
+
 	handler.ServeHTTP(writer, req.WithContext(ctx))
 
 	select {
@@ -293,7 +301,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 				oct.Finish()
 			}()
 
-			handler := (New(ctx, fakeThrottler{}, &fakeReporter{})).(*activationHandler)
+			handler := (New(ctx, fakeThrottler{})).(*activationHandler)
 			handler.transport = rt
 			handler.tracingTransport = &ochttp.Transport{Base: rt}
 
@@ -324,6 +332,7 @@ func sendRequest(namespace, revName string, handler *activationHandler, store *a
 	ctx := store.ToContext(req.Context())
 	ctx = withRevision(ctx, revision(namespace, revName))
 	ctx = withRevID(ctx, types.NamespacedName{Namespace: namespace, Name: revName})
+	ctx = withReporter(ctx, &fakeReporter{})
 	handler.ServeHTTP(resp, req.WithContext(ctx))
 	return resp
 }
@@ -343,54 +352,63 @@ type reporterCall struct {
 type fakeReporter struct {
 	calls []reporterCall
 	mux   sync.Mutex
+
+	ns      string
+	service string
+	config  string
+	rev     string
 }
 
-func (f *fakeReporter) ReportRequestConcurrency(ns, service, config, rev string, v int64) error {
+func (f *fakeReporter) GetRevisionStatsReporter(ns, service, config, rev string) (activator.RevisionStatsReporter, error) {
+	f.mux.Lock()
+	defer f.mux.Unlock()
+	f.ns = ns
+	f.service = service
+	f.config = config
+	f.rev = rev
+	return f, nil
+}
+
+func (f *fakeReporter) ReportRequestConcurrency(v int64) {
 	f.mux.Lock()
 	defer f.mux.Unlock()
 	f.calls = append(f.calls, reporterCall{
 		Op:        "ReportRequestConcurrency",
-		Namespace: ns,
-		Service:   service,
-		Config:    config,
-		Revision:  rev,
+		Namespace: f.ns,
+		Service:   f.service,
+		Config:    f.config,
+		Revision:  f.rev,
 		Value:     v,
 	})
-
-	return nil
 }
 
-func (f *fakeReporter) ReportRequestCount(ns, service, config, rev string, responseCode, numTries int) error {
+func (f *fakeReporter) ReportRequestCount(responseCode, numTries int) {
 	f.mux.Lock()
 	defer f.mux.Unlock()
 	f.calls = append(f.calls, reporterCall{
 		Op:         "ReportRequestCount",
-		Namespace:  ns,
-		Service:    service,
-		Config:     config,
-		Revision:   rev,
+		Namespace:  f.ns,
+		Service:    f.service,
+		Config:     f.config,
+		Revision:   f.rev,
 		StatusCode: responseCode,
 		Attempts:   numTries,
 		Value:      1,
 	})
-
-	return nil
 }
 
-func (f *fakeReporter) ReportResponseTime(ns, service, config, rev string, responseCode int, d time.Duration) error {
+func (f *fakeReporter) ReportResponseTime(responseCode int, d time.Duration) {
 	f.mux.Lock()
 	defer f.mux.Unlock()
 	f.calls = append(f.calls, reporterCall{
 		Op:         "ReportResponseTime",
-		Namespace:  ns,
-		Service:    service,
-		Config:     config,
-		Revision:   rev,
+		Namespace:  f.ns,
+		Service:    f.service,
+		Config:     f.config,
+		Revision:   f.rev,
 		StatusCode: responseCode,
 		Duration:   d,
 	})
-
-	return nil
 }
 
 func revision(namespace, name string) *v1alpha1.Revision {
@@ -426,6 +444,10 @@ func BenchmarkHandler(b *testing.B) {
 	if err != nil {
 		b.Fatalf("Failed to create a reporter: %v", err)
 	}
+	revReporter, err := reporter.GetRevisionStatsReporter(testNamespace, "tests_svc", "test_conf", testRevName)
+	if err != nil {
+		b.Fatalf("Failed to create a revision reporter: %v", err)
+	}
 
 	// bodyLength is in kilobytes.
 	for _, bodyLength := range [5]int{2, 16, 32, 64, 128} {
@@ -438,7 +460,7 @@ func BenchmarkHandler(b *testing.B) {
 			}, nil
 		})
 
-		handler := (New(ctx, fakeThrottler{}, reporter)).(*activationHandler)
+		handler := (New(ctx, fakeThrottler{})).(*activationHandler)
 		handler.transport = rt
 
 		request := func() *http.Request {
@@ -448,6 +470,7 @@ func BenchmarkHandler(b *testing.B) {
 			reqCtx := configStore.ToContext(context.Background())
 			reqCtx = withRevision(reqCtx, revision(testNamespace, testRevName))
 			reqCtx = withRevID(reqCtx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
+			reqCtx = withReporter(reqCtx, revReporter)
 			return req.WithContext(reqCtx)
 		}
 

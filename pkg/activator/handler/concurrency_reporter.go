@@ -74,7 +74,9 @@ func (cr *ConcurrencyReporter) reportToMetricsBackend(key types.NamespacedName, 
 	}
 	configurationName := revision.Labels[serving.ConfigurationLabelKey]
 	serviceName := revision.Labels[serving.ServiceLabelKey]
-	cr.sr.ReportRequestConcurrency(ns, serviceName, configurationName, revName, concurrency)
+	// It's safe to ignore the error. It'll result in a noop reporter.
+	rr, _ := cr.sr.GetRevisionStatsReporter(ns, serviceName, configurationName, revName)
+	rr.ReportRequestConcurrency(concurrency)
 }
 
 // Run runs until stopCh is closed and processes events on all incoming channels
