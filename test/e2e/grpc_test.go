@@ -86,7 +86,9 @@ func unaryTest(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.
 	t.Helper()
 	t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
 	msg := "Hello!"
-	pingGRPC(host, domain, msg)
+	if err := pingGRPC(host, domain, msg); err != nil {
+		t.Fatalf("Error %#v", err)
+	}
 }
 
 func autoscaleTest(t *testing.T, resources *v1a1test.ResourceObjects, clients *test.Clients, names test.ResourceNames, host, domain string) {
