@@ -19,6 +19,7 @@ package readiness
 import (
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -39,6 +40,36 @@ type Probe struct {
 	*corev1.Probe
 	count       int32
 	pollTimeout time.Duration // To make tests not run for 10 seconds.
+
+	// Barrier sync to ensure only one probe is happening at the same time.
+	// When a probe is active `gv` will be non-nil.
+	// When the probe finishes the `gv` will be reset to nil.
+	mu sync.RWMutex
+	gv *gateValue
+}
+
+// gateValue is a write-once boolean impl.
+type gateValue struct {
+	mu     sync.RWMutex
+	result bool
+}
+
+// newGV returns a gateValue which is ready to write.
+func newGV() *gateValue {
+	gv := &gateValue{}
+	gv.mu.Lock()
+	return gv
+}
+
+func (gv *gateValue) write(val bool) {
+	gv.result = val
+	gv.mu.Unlock()
+}
+
+func (gv *gateValue) read() bool {
+	gv.mu.RLock()
+	defer gv.mu.RUnlock()
+	return gv.result
 }
 
 // NewProbe returns a pointer a new Probe
@@ -56,6 +87,36 @@ func (p *Probe) IsAggressive() bool {
 
 // ProbeContainer executes the defined Probe against the user-container
 func (p *Probe) ProbeContainer() bool {
+	// https://en.wikipedia.org/wiki/Double-checked_locking is implemented below.
+	p.mu.RLock()
+	// If gateValue exists (i.e. right now something is probing, attach to that probe).
+	if gv := p.gv; gv != nil {
+		p.mu.RUnlock()
+		return gv.read()
+	}
+
+	// Nothing is probing right now. Create our gateValue.
+	p.mu.RUnlock()
+	p.mu.Lock()
+	// But something else raced us? Use it.
+	if gv := p.gv; gv != nil {
+		p.mu.Unlock()
+		return gv.read()
+	}
+	// OK, we won the race.
+	p.gv = newGV()
+	p.mu.Unlock()
+	res := p.probeContainerImpl()
+	p.gv.write(res) // Notify all the others.
+
+	// Retire the gateValue.
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.gv = nil
+	return res
+}
+
+func (p *Probe) probeContainerImpl() bool {
 	var err error
 
 	switch {

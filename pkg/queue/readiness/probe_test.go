@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -217,6 +218,52 @@ func TestHTTPSuccess(t *testing.T) {
 	}
 }
 
+func TestHTTPManyParallel(t *testing.T) {
+	cnt := int32(0)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&cnt, 1)
+	}))
+	defer ts.Close()
+
+	tsURL, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse URL %s: %v", ts.URL, err)
+	}
+
+	pb := NewProbe(&corev1.Probe{
+		PeriodSeconds:    1,
+		TimeoutSeconds:   5,
+		SuccessThreshold: 1,
+		FailureThreshold: 1,
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Host:   tsURL.Hostname(),
+				Port:   intstr.FromString(tsURL.Port()),
+				Scheme: corev1.URISchemeHTTP,
+			},
+		},
+	})
+
+	var wg sync.WaitGroup
+	wg.Add(5)
+	barrier := make(chan struct{})
+	for i := 0; i < 5; i++ {
+		go func() {
+			wg.Done()
+			<-barrier
+			pb.ProbeContainer()
+		}()
+	}
+	wg.Wait()
+	close(barrier)
+	if !pb.ProbeContainer() {
+		t.Error("Probe failed. Expected success.")
+	}
+	if got, want := atomic.LoadInt32(&cnt), int32(1); got != want {
+		t.Errorf("Probe count = %d, want: 1", got)
+	}
+}
+
 func TestHTTPTimeout(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(3 * time.Second)
@@ -401,7 +448,7 @@ func TestKnHTTPSuccessWithThresholdAndFailure(t *testing.T) {
 
 func TestKnHTTPTimeoutFailure(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(1 * time.Second)
+		time.Sleep(time.Second)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()
@@ -582,4 +629,7 @@ func TestKnTCPProbeSuccessThresholdIncludesFailure(t *testing.T) {
 	if got := pb.count; got < successThreshold {
 		t.Errorf("Count = %d, want: %d", got, successThreshold)
 	}
+}
+
+func TestGateValue(t *testing.T) {
 }
