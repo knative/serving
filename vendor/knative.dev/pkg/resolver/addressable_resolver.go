@@ -106,7 +106,7 @@ func (r *URIResolver) URIFromDestination(dest duckv1beta1.Destination, parent in
 // URIFromDestinationV1 resolves a v1.Destination into a URL.
 func (r *URIResolver) URIFromDestinationV1(dest duckv1.Destination, parent interface{}) (*apis.URL, error) {
 	if dest.Ref != nil {
-		url, err := r.URIFromKnativeReference(dest.Ref, parent)
+		url, err := r.URIFromKReference(dest.Ref, parent)
 		if err != nil {
 			return nil, err
 		}
@@ -130,7 +130,7 @@ func (r *URIResolver) URIFromDestinationV1(dest duckv1.Destination, parent inter
 	return nil, errors.New("destination missing Ref and URI, expected at least one")
 }
 
-func (r *URIResolver) URIFromKnativeReference(ref *duckv1.KnativeReference, parent interface{}) (*apis.URL, error) {
+func (r *URIResolver) URIFromKReference(ref *duckv1.KReference, parent interface{}) (*apis.URL, error) {
 	return r.URIFromObjectReference(&corev1.ObjectReference{Name: ref.Name, Namespace: ref.Namespace, APIVersion: ref.APIVersion, Kind: ref.Kind}, parent)
 }
 

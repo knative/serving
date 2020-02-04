@@ -26,7 +26,7 @@ import (
 type Destination struct {
 	// Ref points to an Addressable.
 	// +optional
-	Ref *KnativeReference `json:"ref,omitempty"`
+	Ref *KReference `json:"ref,omitempty"`
 
 	// URI can be an absolute URL(non-empty scheme and non-empty host) pointing to the target or a relative URI. Relative URIs will be resolved using the base URI retrieved from Ref.
 	// +optional
@@ -61,9 +61,9 @@ func ValidateDestination(ctx context.Context, dest Destination) *apis.FieldError
 	return nil
 }
 
-// GetRef gets the KnativeReference from this Destination, if one is present. If no ref is present,
+// GetRef gets the KReference from this Destination, if one is present. If no ref is present,
 // then nil is returned.
-func (dest *Destination) GetRef() *KnativeReference {
+func (dest *Destination) GetRef() *KReference {
 	if dest == nil {
 		return nil
 	}
