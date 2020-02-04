@@ -198,7 +198,6 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 				"custom-ingress-class",
-				sets.NewString(),
 			),
 			simplePlaceholderK8sService(
 				getContext(),
@@ -236,7 +235,7 @@ func TestReconcile(t *testing.T) {
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("tb")),
 		},
 		WantCreates: []runtime.Object{
-			simpleIngressWithVisibility(
+			simpleIngress(
 				Route("default", "becomes-ready", WithConfigTarget("config"),
 					WithLocalDomain, WithRouteUID("65-23"),
 					WithRouteLabel(map[string]string{"serving.knative.dev/visibility": "cluster-local"})),
@@ -252,8 +251,10 @@ func TestReconcile(t *testing.T) {
 							Active:      true,
 						}},
 					},
+					Visibility: map[string]netv1alpha1.IngressVisibility{
+						traffic.DefaultTarget: netv1alpha1.IngressVisibilityClusterLocal,
+					},
 				},
-				sets.NewString("becomes-ready"),
 			),
 			simplePlaceholderK8sService(
 				getContext(),
@@ -710,7 +711,7 @@ func TestReconcile(t *testing.T) {
 				WithRouteUID("65-23"))),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: simpleIngressWithVisibility(
+			Object: simpleIngress(
 				Route("default", "becomes-local", WithConfigTarget("config"),
 					WithRouteUID("65-23"),
 					WithRouteLabel(map[string]string{"serving.knative.dev/visibility": "cluster-local"})),
@@ -726,8 +727,10 @@ func TestReconcile(t *testing.T) {
 							Active:      true,
 						}},
 					},
+					Visibility: map[string]netv1alpha1.IngressVisibility{
+						traffic.DefaultTarget: netv1alpha1.IngressVisibilityClusterLocal,
+					},
 				},
-				sets.NewString("becomes-local"),
 			),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -753,7 +756,7 @@ func TestReconcile(t *testing.T) {
 			cfg("default", "config",
 				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
 			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("tb")),
-			simpleIngressWithVisibility(
+			simpleIngress(
 				Route("default", "becomes-public", WithConfigTarget("config"), WithRouteUID("65-23"),
 					WithRouteLabel(map[string]string{"serving.knative.dev/visibility": "cluster-local"})),
 				&traffic.Config{
@@ -768,8 +771,10 @@ func TestReconcile(t *testing.T) {
 							Active:      true,
 						}},
 					},
+					Visibility: map[string]netv1alpha1.IngressVisibility{
+						traffic.DefaultTarget: netv1alpha1.IngressVisibilityClusterLocal,
+					},
 				},
-				sets.NewString("becomes-public"),
 			),
 			simpleK8sService(Route("default", "becomes-public", WithConfigTarget("config"),
 				WithRouteUID("65-23"))),
@@ -2352,7 +2357,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				WithRouteUID("65-23"))),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: simpleIngressWithVisibility(
+			Object: simpleIngress(
 				Route("default", "becomes-local", WithConfigTarget("config"),
 					WithRouteUID("65-23"),
 					WithRouteLabel(map[string]string{config.VisibilityLabelKey: config.VisibilityClusterLocal})),
@@ -2368,8 +2373,10 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 							Active:      true,
 						}},
 					},
+					Visibility: map[string]netv1alpha1.IngressVisibility{
+						traffic.DefaultTarget: netv1alpha1.IngressVisibilityClusterLocal,
+					},
 				},
-				sets.NewString("becomes-local"),
 			),
 		}},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -2597,19 +2604,15 @@ type ingressCtor func(ctx context.Context,
 ) (*netv1alpha1.Ingress, error)
 
 func simpleIngress(r *v1alpha1.Route, tc *traffic.Config, io ...IngressOption) *netv1alpha1.Ingress {
-	return simpleIngressWithVisibility(r, tc, sets.NewString(), io...)
+	return baseIngressWithClass(r, tc, TestIngressClass, io...)
 }
 
-func simpleIngressWithVisibility(r *v1alpha1.Route, tc *traffic.Config, serviceVisibility sets.String, io ...IngressOption) *netv1alpha1.Ingress {
-	return baseIngressWithClass(r, tc, TestIngressClass, serviceVisibility, resources.MakeIngress, io...)
+func ingressWithClass(r *v1alpha1.Route, tc *traffic.Config, class string, io ...IngressOption) *netv1alpha1.Ingress {
+	return baseIngressWithClass(r, tc, class, io...)
 }
 
-func ingressWithClass(r *v1alpha1.Route, tc *traffic.Config, class string, serviceVisibility sets.String, io ...IngressOption) *netv1alpha1.Ingress {
-	return baseIngressWithClass(r, tc, class, serviceVisibility, resources.MakeIngress, io...)
-}
-
-func baseIngressWithClass(r *v1alpha1.Route, tc *traffic.Config, class string, serviceVisibility sets.String, ctor ingressCtor, io ...IngressOption) *netv1alpha1.Ingress {
-	ingress, _ := ctor(getContext(), r, tc, nil, serviceVisibility, class)
+func baseIngressWithClass(r *v1alpha1.Route, tc *traffic.Config, class string, io ...IngressOption) *netv1alpha1.Ingress {
+	ingress, _ := resources.MakeIngress(getContext(), r, tc, nil, class)
 
 	for _, opt := range io {
 		opt(ingress)
@@ -2619,11 +2622,11 @@ func baseIngressWithClass(r *v1alpha1.Route, tc *traffic.Config, class string, s
 }
 
 func ingressWithTLS(r *v1alpha1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS, challenges []netv1alpha1.HTTP01Challenge, io ...IngressOption) *netv1alpha1.Ingress {
-	return baseIngressWithTLS(r, tc, tls, resources.MakeIngress, challenges, io...)
+	return baseIngressWithTLS(r, tc, tls, challenges, io...)
 }
 
-func baseIngressWithTLS(r *v1alpha1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS, ctor ingressCtor, challenges []netv1alpha1.HTTP01Challenge, io ...IngressOption) *netv1alpha1.Ingress {
-	ingress, _ := ctor(getContext(), r, tc, tls, sets.NewString(), TestIngressClass, challenges...)
+func baseIngressWithTLS(r *v1alpha1.Route, tc *traffic.Config, tls []netv1alpha1.IngressTLS, challenges []netv1alpha1.HTTP01Challenge, io ...IngressOption) *netv1alpha1.Ingress {
+	ingress, _ := resources.MakeIngress(getContext(), r, tc, tls, TestIngressClass, challenges...)
 
 	for _, opt := range io {
 		opt(ingress)

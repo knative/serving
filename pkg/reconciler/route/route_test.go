@@ -277,13 +277,13 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
-		Visibility: netv1alpha1.IngressVisibilityExternalIP,
-		TLS:        []netv1alpha1.IngressTLS{},
+		TLS: []netv1alpha1.IngressTLS{},
 		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
 				"test-route.test.svc.cluster.local",
 				domain,
 			},
+			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
 				Paths: []netv1alpha1.HTTPIngressPath{{
 					Splits: []netv1alpha1.IngressBackendSplit{{
@@ -300,7 +300,6 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 					}},
 				}},
 			},
-			Visibility: netv1alpha1.IngressVisibilityExternalIP,
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
@@ -388,8 +387,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
-		Visibility: netv1alpha1.IngressVisibilityExternalIP,
-		TLS:        []netv1alpha1.IngressTLS{},
+		TLS: []netv1alpha1.IngressTLS{},
 		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
 				"test-route.test.svc.cluster.local",
@@ -476,8 +474,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
-		Visibility: netv1alpha1.IngressVisibilityExternalIP,
-		TLS:        []netv1alpha1.IngressTLS{},
+		TLS: []netv1alpha1.IngressTLS{},
 		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
 				"test-route.test.svc.cluster.local",
@@ -588,8 +585,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
-		Visibility: netv1alpha1.IngressVisibilityExternalIP,
-		TLS:        []netv1alpha1.IngressTLS{},
+		TLS: []netv1alpha1.IngressTLS{},
 		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
 				"test-route.test.svc.cluster.local",
@@ -721,8 +717,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
-		Visibility: netv1alpha1.IngressVisibilityExternalIP,
-		TLS:        []netv1alpha1.IngressTLS{},
+		TLS: []netv1alpha1.IngressTLS{},
 		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
 				"test-route.test.svc.cluster.local",
