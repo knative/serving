@@ -71,7 +71,7 @@ var (
 		VolumeSource: corev1.VolumeSource{
 			DownwardAPI: &corev1.DownwardAPIVolumeSource{
 				Items: []corev1.DownwardAPIVolumeFile{
-					corev1.DownwardAPIVolumeFile{
+					{
 						Path: metadataLabelsPath,
 						FieldRef: &corev1.ObjectFieldSelector{
 							FieldPath: fmt.Sprintf("%s['%s']", metadataLabelsRef, autoscaling.PreferForScaleDownLabelKey),
