@@ -135,7 +135,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 
 	// Report the reconciler event, if any.
 	if reconcileEvent != nil {
-		logger.Error("ReconcileKind returned an event: %v", reconcileEvent)
+		logger.Errorw("ReconcileKind returned an event", zap.Error(reconcileEvent))
 		var event *reconciler.ReconcilerEvent
 		if reconciler.EventAs(reconcileEvent, &event) {
 			r.Recorder.Eventf(resource, event.EventType, event.Reason, event.Format, event.Args...)

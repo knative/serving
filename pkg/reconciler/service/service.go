@@ -19,8 +19,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/service"
-
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/zap"
 
@@ -47,6 +45,12 @@ const (
 	ReconcilerName = "Services"
 )
 
+// newReconciledNormal makes a new reconciler event with event type Normal, and
+// reason Updated.
+func newReconciledNormal(name string) pkgreconciler.Event {
+	return pkgreconciler.NewEvent(corev1.EventTypeNormal, "Updated", "Updated Service %q", name)
+}
+
 // Reconciler implements controller.Reconciler for Service resources.
 type Reconciler struct {
 	*reconciler.Base
@@ -58,11 +62,13 @@ type Reconciler struct {
 	routeLister         listers.RouteLister
 }
 
-// Check that our Reconciler implements Interface
-var _ service.Interface = (*Reconciler)(nil)
-
 func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1alpha1.Service) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
+
+	if service.GetDeletionTimestamp() != nil {
+		// Check for a DeletionTimestamp.  If present, elide the normal reconcile logic.
+		return nil
+	}
 
 	// We may be reading a version of the object that was stored at an older version
 	// and may not have had all of the assumed defaults specified.  This won't result
@@ -74,7 +80,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1alpha1.Servic
 	if err := service.ConvertUp(ctx, &v1beta1.Service{}); err != nil {
 		if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
 			service.Status.MarkResourceNotConvertible(ce)
-			return nil
+			return newReconciledNormal(service.Name)
 		}
 		return err
 	}
@@ -92,7 +98,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1alpha1.Servic
 		// If BYO-Revision name is used we must serialize reconciling the Configuration
 		// and Route. Wait for observed generation to match before continuing.
 		if config.Spec.GetTemplate().Name != "" {
-			return nil
+			return newReconciledNormal(service.Name)
 		}
 	} else {
 		// Update our Status based on the state of our underlying Configuration.
@@ -106,7 +112,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1alpha1.Servic
 	if _, err := cfgreconciler.CheckNameAvailability(config, c.revisionLister); err != nil &&
 		!apierrs.IsNotFound(err) {
 		service.Status.MarkRevisionNameTaken(config.Spec.GetTemplate().Name)
-		return nil
+		return newReconciledNormal(service.Name)
 	}
 
 	route, err := c.route(ctx, logger, service)
@@ -128,7 +134,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1alpha1.Servic
 	c.checkRoutesNotReady(config, logger, route, service)
 	service.Status.ObservedGeneration = service.Generation
 
-	return nil
+	return newReconciledNormal(service.Name)
 }
 
 func (c *Reconciler) config(ctx context.Context, logger *zap.SugaredLogger, service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
