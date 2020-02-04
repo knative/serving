@@ -50,9 +50,14 @@ var (
 
 // StatsReporter defines the interface for sending activator metrics
 type StatsReporter interface {
-	ReportRequestConcurrency(ns, service, config, rev string, v int64) error
-	ReportRequestCount(ns, service, config, rev string, responseCode, numTries int) error
-	ReportResponseTime(ns, service, config, rev string, responseCode int, d time.Duration) error
+	GetRevisionStatsReporter(ns, service, config, rev string) (RevisionStatsReporter, error)
+}
+
+// RevisionStatsReporter defines the interface for sending revision specific metrics.
+type RevisionStatsReporter interface {
+	ReportRequestConcurrency(v int64)
+	ReportRequestCount(responseCode, numTries int)
+	ReportResponseTime(responseCode int, d time.Duration)
 }
 
 // reporter holds cached metric objects to report autoscaler metrics
@@ -107,9 +112,7 @@ func valueOrUnknown(v string) string {
 	return metricskey.ValueUnknown
 }
 
-// ReportRequestConcurrency captures request concurrency metric with value v.
-func (r *reporter) ReportRequestConcurrency(ns, service, config, rev string, v int64) error {
-	// Note that service names can be an empty string, so it needs a special treatment.
+func (r *reporter) GetRevisionStatsReporter(ns, service, config, rev string) (RevisionStatsReporter, error) {
 	ctx, err := tag.New(
 		r.ctx,
 		tag.Upsert(metrics.NamespaceTagKey, ns),
@@ -117,50 +120,54 @@ func (r *reporter) ReportRequestConcurrency(ns, service, config, rev string, v i
 		tag.Upsert(metrics.ConfigTagKey, config),
 		tag.Upsert(metrics.RevisionTagKey, rev))
 	if err != nil {
-		return err
+		return &revisionReporter{}, err
 	}
 
-	pkgmetrics.Record(ctx, requestConcurrencyM.M(v))
-	return nil
+	return &revisionReporter{ctx: ctx}, nil
+}
+
+type revisionReporter struct {
+	ctx context.Context
+}
+
+// ReportRequestConcurrency captures request concurrency metric with value v.
+func (r *revisionReporter) ReportRequestConcurrency(v int64) {
+	if r.ctx == nil {
+		return
+	}
+
+	pkgmetrics.Record(r.ctx, requestConcurrencyM.M(v))
 }
 
 // ReportRequestCount captures request count.
-func (r *reporter) ReportRequestCount(ns, service, config, rev string, responseCode, numTries int) error {
-	// Note that service names can be an empty string, so it needs a special treatment.
-	ctx, err := tag.New(
+func (r *revisionReporter) ReportRequestCount(responseCode, numTries int) {
+	if r.ctx == nil {
+		return
+	}
+
+	// It's safe to ignore the error as the tags are guaranteed to pass the checks in all cases.
+	ctx, _ := tag.New(
 		r.ctx,
-		tag.Upsert(metrics.NamespaceTagKey, ns),
-		tag.Upsert(metrics.ServiceTagKey, valueOrUnknown(service)),
-		tag.Upsert(metrics.ConfigTagKey, config),
-		tag.Upsert(metrics.RevisionTagKey, rev),
 		tag.Upsert(metrics.ResponseCodeKey, strconv.Itoa(responseCode)),
 		tag.Upsert(metrics.ResponseCodeClassKey, responseCodeClass(responseCode)),
 		tag.Upsert(metrics.NumTriesKey, strconv.Itoa(numTries)))
-	if err != nil {
-		return err
-	}
 
 	pkgmetrics.Record(ctx, requestCountM.M(1))
-	return nil
 }
 
 // ReportResponseTime captures response time requests
-func (r *reporter) ReportResponseTime(ns, service, config, rev string, responseCode int, d time.Duration) error {
-	// Note that service names can be an empty string, so it needs a special treatment.
-	ctx, err := tag.New(
-		r.ctx,
-		tag.Upsert(metrics.NamespaceTagKey, ns),
-		tag.Upsert(metrics.ServiceTagKey, valueOrUnknown(service)),
-		tag.Upsert(metrics.ConfigTagKey, config),
-		tag.Upsert(metrics.RevisionTagKey, rev),
-		tag.Upsert(metrics.ResponseCodeKey, strconv.Itoa(responseCode)),
-		tag.Upsert(metrics.ResponseCodeClassKey, responseCodeClass(responseCode)))
-	if err != nil {
-		return err
+func (r *revisionReporter) ReportResponseTime(responseCode int, d time.Duration) {
+	if r.ctx == nil {
+		return
 	}
 
+	// It's safe to ignore the error as the tags are guaranteed to pass the checks in all cases.
+	ctx, _ := tag.New(
+		r.ctx,
+		tag.Upsert(metrics.ResponseCodeKey, strconv.Itoa(responseCode)),
+		tag.Upsert(metrics.ResponseCodeClassKey, responseCodeClass(responseCode)))
+
 	pkgmetrics.Record(ctx, responseTimeInMsecM.M(float64(d.Milliseconds())))
-	return nil
 }
 
 // responseCodeClass converts response code to a string of response code class.
