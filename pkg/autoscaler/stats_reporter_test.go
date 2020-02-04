@@ -55,18 +55,11 @@ func TestReporterReport(t *testing.T) {
 
 	// Send statistics only once and observe the results
 	r.ReportDesiredPodCount(10)
-	r.ReportRequestedPodCount(7)
-	r.ReportActualPodCount(5 /* ready */, 9 /* notReady */, 8 /* terminating */, 6 /* pending */)
 	r.ReportPanic(0)
 	r.ReportRequestConcurrency(2, 3, 0.9)
 	r.ReportRPS(5, 6, 7)
 	r.ReportExcessBurstCapacity(19.84)
 	metricstest.CheckLastValueData(t, "desired_pods", wantTags, 10)
-	metricstest.CheckLastValueData(t, "requested_pods", wantTags, 7)
-	metricstest.CheckLastValueData(t, "actual_pods", wantTags, 5)
-	metricstest.CheckLastValueData(t, "not_ready_pods", wantTags, 9)
-	metricstest.CheckLastValueData(t, "pending_pods", wantTags, 6)
-	metricstest.CheckLastValueData(t, "terminating_pods", wantTags, 8)
 	metricstest.CheckLastValueData(t, "panic_mode", wantTags, 0)
 	metricstest.CheckLastValueData(t, "stable_request_concurrency", wantTags, 2)
 	metricstest.CheckLastValueData(t, "excess_burst_capacity", wantTags, 19.84)
@@ -81,31 +74,6 @@ func TestReporterReport(t *testing.T) {
 	r.ReportDesiredPodCount(2)
 	r.ReportDesiredPodCount(3)
 	metricstest.CheckLastValueData(t, "desired_pods", wantTags, 3)
-
-	r.ReportRequestedPodCount(4)
-	r.ReportRequestedPodCount(5)
-	r.ReportRequestedPodCount(6)
-	metricstest.CheckLastValueData(t, "requested_pods", wantTags, 6)
-
-	r.ReportActualPodCount(7 /* ready */, 0 /* notReady */, 0 /* terminating */, 0 /* pending */)
-	r.ReportActualPodCount(8 /* ready */, 0 /* notReady */, 0 /* terminating */, 0 /* pending */)
-	r.ReportActualPodCount(9 /* ready */, 0 /* notReady */, 0 /* terminating */, 0 /* pending */)
-	metricstest.CheckLastValueData(t, "actual_pods", wantTags, 9)
-
-	r.ReportActualPodCount(0 /* ready */, 6 /* notReady */, 0 /* terminating */, 0 /* pending */)
-	r.ReportActualPodCount(0 /* ready */, 5 /* notReady */, 0 /* terminating */, 0 /* pending */)
-	r.ReportActualPodCount(0 /* ready */, 4 /* notReady */, 0 /* terminating */, 0 /* pending */)
-	metricstest.CheckLastValueData(t, "not_ready_pods", wantTags, 4)
-
-	r.ReportActualPodCount(0 /* ready */, 0 /* notReady */, 0 /* terminating */, 3 /* pending */)
-	r.ReportActualPodCount(0 /* ready */, 0 /* notReady */, 0 /* terminating */, 2 /* pending */)
-	r.ReportActualPodCount(0 /* ready */, 0 /* notReady */, 0 /* terminating */, 1 /* pending */)
-	metricstest.CheckLastValueData(t, "pending_pods", wantTags, 1)
-
-	r.ReportActualPodCount(0 /* ready */, 0 /* notReady */, 5 /* terminating */, 0 /* pending */)
-	r.ReportActualPodCount(0 /* ready */, 0 /* notReady */, 3 /* terminating */, 0 /* pending */)
-	r.ReportActualPodCount(0 /* ready */, 0 /* notReady */, 8 /* terminating */, 0 /* pending */)
-	metricstest.CheckLastValueData(t, "terminating_pods", wantTags, 8)
 
 	r.ReportPanic(1)
 	r.ReportPanic(0)
@@ -139,11 +107,6 @@ func TestReporterEmptyServiceName(t *testing.T) {
 func resetMetrics() {
 	metricstest.Unregister(
 		desiredPodCountM.Name(),
-		requestedPodCountM.Name(),
-		actualPodCountM.Name(),
-		notReadyPodCountM.Name(),
-		pendingPodCountM.Name(),
-		terminatingPodCountM.Name(),
 		stableRequestConcurrencyM.Name(),
 		panicRequestConcurrencyM.Name(),
 		excessBurstCapacityM.Name(),

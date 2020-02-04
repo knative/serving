@@ -20,10 +20,12 @@ import (
 	"context"
 	"fmt"
 
+	"go.opencensus.io/stats"
 	"go.uber.org/zap"
 
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -262,22 +264,23 @@ func computeStatus(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 }
 
 func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
-	var serviceLabel string
-	var configLabel string
-	if pa.Labels != nil {
-		serviceLabel = pa.Labels[serving.ServiceLabelKey]
-		configLabel = pa.Labels[serving.ConfigurationLabelKey]
-	}
-	reporter, err := autoscaler.NewStatsReporter(pa.Namespace, serviceLabel, configLabel, pa.Name)
+	serviceLabel := pa.Labels[serving.ServiceLabelKey] // This might be empty.
+	configLabel := pa.Labels[serving.ConfigurationLabelKey]
+
+	reportCtx, err := reporterContext(pa.Namespace, serviceLabel, configLabel, pa.Name)
 	if err != nil {
 		return err
 	}
 
-	reporter.ReportActualPodCount(int64(pc.ready), int64(pc.notReady), int64(pc.pending), int64(pc.terminating))
+	stats := []stats.Measurement{
+		actualPodCountM.M(int64(pc.ready)), notReadyPodCountM.M(int64(pc.notReady)),
+		pendingPodCountM.M(int64(pc.pending)), terminatingPodCountM.M(int64(pc.terminating)),
+	}
 	// Negative "want" values represent an empty metrics pipeline and thus no specific request is being made.
 	if pc.want >= 0 {
-		reporter.ReportRequestedPodCount(int64(pc.want))
+		stats = append(stats, requestedPodCountM.M(int64(pc.want)))
 	}
+	pkgmetrics.RecordBatch(reportCtx, stats...)
 	return nil
 }
 
