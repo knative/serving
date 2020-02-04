@@ -270,8 +270,7 @@ func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ing *v1alpha1
 
 	// Now, remove the extra ones.
 	vses, err := r.virtualServiceLister.VirtualServices(ing.GetNamespace()).List(
-		labels.Set(map[string]string{
-			networking.IngressLabelKey: ing.GetName()}).AsSelector())
+		labels.SelectorFromSet(labels.Set{networking.IngressLabelKey: ing.GetName()}))
 	if err != nil {
 		return fmt.Errorf("failed to get VirtualServices: %w", err)
 	}

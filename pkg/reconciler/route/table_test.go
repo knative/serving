@@ -26,7 +26,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -2252,9 +2251,9 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 					Namespace: "default",
 					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
 						Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")))},
-					Labels: labels.Set(map[string]string{
+					Labels: map[string]string{
 						serving.RouteLabelKey: "becomes-ready",
-					}),
+					},
 					Annotations: map[string]string{
 						networking.CertificateClassAnnotationKey: network.CertManagerCertificateClassName,
 					},
@@ -2439,9 +2438,9 @@ func TestReconcile_EnableAutoTLS_HTTPDisabled(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "route-12-34",
 					Namespace: "default",
-					Labels: labels.Set(map[string]string{
+					Labels: map[string]string{
 						serving.RouteLabelKey: "becomes-ready",
-					}),
+					},
 					OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(
 						Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")))},
 					Annotations: map[string]string{

@@ -119,7 +119,7 @@ func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol 
 }
 
 func (rw *revisionWatcher) getK8sPrivateService() (*corev1.Service, error) {
-	selector := labels.SelectorFromSet(map[string]string{
+	selector := labels.SelectorFromSet(labels.Set{
 		serving.RevisionLabelKey:  rw.rev.Name,
 		networking.ServiceTypeKey: string(networking.ServiceTypePrivate),
 	})

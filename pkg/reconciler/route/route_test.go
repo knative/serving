@@ -193,10 +193,10 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 
 func getRouteIngressFromClient(ctx context.Context, t *testing.T, route *v1alpha1.Route) *netv1alpha1.Ingress {
 	opts := metav1.ListOptions{
-		LabelSelector: labels.Set(map[string]string{
+		LabelSelector: labels.SelectorFromSet(labels.Set{
 			serving.RouteLabelKey:          route.Name,
 			serving.RouteNamespaceLabelKey: route.Namespace,
-		}).AsSelector().String(),
+		}).String(),
 	}
 	ingresses, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().Ingresses(route.Namespace).List(opts)
 	if err != nil {
