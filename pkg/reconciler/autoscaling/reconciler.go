@@ -91,7 +91,7 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, m
 func (c *Base) DeleteMetricsServices(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
 	logger := logging.FromContext(ctx)
 
-	svcs, err := c.ServiceLister.Services(pa.Namespace).List(labels.SelectorFromSet(map[string]string{
+	svcs, err := c.ServiceLister.Services(pa.Namespace).List(labels.SelectorFromSet(labels.Set{
 		autoscaling.KPALabelKey:   pa.Name,
 		networking.ServiceTypeKey: string(networking.ServiceTypeMetrics),
 	}))

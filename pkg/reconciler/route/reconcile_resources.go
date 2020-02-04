@@ -43,10 +43,10 @@ import (
 )
 
 func routeOwnerLabelSelector(route *v1alpha1.Route) labels.Selector {
-	return labels.Set(map[string]string{
+	return labels.SelectorFromSet(labels.Set{
 		serving.RouteLabelKey:          route.Name,
 		serving.RouteNamespaceLabelKey: route.Namespace,
-	}).AsSelector()
+	})
 }
 
 func (c *Reconciler) deleteIngressForRoute(route *v1alpha1.Route) error {

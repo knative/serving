@@ -296,11 +296,9 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1alpha1.Route, tr
 	}
 
 	routeDomain := config.FromContext(ctx).Domain.LookupDomainForLabels(r.Labels)
-	labelSelector := kubelabels.SelectorFromSet(
-		kubelabels.Set{
-			networking.WildcardCertDomainLabelKey: routeDomain,
-		},
-	)
+	labelSelector := kubelabels.SelectorFromSet(kubelabels.Set{
+		networking.WildcardCertDomainLabelKey: routeDomain,
+	})
 
 	allWildcardCerts, err := c.certificateLister.Certificates(r.Namespace).List(labelSelector)
 	if err != nil {
