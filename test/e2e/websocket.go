@@ -88,9 +88,9 @@ func connect(t *testing.T, clients *test.Clients, domain string) (*websocket.Con
 // x == size; ensuring that each connection lands on a separate pod
 func uniqueHostConnections(t *testing.T, names test.ResourceNames, size int) (*sync.Map, error) {
 	clients := Setup(t)
-	uniqueHostConns := sync.Map{}
+	uniqueHostConns := &sync.Map{}
 
-	ctx, done := context.WithCancel(context.Background())
+	ctx, _ := context.WithTimeout(context.Background(), uniqueHostConnTimeout)
 	gr, gctx := errgroup.WithContext(ctx)
 	for i := 0; i < size; i++ {
 		gr.Go(func() error {
@@ -129,15 +129,10 @@ func uniqueHostConnections(t *testing.T, names test.ResourceNames, size int) (*s
 		})
 	}
 
-	timer := time.AfterFunc(uniqueHostConnTimeout, func() {
-		done()
-	})
-	defer timer.Stop()
-
 	if err := gr.Wait(); err != nil {
 		return nil, err
 	}
-	return &uniqueHostConns, nil
+	return uniqueHostConns, nil
 }
 
 // deleteHostConnections closes and removees x number of open websocket connections

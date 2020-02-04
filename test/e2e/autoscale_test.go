@@ -271,11 +271,9 @@ func assertScaleDown(ctx *testContext) {
 }
 
 func allPods(ctx *testContext) ([]corev1.Pod, error) {
-	labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{serving.RevisionLabelKey: ctx.resources.Revision.Name}}
 	pods, err := ctx.clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).List(
-		metav1.ListOptions{
-			LabelSelector: labels.Set(labelSelector.MatchLabels).String(),
-		})
+		metav1.ListOptions{LabelSelector: labels.SelectorFromSet(labels.Set{serving.RevisionLabelKey: ctx.resources.Revision.Name}).String()})
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pods for revision %s: %w", ctx.resources.Revision.Name, err)
 	}
@@ -395,43 +393,37 @@ func assertGracefulScaledown(t *testing.T, ctx *testContext, size int) error {
 	deleteHostConnections(hostConnMap, size-openConnCount)
 
 	defer deleteHostConnections(hostConnMap, openConnCount)
-	grp := errgroup.Group{}
-	grp.Go(func() error {
-		timer := time.NewTicker(2 * time.Second)
-		for _ = range timer.C {
-			readyCount, err := numberOfReadyPods(ctx)
+
+	timer := time.NewTicker(2 * time.Second)
+	for _ = range timer.C {
+		readyCount, err := numberOfReadyPods(ctx)
+		if err != nil {
+			return err
+		}
+
+		if int(readyCount) < openConnCount {
+			return fmt.Errorf("failed keeping the right number of pods. Ready(%d) != Expected(%d)", int(readyCount), openConnCount)
+		}
+
+		if int(readyCount) == openConnCount {
+			pods, err := allPods(ctx)
 			if err != nil {
 				return err
 			}
 
-			if int(readyCount) < openConnCount {
-				return fmt.Errorf("Failed keeping the right number of pods. Ready(%d) != Expected(%d)", int(readyCount), openConnCount)
-			}
-
-			if int(readyCount) == openConnCount {
-				pods, err := allPods(ctx)
-				if err != nil {
-					return err
+			for _, p := range pods {
+				if p.Status.Phase != corev1.PodRunning || p.DeletionTimestamp != nil {
+					continue
 				}
 
-				for _, p := range pods {
-					if p.Status.Phase != corev1.PodRunning || p.DeletionTimestamp != nil {
-						continue
-					}
-
-					if _, ok := hostConnMap.Load(p.Name); !ok {
-						return fmt.Errorf("Failed by keeping the wrong pod %s", p.Name)
-					}
+				if _, ok := hostConnMap.Load(p.Name); !ok {
+					return fmt.Errorf("failed by keeping the wrong pod %s", p.Name)
 				}
-				break
 			}
+			break
 		}
-		return nil
-	})
-
-	if err := grp.Wait(); err != nil {
-		return err
 	}
+
 	return nil
 }
 
@@ -455,9 +447,8 @@ func TestGracefulScaledown(t *testing.T) {
 	defer patchCM(ctx.clients, autoscalerConfigMap)
 	test.CleanupOnInterrupt(func() { patchCM(ctx.clients, autoscalerConfigMap) })
 
-	err = assertGracefulScaledown(t, ctx, 4 /* desired pods */)
-	if err != nil {
-		t.Errorf("Failed %v", err)
+	if err = assertGracefulScaledown(t, ctx, 4 /* desired pods */); err != nil {
+		t.Errorf("Failed: %v", err)
 	}
 }
 
