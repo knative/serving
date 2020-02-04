@@ -102,9 +102,7 @@ func valueOrUnknown(v string) string {
 }
 
 func reporterContext(ns, service, config, revision string) (context.Context, error) {
-	// Our tags are static. So, we can get away with creating a single context
-	// and reuse it for reporting all of our metrics. Note that service names
-	// can be an empty string, so it needs a special treatment.
+	//  Note that service names can be an empty string, so they needs a special treatment.
 	ctx, err := tag.New(
 		context.Background(),
 		tag.Upsert(metrics.NamespaceTagKey, ns),
