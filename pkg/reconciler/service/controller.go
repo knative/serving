@@ -23,6 +23,7 @@ import (
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/route"
 	kserviceinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/service"
+	reconcilerservice "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/service"
 
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
@@ -36,7 +37,7 @@ const (
 )
 
 // NewController initializes the controller and is called by the generated code
-// Registers eventhandlers to enqueue events
+// Registers event handlers to enqueue events
 func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
@@ -53,7 +54,7 @@ func NewController(
 		revisionLister:      revisionInformer.Lister(),
 		routeLister:         routeInformer.Lister(),
 	}
-	impl := controller.NewImpl(c, c.Logger, ReconcilerName)
+	impl := reconcilerservice.NewImpl(ctx, c)
 
 	c.Logger.Info("Setting up event handlers")
 	serviceInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))

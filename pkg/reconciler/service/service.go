@@ -19,8 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
-	"reflect"
-	"time"
+	"knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/service"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/zap"
@@ -29,11 +28,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 
-	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
@@ -60,74 +58,10 @@ type Reconciler struct {
 	routeLister         listers.RouteLister
 }
 
-// Check that our Reconciler implements controller.Reconciler
-var _ controller.Reconciler = (*Reconciler)(nil)
+// Check that our Reconciler implements Interface
+var _ service.Interface = (*Reconciler)(nil)
 
-// Reconcile compares the actual state with the desired, and attempts to
-// converge the two. It then updates the Status block of the Service resource
-// with the current status of the resource.
-func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
-	logger := logging.FromContext(ctx)
-
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		logger.Errorw("Invalid resource key", zap.Error(err))
-		return nil
-	}
-
-	// Get the Service resource with this namespace/name
-	original, err := c.serviceLister.Services(namespace).Get(name)
-	if apierrs.IsNotFound(err) {
-		// The resource may no longer exist, in which case we stop processing.
-		logger.Info("Service in work queue no longer exists")
-		return nil
-	} else if err != nil {
-		return err
-	}
-
-	if original.GetDeletionTimestamp() != nil {
-		return nil
-	}
-
-	// Don't modify the informers copy
-	service := original.DeepCopy()
-
-	// Reconcile this copy of the service and then write back any status
-	// updates regardless of whether the reconciliation errored out.
-	reconcileErr := c.reconcile(ctx, service)
-	if equality.Semantic.DeepEqual(original.Status, service.Status) {
-		// If we didn't change anything then don't call updateStatus.
-		// This is important because the copy we loaded from the informer's
-		// cache may be stale and we don't want to overwrite a prior update
-		// to status with this stale state.
-
-	} else if uErr := c.updateStatus(original, service, logger); uErr != nil {
-		logger.Warnw("Failed to update service status", zap.Error(uErr))
-		c.Recorder.Eventf(service, corev1.EventTypeWarning, "UpdateFailed",
-			"Failed to update status for Service %q: %v", service.Name, uErr)
-		return uErr
-	} else if reconcileErr == nil {
-		// There was a difference and updateStatus did not return an error.
-		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Updated", "Updated Service %q", service.GetName())
-	}
-	if reconcileErr != nil {
-		c.Recorder.Event(service, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
-		return reconcileErr
-	}
-	// TODO(mattmoor): Remove this after 0.7 cuts.
-	// If the spec has changed, then assume we need an upgrade and issue a patch to trigger
-	// the webhook to upgrade via defaulting.  Status updates do not trigger this due to the
-	// use of the /status resource.
-	if !equality.Semantic.DeepEqual(original.Spec, service.Spec) {
-		services := v1alpha1.SchemeGroupVersion.WithResource("services")
-		if err := c.MarkNeedsUpgrade(services, service.Namespace, service.Name); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) error {
+func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1alpha1.Service) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
 
 	// We may be reading a version of the object that was stored at an older version
@@ -271,34 +205,6 @@ func (c *Reconciler) checkRoutesNotReady(config *v1alpha1.Configuration, logger 
 		logger.Errorf("Route %s is not yet what we want: %s", route.Name, diff)
 		service.Status.MarkRouteNotYetReady()
 	}
-}
-
-func (c *Reconciler) updateStatus(existing *v1alpha1.Service, desired *v1alpha1.Service, logger *zap.SugaredLogger) error {
-	existing = existing.DeepCopy()
-	return reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
-		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
-		if attempts > 0 {
-			existing, err = c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-		}
-
-		// If there's nothing to update, just return.
-		if reflect.DeepEqual(existing.Status, desired.Status) {
-			return nil
-		}
-
-		becomesReady := desired.Status.IsReady() && !existing.Status.IsReady()
-		existing.Status = desired.Status
-		_, err = c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).UpdateStatus(existing)
-		if err == nil && becomesReady {
-			duration := time.Since(existing.ObjectMeta.CreationTimestamp.Time)
-			logger.Infof("Service became ready after %v", duration)
-			c.StatsReporter.ReportServiceReady(existing.Namespace, existing.Name, duration)
-		}
-		return err
-	})
 }
 
 func (c *Reconciler) createConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {

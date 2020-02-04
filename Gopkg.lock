@@ -1780,8 +1780,7 @@
   revision = "1814fc9af6f0ecc2dcfe11a732ac718044baa6fd"
 
 [[projects]]
-  branch = "master"
-  digest = "1:107ee62154c011274e913c95b410fffde1c9a7ebb4e972a1428f4927a4f8afe6"
+  digest = "1:98aa26ed64e3868ed64b3ec3e10d47e398a81253a68e18014b8d383775dddf69"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1838,6 +1837,7 @@
     "network/prober",
     "profiling",
     "ptr",
+    "reconciler",
     "reconciler/testing",
     "signals",
     "system",
@@ -1883,7 +1883,8 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "d5698e90e262503c568a6abc645a0f34dcec385f"
+  revision = "0706408f832dcf7c482e2e216538f9cbc86b3aa6"
+  source = "github.com/n3wscott/pkg"
 
 [[projects]]
   branch = "master"
@@ -2089,6 +2090,7 @@
     "knative.dev/pkg/network/prober",
     "knative.dev/pkg/profiling",
     "knative.dev/pkg/ptr",
+    "knative.dev/pkg/reconciler",
     "knative.dev/pkg/reconciler/testing",
     "knative.dev/pkg/signals",
     "knative.dev/pkg/system",

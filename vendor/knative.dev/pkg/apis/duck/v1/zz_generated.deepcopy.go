@@ -21,6 +21,7 @@ limitations under the License.
 package v1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	apis "knative.dev/pkg/apis"
 )
@@ -177,7 +178,7 @@ func (in *Destination) DeepCopyInto(out *Destination) {
 	*out = *in
 	if in.Ref != nil {
 		in, out := &in.Ref, &out.Ref
-		*out = new(KnativeReference)
+		*out = new(corev1.ObjectReference)
 		**out = **in
 	}
 	if in.URI != nil {

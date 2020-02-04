@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+	reconcilerservice "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/service"
 	"testing"
 
 	// Install our fake informers
@@ -1385,13 +1386,15 @@ func TestReconcile(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		return &Reconciler{
+		r := &Reconciler{
 			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
 			serviceLister:       listers.GetServiceLister(),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
 			routeLister:         listers.GetRouteLister(),
 		}
+
+		return reconcilerservice.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetServiceLister(), r.Recorder, r)
 	}))
 }
 
