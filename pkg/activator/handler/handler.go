@@ -20,7 +20,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"time"
 
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/trace"
@@ -56,9 +55,6 @@ type activationHandler struct {
 	bufferPool       httputil.BufferPool
 }
 
-// The default time we'll try to probe the revision for activation.
-const defaulTimeout = 2 * time.Minute
-
 // New constructs a new http.Handler that deals with revision activation.
 func New(ctx context.Context, t Throttler, sr activator.StatsReporter) http.Handler {
 	defaultTransport := pkgnet.AutoTransport
@@ -80,8 +76,6 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if tracingEnabled {
 		tryContext, trySpan = trace.StartSpan(r.Context(), "throttler_try")
 	}
-	tryContext, cancel := context.WithTimeout(tryContext, defaulTimeout)
-	defer cancel()
 
 	err := a.throttler.Try(tryContext, revID, func(dest string) error {
 		trySpan.End()
