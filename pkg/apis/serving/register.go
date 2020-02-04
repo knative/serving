@@ -16,6 +16,8 @@ limitations under the License.
 
 package serving
 
+import "k8s.io/apimachinery/pkg/runtime/schema"
+
 const (
 	// GroupName is the group name for knative labels and annotations
 	GroupName = "serving.knative.dev"
@@ -69,4 +71,30 @@ const (
 	// QueueSideCarResourcePercentageAnnotation is the percentage of user container resources to be used for queue-proxy
 	// It has to be in [0.1,100]
 	QueueSideCarResourcePercentageAnnotation = "queue.sidecar." + GroupName + "/resourcePercentage"
+)
+
+var (
+	// ServicesResource respresents a Knative Service
+	ServicesResource = schema.GroupResource{
+		Group:    GroupName,
+		Resource: "services",
+	}
+
+	// ConfigurationsResource respresents a Knative Configuration
+	ConfigurationsResource = schema.GroupResource{
+		Group:    GroupName,
+		Resource: "configurations",
+	}
+
+	// RevisionsResource respresents a Knative Revision
+	RevisionsResource = schema.GroupResource{
+		Group:    GroupName,
+		Resource: "revisions",
+	}
+
+	// RoutesResource respresents a Knative Route
+	RoutesResource = schema.GroupResource{
+		Group:    GroupName,
+		Resource: "routes",
+	}
 )

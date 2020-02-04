@@ -37,6 +37,7 @@ import (
 	// resource validation types
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	net "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
@@ -163,7 +164,7 @@ func NewConversionController(ctx context.Context, cmw configmap.Watcher) *contro
 		// Specify the types of custom resource definitions that should be converted
 		map[schema.GroupKind]conversion.GroupKindConversion{
 			v1.Kind("Service"): {
-				DefinitionName: "services.serving.knative.dev",
+				DefinitionName: serving.ServicesResource.String(),
 				HubVersion:     v1alpha1_,
 				Zygotes: map[string]conversion.ConvertibleObject{
 					v1alpha1_: &v1alpha1.Service{},
@@ -172,7 +173,7 @@ func NewConversionController(ctx context.Context, cmw configmap.Watcher) *contro
 				},
 			},
 			v1.Kind("Configuration"): {
-				DefinitionName: "configurations.serving.knative.dev",
+				DefinitionName: serving.ConfigurationsResource.String(),
 				HubVersion:     v1alpha1_,
 				Zygotes: map[string]conversion.ConvertibleObject{
 					v1alpha1_: &v1alpha1.Configuration{},
@@ -181,7 +182,7 @@ func NewConversionController(ctx context.Context, cmw configmap.Watcher) *contro
 				},
 			},
 			v1.Kind("Revision"): {
-				DefinitionName: "revisions.serving.knative.dev",
+				DefinitionName: serving.RevisionsResource.String(),
 				HubVersion:     v1alpha1_,
 				Zygotes: map[string]conversion.ConvertibleObject{
 					v1alpha1_: &v1alpha1.Revision{},
@@ -190,7 +191,7 @@ func NewConversionController(ctx context.Context, cmw configmap.Watcher) *contro
 				},
 			},
 			v1.Kind("Route"): {
-				DefinitionName: "routes.serving.knative.dev",
+				DefinitionName: serving.RoutesResource.String(),
 				HubVersion:     v1alpha1_,
 				Zygotes: map[string]conversion.ConvertibleObject{
 					v1alpha1_: &v1alpha1.Route{},
