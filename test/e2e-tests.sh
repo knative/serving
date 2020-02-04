@@ -59,6 +59,13 @@ go_test_e2e -timeout=10m \
   ${parallelism} \
   ./test/scale || failed=1
 
+# Istio E2E tests mutate the cluster and must be ran separately
+if [[ -n "${ISTIO_VERSION}" ]]; then
+  go_test_e2e -timeout=10m \
+    ./test/e2e/istio \
+    "--resolvabledomain=$(use_resolvable_domain)" "$(use_https)" || failed=1
+fi
+
 # Auto TLS E2E tests mutate the cluster and must be ran separately
 kubectl apply -f ./test/config/autotls/certmanager/selfsigned/
 add_trap "kubectl delete -f ./test/config/autotls/certmanager/selfsigned/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
@@ -78,13 +85,6 @@ add_trap "kubectl delete -f ./test/config/autotls/certmanager/http01/ --ignore-n
 go_test_e2e -timeout=10m \
   ./test/conformance/certificate/http01 "$(certificate_class)" || failed=1
 kubectl delete -f ./test/config/autotls/certmanager/http01/
-
-# Istio E2E tests mutate the cluster and must be ran separately
-if [[ -n "${ISTIO_VERSION}" ]]; then
-  go_test_e2e -timeout=10m \
-    ./test/e2e/istio \
-    "--resolvabledomain=$(use_resolvable_domain)" "$(use_https)" || failed=1
-fi
 
 # Dump cluster state in case of failure
 (( failed )) && dump_cluster_state
