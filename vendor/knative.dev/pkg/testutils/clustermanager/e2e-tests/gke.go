@@ -22,7 +22,9 @@ import (
 	"log"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
 	container "google.golang.org/api/container/v1beta1"
+
 	"knative.dev/pkg/test/gke"
 	"knative.dev/pkg/testutils/clustermanager/e2e-tests/boskos"
 	"knative.dev/pkg/testutils/clustermanager/e2e-tests/common"
@@ -36,7 +38,6 @@ const (
 	DefaultGKEZone      = ""
 	regionEnv           = "E2E_CLUSTER_REGION"
 	backupRegionEnv     = "E2E_CLUSTER_BACKUP_REGIONS"
-	defaultGKEVersion   = "latest"
 	DefaultResourceType = boskos.GKEProjectResource
 
 	ClusterRunning = "RUNNING"
@@ -231,7 +232,7 @@ func (gc *GKECluster) Acquire() error {
 			return nil
 		}
 		// Creating cluster
-		log.Printf("Creating cluster %q in region %q zone %q with:\n%+v", clusterName, region, request.Zone, gc.Request)
+		log.Printf("Creating cluster %q in region %q zone %q with:\n%+v", clusterName, region, request.Zone, spew.Sdump(rb))
 		err = gc.operations.CreateCluster(gc.Project, region, request.Zone, rb)
 		if err == nil {
 			cluster, err = gc.operations.GetCluster(gc.Project, region, request.Zone, rb.Cluster.Name)
