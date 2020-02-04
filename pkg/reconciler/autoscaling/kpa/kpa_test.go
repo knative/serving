@@ -33,6 +33,8 @@ import (
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/metrics/metricskey"
+	"knative.dev/pkg/metrics/metricstest"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 	_ "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
@@ -58,6 +60,7 @@ import (
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
@@ -1457,7 +1460,7 @@ func (km *failingDeciders) Update(ctx context.Context, decider *autoscaler.Decid
 	return decider, nil
 }
 
-func newTestRevision(namespace string, name string) *v1alpha1.Revision {
+func newTestRevision(namespace, name string) *v1alpha1.Revision {
 	return &v1alpha1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			SelfLink:  fmt.Sprintf("/apis/ela/v1alpha1/namespaces/%s/revisions/%s", namespace, name),
@@ -1465,6 +1468,10 @@ func newTestRevision(namespace string, name string) *v1alpha1.Revision {
 			Namespace: namespace,
 			Annotations: map[string]string{
 				autoscaling.ClassAnnotationKey: autoscaling.KPA,
+			},
+			Labels: map[string]string{
+				serving.ServiceLabelKey:       "test-service",
+				serving.ConfigurationLabelKey: "test-service",
 			},
 		},
 		Spec: v1alpha1.RevisionSpec{},
@@ -1538,3 +1545,38 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 }
 
 var _ reconciler.ConfigStore = (*testConfigStore)(nil)
+
+func TestMetricsReporter(t *testing.T) {
+	pa := kpa(testNamespace, testRevision)
+	wantTags := map[string]string{
+		metricskey.LabelRevisionName:      testRevision,
+		metricskey.LabelNamespaceName:     testNamespace,
+		metricskey.LabelServiceName:       pa.Labels[serving.ServiceLabelKey],
+		metricskey.LabelConfigurationName: pa.Labels[serving.ConfigurationLabelKey],
+	}
+	pc := podCounts{
+		want:        1982,
+		ready:       1984,
+		notReady:    1988,
+		pending:     1996,
+		terminating: 1983,
+	}
+	reportMetrics(pa, pc)
+	metricstest.CheckLastValueData(t, "requested_pods", wantTags, 1982)
+	metricstest.CheckLastValueData(t, "actual_pods", wantTags, 1984)
+	metricstest.CheckLastValueData(t, "not_ready_pods", wantTags, 1988)
+	metricstest.CheckLastValueData(t, "pending_pods", wantTags, 1996)
+	metricstest.CheckLastValueData(t, "terminating_pods", wantTags, 1983)
+
+	// Verify `want` is ignored, when it is equal to -1.
+	pc.want = -1
+	pc.terminating = 1955
+	reportMetrics(pa, pc)
+
+	// Basically same values and change to `terminating` to verify reporting has occurred.
+	metricstest.CheckLastValueData(t, "requested_pods", wantTags, 1982)
+	metricstest.CheckLastValueData(t, "actual_pods", wantTags, 1984)
+	metricstest.CheckLastValueData(t, "not_ready_pods", wantTags, 1988)
+	metricstest.CheckLastValueData(t, "pending_pods", wantTags, 1996)
+	metricstest.CheckLastValueData(t, "terminating_pods", wantTags, 1955)
+}

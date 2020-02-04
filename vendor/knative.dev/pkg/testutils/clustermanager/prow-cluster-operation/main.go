@@ -51,7 +51,7 @@ func main() {
 	case get:
 		_, err = actions.Get(o)
 	default:
-		err = errors.New("Must pass one of --create, --delete, --get")
+		err = errors.New("must pass one of --create, --delete, --get")
 	}
 
 	if err != nil {

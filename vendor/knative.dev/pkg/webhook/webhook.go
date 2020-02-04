@@ -72,7 +72,7 @@ type Webhook struct {
 // New constructs a Webhook
 func New(
 	ctx context.Context,
-	controllers []AdmissionController,
+	controllers []interface{},
 ) (webhook *Webhook, err error) {
 
 	// ServeMux.Handle panics on duplicate paths
@@ -113,15 +113,27 @@ func New(
 	}
 
 	webhook.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, fmt.Sprintf("no admission controller registered for: %s", r.URL.Path), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("no controller registered for: %s", r.URL.Path), http.StatusBadRequest)
 	})
 
-	for _, c := range controllers {
-		webhook.mux.Handle(
-			c.Path(),
-			admissionHandler(logger, opts.StatsReporter, c),
-		)
+	for _, controller := range controllers {
+		var handler http.Handler
+		var path string
+
+		switch c := controller.(type) {
+		case AdmissionController:
+			handler = admissionHandler(logger, opts.StatsReporter, c)
+			path = c.Path()
+		case ConversionController:
+			handler = conversionHandler(logger, opts.StatsReporter, c)
+			path = c.Path()
+		default:
+			return nil, fmt.Errorf("unknown webhook controller type:  %T", controller)
+		}
+
+		webhook.mux.Handle(path, handler)
 	}
+
 	return
 }
 

@@ -94,7 +94,7 @@ func CheckDistributionData(t test.T, name string, wantTags map[string]string, ex
 // reported are tagged with the tags in wantTags and that wantValue matches reported last value.
 func CheckLastValueData(t test.T, name string, wantTags map[string]string, wantValue float64) {
 	t.Helper()
-	if row := checkExactlyOneRow(t, name); row != nil {
+	if row := lastRow(t, name); row != nil {
 		checkRowTags(t, row, name, wantTags)
 
 		if s, ok := row.Data.(*view.LastValueData); !ok {
@@ -133,6 +133,21 @@ func Unregister(names ...string) {
 			view.Unregister(v)
 		}
 	}
+}
+
+func lastRow(t test.T, name string) *view.Row {
+	t.Helper()
+	d, err := view.RetrieveData(name)
+	if err != nil {
+		t.Error("Reporter.Report() error", "metric", name, "error", err)
+		return nil
+	}
+	if len(d) < 1 {
+		t.Error("Reporter.Report() wrong length", "metric", name, "got", len(d), "want at least", 1)
+		return nil
+	}
+
+	return d[len(d)-1]
 }
 
 func checkExactlyOneRow(t test.T, name string) *view.Row {

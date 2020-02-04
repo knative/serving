@@ -17,6 +17,7 @@ limitations under the License.
 package pkg
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"strings"
@@ -39,6 +40,12 @@ const (
 	statusProvisioning = "PROVISIONING"
 	statusRunning      = "RUNNING"
 	statusStopping     = "STOPPING"
+)
+
+// Extra configurations we want to support for cluster creation request.
+var (
+	enableWorkloadIdentity = flag.Bool("enable-workload-identity", false, "whether to enable Workload Identity")
+	serviceAccount         = flag.String("service-account", "", "service account that will be used on this cluster")
 )
 
 type gkeClient struct {
@@ -237,12 +244,14 @@ func (gc *gkeClient) createClusterWithRetries(gcpProject, name string, config Cl
 		addons = strings.Split(config.Addons, ",")
 	}
 	req := &gke.Request{
-		Project:     gcpProject,
-		ClusterName: name,
-		MinNodes:    config.NodeCount,
-		MaxNodes:    config.NodeCount,
-		NodeType:    config.NodeType,
-		Addons:      addons,
+		Project:                gcpProject,
+		ClusterName:            name,
+		MinNodes:               config.NodeCount,
+		MaxNodes:               config.NodeCount,
+		NodeType:               config.NodeType,
+		Addons:                 addons,
+		EnableWorkloadIdentity: *enableWorkloadIdentity,
+		ServiceAccount:         *serviceAccount,
 	}
 	creq, err := gke.NewCreateClusterRequest(req)
 	if err != nil {

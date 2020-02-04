@@ -59,7 +59,7 @@ aliases:
   - vaikas
 
   webhook-approvers:
+  - dprotaso
   - mattmoor
-  - grantr
   - tcnghia
 

@@ -164,14 +164,15 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 
 	// Based on the reconcilers we have linked, build up the set of controllers to run.
 	controllers := make([]*controller.Impl, 0, len(ctors))
-	webhooks := make([]webhook.AdmissionController, 0)
+	webhooks := make([]interface{}, 0)
 	for _, cf := range ctors {
 		ctrl := cf(ctx, cmw)
 		controllers = append(controllers, ctrl)
 
 		// Build a list of any reconcilers that implement webhook.AdmissionController
-		if ac, ok := ctrl.Reconciler.(webhook.AdmissionController); ok {
-			webhooks = append(webhooks, ac)
+		switch c := ctrl.Reconciler.(type) {
+		case webhook.AdmissionController, webhook.ConversionController:
+			webhooks = append(webhooks, c)
 		}
 	}
 
@@ -222,7 +223,7 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 
 		wh, err := webhook.New(ctx, webhooks)
 		if err != nil {
-			logger.Fatalw("Failed to create admission controller", zap.Error(err))
+			logger.Fatalw("Failed to create webhook", zap.Error(err))
 		}
 		eg.Go(func() error {
 			return wh.Run(ctx.Done())

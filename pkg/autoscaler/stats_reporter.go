@@ -33,26 +33,6 @@ var (
 		"desired_pods",
 		"Number of pods autoscaler wants to allocate",
 		stats.UnitDimensionless)
-	requestedPodCountM = stats.Int64(
-		"requested_pods",
-		"Number of pods autoscaler requested from Kubernetes",
-		stats.UnitDimensionless)
-	actualPodCountM = stats.Int64(
-		"actual_pods",
-		"Number of pods that are allocated currently",
-		stats.UnitDimensionless)
-	notReadyPodCountM = stats.Int64(
-		"not_ready_pods",
-		"Number of pods that are not ready currently",
-		stats.UnitDimensionless)
-	pendingPodCountM = stats.Int64(
-		"pending_pods",
-		"Number of pods that are pending currently",
-		stats.UnitDimensionless)
-	terminatingPodCountM = stats.Int64(
-		"terminating_pods",
-		"Number of pods that are terminating currently",
-		stats.UnitDimensionless)
 	excessBurstCapacityM = stats.Float64(
 		"excess_burst_capacity",
 		"Excess burst capacity overserved over the stable window",
@@ -99,36 +79,6 @@ func register() {
 		&view.View{
 			Description: "Number of pods autoscaler wants to allocate",
 			Measure:     desiredPodCountM,
-			Aggregation: view.LastValue(),
-			TagKeys:     metrics.CommonRevisionKeys,
-		},
-		&view.View{
-			Description: "Number of pods autoscaler requested from Kubernetes",
-			Measure:     requestedPodCountM,
-			Aggregation: view.LastValue(),
-			TagKeys:     metrics.CommonRevisionKeys,
-		},
-		&view.View{
-			Description: "Number of pods that are allocated currently",
-			Measure:     actualPodCountM,
-			Aggregation: view.LastValue(),
-			TagKeys:     metrics.CommonRevisionKeys,
-		},
-		&view.View{
-			Description: "Number of pods that are not ready currently",
-			Measure:     notReadyPodCountM,
-			Aggregation: view.LastValue(),
-			TagKeys:     metrics.CommonRevisionKeys,
-		},
-		&view.View{
-			Description: "Number of pods that are pending currently",
-			Measure:     pendingPodCountM,
-			Aggregation: view.LastValue(),
-			TagKeys:     metrics.CommonRevisionKeys,
-		},
-		&view.View{
-			Description: "Number of pods that are terminating currently",
-			Measure:     terminatingPodCountM,
 			Aggregation: view.LastValue(),
 			TagKeys:     metrics.CommonRevisionKeys,
 		},
@@ -188,8 +138,6 @@ func register() {
 // StatsReporter defines the interface for sending autoscaler metrics
 type StatsReporter interface {
 	ReportDesiredPodCount(v int64)
-	ReportRequestedPodCount(v int64)
-	ReportActualPodCount(ready, notReady, terminating, pending int64)
 	ReportRequestConcurrency(stable, panic, target float64)
 	ReportRPS(stable, panic, target float64)
 	ReportExcessBurstCapacity(v float64)
@@ -229,17 +177,6 @@ func NewStatsReporter(ns, service, config, revision string) (StatsReporter, erro
 // ReportDesiredPodCount captures value v for desired pod count measure.
 func (r *reporter) ReportDesiredPodCount(v int64) {
 	pkgmetrics.Record(r.ctx, desiredPodCountM.M(v))
-}
-
-// ReportRequestedPodCount captures value v for requested pod count measure.
-func (r *reporter) ReportRequestedPodCount(v int64) {
-	pkgmetrics.Record(r.ctx, requestedPodCountM.M(v))
-}
-
-// ReportActualPodCount captures values for ready, not ready, terminating, and pending pod count measure.
-func (r *reporter) ReportActualPodCount(ready, notReady, terminating, pending int64) {
-	pkgmetrics.RecordBatch(r.ctx, actualPodCountM.M(ready), notReadyPodCountM.M(notReady),
-		terminatingPodCountM.M(terminating), pendingPodCountM.M(pending))
 }
 
 // ReportExcessBurstCapacity captures value v for excess target burst capacity.
