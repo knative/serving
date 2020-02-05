@@ -104,8 +104,14 @@ func (c *Reconciler) deleteServices(namespace string, serviceNames sets.String) 
 	return nil
 }
 
-func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1alpha1.Route, targets map[string]traffic.RevisionTargets, existingServiceNames sets.String) ([]*corev1.Service, error) {
+func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1alpha1.Route, targets map[string]traffic.RevisionTargets) ([]*corev1.Service, error) {
 	logger := logging.FromContext(ctx)
+	existingServices, err := c.getServices(route)
+	if err != nil {
+		return nil, err
+	}
+	existingServiceNames := resources.GetNames(existingServices)
+
 	ns := route.Namespace
 
 	names := sets.NewString()

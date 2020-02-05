@@ -24,7 +24,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
@@ -212,7 +211,7 @@ func newTestIngress(t *testing.T, r *v1alpha1.Route, trafficOpts ...func(tc *tra
 		SecretName:      "test-secret",
 		SecretNamespace: "test-ns",
 	}}
-	ingress, err := resources.MakeIngress(getContext(), r, tc, tls, sets.NewString(), "foo-ingress")
+	ingress, err := resources.MakeIngress(getContext(), r, tc, tls, "foo-ingress")
 	if err != nil {
 		t.Errorf("Unexpected error %v", err)
 	}

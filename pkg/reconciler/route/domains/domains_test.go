@@ -21,7 +21,6 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/google/go-cmp/cmp"
 	"knative.dev/pkg/apis"
@@ -244,7 +243,7 @@ func TestGetAllDomainsAndTags(t *testing.T) {
 			ctx = config.ToContext(ctx, cfg)
 
 			// here, a tag-less major domain will have empty string as the input
-			got, err := GetAllDomainsAndTags(ctx, route, []string{"", "target-1", "target-2"}, sets.String{})
+			got, err := GetAllDomainsAndTags(ctx, route, []string{"", "target-1", "target-2"}, nil /* visibility */)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetAllDomains() error = %v, wantErr %v", err, tt.wantErr)
 				return

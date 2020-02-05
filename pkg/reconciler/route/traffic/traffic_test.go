@@ -25,7 +25,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/pkg/ptr"
 	net "knative.dev/serving/pkg/apis/networking"
@@ -998,7 +997,7 @@ func TestRoundTripping(t *testing.T) {
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, route); err != nil {
 		t.Errorf("Unexpected error %v", err)
 	} else {
-		targets, err := tc.GetRevisionTrafficTargets(getContext(), route, sets.String{})
+		targets, err := tc.GetRevisionTrafficTargets(getContext(), route)
 		if err != nil {
 			t.Errorf("Unexpected error %v", err)
 		}
