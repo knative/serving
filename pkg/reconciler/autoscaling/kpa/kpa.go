@@ -30,7 +30,6 @@ import (
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/autoscaler/metrics"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
