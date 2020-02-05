@@ -48,7 +48,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/google/go-cmp/cmp"
-	lru "github.com/hashicorp/golang-lru"
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
@@ -976,7 +975,6 @@ func TestReconcile(t *testing.T) {
 			fakeDeciders.Create(ctx, d.(*autoscaler.Decider))
 		}
 
-		lcache, _ := lru.New(128)
 		psf := podscalable.Get(ctx)
 		scaler := newScaler(ctx, psf, func(interface{}, time.Duration) {})
 		scaler.activatorProbe = func(*asv1a1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
@@ -990,11 +988,10 @@ func TestReconcile(t *testing.T) {
 				ConfigStore:       &testConfigStore{config: defaultConfig()},
 				PSInformerFactory: psf,
 			},
-			endpointsLister:      listers.GetEndpointsLister(),
-			podsLister:           listers.GetPodsLister(),
-			deciders:             fakeDeciders,
-			scaler:               scaler,
-			recorderContextCache: lcache,
+			endpointsLister: listers.GetEndpointsLister(),
+			podsLister:      listers.GetPodsLister(),
+			deciders:        fakeDeciders,
+			scaler:          scaler,
 		}
 	}))
 }
@@ -1550,11 +1547,6 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 var _ reconciler.ConfigStore = (*testConfigStore)(nil)
 
 func TestMetricsReporter(t *testing.T) {
-	c, _ := lru.New(10)
-	r := &Reconciler{
-		recorderContextCache: c,
-	}
-
 	pa := kpa(testNamespace, testRevision)
 	wantTags := map[string]string{
 		metricskey.LabelRevisionName:      testRevision,
@@ -1569,7 +1561,7 @@ func TestMetricsReporter(t *testing.T) {
 		pending:     1996,
 		terminating: 1983,
 	}
-	r.reportMetrics(pa, pc)
+	reportMetrics(pa, pc)
 	metricstest.CheckLastValueData(t, "requested_pods", wantTags, 1982)
 	metricstest.CheckLastValueData(t, "actual_pods", wantTags, 1984)
 	metricstest.CheckLastValueData(t, "not_ready_pods", wantTags, 1988)
@@ -1579,7 +1571,7 @@ func TestMetricsReporter(t *testing.T) {
 	// Verify `want` is ignored, when it is equal to -1.
 	pc.want = -1
 	pc.terminating = 1955
-	r.reportMetrics(pa, pc)
+	reportMetrics(pa, pc)
 
 	// Basically same values and change to `terminating` to verify reporting has occurred.
 	metricstest.CheckLastValueData(t, "requested_pods", wantTags, 1982)

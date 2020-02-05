@@ -19,6 +19,7 @@ package kpa
 import (
 	"context"
 
+	lru "github.com/hashicorp/golang-lru"
 	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/serving/pkg/metrics"
 
@@ -48,10 +49,20 @@ var (
 		"terminating_pods",
 		"Number of pods that are terminating currently",
 		stats.UnitDimensionless)
+
+	// recorderContextCache stores the merics recorder contexts
+	// in a LRU cache.
+	// Hashicorp LRU cache is synchronized.
+	recorderContextCache *lru.Cache
 )
+
+const lruCacheSize = 1024
 
 func init() {
 	register()
+	// The only possible error is when cache size is not positive.
+	lc, _ := lru.New(lruCacheSize)
+	recorderContextCache = lc
 }
 
 func register() {
@@ -102,16 +113,21 @@ func valueOrUnknown(v string) string {
 }
 
 func reporterContext(ns, service, config, revision string) (context.Context, error) {
-	//  Note that service names can be an empty string, so they needs a special treatment.
-	ctx, err := tag.New(
-		context.Background(),
-		tag.Upsert(metrics.NamespaceTagKey, ns),
-		tag.Upsert(metrics.ServiceTagKey, valueOrUnknown(service)),
-		tag.Upsert(metrics.ConfigTagKey, config),
-		tag.Upsert(metrics.RevisionTagKey, revision))
-	if err != nil {
-		return nil, err
+	key := ns + "+" + revision // `+` is not a valid name char, making strings unique.
+	ctx, ok := recorderContextCache.Get(key)
+	if !ok {
+		//  Note that service names can be an empty string, so they needs a special treatment.
+		rctx, err := tag.New(
+			context.Background(),
+			tag.Upsert(metrics.NamespaceTagKey, ns),
+			tag.Upsert(metrics.ServiceTagKey, valueOrUnknown(service)),
+			tag.Upsert(metrics.ConfigTagKey, config),
+			tag.Upsert(metrics.RevisionTagKey, revision))
+		if err != nil {
+			return nil, err
+		}
+		recorderContextCache.Add(key, rctx)
+		ctx = rctx
 	}
-
-	return ctx, nil
+	return ctx.(context.Context), nil
 }

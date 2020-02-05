@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	lru "github.com/hashicorp/golang-lru"
 	"go.opencensus.io/stats"
 	"go.uber.org/zap"
 
@@ -63,11 +62,6 @@ type Reconciler struct {
 	podsLister      corev1listers.PodLister
 	deciders        resources.Deciders
 	scaler          *scaler
-
-	// recorderContextCache stores the merics recorder contexts
-	// in a LRU cache.
-	// Hashicorp LRU cache is synchronized.
-	recorderContextCache *lru.Cache
 }
 
 // Check that our Reconciler implements controller.Reconciler
@@ -92,7 +86,6 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		if err := c.deciders.Delete(ctx, namespace, name); err != nil {
 			return err
 		}
-		c.recorderContextCache.Remove(namespace + "+" + name)
 		return nil
 	} else if err != nil {
 		return err
@@ -150,7 +143,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		if _, err = c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe); err != nil {
 			return fmt.Errorf("error reconciling SKS: %w", err)
 		}
-		return c.computeStatus(pa, podCounts{want: scaleUnknown})
+		return computeStatus(pa, podCounts{want: scaleUnknown})
 	}
 
 	pa.Status.MetricsServiceName = sks.Status.PrivateServiceName
@@ -231,7 +224,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		terminating: terminating,
 	}
 	logger.Infof("Observed pod counts=%#v", pc)
-	return c.computeStatus(pa, pc)
+	return computeStatus(pa, pc)
 }
 
 func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler, k8sSvc string) (*autoscaler.Decider, error) {
@@ -257,10 +250,10 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAut
 	return decider, nil
 }
 
-func (c *Reconciler) computeStatus(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
+func computeStatus(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 	pa.Status.DesiredScale, pa.Status.ActualScale = ptr.Int32(int32(pc.want)), ptr.Int32(int32(pc.ready))
 
-	if err := c.reportMetrics(pa, pc); err != nil {
+	if err := reportMetrics(pa, pc); err != nil {
 		return fmt.Errorf("error reporting metrics: %w", err)
 	}
 
@@ -270,19 +263,13 @@ func (c *Reconciler) computeStatus(pa *pav1alpha1.PodAutoscaler, pc podCounts) e
 	return nil
 }
 
-func (c *Reconciler) reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
-	key := pa.Namespace + "+" + pa.Name // `+` is not a valid name char, making strings unique.
-	ctx, ok := c.recorderContextCache.Get(key)
-	if !ok {
-		serviceLabel := pa.Labels[serving.ServiceLabelKey] // This might be empty.
-		configLabel := pa.Labels[serving.ConfigurationLabelKey]
+func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
+	serviceLabel := pa.Labels[serving.ServiceLabelKey] // This might be empty.
+	configLabel := pa.Labels[serving.ConfigurationLabelKey]
 
-		rctx, err := reporterContext(pa.Namespace, serviceLabel, configLabel, pa.Name)
-		if err != nil {
-			return err
-		}
-		c.recorderContextCache.Add(key, rctx)
-		ctx = rctx
+	ctx, err := reporterContext(pa.Namespace, serviceLabel, configLabel, pa.Name)
+	if err != nil {
+		return err
 	}
 
 	stats := []stats.Measurement{
@@ -293,7 +280,7 @@ func (c *Reconciler) reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) e
 	if pc.want >= 0 {
 		stats = append(stats, requestedPodCountM.M(int64(pc.want)))
 	}
-	pkgmetrics.RecordBatch(ctx.(context.Context), stats...)
+	pkgmetrics.RecordBatch(ctx, stats...)
 	return nil
 }
 
