@@ -52,6 +52,9 @@ import (
 const (
 	testNamespace = "test-namespace"
 	testRevision  = "test-revision"
+
+	probeFreq     = 50 * time.Millisecond
+	updateTimeout = 6 * probeFreq
 )
 
 // revisionCC1 - creates a revision with concurrency == 1.
@@ -98,7 +101,7 @@ func privateSKSService(revID types.NamespacedName, clusterIP string, ports []cor
 }
 
 func waitForRevisionBackedMananger(t *testing.T, rbm *revisionBackendsManager) {
-	timeout := time.After(200 * time.Millisecond)
+	timeout := time.After(updateTimeout)
 	for {
 		select {
 		// rbm.updates() gets closed after all revisionWatchers have finished
@@ -430,7 +433,7 @@ func TestRevisionWatcher(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				rw.run(100 * time.Millisecond)
+				rw.run(probeFreq)
 			}()
 
 			destsCh <- tc.dests
@@ -440,7 +443,7 @@ func TestRevisionWatcher(t *testing.T) {
 				select {
 				case update := <-updateCh:
 					updates = append(updates, update)
-				case <-time.After(200 * time.Millisecond):
+				case <-time.After(updateTimeout):
 					t.Error("Timed out waiting for update event")
 				}
 			}
@@ -714,7 +717,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 				waitInformers()
 			}()
 
-			rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, rt, 50*time.Millisecond)
+			rbm := newRevisionBackendsManagerWithProbeFrequency(ctx, rt, probeFreq)
 
 			for _, ep := range tc.endpointsArr {
 				fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
@@ -727,7 +730,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 				select {
 				case update := <-rbm.updates():
 					revDests[update.Rev] = update
-				case <-time.After(300 * time.Millisecond):
+				case <-time.After(updateTimeout):
 					t.Errorf("Timed out waiting for update event")
 				}
 			}
@@ -1028,7 +1031,7 @@ func TestRevisionDeleted(t *testing.T) {
 	select {
 	case r := <-rbm.updates():
 		t.Errorf("Unexpected update: %#v", r)
-	case <-time.After(time.Millisecond * 200):
+	case <-time.After(updateTimeout):
 		// Wait to make sure the callbacks are executed.
 	}
 
@@ -1083,7 +1086,7 @@ func TestServiceDoesNotExist(t *testing.T) {
 		// cluster IP. But if the service is accessible then we will and probing will
 		// succeed since RT has no rules for that.
 		t.Errorf("Unexpected update, should have had none: %v", x)
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(updateTimeout):
 	}
 
 	cancel()
@@ -1150,7 +1153,7 @@ func TestServiceMoreThanOne(t *testing.T) {
 		// cluster IP. But if the service is accessible then we will and probing will
 		// succeed since RT has no rules for that.
 		t.Errorf("Unexpected update, should have had none: %v", x)
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(updateTimeout):
 	}
 
 	cancel()
