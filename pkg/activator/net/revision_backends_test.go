@@ -430,7 +430,7 @@ func TestRevisionWatcher(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				rw.run(100 * time.Millisecond)
+				rw.run(50 * time.Millisecond)
 			}()
 
 			destsCh <- tc.dests
@@ -440,7 +440,7 @@ func TestRevisionWatcher(t *testing.T) {
 				select {
 				case update := <-updateCh:
 					updates = append(updates, update)
-				case <-time.After(200 * time.Millisecond):
+				case <-time.After(300 * time.Millisecond):
 					t.Error("Timed out waiting for update event")
 				}
 			}
