@@ -199,7 +199,7 @@ func MakeTLSServers(ing *v1alpha1.Ingress, gatewayServiceNamespace string, origi
 }
 
 // MakeHTTPServer creates a HTTP Gateway `Server` based on the HTTPProtocol
-// configureation.
+// configuration.
 func MakeHTTPServer(httpProtocol network.HTTPProtocol, hosts []string) *istiov1alpha3.Server {
 	if httpProtocol == network.HTTPDisabled {
 		return nil
