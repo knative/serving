@@ -113,7 +113,7 @@ func valueOrUnknown(v string) string {
 }
 
 func reporterContext(ns, service, config, revision string) (context.Context, error) {
-	key := ns + "+" + revision // `+` is not a valid name char, making strings unique.
+	key := ns + "/" + revision
 	ctx, ok := recorderContextCache.Get(key)
 	if !ok {
 		//  Note that service names can be an empty string, so they needs a special treatment.
