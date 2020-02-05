@@ -566,7 +566,7 @@
   revision = "bf2b5ad3c0a925c44a0d2842c5d8182113cd248e"
 
 [[projects]]
-  digest = "0:"
+  digest = "1:1e59759b895f57302df03c5632dc6bbedcdf6782a2b6259246ff653dd214ac45"
   name = "github.com/jetstack/cert-manager"
   packages = [
     "pkg/apis/acme",
@@ -1766,7 +1766,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:821a7369b8b071dd483b40b77f381805c58e9e7f0be40b4160f17adf0064b429"
+  digest = "1:a1f29780992987bf15e6d5d76d63d007f678ea058bdf9828443ae9db20c069c5"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1789,11 +1789,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "1814fc9af6f0ecc2dcfe11a732ac718044baa6fd"
+  revision = "5dcbd8b57eaf0bcd6e1eec3629787c9cce960d91"
 
 [[projects]]
   branch = "master"
-  digest = "1:26325ee882afecdb033204b8f2d8e69f0d939f5bcc1a1b151233a7d78d74f7dc"
+  digest = "1:0fdbfd5bd4573f59828ede757341dd6905ab4fdb0df9fd0aa8ead8fb93900e52"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1899,7 +1899,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "2320af496487a33054bd0a4c808e4b5e75f08220"
+  revision = "b9974987c245c4996a7d1299c3d162a4b0b0ad5e"
 
 [[projects]]
   branch = "master"
@@ -1916,7 +1916,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "25ea2a3bc5b89b01ebd564ee53bb737b2c4105e0"
+  revision = "77b975af074880c49957946a6d861e063e11f232"
 
 [[projects]]
   digest = "1:92b88da51692abe195601cb17d35bbb9b6bc2011237a2f234fedba7411ed8122"
