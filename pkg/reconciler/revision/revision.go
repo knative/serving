@@ -64,7 +64,7 @@ var _ revisionreconciler.Interface = (*Reconciler)(nil)
 
 func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) error {
 	// The image digest has already been resolved.
-	if rev.Status.ImageDigest != "" {
+	if rev.Status.ImageDigest != "" && len(rev.Status.ImageDigests) == len(rev.Spec.Containers)-1 {
 		return nil
 	}
 

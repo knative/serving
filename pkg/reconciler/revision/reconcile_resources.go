@@ -113,18 +113,17 @@ func (c *Reconciler) reconcileImageCache(ctx context.Context, rev *v1.Revision) 
 	logger := logging.FromContext(ctx)
 
 	ns := rev.Namespace
-	imageName := resourcenames.ImageCache(rev)
-	_, err := c.imageLister.Images(ns).Get(imageName)
-	if apierrs.IsNotFound(err) {
-		_, err := c.createImageCache(ctx, rev)
-		if err != nil {
-			return fmt.Errorf("failed to create image cache %q: %w", imageName, err)
+	for i := range rev.Spec.Containers {
+		imageName := resourcenames.ImageCache(rev) + "-" + rev.Spec.Containers[i].Name
+		if _, err := c.imageLister.Images(ns).Get(imageName); apierrs.IsNotFound(err) {
+			if _, err := c.createImageCache(rev, rev.Spec.Containers[i].Name); err != nil {
+				return fmt.Errorf("failed to create image cache %q: %w", imageName, err)
+			}
+			logger.Infof("Created image cache %q", imageName)
+		} else if err != nil {
+			return fmt.Errorf("failed to get image cache %q: %w", imageName, err)
 		}
-		logger.Infof("Created image cache %q", imageName)
-	} else if err != nil {
-		return fmt.Errorf("failed to get image cache %q: %w", imageName, err)
 	}
-
 	return nil
 }
 

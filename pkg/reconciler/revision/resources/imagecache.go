@@ -28,15 +28,26 @@ import (
 )
 
 // MakeImageCache makes an caching.Image resources from a revision.
-func MakeImageCache(rev *v1.Revision) *caching.Image {
-	image := rev.Status.ImageDigest
+func MakeImageCache(rev *v1alpha1.Revision, containerName string) *caching.Image {
+	var image string
+	if len(rev.Spec.Containers) == 1 {
+		image = rev.Status.ImageDigest
+	} else if len(rev.Spec.Containers) > 1 {
+		for i := range rev.Spec.Containers {
+			if len(rev.Spec.Containers[i].Ports) != 0 {
+				image = rev.Status.ImageDigest
+			} else {
+				image = rev.Status.ImageDigests[containerName]
+			}
+		}
+	}
 	if image == "" {
 		image = rev.Spec.GetContainer().Image
 	}
 
 	img := &caching.Image{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.ImageCache(rev),
+			Name:      names.ImageCache(rev) + "-" + containerName,
 			Namespace: rev.Namespace,
 			Labels:    makeLabels(rev),
 			Annotations: resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
