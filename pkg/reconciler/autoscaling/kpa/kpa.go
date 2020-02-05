@@ -267,7 +267,7 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 	serviceLabel := pa.Labels[serving.ServiceLabelKey] // This might be empty.
 	configLabel := pa.Labels[serving.ConfigurationLabelKey]
 
-	reportCtx, err := reporterContext(pa.Namespace, serviceLabel, configLabel, pa.Name)
+	ctx, err := reporterContext(pa.Namespace, serviceLabel, configLabel, pa.Name)
 	if err != nil {
 		return err
 	}
@@ -280,7 +280,7 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 	if pc.want >= 0 {
 		stats = append(stats, requestedPodCountM.M(int64(pc.want)))
 	}
-	pkgmetrics.RecordBatch(reportCtx, stats...)
+	pkgmetrics.RecordBatch(ctx, stats...)
 	return nil
 }
 
