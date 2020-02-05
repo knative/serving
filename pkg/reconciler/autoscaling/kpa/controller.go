@@ -19,6 +19,7 @@ package kpa
 import (
 	"context"
 
+	lru "github.com/hashicorp/golang-lru"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
@@ -38,7 +39,10 @@ import (
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
 )
 
-const controllerAgentName = "kpa-class-podautoscaler-controller"
+const (
+	controllerAgentName = "kpa-class-podautoscaler-controller"
+	lruCacheSize        = 1024
+)
 
 // NewController returns a new KPA reconcile controller.
 // TODO(mattmoor): Fix the signature to adhere to the injection type.
@@ -56,6 +60,8 @@ func NewController(
 	metricInformer := metricinformer.Get(ctx)
 	psInformerFactory := podscalable.Get(ctx)
 
+	// The only possible error is when cache size is not positive.
+	lc, _ := lru.New(lruCacheSize)
 	c := &Reconciler{
 		Base: &areconciler.Base{
 			Base:              reconciler.NewBase(ctx, controllerAgentName, cmw),
@@ -65,9 +71,10 @@ func NewController(
 			MetricLister:      metricInformer.Lister(),
 			PSInformerFactory: psInformerFactory,
 		},
-		endpointsLister: endpointsInformer.Lister(),
-		podsLister:      podsInformer.Lister(),
-		deciders:        deciders,
+		endpointsLister:      endpointsInformer.Lister(),
+		podsLister:           podsInformer.Lister(),
+		deciders:             deciders,
+		recorderContextCache: lc,
 	}
 	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling")
 	c.scaler = newScaler(ctx, psInformerFactory, impl.EnqueueAfter)
