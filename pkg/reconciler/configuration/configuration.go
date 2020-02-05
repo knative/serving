@@ -156,7 +156,7 @@ func (c *Reconciler) getSortedCreatedRevisions(ctx context.Context, config *v1.C
 	})
 	if config.Status.LatestReadyRevisionName != "" {
 		lrr, err := lister.Get(config.Status.LatestReadyRevisionName)
-		// Record the error and continue because we still want to set the LRR to the correct revision
+		// Record the error and continue because we still want to set the LRR to the correct revision.
 		if err != nil {
 			logger.Errorf("Error getting latest ready revision %q: %v", config.Status.LatestReadyRevisionName, err)
 		} else {
@@ -173,10 +173,9 @@ func (c *Reconciler) getSortedCreatedRevisions(ctx context.Context, config *v1.C
 				selection.In,
 				generations,
 			)
-			if err != nil {
-				return nil, err
+			if err == nil {
+				configSelector = configSelector.Add(*inReq)
 			}
-			configSelector = configSelector.Add(*inReq)
 		}
 	}
 
