@@ -50,8 +50,8 @@ var (
 		"Number of pods that are terminating currently",
 		stats.UnitDimensionless)
 
-	// recorderContextCache stores the merics recorder contexts
-	// in a LRU cache.
+	// recorderContextCache stores the metrics recorder contexts
+	// in an LRU cache.
 	// Hashicorp LRU cache is synchronized.
 	recorderContextCache *lru.Cache
 )
