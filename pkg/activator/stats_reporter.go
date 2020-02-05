@@ -56,7 +56,7 @@ type StatsReporter interface {
 // RevisionStatsReporter defines the interface for sending revision specific metrics.
 type RevisionStatsReporter interface {
 	ReportRequestConcurrency(v int64)
-	ReportRequestCount(responseCode, numTries int)
+	ReportRequestCount(responseCode int)
 	ReportResponseTime(responseCode int, d time.Duration)
 }
 
@@ -89,7 +89,7 @@ func NewStatsReporter(pod string) (StatsReporter, error) {
 			Measure:     requestCountM,
 			Aggregation: view.Count(),
 			TagKeys: append(metrics.CommonRevisionKeys, metrics.PodTagKey, metrics.ContainerTagKey,
-				metrics.ResponseCodeKey, metrics.ResponseCodeClassKey, metrics.NumTriesKey),
+				metrics.ResponseCodeKey, metrics.ResponseCodeClassKey),
 		},
 		&view.View{
 			Description: "The response time in millisecond",
@@ -140,7 +140,7 @@ func (r *revisionReporter) ReportRequestConcurrency(v int64) {
 }
 
 // ReportRequestCount captures request count.
-func (r *revisionReporter) ReportRequestCount(responseCode, numTries int) {
+func (r *revisionReporter) ReportRequestCount(responseCode int) {
 	if r.ctx == nil {
 		return
 	}
@@ -149,8 +149,7 @@ func (r *revisionReporter) ReportRequestCount(responseCode, numTries int) {
 	ctx, _ := tag.New(
 		r.ctx,
 		tag.Upsert(metrics.ResponseCodeKey, strconv.Itoa(responseCode)),
-		tag.Upsert(metrics.ResponseCodeClassKey, responseCodeClass(responseCode)),
-		tag.Upsert(metrics.NumTriesKey, strconv.Itoa(numTries)))
+		tag.Upsert(metrics.ResponseCodeClassKey, responseCodeClass(responseCode)))
 
 	pkgmetrics.Record(ctx, requestCountM.M(1))
 }
