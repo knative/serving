@@ -562,8 +562,7 @@ func TestReconcile(t *testing.T) {
 						},
 					},
 					WithHosts(
-						0,
-						"different-domain.default.svc.cluster.local",
+						1,
 						"different-domain.default.another-example.com",
 					),
 				),
