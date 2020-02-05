@@ -317,7 +317,7 @@ func configSemanticEquals(ctx context.Context, desiredConfig, config *v1alpha1.C
 		logger.Errorw("Error diffing config spec", zap.Error(err))
 		return false, fmt.Errorf("failed to diff Configuration: %w", err)
 	}
-	logger.Infof("Reconciling configuration diff (-desired, +observed): %s", specDiff)
+	logger.Infof("Reconciling configuration diff (-desired, +observed):\n%s", specDiff)
 	return equality.Semantic.DeepEqual(desiredConfig.Spec, config.Spec) &&
 		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Labels, config.ObjectMeta.Labels) &&
 		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Annotations, config.ObjectMeta.Annotations) &&
@@ -335,11 +335,9 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alph
 		return nil, err
 	}
 
-	equals, err := configSemanticEquals(ctx, desiredConfig, existing)
-	if err != nil {
+	if equals, err := configSemanticEquals(ctx, desiredConfig, existing); err != nil {
 		return nil, err
-	}
-	if equals {
+	} else if equals {
 		return config, nil
 	}
 
@@ -368,7 +366,7 @@ func routeSemanticEquals(ctx context.Context, desiredRoute, route *v1alpha1.Rout
 		logger.Errorw("Error diffing route spec", zap.Error(err))
 		return false, fmt.Errorf("failed to diff Route: %w", err)
 	}
-	logger.Infof("Reconciling route diff (-desired, +observed): %s", specDiff)
+	logger.Infof("Reconciling route diff (-desired, +observed):\n%s", specDiff)
 	return equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) &&
 		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Labels, route.ObjectMeta.Labels) &&
 		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Annotations, route.ObjectMeta.Annotations) &&
@@ -389,11 +387,9 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 		return nil, err
 	}
 
-	equals, err := routeSemanticEquals(ctx, desiredRoute, existing)
-	if err != nil {
+	if equals, err := routeSemanticEquals(ctx, desiredRoute, existing); err != nil {
 		return nil, err
-	}
-	if equals {
+	} else if equals {
 		return route, nil
 	}
 
