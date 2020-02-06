@@ -294,7 +294,7 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 	}
 	for k, f := range resps {
 		if got, want := abs(f-numReqs/2), tolerance; got > want {
-			t.Errorf("Target %s got %d responses, expect in [%d, %d] interval", k, f, numReqs/2-5, numReqs/2+tolerance)
+			t.Errorf("Target %s got %d responses, expect in [%d, %d] interval", k, f, numReqs/2-tolerance, numReqs/2+tolerance)
 		}
 	}
 }
