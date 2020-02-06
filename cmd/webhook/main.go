@@ -30,10 +30,14 @@ import (
 	"knative.dev/pkg/webhook/certificates"
 	"knative.dev/pkg/webhook/configmaps"
 	"knative.dev/pkg/webhook/resourcesemantics"
+	"knative.dev/pkg/webhook/resourcesemantics/conversion"
+	"knative.dev/pkg/webhook/resourcesemantics/defaulting"
+	"knative.dev/pkg/webhook/resourcesemantics/validation"
 
 	// resource validation types
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	net "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
@@ -44,56 +48,76 @@ import (
 	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/gc"
-	metricsconfig "knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/network"
 	certconfig "knative.dev/serving/pkg/reconciler/certificate/config"
 	istioconfig "knative.dev/serving/pkg/reconciler/ingress/config"
 	domainconfig "knative.dev/serving/pkg/reconciler/route/config"
 )
 
-func NewResourceAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
+	v1alpha1.SchemeGroupVersion.WithKind("Revision"):      &v1alpha1.Revision{},
+	v1alpha1.SchemeGroupVersion.WithKind("Configuration"): &v1alpha1.Configuration{},
+	v1alpha1.SchemeGroupVersion.WithKind("Route"):         &v1alpha1.Route{},
+	v1alpha1.SchemeGroupVersion.WithKind("Service"):       &v1alpha1.Service{},
+	v1beta1.SchemeGroupVersion.WithKind("Revision"):       &v1beta1.Revision{},
+	v1beta1.SchemeGroupVersion.WithKind("Configuration"):  &v1beta1.Configuration{},
+	v1beta1.SchemeGroupVersion.WithKind("Route"):          &v1beta1.Route{},
+	v1beta1.SchemeGroupVersion.WithKind("Service"):        &v1beta1.Service{},
+	v1.SchemeGroupVersion.WithKind("Revision"):            &v1.Revision{},
+	v1.SchemeGroupVersion.WithKind("Configuration"):       &v1.Configuration{},
+	v1.SchemeGroupVersion.WithKind("Route"):               &v1.Route{},
+	v1.SchemeGroupVersion.WithKind("Service"):             &v1.Service{},
+
+	autoscalingv1alpha1.SchemeGroupVersion.WithKind("PodAutoscaler"): &autoscalingv1alpha1.PodAutoscaler{},
+	autoscalingv1alpha1.SchemeGroupVersion.WithKind("Metric"):        &autoscalingv1alpha1.Metric{},
+
+	net.SchemeGroupVersion.WithKind("Certificate"):       &net.Certificate{},
+	net.SchemeGroupVersion.WithKind("Ingress"):           &net.Ingress{},
+	net.SchemeGroupVersion.WithKind("ServerlessService"): &net.ServerlessService{},
+}
+
+func NewDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 	// Decorate contexts with the current state of the config.
 	store := defaultconfig.NewStore(logging.FromContext(ctx).Named("config-store"))
 	store.WatchConfigs(cmw)
-	ctxFunc := func(ctx context.Context) context.Context {
-		return v1.WithUpgradeViaDefaulting(store.ToContext(ctx))
-	}
 
-	return resourcesemantics.NewAdmissionController(ctx,
+	return defaulting.NewAdmissionController(ctx,
 
 		// Name of the resource webhook.
-		// TODO(mattmoor): This can be changed after 0.10, once the lifecycle of
-		// this object is not managed by OwnerReferences.
 		"webhook.serving.knative.dev",
 
 		// The path on which to serve the webhook.
-		"/",
+		"/defaulting",
 
 		// The resources to validate and default.
-		map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
-			v1alpha1.SchemeGroupVersion.WithKind("Revision"):      &v1alpha1.Revision{},
-			v1alpha1.SchemeGroupVersion.WithKind("Configuration"): &v1alpha1.Configuration{},
-			v1alpha1.SchemeGroupVersion.WithKind("Route"):         &v1alpha1.Route{},
-			v1alpha1.SchemeGroupVersion.WithKind("Service"):       &v1alpha1.Service{},
-			v1beta1.SchemeGroupVersion.WithKind("Revision"):       &v1beta1.Revision{},
-			v1beta1.SchemeGroupVersion.WithKind("Configuration"):  &v1beta1.Configuration{},
-			v1beta1.SchemeGroupVersion.WithKind("Route"):          &v1beta1.Route{},
-			v1beta1.SchemeGroupVersion.WithKind("Service"):        &v1beta1.Service{},
-			v1.SchemeGroupVersion.WithKind("Revision"):            &v1.Revision{},
-			v1.SchemeGroupVersion.WithKind("Configuration"):       &v1.Configuration{},
-			v1.SchemeGroupVersion.WithKind("Route"):               &v1.Route{},
-			v1.SchemeGroupVersion.WithKind("Service"):             &v1.Service{},
-
-			autoscalingv1alpha1.SchemeGroupVersion.WithKind("PodAutoscaler"): &autoscalingv1alpha1.PodAutoscaler{},
-			autoscalingv1alpha1.SchemeGroupVersion.WithKind("Metric"):        &autoscalingv1alpha1.Metric{},
-
-			net.SchemeGroupVersion.WithKind("Certificate"):       &net.Certificate{},
-			net.SchemeGroupVersion.WithKind("Ingress"):           &net.Ingress{},
-			net.SchemeGroupVersion.WithKind("ServerlessService"): &net.ServerlessService{},
-		},
+		types,
 
 		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
-		ctxFunc,
+		func(ctx context.Context) context.Context {
+			return v1.WithUpgradeViaDefaulting(store.ToContext(ctx))
+		},
+
+		// Whether to disallow unknown fields.
+		true,
+	)
+}
+
+func NewValidationAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+	return validation.NewAdmissionController(ctx,
+
+		// Name of the resource webhook.
+		"validation.webhook.serving.knative.dev",
+
+		// The path on which to serve the webhook.
+		"/resource-validation",
+
+		// The resources to validate and default.
+		types,
+
+		// A function that infuses the context passed to Validate/SetDefaults with custom metadata.
+		func(ctx context.Context) context.Context {
+			return ctx
+		},
 
 		// Whether to disallow unknown fields.
 		true,
@@ -118,10 +142,68 @@ func NewConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 			network.ConfigName:               network.NewConfigFromConfigMap,
 			istioconfig.IstioConfigName:      istioconfig.NewIstioFromConfigMap,
 			deployment.ConfigName:            deployment.NewConfigFromConfigMap,
-			metrics.ConfigMapName():          metricsconfig.NewObservabilityConfigFromConfigMap,
+			metrics.ConfigMapName():          metrics.NewObservabilityConfigFromConfigMap,
 			logging.ConfigMapName():          logging.NewConfigFromConfigMap,
 			domainconfig.DomainConfigName:    domainconfig.NewDomainFromConfigMap,
 			defaultconfig.DefaultsConfigName: defaultconfig.NewDefaultsConfigFromConfigMap,
+		},
+	)
+}
+
+func NewConversionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+	var (
+		v1alpha1_ = v1alpha1.SchemeGroupVersion.Version
+		v1beta1_  = v1beta1.SchemeGroupVersion.Version
+		v1_       = v1.SchemeGroupVersion.Version
+	)
+
+	return conversion.NewConversionController(ctx,
+		// The path on which to serve the webhook
+		"/resource-conversion",
+
+		// Specify the types of custom resource definitions that should be converted
+		map[schema.GroupKind]conversion.GroupKindConversion{
+			v1.Kind("Service"): {
+				DefinitionName: serving.ServicesResource.String(),
+				HubVersion:     v1alpha1_,
+				Zygotes: map[string]conversion.ConvertibleObject{
+					v1alpha1_: &v1alpha1.Service{},
+					v1beta1_:  &v1beta1.Service{},
+					v1_:       &v1.Service{},
+				},
+			},
+			v1.Kind("Configuration"): {
+				DefinitionName: serving.ConfigurationsResource.String(),
+				HubVersion:     v1alpha1_,
+				Zygotes: map[string]conversion.ConvertibleObject{
+					v1alpha1_: &v1alpha1.Configuration{},
+					v1beta1_:  &v1beta1.Configuration{},
+					v1_:       &v1.Configuration{},
+				},
+			},
+			v1.Kind("Revision"): {
+				DefinitionName: serving.RevisionsResource.String(),
+				HubVersion:     v1alpha1_,
+				Zygotes: map[string]conversion.ConvertibleObject{
+					v1alpha1_: &v1alpha1.Revision{},
+					v1beta1_:  &v1beta1.Revision{},
+					v1_:       &v1.Revision{},
+				},
+			},
+			v1.Kind("Route"): {
+				DefinitionName: serving.RoutesResource.String(),
+				HubVersion:     v1alpha1_,
+				Zygotes: map[string]conversion.ConvertibleObject{
+					v1alpha1_: &v1alpha1.Route{},
+					v1beta1_:  &v1beta1.Route{},
+					v1_:       &v1.Route{},
+				},
+			},
+		},
+
+		// A function that infuses the context passed to ConvertUp/ConvertDown/SetDefaults with custom metadata.
+		func(ctx context.Context) context.Context {
+			return ctx
 		},
 	)
 }
@@ -136,7 +218,9 @@ func main() {
 
 	sharedmain.MainWithContext(ctx, "webhook",
 		certificates.NewController,
-		NewResourceAdmissionController,
+		NewDefaultingAdmissionController,
+		NewValidationAdmissionController,
 		NewConfigValidationController,
+		NewConversionController,
 	)
 }

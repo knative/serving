@@ -54,7 +54,9 @@ func fetchRuntimeInfo(
 		svc.Spec.Template.Spec.Containers[0].ImagePullPolicy = "Always"
 	})
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, names, serviceOpts...)
+	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		serviceOpts...)
 	if err != nil {
 		return nil, nil, err
 	}

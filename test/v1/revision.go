@@ -75,6 +75,12 @@ func IsRevisionReady(r *v1.Revision) (bool, error) {
 	return r.Generation == r.Status.ObservedGeneration && r.Status.IsReady(), nil
 }
 
+// IsRevisionPinned will check if the revision is pinned to a route.
+func IsRevisionPinned(r *v1.Revision) (bool, error) {
+	_, pinned := r.Annotations[serving.RevisionLastPinnedAnnotationKey]
+	return pinned, nil
+}
+
 // IsRevisionAtExpectedGeneration returns a function that will check if the annotations
 // on the revision include an annotation for the generation and that the annotation is
 // set to the expected value.

@@ -20,22 +20,28 @@ import (
 	"context"
 	"fmt"
 
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/apis/istio/v1alpha3"
-	sharedclientset "knative.dev/pkg/client/clientset/versioned"
-	istiolisters "knative.dev/pkg/client/listers/istio/v1alpha3"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
+	istioclientset "knative.dev/serving/pkg/client/istio/clientset/versioned"
+	istiolisters "knative.dev/serving/pkg/client/istio/listers/networking/v1alpha3"
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 )
 
 // VirtualServiceAccessor is an interface for accessing VirtualService.
 type VirtualServiceAccessor interface {
-	GetSharedClient() sharedclientset.Interface
+	GetIstioClient() istioclientset.Interface
 	GetVirtualServiceLister() istiolisters.VirtualServiceLister
+}
+
+func hasDesiredDiff(current, desired *v1alpha3.VirtualService) bool {
+	return !equality.Semantic.DeepEqual(current.Spec, desired.Spec) ||
+		!equality.Semantic.DeepEqual(current.Labels, desired.Labels) ||
+		!equality.Semantic.DeepEqual(current.Annotations, desired.Annotations)
 }
 
 // ReconcileVirtualService reconciles VirtiualService to the desired status.
@@ -50,7 +56,7 @@ func ReconcileVirtualService(ctx context.Context, owner kmeta.Accessor, desired 
 	name := desired.Name
 	vs, err := vsAccessor.GetVirtualServiceLister().VirtualServices(ns).Get(name)
 	if apierrs.IsNotFound(err) {
-		vs, err = vsAccessor.GetSharedClient().NetworkingV1alpha3().VirtualServices(ns).Create(desired)
+		vs, err = vsAccessor.GetIstioClient().NetworkingV1alpha3().VirtualServices(ns).Create(desired)
 		if err != nil {
 			recorder.Eventf(owner, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create VirtualService %s/%s: %v", ns, name, err)
@@ -64,11 +70,13 @@ func ReconcileVirtualService(ctx context.Context, owner kmeta.Accessor, desired 
 		return nil, kaccessor.NewAccessorError(
 			fmt.Errorf("owner: %s with Type %T does not own VirtualService: %q", owner.GetName(), owner, name),
 			kaccessor.NotOwnResource)
-	} else if !equality.Semantic.DeepEqual(vs.Spec, desired.Spec) {
+	} else if hasDesiredDiff(vs, desired) {
 		// Don't modify the informers copy
 		existing := vs.DeepCopy()
 		existing.Spec = desired.Spec
-		vs, err = vsAccessor.GetSharedClient().NetworkingV1alpha3().VirtualServices(ns).Update(existing)
+		existing.Labels = desired.Labels
+		existing.Annotations = desired.Annotations
+		vs, err = vsAccessor.GetIstioClient().NetworkingV1alpha3().VirtualServices(ns).Update(existing)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update VirtualService: %w", err)
 		}

@@ -26,7 +26,7 @@ func Run(message string, call func() error, dryrun bool) error {
 		log.Printf("[dry run] %s", message)
 		return nil
 	}
-	log.Printf(message)
+	log.Print(message)
 
 	return call()
 }

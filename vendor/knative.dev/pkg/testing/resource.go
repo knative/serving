@@ -22,6 +22,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis"
 )
 
@@ -38,7 +39,6 @@ type Resource struct {
 // Check that Resource may be validated and defaulted.
 var _ apis.Validatable = (*Resource)(nil)
 var _ apis.Defaultable = (*Resource)(nil)
-var _ apis.Immutable = (*Resource)(nil)
 var _ apis.Listable = (*Resource)(nil)
 
 // ResourceSpec represents test resource spec.
@@ -48,6 +48,11 @@ type ResourceSpec struct {
 	FieldWithValidation            string `json:"fieldWithValidation,omitempty"`
 	FieldThatsImmutable            string `json:"fieldThatsImmutable,omitempty"`
 	FieldThatsImmutableWithDefault string `json:"fieldThatsImmutableWithDefault,omitempty"`
+}
+
+// GetGroupVersionKind returns the GroupVersionKind.
+func (r *Resource) GetGroupVersionKind() schema.GroupVersionKind {
+	return SchemeGroupVersion.WithKind("Resource")
 }
 
 // GetUntypedSpec returns the spec of the resource.
@@ -105,12 +110,7 @@ func (cs *ResourceSpec) Validate(ctx context.Context) *apis.FieldError {
 	return nil
 }
 
-func (current *Resource) CheckImmutableFields(ctx context.Context, og apis.Immutable) *apis.FieldError {
-	original, ok := og.(*Resource)
-	if !ok {
-		return &apis.FieldError{Message: "The provided original was not a Resource"}
-	}
-
+func (current *Resource) CheckImmutableFields(ctx context.Context, original *Resource) *apis.FieldError {
 	if original.Spec.FieldThatsImmutable != current.Spec.FieldThatsImmutable {
 		return &apis.FieldError{
 			Message: "Immutable field changed",

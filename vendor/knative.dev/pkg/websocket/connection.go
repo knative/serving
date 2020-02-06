@@ -107,9 +107,14 @@ func NewDurableSendingConnection(target string, logger *zap.SugaredLogger) *Mana
 func NewDurableConnection(target string, messageChan chan []byte, logger *zap.SugaredLogger) *ManagedConnection {
 	websocketConnectionFactory := func() (rawConnection, error) {
 		dialer := &websocket.Dialer{
+			// This needs to be relatively short to avoid the connection getting blackholed for a long time
+			// by restarting the serving side of the connection behind a Kubernetes Service.
 			HandshakeTimeout: 3 * time.Second,
 		}
 		conn, _, err := dialer.Dial(target, nil)
+		if err != nil {
+			logger.Errorw("Websocket connection could not be established", zap.Error(err))
+		}
 		return conn, err
 	}
 

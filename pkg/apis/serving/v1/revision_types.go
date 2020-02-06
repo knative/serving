@@ -31,7 +31,7 @@ import (
 // references a container image. Revisions are created by updates to a
 // Configuration.
 //
-// See also: https://knative.dev/serving/blob/master/docs/spec/overview.md#revision
+// See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#revision
 type Revision struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
@@ -89,7 +89,30 @@ const (
 	// RevisionConditionReady is set when the revision is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
 	RevisionConditionReady = apis.ConditionReady
+
+	// RevisionConditionResourcesAvailable is set when underlying
+	// Kubernetes resources have been provisioned.
+	RevisionConditionResourcesAvailable apis.ConditionType = "ResourcesAvailable"
+
+	// RevisionConditionContainerHealthy is set when the revision readiness check completes.
+	RevisionConditionContainerHealthy apis.ConditionType = "ContainerHealthy"
+
+	// RevisionConditionActive is set when the revision is receiving traffic.
+	RevisionConditionActive apis.ConditionType = "Active"
 )
+
+// IsRevisionCondition returns true if the ConditionType is a revision condition type
+func IsRevisionCondition(t apis.ConditionType) bool {
+	switch t {
+	case
+		RevisionConditionReady,
+		RevisionConditionResourcesAvailable,
+		RevisionConditionContainerHealthy,
+		RevisionConditionActive:
+		return true
+	}
+	return false
+}
 
 // RevisionStatus communicates the observed state of the Revision (from the controller).
 type RevisionStatus struct {

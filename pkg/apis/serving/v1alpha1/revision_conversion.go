@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
@@ -35,7 +34,7 @@ func (source *Revision) ConvertUp(ctx context.Context, obj apis.Convertible) err
 		source.Status.ConvertUp(ctx, &sink.Status)
 		return source.Spec.ConvertUp(ctx, &sink.Spec)
 	default:
-		return fmt.Errorf("unknown version, got: %T", sink)
+		return apis.ConvertUpViaProxy(ctx, source, &v1beta1.Revision{}, sink)
 	}
 }
 
@@ -61,6 +60,7 @@ func (source *RevisionSpec) ConvertUp(ctx context.Context, sink *v1.RevisionSpec
 			ServiceAccountName: source.ServiceAccountName,
 			Containers:         []corev1.Container{*source.DeprecatedContainer},
 			Volumes:            source.Volumes,
+			ImagePullSecrets:   source.ImagePullSecrets,
 		}
 	case len(source.Containers) == 1:
 		sink.PodSpec = source.PodSpec
@@ -78,11 +78,10 @@ func (source *RevisionSpec) ConvertUp(ctx context.Context, sink *v1.RevisionSpec
 
 // ConvertUp helps implement apis.Convertible
 func (source *RevisionStatus) ConvertUp(ctx context.Context, sink *v1.RevisionStatus) {
-	source.Status.ConvertTo(ctx, &sink.Status)
-
+	source.Status.ConvertTo(ctx, &sink.Status, v1.IsRevisionCondition)
 	sink.ServiceName = source.ServiceName
 	sink.LogURL = source.LogURL
-	// TODO(mattmoor): ImageDigest?
+	sink.ImageDigest = source.ImageDigest
 }
 
 // ConvertDown implements apis.Convertible
@@ -93,7 +92,7 @@ func (sink *Revision) ConvertDown(ctx context.Context, obj apis.Convertible) err
 		sink.Status.ConvertDown(ctx, source.Status)
 		return sink.Spec.ConvertDown(ctx, source.Spec)
 	default:
-		return fmt.Errorf("unknown version, got: %T", source)
+		return apis.ConvertDownViaProxy(ctx, source, &v1beta1.Revision{}, sink)
 	}
 }
 
@@ -111,9 +110,8 @@ func (sink *RevisionSpec) ConvertDown(ctx context.Context, source v1.RevisionSpe
 
 // ConvertDown helps implement apis.Convertible
 func (sink *RevisionStatus) ConvertDown(ctx context.Context, source v1.RevisionStatus) {
-	source.Status.ConvertTo(ctx, &sink.Status)
-
+	source.Status.ConvertTo(ctx, &sink.Status, v1.IsRevisionCondition)
 	sink.ServiceName = source.ServiceName
 	sink.LogURL = source.LogURL
-	// TODO(mattmoor): ImageDigest?
+	sink.ImageDigest = source.ImageDigest
 }

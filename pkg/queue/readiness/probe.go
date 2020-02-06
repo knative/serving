@@ -19,6 +19,7 @@ package readiness
 import (
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -37,13 +38,47 @@ const (
 // Probe wraps a corev1.Probe along with a count of consecutive, successful probes
 type Probe struct {
 	*corev1.Probe
-	count int32
+	count       int32
+	pollTimeout time.Duration // To make tests not run for 10 seconds.
+
+	// Barrier sync to ensure only one probe is happening at the same time.
+	// When a probe is active `gv` will be non-nil.
+	// When the probe finishes the `gv` will be reset to nil.
+	mu sync.RWMutex
+	gv *gateValue
+}
+
+// gateValue is a write-once boolean impl.
+type gateValue struct {
+	broadcast chan struct{}
+	result    bool
+}
+
+// newGV returns a gateValue which is ready to write.
+func newGV() *gateValue {
+	return &gateValue{
+		broadcast: make(chan struct{}),
+	}
+}
+
+// only `writer` must call `write` to set the value.
+// `write` will panic if called more than once.
+func (gv *gateValue) write(val bool) {
+	gv.result = val
+	close(gv.broadcast)
+}
+
+// `read` can be called multiple times.
+func (gv *gateValue) read() bool {
+	<-gv.broadcast
+	return gv.result
 }
 
 // NewProbe returns a pointer a new Probe
 func NewProbe(v1p *corev1.Probe) *Probe {
 	return &Probe{
-		Probe: v1p,
+		Probe:       v1p,
+		pollTimeout: PollTimeout,
 	}
 }
 
@@ -54,6 +89,29 @@ func (p *Probe) IsAggressive() bool {
 
 // ProbeContainer executes the defined Probe against the user-container
 func (p *Probe) ProbeContainer() bool {
+	gv, writer := func() (*gateValue, bool) {
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		// If gateValue exists (i.e. right now something is probing, attach to that probe).
+		if p.gv != nil {
+			return p.gv, false
+		}
+		p.gv = newGV()
+		return p.gv, true
+	}()
+
+	if writer {
+		res := p.probeContainerImpl()
+		gv.write(res)
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		p.gv = nil
+		return res
+	}
+	return gv.read()
+}
+
+func (p *Probe) probeContainerImpl() bool {
 	var err error
 
 	switch {
@@ -75,7 +133,7 @@ func (p *Probe) ProbeContainer() bool {
 
 	if err != nil {
 		// Using Fprintf for a concise error message in the event log.
-		fmt.Fprint(os.Stderr, err.Error())
+		fmt.Fprintln(os.Stderr, err.Error())
 		return false
 	}
 	return true
@@ -83,18 +141,19 @@ func (p *Probe) ProbeContainer() bool {
 
 func (p *Probe) doProbe(probe func(time.Duration) error) error {
 	if p.IsAggressive() {
-		return wait.PollImmediate(retryInterval, PollTimeout, func() (bool, error) {
-			if tcpErr := probe(aggressiveProbeTimeout); tcpErr != nil {
-				// reset count of consecutive successes to zero
+		return wait.PollImmediate(retryInterval, p.pollTimeout, func() (bool, error) {
+			if err := probe(aggressiveProbeTimeout); err != nil {
+				fmt.Fprintln(os.Stderr, "aggressive probe error: ", err)
+				// Reset count of consecutive successes to zero.
 				p.count = 0
 				return false, nil
 			}
 
 			p.count++
 
-			// return success if count of consecutive successes is equal to or greater
+			// Return success if count of consecutive successes is equal to or greater
 			// than the probe's SuccessThreshold.
-			return p.Count() >= p.SuccessThreshold, nil
+			return p.count >= p.SuccessThreshold, nil
 		})
 	}
 
@@ -127,9 +186,4 @@ func (p *Probe) httpProbe() error {
 		config.Timeout = to
 		return health.HTTPProbe(config)
 	})
-}
-
-// Count function fetches current probe count
-func (p *Probe) Count() int32 {
-	return p.count
 }

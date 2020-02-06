@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/logging"
 
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -90,38 +89,22 @@ func (c *Reconciler) clearLabels(ctx context.Context, ns, name string) error {
 // setLabelForListed uses the accessor to attach the label for this route to every element
 // listed within "names" in the same namespace.
 func setLabelForListed(ctx context.Context, route *v1alpha1.Route, acc accessor, names sets.String) error {
-	nameToAccessor := make(map[string]kmeta.Accessor)
-
-	// Lookup names that are missing our Route label.
 	for name := range names {
 		elt, err := acc.get(route.Namespace, name)
 		if err != nil {
 			return err
 		}
-		nameToAccessor[name] = elt
 		routeName, ok := elt.GetLabels()[serving.RouteLabelKey]
-		if !ok {
-			continue
-		}
-		if routeName != route.Name {
-			return fmt.Errorf("%s %q is already in use by %q, and cannot be used by %q",
-				elt.GroupVersionKind(), elt.GetName(), routeName, route.Name)
-		}
-	}
-
-	// Set label for newly added names as traffic target.
-	for _, name := range names.List() {
-		elt := nameToAccessor[name]
-		if elt.GetLabels() == nil {
-			elt.SetLabels(make(map[string]string))
-		} else if _, ok := elt.GetLabels()[serving.RouteLabelKey]; ok {
-			continue
-		}
-
-		if err := setRouteLabel(acc, elt, &route.Name); err != nil {
-			logging.FromContext(ctx).Errorf("Failed to add route label to %s %q: %s",
-				elt.GroupVersionKind(), elt.GetName(), err)
-			return err
+		if ok {
+			if routeName != route.Name {
+				return fmt.Errorf("%s %q is already in use by %q, and cannot be used by %q",
+					elt.GroupVersionKind(), elt.GetName(), routeName, route.Name)
+			}
+		} else {
+			if err := setRouteLabel(acc, elt, &route.Name); err != nil {
+				return fmt.Errorf("failed to add route label to %s %q: %w",
+					elt.GroupVersionKind(), elt.GetName(), err)
+			}
 		}
 	}
 
@@ -144,9 +127,8 @@ func deleteLabelForNotListed(ctx context.Context, ns, name string, acc accessor,
 		}
 
 		if err := setRouteLabel(acc, elt, nil); err != nil {
-			logging.FromContext(ctx).Errorf("Failed to remove route label from %s %q: %s",
+			return fmt.Errorf("failed to remove route label to %s %q: %w",
 				elt.GroupVersionKind(), elt.GetName(), err)
-			return err
 		}
 	}
 
@@ -162,7 +144,6 @@ func setRouteLabel(acc accessor, elt kmeta.Accessor, routeName *string) error {
 			"labels": map[string]interface{}{
 				serving.RouteLabelKey: routeName,
 			},
-			"resourceVersion": elt.GetResourceVersion(),
 		},
 	}
 

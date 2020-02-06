@@ -17,10 +17,13 @@ limitations under the License.
 package pkg
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"strings"
 	"sync"
+
+	"google.golang.org/api/option"
 
 	"knative.dev/pkg/test/gke"
 	"knative.dev/pkg/test/helpers"
@@ -39,13 +42,24 @@ const (
 	statusStopping     = "STOPPING"
 )
 
+// Extra configurations we want to support for cluster creation request.
+var (
+	enableWorkloadIdentity = flag.Bool("enable-workload-identity", false, "whether to enable Workload Identity")
+	serviceAccount         = flag.String("service-account", "", "service account that will be used on this cluster")
+)
+
 type gkeClient struct {
 	ops gke.SDKOperations
 }
 
 // NewClient will create a new gkeClient.
-func NewClient() (*gkeClient, error) {
-	operations, err := gke.NewSDKClient()
+func NewClient(environment string) (*gkeClient, error) {
+	endpoint, err := gke.ServiceEndpoint(environment)
+	if err != nil {
+		return nil, err
+	}
+	endpointOption := option.WithEndpoint(endpoint)
+	operations, err := gke.NewSDKClient(endpointOption)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up GKE client: %v", err)
 	}
@@ -56,15 +70,16 @@ func NewClient() (*gkeClient, error) {
 	return client, nil
 }
 
-// RecreateClusters will delete and recreate the existing clusters.
+// RecreateClusters will delete and recreate the existing clusters, it will also create the clusters if they do
+// not exist for the corresponding benchmarks.
 func (gc *gkeClient) RecreateClusters(gcpProject, repo, benchmarkRoot string) error {
 	handleExistingCluster := func(cluster container.Cluster, configExists bool, config ClusterConfig) error {
 		// always delete the cluster, even if the cluster config is unchanged
 		return gc.handleExistingClusterHelper(gcpProject, cluster, configExists, config, false)
 	}
 	handleNewClusterConfig := func(clusterName string, clusterConfig ClusterConfig) error {
-		// for now, do nothing to the new cluster config
-		return nil
+		// create a new cluster with the new cluster config
+		return gc.createClusterWithRetries(gcpProject, clusterName, clusterConfig)
 	}
 	return gc.processClusters(gcpProject, repo, benchmarkRoot, handleExistingCluster, handleNewClusterConfig)
 }
@@ -229,11 +244,14 @@ func (gc *gkeClient) createClusterWithRetries(gcpProject, name string, config Cl
 		addons = strings.Split(config.Addons, ",")
 	}
 	req := &gke.Request{
-		ClusterName: name,
-		MinNodes:    config.NodeCount,
-		MaxNodes:    config.NodeCount,
-		NodeType:    config.NodeType,
-		Addons:      addons,
+		Project:                gcpProject,
+		ClusterName:            name,
+		MinNodes:               config.NodeCount,
+		MaxNodes:               config.NodeCount,
+		NodeType:               config.NodeType,
+		Addons:                 addons,
+		EnableWorkloadIdentity: *enableWorkloadIdentity,
+		ServiceAccount:         *serviceAccount,
 	}
 	creq, err := gke.NewCreateClusterRequest(req)
 	if err != nil {

@@ -24,9 +24,10 @@ import (
 	"testing"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
-	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
+	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/pkg/test/logging"
 	"knative.dev/pkg/test/prometheus"
@@ -59,6 +60,7 @@ type Client struct {
 
 // Setup creates all the clients that we need to interact with in our tests
 func Setup(t *testing.T, monitoring ...int) (*Client, error) {
+	pkgTest.SetupLoggingFlags()
 	clients, err := test.NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, test.ServingNamespace)
 	if err != nil {
 		return nil, err
@@ -114,20 +116,21 @@ func ProbeTargetTillReady(target string, duration time.Duration) error {
 
 // WaitForScaleToZero will wait for the deployments in the indexer to scale to 0
 func WaitForScaleToZero(ctx context.Context, namespace string, selector labels.Selector, duration time.Duration) error {
-	dl := deploymentinformer.Get(ctx).Lister()
+	pl := podinformer.Get(ctx).Lister()
+	begin := time.Now()
 	return wait.PollImmediate(1*time.Second, duration, func() (bool, error) {
-		ds, err := dl.Deployments(namespace).List(selector)
+		pods, err := pl.Pods(namespace).List(selector)
 		if err != nil {
-			return true, err
+			return false, err
 		}
-		scaledToZero := true
-		for _, d := range ds {
-			if d.Status.ReadyReplicas != 0 {
-				scaledToZero = false
-				break
+		for _, pod := range pods {
+			// Pending or Running w/o deletion timestamp (i.e. terminating).
+			if pod.Status.Phase == v1.PodPending || pod.Status.Phase == v1.PodRunning && pod.ObjectMeta.DeletionTimestamp == nil {
+				return false, nil
 			}
 		}
-		return scaledToZero, nil
+		log.Printf("All pods are done or terminating after %v", time.Since(begin))
+		return true, nil
 	})
 }
 

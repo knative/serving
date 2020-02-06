@@ -59,20 +59,33 @@ func TestActivatorOverload(t *testing.T) {
 	t.Log("Creating a service with run latest configuration.")
 	// Create a service with concurrency 1 that sleeps for N ms.
 	// Limit its maxScale to 10 containers, wait for the service to scale down and hit it with concurrent requests.
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, func(service *v1alpha1.Service) {
-		service.Spec.ConfigurationSpec.Template.Spec.ContainerConcurrency = ptr.Int64(1)
-		service.Spec.ConfigurationSpec.Template.Annotations = map[string]string{"autoscaling.knative.dev/maxScale": "10"}
-	})
+	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		func(service *v1alpha1.Service) {
+			service.Spec.ConfigurationSpec.Template.Spec.ContainerConcurrency = ptr.Int64(1)
+			service.Spec.ConfigurationSpec.Template.Annotations = map[string]string{"autoscaling.knative.dev/maxScale": "10"}
+		})
 	if err != nil {
 		t.Fatalf("Unable to create resources: %v", err)
 	}
-	domain := resources.Route.Status.URL.Host
+
+	// Make sure the service responds correctly before scaling to 0.
+	if _, err := pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		t.Logf,
+		resources.Route.Status.URL.URL(),
+		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		"WaitForSuccessfulResponse",
+		test.ServingFlags.ResolvableDomain); err != nil {
+		t.Fatalf("Error probing %s: %v", resources.Route.Status.URL.URL(), err)
+	}
 
 	deploymentName := rnames.Deployment(resources.Revision)
 	if err := WaitForScaleToZero(t, deploymentName, clients); err != nil {
 		t.Fatalf("Unable to observe the Deployment named %s scaling down: %v", deploymentName, err)
 	}
 
+	domain := resources.Route.Status.URL.Host
 	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("Error creating the Spoofing client: %v", err)

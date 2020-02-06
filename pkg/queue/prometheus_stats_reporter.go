@@ -24,7 +24,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"knative.dev/serving/pkg/autoscaler"
 )
 
 const (
@@ -55,6 +54,9 @@ var (
 	averageProxiedConcurrentRequestsGV = newGV(
 		"queue_average_proxied_concurrent_requests",
 		"Number of proxied requests currently being handled by this pod")
+	processUptimeGV = newGV(
+		"process_uptime",
+		"The number of seconds that the process has been up")
 )
 
 func newGV(n, h string) *prometheus.GaugeVec {
@@ -68,11 +70,13 @@ func newGV(n, h string) *prometheus.GaugeVec {
 type PrometheusStatsReporter struct {
 	handler         http.Handler
 	reportingPeriod time.Duration
+	startTime       time.Time
 
 	requestsPerSecond                prometheus.Gauge
 	proxiedRequestsPerSecond         prometheus.Gauge
 	averageConcurrentRequests        prometheus.Gauge
 	averageProxiedConcurrentRequests prometheus.Gauge
+	processUptime                    prometheus.Gauge
 }
 
 // NewPrometheusStatsReporter creates a reporter that collects and reports queue metrics.
@@ -91,7 +95,10 @@ func NewPrometheusStatsReporter(namespace, config, revision, pod string, reporti
 	}
 
 	registry := prometheus.NewRegistry()
-	for _, gv := range []*prometheus.GaugeVec{requestsPerSecondGV, proxiedRequestsPerSecondGV, averageConcurrentRequestsGV, averageProxiedConcurrentRequestsGV} {
+	for _, gv := range []*prometheus.GaugeVec{
+		requestsPerSecondGV, proxiedRequestsPerSecondGV,
+		averageConcurrentRequestsGV, averageProxiedConcurrentRequestsGV,
+		processUptimeGV} {
 		if err := registry.Register(gv); err != nil {
 			return nil, fmt.Errorf("register metric failed: %w", err)
 		}
@@ -107,21 +114,25 @@ func NewPrometheusStatsReporter(namespace, config, revision, pod string, reporti
 	return &PrometheusStatsReporter{
 		handler:         promhttp.HandlerFor(registry, promhttp.HandlerOpts{}),
 		reportingPeriod: reportingPeriod,
+		startTime:       time.Now(),
 
 		requestsPerSecond:                requestsPerSecondGV.With(labels),
 		proxiedRequestsPerSecond:         proxiedRequestsPerSecondGV.With(labels),
 		averageConcurrentRequests:        averageConcurrentRequestsGV.With(labels),
 		averageProxiedConcurrentRequests: averageProxiedConcurrentRequestsGV.With(labels),
+		processUptime:                    processUptimeGV.With(labels),
 	}, nil
 }
 
 // Report captures request metrics.
-func (r *PrometheusStatsReporter) Report(stat autoscaler.Stat) {
+func (r *PrometheusStatsReporter) Report(acr float64, apcr float64, rc float64, prc float64) {
 	// Requests per second is a rate over time while concurrency is not.
-	r.requestsPerSecond.Set(stat.RequestCount / r.reportingPeriod.Seconds())
-	r.proxiedRequestsPerSecond.Set(stat.ProxiedRequestCount / r.reportingPeriod.Seconds())
-	r.averageConcurrentRequests.Set(stat.AverageConcurrentRequests)
-	r.averageProxiedConcurrentRequests.Set(stat.AverageProxiedConcurrentRequests)
+	rp := r.reportingPeriod.Seconds()
+	r.requestsPerSecond.Set(rc / rp)
+	r.proxiedRequestsPerSecond.Set(prc / rp)
+	r.averageConcurrentRequests.Set(acr)
+	r.averageProxiedConcurrentRequests.Set(apcr)
+	r.processUptime.Set(time.Since(r.startTime).Seconds())
 }
 
 // Handler returns an uninstrumented http.Handler used to serve stats registered by this

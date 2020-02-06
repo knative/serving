@@ -193,10 +193,10 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 
 func getRouteIngressFromClient(ctx context.Context, t *testing.T, route *v1alpha1.Route) *netv1alpha1.Ingress {
 	opts := metav1.ListOptions{
-		LabelSelector: labels.Set(map[string]string{
+		LabelSelector: labels.SelectorFromSet(labels.Set{
 			serving.RouteLabelKey:          route.Name,
 			serving.RouteNamespaceLabelKey: route.Namespace,
-		}).AsSelector().String(),
+		}).String(),
 	}
 	ingresses, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().Ingresses(route.Namespace).List(opts)
 	if err != nil {
@@ -277,13 +277,12 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
-		Visibility: netv1alpha1.IngressVisibilityExternalIP,
-		TLS:        []netv1alpha1.IngressTLS{},
+		TLS: []netv1alpha1.IngressTLS{},
 		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
 				"test-route.test.svc.cluster.local",
-				domain,
 			},
+			Visibility: netv1alpha1.IngressVisibilityClusterLocal,
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
 				Paths: []netv1alpha1.HTTPIngressPath{{
 					Splits: []netv1alpha1.IngressBackendSplit{{
@@ -300,7 +299,27 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 					}},
 				}},
 			},
+		}, {
+			Hosts: []string{
+				domain,
+			},
 			Visibility: netv1alpha1.IngressVisibilityExternalIP,
+			HTTP: &netv1alpha1.HTTPIngressRuleValue{
+				Paths: []netv1alpha1.HTTPIngressPath{{
+					Splits: []netv1alpha1.IngressBackendSplit{{
+						IngressBackend: netv1alpha1.IngressBackend{
+							ServiceNamespace: testNamespace,
+							ServiceName:      rev.Status.ServiceName,
+							ServicePort:      intstr.FromInt(80),
+						},
+						Percent: 100,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  "test-rev",
+							"Knative-Serving-Namespace": testNamespace,
+						},
+					}},
+				}},
+			},
 		}},
 	}
 	if diff := cmp.Diff(expectedSpec, ci.Spec); diff != "" {
@@ -341,8 +360,15 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 }
 
 func TestCreateRouteWithMultipleTargets(t *testing.T) {
-	ctx, _, reconciler, _, cf := newTestReconciler(t)
-	defer cf()
+	ctx, informers, reconciler, _, cf := newTestReconciler(t)
+	wicb, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
+		t.Fatalf("Error starting informers: %v", err)
+	}
+	defer func() {
+		cf()
+		wicb()
+	}()
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
@@ -381,11 +407,41 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
-		Visibility: netv1alpha1.IngressVisibilityExternalIP,
-		TLS:        []netv1alpha1.IngressTLS{},
+		TLS: []netv1alpha1.IngressTLS{},
 		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
 				"test-route.test.svc.cluster.local",
+			},
+			HTTP: &netv1alpha1.HTTPIngressRuleValue{
+				Paths: []netv1alpha1.HTTPIngressPath{{
+					Splits: []netv1alpha1.IngressBackendSplit{{
+						IngressBackend: netv1alpha1.IngressBackend{
+							ServiceNamespace: testNamespace,
+							ServiceName:      cfgrev.Status.ServiceName,
+							ServicePort:      intstr.FromInt(80),
+						},
+						Percent: 90,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  cfgrev.Name,
+							"Knative-Serving-Namespace": testNamespace,
+						},
+					}, {
+						IngressBackend: netv1alpha1.IngressBackend{
+							ServiceNamespace: testNamespace,
+							ServiceName:      rev.Status.ServiceName,
+							ServicePort:      intstr.FromInt(80),
+						},
+						Percent: 10,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  rev.Name,
+							"Knative-Serving-Namespace": testNamespace,
+						},
+					}},
+				}},
+			},
+			Visibility: netv1alpha1.IngressVisibilityClusterLocal,
+		}, {
+			Hosts: []string{
 				domain,
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -469,11 +525,41 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
-		Visibility: netv1alpha1.IngressVisibilityExternalIP,
-		TLS:        []netv1alpha1.IngressTLS{},
+		TLS: []netv1alpha1.IngressTLS{},
 		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
 				"test-route.test.svc.cluster.local",
+			},
+			HTTP: &netv1alpha1.HTTPIngressRuleValue{
+				Paths: []netv1alpha1.HTTPIngressPath{{
+					Splits: []netv1alpha1.IngressBackendSplit{{
+						IngressBackend: netv1alpha1.IngressBackend{
+							ServiceNamespace: testNamespace,
+							ServiceName:      cfgrev.Status.ServiceName,
+							ServicePort:      intstr.FromInt(80),
+						},
+						Percent: 90,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  cfgrev.Name,
+							"Knative-Serving-Namespace": testNamespace,
+						},
+					}, {
+						IngressBackend: netv1alpha1.IngressBackend{
+							ServiceNamespace: testNamespace,
+							ServiceName:      rev.Status.ServiceName,
+							ServicePort:      intstr.FromInt(80),
+						},
+						Percent: 10,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  rev.Name,
+							"Knative-Serving-Namespace": testNamespace,
+						},
+					}},
+				}},
+			},
+			Visibility: netv1alpha1.IngressVisibilityClusterLocal,
+		}, {
+			Hosts: []string{
 				domain,
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -581,11 +667,41 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
-		Visibility: netv1alpha1.IngressVisibilityExternalIP,
-		TLS:        []netv1alpha1.IngressTLS{},
+		TLS: []netv1alpha1.IngressTLS{},
 		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
 				"test-route.test.svc.cluster.local",
+			},
+			HTTP: &netv1alpha1.HTTPIngressRuleValue{
+				Paths: []netv1alpha1.HTTPIngressPath{{
+					Splits: []netv1alpha1.IngressBackendSplit{{
+						IngressBackend: netv1alpha1.IngressBackend{
+							ServiceNamespace: testNamespace,
+							ServiceName:      cfgrev.Name,
+							ServicePort:      intstr.FromInt(80),
+						},
+						Percent: 50,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  cfgrev.Name,
+							"Knative-Serving-Namespace": testNamespace,
+						},
+					}, {
+						IngressBackend: netv1alpha1.IngressBackend{
+							ServiceNamespace: testNamespace,
+							ServiceName:      rev.Name,
+							ServicePort:      intstr.FromInt(80),
+						},
+						Percent: 50,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  rev.Name,
+							"Knative-Serving-Namespace": testNamespace,
+						},
+					}},
+				}},
+			},
+			Visibility: netv1alpha1.IngressVisibilityClusterLocal,
+		}, {
+			Hosts: []string{
 				domain,
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -619,6 +735,26 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 		}, {
 			Hosts: []string{
 				"test-revision-1-test-route.test.svc.cluster.local",
+			},
+			HTTP: &netv1alpha1.HTTPIngressRuleValue{
+				Paths: []netv1alpha1.HTTPIngressPath{{
+					Splits: []netv1alpha1.IngressBackendSplit{{
+						IngressBackend: netv1alpha1.IngressBackend{
+							ServiceNamespace: testNamespace,
+							ServiceName:      "test-rev",
+							ServicePort:      intstr.FromInt(80),
+						},
+						Percent: 100,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  rev.Name,
+							"Knative-Serving-Namespace": testNamespace,
+						},
+					}},
+				}},
+			},
+			Visibility: netv1alpha1.IngressVisibilityClusterLocal,
+		}, {
+			Hosts: []string{
 				"test-revision-1-test-route.test.test-domain.dev",
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -641,6 +777,26 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 		}, {
 			Hosts: []string{
 				"test-revision-2-test-route.test.svc.cluster.local",
+			},
+			HTTP: &netv1alpha1.HTTPIngressRuleValue{
+				Paths: []netv1alpha1.HTTPIngressPath{{
+					Splits: []netv1alpha1.IngressBackendSplit{{
+						IngressBackend: netv1alpha1.IngressBackend{
+							ServiceNamespace: testNamespace,
+							ServiceName:      "test-rev",
+							ServicePort:      intstr.FromInt(80),
+						},
+						Percent: 100,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  rev.Name,
+							"Knative-Serving-Namespace": testNamespace,
+						},
+					}},
+				}},
+			},
+			Visibility: netv1alpha1.IngressVisibilityClusterLocal,
+		}, {
+			Hosts: []string{
 				"test-revision-2-test-route.test.test-domain.dev",
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -714,11 +870,41 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
-		Visibility: netv1alpha1.IngressVisibilityExternalIP,
-		TLS:        []netv1alpha1.IngressTLS{},
+		TLS: []netv1alpha1.IngressTLS{},
 		Rules: []netv1alpha1.IngressRule{{
 			Hosts: []string{
 				"test-route.test.svc.cluster.local",
+			},
+			HTTP: &netv1alpha1.HTTPIngressRuleValue{
+				Paths: []netv1alpha1.HTTPIngressPath{{
+					Splits: []netv1alpha1.IngressBackendSplit{{
+						IngressBackend: netv1alpha1.IngressBackend{
+							ServiceNamespace: testNamespace,
+							ServiceName:      rev.Name,
+							ServicePort:      intstr.FromInt(80),
+						},
+						Percent: 50,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  rev.Name,
+							"Knative-Serving-Namespace": testNamespace,
+						},
+					}, {
+						IngressBackend: netv1alpha1.IngressBackend{
+							ServiceNamespace: testNamespace,
+							ServiceName:      cfgrev.Name,
+							ServicePort:      intstr.FromInt(80),
+						},
+						Percent: 50,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  cfgrev.Name,
+							"Knative-Serving-Namespace": testNamespace,
+						},
+					}},
+				}},
+			},
+			Visibility: netv1alpha1.IngressVisibilityClusterLocal,
+		}, {
+			Hosts: []string{
 				domain,
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -752,6 +938,26 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		}, {
 			Hosts: []string{
 				"bar-test-route.test.svc.cluster.local",
+			},
+			HTTP: &netv1alpha1.HTTPIngressRuleValue{
+				Paths: []netv1alpha1.HTTPIngressPath{{
+					Splits: []netv1alpha1.IngressBackendSplit{{
+						IngressBackend: netv1alpha1.IngressBackend{
+							ServiceNamespace: testNamespace,
+							ServiceName:      cfgrev.Name,
+							ServicePort:      intstr.FromInt(80),
+						},
+						Percent: 100,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  cfgrev.Name,
+							"Knative-Serving-Namespace": testNamespace,
+						},
+					}},
+				}},
+			},
+			Visibility: netv1alpha1.IngressVisibilityClusterLocal,
+		}, {
+			Hosts: []string{
 				"bar-test-route.test.test-domain.dev",
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{
@@ -774,6 +980,26 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 		}, {
 			Hosts: []string{
 				"foo-test-route.test.svc.cluster.local",
+			},
+			HTTP: &netv1alpha1.HTTPIngressRuleValue{
+				Paths: []netv1alpha1.HTTPIngressPath{{
+					Splits: []netv1alpha1.IngressBackendSplit{{
+						IngressBackend: netv1alpha1.IngressBackend{
+							ServiceNamespace: testNamespace,
+							ServiceName:      rev.Name,
+							ServicePort:      intstr.FromInt(80),
+						},
+						Percent: 100,
+						AppendHeaders: map[string]string{
+							"Knative-Serving-Revision":  rev.Name,
+							"Knative-Serving-Namespace": testNamespace,
+						},
+					}},
+				}},
+			},
+			Visibility: netv1alpha1.IngressVisibilityClusterLocal,
+		}, {
+			Hosts: []string{
 				"foo-test-route.test.test-domain.dev",
 			},
 			HTTP: &netv1alpha1.HTTPIngressRuleValue{

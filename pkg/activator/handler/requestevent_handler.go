@@ -16,8 +16,6 @@ package handler
 import (
 	"net/http"
 
-	"knative.dev/serving/pkg/activator"
-
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -55,10 +53,7 @@ type RequestEventHandler struct {
 }
 
 func (h *RequestEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	namespace := r.Header.Get(activator.RevisionHeaderNamespace)
-	name := r.Header.Get(activator.RevisionHeaderName)
-
-	revisionKey := types.NamespacedName{Namespace: namespace, Name: name}
+	revisionKey := revIDFrom(r.Context())
 
 	h.ReqChan <- ReqEvent{Key: revisionKey, EventType: ReqIn}
 	defer func() {

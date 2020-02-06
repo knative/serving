@@ -22,21 +22,23 @@ import (
 	"log"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
 	container "google.golang.org/api/container/v1beta1"
+
 	"knative.dev/pkg/test/gke"
 	"knative.dev/pkg/testutils/clustermanager/e2e-tests/boskos"
 	"knative.dev/pkg/testutils/clustermanager/e2e-tests/common"
 )
 
 const (
-	DefaultGKEMinNodes = 1
-	DefaultGKEMaxNodes = 3
-	DefaultGKENodeType = "n1-standard-4"
-	DefaultGKERegion   = "us-central1"
-	DefaultGKEZone     = ""
-	regionEnv          = "E2E_CLUSTER_REGION"
-	backupRegionEnv    = "E2E_CLUSTER_BACKUP_REGIONS"
-	defaultGKEVersion  = "latest"
+	DefaultGKEMinNodes  = 1
+	DefaultGKEMaxNodes  = 3
+	DefaultGKENodeType  = "e2-standard-4"
+	DefaultGKERegion    = "us-central1"
+	DefaultGKEZone      = ""
+	regionEnv           = "E2E_CLUSTER_REGION"
+	backupRegionEnv     = "E2E_CLUSTER_BACKUP_REGIONS"
+	DefaultResourceType = boskos.GKEProjectResource
 
 	ClusterRunning = "RUNNING"
 )
@@ -66,6 +68,9 @@ type GKERequest struct {
 	// NeedsCleanup: enforce clean up if given this option, used when running
 	// locally
 	NeedsCleanup bool
+
+	// ResourceType: the boskos resource type to acquire to hold the cluster in create
+	ResourceType string
 }
 
 // GKECluster implements ClusterOperations
@@ -89,14 +94,6 @@ func (gs *GKEClient) Setup(r GKERequest) ClusterOperations {
 	if r.Project != "" { // use provided project and create cluster
 		gc.Project = r.Project
 		gc.NeedsCleanup = true
-	}
-
-	if r.ClusterName == "" {
-		var err error
-		r.ClusterName, err = getResourceName(ClusterResource)
-		if err != nil {
-			log.Fatalf("Failed getting cluster name: '%v'", err)
-		}
 	}
 
 	if r.MinNodes == 0 {
@@ -131,15 +128,24 @@ func (gs *GKEClient) Setup(r GKERequest) ClusterOperations {
 		r.BackupRegions = make([]string, 0)
 	}
 
+	if r.ResourceType == "" {
+		r.ResourceType = DefaultResourceType
+	}
+
 	gc.Request = &r
 
 	client, err := gke.NewSDKClient()
 	if err != nil {
-		log.Fatalf("failed to create GKE SDK client: '%v'", err)
+		log.Fatalf("Failed to create GKE SDK client: '%v'", err)
 	}
 	gc.operations = client
 
-	gc.boskosOps = &boskos.Client{}
+	gc.boskosOps, err = boskos.NewClient("", /* boskos owner */
+		"", /* boskos user */
+		"" /* boskos password file */)
+	if err != nil {
+		log.Fatalf("Failed to create boskos client: '%v", err)
+	}
 
 	return gc
 }
@@ -176,7 +182,7 @@ func (gc *GKECluster) Acquire() error {
 	// Get project name from boskos if running in Prow, otherwise it should fail
 	// since we don't know which project to use
 	if common.IsProw() {
-		project, err := gc.boskosOps.AcquireGKEProject(nil)
+		project, err := gc.boskosOps.AcquireGKEProject(gc.Request.ResourceType)
 		if err != nil {
 			return fmt.Errorf("failed acquiring boskos project: '%v'", err)
 		}
@@ -192,6 +198,14 @@ func (gc *GKECluster) Acquire() error {
 	request := gc.Request.DeepCopy()
 	// We are going to use request for creating cluster, set its Project
 	request.Project = gc.Project
+	// Set the cluster name if it doesn't exist
+	if request.ClusterName == "" {
+		var err error
+		request.ClusterName, err = getResourceName(ClusterResource)
+		if err != nil {
+			log.Fatalf("Failed getting cluster name: '%v'", err)
+		}
+	}
 
 	// Combine Region with BackupRegions, these will be the regions used for
 	// retrying creation logic
@@ -218,7 +232,7 @@ func (gc *GKECluster) Acquire() error {
 			return nil
 		}
 		// Creating cluster
-		log.Printf("Creating cluster %q in region %q zone %q with:\n%+v", clusterName, region, request.Zone, gc.Request)
+		log.Printf("Creating cluster %q in region %q zone %q with:\n%+v", clusterName, region, request.Zone, spew.Sdump(rb))
 		err = gc.operations.CreateCluster(gc.Project, region, request.Zone, rb)
 		if err == nil {
 			cluster, err = gc.operations.GetCluster(gc.Project, region, request.Zone, rb.Cluster.Name)
@@ -234,7 +248,7 @@ func (gc *GKECluster) Acquire() error {
 			if i != len(regions)-1 {
 				errMsg = fmt.Sprintf("%sRetry another region %q for cluster creation", errMsg, regions[i+1])
 			}
-			log.Printf(errMsg)
+			log.Print(errMsg)
 		} else {
 			log.Print("Cluster creation completed")
 			gc.Cluster = cluster
@@ -256,7 +270,7 @@ func (gc *GKECluster) Delete() error {
 	// clusters deleting
 	if common.IsProw() {
 		log.Printf("Releasing Boskos resource: '%v'", gc.Project)
-		return gc.boskosOps.ReleaseGKEProject(nil, gc.Project)
+		return gc.boskosOps.ReleaseGKEProject(gc.Project)
 	}
 
 	// NeedsCleanup is only true if running locally and cluster created by the

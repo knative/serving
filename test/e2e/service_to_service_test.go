@@ -25,17 +25,16 @@ import (
 	"testing"
 
 	pkgTest "knative.dev/pkg/test"
-	"knative.dev/pkg/test/ingress"
+	ingress "knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/pkg/test/spoof"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 	v1alph1testing "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
-
-	"knative.dev/serving/pkg/apis/autoscaling"
-	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 )
 
 const (
@@ -119,7 +118,8 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
 		v1alph1testing.WithEnv(envVars...),
 		v1alph1testing.WithConfigAnnotations(map[string]string{
 			autoscaling.WindowAnnotationKey: "6s", // shortest permitted; this is not required here, but for uniformity.
@@ -148,10 +148,11 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldURL *u
 	}
 	// We expect the response from httpproxy is equal to the response from helloworld
 	if helloworldResponse != strings.TrimSpace(string(response.Body)) {
-		t.Fatalf("The httpproxy response '%s' is not equal to helloworld response '%s'.", string(response.Body), helloworldResponse)
+		t.Fatalf("The httpproxy response = %q, want: %q.", string(response.Body), helloworldResponse)
 	}
 
-	// As a final check (since we know they are both up), check that if we can access the helloworld app externally.
+	// As a final check (since we know they are both up), check that if we can
+	// (or cannot) access the helloworld app externally.
 	response, err = sendRequest(t, clients, test.ServingFlags.ResolvableDomain, helloworldURL)
 	if err != nil {
 		if test.ServingFlags.ResolvableDomain {
@@ -195,7 +196,8 @@ func TestServiceToServiceCall(t *testing.T) {
 
 	withInternalVisibility := v1alph1testing.WithServiceLabel(
 		routeconfig.VisibilityLabelKey, routeconfig.VisibilityClusterLocal)
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
 		withInternalVisibility,
 		v1alph1testing.WithConfigAnnotations(map[string]string{
 			autoscaling.WindowAnnotationKey: "6s", // shortest permitted; this is not required here, but for uniformity.
@@ -218,11 +220,15 @@ func TestServiceToServiceCall(t *testing.T) {
 
 	// helloworld app and its route are ready. Running the test cases now.
 	for _, tc := range testCases {
-		helloworldURL := resources.Route.Status.URL.URL()
+		helloworldURL := &url.URL{
+			Scheme: resources.Route.Status.URL.Scheme,
+			Host:   strings.TrimSuffix(resources.Route.Status.URL.Host, tc.suffix),
+			Path:   resources.Route.Status.URL.Path,
+		}
 		t.Run(tc.name, func(t *testing.T) {
 			cancel := logstream.Start(t)
 			defer cancel()
-			testProxyToHelloworld(t, clients, helloworldURL, true, false)
+			testProxyToHelloworld(t, clients, helloworldURL, true /*inject*/, false /*accessible externally*/)
 		})
 	}
 }
@@ -241,7 +247,8 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, testNames) })
 	defer test.TearDown(clients, testNames)
 
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &testNames,
+	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &testNames,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
 		v1alph1testing.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 			"sidecar.istio.io/inject":          strconv.FormatBool(injectB),
@@ -256,7 +263,7 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 	}
 
 	// Send request to helloworld app via httpproxy service
-	testProxyToHelloworld(t, clients, resources.Route.Status.URL.URL(), injectA, false)
+	testProxyToHelloworld(t, clients, resources.Route.Status.URL.URL(), injectA, false /*accessible externally*/)
 }
 
 // Same test as TestServiceToServiceCall but before sending requests
@@ -296,7 +303,8 @@ func TestCallToPublicService(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
 		v1alph1testing.WithConfigAnnotations(map[string]string{
 			autoscaling.WindowAnnotationKey: "6s", // shortest permitted; this is not required here, but for uniformity.
 		}))
@@ -324,7 +332,7 @@ func TestCallToPublicService(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cancel := logstream.Start(t)
 			defer cancel()
-			testProxyToHelloworld(t, clients, tc.url, false, tc.accessibleExternally)
+			testProxyToHelloworld(t, clients, tc.url, false /*inject*/, tc.accessibleExternally)
 		})
 	}
 }

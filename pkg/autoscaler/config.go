@@ -40,6 +40,9 @@ type Config struct {
 	// Feature flags.
 	EnableScaleToZero bool
 
+	// Enable connection-aware pod scaledown
+	EnableGracefulScaledown bool
+
 	// Target concurrency knobs for different container concurrency configurations.
 	ContainerConcurrencyTargetFraction float64
 	ContainerConcurrencyTargetDefault  float64
@@ -60,9 +63,7 @@ type Config struct {
 	StableWindow             time.Duration
 	PanicWindowPercentage    float64
 	PanicThresholdPercentage float64
-	// Deprecated in favor of PanicWindowPercentage.
-	PanicWindow  time.Duration
-	TickInterval time.Duration
+	TickInterval             time.Duration
 
 	ScaleToZeroGracePeriod time.Duration
 }
@@ -78,11 +79,17 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		key          string
 		field        *bool
 		defaultValue bool
-	}{{
-		key:          "enable-scale-to-zero",
-		field:        &lc.EnableScaleToZero,
-		defaultValue: true,
-	}} {
+	}{
+		{
+			key:          "enable-scale-to-zero",
+			field:        &lc.EnableScaleToZero,
+			defaultValue: true,
+		},
+		{
+			key:          "enable-graceful-scaledown",
+			field:        &lc.EnableGracefulScaledown,
+			defaultValue: false,
+		}} {
 		if raw, ok := data[b.key]; !ok {
 			*b.field = b.defaultValue
 		} else {
@@ -157,10 +164,6 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		field:        &lc.StableWindow,
 		defaultValue: 60 * time.Second,
 	}, {
-		key:          "panic-window",
-		field:        &lc.PanicWindow,
-		defaultValue: 6 * time.Second,
-	}, {
 		key:          "scale-to-zero-grace-period",
 		field:        &lc.ScaleToZeroGracePeriod,
 		defaultValue: 30 * time.Second,
@@ -211,11 +214,10 @@ func validate(lc *Config) (*Config, error) {
 
 	// We can't permit stable window be less than our aggregation window for correctness.
 	if lc.StableWindow < autoscaling.WindowMin {
-		return nil, fmt.Errorf("stable-window = %v, must be at least %v", lc.StableWindow, BucketSize)
+		return nil, fmt.Errorf("stable-window = %v, must be at least %v", lc.StableWindow, autoscaling.WindowMin)
 	}
-
-	if lc.PanicWindow < BucketSize || lc.PanicWindow > lc.StableWindow {
-		return nil, fmt.Errorf("panic-window = %v, must be in [%v, %v] interval", lc.PanicWindow, BucketSize, lc.StableWindow)
+	if lc.StableWindow.Round(time.Second) != lc.StableWindow {
+		return nil, fmt.Errorf("stable-window = %v, must be specified with at most second precision", lc.StableWindow)
 	}
 
 	effPW := time.Duration(lc.PanicWindowPercentage / 100 * float64(lc.StableWindow))

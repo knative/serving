@@ -38,10 +38,14 @@ LATEST_SERVING_RELEASE_VERSION=$(git describe --match "v[0-9]*" --abbrev=0)
 function install_latest_release() {
   header "Installing Knative latest public release"
   local url="https://github.com/knative/serving/releases/download/${LATEST_SERVING_RELEASE_VERSION}"
-  # TODO: should this test install istio and build at all, or only serving?
-  install_knative_serving \
-    "${url}/serving.yaml" \
-    || fail_test "Knative latest release installation failed"
+  local yaml="serving.yaml"
+
+  local RELEASE_YAML="$(mktemp)"
+  wget "${url}/${yaml}" -O "${RELEASE_YAML}" \
+      || fail_test "Unable to download latest Knative release."
+
+  install_knative_serving "${RELEASE_YAML}" \
+      || fail_test "Knative latest release installation failed"
   wait_until_pods_running knative-serving
 }
 
@@ -68,7 +72,7 @@ TIMEOUT=10m
 header "Running preupgrade tests"
 
 go_test_e2e -tags=preupgrade -timeout=${TIMEOUT} ./test/upgrade \
-  --resolvabledomain=$(use_resolvable_domain) || fail_test
+  --resolvabledomain=$(use_resolvable_domain) "$(use_https)" || fail_test
 
 header "Starting prober test"
 
@@ -76,7 +80,7 @@ header "Starting prober test"
 rm -f /tmp/prober-signal
 
 go_test_e2e -tags=probe -timeout=${TIMEOUT} ./test/upgrade \
-  --resolvabledomain=$(use_resolvable_domain) &
+  --resolvabledomain=$(use_resolvable_domain) "$(use_https)" &
 PROBER_PID=$!
 echo "Prober PID is ${PROBER_PID}"
 
@@ -84,13 +88,13 @@ install_head
 
 header "Running postupgrade tests"
 go_test_e2e -tags=postupgrade -timeout=${TIMEOUT} ./test/upgrade \
-  --resolvabledomain=$(use_resolvable_domain) || fail_test
+  --resolvabledomain=$(use_resolvable_domain) "$(use_https)" || fail_test
 
 install_latest_release
 
 header "Running postdowngrade tests"
 go_test_e2e -tags=postdowngrade -timeout=${TIMEOUT} ./test/upgrade \
-  --resolvabledomain=$(use_resolvable_domain) || fail_test
+  --resolvabledomain=$(use_resolvable_domain) "$(use_https)" || fail_test
 
 # The prober is blocking on /tmp/prober-signal to know when it should exit.
 #

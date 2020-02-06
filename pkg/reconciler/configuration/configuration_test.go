@@ -233,8 +233,8 @@ func TestReconcile(t *testing.T) {
 			Object: cfg("matching-revision-done", "foo", 5555, WithObservedGen,
 				// When we see the LatestCreatedRevision become Ready, then we
 				// update the latest ready revision.
-				WithLatestReady("matching-revision-done-00001"),
-				WithLatestCreated("matching-revision-done-00001")),
+				WithLatestCreated("matching-revision-done-00001"),
+				WithLatestReady("matching-revision-done-00001")),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "ConfigurationReady", "Configuration becomes ready"),
@@ -387,6 +387,71 @@ func TestReconcile(t *testing.T) {
 				WithCreationTimestamp(now), MarkRevisionReady),
 		},
 		Key: "foo/double-trouble",
+	}, {
+		Name: "three revisions with the latest revision failed, the latest ready should be updated to the last ready revision",
+		Objects: []runtime.Object{
+			cfg("threerevs", "foo", 3,
+				WithLatestCreated("threerevs-00002"),
+				WithLatestReady("threerevs-00001"), WithObservedGen, func(cfg *v1alpha1.Configuration) {
+					cfg.Spec.GetTemplate().Name = "threerevs-00003"
+				},
+			),
+			rev("threerevs", "foo", 1,
+				WithRevName("threerevs-00001"),
+				WithCreationTimestamp(now), MarkRevisionReady),
+			rev("threerevs", "foo", 2,
+				WithRevName("threerevs-00002"),
+				WithCreationTimestamp(now), MarkRevisionReady),
+			rev("threerevs", "foo", 3,
+				WithRevName("threerevs-00003"),
+				WithCreationTimestamp(now), MarkInactive("", "")),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfg("threerevs", "foo", 3,
+				WithLatestCreated("threerevs-00003"),
+				WithLatestReady("threerevs-00002"),
+				WithObservedGen, func(cfg *v1alpha1.Configuration) {
+					cfg.Spec.GetTemplate().Name = "threerevs-00003"
+				},
+			),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "LatestReadyUpdate", "LatestReadyRevisionName updated to %q", "threerevs-00002"),
+		},
+		Key: "foo/threerevs",
+	}, {
+		Name: "revision not ready, the latest ready should be updated, but the configuration should still be ready==Unknown",
+		Objects: []runtime.Object{
+			cfg("revnotready", "foo", 3,
+				WithLatestCreated("revnotready-00002"),
+				WithLatestReady("revnotready-00001"), WithObservedGen, func(cfg *v1alpha1.Configuration) {
+					cfg.Spec.GetTemplate().Name = "revnotready-00003"
+				},
+			),
+			rev("revnotready", "foo", 1,
+				WithRevName("revnotready-00001"),
+				WithCreationTimestamp(now), MarkRevisionReady),
+			rev("revnotready", "foo", 2,
+				WithRevName("revnotready-00002"),
+				WithCreationTimestamp(now), MarkRevisionReady),
+			rev("revnotready", "foo", 3,
+				WithRevName("revnotready-00003"),
+				WithCreationTimestamp(now)),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfg("revnotready", "foo", 3,
+				// The config should NOT be ready, because LCR != LRR
+				WithLatestCreated("revnotready-00003"),
+				WithLatestReady("revnotready-00002"),
+				WithObservedGen, func(cfg *v1alpha1.Configuration) {
+					cfg.Spec.GetTemplate().Name = "revnotready-00003"
+				},
+			),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "LatestReadyUpdate", "LatestReadyRevisionName updated to %q", "revnotready-00002"),
+		},
+		Key: "foo/revnotready",
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {

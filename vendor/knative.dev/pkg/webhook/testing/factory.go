@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	fakesharedclient "knative.dev/pkg/client/injection/client/fake"
+	fakeapixclient "knative.dev/pkg/client/injection/apiextensions/client/fake"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 
@@ -62,7 +62,7 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 		ctx = logging.WithLogger(ctx, logger)
 
 		ctx, kubeClient := fakekubeclient.With(ctx, ls.GetKubeObjects()...)
-		ctx, sharedClient := fakesharedclient.With(ctx, ls.GetSharedObjects()...)
+		ctx, apixClient := fakeapixclient.With(ctx, ls.GetApiExtensionsObjects()...)
 		ctx, dynamicClient := fakedynamicclient.With(ctx,
 			ls.NewScheme(), ToUnstructured(t, ls.NewScheme(), r.Objects)...)
 
@@ -87,6 +87,13 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 				return false, nil, nil
 			},
 		)
+		apixClient.PrependReactor("create", "*",
+			func(action ktesting.Action) (bool, runtime.Object, error) {
+				ca := action.(ktesting.CreateAction)
+				ls.IndexerFor(ca.GetObject()).Add(ca.GetObject())
+				return false, nil, nil
+			},
+		)
 
 		// Set up our Controller from the fakes.
 		c := ctor(ctx, &ls, configmap.NewStaticWatcher())
@@ -95,11 +102,11 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 
 		for _, reactor := range r.WithReactors {
 			kubeClient.PrependReactor("*", "*", reactor)
-			sharedClient.PrependReactor("*", "*", reactor)
+			apixClient.PrependReactor("*", "*", reactor)
 			dynamicClient.PrependReactor("*", "*", reactor)
 		}
 
-		actionRecorderList := rtesting.ActionRecorderList{sharedClient, dynamicClient, kubeClient}
+		actionRecorderList := rtesting.ActionRecorderList{dynamicClient, kubeClient, apixClient}
 		eventList := rtesting.EventList{Recorder: eventRecorder}
 
 		return c, actionRecorderList, eventList, statsReporter

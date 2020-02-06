@@ -108,7 +108,7 @@ type reporter struct {
 func NewStatsReporter(reconciler string) (StatsReporter, error) {
 	ctx, err := tag.New(
 		context.Background(),
-		tag.Insert(reconcilerTagKey, reconciler))
+		tag.Upsert(reconcilerTagKey, reconciler))
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +120,7 @@ func (r *reporter) ReportServiceReady(namespace, service string, d time.Duration
 	key := fmt.Sprintf("%s/%s", namespace, service)
 	ctx, err := tag.New(
 		r.ctx,
-		tag.Insert(keyTagKey, key))
+		tag.Upsert(keyTagKey, key))
 	if err != nil {
 		return err
 	}

@@ -48,5 +48,5 @@ func (cs *ConfigurationSpec) SetDefaults(ctx context.Context) {
 		}
 	}
 
-	cs.GetTemplate().Spec.SetDefaults(ctx)
+	cs.GetTemplate().SetDefaults(ctx)
 }

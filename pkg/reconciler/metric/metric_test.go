@@ -50,13 +50,11 @@ func TestNewController(t *testing.T) {
 
 func TestReconcile(t *testing.T) {
 	table := TableTest{{
-		Name:                    "bad workqueue key, Part I",
-		Key:                     "too/many/parts",
-		SkipNamespaceValidation: true,
+		Name: "bad workqueue key, Part I",
+		Key:  "too/many/parts",
 	}, {
-		Name:                    "bad workqueue key, Part II",
-		Key:                     "too-few-parts",
-		SkipNamespaceValidation: true,
+		Name: "bad workqueue key, Part II",
+		Key:  "too-few-parts",
 	}, {
 		Name: "update status",
 		Key:  "status/update",

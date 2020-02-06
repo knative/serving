@@ -1,0 +1,1293 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    serving.knative.dev/controller: "true"
+  name: knative-contour-core
+rules:
+- apiGroups:
+  - projectcontour.io
+  resources:
+  - httpproxies
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - deletecollection
+  - patch
+  - watch
+
+---
+apiVersion: v1
+data:
+  _example: |
+    ################################
+    #                              #
+    #    EXAMPLE CONFIGURATION     #
+    #                              #
+    ################################
+
+    # visibility contains the configuration for how to expose services
+    # of assorted visibilities.  Each entry is keyed by the visibility
+    # and contains two keys:
+    #  1. the "class" value to pass to the Contour class annotations,
+    #  2. the namespace/name of the Contour Envoy service.
+    visibility: |
+      ExternalIP:
+        class: contour
+        service: projectcontour/envoy-external
+      ClusterLocal:
+        class: contour-internal
+        service: projectcontour/envoy-internal
+kind: ConfigMap
+metadata:
+  labels:
+    serving.knative.dev/release: devel
+  name: config-contour
+  namespace: knative-serving
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: projectcontour
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: contour
+  namespace: projectcontour
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  name: ingressroutes.contour.heptio.com
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.virtualhost.fqdn
+    description: Fully qualified domain name
+    name: FQDN
+    type: string
+  - JSONPath: .spec.virtualhost.tls.secretName
+    description: Secret with TLS credentials
+    name: TLS Secret
+    type: string
+  - JSONPath: .spec.routes[0].match
+    description: First routes defined
+    name: First route
+    type: string
+  - JSONPath: .status.currentStatus
+    description: The current status of the HTTPProxy
+    name: Status
+    type: string
+  - JSONPath: .status.description
+    description: Description of the current status
+    name: Status Description
+    type: string
+  group: contour.heptio.com
+  names:
+    kind: IngressRoute
+    listKind: IngressRouteList
+    plural: ingressroutes
+    singular: ingressroute
+  scope: Namespaced
+  subresources: {}
+  validation:
+    openAPIV3Schema:
+      description: IngressRoute is an Ingress CRD specificiation
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: IngressRouteSpec defines the spec of the CRD
+          properties:
+            routes:
+              description: Routes are the ingress routes. If TCPProxy is present,
+                Routes is ignored.
+              items:
+                description: Route contains the set of routes for a virtual host
+                properties:
+                  delegate:
+                    description: Delegate specifies that this route should be delegated
+                      to another IngressRoute
+                    properties:
+                      name:
+                        description: Name of the IngressRoute
+                        type: string
+                      namespace:
+                        description: Namespace of the IngressRoute. Defaults to the
+                          current namespace if not supplied.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  enableWebsockets:
+                    description: Enables websocket support for the route
+                    type: boolean
+                  match:
+                    description: Match defines the prefix match
+                    type: string
+                  permitInsecure:
+                    description: Allow this path to respond to insecure requests over
+                      HTTP which are normally not permitted when a `virtualhost.tls`
+                      block is present.
+                    type: boolean
+                  prefixRewrite:
+                    description: Indicates that during forwarding, the matched prefix
+                      (or path) should be swapped with this value
+                    type: string
+                  retryPolicy:
+                    description: The retry policy for this route
+                    properties:
+                      count:
+                        description: NumRetries is maximum allowed number of retries.
+                          If not supplied, the number of retries is one.
+                        format: int32
+                        type: integer
+                      perTryTimeout:
+                        description: PerTryTimeout specifies the timeout per retry
+                          attempt. Ignored if NumRetries is not supplied.
+                        type: string
+                    type: object
+                  services:
+                    description: Services are the services to proxy traffic
+                    items:
+                      description: Service defines an upstream to proxy traffic to
+                      properties:
+                        healthCheck:
+                          description: HealthCheck defines optional healthchecks on
+                            the upstream service
+                          properties:
+                            healthyThresholdCount:
+                              description: The number of healthy health checks required
+                                before a host is marked healthy
+                              format: int32
+                              type: integer
+                            host:
+                              description: The value of the host header in the HTTP
+                                health check request. If left empty (default value),
+                                the name "contour-envoy-healthcheck" will be used.
+                              type: string
+                            intervalSeconds:
+                              description: The interval (seconds) between health checks
+                              format: int64
+                              type: integer
+                            path:
+                              description: HTTP endpoint used to perform health checks
+                                on upstream service
+                              type: string
+                            timeoutSeconds:
+                              description: The time to wait (seconds) for a health
+                                check response
+                              format: int64
+                              type: integer
+                            unhealthyThresholdCount:
+                              description: The number of unhealthy health checks required
+                                before a host is marked unhealthy
+                              format: int32
+                              type: integer
+                          required:
+                          - path
+                          type: object
+                        name:
+                          description: Name is the name of Kubernetes service to proxy
+                            traffic. Names defined here will be used to look up corresponding
+                            endpoints which contain the ips to route.
+                          type: string
+                        port:
+                          description: Port (defined as Integer) to proxy traffic
+                            to since a service can have multiple defined
+                          type: integer
+                        strategy:
+                          description: LB Algorithm to apply (see https://github.com/projectcontour/contour/blob/master/design/ingressroute-design.md#load-balancing)
+                          type: string
+                        validation:
+                          description: UpstreamValidation defines how to verify the
+                            backend service's certificate
+                          properties:
+                            caSecret:
+                              description: Name of the Kubernetes secret be used to
+                                validate the certificate presented by the backend
+                              type: string
+                            subjectName:
+                              description: Key which is expected to be present in
+                                the 'subjectAltName' of the presented certificate
+                              type: string
+                          required:
+                          - caSecret
+                          - subjectName
+                          type: object
+                        weight:
+                          description: Weight defines percentage of traffic to balance
+                            traffic
+                          format: int32
+                          type: integer
+                      required:
+                      - name
+                      - port
+                      type: object
+                    type: array
+                  timeoutPolicy:
+                    description: The timeout policy for this route
+                    properties:
+                      request:
+                        description: Timeout for receiving a response from the server
+                          after processing a request from client. If not supplied
+                          the timeout duration is undefined.
+                        type: string
+                    type: object
+                required:
+                - match
+                type: object
+              type: array
+            tcpproxy:
+              description: TCPProxy holds TCP proxy information.
+              properties:
+                delegate:
+                  description: Delegate specifies that this tcpproxy should be delegated
+                    to another IngressRoute
+                  properties:
+                    name:
+                      description: Name of the IngressRoute
+                      type: string
+                    namespace:
+                      description: Namespace of the IngressRoute. Defaults to the
+                        current namespace if not supplied.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                services:
+                  description: Services are the services to proxy traffic
+                  items:
+                    description: Service defines an upstream to proxy traffic to
+                    properties:
+                      healthCheck:
+                        description: HealthCheck defines optional healthchecks on
+                          the upstream service
+                        properties:
+                          healthyThresholdCount:
+                            description: The number of healthy health checks required
+                              before a host is marked healthy
+                            format: int32
+                            type: integer
+                          host:
+                            description: The value of the host header in the HTTP
+                              health check request. If left empty (default value),
+                              the name "contour-envoy-healthcheck" will be used.
+                            type: string
+                          intervalSeconds:
+                            description: The interval (seconds) between health checks
+                            format: int64
+                            type: integer
+                          path:
+                            description: HTTP endpoint used to perform health checks
+                              on upstream service
+                            type: string
+                          timeoutSeconds:
+                            description: The time to wait (seconds) for a health check
+                              response
+                            format: int64
+                            type: integer
+                          unhealthyThresholdCount:
+                            description: The number of unhealthy health checks required
+                              before a host is marked unhealthy
+                            format: int32
+                            type: integer
+                        required:
+                        - path
+                        type: object
+                      name:
+                        description: Name is the name of Kubernetes service to proxy
+                          traffic. Names defined here will be used to look up corresponding
+                          endpoints which contain the ips to route.
+                        type: string
+                      port:
+                        description: Port (defined as Integer) to proxy traffic to
+                          since a service can have multiple defined
+                        type: integer
+                      strategy:
+                        description: LB Algorithm to apply (see https://github.com/projectcontour/contour/blob/master/design/ingressroute-design.md#load-balancing)
+                        type: string
+                      validation:
+                        description: UpstreamValidation defines how to verify the
+                          backend service's certificate
+                        properties:
+                          caSecret:
+                            description: Name of the Kubernetes secret be used to
+                              validate the certificate presented by the backend
+                            type: string
+                          subjectName:
+                            description: Key which is expected to be present in the
+                              'subjectAltName' of the presented certificate
+                            type: string
+                        required:
+                        - caSecret
+                        - subjectName
+                        type: object
+                      weight:
+                        description: Weight defines percentage of traffic to balance
+                          traffic
+                        format: int32
+                        type: integer
+                    required:
+                    - name
+                    - port
+                    type: object
+                  type: array
+              type: object
+            virtualhost:
+              description: Virtualhost appears at most once. If it is present, the
+                object is considered to be a "root".
+              properties:
+                fqdn:
+                  description: The fully qualified domain name of the root of the
+                    ingress tree all leaves of the DAG rooted at this object relate
+                    to the fqdn
+                  type: string
+                tls:
+                  description: If present describes tls properties. The CNI names
+                    that will be matched on are described in fqdn, the tls.secretName
+                    secret must contain a matching certificate
+                  properties:
+                    minimumProtocolVersion:
+                      description: Minimum TLS version this vhost should negotiate
+                      type: string
+                    passthrough:
+                      description: If Passthrough is set to true, the SecretName will
+                        be ignored and the encrypted handshake will be passed through
+                        to the backing cluster.
+                      type: boolean
+                    secretName:
+                      description: required, the name of a secret in the current namespace
+                      type: string
+                  type: object
+              required:
+              - fqdn
+              type: object
+          type: object
+        status:
+          description: Status reports the current state of the HTTPProxy.
+          properties:
+            currentStatus:
+              type: string
+            description:
+              type: string
+          required:
+          - currentStatus
+          - description
+          type: object
+      required:
+      - metadata
+      - spec
+      type: object
+  version: v1beta1
+  versions:
+  - name: v1beta1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  name: tlscertificatedelegations.contour.heptio.com
+spec:
+  group: contour.heptio.com
+  names:
+    kind: TLSCertificateDelegation
+    listKind: TLSCertificateDelegationList
+    plural: tlscertificatedelegations
+    singular: tlscertificatedelegation
+  scope: ""
+  validation:
+    openAPIV3Schema:
+      description: TLSCertificateDelegation is an TLS Certificate Delegation CRD specificiation.
+        See design/tls-certificate-delegation.md for details.
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: TLSCertificateDelegationSpec defines the spec of the CRD
+          properties:
+            delegations:
+              items:
+                description: CertificateDelegation maps the authority to reference
+                  a secret in the current namespace to a set of namespaces.
+                properties:
+                  secretName:
+                    description: required, the name of a secret in the current namespace.
+                    type: string
+                  targetNamespaces:
+                    description: required, the namespaces the authority to reference
+                      the the secret will be delegated to. If TargetNamespaces is
+                      nil or empty, the CertificateDelegation' is ignored. If the
+                      TargetNamespace list contains the character, "*" the secret
+                      will be delegated to all namespaces.
+                    items:
+                      type: string
+                    type: array
+                required:
+                - secretName
+                - targetNamespaces
+                type: object
+              type: array
+          required:
+          - delegations
+          type: object
+      required:
+      - metadata
+      - spec
+      type: object
+  version: v1beta1
+  versions:
+  - name: v1beta1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  name: httpproxies.projectcontour.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.virtualhost.fqdn
+    description: Fully qualified domain name
+    name: FQDN
+    type: string
+  - JSONPath: .spec.virtualhost.tls.secretName
+    description: Secret with TLS credentials
+    name: TLS Secret
+    type: string
+  - JSONPath: .status.currentStatus
+    description: The current status of the HTTPProxy
+    name: Status
+    type: string
+  - JSONPath: .status.description
+    description: Description of the current status
+    name: Status Description
+    type: string
+  group: projectcontour.io
+  names:
+    kind: HTTPProxy
+    listKind: HTTPProxyList
+    plural: httpproxies
+    shortNames:
+    - proxy
+    - proxies
+    singular: httpproxy
+  scope: Namespaced
+  subresources: {}
+  version: v1
+  versions:
+  - name: v1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  name: tlscertificatedelegations.projectcontour.io
+spec:
+  group: projectcontour.io
+  names:
+    kind: TLSCertificateDelegation
+    listKind: TLSCertificateDelegationList
+    plural: tlscertificatedelegations
+    shortNames:
+    - tlscerts
+    singular: tlscertificatedelegation
+  scope: Namespaced
+  validation:
+    openAPIV3Schema:
+      description: TLSCertificateDelegation is an TLS Certificate Delegation CRD specificiation.
+        See design/tls-certificate-delegation.md for details.
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: TLSCertificateDelegationSpec defines the spec of the CRD
+          properties:
+            delegations:
+              items:
+                description: CertificateDelegation maps the authority to reference
+                  a secret in the current namespace to a set of namespaces.
+                properties:
+                  secretName:
+                    description: required, the name of a secret in the current namespace.
+                    type: string
+                  targetNamespaces:
+                    description: required, the namespaces the authority to reference
+                      the the secret will be delegated to. If TargetNamespaces is
+                      nil or empty, the CertificateDelegation' is ignored. If the
+                      TargetNamespace list contains the character, "*" the secret
+                      will be delegated to all namespaces.
+                    items:
+                      type: string
+                    type: array
+                required:
+                - secretName
+                - targetNamespaces
+                type: object
+              type: array
+          required:
+          - delegations
+          type: object
+      required:
+      - metadata
+      - spec
+      type: object
+  version: v1
+  versions:
+  - name: v1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: contour-certgen
+  namespace: projectcontour
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: contour
+  namespace: projectcontour
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: contour-certgen
+subjects:
+- kind: ServiceAccount
+  name: contour-certgen
+  namespace: projectcontour
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  name: contour-certgen
+  namespace: projectcontour
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - list
+  - watch
+  - create
+  - get
+  - put
+  - post
+  - patch
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: contour-certgen
+  namespace: projectcontour
+spec:
+  backoffLimit: 1
+  completions: 1
+  parallelism: 1
+  template:
+    metadata:
+      labels:
+        app: contour-certgen
+    spec:
+      containers:
+      - args:
+        - certgen
+        - --namespace=projectcontour
+        - --incluster
+        - --kube
+        image: docker.io/mattmoor/contour@sha256:58749ee9fb7d44c0569dac64407cbff9a1b40bd8ea9a3cd84ee57b63d9c43740
+        imagePullPolicy: IfNotPresent
+        name: contour
+      restartPolicy: Never
+      serviceAccountName: contour-certgen
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: contour
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: contour
+subjects:
+- kind: ServiceAccount
+  name: contour
+  namespace: projectcontour
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: contour
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - endpoints
+  - nodes
+  - pods
+  - secrets
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - extensions
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - contour.heptio.com
+  resources:
+  - ingressroutes
+  - tlscertificatedelegations
+  verbs:
+  - get
+  - list
+  - watch
+  - put
+  - post
+  - patch
+- apiGroups:
+  - projectcontour.io
+  resources:
+  - httpproxies
+  - tlscertificatedelegations
+  verbs:
+  - get
+  - list
+  - watch
+  - put
+  - post
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  name: contour-leaderelection
+  namespace: projectcontour
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - update
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: contour-leaderelection
+  namespace: projectcontour
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: contour-leaderelection
+subjects:
+- kind: ServiceAccount
+  name: contour
+  namespace: projectcontour
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: contour
+  name: contour
+  namespace: projectcontour
+spec:
+  selector:
+    matchLabels:
+      app: contour
+  template:
+    metadata:
+      labels:
+        app: contour
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: contour
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      containers:
+      - args:
+        - serve
+        - --incluster
+        - --use-extensions-v1beta1-ingress
+        - --xds-address=0.0.0.0
+        - --xds-port=8011
+        - --http-port=8013
+        - --debug-http-port=6060
+        - --envoy-service-http-port=80
+        - --envoy-service-https-port=443
+        - --contour-cafile=/ca/cacert.pem
+        - --contour-cert-file=/certs/tls.crt
+        - --contour-key-file=/certs/tls.key
+        - --config-path=/config/contour.yaml
+        - --ingress-class-name=contour-internal
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        image: docker.io/mattmoor/contour@sha256:58749ee9fb7d44c0569dac64407cbff9a1b40bd8ea9a3cd84ee57b63d9c43740
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8013
+        name: contour-internal
+        ports:
+        - containerPort: 8011
+          name: xds
+        - containerPort: 8013
+          name: debug
+        readinessProbe:
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          tcpSocket:
+            port: 8011
+        volumeMounts:
+        - mountPath: /certs
+          name: contourcert
+          readOnly: true
+        - mountPath: /ca
+          name: cacert
+          readOnly: true
+        - mountPath: /config
+          name: contour-internal-config
+          readOnly: true
+      - args:
+        - serve
+        - --incluster
+        - --use-extensions-v1beta1-ingress
+        - --xds-address=0.0.0.0
+        - --xds-port=8010
+        - --http-port=8012
+        - --debug-http-port=6061
+        - --envoy-service-http-port=80
+        - --envoy-service-https-port=443
+        - --contour-cafile=/ca/cacert.pem
+        - --contour-cert-file=/certs/tls.crt
+        - --contour-key-file=/certs/tls.key
+        - --config-path=/config/contour.yaml
+        - --ingress-class-name=contour
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        image: docker.io/mattmoor/contour@sha256:58749ee9fb7d44c0569dac64407cbff9a1b40bd8ea9a3cd84ee57b63d9c43740
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8012
+        name: contour-external
+        ports:
+        - containerPort: 8010
+          name: xds
+        - containerPort: 8012
+          name: debug
+        readinessProbe:
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          tcpSocket:
+            port: 8010
+        volumeMounts:
+        - mountPath: /certs
+          name: contourcert
+          readOnly: true
+        - mountPath: /ca
+          name: cacert
+          readOnly: true
+        - mountPath: /config
+          name: contour-external-config
+          readOnly: true
+      dnsPolicy: ClusterFirst
+      serviceAccountName: contour
+      volumes:
+      - name: contourcert
+        secret:
+          secretName: contourcert
+      - name: cacert
+        secret:
+          secretName: cacert
+      - configMap:
+          defaultMode: 420
+          items:
+          - key: contour.yaml
+            path: contour.yaml
+          name: contour-internal
+        name: contour-internal-config
+      - configMap:
+          defaultMode: 420
+          items:
+          - key: contour.yaml
+            path: contour.yaml
+          name: contour-external
+        name: contour-external-config
+
+---
+apiVersion: v1
+data:
+  contour.yaml: |
+    disablePermitInsecure: false
+    leaderelection:
+      configmap-name: leader-elect-external
+      configmap-namespace: projectcontour
+    ### Logging options
+    accesslog-format: envoy
+kind: ConfigMap
+metadata:
+  name: contour-external
+  namespace: projectcontour
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: contour-external
+  namespace: projectcontour
+spec:
+  ports:
+  - name: xds
+    port: 8001
+    targetPort: 8010
+  selector:
+    app: contour
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+  name: envoy-external
+  namespace: projectcontour
+spec:
+  externalTrafficPolicy: Local
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+  - name: https
+    port: 443
+    targetPort: 443
+  selector:
+    app: envoy-external
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: envoy-external
+  name: envoy-external
+  namespace: projectcontour
+spec:
+  selector:
+    matchLabels:
+      app: envoy-external
+  template:
+    metadata:
+      labels:
+        app: envoy-external
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - args:
+        - -c
+        - /config/envoy.json
+        - --service-cluster $(CONTOUR_NAMESPACE)
+        - --service-node $(ENVOY_POD_NAME)
+        - --log-level info
+        command:
+        - envoy
+        env:
+        - name: CONTOUR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: ENVOY_POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        image: docker.io/envoyproxy/envoy:v1.12.2
+        imagePullPolicy: IfNotPresent
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - bash
+              - -c
+              - --
+              - echo
+              - -ne
+              - "POST /healthcheck/fail HTTP/1.1\r\nHost: localhost\r\nConnection:
+                close\r\n\r\n"
+              - '>/dev/tcp/localhost/9001'
+        name: envoy
+        ports:
+        - containerPort: 80
+          name: http
+        - containerPort: 443
+          name: https
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8002
+          initialDelaySeconds: 3
+          periodSeconds: 3
+        volumeMounts:
+        - mountPath: /config
+          name: envoy-external-config
+        - mountPath: /certs
+          name: envoycert
+        - mountPath: /ca
+          name: cacert
+      initContainers:
+      - args:
+        - bootstrap
+        - /config/envoy.json
+        - --xds-address=contour-external
+        - --xds-port=8001
+        - --envoy-cafile=/ca/cacert.pem
+        - --envoy-cert-file=/certs/tls.crt
+        - --envoy-key-file=/certs/tls.key
+        env:
+        - name: CONTOUR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: docker.io/mattmoor/contour@sha256:58749ee9fb7d44c0569dac64407cbff9a1b40bd8ea9a3cd84ee57b63d9c43740
+        imagePullPolicy: IfNotPresent
+        name: envoy-initconfig
+        volumeMounts:
+        - mountPath: /config
+          name: envoy-external-config
+        - mountPath: /certs
+          name: envoycert
+          readOnly: true
+        - mountPath: /ca
+          name: cacert
+          readOnly: true
+      restartPolicy: Always
+      volumes:
+      - emptyDir: {}
+        name: envoy-external-config
+      - name: envoycert
+        secret:
+          secretName: envoycert
+      - name: cacert
+        secret:
+          secretName: cacert
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 10%
+    type: RollingUpdate
+
+---
+apiVersion: v1
+data:
+  contour.yaml: |
+    disablePermitInsecure: false
+    leaderelection:
+      configmap-name: leader-elect-internal
+      configmap-namespace: projectcontour
+    ### Logging options
+    accesslog-format: envoy
+kind: ConfigMap
+metadata:
+  name: contour-internal
+  namespace: projectcontour
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: contour-internal
+  namespace: projectcontour
+spec:
+  ports:
+  - name: xds
+    port: 8001
+    targetPort: 8011
+  selector:
+    app: contour
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: envoy-internal
+  namespace: projectcontour
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+  selector:
+    app: envoy-internal
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: envoy-internal
+  name: envoy-internal
+  namespace: projectcontour
+spec:
+  selector:
+    matchLabels:
+      app: envoy-internal
+  template:
+    metadata:
+      labels:
+        app: envoy-internal
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - args:
+        - -c
+        - /config/envoy.json
+        - --service-cluster $(CONTOUR_NAMESPACE)
+        - --service-node $(ENVOY_POD_NAME)
+        - --log-level info
+        command:
+        - envoy
+        env:
+        - name: CONTOUR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: ENVOY_POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        image: docker.io/envoyproxy/envoy:v1.12.2
+        imagePullPolicy: IfNotPresent
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - bash
+              - -c
+              - --
+              - echo
+              - -ne
+              - "POST /healthcheck/fail HTTP/1.1\r\nHost: localhost\r\nConnection:
+                close\r\n\r\n"
+              - '>/dev/tcp/localhost/9001'
+        name: envoy
+        ports:
+        - containerPort: 80
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8002
+          initialDelaySeconds: 3
+          periodSeconds: 3
+        volumeMounts:
+        - mountPath: /config
+          name: envoy-internal-config
+        - mountPath: /certs
+          name: envoycert
+        - mountPath: /ca
+          name: cacert
+      initContainers:
+      - args:
+        - bootstrap
+        - /config/envoy.json
+        - --xds-address=contour-internal
+        - --xds-port=8001
+        - --envoy-cafile=/ca/cacert.pem
+        - --envoy-cert-file=/certs/tls.crt
+        - --envoy-key-file=/certs/tls.key
+        env:
+        - name: CONTOUR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: docker.io/mattmoor/contour@sha256:58749ee9fb7d44c0569dac64407cbff9a1b40bd8ea9a3cd84ee57b63d9c43740
+        imagePullPolicy: IfNotPresent
+        name: envoy-initconfig
+        volumeMounts:
+        - mountPath: /config
+          name: envoy-internal-config
+        - mountPath: /certs
+          name: envoycert
+          readOnly: true
+        - mountPath: /ca
+          name: cacert
+          readOnly: true
+      restartPolicy: Always
+      volumes:
+      - emptyDir: {}
+        name: envoy-internal-config
+      - name: envoycert
+        secret:
+          secretName: envoycert
+      - name: cacert
+        secret:
+          secretName: cacert
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 10%
+    type: RollingUpdate
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: contour-ingress-controller
+  namespace: knative-serving
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: controller
+  template:
+    metadata:
+      labels:
+        app: controller
+    spec:
+      containers:
+      - env:
+        - name: SYSTEM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: CONFIG_LOGGING_NAME
+          value: config-logging
+        - name: CONFIG_OBSERVABILITY_NAME
+          value: config-observability
+        - name: METRICS_DOMAIN
+          value: knative.dev/samples
+        image: docker.io/mattmoor/controller@sha256:6f17bfaafbbd65605a13ddf43d0ad9d62b838d4c3400ffd8af5238e24f2590a7
+        name: controller
+        ports:
+        - containerPort: 9090
+          name: metrics
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 1000Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+      serviceAccountName: controller
+
+---

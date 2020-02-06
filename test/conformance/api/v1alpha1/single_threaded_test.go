@@ -45,14 +45,16 @@ func TestSingleConcurrency(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, v1a1opts.WithContainerConcurrency(1))
+	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		v1a1opts.WithContainerConcurrency(1))
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
 	url := objects.Service.Status.URL.URL()
 
 	// Ready does not actually mean Ready for a Route just yet.
-	// See https://knative.dev/serving/issues/1582
+	// See https://github.com/knative/serving/issues/1582
 	t.Logf("Probing %s", url)
 	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,

@@ -17,23 +17,30 @@ import (
 	"context"
 	"io"
 	"log"
-	"net"
+	"net/http"
+	"os"
+	"strconv"
+	"time"
 
 	"google.golang.org/grpc"
 
+	"knative.dev/pkg/network"
+	servingnetwork "knative.dev/serving/pkg/network"
 	ping "knative.dev/serving/test/test_images/grpc-ping/proto"
 )
 
-const port = ":8080"
+var delay int64
 
 func pong(req *ping.Request) *ping.Response {
-	return &ping.Response{Msg: req.Msg}
+	return &ping.Response{Msg: req.Msg + os.Getenv("SUFFIX")}
 }
 
 type server struct{}
 
 func (s *server) Ping(ctx context.Context, req *ping.Request) (*ping.Response, error) {
 	log.Printf("Received ping: %v", req.Msg)
+
+	time.Sleep(time.Duration(delay) * time.Millisecond)
 
 	resp := pong(req)
 
@@ -45,12 +52,10 @@ func (s *server) PingStream(stream ping.PingService_PingStreamServer) error {
 	log.Printf("Starting stream")
 	for {
 		req, err := stream.Recv()
-
 		if err == io.EOF {
 			log.Printf("Ending stream")
 			return nil
 		}
-
 		if err != nil {
 			log.Printf("Failed to receive ping: %v", err)
 			return err
@@ -62,7 +67,6 @@ func (s *server) PingStream(stream ping.PingService_PingStreamServer) error {
 
 		log.Printf("Sending pong: %v", resp.Msg)
 		err = stream.Send(resp)
-
 		if err != nil {
 			log.Printf("Failed to send pong: %v", err)
 			return err
@@ -70,19 +74,26 @@ func (s *server) PingStream(stream ping.PingService_PingStreamServer) error {
 	}
 }
 
+func httpWrapper(g *grpc.Server) http.Handler {
+	return servingnetwork.NewProbeHandler(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.ProtoMajor == 2 && r.Header.Get("Content-Type") == "application/grpc" {
+				g.ServeHTTP(w, r)
+			}
+		}),
+	)
+}
+
 func main() {
-	log.Printf("Starting gRPC server on %s", port)
+	log.Printf("Starting server on %s", os.Getenv("PORT"))
 
-	lis, err := net.Listen("tcp", port)
-	if err != nil {
-		log.Fatalf("Failed to listen: %v", err)
-	}
+	delay, _ = strconv.ParseInt(os.Getenv("DELAY"), 10, 64)
+	log.Printf("Using DELAY of %d ms", delay)
 
-	s := grpc.NewServer()
+	g := grpc.NewServer()
+	s := network.NewServer(":"+os.Getenv("PORT"), httpWrapper(g))
 
-	ping.RegisterPingServiceServer(s, &server{})
+	ping.RegisterPingServiceServer(g, &server{})
 
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("Failed to serve: %v", err)
-	}
+	log.Fatal(s.ListenAndServe())
 }

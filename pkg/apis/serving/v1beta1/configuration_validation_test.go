@@ -80,7 +80,29 @@ func TestConfigurationValidation(t *testing.T) {
 		},
 		want: nil,
 	}, {
-		name: "valid BYO name (with generateName)",
+		name: "invalid name",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "",
+			},
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
+					Spec: v1.RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "hellworld",
+							}},
+						},
+					},
+				},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "name or generateName is required",
+			Paths:   []string{"metadata.name"},
+		},
+	}, {
+		name: "invalid BYO name (with generateName)",
 		c: &Configuration{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "byo-name-",
@@ -94,6 +116,97 @@ func TestConfigurationValidation(t *testing.T) {
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Image: "busybox",
+							}},
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrDisallowedFields("spec.template.metadata.name"),
+	}, {
+		name: "invalid BYO name (not prefixed)",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "foo",
+					},
+					Spec: v1.RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "hellworld",
+							}},
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrInvalidValue(`"foo" must have prefix "byo-name-"`,
+			"spec.template.metadata.name"),
+	}, {
+		name: "invalid name for configuration spec",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "foo.bar",
+					},
+					Spec: v1.RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "hellworld",
+							}},
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrInvalidValue("not a DNS 1035 label: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+			"spec.template.metadata.name"),
+	}, {
+		name: "invalid generate name for configuration spec",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "foo.bar",
+					},
+					Spec: v1.RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "hellworld",
+							}},
+						},
+					},
+				},
+			},
+		},
+		want: apis.ErrInvalidValue("not a DNS 1035 label prefix: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
+			"spec.template.metadata.generateName"),
+	}, {
+		name: "valid generate name for configuration spec",
+		c: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "byo-name",
+			},
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "valid-generatename",
+					},
+					Spec: v1.RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "hellworld",
 							}},
 						},
 					},
@@ -671,6 +784,60 @@ func TestConfigurationAnnotationUpdate(t *testing.T) {
 				},
 			},
 			Spec: getConfigurationSpec("helloworld:bar"),
+		},
+		prev: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getConfigurationSpec("helloworld:foo"),
+		},
+		want: nil,
+	}, {
+		name: "no validation for lastModifier annotation even after update as configuration owned by service",
+		this: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u3,
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "v1beta1",
+					Kind:       serving.GroupName,
+				}},
+			},
+			Spec: getConfigurationSpec("helloworld:foo"),
+		},
+		prev: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u1,
+					serving.UpdaterAnnotation: u1,
+				},
+			},
+			Spec: getConfigurationSpec("helloworld:foo"),
+		},
+		want: nil,
+	}, {
+		name: "no validation for creator annotation even after update as configuration owned by service",
+		this: &Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{
+					serving.CreatorAnnotation: u3,
+					serving.UpdaterAnnotation: u1,
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "v1beta1",
+					Kind:       serving.GroupName,
+				}},
+			},
+			Spec: getConfigurationSpec("helloworld:foo"),
 		},
 		prev: &Configuration{
 			ObjectMeta: metav1.ObjectMeta{

@@ -46,23 +46,41 @@ func TestHelloWorld(t *testing.T) {
 		Image:   "helloworld",
 	}
 
+	if test.ServingFlags.Https {
+		// Save the current Gateway to restore it after the test
+		oldGateway, err := clients.IstioClient.NetworkingV1alpha3().Gateways(v1a1test.Namespace).Get(v1a1test.GatewayName, metav1.GetOptions{})
+		if err != nil {
+			t.Fatalf("Failed to get Gateway %s/%s", v1a1test.Namespace, v1a1test.GatewayName)
+		}
+		test.CleanupOnInterrupt(func() { v1a1test.RestoreGateway(t, clients, *oldGateway) })
+		defer v1a1test.RestoreGateway(t, clients, *oldGateway)
+	}
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Service")
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names)
+	resources, httpsTransportOption, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, test.ServingFlags.Https)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
 	url := resources.Route.Status.URL.URL()
-	if _, err = pkgTest.WaitForEndpointState(
+	var opt interface{}
+	if test.ServingFlags.Https {
+		url.Scheme = "https"
+		if httpsTransportOption == nil {
+			t.Fatalf("Https transport option is nil")
+		}
+		opt = *httpsTransportOption
+	}
+	if _, err := pkgTest.WaitForEndpointState(
 		clients.KubeClient,
 		t.Logf,
 		url,
 		v1a1test.RetryingRouteInconsistency(pkgTest.MatchesAllOf(pkgTest.IsStatusOK, pkgTest.MatchesBody(test.HelloWorldText))),
 		"HelloWorldServesText",
-		test.ServingFlags.ResolvableDomain); err != nil {
+		test.ServingFlags.ResolvableDomain,
+		opt); err != nil {
 		t.Fatalf("The endpoint %s for Route %s didn't serve the expected text %q: %v", url, names.Route, test.HelloWorldText, err)
 	}
 
@@ -99,7 +117,8 @@ func TestQueueSideCarResourceLimit(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	t.Log("Creating a new Service")
-	resources, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
 		v1a1opts.WithResourceRequirements(corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceName("cpu"):    resource.MustParse("50m"),

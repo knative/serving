@@ -85,7 +85,7 @@ func (c *reconciler) reconcile(ctx context.Context, config *v1alpha1.Configurati
 	cfg := configns.FromContext(ctx).RevisionGC
 	logger := logging.FromContext(ctx)
 
-	selector := labels.Set{serving.ConfigurationLabelKey: config.Name}.AsSelector()
+	selector := labels.SelectorFromSet(labels.Set{serving.ConfigurationLabelKey: config.Name})
 	revs, err := c.revisionLister.Revisions(config.Namespace).List(selector)
 	if err != nil {
 		return err

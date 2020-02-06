@@ -18,8 +18,6 @@ package queue
 
 import (
 	"time"
-
-	"knative.dev/serving/pkg/autoscaler"
 )
 
 // ReqEvent represents either an incoming or closed request.
@@ -42,50 +40,27 @@ const (
 	ProxiedOut
 )
 
-// Channels is a structure for holding the channels for driving Stats.
-// It's just to make the NewStats signature easier to read.
-type Channels struct {
-	// Ticks with every request arrived/completed respectively
-	ReqChan chan ReqEvent
-	// Ticks with every stat report request
-	ReportChan <-chan time.Time
-	// Stat reporting channel
-	StatChan chan autoscaler.Stat
-}
-
-// Stats is a structure for holding channels per pod.
-type Stats struct {
-	podName string
-	ch      Channels
-}
-
 // NewStats instantiates a new instance of Stats.
-func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
-	s := &Stats{
-		podName: podName,
-		ch:      channels,
-	}
-
+func NewStats(startedAt time.Time, reqCh chan ReqEvent, reportCh <-chan time.Time, report func(float64, float64, float64, float64)) {
 	go func() {
 		var (
 			requestCount       float64
 			proxiedCount       float64
-			concurrency        int32
-			proxiedConcurrency int32
+			concurrency        int
+			proxiedConcurrency int
 		)
 
 		lastChange := startedAt
-		timeOnConcurrency := make(map[int32]time.Duration)
-		timeOnProxiedConcurrency := make(map[int32]time.Duration)
+		timeOnConcurrency := make(map[int]time.Duration)
+		timeOnProxiedConcurrency := make(map[int]time.Duration)
 
 		// Updates the lastChanged/timeOnConcurrency state
-		// Note: Due to nature of the channels used below, the ReportChan
+		// Note: due to nature of the channels used below, the ReportChan
 		// can race the ReqChan, thus an event can arrive that has a lower
 		// timestamp than `lastChange`. This is ignored, since it only makes
 		// for very slight differences.
-		updateState := func(time time.Time) {
-			if time.After(lastChange) {
-				durationSinceChange := time.Sub(lastChange)
+		updateState := func(concurrency int, time time.Time) {
+			if durationSinceChange := time.Sub(lastChange); durationSinceChange > 0 {
 				timeOnConcurrency[concurrency] += durationSinceChange
 				timeOnProxiedConcurrency[proxiedConcurrency] += durationSinceChange
 				lastChange = time
@@ -94,8 +69,8 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 
 		for {
 			select {
-			case event := <-s.ch.ReqChan:
-				updateState(event.Time)
+			case event := <-reqCh:
+				updateState(concurrency, event.Time)
 
 				switch event.EventType {
 				case ProxiedIn:
@@ -111,45 +86,34 @@ func NewStats(podName string, channels Channels, startedAt time.Time) *Stats {
 				case ReqOut:
 					concurrency--
 				}
-			case now := <-s.ch.ReportChan:
-				updateState(now)
+			case now := <-reportCh:
+				updateState(concurrency, now)
 
-				stat := autoscaler.Stat{
-					Time:                             now,
-					PodName:                          s.podName,
-					AverageConcurrentRequests:        weightedAverage(timeOnConcurrency),
-					AverageProxiedConcurrentRequests: weightedAverage(timeOnProxiedConcurrency),
-					RequestCount:                     requestCount,
-					ProxiedRequestCount:              proxiedCount,
-				}
-				// Send the stat to another goroutine to transmit
-				// so we can continue bucketing stats.
-				s.ch.StatChan <- stat
+				report(weightedAverage(timeOnConcurrency), weightedAverage(timeOnProxiedConcurrency), requestCount, proxiedCount)
 
 				// Reset the stat counts which have been reported.
-				timeOnConcurrency = make(map[int32]time.Duration)
-				timeOnProxiedConcurrency = make(map[int32]time.Duration)
+				timeOnConcurrency = map[int]time.Duration{}
+				timeOnProxiedConcurrency = map[int]time.Duration{}
 				requestCount = 0
 				proxiedCount = 0
 			}
 		}
 	}()
-
-	return s
 }
 
-func weightedAverage(times map[int32]time.Duration) float64 {
+func weightedAverage(times map[int]time.Duration) float64 {
+	// The sum of times cannot be 0, since `updateState` above only
+	// pemits positive durations.
+	if len(times) == 0 {
+		return 0
+	}
 	var totalTimeUsed time.Duration
 	for _, val := range times {
 		totalTimeUsed += val
 	}
-	avg := 0.0
-	if totalTimeUsed > 0 {
-		sum := 0.0
-		for c, val := range times {
-			sum += float64(c) * val.Seconds()
-		}
-		avg = sum / totalTimeUsed.Seconds()
+	sum := 0.0
+	for c, val := range times {
+		sum += float64(c) * val.Seconds()
 	}
-	return avg
+	return sum / totalTimeUsed.Seconds()
 }

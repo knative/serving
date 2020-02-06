@@ -34,8 +34,12 @@ func (r *Route) Validate(ctx context.Context) *apis.FieldError {
 
 	if apis.IsInUpdate(ctx) {
 		original := apis.GetBaseline(ctx).(*Route)
-		errs = errs.Also(apis.ValidateCreatorAndModifier(original.Spec, r.Spec, original.GetAnnotations(),
-			r.GetAnnotations(), serving.GroupName).ViaField("metadata.annotations"))
+		// Don't validate annotations(creator and lastModifier) when route owned by service
+		// validate only when route created independently.
+		if r.OwnerReferences == nil {
+			errs = errs.Also(apis.ValidateCreatorAndModifier(original.Spec, r.Spec, original.GetAnnotations(),
+				r.GetAnnotations(), serving.GroupName).ViaField("metadata.annotations"))
+		}
 	}
 	return errs
 }

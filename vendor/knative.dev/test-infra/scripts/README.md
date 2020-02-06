@@ -68,9 +68,7 @@ tests to be executed, in the right order (i.e., build, then unit, then
 integration tests).
 
 Use the flags `--build-tests`, `--unit-tests` and `--integration-tests` to run a
-specific set of tests. The flag `--emit-metrics` is used to emit metrics when
-running the tests, and is automatically handled by the default action for
-integration tests (see above).
+specific set of tests.
 
 To run a specific program as a test, use the `--run-test` flag, and provide the
 program as the argument. If arguments are required for the program, pass
@@ -123,7 +121,7 @@ This is a helper script for Knative E2E test scripts. To use it:
      cluster creation in case of stockout. If defined,
      `E2E_CLUSTER_BACKUP_REGIONS` will be ignored thus it defaults to none.
    - `E2E_CLUSTER_MACHINE`: Cluster node machine type, defaults to
-     `n1-standard-4}`.
+     `e2-standard-4}`.
    - `E2E_MIN_CLUSTER_NODES`: Minimum number of nodes in the cluster when
      autoscaling, defaults to 1.
    - `E2E_MAX_CLUSTER_NODES`: Maximum number of nodes in the cluster when
@@ -167,12 +165,7 @@ This is a helper script for Knative E2E test scripts. To use it:
    (or `report_go_test()` if you need a more fine-grained control) and call
    `fail_test()` or `success()` if any of them failed. The environment variable
    `KO_DOCKER_REPO` and `E2E_PROJECT_ID` will be set according to the test
-   cluster. You can also use the following boolean (0 is false, 1 is true)
-   environment variables for the logic:
-
-   - `EMIT_METRICS`: true if `--emit-metrics` was passed.
-
-   All environment variables above are marked read-only.
+   cluster.
 
 **Notes:**
 

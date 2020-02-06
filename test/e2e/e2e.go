@@ -31,6 +31,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/networking"
@@ -50,8 +51,15 @@ func SetupAlternativeNamespace(t *testing.T) *test.Clients {
 	return SetupWithNamespace(t, test.AlternativeServingNamespace)
 }
 
+//SetupServingNamespaceforSecurityTesting creates the client objects needed in e2e tests
+// under the security testing namespace.
+func SetupServingNamespaceforSecurityTesting(t *testing.T) *test.Clients {
+	return SetupWithNamespace(t, test.ServingNamespaceforSecurityTesting)
+}
+
 // SetupWithNamespace creates the client objects needed in the e2e tests under the specified namespace.
 func SetupWithNamespace(t *testing.T, namespace string) *test.Clients {
+	pkgTest.SetupLoggingFlags()
 	clients, err := test.NewClients(
 		pkgTest.Flags.Kubeconfig,
 		pkgTest.Flags.Cluster,
@@ -72,6 +80,18 @@ func autoscalerCM(clients *test.Clients) (*autoscaler.Config, error) {
 		return nil, err
 	}
 	return autoscaler.NewConfigFromMap(autoscalerCM.Data)
+}
+
+// rawCM returns the raw knative config map for the given name
+func rawCM(clients *test.Clients, name string) (*corev1.ConfigMap, error) {
+	return clients.KubeClient.Kube.CoreV1().ConfigMaps("knative-serving").Get(
+		name,
+		metav1.GetOptions{})
+}
+
+// patchCM updates the existing config map with the supplied value.
+func patchCM(clients *test.Clients, cm *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+	return clients.KubeClient.Kube.CoreV1().ConfigMaps("knative-serving").Update(cm)
 }
 
 // WaitForScaleToZero will wait for the specified deployment to scale to 0 replicas.

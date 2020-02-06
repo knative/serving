@@ -49,11 +49,7 @@ func GetNames(services []*corev1.Service) sets.String {
 
 // SelectorFromRoute creates a label selector given a specific route.
 func SelectorFromRoute(route *v1alpha1.Route) labels.Selector {
-	return labels.SelectorFromSet(
-		labels.Set{
-			serving.RouteLabelKey: route.Name,
-		},
-	)
+	return labels.SelectorFromSet(labels.Set{serving.RouteLabelKey: route.Name})
 }
 
 // MakeK8sPlaceholderService creates a placeholder Service to prevent naming collisions. It's owned by the
@@ -84,7 +80,7 @@ func MakeK8sPlaceholderService(ctx context.Context, route *v1alpha1.Route, targe
 // MakeK8sService creates a Service that redirect to the loadbalancer specified
 // in Ingress status. It's owned by the provided v1alpha1.Route.
 // The purpose of this service is to provide a domain name for Istio routing.
-func MakeK8sService(ctx context.Context, route *v1alpha1.Route, targetName string, ingress netv1alpha1.IngressAccessor, isPrivate bool) (*corev1.Service, error) {
+func MakeK8sService(ctx context.Context, route *v1alpha1.Route, targetName string, ingress *netv1alpha1.Ingress, isPrivate bool) (*corev1.Service, error) {
 	svcSpec, err := makeServiceSpec(ingress, isPrivate)
 	if err != nil {
 		return nil, err
@@ -121,8 +117,8 @@ func makeK8sService(ctx context.Context, route *v1alpha1.Route, targetName strin
 	}, nil
 }
 
-func makeServiceSpec(ingress netv1alpha1.IngressAccessor, isPrivate bool) (*corev1.ServiceSpec, error) {
-	ingressStatus := ingress.GetStatus()
+func makeServiceSpec(ingress *netv1alpha1.Ingress, isPrivate bool) (*corev1.ServiceSpec, error) {
+	ingressStatus := ingress.Status
 
 	var lbStatus *netv1alpha1.LoadBalancerStatus
 
@@ -183,7 +179,11 @@ func makeServiceSpec(ingress netv1alpha1.IngressAccessor, isPrivate bool) (*core
 func GetDesiredServiceNames(ctx context.Context, route *v1alpha1.Route) (sets.String, error) {
 	traffic := route.Spec.Traffic
 
-	names := sets.String{}
+	// We always want create the route with the service name.
+	// If the traffic stanza only contains revision targets, then
+	// this will not be added below, and as a consequence we'll create
+	// a public route to it.
+	names := sets.NewString(route.Name)
 
 	for _, t := range traffic {
 		serviceName, err := domains.HostnameFromTemplate(ctx, route.Name, t.Tag)

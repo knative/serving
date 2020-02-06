@@ -34,19 +34,18 @@ func unregister() {
 }
 
 func TestActivatorReporter(t *testing.T) {
-	r := &Reporter{}
-
-	if err := r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", http.StatusOK, 1); err == nil {
-		t.Error("Reporter expected an error for Report call before init. Got success.")
-	}
-
-	var err error
-	if r, err = NewStatsReporter("testpod"); err != nil {
+	r, err := NewStatsReporter("testpod")
+	if err != nil {
 		t.Fatalf("Failed to create a new reporter: %v", err)
 	}
 	// Without this `go test ... -count=X`, where X > 1, fails, since
 	// we get an error about view already being registered.
 	defer unregister()
+
+	rr, err := r.GetRevisionStatsReporter("testns", "testsvc", "testconfig", "testrev")
+	if err != nil {
+		t.Fatalf("Failed to create revision reporter: %v", err)
+	}
 
 	// test ReportResponseConcurrency
 	wantTags1 := map[string]string{
@@ -57,13 +56,10 @@ func TestActivatorReporter(t *testing.T) {
 		"pod_name":                        "testpod",
 		"container_name":                  "activator",
 	}
-	expectSuccess(t, func() error {
-		return r.ReportRequestConcurrency("testns", "testsvc", "testconfig", "testrev", 100)
-	})
+
+	rr.ReportRequestConcurrency(100)
 	metricstest.CheckLastValueData(t, "request_concurrency", wantTags1, 100)
-	expectSuccess(t, func() error {
-		return r.ReportRequestConcurrency("testns", "testsvc", "testconfig", "testrev", 200)
-	})
+	rr.ReportRequestConcurrency(200)
 	metricstest.CheckLastValueData(t, "request_concurrency", wantTags1, 200)
 
 	// test ReportRequestCount
@@ -78,12 +74,9 @@ func TestActivatorReporter(t *testing.T) {
 		"response_code_class":             "2xx",
 		"num_tries":                       "6",
 	}
-	expectSuccess(t, func() error {
-		return r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", http.StatusOK, 6)
-	})
-	expectSuccess(t, func() error {
-		return r.ReportRequestCount("testns", "testsvc", "testconfig", "testrev", http.StatusOK, 6)
-	})
+
+	rr.ReportRequestCount(http.StatusOK, 6)
+	rr.ReportRequestCount(http.StatusOK, 6)
 	metricstest.CheckCountData(t, "request_count", wantTags2, 2)
 
 	// test ReportResponseTime
@@ -97,21 +90,21 @@ func TestActivatorReporter(t *testing.T) {
 		"response_code":                   "200",
 		"response_code_class":             "2xx",
 	}
-	expectSuccess(t, func() error {
-		return r.ReportResponseTime("testns", "testsvc", "testconfig", "testrev", http.StatusOK, 1100*time.Millisecond)
-	})
-	expectSuccess(t, func() error {
-		return r.ReportResponseTime("testns", "testsvc", "testconfig", "testrev", http.StatusOK, 9100*time.Millisecond)
-	})
+	rr.ReportResponseTime(http.StatusOK, 1100*time.Millisecond)
+	rr.ReportResponseTime(http.StatusOK, 9100*time.Millisecond)
 	metricstest.CheckDistributionData(t, "request_latencies", wantTags3, 2, 1100.0, 9100.0)
 }
 
 func TestActivatorReporterEmptyServiceName(t *testing.T) {
 	r, err := NewStatsReporter("testpod")
 	defer unregister()
-
 	if err != nil {
 		t.Fatalf("Failed to create a new reporter: %v", err)
+	}
+
+	rr, err := r.GetRevisionStatsReporter("testns", "" /*service=*/, "testconfig", "testrev")
+	if err != nil {
+		t.Fatalf("Failed to create revision reporter: %v", err)
 	}
 
 	// test ReportResponseConcurrency
@@ -123,9 +116,8 @@ func TestActivatorReporterEmptyServiceName(t *testing.T) {
 		"pod_name":                        "testpod",
 		"container_name":                  "activator",
 	}
-	expectSuccess(t, func() error {
-		return r.ReportRequestConcurrency("testns", "" /*service=*/, "testconfig", "testrev", 100)
-	})
+
+	rr.ReportRequestConcurrency(100)
 	metricstest.CheckLastValueData(t, "request_concurrency", wantTags1, 100)
 
 	// test ReportRequestCount
@@ -140,9 +132,7 @@ func TestActivatorReporterEmptyServiceName(t *testing.T) {
 		"response_code_class":             "2xx",
 		"num_tries":                       "6",
 	}
-	expectSuccess(t, func() error {
-		return r.ReportRequestCount("testns", "" /*service=*/, "testconfig", "testrev", 200, 6)
-	})
+	rr.ReportRequestCount(200, 6)
 	metricstest.CheckCountData(t, "request_count", wantTags2, 1)
 
 	// test ReportResponseTime
@@ -156,18 +146,26 @@ func TestActivatorReporterEmptyServiceName(t *testing.T) {
 		"response_code":                   "200",
 		"response_code_class":             "2xx",
 	}
-	expectSuccess(t, func() error {
-		return r.ReportResponseTime("testns", "" /*service=*/, "testconfig", "testrev", 200, 7100*time.Millisecond)
-	})
-	expectSuccess(t, func() error {
-		return r.ReportResponseTime("testns", "" /*service=*/, "testconfig", "testrev", 200, 5100*time.Millisecond)
-	})
+	rr.ReportResponseTime(200, 7100*time.Millisecond)
+	rr.ReportResponseTime(200, 5100*time.Millisecond)
 	metricstest.CheckDistributionData(t, "request_latencies", wantTags3, 2, 5100.0, 7100.0)
 }
 
-func expectSuccess(t *testing.T, f func() error) {
-	t.Helper()
-	if err := f(); err != nil {
-		t.Errorf("Reporter expected success but got error: %v", err)
+func TestActivatorReporterErrorToNoop(t *testing.T) {
+	r, err := NewStatsReporter("testpod")
+	defer unregister()
+	if err != nil {
+		t.Fatalf("Failed to create a new reporter: %v", err)
 	}
+
+	// Namespace contains non-ASCII characters
+	rr, err := r.GetRevisionStatsReporter("testöns", "" /*service=*/, "test-config", "test-rev")
+	if err == nil {
+		t.Fatalf("Should have failed to create a revision reporter but didn't")
+	}
+
+	rr.ReportRequestConcurrency(100)
+	rr.ReportRequestCount(200, 6)
+	rr.ReportResponseTime(200, 7100*time.Millisecond)
+	rr.ReportResponseTime(200, 5100*time.Millisecond)
 }

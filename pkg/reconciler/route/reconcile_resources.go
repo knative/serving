@@ -36,16 +36,17 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 )
 
 func routeOwnerLabelSelector(route *v1alpha1.Route) labels.Selector {
-	return labels.Set(map[string]string{
+	return labels.SelectorFromSet(labels.Set{
 		serving.RouteLabelKey:          route.Name,
 		serving.RouteNamespaceLabelKey: route.Namespace,
-	}).AsSelector()
+	})
 }
 
 func (c *Reconciler) deleteIngressForRoute(route *v1alpha1.Route) error {
@@ -58,11 +59,10 @@ func (c *Reconciler) deleteIngressForRoute(route *v1alpha1.Route) error {
 		nil, metav1.ListOptions{LabelSelector: selector})
 }
 
-func (c *Reconciler) reconcileIngress(
-	ctx context.Context, ira IngressResourceAccessors, r *v1alpha1.Route, desired netv1alpha1.IngressAccessor) (netv1alpha1.IngressAccessor, error) {
-	ingress, err := ira.getIngressForRoute(r)
+func (c *Reconciler) reconcileIngress(ctx context.Context, r *v1alpha1.Route, desired *netv1alpha1.Ingress) (*netv1alpha1.Ingress, error) {
+	ingress, err := c.ingressLister.Ingresses(desired.Namespace).Get(desired.Name)
 	if apierrs.IsNotFound(err) {
-		ingress, err = ira.createIngress(desired)
+		ingress, err = c.ServingClientSet.NetworkingV1alpha1().Ingresses(desired.Namespace).Create(desired)
 		if err != nil {
 			c.Recorder.Eventf(r, corev1.EventTypeWarning, "CreationFailed", "Failed to create Ingress: %v", err)
 			return nil, fmt.Errorf("failed to create Ingress: %w", err)
@@ -76,12 +76,14 @@ func (c *Reconciler) reconcileIngress(
 		// It is notable that one reason for differences here may be defaulting.
 		// When that is the case, the Update will end up being a nop because the
 		// webhook will bring them into alignment and no new reconciliation will occur.
-		if !equality.Semantic.DeepEqual(ingress.GetSpec(), desired.GetSpec()) {
+		// Also, compare annotation in case ingress.Class is updated.
+		if !equality.Semantic.DeepEqual(ingress.Spec, desired.Spec) ||
+			!equality.Semantic.DeepEqual(ingress.Annotations, desired.Annotations) {
 			// Don't modify the informers copy
-			origin := ingress.DeepCopyObject().(netv1alpha1.IngressAccessor)
-			origin.SetSpec(*desired.GetSpec())
-
-			updated, err := ira.updateIngress(origin)
+			origin := ingress.DeepCopy()
+			origin.Spec = desired.Spec
+			origin.Annotations = desired.Annotations
+			updated, err := c.ServingClientSet.NetworkingV1alpha1().Ingresses(origin.Namespace).Update(origin)
 			if err != nil {
 				return nil, fmt.Errorf("failed to update Ingress: %w", err)
 			}
@@ -102,8 +104,14 @@ func (c *Reconciler) deleteServices(namespace string, serviceNames sets.String) 
 	return nil
 }
 
-func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1alpha1.Route, targets map[string]traffic.RevisionTargets, existingServiceNames sets.String) ([]*corev1.Service, error) {
+func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1alpha1.Route, targets map[string]traffic.RevisionTargets) ([]*corev1.Service, error) {
 	logger := logging.FromContext(ctx)
+	existingServices, err := c.getServices(route)
+	if err != nil {
+		return nil, err
+	}
+	existingServiceNames := resources.GetNames(existingServices)
+
 	ns := route.Namespace
 
 	names := sets.NewString()
@@ -154,7 +162,7 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 	return services, nil
 }
 
-func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1alpha1.Route, services []*corev1.Service, ingress netv1alpha1.IngressAccessor) error {
+func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1alpha1.Route, services []*corev1.Service, ingress *netv1alpha1.Ingress) error {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
 
@@ -188,21 +196,26 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1alp
 	return eg.Wait()
 }
 
-// Update the Status of the route.  Caller is responsible for checking
-// for semantic differences before calling.
-func (c *Reconciler) updateStatus(desired *v1alpha1.Route) (*v1alpha1.Route, error) {
-	route, err := c.routeLister.Routes(desired.Namespace).Get(desired.Name)
-	if err != nil {
-		return nil, err
-	}
-	// If there's nothing to update, just return.
-	if reflect.DeepEqual(route.Status, desired.Status) {
-		return route, nil
-	}
-	// Don't modify the informers copy
-	existing := route.DeepCopy()
-	existing.Status = desired.Status
-	return c.ServingClientSet.ServingV1alpha1().Routes(desired.Namespace).UpdateStatus(existing)
+func (c *Reconciler) updateStatus(existing *v1alpha1.Route, desired *v1alpha1.Route) error {
+	existing = existing.DeepCopy()
+	return reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
+		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
+		if attempts > 0 {
+			existing, err = c.ServingClientSet.ServingV1alpha1().Routes(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+		}
+
+		// If there's nothing to update, just return.
+		if reflect.DeepEqual(existing.Status, desired.Status) {
+			return nil
+		}
+
+		existing.Status = desired.Status
+		_, err = c.ServingClientSet.ServingV1alpha1().Routes(desired.Namespace).UpdateStatus(existing)
+		return err
+	})
 }
 
 // Update the lastPinned annotation on revisions we target so they don't get GC'd.

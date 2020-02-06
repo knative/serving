@@ -30,18 +30,19 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/metrics"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 
 	. "knative.dev/pkg/reconciler/testing"
+	"knative.dev/serving/pkg/autoscaler"
 	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
 	. "knative.dev/serving/pkg/testing"
 	. "knative.dev/serving/pkg/testing/v1alpha1"
@@ -549,6 +550,23 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeWarning, "InternalError", `revision: "missing-owners" does not own Deployment: "missing-owners-deployment"`),
 		},
 		Key: "foo/missing-owners",
+	}, {
+		Name: "image pull secrets",
+		// This test case tests that the image pull secrets from revision propagate to deployment and image
+		Objects: []runtime.Object{
+			rev("foo", "image-pull-secrets", WithImagePullSecrets("foo-secret")),
+		},
+		WantCreates: []runtime.Object{
+			pa("foo", "image-pull-secrets"),
+			deployImagePullSecrets(deploy(t, "foo", "image-pull-secrets"), "foo-secret"),
+			imagePullSecrets(image("foo", "image-pull-secrets"), "foo-secret"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "image-pull-secrets",
+				WithImagePullSecrets("foo-secret"),
+				WithLogURL, AllUnknownConditions, MarkDeploying("Deploying")),
+		}},
+		Key: "foo/image-pull-secrets",
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
@@ -597,6 +615,20 @@ func replicaFailureDeploy(deploy *appsv1.Deployment, message string) *appsv1.Dep
 func noOwner(deploy *appsv1.Deployment) *appsv1.Deployment {
 	deploy.OwnerReferences = nil
 	return deploy
+}
+
+func deployImagePullSecrets(deploy *appsv1.Deployment, secretName string) *appsv1.Deployment {
+	deploy.Spec.Template.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{
+		Name: secretName,
+	}}
+	return deploy
+}
+
+func imagePullSecrets(image *caching.Image, secretName string) *caching.Image {
+	image.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{
+		Name: secretName,
+	}}
+	return image
 }
 
 func changeContainers(deploy *appsv1.Deployment) *appsv1.Deployment {
@@ -669,7 +701,7 @@ func deploy(t *testing.T, namespace, name string, opts ...interface{}) *appsv1.D
 	// before calling MakeDeployment within Reconcile.
 	rev.SetDefaults(context.Background())
 	deployment, err := resources.MakeDeployment(rev, cfg.Logging, cfg.Tracing, cfg.Network,
-		cfg.Observability, cfg.Deployment,
+		cfg.Observability, cfg.Autoscaler, cfg.Deployment,
 	)
 
 	if err != nil {
@@ -732,7 +764,8 @@ func ReconcilerTestConfig() *config.Config {
 		Observability: &metrics.ObservabilityConfig{
 			LoggingURLTemplate: "http://logger.io/${REVISION_UID}",
 		},
-		Logging: &logging.Config{},
-		Tracing: &tracingconfig.Config{},
+		Logging:    &logging.Config{},
+		Tracing:    &tracingconfig.Config{},
+		Autoscaler: &autoscaler.Config{},
 	}
 }

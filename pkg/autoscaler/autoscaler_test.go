@@ -42,10 +42,10 @@ var (
 	kubeInformer = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 )
 
-func TestNewErrorWhenGivenNilReadyPodCounter(t *testing.T) {
+func TestNewErrorWhenGivenNilEndpointsCounter(t *testing.T) {
 	_, err := New(testNamespace, testRevision, &autoscalerfake.MetricClient{}, nil, &DeciderSpec{TargetValue: 10, ServiceName: testService}, &mockReporter{})
 	if err == nil {
-		t.Error("Expected error when ReadyPodCounter interface is nil, but got none.")
+		t.Error("Expected error when EndpointsCounter interface is nil, but got none.")
 	}
 }
 
@@ -320,60 +320,14 @@ func TestAutoscalerUpdateTarget(t *testing.T) {
 
 type mockReporter struct{}
 
-// ReportDesiredPodCount of a mockReporter does nothing and return nil for error.
-func (r *mockReporter) ReportDesiredPodCount(v int64) error {
-	return nil
-}
-
-// ReportRequestedPodCount of a mockReporter does nothing and return nil for error.
-func (r *mockReporter) ReportRequestedPodCount(v int64) error {
-	return nil
-}
-
-// ReportActualPodCount of a mockReporter does nothing and return nil for error.
-func (r *mockReporter) ReportActualPodCount(v int64) error {
-	return nil
-}
-
-// ReportStableRequestConcurrency of a mockReporter does nothing and return nil for error.
-func (r *mockReporter) ReportStableRequestConcurrency(v float64) error {
-	return nil
-}
-
-// ReportPanicRequestConcurrency of a mockReporter does nothing and return nil for error.
-func (r *mockReporter) ReportPanicRequestConcurrency(v float64) error {
-	return nil
-}
-
-// ReportStableRPS of a mockReporter does nothing and return nil for error.
-func (r *mockReporter) ReportStableRPS(v float64) error {
-	return nil
-}
-
-// ReportPanicRPS of a mockReporter does nothing and return nil for error.
-func (r *mockReporter) ReportPanicRPS(v float64) error {
-	return nil
-}
-
-// ReportTargetRPS of a mockReporter does nothing and return nil for error.
-func (r *mockReporter) ReportTargetRPS(v float64) error {
-	return nil
-}
-
-// ReportTargetRequestConcurrency of a mockReporter does nothing and return nil for error.
-func (r *mockReporter) ReportTargetRequestConcurrency(v float64) error {
-	return nil
-}
-
-// ReportPanic of a mockReporter does nothing and return nil for error.
-func (r *mockReporter) ReportPanic(v int64) error {
-	return nil
-}
-
-// ReportExcessBurstCapacity retports excess burst capacity.
-func (r *mockReporter) ReportExcessBurstCapacity(v float64) error {
-	return nil
-}
+func (r *mockReporter) ReportDesiredPodCount(v int64)                                    {}
+func (r *mockReporter) ReportRequestedPodCount(v int64)                                  {}
+func (r *mockReporter) ReportActualPodCount(ready, notReady, terminating, pending int64) {}
+func (r *mockReporter) ReportRequestConcurrency(s, p, t float64)                         {}
+func (r *mockReporter) ReportRPS(s, p, t float64)                                        {}
+func (r *mockReporter) ReportTargetRequestConcurrency(v float64)                         {}
+func (r *mockReporter) ReportPanic(v int64)                                              {}
+func (r *mockReporter) ReportExcessBurstCapacity(v float64)                              {}
 
 func newTestAutoscaler(t *testing.T, targetValue, targetBurstCapacity float64, metrics MetricClient) *Autoscaler {
 	return newTestAutoscalerWithScalingMetric(t, targetValue, targetBurstCapacity, metrics, "concurrency")

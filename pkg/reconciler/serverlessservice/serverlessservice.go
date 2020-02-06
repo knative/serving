@@ -81,7 +81,7 @@ func (r *reconciler) Reconcile(ctx context.Context, key string) error {
 	original, err := r.sksLister.ServerlessServices(namespace).Get(name)
 	if apierrs.IsNotFound(err) {
 		// The resource may no longer exist, in which case we stop processing.
-		logger.Errorf("SKS resource in work queue no longer exists")
+		logger.Info("SKS resource in work queue no longer exists")
 		return nil
 	} else if err != nil {
 		return err
@@ -94,7 +94,7 @@ func (r *reconciler) Reconcile(ctx context.Context, key string) error {
 		r.Recorder.Eventf(sks, corev1.EventTypeWarning, "UpdateFailed", "InternalError: %v", reconcileErr.Error())
 	}
 	if !equality.Semantic.DeepEqual(sks.Status, original.Status) {
-		if _, err := r.updateStatus(sks, logger); err != nil {
+		if err := r.updateStatus(original, sks); err != nil {
 			r.Recorder.Eventf(sks, corev1.EventTypeWarning, "UpdateFailed", "Failed to update status: %v", err)
 			return err
 		}
@@ -127,18 +127,26 @@ func (r *reconciler) reconcile(ctx context.Context, sks *netv1alpha1.ServerlessS
 	return nil
 }
 
-func (r *reconciler) updateStatus(sks *netv1alpha1.ServerlessService, logger *zap.SugaredLogger) (*netv1alpha1.ServerlessService, error) {
-	original, err := r.sksLister.ServerlessServices(sks.Namespace).Get(sks.Name)
-	if err != nil {
-		return nil, err
-	}
-	if reflect.DeepEqual(original.Status, sks.Status) {
-		return original, nil
-	}
-	logger.Debugf("StatusDiff: %s", cmp.Diff(original.Status, sks.Status))
-	original = original.DeepCopy()
-	original.Status = sks.Status
-	return r.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).UpdateStatus(original)
+func (r *reconciler) updateStatus(existing *netv1alpha1.ServerlessService, desired *netv1alpha1.ServerlessService) error {
+	existing = existing.DeepCopy()
+	return rbase.RetryUpdateConflicts(func(attempts int) (err error) {
+		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
+		if attempts > 0 {
+			existing, err = r.ServingClientSet.NetworkingV1alpha1().ServerlessServices(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+		}
+
+		// If there's nothing to update, just return.
+		if reflect.DeepEqual(existing.Status, desired.Status) {
+			return nil
+		}
+
+		existing.Status = desired.Status
+		_, err = r.ServingClientSet.NetworkingV1alpha1().ServerlessServices(existing.Namespace).UpdateStatus(existing)
+		return err
+	})
 }
 
 func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
@@ -279,7 +287,7 @@ func (r *reconciler) reconcilePublicEndpoints(ctx context.Context, sks *netv1alp
 func (r *reconciler) privateService(sks *netv1alpha1.ServerlessService) (*corev1.Service, error) {
 	// The code below is for backwards compatibility, when we had
 	// GenerateName for the private services.
-	svcs, err := r.serviceLister.Services(sks.Namespace).List(labels.SelectorFromSet(map[string]string{
+	svcs, err := r.serviceLister.Services(sks.Namespace).List(labels.SelectorFromSet(labels.Set{
 		networking.SKSLabelKey:    sks.Name,
 		networking.ServiceTypeKey: string(networking.ServiceTypePrivate),
 	}))

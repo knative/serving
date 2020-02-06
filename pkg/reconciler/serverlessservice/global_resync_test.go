@@ -28,6 +28,7 @@ import (
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	"knative.dev/serving/pkg/apis/networking"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -49,6 +50,7 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	ctx, _ = fakedynamicclient.With(ctx, runtime.NewScheme(),
 		ToUnstructured(t, NewScheme(), []runtime.Object{deploy(ns1, sks1), deploy(ns2, sks2)})...,
 	)
+	ctx = podscalable.WithDuck(ctx)
 	ctrl := NewController(ctx, configmap.NewStaticWatcher())
 
 	grp := errgroup.Group{}

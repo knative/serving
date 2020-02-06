@@ -21,24 +21,24 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
-	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/test/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 
-	ptest "knative.dev/pkg/test"
+	pkgTest "knative.dev/pkg/test"
 	v1alpha1testing "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 )
 
 // CreateConfiguration create a configuration resource in namespace with the name names.Config
 // that uses the image specified by names.Image.
-func CreateConfiguration(t *testing.T, clients *test.Clients, names test.ResourceNames, fopt ...v1alpha1testing.ConfigOption) (*v1alpha1.Configuration, error) {
+func CreateConfiguration(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...v1alpha1testing.ConfigOption) (*v1alpha1.Configuration, error) {
 	config := Configuration(names, fopt...)
 	LogResourceObject(t, ResourceObjects{Config: config})
 	return clients.ServingAlphaClient.Configs.Create(config)
@@ -48,7 +48,7 @@ func CreateConfiguration(t *testing.T, clients *test.Clients, names test.Resourc
 func PatchConfigImage(clients *test.Clients, cfg *v1alpha1.Configuration, imagePath string) (*v1alpha1.Configuration, error) {
 	newCfg := cfg.DeepCopy()
 	newCfg.Spec.GetTemplate().Spec.GetContainer().Image = imagePath
-	patchBytes, err := test.CreateBytePatch(cfg, newCfg)
+	patchBytes, err := duck.CreateBytePatch(cfg, newCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +117,7 @@ func Configuration(names test.ResourceNames, fopt ...v1alpha1testing.ConfigOptio
 		ObjectMeta: metav1.ObjectMeta{
 			Name: names.Config,
 		},
-		Spec: *ConfigurationSpec(ptest.ImagePath(names.Image)),
+		Spec: *ConfigurationSpec(pkgTest.ImagePath(names.Image)),
 	}
 
 	for _, opt := range fopt {
@@ -170,4 +170,10 @@ func CheckConfigurationState(client *test.ServingAlphaClients, name string, inSt
 // ConfigurationHasCreatedRevision returns whether the Configuration has created a Revision.
 func ConfigurationHasCreatedRevision(c *v1alpha1.Configuration) (bool, error) {
 	return c.Status.LatestCreatedRevisionName != "", nil
+}
+
+// IsConfigurationReady will check the status conditions of the config and return true if the config is
+// ready. This means it has at least created one revision and that has become ready.
+func IsConfigurationReady(c *v1alpha1.Configuration) (bool, error) {
+	return c.Generation == c.Status.ObservedGeneration && c.Status.IsReady(), nil
 }

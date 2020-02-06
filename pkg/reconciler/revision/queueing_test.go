@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"knative.dev/serving/pkg/apis/config"
+
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"golang.org/x/sync/errgroup"
 	"knative.dev/pkg/configmap"
@@ -133,6 +135,18 @@ func getTestDeploymentConfigMap() *corev1.ConfigMap {
 	}
 }
 
+func getTestDefaultsConfigMap() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      config.DefaultsConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{
+			"container-name-template": "user-container",
+		},
+	}
+}
+
 func newTestController(t *testing.T) (
 	context.Context,
 	context.CancelFunc,
@@ -148,6 +162,7 @@ func newTestController(t *testing.T) (
 
 	configs := []*corev1.ConfigMap{
 		getTestDeploymentConfigMap(),
+		getTestDefaultsConfigMap(),
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),

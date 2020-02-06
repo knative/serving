@@ -1,17 +1,17 @@
 ## Knative Webhooks
 
 Knative provides infrastructure for authoring webhooks under
-`knative.dev/pkg/webhook` and has a few built-in helpers for certain
-common admission control scenarios.  The built-in admission controllers
-are:
-1. Resource validation and defaulting (builds around `apis.Validatable`
-  and `apis.Defaultable` under `knative.dev/pkg/apis`).
-2. ConfigMap validation, which builds around similar patterns from
-  `knative.dev/pkg/configmap` (in particular the `store` concept)
+`knative.dev/pkg/webhook` and has a few built-in helpers for certain common
+admission control scenarios. The built-in admission controllers are:
 
-To illustrate standing up the webhook, let's start with one of these
-built-in admission controllers and then talk about how you can write
-your own admission controller.
+1. Resource validation and defaulting (builds around `apis.Validatable` and
+   `apis.Defaultable` under `knative.dev/pkg/apis`).
+2. ConfigMap validation, which builds around similar patterns from
+   `knative.dev/pkg/configmap` (in particular the `store` concept)
+
+To illustrate standing up the webhook, let's start with one of these built-in
+admission controllers and then talk about how you can write your own admission
+controller.
 
 ## Standing up a Webhook from an Admission Controller
 
@@ -81,9 +81,10 @@ There is also a config map validation admission controller built in under
 ## Writing new Admission Controllers
 
 To implement your own admission controller akin to the resource defaulting and
-validation controller above, you implement a `knative.dev/pkg/controller.Reconciler` as with
-any you would with any other type of controller, but the `Reconciler` that gets
-embedded in the `*controller.Impl` should *also* implement:
+validation controller above, you implement a
+`knative.dev/pkg/controller.Reconciler` as with any you would with any other
+type of controller, but the `Reconciler` that gets embedded in the
+`*controller.Impl` should _also_ implement:
 
 ```go
 // AdmissionController provides the interface for different admission controllers
@@ -96,6 +97,6 @@ type AdmissionController interface {
 }
 ```
 
-The `Reconciler` part is responsible for the mutating or validating webhook configuration.
-The `AdmissionController` part is responsible for guiding request dispatch (`Path()`) and
-handling admission requests (`Admit()`).
+The `Reconciler` part is responsible for the mutating or validating webhook
+configuration. The `AdmissionController` part is responsible for guiding request
+dispatch (`Path()`) and handling admission requests (`Admit()`).

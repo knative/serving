@@ -55,7 +55,9 @@ func TestCustomResourcesLimits(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, v1a1opts.WithResourceRequirements(resources))
+	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		v1a1opts.WithResourceRequirements(resources))
 	if err != nil {
 		t.Fatalf("Failed to create initial Service %v: %v", names.Service, err)
 	}

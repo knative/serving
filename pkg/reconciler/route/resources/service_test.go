@@ -380,40 +380,87 @@ func TestGetDesiredServiceNames(t *testing.T) {
 		name    string
 		traffic RouteOption
 		want    sets.String
+		tmpl    string
 		wantErr bool
-	}{
-		{
-			name: "no traffic defined",
-		},
-		{
-			name:    "only default traffic",
-			traffic: WithSpecTraffic(v1alpha1.TrafficTarget{TrafficTarget: v1.TrafficTarget{}}),
-			want:    sets.NewString("myroute"),
-		},
-		{
-			name: "traffic targets with tag",
-			traffic: WithSpecTraffic(v1alpha1.TrafficTarget{
-				TrafficTarget: v1.TrafficTarget{},
-			}, v1alpha1.TrafficTarget{
-				TrafficTarget: v1.TrafficTarget{
-					Tag: "hello",
-				},
-			}, v1alpha1.TrafficTarget{
-				TrafficTarget: v1.TrafficTarget{
-					Tag: "hello",
-				},
-			}, v1alpha1.TrafficTarget{
-				TrafficTarget: v1.TrafficTarget{
-					Tag: "bye",
-				},
+	}{{
+		name: "no traffic defined",
+		want: sets.NewString("myroute"),
+	}, {
+		name:    "only default traffic",
+		traffic: WithSpecTraffic(v1alpha1.TrafficTarget{TrafficTarget: v1.TrafficTarget{}}),
+		want:    sets.NewString("myroute"),
+	}, {
+		name: "traffic targets with default and tags",
+		traffic: WithSpecTraffic(v1alpha1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{},
+		}, v1alpha1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
+				Tag: "hello",
 			},
-			),
-			want: sets.NewString("myroute", "hello-myroute", "bye-myroute"),
+		}, v1alpha1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
+				Tag: "hello",
+			},
+		}, v1alpha1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
+				Tag: "bye",
+			},
 		},
-	}
+		),
+		want: sets.NewString("myroute", "hello-myroute", "bye-myroute"),
+	}, {
+		name: "traffic targets with default and tags custom template",
+		tmpl: "{{.Name}}<=>{{.Tag}}",
+		traffic: WithSpecTraffic(v1alpha1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{},
+		}, v1alpha1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
+				Tag: "hello",
+			},
+		}, v1alpha1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
+				Tag: "hello",
+			},
+		}, v1alpha1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
+				Tag: "bye",
+			},
+		},
+		),
+		want: sets.NewString("myroute", "myroute<=>hello", "myroute<=>bye"),
+	}, {
+		name: "bad tag template",
+		tmpl: "{{.Bullet}}<=>{{.WithButterflyWings}}",
+		traffic: WithSpecTraffic(v1alpha1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
+				Tag: "bye",
+			},
+		}),
+		wantErr: true,
+	}, {
+		name: "traffic targets with NO default and tags",
+		traffic: WithSpecTraffic(v1alpha1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
+				Tag: "hello",
+			},
+		}, v1alpha1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
+				Tag: "hello",
+			},
+		}, v1alpha1.TrafficTarget{
+			TrafficTarget: v1.TrafficTarget{
+				Tag: "bye",
+			},
+		},
+		),
+		want: sets.NewString("myroute", "hello-myroute", "bye-myroute"),
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := testConfig()
+			if tt.tmpl != "" {
+				cfg.Network.TagTemplate = tt.tmpl
+			}
 			ctx := config.ToContext(context.Background(), cfg)
 
 			if tt.traffic != nil {

@@ -32,7 +32,7 @@ import (
 // referencing the Configuration responsible for creating them; in these cases
 // the Route is additionally responsible for monitoring the Configuration for
 // "latest ready revision" changes, and smoothly rolling out latest revisions.
-// See also: https://knative.dev/serving/blob/master/docs/spec/overview.md#route
+// See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#route
 type Route struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
@@ -118,7 +118,33 @@ const (
 	// RouteConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
 	RouteConditionReady = apis.ConditionReady
+
+	// RouteConditionAllTrafficAssigned is set to False when the
+	// service is not configured properly or has no available
+	// backends ready to receive traffic.
+	RouteConditionAllTrafficAssigned apis.ConditionType = "AllTrafficAssigned"
+
+	// RouteConditionIngressReady is set to False when the
+	// Ingress fails to become Ready.
+	RouteConditionIngressReady apis.ConditionType = "IngressReady"
+
+	// RouteConditionCertificateProvisioned is set to False when the
+	// Knative Certificates fail to be provisioned for the Route.
+	RouteConditionCertificateProvisioned apis.ConditionType = "CertificateProvisioned"
 )
+
+// IsRouteCondition returns true if the ConditionType is a route condition type
+func IsRouteCondition(t apis.ConditionType) bool {
+	switch t {
+	case
+		RouteConditionReady,
+		RouteConditionAllTrafficAssigned,
+		RouteConditionIngressReady,
+		RouteConditionCertificateProvisioned:
+		return true
+	}
+	return false
+}
 
 // RouteStatusFields holds the fields of Route's status that
 // are not generally shared.  This is defined separately and inlined so that

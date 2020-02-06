@@ -48,7 +48,7 @@ func MakeMetric(ctx context.Context, pa *v1alpha1.PodAutoscaler, metricSvc strin
 		// Fall back to cluster config.
 		panicWindowPercentage = config.PanicWindowPercentage
 	}
-	panicWindow := time.Duration(float64(stableWindow) * panicWindowPercentage / 100.0)
+	panicWindow := time.Duration(float64(stableWindow) * panicWindowPercentage / 100.0).Round(time.Second)
 	if panicWindow < autoscaler.BucketSize {
 		panicWindow = autoscaler.BucketSize
 	}

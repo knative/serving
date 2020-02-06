@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -61,7 +62,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	original, err := c.PALister.PodAutoscalers(namespace).Get(name)
 	if errors.IsNotFound(err) {
-		logger.Debug("PA no longer exists")
+		logger.Info("PA in work queue no longer exists")
 		return nil
 	} else if err != nil {
 		return err
@@ -77,7 +78,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if _, err = c.UpdateStatus(pa); err != nil {
+	} else if err = c.UpdateStatus(original, pa); err != nil {
 		logger.Warnw("Failed to update pa status", zap.Error(err))
 		c.Recorder.Eventf(pa, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for PA %q: %v", pa.Name, err)
@@ -131,22 +132,19 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 		}
 	}
 
-	// Only create metrics service and metric entity if we actually need to gather metrics.
-	if pa.Metric() == autoscaling.Concurrency || pa.Metric() == autoscaling.RPS {
-		metricSvc, err := c.ReconcileMetricsService(ctx, pa)
-		if err != nil {
-			return fmt.Errorf("error reconciling metrics service: %w", err)
-		}
-
-		if err := c.ReconcileMetric(ctx, pa, metricSvc); err != nil {
-			return fmt.Errorf("error reconciling metric: %w", err)
-		}
-	}
-
 	sks, err := c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe)
 	if err != nil {
 		return fmt.Errorf("error reconciling SKS: %w", err)
 	}
+
+	// Only create metrics service and metric entity if we actually need to gather metrics.
+	pa.Status.MetricsServiceName = sks.Status.PrivateServiceName
+	if pa.Status.MetricsServiceName != "" && pa.Metric() == autoscaling.Concurrency || pa.Metric() == autoscaling.RPS {
+		if err := c.ReconcileMetric(ctx, pa, pa.Status.MetricsServiceName); err != nil {
+			return fmt.Errorf("error reconciling metric: %w", err)
+		}
+	}
+
 	// Propagate the service name regardless of the status.
 	pa.Status.ServiceName = sks.Status.ServiceName
 	if !sks.Status.IsReady() {
@@ -155,6 +153,13 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, pa *pav1alpha1.P
 		pa.Status.MarkActive()
 	}
 
+	// Metrics services are no longer needed as we use the private services now.
+	if err := c.DeleteMetricsServices(ctx, pa); err != nil {
+		return err
+	}
+
 	pa.Status.ObservedGeneration = pa.Generation
+	pa.Status.DesiredScale = ptr.Int32(hpa.Status.DesiredReplicas)
+	pa.Status.ActualScale = ptr.Int32(hpa.Status.CurrentReplicas)
 	return nil
 }

@@ -30,7 +30,7 @@ import (
 // Users create new Revisions by updating the Configuration's spec.
 // The "latest created" revision's name is available under status, as is the
 // "latest ready" revision's name.
-// See also: https://knative.dev/serving/blob/master/docs/spec/overview.md#configuration
+// See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#configuration
 type Configuration struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
@@ -68,6 +68,10 @@ const (
 	// underlying revision has reported readiness.
 	ConfigurationConditionReady = apis.ConditionReady
 )
+
+func IsConfigurationCondition(t apis.ConditionType) bool {
+	return t == ConfigurationConditionReady
+}
 
 // ConfigurationStatusFields holds the fields of Configuration's status that
 // are not generally shared.  This is defined separately and inlined so that

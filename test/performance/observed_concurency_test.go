@@ -152,7 +152,8 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 	test.CleanupOnInterrupt(func() { TearDown(perfClients, names, t.Logf) })
 
 	t.Log("Creating a new Service")
-	objs, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+	objs, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
 		v1a1opts.WithResourceRequirements(corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("10m"),
@@ -164,9 +165,20 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
 
-	domain := objs.Route.Status.URL.Host
-	url := fmt.Sprintf("http://%s/?timeout=1000", domain)
-	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, domain, test.ServingFlags.ResolvableDomain)
+	baseURL := objs.Route.Status.URL.URL()
+
+	// See https://github.com/knative/serving/issues/5573 for why we need this
+	if _, err = pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		t.Logf,
+		baseURL,
+		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		"ObservedConcurrency",
+		test.ServingFlags.ResolvableDomain); err != nil {
+		t.Fatalf("Error probing %s: %v", baseURL, err)
+	}
+
+	client, err := pkgTest.NewSpoofingClient(clients.KubeClient, t.Logf, baseURL.Hostname(), test.ServingFlags.ResolvableDomain)
 	if err != nil {
 		t.Fatalf("Error creating spoofing client: %v", err)
 	}
@@ -180,6 +192,8 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 	failedRequests := 0
 
 	t.Logf("Running %d concurrent requests for %v", concurrency, duration)
+
+	url := fmt.Sprintf("http://%s/?timeout=1000", baseURL.Hostname())
 	eg.Go(func() error {
 		return generateTraffic(t, client, url, concurrency, duration, responseChannel)
 	})

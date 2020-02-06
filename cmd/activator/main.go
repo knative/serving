@@ -29,15 +29,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kelseyhightower/envconfig"
+	"go.opencensus.io/stats/view"
+	"go.uber.org/zap"
+
 	// Injection related imports.
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 
-	"github.com/kelseyhightower/envconfig"
-	"go.opencensus.io/stats/view"
-	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
+
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection/sharedmain"
@@ -58,15 +60,11 @@ import (
 	activatornet "knative.dev/serving/pkg/activator/net"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/autoscaler"
-	"knative.dev/serving/pkg/goversion"
 	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/logging"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 )
-
-// Fail if using unsupported go version.
-var _ = goversion.IsSupported()
 
 const (
 	component = "activator"
@@ -227,10 +225,7 @@ func main() {
 
 	// Create activation handler chain
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first
-	var ah http.Handler = activatorhandler.New(
-		ctx,
-		throttler,
-		reporter)
+	var ah http.Handler = activatorhandler.New(ctx, throttler)
 	ah = activatorhandler.NewRequestEventHandler(reqCh, ah)
 	ah = tracing.HTTPSpanMiddleware(ah)
 	ah = configStore.HTTPMiddleware(ah)
@@ -240,18 +235,20 @@ func main() {
 		logger.Fatalw("Unable to create request log handler", zap.Error(err))
 	}
 	ah = reqLogHandler
+
+	// NOTE: MetricHandler is being used as the outermost handler of the meaty bits. We're not interested in measuring
+	// the healthchecks or probes.
+	ah = activatorhandler.NewMetricHandler(ctx, reporter, ah)
+	ah = activatorhandler.NewContextHandler(ctx, ah)
+
+	// Network probe handlers.
 	ah = &activatorhandler.ProbeHandler{NextHandler: ah}
-
-	sigCtx, sigCancel := context.WithCancel(context.Background())
-
-	// Set up our health check based on the health of stat sink and environmental factors.
-	hc := newHealthCheck(sigCtx, logger, statSink)
-	ah = &activatorhandler.HealthHandler{HealthCheck: hc, NextHandler: ah}
-
 	ah = network.NewProbeHandler(ah)
 
-	// NOTE: MetricHandler is being used as the outermost handler for the purpose of measuring the request latency.
-	ah = activatorhandler.NewMetricHandler(ctx, reporter, ah)
+	// Set up our health check based on the health of stat sink and environmental factors.
+	sigCtx, sigCancel := context.WithCancel(context.Background())
+	hc := newHealthCheck(sigCtx, logger, statSink)
+	ah = &activatorhandler.HealthHandler{HealthCheck: hc, NextHandler: ah, Logger: logger}
 
 	profilingHandler := profiling.NewHandler(logger, false)
 	// Watch the logging config map and dynamically update logging levels.
@@ -268,8 +265,8 @@ func main() {
 	}
 
 	servers := map[string]*http.Server{
-		"http1":   network.NewServer(":"+strconv.Itoa(networking.BackendHTTPPort), ah),
-		"h2c":     network.NewServer(":"+strconv.Itoa(networking.BackendHTTP2Port), ah),
+		"http1":   pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTPPort), ah),
+		"h2c":     pkgnet.NewServer(":"+strconv.Itoa(networking.BackendHTTP2Port), ah),
 		"profile": profiling.NewServer(profilingHandler),
 	}
 
@@ -314,7 +311,7 @@ func newHealthCheck(sigCtx context.Context, logger *zap.SugaredLogger, statSink 
 		// When we get SIGTERM (sigCtx done), let readiness probes start failing.
 		case <-sigCtx.Done():
 			once.Do(func() {
-				logger.Info("signal context canceled")
+				logger.Info("Signal context canceled")
 			})
 			return errors.New("received SIGTERM from kubelet")
 		default:

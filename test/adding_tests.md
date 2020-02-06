@@ -31,7 +31,6 @@ This library exists partially in this directory and partially in
 
 The libs in this dir can:
 
-- [Use common test flags](#use-common-test-flags)
 - [Get access to client objects](#get-access-to-client-objects)
 - [Make requests against deployed services](#make-requests-against-deployed-services)
 - [Check Knative Serving resources](#check-knative-serving-resources)
@@ -40,6 +39,7 @@ The libs in this dir can:
 
 See [`knative/pkg/test`](https://github.com/knative/pkg/tree/master/test) to:
 
+- [Use common test flags](#use-common-test-flags)
 - Output logs
 - Emit metrics
 - Ensure test cleanup
@@ -49,52 +49,73 @@ See [`knative/pkg/test`](https://github.com/knative/pkg/tree/master/test) to:
 These flags are useful for running against an existing cluster, making use of
 your existing [environment setup](../DEVELOPMENT.md#setup-your-environment).
 
-By importing `github.com/knative/serving/test` you get access to a global
-variable called `test.Flags` which holds the values of
+By importing `knative.dev/pkg/test` you get access to a global variable called
+`test.Flags` which holds the values of
 [the command line flags](./README.md#flags).
 
 ```go
-imagePath := strings.Join([]string{test.ServingFlags.DockerRepo, image}, "/"))
+imagePath := strings.Join([]string{test.Flags.DockerRepo, image}, "/"))
 ```
 
-_See [e2e_flags.go](./e2e_flags.go)._
+_See
+[e2e_flags.go](https://github.com/knative/pkg/blob/master/test/e2e_flags.go)._
 
 ### Get access to client objects
 
-To initialize client objects that you can use
-[the command line flags](#use-flags) that describe the environment:
+To initialize client objects that you can use the command line flags that
+describe the environment:
 
 ```go
-func setup(t *testing.T) *test.Clients {
-    clients, err := test.NewClients(kubeconfig, cluster, namespaceName)
-    if err != nil {
-        t.Fatalf("Couldn't initialize clients: %v", err)
-    }
-    return clients
+import (
+	testing
+
+	knative.dev/serving/test
+	pkgTest "knative.dev/pkg/test"
+)
+
+func Setup(t *testing.T) *test.Clients {
+	clients, err := test.NewClients(pkgTest.Flags.Kubeconfig, pkgTest.Flags.Cluster, namespaceName)
+	if err != nil {
+		t.Fatalf("Couldn't initialize clients: %v", err)
+	}
+	return clients
 }
 ```
 
 The `Clients` struct contains initialized clients for accessing:
 
-- Kubernetes objects
+- `Kubernetes objects`
+- `Services`
 - `Routes`
 - `Configurations`
 - `Revisions`
+- `Knative ingress`
+- `ServerlessServices`
+- `Istio objects`
 
 For example, to create a `Route`:
 
-```bash
-_, err = clients.ServingClient.Routes.Create(test.Route(namespaceName, routeName, configName))
+```go
+_, err = clients.ServingClient.Routes.Create(v1test.Route(
+	test.ResourceNames{
+		Route:  routeName,
+		Config: configName,
+	}))
 ```
+
+_v1test is alias for package `knative.dev/serving/pkg/testing/v1`_
 
 And you can use the client to clean up `Route` and `Configuration` resources
 created by your test:
 
 ```go
+import "knative.dev/serving/test"
+
 func tearDown(clients *test.Clients) {
-    if clients != nil {
-        clients.Delete([]string{routeName}, []string{configName})
-    }
+	if clients != nil {
+		clients.ServingClient.Routes.Delete(routeName, nil)
+		clients.ServingClient.Configs.Delete(configName, nil)
+	}
 }
 ```
 
@@ -105,22 +126,23 @@ _See [clients.go](./clients.go)._
 After deploying (i.e. creating a `Route` and a `Configuration`) an endpoint will
 not be ready to serve requests right away. To poll a deployed endpoint and wait
 for it to be in the state you want it to be in (or timeout) use
-`WaitForEndpointState`:
+`WaitForEndpointState` by importing `knative.dev/pkg/test` with alias `pkgTest`:
 
 ```go
-err = pkgTest.WaitForEndpointState(
-        clients.KubeClient,
-        logger,
-        updatedRoute.Status.Domain,
-        pkgTest.EventuallyMatchesBody(expectedText),
-        "SomeDescription",
-        test.ServingFlags.ResolvableDomain)
+_, err := pkgTest.WaitForEndpointState(
+	clients.KubeClient,
+	logger,
+	updatedRoute.Status.URL.URL(),
+	pkgTest.EventuallyMatchesBody(expectedText),
+	"SomeDescription",
+	test.ServingFlags.ResolvableDomain)
 if err != nil {
-    t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", routeName, updatedRoute.Status.Domain, expectedText, err)
+	t.Fatalf("The endpoint for Route %s at domain %s didn't serve the expected text \"%s\": %v", routeName, updatedRoute.Status.Domain, expectedText, err)
 }
 ```
 
-This function makes use of [the environment flag `resolvableDomain`](#use-flags)
+This function makes use of
+[the environment flag `resolvableDomain`](README.md#using-a-resolvable-domain)
 to determine if the ingress should be used or the domain should be used
 directly.
 
@@ -166,64 +188,74 @@ For example, you can poll a `Configuration` object to find the name of the
 
 ```go
 var revisionName string
-err := test.WaitForConfigurationState(clients.ServingClient, configName, func(c *v1alpha1.Configuration) (bool, error) {
-    if c.Status.LatestCreatedRevisionName != "" {
-        revisionName = c.Status.LatestCreatedRevisionName
-        return true, nil
-    }
-    return false, nil
+err := v1alpha1testing.WaitForConfigurationState(clients.ServingClient, configName, func(c *v1alpha1.Configuration) (bool, error) {
+	if c.Status.LatestCreatedRevisionName != "" {
+		revisionName = c.Status.LatestCreatedRevisionName
+		return true, nil
+	}
+	return false, nil
 }, "ConfigurationUpdatedWithRevision")
 ```
 
-_[Metrics will be emitted](#emit-metrics) for these `Wait` method tracking how
-long test poll for._
+_v1alpha1testing is alias for package
+`knative.dev/serving/pkg/testing/v1alpha1`_
 
 We also have `Check*` variants of many of these methods with identical
 signatures, same example:
 
 ```go
 var revisionName string
-err := test.CheckConfigurationState(clients.ServingClient, configName, func(c *v1alpha1.Configuration) (bool, error) {
-    if c.Status.LatestCreatedRevisionName != "" {
-        revisionName = c.Status.LatestCreatedRevisionName
-        return true, nil
-    }
-    return false, nil
+err := v1alpha1testing.CheckConfigurationState(clients.ServingClient, configName, func(c *v1alpha1.Configuration) (bool, error) {
+	if c.Status.LatestCreatedRevisionName != "" {
+		revisionName = c.Status.LatestCreatedRevisionName
+		return true, nil
+	}
+	return false, nil
 })
 ```
 
-_See [crd_checks.go](./crd_checks.go) and
+_v1alpha1testing is alias for package
+`knative.dev/serving/pkg/testing/v1alpha1`_
+
+_For knative crd state, for example `Config`. You can see the code in
+[configuration.go](./v1alpha1/configuration.go). For kubernetes objects see
 [kube_checks.go](https://github.com/knative/pkg/blob/master/test/kube_checks.go)._
 
 ### Verify resource state transitions
 
 To use the [check functions](#check-knative-serving-resources) you must provide
 a function to check the state. Some of the expected transition states (as
-defined in [the Knative Serving spec](../docs/spec/spec.md)) are expressed in
-functions in [states.go](./states.go).
+defined in
+[the Knative Serving spec](https://github.com/knative/docs/blob/master/docs/serving/spec/knative-api-specification-1.0.md))
+, for example `v1alpha1/Revision` state, are expressed in function in
+[revision.go](./v1alpha1/revision.go).
 
 For example when a `Revision` has been created, the system will start the
 resources required to actually serve it, and then the `Revision` object will be
-updated to indicate it is ready. This can be polled with `test.IsRevisionReady`:
+updated to indicate it is ready. This can be polled with
+`v1alpha1testing.IsRevisionReady`:
 
 ```go
-err := test.WaitForRevisionState(clients.ServingClient, revisionName, test.IsRevisionReady(revisionName))
+err := v1alpha1testing.WaitForRevisionState(clients.ServingAlphaClient, revName, v1alpha1testing.IsRevisionReady, "RevisionIsReady")
 if err != nil {
-    t.Fatalf("Revision %s did not become ready to serve traffic: %v", revisionName, err)
+	t.Fatalf("The Revision %q did not become ready: %v", revName, err)
 }
 ```
+
+_v1alpha1testing is alias for package
+`knative.dev/serving/pkg/testing/v1alpha1`_
 
 Once the `Revision` is created, all traffic for a `Route` should be routed to
-it. This can be polled with `test.AllRouteTrafficAtRevision`:
+it. This can be polled with `v1alpha1testing.AllRouteTrafficAtRevision`:
 
 ```go
-err = test.WaitForRouteState(clients.ServingClient, routeName, test.AllRouteTrafficAtRevision(routeName, revisionName))
+err := v1alpha1testing.CheckRouteState(clients.ServingAlphaClient, names.Route, v1alpha1testing.AllRouteTrafficAtRevision(names))
 if err != nil {
-    t.Fatalf("The Route %s was not updated to route traffic to the Revision %s: %v", routeName, revisionName, err)
+	t.Fatalf("The Route %s was not updated to route traffic to the Revision %s: %v", names.Route, names.Revision, err)
 }
 ```
 
-_See [states.go](./states.go)._
+_See [route.go](./v1alpha1/route.go)._
 
 ### Generate boilerplate CRDs
 
@@ -238,15 +270,17 @@ with a randomized name:
 
 ```go
 func TestSomeAwesomeFeature(t *testing.T) {
-  var names test.ResourceNames
-  names.Config := test.ObjectNameForTest(t)
-  _, err := clients.ServingClient.Create(test.Configuration(namespaceName, names, imagePath))
-  if err != nil {
-      // handle error case
-  }
-  // more testing
+	var names test.ResourceNames
+	names.Config := test.ObjectNameForTest(t)
+	_, err := clients.ServingClient.Create(test.Configuration(namespaceName, names, imagePath))
+	if err != nil {
+		// handle error case
+	}
+	// more testing
 }
 ```
+
+_test is package `knative.dev/serving/test`_
 
 Please expand these functions as more use cases are tested.
 

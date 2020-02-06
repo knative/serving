@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/metrics"
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/ptr"
@@ -34,8 +35,8 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/serving/pkg/deployment"
-	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/readiness"
@@ -187,7 +188,7 @@ func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
 
 // makeQueueContainer creates the container spec for the queue sidecar.
 func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, observabilityConfig *metrics.ObservabilityConfig,
-	deploymentConfig *deployment.Config) (*corev1.Container, error) {
+	autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) (*corev1.Container, error) {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
 		configName = owner.Name
@@ -221,6 +222,10 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 	var volumeMounts []corev1.VolumeMount
 	if observabilityConfig.EnableVarLogCollection {
 		volumeMounts = append(volumeMounts, internalVolumeMount)
+	}
+
+	if autoscalerConfig.EnableGracefulScaledown {
+		volumeMounts = append(volumeMounts, labelVolumeMount)
 	}
 
 	rp := rev.Spec.GetContainer().ReadinessProbe.DeepCopy()
@@ -324,6 +329,9 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 			Name:  "INTERNAL_VOLUME_PATH",
 			Value: internalVolumePath,
 		}, {
+			Name:  "DOWNWARD_API_LABELS_PATH",
+			Value: fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath),
+		}, {
 			Name:  "SERVING_READINESS_PROBE",
 			Value: probeJSON,
 		}, {
@@ -356,7 +364,12 @@ func applyReadinessProbeDefaults(p *corev1.Probe, port int32) {
 		p.TCPSocket.Host = localAddress
 		p.TCPSocket.Port = intstr.FromInt(int(port))
 	case p.Exec != nil:
-		//User-defined ExecProbe will still be run on user-container.
+		// User-defined ExecProbe will still be run on user-container.
+		// Use TCP probe in queue-proxy.
+		p.TCPSocket = &corev1.TCPSocketAction{
+			Host: localAddress,
+			Port: intstr.FromInt(int(port)),
+		}
 		p.Exec = nil
 	}
 

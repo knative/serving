@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,27 +19,37 @@ limitations under the License.
 package versioned
 
 import (
+	"fmt"
+
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
-	certmanagerv1alpha1 "knative.dev/serving/pkg/client/certmanager/clientset/versioned/typed/certmanager/v1alpha1"
+	acmev1alpha2 "knative.dev/serving/pkg/client/certmanager/clientset/versioned/typed/acme/v1alpha2"
+	certmanagerv1alpha2 "knative.dev/serving/pkg/client/certmanager/clientset/versioned/typed/certmanager/v1alpha2"
 )
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
-	CertmanagerV1alpha1() certmanagerv1alpha1.CertmanagerV1alpha1Interface
+	AcmeV1alpha2() acmev1alpha2.AcmeV1alpha2Interface
+	CertmanagerV1alpha2() certmanagerv1alpha2.CertmanagerV1alpha2Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	certmanagerV1alpha1 *certmanagerv1alpha1.CertmanagerV1alpha1Client
+	acmeV1alpha2        *acmev1alpha2.AcmeV1alpha2Client
+	certmanagerV1alpha2 *certmanagerv1alpha2.CertmanagerV1alpha2Client
 }
 
-// CertmanagerV1alpha1 retrieves the CertmanagerV1alpha1Client
-func (c *Clientset) CertmanagerV1alpha1() certmanagerv1alpha1.CertmanagerV1alpha1Interface {
-	return c.certmanagerV1alpha1
+// AcmeV1alpha2 retrieves the AcmeV1alpha2Client
+func (c *Clientset) AcmeV1alpha2() acmev1alpha2.AcmeV1alpha2Interface {
+	return c.acmeV1alpha2
+}
+
+// CertmanagerV1alpha2 retrieves the CertmanagerV1alpha2Client
+func (c *Clientset) CertmanagerV1alpha2() certmanagerv1alpha2.CertmanagerV1alpha2Interface {
+	return c.certmanagerV1alpha2
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -51,14 +61,23 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 }
 
 // NewForConfig creates a new Clientset for the given config.
+// If config's RateLimiter is not set and QPS and Burst are acceptable,
+// NewForConfig will generate a rate-limiter in configShallowCopy.
 func NewForConfig(c *rest.Config) (*Clientset, error) {
 	configShallowCopy := *c
 	if configShallowCopy.RateLimiter == nil && configShallowCopy.QPS > 0 {
+		if configShallowCopy.Burst <= 0 {
+			return nil, fmt.Errorf("Burst is required to be greater than 0 when RateLimiter is not set and QPS is set to greater than 0")
+		}
 		configShallowCopy.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(configShallowCopy.QPS, configShallowCopy.Burst)
 	}
 	var cs Clientset
 	var err error
-	cs.certmanagerV1alpha1, err = certmanagerv1alpha1.NewForConfig(&configShallowCopy)
+	cs.acmeV1alpha2, err = acmev1alpha2.NewForConfig(&configShallowCopy)
+	if err != nil {
+		return nil, err
+	}
+	cs.certmanagerV1alpha2, err = certmanagerv1alpha2.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +93,8 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 // panics if there is an error in the config.
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
-	cs.certmanagerV1alpha1 = certmanagerv1alpha1.NewForConfigOrDie(c)
+	cs.acmeV1alpha2 = acmev1alpha2.NewForConfigOrDie(c)
+	cs.certmanagerV1alpha2 = certmanagerv1alpha2.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -83,7 +103,8 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
-	cs.certmanagerV1alpha1 = certmanagerv1alpha1.New(c)
+	cs.acmeV1alpha2 = acmev1alpha2.New(c)
+	cs.certmanagerV1alpha2 = certmanagerv1alpha2.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

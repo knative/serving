@@ -38,7 +38,7 @@ import (
 // The Service's controller will track the statuses of its owned Configuration
 // and Route, reflecting their statuses and conditions as its own.
 //
-// See also: https://knative.dev/serving/blob/master/docs/spec/overview.md#service
+// See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#service
 type Service struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
@@ -87,7 +87,27 @@ const (
 	// ServiceConditionReady is set when the service is configured
 	// and has available backends ready to receive traffic.
 	ServiceConditionReady = apis.ConditionReady
+
+	// ServiceConditionRoutesReady is set when the service's underlying
+	// routes have reported readiness.
+	ServiceConditionRoutesReady apis.ConditionType = "RoutesReady"
+
+	// ServiceConditionConfigurationsReady is set when the service's underlying
+	// configurations have reported readiness.
+	ServiceConditionConfigurationsReady apis.ConditionType = "ConfigurationsReady"
 )
+
+// IsServiceCondition returns true if the ConditionType is a service condition type
+func IsServiceCondition(t apis.ConditionType) bool {
+	switch t {
+	case
+		ServiceConditionReady,
+		ServiceConditionRoutesReady,
+		ServiceConditionConfigurationsReady:
+		return true
+	}
+	return false
+}
 
 // ServiceStatus represents the Status stanza of the Service resource.
 type ServiceStatus struct {

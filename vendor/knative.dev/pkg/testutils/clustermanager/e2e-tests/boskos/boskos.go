@@ -37,35 +37,48 @@ var (
 	defaultWaitDuration = time.Minute * 20
 )
 
+// Operation defines actions for handling GKE resources
 type Operation interface {
-	AcquireGKEProject(*string) (*boskoscommon.Resource, error)
-	ReleaseGKEProject(*string, string) error
+	AcquireGKEProject(string) (*boskoscommon.Resource, error)
+	ReleaseGKEProject(string) error
 }
 
+// Client a wrapper around k8s boskos client that implements Operation
 type Client struct {
 	*boskosclient.Client
 }
 
-func newClient(host *string) *boskosclient.Client {
-	if host == nil {
-		hostName := common.GetOSEnv("JOB_NAME")
-		host = &hostName
+// NewClient creates a boskos Client with GKE operation. The owner of any resources acquired
+// by this client is the same as the host name. `user` and `pass` are used for basic
+// authentication for boskos client where pass is a password file. `user` and `pass` fields
+// are passed directly to k8s boskos client. Refer to
+// [k8s boskos](https://github.com/kubernetes/test-infra/tree/master/boskos) for more details.
+// If host is "", it looks up JOB_NAME environment variable and set it to be the host name.
+func NewClient(host string, user string, pass string) (*Client, error) {
+	if host == "" {
+		host = common.GetOSEnv("JOB_NAME")
 	}
-	return boskosclient.NewClient(*host, boskosURI)
+
+	c, err := boskosclient.NewClient(host, boskosURI, user, pass)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Client{c}, nil
 }
 
 // AcquireGKEProject acquires GKE Boskos Project with "free" state, and not
 // owned by anyone, sets its state to "busy" and assign it an owner of *host,
 // which by default is env var `JOB_NAME`.
-func (c *Client) AcquireGKEProject(host *string) (*boskoscommon.Resource, error) {
+func (c *Client) AcquireGKEProject(resType string) (*boskoscommon.Resource, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultWaitDuration)
 	defer cancel()
-	p, err := newClient(host).AcquireWait(ctx, GKEProjectResource, boskoscommon.Free, boskoscommon.Busy)
+	p, err := c.AcquireWait(ctx, resType, boskoscommon.Free, boskoscommon.Busy)
 	if err != nil {
 		return nil, fmt.Errorf("boskos failed to acquire GKE project: %v", err)
 	}
 	if p == nil {
-		return nil, fmt.Errorf("boskos does not have a free %s at the moment", GKEProjectResource)
+		return nil, fmt.Errorf("boskos does not have a free %s at the moment", resType)
 	}
 	return p, nil
 }
@@ -75,9 +88,8 @@ func (c *Client) AcquireGKEProject(host *string) (*boskoscommon.Resource, error)
 // "dirty" for Janitor picking up.
 // This function is very powerful, it can release Boskos resource acquired by
 // other processes, regardless of where the other process is running.
-func (c *Client) ReleaseGKEProject(host *string, name string) error {
-	client := newClient(host)
-	if err := client.Release(name, boskoscommon.Dirty); err != nil {
+func (c *Client) ReleaseGKEProject(name string) error {
+	if err := c.Release(name, boskoscommon.Dirty); err != nil {
 		return fmt.Errorf("boskos failed to release GKE project '%s': %v", name, err)
 	}
 	return nil

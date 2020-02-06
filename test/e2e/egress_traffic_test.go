@@ -49,7 +49,9 @@ func TestEgressTraffic(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	service, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, v1a1opts.WithEnv(envVars...))
+	service, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		v1a1opts.WithEnv(envVars...))
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
 	}

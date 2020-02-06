@@ -12,28 +12,39 @@ required = [
   "github.com/evanphx/json-patch",
   "knative.dev/test-infra/scripts",
   "knative.dev/test-infra/tools/dep-collector",
-  "github.com/pkg/errors",
+  "github.com/gogo/protobuf/proto",
 ]
 
 [[constraint]]
+  # We can drop this constraint when we switch to a
+  # k8s version that merges this bump
+  # https://github.com/kubernetes/kubernetes/pull/87431
+  name = "github.com/google/gofuzz"
+  version = "v1.1.0"
+
+[[constraint]]
   name = "k8s.io/api"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.4"
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.4"
 
 [[constraint]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.4"
 
 [[constraint]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.4"
 
 [[constraint]]
   name = "k8s.io/code-generator"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.4"
+
+[[constraint]]
+  name = "github.com/gogo/protobuf"
+  version = "v1.3.1"
 
 [[override]]
   name = "gopkg.in/yaml.v2"
@@ -60,9 +71,8 @@ required = [
 
 [[constraint]]
   name = "contrib.go.opencensus.io/exporter/stackdriver"
-  # The build fails against 0.12.6 and newer because
-  # stackdriver.Options.GetMonitoredResource was removed.
-  version = "<=v0.12.5"
+  # With the fix of https://github.com/census-ecosystem/opencensus-go-exporter-stackdriver/issues/237
+  revision = "59d068f8d8ff5b653916aa30cdc4e13c7f15d56e"
 
 [[constraint]]
   name = "github.com/google/mako"

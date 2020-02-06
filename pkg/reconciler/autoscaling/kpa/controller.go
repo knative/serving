@@ -20,7 +20,9 @@ import (
 	"context"
 
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
+	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
+	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
 	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
@@ -34,7 +36,6 @@ import (
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
-	presources "knative.dev/serving/pkg/resources"
 )
 
 const controllerAgentName = "kpa-class-podautoscaler-controller"
@@ -51,8 +52,9 @@ func NewController(
 	sksInformer := sksinformer.Get(ctx)
 	serviceInformer := serviceinformer.Get(ctx)
 	endpointsInformer := endpointsinformer.Get(ctx)
+	podsInformer := podinformer.Get(ctx)
 	metricInformer := metricinformer.Get(ctx)
-	psInformerFactory := presources.NewPodScalableInformerFactory(ctx)
+	psInformerFactory := podscalable.Get(ctx)
 
 	c := &Reconciler{
 		Base: &areconciler.Base{
@@ -64,6 +66,7 @@ func NewController(
 			PSInformerFactory: psInformerFactory,
 		},
 		endpointsLister: endpointsInformer.Lister(),
+		podsLister:      podsInformer.Lister(),
 		deciders:        deciders,
 	}
 	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling")

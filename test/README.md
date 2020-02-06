@@ -60,14 +60,13 @@ go test -v -tags=e2e -count=1 ./test/e2e
 
 ## Running performance tests
 
-To run [the performance tests](./performance), you need to have a running
-environment that meets
-[the test environment requirements](#environment-requirements), and you need to
-specify the build tag `performance`.
+Each performance test case in Knative serving is a benchmark, to run these
+benchmarks, please follow
+[dev.md](https://github.com/knative/serving/blob/master/test/performance/dev.md).
 
-```bash
-go test -v -tags=performance -count=1 ./test/performance
-```
+> As of now, only Googlers can run these benchmarks due to one issue of
+> [Mako](https://github.com/google/mako) - the benchmarking tool we use. Details
+> can be found in the [issue report](https://github.com/google/mako/issues/2).
 
 ### Running a single test case
 
@@ -161,14 +160,17 @@ New test images should be placed in `./test/test_images`.
 These flags are useful for running against an existing cluster, making use of
 your existing [environment setup](../DEVELOPMENT.md#setup-your-environment).
 
-Tests importing [`github.com/knative/serving/test`](#test-library) recognize
-these flags:
+Tests importing [`knative.dev/serving/test`](#test-library) recognize these
+flags:
 
 - [All flags added by `knative/pkg/test`](https://github.com/knative/pkg/tree/master/test#flags)
-- [`--dockerrepo`](#overriding-docker-repo)
-- [`--tag`](#using-a-docker-tag)
-- [`--ingressendpoint`](#using-a-custom-ingress-endpoint)
+  such as:
+  - [`--dockerrepo`](#overriding-docker-repo)
+  - [`--tag`](#using-a-docker-tag)
+  - [`--ingressendpoint`](#using-a-custom-ingress-endpoint)
 - [`--resolvabledomain`](#using-a-resolvable-domain)
+- [`--https`](#using-https)
+- [`--ingressClass`](#using-ingress-class)
 
 ### Overridding docker repo
 
@@ -226,3 +228,12 @@ the header.
 If you have configured your cluster to use a resolvable domain, you can use the
 `--resolvabledomain` flag to indicate that the test should make requests
 directly against `Route.Status.Domain` and does not need to spoof the `Host`.
+
+### Using https
+
+You can use the `--https` flag to have all tests run with https.
+
+### Using ingress class
+
+The `--ingressClass` argument lets you specify the ingress class. The default
+value is `istio.ingress.networking.knative.dev`.

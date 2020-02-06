@@ -25,18 +25,18 @@ import (
 	"testing"
 
 	"golang.org/x/sync/errgroup"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"knative.dev/pkg/ptr"
 	pkgTest "knative.dev/pkg/test"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	rtesting "knative.dev/serving/pkg/testing/v1beta1"
 	"knative.dev/serving/test"
 	v1b1test "knative.dev/serving/test/v1beta1"
-
-	rtesting "knative.dev/serving/pkg/testing/v1beta1"
 )
 
 const (
-
 	// This test uses the two pizza planet test images for the blue and green deployment.
 	expectedBlue  = test.PizzaPlanetText1
 	expectedGreen = test.PizzaPlanetText2
@@ -50,18 +50,16 @@ func TestBlueGreenRoute(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
-	var imagePaths []string
-	imagePaths = append(imagePaths, pkgTest.ImagePath(test.PizzaPlanet1))
-	imagePaths = append(imagePaths, pkgTest.ImagePath(test.PizzaPlanet2))
+	imagePaths := []string{
+		pkgTest.ImagePath(test.PizzaPlanet1),
+		pkgTest.ImagePath(test.PizzaPlanet2),
+	}
 
-	var names, blue, green test.ResourceNames
 	// Set Service and Image for names to create the initial service
-	names.Service = test.ObjectNameForTest(t)
-	names.Image = test.PizzaPlanet1
-
-	// Set names for traffic targets to make them directly routable.
-	blue.TrafficTarget = "blue"
-	green.TrafficTarget = "green"
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   test.PizzaPlanet1,
+	}
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)
@@ -74,14 +72,17 @@ func TestBlueGreenRoute(t *testing.T) {
 	}
 
 	// The first revision created is "blue"
-	blue.Revision = names.Revision
+	blue := names
+	blue.TrafficTarget = "blue"
+	green := names
+	green.TrafficTarget = "green"
 
 	t.Log("Updating the Service to use a different image")
-	svc, err := v1b1test.PatchService(t, clients, objects.Service, rtesting.WithServiceImage(imagePaths[1]))
+	service, err := v1b1test.PatchService(t, clients, objects.Service, rtesting.WithServiceImage(imagePaths[1]))
 	if err != nil {
 		t.Fatalf("Patch update for Service %s with new image %s failed: %v", names.Service, imagePaths[1], err)
 	}
-	objects.Service = svc
+	objects.Service = service
 
 	t.Log("Since the Service was updated a new Revision will be created and the Service will be updated")
 	green.Revision, err = v1b1test.WaitForServiceLatestRevision(clients, names)
@@ -109,7 +110,7 @@ func TestBlueGreenRoute(t *testing.T) {
 		t.Fatalf("The Service %s was not marked as Ready to serve traffic: %v", names.Service, err)
 	}
 
-	service, err := clients.ServingBetaClient.Services.Get(names.Service, metav1.GetOptions{})
+	service, err = clients.ServingBetaClient.Services.Get(names.Service, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error fetching Service %s: %v", names.Service, err)
 	}
@@ -143,7 +144,7 @@ func TestBlueGreenRoute(t *testing.T) {
 		t.Fatalf("Error probing %s: %v", greenURL, err)
 	}
 
-	// Send concurrentRequests to blueURL, greenURL, and tealURL.
+	// Send concurrentRequests to blueDomain, greenDomain, and tealDomain.
 	g, _ := errgroup.WithContext(context.Background())
 	g.Go(func() error {
 		min := int(math.Floor(test.ConcurrentRequests * test.MinSplitPercentage))

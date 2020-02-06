@@ -51,7 +51,7 @@ type Autoscaler struct {
 	// specMux guards the current DeciderSpec and the PodCounter.
 	specMux     sync.RWMutex
 	deciderSpec *DeciderSpec
-	podCounter  resources.ReadyPodCounter
+	podCounter  resources.EndpointsCounter
 }
 
 // New creates a new instance of autoscaler
@@ -144,15 +144,11 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	switch spec.ScalingMetric {
 	case autoscaling.RPS:
 		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicRPS(metricKey, now)
-		a.reporter.ReportStableRPS(observedStableValue)
-		a.reporter.ReportPanicRPS(observedPanicValue)
-		a.reporter.ReportTargetRPS(spec.TargetValue)
+		a.reporter.ReportRPS(observedStableValue, observedPanicValue, spec.TargetValue)
 	default:
 		metricName = autoscaling.Concurrency // concurrency is used by default
 		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicConcurrency(metricKey, now)
-		a.reporter.ReportStableRequestConcurrency(observedStableValue)
-		a.reporter.ReportPanicRequestConcurrency(observedPanicValue)
-		a.reporter.ReportTargetRequestConcurrency(spec.TargetValue)
+		a.reporter.ReportRequestConcurrency(observedStableValue, observedPanicValue, spec.TargetValue)
 	}
 
 	// Put the scaling metric to logs.
@@ -178,8 +174,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 
 	dspc := math.Ceil(observedStableValue / spec.TargetValue)
 	dppc := math.Ceil(observedPanicValue / spec.TargetValue)
-	logger.Debugf("DesiredStablePodCount = %0.3f, DesiredPanicPodCount = %0.3f, MaxScaleUp = %0.3f, MaxScaleDown = %0.3f",
-		dspc, dppc, maxScaleUp, maxScaleDown)
+	logger.Debugf("DesiredStablePodCount = %0.3f, DesiredPanicPodCount = %0.3f, ReadyEndpointCount = %d, MaxScaleUp = %0.3f, MaxScaleDown = %0.3f",
+		dspc, dppc, originalReadyPodsCount, maxScaleUp, maxScaleDown)
 
 	// We want to keep desired pod count in the  [maxScaleDown, maxScaleUp] range.
 	desiredStablePodCount := int32(math.Min(math.Max(dspc, maxScaleDown), maxScaleUp))
@@ -234,10 +230,9 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	case a.deciderSpec.TargetBurstCapacity >= 0:
 		excessBC = int32(math.Floor(float64(originalReadyPodsCount)*a.deciderSpec.TotalValue - observedStableValue -
 			a.deciderSpec.TargetBurstCapacity))
-		logger.Infof("PodCount=%v Total1PodCapacity=%v ObservedStableValue=%v TargetBC=%v ExcessBC=%v",
-			originalReadyPodsCount,
-			a.deciderSpec.TotalValue,
-			observedStableValue, a.deciderSpec.TargetBurstCapacity, excessBC)
+		logger.Infof("PodCount=%v Total1PodCapacity=%v ObsStableValue=%v ObsPanicValue=%v TargetBC=%v ExcessBC=%v",
+			originalReadyPodsCount, a.deciderSpec.TotalValue, observedStableValue,
+			observedPanicValue, a.deciderSpec.TargetBurstCapacity, excessBC)
 	}
 
 	a.reporter.ReportExcessBurstCapacity(float64(excessBC))
@@ -246,7 +241,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	return desiredPodCount, excessBC, true
 }
 
-func (a *Autoscaler) currentSpecAndPC() (*DeciderSpec, resources.ReadyPodCounter) {
+func (a *Autoscaler) currentSpecAndPC() (*DeciderSpec, resources.EndpointsCounter) {
 	a.specMux.RLock()
 	defer a.specMux.RUnlock()
 	return a.deciderSpec, a.podCounter

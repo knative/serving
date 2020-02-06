@@ -31,7 +31,7 @@ import (
 // by a backend. An Ingress can be configured to give services externally-reachable URLs, load
 // balance traffic, offer name based virtual hosting, etc.
 //
-// This is heavily based on K8s Ingress https://godoc.org/k8s.io/api/extensions/v1beta1#Ingress
+// This is heavily based on K8s Ingress https://godoc.org/k8s.io/api/networking/v1beta1#Ingress
 // which some highlighted modifications.
 type Ingress struct {
 	metav1.TypeMeta `json:",inline"`
@@ -90,7 +90,7 @@ type IngressSpec struct {
 	// This property will be dropped in future Knative releases and should
 	// not be used - use metadata.generation
 	//
-	// Tracking issue: https://knative.dev/serving/issues/643
+	// Tracking issue: https://github.com/knative/serving/issues/643
 	//
 	// +optional
 	DeprecatedGeneration int64 `json:"generation,omitempty"`
@@ -143,12 +143,12 @@ type IngressTLS struct {
 	// ServerCertificate identifies the certificate filename in the secret.
 	// Defaults to `tls.crt`.
 	// +optional
-	ServerCertificate string `json:"serverCertificate,omitempty"`
+	DeprecatedServerCertificate string `json:"serverCertificate,omitempty"`
 
 	// PrivateKey identifies the private key filename in the secret.
 	// Defaults to `tls.key`.
 	// +optional
-	PrivateKey string `json:"privateKey,omitempty"`
+	DeprecatedPrivateKey string `json:"privateKey,omitempty"`
 }
 
 // IngressRule represents the rules mapping the paths under a specified host to

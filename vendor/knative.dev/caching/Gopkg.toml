@@ -23,19 +23,19 @@ required = [
 
 [[override]]
   name = "k8s.io/api"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.4"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.4"
 
 [[override]]
   name = "k8s.io/code-generator"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.4"
 
 [[override]]
   name = "k8s.io/client-go"
-  version = "kubernetes-1.15.3"
+  version = "kubernetes-1.16.4"
 
 [[override]]
   name = "knative.dev/pkg"
@@ -44,12 +44,6 @@ required = [
 [[override]]
   name = "google.golang.org/genproto"
   revision = "e7d98fc518a78c9f8b5ee77be7b0b317475d89e1"
-
-[[override]]
-  name = "contrib.go.opencensus.io/exporter/stackdriver"
-  # The build fails against 0.12.6 and newer because
-  # stackdriver.Options.GetMonitoredResource was removed.
-  version = "<=v0.12.5"
 
 [[override]]
   name = "go.opencensus.io"

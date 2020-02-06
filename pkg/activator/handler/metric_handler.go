@@ -20,26 +20,16 @@ import (
 	"net/http"
 	"time"
 
-	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/types"
-
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/logging/logkey"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
-	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
-	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 	pkghttp "knative.dev/serving/pkg/http"
-	"knative.dev/serving/pkg/network"
 )
 
 // NewMetricHandler creates a handler collects and reports request metrics
 func NewMetricHandler(ctx context.Context, r activator.StatsReporter, next http.Handler) *MetricHandler {
 	handler := &MetricHandler{
-		nextHandler:    next,
-		revisionLister: revisioninformer.Get(ctx).Lister(),
-		reporter:       r,
-		logger:         logging.FromContext(ctx),
+		nextHandler: next,
+		reporter:    r,
 	}
 
 	return handler
@@ -47,34 +37,19 @@ func NewMetricHandler(ctx context.Context, r activator.StatsReporter, next http.
 
 // MetricHandler sends metrics via reporter
 type MetricHandler struct {
-	revisionLister servinglisters.RevisionLister
-	reporter       activator.StatsReporter
-	logger         *zap.SugaredLogger
-	nextHandler    http.Handler
+	reporter    activator.StatsReporter
+	nextHandler http.Handler
 }
 
 func (h *MetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-
-	// Filter out probe and health check requests.
-	if network.IsProbe(r) {
-		h.nextHandler.ServeHTTP(w, r)
-		return
-	}
-
-	namespace := r.Header.Get(activator.RevisionHeaderNamespace)
-	name := r.Header.Get(activator.RevisionHeaderName)
-
-	revID := types.NamespacedName{Namespace: namespace, Name: name}
-	logger := h.logger.With(zap.String(logkey.Key, revID.String()))
-
-	revision, err := h.revisionLister.Revisions(namespace).Get(name)
-	if err != nil {
-		logger.Errorw("Error while getting revision", zap.Error(err))
-		sendError(err, w)
-		return
-	}
+	revID := revIDFrom(r.Context())
+	revision := revisionFrom(r.Context())
 	configurationName := revision.Labels[serving.ConfigurationLabelKey]
 	serviceName := revision.Labels[serving.ServiceLabelKey]
+
+	// It's safe to ignore this error as the RevisionStatsReporter is nil-pointer safe. Calls will be noops.
+	reporter, _ := h.reporter.GetRevisionStatsReporter(revID.Namespace, serviceName, configurationName, revID.Name)
+
 	start := time.Now()
 
 	rr := pkghttp.NewResponseRecorder(w, http.StatusOK)
@@ -82,11 +57,21 @@ func (h *MetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		err := recover()
 		latency := time.Since(start)
 		if err != nil {
-			h.reporter.ReportResponseTime(namespace, serviceName, configurationName, name, http.StatusInternalServerError, latency)
+			reporter.ReportResponseTime(http.StatusInternalServerError, latency)
 			panic(err)
 		}
-		h.reporter.ReportResponseTime(namespace, serviceName, configurationName, name, rr.ResponseCode, latency)
+		reporter.ReportResponseTime(rr.ResponseCode, latency)
 	}()
 
-	h.nextHandler.ServeHTTP(rr, r)
+	h.nextHandler.ServeHTTP(rr, r.WithContext(withReporter(r.Context(), reporter)))
+}
+
+type reporterKey struct{}
+
+func withReporter(ctx context.Context, r activator.RevisionStatsReporter) context.Context {
+	return context.WithValue(ctx, reporterKey{}, r)
+}
+
+func reporterFrom(ctx context.Context) activator.RevisionStatsReporter {
+	return ctx.Value(reporterKey{}).(activator.RevisionStatsReporter)
 }

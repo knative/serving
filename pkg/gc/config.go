@@ -18,7 +18,7 @@ package gc
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -56,7 +56,7 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 		}{{
 			key:          "stale-revision-create-delay",
 			field:        &c.StaleRevisionCreateDelay,
-			defaultValue: 24 * time.Hour,
+			defaultValue: 48 * time.Hour,
 		}, {
 			key:          "stale-revision-timeout",
 			field:        &c.StaleRevisionTimeout,
@@ -76,17 +76,17 @@ func NewConfigFromConfigMapFunc(ctx context.Context) func(configMap *corev1.Conf
 		}
 
 		if raw, ok := configMap.Data["stale-revision-minimum-generations"]; !ok {
-			c.StaleRevisionMinimumGenerations = 1
-		} else if val, err := strconv.ParseInt(raw, 10, 64); err != nil {
+			c.StaleRevisionMinimumGenerations = 20
+		} else if val, err := strconv.ParseInt(raw, 10 /*base*/, 64 /*bit count*/); err != nil {
 			return nil, err
 		} else if val < 0 {
-			return nil, errors.New("stale-revision-minimum-generations must be zero or greater")
+			return nil, fmt.Errorf("stale-revision-minimum-generations must be non-negative, was: %d", val)
 		} else {
 			c.StaleRevisionMinimumGenerations = val
 		}
 
 		if c.StaleRevisionTimeout-c.StaleRevisionLastpinnedDebounce < minRevisionTimeout {
-			logger.Errorf("Got revision timeout of %v, minimum supported value is %v", c.StaleRevisionTimeout, minRevisionTimeout+c.StaleRevisionLastpinnedDebounce)
+			logger.Warnf("Got revision timeout of %v, minimum supported value is %v", c.StaleRevisionTimeout, minRevisionTimeout+c.StaleRevisionLastpinnedDebounce)
 			c.StaleRevisionTimeout = minRevisionTimeout + c.StaleRevisionLastpinnedDebounce
 			return &c, nil
 		}

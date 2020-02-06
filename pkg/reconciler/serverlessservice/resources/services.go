@@ -134,6 +134,16 @@ func MakePrivateService(sks *v1alpha1.ServerlessService, selector map[string]str
 				// port queue-proxy listens on.
 				TargetPort: targetPort(sks),
 			}, {
+				Name:       servingv1alpha1.AutoscalingQueueMetricsPortName,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       networking.AutoscalingQueueMetricsPort,
+				TargetPort: intstr.FromString(servingv1alpha1.AutoscalingQueueMetricsPortName),
+			}, {
+				Name:       servingv1alpha1.UserQueueMetricsPortName,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       networking.UserQueueMetricsPort,
+				TargetPort: intstr.FromString(servingv1alpha1.UserQueueMetricsPortName),
+			}, {
 				// When run with the Istio mesh, Envoy blocks traffic to any ports not
 				// recognized, and has special treatment for probes, but not PreStop hooks.
 				// That results in the PreStop hook /wait-for-drain in queue-proxy not

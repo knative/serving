@@ -17,11 +17,11 @@ limitations under the License.
 package autoscaler
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 
-	"github.com/pkg/errors"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 )
@@ -83,6 +83,17 @@ func extractData(body io.Reader) (Stat, error) {
 				return emptyStat, errors.New("could not find pod name in metric labels")
 			}
 		}
+	}
+	// Transitional metrics, which older pods won't report.
+	for m, pv := range map[string]*float64{
+		"process_uptime": &stat.ProcessUptime, // Can be removed after 0.15 cuts.
+	} {
+		pm := prometheusMetric(metricFamilies, m)
+		// Ignore if not found.
+		if pm == nil {
+			continue
+		}
+		*pv = *pm.Gauge.Value
 	}
 	return stat, nil
 }

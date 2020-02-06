@@ -21,10 +21,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/pkg/ptr"
 	net "knative.dev/serving/pkg/apis/networking"
+	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -59,6 +59,9 @@ type Config struct {
 	// realize a route's setting.
 	Targets map[string]RevisionTargets
 
+	// Visibility of the traffic targets.
+	Visibility map[string]netv1alpha1.IngressVisibility
+
 	// A list traffic targets, flattened to the Revision level.  This
 	// is used to populate the Route.Status.TrafficTarget field.
 	revisionTargets RevisionTargets
@@ -85,7 +88,7 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 }
 
 // GetRevisionTrafficTargets returns a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
-func (t *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1alpha1.Route, clusterLocalService sets.String) ([]v1alpha1.TrafficTarget, error) {
+func (t *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1alpha1.Route) ([]v1alpha1.TrafficTarget, error) {
 	results := make([]v1alpha1.TrafficTarget, len(t.revisionTargets))
 	for i, tt := range t.revisionTargets {
 		var pp *int64
@@ -111,7 +114,7 @@ func (t *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1alpha1.Rout
 				return nil, err
 			}
 
-			labels.SetVisibility(meta, clusterLocalService.Has(hostname))
+			labels.SetVisibility(meta, t.Visibility[tt.Tag] == netv1alpha1.IngressVisibilityClusterLocal)
 
 			// http is currently the only supported scheme
 			fullDomain, err := domains.DomainNameFromTemplate(ctx, *meta, hostname)

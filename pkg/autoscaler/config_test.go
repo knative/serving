@@ -28,6 +28,7 @@ import (
 
 var defaultConfig = Config{
 	EnableScaleToZero:                  true,
+	EnableGracefulScaledown:            false,
 	ContainerConcurrencyTargetFraction: 0.7,
 	ContainerConcurrencyTargetDefault:  100,
 	RPSTargetDefault:                   200,
@@ -36,7 +37,6 @@ var defaultConfig = Config{
 	MaxScaleUpRate:                     1000,
 	MaxScaleDownRate:                   2,
 	StableWindow:                       time.Minute,
-	PanicWindow:                        6 * time.Second,
 	ScaleToZeroGracePeriod:             30 * time.Second,
 	TickInterval:                       2 * time.Second,
 	PanicWindowPercentage:              10.0,
@@ -61,7 +61,6 @@ func TestNewConfig(t *testing.T) {
 			"container-concurrency-target-default":    "10.0",
 			"target-burst-capacity":                   "0",
 			"stable-window":                           "5m",
-			"panic-window":                            "10s",
 			"tick-interval":                           "2s",
 			"panic-window-percentage":                 "10",
 			"panic-threshold-percentage":              "200",
@@ -72,7 +71,6 @@ func TestNewConfig(t *testing.T) {
 			c.MaxScaleUpRate = 1.001
 			c.TargetBurstCapacity = 0
 			c.StableWindow = 5 * time.Minute
-			c.PanicWindow = 10 * time.Second
 			return &c
 		}(defaultConfig),
 	}, {
@@ -94,9 +92,10 @@ func TestNewConfig(t *testing.T) {
 			return &c
 		}(defaultConfig),
 	}, {
-		name: "with toggles on",
+		name: "with default toggles set",
 		input: map[string]string{
 			"enable-scale-to-zero":                    "true",
+			"enable-graceful-scaledown":               "false",
 			"max-scale-down-rate":                     "3.0",
 			"max-scale-up-rate":                       "1.01",
 			"container-concurrency-target-percentage": "0.71",
@@ -104,7 +103,6 @@ func TestNewConfig(t *testing.T) {
 			"requests-per-second-target-default":      "10.11",
 			"target-burst-capacity":                   "12345",
 			"stable-window":                           "5m",
-			"panic-window":                            "11s",
 			"tick-interval":                           "2s",
 			"panic-window-percentage":                 "10",
 			"panic-threshold-percentage":              "200",
@@ -117,22 +115,24 @@ func TestNewConfig(t *testing.T) {
 			c.MaxScaleDownRate = 3
 			c.MaxScaleUpRate = 1.01
 			c.StableWindow = 5 * time.Minute
-			c.PanicWindow = 11 * time.Second
 			return &c
 		}(defaultConfig),
 	}, {
 		name: "with toggles on strange casing",
 		input: map[string]string{
-			"enable-scale-to-zero": "TRUE",
+			"enable-scale-to-zero":      "TRUE",
+			"enable-graceful-scaledown": "FALSE",
 		},
 		want: &defaultConfig,
 	}, {
-		name: "with toggles explicitly off",
+		name: "with toggles explicitly flipped",
 		input: map[string]string{
-			"enable-scale-to-zero": "false",
+			"enable-scale-to-zero":      "false",
+			"enable-graceful-scaledown": "true",
 		},
 		want: func(c Config) *Config {
 			c.EnableScaleToZero = false
+			c.EnableGracefulScaledown = true
 			return &c
 		}(defaultConfig),
 	}, {
@@ -214,24 +214,16 @@ func TestNewConfig(t *testing.T) {
 		},
 		wantErr: true,
 	}, {
-		name: "panic window too small",
+		name: "stable not seconds",
 		input: map[string]string{
-			"panic-window": "500ms",
-		},
-		wantErr: true,
-	}, {
-		name: "panic window too big",
-		input: map[string]string{
-			"stable-window": "12s",
-			"panic-window":  "13s",
+			"stable-window": "61984ms",
 		},
 		wantErr: true,
 	}, {
 		name: "panic window percentage too small",
 		input: map[string]string{
 			"stable-window":           "12s",
-			"panic-window":            "5s",
-			"panic-window-percentage": "10", // 1.2s < BucketSize
+			"panic-window-percentage": "5", // 0.6s < BucketSize
 		},
 		wantErr: true,
 	}, {
@@ -263,6 +255,7 @@ func TestNewConfig(t *testing.T) {
 			got, err := NewConfigFromConfigMap(&corev1.ConfigMap{
 				Data: test.input,
 			})
+			t.Logf("Error = %v", err)
 			if (err != nil) != test.wantErr {
 				t.Errorf("NewConfig() = %v, want %v", err, test.wantErr)
 			}

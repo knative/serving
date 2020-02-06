@@ -25,8 +25,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/networking"
 )
+
+var defaultMaxRevisionTimeout = time.Duration(config.DefaultMaxRevisionTimeoutSeconds) * time.Second
 
 func TestIngressDefaulting(t *testing.T) {
 	tests := []struct {
@@ -51,53 +54,6 @@ func TestIngressDefaulting(t *testing.T) {
 		want: &Ingress{
 			Spec: IngressSpec{
 				Visibility: IngressVisibilityClusterLocal,
-			},
-		},
-	}, {
-		name: "tls-defaulting",
-		in: &Ingress{
-			Spec: IngressSpec{
-				TLS: []IngressTLS{{
-					SecretNamespace: "secret-space",
-					SecretName:      "secret-name",
-				}},
-			},
-		},
-		want: &Ingress{
-			Spec: IngressSpec{
-				TLS: []IngressTLS{{
-					SecretNamespace: "secret-space",
-					SecretName:      "secret-name",
-					// Default secret keys are filled in.
-					ServerCertificate: "tls.crt",
-					PrivateKey:        "tls.key",
-				}},
-				Visibility: IngressVisibilityExternalIP,
-			},
-		},
-	}, {
-		name: "tls-not-defaulting",
-		in: &Ingress{
-			Spec: IngressSpec{
-				TLS: []IngressTLS{{
-					SecretNamespace:   "secret-space",
-					SecretName:        "secret-name",
-					ServerCertificate: "custom.tls.cert",
-					PrivateKey:        "custom.tls.key",
-				}},
-				Visibility: IngressVisibilityExternalIP,
-			},
-		},
-		want: &Ingress{
-			Spec: IngressSpec{
-				TLS: []IngressTLS{{
-					SecretNamespace: "secret-space",
-					SecretName:      "secret-name",
-					// Default secret keys are kept intact.
-					ServerCertificate: "custom.tls.cert",
-					PrivateKey:        "custom.tls.key",
-				}},
-				Visibility: IngressVisibilityExternalIP,
 			},
 		},
 	}, {

@@ -24,7 +24,6 @@ const (
 	// QueueContainerName is the name of the queue proxy side car
 	QueueContainerName = "queue-proxy"
 
-	sidecarIstioInjectAnnotation = "sidecar.istio.io/inject"
 	// IstioOutboundIPRangeAnnotation defines the outbound ip ranges istio allows.
 	// TODO(mattmoor): Make this private once we remove revision_test.go
 	IstioOutboundIPRangeAnnotation = "traffic.sidecar.istio.io/includeOutboundIPRanges"
@@ -38,7 +37,7 @@ const (
 )
 
 var (
-	// See https://knative.dev/serving/pull/1124#issuecomment-397120430
+	// See https://github.com/knative/serving/pull/1124#issuecomment-397120430
 	// for how CPU and memory values were calculated.
 	queueContainerCPU = resource.MustParse("25m")
 )

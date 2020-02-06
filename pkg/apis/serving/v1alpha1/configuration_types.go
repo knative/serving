@@ -32,7 +32,7 @@ import (
 // Users create new Revisions by updating the Configuration's spec.
 // The "latest created" revision's name is available under status, as is the
 // "latest ready" revision's name.
-// See also: https://knative.dev/serving/blob/master/docs/spec/overview.md#configuration
+// See also: https://github.com/knative/serving/blob/master/docs/spec/overview.md#configuration
 type Configuration struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
@@ -68,7 +68,7 @@ type ConfigurationSpec struct {
 	// This property will be dropped in future Knative releases and should
 	// not be used - use metadata.generation
 	//
-	// Tracking issue: https://knative.dev/serving/issues/643
+	// Tracking issue: https://github.com/knative/serving/issues/643
 	//
 	// +optional
 	DeprecatedGeneration int64 `json:"generation,omitempty"`

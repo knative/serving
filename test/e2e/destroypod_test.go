@@ -129,12 +129,12 @@ func TestDestroyPodInflight(t *testing.T) {
 		}
 
 		if res.StatusCode != http.StatusOK {
-			return fmt.Errorf("Expected response to have status 200, had %d", res.StatusCode)
+			return fmt.Errorf("expected response to have status 200, had %d", res.StatusCode)
 		}
 		expectedBody := fmt.Sprintf("Slept for %d milliseconds", timeoutRequestDuration.Milliseconds())
 		gotBody := string(res.Body)
 		if gotBody != expectedBody {
-			return fmt.Errorf("Unexpected body, expected: %q got: %q", expectedBody, gotBody)
+			return fmt.Errorf("unexpected body, expected: %q got: %q", expectedBody, gotBody)
 		}
 		return nil
 	})
@@ -172,9 +172,22 @@ func TestDestroyPodTimely(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
+	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
+	}
+	routeURL := objects.Route.Status.URL.URL()
+
+	if _, err = pkgTest.WaitForEndpointState(
+		clients.KubeClient,
+		t.Logf,
+		routeURL,
+		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+		"RouteServes",
+		test.ServingFlags.ResolvableDomain); err != nil {
+		t.Fatalf("The endpoint for Route %s at %s didn't serve correctly: %v", names.Route, routeURL, err)
 	}
 
 	pods, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).List(metav1.ListOptions{
@@ -183,6 +196,7 @@ func TestDestroyPodTimely(t *testing.T) {
 	if err != nil || len(pods.Items) == 0 {
 		t.Fatalf("No pods or error: %v", err)
 	}
+	t.Logf("Saw %d pods", len(pods.Items))
 
 	podToDelete := pods.Items[0].Name
 	t.Logf("Deleting pod %q", podToDelete)
@@ -229,7 +243,9 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	defer test.TearDown(clients, names)
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	objects, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names, v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
+	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
+		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		v1a1opts.WithRevisionTimeoutSeconds(int64(revisionTimeout.Seconds())))
 	if err != nil {
 		t.Fatalf("Failed to create a service: %v", err)
 	}
@@ -248,9 +264,10 @@ func TestDestroyPodWithRequests(t *testing.T) {
 	pods, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingNamespace).List(metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", serving.RevisionLabelKey, objects.Revision.Name),
 	})
-	if err != nil || len(pods.Items) != 1 {
-		t.Fatalf("Number of pods is not 1 or an error: %v", err)
+	if err != nil || len(pods.Items) == 0 {
+		t.Fatalf("No pods or error: %v", err)
 	}
+	t.Logf("Saw %d pods. Pods: %s", len(pods.Items), spew.Sdump(pods))
 
 	// The request will sleep for more than 15 seconds.
 	// NOTE: it needs to be less than TERMINATION_DRAIN_DURATION_SECONDS.

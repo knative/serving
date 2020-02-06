@@ -24,7 +24,7 @@ export BENCHMARK_ROOT_PATH="$GOPATH/src/knative.dev/serving/test/performance/ben
 source vendor/knative.dev/test-infra/scripts/performance-tests.sh
 
 function update_knative() {
-  local istio_version="istio-1.2-latest"
+  local istio_version="istio-1.4-latest"
   # Mako needs to escape '.' in tags. Use '_' instead.
   local istio_version_escaped=${istio_version//./_}
 
@@ -36,7 +36,7 @@ function update_knative() {
   kubectl delete deployments --all -n istio-system
   kubectl delete services --all -n istio-system
   kubectl apply -f serving/third_party/$istio_version/istio-crds.yaml || abort "Failed to apply istio-crds"
-  kubectl apply -f serving/third_party/$istio_version/istio-lean.yaml || abort "Failed to apply istio-lean"
+  kubectl apply -f serving/third_party/$istio_version/istio-ci-no-mesh.yaml || abort "Failed to apply istio-ci-no-mesh"
 
   # Overprovision the Istio gateways and pilot.
   kubectl patch hpa -n istio-system istio-ingressgateway \
@@ -57,9 +57,9 @@ function update_knative() {
   fi
   popd
 
-  # Update the activator hpa minReplicas to 10
-  kubectl patch hpa -n knative-serving activator \
-    --patch '{"spec": {"minReplicas": 10}}'
+  # Delete activator hpa and disable activator deployment
+  kubectl delete hpa activator -n knative-serving
+  kubectl patch deploy -n knative-serving activator --patch '{"spec": {"replicas": 0}}'
   # Update the scale-to-zero grace period to 10s
   kubectl patch configmap/config-autoscaler \
     -n knative-serving \
@@ -92,8 +92,12 @@ EOF
 }
 
 function update_benchmark() {
-  echo ">> Applying all the yamls for benchmark $1"
+  echo ">> Deleting all the yamls for benchmark $1"
   ko delete -f ${BENCHMARK_ROOT_PATH}/$1/continuous --ignore-not-found=true
+  echo ">> Deleting all Knative serving services"
+  kubectl delete ksvc --all
+
+  echo ">> Applying all the yamls for benchmark $1"
   ko apply -f ${BENCHMARK_ROOT_PATH}/$1/continuous || abort "failed to apply benchmarks yaml $1"
 }
 
