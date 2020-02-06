@@ -42,13 +42,12 @@ type MetricHandler struct {
 }
 
 func (h *MetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	revID := revIDFrom(r.Context())
 	revision := revisionFrom(r.Context())
 	configurationName := revision.Labels[serving.ConfigurationLabelKey]
 	serviceName := revision.Labels[serving.ServiceLabelKey]
 
 	// It's safe to ignore this error as the RevisionStatsReporter is nil-pointer safe. Calls will be noops.
-	reporter, _ := h.reporter.GetRevisionStatsReporter(revID.Namespace, serviceName, configurationName, revID.Name)
+	reporter, _ := h.reporter.GetRevisionStatsReporter(revision.Namespace, serviceName, configurationName, revision.Name)
 
 	start := time.Now()
 

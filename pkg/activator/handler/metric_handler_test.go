@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -28,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	rtesting "knative.dev/pkg/reconciler/testing"
+	"knative.dev/serving/pkg/activator"
 )
 
 var ignoreDurationOption = cmpopts.IgnoreFields(reporterCall{}, "Duration")
@@ -115,4 +117,32 @@ func TestRequestMetricHandler(t *testing.T) {
 		})
 	}
 
+}
+
+func BenchmarkMetricHandler(b *testing.B) {
+	reporter, err := activator.NewStatsReporter("test_pod")
+	if err != nil {
+		b.Fatalf("Failed to create a reporter: %v", err)
+	}
+	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	reqCtx := withRevision(context.Background(), revision(testNamespace, testRevName))
+
+	handler := &MetricHandler{reporter: reporter, nextHandler: baseHandler}
+
+	resp := httptest.NewRecorder()
+	b.Run(fmt.Sprint("sequential"), func(b *testing.B) {
+		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil).WithContext(reqCtx)
+		for j := 0; j < b.N; j++ {
+			handler.ServeHTTP(resp, req)
+		}
+	})
+
+	b.Run(fmt.Sprint("parallel"), func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil).WithContext(reqCtx)
+			for pb.Next() {
+				handler.ServeHTTP(resp, req)
+			}
+		})
+	})
 }
