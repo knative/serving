@@ -36,7 +36,7 @@ func MakeImageCache(rev *v1alpha1.Revision, containerName string) *caching.Image
 
 	img := &caching.Image{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      names.ImageCache(rev) + "-" + containerName,
+			Name:      kmeta.ChildName(names.ImageCache(rev), containerName),
 			Namespace: rev.Namespace,
 			Labels:    makeLabels(rev),
 			Annotations: resources.FilterMap(rev.GetAnnotations(), func(k string) bool {

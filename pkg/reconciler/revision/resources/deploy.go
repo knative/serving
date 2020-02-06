@@ -144,34 +144,21 @@ func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig 
 	containers := []corev1.Container{
 		*queueContainer,
 	}
-
-	// closure function for serving container
-	servingContainer := func() {
-		userContainer := createServingContainer(rev)
-		// Prefer imageDigest from revision if available
-		if rev.Status.ImageDigest != "" {
-			userContainer.Image = rev.Status.ImageDigest
-		}
-		containers = appendContainer(containers, *userContainer)
-	}
-
-	// No change in functional behavior if there is one container.
-	if len(rev.Spec.PodSpec.Containers) == 1 {
-		servingContainer()
-	} else {
-		for i := range rev.Spec.PodSpec.Containers {
-			if len(rev.Spec.PodSpec.Containers[i].Ports) != 0 {
-				servingContainer()
-			} else {
-				multiContainers := makeContainer(rev.Spec.PodSpec.Containers[i].DeepCopy(), rev)
-				// Prefer imageDigest from revision if available
-				if len(rev.Status.ImageDigests) != 0 {
-					if v, ok := rev.Status.ImageDigests[multiContainers.Name]; ok {
-						multiContainers.Image = v
-					}
-				}
-				containers = appendContainer(containers, *multiContainers)
+	for i := range rev.Spec.PodSpec.Containers {
+		if len(rev.Spec.PodSpec.Containers[i].Ports) != 0 || len(rev.Spec.PodSpec.Containers) == 1 {
+			servingContainer := makeServingContainer(rev.Spec.GetContainer().DeepCopy(), rev)
+			// Prefer imageDigest from revision if available
+			if rev.Status.ImageDigest != "" {
+				servingContainer.Image = rev.Status.ImageDigest
 			}
+			containers = appendContainer(containers, servingContainer)
+		} else {
+			multiContainers := makeContainer(rev.Spec.PodSpec.Containers[i].DeepCopy(), rev)
+			// Prefer imageDigest from revision if available
+			if v, ok := rev.Status.ImageDigests[multiContainers.Name]; ok {
+				multiContainers.Image = v
+			}
+			containers = appendContainer(containers, multiContainers)
 		}
 	}
 	podSpec := &corev1.PodSpec{
@@ -199,37 +186,37 @@ func appendContainer(old []corev1.Container, new corev1.Container) []corev1.Cont
 	return append(old, new)
 }
 
-func makeContainer(userContainer *corev1.Container, rev *v1alpha1.Revision) *corev1.Container {
-	userContainer.VolumeMounts = append(userContainer.VolumeMounts, varLogVolumeMount)
-	userContainer.Lifecycle = userLifecycle
-	userContainer.Env = append(userContainer.Env, getKnativeEnvVar(rev)...)
+func makeContainer(container *corev1.Container, rev *v1alpha1.Revision) corev1.Container {
+	container.VolumeMounts = append(container.VolumeMounts, varLogVolumeMount)
+	container.Lifecycle = userLifecycle
+	container.Env = append(container.Env, getKnativeEnvVar(rev)...)
 	// Explicitly disable stdin and tty allocation
-	userContainer.Stdin = false
-	userContainer.TTY = false
-	if userContainer.TerminationMessagePolicy == "" {
-		userContainer.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
+	container.Stdin = false
+	container.TTY = false
+	if container.TerminationMessagePolicy == "" {
+		container.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
 	}
-	return userContainer
+	return *container
 }
 
-func createServingContainer(rev *v1alpha1.Revision) *corev1.Container {
-	userContainer := makeContainer(rev.Spec.GetContainer().DeepCopy(), rev)
+func makeServingContainer(servingContainer *corev1.Container, rev *v1alpha1.Revision) corev1.Container {
+	container := makeContainer(servingContainer, rev)
 	userPort := getUserPort(rev)
 	userPortInt := int(userPort)
 	userPortStr := strconv.Itoa(userPortInt)
 	// Replacement is safe as only up to a single port is allowed on the Revision
-	userContainer.Ports = buildContainerPorts(userPort)
-	userContainer.Env = append(userContainer.Env, buildUserPortEnv(userPortStr))
-	if userContainer.ReadinessProbe != nil {
-		if userContainer.ReadinessProbe.HTTPGet != nil || userContainer.ReadinessProbe.TCPSocket != nil {
+	container.Ports = buildContainerPorts(userPort)
+	container.Env = append(container.Env, buildUserPortEnv(userPortStr))
+	if container.ReadinessProbe != nil {
+		if container.ReadinessProbe.HTTPGet != nil || container.ReadinessProbe.TCPSocket != nil {
 			// HTTP and TCP ReadinessProbes are executed by the queue-proxy directly against the
 			// user-container instead of via kubelet.
-			userContainer.ReadinessProbe = nil
+			container.ReadinessProbe = nil
 		}
 	}
 	// If the client provides probes, we should fill in the port for them.
-	rewriteUserProbe(userContainer.LivenessProbe, userPortInt)
-	return userContainer
+	rewriteUserProbe(container.LivenessProbe, userPortInt)
+	return container
 }
 
 func getUserPort(rev *v1.Revision) int32 {
