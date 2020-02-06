@@ -89,7 +89,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		// Do not report response time here. It is reported in pkg/activator/metric_handler.go to
 		// sum up all time spent on multiple handlers.
-		reporterFrom(r.Context()).ReportRequestCount(httpStatus, 1)
+		reporterFrom(r.Context()).ReportRequestCount(httpStatus)
 
 		return nil
 	})

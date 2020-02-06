@@ -72,11 +72,10 @@ func TestActivatorReporter(t *testing.T) {
 		"container_name":                  "activator",
 		"response_code":                   "200",
 		"response_code_class":             "2xx",
-		"num_tries":                       "6",
 	}
 
-	rr.ReportRequestCount(http.StatusOK, 6)
-	rr.ReportRequestCount(http.StatusOK, 6)
+	rr.ReportRequestCount(http.StatusOK)
+	rr.ReportRequestCount(http.StatusOK)
 	metricstest.CheckCountData(t, "request_count", wantTags2, 2)
 
 	// test ReportResponseTime
@@ -130,9 +129,8 @@ func TestActivatorReporterEmptyServiceName(t *testing.T) {
 		"container_name":                  "activator",
 		"response_code":                   "200",
 		"response_code_class":             "2xx",
-		"num_tries":                       "6",
 	}
-	rr.ReportRequestCount(200, 6)
+	rr.ReportRequestCount(200)
 	metricstest.CheckCountData(t, "request_count", wantTags2, 1)
 
 	// test ReportResponseTime
@@ -165,7 +163,7 @@ func TestActivatorReporterErrorToNoop(t *testing.T) {
 	}
 
 	rr.ReportRequestConcurrency(100)
-	rr.ReportRequestCount(200, 6)
+	rr.ReportRequestCount(200)
 	rr.ReportResponseTime(200, 7100*time.Millisecond)
 	rr.ReportResponseTime(200, 5100*time.Millisecond)
 }

@@ -97,7 +97,6 @@ func TestActivationHandler(t *testing.T) {
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusOK,
-			Attempts:   1,
 			Value:      1,
 		}},
 	}, {
@@ -113,7 +112,6 @@ func TestActivationHandler(t *testing.T) {
 			Service:    "service-real-name",
 			Config:     "config-real-name",
 			StatusCode: http.StatusBadGateway,
-			Attempts:   1,
 			Value:      1,
 		}},
 	}, {
@@ -344,7 +342,6 @@ type reporterCall struct {
 	Config     string
 	Revision   string
 	StatusCode int
-	Attempts   int
 	Value      int64
 	Duration   time.Duration
 }
@@ -382,7 +379,7 @@ func (f *fakeReporter) ReportRequestConcurrency(v int64) {
 	})
 }
 
-func (f *fakeReporter) ReportRequestCount(responseCode, numTries int) {
+func (f *fakeReporter) ReportRequestCount(responseCode int) {
 	f.mux.Lock()
 	defer f.mux.Unlock()
 	f.calls = append(f.calls, reporterCall{
@@ -392,7 +389,6 @@ func (f *fakeReporter) ReportRequestCount(responseCode, numTries int) {
 		Config:     f.config,
 		Revision:   f.rev,
 		StatusCode: responseCode,
-		Attempts:   numTries,
 		Value:      1,
 	})
 }
