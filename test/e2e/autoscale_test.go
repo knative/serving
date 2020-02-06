@@ -37,7 +37,7 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/autoscaler"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/pkg/resources"
 	rtesting "knative.dev/serving/pkg/testing/v1alpha1"
@@ -439,7 +439,7 @@ func TestGracefulScaledown(t *testing.T) {
 		wsHostnameTestImageName, nil /* no validation */)
 	defer test.TearDown(ctx.clients, ctx.names)
 
-	autoscalerConfigMap, err := rawCM(ctx.clients, autoscaler.ConfigName)
+	autoscalerConfigMap, err := rawCM(ctx.clients, autoscalerconfig.ConfigName)
 	if err != nil {
 		t.Errorf("Error retrieving autoscaler configmap: %v", err)
 	}

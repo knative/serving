@@ -35,7 +35,7 @@ import (
 	"knative.dev/pkg/system"
 	pkgTest "knative.dev/pkg/test"
 	"knative.dev/serving/pkg/apis/networking"
-	"knative.dev/serving/pkg/autoscaler"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
@@ -72,14 +72,14 @@ func SetupWithNamespace(t *testing.T, namespace string) *test.Clients {
 
 // autoscalerCM returns the current autoscaler config map deployed to the
 // test cluster.
-func autoscalerCM(clients *test.Clients) (*autoscaler.Config, error) {
+func autoscalerCM(clients *test.Clients) (*autoscalerconfig.Config, error) {
 	autoscalerCM, err := clients.KubeClient.Kube.CoreV1().ConfigMaps("knative-serving").Get(
-		autoscaler.ConfigName,
+		autoscalerconfig.ConfigName,
 		metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
-	return autoscaler.NewConfigFromMap(autoscalerCM.Data)
+	return autoscalerconfig.NewConfigFromMap(autoscalerCM.Data)
 }
 
 // rawCM returns the raw knative config map for the given name

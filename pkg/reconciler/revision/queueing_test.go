@@ -40,7 +40,7 @@ import (
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/autoscaler"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
@@ -190,7 +190,7 @@ func newTestController(t *testing.T) (
 			}}, {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      autoscaler.ConfigName,
+				Name:      autoscalerconfig.ConfigName,
 			},
 			Data: map[string]string{
 				"max-scale-up-rate":                       "2.0",
