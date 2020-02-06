@@ -65,8 +65,8 @@ func (kr *KReference) Validate(ctx context.Context) *apis.FieldError {
 	// Because things get defaulted in other cases, moving forward the
 	// kr.Namespace will not be empty.
 	if kr.Namespace != "" {
-		parentNS := apis.ParentMeta(ctx).Namespace
 		if !apis.IsDifferentNamespaceAllowed(ctx) {
+			parentNS := apis.ParentMeta(ctx).Namespace
 			if parentNS != "" && kr.Namespace != parentNS {
 				errs = errs.Also(&apis.FieldError{
 					Message: "mismatched namespaces",
@@ -80,6 +80,7 @@ func (kr *KReference) Validate(ctx context.Context) *apis.FieldError {
 	return errs
 }
 
+// SetDefaults sets the default values on the KReference.
 func (kr *KReference) SetDefaults(ctx context.Context) {
 	if kr.Namespace == "" {
 		kr.Namespace = apis.ParentMeta(ctx).Namespace
