@@ -19,7 +19,7 @@ package metric
 import (
 	"context"
 
-	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/autoscaler/metrics"
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
 	pkgreconciler "knative.dev/serving/pkg/reconciler"
 
@@ -36,7 +36,7 @@ const (
 func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
-	collector autoscaler.Collector,
+	collector metrics.Collector,
 ) *controller.Impl {
 	metricInformer := metricinformer.Get(ctx)
 

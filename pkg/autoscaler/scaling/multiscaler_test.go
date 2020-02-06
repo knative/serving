@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package autoscaler
+package scaling
 
 import (
 	"context"
@@ -31,6 +31,8 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	. "knative.dev/pkg/logging/testing"
+	"knative.dev/serving/pkg/autoscaler/fake"
+	"knative.dev/serving/pkg/autoscaler/metrics"
 )
 
 const (
@@ -87,8 +89,8 @@ func TestMultiScalerScaling(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ms, uniScaler := createMultiScaler(ctx, TestLogger(t))
-	mtp := &manualTickProvider{
-		ch: make(chan time.Time, 1),
+	mtp := &fake.ManualTickProvider{
+		Channel: make(chan time.Time, 1),
 	}
 	ms.tickProvider = mtp.NewTicker
 
@@ -120,7 +122,7 @@ func TestMultiScalerScaling(t *testing.T) {
 	}
 
 	// Verify that we see a "tick"
-	mtp.ch <- time.Now()
+	mtp.Channel <- time.Now()
 	if err := verifyTick(errCh); err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +141,7 @@ func TestMultiScalerScaling(t *testing.T) {
 
 	// Verify that subsequent "ticks" don't trigger a callback, since
 	// the desired scale has not changed.
-	mtp.ch <- time.Now()
+	mtp.Channel <- time.Now()
 	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +151,7 @@ func TestMultiScalerScaling(t *testing.T) {
 	}
 
 	// Verify that we stop seeing "ticks"
-	mtp.ch <- time.Now()
+	mtp.Channel <- time.Now()
 	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}
@@ -207,8 +209,8 @@ func TestMultiScalerOnlyCapacityChange(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ms, uniScaler := createMultiScaler(ctx, TestLogger(t))
-	mtp := &manualTickProvider{
-		ch: make(chan time.Time, 1),
+	mtp := &fake.ManualTickProvider{
+		Channel: make(chan time.Time, 1),
 	}
 	ms.tickProvider = mtp.NewTicker
 
@@ -224,7 +226,7 @@ func TestMultiScalerOnlyCapacityChange(t *testing.T) {
 	}
 
 	// Verify that we see a "tick".
-	mtp.ch <- time.Now()
+	mtp.Channel <- time.Now()
 	if err := verifyTick(errCh); err != nil {
 		t.Fatal(err)
 	}
@@ -233,7 +235,7 @@ func TestMultiScalerOnlyCapacityChange(t *testing.T) {
 	uniScaler.setScaleResult(1, -1, true)
 
 	// Verify that the update is observed.
-	mtp.ch <- time.Now()
+	mtp.Channel <- time.Now()
 	if err := verifyTick(errCh); err != nil {
 		t.Fatal(err)
 	}
@@ -243,7 +245,7 @@ func TestMultiScalerOnlyCapacityChange(t *testing.T) {
 	}
 
 	// Verify that we stop seeing "ticks".
-	mtp.ch <- time.Now()
+	mtp.Channel <- time.Now()
 	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}
@@ -296,8 +298,8 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ms, uniScaler := createMultiScaler(ctx, TestLogger(t))
-	mtp := &manualTickProvider{
-		ch: make(chan time.Time, 1),
+	mtp := &fake.ManualTickProvider{
+		Channel: make(chan time.Time, 1),
 	}
 	ms.tickProvider = mtp.NewTicker
 
@@ -319,7 +321,7 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 	}
 
 	// Verify that we see a "tick"
-	mtp.ch <- time.Now()
+	mtp.Channel <- time.Now()
 	if err := verifyTick(errCh); err != nil {
 		t.Fatal(err)
 	}
@@ -330,7 +332,7 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 	}
 
 	// Verify that we stop seeing "ticks"
-	mtp.ch <- time.Now()
+	mtp.Channel <- time.Now()
 	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}
@@ -340,8 +342,8 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ms, uniScaler := createMultiScaler(ctx, TestLogger(t))
-	mtp := &manualTickProvider{
-		ch: make(chan time.Time, 1),
+	mtp := &fake.ManualTickProvider{
+		Channel: make(chan time.Time, 1),
 	}
 	ms.tickProvider = mtp.NewTicker
 
@@ -363,7 +365,7 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 		t.Error("Failed to set scale for metric to 0")
 	}
 
-	testStat := Stat{
+	testStat := metrics.Stat{
 		Time:                      time.Now(),
 		PodName:                   "test-pod",
 		AverageConcurrentRequests: 1,
@@ -381,8 +383,8 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ms, uniScaler := createMultiScaler(ctx, TestLogger(t))
-	mtp := &manualTickProvider{
-		ch: make(chan time.Time, 1),
+	mtp := &fake.ManualTickProvider{
+		Channel: make(chan time.Time, 1),
 	}
 	ms.tickProvider = mtp.NewTicker
 
@@ -408,7 +410,7 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	}
 
 	// Verify that we get no "ticks", because the desired scale is negative
-	mtp.ch <- time.Now()
+	mtp.Channel <- time.Now()
 	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}
@@ -419,7 +421,7 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	}
 
 	// Verify that we stop seeing "ticks"
-	mtp.ch <- time.Now()
+	mtp.Channel <- time.Now()
 	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}
@@ -510,8 +512,8 @@ func (u *fakeUniScaler) Update(*DeciderSpec) error {
 func newDecider() *Decider {
 	return &Decider{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNamespace,
-			Name:      testRevision,
+			Namespace: fake.TestNamespace,
+			Name:      fake.TestRevision,
 		},
 		Spec: DeciderSpec{
 			TickInterval: tickInterval,

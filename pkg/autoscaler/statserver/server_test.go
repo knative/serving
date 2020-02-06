@@ -32,13 +32,13 @@ import (
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/autoscaler/metrics"
 
 	"k8s.io/apimachinery/pkg/types"
 )
 
 func TestServerLifecycle(t *testing.T) {
-	statsCh := make(chan autoscaler.StatMessage)
+	statsCh := make(chan metrics.StatMessage)
 	server := newTestServer(statsCh)
 
 	eg := errgroup.Group{}
@@ -55,7 +55,7 @@ func TestServerLifecycle(t *testing.T) {
 }
 
 func TestProbe(t *testing.T) {
-	statsCh := make(chan autoscaler.StatMessage)
+	statsCh := make(chan metrics.StatMessage)
 	server := newTestServer(statsCh)
 
 	defer server.Shutdown(0)
@@ -77,7 +77,7 @@ func TestProbe(t *testing.T) {
 }
 
 func TestStatsReceived(t *testing.T) {
-	statsCh := make(chan autoscaler.StatMessage)
+	statsCh := make(chan metrics.StatMessage)
 	server := newTestServer(statsCh)
 
 	defer server.Shutdown(0)
@@ -92,7 +92,7 @@ func TestStatsReceived(t *testing.T) {
 }
 
 func TestServerShutdown(t *testing.T) {
-	statsCh := make(chan autoscaler.StatMessage)
+	statsCh := make(chan metrics.StatMessage)
 	server := newTestServer(statsCh)
 
 	go server.listenAndServe()
@@ -137,7 +137,7 @@ func TestServerShutdown(t *testing.T) {
 }
 
 func TestServerDoesNotLeakGoroutines(t *testing.T) {
-	statsCh := make(chan autoscaler.StatMessage)
+	statsCh := make(chan metrics.StatMessage)
 	server := newTestServer(statsCh)
 
 	go server.listenAndServe()
@@ -166,10 +166,10 @@ func TestServerDoesNotLeakGoroutines(t *testing.T) {
 	server.Shutdown(time.Second)
 }
 
-func newStatMessage(revKey types.NamespacedName, podName string, averageConcurrentRequests float64, requestCount float64) autoscaler.StatMessage {
-	return autoscaler.StatMessage{
+func newStatMessage(revKey types.NamespacedName, podName string, averageConcurrentRequests float64, requestCount float64) metrics.StatMessage {
+	return metrics.StatMessage{
 		Key: revKey,
-		Stat: autoscaler.Stat{
+		Stat: metrics.Stat{
 			PodName:                   podName,
 			AverageConcurrentRequests: averageConcurrentRequests,
 			RequestCount:              requestCount,
@@ -177,7 +177,7 @@ func newStatMessage(revKey types.NamespacedName, podName string, averageConcurre
 	}
 }
 
-func assertReceivedOK(sm autoscaler.StatMessage, statSink *websocket.Conn, statsCh <-chan autoscaler.StatMessage, t *testing.T) bool {
+func assertReceivedOK(sm metrics.StatMessage, statSink *websocket.Conn, statsCh <-chan metrics.StatMessage, t *testing.T) bool {
 	send(statSink, sm, t)
 	recv, ok := <-statsCh
 	if !ok {
@@ -186,7 +186,7 @@ func assertReceivedOK(sm autoscaler.StatMessage, statSink *websocket.Conn, stats
 	if recv.Stat.Time == (time.Time{}) {
 		t.Fatalf("Stat time is nil")
 	}
-	ignoreTimeField := cmpopts.IgnoreFields(autoscaler.StatMessage{}, "Stat.Time")
+	ignoreTimeField := cmpopts.IgnoreFields(metrics.StatMessage{}, "Stat.Time")
 	if !cmp.Equal(sm, recv, ignoreTimeField) {
 		t.Fatalf("StatMessage mismatch: diff (-got, +want) %s", cmp.Diff(recv, sm, ignoreTimeField))
 	}
@@ -215,7 +215,7 @@ func dial(serverURL string, t *testing.T) (*websocket.Conn, error) {
 	return statSink, err
 }
 
-func send(statSink *websocket.Conn, sm autoscaler.StatMessage, t *testing.T) {
+func send(statSink *websocket.Conn, sm metrics.StatMessage, t *testing.T) {
 	var b bytes.Buffer
 	enc := gob.NewEncoder(&b)
 
@@ -240,7 +240,7 @@ type testServer struct {
 	listenAddrCh chan string
 }
 
-func newTestServer(statsCh chan<- autoscaler.StatMessage) *testServer {
+func newTestServer(statsCh chan<- metrics.StatMessage) *testServer {
 	return &testServer{
 		Server:       New(testAddress, statsCh, zap.NewNop().Sugar()),
 		listenAddrCh: make(chan string, 1),

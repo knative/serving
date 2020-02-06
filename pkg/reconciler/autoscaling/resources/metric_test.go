@@ -27,6 +27,7 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/autoscaler/metrics"
 	. "knative.dev/serving/pkg/testing"
 )
 
@@ -46,7 +47,7 @@ func TestMakeMetric(t *testing.T) {
 		pa:   pa(WithWindowAnnotation("10s"), WithPanicWindowPercentageAnnotation("10")),
 		msn:  "wil",
 		want: metric(withScrapeTarget("wil"), withWindowAnnotation("10s"),
-			withStableWindow(10*time.Second), withPanicWindow(autoscaler.BucketSize),
+			withStableWindow(10*time.Second), withPanicWindow(metrics.BucketSize),
 			withPanicWindowPercentageAnnotation("10")),
 	}, {
 		name: "with longer stable window, no panic window percentage, defaults to 10%",
