@@ -566,7 +566,7 @@
   revision = "bf2b5ad3c0a925c44a0d2842c5d8182113cd248e"
 
 [[projects]]
-  digest = "0:"
+  digest = "1:1e59759b895f57302df03c5632dc6bbedcdf6782a2b6259246ff653dd214ac45"
   name = "github.com/jetstack/cert-manager"
   packages = [
     "pkg/apis/acme",
@@ -1793,7 +1793,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:26325ee882afecdb033204b8f2d8e69f0d939f5bcc1a1b151233a7d78d74f7dc"
+  digest = "1:a2c7f91ca6236130b3076108f0c047d975f129419e0e68c0f23d99077bacb06f"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1899,7 +1899,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "2320af496487a33054bd0a4c808e4b5e75f08220"
+  revision = "1e31aa840f58bbcb5f33f9ab5f80bf26de2367f8"
 
 [[projects]]
   branch = "master"
@@ -1964,6 +1964,7 @@
     "github.com/google/mako/go/quickstore",
     "github.com/google/mako/spec/proto/mako_go_proto",
     "github.com/gorilla/websocket",
+    "github.com/hashicorp/golang-lru",
     "github.com/jetstack/cert-manager/pkg/apis/acme/v1alpha2",
     "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha2",
     "github.com/jetstack/cert-manager/pkg/apis/meta/v1",

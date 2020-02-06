@@ -1478,6 +1478,7 @@
     "k8s.io/code-generator/cmd/defaulter-gen",
     "k8s.io/code-generator/cmd/informer-gen",
     "k8s.io/code-generator/cmd/lister-gen",
+    "k8s.io/code-generator/pkg/namer",
     "k8s.io/code-generator/pkg/util",
     "k8s.io/gengo/args",
     "k8s.io/gengo/generator",
