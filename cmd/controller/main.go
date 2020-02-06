@@ -28,10 +28,22 @@ import (
 
 	// This defines the shared main for injected controllers.
 	"knative.dev/pkg/injection/sharedmain"
+	"knative.dev/pkg/signals"
+	"knative.dev/pkg/webhook"
+	"knative.dev/pkg/webhook/certificates"
 )
 
 func main() {
-	sharedmain.Main("controller",
+	// Set up a signal context with our webhook options so that the certificate
+	// controller has the right information to work from.
+	ctx := webhook.WithOptions(signals.NewContext(), webhook.Options{
+		ServiceName: "webhook",
+		Port:        8443,
+		SecretName:  "webhook-certs",
+	})
+
+	sharedmain.MainWithContext(ctx, "controller",
+		certificates.NewController,
 		configuration.NewController,
 		labeler.NewController,
 		revision.NewController,
