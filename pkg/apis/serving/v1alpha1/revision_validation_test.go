@@ -33,6 +33,7 @@ import (
 	"knative.dev/serving/pkg/apis/config"
 	net "knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -299,6 +300,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 		},
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
@@ -662,6 +664,7 @@ func TestImmutableFields(t *testing.T) {
 		},
 		wc: func(ctx context.Context) context.Context {
 			s := config.NewStore(logtesting.TestLogger(t))
+			s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
 			s.OnConfigChanged(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: config.DefaultsConfigName,
