@@ -262,7 +262,7 @@ func ValidatePodSpec(ps corev1.PodSpec) *apis.FieldError {
 			// probes are not allowed other than serving container
 			// ref: https://docs.google.com/document/d/1XjIRnOGaq9UGllkZgYXQHuTQmhbECNAOk6TT6RNfJMw/edit?disco=AAAAEHNSwZU
 			if len(ps.Containers[i].Ports) == 0 {
-				errs = errs.Also(ValidateMultiContainer(&ps.Containers[i], volumes).ViaFieldIndex("containers", i))
+				errs = errs.Also(ValidateSidecarContainer(&ps.Containers[i], volumes).ViaFieldIndex("containers", i))
 			} else {
 				errs = errs.Also(ValidateContainer(ps.Containers[i], volumes).ViaFieldIndex("containers", i))
 			}
@@ -278,24 +278,26 @@ func ValidatePodSpec(ps corev1.PodSpec) *apis.FieldError {
 
 //ValidateMultiContainerPorts validates port when specified multiple containers
 func ValidateMultiContainerPorts(containers []corev1.Container) *apis.FieldError {
-	cPort := []int32{}
-	var errs *apis.FieldError
+	var (
+		count int
+		errs  *apis.FieldError
+	)
 	for i := range containers {
-		for j := range containers[i].Ports {
-			cPort = append(cPort, containers[i].Ports[j].ContainerPort)
+		for range containers[i].Ports {
+			count++
 		}
 	}
-	if len(cPort) == 0 {
+	if count == 0 {
 		errs = errs.Also(apis.ErrMissingField("containers.ports.containerPort"))
 	}
-	if len(cPort) > 1 {
+	if count > 1 {
 		errs = errs.Also(apis.ErrMultipleOneOf("containers.ports.containerPort"))
 	}
 	return errs
 }
 
-//ValidateMultiContainer validate fields for non serving containers
-func ValidateMultiContainer(containers *corev1.Container, volumes sets.String) *apis.FieldError {
+//ValidateSidecarContainer validate fields for non serving containers
+func ValidateSidecarContainer(container *corev1.Container, volumes sets.String) *apis.FieldError {
 	var errs *apis.FieldError
 	validateMultiContainerProbe := func(p *corev1.Probe) *apis.FieldError {
 		if p != nil {
@@ -303,10 +305,9 @@ func ValidateMultiContainer(containers *corev1.Container, volumes sets.String) *
 		}
 		return nil
 	}
-	errs = errs.Also(validateMultiContainerProbe(containers.LivenessProbe).ViaField("livenessProbe"))
-	errs = errs.Also(validateMultiContainerProbe(containers.ReadinessProbe).ViaField("readinessProbe"))
-	errs = errs.Also(validate(*containers, volumes))
-	return errs
+	errs = errs.Also(validateMultiContainerProbe(container.LivenessProbe).ViaField("livenessProbe"))
+	errs = errs.Also(validateMultiContainerProbe(container.ReadinessProbe).ViaField("readinessProbe"))
+	return errs.Also(validate(*container, volumes))
 }
 
 //ValidateContainer validate fields for serving containers
@@ -316,8 +317,7 @@ func ValidateContainer(container corev1.Container, volumes sets.String) *apis.Fi
 	errs = errs.Also(validateProbe(container.LivenessProbe).ViaField("livenessProbe"))
 	// Readiness Probes
 	errs = errs.Also(validateReadinessProbe(container.ReadinessProbe).ViaField("readinessProbe"))
-	errs = errs.Also(validate(container, volumes))
-	return errs
+	return errs.Also(validate(container, volumes))
 }
 
 func validate(container corev1.Container, volumes sets.String) *apis.FieldError {

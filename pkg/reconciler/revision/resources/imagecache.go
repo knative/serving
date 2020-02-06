@@ -29,18 +29,7 @@ import (
 
 // MakeImageCache makes an caching.Image resources from a revision.
 func MakeImageCache(rev *v1alpha1.Revision, containerName string) *caching.Image {
-	var image string
-	if len(rev.Spec.Containers) == 1 {
-		image = rev.Status.ImageDigest
-	} else if len(rev.Spec.Containers) > 1 {
-		for i := range rev.Spec.Containers {
-			if len(rev.Spec.Containers[i].Ports) != 0 {
-				image = rev.Status.ImageDigest
-			} else {
-				image = rev.Status.ImageDigests[containerName]
-			}
-		}
-	}
+	image := rev.Status.ImageDigests[containerName]
 	if image == "" {
 		image = rev.Spec.GetContainer().Image
 	}

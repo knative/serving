@@ -138,8 +138,7 @@ type RevisionStatus struct {
 	ImageDigest string `json:"imageDigest,omitempty"`
 	// ImageDigests holds the resolved digest for the image specified
 	// within .Spec.Container.Image. The digest is resolved during the creation
-	// of Revision. This will be filled if there are multiple container specified.
-	// ImageDigests holds the digest for all the .Spec.Container.Image which are non serving.
+	// of Revision. ImageDigests holds the digest for all the .Spec.Container.Image both serving and non serving.
 	// ref: https://docs.google.com/document/d/1XjIRnOGaq9UGllkZgYXQHuTQmhbECNAOk6TT6RNfJMw/edit?disco=AAAAEHNSwZg
 	// +optional
 	ImageDigests map[string]string `json:"imageDigests,omitempty"`
