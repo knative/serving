@@ -254,10 +254,11 @@ func ValidatePodSpec(ps corev1.PodSpec) *apis.FieldError {
 	case 0:
 		errs = errs.Also(apis.ErrMissingField("containers"))
 	case 1:
+		errs = errs.Also(portValidation(len(ps.Containers[0].Ports))).ViaField("containers.ports")
 		errs = errs.Also(ValidateContainer(ps.Containers[0], volumes).
 			ViaFieldIndex("containers", 0))
 	default:
-		errs = ValidateMultiContainerPorts(ps.Containers)
+		errs = errs.Also(ValidateMultiContainerPorts(ps.Containers)).ViaField("containers.ports")
 		for i := range ps.Containers {
 			// probes are not allowed other than serving container
 			// ref: https://docs.google.com/document/d/1XjIRnOGaq9UGllkZgYXQHuTQmhbECNAOk6TT6RNfJMw/edit?disco=AAAAEHNSwZU
@@ -288,12 +289,9 @@ func ValidateMultiContainerPorts(containers []corev1.Container) *apis.FieldError
 		}
 	}
 	if count == 0 {
-		errs = errs.Also(apis.ErrMissingField("containers.ports.containerPort"))
+		errs = errs.Also(apis.ErrMissingField(apis.CurrentField))
 	}
-	if count > 1 {
-		errs = errs.Also(apis.ErrMultipleOneOf("containers.ports.containerPort"))
-	}
-	return errs
+	return errs.Also(portValidation(count))
 }
 
 //ValidateSidecarContainer validate fields for non serving containers
@@ -318,6 +316,18 @@ func ValidateContainer(container corev1.Container, volumes sets.String) *apis.Fi
 	// Readiness Probes
 	errs = errs.Also(validateReadinessProbe(container.ReadinessProbe).ViaField("readinessProbe"))
 	return errs.Also(validate(container, volumes))
+}
+
+func portValidation(count int) *apis.FieldError {
+	var errs *apis.FieldError
+	if count > 1 {
+		errs = errs.Also(&apis.FieldError{
+			Message: "More than one container port is set",
+			Paths:   []string{apis.CurrentField},
+			Details: "Only a single port is allowed",
+		})
+	}
+	return errs
 }
 
 func validate(container corev1.Container, volumes sets.String) *apis.FieldError {
@@ -440,20 +450,11 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 	if len(ports) == 0 {
 		return nil
 	}
-
 	var errs *apis.FieldError
 
 	// user can set container port which names "user-port" to define application's port.
 	// Queue-proxy will use it to send requests to application
 	// if user didn't set any port, it will set default port user-port=8080.
-	if len(ports) > 1 {
-		errs = errs.Also(&apis.FieldError{
-			Message: "More than one container port is set",
-			Paths:   []string{apis.CurrentField},
-			Details: "Only a single port is allowed",
-		})
-	}
-
 	userPort := ports[0]
 
 	errs = errs.Also(apis.CheckDisallowedFields(userPort, *ContainerPortMask(&userPort)))
