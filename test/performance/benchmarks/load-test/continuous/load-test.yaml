@@ -23,8 +23,8 @@ metadata:
   name: load-testing
 rules:
   - apiGroups: [""]
-    resources: ["nodes"]
-    verbs: ["get", "list"]
+    resources: ["nodes", "pods"]
+    verbs: ["get", "list", "watch"]
   - apiGroups: ["apps"]
     resources: ["deployments"]
     verbs: ["get", "list", "watch"]
