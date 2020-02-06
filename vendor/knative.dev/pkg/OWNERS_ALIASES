@@ -13,6 +13,10 @@ aliases:
   - mattmoor
   - vaikas
 
+  codegen-approvers:
+  - mattmoor
+  - n3wscott
+
   configmap-approvers:
   - mattmoor
   - mdemirhan

@@ -18,6 +18,7 @@ package v1
 
 import (
 	"context"
+	"fmt"
 
 	"knative.dev/pkg/apis"
 )
@@ -58,6 +59,23 @@ func (kr *KReference) Validate(ctx context.Context) *apis.FieldError {
 	}
 	if kr.Kind == "" {
 		errs = errs.Also(apis.ErrMissingField("kind"))
+	}
+	// Only if namespace is empty validate it. This is to deal with legacy
+	// objects in the storage that may now have the namespace filled in.
+	// Because things get defaulted in other cases, moving forward the
+	// kr.Namespace will not be empty.
+	if kr.Namespace != "" {
+		parentNS := apis.ParentMeta(ctx).Namespace
+		if !apis.IsDifferentNamespaceAllowed(ctx) {
+			if parentNS != "" && kr.Namespace != parentNS {
+				errs = errs.Also(&apis.FieldError{
+					Message: "mismatched namespaces",
+					Paths:   []string{"namespace"},
+					Details: fmt.Sprintf("parent namespace: %q does not match ref: %q", parentNS, kr.Namespace),
+				})
+			}
+
+		}
 	}
 	return errs
 }

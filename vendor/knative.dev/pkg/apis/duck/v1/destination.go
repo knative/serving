@@ -33,6 +33,8 @@ type Destination struct {
 	URI *apis.URL `json:"uri,omitempty"`
 }
 
+// Validate the Destination has all the necessary fields and check the
+// Namespace matches that of the parent object (using apis.ParentMeta).
 func (dest *Destination) Validate(ctx context.Context) *apis.FieldError {
 	if dest == nil {
 		return nil
