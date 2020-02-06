@@ -258,11 +258,19 @@ function install_ambassador() {
 
 function install_contour() {
   local INSTALL_CONTOUR_YAML="./third_party/contour-latest/contour.yaml"
+  local INSTALL_NET_CONTOUR_YAML="./third_party/contour-latest/contour.yaml"
   echo "Contour YAML: ${INSTALL_CONTOUR_YAML}"
-  echo ">> Bringing up Contour"
+  echo "Contour KIngress YAML: ${INSTALL_NET_CONTOUR_YAML}"
 
+  echo ">> Bringing up Contour"
   kubectl apply -f ${INSTALL_CONTOUR_YAML} || return 1
+
   UNINSTALL_LIST+=( "${INSTALL_CONTOUR_YAML}" )
+
+  echo ">> Bringing up net-contour"
+  kubectl apply -f ${INSTALL_NET_CONTOUR_YAML} || return 1
+
+  UNINSTALL_LIST+=( "${INSTALL_NET_CONTOUR_YAML}" )
 }
 
 # Installs Knative Serving in the current cluster, and waits for it to be ready.
