@@ -42,7 +42,13 @@ func TestActivatorOverload(t *testing.T) {
 
 	const (
 		// The number of concurrent requests to hit the activator with.
-		concurrency = 100
+		// This number needs to be at most equal to the "queue depth" defined in
+		// the queue proxy. If it's greater than that number, there could be 503
+		// errors ("queue full").
+		// queue depth is defined as 10*container_concurrency
+		// (cmd/queue/main.go), so in this case, concurrency should be 10 at
+		// most.
+		concurrency = 10
 		// How long the service will process the request in ms.
 		serviceSleep = 300
 	)
