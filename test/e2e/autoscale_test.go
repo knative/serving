@@ -398,7 +398,7 @@ func assertGracefulScaledown(t *testing.T, ctx *testContext, size int) error {
 	defer deleteHostConnections(hostConnMap, openConnCount)
 
 	timer := time.NewTicker(2 * time.Second)
-	for _ = range timer.C {
+	for range timer.C {
 		readyCount, err := numberOfReadyPods(ctx)
 		if err != nil {
 			return err
