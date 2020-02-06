@@ -57,20 +57,12 @@ func (h *MetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		latency := time.Since(start)
 		if err != nil {
 			reporter.ReportResponseTime(http.StatusInternalServerError, latency)
+			reporter.ReportRequestCount(http.StatusInternalServerError)
 			panic(err)
 		}
 		reporter.ReportResponseTime(rr.ResponseCode, latency)
+		reporter.ReportRequestCount(rr.ResponseCode)
 	}()
 
-	h.nextHandler.ServeHTTP(rr, r.WithContext(withReporter(r.Context(), reporter)))
-}
-
-type reporterKey struct{}
-
-func withReporter(ctx context.Context, r activator.RevisionStatsReporter) context.Context {
-	return context.WithValue(ctx, reporterKey{}, r)
-}
-
-func reporterFrom(ctx context.Context) activator.RevisionStatsReporter {
-	return ctx.Value(reporterKey{}).(activator.RevisionStatsReporter)
+	h.nextHandler.ServeHTTP(rr, r)
 }

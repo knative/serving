@@ -32,7 +32,6 @@ import (
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	activatornet "knative.dev/serving/pkg/activator/net"
 	"knative.dev/serving/pkg/activator/util"
-	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 
@@ -81,15 +80,11 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if tracingEnabled {
 			proxyCtx, proxySpan = trace.StartSpan(r.Context(), "proxy")
 		}
-		httpStatus := a.proxyRequest(logger, w, r.WithContext(proxyCtx), &url.URL{
+		a.proxyRequest(logger, w, r.WithContext(proxyCtx), &url.URL{
 			Scheme: "http",
 			Host:   dest,
 		}, tracingEnabled)
 		proxySpan.End()
-
-		// Do not report response time here. It is reported in pkg/activator/metric_handler.go to
-		// sum up all time spent on multiple handlers.
-		reporterFrom(r.Context()).ReportRequestCount(httpStatus)
 
 		return nil
 	})
@@ -109,8 +104,9 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *activationHandler) proxyRequest(logger *zap.SugaredLogger, w http.ResponseWriter, r *http.Request, target *url.URL, tracingEnabled bool) int {
+func (a *activationHandler) proxyRequest(logger *zap.SugaredLogger, w http.ResponseWriter, r *http.Request, target *url.URL, tracingEnabled bool) {
 	network.RewriteHostIn(r)
+	r.Header.Set(network.ProxyHeaderName, activator.Name)
 
 	// Setup the reverse proxy.
 	proxy := httputil.NewSingleHostReverseProxy(target)
@@ -121,12 +117,7 @@ func (a *activationHandler) proxyRequest(logger *zap.SugaredLogger, w http.Respo
 	}
 	proxy.FlushInterval = -1
 	proxy.ErrorHandler = pkgnet.ErrorHandler(logger)
-
-	r.Header.Set(network.ProxyHeaderName, activator.Name)
-
 	util.SetupHeaderPruning(proxy)
 
-	recorder := pkghttp.NewResponseRecorder(w, http.StatusOK)
-	proxy.ServeHTTP(recorder, r)
-	return recorder.ResponseCode
+	proxy.ServeHTTP(w, r)
 }
