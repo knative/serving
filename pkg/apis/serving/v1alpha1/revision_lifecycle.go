@@ -48,7 +48,7 @@ const (
 
 	// AutoscalingQueueMetricsPortName specifies the port name to use for metrics
 	// emitted by queue-proxy for autoscaler.
-	AutoscalingQueueMetricsPortName = "queue-metrics"
+	AutoscalingQueueMetricsPortName = "http-autometric"
 
 	// UserQueueMetricsPortName specifies the port name to use for metrics
 	// emitted by queue-proxy for end user.
