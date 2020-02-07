@@ -207,7 +207,7 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer,
 		configName := decider.Labels[serving.ConfigurationLabelKey]
 
 		// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
-		reporter, err := scaling.NewStatsReporterContext(decider.Namespace, serviceName, configName, decider.Name)
+		ctx, err := scaling.NewStatsReporterContext(decider.Namespace, serviceName, configName, decider.Name)
 		if err != nil {
 			return nil, err
 		}
