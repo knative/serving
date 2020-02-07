@@ -2,7 +2,7 @@
 
 This doc explains how to setup a development environment so you can get started
 [contributing](https://www.knative.dev/contributing/) to `Knative Serving`. Also
-take a look at:
+take a look at: 
 
 - [The pull request workflow](https://www.knative.dev/contributing/contributing/#pull-requests)
 - [How to add and run tests](./test/README.md)
