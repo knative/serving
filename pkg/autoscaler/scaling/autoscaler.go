@@ -26,6 +26,7 @@ import (
 	"go.uber.org/zap"
 
 	"knative.dev/pkg/logging"
+	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 	"knative.dev/serving/pkg/resources"
@@ -41,7 +42,7 @@ type Autoscaler struct {
 	revision     string
 	metricClient metrics.MetricClient
 	lister       corev1listers.EndpointsLister
-	reporter     metrics.StatsReporter
+	reporterCtx  context.Context
 
 	// State in panic mode. Carries over multiple Scale calls. Guarded
 	// by the stateMux.
@@ -62,11 +63,11 @@ func New(
 	metricClient metrics.MetricClient,
 	lister corev1listers.EndpointsLister,
 	deciderSpec *DeciderSpec,
-	reporter metrics.StatsReporter) (*Autoscaler, error) {
+	reporterCtx context.Context) (*Autoscaler, error) {
 	if lister == nil {
 		return nil, errors.New("'lister' must not be nil")
 	}
-	if reporter == nil {
+	if reporterCtx == nil {
 		return nil, errors.New("stats reporter must not be nil")
 	}
 
@@ -88,9 +89,9 @@ func New(
 	if curC > 1 {
 		pt = time.Now()
 		// A new instance of autoscaler is created in panic mode.
-		reporter.ReportPanic(1)
+		pkgmetrics.Record(reporterCtx, panicM.M(1))
 	} else {
-		reporter.ReportPanic(0)
+		pkgmetrics.Record(reporterCtx, panicM.M(0))
 	}
 
 	return &Autoscaler{
@@ -98,7 +99,7 @@ func New(
 		revision:     revision,
 		metricClient: metricClient,
 		lister:       lister,
-		reporter:     reporter,
+		reporterCtx:  reporterCtx,
 
 		deciderSpec: deciderSpec,
 		podCounter:  podCounter,
@@ -145,11 +146,13 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	switch spec.ScalingMetric {
 	case autoscaling.RPS:
 		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicRPS(metricKey, now)
-		a.reporter.ReportRPS(observedStableValue, observedPanicValue, spec.TargetValue)
+		pkgmetrics.RecordBatch(a.reporterCtx, stableRPSM.M(observedStableValue), panicRPSM.M(observedStableValue),
+			targetRPSM.M(spec.TargetValue))
 	default:
 		metricName = autoscaling.Concurrency // concurrency is used by default
 		observedStableValue, observedPanicValue, err = a.metricClient.StableAndPanicConcurrency(metricKey, now)
-		a.reporter.ReportRequestConcurrency(observedStableValue, observedPanicValue, spec.TargetValue)
+		pkgmetrics.RecordBatch(a.reporterCtx, stableRequestConcurrencyM.M(observedStableValue),
+			panicRequestConcurrencyM.M(observedPanicValue), targetRequestConcurrencyM.M(spec.TotalValue))
 	}
 
 	// Put the scaling metric to logs.
@@ -195,13 +198,13 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 		// Begin panicking when we cross the threshold in the panic window.
 		logger.Info("PANICKING")
 		a.panicTime = now
-		a.reporter.ReportPanic(1)
+		pkgmetrics.Record(a.reporterCtx, panicM.M(1))
 	} else if !a.panicTime.IsZero() && !isOverPanicThreshold && a.panicTime.Add(spec.StableWindow).Before(now) {
 		// Stop panicking after the surge has made its way into the stable metric.
 		logger.Info("Un-panicking.")
 		a.panicTime = time.Time{}
 		a.maxPanicPods = 0
-		a.reporter.ReportPanic(0)
+		pkgmetrics.Record(a.reporterCtx, panicM.M(0))
 	}
 
 	if !a.panicTime.IsZero() {
@@ -224,22 +227,22 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	// be making knee-jerk decisions about Activator in the request path. Negative EBC means
 	// that the deployment does not have enough capacity to serve the desired burst off hand.
 	// EBC = TotCapacity - Cur#ReqInFlight - TargetBurstCapacity
-	excessBC = int32(-1)
+	excessBCF := -1.
 	switch {
 	case a.deciderSpec.TargetBurstCapacity == 0:
-		excessBC = 0
+		excessBCF = 0
 	case a.deciderSpec.TargetBurstCapacity >= 0:
-		excessBC = int32(math.Floor(float64(originalReadyPodsCount)*a.deciderSpec.TotalValue - observedStableValue -
-			a.deciderSpec.TargetBurstCapacity))
+		excessBCF = math.Floor(float64(originalReadyPodsCount)*a.deciderSpec.TotalValue - observedStableValue -
+			a.deciderSpec.TargetBurstCapacity)
 		logger.Infof("PodCount=%v Total1PodCapacity=%v ObsStableValue=%v ObsPanicValue=%v TargetBC=%v ExcessBC=%v",
 			originalReadyPodsCount, a.deciderSpec.TotalValue, observedStableValue,
-			observedPanicValue, a.deciderSpec.TargetBurstCapacity, excessBC)
+			observedPanicValue, a.deciderSpec.TargetBurstCapacity, excessBCF)
 	}
 
-	a.reporter.ReportExcessBurstCapacity(float64(excessBC))
-	a.reporter.ReportDesiredPodCount(int64(desiredPodCount))
+	pkgmetrics.RecordBatch(a.reporterCtx, excessBurstCapacityM.M(excessBCF),
+		desiredPodCountM.M(int64(desiredPodCount)))
 
-	return desiredPodCount, excessBC, true
+	return desiredPodCount, int32(excessBCF), true
 }
 
 func (a *Autoscaler) currentSpecAndPC() (*DeciderSpec, resources.EndpointsCounter) {
