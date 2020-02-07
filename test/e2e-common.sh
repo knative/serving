@@ -258,11 +258,19 @@ function install_ambassador() {
 
 function install_contour() {
   local INSTALL_CONTOUR_YAML="./third_party/contour-latest/contour.yaml"
+  local INSTALL_NET_CONTOUR_YAML="./third_party/contour-latest/net-contour.yaml"
   echo "Contour YAML: ${INSTALL_CONTOUR_YAML}"
-  echo ">> Bringing up Contour"
+  echo "Contour KIngress YAML: ${INSTALL_NET_CONTOUR_YAML}"
 
+  echo ">> Bringing up Contour"
   kubectl apply -f ${INSTALL_CONTOUR_YAML} || return 1
+
   UNINSTALL_LIST+=( "${INSTALL_CONTOUR_YAML}" )
+
+  echo ">> Bringing up net-contour"
+  kubectl apply -f ${INSTALL_NET_CONTOUR_YAML} || return 1
+
+  UNINSTALL_LIST+=( "${INSTALL_NET_CONTOUR_YAML}" )
 }
 
 # Installs Knative Serving in the current cluster, and waits for it to be ready.
@@ -292,15 +300,15 @@ function install_knative_serving_standard() {
 
   echo ">> Installing Ingress"
   if [[ -n "${GLOO_VERSION}" ]]; then
-    install_gloo
+    install_gloo || return 1
   elif [[ -n "${KOURIER_VERSION}" ]]; then
-    install_kourier
+    install_kourier || return 1
   elif [[ -n "${AMBASSADOR_VERSION}" ]]; then
-    install_ambassador
+    install_ambassador || return 1
   elif [[ -n "${CONTOUR_VERSION}" ]]; then
-    install_contour
+    install_contour || return 1
   else
-    install_istio "${SERVING_ISTIO_YAML}"
+    install_istio "${SERVING_ISTIO_YAML}" || return 1
   fi
 
   echo ">> Installing Cert-Manager"
