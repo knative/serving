@@ -26,7 +26,7 @@ import (
 	configmapinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
-	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
@@ -34,7 +34,7 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	apisconfig "knative.dev/serving/pkg/apis/config"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler"
@@ -85,12 +85,12 @@ func NewController(
 	revisionInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Revision")),
+		FilterFunc: controller.Filter(v1.SchemeGroupVersion.WithKind("Revision")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
 	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Revision")),
+		FilterFunc: controller.Filter(v1.SchemeGroupVersion.WithKind("Revision")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
@@ -99,7 +99,7 @@ func NewController(
 	// a functioning Image controller.
 
 	configMapInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Revision")),
+		FilterFunc: controller.Filter(v1.SchemeGroupVersion.WithKind("Revision")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 

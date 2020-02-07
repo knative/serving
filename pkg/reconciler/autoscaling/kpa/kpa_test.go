@@ -41,7 +41,7 @@ import (
 	fakemetricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	fakesksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
-	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
+	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 	"knative.dev/serving/pkg/reconciler"
 
@@ -62,6 +62,7 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/serving/pkg/autoscaler/scaling"
@@ -1136,7 +1137,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	}()
 
 	rev := newTestRevision(testNamespace, testRevision)
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
 
 	ep := makeSKSPrivateEndpoints(1, testNamespace, testRevision)
 	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
@@ -1193,7 +1194,7 @@ func TestUpdate(t *testing.T) {
 	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders)
 
 	rev := newTestRevision(testNamespace, testRevision)
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
@@ -1498,10 +1499,10 @@ func (km *failingDeciders) Update(ctx context.Context, decider *scaling.Decider)
 	return decider, nil
 }
 
-func newTestRevision(namespace, name string) *v1alpha1.Revision {
-	return &v1alpha1.Revision{
+func newTestRevision(namespace, name string) *v1.Revision {
+	return &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  fmt.Sprintf("/apis/ela/v1alpha1/namespaces/%s/revisions/%s", namespace, name),
+			SelfLink:  fmt.Sprintf("/apis/ela/v1/namespaces/%s/revisions/%s", namespace, name),
 			Name:      name,
 			Namespace: namespace,
 			Annotations: map[string]string{
@@ -1512,7 +1513,7 @@ func newTestRevision(namespace, name string) *v1alpha1.Revision {
 				serving.ConfigurationLabelKey: "test-service",
 			},
 		},
-		Spec: v1alpha1.RevisionSpec{},
+		Spec: v1.RevisionSpec{},
 	}
 }
 
