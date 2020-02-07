@@ -42,7 +42,10 @@ import (
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
 
-const grpcContainerConcurrency = 1.0
+const (
+	grpcContainerConcurrency = 1.0
+	grpcMinScale             = 3
+)
 
 type grpcTest func(*testing.T, *v1a1test.ResourceObjects, *test.Clients, test.ResourceNames, string, string)
 
@@ -114,10 +117,13 @@ func loadBalancingTest(t *testing.T, resources *v1a1test.ResourceObjects, client
 	t.Helper()
 	t.Logf("Connecting to grpc-ping using host %q and authority %q", host, domain)
 
+	const (
+		wantHosts  = grpcMinScale
+		wantPrefix = "hello-"
+	)
+
 	var (
 		grp         errgroup.Group
-		wantHosts   = 3
-		wantPrefix  = "hello-"
 		uniqueHosts sync.Map
 		stopChan    = make(chan struct{})
 		done        = time.After(60 * time.Second)
@@ -429,7 +435,7 @@ func TestGRPCLoadBalancing(t *testing.T) {
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetUtilizationPercentageKey: strconv.FormatFloat(targetUtilization*100, 'f', -1, 64),
 			autoscaling.TargetAnnotationKey:            strconv.FormatFloat(grpcContainerConcurrency, 'f', -1, 64),
-			autoscaling.MinScaleAnnotationKey:          "3",
+			autoscaling.MinScaleAnnotationKey:          strconv.FormatInt(grpcMinScale, 10),
 			autoscaling.TargetBurstCapacityKey:         strconv.FormatFloat(-1, 'f', -1, 64),
 		}),
 		rtesting.WithEnv(corev1.EnvVar{

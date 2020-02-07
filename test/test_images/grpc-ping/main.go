@@ -29,8 +29,10 @@ import (
 	ping "knative.dev/serving/test/test_images/grpc-ping/proto"
 )
 
-var delay int64
-var hostname string
+var (
+	delay    int64
+	hostname string
+)
 
 func pong(req *ping.Request) *ping.Response {
 	return &ping.Response{Msg: req.Msg + hostname + os.Getenv("SUFFIX")}
