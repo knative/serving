@@ -307,6 +307,9 @@ This is a helper script for Knative release scripts. To use it:
      if `--release-gcs` was passed, otherwise the default value
      `knative-nightly/<repo>` will be used. It is empty if `--publish` was not
      passed.
+   - `RELEASE_DIR`: contains the directory to store the manifests if
+     `--release-dir` was passed. Defaults to empty value, but if `--nopublish`
+     was passed then points to the repository root directory.
    - `BUILD_COMMIT_HASH`: the commit short hash for the current repo. If the
      current git tree is dirty, it will have `-dirty` appended to it.
    - `BUILD_YYYYMMDD`: current UTC date in `YYYYMMDD` format.
@@ -332,7 +335,7 @@ This is a helper script for Knative release scripts. To use it:
    All environment variables above, except `KO_FLAGS`, are marked read-only once
    `main()` is called (see below).
 
-1. Call the `main()` function passing `$@` (without quotes).
+1. Call the `main()` function passing `"$@"` (with quotes).
 
 ### Sample release script
 
@@ -345,5 +348,5 @@ function build_release() {
   ARTIFACTS_TO_PUBLISH="release.yaml"
 }
 
-main $@
+main "$@"
 ```
