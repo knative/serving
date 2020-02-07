@@ -17,6 +17,7 @@ limitations under the License.
 package scaling
 
 import (
+	"context"
 	"errors"
 	"math"
 	"testing"
@@ -36,17 +37,15 @@ const (
 )
 
 func TestNewErrorWhenGivenNilReadyPodCounter(t *testing.T) {
-	if _, err := New(fake.TestNamespace, fake.TestRevision, &autoscalerfake.MetricClient{}, nil, &DeciderSpec{TargetValue: 10, ServiceName: fake.TestService}, &mockReporter{}); err == nil {
+	if _, err := New(fake.TestNamespace, fake.TestRevision, &autoscalerfake.MetricClient{}, nil, &DeciderSpec{TargetValue: 10, ServiceName: fake.TestService}, context.Background()); err == nil {
 		t.Error("Expected error when ReadyPodCounter interface is nil, but got none.")
 	}
 }
 
 func TestNewErrorWhenGivenNilStatsReporter(t *testing.T) {
-	var reporter metrics.StatsReporter
-
 	l := fake.KubeInformer.Core().V1().Endpoints().Lister()
 	if _, err := New(fake.TestNamespace, fake.TestRevision, &autoscalerfake.MetricClient{}, l,
-		&DeciderSpec{TargetValue: 10, ServiceName: fake.TestService}, reporter); err == nil {
+		&DeciderSpec{TargetValue: 10, ServiceName: fake.TestService}, nil); err == nil {
 		t.Error("Expected error when EndpointsInformer interface is nil, but got none.")
 	}
 }
@@ -309,17 +308,6 @@ func TestAutoscalerUpdateTarget(t *testing.T) {
 	a.expectScale(t, time.Now(), 100, expectedEBC(1, 71, 100, 10), true)
 }
 
-type mockReporter struct{}
-
-func (r *mockReporter) ReportDesiredPodCount(v int64)                                    {}
-func (r *mockReporter) ReportRequestedPodCount(v int64)                                  {}
-func (r *mockReporter) ReportActualPodCount(ready, notReady, terminating, pending int64) {}
-func (r *mockReporter) ReportRequestConcurrency(s, p, t float64)                         {}
-func (r *mockReporter) ReportRPS(s, p, t float64)                                        {}
-func (r *mockReporter) ReportTargetRequestConcurrency(v float64)                         {}
-func (r *mockReporter) ReportPanic(v int64)                                              {}
-func (r *mockReporter) ReportExcessBurstCapacity(v float64)                              {}
-
 func newTestAutoscaler(t *testing.T, targetValue, targetBurstCapacity float64, metrics metrics.MetricClient) *Autoscaler {
 	return newTestAutoscalerWithScalingMetric(t, targetValue, targetBurstCapacity, metrics, "concurrency")
 }
@@ -341,7 +329,7 @@ func newTestAutoscalerWithScalingMetric(t *testing.T, targetValue, targetBurstCa
 	l := fake.KubeInformer.Core().V1().Endpoints().Lister()
 	// This ensures that we have endpoints object to start the autoscaler.
 	fake.Endpoints(0, fake.TestService)
-	a, err := New(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, &mockReporter{})
+	a, err := New(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, context.Background())
 	if err != nil {
 		t.Fatalf("Error creating test autoscaler: %v", err)
 	}
@@ -379,7 +367,7 @@ func TestStartInPanicMode(t *testing.T) {
 	l := fake.KubeInformer.Core().V1().Endpoints().Lister()
 	for i := 0; i < 2; i++ {
 		fake.Endpoints(i, fake.TestService)
-		a, err := New(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, &mockReporter{})
+		a, err := New(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, context.Background())
 		if err != nil {
 			t.Fatalf("Error creating test autoscaler: %v", err)
 		}
@@ -393,7 +381,7 @@ func TestStartInPanicMode(t *testing.T) {
 
 	// Now start with 2 and make sure we're in panic mode.
 	fake.Endpoints(2, fake.TestService)
-	a, err := New(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, &mockReporter{})
+	a, err := New(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, context.Background())
 	if err != nil {
 		t.Fatalf("Error creating test autoscaler: %v", err)
 	}
@@ -420,7 +408,7 @@ func TestNewFail(t *testing.T) {
 	}
 
 	l := fake.KubeInformer.Core().V1().Endpoints().Lister()
-	a, err := New(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, &mockReporter{})
+	a, err := New(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, context.Background())
 	if err != nil {
 		t.Errorf("No endpoints should succeed, err = %v", err)
 	}

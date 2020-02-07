@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,12 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package metrics
+package scaling
 
 import (
 	"context"
 
-	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/serving/pkg/metrics"
 
@@ -135,20 +134,6 @@ func register() {
 	}
 }
 
-// StatsReporter defines the interface for sending autoscaler metrics
-type StatsReporter interface {
-	ReportDesiredPodCount(v int64)
-	ReportRequestConcurrency(stable, panic, target float64)
-	ReportRPS(stable, panic, target float64)
-	ReportExcessBurstCapacity(v float64)
-	ReportPanic(v int64)
-}
-
-// reporter holds cached metric objects to report autoscaler metrics
-type reporter struct {
-	ctx context.Context
-}
-
 func valueOrUnknown(v string) string {
 	if v != "" {
 		return v
@@ -156,47 +141,16 @@ func valueOrUnknown(v string) string {
 	return metricskey.ValueUnknown
 }
 
-// NewStatsReporter creates a reporter that collects and reports autoscaler metrics
-func NewStatsReporter(ns, service, config, revision string) (StatsReporter, error) {
+// NewStatsReporterContext returns a context that has the required stats
+// reporter tags attached.
+func NewStatsReporterContext(ns, service, config, revision string) (context.Context, error) {
 	// Our tags are static. So, we can get away with creating a single context
-	// and reuse it for reporting all of our metrics. Note that service names
-	// can be an empty string, so it needs a special treatment.
-	ctx, err := tag.New(
+	// per revision and reuse it for reporting all of our metrics.
+	// Note that service names can be an empty string, so it needs a special treatment.
+	return tag.New(
 		context.Background(),
 		tag.Upsert(metrics.NamespaceTagKey, ns),
 		tag.Upsert(metrics.ServiceTagKey, valueOrUnknown(service)),
 		tag.Upsert(metrics.ConfigTagKey, config),
 		tag.Upsert(metrics.RevisionTagKey, revision))
-	if err != nil {
-		return nil, err
-	}
-
-	return &reporter{ctx: ctx}, nil
-}
-
-// ReportDesiredPodCount captures value v for desired pod count measure.
-func (r *reporter) ReportDesiredPodCount(v int64) {
-	pkgmetrics.Record(r.ctx, desiredPodCountM.M(v))
-}
-
-// ReportExcessBurstCapacity captures value v for excess target burst capacity.
-func (r *reporter) ReportExcessBurstCapacity(v float64) {
-	pkgmetrics.Record(r.ctx, excessBurstCapacityM.M(v))
-}
-
-// ReportStableRequestConcurrency captures value v for stable request concurrency measure.
-func (r *reporter) ReportRequestConcurrency(stable, panic, target float64) {
-	pkgmetrics.RecordBatch(r.ctx, stableRequestConcurrencyM.M(stable),
-		panicRequestConcurrencyM.M(panic), targetRequestConcurrencyM.M(target))
-}
-
-// ReportStableRPS captures value v for stable RPS measure.
-func (r *reporter) ReportRPS(stable, panic, target float64) {
-	pkgmetrics.RecordBatch(r.ctx, stableRPSM.M(stable), panicRPSM.M(panic),
-		targetRPSM.M(target))
-}
-
-// ReportPanic captures value v for panic mode measure.
-func (r *reporter) ReportPanic(v int64) {
-	pkgmetrics.Record(r.ctx, panicM.M(v))
 }
