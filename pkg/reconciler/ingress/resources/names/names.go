@@ -24,7 +24,7 @@ import (
 // resource for given Ingress that programs traffic for Ingress
 // Gateways.
 func IngressVirtualService(i kmeta.Accessor) string {
-	return kmeta.ChildName(i.GetName(), "")
+	return kmeta.ChildName(i.GetName(), "-ingress")
 }
 
 // MeshVirtualService returns the name of the VirtualService child

@@ -63,7 +63,7 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 		gateways: makeGatewayMap([]string{"gateway"}, []string{"private-gateway"}),
 		ci: &v1alpha1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-ingress",
+				Name:      "test",
 				Namespace: system.Namespace(),
 				Labels: map[string]string{
 					networking.IngressLabelKey:     "test-ingress",
@@ -80,10 +80,10 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 			}}},
 		},
 		expected: []metav1.ObjectMeta{{
-			Name:      "test-ingress-mesh",
+			Name:      "test-mesh",
 			Namespace: system.Namespace(),
 			Labels: map[string]string{
-				networking.IngressLabelKey:     "test-ingress",
+				networking.IngressLabelKey:     "test",
 				serving.RouteLabelKey:          "test-route",
 				serving.RouteNamespaceLabelKey: "test-ns",
 			},
@@ -91,7 +91,7 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 			Name:      "test-ingress",
 			Namespace: system.Namespace(),
 			Labels: map[string]string{
-				networking.IngressLabelKey:     "test-ingress",
+				networking.IngressLabelKey:     "test",
 				serving.RouteLabelKey:          "test-route",
 				serving.RouteNamespaceLabelKey: "test-ns",
 			},
@@ -101,7 +101,7 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 		gateways: makeGatewayMap([]string{"gateway"}, []string{"private-gateway"}),
 		ci: &v1alpha1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-ingress",
+				Name:      "test",
 				Namespace: system.Namespace(),
 				Labels: map[string]string{
 					serving.RouteLabelKey:          "test-route",
@@ -120,7 +120,7 @@ func TestMakeVirtualServices_CorrectMetadata(t *testing.T) {
 			Name:      "test-ingress",
 			Namespace: system.Namespace(),
 			Labels: map[string]string{
-				networking.IngressLabelKey:     "test-ingress",
+				networking.IngressLabelKey:     "test",
 				serving.RouteLabelKey:          "test-route",
 				serving.RouteNamespaceLabelKey: "test-ns",
 			},
