@@ -18,6 +18,7 @@ package serverlessservice
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -29,12 +30,14 @@ import (
 	_ "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	rpkg "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources"
 
@@ -60,6 +63,7 @@ func TestNewController(t *testing.T) {
 }
 
 func TestReconcile(t *testing.T) {
+	retryAttempted := false
 	table := TableTest{{
 		Name: "bad workqueue key, Part I",
 		Key:  "too/many/parts",
@@ -83,7 +87,8 @@ func TestReconcile(t *testing.T) {
 		},
 	}, {
 		// This is the case for once we are scaled to zero.
-		Name: "steady switch to proxy mode",
+		// It also exersises the retry logic.
+		Name: "steady switch to proxy mode, with retry",
 		Key:  "steady/to-proxy",
 		Objects: []runtime.Object{
 			SKS("steady", "to-proxy", markHappy, WithPubService, WithPrivateService,
@@ -95,7 +100,19 @@ func TestReconcile(t *testing.T) {
 			endpointspriv("steady", "to-proxy"),
 			activatorEndpoints(WithSubsets),
 		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
+				if retryAttempted || !action.Matches("update", "serverlessservices") || action.GetSubresource() != "status" {
+					return false, nil, nil
+				}
+				retryAttempted = true
+				return true, nil, apierrs.NewConflict(v1alpha1.Resource("foo"), "bar", errors.New("foo"))
+			},
+		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: SKS("steady", "to-proxy", WithDeployRef("bar"), markNoEndpoints,
+				withProxyMode, WithPubService, WithPrivateService),
+		}, {
 			Object: SKS("steady", "to-proxy", WithDeployRef("bar"), markNoEndpoints,
 				withProxyMode, WithPubService, WithPrivateService),
 		}},
@@ -654,6 +671,7 @@ func TestReconcile(t *testing.T) {
 		}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		retryAttempted = false
 		ctx = podscalable.WithDuck(ctx)
 
 		return &reconciler{

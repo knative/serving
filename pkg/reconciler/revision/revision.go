@@ -37,6 +37,7 @@ import (
 	cachinglisters "knative.dev/caching/pkg/client/listers/caching/v1alpha1"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
@@ -234,7 +235,7 @@ func (c *Reconciler) updateRevisionLoggingURL(
 
 func (c *Reconciler) updateStatus(existing *v1alpha1.Revision, desired *v1alpha1.Revision) error {
 	existing = existing.DeepCopy()
-	return reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
+	return pkgreconciler.RetryUpdateConflicts(func(attempts int) (err error) {
 		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
 		if attempts > 0 {
 			existing, err = c.ServingClientSet.ServingV1alpha1().Revisions(desired.Namespace).Get(desired.Name, metav1.GetOptions{})

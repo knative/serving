@@ -37,6 +37,7 @@ import (
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -129,7 +130,7 @@ func (r *reconciler) reconcile(ctx context.Context, sks *netv1alpha1.ServerlessS
 
 func (r *reconciler) updateStatus(existing *netv1alpha1.ServerlessService, desired *netv1alpha1.ServerlessService) error {
 	existing = existing.DeepCopy()
-	return rbase.RetryUpdateConflicts(func(attempts int) (err error) {
+	return pkgreconciler.RetryUpdateConflicts(func(attempts int) (err error) {
 		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
 		if attempts > 0 {
 			existing, err = r.ServingClientSet.NetworkingV1alpha1().ServerlessServices(desired.Namespace).Get(desired.Name, metav1.GetOptions{})

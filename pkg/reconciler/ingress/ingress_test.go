@@ -18,6 +18,7 @@ package ingress
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -39,6 +40,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -174,6 +176,7 @@ var (
 )
 
 func TestReconcile(t *testing.T) {
+	retryAttempted := false
 	table := TableTest{{
 		Name: "bad workqueue key",
 		Key:  "too/many/parts",
@@ -187,10 +190,18 @@ func TestReconcile(t *testing.T) {
 				map[string]string{networking.IngressClassAnnotationKey: "fake-controller"}),
 		},
 	}, {
-		Name: "create VirtualService matching Ingress",
-
+		Name: "create VirtualService matching Ingress, with retry",
 		Objects: []runtime.Object{
 			ing("no-virtualservice-yet", 1234),
+		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
+				if retryAttempted || !action.Matches("update", "ingresses") || action.GetSubresource() != "status" {
+					return false, nil, nil
+				}
+				retryAttempted = true
+				return true, nil, apierrs.NewConflict(v1alpha1.Resource("foo"), "bar", errors.New("foo"))
+			},
 		},
 		WantCreates: []runtime.Object{
 			resources.MakeMeshVirtualService(insertProbe(ing("no-virtualservice-yet", 1234)), gateways),
@@ -198,6 +209,41 @@ func TestReconcile(t *testing.T) {
 				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/" + networking.KnativeIngressGateway}, nil)),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: ingressWithStatus("no-virtualservice-yet", 1234,
+				v1alpha1.IngressStatus{
+					LoadBalancer: &v1alpha1.LoadBalancerStatus{
+						Ingress: []v1alpha1.LoadBalancerIngressStatus{
+							{DomainInternal: pkgnet.GetServiceHostname("test-ingressgateway", "istio-system")},
+						},
+					},
+					PublicLoadBalancer: &v1alpha1.LoadBalancerStatus{
+						Ingress: []v1alpha1.LoadBalancerIngressStatus{
+							{DomainInternal: pkgnet.GetServiceHostname("test-ingressgateway", "istio-system")},
+						},
+					},
+					PrivateLoadBalancer: &v1alpha1.LoadBalancerStatus{
+						Ingress: []v1alpha1.LoadBalancerIngressStatus{
+							{MeshOnly: true},
+						},
+					},
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{{
+							Type:     v1alpha1.IngressConditionLoadBalancerReady,
+							Status:   corev1.ConditionTrue,
+							Severity: apis.ConditionSeverityError,
+						}, {
+							Type:     v1alpha1.IngressConditionNetworkConfigured,
+							Status:   corev1.ConditionTrue,
+							Severity: apis.ConditionSeverityError,
+						}, {
+							Type:     v1alpha1.IngressConditionReady,
+							Status:   corev1.ConditionTrue,
+							Severity: apis.ConditionSeverityError,
+						}},
+					},
+				},
+			),
+		}, {
 			Object: ingressWithStatus("no-virtualservice-yet", 1234,
 				v1alpha1.IngressStatus{
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{
@@ -501,6 +547,7 @@ func TestReconcile(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		retryAttempted = false
 		return &Reconciler{
 			Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
 			virtualServiceLister: listers.GetVirtualServiceLister(),

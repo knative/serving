@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -38,6 +39,7 @@ import (
 	presources "knative.dev/serving/pkg/resources"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
@@ -49,6 +51,7 @@ import (
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
+	retryAttempted := false
 	table := TableTest{{
 		Name: "bad workqueue key",
 		Key:  "too/many/parts",
@@ -63,7 +66,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/delete-pending",
 	}, {
-		Name: "inline - byo rev name used in traffic serialize",
+		Name: "inline - byo rev name used in traffic serialize, with retry",
 		Objects: []runtime.Object{
 			DefaultService("byo-rev", "foo", WithInlineNamedRevision),
 			config("byo-rev", "foo",
@@ -77,9 +80,22 @@ func TestReconcile(t *testing.T) {
 			Object: DefaultService("byo-rev", "foo", WithInlineNamedRevision,
 				// Route conditions should be at init state while Config should be OutOfDate
 				WithInitSvcConditions, WithOutOfDateConfig),
-		}},
+		}, {
+                        Object: DefaultService("byo-rev", "foo", WithInlineNamedRevision,
+                                // Route conditions should be at init state while Config should be OutOfDate
+                                WithInitSvcConditions, WithOutOfDateConfig),
+                }},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "byo-rev"),
+		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
+				if retryAttempted || !action.Matches("update", "services") || action.GetSubresource() != "status" {
+					return false, nil, nil
+				}
+				retryAttempted = true
+				return true, nil, apierrs.NewConflict(v1alpha1.Resource("foo"), "bar", errors.New("foo"))
+			},
 		},
 	}, {
 		Name: "inline - byo rev name used in traffic",
@@ -1385,6 +1401,7 @@ func TestReconcile(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		retryAttempted = false
 		return &Reconciler{
 			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
 			serviceLister:       listers.GetServiceLister(),

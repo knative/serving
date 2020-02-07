@@ -27,6 +27,7 @@ import (
 
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	listers "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
 	rbase "knative.dev/serving/pkg/reconciler"
 
@@ -106,7 +107,7 @@ func (r *reconciler) reconcileCollection(ctx context.Context, metric *v1alpha1.M
 
 func (r *reconciler) updateStatus(existing *v1alpha1.Metric, desired *v1alpha1.Metric) error {
 	existing = existing.DeepCopy()
-	return rbase.RetryUpdateConflicts(func(attempts int) (err error) {
+	return pkgreconciler.RetryUpdateConflicts(func(attempts int) (err error) {
 		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
 		if attempts > 0 {
 			existing, err = r.ServingClientSet.AutoscalingV1alpha1().Metrics(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
