@@ -22,7 +22,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -58,6 +60,14 @@ func TestRequestMetricHandler(t *testing.T) {
 				Service:    "service-real-name",
 				Config:     "config-real-name",
 				StatusCode: http.StatusOK,
+			}, {
+				Op:         "ReportRequestCount",
+				Namespace:  testNamespace,
+				Revision:   testRevName,
+				Service:    "service-real-name",
+				Config:     "config-real-name",
+				StatusCode: http.StatusOK,
+				Value:      1,
 			}},
 			wantCode: http.StatusOK,
 		},
@@ -74,6 +84,14 @@ func TestRequestMetricHandler(t *testing.T) {
 				Service:    "service-real-name",
 				Config:     "config-real-name",
 				StatusCode: http.StatusInternalServerError,
+			}, {
+				Op:         "ReportRequestCount",
+				Namespace:  testNamespace,
+				Revision:   testRevName,
+				Service:    "service-real-name",
+				Config:     "config-real-name",
+				StatusCode: http.StatusInternalServerError,
+				Value:      1,
 			}},
 			wantCode:  http.StatusBadRequest,
 			wantPanic: true,
@@ -144,5 +162,77 @@ func BenchmarkMetricHandler(b *testing.B) {
 				handler.ServeHTTP(resp, req)
 			}
 		})
+	})
+}
+
+type reporterCall struct {
+	Op         string
+	Namespace  string
+	Service    string
+	Config     string
+	Revision   string
+	StatusCode int
+	Value      int64
+	Duration   time.Duration
+}
+
+type fakeReporter struct {
+	calls []reporterCall
+	mux   sync.Mutex
+
+	ns      string
+	service string
+	config  string
+	rev     string
+}
+
+func (f *fakeReporter) GetRevisionStatsReporter(ns, service, config, rev string) (activator.RevisionStatsReporter, error) {
+	f.mux.Lock()
+	defer f.mux.Unlock()
+	f.ns = ns
+	f.service = service
+	f.config = config
+	f.rev = rev
+	return f, nil
+}
+
+func (f *fakeReporter) ReportRequestConcurrency(v int64) {
+	f.mux.Lock()
+	defer f.mux.Unlock()
+	f.calls = append(f.calls, reporterCall{
+		Op:        "ReportRequestConcurrency",
+		Namespace: f.ns,
+		Service:   f.service,
+		Config:    f.config,
+		Revision:  f.rev,
+		Value:     v,
+	})
+}
+
+func (f *fakeReporter) ReportRequestCount(responseCode int) {
+	f.mux.Lock()
+	defer f.mux.Unlock()
+	f.calls = append(f.calls, reporterCall{
+		Op:         "ReportRequestCount",
+		Namespace:  f.ns,
+		Service:    f.service,
+		Config:     f.config,
+		Revision:   f.rev,
+		StatusCode: responseCode,
+		Value:      1,
+	})
+}
+
+func (f *fakeReporter) ReportResponseTime(responseCode int, d time.Duration) {
+	f.mux.Lock()
+	defer f.mux.Unlock()
+	f.calls = append(f.calls, reporterCall{
+		Op:         "ReportResponseTime",
+		Namespace:  f.ns,
+		Service:    f.service,
+		Config:     f.config,
+		Revision:   f.rev,
+		StatusCode: responseCode,
+		Duration:   d,
 	})
 }
