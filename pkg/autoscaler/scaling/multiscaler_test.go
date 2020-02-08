@@ -180,7 +180,11 @@ func TestMultiscalerCreateTBC42(t *testing.T) {
 	if got, want := d.Status.ExcessBurstCapacity, int32(25-42); got != want {
 		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
 	}
+	if err := ms.Delete(ctx, decider.Namespace, decider.Name); err != nil {
+		t.Errorf("Delete() = %v", err)
+	}
 }
+
 func TestMultiscalerCreateTBCMinus1(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -202,6 +206,9 @@ func TestMultiscalerCreateTBCMinus1(t *testing.T) {
 	}
 	if got, want := d.Status.ExcessBurstCapacity, int32(-1); got != want {
 		t.Errorf("Decider.Status.DesiredScale = %d, want: %d", got, want)
+	}
+	if err := ms.Delete(ctx, decider.Namespace, decider.Name); err != nil {
+		t.Errorf("Delete() = %v", err)
 	}
 }
 
@@ -292,6 +299,10 @@ func TestMultiScalerTickUpdate(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Expected at least 1 tick but got %d", uniScaler.getScaleCount())
 	}
+
+	if err := ms.Delete(ctx, decider.Namespace, decider.Name); err != nil {
+		t.Errorf("Delete() = %v", err)
+	}
 }
 
 func TestMultiScalerScaleToZero(t *testing.T) {
@@ -377,6 +388,9 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 	if err := verifyTick(errCh); err != nil {
 		t.Fatal(err)
 	}
+	if err := ms.Delete(ctx, decider.Namespace, decider.Name); err != nil {
+		t.Errorf("Delete() = %v", err)
+	}
 }
 
 func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
@@ -425,6 +439,9 @@ func TestMultiScalerIgnoreNegativeScale(t *testing.T) {
 	if err := verifyNoTick(errCh); err != nil {
 		t.Fatal(err)
 	}
+	if err := ms.Delete(ctx, decider.Namespace, decider.Name); err != nil {
+		t.Errorf("Delete() = %v", err)
+	}
 }
 
 func TestMultiScalerUpdate(t *testing.T) {
@@ -461,13 +478,14 @@ func TestMultiScalerUpdate(t *testing.T) {
 	if got, want := m.Spec.TargetValue, 10.0; got != want {
 		t.Errorf("Got target concurrency %v. Wanted %v", got, want)
 	}
+	if err := ms.Delete(ctx, decider.Namespace, decider.Name); err != nil {
+		t.Errorf("Delete() = %v", err)
+	}
 }
 
 func createMultiScaler(ctx context.Context, l *zap.SugaredLogger) (*MultiScaler, *fakeUniScaler) {
 	uniscaler := &fakeUniScaler{}
-
 	ms := NewMultiScaler(ctx.Done(), uniscaler.fakeUniScalerFactory, l)
-
 	return ms, uniscaler
 }
 
