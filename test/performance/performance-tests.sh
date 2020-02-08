@@ -57,9 +57,9 @@ function update_knative() {
   fi
   popd
 
-  # Delete activator hpa and disable activator deployment
-  kubectl delete hpa activator -n knative-serving
-  kubectl patch deploy -n knative-serving activator --patch '{"spec": {"replicas": 0}}'
+  # Update the activator hpa minReplicas to 10
+  kubectl patch hpa -n knative-serving activator \
+    --patch '{"spec": {"minReplicas": 10}}'
   # Update the scale-to-zero grace period to 10s
   kubectl patch configmap/config-autoscaler \
     -n knative-serving \
