@@ -39,7 +39,25 @@ func TestNewStatsReporterCtxErrors(t *testing.T) {
 	}
 }
 
+// Resets global state from the opencensus package
+// Required to run at the beginning of tests that check metrics' values
+// to make the tests idempotent.
+func resetMetrics() {
+	metricstest.Unregister(
+		desiredPodCountM.Name(),
+		stableRequestConcurrencyM.Name(),
+		panicRequestConcurrencyM.Name(),
+		excessBurstCapacityM.Name(),
+		targetRequestConcurrencyM.Name(),
+		panicM.Name(),
+		stableRPSM.Name(),
+		panicRPSM.Name(),
+		targetRPSM.Name())
+	register()
+}
+
 func TestReporterEmptyServiceName(t *testing.T) {
+	resetMetrics()
 	// Metrics reported to an empty service name will be recorded with service "unknown" (metricskey.ValueUnknown).
 	rctx, err := NewStatsReporterContext("testns", "" /*service=*/, "testconfig", "testrev")
 	if err != nil {
