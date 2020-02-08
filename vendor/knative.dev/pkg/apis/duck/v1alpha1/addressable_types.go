@@ -82,7 +82,7 @@ func (*Addressable) GetFullType() duck.Populatable {
 
 // ConvertUp implements apis.Convertible
 func (a *Addressable) ConvertUp(ctx context.Context, to apis.Convertible) error {
-	url := a.GetURL()
+	url := a.URL
 	switch sink := to.(type) {
 	case *v1.Addressable:
 		sink.URL = url.DeepCopy()
