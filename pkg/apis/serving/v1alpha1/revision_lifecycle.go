@@ -349,11 +349,11 @@ func (rs *RevisionStatus) PropagateDeploymentStatus(original *appsv1.DeploymentS
 	}
 
 	switch cond.Status {
-	case corev1.ConditionUnknown:
-		revCondSet.Manage(rs).MarkUnknown(RevisionConditionResourcesAvailable, cond.Reason, cond.Message)
 	case corev1.ConditionTrue:
-		revCondSet.Manage(rs).MarkTrue(RevisionConditionResourcesAvailable)
+		rs.MarkResourcesAvailableTrue()
 	case corev1.ConditionFalse:
-		revCondSet.Manage(rs).MarkFalse(RevisionConditionResourcesAvailable, cond.Reason, cond.Message)
+		rs.MarkResourcesAvailableFalse(cond.Reason, cond.Message)
+	case corev1.ConditionUnknown:
+		rs.MarkResourcesAvailableUnknown(cond.Reason, cond.Message)
 	}
 }
