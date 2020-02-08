@@ -179,7 +179,6 @@ func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig 
 func appendContainer(old []corev1.Container, new corev1.Container) []corev1.Container {
 	for key := range old {
 		if old[key].Name == new.Name {
-			// need to check with more negetive scenarios
 			return old
 		}
 	}

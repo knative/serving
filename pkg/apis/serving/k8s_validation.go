@@ -277,16 +277,14 @@ func ValidatePodSpec(ps corev1.PodSpec) *apis.FieldError {
 	return errs
 }
 
-//ValidateMultiContainerPorts validates port when specified multiple containers
+// ValidateMultiContainerPorts validates port when specified multiple containers
 func ValidateMultiContainerPorts(containers []corev1.Container) *apis.FieldError {
 	var (
 		count int
 		errs  *apis.FieldError
 	)
 	for i := range containers {
-		for range containers[i].Ports {
-			count++
-		}
+		count += len(containers[i].Ports)
 	}
 	if count == 0 {
 		errs = errs.Also(apis.ErrMissingField(apis.CurrentField))
@@ -294,7 +292,7 @@ func ValidateMultiContainerPorts(containers []corev1.Container) *apis.FieldError
 	return errs.Also(portValidation(count))
 }
 
-//ValidateSidecarContainer validate fields for non serving containers
+// ValidateSidecarContainer validate fields for non serving containers
 func ValidateSidecarContainer(container corev1.Container, volumes sets.String) *apis.FieldError {
 	var errs *apis.FieldError
 	if container.LivenessProbe != nil {
@@ -308,7 +306,7 @@ func ValidateSidecarContainer(container corev1.Container, volumes sets.String) *
 	return errs.Also(validate(container, volumes))
 }
 
-//ValidateContainer validate fields for serving containers
+// ValidateContainer validate fields for serving containers
 func ValidateContainer(container corev1.Container, volumes sets.String) *apis.FieldError {
 	var errs *apis.FieldError
 	// Liveness Probes

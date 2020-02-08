@@ -316,6 +316,13 @@ func (in *RevisionSpec) DeepCopy() *RevisionSpec {
 func (in *RevisionStatus) DeepCopyInto(out *RevisionStatus) {
 	*out = *in
 	in.Status.DeepCopyInto(&out.Status)
+	if in.ImageDigests != nil {
+		in, out := &in.ImageDigests, &out.ImageDigests
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 
