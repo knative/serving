@@ -46,7 +46,7 @@ import (
 // To run this test locally with cert-manager, you need to
 // 1. Install cert-manager from `third_party/` directory.
 // 2. Run the command below to do the configuration:
-// kubectl apply -f test/config/autotls/certmanager/selfsigned/
+//    kubectl apply -f test/config/autotls/certmanager/selfsigned/
 func TestPerKsvcCertLocalCA(t *testing.T) {
 	clients := e2e.Setup(t)
 	disableNamespaceCertWithWhiteList(t, clients, sets.String{})
@@ -214,7 +214,7 @@ func turnOffAutoTLS(t *testing.T, clients *test.Clients) {
 }
 
 func waitForCertificateReady(t *testing.T, clients *test.Clients, certName string) error {
-	if err := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
+	return wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
 		cert, err := clients.NetworkingClient.Certificates.Get(certName, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -227,10 +227,7 @@ func waitForCertificateReady(t *testing.T, clients *test.Clients, certName strin
 			return true, fmt.Errorf("certificate %s failed with status %v", cert.Name, cert.Status)
 		}
 		return cert.Status.IsReady(), nil
-	}); err != nil {
-		return err
-	}
-	return nil
+	});
 }
 
 func waitForNamespaceCertReady(clients *test.Clients) (string, error) {
