@@ -96,7 +96,7 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 				t.Errorf("prober.Do() = nil, expected an error")
 			}
 			if got != c.want {
-				t.Errorf("unexpected probe result: want: %t, got: %t", c.want, got)
+				t.Errorf("Unexpected probe result: want: %t, got: %t", c.want, got)
 			}
 		})
 	}
@@ -120,7 +120,7 @@ func BenchmarkProbeHandler(b *testing.B) {
 				b.Errorf("Do = %v", err)
 			}
 			if !got {
-				b.Errorf("unexpected probe result: got: %t, want: true", got)
+				b.Errorf("Unexpected probe result: got: %t, want: true", got)
 			}
 		}
 	})
@@ -133,7 +133,7 @@ func BenchmarkProbeHandler(b *testing.B) {
 					b.Errorf("Do = %v", err)
 				}
 				if !got {
-					b.Errorf("unexpected probe result: got: %t, want: true", got)
+					b.Errorf("Unexpected probe result: got: %t, want: true", got)
 				}
 			}
 		})
