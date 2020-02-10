@@ -135,8 +135,8 @@ function wait_until_pods_running() {
   local failed_pod=""
   for i in {1..150}; do  # timeout after 5 minutes
     local pods="$(kubectl get pods --no-headers -n $1 2>/dev/null)"
-    # All pods must be running
-    local not_running_pods=$(echo "${pods}" | grep -v Running | grep -v Completed)
+    # All pods must be running (ignore ImagePull error to allow the pod to retry)
+    local not_running_pods=$(echo "${pods}" | grep -v Running | grep -v Completed | grep -v ErrImagePull | grep -v ImagePullBackOff)
     if [[ -n "${pods}" ]] && [[ -z "${not_running_pods}" ]]; then
       # All Pods are running or completed. Verify the containers on each Pod.
       local all_ready=1
