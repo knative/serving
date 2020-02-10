@@ -90,7 +90,7 @@ func TestHandlerReqEvent(t *testing.T) {
 	select {
 	case e := <-reqChan:
 		if e.EventType != queue.ProxiedIn {
-			t.Errorf("Want: %v, got: %v\n", queue.ReqIn, e.EventType)
+			t.Errorf("Want: %v, got: %v\n", queue.ProxiedIn, e.EventType)
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Timed out waiting for an event to be intercepted")
@@ -441,6 +441,54 @@ func TestQueueTraceSpans(t *testing.T) {
 			}
 		})
 	}
+}
+
+func BenchmarkProxyHandler(b *testing.B) {
+	var httpHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get(activator.RevisionHeaderName) != "" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if r.Header.Get(activator.RevisionHeaderNamespace) != "" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if got, want := r.Host, wantHost; got != want {
+			b.Errorf("Host header = %q, want: %q", got, want)
+		}
+		if got, want := r.Header.Get(network.OriginalHostHeader), ""; got != want {
+			b.Errorf("%s header was preserved", network.OriginalHostHeader)
+		}
+		w.WriteHeader(http.StatusOK)
+	}
+	server := httptest.NewServer(httpHandler)
+	serverURL, _ := url.Parse(server.URL)
+	defer server.Close()
+	proxy := httputil.NewSingleHostReverseProxy(serverURL)
+	params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
+	breaker := queue.NewBreaker(params)
+	testFunc := func() {
+		reqChan := make(chan queue.ReqEvent, requestCountingQueueLength)
+		h := proxyHandler(reqChan, breaker, true /*tracingEnabled*/, proxy)
+		req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+		req.Header.Set(network.OriginalHostHeader, wantHost)
+		resp := httptest.NewRecorder()
+		h(resp, req)
+	}
+
+	b.Run(fmt.Sprint("sequential"), func(b *testing.B) {
+		for j := 0; j < b.N; j++ {
+			testFunc()
+		}
+	})
+
+	b.Run(fmt.Sprint("parallel"), func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			for pb.Next() {
+				testFunc()
+			}
+		})
+	})
 }
 
 func newProbeTestServer(f func(w http.ResponseWriter)) *httptest.Server {
