@@ -34,6 +34,23 @@ import (
 
 func TestRunLatestServicePostUpgrade(t *testing.T) {
 	t.Parallel()
+	clients := e2e.Setup(t)
+
+	// Before updating the service, the route and configuration objects should
+	// not be updated just because there has been an upgrade.
+	svc, err := clients.ServingAlphaClient.Services.Get(serviceName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get Service: %v", err)
+	}
+	configName := serviceresourcenames.Configuration(svc)
+	configObj, err := clients.ServingAlphaClient.Configs.Get(configName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get Configuration: %v", err)
+	}
+	if configObj.Generation != 1 && configObj.ObjectMeta.Generation != 1 {
+		t.Fatalf("configObj.Generation is %d, configObj.ObjectMeta.Generation is %d", configObj.Generation, configObj.ObjectMeta.Generation)
+	}
+
 	updateService(serviceName, t)
 }
 

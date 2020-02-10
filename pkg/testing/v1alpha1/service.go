@@ -428,7 +428,6 @@ func WithRouteStatus(targets ...v1alpha1.TrafficTarget) ServiceOption {
 		for _, tt := range targets {
 			tt.URL = domains.URL(domains.HTTPScheme, tt.Tag+".example.com")
 		}
-		// r.Status.Traffic = targets
 		s.Status.RouteStatusFields.Traffic = targets
 	}
 }
