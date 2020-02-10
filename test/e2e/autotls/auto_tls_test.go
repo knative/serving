@@ -227,7 +227,7 @@ func waitForCertificateReady(t *testing.T, clients *test.Clients, certName strin
 			return true, fmt.Errorf("certificate %s failed with status %v", cert.Name, cert.Status)
 		}
 		return cert.Status.IsReady(), nil
-	});
+	})
 }
 
 func waitForNamespaceCertReady(clients *test.Clients) (string, error) {
