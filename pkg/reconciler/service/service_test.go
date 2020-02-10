@@ -81,10 +81,10 @@ func TestReconcile(t *testing.T) {
 				// Route conditions should be at init state while Config should be OutOfDate
 				WithInitSvcConditions, WithOutOfDateConfig),
 		}, {
-                        Object: DefaultService("byo-rev", "foo", WithInlineNamedRevision,
-                                // Route conditions should be at init state while Config should be OutOfDate
-                                WithInitSvcConditions, WithOutOfDateConfig),
-                }},
+			Object: DefaultService("byo-rev", "foo", WithInlineNamedRevision,
+				// Route conditions should be at init state while Config should be OutOfDate
+				WithInitSvcConditions, WithOutOfDateConfig),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "byo-rev"),
 		},
