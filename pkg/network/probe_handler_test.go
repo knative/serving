@@ -117,10 +117,10 @@ func BenchmarkProbeHandler(b *testing.B) {
 		for j := 0; j < b.N; j++ {
 			got, err := prober.Do(context.Background(), network.AutoTransport, ts.URL, options...)
 			if err != nil {
-				b.Errorf("got error %v", err)
+				b.Errorf("Do = %v", err)
 			}
-			if want := true; got != want {
-				b.Errorf("unexpected probe result: want: %t, got: %t", want, got)
+			if !got {
+				b.Errorf("unexpected probe result: want: true, got: %t", got)
 			}
 		}
 	})
@@ -130,10 +130,10 @@ func BenchmarkProbeHandler(b *testing.B) {
 			for pb.Next() {
 				got, err := prober.Do(context.Background(), network.AutoTransport, ts.URL, options...)
 				if err != nil {
-					b.Errorf("got error %v", err)
+					b.Errorf("Do = %v", err)
 				}
-				if want := true; got != want {
-					b.Errorf("unexpected probe result: want: %t, got: %t", want, got)
+				if !got {
+					b.Errorf("unexpected probe result: want: true, got: %t", got)
 				}
 			}
 		})
