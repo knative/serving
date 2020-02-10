@@ -120,7 +120,7 @@ func BenchmarkProbeHandler(b *testing.B) {
 				b.Errorf("Do = %v", err)
 			}
 			if !got {
-				b.Errorf("unexpected probe result: want: true, got: %t", got)
+				b.Errorf("unexpected probe result: got: %t, want: true", got)
 			}
 		}
 	})
@@ -133,7 +133,7 @@ func BenchmarkProbeHandler(b *testing.B) {
 					b.Errorf("Do = %v", err)
 				}
 				if !got {
-					b.Errorf("unexpected probe result: want: true, got: %t", got)
+					b.Errorf("unexpected probe result: got: %t, want: true", got)
 				}
 			}
 		})
