@@ -101,3 +101,41 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkProbeHandler(b *testing.B) {
+	var h http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Inner Body"))
+	})
+	h = NewProbeHandler(h)
+	ts := httptest.NewServer(h)
+	defer ts.Close()
+	options := []interface{}{
+		prober.ExpectsStatusCodes([]int{http.StatusOK}),
+	}
+
+	b.Run(fmt.Sprint("sequential"), func(b *testing.B) {
+		for j := 0; j < b.N; j++ {
+			got, err := prober.Do(context.Background(), network.AutoTransport, ts.URL, options...)
+			if err != nil {
+				b.Errorf("got error %v", err)
+			}
+			if want := true; got != want {
+				b.Errorf("unexpected probe result: want: %t, got: %t", want, got)
+			}
+		}
+	})
+
+	b.Run(fmt.Sprint("parallel"), func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			for pb.Next() {
+				got, err := prober.Do(context.Background(), network.AutoTransport, ts.URL, options...)
+				if err != nil {
+					b.Errorf("got error %v", err)
+				}
+				if want := true; got != want {
+					b.Errorf("unexpected probe result: want: %t, got: %t", want, got)
+				}
+			}
+		})
+	})
+}
