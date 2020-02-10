@@ -90,7 +90,7 @@ func TestHandlerReqEvent(t *testing.T) {
 	select {
 	case e := <-reqChan:
 		if e.EventType != queue.ProxiedIn {
-			t.Errorf("Want: %v, got: %v\n", queue.ProxiedIn, e.EventType)
+			t.Errorf("Got: %v, Want: %v\n", e.EventType, queue.ProxiedIn, )
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Timed out waiting for an event to be intercepted")
@@ -444,23 +444,7 @@ func TestQueueTraceSpans(t *testing.T) {
 }
 
 func BenchmarkProxyHandler(b *testing.B) {
-	var httpHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get(activator.RevisionHeaderName) != "" {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		if r.Header.Get(activator.RevisionHeaderNamespace) != "" {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		if got, want := r.Host, wantHost; got != want {
-			b.Errorf("Host header = %q, want: %q", got, want)
-		}
-		if got, want := r.Header.Get(network.OriginalHostHeader), ""; got != want {
-			b.Errorf("%s header was preserved", network.OriginalHostHeader)
-		}
-		w.WriteHeader(http.StatusOK)
-	}
+	var httpHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {}
 	server := httptest.NewServer(httpHandler)
 	serverURL, _ := url.Parse(server.URL)
 	defer server.Close()
