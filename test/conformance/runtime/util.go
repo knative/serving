@@ -55,7 +55,7 @@ func fetchRuntimeInfo(
 	})
 
 	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, names,
-		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		test.ServingFlags.Https,
 		serviceOpts...)
 	if err != nil {
 		return nil, nil, err

@@ -389,15 +389,6 @@ function use_resolvable_domain() {
   echo "false"
 }
 
-# Check if we should use --https.
-function use_https() {
-  if (( HTTPS )); then
-    echo "--https"
-  else
-    echo ""
-  fi
-}
-
 # Check if we should specify --ingressClass
 function ingress_class() {
   if [[ -z "${INGRESS_CLASS}" ]]; then

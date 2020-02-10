@@ -76,7 +76,7 @@ func TestSubrouteLocalSTS(t *testing.T) { // We can't use a longer more descript
 	})
 
 	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		test.ServingFlags.Https,
 		withInternalVisibility, withTrafficSpec)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
@@ -123,7 +123,7 @@ func TestSubrouteVisibilityPublicToPrivate(t *testing.T) {
 		}},
 	})
 	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		test.ServingFlags.Https,
 		withTrafficSpec)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
@@ -254,7 +254,7 @@ func TestSubrouteVisibilityPrivateToPublic(t *testing.T) {
 		},
 	})
 	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		test.ServingFlags.Https,
 		withTrafficSpec, withInternalVisibility)
 	if err != nil {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
