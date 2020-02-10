@@ -308,8 +308,8 @@ This is a helper script for Knative release scripts. To use it:
      `knative-nightly/<repo>` will be used. It is empty if `--publish` was not
      passed.
    - `RELEASE_DIR`: contains the directory to store the manifests if
-     `--release-dir` was passed. Defaults to empty value, but if
-     `--nopublish` was passed then points to the repository root directory.
+     `--release-dir` was passed. Defaults to empty value, but if `--nopublish`
+     was passed then points to the repository root directory.
    - `BUILD_COMMIT_HASH`: the commit short hash for the current repo. If the
      current git tree is dirty, it will have `-dirty` appended to it.
    - `BUILD_YYYYMMDD`: current UTC date in `YYYYMMDD` format.
