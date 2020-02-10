@@ -138,7 +138,7 @@ func loadBalancingTest(t *testing.T, resources *v1a1test.ResourceObjects, client
 		targetUtilization: targetUtilization,
 	}
 
-	countKeys := func(m sync.Map) int {
+	countKeys := func() int {
 		count := 0
 		uniqueHosts.Range(func(k, v interface{}) bool {
 			count++
@@ -178,7 +178,7 @@ func loadBalancingTest(t *testing.T, resources *v1a1test.ResourceObjects, client
 			case <-done:
 				return nil
 			case <-timer:
-				if countKeys(uniqueHosts) >= wantHosts {
+				if countKeys() >= wantHosts {
 					return nil
 				}
 			}
@@ -189,7 +189,7 @@ func loadBalancingTest(t *testing.T, resources *v1a1test.ResourceObjects, client
 		ctx.t.Fatalf("error: %v", err)
 	}
 
-	gotHosts := countKeys(uniqueHosts)
+	gotHosts := countKeys()
 	if gotHosts < wantHosts {
 		ctx.t.Fatalf("Wanted %d hosts, got %d hosts", wantHosts, gotHosts)
 	}
