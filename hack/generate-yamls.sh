@@ -57,7 +57,9 @@ readonly SERVING_CERT_MANAGER_YAML=${YAML_OUTPUT_DIR}/serving-cert-manager.yaml
 readonly SERVING_ISTIO_YAML=${YAML_OUTPUT_DIR}/serving-istio.yaml
 readonly SERVING_NSCERT_YAML=${YAML_OUTPUT_DIR}/serving-nscert.yaml
 
+readonly MONITORING_FILES=${YAML_OUTPUT_DIR}/monitoring.lst
 readonly MONITORING_YAML=${YAML_OUTPUT_DIR}/monitoring.yaml
+readonly MONITORING_CORE_YAML=${YAML_OUTPUT_DIR}/monitoring-core.yaml
 readonly MONITORING_METRIC_PROMETHEUS_YAML=${YAML_OUTPUT_DIR}/monitoring-metrics-prometheus.yaml
 readonly MONITORING_TRACE_ZIPKIN_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-zipkin.yaml
 readonly MONITORING_TRACE_ZIPKIN_IN_MEM_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-zipkin-in-mem.yaml
@@ -106,22 +108,13 @@ cat "${SERVING_CORE_YAML}" > "${SERVING_YAML}"
 cat "${SERVING_HPA_YAML}" >> "${SERVING_YAML}"
 cat "${SERVING_ISTIO_YAML}" >> "${SERVING_YAML}"
 
-echo "Building Monitoring & Logging"
-# Use ko to concatenate them all together.
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/100-namespace.yaml \
-    -f third_party/config/monitoring/logging/elasticsearch \
-    -f config/monitoring/logging/elasticsearch \
-    -f third_party/config/monitoring/metrics/prometheus \
-    -f config/monitoring/metrics/prometheus \
-    -f config/monitoring/tracing/zipkin | "${LABEL_YAML_CMD[@]}" > "${MONITORING_YAML}"
-
 # Metrics via Prometheus & Grafana
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/100-namespace.yaml \
+ko resolve ${KO_YAML_FLAGS} -R \
     -f third_party/config/monitoring/metrics/prometheus \
     -f config/monitoring/metrics/prometheus | "${LABEL_YAML_CMD[@]}" > "${MONITORING_METRIC_PROMETHEUS_YAML}"
 
 # Logs via ElasticSearch, Fluentd & Kibana
-ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/100-namespace.yaml \
+ko resolve ${KO_YAML_FLAGS} -R \
     -f third_party/config/monitoring/logging/elasticsearch \
     -f config/monitoring/logging/elasticsearch | "${LABEL_YAML_CMD[@]}" > "${MONITORING_LOG_ELASTICSEARCH_YAML}"
 
@@ -130,6 +123,24 @@ ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin | "${LABEL_YA
 
 # Traces via Zipkin in Memory when ElasticSearch is not installed
 ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/zipkin-in-mem | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_ZIPKIN_IN_MEM_YAML}"
+
+echo "Building Monitoring & Logging"
+
+# By putting the list of files used to create the monitoring.yaml
+# people can choose to exclude certain ones via 'grep' but still keep in-sync
+# with the complete list if things change in the future
+echo "${MONITORING_LOG_ELASTICSEARCH_YAML}" >  "${MONITORING_FILES}"
+echo "${MONITORING_METRIC_PROMETHEUS_YAML}" >> "${MONITORING_FILES}"
+echo "${MONITORING_TRACE_ZIPKIN_YAML}"      >> "${MONITORING_FILES}"
+
+# Generate the core monitoring file - basically just the namespace
+ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/100-namespace.yaml \
+    | "${LABEL_YAML_CMD[@]}" > "${MONITORING_CORE_YAML}"
+
+# Use ko to concatenate them all together.
+ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/100-namespace.yaml \
+    $(sed "s/^/-f /" < "${MONITORING_FILES}") \
+    | "${LABEL_YAML_CMD[@]}" > "${MONITORING_YAML}"
 
 # Traces via Jaeger when ElasticSearch is installed
 ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/tracing/jaeger/elasticsearch -f config/monitoring/tracing/jaeger/105-zipkin-service.yaml | "${LABEL_YAML_CMD[@]}" > "${MONITORING_TRACE_JAEGER_YAML}"
@@ -150,7 +161,9 @@ ${SERVING_CRD_YAML}
 ${SERVING_CERT_MANAGER_YAML}
 ${SERVING_ISTIO_YAML}
 ${SERVING_NSCERT_YAML}
+${MONITORING_FILES}
 ${MONITORING_YAML}
+${MONITORING_CORE_YAML}
 ${MONITORING_METRIC_PROMETHEUS_YAML}
 ${MONITORING_TRACE_ZIPKIN_YAML}
 ${MONITORING_TRACE_ZIPKIN_IN_MEM_YAML}
