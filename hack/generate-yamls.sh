@@ -58,6 +58,7 @@ readonly SERVING_NSCERT_YAML=${YAML_OUTPUT_DIR}/serving-nscert.yaml
 
 readonly MONITORING_FILES=${YAML_OUTPUT_DIR}/monitoring.lst
 readonly MONITORING_YAML=${YAML_OUTPUT_DIR}/monitoring.yaml
+readonly MONITORING_CORE_YAML=${YAML_OUTPUT_DIR}/monitoring-core.yaml
 readonly MONITORING_METRIC_PROMETHEUS_YAML=${YAML_OUTPUT_DIR}/monitoring-metrics-prometheus.yaml
 readonly MONITORING_TRACE_ZIPKIN_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-zipkin.yaml
 readonly MONITORING_TRACE_ZIPKIN_IN_MEM_YAML=${YAML_OUTPUT_DIR}/monitoring-tracing-zipkin-in-mem.yaml
@@ -129,6 +130,10 @@ echo "${MONITORING_LOG_ELASTICSEARCH_YAML}" >  "${MONITORING_FILES}"
 echo "${MONITORING_METRIC_PROMETHEUS_YAML}" >> "${MONITORING_FILES}"
 echo "${MONITORING_TRACE_ZIPKIN_YAML}"      >> "${MONITORING_FILES}"
 
+# Generate the core monitoring file - basically just the namespace
+ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/100-namespace.yaml \
+    | "${LABEL_YAML_CMD[@]}" > "${MONITORING_CORE_YAML}"
+
 # Use ko to concatenate them all together.
 ko resolve ${KO_YAML_FLAGS} -R -f config/monitoring/100-namespace.yaml \
     $(sed "s/^/-f /" < "${MONITORING_FILES}") \
@@ -154,6 +159,7 @@ ${SERVING_ISTIO_YAML}
 ${SERVING_NSCERT_YAML}
 ${MONITORING_FILES}
 ${MONITORING_YAML}
+${MONITORING_CORE_YAML}
 ${MONITORING_METRIC_PROMETHEUS_YAML}
 ${MONITORING_TRACE_ZIPKIN_YAML}
 ${MONITORING_TRACE_ZIPKIN_IN_MEM_YAML}
