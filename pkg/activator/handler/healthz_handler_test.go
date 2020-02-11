@@ -77,3 +77,26 @@ func TestHealthHandler(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkHealthHandler(b *testing.B) {
+	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := HealthHandler{HealthCheck: func() error { return nil }, NextHandler: baseHandler, Logger: ktesting.TestLogger(b)}
+	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+	req.Header.Set("User-Agent", "kube-probe/something")
+	resp := httptest.NewRecorder()
+	b.Run("sequential", func(b *testing.B) {
+		for j := 0; j < b.N; j++ {
+			handler.ServeHTTP(resp, req)
+		}
+	})
+
+	b.Run("parallel", func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			for pb.Next() {
+				handler.ServeHTTP(resp, req)
+			}
+		})
+	})
+}

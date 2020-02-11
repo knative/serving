@@ -110,3 +110,29 @@ func mapToHeader(m map[string]string) http.Header {
 	}
 	return h
 }
+
+func BenchmarkProbeHandler(b *testing.B) {
+	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := ProbeHandler{NextHandler: baseHandler}
+	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+	req.Header.Set(network.ProbeHeaderName, activator.Name)
+	test := func() {
+		resp := httptest.NewRecorder()
+		handler.ServeHTTP(resp, req)
+	}
+	b.Run("sequential", func(b *testing.B) {
+		for j := 0; j < b.N; j++ {
+			test()
+		}
+	})
+
+	b.Run("parallel", func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			for pb.Next() {
+				test()
+			}
+		})
+	})
+}
