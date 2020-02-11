@@ -126,7 +126,6 @@ func BenchmarkProbeHandlerNoProbeHeader(b *testing.B) {
 func BenchmarkProbeHandlerWithProbeHeader(b *testing.B) {
 	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 	req.Header.Set(ProbeHeaderName, ProbeHeaderValue)
-	// This will cause 1 alloc
 	req.Header.Set(HashHeaderName, "ok")
 	var h http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	h = NewProbeHandler(h)
