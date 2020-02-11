@@ -18,6 +18,7 @@ package queue
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -27,14 +28,15 @@ import (
 	"knative.dev/serving/pkg/queue/stats"
 )
 
+const targetURI = "http://example.com"
+
 func TestNewRequestMetricHandlerFailure(t *testing.T) {
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
 	var r stats.StatsReporter
-	_, err := NewRequestMetricHandler(baseHandler, r, nil)
-	if err == nil {
+	if _, err := NewRequestMetricHandler(baseHandler, r, nil); err == nil {
 		t.Error("should get error when StatsReporter is empty")
 	}
 }
@@ -52,7 +54,7 @@ func TestRequestMetricHandler(t *testing.T) {
 		}
 
 		resp := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPost, "http://example.com", bytes.NewBufferString("test"))
+		req := httptest.NewRequest(http.MethodPost, targetURI, bytes.NewBufferString("test"))
 		handler.ServeHTTP(resp, req)
 
 		// Serve one request, should get 1 request count and none zero latency
@@ -102,10 +104,9 @@ func TestRequestMetricHandlerPanickingHandler(t *testing.T) {
 	}
 
 	resp := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "http://example.com", bytes.NewBufferString("test"))
+	req := httptest.NewRequest(http.MethodPost, targetURI, bytes.NewBufferString("test"))
 	defer func() {
-		err := recover()
-		if err == nil {
+		if err := recover(); err == nil {
 			t.Error("Want ServeHTTP to panic, got nothing.")
 		}
 
@@ -121,6 +122,42 @@ func TestRequestMetricHandlerPanickingHandler(t *testing.T) {
 		}
 	}()
 	handler.ServeHTTP(resp, req)
+}
+
+func BenchmarkNewRequestMetricHandler(b *testing.B) {
+	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	breaker := NewBreaker(BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10})
+	stat := &fakeStatsReporter{}
+	handler, err := NewRequestMetricHandler(baseHandler, stat, breaker)
+	if err != nil {
+		b.Fatalf("failed to create request metric handler: %v", err)
+	}
+	test := func() {
+		resp := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, targetURI, bytes.NewBufferString("test"))
+		handler.ServeHTTP(resp, req)
+		if resp.Code != http.StatusOK {
+			b.Fatalf("resp.Code = %d, want: StatusOK(200)", resp.Code)
+		}
+		if stat.lastReqLatency == 0 {
+			b.Errorf("request latency got %v, want larger than 0", stat.lastReqLatency)
+		}
+	}
+	b.Run(fmt.Sprint("sequential"), func(b *testing.B) {
+		for j := 0; j < b.N; j++ {
+			test()
+		}
+	})
+
+	b.Run(fmt.Sprint("parallel"), func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			for pb.Next() {
+				test()
+			}
+		})
+	})
 }
 
 // fakeStatsReporter just record the last stat it received and the times it

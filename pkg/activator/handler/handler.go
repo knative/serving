@@ -73,7 +73,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		tryContext, trySpan = trace.StartSpan(r.Context(), "throttler_try")
 	}
 
-	err := a.throttler.Try(tryContext, revID, func(dest string) error {
+	if err := a.throttler.Try(tryContext, revID, func(dest string) error {
 		trySpan.End()
 
 		proxyCtx, proxySpan := r.Context(), (*trace.Span)(nil)
@@ -87,8 +87,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		proxySpan.End()
 
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		// Set error on our capacity waiting span and end it
 		trySpan.Annotate([]trace.Attribute{trace.StringAttribute("activator.throttler.error", err.Error())}, "ThrottlerTry")
 		trySpan.End()
