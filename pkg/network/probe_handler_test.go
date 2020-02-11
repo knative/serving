@@ -102,39 +102,46 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 	}
 }
 
-func BenchmarkProbeHandler(b *testing.B) {
-	var h http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Inner Body"))
-	})
+func BenchmarkProbeHandlerNoProbeHeader(b *testing.B) {
+	var h http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	h = NewProbeHandler(h)
-	ts := httptest.NewServer(h)
-	defer ts.Close()
-	options := []interface{}{
-		prober.ExpectsStatusCodes([]int{http.StatusOK}),
-	}
+	resp := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 
-	b.Run("sequential", func(b *testing.B) {
+	b.Run("sequential-no-header", func(b *testing.B) {
 		for j := 0; j < b.N; j++ {
-			got, err := prober.Do(context.Background(), network.AutoTransport, ts.URL, options...)
-			if err != nil {
-				b.Errorf("Do = %v", err)
-			}
-			if !got {
-				b.Errorf("Unexpected probe result: got: %t, want: true", got)
-			}
+			h.ServeHTTP(resp, req)
 		}
 	})
 
-	b.Run("parallel", func(b *testing.B) {
+	b.Run("parallel-no-header", func(b *testing.B) {
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
-				got, err := prober.Do(context.Background(), network.AutoTransport, ts.URL, options...)
-				if err != nil {
-					b.Errorf("Do = %v", err)
-				}
-				if !got {
-					b.Errorf("Unexpected probe result: got: %t, want: true", got)
-				}
+				h.ServeHTTP(resp, req)
+			}
+		})
+	})
+}
+
+func BenchmarkProbeHandlerWithProbeHeader(b *testing.B) {
+	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+	req.Header.Set(ProbeHeaderName, ProbeHeaderValue)
+	req.Header.Set(HashHeaderName, "ok")
+	var h http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	h = NewProbeHandler(h)
+	b.Run("sequential-probe-header", func(b *testing.B) {
+		resp := httptest.NewRecorder()
+		for j := 0; j < b.N; j++ {
+			h.ServeHTTP(resp, req)
+		}
+	})
+
+	b.Run("parallel-probe-header", func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			// Need to create a separate response writer because of the header mutation at the end of ServeHTTP
+			respParallel := httptest.NewRecorder()
+			for pb.Next() {
+				h.ServeHTTP(respParallel, req)
 			}
 		})
 	})
