@@ -153,7 +153,7 @@ func testConcurrencyN(t *testing.T, concurrency int) []junit.TestCase {
 
 	t.Log("Creating a new Service")
 	objs, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		false /* https only enabled for e2e and conformance tests */,
+		false, /* https only enabled for e2e and conformance tests */
 		v1a1opts.WithResourceRequirements(corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("10m"),
