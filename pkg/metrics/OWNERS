@@ -2,6 +2,7 @@
 
 approvers:
 - monitoring-approvers
+- serving-api-approvers
 
 reviewers:
 - monitoring-reviewers
