@@ -24,8 +24,10 @@ import (
 	"testing"
 	"time"
 
+	"go.opencensus.io/stats"
+
 	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/queue/stats"
+	queuestats "knative.dev/serving/pkg/queue/stats"
 )
 
 const targetURI = "http://example.com"
@@ -35,7 +37,7 @@ func TestNewRequestMetricHandlerFailure(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	var r stats.StatsReporter
+	var r queuestats.StatsReporter
 	if _, err := NewRequestMetricHandler(baseHandler, r, nil); err == nil {
 		t.Error("should get error when StatsReporter is empty")
 	}
@@ -125,36 +127,46 @@ func TestRequestMetricHandlerPanickingHandler(t *testing.T) {
 }
 
 func BenchmarkNewRequestMetricHandler(b *testing.B) {
+	var (
+		queueSizeMetric = stats.Int64(
+			"queue_depth",
+			"Queue size",
+			stats.UnitDimensionless)
+		countMetric = stats.Int64(
+			"request_count",
+			"The number of requests that are routed to queue-proxy",
+			stats.UnitDimensionless)
+		latencyMetric = stats.Float64(
+			"request_latencies",
+			"The response time in millisecond",
+			stats.UnitMilliseconds)
+	)
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 	breaker := NewBreaker(BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10})
-	stat := &fakeStatsReporter{}
+	stat, err := queuestats.NewStatsReporter("test-ns", "test-svc", "test-cfg",
+		"test-rev", "test-pod", countMetric, latencyMetric, queueSizeMetric)
+	if err != nil {
+		b.Fatalf("error setting up request metrics reporter. Request metrics will be unavailable.: %v", err)
+	}
 	handler, err := NewRequestMetricHandler(baseHandler, stat, breaker)
 	if err != nil {
 		b.Fatalf("failed to create request metric handler: %v", err)
 	}
-	test := func() {
-		resp := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPost, targetURI, bytes.NewBufferString("test"))
-		handler.ServeHTTP(resp, req)
-		if resp.Code != http.StatusOK {
-			b.Fatalf("resp.Code = %d, want: StatusOK(200)", resp.Code)
-		}
-		if stat.lastReqLatency == 0 {
-			b.Errorf("request latency got %v, want larger than 0", stat.lastReqLatency)
-		}
-	}
+	resp := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, targetURI, nil)
+
 	b.Run(fmt.Sprint("sequential"), func(b *testing.B) {
 		for j := 0; j < b.N; j++ {
-			test()
+			handler.ServeHTTP(resp, req)
 		}
 	})
 
 	b.Run(fmt.Sprint("parallel"), func(b *testing.B) {
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
-				test()
+				handler.ServeHTTP(resp, req)
 			}
 		})
 	})
