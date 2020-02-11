@@ -113,7 +113,7 @@ func BenchmarkProbeHandler(b *testing.B) {
 		prober.ExpectsStatusCodes([]int{http.StatusOK}),
 	}
 
-	b.Run(fmt.Sprint("sequential"), func(b *testing.B) {
+	b.Run("sequential", func(b *testing.B) {
 		for j := 0; j < b.N; j++ {
 			got, err := prober.Do(context.Background(), network.AutoTransport, ts.URL, options...)
 			if err != nil {
@@ -125,7 +125,7 @@ func BenchmarkProbeHandler(b *testing.B) {
 		}
 	})
 
-	b.Run(fmt.Sprint("parallel"), func(b *testing.B) {
+	b.Run("parallel", func(b *testing.B) {
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
 				got, err := prober.Do(context.Background(), network.AutoTransport, ts.URL, options...)
