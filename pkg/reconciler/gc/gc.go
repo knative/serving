@@ -23,65 +23,37 @@ import (
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
-	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/configuration"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
-	pkgreconciler "knative.dev/serving/pkg/reconciler"
+	spkgreconciler "knative.dev/serving/pkg/reconciler"
 	configns "knative.dev/serving/pkg/reconciler/gc/config"
 )
 
 // reconciler implements controller.Reconciler for Garbage Collection resources.
 type reconciler struct {
-	*pkgreconciler.Base
+	*spkgreconciler.Base
 
 	// listers index properties about resources
 	configurationLister listers.ConfigurationLister
 	revisionLister      listers.RevisionLister
 
-	configStore pkgreconciler.ConfigStore
+	configStore spkgreconciler.ConfigStore
 }
 
-// Check that our reconciler implements controller.Reconciler
-var _ controller.Reconciler = (*reconciler)(nil)
+// Check that our reconciler implements configreconciler.Interface
+var _ configreconciler.Interface = (*reconciler)(nil)
 
-// Reconcile compares the actual state with the desired, and attempts to
-// converge the two. It then updates the Status block of the Garbage Collection
-// resource with the current status of the resource.
-func (c *reconciler) Reconcile(ctx context.Context, key string) error {
-	logger := logging.FromContext(ctx)
+func (c *reconciler) ReconcileKind(ctx context.Context, config *v1alpha1.Configuration) pkgreconciler.Event {
+	// TODO(n3wscott): We should not need this.
 	ctx = c.configStore.ToContext(ctx)
 
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		logger.Errorw("Invalid resource key", zap.Error(err))
-		return nil
-	}
-
-	// Get the Configuration resource with this namespace/name.
-	config, err := c.configurationLister.Configurations(namespace).Get(name)
-	if errors.IsNotFound(err) {
-		// The resource no longer exists, in which case we stop processing.
-		logger.Errorf("Configuration %q in work queue no longer exists", key)
-		return nil
-	} else if err != nil {
-		return err
-	}
-
-	reconcileErr := c.reconcile(ctx, config)
-	if reconcileErr != nil {
-		c.Recorder.Event(config, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
-	}
-	return reconcileErr
-}
-
-func (c *reconciler) reconcile(ctx context.Context, config *v1alpha1.Configuration) error {
 	cfg := configns.FromContext(ctx).RevisionGC
 	logger := logging.FromContext(ctx)
 
