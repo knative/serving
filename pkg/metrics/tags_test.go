@@ -33,18 +33,6 @@ var testM = stats.Int64(
 	"A metric just for tests",
 	stats.UnitDimensionless)
 
-func register() {
-	if err := view.Register(
-		&view.View{
-			Description: "Number of pods autoscaler wants to allocate",
-			Measure:     testM,
-			Aggregation: view.LastValue(),
-			TagKeys:     CommonRevisionKeys,
-		}); err != nil {
-		panic(err)
-	}
-}
-
 func TestNewStatsReporterCtxErrors(t *testing.T) {
 	// These are invalid as defined by the current OpenCensus library.
 	invalidTagValues := []string{
@@ -59,16 +47,17 @@ func TestNewStatsReporterCtxErrors(t *testing.T) {
 	}
 }
 
-// Resets global state from the opencensus package
-// Required to run at the beginning of tests that check metrics' values
-// to make the tests idempotent.
-func resetMetrics() {
-	metricstest.Unregister(testM.Name())
-	register()
-}
-
 func TestReporterEmptyServiceName(t *testing.T) {
-	resetMetrics()
+	if err := view.Register(
+		&view.View{
+			Description: "Number of pods autoscaler wants to allocate",
+			Measure:     testM,
+			Aggregation: view.LastValue(),
+			TagKeys:     CommonRevisionKeys,
+		}); err != nil {
+		t.Fatalf("Failed to register view: %v", err)
+	}
+
 	// Metrics reported to an empty service name will be recorded with service "unknown" (metricskey.ValueUnknown).
 	rctx, err := RevisionContext("testns", "" /*service=*/, "testconfig", "testrev")
 	if err != nil {
