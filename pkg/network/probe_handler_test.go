@@ -124,7 +124,6 @@ func BenchmarkProbeHandlerNoProbeHeader(b *testing.B) {
 }
 
 func BenchmarkProbeHandlerWithProbeHeader(b *testing.B) {
-	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 	req.Header.Set(ProbeHeaderName, ProbeHeaderValue)
 	// This will cause 1 alloc
@@ -132,6 +131,7 @@ func BenchmarkProbeHandlerWithProbeHeader(b *testing.B) {
 	var h http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	h = NewProbeHandler(h)
 	b.Run("sequential-probe-header", func(b *testing.B) {
+		resp := httptest.NewRecorder()
 		for j := 0; j < b.N; j++ {
 			h.ServeHTTP(resp, req)
 		}
@@ -139,7 +139,7 @@ func BenchmarkProbeHandlerWithProbeHeader(b *testing.B) {
 
 	b.Run("parallel-probe-header", func(b *testing.B) {
 		b.RunParallel(func(pb *testing.PB) {
-			// Need to create a separate response writer because of the write on header at the end of ServeHttp
+			// Need to create a separate response writer because of the header mutation at the end of ServeHTTP
 			respParallel := httptest.NewRecorder()
 			for pb.Next() {
 				h.ServeHTTP(respParallel, req)
