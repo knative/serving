@@ -365,7 +365,8 @@ function setup_test_cluster() {
 
   export KO_DATA_PATH="${REPO_ROOT_DIR}/.git"
 
-  trap teardown_test_resources EXIT
+  # Do not run teardowns if we explicitly want to skip them.
+  (( ! SKIP_TEARDOWNS )) && trap teardown_test_resources EXIT
 
   # Handle failures ourselves, so we can dump useful info.
   set +o errexit
@@ -419,6 +420,7 @@ function fail_test() {
 RUN_TESTS=0
 SKIP_KNATIVE_SETUP=0
 SKIP_ISTIO_ADDON=0
+SKIP_TEARDOWNS=0
 GCP_PROJECT=""
 E2E_SCRIPT=""
 E2E_CLUSTER_VERSION=""
@@ -453,6 +455,7 @@ function initialize() {
     case ${parameter} in
       --run-tests) RUN_TESTS=1 ;;
       --skip-knative-setup) SKIP_KNATIVE_SETUP=1 ;;
+      --skip-teardowns) SKIP_TEARDOWNS=1 ;;
       --skip-istio-addon) SKIP_ISTIO_ADDON=1 ;;
       *)
         [[ $# -ge 2 ]] || abort "missing parameter after $1"
@@ -487,6 +490,7 @@ function initialize() {
   readonly EXTRA_CLUSTER_CREATION_FLAGS
   readonly EXTRA_KUBETEST_FLAGS
   readonly SKIP_KNATIVE_SETUP
+  readonly SKIP_TEARDOWNS
   readonly GKE_ADDONS
 
   if (( ! RUN_TESTS )); then

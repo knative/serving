@@ -405,8 +405,10 @@ func reconcilerPackages(basePackage string, groupPkgName string, gv clientgentyp
 					DefaultGen: generator.DefaultGen{
 						OptionalName: "controller",
 					},
+					typeToGenerate:      t,
 					outputPackage:       packagePath,
 					imports:             generator.NewImportTracker(),
+					groupName:           gv.Group.String(),
 					clientPkg:           clientPackagePath,
 					informerPackagePath: informerPackagePath,
 					schemePkg:           filepath.Join(customArgs.VersionedClientSetPackage, "scheme"),
@@ -431,6 +433,7 @@ func reconcilerPackages(basePackage string, groupPkgName string, gv clientgentyp
 					DefaultGen: generator.DefaultGen{
 						OptionalName: "controller",
 					},
+					typeToGenerate:      t,
 					reconcilerPkg:       packagePath,
 					outputPackage:       filepath.Join(packagePath, "stub"),
 					imports:             generator.NewImportTracker(),
@@ -456,11 +459,12 @@ func reconcilerPackages(basePackage string, groupPkgName string, gv clientgentyp
 					DefaultGen: generator.DefaultGen{
 						OptionalName: "reconciler",
 					},
-					outputPackage: packagePath,
-					imports:       generator.NewImportTracker(),
-					clientsetPkg:  customArgs.VersionedClientSetPackage,
-					listerName:    t.Name.Name + "Lister",
-					listerPkg:     listerPackagePath,
+					typeToGenerate: t,
+					outputPackage:  packagePath,
+					imports:        generator.NewImportTracker(),
+					clientsetPkg:   customArgs.VersionedClientSetPackage,
+					listerName:     t.Name.Name + "Lister",
+					listerPkg:      listerPackagePath,
 				})
 
 				return generators
@@ -482,9 +486,10 @@ func reconcilerPackages(basePackage string, groupPkgName string, gv clientgentyp
 					DefaultGen: generator.DefaultGen{
 						OptionalName: "reconciler",
 					},
-					reconcilerPkg: packagePath,
-					outputPackage: filepath.Join(packagePath, "stub"),
-					imports:       generator.NewImportTracker(),
+					typeToGenerate: t,
+					reconcilerPkg:  packagePath,
+					outputPackage:  filepath.Join(packagePath, "stub"),
+					imports:        generator.NewImportTracker(),
 				})
 
 				return generators

@@ -36,12 +36,15 @@ import (
 
 const (
 	defaultControllerAgentName = "serverlessservice-controller"
-	defaultFinalizerName       = "serverlessservice"
+	defaultFinalizerName       = "serverlessservices.networking.internal.knative.dev"
+	defaultQueueName           = "serverlessservices"
 )
 
+// NewImpl returns a controller.Impl that handles queuing and feeding work from
+// the queue through an implementation of controller.Reconciler, delegating to
+// the provided Interface and optional Finalizer methods.
 func NewImpl(ctx context.Context, r Interface) *controller.Impl {
 	logger := logging.FromContext(ctx)
-
 	serverlessserviceInformer := serverlessservice.Get(ctx)
 
 	recorder := controller.GetEventRecorder(ctx)
@@ -63,16 +66,13 @@ func NewImpl(ctx context.Context, r Interface) *controller.Impl {
 		}()
 	}
 
-	c := &reconcilerImpl{
-		Client:        injectionclient.Get(ctx),
-		Lister:        serverlessserviceInformer.Lister(),
-		Recorder:      recorder,
-		FinalizerName: defaultFinalizerName,
-		reconciler:    r,
+	rec := &reconcilerImpl{
+		Client:     injectionclient.Get(ctx),
+		Lister:     serverlessserviceInformer.Lister(),
+		Recorder:   recorder,
+		reconciler: r,
 	}
-	impl := controller.NewImpl(c, logger, "serverlessservices")
-
-	return impl
+	return controller.NewImpl(rec, logger, defaultQueueName)
 }
 
 func init() {
