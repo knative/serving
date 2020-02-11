@@ -1159,16 +1159,15 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 
 	// The ReconcileKind call hasn't finished yet at the point where the Decider is created,
 	// so give it more time to finish before checking the PA for IsReady().
-	// HACK HACK HACK I'd love a better way to do this.
-	time.Sleep(1 * time.Second)
-
-	newKPA, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
-		kpa.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("Get() = %v", err)
-	}
-	if !newKPA.Status.IsReady() {
-		t.Error("Status.IsReady() was false")
+	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		newKPA, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
+			kpa.Name, metav1.GetOptions{})
+		if err != nil {
+			return true, err
+		}
+		return newKPA.Status.IsReady(), nil
+	}); err != nil {
+		t.Errorf("PA failed to become ready: %v", err)
 	}
 
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Delete(testRevision, nil)
