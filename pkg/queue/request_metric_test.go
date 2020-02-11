@@ -18,7 +18,6 @@ package queue
 
 import (
 	"bytes"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -148,7 +147,7 @@ func BenchmarkNewRequestMetricHandler(b *testing.B) {
 	stat, err := queuestats.NewStatsReporter("test-ns", "test-svc", "test-cfg",
 		"test-rev", "test-pod", countMetric, latencyMetric, queueSizeMetric)
 	if err != nil {
-		b.Fatalf("error setting up request metrics reporter. Request metrics will be unavailable.: %v", err)
+		b.Fatalf("Failed to setup reporter: %v", err)
 	}
 	handler, err := NewRequestMetricHandler(baseHandler, stat, breaker)
 	if err != nil {
@@ -157,13 +156,13 @@ func BenchmarkNewRequestMetricHandler(b *testing.B) {
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, targetURI, nil)
 
-	b.Run(fmt.Sprint("sequential"), func(b *testing.B) {
+	b.Run("sequential", func(b *testing.B) {
 		for j := 0; j < b.N; j++ {
 			handler.ServeHTTP(resp, req)
 		}
 	})
 
-	b.Run(fmt.Sprint("parallel"), func(b *testing.B) {
+	b.Run("parallel", func(b *testing.B) {
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
 				handler.ServeHTTP(resp, req)
