@@ -25,6 +25,7 @@ import (
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
 	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
+	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
@@ -63,7 +64,7 @@ func NewController(
 		},
 		hpaLister: hpaInformer.Lister(),
 	}
-	impl := controller.NewImpl(c, c.Logger, "HPA-Class Autoscaling")
+	impl := pareconciler.NewImpl(ctx, c)
 
 	c.Logger.Info("Setting up hpa-class event handlers")
 	onlyHpaClass := reconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.HPA, false)

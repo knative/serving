@@ -42,6 +42,7 @@ import (
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	fakesksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
+	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 	"knative.dev/serving/pkg/reconciler"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -993,7 +994,7 @@ func TestReconcile(t *testing.T) {
 		psf := podscalable.Get(ctx)
 		scaler := newScaler(ctx, psf, func(interface{}, time.Duration) {})
 		scaler.activatorProbe = func(*asv1a1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
-		return &Reconciler{
+		r := &Reconciler{
 			Base: &areconciler.Base{
 				Base:              reconciler.NewBase(ctx, controllerAgentName, newConfigWatcher()),
 				PALister:          listers.GetPodAutoscalerLister(),
@@ -1008,6 +1009,7 @@ func TestReconcile(t *testing.T) {
 			deciders:        fakeDeciders,
 			scaler:          scaler,
 		}
+		return pareconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetPodAutoscalerLister(), r.Recorder, r)
 	}))
 }
 
@@ -1114,59 +1116,68 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 }
 
 func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
-	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-	defer cancel()
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 
 	fakeDeciders := newTestDeciders()
 	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders)
 
+	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
+		cancel()
+		t.Fatalf("StartInformers() = %v", err)
+	}
+
+	var eg errgroup.Group
+	eg.Go(func() error { return ctl.Run(1, ctx.Done()) })
+	defer func() {
+		cancel()
+		wf()
+		eg.Wait()
+	}()
+
 	rev := newTestRevision(testNamespace, testRevision)
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
 	ep := makeSKSPrivateEndpoints(1, testNamespace, testRevision)
 	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
-	fakeendpointsinformer.Get(ctx).Informer().GetIndexer().Add(ep)
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
 	kpa := revisionresources.MakePA(rev)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	sks := sks(testNamespace, testRevision, WithDeployRef(kpa.Spec.ScaleTargetRef.Name),
 		WithSKSReady)
 	fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
-	fakesksinformer.Get(ctx).Informer().GetIndexer().Add(sks)
 
-	// Wait for the Reconcile to complete.
-	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
-		t.Errorf("Reconcile() = %v", err)
+	select {
+	case <-time.After(5 * time.Second):
+		t.Error("Didn't observe call to create Decider.")
+	case <-fakeDeciders.createCall:
+		// What we want.
 	}
 
-	if count := fakeDeciders.createCallCount.Load(); count != 1 {
-		t.Fatalf("Create called %d times instead of once", count)
-	}
-
-	newKPA, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
-		kpa.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("Get() = %v", err)
-	}
-	if !newKPA.Status.IsReady() {
-		t.Error("Status.IsReady() was false")
+	// The ReconcileKind call hasn't finished yet at the point where the Decider is created,
+	// so give it more time to finish before checking the PA for IsReady().
+	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		newKPA, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
+			kpa.Name, metav1.GetOptions{})
+		if err != nil {
+			return true, err
+		}
+		return newKPA.Status.IsReady(), nil
+	}); err != nil {
+		t.Errorf("PA failed to become ready: %v", err)
 	}
 
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Delete(testRevision, nil)
-	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Delete(rev)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Delete(testRevision, nil)
-	fakepainformer.Get(ctx).Informer().GetIndexer().Delete(kpa)
-	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
-		t.Errorf("Reconcile() = %v", err)
-	}
 
-	if fakeDeciders.deleteCallCount.Load() == 0 {
-		t.Fatal("Decider was not deleted")
+	select {
+	case <-time.After(5 * time.Second):
+		t.Error("Didn't observe call to delete Decider.")
+	case <-fakeDeciders.deleteCall:
+		// What we want.
 	}
 
 	if fakeDeciders.deleteBeforeCreate.Load() {
@@ -1393,16 +1404,25 @@ func pollDeciders(deciders *testDeciders, namespace, name string, cond func(*sca
 func newTestDeciders() *testDeciders {
 	return &testDeciders{
 		createCallCount:    atomic.NewUint32(0),
+		createCall:         make(chan struct{}, 100),
 		deleteCallCount:    atomic.NewUint32(0),
+		deleteCall:         make(chan struct{}, 100),
 		updateCallCount:    atomic.NewUint32(0),
+		updateCall:         make(chan struct{}, 100),
 		deleteBeforeCreate: atomic.NewBool(false),
 	}
 }
 
 type testDeciders struct {
-	createCallCount    *atomic.Uint32
-	deleteCallCount    *atomic.Uint32
-	updateCallCount    *atomic.Uint32
+	createCallCount *atomic.Uint32
+	createCall      chan struct{}
+
+	deleteCallCount *atomic.Uint32
+	deleteCall      chan struct{}
+
+	updateCallCount *atomic.Uint32
+	updateCall      chan struct{}
+
 	deleteBeforeCreate *atomic.Bool
 	decider            *scaling.Decider
 	mutex              sync.Mutex
@@ -1424,6 +1444,7 @@ func (km *testDeciders) Create(ctx context.Context, decider *scaling.Decider) (*
 
 	km.decider = decider
 	km.createCallCount.Add(1)
+	km.createCall <- struct{}{}
 	return decider, nil
 }
 
@@ -1436,6 +1457,7 @@ func (km *testDeciders) Delete(ctx context.Context, namespace, name string) erro
 	if km.createCallCount.Load() == 0 {
 		km.deleteBeforeCreate.Store(true)
 	}
+	km.deleteCall <- struct{}{}
 	return nil
 }
 
@@ -1445,6 +1467,7 @@ func (km *testDeciders) Update(ctx context.Context, decider *scaling.Decider) (*
 
 	km.decider = decider
 	km.updateCallCount.Add(1)
+	km.updateCall <- struct{}{}
 	return decider, nil
 }
 
