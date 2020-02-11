@@ -26,7 +26,6 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	pkgmetrics "knative.dev/pkg/metrics"
-	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/serving/pkg/metrics"
 )
 
@@ -96,13 +95,14 @@ func NewStatsReporter(ns, service, config, rev, pod string, countMetric *stats.I
 	// Note that service name can be an empty string, so it needs a special treatment.
 	ctx, err := tag.New(
 		context.Background(),
-		tag.Upsert(metrics.NamespaceTagKey, ns),
-		tag.Upsert(metrics.ServiceTagKey, valueOrUnknown(service)),
-		tag.Upsert(metrics.ConfigTagKey, config),
-		tag.Upsert(metrics.RevisionTagKey, rev),
 		tag.Upsert(metrics.PodTagKey, pod),
 		tag.Upsert(metrics.ContainerTagKey, "queue-proxy"),
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, err = metrics.AugmentWithRevision(ctx, ns, service, config, rev)
 	if err != nil {
 		return nil, err
 	}
@@ -113,13 +113,6 @@ func NewStatsReporter(ns, service, config, rev, pod string, countMetric *stats.I
 		latencyMetric:   latencyMetric,
 		queueSizeMetric: queueSizeMetric,
 	}, nil
-}
-
-func valueOrUnknown(v string) string {
-	if v != "" {
-		return v
-	}
-	return metricskey.ValueUnknown
 }
 
 // ReportRequestCount captures request count metric.

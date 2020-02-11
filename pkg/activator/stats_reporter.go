@@ -25,7 +25,6 @@ import (
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	pkgmetrics "knative.dev/pkg/metrics"
-	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/serving/pkg/metrics"
 )
 
@@ -105,20 +104,8 @@ func NewStatsReporter(pod string) (StatsReporter, error) {
 	return &reporter{ctx: ctx}, nil
 }
 
-func valueOrUnknown(v string) string {
-	if v != "" {
-		return v
-	}
-	return metricskey.ValueUnknown
-}
-
 func (r *reporter) GetRevisionStatsReporter(ns, service, config, rev string) (RevisionStatsReporter, error) {
-	ctx, err := tag.New(
-		r.ctx,
-		tag.Upsert(metrics.NamespaceTagKey, ns),
-		tag.Upsert(metrics.ServiceTagKey, valueOrUnknown(service)),
-		tag.Upsert(metrics.ConfigTagKey, config),
-		tag.Upsert(metrics.RevisionTagKey, rev))
+	ctx, err := metrics.AugmentWithRevision(r.ctx, ns, service, config, rev)
 	if err != nil {
 		return &revisionReporter{}, err
 	}

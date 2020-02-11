@@ -17,15 +17,10 @@ limitations under the License.
 package kpa
 
 import (
-	"context"
-
-	lru "github.com/hashicorp/golang-lru"
-	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/serving/pkg/metrics"
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
 )
 
 var (
@@ -49,20 +44,10 @@ var (
 		"terminating_pods",
 		"Number of pods that are terminating currently",
 		stats.UnitDimensionless)
-
-	// recorderContextCache stores the metrics recorder contexts
-	// in an LRU cache.
-	// Hashicorp LRU cache is synchronized.
-	recorderContextCache *lru.Cache
 )
-
-const lruCacheSize = 1024
 
 func init() {
 	register()
-	// The only possible error is when cache size is not positive.
-	lc, _ := lru.New(lruCacheSize)
-	recorderContextCache = lc
 }
 
 func register() {
@@ -103,31 +88,4 @@ func register() {
 	); err != nil {
 		panic(err)
 	}
-}
-
-func valueOrUnknown(v string) string {
-	if v != "" {
-		return v
-	}
-	return metricskey.ValueUnknown
-}
-
-func reporterContext(ns, service, config, revision string) (context.Context, error) {
-	key := ns + "/" + revision
-	ctx, ok := recorderContextCache.Get(key)
-	if !ok {
-		//  Note that service names can be an empty string, so they needs a special treatment.
-		rctx, err := tag.New(
-			context.Background(),
-			tag.Upsert(metrics.NamespaceTagKey, ns),
-			tag.Upsert(metrics.ServiceTagKey, valueOrUnknown(service)),
-			tag.Upsert(metrics.ConfigTagKey, config),
-			tag.Upsert(metrics.RevisionTagKey, revision))
-		if err != nil {
-			return nil, err
-		}
-		recorderContextCache.Add(key, rctx)
-		ctx = rctx
-	}
-	return ctx.(context.Context), nil
 }

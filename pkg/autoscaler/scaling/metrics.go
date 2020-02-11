@@ -17,14 +17,10 @@ limitations under the License.
 package scaling
 
 import (
-	"context"
-
-	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/serving/pkg/metrics"
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
 )
 
 var (
@@ -132,25 +128,4 @@ func register() {
 	); err != nil {
 		panic(err)
 	}
-}
-
-func valueOrUnknown(v string) string {
-	if v != "" {
-		return v
-	}
-	return metricskey.ValueUnknown
-}
-
-// NewStatsReporterContext returns a context that has the required stats
-// reporter tags attached.
-func NewStatsReporterContext(ns, service, config, revision string) (context.Context, error) {
-	// Our tags are static. So, we can get away with creating a single context
-	// per revision and reuse it for reporting all of our metrics.
-	// Note that service names can be an empty string, so it needs a special treatment.
-	return tag.New(
-		context.Background(),
-		tag.Upsert(metrics.NamespaceTagKey, ns),
-		tag.Upsert(metrics.ServiceTagKey, valueOrUnknown(service)),
-		tag.Upsert(metrics.ConfigTagKey, config),
-		tag.Upsert(metrics.RevisionTagKey, revision))
 }
