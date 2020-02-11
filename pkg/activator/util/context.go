@@ -16,7 +16,7 @@ limitations under the License.
 
 /*
 This file contains the context manipulation routines used within
-the activator binar
+the activator binary.
 */
 
 package util
