@@ -38,6 +38,7 @@ import (
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
@@ -451,8 +452,8 @@ func (t *Throttler) run(updateCh <-chan revisionDestsUpdate) {
 }
 
 // Try waits for capacity and then executes function, passing in a l4 dest to send a request
-func (t *Throttler) Try(ctx context.Context, revID types.NamespacedName, function func(string) error) error {
-	rt, err := t.getOrCreateRevisionThrottler(revID)
+func (t *Throttler) Try(ctx context.Context, function func(string) error) error {
+	rt, err := t.getOrCreateRevisionThrottler(util.RevIDFrom(ctx))
 	if err != nil {
 		return err
 	}
