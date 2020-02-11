@@ -29,9 +29,9 @@ import (
 // implement the reconciler.
 type reconcilerReconcilerStubGenerator struct {
 	generator.DefaultGen
-	outputPackage string
-	imports       namer.ImportTracker
-	filtered      bool
+	outputPackage  string
+	imports        namer.ImportTracker
+	typeToGenerate *types.Type
 
 	reconcilerPkg string
 }
@@ -39,12 +39,8 @@ type reconcilerReconcilerStubGenerator struct {
 var _ generator.Generator = (*reconcilerReconcilerStubGenerator)(nil)
 
 func (g *reconcilerReconcilerStubGenerator) Filter(c *generator.Context, t *types.Type) bool {
-	// We generate a single client, so return true once.
-	if !g.filtered {
-		g.filtered = true
-		return true
-	}
-	return false
+	// Only process the type for this generator.
+	return t == g.typeToGenerate
 }
 
 func (g *reconcilerReconcilerStubGenerator) Namers(c *generator.Context) namer.NameSystems {
@@ -77,6 +73,10 @@ func (g *reconcilerReconcilerStubGenerator) GenerateType(c *generator.Context, t
 			Package: g.reconcilerPkg,
 			Name:    "Interface",
 		}),
+		"reconcilerFinalizer": c.Universe.Type(types.Name{
+			Package: g.reconcilerPkg,
+			Name:    "Finalizer",
+		}),
 		"corev1EventTypeNormal": c.Universe.Type(types.Name{
 			Package: "k8s.io/api/core/v1",
 			Name:    "EventTypeNormal",
@@ -105,13 +105,12 @@ type Reconciler struct {
 // Check that our Reconciler implements Interface
 var _ {{.reconcilerInterface|raw}} = (*Reconciler)(nil)
 
+// Optionally check that our Reconciler implements Finalizer
+//var _ {{.reconcilerFinalizer|raw}} = (*Reconciler)(nil)
+
+
 // ReconcileKind implements Interface.ReconcileKind.
 func (r *Reconciler) ReconcileKind(ctx context.Context, o *{{.type|raw}}) {{.reconcilerEvent|raw}} {
-	if o.GetDeletionTimestamp() != nil {
-		// Check for a DeletionTimestamp.  If present, elide the normal reconcile logic.
-		// When a controller needs finalizer handling, it would go here.
-		return nil
-	}
 	o.Status.InitializeConditions()
 
 	// TODO: add custom reconciliation logic here.
@@ -119,4 +118,11 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, o *{{.type|raw}}) {{.rec
 	o.Status.ObservedGeneration = o.Generation
 	return newReconciledNormal(o.Namespace, o.Name)
 }
+
+// Optionally, use FinalizeKind to add finalizers. FinalizeKind will be called
+// when the resource is deleted.
+//func (r *Reconciler) FinalizeKind(ctx context.Context, o *{{.type|raw}}) {{.reconcilerEvent|raw}} {
+//	// TODO: add custom finalization logic here.
+//	return nil
+//}
 `

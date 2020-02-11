@@ -1766,7 +1766,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:02d272037c4818474fc8295877dc45d18a2cf663957c33ead92ad50d8ce69f0b"
+  digest = "1:e88d3b9de3d98890a1f1fcd8fbe80d53f97c2fdbdc54146b34b77962a70b19a0"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1789,11 +1789,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "355618808eaded05d48a52dfb3bcaf187d8f15a0"
+  revision = "c41fd5336dfd00540255dfdfffd3b1226740b03b"
 
 [[projects]]
   branch = "master"
-  digest = "1:b9bf9be301ffbfd00981299321bddf3801a6f8c402e65bfd8411eae34f604aa8"
+  digest = "1:8356c43d1864b3da53067c02c8912e1e56db1778019f1b745c5cb5e4028216a1"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1900,11 +1900,11 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "32ea8458157368451b8e0383aafdacdf5ec061c8"
+  revision = "248c9f0353cab2acd75f6d582fcdb9e45d1e285b"
 
 [[projects]]
   branch = "master"
-  digest = "1:3d029ac36af60d24934bd400956dda89696c8cabd5efc0de2963f04ecdb74e9f"
+  digest = "1:b9ec37cbc9c7e83ac1bfec6bdff255f2f6f5ef2f9bbbbb3e31bc38371fc39f0c"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1917,7 +1917,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "64615f92c4ebdd4e4423015ffc0db45877660a0d"
+  revision = "1b5477b12d75ea7210d970ff9a234277dcd9ee18"
 
 [[projects]]
   digest = "1:92b88da51692abe195601cb17d35bbb9b6bc2011237a2f234fedba7411ed8122"
@@ -2042,7 +2042,6 @@
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/record",
     "k8s.io/client-go/util/flowcontrol",
-    "k8s.io/client-go/util/retry",
     "k8s.io/client-go/util/workqueue",
     "k8s.io/code-generator/cmd/client-gen",
     "k8s.io/code-generator/cmd/deepcopy-gen",

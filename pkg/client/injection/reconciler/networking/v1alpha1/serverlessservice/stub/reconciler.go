@@ -43,13 +43,11 @@ type Reconciler struct {
 // Check that our Reconciler implements Interface
 var _ serverlessservice.Interface = (*Reconciler)(nil)
 
+// Optionally check that our Reconciler implements Finalizer
+//var _ serverlessservice.Finalizer = (*Reconciler)(nil)
+
 // ReconcileKind implements Interface.ReconcileKind.
 func (r *Reconciler) ReconcileKind(ctx context.Context, o *v1alpha1.ServerlessService) reconciler.Event {
-	if o.GetDeletionTimestamp() != nil {
-		// Check for a DeletionTimestamp.  If present, elide the normal reconcile logic.
-		// When a controller needs finalizer handling, it would go here.
-		return nil
-	}
 	o.Status.InitializeConditions()
 
 	// TODO: add custom reconciliation logic here.
@@ -57,3 +55,10 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, o *v1alpha1.ServerlessSe
 	o.Status.ObservedGeneration = o.Generation
 	return newReconciledNormal(o.Namespace, o.Name)
 }
+
+// Optionally, use FinalizeKind to add finalizers. FinalizeKind will be called
+// when the resource is deleted.
+//func (r *Reconciler) FinalizeKind(ctx context.Context, o *v1alpha1.ServerlessService) reconciler.Event {
+//	// TODO: add custom finalization logic here.
+//	return nil
+//}
