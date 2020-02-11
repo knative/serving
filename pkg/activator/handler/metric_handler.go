@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/serving"
 	pkghttp "knative.dev/serving/pkg/http"
 )
@@ -42,7 +43,7 @@ type MetricHandler struct {
 }
 
 func (h *MetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	revision := revisionFrom(r.Context())
+	revision := util.RevisionFrom(r.Context())
 	configurationName := revision.Labels[serving.ConfigurationLabelKey]
 	serviceName := revision.Labels[serving.ServiceLabelKey]
 
