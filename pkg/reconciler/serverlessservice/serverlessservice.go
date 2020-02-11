@@ -19,7 +19,6 @@ package serverlessservice
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strconv"
 
 	"github.com/davecgh/go-spew/spew"
@@ -32,10 +31,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
+	sksreconciler "knative.dev/serving/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice"
 
 	"knative.dev/pkg/apis/duck"
-	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
@@ -46,8 +44,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources"
 	presources "knative.dev/serving/pkg/resources"
 )
-
-const reconcilerName = "ServerlessServices"
 
 // reconciler implements controller.Reconciler for Service resources.
 type reconciler struct {
@@ -62,49 +58,13 @@ type reconciler struct {
 	psInformerFactory duck.InformerFactory
 }
 
-// Check that our Reconciler implements controller.Reconciler
-var _ controller.Reconciler = (*reconciler)(nil)
+// Check that our Reconciler implements Interface
+var _ sksreconciler.Interface = (*reconciler)(nil)
 
 // Reconcile compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Revision resource
 // with the current status of the resource.
-func (r *reconciler) Reconcile(ctx context.Context, key string) error {
-	logger := logging.FromContext(ctx)
-
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		logger.Errorw("Invalid resource key", zap.Error(err))
-		return nil
-	}
-
-	logger.Debug("Reconciling SKS resource")
-	// Get the current SKS resource.
-	original, err := r.sksLister.ServerlessServices(namespace).Get(name)
-	if apierrs.IsNotFound(err) {
-		// The resource may no longer exist, in which case we stop processing.
-		logger.Info("SKS resource in work queue no longer exists")
-		return nil
-	} else if err != nil {
-		return err
-	}
-
-	// Don't modify the informers copy.
-	sks := original.DeepCopy()
-	reconcileErr := r.reconcile(ctx, sks)
-	if reconcileErr != nil {
-		r.Recorder.Eventf(sks, corev1.EventTypeWarning, "UpdateFailed", "InternalError: %v", reconcileErr.Error())
-	}
-	if !equality.Semantic.DeepEqual(sks.Status, original.Status) {
-		if err := r.updateStatus(original, sks); err != nil {
-			r.Recorder.Eventf(sks, corev1.EventTypeWarning, "UpdateFailed", "Failed to update status: %v", err)
-			return err
-		}
-		r.Recorder.Eventf(sks, corev1.EventTypeNormal, "Updated", "Successfully updated ServerlessService %q", key)
-	}
-	return reconcileErr
-}
-
-func (r *reconciler) reconcile(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
+func (r *reconciler) ReconcileKind(ctx context.Context, sks *netv1alpha1.ServerlessService) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
 	// Don't reconcile if we're being deleted.
 	if sks.GetDeletionTimestamp() != nil {
@@ -126,28 +86,6 @@ func (r *reconciler) reconcile(ctx context.Context, sks *netv1alpha1.ServerlessS
 	}
 	sks.Status.ObservedGeneration = sks.Generation
 	return nil
-}
-
-func (r *reconciler) updateStatus(existing *netv1alpha1.ServerlessService, desired *netv1alpha1.ServerlessService) error {
-	existing = existing.DeepCopy()
-	return pkgreconciler.RetryUpdateConflicts(func(attempts int) (err error) {
-		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
-		if attempts > 0 {
-			existing, err = r.ServingClientSet.NetworkingV1alpha1().ServerlessServices(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-		}
-
-		// If there's nothing to update, just return.
-		if reflect.DeepEqual(existing.Status, desired.Status) {
-			return nil
-		}
-
-		existing.Status = desired.Status
-		_, err = r.ServingClientSet.NetworkingV1alpha1().ServerlessServices(existing.Namespace).UpdateStatus(existing)
-		return err
-	})
 }
 
 func (r *reconciler) reconcilePublicService(ctx context.Context, sks *netv1alpha1.ServerlessService) error {
