@@ -37,7 +37,7 @@ import (
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
-	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
+	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
@@ -60,7 +60,7 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
@@ -70,10 +70,10 @@ import (
 	. "knative.dev/pkg/reconciler/testing"
 )
 
-func testConfiguration() *v1alpha1.Configuration {
-	return &v1alpha1.Configuration{
+func testConfiguration() *v1.Configuration {
+	return &v1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/configurations/test-config",
+			SelfLink:  "/apis/serving/v1/namespaces/test/configurations/test-config",
 			Name:      "test-config",
 			Namespace: testNamespace,
 		},
@@ -101,7 +101,7 @@ func testReadyEndpoints(revName string) *corev1.Endpoints {
 	}
 }
 
-func testReadyPA(rev *v1alpha1.Revision) *av1alpha1.PodAutoscaler {
+func testReadyPA(rev *v1.Revision) *av1alpha1.PodAutoscaler {
 	pa := resources.MakePA(rev)
 	pa.Status.InitializeConditions()
 	pa.Status.MarkActive()
@@ -180,10 +180,10 @@ func createRevision(
 	t *testing.T,
 	ctx context.Context,
 	controller *controller.Impl,
-	rev *v1alpha1.Revision,
-) *v1alpha1.Revision {
+	rev *v1.Revision,
+) *v1.Revision {
 	t.Helper()
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(rev.Namespace).Create(rev)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
@@ -197,10 +197,10 @@ func updateRevision(
 	t *testing.T,
 	ctx context.Context,
 	controller *controller.Impl,
-	rev *v1alpha1.Revision,
+	rev *v1.Revision,
 ) {
 	t.Helper()
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(rev.Namespace).Update(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(rev.Namespace).Update(rev)
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Update(rev)
 
 	if err := controller.Reconciler.Reconcile(context.Background(), KeyOrDie(rev)); err == nil {
@@ -208,24 +208,20 @@ func updateRevision(
 	}
 }
 
-func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1alpha1.Revision) (*v1alpha1.Revision, *appsv1.Deployment, *av1alpha1.PodAutoscaler) {
+func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1.Revision) (*v1.Revision, *appsv1.Deployment, *av1alpha1.PodAutoscaler) {
 	t.Helper()
 
-	rev, err := fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(rev.Namespace).Get(rev.Name, metav1.GetOptions{})
+	rev, err := fakeservingclient.Get(ctx).ServingV1().Revisions(rev.Namespace).Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Revisions.Get(%v) = %v", rev.Name, err)
 	}
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
-	haveBuild := rev.Spec.DeprecatedBuildRef != nil
-
 	ns := rev.Namespace
 
 	paName := resourcenames.PA(rev)
 	pa, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(rev.Namespace).Get(paName, metav1.GetOptions{})
-	if apierrs.IsNotFound(err) && haveBuild {
-		// If we're doing a Build this won't exist yet.
-	} else if err != nil {
+	if err != nil {
 		t.Errorf("PodAutoscalers.Get(%v) = %v", paName, err)
 	} else {
 		fakepainformer.Get(ctx).Informer().GetIndexer().Add(pa)
@@ -233,9 +229,7 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1alpha1.Re
 
 	imageName := resourcenames.ImageCache(rev)
 	image, err := fakecachingclient.Get(ctx).CachingV1alpha1().Images(rev.Namespace).Get(imageName, metav1.GetOptions{})
-	if apierrs.IsNotFound(err) && haveBuild {
-		// If we're doing a Build this won't exist yet.
-	} else if err != nil {
+	if err != nil {
 		t.Errorf("Caching.Images.Get(%v) = %v", imageName, err)
 	} else {
 		fakeimageinformer.Get(ctx).Informer().GetIndexer().Add(image)
@@ -243,9 +237,7 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1alpha1.Re
 
 	deploymentName := resourcenames.Deployment(rev)
 	deployment, err := fakekubeclient.Get(ctx).AppsV1().Deployments(ns).Get(deploymentName, metav1.GetOptions{})
-	if apierrs.IsNotFound(err) && haveBuild {
-		// If we're doing a Build this won't exist yet.
-	} else if err != nil {
+	if err != nil {
 		t.Errorf("Deployments.Get(%v) = %v", deploymentName, err)
 	} else {
 		fakedeploymentinformer.Get(ctx).Informer().GetIndexer().Add(deployment)
@@ -284,7 +276,7 @@ func TestResolutionFailed(t *testing.T) {
 
 	createRevision(t, ctx, controller, rev)
 
-	rev, err := fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
+	rev, err := fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Couldn't get revision: %v", err)
 	}
@@ -296,7 +288,7 @@ func TestResolutionFailed(t *testing.T) {
 			Type:   ct,
 			Status: corev1.ConditionFalse,
 			Reason: "ContainerMissing",
-			Message: v1alpha1.RevisionContainerMissingMessage(
+			Message: v1.RevisionContainerMissingMessage(
 				rev.Spec.GetContainer().Image, "failed to resolve image to digest: "+innerError.Error()),
 			LastTransitionTime: got.LastTransitionTime,
 			Severity:           apis.ConditionSeverityError,
@@ -321,7 +313,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 		},
 	}, getTestDeploymentConfigMap(),
 	)
-	revClient := fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace)
+	revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace)
 
 	rev := testRevision()
 	createRevision(t, ctx, controller, rev)
@@ -541,7 +533,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 		},
 		callback: func(t *testing.T) func(runtime.Object) HookResult {
 			return func(obj runtime.Object) HookResult {
-				revision := obj.(*v1alpha1.Revision)
+				revision := obj.(*v1.Revision)
 				t.Logf("Revision updated: %v", revision.Name)
 
 				expected := "http://log-here.test.com?filter="
@@ -567,7 +559,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 		},
 		callback: func(t *testing.T) func(runtime.Object) HookResult {
 			return func(obj runtime.Object) HookResult {
-				revision := obj.(*v1alpha1.Revision)
+				revision := obj.(*v1.Revision)
 				t.Logf("Revision updated: %v", revision.Name)
 
 				expected := int64(3)
@@ -593,7 +585,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 			servingClient := fakeservingclient.Get(ctx)
 
 			rev := testRevision()
-			revClient := servingClient.ServingV1alpha1().Revisions(rev.Namespace)
+			revClient := servingClient.ServingV1().Revisions(rev.Namespace)
 
 			h := NewHooks()
 
@@ -749,7 +741,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 			kubeClient := fakekubeclient.Get(ctx)
 
 			rev := testRevision()
-			revClient := fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(rev.Namespace)
+			revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(rev.Namespace)
 			h := NewHooks()
 			h.OnUpdate(&kubeClient.Fake, "deployments", test.callback(t))
 

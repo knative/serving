@@ -40,13 +40,13 @@ import (
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	revisionresources "knative.dev/serving/pkg/reconciler/revision/resources"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
 
-	v1 "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -472,7 +472,7 @@ func TestDisableScaleToZero(t *testing.T) {
 	}
 }
 
-func newKPA(t *testing.T, servingClient clientset.Interface, revision *v1alpha1.Revision) *pav1alpha1.PodAutoscaler {
+func newKPA(t *testing.T, servingClient clientset.Interface, revision *v1.Revision) *pav1alpha1.PodAutoscaler {
 	pa := revisionresources.MakePA(revision)
 	pa.Status.InitializeConditions()
 	_, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(pa)
@@ -482,7 +482,7 @@ func newKPA(t *testing.T, servingClient clientset.Interface, revision *v1alpha1.
 	return pa
 }
 
-func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxScale int32) *v1alpha1.Revision {
+func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxScale int32) *v1.Revision {
 	annotations := map[string]string{}
 	if minScale > 0 {
 		annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(int(minScale))
@@ -490,14 +490,14 @@ func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxS
 	if maxScale > 0 {
 		annotations[autoscaling.MaxScaleAnnotationKey] = strconv.Itoa(int(maxScale))
 	}
-	rev := &v1alpha1.Revision{
+	rev := &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:   testNamespace,
 			Name:        testRevision,
 			Annotations: annotations,
 		},
 	}
-	rev, err := servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	rev, err := servingClient.ServingV1().Revisions(testNamespace).Create(rev)
 	if err != nil {
 		t.Fatal("Failed to create revision.", err)
 	}
@@ -505,7 +505,7 @@ func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxS
 	return rev
 }
 
-func newDeployment(t *testing.T, dynamicClient dynamic.Interface, name string, replicas int) *v1.Deployment {
+func newDeployment(t *testing.T, dynamicClient dynamic.Interface, name string, replicas int) *appsv1.Deployment {
 	t.Helper()
 
 	uns := &unstructured.Unstructured{
@@ -540,7 +540,7 @@ func newDeployment(t *testing.T, dynamicClient dynamic.Interface, name string, r
 		t.Fatalf("Create() = %v", err)
 	}
 
-	deployment := &v1.Deployment{}
+	deployment := &appsv1.Deployment{}
 	if err := duck.FromUnstructured(u, deployment); err != nil {
 		t.Fatalf("FromUnstructured() = %v", err)
 	}
@@ -568,7 +568,7 @@ func paMarkActivating(pa *pav1alpha1.PodAutoscaler, ltt time.Time) {
 	pa.Status.Conditions[0].LastTransitionTime = apis.VolatileTime{Inner: metav1.NewTime(ltt)}
 }
 
-func checkReplicas(t *testing.T, dynamicClient *fakedynamic.FakeDynamicClient, deployment *v1.Deployment, expectedScale int32) {
+func checkReplicas(t *testing.T, dynamicClient *fakedynamic.FakeDynamicClient, deployment *appsv1.Deployment, expectedScale int32) {
 	t.Helper()
 
 	found := false

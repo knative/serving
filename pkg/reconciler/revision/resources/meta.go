@@ -19,12 +19,12 @@ package resources
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/resources"
 )
 
 // makeLabels constructs the labels we will apply to K8s resources.
-func makeLabels(revision *v1alpha1.Revision) map[string]string {
+func makeLabels(revision *v1.Revision) map[string]string {
 	labels := resources.FilterMap(revision.GetLabels(), func(k string) bool {
 		// Exclude the Route label so that a Revision becoming routable
 		// doesn't trigger deployment updates.
@@ -45,7 +45,7 @@ func makeLabels(revision *v1alpha1.Revision) map[string]string {
 }
 
 // makeSelector constructs the Selector we will apply to K8s resources.
-func makeSelector(revision *v1alpha1.Revision) *metav1.LabelSelector {
+func makeSelector(revision *v1.Revision) *metav1.LabelSelector {
 	return &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			serving.RevisionUID: string(revision.UID),

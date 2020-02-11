@@ -35,17 +35,16 @@ import (
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 
 	. "knative.dev/pkg/reconciler/testing"
-	"knative.dev/serving/pkg/autoscaler"
-	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
+	. "knative.dev/serving/pkg/reconciler/testing/v1"
 	. "knative.dev/serving/pkg/testing"
-	. "knative.dev/serving/pkg/testing/v1alpha1"
+	. "knative.dev/serving/pkg/testing/v1"
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -181,29 +180,6 @@ func TestReconcile(t *testing.T) {
 		},
 		// No changes are made to any objects.
 		Key: "foo/stable-reconcile",
-	}, {
-		Name: "stable revision reconciliation (needs upgrade)",
-		// Test a simple reconciliation of a steady state in a pre-beta form,
-		// which should result in us patching the revision with an annotation
-		// to force a webhook upgrade.
-		Objects: []runtime.Object{
-			rev("foo", "needs-upgrade", WithLogURL, AllUnknownConditions, func(rev *v1alpha1.Revision) {
-				// Start the revision in the old form.
-				rev.Spec.DeprecatedContainer = &rev.Spec.Containers[0]
-				rev.Spec.Containers = nil
-			}),
-			pa("foo", "needs-upgrade", WithReachability(asv1a1.ReachabilityUnknown)),
-			deploy(t, "foo", "needs-upgrade"),
-			image("foo", "needs-upgrade"),
-		},
-		WantPatches: []clientgotesting.PatchActionImpl{{
-			ActionImpl: clientgotesting.ActionImpl{
-				Namespace: "foo",
-			},
-			Name:  "needs-upgrade",
-			Patch: []byte(reconciler.ForceUpgradePatch),
-		}},
-		Key: "foo/needs-upgrade",
 	}, {
 		Name: "update deployment containers",
 		// Test that we update a deployment with new containers when they disagree
@@ -466,7 +442,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: rev("foo", "pod-error",
-				WithLogURL, AllUnknownConditions, MarkContainerExiting(5, v1alpha1.RevisionContainerExitingMessage("I failed man!"))),
+				WithLogURL, AllUnknownConditions, MarkContainerExiting(5, v1.RevisionContainerExitingMessage("I failed man!"))),
 		}},
 		Key: "foo/pod-error",
 	}, {
@@ -639,20 +615,18 @@ func changeContainers(deploy *appsv1.Deployment) *appsv1.Deployment {
 	return deploy
 }
 
-func rev(namespace, name string, ro ...RevisionOption) *v1alpha1.Revision {
-	r := &v1alpha1.Revision{
+func rev(namespace, name string, ro ...RevisionOption) *v1.Revision {
+	r := &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 			UID:       "test-uid",
 		},
-		Spec: v1alpha1.RevisionSpec{
-			RevisionSpec: v1.RevisionSpec{
-				PodSpec: corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Image: "busybox",
-					}},
-				},
+		Spec: v1.RevisionSpec{
+			PodSpec: corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Image: "busybox",
+				}},
 			},
 		},
 	}
@@ -665,13 +639,13 @@ func rev(namespace, name string, ro ...RevisionOption) *v1alpha1.Revision {
 }
 
 func withK8sServiceName(sn string) RevisionOption {
-	return func(r *v1alpha1.Revision) {
+	return func(r *v1.Revision) {
 		r.Status.ServiceName = sn
 	}
 }
 
 // TODO(mattmoor): Come up with a better name for this.
-func AllUnknownConditions(r *v1alpha1.Revision) {
+func AllUnknownConditions(r *v1.Revision) {
 	WithInitRevConditions(r)
 	MarkDeploying("")(r)
 	MarkActivating("Deploying", "")(r)

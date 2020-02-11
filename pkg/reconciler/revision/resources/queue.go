@@ -34,7 +34,7 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
@@ -59,13 +59,13 @@ var (
 	}
 	queueNonServingPorts = []corev1.ContainerPort{{
 		// Provides health checks and lifecycle hooks.
-		Name:          v1alpha1.QueueAdminPortName,
+		Name:          v1.QueueAdminPortName,
 		ContainerPort: int32(networking.QueueAdminPort),
 	}, {
-		Name:          v1alpha1.AutoscalingQueueMetricsPortName,
+		Name:          v1.AutoscalingQueueMetricsPortName,
 		ContainerPort: int32(networking.AutoscalingQueueMetricsPort),
 	}, {
-		Name:          v1alpha1.UserQueueMetricsPortName,
+		Name:          v1.UserQueueMetricsPortName,
 		ContainerPort: int32(networking.UserQueueMetricsPort),
 	}}
 
@@ -187,7 +187,7 @@ func makeQueueProbe(in *corev1.Probe) *corev1.Probe {
 }
 
 // makeQueueContainer creates the container spec for the queue sidecar.
-func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, observabilityConfig *metrics.ObservabilityConfig,
+func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, observabilityConfig *metrics.ObservabilityConfig,
 	autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) (*corev1.Container, error) {
 	configName := ""
 	if owner := metav1.GetControllerOf(rev); owner != nil && owner.Kind == "Configuration" {
@@ -228,7 +228,8 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 		volumeMounts = append(volumeMounts, labelVolumeMount)
 	}
 
-	rp := rev.Spec.GetContainer().ReadinessProbe.DeepCopy()
+	container := rev.Spec.GetContainer()
+	rp := container.ReadinessProbe.DeepCopy()
 
 	applyReadinessProbeDefaults(rp, userPort)
 
@@ -240,7 +241,7 @@ func makeQueueContainer(rev *v1alpha1.Revision, loggingConfig *logging.Config, t
 	return &corev1.Container{
 		Name:            QueueContainerName,
 		Image:           deploymentConfig.QueueSidecarImage,
-		Resources:       createQueueResources(rev.GetAnnotations(), rev.Spec.GetContainer()),
+		Resources:       createQueueResources(rev.GetAnnotations(), container),
 		Ports:           ports,
 		ReadinessProbe:  makeQueueProbe(rp),
 		VolumeMounts:    volumeMounts,

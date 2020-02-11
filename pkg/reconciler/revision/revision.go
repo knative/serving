@@ -39,10 +39,8 @@ import (
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
-	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	listers "knative.dev/serving/pkg/client/listers/serving/v1"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 )
@@ -116,20 +114,11 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		c.Recorder.Event(rev, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
 		return reconcileErr
 	}
-	// TODO(mattmoor): Remove this after 0.7 cuts.
-	// If the spec has changed, then assume we need an upgrade and issue a patch to trigger
-	// the webhook to upgrade via defaulting.  Status updates do not trigger this due to the
-	// use of the /status resource.
-	if !equality.Semantic.DeepEqual(original.Spec, rev.Spec) {
-		revisions := v1alpha1.SchemeGroupVersion.WithResource("revisions")
-		if err := c.MarkNeedsUpgrade(revisions, rev.Namespace, rev.Name); err != nil {
-			return err
-		}
-	}
+
 	return nil
 }
 
-func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1alpha1.Revision) error {
+func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) error {
 	// The image digest has already been resolved.
 	if rev.Status.ImageDigest != "" {
 		return nil
@@ -149,8 +138,8 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1alpha1.Revision
 		opt, cfgs.Deployment.RegistriesSkippingTagResolving)
 	if err != nil {
 		err = fmt.Errorf("failed to resolve image to digest: %w", err)
-		rev.Status.MarkContainerHealthyFalse(v1alpha1.ContainerMissing,
-			v1alpha1.RevisionContainerMissingMessage(
+		rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing,
+			v1.RevisionContainerMissingMessage(
 				rev.Spec.GetContainer().Image, err.Error()))
 		return err
 	}
@@ -160,7 +149,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1alpha1.Revision
 	return nil
 }
 
-func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) error {
+func (c *Reconciler) reconcile(ctx context.Context, rev *v1.Revision) error {
 	if rev.GetDeletionTimestamp() != nil {
 		return nil
 	}
@@ -170,22 +159,13 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 	// and may not have had all of the assumed defaults specified.  This won't result
 	// in this getting written back to the API Server, but lets downstream logic make
 	// assumptions about defaulting.
-	rev.SetDefaults(v1.WithUpgradeViaDefaulting(ctx))
-
+	rev.SetDefaults(ctx)
 	rev.Status.InitializeConditions()
 	c.updateRevisionLoggingURL(ctx, rev)
 
-	if err := rev.ConvertUp(ctx, &v1beta1.Revision{}); err != nil {
-		if ce, ok := err.(*v1alpha1.CannotConvertError); ok {
-			rev.Status.MarkResourceNotConvertible(ce)
-			return nil
-		}
-		return err
-	}
-
 	phases := []struct {
 		name string
-		f    func(context.Context, *v1alpha1.Revision) error
+		f    func(context.Context, *v1.Revision) error
 	}{{
 		name: "image digest",
 		f:    c.reconcileDigest,
@@ -216,11 +196,7 @@ func (c *Reconciler) reconcile(ctx context.Context, rev *v1alpha1.Revision) erro
 	return nil
 }
 
-func (c *Reconciler) updateRevisionLoggingURL(
-	ctx context.Context,
-	rev *v1alpha1.Revision,
-) {
-
+func (c *Reconciler) updateRevisionLoggingURL(ctx context.Context, rev *v1.Revision) {
 	config := config.FromContext(ctx)
 	if config.Observability.LoggingURLTemplate == "" {
 		return
@@ -233,12 +209,12 @@ func (c *Reconciler) updateRevisionLoggingURL(
 		"${REVISION_UID}", uid, -1)
 }
 
-func (c *Reconciler) updateStatus(existing *v1alpha1.Revision, desired *v1alpha1.Revision) error {
+func (c *Reconciler) updateStatus(existing, desired *v1.Revision) error {
 	existing = existing.DeepCopy()
 	return pkgreconciler.RetryUpdateConflicts(func(attempts int) (err error) {
 		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
 		if attempts > 0 {
-			existing, err = c.ServingClientSet.ServingV1alpha1().Revisions(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
+			existing, err = c.ServingClientSet.ServingV1().Revisions(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -250,7 +226,7 @@ func (c *Reconciler) updateStatus(existing *v1alpha1.Revision, desired *v1alpha1
 		}
 
 		existing.Status = desired.Status
-		_, err = c.ServingClientSet.ServingV1alpha1().Revisions(desired.Namespace).UpdateStatus(existing)
+		_, err = c.ServingClientSet.ServingV1().Revisions(desired.Namespace).UpdateStatus(existing)
 		return err
 	})
 }

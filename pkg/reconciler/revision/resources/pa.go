@@ -23,13 +23,13 @@ import (
 	"knative.dev/pkg/kmeta"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/pkg/resources"
 )
 
 // MakePA makes a Knative Pod Autoscaler resource from a revision.
-func MakePA(rev *v1alpha1.Revision) *av1alpha1.PodAutoscaler {
+func MakePA(rev *v1.Revision) *av1alpha1.PodAutoscaler {
 	return &av1alpha1.PodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.PA(rev),
@@ -51,7 +51,7 @@ func MakePA(rev *v1alpha1.Revision) *av1alpha1.PodAutoscaler {
 			ProtocolType: rev.GetProtocol(),
 			Reachability: func() av1alpha1.ReachabilityType {
 				// If the Revision has failed to become Ready, then mark the PodAutoscaler as unreachable.
-				if cond := rev.Status.GetCondition(v1alpha1.RevisionConditionReady); cond != nil && cond.Status == corev1.ConditionFalse {
+				if cond := rev.Status.GetCondition(v1.RevisionConditionReady); cond != nil && cond.Status == corev1.ConditionFalse {
 					// As a sanity check, also make sure that we don't do this when a
 					// newly failing revision is marked reachable by outside forces.
 					if !rev.IsReachable() {
@@ -61,7 +61,7 @@ func MakePA(rev *v1alpha1.Revision) *av1alpha1.PodAutoscaler {
 
 				// We don't know the reachability if the revision has just been created
 				// or it is activating.
-				if cond := rev.Status.GetCondition(v1alpha1.RevisionConditionActive); cond != nil && cond.Status == corev1.ConditionUnknown {
+				if cond := rev.Status.GetCondition(v1.RevisionConditionActive); cond != nil && cond.Status == corev1.ConditionUnknown {
 					return av1alpha1.ReachabilityUnknown
 				}
 
