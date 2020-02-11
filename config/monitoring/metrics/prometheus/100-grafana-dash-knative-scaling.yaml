@@ -337,7 +337,7 @@ data:
                      "refId": "A"
                      },
                      {
-                     "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"$namespace\", pod_name=~\"$revision-deployment-.*\"}[1m]))",
+                     "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"$namespace\", pod_name=~\"$revision-deployment-.*\", container=\"\"}[1m]))",
                      "format": "time_series",
                      "intervalFactor": 1,
                      "legendFormat": "Cores used",
