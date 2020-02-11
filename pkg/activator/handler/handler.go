@@ -64,7 +64,7 @@ func New(ctx context.Context, t Throttler) http.Handler {
 }
 
 func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	revID := revIDFrom(r.Context())
+	revID := util.RevIDFrom(r.Context())
 	logger := logging.FromContext(r.Context())
 	tracingEnabled := activatorconfig.FromContext(r.Context()).Tracing.Backend != tracingconfig.None
 

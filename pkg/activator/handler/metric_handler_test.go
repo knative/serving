@@ -32,6 +32,7 @@ import (
 
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/activator/util"
 )
 
 var ignoreDurationOption = cmpopts.IgnoreFields(reporterCall{}, "Duration")
@@ -129,8 +130,8 @@ func TestRequestMetricHandler(t *testing.T) {
 				}
 			}()
 
-			reqCtx := withRevision(context.Background(), revision(testNamespace, testRevName))
-			reqCtx = withRevID(reqCtx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
+			reqCtx := util.WithRevision(context.Background(), revision(testNamespace, testRevName))
+			reqCtx = util.WithRevID(reqCtx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
 			handler.ServeHTTP(resp, req.WithContext(reqCtx))
 		})
 	}
@@ -143,7 +144,7 @@ func BenchmarkMetricHandler(b *testing.B) {
 		b.Fatalf("Failed to create a reporter: %v", err)
 	}
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-	reqCtx := withRevision(context.Background(), revision(testNamespace, testRevName))
+	reqCtx := util.WithRevision(context.Background(), revision(testNamespace, testRevName))
 
 	handler := &MetricHandler{reporter: reporter, nextHandler: baseHandler}
 

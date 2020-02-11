@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/serving/pkg/activator/util"
 )
 
 func TestRequestEventHandler(t *testing.T) {
@@ -36,7 +37,7 @@ func TestRequestEventHandler(t *testing.T) {
 
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", bytes.NewBufferString(""))
-	ctx := withRevID(context.Background(), types.NamespacedName{Namespace: namespace, Name: revision})
+	ctx := util.WithRevID(context.Background(), types.NamespacedName{Namespace: namespace, Name: revision})
 	handler.ServeHTTP(resp, req.WithContext(ctx))
 
 	in := <-handler.ReqChan
