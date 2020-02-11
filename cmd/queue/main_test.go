@@ -16,6 +16,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -44,6 +45,22 @@ import (
 )
 
 const wantHost = "a-better-host.com"
+
+type fakeHandler struct {}
+
+func (h fakeHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {}
+
+type fakeInfiniteBreaker struct {}
+
+func (ib *fakeInfiniteBreaker) Capacity() int { return 0 }
+
+func (ib *fakeInfiniteBreaker) UpdateConcurrency(cc int) error { return nil }
+
+func (ib *fakeInfiniteBreaker) Maybe(ctx context.Context, thunk func()) error { return nil }
+
+func (ib *fakeInfiniteBreaker) Reserve(context.Context) (func(), bool) { return noop, true }
+
+func noop() {}
 
 func TestHandlerReqEvent(t *testing.T) {
 	var httpHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
@@ -444,32 +461,52 @@ func TestQueueTraceSpans(t *testing.T) {
 }
 
 func BenchmarkProxyHandler(b *testing.B) {
-	var httpHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {}
-	server := httptest.NewServer(httpHandler)
-	serverURL, _ := url.Parse(server.URL)
-	defer server.Close()
-	proxy := httputil.NewSingleHostReverseProxy(serverURL)
 	params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	breaker := queue.NewBreaker(params)
-	testFunc := func() {
-		reqChan := make(chan queue.ReqEvent, requestCountingQueueLength)
-		h := proxyHandler(reqChan, breaker, true /*tracingEnabled*/, proxy)
-		req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
-		req.Header.Set(network.OriginalHostHeader, wantHost)
-		resp := httptest.NewRecorder()
-		h(resp, req)
-	}
+	// Make the channel as big as possible to account for the largest b.N
+	reqChan := make(chan queue.ReqEvent, 10000000)
+	h := proxyHandler(reqChan, breaker, true /*tracingEnabled*/, fakeHandler{})
+	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+	req.Header.Set(network.OriginalHostHeader, wantHost)
+	resp := httptest.NewRecorder()
 
 	b.Run(fmt.Sprint("sequential"), func(b *testing.B) {
 		for j := 0; j < b.N; j++ {
-			testFunc()
+			h(resp, req)
 		}
 	})
 
 	b.Run(fmt.Sprint("parallel"), func(b *testing.B) {
 		b.RunParallel(func(pb *testing.PB) {
+			respParallel := httptest.NewRecorder()
 			for pb.Next() {
-				testFunc()
+				h(respParallel, req)
+			}
+		})
+	})
+}
+
+func BenchmarkProxyHandlerInfiniteBreaker(b *testing.B) {
+	params := queue.BreakerParams{QueueDepth: 10000000, MaxConcurrency: 10000000, InitialCapacity: 10000000}
+	breaker := queue.NewBreaker(params)
+	// Make the channel as big as possible to account for the largest b.N
+	reqChan := make(chan queue.ReqEvent, 10000000)
+	h := proxyHandler(reqChan, breaker, true /*tracingEnabled*/, fakeHandler{})
+	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+	req.Header.Set(network.OriginalHostHeader, wantHost)
+	resp := httptest.NewRecorder()
+
+	b.Run(fmt.Sprint("sequential-infinite-breaker"), func(b *testing.B) {
+		for j := 0; j < b.N; j++ {
+			h(resp, req)
+		}
+	})
+
+	b.Run(fmt.Sprint("parallel-infinite-breaker"), func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			respParallel := httptest.NewRecorder()
+			for pb.Next() {
+				h(respParallel, req)
 			}
 		})
 	})
