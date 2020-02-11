@@ -26,6 +26,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
+	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/configuration"
 	gcconfig "knative.dev/serving/pkg/gc"
 	pkgreconciler "knative.dev/serving/pkg/reconciler"
 	configns "knative.dev/serving/pkg/reconciler/gc/config"
@@ -49,7 +50,7 @@ func NewController(
 		configurationLister: configurationInformer.Lister(),
 		revisionLister:      revisionInformer.Lister(),
 	}
-	impl := controller.NewImpl(c, c.Logger, "Garbage Collection")
+	impl := configreconciler.NewImpl(ctx, c)
 
 	c.Logger.Info("Setting up event handlers")
 
