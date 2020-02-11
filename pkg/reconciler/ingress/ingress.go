@@ -77,6 +77,7 @@ var (
 type Reconciler struct {
 	*reconciler.Base
 
+	istioClientSet       istioclientset.Interface
 	virtualServiceLister istiolisters.VirtualServiceLister
 	gatewayLister        istiolisters.GatewayLister
 	secretLister         corev1listers.SecretLister
@@ -290,7 +291,7 @@ func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ing *v1alpha1
 			// We shouldn't remove resources not controlled by us.
 			continue
 		}
-		if err = r.IstioClientSet.NetworkingV1alpha3().VirtualServices(ns).Delete(n, &metav1.DeleteOptions{}); err != nil {
+		if err = r.istioClientSet.NetworkingV1alpha3().VirtualServices(ns).Delete(n, &metav1.DeleteOptions{}); err != nil {
 			return fmt.Errorf("failed to delete VirtualService: %w", err)
 		}
 	}
@@ -395,7 +396,7 @@ func (r *Reconciler) reconcileGateway(ctx context.Context, ing *v1alpha1.Ingress
 
 	copy := gateway.DeepCopy()
 	copy = resources.UpdateGateway(copy, desired, existing)
-	if _, err := r.IstioClientSet.NetworkingV1alpha3().Gateways(copy.Namespace).Update(copy); err != nil {
+	if _, err := r.istioClientSet.NetworkingV1alpha3().Gateways(copy.Namespace).Update(copy); err != nil {
 		return fmt.Errorf("failed to update Gateway: %w", err)
 	}
 	r.Recorder.Eventf(ing, corev1.EventTypeNormal, "Updated", "Updated Gateway %s/%s", gateway.Namespace, gateway.Name)
@@ -414,7 +415,7 @@ func (r *Reconciler) GetSecretLister() corev1listers.SecretLister {
 
 // GetIstioClient returns the client to access Istio resources.
 func (r *Reconciler) GetIstioClient() istioclientset.Interface {
-	return r.IstioClientSet
+	return r.istioClientSet
 }
 
 // GetVirtualServiceLister returns the lister for VirtualService.

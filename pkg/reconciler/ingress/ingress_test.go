@@ -31,6 +31,7 @@ import (
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
+	istioclient "knative.dev/serving/pkg/client/istio/injection/client"
 	fakeistioclient "knative.dev/serving/pkg/client/istio/injection/client/fake"
 	_ "knative.dev/serving/pkg/client/istio/injection/informers/networking/v1alpha3/gateway/fake"
 	_ "knative.dev/serving/pkg/client/istio/injection/informers/networking/v1alpha3/virtualservice/fake"
@@ -550,6 +551,7 @@ func TestReconcile(t *testing.T) {
 		retryAttempted = false
 		return &Reconciler{
 			Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
+			istioClientSet:       istioclient.Get(ctx),
 			virtualServiceLister: listers.GetVirtualServiceLister(),
 			gatewayLister:        listers.GetGatewayLister(),
 			finalizer:            ingressFinalizer,
@@ -1012,6 +1014,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 
 		return &Reconciler{
 			Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
+			istioClientSet:       istioclient.Get(ctx),
 			virtualServiceLister: listers.GetVirtualServiceLister(),
 			gatewayLister:        listers.GetGatewayLister(),
 			secretLister:         listers.GetSecretLister(),
