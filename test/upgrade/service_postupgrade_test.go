@@ -38,18 +38,13 @@ func TestRunLatestServicePostUpgrade(t *testing.T) {
 
 	// Before updating the service, the route and configuration objects should
 	// not be updated just because there has been an upgrade.
-	svc, err := clients.ServingAlphaClient.Services.Get(serviceName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Failed to get Service: %v", err)
+	if configUpdated(t, clients, serviceName) {
+		t.Fatal("Configuration is updated after an upgrade.")
 	}
-	configName := serviceresourcenames.Configuration(svc)
-	configObj, err := clients.ServingAlphaClient.Configs.Get(configName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Failed to get Configuration: %v", err)
+	if routeUpdated(t, clients, serviceName) {
+		t.Fatal("Route is updated after an upgrade.")
 	}
-	if configObj.Generation != 1 && configObj.ObjectMeta.Generation != 1 {
-		t.Fatalf("configObj.Generation is %d, configObj.ObjectMeta.Generation is %d", configObj.Generation, configObj.ObjectMeta.Generation)
-	}
+
 
 	updateService(serviceName, t)
 }
@@ -77,6 +72,30 @@ func TestBYORevisionPostUpgrade(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Failed to update Service: %v", err)
 	}
+}
+
+func configUpdated(t *testing.T, clients *test.Clients, serviceName string) bool {
+	configObj, err := clients.ServingAlphaClient.Configs.Get(serviceName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get Configuration: %v", err)
+	}
+	if configObj.Generation != 1 && configObj.ObjectMeta.Generation != 1 {
+		t.Errorf("configObj.Generation is %d, configObj.ObjectMeta.Generation is %d", configObj.Generation, configObj.ObjectMeta.Generation)
+		return true
+	}
+	return false
+}
+
+func routeUpdated(t *testing.T, clients *test.Clients, serviceName string) bool {
+	routeObj, err := clients.ServingAlphaClient.Routes.Get(serviceName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get Route: %v", err)
+	}
+	if routeObj.Generation != 1 && routeObj.ObjectMeta.Generation != 1 {
+		t.Errorf("routeObj.Generation is %d, routeObj.ObjectMeta.Generation is %d", routeObj.Generation, routeObj.ObjectMeta.Generation)
+		return true
+	}
+	return false
 }
 
 func updateService(serviceName string, t *testing.T) {
