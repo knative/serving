@@ -2,7 +2,7 @@
 
 approvers:
 - monitoring-approvers
-- serving-api-approvers
+- serving-wg-leads
 
 reviewers:
 - monitoring-reviewers
