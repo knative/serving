@@ -1,54 +1,3 @@
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    serving.knative.dev/controller: "true"
-  name: knative-contour-core
-rules:
-- apiGroups:
-  - projectcontour.io
-  resources:
-  - httpproxies
-  verbs:
-  - get
-  - list
-  - create
-  - update
-  - delete
-  - deletecollection
-  - patch
-  - watch
-
----
-apiVersion: v1
-data:
-  _example: |
-    ################################
-    #                              #
-    #    EXAMPLE CONFIGURATION     #
-    #                              #
-    ################################
-
-    # visibility contains the configuration for how to expose services
-    # of assorted visibilities.  Each entry is keyed by the visibility
-    # and contains two keys:
-    #  1. the "class" value to pass to the Contour class annotations,
-    #  2. the namespace/name of the Contour Envoy service.
-    visibility: |
-      ExternalIP:
-        class: contour
-        service: projectcontour/envoy-external
-      ClusterLocal:
-        class: contour-internal
-        service: projectcontour/envoy-internal
-kind: ConfigMap
-metadata:
-  labels:
-    serving.knative.dev/release: devel
-  name: config-contour
-  namespace: knative-serving
-
----
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -662,7 +611,7 @@ spec:
         - --namespace=projectcontour
         - --incluster
         - --kube
-        image: docker.io/mattmoor/contour@sha256:58749ee9fb7d44c0569dac64407cbff9a1b40bd8ea9a3cd84ee57b63d9c43740
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4ab7c7c727e1ff8fa23844af62f8e909920042060fff2c506dac8e82b9cc4242
         imagePullPolicy: IfNotPresent
         name: contour
       restartPolicy: Never
@@ -826,8 +775,8 @@ spec:
         - --xds-port=8011
         - --http-port=8013
         - --debug-http-port=6060
-        - --envoy-service-http-port=80
-        - --envoy-service-https-port=443
+        - --envoy-service-http-port=8081
+        - --envoy-service-https-port=8444
         - --contour-cafile=/ca/cacert.pem
         - --contour-cert-file=/certs/tls.crt
         - --contour-key-file=/certs/tls.key
@@ -839,7 +788,7 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.name
-        image: docker.io/mattmoor/contour@sha256:58749ee9fb7d44c0569dac64407cbff9a1b40bd8ea9a3cd84ee57b63d9c43740
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4ab7c7c727e1ff8fa23844af62f8e909920042060fff2c506dac8e82b9cc4242
         livenessProbe:
           httpGet:
             path: /healthz
@@ -873,8 +822,8 @@ spec:
         - --xds-port=8010
         - --http-port=8012
         - --debug-http-port=6061
-        - --envoy-service-http-port=80
-        - --envoy-service-https-port=443
+        - --envoy-service-http-port=8080
+        - --envoy-service-https-port=8443
         - --contour-cafile=/ca/cacert.pem
         - --contour-cert-file=/certs/tls.crt
         - --contour-key-file=/certs/tls.key
@@ -886,7 +835,7 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.name
-        image: docker.io/mattmoor/contour@sha256:58749ee9fb7d44c0569dac64407cbff9a1b40bd8ea9a3cd84ee57b63d9c43740
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4ab7c7c727e1ff8fa23844af62f8e909920042060fff2c506dac8e82b9cc4242
         livenessProbe:
           httpGet:
             path: /healthz
@@ -937,6 +886,199 @@ spec:
         name: contour-external-config
 
 ---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: envoy
+  name: envoy
+  namespace: projectcontour
+spec:
+  selector:
+    matchLabels:
+      app: envoy
+  template:
+    metadata:
+      labels:
+        app: envoy
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - args:
+        - -c
+        - /config/envoy.json
+        - --base-id 1
+        - --service-cluster $(CONTOUR_NAMESPACE)
+        - --service-node $(ENVOY_POD_NAME)
+        - --log-level info
+        command:
+        - envoy
+        env:
+        - name: CONTOUR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: ENVOY_POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        image: docker.io/envoyproxy/envoy:v1.12.2
+        imagePullPolicy: IfNotPresent
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - bash
+              - -c
+              - --
+              - echo
+              - -ne
+              - "POST /healthcheck/fail HTTP/1.1\r\nHost: localhost\r\nConnection:
+                close\r\n\r\n"
+              - '>/dev/tcp/localhost/9001'
+        name: envoy-internal
+        ports:
+        - containerPort: 8081
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8002
+          initialDelaySeconds: 3
+          periodSeconds: 3
+        volumeMounts:
+        - mountPath: /config
+          name: envoy-internal-config
+        - mountPath: /certs
+          name: envoycert
+        - mountPath: /ca
+          name: cacert
+      - args:
+        - -c
+        - /config/envoy.json
+        - --base-id 2
+        - --service-cluster $(CONTOUR_NAMESPACE)
+        - --service-node $(ENVOY_POD_NAME)
+        - --log-level info
+        command:
+        - envoy
+        env:
+        - name: CONTOUR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: ENVOY_POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        image: docker.io/envoyproxy/envoy:v1.12.2
+        imagePullPolicy: IfNotPresent
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - bash
+              - -c
+              - --
+              - echo
+              - -ne
+              - "POST /healthcheck/fail HTTP/1.1\r\nHost: localhost\r\nConnection:
+                close\r\n\r\n"
+              - '>/dev/tcp/localhost/9002'
+        name: envoy-external
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 8443
+          name: https
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8002
+          initialDelaySeconds: 3
+          periodSeconds: 3
+        volumeMounts:
+        - mountPath: /config
+          name: envoy-external-config
+        - mountPath: /certs
+          name: envoycert
+        - mountPath: /ca
+          name: cacert
+      initContainers:
+      - args:
+        - bootstrap
+        - /config/envoy.json
+        - --xds-address=contour-internal
+        - --xds-port=8001
+        - --admin-port=9001
+        - --envoy-cafile=/ca/cacert.pem
+        - --envoy-cert-file=/certs/tls.crt
+        - --envoy-key-file=/certs/tls.key
+        env:
+        - name: CONTOUR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4ab7c7c727e1ff8fa23844af62f8e909920042060fff2c506dac8e82b9cc4242
+        imagePullPolicy: IfNotPresent
+        name: envoy-internal-initconfig
+        volumeMounts:
+        - mountPath: /config
+          name: envoy-internal-config
+        - mountPath: /certs
+          name: envoycert
+          readOnly: true
+        - mountPath: /ca
+          name: cacert
+          readOnly: true
+      - args:
+        - bootstrap
+        - /config/envoy.json
+        - --xds-address=contour-external
+        - --xds-port=8001
+        - --admin-port=9002
+        - --envoy-cafile=/ca/cacert.pem
+        - --envoy-cert-file=/certs/tls.crt
+        - --envoy-key-file=/certs/tls.key
+        env:
+        - name: CONTOUR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: gcr.io/knative-nightly/knative.dev/net-contour/vendor/github.com/projectcontour/contour/cmd/contour@sha256:4ab7c7c727e1ff8fa23844af62f8e909920042060fff2c506dac8e82b9cc4242
+        imagePullPolicy: IfNotPresent
+        name: envoy-external-initconfig
+        volumeMounts:
+        - mountPath: /config
+          name: envoy-external-config
+        - mountPath: /certs
+          name: envoycert
+          readOnly: true
+        - mountPath: /ca
+          name: cacert
+          readOnly: true
+      restartPolicy: Always
+      volumes:
+      - emptyDir: {}
+        name: envoy-internal-config
+      - emptyDir: {}
+        name: envoy-external-config
+      - name: envoycert
+        secret:
+          secretName: envoycert
+      - name: cacert
+        secret:
+          secretName: cacert
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 10%
+    type: RollingUpdate
+
+---
 apiVersion: v1
 data:
   contour.yaml: |
@@ -977,124 +1119,13 @@ spec:
   ports:
   - name: http
     port: 80
-    targetPort: 80
+    targetPort: 8080
   - name: https
     port: 443
-    targetPort: 443
+    targetPort: 8443
   selector:
-    app: envoy-external
+    app: envoy
   type: LoadBalancer
----
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  labels:
-    app: envoy-external
-  name: envoy-external
-  namespace: projectcontour
-spec:
-  selector:
-    matchLabels:
-      app: envoy-external
-  template:
-    metadata:
-      labels:
-        app: envoy-external
-    spec:
-      automountServiceAccountToken: false
-      containers:
-      - args:
-        - -c
-        - /config/envoy.json
-        - --service-cluster $(CONTOUR_NAMESPACE)
-        - --service-node $(ENVOY_POD_NAME)
-        - --log-level info
-        command:
-        - envoy
-        env:
-        - name: CONTOUR_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
-        - name: ENVOY_POD_NAME
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.name
-        image: docker.io/envoyproxy/envoy:v1.12.2
-        imagePullPolicy: IfNotPresent
-        lifecycle:
-          preStop:
-            exec:
-              command:
-              - bash
-              - -c
-              - --
-              - echo
-              - -ne
-              - "POST /healthcheck/fail HTTP/1.1\r\nHost: localhost\r\nConnection:
-                close\r\n\r\n"
-              - '>/dev/tcp/localhost/9001'
-        name: envoy
-        ports:
-        - containerPort: 80
-          name: http
-        - containerPort: 443
-          name: https
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8002
-          initialDelaySeconds: 3
-          periodSeconds: 3
-        volumeMounts:
-        - mountPath: /config
-          name: envoy-external-config
-        - mountPath: /certs
-          name: envoycert
-        - mountPath: /ca
-          name: cacert
-      initContainers:
-      - args:
-        - bootstrap
-        - /config/envoy.json
-        - --xds-address=contour-external
-        - --xds-port=8001
-        - --envoy-cafile=/ca/cacert.pem
-        - --envoy-cert-file=/certs/tls.crt
-        - --envoy-key-file=/certs/tls.key
-        env:
-        - name: CONTOUR_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        image: docker.io/mattmoor/contour@sha256:58749ee9fb7d44c0569dac64407cbff9a1b40bd8ea9a3cd84ee57b63d9c43740
-        imagePullPolicy: IfNotPresent
-        name: envoy-initconfig
-        volumeMounts:
-        - mountPath: /config
-          name: envoy-external-config
-        - mountPath: /certs
-          name: envoycert
-          readOnly: true
-        - mountPath: /ca
-          name: cacert
-          readOnly: true
-      restartPolicy: Always
-      volumes:
-      - emptyDir: {}
-        name: envoy-external-config
-      - name: envoycert
-        secret:
-          secretName: envoycert
-      - name: cacert
-        secret:
-          secretName: cacert
-  updateStrategy:
-    rollingUpdate:
-      maxUnavailable: 10%
-    type: RollingUpdate
 
 ---
 apiVersion: v1
@@ -1134,160 +1165,9 @@ spec:
   ports:
   - name: http
     port: 80
-    targetPort: 80
+    targetPort: 8081
   selector:
-    app: envoy-internal
+    app: envoy
   type: ClusterIP
----
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  labels:
-    app: envoy-internal
-  name: envoy-internal
-  namespace: projectcontour
-spec:
-  selector:
-    matchLabels:
-      app: envoy-internal
-  template:
-    metadata:
-      labels:
-        app: envoy-internal
-    spec:
-      automountServiceAccountToken: false
-      containers:
-      - args:
-        - -c
-        - /config/envoy.json
-        - --service-cluster $(CONTOUR_NAMESPACE)
-        - --service-node $(ENVOY_POD_NAME)
-        - --log-level info
-        command:
-        - envoy
-        env:
-        - name: CONTOUR_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
-        - name: ENVOY_POD_NAME
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.name
-        image: docker.io/envoyproxy/envoy:v1.12.2
-        imagePullPolicy: IfNotPresent
-        lifecycle:
-          preStop:
-            exec:
-              command:
-              - bash
-              - -c
-              - --
-              - echo
-              - -ne
-              - "POST /healthcheck/fail HTTP/1.1\r\nHost: localhost\r\nConnection:
-                close\r\n\r\n"
-              - '>/dev/tcp/localhost/9001'
-        name: envoy
-        ports:
-        - containerPort: 80
-          name: http
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8002
-          initialDelaySeconds: 3
-          periodSeconds: 3
-        volumeMounts:
-        - mountPath: /config
-          name: envoy-internal-config
-        - mountPath: /certs
-          name: envoycert
-        - mountPath: /ca
-          name: cacert
-      initContainers:
-      - args:
-        - bootstrap
-        - /config/envoy.json
-        - --xds-address=contour-internal
-        - --xds-port=8001
-        - --envoy-cafile=/ca/cacert.pem
-        - --envoy-cert-file=/certs/tls.crt
-        - --envoy-key-file=/certs/tls.key
-        env:
-        - name: CONTOUR_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        image: docker.io/mattmoor/contour@sha256:58749ee9fb7d44c0569dac64407cbff9a1b40bd8ea9a3cd84ee57b63d9c43740
-        imagePullPolicy: IfNotPresent
-        name: envoy-initconfig
-        volumeMounts:
-        - mountPath: /config
-          name: envoy-internal-config
-        - mountPath: /certs
-          name: envoycert
-          readOnly: true
-        - mountPath: /ca
-          name: cacert
-          readOnly: true
-      restartPolicy: Always
-      volumes:
-      - emptyDir: {}
-        name: envoy-internal-config
-      - name: envoycert
-        secret:
-          secretName: envoycert
-      - name: cacert
-        secret:
-          secretName: cacert
-  updateStrategy:
-    rollingUpdate:
-      maxUnavailable: 10%
-    type: RollingUpdate
-
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: contour-ingress-controller
-  namespace: knative-serving
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: controller
-  template:
-    metadata:
-      labels:
-        app: controller
-    spec:
-      containers:
-      - env:
-        - name: SYSTEM_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: CONFIG_LOGGING_NAME
-          value: config-logging
-        - name: CONFIG_OBSERVABILITY_NAME
-          value: config-observability
-        - name: METRICS_DOMAIN
-          value: knative.dev/samples
-        image: docker.io/mattmoor/controller@sha256:6f17bfaafbbd65605a13ddf43d0ad9d62b838d4c3400ffd8af5238e24f2590a7
-        name: controller
-        ports:
-        - containerPort: 9090
-          name: metrics
-        resources:
-          limits:
-            cpu: 1000m
-            memory: 1000Mi
-          requests:
-            cpu: 100m
-            memory: 100Mi
-      serviceAccountName: controller
 
 ---

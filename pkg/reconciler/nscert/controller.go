@@ -58,7 +58,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 
 	c.Logger.Info("Setting up event handlers")
 	nsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: pkgreconciler.Not(pkgreconciler.LabelExistsFilterFunc(networking.DisableWildcardCertLabelKey)),
+		FilterFunc: pkgreconciler.Not(pkgreconciler.LabelFilterFunc(networking.DisableWildcardCertLabelKey, "true", false)),
 		Handler:    controller.HandleAll(impl.Enqueue),
 	})
 

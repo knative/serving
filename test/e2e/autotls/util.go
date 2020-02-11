@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -31,6 +32,7 @@ import (
 
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking"
+	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/test"
 	testingress "knative.dev/serving/test/conformance/ingress"
@@ -137,8 +139,31 @@ func WaitForCertificateReady(t *testing.T, clients *test.Clients, certName strin
 			}
 			return false, err
 		}
+		if cert.Status.GetCondition(v1alpha1.CertificateConditionReady).IsFalse() {
+			return true, fmt.Errorf("certificate %s failed with status %v", cert.Name, cert.Status)
+		}
 		return cert.Status.IsReady(), nil
-	}); err != nil {
-		t.Fatalf("Certificate %s is not ready: %v", certName, err)
-	}
+	})
+}
+
+func waitForNamespaceCertReady(clients *test.Clients) (string, error) {
+	var certName string
+	err := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
+		certs, err := clients.NetworkingClient.Certificates.List(metav1.ListOptions{})
+		if err != nil {
+			return false, err
+		}
+		for _, cert := range certs.Items {
+			if strings.Contains(cert.Name, test.ServingNamespace) {
+				certName = cert.Name
+				if cert.Status.GetCondition(v1alpha1.CertificateConditionReady).IsFalse() {
+					return true, fmt.Errorf("certificate %s failed with status %v", cert.Name, cert.Status)
+				}
+				return cert.Status.IsReady(), nil
+			}
+		}
+		// Namespace certificate has not been created.
+		return false, nil
+	})
+	return certName, err
 }

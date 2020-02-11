@@ -27,13 +27,10 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
 	"knative.dev/serving/pkg/activator"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/activator/util"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 )
-
-type revisionKey struct{}
-type revIDKey struct{}
 
 // NewContextHandler creates a handler that extracts the necessary context from the request
 // and makes it available on the request's context.
@@ -67,26 +64,10 @@ func (h *contextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	ctx = logging.WithLogger(ctx, logger)
-	ctx = withRevision(ctx, revision)
-	ctx = withRevID(ctx, revID)
+	ctx = util.WithRevision(ctx, revision)
+	ctx = util.WithRevID(ctx, revID)
 
 	h.nextHandler.ServeHTTP(w, r.WithContext(ctx))
-}
-
-func withRevision(ctx context.Context, rev *v1alpha1.Revision) context.Context {
-	return context.WithValue(ctx, revisionKey{}, rev)
-}
-
-func revisionFrom(ctx context.Context) *v1alpha1.Revision {
-	return ctx.Value(revisionKey{}).(*v1alpha1.Revision)
-}
-
-func withRevID(ctx context.Context, revID types.NamespacedName) context.Context {
-	return context.WithValue(ctx, revIDKey{}, revID)
-}
-
-func revIDFrom(ctx context.Context) types.NamespacedName {
-	return ctx.Value(revIDKey{}).(types.NamespacedName)
 }
 
 func sendError(err error, w http.ResponseWriter) {

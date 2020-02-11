@@ -18,6 +18,7 @@ package hpa
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	// Inject our fake informers
@@ -35,9 +36,11 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ktesting "k8s.io/client-go/testing"
+	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -47,6 +50,7 @@ import (
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/serving/pkg/reconciler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
@@ -90,6 +94,7 @@ func TestControllerCanReconcile(t *testing.T) {
 }
 
 func TestReconcile(t *testing.T) {
+	retryAttempted := false
 	const (
 		deployName = testRevision + "-deployment"
 		privateSvc = testRevision + "-private"
@@ -123,18 +128,30 @@ func TestReconcile(t *testing.T) {
 				WithHPAClass, WithMetricAnnotation(autoscaling.Concurrency)), privateSvc),
 		}},
 	}, {
-		Name: "create hpa & sks",
+		Name: "create hpa & sks, with retry",
 		Objects: []runtime.Object{
 			pa(testNamespace, testRevision, WithHPAClass),
 			deploy(testNamespace, testRevision),
 		},
 		Key: key(testNamespace, testRevision),
+		WithReactors: []ktesting.ReactionFunc{
+			func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
+				if retryAttempted || !action.Matches("update", "podautoscalers") || action.GetSubresource() != "status" {
+					return false, nil, nil
+				}
+				retryAttempted = true
+				return true, nil, apierrs.NewConflict(v1alpha1.Resource("foo"), "bar", errors.New("foo"))
+			},
+		},
 		WantCreates: []runtime.Object{
 			sks(testNamespace, testRevision, WithDeployRef(deployName)),
 			hpa(pa(testNamespace, testRevision,
 				WithHPAClass, WithMetricAnnotation("cpu"))),
 		},
 		WantStatusUpdates: []ktesting.UpdateActionImpl{{
+			Object: pa(testNamespace, testRevision, WithHPAClass, withScales(0, 0),
+				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet")),
+		}, {
 			Object: pa(testNamespace, testRevision, WithHPAClass, withScales(0, 0),
 				WithNoTraffic("ServicesNotReady", "SKS Services are not ready yet")),
 		}},
@@ -357,7 +374,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "podautoscalers"),
 		},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", `Failed to update status for PA "test-revision": inducing failure for update podautoscalers`),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", `Failed to update status for "test-revision": inducing failure for update podautoscalers`),
 		},
 	}, {
 		Name: "update hpa fails",
@@ -441,9 +458,10 @@ func TestReconcile(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		retryAttempted = false
 		ctx = podscalable.WithDuck(ctx)
 
-		return &Reconciler{
+		r := &Reconciler{
 			Base: &areconciler.Base{
 				Base:              reconciler.NewBase(ctx, controllerAgentName, cmw),
 				PALister:          listers.GetPodAutoscalerLister(),
@@ -455,6 +473,7 @@ func TestReconcile(t *testing.T) {
 			},
 			hpaLister: listers.GetHorizontalPodAutoscalerLister(),
 		}
+		return pareconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetPodAutoscalerLister(), r.Recorder, r)
 	}))
 }
 

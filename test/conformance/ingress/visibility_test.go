@@ -37,7 +37,8 @@ func TestVisibility(t *testing.T) {
 	name, port, cancel := CreateRuntimeService(t, clients, networking.ServicePortNameHTTP1)
 	defer cancel()
 
-	privateHostName := "private." + test.ServingNamespace + ".svc.cluster.local"
+	privateServiceName := test.ObjectNameForTest(t)
+	privateHostName := privateServiceName + "." + test.ServingNamespace + ".svc.cluster.local"
 	ingress, client, cancel := CreateIngressReady(t, clients, v1alpha1.IngressSpec{
 		Rules: []v1alpha1.IngressRule{{
 			Hosts:      []string{privateHostName},

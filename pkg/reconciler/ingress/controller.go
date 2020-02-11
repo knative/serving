@@ -29,6 +29,7 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	ingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
+	istioclient "knative.dev/serving/pkg/client/istio/injection/client"
 	gatewayinformer "knative.dev/serving/pkg/client/istio/injection/informers/networking/v1alpha3/gateway"
 	virtualserviceinformer "knative.dev/serving/pkg/client/istio/injection/informers/networking/v1alpha3/virtualservice"
 	"knative.dev/serving/pkg/network"
@@ -57,6 +58,7 @@ func NewController(
 
 	c := &Reconciler{
 		Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
+		istioClientSet:       istioclient.Get(ctx),
 		virtualServiceLister: virtualServiceInformer.Lister(),
 		gatewayLister:        gatewayInformer.Lister(),
 		secretLister:         secretInformer.Lister(),

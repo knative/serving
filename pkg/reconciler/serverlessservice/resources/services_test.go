@@ -28,7 +28,7 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
-	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 var (
@@ -595,17 +595,17 @@ func TestMakePrivateService(t *testing.T) {
 					Port:       networking.ServiceHTTPPort,
 					TargetPort: intstr.FromInt(networking.BackendHTTPPort),
 				}, {
-					Name:       servingv1alpha1.AutoscalingQueueMetricsPortName,
+					Name:       servingv1.AutoscalingQueueMetricsPortName,
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.AutoscalingQueueMetricsPort,
-					TargetPort: intstr.FromString(servingv1alpha1.AutoscalingQueueMetricsPortName),
+					TargetPort: intstr.FromString(servingv1.AutoscalingQueueMetricsPortName),
 				}, {
-					Name:       servingv1alpha1.UserQueueMetricsPortName,
+					Name:       servingv1.UserQueueMetricsPortName,
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.UserQueueMetricsPort,
-					TargetPort: intstr.FromString(servingv1alpha1.UserQueueMetricsPortName),
+					TargetPort: intstr.FromString(servingv1.UserQueueMetricsPortName),
 				}, {
-					Name:       servingv1alpha1.QueueAdminPortName,
+					Name:       servingv1.QueueAdminPortName,
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.QueueAdminPort,
 					TargetPort: intstr.FromInt(networking.QueueAdminPort),
@@ -668,17 +668,17 @@ func TestMakePrivateService(t *testing.T) {
 					Port:       networking.ServiceHTTPPort,
 					TargetPort: intstr.FromInt(networking.BackendHTTP2Port),
 				}, {
-					Name:       servingv1alpha1.AutoscalingQueueMetricsPortName,
+					Name:       servingv1.AutoscalingQueueMetricsPortName,
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.AutoscalingQueueMetricsPort,
-					TargetPort: intstr.FromString(servingv1alpha1.AutoscalingQueueMetricsPortName),
+					TargetPort: intstr.FromString(servingv1.AutoscalingQueueMetricsPortName),
 				}, {
-					Name:       servingv1alpha1.UserQueueMetricsPortName,
+					Name:       servingv1.UserQueueMetricsPortName,
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.UserQueueMetricsPort,
-					TargetPort: intstr.FromString(servingv1alpha1.UserQueueMetricsPortName),
+					TargetPort: intstr.FromString(servingv1.UserQueueMetricsPortName),
 				}, {
-					Name:       servingv1alpha1.QueueAdminPortName,
+					Name:       servingv1.QueueAdminPortName,
 					Protocol:   corev1.ProtocolTCP,
 					Port:       networking.QueueAdminPort,
 					TargetPort: intstr.FromInt(networking.QueueAdminPort),

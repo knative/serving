@@ -20,26 +20,27 @@ import (
 	"context"
 	"fmt"
 
+	"go.opencensus.io/stats"
 	"go.uber.org/zap"
 
-	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/autoscaler/scaling"
+	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
 	anames "knative.dev/serving/pkg/reconciler/autoscaling/resources/names"
 	resourceutil "knative.dev/serving/pkg/resources"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
 )
 
 // podCounts keeps record of various numbers of pods
@@ -62,62 +63,16 @@ type Reconciler struct {
 	scaler          *scaler
 }
 
-// Check that our Reconciler implements controller.Reconciler
-var _ controller.Reconciler = (*Reconciler)(nil)
+// Check that our Reconciler implements pareconciler.Interface
+var _ pareconciler.Interface = (*Reconciler)(nil)
 
-// Reconcile right sizes PA ScaleTargetRefs based on the state of decisions in Deciders.
-func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
-	logger := logging.FromContext(ctx)
-	ctx = c.ConfigStore.ToContext(ctx)
-
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		logger.Errorw("Invalid resource key", zap.Error(err))
-		return nil
-	}
-
-	logger.Debug("Reconcile kpa-class PodAutoscaler")
-
-	original, err := c.PALister.PodAutoscalers(namespace).Get(name)
-	if errors.IsNotFound(err) {
-		logger.Info("PA in work queue no longer exists")
-		if err := c.deciders.Delete(ctx, namespace, name); err != nil {
-			return err
-		}
-		return nil
-	} else if err != nil {
-		return err
-	}
-
-	// Don't modify the informer's copy.
-	pa := original.DeepCopy()
-
-	// Reconcile this copy of the pa and then write back any status
-	// updates regardless of whether the reconciliation errored out.
-	reconcileErr := c.reconcile(ctx, pa)
-	if equality.Semantic.DeepEqual(original.Status, pa.Status) {
-		// If we didn't change anything then don't call updateStatus.
-		// This is important because the copy we loaded from the informer's
-		// cache may be stale and we don't want to overwrite a prior update
-		// to status with this stale state.
-	} else if err = c.UpdateStatus(original, pa); err != nil {
-		logger.Warnw("Failed to update pa status", zap.Error(err))
-		c.Recorder.Eventf(pa, corev1.EventTypeWarning, "UpdateFailed",
-			"Failed to update status for PA %q: %v", pa.Name, err)
-		return err
-	}
-	if reconcileErr != nil {
-		c.Recorder.Event(pa, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
-	}
-	return reconcileErr
-}
-
-func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
-	logger := logging.FromContext(ctx)
-
+func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutoscaler) pkgreconciler.Event {
 	if pa.GetDeletionTimestamp() != nil {
 		return nil
 	}
+	logger := logging.FromContext(ctx)
+	// TODO(n3wscott): We should not need this.
+	ctx = c.ConfigStore.ToContext(ctx)
 
 	// We may be reading a version of the object that was stored at an older version
 	// and may not have had all of the assumed defaults specified.  This won't result
@@ -225,7 +180,7 @@ func (c *Reconciler) reconcile(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	return computeStatus(pa, pc)
 }
 
-func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler, k8sSvc string) (*autoscaler.Decider, error) {
+func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler, k8sSvc string) (*scaling.Decider, error) {
 	desiredDecider := resources.MakeDecider(ctx, pa, config.FromContext(ctx).Autoscaler, k8sSvc)
 	decider, err := c.deciders.Get(ctx, desiredDecider.Namespace, desiredDecider.Name)
 	if errors.IsNotFound(err) {
@@ -262,25 +217,23 @@ func computeStatus(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 }
 
 func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
-	var serviceLabel string
-	var configLabel string
-	if pa.Labels != nil {
-		serviceLabel = pa.Labels[serving.ServiceLabelKey]
-		configLabel = pa.Labels[serving.ConfigurationLabelKey]
-	}
-	reporter, err := autoscaler.NewStatsReporter(pa.Namespace, serviceLabel, configLabel, pa.Name)
+	serviceLabel := pa.Labels[serving.ServiceLabelKey] // This might be empty.
+	configLabel := pa.Labels[serving.ConfigurationLabelKey]
+
+	ctx, err := reporterContext(pa.Namespace, serviceLabel, configLabel, pa.Name)
 	if err != nil {
 		return err
 	}
 
-	reporter.ReportActualPodCount(int64(pc.ready))
-	reporter.ReportNotReadyPodCount(int64(pc.notReady))
-	reporter.ReportPendingPodCount(int64(pc.pending))
-	reporter.ReportTerminatingPodCount(int64(pc.terminating))
+	stats := []stats.Measurement{
+		actualPodCountM.M(int64(pc.ready)), notReadyPodCountM.M(int64(pc.notReady)),
+		pendingPodCountM.M(int64(pc.pending)), terminatingPodCountM.M(int64(pc.terminating)),
+	}
 	// Negative "want" values represent an empty metrics pipeline and thus no specific request is being made.
 	if pc.want >= 0 {
-		reporter.ReportRequestedPodCount(int64(pc.want))
+		stats = append(stats, requestedPodCountM.M(int64(pc.want)))
 	}
+	pkgmetrics.RecordBatch(ctx, stats...)
 	return nil
 }
 

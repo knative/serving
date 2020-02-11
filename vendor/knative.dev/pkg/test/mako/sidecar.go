@@ -77,9 +77,11 @@ func (c *Client) StoreAndHandleResult() error {
 	return c.alerter.HandleBenchmarkResult(c.benchmarkKey, c.benchmarkName, out, err)
 }
 
+var tagEscaper = strings.NewReplacer("+", "-", "\t", "_", " ", "_")
+
 // EscapeTag replaces characters that Mako doesn't accept with ones it does.
 func EscapeTag(tag string) string {
-	return strings.ReplaceAll(tag, ".", "_")
+	return tagEscaper.Replace(tag)
 }
 
 // SetupHelper sets up the mako client for the provided benchmarkKey.
@@ -135,15 +137,16 @@ func SetupHelper(ctx context.Context, benchmarkKey *string, benchmarkName *strin
 	} else if parts := strings.Split(machineType, "/"); len(parts) != 4 {
 		tags = append(tags, "instanceType="+EscapeTag(parts[3]))
 	}
-
+	tags = append(tags,
+		"commit="+commitID,
+		"kubernetes="+EscapeTag(version.String()),
+		"goversion="+EscapeTag(runtime.Version()),
+	)
+	log.Printf("The tags for this run are: %+v", tags)
 	// Create a new Quickstore that connects to the microservice
 	qs, qclose, err := quickstore.NewAtAddress(ctx, &qpb.QuickstoreInput{
 		BenchmarkKey: benchmarkKey,
-		Tags: append(tags,
-			"commit="+commitID,
-			"kubernetes="+EscapeTag(version.String()),
-			EscapeTag(runtime.Version()),
-		),
+		Tags:         tags,
 	}, sidecarAddress)
 	if err != nil {
 		return nil, err

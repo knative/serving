@@ -28,12 +28,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/logging/logkey"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 )
 
-func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revision) error {
+func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1.Revision) error {
 	ns := rev.Namespace
 	deploymentName := resourcenames.Deployment(rev)
 	logger := logging.FromContext(ctx).With(zap.String(logkey.Deployment, deploymentName))
@@ -41,8 +41,8 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	deployment, err := c.deploymentLister.Deployments(ns).Get(deploymentName)
 	if apierrs.IsNotFound(err) {
 		// Deployment does not exist. Create it.
-		rev.Status.MarkResourcesAvailableUnknown(v1alpha1.Deploying, "")
-		rev.Status.MarkContainerHealthyUnknown(v1alpha1.Deploying, "")
+		rev.Status.MarkResourcesAvailableUnknown(v1.ReasonDeploying, "")
+		rev.Status.MarkContainerHealthyUnknown(v1.ReasonDeploying, "")
 		deployment, err = c.createDeployment(ctx, rev)
 		if err != nil {
 			return fmt.Errorf("failed to create deployment %q: %w", deploymentName, err)
@@ -52,7 +52,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 		return fmt.Errorf("failed to get deployment %q: %w", deploymentName, err)
 	} else if !metav1.IsControlledBy(deployment, rev) {
 		// Surface an error in the revision's status, and return an error.
-		rev.Status.MarkResourcesAvailableFalse(v1alpha1.NotOwned, v1alpha1.ResourceNotOwnedMessage("Deployment", deploymentName))
+		rev.Status.MarkResourcesAvailableFalse(v1.ReasonNotOwned, v1.ResourceNotOwnedMessage("Deployment", deploymentName))
 		return fmt.Errorf("revision: %q does not own Deployment: %q", rev.Name, deploymentName)
 	} else {
 		// The deployment exists, but make sure that it has the shape that we expect.
@@ -95,7 +95,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 				if status.Name == rev.Spec.GetContainer().Name {
 					if t := status.LastTerminationState.Terminated; t != nil {
 						logger.Infof("%s marking exiting with: %d/%s", rev.Name, t.ExitCode, t.Message)
-						rev.Status.MarkContainerHealthyFalse(v1alpha1.ExitCodeReason(t.ExitCode), v1alpha1.RevisionContainerExitingMessage(t.Message))
+						rev.Status.MarkContainerHealthyFalse(v1.ExitCodeReason(t.ExitCode), v1.RevisionContainerExitingMessage(t.Message))
 					} else if w := status.State.Waiting; w != nil && hasDeploymentTimedOut(deployment) {
 						logger.Infof("%s marking resources unavailable with: %s: %s", rev.Name, w.Reason, w.Message)
 						rev.Status.MarkResourcesAvailableFalse(w.Reason, w.Message)
@@ -109,7 +109,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 	return nil
 }
 
-func (c *Reconciler) reconcileImageCache(ctx context.Context, rev *v1alpha1.Revision) error {
+func (c *Reconciler) reconcileImageCache(ctx context.Context, rev *v1.Revision) error {
 	logger := logging.FromContext(ctx)
 
 	ns := rev.Namespace
@@ -128,7 +128,7 @@ func (c *Reconciler) reconcileImageCache(ctx context.Context, rev *v1alpha1.Revi
 	return nil
 }
 
-func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1alpha1.Revision) error {
+func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1.Revision) error {
 	ns := rev.Namespace
 	paName := resourcenames.PA(rev)
 	logger := logging.FromContext(ctx)
@@ -146,7 +146,7 @@ func (c *Reconciler) reconcilePA(ctx context.Context, rev *v1alpha1.Revision) er
 		return fmt.Errorf("failed to get PA %q: %w", paName, err)
 	} else if !metav1.IsControlledBy(pa, rev) {
 		// Surface an error in the revision's status, and return an error.
-		rev.Status.MarkResourcesAvailableFalse(v1alpha1.NotOwned, v1alpha1.ResourceNotOwnedMessage("PodAutoscaler", paName))
+		rev.Status.MarkResourcesAvailableFalse(v1.ReasonNotOwned, v1.ResourceNotOwnedMessage("PodAutoscaler", paName))
 		return fmt.Errorf("revision: %q does not own PodAutoscaler: %q", rev.Name, paName)
 	}
 

@@ -33,13 +33,16 @@ import (
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/metrics/metricskey"
+	"knative.dev/pkg/metrics/metricstest"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 	_ "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
 	fakemetricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	fakesksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
-	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
+	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
+	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 	"knative.dev/serving/pkg/reconciler"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -58,8 +61,10 @@ import (
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/autoscaler/scaling"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
@@ -259,6 +264,7 @@ func TestReconcile(t *testing.T) {
 	zeroEndpoints := makeSKSPrivateEndpoints(0, testNamespace, testRevision)
 
 	deciderKey := struct{}{}
+	retryAttempted := false
 
 	// Note: due to how KPA reconciler works we are dependent on the
 	// two constant objects above, which means, that all tests must share
@@ -286,7 +292,7 @@ func TestReconcile(t *testing.T) {
 			defaultDeployment, defaultEndpoints,
 		},
 	}, {
-		Name: "no endpoints",
+		Name: "no endpoints, with retry",
 		Key:  key,
 		Objects: []runtime.Object{
 			kpa(testNamespace, testRevision, WithPAMetricsService(privateSvc), WithPAStatusService(testRevision),
@@ -295,7 +301,19 @@ func TestReconcile(t *testing.T) {
 			metric(testNamespace, testRevision),
 			defaultDeployment,
 		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
+				if retryAttempted || !action.Matches("update", "podautoscalers") || action.GetSubresource() != "status" {
+					return false, nil, nil
+				}
+				retryAttempted = true
+				return true, nil, apierrors.NewConflict(v1.Resource("foo"), "bar", errors.New("foo"))
+			},
+		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: kpa(testNamespace, testRevision, markUnknown, WithPAMetricsService(privateSvc), withScales(1, defaultScale),
+				WithPAStatusService(testRevision)),
+		}, {
 			Object: kpa(testNamespace, testRevision, markUnknown, WithPAMetricsService(privateSvc), withScales(1, defaultScale),
 				WithPAStatusService(testRevision)),
 		}},
@@ -955,6 +973,7 @@ func TestReconcile(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		retryAttempted = false
 		ctx = podscalable.WithDuck(ctx)
 
 		fakeDeciders := newTestDeciders()
@@ -969,13 +988,13 @@ func TestReconcile(t *testing.T) {
 			decider.Generation = 2112
 			fakeDeciders.Create(ctx, decider)
 		} else {
-			fakeDeciders.Create(ctx, d.(*autoscaler.Decider))
+			fakeDeciders.Create(ctx, d.(*scaling.Decider))
 		}
 
 		psf := podscalable.Get(ctx)
 		scaler := newScaler(ctx, psf, func(interface{}, time.Duration) {})
 		scaler.activatorProbe = func(*asv1a1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
-		return &Reconciler{
+		r := &Reconciler{
 			Base: &areconciler.Base{
 				Base:              reconciler.NewBase(ctx, controllerAgentName, newConfigWatcher()),
 				PALister:          listers.GetPodAutoscalerLister(),
@@ -990,6 +1009,7 @@ func TestReconcile(t *testing.T) {
 			deciders:        fakeDeciders,
 			scaler:          scaler,
 		}
+		return pareconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetPodAutoscalerLister(), r.Recorder, r)
 	}))
 }
 
@@ -1085,7 +1105,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	})
 
 	// Wait for decider to be updated with the new values from the configMap.
-	cond := func(d *autoscaler.Decider) bool {
+	cond := func(d *scaling.Decider) bool {
 		return d.Spec.TargetValue == concurrencyTargetAfterUpdate
 	}
 	if decider, err := pollDeciders(fakeDeciders, testNamespace, testRevision, cond); err != nil {
@@ -1096,59 +1116,68 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 }
 
 func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
-	ctx, cancel, _ := SetupFakeContextWithCancel(t)
-	defer cancel()
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 
 	fakeDeciders := newTestDeciders()
 	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders)
 
+	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
+		cancel()
+		t.Fatalf("StartInformers() = %v", err)
+	}
+
+	var eg errgroup.Group
+	eg.Go(func() error { return ctl.Run(1, ctx.Done()) })
+	defer func() {
+		cancel()
+		wf()
+		eg.Wait()
+	}()
+
 	rev := newTestRevision(testNamespace, testRevision)
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
-	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
 
 	ep := makeSKSPrivateEndpoints(1, testNamespace, testRevision)
 	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Create(ep)
-	fakeendpointsinformer.Get(ctx).Informer().GetIndexer().Add(ep)
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
 	kpa := revisionresources.MakePA(rev)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-	fakepainformer.Get(ctx).Informer().GetIndexer().Add(kpa)
 
 	sks := sks(testNamespace, testRevision, WithDeployRef(kpa.Spec.ScaleTargetRef.Name),
 		WithSKSReady)
 	fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
-	fakesksinformer.Get(ctx).Informer().GetIndexer().Add(sks)
 
-	// Wait for the Reconcile to complete.
-	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
-		t.Errorf("Reconcile() = %v", err)
+	select {
+	case <-time.After(5 * time.Second):
+		t.Error("Didn't observe call to create Decider.")
+	case <-fakeDeciders.createCall:
+		// What we want.
 	}
 
-	if count := fakeDeciders.createCallCount.Load(); count != 1 {
-		t.Fatalf("Create called %d times instead of once", count)
-	}
-
-	newKPA, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
-		kpa.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("Get() = %v", err)
-	}
-	if !newKPA.Status.IsReady() {
-		t.Error("Status.IsReady() was false")
+	// The ReconcileKind call hasn't finished yet at the point where the Decider is created,
+	// so give it more time to finish before checking the PA for IsReady().
+	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		newKPA, err := fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Get(
+			kpa.Name, metav1.GetOptions{})
+		if err != nil {
+			return true, err
+		}
+		return newKPA.Status.IsReady(), nil
+	}); err != nil {
+		t.Errorf("PA failed to become ready: %v", err)
 	}
 
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Delete(testRevision, nil)
-	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Delete(rev)
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Delete(testRevision, nil)
-	fakepainformer.Get(ctx).Informer().GetIndexer().Delete(kpa)
-	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
-		t.Errorf("Reconcile() = %v", err)
-	}
 
-	if fakeDeciders.deleteCallCount.Load() == 0 {
-		t.Fatal("Decider was not deleted")
+	select {
+	case <-time.After(5 * time.Second):
+		t.Error("Didn't observe call to delete Decider.")
+	case <-fakeDeciders.deleteCall:
+		// What we want.
 	}
 
 	if fakeDeciders.deleteBeforeCreate.Load() {
@@ -1164,7 +1193,7 @@ func TestUpdate(t *testing.T) {
 	ctl := NewController(ctx, newConfigWatcher(), fakeDeciders)
 
 	rev := newTestRevision(testNamespace, testRevision)
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
@@ -1358,7 +1387,7 @@ func TestScaleFailure(t *testing.T) {
 	}
 }
 
-func pollDeciders(deciders *testDeciders, namespace, name string, cond func(*autoscaler.Decider) bool) (decider *autoscaler.Decider, err error) {
+func pollDeciders(deciders *testDeciders, namespace, name string, cond func(*scaling.Decider) bool) (decider *scaling.Decider, err error) {
 	wait.PollImmediate(10*time.Millisecond, 3*time.Second, func() (bool, error) {
 		decider, err = deciders.Get(context.Background(), namespace, name)
 		if err != nil {
@@ -1375,22 +1404,31 @@ func pollDeciders(deciders *testDeciders, namespace, name string, cond func(*aut
 func newTestDeciders() *testDeciders {
 	return &testDeciders{
 		createCallCount:    atomic.NewUint32(0),
+		createCall:         make(chan struct{}, 100),
 		deleteCallCount:    atomic.NewUint32(0),
+		deleteCall:         make(chan struct{}, 100),
 		updateCallCount:    atomic.NewUint32(0),
+		updateCall:         make(chan struct{}, 100),
 		deleteBeforeCreate: atomic.NewBool(false),
 	}
 }
 
 type testDeciders struct {
-	createCallCount    *atomic.Uint32
-	deleteCallCount    *atomic.Uint32
-	updateCallCount    *atomic.Uint32
+	createCallCount *atomic.Uint32
+	createCall      chan struct{}
+
+	deleteCallCount *atomic.Uint32
+	deleteCall      chan struct{}
+
+	updateCallCount *atomic.Uint32
+	updateCall      chan struct{}
+
 	deleteBeforeCreate *atomic.Bool
-	decider            *autoscaler.Decider
+	decider            *scaling.Decider
 	mutex              sync.Mutex
 }
 
-func (km *testDeciders) Get(ctx context.Context, namespace, name string) (*autoscaler.Decider, error) {
+func (km *testDeciders) Get(ctx context.Context, namespace, name string) (*scaling.Decider, error) {
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 
@@ -1400,12 +1438,13 @@ func (km *testDeciders) Get(ctx context.Context, namespace, name string) (*autos
 	return km.decider, nil
 }
 
-func (km *testDeciders) Create(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error) {
+func (km *testDeciders) Create(ctx context.Context, decider *scaling.Decider) (*scaling.Decider, error) {
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 
 	km.decider = decider
 	km.createCallCount.Add(1)
+	km.createCall <- struct{}{}
 	return decider, nil
 }
 
@@ -1418,15 +1457,17 @@ func (km *testDeciders) Delete(ctx context.Context, namespace, name string) erro
 	if km.createCallCount.Load() == 0 {
 		km.deleteBeforeCreate.Store(true)
 	}
+	km.deleteCall <- struct{}{}
 	return nil
 }
 
-func (km *testDeciders) Update(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error) {
+func (km *testDeciders) Update(ctx context.Context, decider *scaling.Decider) (*scaling.Decider, error) {
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 
 	km.decider = decider
 	km.updateCallCount.Add(1)
+	km.updateCall <- struct{}{}
 	return decider, nil
 }
 
@@ -1438,11 +1479,11 @@ type failingDeciders struct {
 	deleteErr error
 }
 
-func (km *failingDeciders) Get(ctx context.Context, namespace, name string) (*autoscaler.Decider, error) {
+func (km *failingDeciders) Get(ctx context.Context, namespace, name string) (*scaling.Decider, error) {
 	return nil, km.getErr
 }
 
-func (km *failingDeciders) Create(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error) {
+func (km *failingDeciders) Create(ctx context.Context, decider *scaling.Decider) (*scaling.Decider, error) {
 	return nil, km.createErr
 }
 
@@ -1453,21 +1494,25 @@ func (km *failingDeciders) Delete(ctx context.Context, namespace, name string) e
 func (km *failingDeciders) Watch(fn func(types.NamespacedName)) {
 }
 
-func (km *failingDeciders) Update(ctx context.Context, decider *autoscaler.Decider) (*autoscaler.Decider, error) {
+func (km *failingDeciders) Update(ctx context.Context, decider *scaling.Decider) (*scaling.Decider, error) {
 	return decider, nil
 }
 
-func newTestRevision(namespace string, name string) *v1alpha1.Revision {
-	return &v1alpha1.Revision{
+func newTestRevision(namespace, name string) *v1.Revision {
+	return &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  fmt.Sprintf("/apis/ela/v1alpha1/namespaces/%s/revisions/%s", namespace, name),
+			SelfLink:  fmt.Sprintf("/apis/ela/v1/namespaces/%s/revisions/%s", namespace, name),
 			Name:      name,
 			Namespace: namespace,
 			Annotations: map[string]string{
 				autoscaling.ClassAnnotationKey: autoscaling.KPA,
 			},
+			Labels: map[string]string{
+				serving.ServiceLabelKey:       "test-service",
+				serving.ConfigurationLabelKey: "test-service",
+			},
 		},
-		Spec: v1alpha1.RevisionSpec{},
+		Spec: v1.RevisionSpec{},
 	}
 }
 
@@ -1504,8 +1549,8 @@ func withMinScale(minScale int) PodAutoscalerOption {
 	}
 }
 
-func decider(ns, name string, desiredScale, ebc int32) *autoscaler.Decider {
-	return &autoscaler.Decider{
+func decider(ns, name string, desiredScale, ebc int32) *scaling.Decider {
+	return &scaling.Decider{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: ns,
 			Name:      name,
@@ -1513,7 +1558,7 @@ func decider(ns, name string, desiredScale, ebc int32) *autoscaler.Decider {
 				autoscaling.ClassAnnotationKey: autoscaling.KPA,
 			},
 		},
-		Spec: autoscaler.DeciderSpec{
+		Spec: scaling.DeciderSpec{
 			MaxScaleUpRate:      10.0,
 			TickInterval:        2 * time.Second,
 			TargetValue:         100,
@@ -1522,7 +1567,7 @@ func decider(ns, name string, desiredScale, ebc int32) *autoscaler.Decider {
 			PanicThreshold:      200,
 			StableWindow:        60 * time.Second,
 		},
-		Status: autoscaler.DeciderStatus{
+		Status: scaling.DeciderStatus{
 			DesiredScale:        desiredScale,
 			ExcessBurstCapacity: ebc,
 		},
@@ -1538,3 +1583,38 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 }
 
 var _ reconciler.ConfigStore = (*testConfigStore)(nil)
+
+func TestMetricsReporter(t *testing.T) {
+	pa := kpa(testNamespace, testRevision)
+	wantTags := map[string]string{
+		metricskey.LabelRevisionName:      testRevision,
+		metricskey.LabelNamespaceName:     testNamespace,
+		metricskey.LabelServiceName:       pa.Labels[serving.ServiceLabelKey],
+		metricskey.LabelConfigurationName: pa.Labels[serving.ConfigurationLabelKey],
+	}
+	pc := podCounts{
+		want:        1982,
+		ready:       1984,
+		notReady:    1988,
+		pending:     1996,
+		terminating: 1983,
+	}
+	reportMetrics(pa, pc)
+	metricstest.CheckLastValueData(t, "requested_pods", wantTags, 1982)
+	metricstest.CheckLastValueData(t, "actual_pods", wantTags, 1984)
+	metricstest.CheckLastValueData(t, "not_ready_pods", wantTags, 1988)
+	metricstest.CheckLastValueData(t, "pending_pods", wantTags, 1996)
+	metricstest.CheckLastValueData(t, "terminating_pods", wantTags, 1983)
+
+	// Verify `want` is ignored, when it is equal to -1.
+	pc.want = -1
+	pc.terminating = 1955
+	reportMetrics(pa, pc)
+
+	// Basically same values and change to `terminating` to verify reporting has occurred.
+	metricstest.CheckLastValueData(t, "requested_pods", wantTags, 1982)
+	metricstest.CheckLastValueData(t, "actual_pods", wantTags, 1984)
+	metricstest.CheckLastValueData(t, "not_ready_pods", wantTags, 1988)
+	metricstest.CheckLastValueData(t, "pending_pods", wantTags, 1996)
+	metricstest.CheckLastValueData(t, "terminating_pods", wantTags, 1955)
+}

@@ -33,20 +33,20 @@ import (
 
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/logging"
+	"knative.dev/pkg/reconciler"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 )
 
 func routeOwnerLabelSelector(route *v1alpha1.Route) labels.Selector {
-	return labels.Set(map[string]string{
+	return labels.SelectorFromSet(labels.Set{
 		serving.RouteLabelKey:          route.Name,
 		serving.RouteNamespaceLabelKey: route.Namespace,
-	}).AsSelector()
+	})
 }
 
 func (c *Reconciler) deleteIngressForRoute(route *v1alpha1.Route) error {
@@ -104,8 +104,14 @@ func (c *Reconciler) deleteServices(namespace string, serviceNames sets.String) 
 	return nil
 }
 
-func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1alpha1.Route, targets map[string]traffic.RevisionTargets, existingServiceNames sets.String) ([]*corev1.Service, error) {
+func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1alpha1.Route, targets map[string]traffic.RevisionTargets) ([]*corev1.Service, error) {
 	logger := logging.FromContext(ctx)
+	existingServices, err := c.getServices(route)
+	if err != nil {
+		return nil, err
+	}
+	existingServiceNames := resources.GetNames(existingServices)
+
 	ns := route.Namespace
 
 	names := sets.NewString()

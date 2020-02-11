@@ -17,6 +17,7 @@ import (
 	"net/http"
 
 	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/serving/pkg/activator/util"
 )
 
 // ReqEvent represents an incoming/finished request with a given key
@@ -53,7 +54,7 @@ type RequestEventHandler struct {
 }
 
 func (h *RequestEventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	revisionKey := revIDFrom(r.Context())
+	revisionKey := util.RevIDFrom(r.Context())
 
 	h.ReqChan <- ReqEvent{Key: revisionKey, EventType: ReqIn}
 	defer func() {

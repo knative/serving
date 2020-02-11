@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"knative.dev/serving/pkg/apis/config"
+	"knative.dev/serving/pkg/autoscaler"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/logging"
@@ -40,6 +41,7 @@ type Config struct {
 	Logging       *logging.Config
 	Tracing       *pkgtracing.Config
 	Defaults      *config.Defaults
+	Autoscaler    *autoscaler.Config
 }
 
 func FromContext(ctx context.Context) *Config {
@@ -68,6 +70,7 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value i
 				logging.ConfigMapName():    logging.NewConfigFromConfigMap,
 				pkgtracing.ConfigName:      pkgtracing.NewTracingConfigFromConfigMap,
 				config.DefaultsConfigName:  config.NewDefaultsConfigFromConfigMap,
+				autoscaler.ConfigName:      autoscaler.NewConfigFromConfigMap,
 			},
 			onAfterStore...,
 		),
@@ -89,5 +92,6 @@ func (s *Store) Load() *Config {
 		Logging:       s.UntypedLoad((logging.ConfigMapName())).(*logging.Config).DeepCopy(),
 		Tracing:       s.UntypedLoad(pkgtracing.ConfigName).(*pkgtracing.Config).DeepCopy(),
 		Defaults:      s.UntypedLoad(config.DefaultsConfigName).(*config.Defaults).DeepCopy(),
+		Autoscaler:    s.UntypedLoad(autoscaler.ConfigName).(*autoscaler.Config).DeepCopy(),
 	}
 }

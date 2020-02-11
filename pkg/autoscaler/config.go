@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/autoscaler/metrics"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -221,8 +222,8 @@ func validate(lc *Config) (*Config, error) {
 	}
 
 	effPW := time.Duration(lc.PanicWindowPercentage / 100 * float64(lc.StableWindow))
-	if effPW < BucketSize || effPW > lc.StableWindow {
-		return nil, fmt.Errorf("panic-window-percentage = %v, must be in [%v, 100] interval", lc.PanicWindowPercentage, 100*float64(BucketSize)/float64(lc.StableWindow))
+	if effPW < metrics.BucketSize || effPW > lc.StableWindow {
+		return nil, fmt.Errorf("panic-window-percentage = %v, must be in [%v, 100] interval", lc.PanicWindowPercentage, 100*float64(metrics.BucketSize)/float64(lc.StableWindow))
 	}
 
 	return lc, nil

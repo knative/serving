@@ -36,6 +36,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
+	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/configuration"
 	gcconfig "knative.dev/serving/pkg/gc"
 	pkgreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/configuration/resources"
@@ -181,7 +182,7 @@ func TestGCReconcile(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		return &reconciler{
+		r := &reconciler{
 			Base:                pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
@@ -195,6 +196,7 @@ func TestGCReconcile(t *testing.T) {
 				},
 			},
 		}
+		return configreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetConfigurationLister(), r.Recorder, r)
 	}))
 }
 

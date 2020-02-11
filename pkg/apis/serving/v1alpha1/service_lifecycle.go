@@ -146,13 +146,15 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs *RouteStatus) {
 	if rc == nil {
 		return
 	}
-	switch {
-	case rc.Status == corev1.ConditionUnknown:
-		serviceCondSet.Manage(ss).MarkUnknown(ServiceConditionRoutesReady, rc.Reason, rc.Message)
-	case rc.Status == corev1.ConditionTrue:
-		serviceCondSet.Manage(ss).MarkTrue(ServiceConditionRoutesReady)
-	case rc.Status == corev1.ConditionFalse:
-		serviceCondSet.Manage(ss).MarkFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
+
+	m := serviceCondSet.Manage(ss)
+	switch rc.Status {
+	case corev1.ConditionTrue:
+		m.MarkTrue(ServiceConditionRoutesReady)
+	case corev1.ConditionFalse:
+		m.MarkFalse(ServiceConditionRoutesReady, rc.Reason, rc.Message)
+	case corev1.ConditionUnknown:
+		m.MarkUnknown(ServiceConditionRoutesReady, rc.Reason, rc.Message)
 	}
 }
 

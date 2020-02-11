@@ -24,6 +24,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/autoscaler/metrics"
 	"knative.dev/serving/pkg/resources"
 )
 
@@ -49,8 +50,8 @@ func MakeMetric(ctx context.Context, pa *v1alpha1.PodAutoscaler, metricSvc strin
 		panicWindowPercentage = config.PanicWindowPercentage
 	}
 	panicWindow := time.Duration(float64(stableWindow) * panicWindowPercentage / 100.0).Round(time.Second)
-	if panicWindow < autoscaler.BucketSize {
-		panicWindow = autoscaler.BucketSize
+	if panicWindow < metrics.BucketSize {
+		panicWindow = metrics.BucketSize
 	}
 	return &v1alpha1.Metric{
 		ObjectMeta: metav1.ObjectMeta{

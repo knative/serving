@@ -83,7 +83,7 @@ func (c *reconciler) Reconcile(ctx context.Context, key string) error {
 		return err
 	}
 
-	if _, ok := namespace.Labels[networking.DisableWildcardCertLabelKey]; ok {
+	if l := namespace.Labels[networking.DisableWildcardCertLabelKey]; l == "true" {
 		logger.Infof("Skipping wildcard certificate creation for excluded namespace %s", namespace.Name)
 		return nil
 	}

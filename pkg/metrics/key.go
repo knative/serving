@@ -35,7 +35,6 @@ var (
 	ContainerTagKey      = tag.MustNewKey("container_name")
 	ResponseCodeKey      = tag.MustNewKey("response_code")
 	ResponseCodeClassKey = tag.MustNewKey("response_code_class")
-	NumTriesKey          = tag.MustNewKey("num_tries")
 
 	CommonRevisionKeys = []tag.Key{NamespaceTagKey, ServiceTagKey, ConfigTagKey, RevisionTagKey}
 )

@@ -121,7 +121,7 @@ This is a helper script for Knative E2E test scripts. To use it:
      cluster creation in case of stockout. If defined,
      `E2E_CLUSTER_BACKUP_REGIONS` will be ignored thus it defaults to none.
    - `E2E_CLUSTER_MACHINE`: Cluster node machine type, defaults to
-     `n1-standard-4}`.
+     `e2-standard-4}`.
    - `E2E_MIN_CLUSTER_NODES`: Minimum number of nodes in the cluster when
      autoscaling, defaults to 1.
    - `E2E_MAX_CLUSTER_NODES`: Maximum number of nodes in the cluster when
@@ -175,6 +175,9 @@ This is a helper script for Knative E2E test scripts. To use it:
 1. Calling your script with `--run-tests` and the variable `KO_DOCKER_REPO` set
    will immediately start the tests against the cluster currently configured for
    `kubectl`.
+   
+1. By default `knative_teardown()` and `test_teardown()` will be called after
+   the tests finish, use `--skip-teardowns` if you don't want them to be called.
 
 1. By default Istio is installed on the cluster via Addon, use
    `--skip-istio-addon` if you choose not to have it preinstalled.
@@ -307,6 +310,9 @@ This is a helper script for Knative release scripts. To use it:
      if `--release-gcs` was passed, otherwise the default value
      `knative-nightly/<repo>` will be used. It is empty if `--publish` was not
      passed.
+   - `RELEASE_DIR`: contains the directory to store the manifests if
+     `--release-dir` was passed. Defaults to empty value, but if `--nopublish`
+     was passed then points to the repository root directory.
    - `BUILD_COMMIT_HASH`: the commit short hash for the current repo. If the
      current git tree is dirty, it will have `-dirty` appended to it.
    - `BUILD_YYYYMMDD`: current UTC date in `YYYYMMDD` format.
@@ -332,7 +338,7 @@ This is a helper script for Knative release scripts. To use it:
    All environment variables above, except `KO_FLAGS`, are marked read-only once
    `main()` is called (see below).
 
-1. Call the `main()` function passing `$@` (without quotes).
+1. Call the `main()` function passing `"$@"` (with quotes).
 
 ### Sample release script
 
@@ -345,5 +351,5 @@ function build_release() {
   ARTIFACTS_TO_PUBLISH="release.yaml"
 }
 
-main $@
+main "$@"
 ```

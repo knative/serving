@@ -24,12 +24,10 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"go.opencensus.io/plugin/ochttp"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -43,6 +41,7 @@ import (
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	anet "knative.dev/serving/pkg/activator/net"
 	activatortest "knative.dev/serving/pkg/activator/testing"
+	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -75,61 +74,38 @@ func (ft fakeThrottler) Try(ctx context.Context, _ types.NamespacedName, f func(
 
 func TestActivationHandler(t *testing.T) {
 	tests := []struct {
-		name          string
-		wantBody      string
-		wantCode      int
-		wantErr       error
-		probeErr      error
-		probeCode     int
-		probeResp     []string
-		throttler     Throttler
-		reporterCalls []reporterCall
+		name      string
+		wantBody  string
+		wantCode  int
+		wantErr   error
+		probeErr  error
+		probeCode int
+		probeResp []string
+		throttler Throttler
 	}{{
 		name:      "active endpoint",
 		wantBody:  wantBody,
 		wantCode:  http.StatusOK,
 		wantErr:   nil,
 		throttler: fakeThrottler{},
-		reporterCalls: []reporterCall{{
-			Op:         "ReportRequestCount",
-			Namespace:  testNamespace,
-			Revision:   testRevName,
-			Service:    "service-real-name",
-			Config:     "config-real-name",
-			StatusCode: http.StatusOK,
-			Attempts:   1,
-			Value:      1,
-		}},
 	}, {
 		name:      "request error",
 		wantBody:  "request error\n",
 		wantCode:  http.StatusBadGateway,
 		wantErr:   errors.New("request error"),
 		throttler: fakeThrottler{},
-		reporterCalls: []reporterCall{{
-			Op:         "ReportRequestCount",
-			Namespace:  testNamespace,
-			Revision:   testRevName,
-			Service:    "service-real-name",
-			Config:     "config-real-name",
-			StatusCode: http.StatusBadGateway,
-			Attempts:   1,
-			Value:      1,
-		}},
 	}, {
-		name:          "throttler timeout",
-		wantBody:      context.DeadlineExceeded.Error() + "\n",
-		wantCode:      http.StatusServiceUnavailable,
-		wantErr:       nil,
-		throttler:     fakeThrottler{err: context.DeadlineExceeded},
-		reporterCalls: nil,
+		name:      "throttler timeout",
+		wantBody:  context.DeadlineExceeded.Error() + "\n",
+		wantCode:  http.StatusServiceUnavailable,
+		wantErr:   nil,
+		throttler: fakeThrottler{err: context.DeadlineExceeded},
 	}, {
-		name:          "overflow",
-		wantBody:      "activator overload\n",
-		wantCode:      http.StatusServiceUnavailable,
-		wantErr:       nil,
-		throttler:     fakeThrottler{err: anet.ErrActivatorOverload},
-		reporterCalls: nil,
+		name:      "overflow",
+		wantBody:  "activator overload\n",
+		wantCode:  http.StatusServiceUnavailable,
+		wantErr:   nil,
+		throttler: fakeThrottler{err: anet.ErrActivatorOverload},
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -152,11 +128,9 @@ func TestActivationHandler(t *testing.T) {
 			}
 			rt := pkgnet.RoundTripperFunc(fakeRT.RT)
 
-			reporter := &fakeReporter{}
-
 			ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 			defer cancel()
-			handler := (New(ctx, test.throttler, reporter)).(*activationHandler)
+			handler := (New(ctx, test.throttler)).(*activationHandler)
 
 			// Setup transports.
 			handler.transport = rt
@@ -168,8 +142,7 @@ func TestActivationHandler(t *testing.T) {
 			// Set up config store to populate context.
 			configStore := setupConfigStore(t, logging.FromContext(ctx))
 			ctx = configStore.ToContext(ctx)
-			ctx = withRevision(ctx, revision(testNamespace, testRevName))
-			ctx = withRevID(ctx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
+			ctx = util.WithRevID(ctx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
 
 			handler.ServeHTTP(resp, req.WithContext(ctx))
 
@@ -183,21 +156,6 @@ func TestActivationHandler(t *testing.T) {
 			}
 			if string(gotBody) != test.wantBody {
 				t.Errorf("Unexpected response body. Response body %q, want %q", gotBody, test.wantBody)
-			}
-
-			// Filter out response time reporter calls
-			var gotCalls []reporterCall
-			if reporter.calls != nil {
-				gotCalls = make([]reporterCall, 0)
-				for _, gotCall := range reporter.calls {
-					if gotCall.Op != "ReportResponseTime" {
-						gotCalls = append(gotCalls, gotCall)
-					}
-				}
-			}
-
-			if diff := cmp.Diff(test.reporterCalls, gotCalls); diff != "" {
-				t.Errorf("Reporting calls are different (-want, +got) = %v", diff)
 			}
 		})
 	}
@@ -214,7 +172,7 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	defer cancel()
 
-	handler := (New(ctx, fakeThrottler{}, &fakeReporter{})).(*activationHandler)
+	handler := (New(ctx, fakeThrottler{})).(*activationHandler)
 	handler.transport = rt
 
 	writer := httptest.NewRecorder()
@@ -223,8 +181,8 @@ func TestActivationHandlerProxyHeader(t *testing.T) {
 	// Set up config store to populate context.
 	configStore := setupConfigStore(t, logging.FromContext(ctx))
 	ctx = configStore.ToContext(req.Context())
-	ctx = withRevision(ctx, revision(testNamespace, testRevName))
-	ctx = withRevID(ctx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
+	ctx = util.WithRevID(ctx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
+
 	handler.ServeHTTP(writer, req.WithContext(ctx))
 
 	select {
@@ -293,7 +251,7 @@ func TestActivationHandlerTraceSpans(t *testing.T) {
 				oct.Finish()
 			}()
 
-			handler := (New(ctx, fakeThrottler{}, &fakeReporter{})).(*activationHandler)
+			handler := (New(ctx, fakeThrottler{})).(*activationHandler)
 			handler.transport = rt
 			handler.tracingTransport = &ochttp.Transport{Base: rt}
 
@@ -322,75 +280,9 @@ func sendRequest(namespace, revName string, handler *activationHandler, store *a
 	resp := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	ctx := store.ToContext(req.Context())
-	ctx = withRevision(ctx, revision(namespace, revName))
-	ctx = withRevID(ctx, types.NamespacedName{Namespace: namespace, Name: revName})
+	ctx = util.WithRevID(ctx, types.NamespacedName{Namespace: namespace, Name: revName})
 	handler.ServeHTTP(resp, req.WithContext(ctx))
 	return resp
-}
-
-type reporterCall struct {
-	Op         string
-	Namespace  string
-	Service    string
-	Config     string
-	Revision   string
-	StatusCode int
-	Attempts   int
-	Value      int64
-	Duration   time.Duration
-}
-
-type fakeReporter struct {
-	calls []reporterCall
-	mux   sync.Mutex
-}
-
-func (f *fakeReporter) ReportRequestConcurrency(ns, service, config, rev string, v int64) error {
-	f.mux.Lock()
-	defer f.mux.Unlock()
-	f.calls = append(f.calls, reporterCall{
-		Op:        "ReportRequestConcurrency",
-		Namespace: ns,
-		Service:   service,
-		Config:    config,
-		Revision:  rev,
-		Value:     v,
-	})
-
-	return nil
-}
-
-func (f *fakeReporter) ReportRequestCount(ns, service, config, rev string, responseCode, numTries int) error {
-	f.mux.Lock()
-	defer f.mux.Unlock()
-	f.calls = append(f.calls, reporterCall{
-		Op:         "ReportRequestCount",
-		Namespace:  ns,
-		Service:    service,
-		Config:     config,
-		Revision:   rev,
-		StatusCode: responseCode,
-		Attempts:   numTries,
-		Value:      1,
-	})
-
-	return nil
-}
-
-func (f *fakeReporter) ReportResponseTime(ns, service, config, rev string, responseCode int, d time.Duration) error {
-	f.mux.Lock()
-	defer f.mux.Unlock()
-	f.calls = append(f.calls, reporterCall{
-		Op:         "ReportResponseTime",
-		Namespace:  ns,
-		Service:    service,
-		Config:     config,
-		Revision:   rev,
-		StatusCode: responseCode,
-		Duration:   d,
-	})
-
-	return nil
 }
 
 func revision(namespace, name string) *v1alpha1.Revision {
@@ -434,7 +326,7 @@ func BenchmarkHandler(b *testing.B) {
 			}, nil
 		})
 
-		handler := (New(ctx, fakeThrottler{}, &fakeReporter{})).(*activationHandler)
+		handler := (New(ctx, fakeThrottler{})).(*activationHandler)
 		handler.transport = rt
 
 		request := func() *http.Request {
@@ -442,8 +334,7 @@ func BenchmarkHandler(b *testing.B) {
 			req.Host = "test-host"
 
 			reqCtx := configStore.ToContext(context.Background())
-			reqCtx = withRevision(reqCtx, revision(testNamespace, testRevName))
-			reqCtx = withRevID(reqCtx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
+			reqCtx = util.WithRevID(reqCtx, types.NamespacedName{Namespace: testNamespace, Name: testRevName})
 			return req.WithContext(reqCtx)
 		}
 

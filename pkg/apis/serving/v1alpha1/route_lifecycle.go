@@ -160,13 +160,15 @@ func (rs *RouteStatus) PropagateIngressStatus(cs v1alpha1.IngressStatus) {
 		rs.MarkIngressNotConfigured()
 		return
 	}
-	switch {
-	case cc.Status == corev1.ConditionUnknown:
-		routeCondSet.Manage(rs).MarkUnknown(RouteConditionIngressReady, cc.Reason, cc.Message)
-	case cc.Status == corev1.ConditionTrue:
-		routeCondSet.Manage(rs).MarkTrue(RouteConditionIngressReady)
-	case cc.Status == corev1.ConditionFalse:
-		routeCondSet.Manage(rs).MarkFalse(RouteConditionIngressReady, cc.Reason, cc.Message)
+
+	m := routeCondSet.Manage(rs)
+	switch cc.Status {
+	case corev1.ConditionTrue:
+		m.MarkTrue(RouteConditionIngressReady)
+	case corev1.ConditionFalse:
+		m.MarkFalse(RouteConditionIngressReady, cc.Reason, cc.Message)
+	case corev1.ConditionUnknown:
+		m.MarkUnknown(RouteConditionIngressReady, cc.Reason, cc.Message)
 	}
 }
 

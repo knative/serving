@@ -1323,14 +1323,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f0fb577e7a666886e560755c78e19b56b23303575677a9beca899316eb6a137c"
+  digest = "1:8bd3cae999736fca901bdd918ab9e9a899f39446701a296ade11ca44ae0a741e"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "5779f9c9458d0a85f734c0cad43c1510aa00b498"
+  revision = "64615f92c4ebdd4e4423015ffc0db45877660a0d"
 
 [[projects]]
   digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"
@@ -1412,10 +1412,12 @@
     "k8s.io/api/core/v1",
     "k8s.io/api/extensions/v1beta1",
     "k8s.io/api/rbac/v1",
+    "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
     "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset",
     "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake",
     "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions",
     "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1beta1",
+    "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1beta1",
     "k8s.io/apimachinery/pkg/api/apitesting/fuzzer",
     "k8s.io/apimachinery/pkg/api/apitesting/roundtrip",
     "k8s.io/apimachinery/pkg/api/equality",
@@ -1476,6 +1478,7 @@
     "k8s.io/code-generator/cmd/defaulter-gen",
     "k8s.io/code-generator/cmd/informer-gen",
     "k8s.io/code-generator/cmd/lister-gen",
+    "k8s.io/code-generator/pkg/namer",
     "k8s.io/code-generator/pkg/util",
     "k8s.io/gengo/args",
     "k8s.io/gengo/generator",

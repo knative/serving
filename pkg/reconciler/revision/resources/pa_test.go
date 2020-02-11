@@ -30,18 +30,17 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
 func TestMakePA(t *testing.T) {
 	tests := []struct {
 		name string
-		rev  *v1alpha1.Revision
+		rev  *v1.Revision
 		want *av1alpha1.PodAutoscaler
 	}{{
 		name: "name is bar (Concurrency=1, Reachable=true)",
-		rev: func() *v1alpha1.Revision {
-			rev := v1alpha1.Revision{
+		rev: func() *v1.Revision {
+			rev := v1.Revision{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "foo",
 					Name:      "bar",
@@ -54,10 +53,8 @@ func TestMakePA(t *testing.T) {
 						serving.RevisionLastPinnedAnnotationKey: "timeless",
 					},
 				},
-				Spec: v1alpha1.RevisionSpec{
-					RevisionSpec: v1.RevisionSpec{
-						ContainerConcurrency: ptr.Int64(1),
-					},
+				Spec: v1.RevisionSpec{
+					ContainerConcurrency: ptr.Int64(1),
 				},
 			}
 			rev.Status.MarkActiveTrue()
@@ -76,7 +73,7 @@ func TestMakePA(t *testing.T) {
 					"a": "b",
 				},
 				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					APIVersion:         v1.SchemeGroupVersion.String(),
 					Kind:               "Revision",
 					Name:               "bar",
 					UID:                "1234",
@@ -97,21 +94,21 @@ func TestMakePA(t *testing.T) {
 		},
 	}, {
 		name: "name is baz (Concurrency=0, Reachable=false)",
-		rev: func() *v1alpha1.Revision {
-			rev := v1alpha1.Revision{
+		rev: func() *v1.Revision {
+			rev := v1.Revision{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "blah",
 					Name:      "baz",
 					UID:       "4321",
 				},
-				Spec: v1alpha1.RevisionSpec{
-					RevisionSpec: v1.RevisionSpec{
-						ContainerConcurrency: ptr.Int64(0),
-					},
-					DeprecatedContainer: &corev1.Container{
-						Ports: []corev1.ContainerPort{{
-							Name:     "h2c",
-							HostPort: int32(443),
+				Spec: v1.RevisionSpec{
+					ContainerConcurrency: ptr.Int64(0),
+					PodSpec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Ports: []corev1.ContainerPort{{
+								Name:     "h2c",
+								HostPort: int32(443),
+							}},
 						}},
 					},
 				},
@@ -130,7 +127,7 @@ func TestMakePA(t *testing.T) {
 				},
 				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					APIVersion:         v1.SchemeGroupVersion.String(),
 					Kind:               "Revision",
 					Name:               "baz",
 					UID:                "4321",
@@ -150,21 +147,21 @@ func TestMakePA(t *testing.T) {
 			}},
 	}, {
 		name: "name is baz (Concurrency=0, Reachable=false, Activating)",
-		rev: func() *v1alpha1.Revision {
-			rev := v1alpha1.Revision{
+		rev: func() *v1.Revision {
+			rev := v1.Revision{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "blah",
 					Name:      "baz",
 					UID:       "4321",
 				},
-				Spec: v1alpha1.RevisionSpec{
-					RevisionSpec: v1.RevisionSpec{
-						ContainerConcurrency: ptr.Int64(0),
-					},
-					DeprecatedContainer: &corev1.Container{
-						Ports: []corev1.ContainerPort{{
-							Name:     "h2c",
-							HostPort: int32(443),
+				Spec: v1.RevisionSpec{
+					ContainerConcurrency: ptr.Int64(0),
+					PodSpec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Ports: []corev1.ContainerPort{{
+								Name:     "h2c",
+								HostPort: int32(443),
+							}},
 						}},
 					},
 				},
@@ -183,7 +180,7 @@ func TestMakePA(t *testing.T) {
 				},
 				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					APIVersion:         v1.SchemeGroupVersion.String(),
 					Kind:               "Revision",
 					Name:               "baz",
 					UID:                "4321",
@@ -203,21 +200,21 @@ func TestMakePA(t *testing.T) {
 			}},
 	}, {
 		name: "name is batman (Activating, Revision failed)",
-		rev: func() *v1alpha1.Revision {
-			rev := v1alpha1.Revision{
+		rev: func() *v1.Revision {
+			rev := v1.Revision{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "blah",
 					Name:      "batman",
 					UID:       "4321",
 				},
-				Spec: v1alpha1.RevisionSpec{
-					RevisionSpec: v1.RevisionSpec{
-						ContainerConcurrency: ptr.Int64(0),
-					},
-					DeprecatedContainer: &corev1.Container{
-						Ports: []corev1.ContainerPort{{
-							Name:     "h2c",
-							HostPort: int32(443),
+				Spec: v1.RevisionSpec{
+					ContainerConcurrency: ptr.Int64(0),
+					PodSpec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Ports: []corev1.ContainerPort{{
+								Name:     "h2c",
+								HostPort: int32(443),
+							}},
 						}},
 					},
 				},
@@ -237,7 +234,7 @@ func TestMakePA(t *testing.T) {
 				},
 				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					APIVersion:         v1.SchemeGroupVersion.String(),
 					Kind:               "Revision",
 					Name:               "batman",
 					UID:                "4321",
@@ -258,8 +255,8 @@ func TestMakePA(t *testing.T) {
 			}},
 	}, {
 		name: "name is robin (Activating, Revision routable but failed)",
-		rev: func() *v1alpha1.Revision {
-			rev := v1alpha1.Revision{
+		rev: func() *v1.Revision {
+			rev := v1.Revision{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "blah",
 					Name:      "robin",
@@ -268,14 +265,14 @@ func TestMakePA(t *testing.T) {
 						serving.RouteLabelKey: "asdf",
 					},
 				},
-				Spec: v1alpha1.RevisionSpec{
-					RevisionSpec: v1.RevisionSpec{
-						ContainerConcurrency: ptr.Int64(0),
-					},
-					DeprecatedContainer: &corev1.Container{
-						Ports: []corev1.ContainerPort{{
-							Name:     "h2c",
-							HostPort: int32(443),
+				Spec: v1.RevisionSpec{
+					ContainerConcurrency: ptr.Int64(0),
+					PodSpec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Ports: []corev1.ContainerPort{{
+								Name:     "h2c",
+								HostPort: int32(443),
+							}},
 						}},
 					},
 				},
@@ -295,7 +292,7 @@ func TestMakePA(t *testing.T) {
 				},
 				Annotations: map[string]string{},
 				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         v1alpha1.SchemeGroupVersion.String(),
+					APIVersion:         v1.SchemeGroupVersion.String(),
 					Kind:               "Revision",
 					Name:               "robin",
 					UID:                "4321",

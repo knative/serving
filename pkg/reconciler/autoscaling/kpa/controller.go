@@ -19,13 +19,16 @@ package kpa
 import (
 	"context"
 
+	"go.uber.org/zap"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
 	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
+	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
@@ -69,7 +72,7 @@ func NewController(
 		podsLister:      podsInformer.Lister(),
 		deciders:        deciders,
 	}
-	impl := controller.NewImpl(c, c.Logger, "KPA-Class Autoscaling")
+	impl := pareconciler.NewImpl(ctx, c)
 	c.scaler = newScaler(ctx, psInformerFactory, impl.EnqueueAfter)
 
 	c.Logger.Info("Setting up KPA-Class event handlers")
@@ -81,6 +84,18 @@ func NewController(
 		Handler:    controller.HandleAll(impl.Enqueue),
 	}
 	paInformer.Informer().AddEventHandler(paHandler)
+
+	// When we see PodAutoscalers deleted, clean up the decider.
+	paInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: func(obj interface{}) {
+			accessor, err := kmeta.DeletionHandlingAccessor(obj)
+			if err != nil {
+				c.Logger.Errorw("Error accessing object", zap.Error(err))
+				return
+			}
+			deciders.Delete(ctx, accessor.GetNamespace(), accessor.GetName())
+		},
+	})
 
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: reconciler.LabelExistsFilterFunc(autoscaling.KPALabelKey),

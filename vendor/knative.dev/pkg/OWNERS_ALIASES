@@ -13,6 +13,10 @@ aliases:
   - mattmoor
   - vaikas
 
+  codegen-approvers:
+  - mattmoor
+  - n3wscott
+
   configmap-approvers:
   - mattmoor
   - mdemirhan
@@ -45,11 +49,9 @@ aliases:
   - vagababov
 
   productivity-approvers:
-  - adrcunha
   - chaodaiG
   - chizhg
   productivity-reviewers:
-  - adrcunha
   - chaodaiG
   - coryrc
   - chizhg
@@ -61,7 +63,7 @@ aliases:
   - vaikas
 
   webhook-approvers:
+  - dprotaso
   - mattmoor
-  - grantr
   - tcnghia
 

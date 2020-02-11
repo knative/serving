@@ -20,7 +20,7 @@
 # with the job config.
 E2E_MIN_CLUSTER_NODES=${E2E_MIN_CLUSTER_NODES:-4}
 E2E_MAX_CLUSTER_NODES=${E2E_MAX_CLUSTER_NODES:-4}
-E2E_CLUSTER_MACHINE=${E2E_CLUSTER_MACHINE:-n1-standard-8}
+E2E_CLUSTER_MACHINE=${E2E_CLUSTER_MACHINE:-e2-standard-8}
 
 # This script provides helper methods to perform cluster actions.
 source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/e2e-tests.sh
@@ -258,11 +258,19 @@ function install_ambassador() {
 
 function install_contour() {
   local INSTALL_CONTOUR_YAML="./third_party/contour-latest/contour.yaml"
+  local INSTALL_NET_CONTOUR_YAML="./third_party/contour-latest/net-contour.yaml"
   echo "Contour YAML: ${INSTALL_CONTOUR_YAML}"
-  echo ">> Bringing up Contour"
+  echo "Contour KIngress YAML: ${INSTALL_NET_CONTOUR_YAML}"
 
+  echo ">> Bringing up Contour"
   kubectl apply -f ${INSTALL_CONTOUR_YAML} || return 1
+
   UNINSTALL_LIST+=( "${INSTALL_CONTOUR_YAML}" )
+
+  echo ">> Bringing up net-contour"
+  kubectl apply -f ${INSTALL_NET_CONTOUR_YAML} || return 1
+
+  UNINSTALL_LIST+=( "${INSTALL_NET_CONTOUR_YAML}" )
 }
 
 # Installs Knative Serving in the current cluster, and waits for it to be ready.
@@ -292,15 +300,15 @@ function install_knative_serving_standard() {
 
   echo ">> Installing Ingress"
   if [[ -n "${GLOO_VERSION}" ]]; then
-    install_gloo
+    install_gloo || return 1
   elif [[ -n "${KOURIER_VERSION}" ]]; then
-    install_kourier
+    install_kourier || return 1
   elif [[ -n "${AMBASSADOR_VERSION}" ]]; then
-    install_ambassador
+    install_ambassador || return 1
   elif [[ -n "${CONTOUR_VERSION}" ]]; then
-    install_contour
+    install_contour || return 1
   else
-    install_istio "${SERVING_ISTIO_YAML}"
+    install_istio "${SERVING_ISTIO_YAML}" || return 1
   fi
 
   echo ">> Installing Cert-Manager"
@@ -368,6 +376,10 @@ metadata:
 data:
   profiling.enable: "true"
 EOF
+
+  echo ">> Patching activator HPA"
+  # We set min replicas to 2 for testing multiple activator pods.
+  kubectl -n knative-serving patch hpa activator --patch '{"spec":{"minReplicas":2}}' || return 1
 }
 
 # Check if we should use --resolvabledomain.  In case the ingress only has
@@ -375,15 +387,6 @@ EOF
 function use_resolvable_domain() {
   # Temporarily turning off xip.io tests, as DNS errors aren't always retried.
   echo "false"
-}
-
-# Check if we should use --https.
-function use_https() {
-  if (( HTTPS )); then
-    echo "--https"
-  else
-    echo ""
-  fi
 }
 
 # Check if we should specify --ingressClass

@@ -19,7 +19,6 @@ package autoscaling
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/logging"
@@ -91,7 +90,7 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, m
 func (c *Base) DeleteMetricsServices(ctx context.Context, pa *pav1alpha1.PodAutoscaler) error {
 	logger := logging.FromContext(ctx)
 
-	svcs, err := c.ServiceLister.Services(pa.Namespace).List(labels.SelectorFromSet(map[string]string{
+	svcs, err := c.ServiceLister.Services(pa.Namespace).List(labels.SelectorFromSet(labels.Set{
 		autoscaling.KPALabelKey:   pa.Name,
 		networking.ServiceTypeKey: string(networking.ServiceTypeMetrics),
 	}))
@@ -135,27 +134,4 @@ func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	}
 
 	return nil
-}
-
-// UpdateStatus updates the status of the given PodAutoscaler.
-func (c *Base) UpdateStatus(existing *pav1alpha1.PodAutoscaler, desired *pav1alpha1.PodAutoscaler) error {
-	existing = existing.DeepCopy()
-	return reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
-		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
-		if attempts > 0 {
-			existing, err = c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-		}
-
-		// If there's nothing to update, just return.
-		if reflect.DeepEqual(existing.Status, desired.Status) {
-			return nil
-		}
-
-		existing.Status = desired.Status
-		_, err = c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(existing.Namespace).UpdateStatus(existing)
-		return err
-	})
 }

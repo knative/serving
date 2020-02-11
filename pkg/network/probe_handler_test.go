@@ -96,8 +96,53 @@ func TestProbeHandlerSuccessfulProbe(t *testing.T) {
 				t.Errorf("prober.Do() = nil, expected an error")
 			}
 			if got != c.want {
-				t.Errorf("unexpected probe result: want: %t, got: %t", c.want, got)
+				t.Errorf("Unexpected probe result: want: %t, got: %t", c.want, got)
 			}
 		})
 	}
+}
+
+func BenchmarkProbeHandlerNoProbeHeader(b *testing.B) {
+	var h http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	h = NewProbeHandler(h)
+	resp := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+
+	b.Run("sequential-no-header", func(b *testing.B) {
+		for j := 0; j < b.N; j++ {
+			h.ServeHTTP(resp, req)
+		}
+	})
+
+	b.Run("parallel-no-header", func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			for pb.Next() {
+				h.ServeHTTP(resp, req)
+			}
+		})
+	})
+}
+
+func BenchmarkProbeHandlerWithProbeHeader(b *testing.B) {
+	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+	req.Header.Set(ProbeHeaderName, ProbeHeaderValue)
+	req.Header.Set(HashHeaderName, "ok")
+	var h http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	h = NewProbeHandler(h)
+	b.Run("sequential-probe-header", func(b *testing.B) {
+		resp := httptest.NewRecorder()
+		for j := 0; j < b.N; j++ {
+			h.ServeHTTP(resp, req)
+		}
+	})
+
+	b.Run("parallel-probe-header", func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			// Need to create a separate response writer because of the header mutation at the end of ServeHTTP
+			respParallel := httptest.NewRecorder()
+			for pb.Next() {
+				h.ServeHTTP(respParallel, req)
+			}
+		})
+	})
 }

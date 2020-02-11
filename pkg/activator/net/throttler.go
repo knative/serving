@@ -556,7 +556,8 @@ func (t *Throttler) activatorEndpointsUpdated(newObj interface{}) {
 	endpoints := newObj.(*corev1.Endpoints)
 
 	// We want to pass sorted list, so that we get _some_ stability in the results.
-	eps := endpointsToDests(endpoints, networking.ServicePortNameHTTP1).List()
+	epSet, _ := endpointsToDests(endpoints, networking.ServicePortNameHTTP1)
+	eps := epSet.List()
 	t.logger.Debugf("All Activator IPS: %v, my IP: %s", eps, t.ipAddress)
 	idx := inferIndex(eps, t.ipAddress)
 	activatorCount := resources.ReadyAddressCount(endpoints)

@@ -527,7 +527,7 @@
   version = "v1.2.0"
 
 [[projects]]
-  digest = "1:e9c0bf861ea69dd6de1ff7ac2a0485e84743e163853ca973177fba7a50d1b769"
+  digest = "1:aad54f418843097fa40957329625da7662b2916b7d07e2fda181935273167ec1"
   name = "github.com/grpc-ecosystem/grpc-gateway"
   packages = [
     "internal",
@@ -535,8 +535,8 @@
     "utilities",
   ]
   pruneopts = "NUT"
-  revision = "f7120437bb4f6c71f7f5076ad65a45310de2c009"
-  version = "v1.12.1"
+  revision = "e16fcd495a18ea01dbc6f5b6ac2956a94e1981a2"
+  version = "v1.12.2"
 
 [[projects]]
   branch = "master"
@@ -1226,11 +1226,23 @@
   version = "kubernetes-1.16.4"
 
 [[projects]]
-  digest = "1:636417ff03ed51f0045e4a65b563a3cc338db010e910e33617872a70bc5a4983"
+  digest = "1:b199447b8448e38e6aca5c68e7c29ae340af7dddfe37eb3747d03d27e14eff6f"
   name = "k8s.io/apiextensions-apiserver"
   packages = [
     "pkg/apis/apiextensions",
+    "pkg/apis/apiextensions/v1",
     "pkg/apis/apiextensions/v1beta1",
+    "pkg/client/clientset/clientset",
+    "pkg/client/clientset/clientset/scheme",
+    "pkg/client/clientset/clientset/typed/apiextensions/v1",
+    "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
+    "pkg/client/informers/externalversions",
+    "pkg/client/informers/externalversions/apiextensions",
+    "pkg/client/informers/externalversions/apiextensions/v1",
+    "pkg/client/informers/externalversions/apiextensions/v1beta1",
+    "pkg/client/informers/externalversions/internalinterfaces",
+    "pkg/client/listers/apiextensions/v1",
+    "pkg/client/listers/apiextensions/v1beta1",
   ]
   pruneopts = "NUT"
   revision = "bbf2aa1c9d0f69788f9cbd29ad5520574f91133c"
@@ -1755,7 +1767,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:57c9639e7f0008f42ef82872af0ba44440c5748ab9749d75c00a0b90932e62f7"
+  digest = "1:e88d3b9de3d98890a1f1fcd8fbe80d53f97c2fdbdc54146b34b77962a70b19a0"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1778,11 +1790,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "80ba6bd58f54733bb0bb4a0fc7fb3b5d562b3d2d"
+  revision = "c41fd5336dfd00540255dfdfffd3b1226740b03b"
 
 [[projects]]
   branch = "master"
-  digest = "1:120a79e601bf2ec3496b4ce628d06ae32ab34ce198f3c7ab2f791c6e44f7e2d1"
+  digest = "1:f7be14ca7e1115cbce25d1cdb2540d73c279f1583d7a64319173d865aaa360a5"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1794,6 +1806,9 @@
     "apis/testing/roundtrip",
     "apis/testing/v1",
     "changeset",
+    "client/injection/apiextensions/client",
+    "client/injection/apiextensions/informers/apiextensions/v1beta1/customresourcedefinition",
+    "client/injection/apiextensions/informers/factory",
     "client/injection/kube/client",
     "client/injection/kube/client/fake",
     "client/injection/kube/informers/admissionregistration/v1beta1/mutatingwebhookconfiguration",
@@ -1839,6 +1854,7 @@
     "network/prober",
     "profiling",
     "ptr",
+    "reconciler",
     "reconciler/testing",
     "signals",
     "system",
@@ -1879,16 +1895,17 @@
     "webhook/certificates/resources",
     "webhook/configmaps",
     "webhook/resourcesemantics",
+    "webhook/resourcesemantics/conversion",
     "webhook/resourcesemantics/defaulting",
     "webhook/resourcesemantics/validation",
     "websocket",
   ]
   pruneopts = "T"
-  revision = "dd62a102dde95f26991c2797603194e4e7831f48"
+  revision = "a5517037d34f894e0cf2dd1777f306dc74557166"
 
 [[projects]]
   branch = "master"
-  digest = "1:2d5db378cc378c943cb9177fc2bc7f27c29f7573a49514576c19496d4a72610e"
+  digest = "1:b9ec37cbc9c7e83ac1bfec6bdff255f2f6f5ef2f9bbbbb3e31bc38371fc39f0c"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1901,7 +1918,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "ee08b33b3cf07d7cae113e0b66cd7bbcc8c6ca43"
+  revision = "1b5477b12d75ea7210d970ff9a234277dcd9ee18"
 
 [[projects]]
   digest = "1:92b88da51692abe195601cb17d35bbb9b6bc2011237a2f234fedba7411ed8122"
@@ -1949,6 +1966,7 @@
     "github.com/google/mako/go/quickstore",
     "github.com/google/mako/spec/proto/mako_go_proto",
     "github.com/gorilla/websocket",
+    "github.com/hashicorp/golang-lru",
     "github.com/jetstack/cert-manager/pkg/apis/acme/v1alpha2",
     "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha2",
     "github.com/jetstack/cert-manager/pkg/apis/meta/v1",
@@ -2028,7 +2046,6 @@
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/record",
     "k8s.io/client-go/util/flowcontrol",
-    "k8s.io/client-go/util/retry",
     "k8s.io/client-go/util/workqueue",
     "k8s.io/code-generator/cmd/client-gen",
     "k8s.io/code-generator/cmd/deepcopy-gen",
@@ -2093,6 +2110,7 @@
     "knative.dev/pkg/network/prober",
     "knative.dev/pkg/profiling",
     "knative.dev/pkg/ptr",
+    "knative.dev/pkg/reconciler",
     "knative.dev/pkg/reconciler/testing",
     "knative.dev/pkg/signals",
     "knative.dev/pkg/system",
@@ -2121,6 +2139,7 @@
     "knative.dev/pkg/webhook/certificates",
     "knative.dev/pkg/webhook/configmaps",
     "knative.dev/pkg/webhook/resourcesemantics",
+    "knative.dev/pkg/webhook/resourcesemantics/conversion",
     "knative.dev/pkg/webhook/resourcesemantics/defaulting",
     "knative.dev/pkg/webhook/resourcesemantics/validation",
     "knative.dev/pkg/websocket",

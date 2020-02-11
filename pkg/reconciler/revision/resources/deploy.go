@@ -25,9 +25,11 @@ import (
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
 	tracingconfig "knative.dev/pkg/tracing/config"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/autoscaler"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
@@ -45,6 +47,10 @@ const (
 	varLogVolumePath   = "/var/log"
 	internalVolumeName = "knative-internal"
 	internalVolumePath = "/var/knative-internal"
+	podInfoVolumeName  = "podinfo"
+	podInfoVolumePath  = "/etc/podinfo"
+	metadataLabelsRef  = "metadata.labels"
+	metadataLabelsPath = "labels"
 )
 
 var (
@@ -58,6 +64,27 @@ var (
 	varLogVolumeMount = corev1.VolumeMount{
 		Name:      varLogVolumeName,
 		MountPath: varLogVolumePath,
+	}
+
+	labelVolume = corev1.Volume{
+		Name: podInfoVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			DownwardAPI: &corev1.DownwardAPIVolumeSource{
+				Items: []corev1.DownwardAPIVolumeFile{
+					{
+						Path: metadataLabelsPath,
+						FieldRef: &corev1.ObjectFieldSelector{
+							FieldPath: fmt.Sprintf("%s['%s']", metadataLabelsRef, autoscaling.PreferForScaleDownLabelKey),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	labelVolumeMount = corev1.VolumeMount{
+		Name:      podInfoVolumeName,
+		MountPath: podInfoVolumePath,
 	}
 
 	internalVolume = corev1.Volume{
@@ -108,8 +135,8 @@ func rewriteUserProbe(p *corev1.Probe, userPort int) {
 	}
 }
 
-func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, observabilityConfig *metrics.ObservabilityConfig, deploymentConfig *deployment.Config) (*corev1.PodSpec, error) {
-	queueContainer, err := makeQueueContainer(rev, loggingConfig, tracingConfig, observabilityConfig, deploymentConfig)
+func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, observabilityConfig *metrics.ObservabilityConfig, autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) (*corev1.PodSpec, error) {
+	queueContainer, err := makeQueueContainer(rev, loggingConfig, tracingConfig, observabilityConfig, autoscalerConfig, deploymentConfig)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create queue-proxy container: %w", err)
@@ -168,22 +195,26 @@ func makePodSpec(rev *v1alpha1.Revision, loggingConfig *logging.Config, tracingC
 		podSpec.Volumes = append(podSpec.Volumes, internalVolume)
 	}
 
+	if autoscalerConfig.EnableGracefulScaledown {
+		podSpec.Volumes = append(podSpec.Volumes, labelVolume)
+	}
+
 	return podSpec, nil
 }
 
-func getUserPort(rev *v1alpha1.Revision) int32 {
+func getUserPort(rev *v1.Revision) int32 {
 	ports := rev.Spec.GetContainer().Ports
 
 	if len(ports) > 0 && ports[0].ContainerPort != 0 {
 		return ports[0].ContainerPort
 	}
 
-	return v1alpha1.DefaultUserPort
+	return v1.DefaultUserPort
 }
 
 func buildContainerPorts(userPort int32) []corev1.ContainerPort {
 	return []corev1.ContainerPort{{
-		Name:          v1alpha1.UserPortName,
+		Name:          v1.UserPortName,
 		ContainerPort: userPort,
 	}}
 }
@@ -196,9 +227,9 @@ func buildUserPortEnv(userPort string) corev1.EnvVar {
 }
 
 // MakeDeployment constructs a K8s Deployment resource from a revision.
-func MakeDeployment(rev *v1alpha1.Revision,
+func MakeDeployment(rev *v1.Revision,
 	loggingConfig *logging.Config, tracingConfig *tracingconfig.Config, networkConfig *network.Config, observabilityConfig *metrics.ObservabilityConfig,
-	deploymentConfig *deployment.Config) (*appsv1.Deployment, error) {
+	autoscalerConfig *autoscaler.Config, deploymentConfig *deployment.Config) (*appsv1.Deployment, error) {
 
 	podTemplateAnnotations := resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
 		return k == serving.RevisionLastPinnedAnnotationKey
@@ -221,7 +252,7 @@ func MakeDeployment(rev *v1alpha1.Revision,
 			podTemplateAnnotations[IstioOutboundIPRangeAnnotation] = networkConfig.IstioOutboundIPRanges
 		}
 	}
-	podSpec, err := makePodSpec(rev, loggingConfig, tracingConfig, observabilityConfig, deploymentConfig)
+	podSpec, err := makePodSpec(rev, loggingConfig, tracingConfig, observabilityConfig, autoscalerConfig, deploymentConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create PodSpec: %w", err)
 	}

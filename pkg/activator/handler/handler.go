@@ -20,7 +20,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"time"
 
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/trace"
@@ -33,8 +32,6 @@ import (
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	activatornet "knative.dev/serving/pkg/activator/net"
 	"knative.dev/serving/pkg/activator/util"
-	"knative.dev/serving/pkg/apis/serving"
-	pkghttp "knative.dev/serving/pkg/http"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 
@@ -51,28 +48,23 @@ type Throttler interface {
 type activationHandler struct {
 	transport        http.RoundTripper
 	tracingTransport http.RoundTripper
-	reporter         activator.StatsReporter
 	throttler        Throttler
 	bufferPool       httputil.BufferPool
 }
 
-// The default time we'll try to probe the revision for activation.
-const defaulTimeout = 2 * time.Minute
-
 // New constructs a new http.Handler that deals with revision activation.
-func New(ctx context.Context, t Throttler, sr activator.StatsReporter) http.Handler {
+func New(ctx context.Context, t Throttler) http.Handler {
 	defaultTransport := pkgnet.AutoTransport
 	return &activationHandler{
 		transport:        defaultTransport,
 		tracingTransport: &ochttp.Transport{Base: defaultTransport},
-		reporter:         sr,
 		throttler:        t,
 		bufferPool:       network.NewBufferPool(),
 	}
 }
 
 func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	revID := revIDFrom(r.Context())
+	revID := util.RevIDFrom(r.Context())
 	logger := logging.FromContext(r.Context())
 	tracingEnabled := activatorconfig.FromContext(r.Context()).Tracing.Backend != tracingconfig.None
 
@@ -80,32 +72,22 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if tracingEnabled {
 		tryContext, trySpan = trace.StartSpan(r.Context(), "throttler_try")
 	}
-	tryContext, cancel := context.WithTimeout(tryContext, defaulTimeout)
-	defer cancel()
 
-	err := a.throttler.Try(tryContext, revID, func(dest string) error {
+	if err := a.throttler.Try(tryContext, revID, func(dest string) error {
 		trySpan.End()
 
 		proxyCtx, proxySpan := r.Context(), (*trace.Span)(nil)
 		if tracingEnabled {
 			proxyCtx, proxySpan = trace.StartSpan(r.Context(), "proxy")
 		}
-		httpStatus := a.proxyRequest(logger, w, r.WithContext(proxyCtx), &url.URL{
+		a.proxyRequest(logger, w, r.WithContext(proxyCtx), &url.URL{
 			Scheme: "http",
 			Host:   dest,
 		}, tracingEnabled)
 		proxySpan.End()
 
-		revision := revisionFrom(r.Context())
-		configurationName := revision.Labels[serving.ConfigurationLabelKey]
-		serviceName := revision.Labels[serving.ServiceLabelKey]
-		// Do not report response time here. It is reported in pkg/activator/metric_handler.go to
-		// sum up all time spent on multiple handlers.
-		a.reporter.ReportRequestCount(revID.Namespace, serviceName, configurationName, revID.Name, httpStatus, 1)
-
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		// Set error on our capacity waiting span and end it
 		trySpan.Annotate([]trace.Attribute{trace.StringAttribute("activator.throttler.error", err.Error())}, "ThrottlerTry")
 		trySpan.End()
@@ -121,8 +103,9 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *activationHandler) proxyRequest(logger *zap.SugaredLogger, w http.ResponseWriter, r *http.Request, target *url.URL, tracingEnabled bool) int {
+func (a *activationHandler) proxyRequest(logger *zap.SugaredLogger, w http.ResponseWriter, r *http.Request, target *url.URL, tracingEnabled bool) {
 	network.RewriteHostIn(r)
+	r.Header.Set(network.ProxyHeaderName, activator.Name)
 
 	// Setup the reverse proxy.
 	proxy := httputil.NewSingleHostReverseProxy(target)
@@ -133,12 +116,7 @@ func (a *activationHandler) proxyRequest(logger *zap.SugaredLogger, w http.Respo
 	}
 	proxy.FlushInterval = -1
 	proxy.ErrorHandler = pkgnet.ErrorHandler(logger)
-
-	r.Header.Set(network.ProxyHeaderName, activator.Name)
-
 	util.SetupHeaderPruning(proxy)
 
-	recorder := pkghttp.NewResponseRecorder(w, http.StatusOK)
-	proxy.ServeHTTP(recorder, r)
-	return recorder.ResponseCode
+	proxy.ServeHTTP(w, r)
 }

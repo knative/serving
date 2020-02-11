@@ -23,12 +23,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/reconciler/route/domains"
@@ -54,11 +54,10 @@ func MakeIngress(
 	r *servingv1alpha1.Route,
 	tc *traffic.Config,
 	tls []v1alpha1.IngressTLS,
-	clusterLocalServices sets.String,
 	ingressClass string,
 	acmeChallenges ...v1alpha1.HTTP01Challenge,
 ) (*v1alpha1.Ingress, error) {
-	spec, err := MakeIngressSpec(ctx, r, tls, clusterLocalServices, tc.Targets, acmeChallenges...)
+	spec, err := MakeIngressSpec(ctx, r, tls, tc.Targets, tc.Visibility, acmeChallenges...)
 	if err != nil {
 		return nil, err
 	}
@@ -86,8 +85,8 @@ func MakeIngressSpec(
 	ctx context.Context,
 	r *servingv1alpha1.Route,
 	tls []v1alpha1.IngressTLS,
-	clusterLocalServices sets.String,
 	targets map[string]traffic.RevisionTargets,
+	visibility map[string]netv1alpha1.IngressVisibility,
 	acmeChallenges ...v1alpha1.HTTP01Challenge,
 ) (v1alpha1.IngressSpec, error) {
 	// Domain should have been specified in route status
@@ -103,38 +102,29 @@ func MakeIngressSpec(
 	challengeHosts := getChallengeHosts(acmeChallenges)
 
 	for _, name := range names {
-		serviceDomain, err := domains.HostnameFromTemplate(ctx, r.Name, name)
-		if err != nil {
-			return v1alpha1.IngressSpec{}, err
+		visibilities := []netv1alpha1.IngressVisibility{netv1alpha1.IngressVisibilityClusterLocal}
+		// If this is a public target (or not being marked as cluster-local), we also make public rule.
+		if v, ok := visibility[name]; !ok || v == netv1alpha1.IngressVisibilityExternalIP {
+			visibilities = append(visibilities, netv1alpha1.IngressVisibilityExternalIP)
 		}
-
-		isClusterLocal := clusterLocalServices.Has(serviceDomain)
-
-		routeDomains, err := routeDomains(ctx, name, r, isClusterLocal)
-		if err != nil {
-			return v1alpha1.IngressSpec{}, err
+		for _, visibility := range visibilities {
+			domain, err := routeDomain(ctx, name, r, visibility)
+			if err != nil {
+				return v1alpha1.IngressSpec{}, err
+			}
+			rule := *makeIngressRule([]string{domain}, r.Namespace, visibility, targets[name])
+			// If this is a public rule, we need to configure ACME challenge paths.
+			if visibility == netv1alpha1.IngressVisibilityExternalIP {
+				rule.HTTP.Paths = append(
+					makeACMEIngressPaths(challengeHosts, []string{domain}), rule.HTTP.Paths...)
+			}
+			rules = append(rules, rule)
 		}
-
-		rule := *makeIngressRule(routeDomains, r.Namespace, isClusterLocal, targets[name])
-		rule.HTTP.Paths = append(makeACMEIngressPaths(challengeHosts, routeDomains), rule.HTTP.Paths...)
-
-		rules = append(rules, rule)
-	}
-
-	defaultDomain, err := domains.HostnameFromTemplate(ctx, r.Name, "")
-	if err != nil {
-		return v1alpha1.IngressSpec{}, err
-	}
-
-	visibility := v1alpha1.IngressVisibilityExternalIP
-	if clusterLocalServices.Has(defaultDomain) {
-		visibility = v1alpha1.IngressVisibilityClusterLocal
 	}
 
 	return v1alpha1.IngressSpec{
-		Rules:      rules,
-		Visibility: visibility,
-		TLS:        tls,
+		Rules: rules,
+		TLS:   tls,
 	}, nil
 }
 
@@ -148,33 +138,17 @@ func getChallengeHosts(challenges []v1alpha1.HTTP01Challenge) map[string]v1alpha
 	return c
 }
 
-func routeDomains(ctx context.Context, targetName string, r *servingv1alpha1.Route, isClusterLocal bool) ([]string, error) {
+func routeDomain(ctx context.Context, targetName string, r *servingv1alpha1.Route, visibility netv1alpha1.IngressVisibility) (string, error) {
 	hostname, err := domains.HostnameFromTemplate(ctx, r.Name, targetName)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	meta := r.ObjectMeta.DeepCopy()
-	labels.SetVisibility(meta, true)
-	clusterLocalName, err := domains.DomainNameFromTemplate(ctx, *meta, hostname)
-	if err != nil {
-		return nil, err
-	}
-	ruleDomains := []string{clusterLocalName}
+	isClusterLocal := visibility == netv1alpha1.IngressVisibilityClusterLocal
+	labels.SetVisibility(meta, isClusterLocal)
 
-	if !isClusterLocal {
-		labels.SetVisibility(meta, false)
-		fullName, err := domains.DomainNameFromTemplate(ctx, *meta, hostname)
-		if err != nil {
-			return nil, err
-		}
-
-		if fullName != clusterLocalName {
-			ruleDomains = append(ruleDomains, fullName)
-		}
-	}
-
-	return ruleDomains, nil
+	return domains.DomainNameFromTemplate(ctx, *meta, hostname)
 }
 
 func makeACMEIngressPaths(challenges map[string]v1alpha1.HTTP01Challenge, domains []string) []v1alpha1.HTTPIngressPath {
@@ -200,7 +174,7 @@ func makeACMEIngressPaths(challenges map[string]v1alpha1.HTTP01Challenge, domain
 	return paths
 }
 
-func makeIngressRule(domains []string, ns string, isClusterLocal bool, targets traffic.RevisionTargets) *v1alpha1.IngressRule {
+func makeIngressRule(domains []string, ns string, visibility netv1alpha1.IngressVisibility, targets traffic.RevisionTargets) *v1alpha1.IngressRule {
 	// Optimistically allocate |targets| elements.
 	splits := make([]v1alpha1.IngressBackendSplit, 0, len(targets))
 	for _, t := range targets {
@@ -222,11 +196,6 @@ func makeIngressRule(domains []string, ns string, isClusterLocal bool, targets t
 				activator.RevisionHeaderNamespace: ns,
 			},
 		})
-	}
-
-	visibility := v1alpha1.IngressVisibilityExternalIP
-	if isClusterLocal {
-		visibility = v1alpha1.IngressVisibilityClusterLocal
 	}
 
 	return &v1alpha1.IngressRule{

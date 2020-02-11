@@ -21,10 +21,12 @@ import (
 	"testing"
 	"time"
 
-	"knative.dev/serving/pkg/apis/config"
-
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"golang.org/x/sync/errgroup"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -35,18 +37,13 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 	tracetesting "knative.dev/pkg/tracing/testing"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
-
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	. "knative.dev/pkg/reconciler/testing"
 )
@@ -63,10 +60,10 @@ const (
 	testQueueImage      = "queueImage"
 )
 
-func testRevision() *v1alpha1.Revision {
-	rev := &v1alpha1.Revision{
+func testRevision() *v1.Revision {
+	rev := &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/revisions/test-rev",
+			SelfLink:  "/apis/serving/v1/namespaces/test/revisions/test-rev",
 			Name:      "test-rev",
 			Namespace: testNamespace,
 			Labels: map[string]string{
@@ -79,37 +76,35 @@ func testRevision() *v1alpha1.Revision {
 			},
 			UID: "test-rev-uid",
 		},
-		Spec: v1alpha1.RevisionSpec{
-			RevisionSpec: v1.RevisionSpec{
-				PodSpec: corev1.PodSpec{
-					// corev1.Container has a lot of setting.  We try to pass many
-					// of them here to verify that we pass through the settings to
-					// derived objects.
-					Containers: []corev1.Container{{
-						Image:      "gcr.io/repo/image",
-						Command:    []string{"echo"},
-						Args:       []string{"hello", "world"},
-						WorkingDir: "/tmp",
-						Env: []corev1.EnvVar{{
-							Name:  "EDITOR",
-							Value: "emacs",
-						}},
-						LivenessProbe: &corev1.Probe{
-							TimeoutSeconds: 42,
-						},
-						ReadinessProbe: &corev1.Probe{
-							Handler: corev1.Handler{
-								HTTPGet: &corev1.HTTPGetAction{
-									Path: "health",
-								},
-							},
-							TimeoutSeconds: 43,
-						},
-						TerminationMessagePath: "/dev/null",
+		Spec: v1.RevisionSpec{
+			PodSpec: corev1.PodSpec{
+				// corev1.Container has a lot of setting.  We try to pass many
+				// of them here to verify that we pass through the settings to
+				// derived objects.
+				Containers: []corev1.Container{{
+					Image:      "gcr.io/repo/image",
+					Command:    []string{"echo"},
+					Args:       []string{"hello", "world"},
+					WorkingDir: "/tmp",
+					Env: []corev1.EnvVar{{
+						Name:  "EDITOR",
+						Value: "emacs",
 					}},
-				},
-				TimeoutSeconds: ptr.Int64(60),
+					LivenessProbe: &corev1.Probe{
+						TimeoutSeconds: 42,
+					},
+					ReadinessProbe: &corev1.Probe{
+						Handler: corev1.Handler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Path: "health",
+							},
+						},
+						TimeoutSeconds: 43,
+					},
+					TerminationMessagePath: "/dev/null",
+				}},
 			},
+			TimeoutSeconds: ptr.Int64(60),
 		},
 	}
 	rev.SetDefaults(context.Background())
@@ -260,7 +255,7 @@ func TestNewRevisionCallsSyncHandler(t *testing.T) {
 		return ctrl.Run(2, ctx.Done())
 	})
 
-	if _, err := servingClient.ServingV1alpha1().Revisions(rev.Namespace).Create(rev); err != nil {
+	if _, err := servingClient.ServingV1().Revisions(rev.Namespace).Create(rev); err != nil {
 		t.Fatalf("Error creating revision: %v", err)
 	}
 

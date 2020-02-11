@@ -28,6 +28,7 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler"
+	"knative.dev/serving/pkg/autoscaler/scaling"
 	. "knative.dev/serving/pkg/testing"
 )
 
@@ -36,7 +37,7 @@ func TestMakeDecider(t *testing.T) {
 		name   string
 		pa     *v1alpha1.PodAutoscaler
 		svc    string
-		want   *autoscaler.Decider
+		want   *scaling.Decider
 		cfgOpt func(autoscaler.Config) *autoscaler.Config
 	}{{
 		name: "defaults",
@@ -165,13 +166,13 @@ func withTBCAnnotation(tbc string) PodAutoscalerOption {
 }
 
 func withDeciderTBCAnnotation(tbc string) deciderOption {
-	return func(d *autoscaler.Decider) {
+	return func(d *scaling.Decider) {
 		d.Annotations[autoscaling.TargetBurstCapacityKey] = tbc
 	}
 }
 
-func decider(options ...deciderOption) *autoscaler.Decider {
-	m := &autoscaler.Decider{
+func decider(options ...deciderOption) *scaling.Decider {
+	m := &scaling.Decider{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "test-namespace",
 			Name:      "test-name",
@@ -180,7 +181,7 @@ func decider(options ...deciderOption) *autoscaler.Decider {
 				autoscaling.MetricAnnotationKey: autoscaling.Concurrency,
 			},
 		},
-		Spec: autoscaler.DeciderSpec{
+		Spec: scaling.DeciderSpec{
 			MaxScaleUpRate:      config.MaxScaleUpRate,
 			TickInterval:        config.TickInterval,
 			ScalingMetric:       "concurrency",
@@ -197,65 +198,65 @@ func decider(options ...deciderOption) *autoscaler.Decider {
 	return m
 }
 
-type deciderOption func(*autoscaler.Decider)
+type deciderOption func(*scaling.Decider)
 
 func withMetric(metric string) deciderOption {
-	return func(decider *autoscaler.Decider) {
+	return func(decider *scaling.Decider) {
 		decider.Spec.ScalingMetric = metric
 	}
 }
 
 func withTargetBurstCapacity(tbc float64) deciderOption {
-	return func(decider *autoscaler.Decider) {
+	return func(decider *scaling.Decider) {
 		decider.Spec.TargetBurstCapacity = tbc
 	}
 }
 
 func withScaleUpDownRates(up, down float64) deciderOption {
-	return func(decider *autoscaler.Decider) {
+	return func(decider *scaling.Decider) {
 		decider.Spec.MaxScaleUpRate = up
 		decider.Spec.MaxScaleDownRate = down
 	}
 }
 
 func withTotal(total float64) deciderOption {
-	return func(decider *autoscaler.Decider) {
+	return func(decider *scaling.Decider) {
 		decider.Spec.TotalValue = total
 	}
 }
 
 func withTarget(target float64) deciderOption {
-	return func(decider *autoscaler.Decider) {
+	return func(decider *scaling.Decider) {
 		decider.Spec.TargetValue = target
 	}
 }
 
 func withService(s string) deciderOption {
-	return func(d *autoscaler.Decider) {
+	return func(d *scaling.Decider) {
 		d.Spec.ServiceName = s
 	}
 }
 
 func withPanicThreshold(threshold float64) deciderOption {
-	return func(decider *autoscaler.Decider) {
+	return func(decider *scaling.Decider) {
 		decider.Spec.PanicThreshold = threshold
 	}
 }
 
 func withTargetAnnotation(target string) deciderOption {
-	return func(decider *autoscaler.Decider) {
+	return func(decider *scaling.Decider) {
 		decider.Annotations[autoscaling.TargetAnnotationKey] = target
 	}
 }
 
 func withMetricAnnotation(metric string) deciderOption {
-	return func(decider *autoscaler.Decider) {
+	return func(decider *scaling.Decider) {
 		decider.Annotations[autoscaling.MetricAnnotationKey] = metric
 	}
 }
 
 func withPanicThresholdPercentageAnnotation(percentage string) deciderOption {
-	return func(decider *autoscaler.Decider) {
+	return func(decider *scaling.Decider) {
 		decider.Annotations[autoscaling.PanicThresholdPercentageAnnotationKey] = percentage
 	}
 }

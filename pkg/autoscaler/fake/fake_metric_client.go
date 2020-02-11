@@ -17,9 +17,30 @@ limitations under the License.
 package fake
 
 import (
+	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	kubeinformers "k8s.io/client-go/informers"
+	fakek8s "k8s.io/client-go/kubernetes/fake"
+)
+
+var (
+	// KubeClient holds instances of interfaces for making requests to kubernetes client.
+	KubeClient = fakek8s.NewSimpleClientset()
+	// KubeInformer constructs a new instance of sharedInformerFactory for all namespaces.
+	KubeInformer = kubeinformers.NewSharedInformerFactory(KubeClient, 0)
+)
+
+const (
+	// TestRevision is the name used for the revision.
+	TestRevision = "test-revision"
+	// TestService is the name used for the service.
+	TestService = "test-revision-metrics"
+	// TestNamespace is the name used for the namespace.
+	TestNamespace = "test-namespace"
 )
 
 // MetricClient is a fake implementation of autoscaler.MetricClient for testing.
@@ -29,6 +50,19 @@ type MetricClient struct {
 	StableRPS         float64
 	PanicRPS          float64
 	ErrF              func(key types.NamespacedName, now time.Time) error
+}
+
+// A ManualTickProvider holds a channel that delivers `ticks' of a clock at intervals.
+type ManualTickProvider struct {
+	Channel chan time.Time
+}
+
+// NewTicker returns a Ticker containing a channel that will send the
+// time with a period specified by the duration argument.
+func (mtp *ManualTickProvider) NewTicker(time.Duration) *time.Ticker {
+	return &time.Ticker{
+		C: mtp.Channel,
+	}
 }
 
 // StableAndPanicConcurrency returns stable/panic concurrency stored in the object
@@ -57,4 +91,25 @@ var StaticMetricClient = MetricClient{
 	PanicConcurrency:  10.0,
 	StableRPS:         10.0,
 	PanicRPS:          10.0,
+}
+
+// Endpoints is used to create endpoints.
+func Endpoints(count int, svc string) {
+	epAddresses := make([]corev1.EndpointAddress, count)
+	for i := 1; i <= count; i++ {
+		ip := fmt.Sprintf("127.0.0.%v", i)
+		epAddresses[i-1] = corev1.EndpointAddress{IP: ip}
+	}
+
+	ep := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: TestNamespace,
+			Name:      svc,
+		},
+		Subsets: []corev1.EndpointSubset{{
+			Addresses: epAddresses,
+		}},
+	}
+	KubeClient.CoreV1().Endpoints(TestNamespace).Create(ep)
+	KubeInformer.Core().V1().Endpoints().Informer().GetIndexer().Add(ep)
 }

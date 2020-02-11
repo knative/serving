@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -217,7 +218,7 @@ func (c *Reconciler) findAndSetLatestReadyRevision(config *v1alpha1.Configuratio
 // generation order between the generation of the latest ready revision and config's generation (both inclusive).
 func (c *Reconciler) getSortedCreatedRevisions(config *v1alpha1.Configuration) ([]*v1alpha1.Revision, error) {
 	lister := c.revisionLister.Revisions(config.Namespace)
-	configSelector := labels.SelectorFromSet(map[string]string{
+	configSelector := labels.SelectorFromSet(labels.Set{
 		serving.ConfigurationLabelKey: config.Name,
 	})
 	if config.Status.LatestReadyRevisionName != "" {
@@ -315,7 +316,7 @@ func (c *Reconciler) latestCreatedRevision(config *v1alpha1.Configuration) (*v1a
 	lister := c.revisionLister.Revisions(config.Namespace)
 	generationKey := serving.ConfigurationGenerationLabelKey
 
-	list, err := lister.List(labels.SelectorFromSet(map[string]string{
+	list, err := lister.List(labels.SelectorFromSet(labels.Set{
 		generationKey:                 resources.RevisionLabelValueForKey(generationKey, config),
 		serving.ConfigurationLabelKey: config.Name,
 	}))
@@ -343,7 +344,7 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1alpha1.Config
 
 func (c *Reconciler) updateStatus(existing *v1alpha1.Configuration, desired *v1alpha1.Configuration) error {
 	existing = existing.DeepCopy()
-	return reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
+	return pkgreconciler.RetryUpdateConflicts(func(attempts int) (err error) {
 		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
 		if attempts > 0 {
 			existing, err = c.ServingClientSet.ServingV1alpha1().Configurations(desired.Namespace).Get(desired.Name, metav1.GetOptions{})

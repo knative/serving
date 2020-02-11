@@ -23,6 +23,7 @@ import (
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
+	sksreconciler "knative.dev/serving/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice"
 	pkgreconciler "knative.dev/serving/pkg/reconciler"
 
 	"k8s.io/client-go/tools/cache"
@@ -54,7 +55,7 @@ func NewController(
 		sksLister:         sksInformer.Lister(),
 		psInformerFactory: podscalable.Get(ctx),
 	}
-	impl := controller.NewImpl(c, c.Logger, reconcilerName)
+	impl := sksreconciler.NewImpl(ctx, c)
 
 	c.Logger.Info("Setting up event handlers")
 

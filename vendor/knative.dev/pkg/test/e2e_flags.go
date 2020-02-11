@@ -64,11 +64,17 @@ func initializeFlags() *EnvironmentFlags {
 	flag.StringVar(&f.Cluster, "cluster", "",
 		"Provide the cluster to test against. Defaults to the current cluster in kubeconfig.")
 
-	var defaultKubeconfig string
-	if usr, err := user.Current(); err == nil {
-		defaultKubeconfig = path.Join(usr.HomeDir, ".kube/config")
+	// Use KUBECONFIG if available
+	defaultKubeconfig := os.Getenv("KUBECONFIG")
+
+	// If KUBECONFIG env var isn't set then look for $HOME/.kube/config
+	if defaultKubeconfig == "" {
+		if usr, err := user.Current(); err == nil {
+			defaultKubeconfig = path.Join(usr.HomeDir, ".kube/config")
+		}
 	}
 
+	// Allow for --kubeconfig on the cmd line to override the above logic
 	flag.StringVar(&f.Kubeconfig, "kubeconfig", defaultKubeconfig,
 		"Provide the path to the `kubeconfig` file you'd like to use for these tests. The `current-context` will be used.")
 

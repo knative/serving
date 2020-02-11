@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"knative.dev/serving/pkg/activator"
+	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/serving"
 	pkghttp "knative.dev/serving/pkg/http"
 )
@@ -42,10 +43,13 @@ type MetricHandler struct {
 }
 
 func (h *MetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	revID := revIDFrom(r.Context())
-	revision := revisionFrom(r.Context())
+	revision := util.RevisionFrom(r.Context())
 	configurationName := revision.Labels[serving.ConfigurationLabelKey]
 	serviceName := revision.Labels[serving.ServiceLabelKey]
+
+	// It's safe to ignore this error as the RevisionStatsReporter is nil-pointer safe. Calls will be noops.
+	reporter, _ := h.reporter.GetRevisionStatsReporter(revision.Namespace, serviceName, configurationName, revision.Name)
+
 	start := time.Now()
 
 	rr := pkghttp.NewResponseRecorder(w, http.StatusOK)
@@ -53,10 +57,12 @@ func (h *MetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		err := recover()
 		latency := time.Since(start)
 		if err != nil {
-			h.reporter.ReportResponseTime(revID.Namespace, serviceName, configurationName, revID.Name, http.StatusInternalServerError, latency)
+			reporter.ReportResponseTime(http.StatusInternalServerError, latency)
+			reporter.ReportRequestCount(http.StatusInternalServerError)
 			panic(err)
 		}
-		h.reporter.ReportResponseTime(revID.Namespace, serviceName, configurationName, revID.Name, rr.ResponseCode, latency)
+		reporter.ReportResponseTime(rr.ResponseCode, latency)
+		reporter.ReportRequestCount(rr.ResponseCode)
 	}()
 
 	h.nextHandler.ServeHTTP(rr, r)

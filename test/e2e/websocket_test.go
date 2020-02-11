@@ -16,24 +16,17 @@ limitations under the License.
 package e2e
 
 import (
-	"bytes"
 	"fmt"
-	"net/http"
-	"net/url"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/gorilla/websocket"
 	"golang.org/x/sync/errgroup"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	"knative.dev/pkg/ptr"
-	pkgTest "knative.dev/pkg/test"
-	ingress "knative.dev/pkg/test/ingress"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -44,53 +37,8 @@ import (
 )
 
 const (
-	connectRetryInterval  = 1 * time.Second
-	connectTimeout        = 1 * time.Minute
 	wsServerTestImageName = "wsserver"
 )
-
-// connect attempts to establish WebSocket connection with the Service.
-// It will retry until reaching `connectTimeout` duration.
-func connect(t *testing.T, clients *test.Clients, domain string) (*websocket.Conn, error) {
-	var (
-		err     error
-		address string
-	)
-
-	if test.ServingFlags.ResolvableDomain {
-		address = domain
-	} else if pkgTest.Flags.IngressEndpoint != "" {
-		address = pkgTest.Flags.IngressEndpoint
-	} else if address, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube); err != nil {
-		return nil, err
-	}
-
-	u := url.URL{Scheme: "ws", Host: address, Path: "/"}
-	var conn *websocket.Conn
-	waitErr := wait.PollImmediate(connectRetryInterval, connectTimeout, func() (bool, error) {
-		t.Logf("Connecting using websocket: url=%s, host=%s", u.String(), domain)
-		c, resp, err := websocket.DefaultDialer.Dial(u.String(), http.Header{"Host": {domain}})
-		if err == nil {
-			t.Log("WebSocket connection established.")
-			conn = c
-			return true, nil
-		}
-		if resp == nil {
-			// We don't have an HTTP response, probably TCP errors.
-			t.Logf("Connection failed: %v", err)
-			return false, nil
-		}
-		body := &bytes.Buffer{}
-		defer resp.Body.Close()
-		if _, readErr := body.ReadFrom(resp.Body); readErr != nil {
-			t.Logf("Connection failed: %v. Failed to read HTTP response: %v", err, readErr)
-			return false, nil
-		}
-		t.Logf("HTTP connection failed: %v. Response=%+v. ResponseBody=%q", err, resp, body.String())
-		return false, nil
-	})
-	return conn, waitErr
-}
 
 const message = "Hello, websocket"
 
@@ -189,7 +137,7 @@ func TestWebSocket(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	if _, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		false /* https TODO(taragu) turn this on after helloworld test running with https */); err != nil {
+		test.ServingFlags.Https); err != nil {
 		t.Fatalf("Failed to create WebSocket server: %v", err)
 	}
 
@@ -217,7 +165,7 @@ func TestWebSocketViaActivator(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
 	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		false, /* https TODO(taragu) turn this on after helloworld test running with https */
+		test.ServingFlags.Https,
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 		}),
@@ -251,7 +199,7 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 	// Setup Initial Service
 	t.Log("Creating a new Service in runLatest")
 	objects, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
-		false, /* https TODO(taragu) turn this on after helloworld test running with HTTPS */
+		test.ServingFlags.Https,
 		func(s *v1alpha1.Service) {
 			s.Spec.ConfigurationSpec.Template.Spec.Containers[0].Env = []corev1.EnvVar{{
 				Name:  "SUFFIX",
@@ -346,7 +294,7 @@ func TestWebSocketBlueGreenRoute(t *testing.T) {
 	}
 	for k, f := range resps {
 		if got, want := abs(f-numReqs/2), tolerance; got > want {
-			t.Errorf("Target %s got %d responses, expect in [%d, %d] interval", k, f, numReqs/2-5, numReqs/2+tolerance)
+			t.Errorf("Target %s got %d responses, expect in [%d, %d] interval", k, f, numReqs/2-tolerance, numReqs/2+tolerance)
 		}
 	}
 }

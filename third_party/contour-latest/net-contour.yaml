@@ -1,0 +1,97 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    serving.knative.dev/controller: "true"
+  name: knative-contour-core
+rules:
+- apiGroups:
+  - projectcontour.io
+  resources:
+  - httpproxies
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - deletecollection
+  - patch
+  - watch
+
+---
+apiVersion: v1
+data:
+  _example: |
+    ################################
+    #                              #
+    #    EXAMPLE CONFIGURATION     #
+    #                              #
+    ################################
+
+    # visibility contains the configuration for how to expose services
+    # of assorted visibilities.  Each entry is keyed by the visibility
+    # and contains two keys:
+    #  1. the "class" value to pass to the Contour class annotations,
+    #  2. the namespace/name of the Contour Envoy service.
+    visibility: |
+      ExternalIP:
+        class: contour
+        service: projectcontour/envoy-external
+      ClusterLocal:
+        class: contour-internal
+        service: projectcontour/envoy-internal
+kind: ConfigMap
+metadata:
+  labels:
+    serving.knative.dev/release: "v20200206-896dd2e"
+  name: config-contour
+  namespace: knative-serving
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: contour-ingress-controller
+  namespace: knative-serving
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: contour-ingress-controller
+  template:
+    metadata:
+      labels:
+        app: contour-ingress-controller
+    spec:
+      containers:
+      - env:
+        - name: SYSTEM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: CONFIG_LOGGING_NAME
+          value: config-logging
+        - name: CONFIG_OBSERVABILITY_NAME
+          value: config-observability
+        - name: METRICS_DOMAIN
+          value: knative.dev/net-contour
+        image: gcr.io/knative-nightly/knative.dev/net-contour/cmd/controller@sha256:d5fe8bb54bd56c3d96dd2ac3e3a452059a0f4e1848a6558b6f34d41960ed9299
+        name: controller
+        ports:
+        - containerPort: 9090
+          name: metrics
+        - containerPort: 8008
+          name: profiling
+        resources:
+          limits:
+            cpu: 400m
+            memory: 400Mi
+          requests:
+            cpu: 40m
+            memory: 40Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+      serviceAccountName: controller
+
+---

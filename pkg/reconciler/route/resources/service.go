@@ -49,11 +49,7 @@ func GetNames(services []*corev1.Service) sets.String {
 
 // SelectorFromRoute creates a label selector given a specific route.
 func SelectorFromRoute(route *v1alpha1.Route) labels.Selector {
-	return labels.SelectorFromSet(
-		labels.Set{
-			serving.RouteLabelKey: route.Name,
-		},
-	)
+	return labels.SelectorFromSet(labels.Set{serving.RouteLabelKey: route.Name})
 }
 
 // MakeK8sPlaceholderService creates a placeholder Service to prevent naming collisions. It's owned by the
