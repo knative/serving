@@ -42,6 +42,7 @@ import (
 	fakepainformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler/fake"
 	fakesksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
+	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 	"knative.dev/serving/pkg/reconciler"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -993,7 +994,7 @@ func TestReconcile(t *testing.T) {
 		psf := podscalable.Get(ctx)
 		scaler := newScaler(ctx, psf, func(interface{}, time.Duration) {})
 		scaler.activatorProbe = func(*asv1a1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
-		return &Reconciler{
+		r := &Reconciler{
 			Base: &areconciler.Base{
 				Base:              reconciler.NewBase(ctx, controllerAgentName, newConfigWatcher()),
 				PALister:          listers.GetPodAutoscalerLister(),
@@ -1008,6 +1009,7 @@ func TestReconcile(t *testing.T) {
 			deciders:        fakeDeciders,
 			scaler:          scaler,
 		}
+		return pareconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetPodAutoscalerLister(), r.Recorder, r)
 	}))
 }
 
@@ -1155,22 +1157,6 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	}
 	if !newKPA.Status.IsReady() {
 		t.Error("Status.IsReady() was false")
-	}
-
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Delete(testRevision, nil)
-	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Delete(rev)
-	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Delete(testRevision, nil)
-	fakepainformer.Get(ctx).Informer().GetIndexer().Delete(kpa)
-	if err := ctl.Reconciler.Reconcile(context.Background(), testNamespace+"/"+testRevision); err != nil {
-		t.Errorf("Reconcile() = %v", err)
-	}
-
-	if fakeDeciders.deleteCallCount.Load() == 0 {
-		t.Fatal("Decider was not deleted")
-	}
-
-	if fakeDeciders.deleteBeforeCreate.Load() {
-		t.Fatal("Deciders.Delete ran before OnPresent")
 	}
 }
 

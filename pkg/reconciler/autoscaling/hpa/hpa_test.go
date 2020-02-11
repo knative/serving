@@ -40,6 +40,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ktesting "k8s.io/client-go/testing"
+	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -373,7 +374,7 @@ func TestReconcile(t *testing.T) {
 			InduceFailure("update", "podautoscalers"),
 		},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", `Failed to update status for PA "test-revision": inducing failure for update podautoscalers`),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", `Failed to update status for "test-revision": inducing failure for update podautoscalers`),
 		},
 	}, {
 		Name: "update hpa fails",
@@ -460,7 +461,7 @@ func TestReconcile(t *testing.T) {
 		retryAttempted = false
 		ctx = podscalable.WithDuck(ctx)
 
-		return &Reconciler{
+		r := &Reconciler{
 			Base: &areconciler.Base{
 				Base:              reconciler.NewBase(ctx, controllerAgentName, cmw),
 				PALister:          listers.GetPodAutoscalerLister(),
@@ -472,6 +473,7 @@ func TestReconcile(t *testing.T) {
 			},
 			hpaLister: listers.GetHorizontalPodAutoscalerLister(),
 		}
+		return pareconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetPodAutoscalerLister(), r.Recorder, r)
 	}))
 }
 

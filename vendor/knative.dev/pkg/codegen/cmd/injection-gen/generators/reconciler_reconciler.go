@@ -116,6 +116,10 @@ func (g *reconcilerReconcilerGenerator) GenerateType(c *generator.Context, t *ty
 			Package: "go.uber.org/zap",
 			Name:    "SugaredLogger",
 		}),
+		"setsNewString": c.Universe.Function(types.Name{
+			Package: "k8s.io/apimachinery/pkg/util/sets",
+			Name:    "NewString",
+		}),
 	}
 
 	sw.Do(reconcilerInterfaceFactory, m)
@@ -304,8 +308,8 @@ func (r *reconcilerImpl) updateFinalizersFiltered(ctx context.Context, resource 
 	var finalizers []string
 
 	// If there's nothing to update, just return.
-	existingFinalizers := sets.NewString(existing.Finalizers...)
-	desiredFinalizers := sets.NewString(resource.Finalizers...)
+	existingFinalizers := {{.setsNewString|raw}}(existing.Finalizers...)
+	desiredFinalizers := {{.setsNewString|raw}}(resource.Finalizers...)
 
 	if desiredFinalizers.Has(finalizerName) {
 		if existingFinalizers.Has(finalizerName) {
@@ -352,7 +356,7 @@ func (r *reconcilerImpl) setFinalizerIfFinalizer(ctx context.Context, resource *
 		return nil
 	}
 
-	finalizers := sets.NewString(resource.Finalizers...)
+	finalizers := {{.setsNewString|raw}}(resource.Finalizers...)
 
 	// If this resource is not being deleted, mark the finalizer.
 	if resource.GetDeletionTimestamp().IsZero() {
@@ -373,7 +377,7 @@ func (r *reconcilerImpl) clearFinalizer(ctx context.Context, resource *{{.type|r
 		return nil
 	}
 
-	finalizers := sets.NewString(resource.Finalizers...)
+	finalizers := {{.setsNewString|raw}}(resource.Finalizers...)
 
 	if reconcileEvent != nil {
 		var event *{{.reconcilerReconcilerEvent|raw}}
