@@ -8,197 +8,6 @@ metadata:
     istio-injection: disabled
 # PATCH #1 ends.
 ---
-# Source: istio/charts/galley/templates/configmap.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: istio-galley-configuration
-  namespace: istio-system
-  labels:
-    app: galley
-    chart: galley
-    heritage: Helm
-    release: RELEASE-NAME
-    istio: galley
-data:
-  validatingwebhookconfiguration.yaml: |-
-    apiVersion: admissionregistration.k8s.io/v1beta1
-    kind: ValidatingWebhookConfiguration
-    metadata:
-      name: istio-galley
-      labels:
-        app: galley
-        chart: galley
-        heritage: Helm
-        release: RELEASE-NAME
-        istio: galley
-    webhooks:
-      - name: pilot.validation.istio.io
-        clientConfig:
-          service:
-            name: istio-galley
-            namespace: istio-system
-            path: "/admitpilot"
-          caBundle: ""
-        rules:
-          - operations:
-            - CREATE
-            - UPDATE
-            apiGroups:
-            - config.istio.io
-            apiVersions:
-            - v1alpha2
-            resources:
-            - httpapispecs
-            - httpapispecbindings
-            - quotaspecs
-            - quotaspecbindings
-          - operations:
-            - CREATE
-            - UPDATE
-            apiGroups:
-            - rbac.istio.io
-            apiVersions:
-            - "*"
-            resources:
-            - "*"
-          - operations:
-            - CREATE
-            - UPDATE
-            apiGroups:
-            - authentication.istio.io
-            apiVersions:
-            - "*"
-            resources:
-            - "*"
-          - operations:
-            - CREATE
-            - UPDATE
-            apiGroups:
-            - networking.istio.io
-            apiVersions:
-            - "*"
-            resources:
-            - destinationrules
-            - envoyfilters
-            - gateways
-            - serviceentries
-            - sidecars
-            - virtualservices
-        failurePolicy: Fail
-        sideEffects: None
-      - name: mixer.validation.istio.io
-        clientConfig:
-          service:
-            name: istio-galley
-            namespace: istio-system
-            path: "/admitmixer"
-          caBundle: ""
-        rules:
-          - operations:
-            - CREATE
-            - UPDATE
-            apiGroups:
-            - config.istio.io
-            apiVersions:
-            - v1alpha2
-            resources:
-            - rules
-            - attributemanifests
-            - circonuses
-            - deniers
-            - fluentds
-            - kubernetesenvs
-            - listcheckers
-            - memquotas
-            - noops
-            - opas
-            - prometheuses
-            - rbacs
-            - solarwindses
-            - stackdrivers
-            - cloudwatches
-            - dogstatsds
-            - statsds
-            - stdios
-            - apikeys
-            - authorizations
-            - checknothings
-            # - kuberneteses
-            - listentries
-            - logentries
-            - metrics
-            - quotas
-            - reportnothings
-            - tracespans
-            - adapters
-            - handlers
-            - instances
-            - templates
-            - zipkins
-        failurePolicy: Fail
-        sideEffects: None
----
-# Source: istio/charts/security/templates/configmap.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: istio-security-custom-resources
-  namespace: istio-system
-  labels:
-    app: security
-    chart: security
-    heritage: Helm
-    release: RELEASE-NAME
-    istio: citadel
-data:
-  custom-resources.yaml: |-
-    # Authentication policy to enable permissive mode for all services (that have sidecar) in the mesh.
-    apiVersion: "authentication.istio.io/v1alpha1"
-    kind: "MeshPolicy"
-    metadata:
-      name: "default"
-      labels:
-        app: security
-        chart: security
-        heritage: Helm
-        release: RELEASE-NAME
-    spec:
-      peers:
-      - mtls:
-          mode: PERMISSIVE
-  run.sh: |-
-    #!/bin/sh
-
-    set -x
-
-    if [ "$#" -ne "1" ]; then
-        echo "first argument should be path to custom resource yaml"
-        exit 1
-    fi
-
-    pathToResourceYAML=${1}
-
-    kubectl get validatingwebhookconfiguration istio-galley 2>/dev/null
-    if [ "$?" -eq 0 ]; then
-        echo "istio-galley validatingwebhookconfiguration found - waiting for istio-galley deployment to be ready"
-        while true; do
-            kubectl -n istio-system get deployment istio-galley 2>/dev/null
-            if [ "$?" -eq 0 ]; then
-                break
-            fi
-            sleep 1
-        done
-        kubectl -n istio-system rollout status deployment istio-galley
-        if [ "$?" -ne 0 ]; then
-            echo "istio-galley deployment rollout status check failed"
-            exit 1
-        fi
-        echo "istio-galley deployment ready for configuration validation"
-    fi
-    sleep 5
-    kubectl apply -f ${pathToResourceYAML}
----
 # Source: istio/templates/configmap.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -335,15 +144,15 @@ data:
   meshNetworks: |-
     networks: {}
 ---
-# Source: istio/charts/galley/templates/serviceaccount.yaml
+# Source: istio/charts/gateways/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: istio-galley-service-account
+  name: cluster-local-gateway-service-account
   namespace: istio-system
   labels:
-    app: galley
-    chart: galley
+    app: cluster-local-gateway
+    chart: gateways
     heritage: Helm
     release: RELEASE-NAME
 ---
@@ -355,18 +164,6 @@ metadata:
   namespace: istio-system
   labels:
     app: istio-ingressgateway
-    chart: gateways
-    heritage: Helm
-    release: RELEASE-NAME
----
-# Source: istio/charts/gateways/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: cluster-local-gateway-service-account
-  namespace: istio-system
-  labels:
-    app: cluster-local-gateway
     chart: gateways
     heritage: Helm
     release: RELEASE-NAME
@@ -383,80 +180,12 @@ metadata:
     heritage: Helm
     release: RELEASE-NAME
 ---
-# Source: istio/charts/security/templates/create-custom-resources-job.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-security-post-install-account
-  namespace: istio-system
-  labels:
-    app: security
-    chart: security
-    heritage: Helm
-    release: RELEASE-NAME
----
-# Source: istio/charts/security/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-citadel-service-account
-  namespace: istio-system
-  labels:
-    app: security
-    chart: security
-    heritage: Helm
-    release: RELEASE-NAME
----
 # Source: istio/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-multi
   namespace: istio-system
----
-# Source: istio/charts/galley/templates/clusterrole.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-galley-istio-system
-  labels:
-    app: galley
-    chart: galley
-    heritage: Helm
-    release: RELEASE-NAME
-rules:
-- apiGroups: ["admissionregistration.k8s.io"]
-  resources: ["validatingwebhookconfigurations"]
-  verbs: ["*"]
-- apiGroups: ["config.istio.io"] # istio mixer CRD watcher
-  resources: ["*"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["networking.istio.io"]
-  resources: ["*"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["authentication.istio.io"]
-  resources: ["*"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["rbac.istio.io"]
-  resources: ["*"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["extensions","apps"]
-  resources: ["deployments"]
-  resourceNames: ["istio-galley"]
-  verbs: ["get"]
-- apiGroups: [""]
-  resources: ["pods", "nodes", "services", "endpoints", "namespaces"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["extensions"]
-  resources: ["ingresses"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["extensions"]
-  resources: ["deployments/finalizers"]
-  resourceNames: ["istio-galley"]
-  verbs: ["update"]
-- apiGroups: ["apiextensions.k8s.io"]
-  resources: ["customresourcedefinitions"]
-  verbs: ["get", "list", "watch"]
 ---
 # Source: istio/charts/pilot/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -494,54 +223,6 @@ rules:
   resources: ["endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
   verbs: ["get", "list", "watch"]
 ---
-# Source: istio/charts/security/templates/clusterrole.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: istio-citadel-istio-system
-  labels:
-    app: security
-    chart: security
-    heritage: Helm
-    release: RELEASE-NAME
-rules:
-- apiGroups: [""]
-  resources: ["configmaps"]
-  verbs: ["create", "get", "update"]
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["create", "get", "watch", "list", "update", "delete"]
-- apiGroups: [""]
-  resources: ["serviceaccounts", "services", "namespaces"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["authentication.k8s.io"]
-  resources: ["tokenreviews"]
-  verbs: ["create"]
----
-# Source: istio/charts/security/templates/create-custom-resources-job.yaml
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRole
-metadata:
-  name: istio-security-post-install-istio-system
-  labels:
-    app: security
-    chart: security
-    heritage: Helm
-    release: RELEASE-NAME
-rules:
-- apiGroups: ["authentication.istio.io"] # needed to create default authn policy
-  resources: ["*"]
-  verbs: ["*"]
-- apiGroups: ["networking.istio.io"] # needed to create security destination rules
-  resources: ["*"]
-  verbs: ["*"]
-- apiGroups: ["admissionregistration.k8s.io"]
-  resources: ["validatingwebhookconfigurations"]
-  verbs: ["get"]
-- apiGroups: ["extensions", "apps"]
-  resources: ["deployments", "replicasets"]
-  verbs: ["get", "list", "watch"]
----
 # Source: istio/templates/clusterrole.yaml
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
@@ -554,25 +235,6 @@ rules:
   - apiGroups: ["extensions", "apps"]
     resources: ["replicasets"]
     verbs: ["get", "list", "watch"]
----
-# Source: istio/charts/galley/templates/clusterrolebinding.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-galley-admin-role-binding-istio-system
-  labels:
-    app: galley
-    chart: galley
-    heritage: Helm
-    release: RELEASE-NAME
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-galley-istio-system
-subjects:
-  - kind: ServiceAccount
-    name: istio-galley-service-account
-    namespace: istio-system
 ---
 # Source: istio/charts/pilot/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -593,51 +255,13 @@ subjects:
     name: istio-pilot-service-account
     namespace: istio-system
 ---
-# Source: istio/charts/security/templates/clusterrolebinding.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-citadel-istio-system
-  labels:
-    app: security
-    chart: security
-    heritage: Helm
-    release: RELEASE-NAME
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-citadel-istio-system
-subjects:
-  - kind: ServiceAccount
-    name: istio-citadel-service-account
-    namespace: istio-system
----
-# Source: istio/charts/security/templates/create-custom-resources-job.yaml
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRoleBinding
-metadata:
-  name: istio-security-post-install-role-binding-istio-system
-  labels:
-    app: security
-    chart: security
-    heritage: Helm
-    release: RELEASE-NAME
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-security-post-install-istio-system
-subjects:
-  - kind: ServiceAccount
-    name: istio-security-post-install-account
-    namespace: istio-system
----
 # Source: istio/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: istio-multi
   labels:
-    chart: istio-1.3.6
+    chart: istio-1.3.8
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -672,28 +296,35 @@ subjects:
 - kind: ServiceAccount
   name: istio-ingressgateway-service-account
 ---
-# Source: istio/charts/galley/templates/service.yaml
+# Source: istio/charts/gateways/templates/service.yaml
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-galley
+  name: cluster-local-gateway
   namespace: istio-system
+  annotations:
   labels:
-    app: galley
-    chart: galley
+    chart: gateways
     heritage: Helm
     release: RELEASE-NAME
-    istio: galley
+    app: cluster-local-gateway
+    istio: cluster-local-gateway
 spec:
-  ports:
-  - port: 443
-    name: https-validation
-  - port: 15014
-    name: http-monitoring
-  - port: 9901
-    name: grpc-mcp
+  type: ClusterIP
   selector:
-    istio: galley
+    release: RELEASE-NAME
+    app: cluster-local-gateway
+    istio: cluster-local-gateway
+  ports:
+    -
+      name: status-port
+      port: 15020
+    -
+      name: http2
+      port: 80
+    -
+      name: https
+      port: 443
 ---
 # Source: istio/charts/gateways/templates/service.yaml
 apiVersion: v1
@@ -714,36 +345,6 @@ spec:
     release: RELEASE-NAME
     app: istio-ingressgateway
     istio: ingressgateway
-  ports:
-    -
-      name: status-port
-      port: 15020
-    -
-      name: http2
-      port: 80
-    -
-      name: https
-      port: 443
----
-# Source: istio/charts/gateways/templates/service.yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: cluster-local-gateway
-  namespace: istio-system
-  annotations:
-  labels:
-    chart: gateways
-    heritage: Helm
-    release: RELEASE-NAME
-    app: cluster-local-gateway
-    istio: cluster-local-gateway
-spec:
-  type: ClusterIP
-  selector:
-    release: RELEASE-NAME
-    app: cluster-local-gateway
-    istio: cluster-local-gateway
   ports:
     -
       name: status-port
@@ -780,162 +381,6 @@ spec:
   selector:
     istio: pilot
 ---
-# Source: istio/charts/security/templates/service.yaml
-apiVersion: v1
-kind: Service
-metadata:
-  # we use the normal name here (e.g. 'prometheus')
-  # as grafana is configured to use this as a data source
-  name: istio-citadel
-  namespace: istio-system
-  labels:
-    app: security
-    chart: security
-    heritage: Helm
-    release: RELEASE-NAME
-    istio: citadel
-spec:
-  ports:
-    - name: grpc-citadel
-      port: 8060
-      targetPort: 8060
-      protocol: TCP
-    - name: http-monitoring
-      port: 15014
-  selector:
-    istio: citadel
----
-# Source: istio/charts/galley/templates/deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: istio-galley
-  namespace: istio-system
-  labels:
-    app: galley
-    chart: galley
-    heritage: Helm
-    release: RELEASE-NAME
-    istio: galley
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      istio: galley
-  strategy:
-    rollingUpdate:
-      maxSurge: 100%
-      maxUnavailable: 25%
-  template:
-    metadata:
-      labels:
-        app: galley
-        chart: galley
-        heritage: Helm
-        release: RELEASE-NAME
-        istio: galley
-      annotations:
-        sidecar.istio.io/inject: "false"
-    spec:
-      serviceAccountName: istio-galley-service-account
-      containers:
-        - name: galley
-          image: "docker.io/istio/galley:1.3.6"
-          imagePullPolicy: IfNotPresent
-          ports:
-          - containerPort: 443
-          - containerPort: 15014
-          - containerPort: 9901
-          command:
-          - /usr/local/bin/galley
-          - server
-          - --meshConfigFile=/etc/mesh-config/mesh
-          - --livenessProbeInterval=1s
-          - --livenessProbePath=/healthliveness
-          - --readinessProbePath=/healthready
-          - --readinessProbeInterval=1s
-          - --deployment-namespace=istio-system
-          - --insecure=true
-          - --enable-server=false
-          - --validation-webhook-config-file
-          - /etc/config/validatingwebhookconfiguration.yaml
-          - --monitoringPort=15014
-          - --log_output_level=default:info
-          volumeMounts:
-          - name: certs
-            mountPath: /etc/certs
-            readOnly: true
-          - name: config
-            mountPath: /etc/config
-            readOnly: true
-          - name: mesh-config
-            mountPath: /etc/mesh-config
-            readOnly: true
-          livenessProbe:
-            exec:
-              command:
-                - /usr/local/bin/galley
-                - probe
-                - --probe-path=/healthliveness
-                - --interval=10s
-            initialDelaySeconds: 5
-            periodSeconds: 5
-          readinessProbe:
-            exec:
-              command:
-                - /usr/local/bin/galley
-                - probe
-                - --probe-path=/healthready
-                - --interval=10s
-            initialDelaySeconds: 5
-            periodSeconds: 5
-          resources:
-            requests:
-              cpu: 10m
-      volumes:
-      - name: certs
-        secret:
-          secretName: istio.istio-galley-service-account
-      - name: config
-        configMap:
-          name: istio-galley-configuration
-      - name: mesh-config
-        configMap:
-          name: istio
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "amd64"
-                - "ppc64le"
-                - "s390x"
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "amd64"
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "ppc64le"
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "s390x"
----
 # Source: istio/charts/gateways/templates/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -949,7 +394,7 @@ metadata:
     app: cluster-local-gateway
     istio: cluster-local-gateway
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: cluster-local-gateway
@@ -972,7 +417,7 @@ spec:
       serviceAccountName: cluster-local-gateway-service-account
       containers:
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.3.6"
+          image: "docker.io/istio/proxyv2:1.3.8"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 15020
@@ -1017,8 +462,8 @@ spec:
             timeoutSeconds: 1
           resources:
             requests:
-              cpu: 1000m
-              memory: 1024Mi
+              cpu: 100m
+              memory: 128Mi
           env:
           - name: NODE_NAME
             valueFrom:
@@ -1134,6 +579,7 @@ metadata:
     app: istio-ingressgateway
     istio: ingressgateway
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: istio-ingressgateway
@@ -1156,7 +602,7 @@ spec:
       serviceAccountName: istio-ingressgateway-service-account
       containers:
         - name: ingress-sds
-          image: "docker.io/istio/node-agent-k8s:1.3.6"
+          image: "docker.io/istio/node-agent-k8s:1.3.8"
           imagePullPolicy: IfNotPresent
           resources:
             limits:
@@ -1179,7 +625,7 @@ spec:
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.3.6"
+          image: "docker.io/istio/proxyv2:1.3.8"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 15020
@@ -1227,8 +673,8 @@ spec:
               cpu: 2000m
               memory: 1024Mi
             requests:
-              cpu: 1000m
-              memory: 1024Mi
+              cpu: 100m
+              memory: 128Mi
           env:
           - name: NODE_NAME
             valueFrom:
@@ -1355,6 +801,7 @@ metadata:
   annotations:
     checksum/config-volume: f8da08b6b8c170dde721efd680270b2901e750d4aa186ebb6c22bef5b78a43f9
 spec:
+  replicas: 1
   strategy:
     rollingUpdate:
       maxSurge: 100%
@@ -1376,7 +823,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
         - name: discovery
-          image: "docker.io/istio/pilot:1.3.6"
+          image: "docker.io/istio/pilot:1.3.8"
           imagePullPolicy: IfNotPresent
           args:
           - "discovery"
@@ -1422,8 +869,8 @@ spec:
             value: "false"
           resources:
             requests:
-              cpu: 1000m
-              memory: 1024Mi
+              cpu: 100m
+              memory: 128Mi
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -1438,213 +885,6 @@ spec:
         secret:
           secretName: istio.istio-pilot-service-account
           optional: true
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "amd64"
-                - "ppc64le"
-                - "s390x"
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "amd64"
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "ppc64le"
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "s390x"
----
-# Source: istio/charts/security/templates/deployment.yaml
-# istio CA watching all namespaces
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: istio-citadel
-  namespace: istio-system
-  labels:
-    app: security
-    chart: security
-    heritage: Helm
-    release: RELEASE-NAME
-    istio: citadel
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      istio: citadel
-  strategy:
-    rollingUpdate:
-      maxSurge: 100%
-      maxUnavailable: 25%
-  template:
-    metadata:
-      labels:
-        app: security
-        chart: security
-        heritage: Helm
-        release: RELEASE-NAME
-        istio: citadel
-      annotations:
-        sidecar.istio.io/inject: "false"
-    spec:
-      serviceAccountName: istio-citadel-service-account
-      containers:
-        - name: citadel
-          image: "docker.io/istio/citadel:1.3.6"
-          imagePullPolicy: IfNotPresent
-          args:
-            - --append-dns-names=true
-            - --grpc-port=8060
-            - --citadel-storage-namespace=istio-system
-            - --custom-dns-names=istio-pilot-service-account.istio-system:istio-pilot.istio-system
-            - --monitoring-port=15014
-            - --self-signed-ca=true
-            - --workload-cert-ttl=2160h
-          env:
-            - name: CITADEL_ENABLE_NAMESPACES_BY_DEFAULT
-              value: "true"
-          resources:
-            requests:
-              cpu: 10m
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "amd64"
-                - "ppc64le"
-                - "s390x"
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "amd64"
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "ppc64le"
-          - weight: 2
-            preference:
-              matchExpressions:
-              - key: beta.kubernetes.io/arch
-                operator: In
-                values:
-                - "s390x"
----
-# Source: istio/charts/gateways/templates/autoscale.yaml
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
-metadata:
-  name: istio-ingressgateway
-  namespace: istio-system
-  labels:
-    chart: gateways
-    heritage: Helm
-    release: RELEASE-NAME
-    app: istio-ingressgateway
-    istio: ingressgateway
-spec:
-  maxReplicas: 5
-  minReplicas: 2
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: istio-ingressgateway
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        targetAverageUtilization: 80
----
-# Source: istio/charts/pilot/templates/autoscale.yaml
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
-metadata:
-  name: istio-pilot
-  namespace: istio-system
-  labels:
-    app: pilot
-    chart: pilot
-    heritage: Helm
-    release: RELEASE-NAME
-spec:
-  maxReplicas: 5
-  minReplicas: 1
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: istio-pilot
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      targetAverageUtilization: 80
----
-# Source: istio/charts/security/templates/create-custom-resources-job.yaml
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: istio-security-post-install-1.3.6
-  namespace: istio-system
-  annotations:
-    "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-delete-policy": hook-succeeded
-  labels:
-    app: security
-    chart: security
-    heritage: Helm
-    release: RELEASE-NAME
-spec:
-  template:
-    metadata:
-      name: istio-security-post-install
-      labels:
-        app: security
-        chart: security
-        heritage: Helm
-        release: RELEASE-NAME
-    spec:
-      serviceAccountName: istio-security-post-install-account
-      containers:
-        - name: kubectl
-          image: "docker.io/istio/kubectl:1.3.6"
-          imagePullPolicy: IfNotPresent
-          command: [ "/bin/bash", "/tmp/security/run.sh", "/tmp/security/custom-resources.yaml" ]
-          volumeMounts:
-            - mountPath: "/tmp/security"
-              name: tmp-configmap-security
-      volumes:
-        - name: tmp-configmap-security
-          configMap:
-            name: istio-security-custom-resources
-      restartPolicy: OnFailure
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
