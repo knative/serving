@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/sets"
 	clientgotesting "k8s.io/client-go/testing"
 
 	"knative.dev/pkg/apis"
@@ -2591,15 +2590,6 @@ func simpleK8sService(r *v1alpha1.Route, so ...K8sServiceOption) *corev1.Service
 
 	return svc
 }
-
-type ingressCtor func(ctx context.Context,
-	r *v1alpha1.Route,
-	tc *traffic.Config,
-	tls []netv1alpha1.IngressTLS,
-	clusterLocalServices sets.String,
-	ingressClass string,
-	acmeChallenges ...netv1alpha1.HTTP01Challenge,
-) (*netv1alpha1.Ingress, error)
 
 func simpleIngress(r *v1alpha1.Route, tc *traffic.Config, io ...IngressOption) *netv1alpha1.Ingress {
 	return baseIngressWithClass(r, tc, TestIngressClass, io...)

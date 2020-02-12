@@ -122,7 +122,6 @@ func generateGRPCTraffic(concurrentRequests int, host, domain string, stopChan c
 					}
 				}
 			}
-			return nil
 		})
 	}
 	if err := grp.Wait(); err != nil {
