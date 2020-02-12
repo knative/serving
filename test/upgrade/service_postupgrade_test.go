@@ -38,14 +38,12 @@ func TestRunLatestServicePostUpgrade(t *testing.T) {
 
 	// Before updating the service, the route and configuration objects should
 	// not be updated just because there has been an upgrade.
-	if configUpdated(t, clients, serviceName) {
+	if configHasGeneration(t, clients, serviceName, int64(1)) {
 		t.Fatal("Configuration is updated after an upgrade.")
 	}
-	if routeUpdated(t, clients, serviceName) {
+	if routeHasGeneration(t, clients, serviceName, int64(1)) {
 		t.Fatal("Route is updated after an upgrade.")
 	}
-
-
 	updateService(serviceName, t)
 }
 
@@ -74,25 +72,25 @@ func TestBYORevisionPostUpgrade(t *testing.T) {
 	}
 }
 
-func configUpdated(t *testing.T, clients *test.Clients, serviceName string) bool {
+func configHasGeneration(t *testing.T, clients *test.Clients, serviceName string, generation int64) bool {
 	configObj, err := clients.ServingAlphaClient.Configs.Get(serviceName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Configuration: %v", err)
 	}
-	if configObj.Generation != 1 && configObj.ObjectMeta.Generation != 1 {
-		t.Errorf("configObj.Generation is %d, configObj.ObjectMeta.Generation is %d", configObj.Generation, configObj.ObjectMeta.Generation)
+	if configObj.Generation != generation {
+		t.Errorf("Want generation %d, got %d", generation, configObj.Generation)
 		return true
 	}
 	return false
 }
 
-func routeUpdated(t *testing.T, clients *test.Clients, serviceName string) bool {
+func routeHasGeneration(t *testing.T, clients *test.Clients, serviceName string, generation int64) bool {
 	routeObj, err := clients.ServingAlphaClient.Routes.Get(serviceName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Route: %v", err)
 	}
-	if routeObj.Generation != 1 && routeObj.ObjectMeta.Generation != 1 {
-		t.Errorf("routeObj.Generation is %d, routeObj.ObjectMeta.Generation is %d", routeObj.Generation, routeObj.ObjectMeta.Generation)
+	if routeObj.Generation != generation {
+		t.Errorf("Want generation %d, got %d", generation, routeObj.Generation)
 		return true
 	}
 	return false
