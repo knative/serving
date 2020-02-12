@@ -16,7 +16,6 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -49,18 +48,6 @@ const wantHost = "a-better-host.com"
 type fakeHandler struct {}
 
 func (h fakeHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {}
-
-type fakeInfiniteBreaker struct {}
-
-func (ib *fakeInfiniteBreaker) Capacity() int { return 0 }
-
-func (ib *fakeInfiniteBreaker) UpdateConcurrency(cc int) error { return nil }
-
-func (ib *fakeInfiniteBreaker) Maybe(ctx context.Context, thunk func()) error { return nil }
-
-func (ib *fakeInfiniteBreaker) Reserve(context.Context) (func(), bool) { return noop, true }
-
-func noop() {}
 
 func TestHandlerReqEvent(t *testing.T) {
 	var httpHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
