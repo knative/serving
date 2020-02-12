@@ -33,7 +33,7 @@ function setup_auto_tls_env_variables() {
   # The service account credential file used to access the DNS server.
   export CLOUD_DNS_SERVICE_ACCOUNT_KEY_FILE="/etc/test-account/service-account.json"
 
-  export CUSTOM_DOMAIN_SUFFIX="$(($RANDOM % 10000)).${E2E_PROJECT_ID}.zhiminx.info"
+  export CUSTOM_DOMAIN_SUFFIX="$(($RANDOM % 10000)).${E2E_PROJECT_ID}.kn-e2e.dev"
 
   local INGRESS_NAMESPACE=${GATEWAY_NAMESPACE}
   if [[ -z "${GATEWAY_NAMESPACE}" ]]; then
