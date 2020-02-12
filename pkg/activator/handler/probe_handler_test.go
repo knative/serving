@@ -113,17 +113,17 @@ func mapToHeader(m map[string]string) http.Header {
 }
 
 func BenchmarkProbeHandler(b *testing.B) {
-	examples := []struct {
+	tests := []struct {
 		label   string
 		headers http.Header
 	}{{
-		label:   "valid header",
+		label:   "valid header name",
 		headers: mapToHeader(map[string]string{network.ProbeHeaderName: activator.Name}),
 	}, {
-		label:   "invalid header",
+		label:   "invalid header name",
 		headers: mapToHeader(map[string]string{network.ProbeHeaderName: "not-empty"}),
 	}, {
-		label:   "empty header",
+		label:   "empty header name",
 		headers: http.Header{},
 	}}
 
@@ -131,19 +131,19 @@ func BenchmarkProbeHandler(b *testing.B) {
 	handler := ProbeHandler{NextHandler: baseHandler}
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 
-	for i, e := range examples {
-		req.Header = e.headers
-		b.Run(fmt.Sprintf("%d-sequential", i), func(b *testing.B) {
+	for _, test := range tests {
+		req.Header = test.headers
+		b.Run(fmt.Sprintf("%s-sequential", test.label), func(b *testing.B) {
 			resp := httptest.NewRecorder()
 			for j := 0; j < b.N; j++ {
 				handler.ServeHTTP(resp, req)
 			}
 		})
 
-		b.Run(fmt.Sprintf("%d-parallel", i), func(b *testing.B) {
+		b.Run(fmt.Sprintf("%s-parallel", test.label), func(b *testing.B) {
 			b.RunParallel(func(pb *testing.PB) {
+				resp := httptest.NewRecorder()
 				for pb.Next() {
-					resp := httptest.NewRecorder()
 					handler.ServeHTTP(resp, req)
 				}
 			})

@@ -80,20 +80,20 @@ func TestHealthHandler(t *testing.T) {
 }
 
 func BenchmarkHealthHandler(b *testing.B) {
-	examples := []struct {
-		name    string
+	tests := []struct {
+		label   string
 		headers http.Header
 		check   func() error
 	}{{
-		name:    "forward non-kubelet request",
+		label:   "forward non-kubelet request",
 		headers: mapToHeader(map[string]string{"User-Agent": "chromium/734.6.5"}),
 		check:   func() error { return nil },
 	}, {
-		name:    "kubelet probe success",
+		label:   "kubelet probe success",
 		headers: mapToHeader(map[string]string{"User-Agent": "kube-probe/something"}),
 		check:   func() error { return nil },
 	}, {
-		name:    "kubelet probe failure",
+		label:   "kubelet probe failure",
 		headers: mapToHeader(map[string]string{"User-Agent": "kube-probe/something"}),
 		check:   func() error { return errors.New("not ready") },
 	}}
@@ -101,23 +101,20 @@ func BenchmarkHealthHandler(b *testing.B) {
 	logger := ktesting.TestLogger(b)
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-	for i, e := range examples {
-		handler := HealthHandler{HealthCheck: e.check, NextHandler: baseHandler, Logger: logger}
-		req.Header = e.headers
-		resp := httptest.NewRecorder()
-		b.Run(fmt.Sprintf("%d-sequential", i), func(b *testing.B) {
+	for _, test := range tests {
+		handler := HealthHandler{HealthCheck: test.check, NextHandler: baseHandler, Logger: logger}
+		req.Header = test.headers
+		b.Run(fmt.Sprintf("%s-sequential", test.label), func(b *testing.B) {
+			resp := httptest.NewRecorder()
 			for j := 0; j < b.N; j++ {
 				handler.ServeHTTP(resp, req)
 			}
 		})
 
-		b.Run(fmt.Sprintf("%d-parallel", i), func(b *testing.B) {
+		b.Run(fmt.Sprintf("%s-parallel", test.label), func(b *testing.B) {
 			b.RunParallel(func(pb *testing.PB) {
+				resp := httptest.NewRecorder()
 				for pb.Next() {
-					// In order to avoid concurrent map writes
-					if e.check() != nil {
-						resp = httptest.NewRecorder()
-					}
 					handler.ServeHTTP(resp, req)
 				}
 			})
