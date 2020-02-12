@@ -1008,6 +1008,14 @@
   revision = "fbec762f837dc349b73d1eaa820552e2ad177942"
 
 [[projects]]
+  digest = "1:8392b5c29adedc5f85c66b48bb53b6c49dd91d8540f3cad5d43ef7277946718f"
+  name = "gomodules.xyz/jsonpatch"
+  packages = ["v2"]
+  pruneopts = "NUT"
+  revision = "e8422f09d27ee2c8cfb2c7f8089eb9eeb0764849"
+  version = "v2.0.1"
+
+[[projects]]
   branch = "master"
   digest = "1:316acdd3d33465ea10eb1a5a10d4de4918f0a2373f87233d6dee80e8aba14c91"
   name = "google.golang.org/api"
@@ -1792,8 +1800,7 @@
   revision = "fec8f7913697607ffec0b75f5dd9dd46bb3b9f0b"
 
 [[projects]]
-  branch = "master"
-  digest = "1:9baf7494df34e555a6a2c9ab5c951a7b07c593d8176a679eab98897b1bb50d0d"
+  digest = "1:b6925c86623139fd32a0dad4cbbf913d19e5168fb69606d86d61af4032fb7306"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1900,7 +1907,8 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "a447f39709f1ee8c1854517c247330b8ecb9a6ca"
+  revision = "bfc59bd4cca7f71cff3cde48af0d909da3e0de35"
+  source = "github.com/n3wscott/pkg"
 
 [[projects]]
   branch = "master"

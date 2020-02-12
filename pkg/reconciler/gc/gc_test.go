@@ -186,7 +186,9 @@ func TestGCReconcile(t *testing.T) {
 			Base:                pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
-			configStore: &testConfigStore{
+		}
+		return configreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetConfigurationLister(), r.Recorder, r, controller.Options{
+			ConfigStore: &testConfigStore{
 				config: &config.Config{
 					RevisionGC: &gcconfig.Config{
 						StaleRevisionCreateDelay:        5 * time.Minute,
@@ -194,9 +196,7 @@ func TestGCReconcile(t *testing.T) {
 						StaleRevisionMinimumGenerations: 2,
 					},
 				},
-			},
-		}
-		return configreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetConfigurationLister(), r.Recorder, r)
+			}})
 	}))
 }
 
