@@ -487,11 +487,9 @@ func BenchmarkProxyHandler(b *testing.B) {
 }
 
 func BenchmarkProxyHandlerInfiniteBreaker(b *testing.B) {
-	params := queue.BreakerParams{QueueDepth: 10000000, MaxConcurrency: 10000000, InitialCapacity: 10000000}
-	breaker := queue.NewBreaker(params)
 	// Make the channel as big as possible to account for the largest b.N
 	reqChan := make(chan queue.ReqEvent, 10000000)
-	h := proxyHandler(reqChan, breaker, true /*tracingEnabled*/, fakeHandler{})
+	h := proxyHandler(reqChan, nil /* infinite breaker */, true /*tracingEnabled*/, fakeHandler{})
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(network.OriginalHostHeader, wantHost)
 	resp := httptest.NewRecorder()
