@@ -309,7 +309,7 @@ func TestProbeFailFast(t *testing.T) {
 	}
 
 	// if fails due to timeout and not cancelation, then it took too long
-	if time.Now().Sub(start) >= 1*time.Second {
+	if time.Since(start) >= 1*time.Second {
 		t.Error("took too long to fail")
 	}
 }

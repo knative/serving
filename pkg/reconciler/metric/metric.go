@@ -29,8 +29,6 @@ import (
 	rbase "knative.dev/serving/pkg/reconciler"
 )
 
-const reconcilerName = "Metrics"
-
 // reconciler implements controller.Reconciler for Metric resources.
 type reconciler struct {
 	*rbase.Base

@@ -42,13 +42,8 @@ import (
 
 const (
 	monitoringNS = "knative-monitoring"
-	// Property name used by testgrid.
-	perfLatency = "perf_latency"
-	duration    = 1 * time.Minute
-)
+	duration     = 1 * time.Minute
 
-// Enable monitoring components
-const (
 	EnablePrometheus = iota
 )
 
