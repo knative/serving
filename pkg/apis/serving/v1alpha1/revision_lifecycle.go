@@ -30,29 +30,35 @@ import (
 	"knative.dev/serving/pkg/apis/config"
 	net "knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 const (
 	// UserPortName is the name that will be used for the Port on the
 	// Deployment and Pod created by a Revision. This name will be set regardless of if
 	// a user specifies a port or the default value is chosen.
-	UserPortName = "user-port"
+	UserPortName = v1.UserPortName
 
 	// DefaultUserPort is the default port value the QueueProxy will
 	// use for connecting to the user container.
-	DefaultUserPort = 8080
+	DefaultUserPort = v1.DefaultUserPort
 
 	// QueueAdminPortName specifies the port name for
 	// health check and lifecycle hooks for queue-proxy.
-	QueueAdminPortName string = "http-queueadm"
+	QueueAdminPortName = v1.QueueAdminPortName
 
 	// AutoscalingQueueMetricsPortName specifies the port name to use for metrics
 	// emitted by queue-proxy for autoscaler.
-	AutoscalingQueueMetricsPortName = "http-autometric"
+	AutoscalingQueueMetricsPortName = v1.AutoscalingQueueMetricsPortName
 
 	// UserQueueMetricsPortName specifies the port name to use for metrics
 	// emitted by queue-proxy for end user.
-	UserQueueMetricsPortName = "http-usermetric"
+	UserQueueMetricsPortName = v1.UserQueueMetricsPortName
+
+	AnnotationParseErrorTypeMissing = v1.AnnotationParseErrorTypeMissing
+	AnnotationParseErrorTypeInvalid = v1.AnnotationParseErrorTypeInvalid
+	LabelParserErrorTypeMissing     = v1.LabelParserErrorTypeMissing
+	LabelParserErrorTypeInvalid     = v1.LabelParserErrorTypeInvalid
 )
 
 var revCondSet = apis.NewLivingConditionSet(
@@ -160,19 +166,19 @@ func (rs *RevisionStatus) MarkResourceNotConvertible(err *CannotConvertError) {
 const (
 	// NotOwned defines the reason for marking revision availability status as
 	// false due to resource ownership issues.
-	NotOwned = "NotOwned"
+	NotOwned = v1.ReasonNotOwned
 
 	// Deploying defines the reason for marking revision availability status as
 	// unknown if the revision is still deploying.
-	Deploying = "Deploying"
+	Deploying = v1.ReasonDeploying
 
 	// ProgressDeadlineExceeded defines the reason for marking revision availability
 	// status as false if progress has exceeded the deadline.
-	ProgressDeadlineExceeded = "ProgressDeadlineExceeded"
+	ProgressDeadlineExceeded = v1.ReasonProgressDeadlineExceeded
 
 	// ContainerMissing defines the reason for marking container healthiness status
 	// as false if the a container image for the revision is missing.
-	ContainerMissing = "ContainerMissing"
+	ContainerMissing = v1.ReasonContainerMissing
 )
 
 // MarkResourcesAvailableTrue marks ResourcesAvailable status on revision as True
@@ -269,13 +275,6 @@ func ResourceNotOwnedMessage(kind, name string) string {
 func ExitCodeReason(exitCode int32) string {
 	return fmt.Sprintf("ExitCode%d", exitCode)
 }
-
-const (
-	AnnotationParseErrorTypeMissing = "Missing"
-	AnnotationParseErrorTypeInvalid = "Invalid"
-	LabelParserErrorTypeMissing     = "Missing"
-	LabelParserErrorTypeInvalid     = "Invalid"
-)
 
 // +k8s:deepcopy-gen=false
 type AnnotationParseError struct {
