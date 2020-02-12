@@ -14,6 +14,7 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -79,24 +80,47 @@ func TestHealthHandler(t *testing.T) {
 }
 
 func BenchmarkHealthHandler(b *testing.B) {
-	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-	handler := HealthHandler{HealthCheck: func() error { return nil }, NextHandler: baseHandler, Logger: ktesting.TestLogger(b)}
-	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-	req.Header.Set("User-Agent", "kube-probe/something")
-	resp := httptest.NewRecorder()
-	b.Run("sequential", func(b *testing.B) {
-		for j := 0; j < b.N; j++ {
-			handler.ServeHTTP(resp, req)
-		}
-	})
+	examples := []struct {
+		name    string
+		headers http.Header
+		check   func() error
+	}{{
+		name:    "forward non-kubelet request",
+		headers: mapToHeader(map[string]string{"User-Agent": "chromium/734.6.5"}),
+		check:   func() error { return nil },
+	}, {
+		name:    "kubelet probe success",
+		headers: mapToHeader(map[string]string{"User-Agent": "kube-probe/something"}),
+		check:   func() error { return nil },
+	}, {
+		name:    "kubelet probe failure",
+		headers: mapToHeader(map[string]string{"User-Agent": "kube-probe/something"}),
+		check:   func() error { return errors.New("not ready") },
+	}}
 
-	b.Run("parallel", func(b *testing.B) {
-		b.RunParallel(func(pb *testing.PB) {
-			for pb.Next() {
+	logger := ktesting.TestLogger(b)
+	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+	for i, e := range examples {
+		handler := HealthHandler{HealthCheck: e.check, NextHandler: baseHandler, Logger: logger}
+		req.Header = e.headers
+		resp := httptest.NewRecorder()
+		b.Run(fmt.Sprintf("%d-sequential", i), func(b *testing.B) {
+			for j := 0; j < b.N; j++ {
 				handler.ServeHTTP(resp, req)
 			}
 		})
-	})
+
+		b.Run(fmt.Sprintf("%d-parallel", i), func(b *testing.B) {
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					// In order to avoid concurrent map writes
+					if e.check() != nil {
+						resp = httptest.NewRecorder()
+					}
+					handler.ServeHTTP(resp, req)
+				}
+			})
+		})
+	}
 }
