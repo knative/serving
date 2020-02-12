@@ -88,17 +88,31 @@ if [[ -n "${ISTIO_VERSION}" ]]; then
 fi
 
 # Auto TLS E2E tests mutate the cluster and must be ran separately
-kubectl apply -f ./test/config/autotls/certmanager/selfsigned/
-add_trap "kubectl delete -f ./test/config/autotls/certmanager/selfsigned/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
+# because they need auto-tls and cert-manager specific configurations
+setup_auto_tls_common
+add_trap "cleanup_auto_tls_common" SIGKILL SIGTERM SIGQUIT
+
+# Auto TLS test for per-ksvc certificate provision using self-signed CA
+setup_selfsigned_per_ksvc_auto_tls
 go_test_e2e -timeout=10m \
-  ./test/e2e/autotls/nonhttp01 || failed=1
+  ./test/e2e/autotls/ || failed=1
 kubectl delete -f ./test/config/autotls/certmanager/selfsigned/
 
-kubectl apply -f ./test/config/autotls/certmanager/http01/
-add_trap "kubectl delete -f ./test/config/autotls/certmanager/http01/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
-setup_http01_env
+# Auto TLS test for per-namespace certificate provision using self-signed CA
+setup_selfsigned_per_namespace_auto_tls
 go_test_e2e -timeout=10m \
-  ./test/e2e/autotls/http01 || failed=1
+  ./test/e2e/autotls/ || failed=1
+kubectl delete -f ./test/config/autotls/certmanager/selfsigned/
+
+# Auto TLS test for per-ksvc certificate provision using HTTP01 challenge
+setup_http01_auto_tls
+add trap "delete_dns_record"
+go_test_e2e -timeout=10m \
+  ./test/e2e/autotls/ || failed=1
+kubectl delete -f ./test/config/autotls/certmanager/http01/
+delete_dns_record
+
+cleanup_auto_tls_common
 
 # Dump cluster state in case of failure
 (( failed )) && dump_cluster_state
