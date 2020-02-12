@@ -1,4 +1,4 @@
-package disablenscert
+package main
 
 import (
 	"log"

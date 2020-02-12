@@ -1,4 +1,4 @@
-package dnscleanup
+package main
 
 import (
 	"log"

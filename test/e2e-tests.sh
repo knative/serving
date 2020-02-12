@@ -26,19 +26,12 @@
 # cluster.
 
 source $(dirname $0)/e2e-common.sh
+source $(dirname $0)/e2e-auto-tls.sh
 
 # Helper functions.
 
 function knative_setup() {
   install_knative_serving
-}
-
-function setup_http01_env() {
-  export DNS_ZONE="knative-e2e"
-  export CLOUD_DNS_PROJECT="knative-e2e-dns"
-  export SET_UP_DNS="true"
-  export CLOUD_DNS_SERVICE_ACCOUNT_KEY_FILE="/etc/test-account/service-account.json"
-  export AUTO_TLS_DOMAIN="${E2E_PROJECT_ID}.kn-e2e.dev"
 }
 
 # Script entry point.
@@ -69,6 +62,7 @@ go_test_e2e -timeout=30m \
   "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
 
 # Certificate conformance tests must be run separately
+# because they need cert-manager specific configurations.
 kubectl apply -f ./test/config/autotls/certmanager/selfsigned/
 add_trap "kubectl delete -f ./test/config/autotls/certmanager/selfsigned/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
 go_test_e2e -timeout=10m \

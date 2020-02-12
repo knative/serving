@@ -54,7 +54,7 @@ type config struct {
 	// ServiceName is the name of testing Knative Service.
 	// It is not required for self-signed CA or for the HTTP01 challenge when wildcard domain
 	// is mapped to the Ingress IP.
-	ServiceName string `envconfig:"service_name" required: "false"`
+	TLSServiceName string `envconfig:"tls_service_name" required: "false"`
 	// AutoTLSTestName is the name of the auto tls. It is not required for local test.
 	AutoTLSTestName string `envconfig:"auto_tls_test_name" required: "false"`
 }
@@ -98,8 +98,8 @@ func testAutoTLS(t *testing.T) {
 		Service: test.ObjectNameForTest(t),
 		Image:   "runtime",
 	}
-	if len(env.ServiceName) != 0 {
-		names.Service = env.ServiceName
+	if len(env.TLSServiceName) != 0 {
+		names.Service = env.TLSServiceName
 	}
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 	defer test.TearDown(clients, names)

@@ -1,4 +1,4 @@
-package dnssetup
+package main
 
 import (
 	"fmt"
