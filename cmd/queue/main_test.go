@@ -91,7 +91,7 @@ func TestHandlerReqEvent(t *testing.T) {
 	select {
 	case e := <-reqChan:
 		if e.EventType != queue.ProxiedIn {
-			t.Errorf("Want: %v, got: %v\n", queue.ReqIn, e.EventType)
+			t.Errorf("Got: %v, Want: %v\n", e.EventType, queue.ProxiedIn, )
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Timed out waiting for an event to be intercepted")
@@ -500,6 +500,51 @@ func TestQueueTraceSpans(t *testing.T) {
 					}
 				}
 			}
+		})
+	}
+}
+
+func BenchmarkProxyHandler(b *testing.B) {
+	var baseHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	reqChan := make(chan queue.ReqEvent, requestCountingQueueLength)
+	defer close(reqChan)
+	reportTicker := time.NewTicker(reportingPeriod)
+	defer reportTicker.Stop()
+	promStatReporter, err := queue.NewPrometheusStatsReporter(
+		"ns", "testksvc", "testksvc",
+		"pod", reportingPeriod)
+	if err != nil {
+		b.Fatalf("Failed to create stats reporter: %v", err)
+	}
+	queue.NewStats(time.Now(), reqChan, reportTicker.C, promStatReporter.Report)
+	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
+	req.Header.Set(network.OriginalHostHeader, wantHost)
+
+	tests := []struct {
+		label   string
+		breaker *queue.Breaker
+	}{{
+		label: "breaker-10",
+		breaker: queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}),
+	}, {
+		label: "breaker-infinite",
+		breaker: nil,
+	}}
+	for _, tc := range tests {
+		h := proxyHandler(reqChan, tc.breaker, true /*tracingEnabled*/, baseHandler)
+		b.Run(fmt.Sprintf("sequential-%s", tc.label), func(b *testing.B) {
+			resp := httptest.NewRecorder()
+			for j := 0; j < b.N; j++ {
+				h(resp, req)
+			}
+		})
+		b.Run(fmt.Sprintf("parallel-%s", tc.label), func(b *testing.B) {
+			b.RunParallel(func(pb *testing.PB) {
+				resp := httptest.NewRecorder()
+				for pb.Next() {
+					h(resp, req)
+				}
+			})
 		})
 	}
 }
