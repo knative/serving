@@ -45,9 +45,7 @@ import (
 
 const wantHost = "a-better-host.com"
 
-type fakeHandler struct {}
-
-func (h fakeHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {}
+var baseHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 
 func TestHandlerReqEvent(t *testing.T) {
 	var httpHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
@@ -452,22 +450,22 @@ func BenchmarkProxyHandler(b *testing.B) {
 	breaker := queue.NewBreaker(params)
 	// Make the channel as big as possible to account for the largest b.N
 	reqChan := make(chan queue.ReqEvent, 10000000)
-	h := proxyHandler(reqChan, breaker, true /*tracingEnabled*/, fakeHandler{})
+	h := proxyHandler(reqChan, breaker, true /*tracingEnabled*/, baseHandler)
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(network.OriginalHostHeader, wantHost)
-	resp := httptest.NewRecorder()
 
-	b.Run(fmt.Sprint("sequential"), func(b *testing.B) {
+	b.Run("sequential-breaker-10", func(b *testing.B) {
+		resp := httptest.NewRecorder()
 		for j := 0; j < b.N; j++ {
 			h(resp, req)
 		}
 	})
 
-	b.Run(fmt.Sprint("parallel"), func(b *testing.B) {
+	b.Run("parallel-breaker-10", func(b *testing.B) {
 		b.RunParallel(func(pb *testing.PB) {
-			respParallel := httptest.NewRecorder()
+			resp := httptest.NewRecorder()
 			for pb.Next() {
-				h(respParallel, req)
+				h(resp, req)
 			}
 		})
 	})
@@ -476,22 +474,22 @@ func BenchmarkProxyHandler(b *testing.B) {
 func BenchmarkProxyHandlerInfiniteBreaker(b *testing.B) {
 	// Make the channel as big as possible to account for the largest b.N
 	reqChan := make(chan queue.ReqEvent, 10000000)
-	h := proxyHandler(reqChan, nil /* infinite breaker */, true /*tracingEnabled*/, fakeHandler{})
+	h := proxyHandler(reqChan, nil /* infinite breaker */, true /*tracingEnabled*/, baseHandler)
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(network.OriginalHostHeader, wantHost)
-	resp := httptest.NewRecorder()
 
-	b.Run(fmt.Sprint("sequential-infinite-breaker"), func(b *testing.B) {
+	b.Run("sequential-infinite-breaker", func(b *testing.B) {
+		resp := httptest.NewRecorder()
 		for j := 0; j < b.N; j++ {
 			h(resp, req)
 		}
 	})
 
-	b.Run(fmt.Sprint("parallel-infinite-breaker"), func(b *testing.B) {
+	b.Run("parallel-infinite-breaker", func(b *testing.B) {
 		b.RunParallel(func(pb *testing.PB) {
-			respParallel := httptest.NewRecorder()
+			resp := httptest.NewRecorder()
 			for pb.Next() {
-				h(respParallel, req)
+				h(resp, req)
 			}
 		})
 	})
