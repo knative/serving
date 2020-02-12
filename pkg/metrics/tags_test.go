@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package scaling
+package metrics
 
 import (
 	"strings"
@@ -23,7 +23,15 @@ import (
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
+
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
 )
+
+var testM = stats.Int64(
+	"test_metric",
+	"A metric just for tests",
+	stats.UnitDimensionless)
 
 func TestNewStatsReporterCtxErrors(t *testing.T) {
 	// These are invalid as defined by the current OpenCensus library.
@@ -33,35 +41,27 @@ func TestNewStatsReporterCtxErrors(t *testing.T) {
 	}
 
 	for _, v := range invalidTagValues {
-		if _, err := NewStatsReporterContext(v, v, v, v); err == nil {
+		if _, err := RevisionContext(v, v, v, v); err == nil {
 			t.Errorf("Expected err to not be nil for value %q, got nil", v)
 		}
 	}
 }
 
-// Resets global state from the opencensus package
-// Required to run at the beginning of tests that check metrics' values
-// to make the tests idempotent.
-func resetMetrics() {
-	metricstest.Unregister(
-		desiredPodCountM.Name(),
-		stableRequestConcurrencyM.Name(),
-		panicRequestConcurrencyM.Name(),
-		excessBurstCapacityM.Name(),
-		targetRequestConcurrencyM.Name(),
-		panicM.Name(),
-		stableRPSM.Name(),
-		panicRPSM.Name(),
-		targetRPSM.Name())
-	register()
-}
-
 func TestReporterEmptyServiceName(t *testing.T) {
-	resetMetrics()
+	if err := view.Register(
+		&view.View{
+			Description: "Number of pods autoscaler wants to allocate",
+			Measure:     testM,
+			Aggregation: view.LastValue(),
+			TagKeys:     CommonRevisionKeys,
+		}); err != nil {
+		t.Fatalf("Failed to register view: %v", err)
+	}
+
 	// Metrics reported to an empty service name will be recorded with service "unknown" (metricskey.ValueUnknown).
-	rctx, err := NewStatsReporterContext("testns", "" /*service=*/, "testconfig", "testrev")
+	rctx, err := RevisionContext("testns", "" /*service=*/, "testconfig", "testrev")
 	if err != nil {
-		t.Fatalf("Failed to create a new reporter: %v", err)
+		t.Fatalf("Failed to create a new context: %v", err)
 	}
 	wantTags := map[string]string{
 		metricskey.LabelNamespaceName:     "testns",
@@ -69,6 +69,6 @@ func TestReporterEmptyServiceName(t *testing.T) {
 		metricskey.LabelConfigurationName: "testconfig",
 		metricskey.LabelRevisionName:      "testrev",
 	}
-	pkgmetrics.Record(rctx, desiredPodCountM.M(42))
-	metricstest.CheckLastValueData(t, "desired_pods", wantTags, 42)
+	pkgmetrics.Record(rctx, testM.M(42))
+	metricstest.CheckLastValueData(t, "test_metric", wantTags, 42)
 }

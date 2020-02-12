@@ -143,7 +143,7 @@ func TestReporterReport(t *testing.T) {
 	metricstest.Unregister(countName, latencyName, qdepthName)
 
 	// Test reporter with empty service name
-	r, err = NewStatsReporter(testNs, "" /*service name*/, testConf, testRev, testPod, countMetric, latencyMetric, queueSizeMetric)
+	r, err = NewStatsReporter(testNs, "" /*service name*/, testConf, "testrev_svc_missing", testPod, countMetric, latencyMetric, queueSizeMetric)
 	if err != nil {
 		t.Fatalf("Unexpected error from NewStatsReporter() = %v", err)
 	}
@@ -151,7 +151,7 @@ func TestReporterReport(t *testing.T) {
 		metricskey.LabelNamespaceName:     testNs,
 		metricskey.LabelServiceName:       "unknown",
 		metricskey.LabelConfigurationName: testConf,
-		metricskey.LabelRevisionName:      testRev,
+		metricskey.LabelRevisionName:      "testrev_svc_missing",
 		"pod_name":                        testPod,
 		"container_name":                  "queue-proxy",
 		"response_code":                   "200",

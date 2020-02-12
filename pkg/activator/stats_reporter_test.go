@@ -101,7 +101,7 @@ func TestActivatorReporterEmptyServiceName(t *testing.T) {
 		t.Fatalf("Failed to create a new reporter: %v", err)
 	}
 
-	rr, err := r.GetRevisionStatsReporter("testns", "" /*service=*/, "testconfig", "testrev")
+	rr, err := r.GetRevisionStatsReporter("testns", "" /*service=*/, "testconfig", "testrev_missing_svc")
 	if err != nil {
 		t.Fatalf("Failed to create revision reporter: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestActivatorReporterEmptyServiceName(t *testing.T) {
 		metricskey.LabelNamespaceName:     "testns",
 		metricskey.LabelServiceName:       metricskey.ValueUnknown,
 		metricskey.LabelConfigurationName: "testconfig",
-		metricskey.LabelRevisionName:      "testrev",
+		metricskey.LabelRevisionName:      "testrev_missing_svc",
 		"pod_name":                        "testpod",
 		"container_name":                  "activator",
 	}
@@ -124,7 +124,7 @@ func TestActivatorReporterEmptyServiceName(t *testing.T) {
 		metricskey.LabelNamespaceName:     "testns",
 		metricskey.LabelServiceName:       metricskey.ValueUnknown,
 		metricskey.LabelConfigurationName: "testconfig",
-		metricskey.LabelRevisionName:      "testrev",
+		metricskey.LabelRevisionName:      "testrev_missing_svc",
 		"pod_name":                        "testpod",
 		"container_name":                  "activator",
 		"response_code":                   "200",
@@ -138,7 +138,7 @@ func TestActivatorReporterEmptyServiceName(t *testing.T) {
 		metricskey.LabelNamespaceName:     "testns",
 		metricskey.LabelServiceName:       metricskey.ValueUnknown,
 		metricskey.LabelConfigurationName: "testconfig",
-		metricskey.LabelRevisionName:      "testrev",
+		metricskey.LabelRevisionName:      "testrev_missing_svc",
 		"pod_name":                        "testpod",
 		"container_name":                  "activator",
 		"response_code":                   "200",
