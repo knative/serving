@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,13 +30,16 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	clientgotesting "k8s.io/client-go/testing"
 	"knative.dev/serving/pkg/autoscaler/metrics"
+	servingclientset "knative.dev/serving/pkg/client/clientset/versioned"
+	servingclient "knative.dev/serving/pkg/client/injection/client"
+	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
+	metricreconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/metric"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	. "knative.dev/pkg/reconciler/testing"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
 	rpkg "knative.dev/serving/pkg/reconciler"
 	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
 )
@@ -67,10 +71,6 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: metric("status", "update", ready),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated",
-				"Successfully updated metric status status/update"),
-		},
 	}, {
 		Name: "update status with retry",
 		Key:  "status/update",
@@ -91,10 +91,6 @@ func TestReconcile(t *testing.T) {
 		}, {
 			Object: metric("status", "update", ready),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated",
-				"Successfully updated metric status status/update"),
-		},
 	}, {
 		Name: "update status failed",
 		Key:  "status/update-failed",
@@ -109,7 +105,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed",
-				"Failed to update metric status: inducing failure for update metrics"),
+				`Failed to update status for "update-failed": inducing failure for update metrics`),
 		},
 		WantErr: true,
 	}, {
@@ -124,8 +120,6 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError",
 				"failed to initiate or update scraping: the-error"),
-			Eventf(corev1.EventTypeNormal, "Updated",
-				"Successfully updated metric status bad/collector"),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: metric("bad", "collector", failed("CollectionFailed",
@@ -155,11 +149,13 @@ func TestReconcile(t *testing.T) {
 		if c := ctx.Value(collectorKey{}); c != nil {
 			col = c.(*testCollector)
 		}
-		return &reconciler{
+		r := &reconciler{
 			Base:         rpkg.NewBase(ctx, controllerAgentName, cmw),
 			collector:    col,
 			metricLister: listers.GetMetricLister(),
 		}
+
+		return metricreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetMetricLister(), r.Recorder, r)
 	}))
 }
 
@@ -170,63 +166,106 @@ func TestReconcileWithCollector(t *testing.T) {
 	tests := []struct {
 		name                string
 		key                 string
-		metric              *av1alpha1.Metric
+		action              func(servingclientset.Interface)
 		collector           *testCollector
-		createOrUpdateCalls int
-		deleteCalls         int
+		createOrUpdateCalls bool
+		deleteCalls         bool
 		expectErr           error
 	}{{
-		name:                "new",
-		key:                 "new/metric",
-		metric:              metric("new", "metric"),
+		name: "new",
+		key:  "new/metric",
+		action: func(scs servingclientset.Interface) {
+			m := metric("new", "metric")
+			scs.AutoscalingV1alpha1().Metrics(m.Namespace).Create(m)
+		},
 		collector:           &testCollector{},
-		createOrUpdateCalls: 1,
+		createOrUpdateCalls: true,
 	}, {
-		name:        "delete",
-		key:         "old/metric",
-		metric:      metric("new", "metric"),
+		name: "delete",
+		key:  "old/metric",
+		action: func(scs servingclientset.Interface) {
+			m := metric("new", "metric")
+			scs.AutoscalingV1alpha1().Metrics(m.Namespace).Create(m)
+			scs.AutoscalingV1alpha1().Metrics(m.Namespace).Delete(m.Name, &metav1.DeleteOptions{})
+		},
 		collector:   &testCollector{},
-		deleteCalls: 1,
+		deleteCalls: true,
 	}, {
-		name:                "error on create",
-		key:                 "new/metric",
-		metric:              metric("new", "metric"),
+		name: "error on create",
+		key:  "new/metric",
+		action: func(scs servingclientset.Interface) {
+			m := metric("new", "metric")
+			scs.AutoscalingV1alpha1().Metrics(m.Namespace).Create(m)
+		},
 		collector:           &testCollector{createOrUpdateError: updateError},
-		createOrUpdateCalls: 1,
+		createOrUpdateCalls: true,
 		expectErr:           updateError,
 	}, {
-		name:        "error on delete",
-		key:         "old/metric",
-		metric:      metric("new", "metric"),
+		name: "error on delete",
+		key:  "old/metric",
+		action: func(scs servingclientset.Interface) {
+			m := metric("new", "metric")
+			scs.AutoscalingV1alpha1().Metrics(m.Namespace).Create(m)
+			scs.AutoscalingV1alpha1().Metrics(m.Namespace).Delete(m.Name, &metav1.DeleteOptions{})
+		},
 		collector:   &testCollector{deleteError: deleteError},
-		deleteCalls: 1,
+		deleteCalls: true,
 		expectErr:   deleteError,
 	}}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, _ := SetupFakeContext(t)
-			metricInformer := metricinformer.Get(ctx)
+			ctx, cancel, informers := SetupFakeContextWithCancel(t)
 
-			r := &reconciler{
-				Base:         rpkg.NewBase(ctx, controllerAgentName, configmap.NewStaticWatcher()),
-				collector:    tt.collector,
-				metricLister: metricInformer.Lister(),
+			tt.collector.createOrUpdateCalls = make(chan struct{}, 100)
+			tt.collector.deleteCalls = make(chan struct{}, 100)
+
+			scs := servingclient.Get(ctx)
+
+			ctl := NewController(ctx, configmap.NewStaticWatcher(), tt.collector)
+
+			wf, err := controller.RunInformers(ctx.Done(), informers...)
+			if err != nil {
+				cancel()
+				t.Fatalf("StartInformers() = %v", err)
 			}
 
-			// Make sure the provided metric is available via the fake clients/informers.
-			r.ServingClientSet.AutoscalingV1alpha1().Metrics(tt.metric.Namespace).Create(tt.metric)
-			metricInformer.Informer().GetIndexer().Add(tt.metric)
+			var eg errgroup.Group
+			eg.Go(func() error { return ctl.Run(1, ctx.Done()) })
+			defer func() {
+				cancel()
+				wf()
+				eg.Wait()
+			}()
 
-			if err := r.Reconcile(ctx, tt.key); !errors.Is(err, tt.expectErr) {
-				t.Errorf("Reconcile() = %v, wanted %v", err, tt.expectErr)
+			tt.action(scs)
+
+			if !tt.createOrUpdateCalls {
+				select {
+				case <-tt.collector.createOrUpdateCalls:
+					t.Error("CreateOrUpdate() called non-zero times, want 0 times")
+				case <-time.After(1 * time.Second):
+				}
+			} else {
+				select {
+				case <-tt.collector.createOrUpdateCalls:
+				case <-time.After(1 * time.Second):
+					t.Error("CreateOrUpdate() called 0 times, want non-zero times")
+				}
 			}
 
-			if tt.createOrUpdateCalls != tt.collector.createOrUpdateCalls {
-				t.Errorf("CreateOrUpdate() called %d times, want %d times", tt.collector.createOrUpdateCalls, tt.createOrUpdateCalls)
-			}
-			if tt.deleteCalls != tt.collector.deleteCalls {
-				t.Errorf("Delete() called %d times, want %d times", tt.collector.deleteCalls, tt.deleteCalls)
+			if !tt.deleteCalls {
+				select {
+				case <-tt.collector.deleteCalls:
+					t.Error("CreateOrUpdate() called non-zero times, want 0 times")
+				case <-time.After(1 * time.Second):
+				}
+			} else {
+				select {
+				case <-tt.collector.deleteCalls:
+				case <-time.After(1 * time.Second):
+					t.Error("CreateOrUpdate() called 0 times, want non-zero times")
+				}
 			}
 		})
 	}
@@ -263,25 +302,31 @@ func metric(namespace, name string, opts ...metricOption) *av1alpha1.Metric {
 }
 
 type testCollector struct {
-	createOrUpdateCalls int
+	createOrUpdateCalls chan struct{}
 	createOrUpdateError error
 
-	recordCalls int
+	recordCalls chan struct{}
 
-	deleteCalls int
+	deleteCalls chan struct{}
 	deleteError error
 }
 
 func (c *testCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
-	c.createOrUpdateCalls++
+	if c.createOrUpdateCalls != nil {
+		c.createOrUpdateCalls <- struct{}{}
+	}
 	return c.createOrUpdateError
 }
 
 func (c *testCollector) Record(key types.NamespacedName, stat metrics.Stat) {
-	c.recordCalls++
+	if c.recordCalls != nil {
+		c.recordCalls <- struct{}{}
+	}
 }
 
 func (c *testCollector) Delete(namespace, name string) error {
-	c.deleteCalls++
+	if c.deleteCalls != nil {
+		c.deleteCalls <- struct{}{}
+	}
 	return c.deleteError
 }
