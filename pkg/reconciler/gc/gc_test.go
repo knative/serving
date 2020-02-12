@@ -342,12 +342,20 @@ func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1alpha1
 }
 
 func rev(name, namespace string, generation int64, ro ...RevisionOption) *v1alpha1.Revision {
-	r := resources.MakeRevision(cfg(name, namespace, generation))
-	r.SetDefaults(v1.WithUpgradeViaDefaulting(context.Background()))
+	// TODO(dprotaso) cleanup once we switch this
+	// reconciler to use v1 APIs
+	ctx := context.Background()
+
+	config := &v1.Configuration{}
+	cfg(name, namespace, generation).ConvertUp(ctx, config)
+
+	rev := &v1alpha1.Revision{}
+	rev.ConvertDown(ctx, resources.MakeRevision(config))
+
 	for _, opt := range ro {
-		opt(r)
+		opt(rev)
 	}
-	return r
+	return rev
 }
 
 type testConfigStore struct {

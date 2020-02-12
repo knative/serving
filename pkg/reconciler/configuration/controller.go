@@ -22,9 +22,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"
-	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	"knative.dev/serving/pkg/reconciler"
 )
 
@@ -50,7 +50,7 @@ func NewController(
 	configurationInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	revisionInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Configuration")),
+		FilterFunc: controller.FilterGroupKind(v1.Kind("Configuration")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 

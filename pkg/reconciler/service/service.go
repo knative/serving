@@ -27,6 +27,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -35,12 +36,13 @@ import (
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 	"knative.dev/serving/pkg/reconciler"
-	cfgreconciler "knative.dev/serving/pkg/reconciler/configuration"
+	configresources "knative.dev/serving/pkg/reconciler/configuration/resources"
 	"knative.dev/serving/pkg/reconciler/service/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 )
@@ -170,7 +172,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	// by our Configuration and matches its generation before reprogramming the Route,
 	// otherwise a bad patch could lead to folks inadvertently routing traffic to a
 	// pre-existing Revision (possibly for another Configuration).
-	if _, err := cfgreconciler.CheckNameAvailability(config, c.revisionLister); err != nil &&
+	if err := CheckNameAvailability(config, c.revisionLister); err != nil &&
 		!apierrs.IsNotFound(err) {
 		service.Status.MarkRevisionNameTaken(config.Spec.GetTemplate().Name)
 		return nil
@@ -386,4 +388,40 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 	existing.ObjectMeta.Labels = desiredRoute.ObjectMeta.Labels
 	existing.ObjectMeta.Annotations = desiredRoute.ObjectMeta.Annotations
 	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Update(existing)
+}
+
+// CheckNameAvailability checks that if the named Revision specified by the Configuration
+// is available (not found), exists (but matches), or exists with conflict (doesn't match).
+func CheckNameAvailability(config *v1alpha1.Configuration, lister listers.RevisionLister) error {
+	// If config.Spec.GetTemplate().Name is set, then we can directly look up
+	// the revision by name.
+	name := config.Spec.GetTemplate().Name
+	if name == "" {
+		return nil
+	}
+	errConflict := errors.NewAlreadyExists(v1alpha1.Resource("revisions"), name)
+
+	rev, err := lister.Revisions(config.Namespace).Get(name)
+	if err != nil {
+		return err
+	}
+
+	if !metav1.IsControlledBy(rev, config) {
+		// If the revision isn't controller by this configuration, then
+		// do not use it.
+		return errConflict
+	}
+
+	// Check the generation on this revision.
+	generationKey := serving.ConfigurationGenerationLabelKey
+	expectedValue := configresources.RevisionLabelValueForKey(generationKey, config)
+	if rev.Labels != nil && rev.Labels[generationKey] == expectedValue {
+		return nil
+	}
+	// We only require spec equality because the rest is immutable and the user may have
+	// annotated or labeled the Revision (beyond what the Configuration might have).
+	if !equality.Semantic.DeepEqual(config.Spec.GetTemplate().Spec, rev.Spec) {
+		return errConflict
+	}
+	return nil
 }
