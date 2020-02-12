@@ -111,21 +111,21 @@ func TestReporterReport(t *testing.T) {
 	}
 
 	// Send statistics only once and observe the results
-	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200) })
+	r.ReportRequestCount(200)
 	metricstest.CheckCountData(t, "request_count", wantTags, 1)
 
 	// The stats are cumulative - record multiple entries, should get sum
-	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200) })
-	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200) })
+	r.ReportRequestCount(200)
+	r.ReportRequestCount(200)
 	metricstest.CheckCountData(t, "request_count", wantTags, 3)
 
 	// Send statistics only once and observe the results
-	expectSuccess(t, "ReportResponseTime", func() error { return r.ReportResponseTime(200, 100*time.Millisecond) })
+	r.ReportResponseTime(200, 100*time.Millisecond)
 	metricstest.CheckDistributionData(t, "request_latencies", wantTags, 1, 100, 100)
 
 	// The stats are cumulative - record multiple entries, should get count sum
-	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportResponseTime(200, 200*time.Millisecond) })
-	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportResponseTime(200, 300*time.Millisecond) })
+	r.ReportResponseTime(200, 200*time.Millisecond)
+	r.ReportResponseTime(200, 300*time.Millisecond)
 	metricstest.CheckDistributionData(t, "request_latencies", wantTags, 3, 100, 300)
 
 	wantTags = map[string]string{
@@ -136,8 +136,8 @@ func TestReporterReport(t *testing.T) {
 		"pod_name":                        testPod,
 		"container_name":                  "queue-proxy",
 	}
-	expectSuccess(t, "QueueDepth", func() error { return r.ReportQueueDepth(1) })
-	expectSuccess(t, "QueueDepth", func() error { return r.ReportQueueDepth(2) })
+	r.ReportQueueDepth(1)
+	r.ReportQueueDepth(2)
 	metricstest.CheckLastValueData(t, "queue_depth", wantTags, 2)
 
 	metricstest.Unregister(countName, latencyName, qdepthName)
@@ -159,14 +159,8 @@ func TestReporterReport(t *testing.T) {
 	}
 
 	// Send statistics only once and observe the results
-	expectSuccess(t, "ReportRequestCount", func() error { return r.ReportRequestCount(200) })
+	r.ReportRequestCount(200)
 	metricstest.CheckCountData(t, "request_count", wantTags, 1)
 
 	metricstest.Unregister(countName, latencyName, qdepthName)
-}
-
-func expectSuccess(t *testing.T, funcName string, f func() error) {
-	if err := f(); err != nil {
-		t.Errorf("Reporter.%v() expected success but got error %v", funcName, err)
-	}
 }

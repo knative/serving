@@ -182,21 +182,18 @@ type fakeStatsReporter struct {
 	lastReqLatency      time.Duration
 }
 
-func (r *fakeStatsReporter) ReportQueueDepth(qd int) error {
+func (r *fakeStatsReporter) ReportQueueDepth(qd int) {
 	r.queueDepthTimes++
-	return nil
 }
 
-func (r *fakeStatsReporter) ReportRequestCount(responseCode int) error {
+func (r *fakeStatsReporter) ReportRequestCount(responseCode int) {
 	r.reqCountReportTimes++
 	r.lastRespCode = responseCode
 	r.lastReqCount = 1
-	return nil
 }
 
-func (r *fakeStatsReporter) ReportResponseTime(responseCode int, d time.Duration) error {
+func (r *fakeStatsReporter) ReportResponseTime(responseCode int, d time.Duration) {
 	r.respTimeReportTimes++
 	r.lastRespCode = responseCode
 	r.lastReqLatency = d
-	return nil
 }

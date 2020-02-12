@@ -18,6 +18,7 @@ package metrics
 
 import (
 	"context"
+	"strconv"
 
 	lru "github.com/hashicorp/golang-lru"
 	"knative.dev/pkg/metrics/metricskey"
@@ -74,4 +75,24 @@ func AugmentWithRevision(baseCtx context.Context, ns, service, config, revision 
 		ctx = rctx
 	}
 	return ctx.(context.Context), nil
+}
+
+// AugmentWithResponse augments the given context with response-code specific tags.
+func AugmentWithResponse(baseCtx context.Context, responseCode int) context.Context {
+	ctx, err := tag.New(
+		baseCtx,
+		tag.Upsert(ResponseCodeKey, strconv.Itoa(responseCode)),
+		tag.Upsert(ResponseCodeClassKey, responseCodeClass(responseCode)))
+	if err != nil {
+		// This should never happen but swallow the error regardless.
+		return baseCtx
+	}
+	return ctx
+}
+
+// responseCodeClass converts response code to a string of response code class.
+// e.g. The response code class is "5xx" for response code 503.
+func responseCodeClass(responseCode int) string {
+	// Get the hundreds digit of the response code and concatenate "xx".
+	return strconv.Itoa(responseCode/100) + "xx"
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package metrics
 
 import (
+	"net/http"
 	"strings"
 	"testing"
 
@@ -33,7 +34,23 @@ var testM = stats.Int64(
 	"A metric just for tests",
 	stats.UnitDimensionless)
 
-func TestNewStatsReporterCtxErrors(t *testing.T) {
+func register(t *testing.T) func() {
+	if err := view.Register(
+		&view.View{
+			Description: "Number of pods autoscaler wants to allocate",
+			Measure:     testM,
+			Aggregation: view.LastValue(),
+			TagKeys:     append(CommonRevisionKeys, ResponseCodeKey, ResponseCodeClassKey),
+		}); err != nil {
+		t.Fatalf("Failed to register view: %v", err)
+	}
+
+	return func() {
+		metricstest.Unregister(testM.Name())
+	}
+}
+
+func TestRevisionContextErrors(t *testing.T) {
 	// These are invalid as defined by the current OpenCensus library.
 	invalidTagValues := []string{
 		"naïve",                  // Includes non-ASCII character.
@@ -47,16 +64,9 @@ func TestNewStatsReporterCtxErrors(t *testing.T) {
 	}
 }
 
-func TestReporterEmptyServiceName(t *testing.T) {
-	if err := view.Register(
-		&view.View{
-			Description: "Number of pods autoscaler wants to allocate",
-			Measure:     testM,
-			Aggregation: view.LastValue(),
-			TagKeys:     CommonRevisionKeys,
-		}); err != nil {
-		t.Fatalf("Failed to register view: %v", err)
-	}
+func TestRevisionContextEmptyService(t *testing.T) {
+	cancel := register(t)
+	defer cancel()
 
 	// Metrics reported to an empty service name will be recorded with service "unknown" (metricskey.ValueUnknown).
 	rctx, err := RevisionContext("testns", "" /*service=*/, "testconfig", "testrev")
@@ -68,6 +78,29 @@ func TestReporterEmptyServiceName(t *testing.T) {
 		metricskey.LabelServiceName:       metricskey.ValueUnknown,
 		metricskey.LabelConfigurationName: "testconfig",
 		metricskey.LabelRevisionName:      "testrev",
+	}
+	pkgmetrics.Record(rctx, testM.M(42))
+	metricstest.CheckLastValueData(t, "test_metric", wantTags, 42)
+}
+
+func TestAugmentWithResponse(t *testing.T) {
+	cancel := register(t)
+	defer cancel()
+
+	// Metrics reported to an empty service name will be recorded with service "unknown" (metricskey.ValueUnknown).
+	rctx, err := RevisionContext("testns", "" /*service=*/, "testconfig", "testrev")
+	if err != nil {
+		t.Fatalf("Failed to create a new context: %v", err)
+	}
+
+	rctx = AugmentWithResponse(rctx, http.StatusNotFound)
+	wantTags := map[string]string{
+		metricskey.LabelNamespaceName:     "testns",
+		metricskey.LabelServiceName:       metricskey.ValueUnknown,
+		metricskey.LabelConfigurationName: "testconfig",
+		metricskey.LabelRevisionName:      "testrev",
+		metricskey.LabelResponseCode:      "404",
+		metricskey.LabelResponseCodeClass: "4xx",
 	}
 	pkgmetrics.Record(rctx, testM.M(42))
 	metricstest.CheckLastValueData(t, "test_metric", wantTags, 42)
