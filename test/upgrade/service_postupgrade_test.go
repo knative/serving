@@ -38,10 +38,14 @@ func TestRunLatestServicePostUpgrade(t *testing.T) {
 
 	// Before updating the service, the route and configuration objects should
 	// not be updated just because there has been an upgrade.
-	if configHasGeneration(t, clients, serviceName, int64(1)) {
+	if hasGeneration, err := configHasGeneration(clients, serviceName, 1); err != nil {
+		t.Fatalf("Error comparing Configuration generation: %v", err)
+	} else if !hasGeneration {
 		t.Fatal("Configuration is updated after an upgrade.")
 	}
-	if routeHasGeneration(t, clients, serviceName, int64(1)) {
+	if hasGeneration, err := routeHasGeneration(clients, serviceName, 1); err != nil {
+		t.Fatalf("Error comparing Route generation: %v", err)
+	} else if !hasGeneration {
 		t.Fatal("Route is updated after an upgrade.")
 	}
 	updateService(serviceName, t)
@@ -72,28 +76,20 @@ func TestBYORevisionPostUpgrade(t *testing.T) {
 	}
 }
 
-func configHasGeneration(t *testing.T, clients *test.Clients, serviceName string, generation int64) bool {
+func configHasGeneration(clients *test.Clients, serviceName string, generation int) (bool, error) {
 	configObj, err := clients.ServingAlphaClient.Configs.Get(serviceName, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to get Configuration: %v", err)
+		return false, err
 	}
-	if configObj.Generation != generation {
-		t.Errorf("Want generation %d, got %d", generation, configObj.Generation)
-		return true
-	}
-	return false
+	return configObj.Generation == int64(generation), nil
 }
 
-func routeHasGeneration(t *testing.T, clients *test.Clients, serviceName string, generation int64) bool {
+func routeHasGeneration(clients *test.Clients, serviceName string, generation int) (bool, error) {
 	routeObj, err := clients.ServingAlphaClient.Routes.Get(serviceName, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to get Route: %v", err)
+		return false, err
 	}
-	if routeObj.Generation != generation {
-		t.Errorf("Want generation %d, got %d", generation, routeObj.Generation)
-		return true
-	}
-	return false
+	return routeObj.Generation == int64(generation), nil
 }
 
 func updateService(serviceName string, t *testing.T) {
