@@ -34,7 +34,7 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/autoscaler"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/reconciler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
@@ -122,7 +122,7 @@ func NewController(
 
 	c.Logger.Info("Setting up ConfigMap receivers")
 	configsToResync := []interface{}{
-		&autoscaler.Config{},
+		&autoscalerconfig.Config{},
 	}
 	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 		impl.FilteredGlobalResync(onlyKpaClass, paInformer.Informer())

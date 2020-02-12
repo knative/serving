@@ -35,7 +35,7 @@ import (
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/autoscaler"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/revision/config"
@@ -740,6 +740,6 @@ func ReconcilerTestConfig() *config.Config {
 		},
 		Logging:    &logging.Config{},
 		Tracing:    &tracingconfig.Config{},
-		Autoscaler: &autoscaler.Config{},
+		Autoscaler: &autoscalerconfig.Config{},
 	}
 }
