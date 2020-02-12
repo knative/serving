@@ -106,7 +106,7 @@ kubectl delete -f ./test/config/autotls/certmanager/selfsigned/
 
 # Auto TLS test for per-ksvc certificate provision using HTTP01 challenge
 setup_http01_auto_tls
-add trap "delete_dns_record"
+add_trap "delete_dns_record" SIGKILL SIGTERM SIGQUIT
 go_test_e2e -timeout=10m \
   ./test/e2e/autotls/ || failed=1
 kubectl delete -f ./test/config/autotls/certmanager/http01/
