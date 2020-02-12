@@ -161,14 +161,14 @@ type RevisionSpec struct {
 const (
 	// RevisionConditionReady is set when the revision is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
-	RevisionConditionReady = apis.ConditionReady
+	RevisionConditionReady = v1.RevisionConditionReady
 	// RevisionConditionResourcesAvailable is set when underlying
 	// Kubernetes resources have been provisioned.
-	RevisionConditionResourcesAvailable apis.ConditionType = "ResourcesAvailable"
+	RevisionConditionResourcesAvailable = v1.RevisionConditionResourcesAvailable
 	// RevisionConditionContainerHealthy is set when the revision readiness check completes.
-	RevisionConditionContainerHealthy apis.ConditionType = "ContainerHealthy"
+	RevisionConditionContainerHealthy = v1.RevisionConditionContainerHealthy
 	// RevisionConditionActive is set when the revision is receiving traffic.
-	RevisionConditionActive apis.ConditionType = "Active"
+	RevisionConditionActive = v1.RevisionConditionActive
 )
 
 // RevisionStatus communicates the observed state of the Revision (from the controller).
