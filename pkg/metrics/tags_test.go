@@ -34,7 +34,7 @@ var testM = stats.Int64(
 	"A metric just for tests",
 	stats.UnitDimensionless)
 
-func register(t *testing.T) {
+func register(t *testing.T) func() {
 	if err := view.Register(
 		&view.View{
 			Description: "Number of pods autoscaler wants to allocate",
@@ -44,10 +44,10 @@ func register(t *testing.T) {
 		}); err != nil {
 		t.Fatalf("Failed to register view: %v", err)
 	}
-}
 
-func reset() {
-	metricstest.Unregister(testM.Name())
+	return func() {
+		metricstest.Unregister(testM.Name())
+	}
 }
 
 func TestRevisionContextErrors(t *testing.T) {
@@ -65,8 +65,8 @@ func TestRevisionContextErrors(t *testing.T) {
 }
 
 func TestRevisionContextEmptyService(t *testing.T) {
-	register(t)
-	defer reset()
+	cancel := register(t)
+	defer cancel()
 
 	// Metrics reported to an empty service name will be recorded with service "unknown" (metricskey.ValueUnknown).
 	rctx, err := RevisionContext("testns", "" /*service=*/, "testconfig", "testrev")
@@ -84,8 +84,8 @@ func TestRevisionContextEmptyService(t *testing.T) {
 }
 
 func TestAugmentWithResponse(t *testing.T) {
-	register(t)
-	defer reset()
+	cancel := register(t)
+	defer cancel()
 
 	// Metrics reported to an empty service name will be recorded with service "unknown" (metricskey.ValueUnknown).
 	rctx, err := RevisionContext("testns", "" /*service=*/, "testconfig", "testrev")
