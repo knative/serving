@@ -93,6 +93,6 @@ func AugmentWithResponse(baseCtx context.Context, responseCode int) context.Cont
 // responseCodeClass converts response code to a string of response code class.
 // e.g. The response code class is "5xx" for response code 503.
 func responseCodeClass(responseCode int) string {
-	// Get the hundred digit of the response code and concatenate "xx".
+	// Get the hundreds digit of the response code and concatenate "xx".
 	return strconv.Itoa(responseCode/100) + "xx"
 }

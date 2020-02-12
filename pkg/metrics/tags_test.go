@@ -46,7 +46,7 @@ func register(t *testing.T) {
 	}
 }
 
-func reset(t *testing.T) {
+func reset() {
 	metricstest.Unregister(testM.Name())
 }
 
@@ -66,7 +66,7 @@ func TestRevisionContextErrors(t *testing.T) {
 
 func TestRevisionContextEmptyService(t *testing.T) {
 	register(t)
-	defer reset(t)
+	defer reset()
 
 	// Metrics reported to an empty service name will be recorded with service "unknown" (metricskey.ValueUnknown).
 	rctx, err := RevisionContext("testns", "" /*service=*/, "testconfig", "testrev")
@@ -85,7 +85,7 @@ func TestRevisionContextEmptyService(t *testing.T) {
 
 func TestAugmentWithResponse(t *testing.T) {
 	register(t)
-	defer reset(t)
+	defer reset()
 
 	// Metrics reported to an empty service name will be recorded with service "unknown" (metricskey.ValueUnknown).
 	rctx, err := RevisionContext("testns", "" /*service=*/, "testconfig", "testrev")
