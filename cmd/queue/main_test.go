@@ -45,8 +45,6 @@ import (
 
 const wantHost = "a-better-host.com"
 
-var baseHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-
 func TestHandlerReqEvent(t *testing.T) {
 	var httpHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get(activator.RevisionHeaderName) != "" {
@@ -446,8 +444,7 @@ func TestQueueTraceSpans(t *testing.T) {
 }
 
 func BenchmarkProxyHandler(b *testing.B) {
-	params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
-	breaker := queue.NewBreaker(params)
+	var baseHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	reqChan := make(chan queue.ReqEvent, requestCountingQueueLength)
 	defer close(reqChan)
 	reportTicker := time.NewTicker(reportingPeriod)
@@ -459,58 +456,36 @@ func BenchmarkProxyHandler(b *testing.B) {
 		b.Fatalf("Failed to create stats reporter: %v", err)
 	}
 	queue.NewStats(time.Now(), reqChan, reportTicker.C, promStatReporter.Report)
-	h := proxyHandler(reqChan, breaker, true /*tracingEnabled*/, baseHandler)
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(network.OriginalHostHeader, wantHost)
 
-	b.Run("sequential-breaker-10", func(b *testing.B) {
-		resp := httptest.NewRecorder()
-		for j := 0; j < b.N; j++ {
-			h(resp, req)
-		}
-	})
-
-	b.Run("parallel-breaker-10", func(b *testing.B) {
-		b.RunParallel(func(pb *testing.PB) {
+	tests := []struct {
+		label   string
+		breaker *queue.Breaker
+	}{{
+		label: "breaker-10",
+		breaker: queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}),
+	}, {
+		label: "breaker-infinite",
+		breaker: nil,
+	}}
+	for _, tc := range tests {
+		h := proxyHandler(reqChan, tc.breaker, true /*tracingEnabled*/, baseHandler)
+		b.Run(fmt.Sprintf("sequential-%s", tc.label), func(b *testing.B) {
 			resp := httptest.NewRecorder()
-			for pb.Next() {
+			for j := 0; j < b.N; j++ {
 				h(resp, req)
 			}
 		})
-	})
-}
-
-func BenchmarkProxyHandlerInfiniteBreaker(b *testing.B) {
-	reqChan := make(chan queue.ReqEvent, requestCountingQueueLength)
-	defer close(reqChan)
-	reportTicker := time.NewTicker(reportingPeriod)
-	defer reportTicker.Stop()
-	promStatReporter, err := queue.NewPrometheusStatsReporter(
-		"ns", "testksvc", "testksvc",
-		"pod", reportingPeriod)
-	if err != nil {
-		b.Fatalf("Failed to create stats reporter: %v", err)
+		b.Run(fmt.Sprintf("parallel-%s", tc.label), func(b *testing.B) {
+			b.RunParallel(func(pb *testing.PB) {
+				resp := httptest.NewRecorder()
+				for pb.Next() {
+					h(resp, req)
+				}
+			})
+		})
 	}
-	queue.NewStats(time.Now(), reqChan, reportTicker.C, promStatReporter.Report)
-	h := proxyHandler(reqChan, nil /* infinite breaker */, true /*tracingEnabled*/, baseHandler)
-	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
-	req.Header.Set(network.OriginalHostHeader, wantHost)
-
-	b.Run("sequential-infinite-breaker", func(b *testing.B) {
-		resp := httptest.NewRecorder()
-		for j := 0; j < b.N; j++ {
-			h(resp, req)
-		}
-	})
-
-	b.Run("parallel-infinite-breaker", func(b *testing.B) {
-		b.RunParallel(func(pb *testing.PB) {
-			resp := httptest.NewRecorder()
-			for pb.Next() {
-				h(resp, req)
-			}
-		})
-	})
 }
 
 func newProbeTestServer(f func(w http.ResponseWriter)) *httptest.Server {
