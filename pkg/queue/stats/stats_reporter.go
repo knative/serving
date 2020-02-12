@@ -34,9 +34,9 @@ var defaultLatencyDistribution = view.Distribution(5, 10, 20, 40, 60, 80, 100, 1
 
 // StatsReporter defines the interface for sending queue proxy metrics.
 type StatsReporter interface {
-	ReportRequestCount(responseCode int) error
-	ReportResponseTime(responseCode int, d time.Duration) error
-	ReportQueueDepth(depth int) error
+	ReportRequestCount(responseCode int)
+	ReportResponseTime(responseCode int, d time.Duration)
+	ReportQueueDepth(depth int)
 }
 
 // reporter holds cached metric objects to report queue proxy metrics.
@@ -115,19 +115,16 @@ func NewStatsReporter(ns, service, config, rev, pod string, countMetric *stats.I
 }
 
 // ReportRequestCount captures request count metric.
-func (r *reporter) ReportRequestCount(responseCode int) error {
+func (r *reporter) ReportRequestCount(responseCode int) {
 	pkgmetrics.Record(metrics.AugmentWithResponse(r.ctx, responseCode), r.countMetric.M(1))
-	return nil
 }
 
 // ReportQueueDepth captures queue depth metric.
-func (r *reporter) ReportQueueDepth(d int) error {
+func (r *reporter) ReportQueueDepth(d int) {
 	pkgmetrics.Record(r.ctx, r.queueSizeMetric.M(int64(d)))
-	return nil
 }
 
 // ReportResponseTime captures response time requests
-func (r *reporter) ReportResponseTime(responseCode int, d time.Duration) error {
+func (r *reporter) ReportResponseTime(responseCode int, d time.Duration) {
 	pkgmetrics.Record(metrics.AugmentWithResponse(r.ctx, responseCode), r.latencyMetric.M(float64(d.Milliseconds())))
-	return nil
 }
