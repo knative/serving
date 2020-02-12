@@ -132,13 +132,7 @@ func (r *revisionReporter) ReportRequestCount(responseCode int) {
 		return
 	}
 
-	// It's safe to ignore the error as the tags are guaranteed to pass the checks in all cases.
-	ctx, _ := tag.New(
-		r.ctx,
-		tag.Upsert(metrics.ResponseCodeKey, strconv.Itoa(responseCode)),
-		tag.Upsert(metrics.ResponseCodeClassKey, responseCodeClass(responseCode)))
-
-	pkgmetrics.Record(ctx, requestCountM.M(1))
+	pkgmetrics.Record(metrics.AugmentWithResponse(r.ctx, responseCode), requestCountM.M(1))
 }
 
 // ReportResponseTime captures response time requests
@@ -147,13 +141,7 @@ func (r *revisionReporter) ReportResponseTime(responseCode int, d time.Duration)
 		return
 	}
 
-	// It's safe to ignore the error as the tags are guaranteed to pass the checks in all cases.
-	ctx, _ := tag.New(
-		r.ctx,
-		tag.Upsert(metrics.ResponseCodeKey, strconv.Itoa(responseCode)),
-		tag.Upsert(metrics.ResponseCodeClassKey, responseCodeClass(responseCode)))
-
-	pkgmetrics.Record(ctx, responseTimeInMsecM.M(float64(d.Milliseconds())))
+	pkgmetrics.Record(metrics.AugmentWithResponse(r.ctx, responseCode), responseTimeInMsecM.M(float64(d.Milliseconds())))
 }
 
 // responseCodeClass converts response code to a string of response code class.

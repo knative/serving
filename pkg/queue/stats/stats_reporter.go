@@ -19,7 +19,6 @@ package stats
 import (
 	"context"
 	"errors"
-	"strconv"
 	"time"
 
 	"go.opencensus.io/stats"
@@ -117,16 +116,7 @@ func NewStatsReporter(ns, service, config, rev, pod string, countMetric *stats.I
 
 // ReportRequestCount captures request count metric.
 func (r *reporter) ReportRequestCount(responseCode int) error {
-	// Note that service names can be an empty string, so it needs a special treatment.
-	ctx, err := tag.New(
-		r.ctx,
-		tag.Upsert(metrics.ResponseCodeKey, strconv.Itoa(responseCode)),
-		tag.Upsert(metrics.ResponseCodeClassKey, responseCodeClass(responseCode)))
-	if err != nil {
-		return err
-	}
-
-	pkgmetrics.Record(ctx, r.countMetric.M(1))
+	pkgmetrics.Record(metrics.AugmentWithResponse(r.ctx, responseCode), r.countMetric.M(1))
 	return nil
 }
 
@@ -138,22 +128,6 @@ func (r *reporter) ReportQueueDepth(d int) error {
 
 // ReportResponseTime captures response time requests
 func (r *reporter) ReportResponseTime(responseCode int, d time.Duration) error {
-	// Note that service names can be an empty string, so it needs a special treatment.
-	ctx, err := tag.New(
-		r.ctx,
-		tag.Upsert(metrics.ResponseCodeKey, strconv.Itoa(responseCode)),
-		tag.Upsert(metrics.ResponseCodeClassKey, responseCodeClass(responseCode)))
-	if err != nil {
-		return err
-	}
-
-	pkgmetrics.Record(ctx, r.latencyMetric.M(float64(d.Milliseconds())))
+	pkgmetrics.Record(metrics.AugmentWithResponse(r.ctx, responseCode), r.latencyMetric.M(float64(d.Milliseconds())))
 	return nil
-}
-
-// responseCodeClass converts response code to a string of response code class.
-// e.g. The response code class is "5xx" for response code 503.
-func responseCodeClass(responseCode int) string {
-	// Get the hundred digit of the response code and concatenate "xx".
-	return strconv.Itoa(responseCode/100) + "xx"
 }
