@@ -448,8 +448,17 @@ func TestQueueTraceSpans(t *testing.T) {
 func BenchmarkProxyHandler(b *testing.B) {
 	params := queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}
 	breaker := queue.NewBreaker(params)
-	// Make the channel as big as possible to account for the largest b.N
-	reqChan := make(chan queue.ReqEvent, 10000000)
+	reqChan := make(chan queue.ReqEvent, requestCountingQueueLength)
+	defer close(reqChan)
+	reportTicker := time.NewTicker(reportingPeriod)
+	defer reportTicker.Stop()
+	promStatReporter, err := queue.NewPrometheusStatsReporter(
+		"ns", "testksvc", "testksvc",
+		"pod", reportingPeriod)
+	if err != nil {
+		b.Fatalf("Failed to create stats reporter: %v", err)
+	}
+	queue.NewStats(time.Now(), reqChan, reportTicker.C, promStatReporter.Report)
 	h := proxyHandler(reqChan, breaker, true /*tracingEnabled*/, baseHandler)
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(network.OriginalHostHeader, wantHost)
@@ -472,8 +481,17 @@ func BenchmarkProxyHandler(b *testing.B) {
 }
 
 func BenchmarkProxyHandlerInfiniteBreaker(b *testing.B) {
-	// Make the channel as big as possible to account for the largest b.N
-	reqChan := make(chan queue.ReqEvent, 10000000)
+	reqChan := make(chan queue.ReqEvent, requestCountingQueueLength)
+	defer close(reqChan)
+	reportTicker := time.NewTicker(reportingPeriod)
+	defer reportTicker.Stop()
+	promStatReporter, err := queue.NewPrometheusStatsReporter(
+		"ns", "testksvc", "testksvc",
+		"pod", reportingPeriod)
+	if err != nil {
+		b.Fatalf("Failed to create stats reporter: %v", err)
+	}
+	queue.NewStats(time.Now(), reqChan, reportTicker.C, promStatReporter.Report)
 	h := proxyHandler(reqChan, nil /* infinite breaker */, true /*tracingEnabled*/, baseHandler)
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 	req.Header.Set(network.OriginalHostHeader, wantHost)
