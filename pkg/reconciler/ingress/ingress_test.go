@@ -41,6 +41,8 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"golang.org/x/sync/errgroup"
+	istiov1alpha3 "istio.io/api/networking/v1alpha3"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,14 +52,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientgotesting "k8s.io/client-go/testing"
-	"knative.dev/pkg/kmeta"
-
-	istiov1alpha3 "istio.io/api/networking/v1alpha3"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/kmeta"
 	pkgreconciler "knative.dev/pkg/reconciler"
 
 	pkgnet "knative.dev/pkg/network"
@@ -67,6 +66,7 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
+	ingressreconciler "knative.dev/serving/pkg/client/injection/reconciler/networking/v1alpha1/ingress"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/ingress/config"
@@ -554,7 +554,7 @@ func TestReconcile(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		retryAttempted = false
-		return &Reconciler{
+		r := &Reconciler{
 			Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
 			istioClientSet:       istioclient.Get(ctx),
 			virtualServiceLister: listers.GetVirtualServiceLister(),
@@ -570,6 +570,7 @@ func TestReconcile(t *testing.T) {
 			},
 			ingressLister: listers.GetIngressLister(),
 		}
+		return ingressreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetIngressLister(), r.Recorder, r)
 	}))
 }
 
@@ -1018,7 +1019,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			fakeistioclient.Get(ctx).NetworkingV1alpha3().Gateways(gateway.Namespace).Create(gateway)
 		}
 
-		return &Reconciler{
+		r := &Reconciler{
 			Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
 			istioClientSet:       istioclient.Get(ctx),
 			virtualServiceLister: listers.GetVirtualServiceLister(),
@@ -1049,6 +1050,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			},
 			ingressLister: listers.GetIngressLister(),
 		}
+		return ingressreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetIngressLister(), r.Recorder, r)
 	}))
 }
 
@@ -1241,11 +1243,11 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	configMapWatcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
 	controller := NewController(ctx, configMapWatcher)
 
-	controller.Reconciler.(*Reconciler).statusManager = &fakeStatusManager{
-		FakeIsReady: func(ctx context.Context, ing *v1alpha1.Ingress) (bool, error) {
-			return true, nil
-		},
-	}
+	// controller.Reconciler.(*Reconciler).statusManager = &fakeStatusManager{
+	// 	FakeIsReady: func(ctx context.Context, ing *v1alpha1.Ingress) (bool, error) {
+	// 		return true, nil
+	// 	},
+	// }
 
 	cms := append([]*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{

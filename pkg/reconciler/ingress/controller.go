@@ -19,6 +19,9 @@ package ingress
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	secretinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/secret"
@@ -30,17 +33,15 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	ingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
+	ingressreconciler "knative.dev/serving/pkg/client/injection/reconciler/networking/v1alpha1/ingress"
 	istioclient "knative.dev/serving/pkg/client/istio/injection/client"
 	gatewayinformer "knative.dev/serving/pkg/client/istio/injection/informers/networking/v1alpha3/gateway"
 	virtualserviceinformer "knative.dev/serving/pkg/client/istio/injection/informers/networking/v1alpha3/virtualservice"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/network/status"
 	"knative.dev/serving/pkg/reconciler"
+	pkgreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/ingress/config"
-
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -58,7 +59,7 @@ func NewController(
 	ingressInformer := ingressinformer.Get(ctx)
 
 	c := &Reconciler{
-		Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
+		Base:                 pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
 		istioClientSet:       istioclient.Get(ctx),
 		virtualServiceLister: virtualServiceInformer.Lister(),
 		gatewayLister:        gatewayInformer.Lister(),
@@ -66,7 +67,7 @@ func NewController(
 		ingressLister:        ingressInformer.Lister(),
 		finalizer:            ingressFinalizer,
 	}
-	impl := controller.NewImpl(c, c.Logger, "Ingresses")
+	impl := ingressreconciler.NewImpl(ctx, c)
 
 	c.Logger.Info("Setting up Ingress event handlers")
 	myFilterFunc := pkgreconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
