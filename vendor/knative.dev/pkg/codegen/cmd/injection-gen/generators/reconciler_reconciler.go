@@ -248,7 +248,7 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 
 		// Set and update the finalizer on resource if r.reconciler
 		// implements Finalizer.
-		if err := r.setFinalizerIfFinalizer(ctx, resource); err != nil {
+		if resource, err = r.setFinalizerIfFinalizer(ctx, resource); err != nil {
 			logger.Warnw("Failed to set finalizers", zap.Error(err))
 		}
 
@@ -262,7 +262,7 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 		// For finalizing reconcilers, if this resource being marked for deletion
 		// and reconciled cleanly (nil or normal event), remove the finalizer.
 		reconcileEvent = fin.FinalizeKind(ctx, resource)
-		if err := r.clearFinalizer(ctx, resource, reconcileEvent); err != nil {
+		if resource, err = r.clearFinalizer(ctx, resource, reconcileEvent); err != nil {
 			logger.Warnw("Failed to clear finalizers", zap.Error(err))
 		}
 	}
@@ -325,12 +325,12 @@ var reconcilerFinalizerFactory = `
 // updateFinalizersFiltered will update the Finalizers of the resource.
 // TODO: this method could be generic and sync all finalizers. For now it only
 // updates defaultFinalizerName.
-func (r *reconcilerImpl) updateFinalizersFiltered(ctx {{.contextContext|raw}}, resource *{{.type|raw}}) error {
+func (r *reconcilerImpl) updateFinalizersFiltered(ctx {{.contextContext|raw}}, resource *{{.type|raw}}) (*{{.type|raw}}, error) {
 	finalizerName := defaultFinalizerName
 
 	actual, err := r.Lister.{{.type|apiGroup}}(resource.Namespace).Get(resource.Name)
 	if err != nil {
-		return err
+		return resource, err
 	}
 
 	// Don't modify the informers copy.
@@ -345,14 +345,14 @@ func (r *reconcilerImpl) updateFinalizersFiltered(ctx {{.contextContext|raw}}, r
 	if desiredFinalizers.Has(finalizerName) {
 		if existingFinalizers.Has(finalizerName) {
 			// Nothing to do.
-			return nil
+			return resource, nil
 		}
 		// Add the finalizer.
 		finalizers = append(existing.Finalizers, finalizerName)
 	} else {
 		if !existingFinalizers.Has(finalizerName) {
 			// Nothing to do.
-			return nil
+			return resource, nil
 		}
 		// Remove the finalizer.
 		existingFinalizers.Delete(finalizerName)
@@ -368,10 +368,10 @@ func (r *reconcilerImpl) updateFinalizersFiltered(ctx {{.contextContext|raw}}, r
 
 	patch, err := json.Marshal(mergePatch)
 	if err != nil {
-		return err
+		return resource, err
 	}
 
-	_, err = r.Client.{{.type|versionedClientset}}().{{.type|apiGroup}}(resource.Namespace).Patch(resource.Name, types.MergePatchType, patch)
+	resource, err = r.Client.{{.type|versionedClientset}}().{{.type|apiGroup}}(resource.Namespace).Patch(resource.Name, types.MergePatchType, patch)
 	if err != nil {
 		r.Recorder.Eventf(resource, {{.corev1EventTypeWarning|raw}}, "FinalizerUpdateFailed",
 			"Failed to update finalizers for %q: %v", resource.Name, err)
@@ -379,12 +379,12 @@ func (r *reconcilerImpl) updateFinalizersFiltered(ctx {{.contextContext|raw}}, r
 		r.Recorder.Eventf(resource, {{.corev1EventTypeNormal|raw}}, "FinalizerUpdate",
 			"Updated %q finalizers", resource.GetName())
 	}
-	return err
+	return resource, err
 }
 
-func (r *reconcilerImpl) setFinalizerIfFinalizer(ctx {{.contextContext|raw}}, resource *{{.type|raw}}) error {
+func (r *reconcilerImpl) setFinalizerIfFinalizer(ctx {{.contextContext|raw}}, resource *{{.type|raw}}) (*{{.type|raw}}, error) {
 	if _, ok := r.reconciler.(Finalizer); !ok {
-		return nil
+		return resource, nil
 	}
 
 	finalizers := {{.setsNewString|raw}}(resource.Finalizers...)
@@ -400,12 +400,12 @@ func (r *reconcilerImpl) setFinalizerIfFinalizer(ctx {{.contextContext|raw}}, re
 	return r.updateFinalizersFiltered(ctx, resource)
 }
 
-func (r *reconcilerImpl) clearFinalizer(ctx {{.contextContext|raw}}, resource *{{.type|raw}}, reconcileEvent {{.reconcilerEvent|raw}}) error {
+func (r *reconcilerImpl) clearFinalizer(ctx {{.contextContext|raw}}, resource *{{.type|raw}}, reconcileEvent {{.reconcilerEvent|raw}}) ({{.reconcilerEvent|raw}}, error) {
 	if _, ok := r.reconciler.(Finalizer); !ok {
-		return nil
+		return resource, nil
 	}
 	if resource.GetDeletionTimestamp().IsZero() {
-		return nil
+		return resource, nil
 	}
 
 	finalizers := {{.setsNewString|raw}}(resource.Finalizers...)
