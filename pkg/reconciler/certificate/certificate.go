@@ -79,7 +79,7 @@ type Reconciler struct {
 	certManagerClient   certmanagerclientset.Interface
 	tracker             tracker.Interface
 
-	configStore reconciler.ConfigStore
+	configStore pkgreconciler.ConfigStore
 }
 
 // Check that our Reconciler implements controller.Reconciler

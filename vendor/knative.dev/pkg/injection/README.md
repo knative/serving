@@ -63,9 +63,9 @@ impl := controller.NewImpl(c, logger, "NameOfController")
 becomes
 
 ```go
-reconciler "knative.dev/<repo>/pkg/client/injection/reconciler/<clientgroup>/<version>/<resource>"
+kindreconciler "knative.dev/<repo>/pkg/client/injection/reconciler/<clientgroup>/<version>/<resource>"
 ...
-impl := reconciler.NewImpl(ctx, c)
+impl := kindreconciler.NewImpl(ctx, c)
 ```
 
 See
@@ -358,6 +358,35 @@ Future features to be considered:
     will synchronize it back to the API Server.
 - Adjust `+genreconciler` to allow for generated reconcilers to be made without
   annotating the type struct.
+
+### ConfigStore
+
+Config store is used to decorate the context with a snapshot of configmaps to be
+used in a reconciler method.
+
+To add this feature to the generated reconciler, it will have to be passed in on
+`reconciler<kind>.NewImpl` like so:
+
+```go
+kindreconciler "knative.dev/<repo>/pkg/client/injection/reconciler/<clientgroup>/<version>/<resource>"
+...
+impl := kindreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
+	// Setup options that require access to a controller.Impl.
+	configsToResync := []interface{}{
+		&some.Config{},
+	}
+	resyncOnConfigChange := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
+		impl.FilteredGlobalResync(myFilterFunc, kindInformer.Informer())
+	})
+	configStore := config.NewStore(c.Logger.Named("config-store"), resyncOnConfigChange)
+	configStore.WatchConfigs(cmw)
+
+	// Return the controller options.
+	return controller.Options{
+		ConfigStore: configStore,
+	}
+})
+```
 
 ### Artifacts
 

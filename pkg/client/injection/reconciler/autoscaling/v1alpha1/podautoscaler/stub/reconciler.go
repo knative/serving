@@ -19,7 +19,7 @@ limitations under the License.
 package podautoscaler
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/api/core/v1"
 	reconciler "knative.dev/pkg/reconciler"

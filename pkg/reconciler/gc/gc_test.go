@@ -31,6 +31,7 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
+	pkgrec "knative.dev/pkg/reconciler"
 	. "knative.dev/pkg/reconciler/testing"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -186,7 +187,9 @@ func TestGCReconcile(t *testing.T) {
 			Base:                pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
-			configStore: &testConfigStore{
+		}
+		return configreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetConfigurationLister(), r.Recorder, r, controller.Options{
+			ConfigStore: &testConfigStore{
 				config: &config.Config{
 					RevisionGC: &gcconfig.Config{
 						StaleRevisionCreateDelay:        5 * time.Minute,
@@ -194,9 +197,7 @@ func TestGCReconcile(t *testing.T) {
 						StaleRevisionMinimumGenerations: 2,
 					},
 				},
-			},
-		}
-		return configreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetConfigurationLister(), r.Recorder, r)
+			}})
 	}))
 }
 
@@ -358,4 +359,4 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 	return config.ToContext(ctx, t.config)
 }
 
-var _ pkgreconciler.ConfigStore = (*testConfigStore)(nil)
+var _ pkgrec.ConfigStore = (*testConfigStore)(nil)

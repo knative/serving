@@ -19,7 +19,7 @@ limitations under the License.
 package podautoscaler
 
 import (
-	"context"
+	context "context"
 	"encoding/json"
 	"reflect"
 
@@ -75,6 +75,10 @@ type reconcilerImpl struct {
 	// Kubernetes API.
 	Recorder record.EventRecorder
 
+	// configStore allows for decorating a context with config maps.
+	// +optional
+	configStore reconciler.ConfigStore
+
 	// reconciler is the implementation of the business logic of the resource.
 	reconciler Interface
 }
@@ -82,18 +86,36 @@ type reconcilerImpl struct {
 // Check that our Reconciler implements controller.Reconciler
 var _ controller.Reconciler = (*reconcilerImpl)(nil)
 
-func NewReconciler(ctx context.Context, logger *zap.SugaredLogger, client versioned.Interface, lister autoscalingv1alpha1.PodAutoscalerLister, recorder record.EventRecorder, r Interface) controller.Reconciler {
-	return &reconcilerImpl{
+func NewReconciler(ctx context.Context, logger *zap.SugaredLogger, client versioned.Interface, lister autoscalingv1alpha1.PodAutoscalerLister, recorder record.EventRecorder, r Interface, options ...controller.Options) controller.Reconciler {
+	// Check the options function input. It should be 0 or 1.
+	if len(options) > 1 {
+		logger.Fatalf("up to one options struct is supported, found %d", len(options))
+	}
+
+	rec := &reconcilerImpl{
 		Client:     client,
 		Lister:     lister,
 		Recorder:   recorder,
 		reconciler: r,
 	}
+
+	for _, opts := range options {
+		if opts.ConfigStore != nil {
+			rec.configStore = opts.ConfigStore
+		}
+	}
+
+	return rec
 }
 
 // Reconcile implements controller.Reconciler
 func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	logger := logging.FromContext(ctx)
+
+	// If configStore is set, attach the frozen configuration to the context.
+	if r.configStore != nil {
+		ctx = r.configStore.ToContext(ctx)
+	}
 
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
@@ -101,11 +123,6 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 		logger.Errorf("invalid resource key: %s", key)
 		return nil
 	}
-
-	// TODO(n3wscott): this is needed for serving.
-	// If our controller has configuration state, we'd "freeze" it and
-	// attach the frozen configuration to the context.
-	//    ctx = r.configStore.ToContext(ctx)
 
 	// Get the resource with this namespace/name.
 	original, err := r.Lister.PodAutoscalers(namespace).Get(name)
@@ -121,6 +138,9 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 
 	var reconcileEvent reconciler.Event
 	if resource.GetDeletionTimestamp().IsZero() {
+		// Append the target method to the logger.
+		logger = logger.With(zap.String("targetMethod", "ReconcileKind"))
+
 		// Set and update the finalizer on resource if r.reconciler
 		// implements Finalizer.
 		if err := r.setFinalizerIfFinalizer(ctx, resource); err != nil {
@@ -131,6 +151,9 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 		// updates regardless of whether the reconciliation errored out.
 		reconcileEvent = r.reconciler.ReconcileKind(ctx, resource)
 	} else if fin, ok := r.reconciler.(Finalizer); ok {
+		// Append the target method to the logger.
+		logger = logger.With(zap.String("targetMethod", "FinalizeKind"))
+
 		// For finalizing reconcilers, if this resource being marked for deletion
 		// and reconciled cleanly (nil or normal event), remove the finalizer.
 		reconcileEvent = fin.FinalizeKind(ctx, resource)
@@ -156,11 +179,11 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	if reconcileEvent != nil {
 		var event *reconciler.ReconcilerEvent
 		if reconciler.EventAs(reconcileEvent, &event) {
-			logger.Infow("ReconcileKind returned an event", zap.Any("event", reconcileEvent))
+			logger.Infow("returned an event", zap.Any("event", reconcileEvent))
 			r.Recorder.Eventf(resource, event.EventType, event.Reason, event.Format, event.Args...)
 			return nil
 		} else {
-			logger.Errorw("ReconcileKind returned an error", zap.Error(reconcileEvent))
+			logger.Errorw("returned an error", zap.Error(reconcileEvent))
 			r.Recorder.Event(resource, v1.EventTypeWarning, "InternalError", reconcileEvent.Error())
 			return reconcileEvent
 		}

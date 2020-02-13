@@ -43,17 +43,12 @@ type reconciler struct {
 	// listers index properties about resources
 	configurationLister listers.ConfigurationLister
 	revisionLister      listers.RevisionLister
-
-	configStore spkgreconciler.ConfigStore
 }
 
 // Check that our reconciler implements configreconciler.Interface
 var _ configreconciler.Interface = (*reconciler)(nil)
 
 func (c *reconciler) ReconcileKind(ctx context.Context, config *v1alpha1.Configuration) pkgreconciler.Event {
-	// TODO(n3wscott): We should not need this.
-	ctx = c.configStore.ToContext(ctx)
-
 	cfg := configns.FromContext(ctx).RevisionGC
 	logger := logging.FromContext(ctx)
 
