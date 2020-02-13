@@ -36,21 +36,6 @@ const (
 	controllerAgentName = "revision-gc-controller"
 )
 
-//
-//func configStore () {
-//	configsToResync := []interface{}{
-//		&gcconfig.Config{},
-//	}
-//	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
-//		// Triggers syncs on all revisions when configuration changes.
-//		impl.GlobalResync(revisionInformer.Informer())
-//	})
-//
-//	c.Logger.Info("Setting up ConfigMap receivers")
-//	configStore := configns.NewStore(logging.WithLogger(ctx, c.Logger.Named("config-store")), resync)
-//	configStore.WatchConfigs(c.ConfigMapWatcher)
-//}
-
 // NewController creates a new Garbage Collection controller
 func NewController(
 	ctx context.Context,
