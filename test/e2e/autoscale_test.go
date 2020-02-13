@@ -390,17 +390,35 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float64, d
 }
 
 func assertGracefulScaledown(t *testing.T, ctx *testContext, size int) error {
+	upscale := 2 * size
+	hostConnMap, err := uniqueHostConnections(t, ctx.names, upscale)
+	if err != nil {
+		return err
+	}
+	deleteHostConnections(t, hostConnMap, upscale)
+
+	// give some time in between
+	time.Sleep(5 * time.Second)
+
 	// start x running pods; x == size
-	hostConnMap, err := uniqueHostConnections(t, ctx.names, size)
+	hostConnMap, err = uniqueHostConnections(t, ctx.names, size)
 	if err != nil {
 		return err
 	}
 
 	// only keep openConnCount connections open for the test
 	openConnCount := size / 2
-	deleteHostConnections(hostConnMap, size-openConnCount)
+	deleteHostConnections(t, hostConnMap, size-openConnCount)
 
-	defer deleteHostConnections(hostConnMap, openConnCount)
+	hostConnMap.Range(func(key, value interface{}) bool {
+		return true
+	})
+
+	doneCh := make(chan struct{})
+	defer close(doneCh)
+	go pingOpenConnections(doneCh, hostConnMap)
+
+	defer deleteHostConnections(t, hostConnMap, openConnCount)
 
 	timer := time.NewTicker(2 * time.Second)
 	for range timer.C {
@@ -424,6 +442,7 @@ func assertGracefulScaledown(t *testing.T, ctx *testContext, size int) error {
 					continue
 				}
 
+				t.Logf("inspecting pod %s (%s:%s:%s)", p.Name, p.Status.PodIP, p.Status.Phase, p.DeletionTimestamp)
 				if _, ok := hostConnMap.Load(p.Name); !ok {
 					return fmt.Errorf("failed by keeping the wrong pod %s", p.Name)
 				}
@@ -436,13 +455,11 @@ func assertGracefulScaledown(t *testing.T, ctx *testContext, size int) error {
 }
 
 func TestGracefulScaledown(t *testing.T) {
-	t.Skip()
 	cancel := logstream.Start(t)
 	defer cancel()
 
 	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 1 /* target */, 1, /* targetUtilization */
 		wsHostnameTestImageName, nil, /* no validation */
-		rtesting.WithContainerConcurrency(1),
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 		}))
@@ -456,10 +473,12 @@ func TestGracefulScaledown(t *testing.T) {
 	patchedAutoscalerConfigMap := autoscalerConfigMap.DeepCopy()
 	patchedAutoscalerConfigMap.Data["enable-graceful-scaledown"] = "true"
 	patchCM(ctx.clients, patchedAutoscalerConfigMap)
+
+	autoscalerConfigMap.Data["enable-graceful-scaledown"] = "false"
 	defer patchCM(ctx.clients, autoscalerConfigMap)
 	test.CleanupOnInterrupt(func() { patchCM(ctx.clients, autoscalerConfigMap) })
 
-	if err = assertGracefulScaledown(t, ctx, 4 /* desired pods */); err != nil {
+	if err = assertGracefulScaledown(t, ctx, 3 /* desired pods */); err != nil {
 		t.Errorf("Failed: %v", err)
 	}
 }

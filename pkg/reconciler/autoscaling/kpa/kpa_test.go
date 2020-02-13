@@ -28,6 +28,7 @@ import (
 
 	// These are the fake informers we want setup.
 
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakeendpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake"
@@ -156,6 +157,18 @@ func sks(ns, n string, so ...SKSOption) *nv1a1.ServerlessService {
 	return s
 }
 
+func pod(ns, n string) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: ns,
+			Name:      n,
+			Labels: map[string]string{
+				serving.RevisionUID: "",
+			},
+		},
+	}
+}
+
 func markOld(pa *asv1a1.PodAutoscaler) {
 	pa.Status.Conditions[0].LastTransitionTime.Inner.Time = time.Now().Add(-1 * time.Hour)
 }
@@ -250,7 +263,9 @@ func TestReconcile(t *testing.T) {
 	defaultEndpoints := makeSKSPrivateEndpoints(1, testNamespace, testRevision)
 	zeroEndpoints := makeSKSPrivateEndpoints(0, testNamespace, testRevision)
 
-	deciderKey := struct{}{}
+	type contextKey string
+	deciderKey := contextKey("deciderKey")
+	gracefuleScaleDownConfigKey := contextKey("gracefulScaleDownKey")
 	retryAttempted := false
 
 	// Note: due to how KPA reconciler works we are dependent on the
@@ -385,6 +400,37 @@ func TestReconcile(t *testing.T) {
 			Name:  deployName,
 			Patch: []byte(`[{"op":"add","path":"/spec/replicas","value":11}]`),
 		}},
+	}, {
+		Name: "scale down deployment",
+		Key:  key,
+		Ctx:  context.WithValue(context.Background(), gracefuleScaleDownConfigKey, struct{}{}),
+		Objects: []runtime.Object{
+			activeKPAMinScale(overscale, defaultScale),
+			defaultSKS,
+			metric(testNamespace, testRevision),
+			overscaledEndpoints,
+			overscaledDeployment,
+		},
+		WithReactors: []clientgotesting.ReactionFunc{
+			InduceFailure("patch", "pods"),
+		},
+		WantErr: true,
+		WantCreates: []runtime.Object{
+			pod(testNamespace, "pod-1"),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			{
+				ActionImpl: clientgotesting.ActionImpl{
+					Namespace: testNamespace,
+				},
+				Name:  "pod-1",
+				Patch: []byte(`[{"op":"add","path":"/metadata/labels/autoscaling.knative.dev~1prefer-for-scale-down","value":"true"}]`),
+			},
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeWarning, "InternalError",
+				`error marking pods for removal: inducing failure for patch pods`),
+		},
 	}, {
 		Name: "scale up deployment failure",
 		Key:  key,
@@ -976,13 +1022,24 @@ func TestReconcile(t *testing.T) {
 		// TODO(vagababov): see if we can get rid of the static piece of configuration and
 		// constant namespace and revision names.
 
+		var removalCandidates []string
+		defaultConfig := defaultConfig()
+		if gsd := ctx.Value(gracefuleScaleDownConfigKey); gsd != nil {
+			defaultConfig.Autoscaler.EnableGracefulScaledown = true
+			removalCandidates = []string{"pod-1"}
+			if _, err := fakekubeclient.Get(ctx).CoreV1().Pods(testNamespace).Create(pod(testNamespace, "pod-1")); err != nil {
+				t.Errorf("Failed %v", err)
+			}
+		}
+
 		// Make new decider if it's not in the context
 		if d := ctx.Value(deciderKey); d == nil {
 			decider := resources.MakeDecider(
-				ctx, kpa(testNamespace, testRevision), defaultConfig().Autoscaler, "trying-hard-to-care-in-this-test")
+				ctx, kpa(testNamespace, testRevision), defaultConfig.Autoscaler, "trying-hard-to-care-in-this-test")
 			decider.Status.DesiredScale = defaultScale
 			decider.Status.NumActivators = scaling.MinActivators
 			decider.Generation = 2112
+			decider.Status.RemovalCandidates = removalCandidates
 			fakeDeciders.Create(ctx, decider)
 		} else {
 			fakeDeciders.Create(ctx, d.(*scaling.Decider))
@@ -1001,12 +1058,13 @@ func TestReconcile(t *testing.T) {
 			podsLister:      listers.GetPodsLister(),
 			deciders:        fakeDeciders,
 			scaler:          scaler,
+			kubeClient:      kubeclient.Get(ctx),
 		}
 		return pareconciler.NewReconciler(ctx, logging.FromContext(ctx),
 			servingclient.Get(ctx), listers.GetPodAutoscalerLister(),
 			controller.GetEventRecorder(ctx), r, autoscaling.KPA,
 			controller.Options{
-				ConfigStore: &testConfigStore{config: defaultConfig()},
+				ConfigStore: &testConfigStore{config: defaultConfig},
 			})
 	}))
 }

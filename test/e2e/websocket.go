@@ -143,7 +143,7 @@ func uniqueHostConnections(t *testing.T, names test.ResourceNames, size int) (*s
 
 // deleteHostConnections closes and removees x number of open websocket connections
 // from the hostConnMap where x == size
-func deleteHostConnections(hostConnMap *sync.Map, size int) error {
+func deleteHostConnections(t *testing.T, hostConnMap *sync.Map, size int) error {
 	hostConnMap.Range(func(key, value interface{}) bool {
 		if size <= 0 {
 			return false
@@ -153,6 +153,7 @@ func deleteHostConnections(hostConnMap *sync.Map, size int) error {
 			conn.Close()
 			hostConnMap.Delete(key)
 			size -= 1
+			t.Logf("Closed connection to pod: %s", key.(string))
 			return true
 		}
 		return false
@@ -163,4 +164,29 @@ func deleteHostConnections(hostConnMap *sync.Map, size int) error {
 	}
 
 	return nil
+}
+
+// pingOpenConnections tries to keep the websocket connection alive by
+// sending a keepAlive message every 30 seconds. Otherwise the connection drops
+// after ~60 seconds and makes the tests flakey
+func pingOpenConnections(doneCh chan struct{}, hostConnMap *sync.Map) error {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			var err error
+			hostConnMap.Range(func(key, value interface{}) bool {
+				if conn, ok := value.(*websocket.Conn); ok {
+					return conn.WriteMessage(websocket.TextMessage, []byte("keepAlive")) == nil
+				}
+				return true
+			})
+			if err != nil {
+				return err
+			}
+		case <-doneCh:
+			return nil
+		}
+	}
 }

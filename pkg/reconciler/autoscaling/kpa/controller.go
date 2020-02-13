@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"go.uber.org/zap"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	"knative.dev/pkg/kmeta"
@@ -75,6 +76,7 @@ func NewController(
 		endpointsLister: endpointsInformer.Lister(),
 		podsLister:      podsInformer.Lister(),
 		deciders:        deciders,
+		kubeClient:      kubeclient.Get(ctx),
 	}
 	impl := pareconciler.NewImpl(ctx, c, autoscaling.KPA, func(impl *controller.Impl) controller.Options {
 		logger.Info("Setting up ConfigMap receivers")

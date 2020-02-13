@@ -22,17 +22,29 @@ const (
 	// criticalValueSquared is the square of the critical value of the Normal distribution
 	// for a confidence level of 95%.
 	criticalValueSquared = 1.96 * 1.96
+
+	// criticalValueSquaredGracefulScaledown is the square of the critical value of the Normal distribution
+	// for a confidence level of 98%.
+	criticalValueSquaredGracefulScaledown = 2.326 * 2.326
+
 	// marginOfErrorSquared is the square of margin of error. 5 is a usually used value
 	// for MOE.
 	marginOfErrorSquared = 5.0 * 5.0
 	// σ2 is the population variance.
 	σ2 = 100.0
+	// σ2GracefulScaledown is the population variance.
+	σ2GracefulScaledown = 300.0
 
 	// sampleSize is the sample size required to achieve the confidence
 	// with the giving moe and σ2.
 	// Since sampleSize is the number of samples we need in an unbounded population
 	// we scale it according to the actual pod population.
 	sampleSize = criticalValueSquared * σ2 / marginOfErrorSquared
+	// sampleSizeGracefulScaledown is the sample size required to achieve the confidence
+	// with the giving moe and σ2 when scraping for graceful scaledown.
+	// Since sampleSize is the number of samples we need in an unbounded population
+	// we scale it according to the actual pod population.
+	sampleSizeGracefulScaledown = criticalValueSquaredGracefulScaledown * σ2GracefulScaledown / marginOfErrorSquared
 )
 
 // populationMeanSampleSize uses the following formula for the sample size n:
@@ -50,4 +62,11 @@ func populationMeanSampleSize(population float64) float64 {
 		return math.Max(population, 0)
 	}
 	return math.Ceil(population * sampleSize / (population + sampleSize - 1))
+}
+
+func populationMeanSampleSizeGracefulScaledown(population float64) float64 {
+	if population <= 6 {
+		return math.Max(population, 0)
+	}
+	return math.Ceil(population * sampleSizeGracefulScaledown / (population + sampleSizeGracefulScaledown - 1))
 }

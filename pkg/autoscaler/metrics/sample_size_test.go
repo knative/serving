@@ -53,3 +53,37 @@ func TestPopulationMeanSampleSize(t *testing.T) {
 		}
 	}
 }
+
+func TestPopulationMeanSampleSizeGracefulScaledown(t *testing.T) {
+	testCases := []struct {
+		popSize        float64
+		wantSampleSize float64
+	}{{
+		popSize:        0,
+		wantSampleSize: 0,
+	}, {
+		popSize:        2,
+		wantSampleSize: 2,
+	}, {
+		popSize:        5,
+		wantSampleSize: 5,
+	}, {
+		popSize:        10,
+		wantSampleSize: 9,
+	}, {
+		popSize:        15,
+		wantSampleSize: 13,
+	}, {
+		popSize:        20,
+		wantSampleSize: 16,
+	}, {
+		popSize:        25,
+		wantSampleSize: 19,
+	}}
+
+	for _, testCase := range testCases {
+		if got, want := populationMeanSampleSizeGracefulScaledown(testCase.popSize), testCase.wantSampleSize; got != want {
+			t.Errorf("client.SampleSize(%v) = %v, want %v", testCase.popSize, got, want)
+		}
+	}
+}

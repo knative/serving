@@ -19,14 +19,18 @@ package kpa
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"go.opencensus.io/stats"
 	"go.uber.org/zap"
+	"k8s.io/client-go/kubernetes"
 
+	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -39,9 +43,22 @@ import (
 	anames "knative.dev/serving/pkg/reconciler/autoscaling/resources/names"
 	resourceutil "knative.dev/serving/pkg/resources"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+)
+
+const (
+	// endpointConvergenceWaitTime is the wait time in the convergence loop
+	// to have the number of available endpoints match the expected scale
+	endpointConvergenceWaitTime = 500 * time.Millisecond
+	// endpointConvergenceTimeout is how long the reconciler is willing to wait
+	// for the number of endpoints to converge to the desired scale
+	endpointConvergenceTimeout = 1 * time.Minute
 )
 
 // podCounts keeps record of various numbers of pods
@@ -58,6 +75,7 @@ type podCounts struct {
 // information from Deciders.
 type Reconciler struct {
 	*areconciler.Base
+	kubeClient kubernetes.Interface
 
 	endpointsLister corev1listers.EndpointsLister
 	podsLister      corev1listers.PodLister
@@ -109,8 +127,30 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
-	want, err := c.scaler.Scale(ctx, pa, sks, decider.Status.DesiredScale)
+	want, ps, err := c.scaler.calculate(ctx, pa, sks, decider.Status.DesiredScale)
 	if err != nil {
+		return err
+	}
+
+	if decider.Spec.EnableGracefulScaledown {
+		podCounter := resourceutil.NewScopedEndpointsCounter(c.endpointsLister, pa.Namespace, pa.Status.MetricsServiceName)
+		intReadyCount, err := podCounter.ReadyCount()
+		if err != nil {
+			return err
+		}
+
+		// Check if there is anything to remove
+		readyCount := int32(intReadyCount)
+		if readyCount > want && decider.Status.RemovalCandidates != nil {
+			logger.Debugf("removalCandidates: %#v", decider.Status.RemovalCandidates)
+			err := c.markPodsForRemoval(ctx, decider.Status.RemovalCandidates, pa, want, readyCount, podCounter)
+			if err != nil {
+				return fmt.Errorf("error marking pods for removal: %w", err)
+			}
+		}
+	}
+
+	if err := c.scaler.apply(ctx, pa, ps, want); err != nil {
 		return fmt.Errorf("error scaling target: %w", err)
 	}
 
@@ -173,6 +213,57 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 	}
 	logger.Infof("Observed pod counts=%#v", pc)
 	return computeStatus(pa, pc, logger)
+}
+
+func (c *Reconciler) markPodsForRemoval(ctx context.Context, removalCandidates []string, pa *pav1alpha1.PodAutoscaler, want, readyCount int32, pc resourceutil.EndpointsCounter) error {
+	logger := logging.FromContext(ctx)
+
+	pods, err := c.podsLister.Pods(pa.Namespace).List(labels.SelectorFromSet(labels.Set{serving.RevisionUID: pa.Labels[serving.RevisionUID]}))
+	if err != nil {
+		return err
+	}
+
+	podsMap := make(map[string]*corev1.Pod, len(pods))
+	for _, p := range pods {
+		podsMap[p.Name] = p
+	}
+
+	logger.Infof("readyCount = %d, want = %d, removalCandidates = %d", readyCount, want, len(removalCandidates))
+	for _, podName := range removalCandidates {
+		p := podsMap[podName]
+		newP := p.DeepCopy()
+		newP.ObjectMeta.Labels[autoscaling.PreferForScaleDownLabelKey] = "true"
+		patch, err := duck.CreatePatch(p, newP)
+		if err != nil {
+			return err
+		}
+
+		patchBytes, err := patch.MarshalJSON()
+		if err != nil {
+			return err
+		}
+
+		logger.Debugf("Patching pod: %s(%s)", p.ObjectMeta.Name, p.Status.PodIP)
+		if _, err = c.kubeClient.CoreV1().Pods(pa.Namespace).Patch(p.ObjectMeta.Name, types.JSONPatchType, patchBytes); err != nil {
+			return err
+		}
+	}
+
+	// Wait for endpoint counts to converge before scaling down
+	wait.PollImmediate(endpointConvergenceWaitTime, endpointConvergenceTimeout, func() (bool, error) {
+		readyCount, err := pc.ReadyCount()
+		if err != nil {
+			return false, err
+		}
+
+		if int32(readyCount) == want {
+			return true, nil
+		}
+
+		return false, nil
+	})
+
+	return nil
 }
 
 func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler, k8sSvc string) (*scaling.Decider, error) {

@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 
@@ -85,6 +86,11 @@ type StatsScraper interface {
 	// Scrape scrapes the Revision queue metric endpoint. The duration is used
 	// to cutoff young pods, whose stats might skew lower.
 	Scrape(time.Duration) (Stat, error)
+
+	// ScrapeForRemovalCandidates returns an incomplete list of pods in ascending order of
+	// request and proxied request counts. The number of pods it returns depends
+	// on the total number of pods and the confidence interval (98%).
+	ScrapeForRemovalCandidates() ([]string, error)
 }
 
 // scrapeClient defines the interface for collecting Revision metrics for a given
@@ -164,7 +170,66 @@ func urlFromTarget(t, ns string) string {
 		t, ns, networking.AutoscalingQueueMetricsPort)
 }
 
+func (s *ServiceScraper) doScrape(statCh chan Stat, sampleSize int) error {
+	scrapedPods := &sync.Map{}
+	grp := errgroup.Group{}
+
+	for i := 0; i < sampleSize; i++ {
+		grp.Go(func() error {
+			for tries := 1; ; tries++ {
+				stat, err := s.tryScrape(scrapedPods)
+				if err == nil {
+					statCh <- stat
+					return nil
+				}
+				// Return the error if we exhausted our retries.
+				if tries == scraperMaxRetries {
+					return err
+				}
+			}
+		})
+	}
+
+	return grp.Wait()
+}
+
+// ScrapeForRemovalCandidates returns an incomplete list of pods in ascending order of request and proxied request counts.
+func (s *ServiceScraper) ScrapeForRemovalCandidates() ([]string, error) {
+	readyPodsCount, err := s.counter.ReadyCount()
+	if err != nil {
+		return []string{}, ErrFailedGetEndpoints
+	}
+	// Don't scrape if there are more than 20 pods, because according to the 98% confidence
+	// interval population size (e.g. we scrape only 19 pods for population size of 25 pods),
+	// there's a very good chance that we are scraping the wrong pods when pod number is
+	// higher than this.
+	if readyPodsCount == 0 || readyPodsCount > 20 {
+		return []string{}, nil
+	}
+	sampleSize := int(populationMeanSampleSizeGracefulScaledown(float64(readyPodsCount)))
+	statChan := make(chan Stat, sampleSize)
+	if err := s.doScrape(statChan, sampleSize); err != nil {
+		return nil, err
+	}
+	close(statChan)
+
+	var podInfo []Stat
+	for stat := range statChan {
+		podInfo = append(podInfo, stat)
+	}
+	sort.SliceStable(podInfo, func(i, j int) bool {
+		return podInfo[i].AverageConcurrentRequests+podInfo[i].AverageProxiedConcurrentRequests <
+			podInfo[j].AverageConcurrentRequests+podInfo[j].AverageProxiedConcurrentRequests
+	})
+	var pods []string
+	for _, info := range podInfo {
+		pods = append(pods, info.PodName)
+	}
+	return pods, nil
+}
+
 // Scrape calls the destination service then sends it
+// calculate calls the destination service then sends it
 // to the given stats channel.
 func (s *ServiceScraper) Scrape(window time.Duration) (Stat, error) {
 	readyPodsCount, err := s.counter.ReadyCount()

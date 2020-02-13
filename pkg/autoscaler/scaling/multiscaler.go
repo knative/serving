@@ -66,6 +66,8 @@ type DeciderSpec struct {
 	StableWindow time.Duration
 	// The name of the k8s service for pod information.
 	ServiceName string
+	// Whether or not the feature flag for graceful scaledown is enabled
+	EnableGracefulScaledown bool
 }
 
 // DeciderStatus is the current scale recommendation.
@@ -73,6 +75,10 @@ type DeciderStatus struct {
 	// DesiredScale is the target number of instances that autoscaler
 	// this revision needs.
 	DesiredScale int32
+
+	// RemovalCandidates, when scaling down, holds the list of pod names selected by the
+	// autoscaler as the the ideal set of pods for removal
+	RemovalCandidates []string
 
 	// ExcessBurstCapacity is the difference between spare capacity
 	// (how much more load the pods in the revision deployment can take before being
@@ -110,6 +116,10 @@ type UniScaler interface {
 	// Scale computes a scaling suggestion for a revision.
 	Scale(context.Context, time.Time) ScaleResult
 
+	// PrepareForRemoval pod names that are good candidates for removal
+	// based on what the desired scale requires to be
+	PrepareForRemoval(context.Context, int32) ([]string, error)
+
 	// Update reconfigures the UniScaler according to the DeciderSpec.
 	Update(*DeciderSpec) error
 }
@@ -138,7 +148,7 @@ func sameSign(a, b int32) bool {
 	return (a&math.MinInt32)^(b&math.MinInt32) == 0
 }
 
-func (sr *scalerRunner) updateLatestScale(sRes ScaleResult) bool {
+func (sr *scalerRunner) updateLatestScale(sRes ScaleResult, removalCandidates []string) bool {
 	ret := false
 	sr.mux.Lock()
 	defer sr.mux.Unlock()
@@ -156,6 +166,7 @@ func (sr *scalerRunner) updateLatestScale(sRes ScaleResult) bool {
 
 	// Update with the latest calculation anyway.
 	sr.decider.Status.ExcessBurstCapacity = sRes.ExcessBurstCapacity
+	sr.decider.Status.RemovalCandidates = removalCandidates
 	return ret
 }
 
@@ -338,13 +349,32 @@ func (m *MultiScaler) createScaler(ctx context.Context, decider *Decider) (*scal
 }
 
 func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, runner *scalerRunner, metricKey types.NamespacedName) {
+	logger := logging.FromContext(ctx)
 	sr := scaler.Scale(ctx, time.Now())
 
 	if !sr.ScaleValid {
 		return
 	}
 
-	if runner.updateLatestScale(sr) {
+	// Cannot scale negative (nor we can compute burst capacity).
+	if sr.DesiredPodCount < 0 {
+		logger.Errorf("Cannot scale: desiredScale %d < 0.", sr.DesiredPodCount)
+		return
+	}
+
+	var (
+		removalCandidates []string
+		err               error
+	)
+
+	if runner.decider.Spec.EnableGracefulScaledown {
+		removalCandidates, err = scaler.PrepareForRemoval(ctx, sr.DesiredPodCount)
+		if err != nil {
+			logger.Errorf("Cannot find removalCandidates: %w", err)
+		}
+	}
+
+	if runner.updateLatestScale(sr, removalCandidates) {
 		m.Inform(metricKey)
 	}
 }

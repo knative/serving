@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/pkg/kmp"
 	. "knative.dev/pkg/logging/testing"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -57,11 +58,17 @@ func TestMetricCollectorCRUD(t *testing.T) {
 		s: func() (Stat, error) {
 			return emptyStat, nil
 		},
+		r: func() ([]string, error) {
+			return []string{}, nil
+		},
 		url: "just-right",
 	}
 	scraper2 := &testScraper{
 		s: func() (Stat, error) {
 			return emptyStat, nil
+		},
+		r: func() ([]string, error) {
+			return []string{}, nil
 		},
 		url: "slightly-off",
 	}
@@ -119,6 +126,9 @@ func TestMetricCollectorScraper(t *testing.T) {
 	mtp := &fake.ManualTickProvider{
 		Channel: make(chan time.Time),
 	}
+	mtpGracefulScaledown := &fake.ManualTickProvider{
+		Channel: make(chan time.Time),
+	}
 	now := time.Now()
 	metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
 	const (
@@ -139,11 +149,15 @@ func TestMetricCollectorScraper(t *testing.T) {
 		s: func() (Stat, error) {
 			return stat, nil
 		},
+		r: func() ([]string, error) {
+			return []string{"testPod"}, nil
+		},
 	}
 	factory := scraperFactory(scraper, nil)
 
 	coll := NewMetricCollector(factory, logger)
 	coll.tickProvider = mtp.NewTicker // custom ticker.
+	coll.tickProviderGracefulScaledown = mtpGracefulScaledown.NewTicker
 	coll.CreateOrUpdate(&defaultMetric)
 
 	// Tick three times.  Time doesn't matter since we use the time on the Stat.
@@ -187,10 +201,10 @@ func TestMetricCollectorScraper(t *testing.T) {
 		return gotConcurrency == reportConcurrency*5 && gotRPS == reportRPS*5, nil
 	})
 	if gotConcurrency != reportConcurrency*5 {
-		t.Errorf("StableAndPanicConcurrency() = %v, want %v", gotConcurrency, wantConcurrency)
+		t.Errorf("StableAndPanicConcurrency() = %v, want %v", gotConcurrency, reportConcurrency*5)
 	}
 	if gotRPS != reportRPS*5 {
-		t.Errorf("StableAndPanicRPS() = %v, want %v", gotRPS, wantRPS)
+		t.Errorf("StableAndPanicRPS() = %v, want %v", gotRPS, reportRPS*5)
 	}
 
 	// Deleting the metric should cause a calculation error.
@@ -223,6 +237,9 @@ func TestMetricCollectorNoScraper(t *testing.T) {
 	scraper := &testScraper{
 		s: func() (Stat, error) {
 			return stat, nil
+		},
+		r: func() ([]string, error) {
+			return []string{"testPod"}, nil
 		},
 	}
 	factory := scraperFactory(scraper, nil)
@@ -298,6 +315,9 @@ func TestMetricCollectorNoDataError(t *testing.T) {
 		s: func() (Stat, error) {
 			return stat, nil
 		},
+		r: func() ([]string, error) {
+			return []string{"testPod"}, nil
+		},
 	}
 	factory := scraperFactory(scraper, nil)
 	coll := NewMetricCollector(factory, logger)
@@ -312,6 +332,69 @@ func TestMetricCollectorNoDataError(t *testing.T) {
 	if errRPS != ErrNoData {
 		t.Errorf("StableAndPanicRPS = %v", errRPS)
 	}
+}
+
+func TestCandidatesForRemoval(t *testing.T) {
+	logger := TestLogger(t)
+	mtp := &fake.ManualTickProvider{
+		Channel: make(chan time.Time),
+	}
+	mtpGracefulScaledown := &fake.ManualTickProvider{
+		Channel: make(chan time.Time),
+	}
+	now := time.Now()
+	var expectedCandidates = []string{"pod1", "pod2"}
+	scraper := &testScraper{
+		r: func() ([]string, error) {
+			return expectedCandidates, nil
+		},
+		s: func() (Stat, error) {
+			return emptyStat, nil
+		},
+		url: "just-right",
+	}
+	factory := scraperFactory(scraper, nil)
+
+	t.Run("error when scraping for wrong key", func(t *testing.T) {
+		metricKey := types.NamespacedName{Namespace: "bad-namespace", Name: "bad-name"}
+		coll := NewMetricCollector(factory, logger)
+		coll.tickProvider = mtp.NewTicker
+		coll.tickProviderGracefulScaledown = mtpGracefulScaledown.NewTicker
+		coll.CreateOrUpdate(&defaultMetric)
+		mtpGracefulScaledown.Channel <- now
+		mtpGracefulScaledown.Channel <- now
+		mtpGracefulScaledown.Channel <- now
+
+		wait.PollImmediate(10*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
+			if _, err := coll.CandidatesForRemoval(metricKey, 1, 2); err == ErrNotScraping {
+				return true, nil
+			}
+			return false, nil
+		})
+	})
+
+	t.Run("retrieving candidates", func(t *testing.T) {
+		metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
+		coll := NewMetricCollector(factory, logger)
+		coll.tickProvider = mtp.NewTicker
+		coll.tickProviderGracefulScaledown = mtpGracefulScaledown.NewTicker
+		coll.CreateOrUpdate(&defaultMetric)
+		mtpGracefulScaledown.Channel <- now
+		mtpGracefulScaledown.Channel <- now
+		mtpGracefulScaledown.Channel <- now
+
+		wait.PollImmediate(10*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
+			receivedCandidates, err := coll.CandidatesForRemoval(metricKey, 1, 2)
+			if err != nil {
+				t.Errorf("Failed with error: %v", err)
+				return false, err
+			}
+			if identical, err := kmp.SafeEqual(expectedCandidates, receivedCandidates); identical || err == nil {
+				return true, nil
+			}
+			return false, nil
+		})
+	})
 }
 
 func TestMetricCollectorRecord(t *testing.T) {
@@ -338,6 +421,9 @@ func TestMetricCollectorRecord(t *testing.T) {
 	scraper := &testScraper{
 		s: func() (Stat, error) {
 			return emptyStat, nil
+		},
+		r: func() ([]string, error) {
+			return []string{"testPod"}, nil
 		},
 	}
 	factory := scraperFactory(scraper, nil)
@@ -409,6 +495,9 @@ func TestMetricCollectorError(t *testing.T) {
 			s: func() (Stat, error) {
 				return emptyStat, ErrFailedGetEndpoints
 			},
+			r: func() ([]string, error) {
+				return []string{}, ErrFailedGetEndpoints
+			},
 		},
 		expectedError: ErrFailedGetEndpoints,
 	}, {
@@ -417,6 +506,9 @@ func TestMetricCollectorError(t *testing.T) {
 			s: func() (Stat, error) {
 				return emptyStat, ErrDidNotReceiveStat
 			},
+			r: func() ([]string, error) {
+				return []string{}, ErrDidNotReceiveStat
+			},
 		},
 		expectedError: ErrDidNotReceiveStat,
 	}, {
@@ -424,6 +516,9 @@ func TestMetricCollectorError(t *testing.T) {
 		scraper: &testScraper{
 			s: func() (Stat, error) {
 				return emptyStat, errOther
+			},
+			r: func() ([]string, error) {
+				return []string{}, errOther
 			},
 		},
 		expectedError: errOther,
@@ -465,11 +560,16 @@ func scraperFactory(scraper StatsScraper, err error) StatsScraperFactory {
 
 type testScraper struct {
 	s   func() (Stat, error)
+	r   func() ([]string, error)
 	url string
 }
 
 func (s *testScraper) Scrape(time.Duration) (Stat, error) {
 	return s.s()
+}
+
+func (s *testScraper) ScrapeForRemovalCandidates() ([]string, error) {
+	return s.r()
 }
 
 func TestMetricCollectorAggregate(t *testing.T) {

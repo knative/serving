@@ -32,7 +32,8 @@ import (
 const (
 	// scrapeTickInterval is the interval of time between triggering StatsScraper.Scrape()
 	// to get metrics across all pods of a revision.
-	scrapeTickInterval = time.Second
+	scrapeTickInterval                  = time.Second
+	scrapeGracefulScaledownTickInterval = 2 * time.Second
 )
 
 var (
@@ -103,14 +104,19 @@ type MetricClient interface {
 	// StableAndPanicRPS returns both the stable and the panic RPS
 	// for the given replica as of the given time.
 	StableAndPanicRPS(key types.NamespacedName, now time.Time) (float64, float64, error)
+
+	// CandidatesForRemoval returns list of pod names that are selected
+	// for removal based on the number of connections they are processing
+	CandidatesForRemoval(key types.NamespacedName, readyCount, desiredScale int) ([]string, error)
 }
 
 // MetricCollector manages collection of metrics for many entities.
 type MetricCollector struct {
 	logger *zap.SugaredLogger
 
-	statsScraperFactory StatsScraperFactory
-	tickProvider        func(time.Duration) *time.Ticker
+	statsScraperFactory           StatsScraperFactory
+	tickProvider                  func(time.Duration) *time.Ticker
+	tickProviderGracefulScaledown func(time.Duration) *time.Ticker
 
 	collections      map[types.NamespacedName]*collection
 	collectionsMutex sync.RWMutex
@@ -125,10 +131,11 @@ var _ MetricClient = (*MetricCollector)(nil)
 // NewMetricCollector creates a new metric collector.
 func NewMetricCollector(statsScraperFactory StatsScraperFactory, logger *zap.SugaredLogger) *MetricCollector {
 	return &MetricCollector{
-		logger:              logger,
-		collections:         make(map[types.NamespacedName]*collection),
-		statsScraperFactory: statsScraperFactory,
-		tickProvider:        time.NewTicker,
+		logger:                        logger,
+		collections:                   make(map[types.NamespacedName]*collection),
+		statsScraperFactory:           statsScraperFactory,
+		tickProvider:                  time.NewTicker,
+		tickProviderGracefulScaledown: time.NewTicker,
 	}
 }
 
@@ -161,7 +168,7 @@ func (c *MetricCollector) CreateOrUpdate(metric *av1alpha1.Metric) error {
 		return collection.lastError()
 	}
 
-	c.collections[key] = newCollection(metric, scraper, c.tickProvider, c.Inform, c.logger)
+	c.collections[key] = newCollection(metric, scraper, c.tickProvider, c.Inform, c.tickProviderGracefulScaledown, c.logger)
 	return nil
 }
 
@@ -245,6 +252,22 @@ func (c *MetricCollector) StableAndPanicRPS(key types.NamespacedName, now time.T
 	return s, p, nil
 }
 
+// CandidatesForRemoval returns candidates for removal based on stats collected on the
+// number of requests these candidate pods are processing
+func (c *MetricCollector) CandidatesForRemoval(key types.NamespacedName, readyCount, desiredScale int) ([]string, error) {
+	c.collectionsMutex.RLock()
+	defer c.collectionsMutex.RUnlock()
+
+	collection, exists := c.collections[key]
+	if !exists {
+		return nil, ErrNotScraping
+	}
+
+	collection.podTrafficMutex.RLock()
+	defer collection.podTrafficMutex.RUnlock()
+	return collection.podTraffic, nil
+}
+
 // collection represents the collection of metrics for one specific entity.
 type collection struct {
 	metricMutex sync.RWMutex
@@ -259,6 +282,8 @@ type collection struct {
 	concurrencyPanicBuckets *aggregation.TimedFloat64Buckets
 	rpsBuckets              *aggregation.TimedFloat64Buckets
 	rpsPanicBuckets         *aggregation.TimedFloat64Buckets
+	podTraffic              []string
+	podTrafficMutex         sync.RWMutex
 
 	grp    sync.WaitGroup
 	stopCh chan struct{}
@@ -279,7 +304,7 @@ func (c *collection) getScraper() StatsScraper {
 // newCollection creates a new collection, which uses the given scraper to
 // collect stats every scrapeTickInterval.
 func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory func(time.Duration) *time.Ticker,
-	callback func(types.NamespacedName), logger *zap.SugaredLogger) *collection {
+	callback func(types.NamespacedName), tickFactoryGracefulScaledown func(time.Duration) *time.Ticker, logger *zap.SugaredLogger) *collection {
 	c := &collection{
 		metric: metric,
 		concurrencyBuckets: aggregation.NewTimedFloat64Buckets(
@@ -290,7 +315,8 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory f
 			metric.Spec.StableWindow, config.BucketSize),
 		rpsPanicBuckets: aggregation.NewTimedFloat64Buckets(
 			metric.Spec.PanicWindow, config.BucketSize),
-		scraper: scraper,
+		scraper:    scraper,
+		podTraffic: []string{},
 
 		stopCh: make(chan struct{}),
 	}
@@ -303,11 +329,21 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory f
 		defer c.grp.Done()
 
 		scrapeTicker := tickFactory(scrapeTickInterval)
+		scrapeGracefulScaledownTicker := tickFactoryGracefulScaledown(scrapeGracefulScaledownTickInterval)
+		var err error
 		for {
 			select {
 			case <-c.stopCh:
 				scrapeTicker.Stop()
+				scrapeGracefulScaledownTicker.Stop()
 				return
+			case <-scrapeGracefulScaledownTicker.C:
+				c.podTrafficMutex.Lock()
+				c.podTraffic, err = c.getScraper().ScrapeForRemovalCandidates()
+				c.podTrafficMutex.Unlock()
+				if err != nil {
+					logger.Errorw("Failed to scrape for removal candidates", zap.Error(err))
+				}
 			case <-scrapeTicker.C:
 				currentMetric := c.currentMetric()
 				if currentMetric.Spec.ScrapeTarget == "" {
