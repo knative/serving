@@ -81,7 +81,7 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, m
 			}
 		}
 	}
-	logger.Debug("Done reconciling SKS", sksName)
+	logger.Debug("Done reconciling SKS ", sksName)
 	return sks, nil
 }
 
