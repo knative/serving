@@ -19,13 +19,11 @@ package revision
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -148,26 +146,4 @@ func (c *Reconciler) updateRevisionLoggingURL(ctx context.Context, rev *v1.Revis
 	rev.Status.LogURL = strings.Replace(
 		config.Observability.LoggingURLTemplate,
 		"${REVISION_UID}", uid, -1)
-}
-
-func (c *Reconciler) updateStatus(existing, desired *v1.Revision) error {
-	existing = existing.DeepCopy()
-	return pkgreconciler.RetryUpdateConflicts(func(attempts int) (err error) {
-		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
-		if attempts > 0 {
-			existing, err = c.ServingClientSet.ServingV1().Revisions(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-		}
-
-		// If there's nothing to update, just return.
-		if reflect.DeepEqual(existing.Status, desired.Status) {
-			return nil
-		}
-
-		existing.Status = desired.Status
-		_, err = c.ServingClientSet.ServingV1().Revisions(desired.Namespace).UpdateStatus(existing)
-		return err
-	})
 }
