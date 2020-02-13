@@ -51,6 +51,18 @@ func WithRouteUID(uid types.UID) RouteOption {
 	}
 }
 
+// WithRouteGeneration sets the route's generation
+func WithRouteGeneration(generation int64) RouteOption {
+	return func(svc *v1alpha1.Route) {
+		svc.Status.ObservedGeneration = generation
+	}
+}
+
+// WithRouteObservedGeneneration sets the route's observed generation to it's generation
+func WithRouteObservedGeneration(r *v1alpha1.Route) {
+	r.Status.ObservedGeneration = r.Generation
+}
+
 // WithRouteFinalizer adds the Route finalizer to the Route.
 func WithRouteFinalizer(r *v1alpha1.Route) {
 	r.ObjectMeta.Finalizers = append(r.ObjectMeta.Finalizers, "routes.serving.knative.dev")
