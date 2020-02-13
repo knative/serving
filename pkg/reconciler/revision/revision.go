@@ -23,20 +23,15 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
-	"go.uber.org/zap"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
+	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
 
 	cachinglisters "knative.dev/caching/pkg/client/listers/caching/v1alpha1"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
@@ -61,62 +56,11 @@ type Reconciler struct {
 	serviceLister       corev1listers.ServiceLister
 	configMapLister     corev1listers.ConfigMapLister
 
-	resolver    resolver
-	configStore pkgreconciler.ConfigStore
+	resolver resolver
 }
 
-// Check that our Reconciler implements controller.Reconciler
-var _ controller.Reconciler = (*Reconciler)(nil)
-
-// Reconcile compares the actual state with the desired, and attempts to
-// converge the two. It then updates the Status block of the Revision resource
-// with the current status of the resource.
-func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
-	logger := logging.FromContext(ctx)
-	ctx = c.configStore.ToContext(ctx)
-
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		logger.Errorw("Invalid resource key", zap.Error(err))
-		return nil
-	}
-
-	logger.Info("Running reconcile Revision")
-
-	// Get the Revision resource with this namespace/name
-	original, err := c.revisionLister.Revisions(namespace).Get(name)
-	// The resource may no longer exist, in which case we stop processing.
-	if apierrs.IsNotFound(err) {
-		logger.Info("Revision in work queue no longer exists")
-		return nil
-	} else if err != nil {
-		return err
-	}
-
-	// Don't modify the informer's copy.
-	rev := original.DeepCopy()
-
-	// Reconcile this copy of the revision and then write back any status
-	// updates regardless of whether the reconciliation errored out.
-	reconcileErr := c.reconcile(ctx, rev)
-	if equality.Semantic.DeepEqual(original.Status, rev.Status) {
-		// If we didn't change anything then don't call updateStatus.
-		// This is important because the copy we loaded from the informer's
-		// cache may be stale and we don't want to overwrite a prior update
-		// to status with this stale state.
-	} else if err = c.updateStatus(original, rev); err != nil {
-		logger.Warnw("Failed to update revision status", zap.Error(err))
-		c.Recorder.Eventf(rev, corev1.EventTypeWarning, "UpdateFailed",
-			"Failed to update status for Revision %q: %v", rev.Name, err)
-		return err
-	}
-	if reconcileErr != nil {
-		c.Recorder.Event(rev, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
-		return reconcileErr
-	}
-
-	return nil
-}
+// Check that our Reconciler implements revisionreconciler.Interface
+var _ revisionreconciler.Interface = (*Reconciler)(nil)
 
 func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) error {
 	// The image digest has already been resolved.
@@ -149,10 +93,7 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 	return nil
 }
 
-func (c *Reconciler) reconcile(ctx context.Context, rev *v1.Revision) error {
-	if rev.GetDeletionTimestamp() != nil {
-		return nil
-	}
+func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgreconciler.Event {
 	readyBeforeReconcile := rev.Status.IsReady()
 
 	// We may be reading a version of the object that was stored at an older version

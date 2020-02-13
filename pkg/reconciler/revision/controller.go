@@ -27,6 +27,7 @@ import (
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
+	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
 
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
@@ -50,6 +51,16 @@ const (
 func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
+) *controller.Impl {
+	return newControllerWithOptions(ctx, cmw)
+}
+
+type reconcilerOption func(*Reconciler)
+
+func newControllerWithOptions(
+	ctx context.Context,
+	cmw configmap.Watcher,
+	opts ...reconcilerOption,
 ) *controller.Impl {
 	transport := http.DefaultTransport
 	if rt, err := newResolverTransport(k8sCertPath); err != nil {
@@ -78,7 +89,27 @@ func NewController(
 			transport: transport,
 		},
 	}
-	impl := controller.NewImpl(c, c.Logger, "Revisions")
+	for _, opt := range opts {
+		opt(c)
+	}
+	impl := revisionreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
+		configsToResync := []interface{}{
+			&network.Config{},
+			&metrics.ObservabilityConfig{},
+			&deployment.Config{},
+			&apisconfig.Defaults{},
+		}
+
+		resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
+			// Triggers syncs on all revisions when configuration
+			// changes
+			impl.GlobalResync(revisionInformer.Informer())
+		})
+
+		configStore := config.NewStore(c.Logger.Named("config-store"), resync)
+		configStore.WatchConfigs(c.ConfigMapWatcher)
+		return controller.Options{ConfigStore: configStore}
+	})
 
 	// Set up an event handler for when the resource types of interest change
 	c.Logger.Info("Setting up event handlers")
@@ -102,23 +133,6 @@ func NewController(
 		FilterFunc: controller.Filter(v1.SchemeGroupVersion.WithKind("Revision")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
-
-	configsToResync := []interface{}{
-		&network.Config{},
-		&metrics.ObservabilityConfig{},
-		&deployment.Config{},
-		&apisconfig.Defaults{},
-	}
-
-	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
-		// Triggers syncs on all revisions when configuration
-		// changes
-		impl.GlobalResync(revisionInformer.Informer())
-	})
-
-	configStore := config.NewStore(c.Logger.Named("config-store"), resync)
-	configStore.WatchConfigs(c.ConfigMapWatcher)
-	c.configStore = configStore
 
 	return impl
 }

@@ -142,7 +142,7 @@ func getTestDefaultsConfigMap() *corev1.ConfigMap {
 	}
 }
 
-func newTestController(t *testing.T) (
+func newTestController(t *testing.T, opts ...reconcilerOption) (
 	context.Context,
 	context.CancelFunc,
 	[]controller.Informer,
@@ -151,9 +151,12 @@ func newTestController(t *testing.T) (
 
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 	configMapWatcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
-	controller := NewController(ctx, configMapWatcher)
 
-	controller.Reconciler.(*Reconciler).resolver = &nopResolver{}
+	// Prepend so that callers can override.
+	opts = append([]reconcilerOption{func(r *Reconciler) {
+		r.resolver = &nopResolver{}
+	}}, opts...)
+	controller := newControllerWithOptions(ctx, configMapWatcher, opts...)
 
 	configs := []*corev1.ConfigMap{
 		getTestDeploymentConfigMap(),

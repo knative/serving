@@ -37,6 +37,7 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/revision/config"
@@ -108,7 +109,7 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, AllUnknownConditions, MarkDeploying("Deploying")),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for Revision %q: %v",
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for %q: %v",
 				"update-status-failure", "inducing failure for update revisions"),
 		},
 		Key: "foo/update-status-failure",
@@ -547,7 +548,7 @@ func TestReconcile(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		return &Reconciler{
+		r := &Reconciler{
 			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
 			revisionLister:      listers.GetRevisionLister(),
 			podAutoscalerLister: listers.GetPodAutoscalerLister(),
@@ -556,8 +557,9 @@ func TestReconcile(t *testing.T) {
 			serviceLister:       listers.GetK8sServiceLister(),
 			configMapLister:     listers.GetConfigMapLister(),
 			resolver:            &nopResolver{},
-			configStore:         &testConfigStore{config: ReconcilerTestConfig()},
 		}
+
+		return revisionreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetRevisionLister(), r.Recorder, r, controller.Options{ConfigStore: &testConfigStore{config: ReconcilerTestConfig()}})
 	}))
 }
 
