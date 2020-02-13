@@ -25,11 +25,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"knative.dev/pkg/logging"
-	"knative.dev/serving/pkg/activator"
+	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/autoscaler/metrics"
+	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	"knative.dev/serving/pkg/metrics"
 )
 
 // ConcurrencyReporter reports stats based on incoming requests and ticks.
@@ -42,17 +43,15 @@ type ConcurrencyReporter struct {
 	// Ticks with every stat report request
 	reportCh <-chan time.Time
 	// Stat reporting channel
-	statCh chan []metrics.StatMessage
+	statCh chan []asmetrics.StatMessage
 
 	rl servinglisters.RevisionLister
-	sr activator.StatsReporter
 }
 
 // NewConcurrencyReporter creates a ConcurrencyReporter which listens to incoming
 // ReqEvents on reqCh and ticks on reportCh and reports stats on statCh.
 func NewConcurrencyReporter(ctx context.Context, podName string,
-	reqCh chan ReqEvent, reportCh <-chan time.Time, statCh chan []metrics.StatMessage,
-	sr activator.StatsReporter) *ConcurrencyReporter {
+	reqCh chan ReqEvent, reportCh <-chan time.Time, statCh chan []asmetrics.StatMessage) *ConcurrencyReporter {
 	return &ConcurrencyReporter{
 		logger:   logging.FromContext(ctx),
 		podName:  podName,
@@ -60,7 +59,6 @@ func NewConcurrencyReporter(ctx context.Context, podName string,
 		reportCh: reportCh,
 		statCh:   statCh,
 		rl:       revisioninformer.Get(ctx).Lister(),
-		sr:       sr,
 	}
 }
 
@@ -74,9 +72,9 @@ func (cr *ConcurrencyReporter) reportToMetricsBackend(key types.NamespacedName, 
 	}
 	configurationName := revision.Labels[serving.ConfigurationLabelKey]
 	serviceName := revision.Labels[serving.ServiceLabelKey]
-	// It's safe to ignore the error. It'll result in a noop reporter.
-	rr, _ := cr.sr.GetRevisionStatsReporter(ns, serviceName, configurationName, revName)
-	rr.ReportRequestConcurrency(concurrency)
+
+	reporterCtx, _ := metrics.RevisionContext(ns, serviceName, configurationName, revName)
+	pkgmetrics.RecordBatch(reporterCtx, requestConcurrencyM.M(concurrency))
 }
 
 // Run runs until stopCh is closed and processes events on all incoming channels
@@ -96,9 +94,9 @@ func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
 
 				// Report the first request for a key immediately.
 				if _, ok := outstandingRequestsPerKey[event.Key]; !ok {
-					cr.statCh <- []metrics.StatMessage{{
+					cr.statCh <- []asmetrics.StatMessage{{
 						Key: event.Key,
-						Stat: metrics.Stat{
+						Stat: asmetrics.Stat{
 							// Stat time is unset by design. The receiver will set the time.
 							PodName:                   cr.podName,
 							AverageConcurrentRequests: 1,
@@ -111,14 +109,14 @@ func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
 				outstandingRequestsPerKey[event.Key]--
 			}
 		case <-cr.reportCh:
-			messages := make([]metrics.StatMessage, 0, len(outstandingRequestsPerKey))
+			messages := make([]asmetrics.StatMessage, 0, len(outstandingRequestsPerKey))
 			for key, concurrency := range outstandingRequestsPerKey {
 				if concurrency == 0 {
 					delete(outstandingRequestsPerKey, key)
 				} else {
-					messages = append(messages, metrics.StatMessage{
+					messages = append(messages, asmetrics.StatMessage{
 						Key: key,
-						Stat: metrics.Stat{
+						Stat: asmetrics.Stat{
 							// Stat time is unset by design. The receiver will set the time.
 							PodName:                   cr.podName,
 							AverageConcurrentRequests: float64(concurrency),
