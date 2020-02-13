@@ -111,6 +111,25 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 		return HookIncomplete
 	})
 
+	// Due to the fact that registering reactors is not guarded by locks in k8s
+	// fake clients we need to pre-register those.
+	hooks2 := NewHooks()
+	hooks2.OnUpdate(&kubeClnt.Fake, "endpoints", func(obj runtime.Object) HookResult {
+		eps := obj.(*corev1.Endpoints)
+		if eps.Name == sks1 {
+			t.Logf("Registering expected hook update for endpoints %s", eps.Name)
+			return HookComplete
+		}
+		if eps.Name == networking.ActivatorServiceName {
+			// Expected, but not the one we're waiting for.
+			t.Log("Registering activator endpoint update")
+		} else {
+			// Something's broken.
+			t.Errorf("Unexpected endpoint update for %s", eps.Name)
+		}
+		return HookIncomplete
+	})
+
 	// Inactive, will reconcile.
 	sksObj1 := SKS(ns1, sks1, WithPrivateService, WithPubService, WithDeployRef(sks1), WithProxyMode)
 	// Active, should not visibly reconcile.
@@ -127,31 +146,14 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	}
 
 	t.Log("Updating the activator endpoints now...")
-	// Now that we have established the baseline, update the activator endpoints.
-	// Reset the hooks.
-	hooks = NewHooks()
-	hooks.OnUpdate(&kubeClnt.Fake, "endpoints", func(obj runtime.Object) HookResult {
-		eps := obj.(*corev1.Endpoints)
-		if eps.Name == sks1 {
-			t.Logf("Registering expected hook update for endpoints %s", eps.Name)
-			return HookComplete
-		}
-		if eps.Name == networking.ActivatorServiceName {
-			// Expected, but not the one we're waiting for.
-			t.Log("Registering activator endpoint update")
-		} else {
-			// Somethings broken.
-			t.Errorf("Unexpected endpoint update for %s", eps.Name)
-		}
-		return HookIncomplete
-	})
 
+	// Now that we have established the baseline, update the activator endpoints.
 	aEps = activatorEndpoints(withOtherSubsets)
 	if _, err := kubeClnt.CoreV1().Endpoints(aEps.Namespace).Update(aEps); err != nil {
 		t.Fatalf("Error creating activator endpoints: %v", err)
 	}
 
-	if err := hooks.WaitForHooks(3 * time.Second); err != nil {
+	if err := hooks2.WaitForHooks(3 * time.Second); err != nil {
 		t.Fatalf("Hooks timed out: %v", err)
 	}
 }
