@@ -41,8 +41,7 @@ type reconciler struct {
 	*spkgreconciler.Base
 
 	// listers index properties about resources
-	configurationLister listers.ConfigurationLister
-	revisionLister      listers.RevisionLister
+	revisionLister listers.RevisionLister
 }
 
 // Check that our reconciler implements configreconciler.Interface

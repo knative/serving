@@ -65,7 +65,6 @@ func NewController(
 	c := &Reconciler{
 		Base: &areconciler.Base{
 			Base:              reconciler.NewBase(ctx, controllerAgentName, cmw),
-			PALister:          paInformer.Lister(),
 			SKSLister:         sksInformer.Lister(),
 			ServiceLister:     serviceInformer.Lister(),
 			MetricLister:      metricInformer.Lister(),

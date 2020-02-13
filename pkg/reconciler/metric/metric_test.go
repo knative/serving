@@ -150,9 +150,8 @@ func TestReconcile(t *testing.T) {
 			col = c.(*testCollector)
 		}
 		r := &reconciler{
-			Base:         rpkg.NewBase(ctx, controllerAgentName, cmw),
-			collector:    col,
-			metricLister: listers.GetMetricLister(),
+			Base:      rpkg.NewBase(ctx, controllerAgentName, cmw),
+			collector: col,
 		}
 
 		return metricreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetMetricLister(), r.Recorder, r)

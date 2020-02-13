@@ -998,7 +998,6 @@ func TestReconcile(t *testing.T) {
 		r := &Reconciler{
 			Base: &areconciler.Base{
 				Base:              reconciler.NewBase(ctx, controllerAgentName, newConfigWatcher()),
-				PALister:          listers.GetPodAutoscalerLister(),
 				SKSLister:         listers.GetServerlessServiceLister(),
 				ServiceLister:     listers.GetK8sServiceLister(),
 				MetricLister:      listers.GetMetricLister(),

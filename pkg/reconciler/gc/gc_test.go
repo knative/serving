@@ -184,9 +184,8 @@ func TestGCReconcile(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		r := &reconciler{
-			Base:                pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
-			configurationLister: listers.GetConfigurationLister(),
-			revisionLister:      listers.GetRevisionLister(),
+			Base:           pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
+			revisionLister: listers.GetRevisionLister(),
 		}
 		return configreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetConfigurationLister(), r.Recorder, r, controller.Options{
 			ConfigStore: &testConfigStore{

@@ -58,6 +58,7 @@ type podCounts struct {
 // information from Deciders.
 type Reconciler struct {
 	*areconciler.Base
+
 	endpointsLister corev1listers.EndpointsLister
 	podsLister      corev1listers.PodLister
 	deciders        resources.Deciders

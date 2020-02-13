@@ -45,9 +45,8 @@ func NewController(
 	revisionInformer := revisioninformer.Get(ctx)
 
 	c := &reconciler{
-		Base:                pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
-		configurationLister: configurationInformer.Lister(),
-		revisionLister:      revisionInformer.Lister(),
+		Base:           pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
+		revisionLister: revisionInformer.Lister(),
 	}
 	return configreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
 		c.Logger.Info("Setting up event handlers")

@@ -19,6 +19,7 @@ package autoscaling
 import (
 	"context"
 	"fmt"
+
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -42,7 +43,6 @@ import (
 // Base implements the core controller logic for autoscaling, given a Reconciler.
 type Base struct {
 	*reconciler.Base
-	PALister          listers.PodAutoscalerLister
 	ServiceLister     corev1listers.ServiceLister
 	SKSLister         nlisters.ServerlessServiceLister
 	MetricLister      listers.MetricLister

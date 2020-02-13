@@ -45,9 +45,8 @@ func NewController(
 	metricInformer := metricinformer.Get(ctx)
 
 	c := &reconciler{
-		Base:         pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
-		collector:    collector,
-		metricLister: metricInformer.Lister(),
+		Base:      pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
+		collector: collector,
 	}
 	impl := metricreconciler.NewImpl(ctx, c)
 

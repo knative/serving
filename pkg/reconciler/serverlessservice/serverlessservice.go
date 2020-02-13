@@ -39,7 +39,6 @@ import (
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 	rbase "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources"
 	presources "knative.dev/serving/pkg/resources"
@@ -50,7 +49,6 @@ type reconciler struct {
 	*rbase.Base
 
 	// listers index properties about resources
-	sksLister       listers.ServerlessServiceLister
 	serviceLister   corev1listers.ServiceLister
 	endpointsLister corev1listers.EndpointsLister
 
