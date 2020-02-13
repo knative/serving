@@ -14,17 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script runs the end-to-end tests against Knative Serving built from source.
-# It is started by prow for each PR. For convenience, it can also be executed manually.
-
-# If you already have a Knative cluster setup and kubectl pointing
-# to it, call this script with the --run-tests arguments and it will use
-# the cluster and run the tests.
-
-# Calling this script without arguments will create a new cluster in
-# project $PROJECT_ID, start knative in it, run the tests and delete the
-# cluster.
-
 function setup_auto_tls_env_variables() {
   # DNS zone for the testing domain.
   export DNS_ZONE="knative-e2e"
@@ -48,7 +37,7 @@ function setup_auto_tls_env_variables() {
 }
 
 function setup_custom_domain() {
-  kubectl patch cm config-domain -n knative-serving -p '{"data":{"${CUSTOM_DOMAIN_SUFFIX}":""}}'
+  kubectl patch cm config-domain -n knative-serving -p "{\"data\":{\"${CUSTOM_DOMAIN_SUFFIX}\":\"\"}}"
 }
 
 function cleanup_custom_domain() {
