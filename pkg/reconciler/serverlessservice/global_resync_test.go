@@ -91,8 +91,8 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	})
 
 	numServices, numEndpoints := 0, 0
-	hooks := NewHooks()
-	hooks.OnCreate(&kubeClnt.Fake, "endpoints", func(obj runtime.Object) HookResult {
+	createHooks := NewHooks()
+	createHooks.OnCreate(&kubeClnt.Fake, "endpoints", func(obj runtime.Object) HookResult {
 		t.Logf("Registered creation of endpoints: %#v", obj)
 		// We are waiting for creation of two endpoints objects.
 		numEndpoints++
@@ -101,12 +101,31 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 		}
 		return HookIncomplete
 	})
-	hooks.OnCreate(&kubeClnt.Fake, "services", func(obj runtime.Object) HookResult {
+	createHooks.OnCreate(&kubeClnt.Fake, "services", func(obj runtime.Object) HookResult {
 		t.Logf("Registered creation of services: %#v", obj)
 		numServices++
 		// We need to wait for creation of 2x2 K8s services.
 		if numServices == 4 {
 			return HookComplete
+		}
+		return HookIncomplete
+	})
+
+	// Due to the fact that registering reactors is not guarded by locks in k8s
+	// fake clients we need to pre-register those.
+	updateHooks := NewHooks()
+	updateHooks.OnUpdate(&kubeClnt.Fake, "endpoints", func(obj runtime.Object) HookResult {
+		eps := obj.(*corev1.Endpoints)
+		if eps.Name == sks1 {
+			t.Logf("Registering expected hook update for endpoints %s", eps.Name)
+			return HookComplete
+		}
+		if eps.Name == networking.ActivatorServiceName {
+			// Expected, but not the one we're waiting for.
+			t.Log("Registering activator endpoint update")
+		} else {
+			// Something's broken.
+			t.Errorf("Unexpected endpoint update for %s", eps.Name)
 		}
 		return HookIncomplete
 	})
@@ -122,36 +141,19 @@ func TestGlobalResyncOnActivatorChange(t *testing.T) {
 	if _, err := fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(ns2).Create(sksObj2); err != nil {
 		t.Fatalf("Error creating SKS2: %v", err)
 	}
-	if err := hooks.WaitForHooks(3 * time.Second); err != nil {
+	if err := createHooks.WaitForHooks(3 * time.Second); err != nil {
 		t.Fatalf("Error creating preliminary objects: %v", err)
 	}
 
 	t.Log("Updating the activator endpoints now...")
-	// Now that we have established the baseline, update the activator endpoints.
-	// Reset the hooks.
-	hooks = NewHooks()
-	hooks.OnUpdate(&kubeClnt.Fake, "endpoints", func(obj runtime.Object) HookResult {
-		eps := obj.(*corev1.Endpoints)
-		if eps.Name == sks1 {
-			t.Logf("Registering expected hook update for endpoints %s", eps.Name)
-			return HookComplete
-		}
-		if eps.Name == networking.ActivatorServiceName {
-			// Expected, but not the one we're waiting for.
-			t.Log("Registering activator endpoint update")
-		} else {
-			// Somethings broken.
-			t.Errorf("Unexpected endpoint update for %s", eps.Name)
-		}
-		return HookIncomplete
-	})
 
+	// Now that we have established the baseline, update the activator endpoints.
 	aEps = activatorEndpoints(withOtherSubsets)
 	if _, err := kubeClnt.CoreV1().Endpoints(aEps.Namespace).Update(aEps); err != nil {
 		t.Fatalf("Error creating activator endpoints: %v", err)
 	}
 
-	if err := hooks.WaitForHooks(3 * time.Second); err != nil {
+	if err := updateHooks.WaitForHooks(3 * time.Second); err != nil {
 		t.Fatalf("Hooks timed out: %v", err)
 	}
 }
