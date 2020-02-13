@@ -18,9 +18,10 @@ package route
 
 import (
 	"context"
-	pkgreconciler "knative.dev/pkg/reconciler"
 	"sort"
 	"strings"
+
+	pkgreconciler "knative.dev/pkg/reconciler"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
