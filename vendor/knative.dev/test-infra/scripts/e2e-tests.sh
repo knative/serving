@@ -231,9 +231,12 @@ function create_test_cluster() {
   [[ -n "${GCP_PROJECT}" ]] && test_cmd_args+=" --gcp-project ${GCP_PROJECT}"
   [[ -n "${E2E_SCRIPT_CUSTOM_FLAGS[@]}" ]] && test_cmd_args+=" ${E2E_SCRIPT_CUSTOM_FLAGS[@]}"
   local extra_flags=()
-  if (( IS_BOSKOS )); then # Add arbitrary duration, wait for Boskos projects acquisition before error out
+  if (( IS_BOSKOS )); then
+    # Add arbitrary duration, wait for Boskos projects acquisition before error out
     extra_flags+=(--boskos-wait-duration=20m)
-  else # Only let kubetest tear down the cluster if not using Boskos, it's done by Janitor if using Boskos
+  elif (( ! SKIP_TEARDOWNS )); then
+    # Only let kubetest tear down the cluster if not using Boskos and teardowns are not expected to be skipped,
+    # it's done by Janitor if using Boskos
     extra_flags+=(--down)
   fi
 
