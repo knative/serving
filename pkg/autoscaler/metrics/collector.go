@@ -27,17 +27,13 @@ import (
 	"knative.dev/pkg/logging/logkey"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/aggregation"
+	"knative.dev/serving/pkg/autoscaler/config"
 )
 
 const (
 	// scrapeTickInterval is the interval of time between triggering StatsScraper.Scrape()
 	// to get metrics across all pods of a revision.
 	scrapeTickInterval = time.Second
-
-	// BucketSize is the size of the buckets of stats we create.
-	// NB: if this is more than 1s, we need to average values in the
-	// metrics buckets.
-	BucketSize = scrapeTickInterval
 )
 
 var (
@@ -257,13 +253,13 @@ func newCollection(metric *av1alpha1.Metric, scraper StatsScraper, tickFactory f
 	c := &collection{
 		metric: metric,
 		concurrencyBuckets: aggregation.NewTimedFloat64Buckets(
-			metric.Spec.StableWindow, BucketSize),
+			metric.Spec.StableWindow, config.BucketSize),
 		concurrencyPanicBuckets: aggregation.NewTimedFloat64Buckets(
-			metric.Spec.PanicWindow, BucketSize),
+			metric.Spec.PanicWindow, config.BucketSize),
 		rpsBuckets: aggregation.NewTimedFloat64Buckets(
-			metric.Spec.StableWindow, BucketSize),
+			metric.Spec.StableWindow, config.BucketSize),
 		rpsPanicBuckets: aggregation.NewTimedFloat64Buckets(
-			metric.Spec.PanicWindow, BucketSize),
+			metric.Spec.PanicWindow, config.BucketSize),
 		scraper: scraper,
 
 		stopCh: make(chan struct{}),

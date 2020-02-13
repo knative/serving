@@ -33,6 +33,7 @@ import (
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler/aggregation"
+	"knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/autoscaler/fake"
 )
 
@@ -411,10 +412,10 @@ func TestMetricCollectorAggregate(t *testing.T) {
 	m.Spec.PanicWindow = 2 * time.Second
 	c := &collection{
 		metric:                  &m,
-		concurrencyBuckets:      aggregation.NewTimedFloat64Buckets(m.Spec.StableWindow, BucketSize),
-		concurrencyPanicBuckets: aggregation.NewTimedFloat64Buckets(m.Spec.PanicWindow, BucketSize),
-		rpsBuckets:              aggregation.NewTimedFloat64Buckets(m.Spec.StableWindow, BucketSize),
-		rpsPanicBuckets:         aggregation.NewTimedFloat64Buckets(m.Spec.PanicWindow, BucketSize),
+		concurrencyBuckets:      aggregation.NewTimedFloat64Buckets(m.Spec.StableWindow, config.BucketSize),
+		concurrencyPanicBuckets: aggregation.NewTimedFloat64Buckets(m.Spec.PanicWindow, config.BucketSize),
+		rpsBuckets:              aggregation.NewTimedFloat64Buckets(m.Spec.StableWindow, config.BucketSize),
+		rpsPanicBuckets:         aggregation.NewTimedFloat64Buckets(m.Spec.PanicWindow, config.BucketSize),
 	}
 	now := time.Now()
 	for i := 0; i < 10; i++ {
