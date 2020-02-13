@@ -392,6 +392,8 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 
 // CheckNameAvailability checks that if the named Revision specified by the Configuration
 // is available (not found), exists (but matches), or exists with conflict (doesn't match).
+//
+// TODO(dprotaso) de-dupe once this controller is migrated to v1 apis
 func CheckNameAvailability(config *v1alpha1.Configuration, lister listers.RevisionLister) error {
 	// If config.Spec.GetTemplate().Name is set, then we can directly look up
 	// the revision by name.
