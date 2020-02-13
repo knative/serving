@@ -62,7 +62,7 @@ type Reconciler struct {
 	configMapLister     corev1listers.ConfigMapLister
 
 	resolver    resolver
-	configStore reconciler.ConfigStore
+	configStore pkgreconciler.ConfigStore
 }
 
 // Check that our Reconciler implements controller.Reconciler

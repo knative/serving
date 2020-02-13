@@ -19,7 +19,7 @@ limitations under the License.
 package configuration
 
 import (
-	"context"
+	context "context"
 	"encoding/json"
 	"reflect"
 

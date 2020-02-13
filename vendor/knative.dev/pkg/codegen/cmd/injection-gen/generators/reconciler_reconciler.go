@@ -124,6 +124,10 @@ func (g *reconcilerReconcilerGenerator) GenerateType(c *generator.Context, t *ty
 			Package: "knative.dev/pkg/controller",
 			Name:    "Options",
 		}),
+		"contextContext": c.Universe.Type(types.Name{
+			Package: "context",
+			Name:    "Context",
+		}),
 	}
 
 	sw.Do(reconcilerInterfaceFactory, m)
@@ -145,7 +149,7 @@ type Interface interface {
 	// for the Kind inside of ReconcileKind, it is the responsibility of the calling
 	// controller to propagate those properties. The resource passed to ReconcileKind
  	// will always have an empty deletion timestamp.
-	ReconcileKind(ctx context.Context, o *{{.type|raw}}) {{.reconcilerEvent|raw}}
+	ReconcileKind(ctx {{.contextContext|raw}}, o *{{.type|raw}}) {{.reconcilerEvent|raw}}
 }
 
 // Finalizer defines the strongly typed interfaces to be implemented by a
@@ -156,7 +160,7 @@ type Finalizer interface {
 	// Normal type {{.reconcilerEvent|raw}} will allow the finalizer to be deleted on
 	// the resource. The resource passed to FinalizeKind will always have a set
 	// deletion timestamp.
-	FinalizeKind(ctx context.Context, o *{{.type|raw}}) {{.reconcilerEvent|raw}}
+	FinalizeKind(ctx {{.contextContext|raw}}, o *{{.type|raw}}) {{.reconcilerEvent|raw}}
 }
 
 // reconcilerImpl implements controller.Reconciler for {{.type|raw}} resources.
@@ -185,7 +189,7 @@ var _ controller.Reconciler = (*reconcilerImpl)(nil)
 `
 
 var reconcilerNewReconciler = `
-func NewReconciler(ctx context.Context, logger *{{.zapSugaredLogger|raw}}, client {{.clientsetInterface|raw}}, lister {{.resourceLister|raw}}, recorder {{.recordEventRecorder|raw}}, r Interface, options ...{{.controllerOptions|raw}} ) {{.controllerReconciler|raw}} {
+func NewReconciler(ctx {{.contextContext|raw}}, logger *{{.zapSugaredLogger|raw}}, client {{.clientsetInterface|raw}}, lister {{.resourceLister|raw}}, recorder {{.recordEventRecorder|raw}}, r Interface, options ...{{.controllerOptions|raw}} ) {{.controllerReconciler|raw}} {
 	// Check the options function input. It should be 0 or 1.
 	if len(options) > 1 {
 		logger.Fatalf("up to one options struct is supported, found %d", len(options))
@@ -210,11 +214,11 @@ func NewReconciler(ctx context.Context, logger *{{.zapSugaredLogger|raw}}, clien
 
 var reconcilerImplFactory = `
 // Reconcile implements controller.Reconciler
-func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
+func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) error {
 	logger := {{.loggingFromContext|raw}}(ctx)
 
 	// If configStore is set, attach the frozen configuration to the context.
-	if r.configStore {
+	if r.configStore != nil {
 		ctx = r.configStore.ToContext(ctx)
 	}
 
@@ -321,7 +325,7 @@ var reconcilerFinalizerFactory = `
 // updateFinalizersFiltered will update the Finalizers of the resource.
 // TODO: this method could be generic and sync all finalizers. For now it only
 // updates defaultFinalizerName.
-func (r *reconcilerImpl) updateFinalizersFiltered(ctx context.Context, resource *{{.type|raw}}) error {
+func (r *reconcilerImpl) updateFinalizersFiltered(ctx {{.contextContext|raw}}, resource *{{.type|raw}}) error {
 	finalizerName := defaultFinalizerName
 
 	actual, err := r.Lister.{{.type|apiGroup}}(resource.Namespace).Get(resource.Name)
@@ -378,7 +382,7 @@ func (r *reconcilerImpl) updateFinalizersFiltered(ctx context.Context, resource 
 	return err
 }
 
-func (r *reconcilerImpl) setFinalizerIfFinalizer(ctx context.Context, resource *{{.type|raw}}) error {
+func (r *reconcilerImpl) setFinalizerIfFinalizer(ctx {{.contextContext|raw}}, resource *{{.type|raw}}) error {
 	if _, ok := r.reconciler.(Finalizer); !ok {
 		return nil
 	}
@@ -396,7 +400,7 @@ func (r *reconcilerImpl) setFinalizerIfFinalizer(ctx context.Context, resource *
 	return r.updateFinalizersFiltered(ctx, resource)
 }
 
-func (r *reconcilerImpl) clearFinalizer(ctx context.Context, resource *{{.type|raw}}, reconcileEvent {{.reconcilerEvent|raw}}) error {
+func (r *reconcilerImpl) clearFinalizer(ctx {{.contextContext|raw}}, resource *{{.type|raw}}, reconcileEvent {{.reconcilerEvent|raw}}) error {
 	if _, ok := r.reconciler.(Finalizer); !ok {
 		return nil
 	}
@@ -409,7 +413,7 @@ func (r *reconcilerImpl) clearFinalizer(ctx context.Context, resource *{{.type|r
 	if reconcileEvent != nil {
 		var event *{{.reconcilerReconcilerEvent|raw}}
 		if reconciler.EventAs(reconcileEvent, &event) {
-			if event.EventType == v1.EventTypeNormal {
+			if event.EventType == {{.corev1EventTypeNormal|raw}} {
 				finalizers.Delete(defaultFinalizerName)
 			}
 		}

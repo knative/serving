@@ -68,12 +68,7 @@ type Reconciler struct {
 var _ pareconciler.Interface = (*Reconciler)(nil)
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutoscaler) pkgreconciler.Event {
-	if pa.GetDeletionTimestamp() != nil {
-		return nil
-	}
 	logger := logging.FromContext(ctx)
-	// TODO(n3wscott): We should not need this.
-	ctx = c.ConfigStore.ToContext(ctx)
 
 	// We may be reading a version of the object that was stored at an older version
 	// and may not have had all of the assumed defaults specified.  This won't result

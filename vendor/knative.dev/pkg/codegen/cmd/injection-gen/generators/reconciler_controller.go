@@ -133,6 +133,10 @@ func (g *reconcilerControllerGenerator) GenerateType(c *generator.Context, t *ty
 			Package: "knative.dev/pkg/controller",
 			Name:    "OptionsFn",
 		}),
+		"contextContext": c.Universe.Type(types.Name{
+			Package: "context",
+			Name:    "Context",
+		}),
 	}
 
 	sw.Do(reconcilerControllerNewImpl, m)
@@ -151,7 +155,7 @@ const (
 // the queue through an implementation of {{.controllerReconciler|raw}}, delegating to
 // the provided Interface and optional Finalizer methods. OptionsFn is used to return
 // {{.controllerOptions|raw}} to be used but the internal reconciler.
-func NewImpl(ctx context.Context, r Interface, optionsFns ...{{.controllerOptionsFn|raw}}) *{{.controllerImpl|raw}} {
+func NewImpl(ctx {{.contextContext|raw}}, r Interface, optionsFns ...{{.controllerOptionsFn|raw}}) *{{.controllerImpl|raw}} {
 	logger := {{.loggingFromContext|raw}}(ctx)
 
 	// Check the options function input. It should be 0 or 1.

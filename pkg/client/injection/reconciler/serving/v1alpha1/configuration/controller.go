@@ -19,7 +19,7 @@ limitations under the License.
 package configuration
 
 import (
-	"context"
+	context "context"
 
 	corev1 "k8s.io/api/core/v1"
 	watch "k8s.io/apimachinery/pkg/watch"

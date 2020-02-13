@@ -1800,7 +1800,8 @@
   revision = "fec8f7913697607ffec0b75f5dd9dd46bb3b9f0b"
 
 [[projects]]
-  digest = "1:b6925c86623139fd32a0dad4cbbf913d19e5168fb69606d86d61af4032fb7306"
+  branch = "master"
+  digest = "1:f6f3b0324b5b20cf0a4fb5681ce1bdbad1e4a3a1f7ba106c59ca37b5b53ab442"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1907,8 +1908,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "bfc59bd4cca7f71cff3cde48af0d909da3e0de35"
-  source = "github.com/n3wscott/pkg"
+  revision = "d93ce78496d52cd7ae4f6af5f9ec0303080cf5d8"
 
 [[projects]]
   branch = "master"

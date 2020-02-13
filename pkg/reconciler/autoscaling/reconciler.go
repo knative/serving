@@ -19,7 +19,6 @@ package autoscaling
 import (
 	"context"
 	"fmt"
-
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -47,7 +46,6 @@ type Base struct {
 	ServiceLister     corev1listers.ServiceLister
 	SKSLister         nlisters.ServerlessServiceLister
 	MetricLister      listers.MetricLister
-	ConfigStore       reconciler.ConfigStore
 	PSInformerFactory duck.InformerFactory
 }
 

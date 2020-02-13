@@ -18,6 +18,7 @@ package route
 
 import (
 	"context"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	"sort"
 	"strings"
 
@@ -79,7 +80,7 @@ type Reconciler struct {
 	serviceLister       corev1listers.ServiceLister
 	ingressLister       networkinglisters.IngressLister
 	certificateLister   networkinglisters.CertificateLister
-	configStore         reconciler.ConfigStore
+	configStore         pkgreconciler.ConfigStore
 	tracker             tracker.Interface
 
 	clock system.Clock

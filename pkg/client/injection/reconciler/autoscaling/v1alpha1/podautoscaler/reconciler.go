@@ -19,7 +19,7 @@ limitations under the License.
 package podautoscaler
 
 import (
-	"context"
+	context "context"
 	"encoding/json"
 	"reflect"
 
@@ -113,7 +113,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	logger := logging.FromContext(ctx)
 
 	// If configStore is set, attach the frozen configuration to the context.
-	if r.configStore {
+	if r.configStore != nil {
 		ctx = r.configStore.ToContext(ctx)
 	}
 

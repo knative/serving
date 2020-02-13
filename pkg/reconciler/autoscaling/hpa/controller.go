@@ -53,6 +53,8 @@ func NewController(
 	serviceInformer := serviceinformer.Get(ctx)
 	metricInformer := metricinformer.Get(ctx)
 
+	onlyHpaClass := reconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.HPA, false)
+
 	c := &Reconciler{
 		Base: &areconciler.Base{
 			Base:              reconciler.NewBase(ctx, controllerAgentName, cmw),
@@ -64,10 +66,21 @@ func NewController(
 		},
 		hpaLister: hpaInformer.Lister(),
 	}
-	impl := pareconciler.NewImpl(ctx, c)
+	impl := pareconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
+		c.Logger.Info("Setting up ConfigMap receivers")
+		configsToResync := []interface{}{
+			&autoscalerconfig.Config{},
+		}
+		resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
+			impl.FilteredGlobalResync(onlyHpaClass, paInformer.Informer())
+		})
+		configStore := config.NewStore(c.Logger.Named("config-store"), resync)
+		configStore.WatchConfigs(cmw)
+		return controller.Options{ConfigStore: configStore}
+	})
 
 	c.Logger.Info("Setting up hpa-class event handlers")
-	onlyHpaClass := reconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.HPA, false)
+
 	paHandler := cache.FilteringResourceEventHandler{
 		FilterFunc: onlyHpaClass,
 		Handler:    controller.HandleAll(impl.Enqueue),
@@ -88,17 +101,6 @@ func NewController(
 		FilterFunc: onlyHpaClass,
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
-
-	c.Logger.Info("Setting up ConfigMap receivers")
-	configsToResync := []interface{}{
-		&autoscalerconfig.Config{},
-	}
-	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
-		impl.FilteredGlobalResync(onlyHpaClass, paInformer.Informer())
-	})
-	configStore := config.NewStore(c.Logger.Named("config-store"), resync)
-	configStore.WatchConfigs(cmw)
-	c.ConfigStore = configStore
 
 	return impl
 }
