@@ -349,7 +349,6 @@ func TestReconcile(t *testing.T) {
 		retryAttempted = false
 		r := &Reconciler{
 			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
-			knCertificateLister: listers.GetKnCertificateLister(),
 			cmCertificateLister: listers.GetCMCertificateLister(),
 			cmChallengeLister:   listers.GetCMChallengeLister(),
 			cmIssuerLister:      listers.GetCMClusterIssuerLister(),
@@ -495,7 +494,6 @@ func TestReconcile_HTTP01Challenges(t *testing.T) {
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		r := &Reconciler{
 			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
-			knCertificateLister: listers.GetKnCertificateLister(),
 			cmCertificateLister: listers.GetCMCertificateLister(),
 			cmChallengeLister:   listers.GetCMChallengeLister(),
 			cmIssuerLister:      listers.GetCMClusterIssuerLister(),

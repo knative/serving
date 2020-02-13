@@ -56,7 +56,6 @@ func NewController(
 
 	c := &Reconciler{
 		Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
-		knCertificateLister: knCertificateInformer.Lister(),
 		cmCertificateLister: cmCertificateInformer.Lister(),
 		cmChallengeLister:   cmChallengeInformer.Lister(),
 		cmIssuerLister:      clusterIssuerInformer.Lister(),

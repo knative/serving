@@ -44,7 +44,6 @@ import (
 	certmanagerclientset "knative.dev/serving/pkg/client/certmanager/clientset/versioned"
 	acmelisters "knative.dev/serving/pkg/client/certmanager/listers/acme/v1alpha2"
 	certmanagerlisters "knative.dev/serving/pkg/client/certmanager/listers/certmanager/v1alpha2"
-	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/certificate/config"
 	"knative.dev/serving/pkg/reconciler/certificate/resources"
@@ -68,7 +67,6 @@ type Reconciler struct {
 	*reconciler.Base
 
 	// listers index properties about resources
-	knCertificateLister listers.CertificateLister
 	cmCertificateLister certmanagerlisters.CertificateLister
 	cmChallengeLister   acmelisters.ChallengeLister
 	cmIssuerLister      certmanagerlisters.ClusterIssuerLister
