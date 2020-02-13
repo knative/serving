@@ -29,6 +29,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/test/spoof"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
+
 	"knative.dev/serving/pkg/apis/networking"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
@@ -115,13 +119,86 @@ func httpsReady(svc *servingv1.Service) (bool, error) {
 	}
 }
 
-func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *x509.CertPool {
+func TestRouteModified(t *testing.T) {
+	clients := e2e.Setup(t)
+	disableNamespaceCertWithWhiteList(t, clients, sets.String{})
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   "runtime",
+	}
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
+
+	objects, err := v1test.CreateServiceReady(t, clients, &names)
+	if err != nil {
+		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
+	}
+
+	secretName := routenames.Certificate(objects.Route)
+	rootCAs := createRootCAs(t, clients, objects.Route.Namespace, secretName)
+
+	var transportOption spoof.TransportOption = func(transport *http.Transport) *http.Transport {
+		transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
+		return transport
+	}
+	prober := test.RunRouteProber(t.Logf, clients, objects.Service.Status.URL.URL(), transportOption)
+	defer test.AssertProberDefault(t, prober)
+
+	if _, err := v1test.UpdateServiceRouteSpec(t, clients, names, v1.RouteSpec{
+		Traffic: []v1.TrafficTarget{{
+			Tag:            "tag1",
+			Percent:        ptr.Int64(50),
+			LatestRevision: ptr.Bool(true),
+		}, {
+			Tag:            "tag2",
+			Percent:        ptr.Int64(50),
+			LatestRevision: ptr.Bool(true),
+		}},
+	}); err != nil {
+		t.Fatalf("Failed to update Service route spec: %v", err)
+	}
+	// Wait for ingress TLS configuration.
+	if err = v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceReady, "ServiceIsReady"); err != nil {
+		t.Fatalf("Service %s did not become ready: %v", names.Service, err)
+	}
+
+	ing, err := clients.NetworkingClient.Ingresses.Get(routenames.Ingress(objects.Route), metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get ingress: %v", err)
+	}
+	// Each new cert has to be added to the root pool so we can make requests.
+	for _, tls := range ing.Spec.TLS {
+		if !rootCAs.AppendCertsFromPEM(getPEMDataFromSecret(t, clients, tls.SecretNamespace, tls.SecretName)) {
+			t.Fatal("Failed to add the certificate to the root CA")
+		}
+	}
+
+	httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
+	testingress.RuntimeRequest(t, httpsClient, objects.Service.Status.URL.String())
+
+	updatedRoute, err := clients.ServingClient.Routes.Get(objects.Route.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get route: %v", err)
+	}
+	for _, traf := range updatedRoute.Status.Traffic {
+		testingress.RuntimeRequest(t, httpsClient, traf.URL.String())
+	}
+}
+
+func getPEMDataFromSecret(t *testing.T, clients *test.Clients, ns, secretName string) []byte {
 	t.Helper()
 	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(ns).Get(
 		secretName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Secret %s: %v", secretName, err)
 	}
+	return secret.Data[corev1.TLSCertKey]
+}
+
+func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *x509.CertPool {
+	t.Helper()
+	pemData := getPEMDataFromSecret(t, clients, ns, secretName)
 
 	rootCAs, err := x509.SystemCertPool()
 	if rootCAs == nil || err != nil {
@@ -130,7 +207,7 @@ func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *
 		}
 		rootCAs = x509.NewCertPool()
 	}
-	if !rootCAs.AppendCertsFromPEM(secret.Data[corev1.TLSCertKey]) {
+	if !rootCAs.AppendCertsFromPEM(pemData) {
 		t.Fatal("Failed to add the certificate to the root CA")
 	}
 	return rootCAs
