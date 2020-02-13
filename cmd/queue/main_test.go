@@ -91,7 +91,7 @@ func TestHandlerReqEvent(t *testing.T) {
 	select {
 	case e := <-reqChan:
 		if e.EventType != queue.ProxiedIn {
-			t.Errorf("Got: %v, Want: %v\n", e.EventType, queue.ProxiedIn, )
+			t.Errorf("Got: %v, Want: %v\n", e.EventType, queue.ProxiedIn)
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Timed out waiting for an event to be intercepted")
@@ -524,10 +524,10 @@ func BenchmarkProxyHandler(b *testing.B) {
 		label   string
 		breaker *queue.Breaker
 	}{{
-		label: "breaker-10",
+		label:   "breaker-10",
 		breaker: queue.NewBreaker(queue.BreakerParams{QueueDepth: 10, MaxConcurrency: 10, InitialCapacity: 10}),
 	}, {
-		label: "breaker-infinite",
+		label:   "breaker-infinite",
 		breaker: nil,
 	}}
 	for _, tc := range tests {
