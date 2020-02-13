@@ -25,15 +25,14 @@ import (
 
 	pkgreconciler "knative.dev/pkg/reconciler"
 	metricreconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/metric"
-	listers "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
 	rbase "knative.dev/serving/pkg/reconciler"
 )
 
 // reconciler implements controller.Reconciler for Metric resources.
 type reconciler struct {
 	*rbase.Base
-	collector    metrics.Collector
-	metricLister listers.MetricLister
+
+	collector metrics.Collector
 }
 
 // Check that our Reconciler implements metricreconciler.Interface

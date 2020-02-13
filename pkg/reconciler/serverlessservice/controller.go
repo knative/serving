@@ -52,7 +52,6 @@ func NewController(
 		Base:              pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
 		endpointsLister:   endpointsInformer.Lister(),
 		serviceLister:     serviceInformer.Lister(),
-		sksLister:         sksInformer.Lister(),
 		psInformerFactory: podscalable.Get(ctx),
 	}
 	impl := sksreconciler.NewImpl(ctx, c)
