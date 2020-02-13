@@ -46,6 +46,7 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	certreconciler "knative.dev/serving/pkg/client/injection/reconciler/networking/v1alpha1/certificate"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/certificate/config"
 	"knative.dev/serving/pkg/reconciler/certificate/resources"
@@ -233,9 +234,8 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to create Cert-Manager Certificate %s: %v",
 				"foo/knCert", "inducing failure for update certificates"),
-			Eventf(corev1.EventTypeWarning, "InternalError", "failed to update Cert-Manager Certificate: inducing failure for update certificates"),
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for Certificate %s: %v",
-				"foo/knCert", "inducing failure for update certificates"),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for %q: %v",
+				"knCert", "inducing failure for update certificates"),
 		},
 		Key: "foo/knCert",
 	}, {
@@ -347,21 +347,22 @@ func TestReconcile(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		retryAttempted = false
-		return &Reconciler{
+		r := &Reconciler{
 			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
-			knCertificateLister: listers.GetKnCertificateLister(),
 			cmCertificateLister: listers.GetCMCertificateLister(),
 			cmChallengeLister:   listers.GetCMChallengeLister(),
 			cmIssuerLister:      listers.GetCMClusterIssuerLister(),
 			svcLister:           listers.GetK8sServiceLister(),
 			certManagerClient:   fakecertmanagerclient.Get(ctx),
 			tracker:             &NullTracker{},
-			configStore: &testConfigStore{
+		}
+		return certreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetCertificateLister(), r.Recorder, r, controller.Options{
+			ConfigStore: &testConfigStore{
 				config: &config.Config{
 					CertManager: certmanagerConfig(),
 				},
 			},
-		}
+		})
 	}))
 }
 
@@ -491,21 +492,22 @@ func TestReconcile_HTTP01Challenges(t *testing.T) {
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		return &Reconciler{
+		r := &Reconciler{
 			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
-			knCertificateLister: listers.GetKnCertificateLister(),
 			cmCertificateLister: listers.GetCMCertificateLister(),
 			cmChallengeLister:   listers.GetCMChallengeLister(),
 			cmIssuerLister:      listers.GetCMClusterIssuerLister(),
 			svcLister:           listers.GetK8sServiceLister(),
 			certManagerClient:   fakecertmanagerclient.Get(ctx),
 			tracker:             &NullTracker{},
-			configStore: &testConfigStore{
+		}
+		return certreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetCertificateLister(), r.Recorder, r, controller.Options{
+			ConfigStore: &testConfigStore{
 				config: &config.Config{
 					CertManager: certmanagerConfig(),
 				},
 			},
-		}
+		})
 	}))
 }
 

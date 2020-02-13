@@ -20,14 +20,12 @@ import (
 	"context"
 	"fmt"
 	"hash/adler32"
-	"reflect"
 	"strconv"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	cmv1alpha2 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha2"
 	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
-	"go.uber.org/zap"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -36,10 +34,9 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	kubelisters "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
+	certreconciler "knative.dev/serving/pkg/client/injection/reconciler/networking/v1alpha1/certificate"
 
 	"knative.dev/pkg/apis"
-	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/tracker"
@@ -47,7 +44,6 @@ import (
 	certmanagerclientset "knative.dev/serving/pkg/client/certmanager/clientset/versioned"
 	acmelisters "knative.dev/serving/pkg/client/certmanager/listers/acme/v1alpha2"
 	certmanagerlisters "knative.dev/serving/pkg/client/certmanager/listers/certmanager/v1alpha2"
-	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/certificate/config"
 	"knative.dev/serving/pkg/reconciler/certificate/resources"
@@ -71,62 +67,23 @@ type Reconciler struct {
 	*reconciler.Base
 
 	// listers index properties about resources
-	knCertificateLister listers.CertificateLister
 	cmCertificateLister certmanagerlisters.CertificateLister
 	cmChallengeLister   acmelisters.ChallengeLister
 	cmIssuerLister      certmanagerlisters.ClusterIssuerLister
 	svcLister           kubelisters.ServiceLister
 	certManagerClient   certmanagerclientset.Interface
 	tracker             tracker.Interface
-
-	configStore pkgreconciler.ConfigStore
 }
 
-// Check that our Reconciler implements controller.Reconciler
-var _ controller.Reconciler = (*Reconciler)(nil)
+// Check that our Reconciler implements certreconciler.Interface
+var _ certreconciler.Interface = (*Reconciler)(nil)
 
-// Reconcile compares the actual state with the desired, and attempts to
-// converge the two. It then updates the Status block of the Certificate resource
-// with the current status of the resource.
-func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
-	logger := logging.FromContext(ctx)
-	ctx = c.configStore.ToContext(ctx)
-
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		logger.Errorw("Invalid resource key", zap.Error(err))
-		return nil
-	}
-
-	original, err := c.knCertificateLister.Certificates(namespace).Get(name)
-	if apierrs.IsNotFound(err) {
-		logger.Info("Knative Certificate in work queue no longer exists")
-		return nil
-	} else if err != nil {
-		return err
-	}
-
-	// Don't modify the informers copy
-	knCert := original.DeepCopy()
-
+func (c *Reconciler) ReconcileKind(ctx context.Context, knCert *v1alpha1.Certificate) pkgreconciler.Event {
 	// Reconcile this copy of the Certificate and then write back any status
 	// updates regardless of whether the reconciliation errored out.
-	err = c.reconcile(ctx, knCert)
+	err := c.reconcile(ctx, knCert)
 	if err != nil {
-		logger.Warnw("Failed to reconcile certificate", zap.Error(err))
-		c.Recorder.Event(knCert, corev1.EventTypeWarning, "InternalError", err.Error())
 		knCert.Status.MarkNotReady(notReconciledReason, notReconciledMessage)
-	}
-	if equality.Semantic.DeepEqual(original.Status, knCert.Status) {
-		// If we didn't change anything then don't call updateStatus.
-		// This is important because the copy we loaded from the informer's
-		// cache may be stale and we don't want to overwrite a prior update
-		// to status with this stale state.
-	} else if err := c.updateStatus(original, knCert); err != nil {
-		logger.Warnw("Failed to update certificate status", zap.Error(err))
-		c.Recorder.Eventf(knCert, corev1.EventTypeWarning, "UpdateFailed",
-			"Failed to update status for Certificate %s: %v", key, err)
-		return err
 	}
 	return err
 }
@@ -204,28 +161,6 @@ func (c *Reconciler) reconcileCMCertificate(ctx context.Context, knCert *v1alpha
 		return updated, nil
 	}
 	return cmCert, nil
-}
-
-func (c *Reconciler) updateStatus(existing *v1alpha1.Certificate, desired *v1alpha1.Certificate) error {
-	existing = existing.DeepCopy()
-	return pkgreconciler.RetryUpdateConflicts(func(attempts int) (err error) {
-		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
-		if attempts > 0 {
-			existing, err = c.ServingClientSet.NetworkingV1alpha1().Certificates(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-		}
-
-		// If there's nothing to update, just return.
-		if reflect.DeepEqual(existing.Status, desired.Status) {
-			return nil
-		}
-
-		existing.Status = desired.Status
-		_, err = c.ServingClientSet.NetworkingV1alpha1().Certificates(existing.Namespace).UpdateStatus(existing)
-		return err
-	})
 }
 
 func (c *Reconciler) setHTTP01Challenges(knCert *v1alpha1.Certificate, cmCert *cmv1alpha2.Certificate) error {
