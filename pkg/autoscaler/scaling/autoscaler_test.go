@@ -25,6 +25,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/pkg/kmp"
 	. "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/autoscaler/fake"
 	autoscalerfake "knative.dev/serving/pkg/autoscaler/fake"
@@ -415,4 +416,29 @@ func TestNewFail(t *testing.T) {
 	if got, want := int(a.maxPanicPods), 0; got != want {
 		t.Errorf("maxPanicPods = %d, want: 0", got)
 	}
+}
+
+func TestPrepareForRemoval(t *testing.T) {
+	var expectedCandidates = []string{"pod1"}
+	metrics := &autoscalerfake.MetricClient{RemovalCandidates: expectedCandidates}
+
+	t.Run("when not scaling down", func(t *testing.T) {
+		a := newTestAutoscaler(t, 10, 77, metrics)
+		candidates, err := a.PrepareForRemoval(TestContextWithLogger(t), 10)
+		if err != nil || candidates != nil {
+			t.Errorf("PrepareForRemoval() had to be empty, got = %v, err = %v", candidates, err)
+		}
+	})
+
+	t.Run("when scaling down", func(t *testing.T) {
+		a := newTestAutoscaler(t, 10, 77, metrics)
+		candidates, err := a.PrepareForRemoval(TestContextWithLogger(t), 0)
+		if err != nil {
+			t.Errorf("PrepareForRemoval() has error = %v", err)
+		}
+
+		if identical, err := kmp.SafeEqual(candidates, expectedCandidates); err != nil || !identical {
+			t.Errorf("PrepareForRemoval() wanted = %v, got = %v, err = %v", expectedCandidates, candidates, err)
+		}
+	})
 }

@@ -317,6 +317,57 @@ func TestScrapeReportErrorIfAnyFails(t *testing.T) {
 	}
 }
 
+func TestScrapeForRemoval(t *testing.T) {
+	const numP = 8
+	const desiredScale = 6
+	var toBeRemovedCount = numP - desiredScale
+
+	testStats := testStatsWithTime(numP, 0)
+
+	client := newTestScrapeClient(testStats, []error{nil})
+	scraper, err := serviceScraperForTest(client)
+	if err != nil {
+		t.Fatalf("serviceScraperForTest=%v, want no error", err)
+	}
+
+	fake.Endpoints(numP, fake.TestService)
+
+	candidates, err := scraper.ScrapeForRemoval(numP, desiredScale)
+	if err != nil {
+		t.Fatalf("Unexpected error from scraper.Scrape(): %v", err)
+	}
+
+	if len(candidates) != toBeRemovedCount {
+		t.Errorf("incorrect removal counts, want= %d, got=%d", toBeRemovedCount, len(candidates))
+	}
+
+	for _, podName := range candidates {
+		if podName != "pod-0" && podName != "pod-1" {
+			t.Errorf("wrong pod is selected for removal: %s", podName)
+		}
+	}
+}
+
+func TestScrapeForRemovalReportErrorIfAnyFails(t *testing.T) {
+	errTest := errors.New("test")
+
+	// 1 success and 10 failures so one scrape fails permanently through retries.
+	client := newTestScrapeClient(testStats, []error{nil,
+		errTest, errTest, errTest, errTest, errTest, errTest, errTest, errTest, errTest, errTest})
+	scraper, err := serviceScraperForTest(client)
+	if err != nil {
+		t.Fatalf("serviceScraperForTest=%v, want no error", err)
+	}
+
+	// Make an Endpoints with 2 pods.
+	fake.Endpoints(2, fake.TestService)
+
+	_, err = scraper.ScrapeForRemoval(2, 1)
+	if !errors.Is(err, errTest) {
+		t.Errorf("scraper.Scrape() = %v, want %v wrapped", err, errTest)
+	}
+}
+
 func TestScrapeDoNotScrapeIfNoPodsFound(t *testing.T) {
 	client := newTestScrapeClient(testStats, nil)
 	scraper, err := serviceScraperForTest(client)

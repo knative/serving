@@ -61,6 +61,8 @@ type DeciderSpec struct {
 	StableWindow time.Duration
 	// The name of the k8s service for pod information.
 	ServiceName string
+	// Whether or not the feature flag for graceful scaledown is enabled
+	EnableGracefulScaledown bool
 }
 
 // DeciderStatus is the current scale recommendation.
@@ -68,6 +70,10 @@ type DeciderStatus struct {
 	// DesiredScale is the target number of instances that autoscaler
 	// this revision needs.
 	DesiredScale int32
+
+	// RemovalCandidates, when scaling down, holds the list of pod names selected by the
+	// autoscaler as the the ideal set of pods for removal
+	RemovalCandidates []string
 
 	// ExcessBurstCapacity is the difference between spare capacity
 	// (how much more load the pods in the revision deployment can take before being
@@ -83,6 +89,10 @@ type UniScaler interface {
 	// or skips proposing. The proposal is requested at the given time.
 	// The returned boolean is true if and only if a proposal was returned.
 	Scale(context.Context, time.Time) (int32, int32, bool)
+
+	// PrepareForRemoval pod names that are good candidates for removal
+	// based on what the desired scale requires to be
+	PrepareForRemoval(context.Context, int32) ([]string, error)
 
 	// Update reconfigures the UniScaler according to the DeciderSpec.
 	Update(*DeciderSpec) error
@@ -112,7 +122,7 @@ func sameSign(a, b int32) bool {
 	return (a&math.MinInt32)^(b&math.MinInt32) == 0
 }
 
-func (sr *scalerRunner) updateLatestScale(proposed, ebc int32) bool {
+func (sr *scalerRunner) updateLatestScale(removalCandidates []string, proposed, ebc int32) bool {
 	ret := false
 	sr.mux.Lock()
 	defer sr.mux.Unlock()
@@ -126,6 +136,8 @@ func (sr *scalerRunner) updateLatestScale(proposed, ebc int32) bool {
 
 	// Update with the latest calculation anyway.
 	sr.decider.Status.ExcessBurstCapacity = ebc
+
+	sr.decider.Status.RemovalCandidates = removalCandidates
 	return ret
 }
 
@@ -321,7 +333,20 @@ func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, runner *
 		return
 	}
 
-	if runner.updateLatestScale(desiredScale, excessBC) {
+	var (
+		removalCandidates []string
+		err               error
+	)
+
+	if runner.decider.Spec.EnableGracefulScaledown {
+		removalCandidates, err = scaler.PrepareForRemoval(ctx, desiredScale)
+		if err != nil {
+			logger.Errorf("Cannot scale: %w", err)
+			return
+		}
+	}
+
+	if runner.updateLatestScale(removalCandidates, desiredScale, excessBC) {
 		m.Inform(metricKey)
 	}
 }

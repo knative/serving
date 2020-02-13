@@ -109,6 +109,28 @@ func New(
 	}, nil
 }
 
+// PrepareForRemoval returns pod names that are good candidates for removal
+// based on what the desired scale requires to be
+func (a *Autoscaler) PrepareForRemoval(ctx context.Context, desiredScale int32) ([]string, error) {
+	logger := logging.FromContext(ctx)
+	_, podCounter := a.currentSpecAndPC()
+
+	metricKey := types.NamespacedName{Namespace: a.namespace, Name: a.revision}
+	readyPodsCount, err := podCounter.ReadyCount()
+
+	// If the error is NotFound, then presume 0.
+	if err != nil && !apierrors.IsNotFound(err) {
+		logger.Errorw("Failed to get Endpoints via K8S Lister", zap.Error(err))
+		return nil, err
+	}
+
+	if int(desiredScale) >= readyPodsCount {
+		return nil, nil
+	}
+
+	return a.metricClient.CandidatesForRemoval(metricKey, readyPodsCount, int(desiredScale))
+}
+
 // Update reconfigures the UniScaler according to the DeciderSpec.
 func (a *Autoscaler) Update(deciderSpec *DeciderSpec) error {
 	a.specMux.Lock()

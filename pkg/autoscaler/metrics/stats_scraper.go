@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 
@@ -62,6 +63,10 @@ type StatsScraper interface {
 	// Scrape scrapes the Revision queue metric endpoint. The duration is used
 	// to cutoff young pods, whose stats might skew lower.
 	Scrape(time.Duration) (Stat, error)
+
+	// ScrapeForRemoval scrapes and returns individual pod stats
+	// when making scale down decisions
+	ScrapeForRemoval(readyCount, desiredScale int) ([]string, error)
 }
 
 // scrapeClient defines the interface for collecting Revision metrics for a given
@@ -130,6 +135,64 @@ func urlFromTarget(t, ns string) string {
 	return fmt.Sprintf(
 		"http://%s.%s:%d/metrics",
 		t, ns, networking.AutoscalingQueueMetricsPort)
+}
+
+// ScrapeForRemoval collects metrics from all pods for decision making on removal
+func (s *ServiceScraper) ScrapeForRemoval(readyCount, desiredScale int) ([]string, error) {
+	removalCount := readyCount - desiredScale
+	sampleSize := readyCount
+
+	statChan := make(chan Stat, sampleSize)
+	err := s.doScrape(statChan, sampleSize)
+	if err != nil {
+		return nil, err
+	}
+
+	close(statChan)
+
+	var podInfo []Stat
+	for stat := range statChan {
+		podInfo = append(podInfo, stat)
+	}
+
+	sort.SliceStable(podInfo, func(i, j int) bool {
+		return podInfo[i].AverageConcurrentRequests+podInfo[i].AverageProxiedConcurrentRequests <
+			podInfo[j].AverageConcurrentRequests+podInfo[j].AverageProxiedConcurrentRequests
+	})
+
+	podsToRemove := make([]string, 0, removalCount)
+	for _, p := range podInfo[:removalCount] {
+		podsToRemove = append(podsToRemove, p.PodName)
+	}
+
+	return podsToRemove, nil
+}
+
+func (s *ServiceScraper) doScrape(statCh chan Stat, sampleSize int) error {
+	scrapedPods := &sync.Map{}
+	grp := errgroup.Group{}
+
+	for i := 0; i < sampleSize; i++ {
+		grp.Go(func() error {
+			for tries := 1; ; tries++ {
+				stat, err := s.tryScrape(scrapedPods)
+				if err == nil {
+					statCh <- stat
+					return nil
+				}
+				// Return the error if we exhausted our retries.
+				if tries == scraperMaxRetries {
+					return err
+				}
+			}
+		})
+	}
+
+	// Return the inner error, if any.
+	if err := grp.Wait(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Scrape calls the destination service then sends it

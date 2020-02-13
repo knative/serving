@@ -431,7 +431,6 @@ func assertGracefulScaledown(t *testing.T, ctx *testContext, size int) error {
 }
 
 func TestGracefulScaledown(t *testing.T) {
-	t.Skip()
 	cancel := logstream.Start(t)
 	defer cancel()
 

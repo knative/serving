@@ -369,9 +369,13 @@ func TestScaler(t *testing.T) {
 			}
 
 			ctx = config.ToContext(ctx, defaultConfig())
-			desiredScale, err := revisionScaler.Scale(ctx, pa, sks, test.scaleTo)
+			desiredScale, ps, err := revisionScaler.Scale(ctx, pa, sks, test.scaleTo)
 			if err != nil {
 				t.Error("Scale got an unexpected error: ", err)
+			}
+
+			if err = revisionScaler.Apply(ctx, pa, ps, desiredScale); err != nil {
+				t.Error("Apply got an unexpected error: ", err)
 			}
 			if err == nil && desiredScale != test.wantReplicas {
 				t.Errorf("desiredScale = %d, wanted %d", desiredScale, test.wantReplicas)
@@ -454,11 +458,15 @@ func TestDisableScaleToZero(t *testing.T) {
 			conf := defaultConfig()
 			conf.Autoscaler.EnableScaleToZero = false
 			ctx = config.ToContext(ctx, conf)
-			desiredScale, err := revisionScaler.Scale(ctx, pa, nil /*sks doesn't matter in this test*/, test.scaleTo)
-
+			desiredScale, ps, err := revisionScaler.Scale(ctx, pa, nil /*sks doesn't matter in this test*/, test.scaleTo)
 			if err != nil {
 				t.Error("Scale got an unexpected error: ", err)
 			}
+
+			if err = revisionScaler.Apply(ctx, pa, ps, desiredScale); err != nil {
+				t.Error("Apply got an unexpected error: ", err)
+			}
+
 			if err == nil && desiredScale != test.wantReplicas {
 				t.Errorf("desiredScale = %d, wanted %d", desiredScale, test.wantReplicas)
 			}

@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/pkg/kmp"
 	. "knative.dev/pkg/logging/testing"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -206,6 +207,48 @@ func TestMetricCollectorScraper(t *testing.T) {
 	if err != ErrNotScraping {
 		t.Errorf("StableAndPanicRPS() = %v, want %v", err, ErrNotScraping)
 	}
+}
+
+func TestCandidatesForRemoval(t *testing.T) {
+	logger := TestLogger(t)
+
+	var expectedCandidates = []string{"pod1", "pod2"}
+	scraper := &testScraper{
+		r: func() ([]string, error) {
+			return expectedCandidates, nil
+		},
+		s: func() (Stat, error) {
+			return emptyStat, nil
+		},
+		url: "just-right",
+	}
+	factory := scraperFactory(scraper, nil)
+
+	t.Run("error when scraping for wrong key", func(t *testing.T) {
+		metricKey := types.NamespacedName{Namespace: "bad-namespace", Name: "bad-name"}
+		coll := NewMetricCollector(factory, logger)
+		coll.CreateOrUpdate(&defaultMetric)
+
+		_, err := coll.CandidatesForRemoval(metricKey, 1, 2)
+		if err != ErrNotScraping {
+			t.Errorf("CandidatesForRemoval() = %v, want %v", err, ErrNotScraping)
+		}
+	})
+
+	t.Run("retrieving candidates", func(t *testing.T) {
+		metricKey := types.NamespacedName{Namespace: defaultNamespace, Name: defaultName}
+		coll := NewMetricCollector(factory, logger)
+		coll.CreateOrUpdate(&defaultMetric)
+
+		receivedCandidates, err := coll.CandidatesForRemoval(metricKey, 1, 2)
+		if err != nil {
+			t.Errorf("Failed with error: %v", err)
+		}
+
+		if identical, err := kmp.SafeEqual(expectedCandidates, receivedCandidates); !identical || err != nil {
+			t.Errorf("CandidatesForRemoval() want = %v, got = %v, error = %v", expectedCandidates, receivedCandidates, err)
+		}
+	})
 }
 
 func TestMetricCollectorRecord(t *testing.T) {
@@ -399,11 +442,16 @@ func scraperFactory(scraper StatsScraper, err error) StatsScraperFactory {
 
 type testScraper struct {
 	s   func() (Stat, error)
+	r   func() ([]string, error)
 	url string
 }
 
 func (s *testScraper) Scrape(time.Duration) (Stat, error) {
 	return s.s()
+}
+
+func (s *testScraper) ScrapeForRemoval(ready, desired int) ([]string, error) {
+	return s.r()
 }
 
 func TestMetricCollectorAggregate(t *testing.T) {

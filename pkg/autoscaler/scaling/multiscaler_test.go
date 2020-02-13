@@ -30,6 +30,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/kmp"
 	. "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/autoscaler/fake"
 	"knative.dev/serving/pkg/autoscaler/metrics"
@@ -349,6 +350,51 @@ func TestMultiScalerScaleToZero(t *testing.T) {
 	}
 }
 
+func TestMultiScalerRemovalCandidates(t *testing.T) {
+	var expectedCandidates = []string{"pod1"}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ms, uniScaler := createMultiScalerWithRemovalCandidates(ctx, TestLogger(t), expectedCandidates)
+	mtp := &fake.ManualTickProvider{
+		Channel: make(chan time.Time, 1),
+	}
+	ms.tickProvider = mtp.NewTicker
+
+	decider := newDecider()
+	decider.Spec.EnableGracefulScaledown = true
+	uniScaler.setScaleResult(0, 1, true)
+
+	errCh := make(chan error)
+	ms.Watch(watchFunc(ctx, ms, decider, 0, errCh))
+
+	scaleDecider, err := ms.Create(ctx, decider)
+	if err != nil {
+		t.Fatalf("Create() = %v", err)
+	}
+
+	// Verify that we see a "tick"
+	mtp.Channel <- time.Now()
+	if err := verifyTick(errCh); err != nil {
+		t.Fatal(err)
+	}
+
+	if identical, err := kmp.SafeEqual(expectedCandidates, scaleDecider.Status.RemovalCandidates); err != nil || !identical {
+		t.Errorf("Failed getting removal candidates want = %v, got = %v, err %v",
+			expectedCandidates, scaleDecider.Status.RemovalCandidates, err)
+	}
+
+	err = ms.Delete(ctx, decider.Namespace, decider.Name)
+	if err != nil {
+		t.Errorf("Delete() = %v", err)
+	}
+
+	// Verify that we stop seeing "ticks"
+	mtp.Channel <- time.Now()
+	if err := verifyNoTick(errCh); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestMultiScalerScaleFromZero(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -372,7 +418,7 @@ func TestMultiScalerScaleFromZero(t *testing.T) {
 	metricKey := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
 	if scaler, exists := ms.scalers[metricKey]; !exists {
 		t.Errorf("Failed to get scaler for metric %s", metricKey)
-	} else if !scaler.updateLatestScale(0, 10) {
+	} else if !scaler.updateLatestScale(nil, 0, 10) {
 		t.Error("Failed to set scale for metric to 0")
 	}
 
@@ -489,16 +535,27 @@ func createMultiScaler(ctx context.Context, l *zap.SugaredLogger) (*MultiScaler,
 	return ms, uniscaler
 }
 
+func createMultiScalerWithRemovalCandidates(ctx context.Context, l *zap.SugaredLogger, candidates []string) (*MultiScaler, *fakeUniScaler) {
+	uniscaler := &fakeUniScaler{removalCandidates: candidates}
+	ms := NewMultiScaler(ctx.Done(), uniscaler.fakeUniScalerFactory, l)
+	return ms, uniscaler
+}
+
 type fakeUniScaler struct {
-	mutex      sync.RWMutex
-	replicas   int32
-	surplus    int32
-	scaled     bool
-	scaleCount int
+	mutex             sync.RWMutex
+	replicas          int32
+	surplus           int32
+	scaled            bool
+	scaleCount        int
+	removalCandidates []string
 }
 
 func (u *fakeUniScaler) fakeUniScalerFactory(*Decider) (UniScaler, error) {
 	return u, nil
+}
+
+func (u *fakeUniScaler) PrepareForRemoval(context.Context, int32) ([]string, error) {
+	return u.removalCandidates, nil
 }
 
 func (u *fakeUniScaler) Scale(context.Context, time.Time) (int32, int32, bool) {
