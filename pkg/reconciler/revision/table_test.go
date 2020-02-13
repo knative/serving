@@ -550,7 +550,6 @@ func TestReconcile(t *testing.T) {
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		r := &Reconciler{
 			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
-			revisionLister:      listers.GetRevisionLister(),
 			podAutoscalerLister: listers.GetPodAutoscalerLister(),
 			imageLister:         listers.GetImageLister(),
 			deploymentLister:    listers.GetDeploymentLister(),

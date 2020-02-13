@@ -33,7 +33,6 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
-	listers "knative.dev/serving/pkg/client/listers/serving/v1"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 )
@@ -47,7 +46,6 @@ type Reconciler struct {
 	*reconciler.Base
 
 	// lister indexes properties about Revision
-	revisionLister      listers.RevisionLister
 	podAutoscalerLister palisters.PodAutoscalerLister
 	imageLister         cachinglisters.ImageLister
 	deploymentLister    appsv1listers.DeploymentLister
