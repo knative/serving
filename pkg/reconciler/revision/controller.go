@@ -115,12 +115,12 @@ func newControllerWithOptions(
 	revisionInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(v1.SchemeGroupVersion.WithKind("Revision")),
+		FilterFunc: controller.FilterGroupKind(v1.Kind("Revision")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
 	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(v1.SchemeGroupVersion.WithKind("Revision")),
+		FilterFunc: controller.FilterGroupKind(v1.Kind("Revision")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
@@ -129,7 +129,7 @@ func newControllerWithOptions(
 	// a functioning Image controller.
 
 	configMapInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(v1.SchemeGroupVersion.WithKind("Revision")),
+		FilterFunc: controller.FilterGroupKind(v1.Kind("Revision")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
