@@ -17,6 +17,7 @@ limitations under the License.
 package readiness
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"net/http"
@@ -472,9 +473,11 @@ func TestKnHTTPTimeoutFailure(t *testing.T) {
 		},
 	})
 	pb.pollTimeout = time.Second
+	var logs bytes.Buffer
+	pb.out = &logs
 
 	if pb.ProbeContainer() {
-		t.Error("Probe succeeded. Expected failure due to timeout.")
+		t.Errorf("Probe succeeded. Expected failure due to timeout. Logs:\n%s", logs.String())
 	}
 }
 
@@ -531,9 +534,11 @@ func TestKnTCPProbeFailure(t *testing.T) {
 		},
 	})
 	pb.pollTimeout = time.Second
+	var logs bytes.Buffer
+	pb.out = &logs
 
 	if pb.ProbeContainer() {
-		t.Error("Got probe success. Wanted failure.")
+		t.Errorf("Got probe success. Wanted failure. Logs:\n%s", logs.String())
 	}
 }
 

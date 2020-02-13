@@ -18,6 +18,7 @@ package readiness
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"sync"
 	"time"
@@ -40,6 +41,7 @@ type Probe struct {
 	*corev1.Probe
 	count       int32
 	pollTimeout time.Duration // To make tests not run for 10 seconds.
+	out         io.Writer     // To make tests not log errors in good cases.
 
 	// Barrier sync to ensure only one probe is happening at the same time.
 	// When a probe is active `gv` will be non-nil.
@@ -79,6 +81,7 @@ func NewProbe(v1p *corev1.Probe) *Probe {
 	return &Probe{
 		Probe:       v1p,
 		pollTimeout: PollTimeout,
+		out:         os.Stderr,
 	}
 }
 
@@ -123,17 +126,17 @@ func (p *Probe) probeContainerImpl() bool {
 		// Should never be reachable. Exec probes to be translated to
 		// TCP probes when container is built.
 		// Using Fprintf for a concise error message in the event log.
-		fmt.Fprintln(os.Stderr, "exec probe not supported")
+		fmt.Fprintln(p.out, "exec probe not supported")
 		return false
 	default:
 		// Using Fprintf for a concise error message in the event log.
-		fmt.Fprintln(os.Stderr, "no probe found")
+		fmt.Fprintln(p.out, "no probe found")
 		return false
 	}
 
 	if err != nil {
 		// Using Fprintf for a concise error message in the event log.
-		fmt.Fprintln(os.Stderr, err.Error())
+		fmt.Fprintln(p.out, err.Error())
 		return false
 	}
 	return true
@@ -143,7 +146,7 @@ func (p *Probe) doProbe(probe func(time.Duration) error) error {
 	if p.IsAggressive() {
 		return wait.PollImmediate(retryInterval, p.pollTimeout, func() (bool, error) {
 			if err := probe(aggressiveProbeTimeout); err != nil {
-				fmt.Fprintln(os.Stderr, "aggressive probe error: ", err)
+				fmt.Fprintln(p.out, "aggressive probe error: ", err)
 				// Reset count of consecutive successes to zero.
 				p.count = 0
 				return false, nil
