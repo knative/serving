@@ -205,8 +205,8 @@ func proxyHandler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, tracingEn
 
 func preferPodForScaledown(downwardAPILabelsPath string) (bool, error) {
 	// Short circuit a rejection when no label path file is mounted
-	if _, err := os.Stat(downwardAPILabelsPath); os.IsNotExist(err) {
-		return false, nil
+	if _, err := os.Stat(downwardAPILabelsPath); err != nil {
+		log.Printf(err.Error())
 	}
 
 	contentBytes, err := ioutil.ReadFile(downwardAPILabelsPath)
@@ -222,8 +222,7 @@ func preferPodForScaledown(downwardAPILabelsPath string) (bool, error) {
 
 	scaleDown, err := strconv.ParseBool(content)
 	if err != nil {
-		log.Printf(err.Error())
-		return false, err
+		return false, fmt.Errorf("failed parsing the label value: %w", err)
 	}
 
 	return scaleDown, nil
@@ -251,12 +250,11 @@ func knativeProbeHandler(healthState *health.State, prober func() bool, isAggres
 			return
 		}
 
-		if preferScaledown, err := preferPodForScaledown(env.DownwardAPILabelsPath); err != nil {
-			http.Error(w, "process downward API labels failed", http.StatusInternalServerError)
-			probeSpan.Annotate([]trace.Attribute{
-				trace.StringAttribute("queueproxy.probe.error", "process downward API labels failed")}, "error")
-			return
-		} else if preferScaledown {
+		preferScaledown, err := preferPodForScaledown(env.DownwardAPILabelsPath)
+		if err != nil {
+			log.Printf("Process downward API labels failed: %v", err)
+		}
+		if preferScaledown {
 			//Deliberately failing the readiness probe when pod is labelled for scale down
 			http.Error(w, failingHealthcheck, http.StatusBadRequest)
 			probeSpan.Annotate([]trace.Attribute{
@@ -282,7 +280,7 @@ func knativeProbeHandler(healthState *health.State, prober func() bool, isAggres
 	}
 }
 
-func probeQueueHealthPath(port int, timeoutSeconds int, env config) error {
+func probeQueueHealthPath(port, timeoutSeconds int, env config) error {
 	if port <= 0 {
 		return fmt.Errorf("port must be a positive value, got %d", port)
 	}
@@ -326,7 +324,7 @@ func probeQueueHealthPath(port int, timeoutSeconds int, env config) error {
 		// The check for preferForScaledown() fails readiness faster
 		// in the presence of the label
 		if preferScaleDown, err := preferPodForScaledown(env.DownwardAPILabelsPath); err != nil {
-			return false, err
+			log.Printf(err.Error())
 		} else if !success && preferScaleDown {
 			return false, errors.New("failing probe deliberately for pod scaledown")
 		}
@@ -355,16 +353,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// If this is set, we run as a standalone binary to probe the queue-proxy.
-	if *readinessProbeTimeout >= 0 {
-		if err := probeQueueHealthPath(env.QueueServingPort, *readinessProbeTimeout, env); err != nil {
-			// used instead of the logger to produce a concise event message
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		os.Exit(0)
-	}
-
 	// Setup the logger.
 	logger, _ = pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
 	logger = logger.Named("queueproxy")
@@ -378,7 +366,17 @@ func main() {
 		zap.String(logkey.Pod, env.ServingPod))
 
 	if err := validateEnv(env); err != nil {
-		log.Fatalf(err.Error())
+		logger.Fatal(err.Error())
+	}
+
+	// If this is set, we run as a standalone binary to probe the queue-proxy.
+	if *readinessProbeTimeout >= 0 {
+		if err := probeQueueHealthPath(env.QueueServingPort, *readinessProbeTimeout, env); err != nil {
+			// used instead of the logger to produce a concise event message
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		os.Exit(0)
 	}
 
 	// Report stats on Go memory usage every 30 seconds.
