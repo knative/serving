@@ -229,8 +229,8 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 	return desiredScale, true
 }
 
-// Apply updates the PodScalable to the desiredScale calculated during the Scale decision making
-func (ks *scaler) Apply(ctx context.Context, pa *pav1alpha1.PodAutoscaler, ps *pav1alpha1.PodScalable, desiredScale int32) error {
+// apply updates the PodScalable to the desiredScale calculated during the Scale decision making
+func (ks *scaler) apply(ctx context.Context, pa *pav1alpha1.PodAutoscaler, ps *pav1alpha1.PodScalable, desiredScale int32) error {
 	// if no PodScalable is provided, return without scaling.
 	// This happens when the desiredScale == currentScale
 	if ps == nil {
@@ -265,8 +265,8 @@ func (ks *scaler) Apply(ctx context.Context, pa *pav1alpha1.PodAutoscaler, ps *p
 	return nil
 }
 
-// Scale decides the desired scale and creates PodScalable required to scale the given PA's target reference to the desired scale.
-func (ks *scaler) Scale(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *nv1a1.ServerlessService, desiredScale int32) (int32, *pav1alpha1.PodScalable, error) {
+// calculate decides the desired scale and creates PodScalable required to scale the given PA's target reference to the desired scale.
+func (ks *scaler) calculate(ctx context.Context, pa *pav1alpha1.PodAutoscaler, sks *nv1a1.ServerlessService, desiredScale int32) (int32, *pav1alpha1.PodScalable, error) {
 	logger := logging.FromContext(ctx)
 
 	if desiredScale < 0 && !pa.Status.IsActivating() {

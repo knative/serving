@@ -143,8 +143,7 @@ func (s *ServiceScraper) ScrapeForRemoval(readyCount, desiredScale int) ([]strin
 	sampleSize := readyCount
 
 	statChan := make(chan Stat, sampleSize)
-	err := s.doScrape(statChan, sampleSize)
-	if err != nil {
+	if err := s.doScrape(statChan, sampleSize); err != nil {
 		return nil, err
 	}
 
@@ -188,14 +187,10 @@ func (s *ServiceScraper) doScrape(statCh chan Stat, sampleSize int) error {
 		})
 	}
 
-	// Return the inner error, if any.
-	if err := grp.Wait(); err != nil {
-		return err
-	}
-	return nil
+	return grp.Wait()
 }
 
-// Scrape calls the destination service then sends it
+// calculate calls the destination service then sends it
 // to the given stats channel.
 func (s *ServiceScraper) Scrape(window time.Duration) (Stat, error) {
 	readyPodsCount, err := s.counter.ReadyCount()

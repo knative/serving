@@ -1033,8 +1033,7 @@ func TestReconcile(t *testing.T) {
 		if gsd := ctx.Value(gracefuleScaleDownConfigKey); gsd != nil {
 			defaultConfig.Autoscaler.EnableGracefulScaledown = true
 			removalCandidates = []string{"pod-1"}
-			_, err := fakekubeclient.Get(ctx).CoreV1().Pods(testNamespace).Create(pod(testNamespace, "pod-1"))
-			if err != nil {
+			if _, err := fakekubeclient.Get(ctx).CoreV1().Pods(testNamespace).Create(pod(testNamespace, "pod-1")); err != nil {
 				t.Errorf("Failed %v", err)
 			}
 		}

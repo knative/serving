@@ -24,11 +24,11 @@ import (
 	"go.opencensus.io/stats"
 	"go.uber.org/zap"
 
-	"knative.dev/pkg/ptr"
-	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
+	"knative.dev/pkg/ptr"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
@@ -56,7 +56,7 @@ const (
 	EndpointConvergenceWaitTime = 500 * time.Millisecond
 	// EndpointConvergenceTimeout is how long the reconciler is willing to wait
 	// for the number of endpoints to converge to the desired scale
-	EndpointConvergenceTimeout  = 1 * time.Minute
+	EndpointConvergenceTimeout = 1 * time.Minute
 )
 
 // podCounts keeps record of various numbers of pods
@@ -128,7 +128,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
-	want, ps, err := c.scaler.Scale(ctx, pa, sks, decider.Status.DesiredScale)
+	want, ps, err := c.scaler.calculate(ctx, pa, sks, decider.Status.DesiredScale)
 	if err != nil {
 		return err
 	}
@@ -150,7 +150,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		}
 	}
 
-	if err := c.scaler.Apply(ctx, pa, ps, want); err != nil {
+	if err := c.scaler.apply(ctx, pa, ps, want); err != nil {
 		return fmt.Errorf("error scaling target: %v", err)
 	}
 

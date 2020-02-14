@@ -229,8 +229,7 @@ func TestCandidatesForRemoval(t *testing.T) {
 		coll := NewMetricCollector(factory, logger)
 		coll.CreateOrUpdate(&defaultMetric)
 
-		_, err := coll.CandidatesForRemoval(metricKey, 1, 2)
-		if err != ErrNotScraping {
+		if _, err := coll.CandidatesForRemoval(metricKey, 1, 2); err != ErrNotScraping {
 			t.Errorf("CandidatesForRemoval() = %v, want %v", err, ErrNotScraping)
 		}
 	})

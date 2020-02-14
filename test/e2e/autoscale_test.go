@@ -395,6 +395,10 @@ func assertGracefulScaledown(t *testing.T, ctx *testContext, size int) error {
 	openConnCount := size / 2
 	deleteHostConnections(hostConnMap, size-openConnCount)
 
+	doneCh := make(chan struct{})
+	defer close(doneCh)
+	go pingOpenConnections(doneCh, hostConnMap)
+
 	defer deleteHostConnections(hostConnMap, openConnCount)
 
 	timer := time.NewTicker(2 * time.Second)

@@ -318,10 +318,12 @@ func TestScrapeReportErrorIfAnyFails(t *testing.T) {
 }
 
 func TestScrapeForRemoval(t *testing.T) {
-	const numP = 8
-	const desiredScale = 6
-	var toBeRemovedCount = numP - desiredScale
+	const (
+		numP         = 8
+		desiredScale = 6
+	)
 
+	var toBeRemovedCount = numP - desiredScale
 	testStats := testStatsWithTime(numP, 0)
 
 	client := newTestScrapeClient(testStats, []error{nil})
@@ -362,8 +364,7 @@ func TestScrapeForRemovalReportErrorIfAnyFails(t *testing.T) {
 	// Make an Endpoints with 2 pods.
 	fake.Endpoints(2, fake.TestService)
 
-	_, err = scraper.ScrapeForRemoval(2, 1)
-	if !errors.Is(err, errTest) {
+	if _, err = scraper.ScrapeForRemoval(2, 1); !errors.Is(err, errTest) {
 		t.Errorf("scraper.Scrape() = %v, want %v wrapped", err, errTest)
 	}
 }

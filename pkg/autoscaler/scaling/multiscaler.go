@@ -341,8 +341,7 @@ func (m *MultiScaler) tickScaler(ctx context.Context, scaler UniScaler, runner *
 	if runner.decider.Spec.EnableGracefulScaledown {
 		removalCandidates, err = scaler.PrepareForRemoval(ctx, desiredScale)
 		if err != nil {
-			logger.Errorf("Cannot scale: %w", err)
-			return
+			logger.Errorf("Cannot find removalCandidates: %w", err)
 		}
 	}
 

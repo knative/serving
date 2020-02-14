@@ -164,3 +164,32 @@ func deleteHostConnections(hostConnMap *sync.Map, size int) error {
 
 	return nil
 }
+
+// pingOpenConnections tries to keep the websocket connection alive by
+// sending a keepAlive message every 30 seconds. Otherwise the connection drops
+// after ~60 seconds and makes the tests flakey
+func pingOpenConnections(doneCh chan struct{}, hostConnMap *sync.Map) error {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			var err error
+			hostConnMap.Range(func(key, value interface{}) bool {
+				if conn, ok := value.(*websocket.Conn); ok {
+					if err = conn.WriteMessage(websocket.TextMessage, []byte("keepAlive")); err != nil {
+						return false
+					}
+				}
+				return true
+			})
+			if err != nil {
+				return err
+			}
+		case <-doneCh:
+			return nil
+		default:
+			time.Sleep(20 * time.Second)
+		}
+	}
+}
