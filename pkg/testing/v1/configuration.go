@@ -54,6 +54,13 @@ func WithConfigContainerConcurrency(cc int64) ConfigOption {
 	}
 }
 
+// WithGeneration sets the generation of the Configuration.
+func WithGeneration(gen int64) ConfigOption {
+	return func(cfg *v1.Configuration) {
+		cfg.Generation = gen
+	}
+}
+
 // WithObservedGen sets the observed generation of the Configuration.
 func WithObservedGen(cfg *v1.Configuration) {
 	cfg.Status.ObservedGeneration = cfg.Generation
@@ -86,5 +93,15 @@ func MarkRevisionCreationFailed(msg string) ConfigOption {
 func MarkLatestCreatedFailed(msg string) ConfigOption {
 	return func(cfg *v1.Configuration) {
 		cfg.Status.MarkLatestCreatedFailed(cfg.Status.LatestCreatedRevisionName, msg)
+	}
+}
+
+// WithConfigLabel attaches a particular label to the configuration.
+func WithConfigLabel(key, value string) ConfigOption {
+	return func(config *v1.Configuration) {
+		if config.Labels == nil {
+			config.Labels = make(map[string]string)
+		}
+		config.Labels[key] = value
 	}
 }

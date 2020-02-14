@@ -32,18 +32,17 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakecertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 	fakeciinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
-	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
+	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 
 	. "knative.dev/pkg/logging/testing"
-	. "knative.dev/serving/pkg/testing/v1alpha1"
+	. "knative.dev/serving/pkg/testing/v1"
 )
 
 func TestReconcileIngressInsert(t *testing.T) {
@@ -115,7 +114,7 @@ func TestReconcileTargetValidRevision(t *testing.T) {
 		},
 	})
 
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(r.Namespace).Create(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(r.Namespace).Create(rev)
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
 	// Get timestamp before reconciling, so that we can compare this to the last pinned timestamp
@@ -130,7 +129,7 @@ func TestReconcileTargetValidRevision(t *testing.T) {
 	}
 
 	// Verify last pinned annotation is updated correctly
-	newRev, err := fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(r.Namespace).Get(rev.Name, metav1.GetOptions{})
+	newRev, err := fakeservingclient.Get(ctx).ServingV1().Revisions(r.Namespace).Get(rev.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Error getting revision: %v", err)
 	}
@@ -162,7 +161,7 @@ func TestReconcileRevisionTargetDoesNotExist(t *testing.T) {
 			StaleRevisionLastpinnedDebounce: time.Minute,
 		},
 	})
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(r.Namespace).Create(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(r.Namespace).Create(rev)
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
 	// Try reconciling target revisions for a revision that does not exist. No err should be returned
@@ -171,20 +170,20 @@ func TestReconcileRevisionTargetDoesNotExist(t *testing.T) {
 	}
 }
 
-func newTestRevision(namespace string, name string) *v1alpha1.Revision {
-	return &v1alpha1.Revision{
+func newTestRevision(namespace string, name string) *v1.Revision {
+	return &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 			Annotations: map[string]string{
-				serving.RevisionLastPinnedAnnotationKey: v1alpha1.RevisionLastPinnedString(time.Now().Add(-1 * time.Hour)),
+				serving.RevisionLastPinnedAnnotationKey: v1.RevisionLastPinnedString(time.Now().Add(-1 * time.Hour)),
 			},
 		},
-		Spec: v1alpha1.RevisionSpec{},
+		Spec: v1.RevisionSpec{},
 	}
 }
 
-func getLastPinnedTimestamp(t *testing.T, rev *v1alpha1.Revision) (string, error) {
+func getLastPinnedTimestamp(t *testing.T, rev *v1.Revision) (string, error) {
 	lastPinnedTime, ok := rev.ObjectMeta.Annotations[serving.RevisionLastPinnedAnnotationKey]
 	if !ok {
 		return "", errors.New("last pinned annotation not found")
@@ -192,7 +191,7 @@ func getLastPinnedTimestamp(t *testing.T, rev *v1alpha1.Revision) (string, error
 	return lastPinnedTime, nil
 }
 
-func newTestIngress(t *testing.T, r *v1alpha1.Route, trafficOpts ...func(tc *traffic.Config)) *netv1alpha1.Ingress {
+func newTestIngress(t *testing.T, r *v1.Route, trafficOpts ...func(tc *traffic.Config)) *netv1alpha1.Ingress {
 	tc := &traffic.Config{Targets: map[string]traffic.RevisionTargets{
 		traffic.DefaultTarget: {{
 			TrafficTarget: v1.TrafficTarget{
@@ -290,7 +289,7 @@ func TestReconcileIngressClassAnnotation(t *testing.T) {
 	}
 }
 
-func newCerts(dnsNames []string, r *v1alpha1.Route) *netv1alpha1.Certificate {
+func newCerts(dnsNames []string, r *v1.Route) *netv1alpha1.Certificate {
 	return &netv1alpha1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            "test-cert",

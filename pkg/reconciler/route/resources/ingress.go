@@ -30,7 +30,7 @@ import (
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
-	servingv1alpha1 "knative.dev/serving/pkg/apis/serving/v1alpha1"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
 	"knative.dev/serving/pkg/reconciler/route/resources/names"
@@ -51,7 +51,7 @@ func MakeIngressTLS(cert *v1alpha1.Certificate, hostNames []string) v1alpha1.Ing
 // which Hosts that it applies to, as well as the routing rules.
 func MakeIngress(
 	ctx context.Context,
-	r *servingv1alpha1.Route,
+	r *servingv1.Route,
 	tc *traffic.Config,
 	tls []v1alpha1.IngressTLS,
 	ingressClass string,
@@ -83,7 +83,7 @@ func MakeIngress(
 // MakeIngressSpec creates a new IngressSpec
 func MakeIngressSpec(
 	ctx context.Context,
-	r *servingv1alpha1.Route,
+	r *servingv1.Route,
 	tls []v1alpha1.IngressTLS,
 	targets map[string]traffic.RevisionTargets,
 	visibility map[string]netv1alpha1.IngressVisibility,
@@ -138,7 +138,7 @@ func getChallengeHosts(challenges []v1alpha1.HTTP01Challenge) map[string]v1alpha
 	return c
 }
 
-func routeDomain(ctx context.Context, targetName string, r *servingv1alpha1.Route, visibility netv1alpha1.IngressVisibility) (string, error) {
+func routeDomain(ctx context.Context, targetName string, r *servingv1.Route, visibility netv1alpha1.IngressVisibility) (string, error) {
 	hostname, err := domains.HostnameFromTemplate(ctx, r.Name, targetName)
 	if err != nil {
 		return "", err

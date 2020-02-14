@@ -28,9 +28,9 @@ import (
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 	fakeingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
-	fakecfginformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
-	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
-	fakerouteinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/route/fake"
+	fakecfginformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration/fake"
+	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
+	fakerouteinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
 
 	"github.com/google/go-cmp/cmp"
 	"golang.org/x/sync/errgroup"
@@ -49,14 +49,13 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 
 	. "knative.dev/pkg/reconciler/testing"
-	. "knative.dev/serving/pkg/testing/v1alpha1"
+	. "knative.dev/serving/pkg/testing/v1"
 )
 
 const (
@@ -65,31 +64,33 @@ const (
 	prodDomainSuffix    = "prod-domain.com"
 )
 
-func getTestRouteWithTrafficTargets(trafficTarget RouteOption) *v1alpha1.Route {
+func getTestRouteWithTrafficTargets(trafficTarget RouteOption) *v1.Route {
 	return Route(testNamespace, "test-route", WithRouteLabel(map[string]string{"route": "test-route"}), trafficTarget)
 }
 
-func getTestRevision(name string) *v1alpha1.Revision {
+func getTestRevision(name string) *v1.Revision {
 	return getTestRevisionWithCondition(name, apis.Condition{
-		Type:   v1alpha1.RevisionConditionReady,
+		Type:   v1.RevisionConditionReady,
 		Status: corev1.ConditionTrue,
 		Reason: "ServiceReady",
 	})
 }
 
-func getTestRevisionWithCondition(name string, cond apis.Condition) *v1alpha1.Revision {
-	return &v1alpha1.Revision{
+func getTestRevisionWithCondition(name string, cond apis.Condition) *v1.Revision {
+	return &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  fmt.Sprintf("/apis/serving/v1alpha1/namespaces/test/revisions/%s", name),
+			SelfLink:  fmt.Sprintf("/apis/serving/v1/namespaces/test/revisions/%s", name),
 			Name:      name,
 			Namespace: testNamespace,
 		},
-		Spec: v1alpha1.RevisionSpec{
-			DeprecatedContainer: &corev1.Container{
-				Image: "test-image",
+		Spec: v1.RevisionSpec{
+			PodSpec: corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Image: "test-image",
+				}},
 			},
 		},
-		Status: v1alpha1.RevisionStatus{
+		Status: v1.RevisionStatus{
 			ServiceName: name,
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{cond},
@@ -98,20 +99,20 @@ func getTestRevisionWithCondition(name string, cond apis.Condition) *v1alpha1.Re
 	}
 }
 
-func getTestConfiguration() *v1alpha1.Configuration {
-	return &v1alpha1.Configuration{
+func getTestConfiguration() *v1.Configuration {
+	return &v1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/revisiontemplates/test-config",
+			SelfLink:  "/apis/serving/v1/namespaces/test/revisiontemplates/test-config",
 			Name:      "test-config",
 			Namespace: testNamespace,
 		},
-		Spec: v1alpha1.ConfigurationSpec{
-			// This is a workaround for generation initialization
-			DeprecatedGeneration: 1,
-			DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
-				Spec: v1alpha1.RevisionSpec{
-					DeprecatedContainer: &corev1.Container{
-						Image: "test-image",
+		Spec: v1.ConfigurationSpec{
+			Template: v1.RevisionTemplateSpec{
+				Spec: v1.RevisionSpec{
+					PodSpec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Image: "test-image",
+						}},
 					},
 				},
 			},
@@ -119,10 +120,10 @@ func getTestConfiguration() *v1alpha1.Configuration {
 	}
 }
 
-func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision {
-	rev := &v1alpha1.Revision{
+func getTestRevisionForConfig(config *v1.Configuration) *v1.Revision {
+	rev := &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/revisions/p-deadbeef",
+			SelfLink:  "/apis/serving/v1/namespaces/test/revisions/p-deadbeef",
 			Name:      "p-deadbeef",
 			Namespace: testNamespace,
 			Labels: map[string]string{
@@ -130,7 +131,7 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 			},
 		},
 		Spec: *config.Spec.GetTemplate().Spec.DeepCopy(),
-		Status: v1alpha1.RevisionStatus{
+		Status: v1.RevisionStatus{
 			ServiceName: "p-deadbeef",
 		},
 	}
@@ -191,7 +192,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	return
 }
 
-func getRouteIngressFromClient(ctx context.Context, t *testing.T, route *v1alpha1.Route) *netv1alpha1.Ingress {
+func getRouteIngressFromClient(ctx context.Context, t *testing.T, route *v1.Route) *netv1alpha1.Ingress {
 	opts := metav1.ListOptions{
 		LabelSelector: labels.SelectorFromSet(labels.Set{
 			serving.RouteLabelKey:          route.Name,
@@ -217,12 +218,12 @@ func getCertificateFromClient(t *testing.T, ctx context.Context, desired *netv1a
 	return created
 }
 
-func addResourcesToInformers(t *testing.T, ctx context.Context, route *v1alpha1.Route) {
+func addResourcesToInformers(t *testing.T, ctx context.Context, route *v1.Route) {
 	t.Helper()
 
 	ns := route.Namespace
 
-	route, err := fakeservingclient.Get(ctx).ServingV1alpha1().Routes(ns).Get(route.Name, metav1.GetOptions{})
+	route, err := fakeservingclient.Get(ctx).ServingV1().Routes(ns).Get(route.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Route.Get(%v) = %v", route.Name, err)
 	}
@@ -246,18 +247,16 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	rev := getTestRevision("test-rev")
 	rev.Status.MarkActiveFalse("NoTraffic", "no message")
 
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
 	// A route targeting the revision
-	route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{
-		TrafficTarget: v1.TrafficTarget{
-			RevisionName:      "test-rev",
-			ConfigurationName: "test-config",
-			Percent:           ptr.Int64(100),
-		},
+	route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{
+		RevisionName:      "test-rev",
+		ConfigurationName: "test-config",
+		Percent:           ptr.Int64(100),
 	}))
-	fakeservingclient.Get(ctx).ServingV1alpha1().Routes(testNamespace).Create(route)
+	fakeservingclient.Get(ctx).ServingV1().Routes(testNamespace).Create(route)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
@@ -371,7 +370,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	}()
 	// A standalone revision
 	rev := getTestRevision("test-rev")
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
 	// A configuration and associated revision. Normally the revision would be
@@ -380,25 +379,22 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	cfgrev := getTestRevisionForConfig(config)
 	config.Status.SetLatestCreatedRevisionName(cfgrev.Name)
 	config.Status.SetLatestReadyRevisionName(cfgrev.Name)
-	fakeservingclient.Get(ctx).ServingV1alpha1().Configurations(testNamespace).Create(config)
+	fakeservingclient.Get(ctx).ServingV1().Configurations(testNamespace).Create(config)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakecfginformer.Get(ctx).Informer().GetIndexer().Add(config)
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(cfgrev)
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(cfgrev)
 
 	// A route targeting both the config and standalone revision.
-	route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{
-		TrafficTarget: v1.TrafficTarget{
+	route := getTestRouteWithTrafficTargets(WithSpecTraffic(
+		v1.TrafficTarget{
 			ConfigurationName: config.Name,
 			Percent:           ptr.Int64(90),
-		},
-	}, v1alpha1.TrafficTarget{
-		TrafficTarget: v1.TrafficTarget{
+		}, v1.TrafficTarget{
 			RevisionName: rev.Name,
 			Percent:      ptr.Int64(10),
-		},
-	}))
-	fakeservingclient.Get(ctx).ServingV1alpha1().Routes(testNamespace).Create(route)
+		}))
+	fakeservingclient.Get(ctx).ServingV1().Routes(testNamespace).Create(route)
 	// Since Reconcile looks in the lister, we need to add it to the informer.
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
@@ -488,7 +484,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	rev := getTestRevision("test-rev")
 	rev.Status.MarkActiveFalse("NoTraffic", "no message")
 
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
 	// A configuration and associated revision. Normally the revision would be
@@ -497,26 +493,23 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	cfgrev := getTestRevisionForConfig(config)
 	config.Status.SetLatestCreatedRevisionName(cfgrev.Name)
 	config.Status.SetLatestReadyRevisionName(cfgrev.Name)
-	fakeservingclient.Get(ctx).ServingV1alpha1().Configurations(testNamespace).Create(config)
+	fakeservingclient.Get(ctx).ServingV1().Configurations(testNamespace).Create(config)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakecfginformer.Get(ctx).Informer().GetIndexer().Add(config)
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(cfgrev)
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(cfgrev)
 
 	// A route targeting both the config and standalone revision
-	route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{
-		TrafficTarget: v1.TrafficTarget{
+	route := getTestRouteWithTrafficTargets(WithSpecTraffic(
+		v1.TrafficTarget{
 			ConfigurationName: config.Name,
 			Percent:           ptr.Int64(90),
-		},
-	}, v1alpha1.TrafficTarget{
-		TrafficTarget: v1.TrafficTarget{
+		}, v1.TrafficTarget{
 			RevisionName:      rev.Name,
 			ConfigurationName: "test-config",
 			Percent:           ptr.Int64(10),
-		},
-	}))
-	fakeservingclient.Get(ctx).ServingV1alpha1().Routes(testNamespace).Create(route)
+		}))
+	fakeservingclient.Get(ctx).ServingV1().Routes(testNamespace).Create(route)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
@@ -603,7 +596,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 
 	// A standalone revision
 	rev := getTestRevision("test-rev")
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
 	// A configuration and associated revision. Normally the revision would be
@@ -612,53 +605,40 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	cfgrev := getTestRevisionForConfig(config)
 	config.Status.SetLatestCreatedRevisionName(cfgrev.Name)
 	config.Status.SetLatestReadyRevisionName(cfgrev.Name)
-	fakeservingclient.Get(ctx).ServingV1alpha1().Configurations(testNamespace).Create(config)
+	fakeservingclient.Get(ctx).ServingV1().Configurations(testNamespace).Create(config)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakecfginformer.Get(ctx).Informer().GetIndexer().Add(config)
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(cfgrev)
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(cfgrev)
 
 	// A route with duplicate targets. These will be deduped.
-	route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{
-		TrafficTarget: v1.TrafficTarget{
+	route := getTestRouteWithTrafficTargets(WithSpecTraffic(
+		v1.TrafficTarget{
 			ConfigurationName: "test-config",
 			Percent:           ptr.Int64(30),
-		},
-	}, v1alpha1.TrafficTarget{
-		TrafficTarget: v1.TrafficTarget{
+		}, v1.TrafficTarget{
 			ConfigurationName: "test-config",
 			Percent:           ptr.Int64(20),
-		},
-	}, v1alpha1.TrafficTarget{
-		TrafficTarget: v1.TrafficTarget{
+		}, v1.TrafficTarget{
 			RevisionName: "test-rev",
 			Percent:      ptr.Int64(10),
-		},
-	}, v1alpha1.TrafficTarget{
-		TrafficTarget: v1.TrafficTarget{
+		}, v1.TrafficTarget{
 			RevisionName: "test-rev",
 			Percent:      ptr.Int64(5),
-		},
-	}, v1alpha1.TrafficTarget{
-		TrafficTarget: v1.TrafficTarget{
+		}, v1.TrafficTarget{
 			Tag:          "test-revision-1",
 			RevisionName: "test-rev",
 			Percent:      ptr.Int64(10),
-		},
-	}, v1alpha1.TrafficTarget{
-		TrafficTarget: v1.TrafficTarget{
+		}, v1.TrafficTarget{
 			Tag:          "test-revision-1",
 			RevisionName: "test-rev",
 			Percent:      ptr.Int64(10),
-		},
-	}, v1alpha1.TrafficTarget{
-		TrafficTarget: v1.TrafficTarget{
+		}, v1.TrafficTarget{
 			Tag:          "test-revision-2",
 			RevisionName: "test-rev",
 			Percent:      ptr.Int64(15),
-		},
-	}))
-	fakeservingclient.Get(ctx).ServingV1alpha1().Routes(testNamespace).Create(route)
+		}))
+	fakeservingclient.Get(ctx).ServingV1().Routes(testNamespace).Create(route)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
@@ -830,7 +810,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	defer cf()
 	// A standalone revision
 	rev := getTestRevision("test-rev")
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(rev)
 
 	// A configuration and associated revision. Normally the revision would be
@@ -839,29 +819,26 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	cfgrev := getTestRevisionForConfig(config)
 	config.Status.SetLatestCreatedRevisionName(cfgrev.Name)
 	config.Status.SetLatestReadyRevisionName(cfgrev.Name)
-	fakeservingclient.Get(ctx).ServingV1alpha1().Configurations(testNamespace).Create(config)
+	fakeservingclient.Get(ctx).ServingV1().Configurations(testNamespace).Create(config)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakecfginformer.Get(ctx).Informer().GetIndexer().Add(config)
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(cfgrev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(cfgrev)
 	fakerevisioninformer.Get(ctx).Informer().GetIndexer().Add(cfgrev)
 
 	// A route targeting both the config and standalone revision with named
 	// targets
-	route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{
-		TrafficTarget: v1.TrafficTarget{
+	route := getTestRouteWithTrafficTargets(WithSpecTraffic(
+		v1.TrafficTarget{
 			Tag:          "foo",
 			RevisionName: "test-rev",
 			Percent:      ptr.Int64(50),
-		},
-	}, v1alpha1.TrafficTarget{
-		TrafficTarget: v1.TrafficTarget{
+		}, v1.TrafficTarget{
 			Tag:               "bar",
 			ConfigurationName: "test-config",
 			Percent:           ptr.Int64(50),
-		},
-	}))
+		}))
 
-	fakeservingclient.Get(ctx).ServingV1alpha1().Routes(testNamespace).Create(route)
+	fakeservingclient.Get(ctx).ServingV1().Routes(testNamespace).Create(route)
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
@@ -1031,8 +1008,8 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 func TestUpdateDomainConfigMap(t *testing.T) {
 	ctx, _, reconciler, watcher, cf := newTestReconciler(t)
 	defer cf()
-	route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{}))
-	routeClient := fakeservingclient.Get(ctx).ServingV1alpha1().Routes(route.Namespace)
+	route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{}))
+	routeClient := fakeservingclient.Get(ctx).ServingV1().Routes(route.Namespace)
 
 	// Create a route.
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
@@ -1183,7 +1160,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 
 			// Check for Ingress created as a signal that syncHandler ran
 			h.OnUpdate(&servingClient.Fake, "routes", func(obj runtime.Object) HookResult {
-				rt := obj.(*v1alpha1.Route)
+				rt := obj.(*v1.Route)
 				t.Logf("route updated: %q", rt.Name)
 
 				expectedDomain := fmt.Sprintf("%s.%s.%s", rt.Name, rt.Namespace, test.expectedDomainSuffix)
@@ -1214,10 +1191,10 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })
 
 			// Create a route.
-			route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{}))
+			route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{}))
 			route.Labels = map[string]string{"app": "prod"}
 
-			servingClient.ServingV1alpha1().Routes(route.Namespace).Create(route)
+			servingClient.ServingV1().Routes(route.Namespace).Create(route)
 
 			test.doThings(watcher)
 
