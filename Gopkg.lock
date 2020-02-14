@@ -1800,8 +1800,8 @@
   revision = "1094caadaed62a3d7edf3830824d1d8ee1b1ff42"
 
 [[projects]]
-  branch = "master"
-  digest = "1:08f61d9c869f9ede5e90279575ac65a6147c190ef3ccc1cff2d38f9cf515353c"
+  branch = "filter"
+  digest = "1:f2164eb8c12cf2c0196bbf0a222acf9a16744c8923ac3513c0415280f6d46af3"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1908,7 +1908,8 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "91a86d6aecdeaf91afe351e132c7c86047007563"
+  revision = "93c8d4e353e2004e289e5e8dbd530bfaad078d8d"
+  source = "github.com/nachocano/pkg"
 
 [[projects]]
   branch = "master"

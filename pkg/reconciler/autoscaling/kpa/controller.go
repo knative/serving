@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/reconciler"
@@ -59,7 +60,7 @@ func NewController(
 	metricInformer := metricinformer.Get(ctx)
 	psInformerFactory := podscalable.Get(ctx)
 
-	onlyKpaClass := reconciler.AnnotationFilterFunc(
+	onlyKpaClass := pkgreconciler.AnnotationFilterFunc(
 		autoscaling.ClassAnnotationKey, autoscaling.KPA, false /*allowUnset*/)
 
 	c := &Reconciler{
@@ -109,7 +110,7 @@ func NewController(
 	})
 
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: reconciler.LabelExistsFilterFunc(autoscaling.KPALabelKey),
+		FilterFunc: pkgreconciler.LabelExistsFilterFunc(autoscaling.KPALabelKey),
 		Handler:    controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource("", autoscaling.KPALabelKey)),
 	})
 
