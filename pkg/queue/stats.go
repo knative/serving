@@ -94,8 +94,7 @@ func NewStats(startedAt time.Time, reqCh chan ReqEvent, reportCh <-chan time.Tim
 				// Reset the stat counts which have been reported.
 				timeOnConcurrency = map[int]time.Duration{}
 				timeOnProxiedConcurrency = map[int]time.Duration{}
-				requestCount = 0
-				proxiedCount = 0
+				requestCount, proxiedCount = 0, 0
 			}
 		}
 	}()

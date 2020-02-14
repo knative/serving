@@ -34,7 +34,6 @@ import (
 
 	"github.com/kelseyhightower/envconfig"
 	"go.opencensus.io/plugin/ochttp"
-	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
@@ -59,7 +58,6 @@ import (
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
 	"knative.dev/serving/pkg/queue/readiness"
-	queuestats "knative.dev/serving/pkg/queue/stats"
 )
 
 const (
@@ -75,13 +73,6 @@ const (
 	badProbeTemplate   = "unexpected probe header value: %s"
 	failingHealthcheck = "failing healthcheck"
 
-	// Metrics' names (without component prefix).
-	requestCountN          = "request_count"
-	responseTimeInMsecN    = "request_latencies"
-	appRequestCountN       = "app_request_count"
-	appResponseTimeInMsecN = "app_request_latencies"
-	queueDepthN            = "queue_depth"
-
 	healthURLTemplate = "http://127.0.0.1:%d"
 	// The 25 millisecond retry interval is an unscientific compromise between wanting to get
 	// started as early as possible while still wanting to give the container some breathing
@@ -93,28 +84,6 @@ const (
 
 var (
 	logger *zap.SugaredLogger
-
-	// Metric counters.
-	requestCountM = stats.Int64(
-		requestCountN,
-		"The number of requests that are routed to queue-proxy",
-		stats.UnitDimensionless)
-	responseTimeInMsecM = stats.Float64(
-		responseTimeInMsecN,
-		"The response time in millisecond",
-		stats.UnitMilliseconds)
-	appRequestCountM = stats.Int64(
-		appRequestCountN,
-		"The number of requests that are routed to user-container",
-		stats.UnitDimensionless)
-	appResponseTimeInMsecM = stats.Float64(
-		appResponseTimeInMsecN,
-		"The response time in millisecond",
-		stats.UnitMilliseconds)
-	queueDepthM = stats.Int64(
-		queueDepthN,
-		"The current number of items in the serving and waiting queue, or not reported if unlimited concurrency.",
-		stats.UnitDimensionless)
 
 	readinessProbeTimeout = flag.Int("probe-period", -1, "run readiness probe with given timeout")
 )
@@ -510,8 +479,7 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, req
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
 	var composedHandler http.Handler = httpProxy
 	if metricsSupported {
-		composedHandler = pushRequestMetricHandler(httpProxy, appRequestCountM, appResponseTimeInMsecM,
-			queueDepthM, breaker, env)
+		composedHandler = requestAppMetricsHandler(httpProxy, breaker, env)
 	}
 	composedHandler = proxyHandler(reqChan, breaker, tracingEnabled, composedHandler)
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
@@ -520,8 +488,7 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, req
 	composedHandler = pushRequestLogHandler(composedHandler, env)
 
 	if metricsSupported {
-		composedHandler = pushRequestMetricHandler(composedHandler, requestCountM, responseTimeInMsecM,
-			nil /*queueDepthM*/, nil /*breaker*/, env)
+		composedHandler = requestMetricsHandler(composedHandler, env)
 	}
 	composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
 
@@ -631,20 +598,24 @@ func pushRequestLogHandler(currentHandler http.Handler, env config) http.Handler
 	return handler
 }
 
-func pushRequestMetricHandler(currentHandler http.Handler, countMetric *stats.Int64Measure,
-	latencyMetric *stats.Float64Measure, queueDepthMetric *stats.Int64Measure, breaker *queue.Breaker, env config) http.Handler {
-	r, err := queuestats.NewStatsReporter(env.ServingNamespace, env.ServingService, env.ServingConfiguration, env.ServingRevision, env.ServingPod, countMetric, latencyMetric, queueDepthMetric)
+func requestMetricsHandler(currentHandler http.Handler, env config) http.Handler {
+	h, err := queue.NewRequestMetricsHandler(currentHandler, env.ServingNamespace,
+		env.ServingService, env.ServingConfiguration, env.ServingRevision, env.ServingPod)
 	if err != nil {
 		logger.Errorw("Error setting up request metrics reporter. Request metrics will be unavailable.", zap.Error(err))
 		return currentHandler
 	}
+	return h
+}
 
-	handler, err := queue.NewRequestMetricHandler(currentHandler, r, breaker)
+func requestAppMetricsHandler(currentHandler http.Handler, breaker *queue.Breaker, env config) http.Handler {
+	h, err := queue.NewAppRequestMetricsHandler(currentHandler, breaker, env.ServingNamespace,
+		env.ServingService, env.ServingConfiguration, env.ServingRevision, env.ServingPod)
 	if err != nil {
-		logger.Errorw("Error setting up request metrics handler. Request metrics will be unavailable.", zap.Error(err))
+		logger.Errorw("Error setting up app request metrics reporter. Request metrics will be unavailable.", zap.Error(err))
 		return currentHandler
 	}
-	return handler
+	return h
 }
 
 func setupMetricsExporter(backend string) error {
