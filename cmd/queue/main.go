@@ -488,7 +488,7 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, req
 	composedHandler = pushRequestLogHandler(composedHandler, env)
 
 	if metricsSupported {
-		composedHandler = requestMetricsHandler(httpProxy, env)
+		composedHandler = requestMetricsHandler(composedHandler, env)
 	}
 	composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
 
