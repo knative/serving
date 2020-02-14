@@ -30,9 +30,7 @@ required = [
 
 [[override]]
   name = "knative.dev/pkg"
-  source = "github.com/nachocano/pkg"
-  branch = "filter"
-# DO NOT SUBMIT
+  branch = "master"
 
 [[constraint]]
   name = "knative.dev/caching"

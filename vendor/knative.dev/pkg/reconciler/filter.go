@@ -22,12 +22,7 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 func AnnotationFilterFunc(key string, value string, allowUnset bool) func(interface{}) bool {
 	return func(obj interface{}) bool {
 		if mo, ok := obj.(metav1.Object); ok {
-			anno := mo.GetAnnotations()
-			annoVal, ok := anno[key]
-			if !ok {
-				return allowUnset
-			}
-			return annoVal == value
+			return mapHasOrDefault(mo.GetAnnotations(), key, value, allowUnset)
 		}
 		return false
 	}
@@ -49,12 +44,7 @@ func LabelExistsFilterFunc(label string) func(obj interface{}) bool {
 func LabelFilterFunc(label string, value string, allowUnset bool) func(interface{}) bool {
 	return func(obj interface{}) bool {
 		if mo, ok := obj.(metav1.Object); ok {
-			labels := mo.GetLabels()
-			val, ok := labels[label]
-			if !ok {
-				return allowUnset
-			}
-			return val == value
+			return mapHasOrDefault(mo.GetLabels(), label, value, allowUnset)
 		}
 		return false
 	}
@@ -97,4 +87,14 @@ func ChainFilterFuncs(funcs ...func(interface{}) bool) func(interface{}) bool {
 		}
 		return true
 	}
+}
+
+// mapHasOrDefault returns true if the map has the key and its value is equal to value.
+// If the key is not found, it returns defaultValue.
+func mapHasOrDefault(m map[string]string, key string, value string, defaultValue bool) bool {
+	val, ok := m[key]
+	if !ok {
+		return defaultValue
+	}
+	return val == value
 }
