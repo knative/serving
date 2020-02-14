@@ -90,6 +90,21 @@ func CheckDistributionData(t test.T, name string, wantTags map[string]string, ex
 	}
 }
 
+// CheckDistributionRange checks the view with a name matching string name to verify that the DistributionData stats reported
+// are tagged with the tags in wantTags and that expectedCount number of records were reported.
+func CheckDistributionCount(t test.T, name string, wantTags map[string]string, expectedCount int64) {
+	t.Helper()
+	if row := checkExactlyOneRow(t, name); row != nil {
+		checkRowTags(t, row, name, wantTags)
+
+		if s, ok := row.Data.(*view.DistributionData); !ok {
+			t.Error("want DistributionData", "metric", name, "got", reflect.TypeOf(row.Data))
+		} else if s.Count != expectedCount {
+			t.Error("reporter count wrong", "metric", name, "got", s.Count, "want", expectedCount)
+		}
+	}
+}
+
 // CheckLastValueData checks the view with a name matching string name to verify that the LastValueData stats
 // reported are tagged with the tags in wantTags and that wantValue matches reported last value.
 func CheckLastValueData(t test.T, name string, wantTags map[string]string, wantValue float64) {
