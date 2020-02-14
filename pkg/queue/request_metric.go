@@ -17,40 +17,106 @@ limitations under the License.
 package queue
 
 import (
-	"errors"
+	"context"
 	"net/http"
 	"time"
 
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
+
+	pkgmetrics "knative.dev/pkg/metrics"
 	pkghttp "knative.dev/serving/pkg/http"
+	"knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/queue/stats"
 )
 
-type requestMetricHandler struct {
-	handler       http.Handler
-	statsReporter stats.StatsReporter
-	breaker       *Breaker
+var (
+	// NOTE: 0 should not be used as boundary. See
+	// https://github.com/census-ecosystem/opencensus-go-exporter-stackdriver/issues/98
+	defaultLatencyDistribution = view.Distribution(
+		5, 10, 20, 40, 60, 80, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600,
+		700, 800, 900, 1000, 2000, 5000, 10000, 20000, 50000, 100000)
+
+	// Metric counters.
+	requestCountM = stats.Int64(
+		"request_count",
+		"The number of requests that are routed to queue-proxy",
+		stats.UnitDimensionless)
+	responseTimeInMsecM = stats.Float64(
+		"request_latencies",
+		"The response time in millisecond",
+		stats.UnitMilliseconds)
+	appRequestCountM = stats.Int64(
+		"app_request_count",
+		"The number of requests that are routed to user-container",
+		stats.UnitDimensionless)
+	appResponseTimeInMsecM = stats.Float64(
+		"app_request_latencies",
+		"The response time in millisecond",
+		stats.UnitMilliseconds)
+	queueDepthM = stats.Int64(
+		"queue_depth",
+		"The current number of items in the serving and waiting queue, or not reported if unlimited concurrency.",
+		stats.UnitDimensionless)
+)
+
+type requestMetricsHandler struct {
+	next     http.Handler
+	statsCtx context.Context
 }
 
-// NewRequestMetricHandler creates an http.Handler that emits request metrics.
-func NewRequestMetricHandler(h http.Handler, r stats.StatsReporter, b *Breaker) (http.Handler, error) {
-	if r == nil {
-		return nil, errors.New("StatsReporter must not be nil")
+type appRequestMetricsHandler struct {
+	next     http.Handler
+	statsCtx context.Context
+	breaker  *Breaker
+}
+
+// NewRequestMetricsHandler creates an http.Handler that emits request metrics.
+func NewRequestMetricsHandler(next http.Handler,
+	ns, service, config, rev, pod string) (http.Handler, error) {
+	keys := append(metrics.CommonRevisionKeys, metrics.PodTagKey,
+		metrics.ContainerTagKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey)
+	if err := view.Register(
+		&view.View{
+			Description: "The number of requests that are routed to queue-proxy",
+			Measure:     requestCountM,
+			Aggregation: view.Count(),
+			TagKeys:     keys,
+		},
+		&view.View{
+			Description: "The response time in millisecond",
+			Measure:     responseTimeInMsecM,
+			Aggregation: defaultLatencyDistribution,
+			TagKeys:     keys,
+		},
+	); err != nil {
+		return nil, err
 	}
 
-	return &requestMetricHandler{
-		handler:       h,
-		statsReporter: r,
-		breaker:       b,
+	ctx, err := tag.New(
+		context.Background(),
+		tag.Upsert(metrics.PodTagKey, pod),
+		tag.Upsert(metrics.ContainerTagKey, "queue-proxy"),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, err = metrics.AugmentWithRevision(ctx, ns, service, config, rev)
+	if err != nil {
+		return nil, err
+	}
+
+	return &requestMetricsHandler{
+		next:     next,
+		statsCtx: ctx,
 	}, nil
 }
 
-func (h *requestMetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *requestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rr := pkghttp.NewResponseRecorder(w, http.StatusOK)
 	startTime := time.Now()
-	if h.breaker != nil {
-		h.statsReporter.ReportQueueDepth(h.breaker.InFlight())
-	}
 
 	defer func() {
 		// Filter probe requests for revision metrics.
@@ -62,16 +128,89 @@ func (h *requestMetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		err := recover()
 		latency := time.Since(startTime)
 		if err != nil {
-			h.sendRequestMetrics(http.StatusInternalServerError, latency)
+			ctx := metrics.AugmentWithResponse(h.statsCtx, http.StatusInternalServerError)
+			pkgmetrics.RecordBatch(ctx, requestCountM.M(1),
+				responseTimeInMsecM.M(float64(latency.Milliseconds())))
 			panic(err)
 		}
-		h.sendRequestMetrics(rr.ResponseCode, latency)
+		ctx := metrics.AugmentWithResponse(h.statsCtx, rr.ResponseCode)
+		pkgmetrics.RecordBatch(ctx, requestCountM.M(1),
+			responseTimeInMsecM.M(float64(latency.Milliseconds())))
 	}()
 
-	h.handler.ServeHTTP(rr, r)
+	h.next.ServeHTTP(rr, r)
 }
 
-func (h *requestMetricHandler) sendRequestMetrics(respCode int, latency time.Duration) {
-	h.statsReporter.ReportRequestCount(respCode)
-	h.statsReporter.ReportResponseTime(respCode, latency)
+// NewAppRequestMetricsHandler creates an http.Handler that emits request metrics.
+func NewAppRequestMetricsHandler(next http.Handler, b *Breaker,
+	ns, service, config, rev, pod string) (http.Handler, error) {
+	keys := append(metrics.CommonRevisionKeys, metrics.PodTagKey,
+		metrics.ContainerTagKey, metrics.ResponseCodeKey, metrics.ResponseCodeClassKey)
+	if err := view.Register(&view.View{
+		Description: "The number of requests that are routed to queue-proxy",
+		Measure:     appRequestCountM,
+		Aggregation: view.Count(),
+		TagKeys:     keys,
+	}, &view.View{
+		Description: "The response time in millisecond",
+		Measure:     appResponseTimeInMsecM,
+		Aggregation: defaultLatencyDistribution,
+		TagKeys:     keys,
+	}, &view.View{
+		Description: "The number of items queued at this queue proxy.",
+		Measure:     queueDepthM,
+		Aggregation: view.LastValue(),
+		TagKeys:     keys,
+	}); err != nil {
+		return nil, err
+	}
+
+	ctx, err := tag.New(
+		context.Background(),
+		tag.Upsert(metrics.PodTagKey, pod),
+		tag.Upsert(metrics.ContainerTagKey, "queue-proxy"),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, err = metrics.AugmentWithRevision(ctx, ns, service, config, rev)
+	if err != nil {
+		return nil, err
+	}
+
+	return &appRequestMetricsHandler{
+		next:     next,
+		statsCtx: ctx,
+		breaker:  b,
+	}, nil
+}
+
+func (h *appRequestMetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	rr := pkghttp.NewResponseRecorder(w, http.StatusOK)
+	startTime := time.Now()
+
+	if h.breaker != nil {
+		pkgmetrics.Record(h.statsCtx, queueDepthM.M(int64(h.breaker.InFlight())))
+	}
+	defer func() {
+		// Filter probe requests for revision metrics.
+		if network.IsProbe(r) {
+			return
+		}
+
+		// If ServeHTTP panics, recover, record the failure and panic again.
+		err := recover()
+		latency := time.Since(startTime)
+		if err != nil {
+			ctx := metrics.AugmentWithResponse(h.statsCtx, http.StatusInternalServerError)
+			pkgmetrics.RecordBatch(ctx, appRequestCountM.M(1),
+				appResponseTimeInMsecM.M(float64(latency.Milliseconds())))
+			panic(err)
+		}
+		ctx := metrics.AugmentWithResponse(h.statsCtx, rr.ResponseCode)
+		pkgmetrics.RecordBatch(ctx, appRequestCountM.M(1),
+			appResponseTimeInMsecM.M(float64(latency.Milliseconds())))
+	}()
+	h.next.ServeHTTP(rr, r)
 }
