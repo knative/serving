@@ -19,23 +19,20 @@ package configuration
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sort"
 	"strconv"
 
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
-	"k8s.io/client-go/tools/cache"
-	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/configuration/resources"
@@ -46,63 +43,14 @@ type Reconciler struct {
 	*reconciler.Base
 
 	// listers index properties about resources
-	configurationLister listers.ConfigurationLister
-	revisionLister      listers.RevisionLister
+	revisionLister listers.RevisionLister
 }
 
-// Check that our Reconciler implements controller.Reconciler
-var _ controller.Reconciler = (*Reconciler)(nil)
+// Check that our Reconciler implements configreconciler.Interface
+var _ configreconciler.Interface = (*Reconciler)(nil)
 
-// Reconcile compares the actual state with the desired, and attempts to
-// converge the two. It then updates the Status block of the Configuration
-// resource with the current status of the resource.
-func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
+func (c *Reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
-
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		logger.Errorw("Invalid resource key", zap.Error(err))
-		return nil
-	}
-
-	// Get the Configuration resource with this namespace/name.
-	original, err := c.configurationLister.Configurations(namespace).Get(name)
-	if errors.IsNotFound(err) {
-		// The resource no longer exists, in which case we stop processing.
-		logger.Info("Configuration in work queue no longer exists")
-		return nil
-	} else if err != nil {
-		return err
-	}
-
-	// Don't modify the informer's copy.
-	config := original.DeepCopy()
-
-	// Reconcile this copy of the configuration and then write back any status
-	// updates regardless of whether the reconciliation errored out.
-	reconcileErr := c.reconcile(ctx, config)
-	if equality.Semantic.DeepEqual(original.Status, config.Status) {
-		// If we didn't change anything then don't call updateStatus.
-		// This is important because the copy we loaded from the informer's
-		// cache may be stale and we don't want to overwrite a prior update
-		// to status with this stale state.
-	} else if err = c.updateStatus(original, config); err != nil {
-		logger.Warnw("Failed to update configuration status", zap.Error(err))
-		c.Recorder.Eventf(config, corev1.EventTypeWarning, "UpdateFailed", "Failed to update status: %v", err)
-		return err
-	}
-	if reconcileErr != nil {
-		c.Recorder.Event(config, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
-		return reconcileErr
-	}
-	return nil
-}
-
-func (c *Reconciler) reconcile(ctx context.Context, config *v1.Configuration) error {
-	logger := logging.FromContext(ctx)
-	if config.GetDeletionTimestamp() != nil {
-		return nil
-	}
 
 	// We may be reading a version of the object that was stored at an older version
 	// and may not have had all of the assumed defaults specified.  This won't result
@@ -321,26 +269,4 @@ func (c *Reconciler) createRevision(ctx context.Context, config *v1.Configuratio
 	logger.Infof("Created Revision: %#v", created)
 
 	return created, nil
-}
-
-func (c *Reconciler) updateStatus(existing *v1.Configuration, desired *v1.Configuration) error {
-	existing = existing.DeepCopy()
-	return pkgreconciler.RetryUpdateConflicts(func(attempts int) (err error) {
-		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
-		if attempts > 0 {
-			existing, err = c.ServingClientSet.ServingV1().Configurations(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-		}
-
-		// If there's nothing to update, just return.
-		if reflect.DeepEqual(existing.Status, desired.Status) {
-			return nil
-		}
-
-		existing.Status = desired.Status
-		_, err = c.ServingClientSet.ServingV1().Configurations(desired.Namespace).UpdateStatus(existing)
-		return err
-	})
 }
