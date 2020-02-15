@@ -324,12 +324,11 @@ function install_knative_serving_standard() {
 	    -f "${SERVING_HPA_YAML}" || return 1
     UNINSTALL_LIST+=( "${SERVING_CORE_YAML}" "${SERVING_HPA_YAML}" )
 
-    # ${SERVING_CERT_MANAGER_YAML} and ${SERVING_NSCERT_YAML} are set when calling
+    # ${SERVING_CERT_MANAGER_YAML} is set when calling
     # build_knative_from_source
-    echo "Knative TLS YAML: ${SERVING_CERT_MANAGER_YAML} and ${SERVING_NSCERT_YAML}"
+    echo "Knative TLS YAML: ${SERVING_CERT_MANAGER_YAML}"
     kubectl apply \
-      -f "${SERVING_CERT_MANAGER_YAML}" \
-      -f "${SERVING_NSCERT_YAML}" || return 1
+      -f "${SERVING_CERT_MANAGER_YAML}" || return 1
 
     if (( INSTALL_MONITORING )); then
 	echo ">> Installing Monitoring"

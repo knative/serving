@@ -100,9 +100,10 @@ kubectl delete -f ./test/config/autotls/certmanager/selfsigned/
 
 # Auto TLS test for per-namespace certificate provision using self-signed CA
 setup_selfsigned_per_namespace_auto_tls
+add_trap "cleanup_per_selfsigned_namespace_auto_tls" SIGKILL SIGTERM SIGQUIT
 go_test_e2e -timeout=10m \
   ./test/e2e/autotls/ || failed=1
-kubectl delete -f ./test/config/autotls/certmanager/selfsigned/
+cleanup_per_selfsigned_namespace_auto_tls
 
 # Auto TLS test for per-ksvc certificate provision using HTTP01 challenge
 setup_http01_auto_tls

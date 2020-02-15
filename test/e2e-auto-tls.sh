@@ -57,10 +57,6 @@ function setup_auto_tls_common() {
 
   setup_custom_domain
 
-  # Disable namespace certificate.
-  unset NamespaceWithCert
-  go run ./test/e2e/autotls/config/disablenscert
-
   turn_on_auto_tls
 }
 
@@ -79,10 +75,6 @@ function setup_http01_auto_tls() {
   # The full host name of the Knative Service. This is used to configure the DNS record.
   export FULL_HOST_NAME="${TLS_SERVICE_NAME}.serving-tests.${CUSTOM_DOMAIN_SUFFIX}"
 
-  # Disable namespace certificate.
-  unset NamespaceWithCert
-  go run ./test/e2e/autotls/config/disablenscert
-
   kubectl delete kcert --all -n serving-tests
 
   kubectl apply -f test/config/autotls/certmanager/http01/
@@ -94,10 +86,6 @@ function setup_selfsigned_per_ksvc_auto_tls() {
   export AUTO_TLS_TEST_NAME="SelfSignedPerKsvc"
   # The name of the Knative Service deployed in Auto TLS E2E test.
   export TLS_SERVICE_NAME="self-per-ksvc"
-
-  # Disable namespace certificate.
-  unset NamespaceWithCert
-  go run ./test/e2e/autotls/config/disablenscert
 
   kubectl delete kcert --all -n serving-tests
   kubectl apply -f test/config/autotls/certmanager/selfsigned/
@@ -111,11 +99,28 @@ function setup_selfsigned_per_namespace_auto_tls() {
 
   kubectl delete kcert --all -n serving-tests
 
-  # Enable namespace certificate.
-  export NamespaceWithCert="serving-tests"
+  # Enable namespace certificate only for serving-tests namespaces
+  export NAMESPACE_WITH_CERT="serving-tests"
   go run ./test/e2e/autotls/config/disablenscert
 
   kubectl apply -f test/config/autotls/certmanager/selfsigned/
+
+  # SERVING_NSCERT_YAML is set in build_knative_from_source function 
+  # when building knative.
+  echo "Intall namespace cert controller: ${SERVING_NSCERT_YAML}"
+  if [[ -z "${SERVING_NSCERT_YAML}" ]]; then
+    echo "Error: variable SERVING_NSCERT_YAML is not set."
+    exit 1
+  fi
+  kubectl apply -f ${SERVING_NSCERT_YAML}
+}
+
+function cleanup_per_selfsigned_namespace_auto_tls() {
+  echo "Uninstall namespace cert controller"
+  kubectl delete -f ${SERVING_NSCERT_YAML} --ignore-not-found=true
+
+  kubectl delete kcert --all -n serving-tests
+  kubectl delete -f ./test/config/autotls/certmanager/selfsigned/ --ignore-not-found=true
 }
 
 function setup_dns_record() {
