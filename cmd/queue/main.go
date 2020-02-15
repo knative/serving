@@ -479,7 +479,7 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, req
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
 	var composedHandler http.Handler = httpProxy
 	if metricsSupported {
-		composedHandler = requestAppMetricsHandler(httpProxy, breaker, env)
+		composedHandler = requestAppMetricsHandler(composedHandler, breaker, env)
 	}
 	composedHandler = proxyHandler(reqChan, breaker, tracingEnabled, composedHandler)
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
