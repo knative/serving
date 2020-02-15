@@ -28,8 +28,9 @@ import (
 	kcertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate"
 	routecfg "knative.dev/serving/pkg/reconciler/route/config"
 
+	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/network"
-	pkgreconciler "knative.dev/serving/pkg/reconciler"
+	servingreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/nscert/config"
 )
 
@@ -49,7 +50,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	knCertificateInformer := kcertinformer.Get(ctx)
 
 	c := &reconciler{
-		Base:                pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
+		Base:                servingreconciler.NewBase(ctx, controllerAgentName, cmw),
 		nsLister:            nsInformer.Lister(),
 		knCertificateLister: knCertificateInformer.Lister(),
 	}

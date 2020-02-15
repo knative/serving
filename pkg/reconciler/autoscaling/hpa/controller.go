@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/reconciler"
@@ -53,7 +54,7 @@ func NewController(
 	serviceInformer := serviceinformer.Get(ctx)
 	metricInformer := metricinformer.Get(ctx)
 
-	onlyHpaClass := reconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.HPA, false)
+	onlyHpaClass := pkgreconciler.AnnotationFilterFunc(autoscaling.ClassAnnotationKey, autoscaling.HPA, false)
 
 	c := &Reconciler{
 		Base: &areconciler.Base{

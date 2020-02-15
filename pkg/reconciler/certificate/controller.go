@@ -25,6 +25,7 @@ import (
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/tracker"
 	"knative.dev/serving/pkg/apis/networking"
 	cmclient "knative.dev/serving/pkg/client/certmanager/injection/client"
@@ -75,7 +76,7 @@ func NewController(
 	})
 
 	c.Logger.Info("Setting up event handlers")
-	classFilterFunc := reconciler.AnnotationFilterFunc(networking.CertificateClassAnnotationKey, network.CertManagerCertificateClassName, true)
+	classFilterFunc := pkgreconciler.AnnotationFilterFunc(networking.CertificateClassAnnotationKey, network.CertManagerCertificateClassName, true)
 	certHandler := cache.FilteringResourceEventHandler{
 		FilterFunc: classFilterFunc,
 		Handler:    controller.HandleAll(impl.Enqueue),
