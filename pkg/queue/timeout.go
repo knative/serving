@@ -33,7 +33,7 @@ import (
 //
 // The new Handler calls h.ServeHTTP to handle each request, but if a
 // call runs for longer than its time limit, the handler responds with
-// a 503 Service Unavailable error and the given message in its body.
+// a 504 Gateway Timeout error and the given message in its body.
 // (If msg is empty, a suitable default message will be sent.)
 // After such a timeout, writes by h to its ResponseWriter will return
 // ErrHandlerTimeout.
@@ -47,14 +47,14 @@ func TimeToFirstByteTimeoutHandler(h http.Handler, dt time.Duration, msg string)
 	return &timeoutHandler{
 		handler: h,
 		body:    msg,
-		dt:      dt,
+		timeout: dt,
 	}
 }
 
 type timeoutHandler struct {
 	handler http.Handler
 	body    string
-	dt      time.Duration
+	timeout time.Duration
 }
 
 func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -80,7 +80,7 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.handler.ServeHTTP(tw, r.WithContext(ctx))
 	}()
 
-	timeout := time.NewTimer(h.dt)
+	timeout := time.NewTimer(h.timeout)
 	defer timeout.Stop()
 	for {
 		select {
@@ -161,7 +161,7 @@ func (tw *timeoutWriter) TimeoutAndWriteError(msg string) bool {
 	defer tw.mu.Unlock()
 
 	if !tw.wroteOnce {
-		tw.w.WriteHeader(http.StatusServiceUnavailable)
+		tw.w.WriteHeader(http.StatusGatewayTimeout)
 		io.WriteString(tw.w, msg)
 
 		tw.timedOut = true

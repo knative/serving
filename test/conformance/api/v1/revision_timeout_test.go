@@ -224,10 +224,10 @@ func TestRevisionTimeout(t *testing.T) {
 	}
 
 	// Fail by surpassing the initial timeout.
-	if err := sendRequest(t, clients, rev2sURL, 5, 0, http.StatusServiceUnavailable); err != nil {
+	if err := sendRequest(t, clients, rev2sURL, 5, 0, http.StatusGatewayTimeout); err != nil {
 		t.Errorf("Did not fail request with sleep 5s with revision timeout 2s: %v", err)
 	}
-	if err := sendRequest(t, clients, rev5sURL, 7, 0, http.StatusServiceUnavailable); err != nil {
+	if err := sendRequest(t, clients, rev5sURL, 7, 0, http.StatusGatewayTimeout); err != nil {
 		t.Errorf("Did not fail request with sleep 7s with revision timeout 5s: %v", err)
 	}
 

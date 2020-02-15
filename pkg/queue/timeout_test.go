@@ -61,7 +61,7 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 			})
 		},
 		timeoutMessage: "request timeout",
-		wantStatus:     http.StatusServiceUnavailable,
+		wantStatus:     http.StatusGatewayTimeout,
 		wantBody:       "request timeout",
 		wantWriteError: true,
 	}, {
@@ -72,7 +72,7 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 				panic(http.ErrAbortHandler)
 			})
 		},
-		wantStatus: http.StatusServiceUnavailable,
+		wantStatus: http.StatusGatewayTimeout,
 		wantBody:   "request timeout",
 		wantPanic:  true,
 	}}
@@ -91,7 +91,7 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 			defer func() {
 				if test.wantPanic {
 					if recovered := recover(); recovered != http.ErrAbortHandler {
-						t.Error("Expected the handler to panic, but it didn't.")
+						t.Errorf("Recover = %v, want: %v", recovered, http.ErrAbortHandler)
 					}
 				}
 			}()
@@ -109,8 +109,7 @@ func TestTimeToFirstByteTimeoutHandler(t *testing.T) {
 			}
 
 			if test.wantWriteError {
-				err := <-writeErrors
-				if err != http.ErrHandlerTimeout {
+				if err := <-writeErrors; err != http.ErrHandlerTimeout {
 					t.Errorf("Expected a timeout error, got %v", err)
 				}
 			}
