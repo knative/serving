@@ -37,7 +37,9 @@ function setup_auto_tls_env_variables() {
 }
 
 function setup_custom_domain() {
-  kubectl patch cm config-domain -n knative-serving -p "{\"data\":{\"${CUSTOM_DOMAIN_SUFFIX}\":\"\"}}"
+  local TMP_YAML="$(mktemp)"
+  sed "s/auto-tls-domain-holder/${CUSTOM_DOMAIN_SUFFIX}/" test/config/autotls/config-domain.yaml > $TMP_YAML
+  kubectl apply -f $TMP_YAML
 }
 
 function cleanup_custom_domain() {

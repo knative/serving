@@ -90,7 +90,7 @@ fi
 # Auto TLS E2E tests mutate the cluster and must be ran separately
 # because they need auto-tls and cert-manager specific configurations
 setup_auto_tls_common
-add_trap "cleanup_auto_tls_common" SIGKILL SIGTERM SIGQUIT
+add_trap "cleanup_auto_tls_common" EXIT SIGKILL SIGTERM SIGQUIT
 
 # Auto TLS test for per-ksvc certificate provision using self-signed CA
 setup_selfsigned_per_ksvc_auto_tls
