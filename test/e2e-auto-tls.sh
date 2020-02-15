@@ -105,7 +105,7 @@ function setup_selfsigned_per_namespace_auto_tls() {
 
   kubectl apply -f test/config/autotls/certmanager/selfsigned/
 
-  # SERVING_NSCERT_YAML is set in build_knative_from_source function 
+  # SERVING_NSCERT_YAML is set in build_knative_from_source function
   # when building knative.
   echo "Intall namespace cert controller: ${SERVING_NSCERT_YAML}"
   if [[ -z "${SERVING_NSCERT_YAML}" ]]; then
