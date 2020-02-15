@@ -48,7 +48,7 @@ func createService(t *testing.T, clients *test.Clients, names test.ResourceNames
 	return clients.ServingBetaClient.Services.Create(service)
 }
 
-func updateServiceWithTimeout(clients *test.Clients, names test.ResourceNames, revisionTimeoutSeconds int) error {
+func updateServiceWithTimeout(clients *test.Clients, names test.ResourceNames, revisionTimeoutSeconds int64) error {
 	patches := []jsonpatch.JsonPatchOperation{{
 		Operation: "replace",
 		Path:      "/spec/template/spec/timeoutSeconds",
