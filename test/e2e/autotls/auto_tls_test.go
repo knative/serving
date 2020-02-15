@@ -22,7 +22,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net/http"
-	"strings"
 	"testing"
 	"time"
 
@@ -61,29 +60,12 @@ type config struct {
 
 var env config
 
-// To run this E2E test locally:
-// test case 1: testing per ksvc certificate provision with self-signed CA
-//   1) `kubectl label namespace serving-tests networking.internal.knative.dev/disableWildcardCert=true`
-//   2) `kubectl delete kcert --all -n serving-tests`
-//   3) `kubectl apply -f test/config/autotls/certmanager/selfsigned/`
-//   4) `go test -v -tags=e2e -count=1 -timeout=600s ./test/e2e/autotls/... -run  ^TestAutoTLS$`
-// test case 2: testing per namespace certificate provision with self-signed CA
-//   1) `kubectl delete kcert --all -n serving-tests`
-//   2) kubectl apply -f test/config/autotls/certmanager/selfsigned/
-//   3) Run `kubectl edit namespace serving-tests` and remove the label networking.internal.knative.dev/disableWildcardCert
-//   4) `go test -v -tags=e2e -count=1 -timeout=600s ./test/e2e/autotls/... -run  ^TestAutoTLS$`
-// test case 3: testing per ksvc certificate provision with HTTP challenge
-//   1) `kubectl label namespace serving-tests networking.internal.knative.dev/disableWildcardCert=true`
-//   2) `kubectl delete kcert --all -n serving-tests`
-//   3) `kubectl apply -f test/config/autotls/certmanager/http01/`
-//   4) `export SERVICE_NAME=http01`
-//   5) `kubectl patch cm config-domain -n knative-serving -p '{"data":{"<your-custom-domain>":""}}'`
-//   6) Add a DNS A record to map host `http01.serving-tests.<your-custom-domain>` to the Ingress IP.
-//   7) `go test -v -tags=e2e -count=1 -timeout=600s ./test/e2e/autotls/... -run  ^TestAutoTLS$`
 func TestAutoTLS(t *testing.T) {
 	if err := envconfig.Process("", &env); err != nil {
 		t.Fatalf("Failed to process environment variable: %v.", err)
 	}
+	// The environment variable `AutoTLSTestName` is allowed to be ignored in the local test.
+	// As a result, we need to provide a default value for it.
 	testName := "TestAutoTLS"
 	if len(env.AutoTLSTestName) != 0 {
 		testName = env.AutoTLSTestName
@@ -109,18 +91,9 @@ func testAutoTLS(t *testing.T) {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	var certName string
-	if isNamespaceCertEnabled(t, clients) {
-		name, err := waitForNamespaceCertReady(clients)
-		if err != nil {
-			t.Fatalf("Failed to wait for namespace certificate to be ready: %v", err)
-		}
-		certName = name
-	} else {
-		certName = routenames.Certificate(objects.Route)
-		if err := waitForCertificateReady(t, clients, certName); err != nil {
-			t.Fatalf("Failed to wait for certificate %s to be ready: %v,", certName, err)
-		}
+	certName := getCertificateName(t, clients, objects)
+	if err := waitForCertificateReady(t, clients, certName); err != nil {
+		t.Fatalf("Failed to wait for certificate %s to be ready: %v,", certName, err)
 	}
 
 	// The TLS info is added to the ingress after the service is created, that's
@@ -136,13 +109,16 @@ func testAutoTLS(t *testing.T) {
 	testingress.RuntimeRequest(t, httpsClient, "https://"+objects.Service.Status.URL.Host)
 }
 
-func isNamespaceCertEnabled(t *testing.T, clients *test.Clients) bool {
+func getCertificateName(t *testing.T, clients *test.Clients, objects *v1test.ResourceObjects) string {
 	t.Helper()
-	ns, err := clients.KubeClient.Kube.CoreV1().Namespaces().Get(test.ServingNamespace, metav1.GetOptions{})
+	ing, err := clients.NetworkingClient.Ingresses.Get(routenames.Ingress(objects.Route), metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("Failed to get namespace %s: %v", test.ServingNamespace, err)
+		t.Fatalf("Failed to get Ingress %s: %v", routenames.Ingress(objects.Route), err)
 	}
-	return ns.Labels[networking.DisableWildcardCertLabelKey] != "true"
+	if len(ing.Spec.TLS) == 0 {
+		t.Fatalf("IngressTLS field in Ingress %s does not exist.", ing.Name)
+	}
+	return ing.Spec.TLS[0].SecretName
 }
 
 func waitForCertificateReady(t *testing.T, clients *test.Clients, certName string) error {
@@ -160,28 +136,6 @@ func waitForCertificateReady(t *testing.T, clients *test.Clients, certName strin
 		}
 		return cert.Status.IsReady(), nil
 	})
-}
-
-func waitForNamespaceCertReady(clients *test.Clients) (string, error) {
-	var certName string
-	err := wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
-		certs, err := clients.NetworkingClient.Certificates.List(metav1.ListOptions{})
-		if err != nil {
-			return false, err
-		}
-		for _, cert := range certs.Items {
-			if strings.Contains(cert.Name, test.ServingNamespace) {
-				certName = cert.Name
-				if cert.Status.GetCondition(v1alpha1.CertificateConditionReady).IsFalse() {
-					return true, fmt.Errorf("certificate %s failed with status %v", cert.Name, cert.Status)
-				}
-				return cert.Status.IsReady(), nil
-			}
-		}
-		// Namespace certificate has not been created.
-		return false, nil
-	})
-	return certName, err
 }
 
 func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *x509.CertPool {
