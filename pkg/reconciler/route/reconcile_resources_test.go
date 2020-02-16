@@ -46,7 +46,10 @@ import (
 )
 
 func TestReconcileIngressInsert(t *testing.T) {
-	_, _, reconciler, _, cancel := newTestReconciler(t)
+	var reconciler *Reconciler
+	_, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
+		reconciler = r
+	})
 	defer cancel()
 
 	r := Route("test-ns", "test-route")
@@ -58,7 +61,10 @@ func TestReconcileIngressInsert(t *testing.T) {
 }
 
 func TestReconcileIngressUpdate(t *testing.T) {
-	ctx, _, reconciler, _, cancel := newTestReconciler(t)
+	var reconciler *Reconciler
+	ctx, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
+		reconciler = r
+	})
 	defer cancel()
 
 	r := Route("test-ns", "test-route")
@@ -94,7 +100,10 @@ func TestReconcileIngressUpdate(t *testing.T) {
 }
 
 func TestReconcileTargetValidRevision(t *testing.T) {
-	ctx, _, reconciler, _, cancel := newTestReconciler(t)
+	var reconciler *Reconciler
+	ctx, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
+		reconciler = r
+	})
 	defer cancel()
 
 	r := Route("test-ns", "test-route", WithRouteLabel(map[string]string{"route": "test-route"}))
@@ -143,7 +152,10 @@ func TestReconcileTargetValidRevision(t *testing.T) {
 }
 
 func TestReconcileRevisionTargetDoesNotExist(t *testing.T) {
-	ctx, _, reconciler, _, cancel := newTestReconciler(t)
+	var reconciler *Reconciler
+	ctx, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
+		reconciler = r
+	})
 	defer cancel()
 
 	r := Route("test-ns", "test-route", WithRouteLabel(map[string]string{"route": "test-route"}))
@@ -218,7 +230,10 @@ func newTestIngress(t *testing.T, r *v1.Route, trafficOpts ...func(tc *traffic.C
 }
 
 func TestReconcileCertificatesInsert(t *testing.T) {
-	ctx, _, reconciler, _, cancel := newTestReconciler(t)
+	var reconciler *Reconciler
+	ctx, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
+		reconciler = r
+	})
 	defer cancel()
 
 	r := Route("test-ns", "test-route")
@@ -233,7 +248,10 @@ func TestReconcileCertificatesInsert(t *testing.T) {
 }
 
 func TestReconcileCertificateUpdate(t *testing.T) {
-	ctx, _, reconciler, _, cancel := newTestReconciler(t)
+	var reconciler *Reconciler
+	ctx, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
+		reconciler = r
+	})
 	defer cancel()
 
 	r := Route("test-ns", "test-route")
@@ -260,7 +278,10 @@ func TestReconcileCertificateUpdate(t *testing.T) {
 }
 
 func TestReconcileIngressClassAnnotation(t *testing.T) {
-	ctx, _, reconciler, _, cancel := newTestReconciler(t)
+	var reconciler *Reconciler
+	ctx, _, _, _, cancel := newTestSetup(t, func(r *Reconciler) {
+		reconciler = r
+	})
 	defer cancel()
 
 	const expClass = "foo.ingress.networking.knative.dev"

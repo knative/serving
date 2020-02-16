@@ -41,6 +41,7 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
 	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler"
@@ -114,7 +115,7 @@ func TestReconcile(t *testing.T) {
 				WithInitRouteConditions, MarkConfigurationNotReady("not-ready")),
 		}},
 		WantEvents: []string{
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for Route %q: %v",
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for %q: %v",
 				"first-reconcile", "inducing failure for update routes"),
 		},
 		Key: "default/first-reconcile",
@@ -1762,19 +1763,18 @@ func TestReconcile(t *testing.T) {
 	// TODO(mattmoor): Multiple inactive Revisions
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		return &Reconciler{
+		r := &Reconciler{
 			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
-			routeLister:         listers.GetRouteLister(),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
 			serviceLister:       listers.GetK8sServiceLister(),
 			ingressLister:       listers.GetIngressLister(),
 			tracker:             ctx.Value(TrackerKey).(tracker.Interface),
-			configStore: &testConfigStore{
-				config: ReconcilerTestConfig(false),
-			},
-			clock: FakeClock{Time: fakeCurTime},
+			clock:               FakeClock{Time: fakeCurTime},
 		}
+
+		return routereconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetRouteLister(), r.Recorder, r, controller.Options{ConfigStore: &testConfigStore{config: ReconcilerTestConfig(false)}})
+
 	}))
 }
 
@@ -2277,20 +2277,18 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		Key: "default/becomes-local",
 	}}
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
-		return &Reconciler{
+		r := &Reconciler{
 			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
-			routeLister:         listers.GetRouteLister(),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
 			serviceLister:       listers.GetK8sServiceLister(),
 			ingressLister:       listers.GetIngressLister(),
 			certificateLister:   listers.GetCertificateLister(),
 			tracker:             &NullTracker{},
-			configStore: &testConfigStore{
-				config: ReconcilerTestConfig(true),
-			},
-			clock: FakeClock{Time: fakeCurTime},
+			clock:               FakeClock{Time: fakeCurTime},
 		}
+
+		return routereconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetRouteLister(), r.Recorder, r, controller.Options{ConfigStore: &testConfigStore{config: ReconcilerTestConfig(true)}})
 	}))
 }
 
@@ -2401,20 +2399,18 @@ func TestReconcile_EnableAutoTLS_HTTPDisabled(t *testing.T) {
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		cfg := ReconcilerTestConfig(true)
 		cfg.Network.HTTPProtocol = network.HTTPDisabled
-		return &Reconciler{
+		r := &Reconciler{
 			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
-			routeLister:         listers.GetRouteLister(),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
 			serviceLister:       listers.GetK8sServiceLister(),
 			ingressLister:       listers.GetIngressLister(),
 			certificateLister:   listers.GetCertificateLister(),
 			tracker:             &NullTracker{},
-			configStore: &testConfigStore{
-				config: cfg,
-			},
-			clock: FakeClock{Time: fakeCurTime},
+			clock:               FakeClock{Time: fakeCurTime},
 		}
+
+		return routereconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetRouteLister(), r.Recorder, r, controller.Options{ConfigStore: &testConfigStore{config: cfg}})
 	}))
 }
 

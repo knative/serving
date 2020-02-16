@@ -140,28 +140,16 @@ func getTestRevisionForConfig(config *v1.Configuration) *v1.Revision {
 	return rev
 }
 
-func newTestReconciler(t *testing.T, configs ...*corev1.ConfigMap) (
-	ctx context.Context,
-	informers []controller.Informer,
-	reconciler *Reconciler,
-	configMapWatcher *configmap.ManualWatcher,
-	cf context.CancelFunc) {
-	ctx, informers, _, reconciler, configMapWatcher, cf = newTestSetup(t)
-	return
-}
-
-func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
+func newTestSetup(t *testing.T, opts ...reconcilerOption) (
 	ctx context.Context,
 	informers []controller.Informer,
 	ctrl *controller.Impl,
-	reconciler *Reconciler,
 	configMapWatcher *configmap.ManualWatcher,
 	cf context.CancelFunc) {
 
 	ctx, cf, informers = SetupFakeContextWithCancel(t)
 	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
-	ctrl = NewController(ctx, configMapWatcher)
-	reconciler = ctrl.Reconciler.(*Reconciler)
+	ctrl = newControllerWithClock(ctx, configMapWatcher, system.RealClock{}, opts...)
 
 	cms := append([]*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{
@@ -184,7 +172,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{},
-	}}, configs...)
+	}})
 
 	for _, cfg := range cms {
 		configMapWatcher.OnChange(cfg)
@@ -238,10 +226,11 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, route *v1.Route)
 
 // Test the only revision in the route is in Reserve (inactive) serving status.
 func TestCreateRouteForOneReserveRevision(t *testing.T) {
-	ctx, _, reconciler, _, cf := newTestReconciler(t)
+	var fakeRecorder *record.FakeRecorder
+	ctx, _, ctl, _, cf := newTestSetup(t, func(r *Reconciler) {
+		fakeRecorder = r.Base.Recorder.(*record.FakeRecorder)
+	})
 	defer cf()
-
-	fakeRecorder := reconciler.Base.Recorder.(*record.FakeRecorder)
 
 	// An inactive revision
 	rev := getTestRevision("test-rev")
@@ -260,7 +249,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
-	reconciler.Reconcile(context.Background(), KeyOrDie(route))
+	ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
 	ci := getRouteIngressFromClient(ctx, t, route)
 
@@ -334,7 +323,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 		},
 	}
 	fakeingressinformer.Get(ctx).Informer().GetIndexer().Update(ci)
-	reconciler.Reconcile(context.Background(), KeyOrDie(route))
+	ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
 	// Look for the events. Events are delivered asynchronously so we need to use
 	// hooks here. Each hook tests for a specific event.
@@ -359,7 +348,7 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 }
 
 func TestCreateRouteWithMultipleTargets(t *testing.T) {
-	ctx, informers, reconciler, _, cf := newTestReconciler(t)
+	ctx, informers, ctl, _, cf := newTestSetup(t)
 	wicb, err := controller.RunInformers(ctx.Done(), informers...)
 	if err != nil {
 		t.Fatalf("Error starting informers: %v", err)
@@ -398,7 +387,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer.
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
-	reconciler.Reconcile(context.Background(), KeyOrDie(route))
+	ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
 	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
@@ -478,7 +467,7 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 
 // Test one out of multiple target revisions is in Reserve serving state.
 func TestCreateRouteWithOneTargetReserve(t *testing.T) {
-	ctx, _, reconciler, _, cf := newTestReconciler(t)
+	ctx, _, ctl, _, cf := newTestSetup(t)
 	defer cf()
 	// A standalone inactive revision
 	rev := getTestRevision("test-rev")
@@ -513,7 +502,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
-	reconciler.Reconcile(context.Background(), KeyOrDie(route))
+	ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
 	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
@@ -591,7 +580,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 }
 
 func TestCreateRouteWithDuplicateTargets(t *testing.T) {
-	ctx, _, reconciler, _, cf := newTestReconciler(t)
+	ctx, _, ctl, _, cf := newTestSetup(t)
 	defer cf()
 
 	// A standalone revision
@@ -642,7 +631,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
-	reconciler.Reconcile(context.Background(), KeyOrDie(route))
+	ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
 	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
@@ -806,7 +795,7 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 }
 
 func TestCreateRouteWithNamedTargets(t *testing.T) {
-	ctx, _, reconciler, _, cf := newTestReconciler(t)
+	ctx, _, ctl, _, cf := newTestSetup(t)
 	defer cf()
 	// A standalone revision
 	rev := getTestRevision("test-rev")
@@ -842,7 +831,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 	// Since Reconcile looks in the lister, we need to add it to the informer
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 
-	reconciler.Reconcile(context.Background(), KeyOrDie(route))
+	ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
 
 	ci := getRouteIngressFromClient(ctx, t, route)
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
@@ -1006,7 +995,7 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 }
 
 func TestUpdateDomainConfigMap(t *testing.T) {
-	ctx, _, reconciler, watcher, cf := newTestReconciler(t)
+	ctx, _, ctl, watcher, cf := newTestSetup(t)
 	defer cf()
 	route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1.TrafficTarget{}))
 	routeClient := fakeservingclient.Get(ctx).ServingV1().Routes(route.Namespace)
@@ -1014,7 +1003,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 	// Create a route.
 	fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 	routeClient.Create(route)
-	reconciler.Reconcile(context.Background(), KeyOrDie(route))
+	ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
 	addResourcesToInformers(t, ctx, route)
 
 	route.ObjectMeta.Labels = map[string]string{"app": "prod"}
@@ -1081,7 +1070,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			expectation.apply()
 			fakerouteinformer.Get(ctx).Informer().GetIndexer().Add(route)
 			routeClient.Update(route)
-			reconciler.Reconcile(context.Background(), KeyOrDie(route))
+			ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(route))
 			addResourcesToInformers(t, ctx, route)
 
 			route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
@@ -1151,7 +1140,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.expectedDomainSuffix, func(t *testing.T) {
-			ctx, informers, ctrl, _, watcher, cf := newTestSetup(t)
+			ctx, informers, ctrl, watcher, cf := newTestSetup(t)
 
 			grp := errgroup.Group{}
 
