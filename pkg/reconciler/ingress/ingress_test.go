@@ -746,69 +746,6 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		},
 		Key: "test-ns/reconciling-ingress",
 	}, {
-		Name:                    "delete IngressTLS",
-		SkipNamespaceValidation: true,
-		Objects: []runtime.Object{
-			ingressWithFinalizers("reconciling-ingress", 1234, []v1alpha1.IngressTLS{}, []string{ingressFinalizer}, nil),
-			gateway(networking.KnativeIngressGateway, system.Namespace(), []*istiov1alpha3.Server{irrelevantServer, ingressTLSServer}),
-		},
-		WantCreates: []runtime.Object{
-			// The creation of gateways are triggered when setting up the test.
-			gateway(networking.KnativeIngressGateway, system.Namespace(), []*istiov1alpha3.Server{irrelevantServer, ingressTLSServer}),
-
-			resources.MakeMeshVirtualService(insertProbe(ingressWithFinalizers("reconciling-ingress", 1234, []v1alpha1.IngressTLS{}, []string{ingressFinalizer}, nil)), ingressGateway),
-			resources.MakeIngressVirtualService(insertProbe(ingressWithFinalizers("reconciling-ingress", 1234, []v1alpha1.IngressTLS{}, []string{ingressFinalizer}, nil)),
-				makeGatewayMap([]string{"knative-testing/" + networking.KnativeIngressGateway}, nil)),
-		},
-		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			// IngressTLS related TLS servers should be removed from Gateway.
-			Object: gateway(networking.KnativeIngressGateway, system.Namespace(), []*istiov1alpha3.Server{irrelevantServer}),
-		}},
-		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: ingressWithFinalizersAndStatus("reconciling-ingress", 1234,
-				[]string{ingressFinalizer},
-				v1alpha1.IngressStatus{
-					LoadBalancer: &v1alpha1.LoadBalancerStatus{
-						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")},
-						},
-					},
-					PublicLoadBalancer: &v1alpha1.LoadBalancerStatus{
-						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{DomainInternal: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system")},
-						},
-					},
-					PrivateLoadBalancer: &v1alpha1.LoadBalancerStatus{
-						Ingress: []v1alpha1.LoadBalancerIngressStatus{
-							{MeshOnly: true},
-						},
-					},
-					Status: duckv1.Status{
-						Conditions: duckv1.Conditions{{
-							Type:     v1alpha1.IngressConditionLoadBalancerReady,
-							Status:   corev1.ConditionTrue,
-							Severity: apis.ConditionSeverityError,
-						}, {
-							Type:     v1alpha1.IngressConditionNetworkConfigured,
-							Status:   corev1.ConditionTrue,
-							Severity: apis.ConditionSeverityError,
-						}, {
-							Type:     v1alpha1.IngressConditionReady,
-							Status:   corev1.ConditionTrue,
-							Severity: apis.ConditionSeverityError,
-						}},
-					},
-				},
-			),
-		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconciling-ingress-mesh"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconciling-ingress-ingress"),
-			//	Eventf(corev1.EventTypeNormal, "Updated", "Updated Gateway %s/%s", system.Namespace(), networking.KnativeIngressGateway),
-			Eventf(corev1.EventTypeNormal, "IngressTypeReconciled", `IngressType reconciled: "test-ns/reconciling-ingress"`),
-		},
-		Key: "test-ns/reconciling-ingress",
-	}, {
 		Name:                    "TLS Secret is not in the namespace of Istio gateway service",
 		SkipNamespaceValidation: true,
 		Objects: []runtime.Object{
