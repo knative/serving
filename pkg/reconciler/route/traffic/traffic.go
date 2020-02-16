@@ -27,8 +27,7 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	listers "knative.dev/serving/pkg/client/listers/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
 )
@@ -67,8 +66,8 @@ type Config struct {
 	revisionTargets RevisionTargets
 
 	// The referred `Configuration`s and `Revision`s.
-	Configurations map[string]*v1alpha1.Configuration
-	Revisions      map[string]*v1alpha1.Revision
+	Configurations map[string]*v1.Configuration
+	Revisions      map[string]*v1.Revision
 
 	// MissingTargets are references to Configuration's or Revision's
 	// that are missing
@@ -81,15 +80,15 @@ type Config struct {
 //
 // In the case that some target is missing, an error of type TargetError will be returned.
 func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revLister listers.RevisionLister,
-	r *v1alpha1.Route) (*Config, error) {
+	r *v1.Route) (*Config, error) {
 	builder := newBuilder(configLister, revLister, r.Namespace, len(r.Spec.Traffic))
 	builder.applySpecTraffic(r.Spec.Traffic)
 	return builder.build()
 }
 
 // GetRevisionTrafficTargets returns a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
-func (t *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1alpha1.Route) ([]v1alpha1.TrafficTarget, error) {
-	results := make([]v1alpha1.TrafficTarget, len(t.revisionTargets))
+func (t *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1.Route) ([]v1.TrafficTarget, error) {
+	results := make([]v1.TrafficTarget, len(t.revisionTargets))
 	for i, tt := range t.revisionTargets {
 		var pp *int64
 		if tt.Percent != nil {
@@ -98,13 +97,11 @@ func (t *Config) GetRevisionTrafficTargets(ctx context.Context, r *v1alpha1.Rout
 
 		// We cannot `DeepCopy` here, since tt.TrafficTarget might contain both
 		// configuration and revision.
-		results[i] = v1alpha1.TrafficTarget{
-			TrafficTarget: v1.TrafficTarget{
-				Tag:            tt.Tag,
-				RevisionName:   tt.RevisionName,
-				Percent:        pp,
-				LatestRevision: tt.LatestRevision,
-			},
+		results[i] = v1.TrafficTarget{
+			Tag:            tt.Tag,
+			RevisionName:   tt.RevisionName,
+			Percent:        pp,
+			LatestRevision: tt.LatestRevision,
 		}
 		if tt.Tag != "" {
 			meta := r.ObjectMeta.DeepCopy()
@@ -139,9 +136,9 @@ type configBuilder struct {
 	revisionTargets RevisionTargets
 
 	// configurations contains all the referred Configuration, keyed by their name.
-	configurations map[string]*v1alpha1.Configuration
+	configurations map[string]*v1.Configuration
 	// revisions contains all the referred Revision, keyed by their name.
-	revisions map[string]*v1alpha1.Revision
+	revisions map[string]*v1.Revision
 
 	// missingTargets is a collection of targets that weren't present
 	// in our listers
@@ -161,12 +158,12 @@ func newBuilder(
 		targets:         make(map[string]RevisionTargets),
 		revisionTargets: make(RevisionTargets, 0, trafficSize),
 
-		configurations: make(map[string]*v1alpha1.Configuration),
-		revisions:      make(map[string]*v1alpha1.Revision),
+		configurations: make(map[string]*v1.Configuration),
+		revisions:      make(map[string]*v1.Revision),
 	}
 }
 
-func (t *configBuilder) applySpecTraffic(traffic []v1alpha1.TrafficTarget) error {
+func (t *configBuilder) applySpecTraffic(traffic []v1.TrafficTarget) error {
 	for _, tt := range traffic {
 		if err := t.addTrafficTarget(&tt); err != nil {
 			// Other non-traffic target errors shouldn't be ignored.
@@ -176,7 +173,7 @@ func (t *configBuilder) applySpecTraffic(traffic []v1alpha1.TrafficTarget) error
 	return nil
 }
 
-func (t *configBuilder) getConfiguration(name string) (*v1alpha1.Configuration, error) {
+func (t *configBuilder) getConfiguration(name string) (*v1.Configuration, error) {
 	if _, ok := t.configurations[name]; !ok {
 		config, err := t.configLister.Configurations(t.namespace).Get(name)
 		if errors.IsNotFound(err) {
@@ -189,7 +186,7 @@ func (t *configBuilder) getConfiguration(name string) (*v1alpha1.Configuration, 
 	return t.configurations[name], nil
 }
 
-func (t *configBuilder) getRevision(name string) (*v1alpha1.Revision, error) {
+func (t *configBuilder) getRevision(name string) (*v1.Revision, error) {
 	if _, ok := t.revisions[name]; !ok {
 		rev, err := t.revLister.Revisions(t.namespace).Get(name)
 		if errors.IsNotFound(err) {
@@ -210,7 +207,7 @@ func (t *configBuilder) deferTargetError(err TargetError) {
 	}
 }
 
-func (t *configBuilder) addTrafficTarget(tt *v1alpha1.TrafficTarget) error {
+func (t *configBuilder) addTrafficTarget(tt *v1.TrafficTarget) error {
 	var err error
 	if tt.RevisionName != "" {
 		err = t.addRevisionTarget(tt)
@@ -218,7 +215,7 @@ func (t *configBuilder) addTrafficTarget(tt *v1alpha1.TrafficTarget) error {
 		err = t.addConfigurationTarget(tt)
 	}
 	if err, ok := err.(*missingTargetError); err != nil && ok {
-		apiVersion, kind := v1alpha1.SchemeGroupVersion.
+		apiVersion, kind := v1.SchemeGroupVersion.
 			WithKind(err.kind).
 			ToAPIVersionAndKind()
 
@@ -240,7 +237,7 @@ func (t *configBuilder) addTrafficTarget(tt *v1alpha1.TrafficTarget) error {
 
 // addConfigurationTarget flattens a traffic target to the Revision level, by looking up for the LatestReadyRevisionName
 // on the referred Configuration.  It adds both to the lists of directly referred targets.
-func (t *configBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget) error {
+func (t *configBuilder) addConfigurationTarget(tt *v1.TrafficTarget) error {
 	config, err := t.getConfiguration(tt.ConfigurationName)
 	if err != nil {
 		return err
@@ -252,7 +249,7 @@ func (t *configBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget) error
 	if err != nil {
 		return err
 	}
-	ntt := tt.TrafficTarget.DeepCopy()
+	ntt := tt.DeepCopy()
 	target := RevisionTarget{
 		TrafficTarget: *ntt,
 		Active:        !rev.Status.IsActivationRequired(),
@@ -264,7 +261,7 @@ func (t *configBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget) error
 	return nil
 }
 
-func (t *configBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) error {
+func (t *configBuilder) addRevisionTarget(tt *v1.TrafficTarget) error {
 	rev, err := t.getRevision(tt.RevisionName)
 	if err != nil {
 		return err
@@ -272,7 +269,7 @@ func (t *configBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) error {
 	if !rev.Status.IsReady() {
 		return errUnreadyRevision(rev)
 	}
-	ntt := tt.TrafficTarget.DeepCopy()
+	ntt := tt.DeepCopy()
 	target := RevisionTarget{
 		TrafficTarget: *ntt,
 		Active:        !rev.Status.IsActivationRequired(),

@@ -25,7 +25,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"knative.dev/pkg/apis"
 
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
@@ -108,7 +108,7 @@ func TestDomainNameFromTemplate(t *testing.T) {
 	}}
 
 	meta := metav1.ObjectMeta{
-		SelfLink:  "/apis/serving/v1alpha1/namespaces/test/Routes/myapp",
+		SelfLink:  "/apis/serving/v1/namespaces/test/Routes/myapp",
 		Name:      "myroute",
 		Namespace: "default",
 		Labels: map[string]string{
@@ -223,9 +223,9 @@ func TestGetAllDomainsAndTags(t *testing.T) {
 		wantErr:        true,
 	}}
 
-	route := &v1alpha1.Route{
+	route := &v1.Route{
 		ObjectMeta: metav1.ObjectMeta{
-			SelfLink:  "/apis/serving/v1alpha1/namespaces/test/Routes/myapp",
+			SelfLink:  "/apis/serving/v1/namespaces/test/Routes/myapp",
 			Name:      "myroute",
 			Namespace: "default",
 			Labels: map[string]string{

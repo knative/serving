@@ -22,21 +22,20 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/gc"
-	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/reconciler/route/config"
-	"knative.dev/serving/pkg/reconciler/route/traffic"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/kmeta"
-	. "knative.dev/serving/pkg/testing/v1alpha1"
+	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/gc"
+	"knative.dev/serving/pkg/network"
+	"knative.dev/serving/pkg/reconciler/route/config"
+	"knative.dev/serving/pkg/reconciler/route/traffic"
+
+	. "knative.dev/serving/pkg/testing/v1"
 )
 
 var (
@@ -56,7 +55,7 @@ var (
 func TestNewMakeK8SService(t *testing.T) {
 	scenarios := map[string]struct {
 		// Inputs
-		route        *v1alpha1.Route
+		route        *v1.Route
 		ingress      *netv1alpha1.Ingress
 		targetName   string
 		expectedSpec corev1.ServiceSpec
@@ -253,7 +252,7 @@ func TestMakeK8sPlaceholderService(t *testing.T) {
 		expectedSpec   corev1.ServiceSpec
 		expectedLabels map[string]string
 		wantErr        bool
-		route          *v1alpha1.Route
+		route          *v1.Route
 	}{{
 		name:  "default public domain route",
 		route: r,
@@ -375,7 +374,7 @@ func TestGetNames(t *testing.T) {
 }
 
 func TestGetDesiredServiceNames(t *testing.T) {
-	var route *v1alpha1.Route
+	var route *v1.Route
 	tests := []struct {
 		name    string
 		traffic RouteOption
@@ -387,71 +386,38 @@ func TestGetDesiredServiceNames(t *testing.T) {
 		want: sets.NewString("myroute"),
 	}, {
 		name:    "only default traffic",
-		traffic: WithSpecTraffic(v1alpha1.TrafficTarget{TrafficTarget: v1.TrafficTarget{}}),
+		traffic: WithSpecTraffic(v1.TrafficTarget{}),
 		want:    sets.NewString("myroute"),
 	}, {
 		name: "traffic targets with default and tags",
-		traffic: WithSpecTraffic(v1alpha1.TrafficTarget{
-			TrafficTarget: v1.TrafficTarget{},
-		}, v1alpha1.TrafficTarget{
-			TrafficTarget: v1.TrafficTarget{
-				Tag: "hello",
-			},
-		}, v1alpha1.TrafficTarget{
-			TrafficTarget: v1.TrafficTarget{
-				Tag: "hello",
-			},
-		}, v1alpha1.TrafficTarget{
-			TrafficTarget: v1.TrafficTarget{
-				Tag: "bye",
-			},
-		},
+		traffic: WithSpecTraffic(
+			v1.TrafficTarget{},
+			v1.TrafficTarget{Tag: "hello"},
+			v1.TrafficTarget{Tag: "hello"},
+			v1.TrafficTarget{Tag: "bye"},
 		),
 		want: sets.NewString("myroute", "hello-myroute", "bye-myroute"),
 	}, {
 		name: "traffic targets with default and tags custom template",
 		tmpl: "{{.Name}}<=>{{.Tag}}",
-		traffic: WithSpecTraffic(v1alpha1.TrafficTarget{
-			TrafficTarget: v1.TrafficTarget{},
-		}, v1alpha1.TrafficTarget{
-			TrafficTarget: v1.TrafficTarget{
-				Tag: "hello",
-			},
-		}, v1alpha1.TrafficTarget{
-			TrafficTarget: v1.TrafficTarget{
-				Tag: "hello",
-			},
-		}, v1alpha1.TrafficTarget{
-			TrafficTarget: v1.TrafficTarget{
-				Tag: "bye",
-			},
-		},
+		traffic: WithSpecTraffic(
+			v1.TrafficTarget{},
+			v1.TrafficTarget{Tag: "hello"},
+			v1.TrafficTarget{Tag: "hello"},
+			v1.TrafficTarget{Tag: "bye"},
 		),
 		want: sets.NewString("myroute", "myroute<=>hello", "myroute<=>bye"),
 	}, {
-		name: "bad tag template",
-		tmpl: "{{.Bullet}}<=>{{.WithButterflyWings}}",
-		traffic: WithSpecTraffic(v1alpha1.TrafficTarget{
-			TrafficTarget: v1.TrafficTarget{
-				Tag: "bye",
-			},
-		}),
+		name:    "bad tag template",
+		tmpl:    "{{.Bullet}}<=>{{.WithButterflyWings}}",
+		traffic: WithSpecTraffic(v1.TrafficTarget{Tag: "bye"}),
 		wantErr: true,
 	}, {
 		name: "traffic targets with NO default and tags",
-		traffic: WithSpecTraffic(v1alpha1.TrafficTarget{
-			TrafficTarget: v1.TrafficTarget{
-				Tag: "hello",
-			},
-		}, v1alpha1.TrafficTarget{
-			TrafficTarget: v1.TrafficTarget{
-				Tag: "hello",
-			},
-		}, v1alpha1.TrafficTarget{
-			TrafficTarget: v1.TrafficTarget{
-				Tag: "bye",
-			},
-		},
+		traffic: WithSpecTraffic(
+			v1.TrafficTarget{Tag: "hello"},
+			v1.TrafficTarget{Tag: "hello"},
+			v1.TrafficTarget{Tag: "bye"},
 		),
 		want: sets.NewString("myroute", "hello-myroute", "bye-myroute"),
 	}}

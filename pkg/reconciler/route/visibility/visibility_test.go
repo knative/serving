@@ -29,7 +29,6 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
@@ -59,12 +58,12 @@ func TestVisibility(t *testing.T) {
 		domainSuffix string
 		services     []*corev1.Service
 		listerErr    error
-		route        *v1alpha1.Route
+		route        *v1.Route
 		expected     map[string]netv1alpha1.IngressVisibility
 		expectedErr  error
 	}{{
 		name: "default",
-		route: &v1alpha1.Route{
+		route: &v1.Route{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},
@@ -74,7 +73,7 @@ func TestVisibility(t *testing.T) {
 		},
 	}, {
 		name: "no tag, route marked local",
-		route: &v1alpha1.Route{
+		route: &v1.Route{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 				Labels: map[string]string{
@@ -87,7 +86,7 @@ func TestVisibility(t *testing.T) {
 		},
 	}, {
 		name: "no tag, svc marked local",
-		route: &v1alpha1.Route{
+		route: &v1.Route{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},
@@ -114,14 +113,12 @@ func TestVisibility(t *testing.T) {
 		},
 	}, {
 		name: "one tag, tag marked local",
-		route: &v1alpha1.Route{
+		route: &v1.Route{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},
-			Spec: v1alpha1.RouteSpec{
-				Traffic: []v1alpha1.TrafficTarget{{
-					TrafficTarget: v1.TrafficTarget{Tag: "blue"},
-				}},
+			Spec: v1.RouteSpec{
+				Traffic: []v1.TrafficTarget{{Tag: "blue"}},
 			},
 		},
 		services: []*corev1.Service{{
@@ -146,14 +143,12 @@ func TestVisibility(t *testing.T) {
 		},
 	}, {
 		name: "one tag initial default",
-		route: &v1alpha1.Route{
+		route: &v1.Route{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},
-			Spec: v1alpha1.RouteSpec{
-				Traffic: []v1alpha1.TrafficTarget{{
-					TrafficTarget: v1.TrafficTarget{Tag: "blue"},
-				}},
+			Spec: v1.RouteSpec{
+				Traffic: []v1.TrafficTarget{{Tag: "blue"}},
 			},
 		},
 		services: []*corev1.Service{},
@@ -163,14 +158,12 @@ func TestVisibility(t *testing.T) {
 		},
 	}, {
 		name: "one tag svc not marked",
-		route: &v1alpha1.Route{
+		route: &v1.Route{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},
-			Spec: v1alpha1.RouteSpec{
-				Traffic: []v1alpha1.TrafficTarget{{
-					TrafficTarget: v1.TrafficTarget{Tag: "blue"},
-				}},
+			Spec: v1.RouteSpec{
+				Traffic: []v1.TrafficTarget{{Tag: "blue"}},
 			},
 		},
 		services: []*corev1.Service{{
@@ -194,16 +187,15 @@ func TestVisibility(t *testing.T) {
 		},
 	}, {
 		name: "two tags initial default",
-		route: &v1alpha1.Route{
+		route: &v1.Route{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},
-			Spec: v1alpha1.RouteSpec{
-				Traffic: []v1alpha1.TrafficTarget{{
-					TrafficTarget: v1.TrafficTarget{Tag: "blue"},
-				}, {
-					TrafficTarget: v1.TrafficTarget{Tag: "green"},
-				}},
+			Spec: v1.RouteSpec{
+				Traffic: []v1.TrafficTarget{
+					{Tag: "blue"},
+					{Tag: "green"},
+				},
 			},
 		},
 		expected: map[string]netv1alpha1.IngressVisibility{
@@ -213,16 +205,15 @@ func TestVisibility(t *testing.T) {
 		},
 	}, {
 		name: "two tags initial default with .svc.cluster.local domain suffix",
-		route: &v1alpha1.Route{
+		route: &v1.Route{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},
-			Spec: v1alpha1.RouteSpec{
-				Traffic: []v1alpha1.TrafficTarget{{
-					TrafficTarget: v1.TrafficTarget{Tag: "blue"},
-				}, {
-					TrafficTarget: v1.TrafficTarget{Tag: "green"},
-				}},
+			Spec: v1.RouteSpec{
+				Traffic: []v1.TrafficTarget{
+					{Tag: "blue"},
+					{Tag: "green"},
+				},
 			},
 		},
 		domainSuffix: "svc.cluster.local",
@@ -233,16 +224,15 @@ func TestVisibility(t *testing.T) {
 		},
 	}, {
 		name: "two tags, svc not marked",
-		route: &v1alpha1.Route{
+		route: &v1.Route{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},
-			Spec: v1alpha1.RouteSpec{
-				Traffic: []v1alpha1.TrafficTarget{{
-					TrafficTarget: v1.TrafficTarget{Tag: "blue"},
-				}, {
-					TrafficTarget: v1.TrafficTarget{Tag: "green"},
-				}},
+			Spec: v1.RouteSpec{
+				Traffic: []v1.TrafficTarget{
+					{Tag: "blue"},
+					{Tag: "green"},
+				},
 			},
 		},
 		services: []*corev1.Service{{
@@ -274,19 +264,18 @@ func TestVisibility(t *testing.T) {
 		},
 	}, {
 		name: "two tags, route marked local",
-		route: &v1alpha1.Route{
+		route: &v1.Route{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 				Labels: map[string]string{
 					config.VisibilityLabelKey: config.VisibilityClusterLocal,
 				},
 			},
-			Spec: v1alpha1.RouteSpec{
-				Traffic: []v1alpha1.TrafficTarget{{
-					TrafficTarget: v1.TrafficTarget{Tag: "blue"},
-				}, {
-					TrafficTarget: v1.TrafficTarget{Tag: "green"},
-				}},
+			Spec: v1.RouteSpec{
+				Traffic: []v1.TrafficTarget{
+					{Tag: "blue"},
+					{Tag: "green"},
+				},
 			},
 		},
 		services: []*corev1.Service{{
@@ -318,16 +307,15 @@ func TestVisibility(t *testing.T) {
 		},
 	}, {
 		name: "two tags blue marked local",
-		route: &v1alpha1.Route{
+		route: &v1.Route{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},
-			Spec: v1alpha1.RouteSpec{
-				Traffic: []v1alpha1.TrafficTarget{{
-					TrafficTarget: v1.TrafficTarget{Tag: "blue"},
-				}, {
-					TrafficTarget: v1.TrafficTarget{Tag: "green"},
-				}},
+			Spec: v1.RouteSpec{
+				Traffic: []v1.TrafficTarget{
+					{Tag: "blue"},
+					{Tag: "green"},
+				},
 			},
 		},
 		services: []*corev1.Service{{
@@ -346,16 +334,15 @@ func TestVisibility(t *testing.T) {
 		},
 	}, {
 		name: "two tags, both marked local",
-		route: &v1alpha1.Route{
+		route: &v1.Route{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},
-			Spec: v1alpha1.RouteSpec{
-				Traffic: []v1alpha1.TrafficTarget{{
-					TrafficTarget: v1.TrafficTarget{Tag: "blue"},
-				}, {
-					TrafficTarget: v1.TrafficTarget{Tag: "green"},
-				}},
+			Spec: v1.RouteSpec{
+				Traffic: []v1.TrafficTarget{
+					{Tag: "blue"},
+					{Tag: "green"},
+				},
 			},
 		},
 		services: []*corev1.Service{{
@@ -382,16 +369,15 @@ func TestVisibility(t *testing.T) {
 		},
 	}, {
 		name: "two tags, all marked local",
-		route: &v1alpha1.Route{
+		route: &v1.Route{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},
-			Spec: v1alpha1.RouteSpec{
-				Traffic: []v1alpha1.TrafficTarget{{
-					TrafficTarget: v1.TrafficTarget{Tag: "blue"},
-				}, {
-					TrafficTarget: v1.TrafficTarget{Tag: "green"},
-				}},
+			Spec: v1.RouteSpec{
+				Traffic: []v1.TrafficTarget{
+					{Tag: "blue"},
+					{Tag: "green"},
+				},
 			},
 		},
 		services: []*corev1.Service{{
@@ -427,7 +413,7 @@ func TestVisibility(t *testing.T) {
 	}, {
 		name:      "lister error",
 		listerErr: listerErr,
-		route: &v1alpha1.Route{
+		route: &v1.Route{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "foo",
 			},

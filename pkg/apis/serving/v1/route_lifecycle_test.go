@@ -20,9 +20,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	apitestv1 "knative.dev/pkg/apis/testing/v1"
+	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 )
 
 func TestRouteDuckTypes(t *testing.T) {
@@ -57,55 +58,324 @@ func TestRouteGetGroupVersionKind(t *testing.T) {
 }
 
 func TestRouteIsReady(t *testing.T) {
-	tests := []struct {
-		name     string
-		rs       *RouteStatus
-		expected bool
+	cases := []struct {
+		name    string
+		status  RouteStatus
+		isReady bool
 	}{{
-		name:     "Ready undefined",
-		rs:       &RouteStatus{},
-		expected: false,
+		name:    "empty status should not be ready",
+		status:  RouteStatus{},
+		isReady: false,
 	}, {
-		name: "Ready=False",
-		rs: &RouteStatus{
+		name: "Different condition type should not be ready",
+		status: RouteStatus{
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
-					Type:   apis.ConditionReady,
-					Status: corev1.ConditionFalse,
-				}},
-			},
-		},
-		expected: false,
-	}, {
-		name: "Ready=Unknown",
-		rs: &RouteStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type:   apis.ConditionReady,
-					Status: corev1.ConditionUnknown,
-				}},
-			},
-		},
-		expected: false,
-	}, {
-		name: "Ready=True",
-		rs: &RouteStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type:   apis.ConditionReady,
+					Type:   RouteConditionAllTrafficAssigned,
 					Status: corev1.ConditionTrue,
 				}},
 			},
 		},
-		expected: true,
+		isReady: false,
+	}, {
+		name: "False condition status should not be ready",
+		status: RouteStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   RouteConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
+		},
+		isReady: false,
+	}, {
+		name: "Unknown condition status should not be ready",
+		status: RouteStatus{
+			Status: duckv1.Status{
+
+				Conditions: duckv1.Conditions{{
+					Type:   RouteConditionReady,
+					Status: corev1.ConditionUnknown,
+				}},
+			},
+		},
+		isReady: false,
+	}, {
+		name: "Missing condition status should not be ready",
+		status: RouteStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type: RouteConditionReady,
+				}},
+			},
+		},
+		isReady: false,
+	}, {
+		name: "True condition status should be ready",
+		status: RouteStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   RouteConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		isReady: true,
+	}, {
+		name: "Multiple conditions with ready status should be ready",
+		status: RouteStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   RouteConditionAllTrafficAssigned,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   RouteConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+		},
+		isReady: true,
+	}, {
+		name: "Multiple conditions with ready status false should not be ready",
+		status: RouteStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   RouteConditionAllTrafficAssigned,
+					Status: corev1.ConditionTrue,
+				}, {
+					Type:   RouteConditionReady,
+					Status: corev1.ConditionFalse,
+				}},
+			},
+		},
+		isReady: false,
 	}}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			ready := test.rs.IsReady()
-			if ready != test.expected {
-				t.Errorf("IsReady() = %t; expected %t", ready, test.expected)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if e, a := tc.isReady, tc.status.IsReady(); e != a {
+				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
 			}
 		})
 	}
+}
+
+func TestTypicalRouteFlow(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+
+	r.MarkTrafficAssigned()
+	apitestv1.CheckConditionSucceeded(r.duck(), RouteConditionAllTrafficAssigned, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+
+	r.PropagateIngressStatus(netv1alpha1.IngressStatus{
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
+				Type:   netv1alpha1.IngressConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+	})
+	apitestv1.CheckConditionSucceeded(r.duck(), RouteConditionAllTrafficAssigned, t)
+	apitestv1.CheckConditionSucceeded(r.duck(), RouteConditionIngressReady, t)
+	apitestv1.CheckConditionSucceeded(r.duck(), RouteConditionReady, t)
+}
+
+func TestTrafficNotAssignedFlow(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+
+	r.MarkMissingTrafficTarget("Revision", "does-not-exist")
+	apitestv1.CheckConditionFailed(r.duck(), RouteConditionAllTrafficAssigned, t)
+	apitestv1.CheckConditionFailed(r.duck(), RouteConditionReady, t)
+}
+
+func TestTargetConfigurationNotYetReadyFlow(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+
+	r.MarkConfigurationNotReady("i-have-no-ready-revision")
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+}
+
+func TestUnknownErrorWhenConfiguringTraffic(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+
+	r.MarkUnknownTrafficError("unknown-error")
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+}
+
+func TestTargetConfigurationFailedToBeReadyFlow(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+
+	r.MarkConfigurationFailed("permanently-failed")
+	apitestv1.CheckConditionFailed(r.duck(), RouteConditionAllTrafficAssigned, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
+	apitestv1.CheckConditionFailed(r.duck(), RouteConditionReady, t)
+}
+
+func TestTargetRevisionNotYetReadyFlow(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+
+	r.MarkRevisionNotReady("not-yet-ready")
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+}
+
+func TestTargetRevisionFailedToBeReadyFlow(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+
+	r.MarkRevisionFailed("cannot-find-image")
+	apitestv1.CheckConditionFailed(r.duck(), RouteConditionAllTrafficAssigned, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
+	apitestv1.CheckConditionFailed(r.duck(), RouteConditionReady, t)
+}
+
+func TestIngressFailureRecovery(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	r.PropagateIngressStatus(netv1alpha1.IngressStatus{
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
+				Type:   netv1alpha1.IngressConditionReady,
+				Status: corev1.ConditionUnknown,
+			}},
+		},
+	})
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+
+	// Empty IngressStatus marks ingress "NotConfigured"
+	r.PropagateIngressStatus(netv1alpha1.IngressStatus{})
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+
+	r.MarkTrafficAssigned()
+	r.PropagateIngressStatus(netv1alpha1.IngressStatus{
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
+				Type:   netv1alpha1.IngressConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+	})
+	apitestv1.CheckConditionSucceeded(r.duck(), RouteConditionAllTrafficAssigned, t)
+	apitestv1.CheckConditionSucceeded(r.duck(), RouteConditionIngressReady, t)
+	apitestv1.CheckConditionSucceeded(r.duck(), RouteConditionReady, t)
+
+	r.PropagateIngressStatus(netv1alpha1.IngressStatus{
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
+				Type:   netv1alpha1.IngressConditionReady,
+				Status: corev1.ConditionFalse,
+			}},
+		},
+	})
+	apitestv1.CheckConditionSucceeded(r.duck(), RouteConditionAllTrafficAssigned, t)
+	apitestv1.CheckConditionFailed(r.duck(), RouteConditionIngressReady, t)
+	apitestv1.CheckConditionFailed(r.duck(), RouteConditionReady, t)
+
+	r.PropagateIngressStatus(netv1alpha1.IngressStatus{
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
+				Type:   netv1alpha1.IngressConditionReady,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+	})
+	apitestv1.CheckConditionSucceeded(r.duck(), RouteConditionAllTrafficAssigned, t)
+	apitestv1.CheckConditionSucceeded(r.duck(), RouteConditionIngressReady, t)
+	apitestv1.CheckConditionSucceeded(r.duck(), RouteConditionReady, t)
+}
+
+func TestRouteNotOwnedStuff(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	r.PropagateIngressStatus(netv1alpha1.IngressStatus{
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
+				Type:   netv1alpha1.IngressConditionReady,
+				Status: corev1.ConditionUnknown,
+			}},
+		},
+	})
+
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+
+	r.MarkServiceNotOwned("evan")
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
+	apitestv1.CheckConditionFailed(r.duck(), RouteConditionIngressReady, t)
+	apitestv1.CheckConditionFailed(r.duck(), RouteConditionReady, t)
+}
+
+func TestCertificateReady(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	r.MarkCertificateReady("cert")
+
+	apitestv1.CheckConditionSucceeded(r.duck(), RouteConditionCertificateProvisioned, t)
+}
+
+func TestCertificateNotReady(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	r.MarkCertificateNotReady("cert")
+
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionCertificateProvisioned, t)
+}
+
+func TestCertificateProvisionFailed(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	r.MarkCertificateProvisionFailed("cert")
+
+	apitestv1.CheckConditionFailed(r.duck(), RouteConditionCertificateProvisioned, t)
+}
+
+func TestRouteNotOwnCertificate(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	r.MarkCertificateNotOwned("cert")
+
+	apitestv1.CheckConditionFailed(r.duck(), RouteConditionCertificateProvisioned, t)
+}
+
+func TestIngressNotConfigured(t *testing.T) {
+	r := &RouteStatus{}
+	r.InitializeConditions()
+	r.MarkIngressNotConfigured()
+
+	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
 }

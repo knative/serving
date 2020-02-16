@@ -26,7 +26,7 @@ import (
 	"knative.dev/pkg/network"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 	"knative.dev/serving/pkg/reconciler/route/resources/labels"
@@ -43,7 +43,7 @@ func NewResolver(l listers.ServiceLister) *Resolver {
 	return &Resolver{serviceLister: l}
 }
 
-func (b *Resolver) getServices(route *v1alpha1.Route) (map[string]*corev1.Service, error) {
+func (b *Resolver) getServices(route *v1.Route) (map[string]*corev1.Service, error) {
 	// List all the Services owned by this Route.
 	currentServices, err := b.serviceLister.Services(route.Namespace).List(apilabels.SelectorFromSet(
 		apilabels.Set{
@@ -62,7 +62,7 @@ func (b *Resolver) getServices(route *v1alpha1.Route) (map[string]*corev1.Servic
 	return serviceCopy, err
 }
 
-func (b *Resolver) routeVisibility(ctx context.Context, route *v1alpha1.Route) netv1alpha1.IngressVisibility {
+func (b *Resolver) routeVisibility(ctx context.Context, route *v1.Route) netv1alpha1.IngressVisibility {
 	domainConfig := config.FromContext(ctx).Domain
 	domain := domainConfig.LookupDomainForLabels(route.Labels)
 	if domain == "svc."+network.GetClusterDomainName() {
@@ -71,7 +71,7 @@ func (b *Resolver) routeVisibility(ctx context.Context, route *v1alpha1.Route) n
 	return netv1alpha1.IngressVisibilityExternalIP
 }
 
-func trafficNames(route *v1alpha1.Route) sets.String {
+func trafficNames(route *v1.Route) sets.String {
 	names := sets.NewString(traffic.DefaultTarget)
 	for _, tt := range route.Spec.Traffic {
 		names.Insert(tt.Tag)
@@ -80,7 +80,7 @@ func trafficNames(route *v1alpha1.Route) sets.String {
 }
 
 // GetVisibility returns a map from traffic target name to their corresponding netv1alpha1.IngressVisibility.
-func (b *Resolver) GetVisibility(ctx context.Context, route *v1alpha1.Route) (map[string]netv1alpha1.IngressVisibility, error) {
+func (b *Resolver) GetVisibility(ctx context.Context, route *v1.Route) (map[string]netv1alpha1.IngressVisibility, error) {
 	// Find out the default visibility of the Route.
 	defaultVisibility := b.routeVisibility(ctx, route)
 
