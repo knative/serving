@@ -23,6 +23,7 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmp"
 	"knative.dev/serving/pkg/apis/serving"
+	"knative.dev/serving/pkg/reconciler/route/config"
 )
 
 // Validate ensures Revision is properly configured.
@@ -57,7 +58,7 @@ func (r *Revision) Validate(ctx context.Context) *apis.FieldError {
 func (r *Revision) ValidateLabels() (errs *apis.FieldError) {
 	for key, val := range r.GetLabels() {
 		switch {
-		case key == serving.RouteLabelKey || key == serving.ServiceLabelKey || key == serving.ConfigurationGenerationLabelKey:
+		case key == serving.RouteLabelKey || key == serving.ServiceLabelKey || key == serving.ConfigurationGenerationLabelKey || key == config.VisibilityLabelKey:
 		case key == serving.ConfigurationLabelKey:
 			errs = errs.Also(verifyLabelOwnerRef(val, serving.ConfigurationLabelKey, "Configuration", r.GetOwnerReferences()))
 		case strings.HasPrefix(key, serving.GroupNamePrefix):
