@@ -118,6 +118,10 @@ function setup_selfsigned_per_namespace_auto_tls() {
 }
 
 function cleanup_per_selfsigned_namespace_auto_tls() {
+  # Disable namespace cert for all namespaces
+  unset NAMESPACE_WITH_CERT
+  go run ./test/e2e/autotls/config/disablenscert
+
   echo "Uninstall namespace cert controller"
   kubectl delete -f ${SERVING_NSCERT_YAML} --ignore-not-found=true
 
