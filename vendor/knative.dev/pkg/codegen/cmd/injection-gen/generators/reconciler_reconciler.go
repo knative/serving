@@ -70,6 +70,10 @@ func (g *reconcilerReconcilerGenerator) GenerateType(c *generator.Context, t *ty
 			Package: "knative.dev/pkg/controller",
 			Name:    "Reconciler",
 		}),
+		"controllerWithEventRecorder": c.Universe.Type(types.Name{
+			Package: "knative.dev/pkg/controller",
+			Name:    "WithEventRecorder",
+		}),
 		"corev1EventSource": c.Universe.Function(types.Name{
 			Package: "k8s.io/api/core/v1",
 			Name:    "EventSource",
@@ -221,6 +225,9 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 	if r.configStore != nil {
 		ctx = r.configStore.ToContext(ctx)
 	}
+
+	// Add the recorder to context.
+	ctx = {{.controllerWithEventRecorder|raw}}(ctx, r.Recorder)
 
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := {{.cacheSplitMetaNamespaceKey|raw}}(key)

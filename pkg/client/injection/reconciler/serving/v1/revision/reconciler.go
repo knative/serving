@@ -117,6 +117,9 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 		ctx = r.configStore.ToContext(ctx)
 	}
 
+	// Add the recorder to context.
+	ctx = controller.WithEventRecorder(ctx, r.Recorder)
+
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
