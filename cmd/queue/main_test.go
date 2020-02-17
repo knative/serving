@@ -41,6 +41,8 @@ import (
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
+
+	. "knative.dev/pkg/logging/testing"
 )
 
 const wantHost = "a-better-host.com"
@@ -90,7 +92,7 @@ func TestHandlerReqEvent(t *testing.T) {
 	select {
 	case e := <-reqChan:
 		if e.EventType != queue.ProxiedIn {
-			t.Errorf("Got: %v, Want: %v\n", e.EventType, queue.ProxiedIn, )
+			t.Errorf("Got: %v, Want: %v\n", e.EventType, queue.ProxiedIn)
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Timed out waiting for an event to be intercepted")
@@ -98,6 +100,7 @@ func TestHandlerReqEvent(t *testing.T) {
 }
 
 func TestProbeHandler(t *testing.T) {
+	logger = TestLogger(t)
 	f, err := ioutil.TempFile("", "labels")
 	if err != nil {
 		t.Errorf("Failed to created temporary file: %v", err)
@@ -155,7 +158,7 @@ func TestProbeHandler(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", nil)
 			req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 
-			h := knativeProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil, tc.cfg)
+			h := knativeProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil, tc.cfg, logger)
 			h(writer, req)
 
 			if got, want := writer.Code, tc.wantCode; got != want {
@@ -374,6 +377,7 @@ func TestProbeQueueDelayedReady(t *testing.T) {
 }
 
 func TestQueueTraceSpans(t *testing.T) {
+	logger = TestLogger(t)
 	testcases := []struct {
 		name          string
 		prober        func() bool
@@ -474,7 +478,7 @@ func TestQueueTraceSpans(t *testing.T) {
 				h := proxyHandler(reqChan, breaker, true /*tracingEnabled*/, proxy)
 				h(writer, req)
 			} else {
-				h := knativeProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil, config{})
+				h := knativeProbeHandler(healthState, tc.prober, true /* isAggresive*/, true /*tracingEnabled*/, nil, config{}, logger)
 				req.Header.Set(network.ProbeHeaderName, tc.requestHeader)
 				h(writer, req)
 			}

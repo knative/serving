@@ -22,7 +22,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -206,12 +205,11 @@ func proxyHandler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, tracingEn
 func preferPodForScaledown(downwardAPILabelsPath string) (bool, error) {
 	// Short circuit a rejection when no label path file is mounted
 	if _, err := os.Stat(downwardAPILabelsPath); err != nil {
-		log.Printf(err.Error())
+		return false, nil
 	}
 
 	contentBytes, err := ioutil.ReadFile(downwardAPILabelsPath)
 	if err != nil {
-		log.Printf(err.Error())
 		return false, err
 	}
 
@@ -228,7 +226,7 @@ func preferPodForScaledown(downwardAPILabelsPath string) (bool, error) {
 	return scaleDown, nil
 }
 
-func knativeProbeHandler(healthState *health.State, prober func() bool, isAggressive bool, tracingEnabled bool, next http.Handler, env config) http.HandlerFunc {
+func knativeProbeHandler(healthState *health.State, prober func() bool, isAggressive bool, tracingEnabled bool, next http.Handler, env config, logger *zap.SugaredLogger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ph := network.KnativeProbeHeader(r)
 
@@ -252,7 +250,7 @@ func knativeProbeHandler(healthState *health.State, prober func() bool, isAggres
 
 		preferScaledown, err := preferPodForScaledown(env.DownwardAPILabelsPath)
 		if err != nil {
-			log.Printf("Process downward API labels failed: %v", err)
+			logger.Errorw("Failed to determine scale down preference", zap.Error(err))
 		}
 		if preferScaledown {
 			//Deliberately failing the readiness probe when pod is labelled for scale down
@@ -324,7 +322,7 @@ func probeQueueHealthPath(port, timeoutSeconds int, env config) error {
 		// The check for preferForScaledown() fails readiness faster
 		// in the presence of the label
 		if preferScaleDown, err := preferPodForScaledown(env.DownwardAPILabelsPath); err != nil {
-			log.Printf(err.Error())
+			fmt.Fprintln(os.Stderr, err)
 		} else if !success && preferScaleDown {
 			return false, errors.New("failing probe deliberately for pod scaledown")
 		}
@@ -353,6 +351,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	// If this is set, we run as a standalone binary to probe the queue-proxy.
+	if *readinessProbeTimeout >= 0 {
+		if err := probeQueueHealthPath(env.QueueServingPort, *readinessProbeTimeout, env); err != nil {
+			// used instead of the logger to produce a concise event message
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
 	// Setup the logger.
 	logger, _ = pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
 	logger = logger.Named("queueproxy")
@@ -367,16 +375,6 @@ func main() {
 
 	if err := validateEnv(env); err != nil {
 		logger.Fatal(err.Error())
-	}
-
-	// If this is set, we run as a standalone binary to probe the queue-proxy.
-	if *readinessProbeTimeout >= 0 {
-		if err := probeQueueHealthPath(env.QueueServingPort, *readinessProbeTimeout, env); err != nil {
-			// used instead of the logger to produce a concise event message
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		os.Exit(0)
 	}
 
 	// Report stats on Go memory usage every 30 seconds.
@@ -531,7 +529,7 @@ func buildServer(env config, healthState *health.State, rp *readiness.Probe, req
 	}
 	composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
 
-	composedHandler = knativeProbeHandler(healthState, rp.ProbeContainer, rp.IsAggressive(), tracingEnabled, composedHandler, env)
+	composedHandler = knativeProbeHandler(healthState, rp.ProbeContainer, rp.IsAggressive(), tracingEnabled, composedHandler, env, logger)
 	composedHandler = network.NewProbeHandler(composedHandler)
 
 	return pkgnet.NewServer(":"+strconv.Itoa(env.QueueServingPort), composedHandler)
