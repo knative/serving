@@ -31,6 +31,7 @@ import (
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
+	fakeingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
 	istioclient "knative.dev/serving/pkg/client/istio/injection/client"
 	fakeistioclient "knative.dev/serving/pkg/client/istio/injection/client/fake"
 	_ "knative.dev/serving/pkg/client/istio/injection/informers/networking/v1alpha3/gateway/fake"
@@ -43,9 +44,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	clientgotesting "k8s.io/client-go/testing"
 	"knative.dev/pkg/kmeta"
 
@@ -78,6 +81,7 @@ const (
 	originDomainInternal = "origin.istio-system.svc.cluster.local"
 	newDomainInternal    = "custom.istio-system.svc.cluster.local"
 	targetSecretName     = "reconciling-ingress-uid"
+	testNS               = "test-ns"
 )
 
 var (
@@ -109,7 +113,7 @@ var (
 			Paths: []v1alpha1.HTTPIngressPath{{
 				Splits: []v1alpha1.IngressBackendSplit{{
 					IngressBackend: v1alpha1.IngressBackend{
-						ServiceNamespace: "test-ns",
+						ServiceNamespace: testNS,
 						ServiceName:      "test-service",
 						ServicePort:      intstr.FromInt(80),
 					},
@@ -313,7 +317,7 @@ func TestReconcile(t *testing.T) {
 			&v1alpha3.VirtualService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "reconcile-failed-ingress",
-					Namespace: "test-ns",
+					Namespace: testNS,
 					Labels: map[string]string{
 						networking.IngressLabelKey: "reconcile-failed",
 					},
@@ -366,7 +370,7 @@ func TestReconcile(t *testing.T) {
 			&v1alpha3.VirtualService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "reconcile-virtualservice-ingress",
-					Namespace: "test-ns",
+					Namespace: testNS,
 					Labels: map[string]string{
 						networking.IngressLabelKey: "reconcile-virtualservice",
 					},
@@ -377,7 +381,7 @@ func TestReconcile(t *testing.T) {
 			&v1alpha3.VirtualService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "reconcile-virtualservice-extra",
-					Namespace: "test-ns",
+					Namespace: testNS,
 					Labels: map[string]string{
 						networking.IngressLabelKey: "reconcile-virtualservice",
 					},
@@ -395,7 +399,7 @@ func TestReconcile(t *testing.T) {
 		},
 		WantDeletes: []clientgotesting.DeleteActionImpl{{
 			ActionImpl: clientgotesting.ActionImpl{
-				Namespace: "test-ns",
+				Namespace: testNS,
 				Verb:      "delete",
 			},
 			Name: "reconcile-virtualservice-extra",
@@ -439,7 +443,7 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconcile-virtualservice-mesh"),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated VirtualService %s/%s",
-				"test-ns", "reconcile-virtualservice-ingress"),
+				testNS, "reconcile-virtualservice-ingress"),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for Ingress %q", "reconcile-virtualservice"),
 		},
 		Key: "test-ns/reconcile-virtualservice",
@@ -449,10 +453,10 @@ func TestReconcile(t *testing.T) {
 			&v1alpha1.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "reconcile-virtualservice",
-					Namespace: "test-ns",
+					Namespace: testNS,
 					Labels: map[string]string{
 						serving.RouteLabelKey:          "test-route",
-						serving.RouteNamespaceLabelKey: "test-ns",
+						serving.RouteNamespaceLabelKey: testNS,
 					},
 					Annotations:     map[string]string{networking.IngressClassAnnotationKey: "some-other-ingress"},
 					ResourceVersion: "v1",
@@ -468,7 +472,7 @@ func TestReconcile(t *testing.T) {
 			&v1alpha3.VirtualService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "reconcile-virtualservice",
-					Namespace: "test-ns",
+					Namespace: testNS,
 					Labels: map[string]string{
 						networking.IngressLabelKey: "reconcile-virtualservice",
 					},
@@ -480,7 +484,7 @@ func TestReconcile(t *testing.T) {
 			&v1alpha3.VirtualService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "reconcile-virtualservice-extra",
-					Namespace: "test-ns",
+					Namespace: testNS,
 					Labels: map[string]string{
 						networking.IngressLabelKey: "reconcile-virtualservice",
 					},
@@ -493,14 +497,14 @@ func TestReconcile(t *testing.T) {
 		WantDeletes: []clientgotesting.DeleteActionImpl{
 			{
 				ActionImpl: clientgotesting.ActionImpl{
-					Namespace: "test-ns",
+					Namespace: testNS,
 					Verb:      "delete",
 				},
 				Name: "reconcile-virtualservice",
 			},
 			{
 				ActionImpl: clientgotesting.ActionImpl{
-					Namespace: "test-ns",
+					Namespace: testNS,
 					Verb:      "delete",
 				},
 				Name: "reconcile-virtualservice-extra",
@@ -1155,10 +1159,10 @@ func ingressWithStatus(name string, generation int64, status v1alpha1.IngressSta
 	return &v1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: "test-ns",
+			Namespace: testNS,
 			Labels: map[string]string{
 				serving.RouteLabelKey:          "test-route",
-				serving.RouteNamespaceLabelKey: "test-ns",
+				serving.RouteNamespaceLabelKey: testNS,
 			},
 			Annotations:     map[string]string{networking.IngressClassAnnotationKey: network.IstioIngressClassName},
 			ResourceVersion: "v1",
@@ -1276,16 +1280,15 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 	// Check for Ingress created as a signal that syncHandler ran
 	h.OnUpdate(&servingClient.Fake, "ingresses", func(obj runtime.Object) HookResult {
 		ci := obj.(*v1alpha1.Ingress)
-		t.Logf("ingress updated: %q", ci.Name)
+		t.Logf("Ingress updated: %q", ci.Name)
 
 		gateways := ci.Status.LoadBalancer.Ingress
 		if len(gateways) != 1 {
 			t.Logf("Unexpected gateways: %v", gateways)
 			return HookIncomplete
 		}
-		expectedDomainInternal := newDomainInternal
-		if gateways[0].DomainInternal != expectedDomainInternal {
-			t.Logf("Expected gateway %q but got %q", expectedDomainInternal, gateways[0].DomainInternal)
+		if got, want := gateways[0].DomainInternal, newDomainInternal; got != want {
+			t.Logf("Gateway = %q, want: %q", got, want)
 			return HookIncomplete
 		}
 
@@ -1305,7 +1308,7 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 	}()
 
 	if err := watcher.Start(ctx.Done()); err != nil {
-		t.Fatalf("failed to start ingress manager: %v", err)
+		t.Fatalf("Failed to start ingress manager: %v", err)
 	}
 
 	grp.Go(func() error { return ctrl.Run(1, ctx.Done()) })
@@ -1331,10 +1334,22 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 			},
 		},
 	)
-	ingressClient := servingClient.NetworkingV1alpha1().Ingresses("test-ns")
+	ingressClient := servingClient.NetworkingV1alpha1().Ingresses(testNS)
 
 	// Create a ingress.
 	ingressClient.Create(ingress)
+	il := fakeingressinformer.Get(ctx).Lister()
+	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		l, err := il.List(labels.Everything())
+		if err != nil {
+			return false, err
+		}
+		// We only create a single ingress.
+		return len(l) > 0, nil
+
+	}); err != nil {
+		t.Fatalf("Failed to see ingress propagation: %v", err)
+	}
 
 	// Test changes in gateway config map. Ingress should get updated appropriately.
 	domainConfig := corev1.ConfigMap{
@@ -1423,7 +1438,7 @@ func TestGlobalResyncOnUpdateNetwork(t *testing.T) {
 		},
 	)
 
-	ingressClient := fakeservingclient.Get(ctx).NetworkingV1alpha1().Ingresses("test-ns")
+	ingressClient := fakeservingclient.Get(ctx).NetworkingV1alpha1().Ingresses(testNS)
 
 	// Create a ingress.
 	ingressClient.Create(ingress)
