@@ -390,10 +390,21 @@ func assertGracefulScaledown(t *testing.T, ctx *testContext, size int) error {
 	if err != nil {
 		return err
 	}
+	deleteHostConnections(hostConnMap, size)
+	time.Sleep(5 * time.Second)
+
+	hostConnMap, err = uniqueHostConnections(t, ctx.names, size)
+	if err != nil {
+		return err
+	}
 
 	// only keep openConnCount connections open for the test
 	openConnCount := size / 2
 	deleteHostConnections(hostConnMap, size-openConnCount)
+
+	hostConnMap.Range(func(key, value interface{}) bool {
+		return true
+	})
 
 	doneCh := make(chan struct{})
 	defer close(doneCh)
@@ -454,6 +465,8 @@ func TestGracefulScaledown(t *testing.T) {
 	patchedAutoscalerConfigMap := autoscalerConfigMap.DeepCopy()
 	patchedAutoscalerConfigMap.Data["enable-graceful-scaledown"] = "true"
 	patchCM(ctx.clients, patchedAutoscalerConfigMap)
+
+	autoscalerConfigMap.Data["enable-graceful-scaledown"] = "false"
 	defer patchCM(ctx.clients, autoscalerConfigMap)
 	test.CleanupOnInterrupt(func() { patchCM(ctx.clients, autoscalerConfigMap) })
 
