@@ -29,6 +29,7 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
+	rconfig "knative.dev/serving/pkg/reconciler/route/config"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -233,6 +234,18 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 			Spec: validRevisionSpec,
 		},
 		want: apis.ErrInvalidKeyName("serving.knative.dev/testlabel", "metadata.labels"),
+	}, {
+		name: "valid visibility label",
+		r: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "private-service",
+				Labels: map[string]string{
+					rconfig.VisibilityLabelKey: "cluster-local",
+				},
+			},
+			Spec: validRevisionSpec,
+		},
+		want: nil,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
