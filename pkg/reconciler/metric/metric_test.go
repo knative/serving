@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	clientgotesting "k8s.io/client-go/testing"
 	"knative.dev/serving/pkg/autoscaler/metrics"
-	servingclientset "knative.dev/serving/pkg/client/clientset/versioned"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
 	metricreconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/metric"
@@ -159,114 +158,43 @@ func TestReconcile(t *testing.T) {
 }
 
 func TestReconcileWithCollector(t *testing.T) {
-	updateError := errors.New("update error")
-	deleteError := errors.New("delete error")
+	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 
-	tests := []struct {
-		name                string
-		key                 string
-		action              func(servingclientset.Interface)
-		collector           *testCollector
-		createOrUpdateCalls bool
-		deleteCalls         bool
-		expectErr           error
-	}{{
-		name: "new",
-		key:  "new/metric",
-		action: func(scs servingclientset.Interface) {
-			m := metric("new", "metric")
-			scs.AutoscalingV1alpha1().Metrics(m.Namespace).Create(m)
-		},
-		collector:           &testCollector{},
-		createOrUpdateCalls: true,
-	}, {
-		name: "delete",
-		key:  "old/metric",
-		action: func(scs servingclientset.Interface) {
-			m := metric("new", "metric")
-			scs.AutoscalingV1alpha1().Metrics(m.Namespace).Create(m)
-			scs.AutoscalingV1alpha1().Metrics(m.Namespace).Delete(m.Name, &metav1.DeleteOptions{})
-		},
-		collector:   &testCollector{},
-		deleteCalls: true,
-	}, {
-		name: "error on create",
-		key:  "new/metric",
-		action: func(scs servingclientset.Interface) {
-			m := metric("new", "metric")
-			scs.AutoscalingV1alpha1().Metrics(m.Namespace).Create(m)
-		},
-		collector:           &testCollector{createOrUpdateError: updateError},
-		createOrUpdateCalls: true,
-		expectErr:           updateError,
-	}, {
-		name: "error on delete",
-		key:  "old/metric",
-		action: func(scs servingclientset.Interface) {
-			m := metric("new", "metric")
-			scs.AutoscalingV1alpha1().Metrics(m.Namespace).Create(m)
-			scs.AutoscalingV1alpha1().Metrics(m.Namespace).Delete(m.Name, &metav1.DeleteOptions{})
-		},
-		collector:   &testCollector{deleteError: deleteError},
-		deleteCalls: true,
-		expectErr:   deleteError,
-	}}
+	collector := &testCollector{}
+	collector.createOrUpdateCalls = make(chan struct{}, 100)
+	collector.deleteCalls = make(chan struct{}, 100)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx, cancel, informers := SetupFakeContextWithCancel(t)
+	ctl := NewController(ctx, configmap.NewStaticWatcher(), collector)
 
-			tt.collector.createOrUpdateCalls = make(chan struct{}, 100)
-			tt.collector.deleteCalls = make(chan struct{}, 100)
+	wf, err := controller.RunInformers(ctx.Done(), informers...)
+	if err != nil {
+		cancel()
+		t.Fatalf("StartInformers() = %v", err)
+	}
 
-			scs := servingclient.Get(ctx)
+	var eg errgroup.Group
+	eg.Go(func() error { return ctl.Run(1, ctx.Done()) })
+	defer func() {
+		cancel()
+		wf()
+		eg.Wait()
+	}()
 
-			ctl := NewController(ctx, configmap.NewStaticWatcher(), tt.collector)
+	m := metric("new", "metric")
+	scs := servingclient.Get(ctx)
 
-			wf, err := controller.RunInformers(ctx.Done(), informers...)
-			if err != nil {
-				cancel()
-				t.Fatalf("StartInformers() = %v", err)
-			}
+	scs.AutoscalingV1alpha1().Metrics(m.Namespace).Create(m)
+	select {
+	case <-collector.createOrUpdateCalls:
+	case <-time.After(1 * time.Second):
+		t.Error("CreateOrUpdate() called 0 times, want non-zero times")
+	}
 
-			var eg errgroup.Group
-			eg.Go(func() error { return ctl.Run(1, ctx.Done()) })
-			defer func() {
-				cancel()
-				wf()
-				eg.Wait()
-			}()
-
-			tt.action(scs)
-
-			if !tt.createOrUpdateCalls {
-				select {
-				case <-tt.collector.createOrUpdateCalls:
-					t.Error("CreateOrUpdate() called non-zero times, want 0 times")
-				case <-time.After(1 * time.Second):
-				}
-			} else {
-				select {
-				case <-tt.collector.createOrUpdateCalls:
-				case <-time.After(1 * time.Second):
-					t.Error("CreateOrUpdate() called 0 times, want non-zero times")
-				}
-			}
-
-			if !tt.deleteCalls {
-				select {
-				case <-tt.collector.deleteCalls:
-					t.Error("CreateOrUpdate() called non-zero times, want 0 times")
-				case <-time.After(1 * time.Second):
-				}
-			} else {
-				select {
-				case <-tt.collector.deleteCalls:
-				case <-time.After(1 * time.Second):
-					t.Error("CreateOrUpdate() called 0 times, want non-zero times")
-				}
-			}
-		})
+	scs.AutoscalingV1alpha1().Metrics(m.Namespace).Delete(m.Name, &metav1.DeleteOptions{})
+	select {
+	case <-collector.deleteCalls:
+	case <-time.After(1 * time.Second):
+		t.Error("Delete() called 0 times, want non-zero times")
 	}
 }
 
