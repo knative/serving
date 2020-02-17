@@ -194,7 +194,7 @@ func TestReconcileWithCollector(t *testing.T) {
 	select {
 	case <-collector.deleteCalls:
 	case <-time.After(1 * time.Second):
-		t.Error("CreateOrUpdate() called 0 times, want non-zero times")
+		t.Error("Delete() called 0 times, want non-zero times")
 	}
 }
 
