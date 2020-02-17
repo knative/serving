@@ -309,6 +309,7 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 		setTargetsScheme(&r.Status, dnsNames.List(), "https")
 		if cert.Status.IsReady() {
 			r.Status.MarkCertificateReady(cert.Name)
+			tls = append(tls, resources.MakeIngressTLS(cert, dnsNames.List()))
 		} else {
 			acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
 			r.Status.MarkCertificateNotReady(cert.Name)
@@ -323,7 +324,6 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 				setTargetsScheme(&r.Status, dnsNames.List(), "http")
 			}
 		}
-		tls = append(tls, resources.MakeIngressTLS(cert, dnsNames.List()))
 	}
 	sort.Slice(acmeChallenges, func(i, j int) bool {
 		return acmeChallenges[i].URL.String() < acmeChallenges[j].URL.String()
