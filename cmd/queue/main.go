@@ -205,7 +205,7 @@ func proxyHandler(reqChan chan queue.ReqEvent, breaker *queue.Breaker, tracingEn
 func preferPodForScaledown(downwardAPILabelsPath string) (bool, error) {
 	// Short circuit a rejection when no label path file is mounted
 	if _, err := os.Stat(downwardAPILabelsPath); err != nil {
-		return false, nil
+		return false, err
 	}
 
 	contentBytes, err := ioutil.ReadFile(downwardAPILabelsPath)
