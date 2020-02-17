@@ -48,28 +48,19 @@ func valueOrUnknown(v string) string {
 	return metricskey.ValueUnknown
 }
 
-// RevisionContext generates a new base metric reporting context containing
-// the respective revision specific tags.
-func RevisionContext(ns, service, config, revision string) (context.Context, error) {
-	return AugmentWithRevision(context.Background(), ns, service, config, revision)
+type revisionCtx struct {
+	namespace, name string
 }
 
-// AugmentWithRevision augments the given context with revision specific tags.
-// Note: The passed in context will be cached as part of the new context. Do not
-// use this function if the tags of the underlying contexts are non-static.
-func AugmentWithRevision(baseCtx context.Context, ns, service, config, revision string) (context.Context, error) {
-	key := ns + "/" + revision
+// RevisionContext generates a new base metric reporting context containing
+// the respective revision specific tags.
+func RevisionContext(ns, svc, cfg, rev string) (context.Context, error) {
+	key := revisionCtx{namespace: ns, name: rev}
 	ctx, ok := contextCache.Get(key)
 	if !ok {
-		//  Note that service names can be an empty string, so they needs a special treatment.
-		rctx, err := tag.New(
-			baseCtx,
-			tag.Upsert(NamespaceTagKey, ns),
-			tag.Upsert(ServiceTagKey, valueOrUnknown(service)),
-			tag.Upsert(ConfigTagKey, config),
-			tag.Upsert(RevisionTagKey, revision))
+		rctx, err := AugmentWithRevision(context.Background(), ns, svc, cfg, rev)
 		if err != nil {
-			return nil, err
+			return rctx, err
 		}
 		contextCache.Add(key, rctx)
 		ctx = rctx
@@ -77,16 +68,73 @@ func AugmentWithRevision(baseCtx context.Context, ns, service, config, revision 
 	return ctx.(context.Context), nil
 }
 
+type podCtx struct {
+	pod, container string
+}
+
+// PodContext generate a new base metric reporting context containing
+// the respective pod specific tags.
+func PodContext(pod, container string) (context.Context, error) {
+	key := podCtx{pod: pod, container: container}
+	ctx, ok := contextCache.Get(key)
+	if !ok {
+		rctx, err := tag.New(
+			context.Background(),
+			tag.Upsert(PodTagKey, pod),
+			tag.Upsert(ContainerTagKey, container))
+		if err != nil {
+			return rctx, err
+		}
+		contextCache.Add(key, rctx)
+		ctx = rctx
+	}
+	return ctx.(context.Context), nil
+}
+
+type podRevisionCtx struct {
+	pod      podCtx
+	revision revisionCtx
+}
+
+// PodRevisionContext generates a new base metric reporting context containing
+// the respective pod and revision specific tags.
+func PodRevisionContext(pod, container, ns, svc, cfg, rev string) (context.Context, error) {
+	key := podRevisionCtx{
+		pod:      podCtx{pod: pod, container: container},
+		revision: revisionCtx{namespace: ns, name: rev},
+	}
+	ctx, ok := contextCache.Get(key)
+	if !ok {
+		rctx, err := PodContext(pod, container)
+		if err != nil {
+			return rctx, err
+		}
+		rctx, err = AugmentWithRevision(rctx, ns, svc, cfg, rev)
+		if err != nil {
+			return rctx, err
+		}
+		contextCache.Add(key, rctx)
+		ctx = rctx
+	}
+	return ctx.(context.Context), nil
+}
+
+// AugmentWithRevision augments the given context with revision specific tags.
+func AugmentWithRevision(baseCtx context.Context, ns, svc, cfg, rev string) (context.Context, error) {
+	return tag.New(
+		baseCtx,
+		tag.Upsert(NamespaceTagKey, ns),
+		tag.Upsert(ServiceTagKey, valueOrUnknown(svc)),
+		tag.Upsert(ConfigTagKey, cfg),
+		tag.Upsert(RevisionTagKey, rev))
+}
+
 // AugmentWithResponse augments the given context with response-code specific tags.
 func AugmentWithResponse(baseCtx context.Context, responseCode int) context.Context {
-	ctx, err := tag.New(
+	ctx, _ := tag.New(
 		baseCtx,
 		tag.Upsert(ResponseCodeKey, strconv.Itoa(responseCode)),
 		tag.Upsert(ResponseCodeClassKey, responseCodeClass(responseCode)))
-	if err != nil {
-		// This should never happen but swallow the error regardless.
-		return baseCtx
-	}
 	return ctx
 }
 

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	pkgmetrics "knative.dev/pkg/metrics"
+	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/serving"
 	pkghttp "knative.dev/serving/pkg/http"
@@ -27,22 +28,23 @@ import (
 )
 
 // NewMetricHandler creates a handler collects and reports request metrics
-func NewMetricHandler(next http.Handler) *MetricHandler {
+func NewMetricHandler(podName string, next http.Handler) *MetricHandler {
 	return &MetricHandler{
 		nextHandler: next,
+		podName:     podName,
 	}
 }
 
 // MetricHandler sends metrics via reporter
 type MetricHandler struct {
+	podName     string
 	nextHandler http.Handler
 }
 
 func (h *MetricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	revision := util.RevisionFrom(r.Context())
-	configurationName := revision.Labels[serving.ConfigurationLabelKey]
-	serviceName := revision.Labels[serving.ServiceLabelKey]
-	reporterCtx, _ := metrics.RevisionContext(revision.Namespace, serviceName, configurationName, revision.Name)
+	rev := util.RevisionFrom(r.Context())
+	reporterCtx, _ := metrics.PodRevisionContext(h.podName, activator.Name,
+		rev.Namespace, rev.Labels[serving.ServiceLabelKey], rev.Labels[serving.ConfigurationLabelKey], rev.Name)
 
 	start := time.Now()
 
