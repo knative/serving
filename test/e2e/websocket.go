@@ -188,8 +188,6 @@ func pingOpenConnections(doneCh chan struct{}, hostConnMap *sync.Map) error {
 			}
 		case <-doneCh:
 			return nil
-		default:
-			time.Sleep(20 * time.Second)
 		}
 	}
 }

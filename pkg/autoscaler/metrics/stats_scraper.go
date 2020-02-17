@@ -190,6 +190,7 @@ func (s *ServiceScraper) doScrape(statCh chan Stat, sampleSize int) error {
 	return grp.Wait()
 }
 
+// Scrape calls the destination service then sends it
 // calculate calls the destination service then sends it
 // to the given stats channel.
 func (s *ServiceScraper) Scrape(window time.Duration) (Stat, error) {

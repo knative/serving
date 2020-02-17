@@ -48,15 +48,16 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
-	// EndpointConvergenceWaitTime is the wait time in the convergence loop
+	// endpointConvergenceWaitTime is the wait time in the convergence loop
 	// to have the number of available endpoints match the expected scale
-	EndpointConvergenceWaitTime = 500 * time.Millisecond
-	// EndpointConvergenceTimeout is how long the reconciler is willing to wait
+	endpointConvergenceWaitTime = 500 * time.Millisecond
+	// endpointConvergenceTimeout is how long the reconciler is willing to wait
 	// for the number of endpoints to converge to the desired scale
-	EndpointConvergenceTimeout = 1 * time.Minute
+	endpointConvergenceTimeout = 1 * time.Minute
 )
 
 // podCounts keeps record of various numbers of pods
@@ -247,23 +248,18 @@ func (c *Reconciler) markPodsForRemoval(ctx context.Context, removalCandidates [
 	}
 
 	// wait for endpoint counts to converge before scaling down
-	ctx, _ = context.WithTimeout(ctx, EndpointConvergenceTimeout)
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("failed to converge endpoints after one minute")
-		default:
-			readyCount, err := pc.ReadyCount()
-			if err != nil {
-				return err
-			}
-
-			if int32(readyCount) == want {
-				return nil
-			}
-			time.Sleep(EndpointConvergenceWaitTime)
+	wait.PollImmediate(endpointConvergenceWaitTime, endpointConvergenceTimeout, func() (bool, error) {
+		readyCount, err := pc.ReadyCount()
+		if err != nil {
+			return false, err
 		}
-	}
+
+		if int32(readyCount) == want {
+			return true, nil
+		}
+
+		return false, nil
+	})
 
 	return nil
 }
