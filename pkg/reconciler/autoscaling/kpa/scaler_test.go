@@ -473,16 +473,18 @@ func TestDisableScaleToZero(t *testing.T) {
 }
 
 func newKPA(t *testing.T, servingClient clientset.Interface, revision *v1.Revision) *pav1alpha1.PodAutoscaler {
+	t.Helper()
 	pa := revisionresources.MakePA(revision)
 	pa.Status.InitializeConditions()
 	_, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(pa)
 	if err != nil {
-		t.Fatal("Failed to create PA.", err)
+		t.Fatal("Failed to create PA:", err)
 	}
 	return pa
 }
 
 func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxScale int32) *v1.Revision {
+	t.Helper()
 	annotations := map[string]string{}
 	if minScale > 0 {
 		annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(int(minScale))
@@ -499,7 +501,7 @@ func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxS
 	}
 	rev, err := servingClient.ServingV1().Revisions(testNamespace).Create(rev)
 	if err != nil {
-		t.Fatal("Failed to create revision.", err)
+		t.Fatal("Failed to create revision:", err)
 	}
 
 	return rev
@@ -588,7 +590,7 @@ func checkReplicas(t *testing.T, dynamicClient *fakedynamic.FakeDynamicClient, d
 	}
 
 	if !found {
-		t.Errorf("Did not see scale update for %v", deployment.Name)
+		t.Errorf("Did not see scale update for %q", deployment.Name)
 	}
 }
 
@@ -621,7 +623,6 @@ func TestActivatorProbe(t *testing.T) {
 			rsp.Write([]byte("wrong header, I guess?"))
 			return rsp.Result(), nil
 		},
-		wantRes: false,
 		wantErr: true,
 	}, {
 		name: "wrong body",
@@ -630,14 +631,12 @@ func TestActivatorProbe(t *testing.T) {
 			rsp.Write([]byte("haxoorprober"))
 			return rsp.Result(), nil
 		},
-		wantRes: false,
 		wantErr: true,
 	}, {
 		name: "all wrong",
 		rt: func(r *http.Request) (*http.Response, error) {
 			return nil, theErr
 		},
-		wantRes: false,
 		wantErr: true,
 	}}
 

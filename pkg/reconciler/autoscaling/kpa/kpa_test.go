@@ -1169,7 +1169,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 		}
 		return newKPA.Status.IsReady(), nil
 	}); err != nil {
-		t.Errorf("PA failed to become ready: %v", err)
+		t.Fatalf("PA failed to become ready: %v", err)
 	}
 
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Delete(testRevision, nil)
@@ -1395,10 +1395,7 @@ func pollDeciders(deciders *testDeciders, namespace, name string, cond func(*sca
 		if err != nil {
 			return false, nil
 		}
-		if cond == nil {
-			return true, nil
-		}
-		return cond(decider), nil
+		return cond == nil || cond(decider), nil
 	})
 	return decider, err
 }
@@ -1406,11 +1403,11 @@ func pollDeciders(deciders *testDeciders, namespace, name string, cond func(*sca
 func newTestDeciders() *testDeciders {
 	return &testDeciders{
 		createCallCount:    atomic.NewUint32(0),
-		createCall:         make(chan struct{}, 100),
+		createCall:         make(chan struct{}, 1),
 		deleteCallCount:    atomic.NewUint32(0),
-		deleteCall:         make(chan struct{}, 100),
+		deleteCall:         make(chan struct{}, 1),
 		updateCallCount:    atomic.NewUint32(0),
-		updateCall:         make(chan struct{}, 100),
+		updateCall:         make(chan struct{}, 1),
 		deleteBeforeCreate: atomic.NewBool(false),
 	}
 }
