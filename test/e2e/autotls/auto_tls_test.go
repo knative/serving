@@ -25,6 +25,7 @@ import (
 
 	"github.com/kelseyhightower/envconfig"
 
+	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -112,6 +113,58 @@ func httpsReady(svc *servingv1.Service) (bool, error) {
 		return false, nil
 	} else {
 		return svc.Status.URL.Scheme == "https", nil
+	}
+}
+
+func TestRouteTagLocalCA(t *testing.T) {
+	clients := e2e.Setup(t)
+	disableNamespaceCertWithWhiteList(t, clients, sets.String{})
+
+	names := test.ResourceNames{
+		Route:         test.ObjectNameForTest(t),
+		Config:        test.ObjectNameForTest(t),
+		TrafficTarget: "tagname",
+		Image:         "runtime",
+	}
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
+
+	cancel := turnOnAutoTLS(t, clients)
+	test.CleanupOnInterrupt(cancel)
+	defer cancel()
+
+	_, err := v1test.CreateConfiguration(t, clients, names)
+	if err != nil {
+		t.Fatalf("Failed to create configuration: %v", err)
+	}
+	_, err = v1test.CreateRoute(t, clients, names)
+	if err != nil {
+		t.Fatalf("Failed to create route: %v", err)
+	}
+	if err := v1test.WaitForRouteState(clients.ServingClient, names.Route, v1test.IsRouteReady, "RouteIsReady"); err != nil {
+		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
+	}
+
+	certificates, err := clients.NetworkingClient.Certificates.List(metav1.ListOptions{})
+	if err != nil {
+		t.Fatalf("Failed to list certificates: %v", err)
+	}
+	// Should only have one cert for the main domain and one for the tag
+	if len(certificates.Items) != 2 {
+		t.Fatalf("Expected 2 certificates, got %d.", len(certificates.Items))
+	}
+
+	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to retrieve route: %v", err)
+	}
+	expectedDomains := []string{route.Status.URL.Host, fmt.Sprintf("%s-%s", names.TrafficTarget, route.Status.URL.Host)}
+	var certDomains []string
+	for _, certificate := range certificates.Items {
+		certDomains = append(certDomains, certificate.Spec.DNSNames...)
+	}
+	if !cmp.Equal(expectedDomains, certDomains) {
+		t.Fatalf("Incorrect certificate DNSNames. Got %v, want %v", expectedDomains, certDomains)
 	}
 }
 
