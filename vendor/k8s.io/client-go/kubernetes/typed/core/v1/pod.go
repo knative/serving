@@ -19,6 +19,7 @@ limitations under the License.
 package v1
 
 import (
+	"context"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -37,7 +38,7 @@ type PodsGetter interface {
 
 // PodInterface has methods to work with Pod resources.
 type PodInterface interface {
-	Create(*v1.Pod) (*v1.Pod, error)
+	Create(ctx context.Context, pod *v1.Pod, opts metav1.CreateOptions) (*v1.Pod, error)
 	Update(*v1.Pod) (*v1.Pod, error)
 	UpdateStatus(*v1.Pod) (*v1.Pod, error)
 	Delete(name string, options *metav1.DeleteOptions) error
@@ -112,11 +113,12 @@ func (c *pods) Watch(opts metav1.ListOptions) (watch.Interface, error) {
 }
 
 // Create takes the representation of a pod and creates it.  Returns the server's representation of the pod, and an error, if there is any.
-func (c *pods) Create(pod *v1.Pod) (result *v1.Pod, err error) {
+func (c *pods) Create(ctx context.Context, pod *v1.Pod, opts metav1.CreateOptions) (result *v1.Pod, err error) {
 	result = &v1.Pod{}
 	err = c.client.Post().
 		Namespace(c.ns).
 		Resource("pods").
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(pod).
 		Do().
 		Into(result)
