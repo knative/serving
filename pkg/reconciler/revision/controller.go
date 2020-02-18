@@ -88,9 +88,6 @@ func newControllerWithOptions(
 			transport: transport,
 		},
 	}
-	for _, opt := range opts {
-		opt(c)
-	}
 	impl := revisionreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
 		configsToResync := []interface{}{
 			&network.Config{},
@@ -133,5 +130,8 @@ func newControllerWithOptions(
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
+	for _, opt := range opts {
+		opt(c)
+	}
 	return impl
 }

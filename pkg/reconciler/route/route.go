@@ -21,18 +21,13 @@ import (
 	"sort"
 	"strings"
 
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	kubelabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
@@ -41,6 +36,7 @@ import (
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
+	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
 	networkinglisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
 	"knative.dev/serving/pkg/network"
@@ -56,81 +52,23 @@ import (
 	"knative.dev/serving/pkg/reconciler/route/visibility"
 )
 
-// routeFinalizer is the name that we put into the resource finalizer list, e.g.
-//  metadata:
-//    finalizers:
-//    - routes.serving.knative.dev
-var (
-	routeResource  = v1.Resource("routes")
-	routeFinalizer = routeResource.String()
-)
-
 // Reconciler implements controller.Reconciler for Route resources.
 type Reconciler struct {
 	*reconciler.Base
 
 	// Listers index properties about resources
-	routeLister         listers.RouteLister
 	configurationLister listers.ConfigurationLister
 	revisionLister      listers.RevisionLister
 	serviceLister       corev1listers.ServiceLister
 	ingressLister       networkinglisters.IngressLister
 	certificateLister   networkinglisters.CertificateLister
-	configStore         pkgreconciler.ConfigStore
 	tracker             tracker.Interface
 
 	clock system.Clock
 }
 
-// Check that our Reconciler implements controller.Reconciler
-var _ controller.Reconciler = (*Reconciler)(nil)
-
-// Reconcile compares the actual state with the desired, and attempts to
-// converge the two. It then updates the Status block of the Route resource
-// with the current status of the resource.
-func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
-	logger := logging.FromContext(ctx)
-	ctx = c.configStore.ToContext(ctx)
-	ctx = controller.WithEventRecorder(ctx, c.Recorder)
-
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		logger.Errorw("Invalid resource key", zap.Error(err))
-		return nil
-	}
-
-	// Get the Route resource with this namespace/name.
-	original, err := c.routeLister.Routes(namespace).Get(name)
-	if apierrs.IsNotFound(err) {
-		// The resource may no longer exist, in which case we stop processing.
-		logger.Info("Route in work queue no longer exists")
-		return nil
-	} else if err != nil {
-		return err
-	}
-	// Don't modify the informers copy.
-	route := original.DeepCopy()
-
-	// Reconcile this copy of the route and then write back any status
-	// updates regardless of whether the reconciliation errored out.
-	reconcileErr := c.reconcile(ctx, route)
-	if equality.Semantic.DeepEqual(original.Status, route.Status) {
-		// If we didn't change anything then don't call updateStatus.
-		// This is important because the copy we loaded from the informer's
-		// cache may be stale and we don't want to overwrite a prior update
-		// to status with this stale state.
-	} else if err = c.updateStatus(original, route); err != nil {
-		logger.Warnw("Failed to update route status", zap.Error(err))
-		c.Recorder.Eventf(route, corev1.EventTypeWarning, "UpdateFailed",
-			"Failed to update status for Route %q: %v", route.Name, err)
-		return err
-	}
-	if reconcileErr != nil {
-		c.Recorder.Event(route, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
-		return reconcileErr
-	}
-	return nil
-}
+// Check that our Reconciler implements routereconciler.Interface
+var _ routereconciler.Interface = (*Reconciler)(nil)
 
 func ingressClassForRoute(ctx context.Context, r *v1.Route) string {
 	if ingressClass := r.Annotations[networking.IngressClassAnnotationKey]; ingressClass != "" {
@@ -160,12 +98,8 @@ func (c *Reconciler) getServices(route *v1.Route) ([]*corev1.Service, error) {
 	return serviceCopy, err
 }
 
-func (c *Reconciler) reconcile(ctx context.Context, r *v1.Route) error {
+func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
-	if r.GetDeletionTimestamp() != nil {
-		// Check for a DeletionTimestamp.  If present, elide the normal reconcile logic.
-		return c.reconcileDeletion(ctx, r)
-	}
 
 	// We may be reading a version of the object that was stored at an older version
 	// and may not have had all of the assumed defaults specified.  This won't result
@@ -329,28 +263,6 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 		return acmeChallenges[i].URL.String() < acmeChallenges[j].URL.String()
 	})
 	return tls, acmeChallenges, nil
-}
-
-func (c *Reconciler) reconcileDeletion(ctx context.Context, r *v1.Route) error {
-	logger := logging.FromContext(ctx)
-
-	// If our Finalizer is first, delete the Ingress for this Route
-	// and remove the finalizer.
-	if len(r.Finalizers) == 0 || r.Finalizers[0] != routeFinalizer {
-		return nil
-	}
-
-	// Delete the Ingress resources for this Route.
-	logger.Info("Cleaning up Ingress")
-	if err := c.deleteIngressForRoute(r); err != nil {
-		return err
-	}
-
-	// Update the Route to remove the Finalizer.
-	logger.Info("Removing Finalizer")
-	r.Finalizers = r.Finalizers[1:]
-	_, err := c.ServingClientSet.ServingV1().Routes(r.Namespace).Update(r)
-	return err
 }
 
 // configureTraffic attempts to configure traffic based on the RouteSpec.  If there are missing

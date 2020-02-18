@@ -25,6 +25,7 @@ import (
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route"
+	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
 
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
@@ -48,13 +49,16 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
-	return NewControllerWithClock(ctx, cmw, system.RealClock{})
+	return newControllerWithClock(ctx, cmw, system.RealClock{})
 }
 
-func NewControllerWithClock(
+type reconcilerOption func(*Reconciler)
+
+func newControllerWithClock(
 	ctx context.Context,
 	cmw configmap.Watcher,
 	clock system.Clock,
+	opts ...reconcilerOption,
 ) *controller.Impl {
 
 	serviceInformer := serviceinformer.Get(ctx)
@@ -68,7 +72,6 @@ func NewControllerWithClock(
 	// domainConfig haven't started yet.
 	c := &Reconciler{
 		Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
-		routeLister:         routeInformer.Lister(),
 		configurationLister: configInformer.Lister(),
 		revisionLister:      revisionInformer.Lister(),
 		serviceLister:       serviceInformer.Lister(),
@@ -76,7 +79,18 @@ func NewControllerWithClock(
 		certificateLister:   certificateInformer.Lister(),
 		clock:               clock,
 	}
-	impl := controller.NewImpl(c, c.Logger, "Routes")
+	impl := routereconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
+		configsToResync := []interface{}{
+			&network.Config{},
+			&config.Domain{},
+		}
+		resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
+			impl.GlobalResync(routeInformer.Informer())
+		})
+		configStore := config.NewStore(logging.WithLogger(ctx, c.Logger.Named("config-store")), resync)
+		configStore.WatchConfigs(cmw)
+		return controller.Options{ConfigStore: configStore}
+	})
 
 	c.Logger.Info("Setting up event handlers")
 	routeInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
@@ -115,17 +129,8 @@ func NewControllerWithClock(
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
-	c.Logger.Info("Setting up ConfigMap receivers")
-	configsToResync := []interface{}{
-		&network.Config{},
-		&config.Domain{},
+	for _, opt := range opts {
+		opt(c)
 	}
-	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
-		impl.GlobalResync(routeInformer.Informer())
-	})
-	configStore := config.NewStore(logging.WithLogger(ctx, c.Logger.Named("config-store")), resync)
-	configStore.WatchConfigs(cmw)
-	c.configStore = configStore
-
 	return impl
 }

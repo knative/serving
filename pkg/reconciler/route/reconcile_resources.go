@@ -19,7 +19,6 @@ package route
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -27,37 +26,17 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/reconciler"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 )
-
-func routeOwnerLabelSelector(route *v1.Route) labels.Selector {
-	return labels.SelectorFromSet(labels.Set{
-		serving.RouteLabelKey:          route.Name,
-		serving.RouteNamespaceLabelKey: route.Namespace,
-	})
-}
-
-func (c *Reconciler) deleteIngressForRoute(route *v1.Route) error {
-
-	// We always use DeleteCollection because even with a fixed name, we apply the labels.
-	selector := routeOwnerLabelSelector(route).String()
-
-	// Delete Ingresses owned by this route.
-	return c.ServingClientSet.NetworkingV1alpha1().Ingresses(route.Namespace).DeleteCollection(
-		nil, metav1.ListOptions{LabelSelector: selector})
-}
 
 func (c *Reconciler) reconcileIngress(ctx context.Context, r *v1.Route, desired *netv1alpha1.Ingress) (*netv1alpha1.Ingress, error) {
 	ingress, err := c.ingressLister.Ingresses(desired.Namespace).Get(desired.Name)
@@ -194,28 +173,6 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Ro
 	// TODO(mattmoor): This is where we'd look at the state of the Service and
 	// reflect any necessary state into the Route.
 	return eg.Wait()
-}
-
-func (c *Reconciler) updateStatus(existing, desired *v1.Route) error {
-	existing = existing.DeepCopy()
-	return reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
-		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
-		if attempts > 0 {
-			existing, err = c.ServingClientSet.ServingV1().Routes(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-		}
-
-		// If there's nothing to update, just return.
-		if reflect.DeepEqual(existing.Status, desired.Status) {
-			return nil
-		}
-
-		existing.Status = desired.Status
-		_, err = c.ServingClientSet.ServingV1().Routes(desired.Namespace).UpdateStatus(existing)
-		return err
-	})
 }
 
 // Update the lastPinned annotation on revisions we target so they don't get GC'd.
