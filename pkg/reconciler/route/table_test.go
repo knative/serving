@@ -1805,13 +1805,11 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 						}},
 					},
 				},
-				[]netv1alpha1.IngressTLS{
-					{
-						Hosts:           []string{"becomes-ready.default.example.com"},
-						SecretName:      "default",
-						SecretNamespace: "default",
-					},
-				},
+				[]netv1alpha1.IngressTLS{{
+					Hosts:           []string{"becomes-ready.default.example.com"},
+					SecretName:      "default",
+					SecretNamespace: "default",
+				}},
 				nil,
 			),
 			simpleK8sService(
@@ -1837,7 +1835,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		},
 		Key: "default/becomes-ready",
 	}, {
-		Name: "check that Certificate and IngressTLS are correctly configured when creating a Route",
+		Name: "check that Certificate is correctly configured when creating a Route",
 		Objects: []runtime.Object{
 			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
 			cfg("default", "config",
@@ -1847,6 +1845,59 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		WantCreates: []runtime.Object{
 			resources.MakeCertificates(Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
 				map[string]string{"becomes-ready.default.example.com": ""}, network.CertManagerCertificateClassName)[0],
+			ingressWithTLS(
+				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
+					WithRouteUID("12-34")),
+				&traffic.Config{
+					Targets: map[string]traffic.RevisionTargets{
+						traffic.DefaultTarget: {{
+							TrafficTarget: v1.TrafficTarget{
+								// Use the Revision name from the config.
+								RevisionName: "config-00001",
+								Percent:      ptr.Int64(100),
+							},
+							ServiceName: "mcd",
+							Active:      true,
+						}},
+					},
+				},
+				nil, // No Ingress TLS until Certificate is ready.
+				nil,
+			),
+			simpleK8sService(
+				Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
+				WithExternalName("becomes-ready.default.example.com"),
+			),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: Route("default", "becomes-ready", WithConfigTarget("config"),
+				WithRouteUID("12-34"),
+				// Populated by reconciliation when all traffic has been assigned.
+				WithURL, WithAddress, WithInitRouteConditions,
+				MarkTrafficAssigned, MarkIngressNotConfigured, WithStatusTraffic(
+					v1.TrafficTarget{
+						RevisionName:   "config-00001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					}), MarkCertificateNotReady),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Certificate %s/%s", "default", "route-12-34"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
+		},
+		Key: "default/becomes-ready",
+	}, {
+		Name: "check that IngressTLS is correctly configured when Certificate is ready",
+		Objects: []runtime.Object{
+			Route("default", "becomes-ready", WithConfigTarget("config"), WithRouteUID("12-34")),
+			cfg("default", "config",
+				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
+			rev("default", "config", 1, MarkRevisionReady, WithRevName("config-00001"), WithServiceName("mcd")),
+			certificateWithStatus(resources.MakeCertificates(Route("default", "becomes-ready", WithConfigTarget("config"), WithURL, WithRouteUID("12-34")),
+				map[string]string{"becomes-ready.default.example.com": ""}, network.CertManagerCertificateClassName)[0], readyCertStatus()),
+		},
+		WantCreates: []runtime.Object{
 			ingressWithTLS(
 				Route("default", "becomes-ready", WithConfigTarget("config"), WithURL,
 					WithRouteUID("12-34")),
@@ -1885,11 +1936,12 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 						RevisionName:   "config-00001",
 						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
-					}), MarkCertificateNotReady),
+					}),
+				// The certificate is ready. So we want to have HTTPS URL.
+				MarkCertificateReady, WithHTTPSDomain),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created placeholder service %q", "becomes-ready"),
-			Eventf(corev1.EventTypeNormal, "Created", "Created Certificate %s/%s", "default", "route-12-34"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Ingress %q", "becomes-ready"),
 		},
 		Key: "default/becomes-ready",
@@ -1938,13 +1990,11 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 						}},
 					},
 				},
-				[]netv1alpha1.IngressTLS{
-					{
-						Hosts:           []string{"becomes-ready.default.example.com"},
-						SecretName:      "route-12-34",
-						SecretNamespace: "default",
-					},
-				},
+				[]netv1alpha1.IngressTLS{{
+					Hosts:           []string{"becomes-ready.default.example.com"},
+					SecretName:      "route-12-34",
+					SecretNamespace: "default",
+				}},
 				nil,
 			),
 			simpleK8sService(
@@ -2031,13 +2081,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 						}},
 					},
 				},
-				[]netv1alpha1.IngressTLS{
-					{
-						Hosts:           []string{"becomes-ready.default.example.com"},
-						SecretName:      "route-12-34",
-						SecretNamespace: "default",
-					},
-				},
+				nil, // We don't put in IngressTLS until the Certificate is Ready.
 				[]netv1alpha1.HTTP01Challenge{{
 					URL: &apis.URL{
 						Scheme: "http",
@@ -2170,13 +2214,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 						}},
 					},
 				},
-				[]netv1alpha1.IngressTLS{
-					{
-						Hosts:           []string{"becomes-ready.default.example.com"},
-						SecretName:      "route-12-34",
-						SecretNamespace: "default",
-					},
-				},
+				nil,
 				nil,
 			),
 			simpleK8sService(
@@ -2359,13 +2397,7 @@ func TestReconcile_EnableAutoTLS_HTTPDisabled(t *testing.T) {
 						}},
 					},
 				},
-				[]netv1alpha1.IngressTLS{
-					{
-						Hosts:           []string{"becomes-ready.default.example.com"},
-						SecretName:      "route-12-34",
-						SecretNamespace: "default",
-					},
-				},
+				nil,
 				nil,
 			),
 			simpleK8sService(
