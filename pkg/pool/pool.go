@@ -50,6 +50,12 @@ func New(workers int) Interface {
 	return NewWithCapacity(workers, defaultCapacity)
 }
 
+// NewWithCapacity creates a fresh worker pool with the specified size.
+func NewWithCapacity(workers, capacity int) Interface {
+	i, _ := NewWithContext(context.Background(), workers, capacity)
+	return i
+}
+
 // NewWithContext creates a pool that is driven by a cancelable context.
 // Just like errgroup.Group on first error the context will be canceled as well.
 func NewWithContext(ctx context.Context, workers, capacity int) (Interface, context.Context) {
@@ -61,7 +67,7 @@ func NewWithContext(ctx context.Context, workers, capacity int) (Interface, cont
 
 	// Start a go routine for each worker, which:
 	// 1. reads off of the work channel,
-	// 2. (optionally) sends errors on the error channel,
+	// 2. (optionally) sets the error as the result,
 	// 3. marks work as done in our sync.WaitGroup.
 	for idx := 0; idx < workers; idx++ {
 		go func() {
@@ -83,12 +89,6 @@ func (i *impl) exec(w func() error) {
 			i.result = err
 		})
 	}
-}
-
-// NewWithCapacity creates a fresh worker pool with the specified size.
-func NewWithCapacity(workers, capacity int) Interface {
-	i, _ := NewWithContext(context.Background(), workers, capacity)
-	return i
 }
 
 // Go implements Interface.
