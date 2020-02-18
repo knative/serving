@@ -38,7 +38,7 @@ var (
 	// only when a job forgot or failed to release Boskos, which shouldn't
 	// happen that often. Using this can avoid keeping "heartbeat" which is
 	// almost not doable for Go
-	defaultWaitDuration = 2*time.Hour
+	defaultWaitDuration = 2 * time.Hour
 )
 
 // Operation defines actions for handling GKE resources
