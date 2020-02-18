@@ -242,7 +242,7 @@ func TestProbeQueueNotReady(t *testing.T) {
 	}
 
 	if atomic.LoadInt32(queueProbed) == 0 {
-		t.Errorf("Expected the queue proxy server to be probed")
+		t.Error("Expected the queue proxy server to be probed")
 	}
 }
 
@@ -270,7 +270,7 @@ func TestProbeQueueReady(t *testing.T) {
 	}
 
 	if atomic.LoadInt32(queueProbed) == 0 {
-		t.Errorf("Expected the queue proxy server to be probed")
+		t.Error("Expected the queue proxy server to be probed")
 	}
 }
 
@@ -342,7 +342,7 @@ func TestProbeQueueTimeout(t *testing.T) {
 	ts.Close()
 
 	if atomic.LoadInt32(queueProbed) == 0 {
-		t.Errorf("Expected the queue proxy server to be probed")
+		t.Error("Expected the queue proxy server to be probed")
 	}
 }
 

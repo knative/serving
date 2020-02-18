@@ -243,7 +243,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 			},
 		},
 		want: (&apis.FieldError{
-			Message: fmt.Sprintf(`duplicate volume name "the-name"`),
+			Message: `duplicate volume name "the-name"`,
 			Paths:   []string{"name"},
 		}).ViaFieldIndex("volumes", 1),
 	}, {

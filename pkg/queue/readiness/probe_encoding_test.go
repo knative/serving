@@ -89,7 +89,7 @@ func TestEncodeNilProbe(t *testing.T) {
 	jsonProbe, err := EncodeProbe(nil)
 
 	if err == nil {
-		t.Errorf("Expected error")
+		t.Error("Expected error")
 	}
 
 	if jsonProbe != "" {
