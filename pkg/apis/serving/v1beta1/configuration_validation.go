@@ -23,7 +23,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/reconciler/route/config"
 )
 
 // Validate makes sure that Configuration is properly configured.
@@ -60,7 +59,7 @@ func (c *Configuration) Validate(ctx context.Context) (errs *apis.FieldError) {
 func (c *Configuration) validateLabels() (errs *apis.FieldError) {
 	for key, val := range c.GetLabels() {
 		switch {
-		case key == config.VisibilityLabelKey:
+		case key == serving.VisibilityLabelKey:
 			errs = errs.Also(serving.ValidateClusterVisibilityLabel(val))
 		case key == serving.RouteLabelKey:
 		case key == serving.ServiceLabelKey:

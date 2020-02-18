@@ -29,7 +29,7 @@ import (
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
+	"knative.dev/serving/pkg/apis/serving"
 	v1alph1testing "knative.dev/serving/pkg/testing/v1alpha1"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
@@ -195,7 +195,7 @@ func TestServiceToServiceCall(t *testing.T) {
 	defer test.TearDown(clients, names)
 
 	withInternalVisibility := v1alph1testing.WithServiceLabel(
-		routeconfig.VisibilityLabelKey, routeconfig.VisibilityClusterLocal)
+		serving.VisibilityLabelKey, serving.VisibilityClusterLocal)
 	resources, _, err := v1a1test.CreateRunLatestServiceReady(t, clients, &names,
 		test.ServingFlags.Https,
 		withInternalVisibility,
@@ -242,7 +242,7 @@ func testSvcToSvcCallViaActivator(t *testing.T, clients *test.Clients, injectA b
 	}
 
 	withInternalVisibility := v1alph1testing.WithServiceLabel(
-		routeconfig.VisibilityLabelKey, routeconfig.VisibilityClusterLocal)
+		serving.VisibilityLabelKey, serving.VisibilityClusterLocal)
 
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, testNames) })
 	defer test.TearDown(clients, testNames)

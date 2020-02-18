@@ -24,7 +24,6 @@ import (
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
@@ -252,7 +251,7 @@ func TestConfigurationLabelValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					routeconfig.VisibilityLabelKey: "cluster-local",
+					serving.VisibilityLabelKey: "cluster-local",
 				},
 			},
 			Spec: validConfigSpec,
@@ -264,7 +263,7 @@ func TestConfigurationLabelValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					routeconfig.VisibilityLabelKey: "bad-value",
+					serving.VisibilityLabelKey: "bad-value",
 				},
 			},
 			Spec: validConfigSpec,

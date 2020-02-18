@@ -20,16 +20,14 @@ import (
 	"context"
 	"testing"
 
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
-	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"knative.dev/pkg/apis"
 )
 
 func TestConfigurationValidation(t *testing.T) {
@@ -275,7 +273,7 @@ func TestConfigurationLabelValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					routeconfig.VisibilityLabelKey: "cluster-local",
+					serving.VisibilityLabelKey: "cluster-local",
 				},
 			},
 			Spec: validConfigSpec,
@@ -287,7 +285,7 @@ func TestConfigurationLabelValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					routeconfig.VisibilityLabelKey: "bad-value",
+					serving.VisibilityLabelKey: "bad-value",
 				},
 			},
 			Spec: validConfigSpec,

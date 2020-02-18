@@ -21,21 +21,15 @@ import (
 
 	"github.com/ghodss/yaml"
 	corev1 "k8s.io/api/core/v1"
+
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/network"
+	"knative.dev/serving/pkg/apis/serving"
 )
 
 const (
+	// DomainConfigName is the config map name for the domain configuration.
 	DomainConfigName = "config-domain"
-	// VisibilityLabelKey is the label to indicate visibility of Route
-	// and KServices.  It can be an annotation too but since users are
-	// already using labels for domain, it probably best to keep this
-	// consistent.
-	VisibilityLabelKey = "serving.knative.dev/visibility"
-	// VisibilityClusterLocal is the label value for VisibilityLabelKey
-	// that will result to the Route/KService getting a cluster local
-	// domain suffix.
-	VisibilityClusterLocal = "cluster-local"
 	// DefaultDomain holds the domain that Route's live under by default
 	// when no label selector-based options apply.
 	DefaultDomain = "example.com"
@@ -80,12 +74,12 @@ func NewDomainFromConfigMap(configMap *corev1.ConfigMap) (*Domain, error) {
 		if k == configmap.ExampleKey {
 			continue
 		}
-		labelSelector := LabelSelector{}
-		err := yaml.Unmarshal([]byte(v), &labelSelector)
+		labelSelector := &LabelSelector{}
+		err := yaml.Unmarshal([]byte(v), labelSelector)
 		if err != nil {
 			return nil, err
 		}
-		c.Domains[k] = &labelSelector
+		c.Domains[k] = labelSelector
 		if len(labelSelector.Selector) == 0 {
 			hasDefault = true
 		}
@@ -104,7 +98,7 @@ func (c *Domain) LookupDomainForLabels(labels map[string]string) string {
 	specificity := -1
 	// If we see VisibilityLabelKey sets with VisibilityClusterLocal, that
 	// will take precedence and the route will get a Cluster's Domain Name.
-	if labels[VisibilityLabelKey] == VisibilityClusterLocal {
+	if labels[serving.VisibilityLabelKey] == serving.VisibilityClusterLocal {
 		return "svc." + network.GetClusterDomainName()
 	}
 	for k, selector := range c.Domains {

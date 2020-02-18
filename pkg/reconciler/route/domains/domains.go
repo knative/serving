@@ -27,6 +27,7 @@ import (
 	"knative.dev/pkg/apis"
 	pkgnet "knative.dev/pkg/network"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
@@ -82,7 +83,7 @@ func DomainNameFromTemplate(ctx context.Context, r metav1.ObjectMeta, name strin
 	var templ *template.Template
 	// If the route is "cluster local" then don't use the user-defined
 	// domain template, use the default one
-	if rLabels[config.VisibilityLabelKey] == config.VisibilityClusterLocal {
+	if rLabels[serving.VisibilityLabelKey] == serving.VisibilityClusterLocal {
 		templ = template.Must(template.New("domain-template").Parse(
 			network.DefaultDomainTemplate))
 	} else {

@@ -28,7 +28,6 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
-	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 )
 
 var (
@@ -104,8 +103,8 @@ func ValidateContainerConcurrency(containerConcurrency *int64) *apis.FieldError 
 
 // ValidateClusterVisibilityLabel function validates the visibility label on a Route
 func ValidateClusterVisibilityLabel(label string) (errs *apis.FieldError) {
-	if label != routeconfig.VisibilityClusterLocal {
-		errs = apis.ErrInvalidValue(label, routeconfig.VisibilityLabelKey)
+	if label != VisibilityClusterLocal {
+		errs = apis.ErrInvalidValue(label, VisibilityLabelKey)
 	}
 	return
 }
