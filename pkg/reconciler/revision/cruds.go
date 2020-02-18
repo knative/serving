@@ -77,6 +77,13 @@ func (c *Reconciler) checkAndUpdateDeployment(ctx context.Context, rev *v1.Revis
 	// TODO(dprotaso): determine other immutable properties.
 	deployment.Spec.Selector = have.Spec.Selector
 
+	// Preserve PodSpec labels added by other systems
+	for key, value := range have.Spec.Template.Labels {
+		if deployment.Spec.Template.Labels[key] == "" {
+			deployment.Spec.Template.Labels[key] = value
+		}
+	}
+
 	// If the spec we want is the spec we have, then we're good.
 	if equality.Semantic.DeepEqual(have.Spec, deployment.Spec) {
 		return have, nil

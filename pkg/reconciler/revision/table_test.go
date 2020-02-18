@@ -545,6 +545,19 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, AllUnknownConditions, MarkDeploying("Deploying")),
 		}},
 		Key: "foo/image-pull-secrets",
+	}, {
+		Name: "Preserve deployment and podspec labels",
+		Objects: []runtime.Object{
+			rev("foo", "keep-deployment-labels",
+				WithLogURL, AllUnknownConditions),
+			pa("foo", "keep-deployment-labels", WithReachability(asv1a1.ReachabilityUnknown)),
+			addPodspecLabels(changeContainers(deploy(t, "foo", "keep-deployment-labels"))),
+			image("foo", "keep-deployment-labels"),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: addPodspecLabels(deploy(t, "foo", "keep-deployment-labels")),
+		}},
+		Key: "foo/keep-deployment-labels",
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
@@ -615,6 +628,12 @@ func changeContainers(deploy *appsv1.Deployment) *appsv1.Deployment {
 		podSpec.Containers[i].Image = "asdf"
 	}
 	return deploy
+}
+
+func addPodspecLabels(deployment *appsv1.Deployment) *appsv1.Deployment {
+	deployment.Labels["test-label"] = "test-label-value"
+	deployment.Spec.Template.Labels["test-spec-label"] = "test-spec-label-value"
+	return deployment
 }
 
 func rev(namespace, name string, ro ...RevisionOption) *v1.Revision {

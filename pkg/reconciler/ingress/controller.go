@@ -19,6 +19,8 @@ package ingress
 import (
 	"context"
 
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	secretinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/secret"
@@ -29,6 +31,7 @@ import (
 	"knative.dev/pkg/tracker"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	ingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
 	istioclient "knative.dev/serving/pkg/client/istio/injection/client"
 	gatewayinformer "knative.dev/serving/pkg/client/istio/injection/informers/networking/v1alpha3/gateway"
@@ -97,6 +100,7 @@ func NewController(
 	endpointsInformer := endpointsinformer.Get(ctx)
 	serviceInformer := serviceinformer.Get(ctx)
 	podInformer := podinformer.Get(ctx)
+	deploymentInformer := deploymentinformer.Get(ctx)
 	resyncOnIngressReady := func(ing *v1alpha1.Ingress) {
 		impl.EnqueueKey(types.NamespacedName{Namespace: ing.GetNamespace(), Name: ing.GetName()})
 	}
@@ -118,6 +122,16 @@ func NewController(
 	podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		// Cancel probing when a Pod is deleted
 		DeleteFunc: statusProber.CancelPodProbing,
+	})
+
+	labelProvider := NewLabelProvider(c.Logger.Named("label-provider"), kubeclient.Get(ctx))
+
+	deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: controller.FilterGroupKind(v1.Kind("Revision")),
+		Handler: cache.ResourceEventHandlerFuncs{
+			// Add istio ingress labels
+			UpdateFunc: labelProvider.process,
+		},
 	})
 
 	c.Logger.Info("Setting up secret informer event handler")

@@ -25,6 +25,7 @@ import (
 
 	// Inject our fakes
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
+	_ "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake"
