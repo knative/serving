@@ -23,10 +23,10 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/kubernetes"
 
 	"knative.dev/pkg/injection/sharedmain"
 	"knative.dev/serving/pkg/apis/networking"
-	"knative.dev/serving/test"
 )
 
 type config struct {
@@ -44,21 +44,21 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to build config: %v", err)
 	}
-	clients, err := test.NewClientsFromConfig(cfg, test.ServingNamespace)
+	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		log.Fatalf("Failed to get test clients: %v", err)
+		log.Fatalf("Failed to create kube client: %v", err)
 	}
 	whiteLists := sets.String{}
 	if len(env.NamespaceWithCert) != 0 {
 		whiteLists.Insert(env.NamespaceWithCert)
 	}
-	if err := disableNamespaceCertWithWhiteList(clients, whiteLists); err != nil {
+	if err := disableNamespaceCertWithWhiteList(kubeClient, whiteLists); err != nil {
 		log.Fatalf("Failed to disable namespace cert: %v", err)
 	}
 }
 
-func disableNamespaceCertWithWhiteList(clients *test.Clients, whiteLists sets.String) error {
-	namespaces, err := clients.KubeClient.Kube.CoreV1().Namespaces().List(metav1.ListOptions{})
+func disableNamespaceCertWithWhiteList(kubeClient *kubernetes.Clientset, whiteLists sets.String) error {
+	namespaces, err := kubeClient.CoreV1().Namespaces().List(metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func disableNamespaceCertWithWhiteList(clients *test.Clients, whiteLists sets.St
 		} else {
 			ns.Labels[networking.DisableWildcardCertLabelKey] = "true"
 		}
-		if _, err := clients.KubeClient.Kube.CoreV1().Namespaces().Update(&ns); err != nil {
+		if _, err := kubeClient.CoreV1().Namespaces().Update(&ns); err != nil {
 			return err
 		}
 	}
