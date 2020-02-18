@@ -317,9 +317,7 @@ func (r *Reconciler) reconcileGateway(ctx context.Context, ing *v1alpha1.Ingress
 	}
 
 	copy := gateway.DeepCopy()
-
 	copy = resources.UpdateGateway(copy, desired, existing)
-
 	if _, err := r.istioClientSet.NetworkingV1alpha3().Gateways(copy.Namespace).Update(copy); err != nil {
 		return fmt.Errorf("failed to update Gateway: %w", err)
 	}
