@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -44,7 +43,7 @@ func TestMetricValidation(t *testing.T) {
 			},
 		},
 		want: &apis.FieldError{
-			Message: fmt.Sprintf("not a DNS 1035 label: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]"),
+			Message: "not a DNS 1035 label: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
 			Paths:   []string{"metadata.name"},
 		},
 	}, {
@@ -58,7 +57,7 @@ func TestMetricValidation(t *testing.T) {
 			},
 		},
 		want: &apis.FieldError{
-			Message: fmt.Sprintf("not a DNS 1035 label prefix: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]"),
+			Message: "not a DNS 1035 label prefix: [a DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character (e.g. 'my-name',  or 'abc-123', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')]",
 			Paths:   []string{"metadata.generateName"},
 		},
 	}, {
@@ -73,7 +72,7 @@ func TestMetricValidation(t *testing.T) {
 			},
 		},
 		want: &apis.FieldError{
-			Message: fmt.Sprintf("name or generateName is required"),
+			Message: "name or generateName is required",
 			Paths:   []string{"metadata.name"},
 		},
 	}, {
@@ -85,7 +84,7 @@ func TestMetricValidation(t *testing.T) {
 			Spec: MetricSpec{},
 		},
 		want: &apis.FieldError{
-			Message: fmt.Sprintf("missing field(s)"),
+			Message: "missing field(s)",
 			Paths:   []string{"spec"},
 		},
 	}, {

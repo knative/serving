@@ -885,7 +885,7 @@ func TestTypicalFlow(t *testing.T) {
 	r.MarkInactive("TheReason", "the message")
 	apitestv1.CheckConditionFailed(r.duck(), PodAutoscalerConditionActive, t)
 	if !r.IsInactive() {
-		t.Errorf("IsInactive was not set.")
+		t.Error("IsInactive was not set.")
 	}
 	apitestv1.CheckConditionFailed(r.duck(), PodAutoscalerConditionReady, t)
 

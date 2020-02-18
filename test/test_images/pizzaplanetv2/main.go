@@ -25,7 +25,7 @@ import (
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Re-energize yourself with a slice of pepperoni!")
+	fmt.Fprint(w, "Re-energize yourself with a slice of pepperoni!")
 }
 
 func main() {

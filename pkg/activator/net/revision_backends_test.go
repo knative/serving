@@ -472,7 +472,7 @@ func TestRevisionWatcher(t *testing.T) {
 func assertChClosed(t *testing.T, ch chan struct{}) {
 	defer func() {
 		if r := recover(); r == nil {
-			t.Errorf("the channel was not closed")
+			t.Error("the channel was not closed")
 		}
 	}()
 	select {
@@ -731,7 +731,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 				case update := <-rbm.updates():
 					revDests[update.Rev] = update
 				case <-time.After(updateTimeout):
-					t.Errorf("Timed out waiting for update event")
+					t.Error("Timed out waiting for update event")
 				}
 			}
 
@@ -1024,7 +1024,7 @@ func TestRevisionDeleted(t *testing.T) {
 	select {
 	case <-rbm.updates():
 	case <-time.After(time.Second * 2):
-		t.Errorf("Timedout waiting for initial response")
+		t.Error("Timedout waiting for initial response")
 	}
 	// Now delete the endpoints.
 	fakekubeclient.Get(ctx).CoreV1().Endpoints(testNamespace).Delete(ep.Name, &metav1.DeleteOptions{})
