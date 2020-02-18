@@ -27,7 +27,6 @@ import (
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 
 	"knative.dev/pkg/apis"
 )
@@ -78,7 +77,7 @@ func TestServiceValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 				Labels: map[string]string{
-					routeconfig.VisibilityLabelKey: "cluster-local",
+					serving.VisibilityLabelKey: "cluster-local",
 				},
 			},
 			Spec: v1.ServiceSpec{
@@ -123,7 +122,7 @@ func TestServiceValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid",
 				Labels: map[string]string{
-					routeconfig.VisibilityLabelKey: "bad-label",
+					serving.VisibilityLabelKey: "bad-label",
 				},
 			},
 			Spec: v1.ServiceSpec{

@@ -22,7 +22,6 @@ import (
 
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/reconciler/route/config"
 )
 
 // Validate makes sure that Service is properly configured.
@@ -69,7 +68,7 @@ func (ss *ServiceStatus) Validate(ctx context.Context) *apis.FieldError {
 func (s *Service) validateLabels() (errs *apis.FieldError) {
 	for key, val := range s.GetLabels() {
 		switch {
-		case key == config.VisibilityLabelKey:
+		case key == serving.VisibilityLabelKey:
 			errs = errs.Also(validateClusterVisibilityLabel(val))
 		case strings.HasPrefix(key, serving.GroupNamePrefix):
 			errs = errs.Also(apis.ErrInvalidKeyName(key, apis.CurrentField))

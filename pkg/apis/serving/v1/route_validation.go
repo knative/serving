@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/reconciler/route/config"
 )
 
 // Validate makes sure that Route is properly configured.
@@ -204,8 +203,8 @@ func (rsf *RouteStatusFields) Validate(ctx context.Context) *apis.FieldError {
 }
 
 func validateClusterVisibilityLabel(label string) (errs *apis.FieldError) {
-	if label != config.VisibilityClusterLocal {
-		errs = apis.ErrInvalidValue(label, config.VisibilityLabelKey)
+	if label != serving.VisibilityClusterLocal {
+		errs = apis.ErrInvalidValue(label, serving.VisibilityLabelKey)
 	}
 	return
 }
@@ -214,7 +213,7 @@ func validateClusterVisibilityLabel(label string) (errs *apis.FieldError) {
 func (r *Route) validateLabels() (errs *apis.FieldError) {
 	for key, val := range r.GetLabels() {
 		switch {
-		case key == config.VisibilityLabelKey:
+		case key == serving.VisibilityLabelKey:
 			errs = errs.Also(validateClusterVisibilityLabel(val))
 		case key == serving.ServiceLabelKey:
 			errs = errs.Also(verifyLabelOwnerRef(val, serving.ServiceLabelKey, "Service", r.GetOwnerReferences()))

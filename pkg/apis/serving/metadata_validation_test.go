@@ -30,7 +30,6 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/config"
-	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 )
 
 func TestValidateObjectMetadata(t *testing.T) {
@@ -290,15 +289,15 @@ func TestValidateClusterVisibilityLabel(t *testing.T) {
 	}{{
 		name:      "empty label",
 		label:     "",
-		expectErr: apis.ErrInvalidValue("", routeconfig.VisibilityLabelKey),
+		expectErr: apis.ErrInvalidValue("", VisibilityLabelKey),
 	}, {
 		name:      "valid label",
-		label:     routeconfig.VisibilityClusterLocal,
+		label:     VisibilityClusterLocal,
 		expectErr: (*apis.FieldError)(nil),
 	}, {
 		name:      "invalid label",
 		label:     "not-cluster-local",
-		expectErr: apis.ErrInvalidValue("not-cluster-local", routeconfig.VisibilityLabelKey),
+		expectErr: apis.ErrInvalidValue("not-cluster-local", VisibilityLabelKey),
 	}}
 
 	for _, test := range tests {

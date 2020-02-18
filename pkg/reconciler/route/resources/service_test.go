@@ -267,7 +267,7 @@ func TestMakeK8sPlaceholderService(t *testing.T) {
 		wantErr: false,
 	}, {
 		name:  "cluster local route",
-		route: Route("test-ns", "test-route", WithRouteLabel(map[string]string{config.VisibilityLabelKey: config.VisibilityClusterLocal})),
+		route: Route("test-ns", "test-route", WithRouteLabel(map[string]string{serving.VisibilityLabelKey: serving.VisibilityClusterLocal})),
 		expectedSpec: corev1.ServiceSpec{
 			Type:            corev1.ServiceTypeExternalName,
 			ExternalName:    "foo-test-route.test-ns.svc.cluster.local",
