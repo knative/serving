@@ -74,7 +74,6 @@ func newControllerWithOptions(
 		virtualServiceLister: virtualServiceInformer.Lister(),
 		gatewayLister:        gatewayInformer.Lister(),
 		secretLister:         secretInformer.Lister(),
-		ingressLister:        ingressInformer.Lister(),
 		finalizer:            ingressFinalizer,
 	}
 	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)

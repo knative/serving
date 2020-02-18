@@ -24,7 +24,6 @@ import (
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"knative.dev/pkg/logging"
-	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/tracker"
@@ -75,7 +74,6 @@ type Reconciler struct {
 	virtualServiceLister istiolisters.VirtualServiceLister
 	gatewayLister        istiolisters.GatewayLister
 	secretLister         corev1listers.SecretLister
-	ingressLister        listers.IngressLister
 
 	tracker   tracker.Interface
 	finalizer string
@@ -90,10 +88,6 @@ var (
 	_ istioaccessor.VirtualServiceAccessor = (*Reconciler)(nil)
 )
 
-func newReconciledNormal(namespace, name string) pkgreconciler.Event {
-	return pkgreconciler.NewEvent(corev1.EventTypeNormal, "IngressTypeReconciled", "IngressType reconciled: \"%s/%s\"", namespace, name)
-}
-
 // Reconcile compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Ingress resource
 // with the current status of the resource.
@@ -106,8 +100,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ingress *v1alpha1.Ingres
 		ingress.Status.MarkIngressNotReady(notReconciledReason, notReconciledMessage)
 		return reconcileErr
 	}
-
-	return newReconciledNormal(ingress.Namespace, ingress.Name)
+	return pkgreconciler.NewEvent(corev1.EventTypeNormal, "IngressTypeReconciled", "IngressType reconciled: \"%s/%s\"", ingress.Namespace, ingress.Name)
 }
 
 func (r *Reconciler) reconcileIngress(ctx context.Context, ing *v1alpha1.Ingress) error {
@@ -272,13 +265,6 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, ing *v1alpha1.Ingress) pk
 		}
 	}
 
-	// Update the Ingress to remove the finalizer.
-	logger.Info("Removing finalizer")
-	ing.SetFinalizers(ing.GetFinalizers()[1:])
-	_, err := r.ServingClientSet.NetworkingV1alpha1().Ingresses(ing.GetNamespace()).Update(ing)
-	if err != nil {
-		logger.Infof("error removing finalizer  %s", err.Error())
-	}
 	return nil
 }
 
