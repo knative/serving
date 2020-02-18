@@ -2251,7 +2251,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		Name: "public becomes cluster local w/ autoTLS",
 		Objects: []runtime.Object{
 			Route("default", "becomes-local", WithConfigTarget("config"),
-				WithRouteLabel(map[string]string{config.VisibilityLabelKey: config.VisibilityClusterLocal}),
+				WithRouteLabel(map[string]string{serving.VisibilityLabelKey: serving.VisibilityClusterLocal}),
 				WithRouteUID("65-23")),
 			cfg("default", "config",
 				WithGeneration(1), WithLatestCreated("config-00001"), WithLatestReady("config-00001")),
@@ -2273,14 +2273,14 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				},
 			),
 			simpleK8sService(Route("default", "becomes-local", WithConfigTarget("config"),
-				WithRouteLabel(map[string]string{config.VisibilityLabelKey: config.VisibilityClusterLocal}),
+				WithRouteLabel(map[string]string{serving.VisibilityLabelKey: serving.VisibilityClusterLocal}),
 				WithRouteUID("65-23"))),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: simpleIngress(
 				Route("default", "becomes-local", WithConfigTarget("config"),
 					WithRouteUID("65-23"),
-					WithRouteLabel(map[string]string{config.VisibilityLabelKey: config.VisibilityClusterLocal})),
+					WithRouteLabel(map[string]string{serving.VisibilityLabelKey: serving.VisibilityClusterLocal})),
 				&traffic.Config{
 					Targets: map[string]traffic.RevisionTargets{
 						traffic.DefaultTarget: {{
@@ -2304,7 +2304,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				WithRouteUID("65-23"),
 				MarkTrafficAssigned, MarkIngressNotConfigured,
 				WithLocalDomain, WithAddress, WithInitRouteConditions,
-				WithRouteLabel(map[string]string{config.VisibilityLabelKey: config.VisibilityClusterLocal}),
+				WithRouteLabel(map[string]string{serving.VisibilityLabelKey: serving.VisibilityClusterLocal}),
 				WithStatusTraffic(
 					v1.TrafficTarget{
 						RevisionName:   "config-00001",
