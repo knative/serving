@@ -21,6 +21,7 @@ import (
 	"strconv"
 
 	lru "github.com/hashicorp/golang-lru"
+	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/metrics/metricskey"
 
 	"go.opencensus.io/tag"
@@ -48,14 +49,10 @@ func valueOrUnknown(v string) string {
 	return metricskey.ValueUnknown
 }
 
-type revisionCtx struct {
-	namespace, name string
-}
-
 // RevisionContext generates a new base metric reporting context containing
 // the respective revision specific tags.
 func RevisionContext(ns, svc, cfg, rev string) (context.Context, error) {
-	key := revisionCtx{namespace: ns, name: rev}
+	key := types.NamespacedName{Namespace: ns, Name: rev}
 	ctx, ok := contextCache.Get(key)
 	if !ok {
 		rctx, err := AugmentWithRevision(context.Background(), ns, svc, cfg, rev)
@@ -93,7 +90,7 @@ func PodContext(pod, container string) (context.Context, error) {
 
 type podRevisionCtx struct {
 	pod      podCtx
-	revision revisionCtx
+	revision types.NamespacedName
 }
 
 // PodRevisionContext generates a new base metric reporting context containing
@@ -101,7 +98,7 @@ type podRevisionCtx struct {
 func PodRevisionContext(pod, container, ns, svc, cfg, rev string) (context.Context, error) {
 	key := podRevisionCtx{
 		pod:      podCtx{pod: pod, container: container},
-		revision: revisionCtx{namespace: ns, name: rev},
+		revision: types.NamespacedName{Namespace: ns, Name: rev},
 	}
 	ctx, ok := contextCache.Get(key)
 	if !ok {
