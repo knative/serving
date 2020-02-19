@@ -29,6 +29,7 @@ import (
 
 	"go.opencensus.io/stats"
 	"go.uber.org/zap"
+	clientv1 "k8s.io/client-go/listers/core/v1"
 	"knative.dev/pkg/metrics/metricskey"
 )
 
@@ -85,6 +86,10 @@ type metricsConfig struct {
 	// recorder provides a hook for performing custom transformations before
 	// writing the metrics to the stats.RecordWithOptions interface.
 	recorder func(context.Context, []stats.Measurement, ...stats.Options) error
+
+	// secretsLister provides access for fetching Kubernetes Secrets from an
+	// informer cache.
+	secretsLister clientv1.SecretLister
 
 	// ---- OpenCensus specific below ----
 	// collectorAddress is the address of the collector, if not `localhost:55678`
@@ -155,6 +160,10 @@ func (mc *metricsConfig) record(ctx context.Context, mss []stats.Measurement, ro
 
 func createMetricsConfig(ops ExporterOptions, logger *zap.SugaredLogger) (*metricsConfig, error) {
 	var mc metricsConfig
+
+	// We don't check if this is `nil` right now, because this is a transition step.
+	// Eventually, this should be a startup check.
+	mc.secretsLister = ops.Secrets
 
 	if ops.Domain == "" {
 		return nil, errors.New("metrics domain cannot be empty")

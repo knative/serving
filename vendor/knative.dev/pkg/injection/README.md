@@ -352,13 +352,11 @@ The responsibility and consequences of using the generated
 
 Future features to be considered:
 
-- Leverage `configStore` and specifically `ctx = r.configStore.ToContext(ctx)`
-  inside `Reconcile`.
-- Resulting changes from `Reconcile` calling `ReconcileKind(ctx, resource)`:
-  - If `resource.metadata.labels` or `.annotations` are updated, `Reconcile`
-    will synchronize it back to the API Server.
+- Document how we leverage `configStore` and specifically
+  `ctx = r.configStore.ToContext(ctx)` inside `Reconcile`.
 - Adjust `+genreconciler` to allow for generated reconcilers to be made without
   annotating the type struct.
+- Add class-based annotation filtering.
 
 ### ConfigStore
 

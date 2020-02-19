@@ -19,6 +19,8 @@ package generators
 import (
 	"io"
 
+	clientgentypes "k8s.io/code-generator/cmd/client-gen/types"
+
 	"k8s.io/gengo/generator"
 	"k8s.io/gengo/namer"
 	"k8s.io/gengo/types"
@@ -34,6 +36,9 @@ type reconcilerReconcilerGenerator struct {
 	clientsetPkg   string
 	listerName     string
 	listerPkg      string
+
+	groupGoName  string
+	groupVersion clientgentypes.GroupVersion
 }
 
 var _ generator.Generator = (*reconcilerReconcilerGenerator)(nil)
@@ -60,8 +65,9 @@ func (g *reconcilerReconcilerGenerator) GenerateType(c *generator.Context, t *ty
 	klog.V(5).Infof("processing type %v", t)
 
 	m := map[string]interface{}{
-		"type": t,
-
+		"type":    t,
+		"group":   namer.IC(g.groupGoName),
+		"version": namer.IC(g.groupVersion.Version.String()),
 		"controllerImpl": c.Universe.Type(types.Name{
 			Package: "knative.dev/pkg/controller",
 			Name:    "Impl",
@@ -310,7 +316,7 @@ func (r *reconcilerImpl) updateStatus(existing *{{.type|raw}}, desired *{{.type|
 	return {{.reconcilerRetryUpdateConflicts|raw}}(func(attempts int) (err error) {
 		// The first iteration tries to use the injectionInformer's state, subsequent attempts fetch the latest state via API.
 		if attempts > 0 {
-			existing, err = r.Client.{{.type|versionedClientset}}().{{.type|apiGroup}}(desired.Namespace).Get(desired.Name, {{.metav1GetOptions|raw}}{})
+			existing, err = r.Client.{{.group}}{{.version}}().{{.type|apiGroup}}(desired.Namespace).Get(desired.Name, {{.metav1GetOptions|raw}}{})
 			if err != nil {
 				return err
 			}
@@ -322,7 +328,7 @@ func (r *reconcilerImpl) updateStatus(existing *{{.type|raw}}, desired *{{.type|
 		}
 
 		existing.Status = desired.Status
-		_, err = r.Client.{{.type|versionedClientset}}().{{.type|apiGroup}}(existing.Namespace).UpdateStatus(existing)
+		_, err = r.Client.{{.group}}{{.version}}().{{.type|apiGroup}}(existing.Namespace).UpdateStatus(existing)
 		return err
 	})
 }
@@ -378,7 +384,7 @@ func (r *reconcilerImpl) updateFinalizersFiltered(ctx {{.contextContext|raw}}, r
 		return resource, err
 	}
 
-	resource, err = r.Client.{{.type|versionedClientset}}().{{.type|apiGroup}}(resource.Namespace).Patch(resource.Name, types.MergePatchType, patch)
+	resource, err = r.Client.{{.group}}{{.version}}().{{.type|apiGroup}}(resource.Namespace).Patch(resource.Name, types.MergePatchType, patch)
 	if err != nil {
 		r.Recorder.Eventf(resource, {{.corev1EventTypeWarning|raw}}, "FinalizerUpdateFailed",
 			"Failed to update finalizers for %q: %v", resource.Name, err)

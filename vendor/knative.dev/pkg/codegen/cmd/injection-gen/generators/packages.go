@@ -465,6 +465,8 @@ func reconcilerPackages(basePackage string, groupPkgName string, gv clientgentyp
 					clientsetPkg:   customArgs.VersionedClientSetPackage,
 					listerName:     t.Name.Name + "Lister",
 					listerPkg:      listerPackagePath,
+					groupGoName:    groupGoName,
+					groupVersion:   gv,
 				})
 
 				return generators
