@@ -37,6 +37,9 @@ type reconcilerControllerGenerator struct {
 	clientPkg           string
 	schemePkg           string
 	informerPackagePath string
+
+	reconcilerClass    string
+	hasReconcilerClass bool
 }
 
 var _ generator.Generator = (*reconcilerControllerGenerator)(nil)
@@ -63,8 +66,10 @@ func (g *reconcilerControllerGenerator) GenerateType(c *generator.Context, t *ty
 	klog.V(5).Infof("processing type %v", t)
 
 	m := map[string]interface{}{
-		"type":  t,
-		"group": g.groupName,
+		"type":     t,
+		"group":    g.groupName,
+		"class":    g.reconcilerClass,
+		"hasClass": g.hasReconcilerClass,
 		"controllerImpl": c.Universe.Type(types.Name{
 			Package: "knative.dev/pkg/controller",
 			Name:    "Impl",
@@ -149,13 +154,14 @@ const (
 	defaultControllerAgentName = "{{.type|lowercaseSingular}}-controller"
 	defaultFinalizerName       = "{{.type|allLowercasePlural}}.{{.group}}"
 	defaultQueueName           = "{{.type|allLowercasePlural}}"
+	{{if .hasClass}}classAnnotationKey = "{{ .class }}"{{end}}
 )
 
 // NewImpl returns a {{.controllerImpl|raw}} that handles queuing and feeding work from
 // the queue through an implementation of {{.controllerReconciler|raw}}, delegating to
 // the provided Interface and optional Finalizer methods. OptionsFn is used to return
 // {{.controllerOptions|raw}} to be used but the internal reconciler.
-func NewImpl(ctx {{.contextContext|raw}}, r Interface, optionsFns ...{{.controllerOptionsFn|raw}}) *{{.controllerImpl|raw}} {
+func NewImpl(ctx {{.contextContext|raw}}, r Interface{{if .hasClass}}, classValue string{{end}}, optionsFns ...{{.controllerOptionsFn|raw}}) *{{.controllerImpl|raw}} {
 	logger := {{.loggingFromContext|raw}}(ctx)
 
 	// Check the options function input. It should be 0 or 1.
@@ -189,6 +195,7 @@ func NewImpl(ctx {{.contextContext|raw}}, r Interface, optionsFns ...{{.controll
 		Lister:  {{.type|lowercaseSingular}}Informer.Lister(),
 		Recorder: recorder,
 		reconciler:    r,
+		{{if .hasClass}}classValue: classValue,{{end}}
 	}
 	impl := {{.controllerNewImpl|raw}}(rec, logger, defaultQueueName)
 

@@ -136,6 +136,7 @@ func (r *reconcilerImpl) Reconcile(ctx context.Context, key string) error {
 	} else if err != nil {
 		return err
 	}
+
 	// Don't modify the informers copy.
 	resource := original.DeepCopy()
 
