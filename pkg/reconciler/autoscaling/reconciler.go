@@ -43,11 +43,9 @@ import (
 // Base implements the core controller logic for autoscaling, given a Reconciler.
 type Base struct {
 	*reconciler.Base
-	PALister          listers.PodAutoscalerLister
 	ServiceLister     corev1listers.ServiceLister
 	SKSLister         nlisters.ServerlessServiceLister
 	MetricLister      listers.MetricLister
-	ConfigStore       reconciler.ConfigStore
 	PSInformerFactory duck.InformerFactory
 }
 
@@ -81,7 +79,7 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, m
 			}
 		}
 	}
-	logger.Debug("Done reconciling SKS", sksName)
+	logger.Debug("Done reconciling SKS ", sksName)
 	return sks, nil
 }
 

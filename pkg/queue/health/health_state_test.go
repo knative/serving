@@ -200,7 +200,7 @@ func TestHealthStateShutdown(t *testing.T) {
 	select {
 	case <-calledCh:
 	case <-time.After(2 * time.Second):
-		t.Errorf("drain function not called when shutting down")
+		t.Error("drain function not called when shutting down")
 	}
 
 	if !state.drainCompleted {

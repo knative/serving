@@ -20,15 +20,15 @@ package e2e
 
 import (
 	"strconv"
-	"time"
-
 	"testing"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/pkg/test/logstream"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/resources"
 	"knative.dev/serving/test"
 	v1a1test "knative.dev/serving/test/v1alpha1"
 )
@@ -50,24 +50,26 @@ func TestMinScale(t *testing.T) {
 		Image:  "helloworld",
 	}
 
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+	defer test.TearDown(clients, names)
+
 	t.Log("Creating configuration")
 	if _, err := v1a1test.CreateConfiguration(t, clients, names, withMinScale(minScale)); err != nil {
 		t.Fatalf("Failed to create Configuration: %v", err)
 	}
 
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
-
 	revName := latestRevisionName(t, clients, names.Config)
 	deploymentName := revName + "-deployment"
+	privateServiceName := serverlessServicesName(t, clients, revName)
 
 	// Before becoming ready, observe minScale
 	t.Log("Waiting for revision to scale to minScale before becoming ready")
-	if err := waitForDesiredScale(t, clients, deploymentName, gte(minScale)); err != nil {
+	if err := waitForDesiredScale(t, clients, privateServiceName, gte(minScale)); err != nil {
 		t.Fatalf("The deployment %q did not scale >= %d before becoming ready: %v", deploymentName, minScale, err)
 	}
 
 	// Revision becomes ready
+	t.Log("Waiting for revision to become ready")
 	if err := v1a1test.WaitForRevisionState(
 		clients.ServingAlphaClient, revName, v1a1test.IsRevisionReady, "RevisionIsReady",
 	); err != nil {
@@ -76,7 +78,7 @@ func TestMinScale(t *testing.T) {
 
 	// Without a route, ignore minScale
 	t.Log("Waiting for revision to scale below minScale after becoming ready")
-	if err := waitForDesiredScale(t, clients, deploymentName, lt(minScale)); err != nil {
+	if err := waitForDesiredScale(t, clients, privateServiceName, lt(minScale)); err != nil {
 		t.Fatalf("The deployment %q did not scale < minScale after becoming ready: %v", deploymentName, err)
 	}
 
@@ -87,6 +89,7 @@ func TestMinScale(t *testing.T) {
 	}
 
 	// Route becomes ready
+	t.Log("Waiting for route to become ready")
 	if err := v1a1test.WaitForRouteState(
 		clients.ServingAlphaClient, names.Route, v1a1test.IsRouteReady, "RouteIsReady",
 	); err != nil {
@@ -95,20 +98,20 @@ func TestMinScale(t *testing.T) {
 
 	// With a route, observe minScale
 	t.Log("Waiting for revision to scale to minScale after creating route")
-	if err := waitForDesiredScale(t, clients, deploymentName, gte(minScale)); err != nil {
+	if err := waitForDesiredScale(t, clients, privateServiceName, gte(minScale)); err != nil {
 		t.Fatalf("The deployment %q did not scale >= %d after creating route: %v", deploymentName, minScale, err)
 	}
 }
 
-func gte(m int) func(int32) bool {
-	return func(n int32) bool {
-		return n >= int32(m)
+func gte(m int) func(int) bool {
+	return func(n int) bool {
+		return n >= m
 	}
 }
 
-func lt(m int) func(int32) bool {
-	return func(n int32) bool {
-		return n < int32(m)
+func lt(m int) func(int) bool {
+	return func(n int) bool {
+		return n < m
 	}
 }
 
@@ -138,15 +141,32 @@ func latestRevisionName(t *testing.T, clients *test.Clients, configName string) 
 	return config.Status.LatestCreatedRevisionName
 }
 
-func waitForDesiredScale(t *testing.T, clients *test.Clients, deploymentName string, cond func(int32) bool) error {
-	deployments := clients.KubeClient.Kube.AppsV1().Deployments(test.ServingNamespace)
-
-	return wait.PollImmediate(time.Second, 1*time.Minute, func() (bool, error) {
-		deployment, err := deployments.Get(deploymentName, metav1.GetOptions{})
+func serverlessServicesName(t *testing.T, clients *test.Clients, revisionName string) string {
+	var privateServiceName string
+	if err := wait.PollImmediate(time.Second, 1*time.Minute, func() (bool, error) {
+		sks, err := clients.NetworkingClient.ServerlessServices.Get(revisionName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}
+		privateServiceName = sks.Status.PrivateServiceName
+		if privateServiceName == "" {
+			return false, nil
+		}
+		return true, nil
+	}); err != nil {
+		t.Fatalf("Error retrieving sks %q: %v", revisionName, err)
+	}
+	return privateServiceName
+}
 
-		return cond(*deployment.Spec.Replicas), nil
+func waitForDesiredScale(t *testing.T, clients *test.Clients, privateServiceName string, cond func(int) bool) error {
+	endpoints := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace)
+
+	return wait.PollImmediate(time.Second, 1*time.Minute, func() (bool, error) {
+		endpoint, err := endpoints.Get(privateServiceName, metav1.GetOptions{})
+		if err != nil {
+			return false, nil
+		}
+		return cond(resources.ReadyAddressCount(endpoint)), nil
 	})
 }

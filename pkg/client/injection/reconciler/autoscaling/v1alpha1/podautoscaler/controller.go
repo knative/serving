@@ -19,7 +19,7 @@ limitations under the License.
 package podautoscaler
 
 import (
-	"context"
+	context "context"
 
 	corev1 "k8s.io/api/core/v1"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -38,13 +38,21 @@ const (
 	defaultControllerAgentName = "podautoscaler-controller"
 	defaultFinalizerName       = "podautoscalers.autoscaling.internal.knative.dev"
 	defaultQueueName           = "podautoscalers"
+	classAnnotationKey         = "autoscaling.knative.dev/class"
 )
 
 // NewImpl returns a controller.Impl that handles queuing and feeding work from
 // the queue through an implementation of controller.Reconciler, delegating to
-// the provided Interface and optional Finalizer methods.
-func NewImpl(ctx context.Context, r Interface) *controller.Impl {
+// the provided Interface and optional Finalizer methods. OptionsFn is used to return
+// controller.Options to be used but the internal reconciler.
+func NewImpl(ctx context.Context, r Interface, classValue string, optionsFns ...controller.OptionsFn) *controller.Impl {
 	logger := logging.FromContext(ctx)
+
+	// Check the options function input. It should be 0 or 1.
+	if len(optionsFns) > 1 {
+		logger.Fatalf("up to one options function is supported, found %d", len(optionsFns))
+	}
+
 	podautoscalerInformer := podautoscaler.Get(ctx)
 
 	recorder := controller.GetEventRecorder(ctx)
@@ -71,8 +79,19 @@ func NewImpl(ctx context.Context, r Interface) *controller.Impl {
 		Lister:     podautoscalerInformer.Lister(),
 		Recorder:   recorder,
 		reconciler: r,
+		classValue: classValue,
 	}
-	return controller.NewImpl(rec, logger, defaultQueueName)
+	impl := controller.NewImpl(rec, logger, defaultQueueName)
+
+	// Pass impl to the options. Save any optional results.
+	for _, fn := range optionsFns {
+		opts := fn(impl)
+		if opts.ConfigStore != nil {
+			rec.configStore = opts.ConfigStore
+		}
+	}
+
+	return impl
 }
 
 func init() {

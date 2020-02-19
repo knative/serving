@@ -52,6 +52,7 @@ import (
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	"knative.dev/serving/pkg/autoscaler/statserver"
+	smetrics "knative.dev/serving/pkg/metrics"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa"
 	"knative.dev/serving/pkg/reconciler/metric"
 	"knative.dev/serving/pkg/resources"
@@ -207,7 +208,7 @@ func uniScalerFactoryFunc(endpointsInformer corev1informers.EndpointsInformer,
 		configName := decider.Labels[serving.ConfigurationLabelKey]
 
 		// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
-		ctx, err := scaling.NewStatsReporterContext(decider.Namespace, serviceName, configName, decider.Name)
+		ctx, err := smetrics.RevisionContext(decider.Namespace, serviceName, configName, decider.Name)
 		if err != nil {
 			return nil, err
 		}

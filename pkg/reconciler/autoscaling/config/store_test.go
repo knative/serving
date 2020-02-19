@@ -24,17 +24,17 @@ import (
 	logtesting "knative.dev/pkg/logging/testing"
 
 	. "knative.dev/pkg/configmap/testing"
-	"knative.dev/serving/pkg/autoscaler"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 )
 
 func TestStoreLoadWithContext(t *testing.T) {
 	store := NewStore(logtesting.TestLogger(t))
 
-	autoscalerConfig := ConfigMapFromTestFile(t, autoscaler.ConfigName)
+	autoscalerConfig := ConfigMapFromTestFile(t, autoscalerconfig.ConfigName)
 	store.OnConfigChanged(autoscalerConfig)
 	config := FromContext(store.ToContext(context.Background()))
 
-	want, _ := autoscaler.NewConfigFromConfigMap(autoscalerConfig)
+	want, _ := autoscalerconfig.NewConfigFromConfigMap(autoscalerConfig)
 	if diff := cmp.Diff(want, config.Autoscaler); diff != "" {
 		t.Errorf("Unexpected TLS mode (-want, +got): %s", diff)
 	}
@@ -43,7 +43,7 @@ func TestStoreLoadWithContext(t *testing.T) {
 func TestStoreImmutableConfig(t *testing.T) {
 	store := NewStore(logtesting.TestLogger(t))
 
-	store.OnConfigChanged(ConfigMapFromTestFile(t, autoscaler.ConfigName))
+	store.OnConfigChanged(ConfigMapFromTestFile(t, autoscalerconfig.ConfigName))
 
 	config := store.Load()
 	config.Autoscaler.MaxScaleUpRate = 100.0

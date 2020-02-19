@@ -23,8 +23,8 @@ import (
 	"time"
 
 	// Inject the fake informers we need.
-	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -36,24 +36,22 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/configuration/resources"
 
 	. "knative.dev/pkg/reconciler/testing"
-	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
-	. "knative.dev/serving/pkg/testing/v1alpha1"
+	. "knative.dev/serving/pkg/reconciler/testing/v1"
+	. "knative.dev/serving/pkg/testing/v1"
 )
 
-var revisionSpec = v1alpha1.RevisionSpec{
-	RevisionSpec: v1.RevisionSpec{
-		PodSpec: corev1.PodSpec{
-			Containers: []corev1.Container{{
-				Image: "busybox",
-			}},
-		},
-		TimeoutSeconds: ptr.Int64(60),
+var revisionSpec = v1.RevisionSpec{
+	PodSpec: corev1.PodSpec{
+		Containers: []corev1.Container{{
+			Image: "busybox",
+		}},
 	},
+	TimeoutSeconds: ptr.Int64(60),
 }
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -85,7 +83,7 @@ func TestReconcile(t *testing.T) {
 					return false, nil, nil
 				}
 				retryAttempted = true
-				return true, nil, apierrs.NewConflict(v1alpha1.Resource("foo"), "bar", errors.New("foo"))
+				return true, nil, apierrs.NewConflict(v1.Resource("foo"), "bar", errors.New("foo"))
 			},
 		},
 		WantCreates: []runtime.Object{
@@ -109,18 +107,18 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "create revision byo name",
 		Objects: []runtime.Object{
-			cfg("byo-name-create", "foo", 1234, func(cfg *v1alpha1.Configuration) {
+			cfg("byo-name-create", "foo", 1234, func(cfg *v1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-name-create-foo"
 			}),
 		},
 		WantCreates: []runtime.Object{
-			rev("byo-name-create", "foo", 1234, func(rev *v1alpha1.Revision) {
+			rev("byo-name-create", "foo", 1234, func(rev *v1.Revision) {
 				rev.Name = "byo-name-create-foo"
 				rev.GenerateName = ""
 			}),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: cfg("byo-name-create", "foo", 1234, func(cfg *v1alpha1.Configuration) {
+			Object: cfg("byo-name-create", "foo", 1234, func(cfg *v1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-name-create-foo"
 			},
 				// The following properties are set when we first reconcile a
@@ -134,13 +132,13 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "create revision byo name (exists)",
 		Objects: []runtime.Object{
-			cfg("byo-name-exists", "foo", 1234, func(cfg *v1alpha1.Configuration) {
+			cfg("byo-name-exists", "foo", 1234, func(cfg *v1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-name-exists-foo"
 			},
 				// The following properties are set when we first reconcile a
 				// Configuration and a Revision is created.
 				WithLatestCreated("byo-name-exists-foo"), WithObservedGen),
-			rev("byo-name-exists", "foo", 1234, WithCreationTimestamp(now), func(rev *v1alpha1.Revision) {
+			rev("byo-name-exists", "foo", 1234, WithCreationTimestamp(now), func(rev *v1.Revision) {
 				rev.Name = "byo-name-exists-foo"
 				rev.GenerateName = ""
 			}),
@@ -150,16 +148,16 @@ func TestReconcile(t *testing.T) {
 		Name: "create revision byo name (exists, wrong generation, right spec)",
 		// This example shows what we might see with a `git revert` in GitOps.
 		Objects: []runtime.Object{
-			cfg("byo-name-git-revert", "foo", 1234, func(cfg *v1alpha1.Configuration) {
+			cfg("byo-name-git-revert", "foo", 1234, func(cfg *v1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-name-git-revert-foo"
 			}),
-			rev("byo-name-git-revert", "foo", 1200, WithCreationTimestamp(now), func(rev *v1alpha1.Revision) {
+			rev("byo-name-git-revert", "foo", 1200, WithCreationTimestamp(now), func(rev *v1.Revision) {
 				rev.Name = "byo-name-git-revert-foo"
 				rev.GenerateName = ""
 			}),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: cfg("byo-name-git-revert", "foo", 1234, func(cfg *v1alpha1.Configuration) {
+			Object: cfg("byo-name-git-revert", "foo", 1234, func(cfg *v1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-name-git-revert-foo"
 			}, WithLatestCreated("byo-name-git-revert-foo"), WithObservedGen),
 		}},
@@ -167,10 +165,10 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "create revision byo name (exists @ wrong generation w/ wrong spec)",
 		Objects: []runtime.Object{
-			cfg("byo-name-wrong-gen-wrong-spec", "foo", 1234, func(cfg *v1alpha1.Configuration) {
+			cfg("byo-name-wrong-gen-wrong-spec", "foo", 1234, func(cfg *v1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-name-wrong-gen-wrong-spec-foo"
 			}),
-			rev("byo-name-wrong-gen-wrong-spec", "foo", 1200, func(rev *v1alpha1.Revision) {
+			rev("byo-name-wrong-gen-wrong-spec", "foo", 1200, func(rev *v1.Revision) {
 				rev.Name = "byo-name-wrong-gen-wrong-spec-foo"
 				rev.GenerateName = ""
 				rev.Spec.GetContainer().Env = append(rev.Spec.GetContainer().Env, corev1.EnvVar{
@@ -180,7 +178,7 @@ func TestReconcile(t *testing.T) {
 			}),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: cfg("byo-name-wrong-gen-wrong-spec", "foo", 1234, func(cfg *v1alpha1.Configuration) {
+			Object: cfg("byo-name-wrong-gen-wrong-spec", "foo", 1234, func(cfg *v1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-name-wrong-gen-wrong-spec-foo"
 			}, MarkRevisionCreationFailed(`revisions.serving.knative.dev "byo-name-wrong-gen-wrong-spec-foo" already exists`), WithObservedGen),
 		}},
@@ -188,17 +186,17 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "create revision byo name (exists not owned)",
 		Objects: []runtime.Object{
-			cfg("byo-rev-not-owned", "foo", 1234, func(cfg *v1alpha1.Configuration) {
+			cfg("byo-rev-not-owned", "foo", 1234, func(cfg *v1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-rev-not-owned-foo"
 			}),
-			rev("byo-rev-not-owned", "foo", 1200, func(rev *v1alpha1.Revision) {
+			rev("byo-rev-not-owned", "foo", 1200, func(rev *v1.Revision) {
 				rev.Name = "byo-rev-not-owned-foo"
 				rev.GenerateName = ""
 				rev.OwnerReferences = nil
 			}),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: cfg("byo-rev-not-owned", "foo", 1234, func(cfg *v1alpha1.Configuration) {
+			Object: cfg("byo-rev-not-owned", "foo", 1234, func(cfg *v1.Configuration) {
 				cfg.Spec.GetTemplate().Name = "byo-rev-not-owned-foo"
 			}, MarkRevisionCreationFailed(`revisions.serving.knative.dev "byo-rev-not-owned-foo" already exists`), WithObservedGen),
 		}},
@@ -220,7 +218,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Revision: expected 0 <= -1 <= 1000: spec.containerConcurrency"),
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status: expected 0 <= -1 <= 1000: spec.template.spec.containerConcurrency"),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", `Failed to update status for "validation-failure": expected 0 <= -1 <= 1000: spec.template.spec.containerConcurrency`),
 		},
 		Key: "foo/validation-failure",
 	}, {
@@ -293,10 +291,10 @@ func TestReconcile(t *testing.T) {
 			cfg("bad-condition", "foo", 5555, WithLatestCreated("bad-condition"), WithObservedGen),
 			rev("bad-condition", "foo", 5555,
 				WithRevName("bad-condition"),
-				WithRevStatus(v1alpha1.RevisionStatus{
+				WithRevStatus(v1.RevisionStatus{
 					Status: duckv1.Status{
 						Conditions: duckv1.Conditions{{
-							Type:     v1alpha1.RevisionConditionReady,
+							Type:     v1.RevisionConditionReady,
 							Status:   "Bad",
 							Severity: "Error",
 						}},
@@ -354,7 +352,7 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Revision %q", "update-config-failure-00001"),
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status: inducing failure for update configurations"),
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", `Failed to update status for "update-config-failure": inducing failure for update configurations`),
 		},
 		Key: "foo/update-config-failure",
 	}, {
@@ -409,7 +407,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			cfg("threerevs", "foo", 3,
 				WithLatestCreated("threerevs-00002"),
-				WithLatestReady("threerevs-00001"), WithObservedGen, func(cfg *v1alpha1.Configuration) {
+				WithLatestReady("threerevs-00001"), WithObservedGen, func(cfg *v1.Configuration) {
 					cfg.Spec.GetTemplate().Name = "threerevs-00003"
 				},
 			),
@@ -427,7 +425,7 @@ func TestReconcile(t *testing.T) {
 			Object: cfg("threerevs", "foo", 3,
 				WithLatestCreated("threerevs-00003"),
 				WithLatestReady("threerevs-00002"),
-				WithObservedGen, func(cfg *v1alpha1.Configuration) {
+				WithObservedGen, func(cfg *v1.Configuration) {
 					cfg.Spec.GetTemplate().Name = "threerevs-00003"
 				},
 			),
@@ -441,7 +439,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			cfg("revnotready", "foo", 3,
 				WithLatestCreated("revnotready-00002"),
-				WithLatestReady("revnotready-00001"), WithObservedGen, func(cfg *v1alpha1.Configuration) {
+				WithLatestReady("revnotready-00001"), WithObservedGen, func(cfg *v1.Configuration) {
 					cfg.Spec.GetTemplate().Name = "revnotready-00003"
 				},
 			),
@@ -460,7 +458,7 @@ func TestReconcile(t *testing.T) {
 				// The config should NOT be ready, because LCR != LRR
 				WithLatestCreated("revnotready-00003"),
 				WithLatestReady("revnotready-00002"),
-				WithObservedGen, func(cfg *v1alpha1.Configuration) {
+				WithObservedGen, func(cfg *v1.Configuration) {
 					cfg.Spec.GetTemplate().Name = "revnotready-00003"
 				},
 			),
@@ -473,23 +471,25 @@ func TestReconcile(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		retryAttempted = false
-		return &Reconciler{
-			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
-			configurationLister: listers.GetConfigurationLister(),
-			revisionLister:      listers.GetRevisionLister(),
+		r := &Reconciler{
+			Base:           reconciler.NewBase(ctx, controllerAgentName, cmw),
+			revisionLister: listers.GetRevisionLister(),
 		}
+
+		return configreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetConfigurationLister(), r.Recorder, r)
+
 	}))
 }
 
-func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1alpha1.Configuration {
-	c := &v1alpha1.Configuration{
+func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1.Configuration {
+	c := &v1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       name,
 			Namespace:  namespace,
 			Generation: generation,
 		},
-		Spec: v1alpha1.ConfigurationSpec{
-			Template: &v1alpha1.RevisionTemplateSpec{
+		Spec: v1.ConfigurationSpec{
+			Template: v1.RevisionTemplateSpec{
 				Spec: *revisionSpec.DeepCopy(),
 			},
 		},
@@ -501,7 +501,7 @@ func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1alpha1
 	return c
 }
 
-func rev(name, namespace string, generation int64, ro ...RevisionOption) *v1alpha1.Revision {
+func rev(name, namespace string, generation int64, ro ...RevisionOption) *v1.Revision {
 	r := resources.MakeRevision(cfg(name, namespace, generation))
 	r.SetDefaults(v1.WithUpgradeViaDefaulting(context.Background()))
 	for _, opt := range ro {

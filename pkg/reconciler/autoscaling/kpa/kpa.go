@@ -32,6 +32,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
+	"knative.dev/serving/pkg/metrics"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
@@ -57,6 +58,7 @@ type podCounts struct {
 // information from Deciders.
 type Reconciler struct {
 	*areconciler.Base
+
 	endpointsLister corev1listers.EndpointsLister
 	podsLister      corev1listers.PodLister
 	deciders        resources.Deciders
@@ -67,12 +69,7 @@ type Reconciler struct {
 var _ pareconciler.Interface = (*Reconciler)(nil)
 
 func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutoscaler) pkgreconciler.Event {
-	if pa.GetDeletionTimestamp() != nil {
-		return nil
-	}
 	logger := logging.FromContext(ctx)
-	// TODO(n3wscott): We should not need this.
-	ctx = c.ConfigStore.ToContext(ctx)
 
 	// We may be reading a version of the object that was stored at an older version
 	// and may not have had all of the assumed defaults specified.  This won't result
@@ -220,7 +217,7 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 	serviceLabel := pa.Labels[serving.ServiceLabelKey] // This might be empty.
 	configLabel := pa.Labels[serving.ConfigurationLabelKey]
 
-	ctx, err := reporterContext(pa.Namespace, serviceLabel, configLabel, pa.Name)
+	ctx, err := metrics.RevisionContext(pa.Namespace, serviceLabel, configLabel, pa.Name)
 	if err != nil {
 		return err
 	}

@@ -27,6 +27,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -35,12 +36,13 @@ import (
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
 	"knative.dev/serving/pkg/reconciler"
-	cfgreconciler "knative.dev/serving/pkg/reconciler/configuration"
+	configresources "knative.dev/serving/pkg/reconciler/configuration/resources"
 	"knative.dev/serving/pkg/reconciler/service/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 )
@@ -170,7 +172,7 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1alpha1.Service) e
 	// by our Configuration and matches its generation before reprogramming the Route,
 	// otherwise a bad patch could lead to folks inadvertently routing traffic to a
 	// pre-existing Revision (possibly for another Configuration).
-	if _, err := cfgreconciler.CheckNameAvailability(config, c.revisionLister); err != nil &&
+	if err := CheckNameAvailability(config, c.revisionLister); err != nil &&
 		!apierrs.IsNotFound(err) {
 		service.Status.MarkRevisionNameTaken(config.Spec.GetTemplate().Name)
 		return nil
@@ -310,31 +312,37 @@ func (c *Reconciler) createConfiguration(service *v1alpha1.Service) (*v1alpha1.C
 	return c.ServingClientSet.ServingV1alpha1().Configurations(service.Namespace).Create(cfg)
 }
 
-func configSemanticEquals(desiredConfig, config *v1alpha1.Configuration) bool {
+func configSemanticEquals(ctx context.Context, desiredConfig, config *v1alpha1.Configuration) (bool, error) {
+	logger := logging.FromContext(ctx)
+	specDiff, err := kmp.SafeDiff(desiredConfig.Spec, config.Spec)
+	if err != nil {
+		logger.Errorw("Error diffing config spec", zap.Error(err))
+		return false, fmt.Errorf("failed to diff Configuration: %w", err)
+	}
+	logger.Infof("Reconciling configuration diff (-desired, +observed):\n%s", specDiff)
 	return equality.Semantic.DeepEqual(desiredConfig.Spec, config.Spec) &&
 		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Labels, config.ObjectMeta.Labels) &&
-		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Annotations, config.ObjectMeta.Annotations)
+		equality.Semantic.DeepEqual(desiredConfig.ObjectMeta.Annotations, config.ObjectMeta.Annotations) &&
+		specDiff == "", nil
 }
 
 func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1alpha1.Service, config *v1alpha1.Configuration) (*v1alpha1.Configuration, error) {
-	logger := logging.FromContext(ctx)
+	existing := config.DeepCopy()
+	// In the case of an upgrade, there can be default values set that don't exist pre-upgrade.
+	// We are setting the up-to-date default values here so an update won't be triggered if the only
+	// diff is the new default values.
+	existing.SetDefaults(ctx)
 	desiredConfig, err := resources.MakeConfiguration(service)
 	if err != nil {
 		return nil, err
 	}
 
-	if configSemanticEquals(desiredConfig, config) {
-		// No differences to reconcile.
+	if equals, err := configSemanticEquals(ctx, desiredConfig, existing); err != nil {
+		return nil, err
+	} else if equals {
 		return config, nil
 	}
-	diff, err := kmp.SafeDiff(desiredConfig.Spec, config.Spec)
-	if err != nil {
-		return nil, fmt.Errorf("failed to diff Configuration: %w", err)
-	}
-	logger.Infof("Reconciling configuration diff (-desired, +observed): %s", diff)
 
-	// Don't modify the informers copy.
-	existing := config.DeepCopy()
 	// Preserve the rest of the object (e.g. ObjectMeta except for labels).
 	existing.Spec = desiredConfig.Spec
 	existing.ObjectMeta.Labels = desiredConfig.ObjectMeta.Labels
@@ -353,14 +361,26 @@ func (c *Reconciler) createRoute(service *v1alpha1.Service) (*v1alpha1.Route, er
 	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Create(route)
 }
 
-func routeSemanticEquals(desiredRoute, route *v1alpha1.Route) bool {
+func routeSemanticEquals(ctx context.Context, desiredRoute, route *v1alpha1.Route) (bool, error) {
+	logger := logging.FromContext(ctx)
+	specDiff, err := kmp.SafeDiff(desiredRoute.Spec, route.Spec)
+	if err != nil {
+		logger.Errorw("Error diffing route spec", zap.Error(err))
+		return false, fmt.Errorf("failed to diff Route: %w", err)
+	}
+	logger.Infof("Reconciling route diff (-desired, +observed):\n%s", specDiff)
 	return equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) &&
 		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Labels, route.ObjectMeta.Labels) &&
-		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Annotations, route.ObjectMeta.Annotations)
+		equality.Semantic.DeepEqual(desiredRoute.ObjectMeta.Annotations, route.ObjectMeta.Annotations) &&
+		specDiff == "", nil
 }
 
 func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Service, route *v1alpha1.Route) (*v1alpha1.Route, error) {
-	logger := logging.FromContext(ctx)
+	existing := route.DeepCopy()
+	// In the case of an upgrade, there can be default values set that don't exist pre-upgrade.
+	// We are setting the up-to-date default values here so an update won't be triggered if the only
+	// diff is the new default values.
+	existing.SetDefaults(ctx)
 	desiredRoute, err := resources.MakeRoute(service)
 	if err != nil {
 		// This should be unreachable as configuration creation
@@ -369,21 +389,53 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1alpha1.Servi
 		return nil, err
 	}
 
-	if routeSemanticEquals(desiredRoute, route) {
-		// No differences to reconcile.
+	if equals, err := routeSemanticEquals(ctx, desiredRoute, existing); err != nil {
+		return nil, err
+	} else if equals {
 		return route, nil
 	}
-	diff, err := kmp.SafeDiff(desiredRoute.Spec, route.Spec)
-	if err != nil {
-		return nil, fmt.Errorf("failed to diff Route: %w", err)
-	}
-	logger.Infof("Reconciling route diff (-desired, +observed): %s", diff)
 
-	// Don't modify the informers copy.
-	existing := route.DeepCopy()
 	// Preserve the rest of the object (e.g. ObjectMeta except for labels and annotations).
 	existing.Spec = desiredRoute.Spec
 	existing.ObjectMeta.Labels = desiredRoute.ObjectMeta.Labels
 	existing.ObjectMeta.Annotations = desiredRoute.ObjectMeta.Annotations
 	return c.ServingClientSet.ServingV1alpha1().Routes(service.Namespace).Update(existing)
+}
+
+// CheckNameAvailability checks that if the named Revision specified by the Configuration
+// is available (not found), exists (but matches), or exists with conflict (doesn't match).
+//
+// TODO(dprotaso) de-dupe once this controller is migrated to v1 apis
+func CheckNameAvailability(config *v1alpha1.Configuration, lister listers.RevisionLister) error {
+	// If config.Spec.GetTemplate().Name is set, then we can directly look up
+	// the revision by name.
+	name := config.Spec.GetTemplate().Name
+	if name == "" {
+		return nil
+	}
+	errConflict := errors.NewAlreadyExists(v1alpha1.Resource("revisions"), name)
+
+	rev, err := lister.Revisions(config.Namespace).Get(name)
+	if err != nil {
+		return err
+	}
+
+	if !metav1.IsControlledBy(rev, config) {
+		// If the revision isn't controller by this configuration, then
+		// do not use it.
+		return errConflict
+	}
+
+	// Check the generation on this revision.
+	generationKey := serving.ConfigurationGenerationLabelKey
+	expectedValue := configresources.RevisionLabelValueForKey(generationKey, config)
+	if rev.Labels != nil && rev.Labels[generationKey] == expectedValue {
+		return nil
+	}
+	// We only require spec equality because the rest is immutable and the user may have
+	// annotated or labeled the Revision (beyond what the Configuration might have).
+	if !equality.Semantic.DeepEqual(config.Spec.GetTemplate().Spec, rev.Spec) {
+		return errConflict
+	}
+	return nil
 }

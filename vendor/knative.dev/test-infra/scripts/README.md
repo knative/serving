@@ -1,6 +1,6 @@
 # Helper scripts
 
-This directory contains helper scripts used by Prow test jobs, as well and local
+This directory contains helper scripts used by Prow test jobs, as well as local
 development scripts.
 
 ## Using the `presubmit-tests.sh` helper script
@@ -175,7 +175,7 @@ This is a helper script for Knative E2E test scripts. To use it:
 1. Calling your script with `--run-tests` and the variable `KO_DOCKER_REPO` set
    will immediately start the tests against the cluster currently configured for
    `kubectl`.
-   
+
 1. By default `knative_teardown()` and `test_teardown()` will be called after
    the tests finish, use `--skip-teardowns` if you don't want them to be called.
 

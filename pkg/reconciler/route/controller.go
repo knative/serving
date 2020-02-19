@@ -22,9 +22,10 @@ import (
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	certificateinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate"
 	ingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
-	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"
-	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
-	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/route"
+	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
+	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route"
+	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
 
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
@@ -32,7 +33,7 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
 	"knative.dev/pkg/tracker"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/route/config"
@@ -48,13 +49,16 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
-	return NewControllerWithClock(ctx, cmw, system.RealClock{})
+	return newControllerWithClock(ctx, cmw, system.RealClock{})
 }
 
-func NewControllerWithClock(
+type reconcilerOption func(*Reconciler)
+
+func newControllerWithClock(
 	ctx context.Context,
 	cmw configmap.Watcher,
 	clock system.Clock,
+	opts ...reconcilerOption,
 ) *controller.Impl {
 
 	serviceInformer := serviceinformer.Get(ctx)
@@ -68,7 +72,6 @@ func NewControllerWithClock(
 	// domainConfig haven't started yet.
 	c := &Reconciler{
 		Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
-		routeLister:         routeInformer.Lister(),
 		configurationLister: configInformer.Lister(),
 		revisionLister:      revisionInformer.Lister(),
 		serviceLister:       serviceInformer.Lister(),
@@ -76,13 +79,24 @@ func NewControllerWithClock(
 		certificateLister:   certificateInformer.Lister(),
 		clock:               clock,
 	}
-	impl := controller.NewImpl(c, c.Logger, "Routes")
+	impl := routereconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
+		configsToResync := []interface{}{
+			&network.Config{},
+			&config.Domain{},
+		}
+		resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
+			impl.GlobalResync(routeInformer.Informer())
+		})
+		configStore := config.NewStore(logging.WithLogger(ctx, c.Logger.Named("config-store")), resync)
+		configStore.WatchConfigs(cmw)
+		return controller.Options{ConfigStore: configStore}
+	})
 
 	c.Logger.Info("Setting up event handlers")
 	routeInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Route")),
+		FilterFunc: controller.FilterGroupKind(v1.Kind("Route")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
@@ -96,7 +110,7 @@ func NewControllerWithClock(
 		// populated.
 		controller.EnsureTypeMeta(
 			c.tracker.OnChanged,
-			v1alpha1.SchemeGroupVersion.WithKind("Configuration"),
+			v1.SchemeGroupVersion.WithKind("Configuration"),
 		),
 	))
 
@@ -106,26 +120,17 @@ func NewControllerWithClock(
 		// populated.
 		controller.EnsureTypeMeta(
 			c.tracker.OnChanged,
-			v1alpha1.SchemeGroupVersion.WithKind("Revision"),
+			v1.SchemeGroupVersion.WithKind("Revision"),
 		),
 	))
 
 	certificateInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(v1alpha1.SchemeGroupVersion.WithKind("Route")),
+		FilterFunc: controller.FilterGroupKind(v1.Kind("Route")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
-	c.Logger.Info("Setting up ConfigMap receivers")
-	configsToResync := []interface{}{
-		&network.Config{},
-		&config.Domain{},
+	for _, opt := range opts {
+		opt(c)
 	}
-	resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
-		impl.GlobalResync(routeInformer.Informer())
-	})
-	configStore := config.NewStore(logging.WithLogger(ctx, c.Logger.Named("config-store")), resync)
-	configStore.WatchConfigs(cmw)
-	c.configStore = configStore
-
 	return impl
 }

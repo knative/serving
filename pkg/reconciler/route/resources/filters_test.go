@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"knative.dev/serving/pkg/reconciler/route/config"
+	"knative.dev/serving/pkg/apis/serving"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -89,7 +89,7 @@ func TestIsClusterLocalService(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						config.VisibilityLabelKey: "something-unknown",
+						serving.VisibilityLabelKey: "something-unknown",
 					},
 				},
 			},
@@ -100,7 +100,7 @@ func TestIsClusterLocalService(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						config.VisibilityLabelKey: config.VisibilityClusterLocal,
+						serving.VisibilityLabelKey: serving.VisibilityClusterLocal,
 					},
 				},
 			},

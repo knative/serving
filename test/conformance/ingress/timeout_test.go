@@ -52,7 +52,7 @@ func TestTimeout(t *testing.T) {
 			Visibility: v1alpha1.IngressVisibilityExternalIP,
 			HTTP: &v1alpha1.HTTPIngressRuleValue{
 				Paths: []v1alpha1.HTTPIngressPath{{
-					Timeout: &metav1.Duration{timeout},
+					Timeout: &metav1.Duration{Duration: timeout},
 					Splits: []v1alpha1.IngressBackendSplit{{
 						IngressBackend: v1alpha1.IngressBackend{
 							ServiceName:      name,

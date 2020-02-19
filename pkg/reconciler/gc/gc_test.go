@@ -31,6 +31,7 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
+	pkgrec "knative.dev/pkg/reconciler"
 	. "knative.dev/pkg/reconciler/testing"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -183,10 +184,11 @@ func TestGCReconcile(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		r := &reconciler{
-			Base:                pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
-			configurationLister: listers.GetConfigurationLister(),
-			revisionLister:      listers.GetRevisionLister(),
-			configStore: &testConfigStore{
+			Base:           pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
+			revisionLister: listers.GetRevisionLister(),
+		}
+		return configreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetConfigurationLister(), r.Recorder, r, controller.Options{
+			ConfigStore: &testConfigStore{
 				config: &config.Config{
 					RevisionGC: &gcconfig.Config{
 						StaleRevisionCreateDelay:        5 * time.Minute,
@@ -194,9 +196,7 @@ func TestGCReconcile(t *testing.T) {
 						StaleRevisionMinimumGenerations: 2,
 					},
 				},
-			},
-		}
-		return configreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetConfigurationLister(), r.Recorder, r)
+			}})
 	}))
 }
 
@@ -342,12 +342,20 @@ func cfg(name, namespace string, generation int64, co ...ConfigOption) *v1alpha1
 }
 
 func rev(name, namespace string, generation int64, ro ...RevisionOption) *v1alpha1.Revision {
-	r := resources.MakeRevision(cfg(name, namespace, generation))
-	r.SetDefaults(v1.WithUpgradeViaDefaulting(context.Background()))
+	// TODO(dprotaso) cleanup once we switch this
+	// reconciler to use v1 APIs
+	ctx := context.Background()
+
+	config := &v1.Configuration{}
+	cfg(name, namespace, generation).ConvertUp(ctx, config)
+
+	rev := &v1alpha1.Revision{}
+	rev.ConvertDown(ctx, resources.MakeRevision(config))
+
 	for _, opt := range ro {
-		opt(r)
+		opt(rev)
 	}
-	return r
+	return rev
 }
 
 type testConfigStore struct {
@@ -358,4 +366,4 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 	return config.ToContext(ctx, t.config)
 }
 
-var _ pkgreconciler.ConfigStore = (*testConfigStore)(nil)
+var _ pkgrec.ConfigStore = (*testConfigStore)(nil)

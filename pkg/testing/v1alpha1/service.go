@@ -171,6 +171,18 @@ func WithInlineConfigSpec(config v1alpha1.ConfigurationSpec) ServiceOption {
 	}
 }
 
+// WithServiceGeneration sets the service's generation
+func WithServiceGeneration(generation int64) ServiceOption {
+	return func(svc *v1alpha1.Service) {
+		svc.Status.ObservedGeneration = generation
+	}
+}
+
+// WithServiceGeneration sets the service's observed generation to it's generation
+func WithServiceObservedGeneration(svc *v1alpha1.Service) {
+	svc.Status.ObservedGeneration = svc.Generation
+}
+
 // WithInlineRouteSpec configures the Service to use the given route spec
 func WithInlineRouteSpec(config v1alpha1.RouteSpec) ServiceOption {
 	return func(svc *v1alpha1.Service) {
@@ -319,6 +331,11 @@ func MarkRouteNotOwned(service *v1alpha1.Service) {
 	service.Status.MarkRouteNotOwned(servicenames.Route(service))
 }
 
+// MarkRevisionNameTake calls the function of the same name on the Service's status
+func MarkRevisionNameTaken(service *v1alpha1.Service) {
+	service.Status.MarkRevisionNameTaken(service.Spec.GetTemplate().GetName())
+}
+
 // WithPinnedRollout configures the Service to use a "pinned" rollout,
 // which is pinned to the named revision.
 // Deprecated, since PinnedType is deprecated.
@@ -418,6 +435,17 @@ func WithSvcStatusTraffic(targets ...v1alpha1.TrafficTarget) ServiceOption {
 			tt.URL = domains.URL(domains.HTTPScheme, tt.Tag+".example.com")
 		}
 		r.Status.Traffic = targets
+	}
+}
+
+// WithRouteStatus sets the Service's status's route status field traffic block to the specified traffic targets.
+func WithRouteStatus(targets ...v1alpha1.TrafficTarget) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		// Automatically inject URL into TrafficTarget status
+		for _, tt := range targets {
+			tt.URL = domains.URL(domains.HTTPScheme, tt.Tag+".example.com")
+		}
+		s.Status.RouteStatusFields.Traffic = targets
 	}
 }
 

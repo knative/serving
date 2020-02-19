@@ -255,8 +255,7 @@ func newTestStats(t *testing.T) (*testStats, *ConcurrencyReporter, context.Conte
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	revisionInformer(ctx, revision(testNamespace, testRevName))
 
-	cr := NewConcurrencyReporter(ctx, "activator",
-		ts.reqChan, ts.reportChan, ts.statChan, &fakeReporter{})
+	cr := NewConcurrencyReporter(ctx, "activator", ts.reqChan, ts.reportChan, ts.statChan)
 	return ts, cr, ctx, cancel
 }
 

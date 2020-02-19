@@ -31,14 +31,13 @@ import (
 	"knative.dev/pkg/system"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	"knative.dev/serving/pkg/gc"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
 
 	. "knative.dev/pkg/reconciler/testing"
-	. "knative.dev/serving/pkg/testing/v1alpha1"
+	. "knative.dev/serving/pkg/testing/v1"
 )
 
 func TestNewRouteCallsSyncHandler(t *testing.T) {
@@ -47,12 +46,11 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 	// A standalone revision
 	rev := getTestRevision("test-rev")
 	// A route targeting the revision
-	route := getTestRouteWithTrafficTargets(WithSpecTraffic(v1alpha1.TrafficTarget{
-		TrafficTarget: v1.TrafficTarget{
+	route := getTestRouteWithTrafficTargets(WithSpecTraffic(
+		v1.TrafficTarget{
 			RevisionName: "test-rev",
 			Percent:      ptr.Int64(100),
-		},
-	}))
+		}))
 
 	// Create fake clients
 	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
@@ -111,7 +109,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		return ctrl.Run(2, ctx.Done())
 	})
 
-	if _, err := servingClient.ServingV1alpha1().Revisions(rev.Namespace).Create(rev); err != nil {
+	if _, err := servingClient.ServingV1().Revisions(rev.Namespace).Create(rev); err != nil {
 		t.Errorf("Unexpected error creating revision: %v", err)
 	}
 
@@ -121,7 +119,7 @@ func TestNewRouteCallsSyncHandler(t *testing.T) {
 		}
 	}
 
-	if _, err := servingClient.ServingV1alpha1().Routes(route.Namespace).Create(route); err != nil {
+	if _, err := servingClient.ServingV1().Routes(route.Namespace).Create(route); err != nil {
 		t.Errorf("Unexpected error creating route: %v", err)
 	}
 

@@ -40,7 +40,7 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/autoscaler"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/resources"
@@ -81,7 +81,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc   *logging.Config
 		tc   *tracingconfig.Config
 		oc   *metrics.ObservabilityConfig
-		ac   *autoscaler.Config
+		ac   *autoscalerconfig.Config
 		cc   *deployment.Config
 		want *corev1.Container
 	}{{
@@ -100,7 +100,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -138,7 +138,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{
 			QueueSidecarImage: "alpine",
 		},
@@ -175,7 +175,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{
 			QueueSidecarImage: "alpine",
 		},
@@ -214,7 +214,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -252,7 +252,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -286,7 +286,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -319,7 +319,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			RequestLogTemplate:    "test template",
 			EnableProbeRequestLog: true,
 		},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -353,7 +353,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		oc: &metrics.ObservabilityConfig{
 			RequestMetricsBackend: "prometheus",
 		},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -384,7 +384,7 @@ func TestMakeQueueContainer(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{EnableProfiling: true},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{},
 		want: &corev1.Container{
 			// These are effectively constant
@@ -437,7 +437,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		lc   *logging.Config
 		tc   *tracingconfig.Config
 		oc   *metrics.ObservabilityConfig
-		ac   *autoscaler.Config
+		ac   *autoscalerconfig.Config
 		cc   *deployment.Config
 		want *corev1.Container
 	}{{
@@ -474,7 +474,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{
 			QueueSidecarImage: "alpine",
 		},
@@ -532,7 +532,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{
 			QueueSidecarImage: "alpine",
 		},
@@ -587,7 +587,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{
 			QueueSidecarImage: "alpine",
 		},
@@ -640,7 +640,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{
 			QueueSidecarImage: "alpine",
 		},
@@ -747,7 +747,7 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 	lc := &logging.Config{}
 	tc := &tracingconfig.Config{}
 	oc := &metrics.ObservabilityConfig{}
-	ac := &autoscaler.Config{}
+	ac := &autoscalerconfig.Config{}
 	cc := &deployment.Config{}
 	want := &corev1.Container{
 		// These are effectively constant
@@ -839,7 +839,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 	lc := &logging.Config{}
 	tc := &tracingconfig.Config{}
 	oc := &metrics.ObservabilityConfig{}
-	ac := &autoscaler.Config{}
+	ac := &autoscalerconfig.Config{}
 	cc := &deployment.Config{}
 	want := &corev1.Container{
 		// These are effectively constant
@@ -1038,7 +1038,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 			lc := &logging.Config{}
 			tc := &tracingconfig.Config{}
 			oc := &metrics.ObservabilityConfig{}
-			ac := &autoscaler.Config{}
+			ac := &autoscalerconfig.Config{}
 			cc := &deployment.Config{}
 			testRev := &v1.Revision{
 				ObjectMeta: metav1.ObjectMeta{

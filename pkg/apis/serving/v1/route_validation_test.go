@@ -26,7 +26,6 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving"
-	routeconfig "knative.dev/serving/pkg/reconciler/route/config"
 )
 
 func TestTrafficTargetValidation(t *testing.T) {
@@ -523,7 +522,7 @@ func TestRouteLabelValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					routeconfig.VisibilityLabelKey: "cluster-local",
+					serving.VisibilityLabelKey: "cluster-local",
 				},
 			},
 			Spec: validRouteSpec,
@@ -535,7 +534,7 @@ func TestRouteLabelValidation(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "byo-name",
 				Labels: map[string]string{
-					routeconfig.VisibilityLabelKey: "bad-value",
+					serving.VisibilityLabelKey: "bad-value",
 				},
 			},
 			Spec: validRouteSpec,

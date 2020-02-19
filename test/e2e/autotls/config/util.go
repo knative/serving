@@ -23,6 +23,8 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/dns/v1"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 type EnvConfig struct {
@@ -43,12 +45,14 @@ func MakeRecordSet(record *DNSRecord) *dns.ResourceRecordSet {
 	return &dns.ResourceRecordSet{
 		Name:    dnsName,
 		Rrdatas: []string{record.IP},
-		// Setting TTL of DNS record to 5 second to make DNS become effective more quickly.
+
+		// Setting TTL of DNS record to 5 seconds to make DNS become effective more quickly.
 		Ttl:  int64(5),
 		Type: "A",
 	}
 }
 
+// DeleteDNSRecord deletes the given DNS record.
 func DeleteDNSRecord(record *DNSRecord, svcAccountKeyFile, dnsProject, dnsZone string) error {
 	rec := MakeRecordSet(record)
 	svc, err := GetCloudDNSSvc(svcAccountKeyFile)
@@ -61,22 +65,19 @@ func DeleteDNSRecord(record *DNSRecord, svcAccountKeyFile, dnsProject, dnsZone s
 	return ChangeDNSRecord(deletion, svc, dnsProject, dnsZone)
 }
 
+// ChangeDNSRecord changes the given DNS record.
 func ChangeDNSRecord(change *dns.Change, svc *dns.Service, dnsProject, dnsZone string) error {
-	chg, err := svc.Changes.Create(dnsProject, dnsZone, change).Do()
-	if err != nil {
-		return err
-	}
-	// wait for change to be acknowledged
-	for chg.Status == "pending" {
-		time.Sleep(time.Second)
-		chg, err = svc.Changes.Get(dnsProject, dnsZone, chg.Id).Do()
+	// Wait for change to be acknowledged.
+	return wait.PollImmediate(time.Second, 5*time.Minute, func() (bool, error) {
+		chg, err := svc.Changes.Create(dnsProject, dnsZone, change).Do()
 		if err != nil {
-			return err
+			return false, err
 		}
-	}
-	return nil
+		return chg.Status != "pending", nil
+	})
 }
 
+// GetCloudDNSSvc returns the Cloud DNS Service stub.
 // reference: https://github.com/jetstack/cert-manager/blob/master/pkg/issuer/acme/dns/clouddns/clouddns.go
 func GetCloudDNSSvc(svcAccountKeyFile string) (*dns.Service, error) {
 	data, err := ioutil.ReadFile(svcAccountKeyFile)
@@ -88,9 +89,5 @@ func GetCloudDNSSvc(svcAccountKeyFile string) (*dns.Service, error) {
 		return nil, err
 	}
 	client := conf.Client(oauth2.NoContext)
-	svc, err := dns.New(client)
-	if err != nil {
-		return nil, err
-	}
-	return svc, nil
+	return dns.New(client)
 }

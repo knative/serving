@@ -645,7 +645,6 @@ func TestReconcile(t *testing.T) {
 
 		r := &reconciler{
 			Base:              rpkg.NewBase(ctx, controllerAgentName, cmw),
-			sksLister:         listers.GetServerlessServiceLister(),
 			serviceLister:     listers.GetK8sServiceLister(),
 			endpointsLister:   listers.GetEndpointsLister(),
 			psInformerFactory: podscalable.Get(ctx),

@@ -32,9 +32,11 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/reconciler"
+	configresources "knative.dev/serving/pkg/reconciler/configuration/resources"
 	"knative.dev/serving/pkg/reconciler/service/resources"
 	presources "knative.dev/serving/pkg/resources"
 
@@ -96,6 +98,95 @@ func TestReconcile(t *testing.T) {
 				retryAttempted = true
 				return true, nil, apierrs.NewConflict(v1alpha1.Resource("foo"), "bar", errors.New("foo"))
 			},
+		},
+	}, {
+		Name: "inline - byo rev name - existing revision - same spec",
+		Objects: []runtime.Object{
+			DefaultService("byo-rev", "foo", WithInlineNamedRevision,
+				WithServiceGeneration(2), WithServiceObservedGeneration),
+			config("byo-rev", "foo", WithInlineNamedRevision,
+				WithGeneration(2), WithObservedGen),
+			route("byo-rev", "foo", WithInlineNamedRevision,
+				WithRouteGeneration(2), WithRouteObservedGeneration),
+			&v1alpha1.Revision{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "byo-rev-byo",
+					Namespace: "foo",
+					OwnerReferences: []metav1.OwnerReference{
+						*metav1.NewControllerRef(
+							config("byo-rev", "foo", WithInlineNamedRevision),
+							v1alpha1.SchemeGroupVersion.WithKind("Configuration"),
+						),
+					},
+					Labels: map[string]string{
+						serving.ConfigurationGenerationLabelKey: "2",
+					},
+				},
+			},
+		},
+		Key: "foo/byo-rev",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: DefaultService("byo-rev", "foo", WithInlineNamedRevision,
+				// The first reconciliation will initialize the status conditions.
+				WithInitSvcConditions),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "byo-rev"),
+		},
+	}, {
+		Name: "inline - byo rev name - existing older revision with same spec",
+		Objects: []runtime.Object{
+			DefaultService("byo-rev", "foo", WithInlineNamedRevision,
+				WithServiceGeneration(2), WithServiceObservedGeneration),
+			config("byo-rev", "foo", WithInlineNamedRevision,
+				WithGeneration(2), WithObservedGen),
+			route("byo-rev", "foo", WithInlineNamedRevision,
+				WithRouteGeneration(2), WithRouteObservedGeneration),
+			rev("byo-rev", "foo", WithInlineNamedRevision,
+				// Older Revision
+				WithGeneration(1), WithObservedGen),
+		},
+		Key: "foo/byo-rev",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: DefaultService("byo-rev", "foo",
+				WithInlineNamedRevision, WithInitSvcConditions),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "byo-rev"),
+		},
+	}, {
+		Name: "inline - byo rev name - existing older revision with different spec",
+		Objects: []runtime.Object{
+			DefaultService("byo-rev", "foo", WithInlineNamedRevision,
+				WithServiceGeneration(2), WithServiceObservedGeneration),
+			config("byo-rev", "foo", WithInlineNamedRevision,
+				WithGeneration(2), WithObservedGen),
+			route("byo-rev", "foo", WithInlineNamedRevision,
+				WithRouteGeneration(2), WithRouteObservedGeneration),
+
+			&v1alpha1.Revision{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "byo-rev-byo",
+					Namespace: "foo",
+					OwnerReferences: []metav1.OwnerReference{
+						*metav1.NewControllerRef(
+							config("byo-rev", "foo", WithInlineNamedRevision),
+							v1alpha1.SchemeGroupVersion.WithKind("Configuration"),
+						),
+					},
+					Labels: map[string]string{
+						serving.ConfigurationGenerationLabelKey: "1",
+					},
+				},
+			},
+		},
+		Key: "foo/byo-rev",
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: DefaultService("byo-rev", "foo", WithInlineNamedRevision,
+				WithInitSvcConditions, MarkRevisionNameTaken),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "byo-rev"),
 		},
 	}, {
 		Name: "inline - byo rev name used in traffic",
@@ -1398,6 +1489,66 @@ func TestReconcile(t *testing.T) {
 		WantServiceReadyStats: map[string]int{
 			"foo/new-owner": 1,
 		},
+	}, {
+		// Config should not be updated because no new changes besides new default
+		Name: "service is has new defaults after upgrade; config should not be updated",
+		Objects: []runtime.Object{
+			DefaultService("release-no-change-config", "foo", WithInitSvcConditions, WithInlineRollout),
+			config("release-no-change-config", "foo", WithRunLatestRollout,
+				func(configuration *v1alpha1.Configuration) {
+					// The ContainerConcurrency is not set here, but it is set on the default service.
+					// The reconciler should ignore this difference because after setting on default on the
+					// config will cause ContainerConcurrency here set to the default value (same as in service),
+					// and therefore would be no diff.
+					configuration.Spec.Template.Spec.ContainerConcurrency = nil
+				},
+			),
+			route("release-no-change-config", "foo", WithRunLatestRollout),
+		},
+		Key: "foo/release-no-change-config",
+	}, {
+		// Route should not be updated because no new changes besides new default
+		Name: "service is has new defaults after upgrade; route should not be updated",
+		Objects: []runtime.Object{
+			DefaultService("release-no-change-route", "foo", WithInitSvcConditions, WithInlineRollout,
+				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
+						Percent:           ptr.Int64(100),
+						ConfigurationName: "release-no-change-route",
+						LatestRevision:    ptr.Bool(true),
+					},
+				}),
+				WithRouteStatus(v1alpha1.TrafficTarget{
+					TrafficTarget: v1.TrafficTarget{
+						Percent:           ptr.Int64(100),
+						ConfigurationName: "release-no-change-route",
+						LatestRevision:    ptr.Bool(true),
+					},
+				}),
+			),
+			config("release-no-change-route", "foo", WithRunLatestRollout),
+			route("release-no-change-route", "foo", WithRunLatestRollout,
+				func(ro *v1alpha1.Route) {
+					ro.Spec.Traffic = []v1alpha1.TrafficTarget{{
+						TrafficTarget: v1.TrafficTarget{
+							// The LatestRevision is not set here, but it is set on the service status traffic.
+							// The reconciler should ignore this difference because after setting on default on the
+							// route will cause LatestRevision here set to true, and therefore would be no diff.
+							Percent:           ptr.Int64(100),
+							ConfigurationName: "release-no-change-route",
+						},
+					}}
+					ro.Status.RouteStatusFields.Traffic = []v1alpha1.TrafficTarget{{
+						TrafficTarget: v1.TrafficTarget{
+							Percent:           ptr.Int64(100),
+							ConfigurationName: "release-no-change-route",
+							LatestRevision:    ptr.Bool(true),
+						},
+					}}
+				},
+			),
+		},
+		Key: "foo/release-no-change-route",
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
@@ -1477,4 +1628,17 @@ func RouteFailed(reason, message string) RouteOption {
 			},
 		}
 	}
+}
+
+func rev(name, namespace string, so ServiceOption, co ...ConfigOption) *v1alpha1.Revision {
+	cfg := config(name, namespace, so, co...)
+
+	cfgV1 := &v1.Configuration{}
+	cfg.ConvertUp(context.Background(), cfgV1)
+
+	revV1 := configresources.MakeRevision(cfgV1)
+	rev := &v1alpha1.Revision{}
+	rev.ConvertDown(context.Background(), revV1)
+
+	return rev
 }

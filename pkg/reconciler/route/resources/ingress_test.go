@@ -28,20 +28,18 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 
-	"knative.dev/pkg/ptr"
-	"knative.dev/pkg/system"
-
 	_ "knative.dev/pkg/system/testing"
-	. "knative.dev/serving/pkg/testing/v1alpha1"
+	. "knative.dev/serving/pkg/testing/v1"
 )
 
 const (
@@ -227,7 +225,7 @@ func TestMakeIngressSpec_CorrectRules(t *testing.T) {
 func TestMakeIngressSpec_CorrectRuleVisibility(t *testing.T) {
 	cases := []struct {
 		name               string
-		route              *v1alpha1.Route
+		route              *v1.Route
 		targets            map[string]traffic.RevisionTargets
 		serviceVisibility  map[string]netv1alpha1.IngressVisibility
 		expectedVisibility map[string]netv1alpha1.IngressVisibility
@@ -763,13 +761,13 @@ func TestMakeClusterIngress_ACMEChallenges(t *testing.T) {
 		}},
 	}
 
-	r := &v1alpha1.Route{
+	r := &v1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
 			Namespace: "test-ns",
 		},
-		Status: v1alpha1.RouteStatus{
-			RouteStatusFields: v1alpha1.RouteStatusFields{
+		Status: v1.RouteStatus{
+			RouteStatusFields: v1.RouteStatusFields{
 				URL: &apis.URL{
 					Scheme: "http",
 					Host:   "domain.com",

@@ -19,12 +19,16 @@ package metric
 import (
 	"context"
 
+	"go.uber.org/zap"
+	"k8s.io/client-go/tools/cache"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
+	metricreconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/metric"
 	pkgreconciler "knative.dev/serving/pkg/reconciler"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/kmeta"
 )
 
 const (
@@ -41,16 +45,26 @@ func NewController(
 	metricInformer := metricinformer.Get(ctx)
 
 	c := &reconciler{
-		Base:         pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
-		collector:    collector,
-		metricLister: metricInformer.Lister(),
+		Base:      pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
+		collector: collector,
 	}
-	impl := controller.NewImpl(c, c.Logger, reconcilerName)
+	impl := metricreconciler.NewImpl(ctx, c)
 
 	c.Logger.Info("Setting up event handlers")
 
 	// Watch all the Metric objects.
 	metricInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
+
+	metricInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: func(obj interface{}) {
+			accessor, err := kmeta.DeletionHandlingAccessor(obj)
+			if err != nil {
+				c.Logger.Errorw("Error accessing object", zap.Error(err))
+				return
+			}
+			c.collector.Delete(accessor.GetNamespace(), accessor.GetName())
+		},
+	})
 
 	return impl
 }

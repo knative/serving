@@ -61,7 +61,7 @@ import (
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/autoscaler"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
@@ -109,7 +109,7 @@ func testReadyPA(rev *v1.Revision) *av1alpha1.PodAutoscaler {
 	return pa
 }
 
-func newTestControllerWithConfig(t *testing.T, deploymentConfig *deployment.Config, configs ...*corev1.ConfigMap) (
+func newTestControllerWithConfig(t *testing.T, deploymentConfig *deployment.Config, configs []*corev1.ConfigMap, opts ...reconcilerOption) (
 	context.Context,
 	[]controller.Informer,
 	*controller.Impl,
@@ -117,9 +117,13 @@ func newTestControllerWithConfig(t *testing.T, deploymentConfig *deployment.Conf
 
 	ctx, informers := SetupFakeContext(t)
 	configMapWatcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
-	controller := NewController(ctx, configMapWatcher)
 
-	controller.Reconciler.(*Reconciler).resolver = &nopResolver{}
+	// Prepend so that callers can override.
+	opts = append([]reconcilerOption{func(r *Reconciler) {
+		r.resolver = &nopResolver{}
+	}}, opts...)
+
+	controller := newControllerWithOptions(ctx, configMapWatcher, opts...)
 
 	cms := []*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{
@@ -156,7 +160,7 @@ func newTestControllerWithConfig(t *testing.T, deploymentConfig *deployment.Conf
 	}, {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      autoscaler.ConfigName,
+			Name:      autoscalerconfig.ConfigName,
 		},
 		Data: map[string]string{
 			"max-scale-up-rate":                       "11.0",
@@ -263,12 +267,12 @@ func (r *errorResolver) Resolve(_ string, _ k8schain.Options, _ sets.String) (st
 }
 
 func TestResolutionFailed(t *testing.T) {
-	ctx, cancel, _, controller, _ := newTestController(t)
-	defer cancel()
-
 	// Unconditionally return this error during resolution.
 	innerError := errors.New("i am the expected error message, hear me ROAR!")
-	controller.Reconciler.(*Reconciler).resolver = &errorResolver{innerError}
+	ctx, cancel, _, controller, _ := newTestController(t, func(r *Reconciler) {
+		r.resolver = &errorResolver{innerError}
+	})
+	defer cancel()
 
 	rev := testRevision()
 	config := testConfiguration()
@@ -302,7 +306,7 @@ func TestResolutionFailed(t *testing.T) {
 // TODO(mattmoor): add coverage of a Reconcile fixing a stale logging URL
 func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	deploymentConfig := getTestDeploymentConfig()
-	ctx, _, controller, watcher := newTestControllerWithConfig(t, deploymentConfig, &corev1.ConfigMap{
+	ctx, _, controller, watcher := newTestControllerWithConfig(t, deploymentConfig, []*corev1.ConfigMap{{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
 			Name:      metrics.ConfigMapName(),
@@ -312,7 +316,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 			"logging.revision-url-template":     "http://old-logging.test.com?filter=${REVISION_UID}",
 		},
 	}, getTestDeploymentConfigMap(),
-	)
+	})
 	revClient := fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace)
 
 	rev := testRevision()
@@ -344,11 +348,13 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 
 // TODO(mattmoor): Remove when we have coverage of EnqueueEndpointsRevision
 func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
-	ctx, cancel, _, controller, _ := newTestController(t)
+	var fakeRecorder *record.FakeRecorder
+	ctx, cancel, _, controller, _ := newTestController(t, func(r *Reconciler) {
+		// Grab the recorder that we are set up with.
+		fakeRecorder = r.Base.Recorder.(*record.FakeRecorder)
+	})
 	defer cancel()
 	rev := testRevision()
-
-	fakeRecorder := controller.Reconciler.(*Reconciler).Base.Recorder.(*record.FakeRecorder)
 
 	// Look for the revision ready event. Events are delivered asynchronously so
 	// we need to use hooks here.
@@ -476,11 +482,12 @@ func TestIstioOutboundIPRangesInjection(t *testing.T) {
 
 func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnotationOverride string) map[string]string {
 	controllerConfig := getTestDeploymentConfig()
-	ctx, _, controller, watcher := newTestControllerWithConfig(t, controllerConfig)
+	ctx, _, controller, watcher := newTestControllerWithConfig(t, controllerConfig, nil, func(r *Reconciler) {
+		// Resolve image references to this "digest"
+		digest := "foo@sha256:deadbeef"
 
-	// Resolve image references to this "digest"
-	digest := "foo@sha256:deadbeef"
-	controller.Reconciler.(*Reconciler).resolver = &fixedResolver{digest}
+		r.resolver = &fixedResolver{digest}
+	})
 
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -577,7 +584,7 @@ func TestGlobalResyncOnConfigMapUpdateRevision(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			controllerConfig := getTestDeploymentConfig()
-			ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, controllerConfig)
+			ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, controllerConfig, nil)
 
 			ctx, cancel := context.WithCancel(ctx)
 			grp := errgroup.Group{}
@@ -733,7 +740,7 @@ func TestGlobalResyncOnConfigMapUpdateDeployment(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			controllerConfig := getTestDeploymentConfig()
-			ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, controllerConfig)
+			ctx, informers, ctrl, watcher := newTestControllerWithConfig(t, controllerConfig, nil)
 
 			ctx, cancel := context.WithCancel(ctx)
 			grp := errgroup.Group{}

@@ -24,6 +24,10 @@ export DISABLE_MD_LINTING=1
 
 source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/presubmit-tests.sh
 
+# Test the custom code generators. This makes sure we can compile the output
+# of the injection generators.
+$(dirname $0)/update-test-codegen.sh
+
 # TODO(#17): Write integration tests.
 
 # We use the default build, unit and integration test runners.

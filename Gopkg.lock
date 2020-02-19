@@ -1008,6 +1008,14 @@
   revision = "fbec762f837dc349b73d1eaa820552e2ad177942"
 
 [[projects]]
+  digest = "1:8392b5c29adedc5f85c66b48bb53b6c49dd91d8540f3cad5d43ef7277946718f"
+  name = "gomodules.xyz/jsonpatch"
+  packages = ["v2"]
+  pruneopts = "NUT"
+  revision = "e8422f09d27ee2c8cfb2c7f8089eb9eeb0764849"
+  version = "v2.0.1"
+
+[[projects]]
   branch = "master"
   digest = "1:d2e36d62407a0c1c5a47b2db12b26b1d2f90ea4e960e37d6d10f924865ab0f88"
   name = "google.golang.org/api"
@@ -1767,7 +1775,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:e88d3b9de3d98890a1f1fcd8fbe80d53f97c2fdbdc54146b34b77962a70b19a0"
+  digest = "1:f6ba2bb6b0e2c489077c7ee7bbe19a9c6d4e7064d4ff53983749f7219114dae2"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1790,11 +1798,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "c41fd5336dfd00540255dfdfffd3b1226740b03b"
+  revision = "1f067018c4f94180d969f9f4e76ecfe02887ca1d"
 
 [[projects]]
   branch = "master"
-  digest = "1:f7be14ca7e1115cbce25d1cdb2540d73c279f1583d7a64319173d865aaa360a5"
+  digest = "1:4d466bcd929b5ae71fddc9153076b396c5d05479f03b2ae6318c3433578205dc"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1901,11 +1909,11 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "a5517037d34f894e0cf2dd1777f306dc74557166"
+  revision = "5d8a01d12cc825688b14117af294139fee2270eb"
 
 [[projects]]
   branch = "master"
-  digest = "1:b9ec37cbc9c7e83ac1bfec6bdff255f2f6f5ef2f9bbbbb3e31bc38371fc39f0c"
+  digest = "1:1fb08cc16c0877e9e585481424de1231dd75f424f0d7bcac0fedb91ccefea3b8"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1918,7 +1926,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "1b5477b12d75ea7210d970ff9a234277dcd9ee18"
+  revision = "fb304f6a7ac965fb3eb5cb16d5e0301ca60e3247"
 
 [[projects]]
   digest = "1:92b88da51692abe195601cb17d35bbb9b6bc2011237a2f234fedba7411ed8122"

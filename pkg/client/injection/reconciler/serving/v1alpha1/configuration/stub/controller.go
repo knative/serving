@@ -19,9 +19,9 @@ limitations under the License.
 package configuration
 
 import (
-	"context"
+	context "context"
 
-	"knative.dev/pkg/configmap"
+	configmap "knative.dev/pkg/configmap"
 	controller "knative.dev/pkg/controller"
 	logging "knative.dev/pkg/logging"
 	configuration "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"

@@ -19,9 +19,9 @@ limitations under the License.
 package podautoscaler
 
 import (
-	"context"
+	context "context"
 
-	"knative.dev/pkg/configmap"
+	configmap "knative.dev/pkg/configmap"
 	controller "knative.dev/pkg/controller"
 	logging "knative.dev/pkg/logging"
 	podautoscaler "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
@@ -40,9 +40,10 @@ func NewController(
 	podautoscalerInformer := podautoscaler.Get(ctx)
 
 	// TODO: setup additional informers here.
+	// TODO: pass in the expected value for the class annotation filter.
 
 	r := &Reconciler{}
-	impl := v1alpha1podautoscaler.NewImpl(ctx, r)
+	impl := v1alpha1podautoscaler.NewImpl(ctx, r, "default")
 
 	logger.Info("Setting up event handlers.")
 

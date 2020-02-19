@@ -75,7 +75,7 @@ func TestNewHTTPScrapeClient_ErrorCases(t *testing.T) {
 					t.Errorf("Got error message: %v. Want: %v", got, want)
 				}
 			} else {
-				t.Errorf("Expected error from newHTTPScrapeClient, got nil")
+				t.Error("Expected error from newHTTPScrapeClient, got nil")
 			}
 		})
 	}
@@ -198,7 +198,7 @@ func TestHTTPScrapeClient_Scrape_ErrorCases(t *testing.T) {
 					t.Errorf("Got error message: %q, want to contain: %q", err.Error(), test.expectedErr)
 				}
 			} else {
-				t.Errorf("Expected error from newServiceScraperWithClient, got nil")
+				t.Error("Expected error from newServiceScraperWithClient, got nil")
 			}
 		})
 	}

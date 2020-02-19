@@ -18,7 +18,7 @@ package resources
 
 import (
 	corev1 "k8s.io/api/core/v1"
-	"knative.dev/serving/pkg/reconciler/route/config"
+	"knative.dev/serving/pkg/apis/serving"
 )
 
 // Filter is used for applying a function to a service
@@ -42,9 +42,6 @@ func FilterService(services []*corev1.Service, acceptFilter Filter) []*corev1.Se
 
 // IsClusterLocalService returns whether a service is cluster local.
 func IsClusterLocalService(svc *corev1.Service) bool {
-	if visibility, ok := svc.GetLabels()[config.VisibilityLabelKey]; ok {
-		return config.VisibilityClusterLocal == visibility
-	}
-
-	return false
+	visibility, ok := svc.GetLabels()[serving.VisibilityLabelKey]
+	return ok && serving.VisibilityClusterLocal == visibility
 }

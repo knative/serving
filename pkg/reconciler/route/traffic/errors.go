@@ -20,7 +20,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 // TargetError gives details about an invalid traffic target.
@@ -29,7 +29,7 @@ type TargetError interface {
 
 	// MarkBadTrafficTarget marks a RouteStatus with Condition corresponding
 	// to the error case of the traffic target.
-	MarkBadTrafficTarget(rs *v1alpha1.RouteStatus)
+	MarkBadTrafficTarget(rs *v1.RouteStatus)
 
 	// IsFailure returns whether a TargetError is a true failure, e.g.
 	// a Configuration fails to become ready.
@@ -49,7 +49,7 @@ func (e *missingTargetError) Error() string {
 }
 
 // MarkBadTrafficTarget implements TargetError.
-func (e *missingTargetError) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus) {
+func (e *missingTargetError) MarkBadTrafficTarget(rs *v1.RouteStatus) {
 	rs.MarkMissingTrafficTarget(e.kind, e.name)
 }
 
@@ -71,7 +71,7 @@ func (e *unreadyConfigError) Error() string {
 }
 
 // MarkBadTrafficTarget implements TargetError.
-func (e *unreadyConfigError) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus) {
+func (e *unreadyConfigError) MarkBadTrafficTarget(rs *v1.RouteStatus) {
 	if e.IsFailure() {
 		rs.MarkConfigurationFailed(e.name)
 	} else {
@@ -96,7 +96,7 @@ func (e *unreadyRevisionError) Error() string {
 }
 
 // MarkBadTrafficTarget implements TargetError.
-func (e *unreadyRevisionError) MarkBadTrafficTarget(rs *v1alpha1.RouteStatus) {
+func (e *unreadyRevisionError) MarkBadTrafficTarget(rs *v1.RouteStatus) {
 	if e.IsFailure() {
 		rs.MarkRevisionFailed(e.name)
 	} else {
@@ -109,9 +109,9 @@ func (e *unreadyRevisionError) IsFailure() bool {
 }
 
 // errUnreadyConfiguration returns a TargetError for a Configuration that is not ready.
-func errUnreadyConfiguration(config *v1alpha1.Configuration) TargetError {
+func errUnreadyConfiguration(config *v1.Configuration) TargetError {
 	status := corev1.ConditionUnknown
-	if c := config.Status.GetCondition(v1alpha1.ConfigurationConditionReady); c != nil {
+	if c := config.Status.GetCondition(v1.ConfigurationConditionReady); c != nil {
 		status = c.Status
 	}
 	return &unreadyConfigError{
@@ -121,9 +121,9 @@ func errUnreadyConfiguration(config *v1alpha1.Configuration) TargetError {
 }
 
 // errUnreadyRevision returns a TargetError for a Revision that is not ready.
-func errUnreadyRevision(rev *v1alpha1.Revision) TargetError {
+func errUnreadyRevision(rev *v1.Revision) TargetError {
 	status := corev1.ConditionUnknown
-	if c := rev.Status.GetCondition(v1alpha1.RevisionConditionReady); c != nil {
+	if c := rev.Status.GetCondition(v1.RevisionConditionReady); c != nil {
 		status = c.Status
 	}
 	return &unreadyRevisionError{

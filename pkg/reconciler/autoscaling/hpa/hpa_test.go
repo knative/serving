@@ -45,13 +45,14 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
+	pkgrec "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	"knative.dev/serving/pkg/autoscaler"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/reconciler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
@@ -73,7 +74,7 @@ func TestControllerCanReconcile(t *testing.T) {
 	ctl := NewController(ctx, configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      autoscaler.ConfigName,
+			Name:      autoscalerconfig.ConfigName,
 		},
 		Data: map[string]string{},
 	}))
@@ -464,16 +465,18 @@ func TestReconcile(t *testing.T) {
 		r := &Reconciler{
 			Base: &areconciler.Base{
 				Base:              reconciler.NewBase(ctx, controllerAgentName, cmw),
-				PALister:          listers.GetPodAutoscalerLister(),
 				SKSLister:         listers.GetServerlessServiceLister(),
 				MetricLister:      listers.GetMetricLister(),
-				ConfigStore:       &testConfigStore{config: defaultConfig()},
 				ServiceLister:     listers.GetK8sServiceLister(),
 				PSInformerFactory: podscalable.Get(ctx),
 			},
 			hpaLister: listers.GetHorizontalPodAutoscalerLister(),
 		}
-		return pareconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetPodAutoscalerLister(), r.Recorder, r)
+		return pareconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetPodAutoscalerLister(),
+			r.Recorder, r, autoscaling.HPA,
+			controller.Options{
+				ConfigStore: &testConfigStore{config: defaultConfig()},
+			})
 	}))
 }
 
@@ -587,7 +590,7 @@ func metricService(pa *asv1a1.PodAutoscaler) *corev1.Service {
 }
 
 func defaultConfig() *config.Config {
-	autoscalerConfig, _ := autoscaler.NewConfigFromMap(nil)
+	autoscalerConfig, _ := autoscalerconfig.NewConfigFromMap(nil)
 	return &config.Config{
 		Autoscaler: autoscalerConfig,
 	}
@@ -601,4 +604,4 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 	return config.ToContext(ctx, t.config)
 }
 
-var _ reconciler.ConfigStore = (*testConfigStore)(nil)
+var _ pkgrec.ConfigStore = (*testConfigStore)(nil)

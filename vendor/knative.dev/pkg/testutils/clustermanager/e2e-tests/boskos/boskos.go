@@ -33,8 +33,12 @@ const (
 )
 
 var (
-	boskosURI           = "http://boskos.test-pods.svc.cluster.local."
-	defaultWaitDuration = time.Minute * 20
+	boskosURI = "http://boskos.test-pods.svc.cluster.local."
+	// Keep Boskos for 2 hours, which will be used to release Boskos resource
+	// only when a job forgot or failed to release Boskos, which shouldn't
+	// happen that often. Using this can avoid keeping "heartbeat" which is
+	// almost not doable for Go
+	defaultWaitDuration = 2 * time.Hour
 )
 
 // Operation defines actions for handling GKE resources

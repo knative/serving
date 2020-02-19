@@ -18,20 +18,20 @@ package labels
 
 import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/serving/pkg/reconciler/route/config"
+	"knative.dev/serving/pkg/apis/serving"
 )
 
 // IsObjectLocalVisibility returns whether an ObjectMeta is of cluster-local visibility
 func IsObjectLocalVisibility(meta v1.ObjectMeta) bool {
-	return meta.Labels != nil && meta.Labels[config.VisibilityLabelKey] != ""
+	return meta.Labels != nil && meta.Labels[serving.VisibilityLabelKey] != ""
 }
 
 // SetVisibility sets the visibility on an ObjectMeta
 func SetVisibility(meta *v1.ObjectMeta, isClusterLocal bool) {
 	if isClusterLocal {
-		SetLabel(meta, config.VisibilityLabelKey, config.VisibilityClusterLocal)
+		SetLabel(meta, serving.VisibilityLabelKey, serving.VisibilityClusterLocal)
 	} else {
-		DeleteLabel(meta, config.VisibilityLabelKey)
+		DeleteLabel(meta, serving.VisibilityLabelKey)
 	}
 }
 

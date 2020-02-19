@@ -122,6 +122,14 @@ const (
 	// QueueProxyUserAgent is the user-agent header value set in probe requests sent
 	// from queue-proxy.
 	QueueProxyUserAgent = "Knative-Queue-Proxy-Probe"
+
+	// IngressReadinessUserAgent is the user-agent header value
+	// set in probe requests for Ingress status.
+	IngressReadinessUserAgent = "Knative-Ingress-Probe"
+
+	// AutoscalingUserAgent is the user-agent header value set in probe
+	// requests sent by autoscaling implementations.
+	AutoscalingUserAgent = "Knative-Autoscaling-Probe"
 )
 
 // DomainTemplateValues are the available properties people can choose from

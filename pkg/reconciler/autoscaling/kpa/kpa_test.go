@@ -55,6 +55,7 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
+	pkgrec "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
 	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -63,7 +64,7 @@ import (
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/autoscaler"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
@@ -105,7 +106,7 @@ func defaultConfigMapData() map[string]string {
 }
 
 func defaultConfig() *config.Config {
-	autoscalerConfig, _ := autoscaler.NewConfigFromMap(defaultConfigMapData())
+	autoscalerConfig, _ := autoscalerconfig.NewConfigFromMap(defaultConfigMapData())
 	return &config.Config{
 		Autoscaler: autoscalerConfig,
 	}
@@ -115,7 +116,7 @@ func newConfigWatcher() configmap.Watcher {
 	return configmap.NewStaticWatcher(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.Namespace(),
-			Name:      autoscaler.ConfigName,
+			Name:      autoscalerconfig.ConfigName,
 		},
 		Data: defaultConfigMapData(),
 	})
@@ -997,11 +998,9 @@ func TestReconcile(t *testing.T) {
 		r := &Reconciler{
 			Base: &areconciler.Base{
 				Base:              reconciler.NewBase(ctx, controllerAgentName, newConfigWatcher()),
-				PALister:          listers.GetPodAutoscalerLister(),
 				SKSLister:         listers.GetServerlessServiceLister(),
 				ServiceLister:     listers.GetK8sServiceLister(),
 				MetricLister:      listers.GetMetricLister(),
-				ConfigStore:       &testConfigStore{config: defaultConfig()},
 				PSInformerFactory: psf,
 			},
 			endpointsLister: listers.GetEndpointsLister(),
@@ -1009,7 +1008,11 @@ func TestReconcile(t *testing.T) {
 			deciders:        fakeDeciders,
 			scaler:          scaler,
 		}
-		return pareconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetPodAutoscalerLister(), r.Recorder, r)
+		return pareconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetPodAutoscalerLister(),
+			r.Recorder, r, autoscaling.KPA,
+			controller.Options{
+				ConfigStore: &testConfigStore{config: defaultConfig()},
+			})
 	}))
 }
 
@@ -1048,7 +1051,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	// Load default config
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      autoscaler.ConfigName,
+			Name:      autoscalerconfig.ConfigName,
 			Namespace: system.Namespace(),
 		},
 		Data: defaultConfigMapData(),
@@ -1098,7 +1101,7 @@ func TestGlobalResyncOnUpdateAutoscalerConfigMap(t *testing.T) {
 	data["container-concurrency-target-default"] = fmt.Sprintf("%f", concurrencyTargetAfterUpdate)
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      autoscaler.ConfigName,
+			Name:      autoscalerconfig.ConfigName,
 			Namespace: system.Namespace(),
 		},
 		Data: data,
@@ -1144,11 +1147,11 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	newDeployment(t, fakedynamicclient.Get(ctx), testRevision+"-deployment", 3)
 
 	kpa := revisionresources.MakePA(rev)
-	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
-
 	sks := sks(testNamespace, testRevision, WithDeployRef(kpa.Spec.ScaleTargetRef.Name),
 		WithSKSReady)
 	fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
+
+	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 
 	select {
 	case <-time.After(5 * time.Second):
@@ -1167,7 +1170,7 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 		}
 		return newKPA.Status.IsReady(), nil
 	}); err != nil {
-		t.Errorf("PA failed to become ready: %v", err)
+		t.Fatalf("PA failed to become ready: %v", err)
 	}
 
 	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Delete(testRevision, nil)
@@ -1393,10 +1396,7 @@ func pollDeciders(deciders *testDeciders, namespace, name string, cond func(*sca
 		if err != nil {
 			return false, nil
 		}
-		if cond == nil {
-			return true, nil
-		}
-		return cond(decider), nil
+		return cond == nil || cond(decider), nil
 	})
 	return decider, err
 }
@@ -1404,11 +1404,11 @@ func pollDeciders(deciders *testDeciders, namespace, name string, cond func(*sca
 func newTestDeciders() *testDeciders {
 	return &testDeciders{
 		createCallCount:    atomic.NewUint32(0),
-		createCall:         make(chan struct{}, 100),
+		createCall:         make(chan struct{}, 1),
 		deleteCallCount:    atomic.NewUint32(0),
-		deleteCall:         make(chan struct{}, 100),
+		deleteCall:         make(chan struct{}, 1),
 		updateCallCount:    atomic.NewUint32(0),
-		updateCall:         make(chan struct{}, 100),
+		updateCall:         make(chan struct{}, 1),
 		deleteBeforeCreate: atomic.NewBool(false),
 	}
 }
@@ -1582,7 +1582,7 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 	return config.ToContext(ctx, t.config)
 }
 
-var _ reconciler.ConfigStore = (*testConfigStore)(nil)
+var _ pkgrec.ConfigStore = (*testConfigStore)(nil)
 
 func TestMetricsReporter(t *testing.T) {
 	pa := kpa(testNamespace, testRevision)

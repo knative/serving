@@ -26,8 +26,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	"knative.dev/serving/pkg/autoscaler"
-	"knative.dev/serving/pkg/autoscaler/metrics"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	. "knative.dev/serving/pkg/testing"
 )
 
@@ -47,7 +46,7 @@ func TestMakeMetric(t *testing.T) {
 		pa:   pa(WithWindowAnnotation("10s"), WithPanicWindowPercentageAnnotation("10")),
 		msn:  "wil",
 		want: metric(withScrapeTarget("wil"), withWindowAnnotation("10s"),
-			withStableWindow(10*time.Second), withPanicWindow(metrics.BucketSize),
+			withStableWindow(10*time.Second), withPanicWindow(autoscalerconfig.BucketSize),
 			withPanicWindowPercentageAnnotation("10")),
 	}, {
 		name: "with longer stable window, no panic window percentage, defaults to 10%",
@@ -171,7 +170,7 @@ func pa(options ...PodAutoscalerOption) *v1alpha1.PodAutoscaler {
 	return p
 }
 
-var config = &autoscaler.Config{
+var config = &autoscalerconfig.Config{
 	EnableScaleToZero:                  true,
 	ContainerConcurrencyTargetFraction: 1.0,
 	ContainerConcurrencyTargetDefault:  100.0,

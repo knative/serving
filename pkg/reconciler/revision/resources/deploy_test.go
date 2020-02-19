@@ -37,7 +37,7 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/autoscaler"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
 )
@@ -404,7 +404,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc   *logging.Config
 		tc   *tracingconfig.Config
 		oc   *metrics.ObservabilityConfig
-		ac   *autoscaler.Config
+		ac   *autoscalerconfig.Config
 		cc   *deployment.Config
 		want *corev1.PodSpec
 	}{{
@@ -423,7 +423,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
@@ -467,7 +467,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
@@ -507,7 +507,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
@@ -532,7 +532,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
@@ -557,7 +557,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
@@ -577,7 +577,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
@@ -602,7 +602,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
@@ -622,7 +622,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
@@ -648,7 +648,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
@@ -681,7 +681,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
@@ -709,7 +709,7 @@ func TestMakePodSpec(t *testing.T) {
 		oc: &metrics.ObservabilityConfig{
 			EnableVarLogCollection: true,
 		},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
@@ -734,7 +734,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{
+		ac: &autoscalerconfig.Config{
 			EnableGracefulScaledown: true,
 		},
 		cc: &deployment.Config{},
@@ -779,7 +779,7 @@ func TestMakePodSpec(t *testing.T) {
 		lc: &logging.Config{},
 		tc: &tracingconfig.Config{},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
@@ -852,7 +852,7 @@ func TestMissingProbeError(t *testing.T) {
 		&tracingconfig.Config{},
 		&network.Config{},
 		&metrics.ObservabilityConfig{},
-		&autoscaler.Config{},
+		&autoscalerconfig.Config{},
 		&deployment.Config{},
 	)
 
@@ -869,7 +869,7 @@ func TestMakeDeployment(t *testing.T) {
 		tc   *tracingconfig.Config
 		nc   *network.Config
 		oc   *metrics.ObservabilityConfig
-		ac   *autoscaler.Config
+		ac   *autoscalerconfig.Config
 		cc   *deployment.Config
 		want *appsv1.Deployment
 	}{{
@@ -892,7 +892,7 @@ func TestMakeDeployment(t *testing.T) {
 		tc:   &tracingconfig.Config{},
 		nc:   &network.Config{},
 		oc:   &metrics.ObservabilityConfig{},
-		ac:   &autoscaler.Config{},
+		ac:   &autoscalerconfig.Config{},
 		cc:   &deployment.Config{},
 		want: makeDeployment(),
 	}, {
@@ -915,7 +915,7 @@ func TestMakeDeployment(t *testing.T) {
 		tc:   &tracingconfig.Config{},
 		nc:   &network.Config{},
 		oc:   &metrics.ObservabilityConfig{},
-		ac:   &autoscaler.Config{},
+		ac:   &autoscalerconfig.Config{},
 		cc:   &deployment.Config{},
 		want: makeDeployment(),
 	}, {
@@ -939,7 +939,7 @@ func TestMakeDeployment(t *testing.T) {
 			IstioOutboundIPRanges: "*",
 		},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{},
 		want: makeDeployment(func(deploy *appsv1.Deployment) {
 			deploy.Spec.Template.ObjectMeta.Annotations[IstioOutboundIPRangeAnnotation] = "*"
@@ -963,7 +963,7 @@ func TestMakeDeployment(t *testing.T) {
 		tc: &tracingconfig.Config{},
 		nc: &network.Config{},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{},
 		want: makeDeployment(func(deploy *appsv1.Deployment) {
 			deploy.ObjectMeta.Annotations[sidecarIstioInjectAnnotation] = "false"
@@ -993,7 +993,7 @@ func TestMakeDeployment(t *testing.T) {
 			IstioOutboundIPRanges: "*",
 		},
 		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscaler.Config{},
+		ac: &autoscalerconfig.Config{},
 		cc: &deployment.Config{},
 		want: makeDeployment(func(deploy *appsv1.Deployment) {
 			deploy.ObjectMeta.Annotations[IstioOutboundIPRangeAnnotation] = "10.4.0.0/14,10.7.240.0/20"

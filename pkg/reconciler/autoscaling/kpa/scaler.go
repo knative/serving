@@ -64,6 +64,7 @@ const (
 )
 
 var probeOptions = []interface{}{
+	prober.WithHeader(network.UserAgentKey, network.AutoscalingUserAgent),
 	prober.WithHeader(network.ProbeHeaderName, activator.Name),
 	prober.ExpectsBody(activator.Name),
 	prober.ExpectsStatusCodes([]int{http.StatusOK}),

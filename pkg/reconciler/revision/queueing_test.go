@@ -40,7 +40,7 @@ import (
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/autoscaler"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
@@ -142,7 +142,7 @@ func getTestDefaultsConfigMap() *corev1.ConfigMap {
 	}
 }
 
-func newTestController(t *testing.T) (
+func newTestController(t *testing.T, opts ...reconcilerOption) (
 	context.Context,
 	context.CancelFunc,
 	[]controller.Informer,
@@ -151,9 +151,12 @@ func newTestController(t *testing.T) (
 
 	ctx, cancel, informers := SetupFakeContextWithCancel(t)
 	configMapWatcher := &configmap.ManualWatcher{Namespace: system.Namespace()}
-	controller := NewController(ctx, configMapWatcher)
 
-	controller.Reconciler.(*Reconciler).resolver = &nopResolver{}
+	// Prepend so that callers can override.
+	opts = append([]reconcilerOption{func(r *Reconciler) {
+		r.resolver = &nopResolver{}
+	}}, opts...)
+	controller := newControllerWithOptions(ctx, configMapWatcher, opts...)
 
 	configs := []*corev1.ConfigMap{
 		getTestDeploymentConfigMap(),
@@ -190,7 +193,7 @@ func newTestController(t *testing.T) (
 			}}, {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: system.Namespace(),
-				Name:      autoscaler.ConfigName,
+				Name:      autoscalerconfig.ConfigName,
 			},
 			Data: map[string]string{
 				"max-scale-up-rate":                       "2.0",

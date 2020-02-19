@@ -71,6 +71,16 @@ const (
 	// QueueSideCarResourcePercentageAnnotation is the percentage of user container resources to be used for queue-proxy
 	// It has to be in [0.1,100]
 	QueueSideCarResourcePercentageAnnotation = "queue.sidecar." + GroupName + "/resourcePercentage"
+
+	// VisibilityLabelKey is the label to indicate visibility of Route
+	// and KServices.  It can be an annotation too but since users are
+	// already using labels for domain, it probably best to keep this
+	// consistent.
+	VisibilityLabelKey = "serving.knative.dev/visibility"
+	// VisibilityClusterLocal is the label value for VisibilityLabelKey
+	// that will result to the Route/KService getting a cluster local
+	// domain suffix.
+	VisibilityClusterLocal = "cluster-local"
 )
 
 var (

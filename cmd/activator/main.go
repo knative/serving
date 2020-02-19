@@ -54,7 +54,6 @@ import (
 	tracingconfig "knative.dev/pkg/tracing/config"
 	"knative.dev/pkg/version"
 	"knative.dev/pkg/websocket"
-	"knative.dev/serving/pkg/activator"
 	activatorconfig "knative.dev/serving/pkg/activator/config"
 	activatorhandler "knative.dev/serving/pkg/activator/handler"
 	activatornet "knative.dev/serving/pkg/activator/net"
@@ -176,11 +175,6 @@ func main() {
 
 	logger.Info("Starting the knative activator")
 
-	reporter, err := activator.NewStatsReporter(env.PodName)
-	if err != nil {
-		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
-	}
-
 	statCh := make(chan []asmetrics.StatMessage)
 	defer close(statCh)
 
@@ -219,8 +213,7 @@ func main() {
 	// Create and run our concurrency reporter
 	reportTicker := time.NewTicker(time.Second)
 	defer reportTicker.Stop()
-	cr := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, reqCh,
-		reportTicker.C, statCh, reporter)
+	cr := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, reqCh, reportTicker.C, statCh)
 	go cr.Run(ctx.Done())
 
 	// Create activation handler chain
@@ -238,7 +231,7 @@ func main() {
 
 	// NOTE: MetricHandler is being used as the outermost handler of the meaty bits. We're not interested in measuring
 	// the healthchecks or probes.
-	ah = activatorhandler.NewMetricHandler(ctx, reporter, ah)
+	ah = activatorhandler.NewMetricHandler(env.PodName, ah)
 	ah = activatorhandler.NewContextHandler(ctx, ah)
 
 	// Network probe handlers.

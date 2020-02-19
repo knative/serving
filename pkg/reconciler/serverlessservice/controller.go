@@ -21,10 +21,11 @@ import (
 
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 	sksreconciler "knative.dev/serving/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice"
-	pkgreconciler "knative.dev/serving/pkg/reconciler"
+	servingreconciler "knative.dev/serving/pkg/reconciler"
 
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
@@ -49,10 +50,9 @@ func NewController(
 	sksInformer := sksinformer.Get(ctx)
 
 	c := &reconciler{
-		Base:              pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
+		Base:              servingreconciler.NewBase(ctx, controllerAgentName, cmw),
 		endpointsLister:   endpointsInformer.Lister(),
 		serviceLister:     serviceInformer.Lister(),
-		sksLister:         sksInformer.Lister(),
 		psInformerFactory: podscalable.Get(ctx),
 	}
 	impl := sksreconciler.NewImpl(ctx, c)

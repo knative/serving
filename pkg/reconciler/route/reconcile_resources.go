@@ -19,7 +19,6 @@ package route
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -27,39 +26,19 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/reconciler"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"knative.dev/serving/pkg/reconciler/route/resources"
 	"knative.dev/serving/pkg/reconciler/route/traffic"
 )
 
-func routeOwnerLabelSelector(route *v1alpha1.Route) labels.Selector {
-	return labels.SelectorFromSet(labels.Set{
-		serving.RouteLabelKey:          route.Name,
-		serving.RouteNamespaceLabelKey: route.Namespace,
-	})
-}
-
-func (c *Reconciler) deleteIngressForRoute(route *v1alpha1.Route) error {
-
-	// We always use DeleteCollection because even with a fixed name, we apply the labels.
-	selector := routeOwnerLabelSelector(route).String()
-
-	// Delete Ingresses owned by this route.
-	return c.ServingClientSet.NetworkingV1alpha1().Ingresses(route.Namespace).DeleteCollection(
-		nil, metav1.ListOptions{LabelSelector: selector})
-}
-
-func (c *Reconciler) reconcileIngress(ctx context.Context, r *v1alpha1.Route, desired *netv1alpha1.Ingress) (*netv1alpha1.Ingress, error) {
+func (c *Reconciler) reconcileIngress(ctx context.Context, r *v1.Route, desired *netv1alpha1.Ingress) (*netv1alpha1.Ingress, error) {
 	ingress, err := c.ingressLister.Ingresses(desired.Namespace).Get(desired.Name)
 	if apierrs.IsNotFound(err) {
 		ingress, err = c.ServingClientSet.NetworkingV1alpha1().Ingresses(desired.Namespace).Create(desired)
@@ -104,7 +83,7 @@ func (c *Reconciler) deleteServices(namespace string, serviceNames sets.String) 
 	return nil
 }
 
-func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1alpha1.Route, targets map[string]traffic.RevisionTargets) ([]*corev1.Service, error) {
+func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1.Route, targets map[string]traffic.RevisionTargets) ([]*corev1.Service, error) {
 	logger := logging.FromContext(ctx)
 	existingServices, err := c.getServices(route)
 	if err != nil {
@@ -162,7 +141,7 @@ func (c *Reconciler) reconcilePlaceholderServices(ctx context.Context, route *v1
 	return services, nil
 }
 
-func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1alpha1.Route, services []*corev1.Service, ingress *netv1alpha1.Ingress) error {
+func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1.Route, services []*corev1.Service, ingress *netv1alpha1.Ingress) error {
 	logger := logging.FromContext(ctx)
 	ns := route.Namespace
 
@@ -196,30 +175,8 @@ func (c *Reconciler) updatePlaceholderServices(ctx context.Context, route *v1alp
 	return eg.Wait()
 }
 
-func (c *Reconciler) updateStatus(existing *v1alpha1.Route, desired *v1alpha1.Route) error {
-	existing = existing.DeepCopy()
-	return reconciler.RetryUpdateConflicts(func(attempts int) (err error) {
-		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
-		if attempts > 0 {
-			existing, err = c.ServingClientSet.ServingV1alpha1().Routes(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-		}
-
-		// If there's nothing to update, just return.
-		if reflect.DeepEqual(existing.Status, desired.Status) {
-			return nil
-		}
-
-		existing.Status = desired.Status
-		_, err = c.ServingClientSet.ServingV1alpha1().Routes(desired.Namespace).UpdateStatus(existing)
-		return err
-	})
-}
-
 // Update the lastPinned annotation on revisions we target so they don't get GC'd.
-func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Config, route *v1alpha1.Route) error {
+func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Config, route *v1.Route) error {
 	gcConfig := config.FromContext(ctx).GC
 	logger := logging.FromContext(ctx)
 	lpDebounce := gcConfig.StaleRevisionLastpinnedDebounce
@@ -242,7 +199,7 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 				lastPin, err := newRev.GetLastPinned()
 				if err != nil {
 					// Missing is an expected error case for a not yet pinned revision.
-					if err.(v1alpha1.LastPinnedParseError).Type != v1alpha1.AnnotationParseErrorTypeMissing {
+					if err.(v1.LastPinnedParseError).Type != v1.AnnotationParseErrorTypeMissing {
 						return err
 					}
 				} else {
@@ -259,7 +216,7 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 					return err
 				}
 
-				if _, err := c.ServingClientSet.ServingV1alpha1().Revisions(route.Namespace).Patch(rev.Name, types.MergePatchType, patch); err != nil {
+				if _, err := c.ServingClientSet.ServingV1().Revisions(route.Namespace).Patch(rev.Name, types.MergePatchType, patch); err != nil {
 					return fmt.Errorf("failed to set revision annotation: %w", err)
 				}
 				return nil
@@ -269,7 +226,7 @@ func (c *Reconciler) reconcileTargetRevisions(ctx context.Context, t *traffic.Co
 	return eg.Wait()
 }
 
-func (c *Reconciler) reconcileCertificate(ctx context.Context, r *v1alpha1.Route, desiredCert *netv1alpha1.Certificate) (*netv1alpha1.Certificate, error) {
+func (c *Reconciler) reconcileCertificate(ctx context.Context, r *v1.Route, desiredCert *netv1alpha1.Certificate) (*netv1alpha1.Certificate, error) {
 	cert, err := c.certificateLister.Certificates(desiredCert.Namespace).Get(desiredCert.Name)
 	if apierrs.IsNotFound(err) {
 		cert, err = c.ServingClientSet.NetworkingV1alpha1().Certificates(desiredCert.Namespace).Create(desiredCert)

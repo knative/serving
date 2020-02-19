@@ -35,6 +35,8 @@ type reconcilerControllerStubGenerator struct {
 
 	reconcilerPkg       string
 	informerPackagePath string
+	reconcilerClass     string
+	hasReconcilerClass  bool
 }
 
 var _ generator.Generator = (*reconcilerControllerStubGenerator)(nil)
@@ -61,7 +63,9 @@ func (g *reconcilerControllerStubGenerator) GenerateType(c *generator.Context, t
 	klog.V(5).Infof("processing type %v", t)
 
 	m := map[string]interface{}{
-		"type": t,
+		"type":     t,
+		"class":    g.reconcilerClass,
+		"hasClass": g.hasReconcilerClass,
 		"informerGet": c.Universe.Function(types.Name{
 			Package: g.informerPackagePath,
 			Name:    "Get",
@@ -75,6 +79,14 @@ func (g *reconcilerControllerStubGenerator) GenerateType(c *generator.Context, t
 			Package: "knative.dev/pkg/logging",
 			Name:    "FromContext",
 		}),
+		"contextContext": c.Universe.Type(types.Name{
+			Package: "context",
+			Name:    "Context",
+		}),
+		"configmapWatcher": c.Universe.Type(types.Name{
+			Package: "knative.dev/pkg/configmap",
+			Name:    "Watcher",
+		}),
 	}
 
 	sw.Do(reconcilerControllerStub, m)
@@ -87,17 +99,18 @@ var reconcilerControllerStub = `
 
 // NewController creates a Reconciler for {{.type|public}} and returns the result of NewImpl.
 func NewController(
-	ctx context.Context,
-	cmw configmap.Watcher,
+	ctx {{.contextContext|raw}},
+	cmw {{.configmapWatcher|raw}},
 ) *{{.controllerImpl|raw}} {
 	logger := {{.loggingFromContext|raw}}(ctx)
 
 	{{.type|lowercaseSingular}}Informer := {{.informerGet|raw}}(ctx)
 
 	// TODO: setup additional informers here.
+	{{if .hasClass}}// TODO: pass in the expected value for the class annotation filter.{{end}}
 
 	r := &Reconciler{}
-	impl := {{.reconcilerNewImpl|raw}}(ctx, r)
+	impl := {{.reconcilerNewImpl|raw}}(ctx, r{{if .hasClass}}, "default"{{end}})
 
 	logger.Info("Setting up event handlers.")
 

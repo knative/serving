@@ -34,13 +34,11 @@ import (
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
-
-	"k8s.io/apimachinery/pkg/types"
 )
 
 // Throttler is the interface that Handler calls to Try to proxy the user request.
 type Throttler interface {
-	Try(context.Context, types.NamespacedName, func(string) error) error
+	Try(context.Context, func(string) error) error
 }
 
 // activationHandler will wait for an active endpoint for a revision
@@ -64,7 +62,6 @@ func New(ctx context.Context, t Throttler) http.Handler {
 }
 
 func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	revID := util.RevIDFrom(r.Context())
 	logger := logging.FromContext(r.Context())
 	tracingEnabled := activatorconfig.FromContext(r.Context()).Tracing.Backend != tracingconfig.None
 
@@ -73,7 +70,7 @@ func (a *activationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		tryContext, trySpan = trace.StartSpan(r.Context(), "throttler_try")
 	}
 
-	if err := a.throttler.Try(tryContext, revID, func(dest string) error {
+	if err := a.throttler.Try(tryContext, func(dest string) error {
 		trySpan.End()
 
 		proxyCtx, proxySpan := r.Context(), (*trace.Span)(nil)

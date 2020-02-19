@@ -83,7 +83,7 @@ type Reconciler struct {
 	secretLister         corev1listers.SecretLister
 	ingressLister        listers.IngressLister
 
-	configStore reconciler.ConfigStore
+	configStore pkgreconciler.ConfigStore
 	tracker     tracker.Interface
 	finalizer   string
 
