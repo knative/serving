@@ -22,6 +22,7 @@ import (
 	"strings"
 	"testing"
 
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	. "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
@@ -31,7 +32,7 @@ const (
 	invalidServiceAccountName = "foo@bar.baz"
 )
 
-func TestServiceAccountValidation(t *testing.T) {
+func TestServiceValidationWithInvalidServiceAccount(t *testing.T) {
 	t.Parallel()
 	clients := test.Setup(t)
 
@@ -52,6 +53,32 @@ func TestServiceAccountValidation(t *testing.T) {
 		t.Fatal("Expected Service creation to fail")
 	}
 	if got, want := err.Error(), "serviceAccountName: spec.template.spec."+invalidServiceAccountName; !strings.Contains(got, want) {
+		t.Errorf("Error = %q, want to contain = %q", got, want)
+	}
+}
+
+func TestServiceValidationWithInvalidPodSpec(t *testing.T) {
+	t.Parallel()
+	clients := test.Setup(t)
+
+	names := test.ResourceNames{
+		Service: test.ObjectNameForTest(t),
+		Image:   test.PizzaPlanet1,
+	}
+
+	// Clean up on test failure or interrupt
+	defer test.TearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
+
+	// Setup initial Service
+	_, err := v1test.CreateServiceReady(t, clients, &names, func(svc *v1.Service) {
+		svc.Spec.Template.Spec.PodSpec.Containers[0].Name = "&InvalidValue"
+	})
+
+	if err == nil {
+		t.Fatal("Expected Service creation to fail")
+	}
+	if got, want := err.Error(), "PodSpec dry run failed"; !strings.Contains(got, want) {
 		t.Errorf("Error = %q, want to contain = %q", got, want)
 	}
 }

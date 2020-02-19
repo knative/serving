@@ -278,7 +278,7 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 		Spec: ps,
 	}
 	if _, err := dryRun(ctx, pod); err != nil {
-		errs.Also(apis.ErrGeneric("PodSpec dry run failed", "spec.template.spec.podSpec"))
+		errs = errs.Also(apis.ErrGeneric("PodSpec dry run failed: "+err.Error(), "spec.template.spec.podSpec"))
 	}
 
 	return errs
@@ -288,7 +288,7 @@ func dryRun(ctx context.Context, pod *corev1.Pod) (*corev1.Pod, error) {
 	client := kubeclient.Get(ctx)
 	pods := client.CoreV1().Pods(pod.GetNamespace())
 	options := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
-	return pods.Create(ctx, pod, options)
+	return pods.CreateWithOptions(ctx, pod, options)
 }
 
 func ValidateContainer(container corev1.Container, volumes sets.String) *apis.FieldError {
