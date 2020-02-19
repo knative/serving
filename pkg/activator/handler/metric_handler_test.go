@@ -19,11 +19,12 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"testing"
+
+	"knative.dev/serving/pkg/activator"
 
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/metrics/metricskey"
@@ -35,6 +36,7 @@ import (
 func TestRequestMetricHandler(t *testing.T) {
 	testNamespace := "real-namespace"
 	testRevName := "real-name"
+	testPod := "testPod"
 
 	tests := []struct {
 		label       string
@@ -63,7 +65,7 @@ func TestRequestMetricHandler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
-			handler := NewMetricHandler(test.baseHandler)
+			handler := NewMetricHandler(testPod, test.baseHandler)
 
 			resp := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", bytes.NewBufferString(""))
@@ -92,6 +94,8 @@ func TestRequestMetricHandler(t *testing.T) {
 				}
 
 				wantTags := map[string]string{
+					"pod_name":                        testPod,
+					"container_name":                  activator.Name,
 					metricskey.LabelNamespaceName:     rev.Namespace,
 					metricskey.LabelServiceName:       rev.Labels[serving.ServiceLabelKey],
 					metricskey.LabelConfigurationName: rev.Labels[serving.ConfigurationLabelKey],
@@ -119,17 +123,17 @@ func BenchmarkMetricHandler(b *testing.B) {
 	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	reqCtx := util.WithRevision(context.Background(), revision(testNamespace, testRevName))
 
-	handler := NewMetricHandler(baseHandler)
+	handler := NewMetricHandler("benchPod", baseHandler)
 
 	resp := httptest.NewRecorder()
-	b.Run(fmt.Sprint("sequential"), func(b *testing.B) {
+	b.Run("sequential", func(b *testing.B) {
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil).WithContext(reqCtx)
 		for j := 0; j < b.N; j++ {
 			handler.ServeHTTP(resp, req)
 		}
 	})
 
-	b.Run(fmt.Sprint("parallel"), func(b *testing.B) {
+	b.Run("parallel", func(b *testing.B) {
 		b.RunParallel(func(pb *testing.PB) {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil).WithContext(reqCtx)
 			for pb.Next() {

@@ -231,7 +231,7 @@ func main() {
 
 	// NOTE: MetricHandler is being used as the outermost handler of the meaty bits. We're not interested in measuring
 	// the healthchecks or probes.
-	ah = activatorhandler.NewMetricHandler(ah)
+	ah = activatorhandler.NewMetricHandler(env.PodName, ah)
 	ah = activatorhandler.NewContextHandler(ctx, ah)
 
 	// Network probe handlers.

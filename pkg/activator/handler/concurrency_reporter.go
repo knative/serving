@@ -26,6 +26,7 @@ import (
 
 	"knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
+	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
@@ -73,7 +74,7 @@ func (cr *ConcurrencyReporter) reportToMetricsBackend(key types.NamespacedName, 
 	configurationName := revision.Labels[serving.ConfigurationLabelKey]
 	serviceName := revision.Labels[serving.ServiceLabelKey]
 
-	reporterCtx, _ := metrics.RevisionContext(ns, serviceName, configurationName, revName)
+	reporterCtx, _ := metrics.PodRevisionContext(cr.podName, activator.Name, ns, serviceName, configurationName, revName)
 	pkgmetrics.RecordBatch(reporterCtx, requestConcurrencyM.M(concurrency))
 }
 
