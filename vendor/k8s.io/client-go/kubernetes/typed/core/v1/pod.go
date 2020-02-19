@@ -38,7 +38,7 @@ type PodsGetter interface {
 
 // PodInterface has methods to work with Pod resources.
 type PodInterface interface {
-	Create(pod *v1.Pod) (*v1.Pod, error)
+	Create(*v1.Pod) (*v1.Pod, error)
 	CreateWithOptions(ctx context.Context, pod *v1.Pod, opts metav1.CreateOptions) (*v1.Pod, error)
 	Update(*v1.Pod) (*v1.Pod, error)
 	UpdateStatus(*v1.Pod) (*v1.Pod, error)
