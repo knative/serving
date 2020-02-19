@@ -40,9 +40,10 @@ func NewController(
 	certificateInformer := certificate.Get(ctx)
 
 	// TODO: setup additional informers here.
+	// TODO: pass in the expected value for the class annotation filter.
 
 	r := &Reconciler{}
-	impl := v1alpha1certificate.NewImpl(ctx, r)
+	impl := v1alpha1certificate.NewImpl(ctx, r, "default")
 
 	logger.Info("Setting up event handlers.")
 

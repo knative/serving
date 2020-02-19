@@ -472,7 +472,8 @@ func TestReconcile(t *testing.T) {
 			},
 			hpaLister: listers.GetHorizontalPodAutoscalerLister(),
 		}
-		return pareconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetPodAutoscalerLister(), r.Recorder, r,
+		return pareconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetPodAutoscalerLister(),
+			r.Recorder, r, autoscaling.HPA,
 			controller.Options{
 				ConfigStore: &testConfigStore{config: defaultConfig()},
 			})
