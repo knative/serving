@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	"reflect"
 	"time"
 
@@ -117,11 +118,23 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		c.Recorder.Event(service, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
 		return reconcileErr
 	}
+
+	// If the only difference in the Spec is the new annotation scale to zero on deploy, ignore it.
+	copy := original.DeepCopy()
+	if _, ok := service.Spec.Template.Annotations[autoscaling.ScaleToZeroOnDeployAnnotation]; ok {
+		if copy.Spec.Template == nil {
+			copy.Spec.Template= &v1alpha1.RevisionTemplateSpec{}
+		}
+		if copy.Spec.Template.Annotations == nil {
+			copy.Spec.Template.Annotations = make(map[string]string, 1)
+		}
+		copy.Spec.Template.Annotations[autoscaling.ScaleToZeroOnDeployAnnotation] = service.Spec.Template.Annotations[autoscaling.ScaleToZeroOnDeployAnnotation]
+	}
 	// TODO(mattmoor): Remove this after 0.7 cuts.
 	// If the spec has changed, then assume we need an upgrade and issue a patch to trigger
 	// the webhook to upgrade via defaulting.  Status updates do not trigger this due to the
 	// use of the /status resource.
-	if !equality.Semantic.DeepEqual(original.Spec, service.Spec) {
+	if !equality.Semantic.DeepEqual(copy.Spec, service.Spec) {
 		services := v1alpha1.SchemeGroupVersion.WithResource("services")
 		if err := c.MarkNeedsUpgrade(services, service.Namespace, service.Name); err != nil {
 			return err
