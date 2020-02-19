@@ -74,3 +74,4 @@ ${GOPATH}/bin/deepcopy-gen --input-dirs \
 
 # Make sure our dependencies are up-to-date
 ${REPO_ROOT_DIR}/hack/update-deps.sh
+
