@@ -38,13 +38,14 @@ const (
 	defaultControllerAgentName = "certificate-controller"
 	defaultFinalizerName       = "certificates.networking.internal.knative.dev"
 	defaultQueueName           = "certificates"
+	classAnnotationKey         = "networking.internal.knative.dev/certificate.class"
 )
 
 // NewImpl returns a controller.Impl that handles queuing and feeding work from
 // the queue through an implementation of controller.Reconciler, delegating to
 // the provided Interface and optional Finalizer methods. OptionsFn is used to return
 // controller.Options to be used but the internal reconciler.
-func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsFn) *controller.Impl {
+func NewImpl(ctx context.Context, r Interface, classValue string, optionsFns ...controller.OptionsFn) *controller.Impl {
 	logger := logging.FromContext(ctx)
 
 	// Check the options function input. It should be 0 or 1.
@@ -78,6 +79,7 @@ func NewImpl(ctx context.Context, r Interface, optionsFns ...controller.OptionsF
 		Lister:     certificateInformer.Lister(),
 		Recorder:   recorder,
 		reconciler: r,
+		classValue: classValue,
 	}
 	impl := controller.NewImpl(rec, logger, defaultQueueName)
 

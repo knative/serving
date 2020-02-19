@@ -75,7 +75,7 @@ func NewController(
 		podsLister:      podsInformer.Lister(),
 		deciders:        deciders,
 	}
-	impl := pareconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
+	impl := pareconciler.NewImpl(ctx, c, autoscaling.KPA, func(impl *controller.Impl) controller.Options {
 		c.Logger.Info("Setting up ConfigMap receivers")
 		configsToResync := []interface{}{
 			&autoscalerconfig.Config{},

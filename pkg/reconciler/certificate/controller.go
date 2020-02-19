@@ -65,15 +65,16 @@ func NewController(
 		certManagerClient: cmclient.Get(ctx),
 	}
 
-	impl := certreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
-		c.Logger.Info("Setting up ConfigMap receivers")
-		resyncCertOnCertManagerconfigChange := configmap.TypeFilter(&config.CertManagerConfig{})(func(string, interface{}) {
-			impl.GlobalResync(knCertificateInformer.Informer())
+	impl := certreconciler.NewImpl(ctx, c, network.CertManagerCertificateClassName,
+		func(impl *controller.Impl) controller.Options {
+			c.Logger.Info("Setting up ConfigMap receivers")
+			resyncCertOnCertManagerconfigChange := configmap.TypeFilter(&config.CertManagerConfig{})(func(string, interface{}) {
+				impl.GlobalResync(knCertificateInformer.Informer())
+			})
+			configStore := config.NewStore(c.Logger.Named("config-store"), resyncCertOnCertManagerconfigChange)
+			configStore.WatchConfigs(cmw)
+			return controller.Options{ConfigStore: configStore}
 		})
-		configStore := config.NewStore(c.Logger.Named("config-store"), resyncCertOnCertManagerconfigChange)
-		configStore.WatchConfigs(cmw)
-		return controller.Options{ConfigStore: configStore}
-	})
 
 	c.Logger.Info("Setting up event handlers")
 	classFilterFunc := pkgreconciler.AnnotationFilterFunc(networking.CertificateClassAnnotationKey, network.CertManagerCertificateClassName, true)

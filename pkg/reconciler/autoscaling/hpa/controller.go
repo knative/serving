@@ -66,7 +66,7 @@ func NewController(
 		},
 		hpaLister: hpaInformer.Lister(),
 	}
-	impl := pareconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
+	impl := pareconciler.NewImpl(ctx, c, autoscaling.HPA, func(impl *controller.Impl) controller.Options {
 		c.Logger.Info("Setting up ConfigMap receivers")
 		configsToResync := []interface{}{
 			&autoscalerconfig.Config{},

@@ -1008,7 +1008,8 @@ func TestReconcile(t *testing.T) {
 			deciders:        fakeDeciders,
 			scaler:          scaler,
 		}
-		return pareconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetPodAutoscalerLister(), r.Recorder, r,
+		return pareconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetPodAutoscalerLister(),
+			r.Recorder, r, autoscaling.KPA,
 			controller.Options{
 				ConfigStore: &testConfigStore{config: defaultConfig()},
 			})

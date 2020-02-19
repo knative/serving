@@ -25,6 +25,7 @@ import (
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -95,6 +96,13 @@ func (c *reconciler) Reconcile(ctx context.Context, key string) error {
 	return err
 }
 
+func certClass(ctx context.Context, r *v1.Namespace) string {
+	if class := r.Annotations[networking.CertificateClassAnnotationKey]; class != "" {
+		return class
+	}
+	return config.FromContext(ctx).Network.DefaultCertificateClass
+}
+
 func (c *reconciler) reconcile(ctx context.Context, ns *corev1.Namespace) error {
 	cfg := config.FromContext(ctx)
 
@@ -125,7 +133,7 @@ func (c *reconciler) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 		return nil
 	}
 
-	desiredCert := resources.MakeWildcardCertificate(ns, dnsName, defaultDomain)
+	desiredCert := resources.MakeWildcardCertificate(ns, dnsName, defaultDomain, certClass(ctx, ns))
 
 	// If there is no matching cert find one previously created by this reconciler which may
 	// need to be updated.

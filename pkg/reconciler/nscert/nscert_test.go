@@ -53,6 +53,8 @@ import (
 	_ "knative.dev/pkg/system/testing"
 )
 
+const testCertClass = "dns-01.rocks"
+
 var (
 	wildcardDNSNames      = []string{"*.foo.example.com"}
 	defaultCertName       = names.WildcardCertificate(wildcardDNSNames[0])
@@ -460,6 +462,9 @@ func knCertWithStatus(namespace *corev1.Namespace, status *v1alpha1.CertificateS
 			Name:            defaultCertName,
 			Namespace:       namespace.Name,
 			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(namespace, corev1.SchemeGroupVersion.WithKind("Namespace"))},
+			Annotations: map[string]string{
+				networking.CertificateClassAnnotationKey: testCertClass,
+			},
 			Labels: map[string]string{
 				networking.WildcardCertDomainLabelKey: defaultDomain,
 			},
@@ -493,8 +498,9 @@ func kubeNamespaceWithDisableLabelValue(name, value string) *corev1.Namespace {
 
 func networkConfig() *network.Config {
 	return &network.Config{
-		DomainTemplate: defaultDomainTemplate,
-		AutoTLS:        true,
+		DomainTemplate:          defaultDomainTemplate,
+		AutoTLS:                 true,
+		DefaultCertificateClass: testCertClass,
 	}
 }
 
