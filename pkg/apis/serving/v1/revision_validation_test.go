@@ -26,6 +26,7 @@ import (
 	"knative.dev/pkg/apis"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
+	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
@@ -76,10 +77,10 @@ func TestRevisionValidation(t *testing.T) {
 	}}
 
 	// TODO(dangerd): PodSpec validation failures.
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.r.Validate(context.Background())
+			ctx, _, _ := rtesting.SetupFakeContextWithCancel(t)
+			got := test.r.Validate(ctx)
 			if !cmp.Equal(test.want.Error(), got.Error()) {
 				t.Errorf("Validate (-want, +got) = %v",
 					cmp.Diff(test.want.Error(), got.Error()))
@@ -232,9 +233,11 @@ func TestRevisionLabelAnnotationValidation(t *testing.T) {
 		},
 		want: apis.ErrInvalidKeyName("serving.knative.dev/testlabel", "metadata.labels"),
 	}}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.r.Validate(context.Background())
+			ctx, _, _ := rtesting.SetupFakeContextWithCancel(t)
+			got := test.r.Validate(ctx)
 			if got, want := got.Error(), test.want.Error(); !cmp.Equal(got, want) {
 				t.Errorf("Validate (-want, +got) = %s", cmp.Diff(want, got))
 			}
@@ -436,7 +439,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx, _, _ := rtesting.SetupFakeContextWithCancel(t)
 			if test.wc != nil {
 				ctx = test.wc(ctx)
 			}
@@ -893,7 +896,8 @@ func TestRevisionTemplateSpecValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := apis.WithinParent(context.Background(), metav1.ObjectMeta{
+			ctx, _, _ := rtesting.SetupFakeContextWithCancel(t)
+			ctx = apis.WithinParent(ctx, metav1.ObjectMeta{
 				Name: "parent",
 			})
 

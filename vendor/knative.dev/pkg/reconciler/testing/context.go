@@ -23,6 +23,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -40,5 +41,6 @@ func SetupFakeContextWithCancel(t *testing.T) (context.Context, context.CancelFu
 	ctx, c := context.WithCancel(logtesting.TestContextWithLogger(t))
 	ctx = controller.WithEventRecorder(ctx, record.NewFakeRecorder(1000))
 	ctx, is := injection.Fake.SetupInformers(ctx, &rest.Config{})
+	fakekubeclient.Get(ctx)
 	return ctx, c, is
 }

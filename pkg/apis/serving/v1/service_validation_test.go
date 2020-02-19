@@ -17,7 +17,6 @@ limitations under the License.
 package v1
 
 import (
-	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -25,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
+	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 )
@@ -230,7 +230,8 @@ func TestServiceValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.r.Validate(context.Background())
+			ctx, _, _ := rtesting.SetupFakeContextWithCancel(t)
+			got := test.r.Validate(ctx)
 			if !cmp.Equal(test.want.Error(), got.Error()) {
 				t.Errorf("Validate (-want, +got) = %v",
 					cmp.Diff(test.want.Error(), got.Error()))
@@ -475,7 +476,7 @@ func TestImmutableServiceFields(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx, _, _ := rtesting.SetupFakeContextWithCancel(t)
 			ctx = apis.WithinUpdate(ctx, test.old)
 			got := test.new.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
@@ -658,7 +659,7 @@ func TestServiceSubresourceUpdate(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx, _, _ := rtesting.SetupFakeContextWithCancel(t)
 			ctx = apis.WithinUpdate(ctx, test.service)
 			ctx = apis.WithinSubResourceUpdate(ctx, test.service, test.subresource)
 			if diff := cmp.Diff(test.want.Error(), test.service.Validate(ctx).Error()); diff != "" {
@@ -773,9 +774,10 @@ func TestServiceAnnotationUpdate(t *testing.T) {
 		},
 		want: nil,
 	}}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx, _, _ := rtesting.SetupFakeContextWithCancel(t)
 			ctx = apis.WithinUpdate(ctx, test.prev)
 			if diff := cmp.Diff(test.want.Error(), test.this.Validate(ctx).Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
