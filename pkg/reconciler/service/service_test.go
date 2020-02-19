@@ -1513,16 +1513,16 @@ func TestReconcile(t *testing.T) {
 			DefaultService("release-no-change-route", "foo", WithInitSvcConditions, WithInlineRollout,
 				WithSvcStatusTraffic(v1alpha1.TrafficTarget{
 					TrafficTarget: v1.TrafficTarget{
-						Percent:      ptr.Int64(100),
+						Percent:           ptr.Int64(100),
 						ConfigurationName: "release-no-change-route",
-						LatestRevision: ptr.Bool(true),
+						LatestRevision:    ptr.Bool(true),
 					},
 				}),
 				WithRouteStatus(v1alpha1.TrafficTarget{
 					TrafficTarget: v1.TrafficTarget{
-						Percent:      ptr.Int64(100),
+						Percent:           ptr.Int64(100),
 						ConfigurationName: "release-no-change-route",
-						LatestRevision: ptr.Bool(true),
+						LatestRevision:    ptr.Bool(true),
 					},
 				}),
 			),
@@ -1534,15 +1534,15 @@ func TestReconcile(t *testing.T) {
 							// The LatestRevision is not set here, but it is set on the service status traffic.
 							// The reconciler should ignore this difference because after setting on default on the
 							// route will cause LatestRevision here set to true, and therefore would be no diff.
-							Percent:      ptr.Int64(100),
+							Percent:           ptr.Int64(100),
 							ConfigurationName: "release-no-change-route",
 						},
 					}}
 					ro.Status.RouteStatusFields.Traffic = []v1alpha1.TrafficTarget{{
 						TrafficTarget: v1.TrafficTarget{
-							Percent:      ptr.Int64(100),
+							Percent:           ptr.Int64(100),
 							ConfigurationName: "release-no-change-route",
-							LatestRevision: ptr.Bool(true),
+							LatestRevision:    ptr.Bool(true),
 						},
 					}}
 				},
