@@ -438,6 +438,17 @@ func WithSvcStatusTraffic(targets ...v1alpha1.TrafficTarget) ServiceOption {
 	}
 }
 
+// WithRouteStatus sets the Service's status's route status field traffic block to the specified traffic targets.
+func WithRouteStatus(targets ...v1alpha1.TrafficTarget) ServiceOption {
+	return func(s *v1alpha1.Service) {
+		// Automatically inject URL into TrafficTarget status
+		for _, tt := range targets {
+			tt.URL = domains.URL(domains.HTTPScheme, tt.Tag+".example.com")
+		}
+		s.Status.RouteStatusFields.Traffic = targets
+	}
+}
+
 // WithFailedRoute reflects a Route's failure in the Service resource.
 func WithFailedRoute(reason, message string) ServiceOption {
 	return func(s *v1alpha1.Service) {

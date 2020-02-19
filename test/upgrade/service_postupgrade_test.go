@@ -34,6 +34,20 @@ import (
 
 func TestRunLatestServicePostUpgrade(t *testing.T) {
 	t.Parallel()
+	clients := e2e.Setup(t)
+
+	// Before updating the service, the route and configuration objects should
+	// not be updated just because there has been an upgrade.
+	if hasGeneration, err := configHasGeneration(clients, serviceName, 1); err != nil {
+		t.Fatalf("Error comparing Configuration generation: %v", err)
+	} else if !hasGeneration {
+		t.Fatal("Configuration is updated after an upgrade.")
+	}
+	if hasGeneration, err := routeHasGeneration(clients, serviceName, 1); err != nil {
+		t.Fatalf("Error comparing Route generation: %v", err)
+	} else if !hasGeneration {
+		t.Fatal("Route is updated after an upgrade.")
+	}
 	updateService(serviceName, t)
 }
 
@@ -60,6 +74,22 @@ func TestBYORevisionPostUpgrade(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Failed to update Service: %v", err)
 	}
+}
+
+func configHasGeneration(clients *test.Clients, serviceName string, generation int) (bool, error) {
+	configObj, err := clients.ServingAlphaClient.Configs.Get(serviceName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	return configObj.Generation == int64(generation), nil
+}
+
+func routeHasGeneration(clients *test.Clients, serviceName string, generation int) (bool, error) {
+	routeObj, err := clients.ServingAlphaClient.Routes.Get(serviceName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	return routeObj.Generation == int64(generation), nil
 }
 
 func updateService(serviceName string, t *testing.T) {
