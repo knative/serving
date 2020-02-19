@@ -243,6 +243,13 @@ func TestReconcile(t *testing.T) {
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "run-latest",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "run-latest"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "run-latest"),
@@ -262,6 +269,13 @@ func TestReconcile(t *testing.T) {
 			Object: DefaultService("pinned", "foo", WithPinnedRollout("pinned-0001"),
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "pinned",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "pinned"),
@@ -284,6 +298,13 @@ func TestReconcile(t *testing.T) {
 			Object: DefaultService("pinned2", "foo", WithReleaseRollout("pinned2-0001"),
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "pinned2",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "pinned2"),
@@ -340,6 +361,13 @@ func TestReconcile(t *testing.T) {
 					},
 				})),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "pinned3",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "pinned3"),
 		},
@@ -361,6 +389,13 @@ func TestReconcile(t *testing.T) {
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "release",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "release"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "release"),
@@ -380,6 +415,13 @@ func TestReconcile(t *testing.T) {
 			Object: DefaultService("release", "foo", WithReleaseRollout("release-00001", "release-00002"),
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "release",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "release"),
@@ -415,6 +457,13 @@ func TestReconcile(t *testing.T) {
 					},
 				})),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "release-nr",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-nr"),
 		},
@@ -446,6 +495,13 @@ func TestReconcile(t *testing.T) {
 						Percent:      ptr.Int64(100),
 					},
 				})),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "release-nr",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-nr"),
@@ -492,6 +548,13 @@ func TestReconcile(t *testing.T) {
 					},
 				})),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "release-nr-ts",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-nr-ts"),
 		},
@@ -537,6 +600,13 @@ func TestReconcile(t *testing.T) {
 						Percent:      ptr.Int64(42),
 					},
 				})),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "release-nr-ts2",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-nr-ts2"),
@@ -588,6 +658,13 @@ func TestReconcile(t *testing.T) {
 					},
 				}}...),
 			),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "release-ready-lr",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-ready-lr"),
@@ -657,6 +734,13 @@ func TestReconcile(t *testing.T) {
 					},
 				}}...),
 			),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "release-ready-lr",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-ready-lr"),
@@ -728,6 +812,13 @@ func TestReconcile(t *testing.T) {
 				}),
 			),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "release-ready",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-ready"),
 		},
@@ -750,6 +841,13 @@ func TestReconcile(t *testing.T) {
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "release-with-percent",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "release-with-percent"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "release-with-percent"),
@@ -762,6 +860,13 @@ func TestReconcile(t *testing.T) {
 			route("no-updates", "foo", WithRunLatestRollout),
 			config("no-updates", "foo", WithRunLatestRollout),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "no-updates",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 		Key: "foo/no-updates",
 	}, {
 		Name: "runLatest - update annotations",
@@ -788,6 +893,13 @@ func TestReconcile(t *testing.T) {
 						map[string]string{"new-key": "new-value"})
 				}),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "update-annos",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 	}, {
 		Name: "runLatest - delete annotations",
 		Objects: []runtime.Object{
@@ -809,6 +921,13 @@ func TestReconcile(t *testing.T) {
 		}, {
 			Object: route("update-annos", "foo", WithRunLatestRollout),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "update-annos",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 	}, {
 		Name: "runLatest - update route and service",
 		Objects: []runtime.Object{
@@ -824,6 +943,13 @@ func TestReconcile(t *testing.T) {
 			Object: config("update-route-and-config", "foo", WithRunLatestRollout),
 		}, {
 			Object: route("update-route-and-config", "foo", WithRunLatestRollout),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "update-route-and-config",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 	}, {
 		Name: "runLatest - update route and service (bad existing Revision)",
@@ -858,6 +984,13 @@ func TestReconcile(t *testing.T) {
 				svc.Status.MarkRevisionNameTaken("update-route-and-config-blah")
 			}),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "update-route-and-config",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "update-route-and-config"),
 		},
@@ -876,6 +1009,13 @@ func TestReconcile(t *testing.T) {
 			Object: route("update-route-and-config-labels", "foo", WithRunLatestRollout, WithRouteLabel(map[string]string{"new-label": "new-value",
 				"serving.knative.dev/service": "update-route-and-config-labels"})),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "update-route-and-config-labels",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 	}, {
 		Name: "runLatest - update route config labels ignoring serving.knative.dev/route",
 		Objects: []runtime.Object{
@@ -893,6 +1033,13 @@ func TestReconcile(t *testing.T) {
 		}, {
 			Object: route("update-child-labels-ignore-route-label", "foo", WithRunLatestRollout, WithRouteLabel(map[string]string{"new-label": "new-value",
 				"serving.knative.dev/service": "update-child-labels-ignore-route-label"})),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "update-child-labels-ignore-route-label",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 	}, {
 		Name: "runLatest - bad config update",
@@ -1069,6 +1216,13 @@ func TestReconcile(t *testing.T) {
 					},
 				})),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "all-ready",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "all-ready"),
 		},
@@ -1108,6 +1262,13 @@ func TestReconcile(t *testing.T) {
 					},
 				})),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "all-ready",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "all-ready"),
 		},
@@ -1141,6 +1302,13 @@ func TestReconcile(t *testing.T) {
 						Percent:      ptr.Int64(100),
 					},
 				})),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "config-only-ready",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "config-only-ready"),
@@ -1177,6 +1345,13 @@ func TestReconcile(t *testing.T) {
 				WithFailedConfig("config-fails-00002", "RevisionFailed", "blah"),
 				WithServiceLatestReadyRevision("config-fails-00001")),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "config-fails",
+			Patch: []byte(reconciler.ForceUpgradePatch),
+		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "config-fails"),
 		},
@@ -1194,6 +1369,13 @@ func TestReconcile(t *testing.T) {
 			Object: DefaultService("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions,
 				WithServiceStatusRouteNotReady, WithFailedConfig(
 					"config-fails-00001", "RevisionFailed", "blah")),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "config-fails",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "config-fails"),
@@ -1216,6 +1398,13 @@ func TestReconcile(t *testing.T) {
 				// we expect the following changed to our status conditions.
 				WithReadyConfig("route-fails-00001"),
 				WithFailedRoute("Propagate me, please", "")),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "route-fails",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "route-fails"),
@@ -1286,6 +1475,13 @@ func TestReconcile(t *testing.T) {
 						Percent:      ptr.Int64(100),
 					},
 				})),
+		}},
+		WantPatches: []clientgotesting.PatchActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+			},
+			Name:  "new-owner",
+			Patch: []byte(reconciler.ForceUpgradePatch),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "new-owner"),
