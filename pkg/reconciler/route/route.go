@@ -25,6 +25,7 @@ import (
 	kubelabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -40,7 +41,6 @@ import (
 	networkinglisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
 	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/reconciler"
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 	networkaccessor "knative.dev/serving/pkg/reconciler/accessor/networking"
 	"knative.dev/serving/pkg/reconciler/route/config"
@@ -54,7 +54,8 @@ import (
 
 // Reconciler implements controller.Reconciler for Route resources.
 type Reconciler struct {
-	*reconciler.Base
+	kubeclient kubernetes.Interface
+	client     clientset.Interface
 
 	// Listers index properties about resources
 	configurationLister listers.ConfigurationLister
@@ -360,7 +361,7 @@ func (c *Reconciler) updateRouteStatusURL(ctx context.Context, route *v1.Route, 
 
 // GetServingClient returns the client to access Knative serving resources.
 func (c *Reconciler) GetServingClient() clientset.Interface {
-	return c.ServingClientSet
+	return c.client
 }
 
 // GetCertificateLister returns the lister for Knative Certificate.

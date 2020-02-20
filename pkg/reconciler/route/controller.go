@@ -19,7 +19,9 @@ package route
 import (
 	"context"
 
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
+	servingclient "knative.dev/serving/pkg/client/injection/client"
 	certificateinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate"
 	ingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
@@ -35,7 +37,6 @@ import (
 	"knative.dev/pkg/tracker"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/route/config"
 )
 
@@ -60,7 +61,7 @@ func newControllerWithClock(
 	clock system.Clock,
 	opts ...reconcilerOption,
 ) *controller.Impl {
-
+	logger := logging.FromContext(ctx)
 	serviceInformer := serviceinformer.Get(ctx)
 	routeInformer := routeinformer.Get(ctx)
 	configInformer := configurationinformer.Get(ctx)
@@ -71,7 +72,8 @@ func newControllerWithClock(
 	// No need to lock domainConfigMutex yet since the informers that can modify
 	// domainConfig haven't started yet.
 	c := &Reconciler{
-		Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
+		kubeclient:          kubeclient.Get(ctx),
+		client:              servingclient.Get(ctx),
 		configurationLister: configInformer.Lister(),
 		revisionLister:      revisionInformer.Lister(),
 		serviceLister:       serviceInformer.Lister(),
@@ -87,12 +89,12 @@ func newControllerWithClock(
 		resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 			impl.GlobalResync(routeInformer.Informer())
 		})
-		configStore := config.NewStore(logging.WithLogger(ctx, c.Logger.Named("config-store")), resync)
+		configStore := config.NewStore(logging.WithLogger(ctx, logger.Named("config-store")), resync)
 		configStore.WatchConfigs(cmw)
 		return controller.Options{ConfigStore: configStore}
 	})
 
-	c.Logger.Info("Setting up event handlers")
+	logger.Info("Setting up event handlers")
 	routeInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	serviceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{

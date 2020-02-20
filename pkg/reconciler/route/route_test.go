@@ -226,11 +226,10 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, route *v1.Route)
 
 // Test the only revision in the route is in Reserve (inactive) serving status.
 func TestCreateRouteForOneReserveRevision(t *testing.T) {
-	var fakeRecorder *record.FakeRecorder
-	ctx, _, ctl, _, cf := newTestSetup(t, func(r *Reconciler) {
-		fakeRecorder = r.Base.Recorder.(*record.FakeRecorder)
-	})
+	ctx, _, ctl, _, cf := newTestSetup(t)
 	defer cf()
+
+	fakeRecorder := controller.GetEventRecorder(ctx).(*record.FakeRecorder)
 
 	// An inactive revision
 	rev := getTestRevision("test-rev")
