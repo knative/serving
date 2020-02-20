@@ -32,7 +32,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"go.opencensus.io/plugin/ochttp"
-	. "knative.dev/pkg/logging/testing"
 	pkgnet "knative.dev/pkg/network"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/tracing"
@@ -42,6 +41,8 @@ import (
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
+
+	. "knative.dev/pkg/logging/testing"
 )
 
 const wantHost = "a-better-host.com"
@@ -172,7 +173,6 @@ func TestProbeHandler(t *testing.T) {
 }
 
 func TestCreateVarLogLink(t *testing.T) {
-	logger = TestLogger(t)
 	dir, err := ioutil.TempDir("", "TestCreateVarLogLink")
 	if err != nil {
 		t.Errorf("Failed to created temporary directory: %v", err)
@@ -201,7 +201,7 @@ func TestCreateVarLogLink(t *testing.T) {
 func TestProbeQueueInvalidPort(t *testing.T) {
 	const port = 0 // invalid port
 
-	if err := probeQueueHealthPath(logger, port, 1, config{}); err == nil {
+	if err := probeQueueHealthPath(port, 1, config{}); err == nil {
 		t.Error("Expected error, got nil")
 	} else if diff := cmp.Diff(err.Error(), "port must be a positive value, got 0"); diff != "" {
 		t.Errorf("Unexpected not ready message: %s", diff)
@@ -211,7 +211,7 @@ func TestProbeQueueInvalidPort(t *testing.T) {
 func TestProbeQueueConnectionFailure(t *testing.T) {
 	port := 12345 // some random port (that's not listening)
 
-	if err := probeQueueHealthPath(logger, port, 1, config{}); err == nil {
+	if err := probeQueueHealthPath(port, 1, config{}); err == nil {
 		t.Error("Expected error, got nil")
 	}
 }
@@ -235,7 +235,7 @@ func TestProbeQueueNotReady(t *testing.T) {
 		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
 	}
 
-	err = probeQueueHealthPath(logger, port, 1, config{})
+	err = probeQueueHealthPath(port, 1, config{})
 
 	if diff := cmp.Diff(err.Error(), "probe returned not ready"); diff != "" {
 		t.Errorf("Unexpected not ready message: %s", diff)
@@ -265,7 +265,7 @@ func TestProbeQueueReady(t *testing.T) {
 		t.Fatalf("Failed to convert port(%s) to int: %v", u.Port(), err)
 	}
 
-	if err = probeQueueHealthPath(logger, port, 1, config{}); err != nil {
+	if err = probeQueueHealthPath(port, 1, config{}); err != nil {
 		t.Errorf("probeQueueHealthPath(%d, 1s) = %s", port, err)
 	}
 
@@ -282,7 +282,9 @@ func TestProbeFailFast(t *testing.T) {
 	defer os.RemoveAll(f.Name())
 
 	ts := newProbeTestServer(func(w http.ResponseWriter) {
-		if preferPodForScaledown(logger, f.Name()) {
+		if preferScaledown, err := preferPodForScaledown(f.Name()); err != nil {
+			t.Fatalf("Failed to process downward API labels: %v", err)
+		} else if preferScaledown {
 			w.WriteHeader(http.StatusBadRequest)
 		}
 	})
@@ -304,7 +306,7 @@ func TestProbeFailFast(t *testing.T) {
 	f.Close()
 
 	start := time.Now()
-	if err = probeQueueHealthPath(logger, port, 1 /*seconds*/, config{DownwardAPILabelsPath: f.Name()}); err == nil {
+	if err = probeQueueHealthPath(port, 1 /*seconds*/, config{DownwardAPILabelsPath: f.Name()}); err == nil {
 		t.Error("probeQueueHealthPath did not fail")
 	}
 
@@ -335,7 +337,7 @@ func TestProbeQueueTimeout(t *testing.T) {
 	}
 
 	timeout := 1
-	if err = probeQueueHealthPath(logger, port, timeout, config{}); err == nil {
+	if err = probeQueueHealthPath(port, timeout, config{}); err == nil {
 		t.Errorf("Expected probeQueueHealthPath(%d, %v) to return timeout error", port, timeout)
 	}
 
@@ -369,12 +371,13 @@ func TestProbeQueueDelayedReady(t *testing.T) {
 	}
 
 	timeout := 0
-	if err := probeQueueHealthPath(logger, port, timeout, config{}); err != nil {
+	if err := probeQueueHealthPath(port, timeout, config{}); err != nil {
 		t.Errorf("probeQueueHealthPath(%d) = %s", port, err)
 	}
 }
 
 func TestQueueTraceSpans(t *testing.T) {
+	logger = TestLogger(t)
 	testcases := []struct {
 		name          string
 		prober        func() bool
