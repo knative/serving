@@ -26,9 +26,9 @@ import (
 	pav1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	nv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
+	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	listers "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
 	nlisters "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
-	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/resources"
 	anames "knative.dev/serving/pkg/reconciler/autoscaling/resources/names"
@@ -37,12 +37,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 // Base implements the core controller logic for autoscaling, given a Reconciler.
 type Base struct {
-	*reconciler.Base
+	KubeClient        kubernetes.Interface
+	Client            clientset.Interface
 	ServiceLister     corev1listers.ServiceLister
 	SKSLister         nlisters.ServerlessServiceLister
 	MetricLister      listers.MetricLister
@@ -58,8 +60,7 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, m
 	if errors.IsNotFound(err) {
 		logger.Info("SKS does not exist; creating.")
 		sks = resources.MakeSKS(pa, mode)
-		_, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(sks)
-		if err != nil {
+		if _, err = c.Client.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Create(sks); err != nil {
 			return nil, fmt.Errorf("error creating SKS %s: %w", sksName, err)
 		}
 		logger.Info("Created SKS")
@@ -74,7 +75,7 @@ func (c *Base) ReconcileSKS(ctx context.Context, pa *pav1alpha1.PodAutoscaler, m
 			want := sks.DeepCopy()
 			want.Spec = tmpl.Spec
 			logger.Infof("SKS %s changed; reconciling, want mode: %v", sksName, want.Spec.Mode)
-			if sks, err = c.ServingClientSet.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(want); err != nil {
+			if sks, err = c.Client.NetworkingV1alpha1().ServerlessServices(sks.Namespace).Update(want); err != nil {
 				return nil, fmt.Errorf("error updating SKS %s: %w", sksName, err)
 			}
 		}
@@ -98,7 +99,7 @@ func (c *Base) DeleteMetricsServices(ctx context.Context, pa *pav1alpha1.PodAuto
 	for _, s := range svcs {
 		if metav1.IsControlledBy(s, pa) {
 			logger.Infof("Removing redundant metric service %s", s.Name)
-			if err := c.KubeClientSet.CoreV1().Services(
+			if err := c.KubeClient.CoreV1().Services(
 				s.Namespace).Delete(s.Name, &metav1.DeleteOptions{}); err != nil {
 				return err
 			}
@@ -112,7 +113,7 @@ func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 	desiredMetric := resources.MakeMetric(ctx, pa, metricSN, config.FromContext(ctx).Autoscaler)
 	metric, err := c.MetricLister.Metrics(desiredMetric.Namespace).Get(desiredMetric.Name)
 	if errors.IsNotFound(err) {
-		_, err = c.ServingClientSet.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Create(desiredMetric)
+		_, err = c.Client.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Create(desiredMetric)
 		if err != nil {
 			return fmt.Errorf("error creating metric: %w", err)
 		}
@@ -125,7 +126,7 @@ func (c *Base) ReconcileMetric(ctx context.Context, pa *pav1alpha1.PodAutoscaler
 		if !equality.Semantic.DeepEqual(desiredMetric.Spec, metric.Spec) {
 			want := metric.DeepCopy()
 			want.Spec = desiredMetric.Spec
-			if _, err = c.ServingClientSet.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Update(want); err != nil {
+			if _, err = c.Client.AutoscalingV1alpha1().Metrics(desiredMetric.Namespace).Update(want); err != nil {
 				return fmt.Errorf("error updating metric: %w", err)
 			}
 		}

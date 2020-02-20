@@ -20,10 +20,13 @@ import (
 	"context"
 
 	"go.uber.org/zap"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/logging"
+	servingclient "knative.dev/serving/pkg/client/injection/client"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
 	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
@@ -36,7 +39,6 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
-	"knative.dev/serving/pkg/reconciler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
@@ -51,7 +53,7 @@ func NewController(
 	cmw configmap.Watcher,
 	deciders resources.Deciders,
 ) *controller.Impl {
-
+	logger := logging.FromContext(ctx)
 	paInformer := painformer.Get(ctx)
 	sksInformer := sksinformer.Get(ctx)
 	serviceInformer := serviceinformer.Get(ctx)
@@ -65,7 +67,8 @@ func NewController(
 
 	c := &Reconciler{
 		Base: &areconciler.Base{
-			Base:              reconciler.NewBase(ctx, controllerAgentName, cmw),
+			KubeClient:        kubeclient.Get(ctx),
+			Client:            servingclient.Get(ctx),
 			SKSLister:         sksInformer.Lister(),
 			ServiceLister:     serviceInformer.Lister(),
 			MetricLister:      metricInformer.Lister(),
@@ -76,20 +79,20 @@ func NewController(
 		deciders:        deciders,
 	}
 	impl := pareconciler.NewImpl(ctx, c, autoscaling.KPA, func(impl *controller.Impl) controller.Options {
-		c.Logger.Info("Setting up ConfigMap receivers")
+		logger.Info("Setting up ConfigMap receivers")
 		configsToResync := []interface{}{
 			&autoscalerconfig.Config{},
 		}
 		resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 			impl.FilteredGlobalResync(onlyKpaClass, paInformer.Informer())
 		})
-		configStore := config.NewStore(c.Logger.Named("config-store"), resync)
+		configStore := config.NewStore(logger.Named("config-store"), resync)
 		configStore.WatchConfigs(cmw)
 		return controller.Options{ConfigStore: configStore}
 	})
 	c.scaler = newScaler(ctx, psInformerFactory, impl.EnqueueAfter)
 
-	c.Logger.Info("Setting up KPA-Class event handlers")
+	logger.Info("Setting up KPA-Class event handlers")
 	// Handle only PodAutoscalers that have KPA annotation.
 	paHandler := cache.FilteringResourceEventHandler{
 		FilterFunc: onlyKpaClass,
@@ -102,7 +105,7 @@ func NewController(
 		DeleteFunc: func(obj interface{}) {
 			accessor, err := kmeta.DeletionHandlingAccessor(obj)
 			if err != nil {
-				c.Logger.Errorw("Error accessing object", zap.Error(err))
+				logger.Errorw("Error accessing object", zap.Error(err))
 				return
 			}
 			deciders.Delete(ctx, accessor.GetNamespace(), accessor.GetName())
