@@ -84,11 +84,6 @@ func (c *reconciler) Reconcile(ctx context.Context, key string) error {
 		return err
 	}
 
-	if l := namespace.Labels[networking.DisableWildcardCertLabelKey]; l == "true" {
-		logger.Infof("Skipping wildcard certificate creation for excluded namespace %s", namespace.Name)
-		return nil
-	}
-
 	err = c.reconcile(ctx, namespace)
 	if err != nil {
 		c.Recorder.Event(namespace, corev1.EventTypeWarning, "InternalError", err.Error())
@@ -116,6 +111,10 @@ func (c *reconciler) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 	existingCerts, err := c.knCertificateLister.Certificates(ns.Name).List(labelSelector)
 	if err != nil {
 		return fmt.Errorf("failed to list certificates: %w", err)
+	}
+
+	if l := ns.Labels[networking.DisableWildcardCertLabelKey]; l == "true" {
+		return c.deleteNamespaceCerts(ctx, ns, existingCerts)
 	}
 
 	// Only create wildcard certs for the default domain
@@ -168,6 +167,19 @@ func (c *reconciler) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 		return nil
 	}
 
+	return nil
+}
+
+func (c *reconciler) deleteNamespaceCerts(ctx context.Context, ns *v1.Namespace, certs []*v1alpha1.Certificate) error {
+	logger := logging.FromContext(ctx)
+	for _, cert := range certs {
+		if metav1.IsControlledBy(cert, ns) {
+			logger.Infof("Deleting certificaet %s/%s", cert.Namespace, cert.Name)
+			if err := c.ServingClientSet.NetworkingV1alpha1().Certificates(cert.Namespace).Delete(cert.Name, &metav1.DeleteOptions{}); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
