@@ -211,9 +211,7 @@ func main() {
 	go statReporter(statSink, ctx.Done(), statCh, logger)
 
 	// Create and run our concurrency reporter
-	reportTicker := time.NewTicker(time.Second)
-	defer reportTicker.Stop()
-	cr := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, reqCh, reportTicker.C, statCh)
+	cr := activatorhandler.NewConcurrencyReporter(ctx, env.PodName, reqCh, statCh)
 	go cr.Run(ctx.Done())
 
 	// Create activation handler chain

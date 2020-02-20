@@ -29,7 +29,6 @@ import (
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/metrics"
-	servingv1informers "knative.dev/serving/pkg/client/informers/externalversions/serving/v1alpha1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 )
@@ -198,11 +197,10 @@ func TestStats(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			s, cr, ctx, cancel := newTestStats(t)
-			defer func() {
-				cancel()
-			}()
+			defer cancel()
 			go func() {
-				cr.Run(ctx.Done())
+				cr.run(ctx.Done(), s.reportBiChan)
+				close(s.reportBiChan)
 			}()
 
 			go func() {
@@ -239,7 +237,6 @@ func TestStats(t *testing.T) {
 // Test type to hold the bi-directional time channels
 type testStats struct {
 	reqChan      chan ReqEvent
-	reportChan   <-chan time.Time
 	statChan     chan []metrics.StatMessage
 	reportBiChan chan time.Time
 }
@@ -248,18 +245,17 @@ func newTestStats(t *testing.T) (*testStats, *ConcurrencyReporter, context.Conte
 	reportBiChan := make(chan time.Time)
 	ts := &testStats{
 		reqChan:      make(chan ReqEvent),
-		reportChan:   (<-chan time.Time)(reportBiChan),
 		statChan:     make(chan []metrics.StatMessage),
 		reportBiChan: reportBiChan,
 	}
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
 	revisionInformer(ctx, revision(testNamespace, testRevName))
 
-	cr := NewConcurrencyReporter(ctx, "activator", ts.reqChan, ts.reportChan, ts.statChan)
+	cr := NewConcurrencyReporter(ctx, "activator", ts.reqChan, ts.statChan)
 	return ts, cr, ctx, cancel
 }
 
-func revisionInformer(ctx context.Context, revs ...*v1alpha1.Revision) servingv1informers.RevisionInformer {
+func revisionInformer(ctx context.Context, revs ...*v1alpha1.Revision) {
 	fake := fakeservingclient.Get(ctx)
 	revisions := fakerevisioninformer.Get(ctx)
 
@@ -267,6 +263,4 @@ func revisionInformer(ctx context.Context, revs ...*v1alpha1.Revision) servingv1
 		fake.ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
 		revisions.Informer().GetIndexer().Add(rev)
 	}
-
-	return revisions
 }

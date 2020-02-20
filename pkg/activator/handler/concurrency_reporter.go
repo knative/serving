@@ -34,6 +34,8 @@ import (
 	"knative.dev/serving/pkg/metrics"
 )
 
+const reportInterval = time.Second
+
 // ConcurrencyReporter reports stats based on incoming requests and ticks.
 type ConcurrencyReporter struct {
 	logger  *zap.SugaredLogger
@@ -41,8 +43,6 @@ type ConcurrencyReporter struct {
 
 	// Ticks with every request arrived/completed respectively
 	reqCh chan ReqEvent
-	// Ticks with every stat report request
-	reportCh <-chan time.Time
 	// Stat reporting channel
 	statCh chan []asmetrics.StatMessage
 
@@ -52,14 +52,13 @@ type ConcurrencyReporter struct {
 // NewConcurrencyReporter creates a ConcurrencyReporter which listens to incoming
 // ReqEvents on reqCh and ticks on reportCh and reports stats on statCh.
 func NewConcurrencyReporter(ctx context.Context, podName string,
-	reqCh chan ReqEvent, reportCh <-chan time.Time, statCh chan []asmetrics.StatMessage) *ConcurrencyReporter {
+	reqCh chan ReqEvent, statCh chan []asmetrics.StatMessage) *ConcurrencyReporter {
 	return &ConcurrencyReporter{
-		logger:   logging.FromContext(ctx),
-		podName:  podName,
-		reqCh:    reqCh,
-		reportCh: reportCh,
-		statCh:   statCh,
-		rl:       revisioninformer.Get(ctx).Lister(),
+		logger:  logging.FromContext(ctx),
+		podName: podName,
+		reqCh:   reqCh,
+		statCh:  statCh,
+		rl:      revisioninformer.Get(ctx).Lister(),
 	}
 }
 
@@ -78,8 +77,14 @@ func (cr *ConcurrencyReporter) reportToMetricsBackend(key types.NamespacedName, 
 	pkgmetrics.RecordBatch(reporterCtx, requestConcurrencyM.M(concurrency))
 }
 
-// Run runs until stopCh is closed and processes events on all incoming channels
+// Run runs until stopCh is closed and processes events on all incoming channels.
 func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
+	ticker := time.NewTicker(reportInterval)
+	defer ticker.Stop()
+	cr.run(stopCh, ticker.C)
+}
+
+func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.Time) {
 	// Contains the number of in-flight requests per-key
 	outstandingRequestsPerKey := make(map[types.NamespacedName]int64)
 	// Contains the number of incoming requests in the current
@@ -109,7 +114,7 @@ func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
 			case ReqOut:
 				outstandingRequestsPerKey[event.Key]--
 			}
-		case <-cr.reportCh:
+		case <-reportCh:
 			messages := make([]asmetrics.StatMessage, 0, len(outstandingRequestsPerKey))
 			for key, concurrency := range outstandingRequestsPerKey {
 				if concurrency == 0 {
