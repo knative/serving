@@ -194,19 +194,24 @@ func (t *TimedFloat64Buckets) ResizeWindow(w time.Duration) {
 	// So that we can copy the existing buckets into the new array.
 	t.bucketsMutex.Lock()
 	defer t.bucketsMutex.Unlock()
-	// If the window is shrinking, then we need to copy only
-	// `newBuckets` buckets.
-	oldNumBuckets := len(t.buckets)
-	tIdx := t.timeToIndex(t.lastWrite)
-	for i := 0; i < min(numBuckets, oldNumBuckets); i++ {
-		oi := tIdx % oldNumBuckets
-		ni := tIdx % numBuckets
-		newBuckets[ni] = t.buckets[oi]
-		// In case we're shringking, make sure the total
-		// window sum will match. This is no-op in case if
-		// window is getting bigger.
-		newTotal += t.buckets[oi]
-		tIdx--
+
+	// If we had written any data within `window` time, then exercise the O(N)
+	// copy algorithm. Otherwise, just assign zeroes.
+	if time.Now().Truncate(t.granularity).Sub(t.lastWrite) <= t.window {
+		// If the window is shrinking, then we need to copy only
+		// `newBuckets` buckets.
+		oldNumBuckets := len(t.buckets)
+		tIdx := t.timeToIndex(t.lastWrite)
+		for i := 0; i < min(numBuckets, oldNumBuckets); i++ {
+			oi := tIdx % oldNumBuckets
+			ni := tIdx % numBuckets
+			newBuckets[ni] = t.buckets[oi]
+			// In case we're shringking, make sure the total
+			// window sum will match. This is no-op in case if
+			// window is getting bigger.
+			newTotal += t.buckets[oi]
+			tIdx--
+		}
 	}
 	t.window = w
 	t.buckets = newBuckets
