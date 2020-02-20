@@ -436,7 +436,11 @@ func TestGracefulScaledown(t *testing.T) {
 	defer cancel()
 
 	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 1 /* target */, 1, /* targetUtilization */
-		wsHostnameTestImageName, nil /* no validation */)
+		wsHostnameTestImageName, nil, /* no validation */
+		rtesting.WithContainerConcurrency(1),
+		rtesting.WithConfigAnnotations(map[string]string{
+			autoscaling.TargetBurstCapacityKey: "-1",
+		}))
 	defer test.TearDown(ctx.clients, ctx.names)
 
 	autoscalerConfigMap, err := rawCM(ctx.clients, autoscalerconfig.ConfigName)
