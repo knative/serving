@@ -196,7 +196,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	defer a.stateMux.Unlock()
 	if a.panicTime.IsZero() && isOverPanicThreshold {
 		// Begin panicking when we cross the threshold in the panic window.
-		logger.Info("PANICKING")
+		logger.Info("PANICKING.")
 		a.panicTime = now
 		pkgmetrics.Record(a.reporterCtx, panicM.M(1))
 	} else if !a.panicTime.IsZero() && !isOverPanicThreshold && a.panicTime.Add(spec.StableWindow).Before(now) {
@@ -215,7 +215,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 			a.panicTime = now
 			a.maxPanicPods = desiredPanicPodCount
 		} else if desiredPanicPodCount < a.maxPanicPods {
-			logger.Debugf("Skipping decrease from %d to %d.", a.maxPanicPods, desiredPanicPodCount)
+			logger.Infof("Skipping decrease from %d to %d.", a.maxPanicPods, desiredPanicPodCount)
 		}
 		desiredPodCount = a.maxPanicPods
 	} else {
@@ -234,10 +234,10 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 	case a.deciderSpec.TargetBurstCapacity >= 0:
 		excessBCF = math.Floor(float64(originalReadyPodsCount)*a.deciderSpec.TotalValue - observedStableValue -
 			a.deciderSpec.TargetBurstCapacity)
-		logger.Infof("PodCount=%v Total1PodCapacity=%v ObsStableValue=%v ObsPanicValue=%v TargetBC=%v ExcessBC=%v",
-			originalReadyPodsCount, a.deciderSpec.TotalValue, observedStableValue,
-			observedPanicValue, a.deciderSpec.TargetBurstCapacity, excessBCF)
 	}
+	logger.Infof("PodCount=%v Total1PodCapacity=%v ObsStableValue=%v ObsPanicValue=%v TargetBC=%v ExcessBC=%v",
+		originalReadyPodsCount, a.deciderSpec.TotalValue, observedStableValue,
+		observedPanicValue, a.deciderSpec.TargetBurstCapacity, excessBCF)
 
 	pkgmetrics.RecordBatch(a.reporterCtx, excessBurstCapacityM.M(excessBCF),
 		desiredPodCountM.M(int64(desiredPodCount)))
