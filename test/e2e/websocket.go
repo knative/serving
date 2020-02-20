@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -90,6 +91,7 @@ func uniqueHostConnections(t *testing.T, names test.ResourceNames, size int) (*s
 	clients := Setup(t)
 	uniqueHostConns := &sync.Map{}
 
+	reqCnt := int32(0)
 	ctx, _ := context.WithTimeout(context.Background(), uniqueHostConnTimeout)
 	gr, gctx := errgroup.WithContext(ctx)
 	for i := 0; i < size; i++ {
@@ -97,9 +99,10 @@ func uniqueHostConnections(t *testing.T, names test.ResourceNames, size int) (*s
 			for {
 				select {
 				case <-gctx.Done():
-					return errors.New("Timed out trying to find unique host connections.")
+					return errors.New("timed out trying to find unique host connections")
 
 				default:
+					atomic.AddInt32(&reqCnt, 1)
 					conn, err := connect(t, clients, names.URL.Hostname())
 					if err != nil {
 						return err
@@ -116,12 +119,14 @@ func uniqueHostConnections(t *testing.T, names test.ResourceNames, size int) (*s
 
 					host := string(recv)
 					if host == "" {
-						return errors.New("No host name is received from the server.")
+						return errors.New("no host name is received from the server")
 					}
 
 					if _, ok := uniqueHostConns.LoadOrStore(host, conn); !ok {
+						t.Logf("New pod has been discovered: %s", host)
 						return nil
 					} else {
+						t.Logf("Existing pod has been returned: %s", host)
 						conn.Close()
 					}
 				}
@@ -132,6 +137,7 @@ func uniqueHostConnections(t *testing.T, names test.ResourceNames, size int) (*s
 	if err := gr.Wait(); err != nil {
 		return nil, err
 	}
+	t.Logf("For %d pods a total of %d requests were made", size, reqCnt)
 	return uniqueHostConns, nil
 }
 
