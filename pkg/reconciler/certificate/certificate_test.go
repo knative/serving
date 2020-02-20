@@ -371,10 +371,9 @@ func TestReconcile(t *testing.T) {
 
 func TestReconcile_HTTP01Challenges(t *testing.T) {
 	table := TableTest{{
-		Name:                    "fail to set status.HTTP01Challenges",
-		Key:                     "foo/knCert",
-		SkipNamespaceValidation: true,
-		WantErr:                 true,
+		Name:    "fail to set status.HTTP01Challenges",
+		Key:     "foo/knCert",
+		WantErr: true,
 		Objects: []runtime.Object{
 			knCert("knCert", "foo"),
 			http01Issuer,

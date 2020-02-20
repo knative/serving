@@ -2120,8 +2120,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				WithURL,
 			),
 		}},
-		Key:                     "default/becomes-ready",
-		SkipNamespaceValidation: true,
+		Key: "default/becomes-ready",
 	}, {
 		Name:    "check that Route updates status and produces event log when valid name but not owned certificate",
 		WantErr: true,
