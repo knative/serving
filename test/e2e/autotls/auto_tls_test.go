@@ -38,8 +38,6 @@ import (
 	v1test "knative.dev/serving/test/v1"
 )
 
-const dnsRecordDeadlineSec = 600 // 10 min
-
 type dnsRecord struct {
 	ip     string
 	domain string
