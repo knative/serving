@@ -20,21 +20,17 @@ package autotls
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/kelseyhightower/envconfig"
 
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	"knative.dev/serving/pkg/apis/networking"
-	"knative.dev/serving/pkg/apis/networking/v1alpha1"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
 	"knative.dev/serving/test"
 	testingress "knative.dev/serving/test/conformance/ingress"
@@ -55,7 +51,7 @@ type config struct {
 	// is mapped to the Ingress IP.
 	TLSServiceName string `envconfig:"tls_service_name" required: "false"`
 	// AutoTLSTestName is the name of the auto tls. It is not required for local test.
-	AutoTLSTestName string `envconfig:"auto_tls_test_name" required: "false"`
+	AutoTLSTestName string `envconfig:"auto_tls_test_name" required: "false" default:"TestAutoTLS"`
 }
 
 var env config
@@ -64,13 +60,7 @@ func TestAutoTLS(t *testing.T) {
 	if err := envconfig.Process("", &env); err != nil {
 		t.Fatalf("Failed to process environment variable: %v.", err)
 	}
-	// The environment variable `AutoTLSTestName` is allowed to be ignored in the local test.
-	// As a result, we need to provide a default value for it.
-	testName := "TestAutoTLS"
-	if len(env.AutoTLSTestName) != 0 {
-		testName = env.AutoTLSTestName
-	}
-	t.Run(testName, testAutoTLS)
+	t.Run(env.AutoTLSTestName, testAutoTLS)
 }
 
 func testAutoTLS(t *testing.T) {
@@ -91,19 +81,15 @@ func testAutoTLS(t *testing.T) {
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
-	certName := getCertificateName(t, clients, objects)
-	if err := waitForCertificateReady(t, clients, certName); err != nil {
-		t.Fatalf("Failed to wait for certificate %s to be ready: %v,", certName, err)
-	}
-
 	// The TLS info is added to the ingress after the service is created, that's
 	// why we need to wait again
-	err = v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceReady, "ServiceIsReady")
+	err = v1test.WaitForServiceState(clients.ServingClient, names.Service, httpsReady, "HTTPSIsReady")
 	if err != nil {
-		t.Fatalf("Service %s did not become ready: %v", names.Service, err)
+		t.Fatalf("Service %s did not become ready or have HTTPS URL: %v", names.Service, err)
 	}
 
 	// curl HTTPS
+	certName := getCertificateName(t, clients, objects)
 	rootCAs := createRootCAs(t, clients, objects.Route.Namespace, certName)
 	httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
 	testingress.RuntimeRequest(t, httpsClient, "https://"+objects.Service.Status.URL.Host)
@@ -121,21 +107,14 @@ func getCertificateName(t *testing.T, clients *test.Clients, objects *v1test.Res
 	return ing.Spec.TLS[0].SecretName
 }
 
-func waitForCertificateReady(t *testing.T, clients *test.Clients, certName string) error {
-	return wait.Poll(10*time.Second, 300*time.Second, func() (bool, error) {
-		cert, err := clients.NetworkingClient.Certificates.Get(certName, metav1.GetOptions{})
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				t.Logf("Certificate %s has not been created: %v", certName, err)
-				return false, nil
-			}
-			return false, err
-		}
-		if cert.Status.GetCondition(v1alpha1.CertificateConditionReady).IsFalse() {
-			return true, fmt.Errorf("certificate %s failed with status %v", cert.Name, cert.Status)
-		}
-		return cert.Status.IsReady(), nil
-	})
+func httpsReady(svc *servingv1.Service) (bool, error) {
+	if ready, err := v1test.IsServiceReady(svc); err != nil {
+		return ready, err
+	} else if !ready {
+		return false, nil
+	} else {
+		return svc.Status.URL.Scheme == "https", nil
+	}
 }
 
 func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *x509.CertPool {

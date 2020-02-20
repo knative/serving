@@ -37,9 +37,18 @@ function setup_auto_tls_env_variables() {
 }
 
 function setup_custom_domain() {
-  local TMP_YAML="$(mktemp)"
-  sed "s/auto-tls-domain-holder/${CUSTOM_DOMAIN_SUFFIX}/" test/config/autotls/config-domain.yaml > $TMP_YAML
-  kubectl apply -f $TMP_YAML
+  echo ">> Configuring custom domain for Auto TLS tests: ${CUSTOM_DOMAIN_SUFFIX}"
+  cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-domain
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: devel
+data:
+  ${CUSTOM_DOMAIN_SUFFIX}: ""
+EOF
 }
 
 function cleanup_custom_domain() {
@@ -47,11 +56,11 @@ function cleanup_custom_domain() {
 }
 
 function turn_on_auto_tls() {
-  kubectl apply -f ./test/config/autotls/config-network.yaml
+  kubectl patch configmap config-network -n knative-serving -p '{"data":{"autoTLS":"Enabled"}}'
 }
 
 function turn_off_auto_tls() {
-  kubectl apply -f ./config/config-network.yaml
+  kubectl patch configmap config-network -n knative-serving -p '{"data":{"autoTLS":"Disabled"}}'
 }
 
 function setup_auto_tls_common() {
