@@ -114,7 +114,7 @@ func (c *reconciler) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 	}
 
 	if l := ns.Labels[networking.DisableWildcardCertLabelKey]; l == "true" {
-		return c.deleteNamespaceCerts(ctx, ns, existingCerts)
+		return c.deleteNamespaceCerts(ns, existingCerts)
 	}
 
 	// Only create wildcard certs for the default domain
@@ -170,14 +170,16 @@ func (c *reconciler) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 	return nil
 }
 
-func (c *reconciler) deleteNamespaceCerts(ctx context.Context, ns *v1.Namespace, certs []*v1alpha1.Certificate) error {
-	logger := logging.FromContext(ctx)
+func (c *reconciler) deleteNamespaceCerts(ns *v1.Namespace, certs []*v1alpha1.Certificate) error {
 	for _, cert := range certs {
 		if metav1.IsControlledBy(cert, ns) {
-			logger.Infof("Deleting certificaet %s/%s", cert.Namespace, cert.Name)
 			if err := c.ServingClientSet.NetworkingV1alpha1().Certificates(cert.Namespace).Delete(cert.Name, &metav1.DeleteOptions{}); err != nil {
+				c.Recorder.Eventf(cert, corev1.EventTypeNormal, "DeleteFailed",
+					"Failed to delete Knative Certificate %s/%s: %v", cert.Namespace, cert.Name, err)
 				return err
 			}
+			c.Recorder.Eventf(cert, corev1.EventTypeNormal, "Deleted",
+				"Deleted Knative Certificate %s/%s", cert.Namespace, cert.Name)
 		}
 	}
 	return nil
