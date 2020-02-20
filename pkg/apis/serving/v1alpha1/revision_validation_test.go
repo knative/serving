@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -338,7 +339,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx, _ := fakekubeclient.With(context.Background())
 			if test.wc != nil {
 				ctx = test.wc(ctx)
 			}
@@ -852,7 +853,7 @@ func TestImmutableFields(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx, _ := fakekubeclient.With(context.Background())
 			ctx = apis.WithinUpdate(ctx, test.old)
 			if test.wc != nil {
 				ctx = test.wc(ctx)

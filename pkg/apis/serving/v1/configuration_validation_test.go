@@ -17,11 +17,12 @@ limitations under the License.
 package v1
 
 import (
+	"context"
 	"testing"
 
 	"knative.dev/pkg/apis"
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/ptr"
-	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 
@@ -239,7 +240,7 @@ func TestConfigurationValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx, _, _ := rtesting.SetupFakeContextWithCancel(t)
+			ctx, _ := fakekubeclient.With(context.Background())
 			got := test.c.Validate(ctx)
 			if !cmp.Equal(test.want.Error(), got.Error()) {
 				t.Errorf("Validate (-want, +got) = %v",
@@ -403,7 +404,7 @@ func TestConfigurationLabelValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx, _, _ := rtesting.SetupFakeContextWithCancel(t)
+			ctx, _ := fakekubeclient.With(context.Background())
 			got := test.c.Validate(ctx)
 			if !cmp.Equal(test.want.Error(), got.Error()) {
 				t.Errorf("Validate (-want, +got) = %v",
@@ -584,7 +585,7 @@ func TestImmutableConfigurationFields(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx, _, _ := rtesting.SetupFakeContextWithCancel(t)
+			ctx, _ := fakekubeclient.With(context.Background())
 			ctx = apis.WithinUpdate(ctx, test.old)
 			got := test.new.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
@@ -691,7 +692,7 @@ func TestConfigurationSubresourceUpdate(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx, _, _ := rtesting.SetupFakeContextWithCancel(t)
+			ctx, _ := fakekubeclient.With(context.Background())
 			ctx = apis.WithinSubResourceUpdate(ctx, test.config, test.subresource)
 			got := test.config.Validate(ctx)
 			if diff := cmp.Diff(test.want.Error(), got.Error()); diff != "" {
@@ -879,7 +880,7 @@ func TestConfigurationAnnotationUpdate(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx, _, _ := rtesting.SetupFakeContextWithCancel(t)
+			ctx, _ := fakekubeclient.With(context.Background())
 			ctx = apis.WithinUpdate(ctx, test.prev)
 			if diff := cmp.Diff(test.want.Error(), test.this.Validate(ctx).Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)

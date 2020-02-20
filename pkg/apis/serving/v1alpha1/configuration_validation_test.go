@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"knative.dev/pkg/apis"
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -153,7 +154,8 @@ func TestConfigurationSpecValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if diff := cmp.Diff(test.want.Error(), test.c.Validate(context.Background()).Error()); diff != "" {
+			ctx, _ := fakekubeclient.With(context.Background())
+			if diff := cmp.Diff(test.want.Error(), test.c.Validate(ctx).Error()); diff != "" {
 				t.Errorf("validateContainer (-want, +got) = %v", diff)
 			}
 		})
@@ -558,7 +560,7 @@ func TestImmutableConfigurationFields(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx, _ := fakekubeclient.With(context.Background())
 			ctx = apis.WithinUpdate(ctx, test.old)
 			if diff := cmp.Diff(test.want.Error(), test.new.Validate(ctx).Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
@@ -663,7 +665,7 @@ func TestConfigurationSubresourceUpdate(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx, _ := fakekubeclient.With(context.Background())
 			ctx = apis.WithinSubResourceUpdate(ctx, test.config, test.subresource)
 			if diff := cmp.Diff(test.want.Error(), test.config.Validate(ctx).Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)
@@ -850,7 +852,7 @@ func TestConfigurationAnnotationUpdate(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx, _ := fakekubeclient.With(context.Background())
 			ctx = apis.WithinUpdate(ctx, test.prev)
 			if diff := cmp.Diff(test.want.Error(), test.this.Validate(ctx).Error()); diff != "" {
 				t.Errorf("Validate (-want, +got) = %v", diff)

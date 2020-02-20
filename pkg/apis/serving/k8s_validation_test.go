@@ -17,6 +17,7 @@ limitations under the License.
 package serving
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"testing"
@@ -28,8 +29,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/pkg/apis"
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/ptr"
-	rtesting "knative.dev/pkg/reconciler/testing"
 )
 
 func TestPodSpecValidation(t *testing.T) {
@@ -185,7 +186,7 @@ func TestPodSpecValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx, _, _ := rtesting.SetupFakeContextWithCancel(t)
+			ctx, _ := fakekubeclient.With(context.Background())
 			got := ValidatePodSpec(ctx, test.ps)
 			if !cmp.Equal(test.want.Error(), got.Error()) {
 				t.Errorf("ValidatePodSpec (-want, +got) = %v",
