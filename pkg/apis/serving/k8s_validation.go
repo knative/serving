@@ -25,10 +25,13 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
+	scheme "k8s.io/client-go/kubernetes/scheme"
+
 	"knative.dev/pkg/apis"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/profiling"
@@ -284,11 +287,19 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 	return errs
 }
 
-func dryRun(ctx context.Context, pod *corev1.Pod) (*corev1.Pod, error) {
+// TODO(whaught): when past v1.18 of the k8s client we can replace this with client.CoreV1().Pods(pod.GetNamespace())
+// which takes CreateOptions as a parameter
+func dryRun(ctx context.Context, pod *v1.Pod) (result *v1.Pod, err error) {
+	result = &v1.Pod{}
 	client := kubeclient.Get(ctx)
-	pods := client.CoreV1().Pods(pod.GetNamespace())
-	options := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
-	return pods.CreateWithOptions(ctx, pod, options)
+	err = client.CoreV1().RESTClient().Post().
+		Namespace(pod.GetNamespace()).
+		Resource("pods").
+		VersionedParams(&metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}, scheme.ParameterCodec).
+		Body(pod).
+		Do().
+		Into(result)
+	return
 }
 
 func ValidateContainer(container corev1.Container, volumes sets.String) *apis.FieldError {
