@@ -27,6 +27,8 @@ import (
 	clientgotesting "k8s.io/client-go/testing"
 
 	caching "knative.dev/caching/pkg/apis/caching/v1alpha1"
+	cachingclient "knative.dev/caching/pkg/client/injection/client"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -37,9 +39,9 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	servingclient "knative.dev/serving/pkg/client/injection/client"
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
 	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 
@@ -549,7 +551,10 @@ func TestReconcile(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		r := &Reconciler{
-			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
+			kubeclient:    kubeclient.Get(ctx),
+			client:        servingclient.Get(ctx),
+			cachingclient: cachingclient.Get(ctx),
+
 			podAutoscalerLister: listers.GetPodAutoscalerLister(),
 			imageLister:         listers.GetImageLister(),
 			deploymentLister:    listers.GetDeploymentLister(),
@@ -558,7 +563,9 @@ func TestReconcile(t *testing.T) {
 			resolver:            &nopResolver{},
 		}
 
-		return revisionreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetRevisionLister(), r.Recorder, r, controller.Options{ConfigStore: &testConfigStore{config: ReconcilerTestConfig()}})
+		return revisionreconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
+			listers.GetRevisionLister(), controller.GetEventRecorder(ctx), r,
+			controller.Options{ConfigStore: &testConfigStore{config: ReconcilerTestConfig()}})
 	}))
 }
 

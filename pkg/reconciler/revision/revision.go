@@ -25,15 +25,18 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/kubernetes"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	cachingclientset "knative.dev/caching/pkg/client/clientset/versioned"
+	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
 
 	cachinglisters "knative.dev/caching/pkg/client/listers/caching/v1alpha1"
+	"knative.dev/pkg/controller"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
-	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 )
 
@@ -43,7 +46,9 @@ type resolver interface {
 
 // Reconciler implements controller.Reconciler for Revision resources.
 type Reconciler struct {
-	*reconciler.Base
+	kubeclient    kubernetes.Interface
+	client        clientset.Interface
+	cachingclient cachingclientset.Interface
 
 	// lister indexes properties about Revision
 	podAutoscalerLister palisters.PodAutoscalerLister
@@ -125,7 +130,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, rev *v1.Revision) pkgrec
 
 	readyAfterReconcile := rev.Status.IsReady()
 	if !readyBeforeReconcile && readyAfterReconcile {
-		c.Recorder.Event(rev, corev1.EventTypeNormal, "RevisionReady",
+		controller.GetEventRecorder(ctx).Event(
+			rev, corev1.EventTypeNormal, "RevisionReady",
 			"Revision becomes ready upon all resources being ready")
 	}
 
