@@ -30,16 +30,16 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	clientgotesting "k8s.io/client-go/testing"
 	"knative.dev/serving/pkg/autoscaler/metrics"
-	servingclient "knative.dev/serving/pkg/client/injection/client"
+	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
 	metricreconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/metric"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 	. "knative.dev/pkg/reconciler/testing"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	rpkg "knative.dev/serving/pkg/reconciler"
 	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
 )
 
@@ -149,11 +149,12 @@ func TestReconcile(t *testing.T) {
 			col = c.(*testCollector)
 		}
 		r := &reconciler{
-			Base:      rpkg.NewBase(ctx, controllerAgentName, cmw),
 			collector: col,
 		}
 
-		return metricreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetMetricLister(), r.Recorder, r)
+		return metricreconciler.NewReconciler(ctx, logging.FromContext(ctx),
+			servingclient.Get(ctx), listers.GetMetricLister(),
+			controller.GetEventRecorder(ctx), r)
 	}))
 }
 

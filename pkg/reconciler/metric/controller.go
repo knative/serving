@@ -24,11 +24,11 @@ import (
 	"knative.dev/serving/pkg/autoscaler/metrics"
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
 	metricreconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/metric"
-	pkgreconciler "knative.dev/serving/pkg/reconciler"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/logging"
 )
 
 const (
@@ -42,15 +42,15 @@ func NewController(
 	cmw configmap.Watcher,
 	collector metrics.Collector,
 ) *controller.Impl {
+	logger := logging.FromContext(ctx)
 	metricInformer := metricinformer.Get(ctx)
 
 	c := &reconciler{
-		Base:      pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
 		collector: collector,
 	}
 	impl := metricreconciler.NewImpl(ctx, c)
 
-	c.Logger.Info("Setting up event handlers")
+	logger.Info("Setting up event handlers")
 
 	// Watch all the Metric objects.
 	metricInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
@@ -59,7 +59,7 @@ func NewController(
 		DeleteFunc: func(obj interface{}) {
 			accessor, err := kmeta.DeletionHandlingAccessor(obj)
 			if err != nil {
-				c.Logger.Errorw("Error accessing object", zap.Error(err))
+				logger.Errorw("Error accessing object", zap.Error(err))
 				return
 			}
 			c.collector.Delete(accessor.GetNamespace(), accessor.GetName())
