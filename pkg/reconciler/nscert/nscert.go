@@ -113,7 +113,7 @@ func (c *reconciler) reconcile(ctx context.Context, ns *corev1.Namespace) error 
 		return fmt.Errorf("failed to list certificates: %w", err)
 	}
 
-	if l := ns.Labels[networking.DisableWildcardCertLabelKey]; l == "true" {
+	if ns.Labels[networking.DisableWildcardCertLabelKey] == "true" {
 		return c.deleteNamespaceCerts(ns, existingCerts)
 	}
 
