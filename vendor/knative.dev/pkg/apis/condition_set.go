@@ -242,23 +242,38 @@ func (r conditionsImpl) ClearCondition(t ConditionType) error {
 // MarkTrue sets the status of t to true, and then marks the happy condition to
 // true if all other dependents are also true.
 func (r conditionsImpl) MarkTrue(t ConditionType) {
-	// set the specified condition
+	// Save the original status of t.
+	org := r.GetCondition(t).DeepCopy()
+	orgTL := r.GetTopLevelCondition().DeepCopy()
+
+	// Set the specified condition.
 	r.SetCondition(Condition{
 		Type:     t,
 		Status:   corev1.ConditionTrue,
 		Severity: r.severity(t),
 	})
 
-	// check the dependents.
+	// Check the dependents.
 	for _, cond := range r.dependents {
 		c := r.GetCondition(cond)
-		// Failed or Unknown conditions trump true conditions
+		// Failed or Unknown conditions trump true conditions.
 		if !c.IsTrue() {
+			// Update the happy condition if the current ready condition is
+			// marked not ready because of this condition.
+			if org.Reason == orgTL.Reason && org.Message == orgTL.Message {
+				r.SetCondition(Condition{
+					Type:     r.happy,
+					Status:   c.Status,
+					Reason:   c.Reason,
+					Message:  c.Message,
+					Severity: r.severity(r.happy),
+				})
+			}
 			return
 		}
 	}
 
-	// set the happy condition
+	// Set the happy condition.
 	r.SetCondition(Condition{
 		Type:     r.happy,
 		Status:   corev1.ConditionTrue,

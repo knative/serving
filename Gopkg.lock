@@ -294,6 +294,14 @@
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:53becd66889185091b58ea3fc49294996f2179fb05a89702f4de7d15e581b509"
+  name = "github.com/go-logr/logr"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "9fb12b3b21c5415d16ac18dc5cd42c1cfdd40c4e"
+  version = "v0.1.0"
+
+[[projects]]
   digest = "1:260f7ebefc63024c8dfe2c9f1a2935a89fa4213637a1f522f592f80c001cc441"
   name = "github.com/go-openapi/jsonpointer"
   packages = ["."]
@@ -1775,7 +1783,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f6ba2bb6b0e2c489077c7ee7bbe19a9c6d4e7064d4ff53983749f7219114dae2"
+  digest = "1:f914ad6b971f0729d72b2fec714cce71ea8d97911dd6b1cf02601d6d65e00c01"
   name = "knative.dev/caching"
   packages = [
     "pkg/apis/caching",
@@ -1798,11 +1806,11 @@
     "pkg/client/listers/caching/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "1f067018c4f94180d969f9f4e76ecfe02887ca1d"
+  revision = "c75efc13dc93460fb0d7bbf1a1071b91c72d0a71"
 
 [[projects]]
   branch = "master"
-  digest = "1:4d466bcd929b5ae71fddc9153076b396c5d05479f03b2ae6318c3433578205dc"
+  digest = "1:1e7838d5007ae0a2f64d99f5a2c216749a03247b85b4a7d741c6ae3c4fe14e0a"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1909,7 +1917,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "5d8a01d12cc825688b14117af294139fee2270eb"
+  revision = "5c9bc970ce963ddad76a59b289ba90d5b118d98f"
 
 [[projects]]
   branch = "master"
@@ -1926,7 +1934,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "fb304f6a7ac965fb3eb5cb16d5e0301ca60e3247"
+  revision = "359e2ba3ab51221e4a91e78f4031361306bbba0d"
 
 [[projects]]
   digest = "1:92b88da51692abe195601cb17d35bbb9b6bc2011237a2f234fedba7411ed8122"
