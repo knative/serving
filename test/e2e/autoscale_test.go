@@ -391,6 +391,8 @@ func assertGracefulScaledown(t *testing.T, ctx *testContext, size int) error {
 		return err
 	}
 	deleteHostConnections(hostConnMap, size)
+
+	// give some time in between
 	time.Sleep(5 * time.Second)
 
 	hostConnMap, err = uniqueHostConnections(t, ctx.names, size)
@@ -451,7 +453,6 @@ func TestGracefulScaledown(t *testing.T) {
 
 	ctx := setup(t, autoscaling.KPA, autoscaling.Concurrency, 1 /* target */, 1, /* targetUtilization */
 		wsHostnameTestImageName, nil, /* no validation */
-		rtesting.WithContainerConcurrency(1),
 		rtesting.WithConfigAnnotations(map[string]string{
 			autoscaling.TargetBurstCapacityKey: "-1",
 		}))
