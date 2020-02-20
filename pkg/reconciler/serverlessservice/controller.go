@@ -19,13 +19,14 @@ package serverlessservice
 import (
 	"context"
 
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
+	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 	sksinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 	sksreconciler "knative.dev/serving/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice"
-	servingreconciler "knative.dev/serving/pkg/reconciler"
 
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
@@ -45,19 +46,21 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
+	logger := logging.FromContext(ctx)
 	serviceInformer := serviceinformer.Get(ctx)
 	endpointsInformer := endpointsinformer.Get(ctx)
 	sksInformer := sksinformer.Get(ctx)
 
 	c := &reconciler{
-		Base:              servingreconciler.NewBase(ctx, controllerAgentName, cmw),
+		kubeclient: kubeclient.Get(ctx),
+
 		endpointsLister:   endpointsInformer.Lister(),
 		serviceLister:     serviceInformer.Lister(),
 		psInformerFactory: podscalable.Get(ctx),
 	}
 	impl := sksreconciler.NewImpl(ctx, c)
 
-	c.Logger.Info("Setting up event handlers")
+	logger.Info("Setting up event handlers")
 
 	// Watch all the SKS objects.
 	sksInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
@@ -78,7 +81,7 @@ func NewController(
 	grCb := func(obj interface{}) {
 		// Since changes in the Activator Service endpoints affect all the SKS objects,
 		// do a global resync.
-		c.Logger.Info("Doing a global resync due to activator endpoint changes")
+		logger.Info("Doing a global resync due to activator endpoint changes")
 		impl.GlobalResync(sksInformer.Informer())
 	}
 	endpointsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
