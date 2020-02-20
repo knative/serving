@@ -25,4 +25,3 @@ spec:
       - http01:
          ingress: {}
         selector: {}
-
