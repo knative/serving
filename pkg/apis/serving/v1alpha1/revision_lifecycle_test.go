@@ -255,8 +255,14 @@ func TestGetSetCondition(t *testing.T) {
 	if diff := cmp.Diff(rc, rs.GetCondition(RevisionConditionResourcesAvailable), cmpopts.IgnoreFields(apis.Condition{}, "LastTransitionTime")); diff != "" {
 		t.Errorf("GetCondition refs diff (-want +got): %v", diff)
 	}
-	if a := rs.GetCondition(RevisionConditionReady); a != nil {
-		t.Errorf("GetCondition expected nil got: %v", a)
+
+	rc = &apis.Condition{
+		Type:     RevisionConditionReady,
+		Status:   corev1.ConditionUnknown,
+		Severity: apis.ConditionSeverityError,
+	}
+	if diff := cmp.Diff(rc, rs.GetCondition(RevisionConditionReady), cmpopts.IgnoreFields(apis.Condition{}, "LastTransitionTime")); diff != "" {
+		t.Errorf("GetCondition ready diff (-want +got): %v", diff)
 	}
 }
 
