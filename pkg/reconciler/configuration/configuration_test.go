@@ -473,7 +473,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			cfg("lrrnotexist", "foo", 2,
 				WithLatestCreated("lrrnotexist-00002"),
-				WithLatestReady("lrrnotexist-00001"), WithObservedGen, func(cfg *v1alpha1.Configuration) {
+				WithLatestReady("lrrnotexist-00001"), WithObservedGen, func(cfg *v1.Configuration) {
 					cfg.Spec.GetTemplate().Name = "lrrnotexist-00002"
 				},
 			),
@@ -488,7 +488,7 @@ func TestReconcile(t *testing.T) {
 			Object: cfg("lrrnotexist", "foo", 2,
 				WithLatestCreated("lrrnotexist-00002"),
 				WithLatestReady("lrrnotexist-00002"),
-				WithObservedGen, func(cfg *v1alpha1.Configuration) {
+				WithObservedGen, func(cfg *v1.Configuration) {
 					cfg.Spec.GetTemplate().Name = "lrrnotexist-00002"
 				},
 			),
