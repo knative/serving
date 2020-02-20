@@ -24,11 +24,11 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	servingclient "knative.dev/serving/pkg/client/injection/client"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/configuration"
 	gcconfig "knative.dev/serving/pkg/gc"
-	pkgreconciler "knative.dev/serving/pkg/reconciler"
 	configns "knative.dev/serving/pkg/reconciler/gc/config"
 )
 
@@ -45,11 +45,12 @@ func NewController(
 	revisionInformer := revisioninformer.Get(ctx)
 
 	c := &reconciler{
-		Base:           pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
+		client:         servingclient.Get(ctx),
 		revisionLister: revisionInformer.Lister(),
 	}
 	return configreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
-		c.Logger.Info("Setting up event handlers")
+		logger := logging.FromContext(ctx)
+		logger.Info("Setting up event handlers")
 
 		// Since the gc controller came from the configuration controller, having event handlers
 		// on both configuration and revision matches the existing behaviors of the configuration
@@ -62,7 +63,7 @@ func NewController(
 			Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 		})
 
-		c.Logger.Info("Setting up ConfigMap receivers with resync func")
+		logger.Info("Setting up ConfigMap receivers with resync func")
 		configsToResync := []interface{}{
 			&gcconfig.Config{},
 		}
@@ -71,9 +72,9 @@ func NewController(
 			impl.GlobalResync(revisionInformer.Informer())
 		})
 
-		c.Logger.Info("Setting up ConfigMap receivers")
-		configStore := configns.NewStore(logging.WithLogger(ctx, c.Logger.Named("config-store")), resync)
-		configStore.WatchConfigs(c.ConfigMapWatcher)
+		logger.Info("Setting up ConfigMap receivers")
+		configStore := configns.NewStore(logging.WithLogger(ctx, logger.Named("config-store")), resync)
+		configStore.WatchConfigs(cmw)
 
 		return controller.Options{
 			ConfigStore: configStore,
