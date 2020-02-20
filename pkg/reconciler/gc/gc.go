@@ -30,15 +30,15 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/configuration"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
-	spkgreconciler "knative.dev/serving/pkg/reconciler"
 	configns "knative.dev/serving/pkg/reconciler/gc/config"
 )
 
 // reconciler implements controller.Reconciler for Garbage Collection resources.
 type reconciler struct {
-	*spkgreconciler.Base
+	client clientset.Interface
 
 	// listers index properties about resources
 	revisionLister listers.RevisionLister
@@ -70,7 +70,7 @@ func (c *reconciler) ReconcileKind(ctx context.Context, config *v1alpha1.Configu
 
 	for _, rev := range revs[gcSkipOffset:] {
 		if isRevisionStale(ctx, rev, config) {
-			err := c.ServingClientSet.ServingV1alpha1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
+			err := c.client.ServingV1alpha1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
 			if err != nil {
 				logger.With(zap.Error(err)).Errorf("Failed to delete stale revision %q", rev.Name)
 				continue

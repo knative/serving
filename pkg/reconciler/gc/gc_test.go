@@ -30,16 +30,17 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
 	pkgrec "knative.dev/pkg/reconciler"
 	. "knative.dev/pkg/reconciler/testing"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/configuration"
 	gcconfig "knative.dev/serving/pkg/gc"
-	pkgreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/configuration/resources"
 	"knative.dev/serving/pkg/reconciler/gc/config"
 	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
@@ -184,19 +185,21 @@ func TestGCReconcile(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		r := &reconciler{
-			Base:           pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
+			client:         servingclient.Get(ctx),
 			revisionLister: listers.GetRevisionLister(),
 		}
-		return configreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetConfigurationLister(), r.Recorder, r, controller.Options{
-			ConfigStore: &testConfigStore{
-				config: &config.Config{
-					RevisionGC: &gcconfig.Config{
-						StaleRevisionCreateDelay:        5 * time.Minute,
-						StaleRevisionTimeout:            5 * time.Minute,
-						StaleRevisionMinimumGenerations: 2,
+		return configreconciler.NewReconciler(ctx, logging.FromContext(ctx),
+			servingclient.Get(ctx), listers.GetConfigurationLister(),
+			controller.GetEventRecorder(ctx), r, controller.Options{
+				ConfigStore: &testConfigStore{
+					config: &config.Config{
+						RevisionGC: &gcconfig.Config{
+							StaleRevisionCreateDelay:        5 * time.Minute,
+							StaleRevisionTimeout:            5 * time.Minute,
+							StaleRevisionMinimumGenerations: 2,
+						},
 					},
-				},
-			}})
+				}})
 	}))
 }
 
