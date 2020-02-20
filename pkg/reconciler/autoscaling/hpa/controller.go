@@ -19,8 +19,11 @@ package hpa
 import (
 	"context"
 
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	hpainformer "knative.dev/pkg/client/injection/kube/informers/autoscaling/v2beta1/horizontalpodautoscaler"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
+	"knative.dev/pkg/logging"
+	servingclient "knative.dev/serving/pkg/client/injection/client"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
 	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
@@ -33,7 +36,6 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
-	"knative.dev/serving/pkg/reconciler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 )
@@ -47,7 +49,7 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
-
+	logger := logging.FromContext(ctx)
 	paInformer := painformer.Get(ctx)
 	sksInformer := sksinformer.Get(ctx)
 	hpaInformer := hpainformer.Get(ctx)
@@ -58,7 +60,8 @@ func NewController(
 
 	c := &Reconciler{
 		Base: &areconciler.Base{
-			Base:              reconciler.NewBase(ctx, controllerAgentName, cmw),
+			KubeClient:        kubeclient.Get(ctx),
+			Client:            servingclient.Get(ctx),
 			SKSLister:         sksInformer.Lister(),
 			ServiceLister:     serviceInformer.Lister(),
 			MetricLister:      metricInformer.Lister(),
@@ -67,19 +70,19 @@ func NewController(
 		hpaLister: hpaInformer.Lister(),
 	}
 	impl := pareconciler.NewImpl(ctx, c, autoscaling.HPA, func(impl *controller.Impl) controller.Options {
-		c.Logger.Info("Setting up ConfigMap receivers")
+		logger.Info("Setting up ConfigMap receivers")
 		configsToResync := []interface{}{
 			&autoscalerconfig.Config{},
 		}
 		resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 			impl.FilteredGlobalResync(onlyHpaClass, paInformer.Informer())
 		})
-		configStore := config.NewStore(c.Logger.Named("config-store"), resync)
+		configStore := config.NewStore(logger.Named("config-store"), resync)
 		configStore.WatchConfigs(cmw)
 		return controller.Options{ConfigStore: configStore}
 	})
 
-	c.Logger.Info("Setting up hpa-class event handlers")
+	logger.Info("Setting up hpa-class event handlers")
 
 	paHandler := cache.FilteringResourceEventHandler{
 		FilterFunc: onlyHpaClass,
