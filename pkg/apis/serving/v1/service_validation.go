@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 
@@ -52,16 +53,18 @@ func (s *Service) Validate(ctx context.Context) (errs *apis.FieldError) {
 		errs = errs.Also(err.ViaField("spec.template"))
 	}
 
-	// Make a dummy pod with the template PodSpec and dryrun call to API-server
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "dummy-valid-name",
-			Namespace: s.Namespace,
-		},
-		Spec: s.Spec.Template.Spec.PodSpec,
-	}
-	if _, err := dryRun(ctx, pod); err != nil {
-		errs = errs.Also(apis.ErrGeneric("PodSpec dry run failed: "+err.Error(), "spec.template.spec.podSpec"))
+	if ps := s.Spec.Template.Spec.PodSpec; !equality.Semantic.DeepEqual(ps, corev1.PodSpec{}) {
+		// Make a dummy pod with the template PodSpec and dryrun call to API-server
+		pod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "dummy-valid-name",
+				Namespace: s.Namespace,
+			},
+			Spec: ps,
+		}
+		if _, err := dryRun(ctx, pod); err != nil {
+			errs = errs.Also(apis.ErrGeneric("PodSpec dry run failed: "+err.Error(), "spec.template.spec.podSpec"))
+		}
 	}
 
 	return errs
