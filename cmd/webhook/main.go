@@ -106,7 +106,7 @@ func NewValidationAdmissionController(ctx context.Context, cmw configmap.Watcher
 	// Decorate contexts with the current state of the config.
 	store := defaultconfig.NewStore(logging.FromContext(ctx).Named("config-store"))
 	store.WatchConfigs(cmw)
-	
+
 	return validation.NewAdmissionController(ctx,
 
 		// Name of the resource webhook.
