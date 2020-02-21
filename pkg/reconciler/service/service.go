@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/zap"
@@ -29,7 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
+	clientset "knative.dev/serving/pkg/client/clientset/versioned"
+	ksvcreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/service"
 
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmp"
@@ -38,7 +38,6 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
-	"knative.dev/serving/pkg/reconciler"
 	configresources "knative.dev/serving/pkg/reconciler/configuration/resources"
 	"knative.dev/serving/pkg/reconciler/service/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
@@ -51,74 +50,18 @@ const (
 
 // Reconciler implements controller.Reconciler for Service resources.
 type Reconciler struct {
-	*reconciler.Base
+	client clientset.Interface
 
 	// listers index properties about resources
-	serviceLister       listers.ServiceLister
 	configurationLister listers.ConfigurationLister
 	revisionLister      listers.RevisionLister
 	routeLister         listers.RouteLister
 }
 
-// Check that our Reconciler implements controller.Reconciler
-var _ controller.Reconciler = (*Reconciler)(nil)
+// Check that our Reconciler implements ksvcreconciler.Interface
+var _ ksvcreconciler.Interface = (*Reconciler)(nil)
 
-// Reconcile compares the actual state with the desired, and attempts to
-// converge the two. It then updates the Status block of the Service resource
-// with the current status of the resource.
-func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
-	logger := logging.FromContext(ctx)
-
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		logger.Errorw("Invalid resource key", zap.Error(err))
-		return nil
-	}
-
-	// Get the Service resource with this namespace/name
-	original, err := c.serviceLister.Services(namespace).Get(name)
-	if apierrs.IsNotFound(err) {
-		// The resource may no longer exist, in which case we stop processing.
-		logger.Info("Service in work queue no longer exists")
-		return nil
-	} else if err != nil {
-		return err
-	}
-
-	if original.GetDeletionTimestamp() != nil {
-		return nil
-	}
-
-	// Don't modify the informers copy
-	service := original.DeepCopy()
-
-	// Reconcile this copy of the service and then write back any status
-	// updates regardless of whether the reconciliation errored out.
-	reconcileErr := c.reconcile(ctx, service)
-	if equality.Semantic.DeepEqual(original.Status, service.Status) {
-		// If we didn't change anything then don't call updateStatus.
-		// This is important because the copy we loaded from the informer's
-		// cache may be stale and we don't want to overwrite a prior update
-		// to status with this stale state.
-
-	} else if uErr := c.updateStatus(original, service, logger); uErr != nil {
-		logger.Warnw("Failed to update service status", zap.Error(uErr))
-		c.Recorder.Eventf(service, corev1.EventTypeWarning, "UpdateFailed",
-			"Failed to update status for Service %q: %v", service.Name, uErr)
-		return uErr
-	} else if reconcileErr == nil {
-		// There was a difference and updateStatus did not return an error.
-		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Updated", "Updated Service %q", service.GetName())
-	}
-	if reconcileErr != nil {
-		c.Recorder.Event(service, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
-		return reconcileErr
-	}
-
-	return nil
-}
-
-func (c *Reconciler) reconcile(ctx context.Context, service *v1.Service) error {
+func (c *Reconciler) ReconcileKind(ctx context.Context, service *v1.Service) pkgreconciler.Event {
 	logger := logging.FromContext(ctx)
 
 	// We may be reading a version of the object that was stored at an older version
@@ -181,15 +124,16 @@ func (c *Reconciler) reconcile(ctx context.Context, service *v1.Service) error {
 }
 
 func (c *Reconciler) config(ctx context.Context, logger *zap.SugaredLogger, service *v1.Service) (*v1.Configuration, error) {
+	recorder := controller.GetEventRecorder(ctx)
 	configName := resourcenames.Configuration(service)
 	config, err := c.configurationLister.Configurations(service.Namespace).Get(configName)
 	if apierrs.IsNotFound(err) {
 		config, err = c.createConfiguration(service)
 		if err != nil {
-			c.Recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Configuration %q: %v", configName, err)
+			recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Configuration %q: %v", configName, err)
 			return nil, fmt.Errorf("failed to create Configuration: %w", err)
 		}
-		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Created", "Created Configuration %q", configName)
+		recorder.Eventf(service, corev1.EventTypeNormal, "Created", "Created Configuration %q", configName)
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to get Configuration: %w", err)
 	} else if !metav1.IsControlledBy(config, service) {
@@ -203,15 +147,16 @@ func (c *Reconciler) config(ctx context.Context, logger *zap.SugaredLogger, serv
 }
 
 func (c *Reconciler) route(ctx context.Context, logger *zap.SugaredLogger, service *v1.Service) (*v1.Route, error) {
+	recorder := controller.GetEventRecorder(ctx)
 	routeName := resourcenames.Route(service)
 	route, err := c.routeLister.Routes(service.Namespace).Get(routeName)
 	if apierrs.IsNotFound(err) {
 		route, err = c.createRoute(service)
 		if err != nil {
-			c.Recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Route %q: %v", routeName, err)
+			recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Route %q: %v", routeName, err)
 			return nil, fmt.Errorf("failed to create Route: %w", err)
 		}
-		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Created", "Created Route %q", routeName)
+		recorder.Eventf(service, corev1.EventTypeNormal, "Created", "Created Route %q", routeName)
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to get Route: %w", err)
 	} else if !metav1.IsControlledBy(route, service) {
@@ -251,34 +196,12 @@ func (c *Reconciler) checkRoutesNotReady(config *v1.Configuration, logger *zap.S
 	}
 }
 
-func (c *Reconciler) updateStatus(existing *v1.Service, desired *v1.Service, logger *zap.SugaredLogger) error {
-	existing = existing.DeepCopy()
-	return pkgreconciler.RetryUpdateConflicts(func(attempts int) (err error) {
-		// The first iteration tries to use the informer's state, subsequent attempts fetch the latest state via API.
-		if attempts > 0 {
-			existing, err = c.ServingClientSet.ServingV1().Services(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-		}
-
-		// If there's nothing to update, just return.
-		if reflect.DeepEqual(existing.Status, desired.Status) {
-			return nil
-		}
-
-		existing.Status = desired.Status
-		_, err = c.ServingClientSet.ServingV1().Services(desired.Namespace).UpdateStatus(existing)
-		return err
-	})
-}
-
 func (c *Reconciler) createConfiguration(service *v1.Service) (*v1.Configuration, error) {
 	cfg, err := resources.MakeConfiguration(service)
 	if err != nil {
 		return nil, err
 	}
-	return c.ServingClientSet.ServingV1().Configurations(service.Namespace).Create(cfg)
+	return c.client.ServingV1().Configurations(service.Namespace).Create(cfg)
 }
 
 func configSemanticEquals(ctx context.Context, desiredConfig, config *v1.Configuration) (bool, error) {
@@ -316,7 +239,7 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1.Ser
 	existing.Spec = desiredConfig.Spec
 	existing.ObjectMeta.Labels = desiredConfig.ObjectMeta.Labels
 	existing.ObjectMeta.Annotations = desiredConfig.ObjectMeta.Annotations
-	return c.ServingClientSet.ServingV1().Configurations(service.Namespace).Update(existing)
+	return c.client.ServingV1().Configurations(service.Namespace).Update(existing)
 }
 
 func (c *Reconciler) createRoute(service *v1.Service) (*v1.Route, error) {
@@ -327,7 +250,7 @@ func (c *Reconciler) createRoute(service *v1.Service) (*v1.Route, error) {
 		// that would make `MakeRoute` fail as well.
 		return nil, err
 	}
-	return c.ServingClientSet.ServingV1().Routes(service.Namespace).Create(route)
+	return c.client.ServingV1().Routes(service.Namespace).Create(route)
 }
 
 func routeSemanticEquals(ctx context.Context, desiredRoute, route *v1.Route) (bool, error) {
@@ -368,7 +291,7 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1.Service, ro
 	existing.Spec = desiredRoute.Spec
 	existing.ObjectMeta.Labels = desiredRoute.ObjectMeta.Labels
 	existing.ObjectMeta.Annotations = desiredRoute.ObjectMeta.Annotations
-	return c.ServingClientSet.ServingV1().Routes(service.Namespace).Update(existing)
+	return c.client.ServingV1().Routes(service.Namespace).Update(existing)
 }
 
 // CheckNameAvailability checks that if the named Revision specified by the Configuration

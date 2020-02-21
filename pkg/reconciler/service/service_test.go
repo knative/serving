@@ -31,10 +31,12 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/reconciler"
+	servingclient "knative.dev/serving/pkg/client/injection/client"
+	ksvcreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/service"
 	configresources "knative.dev/serving/pkg/reconciler/configuration/resources"
 	"knative.dev/serving/pkg/reconciler/service/resources"
 	presources "knative.dev/serving/pkg/resources"
@@ -85,9 +87,6 @@ func TestReconcile(t *testing.T) {
 				// Route conditions should be at init state while Config should be OutOfDate
 				WithInitSvcConditions, WithOutOfDateConfig),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "byo-rev"),
-		},
 		WithReactors: []clientgotesting.ReactionFunc{
 			func(action clientgotesting.Action) (handled bool, ret runtime.Object, err error) {
 				if retryAttempted || !action.Matches("update", "services") || action.GetSubresource() != "status" {
@@ -128,9 +127,6 @@ func TestReconcile(t *testing.T) {
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "byo-rev"),
-		},
 	}, {
 		Name: "inline - byo rev name - existing older revision with same spec",
 		Objects: []runtime.Object{
@@ -149,9 +145,6 @@ func TestReconcile(t *testing.T) {
 			Object: DefaultService("byo-rev", "foo",
 				WithNamedRevision, WithInitSvcConditions),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "byo-rev"),
-		},
 	}, {
 		Name: "inline - byo rev name - existing older revision with different spec",
 		Objects: []runtime.Object{
@@ -183,9 +176,6 @@ func TestReconcile(t *testing.T) {
 			Object: DefaultService("byo-rev", "foo", WithNamedRevision,
 				WithInitSvcConditions, MarkRevisionNameTaken),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "byo-rev"),
-		},
 	}, {
 		Name: "inline - byo rev name used in traffic",
 		Objects: []runtime.Object{
@@ -204,7 +194,6 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "byo-rev"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "byo-rev"),
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "byo-rev"),
 		},
 	}, {
 		Name: "create route and configuration",
@@ -224,7 +213,6 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "run-latest"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "run-latest"),
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "run-latest"),
 		},
 	}, {
 		Name: "steady state",
@@ -329,9 +317,6 @@ func TestReconcile(t *testing.T) {
 				svc.Status.MarkRevisionNameTaken("update-route-and-config-blah")
 			}),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "update-route-and-config"),
-		},
 	}, {
 		Name: "update route and configuration labels",
 		Objects: []runtime.Object{
@@ -506,7 +491,7 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "run-latest"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "run-latest"),
-			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for Service %q: %v",
+			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for %q: %v",
 				"run-latest", "inducing failure for update services"),
 		},
 	}, {
@@ -537,9 +522,6 @@ func TestReconcile(t *testing.T) {
 					Percent:      ptr.Int64(100),
 				})),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "all-ready"),
-		},
 	}, {
 		Name: "configuration lagging",
 		// When both route and config are ready, the service should become ready.
@@ -569,9 +551,6 @@ func TestReconcile(t *testing.T) {
 					Percent:      ptr.Int64(100),
 				})),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "all-ready"),
-		},
 	}, {
 		Name: "route ready previous version and config ready, service not ready",
 		// When both route and config are ready, but the route points to the previous revision
@@ -599,9 +578,6 @@ func TestReconcile(t *testing.T) {
 					Percent:      ptr.Int64(100),
 				})),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "config-only-ready"),
-		},
 	}, {
 		Name: "config fails, new gen, propagate failure",
 		// Gen 1: everything is fine;
@@ -630,9 +606,6 @@ func TestReconcile(t *testing.T) {
 				WithFailedConfig("config-fails-00002", "RevisionFailed", "blah"),
 				WithServiceLatestReadyRevision("config-fails-00001")),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "config-fails"),
-		},
 	}, {
 		Name: "configuration failure is propagated",
 		// When config fails, the service should fail.
@@ -648,9 +621,6 @@ func TestReconcile(t *testing.T) {
 				WithServiceStatusRouteNotReady, WithFailedConfig(
 					"config-fails-00001", "RevisionFailed", "blah")),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "config-fails"),
-		},
 	}, {
 		Name: "route failure is propagated",
 		// When route fails, the service should fail.
@@ -670,9 +640,6 @@ func TestReconcile(t *testing.T) {
 				WithReadyConfig("route-fails-00001"),
 				WithFailedRoute("Propagate me, please", "")),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "route-fails"),
-		},
 	}, {
 		Name:    "existing configuration without an owner causes a failure",
 		WantErr: true,
@@ -736,9 +703,6 @@ func TestReconcile(t *testing.T) {
 					Percent:      ptr.Int64(100),
 				})),
 		}},
-		WantEvents: []string{
-			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "new-owner"),
-		},
 	}, {
 		// Config should not be updated because no new changes besides new default
 		Name: "service is has new defaults after upgrade; config should not be updated",
@@ -795,13 +759,15 @@ func TestReconcile(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		retryAttempted = false
-		return &Reconciler{
-			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
-			serviceLister:       listers.GetServiceLister(),
+		r := &Reconciler{
+			client:              servingclient.Get(ctx),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
 			routeLister:         listers.GetRouteLister(),
 		}
+
+		return ksvcreconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
+			listers.GetServiceLister(), controller.GetEventRecorder(ctx), r)
 	}))
 }
 
