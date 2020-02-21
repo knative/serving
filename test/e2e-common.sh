@@ -309,6 +309,9 @@ function install_knative_serving_standard() {
     install_contour || return 1
   else
     install_istio "${SERVING_ISTIO_YAML}" || return 1
+    if [[ -z "${INGRESS_CLASS}" ]]; then
+      readonly INGRESS_CLASS="istio.ingress.networking.knative.dev"
+    fi
   fi
 
   echo ">> Installing Cert-Manager"
