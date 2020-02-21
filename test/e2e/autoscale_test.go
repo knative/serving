@@ -390,11 +390,12 @@ func assertGracefulScaledown(t *testing.T, ctx *testContext, size int) error {
 	if err != nil {
 		return err
 	}
-	deleteHostConnections(hostConnMap, upscale)
+	deleteHostConnections(t, hostConnMap, upscale)
 
 	// give some time in between
 	time.Sleep(5 * time.Second)
 
+	// start x running pods; x == size
 	hostConnMap, err = uniqueHostConnections(t, ctx.names, size)
 	if err != nil {
 		return err
@@ -402,7 +403,7 @@ func assertGracefulScaledown(t *testing.T, ctx *testContext, size int) error {
 
 	// only keep openConnCount connections open for the test
 	openConnCount := size / 2
-	deleteHostConnections(hostConnMap, size-openConnCount)
+	deleteHostConnections(t, hostConnMap, size-openConnCount)
 
 	hostConnMap.Range(func(key, value interface{}) bool {
 		return true
@@ -436,6 +437,7 @@ func assertGracefulScaledown(t *testing.T, ctx *testContext, size int) error {
 					continue
 				}
 
+				t.Logf("inspecting pod %s (%s:%s)", p.Name, p.Status.Phase, p.DeletionTimestamp)
 				if _, ok := hostConnMap.Load(p.Name); !ok {
 					return fmt.Errorf("failed by keeping the wrong pod %s", p.Name)
 				}
