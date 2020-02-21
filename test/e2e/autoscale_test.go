@@ -413,7 +413,7 @@ func assertGracefulScaledown(t *testing.T, ctx *testContext, size int) error {
 	defer close(doneCh)
 	go pingOpenConnections(doneCh, hostConnMap)
 
-	defer deleteHostConnections(hostConnMap, openConnCount)
+	defer deleteHostConnections(t, hostConnMap, openConnCount)
 
 	timer := time.NewTicker(2 * time.Second)
 	for range timer.C {
