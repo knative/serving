@@ -41,9 +41,8 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
+	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	"knative.dev/serving/pkg/queue"
 
 	. "knative.dev/pkg/logging/testing"
@@ -58,26 +57,24 @@ const (
 )
 
 // revisionCC1 - creates a revision with concurrency == 1.
-func revisionCC1(revID types.NamespacedName, protocol networking.ProtocolType) *v1alpha1.Revision {
+func revisionCC1(revID types.NamespacedName, protocol networking.ProtocolType) *v1.Revision {
 	return revision(revID, protocol, 1)
 }
 
-func revision(revID types.NamespacedName, protocol networking.ProtocolType, cc int64) *v1alpha1.Revision {
-	return &v1alpha1.Revision{
+func revision(revID types.NamespacedName, protocol networking.ProtocolType, cc int64) *v1.Revision {
+	return &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: revID.Namespace,
 			Name:      revID.Name,
 		},
-		Spec: v1alpha1.RevisionSpec{
-			RevisionSpec: v1.RevisionSpec{
-				ContainerConcurrency: ptr.Int64(cc),
-				PodSpec: corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Ports: []corev1.ContainerPort{{
-							Name: string(protocol),
-						}},
+		Spec: v1.RevisionSpec{
+			ContainerConcurrency: ptr.Int64(cc),
+			PodSpec: corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Ports: []corev1.ContainerPort{{
+						Name: string(protocol),
 					}},
-				},
+				}},
 			},
 		},
 	}
@@ -522,7 +519,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 	for _, tc := range []struct {
 		name               string
 		endpointsArr       []*corev1.Endpoints
-		revisions          []*v1alpha1.Revision
+		revisions          []*v1.Revision
 		services           []*corev1.Service
 		probeHostResponses map[string][]activatortest.FakeResponse
 		expectDests        map[types.NamespacedName]revisionDestsUpdate
@@ -530,7 +527,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 	}{{
 		name:         "add slow healthy",
 		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http", "128.0.0.1")},
-		revisions: []*v1alpha1.Revision{
+		revisions: []*v1.Revision{
 			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
@@ -558,7 +555,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 	}, {
 		name:         "add slow ready http2",
 		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http2", "128.0.0.1")},
-		revisions: []*v1alpha1.Revision{
+		revisions: []*v1.Revision{
 			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolH2C),
 		},
 		services: []*corev1.Service{
@@ -589,7 +586,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 			ep("test-revision1", 1234, "http", "128.0.0.1"),
 			ep("test-revision2", 1235, "http", "128.1.0.2"),
 		},
-		revisions: []*v1alpha1.Revision{
+		revisions: []*v1.Revision{
 			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: "test-revision1"}, networking.ProtocolHTTP1),
 			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: "test-revision2"}, networking.ProtocolHTTP1),
 		},
@@ -615,7 +612,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 	}, {
 		name:         "no pod addressability",
 		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http", "128.0.0.1")},
-		revisions: []*v1alpha1.Revision{
+		revisions: []*v1.Revision{
 			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
@@ -641,7 +638,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 	}, {
 		name:         "unhealthy",
 		endpointsArr: []*corev1.Endpoints{ep(testRevision, 1234, "http", "128.0.0.1")},
-		revisions: []*v1alpha1.Revision{
+		revisions: []*v1.Revision{
 			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
@@ -661,7 +658,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 	}, {
 		name:         "unready pod successfully probed",
 		endpointsArr: []*corev1.Endpoints{epNotReady(testRevision, 1234, "http", nil, []string{"128.0.0.1"})},
-		revisions: []*v1alpha1.Revision{
+		revisions: []*v1.Revision{
 			revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1),
 		},
 		services: []*corev1.Service{
@@ -699,7 +696,7 @@ func TestRevisionBackendManagerAddEndpoint(t *testing.T) {
 
 			// Add the revision we're testing.
 			for _, rev := range tc.revisions {
-				fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+				fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
 				revisions.Informer().GetIndexer().Add(rev)
 			}
 
@@ -1011,7 +1008,7 @@ func TestRevisionDeleted(t *testing.T) {
 	}()
 
 	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1)
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
 	ri := fakerevisioninformer.Get(ctx)
 	ri.Informer().GetIndexer().Add(rev)
 
@@ -1056,7 +1053,7 @@ func TestServiceDoesNotExist(t *testing.T) {
 	}()
 
 	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1)
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
 	ri := fakerevisioninformer.Get(ctx)
 	ri.Informer().GetIndexer().Add(rev)
 
@@ -1110,7 +1107,7 @@ func TestServiceMoreThanOne(t *testing.T) {
 	}()
 
 	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1)
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespace).Create(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespace).Create(rev)
 	ri := fakerevisioninformer.Get(ctx)
 	ri.Informer().GetIndexer().Add(rev)
 
