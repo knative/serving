@@ -29,17 +29,17 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	cmetrics "k8s.io/metrics/pkg/apis/custom_metrics"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 var (
 	concurrencyMetricInfo = provider.CustomMetricInfo{
-		GroupResource: v1alpha1.Resource("revisions"),
+		GroupResource: v1.Resource("revisions"),
 		Namespaced:    true,
 		Metric:        autoscaling.Concurrency,
 	}
 	rpsMetricInfo = provider.CustomMetricInfo{
-		GroupResource: v1alpha1.Resource("revisions"),
+		GroupResource: v1.Resource("revisions"),
 		Namespaced:    true,
 		Metric:        autoscaling.RPS,
 	}

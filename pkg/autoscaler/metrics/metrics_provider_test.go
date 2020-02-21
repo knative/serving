@@ -24,7 +24,7 @@ import (
 	"github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/provider"
 	"knative.dev/pkg/kmp"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/fake"
 
 	"k8s.io/apimachinery/pkg/labels"
@@ -65,7 +65,7 @@ func TestGetMetricByName(t *testing.T) {
 		args: args{
 			name: types.NamespacedName{Namespace: existingNamespace, Name: "test"},
 			info: provider.CustomMetricInfo{
-				GroupResource: v1alpha1.Resource("services"),
+				GroupResource: v1.Resource("services"),
 				Namespaced:    true,
 				Metric:        autoscaling.Concurrency,
 			},
