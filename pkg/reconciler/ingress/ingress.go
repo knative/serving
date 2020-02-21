@@ -206,7 +206,19 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ing *v1alpha1.Ingress
 			if err != nil {
 				return err
 			}
-			if err := r.reconcileGateway(ctx, ing, gw, desired); err != nil {
+			if err := r.reconcileIngressServers(ctx, ing, gw, desired); err != nil {
+				return err
+			}
+		}
+	}
+
+	// HTTPProtocol should be effective only when Auto TLS is enabled per its definition.
+	// TODO(zhiminx): figure out a better way to handle HTTP behavior.
+	// https://github.com/knative/serving/issues/6373
+	if config.FromContext(ctx).Network.AutoTLS {
+		desiredHTTPServer := resources.MakeHTTPServer(config.FromContext(ctx).Network.HTTPProtocol, []string{"*"})
+		for _, gw := range config.FromContext(ctx).Istio.IngressGateways {
+			if err := r.reconcileHTTPServer(ctx, ing, gw, desiredHTTPServer); err != nil {
 				return err
 			}
 		}
@@ -310,7 +322,7 @@ func (r *Reconciler) reconcileDeletion(ctx context.Context, ing *v1alpha1.Ingres
 	logger.Infof("Cleaning up Gateway Servers for Ingress %s", ing.GetName())
 	for _, gws := range [][]config.Gateway{istiocfg.IngressGateways, istiocfg.LocalGateways} {
 		for _, gw := range gws {
-			if err := r.reconcileGateway(ctx, ing, gw, []*istiov1alpha3.Server{}); err != nil {
+			if err := r.reconcileIngressServers(ctx, ing, gw, []*istiov1alpha3.Server{}); err != nil {
 				return err
 			}
 		}
@@ -369,27 +381,36 @@ func (r *Reconciler) ensureFinalizer(ing *v1alpha1.Ingress) error {
 	return err
 }
 
-func (r *Reconciler) reconcileGateway(ctx context.Context, ing *v1alpha1.Ingress, gw config.Gateway, desired []*istiov1alpha3.Server) error {
-	// TODO(zhiminx): Need to handle the scenario when deleting Ingress. In this scenario,
-	// the Gateway servers of the Ingress need also be removed from Gateway.
+func (r *Reconciler) reconcileIngressServers(ctx context.Context, ing *v1alpha1.Ingress, gw config.Gateway, desired []*istiov1alpha3.Server) error {
 	gateway, err := r.gatewayLister.Gateways(gw.Namespace).Get(gw.Name)
 	if err != nil {
 		// Unlike VirtualService, a default gateway needs to be existent.
 		// It should be installed when installing Knative.
 		return fmt.Errorf("failed to get Gateway: %w", err)
 	}
-
 	existing := resources.GetServers(gateway, ing)
-	existingHTTPServer := resources.GetHTTPServer(gateway)
-	if existingHTTPServer != nil {
-		existing = append(existing, existingHTTPServer)
-	}
+	return r.reconcileGateway(ctx, ing, gateway, existing, desired)
+}
 
-	desiredHTTPServer := resources.MakeHTTPServer(config.FromContext(ctx).Network.HTTPProtocol, []string{"*"})
-	if desiredHTTPServer != nil {
-		desired = append(desired, desiredHTTPServer)
+func (r *Reconciler) reconcileHTTPServer(ctx context.Context, ing *v1alpha1.Ingress, gw config.Gateway, desiredHTTP *istiov1alpha3.Server) error {
+	gateway, err := r.gatewayLister.Gateways(gw.Namespace).Get(gw.Name)
+	if err != nil {
+		// Unlike VirtualService, a default gateway needs to be existent.
+		// It should be installed when installing Knative.
+		return fmt.Errorf("failed to get Gateway: %w", err)
 	}
+	existing := []*istiov1alpha3.Server{}
+	if e := resources.GetHTTPServer(gateway); e != nil {
+		existing = append(existing, e)
+	}
+	desired := []*istiov1alpha3.Server{}
+	if desiredHTTP != nil {
+		desired = append(desired, desiredHTTP)
+	}
+	return r.reconcileGateway(ctx, ing, gateway, existing, desired)
+}
 
+func (r *Reconciler) reconcileGateway(ctx context.Context, ing *v1alpha1.Ingress, gateway *v1alpha3.Gateway, existing []*istiov1alpha3.Server, desired []*istiov1alpha3.Server) error {
 	if equality.Semantic.DeepEqual(existing, desired) {
 		return nil
 	}

@@ -501,13 +501,6 @@ func TestUpdateGateway(t *testing.T) {
 			},
 		},
 	}, {
-		name:            "Delete wildcard servers from gateway",
-		existingServers: []*istiov1alpha3.Server{},
-		newServers:      servers,
-		original:        gatewayWithDefaultWildcardTLSServer,
-		// The wildcard server should be deleted.
-		expected: gateway,
-	}, {
 		name:            "Do not delete modified wildcard servers from gateway",
 		existingServers: []*istiov1alpha3.Server{},
 		newServers: []*istiov1alpha3.Server{{
