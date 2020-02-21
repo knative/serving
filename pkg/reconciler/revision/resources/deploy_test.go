@@ -927,6 +927,27 @@ func TestMakeDeployment(t *testing.T) {
 			deploy.ObjectMeta.Annotations[sidecarIstioInjectAnnotation] = "false"
 			deploy.Spec.Template.ObjectMeta.Annotations[sidecarIstioInjectAnnotation] = "false"
 		}),
+	}, {
+		name: "with scale to zero on deploy",
+		rev: revision(withoutLabels, func(revision *v1.Revision) {
+			container(revision.Spec.GetContainer(),
+				withReadinessProbe(corev1.Handler{
+					TCPSocket: &corev1.TCPSocketAction{
+						Host: "127.0.0.1",
+						Port: intstr.FromInt(12345),
+					},
+				}),
+			)
+		}),
+		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
+		nc: &network.Config{},
+		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscalerconfig.Config{ScaleToZeroOnDeploy: true},
+		cc: &deployment.Config{},
+		want: makeDeployment(func(deploy *appsv1.Deployment) {
+			deploy.Spec.Replicas = ptr.Int32(int32(0))
+		}),
 	}}
 
 	for _, test := range tests {

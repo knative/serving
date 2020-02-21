@@ -93,7 +93,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		if _, err = c.ReconcileSKS(ctx, pa, nv1alpha1.SKSOperationModeServe); err != nil {
 			return fmt.Errorf("error reconciling SKS: %w", err)
 		}
-		return computeStatus(pa, podCounts{want: scaleUnknown})
+		return computeStatus(ctx, pa, podCounts{want: scaleUnknown})
 	}
 
 	pa.Status.MetricsServiceName = sks.Status.PrivateServiceName
@@ -174,7 +174,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 		terminating: terminating,
 	}
 	logger.Infof("Observed pod counts=%#v", pc)
-	return computeStatus(pa, pc)
+	return computeStatus(ctx, pa, pc)
 }
 
 func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAutoscaler, k8sSvc string) (*scaling.Decider, error) {
@@ -200,14 +200,14 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *pav1alpha1.PodAut
 	return decider, nil
 }
 
-func computeStatus(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
+func computeStatus(ctx context.Context, pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 	pa.Status.DesiredScale, pa.Status.ActualScale = ptr.Int32(int32(pc.want)), ptr.Int32(int32(pc.ready))
 
 	if err := reportMetrics(pa, pc); err != nil {
 		return fmt.Errorf("error reporting metrics: %w", err)
 	}
 
-	computeActiveCondition(pa, pc)
+	computeActiveCondition(ctx, pa, pc)
 
 	pa.Status.ObservedGeneration = pa.Generation
 	return nil
@@ -247,8 +247,8 @@ func reportMetrics(pa *pav1alpha1.PodAutoscaler, pc podCounts) error {
 //    | -1   | >= min | inactive   | inactive   |
 //    | -1   | >= min | activating | active     |
 //    | -1   | >= min | active     | active     |
-func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, pc podCounts) {
-	minReady := activeThreshold(pa)
+func computeActiveCondition(ctx context.Context, pa *pav1alpha1.PodAutoscaler, pc podCounts) {
+	minReady := activeThreshold(ctx, pa)
 
 	switch {
 	case pc.want == 0:
@@ -274,11 +274,12 @@ func computeActiveCondition(pa *pav1alpha1.PodAutoscaler, pc podCounts) {
 }
 
 // activeThreshold returns the scale required for the pa to be marked Active
-func activeThreshold(pa *pav1alpha1.PodAutoscaler) int {
+func activeThreshold(ctx context.Context, pa *pav1alpha1.PodAutoscaler) int {
+	clusterScaleToZeroOnDeploy := config.FromContext(ctx).Autoscaler.ScaleToZeroOnDeploy
+
 	min, _ := pa.ScaleBounds()
-	if min < 1 {
+	if min < 1 && !clusterScaleToZeroOnDeploy {
 		min = 1
 	}
-
 	return int(min)
 }

@@ -137,3 +137,10 @@ data:
     # that should be used if none is specified. If omitted, the Knative
     # Horizontal Pod Autoscaler (KPA) is used by default.
     pod-autoscaler-class: "kpa.autoscaling.knative.dev"
+
+    # Scale to zero on deploy indicates whether new services will scale to
+    # 0 pods at the time of deployment. If minScale is set to > 0, new
+    # services will respect minScale and create the desired number of
+    # instances. If user provides readiness probe, readiness probe will
+    # still run and new services will not scale to 0.
+    scale-to-zero-on-deploy: "false"

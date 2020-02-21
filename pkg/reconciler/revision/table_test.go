@@ -33,6 +33,7 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
+	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	tracingconfig "knative.dev/pkg/tracing/config"
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
@@ -52,6 +53,7 @@ import (
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
+	scaleToZeroKey := struct{}{}
 	table := TableTest{{
 		Name: "bad workqueue key",
 		// Make sure Reconcile handles bad keys.
@@ -71,7 +73,7 @@ func TestReconcile(t *testing.T) {
 		Name: "first revision reconciliation",
 		// Test the simplest successful reconciliation flow.
 		// We feed in a well formed Revision where none of its sub-resources exist,
-		// and we expect it to create them and initialize the Revision's status.
+		// and we exect it to create them and initialize the Revision's status.
 		Objects: []runtime.Object{
 			rev("foo", "first-reconcile"),
 		},
@@ -546,9 +548,49 @@ func TestReconcile(t *testing.T) {
 				WithLogURL, AllUnknownConditions, MarkDeploying("Deploying")),
 		}},
 		Key: "foo/image-pull-secrets",
+	}, {
+		Name: "scale to zero on deploy true",
+		Ctx:  context.WithValue(context.Background(), scaleToZeroKey, ptr.Bool(true)),
+		Objects: []runtime.Object{
+			rev("foo", "scale-to-zero-on-deploy-true"),
+			pa("foo", "scale-to-zero-on-deploy-true"),
+		},
+		WantCreates: []runtime.Object{
+			// Replica count should be 0
+			withReplicaCount(deploy(t, "foo", "scale-to-zero-on-deploy-true"), 0),
+			image("foo", "scale-to-zero-on-deploy-true"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "scale-to-zero-on-deploy-true",
+				WithLogURL, AllUnknownConditions,
+				MarkDeploying("Deploying")),
+		}},
+		Key: "foo/scale-to-zero-on-deploy-true",
+	}, {
+		Name: "scale to zero on deploy false",
+		Ctx:  context.WithValue(context.Background(), scaleToZeroKey, ptr.Bool(false)),
+		Objects: []runtime.Object{
+			rev("foo", "scale-to-zero-on-deploy-false"),
+			pa("foo", "scale-to-zero-on-deploy-false"),
+		},
+		WantCreates: []runtime.Object{
+			// Replica count should be 1
+			withReplicaCount(deploy(t, "foo", "scale-to-zero-on-deploy-false"), 1),
+			image("foo", "scale-to-zero-on-deploy-false"),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: rev("foo", "scale-to-zero-on-deploy-false",
+				WithLogURL, AllUnknownConditions,
+				MarkDeploying("Deploying")),
+		}},
+		Key: "foo/scale-to-zero-on-deploy-false",
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		testConfigs := ReconcilerTestConfig()
+		if scaleToZeroVal := ctx.Value(scaleToZeroKey); scaleToZeroVal != nil {
+			testConfigs.Autoscaler.ScaleToZeroOnDeploy = *(scaleToZeroVal.(*bool))
+		}
 		r := &Reconciler{
 			kubeclient:    kubeclient.Get(ctx),
 			client:        servingclient.Get(ctx),
@@ -563,7 +605,7 @@ func TestReconcile(t *testing.T) {
 
 		return revisionreconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
 			listers.GetRevisionLister(), controller.GetEventRecorder(ctx), r,
-			controller.Options{ConfigStore: &testConfigStore{config: ReconcilerTestConfig()}})
+			controller.Options{ConfigStore: &testConfigStore{config: testConfigs}})
 	}))
 }
 
@@ -604,6 +646,11 @@ func deployImagePullSecrets(deploy *appsv1.Deployment, secretName string) *appsv
 	deploy.Spec.Template.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{
 		Name: secretName,
 	}}
+	return deploy
+}
+
+func withReplicaCount(deploy *appsv1.Deployment, numReplica int) *appsv1.Deployment {
+	deploy.Spec.Replicas = ptr.Int32(int32(numReplica))
 	return deploy
 }
 

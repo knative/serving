@@ -243,6 +243,11 @@ func MakeDeployment(rev *v1.Revision,
 		return nil, fmt.Errorf("failed to create PodSpec: %w", err)
 	}
 
+	replicaCount := ptr.Int32(1)
+	if autoscalerConfig.ScaleToZeroOnDeploy {
+		replicaCount = ptr.Int32(0)
+	}
+
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.Deployment(rev),
@@ -255,7 +260,7 @@ func MakeDeployment(rev *v1.Revision,
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(rev)},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas:                ptr.Int32(1),
+			Replicas:                replicaCount,
 			Selector:                makeSelector(rev),
 			ProgressDeadlineSeconds: ptr.Int32(ProgressDeadlineSeconds),
 			Template: corev1.PodTemplateSpec{
