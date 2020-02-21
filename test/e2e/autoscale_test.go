@@ -385,12 +385,12 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float64, d
 }
 
 func assertGracefulScaledown(t *testing.T, ctx *testContext, size int) error {
-	// start x running pods; x == size
-	hostConnMap, err := uniqueHostConnections(t, ctx.names, size)
+	upscale := 2 * size
+	hostConnMap, err := uniqueHostConnections(t, ctx.names, upscale)
 	if err != nil {
 		return err
 	}
-	deleteHostConnections(hostConnMap, size)
+	deleteHostConnections(hostConnMap, upscale)
 
 	// give some time in between
 	time.Sleep(5 * time.Second)
