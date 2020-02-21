@@ -212,8 +212,7 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ing *v1alpha1.Ingress
 		}
 	}
 
-	// HTTPProtocol should be effective only when Auto TLS is enabled
-	// per its definition.
+	// HTTPProtocol should be effective only when Auto TLS is enabled per its definition.
 	// TODO(zhiminx): figure out a better way to handle HTTP behavior.
 	// https://github.com/knative/serving/issues/6373
 	if config.FromContext(ctx).Network.AutoTLS {
