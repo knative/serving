@@ -209,13 +209,18 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ing *v1alpha1.Ingress
 			if err := r.reconcileIngressServers(ctx, ing, gw, desired); err != nil {
 				return err
 			}
-			// HTTPProtocol should be effective only when Auto TLS is enabled
-			// per its definition.
-			if config.FromContext(ctx).Network.AutoTLS {
-				desiredHTTPServer := resources.MakeHTTPServer(config.FromContext(ctx).Network.HTTPProtocol, []string{"*"})
-				if err := r.reconcileHTTPServer(ctx, ing, gw, desiredHTTPServer); err != nil {
-					return err
-				}
+		}
+	}
+
+	// HTTPProtocol should be effective only when Auto TLS is enabled
+	// per its definition.
+	// TODO(zhiminx): figure out a better way to handle HTTP behavior.
+	// https://github.com/knative/serving/issues/6373
+	if config.FromContext(ctx).Network.AutoTLS {
+		for _, gw := range config.FromContext(ctx).Istio.IngressGateways {
+			desiredHTTPServer := resources.MakeHTTPServer(config.FromContext(ctx).Network.HTTPProtocol, []string{"*"})
+			if err := r.reconcileHTTPServer(ctx, ing, gw, desiredHTTPServer); err != nil {
+				return err
 			}
 		}
 	}
