@@ -186,7 +186,7 @@ func (r *revision) list(ns, name string) ([]kmeta.Accessor, error) {
 
 // patch implements accessor
 func (r *revision) patch(ns, name string, pt types.PatchType, p []byte) error {
-	_, err := r.r.ServingClientSet.ServingV1().Revisions(ns).Patch(name, pt, p)
+	_, err := r.r.client.ServingV1().Revisions(ns).Patch(name, pt, p)
 	return err
 }
 
@@ -221,6 +221,6 @@ func (c *configuration) list(ns, name string) ([]kmeta.Accessor, error) {
 
 // patch implements accessor
 func (c *configuration) patch(ns, name string, pt types.PatchType, p []byte) error {
-	_, err := c.r.ServingClientSet.ServingV1().Configurations(ns).Patch(name, pt, p)
+	_, err := c.r.client.ServingV1().Configurations(ns).Patch(name, pt, p)
 	return err
 }

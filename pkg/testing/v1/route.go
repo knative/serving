@@ -65,6 +65,13 @@ func WithRouteFinalizer(r *v1.Route) {
 	r.ObjectMeta.Finalizers = append(r.ObjectMeta.Finalizers, "routes.serving.knative.dev")
 }
 
+// WithRouteDeletionTimestamp adds the Route finalizer to the Route.
+func WithRouteDeletionTimestamp(t *metav1.Time) RouteOption {
+	return func(r *v1.Route) {
+		r.ObjectMeta.DeletionTimestamp = t
+	}
+}
+
 // WithConfigTarget sets the Route's traffic block to point at a particular Configuration.
 func WithConfigTarget(config string) RouteOption {
 	return WithSpecTraffic(v1.TrafficTarget{
