@@ -89,7 +89,13 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 	outstandingRequestsPerKey := make(map[types.NamespacedName]int64)
 	// Contains the number of incoming requests in the current
 	// reporting period, per key.
-	incomingRequestsPerKey := make(map[types.NamespacedName]int64)
+	incomingRequestsPerKey := make(map[types.NamespacedName]float64)
+	// This map holds whether during this reporting period we reported "first" request
+	// for the revision. Our reporting period is 1s, so there is a high chance that
+	// they will end up in the same metrics bucket.
+	// This is important because for small concurrencies, e.g. 1,
+	// autoscaler might cause noticeable overprovisioning.
+	reportedFirstRequest := make(map[types.NamespacedName]int64)
 
 	for {
 		select {
@@ -100,13 +106,14 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 
 				// Report the first request for a key immediately.
 				if _, ok := outstandingRequestsPerKey[event.Key]; !ok {
+					reportedFirstRequest[event.Key] = 1.
 					cr.statCh <- []asmetrics.StatMessage{{
 						Key: event.Key,
 						Stat: asmetrics.Stat{
 							// Stat time is unset by design. The receiver will set the time.
 							PodName:                   cr.podName,
 							AverageConcurrentRequests: 1,
-							RequestCount:              float64(incomingRequestsPerKey[event.Key]),
+							RequestCount:              incomingRequestsPerKey[event.Key],
 						},
 					}}
 				}
@@ -124,9 +131,10 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 						Key: key,
 						Stat: asmetrics.Stat{
 							// Stat time is unset by design. The receiver will set the time.
-							PodName:                   cr.podName,
-							AverageConcurrentRequests: float64(concurrency),
-							RequestCount:              float64(incomingRequestsPerKey[key]),
+							PodName: cr.podName,
+							// Subtract the request we already reported when first seeing the revision.
+							AverageConcurrentRequests: float64(concurrency - reportedFirstRequest[key]),
+							RequestCount:              incomingRequestsPerKey[key],
 						},
 					})
 				}
@@ -134,7 +142,8 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 			}
 			cr.statCh <- messages
 
-			incomingRequestsPerKey = make(map[types.NamespacedName]int64)
+			incomingRequestsPerKey = make(map[types.NamespacedName]float64)
+			reportedFirstRequest = make(map[types.NamespacedName]int64)
 		case <-stopCh:
 			return
 		}
