@@ -22,11 +22,12 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	servingclient "knative.dev/serving/pkg/client/injection/client"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
-	"knative.dev/serving/pkg/reconciler"
 )
 
 const controllerAgentName = "configuration-controller"
@@ -36,17 +37,17 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
-
+	logger := logging.FromContext(ctx)
 	configurationInformer := configurationinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
 
 	c := &Reconciler{
-		Base:           reconciler.NewBase(ctx, controllerAgentName, cmw),
+		client:         servingclient.Get(ctx),
 		revisionLister: revisionInformer.Lister(),
 	}
 	impl := configreconciler.NewImpl(ctx, c)
 
-	c.Logger.Info("Setting up event handlers")
+	logger.Info("Setting up event handlers")
 	configurationInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	revisionInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
