@@ -22,18 +22,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/kmeta"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestNamer(t *testing.T) {
 	tests := []struct {
 		name    string
-		service *v1alpha1.Service
+		service *v1.Service
 		f       func(kmeta.Accessor) string
 		want    string
 	}{{
 		name: "Configuration",
-		service: &v1alpha1.Service{
+		service: &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "foo",
 				Namespace: "default",
@@ -43,7 +43,7 @@ func TestNamer(t *testing.T) {
 		want: "foo",
 	}, {
 		name: "Route",
-		service: &v1alpha1.Service{
+		service: &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "bar",
 				Namespace: "default",

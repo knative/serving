@@ -21,9 +21,6 @@ import (
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -43,14 +40,6 @@ import (
 	"knative.dev/pkg/logging/logkey"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	servingScheme "knative.dev/serving/pkg/client/clientset/versioned/scheme"
-)
-
-const (
-	ForceUpgradePatch = `[{
-  "op":"add",
-  "path":"/metadata/annotations/serving.knative.dev~1forceUpgrade",
-  "value":"true"
-}]`
 )
 
 // Base implements the core controller logic, given a Reconciler.
@@ -123,13 +112,6 @@ func NewBase(ctx context.Context, controllerAgentName string, cmw configmap.Watc
 	}
 
 	return base
-}
-
-func (b *Base) MarkNeedsUpgrade(gvr schema.GroupVersionResource, namespace, name string) error {
-	// Add the annotation serving.knative.dev/forceUpgrade=true to trigger webhook-based defaulting.
-	_, err := b.DynamicClientSet.Resource(gvr).Namespace(namespace).Patch(name, types.JSONPatchType,
-		[]byte(ForceUpgradePatch), metav1.PatchOptions{})
-	return err
 }
 
 func init() {

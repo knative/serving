@@ -105,3 +105,8 @@ func WithConfigLabel(key, value string) ConfigOption {
 		config.Labels[key] = value
 	}
 }
+
+// WithConfigOwnersRemoved clears the owner references of this Configuration.
+func WithConfigOwnersRemoved(cfg *v1.Configuration) {
+	cfg.OwnerReferences = nil
+}
