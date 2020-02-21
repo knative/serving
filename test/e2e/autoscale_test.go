@@ -437,7 +437,7 @@ func assertGracefulScaledown(t *testing.T, ctx *testContext, size int) error {
 					continue
 				}
 
-				t.Logf("inspecting pod %s (%s:%s)", p.Name, p.Status.Phase, p.DeletionTimestamp)
+				t.Logf("inspecting pod %s (%s:%s:%s)", p.Name, p.Status.PodIP, p.Status.Phase, p.DeletionTimestamp)
 				if _, ok := hostConnMap.Load(p.Name); !ok {
 					return fmt.Errorf("failed by keeping the wrong pod %s", p.Name)
 				}

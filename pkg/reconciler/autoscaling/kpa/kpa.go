@@ -243,6 +243,7 @@ func (c *Reconciler) markPodsForRemoval(ctx context.Context, removalCandidates [
 			return err
 		}
 
+		logger.Debugf("Patching pod: %s(%s)", p.ObjectMeta.Name, p.Status.PodIP)
 		if _, err = c.KubeClient.CoreV1().Pods(pa.Namespace).Patch(p.ObjectMeta.Name, types.JSONPatchType, patchBytes); err != nil {
 			return err
 		}
