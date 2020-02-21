@@ -180,7 +180,7 @@ func TestResolveMetricTarget(t *testing.T) {
 			}
 			gotTgt, gotTot := ResolveMetricTarget(tc.pa, cfg)
 			if gotTgt != tc.wantTgt || gotTot != tc.wantTot {
-				t.Errorf("ResolveMetricTarget(%#v, %#v) = (%#v, %#v), want (%#v, %#v)",
+				t.Errorf("ResolveMetricTarget(%#v, %#v) = (%v, %v), want (%v, %v)",
 					tc.pa, config, gotTgt, gotTot, tc.wantTgt, tc.wantTot)
 			}
 		})
