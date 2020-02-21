@@ -67,14 +67,14 @@ func (cr *ConcurrencyReporter) reportToMetricsBackend(key types.NamespacedName, 
 	revName := key.Name
 	revision, err := cr.rl.Revisions(ns).Get(revName)
 	if err != nil {
-		cr.logger.Errorw("Error while getting revision", zap.Error(err))
+		cr.logger.With(zap.Any("revID", key)).Errorw("Error while getting revision", zap.Error(err))
 		return
 	}
 	configurationName := revision.Labels[serving.ConfigurationLabelKey]
 	serviceName := revision.Labels[serving.ServiceLabelKey]
 
 	reporterCtx, _ := metrics.PodRevisionContext(cr.podName, activator.Name, ns, serviceName, configurationName, revName)
-	pkgmetrics.RecordBatch(reporterCtx, requestConcurrencyM.M(concurrency))
+	pkgmetrics.Record(reporterCtx, requestConcurrencyM.M(concurrency))
 }
 
 // Run runs until stopCh is closed and processes events on all incoming channels.
