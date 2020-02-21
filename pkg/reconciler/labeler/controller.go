@@ -19,9 +19,9 @@ package labeler
 import (
 	"context"
 
-	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"
-	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
-	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/route"
+	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
+	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
