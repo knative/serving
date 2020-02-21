@@ -348,18 +348,16 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 
 // TODO(mattmoor): Remove when we have coverage of EnqueueEndpointsRevision
 func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
-	var fakeRecorder *record.FakeRecorder
-	ctx, cancel, _, controller, _ := newTestController(t, func(r *Reconciler) {
-		// Grab the recorder that we are set up with.
-		fakeRecorder = r.Base.Recorder.(*record.FakeRecorder)
-	})
+	ctx, cancel, _, ctl, _ := newTestController(t)
 	defer cancel()
 	rev := testRevision()
+
+	fakeRecorder := controller.GetEventRecorder(ctx).(*record.FakeRecorder)
 
 	// Look for the revision ready event. Events are delivered asynchronously so
 	// we need to use hooks here.
 
-	deployingRev := createRevision(t, ctx, controller, rev)
+	deployingRev := createRevision(t, ctx, ctl, rev)
 
 	// The revision is not marked ready until an endpoint is created.
 	for _, ct := range []apis.ConditionType{"Ready"} {
@@ -380,9 +378,9 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 	fakeendpointsinformer.Get(ctx).Informer().GetIndexer().Add(endpoints)
 	pa := testReadyPA(rev)
 	fakepainformer.Get(ctx).Informer().GetIndexer().Add(pa)
-	f := controller.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey)
+	f := ctl.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey)
 	f(endpoints)
-	if err := controller.Reconciler.Reconcile(context.Background(), KeyOrDie(rev)); err != nil {
+	if err := ctl.Reconciler.Reconcile(context.Background(), KeyOrDie(rev)); err != nil {
 		t.Errorf("Reconcile() = %v", err)
 	}
 
