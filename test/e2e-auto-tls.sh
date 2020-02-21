@@ -139,9 +139,11 @@ function cleanup_per_selfsigned_namespace_auto_tls() {
 }
 
 function setup_dns_record() {
+  echo "<< setting up DNS record for host ${FULL_HOST_NAME}"
   go run ./test/e2e/autotls/config/dnssetup/
 }
 
 function delete_dns_record() {
+  echo "<< deleting DNS record for host ${FULL_HOST_NAME}"
   go run ./test/e2e/autotls/config/dnscleanup/
 }
