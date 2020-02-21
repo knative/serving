@@ -40,7 +40,7 @@ import (
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	sksreconciler "knative.dev/serving/pkg/client/injection/reconciler/networking/v1alpha1/serverlessservice"
 	"knative.dev/serving/pkg/reconciler/serverlessservice/resources"
 
@@ -53,7 +53,7 @@ import (
 	clientgotesting "k8s.io/client-go/testing"
 
 	. "knative.dev/pkg/reconciler/testing"
-	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
+	. "knative.dev/serving/pkg/reconciler/testing/v1"
 	. "knative.dev/serving/pkg/testing"
 )
 
@@ -109,7 +109,7 @@ func TestReconcile(t *testing.T) {
 					return false, nil, nil
 				}
 				retryAttempted = true
-				return true, nil, apierrs.NewConflict(v1alpha1.Resource("foo"), "bar", errors.New("foo"))
+				return true, nil, apierrs.NewConflict(v1.Resource("foo"), "bar", errors.New("foo"))
 			},
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
