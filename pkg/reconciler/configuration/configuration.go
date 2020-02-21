@@ -158,6 +158,9 @@ func (c *Reconciler) getSortedCreatedRevisions(ctx context.Context, config *v1.C
 		lrr, err := lister.Get(config.Status.LatestReadyRevisionName)
 		// Record the error and continue because we still want to set the LRR to the correct revision.
 		if err != nil {
+			// If the user deletes the LatestReadyRevision then this may return an error due to the
+			// dangling reference.  Proceed to calculate the next-latest ready revision so that the
+			// caller can synthesize a new Revision at the current generation to replace the one deleted.
 			logger.Errorf("Error getting latest ready revision %q: %v", config.Status.LatestReadyRevisionName, err)
 		} else {
 			start := lrr.Generation
