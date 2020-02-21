@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"time"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"go.uber.org/zap"
@@ -292,14 +291,8 @@ func (c *Reconciler) updateStatus(existing *v1alpha1.Service, desired *v1alpha1.
 			return nil
 		}
 
-		becomesReady := desired.Status.IsReady() && !existing.Status.IsReady()
 		existing.Status = desired.Status
 		_, err = c.ServingClientSet.ServingV1alpha1().Services(desired.Namespace).UpdateStatus(existing)
-		if err == nil && becomesReady {
-			duration := time.Since(existing.ObjectMeta.CreationTimestamp.Time)
-			logger.Infof("Service became ready after %v", duration)
-			c.StatsReporter.ReportServiceReady(existing.Namespace, existing.Name, duration)
-		}
 		return err
 	})
 }

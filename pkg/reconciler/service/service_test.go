@@ -371,9 +371,6 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "pinned3"),
 		},
-		WantServiceReadyStats: map[string]int{
-			"foo/pinned3": 1,
-		},
 	}, {
 		Name: "release - with @latest",
 		Objects: []runtime.Object{
@@ -669,9 +666,6 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-ready-lr"),
 		},
-		WantServiceReadyStats: map[string]int{
-			"foo/release-ready-lr": 1,
-		},
 	}, {
 		Name: "release - route and config ready, traffic split, using @latest",
 		Objects: []runtime.Object{
@@ -744,9 +738,6 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-ready-lr"),
-		},
-		WantServiceReadyStats: map[string]int{
-			"foo/release-ready-lr": 1,
 		},
 	}, {
 		Name: "release - route and config ready, propagate ready, percentage set",
@@ -821,9 +812,6 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "release-ready"),
-		},
-		WantServiceReadyStats: map[string]int{
-			"foo/release-ready": 1,
 		},
 	}, {
 		Name: "release - create route and service and percentage",
@@ -1226,9 +1214,6 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "all-ready"),
 		},
-		WantServiceReadyStats: map[string]int{
-			"foo/all-ready": 1,
-		},
 	}, {
 		Name: "runLatest - configuration lagging",
 		// When both route and config are ready, the service should become ready.
@@ -1485,9 +1470,6 @@ func TestReconcile(t *testing.T) {
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated Service %q", "new-owner"),
-		},
-		WantServiceReadyStats: map[string]int{
-			"foo/new-owner": 1,
 		},
 	}, {
 		// Config should not be updated because no new changes besides new default
