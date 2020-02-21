@@ -26,12 +26,13 @@ E2E_CLUSTER_MACHINE=${E2E_CLUSTER_MACHINE:-e2-standard-8}
 source $(dirname $0)/../vendor/knative.dev/test-infra/scripts/e2e-tests.sh
 
 CERT_MANAGER_VERSION="0.12.0"
+# Since default is istio, make default ingress as istio
+INGRESS_CLASS=${INGRESS_CLASS:-istio.ingress.networking.knative.dev}
 ISTIO_VERSION=""
 GLOO_VERSION=""
 KOURIER_VERSION=""
 AMBASSADOR_VERSION=""
 CONTOUR_VERSION=""
-INGRESS_CLASS=""
 CERTIFICATE_CLASS=""
 
 HTTPS=0
