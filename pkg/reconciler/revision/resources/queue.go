@@ -195,7 +195,7 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 	}
 	serviceName := rev.Labels[serving.ServiceLabelKey]
 
-	userPort := getUserPort(rev)
+	userPort := v1.GetUserPort(rev)
 
 	var loggingLevel string
 	if ll, ok := loggingConfig.LoggingLevel["queueproxy"]; ok {
@@ -325,7 +325,7 @@ func makeQueueContainer(rev *v1.Revision, loggingConfig *logging.Config, tracing
 			Value: strconv.FormatBool(observabilityConfig.EnableVarLogCollection),
 		}, {
 			Name:  "VAR_LOG_VOLUME_NAME",
-			Value: varLogVolumeName,
+			Value: v1.VarLogVolumeName,
 		}, {
 			Name:  "INTERNAL_VOLUME_PATH",
 			Value: internalVolumePath,

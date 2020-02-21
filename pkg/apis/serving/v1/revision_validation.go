@@ -20,8 +20,12 @@ import (
 	"context"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/kmp"
+	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 )
@@ -63,7 +67,40 @@ func (rts *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError 
 	// it follows the requirements on the name.
 	errs = errs.Also(serving.ValidateRevisionName(ctx, rts.Name, rts.GenerateName))
 	errs = errs.Also(serving.ValidateQueueSidecarAnnotation(rts.Annotations).ViaField("metadata.annotations"))
+
+	namespace := rts.ObjectMeta.Namespace
+	if namespace == "" {
+		namespace = system.Namespace()
+	}
+
+	// Create a dummy Revision from the template
+	rev := &Revision{
+		ObjectMeta: rts.ObjectMeta,
+		Spec:       rts.Spec,
+	}
+	userContainer := MakeUserContainer(rev)
+	podSpec := MakePodSpec(rev, []corev1.Container{*userContainer})
+
+	// Make a dummy pod with the template Revions & PodSpec and dryrun call to API-server
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "dry-run-validation",
+			Namespace: namespace,
+		},
+		Spec: *podSpec,
+	}
+	if _, err := dryRun(ctx, pod); err != nil {
+		errs = errs.Also(apis.ErrGeneric("PodSpec dry run failed: "+err.Error(), "spec.template.spec.podSpec"))
+	}
+
 	return errs
+}
+
+func dryRun(ctx context.Context, pod *corev1.Pod) (*corev1.Pod, error) {
+	client := kubeclient.Get(ctx)
+	pods := client.CoreV1().Pods(pod.GetNamespace())
+	options := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
+	return pods.CreateWithOptions(ctx, pod, options)
 }
 
 // VerifyNameChange checks that if a user brought their own name previously that it
