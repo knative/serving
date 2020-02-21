@@ -1810,7 +1810,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f44b87ebe4aefb51530107b1d09dce6b81fc35c45117e4025f1dbcb33315a4a8"
+  digest = "1:0ef5900b861d1a580ec02438c991f7b241efa83151bf2d29db3055ff390a2b1f"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1917,7 +1917,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "d9a38f13e8b9aa736f714b793ee28788de1b30e0"
+  revision = "1d60dd6107fb4348f28e2a7b7f35e7d4299b33c6"
 
 [[projects]]
   branch = "master"
