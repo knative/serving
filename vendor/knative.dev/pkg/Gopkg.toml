@@ -13,6 +13,8 @@ required = [
   "knative.dev/test-infra/scripts",
   "knative.dev/test-infra/tools/dep-collector",
   "github.com/gogo/protobuf/proto",
+  "github.com/go-logr/logr",
+  "github.com/go-logr/zapr",
 ]
 
 [[constraint]]

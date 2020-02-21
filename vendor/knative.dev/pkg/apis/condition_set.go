@@ -242,28 +242,79 @@ func (r conditionsImpl) ClearCondition(t ConditionType) error {
 // MarkTrue sets the status of t to true, and then marks the happy condition to
 // true if all other dependents are also true.
 func (r conditionsImpl) MarkTrue(t ConditionType) {
-	// set the specified condition
+	// Set the specified condition.
 	r.SetCondition(Condition{
 		Type:     t,
 		Status:   corev1.ConditionTrue,
 		Severity: r.severity(t),
 	})
 
-	// check the dependents.
-	for _, cond := range r.dependents {
-		c := r.GetCondition(cond)
-		// Failed or Unknown conditions trump true conditions
-		if !c.IsTrue() {
-			return
+	if c := r.findUnhappyDependent(); c != nil {
+		// Propagate unhappy dependent to happy condition.
+		r.SetCondition(Condition{
+			Type:     r.happy,
+			Status:   c.Status,
+			Reason:   c.Reason,
+			Message:  c.Message,
+			Severity: r.severity(r.happy),
+		})
+	} else if t != r.happy {
+		// Set the happy condition to true.
+		r.SetCondition(Condition{
+			Type:     r.happy,
+			Status:   corev1.ConditionTrue,
+			Severity: r.severity(r.happy),
+		})
+	}
+}
+
+func (r conditionsImpl) findUnhappyDependent() *Condition {
+	// This only works if there are dependents.
+	if len(r.dependents) == 0 {
+		return nil
+	}
+
+	// Do not modify the accessors condition order.
+	conditions := r.accessor.GetConditions().DeepCopy()
+
+	// Filter based on terminal status.
+	n := 0
+	for _, c := range conditions {
+		if c.Severity == ConditionSeverityError && c.Type != r.happy {
+			conditions[n] = c
+			n++
+		}
+	}
+	conditions = conditions[:n]
+
+	// Sort set conditions by time.
+	sort.Slice(conditions, func(i, j int) bool {
+		return conditions[i].LastTransitionTime.Inner.Time.After(conditions[j].LastTransitionTime.Inner.Time)
+	})
+
+	// First check the conditions with Status == False.
+	for _, c := range conditions {
+		// False conditions trump Unknown.
+		if c.IsFalse() {
+			return &c
+		}
+	}
+	// Second check for conditions with Status == Unknown.
+	for _, c := range conditions {
+		if c.IsUnknown() {
+			return &c
 		}
 	}
 
-	// set the happy condition
-	r.SetCondition(Condition{
-		Type:     r.happy,
-		Status:   corev1.ConditionTrue,
-		Severity: r.severity(r.happy),
-	})
+	// If something was not initialized.
+	if len(r.dependents) != len(conditions) {
+		return &Condition{
+			Status: corev1.ConditionUnknown,
+		}
+	}
+
+	// All dependents are fine.
+	return nil
 }
 
 // MarkUnknown sets the status of t to Unknown and also sets the happy condition

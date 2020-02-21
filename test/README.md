@@ -111,8 +111,6 @@ These tests require:
   [your environment variables](../DEVELOPMENT.md#setup-your-environment).
 - Since these tests are fairly slow, running them with logging enabled is
   recommended (`-v`).
-- Using [`--logverbose`](#output-verbose-log) to see the verbose log output from
-  test as well as from k8s libraries.
 - Using `-count=1` is
   [the idiomatic way to disable test caching](https://golang.org/doc/go1.10#test)
 
