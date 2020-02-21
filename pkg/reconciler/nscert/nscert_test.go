@@ -28,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
@@ -208,6 +209,29 @@ func TestReconcile(t *testing.T) {
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "CreationFailed", "Failed to create Knative certificate %s/%s: inducing failure for create certificates", "foo", defaultCertName),
 			Eventf(corev1.EventTypeWarning, "InternalError", "failed to create namespace certificate: inducing failure for create certificates"),
+		},
+	}, {
+		Name: "disabling namespace cert feature deletes the cert",
+		Key:  "foo",
+		Objects: []runtime.Object{
+			kubeNamespaceWithDisableLabelValue("foo", "true"),
+			knCert(kubeNamespace("foo")),
+		},
+		SkipNamespaceValidation: true,
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+				Verb:      "delete",
+				Resource: schema.GroupVersionResource{
+					Group:    "networking.internal.knative.dev",
+					Version:  "v1alpha1",
+					Resource: "certificates",
+				},
+			},
+			Name: "foo.example.com",
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Deleted", "Deleted Knative Certificate %s/%s", "foo", defaultCertName),
 		},
 	}}
 
