@@ -55,7 +55,7 @@ func (s *Service) Validate(ctx context.Context) (errs *apis.FieldError) {
 	// Make a dummy pod with the template PodSpec and dryrun call to API-server
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "dummyValidName",
+			Name:      "dummy-valid-name",
 			Namespace: s.Namespace,
 		},
 		Spec: s.Spec.Template.Spec.PodSpec,
