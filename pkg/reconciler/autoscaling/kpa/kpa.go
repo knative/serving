@@ -141,18 +141,18 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *pav1alpha1.PodAutosc
 			return err
 		}
 
-		// check if there is anything to remove
+		// Check if there is anything to remove
 		readyCount := int32(intReadyCount)
 		if readyCount > want && decider.Status.RemovalCandidates != nil {
 			err := c.markPodsForRemoval(ctx, decider.Status.RemovalCandidates, pa, want, readyCount, podCounter)
 			if err != nil {
-				return fmt.Errorf("error marking pods for removal: %v", err)
+				return fmt.Errorf("error marking pods for removal: %w", err)
 			}
 		}
 	}
 
 	if err := c.scaler.apply(ctx, pa, ps, want); err != nil {
-		return fmt.Errorf("error scaling target: %v", err)
+		return fmt.Errorf("error scaling target: %w", err)
 	}
 
 	mode := nv1alpha1.SKSOperationModeServe
@@ -247,7 +247,7 @@ func (c *Reconciler) markPodsForRemoval(ctx context.Context, removalCandidates [
 		}
 	}
 
-	// wait for endpoint counts to converge before scaling down
+	// Wait for endpoint counts to converge before scaling down
 	wait.PollImmediate(endpointConvergenceWaitTime, endpointConvergenceTimeout, func() (bool, error) {
 		readyCount, err := pc.ReadyCount()
 		if err != nil {

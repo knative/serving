@@ -177,9 +177,7 @@ func pingOpenConnections(doneCh chan struct{}, hostConnMap *sync.Map) error {
 			var err error
 			hostConnMap.Range(func(key, value interface{}) bool {
 				if conn, ok := value.(*websocket.Conn); ok {
-					if err = conn.WriteMessage(websocket.TextMessage, []byte("keepAlive")); err != nil {
-						return false
-					}
+					return conn.WriteMessage(websocket.TextMessage, []byte("keepAlive")) == nil
 				}
 				return true
 			})
