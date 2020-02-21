@@ -31,6 +31,12 @@ type TimedFloat64Buckets struct {
 	// The total sum of all valid buckets within the window.
 	windowTotal float64
 	lastWrite   time.Time
+	// firstWrite holds the time when the first write has been made.
+	// this time is reset to `now` when the very first write happens,
+	// or when a first write happens after `window` time of inactivity.
+	// The difference between `now` and `firstWrite` is used to compute
+	// the number of eligible buckets for computation of average values.
+	firstWrite time.Time
 
 	granularity time.Duration
 	window      time.Duration
@@ -76,18 +82,26 @@ func (t *TimedFloat64Buckets) WindowAverage(now time.Time) float64 {
 	switch d := now.Sub(t.lastWrite); {
 	case d <= 0:
 		// If LastWrite equal or greater than Now
-		// return the current WindowTotal.
-		return roundToNDigits(precision, t.windowTotal/float64(len(t.buckets)))
+		// return the current WindowTotal, divided by the
+		// number of valid buckts
+		numB := math.Min(
+			float64(t.lastWrite.Sub(t.firstWrite)/t.granularity)+1, // +1 since the times are inclusive.
+			float64(len(t.buckets)))
+		return roundToNDigits(precision, t.windowTotal/numB)
 	case d < t.window:
 		// If we haven't received metrics for some time, which is less than
-		// the window -- remove the outdated items.
+		// the window -- remove the outdated items and divide by the number
+		// of valid buckets
 		stIdx := t.timeToIndex(t.lastWrite)
 		eIdx := t.timeToIndex(now)
 		ret := t.windowTotal
 		for i := stIdx + 1; i <= eIdx; i++ {
 			ret -= t.buckets[i%len(t.buckets)]
 		}
-		return roundToNDigits(precision, ret/float64(len(t.buckets)-(eIdx-stIdx)))
+		numB := math.Min(
+			float64(t.lastWrite.Sub(t.firstWrite)/t.granularity)+1, // +1 since the times are inclusive.
+			float64(len(t.buckets)-(eIdx-stIdx)))
+		return roundToNDigits(precision, ret/numB)
 	default: // Nothing for more than a window time, just 0.
 		return 0.
 	}
@@ -113,8 +127,13 @@ func (t *TimedFloat64Buckets) Record(now time.Time, value float64) {
 	writeIdx := t.timeToIndex(now)
 
 	if t.lastWrite != bucketTime {
+		if t.firstWrite.IsZero() {
+			t.firstWrite = bucketTime
+		}
 		// This should not really happen, but is here for correctness.
 		if bucketTime.Sub(t.lastWrite) > t.window {
+			// This means we had no writes for the duration of `window`. So reset the firstWrite time.
+			t.firstWrite = bucketTime
 			// Reset all the buckets.
 			for i := range t.buckets {
 				t.buckets[i] = 0
@@ -194,7 +213,6 @@ func (t *TimedFloat64Buckets) ResizeWindow(w time.Duration) {
 	// So that we can copy the existing buckets into the new array.
 	t.bucketsMutex.Lock()
 	defer t.bucketsMutex.Unlock()
-
 	// If we had written any data within `window` time, then exercise the O(N)
 	// copy algorithm. Otherwise, just assign zeroes.
 	if time.Now().Truncate(t.granularity).Sub(t.lastWrite) <= t.window {
@@ -212,6 +230,12 @@ func (t *TimedFloat64Buckets) ResizeWindow(w time.Duration) {
 			newTotal += t.buckets[oi]
 			tIdx--
 		}
+		// We can reset this as well to the earliest well known time when we might have
+		// written data, if it is
+		t.firstWrite = t.lastWrite.Add(-time.Duration(oldNumBuckets-1) * t.granularity)
+	} else {
+		// No valid data so far, so reset to initial value.
+		t.firstWrite = time.Time{}
 	}
 	t.window = w
 	t.buckets = newBuckets

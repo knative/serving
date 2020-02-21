@@ -127,10 +127,10 @@ func TestMetricCollectorScraper(t *testing.T) {
 	const (
 		reportConcurrency = 10.0
 		reportRPS         = 20.0
-		wantConcurrency   = 3 * 10. / 60 // In 3 seconds we'll scrape 3 times, window is 60s.
-		wantRPS           = 3 * 20. / 60
-		wantPConcurrency  = 3 * 10 / 6.
-		wantPRPS          = 3 * 20 / 6.
+		wantConcurrency   = 3 * 10. // In 3 seconds we'll scrape 3 times.
+		wantRPS           = 3 * 20.
+		wantPConcurrency  = 3 * 10.
+		wantPRPS          = 3 * 20.
 	)
 	stat := Stat{
 		Time:                      now,
@@ -187,12 +187,12 @@ func TestMetricCollectorScraper(t *testing.T) {
 	wait.PollImmediate(10*time.Millisecond, 100*time.Millisecond, func() (bool, error) {
 		gotConcurrency, _, _ = coll.StableAndPanicConcurrency(metricKey, now.Add(defaultMetric.Spec.StableWindow).Add(-5*time.Second))
 		gotRPS, _, _ = coll.StableAndPanicRPS(metricKey, now.Add(defaultMetric.Spec.StableWindow).Add(-5*time.Second))
-		return gotConcurrency == reportConcurrency && gotRPS == reportRPS, nil
+		return gotConcurrency == reportConcurrency*5 && gotRPS == reportRPS*5, nil
 	})
-	if gotConcurrency != reportConcurrency {
+	if gotConcurrency != reportConcurrency*5 {
 		t.Errorf("StableAndPanicConcurrency() = %v, want %v", gotConcurrency, wantConcurrency)
 	}
-	if gotRPS != reportRPS {
+	if gotRPS != reportRPS*5 {
 		t.Errorf("StableAndPanicRPS() = %v, want %v", gotRPS, wantRPS)
 	}
 
@@ -261,8 +261,8 @@ func TestMetricCollectorRecord(t *testing.T) {
 	}
 	// Scale to the window sizes.
 	const (
-		wantS     = want / 60
-		wantP     = want / 6
+		wantS     = want
+		wantP     = want
 		tolerance = 0.001
 	)
 	if math.Abs(stable-wantS) > tolerance || math.Abs(panic-wantP) > tolerance {

@@ -139,7 +139,12 @@ func TestTimedFloat64BucketsWindowAverage(t *testing.T) {
 	now := time.Now()
 	buckets := NewTimedFloat64Buckets(5*time.Second, granularity)
 
-	for i := 0; i < 5; i++ {
+	// This verifies that we properly use firstWrite. Without that we'd get 0.2.
+	buckets.Record(now, 1)
+	if got, want := buckets.WindowAverage(now), 1.; got != want {
+		t.Errorf("WindowAverage = %v, want: %v", got, want)
+	}
+	for i := 1; i < 5; i++ {
 		buckets.Record(now.Add(time.Duration(i)*time.Second), float64(i+1))
 	}
 
@@ -167,6 +172,12 @@ func TestTimedFloat64BucketsWindowAverage(t *testing.T) {
 		t.Errorf("WindowAverage = %v, want: %v", got, want)
 	}
 
+	// Advance much farther.
+	now = now.Add(time.Minute)
+	buckets.Record(now, 1984)
+	if got, want := buckets.WindowAverage(now), 1984.; got != want {
+		t.Errorf("WindowAverage = %v, want: %v", got, want)
+	}
 }
 
 func TestTimedFloat64BucketsHoles(t *testing.T) {
@@ -283,12 +294,12 @@ func TestTimedFloat64BucketsWindowUpdate(t *testing.T) {
 	buckets.ForEachBucket(now, func(t time.Time, b float64) {
 		sum += b
 	})
-	if got, want := sum, float64(2+3+4+5+6); got != want {
+	if got, want := sum, wantInitial; got != want {
 		t.Fatalf("After first resize data set Sum = %v, want: %v", got, want)
 	}
-	// Note the average changes, since we're averaging over bigger window now.
-	if got, want := buckets.WindowAverage(now), wantInitial/10; got != want {
-		t.Fatalf("Initial data set Sum = %v, want: %v", got, want)
+	// Note the average doesn't change, since we know we had at most 5 buckets.
+	if got, want := buckets.WindowAverage(now), wantInitial/5; got != want {
+		t.Errorf("Initial data set Sum = %v, want: %v", got, want)
 	}
 
 	// Add one more. Make sure all the data is preserved, since window is longer.
@@ -302,7 +313,8 @@ func TestTimedFloat64BucketsWindowUpdate(t *testing.T) {
 	if got, want := sum, wantWithUpdate; got != want {
 		t.Fatalf("Updated data set Sum = %v, want: %v", got, want)
 	}
-	if got, want := buckets.WindowAverage(now), wantWithUpdate/10; got != want {
+	// Same here. We just have at most 6 recorded buckets.
+	if got, want := buckets.WindowAverage(now), roundToNDigits(6, wantWithUpdate/6); got != want {
 		t.Fatalf("Initial data set Sum = %v, want: %v", got, want)
 	}
 
@@ -333,7 +345,7 @@ func TestTimedFloat64BucketsWindowUpdate(t *testing.T) {
 }
 
 func TestTimedFloat64BucketsWindowUpdate3sGranularity(t *testing.T) {
-	granularity := 3 * time.Second
+	const granularity = 3 * time.Second
 	trunc1 := time.Now().Truncate(granularity)
 
 	// So two buckets here (ceil(5/3)=ceil(1.6(6))=2).
@@ -395,6 +407,7 @@ func TestTimedFloat64BucketsWindowUpdate3sGranularity(t *testing.T) {
 	if got, want := len(buckets.buckets), 2; got != want {
 		t.Fatalf("Resized bucket count = %d, want: %d", got, want)
 	}
+
 	// Just last 4 buckets should have remained.
 	sum = 0.
 	want = 42 + 7 // we drop oldest bucket and the one not yet utilizied)
@@ -413,6 +426,19 @@ func TestTimedFloat64BucketsWindowUpdate3sGranularity(t *testing.T) {
 	}
 }
 
+func TestTimedFloat64BucketsWindowUpdateNoOp(t *testing.T) {
+	startTime := time.Now().Add(-time.Minute)
+	buckets := NewTimedFloat64Buckets(5*time.Second, granularity)
+	buckets.Record(startTime, 19.82)
+	if got, want := buckets.firstWrite, buckets.lastWrite; !got.Equal(want) {
+		t.Errorf("FirstWrite = %v, want: %v", got, want)
+	}
+	buckets.ResizeWindow(10 * time.Second)
+
+	if got, want := buckets.firstWrite, (time.Time{}); !got.Equal(want) {
+		t.Errorf("FirstWrite after update = %v, want: %v", got, want)
+	}
+}
 func BenchmarkWindowAverage(b *testing.B) {
 	// Window lengths in secs.
 	for _, wl := range []int{30, 60, 120, 240, 600} {
