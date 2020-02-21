@@ -18,11 +18,18 @@ package v1
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/reconciler/route/domains"
+	servicenames "knative.dev/serving/pkg/reconciler/service/resources/names"
+	"knative.dev/serving/pkg/resources"
 	presources "knative.dev/serving/pkg/resources"
 )
 
@@ -43,6 +50,11 @@ func Service(name, namespace string, so ...ServiceOption) *v1.Service {
 	return s
 }
 
+// DefaultService creates a service with ServiceOptions and with default values set
+func DefaultService(name, namespace string, so ...ServiceOption) *v1.Service {
+	return Service(name, namespace, append(so, WithServiceDefaults)...)
+}
+
 // ServiceWithoutNamespace creates a service with ServiceOptions but without a specific namespace
 func ServiceWithoutNamespace(name string, so ...ServiceOption) *v1.Service {
 	s := &v1.Service{
@@ -56,10 +68,22 @@ func ServiceWithoutNamespace(name string, so ...ServiceOption) *v1.Service {
 	return s
 }
 
-// WithInlineConfigSpec confgures the Service to use the given config spec
-func WithInlineConfigSpec(config v1.ConfigurationSpec) ServiceOption {
+// WithInitSvcConditions initializes the Service's conditions.
+func WithInitSvcConditions(s *v1.Service) {
+	s.Status.InitializeConditions()
+}
+
+// WithConfigSpec confgures the Service to use the given config spec
+func WithConfigSpec(config v1.ConfigurationSpec) ServiceOption {
 	return func(svc *v1.Service) {
 		svc.Spec.ConfigurationSpec = config
+	}
+}
+
+// WithRouteSpec configures the Service to use the given route spec
+func WithRouteSpec(route v1.RouteSpec) ServiceOption {
+	return func(svc *v1.Service) {
+		svc.Spec.RouteSpec = route
 	}
 }
 
@@ -201,3 +225,226 @@ func WithWorkingDir(wd string) ServiceOption {
 		s.Spec.Template.Spec.Containers[0].WorkingDir = wd
 	}
 }
+
+// WithServiceAnnotations adds the supplied annotations to the Service
+func WithServiceAnnotations(annotations map[string]string) ServiceOption {
+	return func(service *v1.Service) {
+		service.Annotations = resources.UnionMaps(service.Annotations, annotations)
+	}
+}
+
+// WithServiceDeletionTimestamp will set the DeletionTimestamp on the Service.
+func WithServiceDeletionTimestamp(r *v1.Service) {
+	t := metav1.NewTime(time.Unix(1e9, 0))
+	r.ObjectMeta.SetDeletionTimestamp(&t)
+}
+
+// WithNamedRevision configures the Service to use BYO Revision in the
+// template spec and reference that same revision name in the route spec.
+func WithNamedRevision(s *v1.Service) {
+	s.Spec = v1.ServiceSpec{
+		ConfigurationSpec: v1.ConfigurationSpec{
+			Template: v1.RevisionTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: s.Name + "-byo",
+				},
+				Spec: v1.RevisionSpec{
+					PodSpec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Image: "busybox",
+						}},
+					},
+					TimeoutSeconds: ptr.Int64(60),
+				},
+			},
+		},
+		RouteSpec: v1.RouteSpec{
+			Traffic: []v1.TrafficTarget{{
+				RevisionName: s.Name + "-byo",
+				Percent:      ptr.Int64(100),
+			}},
+		},
+	}
+}
+
+// WithOutOfDateConfig reflects the Configuration's readiness in the Service
+// resource.
+func WithOutOfDateConfig(s *v1.Service) {
+	s.Status.MarkConfigurationNotReconciled()
+}
+
+// WithServiceGeneration sets the service's generation
+func WithServiceGeneration(generation int64) ServiceOption {
+	return func(svc *v1.Service) {
+		svc.Status.ObservedGeneration = generation
+	}
+}
+
+// WithServiceLabel attaches a particular label to the service.
+func WithServiceLabel(key, value string) ServiceOption {
+	return func(service *v1.Service) {
+		if service.Labels == nil {
+			service.Labels = make(map[string]string)
+		}
+		service.Labels[key] = value
+	}
+}
+
+// WithServiceObservedGeneration sets the service's observed generation to it's generation
+func WithServiceObservedGeneration(svc *v1.Service) {
+	svc.Status.ObservedGeneration = svc.Generation
+}
+
+// MarkRevisionNameTaken calls the function of the same name on the Service's status
+func MarkRevisionNameTaken(service *v1.Service) {
+	service.Status.MarkRevisionNameTaken(service.Spec.GetTemplate().GetName())
+}
+
+// WithRunLatestRollout configures the Service to use a "runLatest" rollout.
+func WithRunLatestRollout(s *v1.Service) {
+	s.Spec = v1.ServiceSpec{
+		ConfigurationSpec: *configSpec.DeepCopy(),
+	}
+}
+
+// WithReadyRoute reflects the Route's readiness in the Service resource.
+func WithReadyRoute(s *v1.Service) {
+	s.Status.PropagateRouteStatus(&v1.RouteStatus{
+		Status: duckv1.Status{
+			Conditions: duckv1.Conditions{{
+				Type:   "Ready",
+				Status: "True",
+			}},
+		},
+	})
+}
+
+// WithReadyConfig reflects the Configuration's readiness in the Service
+// resource.  This must coincide with the setting of Latest{Created,Ready}
+// to the provided revision name.
+func WithReadyConfig(name string) ServiceOption {
+	return func(s *v1.Service) {
+		s.Status.PropagateConfigurationStatus(&v1.ConfigurationStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   "Ready",
+					Status: "True",
+				}},
+			},
+			ConfigurationStatusFields: v1.ConfigurationStatusFields{
+				LatestCreatedRevisionName: name,
+				LatestReadyRevisionName:   name,
+			},
+		})
+	}
+}
+
+// WithSvcStatusDomain propagates the domain name to the status of the Service.
+func WithSvcStatusDomain(s *v1.Service) {
+	n, ns := s.GetName(), s.GetNamespace()
+	s.Status.URL = &apis.URL{
+		Scheme: "http",
+		Host:   fmt.Sprintf("%s.%s.example.com", n, ns),
+	}
+}
+
+// WithSvcStatusAddress updates the service's status with the address.
+func WithSvcStatusAddress(s *v1.Service) {
+	s.Status.Address = &duckv1.Addressable{
+		URL: &apis.URL{
+			Scheme: "http",
+			Host:   fmt.Sprintf("%s.%s.svc.cluster.local", s.Name, s.Namespace),
+		},
+	}
+}
+
+// WithSvcStatusTraffic sets the Service's status traffic block to the specified traffic targets.
+func WithSvcStatusTraffic(targets ...v1.TrafficTarget) ServiceOption {
+	return func(r *v1.Service) {
+		// Automatically inject URL into TrafficTarget status
+		for _, tt := range targets {
+			tt.URL = domains.URL(domains.HTTPScheme, tt.Tag+".example.com")
+		}
+		r.Status.Traffic = targets
+	}
+}
+
+// WithServiceLatestReadyRevision sets the latest ready revision on the Service's status.
+func WithServiceLatestReadyRevision(lrr string) ServiceOption {
+	return func(s *v1.Service) {
+		s.Status.LatestReadyRevisionName = lrr
+	}
+}
+
+// MarkConfigurationNotReconciled calls the function of the same name on the Service's status.
+func MarkConfigurationNotReconciled(service *v1.Service) {
+	service.Status.MarkConfigurationNotReconciled()
+}
+
+// WithServiceStatusRouteNotReady sets the `RoutesReady` condition on the service to `Unknown`.
+func WithServiceStatusRouteNotReady(s *v1.Service) {
+	s.Status.MarkRouteNotYetReady()
+}
+
+// MarkConfigurationNotOwned calls the function of the same name on the Service's status.
+func MarkConfigurationNotOwned(service *v1.Service) {
+	service.Status.MarkConfigurationNotOwned(servicenames.Configuration(service))
+}
+
+// MarkRouteNotOwned calls the function of the same name on the Service's status.
+func MarkRouteNotOwned(service *v1.Service) {
+	service.Status.MarkRouteNotOwned(servicenames.Route(service))
+}
+
+// WithFailedRoute reflects a Route's failure in the Service resource.
+func WithFailedRoute(reason, message string) ServiceOption {
+	return func(s *v1.Service) {
+		s.Status.PropagateRouteStatus(&v1.RouteStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:    "Ready",
+					Status:  "False",
+					Reason:  reason,
+					Message: message,
+				}},
+			},
+		})
+	}
+}
+
+// WithFailedConfig reflects the Configuration's failure in the Service
+// resource.  The failing revision's name is reflected in LatestCreated.
+func WithFailedConfig(name, reason, message string) ServiceOption {
+	return func(s *v1.Service) {
+		s.Status.PropagateConfigurationStatus(&v1.ConfigurationStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   "Ready",
+					Status: "False",
+					Reason: reason,
+					Message: fmt.Sprintf("Revision %q failed with message: %s.",
+						name, message),
+				}},
+			},
+			ConfigurationStatusFields: v1.ConfigurationStatusFields{
+				LatestCreatedRevisionName: name,
+			},
+		})
+	}
+}
+
+var (
+	// configSpec is the spec used for the different styles of Service rollout.
+	configSpec = v1.ConfigurationSpec{
+		Template: v1.RevisionTemplateSpec{
+			Spec: v1.RevisionSpec{
+				TimeoutSeconds: ptr.Int64(60),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
+				},
+			},
+		},
+	}
+)

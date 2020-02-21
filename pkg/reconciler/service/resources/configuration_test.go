@@ -17,107 +17,23 @@ limitations under the License.
 package resources
 
 import (
-	"context"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 
 	"knative.dev/serving/pkg/apis/serving"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
-func makeConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
-	// We do this prior to reconciliation, so test with it enabled.
-	service.SetDefaults(v1.WithUpgradeViaDefaulting(context.Background()))
-	return MakeConfiguration(service)
-}
-
-func TestRunLatest(t *testing.T) {
-	s := createServiceWithRunLatest()
-	c, _ := makeConfiguration(s)
+func TestConfigurationSpec(t *testing.T) {
+	s := createService()
+	c, _ := MakeConfiguration(s)
 	if got, want := c.Name, testServiceName; got != want {
 		t.Errorf("expected %q for service name got %q", want, got)
 	}
 	if got, want := c.Namespace, testServiceNamespace; got != want {
 		t.Errorf("expected %q for service namespace got %q", want, got)
 	}
-	if got, want := c.Spec.GetTemplate().Spec.GetContainer().Name, testContainerNameRunLatest; got != want {
-		t.Errorf("expected %q for container name got %q", want, got)
-	}
-	expectOwnerReferencesSetCorrectly(t, c.OwnerReferences)
-
-	if got, want := len(c.Labels), 3; got != want {
-		t.Errorf("expected %d labels got %d", want, got)
-	}
-	if got, want := c.Labels[testLabelKey], testLabelValueRunLatest; got != want {
-		t.Errorf("expected %q labels got %q", want, got)
-	}
-	if got, want := c.Labels[serving.ServiceLabelKey], testServiceName; got != want {
-		t.Errorf("expected %q labels got %q", want, got)
-	}
-}
-
-func TestPinned(t *testing.T) {
-	s := createServiceWithPinned()
-	c, _ := makeConfiguration(s)
-	if got, want := c.Name, testServiceName; got != want {
-		t.Errorf("expected %q for service name got %q", want, got)
-	}
-	if got, want := c.Namespace, testServiceNamespace; got != want {
-		t.Errorf("expected %q for service namespace got %q", want, got)
-	}
-	if got, want := c.Spec.GetTemplate().Spec.GetContainer().Name, testContainerNamePinned; got != want {
-		t.Errorf("expected %q for container name got %q", want, got)
-	}
-	expectOwnerReferencesSetCorrectly(t, c.OwnerReferences)
-
-	if got, want := len(c.Labels), 3; got != want {
-		t.Errorf("expected %d labels got %d", want, got)
-	}
-	if got, want := c.Labels[testLabelKey], testLabelValuePinned; got != want {
-		t.Errorf("expected %q labels got %q", want, got)
-	}
-	if got, want := c.Labels[serving.ServiceLabelKey], testServiceName; got != want {
-		t.Errorf("expected %q labels got %q", want, got)
-	}
-}
-
-func TestRelease(t *testing.T) {
-	s := createServiceWithRelease(1, 0)
-	c, _ := makeConfiguration(s)
-	if got, want := c.Name, testServiceName; got != want {
-		t.Errorf("expected %q for service name got %q", want, got)
-	}
-	if got, want := c.Namespace, testServiceNamespace; got != want {
-		t.Errorf("expected %q for service namespace got %q", want, got)
-	}
-	if got, want := c.Spec.GetTemplate().Spec.GetContainer().Name, testContainerNameRelease; got != want {
-		t.Errorf("expected %q for container name got %q", want, got)
-	}
-	expectOwnerReferencesSetCorrectly(t, c.OwnerReferences)
-
-	if got, want := len(c.Labels), 3; got != want {
-		t.Errorf("expected %d labels got %d", want, got)
-	}
-	if got, want := c.Labels[testLabelKey], testLabelValueRelease; got != want {
-		t.Errorf("expected %q labels got %q", want, got)
-	}
-	if got, want := c.Labels[serving.ServiceLabelKey], testServiceName; got != want {
-		t.Errorf("expected %q labels got %q", want, got)
-	}
-}
-
-func TestInlineConfigurationSpec(t *testing.T) {
-	s := createServiceInline()
-	c, _ := makeConfiguration(s)
-	if got, want := c.Name, testServiceName; got != want {
-		t.Errorf("expected %q for service name got %q", want, got)
-	}
-	if got, want := c.Namespace, testServiceNamespace; got != want {
-		t.Errorf("expected %q for service namespace got %q", want, got)
-	}
-	if got, want := c.Spec.GetTemplate().Spec.GetContainer().Name, testContainerNameInline; got != want {
+	if got, want := c.Spec.GetTemplate().Spec.GetContainer().Name, testContainerName; got != want {
 		t.Errorf("expected %q for container name got %q", want, got)
 	}
 	expectOwnerReferencesSetCorrectly(t, c.OwnerReferences)
@@ -132,7 +48,7 @@ func TestInlineConfigurationSpec(t *testing.T) {
 
 func TestConfigurationHasNoKubectlAnnotation(t *testing.T) {
 	s := createServiceWithKubectlAnnotation()
-	c, err := makeConfiguration(s)
+	c, err := MakeConfiguration(s)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
