@@ -42,7 +42,6 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	rtesting "knative.dev/pkg/reconciler/testing"
-	"knative.dev/serving/pkg/reconciler"
 )
 
 const (
@@ -87,7 +86,6 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 		eventRecorder := record.NewFakeRecorder(maxEventBufferSize)
 		ctx = controller.WithEventRecorder(ctx, eventRecorder)
 		statsReporter := &rtesting.FakeStatsReporter{}
-		ctx = reconciler.WithStatsReporter(ctx, statsReporter)
 
 		// This is needed for the tests that use generated names and
 		// the object cannot be created beforehand.
