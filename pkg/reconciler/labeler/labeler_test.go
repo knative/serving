@@ -22,9 +22,9 @@ import (
 	"testing"
 
 	// Inject the fake informers that this controller needs.
-	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/route/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
+	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,12 +35,11 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/reconciler"
 
 	. "knative.dev/pkg/reconciler/testing"
-	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
-	. "knative.dev/serving/pkg/testing/v1alpha1"
+	. "knative.dev/serving/pkg/reconciler/testing/v1"
+	. "knative.dev/serving/pkg/testing/v1"
 )
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
@@ -207,21 +206,19 @@ func TestReconcile(t *testing.T) {
 	}))
 }
 
-func routeWithTraffic(namespace, name string, traffic v1alpha1.TrafficTarget) *v1alpha1.Route {
+func routeWithTraffic(namespace, name string, traffic v1.TrafficTarget) *v1.Route {
 	return Route(namespace, name, WithStatusTraffic(traffic))
 }
 
-func simpleRunLatest(namespace, name, config string) *v1alpha1.Route {
-	return routeWithTraffic(namespace, name, v1alpha1.TrafficTarget{
-		TrafficTarget: v1.TrafficTarget{
-			RevisionName: config + "-dbnfd",
-			Percent:      ptr.Int64(100),
-		},
+func simpleRunLatest(namespace, name, config string) *v1.Route {
+	return routeWithTraffic(namespace, name, v1.TrafficTarget{
+		RevisionName: config + "-dbnfd",
+		Percent:      ptr.Int64(100),
 	})
 }
 
-func simpleConfig(namespace, name string, opts ...ConfigOption) *v1alpha1.Configuration {
-	cfg := &v1alpha1.Configuration{
+func simpleConfig(namespace, name string, opts ...ConfigOption) *v1.Configuration {
+	cfg := &v1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       namespace,
 			Name:            name,
@@ -238,9 +235,9 @@ func simpleConfig(namespace, name string, opts ...ConfigOption) *v1alpha1.Config
 	return cfg
 }
 
-func rev(namespace, name string, opts ...RevisionOption) *v1alpha1.Revision {
+func rev(namespace, name string, opts ...RevisionOption) *v1.Revision {
 	cfg := simpleConfig(namespace, name)
-	rev := &v1alpha1.Revision{
+	rev := &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       namespace,
 			Name:            cfg.Status.LatestCreatedRevisionName,
