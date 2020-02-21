@@ -30,9 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
+	servicereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/service"
 
-	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
@@ -64,48 +63,33 @@ type Reconciler struct {
 }
 
 // Check that our Reconciler implements controller.Reconciler
-var _ controller.Reconciler = (*Reconciler)(nil)
+var _ servicereconciler.Interface = (*Reconciler)(nil)
 
-// Reconcile compares the actual state with the desired, and attempts to
+// ReconcileKind compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Service resource
 // with the current status of the resource.
-func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
+func (c *Reconciler) ReconcileKind(ctx context.Context, s *v1alpha1.Service) pkgreconciler.Event {
+	// func (c *Reconciler) ReconcileKind(ctx context.Context, key string) error {
 	logger := logging.FromContext(ctx)
 
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		logger.Errorw("Invalid resource key", zap.Error(err))
-		return nil
-	}
-
-	// Get the Service resource with this namespace/name
-	original, err := c.serviceLister.Services(namespace).Get(name)
-	if apierrs.IsNotFound(err) {
-		// The resource may no longer exist, in which case we stop processing.
-		logger.Info("Service in work queue no longer exists")
-		return nil
-	} else if err != nil {
-		return err
-	}
-
-	if original.GetDeletionTimestamp() != nil {
-		return nil
-	}
-
 	// Don't modify the informers copy
-	service := original.DeepCopy()
+	service := s.DeepCopy()
 
 	// Reconcile this copy of the service and then write back any status
 	// updates regardless of whether the reconciliation errored out.
 	reconcileErr := c.reconcile(ctx, service)
-	if equality.Semantic.DeepEqual(original.Status, service.Status) {
+	if equality.Semantic.DeepEqual(s.Status, service.Status) {
 		// If we didn't change anything then don't call updateStatus.
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 
-	} else if uErr := c.updateStatus(original, service, logger); uErr != nil {
+	} else if uErr := c.updateStatus(s, service, logger); uErr != nil {
 		logger.Warnw("Failed to update service status", zap.Error(uErr))
+		// return event
+		// err := fmt.Errorf(
+		// 	"Failed to update status for Service %q: %v", service.Name, uErr)
+		// event := pkgreconciler.NewEvent(corev1.EventTypeWarning, "UpdateFailed", err.Error())
 		c.Recorder.Eventf(service, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for Service %q: %v", service.Name, uErr)
 		return uErr
@@ -114,14 +98,13 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		c.Recorder.Eventf(service, corev1.EventTypeNormal, "Updated", "Updated Service %q", service.GetName())
 	}
 	if reconcileErr != nil {
-		c.Recorder.Event(service, corev1.EventTypeWarning, "InternalError", reconcileErr.Error())
 		return reconcileErr
 	}
 	// TODO(mattmoor): Remove this after 0.7 cuts.
 	// If the spec has changed, then assume we need an upgrade and issue a patch to trigger
 	// the webhook to upgrade via defaulting.  Status updates do not trigger this due to the
 	// use of the /status resource.
-	if !equality.Semantic.DeepEqual(original.Spec, service.Spec) {
+	if !equality.Semantic.DeepEqual(s.Spec, service.Spec) {
 		services := v1alpha1.SchemeGroupVersion.WithResource("services")
 		if err := c.MarkNeedsUpgrade(services, service.Namespace, service.Name); err != nil {
 			return err

@@ -27,11 +27,13 @@ import (
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/route/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/service/fake"
+	servicereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/service"
 
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
@@ -45,11 +47,22 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
+	serviceconfig "knative.dev/serving/pkg/reconciler/service/config"
 
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
 	. "knative.dev/serving/pkg/testing/v1alpha1"
 )
+
+type testConfigStore struct {
+	config *serviceconfig.Config
+}
+
+var _ pkgreconciler.ConfigStore = (*testConfigStore)(nil)
+
+func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
+	return serviceconfig.ToContext(ctx, t.config)
+}
 
 // This is heavily based on the way the OpenShift Ingress controller tests its reconciliation method.
 func TestReconcile(t *testing.T) {
@@ -71,7 +84,7 @@ func TestReconcile(t *testing.T) {
 		Name: "inline - byo rev name used in traffic serialize, with retry",
 		Objects: []runtime.Object{
 			DefaultService("byo-rev", "foo", WithInlineNamedRevision),
-			config("byo-rev", "foo",
+			makeConfiguration("byo-rev", "foo",
 				WithInlineNamedRevision,
 				WithGeneration(2)),
 		},
@@ -104,7 +117,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			DefaultService("byo-rev", "foo", WithInlineNamedRevision,
 				WithServiceGeneration(2), WithServiceObservedGeneration),
-			config("byo-rev", "foo", WithInlineNamedRevision,
+			makeConfiguration("byo-rev", "foo", WithInlineNamedRevision,
 				WithGeneration(2), WithObservedGen),
 			route("byo-rev", "foo", WithInlineNamedRevision,
 				WithRouteGeneration(2), WithRouteObservedGeneration),
@@ -114,7 +127,7 @@ func TestReconcile(t *testing.T) {
 					Namespace: "foo",
 					OwnerReferences: []metav1.OwnerReference{
 						*metav1.NewControllerRef(
-							config("byo-rev", "foo", WithInlineNamedRevision),
+							makeConfiguration("byo-rev", "foo", WithInlineNamedRevision),
 							v1alpha1.SchemeGroupVersion.WithKind("Configuration"),
 						),
 					},
@@ -138,7 +151,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			DefaultService("byo-rev", "foo", WithInlineNamedRevision,
 				WithServiceGeneration(2), WithServiceObservedGeneration),
-			config("byo-rev", "foo", WithInlineNamedRevision,
+			makeConfiguration("byo-rev", "foo", WithInlineNamedRevision,
 				WithGeneration(2), WithObservedGen),
 			route("byo-rev", "foo", WithInlineNamedRevision,
 				WithRouteGeneration(2), WithRouteObservedGeneration),
@@ -159,7 +172,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			DefaultService("byo-rev", "foo", WithInlineNamedRevision,
 				WithServiceGeneration(2), WithServiceObservedGeneration),
-			config("byo-rev", "foo", WithInlineNamedRevision,
+			makeConfiguration("byo-rev", "foo", WithInlineNamedRevision,
 				WithGeneration(2), WithObservedGen),
 			route("byo-rev", "foo", WithInlineNamedRevision,
 				WithRouteGeneration(2), WithRouteObservedGeneration),
@@ -170,7 +183,7 @@ func TestReconcile(t *testing.T) {
 					Namespace: "foo",
 					OwnerReferences: []metav1.OwnerReference{
 						*metav1.NewControllerRef(
-							config("byo-rev", "foo", WithInlineNamedRevision),
+							makeConfiguration("byo-rev", "foo", WithInlineNamedRevision),
 							v1alpha1.SchemeGroupVersion.WithKind("Configuration"),
 						),
 					},
@@ -195,7 +208,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/byo-rev",
 		WantCreates: []runtime.Object{
-			config("byo-rev", "foo", WithInlineNamedRevision),
+			makeConfiguration("byo-rev", "foo", WithInlineNamedRevision),
 			route("byo-rev", "foo", WithInlineNamedRevision),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -215,7 +228,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/run-latest",
 		WantCreates: []runtime.Object{
-			config("run-latest", "foo", WithInlineRollout),
+			makeConfiguration("run-latest", "foo", WithInlineRollout),
 			route("run-latest", "foo", WithInlineRollout),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -235,7 +248,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/run-latest",
 		WantCreates: []runtime.Object{
-			config("run-latest", "foo", WithRunLatestRollout),
+			makeConfiguration("run-latest", "foo", WithRunLatestRollout),
 			route("run-latest", "foo", WithRunLatestRollout),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -262,7 +275,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/pinned",
 		WantCreates: []runtime.Object{
-			config("pinned", "foo", WithPinnedRollout("pinned-0001")),
+			makeConfiguration("pinned", "foo", WithPinnedRollout("pinned-0001")),
 			route("pinned", "foo", WithPinnedRollout("pinned-0001")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -291,7 +304,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/pinned2",
 		WantCreates: []runtime.Object{
-			config("pinned2", "foo", WithReleaseRollout("pinned2-0001")),
+			makeConfiguration("pinned2", "foo", WithReleaseRollout("pinned2-0001")),
 			route("pinned2", "foo", WithReleaseRollout("pinned2-0001")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -316,7 +329,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			DefaultService("pinned3", "foo", WithReleaseRollout("pinned3-00001"),
 				WithInitSvcConditions),
-			config("pinned3", "foo", WithReleaseRollout("pinned3-00001"),
+			makeConfiguration("pinned3", "foo", WithReleaseRollout("pinned3-00001"),
 				WithGeneration(1), WithObservedGen,
 				WithLatestCreated("pinned3-00001"),
 				WithLatestReady("pinned3-00001")),
@@ -381,7 +394,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/release",
 		WantCreates: []runtime.Object{
-			config("release", "foo", WithReleaseRollout("release-00001")),
+			makeConfiguration("release", "foo", WithReleaseRollout("release-00001")),
 			route("release", "foo", WithReleaseRollout(v1alpha1.ReleaseLatestRevisionKeyword)),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -408,7 +421,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/release",
 		WantCreates: []runtime.Object{
-			config("release", "foo", WithReleaseRollout("release-00001", "release-00002")),
+			makeConfiguration("release", "foo", WithReleaseRollout("release-00001", "release-00002")),
 			route("release", "foo", WithReleaseRollout("release-00001", "release-00002")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -432,7 +445,7 @@ func TestReconcile(t *testing.T) {
 		Name: "release - update service, route not ready",
 		Objects: []runtime.Object{
 			DefaultService("release-nr", "foo", WithReleaseRollout("release-nr-00002"), WithInitSvcConditions),
-			config("release-nr", "foo", WithReleaseRollout("release-nr-00002"),
+			makeConfiguration("release-nr", "foo", WithReleaseRollout("release-nr-00002"),
 				WithCreatedAndReady("release-nr-00002", "release-nr-00002")),
 			// NB: route points to the previous revision.
 			route("release-nr", "foo", WithReleaseRollout("release-nr-00002"), RouteReady,
@@ -471,7 +484,7 @@ func TestReconcile(t *testing.T) {
 		Name: "release - update service, route not ready, 2 rev, no split",
 		Objects: []runtime.Object{
 			DefaultService("release-nr", "foo", WithReleaseRollout("release-nr-00002", "release-nr-00003"), WithInitSvcConditions),
-			config("release-nr", "foo", WithReleaseRollout("release-nr-00002", "release-nr-00003"),
+			makeConfiguration("release-nr", "foo", WithReleaseRollout("release-nr-00002", "release-nr-00003"),
 				WithCreatedAndReady("release-nr-00003", "release-nr-00003")),
 			// NB: route points to the previous revision.
 			route("release-nr", "foo", WithReleaseRollout("release-nr-00002", "release-nr-00003"),
@@ -512,7 +525,7 @@ func TestReconcile(t *testing.T) {
 			DefaultService("release-nr-ts", "foo",
 				WithReleaseRolloutAndPercentage(42, "release-nr-ts-00002", "release-nr-ts-00003"),
 				WithInitSvcConditions),
-			config("release-nr-ts", "foo",
+			makeConfiguration("release-nr-ts", "foo",
 				WithReleaseRolloutAndPercentage(42, "release-nr-ts-00002", "release-nr-ts-00003"),
 				WithCreatedAndReady("release-nr-ts-00003", "release-nr-ts-00003")),
 			route("release-nr-ts", "foo",
@@ -564,7 +577,7 @@ func TestReconcile(t *testing.T) {
 			DefaultService("release-nr-ts2", "foo",
 				WithReleaseRolloutAndPercentage(58, "release-nr-ts2-00002", "release-nr-ts2-00003"),
 				WithInitSvcConditions),
-			config("release-nr-ts2", "foo",
+			makeConfiguration("release-nr-ts2", "foo",
 				WithReleaseRolloutAndPercentage(58, "release-nr-ts2-00002", "release-nr-ts2-00003"),
 				WithCreatedAndReady("release-nr-ts2-00003", "release-nr-ts2-00003")),
 			route("release-nr-ts2", "foo",
@@ -631,7 +644,7 @@ func TestReconcile(t *testing.T) {
 						RevisionName: "release-ready-lr-00001",
 					},
 				}}...), MarkTrafficAssigned, MarkIngressReady),
-			config("release-ready-lr", "foo", WithReleaseRollout("release-ready-lr"),
+			makeConfiguration("release-ready-lr", "foo", WithReleaseRollout("release-ready-lr"),
 				WithGeneration(1), WithObservedGen,
 				// These turn a Configuration to Ready=true
 				WithLatestCreated("release-ready-lr-00001"),
@@ -700,7 +713,7 @@ func TestReconcile(t *testing.T) {
 						RevisionName: "release-ready-lr-00002",
 					},
 				}}...), MarkTrafficAssigned, MarkIngressReady),
-			config("release-ready-lr", "foo", WithReleaseRollout("release-ready-lr"),
+			makeConfiguration("release-ready-lr", "foo", WithReleaseRollout("release-ready-lr"),
 				WithGeneration(2), WithObservedGen,
 				// These turn a Configuration to Ready=true
 				WithLatestCreated("release-ready-lr-00002"),
@@ -777,7 +790,7 @@ func TestReconcile(t *testing.T) {
 						Percent:      nil,
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
-			config("release-ready", "foo", WithRunLatestRollout,
+			makeConfiguration("release-ready", "foo", WithRunLatestRollout,
 				WithGeneration(2), WithObservedGen,
 				// These turn a Configuration to Ready=true
 				WithLatestCreated("release-ready-00002"), WithLatestReady("release-ready-00002")),
@@ -833,7 +846,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/release-with-percent",
 		WantCreates: []runtime.Object{
-			config("release-with-percent", "foo", WithReleaseRolloutAndPercentage(10, "release-with-percent-00001", "release-with-percent-00002")),
+			makeConfiguration("release-with-percent", "foo", WithReleaseRolloutAndPercentage(10, "release-with-percent-00001", "release-with-percent-00002")),
 			route("release-with-percent", "foo", WithReleaseRolloutAndPercentage(10, "release-with-percent-00001", "release-with-percent-00002")),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -858,7 +871,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			DefaultService("no-updates", "foo", WithRunLatestRollout, WithInitSvcConditions),
 			route("no-updates", "foo", WithRunLatestRollout),
-			config("no-updates", "foo", WithRunLatestRollout),
+			makeConfiguration("no-updates", "foo", WithRunLatestRollout),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{{
 			ActionImpl: clientgotesting.ActionImpl{
@@ -876,12 +889,12 @@ func TestReconcile(t *testing.T) {
 					s.Annotations = presources.UnionMaps(s.Annotations,
 						map[string]string{"new-key": "new-value"})
 				}),
-			config("update-annos", "foo", WithRunLatestRollout),
+			makeConfiguration("update-annos", "foo", WithRunLatestRollout),
 			route("update-annos", "foo", WithRunLatestRollout),
 		},
 		Key: "foo/update-annos",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: config("update-annos", "foo", WithRunLatestRollout,
+			Object: makeConfiguration("update-annos", "foo", WithRunLatestRollout,
 				func(s *v1alpha1.Configuration) {
 					s.Annotations = presources.UnionMaps(s.Annotations,
 						map[string]string{"new-key": "new-value"})
@@ -904,7 +917,7 @@ func TestReconcile(t *testing.T) {
 		Name: "runLatest - delete annotations",
 		Objects: []runtime.Object{
 			DefaultService("update-annos", "foo", WithRunLatestRollout, WithInitSvcConditions),
-			config("update-annos", "foo", WithRunLatestRollout,
+			makeConfiguration("update-annos", "foo", WithRunLatestRollout,
 				func(s *v1alpha1.Configuration) {
 					s.Annotations = presources.UnionMaps(s.Annotations,
 						map[string]string{"new-key": "new-value"})
@@ -917,7 +930,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/update-annos",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: config("update-annos", "foo", WithRunLatestRollout),
+			Object: makeConfiguration("update-annos", "foo", WithRunLatestRollout),
 		}, {
 			Object: route("update-annos", "foo", WithRunLatestRollout),
 		}},
@@ -933,14 +946,14 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			DefaultService("update-route-and-config", "foo", WithRunLatestRollout, WithInitSvcConditions),
 			// Mutate the Config/Route to have a different body than we want.
-			config("update-route-and-config", "foo", WithRunLatestRollout,
+			makeConfiguration("update-route-and-config", "foo", WithRunLatestRollout,
 				// This is just an unexpected mutation of the config spec vs. the service spec.
 				WithConfigContainerConcurrency(5)),
 			route("update-route-and-config", "foo", WithRunLatestRollout, MutateRoute),
 		},
 		Key: "foo/update-route-and-config",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: config("update-route-and-config", "foo", WithRunLatestRollout),
+			Object: makeConfiguration("update-route-and-config", "foo", WithRunLatestRollout),
 		}, {
 			Object: route("update-route-and-config", "foo", WithRunLatestRollout),
 		}},
@@ -958,7 +971,7 @@ func TestReconcile(t *testing.T) {
 				svc.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Name = "update-route-and-config-blah"
 			}, WithInitSvcConditions),
 			// Mutate the Config/Route to have a different body than we want.
-			config("update-route-and-config", "foo", WithRunLatestRollout,
+			makeConfiguration("update-route-and-config", "foo", WithRunLatestRollout,
 				// Change the concurrency to ensure it is corrected.
 				WithConfigContainerConcurrency(5)),
 			route("update-route-and-config", "foo", WithRunLatestRollout, MutateRoute),
@@ -972,7 +985,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/update-route-and-config",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: config("update-route-and-config", "foo", WithRunLatestRollout,
+			Object: makeConfiguration("update-route-and-config", "foo", WithRunLatestRollout,
 				func(cfg *v1alpha1.Configuration) {
 					cfg.Spec.GetTemplate().Name = "update-route-and-config-blah"
 				}),
@@ -999,12 +1012,12 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			// Mutate the Service to add some more labels
 			DefaultService("update-route-and-config-labels", "foo", WithRunLatestRollout, WithInitSvcConditions, WithServiceLabel("new-label", "new-value")),
-			config("update-route-and-config-labels", "foo", WithRunLatestRollout),
+			makeConfiguration("update-route-and-config-labels", "foo", WithRunLatestRollout),
 			route("update-route-and-config-labels", "foo", WithRunLatestRollout),
 		},
 		Key: "foo/update-route-and-config-labels",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: config("update-route-and-config-labels", "foo", WithRunLatestRollout, WithConfigLabel("new-label", "new-value")),
+			Object: makeConfiguration("update-route-and-config-labels", "foo", WithRunLatestRollout, WithConfigLabel("new-label", "new-value")),
 		}, {
 			Object: route("update-route-and-config-labels", "foo", WithRunLatestRollout, WithRouteLabel(map[string]string{"new-label": "new-value",
 				"serving.knative.dev/service": "update-route-and-config-labels"})),
@@ -1022,13 +1035,13 @@ func TestReconcile(t *testing.T) {
 			// Mutate the Service to add some more labels
 			DefaultService("update-child-labels-ignore-route-label", "foo",
 				WithRunLatestRollout, WithInitSvcConditions, WithServiceLabel("new-label", "new-value")),
-			config("update-child-labels-ignore-route-label", "foo",
+			makeConfiguration("update-child-labels-ignore-route-label", "foo",
 				WithRunLatestRollout, WithConfigLabel("serving.knative.dev/route", "update-child-labels-ignore-route-label")),
 			route("update-child-labels-ignore-route-label", "foo", WithRunLatestRollout),
 		},
 		Key: "foo/update-child-labels-ignore-route-label",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: config("update-child-labels-ignore-route-label", "foo", WithRunLatestRollout, WithConfigLabel("new-label", "new-value"),
+			Object: makeConfiguration("update-child-labels-ignore-route-label", "foo", WithRunLatestRollout, WithConfigLabel("new-label", "new-value"),
 				WithConfigLabel("serving.knative.dev/route", "update-child-labels-ignore-route-label")),
 		}, {
 			Object: route("update-child-labels-ignore-route-label", "foo", WithRunLatestRollout, WithRouteLabel(map[string]string{"new-label": "new-value",
@@ -1050,13 +1063,13 @@ func TestReconcile(t *testing.T) {
 				func(svc *v1alpha1.Service) {
 					svc.Spec.DeprecatedRunLatest.Configuration.GetTemplate().Spec.GetContainer().Image = "#"
 				}),
-			config("bad-config-update", "foo", WithRunLatestRollout),
+			makeConfiguration("bad-config-update", "foo", WithRunLatestRollout),
 			route("bad-config-update", "foo", WithRunLatestRollout),
 		},
 		Key:     "foo/bad-config-update",
 		WantErr: true,
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: config("bad-config-update", "foo", WithRunLatestRollout,
+			Object: makeConfiguration("bad-config-update", "foo", WithRunLatestRollout,
 				func(cfg *v1alpha1.Configuration) {
 					cfg.Spec.GetTemplate().Spec.GetContainer().Image = "#"
 				}),
@@ -1077,7 +1090,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/create-route-failure",
 		WantCreates: []runtime.Object{
-			config("create-route-failure", "foo", WithRunLatestRollout),
+			makeConfiguration("create-route-failure", "foo", WithRunLatestRollout),
 			route("create-route-failure", "foo", WithRunLatestRollout),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -1103,7 +1116,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/create-config-failure",
 		WantCreates: []runtime.Object{
-			config("create-config-failure", "foo", WithRunLatestRollout),
+			makeConfiguration("create-config-failure", "foo", WithRunLatestRollout),
 			// We don't get to creating the Route.
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -1127,7 +1140,7 @@ func TestReconcile(t *testing.T) {
 			DefaultService("update-route-failure", "foo", WithRunLatestRollout, WithInitSvcConditions),
 			// Mutate the Route to have an unexpected body to trigger an update.
 			route("update-route-failure", "foo", WithRunLatestRollout, MutateRoute),
-			config("update-route-failure", "foo", WithRunLatestRollout),
+			makeConfiguration("update-route-failure", "foo", WithRunLatestRollout),
 		},
 		Key: "foo/update-route-failure",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -1147,13 +1160,13 @@ func TestReconcile(t *testing.T) {
 			DefaultService("update-config-failure", "foo", WithRunLatestRollout, WithInitSvcConditions),
 			route("update-config-failure", "foo", WithRunLatestRollout),
 			// Mutate the Config to have an unexpected body to trigger an update.
-			config("update-config-failure", "foo", WithRunLatestRollout,
+			makeConfiguration("update-config-failure", "foo", WithRunLatestRollout,
 				// This is just an unexpected mutation of the config spec vs. the service spec.
 				WithConfigContainerConcurrency(5)),
 		},
 		Key: "foo/update-config-failure",
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
-			Object: config("update-config-failure", "foo", WithRunLatestRollout),
+			Object: makeConfiguration("update-config-failure", "foo", WithRunLatestRollout),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeWarning, "InternalError", "failed to reconcile Configuration: inducing failure for update configurations"),
@@ -1170,7 +1183,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "foo/run-latest",
 		WantCreates: []runtime.Object{
-			config("run-latest", "foo", WithRunLatestRollout),
+			makeConfiguration("run-latest", "foo", WithRunLatestRollout),
 			route("run-latest", "foo", WithRunLatestRollout),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -1184,6 +1197,7 @@ func TestReconcile(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "run-latest"),
 			Eventf(corev1.EventTypeWarning, "UpdateFailed", "Failed to update status for Service %q: %v",
 				"run-latest", "inducing failure for update services"),
+			Eventf(corev1.EventTypeWarning, "InternalError", "inducing failure for update services"),
 		},
 	}, {
 		Name: "runLatest - route and config ready, propagate ready",
@@ -1198,7 +1212,7 @@ func TestReconcile(t *testing.T) {
 						Percent:      ptr.Int64(100),
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
-			config("all-ready", "foo", WithRunLatestRollout,
+			makeConfiguration("all-ready", "foo", WithRunLatestRollout,
 				WithGeneration(1), WithObservedGen,
 				// These turn a Configuration to Ready=true
 				WithLatestCreated("all-ready-00001"), WithLatestReady("all-ready-00001")),
@@ -1243,7 +1257,7 @@ func TestReconcile(t *testing.T) {
 						Percent:      ptr.Int64(100),
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
-			config("all-ready", "foo", WithRunLatestRollout,
+			makeConfiguration("all-ready", "foo", WithRunLatestRollout,
 				WithGeneration(1), WithObservedGen, WithGeneration(2),
 				// These turn a Configuration to Ready=true
 				WithLatestCreated("all-ready-00001"), WithLatestReady("all-ready-00001")),
@@ -1286,7 +1300,7 @@ func TestReconcile(t *testing.T) {
 						Percent:      ptr.Int64(100),
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
-			config("config-only-ready", "foo", WithRunLatestRollout,
+			makeConfiguration("config-only-ready", "foo", WithRunLatestRollout,
 				WithGeneration(2 /*will generate revision -00002*/), WithObservedGen,
 				// These turn a Configuration to Ready=true
 				WithLatestCreated("config-only-ready-00002"), WithLatestReady("config-only-ready-00002")),
@@ -1328,7 +1342,7 @@ func TestReconcile(t *testing.T) {
 						Percent:      ptr.Int64(100),
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
-			config("config-fails", "foo", WithRunLatestRollout, WithGeneration(2),
+			makeConfiguration("config-fails", "foo", WithRunLatestRollout, WithGeneration(2),
 				WithLatestReady("config-fails-00001"), WithLatestCreated("config-fails-00002"),
 				MarkLatestCreatedFailed("blah"), WithObservedGen),
 		},
@@ -1361,7 +1375,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			DefaultService("config-fails", "foo", WithRunLatestRollout, WithInitSvcConditions),
 			route("config-fails", "foo", WithRunLatestRollout, RouteReady),
-			config("config-fails", "foo", WithRunLatestRollout, WithGeneration(1), WithObservedGen,
+			makeConfiguration("config-fails", "foo", WithRunLatestRollout, WithGeneration(1), WithObservedGen,
 				WithLatestCreated("config-fails-00001"), MarkLatestCreatedFailed("blah")),
 		},
 		Key: "foo/config-fails",
@@ -1387,7 +1401,7 @@ func TestReconcile(t *testing.T) {
 			DefaultService("route-fails", "foo", WithRunLatestRollout, WithInitSvcConditions),
 			route("route-fails", "foo", WithRunLatestRollout,
 				RouteFailed("Propagate me, please", "")),
-			config("route-fails", "foo", WithRunLatestRollout, WithGeneration(1), WithObservedGen,
+			makeConfiguration("route-fails", "foo", WithRunLatestRollout, WithGeneration(1), WithObservedGen,
 				// These turn a Configuration to Ready=true
 				WithLatestCreated("route-fails-00001"), WithLatestReady("route-fails-00001")),
 		},
@@ -1414,7 +1428,7 @@ func TestReconcile(t *testing.T) {
 		WantErr: true,
 		Objects: []runtime.Object{
 			DefaultService("run-latest", "foo", WithRunLatestRollout),
-			config("run-latest", "foo", WithRunLatestRollout, WithConfigOwnersRemoved),
+			makeConfiguration("run-latest", "foo", WithRunLatestRollout, WithConfigOwnersRemoved),
 		},
 		Key: "foo/run-latest",
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
@@ -1430,7 +1444,7 @@ func TestReconcile(t *testing.T) {
 		WantErr: true,
 		Objects: []runtime.Object{
 			DefaultService("run-latest", "foo", WithRunLatestRollout),
-			config("run-latest", "foo", WithRunLatestRollout),
+			makeConfiguration("run-latest", "foo", WithRunLatestRollout),
 			route("run-latest", "foo", WithRunLatestRollout, WithRouteOwnersRemoved),
 		},
 		Key: "foo/run-latest",
@@ -1459,7 +1473,7 @@ func TestReconcile(t *testing.T) {
 						Percent:      ptr.Int64(100),
 					},
 				}), MarkTrafficAssigned, MarkIngressReady),
-			config("new-owner", "foo", WithRunLatestRollout, WithGeneration(1), WithObservedGen,
+			makeConfiguration("new-owner", "foo", WithRunLatestRollout, WithGeneration(1), WithObservedGen,
 				// These turn a Configuration to Ready=true
 				WithLatestCreated("new-owner-00001"), WithLatestReady("new-owner-00001")),
 		},
@@ -1494,7 +1508,7 @@ func TestReconcile(t *testing.T) {
 		Name: "service is has new defaults after upgrade; config should not be updated",
 		Objects: []runtime.Object{
 			DefaultService("release-no-change-config", "foo", WithInitSvcConditions, WithInlineRollout),
-			config("release-no-change-config", "foo", WithRunLatestRollout,
+			makeConfiguration("release-no-change-config", "foo", WithRunLatestRollout,
 				func(configuration *v1alpha1.Configuration) {
 					// The ContainerConcurrency is not set here, but it is set on the default service.
 					// The reconciler should ignore this difference because after setting on default on the
@@ -1526,7 +1540,7 @@ func TestReconcile(t *testing.T) {
 					},
 				}),
 			),
-			config("release-no-change-route", "foo", WithRunLatestRollout),
+			makeConfiguration("release-no-change-route", "foo", WithRunLatestRollout),
 			route("release-no-change-route", "foo", WithRunLatestRollout,
 				func(ro *v1alpha1.Route) {
 					ro.Spec.Traffic = []v1alpha1.TrafficTarget{{
@@ -1553,14 +1567,21 @@ func TestReconcile(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		retryAttempted = false
-		return &Reconciler{
+		r := &Reconciler{
 			Base:                reconciler.NewBase(ctx, controllerAgentName, cmw),
 			serviceLister:       listers.GetServiceLister(),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
 			routeLister:         listers.GetRouteLister(),
 		}
+
+		return servicereconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetServiceLister(), r.Recorder, r, controller.Options{ConfigStore: &testConfigStore{config: ReconcilerTestConfig(false)}})
+
 	}))
+}
+
+func ReconcilerTestConfig(enableAutoTLS bool) *serviceconfig.Config {
+	return &serviceconfig.Config{}
 }
 
 func TestNew(t *testing.T) {
@@ -1573,7 +1594,7 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func config(name, namespace string, so ServiceOption, co ...ConfigOption) *v1alpha1.Configuration {
+func makeConfiguration(name, namespace string, so ServiceOption, co ...ConfigOption) *v1alpha1.Configuration {
 	s := DefaultService(name, namespace, so)
 	s.SetDefaults(v1.WithUpgradeViaDefaulting(context.Background()))
 	cfg, err := resources.MakeConfiguration(s)
@@ -1631,7 +1652,7 @@ func RouteFailed(reason, message string) RouteOption {
 }
 
 func rev(name, namespace string, so ServiceOption, co ...ConfigOption) *v1alpha1.Revision {
-	cfg := config(name, namespace, so, co...)
+	cfg := makeConfiguration(name, namespace, so, co...)
 
 	cfgV1 := &v1.Configuration{}
 	cfg.ConvertUp(context.Background(), cfgV1)

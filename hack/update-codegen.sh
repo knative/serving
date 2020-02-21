@@ -77,6 +77,7 @@ ${GOPATH}/bin/deepcopy-gen \
   -i knative.dev/serving/pkg/reconciler/gc/config \
   -i knative.dev/serving/pkg/reconciler/revision/config \
   -i knative.dev/serving/pkg/reconciler/route/config \
+  -i knative.dev/serving/pkg/reconciler/service/config \
   -i knative.dev/serving/pkg/activator/config \
   -i knative.dev/serving/pkg/autoscaler \
   -i knative.dev/serving/pkg/autoscaler/config \
