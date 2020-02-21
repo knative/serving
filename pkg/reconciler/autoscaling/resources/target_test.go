@@ -55,7 +55,7 @@ func TestResolveMetricTarget(t *testing.T) {
 			c.ContainerConcurrencyTargetDefault = 2
 			return &c
 		},
-		wantTgt: 1,
+		wantTgt: 0.6,
 		wantTot: 2,
 	}, {
 		name: "with container concurrency 12 and TU=80%, but TU annotation 75%",
@@ -82,7 +82,7 @@ func TestResolveMetricTarget(t *testing.T) {
 			c.ContainerConcurrencyTargetFraction = 0.8
 			return &c
 		},
-		wantTgt: 1, // Not permitting less than 1.
+		wantTgt: 0.8,
 		wantTot: 1,
 	}, {
 		name:    "with container concurrency 1",
@@ -109,13 +109,22 @@ func TestResolveMetricTarget(t *testing.T) {
 		wantTgt: 1,
 		wantTot: 1,
 	}, {
+		name: "with target annotation 1 and TU=0.1%",
+		pa:   pa(WithTargetAnnotation("1")),
+		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
+			c.ContainerConcurrencyTargetFraction = 0.001
+			return &c
+		},
+		wantTgt: autoscaling.TargetMin,
+		wantTot: 1,
+	}, {
 		name: "with target annotation 1 and TU=75%",
 		pa:   pa(WithTargetAnnotation("1")),
 		cfgOpt: func(c autoscalerconfig.Config) *autoscalerconfig.Config {
 			c.ContainerConcurrencyTargetFraction = 0.75
 			return &c
 		},
-		wantTgt: 1,
+		wantTgt: 0.75,
 		wantTot: 1,
 	}, {
 		name: "with target annotation 10 and TU=75%",
@@ -149,7 +158,7 @@ func TestResolveMetricTarget(t *testing.T) {
 	}, {
 		name:    "RPS: with target annotation 1",
 		pa:      pa(WithMetricAnnotation(autoscaling.RPS), WithTargetAnnotation("1")),
-		wantTgt: 1,
+		wantTgt: 0.7,
 		wantTot: 1,
 	}, {
 		name:    "RPS: with TU annotation 75%",
@@ -171,7 +180,7 @@ func TestResolveMetricTarget(t *testing.T) {
 			}
 			gotTgt, gotTot := ResolveMetricTarget(tc.pa, cfg)
 			if gotTgt != tc.wantTgt || gotTot != tc.wantTot {
-				t.Errorf("ResolveMetricTarget(%v, %v) = (%v, %v), want (%v, %v)",
+				t.Errorf("ResolveMetricTarget(%#v, %#v) = (%#v, %#v), want (%#v, %#v)",
 					tc.pa, config, gotTgt, gotTot, tc.wantTgt, tc.wantTot)
 			}
 		})

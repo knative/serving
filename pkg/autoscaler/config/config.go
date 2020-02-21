@@ -202,7 +202,7 @@ func validate(lc *Config) (*Config, error) {
 	}
 
 	if x := lc.ContainerConcurrencyTargetFraction * lc.ContainerConcurrencyTargetDefault; x < autoscaling.TargetMin {
-		return nil, fmt.Errorf("container-concurrency-target-percentage and container-concurrency-target-default yield target concurrency of %f, can't be less than 1", x)
+		return nil, fmt.Errorf("container-concurrency-target-percentage and container-concurrency-target-default yield target concurrency of %v, can't be less than %v", x, autoscaling.TargetMin)
 	}
 
 	if lc.RPSTargetDefault < autoscaling.TargetMin {
