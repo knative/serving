@@ -26,12 +26,10 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	"knative.dev/pkg/apis"
-	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/profiling"
 	"knative.dev/serving/pkg/apis/networking"
 )
@@ -270,26 +268,7 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 		}
 	}
 
-	// Make a dummy pod with the template PodSpec and dryrun call to API-server
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "dummyValidName",
-			Namespace: "dummyValidNamespace",
-		},
-		Spec: ps,
-	}
-	if _, err := dryRun(ctx, pod); err != nil {
-		errs = errs.Also(apis.ErrGeneric("PodSpec dry run failed: "+err.Error(), "spec.template.spec.podSpec"))
-	}
-
 	return errs
-}
-
-func dryRun(ctx context.Context, pod *corev1.Pod) (*corev1.Pod, error) {
-	client := kubeclient.Get(ctx)
-	pods := client.CoreV1().Pods(pod.GetNamespace())
-	options := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
-	return pods.CreateWithOptions(ctx, pod, options)
 }
 
 func ValidateContainer(container corev1.Container, volumes sets.String) *apis.FieldError {
