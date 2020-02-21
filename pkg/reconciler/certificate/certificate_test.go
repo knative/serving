@@ -55,7 +55,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/certificate/resources"
 
 	. "knative.dev/pkg/reconciler/testing"
-	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
+	. "knative.dev/serving/pkg/reconciler/testing/v1"
 )
 
 const generation = 23132
