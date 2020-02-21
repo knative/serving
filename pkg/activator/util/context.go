@@ -25,20 +25,20 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 type revisionKey struct{}
 type revIDKey struct{}
 
 // WithRevision attaches the Revision object to the context.
-func WithRevision(ctx context.Context, rev *v1alpha1.Revision) context.Context {
+func WithRevision(ctx context.Context, rev *v1.Revision) context.Context {
 	return context.WithValue(ctx, revisionKey{}, rev)
 }
 
 // RevisionFrom retrieves the Revision object from the context.
-func RevisionFrom(ctx context.Context) *v1alpha1.Revision {
-	return ctx.Value(revisionKey{}).(*v1alpha1.Revision)
+func RevisionFrom(ctx context.Context) *v1.Revision {
+	return ctx.Value(revisionKey{}).(*v1.Revision)
 }
 
 // WithRevID attaches the the revisionID to the context.

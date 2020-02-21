@@ -24,11 +24,10 @@ import (
 	"strconv"
 	"testing"
 
-	"knative.dev/serving/pkg/activator"
-
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/metrics/metricskey"
 	"knative.dev/pkg/metrics/metricstest"
+	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/serving"
 )

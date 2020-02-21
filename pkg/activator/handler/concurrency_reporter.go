@@ -29,8 +29,8 @@ import (
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
 	asmetrics "knative.dev/serving/pkg/autoscaler/metrics"
-	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
-	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
+	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
 	"knative.dev/serving/pkg/metrics"
 )
 

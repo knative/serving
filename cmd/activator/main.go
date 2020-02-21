@@ -36,7 +36,7 @@ import (
 	// Injection related imports.
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/injection"
-	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 

@@ -43,10 +43,10 @@ import (
 	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/networking"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
-	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
+	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	"knative.dev/serving/pkg/queue"
 )
 
@@ -214,7 +214,7 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 	// Add the revision we're testing.
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
 	revision := revisionCC1(revID, networking.ProtocolHTTP1)
-	servfake.ServingV1alpha1().Revisions(revision.Namespace).Create(revision)
+	servfake.ServingV1().Revisions(revision.Namespace).Create(revision)
 	revisions.Informer().GetIndexer().Add(revision)
 
 	throttler := newTestThrottler(ctx, 1)
@@ -235,7 +235,7 @@ func TestThrottlerErrorNoRevision(t *testing.T) {
 		t.Fatalf("Try() = %v, want %v", err, innerError)
 	}
 
-	servfake.ServingV1alpha1().Revisions(revision.Namespace).Delete(revision.Name, nil)
+	servfake.ServingV1().Revisions(revision.Namespace).Delete(revision.Name, nil)
 	revisions.Informer().GetIndexer().Delete(revID)
 
 	// Eventually it should now fail.
@@ -265,7 +265,7 @@ func TestThrottlerErrorOneTimesOut(t *testing.T) {
 	// Add the revision we're testing.
 	revID := types.NamespacedName{Namespace: testNamespace, Name: testRevision}
 	revision := revisionCC1(revID, networking.ProtocolHTTP1)
-	servfake.ServingV1alpha1().Revisions(revision.Namespace).Create(revision)
+	servfake.ServingV1().Revisions(revision.Namespace).Create(revision)
 	revisions.Informer().GetIndexer().Add(revision)
 
 	throttler := newTestThrottler(ctx, 1)
@@ -301,7 +301,7 @@ func TestThrottlerErrorOneTimesOut(t *testing.T) {
 func TestThrottlerSuccesses(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
-		revision    *v1alpha1.Revision
+		revision    *v1.Revision
 		initUpdates []revisionDestsUpdate
 		requests    int
 		wantDests   sets.String
@@ -391,7 +391,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 			}()
 
 			// Add the revision were testing.
-			servfake.ServingV1alpha1().Revisions(tc.revision.Namespace).Create(tc.revision)
+			servfake.ServingV1().Revisions(tc.revision.Namespace).Create(tc.revision)
 			revisions.Informer().GetIndexer().Add(tc.revision)
 
 			throttler := newTestThrottler(ctx, 1)
@@ -547,7 +547,7 @@ func TestMultipleActivators(t *testing.T) {
 
 	rev := revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1)
 	// Add the revision we're testing.
-	servfake.ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
+	servfake.ServingV1().Revisions(rev.Namespace).Create(rev)
 	revisions.Informer().GetIndexer().Add(rev)
 
 	throttler := NewThrottler(ctx, defaultParams, "130.0.0.2:8012")
