@@ -25,17 +25,18 @@ import (
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
-	pkgreconciler "knative.dev/pkg/reconciler"
+	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/tracker"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	ingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress"
+	ingressreconciler "knative.dev/serving/pkg/client/injection/reconciler/networking/v1alpha1/ingress"
 	istioclient "knative.dev/serving/pkg/client/istio/injection/client"
 	gatewayinformer "knative.dev/serving/pkg/client/istio/injection/informers/networking/v1alpha3/gateway"
 	virtualserviceinformer "knative.dev/serving/pkg/client/istio/injection/informers/networking/v1alpha3/virtualservice"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/network/status"
-	"knative.dev/serving/pkg/reconciler"
+	pkgreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/ingress/config"
 
 	corev1 "k8s.io/api/core/v1"
@@ -47,10 +48,20 @@ const (
 	controllerAgentName = "ingress-controller"
 )
 
+type ingressOption func(*Reconciler)
+
 // NewController works as a constructor for Ingress Controller
 func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
+) *controller.Impl {
+	return newControllerWithOptions(ctx, cmw)
+}
+
+func newControllerWithOptions(
+	ctx context.Context,
+	cmw configmap.Watcher,
+	opts ...ingressOption,
 ) *controller.Impl {
 	virtualServiceInformer := virtualserviceinformer.Get(ctx)
 	gatewayInformer := gatewayinformer.Get(ctx)
@@ -58,18 +69,30 @@ func NewController(
 	ingressInformer := ingressinformer.Get(ctx)
 
 	c := &Reconciler{
-		Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
+		Base:                 pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
 		istioClientSet:       istioclient.Get(ctx),
 		virtualServiceLister: virtualServiceInformer.Lister(),
 		gatewayLister:        gatewayInformer.Lister(),
 		secretLister:         secretInformer.Lister(),
-		ingressLister:        ingressInformer.Lister(),
 		finalizer:            ingressFinalizer,
 	}
-	impl := controller.NewImpl(c, c.Logger, "Ingresses")
+	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
+
+	impl := ingressreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
+		c.Logger.Info("Setting up ConfigMap receivers")
+		configsToResync := []interface{}{
+			&config.Istio{},
+			&network.Config{},
+		}
+		resyncIngressesOnConfigChange := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
+			impl.FilteredGlobalResync(myFilterFunc, ingressInformer.Informer())
+		})
+		configStore := config.NewStore(c.Logger.Named("config-store"), resyncIngressesOnConfigChange)
+		configStore.WatchConfigs(cmw)
+		return controller.Options{ConfigStore: configStore}
+	})
 
 	c.Logger.Info("Setting up Ingress event handlers")
-	myFilterFunc := pkgreconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
 	ingressHandler := cache.FilteringResourceEventHandler{
 		FilterFunc: myFilterFunc,
 		Handler:    controller.HandleAll(impl.Enqueue),
@@ -80,18 +103,6 @@ func NewController(
 		FilterFunc: myFilterFunc,
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
-
-	c.Logger.Info("Setting up ConfigMap receivers")
-	configsToResync := []interface{}{
-		&config.Istio{},
-		&network.Config{},
-	}
-	resyncIngressesOnConfigChange := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
-		impl.FilteredGlobalResync(myFilterFunc, ingressInformer.Informer())
-	})
-	configStore := config.NewStore(c.Logger.Named("config-store"), resyncIngressesOnConfigChange)
-	configStore.WatchConfigs(cmw)
-	c.configStore = configStore
 
 	c.Logger.Info("Setting up statusManager")
 	endpointsInformer := endpointsinformer.Get(ctx)
@@ -130,6 +141,8 @@ func NewController(
 			corev1.SchemeGroupVersion.WithKind("Secret"),
 		),
 	))
-
+	for _, opt := range opts {
+		opt(c)
+	}
 	return impl
 }
