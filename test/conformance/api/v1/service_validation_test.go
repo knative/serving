@@ -52,7 +52,7 @@ func TestServiceValidationWithInvalidServiceAccount(t *testing.T) {
 	if err == nil {
 		t.Fatal("Expected Service creation to fail")
 	}
-	if got, want := err.Error(), "serviceAccountName: spec.template.spec."+invalidServiceAccountName; !strings.Contains(got, want) {
+	if got, want := err.Error(), "error looking up service account "+invalidServiceAccountName; !strings.Contains(got, want) {
 		t.Errorf("Error = %q, want to contain = %q", got, want)
 	}
 }

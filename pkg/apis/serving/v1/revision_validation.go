@@ -68,31 +68,6 @@ func (rts *RevisionTemplateSpec) Validate(ctx context.Context) *apis.FieldError 
 	errs = errs.Also(serving.ValidateRevisionName(ctx, rts.Name, rts.GenerateName))
 	errs = errs.Also(serving.ValidateQueueSidecarAnnotation(rts.Annotations).ViaField("metadata.annotations"))
 
-	namespace := rts.ObjectMeta.Namespace
-	if namespace == "" {
-		namespace = system.Namespace()
-	}
-
-	// Create a dummy Revision from the template
-	rev := &Revision{
-		ObjectMeta: rts.ObjectMeta,
-		Spec:       rts.Spec,
-	}
-	userContainer := MakeUserContainer(rev)
-	podSpec := MakePodSpec(rev, []corev1.Container{*userContainer})
-
-	// Make a dummy pod with the template Revions & PodSpec and dryrun call to API-server
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "dry-run-validation",
-			Namespace: namespace,
-		},
-		Spec: *podSpec,
-	}
-	if _, err := dryRun(ctx, pod); err != nil {
-		errs = errs.Also(apis.ErrGeneric("PodSpec dry run failed: "+err.Error(), "spec.template.spec.podSpec"))
-	}
-
 	return errs
 }
 
@@ -134,6 +109,28 @@ func (current *RevisionTemplateSpec) VerifyNameChange(ctx context.Context, og Re
 // Validate implements apis.Validatable
 func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
 	errs := serving.ValidatePodSpec(ctx, rs.PodSpec)
+
+	om := metav1.ObjectMeta{
+		Name:      "dry-run-validation",
+		Namespace: system.Namespace(),
+	}
+
+	// Create a dummy Revision from the template
+	rev := &Revision{
+		ObjectMeta: om,
+		Spec:       *rs,
+	}
+	userContainer := MakeUserContainer(rev)
+	podSpec := MakePodSpec(rev, []corev1.Container{*userContainer})
+
+	// Make a dummy pod with the template Revions & PodSpec and dryrun call to API-server
+	pod := &corev1.Pod{
+		ObjectMeta: om,
+		Spec:       *podSpec,
+	}
+	if _, err := dryRun(ctx, pod); err != nil {
+		errs = errs.Also(apis.ErrGeneric("PodSpec dry run failed: "+err.Error(), "PodSpec"))
+	}
 
 	if rs.TimeoutSeconds != nil {
 		errs = errs.Also(serving.ValidateTimeoutSeconds(ctx, *rs.TimeoutSeconds))

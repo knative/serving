@@ -23,6 +23,7 @@ import (
 	"knative.dev/pkg/apis"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	"knative.dev/pkg/ptr"
+	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 

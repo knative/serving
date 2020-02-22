@@ -13,16 +13,16 @@ import (
 
 const (
 	VarLogVolumeName = "knative-var-log"
-	varLogVolumePath = "/var/log"
+	VarLogVolumePath = "/var/log"
 )
 
 var (
-	varLogVolumeMount = corev1.VolumeMount{
+	VarLogVolumeMount = corev1.VolumeMount{
 		Name:      VarLogVolumeName,
-		MountPath: varLogVolumePath,
+		MountPath: VarLogVolumePath,
 	}
 
-	varLogVolume = corev1.Volume{
+	VarLogVolume = corev1.Volume{
 		Name: VarLogVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
@@ -33,7 +33,7 @@ var (
 	// because of the way PreStop hooks are called by kubelet. We use this
 	// to block the user-container from exiting before the queue-proxy is ready
 	// to exit so we can guarantee that there are no more requests in flight.
-	userLifecycle = &corev1.Lifecycle{
+	UserLifecycle = &corev1.Lifecycle{
 		PreStop: &corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Port: intstr.FromInt(networking.QueueAdminPort),
@@ -43,14 +43,14 @@ var (
 	}
 )
 
-func buildContainerPorts(userPort int32) []corev1.ContainerPort {
+func BuildContainerPorts(userPort int32) []corev1.ContainerPort {
 	return []corev1.ContainerPort{{
 		Name:          UserPortName,
 		ContainerPort: userPort,
 	}}
 }
 
-func buildUserPortEnv(userPort string) corev1.EnvVar {
+func BuildUserPortEnv(userPort string) corev1.EnvVar {
 	return corev1.EnvVar{
 		Name:  "PORT",
 		Value: userPort,
@@ -94,14 +94,14 @@ func MakeUserContainer(rev *Revision) *corev1.Container {
 	// Adding or removing an overwritten corev1.Container field here? Don't forget to
 	// update the fieldmasks / validations in pkg/apis/serving
 
-	userContainer.VolumeMounts = append(userContainer.VolumeMounts, varLogVolumeMount)
-	userContainer.Lifecycle = userLifecycle
+	userContainer.VolumeMounts = append(userContainer.VolumeMounts, VarLogVolumeMount)
+	userContainer.Lifecycle = UserLifecycle
 	userPort := GetUserPort(rev)
 	userPortInt := int(userPort)
 	userPortStr := strconv.Itoa(userPortInt)
 	// Replacement is safe as only up to a single port is allowed on the Revision
-	userContainer.Ports = buildContainerPorts(userPort)
-	userContainer.Env = append(userContainer.Env, buildUserPortEnv(userPortStr))
+	userContainer.Ports = BuildContainerPorts(userPort)
+	userContainer.Env = append(userContainer.Env, BuildUserPortEnv(userPortStr))
 	userContainer.Env = append(userContainer.Env, getKnativeEnvVar(rev)...)
 	// Explicitly disable stdin and tty allocation
 	userContainer.Stdin = false
@@ -133,7 +133,7 @@ func MakeUserContainer(rev *Revision) *corev1.Container {
 func MakePodSpec(rev *Revision, containers []corev1.Container) *corev1.PodSpec {
 	return &corev1.PodSpec{
 		Containers:                    containers,
-		Volumes:                       append([]corev1.Volume{varLogVolume}, rev.Spec.Volumes...),
+		Volumes:                       append([]corev1.Volume{VarLogVolume}, rev.Spec.Volumes...),
 		ServiceAccountName:            rev.Spec.ServiceAccountName,
 		TerminationGracePeriodSeconds: rev.Spec.TimeoutSeconds,
 		ImagePullSecrets:              rev.Spec.ImagePullSecrets,

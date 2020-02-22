@@ -48,9 +48,9 @@ var (
 	defaultUserContainer         = &corev1.Container{
 		Name:                     containerName,
 		Image:                    "busybox",
-		Ports:                    buildContainerPorts(v1.DefaultUserPort),
-		VolumeMounts:             []corev1.VolumeMount{varLogVolumeMount},
-		Lifecycle:                userLifecycle,
+		Ports:                    v1.BuildContainerPorts(v1.DefaultUserPort),
+		VolumeMounts:             []corev1.VolumeMount{v1.VarLogVolumeMount},
+		Lifecycle:                v1.UserLifecycle,
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		Stdin:                    false,
 		TTY:                      false,
@@ -158,7 +158,7 @@ var (
 			Value: "false",
 		}, {
 			Name:  "VAR_LOG_VOLUME_NAME",
-			Value: varLogVolumeName,
+			Value: v1.VarLogVolumeName,
 		}, {
 			Name:  "INTERNAL_VOLUME_PATH",
 			Value: internalVolumePath,
@@ -178,7 +178,7 @@ var (
 	}
 
 	defaultPodSpec = &corev1.PodSpec{
-		Volumes:                       []corev1.Volume{varLogVolume},
+		Volumes:                       []corev1.Volume{v1.VarLogVolume},
 		TerminationGracePeriodSeconds: refInt64(45),
 	}
 

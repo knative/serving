@@ -1092,7 +1092,7 @@ var defaultEnv = map[string]string{
 	"QUEUE_SERVING_PORT":                    "8012",
 	"USER_CONTAINER_NAME":                   containerName,
 	"ENABLE_VAR_LOG_COLLECTION":             "false",
-	"VAR_LOG_VOLUME_NAME":                   varLogVolumeName,
+	"VAR_LOG_VOLUME_NAME":                   v1.VarLogVolumeName,
 	"INTERNAL_VOLUME_PATH":                  internalVolumePath,
 	"DOWNWARD_API_LABELS_PATH":              fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath),
 	"ENABLE_PROFILING":                      "false",
