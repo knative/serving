@@ -44,7 +44,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/nscert/config"
 	"knative.dev/serving/pkg/reconciler/nscert/resources/names"
 	routecfg "knative.dev/serving/pkg/reconciler/route/config"
-	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
 
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakensinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/namespace/fake"
@@ -52,6 +51,8 @@ import (
 	fakecertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 
 	_ "knative.dev/pkg/system/testing"
+
+	. "knative.dev/serving/pkg/reconciler/testing/v1"
 )
 
 const testCertClass = "dns-01.rocks"
