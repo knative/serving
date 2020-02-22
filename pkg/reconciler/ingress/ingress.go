@@ -23,6 +23,7 @@ import (
 
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 
 	pkgreconciler "knative.dev/pkg/reconciler"
@@ -45,7 +46,6 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	ingressreconciler "knative.dev/serving/pkg/client/injection/reconciler/networking/v1alpha1/ingress"
 	istioclientset "knative.dev/serving/pkg/client/istio/clientset/versioned"
-	spkgreconciler "knative.dev/serving/pkg/reconciler"
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 	coreaccessor "knative.dev/serving/pkg/reconciler/accessor/core"
 	istioaccessor "knative.dev/serving/pkg/reconciler/accessor/istio"
@@ -68,7 +68,7 @@ var (
 
 // Reconciler implements the control loop for the Ingress resources.
 type Reconciler struct {
-	*spkgreconciler.Base
+	kubeclient kubernetes.Interface
 
 	istioClientSet       istioclientset.Interface
 	virtualServiceLister istiolisters.VirtualServiceLister
@@ -307,13 +307,14 @@ func (r *Reconciler) reconcileGateway(ctx context.Context, ing *v1alpha1.Ingress
 	if _, err := r.istioClientSet.NetworkingV1alpha3().Gateways(copy.Namespace).Update(copy); err != nil {
 		return fmt.Errorf("failed to update Gateway: %w", err)
 	}
-	r.Recorder.Eventf(ing, corev1.EventTypeNormal, "Updated", "Updated Gateway %s/%s", gateway.Namespace, gateway.Name)
+	controller.GetEventRecorder(ctx).Eventf(ing, corev1.EventTypeNormal,
+		"Updated", "Updated Gateway %s/%s", gateway.Namespace, gateway.Name)
 	return nil
 }
 
 // GetKubeClient returns the client to access k8s resources.
 func (r *Reconciler) GetKubeClient() kubernetes.Interface {
-	return r.KubeClientSet
+	return r.kubeclient
 }
 
 // GetSecretLister returns the lister for Secret.

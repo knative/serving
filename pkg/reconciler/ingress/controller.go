@@ -19,12 +19,14 @@ package ingress
 import (
 	"context"
 
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	endpointsinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints"
 	podinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod"
 	secretinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/secret"
 	serviceinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/service"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/tracker"
 	"knative.dev/serving/pkg/apis/networking"
@@ -36,7 +38,6 @@ import (
 	virtualserviceinformer "knative.dev/serving/pkg/client/istio/injection/informers/networking/v1alpha3/virtualservice"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/network/status"
-	pkgreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/ingress/config"
 
 	corev1 "k8s.io/api/core/v1"
@@ -63,13 +64,14 @@ func newControllerWithOptions(
 	cmw configmap.Watcher,
 	opts ...ingressOption,
 ) *controller.Impl {
+	logger := logging.FromContext(ctx)
 	virtualServiceInformer := virtualserviceinformer.Get(ctx)
 	gatewayInformer := gatewayinformer.Get(ctx)
 	secretInformer := secretinformer.Get(ctx)
 	ingressInformer := ingressinformer.Get(ctx)
 
 	c := &Reconciler{
-		Base:                 pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
+		kubeclient:           kubeclient.Get(ctx),
 		istioClientSet:       istioclient.Get(ctx),
 		virtualServiceLister: virtualServiceInformer.Lister(),
 		gatewayLister:        gatewayInformer.Lister(),
@@ -79,7 +81,7 @@ func newControllerWithOptions(
 	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
 
 	impl := ingressreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
-		c.Logger.Info("Setting up ConfigMap receivers")
+		logger.Info("Setting up ConfigMap receivers")
 		configsToResync := []interface{}{
 			&config.Istio{},
 			&network.Config{},
@@ -87,12 +89,12 @@ func newControllerWithOptions(
 		resyncIngressesOnConfigChange := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 			impl.FilteredGlobalResync(myFilterFunc, ingressInformer.Informer())
 		})
-		configStore := config.NewStore(c.Logger.Named("config-store"), resyncIngressesOnConfigChange)
+		configStore := config.NewStore(logger.Named("config-store"), resyncIngressesOnConfigChange)
 		configStore.WatchConfigs(cmw)
 		return controller.Options{ConfigStore: configStore}
 	})
 
-	c.Logger.Info("Setting up Ingress event handlers")
+	logger.Info("Setting up Ingress event handlers")
 	ingressHandler := cache.FilteringResourceEventHandler{
 		FilterFunc: myFilterFunc,
 		Handler:    controller.HandleAll(impl.Enqueue),
@@ -104,7 +106,7 @@ func newControllerWithOptions(
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
-	c.Logger.Info("Setting up statusManager")
+	logger.Info("Setting up statusManager")
 	endpointsInformer := endpointsinformer.Get(ctx)
 	serviceInformer := serviceinformer.Get(ctx)
 	podInformer := podinformer.Get(ctx)
@@ -112,9 +114,9 @@ func newControllerWithOptions(
 		impl.EnqueueKey(types.NamespacedName{Namespace: ing.GetNamespace(), Name: ing.GetName()})
 	}
 	statusProber := status.NewProber(
-		c.Logger.Named("status-manager"),
+		logger.Named("status-manager"),
 		NewProbeTargetLister(
-			c.Logger.Named("probe-lister"),
+			logger.Named("probe-lister"),
 			gatewayInformer.Lister(),
 			endpointsInformer.Lister(),
 			serviceInformer.Lister()),
@@ -131,7 +133,7 @@ func newControllerWithOptions(
 		DeleteFunc: statusProber.CancelPodProbing,
 	})
 
-	c.Logger.Info("Setting up secret informer event handler")
+	logger.Info("Setting up secret informer event handler")
 	tracker := tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
 	c.tracker = tracker
 

@@ -24,12 +24,15 @@ import (
 	"time"
 
 	// Inject our fakes
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/endpoints/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake"
 	_ "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake"
+	"knative.dev/pkg/logging"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
 	fakeingressinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/ingress/fake"
 	istioclient "knative.dev/serving/pkg/client/istio/injection/client"
@@ -68,7 +71,6 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	ingressreconciler "knative.dev/serving/pkg/client/injection/reconciler/networking/v1alpha1/ingress"
 	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/ingress/config"
 	"knative.dev/serving/pkg/reconciler/ingress/resources"
 	presources "knative.dev/serving/pkg/resources"
@@ -583,7 +585,7 @@ func TestReconcile(t *testing.T) {
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		retryAttempted = false
 		r := &Reconciler{
-			Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
+			kubeclient:           kubeclient.Get(ctx),
 			istioClientSet:       istioclient.Get(ctx),
 			virtualServiceLister: listers.GetVirtualServiceLister(),
 			gatewayLister:        listers.GetGatewayLister(),
@@ -594,10 +596,12 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 		}
-		return ingressreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetIngressLister(), r.Recorder, r, controller.Options{
-			ConfigStore: &testConfigStore{
-				config: ReconcilerTestConfig(),
-			}})
+
+		return ingressreconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
+			listers.GetIngressLister(), controller.GetEventRecorder(ctx), r, controller.Options{
+				ConfigStore: &testConfigStore{
+					config: ReconcilerTestConfig(),
+				}})
 	}))
 }
 
@@ -992,7 +996,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		}
 
 		r := &Reconciler{
-			Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
+			kubeclient:           kubeclient.Get(ctx),
 			istioClientSet:       istioclient.Get(ctx),
 			virtualServiceLister: listers.GetVirtualServiceLister(),
 			gatewayLister:        listers.GetGatewayLister(),
@@ -1005,24 +1009,26 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				},
 			},
 		}
-		return ingressreconciler.NewReconciler(ctx, r.Logger, r.ServingClientSet, listers.GetIngressLister(), r.Recorder, r, controller.Options{
-			ConfigStore: &testConfigStore{
-				// Enable reconciling gateway.
-				config: &config.Config{
-					Istio: &config.Istio{
-						IngressGateways: []config.Gateway{{
-							Namespace:  system.Namespace(),
-							Name:       networking.KnativeIngressGateway,
-							ServiceURL: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system"),
-						}},
-					},
-					Network: &network.Config{
-						HTTPProtocol: network.HTTPDisabled,
-						AutoTLS:      true,
+
+		return ingressreconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
+			listers.GetIngressLister(), controller.GetEventRecorder(ctx), r, controller.Options{
+				ConfigStore: &testConfigStore{
+					// Enable reconciling gateway.
+					config: &config.Config{
+						Istio: &config.Istio{
+							IngressGateways: []config.Gateway{{
+								Namespace:  system.Namespace(),
+								Name:       networking.KnativeIngressGateway,
+								ServiceURL: pkgnet.GetServiceHostname("istio-ingressgateway", "istio-system"),
+							}},
+						},
+						Network: &network.Config{
+							HTTPProtocol: network.HTTPDisabled,
+							AutoTLS:      true,
+						},
 					},
 				},
-			},
-		})
+			})
 	}))
 }
 
