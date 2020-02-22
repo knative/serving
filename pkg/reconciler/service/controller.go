@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 
+	servingclient "knative.dev/serving/pkg/client/injection/client"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route"
@@ -49,6 +50,7 @@ func NewController(
 	revisionInformer := revisioninformer.Get(ctx)
 
 	c := &Reconciler{
+		client:              servingclient.Get(ctx),
 		configurationLister: configurationInformer.Lister(),
 		revisionLister:      revisionInformer.Lister(),
 		routeLister:         routeInformer.Lister(),
