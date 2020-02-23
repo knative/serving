@@ -357,12 +357,13 @@
   version = "v1.3.1"
 
 [[projects]]
-  branch = "master"
-  digest = "1:e2b86e41f3d669fc36b50d31d32d22c8ac656c75aa5ea89717ce7177e134ff2a"
+  branch = "enable-levels"
+  digest = "1:df1f214e3802c4377ae89a99a916f83c09ed417d3434894b7c93f0b7e32dd3af"
   name = "github.com/golang/glog"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "23def4e6c14b4da8ac2ed8007337bc5eb5007998"
+  revision = "f2a266e948b7099bc3accc25c5d856952d276e20"
+  source = "https://github.com/coryrc/glog.git"
 
 [[projects]]
   branch = "master"
@@ -574,7 +575,7 @@
   revision = "bf2b5ad3c0a925c44a0d2842c5d8182113cd248e"
 
 [[projects]]
-  digest = "0:"
+  digest = "1:1e59759b895f57302df03c5632dc6bbedcdf6782a2b6259246ff653dd214ac45"
   name = "github.com/jetstack/cert-manager"
   packages = [
     "pkg/apis/acme",
@@ -1714,12 +1715,13 @@
   revision = "e17681d19d3ac4837a019ece36c2a0ec31ffe985"
 
 [[projects]]
-  digest = "1:c263611800c3a97991dbcf9d3bc4de390f6224aaa8ca0a7226a9d734f65a416a"
+  branch = "enable-levels"
+  digest = "1:172599020017f2f0fb4399742011018b727b57ccb4cb58c2147fa9ad2ca65379"
   name = "k8s.io/klog"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "71442cd4037d612096940ceb0f3fec3f7fff66e0"
-  version = "v0.2.0"
+  revision = "3411260dc3cd0712154e3ff86c801b25b7366d79"
+  source = "https://github.com/coryrc/klog.git"
 
 [[projects]]
   digest = "1:6267b439cfa16676669e82402d6d7bf209f2c55a198206ef28eee97e0ccda60c"
