@@ -32,6 +32,7 @@ const (
 	ServingNamespaceforSecurityTesting = "serving-tests-security"
 
 	// Environment propagation conformance test objects
+
 	// ConformanceConfigMap is the name of the configmap to propagate env variables from
 	ConformanceConfigMap = "conformance-test-configmap"
 
@@ -44,6 +45,6 @@ const (
 	// EnvValue is the configmap/secret test value to match env variable with
 	EnvValue = "testValue"
 
-	// ContainerMemoryLimit
+	// ContainerMemoryLimit is used in any test which needs a default memory resource limit
 	ContainerMemoryLimit = "350Mi"
 )
