@@ -35,18 +35,19 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	pkgreconciler "knative.dev/pkg/reconciler"
 	. "knative.dev/pkg/reconciler/testing"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/network"
-	pkgreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/nscert/config"
 	"knative.dev/serving/pkg/reconciler/nscert/resources/names"
 	routecfg "knative.dev/serving/pkg/reconciler/route/config"
 
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	fakensinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/namespace/fake"
+	servingclient "knative.dev/serving/pkg/client/injection/client"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	fakecertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate/fake"
 
@@ -238,7 +239,8 @@ func TestReconcile(t *testing.T) {
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
 		return &reconciler{
-			Base:                pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
+			client:              servingclient.Get(ctx),
+			recorder:            controller.GetEventRecorder(ctx),
 			knCertificateLister: listers.GetKnCertificateLister(),
 			nsLister:            listers.GetNamespaceLister(),
 			configStore: &testConfigStore{
@@ -442,7 +444,8 @@ func TestDomainConfigDomain(t *testing.T) {
 			configStore.WatchConfigs(cmw)
 
 			r := &reconciler{
-				Base:                pkgreconciler.NewBase(ctx, controllerAgentName, cmw),
+				client:              servingclient.Get(ctx),
+				recorder:            controller.GetEventRecorder(ctx),
 				configStore:         configStore,
 				nsLister:            fakensinformer.Get(ctx).Lister(),
 				knCertificateLister: fakecertinformer.Get(ctx).Lister(),
@@ -473,9 +476,7 @@ func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
 	return config.ToContext(ctx, t.config)
 }
 
-func (t *testConfigStore) WatchConfigs(w configmap.Watcher) {}
-
-var _ configStore = (*testConfigStore)(nil)
+var _ pkgreconciler.ConfigStore = (*testConfigStore)(nil)
 
 func knCert(namespace *corev1.Namespace) *v1alpha1.Certificate {
 	return knCertWithStatus(namespace, &v1alpha1.CertificateStatus{})
