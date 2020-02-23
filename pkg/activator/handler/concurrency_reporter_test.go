@@ -18,6 +18,7 @@ package handler
 
 import (
 	"context"
+	"sort"
 	"testing"
 	"time"
 
@@ -33,21 +34,20 @@ import (
 )
 
 const (
-	requestOpTick  = "RequestOpTick"
-	requestOpStart = "RequestOpStart"
-	requestOpEnd   = "RequestOpEnd"
+	requestOpTick int = iota + 1
+	requestOpStart
+	requestOpEnd
 )
 
 var (
-	pod1 = types.NamespacedName{Namespace: "test", Name: "pod1"}
-	pod2 = types.NamespacedName{Namespace: "test", Name: "pod2"}
-	pod3 = types.NamespacedName{Namespace: "test", Name: "pod3"}
+	rev1 = types.NamespacedName{Namespace: "test", Name: "rev1"}
+	rev2 = types.NamespacedName{Namespace: "test", Name: "rev2"}
+	rev3 = types.NamespacedName{Namespace: "test", Name: "rev3"}
 )
 
 type reqOp struct {
-	op   string
-	key  types.NamespacedName
-	time time.Time
+	op  int
+	key types.NamespacedName
 }
 
 func TestStats(t *testing.T) {
@@ -59,19 +59,19 @@ func TestStats(t *testing.T) {
 		name: "Scale-from-zero sends stat",
 		ops: []reqOp{{
 			op:  requestOpStart,
-			key: pod1,
+			key: rev1,
 		}, {
 			op:  requestOpStart,
-			key: pod2,
+			key: rev2,
 		}},
 		expectedStats: []metrics.StatMessage{{
-			Key: pod1,
+			Key: rev1,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
-			Key: pod2,
+			Key: rev2,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
@@ -81,29 +81,29 @@ func TestStats(t *testing.T) {
 		name: "Scale to two",
 		ops: []reqOp{{
 			op:  requestOpStart,
-			key: pod1,
+			key: rev1,
 		}, {
 			op:  requestOpStart,
-			key: pod1,
+			key: rev1,
 		}, {
 			op: requestOpTick,
 		}, {
 			op: requestOpTick,
 		}},
 		expectedStats: []metrics.StatMessage{{
-			Key: pod1,
+			Key: rev1,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
-			Key: pod1,
+			Key: rev1,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1, // We subtract the one concurrent request we already reported.
 				RequestCount:              2,
 				PodName:                   "activator",
 			}}, {
-			Key: pod1,
+			Key: rev1,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 2, // Next reporting period, report both requests in flight.
 				RequestCount:              0, // No new requests have appeared.
@@ -113,86 +113,75 @@ func TestStats(t *testing.T) {
 		name: "Scale-from-zero after tick sends stat",
 		ops: []reqOp{{
 			op:  requestOpStart,
-			key: pod1,
+			key: rev1,
 		}, {
 			op:  requestOpEnd,
-			key: pod1,
+			key: rev1,
 		}, {
 			op: requestOpTick,
 		}, {
 			op:  requestOpStart,
-			key: pod1,
+			key: rev1,
 		}},
 		expectedStats: []metrics.StatMessage{{
-			Key: pod1,
+			Key: rev1,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
-			Key: pod1,
+			Key: rev1,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}},
 		}}, {
-		name: "Multiple pods tick",
+		name: "Multiple revisions tick",
 		ops: []reqOp{{
 			op:  requestOpStart,
-			key: pod1,
+			key: rev1,
 		}, {
 			op:  requestOpStart,
-			key: pod2,
-		}, {
-			op: requestOpTick,
-		}, {
-			op:  requestOpEnd,
-			key: pod1,
+			key: rev2,
 		}, {
 			op:  requestOpStart,
-			key: pod3,
+			key: rev3,
 		}, {
 			op: requestOpTick,
 		}},
 		expectedStats: []metrics.StatMessage{{
-			Key: pod1,
+			Key: rev1,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
-			Key: pod2,
+			Key: rev2,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
-			Key: pod1,
+			Key: rev3,
+			Stat: metrics.Stat{
+				AverageConcurrentRequests: 1,
+				RequestCount:              1,
+				PodName:                   "activator",
+			}}, {
+			Key: rev1,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 0,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
-			Key: pod2,
+			Key: rev2,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 0,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
-			Key: pod3,
-			Stat: metrics.Stat{
-				AverageConcurrentRequests: 1,
-				RequestCount:              1,
-				PodName:                   "activator",
-			}}, {
-			Key: pod2,
-			Stat: metrics.Stat{
-				AverageConcurrentRequests: 1, // This 1 is preserved, since we're in the next reporting period.
-				RequestCount:              0,
-				PodName:                   "activator",
-			}}, {
-			Key: pod3,
+			Key: rev3,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 0,
 				RequestCount:              1,
@@ -219,7 +208,7 @@ func TestStats(t *testing.T) {
 					case requestOpEnd:
 						s.reqChan <- ReqEvent{Key: op.key, EventType: ReqOut}
 					case requestOpTick:
-						s.reportBiChan <- op.time
+						s.reportBiChan <- time.Time{}
 					}
 				}
 			}()
@@ -229,6 +218,16 @@ func TestStats(t *testing.T) {
 			for len(stats) < len(tc.expectedStats) {
 				stats = append(stats, <-s.statChan...)
 			}
+			// We need to sort receiving stats, because there's map iteration
+			// which is not order consistent.
+			sort.SliceStable(stats, func(i, j int) bool {
+				return stats[i].Key.Name < stats[j].Key.Name
+			})
+			// We need to sort test stats, since we're listing them in test in logical
+			// order, but after sorting and map operations above they need to match.
+			sort.SliceStable(tc.expectedStats, func(i, j int) bool {
+				return tc.expectedStats[i].Key.Name < tc.expectedStats[j].Key.Name
+			})
 
 			if got, want := stats, tc.expectedStats; !cmp.Equal(got, want) {
 				t.Errorf("Unexpected stats (-want +got): %s", cmp.Diff(want, got))
@@ -252,10 +251,10 @@ func newTestStats(t *testing.T) (*testStats, *ConcurrencyReporter, context.Conte
 		reportBiChan: reportBiChan,
 	}
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
-	revisionInformer(ctx, revision(testNamespace, testRevName))
+	revisionInformer(ctx, revision(rev1.Namespace, rev1.Name),
+		revision(rev2.Namespace, rev2.Name), revision(rev3.Namespace, rev3.Name))
 
-	cr := NewConcurrencyReporter(ctx, "activator", ts.reqChan, ts.statChan)
-	return ts, cr, ctx, cancel
+	return ts, NewConcurrencyReporter(ctx, "activator", ts.reqChan, ts.statChan), ctx, cancel
 }
 
 func revisionInformer(ctx context.Context, revs ...*v1.Revision) {
