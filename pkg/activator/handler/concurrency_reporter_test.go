@@ -219,7 +219,7 @@ func TestStats(t *testing.T) {
 				stats = append(stats, <-s.statChan...)
 			}
 			// We need to sort receiving stats, because there's map iteration
-			// whic is not order consistent.
+			// which is not order consistent.
 			sort.SliceStable(stats, func(i, j int) bool {
 				return stats[i].Key.Name < stats[j].Key.Name
 			})
