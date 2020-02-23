@@ -18,6 +18,7 @@ package handler
 
 import (
 	"context"
+	"sort"
 	"testing"
 	"time"
 
@@ -102,7 +103,7 @@ func TestStats(t *testing.T) {
 				RequestCount:              2,
 				PodName:                   "activator",
 			}}, {
-			Key: pod1,
+			Key: rev1,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 2, // Next reporting period, report both requests in flight.
 				RequestCount:              0, // No new requests have appeared.
@@ -144,11 +145,6 @@ func TestStats(t *testing.T) {
 			op:  requestOpStart,
 			key: rev2,
 		}, {
-			op: requestOpTick,
-		}, {
-			op:  requestOpEnd,
-			key: rev1,
-		}, {
 			op:  requestOpStart,
 			key: rev3,
 		}, {
@@ -167,6 +163,12 @@ func TestStats(t *testing.T) {
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
+			Key: rev3,
+			Stat: metrics.Stat{
+				AverageConcurrentRequests: 1,
+				RequestCount:              1,
+				PodName:                   "activator",
+			}}, {
 			Key: rev1,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 0,
@@ -177,18 +179,6 @@ func TestStats(t *testing.T) {
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 0,
 				RequestCount:              1,
-				PodName:                   "activator",
-			}}, {
-			Key: rev3,
-			Stat: metrics.Stat{
-				AverageConcurrentRequests: 1,
-				RequestCount:              1,
-				PodName:                   "activator",
-			}}, {
-			Key: rev2,
-			Stat: metrics.Stat{
-				AverageConcurrentRequests: 1, // This 1 is preserved, since we're in the next reporting period.
-				RequestCount:              0,
 				PodName:                   "activator",
 			}}, {
 			Key: rev3,
@@ -228,6 +218,16 @@ func TestStats(t *testing.T) {
 			for len(stats) < len(tc.expectedStats) {
 				stats = append(stats, <-s.statChan...)
 			}
+			// We need to sort receiving stats, because there's map iteration
+			// whic is not order consistent.
+			sort.SliceStable(stats, func(i, j int) bool {
+				return stats[i].Key.Name < stats[j].Key.Name
+			})
+			// We need to sort test stats, since we're listing them in test in logical
+			// order, but after sorting and map operations above they need to match.
+			sort.SliceStable(tc.expectedStats, func(i, j int) bool {
+				return tc.expectedStats[i].Key.Name < tc.expectedStats[j].Key.Name
+			})
 
 			if got, want := stats, tc.expectedStats; !cmp.Equal(got, want) {
 				t.Errorf("Unexpected stats (-want +got): %s", cmp.Diff(want, got))
