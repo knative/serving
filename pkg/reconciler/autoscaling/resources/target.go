@@ -21,14 +21,14 @@ import (
 
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	asconfig "knative.dev/serving/pkg/autoscaler/config"
 )
 
 // ResolveMetricTarget takes scaling metric knobs from multiple locations
 // and resolves them to the final value to be used by the autoscaler.
 // `target` is the target value of scaling metric that we autoscaler will aim for;
 // `total` is the maximum possible value of scaling metric that is permitted on the pod.
-func ResolveMetricTarget(pa *v1alpha1.PodAutoscaler, config *autoscalerconfig.Config) (target float64, total float64) {
+func ResolveMetricTarget(pa *v1alpha1.PodAutoscaler, config *asconfig.Config) (target float64, total float64) {
 	var tu float64
 
 	switch pa.Metric() {
@@ -59,7 +59,7 @@ func ResolveMetricTarget(pa *v1alpha1.PodAutoscaler, config *autoscalerconfig.Co
 	if v, ok := pa.TargetUtilization(); ok {
 		tu = v
 	}
-	target = math.Max(1, total*tu)
+	target = math.Max(autoscaling.TargetMin, total*tu)
 
 	return target, total
 }

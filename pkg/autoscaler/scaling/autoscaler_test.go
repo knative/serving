@@ -26,9 +26,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	. "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/metrics/metricskey"
+	"knative.dev/pkg/metrics/metricstest"
 	"knative.dev/serving/pkg/autoscaler/fake"
 	autoscalerfake "knative.dev/serving/pkg/autoscaler/fake"
 	"knative.dev/serving/pkg/autoscaler/metrics"
+	smetrics "knative.dev/serving/pkg/metrics"
 )
 
 const (
@@ -63,6 +66,49 @@ func TestAutoscalerNoDataNoAutoscale(t *testing.T) {
 
 func expectedEBC(totCap, targetBC, recordedConcurrency, numPods float64) int32 {
 	return int32(math.Floor(totCap/targetUtilization*numPods - targetBC - recordedConcurrency))
+}
+
+func TestAutoscalerMetrics(t *testing.T) {
+	metricClient := &autoscalerfake.MetricClient{StableConcurrency: 50.0, PanicConcurrency: 50.0}
+	a := newTestAutoscaler(t, 10, 100, metricClient)
+	ebc := expectedEBC(10, 100, 50, 1)
+	a.expectScale(t, time.Now(), 5, ebc, true)
+	spec, _ := a.currentSpecAndPC()
+	wantTags := map[string]string{
+		metricskey.LabelConfigurationName: fake.TestConfig,
+		metricskey.LabelNamespaceName:     fake.TestNamespace,
+		metricskey.LabelRevisionName:      fake.TestRevision,
+		metricskey.LabelServiceName:       fake.TestService,
+	}
+
+	metricstest.CheckLastValueData(t, stableRequestConcurrencyM.Name(), wantTags, 50)
+	metricstest.CheckLastValueData(t, panicRequestConcurrencyM.Name(), wantTags, 50)
+	metricstest.CheckLastValueData(t, desiredPodCountM.Name(), wantTags, 5)
+	metricstest.CheckLastValueData(t, targetRequestConcurrencyM.Name(), wantTags, spec.TargetValue)
+	metricstest.CheckLastValueData(t, excessBurstCapacityM.Name(), wantTags, float64(ebc))
+	metricstest.CheckLastValueData(t, panicM.Name(), wantTags, 1)
+}
+
+func TestAutoscalerMetricsWithRPS(t *testing.T) {
+	metricClient := &autoscalerfake.MetricClient{PanicConcurrency: 50.0, StableRPS: 100}
+	a := newTestAutoscalerWithScalingMetric(t, 10, 100, metricClient, "rps")
+	ebc := expectedEBC(10, 100, 100, 1)
+	a.expectScale(t, time.Now(), 10, ebc, true)
+	spec, _ := a.currentSpecAndPC()
+	wantTags := map[string]string{
+		metricskey.LabelConfigurationName: fake.TestConfig,
+		metricskey.LabelNamespaceName:     fake.TestNamespace,
+		metricskey.LabelRevisionName:      fake.TestRevision,
+		metricskey.LabelServiceName:       fake.TestService,
+	}
+
+	a.expectScale(t, time.Now().Add(61*time.Second), 10, ebc, true)
+	metricstest.CheckLastValueData(t, stableRPSM.Name(), wantTags, 100)
+	metricstest.CheckLastValueData(t, panicRPSM.Name(), wantTags, 100)
+	metricstest.CheckLastValueData(t, desiredPodCountM.Name(), wantTags, 10)
+	metricstest.CheckLastValueData(t, targetRPSM.Name(), wantTags, spec.TargetValue)
+	metricstest.CheckLastValueData(t, excessBurstCapacityM.Name(), wantTags, float64(ebc))
+	metricstest.CheckLastValueData(t, panicM.Name(), wantTags, 0)
 }
 
 func TestAutoscalerChangeOfPodCountService(t *testing.T) {
@@ -329,7 +375,11 @@ func newTestAutoscalerWithScalingMetric(t *testing.T, targetValue, targetBurstCa
 	l := fake.KubeInformer.Core().V1().Endpoints().Lister()
 	// This ensures that we have endpoints object to start the autoscaler.
 	fake.Endpoints(0, fake.TestService)
-	a, err := New(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, context.Background())
+	ctx, err := smetrics.RevisionContext(fake.TestNamespace, fake.TestService, fake.TestConfig, fake.TestRevision)
+	if err != nil {
+		t.Fatalf("Error creating context: %v", err)
+	}
+	a, err := New(fake.TestNamespace, fake.TestRevision, metrics, l, deciderSpec, ctx)
 	if err != nil {
 		t.Fatalf("Error creating test autoscaler: %v", err)
 	}

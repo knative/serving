@@ -23,11 +23,11 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
-	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/configuration"
-	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision"
-	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/configuration"
+	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
+	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
 	gcconfig "knative.dev/serving/pkg/gc"
 	configns "knative.dev/serving/pkg/reconciler/gc/config"
 )
@@ -59,7 +59,7 @@ func NewController(
 		configurationInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 		revisionInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-			FilterFunc: controller.FilterGroupVersionKind(v1alpha1.SchemeGroupVersion.WithKind("Configuration")),
+			FilterFunc: controller.FilterGroupKind(v1.Kind("Configuration")),
 			Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 		})
 

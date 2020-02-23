@@ -26,26 +26,18 @@ import (
 
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 
-	. "knative.dev/serving/pkg/testing/v1alpha1"
+	. "knative.dev/serving/pkg/testing/v1"
 )
 
 const (
-	testServiceName            = "test-service"
-	testServiceNamespace       = "test-service-namespace"
-	testRevisionName           = "test-revision-name"
-	testCandidateRevisionName  = "test-candidate-revision-name"
-	testContainerNameRunLatest = "test-container-run-latest"
-	testContainerNamePinned    = "test-container-pinned"
-	testContainerNameRelease   = "test-container-release"
-	testContainerNameInline    = "test-container-inline"
-	testLabelKey               = "test-label-key"
-	testLabelValuePinned       = "test-label-value-pinned"
-	testLabelValueRunLatest    = "test-label-value-run-latest"
-	testLabelValueRelease      = "test-label-value-release"
-	testAnnotationKey          = "test-annotation-key"
-	testAnnotationValue        = "test-annotation-value"
+	testServiceName      = "test-service"
+	testServiceNamespace = "test-service-namespace"
+	testRevisionName     = "test-revision-name"
+	testContainerName    = "test-container"
+	testLabelKey         = "test-label-key"
+	testAnnotationKey    = "test-annotation-key"
+	testAnnotationValue  = "test-annotation-value"
 )
 
 func expectOwnerReferencesSetCorrectly(t *testing.T, ownerRefs []metav1.OwnerReference) {
@@ -56,7 +48,7 @@ func expectOwnerReferencesSetCorrectly(t *testing.T, ownerRefs []metav1.OwnerRef
 	}
 
 	expectedRefs := []metav1.OwnerReference{{
-		APIVersion: "serving.knative.dev/v1alpha1",
+		APIVersion: "serving.knative.dev/v1",
 		Kind:       "Service",
 		Name:       testServiceName,
 	}}
@@ -65,61 +57,34 @@ func expectOwnerReferencesSetCorrectly(t *testing.T, ownerRefs []metav1.OwnerRef
 	}
 }
 
-func createConfiguration(containerName string) v1alpha1.ConfigurationSpec {
-	return v1alpha1.ConfigurationSpec{
-		DeprecatedRevisionTemplate: &v1alpha1.RevisionTemplateSpec{
-			Spec: v1alpha1.RevisionSpec{
-				DeprecatedContainer: &corev1.Container{
-					Name: containerName,
+func createConfiguration(containerName string) v1.ConfigurationSpec {
+	return v1.ConfigurationSpec{
+		Template: v1.RevisionTemplateSpec{
+			Spec: v1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: containerName,
+					}},
 				},
 			},
 		},
 	}
 }
 
-func createServiceInline() *v1alpha1.Service {
-	return Service(testServiceName, testServiceNamespace,
-		WithInlineConfigSpec(createConfiguration(testContainerNameInline)),
-		WithInlineRouteSpec(v1alpha1.RouteSpec{
-			Traffic: []v1alpha1.TrafficTarget{{
-				TrafficTarget: v1.TrafficTarget{
-					Percent: ptr.Int64(100),
-				},
+func createService() *v1.Service {
+	return DefaultService(testServiceName, testServiceNamespace,
+		WithConfigSpec(createConfiguration(testContainerName)),
+		WithRouteSpec(v1.RouteSpec{
+			Traffic: []v1.TrafficTarget{{
+				Percent: ptr.Int64(100),
 			}},
-		}))
+		}),
+	)
 }
 
-func createServiceWithRunLatest() *v1alpha1.Service {
-	return Service(testServiceName, testServiceNamespace,
-		WithRunLatestConfigSpec(createConfiguration(testContainerNameRunLatest)),
-		WithServiceLabel(testLabelKey, testLabelValueRunLatest),
-		WithServiceAnnotations(map[string]string{
-			testAnnotationKey: testAnnotationValue,
-		}))
-}
-
-func createServiceWithPinned() *v1alpha1.Service {
-	return Service(testServiceName, testServiceNamespace,
-		WithPinnedRolloutConfigSpec(testRevisionName, createConfiguration(testContainerNamePinned)),
-		WithServiceLabel(testLabelKey, testLabelValuePinned))
-}
-
-func createServiceWithRelease(numRevision int, rolloutPercent int) *v1alpha1.Service {
-	var revisions []string
-	if numRevision == 2 {
-		revisions = []string{testRevisionName, testCandidateRevisionName}
-	} else {
-		revisions = []string{testRevisionName}
-	}
-
-	return Service(testServiceName, testServiceNamespace,
-		WithReleaseRolloutAndPercentageConfigSpec(rolloutPercent, createConfiguration(testContainerNameRelease), revisions...),
-		WithServiceLabel(testLabelKey, testLabelValueRelease))
-}
-
-func createServiceWithKubectlAnnotation() *v1alpha1.Service {
-	return Service(testServiceName, testServiceNamespace,
-		WithRunLatestConfigSpec(createConfiguration(testContainerNameRunLatest)),
+func createServiceWithKubectlAnnotation() *v1.Service {
+	return DefaultService(testServiceName, testServiceNamespace,
+		WithConfigSpec(createConfiguration(testContainerName)),
 		WithServiceAnnotations(map[string]string{
 			corev1.LastAppliedConfigAnnotation: testAnnotationValue,
 		}))

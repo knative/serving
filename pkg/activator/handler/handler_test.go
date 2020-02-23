@@ -44,7 +44,6 @@ import (
 	"knative.dev/serving/pkg/activator/util"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/network"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -285,8 +284,8 @@ func sendRequest(namespace, revName string, handler *activationHandler, store *a
 	return resp
 }
 
-func revision(namespace, name string) *v1alpha1.Revision {
-	return &v1alpha1.Revision{
+func revision(namespace, name string) *v1.Revision {
+	return &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      name,
@@ -295,10 +294,8 @@ func revision(namespace, name string) *v1alpha1.Revision {
 				serving.ServiceLabelKey:       "service-" + testRevName,
 			},
 		},
-		Spec: v1alpha1.RevisionSpec{
-			RevisionSpec: v1.RevisionSpec{
-				ContainerConcurrency: ptr.Int64(1),
-			},
+		Spec: v1.RevisionSpec{
+			ContainerConcurrency: ptr.Int64(1),
 		},
 	}
 }

@@ -22,15 +22,14 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"k8s.io/apimachinery/pkg/types"
 
 	rtesting "knative.dev/pkg/reconciler/testing"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/metrics"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
+	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 )
 
 const (
@@ -87,6 +86,8 @@ func TestStats(t *testing.T) {
 			key: rev1,
 		}, {
 			op: requestOpTick,
+		}, {
+			op: requestOpTick,
 		}},
 		expectedStats: []metrics.StatMessage{{
 			Key: rev1,
@@ -97,8 +98,14 @@ func TestStats(t *testing.T) {
 			}}, {
 			Key: rev1,
 			Stat: metrics.Stat{
-				AverageConcurrentRequests: 2,
+				AverageConcurrentRequests: 1, // We subtract the one concurrent request we already reported.
 				RequestCount:              2,
+				PodName:                   "activator",
+			}}, {
+			Key: pod1,
+			Stat: metrics.Stat{
+				AverageConcurrentRequests: 2, // Next reporting period, report both requests in flight.
+				RequestCount:              0, // No new requests have appeared.
 				PodName:                   "activator",
 			}},
 		}}, {
@@ -162,13 +169,13 @@ func TestStats(t *testing.T) {
 			}}, {
 			Key: rev1,
 			Stat: metrics.Stat{
-				AverageConcurrentRequests: 1,
+				AverageConcurrentRequests: 0,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
 			Key: rev2,
 			Stat: metrics.Stat{
-				AverageConcurrentRequests: 1,
+				AverageConcurrentRequests: 0,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}}, {
@@ -180,13 +187,13 @@ func TestStats(t *testing.T) {
 			}}, {
 			Key: rev2,
 			Stat: metrics.Stat{
-				AverageConcurrentRequests: 1,
+				AverageConcurrentRequests: 1, // This 1 is preserved, since we're in the next reporting period.
 				RequestCount:              0,
 				PodName:                   "activator",
 			}}, {
 			Key: rev3,
 			Stat: metrics.Stat{
-				AverageConcurrentRequests: 1,
+				AverageConcurrentRequests: 0,
 				RequestCount:              1,
 				PodName:                   "activator",
 			}},
@@ -222,12 +229,8 @@ func TestStats(t *testing.T) {
 				stats = append(stats, <-s.statChan...)
 			}
 
-			// Check the stats we got match what we wanted
-			sorter := cmpopts.SortSlices(func(a, b metrics.StatMessage) bool {
-				return a.Key.Name < b.Key.Name
-			})
-			if got, want := stats, tc.expectedStats; !cmp.Equal(got, want, sorter) {
-				t.Errorf("Unexpected stats (-want +got): %s", cmp.Diff(want, got, sorter))
+			if got, want := stats, tc.expectedStats; !cmp.Equal(got, want) {
+				t.Errorf("Unexpected stats (-want +got): %s", cmp.Diff(want, got))
 			}
 		})
 	}
@@ -254,12 +257,12 @@ func newTestStats(t *testing.T) (*testStats, *ConcurrencyReporter, context.Conte
 	return ts, NewConcurrencyReporter(ctx, "activator", ts.reqChan, ts.statChan), ctx, cancel
 }
 
-func revisionInformer(ctx context.Context, revs ...*v1alpha1.Revision) {
+func revisionInformer(ctx context.Context, revs ...*v1.Revision) {
 	fake := fakeservingclient.Get(ctx)
 	revisions := fakerevisioninformer.Get(ctx)
 
 	for _, rev := range revs {
-		fake.ServingV1alpha1().Revisions(rev.Namespace).Create(rev)
+		fake.ServingV1().Revisions(rev.Namespace).Create(rev)
 		revisions.Informer().GetIndexer().Add(rev)
 	}
 }

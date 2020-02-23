@@ -183,13 +183,6 @@ func TestNewConfig(t *testing.T) {
 		},
 		wantErr: true,
 	}, {
-		name: "target capacity less than 1",
-		input: map[string]string{
-			"container-concurrency-target-percentage": "30.0",
-			"container-concurrency-target-default":    "2",
-		},
-		wantErr: true,
-	}, {
 		name: "max scale up rate 1.0",
 		input: map[string]string{
 			"max-scale-up-rate": "1",
@@ -235,10 +228,10 @@ func TestNewConfig(t *testing.T) {
 		},
 		wantErr: true,
 	}, {
-		name: "TU*CC < 1",
+		name: "TU*CC < 0.01",
 		input: map[string]string{
-			"container-concurrency-target-percentage": "5",
-			"container-concurrency-target-default":    "10.0",
+			"container-concurrency-target-percentage": "1",
+			"container-concurrency-target-default":    "0.001",
 		},
 		wantErr: true,
 	}, {

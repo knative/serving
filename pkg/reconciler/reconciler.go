@@ -21,9 +21,6 @@ import (
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -43,14 +40,6 @@ import (
 	"knative.dev/pkg/logging/logkey"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	servingScheme "knative.dev/serving/pkg/client/clientset/versioned/scheme"
-)
-
-const (
-	ForceUpgradePatch = `[{
-  "op":"add",
-  "path":"/metadata/annotations/serving.knative.dev~1forceUpgrade",
-  "value":"true"
-}]`
 )
 
 // Base implements the core controller logic, given a Reconciler.
@@ -73,9 +62,6 @@ type Base struct {
 	// Recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
 	Recorder record.EventRecorder
-
-	// StatsReporter reports reconciler's metrics.
-	StatsReporter StatsReporter
 
 	// Sugared logger is easier to use but is not as performant as the
 	// raw logger. In performance critical paths, call logger.Desugar()
@@ -115,16 +101,6 @@ func NewBase(ctx context.Context, controllerAgentName string, cmw configmap.Watc
 		}()
 	}
 
-	statsReporter := GetStatsReporter(ctx)
-	if statsReporter == nil {
-		logger.Debug("Creating stats reporter")
-		var err error
-		statsReporter, err = NewStatsReporter(controllerAgentName)
-		if err != nil {
-			logger.Fatal(err)
-		}
-	}
-
 	base := &Base{
 		KubeClientSet:    kubeClient,
 		DynamicClientSet: dynamicclient.Get(ctx),
@@ -132,18 +108,10 @@ func NewBase(ctx context.Context, controllerAgentName string, cmw configmap.Watc
 		CachingClientSet: cachingclient.Get(ctx),
 		ConfigMapWatcher: cmw,
 		Recorder:         recorder,
-		StatsReporter:    statsReporter,
 		Logger:           logger,
 	}
 
 	return base
-}
-
-func (b *Base) MarkNeedsUpgrade(gvr schema.GroupVersionResource, namespace, name string) error {
-	// Add the annotation serving.knative.dev/forceUpgrade=true to trigger webhook-based defaulting.
-	_, err := b.DynamicClientSet.Resource(gvr).Namespace(namespace).Patch(name, types.JSONPatchType,
-		[]byte(ForceUpgradePatch), metav1.PatchOptions{})
-	return err
 }
 
 func init() {

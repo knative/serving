@@ -22,14 +22,14 @@ import (
 
 	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/service/resources/names"
 	"knative.dev/serving/pkg/resources"
 )
 
 // MakeConfiguration creates a Configuration from a Service object.
-func MakeConfiguration(service *v1alpha1.Service) (*v1alpha1.Configuration, error) {
-	return &v1alpha1.Configuration{
+func MakeConfiguration(service *v1.Service) (*v1.Configuration, error) {
+	return &v1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.Configuration(service),
 			Namespace: service.Namespace,

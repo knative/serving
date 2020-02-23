@@ -28,11 +28,11 @@ import (
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
-	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1alpha1/configuration"
-	listers "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
+	listers "knative.dev/serving/pkg/client/listers/serving/v1"
 	configns "knative.dev/serving/pkg/reconciler/gc/config"
 )
 
@@ -47,7 +47,7 @@ type reconciler struct {
 // Check that our reconciler implements configreconciler.Interface
 var _ configreconciler.Interface = (*reconciler)(nil)
 
-func (c *reconciler) ReconcileKind(ctx context.Context, config *v1alpha1.Configuration) pkgreconciler.Event {
+func (c *reconciler) ReconcileKind(ctx context.Context, config *v1.Configuration) pkgreconciler.Event {
 	cfg := configns.FromContext(ctx).RevisionGC
 	logger := logging.FromContext(ctx)
 
@@ -70,7 +70,7 @@ func (c *reconciler) ReconcileKind(ctx context.Context, config *v1alpha1.Configu
 
 	for _, rev := range revs[gcSkipOffset:] {
 		if isRevisionStale(ctx, rev, config) {
-			err := c.client.ServingV1alpha1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
+			err := c.client.ServingV1().Revisions(rev.Namespace).Delete(rev.Name, &metav1.DeleteOptions{})
 			if err != nil {
 				logger.With(zap.Error(err)).Errorf("Failed to delete stale revision %q", rev.Name)
 				continue
@@ -80,7 +80,7 @@ func (c *reconciler) ReconcileKind(ctx context.Context, config *v1alpha1.Configu
 	return nil
 }
 
-func isRevisionStale(ctx context.Context, rev *v1alpha1.Revision, config *v1alpha1.Configuration) bool {
+func isRevisionStale(ctx context.Context, rev *v1.Revision, config *v1.Configuration) bool {
 	if config.Status.LatestReadyRevisionName == rev.Name {
 		return false
 	}
@@ -96,7 +96,7 @@ func isRevisionStale(ctx context.Context, rev *v1alpha1.Revision, config *v1alph
 
 	lastPin, err := rev.GetLastPinned()
 	if err != nil {
-		if err.(v1alpha1.LastPinnedParseError).Type != v1alpha1.AnnotationParseErrorTypeMissing {
+		if err.(v1.LastPinnedParseError).Type != v1.AnnotationParseErrorTypeMissing {
 			logger.Errorw("Failed to determine revision last pinned", zap.Error(err))
 		} else {
 			// Revision was never pinned and its RevisionConditionReady is not true after staleRevisionCreateDelay.

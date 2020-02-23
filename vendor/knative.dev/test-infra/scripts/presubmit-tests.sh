@@ -127,9 +127,9 @@ function report_build_test() {
 # Perform markdown build tests if necessary, unless disabled.
 function markdown_build_tests() {
   (( DISABLE_MD_LINTING && DISABLE_MD_LINK_CHECK )) && return 0
-  # Get changed markdown files (ignore /vendor and deleted files)
+  # Get changed markdown files (ignore /vendor, github templates, and deleted files)
   local mdfiles=""
-  for file in $(echo "${CHANGED_FILES}" | grep \.md$ | grep -v ^vendor/); do
+  for file in $(echo "${CHANGED_FILES}" | grep \.md$ | grep -v ^vendor/ | grep -v ^.github/); do
     [[ -f "${file}" ]] && mdfiles="${mdfiles} ${file}"
   done
   [[ -z "${mdfiles}" ]] && return 0

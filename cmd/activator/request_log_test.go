@@ -28,10 +28,10 @@ import (
 	rtesting "knative.dev/pkg/reconciler/testing"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1alpha1/revision/fake"
-	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1alpha1"
+	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
+	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
 	pkghttp "knative.dev/serving/pkg/http"
 
 	corev1 "k8s.io/api/core/v1"
@@ -179,7 +179,7 @@ func TestRequestLogTemplateInputGetter(t *testing.T) {
 }
 
 func revisionLister(t *testing.T, addLabels bool) servinglisters.RevisionLister {
-	rev := &v1alpha1.Revision{}
+	rev := &v1.Revision{}
 	rev.Name = testRevisionName
 	rev.Namespace = testNamespaceName
 	if addLabels {
@@ -190,7 +190,7 @@ func revisionLister(t *testing.T, addLabels bool) servinglisters.RevisionLister 
 	}
 
 	ctx, _ := rtesting.SetupFakeContext(t)
-	fakeservingclient.Get(ctx).ServingV1alpha1().Revisions(testNamespaceName).Create(rev)
+	fakeservingclient.Get(ctx).ServingV1().Revisions(testNamespaceName).Create(rev)
 	ri := fakerevisioninformer.Get(ctx)
 	ri.Informer().GetIndexer().Add(rev)
 	return ri.Lister()

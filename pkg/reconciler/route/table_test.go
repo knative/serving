@@ -1779,7 +1779,6 @@ func TestReconcile(t *testing.T) {
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
 			listers.GetRouteLister(), controller.GetEventRecorder(ctx), r,
 			controller.Options{ConfigStore: &testConfigStore{config: ReconcilerTestConfig(false)}})
-
 	}))
 }
 

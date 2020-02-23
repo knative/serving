@@ -65,7 +65,8 @@ func GetServers(gateway *v1alpha3.Gateway, ing *v1alpha1.Ingress) []*istiov1alph
 // GetHTTPServer gets the HTTP `Server` from `Gateway`.
 func GetHTTPServer(gateway *v1alpha3.Gateway) *istiov1alpha3.Server {
 	for _, server := range gateway.Spec.Servers {
-		if server.Port.Name == httpServerPortName {
+		// The server with "http" port is the default HTTP server.
+		if server.Port.Name == httpServerPortName || server.Port.Name == "http" {
 			return server
 		}
 	}
@@ -258,9 +259,8 @@ func UpdateGateway(gateway *v1alpha3.Gateway, want []*istiov1alpha3.Server, exis
 	for _, server := range gateway.Spec.Servers {
 		// We remove
 		//  1) the existing servers
-		//  2) the default HTTP server and HTTPS server in the gateway because they are only used for the scenario of not reconciling gateway.
-		//  3) the placeholder servers.
-		if existingServers.Has(server.Port.Name) || isDefaultServer(server) || isPlaceHolderServer(server) {
+		//  2) the placeholder servers.
+		if existingServers.Has(server.Port.Name) || isPlaceHolderServer(server) {
 			continue
 		}
 		servers = append(servers, server)
@@ -276,13 +276,6 @@ func UpdateGateway(gateway *v1alpha3.Gateway, want []*istiov1alpha3.Server, exis
 	SortServers(servers)
 	gateway.Spec.Servers = servers
 	return gateway
-}
-
-func isDefaultServer(server *istiov1alpha3.Server) bool {
-	if server.Port.Name == "https" {
-		return len(server.Hosts) > 0 && server.Hosts[0] == "*"
-	}
-	return server.Port.Name == "http"
 }
 
 func isPlaceHolderServer(server *istiov1alpha3.Server) bool {

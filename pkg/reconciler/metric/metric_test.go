@@ -27,20 +27,21 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	clientgotesting "k8s.io/client-go/testing"
-	"knative.dev/serving/pkg/autoscaler/metrics"
-	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
-	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
-	metricreconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/metric"
-
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	. "knative.dev/pkg/reconciler/testing"
 	av1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
-	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler/metrics"
+	servingclient "knative.dev/serving/pkg/client/injection/client/fake"
+	metricreconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/metric"
+
+	_ "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric/fake"
+
+	. "knative.dev/pkg/reconciler/testing"
+	. "knative.dev/serving/pkg/reconciler/testing/v1"
 )
 
 type collectorKey struct{}
@@ -82,7 +83,11 @@ func TestReconcile(t *testing.T) {
 					return false, nil, nil
 				}
 				retryAttempted = true
-				return true, nil, apierrs.NewConflict(v1alpha1.Resource("foo"), "bar", errors.New("foo"))
+				resource := schema.GroupResource{
+					Group:    "some.group.dev",
+					Resource: "resources",
+				}
+				return true, nil, apierrs.NewConflict(resource, "bar", errors.New("foo"))
 			},
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
