@@ -31,8 +31,6 @@ import (
 	rtesting "knative.dev/serving/pkg/testing/v1"
 	"knative.dev/serving/test"
 	v1test "knative.dev/serving/test/v1"
-
-	. "knative.dev/serving/pkg/testing/v1"
 )
 
 // ContainerError executes a test flow where the container returns an Error when it attempts to start.
@@ -60,7 +58,7 @@ func ContainerError(t *logging.TLogger, falseConfigurationValidator func(*loggin
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
 	t.V(2).Info("Creating a new Service", "service", names.Service)
-	svc, err := v1test.CreateService(t, clients, names, WithRevisionTimeoutSeconds(2))
+	svc, err := v1test.CreateService(t, clients, names, rtesting.WithRevisionTimeoutSeconds(2))
 	t.FatalIfErr(err, "Failed to create Service")
 
 	names.Config = serviceresourcenames.Configuration(svc)
