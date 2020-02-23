@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 const (
+	// ContainerMissing is the string returned when a container image cannot be found
 	// TODO: shouldn't this be exported by the code so we can reuse it? It was in v1alpha1
 	ContainerMissing = "ContainerMissing"
 )

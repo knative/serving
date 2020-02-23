@@ -35,6 +35,12 @@ import (
 	. "knative.dev/serving/pkg/testing/v1"
 )
 
+// ContainerError executes a test flow where the container returns an Error when it attempts to start.
+// The caller can inject its testing at two points:
+// * falseConfigurationValidator: when the Configuration state becomes false, this function is called
+// * revisionValidator: when checking the Revision state
+// In both cases, the Condition has already been validated by ValidateCondition and relevant fields are
+// already included in the TLogger.
 func ContainerError(t *logging.TLogger, falseConfigurationValidator func(*logging.TLogger, *apis.Condition) (bool, error), revisionValidator func(*logging.TLogger, *apis.Condition) (bool, error)) {
 	if strings.HasSuffix(strings.Split(pkgTest.Flags.DockerRepo, "/")[0], ".local") {
 		t.V(0).Info("Skipping for local docker repo")
@@ -106,6 +112,12 @@ func ContainerError(t *logging.TLogger, falseConfigurationValidator func(*loggin
 	})
 }
 
+// ContainerError executes a test flow where the container exists shortly after successfully starting.
+// The caller can inject its testing at two points:
+// * falseConfigurationValidator: when the Configuration state becomes false, this function is called
+// * revisionValidator: when checking the Revision state
+// In both cases, the Condition has already been validated by ValidateCondition and relevant fields are
+// already included in the TLogger.
 func ContainerExiting(t *logging.TLogger, falseConfigurationValidator func(*logging.TLogger, *apis.Condition) (bool, error), revisionValidator func(*logging.TLogger, *apis.Condition) (bool, error)) {
 	t.Parallel()
 	tests := []struct {
@@ -156,9 +168,8 @@ func ContainerExiting(t *logging.TLogger, falseConfigurationValidator func(*logg
 					if cond != nil && !cond.IsUnknown() {
 						if cond.IsFalse() {
 							return falseConfigurationValidator(ts, cond)
-						} else {
-							ts.Fatal("Configuration should not have become ready")
 						}
+						ts.Fatal("Configuration should not have become ready")
 					}
 					return false, nil
 				}, "ConfigContainersCrashing")

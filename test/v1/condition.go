@@ -27,6 +27,8 @@ import (
 var camelCaseRegex = regexp.MustCompile(`^[[:upper:]].*`)
 var camelCaseSingleWordRegex = regexp.MustCompile(`^[[:upper:]][^[\s]]+$`)
 
+// ValidateCondition validates all fields of a Condition which are universal
+// across all Condition, as defined in the API Spec.
 func ValidateCondition(t *logging.TLogger, c *apis.Condition) {
 	if c == nil {
 		return
