@@ -35,6 +35,13 @@ type ConditionsAccessor interface {
 	SetConditions(Conditions)
 }
 
+// ConditionAccessor is used to access a condition through it's type
+type ConditionAccessor interface {
+	// GetCondition finds and returns the Condition that matches the ConditionType
+	// It should return nil if the condition type is not present
+	GetCondition(t ConditionType) *Condition
+}
+
 // ConditionSet is an abstract collection of the possible ConditionType values
 // that a particular resource might expose.  It also holds the "happy condition"
 // for that resource, which we define to be one of Ready or Succeeded depending
@@ -48,16 +55,14 @@ type ConditionSet struct {
 // ConditionManager allows a resource to operate on its Conditions using higher
 // order operations.
 type ConditionManager interface {
+	ConditionAccessor
+
 	// IsHappy looks at the happy condition and returns true if that condition is
 	// set to true.
 	IsHappy() bool
 
 	// GetTopLevelCondition finds and returns the top level Condition (happy Condition).
 	GetTopLevelCondition() *Condition
-
-	// GetCondition finds and returns the Condition that matches the ConditionType
-	// previously set on Conditions.
-	GetCondition(t ConditionType) *Condition
 
 	// SetCondition sets or updates the Condition on Conditions for Condition.Type.
 	// If there is an update, Conditions are stored back sorted.

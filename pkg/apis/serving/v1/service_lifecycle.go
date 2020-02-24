@@ -23,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"knative.dev/pkg/apis"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 const (
@@ -130,8 +129,4 @@ func (ss *ServiceStatus) PropagateRouteStatus(rs *RouteStatus) {
 	case corev1.ConditionUnknown:
 		m.MarkUnknown(ServiceConditionRoutesReady, rc.Reason, rc.Message)
 	}
-}
-
-func (ss *ServiceStatus) duck() *duckv1.Status {
-	return &ss.Status
 }

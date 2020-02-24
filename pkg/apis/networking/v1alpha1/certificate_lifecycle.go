@@ -21,7 +21,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 // InitializeConditions initializes the certificate conditions.
@@ -73,8 +72,4 @@ var certificateCondSet = apis.NewLivingConditionSet(CertificateConditionReady)
 // GetGroupVersionKind returns the GroupVersionKind of Certificate.
 func (c *Certificate) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("Certificate")
-}
-
-func (cs *CertificateStatus) duck() *duckv1.Status {
-	return &cs.Status
 }

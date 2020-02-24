@@ -25,7 +25,7 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-	apitestv1 "knative.dev/pkg/apis/testing/v1"
+	apistest "knative.dev/pkg/apis/testing"
 	"knative.dev/serving/pkg/apis/autoscaling"
 )
 
@@ -140,26 +140,26 @@ func TestMetricGetSetCondition(t *testing.T) {
 func TestTypicalFlowWithMetricCondition(t *testing.T) {
 	m := &MetricStatus{}
 	m.InitializeConditions()
-	apitestv1.CheckConditionOngoing(m.duck(), MetricConditionReady, t)
+	apistest.CheckConditionOngoing(m, MetricConditionReady, t)
 
 	const (
 		wantReason  = "reason"
 		wantMessage = "the error message"
 	)
 	m.MarkMetricFailed(wantReason, wantMessage)
-	apitestv1.CheckConditionFailed(m.duck(), MetricConditionReady, t)
+	apistest.CheckConditionFailed(m, MetricConditionReady, t)
 	if got := m.GetCondition(MetricConditionReady); got == nil || got.Reason != wantReason || got.Message != wantMessage {
 		t.Errorf("MarkMetricFailed = %v, wantReason %v, wantMessage %v", got, wantReason, wantMessage)
 	}
 
 	m.MarkMetricNotReady(wantReason, wantMessage)
-	apitestv1.CheckConditionOngoing(m.duck(), MetricConditionReady, t)
+	apistest.CheckConditionOngoing(m, MetricConditionReady, t)
 	if got := m.GetCondition(MetricConditionReady); got == nil || got.Reason != wantReason || got.Message != wantMessage {
 		t.Errorf("MarkMetricNotReady = %v, wantReason %v, wantMessage %v", got, wantReason, wantMessage)
 	}
 
 	m.MarkMetricReady()
-	apitestv1.CheckConditionSucceeded(m.duck(), MetricConditionReady, t)
+	apistest.CheckConditionSucceeded(m, MetricConditionReady, t)
 }
 
 func TestMetricGetGroupVersionKind(t *testing.T) {
