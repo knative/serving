@@ -65,18 +65,26 @@ func WaitForConfigLatestRevision(clients *test.Clients, names test.ResourceNames
 	err := WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1.Configuration) (bool, error) {
 		if c.Status.LatestCreatedRevisionName != names.Revision {
 			revisionName = c.Status.LatestCreatedRevisionName
+			// We also check that the revision is pinned, meaning it's not a stale revision.
+			// Without this it might happen that the latest created revision is later overridden by a newer one
+			// and the following check for LatestReadyRevisionName would fail.
+			if revErr := CheckRevisionState(clients.ServingClient, revisionName, IsRevisionPinned); revErr != nil {
+				return false, nil
+			}
 			return true, nil
 		}
 		return false, nil
 	}, "ConfigurationUpdatedWithRevision")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("LatestCreatedRevisionName not updated: %w", err)
 	}
-	err = WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1.Configuration) (bool, error) {
+	if err = WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1.Configuration) (bool, error) {
 		return (c.Status.LatestReadyRevisionName == revisionName), nil
-	}, "ConfigurationReadyWithRevision")
+	}, "ConfigurationReadyWithRevision"); err != nil {
+		return "", fmt.Errorf("LatestReadyRevisionName not updated with %s: %w", revisionName, err)
+	}
 
-	return revisionName, err
+	return revisionName, nil
 }
 
 // ConfigurationSpec returns the spec of a configuration to be used throughout different
