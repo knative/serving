@@ -78,6 +78,32 @@ func TestStats(t *testing.T) {
 				PodName:                   "activator",
 			}},
 		}}, {
+		// NB: this test should start failing when #6991 is fixed
+		// and must be updated.
+		name: "in'n out",
+		ops: []reqOp{{
+			op:  requestOpStart,
+			key: rev1,
+		}, {
+			op:  requestOpEnd,
+			key: rev1,
+		}, {
+			op:  requestOpStart,
+			key: rev1,
+		}, {
+			op:  requestOpEnd,
+			key: rev1,
+		}, {
+			op: requestOpTick, // This won't result in reporting anything at all.
+		}},
+		expectedStats: []metrics.StatMessage{{
+			Key: rev1,
+			Stat: metrics.Stat{
+				AverageConcurrentRequests: 1,
+				RequestCount:              1,
+				PodName:                   "activator",
+			}},
+		}}, {
 		name: "Scale to two",
 		ops: []reqOp{{
 			op:  requestOpStart,
