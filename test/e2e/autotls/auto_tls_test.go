@@ -92,7 +92,7 @@ func testAutoTLS(t *testing.T) {
 	certName := getCertificateName(t, clients, objects)
 	rootCAs := createRootCAs(t, clients, objects.Route.Namespace, certName)
 	httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
-	testingress.RuntimeRequest(t, httpsClient, "https://"+objects.Service.Status.URL.Host)
+	testingress.RuntimeRequest(t, httpsClient, objects.Service.Status.URL.String())
 
 	t.Run("Tag route", func(t *testing.T) {
 		// Verify that a certificate is created when route is tagged
@@ -106,7 +106,7 @@ func testAutoTLS(t *testing.T) {
 			t.Fatalf("Failed to update Service route spec: %v", err)
 		}
 		// Wait for ingress TLS configuration.
-		if err = v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceReady, "ServiceIsReady"); err != nil {
+		if err = v1test.WaitForServiceState(clients.ServingClient, names.Service, httpsReady, "HTTPSIsReady"); err != nil {
 			t.Fatalf("Service %s did not become ready: %v", names.Service, err)
 		}
 
@@ -123,10 +123,16 @@ func testAutoTLS(t *testing.T) {
 		var certDomains []string
 		for _, certificate := range certificates.Items {
 			certDomains = append(certDomains, certificate.Spec.DNSNames...)
+			if !rootCAs.AppendCertsFromPEM(getPEMDataFromSecret(t, clients, route.Namespace, certificate.Spec.SecretName)) {
+				t.Fatal("Failed to add the certificate to the root CA")
+			}
 		}
 		if !cmp.Equal(expectedDomains, certDomains) {
 			t.Fatalf("Incorrect certificate DNSNames. Got %v, want %v", expectedDomains, certDomains)
 		}
+
+		httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
+		testingress.RuntimeRequest(t, httpsClient, route.Status.Traffic[0].URL.String())
 	})
 }
 
@@ -152,13 +158,19 @@ func httpsReady(svc *servingv1.Service) (bool, error) {
 	}
 }
 
-func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *x509.CertPool {
+func getPEMDataFromSecret(t *testing.T, clients *test.Clients, ns, secretName string) []byte {
 	t.Helper()
 	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(ns).Get(
 		secretName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Secret %s: %v", secretName, err)
 	}
+	return secret.Data[corev1.TLSCertKey]
+}
+
+func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *x509.CertPool {
+	t.Helper()
+	pemData := getPEMDataFromSecret(t, clients, ns, secretName)
 
 	rootCAs, err := x509.SystemCertPool()
 	if rootCAs == nil || err != nil {
@@ -167,7 +179,7 @@ func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *
 		}
 		rootCAs = x509.NewCertPool()
 	}
-	if !rootCAs.AppendCertsFromPEM(secret.Data[corev1.TLSCertKey]) {
+	if !rootCAs.AppendCertsFromPEM(pemData) {
 		t.Fatal("Failed to add the certificate to the root CA")
 	}
 	return rootCAs
