@@ -80,7 +80,7 @@ func newControllerWithOptions(
 	}
 	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
 
-	impl := ingressreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
+	impl := ingressreconciler.NewImpl(ctx, c, network.IstioIngressClassName, func(impl *controller.Impl) controller.Options {
 		logger.Info("Setting up ConfigMap receivers")
 		configsToResync := []interface{}{
 			&config.Istio{},
