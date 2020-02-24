@@ -23,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"knative.dev/pkg/apis"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 var serverlessServiceCondSet = apis.NewLivingConditionSet(
@@ -89,10 +88,6 @@ func (sss *ServerlessServiceStatus) MarkEndpointsNotReady(reason string) {
 // IsReady returns true if ServerlessService is ready.
 func (sss *ServerlessServiceStatus) IsReady() bool {
 	return serverlessServiceCondSet.Manage(sss).IsHappy()
-}
-
-func (sss *ServerlessServiceStatus) duck() *duckv1.Status {
-	return &sss.Status
 }
 
 // ProxyFor returns how long it has been since Activator was moved

@@ -24,10 +24,11 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 $(dirname $0)/../vend
 KNATIVE_CODEGEN_PKG=${KNATIVE_CODEGEN_PKG:-$(cd ${REPO_ROOT_DIR}; ls -d -1 $(dirname $0)/../vendor/knative.dev/pkg 2>/dev/null || echo ../pkg)}
 
 GENCLIENT_PKG=knative.dev/pkg/test/genclient
-(
-  cd ${REPO_ROOT_DIR}
-  rm -rf ${REPO_ROOT_DIR}/pkg/test/genclient
-)
+
+echo "Pre-deleting $(dirname $0)/genclient"
+rm -rf $(dirname $0)/genclient
+
+header "Test Generated Reconciler Builds."
 
 ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
   ${GENCLIENT_PKG} knative.dev/pkg/apis/test \
@@ -52,3 +53,9 @@ ${KNATIVE_CODEGEN_PKG}/hack/generate-knative.sh "injection" \
   --go-header-file ${REPO_ROOT_DIR}/hack/boilerplate/boilerplate.go.txt
 
 
+if ! go build -v $(dirname $0)/genclient/... ; then
+    exit 1
+fi
+
+echo "Finished, deleting $(dirname $0)/genclient"
+rm -rf $(dirname $0)/genclient

@@ -1810,7 +1810,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:cc94fa80f6e4903c1c5b2fc8673156762b2ab2dfe3be11486fea0307e9de71b8"
+  digest = "1:2f22005f6915f0dd6bc45479507601547a369ed1da0982ed454a76207894e876"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1818,9 +1818,9 @@
     "apis/duck/v1",
     "apis/duck/v1alpha1",
     "apis/duck/v1beta1",
+    "apis/testing",
     "apis/testing/fuzzer",
     "apis/testing/roundtrip",
-    "apis/testing/v1",
     "changeset",
     "client/injection/apiextensions/client",
     "client/injection/apiextensions/informers/apiextensions/v1beta1/customresourcedefinition",
@@ -1917,7 +1917,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "a2e3b66654c1bcd82df07f8b4c45b19bad7ab21a"
+  revision = "5bc49f27e690d0c30bdd079e473d5419998b3259"
 
 [[projects]]
   branch = "master"
@@ -2084,9 +2084,9 @@
     "knative.dev/pkg/apis/duck/v1",
     "knative.dev/pkg/apis/duck/v1alpha1",
     "knative.dev/pkg/apis/duck/v1beta1",
+    "knative.dev/pkg/apis/testing",
     "knative.dev/pkg/apis/testing/fuzzer",
     "knative.dev/pkg/apis/testing/roundtrip",
-    "knative.dev/pkg/apis/testing/v1",
     "knative.dev/pkg/client/injection/kube/client",
     "knative.dev/pkg/client/injection/kube/client/fake",
     "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment",

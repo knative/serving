@@ -23,7 +23,7 @@ import (
 	"knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	duckv1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"
-	apitestv1 "knative.dev/pkg/apis/testing/v1"
+	apistest "knative.dev/pkg/apis/testing"
 	netv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 )
 
@@ -155,14 +155,14 @@ func TestRouteIsReady(t *testing.T) {
 func TestTypicalRouteFlow(t *testing.T) {
 	r := &RouteStatus{}
 	r.InitializeConditions()
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
 
 	r.MarkTrafficAssigned()
-	apitestv1.CheckConditionSucceeded(r.duck(), RouteConditionAllTrafficAssigned, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+	apistest.CheckConditionSucceeded(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
 
 	r.PropagateIngressStatus(netv1alpha1.IngressStatus{
 		Status: duckv1.Status{
@@ -172,83 +172,83 @@ func TestTypicalRouteFlow(t *testing.T) {
 			}},
 		},
 	})
-	apitestv1.CheckConditionSucceeded(r.duck(), RouteConditionAllTrafficAssigned, t)
-	apitestv1.CheckConditionSucceeded(r.duck(), RouteConditionIngressReady, t)
-	apitestv1.CheckConditionSucceeded(r.duck(), RouteConditionReady, t)
+	apistest.CheckConditionSucceeded(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionSucceeded(r, RouteConditionIngressReady, t)
+	apistest.CheckConditionSucceeded(r, RouteConditionReady, t)
 }
 
 func TestTrafficNotAssignedFlow(t *testing.T) {
 	r := &RouteStatus{}
 	r.InitializeConditions()
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
 
 	r.MarkMissingTrafficTarget("Revision", "does-not-exist")
-	apitestv1.CheckConditionFailed(r.duck(), RouteConditionAllTrafficAssigned, t)
-	apitestv1.CheckConditionFailed(r.duck(), RouteConditionReady, t)
+	apistest.CheckConditionFailed(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionFailed(r, RouteConditionReady, t)
 }
 
 func TestTargetConfigurationNotYetReadyFlow(t *testing.T) {
 	r := &RouteStatus{}
 	r.InitializeConditions()
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
 
 	r.MarkConfigurationNotReady("i-have-no-ready-revision")
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
 }
 
 func TestUnknownErrorWhenConfiguringTraffic(t *testing.T) {
 	r := &RouteStatus{}
 	r.InitializeConditions()
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
 
 	r.MarkUnknownTrafficError("unknown-error")
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
 }
 
 func TestTargetConfigurationFailedToBeReadyFlow(t *testing.T) {
 	r := &RouteStatus{}
 	r.InitializeConditions()
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
 
 	r.MarkConfigurationFailed("permanently-failed")
-	apitestv1.CheckConditionFailed(r.duck(), RouteConditionAllTrafficAssigned, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
-	apitestv1.CheckConditionFailed(r.duck(), RouteConditionReady, t)
+	apistest.CheckConditionFailed(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
+	apistest.CheckConditionFailed(r, RouteConditionReady, t)
 }
 
 func TestTargetRevisionNotYetReadyFlow(t *testing.T) {
 	r := &RouteStatus{}
 	r.InitializeConditions()
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
 
 	r.MarkRevisionNotReady("not-yet-ready")
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
 }
 
 func TestTargetRevisionFailedToBeReadyFlow(t *testing.T) {
 	r := &RouteStatus{}
 	r.InitializeConditions()
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
 
 	r.MarkRevisionFailed("cannot-find-image")
-	apitestv1.CheckConditionFailed(r.duck(), RouteConditionAllTrafficAssigned, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
-	apitestv1.CheckConditionFailed(r.duck(), RouteConditionReady, t)
+	apistest.CheckConditionFailed(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
+	apistest.CheckConditionFailed(r, RouteConditionReady, t)
 }
 
 func TestIngressFailureRecovery(t *testing.T) {
@@ -262,15 +262,15 @@ func TestIngressFailureRecovery(t *testing.T) {
 			}},
 		},
 	})
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
 
 	// Empty IngressStatus marks ingress "NotConfigured"
 	r.PropagateIngressStatus(netv1alpha1.IngressStatus{})
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
 
 	r.MarkTrafficAssigned()
 	r.PropagateIngressStatus(netv1alpha1.IngressStatus{
@@ -281,9 +281,9 @@ func TestIngressFailureRecovery(t *testing.T) {
 			}},
 		},
 	})
-	apitestv1.CheckConditionSucceeded(r.duck(), RouteConditionAllTrafficAssigned, t)
-	apitestv1.CheckConditionSucceeded(r.duck(), RouteConditionIngressReady, t)
-	apitestv1.CheckConditionSucceeded(r.duck(), RouteConditionReady, t)
+	apistest.CheckConditionSucceeded(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionSucceeded(r, RouteConditionIngressReady, t)
+	apistest.CheckConditionSucceeded(r, RouteConditionReady, t)
 
 	r.PropagateIngressStatus(netv1alpha1.IngressStatus{
 		Status: duckv1.Status{
@@ -293,9 +293,9 @@ func TestIngressFailureRecovery(t *testing.T) {
 			}},
 		},
 	})
-	apitestv1.CheckConditionSucceeded(r.duck(), RouteConditionAllTrafficAssigned, t)
-	apitestv1.CheckConditionFailed(r.duck(), RouteConditionIngressReady, t)
-	apitestv1.CheckConditionFailed(r.duck(), RouteConditionReady, t)
+	apistest.CheckConditionSucceeded(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionFailed(r, RouteConditionIngressReady, t)
+	apistest.CheckConditionFailed(r, RouteConditionReady, t)
 
 	r.PropagateIngressStatus(netv1alpha1.IngressStatus{
 		Status: duckv1.Status{
@@ -305,9 +305,9 @@ func TestIngressFailureRecovery(t *testing.T) {
 			}},
 		},
 	})
-	apitestv1.CheckConditionSucceeded(r.duck(), RouteConditionAllTrafficAssigned, t)
-	apitestv1.CheckConditionSucceeded(r.duck(), RouteConditionIngressReady, t)
-	apitestv1.CheckConditionSucceeded(r.duck(), RouteConditionReady, t)
+	apistest.CheckConditionSucceeded(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionSucceeded(r, RouteConditionIngressReady, t)
+	apistest.CheckConditionSucceeded(r, RouteConditionReady, t)
 }
 
 func TestRouteNotOwnedStuff(t *testing.T) {
@@ -322,14 +322,14 @@ func TestRouteNotOwnedStuff(t *testing.T) {
 		},
 	})
 
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionReady, t)
 
 	r.MarkServiceNotOwned("evan")
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionAllTrafficAssigned, t)
-	apitestv1.CheckConditionFailed(r.duck(), RouteConditionIngressReady, t)
-	apitestv1.CheckConditionFailed(r.duck(), RouteConditionReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionAllTrafficAssigned, t)
+	apistest.CheckConditionFailed(r, RouteConditionIngressReady, t)
+	apistest.CheckConditionFailed(r, RouteConditionReady, t)
 }
 
 func TestRouteGetGroupVersionKind(t *testing.T) {
@@ -349,7 +349,7 @@ func TestCertificateReady(t *testing.T) {
 	r.InitializeConditions()
 	r.MarkCertificateReady("cert")
 
-	apitestv1.CheckConditionSucceeded(r.duck(), RouteConditionCertificateProvisioned, t)
+	apistest.CheckConditionSucceeded(r, RouteConditionCertificateProvisioned, t)
 }
 
 func TestCertificateNotReady(t *testing.T) {
@@ -357,7 +357,7 @@ func TestCertificateNotReady(t *testing.T) {
 	r.InitializeConditions()
 	r.MarkCertificateNotReady("cert")
 
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionCertificateProvisioned, t)
+	apistest.CheckConditionOngoing(r, RouteConditionCertificateProvisioned, t)
 }
 
 func TestCertificateProvisionFailed(t *testing.T) {
@@ -365,7 +365,7 @@ func TestCertificateProvisionFailed(t *testing.T) {
 	r.InitializeConditions()
 	r.MarkCertificateProvisionFailed("cert")
 
-	apitestv1.CheckConditionFailed(r.duck(), RouteConditionCertificateProvisioned, t)
+	apistest.CheckConditionFailed(r, RouteConditionCertificateProvisioned, t)
 }
 
 func TestRouteNotOwnCertificate(t *testing.T) {
@@ -373,7 +373,7 @@ func TestRouteNotOwnCertificate(t *testing.T) {
 	r.InitializeConditions()
 	r.MarkCertificateNotOwned("cert")
 
-	apitestv1.CheckConditionFailed(r.duck(), RouteConditionCertificateProvisioned, t)
+	apistest.CheckConditionFailed(r, RouteConditionCertificateProvisioned, t)
 }
 
 func TestIngressNotConfigured(t *testing.T) {
@@ -381,5 +381,5 @@ func TestIngressNotConfigured(t *testing.T) {
 	r.InitializeConditions()
 	r.MarkIngressNotConfigured()
 
-	apitestv1.CheckConditionOngoing(r.duck(), RouteConditionIngressReady, t)
+	apistest.CheckConditionOngoing(r, RouteConditionIngressReady, t)
 }

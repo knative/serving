@@ -26,7 +26,7 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-	apitestv1 "knative.dev/pkg/apis/testing/v1"
+	apistest "knative.dev/pkg/apis/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
 )
@@ -606,7 +606,7 @@ func TestMarkResourceNotOwned(t *testing.T) {
 func TestMarkResourceFailedCreation(t *testing.T) {
 	pa := &PodAutoscalerStatus{}
 	pa.MarkResourceFailedCreation("doesn't", "matter")
-	apitestv1.CheckConditionFailed(pa.duck(), PodAutoscalerConditionActive, t)
+	apistest.CheckConditionFailed(pa, PodAutoscalerConditionActive, t)
 
 	active := pa.GetCondition("Active")
 	if active.Status != corev1.ConditionFalse {
@@ -868,38 +868,38 @@ func pa(annotations map[string]string) *PodAutoscaler {
 func TestTypicalFlow(t *testing.T) {
 	r := &PodAutoscalerStatus{}
 	r.InitializeConditions()
-	apitestv1.CheckConditionOngoing(r.duck(), PodAutoscalerConditionActive, t)
-	apitestv1.CheckConditionOngoing(r.duck(), PodAutoscalerConditionReady, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerConditionActive, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerConditionReady, t)
 
 	// When we see traffic, mark ourselves active.
 	r.MarkActive()
-	apitestv1.CheckConditionSucceeded(r.duck(), PodAutoscalerConditionActive, t)
-	apitestv1.CheckConditionSucceeded(r.duck(), PodAutoscalerConditionReady, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
 
 	// Check idempotency.
 	r.MarkActive()
-	apitestv1.CheckConditionSucceeded(r.duck(), PodAutoscalerConditionActive, t)
-	apitestv1.CheckConditionSucceeded(r.duck(), PodAutoscalerConditionReady, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
 
 	// When we stop seeing traffic, mark outselves inactive.
 	r.MarkInactive("TheReason", "the message")
-	apitestv1.CheckConditionFailed(r.duck(), PodAutoscalerConditionActive, t)
+	apistest.CheckConditionFailed(r, PodAutoscalerConditionActive, t)
 	if !r.IsInactive() {
 		t.Error("IsInactive was not set.")
 	}
-	apitestv1.CheckConditionFailed(r.duck(), PodAutoscalerConditionReady, t)
+	apistest.CheckConditionFailed(r, PodAutoscalerConditionReady, t)
 
 	// When traffic hits the activator and we scale up the deployment we mark
 	// ourselves as activating.
 	r.MarkActivating("Activating", "Red team, GO!")
-	apitestv1.CheckConditionOngoing(r.duck(), PodAutoscalerConditionActive, t)
-	apitestv1.CheckConditionOngoing(r.duck(), PodAutoscalerConditionReady, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerConditionActive, t)
+	apistest.CheckConditionOngoing(r, PodAutoscalerConditionReady, t)
 
 	// When the activator successfully forwards traffic to the deployment,
 	// we mark ourselves as active once more.
 	r.MarkActive()
-	apitestv1.CheckConditionSucceeded(r.duck(), PodAutoscalerConditionActive, t)
-	apitestv1.CheckConditionSucceeded(r.duck(), PodAutoscalerConditionReady, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
+	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
 }
 
 func TestTargetBC(t *testing.T) {
