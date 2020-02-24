@@ -1,26 +1,39 @@
-apiVersion: rbac.authorization.k8s.io/v1
+# Not used directly, this lets the knative-serving service account reconcile
+# HTTPProxy resources.
 kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
 metadata:
+  name: knative-contour-core
   labels:
     serving.knative.dev/controller: "true"
-  name: knative-contour-core
 rules:
-- apiGroups:
-  - projectcontour.io
-  resources:
-  - httpproxies
-  verbs:
-  - get
-  - list
-  - create
-  - update
-  - delete
-  - deletecollection
-  - patch
-  - watch
+- apiGroups: ["projectcontour.io"]
+  resources: ["httpproxies"]
+  verbs: ["get", "list", "create", "update", "delete", "deletecollection", "patch",
+    "watch"]
 
 ---
+# Copyright 2019 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-contour
+  namespace: knative-serving
+  labels:
+    serving.knative.dev/release: "v20200224-66f1ac9"
 data:
   _example: |
     ################################
@@ -36,19 +49,27 @@ data:
     #  2. the namespace/name of the Contour Envoy service.
     visibility: |
       ExternalIP:
-        class: contour
-        service: projectcontour/envoy-external
+        class: contour-external
+        service: contour-external/envoy
       ClusterLocal:
         class: contour-internal
-        service: projectcontour/envoy-internal
-kind: ConfigMap
-metadata:
-  labels:
-    serving.knative.dev/release: "v20200206-896dd2e"
-  name: config-contour
-  namespace: knative-serving
+        service: contour-internal/envoy
 
 ---
+# Copyright 2020 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -64,8 +85,20 @@ spec:
       labels:
         app: contour-ingress-controller
     spec:
+      serviceAccountName: controller
       containers:
-      - env:
+      - name: controller
+        # This is the Go import path for the binary that is containerized
+        # and substituted here.
+        image: gcr.io/knative-nightly/knative.dev/net-contour/cmd/controller@sha256:05c8debfa69cec2aec12430e322db0dec3ef2030919ad20485cf87653c780bfe
+        resources:
+          requests:
+            cpu: 40m
+            memory: 40Mi
+          limits:
+            cpu: 400m
+            memory: 400Mi
+        env:
         - name: SYSTEM_NAMESPACE
           valueFrom:
             fieldRef:
@@ -76,22 +109,12 @@ spec:
           value: config-observability
         - name: METRICS_DOMAIN
           value: knative.dev/net-contour
-        image: gcr.io/knative-nightly/knative.dev/net-contour/cmd/controller@sha256:d5fe8bb54bd56c3d96dd2ac3e3a452059a0f4e1848a6558b6f34d41960ed9299
-        name: controller
         ports:
-        - containerPort: 9090
-          name: metrics
-        - containerPort: 8008
-          name: profiling
-        resources:
-          limits:
-            cpu: 400m
-            memory: 400Mi
-          requests:
-            cpu: 40m
-            memory: 40Mi
+        - name: metrics
+          containerPort: 9090
+        - name: profiling
+          containerPort: 8008
         securityContext:
           allowPrivilegeEscalation: false
-      serviceAccountName: controller
 
 ---
