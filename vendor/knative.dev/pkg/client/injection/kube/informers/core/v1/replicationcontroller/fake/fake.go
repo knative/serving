@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	"context"
+	context "context"
 
 	replicationcontroller "knative.dev/pkg/client/injection/kube/informers/core/v1/replicationcontroller"
 	fake "knative.dev/pkg/client/injection/kube/informers/factory/fake"

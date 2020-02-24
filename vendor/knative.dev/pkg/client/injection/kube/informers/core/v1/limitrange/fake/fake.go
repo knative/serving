@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	"context"
+	context "context"
 
 	limitrange "knative.dev/pkg/client/injection/kube/informers/core/v1/limitrange"
 	fake "knative.dev/pkg/client/injection/kube/informers/factory/fake"

@@ -79,6 +79,10 @@ func (g *fakeFactoryGenerator) GenerateType(c *generator.Context, t *types.Type,
 		"injectionHasNamespace":     c.Universe.Type(types.Name{Package: "knative.dev/pkg/injection", Name: "HasNamespaceScope"}),
 		"injectionGetNamespace":     c.Universe.Type(types.Name{Package: "knative.dev/pkg/injection", Name: "GetNamespaceScope"}),
 		"controllerGetResyncPeriod": c.Universe.Type(types.Name{Package: "knative.dev/pkg/controller", Name: "GetResyncPeriod"}),
+		"contextContext": c.Universe.Type(types.Name{
+			Package: "context",
+			Name:    "Context",
+		}),
 	}
 
 	sw.Do(injectionFakeInformerFactory, m)
@@ -93,7 +97,7 @@ func init() {
 	{{.injectionRegisterInformerFactory|raw}}(withInformerFactory)
 }
 
-func withInformerFactory(ctx context.Context) context.Context {
+func withInformerFactory(ctx {{.contextContext|raw}}) {{.contextContext|raw}} {
 	c := {{.clientGet|raw}}(ctx)
 	opts := make([]{{.informersSharedInformerOption|raw}}, 0, 1)
 	if {{.injectionHasNamespace|raw}}(ctx) {

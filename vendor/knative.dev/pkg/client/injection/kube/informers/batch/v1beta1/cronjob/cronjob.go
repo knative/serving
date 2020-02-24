@@ -19,7 +19,7 @@ limitations under the License.
 package cronjob
 
 import (
-	"context"
+	context "context"
 
 	v1beta1 "k8s.io/client-go/informers/batch/v1beta1"
 	factory "knative.dev/pkg/client/injection/kube/informers/factory"

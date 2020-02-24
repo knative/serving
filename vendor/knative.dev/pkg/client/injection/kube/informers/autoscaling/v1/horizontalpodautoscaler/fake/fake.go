@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	"context"
+	context "context"
 
 	horizontalpodautoscaler "knative.dev/pkg/client/injection/kube/informers/autoscaling/v1/horizontalpodautoscaler"
 	fake "knative.dev/pkg/client/injection/kube/informers/factory/fake"

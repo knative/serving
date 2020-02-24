@@ -19,7 +19,7 @@ limitations under the License.
 package client
 
 import (
-	"context"
+	context "context"
 
 	clientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	rest "k8s.io/client-go/rest"

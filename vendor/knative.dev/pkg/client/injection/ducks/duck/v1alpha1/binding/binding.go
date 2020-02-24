@@ -19,7 +19,7 @@ limitations under the License.
 package binding
 
 import (
-	"context"
+	context "context"
 
 	duck "knative.dev/pkg/apis/duck"
 	v1alpha1 "knative.dev/pkg/apis/duck/v1alpha1"

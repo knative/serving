@@ -19,7 +19,7 @@ limitations under the License.
 package podscalable
 
 import (
-	"context"
+	context "context"
 
 	duck "knative.dev/pkg/apis/duck"
 	controller "knative.dev/pkg/controller"

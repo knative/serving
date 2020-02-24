@@ -19,7 +19,7 @@ limitations under the License.
 package factory
 
 import (
-	"context"
+	context "context"
 
 	externalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	client "knative.dev/pkg/client/injection/apiextensions/client"
