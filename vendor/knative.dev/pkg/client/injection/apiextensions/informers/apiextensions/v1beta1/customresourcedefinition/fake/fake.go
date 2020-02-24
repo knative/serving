@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	"context"
+	context "context"
 
 	customresourcedefinition "knative.dev/pkg/client/injection/apiextensions/informers/apiextensions/v1beta1/customresourcedefinition"
 	fake "knative.dev/pkg/client/injection/apiextensions/informers/factory/fake"

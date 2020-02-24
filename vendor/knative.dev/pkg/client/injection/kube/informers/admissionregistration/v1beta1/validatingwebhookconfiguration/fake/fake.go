@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	"context"
+	context "context"
 
 	validatingwebhookconfiguration "knative.dev/pkg/client/injection/kube/informers/admissionregistration/v1beta1/validatingwebhookconfiguration"
 	fake "knative.dev/pkg/client/injection/kube/informers/factory/fake"

@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	"context"
+	context "context"
 
 	externalversions "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	fake "knative.dev/pkg/client/injection/apiextensions/client/fake"

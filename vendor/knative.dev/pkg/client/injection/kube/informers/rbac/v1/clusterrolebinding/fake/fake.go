@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	"context"
+	context "context"
 
 	fake "knative.dev/pkg/client/injection/kube/informers/factory/fake"
 	clusterrolebinding "knative.dev/pkg/client/injection/kube/informers/rbac/v1/clusterrolebinding"

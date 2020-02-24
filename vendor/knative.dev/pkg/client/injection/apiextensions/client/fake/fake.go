@@ -19,11 +19,11 @@ limitations under the License.
 package fake
 
 import (
-	"context"
+	context "context"
 
 	fake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/rest"
+	runtime "k8s.io/apimachinery/pkg/runtime"
+	rest "k8s.io/client-go/rest"
 	client "knative.dev/pkg/client/injection/apiextensions/client"
 	injection "knative.dev/pkg/injection"
 	logging "knative.dev/pkg/logging"

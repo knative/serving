@@ -19,7 +19,7 @@ limitations under the License.
 package horizontalpodautoscaler
 
 import (
-	"context"
+	context "context"
 
 	v2beta1 "k8s.io/client-go/informers/autoscaling/v2beta1"
 	factory "knative.dev/pkg/client/injection/kube/informers/factory"

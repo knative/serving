@@ -19,7 +19,7 @@ limitations under the License.
 package customresourcedefinition
 
 import (
-	"context"
+	context "context"
 
 	v1beta1 "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1beta1"
 	factory "knative.dev/pkg/client/injection/apiextensions/informers/factory"

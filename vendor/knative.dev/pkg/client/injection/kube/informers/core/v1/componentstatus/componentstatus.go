@@ -19,7 +19,7 @@ limitations under the License.
 package componentstatus
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/client-go/informers/core/v1"
 	factory "knative.dev/pkg/client/injection/kube/informers/factory"
