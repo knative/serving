@@ -87,7 +87,6 @@ func newControllerWithOptions(
 		imageLister:         imageInformer.Lister(),
 		deploymentLister:    deploymentInformer.Lister(),
 		serviceLister:       serviceInformer.Lister(),
-		configMapLister:     configMapInformer.Lister(),
 		resolver: &digestResolver{
 			client:    kubeclient.Get(ctx),
 			transport: transport,
