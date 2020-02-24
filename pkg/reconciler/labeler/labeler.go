@@ -19,49 +19,30 @@ package labeler
 import (
 	"context"
 
-	"go.uber.org/zap"
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/client-go/tools/cache"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
+	pkgreconciler "knative.dev/pkg/reconciler"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	clientset "knative.dev/serving/pkg/client/clientset/versioned"
+	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
-	"knative.dev/serving/pkg/reconciler"
 )
 
 // Reconciler implements controller.Reconciler for Route resources.
 type Reconciler struct {
-	*reconciler.Base
+	client clientset.Interface
 
 	// Listers index properties about resources
-	routeLister         listers.RouteLister
 	configurationLister listers.ConfigurationLister
 	revisionLister      listers.RevisionLister
 }
 
-// Check that our Reconciler implements controller.Reconciler
-var _ controller.Reconciler = (*Reconciler)(nil)
+// Check that our Reconciler implements routereconciler.Interface
+var _ routereconciler.Interface = (*Reconciler)(nil)
+var _ routereconciler.Finalizer = (*Reconciler)(nil)
 
-// Reconcile compares the actual state with the desired, and attempts to
-// converge the two. In this case, it attempts to label all Configurations
-// with the Routes that direct traffic to their Revisions.
-func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
-	logger := logging.FromContext(ctx)
+func (c *Reconciler) FinalizeKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
+	return c.clearLabels(ctx, r.Namespace, r.Name)
+}
 
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		logger.Errorw("Invalid resource key", zap.Error(err))
-		return nil
-	}
-
-	// Get the Route resource with this namespace/name
-	route, err := c.routeLister.Routes(namespace).Get(name)
-	if apierrs.IsNotFound(err) {
-		logger.Infof("Clearing labels for deleted Route: %q", key)
-		return c.clearLabels(ctx, namespace, name)
-	} else if err != nil {
-		return err
-	}
-
-	logger.Infof("Time to sync the labels: %#v", route)
-	return c.syncLabels(ctx, route)
+func (c *Reconciler) ReconcileKind(ctx context.Context, r *v1.Route) pkgreconciler.Event {
+	return c.syncLabels(ctx, r)
 }
