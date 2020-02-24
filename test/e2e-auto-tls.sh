@@ -89,11 +89,11 @@ function setup_http01_auto_tls() {
   kubectl delete kcert --all -n serving-tests
 
   if [[ -z "${MESH}" ]]; then
-    echo "Install cert-manager mesh ClusterIssuer"
-    kubectl apply -f test/config/autotls/certmanager/http01/mesh-issuer.yaml
-  else
     echo "Install cert-manager no-mesh ClusterIssuer"
     kubectl apply -f test/config/autotls/certmanager/http01/issuer.yaml
+  else
+    echo "Install cert-manager mesh ClusterIssuer"
+    kubectl apply -f test/config/autotls/certmanager/http01/mesh-issuer.yaml
   fi
   kubectl apply -f test/config/autotls/certmanager/http01/config-certmanager.yaml
   setup_dns_record
