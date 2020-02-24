@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/networking"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
@@ -92,6 +93,41 @@ func testAutoTLS(t *testing.T) {
 	rootCAs := createRootCAs(t, clients, objects.Route.Namespace, certName)
 	httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
 	testingress.RuntimeRequest(t, httpsClient, "https://"+objects.Service.Status.URL.Host)
+
+	t.Run("Tag route", func(t *testing.T) {
+		// Verify that a certificate is created when route is tagged
+		if _, err := v1test.UpdateServiceRouteSpec(t, clients, names, servingv1.RouteSpec{
+			Traffic: []servingv1.TrafficTarget{{
+				Tag:            "tag1",
+				Percent:        ptr.Int64(100),
+				LatestRevision: ptr.Bool(true),
+			}},
+		}); err != nil {
+			t.Fatalf("Failed to update Service route spec: %v", err)
+		}
+		// Wait for ingress TLS configuration.
+		if err = v1test.WaitForServiceState(clients.ServingClient, names.Service, v1test.IsServiceReady, "ServiceIsReady"); err != nil {
+			t.Fatalf("Service %s did not become ready: %v", names.Service, err)
+		}
+
+		route, err := clients.ServingClient.Routes.Get(objects.Route.Name, metav1.GetOptions{})
+		if err != nil {
+			t.Fatalf("Failed to retrieve route: %v", err)
+		}
+
+		certificates, err := clients.NetworkingClient.Certificates.List(metav1.ListOptions{})
+		if err != nil {
+			t.Fatalf("Failed to list certificates: %v", err)
+		}
+		expectedDomains := []string{route.Status.URL.Host, "tag1-" + route.Status.URL.Host}
+		var certDomains []string
+		for _, certificate := range certificates.Items {
+			certDomains = append(certDomains, certificate.Spec.DNSNames...)
+		}
+		if !cmp.Equal(expectedDomains, certDomains) {
+			t.Fatalf("Incorrect certificate DNSNames. Got %v, want %v", expectedDomains, certDomains)
+		}
+	})
 }
 
 func getCertificateName(t *testing.T, clients *test.Clients, objects *v1test.ResourceObjects) string {
@@ -113,58 +149,6 @@ func httpsReady(svc *servingv1.Service) (bool, error) {
 		return false, nil
 	} else {
 		return svc.Status.URL.Scheme == "https", nil
-	}
-}
-
-func TestRouteTagLocalCA(t *testing.T) {
-	clients := e2e.Setup(t)
-	disableNamespaceCertWithWhiteList(t, clients, sets.String{})
-
-	names := test.ResourceNames{
-		Route:         test.ObjectNameForTest(t),
-		Config:        test.ObjectNameForTest(t),
-		TrafficTarget: "tagname",
-		Image:         "runtime",
-	}
-	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
-	defer test.TearDown(clients, names)
-
-	cancel := turnOnAutoTLS(t, clients)
-	test.CleanupOnInterrupt(cancel)
-	defer cancel()
-
-	_, err := v1test.CreateConfiguration(t, clients, names)
-	if err != nil {
-		t.Fatalf("Failed to create configuration: %v", err)
-	}
-	_, err = v1test.CreateRoute(t, clients, names)
-	if err != nil {
-		t.Fatalf("Failed to create route: %v", err)
-	}
-	if err := v1test.WaitForRouteState(clients.ServingClient, names.Route, v1test.IsRouteReady, "RouteIsReady"); err != nil {
-		t.Fatalf("The Route %s was not marked as Ready to serve traffic: %v", names.Route, err)
-	}
-
-	certificates, err := clients.NetworkingClient.Certificates.List(metav1.ListOptions{})
-	if err != nil {
-		t.Fatalf("Failed to list certificates: %v", err)
-	}
-	// Should only have one cert for the main domain and one for the tag
-	if len(certificates.Items) != 2 {
-		t.Fatalf("Expected 2 certificates, got %d.", len(certificates.Items))
-	}
-
-	route, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Failed to retrieve route: %v", err)
-	}
-	expectedDomains := []string{route.Status.URL.Host, fmt.Sprintf("%s-%s", names.TrafficTarget, route.Status.URL.Host)}
-	var certDomains []string
-	for _, certificate := range certificates.Items {
-		certDomains = append(certDomains, certificate.Spec.DNSNames...)
-	}
-	if !cmp.Equal(expectedDomains, certDomains) {
-		t.Fatalf("Incorrect certificate DNSNames. Got %v, want %v", expectedDomains, certDomains)
 	}
 }
 
