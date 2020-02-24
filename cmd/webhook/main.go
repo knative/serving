@@ -205,7 +205,7 @@ func NewConversionController(ctx context.Context, cmw configmap.Watcher) *contro
 			},
 		},
 
-		// A function that infuses the context passed to ConvertUp/ConvertDown/SetDefaults with custom metadata.
+		// A function that infuses the context passed to ConvertTo/ConvertFrom/SetDefaults with custom metadata.
 		func(ctx context.Context) context.Context {
 			return ctx
 		},
