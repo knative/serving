@@ -37,7 +37,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-multi
   labels:
-    chart: istio-1.4.2
+    chart: istio-1.4.4
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -113,7 +113,7 @@ spec:
       serviceAccountName: cluster-local-gateway-service-account
       containers:
         - name: istio-proxy
-          image: "docker.io/istio/proxyv2:1.4.2"
+          image: "docker.io/istio/proxyv2:1.4.4"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 15020
@@ -208,7 +208,7 @@ spec:
           - name: ISTIO_META_WORKLOAD_NAME
             value: cluster-local-gateway
           - name: ISTIO_META_OWNER
-            value: kubernetes://api/apps/v1/namespaces/istio-system/deployments/cluster-local-gateway
+            value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/cluster-local-gateway
 
           volumeMounts:
           - name: istio-certs
