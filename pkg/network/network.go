@@ -59,7 +59,7 @@ const (
 	// IstioOutboundIPRangesKey is the name of the configuration entry
 	// that specifies Istio outbound ip ranges.
 	//
-	// OBSOLETE: This will be completely removed once v1.4 is released.
+	// OBSOLETE: This will be completely removed in the future release.
 	IstioOutboundIPRangesKey = "istio.sidecar.includeOutboundIPRanges"
 
 	// DeprecatedDefaultIngressClassKey  Please use DefaultIngressClassKey instead.
