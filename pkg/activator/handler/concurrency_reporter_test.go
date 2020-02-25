@@ -225,19 +225,17 @@ func TestStats(t *testing.T) {
 				close(s.reportBiChan)
 			}()
 
-			go func() {
-				// Apply request operations
-				for _, op := range tc.ops {
-					switch op.op {
-					case requestOpStart:
-						s.reqChan <- ReqEvent{Key: op.key, EventType: ReqIn}
-					case requestOpEnd:
-						s.reqChan <- ReqEvent{Key: op.key, EventType: ReqOut}
-					case requestOpTick:
-						s.reportBiChan <- time.Time{}
-					}
+			// Apply request operations
+			for _, op := range tc.ops {
+				switch op.op {
+				case requestOpStart:
+					s.reqChan <- ReqEvent{Key: op.key, EventType: ReqIn}
+				case requestOpEnd:
+					s.reqChan <- ReqEvent{Key: op.key, EventType: ReqOut}
+				case requestOpTick:
+					s.reportBiChan <- time.Time{}
 				}
-			}()
+			}
 
 			// Gather reported stats.
 			stats := make([]metrics.StatMessage, 0, len(tc.expectedStats))
@@ -249,13 +247,15 @@ func TestStats(t *testing.T) {
 					t.Fatal("Timedout waiting for the event")
 				}
 			}
+
 			// Verify we're not getting extra events.
 			select {
 			case x := <-s.statChan:
 				t.Fatalf("Extra events received: %v", x)
-			default:
+			case <-time.After(5 * time.Millisecond):
 				// Lookin' good.
 			}
+
 			// We need to sort receiving stats, because there's map iteration
 			// which is not order consistent.
 			sort.SliceStable(stats, func(i, j int) bool {
@@ -284,8 +284,10 @@ type testStats struct {
 func newTestStats(t *testing.T) (*testStats, *ConcurrencyReporter, context.Context, context.CancelFunc) {
 	reportBiChan := make(chan time.Time)
 	ts := &testStats{
-		reqChan:      make(chan ReqEvent),
-		statChan:     make(chan []metrics.StatMessage),
+		reqChan: make(chan ReqEvent),
+		// Buffered channel permits avoiding sending the test commands on the separate go routine
+		// simplifying main test process.
+		statChan:     make(chan []metrics.StatMessage, 10),
 		reportBiChan: reportBiChan,
 	}
 	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(t)
