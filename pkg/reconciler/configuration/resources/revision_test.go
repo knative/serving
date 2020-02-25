@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -67,6 +68,7 @@ func TestMakeRevisions(t *testing.T) {
 					serving.ConfigurationLabelKey:           "build",
 					serving.ConfigurationGenerationLabelKey: "10",
 					serving.ServiceLabelKey:                 "",
+					networking.IngressClassLabelKey:         "",
 				},
 			},
 			Spec: v1.RevisionSpec{
@@ -119,8 +121,59 @@ func TestMakeRevisions(t *testing.T) {
 					serving.ConfigurationLabelKey:           "labels",
 					serving.ConfigurationGenerationLabelKey: "100",
 					serving.ServiceLabelKey:                 "",
+					networking.IngressClassLabelKey:         "",
 					"foo":                                   "bar",
 					"baz":                                   "blah",
+				},
+			},
+			Spec: v1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image: "busybox",
+					}},
+				},
+			},
+		},
+	}, {
+		name: "with networking label",
+		configuration: &v1.Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:  "with",
+				Name:       "labels",
+				Generation: 100,
+				Labels: map[string]string{
+					networking.IngressClassLabelKey: "test-ingress-class",
+				},
+			},
+			Spec: v1.ConfigurationSpec{
+				Template: v1.RevisionTemplateSpec{
+					Spec: v1.RevisionSpec{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Image: "busybox",
+							}},
+						},
+					},
+				},
+			},
+		},
+		want: &v1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:    "with",
+				GenerateName: "labels-",
+				Annotations:  map[string]string{},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion:         v1.SchemeGroupVersion.String(),
+					Kind:               "Configuration",
+					Name:               "labels",
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(true),
+				}},
+				Labels: map[string]string{
+					serving.ConfigurationLabelKey:           "labels",
+					serving.ConfigurationGenerationLabelKey: "100",
+					serving.ServiceLabelKey:                 "",
+					networking.IngressClassLabelKey:         "test-ingress-class",
 				},
 			},
 			Spec: v1.RevisionSpec{
@@ -172,6 +225,7 @@ func TestMakeRevisions(t *testing.T) {
 					serving.ConfigurationLabelKey:           "annotations",
 					serving.ConfigurationGenerationLabelKey: "100",
 					serving.ServiceLabelKey:                 "",
+					networking.IngressClassLabelKey:         "",
 				},
 				Annotations: map[string]string{
 					"foo": "bar",
@@ -228,6 +282,7 @@ func TestMakeRevisions(t *testing.T) {
 					serving.ConfigurationLabelKey:           "config",
 					serving.ConfigurationGenerationLabelKey: "10",
 					serving.ServiceLabelKey:                 "",
+					networking.IngressClassLabelKey:         "",
 				},
 			},
 			Spec: v1.RevisionSpec{
@@ -288,6 +343,7 @@ func TestMakeRevisions(t *testing.T) {
 					serving.ConfigurationLabelKey:           "config",
 					serving.ConfigurationGenerationLabelKey: "10",
 					serving.ServiceLabelKey:                 "",
+					networking.IngressClassLabelKey:         "",
 				},
 			},
 			Spec: v1.RevisionSpec{

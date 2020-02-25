@@ -26,6 +26,7 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/networking"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/domains"
 	servicenames "knative.dev/serving/pkg/reconciler/service/resources/names"
@@ -177,6 +178,17 @@ func WithServiceAccountName(serviceAccountName string) ServiceOption {
 func WithContainerConcurrency(cc int64) ServiceOption {
 	return func(svc *v1.Service) {
 		svc.Spec.Template.Spec.ContainerConcurrency = &cc
+	}
+}
+
+// WithIngressAnnotation adds an ingress key to the service labels.
+func WithIngressAnnotation(ingressClass string) ServiceOption {
+	return func(s *v1.Service) {
+		if s.Annotations == nil {
+			s.Annotations = make(map[string]string)
+		}
+
+		s.Annotations[networking.IngressClassAnnotationKey] = ingressClass
 	}
 }
 

@@ -21,6 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/serving/pkg/apis/networking"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
@@ -51,6 +52,28 @@ func WithConfigDeletionTimestamp(r *v1.Configuration) {
 func WithConfigContainerConcurrency(cc int64) ConfigOption {
 	return func(cfg *v1.Configuration) {
 		cfg.Spec.GetTemplate().Spec.ContainerConcurrency = &cc
+	}
+}
+
+// WithConfigIngressLabel adds an ingress key to the config labels.
+func WithConfigIngressLabel(ingressClass string) ConfigOption {
+	return func(cfg *v1.Configuration) {
+		if cfg.Labels == nil {
+			cfg.Labels = make(map[string]string)
+		}
+
+		cfg.Labels[networking.IngressClassLabelKey] = ingressClass
+	}
+}
+
+// WithConfigIngressAnnotation adds an ingress key to the config annotations.
+func WithConfigIngressAnnotation(ingressClass string) ConfigOption {
+	return func(cfg *v1.Configuration) {
+		if cfg.Annotations == nil {
+			cfg.Annotations = make(map[string]string)
+		}
+
+		cfg.Annotations[networking.IngressClassAnnotationKey] = ingressClass
 	}
 }
 

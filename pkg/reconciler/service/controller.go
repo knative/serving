@@ -25,6 +25,8 @@ import (
 	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route"
 	kserviceinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/service"
 	ksvcreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/service"
+	"knative.dev/serving/pkg/network"
+	serviceconfig "knative.dev/serving/pkg/reconciler/service/config"
 
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
@@ -51,7 +53,18 @@ func NewController(
 		revisionLister:      revisionInformer.Lister(),
 		routeLister:         routeInformer.Lister(),
 	}
-	impl := ksvcreconciler.NewImpl(ctx, c)
+
+	impl := ksvcreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
+		configsToResync := []interface{}{
+			&network.Config{},
+		}
+		resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
+			impl.GlobalResync(serviceInformer.Informer())
+		})
+		configStore := serviceconfig.NewStore(logging.WithLogger(ctx, logger.Named("config-store")), resync)
+		configStore.WatchConfigs(cmw)
+		return controller.Options{ConfigStore: configStore}
+	})
 
 	logger.Info("Setting up event handlers")
 	serviceInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))

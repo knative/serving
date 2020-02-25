@@ -27,12 +27,15 @@ import (
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/route/fake"
 	_ "knative.dev/serving/pkg/client/injection/informers/serving/v1/service/fake"
+	"knative.dev/serving/pkg/network"
 
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
+	pkgreconciler "knative.dev/pkg/reconciler"
+	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
@@ -46,11 +49,35 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgotesting "k8s.io/client-go/testing"
+	serviceconfig "knative.dev/serving/pkg/reconciler/service/config"
 
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
 	. "knative.dev/serving/pkg/testing/v1"
 )
+
+const (
+	TestIngressClass      = "ingress-class-foo"
+	defaultDomainTemplate = "{{.Name}}.{{.Namespace}}.{{.Domain}}"
+)
+
+type testConfigStore struct {
+	config *serviceconfig.Config
+}
+
+func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
+	return serviceconfig.ToContext(ctx, t.config)
+}
+
+var _ pkgreconciler.ConfigStore = (*testConfigStore)(nil)
+
+func ReconcilerTestConfig() *serviceconfig.Config {
+	return &serviceconfig.Config{
+		Network: &network.Config{
+			DefaultIngressClass: TestIngressClass,
+		},
+	}
+}
 
 func TestReconcile(t *testing.T) {
 	retryAttempted := false
@@ -209,6 +236,25 @@ func TestReconcile(t *testing.T) {
 			Object: DefaultService("run-latest", "foo", WithRunLatestRollout,
 				// The first reconciliation will initialize the status conditions.
 				WithInitSvcConditions),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "run-latest"),
+			Eventf(corev1.EventTypeNormal, "Created", "Created Route %q", "run-latest"),
+		},
+	}, {
+		Name: "add ingress annotation",
+		Objects: []runtime.Object{
+			DefaultService("run-latest", "foo", WithRunLatestRollout, WithIngressAnnotation("new-ingress-annotation")),
+		},
+		Key: "foo/run-latest",
+		WantCreates: []runtime.Object{
+			config("run-latest", "foo", WithRunLatestRollout, WithConfigIngressLabel("new-ingress-annotation"), WithConfigIngressAnnotation("new-ingress-annotation")),
+			route("run-latest", "foo", WithRunLatestRollout, WithRouteIngressAnnotation("new-ingress-annotation")),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: DefaultService("run-latest", "foo", WithRunLatestRollout,
+				// The first reconciliation will initialize the status conditions.
+				WithInitSvcConditions, WithIngressAnnotation("new-ingress-annotation")),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created Configuration %q", "run-latest"),
@@ -767,14 +813,26 @@ func TestReconcile(t *testing.T) {
 		}
 
 		return ksvcreconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
-			listers.GetServiceLister(), controller.GetEventRecorder(ctx), r)
+			listers.GetServiceLister(), controller.GetEventRecorder(ctx), r,
+			controller.Options{ConfigStore: &testConfigStore{config: ReconcilerTestConfig()}})
+
 	}))
 }
 
 func TestNew(t *testing.T) {
 	ctx, _ := SetupFakeContext(t)
 
-	c := NewController(ctx, configmap.NewStaticWatcher())
+	configMapWatcher := configmap.NewStaticWatcher(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      network.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{
+			"DomainTemplate": defaultDomainTemplate,
+		}},
+	)
+
+	c := NewController(ctx, configMapWatcher)
 
 	if c == nil {
 		t.Fatal("Expected NewController to return a non-nil value")
@@ -784,7 +842,7 @@ func TestNew(t *testing.T) {
 func config(name, namespace string, so ServiceOption, co ...ConfigOption) *v1.Configuration {
 	s := DefaultService(name, namespace, so)
 	s.SetDefaults(context.Background())
-	cfg, err := resources.MakeConfiguration(s)
+	cfg, err := resources.MakeConfiguration(s, TestIngressClass)
 	if err != nil {
 		panic(fmt.Sprintf("MakeConfiguration() = %v", err))
 	}

@@ -21,6 +21,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -59,6 +60,7 @@ func UpdateRevisionLabels(rev, config metav1.Object) {
 		serving.ConfigurationLabelKey,
 		serving.ServiceLabelKey,
 		serving.ConfigurationGenerationLabelKey,
+		networking.IngressClassLabelKey,
 	} {
 		labels[key] = RevisionLabelValueForKey(key, config)
 	}
@@ -89,6 +91,8 @@ func RevisionLabelValueForKey(key string, config metav1.Object) string {
 		return config.GetName()
 	case serving.ServiceLabelKey:
 		return config.GetLabels()[serving.ServiceLabelKey]
+	case networking.IngressClassLabelKey:
+		return config.GetLabels()[networking.IngressClassLabelKey]
 	case serving.ConfigurationGenerationLabelKey:
 		return fmt.Sprintf("%d", config.GetGeneration())
 	}

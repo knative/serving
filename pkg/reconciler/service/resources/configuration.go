@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/pkg/kmeta"
+	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/service/resources/names"
@@ -28,7 +29,7 @@ import (
 )
 
 // MakeConfiguration creates a Configuration from a Service object.
-func MakeConfiguration(service *v1.Service) (*v1.Configuration, error) {
+func MakeConfiguration(service *v1.Service, ingressClass string) (*v1.Configuration, error) {
 	return &v1.Configuration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      names.Configuration(service),
@@ -37,8 +38,9 @@ func MakeConfiguration(service *v1.Service) (*v1.Configuration, error) {
 				*kmeta.NewControllerRef(service),
 			},
 			Labels: resources.UnionMaps(service.GetLabels(), map[string]string{
-				serving.RouteLabelKey:   names.Route(service),
-				serving.ServiceLabelKey: service.Name,
+				serving.RouteLabelKey:           names.Route(service),
+				serving.ServiceLabelKey:         service.Name,
+				networking.IngressClassLabelKey: ingressClass,
 			}),
 			Annotations: resources.FilterMap(service.GetAnnotations(), func(key string) bool {
 				return key == corev1.LastAppliedConfigAnnotation

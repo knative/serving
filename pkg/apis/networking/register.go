@@ -35,6 +35,9 @@ const (
 	// Istio-based Ingress will reconcile into a VirtualService).
 	IngressClassAnnotationKey = "networking.knative.dev/ingress.class"
 
+	// IngressClassLabelKey is the same as IngressClassAnnotationKey but when used as a label
+	IngressClassLabelKey = IngressClassAnnotationKey
+
 	// IngressLabelKey is the label key attached to underlying network programming
 	// resources to indicate which Ingress triggered their creation.
 	IngressLabelKey = GroupName + "/ingress"

@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/serving/pkg/apis/networking"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	ksvcreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/service"
 
@@ -39,6 +40,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	listers "knative.dev/serving/pkg/client/listers/serving/v1"
 	configresources "knative.dev/serving/pkg/reconciler/configuration/resources"
+	serviceconfig "knative.dev/serving/pkg/reconciler/service/config"
 	"knative.dev/serving/pkg/reconciler/service/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 )
@@ -128,7 +130,7 @@ func (c *Reconciler) config(ctx context.Context, logger *zap.SugaredLogger, serv
 	configName := resourcenames.Configuration(service)
 	config, err := c.configurationLister.Configurations(service.Namespace).Get(configName)
 	if apierrs.IsNotFound(err) {
-		config, err = c.createConfiguration(service)
+		config, err = c.createConfiguration(ctx, service)
 		if err != nil {
 			recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Configuration %q: %v", configName, err)
 			return nil, fmt.Errorf("failed to create Configuration: %w", err)
@@ -196,8 +198,8 @@ func (c *Reconciler) checkRoutesNotReady(config *v1.Configuration, logger *zap.S
 	}
 }
 
-func (c *Reconciler) createConfiguration(service *v1.Service) (*v1.Configuration, error) {
-	cfg, err := resources.MakeConfiguration(service)
+func (c *Reconciler) createConfiguration(ctx context.Context, service *v1.Service) (*v1.Configuration, error) {
+	cfg, err := resources.MakeConfiguration(service, getIngressClass(ctx, service))
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +226,7 @@ func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *v1.Ser
 	// We are setting the up-to-date default values here so an update won't be triggered if the only
 	// diff is the new default values.
 	existing.SetDefaults(ctx)
-	desiredConfig, err := resources.MakeConfiguration(service)
+	desiredConfig, err := resources.MakeConfiguration(service, getIngressClass(ctx, service))
 	if err != nil {
 		return nil, err
 	}
@@ -292,6 +294,19 @@ func (c *Reconciler) reconcileRoute(ctx context.Context, service *v1.Service, ro
 	existing.ObjectMeta.Labels = desiredRoute.ObjectMeta.Labels
 	existing.ObjectMeta.Annotations = desiredRoute.ObjectMeta.Annotations
 	return c.client.ServingV1().Routes(service.Namespace).Update(existing)
+}
+
+func getIngressClass(ctx context.Context, s *v1.Service) string {
+	annotations := s.GetAnnotations()
+	ingressClass := annotations[networking.IngressClassAnnotationKey]
+
+	if ingressClass != "" {
+		return ingressClass
+	}
+
+	cfgs := serviceconfig.FromContext(ctx)
+
+	return cfgs.Network.DefaultIngressClass
 }
 
 // CheckNameAvailability checks that if the named Revision specified by the Configuration

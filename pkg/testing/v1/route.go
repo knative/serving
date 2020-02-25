@@ -80,6 +80,17 @@ func WithConfigTarget(config string) RouteOption {
 	})
 }
 
+// WithRouteIngressAnnotation adds an ingress key to the route annotations.
+func WithRouteIngressAnnotation(ingressClass string) RouteOption {
+	return func(r *v1.Route) {
+		if r.Annotations == nil {
+			r.Annotations = make(map[string]string)
+		}
+
+		r.Annotations[networking.IngressClassAnnotationKey] = ingressClass
+	}
+}
+
 // WithRevTarget sets the Route's traffic block to point at a particular Revision.
 func WithRevTarget(revision string) RouteOption {
 	return WithSpecTraffic(v1.TrafficTarget{
