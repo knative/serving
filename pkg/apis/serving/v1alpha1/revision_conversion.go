@@ -26,26 +26,26 @@ import (
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
 )
 
-// ConvertUp implements apis.Convertible
-func (source *Revision) ConvertUp(ctx context.Context, obj apis.Convertible) error {
+// ConvertTo implements apis.Convertible
+func (source *Revision) ConvertTo(ctx context.Context, obj apis.Convertible) error {
 	switch sink := obj.(type) {
 	case *v1beta1.Revision:
 		sink.ObjectMeta = source.ObjectMeta
-		source.Status.ConvertUp(ctx, &sink.Status)
-		return source.Spec.ConvertUp(ctx, &sink.Spec)
+		source.Status.ConvertTo(ctx, &sink.Status)
+		return source.Spec.ConvertTo(ctx, &sink.Spec)
 	default:
-		return apis.ConvertUpViaProxy(ctx, source, &v1beta1.Revision{}, sink)
+		return apis.ConvertToViaProxy(ctx, source, &v1beta1.Revision{}, sink)
 	}
 }
 
-// ConvertUp helps implement apis.Convertible
-func (source *RevisionTemplateSpec) ConvertUp(ctx context.Context, sink *v1.RevisionTemplateSpec) error {
+// ConvertTo helps implement apis.Convertible
+func (source *RevisionTemplateSpec) ConvertTo(ctx context.Context, sink *v1.RevisionTemplateSpec) error {
 	sink.ObjectMeta = source.ObjectMeta
-	return source.Spec.ConvertUp(ctx, &sink.Spec)
+	return source.Spec.ConvertTo(ctx, &sink.Spec)
 }
 
-// ConvertUp helps implement apis.Convertible
-func (source *RevisionSpec) ConvertUp(ctx context.Context, sink *v1.RevisionSpec) error {
+// ConvertTo helps implement apis.Convertible
+func (source *RevisionSpec) ConvertTo(ctx context.Context, sink *v1.RevisionSpec) error {
 	if source.TimeoutSeconds != nil {
 		sink.TimeoutSeconds = ptr.Int64(*source.TimeoutSeconds)
 	}
@@ -76,40 +76,40 @@ func (source *RevisionSpec) ConvertUp(ctx context.Context, sink *v1.RevisionSpec
 	return nil
 }
 
-// ConvertUp helps implement apis.Convertible
-func (source *RevisionStatus) ConvertUp(ctx context.Context, sink *v1.RevisionStatus) {
+// ConvertTo helps implement apis.Convertible
+func (source *RevisionStatus) ConvertTo(ctx context.Context, sink *v1.RevisionStatus) {
 	source.Status.ConvertTo(ctx, &sink.Status, v1.IsRevisionCondition)
 	sink.ServiceName = source.ServiceName
 	sink.LogURL = source.LogURL
 	sink.ImageDigest = source.ImageDigest
 }
 
-// ConvertDown implements apis.Convertible
-func (sink *Revision) ConvertDown(ctx context.Context, obj apis.Convertible) error {
+// ConvertFrom implements apis.Convertible
+func (sink *Revision) ConvertFrom(ctx context.Context, obj apis.Convertible) error {
 	switch source := obj.(type) {
 	case *v1beta1.Revision:
 		sink.ObjectMeta = source.ObjectMeta
-		sink.Status.ConvertDown(ctx, source.Status)
-		return sink.Spec.ConvertDown(ctx, source.Spec)
+		sink.Status.ConvertFrom(ctx, source.Status)
+		return sink.Spec.ConvertFrom(ctx, source.Spec)
 	default:
-		return apis.ConvertDownViaProxy(ctx, source, &v1beta1.Revision{}, sink)
+		return apis.ConvertFromViaProxy(ctx, source, &v1beta1.Revision{}, sink)
 	}
 }
 
-// ConvertDown helps implement apis.Convertible
-func (sink *RevisionTemplateSpec) ConvertDown(ctx context.Context, source v1.RevisionTemplateSpec) error {
+// ConvertFrom helps implement apis.Convertible
+func (sink *RevisionTemplateSpec) ConvertFrom(ctx context.Context, source v1.RevisionTemplateSpec) error {
 	sink.ObjectMeta = source.ObjectMeta
-	return sink.Spec.ConvertDown(ctx, source.Spec)
+	return sink.Spec.ConvertFrom(ctx, source.Spec)
 }
 
-// ConvertDown helps implement apis.Convertible
-func (sink *RevisionSpec) ConvertDown(ctx context.Context, source v1.RevisionSpec) error {
+// ConvertFrom helps implement apis.Convertible
+func (sink *RevisionSpec) ConvertFrom(ctx context.Context, source v1.RevisionSpec) error {
 	sink.RevisionSpec = *source.DeepCopy()
 	return nil
 }
 
-// ConvertDown helps implement apis.Convertible
-func (sink *RevisionStatus) ConvertDown(ctx context.Context, source v1.RevisionStatus) {
+// ConvertFrom helps implement apis.Convertible
+func (sink *RevisionStatus) ConvertFrom(ctx context.Context, source v1.RevisionStatus) {
 	source.Status.ConvertTo(ctx, &sink.Status, v1.IsRevisionCondition)
 	sink.ServiceName = source.ServiceName
 	sink.LogURL = source.LogURL

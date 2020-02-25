@@ -173,7 +173,7 @@ func roundTripViaHub(t *testing.T, gvk schema.GroupVersionKind, scheme, hubs *ru
 		return
 	}
 
-	if err := hub.ConvertDown(ctx, obj); err != nil {
+	if err := hub.ConvertFrom(ctx, obj); err != nil {
 		t.Errorf("Conversion to hub (%s) failed: %s", hubGVK, err)
 	}
 
@@ -183,7 +183,7 @@ func roundTripViaHub(t *testing.T, gvk schema.GroupVersionKind, scheme, hubs *ru
 	}
 
 	newObj := objForGVK(t, gvk, scheme)
-	if err := hub.ConvertUp(ctx, newObj); err != nil {
+	if err := hub.ConvertTo(ctx, newObj); err != nil {
 		t.Errorf("Conversion from hub (%s) failed: %s", hubGVK, err)
 		t.Errorf("object: %#v", obj)
 		return

@@ -37,9 +37,9 @@ func (rts *RevisionTemplateSpec) SetDefaults(ctx context.Context) {
 func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 	if v1.IsUpgradeViaDefaulting(ctx) {
 		v1 := v1.RevisionSpec{}
-		if rs.ConvertUp(ctx, &v1) == nil {
+		if rs.ConvertTo(ctx, &v1) == nil {
 			alpha := RevisionSpec{}
-			if alpha.ConvertDown(ctx, v1) == nil {
+			if alpha.ConvertFrom(ctx, v1) == nil {
 				*rs = alpha
 			}
 		}

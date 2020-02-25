@@ -133,14 +133,14 @@ func (r *reconciler) convert(
 
 	if inGVK.Version == conv.HubVersion {
 		hub = in
-	} else if err = hub.ConvertDown(ctx, in); err != nil {
+	} else if err = hub.ConvertFrom(ctx, in); err != nil {
 		err = fmt.Errorf("conversion failed to version %s for type %s -  %s", outGVK.Version, formatGVK(inGVK), err)
 		return
 	}
 
 	if outGVK.Version == conv.HubVersion {
 		out = hub
-	} else if err = hub.ConvertUp(ctx, out); err != nil {
+	} else if err = hub.ConvertTo(ctx, out); err != nil {
 		err = fmt.Errorf("conversion failed to version %s for type %s -  %s", outGVK.Version, formatGVK(inGVK), err)
 		return
 	}

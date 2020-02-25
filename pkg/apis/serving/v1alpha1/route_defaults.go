@@ -40,9 +40,9 @@ func (r *Route) SetDefaults(ctx context.Context) {
 func (rs *RouteSpec) SetDefaults(ctx context.Context) {
 	if v1.IsUpgradeViaDefaulting(ctx) {
 		v := v1.RouteSpec{}
-		if rs.ConvertUp(ctx, &v) == nil {
+		if rs.ConvertTo(ctx, &v) == nil {
 			alpha := RouteSpec{}
-			alpha.ConvertDown(ctx, v)
+			alpha.ConvertFrom(ctx, v)
 			*rs = alpha
 		}
 	}

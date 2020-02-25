@@ -23,8 +23,8 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
-// ConvertUp implements apis.Convertible
-func (source *Route) ConvertUp(ctx context.Context, obj apis.Convertible) error {
+// ConvertTo implements apis.Convertible
+func (source *Route) ConvertTo(ctx context.Context, obj apis.Convertible) error {
 	switch sink := obj.(type) {
 	case *v1.Route:
 		sink.ObjectMeta = source.ObjectMeta
@@ -32,12 +32,12 @@ func (source *Route) ConvertUp(ctx context.Context, obj apis.Convertible) error 
 		sink.Status = source.Status
 		return nil
 	default:
-		return apis.ConvertUpViaProxy(ctx, source, &v1.Route{}, sink)
+		return apis.ConvertToViaProxy(ctx, source, &v1.Route{}, sink)
 	}
 }
 
-// ConvertDown implements apis.Convertible
-func (sink *Route) ConvertDown(ctx context.Context, obj apis.Convertible) error {
+// ConvertFrom implements apis.Convertible
+func (sink *Route) ConvertFrom(ctx context.Context, obj apis.Convertible) error {
 	switch source := obj.(type) {
 	case *v1.Route:
 		sink.ObjectMeta = source.ObjectMeta
@@ -45,6 +45,6 @@ func (sink *Route) ConvertDown(ctx context.Context, obj apis.Convertible) error 
 		sink.Status = source.Status
 		return nil
 	default:
-		return apis.ConvertDownViaProxy(ctx, source, &v1.Route{}, sink)
+		return apis.ConvertFromViaProxy(ctx, source, &v1.Route{}, sink)
 	}
 }

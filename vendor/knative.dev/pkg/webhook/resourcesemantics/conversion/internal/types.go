@@ -42,13 +42,13 @@ const (
 	// will cause json unmarshalling of the resource to fail
 	ErrorUnmarshal = "unmarshal"
 
-	// ErrorConvertUp when assigned to the Spec.Property of the ErrorResource
-	// will cause ConvertUp to fail
-	ErrorConvertUp = "convertUp"
+	// ErrorConvertTo when assigned to the Spec.Property of the ErrorResource
+	// will cause ConvertTo to fail
+	ErrorConvertTo = "convertTo"
 
-	// ErrorConvertDown when assigned to the Spec.Property of the ErrorResource
-	// will cause ConvertDown to fail
-	ErrorConvertDown = "convertDown"
+	// ErrorConvertFrom when assigned to the Spec.Property of the ErrorResource
+	// will cause ConvertFrom to fail
+	ErrorConvertFrom = "convertFrom"
 )
 
 type (
@@ -180,8 +180,8 @@ func NewErrorResource(failure string) *ErrorResource {
 	}
 }
 
-// ConvertUp implements apis.Convertible
-func (r *V1Resource) ConvertUp(ctx context.Context, to apis.Convertible) error {
+// ConvertTo implements apis.Convertible
+func (r *V1Resource) ConvertTo(ctx context.Context, to apis.Convertible) error {
 	switch sink := to.(type) {
 	case *V2Resource:
 		sink.Spec.Property = "prefix/" + r.Spec.Property
@@ -197,8 +197,8 @@ func (r *V1Resource) ConvertUp(ctx context.Context, to apis.Convertible) error {
 	return nil
 }
 
-// ConvertDown implements apis.Convertible
-func (r *V1Resource) ConvertDown(ctx context.Context, from apis.Convertible) error {
+// ConvertFrom implements apis.Convertible
+func (r *V1Resource) ConvertFrom(ctx context.Context, from apis.Convertible) error {
 	switch source := from.(type) {
 	case *V2Resource:
 		r.Spec.Property = strings.TrimPrefix(source.Spec.Property, "prefix/")
@@ -221,40 +221,40 @@ func (r *V3Resource) SetDefaults(ctx context.Context) {
 	}
 }
 
-// ConvertUp implements apis.Convertible
-func (*V2Resource) ConvertUp(ctx context.Context, to apis.Convertible) error {
+// ConvertTo implements apis.Convertible
+func (*V2Resource) ConvertTo(ctx context.Context, to apis.Convertible) error {
 	panic("unimplemented")
 }
 
-// ConvertDown implements apis.Convertible
-func (*V2Resource) ConvertDown(ctx context.Context, from apis.Convertible) error {
+// ConvertFrom implements apis.Convertible
+func (*V2Resource) ConvertFrom(ctx context.Context, from apis.Convertible) error {
 	panic("unimplemented")
 }
 
-// ConvertUp implements apis.Convertible
-func (*V3Resource) ConvertUp(ctx context.Context, to apis.Convertible) error {
+// ConvertTo implements apis.Convertible
+func (*V3Resource) ConvertTo(ctx context.Context, to apis.Convertible) error {
 	panic("unimplemented")
 }
 
-// ConvertDown implements apis.Convertible
-func (*V3Resource) ConvertDown(ctx context.Context, from apis.Convertible) error {
+// ConvertFrom implements apis.Convertible
+func (*V3Resource) ConvertFrom(ctx context.Context, from apis.Convertible) error {
 	panic("unimplemented")
 }
 
-// ConvertUp implements apis.Convertible
-func (e *ErrorResource) ConvertUp(ctx context.Context, to apis.Convertible) error {
-	if e.Spec.Property == ErrorConvertUp {
+// ConvertTo implements apis.Convertible
+func (e *ErrorResource) ConvertTo(ctx context.Context, to apis.Convertible) error {
+	if e.Spec.Property == ErrorConvertTo {
 		return errors.New("boooom - convert up")
 	}
 
-	return e.V1Resource.ConvertUp(ctx, to)
+	return e.V1Resource.ConvertTo(ctx, to)
 }
 
-// ConvertDown implements apis.Convertible
-func (e *ErrorResource) ConvertDown(ctx context.Context, from apis.Convertible) error {
-	err := e.V1Resource.ConvertDown(ctx, from)
+// ConvertFrom implements apis.Convertible
+func (e *ErrorResource) ConvertFrom(ctx context.Context, from apis.Convertible) error {
+	err := e.V1Resource.ConvertFrom(ctx, from)
 
-	if err == nil && e.Spec.Property == ErrorConvertDown {
+	if err == nil && e.Spec.Property == ErrorConvertFrom {
 		err = errors.New("boooom - convert down")
 	}
 	return err
