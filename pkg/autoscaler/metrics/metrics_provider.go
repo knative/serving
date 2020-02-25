@@ -50,25 +50,18 @@ var (
 	errMetricNotSupported = errors.New("metric not supported")
 	errNotImplemented     = errors.New("not implemented")
 
+	//TODO(markusthoemmes) remove once 0.13 cuts
 	deprecatedConcurrencyMetricInfo = provider.CustomMetricInfo{
 		GroupResource: v1alpha1.Resource("revisions"),
 		Namespaced:    true,
 		Metric:        autoscaling.Concurrency,
 	}
 
+	//TODO(markusthoemmes) remove once 0.13 cuts
 	deprecatedRpsMetricsInfo = provider.CustomMetricInfo{
 		GroupResource: v1alpha1.Resource("revisions"),
 		Namespaced:    true,
 		Metric:        autoscaling.RPS,
-	}
-
-	// Populated in the init method
-	infos = map[provider.CustomMetricInfo]getMetric{
-		concurrencyMetricInfo: MetricClient.StableAndPanicConcurrency,
-		rpsMetricInfo:         MetricClient.StableAndPanicRPS,
-
-		deprecatedConcurrencyMetricInfo: MetricClient.StableAndPanicConcurrency,
-		deprecatedRpsMetricsInfo:        MetricClient.StableAndPanicRPS,
 	}
 )
 
@@ -91,12 +84,18 @@ func (p *MetricProvider) GetMetricByName(name types.NamespacedName, info provide
 	metricSelector labels.Selector) (*cmetrics.MetricValue, error) {
 	now := time.Now()
 
-	getMetric, ok := infos[info]
-	if !ok {
+	var data float64
+	var err error
+
+	switch info {
+	case concurrencyMetricInfo, deprecatedConcurrencyMetricInfo:
+		data, _, err = p.metricClient.StableAndPanicConcurrency(name, now)
+	case rpsMetricInfo, deprecatedRpsMetricsInfo:
+		data, _, err = p.metricClient.StableAndPanicRPS(name, now)
+	default:
 		return nil, errMetricNotSupported
 	}
 
-	data, _, err := getMetric(p.metricClient, name, now)
 	if err != nil {
 		return nil, err
 	}
