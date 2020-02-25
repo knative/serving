@@ -410,7 +410,7 @@ func TestTimedFloat64BucketsWindowUpdate3sGranularity(t *testing.T) {
 
 	// Just last 4 buckets should have remained.
 	sum = 0.
-	want = 42 + 7 // we drop oldest bucket and the one not yet utilizied)
+	want = 42 + 7 // we drop oldest bucket and the one not yet utilized)
 	buckets.ForEachBucket(trunc1.Add(9*time.Second), func(t time.Time, b float64) {
 		sum += b
 	})

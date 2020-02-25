@@ -169,7 +169,7 @@ func TestThrottlerUpdateCapacity(t *testing.T) {
 		t.Errorf("Capacity = %d, want: %d", got, want)
 	}
 
-	// Inifinite capacity.
+	// Infinite capacity.
 	throttler.activatorIndex = 1
 	rt.containerConcurrency = 0
 	rt.podTrackers = makeTrackers(3, 0)
@@ -347,7 +347,7 @@ func TestThrottlerSuccesses(t *testing.T) {
 		name:     "spread podIP load",
 		revision: revisionCC1(types.NamespacedName{Namespace: testNamespace, Name: testRevision}, networking.ProtocolHTTP1),
 		initUpdates: []revisionDestsUpdate{{
-			// Double update here excercises some additional paths.
+			// Double update here exercises some additional paths.
 			Rev:   types.NamespacedName{Namespace: testNamespace, Name: testRevision},
 			Dests: sets.NewString("128.0.0.3:1234"),
 		}, {

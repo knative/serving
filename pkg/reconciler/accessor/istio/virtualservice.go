@@ -44,7 +44,7 @@ func hasDesiredDiff(current, desired *v1alpha3.VirtualService) bool {
 		!equality.Semantic.DeepEqual(current.Annotations, desired.Annotations)
 }
 
-// ReconcileVirtualService reconciles VirtiualService to the desired status.
+// ReconcileVirtualService reconciles VirtualService to the desired status.
 func ReconcileVirtualService(ctx context.Context, owner kmeta.Accessor, desired *v1alpha3.VirtualService,
 	vsAccessor VirtualServiceAccessor) (*v1alpha3.VirtualService, error) {
 

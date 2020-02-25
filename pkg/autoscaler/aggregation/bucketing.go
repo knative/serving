@@ -83,7 +83,7 @@ func (t *TimedFloat64Buckets) WindowAverage(now time.Time) float64 {
 	case d <= 0:
 		// If LastWrite equal or greater than Now
 		// return the current WindowTotal, divided by the
-		// number of valid buckts
+		// number of valid buckets
 		numB := math.Min(
 			float64(t.lastWrite.Sub(t.firstWrite)/t.granularity)+1, // +1 since the times are inclusive.
 			float64(len(t.buckets)))
@@ -224,7 +224,7 @@ func (t *TimedFloat64Buckets) ResizeWindow(w time.Duration) {
 			oi := tIdx % oldNumBuckets
 			ni := tIdx % numBuckets
 			newBuckets[ni] = t.buckets[oi]
-			// In case we're shringking, make sure the total
+			// In case we're shrinking, make sure the total
 			// window sum will match. This is no-op in case if
 			// window is getting bigger.
 			newTotal += t.buckets[oi]
