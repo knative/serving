@@ -26,7 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
-	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
@@ -78,9 +77,4 @@ func ReconcileCertificate(ctx context.Context, owner kmeta.Accessor, desired *v1
 			"Updated Spec for Certificate %s/%s", existing.Namespace, existing.Name)
 	}
 	return cert, nil
-}
-
-func shouldUpdateAnnotation(existing, desired map[string]string) bool {
-	return desired[networking.CertificateClassAnnotationKey] != "" &&
-		existing[networking.CertificateClassAnnotationKey] == ""
 }
