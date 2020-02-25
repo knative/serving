@@ -32,8 +32,6 @@ import (
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
-type getMetric func(MetricClient, types.NamespacedName, time.Time) (float64, float64, error)
-
 var (
 	concurrencyMetricInfo = provider.CustomMetricInfo{
 		GroupResource: v1.Resource("revisions"),
