@@ -14,6 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -e
+
+source $(dirname $0)/e2e-common.sh
+
+function knative_setup() {
+  install_knative_serving
+}
+
 function setup_auto_tls_env_variables() {
   # DNS zone for the testing domain.
   export DNS_ZONE="knative-e2e"
@@ -145,3 +153,49 @@ function setup_dns_record() {
 function delete_dns_record() {
   go run ./test/e2e/autotls/config/dnscleanup/
 }
+
+# Script entry point.
+
+# Skip installing istio as an add-on
+initialize $@ --skip-istio-addon
+
+# Run the tests
+header "Running tests"
+
+failed=0
+
+# Auto TLS E2E tests mutate the cluster and must be ran separately
+# because they need auto-tls and cert-manager specific configurations
+subheader "Setup auto tls"
+setup_auto_tls_common
+add_trap "cleanup_auto_tls_common" EXIT SIGKILL SIGTERM SIGQUIT
+
+subheader "Auto TLS test for per-ksvc certificate provision using self-signed CA"
+setup_selfsigned_per_ksvc_auto_tls
+go_test_e2e -timeout=10m \
+  ./test/e2e/autotls/ || failed=1
+kubectl delete -f ./test/config/autotls/certmanager/selfsigned/
+
+subheader "Auto TLS test for per-namespace certificate provision using self-signed CA"
+setup_selfsigned_per_namespace_auto_tls
+add_trap "cleanup_per_selfsigned_namespace_auto_tls" SIGKILL SIGTERM SIGQUIT
+go_test_e2e -timeout=10m \
+  ./test/e2e/autotls/ || failed=1
+cleanup_per_selfsigned_namespace_auto_tls
+
+subheader "Auto TLS test for per-ksvc certificate provision using HTTP01 challenge"
+setup_http01_auto_tls
+add_trap "delete_dns_record" SIGKILL SIGTERM SIGQUIT
+go_test_e2e -timeout=10m \
+  ./test/e2e/autotls/ || failed=1
+kubectl delete -f ./test/config/autotls/certmanager/http01/
+delete_dns_record
+
+subheader "Cleanup auto tls"
+cleanup_auto_tls_common
+
+# Dump cluster state in case of failure
+(( failed )) && dump_cluster_state
+(( failed )) && fail_test
+
+success
