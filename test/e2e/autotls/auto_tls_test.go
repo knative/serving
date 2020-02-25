@@ -25,12 +25,12 @@ import (
 
 	"github.com/kelseyhightower/envconfig"
 
-	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/networking"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
@@ -95,44 +95,57 @@ func testAutoTLS(t *testing.T) {
 	testingress.RuntimeRequest(t, httpsClient, objects.Service.Status.URL.String())
 
 	t.Run("Tag route", func(t *testing.T) {
-		// Verify that a certificate is created when route is tagged
+		// Probe main URL while we update the route
+		var transportOption spoof.TransportOption = func(transport *http.Transport) *http.Transport {
+			transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
+			return transport
+		}
+		prober := test.RunRouteProber(t.Logf, clients, objects.Service.Status.URL.URL(), transportOption)
+		defer test.AssertProberDefault(t, prober)
+
 		if _, err := v1test.UpdateServiceRouteSpec(t, clients, names, servingv1.RouteSpec{
 			Traffic: []servingv1.TrafficTarget{{
 				Tag:            "tag1",
-				Percent:        ptr.Int64(100),
+				Percent:        ptr.Int64(50),
+				LatestRevision: ptr.Bool(true),
+			}, {
+				Tag:            "tag2",
+				Percent:        ptr.Int64(50),
 				LatestRevision: ptr.Bool(true),
 			}},
 		}); err != nil {
 			t.Fatalf("Failed to update Service route spec: %v", err)
 		}
-		// Wait for ingress TLS configuration.
-		if err = v1test.WaitForServiceState(clients.ServingClient, names.Service, httpsReady, "HTTPSIsReady"); err != nil {
-			t.Fatalf("Service %s did not become ready: %v", names.Service, err)
+		if err = v1test.WaitForRouteState(clients.ServingClient, names.Route, routeTrafficHTTPS, "RouteTrafficIsHTTPS"); err != nil {
+			t.Fatalf("Traffic for route: %s is not HTTPS: %v", names.Route, err)
+		}
+
+		ing, err := clients.NetworkingClient.Ingresses.Get(routenames.Ingress(objects.Route), metav1.GetOptions{})
+		if err != nil {
+			t.Fatalf("Failed to get ingress: %v", err)
+		}
+		for _, tls := range ing.Spec.TLS {
+			// Each new cert has to be added to the root pool so we can make requests.
+			if !rootCAs.AppendCertsFromPEM(getPEMDataFromSecret(t, clients, tls.SecretNamespace, tls.SecretName)) {
+				t.Fatal("Failed to add the certificate to the root CA")
+			}
 		}
 
 		route, err := clients.ServingClient.Routes.Get(objects.Route.Name, metav1.GetOptions{})
 		if err != nil {
-			t.Fatalf("Failed to retrieve route: %v", err)
+			t.Fatalf("Failed to get route: %v", err)
 		}
-
-		certificates, err := clients.NetworkingClient.Certificates.List(metav1.ListOptions{})
-		if err != nil {
-			t.Fatalf("Failed to list certificates: %v", err)
-		}
-		expectedDomains := []string{route.Status.URL.Host, "tag1-" + route.Status.URL.Host}
-		var certDomains []string
-		for _, certificate := range certificates.Items {
-			certDomains = append(certDomains, certificate.Spec.DNSNames...)
-			if !rootCAs.AppendCertsFromPEM(getPEMDataFromSecret(t, clients, route.Namespace, certificate.Spec.SecretName)) {
-				t.Fatal("Failed to add the certificate to the root CA")
-			}
-		}
-		if !cmp.Equal(expectedDomains, certDomains) {
-			t.Fatalf("Incorrect certificate DNSNames. Got %v, want %v", expectedDomains, certDomains)
+		// Ensure certificates were created for each route domain
+		routeHost := route.Status.URL.Host
+		routeDomains := []string{routeHost, "tag1-" + routeHost, "tag2-" + routeHost}
+		if !checkCertificateDomains(t, clients, routeDomains) {
+			t.Fatalf("Certificates not found for all domains: %v", routeDomains)
 		}
 
 		httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
-		testingress.RuntimeRequest(t, httpsClient, route.Status.Traffic[0].URL.String())
+		for _, traffic := range route.Status.Traffic {
+			testingress.RuntimeRequest(t, httpsClient, traffic.URL.String())
+		}
 	})
 }
 
@@ -148,6 +161,15 @@ func getCertificateName(t *testing.T, clients *test.Clients, objects *v1test.Res
 	return ing.Spec.TLS[0].SecretName
 }
 
+func routeTrafficHTTPS(route *servingv1.Route) (bool, error) {
+	for _, tt := range route.Status.Traffic {
+		if tt.URL.URL().Scheme != "https" {
+			return false, nil
+		}
+	}
+	return route.Status.IsReady() && true, nil
+}
+
 func httpsReady(svc *servingv1.Service) (bool, error) {
 	if ready, err := v1test.IsServiceReady(svc); err != nil {
 		return ready, err
@@ -156,6 +178,20 @@ func httpsReady(svc *servingv1.Service) (bool, error) {
 	} else {
 		return svc.Status.URL.Scheme == "https", nil
 	}
+}
+
+func checkCertificateDomains(t *testing.T, clients *test.Clients, domains []string) bool {
+	t.Helper()
+	certs, err := clients.NetworkingClient.Certificates.List(metav1.ListOptions{})
+	if err != nil {
+		t.Fatalf("Failed to list certificates: %v", err)
+	}
+	certDomains := sets.NewString()
+	for _, cert := range certs.Items {
+		certDomains.Insert(cert.Spec.DNSNames...)
+	}
+
+	return certDomains.HasAll(domains...)
 }
 
 func getPEMDataFromSecret(t *testing.T, clients *test.Clients, ns, secretName string) []byte {
