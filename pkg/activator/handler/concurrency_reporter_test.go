@@ -213,10 +213,22 @@ func TestStats(t *testing.T) {
 				}
 			}()
 
-			// Gather reported stats
+			// Gather reported stats.
 			stats := make([]metrics.StatMessage, 0, len(tc.expectedStats))
 			for len(stats) < len(tc.expectedStats) {
-				stats = append(stats, <-s.statChan...)
+				select {
+				case x := <-s.statChan:
+					stats = append(stats, x...)
+				case <-time.After(time.Second):
+					t.Fatal("Timedout waiting for the event")
+				}
+			}
+			// Verify we're not getting extra events.
+			select {
+			case x := <-s.statChan:
+				t.Fatalf("Extra events received: %v", x)
+			default:
+				// Lookin' good.
 			}
 			// We need to sort receiving stats, because there's map iteration
 			// which is not order consistent.
