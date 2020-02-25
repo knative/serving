@@ -76,7 +76,13 @@ func NewController(
 		})
 
 	logger.Info("Setting up event handlers")
-	classFilterFunc := pkgreconciler.AnnotationFilterFunc(networking.CertificateClassAnnotationKey, network.CertManagerCertificateClassName, true)
+
+	classFilterFunc := func(obj interface{}) bool {
+		newFilter := pkgreconciler.AnnotationFilterFunc(networking.CertificateClassAnnotationKey, network.CertManagerCertificateClassName, true)
+		legacyFilter := pkgreconciler.AnnotationFilterFunc(networking.LegacyCertificateClassAnnotationKey,
+			network.LegacyCertManagerCertificateClassName, true)
+		return newFilter(obj) || legacyFilter(obj)
+	}
 	certHandler := cache.FilteringResourceEventHandler{
 		FilterFunc: classFilterFunc,
 		Handler:    controller.HandleAll(impl.Enqueue),

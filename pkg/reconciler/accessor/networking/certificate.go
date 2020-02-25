@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	clientset "knative.dev/serving/pkg/client/clientset/versioned"
 	listers "knative.dev/serving/pkg/client/listers/networking/v1alpha1"
@@ -63,9 +64,12 @@ func ReconcileCertificate(ctx context.Context, owner kmeta.Accessor, desired *v1
 		return nil, kaccessor.NewAccessorError(
 			fmt.Errorf("owner: %s with Type %T does not own Certificate: %q", owner.GetName(), owner, cert.Name),
 			kaccessor.NotOwnResource)
-	} else if !equality.Semantic.DeepEqual(cert.Spec, desired.Spec) {
+		// TODO(zhiminx): remove the annotation reconcilation in release 0.14.
+	} else if !equality.Semantic.DeepEqual(cert.Spec, desired.Spec) ||
+		shouldUpdateAnnotation(cert.ObjectMeta.Annotations, desired.ObjectMeta.Annotations) {
 		// Don't modify the informers copy
 		existing := cert.DeepCopy()
+		existing.ObjectMeta.Annotations[networking.CertificateClassAnnotationKey] = desired.ObjectMeta.Annotations[networking.CertificateClassAnnotationKey]
 		existing.Spec = desired.Spec
 		cert, err = certAccessor.GetServingClient().NetworkingV1alpha1().Certificates(existing.Namespace).Update(existing)
 		if err != nil {
@@ -77,4 +81,9 @@ func ReconcileCertificate(ctx context.Context, owner kmeta.Accessor, desired *v1
 			"Updated Spec for Certificate %s/%s", existing.Namespace, existing.Name)
 	}
 	return cert, nil
+}
+
+func shouldUpdateAnnotation(existing, desired map[string]string) bool {
+	return desired[networking.CertificateClassAnnotationKey] != "" &&
+		existing[networking.CertificateClassAnnotationKey] == ""
 }

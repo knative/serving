@@ -61,7 +61,7 @@ function parse_flags() {
     --cert-manager-version)
       [[ $2 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || abort "version format must be '[0-9].[0-9].[0-9]'"
       readonly CERT_MANAGER_VERSION=$2
-      readonly CERTIFICATE_CLASS="cert-manager.certificate.networking.internal.knative.dev"
+      readonly CERTIFICATE_CLASS="cert-manager.certificate.networking.knative.dev"
       return 2
       ;;
     --mesh)

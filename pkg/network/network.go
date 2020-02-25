@@ -76,7 +76,10 @@ const (
 
 	// CertManagerCertificateClassName value for specifying Knative's Cert-Manager
 	// Certificate reconciler.
-	CertManagerCertificateClassName = "cert-manager.certificate.networking.internal.knative.dev"
+	CertManagerCertificateClassName = "cert-manager.certificate.networking.knative.dev"
+
+	// TODO(zhiminx): delete LegacyCertManagerCertificateClassName in the release 0.14.
+	LegacyCertManagerCertificateClassName = "cert-manager.certificate.networking.internal.knative.dev"
 
 	// DomainTemplateKey is the name of the configuration entry that
 	// specifies the golang template string to use to construct the

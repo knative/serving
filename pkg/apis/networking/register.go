@@ -68,7 +68,10 @@ const (
 	// annotation value for the Certificate it uses.  Based on such
 	// value a different reconciliation logic may be used (for examples,
 	// Cert-Manager-based Certificate will reconcile into a Cert-Manager Certificate).
-	CertificateClassAnnotationKey = GroupName + "/certificate.class"
+	CertificateClassAnnotationKey = "networking.knative.dev/certificate.class"
+
+	// TODO(zhiminx): delete the legacy key in the release 0.14
+	LegacyCertificateClassAnnotationKey = GroupName + "/certificate.class"
 
 	// ActivatorServiceName is the name of the activator Kubernetes service.
 	ActivatorServiceName = "activator-service"
