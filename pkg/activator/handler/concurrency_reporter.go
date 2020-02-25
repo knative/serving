@@ -113,7 +113,17 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 							// Stat time is unset by design. The receiver will set the time.
 							PodName:                   cr.podName,
 							AverageConcurrentRequests: 1,
-							RequestCount:              incomingRequestsPerKey[event.Key],
+							// The way the check above is written, this cannot ever be
+							// anything else but 1.
+							// In theory consider the situation where within the same
+							// reporting period a request arrived and terminated
+							// (making outstandingRequestsPerKey for that key 0) and
+							// then the same situation happened again, and again...
+							// Thus this might be > 1, but we only check for `!ok` not
+							// `!ok || val==0`, which means this is not reported until
+							// the reporting period channel ticks.
+							// Thus this will always be 1.
+							RequestCount: 1,
 						},
 					}}
 				}
@@ -126,6 +136,7 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 			for key, concurrency := range outstandingRequestsPerKey {
 				if concurrency == 0 {
 					delete(outstandingRequestsPerKey, key)
+					// TODO(#6991): make sure `RequestCount` is reported here.
 				} else {
 					messages = append(messages, asmetrics.StatMessage{
 						Key: key,
