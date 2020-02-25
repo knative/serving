@@ -82,7 +82,7 @@ type reconcilerImpl struct {
 	// reconciler is the implementation of the business logic of the resource.
 	reconciler Interface
 
-	// classValue is the resource annotation[networking.internal.knative.dev/certificate.class] instance value this reconciler instance filters on.
+	// classValue is the resource annotation[networking.knative.dev/certificate.class] instance value this reconciler instance filters on.
 	classValue string
 }
 

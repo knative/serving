@@ -64,12 +64,9 @@ func ReconcileCertificate(ctx context.Context, owner kmeta.Accessor, desired *v1
 		return nil, kaccessor.NewAccessorError(
 			fmt.Errorf("owner: %s with Type %T does not own Certificate: %q", owner.GetName(), owner, cert.Name),
 			kaccessor.NotOwnResource)
-		// TODO(zhiminx): remove the annotation reconcilation in release 0.14.
-	} else if !equality.Semantic.DeepEqual(cert.Spec, desired.Spec) ||
-		shouldUpdateAnnotation(cert.ObjectMeta.Annotations, desired.ObjectMeta.Annotations) {
+	} else if !equality.Semantic.DeepEqual(cert.Spec, desired.Spec) {
 		// Don't modify the informers copy
 		existing := cert.DeepCopy()
-		existing.ObjectMeta.Annotations[networking.CertificateClassAnnotationKey] = desired.ObjectMeta.Annotations[networking.CertificateClassAnnotationKey]
 		existing.Spec = desired.Spec
 		cert, err = certAccessor.GetServingClient().NetworkingV1alpha1().Certificates(existing.Namespace).Update(existing)
 		if err != nil {

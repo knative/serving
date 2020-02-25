@@ -59,7 +59,7 @@ const (
 	// explicit class of Certificate that a particular resource has
 	// opted into. For example,
 	//
-	//    networking.internal.knative.dev/certificate.class: some-network-impl
+	//    networking.knative.dev/certificate.class: some-network-impl
 	//
 	// This uses a different domain because unlike the resource, it is
 	// user-facing.
@@ -69,9 +69,6 @@ const (
 	// value a different reconciliation logic may be used (for examples,
 	// Cert-Manager-based Certificate will reconcile into a Cert-Manager Certificate).
 	CertificateClassAnnotationKey = "networking.knative.dev/certificate.class"
-
-	// TODO(zhiminx): delete the legacy key in the release 0.14
-	LegacyCertificateClassAnnotationKey = GroupName + "/certificate.class"
 
 	// ActivatorServiceName is the name of the activator Kubernetes service.
 	ActivatorServiceName = "activator-service"
