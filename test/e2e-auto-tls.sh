@@ -15,7 +15,7 @@
 # limitations under the License.
 
 set -e
-
+# foo bar test
 source $(dirname $0)/e2e-common.sh
 
 function knative_setup() {
