@@ -474,6 +474,9 @@ function test_setup() {
   echo ">> Waiting for Serving components to be running..."
   wait_until_pods_running knative-serving || return 1
 
+  echo ">> Waiting for Cert Manager components to be running..."
+  wait_until_pods_running cert-manager || return 1
+
   echo ">> Waiting for Ingress provider to be running..."
   if [[ -n "${ISTIO_VERSION}" ]]; then
     wait_until_pods_running istio-system || return 1
