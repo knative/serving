@@ -72,7 +72,8 @@ func NewAdmissionController(
 	ctx context.Context,
 	name, path string,
 	gla GetListAll,
-	WithContext BindableContext,
+	withContext BindableContext,
+	reconcilerOptions ...ReconcilerOption,
 ) *controller.Impl {
 
 	// Extract the assorted things from our context.
@@ -82,19 +83,7 @@ func NewAdmissionController(
 	options := webhook.GetOptions(ctx)
 
 	// Construct the reconciler for the mutating webhook configuration.
-	wh := &Reconciler{
-		Name:        name,
-		HandlerPath: path,
-		SecretName:  options.SecretName,
-
-		// This is the user-provided context-decorator, which allows
-		// them to infuse the context passed to Do/Undo.
-		WithContext: WithContext,
-
-		Client:       client,
-		MWHLister:    mwhInformer.Lister(),
-		SecretLister: secretInformer.Lister(),
-	}
+	wh := NewReconciler(name, path, options.SecretName, client, mwhInformer.Lister(), secretInformer.Lister(), withContext, reconcilerOptions...)
 	c := controller.NewImpl(wh, logging.FromContext(ctx), name)
 
 	// It doesn't matter what we enqueue because we will always Reconcile
