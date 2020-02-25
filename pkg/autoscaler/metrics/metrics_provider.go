@@ -21,7 +21,6 @@ import (
 	"math"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/provider"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,7 +29,10 @@ import (
 	cmetrics "k8s.io/metrics/pkg/apis/custom_metrics"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
+
+type getMetric func(MetricClient, types.NamespacedName, time.Time) (float64, float64, error)
 
 var (
 	concurrencyMetricInfo = provider.CustomMetricInfo{
@@ -38,6 +40,7 @@ var (
 		Namespaced:    true,
 		Metric:        autoscaling.Concurrency,
 	}
+
 	rpsMetricInfo = provider.CustomMetricInfo{
 		GroupResource: v1.Resource("revisions"),
 		Namespaced:    true,
@@ -46,6 +49,27 @@ var (
 
 	errMetricNotSupported = errors.New("metric not supported")
 	errNotImplemented     = errors.New("not implemented")
+
+	deprecatedConcurrencyMetricInfo = provider.CustomMetricInfo{
+		GroupResource: v1alpha1.Resource("revisions"),
+		Namespaced:    true,
+		Metric:        autoscaling.Concurrency,
+	}
+
+	deprecatedRpsMetricsInfo = provider.CustomMetricInfo{
+		GroupResource: v1alpha1.Resource("revisions"),
+		Namespaced:    true,
+		Metric:        autoscaling.RPS,
+	}
+
+	// Populated in the init method
+	infos = map[provider.CustomMetricInfo]getMetric{
+		concurrencyMetricInfo: MetricClient.StableAndPanicConcurrency,
+		rpsMetricInfo:         MetricClient.StableAndPanicRPS,
+
+		deprecatedConcurrencyMetricInfo: MetricClient.StableAndPanicConcurrency,
+		deprecatedRpsMetricsInfo:        MetricClient.StableAndPanicRPS,
+	}
 )
 
 // MetricProvider is a provider to back a custom-metrics API implementation.
@@ -66,15 +90,13 @@ func NewMetricProvider(metricClient MetricClient) *MetricProvider {
 func (p *MetricProvider) GetMetricByName(name types.NamespacedName, info provider.CustomMetricInfo,
 	metricSelector labels.Selector) (*cmetrics.MetricValue, error) {
 	now := time.Now()
-	var data float64
-	var err error
-	if cmp.Equal(info, concurrencyMetricInfo) {
-		data, _, err = p.metricClient.StableAndPanicConcurrency(name, now)
-	} else if cmp.Equal(info, rpsMetricInfo) {
-		data, _, err = p.metricClient.StableAndPanicRPS(name, now)
-	} else {
+
+	getMetric, ok := infos[info]
+	if !ok {
 		return nil, errMetricNotSupported
 	}
+
+	data, _, err := getMetric(p.metricClient, name, now)
 	if err != nil {
 		return nil, err
 	}
@@ -95,5 +117,10 @@ func (p *MetricProvider) GetMetricBySelector(string, labels.Selector, provider.C
 
 // ListAllMetrics implements the interface.
 func (p *MetricProvider) ListAllMetrics() []provider.CustomMetricInfo {
-	return []provider.CustomMetricInfo{concurrencyMetricInfo, rpsMetricInfo}
+	return []provider.CustomMetricInfo{
+		deprecatedConcurrencyMetricInfo,
+		deprecatedRpsMetricsInfo,
+		concurrencyMetricInfo,
+		rpsMetricInfo,
+	}
 }

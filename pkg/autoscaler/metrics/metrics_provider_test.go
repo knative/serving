@@ -21,8 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/kubernetes-incubator/custom-metrics-apiserver/pkg/provider"
-	"knative.dev/pkg/kmp"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/autoscaler/fake"
@@ -112,20 +112,18 @@ func TestGetMetricBySelector(t *testing.T) {
 }
 
 func TestListAllMetrics(t *testing.T) {
-	provider := NewMetricProvider(staticMetrics(10.0, 14))
-	gotConcurrency := provider.ListAllMetrics()[0]
-
-	if equal, err := kmp.SafeEqual(gotConcurrency, concurrencyMetricInfo); err != nil {
-		t.Errorf("Got error comparing output, err = %v", err)
-	} else if !equal {
-		t.Errorf("ListAllMetrics() = %v, want %v", gotConcurrency, concurrencyMetricInfo)
+	want := []provider.CustomMetricInfo{
+		deprecatedConcurrencyMetricInfo,
+		deprecatedRpsMetricsInfo,
+		concurrencyMetricInfo,
+		rpsMetricInfo,
 	}
 
-	gotRPS := provider.ListAllMetrics()[1]
-	if equal, err := kmp.SafeEqual(gotRPS, rpsMetricInfo); err != nil {
-		t.Errorf("Got error comparing output, err = %v", err)
-	} else if !equal {
-		t.Errorf("ListAllMetrics() = %v, want %v", gotRPS, rpsMetricInfo)
+	p := NewMetricProvider(staticMetrics(10.0, 14))
+	got := p.ListAllMetrics()
+
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("ListAllMetrics() returned unexpected list (-want, +got): %s", diff)
 	}
 }
 
