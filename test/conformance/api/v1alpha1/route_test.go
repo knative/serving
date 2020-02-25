@@ -121,7 +121,7 @@ func TestRouteCreation(t *testing.T) {
 	objects.Route = route
 
 	t.Log("The Configuration will be updated with the name of the Revision")
-	names.Revision, err = v1a1test.WaitForConfigLatestRevision(clients, names)
+	names.Revision, err = v1a1test.WaitForConfigLatestPinnedRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
 	}
@@ -145,7 +145,7 @@ func TestRouteCreation(t *testing.T) {
 	}
 
 	t.Log("Since the Configuration was updated a new Revision will be created and the Configuration will be updated")
-	names.Revision, err = v1a1test.WaitForConfigLatestRevision(clients, names)
+	names.Revision, err = v1a1test.WaitForConfigLatestPinnedRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the Revision for image %s: %v", names.Config, test.PizzaPlanet2, err)
 	}

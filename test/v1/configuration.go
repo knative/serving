@@ -57,19 +57,31 @@ func PatchConfig(t pkgTest.T, clients *test.Clients, svc *v1.Configuration, fopt
 	return clients.ServingClient.Configs.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
 }
 
+// WaitForConfigLatestPinnedRevision enables the check for pinned revision in WaitForConfigLatestRevision.
+func WaitForConfigLatestPinnedRevision(clients *test.Clients, names test.ResourceNames) (string, error) {
+	return WaitForConfigLatestRevision(clients, names, true)
+}
+
+// WaitForConfigLatestUnpinnedRevision disables the check for pinned revision in WaitForConfigLatestRevision.
+func WaitForConfigLatestUnpinnedRevision(clients *test.Clients, names test.ResourceNames) (string, error) {
+	return WaitForConfigLatestRevision(clients, names, false)
+}
+
 // WaitForConfigLatestRevision takes a revision in through names and compares it to the current state of LatestCreatedRevisionName in Configuration.
 // Once an update is detected in the LatestCreatedRevisionName, the function waits for the created revision to be set in LatestReadyRevisionName
 // before returning the name of the revision.
-func WaitForConfigLatestRevision(clients *test.Clients, names test.ResourceNames) (string, error) {
+// Make sure to enable ensurePinned flag if the revision has an associated Route.
+func WaitForConfigLatestRevision(clients *test.Clients, names test.ResourceNames, ensurePinned bool) (string, error) {
 	var revisionName string
 	err := WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1.Configuration) (bool, error) {
 		if c.Status.LatestCreatedRevisionName != names.Revision {
 			revisionName = c.Status.LatestCreatedRevisionName
-			// We also check that the revision is pinned, meaning it's not a stale revision.
-			// Without this it might happen that the latest created revision is later overridden by a newer one
-			// and the following check for LatestReadyRevisionName would fail.
-			if revErr := CheckRevisionState(clients.ServingClient, revisionName, IsRevisionPinned); revErr != nil {
-				return false, nil
+			if ensurePinned {
+				// Without this it might happen that the latest created revision is later overridden by a newer one
+				// that is pinned and the following check for LatestReadyRevisionName would fail.
+				if revErr := CheckRevisionState(clients.ServingClient, revisionName, IsRevisionPinned); revErr != nil {
+					return false, nil
+				}
 			}
 			return true, nil
 		}
