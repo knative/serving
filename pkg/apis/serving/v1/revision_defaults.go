@@ -28,6 +28,17 @@ import (
 // SetDefaults implements apis.Defaultable
 func (r *Revision) SetDefaults(ctx context.Context) {
 	r.Spec.SetDefaults(apis.WithinSpec(ctx))
+	r.addIstioLabels()
+}
+
+func (r *Revision) addIstioLabels() {
+	labels := r.GetLabels()
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	labels["service.istio.io/canonical-revision"] = r.Name
+	labels["service.istio.io/canonical-service"] = labels["serving.knative.dev/service"]
+	r.SetLabels(labels)
 }
 
 // SetDefaults implements apis.Defaultable

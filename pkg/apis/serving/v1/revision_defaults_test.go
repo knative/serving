@@ -55,10 +55,42 @@ func TestRevisionDefaulting(t *testing.T) {
 	}{{
 		name: "empty",
 		in:   &Revision{},
-		want: &Revision{Spec: RevisionSpec{
-			TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
-			ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
-		}},
+		want: &Revision{
+			Spec: RevisionSpec{
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"service.istio.io/canonical-revision": "",
+					"service.istio.io/canonical-service":  "",
+				},
+			},
+		},
+	}, {
+		name: "revision name and service",
+		in: &Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-revision",
+				Labels: map[string]string{
+					"serving.knative.dev/service": "test-service",
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-revision",
+				Labels: map[string]string{
+					"service.istio.io/canonical-revision": "test-revision",
+					"service.istio.io/canonical-service":  "test-service",
+					"serving.knative.dev/service":         "test-service",
+				},
+			},
+		},
 	}, {
 		name: "with context",
 		in:   &Revision{Spec: RevisionSpec{PodSpec: corev1.PodSpec{Containers: []corev1.Container{{}}}}},
@@ -85,6 +117,12 @@ func TestRevisionDefaulting(t *testing.T) {
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
 					}},
+				},
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"service.istio.io/canonical-revision": "",
+					"service.istio.io/canonical-service":  "",
 				},
 			},
 		},
@@ -121,6 +159,12 @@ func TestRevisionDefaulting(t *testing.T) {
 				ContainerConcurrency: ptr.Int64(1),
 				TimeoutSeconds:       ptr.Int64(99),
 			},
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"service.istio.io/canonical-revision": "",
+					"service.istio.io/canonical-service":  "",
+				},
+			},
 		},
 	}, {
 		name: "timeout sets to default when 0 is specified",
@@ -148,6 +192,12 @@ func TestRevisionDefaulting(t *testing.T) {
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
 					}},
+				},
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"service.istio.io/canonical-revision": "",
+					"service.istio.io/canonical-service":  "",
 				},
 			},
 		},
@@ -190,6 +240,12 @@ func TestRevisionDefaulting(t *testing.T) {
 					}},
 				},
 			},
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"service.istio.io/canonical-revision": "",
+					"service.istio.io/canonical-service":  "",
+				},
+			},
 		},
 	}, {
 		name: "no overwrite exec",
@@ -205,6 +261,12 @@ func TestRevisionDefaulting(t *testing.T) {
 							},
 						},
 					}},
+				},
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"service.istio.io/canonical-revision": "",
+					"service.istio.io/canonical-service":  "",
 				},
 			},
 		},
@@ -227,6 +289,12 @@ func TestRevisionDefaulting(t *testing.T) {
 					}},
 				},
 			},
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"service.istio.io/canonical-revision": "",
+					"service.istio.io/canonical-service":  "",
+				},
+			},
 		},
 	}, {
 		name: "partially initialized",
@@ -245,6 +313,12 @@ func TestRevisionDefaulting(t *testing.T) {
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
 					}},
+				},
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"service.istio.io/canonical-revision": "",
+					"service.istio.io/canonical-service":  "",
 				},
 			},
 		},
@@ -292,6 +366,12 @@ func TestRevisionDefaulting(t *testing.T) {
 					}},
 				},
 			},
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"service.istio.io/canonical-revision": "",
+					"service.istio.io/canonical-service":  "",
+				},
+			},
 		},
 	}, {
 		name: "multiple containers",
@@ -320,6 +400,12 @@ func TestRevisionDefaulting(t *testing.T) {
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
 					}},
+				},
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"service.istio.io/canonical-revision": "",
+					"service.istio.io/canonical-service":  "",
 				},
 			},
 		},
