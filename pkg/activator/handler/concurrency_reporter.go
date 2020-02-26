@@ -151,7 +151,9 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 				}
 				cr.reportToMetricsBackend(key, concurrency)
 			}
-			cr.statCh <- messages
+			if len(messages) > 0 {
+				cr.statCh <- messages
+			}
 
 			incomingRequestsPerKey = make(map[types.NamespacedName]float64)
 			reportedFirstRequest = make(map[types.NamespacedName]int64)
