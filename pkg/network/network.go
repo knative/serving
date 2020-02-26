@@ -59,7 +59,7 @@ const (
 	// IstioOutboundIPRangesKey is the name of the configuration entry
 	// that specifies Istio outbound ip ranges.
 	//
-	// OBSOLETE: This will be completely removed in the future release.
+	// DEPRECATED: This will be completely removed in the future release.
 	IstioOutboundIPRangesKey = "istio.sidecar.includeOutboundIPRanges"
 
 	// DeprecatedDefaultIngressClassKey  Please use DefaultIngressClassKey instead.
@@ -199,7 +199,7 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*Config, error) {
 	if _, ok := configMap.Data[IstioOutboundIPRangesKey]; ok {
 		// Until the next version is released, the validation check is enabled to notify users who configure some value.
 		logger := logging.FromContext(context.Background()).Named(configMap.Name)
-		logger.Warnf("%q is obsolete as outbound network access is enabled by default now. Remove it from config-network", IstioOutboundIPRangesKey)
+		logger.Warnf("%q is deprecated as outbound network access is enabled by default now. Remove it from config-network", IstioOutboundIPRangesKey)
 	}
 
 	nc.DefaultIngressClass = IstioIngressClassName
