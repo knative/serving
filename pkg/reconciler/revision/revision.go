@@ -78,18 +78,25 @@ func (c *Reconciler) reconcileDigest(ctx context.Context, rev *v1.Revision) erro
 		ServiceAccountName: rev.Spec.ServiceAccountName,
 		ImagePullSecrets:   imagePullSecrets,
 	}
-	digest, err := c.resolver.Resolve(rev.Spec.GetContainer().Image,
-		opt, cfgs.Deployment.RegistriesSkippingTagResolving)
-	if err != nil {
-		err = fmt.Errorf("failed to resolve image to digest: %w", err)
-		rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing,
-			v1.RevisionContainerMissingMessage(
-				rev.Spec.GetContainer().Image, err.Error()))
-		return err
 
+	if rev.Status.ImageDigests == nil {
+		rev.Status.ImageDigests = make(map[string]string, len(rev.Spec.Containers))
 	}
-
-	rev.Status.ImageDigest = digest
+	for _, container := range rev.Spec.Containers {
+		digest, err := c.resolver.Resolve(container.Image,
+			opt, cfgs.Deployment.RegistriesSkippingTagResolving)
+		if err != nil {
+			err = fmt.Errorf("failed to resolve image to digest: %w", err)
+			rev.Status.MarkContainerHealthyFalse(v1.ReasonContainerMissing,
+				v1.RevisionContainerMissingMessage(
+					container.Image, err.Error()))
+			return err
+		}
+		if len(rev.Spec.Containers) == 1 || len(container.Ports) != 0 {
+			rev.Status.ImageDigest = digest
+		}
+		rev.Status.ImageDigests[container.Name] = digest
+	}
 
 	return nil
 }

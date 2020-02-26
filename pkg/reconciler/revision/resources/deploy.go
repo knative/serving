@@ -185,7 +185,7 @@ func appendContainer(old []corev1.Container, new corev1.Container) []corev1.Cont
 	return append(old, new)
 }
 
-func makeContainer(container *corev1.Container, rev *v1alpha1.Revision) corev1.Container {
+func makeContainer(container *corev1.Container, rev *v1.Revision) corev1.Container {
 	container.VolumeMounts = append(container.VolumeMounts, varLogVolumeMount)
 	container.Lifecycle = userLifecycle
 	container.Env = append(container.Env, getKnativeEnvVar(rev)...)
@@ -198,7 +198,7 @@ func makeContainer(container *corev1.Container, rev *v1alpha1.Revision) corev1.C
 	return *container
 }
 
-func makeServingContainer(servingContainer *corev1.Container, rev *v1alpha1.Revision) corev1.Container {
+func makeServingContainer(servingContainer *corev1.Container, rev *v1.Revision) corev1.Container {
 	container := makeContainer(servingContainer, rev)
 	userPort := getUserPort(rev)
 	userPortInt := int(userPort)
