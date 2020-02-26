@@ -46,6 +46,7 @@ import (
 	// config validation constructors
 	tracingconfig "knative.dev/pkg/tracing/config"
 	defaultconfig "knative.dev/serving/pkg/apis/config"
+	configvalidation "knative.dev/serving/pkg/apis/config/validation"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/gc"
@@ -149,7 +150,7 @@ func NewConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 			deployment.ConfigName:            deployment.NewConfigFromConfigMap,
 			metrics.ConfigMapName():          metrics.NewObservabilityConfigFromConfigMap,
 			logging.ConfigMapName():          logging.NewConfigFromConfigMap,
-			leaderelection.ConfigMapName():   leaderelection.NewConfigFromConfigMap,
+			leaderelection.ConfigMapName():   configvalidation.ValidateLeaderElectionConfig,
 			domainconfig.DomainConfigName:    domainconfig.NewDomainFromConfigMap,
 			defaultconfig.DefaultsConfigName: defaultconfig.NewDefaultsConfigFromConfigMap,
 		},

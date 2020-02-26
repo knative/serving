@@ -1,7 +1,6 @@
 package validation
 
 import (
-	"errors"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -26,7 +25,7 @@ func ValidateLeaderElectionConfig(configMap *corev1.ConfigMap) (*kle.Config, err
 
 	for _, component := range config.EnabledComponents.List() {
 		if !validComponents.Has(component) {
-			return nil, errors.New(fmt.Sprintf(""))
+			return nil, fmt.Errorf("invalid enabledComponent %q: valid values are %q", component, validComponents.List())
 		}
 	}
 
