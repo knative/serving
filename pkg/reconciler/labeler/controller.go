@@ -30,10 +30,6 @@ import (
 	"knative.dev/pkg/logging"
 )
 
-const (
-	controllerAgentName = "labeler-controller"
-)
-
 // NewController wraps a new instance of the labeler that labels
 // Configurations with Routes in a controller.
 func NewController(

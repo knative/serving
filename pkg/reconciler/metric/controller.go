@@ -31,10 +31,6 @@ import (
 	"knative.dev/pkg/logging"
 )
 
-const (
-	controllerAgentName = "metric-controller"
-)
-
 // NewController initializes the controller and is called by the generated code.
 // Registers eventhandlers to enqueue events.
 func NewController(

@@ -39,10 +39,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/certificate/config"
 )
 
-const (
-	controllerAgentName = "certificate-controller"
-)
-
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events.
 func NewController(
