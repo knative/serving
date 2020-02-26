@@ -112,7 +112,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 
 	certEvents := make(chan *v1alpha1.Certificate)
 	fakecertinformer.Get(ctx).Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(corev1.SchemeGroupVersion.WithKind("Namespace")),
+		FilterFunc: controller.FilterGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Namespace")),
 		Handler: controller.HandleAll(func(obj interface{}) {
 			certEvents <- obj.(*v1alpha1.Certificate)
 		}),
