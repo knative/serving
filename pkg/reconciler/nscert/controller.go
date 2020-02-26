@@ -66,7 +66,7 @@ func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl 
 	})
 
 	knCertificateInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.Filter(corev1.SchemeGroupVersion.WithKind("Namespace")),
+		FilterFunc: controller.FilterGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Namespace")),
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
