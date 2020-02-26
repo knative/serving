@@ -217,6 +217,7 @@ func setup(t *testing.T, class, metric string, target, targetUtilization float64
 			}),
 		}, fopts...)...)
 	if err != nil {
+		test.TearDown(clients, names)
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
