@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/davecgh/go-spew/spew"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -130,15 +128,7 @@ func RetryingRouteInconsistency(innerCheck spoof.ResponseChecker) spoof.Response
 func AllRouteTrafficAtRevision(names test.ResourceNames) func(r *v1beta1.Route) (bool, error) {
 	return func(r *v1beta1.Route) (bool, error) {
 		for _, tt := range r.Status.Traffic {
-			if tt.Percent != nil && *tt.Percent == 100 {
-				if tt.RevisionName != names.Revision {
-					return true, fmt.Errorf("expected traffic revision name to be %s but actually is %s: %s", names.Revision, tt.RevisionName, spew.Sprint(r))
-				}
-
-				if tt.Tag != names.TrafficTarget {
-					return true, fmt.Errorf("expected traffic target name to be %s but actually is %s: %s", names.TrafficTarget, tt.Tag, spew.Sprint(r))
-				}
-
+			if tt.Percent != nil && *tt.Percent == 100 && tt.RevisionName == names.Revision && tt.Tag == names.TrafficTarget {
 				return true, nil
 			}
 		}
