@@ -30,8 +30,6 @@ import (
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
 )
 
-const controllerAgentName = "configuration-controller"
-
 // NewController creates a new Configuration controller
 func NewController(
 	ctx context.Context,

@@ -32,10 +32,6 @@ import (
 	configns "knative.dev/serving/pkg/reconciler/gc/config"
 )
 
-const (
-	controllerAgentName = "revision-gc-controller"
-)
-
 // NewController creates a new Garbage Collection controller
 func NewController(
 	ctx context.Context,

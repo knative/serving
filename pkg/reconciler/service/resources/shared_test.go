@@ -33,10 +33,7 @@ import (
 const (
 	testServiceName      = "test-service"
 	testServiceNamespace = "test-service-namespace"
-	testRevisionName     = "test-revision-name"
 	testContainerName    = "test-container"
-	testLabelKey         = "test-label-key"
-	testAnnotationKey    = "test-annotation-key"
 	testAnnotationValue  = "test-annotation-value"
 )
 

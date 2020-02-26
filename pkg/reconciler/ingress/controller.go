@@ -45,10 +45,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-const (
-	controllerAgentName = "ingress-controller"
-)
-
 type ingressOption func(*Reconciler)
 
 // NewController works as a constructor for Ingress Controller

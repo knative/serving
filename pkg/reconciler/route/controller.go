@@ -40,10 +40,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/route/config"
 )
 
-const (
-	controllerAgentName = "route-controller"
-)
-
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events
 func NewController(

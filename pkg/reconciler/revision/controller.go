@@ -43,10 +43,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/revision/config"
 )
 
-const (
-	controllerAgentName = "revision-controller"
-)
-
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events
 func NewController(

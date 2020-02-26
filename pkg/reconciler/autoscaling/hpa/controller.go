@@ -40,10 +40,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 )
 
-const (
-	controllerAgentName = "hpa-class-podautoscaler-controller"
-)
-
 // NewController returns a new HPA reconcile controller.
 func NewController(
 	ctx context.Context,

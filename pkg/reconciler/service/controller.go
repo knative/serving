@@ -33,10 +33,6 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
-const (
-	controllerAgentName = "service-controller"
-)
-
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events
 func NewController(
