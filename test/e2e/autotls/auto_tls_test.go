@@ -135,13 +135,6 @@ func testAutoTLS(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to get route: %v", err)
 		}
-		// Ensure certificates were created for each route domain
-		routeHost := route.Status.URL.Host
-		routeDomains := []string{routeHost, "tag1-" + routeHost, "tag2-" + routeHost}
-		if !checkCertificateDomains(t, clients, routeDomains) {
-			t.Fatalf("Certificates not found for all domains: %v", routeDomains)
-		}
-
 		httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
 		for _, traffic := range route.Status.Traffic {
 			testingress.RuntimeRequest(t, httpsClient, traffic.URL.String())
@@ -178,20 +171,6 @@ func httpsReady(svc *servingv1.Service) (bool, error) {
 	} else {
 		return svc.Status.URL.Scheme == "https", nil
 	}
-}
-
-func checkCertificateDomains(t *testing.T, clients *test.Clients, domains []string) bool {
-	t.Helper()
-	certs, err := clients.NetworkingClient.Certificates.List(metav1.ListOptions{})
-	if err != nil {
-		t.Fatalf("Failed to list certificates: %v", err)
-	}
-	certDomains := sets.NewString()
-	for _, cert := range certs.Items {
-		certDomains.Insert(cert.Spec.DNSNames...)
-	}
-
-	return certDomains.HasAll(domains...)
 }
 
 func getPEMDataFromSecret(t *testing.T, clients *test.Clients, ns, secretName string) []byte {
