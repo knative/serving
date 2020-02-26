@@ -14,6 +14,7 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -74,6 +75,49 @@ func TestHealthHandler(t *testing.T) {
 			if resp.Code != e.expectedStatus {
 				t.Errorf("Unexpected response status. Want %d, got %d", e.expectedStatus, resp.Code)
 			}
+		})
+	}
+}
+
+func BenchmarkHealthHandler(b *testing.B) {
+	tests := []struct {
+		label   string
+		headers http.Header
+		check   func() error
+	}{{
+		label:   "forward non-kubelet request",
+		headers: mapToHeader(map[string]string{"User-Agent": "chromium/734.6.5"}),
+		check:   func() error { return nil },
+	}, {
+		label:   "kubelet probe success",
+		headers: mapToHeader(map[string]string{"User-Agent": "kube-probe/something"}),
+		check:   func() error { return nil },
+	}, {
+		label:   "kubelet probe failure",
+		headers: mapToHeader(map[string]string{"User-Agent": "kube-probe/something"}),
+		check:   func() error { return errors.New("not ready") },
+	}}
+
+	logger := ktesting.TestLogger(b)
+	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+	for _, test := range tests {
+		handler := HealthHandler{HealthCheck: test.check, NextHandler: baseHandler, Logger: logger}
+		req.Header = test.headers
+		b.Run(fmt.Sprintf("%s-sequential", test.label), func(b *testing.B) {
+			resp := httptest.NewRecorder()
+			for j := 0; j < b.N; j++ {
+				handler.ServeHTTP(resp, req)
+			}
+		})
+
+		b.Run(fmt.Sprintf("%s-parallel", test.label), func(b *testing.B) {
+			b.RunParallel(func(pb *testing.PB) {
+				resp := httptest.NewRecorder()
+				for pb.Next() {
+					handler.ServeHTTP(resp, req)
+				}
+			})
 		})
 	}
 }
