@@ -28,15 +28,12 @@
 source $(dirname $0)/e2e-common.sh
 
 function knative_setup() {
-  # Build serving, create $SERVING_YAML
-  build_knative_from_source
-  start_knative_serving "${SERVING_YAML}"
-  start_knative_monitoring "${MONITORING_YAML}"
+  install_knative_serving
 }
 
 # Script entry point.
 
-initialize $@
+initialize $@ --install-monitoring
 
 # Ensure Knative Serving can be uninstalled/reinstalled cleanly
 subheader "Uninstalling Knative Serving"
