@@ -99,7 +99,7 @@ const (
 	// services for user applications.
 	ServiceTypePublic ServiceType = "Public"
 	// ServiceTypeMetrics is the label value for Metrics services. Such services
-	// are used for meric scraping.
+	// are used for metric scraping.
 	// TODO(5900): Remove after 0.12 is cut.
 	ServiceTypeMetrics ServiceType = "Metrics"
 )

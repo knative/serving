@@ -225,7 +225,7 @@ func TestReconcile(t *testing.T) {
 		d.Spec.Replicas = ptr.Int32(defaultScale)
 	})
 
-	// Setup underscaled and overscsaled deployment
+	// Setup underscaled and overscaled deployment
 	underscaledDeployment := deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 		d.Spec.Replicas = ptr.Int32(underscale)
 	})

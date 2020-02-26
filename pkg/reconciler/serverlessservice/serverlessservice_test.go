@@ -90,7 +90,7 @@ func TestReconcile(t *testing.T) {
 		},
 	}, {
 		// This is the case for once we are scaled to zero.
-		// It also exersises the retry logic.
+		// It also exercises the retry logic.
 		Name: "steady switch to proxy mode, with retry",
 		Key:  "steady/to-proxy",
 		Objects: []runtime.Object{

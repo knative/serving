@@ -49,7 +49,7 @@ const (
 	probeTimeout = 45 * time.Second
 	// The time after which the PA will be re-enqueued.
 	// This number is small, since `handleScaleToZero` below will
-	// re-enque for the configured grace period.
+	// re-enqueue for the configured grace period.
 	reenqeuePeriod = 1 * time.Second
 
 	// TODO(#3456): Remove this buffer once KPA does pod failure diagnostics.
@@ -104,7 +104,7 @@ func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, enqu
 		activatorProbe: activatorProbe,
 		probeManager: prober.New(func(arg interface{}, success bool, err error) {
 			logger.Infof("Async prober is done for %v: success?: %v error: %v", arg, success, err)
-			// Re-enqeue the PA in any case. If the probe timed out to retry again, if succeeded to scale to 0.
+			// Re-enqueue the PA in any case. If the probe timed out to retry again, if succeeded to scale to 0.
 			enqueueCB(arg, reenqeuePeriod)
 		}, transport),
 		enqueueCB: enqueueCB,
@@ -212,7 +212,7 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *pav1alpha1.PodAutos
 				}
 			}
 
-			// Re-enqeue the PA for reconciliation with timeout of `to` to make sure we wait
+			// Re-enqueue the PA for reconciliation with timeout of `to` to make sure we wait
 			// long enough.
 			ks.enqueueCB(pa, to)
 			return desiredScale, false

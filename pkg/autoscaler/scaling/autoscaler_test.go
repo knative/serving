@@ -166,7 +166,7 @@ func TestAutoscalerStableModeNoTrafficScaleToZero(t *testing.T) {
 
 // QPS is increasing exponentially. Each scaling event bring concurrency
 // back to the target level (1.0) but then traffic continues to increase.
-// At 1296 QPS traffic stablizes.
+// At 1296 QPS traffic stabilizes.
 func TestAutoscalerPanicModeExponentialTrackAndStablize(t *testing.T) {
 	metrics := &autoscalerfake.MetricClient{StableConcurrency: 6, PanicConcurrency: 6}
 	a := newTestAutoscaler(t, 1, 101, metrics)

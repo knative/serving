@@ -55,7 +55,7 @@ func (cs *CertificateStatus) IsReady() bool {
 	return certificateCondSet.Manage(cs).IsHappy()
 }
 
-// GetCondition gets a speicifc condition of the Certificate status.
+// GetCondition gets a specific condition of the Certificate status.
 func (cs *CertificateStatus) GetCondition(t apis.ConditionType) *apis.Condition {
 	return certificateCondSet.Manage(cs).GetCondition(t)
 }

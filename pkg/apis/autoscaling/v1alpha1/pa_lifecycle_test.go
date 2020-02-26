@@ -881,7 +881,7 @@ func TestTypicalFlow(t *testing.T) {
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionActive, t)
 	apistest.CheckConditionSucceeded(r, PodAutoscalerConditionReady, t)
 
-	// When we stop seeing traffic, mark outselves inactive.
+	// When we stop seeing traffic, mark ourselves inactive.
 	r.MarkInactive("TheReason", "the message")
 	apistest.CheckConditionFailed(r, PodAutoscalerConditionActive, t)
 	if !r.IsInactive() {

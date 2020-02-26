@@ -46,7 +46,7 @@ type FakeRoundTripper struct {
 	// no host is matched then this falls back to the behavior or ProbeResponses
 	ProbeHostResponses map[string][]FakeResponse
 
-	// Responses to probe requests are popeed from this list until it is size 1 then
+	// Responses to probe requests are popped from this list until it is size 1 then
 	// that response is returned indefinitely
 	ProbeResponses []FakeResponse
 

@@ -83,7 +83,7 @@ const (
 	// isn't going to work well.
 	WindowMin = 6 * time.Second
 	// WindowMax is the maximum permitted stable autoscaling window.
-	// This keeps the event horizon to a resonable enough limit.
+	// This keeps the event horizon to a reasonable enough limit.
 	WindowMax = 1 * time.Hour
 
 	// TargetUtilizationPercentageKey is the annotation which specifies the
