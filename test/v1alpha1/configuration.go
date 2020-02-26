@@ -57,12 +57,12 @@ func PatchConfigImage(clients *test.Clients, cfg *v1alpha1.Configuration, imageP
 
 // WaitForConfigLatestPinnedRevision enables the check for pinned revision in WaitForConfigLatestRevision.
 func WaitForConfigLatestPinnedRevision(clients *test.Clients, names test.ResourceNames) (string, error) {
-	return WaitForConfigLatestRevision(clients, names, true)
+	return WaitForConfigLatestRevision(clients, names, true /*wait for pinned revision*/)
 }
 
 // WaitForConfigLatestUnpinnedRevision disables the check for pinned revision in WaitForConfigLatestRevision.
 func WaitForConfigLatestUnpinnedRevision(clients *test.Clients, names test.ResourceNames) (string, error) {
-	return WaitForConfigLatestRevision(clients, names, false)
+	return WaitForConfigLatestRevision(clients, names, false /*wait for unpinned revision*/)
 }
 
 // WaitForConfigLatestRevision takes a revision in through names and compares it to the current state of LatestCreatedRevisionName in Configuration.
@@ -77,9 +77,7 @@ func WaitForConfigLatestRevision(clients *test.Clients, names test.ResourceNames
 			if ensurePinned {
 				// Without this it might happen that the latest created revision is later overridden by a newer one
 				// that is pinned and the following check for LatestReadyRevisionName would fail.
-				if revErr := CheckRevisionState(clients.ServingAlphaClient, revisionName, IsRevisionPinned); revErr != nil {
-					return false, nil
-				}
+				return CheckRevisionState(clients.ServingAlphaClient, revisionName, IsRevisionPinned) == nil, nil
 			}
 			return true, nil
 		}
