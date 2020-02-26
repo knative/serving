@@ -574,7 +574,7 @@
   revision = "bf2b5ad3c0a925c44a0d2842c5d8182113cd248e"
 
 [[projects]]
-  digest = "1:1e59759b895f57302df03c5632dc6bbedcdf6782a2b6259246ff653dd214ac45"
+  digest = "0:"
   name = "github.com/jetstack/cert-manager"
   packages = [
     "pkg/apis/acme",
@@ -1441,7 +1441,7 @@
   version = "kubernetes-1.16.4"
 
 [[projects]]
-  digest = "1:db0d7ba21a4bffa411a4f3cfa8b8a6b4bcf401a6062d6dbf1b7c13191590c1bc"
+  digest = "1:be9e8431fa5908b34b0d74a7d582371f77e683d58bd0f6cdd0090a239d65cccd"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -1633,6 +1633,8 @@
     "tools/clientcmd/api",
     "tools/clientcmd/api/latest",
     "tools/clientcmd/api/v1",
+    "tools/leaderelection",
+    "tools/leaderelection/resourcelock",
     "tools/metrics",
     "tools/pager",
     "tools/record",
@@ -1810,7 +1812,7 @@
 
 [[projects]]
   branch = "release-0.13"
-  digest = "1:efd99f16d7b5337b1cce9ac8576e2f65c2c2f7b759f64cd235b82f42e0f86f09"
+  digest = "1:77db7d7e7364e6acb7fe627ddb377f94e5199b020be96aa0e8654cd864db2d7a"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -1859,6 +1861,7 @@
     "injection/sharedmain",
     "kmeta",
     "kmp",
+    "leaderelection",
     "logging",
     "logging/logkey",
     "logging/testing",
@@ -1917,7 +1920,7 @@
     "websocket",
   ]
   pruneopts = "T"
-  revision = "d771641c9192ee2ce1e54c3d9af2cc7f692cb7ab"
+  revision = "2006e107e39eb0e661e4437ba76b16465162689e"
 
 [[projects]]
   branch = "master"
@@ -2115,6 +2118,7 @@
     "knative.dev/pkg/injection/sharedmain",
     "knative.dev/pkg/kmeta",
     "knative.dev/pkg/kmp",
+    "knative.dev/pkg/leaderelection",
     "knative.dev/pkg/logging",
     "knative.dev/pkg/logging/logkey",
     "knative.dev/pkg/logging/testing",

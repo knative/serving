@@ -980,7 +980,7 @@
   version = "kubernetes-1.16.4"
 
 [[projects]]
-  digest = "1:1aaf879947e3abf264929bb0220acced357f85da5ac0f58b10f0f8a5719a41ef"
+  digest = "1:e49d4f18068a8b4e5ac2ae52ec9363e8509f17de8c1569a41663ef1632fc4aeb"
   name = "k8s.io/apimachinery"
   packages = [
     "pkg/api/apitesting",
@@ -1025,6 +1025,7 @@
     "pkg/util/sets",
     "pkg/util/sets/types",
     "pkg/util/strategicpatch",
+    "pkg/util/uuid",
     "pkg/util/validation",
     "pkg/util/validation/field",
     "pkg/util/wait",
@@ -1039,7 +1040,7 @@
   version = "kubernetes-1.16.4"
 
 [[projects]]
-  digest = "1:b03297e45cd203dee7e9449141555d3973d04d5323ece6b4e20562b80185767e"
+  digest = "1:b485876cac57a0612f78c907bde4e34c3f327e35e705f7f59d3bd7c5cd78a688"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -1229,6 +1230,8 @@
     "tools/clientcmd/api",
     "tools/clientcmd/api/latest",
     "tools/clientcmd/api/v1",
+    "tools/leaderelection",
+    "tools/leaderelection/resourcelock",
     "tools/metrics",
     "tools/pager",
     "tools/record",
@@ -1456,6 +1459,7 @@
     "k8s.io/apimachinery/pkg/util/runtime",
     "k8s.io/apimachinery/pkg/util/sets",
     "k8s.io/apimachinery/pkg/util/sets/types",
+    "k8s.io/apimachinery/pkg/util/uuid",
     "k8s.io/apimachinery/pkg/util/validation",
     "k8s.io/apimachinery/pkg/util/wait",
     "k8s.io/apimachinery/pkg/version",
@@ -1486,6 +1490,8 @@
     "k8s.io/client-go/testing",
     "k8s.io/client-go/tools/cache",
     "k8s.io/client-go/tools/clientcmd",
+    "k8s.io/client-go/tools/leaderelection",
+    "k8s.io/client-go/tools/leaderelection/resourcelock",
     "k8s.io/client-go/tools/metrics",
     "k8s.io/client-go/tools/record",
     "k8s.io/client-go/util/retry",
