@@ -17,12 +17,57 @@ limitations under the License.
 package main
 
 import (
-	"knative.dev/serving/pkg/reconciler/ingress"
+	"context"
 
-	// This defines the shared main for injected controllers.
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection/sharedmain"
+	"knative.dev/pkg/signals"
+	"knative.dev/pkg/webhook"
+	"knative.dev/pkg/webhook/certificates"
+	"knative.dev/pkg/webhook/resourcesemantics"
+	"knative.dev/pkg/webhook/resourcesemantics/defaulting"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/reconciler/ingress"
 )
 
+func NewDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+	return defaulting.NewAdmissionController(ctx,
+
+		// Name of the resource webhook.
+		"webhook.istio.networking.internal.knative.dev",
+
+		// The path on which to serve the webhook.
+		"/defaulting",
+
+		// The resources to default.
+		map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
+			v1alpha1.SchemeGroupVersion.WithKind("Revision"): &RevisionStub{},
+			v1beta1.SchemeGroupVersion.WithKind("Revision"):  &RevisionStub{},
+			v1.SchemeGroupVersion.WithKind("Revision"):       &RevisionStub{},
+		},
+
+		// no need to decorate the context
+		nil,
+
+		// allow unknown fields since our stub type only has a subset of them
+		false,
+	)
+}
+
 func main() {
-	sharedmain.Main("istiocontroller", ingress.NewController)
+	// Set up a signal context with our webhook options
+	ctx := webhook.WithOptions(signals.NewContext(), webhook.Options{
+		ServiceName: "istio-webhook",
+		Port:        8443,
+		SecretName:  "istio-webhook-certs",
+	})
+
+	sharedmain.WebhookMainWithContext(ctx, "istiocontroller",
+		NewDefaultingAdmissionController,
+		certificates.NewController,
+		ingress.NewController)
 }
