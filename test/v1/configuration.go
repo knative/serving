@@ -175,3 +175,40 @@ func CheckConfigurationState(client *test.ServingClients, name string, inState f
 func IsConfigurationReady(c *v1.Configuration) (bool, error) {
 	return c.Generation == c.Status.ObservedGeneration && c.Status.IsReady(), nil
 }
+
+// CreateConfigurationReady creates a new Configuration in state 'Ready'. This function expects Configuration and Image name
+// passed in through 'names'.  Names is updated with the Route and Configuration created by the Service
+// and ResourceObjects is returned with the Service, Route, and Configuration objects.
+// Returns error if the service does not come up correctly.
+func CreateConfigurationReady(t pkgTest.T, clients *test.Clients, names *test.ResourceNames, fopt ...rtesting.ConfigOption) (*ResourceObjects, error) {
+	if names.Image == "" {
+		return nil, fmt.Errorf("expected non-empty Image name; got Image=%v", names.Image)
+	}
+
+	t.Log("Creating a new Configuration", "configuration", names.Config)
+	cfg, err := CreateConfiguration(t, clients, *names, fopt...)
+	if err != nil {
+		return nil, err
+	}
+
+	// If the Config name was not specified, populate it
+	if names.Config == "" {
+		names.Config = cfg.Name
+	}
+
+	t.Log("Waiting for Configuration to transition to Ready.", "configuration", names.Config)
+	if err := WaitForConfigurationState(clients.ServingClient, names.Config, IsConfigurationReady, "ConfigurationIsReady"); err != nil {
+		return nil, err
+	}
+
+	names.Revision = cfg.Status.LatestReadyRevisionName
+
+	t.Log("Getting latest revision object created by Config")
+	rev, err := clients.ServingClient.Revisions.Get(names.Revision, metav1.GetOptions{})
+
+	if err == nil {
+		t.Log("Successfully created Config", names.Config)
+	}
+
+	return &ResourceObjects{Config: cfg, Revision: rev}, err
+}
