@@ -290,8 +290,8 @@ func revision(namespace, name string) *v1.Revision {
 			Namespace: namespace,
 			Name:      name,
 			Labels: map[string]string{
-				serving.ConfigurationLabelKey: "config-" + testRevName,
-				serving.ServiceLabelKey:       "service-" + testRevName,
+				serving.ConfigurationLabelKey: "config-" + name,
+				serving.ServiceLabelKey:       "service-" + name,
 			},
 		},
 		Spec: v1.RevisionSpec{
