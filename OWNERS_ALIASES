@@ -14,16 +14,16 @@ aliases:
   - tcnghia
   - vagababov
 
-  # WG leads + TOC.
+  # TOC + WG leads
   serving-wg-leads:
-  - dgerd
-  - evankanderson
-  - markusthoemmes
-  - mattmoor
-  - tcnghia
-  - vagababov
-  - vaikas
-
+  - evankanderson  # TOC
+  - mattmoor       # TOC/Serving
+  - vaikas         # TOC
+  - dprotaso       # Serving
+  - markusthoemmes # Scaling
+  - mdemirhan      # Networking
+  - tcnghia        # Networking
+  - vagababov      # Scaling
 
   autoscaling-approvers:
   - markusthoemmes
@@ -35,8 +35,10 @@ aliases:
   - yanweiguo
 
   monitoring-approvers:
+  - mdemirhan
   - yanweiguo
   monitoring-reviewers:
+  - mdemirhan
   - yanweiguo
 
   productivity-approvers:
