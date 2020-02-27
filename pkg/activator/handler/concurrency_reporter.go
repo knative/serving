@@ -67,7 +67,7 @@ func (cr *ConcurrencyReporter) reportToMetricsBackend(key types.NamespacedName, 
 	revName := key.Name
 	revision, err := cr.rl.Revisions(ns).Get(revName)
 	if err != nil {
-		cr.logger.With(zap.Any("revID", key)).Errorw("Error while getting revision", zap.Error(err))
+		cr.logger.Errorw("Error while getting revision", zap.Any("revID", key), zap.Error(err))
 		return
 	}
 	configurationName := revision.Labels[serving.ConfigurationLabelKey]
