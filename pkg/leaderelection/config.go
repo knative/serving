@@ -33,9 +33,9 @@ var (
 		"nscontroller")
 )
 
-// ValidateLeaderElectionConfig enriches the leader election config validation
+// ValidateConfig enriches the leader election config validation
 // with extra validations specific to serving.
-func ValidateLeaderElectionConfig(configMap *corev1.ConfigMap) (*kle.Config, error) {
+func ValidateConfig(configMap *corev1.ConfigMap) (*kle.Config, error) {
 	config, err := kle.NewConfigFromMap(configMap.Data)
 	if err != nil {
 		return nil, err

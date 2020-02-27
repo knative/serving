@@ -50,7 +50,7 @@ func okData() map[string]string {
 	}
 }
 
-func TestValidateLeaderElectionConfig(t *testing.T) {
+func TestValidateConfig(t *testing.T) {
 	cases := []struct {
 		name     string
 		data     map[string]string
@@ -75,7 +75,7 @@ func TestValidateLeaderElectionConfig(t *testing.T) {
 
 	for i := range cases {
 		tc := cases[i]
-		actualConfig, actualErr := ValidateLeaderElectionConfig(&corev1.ConfigMap{Data: tc.data})
+		actualConfig, actualErr := ValidateConfig(&corev1.ConfigMap{Data: tc.data})
 		if !reflect.DeepEqual(tc.err, actualErr) {
 			t.Errorf("%v: expected error %v, got %v", tc.name, tc.err, actualErr)
 			continue
