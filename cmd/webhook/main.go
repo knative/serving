@@ -23,7 +23,7 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection/sharedmain"
-	"knative.dev/pkg/leaderelection"
+	pkgleaderelection "knative.dev/pkg/leaderelection"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/signals"
@@ -42,11 +42,11 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/leaderelection"
 
 	// config validation constructors
 	tracingconfig "knative.dev/pkg/tracing/config"
 	defaultconfig "knative.dev/serving/pkg/apis/config"
-	configvalidation "knative.dev/serving/pkg/apis/config/validation"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/gc"
@@ -141,18 +141,18 @@ func NewConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 
 		// The configmaps to validate.
 		configmap.Constructors{
-			tracingconfig.ConfigName:         tracingconfig.NewTracingConfigFromConfigMap,
-			autoscalerconfig.ConfigName:      autoscalerconfig.NewConfigFromConfigMap,
-			certconfig.CertManagerConfigName: certconfig.NewCertManagerConfigFromConfigMap,
-			gc.ConfigName:                    gc.NewConfigFromConfigMapFunc(ctx),
-			network.ConfigName:               network.NewConfigFromConfigMap,
-			istioconfig.IstioConfigName:      istioconfig.NewIstioFromConfigMap,
-			deployment.ConfigName:            deployment.NewConfigFromConfigMap,
-			metrics.ConfigMapName():          metrics.NewObservabilityConfigFromConfigMap,
-			logging.ConfigMapName():          logging.NewConfigFromConfigMap,
-			leaderelection.ConfigMapName():   configvalidation.ValidateLeaderElectionConfig,
-			domainconfig.DomainConfigName:    domainconfig.NewDomainFromConfigMap,
-			defaultconfig.DefaultsConfigName: defaultconfig.NewDefaultsConfigFromConfigMap,
+			tracingconfig.ConfigName:          tracingconfig.NewTracingConfigFromConfigMap,
+			autoscalerconfig.ConfigName:       autoscalerconfig.NewConfigFromConfigMap,
+			certconfig.CertManagerConfigName:  certconfig.NewCertManagerConfigFromConfigMap,
+			gc.ConfigName:                     gc.NewConfigFromConfigMapFunc(ctx),
+			network.ConfigName:                network.NewConfigFromConfigMap,
+			istioconfig.IstioConfigName:       istioconfig.NewIstioFromConfigMap,
+			deployment.ConfigName:             deployment.NewConfigFromConfigMap,
+			metrics.ConfigMapName():           metrics.NewObservabilityConfigFromConfigMap,
+			logging.ConfigMapName():           logging.NewConfigFromConfigMap,
+			pkgleaderelection.ConfigMapName(): leaderelection.ValidateLeaderElectionConfig,
+			domainconfig.DomainConfigName:     domainconfig.NewDomainFromConfigMap,
+			defaultconfig.DefaultsConfigName:  defaultconfig.NewDefaultsConfigFromConfigMap,
 		},
 	)
 }
