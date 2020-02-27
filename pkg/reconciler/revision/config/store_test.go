@@ -122,7 +122,6 @@ func TestStoreImmutableConfig(t *testing.T) {
 	config := store.Load()
 
 	config.Deployment.QueueSidecarImage = "mutated"
-	config.Network.IstioOutboundIPRanges = "mutated"
 	config.Logging.LoggingConfig = "mutated"
 	ccMutated := int64(4)
 	config.Defaults.ContainerConcurrency = ccMutated
@@ -133,9 +132,6 @@ func TestStoreImmutableConfig(t *testing.T) {
 
 	if newConfig.Deployment.QueueSidecarImage == "mutated" {
 		t.Error("Controller config is not immutable")
-	}
-	if newConfig.Network.IstioOutboundIPRanges == "mutated" {
-		t.Error("Network config is not immutable")
 	}
 	if newConfig.Logging.LoggingConfig == "mutated" {
 		t.Error("Logging config is not immutable")

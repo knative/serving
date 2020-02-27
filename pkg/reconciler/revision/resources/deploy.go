@@ -239,19 +239,6 @@ func MakeDeployment(rev *v1.Revision,
 	// out via annotation) we should explicitly disable that here to avoid redundant Image
 	// resources.
 
-	// Inject the IP ranges for istio sidecar configuration.
-	// We will inject this value only if all of the following are true:
-	// - the config map contains a non-empty value
-	// - the user doesn't specify this annotation in configuration's pod template
-	// - configured values are valid CIDR notation IP addresses
-	// If these conditions are not met, this value will be left untouched.
-	// * is a special value that is accepted as a valid.
-	// * intercepts calls to all IPs: in cluster as well as outside the cluster.
-	if _, ok := podTemplateAnnotations[IstioOutboundIPRangeAnnotation]; !ok {
-		if len(networkConfig.IstioOutboundIPRanges) > 0 {
-			podTemplateAnnotations[IstioOutboundIPRangeAnnotation] = networkConfig.IstioOutboundIPRanges
-		}
-	}
 	podSpec, err := makePodSpec(rev, loggingConfig, tracingConfig, observabilityConfig, autoscalerConfig, deploymentConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create PodSpec: %w", err)
