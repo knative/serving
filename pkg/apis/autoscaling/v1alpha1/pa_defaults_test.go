@@ -21,8 +21,12 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	"knative.dev/serving/pkg/apis/config"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 )
 
 func TestPodAutoscalerDefaulting(t *testing.T) {
@@ -30,6 +34,7 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 		name string
 		in   *PodAutoscaler
 		want *PodAutoscaler
+		wc   func(context.Context) context.Context
 	}{{
 		name: "empty",
 		in:   &PodAutoscaler{},
@@ -38,6 +43,39 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 				Annotations: map[string]string{
 					autoscaling.ClassAnnotationKey:  autoscaling.KPA,
 					autoscaling.MetricAnnotationKey: autoscaling.Concurrency,
+				},
+			},
+			Spec: PodAutoscalerSpec{
+				ContainerConcurrency: 0,
+			},
+		},
+	}, {
+		name: "defaults can be overridden via config map",
+		in:   &PodAutoscaler{},
+		wc: func(ctx context.Context) context.Context {
+			s := config.NewStore(logtesting.TestLogger(t))
+			s.OnConfigChanged(&v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: config.DefaultsConfigName,
+				},
+				Data: map[string]string{},
+			})
+			s.OnConfigChanged(&v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: autoscalerconfig.ConfigName,
+				},
+				Data: map[string]string{
+					"pod-autoscaler-class": "some.other.class",
+				},
+			})
+
+			return s.ToContext(ctx)
+		},
+		want: &PodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					autoscaling.ClassAnnotationKey:  "some.other.class",
+					autoscaling.MetricAnnotationKey: "",
 				},
 			},
 			Spec: PodAutoscalerSpec{
@@ -103,7 +141,11 @@ func TestPodAutoscalerDefaulting(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.in
-			got.SetDefaults(context.Background())
+			ctx := context.Background()
+			if test.wc != nil {
+				ctx = test.wc(ctx)
+			}
+			got.SetDefaults(ctx)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("SetDefaults (-want, +got) = %v", diff)
 			}

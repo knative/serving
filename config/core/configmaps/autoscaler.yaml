@@ -135,3 +135,8 @@ data:
     # Once enabled, it allows the autoscaler to prioritize pods processing
     # fewer (or zero) requests for removal when scaling down.
     enable-graceful-scaledown: "false"
+
+    # pod-autoscaler-class specifies the default pod autoscaler class
+    # that should be used if none is specified. If omitted, the Knative
+    # Horizontal Pod Autoscaler (KPA) is used by default.
+    pod-autoscaler-class: "kpa.autoscaling.knative.dev"
