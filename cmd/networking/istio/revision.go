@@ -43,7 +43,22 @@ func (r *RevisionStub) SetDefaults(context.Context) {
 		r.Labels = make(map[string]string)
 	}
 
-	service, ok := r.Labels[serving.ServiceLabelKey]
+	var (
+		parent string
+		ok     bool
+
+		parentKeys = []string{
+			serving.ServiceLabelKey,
+			serving.ConfigurationLabelKey,
+		}
+	)
+
+	for _, parentKey := range parentKeys {
+		parent, ok = r.Labels[parentKey]
+		if ok {
+			break
+		}
+	}
 
 	// Shouldn't happen but you never know
 	if !ok {
@@ -51,7 +66,7 @@ func (r *RevisionStub) SetDefaults(context.Context) {
 	}
 
 	r.Labels["service.istio.io/canonical-revision"] = r.Name
-	r.Labels["service.istio.io/canonical-service"] = service
+	r.Labels["service.istio.io/canonical-service"] = parent
 }
 
 // Validate sadly performs no validation
