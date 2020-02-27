@@ -83,6 +83,47 @@ func TestContextHandlerError(t *testing.T) {
 	}
 }
 
+func BenchmarkContextHandler(b *testing.B) {
+	tests := []struct {
+		label        string
+		revisionName string
+	}{{
+		label:        "context handler success",
+		revisionName: testRevName,
+	}, {
+		label:        "context handler failure",
+		revisionName: "fake",
+	}}
+	ctx, cancel, _ := rtesting.SetupFakeContextWithCancel(&testing.T{})
+	defer cancel()
+	revision := revision(testNamespace, testRevName)
+	revisionInformer(ctx, revision)
+
+	baseHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+
+	handler := NewContextHandler(ctx, baseHandler)
+	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+	req.Header.Set(activator.RevisionHeaderNamespace, testNamespace)
+
+	for _, test := range tests {
+		req.Header.Set(activator.RevisionHeaderName, test.revisionName)
+		b.Run(fmt.Sprintf("%s-sequential", test.label), func(b *testing.B) {
+			resp := httptest.NewRecorder()
+			for j := 0; j < b.N; j++ {
+				handler.ServeHTTP(resp, req)
+			}
+		})
+		b.Run(fmt.Sprintf("%s-parallel", test.label), func(b *testing.B) {
+			b.RunParallel(func(pb *testing.PB) {
+				resp := httptest.NewRecorder()
+				for pb.Next() {
+					handler.ServeHTTP(resp, req)
+				}
+			})
+		})
+	}
+}
+
 func errMsg(msg string) string {
 	return fmt.Sprintf("Error getting active endpoint: %s\n", msg)
 }
