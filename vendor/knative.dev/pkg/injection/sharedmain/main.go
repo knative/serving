@@ -29,10 +29,17 @@ import (
 
 	"go.opencensus.io/stats/view"
 	"golang.org/x/sync/errgroup"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes/scheme"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/leaderelection"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
+	"k8s.io/client-go/tools/record"
 
 	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -40,6 +47,7 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
+	kle "knative.dev/pkg/leaderelection"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/profiling"
@@ -93,6 +101,20 @@ func GetLoggingConfig(ctx context.Context) (*logging.Config, error) {
 	return logging.NewConfigFromConfigMap(loggingConfigMap)
 }
 
+// GetLeaderElectionConfig gets the leader election config.
+func GetLeaderElectionConfig(ctx context.Context) (*kle.Config, error) {
+	leaderElectionConfigMap, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(kle.ConfigMapName(), metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return kle.NewConfigFromMap(nil)
+		}
+
+		return nil, err
+	}
+
+	return kle.NewConfigFromConfigMap(leaderElectionConfigMap)
+}
+
 // Main runs the generic main flow for non-webhook controllers with a new
 // context. Use WebhookMainWith* if you need to serve webhooks.
 func Main(component string, ctors ...injection.ControllerConstructor) {
@@ -126,36 +148,53 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 	defer flush(logger)
 	ctx = logging.WithLogger(ctx, logger)
 	profilingHandler := profiling.NewHandler(logger, false)
-
-	CheckK8sClientMinimumVersionOrDie(ctx, logger)
-	cmw := SetupConfigMapWatchOrDie(ctx, logger)
-	controllers, _ := ControllersAndWebhooksFromCtors(ctx, cmw, ctors...)
-	WatchLoggingConfigOrDie(ctx, cmw, logger, atomicLevel, component)
-	WatchObservabilityConfigOrDie(ctx, cmw, profilingHandler, logger, component)
-
-	logger.Info("Starting configuration manager...")
-	if err := cmw.Start(ctx.Done()); err != nil {
-		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
-	}
-	logger.Info("Starting informers...")
-	if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
-		logger.Fatalw("Failed to start informers", zap.Error(err))
-	}
-	logger.Info("Starting controllers...")
-	go controller.StartAll(ctx.Done(), controllers...)
-
 	profilingServer := profiling.NewServer(profilingHandler)
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(profilingServer.ListenAndServe)
+	go func() {
+		// This will block until either a signal arrives or one of the grouped functions
+		// returns an error.
+		<-egCtx.Done()
 
-	// This will block until either a signal arrives or one of the grouped functions
-	// returns an error.
-	<-egCtx.Done()
+		profilingServer.Shutdown(context.Background())
+		if err := eg.Wait(); err != nil && err != http.ErrServerClosed {
+			logger.Errorw("Error while running server", zap.Error(err))
+		}
+	}()
+	CheckK8sClientMinimumVersionOrDie(ctx, logger)
 
-	profilingServer.Shutdown(context.Background())
-	// Don't forward ErrServerClosed as that indicates we're already shutting down.
-	if err := eg.Wait(); err != nil && err != http.ErrServerClosed {
-		logger.Errorw("Error while running server", zap.Error(err))
+	run := func(ctx context.Context) {
+		cmw := SetupConfigMapWatchOrDie(ctx, logger)
+		controllers, _ := ControllersAndWebhooksFromCtors(ctx, cmw, ctors...)
+		WatchLoggingConfigOrDie(ctx, cmw, logger, atomicLevel, component)
+		WatchObservabilityConfigOrDie(ctx, cmw, profilingHandler, logger, component)
+
+		logger.Info("Starting configuration manager...")
+		if err := cmw.Start(ctx.Done()); err != nil {
+			logger.Fatalw("Failed to start configuration manager", zap.Error(err))
+		}
+		logger.Info("Starting informers...")
+		if err := controller.StartInformers(ctx.Done(), informers...); err != nil {
+			logger.Fatalw("Failed to start informers", zap.Error(err))
+		}
+		logger.Info("Starting controllers...")
+		go controller.StartAll(ctx.Done(), controllers...)
+
+		<-ctx.Done()
+	}
+
+	// Set up leader election config
+	leaderElectionConfig, err := GetLeaderElectionConfig(ctx)
+	if err != nil {
+		logger.Fatalf("Error loading leader election configuration: %v", err)
+	}
+	leConfig := leaderElectionConfig.GetComponentConfig(component)
+
+	if !leConfig.LeaderElect {
+		logger.Infof("%v will not run in leader-elected mode", component)
+		run(ctx)
+	} else {
+		RunLeaderElected(ctx, logger, run, component, leConfig)
 	}
 }
 
@@ -185,6 +224,7 @@ func WebhookMainWithConfig(ctx context.Context, component string, cfg *rest.Conf
 	defer flush(logger)
 	ctx = logging.WithLogger(ctx, logger)
 	profilingHandler := profiling.NewHandler(logger, false)
+	profilingServer := profiling.NewServer(profilingHandler)
 
 	CheckK8sClientMinimumVersionOrDie(ctx, logger)
 	cmw := SetupConfigMapWatchOrDie(ctx, logger)
@@ -202,8 +242,6 @@ func WebhookMainWithConfig(ctx context.Context, component string, cfg *rest.Conf
 	}
 	logger.Info("Starting controllers...")
 	go controller.StartAll(ctx.Done(), controllers...)
-
-	profilingServer := profiling.NewServer(profilingHandler)
 
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(profilingServer.ListenAndServe)
@@ -351,4 +389,66 @@ func ControllersAndWebhooksFromCtors(ctx context.Context,
 	}
 
 	return controllers, webhooks
+}
+
+// RunLeaderElected runs the given function in leader elected mode. The function
+// will be run only once the leader election lock is obtained.
+func RunLeaderElected(ctx context.Context, logger *zap.SugaredLogger, run func(context.Context), component string, leConfig kle.ComponentConfig) {
+	recorder := controller.GetEventRecorder(ctx)
+	if recorder == nil {
+		// Create event broadcaster
+		logger.Debug("Creating event broadcaster")
+		eventBroadcaster := record.NewBroadcaster()
+		watches := []watch.Interface{
+			eventBroadcaster.StartLogging(logger.Named("event-broadcaster").Infof),
+			eventBroadcaster.StartRecordingToSink(
+				&typedcorev1.EventSinkImpl{Interface: kubeclient.Get(ctx).CoreV1().Events(system.Namespace())}),
+		}
+		recorder = eventBroadcaster.NewRecorder(
+			scheme.Scheme, corev1.EventSource{Component: component})
+		go func() {
+			<-ctx.Done()
+			for _, w := range watches {
+				w.Stop()
+			}
+		}()
+	}
+
+	// Create a unique identifier so that two controllers on the same host don't
+	// race.
+	id, err := kle.UniqueID()
+	if err != nil {
+		logger.Fatalw("Failed to get unique ID for leader election", zap.Error(err))
+	}
+	logger.Infof("%v will run in leader-elected mode with id %v", component, id)
+
+	// rl is the resource used to hold the leader election lock.
+	rl, err := resourcelock.New(leConfig.ResourceLock,
+		system.Namespace(), // use namespace we are running in
+		component,          // component is used as the resource name
+		kubeclient.Get(ctx).CoreV1(),
+		kubeclient.Get(ctx).CoordinationV1(),
+		resourcelock.ResourceLockConfig{
+			Identity:      id,
+			EventRecorder: recorder,
+		})
+	if err != nil {
+		logger.Fatalw("Error creating lock: %v", err)
+	}
+
+	// Execute the `run` function when we have the lock.
+	leaderelection.RunOrDie(ctx, leaderelection.LeaderElectionConfig{
+		Lock:          rl,
+		LeaseDuration: leConfig.LeaseDuration,
+		RenewDeadline: leConfig.RenewDeadline,
+		RetryPeriod:   leConfig.RetryPeriod,
+		Callbacks: leaderelection.LeaderCallbacks{
+			OnStartedLeading: run,
+			OnStoppedLeading: func() {
+				logger.Fatal("leaderelection lost")
+			},
+		},
+		// TODO: use health check watchdog, knative/pkg#1048
+		Name: component,
+	})
 }

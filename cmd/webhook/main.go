@@ -23,6 +23,7 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection/sharedmain"
+	pkgleaderelection "knative.dev/pkg/leaderelection"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	"knative.dev/pkg/signals"
@@ -41,6 +42,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
+	"knative.dev/serving/pkg/leaderelection"
 
 	// config validation constructors
 	tracingconfig "knative.dev/pkg/tracing/config"
@@ -139,17 +141,18 @@ func NewConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 
 		// The configmaps to validate.
 		configmap.Constructors{
-			tracingconfig.ConfigName:         tracingconfig.NewTracingConfigFromConfigMap,
-			autoscalerconfig.ConfigName:      autoscalerconfig.NewConfigFromConfigMap,
-			certconfig.CertManagerConfigName: certconfig.NewCertManagerConfigFromConfigMap,
-			gc.ConfigName:                    gc.NewConfigFromConfigMapFunc(ctx),
-			network.ConfigName:               network.NewConfigFromConfigMap,
-			istioconfig.IstioConfigName:      istioconfig.NewIstioFromConfigMap,
-			deployment.ConfigName:            deployment.NewConfigFromConfigMap,
-			metrics.ConfigMapName():          metrics.NewObservabilityConfigFromConfigMap,
-			logging.ConfigMapName():          logging.NewConfigFromConfigMap,
-			domainconfig.DomainConfigName:    domainconfig.NewDomainFromConfigMap,
-			defaultconfig.DefaultsConfigName: defaultconfig.NewDefaultsConfigFromConfigMap,
+			tracingconfig.ConfigName:          tracingconfig.NewTracingConfigFromConfigMap,
+			autoscalerconfig.ConfigName:       autoscalerconfig.NewConfigFromConfigMap,
+			certconfig.CertManagerConfigName:  certconfig.NewCertManagerConfigFromConfigMap,
+			gc.ConfigName:                     gc.NewConfigFromConfigMapFunc(ctx),
+			network.ConfigName:                network.NewConfigFromConfigMap,
+			istioconfig.IstioConfigName:       istioconfig.NewIstioFromConfigMap,
+			deployment.ConfigName:             deployment.NewConfigFromConfigMap,
+			metrics.ConfigMapName():           metrics.NewObservabilityConfigFromConfigMap,
+			logging.ConfigMapName():           logging.NewConfigFromConfigMap,
+			pkgleaderelection.ConfigMapName(): leaderelection.ValidateConfig,
+			domainconfig.DomainConfigName:     domainconfig.NewDomainFromConfigMap,
+			defaultconfig.DefaultsConfigName:  defaultconfig.NewDefaultsConfigFromConfigMap,
 		},
 	)
 }
