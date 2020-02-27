@@ -40,10 +40,9 @@ func NewController(
 	ingressInformer := ingress.Get(ctx)
 
 	// TODO: setup additional informers here.
-	// TODO: pass in the expected value for the class annotation filter.
 
 	r := &Reconciler{}
-	impl := v1alpha1ingress.NewImpl(ctx, r, "default")
+	impl := v1alpha1ingress.NewImpl(ctx, r)
 
 	logger.Info("Setting up event handlers.")
 
