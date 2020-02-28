@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright 2018 The Knative Authors
+# Copyright 2019 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,67 +27,32 @@
 
 source $(dirname $0)/e2e-common.sh
 
-# Helper functions.
-
 function knative_setup() {
   install_knative_serving
 }
 
 # Script entry point.
 
-# Skip installing istio as an add-on
-initialize $@ --skip-istio-addon
+initialize $@ --install-monitoring
 
-# Run the tests
-header "Running tests"
+# Ensure Knative Serving can be uninstalled/reinstalled cleanly
+subheader "Uninstalling Knative Serving"
+kubectl delete --ignore-not-found=true -f ${SERVING_YAML} || fail_test
+wait_until_object_does_not_exist namespaces knative-serving || fail_test
+kubectl delete --ignore-not-found=true -f ${MONITORING_YAML} || fail_test
+wait_until_object_does_not_exist namespaces knative-monitoring || fail_test
+# Specially wait for zipkin to be deleted, as we have them installed in istio-system namespace, see
+# https://github.com/knative/serving/blob/4202efc0dc12052edc0630515b101cbf8068a609/config/monitoring/tracing/zipkin/100-zipkin.yaml#L19
+wait_until_object_does_not_exist service zipkin istio-system
+wait_until_object_does_not_exist deployment zipkin istio-system
 
-failed=0
+subheader "Reinstalling Knative Serving"
+start_knative_serving "${SERVING_YAML}" || fail_test
+subheader "Reinstalling Knative Monitoring"
+start_knative_monitoring "${MONITORING_YAML}" || fail_test
 
-# Run tests serially in the mesh and https scenarios
-parallelism=""
-use_https=""
-(( MESH )) && parallelism="-parallel 1"
-
-if (( HTTP )); then
-  parallelism="-parallel 1"
-  use_https="--https"
-fi
-
-# Run conformance and e2e tests.
-go_test_e2e -timeout=30m \
-  $(go list ./test/conformance/... | grep -v certificate) \
-  ./test/e2e \
-  ${parallelism} \
-  "--resolvabledomain=$(use_resolvable_domain)" "${use_https}" "$(ingress_class)" || failed=1
-
-# Certificate conformance tests must be run separately
-# because they need cert-manager specific configurations.
-kubectl apply -f ./test/config/autotls/certmanager/selfsigned/
-add_trap "kubectl delete -f ./test/config/autotls/certmanager/selfsigned/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
-go_test_e2e -timeout=10m \
-  ./test/conformance/certificate/nonhttp01 "$(certificate_class)" || failed=1
-kubectl delete -f ./test/config/autotls/certmanager/selfsigned/
-
-kubectl apply -f ./test/config/autotls/certmanager/http01/
-add_trap "kubectl delete -f ./test/config/autotls/certmanager/http01/ --ignore-not-found" SIGKILL SIGTERM SIGQUIT
-go_test_e2e -timeout=10m \
-  ./test/conformance/certificate/http01 "$(certificate_class)" || failed=1
-kubectl delete -f ./test/config/autotls/certmanager/http01/
-
-# Run scale tests.
-go_test_e2e -timeout=10m \
-  ${parallelism} \
-  ./test/scale || failed=1
-
-# Istio E2E tests mutate the cluster and must be ran separately
-if [[ -n "${ISTIO_VERSION}" ]]; then
-  go_test_e2e -timeout=10m \
-    ./test/e2e/istio \
-    "--resolvabledomain=$(use_resolvable_domain)" || failed=1
-fi
-
-# Dump cluster state in case of failure
-(( failed )) && dump_cluster_state
-(( failed )) && fail_test
+# Run smoke test
+subheader "Running smoke test"
+go_test_e2e -timeout 20m ./test/e2e -run HelloWorld || fail_test
 
 success
