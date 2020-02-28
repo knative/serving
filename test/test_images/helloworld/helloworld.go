@@ -40,7 +40,7 @@ func main() {
 
 	logger.Info("starting http server")
 	defer logger.Info("stopping http server")
-	test.ListenAndServeGracefully(logger, ":8080", handler)
+	test.ListenAndServeGracefullyLogger(logger, ":8080", handler)
 }
 
 func flush(logger *zap.SugaredLogger) {

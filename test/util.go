@@ -39,14 +39,14 @@ const (
 
 // ListenAndServeGracefully calls into ListenAndServeGracefullyWithPattern
 // by passing handler to handle requests for "/"
-func ListenAndServeGracefully(logger *zap.SugaredLogger, addr string, handler func(w http.ResponseWriter, r *http.Request)) {
-	ListenAndServeGracefullyWithHandler(logger, addr, http.HandlerFunc(handler))
+func ListenAndServeGracefullyLogger(logger *zap.SugaredLogger, addr string, handler func(w http.ResponseWriter, r *http.Request)) {
+	ListenAndServeGracefullyWithHandlerLogger(logger, addr, http.HandlerFunc(handler))
 }
 
 // ListenAndServeGracefullyWithPattern creates an HTTP server, listens on the defined address
 // and handles incoming requests with the given handler.
 // It blocks until SIGTERM is received and the underlying server has shutdown gracefully.
-func ListenAndServeGracefullyWithHandler(logger *zap.SugaredLogger, addr string, handler http.Handler) {
+func ListenAndServeGracefullyWithHandlerLogger(logger *zap.SugaredLogger, addr string, handler http.Handler) {
 
 	server := http.Server{
 		Addr:    addr,
@@ -59,6 +59,27 @@ func ListenAndServeGracefullyWithHandler(logger *zap.SugaredLogger, addr string,
 			)
 
 		},
+	}
+
+	go server.ListenAndServe()
+
+	<-signals.SetupSignalHandler()
+	server.Shutdown(context.Background())
+}
+
+// ListenAndServeGracefully calls into ListenAndServeGracefullyWithPattern
+// by passing handler to handle requests for "/"
+func ListenAndServeGracefully(addr string, handler func(w http.ResponseWriter, r *http.Request)) {
+	ListenAndServeGracefullyWithHandler(addr, http.HandlerFunc(handler))
+}
+
+// ListenAndServeGracefullyWithPattern creates an HTTP server, listens on the defined address
+// and handles incoming requests with the given handler.
+// It blocks until SIGTERM is received and the underlying server has shutdown gracefully.
+func ListenAndServeGracefullyWithHandler(addr string, handler http.Handler) {
+	server := http.Server{
+		Addr:    addr,
+		Handler: h2c.NewHandler(handler, &http2.Server{}),
 	}
 
 	go server.ListenAndServe()
