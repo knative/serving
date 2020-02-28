@@ -17,22 +17,32 @@ limitations under the License.
 package main
 
 import (
-	"flag"
 	"fmt"
-	"log"
 	"net/http"
+	"os"
 
+	"go.uber.org/zap"
+	"knative.dev/pkg/logging"
 	"knative.dev/serving/test"
 )
 
+var logger *zap.SugaredLogger
+
 func handler(w http.ResponseWriter, r *http.Request) {
-	log.Print("Hello world received a request.")
+	logger.Print("Hello world received a request.")
 	fmt.Fprintln(w, "Hello World! How about some tasty noodles?")
 }
 
 func main() {
-	flag.Parse()
-	log.Print("Hello world app started.")
+	logger, _ = logging.NewLogger("", "debug")
+	logger = logger.Named("user-container")
+	defer flush(logger)
 
 	test.ListenAndServeGracefully(":8080", handler)
+}
+
+func flush(logger *zap.SugaredLogger) {
+	logger.Sync()
+	os.Stdout.Sync()
+	os.Stderr.Sync()
 }
