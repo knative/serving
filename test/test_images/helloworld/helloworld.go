@@ -29,7 +29,7 @@ import (
 var logger *zap.SugaredLogger
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	logger.Print("Hello world received a request.")
+	logger.Info("Hello world received a request.")
 	fmt.Fprintln(w, "Hello World! How about some tasty noodles?")
 }
 
