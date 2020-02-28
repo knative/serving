@@ -53,9 +53,22 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 			return err
 		}
 		revisions.Insert(tt.RevisionName)
+
+		// If the owner reference is a configuration, add it to the list of configurations
+		// and add its LatestCreatedRevision to the list of revisions
 		owner := metav1.GetControllerOf(rev)
 		if owner != nil && owner.Kind == "Configuration" {
 			configs.Insert(owner.Name)
+
+			config, err := c.configurationLister.Configurations(r.Namespace).Get(owner.Name)
+			if err != nil {
+				return err
+			}
+
+			revisions.Insert(config.Status.LatestCreatedRevisionName)
+
+			// Track future changes to the configuration
+			c.tracker.Track(kmeta.ObjectReference(config), r)
 		}
 	}
 

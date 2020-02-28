@@ -19,16 +19,18 @@ package labeler
 import (
 	"context"
 
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route"
 	routereconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/route"
+	servingreconciler "knative.dev/serving/pkg/reconciler"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
-	servingreconciler "knative.dev/serving/pkg/reconciler"
+	"knative.dev/pkg/tracker"
 )
 
 const controllerAgentName = "labeler-controller"
@@ -55,6 +57,18 @@ func NewController(
 
 	logger.Info("Setting up event handlers")
 	routeInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
+
+	c.tracker = tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
+
+	configInformer.Informer().AddEventHandler(controller.HandleAll(
+		// Call the tracker's OnChanged method, but we've seen the objects
+		// coming through this path missing TypeMeta, so ensure it is properly
+		// populated.
+		controller.EnsureTypeMeta(
+			c.tracker.OnChanged,
+			v1.SchemeGroupVersion.WithKind("Configuration"),
+		),
+	))
 
 	return impl
 }

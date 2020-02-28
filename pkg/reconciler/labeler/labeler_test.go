@@ -162,6 +162,23 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "default/config-change",
 	}, {
+		Name: "updating configuration",
+		Objects: []runtime.Object{
+			simpleRunLatest("default", "config-update", "the-config", WithRouteFinalizer),
+			simpleConfig("default", "the-config",
+				WithLatestCreated("the-config-ecoge"),
+				WithConfigLabel("serving.knative.dev/route", "config-update")),
+			rev("default", "the-config",
+				WithRevisionLabel("serving.knative.dev/route", "config-update")),
+			rev("default", "the-config",
+				WithRevName("the-config-ecoge")),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddLabel("default", "the-config-ecoge",
+				"serving.knative.dev/route", "config-update"),
+		},
+		Key: "default/config-update",
+	}, {
 		Name: "delete route",
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "delete-route", "the-config", WithRouteFinalizer, WithRouteDeletionTimestamp(&now)),
@@ -235,6 +252,7 @@ func TestReconcile(t *testing.T) {
 			client:              servingclient.Get(ctx),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
+			tracker:             &NullTracker{},
 		}
 
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),
@@ -276,7 +294,7 @@ func rev(namespace, name string, opts ...RevisionOption) *v1.Revision {
 	rev := &v1.Revision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       namespace,
-			Name:            cfg.Status.LatestCreatedRevisionName,
+			Name:            cfg.Status.LatestReadyRevisionName,
 			ResourceVersion: "v1",
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(cfg)},
 		},
