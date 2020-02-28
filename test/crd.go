@@ -32,6 +32,7 @@ type ResourceNames struct {
 	Route         string
 	Revision      string
 	Service       string
+	Namespace     string
 	TrafficTarget string
 	URL           *url.URL
 	Image         string

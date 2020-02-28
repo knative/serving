@@ -33,6 +33,7 @@ var ShouldEnvVars = map[string]string{
 	"K_SERVICE":       "Service",
 	"K_CONFIGURATION": "Config",
 	"K_REVISION":      "Revision",
+	"K_NAMESPACE":     "Namespace",
 }
 
 // MustFiles specifies the file paths and expected permissions that MUST be set as specified in the runtime contract.

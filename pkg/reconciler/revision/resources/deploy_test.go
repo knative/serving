@@ -66,6 +66,9 @@ var (
 		}, {
 			Name:  "K_SERVICE",
 			Value: "svc",
+		}, {
+			Name:  "K_NAMESPACE",
+			Value: "foo",
 		}},
 	}
 

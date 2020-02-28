@@ -141,6 +141,9 @@ func CreateRunLatestServiceReady(t pkgTest.TLegacy, clients *test.Clients, names
 		names.Service = svc.Name
 	}
 
+	if names.Namespace == "" {
+		names.Namespace = svc.Namespace
+	}
 	t.Log("Waiting for Service to transition to Ready.", "service", names.Service)
 	if err = WaitForServiceState(clients.ServingAlphaClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
 		return nil, nil, err

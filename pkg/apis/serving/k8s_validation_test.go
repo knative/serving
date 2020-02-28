@@ -762,6 +762,19 @@ func TestContainerValidation(t *testing.T) {
 			Paths:   []string{"env[0].name"},
 		},
 	}, {
+		name: "reserved K_NAMESPACE env var",
+		c: corev1.Container{
+			Image: "foo",
+			Env: []corev1.EnvVar{{
+				Name:  "K_NAMESPACE",
+				Value: "Foo",
+			}},
+		},
+		want: &apis.FieldError{
+			Message: `"K_NAMESPACE" is a reserved environment variable`,
+			Paths:   []string{"env[0].name"},
+		},
+	}, {
 		name: "disallowed envvarsource",
 		c: corev1.Container{
 			Image: "foo",

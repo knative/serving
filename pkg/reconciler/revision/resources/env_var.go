@@ -26,6 +26,7 @@ const (
 	knativeRevisionEnvVariableKey      = "K_REVISION"
 	knativeConfigurationEnvVariableKey = "K_CONFIGURATION"
 	knativeServiceEnvVariableKey       = "K_SERVICE"
+	knativeNamespaceEnvVariableKey     = "K_NAMESPACE"
 )
 
 func getKnativeEnvVar(rev *v1.Revision) []corev1.EnvVar {
@@ -38,5 +39,8 @@ func getKnativeEnvVar(rev *v1.Revision) []corev1.EnvVar {
 	}, {
 		Name:  knativeServiceEnvVariableKey,
 		Value: rev.Labels[serving.ServiceLabelKey],
+	}, {
+		Name:  knativeNamespaceEnvVariableKey,
+		Value: rev.Namespace,
 	}}
 }

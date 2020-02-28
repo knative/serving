@@ -56,6 +56,7 @@ var (
 		"K_SERVICE",
 		"K_CONFIGURATION",
 		"K_REVISION",
+		"K_NAMESPACE",
 	)
 
 	// The port is named "user-port" on the deployment, but a user cannot set an arbitrary name on the port
