@@ -15,9 +15,11 @@ package test
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"time"
 
+	"go.uber.org/zap"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"knative.dev/pkg/signals"
@@ -37,15 +39,28 @@ const (
 
 // ListenAndServeGracefully calls into ListenAndServeGracefullyWithPattern
 // by passing handler to handle requests for "/"
-func ListenAndServeGracefully(addr string, handler func(w http.ResponseWriter, r *http.Request)) {
-	ListenAndServeGracefullyWithHandler(addr, http.HandlerFunc(handler))
+func ListenAndServeGracefully(logger *zap.SugaredLogger, addr string, handler func(w http.ResponseWriter, r *http.Request)) {
+	ListenAndServeGracefullyWithHandler(logger, addr, http.HandlerFunc(handler))
 }
 
 // ListenAndServeGracefullyWithPattern creates an HTTP server, listens on the defined address
 // and handles incoming requests with the given handler.
 // It blocks until SIGTERM is received and the underlying server has shutdown gracefully.
-func ListenAndServeGracefullyWithHandler(addr string, handler http.Handler) {
-	server := http.Server{Addr: addr, Handler: h2c.NewHandler(handler, &http2.Server{})}
+func ListenAndServeGracefullyWithHandler(logger *zap.SugaredLogger, addr string, handler http.Handler) {
+
+	server := http.Server{
+		Addr:    addr,
+		Handler: h2c.NewHandler(handler, &http2.Server{}),
+		ConnState: func(c net.Conn, s http.ConnState) {
+			logger.Info("conn state change %s %s %s",
+				c.LocalAddr(),
+				c.RemoteAddr(),
+				s,
+			)
+
+		},
+	}
+
 	go server.ListenAndServe()
 
 	<-signals.SetupSignalHandler()
