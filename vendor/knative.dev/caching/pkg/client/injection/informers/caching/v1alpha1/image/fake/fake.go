@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	"context"
+	context "context"
 
 	image "knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image"
 	fake "knative.dev/caching/pkg/client/injection/informers/factory/fake"
