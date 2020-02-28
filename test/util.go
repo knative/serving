@@ -52,7 +52,7 @@ func ListenAndServeGracefullyWithHandlerLogger(logger *zap.SugaredLogger, addr s
 		Addr:    addr,
 		Handler: h2c.NewHandler(handler, &http2.Server{}),
 		ConnState: func(c net.Conn, s http.ConnState) {
-			logger.Info("conn state change %s %s %s",
+			logger.Infof("conn state change %s %s %s",
 				c.LocalAddr(),
 				c.RemoteAddr(),
 				s,
