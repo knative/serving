@@ -92,7 +92,7 @@ function setup_http01_auto_tls() {
   # The name of the Knative Service deployed in Auto TLS E2E test.
   export TLS_SERVICE_NAME="http01"
   # The full host name of the Knative Service. This is used to configure the DNS record.
-  export FULL_HOST_NAME="${TLS_SERVICE_NAME}.serving-tests.${CUSTOM_DOMAIN_SUFFIX}"
+  export FULL_HOST_NAME="*.serving-tests.${CUSTOM_DOMAIN_SUFFIX}"
 
   kubectl delete kcert --all -n serving-tests
 
