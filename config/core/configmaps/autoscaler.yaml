@@ -21,6 +21,9 @@ metadata:
     serving.knative.dev/release: devel
 
 data:
+  # Scale to zero feature flag
+  enable-scale-to-zero: "true"
+
   _example: |
     ################################
     #                              #

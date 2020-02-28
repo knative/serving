@@ -38,6 +38,8 @@ func main() {
 	logger = logger.Named("user-container")
 	defer flush(logger)
 
+	logger.Info("starting http server")
+	defer logger.Info("stopping http server")
 	test.ListenAndServeGracefully(":8080", handler)
 }
 
