@@ -22,7 +22,7 @@ metadata:
 
 data:
   # Scale to zero feature flag
-  enable-scale-to-zero: "true"
+  enable-scale-to-zero: "false"
 
   _example: |
     ################################
