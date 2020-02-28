@@ -53,6 +53,6 @@ start_knative_monitoring "${MONITORING_YAML}" || fail_test
 
 # Run smoke test
 subheader "Running smoke test"
-go_test_e2e ./test/e2e -run HelloWorld || fail_test
+go_test_e2e -timeout 20m ./test/e2e -run HelloWorld || fail_test
 
 success
