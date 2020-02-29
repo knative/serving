@@ -18,13 +18,16 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/http/httptrace"
 	"net/http/httputil"
+	"net/textproto"
 	"net/url"
 	"os"
 	"path"
@@ -273,11 +276,67 @@ func probeQueueHealthPath(port, timeoutSeconds int, env config) error {
 	// invocation of conditionFunc, it exits immediately without trying for a second time.
 	timeoutErr := wait.PollImmediateUntil(aggressivePollInterval, func() (bool, error) {
 		var req *http.Request
+
 		req, lastErr = http.NewRequest(http.MethodGet, url, nil)
 		if lastErr != nil {
 			// Return nil error for retrying
 			return false, nil
 		}
+
+		trace := &httptrace.ClientTrace{
+			GetConn: func(hostPort string) {
+				fmt.Printf("[%p] get conn: %+v\n", req, hostPort)
+			},
+			GotConn: func(connInfo httptrace.GotConnInfo) {
+				fmt.Printf("[%p] got conn: %+v\n", req, connInfo)
+			},
+			DNSDone: func(dnsInfo httptrace.DNSDoneInfo) {
+				fmt.Printf("[%p] dns Info: %+v\n", req, dnsInfo)
+			},
+			PutIdleConn: func(err error) {
+				fmt.Printf("[%p] put idle connection Info: %v\n", req, err)
+			},
+			GotFirstResponseByte: func() {
+				fmt.Printf("[%p] got first response byte", req)
+			},
+			Got100Continue: func() {
+				fmt.Printf("[%p] got 100 continue", req)
+			},
+			Got1xxResponse: func(code int, header textproto.MIMEHeader) error {
+				fmt.Printf("[%p] got 1xx %v %+v\n", req, code, header)
+				return nil
+			},
+			DNSStart: func(dnsInfo httptrace.DNSStartInfo) {
+				fmt.Printf("[%p] dns start %+v\n", req, dnsInfo)
+			},
+			ConnectStart: func(network, addr string) {
+				fmt.Printf("[%p] connect start %v %v\n", req, network, addr)
+			},
+			ConnectDone: func(network, addr string, err error) {
+				fmt.Printf("[%p] connect done %v %v %v\n", req, network, addr, err)
+			},
+			TLSHandshakeStart: func() {
+				fmt.Printf("[%p] tls handshake start", req)
+			},
+			TLSHandshakeDone: func(state tls.ConnectionState, err error) {
+				fmt.Printf("[%p] tls handshake done %+v %+v", req, state, err)
+			},
+			WroteHeaderField: func(key string, value []string) {
+				fmt.Printf("[%p] wrote header field %+v %+v", req, key, value)
+			},
+			WroteHeaders: func() {
+				fmt.Printf("[%p] wrote headers", req)
+			},
+			Wait100Continue: func() {
+				fmt.Printf("[%p] wait 100 continue", req)
+			},
+			WroteRequest: func(info httptrace.WroteRequestInfo) {
+				fmt.Printf("[%p] wrote request %+v\n", req, info)
+			},
+		}
+
+		req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
+
 		// Add the header to indicate this is a probe request.
 		req.Header.Add(network.ProbeHeaderName, queue.Name)
 		req.Header.Add(network.UserAgentKey, network.QueueProxyUserAgent)
