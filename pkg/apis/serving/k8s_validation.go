@@ -254,11 +254,10 @@ func ValidatePodSpec(ps corev1.PodSpec) *apis.FieldError {
 	case 0:
 		errs = errs.Also(apis.ErrMissingField("containers"))
 	case 1:
-		errs = errs.Also(portValidation(len(ps.Containers[0].Ports))).ViaField("containers.ports")
 		errs = errs.Also(ValidateContainer(ps.Containers[0], volumes).
 			ViaFieldIndex("containers", 0))
 	default:
-		errs = errs.Also(ValidateMultiContainerPorts(ps.Containers)).ViaField("containers.ports")
+		errs = errs.Also(ValidateMultiContainerPorts(ps.Containers)).ViaField("containers")
 		for i := range ps.Containers {
 			// probes are not allowed other than serving container
 			// ref: https://docs.google.com/document/d/1XjIRnOGaq9UGllkZgYXQHuTQmhbECNAOk6TT6RNfJMw/edit?disco=AAAAEHNSwZU
@@ -268,6 +267,7 @@ func ValidatePodSpec(ps corev1.PodSpec) *apis.FieldError {
 				errs = errs.Also(ValidateContainer(ps.Containers[i], volumes).ViaFieldIndex("containers", i))
 			}
 		}
+
 	}
 	if ps.ServiceAccountName != "" {
 		for range validation.IsDNS1123Subdomain(ps.ServiceAccountName) {
@@ -289,7 +289,7 @@ func ValidateMultiContainerPorts(containers []corev1.Container) *apis.FieldError
 	if count == 0 {
 		errs = errs.Also(apis.ErrMissingField(apis.CurrentField))
 	}
-	return errs.Also(portValidation(count))
+	return errs.Also(portValidation(count)).ViaField("ports")
 }
 
 // ValidateSidecarContainer validate fields for non serving containers
@@ -309,6 +309,7 @@ func ValidateSidecarContainer(container corev1.Container, volumes sets.String) *
 // ValidateContainer validate fields for serving containers
 func ValidateContainer(container corev1.Container, volumes sets.String) *apis.FieldError {
 	var errs *apis.FieldError
+	errs = errs.Also(portValidation(len(container.Ports))).ViaField("ports")
 	// Liveness Probes
 	errs = errs.Also(validateProbe(container.LivenessProbe).ViaField("livenessProbe"))
 	// Readiness Probes

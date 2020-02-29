@@ -259,6 +259,9 @@ func TestRevisionDefaulting(t *testing.T) {
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name: "busybox",
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 80,
+						}},
 					}, {
 						Name: "helloworld",
 					}},
@@ -274,10 +277,36 @@ func TestRevisionDefaulting(t *testing.T) {
 						Name:           "busybox",
 						Resources:      defaultResources,
 						ReadinessProbe: defaultProbe,
+						Ports: []corev1.ContainerPort{{
+							ContainerPort: 80,
+						}},
 					}, {
-						Name:           "helloworld",
-						Resources:      defaultResources,
-						ReadinessProbe: defaultProbe,
+						Name:      "helloworld",
+						Resources: defaultResources,
+					}},
+				},
+			},
+		},
+	}, {
+		name: "multiple containers without container name",
+		in: &Revision{
+			Spec: v1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{}, {}},
+				},
+			},
+		},
+		want: &Revision{
+			Spec: v1.RevisionSpec{
+				TimeoutSeconds:       ptr.Int64(config.DefaultRevisionTimeoutSeconds),
+				ContainerConcurrency: ptr.Int64(config.DefaultContainerConcurrency),
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:      "user-container-0",
+						Resources: defaultResources,
+					}, {
+						Name:      "user-container-1",
+						Resources: defaultResources,
 					}},
 				},
 			},

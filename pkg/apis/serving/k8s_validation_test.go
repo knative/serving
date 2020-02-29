@@ -150,7 +150,42 @@ func TestPodSpecValidation(t *testing.T) {
 		},
 		want: apis.ErrMissingField("containers"),
 	}, {
-		name: "too many containers",
+		name: "more than one container",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 80,
+				}},
+			}, {
+				Image: "helloworld",
+			}},
+		},
+		want: nil,
+	}, {
+		name: "probes are not allowed for non serving containers",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 80,
+				}},
+			}, {
+				Image: "helloworld",
+				LivenessProbe: &corev1.Probe{
+					TimeoutSeconds: 1,
+				},
+				ReadinessProbe: &corev1.Probe{
+					TimeoutSeconds: 1,
+				},
+			}},
+		},
+		want: &apis.FieldError{
+			Message: "must not set the field(s)",
+			Paths:   []string{"containers[1].livenessProbe.timeoutSeconds", "containers[1].readinessProbe.timeoutSeconds"},
+		},
+	}, {
+		name: "too many containers with no port",
 		ps: corev1.PodSpec{
 			Containers: []corev1.Container{{
 				Image: "busybox",
@@ -158,7 +193,49 @@ func TestPodSpecValidation(t *testing.T) {
 				Image: "helloworld",
 			}},
 		},
-		want: apis.ErrMultipleOneOf("containers"),
+		want: apis.ErrMissingField("containers.ports"),
+	}, {
+		name: "too many containers with too many port",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 80,
+				}},
+			}, {
+				Image: "helloworld",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 80,
+				}},
+			}},
+		},
+		want: &apis.FieldError{
+			Message: "More than one container port is set",
+			Paths:   []string{"containers.ports"},
+			Details: "Only a single port is allowed",
+		},
+	}, {
+		name: "too many containers with too many port for a single container",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 80,
+				}, {
+					ContainerPort: 90,
+				}},
+			}, {
+				Image: "helloworld",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 80,
+				}},
+			}},
+		},
+		want: &apis.FieldError{
+			Message: "More than one container port is set",
+			Paths:   []string{"containers.ports, containers[0].ports"},
+			Details: "Only a single port is allowed",
+		},
 	}, {
 		name: "extra field",
 		ps: corev1.PodSpec{

@@ -373,7 +373,7 @@ func TestRevisionSpecValidation(t *testing.T) {
 		},
 		want: apis.ErrMissingField("containers"),
 	}, {
-		name: "too many containers",
+		name: "too many containers without container port",
 		rs: &RevisionSpec{
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
@@ -383,7 +383,44 @@ func TestRevisionSpecValidation(t *testing.T) {
 				}},
 			},
 		},
-		want: apis.ErrMultipleOneOf("containers"),
+		want: apis.ErrMissingField("containers.ports"),
+	}, {
+		name: "too many containers with one container port",
+		rs: &RevisionSpec{
+			PodSpec: corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Image: "busybox",
+					Ports: []corev1.ContainerPort{{
+						ContainerPort: 80,
+					}},
+				}, {
+					Image: "helloworld",
+				}},
+			},
+		},
+		want: nil,
+	}, {
+		name: "too many containers with multiple container port",
+		rs: &RevisionSpec{
+			PodSpec: corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Image: "busybox",
+					Ports: []corev1.ContainerPort{{
+						ContainerPort: 80,
+					}},
+				}, {
+					Image: "helloworld",
+					Ports: []corev1.ContainerPort{{
+						ContainerPort: 80,
+					}},
+				}},
+			},
+		},
+		want: &apis.FieldError{
+			Message: "More than one container port is set",
+			Paths:   []string{"containers.ports"},
+			Details: "Only a single port is allowed",
+		},
 	}, {
 		name: "exceed max timeout",
 		rs: &RevisionSpec{

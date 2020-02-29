@@ -773,6 +773,9 @@ func TestGetContainer(t *testing.T) {
 				Containers: []corev1.Container{{
 					Name:  "firstContainer",
 					Image: "firstImage",
+					Ports: []corev1.ContainerPort{{
+						ContainerPort: 8888,
+					}},
 				}, {
 					Name:  "secondContainer",
 					Image: "secondImage",
@@ -782,6 +785,9 @@ func TestGetContainer(t *testing.T) {
 		want: &corev1.Container{
 			Name:  "firstContainer",
 			Image: "firstImage",
+			Ports: []corev1.ContainerPort{{
+				ContainerPort: 8888,
+			}},
 		},
 	}}
 	for _, tc := range cases {

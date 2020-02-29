@@ -74,6 +74,13 @@ func WithLogURL(r *v1.Revision) {
 	r.Status.LogURL = "http://logger.io/test-uid"
 }
 
+// WithImageDigests sets the .Status.LogURL to the expected value.
+func WithImageDigests(r *v1.Revision) {
+	r.Status.ImageDigests = map[string]string{
+		"user-container": "",
+	}
+}
+
 // WithCreationTimestamp sets the Revision's timestamp to the provided time.
 // TODO(mattmoor): Ideally this could be a more generic Option and use meta.Accessor,
 // but unfortunately Go's type system cannot support that.

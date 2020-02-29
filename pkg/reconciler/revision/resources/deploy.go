@@ -141,9 +141,7 @@ func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig 
 		return nil, fmt.Errorf("failed to create queue-proxy container: %w", err)
 	}
 
-	containers := []corev1.Container{
-		*queueContainer,
-	}
+	containers := []corev1.Container{}
 	for i := range rev.Spec.PodSpec.Containers {
 		if len(rev.Spec.PodSpec.Containers[i].Ports) != 0 || len(rev.Spec.PodSpec.Containers) == 1 {
 			servingContainer := makeServingContainer(rev.Spec.GetContainer().DeepCopy(), rev)
@@ -151,16 +149,17 @@ func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig 
 			if rev.Status.ImageDigest != "" {
 				servingContainer.Image = rev.Status.ImageDigest
 			}
-			containers = appendContainer(containers, servingContainer)
+			containers = append(containers, servingContainer)
 		} else {
 			multiContainers := makeContainer(rev.Spec.PodSpec.Containers[i].DeepCopy(), rev)
 			// Prefer imageDigest from revision if available
 			if v, ok := rev.Status.ImageDigests[multiContainers.Name]; ok {
 				multiContainers.Image = v
 			}
-			containers = appendContainer(containers, multiContainers)
+			containers = append(containers, multiContainers)
 		}
 	}
+	containers = append(containers, *queueContainer)
 	podSpec := &corev1.PodSpec{
 		Containers:                    containers,
 		Volumes:                       append([]corev1.Volume{varLogVolume}, rev.Spec.Volumes...),
@@ -173,16 +172,10 @@ func makePodSpec(rev *v1.Revision, loggingConfig *logging.Config, tracingConfig 
 	if observabilityConfig.EnableVarLogCollection {
 		podSpec.Volumes = append(podSpec.Volumes, internalVolume)
 	}
-	return podSpec, nil
-}
-
-func appendContainer(old []corev1.Container, new corev1.Container) []corev1.Container {
-	for key := range old {
-		if old[key].Name == new.Name {
-			return old
-		}
+	if autoscalerConfig.EnableGracefulScaledown {
+		podSpec.Volumes = append(podSpec.Volumes, labelVolume)
 	}
-	return append(old, new)
+	return podSpec, nil
 }
 
 func makeContainer(container *corev1.Container, rev *v1.Revision) corev1.Container {

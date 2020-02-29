@@ -54,7 +54,6 @@ func (rs *RevisionSpec) SetDefaults(ctx context.Context) {
 		if rs.PodSpec.Containers[idx].Name == "" {
 			if len(rs.PodSpec.Containers) > 1 {
 				rs.PodSpec.Containers[idx].Name = cfg.Defaults.UserContainerName(ctx) + "-" + strconv.Itoa(idx)
-
 			} else {
 				rs.PodSpec.Containers[idx].Name = cfg.Defaults.UserContainerName(ctx)
 			}

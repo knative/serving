@@ -231,7 +231,7 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1.Revision
 		fakepainformer.Get(ctx).Informer().GetIndexer().Add(pa)
 	}
 
-	imageName := resourcenames.ImageCache(rev)
+	imageName := kmeta.ChildName(resourcenames.ImageCache(rev), rev.Spec.GetContainer().Name)
 	image, err := fakecachingclient.Get(ctx).CachingV1alpha1().Images(rev.Namespace).Get(imageName, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Caching.Images.Get(%v) = %v", imageName, err)

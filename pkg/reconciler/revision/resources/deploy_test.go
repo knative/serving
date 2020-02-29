@@ -43,10 +43,11 @@ import (
 )
 
 var (
-	containerName                = "my-container-name"
+	servingContainerName         = "user-container-0"
+	sidecarContainerName         = "user-container-1"
 	sidecarIstioInjectAnnotation = "sidecar.istio.io/inject"
-	defaultUserContainer         = &corev1.Container{
-		Name:                     containerName,
+	defaultServingContainer      = &corev1.Container{
+		Name:                     servingContainerName,
 		Image:                    "busybox",
 		Ports:                    buildContainerPorts(v1.DefaultUserPort),
 		VolumeMounts:             []corev1.VolumeMount{varLogVolumeMount},
@@ -55,9 +56,29 @@ var (
 		Stdin:                    false,
 		TTY:                      false,
 		Env: []corev1.EnvVar{{
+			Name:  "K_REVISION",
+			Value: "bar",
+		}, {
+			Name:  "K_CONFIGURATION",
+			Value: "cfg",
+		}, {
+			Name:  "K_SERVICE",
+			Value: "svc",
+		}, {
 			Name:  "PORT",
 			Value: "8080",
-		}, {
+		}},
+	}
+
+	defaultSidecarContainer = &corev1.Container{
+		Name:                     sidecarContainerName,
+		Image:                    "ubuntu",
+		VolumeMounts:             []corev1.VolumeMount{varLogVolumeMount},
+		Lifecycle:                userLifecycle,
+		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+		Stdin:                    false,
+		TTY:                      false,
+		Env: []corev1.EnvVar{{
 			Name:  "K_REVISION",
 			Value: "bar",
 		}, {
@@ -152,7 +173,7 @@ var (
 			Value: metrics.Domain(),
 		}, {
 			Name:  "USER_CONTAINER_NAME",
-			Value: containerName,
+			Value: servingContainerName,
 		}, {
 			Name:  "ENABLE_VAR_LOG_COLLECTION",
 			Value: "false",
@@ -238,8 +259,35 @@ var (
 			TimeoutSeconds: ptr.Int64(45),
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
-					Name:  containerName,
+					Name:  servingContainerName,
 					Image: "busybox",
+				}},
+			},
+		},
+	}
+	defaultRevisionWithMultipleContainers = &v1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "foo",
+			Name:      "bar",
+			UID:       "1234",
+			Labels: map[string]string{
+				serving.ConfigurationLabelKey: "cfg",
+				serving.ServiceLabelKey:       "svc",
+				serving.RouteLabelKey:         "im-a-route",
+			},
+		},
+		Spec: v1.RevisionSpec{
+			TimeoutSeconds: ptr.Int64(45),
+			PodSpec: corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Name:  servingContainerName,
+					Image: "busybox",
+					Ports: []corev1.ContainerPort{{
+						ContainerPort: 8888,
+					}},
+				}, {
+					Name:  sidecarContainerName,
+					Image: "ubuntu",
 				}},
 			},
 		},
@@ -262,8 +310,12 @@ func container(container *corev1.Container, opts ...containerOption) corev1.Cont
 	return *container
 }
 
-func userContainer(opts ...containerOption) corev1.Container {
-	return container(defaultUserContainer.DeepCopy(), opts...)
+func servingContainer(opts ...containerOption) corev1.Container {
+	return container(defaultServingContainer.DeepCopy(), opts...)
+}
+
+func sidecarContainer(opts ...containerOption) corev1.Container {
+	return container(defaultSidecarContainer.DeepCopy(), opts...)
 }
 
 func queueContainer(opts ...containerOption) corev1.Container {
@@ -283,6 +335,12 @@ func withEnvVar(name, value string) containerOption {
 			Name:  name,
 			Value: value,
 		})
+	}
+}
+
+func withImage(image string) containerOption {
+	return func(container *corev1.Container) {
+		container.Image = image
 	}
 }
 
@@ -375,6 +433,14 @@ func revision(opts ...revisionOption) *v1.Revision {
 	return revision
 }
 
+func revisionWithMultiContainer(opts ...revisionOption) *v1.Revision {
+	revision := defaultRevisionWithMultipleContainers.DeepCopy()
+	for _, option := range opts {
+		option(revision)
+	}
+	return revision
+}
+
 func withContainerConcurrency(cc int64) revisionOption {
 	return func(revision *v1.Revision) {
 		revision.Spec.ContainerConcurrency = &cc
@@ -427,7 +493,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
-				userContainer(
+				servingContainer(
 					func(container *corev1.Container) {
 						container.Ports[0].ContainerPort = 8888
 					},
@@ -471,7 +537,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
-				userContainer(
+				servingContainer(
 					func(container *corev1.Container) {
 						container.Ports[0].ContainerPort = 8888
 					},
@@ -511,7 +577,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
-				userContainer(),
+				servingContainer(),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 				),
@@ -536,9 +602,9 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
-				userContainer(func(container *corev1.Container) {
-					container.Image = "busybox@sha256:deadbeef"
-				}),
+				servingContainer(
+					withImage("busybox@sha256:deadbeef"),
+				),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 				),
@@ -561,7 +627,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
-				userContainer(),
+				servingContainer(),
 				queueContainer(
 					withEnvVar("SERVING_CONFIGURATION", "parent-config"),
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
@@ -581,7 +647,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
-				userContainer(),
+				servingContainer(),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "0"),
 					withEnvVar("SERVING_READINESS_PROBE", `{"httpGet":{"path":"/","port":8080,"host":"127.0.0.1","scheme":"HTTP","httpHeaders":[{"name":"K-Kubelet-Probe","value":"queue"}]}}`),
@@ -606,7 +672,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
-				userContainer(),
+				servingContainer(),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "0"),
 					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":8080,"host":"127.0.0.1"}}`),
@@ -626,7 +692,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
-				userContainer(
+				servingContainer(
 					withExecReadinessProbe([]string{"echo", "hello"})),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "0"),
@@ -652,7 +718,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
-				userContainer(
+				servingContainer(
 					withLivenessProbe(corev1.Handler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/",
@@ -685,7 +751,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
-				userContainer(
+				servingContainer(
 					withLivenessProbe(corev1.Handler{
 						TCPSocket: &corev1.TCPSocketAction{
 							Port: intstr.FromInt(v1.DefaultUserPort),
@@ -713,7 +779,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
-				userContainer(),
+				servingContainer(),
 				queueContainer(
 					withEnvVar("CONTAINER_CONCURRENCY", "1"),
 					withEnvVar("ENABLE_VAR_LOG_COLLECTION", "true"),
@@ -740,7 +806,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
-				userContainer(),
+				servingContainer(),
 				queueContainer(
 					withEnvVar("DOWNWARD_API_LABELS_PATH", fmt.Sprintf("%s/%s", podInfoVolumePath, metadataLabelsPath)),
 					withPodLabelsVolumeMount(),
@@ -783,7 +849,7 @@ func TestMakePodSpec(t *testing.T) {
 		cc: &deployment.Config{},
 		want: podSpec(
 			[]corev1.Container{
-				userContainer(
+				servingContainer(
 					func(container *corev1.Container) {
 						container.Command = []string{"/bin/bash"}
 						container.Args = []string{"-c", "echo Hello world"}
@@ -814,6 +880,50 @@ func TestMakePodSpec(t *testing.T) {
 					withEnvVar("SERVING_SERVICE", ""),
 				),
 			}),
+	}, {
+		name: "user-defined user port, queue proxy have PORT env with multiple container",
+		rev: revisionWithMultiContainer(
+			withContainerConcurrency(1),
+			func(revision *v1.Revision) {
+				revision.Spec.GetContainer().Ports = []corev1.ContainerPort{{
+					ContainerPort: 9999,
+				}}
+				revision.Status = v1.RevisionStatus{
+					ImageDigest: "busybox@sha256:abcdef",
+					ImageDigests: map[string]string{
+						servingContainerName: "busybox@sha256:abcdef",
+						sidecarContainerName: "ubuntu@sha256:ghijkl",
+					},
+				}
+				container(revision.Spec.GetContainer(),
+					withTCPReadinessProbe(),
+				)
+			},
+		),
+		lc: &logging.Config{},
+		tc: &tracingconfig.Config{},
+		oc: &metrics.ObservabilityConfig{},
+		ac: &autoscalerconfig.Config{},
+		cc: &deployment.Config{},
+		want: podSpec(
+			[]corev1.Container{
+				servingContainer(
+					func(container *corev1.Container) {
+						container.Ports[0].ContainerPort = 9999
+					},
+					withEnvVar("PORT", "9999"),
+					withImage("busybox@sha256:abcdef"),
+				),
+
+				sidecarContainer(
+					withImage("ubuntu@sha256:ghijkl"),
+				),
+				queueContainer(
+					withEnvVar("CONTAINER_CONCURRENCY", "1"),
+					withEnvVar("USER_PORT", "9999"),
+					withEnvVar("SERVING_READINESS_PROBE", `{"tcpSocket":{"port":9999,"host":"127.0.0.1"}}`),
+				),
+			}),
 	}}
 
 	for _, test := range tests {
@@ -823,21 +933,7 @@ func TestMakePodSpec(t *testing.T) {
 			})
 			got, err := makePodSpec(test.rev, test.lc, test.tc, test.oc, test.ac, test.cc)
 			if err != nil {
-				t.Fatal("makePodSpec returned errror")
-			}
-			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
-				t.Errorf("makePodSpec (-want, +got) = %v", diff)
-			}
-		})
-
-		t.Run(test.name+"(podspec)", func(t *testing.T) {
-			quantityComparer := cmp.Comparer(func(x, y resource.Quantity) bool {
-				return x.Cmp(y) == 0
-			})
-
-			got, err := makePodSpec(test.rev, test.lc, test.tc, test.oc, test.ac, test.cc)
-			if err != nil {
-				t.Fatal("makePodSpec returned errror")
+				t.Fatalf("makePodSpec returned error: %v", err)
 			}
 			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
 				t.Errorf("makePodSpec (-want, +got) = %v", diff)
@@ -847,16 +943,14 @@ func TestMakePodSpec(t *testing.T) {
 }
 
 func TestMissingProbeError(t *testing.T) {
-	_, err := MakeDeployment(defaultRevision,
+	if _, err := MakeDeployment(defaultRevision,
 		&logging.Config{},
 		&tracingconfig.Config{},
 		&network.Config{},
 		&metrics.ObservabilityConfig{},
 		&autoscalerconfig.Config{},
 		&deployment.Config{},
-	)
-
-	if err == nil {
+	); err == nil {
 		t.Error("expected error from MakeDeployment")
 	}
 }
@@ -950,7 +1044,7 @@ func TestMakeDeployment(t *testing.T) {
 			// Tested above so that we can rely on it here for brevity.
 			podSpec, err := makePodSpec(test.rev, test.lc, test.tc, test.oc, test.ac, test.cc)
 			if err != nil {
-				t.Fatal("makePodSpec returned errror")
+				t.Fatalf("makePodSpec returned error: %v", err)
 			}
 			test.want.Spec.Template.Spec = *podSpec
 			got, err := MakeDeployment(test.rev, test.lc, test.tc, test.nc, test.oc, test.ac, test.cc)

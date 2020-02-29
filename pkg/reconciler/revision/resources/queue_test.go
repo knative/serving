@@ -125,7 +125,7 @@ func TestMakeQueueContainer(t *testing.T) {
 				TimeoutSeconds:       ptr.Int64(45),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:           containerName,
+						Name:           servingContainerName,
 						ReadinessProbe: testProbe,
 						Ports: []corev1.ContainerPort{{
 							ContainerPort: 1955,
@@ -406,7 +406,7 @@ func TestMakeQueueContainer(t *testing.T) {
 			if len(test.rev.Spec.PodSpec.Containers) == 0 {
 				test.rev.Spec.PodSpec = corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:           containerName,
+						Name:           servingContainerName,
 						ReadinessProbe: testProbe,
 					}},
 				}
@@ -459,7 +459,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				TimeoutSeconds:       ptr.Int64(45),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:           containerName,
+						Name:           servingContainerName,
 						ReadinessProbe: testProbe,
 						Resources: corev1.ResourceRequirements{
 							Limits: corev1.ResourceList{
@@ -517,7 +517,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				TimeoutSeconds:       ptr.Int64(45),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:           containerName,
+						Name:           servingContainerName,
 						ReadinessProbe: testProbe,
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
@@ -572,7 +572,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				TimeoutSeconds:       ptr.Int64(45),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:           containerName,
+						Name:           servingContainerName,
 						ReadinessProbe: testProbe,
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
@@ -626,7 +626,7 @@ func TestMakeQueueContainerWithPercentageAnnotation(t *testing.T) {
 				TimeoutSeconds:       ptr.Int64(45),
 				PodSpec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:           containerName,
+						Name:           servingContainerName,
 						ReadinessProbe: testProbe,
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
@@ -707,7 +707,7 @@ func TestProbeGenerationHTTPDefaults(t *testing.T) {
 			TimeoutSeconds:       ptr.Int64(45),
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
-					Name: containerName,
+					Name: servingContainerName,
 					ReadinessProbe: &corev1.Probe{
 						Handler: corev1.Handler{
 							HTTPGet: &corev1.HTTPGetAction{
@@ -795,7 +795,7 @@ func TestProbeGenerationHTTP(t *testing.T) {
 			TimeoutSeconds:       ptr.Int64(45),
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
-					Name: containerName,
+					Name: servingContainerName,
 					Ports: []corev1.ContainerPort{{
 						ContainerPort: int32(userPort),
 					}},
@@ -897,7 +897,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 			TimeoutSeconds:       ptr.Int64(45),
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
-					Name: containerName,
+					Name: servingContainerName,
 					Ports: []corev1.ContainerPort{{
 						ContainerPort: int32(userPort),
 					}},
@@ -936,7 +936,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 			TimeoutSeconds:       ptr.Int64(45),
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
-					Name: containerName,
+					Name: servingContainerName,
 					ReadinessProbe: &corev1.Probe{
 						Handler: corev1.Handler{
 							TCPSocket: &corev1.TCPSocketAction{},
@@ -994,7 +994,7 @@ func TestTCPProbeGeneration(t *testing.T) {
 			TimeoutSeconds:       ptr.Int64(45),
 			PodSpec: corev1.PodSpec{
 				Containers: []corev1.Container{{
-					Name: containerName,
+					Name: servingContainerName,
 					Ports: []corev1.ContainerPort{{
 						ContainerPort: int32(userPort),
 					}},
@@ -1090,7 +1090,7 @@ var defaultEnv = map[string]string{
 	"SYSTEM_NAMESPACE":                      system.Namespace(),
 	"METRICS_DOMAIN":                        metrics.Domain(),
 	"QUEUE_SERVING_PORT":                    "8012",
-	"USER_CONTAINER_NAME":                   containerName,
+	"USER_CONTAINER_NAME":                   servingContainerName,
 	"ENABLE_VAR_LOG_COLLECTION":             "false",
 	"VAR_LOG_VOLUME_NAME":                   varLogVolumeName,
 	"INTERNAL_VOLUME_PATH":                  internalVolumePath,

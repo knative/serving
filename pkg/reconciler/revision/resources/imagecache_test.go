@@ -55,13 +55,15 @@ func TestMakeImageCache(t *testing.T) {
 				},
 			},
 			Status: v1.RevisionStatus{
-				ImageDigest: "busybox@sha256:deadbeef",
+				ImageDigests: map[string]string{
+					"bar": "busybox@sha256:deadbeef",
+				},
 			},
 		},
 		want: &caching.Image{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
-				Name:      "bar-cache",
+				Name:      "bar-cachebar",
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "bar",
 					serving.RevisionUID:      "1234",
@@ -104,7 +106,7 @@ func TestMakeImageCache(t *testing.T) {
 		want: &caching.Image{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "foo",
-				Name:      "bar-cache",
+				Name:      "bar-cachebar",
 				Labels: map[string]string{
 					serving.RevisionLabelKey: "bar",
 					serving.RevisionUID:      "1234",
@@ -129,7 +131,7 @@ func TestMakeImageCache(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := MakeImageCache(test.rev)
+			got := MakeImageCache(test.rev, test.rev.Name)
 			if diff := cmp.Diff(test.want, got); diff != "" {
 				t.Errorf("MakeImageCache (-want, +got) = %v", diff)
 			}
