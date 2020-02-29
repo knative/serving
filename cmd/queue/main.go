@@ -294,13 +294,13 @@ func probeQueueHealthPath(port, timeoutSeconds int, env config) error {
 				fmt.Printf("[%p] dns Info: %+v\n", req, dnsInfo)
 			},
 			PutIdleConn: func(err error) {
-				fmt.Printf("[%p] put idle connection Info: %v\n", req, err)
+				fmt.Printf("[%p] put idle connection info: %v\n", req, err)
 			},
 			GotFirstResponseByte: func() {
-				fmt.Printf("[%p] got first response byte", req)
+				fmt.Printf("[%p] got first response byte\n", req)
 			},
 			Got100Continue: func() {
-				fmt.Printf("[%p] got 100 continue", req)
+				fmt.Printf("[%p] got 100 continue\n", req)
 			},
 			Got1xxResponse: func(code int, header textproto.MIMEHeader) error {
 				fmt.Printf("[%p] got 1xx %v %+v\n", req, code, header)
@@ -316,19 +316,19 @@ func probeQueueHealthPath(port, timeoutSeconds int, env config) error {
 				fmt.Printf("[%p] connect done %v %v %v\n", req, network, addr, err)
 			},
 			TLSHandshakeStart: func() {
-				fmt.Printf("[%p] tls handshake start", req)
+				fmt.Printf("[%p] tls handshake start\n", req)
 			},
 			TLSHandshakeDone: func(state tls.ConnectionState, err error) {
-				fmt.Printf("[%p] tls handshake done %+v %+v", req, state, err)
+				fmt.Printf("[%p] tls handshake done %+v %+v\n", req, state, err)
 			},
 			WroteHeaderField: func(key string, value []string) {
-				fmt.Printf("[%p] wrote header field %+v %+v", req, key, value)
+				fmt.Printf("[%p] wrote header field %+v %+v\n", req, key, value)
 			},
 			WroteHeaders: func() {
-				fmt.Printf("[%p] wrote headers", req)
+				fmt.Printf("[%p] wrote headers\n", req)
 			},
 			Wait100Continue: func() {
-				fmt.Printf("[%p] wait 100 continue", req)
+				fmt.Printf("[%p] wait 100 continue\n", req)
 			},
 			WroteRequest: func(info httptrace.WroteRequestInfo) {
 				fmt.Printf("[%p] wrote request %+v\n", req, info)
@@ -346,6 +346,14 @@ func probeQueueHealthPath(port, timeoutSeconds int, env config) error {
 			return false, nil
 		}
 		defer res.Body.Close()
+
+		dump, err := httputil.DumpResponse(res, true)
+		if err != nil {
+			return false, nil
+		}
+
+		fmt.Printf("[%p] dumping response %q\n", req, dump)
+
 		success := health.IsHTTPProbeReady(res)
 		// The check for preferForScaledown() fails readiness faster
 		// in the presence of the label
