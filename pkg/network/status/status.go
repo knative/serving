@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/workqueue"
 
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/network/prober"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/network"
@@ -357,7 +358,7 @@ func (m *Prober) processWorkItem() bool {
 		}}
 
 	ok, err := prober.Do(
-		item.context,
+		logging.WithLogger(item.context, m.logger),
 		transport,
 		item.url.String(),
 		prober.WithHeader(network.UserAgentKey, network.IngressReadinessUserAgent),

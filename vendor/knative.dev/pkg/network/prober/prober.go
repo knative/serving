@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
 	"sync"
 	"time"
 
@@ -111,6 +112,14 @@ func Do(ctx context.Context, transport http.RoundTripper, target string, ops ...
 		return false, fmt.Errorf("error roundtripping %s: %v", target, err)
 	}
 	defer resp.Body.Close()
+
+	logger := logging.FromContext(ctx)
+	dump, err := httputil.DumpResponse(resp, true)
+	if err != nil {
+		return false, fmt.Errorf("error dumping body: %v", err)
+	}
+	logger.Info("dumped response ", dump)
+
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return false, fmt.Errorf("error reading body: %v", err)
