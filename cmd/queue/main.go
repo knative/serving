@@ -438,7 +438,9 @@ func main() {
 
 	// Setup probe to run for checking user-application healthiness.
 	probe := buildProbe(env.ServingReadinessProbe, logger.Named("probe"))
-	healthState := &health.State{}
+	healthState := &health.State{
+		Logger: logger.Named("healthstate"),
+	}
 
 	server := buildServer(env, healthState, probe, reqChan, logger)
 	adminServer := buildAdminServer(healthState)

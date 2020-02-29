@@ -19,6 +19,7 @@ package health
 import (
 	"io"
 	"net/http"
+	"runtime/debug"
 	"sync"
 
 	"go.uber.org/zap"
@@ -38,6 +39,7 @@ type State struct {
 
 	drainCh        chan struct{}
 	drainCompleted bool
+	Logger         *zap.SugaredLogger
 }
 
 // IsAlive returns whether or not the health server is in a known
@@ -74,6 +76,7 @@ func (h *State) shutdown() {
 
 	h.alive = false
 	h.shuttingDown = true
+	h.Logger.Info("health state being shutdown ", string(debug.Stack()))
 }
 
 // drainFinish updates that we finished draining.
