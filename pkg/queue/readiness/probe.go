@@ -17,12 +17,10 @@ limitations under the License.
 package readiness
 
 import (
-	"fmt"
-	"io"
-	"os"
 	"sync"
 	"time"
 
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"knative.dev/serving/pkg/queue/health"
@@ -41,7 +39,7 @@ type Probe struct {
 	*corev1.Probe
 	count       int32
 	pollTimeout time.Duration // To make tests not run for 10 seconds.
-	out         io.Writer     // To make tests not log errors in good cases.
+	logger      *zap.SugaredLogger
 
 	// Barrier sync to ensure only one probe is happening at the same time.
 	// When a probe is active `gv` will be non-nil.
@@ -77,11 +75,11 @@ func (gv *gateValue) read() bool {
 }
 
 // NewProbe returns a pointer a new Probe
-func NewProbe(v1p *corev1.Probe) *Probe {
+func NewProbe(v1p *corev1.Probe, logger *zap.SugaredLogger) *Probe {
 	return &Probe{
 		Probe:       v1p,
 		pollTimeout: PollTimeout,
-		out:         os.Stderr,
+		logger:      logger,
 	}
 }
 
@@ -126,17 +124,17 @@ func (p *Probe) probeContainerImpl() bool {
 		// Should never be reachable. Exec probes to be translated to
 		// TCP probes when container is built.
 		// Using Fprintf for a concise error message in the event log.
-		fmt.Fprintln(p.out, "exec probe not supported")
+		p.logger.Info("exec probe not supported")
 		return false
 	default:
 		// Using Fprintf for a concise error message in the event log.
-		fmt.Fprintln(p.out, "no probe found")
+		p.logger.Info("no probe found")
 		return false
 	}
 
 	if err != nil {
 		// Using Fprintf for a concise error message in the event log.
-		fmt.Fprintln(p.out, err.Error())
+		p.logger.Info("error probing", err)
 		return false
 	}
 	return true
@@ -146,12 +144,13 @@ func (p *Probe) doProbe(probe func(time.Duration) error) error {
 	if p.IsAggressive() {
 		return wait.PollImmediate(retryInterval, p.pollTimeout, func() (bool, error) {
 			if err := probe(aggressiveProbeTimeout); err != nil {
-				fmt.Fprintln(p.out, "aggressive probe error: ", err)
+				p.logger.Info("aggressive probe error: ", err)
 				// Reset count of consecutive successes to zero.
 				p.count = 0
 				return false, nil
 			}
 
+			p.logger.Info("probe succeeded")
 			p.count++
 
 			// Return success if count of consecutive successes is equal to or greater

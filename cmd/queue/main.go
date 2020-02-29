@@ -31,6 +31,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -437,7 +438,7 @@ func main() {
 	queue.NewStats(time.Now(), reqChan, reportTicker.C, promStatReporter.Report)
 
 	// Setup probe to run for checking user-application healthiness.
-	probe := buildProbe(env.ServingReadinessProbe)
+	probe := buildProbe(env.ServingReadinessProbe, logger.Named("probe"))
 	healthState := &health.State{}
 
 	server := buildServer(env, healthState, probe, reqChan, logger)
@@ -483,6 +484,7 @@ func main() {
 		os.Exit(1)
 	case <-signals.SetupSignalHandler():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
+		logger.Info(debug.Stack())
 		healthState.Shutdown(func() {
 			// Give Istio time to sync our "not ready" state.
 			time.Sleep(quitSleepDuration)
@@ -520,12 +522,12 @@ func validateEnv(env config) error {
 	return nil
 }
 
-func buildProbe(probeJSON string) *readiness.Probe {
+func buildProbe(probeJSON string, logger *zap.SugaredLogger) *readiness.Probe {
 	coreProbe, err := readiness.DecodeProbe(probeJSON)
 	if err != nil {
 		logger.Fatalw("Queue container failed to parse readiness probe", zap.Error(err))
 	}
-	return readiness.NewProbe(coreProbe)
+	return readiness.NewProbe(coreProbe, logger)
 }
 
 func buildServer(env config, healthState *health.State, rp *readiness.Probe, reqChan chan queue.ReqEvent,
