@@ -97,13 +97,18 @@ func (h *State) drainFinished() {
 // the function return success without probing user-container again (until
 // shutdown).
 func (h *State) HandleHealthProbe(logger *zap.SugaredLogger, prober func() bool, isAggressive bool, w http.ResponseWriter) {
+	flusher := w.(http.Flusher)
 	sendAlive := func() {
 		io.WriteString(w, aliveBody)
+		flusher.Flush()
+		logger.Info("flushed sending alive")
 	}
 
 	sendNotAlive := func() {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		io.WriteString(w, notAliveBody)
+		flusher.Flush()
+		logger.Info("flushed sending not alive")
 	}
 
 	logger.Info("[start] handle probe request")
