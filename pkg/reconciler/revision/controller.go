@@ -66,7 +66,7 @@ func newControllerWithOptions(
 		transport = rt
 	}
 
-	logger := logging.FromContext(ctx)
+	logger := logging.FromContext(ctx).Named("revision")
 	deploymentInformer := deploymentinformer.Get(ctx)
 	serviceInformer := serviceinformer.Get(ctx)
 	configMapInformer := configmapinformer.Get(ctx)
@@ -112,8 +112,15 @@ func newControllerWithOptions(
 	revisionInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	deploymentInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: controller.FilterGroupKind(v1.Kind("Revision")),
-		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+		FilterFunc: func(obj interface{}) bool {
+			result := controller.FilterGroupKind(v1.Kind("Revision"))(obj)
+
+			logger.Infof("deployment changed %+v", obj)
+			logger.Infof("deployment is revision being reconciled %v", result)
+
+			return result
+		},
+		Handler: controller.HandleAll(impl.EnqueueControllerOf),
 	})
 
 	paInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
