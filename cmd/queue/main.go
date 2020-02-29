@@ -31,7 +31,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -240,7 +239,7 @@ func knativeProbeHandler(healthState *health.State, prober func() bool, isAggres
 			return
 		}
 
-		healthState.HandleHealthProbe(func() bool {
+		healthState.HandleHealthProbe(logger.Named("healthstate"), func() bool {
 			if !prober() {
 				probeSpan.Annotate([]trace.Attribute{
 					trace.StringAttribute("queueproxy.probe.error", "container not ready")}, "error")
@@ -484,7 +483,6 @@ func main() {
 		os.Exit(1)
 	case <-signals.SetupSignalHandler():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")
-		logger.Info(debug.Stack())
 		healthState.Shutdown(func() {
 			// Give Istio time to sync our "not ready" state.
 			time.Sleep(quitSleepDuration)

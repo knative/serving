@@ -20,6 +20,8 @@ import (
 	"io"
 	"net/http"
 	"sync"
+
+	"go.uber.org/zap"
 )
 
 const (
@@ -91,7 +93,7 @@ func (h *State) drainFinished() {
 // health server. If isAggressive is false and prober has succeeded previously,
 // the function return success without probing user-container again (until
 // shutdown).
-func (h *State) HandleHealthProbe(prober func() bool, isAggressive bool, w http.ResponseWriter) {
+func (h *State) HandleHealthProbe(logger *zap.SugaredLogger, prober func() bool, isAggressive bool, w http.ResponseWriter) {
 	sendAlive := func() {
 		io.WriteString(w, aliveBody)
 	}
@@ -105,8 +107,10 @@ func (h *State) HandleHealthProbe(prober func() bool, isAggressive bool, w http.
 	case !isAggressive && h.IsAlive():
 		sendAlive()
 	case h.IsShuttingDown():
+		logger.Info("shutting down")
 		sendNotAlive()
 	case prober != nil && !prober():
+		logger.Info("probe failed")
 		sendNotAlive()
 	default:
 		h.setAlive()

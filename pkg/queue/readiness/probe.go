@@ -103,13 +103,16 @@ func (p *Probe) ProbeContainer() bool {
 
 	if writer {
 		res := p.probeContainerImpl()
+		p.logger.Info("writing probe result ", res)
 		gv.write(res)
 		p.mu.Lock()
 		defer p.mu.Unlock()
 		p.gv = nil
 		return res
 	}
-	return gv.read()
+	res := gv.read()
+	p.logger.Info("returning probe result ", res)
+	return res
 }
 
 func (p *Probe) probeContainerImpl() bool {
@@ -137,6 +140,7 @@ func (p *Probe) probeContainerImpl() bool {
 		p.logger.Info("error probing", err)
 		return false
 	}
+	p.logger.Info("no error probing")
 	return true
 }
 
@@ -150,11 +154,11 @@ func (p *Probe) doProbe(probe func(time.Duration) error) error {
 				return false, nil
 			}
 
-			p.logger.Info("probe succeeded")
 			p.count++
 
 			// Return success if count of consecutive successes is equal to or greater
 			// than the probe's SuccessThreshold.
+			p.logger.Info("probe succeeded", p.count, p.SuccessThreshold)
 			return p.count >= p.SuccessThreshold, nil
 		})
 	}
