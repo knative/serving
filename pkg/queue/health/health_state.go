@@ -106,7 +106,8 @@ func (h *State) HandleHealthProbe(logger *zap.SugaredLogger, prober func() bool,
 		io.WriteString(w, notAliveBody)
 	}
 
-	logger.Info("handle probe request")
+	logger.Info("[start] handle probe request")
+	defer logger.Info("[end] handle probe request")
 
 	switch {
 	case !isAggressive && h.IsAlive():
