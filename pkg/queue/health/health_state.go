@@ -106,8 +106,11 @@ func (h *State) HandleHealthProbe(logger *zap.SugaredLogger, prober func() bool,
 		io.WriteString(w, notAliveBody)
 	}
 
+	logger.Info("handle probe request")
+
 	switch {
 	case !isAggressive && h.IsAlive():
+		logger.Info("sending alive")
 		sendAlive()
 	case h.IsShuttingDown():
 		logger.Info("shutting down")
@@ -116,6 +119,7 @@ func (h *State) HandleHealthProbe(logger *zap.SugaredLogger, prober func() bool,
 		logger.Info("probe failed")
 		sendNotAlive()
 	default:
+		logger.Info("sending alive default")
 		h.setAlive()
 		sendAlive()
 	}
