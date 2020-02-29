@@ -116,7 +116,7 @@ func newControllerWithOptions(
 			result := controller.FilterGroupKind(v1.Kind("Revision"))(obj)
 
 			logger.Infof("deployment changed %+v", obj)
-			logger.Infof("deployment is revision being reconciled %v", result)
+			logger.Infof("deployment's revision being reconciled %v", result)
 
 			return result
 		},
