@@ -118,7 +118,7 @@ func Do(ctx context.Context, transport http.RoundTripper, target string, ops ...
 	if err != nil {
 		return false, fmt.Errorf("error dumping body: %v", err)
 	}
-	logger.Info("dumped response ", dump)
+	logger.Info("dumped response ", string(dump))
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
