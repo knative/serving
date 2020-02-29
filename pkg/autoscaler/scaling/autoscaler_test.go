@@ -68,18 +68,34 @@ func expectedEBC(totCap, targetBC, recordedConcurrency, numPods float64) int32 {
 	return int32(math.Floor(totCap/targetUtilization*numPods - targetBC - recordedConcurrency))
 }
 
-func TestAutoscalerMetrics(t *testing.T) {
+func TestAutoscalerStartMetrics(t *testing.T) {
 	metricClient := &autoscalerfake.MetricClient{StableConcurrency: 50.0, PanicConcurrency: 50.0}
-	a := newTestAutoscaler(t, 10, 100, metricClient)
-	ebc := expectedEBC(10, 100, 50, 1)
-	a.expectScale(t, time.Now(), 5, ebc, true)
-	spec, _ := a.currentSpecAndPC()
+	newTestAutoscalerWithScalingMetric(t, 10, 100, metricClient,
+		"concurrency", true /*startInPanic*/)
 	wantTags := map[string]string{
 		metricskey.LabelConfigurationName: fake.TestConfig,
 		metricskey.LabelNamespaceName:     fake.TestNamespace,
 		metricskey.LabelRevisionName:      fake.TestRevision,
 		metricskey.LabelServiceName:       fake.TestService,
 	}
+	metricstest.CheckLastValueData(t, panicM.Name(), wantTags, 1)
+}
+
+func TestAutoscalerMetrics(t *testing.T) {
+	wantTags := map[string]string{
+		metricskey.LabelConfigurationName: fake.TestConfig,
+		metricskey.LabelNamespaceName:     fake.TestNamespace,
+		metricskey.LabelRevisionName:      fake.TestRevision,
+		metricskey.LabelServiceName:       fake.TestService,
+	}
+
+	metricClient := &autoscalerfake.MetricClient{StableConcurrency: 50.0, PanicConcurrency: 50.0}
+	a := newTestAutoscaler(t, 10, 100, metricClient)
+	// Non-panic created autoscaler.
+	metricstest.CheckLastValueData(t, panicM.Name(), wantTags, 0)
+	ebc := expectedEBC(10, 100, 50, 1)
+	a.expectScale(t, time.Now(), 5, ebc, true)
+	spec, _ := a.currentSpecAndPC()
 
 	metricstest.CheckLastValueData(t, stableRequestConcurrencyM.Name(), wantTags, 50)
 	metricstest.CheckLastValueData(t, panicRequestConcurrencyM.Name(), wantTags, 50)
@@ -91,7 +107,7 @@ func TestAutoscalerMetrics(t *testing.T) {
 
 func TestAutoscalerMetricsWithRPS(t *testing.T) {
 	metricClient := &autoscalerfake.MetricClient{PanicConcurrency: 50.0, StableRPS: 100}
-	a := newTestAutoscalerWithScalingMetric(t, 10, 100, metricClient, "rps")
+	a := newTestAutoscalerWithScalingMetric(t, 10, 100, metricClient, "rps", false /*startInPanic*/)
 	ebc := expectedEBC(10, 100, 100, 1)
 	a.expectScale(t, time.Now(), 10, ebc, true)
 	spec, _ := a.currentSpecAndPC()
@@ -138,7 +154,7 @@ func TestAutoscalerStableModeIncreaseWithConcurrencyDefault(t *testing.T) {
 
 func TestAutoscalerStableModeIncreaseWithRPS(t *testing.T) {
 	metrics := &autoscalerfake.MetricClient{StableRPS: 50.0}
-	a := newTestAutoscalerWithScalingMetric(t, 10, 101, metrics, "rps")
+	a := newTestAutoscalerWithScalingMetric(t, 10, 101, metrics, "rps", false /*startInPanic*/)
 	a.expectScale(t, time.Now(), 5, expectedEBC(10, 101, 50, 1), true)
 
 	metrics.StableRPS = 100
@@ -355,10 +371,11 @@ func TestAutoscalerUpdateTarget(t *testing.T) {
 }
 
 func newTestAutoscaler(t *testing.T, targetValue, targetBurstCapacity float64, metrics metrics.MetricClient) *Autoscaler {
-	return newTestAutoscalerWithScalingMetric(t, targetValue, targetBurstCapacity, metrics, "concurrency")
+	return newTestAutoscalerWithScalingMetric(t, targetValue, targetBurstCapacity,
+		metrics, "concurrency", false /*panic*/)
 }
 
-func newTestAutoscalerWithScalingMetric(t *testing.T, targetValue, targetBurstCapacity float64, metrics metrics.MetricClient, metric string) *Autoscaler {
+func newTestAutoscalerWithScalingMetric(t *testing.T, targetValue, targetBurstCapacity float64, metrics metrics.MetricClient, metric string, startInPanic bool) *Autoscaler {
 	t.Helper()
 	deciderSpec := &DeciderSpec{
 		ScalingMetric:       metric,
@@ -374,7 +391,11 @@ func newTestAutoscalerWithScalingMetric(t *testing.T, targetValue, targetBurstCa
 
 	l := fake.KubeInformer.Core().V1().Endpoints().Lister()
 	// This ensures that we have endpoints object to start the autoscaler.
-	fake.Endpoints(0, fake.TestService)
+	if startInPanic {
+		fake.Endpoints(2, fake.TestService)
+	} else {
+		fake.Endpoints(0, fake.TestService)
+	}
 	ctx, err := smetrics.RevisionContext(fake.TestNamespace, fake.TestService, fake.TestConfig, fake.TestRevision)
 	if err != nil {
 		t.Fatalf("Error creating context: %v", err)
