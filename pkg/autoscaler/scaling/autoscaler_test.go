@@ -69,8 +69,6 @@ func expectedEBC(totCap, targetBC, recordedConcurrency, numPods float64) int32 {
 }
 
 func TestAutoscalerStartMetrics(t *testing.T) {
-	// Make sure AS starts in panic mode.
-	fake.Endpoints(3, fake.TestService)
 	metricClient := &autoscalerfake.MetricClient{StableConcurrency: 50.0, PanicConcurrency: 50.0}
 	newTestAutoscalerWithScalingMetric(t, 10, 100, metricClient,
 		"concurrency", true /*startInPanic*/)
