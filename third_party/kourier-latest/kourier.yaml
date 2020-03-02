@@ -40,17 +40,10 @@ metadata:
   name: 3scale-kourier-gateway
   namespace: kourier-system
 spec:
-  progressDeadlineSeconds: 600
   replicas: 1
-  revisionHistoryLimit: 10
   selector:
     matchLabels:
       app: 3scale-kourier-gateway
-  strategy:
-    rollingUpdate:
-      maxSurge: 25%
-      maxUnavailable: 25%
-    type: RollingUpdate
   template:
     metadata:
       labels:
@@ -70,9 +63,6 @@ spec:
             - name: https
               containerPort: 8443
               protocol: TCP
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
           volumeMounts:
             - name: config-volume
               mountPath: /tmp/config
@@ -90,11 +80,7 @@ spec:
         - name: config-volume
           configMap:
             name: kourier-bootstrap
-      dnsPolicy: ClusterFirst
       restartPolicy: Always
-      schedulerName: default-scheduler
-      securityContext: {}
-      terminationGracePeriodSeconds: 30
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -102,29 +88,19 @@ metadata:
   name: 3scale-kourier-control
   namespace: kourier-system
 spec:
-  progressDeadlineSeconds: 600
   replicas: 1
-  revisionHistoryLimit: 10
   selector:
     matchLabels:
       app: 3scale-kourier-control
-  strategy:
-    rollingUpdate:
-      maxSurge: 25%
-      maxUnavailable: 25%
-    type: RollingUpdate
   template:
     metadata:
       labels:
         app: 3scale-kourier-control
     spec:
       containers:
-        - image: quay.io/3scale/kourier:v0.3.9
+        - image: quay.io/3scale/kourier:v0.3.10
           imagePullPolicy: Always
           name: kourier-control
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
           env:
             - name: CERTS_SECRET_NAMESPACE
               value: ""
@@ -134,12 +110,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-      dnsPolicy: ClusterFirst
       restartPolicy: Always
-      schedulerName: default-scheduler
-      securityContext: {}
       serviceAccountName: 3scale-kourier
-      terminationGracePeriodSeconds: 30
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
