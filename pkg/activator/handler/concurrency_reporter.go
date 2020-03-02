@@ -134,21 +134,23 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 		case <-reportCh:
 			messages := make([]asmetrics.StatMessage, 0, len(outstandingRequestsPerKey))
 			for key, concurrency := range outstandingRequestsPerKey {
+				averageConcurrentRequests := float64(concurrency - reportedFirstRequest[key])
+
 				if concurrency == 0 {
 					delete(outstandingRequestsPerKey, key)
-					// TODO(#6991): make sure `RequestCount` is reported here.
-				} else {
-					messages = append(messages, asmetrics.StatMessage{
-						Key: key,
-						Stat: asmetrics.Stat{
-							// Stat time is unset by design. The receiver will set the time.
-							PodName: cr.podName,
-							// Subtract the request we already reported when first seeing the revision.
-							AverageConcurrentRequests: float64(concurrency - reportedFirstRequest[key]),
-							RequestCount:              incomingRequestsPerKey[key],
-						},
-					})
+					averageConcurrentRequests = 0
 				}
+
+				messages = append(messages, asmetrics.StatMessage{
+					Key: key,
+					Stat: asmetrics.Stat{
+						// Stat time is unset by design. The receiver will set the time.
+						PodName: cr.podName,
+						// Subtract the request we already reported when first seeing the revision.
+						AverageConcurrentRequests: averageConcurrentRequests,
+						RequestCount:              incomingRequestsPerKey[key],
+					},
+				})
 				cr.reportToMetricsBackend(key, concurrency)
 			}
 			if len(messages) > 0 {
