@@ -55,15 +55,18 @@
   version = "v0.1.1"
 
 [[projects]]
-  digest = "1:042dd95511f495f6e7c0ad6a9398b8c5c77bf940efa6e568cbac9f818401f36a"
+  digest = "1:f14057db39bbab063bdc42c694cf03dcd00bcde7d01e7cd238983f7bf7510716"
   name = "github.com/Azure/azure-sdk-for-go"
-  packages = ["arm/containerregistry"]
+  packages = [
+    "services/containerregistry/mgmt/2017-10-01/containerregistry",
+    "version",
+  ]
   pruneopts = "NUT"
-  revision = "2d1d76c9013c4feb6695a2346f0e66ea0ef77aa6"
-  version = "v11.3.0-beta"
+  revision = "68963eeeb7479a7f78fa571b07d745b49cd8d747"
+  version = "v38.2.0"
 
 [[projects]]
-  digest = "1:90df11ad9349a69d46e08211d47eb8db80311bf985a447dd88cb30d5b5f54add"
+  digest = "1:7dc53e012b9e58f6fc52dce9c201d38dbc3c0e573bad4a56fa0f861823934915"
   name = "github.com/Azure/go-autorest"
   packages = [
     "autorest",
@@ -73,11 +76,11 @@
     "autorest/to",
     "autorest/validation",
     "logger",
-    "version",
+    "tracing",
   ]
   pruneopts = "NUT"
-  revision = "1ffcc8896ef6dfe022d90a4317d866f925cf0f9e"
-  version = "v11.1.2"
+  revision = "42fde3a09860e638198648a4b285f31c483752cf"
+  version = "autorest/v0.9.3"
 
 [[projects]]
   digest = "1:632e5f740de6cafce1c08f659bfa10e75f7e7938dfaeb3d99c82fcbf484484e2"
@@ -225,39 +228,36 @@
   version = "v3.2.0"
 
 [[projects]]
-  digest = "1:740dc3cccfcdb302c323d17da5f4f2dfa65f7b8c666e0a9ac8bc64f560fb2974"
-  name = "github.com/docker/docker"
+  digest = "1:1e61b611e13790f615913b6e67ba701fac934ab0522a78d1d9bab46fdc815194"
+  name = "github.com/docker/cli"
   packages = [
-    "api/types",
-    "api/types/blkiodev",
-    "api/types/container",
-    "api/types/filters",
-    "api/types/mount",
-    "api/types/network",
-    "api/types/registry",
-    "api/types/strslice",
-    "api/types/swarm",
-    "api/types/versions",
+    "cli/config",
+    "cli/config/configfile",
+    "cli/config/credentials",
+    "cli/config/types",
   ]
+  pruneopts = "NUT"
+  revision = "a4bedce16568a9649bcb579f9fe9645d27bf1ae3"
+  version = "v19.03.6"
+
+[[projects]]
+  digest = "1:37062c859c33abe56ae571c9631aac620a072c827b2d21e74264b7599b3e4842"
+  name = "github.com/docker/docker"
+  packages = ["pkg/homedir"]
   pruneopts = "NUT"
   revision = "092cba3727bb9b4a2f0e922cd6c0f93ea270e363"
   version = "v1.13.1"
 
 [[projects]]
-  digest = "1:ade935c55cd6d0367c843b109b09c9d748b1982952031414740750fdf94747eb"
-  name = "github.com/docker/go-connections"
-  packages = ["nat"]
+  digest = "1:9f3f49b4e32d3da2dd6ed07cc568627b53cc80205c0dcf69f4091f027416cb60"
+  name = "github.com/docker/docker-credential-helpers"
+  packages = [
+    "client",
+    "credentials",
+  ]
   pruneopts = "NUT"
-  revision = "7395e3f8aa162843a74ed6d48e79627d9792ac55"
-  version = "v0.4.0"
-
-[[projects]]
-  digest = "1:4340101f42556a9cb2f7a360a0e95a019bfef6247d92e6c4c46f2433cf86a482"
-  name = "github.com/docker/go-units"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "47565b4f722fb6ceae66b95f853feed578a4a51c"
-  version = "v0.3.3"
+  revision = "54f0238b6bf101fc3ad3b34114cb5520beb562f5"
+  version = "v0.6.3"
 
 [[projects]]
   digest = "1:4f48083a56b5ac1f38cfbd8c0ccc19273079c97f9e4967a63f130c4f4b8bcfc5"
@@ -407,7 +407,7 @@
   revision = "6f77996f0c42f7b84e5a2b252227263f93432e9b"
 
 [[projects]]
-  digest = "1:244554add7692579a59f70199e2a09b217c21a328279a71b05ecf261b32aaf03"
+  digest = "1:581ae6c8dd04799c7dd873489a8077447f6c0e5beb0486c11a36b06c06266a4f"
   name = "github.com/google/go-containerregistry"
   packages = [
     "pkg/authn",
@@ -429,7 +429,7 @@
     "pkg/v1/v1util",
   ]
   pruneopts = "NUT"
-  revision = "b02d448a3705facf11018efff34f1d2830be5724"
+  revision = "ba53fa10e72c7373ef8068e21c9f102f0c20a940"
 
 [[projects]]
   digest = "1:91099c6f78b1e7bdf9ed06eb4cb7f017174293a3689d76b995a06f4c8d64a7f0"
@@ -706,6 +706,14 @@
   revision = "2ae31c8b6b30d2f4c8100c20d527b571e9c433bb"
 
 [[projects]]
+  digest = "1:918dbd46ad099418ce9760291bb156ebf23d441aad4cb682dd9bf09e2d3c0c7b"
+  name = "github.com/opencontainers/runc"
+  packages = ["libcontainer/user"]
+  pruneopts = "NUT"
+  revision = "baf6536d6259209c3edfa2b22237af82942d3dfa"
+  version = "v0.1.1"
+
+[[projects]]
   digest = "1:ba4312bc8a900105f0c5b85d23b289d594dc88af6608ce971c8696435f43ae85"
   name = "github.com/openzipkin/zipkin-go"
   packages = [
@@ -728,6 +736,14 @@
   pruneopts = "NUT"
   revision = "adf5a7427709b9deb95d29d3fa8a2bf9cfd388f1"
   version = "v1.2"
+
+[[projects]]
+  digest = "1:4047c378584616813d610c9f993bf90dd0d07aed8d94bd3bc299cd35ececdcba"
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "614d223910a179a466c1767a985424175c39b465"
+  version = "v0.9.1"
 
 [[projects]]
   digest = "1:e411054f54a332ecadd5fe5a4a68d092f36583e554037587da86da298cffc72d"
@@ -832,6 +848,20 @@
   ]
   pruneopts = "NUT"
   revision = "ab06ddb56e2f6097bba8c5a6d168621088867949"
+
+[[projects]]
+  digest = "1:dea16da4d4bb03447ee203c66803f8def380f60a36899b529a08a205e5d8820f"
+  name = "github.com/vdemeester/k8s-pkg-credentialprovider"
+  packages = [
+    ".",
+    "aws",
+    "azure",
+    "gcp",
+    "secrets",
+  ]
+  pruneopts = "NUT"
+  revision = "bdf12461ac6a424422f200d0abaac1b4bc9e19c8"
+  version = "v1.13.12.1"
 
 [[projects]]
   digest = "1:0e3fd52087079d1289983e4fef32268ca965973f5370b69204e2934185527baa"
@@ -1736,20 +1766,20 @@
   revision = "743ec37842bffe49dd4221d9026f30fb1d5adbc4"
 
 [[projects]]
-  digest = "1:82f9b2deb157470451063cea72fe0a7155f68c97bd43c6f5e671ba347d72e4a0"
+  digest = "1:547c5d5fec284edacb232b739d7fe88d5294b6b7711162c5b2e4861443b81dda"
   name = "k8s.io/kubernetes"
-  packages = [
-    "pkg/cloudprovider/providers/azure/auth",
-    "pkg/credentialprovider",
-    "pkg/credentialprovider/aws",
-    "pkg/credentialprovider/azure",
-    "pkg/credentialprovider/gcp",
-    "pkg/credentialprovider/secrets",
-    "pkg/version",
-  ]
+  packages = ["pkg/version"]
   pruneopts = "NUT"
   revision = "81753b10df112992bf51bbc2c2f85208aad78335"
   version = "v1.10.2"
+
+[[projects]]
+  digest = "1:94200bdf759648846fb4e38e4d438a0b91faa44c6cb485f2402d90341260c817"
+  name = "k8s.io/legacy-cloud-providers"
+  packages = ["azure/auth"]
+  pruneopts = "NUT"
+  revision = "0a38a432f2802c7bff22aa0d11e634ad8aaae637"
+  version = "v0.17.3"
 
 [[projects]]
   digest = "1:281a4b2b38d55df26339f669931486a38836671606e8f84703a61beefbb5797b"

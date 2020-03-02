@@ -46,8 +46,8 @@ required = [
 
 [[constraint]]
   name = "github.com/google/go-containerregistry"
-  # HEAD as of 2019-09-10
-  revision = "b02d448a3705facf11018efff34f1d2830be5724"
+  # HEAD as of 2020-27-02
+  revision = "ba53fa10e72c7373ef8068e21c9f102f0c20a940"
 
 [[constraint]]
   name = "github.com/jetstack/cert-manager"
@@ -144,6 +144,18 @@ required = [
   unused-packages = false
   non-go = false
 
+# The dependencies below are required for go-containrregistry.
+[[override]]
+  name = "github.com/vdemeester/k8s-pkg-credentialprovider"
+  version = "v1.13.12.1"
+
+[[override]]
+  name = "github.com/Azure/azure-sdk-for-go"
+  version = "v38.0.0"
+
+[[override]]
+  name = "github.com/Azure/go-autorest"
+  version = "autorest/v0.9.3"
 
 # The dependencies below are required for opencensus.
 [[override]]
