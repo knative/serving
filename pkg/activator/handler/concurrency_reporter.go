@@ -86,7 +86,7 @@ func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
 
 func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.Time) {
 	// Contains the number of in-flight requests per-key
-	outstandingRequestsPerKey := make(map[types.NamespacedName]int64)
+	outstandingRequestsPerKey := make(map[types.NamespacedName]float64)
 	// Contains the number of incoming requests in the current
 	// reporting period, per key.
 	incomingRequestsPerKey := make(map[types.NamespacedName]float64)
@@ -95,7 +95,7 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 	// they will end up in the same metrics bucket.
 	// This is important because for small concurrencies, e.g. 1,
 	// autoscaler might cause noticeable overprovisioning.
-	reportedFirstRequest := make(map[types.NamespacedName]int64)
+	reportedFirstRequest := make(map[types.NamespacedName]float64)
 
 	for {
 		select {
@@ -134,7 +134,9 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 		case <-reportCh:
 			messages := make([]asmetrics.StatMessage, 0, len(outstandingRequestsPerKey))
 			for key, concurrency := range outstandingRequestsPerKey {
-				averageConcurrentRequests := float64(concurrency - reportedFirstRequest[key])
+				firstAdj := reportedFirstRequest[key]
+				averageConcurrentRequests := concurrency - firstAdj
+				requestCount := incomingRequestsPerKey[key] - firstAdj
 
 				if concurrency == 0 {
 					delete(outstandingRequestsPerKey, key)
@@ -148,17 +150,17 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 						PodName: cr.podName,
 						// Subtract the request we already reported when first seeing the revision.
 						AverageConcurrentRequests: averageConcurrentRequests,
-						RequestCount:              incomingRequestsPerKey[key],
+						RequestCount:              requestCount,
 					},
 				})
-				cr.reportToMetricsBackend(key, concurrency)
+				cr.reportToMetricsBackend(key, int64(concurrency))
 			}
 			if len(messages) > 0 {
 				cr.statCh <- messages
 			}
 
 			incomingRequestsPerKey = make(map[types.NamespacedName]float64)
-			reportedFirstRequest = make(map[types.NamespacedName]int64)
+			reportedFirstRequest = make(map[types.NamespacedName]float64)
 		case <-stopCh:
 			return
 		}
