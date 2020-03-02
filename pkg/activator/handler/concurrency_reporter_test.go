@@ -82,8 +82,6 @@ func TestStats(t *testing.T) {
 				PodName:                   activatorPodName,
 			}},
 		}}, {
-		// NB: this test should start failing when #6991 is fixed
-		// and must be updated.
 		name: "in'n out",
 		ops: []reqOp{{
 			op:  requestOpStart,
@@ -105,6 +103,12 @@ func TestStats(t *testing.T) {
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1,
 				RequestCount:              1,
+				PodName:                   activatorPodName,
+			}}, {
+			Key: rev1,
+			Stat: metrics.Stat{
+				AverageConcurrentRequests: 0,
+				RequestCount:              2,
 				PodName:                   activatorPodName,
 			}},
 		}}, {
@@ -157,6 +161,12 @@ func TestStats(t *testing.T) {
 			Key: rev1,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1,
+				RequestCount:              1,
+				PodName:                   activatorPodName,
+			}}, {
+			Key: rev1,
+			Stat: metrics.Stat{
+				AverageConcurrentRequests: 0,
 				RequestCount:              1,
 				PodName:                   activatorPodName,
 			}}, {
