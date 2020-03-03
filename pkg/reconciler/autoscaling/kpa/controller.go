@@ -39,6 +39,7 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
+	servingreconciler "knative.dev/serving/pkg/reconciler"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
@@ -53,6 +54,7 @@ func NewController(
 	cmw configmap.Watcher,
 	deciders resources.Deciders,
 ) *controller.Impl {
+	ctx = servingreconciler.AnnotateLoggerWithName(ctx, controllerAgentName)
 	logger := logging.FromContext(ctx)
 	paInformer := painformer.Get(ctx)
 	sksInformer := sksinformer.Get(ctx)

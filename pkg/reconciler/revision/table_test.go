@@ -41,7 +41,6 @@ import (
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	revisionreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/revision"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 	"knative.dev/serving/pkg/reconciler/revision/resources"
 
@@ -72,7 +71,7 @@ func TestReconcile(t *testing.T) {
 		Name: "first revision reconciliation",
 		// Test the simplest successful reconciliation flow.
 		// We feed in a well formed Revision where none of its sub-resources exist,
-		// and we exect it to create them and initialize the Revision's status.
+		// and we expect it to create them and initialize the Revision's status.
 		Objects: []runtime.Object{
 			rev("foo", "first-reconcile"),
 		},
@@ -301,7 +300,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "pa inactive, but has service",
 		// Test propagating the inactivity signal from the pa to the Revision.
-		// But propagatethe service name.
+		// But propagate the service name.
 		Objects: []runtime.Object{
 			rev("foo", "pa-inactive",
 				withK8sServiceName("here-comes-the-sun"), WithLogURL, MarkRevisionReady),
@@ -470,7 +469,7 @@ func TestReconcile(t *testing.T) {
 	}, {
 		Name: "ready steady state",
 		// Test the transition that Reconcile makes when Endpoints become ready on the
-		// SKS owned services, which is signalled by pa having servince name.
+		// SKS owned services, which is signalled by pa having service name.
 		// This puts the world into the stable post-reconcile state for an Active
 		// Revision.  It then creates an Endpoints resource with active subsets.
 		// This signal should make our Reconcile mark the Revision as Ready.
@@ -742,7 +741,6 @@ var _ pkgreconciler.ConfigStore = (*testConfigStore)(nil)
 func ReconcilerTestConfig() *config.Config {
 	return &config.Config{
 		Deployment: getTestDeploymentConfig(),
-		Network:    &network.Config{IstioOutboundIPRanges: "*"},
 		Observability: &metrics.ObservabilityConfig{
 			LoggingURLTemplate: "http://logger.io/${REVISION_UID}",
 		},

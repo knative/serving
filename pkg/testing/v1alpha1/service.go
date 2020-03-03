@@ -279,7 +279,7 @@ func WithServiceAnnotations(annotations map[string]string) ServiceOption {
 	}
 }
 
-// WithContainerConcurrency setss the container concurrency on the resource.
+// WithContainerConcurrency sets the container concurrency on the resource.
 func WithContainerConcurrency(cc int) ServiceOption {
 	return func(s *v1alpha1.Service) {
 		if s.Spec.DeprecatedRunLatest != nil {

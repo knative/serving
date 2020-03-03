@@ -84,25 +84,25 @@ const (
 )
 
 var (
-	// ServicesResource respresents a Knative Service
+	// ServicesResource represents a Knative Service
 	ServicesResource = schema.GroupResource{
 		Group:    GroupName,
 		Resource: "services",
 	}
 
-	// ConfigurationsResource respresents a Knative Configuration
+	// ConfigurationsResource represents a Knative Configuration
 	ConfigurationsResource = schema.GroupResource{
 		Group:    GroupName,
 		Resource: "configurations",
 	}
 
-	// RevisionsResource respresents a Knative Revision
+	// RevisionsResource represents a Knative Revision
 	RevisionsResource = schema.GroupResource{
 		Group:    GroupName,
 		Resource: "revisions",
 	}
 
-	// RoutesResource respresents a Knative Route
+	// RoutesResource represents a Knative Route
 	RoutesResource = schema.GroupResource{
 		Group:    GroupName,
 		Resource: "routes",

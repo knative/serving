@@ -67,7 +67,7 @@ func (cr *ConcurrencyReporter) reportToMetricsBackend(key types.NamespacedName, 
 	revName := key.Name
 	revision, err := cr.rl.Revisions(ns).Get(revName)
 	if err != nil {
-		cr.logger.With(zap.Any("revID", key)).Errorw("Error while getting revision", zap.Error(err))
+		cr.logger.Errorw("Error while getting revision", zap.Any("revID", key), zap.Error(err))
 		return
 	}
 	configurationName := revision.Labels[serving.ConfigurationLabelKey]
@@ -86,7 +86,7 @@ func (cr *ConcurrencyReporter) Run(stopCh <-chan struct{}) {
 
 func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.Time) {
 	// Contains the number of in-flight requests per-key
-	outstandingRequestsPerKey := make(map[types.NamespacedName]int64)
+	outstandingRequestsPerKey := make(map[types.NamespacedName]float64)
 	// Contains the number of incoming requests in the current
 	// reporting period, per key.
 	incomingRequestsPerKey := make(map[types.NamespacedName]float64)
@@ -95,7 +95,7 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 	// they will end up in the same metrics bucket.
 	// This is important because for small concurrencies, e.g. 1,
 	// autoscaler might cause noticeable overprovisioning.
-	reportedFirstRequest := make(map[types.NamespacedName]int64)
+	reportedFirstRequest := make(map[types.NamespacedName]float64)
 
 	for {
 		select {
@@ -113,7 +113,17 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 							// Stat time is unset by design. The receiver will set the time.
 							PodName:                   cr.podName,
 							AverageConcurrentRequests: 1,
-							RequestCount:              incomingRequestsPerKey[event.Key],
+							// The way the check above is written, this cannot ever be
+							// anything else but 1.
+							// In theory consider the situation where within the same
+							// reporting period a request arrived and terminated
+							// (making outstandingRequestsPerKey for that key 0) and
+							// then the same situation happened again, and again...
+							// Thus this might be > 1, but we only check for `!ok` not
+							// `!ok || val==0`, which means this is not reported until
+							// the reporting period channel ticks.
+							// Thus this will always be 1.
+							RequestCount: 1,
 						},
 					}}
 				}
@@ -124,26 +134,33 @@ func (cr *ConcurrencyReporter) run(stopCh <-chan struct{}, reportCh <-chan time.
 		case <-reportCh:
 			messages := make([]asmetrics.StatMessage, 0, len(outstandingRequestsPerKey))
 			for key, concurrency := range outstandingRequestsPerKey {
+				firstAdj := reportedFirstRequest[key]
+				averageConcurrentRequests := concurrency - firstAdj
+				requestCount := incomingRequestsPerKey[key] - firstAdj
+
 				if concurrency == 0 {
 					delete(outstandingRequestsPerKey, key)
-				} else {
-					messages = append(messages, asmetrics.StatMessage{
-						Key: key,
-						Stat: asmetrics.Stat{
-							// Stat time is unset by design. The receiver will set the time.
-							PodName: cr.podName,
-							// Subtract the request we already reported when first seeing the revision.
-							AverageConcurrentRequests: float64(concurrency - reportedFirstRequest[key]),
-							RequestCount:              incomingRequestsPerKey[key],
-						},
-					})
+					averageConcurrentRequests = 0
 				}
-				cr.reportToMetricsBackend(key, concurrency)
+
+				messages = append(messages, asmetrics.StatMessage{
+					Key: key,
+					Stat: asmetrics.Stat{
+						// Stat time is unset by design. The receiver will set the time.
+						PodName: cr.podName,
+						// Subtract the request we already reported when first seeing the revision.
+						AverageConcurrentRequests: averageConcurrentRequests,
+						RequestCount:              requestCount,
+					},
+				})
+				cr.reportToMetricsBackend(key, int64(concurrency))
 			}
-			cr.statCh <- messages
+			if len(messages) > 0 {
+				cr.statCh <- messages
+			}
 
 			incomingRequestsPerKey = make(map[types.NamespacedName]float64)
-			reportedFirstRequest = make(map[types.NamespacedName]int64)
+			reportedFirstRequest = make(map[types.NamespacedName]float64)
 		case <-stopCh:
 			return
 		}

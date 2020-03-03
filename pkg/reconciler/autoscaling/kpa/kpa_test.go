@@ -47,6 +47,7 @@ import (
 	fakerevisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision/fake"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -225,7 +226,7 @@ func TestReconcile(t *testing.T) {
 		d.Spec.Replicas = ptr.Int32(defaultScale)
 	})
 
-	// Setup underscaled and overscsaled deployment
+	// Setup underscaled and overscaled deployment
 	underscaledDeployment := deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
 		d.Spec.Replicas = ptr.Int32(underscale)
 	})
@@ -1154,6 +1155,18 @@ func TestControllerSynchronizesCreatesAndDeletes(t *testing.T) {
 	sks := sks(testNamespace, testRevision, WithDeployRef(kpa.Spec.ScaleTargetRef.Name),
 		WithSKSReady)
 	fakeservingclient.Get(ctx).NetworkingV1alpha1().ServerlessServices(testNamespace).Create(sks)
+
+	sksl := fakesksinformer.Get(ctx).Lister()
+	if err := wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (bool, error) {
+		l, err := sksl.List(labels.Everything())
+		if err != nil {
+			return false, err
+		}
+		// We only create a single SKS object.
+		return len(l) > 0, nil
+	}); err != nil {
+		t.Fatalf("Failed to see SKS propagation: %v", err)
+	}
 
 	fakeservingclient.Get(ctx).AutoscalingV1alpha1().PodAutoscalers(testNamespace).Create(kpa)
 

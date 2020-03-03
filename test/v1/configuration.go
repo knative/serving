@@ -57,26 +57,44 @@ func PatchConfig(t pkgTest.T, clients *test.Clients, svc *v1.Configuration, fopt
 	return clients.ServingClient.Configs.Patch(svc.ObjectMeta.Name, types.JSONPatchType, patchBytes, "")
 }
 
+// WaitForConfigLatestPinnedRevision enables the check for pinned revision in WaitForConfigLatestRevision.
+func WaitForConfigLatestPinnedRevision(clients *test.Clients, names test.ResourceNames) (string, error) {
+	return WaitForConfigLatestRevision(clients, names, true /*wait for pinned revision*/)
+}
+
+// WaitForConfigLatestUnpinnedRevision disables the check for pinned revision in WaitForConfigLatestRevision.
+func WaitForConfigLatestUnpinnedRevision(clients *test.Clients, names test.ResourceNames) (string, error) {
+	return WaitForConfigLatestRevision(clients, names, false /*wait for unpinned revision*/)
+}
+
 // WaitForConfigLatestRevision takes a revision in through names and compares it to the current state of LatestCreatedRevisionName in Configuration.
 // Once an update is detected in the LatestCreatedRevisionName, the function waits for the created revision to be set in LatestReadyRevisionName
 // before returning the name of the revision.
-func WaitForConfigLatestRevision(clients *test.Clients, names test.ResourceNames) (string, error) {
+// Make sure to enable ensurePinned flag if the revision has an associated Route.
+func WaitForConfigLatestRevision(clients *test.Clients, names test.ResourceNames, ensurePinned bool) (string, error) {
 	var revisionName string
 	err := WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1.Configuration) (bool, error) {
 		if c.Status.LatestCreatedRevisionName != names.Revision {
 			revisionName = c.Status.LatestCreatedRevisionName
+			if ensurePinned {
+				// Without this it might happen that the latest created revision is later overridden by a newer one
+				// that is pinned and the following check for LatestReadyRevisionName would fail.
+				return CheckRevisionState(clients.ServingClient, revisionName, IsRevisionPinned) == nil, nil
+			}
 			return true, nil
 		}
 		return false, nil
 	}, "ConfigurationUpdatedWithRevision")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("LatestCreatedRevisionName not updated: %w", err)
 	}
-	err = WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1.Configuration) (bool, error) {
+	if err = WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1.Configuration) (bool, error) {
 		return (c.Status.LatestReadyRevisionName == revisionName), nil
-	}, "ConfigurationReadyWithRevision")
+	}, "ConfigurationReadyWithRevision"); err != nil {
+		return "", fmt.Errorf("LatestReadyRevisionName not updated with %s: %w", revisionName, err)
+	}
 
-	return revisionName, err
+	return revisionName, nil
 }
 
 // ConfigurationSpec returns the spec of a configuration to be used throughout different

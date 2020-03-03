@@ -823,21 +823,7 @@ func TestMakePodSpec(t *testing.T) {
 			})
 			got, err := makePodSpec(test.rev, test.lc, test.tc, test.oc, test.ac, test.cc)
 			if err != nil {
-				t.Fatal("makePodSpec returned errror")
-			}
-			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
-				t.Errorf("makePodSpec (-want, +got) = %v", diff)
-			}
-		})
-
-		t.Run(test.name+"(podspec)", func(t *testing.T) {
-			quantityComparer := cmp.Comparer(func(x, y resource.Quantity) bool {
-				return x.Cmp(y) == 0
-			})
-
-			got, err := makePodSpec(test.rev, test.lc, test.tc, test.oc, test.ac, test.cc)
-			if err != nil {
-				t.Fatal("makePodSpec returned errror")
+				t.Fatalf("makePodSpec returned error: %v", err)
 			}
 			if diff := cmp.Diff(test.want, got, quantityComparer); diff != "" {
 				t.Errorf("makePodSpec (-want, +got) = %v", diff)
@@ -847,16 +833,14 @@ func TestMakePodSpec(t *testing.T) {
 }
 
 func TestMissingProbeError(t *testing.T) {
-	_, err := MakeDeployment(defaultRevision,
+	if _, err := MakeDeployment(defaultRevision,
 		&logging.Config{},
 		&tracingconfig.Config{},
 		&network.Config{},
 		&metrics.ObservabilityConfig{},
 		&autoscalerconfig.Config{},
 		&deployment.Config{},
-	)
-
-	if err == nil {
+	); err == nil {
 		t.Error("expected error from MakeDeployment")
 	}
 }
@@ -919,32 +903,6 @@ func TestMakeDeployment(t *testing.T) {
 		cc:   &deployment.Config{},
 		want: makeDeployment(),
 	}, {
-		name: "with outbound IP range configured",
-		rev: revision(
-			withoutLabels,
-			func(revision *v1.Revision) {
-				container(revision.Spec.GetContainer(),
-					withReadinessProbe(corev1.Handler{
-						TCPSocket: &corev1.TCPSocketAction{
-							Host: "127.0.0.1",
-							Port: intstr.FromInt(12345),
-						},
-					}),
-				)
-			},
-		),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		nc: &network.Config{
-			IstioOutboundIPRanges: "*",
-		},
-		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscalerconfig.Config{},
-		cc: &deployment.Config{},
-		want: makeDeployment(func(deploy *appsv1.Deployment) {
-			deploy.Spec.Template.ObjectMeta.Annotations[IstioOutboundIPRangeAnnotation] = "*"
-		}),
-	}, {
 		name: "with sidecar annotation override",
 		rev: revision(withoutLabels, func(revision *v1.Revision) {
 			revision.ObjectMeta.Annotations = map[string]string{
@@ -969,36 +927,6 @@ func TestMakeDeployment(t *testing.T) {
 			deploy.ObjectMeta.Annotations[sidecarIstioInjectAnnotation] = "false"
 			deploy.Spec.Template.ObjectMeta.Annotations[sidecarIstioInjectAnnotation] = "false"
 		}),
-	}, {
-		name: "with outbound IP range override",
-		rev: revision(
-			withoutLabels,
-			func(revision *v1.Revision) {
-				revision.ObjectMeta.Annotations = map[string]string{
-					IstioOutboundIPRangeAnnotation: "10.4.0.0/14,10.7.240.0/20",
-				}
-				container(revision.Spec.GetContainer(),
-					withReadinessProbe(corev1.Handler{
-						TCPSocket: &corev1.TCPSocketAction{
-							Host: "127.0.0.1",
-							Port: intstr.FromInt(12345),
-						},
-					}),
-				)
-			},
-		),
-		lc: &logging.Config{},
-		tc: &tracingconfig.Config{},
-		nc: &network.Config{
-			IstioOutboundIPRanges: "*",
-		},
-		oc: &metrics.ObservabilityConfig{},
-		ac: &autoscalerconfig.Config{},
-		cc: &deployment.Config{},
-		want: makeDeployment(func(deploy *appsv1.Deployment) {
-			deploy.ObjectMeta.Annotations[IstioOutboundIPRangeAnnotation] = "10.4.0.0/14,10.7.240.0/20"
-			deploy.Spec.Template.ObjectMeta.Annotations[IstioOutboundIPRangeAnnotation] = "10.4.0.0/14,10.7.240.0/20"
-		}),
 	}}
 
 	for _, test := range tests {
@@ -1006,7 +934,7 @@ func TestMakeDeployment(t *testing.T) {
 			// Tested above so that we can rely on it here for brevity.
 			podSpec, err := makePodSpec(test.rev, test.lc, test.tc, test.oc, test.ac, test.cc)
 			if err != nil {
-				t.Fatal("makePodSpec returned errror")
+				t.Fatalf("makePodSpec returned error: %v", err)
 			}
 			test.want.Spec.Template.Spec = *podSpec
 			got, err := MakeDeployment(test.rev, test.lc, test.tc, test.nc, test.oc, test.ac, test.cc)

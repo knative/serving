@@ -41,8 +41,8 @@ import (
 // ConversionController will apply defaults before returning
 // the response
 type ConvertibleObject interface {
-	// ConvertUp(ctx)
-	// ConvertDown(ctx)
+	// ConvertTo(ctx, to)
+	// ConvertFrom(ctx, from)
 	apis.Convertible
 
 	// DeepCopyObject()

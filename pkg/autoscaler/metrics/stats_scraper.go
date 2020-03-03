@@ -157,7 +157,7 @@ func (s *ServiceScraper) Scrape(window time.Duration) (Stat, error) {
 				stat, err := s.tryScrape(scrapedPods)
 				if err == nil {
 					if stat.ProcessUptime >= youngPodCutOffSecs {
-						// We run |sampleSize| go routies and each of them terminates
+						// We run |sampleSize| goroutines and each of them terminates
 						// as soon as it sees stat from an `oldPod`.
 						// The channel is allocated to |sampleSize|, thus this will never
 						// deadlock.

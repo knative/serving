@@ -83,7 +83,7 @@ func (t *TimedFloat64Buckets) WindowAverage(now time.Time) float64 {
 	case d <= 0:
 		// If LastWrite equal or greater than Now
 		// return the current WindowTotal, divided by the
-		// number of valid buckts
+		// number of valid buckets
 		numB := math.Min(
 			float64(t.lastWrite.Sub(t.firstWrite)/t.granularity)+1, // +1 since the times are inclusive.
 			float64(len(t.buckets)))
@@ -144,8 +144,7 @@ func (t *TimedFloat64Buckets) Record(now time.Time, value float64) {
 			// Thus we need to clean not only the current index, but also
 			// all the ones from the last write. This is slower than the loop above
 			// due to possible wrap-around, so they are not merged together.
-			oldIdx := t.timeToIndex(t.lastWrite)
-			for i := oldIdx + 1; i <= writeIdx; i++ {
+			for i := t.timeToIndex(t.lastWrite) + 1; i <= writeIdx; i++ {
 				idx := i % len(t.buckets)
 				t.windowTotal -= t.buckets[idx]
 				t.buckets[idx] = 0
@@ -156,34 +155,6 @@ func (t *TimedFloat64Buckets) Record(now time.Time, value float64) {
 	}
 	t.buckets[writeIdx%len(t.buckets)] += value
 	t.windowTotal += value
-}
-
-// ForEachBucket calls the given Accumulator function for each bucket.
-// Returns true if any data was recorded.
-func (t *TimedFloat64Buckets) ForEachBucket(now time.Time, accs ...func(time time.Time, bucket float64)) bool {
-	now = now.Truncate(t.granularity)
-	t.bucketsMutex.RLock()
-	defer t.bucketsMutex.RUnlock()
-
-	if now.Sub(t.lastWrite) >= t.window {
-		return false
-	}
-
-	// So number of buckets we can process is len(buckets)-(now-lastWrite)/granularity.
-	// Since empty check above failed, we know this is at least 1 bucket.
-	numBuckets := len(t.buckets) - int(now.Sub(t.lastWrite)/t.granularity)
-	bucketTime := t.lastWrite // Always aligned with granularity.
-	si := t.timeToIndex(bucketTime)
-	for i := 0; i < numBuckets; i++ {
-		tIdx := si % len(t.buckets)
-		for _, acc := range accs {
-			acc(bucketTime, t.buckets[tIdx])
-		}
-		si--
-		bucketTime = bucketTime.Add(-t.granularity)
-	}
-
-	return true
 }
 
 func min(a, b int) int {
@@ -224,7 +195,7 @@ func (t *TimedFloat64Buckets) ResizeWindow(w time.Duration) {
 			oi := tIdx % oldNumBuckets
 			ni := tIdx % numBuckets
 			newBuckets[ni] = t.buckets[oi]
-			// In case we're shringking, make sure the total
+			// In case we're shrinking, make sure the total
 			// window sum will match. This is no-op in case if
 			// window is getting bigger.
 			newTotal += t.buckets[oi]

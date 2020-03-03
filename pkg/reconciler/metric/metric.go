@@ -40,7 +40,7 @@ func (r *reconciler) ReconcileKind(ctx context.Context, metric *v1alpha1.Metric)
 	metric.Status.InitializeConditions()
 
 	if err := r.collector.CreateOrUpdate(metric); err != nil {
-		// If create or update failes, we won't be able to collect at all.
+		// If create or update fails, we won't be able to collect at all.
 		metric.Status.MarkMetricFailed("CollectionFailed", "Failed to reconcile metric collection")
 		return fmt.Errorf("failed to initiate or update scraping: %w", err)
 	}

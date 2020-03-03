@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	. "knative.dev/pkg/configmap/testing"
+	"knative.dev/serving/pkg/apis/autoscaling"
 )
 
 var defaultConfig = Config{
@@ -41,6 +42,7 @@ var defaultConfig = Config{
 	TickInterval:                       2 * time.Second,
 	PanicWindowPercentage:              10.0,
 	PanicThresholdPercentage:           200.0,
+	PodAutoscalerClass:                 autoscaling.KPA,
 }
 
 func TestNewConfig(t *testing.T) {
@@ -106,6 +108,7 @@ func TestNewConfig(t *testing.T) {
 			"tick-interval":                           "2s",
 			"panic-window-percentage":                 "10",
 			"panic-threshold-percentage":              "200",
+			"pod-autoscaler-class":                    "some.class",
 		},
 		want: func(c Config) *Config {
 			c.TargetBurstCapacity = 12345
@@ -115,6 +118,7 @@ func TestNewConfig(t *testing.T) {
 			c.MaxScaleDownRate = 3
 			c.MaxScaleUpRate = 1.01
 			c.StableWindow = 5 * time.Minute
+			c.PodAutoscalerClass = "some.class"
 			return &c
 		}(defaultConfig),
 	}, {

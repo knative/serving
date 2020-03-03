@@ -54,7 +54,7 @@ import (
 	asv1a1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/networking"
 	nv1a1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
@@ -62,7 +62,7 @@ import (
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
 
 	. "knative.dev/pkg/reconciler/testing"
-	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
+	. "knative.dev/serving/pkg/reconciler/testing/v1"
 	. "knative.dev/serving/pkg/testing"
 )
 
@@ -143,7 +143,7 @@ func TestReconcile(t *testing.T) {
 					return false, nil, nil
 				}
 				retryAttempted = true
-				return true, nil, apierrs.NewConflict(v1alpha1.Resource("foo"), "bar", errors.New("foo"))
+				return true, nil, apierrs.NewConflict(v1.Resource("foo"), "bar", errors.New("foo"))
 			},
 		},
 		WantCreates: []runtime.Object{

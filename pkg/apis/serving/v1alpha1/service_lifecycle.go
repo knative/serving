@@ -117,10 +117,10 @@ const (
 	// LatestTrafficTarget is the named constant of the `latest` traffic target.
 	LatestTrafficTarget = "latest"
 
-	// CurrentTrafficTarget is the named constnat of the `current` traffic target.
+	// CurrentTrafficTarget is the named constant of the `current` traffic target.
 	CurrentTrafficTarget = "current"
 
-	// CandidateTrafficTarget is the named constnat of the `candidate` traffic target.
+	// CandidateTrafficTarget is the named constant of the `candidate` traffic target.
 	CandidateTrafficTarget = "candidate"
 )
 

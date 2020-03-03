@@ -202,7 +202,7 @@ func (rt *revisionThrottler) calculateCapacity(size, activatorCount, maxConcurre
 }
 
 // This makes sure we reset the capacity to the CC, since the pod
-// might be reassiged to be exclusively used.
+// might be reassigned to be exclusively used.
 func (rt *revisionThrottler) resetTrackers() {
 	if rt.containerConcurrency <= 0 {
 		return
@@ -225,7 +225,7 @@ func (rt *revisionThrottler) updateCapacity(throttler *Throttler, backendCount i
 		if rt.clusterIPTracker != nil {
 			return 0
 		}
-		// Infifnite capacity, assign all.
+		// Infinite capacity, assign all.
 		if rt.containerConcurrency == 0 {
 			rt.assignedTrackers = rt.podTrackers
 		} else {
@@ -295,7 +295,7 @@ func pickIndices(numTrackers, selfIndex, numActivators int) (beginIndex, endInde
 	}
 
 	// 2. distribute equally and share the remnants
-	// among all the activatos, but with reduced capacity, if finite.
+	// among all the activators, but with reduced capacity, if finite.
 	sliceSize := numTrackers / numActivators
 	remnants = numTrackers % numActivators
 	beginIndex = selfIndex * sliceSize
@@ -527,7 +527,7 @@ func (t *Throttler) handleUpdate(update revisionDestsUpdate) {
 }
 
 // inferIndex returns the index of this activator slice.
-// If inferIndex returns -1, it means that this activator will not recive
+// If inferIndex returns -1, it means that this activator will not receive
 // any traffic just yet so, do not participate in slicing, this happens after
 // startup, but before this activator is threaded into the endpoints
 // (which is up to 10s after reporting healthy).

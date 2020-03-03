@@ -19,7 +19,6 @@ limitations under the License.
 package e2e
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -217,6 +216,7 @@ func setup(t *testing.T, class, metric string, target, targetUtilization float64
 			}),
 		}, fopts...)...)
 	if err != nil {
+		test.TearDown(clients, names)
 		t.Fatalf("Failed to create initial Service: %v: %v", names.Service, err)
 	}
 
@@ -319,7 +319,7 @@ func checkPodScale(ctx *testContext, targetPods, minPods, maxPods float64, durat
 			ctx.t.Log(mes)
 			// verify that the number of pods doesn't go down while we are scaling up.
 			if got < minPods {
-				return errors.New(mes)
+				return fmt.Errorf("interim scale didn't fulfill constraints: %s", mes)
 			}
 			// A quick test succeeds when the number of pods scales up to `targetPods`
 			// (and, for sanity check, no more than `maxPods`).
@@ -337,13 +337,13 @@ func checkPodScale(ctx *testContext, targetPods, minPods, maxPods float64, durat
 			// (with a little room for de-flakiness).
 			got, err := numberOfReadyPods(ctx)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to fetch number of ready pods: %w", err)
 			}
 			mes := fmt.Sprintf("got %v replicas, expected between [%v, %v] replicas for revision %s",
 				got, targetPods-1, maxPods, ctx.resources.Revision.Name)
 			ctx.t.Log(mes)
 			if got < targetPods-1 || got > maxPods {
-				return errors.New(mes)
+				return fmt.Errorf("final scale didn't fulfill constraints: %s", mes)
 			}
 			return nil
 		}
@@ -380,7 +380,7 @@ func assertAutoscaleUpToNumPods(ctx *testContext, curPods, targetPods float64, d
 	})
 
 	if err := grp.Wait(); err != nil {
-		ctx.t.Error(err)
+		ctx.t.Errorf("Error: %v", err)
 	}
 }
 

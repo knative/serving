@@ -106,7 +106,7 @@ func MakeMeshVirtualService(ing *v1alpha1.Ingress, gateways map[v1alpha1.Ingress
 	return vs
 }
 
-// MakeVirtualServices creates a mesh virtualservice and a virtual service for each gateway
+// MakeVirtualServices creates a mesh VirtualService and a virtual service for each gateway
 func MakeVirtualServices(ing *v1alpha1.Ingress, gateways map[v1alpha1.IngressVisibility]sets.String) ([]*v1alpha3.VirtualService, error) {
 	// Insert probe header
 	ing = ing.DeepCopy()

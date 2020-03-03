@@ -19,7 +19,7 @@ limitations under the License.
 package factory
 
 import (
-	"context"
+	context "context"
 
 	externalversions "knative.dev/caching/pkg/client/informers/externalversions"
 	client "knative.dev/caching/pkg/client/injection/client"

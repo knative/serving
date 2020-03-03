@@ -106,22 +106,6 @@ var gatewayWithPlaceholderServer = v1alpha3.Gateway{
 	},
 }
 
-var gatewayWithDefaultWildcardTLSServer = v1alpha3.Gateway{
-	Spec: istiov1alpha3.Gateway{
-		Servers: []*istiov1alpha3.Server{{
-			Hosts: []string{"*"},
-			Port: &istiov1alpha3.Port{
-				Name:     "https",
-				Number:   443,
-				Protocol: "HTTPS",
-			},
-			Tls: &istiov1alpha3.Server_TLSOptions{
-				Mode: istiov1alpha3.Server_TLSOptions_SIMPLE,
-			}},
-		},
-	},
-}
-
 var gatewayWithModifiedWildcardTLSServer = v1alpha3.Gateway{
 	Spec: istiov1alpha3.Gateway{
 		Servers: []*istiov1alpha3.Server{&modifiedDefaultTLSServer},

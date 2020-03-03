@@ -310,7 +310,7 @@ func (m *Prober) CancelIngressProbing(obj interface{}) {
 
 // CancelPodProbing cancels probing of the provided Pod IP.
 //
-// TODO(#6269): make this cancelation based on Pod x port instead of just Pod.
+// TODO(#6269): make this cancellation based on Pod x port instead of just Pod.
 func (m *Prober) CancelPodProbing(obj interface{}) {
 	if pod, ok := obj.(*corev1.Pod); ok {
 		m.mu.Lock()

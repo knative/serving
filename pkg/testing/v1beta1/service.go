@@ -62,7 +62,7 @@ func WithServiceDefaults(svc *v1beta1.Service) {
 	svc.SetDefaults(context.Background())
 }
 
-// WithInlineConfigSpec confgures the Service to use the given config spec
+// WithInlineConfigSpec configures the Service to use the given config spec
 func WithInlineConfigSpec(config v1.ConfigurationSpec) ServiceOption {
 	return func(svc *v1beta1.Service) {
 		svc.Spec.ConfigurationSpec = config
