@@ -222,7 +222,7 @@ func WaitForServiceState(client *test.ServingBetaClients, name string, inState f
 	})
 
 	if waitErr != nil {
-		return fmt.Errorf("service %q is not in desired state, got: %+v: %w", name, lastState, waitErr)
+		return fmt.Errorf("service %q is not in desired state, got: %#v: %w", name, lastState, waitErr)
 	}
 	return nil
 }
@@ -238,7 +238,7 @@ func CheckServiceState(client *test.ServingBetaClients, name string, inState fun
 	if done, err := inState(s); err != nil {
 		return err
 	} else if !done {
-		return fmt.Errorf("service %q is not in desired state, got: %+v", name, s)
+		return fmt.Errorf("service %q is not in desired state, got: %#v", name, s)
 	}
 	return nil
 }
