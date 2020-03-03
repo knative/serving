@@ -36,8 +36,11 @@ import (
 	kcertinformer "knative.dev/serving/pkg/client/injection/informers/networking/v1alpha1/certificate"
 	certreconciler "knative.dev/serving/pkg/client/injection/reconciler/networking/v1alpha1/certificate"
 	"knative.dev/serving/pkg/network"
+	servingreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/certificate/config"
 )
+
+const controllerAgentName = "certificate-controller"
 
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events.
@@ -45,6 +48,7 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
+	ctx = servingreconciler.AnnotateLoggerWithName(ctx, controllerAgentName)
 	logger := logging.FromContext(ctx)
 	knCertificateInformer := kcertinformer.Get(ctx)
 	cmCertificateInformer := cmcertinformer.Get(ctx)

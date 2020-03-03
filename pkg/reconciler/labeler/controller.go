@@ -28,7 +28,10 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	servingreconciler "knative.dev/serving/pkg/reconciler"
 )
+
+const controllerAgentName = "labeler-controller"
 
 // NewController wraps a new instance of the labeler that labels
 // Configurations with Routes in a controller.
@@ -36,6 +39,8 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
+
+	ctx = servingreconciler.AnnotateLoggerWithName(ctx, controllerAgentName)
 	logger := logging.FromContext(ctx)
 	routeInformer := routeinformer.Get(ctx)
 	configInformer := configurationinformer.Get(ctx)

@@ -31,7 +31,10 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+	servingreconciler "knative.dev/serving/pkg/reconciler"
 )
+
+const controllerAgentName = "service-controller"
 
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events
@@ -39,6 +42,7 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
+	ctx = servingreconciler.AnnotateLoggerWithName(ctx, controllerAgentName)
 	logger := logging.FromContext(ctx)
 	serviceInformer := kserviceinformer.Get(ctx)
 	routeInformer := routeinformer.Get(ctx)

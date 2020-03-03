@@ -29,14 +29,19 @@ import (
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	configreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/configuration"
 	gcconfig "knative.dev/serving/pkg/gc"
+	servingreconciler "knative.dev/serving/pkg/reconciler"
 	configns "knative.dev/serving/pkg/reconciler/gc/config"
 )
+
+const controllerAgentName = "revision-gc-controller"
 
 // NewController creates a new Garbage Collection controller
 func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
+	ctx = servingreconciler.AnnotateLoggerWithName(ctx, controllerAgentName)
+	logger := logging.FromContext(ctx)
 	configurationInformer := configurationinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
 
@@ -45,7 +50,6 @@ func NewController(
 		revisionLister: revisionInformer.Lister(),
 	}
 	return configreconciler.NewImpl(ctx, c, func(impl *controller.Impl) controller.Options {
-		logger := logging.FromContext(ctx)
 		logger.Info("Setting up event handlers")
 
 		// Since the gc controller came from the configuration controller, having event handlers

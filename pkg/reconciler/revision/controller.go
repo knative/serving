@@ -40,8 +40,11 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
+	servingreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/revision/config"
 )
+
+const controllerAgentName = "revision-controller"
 
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events
@@ -66,6 +69,7 @@ func newControllerWithOptions(
 		transport = rt
 	}
 
+	ctx = servingreconciler.AnnotateLoggerWithName(ctx, controllerAgentName)
 	logger := logging.FromContext(ctx)
 	deploymentInformer := deploymentinformer.Get(ctx)
 	serviceInformer := serviceinformer.Get(ctx)

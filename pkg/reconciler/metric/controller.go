@@ -29,7 +29,10 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
+	servingreconciler "knative.dev/serving/pkg/reconciler"
 )
+
+const controllerAgentName = "metric-controller"
 
 // NewController initializes the controller and is called by the generated code.
 // Registers eventhandlers to enqueue events.
@@ -38,6 +41,7 @@ func NewController(
 	cmw configmap.Watcher,
 	collector metrics.Collector,
 ) *controller.Impl {
+	ctx = servingreconciler.AnnotateLoggerWithName(ctx, controllerAgentName)
 	logger := logging.FromContext(ctx)
 	metricInformer := metricinformer.Get(ctx)
 

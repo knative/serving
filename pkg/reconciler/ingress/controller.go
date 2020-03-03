@@ -38,12 +38,15 @@ import (
 	virtualserviceinformer "knative.dev/serving/pkg/client/istio/injection/informers/networking/v1alpha3/virtualservice"
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/network/status"
+	servingreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/ingress/config"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 )
+
+const controllerAgentName = "istio-ingress-controller"
 
 type ingressOption func(*Reconciler)
 
@@ -60,6 +63,8 @@ func newControllerWithOptions(
 	cmw configmap.Watcher,
 	opts ...ingressOption,
 ) *controller.Impl {
+
+	ctx = servingreconciler.AnnotateLoggerWithName(ctx, controllerAgentName)
 	logger := logging.FromContext(ctx)
 	virtualServiceInformer := virtualserviceinformer.Get(ctx)
 	gatewayInformer := gatewayinformer.Get(ctx)
