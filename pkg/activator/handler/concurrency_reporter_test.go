@@ -302,6 +302,8 @@ func TestMetricsReported(t *testing.T) {
 	s.reqChan <- ReqEvent{Key: rev1, EventType: ReqIn}
 	s.reqChan <- ReqEvent{Key: rev1, EventType: ReqIn}
 	s.reportBiChan <- time.Time{}
+	<-s.statChan // The scale from 0 quick-report
+	<-s.statChan // The actual report we want to see
 
 	wantTags := map[string]string{
 		metricskey.LabelRevisionName:      rev1.Name,
