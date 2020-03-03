@@ -37,6 +37,7 @@ import (
 
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/network"
+	servingreconciler "knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/nscert/config"
 )
 
@@ -47,6 +48,7 @@ const (
 // NewController initializes the controller and is called by the generated code
 // Registers eventhandlers to enqueue events.
 func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+	ctx = servingreconciler.AnnotateLoggerWithName(ctx, controllerAgentName)
 	logger := logging.FromContext(ctx)
 	nsInformer := nsinformer.Get(ctx)
 	knCertificateInformer := kcertinformer.Get(ctx)
