@@ -38,7 +38,9 @@ const (
 	defaultControllerAgentName = "podautoscaler-controller"
 	defaultFinalizerName       = "podautoscalers.autoscaling.internal.knative.dev"
 	defaultQueueName           = "podautoscalers"
-	classAnnotationKey         = "autoscaling.knative.dev/class"
+
+	// ClassAnnotationKey points to the annotation for the class of this resource.
+	ClassAnnotationKey = "autoscaling.knative.dev/class"
 )
 
 // NewImpl returns a controller.Impl that handles queuing and feeding work from

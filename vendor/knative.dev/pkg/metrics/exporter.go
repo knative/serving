@@ -29,6 +29,10 @@ var (
 	metricsMux         sync.RWMutex
 )
 
+// SecretFetcher is a function (extracted from SecretNamespaceLister) for fetching
+// a specific Secret. This avoids requiring global or namespace list in controllers.
+type SecretFetcher func(string) (*corev1.Secret, error)
+
 type flushable interface {
 	// Flush waits for metrics to be uploaded.
 	Flush()
@@ -65,17 +69,29 @@ type ExporterOptions struct {
 	// See https://github.com/knative/serving/blob/master/config/config-observability.yaml
 	// for details.
 	ConfigMap map[string]string
+
+	// A lister for Secrets to allow dynamic configuration of outgoing TLS client cert.
+	Secrets SecretFetcher `json:"-"`
 }
 
 // UpdateExporterFromConfigMap returns a helper func that can be used to update the exporter
 // when a config map is updated.
+// DEPRECATED: Callers should migrate to ConfigMapWatcher.
 func UpdateExporterFromConfigMap(component string, logger *zap.SugaredLogger) func(configMap *corev1.ConfigMap) {
+	return ConfigMapWatcher(component, nil, logger)
+}
+
+// ConfigMapWatcher returns a helper func which updates the exporter configuration based on
+// values in the supplied ConfigMap. This method captures a corev1.SecretLister which is used
+// to configure mTLS with the opencensus agent.
+func ConfigMapWatcher(component string, secrets SecretFetcher, logger *zap.SugaredLogger) func(*corev1.ConfigMap) {
 	domain := Domain()
 	return func(configMap *corev1.ConfigMap) {
 		UpdateExporter(ExporterOptions{
 			Domain:    domain,
 			Component: component,
 			ConfigMap: configMap.Data,
+			Secrets:   secrets,
 		}, logger)
 	}
 }

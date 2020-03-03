@@ -21,9 +21,11 @@ package podautoscaler
 import (
 	context "context"
 
+	cache "k8s.io/client-go/tools/cache"
 	configmap "knative.dev/pkg/configmap"
 	controller "knative.dev/pkg/controller"
 	logging "knative.dev/pkg/logging"
+	reconciler "knative.dev/pkg/reconciler"
 	podautoscaler "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 	v1alpha1podautoscaler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
 )
@@ -39,15 +41,21 @@ func NewController(
 
 	podautoscalerInformer := podautoscaler.Get(ctx)
 
+	classValue := "default" // TODO: update this to the appropriate value.
+	classFilter := reconciler.AnnotationFilterFunc(v1alpha1podautoscaler.ClassAnnotationKey, classValue, false /*allowUnset*/)
+
 	// TODO: setup additional informers here.
-	// TODO: pass in the expected value for the class annotation filter.
+	// TODO: remember to use the classFilter from above to filter appropriately.
 
 	r := &Reconciler{}
-	impl := v1alpha1podautoscaler.NewImpl(ctx, r, "default")
+	impl := v1alpha1podautoscaler.NewImpl(ctx, r, classValue)
 
 	logger.Info("Setting up event handlers.")
 
-	podautoscalerInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
+	podautoscalerInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: classFilter,
+		Handler:    controller.HandleAll(impl.Enqueue),
+	})
 
 	// TODO: add additional informer event handlers here.
 

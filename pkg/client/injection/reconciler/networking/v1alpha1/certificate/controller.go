@@ -38,7 +38,9 @@ const (
 	defaultControllerAgentName = "certificate-controller"
 	defaultFinalizerName       = "certificates.networking.internal.knative.dev"
 	defaultQueueName           = "certificates"
-	classAnnotationKey         = "networking.knative.dev/certificate.class"
+
+	// ClassAnnotationKey points to the annotation for the class of this resource.
+	ClassAnnotationKey = "networking.knative.dev/certificate.class"
 )
 
 // NewImpl returns a controller.Impl that handles queuing and feeding work from
