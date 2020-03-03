@@ -108,7 +108,7 @@ func TestStats(t *testing.T) {
 			Key: rev1,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 0,
-				RequestCount:              2,
+				RequestCount:              1,
 				PodName:                   activatorPodName,
 			}},
 		}}, {
@@ -134,7 +134,7 @@ func TestStats(t *testing.T) {
 			Key: rev1,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 1, // We subtract the one concurrent request we already reported.
-				RequestCount:              2,
+				RequestCount:              1,
 				PodName:                   activatorPodName,
 			}}, {
 			Key: rev1,
@@ -167,7 +167,7 @@ func TestStats(t *testing.T) {
 			Key: rev1,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 0,
-				RequestCount:              1,
+				RequestCount:              0,
 				PodName:                   activatorPodName,
 			}}, {
 			Key: rev1,
@@ -212,19 +212,19 @@ func TestStats(t *testing.T) {
 			Key: rev1,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 0,
-				RequestCount:              1,
+				RequestCount:              0,
 				PodName:                   activatorPodName,
 			}}, {
 			Key: rev2,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 0,
-				RequestCount:              1,
+				RequestCount:              0,
 				PodName:                   activatorPodName,
 			}}, {
 			Key: rev3,
 			Stat: metrics.Stat{
 				AverageConcurrentRequests: 0,
-				RequestCount:              1,
+				RequestCount:              0,
 				PodName:                   activatorPodName,
 			}},
 		}},
