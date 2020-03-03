@@ -235,7 +235,7 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (desiredPodCount 
 		excessBCF = math.Floor(float64(originalReadyPodsCount)*a.deciderSpec.TotalValue - observedStableValue -
 			a.deciderSpec.TargetBurstCapacity)
 	}
-	logger.Infof("PodCount=%v Total1PodCapacity=%v ObsStableValue=%v ObsPanicValue=%v TargetBC=%v ExcessBC=%v",
+	logger.Debugf("PodCount=%v Total1PodCapacity=%v ObsStableValue=%v ObsPanicValue=%v TargetBC=%v ExcessBC=%v",
 		originalReadyPodsCount, a.deciderSpec.TotalValue, observedStableValue,
 		observedPanicValue, a.deciderSpec.TargetBurstCapacity, excessBCF)
 
