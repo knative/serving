@@ -113,8 +113,6 @@ func TestGetMetricBySelector(t *testing.T) {
 
 func TestListAllMetrics(t *testing.T) {
 	want := []provider.CustomMetricInfo{
-		deprecatedConcurrencyMetricInfo,
-		deprecatedRpsMetricsInfo,
 		concurrencyMetricInfo,
 		rpsMetricInfo,
 	}
