@@ -1342,14 +1342,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:691951c6805590983ccea7c6dbca360bcb58af5f4d60f75af9499903bb3039e9"
+  digest = "1:e7ea104eff9c91ce48f1730ab8b4098faa1ea519162ccbbbca68c205428f0e21"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "279d938f5e19db2550bea7f71f4cdb97e0d84128"
+  revision = "908ad6cdb8e4aab96cdf0d94f766db7caf4fe129"
 
 [[projects]]
   digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"
@@ -1423,6 +1423,7 @@
     "google.golang.org/api/iterator",
     "google.golang.org/api/option",
     "google.golang.org/grpc",
+    "google.golang.org/grpc/credentials",
     "gopkg.in/yaml.v2",
     "k8s.io/api/admission/v1beta1",
     "k8s.io/api/admissionregistration/v1beta1",

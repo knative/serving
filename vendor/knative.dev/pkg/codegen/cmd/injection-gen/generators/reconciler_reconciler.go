@@ -263,9 +263,9 @@ func (r *reconcilerImpl) Reconcile(ctx {{.contextContext|raw}}, key string) erro
 		return err
 	}
 	{{if .hasClass}}
-	if classValue, found := original.GetAnnotations()[classAnnotationKey]; !found || classValue != r.classValue {
+	if classValue, found := original.GetAnnotations()[ClassAnnotationKey]; !found || classValue != r.classValue {
 		logger.Debugw("Skip reconciling resource, class annotation value does not match reconciler instance value.",
-			zap.String("classKey", classAnnotationKey),
+			zap.String("classKey", ClassAnnotationKey),
 			zap.String("issue", classValue+"!="+r.classValue))
 		return nil
 	}
