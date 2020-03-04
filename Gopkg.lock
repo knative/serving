@@ -1924,7 +1924,7 @@
 
 [[projects]]
   branch = "presubmit_multiple_files"
-  digest = "1:77d1d4a862b537f5025ad7a65d5d6b3f1e6c7c5e2c88473ea1bb01a6c1c94ec8"
+  digest = "1:5b74034dff6c284990bda31a530d601d095a5d68d6d77dc07b845b655f25a182"
   name = "knative.dev/test-infra"
   packages = [
     "scripts",
@@ -1937,7 +1937,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "e2e75a566026a1130abd9251232df718bc22dd1f"
+  revision = "34324d98279c493fd3a45eecc531672514e3555f"
   source = "github.com/chaodaiG/test-infra"
 
 [[projects]]
