@@ -250,14 +250,6 @@ func addResourcesToInformers(t *testing.T, ctx context.Context, rev *v1.Revision
 	return rev, deployment, pa
 }
 
-type fixedResolver struct {
-	digest string
-}
-
-func (r *fixedResolver) Resolve(_ string, _ k8schain.Options, _ sets.String) (string, error) {
-	return r.digest, nil
-}
-
 type errorResolver struct {
 	err error
 }
