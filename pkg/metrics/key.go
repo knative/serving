@@ -31,8 +31,8 @@ var (
 	ServiceTagKey        = tag.MustNewKey(metricskey.LabelServiceName)
 	ConfigTagKey         = tag.MustNewKey(metricskey.LabelConfigurationName)
 	RevisionTagKey       = tag.MustNewKey(metricskey.LabelRevisionName)
-	PodTagKey            = tag.MustNewKey("pod_name")
-	ContainerTagKey      = tag.MustNewKey("container_name")
+	PodTagKey            = tag.MustNewKey(metricskey.PodName)
+	ContainerTagKey      = tag.MustNewKey(metricskey.ContainerName)
 	ResponseCodeKey      = tag.MustNewKey(metricskey.LabelResponseCode)
 	ResponseCodeClassKey = tag.MustNewKey(metricskey.LabelResponseCodeClass)
 

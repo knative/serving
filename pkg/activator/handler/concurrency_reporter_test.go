@@ -310,8 +310,8 @@ func TestMetricsReported(t *testing.T) {
 		metricskey.LabelNamespaceName:     rev1.Namespace,
 		metricskey.LabelServiceName:       "service-" + rev1.Name,
 		metricskey.LabelConfigurationName: "config-" + rev1.Name,
-		"pod_name":                        "the-best-activator",
-		"container_name":                  "activator",
+		metricskey.PodName:                "the-best-activator",
+		metricskey.ContainerName:          "activator",
 	}
 	metricstest.CheckLastValueData(t, "request_concurrency", wantTags, 4)
 }
