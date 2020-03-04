@@ -1,10 +1,10 @@
 # Development
 
 This doc explains how to setup a development environment so you can get started
-[contributing](https://github.com/knative/docs/blob/master/community/CONTRIBUTING.md)
+[contributing](https://www.knative.dev/contributing/)
 to Knative `caching`. Also take a look at:
 
-* [The pull request workflow](https://github.com/knative/docs/blob/master/community/CONTRIBUTING.md#pull-requests)
+* [The pull request workflow](https://knative.dev/community/contributing/reviewing/)
 
 ## Getting started
 
@@ -30,10 +30,9 @@ You must install these tools:
 To get started you'll need to set these environment variables (we recommend
 adding them to your `.bashrc`):
 
-1. `GOPATH`: If you don't have one, simply pick a directory and add
-`export GOPATH=...`
-1. `$GOPATH/bin` on `PATH`: This is so that tooling installed via `go get` will
-work properly.
+1. `GOPATH`: If you don't have one, simply pick a directory and add `export GOPATH=...`
+
+1. `$GOPATH/bin` on `PATH`: This is so that tooling installed via `go get` will work properly.
 
 `.bashrc` example:
 
@@ -49,8 +48,8 @@ in your [`GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
 
 To check out this repository:
 
-1. Create your own [fork of this
-  repo](https://help.github.com/articles/fork-a-repo/)
+1. Create your own [fork of this repo](https://help.github.com/articles/fork-a-repo/)
+
 1. Clone it to your machine:
 
   ```shell

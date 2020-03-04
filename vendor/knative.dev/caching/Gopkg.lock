@@ -966,7 +966,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:1829518da17f4803e337ca56334ef7c887a9677f28081f7176bf15e2d3bb64d1"
+  digest = "1:8599e892ef7b4613f138689826e24cf7ce0db32faac658babd6f60bc6c1db8b8"
   name = "knative.dev/pkg"
   packages = [
     "apis",
@@ -986,7 +986,7 @@
     "reconciler",
   ]
   pruneopts = "T"
-  revision = "ca35cb8791d737c06c13fc4c972b18f08647f732"
+  revision = "73701f1aa50ece37d044bd843a13cac6a84e3939"
 
 [[projects]]
   branch = "master"
@@ -997,7 +997,7 @@
     "tools/dep-collector",
   ]
   pruneopts = "UT"
-  revision = "b3fc723351c34f03515ee548a5c4ff021e7f544d"
+  revision = "7b384c28e66cb8561f3620bd91eb9d5680686a8c"
 
 [[projects]]
   digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"
