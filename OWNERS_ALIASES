@@ -27,9 +27,11 @@ aliases:
 
   autoscaling-approvers:
   - markusthoemmes
+  - mdemirhan
   - vagababov
   autoscaling-reviewers:
   - markusthoemmes
+  - mdemirhan
   - taragu
   - vagababov
   - yanweiguo
