@@ -166,17 +166,13 @@ func withMinScale(minScale int) func(cfg *v1alpha1.Configuration) {
 	}
 }
 
-func lrcChanged(oldName string) func(c *v1alpha1.Configuration) (bool, error) {
-	return func(c *v1alpha1.Configuration) (bool, error) {
-		return c.Status.LatestCreatedRevisionName != oldName, nil
-	}
-}
-
 func latestRevisionName(t *testing.T, clients *test.Clients, configName, oldRevName string) string {
 	// Wait for the Config have a LatestCreatedRevisionName
 	if err := v1a1test.WaitForConfigurationState(
 		clients.ServingAlphaClient, configName,
-		lrcChanged(oldRevName), "ConfigurationHasUpdatedCreatedRevision",
+		func(c *v1alpha1.Configuration) (bool, error) {
+			return c.Status.LatestCreatedRevisionName != oldRevName, nil
+		}, "ConfigurationHasUpdatedCreatedRevision",
 	); err != nil {
 		t.Fatalf("The Configuration %q has not updated LatestCreatedRevisionName from %q: %v", configName, oldRevName, err)
 	}
@@ -212,7 +208,7 @@ func serverlessServicesName(t *testing.T, clients *test.Clients, revisionName st
 func waitForDesiredScale(t *testing.T, clients *test.Clients, serviceName string, cond func(int) bool) error {
 	endpoints := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace)
 
-	return wait.PollImmediate(time.Second, 1*time.Minute, func() (bool, error) {
+	return wait.PollImmediate(250*time.Millisecond, 1*time.Minute, func() (bool, error) {
 		endpoint, err := endpoints.Get(serviceName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
@@ -225,14 +221,14 @@ func waitForDesiredScale(t *testing.T, clients *test.Clients, serviceName string
 func ensureDesiredScale(t *testing.T, clients *test.Clients, serviceName string, cond func(int) bool) error {
 	endpoints := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace)
 
-	err := wait.PollImmediate(time.Second, 5*time.Second, func() (bool, error) {
+	err := wait.PollImmediate(250*time.Millisecond, 5*time.Second, func() (bool, error) {
 		endpoint, err := endpoints.Get(serviceName, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}
 
 		if scale := resources.ReadyAddressCount(endpoint); !cond(scale) {
-			return false, fmt.Errorf("scaled to %d", scale)
+			return false, fmt.Errorf("scale %d didn't meet condition", scale)
 		}
 
 		return false, nil
