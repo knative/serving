@@ -29,7 +29,6 @@ import (
 	cmetrics "k8s.io/metrics/pkg/apis/custom_metrics"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 )
 
 var (
@@ -47,20 +46,6 @@ var (
 
 	errMetricNotSupported = errors.New("metric not supported")
 	errNotImplemented     = errors.New("not implemented")
-
-	//TODO(markusthoemmes) remove once 0.13 cuts
-	deprecatedConcurrencyMetricInfo = provider.CustomMetricInfo{
-		GroupResource: v1alpha1.Resource("revisions"),
-		Namespaced:    true,
-		Metric:        autoscaling.Concurrency,
-	}
-
-	//TODO(markusthoemmes) remove once 0.13 cuts
-	deprecatedRpsMetricsInfo = provider.CustomMetricInfo{
-		GroupResource: v1alpha1.Resource("revisions"),
-		Namespaced:    true,
-		Metric:        autoscaling.RPS,
-	}
 )
 
 // MetricProvider is a provider to back a custom-metrics API implementation.
@@ -86,9 +71,9 @@ func (p *MetricProvider) GetMetricByName(name types.NamespacedName, info provide
 	var err error
 
 	switch info {
-	case concurrencyMetricInfo, deprecatedConcurrencyMetricInfo:
+	case concurrencyMetricInfo:
 		data, _, err = p.metricClient.StableAndPanicConcurrency(name, now)
-	case rpsMetricInfo, deprecatedRpsMetricsInfo:
+	case rpsMetricInfo:
 		data, _, err = p.metricClient.StableAndPanicRPS(name, now)
 	default:
 		return nil, errMetricNotSupported
@@ -115,8 +100,6 @@ func (p *MetricProvider) GetMetricBySelector(string, labels.Selector, provider.C
 // ListAllMetrics implements the interface.
 func (p *MetricProvider) ListAllMetrics() []provider.CustomMetricInfo {
 	return []provider.CustomMetricInfo{
-		deprecatedConcurrencyMetricInfo,
-		deprecatedRpsMetricsInfo,
 		concurrencyMetricInfo,
 		rpsMetricInfo,
 	}
