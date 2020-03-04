@@ -43,7 +43,7 @@ function fail_apicoverage_run() {
 }
 
 # Script entry point.
-initialize $@ --skip-istio-addon
+initialize $@
 
 header "Setting up API Coverage Webhook"
 kubectl apply -f "${APICOVERAGE_IMAGE}/service-account.yaml" || fail_apicoverage_run "Failed setting up service account for apicoverage-webhook"

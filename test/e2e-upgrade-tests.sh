@@ -64,7 +64,7 @@ function knative_setup() {
 
 # Script entry point.
 
-initialize $@ --skip-istio-addon
+initialize $@
 
 # TODO(#2656): Reduce the timeout after we get this test to consistently passing.
 TIMEOUT=10m

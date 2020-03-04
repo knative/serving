@@ -70,10 +70,11 @@ integration tests).
 Use the flags `--build-tests`, `--unit-tests` and `--integration-tests` to run a
 specific set of tests.
 
-To run a specific program as a test, use the `--run-test` flag, and provide the
+To run specific programs as a test, use the `--run-test` flag, and provide the
 program as the argument. If arguments are required for the program, pass
 everything as a single quotes argument. For example,
-`./presubmit-tests.sh --run-test "test/my/test data"`.
+`./presubmit-tests.sh --run-test "test/my/test data"`. This flag can be used
+repeatedly, and each one will be ran in sequential order.
 
 The script will automatically skip all presubmit tests for PRs where all changed
 files are exempt of tests (e.g., a PR changing only the `OWNERS` file).
@@ -178,9 +179,6 @@ This is a helper script for Knative E2E test scripts. To use it:
 
 1. By default `knative_teardown()` and `test_teardown()` will be called after
    the tests finish, use `--skip-teardowns` if you don't want them to be called.
-
-1. By default Istio is installed on the cluster via Addon, use
-   `--skip-istio-addon` if you choose not to have it preinstalled.
 
 1. You can force running the tests against a specific GKE cluster version by
    using the `--cluster-version` flag and passing a full version as the flag
