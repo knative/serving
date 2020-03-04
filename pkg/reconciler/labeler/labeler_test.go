@@ -252,7 +252,6 @@ func TestReconcile(t *testing.T) {
 			client:              servingclient.Get(ctx),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
-			tracker:             &NullTracker{},
 		}
 
 		return routereconciler.NewReconciler(ctx, logging.FromContext(ctx), servingclient.Get(ctx),

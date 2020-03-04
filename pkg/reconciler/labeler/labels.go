@@ -65,10 +65,10 @@ func (c *Reconciler) syncLabels(ctx context.Context, r *v1.Route) error {
 				return err
 			}
 
+			// If the configuration is being updated, the route's .status.traffic will
+			// only incude the latest ready revision. We need to label the latest created revision
+			// as well so that there is a smooth transition when the new revision becomes ready.
 			revisions.Insert(config.Status.LatestCreatedRevisionName)
-
-			// Track future changes to the configuration
-			c.tracker.Track(kmeta.ObjectReference(config), r)
 		}
 	}
 
