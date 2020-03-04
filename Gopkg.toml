@@ -120,6 +120,11 @@ required = [
   name = "bitbucket.org/ww/goautoneg"
   source = "github.com/munnerz/goautoneg"
 
+[[override]]
+  name = "knative.dev/test-infra"
+  branch = "presubmit_multiple_files"
+  source = "github.com/chaodaiG/test-infra"
+
 [prune]
   go-tests = true
   unused-packages = true

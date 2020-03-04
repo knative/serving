@@ -327,6 +327,13 @@ function capture_output() {
   return ${failed}
 }
 
+# Print failed step, which could be highlighted by spyglass.
+# Parameters: $1...n - description of step that failed
+function step_failed() {
+  local spyglass_token="Step failed:"
+  echo "${spyglass_token} $@"
+}
+
 # Create a temporary file with the given extension in a way that works on both Linux and macOS.
 # Parameters: $1 - file name without extension (e.g. 'myfile_XXXX')
 #             $2 - file extension (e.g. 'xml')
