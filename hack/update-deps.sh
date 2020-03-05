@@ -49,6 +49,7 @@ dep ensure ${DEP_FLAGS[@]}
 rm -rf $(find vendor/ -name 'OWNERS')
 rm -rf $(find vendor/ -name '*_test.go')
 
-update_licenses third_party/VENDOR-LICENSE "./cmd/*"
+# Do this for every package under "cmd" except kodata and cmd itself.
+update_licenses third_party/VENDOR-LICENSE "$(find ./cmd -type d | grep -v kodata | grep -vE 'cmd$')"
 
 remove_broken_symlinks ./vendor
