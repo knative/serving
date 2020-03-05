@@ -22,9 +22,9 @@ The **queue-proxy** is a sidecar container that is deployed alongside the
 user-container in **each user pod**. Each request sent to an instance of the
 application is going via the queue-proxy first, hence the “proxy” in its name.
 
-The queue-proxy’s main purpose is to **measure** and **limit concurrency** to
-the user’s application. If a revision defines a concurrency limit of 5, the
-queue-proxy makes sure that no more than 5 requests reach the application’s
+The queue-proxy's main purpose is to **measure** and **limit concurrency** to
+the user's application. If a revision defines a concurrency limit of 5, the
+queue-proxy makes sure that no more than 5 requests reach the application's
 instance at once. If there are more requests being sent to it than that, it will
 queue them locally, hence the “queue” in its name. The queue-proxy also measures
 the incoming request load and reports the **average concurrency** and **requests
@@ -49,11 +49,13 @@ scalability, only a sample of all application instances is scraped and the
 received metrics are extrapolated to the entire cluster.
 
 The decider gets all metrics available and decides how many pods the
-application’s deployment should be scaled to. Basically, the equation to do that
+application's deployment should be scaled to. Basically, the equation to do that
 is `want = concurrencyInSystem/targetConcurrencyPerInstance`.
 
 In addition to that, it adjusts the value for a maximum scale up/down rate and
-the min- and max-instances settings on the revision.
+the min- and max-instances settings on the revision. It also computes how much
+burst capacity is left in the current deployment and thus determines whether or
+not the activator can be taken off of the data-path or not.
 
 ### Activator
 
@@ -63,13 +65,17 @@ autoscaler.
 
 The activator is mainly involved around scale to/from zero. When a revision is
 scaled to zero instances, the activator will be put into the data path instead
-of revision’s instances. If requests would hit this revision, the activator
+of revision's instances. If requests would hit this revision, the activator
 buffers these requests, pokes the autoscaler with metrics and holds the requests
 until instances of the application appear. As soon as that is the case, the
 activator will forward the requests it buffered to the new instances while
 carefully avoiding to overload the existing instances of the application. The
-activator may also be taken off the data-path for minimal network overhead at
-steady state.
+activator effectively acts as a loadbalancer here. It distributes the load
+across all the pods as they become available in a way that doesn't overload
+them. The activator is put on or taken off the data-path as the system sees fit
+to allow it to act as a loadbalancer as described above. If the current
+deployment has enough headroom to make it not too prone to overload, the
+activator will be taken off the data-path for minimal network overhead.
 
 Unlike the queue-proxy, the activator actively sends metrics to the autoscaler
 via a websocket connection to minimize scale-from-zero latencies as much as
@@ -83,9 +89,9 @@ possible.
 
 An abstraction for all possible PodAutoscalers. The default implementation is
 the **Knative Pod Autoscaler (KPA)**. There is an adapter that implements
-Kubernetes’ HPA via this abstraction as well.
+Kubernetes' HPA via this abstraction as well.
 
-The PodAutoscaler controls the scaling target, the metric that’s scaled on and
+The PodAutoscaler controls the scaling target, the metric that's scaled on and
 any other input that is relevant for the autoscaling decider or collector.
 
 PodAutoscalers are automatically created from Revisions by default.
@@ -122,17 +128,17 @@ shrinks, the list of available IPs will do so too.
 
 The public service is an “unmanaged” Kubernetes service. It has no selector and
 therefore does not automatically get endpoint management as the private service
-does. The public service’s endpoints are managed by the SKS reconciler directly.
+does. The public service's endpoints are managed by the SKS reconciler directly.
 
-The SKS has two modes: **Proxy** and **Serve**.
+The SKS has two modes: **`Proxy`** and **`Serve`**.
 
-In mode “Serve”, the public service’s endpoints are exactly the same as those of
-the private service. All traffic will flow to the revision’s pods.
+In mode `Serve`, the public service endpoints are exactly the same as those of
+the private service. All traffic will flow to the revision's pods.
 
-In mode Proxy, the public service’s endpoints are the addresses of all
+In mode `Proxy`, the public service endpoints are the addresses of all the
 activators in the system. All traffic will flow to the activators.
 
-ServerlessServices are automatically created from PodAutoscalers by default.
+ServerlessServices are created from PodAutoscalers.
 
 ## Data flow examples
 
@@ -160,31 +166,33 @@ activator reports the same.
 
 Before actually removing the last pod of the revision the system makes sure that
 the activator is in the path and routable. The autoscaler, who decided to
-scale-to-zero in the first place, instructs the SKS to use **Proxy** mode, so
-all traffic is directed at the activators. The SKS’ public service is now probed
-until it has been ensured to return responses from the activator. Once that is
-the case and if a grace-period (configurable via _scale-to-zero-grace-period_)
-has already passed, the last pod of the revision is removed and the revision has
-successfully scaled to zero.
+scale-to-zero in the first place, instructs the SKS to use **`Proxy`** mode, so
+all traffic is directed at the activators. The SKS's public service is now
+probed until it has been ensured to return responses from the activator. Once
+that is the case and if a grace-period (configurable via
+_scale-to-zero-grace-period_) has already passed, the last pod of the revision
+is removed and the revision has successfully scaled to zero.
 
 ### Scaling from zero
 
 ![scale-from-0](images/scale-from-0.png)
 
 If a revision is scaled to zero and a request comes into the system trying to
-reach this revision, the system needs to scale it up. As the SKS is in **Proxy**
-mode, the request will reach the activator, which will count it and report it’s
-appearance to the autoscaler. The activator will then buffer the request and
-watch the SKS’ private service for endpoints to appear.
+reach this revision, the system needs to scale it up. As the SKS is in
+**`Proxy`** mode, the request will reach the activator, which will count it and
+report its appearance to the autoscaler. The activator will then buffer the
+request and watch the SKS's private service for endpoints to appear.
 
-The autoscaler gets the metric from the activator and runs an autoscaling cycle
-immediately. That will determine at least one pod to be desired and the
-autoscaler will instruct the revision’s deployment to scale up to N > 0 replica.
+The autoscaler gets the metric from the activator and immediately runs an
+autoscaling cycle immediately. That process will determine that at least one pod
+is be desired and the autoscaler will instruct the revision's deployment to
+scale up to N > 0 replicas.
 
 The activator eventually sees the endpoints coming up and starts probing it.
 Once the probe passes successfully, the respective address will be considered
-healthy and used to route the request we buffered to.
+healthy and used to route the request we buffered and all additional requests
+that arrived in the meantime to.
 
 Once the autoscaler also sees the ready endpoints, it will put the SKS in
-**Serve** mode, causing the traffic to flow to the revision’s pods directly. The
-revision has been successfully scaled from zero.
+**`Serve`** mode, causing the traffic to flow to the revision's pods directly.
+The revision has been successfully scaled from zero.
