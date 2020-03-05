@@ -45,7 +45,6 @@ import (
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
 	"knative.dev/serving/pkg/queue"
-	"knative.dev/serving/pkg/resources"
 )
 
 type podTracker struct {
@@ -558,7 +557,7 @@ func (t *Throttler) activatorEndpointsUpdated(newObj interface{}) {
 	eps := epSet.List()
 	t.logger.Debugf("All Activator IPS: %v, my IP: %s", eps, t.ipAddress)
 	idx := inferIndex(eps, t.ipAddress)
-	activatorCount := resources.ReadyAddressCount(endpoints)
+	activatorCount := len(eps)
 	t.logger.Infof("Got %d ready activator endpoints, our position is: %d", activatorCount, idx)
 	atomic.StoreInt32(&t.numActivators, int32(activatorCount))
 	atomic.StoreInt32(&t.activatorIndex, int32(idx))
