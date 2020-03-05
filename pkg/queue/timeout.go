@@ -113,6 +113,15 @@ var _ http.Flusher = (*timeoutWriter)(nil)
 var _ http.ResponseWriter = (*timeoutWriter)(nil)
 
 func (tw *timeoutWriter) Flush() {
+	// The inner handler of timeoutHandler can call Flush at any time including after
+	// timeoutHandler.ServeHTTP has returned. Forwarding this call to the inner
+	// http.ResponseWriter would lead to a panic in HTTP2. See http2/server.go line 2556.
+	tw.mu.Lock()
+	defer tw.mu.Unlock()
+	if tw.timedOut {
+		return
+	}
+
 	tw.w.(http.Flusher).Flush()
 }
 

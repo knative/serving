@@ -153,3 +153,16 @@ func TestTimeoutWriterAllowsForAdditionalWrites(t *testing.T) {
 		t.Errorf("recorder.Body = %s, want %s", got, want)
 	}
 }
+
+func TestTimeoutWriterDoesntFlushAfterTimeout(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	handler := &timeoutWriter{
+		w: recorder,
+	}
+
+	handler.TimeoutAndWriteError("error")
+	handler.Flush()
+	if got, want := recorder.Flushed, false; got != want {
+		t.Errorf("recorder.Flushed = %t, want %t", got, want)
+	}
+}
