@@ -19,6 +19,9 @@ package labeler
 import (
 	"context"
 
+	"k8s.io/client-go/tools/cache"
+
+	"knative.dev/serving/pkg/apis/serving"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
@@ -29,6 +32,7 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	pkgreconciler "knative.dev/pkg/reconciler"
 )
 
 const controllerAgentName = "labeler-controller"
@@ -55,7 +59,11 @@ func NewController(
 
 	logger.Info("Setting up event handlers")
 	routeInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
-	configInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
+
+	configInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: pkgreconciler.LabelExistsFilterFunc(serving.RouteLabelKey),
+		Handler:    controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource("", serving.RouteLabelKey)),
+	})
 
 	return impl
 }

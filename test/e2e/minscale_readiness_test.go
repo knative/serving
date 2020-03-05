@@ -44,11 +44,10 @@ func TestMinScale(t *testing.T) {
 
 	clients := Setup(t)
 
-	name := test.ObjectNameForTest(t)
-
 	names := test.ResourceNames{
-		Config: name,
-		Route:  name,
+		// Config and Route have different names to avoid false positives
+		Config: test.ObjectNameForTest(t),
+		Route:  test.ObjectNameForTest(t),
 		Image:  "helloworld",
 	}
 
