@@ -2,7 +2,8 @@
 
 These are applied after update-deps.sh pulls generated dependencies
 
--------
+---
+
 ## dryruncreate.patch
 
 - Adds CreateWithOptions function to the k8s client
