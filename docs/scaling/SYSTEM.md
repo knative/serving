@@ -162,16 +162,16 @@ service. It updates the public service accordingly.
 
 A revision scales to zero once there are no more requests in the system anymore.
 All scrapes from the autoscaler to revision pods return 0 concurrency and the
-activator reports the same.
+activator reports the same (1).
 
 Before actually removing the last pod of the revision the system makes sure that
 the activator is in the path and routable. The autoscaler, who decided to
 scale-to-zero in the first place, instructs the SKS to use **`Proxy`** mode, so
-all traffic is directed at the activators. The SKS's public service is now
+all traffic is directed at the activators (4.1). The SKS's public service is now
 probed until it has been ensured to return responses from the activator. Once
 that is the case and if a grace-period (configurable via
 _scale-to-zero-grace-period_) has already passed, the last pod of the revision
-is removed and the revision has successfully scaled to zero.
+is removed and the revision has successfully scaled to zero (5).
 
 ### Scaling from zero
 
@@ -179,20 +179,20 @@ is removed and the revision has successfully scaled to zero.
 
 If a revision is scaled to zero and a request comes into the system trying to
 reach this revision, the system needs to scale it up. As the SKS is in
-**`Proxy`** mode, the request will reach the activator, which will count it and
-report its appearance to the autoscaler. The activator will then buffer the
-request and watch the SKS's private service for endpoints to appear.
+**`Proxy`** mode, the request will reach the activator (1), which will count it
+and report its appearance to the autoscaler (2.1). The activator will then
+buffer the request and watch the SKS's private service for endpoints to appear
+(2.2).
 
 The autoscaler gets the metric from the activator and immediately runs an
-autoscaling cycle immediately. That process will determine that at least one pod
-is be desired and the autoscaler will instruct the revision's deployment to
-scale up to N > 0 replicas.
+autoscaling cycle (3). That process will determine that at least one pod is be
+desired (4) and the autoscaler will instruct the revision's deployment to scale
+up to N > 0 replicas (5.1). It also puts the SKS into **`Serve`** mode, causing
+the traffic to flow to the revision's pods directly, once they come up (5.2).
 
 The activator eventually sees the endpoints coming up and starts probing it.
 Once the probe passes successfully, the respective address will be considered
 healthy and used to route the request we buffered and all additional requests
-that arrived in the meantime to.
+that arrived in the meantime (8.2).
 
-Once the autoscaler also sees the ready endpoints, it will put the SKS in
-**`Serve`** mode, causing the traffic to flow to the revision's pods directly.
 The revision has been successfully scaled from zero.
