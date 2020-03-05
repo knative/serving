@@ -26,8 +26,8 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 )
 
-// endpointsToDests takes an endpoints object and a port name and returns a list
-// of l4 dests in the endpoints object which have that port
+// endpointsToDests takes an endpoints object and a port name and returns two sets of
+// ready and non-ready l4 dests in the endpoints object which have that port.
 func endpointsToDests(endpoints *corev1.Endpoints, portName string) (sets.String, sets.String) {
 	ready := sets.NewString()
 	notReady := sets.NewString()
