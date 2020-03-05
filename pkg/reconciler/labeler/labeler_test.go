@@ -75,6 +75,24 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "default/first-reconcile",
 	}, {
+		Name: "label pinned revision",
+		Objects: []runtime.Object{
+			simpleRoute("default", "pinned-revision", "the-revision"),
+			simpleConfig("default", "red-herring", WithLatestCreated("red-herring-ecoge")),
+			rev("default", "red-herring"),
+			rev("default", "red-herring", WithRevName("red-herring-ecoge")),
+			rev("default", "red-herring", WithRevName("the-revision")),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("default", "pinned-revision"),
+			patchAddLabel("default", "the-revision",
+				"serving.knative.dev/route", "pinned-revision"),
+		},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "FinalizerUpdate", "Updated %q finalizers", "pinned-revision"),
+		},
+		Key: "default/pinned-revision",
+	}, {
 		Name: "steady state",
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "steady-state", "the-config", WithRouteFinalizer),
@@ -162,7 +180,7 @@ func TestReconcile(t *testing.T) {
 		},
 		Key: "default/config-change",
 	}, {
-		Name: "updating configuration",
+		Name: "update configuration",
 		Objects: []runtime.Object{
 			simpleRunLatest("default", "config-update", "the-config", WithRouteFinalizer),
 			simpleConfig("default", "the-config",
@@ -265,7 +283,15 @@ func routeWithTraffic(namespace, name string, traffic v1.TrafficTarget, opts ...
 
 func simpleRunLatest(namespace, name, config string, opts ...RouteOption) *v1.Route {
 	return routeWithTraffic(namespace, name, v1.TrafficTarget{
-		RevisionName: config + "-dbnfd",
+		RevisionName:   config + "-dbnfd",
+		Percent:        ptr.Int64(100),
+		LatestRevision: ptr.Bool(true),
+	}, opts...)
+}
+
+func simpleRoute(namespace, name, revision string, opts ...RouteOption) *v1.Route {
+	return routeWithTraffic(namespace, name, v1.TrafficTarget{
+		RevisionName: revision,
 		Percent:      ptr.Int64(100),
 	}, opts...)
 }
