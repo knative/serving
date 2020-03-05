@@ -83,8 +83,8 @@ func TestContexts(t *testing.T) {
 			return PodContext("testpod", "testcontainer")
 		}),
 		wantTags: map[string]string{
-			"pod_name":       "testpod",
-			"container_name": "testcontainer",
+			metricskey.PodName:       "testpod",
+			metricskey.ContainerName: "testcontainer",
 		},
 	}, {
 		name: "revision context",
@@ -114,8 +114,8 @@ func TestContexts(t *testing.T) {
 			return PodRevisionContext("testpod", "testcontainer", "testns", "testsvc", "testcfg", "testrev")
 		}),
 		wantTags: map[string]string{
-			"pod_name":                        "testpod",
-			"container_name":                  "testcontainer",
+			metricskey.PodName:                "testpod",
+			metricskey.ContainerName:          "testcontainer",
 			metricskey.LabelNamespaceName:     "testns",
 			metricskey.LabelServiceName:       "testsvc",
 			metricskey.LabelConfigurationName: "testcfg",
@@ -127,8 +127,8 @@ func TestContexts(t *testing.T) {
 			return PodRevisionContext("testpod", "testcontainer", "testns", "", "testcfg", "testrev")
 		}),
 		wantTags: map[string]string{
-			"pod_name":                        "testpod",
-			"container_name":                  "testcontainer",
+			metricskey.PodName:                "testpod",
+			metricskey.ContainerName:          "testcontainer",
 			metricskey.LabelNamespaceName:     "testns",
 			metricskey.LabelServiceName:       metricskey.ValueUnknown,
 			metricskey.LabelConfigurationName: "testcfg",
@@ -140,8 +140,8 @@ func TestContexts(t *testing.T) {
 			return PodRevisionContext("testpod", "testcontainer", "testns", "", "testcfg", "testrev")
 		}),
 		wantTags: map[string]string{
-			"pod_name":                        "testpod",
-			"container_name":                  "testcontainer",
+			metricskey.PodName:                "testpod",
+			metricskey.ContainerName:          "testcontainer",
 			metricskey.LabelNamespaceName:     "testns",
 			metricskey.LabelServiceName:       metricskey.ValueUnknown,
 			metricskey.LabelConfigurationName: "testcfg",
@@ -157,8 +157,8 @@ func TestContexts(t *testing.T) {
 			return AugmentWithRevision(ctx, "testns", "testsvc", "testcfg", "testrev")
 		}),
 		wantTags: map[string]string{
-			"pod_name":                        "testpod",
-			"container_name":                  "testcontainer",
+			metricskey.PodName:                "testpod",
+			metricskey.ContainerName:          "testcontainer",
 			metricskey.LabelNamespaceName:     "testns",
 			metricskey.LabelServiceName:       "testsvc",
 			metricskey.LabelConfigurationName: "testcfg",
@@ -171,8 +171,8 @@ func TestContexts(t *testing.T) {
 			return AugmentWithResponse(ctx, 200), err
 		}),
 		wantTags: map[string]string{
-			"pod_name":                        "testpod",
-			"container_name":                  "testcontainer",
+			metricskey.PodName:                "testpod",
+			metricskey.ContainerName:          "testcontainer",
 			metricskey.LabelNamespaceName:     "testns",
 			metricskey.LabelServiceName:       metricskey.ValueUnknown,
 			metricskey.LabelConfigurationName: "testcfg",

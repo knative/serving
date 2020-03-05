@@ -52,8 +52,8 @@ func TestRequestMetricsHandler(t *testing.T) {
 		metricskey.LabelRevisionName:      "rev",
 		metricskey.LabelServiceName:       "svc",
 		metricskey.LabelConfigurationName: "cfg",
-		"pod_name":                        "pod",
-		"container_name":                  "queue-proxy",
+		metricskey.PodName:                "pod",
+		metricskey.ContainerName:          "queue-proxy",
 		metricskey.LabelResponseCode:      "200",
 		metricskey.LabelResponseCodeClass: "2xx",
 	}
@@ -96,8 +96,8 @@ func TestRequestMetricsHandlerPanickingHandler(t *testing.T) {
 			metricskey.LabelRevisionName:      "rev",
 			metricskey.LabelServiceName:       "svc",
 			metricskey.LabelConfigurationName: "cfg",
-			"pod_name":                        "pod",
-			"container_name":                  "queue-proxy",
+			metricskey.PodName:                "pod",
+			metricskey.ContainerName:          "queue-proxy",
 			metricskey.LabelResponseCode:      "500",
 			metricskey.LabelResponseCodeClass: "5xx",
 		}
@@ -158,8 +158,8 @@ func TestAppRequestMetricsHandlerPanickingHandler(t *testing.T) {
 			metricskey.LabelRevisionName:      "rev",
 			metricskey.LabelServiceName:       "svc",
 			metricskey.LabelConfigurationName: "cfg",
-			"pod_name":                        "pod",
-			"container_name":                  "queue-proxy",
+			metricskey.PodName:                "pod",
+			metricskey.ContainerName:          "queue-proxy",
 			metricskey.LabelResponseCode:      "500",
 			metricskey.LabelResponseCodeClass: "5xx",
 		}
@@ -188,8 +188,8 @@ func TestAppRequestMetricsHandler(t *testing.T) {
 		metricskey.LabelRevisionName:      "rev",
 		metricskey.LabelServiceName:       "svc",
 		metricskey.LabelConfigurationName: "cfg",
-		"pod_name":                        "pod",
-		"container_name":                  "queue-proxy",
+		metricskey.PodName:                "pod",
+		metricskey.ContainerName:          "queue-proxy",
 		metricskey.LabelResponseCode:      "200",
 		metricskey.LabelResponseCodeClass: "2xx",
 	}

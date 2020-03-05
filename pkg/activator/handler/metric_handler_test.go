@@ -93,8 +93,8 @@ func TestRequestMetricHandler(t *testing.T) {
 				}
 
 				wantTags := map[string]string{
-					"pod_name":                        testPod,
-					"container_name":                  activator.Name,
+					metricskey.PodName:                testPod,
+					metricskey.ContainerName:          activator.Name,
 					metricskey.LabelNamespaceName:     rev.Namespace,
 					metricskey.LabelServiceName:       rev.Labels[serving.ServiceLabelKey],
 					metricskey.LabelConfigurationName: rev.Labels[serving.ConfigurationLabelKey],
