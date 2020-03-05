@@ -73,7 +73,6 @@ import (
 	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler/ingress/config"
 	"knative.dev/serving/pkg/reconciler/ingress/resources"
-	presources "knative.dev/serving/pkg/resources"
 
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1"
@@ -1113,7 +1112,7 @@ func patchAddFinalizerAction(ingressName, finalizer string) clientgotesting.Patc
 
 func addAnnotations(ing *v1alpha1.Ingress, annos map[string]string) *v1alpha1.Ingress {
 	// UnionMaps(a, b) where value from b wins. Use annos for second arg.
-	ing.ObjectMeta.Annotations = presources.UnionMaps(ing.ObjectMeta.Annotations, annos)
+	ing.ObjectMeta.Annotations = kmeta.UnionMaps(ing.ObjectMeta.Annotations, annos)
 	return ing
 }
 

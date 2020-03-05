@@ -31,6 +31,7 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/serving"
@@ -39,7 +40,6 @@ import (
 	ksvcreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/service"
 	configresources "knative.dev/serving/pkg/reconciler/configuration/resources"
 	"knative.dev/serving/pkg/reconciler/service/resources"
-	presources "knative.dev/serving/pkg/resources"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -227,7 +227,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			DefaultService("update-annos", "foo", WithRunLatestRollout, WithInitSvcConditions,
 				func(s *v1.Service) {
-					s.Annotations = presources.UnionMaps(s.Annotations,
+					s.Annotations = kmeta.UnionMaps(s.Annotations,
 						map[string]string{"new-key": "new-value"})
 				}),
 			config("update-annos", "foo", WithRunLatestRollout),
@@ -237,13 +237,13 @@ func TestReconcile(t *testing.T) {
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: config("update-annos", "foo", WithRunLatestRollout,
 				func(s *v1.Configuration) {
-					s.Annotations = presources.UnionMaps(s.Annotations,
+					s.Annotations = kmeta.UnionMaps(s.Annotations,
 						map[string]string{"new-key": "new-value"})
 				}),
 		}, {
 			Object: route("update-annos", "foo", WithRunLatestRollout,
 				func(s *v1.Route) {
-					s.Annotations = presources.UnionMaps(s.Annotations,
+					s.Annotations = kmeta.UnionMaps(s.Annotations,
 						map[string]string{"new-key": "new-value"})
 				}),
 		}},
@@ -253,12 +253,12 @@ func TestReconcile(t *testing.T) {
 			DefaultService("update-annos", "foo", WithRunLatestRollout, WithInitSvcConditions),
 			config("update-annos", "foo", WithRunLatestRollout,
 				func(s *v1.Configuration) {
-					s.Annotations = presources.UnionMaps(s.Annotations,
+					s.Annotations = kmeta.UnionMaps(s.Annotations,
 						map[string]string{"new-key": "new-value"})
 				}),
 			route("update-annos", "foo", WithRunLatestRollout,
 				func(s *v1.Route) {
-					s.Annotations = presources.UnionMaps(s.Annotations,
+					s.Annotations = kmeta.UnionMaps(s.Annotations,
 						map[string]string{"new-key": "new-value"})
 				}),
 		},

@@ -24,7 +24,6 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/service/resources/names"
-	"knative.dev/serving/pkg/resources"
 )
 
 // MakeConfiguration creates a Configuration from a Service object.
@@ -36,11 +35,11 @@ func MakeConfiguration(service *v1.Service) (*v1.Configuration, error) {
 			OwnerReferences: []metav1.OwnerReference{
 				*kmeta.NewControllerRef(service),
 			},
-			Labels: resources.UnionMaps(service.GetLabels(), map[string]string{
+			Labels: kmeta.UnionMaps(service.GetLabels(), map[string]string{
 				serving.RouteLabelKey:   names.Route(service),
 				serving.ServiceLabelKey: service.Name,
 			}),
-			Annotations: resources.FilterMap(service.GetAnnotations(), func(key string) bool {
+			Annotations: kmeta.FilterMap(service.GetAnnotations(), func(key string) bool {
 				return key == corev1.LastAppliedConfigAnnotation
 			}),
 		},

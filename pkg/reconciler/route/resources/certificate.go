@@ -23,7 +23,6 @@ import (
 
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/resources"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -63,7 +62,7 @@ func MakeCertificates(route *v1.Route, domainTagMap map[string]string, certClass
 				Name:            certName,
 				Namespace:       route.Namespace,
 				OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(route)},
-				Annotations: resources.FilterMap(resources.UnionMaps(map[string]string{
+				Annotations: kmeta.FilterMap(kmeta.UnionMaps(map[string]string{
 					networking.CertificateClassAnnotationKey: certClass,
 				}, route.ObjectMeta.Annotations), func(key string) bool {
 					return key == corev1.LastAppliedConfigAnnotation

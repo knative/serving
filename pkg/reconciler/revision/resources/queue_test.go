@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
 	_ "knative.dev/pkg/metrics/testing"
@@ -43,7 +44,6 @@ import (
 	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 	"knative.dev/serving/pkg/deployment"
 	"knative.dev/serving/pkg/network"
-	"knative.dev/serving/pkg/resources"
 )
 
 var (
@@ -1111,7 +1111,7 @@ func probeJSON(container *corev1.Container) string {
 }
 
 func env(overrides map[string]string) []corev1.EnvVar {
-	values := resources.UnionMaps(defaultEnv, overrides)
+	values := kmeta.UnionMaps(defaultEnv, overrides)
 
 	var env []corev1.EnvVar
 	for key, value := range values {
