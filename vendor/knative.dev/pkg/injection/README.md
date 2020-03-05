@@ -317,8 +317,8 @@ Optionally, support for finalizers:
 ```
 
 - `ReconcileKind` is only called if the resource's deletion timestamp is empty.
-- `FinalizeKind` is optional, and if implemented by the reconciler will be called
-  when the resource's deletion timestamp is set.
+- `FinalizeKind` is optional, and if implemented by the reconciler will be
+  called when the resource's deletion timestamp is set.
 
 The responsibility and consequences of using the generated
 `ReconcileKind(resource)` method are as follows:
