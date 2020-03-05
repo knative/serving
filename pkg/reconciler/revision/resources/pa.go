@@ -25,7 +25,6 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
-	"knative.dev/serving/pkg/resources"
 )
 
 // MakePA makes a Knative Pod Autoscaler resource from a revision.
@@ -35,7 +34,7 @@ func MakePA(rev *v1.Revision) *av1alpha1.PodAutoscaler {
 			Name:      names.PA(rev),
 			Namespace: rev.Namespace,
 			Labels:    makeLabels(rev),
-			Annotations: resources.FilterMap(rev.GetAnnotations(), func(k string) bool {
+			Annotations: kmeta.FilterMap(rev.GetAnnotations(), func(k string) bool {
 				// Ignore last pinned annotation.
 				return k == serving.RevisionLastPinnedAnnotationKey
 			}),

@@ -74,7 +74,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
 	revisionresources "knative.dev/serving/pkg/reconciler/revision/resources"
-	presources "knative.dev/serving/pkg/resources"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -1559,7 +1558,7 @@ func addEndpoint(ep *corev1.Endpoints) *corev1.Endpoints {
 
 func withMinScale(minScale int) PodAutoscalerOption {
 	return func(pa *asv1a1.PodAutoscaler) {
-		pa.Annotations = presources.UnionMaps(
+		pa.Annotations = kmeta.UnionMaps(
 			pa.Annotations,
 			map[string]string{autoscaling.MinScaleAnnotationKey: strconv.Itoa(minScale)},
 		)
