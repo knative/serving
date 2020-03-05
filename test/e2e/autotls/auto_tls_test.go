@@ -29,6 +29,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"knative.dev/pkg/ptr"
+	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/networking"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	routenames "knative.dev/serving/pkg/reconciler/route/resources/names"
@@ -90,7 +92,54 @@ func testAutoTLS(t *testing.T) {
 	certName := getCertificateName(t, clients, objects)
 	rootCAs := createRootCAs(t, clients, objects.Route.Namespace, certName)
 	httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
-	testingress.RuntimeRequest(t, httpsClient, "https://"+objects.Service.Status.URL.Host)
+	testingress.RuntimeRequest(t, httpsClient, objects.Service.Status.URL.String())
+
+	t.Run("Tag route", func(t *testing.T) {
+		// Probe main URL while we update the route
+		var transportOption spoof.TransportOption = func(transport *http.Transport) *http.Transport {
+			transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
+			return transport
+		}
+		prober := test.RunRouteProber(t.Logf, clients, objects.Service.Status.URL.URL(), transportOption)
+		defer test.AssertProberDefault(t, prober)
+
+		if _, err := v1test.UpdateServiceRouteSpec(t, clients, names, servingv1.RouteSpec{
+			Traffic: []servingv1.TrafficTarget{{
+				Tag:            "tag1",
+				Percent:        ptr.Int64(50),
+				LatestRevision: ptr.Bool(true),
+			}, {
+				Tag:            "tag2",
+				Percent:        ptr.Int64(50),
+				LatestRevision: ptr.Bool(true),
+			}},
+		}); err != nil {
+			t.Fatalf("Failed to update Service route spec: %v", err)
+		}
+		if err = v1test.WaitForRouteState(clients.ServingClient, names.Route, routeTrafficHTTPS, "RouteTrafficIsHTTPS"); err != nil {
+			t.Fatalf("Traffic for route: %s is not HTTPS: %v", names.Route, err)
+		}
+
+		ing, err := clients.NetworkingClient.Ingresses.Get(routenames.Ingress(objects.Route), metav1.GetOptions{})
+		if err != nil {
+			t.Fatalf("Failed to get ingress: %v", err)
+		}
+		for _, tls := range ing.Spec.TLS {
+			// Each new cert has to be added to the root pool so we can make requests.
+			if !rootCAs.AppendCertsFromPEM(getPEMDataFromSecret(t, clients, tls.SecretNamespace, tls.SecretName)) {
+				t.Fatal("Failed to add the certificate to the root CA")
+			}
+		}
+
+		route, err := clients.ServingClient.Routes.Get(objects.Route.Name, metav1.GetOptions{})
+		if err != nil {
+			t.Fatalf("Failed to get route: %v", err)
+		}
+		httpsClient := createHTTPSClient(t, clients, objects, rootCAs)
+		for _, traffic := range route.Status.Traffic {
+			testingress.RuntimeRequest(t, httpsClient, traffic.URL.String())
+		}
+	})
 }
 
 func getCertificateName(t *testing.T, clients *test.Clients, objects *v1test.ResourceObjects) string {
@@ -105,6 +154,15 @@ func getCertificateName(t *testing.T, clients *test.Clients, objects *v1test.Res
 	return ing.Spec.TLS[0].SecretName
 }
 
+func routeTrafficHTTPS(route *servingv1.Route) (bool, error) {
+	for _, tt := range route.Status.Traffic {
+		if tt.URL.URL().Scheme != "https" {
+			return false, nil
+		}
+	}
+	return route.Status.IsReady() && true, nil
+}
+
 func httpsReady(svc *servingv1.Service) (bool, error) {
 	if ready, err := v1test.IsServiceReady(svc); err != nil {
 		return ready, err
@@ -115,13 +173,19 @@ func httpsReady(svc *servingv1.Service) (bool, error) {
 	}
 }
 
-func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *x509.CertPool {
+func getPEMDataFromSecret(t *testing.T, clients *test.Clients, ns, secretName string) []byte {
 	t.Helper()
 	secret, err := clients.KubeClient.Kube.CoreV1().Secrets(ns).Get(
 		secretName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("Failed to get Secret %s: %v", secretName, err)
 	}
+	return secret.Data[corev1.TLSCertKey]
+}
+
+func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *x509.CertPool {
+	t.Helper()
+	pemData := getPEMDataFromSecret(t, clients, ns, secretName)
 
 	rootCAs, err := x509.SystemCertPool()
 	if rootCAs == nil || err != nil {
@@ -130,7 +194,7 @@ func createRootCAs(t *testing.T, clients *test.Clients, ns, secretName string) *
 		}
 		rootCAs = x509.NewCertPool()
 	}
-	if !rootCAs.AppendCertsFromPEM(secret.Data[corev1.TLSCertKey]) {
+	if !rootCAs.AppendCertsFromPEM(pemData) {
 		t.Fatal("Failed to add the certificate to the root CA")
 	}
 	return rootCAs
