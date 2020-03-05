@@ -113,6 +113,12 @@ var _ http.Flusher = (*timeoutWriter)(nil)
 var _ http.ResponseWriter = (*timeoutWriter)(nil)
 
 func (tw *timeoutWriter) Flush() {
+	tw.mu.Lock()
+	defer tw.mu.Unlock()
+	if tw.timedOut {
+		return
+	}
+
 	tw.w.(http.Flusher).Flush()
 }
 
