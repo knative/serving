@@ -539,13 +539,13 @@ func TestProbeVerifier(t *testing.T) {
 	prober := NewProber(zaptest.NewLogger(t).Sugar(), nil, nil)
 	verifier := prober.probeVerifier(&workItem{
 		ingressState: &ingressState{
-			hash:         hash,
+			hash: hash,
 		},
-		podState:     nil,
-		context:      nil,
-		url:          nil,
-		podIP:        "",
-		podPort:      "",
+		podState: nil,
+		context:  nil,
+		url:      nil,
+		podIP:    "",
+		podPort:  "",
 	})
 	cases := []struct {
 		name string
@@ -554,51 +554,51 @@ func TestProbeVerifier(t *testing.T) {
 	}{{
 		name: "HTTP 200 matching hash",
 		resp: &http.Response{
-			StatusCode:       http.StatusOK,
-			Header:           http.Header{network.HashHeaderName: []string{hash}},
+			StatusCode: http.StatusOK,
+			Header:     http.Header{network.HashHeaderName: []string{hash}},
 		},
 		want: true,
-	},{
+	}, {
 		name: "HTTP 200 mismatching hash",
 		resp: &http.Response{
-			StatusCode:       http.StatusOK,
-			Header:           http.Header{network.HashHeaderName: []string{"nope"}},
+			StatusCode: http.StatusOK,
+			Header:     http.Header{network.HashHeaderName: []string{"nope"}},
 		},
 		want: false,
-	},{
+	}, {
 		name: "HTTP 200 missing header",
 		resp: &http.Response{
-			StatusCode:       http.StatusOK,
+			StatusCode: http.StatusOK,
 		},
 		want: true,
-	},{
+	}, {
 		name: "HTTP 404",
 		resp: &http.Response{
-			StatusCode:       http.StatusNotFound,
+			StatusCode: http.StatusNotFound,
 		},
 		want: false,
 	}, {
 		name: "HTTP 503",
 		resp: &http.Response{
-			StatusCode:       http.StatusServiceUnavailable,
+			StatusCode: http.StatusServiceUnavailable,
 		},
 		want: false,
 	}, {
 		name: "HTTP 403",
 		resp: &http.Response{
-			StatusCode:       http.StatusForbidden,
+			StatusCode: http.StatusForbidden,
 		},
 		want: true,
 	}, {
 		name: "HTTP 503",
 		resp: &http.Response{
-			StatusCode:       http.StatusServiceUnavailable,
+			StatusCode: http.StatusServiceUnavailable,
 		},
 		want: false,
 	}, {
 		name: "HTTP 302",
 		resp: &http.Response{
-			StatusCode:       http.StatusFound,
+			StatusCode: http.StatusFound,
 		},
 		want: true,
 	}}
