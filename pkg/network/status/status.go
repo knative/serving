@@ -428,4 +428,3 @@ func (m *Prober) probeVerifier(item *workItem) prober.Verifier {
 		}
 	}
 }
-
