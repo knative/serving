@@ -54,39 +54,43 @@ const (
 	DefaultMaxRevisionContainerConcurrency int64 = 1000
 )
 
+func defaultConfig() *Defaults {
+	return &Defaults{
+		RevisionTimeoutSeconds:       DefaultRevisionTimeoutSeconds,
+		MaxRevisionTimeoutSeconds:    DefaultMaxRevisionTimeoutSeconds,
+		UserContainerNameTemplate:    DefaultUserContainerName,
+		ContainerConcurrency:         DefaultContainerConcurrency,
+		ContainerConcurrencyMaxLimit: DefaultMaxRevisionContainerConcurrency,
+	}
+}
+
 // NewDefaultsConfigFromMap creates a Defaults from the supplied Map
 func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
-	nc := &Defaults{}
+	nc := defaultConfig()
 
 	// Process int64 fields
 	for _, i64 := range []struct {
 		key   string
 		field *int64
-		// specified exactly when optional
-		defaultValue int64
 	}{{
-		key:          "revision-timeout-seconds",
-		field:        &nc.RevisionTimeoutSeconds,
-		defaultValue: DefaultRevisionTimeoutSeconds,
+		key:   "revision-timeout-seconds",
+		field: &nc.RevisionTimeoutSeconds,
 	}, {
-		key:          "max-revision-timeout-seconds",
-		field:        &nc.MaxRevisionTimeoutSeconds,
-		defaultValue: DefaultMaxRevisionTimeoutSeconds,
+		key:   "max-revision-timeout-seconds",
+		field: &nc.MaxRevisionTimeoutSeconds,
 	}, {
-		key:          "container-concurrency",
-		field:        &nc.ContainerConcurrency,
-		defaultValue: DefaultContainerConcurrency,
+		key:   "container-concurrency",
+		field: &nc.ContainerConcurrency,
 	}, {
-		key:          "container-concurrency-max-limit",
-		field:        &nc.ContainerConcurrencyMaxLimit,
-		defaultValue: DefaultMaxRevisionContainerConcurrency,
+		key:   "container-concurrency-max-limit",
+		field: &nc.ContainerConcurrencyMaxLimit,
 	}} {
-		if raw, ok := data[i64.key]; !ok {
-			*i64.field = i64.defaultValue
-		} else if val, err := strconv.ParseInt(raw, 10, 64); err != nil {
-			return nil, err
-		} else {
-			*i64.field = val
+		if raw, ok := data[i64.key]; ok {
+			if val, err := strconv.ParseInt(raw, 10, 64); err != nil {
+				return nil, err
+			} else {
+				*i64.field = val
+			}
 		}
 	}
 

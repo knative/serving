@@ -133,8 +133,7 @@ func CreateServiceReady(t pkgTest.T, clients *test.Clients, names *test.Resource
 func CreateService(t pkgTest.T, clients *test.Clients, names test.ResourceNames, fopt ...rtesting.ServiceOption) (*v1.Service, error) {
 	service := Service(names, fopt...)
 	LogResourceObject(t, ResourceObjects{Service: service})
-	svc, err := clients.ServingClient.Services.Create(service)
-	return svc, err
+	return clients.ServingClient.Services.Create(service)
 }
 
 // PatchService patches the existing service passed in with the applied mutations.
