@@ -17,6 +17,7 @@ limitations under the License.
 package serving
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"testing"
@@ -24,11 +25,31 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/apis"
+	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/config"
+	autoscalerconfig "knative.dev/serving/pkg/autoscaler/config"
 )
+
+func enableMultiContainer(ctx context.Context, t *testing.T) context.Context {
+	logger := logtesting.TestLogger(t)
+	s := config.NewStore(logger)
+	s.OnConfigChanged(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: autoscalerconfig.ConfigName}})
+	s.OnConfigChanged(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: config.DefaultsConfigName,
+		},
+		Data: map[string]string{
+			"enable-multi-container": "true",
+		},
+	})
+
+	return s.ToContext(ctx)
+}
 
 func TestPodSpecValidation(t *testing.T) {
 	tests := []struct {
@@ -183,7 +204,135 @@ func TestPodSpecValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := ValidatePodSpec(test.ps)
+			got := ValidatePodSpec(context.Background(), test.ps)
+			if !cmp.Equal(test.want.Error(), got.Error()) {
+				t.Errorf("ValidatePodSpec (-want, +got) = %v",
+					cmp.Diff(test.want.Error(), got.Error()))
+			}
+		})
+	}
+}
+
+func TestPodSpecValidationOnUpdateDefaultConfigMap(t *testing.T) {
+	tests := []struct {
+		name string
+		ps   corev1.PodSpec
+		wc   context.Context
+		want *apis.FieldError
+	}{{
+		name: "flag disabled: more than one container",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8888,
+				}},
+			}, {
+				Image: "helloworld",
+			}},
+		},
+		want: apis.ErrMultipleOneOf("containers"),
+	}, {
+		name: "flag enabled: more than one container with one container port",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8888,
+				}},
+			}, {
+				Image: "helloworld",
+			}},
+		},
+		wc:   enableMultiContainer(context.Background(), t),
+		want: nil,
+	}, {
+		name: "flag enabled: probes are not allowed for non serving containers",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8888,
+				}},
+			}, {
+				Image: "helloworld",
+				LivenessProbe: &corev1.Probe{
+					TimeoutSeconds: 1,
+				},
+				ReadinessProbe: &corev1.Probe{
+					TimeoutSeconds: 1,
+				},
+			}},
+		},
+		wc: enableMultiContainer(context.Background(), t),
+		want: &apis.FieldError{
+			Message: "must not set the field(s)",
+			Paths:   []string{"containers[1].livenessProbe.timeoutSeconds", "containers[1].readinessProbe.timeoutSeconds"},
+		},
+	}, {
+		name: "flag enabled: too many containers with no port",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+			}, {
+				Image: "helloworld",
+			}},
+		},
+		wc:   enableMultiContainer(context.Background(), t),
+		want: apis.ErrMissingField("containers.ports"),
+	}, {
+		name: "flag enabled: too many containers with too many port",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8888,
+				}},
+			}, {
+				Image: "helloworld",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 9999,
+				}},
+			}},
+		},
+		wc: enableMultiContainer(context.Background(), t),
+		want: &apis.FieldError{
+			Message: "More than one container port is set",
+			Paths:   []string{"containers.ports"},
+			Details: "Only a single port is allowed",
+		},
+	}, {
+		name: "flag enabled: too many containers with too many port for a single container",
+		ps: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Image: "busybox",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 8888,
+				}, {
+					ContainerPort: 9999,
+				}},
+			}, {
+				Image: "helloworld",
+				Ports: []corev1.ContainerPort{{
+					ContainerPort: 80,
+				}},
+			}},
+		},
+		wc: enableMultiContainer(context.Background(), t),
+		want: &apis.FieldError{
+			Message: "More than one container port is set",
+			Paths:   []string{"containers.ports, containers[0].ports"},
+			Details: "Only a single port is allowed",
+		},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+			if test.wc != nil {
+				ctx = test.wc
+			}
+			got := ValidatePodSpec(ctx, test.ps)
 			if !cmp.Equal(test.want.Error(), got.Error()) {
 				t.Errorf("ValidatePodSpec (-want, +got) = %v",
 					cmp.Diff(test.want.Error(), got.Error()))

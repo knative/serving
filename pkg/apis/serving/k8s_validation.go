@@ -17,6 +17,7 @@ limitations under the License.
 package serving
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"path/filepath"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/profiling"
+	"knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/networking"
 )
 
@@ -236,7 +238,8 @@ func validateEnvFrom(envFromList []corev1.EnvFromSource) *apis.FieldError {
 	return errs
 }
 
-func ValidatePodSpec(ps corev1.PodSpec) *apis.FieldError {
+// ValidatePodSpec validates the pod spec
+func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 	// This is inlined, and so it makes for a less meaningful
 	// error message.
 	// if equality.Semantic.DeepEqual(ps, corev1.PodSpec{}) {
@@ -257,7 +260,21 @@ func ValidatePodSpec(ps corev1.PodSpec) *apis.FieldError {
 		errs = errs.Also(ValidateContainer(ps.Containers[0], volumes).
 			ViaFieldIndex("containers", 0))
 	default:
-		errs = errs.Also(apis.ErrMultipleOneOf("containers"))
+		cfg := config.FromContextOrDefaults(ctx).Defaults
+		if !cfg.EnableMultiContainer {
+			errs = errs.Also(apis.ErrMultipleOneOf("containers"))
+		} else {
+			errs = errs.Also(ValidateMultiContainerPorts(ps.Containers)).ViaField("containers")
+			for i := range ps.Containers {
+				// probes are not allowed other than serving container
+				// ref: https://docs.google.com/document/d/1XjIRnOGaq9UGllkZgYXQHuTQmhbECNAOk6TT6RNfJMw/edit?disco=AAAAEHNSwZU
+				if len(ps.Containers[i].Ports) == 0 {
+					errs = errs.Also(ValidateSidecarContainer(ps.Containers[i], volumes).ViaFieldIndex("containers", i))
+				} else {
+					errs = errs.Also(ValidateContainer(ps.Containers[i], volumes).ViaFieldIndex("containers", i))
+				}
+			}
+		}
 	}
 	if ps.ServiceAccountName != "" {
 		for range validation.IsDNS1123Subdomain(ps.ServiceAccountName) {
@@ -267,7 +284,58 @@ func ValidatePodSpec(ps corev1.PodSpec) *apis.FieldError {
 	return errs
 }
 
+// ValidateMultiContainerPorts validates port when specified multiple containers
+func ValidateMultiContainerPorts(containers []corev1.Container) *apis.FieldError {
+	var (
+		count int
+		errs  *apis.FieldError
+	)
+	for i := range containers {
+		count += len(containers[i].Ports)
+	}
+	if count == 0 {
+		errs = errs.Also(apis.ErrMissingField(apis.CurrentField))
+	}
+	return errs.Also(portValidation(count)).ViaField("ports")
+}
+
+// ValidateSidecarContainer validate fields for non serving containers
+func ValidateSidecarContainer(container corev1.Container, volumes sets.String) *apis.FieldError {
+	var errs *apis.FieldError
+	if container.LivenessProbe != nil {
+		errs = errs.Also(apis.CheckDisallowedFields(*container.LivenessProbe,
+			*ProbeMask(&corev1.Probe{})).ViaField("livenessProbe"))
+	}
+	if container.ReadinessProbe != nil {
+		errs = errs.Also(apis.CheckDisallowedFields(*container.ReadinessProbe,
+			*ProbeMask(&corev1.Probe{})).ViaField("readinessProbe"))
+	}
+	return errs.Also(validate(container, volumes))
+}
+
+// ValidateContainer validate fields for serving containers
 func ValidateContainer(container corev1.Container, volumes sets.String) *apis.FieldError {
+	var errs *apis.FieldError
+	errs = errs.Also(portValidation(len(container.Ports))).ViaField("ports")
+	// Liveness Probes
+	errs = errs.Also(validateProbe(container.LivenessProbe).ViaField("livenessProbe"))
+	// Readiness Probes
+	errs = errs.Also(validateReadinessProbe(container.ReadinessProbe).ViaField("readinessProbe"))
+	return errs.Also(validate(container, volumes))
+}
+
+func portValidation(count int) *apis.FieldError {
+	if count > 1 {
+		return &apis.FieldError{
+			Message: "More than one container port is set",
+			Paths:   []string{apis.CurrentField},
+			Details: "Only a single port is allowed",
+		}
+	}
+	return nil
+}
+
+func validate(container corev1.Container, volumes sets.String) *apis.FieldError {
 	if equality.Semantic.DeepEqual(container, corev1.Container{}) {
 		return apis.ErrMissingField(apis.CurrentField)
 	}
@@ -296,12 +364,8 @@ func ValidateContainer(container corev1.Container, volumes sets.String) *apis.Fi
 		}
 		errs = errs.Also(fe)
 	}
-	// Liveness Probes
-	errs = errs.Also(validateProbe(container.LivenessProbe).ViaField("livenessProbe"))
 	// Ports
 	errs = errs.Also(validateContainerPorts(container.Ports).ViaField("ports"))
-	// Readiness Probes
-	errs = errs.Also(validateReadinessProbe(container.ReadinessProbe).ViaField("readinessProbe"))
 	// Resources
 	errs = errs.Also(validateResources(&container.Resources).ViaField("resources"))
 	// SecurityContext
@@ -397,14 +461,6 @@ func validateContainerPorts(ports []corev1.ContainerPort) *apis.FieldError {
 	// user can set container port which names "user-port" to define application's port.
 	// Queue-proxy will use it to send requests to application
 	// if user didn't set any port, it will set default port user-port=8080.
-	if len(ports) > 1 {
-		errs = errs.Also(&apis.FieldError{
-			Message: "More than one container port is set",
-			Paths:   []string{apis.CurrentField},
-			Details: "Only a single port is allowed",
-		})
-	}
-
 	userPort := ports[0]
 
 	errs = errs.Also(apis.CheckDisallowedFields(userPort, *ContainerPortMask(&userPort)))

@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"math"
 	"strconv"
+	"strings"
 	"text/template"
 
 	corev1 "k8s.io/api/core/v1"
@@ -67,6 +68,24 @@ func defaultConfig() *Defaults {
 // NewDefaultsConfigFromMap creates a Defaults from the supplied Map
 func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 	nc := defaultConfig()
+
+	// Process bool fields.
+	for _, b := range []struct {
+		key          string
+		field        *bool
+		defaultValue bool
+	}{
+		{
+			key:          "enable-multi-container",
+			field:        &nc.EnableMultiContainer,
+			defaultValue: false,
+		}} {
+		if raw, ok := data[b.key]; !ok {
+			*b.field = b.defaultValue
+		} else {
+			*b.field = strings.EqualFold(raw, "true")
+		}
+	}
 
 	// Process int64 fields
 	for _, i64 := range []struct {
@@ -158,6 +177,8 @@ func NewDefaultsConfigFromConfigMap(config *corev1.ConfigMap) (*Defaults, error)
 
 // Defaults includes the default values to be populated by the webhook.
 type Defaults struct {
+	EnableMultiContainer bool
+
 	RevisionTimeoutSeconds int64
 	// This is the timeout set for cluster ingress.
 	// RevisionTimeoutSeconds must be less than this value.

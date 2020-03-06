@@ -296,6 +296,79 @@ func TestRevisionDefaulting(t *testing.T) {
 				},
 			},
 		},
+	}, {
+		name: "multiple containers",
+		wc:   v1.WithUpgradeViaDefaulting,
+		in: &Revision{
+			Spec: RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
+					PodSpec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Name: "busybox",
+							Ports: []corev1.ContainerPort{{
+								ContainerPort: 8888,
+							}},
+						}, {
+							Name: "helloworld",
+						}},
+					},
+					ContainerConcurrency: ptr.Int64(1),
+					TimeoutSeconds:       ptr.Int64(99),
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
+					PodSpec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Name: "busybox",
+							Ports: []corev1.ContainerPort{{
+								ContainerPort: 8888,
+							}},
+							Resources:      defaultResources,
+							ReadinessProbe: defaultProbe,
+						}, {
+							Name:      "helloworld",
+							Resources: defaultResources,
+						}},
+					},
+					ContainerConcurrency: ptr.Int64(1),
+					TimeoutSeconds:       ptr.Int64(99),
+				},
+			},
+		},
+	}, {
+		name: "multiple containers without container name",
+		wc:   v1.WithUpgradeViaDefaulting,
+		in: &Revision{
+			Spec: RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
+					PodSpec: corev1.PodSpec{
+						Containers: []corev1.Container{{}, {}},
+					},
+					ContainerConcurrency: ptr.Int64(1),
+					TimeoutSeconds:       ptr.Int64(99),
+				},
+			},
+		},
+		want: &Revision{
+			Spec: RevisionSpec{
+				RevisionSpec: v1.RevisionSpec{
+					PodSpec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Name:      "user-container-0",
+							Resources: defaultResources,
+						}, {
+							Name:      "user-container-1",
+							Resources: defaultResources,
+						}},
+					},
+					ContainerConcurrency: ptr.Int64(1),
+					TimeoutSeconds:       ptr.Int64(99),
+				},
+			},
+		},
 	}}
 
 	for _, test := range tests {

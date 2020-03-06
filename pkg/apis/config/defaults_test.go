@@ -74,6 +74,25 @@ func TestDefaultsConfiguration(t *testing.T) {
 			"container-name-template":         "{{.Name}}",
 		},
 	}, {
+		name:    "invalid multi container flag value",
+		wantErr: false,
+		wantDefaults: &Defaults{
+			EnableMultiContainer:         false,
+			RevisionTimeoutSeconds:       DefaultRevisionTimeoutSeconds,
+			MaxRevisionTimeoutSeconds:    DefaultMaxRevisionTimeoutSeconds,
+			UserContainerNameTemplate:    DefaultUserContainerName,
+			ContainerConcurrencyMaxLimit: DefaultMaxRevisionContainerConcurrency,
+		},
+		config: &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      DefaultsConfigName,
+			},
+			Data: map[string]string{
+				"enable-multi-container": "invalid",
+			},
+		},
+	}, {
 		name:         "bad revision timeout",
 		wantErr:      true,
 		wantDefaults: (*Defaults)(nil),
