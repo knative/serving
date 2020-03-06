@@ -296,7 +296,6 @@ function install_knative_serving_standard() {
     echo "Knative YAML: ${1}"
     ko apply -f "${1}" --selector=knative.dev/crd-install=true || return 1
     UNINSTALL_LIST+=( "${1}" )
-    SERVING_ISTIO_YAML="${1}"
   fi
 
   echo ">> Installing Ingress"
@@ -309,7 +308,7 @@ function install_knative_serving_standard() {
   elif [[ -n "${CONTOUR_VERSION}" ]]; then
     install_contour || return 1
   else
-    install_istio "${SERVING_ISTIO_YAML}" || return 1
+    install_istio "./third_party/net-istio.yaml" || return 1
   fi
 
   echo ">> Installing Cert-Manager"

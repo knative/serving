@@ -24,21 +24,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/system"
 
-	. "knative.dev/pkg/configmap/testing"
 	_ "knative.dev/pkg/system/testing"
 )
-
-func TestIstio(t *testing.T) {
-	cm, example := ConfigMapsFromTestFile(t, IstioConfigName)
-
-	if _, err := NewIstioFromConfigMap(cm); err != nil {
-		t.Errorf("NewIstioFromConfigMap(actual) = %v", err)
-	}
-
-	if _, err := NewIstioFromConfigMap(example); err != nil {
-		t.Errorf("NewIstioFromConfigMap(example) = %v", err)
-	}
-}
 
 func TestQualifiedName(t *testing.T) {
 	g := Gateway{

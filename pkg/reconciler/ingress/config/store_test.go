@@ -21,7 +21,10 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	logtesting "knative.dev/pkg/logging/testing"
+	"knative.dev/pkg/system"
 
 	. "knative.dev/pkg/configmap/testing"
 	"knative.dev/serving/pkg/network"
@@ -30,16 +33,15 @@ import (
 func TestStoreLoadWithContext(t *testing.T) {
 	store := NewStore(logtesting.TestLogger(t))
 
-	istioConfig := ConfigMapFromTestFile(t, IstioConfigName)
 	networkConfig := ConfigMapFromTestFile(t, network.ConfigName)
-	store.OnConfigChanged(istioConfig)
 	store.OnConfigChanged(networkConfig)
+	store.OnConfigChanged(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      IstioConfigName,
+			Namespace: system.Namespace(),
+		},
+	})
 	config := FromContext(store.ToContext(context.Background()))
-
-	expectedIstio, _ := NewIstioFromConfigMap(istioConfig)
-	if diff := cmp.Diff(expectedIstio, config.Istio); diff != "" {
-		t.Errorf("Unexpected istio config (-want, +got): %v", diff)
-	}
 
 	expectNetworkConfig, _ := network.NewConfigFromConfigMap(networkConfig)
 	if diff := cmp.Diff(expectNetworkConfig, config.Network); diff != "" {
@@ -50,19 +52,20 @@ func TestStoreLoadWithContext(t *testing.T) {
 func TestStoreImmutableConfig(t *testing.T) {
 	store := NewStore(logtesting.TestLogger(t))
 
-	store.OnConfigChanged(ConfigMapFromTestFile(t, IstioConfigName))
 	store.OnConfigChanged(ConfigMapFromTestFile(t, network.ConfigName))
+	store.OnConfigChanged(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      IstioConfigName,
+			Namespace: system.Namespace(),
+		},
+	})
 
 	config := store.Load()
 
-	config.Istio.IngressGateways = []Gateway{{Name: "mutated", ServiceURL: "mutated"}}
 	config.Network.HTTPProtocol = network.HTTPRedirected
 
 	newConfig := store.Load()
 
-	if newConfig.Istio.IngressGateways[0].Name == "mutated" {
-		t.Error("Istio config is not immutable")
-	}
 	if newConfig.Network.HTTPProtocol == network.HTTPRedirected {
 		t.Error("Network config is not immuable")
 	}
