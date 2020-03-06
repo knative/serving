@@ -27,7 +27,7 @@ import (
 
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/e2e"
-	v1a1test "knative.dev/serving/test/v1alpha1"
+	v1test "knative.dev/serving/test/v1"
 )
 
 const pipe = "/tmp/prober-signal"
@@ -51,7 +51,7 @@ func TestProbe(t *testing.T) {
 	}
 	defer test.TearDown(clients, names)
 
-	objects, err := v1a1test.CreateRunLatestServiceLegacyReady(t, clients, &names)
+	objects, err := v1test.CreateServiceReady(t, clients, &names)
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
@@ -67,5 +67,5 @@ func TestProbe(t *testing.T) {
 
 	// e2e-upgrade-test.sh will close this pipe to signal the upgrade is
 	// over, at which point we will finish the test and check the prober.
-	_, _ = ioutil.ReadFile(pipe)
+	ioutil.ReadFile(pipe)
 }
