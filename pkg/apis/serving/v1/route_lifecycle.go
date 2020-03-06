@@ -29,6 +29,7 @@ import (
 var routeCondSet = apis.NewLivingConditionSet(
 	RouteConditionAllTrafficAssigned,
 	RouteConditionIngressReady,
+	RouteConditionCertificateProvisioned,
 )
 
 // GetGroupVersionKind returns the GroupVersionKind.
@@ -44,6 +45,8 @@ func (rs *RouteStatus) IsReady() bool {
 // InitializeConditions sets the initial values to the conditions.
 func (rs *RouteStatus) InitializeConditions() {
 	routeCondSet.Manage(rs).InitializeConditions()
+	// Since Certificate is optional, initialize the status with Ready.
+	routeCondSet.Manage(rs).MarkTrue(RouteConditionCertificateProvisioned)
 }
 
 // MarkServiceNotOwned changes the IngressReady status to be false with the reason being that
@@ -99,43 +102,29 @@ func (rs *RouteStatus) MarkMissingTrafficTarget(kind, name string) {
 }
 
 func (rs *RouteStatus) MarkCertificateProvisionFailed(name string) {
-	routeCondSet.Manage(rs).SetCondition(apis.Condition{
-		Type:     RouteConditionCertificateProvisioned,
-		Status:   corev1.ConditionFalse,
-		Severity: apis.ConditionSeverityWarning,
-		Reason:   "CertificateProvisionFailed",
-		Message:  fmt.Sprintf("Certificate %s fails to be provisioned.", name),
-	})
+	routeCondSet.Manage(rs).MarkFalse(RouteConditionCertificateProvisioned,
+		"CertificateProvisionFailed",
+		"Certificate %s fails to be provisioned.", name)
 }
 
 func (rs *RouteStatus) MarkCertificateReady(name string) {
-	routeCondSet.Manage(rs).SetCondition(apis.Condition{
-		Type:     RouteConditionCertificateProvisioned,
-		Status:   corev1.ConditionTrue,
-		Severity: apis.ConditionSeverityWarning,
-		Reason:   "CertificateReady",
-		Message:  fmt.Sprintf("Certificate %s is successfully provisioned", name),
-	})
+	routeCondSet.Manage(rs).MarkTrue(RouteConditionCertificateProvisioned)
 }
 
 func (rs *RouteStatus) MarkCertificateNotReady(name string) {
-	routeCondSet.Manage(rs).SetCondition(apis.Condition{
-		Type:     RouteConditionCertificateProvisioned,
-		Status:   corev1.ConditionUnknown,
-		Severity: apis.ConditionSeverityWarning,
-		Reason:   "CertificateNotReady",
-		Message:  fmt.Sprintf("Certificate %s is not ready.", name),
-	})
+	routeCondSet.Manage(rs).MarkUnknown(RouteConditionCertificateProvisioned,
+		"CertificateNotReady",
+		"Certificate %s is not ready.", name)
 }
 
 func (rs *RouteStatus) MarkCertificateNotOwned(name string) {
-	routeCondSet.Manage(rs).SetCondition(apis.Condition{
-		Type:     RouteConditionCertificateProvisioned,
-		Status:   corev1.ConditionFalse,
-		Severity: apis.ConditionSeverityWarning,
-		Reason:   "CertificateNotOwned",
-		Message:  fmt.Sprintf("There is an existing certificate %s that we don't own.", name),
-	})
+	routeCondSet.Manage(rs).MarkFalse(RouteConditionCertificateProvisioned,
+		"CertificateNotOwned",
+		"There is an existing certificate %s that we don't own.", name)
+}
+
+func (rs *RouteStatus) MarkCertificateNotEnabled() {
+	routeCondSet.Manage(rs).MarkTrue(RouteConditionCertificateProvisioned)
 }
 
 // PropagateIngressStatus update RouteConditionIngressReady condition

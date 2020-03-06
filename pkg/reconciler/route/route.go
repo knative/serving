@@ -189,6 +189,7 @@ func (c *Reconciler) reconcileIngressResources(ctx context.Context, r *v1.Route,
 func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic *traffic.Config) ([]netv1alpha1.IngressTLS, []netv1alpha1.HTTP01Challenge, error) {
 	tls := []netv1alpha1.IngressTLS{}
 	if !config.FromContext(ctx).Network.AutoTLS {
+		r.Status.MarkCertificateNotEnabled()
 		return tls, nil, nil
 	}
 	domainToTagMap, err := domains.GetAllDomainsAndTags(ctx, r, getTrafficNames(traffic.Targets), traffic.Visibility)
