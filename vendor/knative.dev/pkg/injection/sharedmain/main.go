@@ -106,7 +106,7 @@ func GetLeaderElectionConfig(ctx context.Context) (*kle.Config, error) {
 	leaderElectionConfigMap, err := kubeclient.Get(ctx).CoreV1().ConfigMaps(system.Namespace()).Get(kle.ConfigMapName(), metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return kle.NewConfigFromMap(nil)
+			return kle.NewConfigFromConfigMap(nil)
 		}
 
 		return nil, err
