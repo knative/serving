@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"strconv"
 	"text/template"
 
@@ -75,6 +76,10 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 		key:          "container-concurrency",
 		field:        &nc.ContainerConcurrency,
 		defaultValue: DefaultContainerConcurrency,
+	}, {
+		key:          "container-concurrency-max-limit",
+		field:        &nc.ContainerConcurrencyMaxLimit,
+		defaultValue: DefaultMaxRevisionContainerConcurrency,
 	}} {
 		if raw, ok := data[i64.key]; !ok {
 			*i64.field = i64.defaultValue
@@ -88,9 +93,13 @@ func NewDefaultsConfigFromMap(data map[string]string) (*Defaults, error) {
 	if nc.RevisionTimeoutSeconds > nc.MaxRevisionTimeoutSeconds {
 		return nil, fmt.Errorf("revision-timeout-seconds (%d) cannot be greater than max-revision-timeout-seconds (%d)", nc.RevisionTimeoutSeconds, nc.MaxRevisionTimeoutSeconds)
 	}
-
-	if nc.ContainerConcurrency < 0 || nc.ContainerConcurrency > DefaultMaxRevisionContainerConcurrency {
-		return nil, apis.ErrOutOfBoundsValue(nc.ContainerConcurrency, 0, DefaultMaxRevisionContainerConcurrency, "containerConcurrency")
+	if nc.ContainerConcurrencyMaxLimit < 1 {
+		return nil, apis.ErrOutOfBoundsValue(
+			nc.ContainerConcurrencyMaxLimit, 1, math.MaxInt32, "container-concurrency-max-limit")
+	}
+	if nc.ContainerConcurrency < 0 || nc.ContainerConcurrency > nc.ContainerConcurrencyMaxLimit {
+		return nil, apis.ErrOutOfBoundsValue(
+			nc.ContainerConcurrency, 0, nc.ContainerConcurrencyMaxLimit, "container-concurrency")
 	}
 
 	// Process resource quantity fields
@@ -153,6 +162,10 @@ type Defaults struct {
 	UserContainerNameTemplate string
 
 	ContainerConcurrency int64
+
+	// ContainerConcurrencyMaxLimit is the maximum permitted container concurrency
+	// or target value in the system.
+	ContainerConcurrencyMaxLimit int64
 
 	RevisionCPURequest    *resource.Quantity
 	RevisionCPULimit      *resource.Quantity
