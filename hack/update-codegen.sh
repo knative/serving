@@ -88,7 +88,3 @@ ${GOPATH}/bin/deepcopy-gen \
 
 # Make sure our dependencies are up-to-date
 ${REPO_ROOT_DIR}/hack/update-deps.sh
-
-# Apply Patches
-echo "Applying patches"
-git apply ${REPO_ROOT_DIR}/hack/patches/*.patch
