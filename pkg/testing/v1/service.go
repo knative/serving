@@ -235,16 +235,15 @@ func WithServiceAnnotations(annotations map[string]string) ServiceOption {
 // WithConfigAnnotations assigns config annotations to a service
 func WithConfigAnnotations(annotations map[string]string) ServiceOption {
 	return func(service *v1.Service) {
-		service.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations = kmeta.UnionMaps(
-			service.Spec.ConfigurationSpec.Template.ObjectMeta.Annotations, annotations)
-
+		service.Spec.Template.Annotations = kmeta.UnionMaps(
+			service.Spec.Template.Annotations, annotations)
 	}
 }
 
-// WithConfigName sets the given name to the config spec
-func WithConfigName(name string) ServiceOption {
+// WithBYORevisionName sets the given name to the config spec
+func WithBYORevisionName(name string) ServiceOption {
 	return func(s *v1.Service) {
-		s.Spec.ConfigurationSpec.Template.Name = name
+		s.Spec.Template.Name = name
 	}
 }
 
