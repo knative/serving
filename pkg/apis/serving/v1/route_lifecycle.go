@@ -123,6 +123,8 @@ func (rs *RouteStatus) MarkCertificateNotOwned(name string) {
 		"There is an existing certificate %s that we don't own.", name)
 }
 
+// MarkCertificateNotEnabled sets RouteConditionCertificateProvisioned to true when
+// certificate config such as autoTLS is not enabled.
 func (rs *RouteStatus) MarkCertificateNotEnabled() {
 	routeCondSet.Manage(rs).MarkTrue(RouteConditionCertificateProvisioned)
 }
