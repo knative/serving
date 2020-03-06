@@ -86,7 +86,7 @@ func TestBYORevisionPreUpgrade(t *testing.T) {
 	}
 
 	if _, err := v1test.CreateServiceReady(t, clients, &names,
-		rtesting.WithConfigName(byoRevName)); err != nil {
+		rtesting.WithBYORevisionName(byoRevName)); err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
 }
