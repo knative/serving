@@ -46,6 +46,10 @@ readonly DEP_FLAGS
 # Ensure we have everything we need under vendor/
 dep ensure ${DEP_FLAGS[@]}
 
+# Apply Patches
+echo "Applying patches"
+git apply ${REPO_ROOT_DIR}/hack/patches/*.patch
+
 rm -rf $(find vendor/ -name 'OWNERS')
 rm -rf $(find vendor/ -name '*_test.go')
 

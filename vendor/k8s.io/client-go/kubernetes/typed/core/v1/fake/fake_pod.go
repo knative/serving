@@ -19,6 +19,8 @@ limitations under the License.
 package fake
 
 import (
+	"context"
+
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -80,6 +82,17 @@ func (c *FakePods) Watch(opts v1.ListOptions) (watch.Interface, error) {
 
 // Create takes the representation of a pod and creates it.  Returns the server's representation of the pod, and an error, if there is any.
 func (c *FakePods) Create(pod *corev1.Pod) (result *corev1.Pod, err error) {
+	obj, err := c.Fake.
+		Invokes(testing.NewCreateAction(podsResource, c.ns, pod), &corev1.Pod{})
+
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*corev1.Pod), err
+}
+
+// Create takes the representation of a pod and creates it.  Returns the server's representation of the pod, and an error, if there is any.
+func (c *FakePods) CreateWithOptions(ctx context.Context, pod *corev1.Pod, opts v1.CreateOptions) (result *corev1.Pod, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewCreateAction(podsResource, c.ns, pod), &corev1.Pod{})
 
